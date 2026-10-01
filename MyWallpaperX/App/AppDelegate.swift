@@ -11,7 +11,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  private var statusBarController: StatusBarController?
  private var pendingInitialWindowOpen: DispatchWorkItem?
  private var didPrepareProductTermination = false
- private var terminationReplyPending = false
+ private(set) var terminationReplyPending = false
 
  private func normalizedMenuTitle(_ menuItem: NSMenuItem) -> String {
  menuItem.title.replacingOccurrences(of: " ", with: "")
@@ -175,10 +175,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
  func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
 #if DEBUG
- if !DebugSceneDaemonClientRunner.isRequested
-     && (DebugScenePlaybackRunner.runsIsolatedSceneSample
-         || DebugWebPlaybackRunner.runsIsolatedWebWorkshopSample) {
- return .terminateNow
+ if !DebugSceneDaemonClientRunner.isRequested {
+ if DebugScenePlaybackRunner.runsIsolatedSceneSample {
+ if DebugScenePlaybackRunner.isFinished { return .terminateNow }
+ guard !terminationReplyPending else { return .terminateLater }
+ terminationReplyPending = true
+ DebugScenePlaybackRunner.finish { _ in
+ // terminateLater enters AppKit's modal run loop, possibly inside a main
+ // dispatch block. Reply through that run loop after the delegate returns.
+ RunLoop.main.perform(inModes: [.common, .modalPanel]) {
+ MainActor.assumeIsolated { sender.reply(toApplicationShouldTerminate: true) }
+ }
+ }
+ return .terminateLater
+ }
+ if DebugWebPlaybackRunner.runsIsolatedWebWorkshopSample { return .terminateNow }
  }
 #endif
  guard !terminationReplyPending else { return .terminateLater }

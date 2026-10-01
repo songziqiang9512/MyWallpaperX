@@ -127,8 +127,13 @@ final class SceneDesktopWallpaperHost {
         activeSession?.debugSnapshot() ?? .init(surfaceCount: 0, windowNumbers: [],
             isPlaybackPaused: playbackPaused, isFrameDriverActive: false)
     }
-    func requestDebugSnapshot(windowNumber: Int, reason: String, outputDirectory: URL) -> Bool {
-        activeSession?.requestDebugSnapshot(windowNumber: windowNumber, reason: reason, outputDirectory: outputDirectory) ?? false
+    func requestDebugSnapshot(windowNumber: Int, reason: String, outputDirectory: URL,
+                              kind: SceneDebugFrameCapture.RequestClass = .required) -> SceneDebugFrameCapture.Admission {
+        guard let activeSession else {
+            SceneDebugFrameCapture.reportRejected(reason: reason, stage: "session-lookup")
+            return .rejected("session-lookup")
+        }
+        return activeSession.requestDebugSnapshot(windowNumber: windowNumber, reason: reason, outputDirectory: outputDirectory, kind: kind)
     }
     func debugParticleLoadReportLines() -> [String] { activeSession?.debugParticleLoadReportLines() ?? [] }
     func setDebugPointerOverride(_ input: SceneSurfacePointerInput?) {

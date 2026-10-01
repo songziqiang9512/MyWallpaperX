@@ -934,7 +934,6 @@ struct SceneMetalRenderer {
             source: drawable.texture,
             commandBuffer: commandBuffer
         )
-        encodeFrameReadback?(drawable.texture, commandBuffer)
         guard imageCompositor.endResolvedMaterialFrame(on: commandBuffer) else {
             return .dropped(reasonCode: "resolved-material-frame-seal-rejected")
         }
@@ -959,6 +958,7 @@ struct SceneMetalRenderer {
         )
 #endif
         let preparedFrame = PreparedFrame(commandBuffer: commandBuffer, submit: {
+            encodeFrameReadback?(drawable.texture, commandBuffer)
             onDrawableWillPresent?(drawable)
             commandBuffer.present(drawable)
             if let effectExecutionTrace {

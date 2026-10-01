@@ -25,8 +25,9 @@ extension DebugScenePlaybackRunner {
         logURL: URL?,
         outputDirectory: URL
     ) {
-        guard let delay else { return }
+        guard !isClosing, let delay else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            guard !isClosing else { return }
             let before = runtimeHost.debugSnapshot()
             runtimeHost.stop()
             let afterStop = runtimeHost.debugSnapshot()
@@ -37,6 +38,7 @@ extension DebugScenePlaybackRunner {
             )
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                 Task {
+                    guard !isClosing else { return }
                     do {
                         _ = try await runtimeHost.launch(
                             rootURL: rootURL,
@@ -45,6 +47,7 @@ extension DebugScenePlaybackRunner {
                             logURL: logURL,
                             recordID: recordID
                         )
+                        guard !isClosing else { return }
                         runtimeHost.setPlaybackPaused(false)
                         let afterRelaunch = runtimeHost
                             .debugSnapshot()

@@ -160,6 +160,29 @@
       "contentPatterns": []
     },
     {
+      "id": "scene-debug-frame-capture-lifecycle",
+      "title": "Scene DEBUG 独立 readback 导出与隔离退出 drain",
+      "owner": "SceneDebugFrameCapture / SceneDesktopWallpaperSession / DebugScenePlaybackRunner",
+      "status": "approved",
+      "designDoc": "docs/scene/design/debug-frame-capture-lifecycle-design.md",
+      "design_notes": "2026-10-02 RF05 前置设计；五判据①②④⑤命中：横切提交/诊断/退役/隔离退出，资源与completion生命周期、现役冻结Frame/Session及公开Metal等待合同。③否，不改变用户数据。已证产生者是80ms periodic与ready/after；最多2 required+1 periodic pending、2个GPU/queued/running readback，局部字节backpressure派生自唯一resident预算四分之一，CPU可控scratch沿现有decoded子额。prepare cancel不consume；提交前登记outstanding，closed且outstanding归零才drain；Session先保存capture，retireSurface在GPU与export都终结后释放。非隔离产品/Web退出owner不变。行为门及稳定合同接管后整条删除；approved不表示产品或性能验收。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneDebugFrameCapture.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+Debug.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+Shutdown.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift",
+        "MyWallpaperX/App/DebugScenePlaybackRunner.swift",
+        "MyWallpaperX/App/DebugScenePlaybackRunner+HostOwnership.swift",
+        "MyWallpaperX/App/DebugScenePlaybackRunner+SceneSwitch.swift",
+        "MyWallpaperX/App/DebugScenePlaybackRunner+SurfaceStopRelaunch.swift",
+        "MyWallpaperX/App/AppDelegate.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
       "id": "scene-copy-pass-unification",
       "title": "D12 — 四类 copy 触发点的 graph 语义收敛",
       "owner": "scene-e-route",

@@ -8,6 +8,7 @@
       "docs/scene/design/2d-lighting-material-design.md",
       "docs/scene/design/composition-render-target-design.md",
       "docs/scene/design/copy-pass-unification-design.md",
+      "docs/scene/design/debug-frame-capture-lifecycle-design.md",
       "docs/scene/design/frame-admission-retry-design.md",
       "docs/scene/design/hdr-tonemap-edr-design.md",
       "docs/scene/design/host-render-power-protocol-design.md",
@@ -219,6 +220,17 @@
       ]
     },
     {
+      "path": "docs/history/scene/rf05-debug-capture-lifecycle-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/scene-compatibility-roadmap.md",
+        "docs/scene/semantics/coverage-ledger.md",
+        "docs/scene/semantics/runtime-evidence-current.md"
+      ]
+    },
+    {
       "path": "docs/history/scene/runtime-evidence-index.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",
@@ -378,6 +390,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/design/batch2-design-index.md",
       "retirementCondition": "四类触发点均使用唯一 typed graph transfer 合同，重复路径撤权且 publication 门通过后归档。"
+    },
+    {
+      "path": "docs/scene/design/debug-frame-capture-lifecycle-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/scene-compatibility-roadmap.md",
+      "retirementCondition": "诊断请求有界、单次终结、独立 readback 导出及 surface/session/隔离退出 drain 通过行为门，稳定诊断合同接管后归档本文并删除对应设计登记。"
     },
     {
       "path": "docs/scene/design/frame-admission-retry-design.md",

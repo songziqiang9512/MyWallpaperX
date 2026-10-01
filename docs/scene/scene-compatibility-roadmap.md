@@ -113,6 +113,8 @@ tracked full matrix 扩为全集 identity-only 基线。历史期待先分成有
 
 ### 3.3 P1/P2 的公共能力选序
 
+RF05 的隔离诊断资源与退出 drain 合同见[截图导出生命周期设计](design/debug-frame-capture-lifecycle-design.md)。
+
 先按依赖拓扑解决上游，再比较候选：
 
 1. 新崩溃、unsafe failure、已有通过样本的可见回归优先。

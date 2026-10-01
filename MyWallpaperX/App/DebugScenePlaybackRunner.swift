@@ -34,6 +34,7 @@ enum DebugScenePlaybackRunner {
     }
 
     private static func launchScene(rootPath: String, requestUptime: TimeInterval) async {
+        guard !isClosing else { return }
         let rootURL = URL(fileURLWithPath: rootPath, isDirectory: true)
             .resolvingSymlinksInPath().standardizedFileURL
         guard isIsolatedSampleRoot(rootURL) else {
@@ -224,6 +225,7 @@ enum DebugScenePlaybackRunner {
                     logURL: previewLogURL,
                     recordID: debugRecordID
                 ) { result in
+                    guard !isClosing else { return }
                     switch result {
                     case let .success(model):
                         runtimeHost.setPlaybackPaused(false)
@@ -272,6 +274,7 @@ enum DebugScenePlaybackRunner {
                 "MWX LAUNCH-STAGE: stage=runner-pre-launch elapsedMs=%.0f",
                 (ProcessInfo.processInfo.systemUptime - requestUptime) * 1_000
             )
+            guard !isClosing else { return }
             let model = try await runtimeHost.launch(
                 rootURL: rootURL,
                 propertyOverrides: requestedPropertyOverrides,
@@ -279,6 +282,7 @@ enum DebugScenePlaybackRunner {
                 logURL: previewLogURL,
                 recordID: debugRecordID
             )
+            guard !isClosing else { return }
             NSLog(
                 "MWX LAUNCH-STAGE: stage=host-launch-return elapsedMs=%.0f",
                 (ProcessInfo.processInfo.systemUptime - requestUptime) * 1_000
@@ -391,17 +395,7 @@ enum DebugScenePlaybackRunner {
     }
 
     private static func scheduleStop(after duration: TimeInterval) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
-            let before = runtimeHost.debugSnapshot()
-            runtimeHost.stop()
-            let after = runtimeHost.debugSnapshot()
-            NSLog(
-                "MWX DEBUG SCENE: phase=stopped surfacesBefore=%d surfacesAfter=%d",
-                before.surfaceCount,
-                after.surfaceCount
-            )
-            terminate(after: 0.2)
-        }
+        terminate(after: duration)
     }
 
     private static func scheduleSnapshots(
@@ -410,6 +404,7 @@ enum DebugScenePlaybackRunner {
     ) {
         for (reason, delay) in [("ready", 1.0), ("after", requestedAfterSnapshotDelay)] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                guard !isClosing else { return }
                 requestSnapshot(reason: reason, outputDirectory: outputDirectory)
                 // The launch-time particle summary undercounts child-only
                 // containers (their particles spawn after advance-by-0); the
@@ -433,6 +428,7 @@ enum DebugScenePlaybackRunner {
     private static func scheduleResizeSequence(outputDirectory: URL) {
         for (index, event) in requestedResizeSequence.enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + event.delay) {
+                guard !isClosing else { return }
                 let accepted = runtimeHost
                     .debugResizeSurfaces(scale: event.scale)
                 NSLog(
@@ -455,6 +451,7 @@ enum DebugScenePlaybackRunner {
     private static func scheduleExecutorInvalidation(outputDirectory: URL) {
         guard let delay = requestedExecutorInvalidationDelay else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            guard !isClosing else { return }
             let before = runtimeHost.debugSnapshot()
             let accepted = runtimeHost
                 .debugInvalidateResolvedMaterialRuntimes(
@@ -479,45 +476,40 @@ enum DebugScenePlaybackRunner {
 
     private static func schedulePeriodicSnapshots(outputDirectory: URL) {
         guard let interval = requestedPeriodicSnapshotInterval else { return }
-        var delay = max(1.5, interval)
-        var index = 0
-        while delay < requestedDuration - 0.5 {
-            let reason = String(format: "series-%04d", index)
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                requestSnapshot(reason: reason, outputDirectory: outputDirectory)
-            }
-            delay += interval
-            index += 1
+        schedulePeriodicSnapshot(outputDirectory: outputDirectory, interval: interval,
+                                 elapsed: max(1.5, interval), index: 0)
+    }
+
+    private static func schedulePeriodicSnapshot(outputDirectory: URL, interval: TimeInterval,
+                                                 elapsed: TimeInterval, index: Int) {
+        guard !isClosing, elapsed < requestedDuration - 0.5 else { return }
+        let delay = index == 0 ? elapsed : interval
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            guard !isClosing else { return }
+            requestSnapshot(reason: String(format: "series-%04d", index),
+                            outputDirectory: outputDirectory, kind: .periodic)
+            schedulePeriodicSnapshot(outputDirectory: outputDirectory, interval: interval,
+                                     elapsed: elapsed + interval, index: index + 1)
         }
     }
 
 
-    static func requestSnapshot(reason: String, outputDirectory: URL) {
-        guard let windowNumber = runtimeHost
-            .debugSnapshot().windowNumbers.first else {
-            NSLog(
-                "MWX DEBUG SCENE: phase=snapshot-failed reason=%@ stage=surface-lookup error=unknown",
-                reason
-            )
+    static func requestSnapshot(reason: String, outputDirectory: URL,
+                                kind: SceneDebugFrameCapture.RequestClass = .required) {
+        guard !isClosing else { return }
+        guard let windowNumber = runtimeHost.debugSnapshot().windowNumbers.first else {
+            SceneDebugFrameCapture.reportRejected(reason: reason, stage: "surface-lookup")
             return
         }
-        let accepted = runtimeHost.requestDebugSnapshot(
-            windowNumber: windowNumber,
-            reason: reason,
-            outputDirectory: outputDirectory
-        )
-        if !accepted {
-            NSLog(
-                "MWX DEBUG SCENE: phase=snapshot-failed reason=%@ stage=surface-lookup error=unknown",
-                reason
-            )
-        }
+        _ = runtimeHost.requestDebugSnapshot(windowNumber: windowNumber, reason: reason,
+                                            outputDirectory: outputDirectory, kind: kind)
     }
 
     private static func scheduleLivePropertyUpdate(
         _ replacements: [String: SceneUserPropertyValue]
     ) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            guard !isClosing else { return }
             let before = runtimeHost.debugSnapshot()
             let accepted = runtimeHost.applyUserPropertyValues(
                 replacements,
@@ -563,9 +555,16 @@ enum DebugScenePlaybackRunner {
             && rootURL.path.hasPrefix(realWorkshopRoot + "/") == false
     }
 
-    private static func terminate(after delay: TimeInterval) {
+    static func terminate(after delay: TimeInterval) {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            NSApp.terminate(nil)
+            guard !isClosing else { return }
+            finish { _ in
+                // An external termination may already be waiting for this same
+                // drain. Its delegate owns the reply; a second terminate call
+                // can make AppKit bypass that wait.
+                guard (NSApp.delegate as? AppDelegate)?.terminationReplyPending != true else { return }
+                NSApp.terminate(nil)
+            }
         }
     }
 }

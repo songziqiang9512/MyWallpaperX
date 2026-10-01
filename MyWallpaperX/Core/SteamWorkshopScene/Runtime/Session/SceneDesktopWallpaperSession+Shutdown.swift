@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import Metal
 
 extension SceneDesktopWallpaperSession {
@@ -12,13 +12,18 @@ extension SceneDesktopWallpaperSession {
         drainCallbacks.append(completion)
         guard !drainStarted else { return }
         drainStarted = true
-        let commandQueues = (Array(surfaces.values) + Array(retiringSurfaces.values))
-            .map { $0.metalView.renderer.commandQueue }
-        stop()
-        guard !commandQueues.isEmpty else {
-            finishDrain(true)
-            return
+        let drainingSurfaces = Array(surfaces.values) + Array(retiringSurfaces.values)
+        let commandQueues = drainingSurfaces.map { $0.metalView.renderer.commandQueue }
+#if DEBUG
+        let captures = drainingSurfaces.map { $0.metalView.debugFrameCapture }
+        let exportDrain = DispatchGroup()
+        for capture in captures {
+            exportDrain.enter()
+            capture.closeAndDrain { exportDrain.leave() }
         }
+#endif
+        stop()
+        let retirementDrain = retiringSurfaceDrain
         DispatchQueue.global(qos: .userInitiated).async {
             let barriers = commandQueues.compactMap { queue -> MTLCommandBuffer? in
                 guard let buffer = queue.makeCommandBuffer() else { return nil }
@@ -31,9 +36,25 @@ extension SceneDesktopWallpaperSession {
             let completedAllBarriers = barriers.allSatisfy {
                 $0.status == .completed && $0.error == nil
             }
-            DispatchQueue.main.async {
-                self.finishDrain(createdAllBarriers && completedAllBarriers)
+#if DEBUG
+            // GPU terminal does not imply the derived asynchronous export ended.
+            exportDrain.wait()
+            withExtendedLifetime(captures) {}
+#endif
+            // Prior barrier callbacks may still be waiting for their main-actor
+            // result delivery. Their GPU status alone cannot close this owner.
+            retirementDrain.wait()
+            let deliver: @MainActor @Sendable () -> Void = {
+                self.finishDrain(createdAllBarriers && completedAllBarriers && !self.surfaceDrainFailed)
             }
+#if DEBUG
+            // Isolated AppKit termination can nest inside a main dispatch block.
+            RunLoop.main.perform(inModes: [.common, .modalPanel]) {
+                MainActor.assumeIsolated { deliver() }
+            }
+#else
+            DispatchQueue.main.async { deliver() }
+#endif
         }
     }
     /// Rebuilt surfaces keep their resources until their own queue is terminal.
@@ -41,10 +62,42 @@ extension SceneDesktopWallpaperSession {
     func retireSurface(_ surface: Surface) {
         let identity = ObjectIdentifier(surface)
         retiringSurfaces[identity] = surface
-        guard let barrier = surface.metalView.renderer.commandQueue.makeCommandBuffer() else { return }
+        retiringSurfaceDrain.enter()
+#if DEBUG
+        let capture = surface.metalView.debugFrameCapture
+        capture.closeAndDrain {}
+#endif
+        guard let barrier = surface.metalView.renderer.commandQueue.makeCommandBuffer() else {
+            surfaceDrainFailed = true
+            retiringSurfaceDrain.leave()
+            return
+        }
         barrier.label = "Scene replaced surface drain"
-        barrier.addCompletedHandler { [weak self] _ in
-            DispatchQueue.main.async { self?.retiringSurfaces.removeValue(forKey: identity) }
+        barrier.addCompletedHandler { [self] completed in
+            let succeeded = completed.status == .completed && completed.error == nil
+            let deliver: @MainActor @Sendable () -> Void = {
+                if !succeeded { self.surfaceDrainFailed = true }
+#if DEBUG
+                capture.closeAndDrain { [self] in
+                    RunLoop.main.perform(inModes: [.common, .modalPanel]) {
+                        MainActor.assumeIsolated {
+                            self.retiringSurfaces.removeValue(forKey: identity)
+                            self.retiringSurfaceDrain.leave()
+                        }
+                    }
+                }
+#else
+                self.retiringSurfaces.removeValue(forKey: identity)
+                self.retiringSurfaceDrain.leave()
+#endif
+            }
+#if DEBUG
+            RunLoop.main.perform(inModes: [.common, .modalPanel]) {
+                MainActor.assumeIsolated { deliver() }
+            }
+#else
+            DispatchQueue.main.async { deliver() }
+#endif
         }
         barrier.commit()
     }

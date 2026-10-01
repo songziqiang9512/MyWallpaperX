@@ -159,9 +159,7 @@ extension DebugScenePlaybackRunner {
             NSLog(
                 "MWX DEBUG SCENE: phase=precondition-failed reason=invalid-performance-profile"
             )
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                NSApp.terminate(nil)
-            }
+            terminate(after: 0.1)
             return false
         }
         runtimeHost.applyPerformanceProfile(profile)

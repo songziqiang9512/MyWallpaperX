@@ -44,6 +44,8 @@ final class SceneDesktopWallpaperSession {
     var onAudioDemandChanged: (() -> Void)?
     var onFirstFrameCompletion: ((CGDirectDisplayID, Bool) -> Void)?
     var drainCallbacks: [@MainActor (Bool) -> Void] = []
+    let retiringSurfaceDrain = DispatchGroup()
+    var surfaceDrainFailed = false
     var drainStarted = false
     var drainResult: Bool?
     var surfaces: [CGDirectDisplayID: Surface] = [:]
@@ -301,16 +303,19 @@ final class SceneDesktopWallpaperSession {
     func requestDebugSnapshot(
         windowNumber: Int,
         reason: String,
-        outputDirectory: URL
-    ) -> Bool {
+        outputDirectory: URL,
+        kind: SceneDebugFrameCapture.RequestClass
+    ) -> SceneDebugFrameCapture.Admission {
         guard let surface = surfaces.values.first(where: {
             $0.window.windowNumber == windowNumber
-        }) else { return false }
-        surface.metalView.requestDebugSnapshot(
+        }) else {
+            SceneDebugFrameCapture.reportRejected(reason: reason, stage: "surface-lookup")
+            return .rejected("surface-lookup")
+        }
+        return surface.metalView.requestDebugSnapshot(
             reason: reason,
-            outputDirectory: outputDirectory
+            outputDirectory: outputDirectory, kind: kind
         )
-        return true
     }
 
     /// DEBUG evidence: the current particle load report lines, captured at

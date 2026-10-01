@@ -64,13 +64,15 @@ extension DebugScenePlaybackRunner {
         logURL: URL?,
         outputDirectory: URL
     ) {
-        guard let request else { return }
+        guard !isClosing, let request else { return }
         let textureURLs = requestedUserPropertyTextureURLs(
             rootURL: request.rootURL
         )
         DispatchQueue.main.asyncAfter(deadline: .now() + request.delay) {
+            guard !isClosing else { return }
             let before = runtimeHost.debugSnapshot()
             Task {
+                guard !isClosing else { return }
                 do {
                     let model = try await runtimeHost.launch(
                         rootURL: request.rootURL,
@@ -79,6 +81,7 @@ extension DebugScenePlaybackRunner {
                         logURL: logURL,
                         recordID: recordID
                     )
+                    guard !isClosing else { return }
                     runtimeHost.setPlaybackPaused(false)
                     let after = runtimeHost.debugSnapshot()
                     let layerIDs = model.renderDescriptor.layers.map(\.id)

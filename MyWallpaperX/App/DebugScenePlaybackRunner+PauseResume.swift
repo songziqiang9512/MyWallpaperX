@@ -30,8 +30,9 @@ extension DebugScenePlaybackRunner {
         request: PauseResumeRequest?,
         outputDirectory: URL
     ) {
-        guard let request else { return }
+        guard !isClosing, let request else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + request.delay) {
+            guard !isClosing else { return }
             let before = runtimeHost.debugSnapshot()
             runtimeHost.setPlaybackPaused(true)
             let paused = runtimeHost.debugSnapshot()
@@ -52,6 +53,7 @@ extension DebugScenePlaybackRunner {
                 paused.isFrameDriverActive ? "active" : "inactive"
             )
             DispatchQueue.main.asyncAfter(deadline: .now() + request.dwell) {
+                guard !isClosing else { return }
                 let beforeResume = runtimeHost.debugSnapshot()
                 runtimeHost.setPlaybackPaused(false)
                 let resumed = runtimeHost.debugSnapshot()

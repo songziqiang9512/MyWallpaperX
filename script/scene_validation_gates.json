@@ -557,6 +557,30 @@
       ]
     },
     {
+      "id": "scene-debug-capture",
+      "patterns": [
+        "MyWallpaperX/App/AppDelegate.swift",
+        "MyWallpaperX/App/DebugScenePlaybackRunner+HostOwnership.swift",
+        "MyWallpaperX/App/DebugScenePlaybackRunner+PauseResume.swift",
+        "MyWallpaperX/App/DebugScenePlaybackRunner+Performance.swift",
+        "MyWallpaperX/App/DebugScenePlaybackRunner+SceneSwitch.swift",
+        "MyWallpaperX/App/DebugScenePlaybackRunner+SurfaceStopRelaunch.swift",
+        "MyWallpaperX/App/DebugScenePlaybackRunner.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneDebugFrameCapture.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+Debug.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+Shutdown.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift",
+        "script/tests/test_scene_debug_capture_shutdown.py",
+        "script/tests/test_scene_debug_frame_capture.py"
+      ],
+      "modules": [
+        "test_scene_debug_frame_capture",
+        "test_scene_debug_capture_shutdown"
+      ]
+    },
+    {
       "id": "rendering",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/**",
