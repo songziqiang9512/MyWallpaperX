@@ -415,7 +415,13 @@ nonisolated enum SceneParticleSimulationMath {
             guard directionLength.isFinite, directionLength > 1e-9 else { return .zero }
             direction /= directionLength
         }
-        return direction * mask
+        // The mask selects axes and signs only; re-normalizing afterwards keeps
+        // the fixed-step speed intact instead of modulating it by |cos(turn)|
+        // under a single-axis mask. An all-zero mask stays zero (no direction).
+        var masked = direction * mask
+        let maskedLength = length(masked)
+        guard maskedLength.isFinite, maskedLength > 1e-9 else { return .zero }
+        return masked / maskedLength
     }
 
     static func changeAmount(
