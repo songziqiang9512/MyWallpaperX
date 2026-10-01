@@ -26,7 +26,7 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
             raise unittest.SkipTest("requires an explicitly frozen Debug executable")
         cls.app = Path(app).resolve(strict=True)
 
-    def run_particle(self, init, update="", screens=1, fault=None):
+    def run_particle(self, init, update="", screens=1, fault=None, continuous=False):
         def chunk(kind, payload):
             return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xffffffff)
         png = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 4, 4, 8, 6, 0, 0, 0))
@@ -40,6 +40,8 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
                       "emitter": [{"name": "sphererandom", "rate": 8, "duration": 20, "instantaneous": 1, "distancemin": 0, "distancemax": 0}],
                       "initializer": [{"name": "lifetimerandom", "min": 30, "max": 30}, {"name": "sizerandom", "min": 20, "max": 20}, {"name": "colorrandom", "min": "255 0 0", "max": "255 0 0"}],
                       "renderer": [{"name": "sprite"}]}
+        if continuous:
+            definition["emitter"][0].pop("duration")
         material = {"passes": [{"shader": "genericparticle", "textures": ["controlled.png"], "blending": "translucent", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]}
         with tempfile.TemporaryDirectory(prefix="mwx-particle-playback-app-") as temp:
             root = Path(temp)
@@ -110,6 +112,21 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
 
     def test_init_stop_play_rearms_and_draws(self):
         _, _, colors, consumed, _ = self.run_particle("thisLayer.stop(); if (thisLayer.isPlaying()) throw new Error('stop query true'); thisLayer.play(); if (!thisLayer.isPlaying()) throw new Error('play query false');")
+        self.assertTrue(all(red > 0 for red in colors))
+        self.assertEqual([row[3] for row in consumed], [2, 0])
+
+    def test_continuous_init_stop_clears_first_and_next_output(self):
+        _, _, colors, consumed, _ = self.run_particle("thisLayer.stop(); if (thisLayer.isPlaying()) throw Error('stop query');", continuous=True)
+        self.assertEqual(set(colors), {0})
+        self.assertEqual([row[3] for row in consumed], [2])
+
+    def test_continuous_pause_keeps_live(self):
+        _, preview, colors, consumed, _ = self.run_particle("thisLayer.pause(); if (!thisLayer.isPlaying()) throw Error('pause lost live');", continuous=True)
+        self.assertTrue(all(red > 0 for red in colors))
+        self.assertEqual(set(map(int, re.findall(r"particle initial live: (\d+)", preview))), {4})
+        self.assertEqual([row[3] for row in consumed], [1])
+    def test_continuous_stop_play_births(self):
+        _, _, colors, consumed, _ = self.run_particle("thisLayer.stop(); thisLayer.play(); if (!thisLayer.isPlaying()) throw Error('rearm query');", continuous=True)
         self.assertTrue(all(red > 0 for red in colors))
         self.assertEqual([row[3] for row in consumed], [2, 0])
 

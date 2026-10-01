@@ -16,6 +16,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-02 | Scene | 实施证据 | [RF03 连续排放播放控制](scene/rf03-continuous-playback-implementation-2026-10-02.md) | 缺省duration准入、非法duration终审修复、真实App三场景 | [兼容路线](../scene/scene-compatibility-roadmap.md)、[能力台账](../scene/semantics/coverage-ledger.md)、[运行证据](../scene/semantics/runtime-evidence-current.md) |
 | 2026-10-02 | Scene | 实施证据 | [RF07 原始颜色历史与显示导出](scene/rf07-persistent-color-output-implementation-2026-10-02.md) | raw/display分离、资源终结、真实GPU编码失败出口和标准/故障App像素门 | [兼容路线](../scene/scene-compatibility-roadmap.md)、[能力台账](../scene/semantics/coverage-ledger.md)、[运行证据](../scene/semantics/runtime-evidence-current.md) |
 | 2026-10-02 | Scene | 实施证据 | [RF03 粒子作者播放四方法](scene/rf03-particle-playback-implementation-2026-10-02.md) | 模拟/真实VM事务反例、预算及callback修复、冻结App和六项显示故障门 | [兼容路线](../scene/scene-compatibility-roadmap.md)、[能力台账](../scene/semantics/coverage-ledger.md)、[运行证据](../scene/semantics/runtime-evidence-current.md) |
 | 2026-10-02 | Scene | 实施证据 | [RF05 诊断截图与隔离退出](scene/rf05-debug-capture-lifecycle-implementation-2026-10-02.md) | 有界导出、取消/退役反例、真实AppKit退出竞态和完整App复验 | [兼容路线](../scene/scene-compatibility-roadmap.md)、[能力台账](../scene/semantics/coverage-ledger.md)、[运行证据](../scene/semantics/runtime-evidence-current.md) |

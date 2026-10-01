@@ -89,6 +89,7 @@ nonisolated struct SceneParticleDefinitionParser {
             controlPoint: Self.integer(root["controlpoint"]),
             audioResponse: Self.audioResponse(root), periodicEmission: .init(root: root),
             hasMalformedDirectionsOrSign: ["directions", "sign"].contains { root[$0] != nil && !(root[$0] is NSNull) && Self.numericValue(root[$0]) == nil },
+            hasMalformedDuration: root["duration"] != nil && !(root["duration"] is NSNull) && Self.number(root["duration"]) == nil,
             rawFlags: Self.integer(root["flags"]) ?? 0
         )
     }

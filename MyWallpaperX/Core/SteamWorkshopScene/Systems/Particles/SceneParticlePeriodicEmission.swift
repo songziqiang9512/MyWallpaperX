@@ -291,7 +291,8 @@ nonisolated extension SceneParticleDefinition {
         }
         let plan = SceneParticleEmitterSpawnPlan(emitter)
         if case .unsupported = plan.initialDelayAdmission { return nil }
-        guard !plan.audioResponseEnabled || plan.audioResponsePlan != nil,
+        guard !emitter.hasMalformedDuration,
+              !plan.audioResponseEnabled || plan.audioResponsePlan != nil,
               (plan.rate ?? 5).isFinite, (plan.rate ?? 5) >= 0,
               (plan.instantaneousCount ?? 0) >= 0 else { return nil }
         switch plan.periodicEmissionAdmission {
@@ -300,9 +301,10 @@ nonisolated extension SceneParticleDefinition {
             guard schedule.minimumDuration == schedule.maximumDuration,
                   schedule.minimumDelay == schedule.maximumDelay else { return nil }
         case .disabled:
+            // The author default is continuous emission. Duration limits the
+            // existing schedule; it is not a prerequisite for playback control.
             guard emitter.rawFlags & ~2 == 0,
-                  (plan.rate ?? 5) == 0
-                    || (plan.duration.map { $0.isFinite && $0 > 0 } ?? false)
+                  plan.duration.map({ $0.isFinite && $0 >= 0 }) ?? true
             else { return nil }
         }
         return (maximumCount ?? 1) > 0

@@ -140,6 +140,7 @@ nonisolated struct SceneParticleEmitter: Equatable, Sendable {
     let audioResponse: SceneParticleAudioResponse
     let periodicEmission: SceneParticlePeriodicEmission
     let hasMalformedDirectionsOrSign: Bool
+    let hasMalformedDuration: Bool
     let rawFlags: Int
 
     /// Official stock Rope emitters wire the public one-per-frame option as bit 2.

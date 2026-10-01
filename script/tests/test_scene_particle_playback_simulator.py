@@ -14,8 +14,8 @@ import Foundation
     static func main() throws {
         func make(start: Double = 0, lifetime: Double = 10, historyMotion: Bool = false,
                   initial: SceneParticlePlaybackSnapshot = .init(),
-                  emitter: [String: Any]? = nil, multiple: Bool = false, children: [[String: Any]] = []) throws -> SceneParticleSimulator {
-            let root: [String: Any] = ["material": "p.json", "maxcount": 100, "starttime": start,
+                  maximum: Int = 100, emitter: [String: Any]? = nil, multiple: Bool = false, children: [[String: Any]] = []) throws -> SceneParticleSimulator {
+            let root: [String: Any] = ["material": "p.json", "maxcount": maximum, "starttime": start,
                 "emitter": Array(repeating: emitter ?? ["name": "boxrandom", "rate": 4, "duration": 1, "distancemax": 2], count: multiple ? 2 : 1),
                 "initializer": [["name": "lifetimerandom", "min": lifetime, "max": lifetime]],
                 "operator": historyMotion ? [["name": "oscillateposition", "frequencymin": 2, "frequencymax": 2,
@@ -102,6 +102,45 @@ import Foundation
         period.advance(by: 0.25); reference.advance(by: 0.25)
         result["periodicResumesSchedule"] = period.particles.map(\.id) == reference.particles.map(\.id)
             && period.frameSnapshot().random.state == reference.frameSnapshot().random.state
+        for duration in [Optional<Double>.none, 0] {
+            var emitter: [String: Any] = ["name": "boxrandom", "rate": 2, "delay": 0.5, "distancemax": 2]
+            if let duration { emitter["duration"] = duration }
+            let continuous = try make(emitter: emitter)
+            let label = duration == nil ? "absent" : "zero"
+            result["continuous-availability-\(label)"] = continuous.playbackObservation?.rearmHasWork == true
+            continuous.advance(by: 0.75)
+            let pending = continuous.frameSnapshot()
+            command(continuous, .pause, 1)
+            continuous.advance(by: 1)
+            command(continuous, .play, 2)
+            continuous.advance(by: 0.25)
+            result["continuous-remainder-\(label)"] = pending.particles.isEmpty
+                && continuous.particles.count == 1 && continuous.playbackObservation?.emissionPending == true
+            command(continuous, .play, 3)
+            continuous.advance(by: 0.5)
+            result["continuous-repeat-play-\(label)"] = continuous.particles.count == 2
+            command(continuous, .stop, 4)
+            result["continuous-stop-\(label)"] = continuous.particles.isEmpty
+                && continuous.playbackObservation?.intent == .stopped
+            command(continuous, .play, 5)
+            continuous.advance(by: 0.5)
+            result["continuous-stop-rearms-delay-\(label)"] = continuous.particles.isEmpty
+            continuous.advance(by: 0.5)
+            result["continuous-restart-birth-\(label)"] = continuous.particles.count == 1
+                && continuous.particles[0].id == 2
+        }
+        for duration in [-1.0, Double.infinity, Double.nan] {
+            result["invalid-duration-\(duration)"] = try make(emitter: ["name": "boxrandom", "rate": 2, "duration": duration]).playbackObservation == nil
+        }
+        for (index, duration) in [true, "garbage", [1, 2], ["wrong": 1]].enumerated() {
+            result["malformed-duration-\(index)"] = try make(emitter: ["name": "boxrandom", "rate": 2, "duration": duration]).playbackObservation == nil
+        }
+        let noCapacity = try make(maximum: 0, emitter: ["name": "boxrandom", "rate": 2])
+        command(noCapacity, .stop, 1); command(noCapacity, .play, 2); noCapacity.advance(by: 1)
+        result["continuous-zero-capacity"] = noCapacity.particles.isEmpty
+            && noCapacity.playbackObservation?.rearmHasWork == false
+        let nullDuration = try make(emitter: ["name": "boxrandom", "rate": 2, "duration": NSNull()])
+        result["null-duration-absent"] = nullDuration.playbackObservation?.rearmHasWork == true
         let zero = try make(emitter: ["name": "boxrandom", "rate": 0])
         result["zeroWork"] = zero.playbackObservation?.rearmHasWork == false
             && zero.playbackObservation?.emissionPending == false
