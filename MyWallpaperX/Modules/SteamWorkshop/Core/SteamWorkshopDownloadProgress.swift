@@ -60,8 +60,17 @@ nonisolated struct SteamWorkshopDownloadProgressSnapshot: Equatable, Sendable {
         }
     }
 
+    private static let byteFormatter: ByteCountFormatter = {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter
+    }()
+
     private static func bytes(_ value: Int64) -> String {
-        ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
+        // Shared formatter: the class convenience API builds a new instance
+        // (and resolves locale data) on every call, and this runs several
+        // times a second per visible downloading card.
+        byteFormatter.string(fromByteCount: value)
     }
 }
 

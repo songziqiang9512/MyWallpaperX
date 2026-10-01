@@ -164,6 +164,22 @@ final class SteamWorkshopPreviewImageContainerView: NSView {
         updateImageFrame()
     }
 
+    /// 详情面板保持「打开即动画」：共享缓存里只有静态首帧（列表与详情共用
+    /// 一个按像素记账的缓存，动画 GIF 原样驻留会把预算撑爆数倍），静态帧
+    /// 显示后在此按需临时装载动画源。结果不进共享缓存，随面板关闭释放。
+    private func loadAnimatedVariant(for targetURL: URL, refreshToken: Int) {
+        let cacheKey = targetURL.isFileURL
+            ? steamWorkshopLocalPreviewCacheKey(for: targetURL)
+            : steamWorkshopPreviewCacheKey(for: targetURL)
+        steamWorkshopLoadAnimatedPreview(from: targetURL, cacheKey: cacheKey) { [weak self] animatedImage in
+            guard let self,
+                  self.configuredURL == targetURL,
+                  self.configuredRefreshToken == refreshToken,
+                  let animatedImage else { return }
+            self.setImage(animatedImage)
+        }
+    }
+
     func setLoadingState(_ state: SteamWorkshopPreviewPlaceholderView.State) {
         placeholderView.setState(state)
     }
@@ -185,6 +201,7 @@ final class SteamWorkshopPreviewImageContainerView: NSView {
                       self.configuredRefreshToken == refreshToken else { return }
                 if let image, !steamWorkshopPreviewImageLooksSuspicious(image) {
                     self.setImage(image)
+                    self.loadAnimatedVariant(for: targetURL, refreshToken: refreshToken)
                 } else if let fallbackVideoURL {
                     self.setLoadingState(.loading)
                     SteamWorkshopDownloadThumbnailPipeline.shared.generateThumbnail(for: fallbackVideoURL) { [weak self] image in
@@ -207,6 +224,7 @@ final class SteamWorkshopPreviewImageContainerView: NSView {
         let cacheKey = steamWorkshopPreviewCacheKey(for: targetURL)
         if let cached = SteamWorkshopPreviewImageCache.shared.cachedImage(forKey: cacheKey) {
             setImage(cached)
+            loadAnimatedVariant(for: targetURL, refreshToken: refreshToken)
             return
         }
 
@@ -222,6 +240,7 @@ final class SteamWorkshopPreviewImageContainerView: NSView {
                   self.configuredRefreshToken == refreshToken else { return }
             if let image, steamWorkshopPreviewImageIsUsable(image) {
                 self.setImage(image)
+                self.loadAnimatedVariant(for: targetURL, refreshToken: refreshToken)
             } else {
                 if image != nil {
                     SteamWorkshopPreviewRequestCoordinator.shared.markCachedImageSuspicious(forKey: cacheKey)

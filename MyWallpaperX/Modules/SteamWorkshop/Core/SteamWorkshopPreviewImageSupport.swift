@@ -112,9 +112,9 @@ func steamWorkshopPreviewImage(from data: Data) -> NSImage? {
     guard let source = CGImageSourceCreateWithData(data as CFData, sourceOptions as CFDictionary) else {
         return NSImage(data: data)
     }
-    if CGImageSourceGetCount(source) > 1 {
-        return NSImage(data: data)
-    }
+    // 动画 GIF 也只进静态首帧：共享缓存按像素字节记账，原分辨率多帧
+    // NSImage 连同全部帧编码数据驻留会让预算实际膨胀数倍。动画重放由
+    // steamWorkshopLoadAnimatedPreview 在悬停/详情打开时按需临时提供。
     return steamWorkshopStaticPreviewImage(from: source) ?? NSImage(data: data)
 }
 
@@ -125,10 +125,44 @@ func steamWorkshopPreviewImage(from url: URL) -> NSImage? {
     guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions as CFDictionary) else {
         return NSImage(contentsOf: url)
     }
-    if CGImageSourceGetCount(source) > 1 {
-        return NSImage(contentsOf: url)
-    }
     return steamWorkshopStaticPreviewImage(from: source) ?? NSImage(contentsOf: url)
+}
+
+/// 动画变体解码：仅当数据确实是多帧动画时成功，否则返回 nil。
+/// 结果不进共享内存缓存——由调用方短生命周期持有。
+func steamWorkshopAnimatedPreviewImage(from data: Data) -> NSImage? {
+    let sourceOptions: [CFString: Any] = [
+        kCGImageSourceShouldCache: false
+    ]
+    guard let source = CGImageSourceCreateWithData(data as CFData, sourceOptions as CFDictionary),
+          CGImageSourceGetCount(source) > 1 else {
+        return nil
+    }
+    return NSImage(data: data)
+}
+
+/// 按需加载动画预览：磁盘缓存命中原始编码数据；远程未命中时经
+/// coordinator 取数并回写磁盘。解码结果不进共享内存缓存。
+func steamWorkshopLoadAnimatedPreview(
+    from url: URL,
+    cacheKey: String,
+    completion: @escaping (NSImage?) -> Void
+) {
+    let loader: @Sendable () async -> Data? = {
+        if url.isFileURL {
+            return try? Data(contentsOf: url)
+        }
+        return await SteamWorkshopPreviewRequestCoordinator.shared.loadData(
+            from: url,
+            priority: .visible
+        )
+    }
+    SteamWorkshopPreviewImageCache.shared.loadRawDataAsync(
+        forKey: cacheKey,
+        loader: loader
+    ) { data in
+        completion(data.flatMap(steamWorkshopAnimatedPreviewImage(from:)))
+    }
 }
 
 private func steamWorkshopPreviewImageIsAnimated(_ image: NSImage) -> Bool {

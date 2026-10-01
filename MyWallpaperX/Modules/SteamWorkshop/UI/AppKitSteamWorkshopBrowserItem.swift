@@ -7,6 +7,20 @@ import AppKit
 import Combine
 import QuartzCore
 
+/// Main-thread symbol-image cache for card chrome. Card configuration runs
+/// exclusively on the main thread; per-tick progress updates were re-resolving
+/// the same SF Symbols several times a second.
+private enum SteamWorkshopSymbolImageCache {
+    private static var cache: [String: NSImage] = [:]
+
+    static func image(named name: String) -> NSImage {
+        if let cached = cache[name] { return cached }
+        let image = NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()
+        cache[name] = image
+        return image
+    }
+}
+
 final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     static let hoverScale: CGFloat = 1.03
     static let pressedScale: CGFloat = 0.98
@@ -29,6 +43,10 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     var previewRetryTask: Task<Void, Never>?
     var currentPreviewURL: URL?
     var isPreviewLoadInFlight = false
+    /// Hover 期临时动画源（不进共享缓存）；nil 表示当前显示的是静态帧。
+    var currentAnimatedPreviewImage: NSImage?
+    /// Hover 动画装载代数：退出卡片/换内容使在途回调过期。
+    var hoverAnimationGeneration = 0
     private var currentPreviewSourceURL: URL?
     private var currentDownloadVideoURL: URL?
     private var isPlayingRecord = false
@@ -65,6 +83,12 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     private var currentIsKeyboardFocused = false
     private var progressAccessibilityBucket: Int?
     private var progressAccessibilityPhase: SteamWorkshopDownloadProgressSnapshot.Phase?
+    private var lastAccessibilityValue: String?
+    private var lastBadgeKey: String?
+    private var lastHeartKey: String?
+    /// Memo for `refreshThemeAwareAppearance` (see +Presentation). Internal:
+    /// the themed pass lives in the presentation extension.
+    var lastThemedChromeInputs: AppKitSteamWorkshopBrowserItem.ThemedChromeInputs?
 
     private enum ActionKind {
         case download
@@ -159,6 +183,8 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         currentTitleText = ""
         titleMarqueeView.text = ""
         previewImageView.image = nil
+        currentAnimatedPreviewImage = nil
+        hoverAnimationGeneration += 1
         onOpen = nil
         onDownload = nil
         onSetAsWallpaper = nil
@@ -185,6 +211,10 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         currentProgressSnapshot = nil
         progressAccessibilityBucket = nil
         progressAccessibilityPhase = nil
+        lastAccessibilityValue = nil
+        lastBadgeKey = nil
+        lastHeartKey = nil
+        lastThemedChromeInputs = nil
         cardView.layer?.transform = CATransform3DIdentity
         overlayBar.alphaValue = 0
         hoverOutlineView.alphaValue = 0
@@ -392,6 +422,8 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
 
         currentPreviewURL = nil
         previewImageView.image = nil
+        currentAnimatedPreviewImage = nil
+        hoverAnimationGeneration += 1
         loadPreview(from: currentPreviewSourceURL, fallbackVideoURL: currentDownloadVideoURL)
     }
 
@@ -441,6 +473,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         currentProgressSnapshot = nil
         progressAccessibilityBucket = nil
         progressAccessibilityPhase = nil
+        lastAccessibilityValue = nil
         downloadProgressObserverID = store.addObserver(for: itemID, owner: self) { [weak self] snapshot in
             self?.receiveDownloadProgress(snapshot)
         }
@@ -457,6 +490,10 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
 
     private func receiveDownloadProgress(_ snapshot: SteamWorkshopDownloadProgressSnapshot?) {
         guard snapshot?.itemID == boundProgressItemID || snapshot == nil else { return }
+        // Progress ticks arrive several times a second; an unchanged snapshot
+        // (same phase/bytes, duplicate replay) must not re-run the full card
+        // content pass.
+        guard snapshot != currentProgressSnapshot else { return }
         let previous = currentProgressSnapshot
         currentProgressSnapshot = snapshot
         applyCurrentContent()
@@ -480,7 +517,10 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         current: SteamWorkshopDownloadProgressSnapshot?
     ) {
         let value = current?.statusText() ?? currentTitleText
-        overlayBar.setAccessibilityValue(value)
+        if value != lastAccessibilityValue {
+            lastAccessibilityValue = value
+            overlayBar.setAccessibilityValue(value)
+        }
         let bucket = current?.percent.map { $0 / 10 }
         let phase = current?.phase
         let shouldAnnounce = previous != nil
@@ -651,6 +691,9 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         itemTitle: String,
         isLaunchPending: Bool = false
     ) {
+        let badgeKey = "\(String(describing: actionKind))|\(isLaunchPending)"
+        guard badgeKey != lastBadgeKey else { return }
+        lastBadgeKey = badgeKey
         let symbolName: String
         let tintColor: NSColor
         let accessibilityLabel: String
@@ -687,10 +730,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
             accessibilityLabel = "停止播放：\(itemTitle)"
         }
 
-        statusBadgeButton.image = NSImage(
-            systemSymbolName: symbolName,
-            accessibilityDescription: accessibilityLabel
-        )
+        statusBadgeButton.image = SteamWorkshopSymbolImageCache.image(named: symbolName)
         statusBadgeButton.iconTintColor = tintColor
         statusBadgeButton.setAccessibilityLabel(accessibilityLabel)
         statusBadgeButton.isEnabled = actionKind != .saving
@@ -745,10 +785,13 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     func refreshSubscribeHeart() {
         guard let item = currentItem else { return }
         guard currentDisplayContext == .browser else {
-            detailButton.isEnabled = true
-            detailButton.image = NSImage(systemSymbolName: "info.circle", accessibilityDescription: "详细信息")
-            detailButton.iconTintColor = .labelColor
-            detailButton.setAccessibilityLabel("详细信息：\(item.title)")
+            applyDetailChrome(
+                key: "detail|\(item.title)",
+                symbolName: "info.circle",
+                tint: .labelColor,
+                accessibilityLabel: "详细信息：\(item.title)",
+                isEnabled: true
+            )
             return
         }
         let store = SteamWorkshopService.shared.steamSubscriptions
@@ -761,14 +804,35 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
             subscribed = false
         }
         let busy = state == .loading || state == .writing || state == .reconciling
-        detailButton.isEnabled = !busy
-        detailButton.toolTip = nil
-        detailButton.iconTintColor = subscribed ? .systemRed : .labelColor
-        detailButton.image = NSImage(
-            systemSymbolName: subscribed ? "heart.fill" : "heart",
-            accessibilityDescription: subscribed ? "取消订阅" : "订阅"
+        applyDetailChrome(
+            key: "\(subscribed)|\(busy)|\(item.title)",
+            symbolName: subscribed ? "heart.fill" : "heart",
+            tint: subscribed ? .systemRed : .labelColor,
+            accessibilityLabel: busy
+                ? "正在核对订阅：\(item.title)"
+                : (subscribed ? "取消订阅：\(item.title)" : "订阅：\(item.title)"),
+            isEnabled: !busy
         )
-        detailButton.setAccessibilityLabel(busy ? "正在核对订阅：\(item.title)" : (subscribed ? "取消订阅：\(item.title)" : "订阅：\(item.title)"))
+    }
+
+    /// Change-detected detail/heart chrome assignment: progress ticks and
+    /// layout passes call this several times a second, and every unconditional
+    /// `NSImage(systemSymbolName:)` construction plus image assignment used to
+    /// invalidate the button each time.
+    private func applyDetailChrome(
+        key: String,
+        symbolName: String,
+        tint: NSColor,
+        accessibilityLabel: String,
+        isEnabled: Bool
+    ) {
+        guard key != lastHeartKey else { return }
+        lastHeartKey = key
+        detailButton.image = SteamWorkshopSymbolImageCache.image(named: symbolName)
+        detailButton.iconTintColor = tint
+        detailButton.setAccessibilityLabel(accessibilityLabel)
+        detailButton.isEnabled = isEnabled
+        detailButton.toolTip = nil
     }
 
     @objc func handleStatusAction() {

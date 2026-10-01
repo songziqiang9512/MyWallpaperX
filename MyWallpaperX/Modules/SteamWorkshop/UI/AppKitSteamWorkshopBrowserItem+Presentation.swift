@@ -2,6 +2,11 @@ import AppKit
 import QuartzCore
 
 extension AppKitSteamWorkshopBrowserItem {
+    /// Shared appearance instances: `NSAppearance(named:)` was being rebuilt on
+    /// every themed pass per card.
+    static let darkAppearance = NSAppearance(named: .darkAqua)
+    static let lightAppearance = NSAppearance(named: .aqua)
+
     func metrics(for cardSize: CGSize) -> Metrics {
         let scale = max(0.68, min(1.18, cardSize.width / Layout.referenceCardWidth))
         return Metrics(
@@ -147,9 +152,36 @@ extension AppKitSteamWorkshopBrowserItem {
         refreshThemeAwareAppearance()
     }
 
+    /// Inputs that fully determine the themed card chrome. When none of them
+    /// move, `refreshThemeAwareAppearance` is a no-op: download ticks re-enter
+    /// it several times a second and every pass used to rebuild glass material
+    /// state, button chrome and symbol images unconditionally.
+    struct ThemedChromeInputs: Equatable {
+        let isDarkMode: Bool
+        let isHovering: Bool
+        let isSelectionHighlighted: Bool
+        let isMultiSelectMode: Bool
+        let isDownloadsContext: Bool
+        let barState: BarState
+        let progressFraction: Double?
+        let currentBarVisibility: Bool
+    }
+
     func refreshThemeAwareAppearance() {
         guard let layer = cardView.layer else { return }
         let isDarkMode = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let inputs = ThemedChromeInputs(
+            isDarkMode: isDarkMode,
+            isHovering: isHovering,
+            isSelectionHighlighted: isSelectionHighlighted,
+            isMultiSelectMode: isMultiSelectMode,
+            isDownloadsContext: currentDisplayContext == .downloads,
+            barState: currentBarState,
+            progressFraction: currentProgressSnapshot?.fraction,
+            currentBarVisibility: currentBarVisibility
+        )
+        guard inputs != lastThemedChromeInputs else { return }
+        lastThemedChromeInputs = inputs
         let fixedForeground = isDarkMode
             ? NSColor(calibratedWhite: 1.0, alpha: 0.98)
             : NSColor(calibratedWhite: 0.08, alpha: 0.92)
@@ -185,7 +217,8 @@ extension AppKitSteamWorkshopBrowserItem {
             multiSelectBadgeIcon.isHidden = true
         }
 
-        overlayBar.appearance = NSAppearance(named: isDarkMode ? .darkAqua : .aqua)
+        let sharedAppearance = isDarkMode ? Self.darkAppearance : Self.lightAppearance
+        overlayBar.appearance = sharedAppearance
         overlayBar.alphaValue = currentBarVisibility ? (isHovering ? 0.92 : 0.84) : 0
         overlayBar.layer?.borderWidth = 0.8
         overlayBar.layer?.shadowOpacity = 0
@@ -247,8 +280,56 @@ extension AppKitSteamWorkshopBrowserItem {
         // 悬停才真正播放动画。一张动画 GIF 是一个主线程定时器驱动的
         // 帧序列，整屏可见卡片同时播放会让浏览明显掉帧；详情面板的
         // 常驻动画由 SteamWorkshopPreviewImageContainerView 自持，不经
-        // 此开关。
+        // 此开关。共享缓存里只有静态首帧；hover 动画源由
+        // syncHoverAnimationState 按需临时加载。
         previewImageView.animates = isPreviewVisible && isHovering
+        syncHoverAnimationState()
+    }
+
+    /// Hover 动画源装载：进入卡片时把共享缓存里的静态首帧临时换成动画
+    /// GIF（不进共享内存缓存，随 hover 结束释放）；离开时立即恢复静态帧。
+    private func syncHoverAnimationState() {
+        guard isPreviewVisible, isHovering, let url = currentPreviewURL else {
+            cancelHoverAnimation()
+            return
+        }
+        let generation = hoverAnimationGeneration
+        // 同一 URL 的动画源已在位则不重复加载。
+        if previewImageView.image === currentAnimatedPreviewImage { return }
+        let cacheKey = url.isFileURL
+            ? steamWorkshopLocalPreviewCacheKey(for: url)
+            : steamWorkshopPreviewCacheKey(for: url)
+        steamWorkshopLoadAnimatedPreview(from: url, cacheKey: cacheKey) { [weak self] animatedImage in
+            guard let self else { return }
+            // 不在此推进代数：快速 out-in 时先到的过期回调会误杀后到的
+            // 有效回调。守卫只读代数，过期由 cancelHoverAnimation/重入推进。
+            guard self.hoverAnimationGeneration == generation,
+                  self.isHovering, self.isPreviewVisible,
+                  self.currentPreviewURL == url,
+                  let animatedImage else { return }
+            self.currentAnimatedPreviewImage = animatedImage
+            self.previewImageView.image = animatedImage
+            self.previewImageView.animates = true
+            self.updatePreviewImageFrame()
+        }
+    }
+
+    private func cancelHoverAnimation() {
+        hoverAnimationGeneration += 1
+        guard currentAnimatedPreviewImage != nil else { return }
+        currentAnimatedPreviewImage = nil
+        // 恢复共享缓存里的静态首帧。
+        if let url = currentPreviewURL {
+            let cacheKey = url.isFileURL
+                ? steamWorkshopLocalPreviewCacheKey(for: url)
+                : steamWorkshopPreviewCacheKey(for: url)
+            if let staticImage = SteamWorkshopPreviewImageCache.shared.cachedImage(forKey: cacheKey) {
+                previewImageView.image = staticImage
+                updatePreviewImageFrame()
+                return
+            }
+        }
+        previewImageView.image = nil
     }
 
     func applyHoverStyle(animated: Bool) {
@@ -510,6 +591,7 @@ extension AppKitSteamWorkshopBrowserItem {
     private func applyResolvedPreviewImage(_ image: NSImage?, url: URL, cacheKey: String) {
         if let image, steamWorkshopPreviewImageIsUsable(image) {
             previewImageView.image = image
+            currentAnimatedPreviewImage = nil
             syncPreviewAnimationState()
             previewPlaceholderView.setState(.hidden)
             SteamWorkshopPreviewRequestCoordinator.shared.clearCachedImageSuspicion(forKey: cacheKey)

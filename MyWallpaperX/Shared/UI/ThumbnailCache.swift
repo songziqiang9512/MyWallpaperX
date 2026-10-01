@@ -32,6 +32,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     private let decodeQueue: DispatchQueue
     private let imageCache = NSCache<NSString, NSImage>()
     private var inFlight: [String: [(NSImage?) -> Void]] = [:]
+    private var rawDataInFlight: [String: [(Data?) -> Void]] = [:]
     private var rawDataPrefetchInFlight = Set<String>()
     private let lock = NSLock()
 
@@ -213,6 +214,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         inFlight[key] = [completion]
         lock.unlock()
 
+
         decodeQueue.async { [weak self] in
             guard let self else { return }
             let diskURL = self.diskCacheURL(for: key)
@@ -236,6 +238,56 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
                 Self.trimDiskCache(directory: self.diskCacheDir, sizeLimit: Self.diskCacheSizeLimit)
                 self.finish(key: key, image: image)
             }
+        }
+    }
+
+    /// 异步取回原始编码数据，但不把解码结果写进内存缓存。
+    /// 磁盘命中直接返回；未命中走 loader 并回写磁盘。
+    /// 用途：动画 GIF 的临时动画源——解码图随用随弃，内存缓存里只驻留
+    /// 静态首帧，原始编码数据留在磁盘层。
+    func loadRawDataAsync(
+        forKey key: String,
+        loader: @escaping @Sendable () async -> Data?,
+        completion: @escaping (Data?) -> Void
+    ) {
+        lock.lock()
+        if rawDataInFlight[key] != nil {
+            rawDataInFlight[key]?.append(completion)
+            lock.unlock()
+            return
+        }
+        rawDataInFlight[key] = [completion]
+        lock.unlock()
+
+        decodeQueue.async { [weak self] in
+            guard let self else { return }
+            let diskURL = self.diskCacheURL(for: key)
+            if let data = try? Data(contentsOf: diskURL) {
+                self.finishRawData(key: key, data: data)
+                return
+            }
+            Task { [weak self] in
+                guard let self else { return }
+                guard let data = await loader() else {
+                    self.finishRawData(key: key, data: nil)
+                    return
+                }
+                try? data.write(to: diskURL, options: .atomic)
+                Self.trimDiskCache(directory: self.diskCacheDir, sizeLimit: Self.diskCacheSizeLimit)
+                self.finishRawData(key: key, data: data)
+            }
+        }
+    }
+
+    private func finishRawData(key: String, data: Data?) {
+        lock.lock()
+        let completions = rawDataInFlight[key] ?? []
+        rawDataInFlight[key] = nil
+        lock.unlock()
+        // 与 finish(key:image:) 相同的主线程交付契约：消费方直接操作
+        // NSView/NSImage 属性，后台交付会跨线程改视图。
+        DispatchQueue.main.async {
+            completions.forEach { $0(data) }
         }
     }
 

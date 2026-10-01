@@ -135,6 +135,7 @@ final class SteamWorkshopMarqueeTextView: NSView {
 
     var font: NSFont = .systemFont(ofSize: 13, weight: .semibold) {
         didSet {
+            measuredTextWidths.removeAll()
             updateTextLayerAppearance()
             updateDisplayedText()
         }
@@ -260,24 +261,44 @@ final class SteamWorkshopMarqueeTextView: NSView {
         fadeMaskLayer.locations = [0, 0.09, 0.91, 1]
     }
 
-    private func updateAnimation() {
-        containerLayer.removeAnimation(forKey: "steam.marquee")
-        guard !displayText.isEmpty else { return }
-        guard bounds.width.isFinite, bounds.height.isFinite else { return }
+    /// Desired marquee state. The scroll distance keeps the value from the
+    /// run that started the animation: progress ticks rewrite the text (and
+    /// its width by a few pixels) several times a second, and restarting the
+    /// animation for each of those would visibly reset the scroll. The stale
+    /// distance only costs a few milliseconds of loop period until the next
+    /// genuine state change.
+    private var runningMarqueeState: (isScrolling: Bool, isActive: Bool)?
+    private var measuredTextWidths: [String: CGFloat] = [:]
 
+    private func updateAnimation() {
         let baseWidth = measuredWidth(for: displayText)
-        guard shouldScroll(baseWidth: baseWidth),
-              isActive,
-              !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            containerLayer.transform = CATransform3DIdentity
-            CATransaction.commit()
+        let isScrolling = shouldScroll(baseWidth: baseWidth)
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        let desired = (isScrolling: isScrolling && isActive && !reduceMotion && !displayText.isEmpty, isActive: isActive)
+        guard bounds.width.isFinite, bounds.height.isFinite else {
+            stopMarqueeAnimation()
             return
         }
+        // Keep a matching animation running: layout passes and text-only
+        // changes arrive several times a second during downloads.
+        if let running = runningMarqueeState,
+           running == desired,
+           (desired.isScrolling || containerLayer.animation(forKey: "steam.marquee") == nil) {
+            if !desired.isScrolling {
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                containerLayer.transform = CATransform3DIdentity
+                CATransaction.commit()
+            }
+            return
+        }
+        stopMarqueeAnimation()
+        guard desired.isScrolling else { return }
 
-        let travel = marqueeSegmentWidth > 0 ? marqueeSegmentWidth : (baseWidth + measuredWidth(for: repeatedGap))
-        guard travel.isFinite, travel > 8 else { return }
+        marqueeSegmentWidth = marqueeSegmentWidth > 0
+            ? marqueeSegmentWidth
+            : (baseWidth + measuredWidth(for: repeatedGap))
+        guard marqueeSegmentWidth.isFinite, marqueeSegmentWidth > 8 else { return }
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -286,12 +307,33 @@ final class SteamWorkshopMarqueeTextView: NSView {
 
         let animation = CABasicAnimation(keyPath: "transform.translation.x")
         animation.fromValue = 0
-        animation.toValue = -travel
-        animation.duration = max(7, Double(travel / 22))
+        animation.toValue = -marqueeSegmentWidth
+        animation.duration = max(7, Double(marqueeSegmentWidth / 22))
         animation.repeatCount = .infinity
         animation.isRemovedOnCompletion = false
         animation.timingFunction = CAMediaTimingFunction(name: .linear)
         containerLayer.add(animation, forKey: "steam.marquee")
+        runningMarqueeState = desired
+    }
+
+    /// Observation surface for behavior probes: the in-flight marquee
+    /// animation instance, or nil. Probes assert instance identity across
+    /// text-only updates to lock the "progress ticks never restart the
+    /// scroll" contract.
+    var activeMarqueeAnimation: CAAnimation? {
+        containerLayer.animation(forKey: "steam.marquee")
+    }
+
+    private func stopMarqueeAnimation() {
+        if containerLayer.animation(forKey: "steam.marquee") != nil
+            || !CATransform3DEqualToTransform(containerLayer.transform, CATransform3DIdentity) {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            containerLayer.removeAnimation(forKey: "steam.marquee")
+            containerLayer.transform = CATransform3DIdentity
+            CATransaction.commit()
+        }
+        runningMarqueeState = nil
     }
 
     private func shouldScroll(baseWidth: CGFloat) -> Bool {
@@ -300,10 +342,16 @@ final class SteamWorkshopMarqueeTextView: NSView {
     }
 
     private func measuredWidth(for text: String) -> CGFloat {
+        if let cached = measuredTextWidths[text] { return cached }
         guard !text.isEmpty else { return 0 }
         let measured = (text as NSString).size(withAttributes: [.font: font]).width
         guard measured.isFinite else { return 0 }
-        return ceil(measured)
+        let width = ceil(measured)
+        if measuredTextWidths.count > 8 {
+            measuredTextWidths.removeAll()
+        }
+        measuredTextWidths[text] = width
+        return width
     }
 }
 
@@ -351,6 +399,12 @@ final class SteamWorkshopGlassBarView: NSGlassEffectView {
     private var progressFraction: CGFloat?
     private var showsIndeterminateProgress = false
     private var progressAnimationVisible = false
+    /// Material rebuild inputs; rebuilds only when one of them actually moves.
+    private var materialKey: (style: AccentStyle, isDarkMode: Bool)?
+    /// Parameters of the in-flight indeterminate animation; `nil` when none.
+    /// Keeping this lets repeat ticks leave a running animation untouched
+    /// instead of removing and re-adding it every progress update.
+    private var runningIndeterminateHostWidth: CGFloat?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -398,6 +452,10 @@ final class SteamWorkshopGlassBarView: NSGlassEffectView {
 
     private func updateMaterial() {
         let isDarkMode = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        if let materialKey, materialKey.style == accentStyle, materialKey.isDarkMode == isDarkMode {
+            return
+        }
+        materialKey = (accentStyle, isDarkMode)
         let tone: SteamWorkshopDownloadProgressPalette.Tone = {
             switch accentStyle {
             case .neutral, .ready: return .neutral
@@ -437,15 +495,27 @@ final class SteamWorkshopGlassBarView: NSGlassEffectView {
         indeterminate: Bool,
         animated: Bool
     ) {
+        let clampedFraction = fraction.flatMap { $0.isFinite ? CGFloat(min(1, max(0, $0))) : nil }
+        let materialChanged = style != accentStyle
+        let progressChanged = clampedFraction != progressFraction || indeterminate != showsIndeterminateProgress
+        guard materialChanged || progressChanged else { return }
         accentStyle = style
-        progressFraction = fraction.flatMap { $0.isFinite ? CGFloat(min(1, max(0, $0))) : nil }
+        progressFraction = clampedFraction
         showsIndeterminateProgress = indeterminate
-        updateMaterial()
-        updateProgressFrames(animated: animated)
-        updateProgressAnimation()
+        if materialChanged {
+            updateMaterial()
+        } else {
+            // Fraction/indeterminate moves only need geometry and animation
+            // state; the material rebuild (glass tint, gradients, border) is
+            // keyed separately and skipped here so per-tick progress updates
+            // stay cheap.
+            updateProgressFrames(animated: animated)
+            updateProgressAnimation()
+        }
     }
 
     func setProgressAnimationVisible(_ visible: Bool) {
+        guard visible != progressAnimationVisible else { return }
         progressAnimationVisible = visible
         updateProgressAnimation()
     }
@@ -471,19 +541,41 @@ final class SteamWorkshopGlassBarView: NSGlassEffectView {
     }
 
     private func updateProgressAnimation() {
-        fillClipLayer.removeAnimation(forKey: "steam.bar.indeterminate")
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        guard showsIndeterminateProgress,
-              progressAnimationVisible,
-              !reduceMotion,
-              bounds.width > fillClipLayer.bounds.width else { return }
+        let desiredHostWidth: CGFloat? = {
+            guard showsIndeterminateProgress,
+                  progressAnimationVisible,
+                  !reduceMotion,
+                  bounds.width > fillClipLayer.bounds.width else { return nil }
+            return bounds.width
+        }()
+        // Repeat ticks with unchanged inputs must not restart the sweep: an
+        // add-after-remove resets the visible progress-bar animation every
+        // progress update. Leave a matching animation in place.
+        if desiredHostWidth == runningIndeterminateHostWidth {
+            if desiredHostWidth == nil, fillClipLayer.animation(forKey: "steam.bar.indeterminate") != nil {
+                fillClipLayer.removeAnimation(forKey: "steam.bar.indeterminate")
+            }
+            return
+        }
+        fillClipLayer.removeAnimation(forKey: "steam.bar.indeterminate")
+        runningIndeterminateHostWidth = desiredHostWidth
+        guard let hostWidth = desiredHostWidth else { return }
         let animation = CABasicAnimation(keyPath: "transform.translation.x")
         animation.fromValue = -fillClipLayer.bounds.width
-        animation.toValue = bounds.width
+        animation.toValue = hostWidth
         animation.duration = 1.45
         animation.repeatCount = .infinity
         animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
         animation.isRemovedOnCompletion = false
         fillClipLayer.add(animation, forKey: "steam.bar.indeterminate")
+    }
+
+    /// Observation surface for behavior probes: the in-flight indeterminate
+    /// animation instance, or nil. Probes assert instance identity across
+    /// repeated progress updates to lock the "never restart a running
+    /// sweep" contract.
+    var activeIndeterminateAnimation: CAAnimation? {
+        fillClipLayer.animation(forKey: "steam.bar.indeterminate")
     }
 }
