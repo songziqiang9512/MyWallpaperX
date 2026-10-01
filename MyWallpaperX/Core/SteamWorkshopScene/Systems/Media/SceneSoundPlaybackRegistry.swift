@@ -8,7 +8,7 @@ final class SceneSoundPlaybackRegistry {
     private final class Source {
         let binding: SceneSoundPlaybackProgram.Binding
         private let player = AVQueuePlayer()
-        private let looper: AVPlayerLooper
+        private let looper: AVPlayerLooper?
         private var currentItemObservation: NSKeyValueObservation?
         private var itemStatusObservation: NSKeyValueObservation?
         private var timeControlObservation: NSKeyValueObservation?
@@ -22,7 +22,15 @@ final class SceneSoundPlaybackRegistry {
             self.binding = binding
             baseVolume = binding.authoredVolume
             let item = AVPlayerItem(url: binding.resourceURL)
-            looper = AVPlayerLooper(player: player, templateItem: item)
+            // The loop/restart boundary is the only mode branch: `loop`
+            // attaches a looper, `single` plays the queued item once to the
+            // end and the empty queue stops without any restart.
+            if binding.loops {
+                looper = AVPlayerLooper(player: player, templateItem: item)
+            } else {
+                looper = nil
+                player.insert(item, after: nil)
+            }
             player.automaticallyWaitsToMinimizeStalling = false
             player.volume = Float(binding.authoredVolume)
             currentItemObservation = player.observe(
@@ -103,7 +111,7 @@ final class SceneSoundPlaybackRegistry {
             itemStatusObservation?.invalidate()
             currentItemObservation?.invalidate()
             timeControlObservation?.invalidate()
-            looper.disableLooping()
+            looper?.disableLooping()
             player.pause()
             player.removeAllItems()
             NSLog(
@@ -189,9 +197,10 @@ final class SceneSoundPlaybackRegistry {
             source.start(paused: paused)
         }
         NSLog(
-            "MWX Scene sound: epoch=%llu phase=started admitted=%d rejected=%d paused=%@",
-            epoch, program.bindings.count, program.diagnostics.count,
-            paused ? "true" : "false"
+            "MWX Scene sound: epoch=%llu phase=started admitted=%d rejected=%d"
+                + " skipped=%d paused=%@",
+            epoch, program.bindings.count, program.layerRejectionCount,
+            program.skippedSourceCount, paused ? "true" : "false"
         )
     }
 

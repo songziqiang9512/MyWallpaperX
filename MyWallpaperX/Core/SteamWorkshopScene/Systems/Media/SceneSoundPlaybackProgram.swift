@@ -9,6 +9,7 @@ struct SceneSoundPlaybackProgram {
         let layerID: Int
         let resourceURL: URL
         let displayPath: String
+        let loops: Bool
         let authoredVolume: Double
         let volumePropertyKey: String?
 
@@ -20,7 +21,6 @@ struct SceneSoundPlaybackProgram {
     struct Diagnostic: Equatable {
         enum Reason: String {
             case malformedSourceList
-            case multipleSourcesUnsupported
             case playbackModeUnsupported
             case startsSilentUnsupported
             case spatialPlaybackUnsupported
@@ -43,10 +43,24 @@ struct SceneSoundPlaybackProgram {
         })
     }
 
+    /// Diagnostics for layers that admitted no binding at all.
+    var layerRejectionCount: Int {
+        let admittedLayerIDs = Set(bindings.map(\.layerID))
+        return diagnostics.filter { !admittedLayerIDs.contains($0.layerID) }.count
+    }
+
+    /// Diagnostics for sources skipped by layers that admitted another
+    /// source - real facts, but they must not read as rejected layers in
+    /// corpus tooling that counts reason lines.
+    var skippedSourceCount: Int {
+        diagnostics.count - layerRejectionCount
+    }
+
     var reportLines: [String] {
         var lines = [
-            "scene sound playback: schema=avqueueplayer-loop-v1"
-                + " admitted=\(bindings.count) rejected=\(diagnostics.count)"
+            "scene sound playback: schema=avqueueplayer-loop-v2"
+                + " admitted=\(bindings.count) rejected=\(layerRejectionCount)"
+                + " skipped=\(skippedSourceCount)"
                 + " route=generic-only failure=layer-local"
                 + " dynamicVolumeTargets=\(liveConsumerTargets.count)",
         ]
@@ -79,22 +93,38 @@ struct SceneSoundPlaybackProgram {
                 ))
                 continue
             }
-            guard let path = sound.paths.first,
-                  let resource = resourceView.resource(forReference: path) else {
-                diagnostics.append(.init(
+            let loops = normalizedPlaybackMode(sound.playbackMode) == "loop"
+            var skippedSources: [(reason: Diagnostic.Reason, detail: String)] = []
+            var binding: Binding?
+            // Sources are attempted in author order; the first usable source
+            // carries the binding and skipped sources keep their real
+            // per-source reason/detail through the existing diagnostic
+            // reasons (no new reason code, also when nothing is admitted).
+            for path in sound.paths {
+                if let failure = sourceFailure(path) {
+                    skippedSources.append(failure)
+                    continue
+                }
+                guard let resource = resourceView.resource(forReference: path) else {
+                    skippedSources.append((.resourceUnavailable, path))
+                    continue
+                }
+                binding = Binding(
                     layerID: object.id,
-                    reason: .resourceUnavailable,
-                    detail: sound.paths.first ?? "missing"
-                ))
-                continue
+                    resourceURL: resource.url,
+                    displayPath: resourceView.displayPath(for: resource.url),
+                    loops: loops,
+                    authoredVolume: sound.volume ?? 1,
+                    volumePropertyKey: sound.volumePropertyKey
+                )
+                break
             }
-            bindings.append(.init(
-                layerID: object.id,
-                resourceURL: resource.url,
-                displayPath: resourceView.displayPath(for: resource.url),
-                authoredVolume: sound.volume ?? 1,
-                volumePropertyKey: sound.volumePropertyKey
-            ))
+            diagnostics.append(contentsOf: skippedSources.map { skip in
+                .init(layerID: object.id, reason: skip.reason, detail: skip.detail)
+            })
+            if let binding {
+                bindings.append(binding)
+            }
         }
         return SceneSoundPlaybackProgram(
             bindings: bindings,
@@ -109,10 +139,7 @@ struct SceneSoundPlaybackProgram {
               !sound.paths.isEmpty else {
             return (.malformedSourceList, "count=\(sound.authoredPathCount)")
         }
-        guard sound.paths.count == 1 else {
-            return (.multipleSourcesUnsupported, "count=\(sound.paths.count)")
-        }
-        guard sound.playbackMode?.localizedLowercase == "loop" else {
+        guard normalizedPlaybackMode(sound.playbackMode) != nil else {
             return (.playbackModeUnsupported, sound.playbackMode ?? "missing")
         }
         guard sound.startsSilent == false else {
@@ -137,17 +164,43 @@ struct SceneSoundPlaybackProgram {
               (0 ... 1).contains(volume) else {
             return (.volumeInvalid, String(describing: sound.volume))
         }
-        let path = sound.paths[0]
+        return nil
+    }
+
+    /// `loop` keeps its continuous playback contract verbatim; `single` plays
+    /// once to the end and stops. Every other authored spelling stays
+    /// layer-locally rejected.
+    private static func normalizedPlaybackMode(_ raw: String?) -> String? {
+        switch raw?.localizedLowercase {
+        case "loop":
+            "loop"
+        case "single":
+            "single"
+        default:
+            nil
+        }
+    }
+
+    /// Per-source guards: path legality and the supported-extension list both
+    /// still apply to every authored source, not only the first.
+    private static func sourceFailure(
+        _ path: String
+    ) -> (reason: Diagnostic.Reason, detail: String)? {
         let components = path.split(separator: "/", omittingEmptySubsequences: false)
         guard !path.hasPrefix("/"),
               components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
             return (.malformedSourceList, path)
         }
         let supportedExtensions: Set<String> = ["flac", "mp3", "wav"]
-        let fileExtension = URL(fileURLWithPath: path).pathExtension.localizedLowercase
+        let fileExtension = sourceExtension(of: path)
         guard supportedExtensions.contains(fileExtension) else {
-            return (.audioFormatUnsupported, fileExtension.isEmpty ? "missing" : fileExtension)
+            return (.audioFormatUnsupported, fileExtension)
         }
         return nil
+    }
+
+    private static func sourceExtension(of path: String) -> String {
+        let fileExtension = URL(fileURLWithPath: path).pathExtension.localizedLowercase
+        return fileExtension.isEmpty ? "missing" : fileExtension
     }
 }
