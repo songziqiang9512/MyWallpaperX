@@ -501,37 +501,41 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                     .allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1 },
                 "Producer projections must stay finite and within 0...1"
             )
+            // 16/32 档是 canonical 64 档的覆盖子带峰值投影：下采样取每个
+            // 目标区间（实现内整数 lower/upper）内 canonical 档的最大值，
+            // 块平均会把孤立窄带最多稀释 4×。
             for index in 0..<16 {
                 let block = canonicalAttack.left64[(index * 4)..<(index * 4 + 4)]
-                let average = block.reduce(0, +) / 4
+                let peak = block.max()!
                 expectNear(
                     canonicalAttack.left[index],
-                    average,
+                    peak,
                     tolerance: 0.000_001,
-                    "16-band projection must average its 64-band block"
+                    "16-band projection must peak over its covered 64-band block"
                 )
             }
             for index in 0..<32 {
                 let block = canonicalAttack.left64[(index * 2)..<(index * 2 + 2)]
-                let average = block.reduce(0, +) / 2
+                let peak = block.max()!
                 expectNear(
                     canonicalAttack.left32[index],
-                    average,
+                    peak,
                     tolerance: 0.000_001,
-                    "32-band projection must average its 64-band block"
+                    "32-band projection must peak over its covered 64-band block"
                 )
             }
             let ramp = (0..<64).map { Float($0) / 63 }
+            // 下采样取覆盖区间峰值；ramp 单调递增，峰值即区间末档值。
             let ramp28 = SystemAudioSceneSpectrumAnalyzer.resample(ramp, count: 28)
             expect(ramp28.count == 28, "64→28 projection must preserve requested count")
-            expectNear(ramp28[0], 0.5 / 63, tolerance: 0.000_001, "64→28 first block")
-            expectNear(ramp28[1], 2.5 / 63, tolerance: 0.000_001, "64→28 second block")
-            expectNear(ramp28[27], 62 / 63, tolerance: 0.000_001, "64→28 final block")
+            expectNear(ramp28[0], 1 / 63, tolerance: 0.000_001, "64→28 first block")
+            expectNear(ramp28[1], 3 / 63, tolerance: 0.000_001, "64→28 second block")
+            expectNear(ramp28[27], 1, tolerance: 0.000_001, "64→28 final block")
             let ramp48 = SystemAudioSceneSpectrumAnalyzer.resample(ramp, count: 48)
             expect(ramp48.count == 48, "64→48 projection must preserve requested count")
             expectNear(ramp48[0], 0, tolerance: 0.000_001, "64→48 first block")
-            expectNear(ramp48[2], 2.5 / 63, tolerance: 0.000_001, "64→48 split block")
-            expectNear(ramp48[47], 62.5 / 63, tolerance: 0.000_001, "64→48 final block")
+            expectNear(ramp48[2], 3 / 63, tolerance: 0.000_001, "64→48 split block")
+            expectNear(ramp48[47], 1, tolerance: 0.000_001, "64→48 final block")
             let ramp96 = SystemAudioSceneSpectrumAnalyzer.resample(ramp, count: 96)
             expect(ramp96.count == 96, "64→96 projection must preserve requested count")
             expectNear(ramp96[0], 0, tolerance: 0.000_001, "64→96 first repeated block")
@@ -869,7 +873,7 @@ class SystemAudioSpectrumTests(unittest.TestCase):
         self.assertIn("resourceGeneration: resourceGeneration", start_capture)
         self.assertIn("token: captureToken", start_capture)
 
-        process_frame_start = source.index("private func processCapturedAudio()")
+        process_frame_start = source.index("func processCapturedAudio()")  # 拆分批(3079ec35)后不再 private
         process_frame = source[
             process_frame_start : source.index("\n    private func clearSceneLevels", process_frame_start)
         ]

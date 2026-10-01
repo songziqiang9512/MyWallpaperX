@@ -1002,7 +1002,7 @@ class SceneAudioSpectrumWiringTests(unittest.TestCase):
 
     def test_service_gates_capture_on_any_consumer(self) -> None:
         source = SERVICE_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("private var sceneEnabled = false", source)
+        self.assertIn("var sceneEnabled = false", source)  # 拆分批(3079ec35)后不再 private
         self.assertIn(
             "overlayEnabled || webEnabled || sceneEnabled",
             source,

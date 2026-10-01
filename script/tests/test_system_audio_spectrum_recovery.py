@@ -13,6 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SERVICE_SOURCE = ROOT / "MyWallpaperX/Core/Playback/SystemAudioSpectrumService.swift"
+DEBUG_RECOVERY_SOURCE = ROOT / "MyWallpaperX/Core/Playback/SystemAudioSpectrumService+DebugRecovery.swift"
 
 
 class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
@@ -607,6 +608,7 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                     "-D",
                     "DEBUG",
                     str(SERVICE_SOURCE),
+                    str(DEBUG_RECOVERY_SOURCE),
                     str(ROOT / "MyWallpaperX/Core/Playback/SystemAudioCaptureBuffer.swift"),
                     str(ROOT / "MyWallpaperX/Core/Playback/SystemAudioSceneSpectrumAnalyzer.swift"),
                     str(harness_path),
@@ -640,6 +642,7 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                 [
                     swiftc,
                     str(SERVICE_SOURCE),
+                    str(DEBUG_RECOVERY_SOURCE),
                     str(ROOT / "MyWallpaperX/Core/Playback/SystemAudioCaptureBuffer.swift"),
                     str(ROOT / "MyWallpaperX/Core/Playback/SystemAudioSceneSpectrumAnalyzer.swift"),
                     str(harness_path),

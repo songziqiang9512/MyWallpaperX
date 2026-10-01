@@ -31,9 +31,9 @@ final class SystemAudioSceneSpectrumAnalyzer {
         let right64: [Float]
     }
 
-    /// 将 canonical 频段投影到消费端需要的柱数。投影只做连续区间的有界平均，
+    /// 将 canonical 频段投影到消费端需要的柱数。投影只做连续区间的有界聚合，
     /// 不重新采集、窗化或运行第二套 FFT；64 档 identity 保持每个真实 band，
-    /// 下采样时平均每个目标区间内的 canonical bands，上采样时重复其有界区间值。
+    /// 下采样时取每个目标区间内 canonical bands 的峰值，上采样时重复其有界区间值。
     static func resample(_ levels: [Float], count: Int) -> [Float] {
         guard count > 0 else { return [] }
         guard !levels.isEmpty else { return Array(repeating: 0, count: count) }
@@ -41,6 +41,12 @@ final class SystemAudioSceneSpectrumAnalyzer {
             return levels.map { $0.isFinite ? min(1, max(0, $0)) : 0 }
         }
 
+        // 下采样（64 -> 16/32 档）取覆盖子带的峰值而非平均：canonical 每档本身
+        // 就是峰值，取平均会把孤立窄带（如高频打击乐）最多稀释 4×、柱条系统性
+        // 偏矮。峰值是项目策略：与官方静态取证推断一致、黑盒柱高比实验待定案
+        // （docs/scene/semantics/client-runtime-static-forensics.md §7.4）。
+        // 上采样路径保持既有界平均不变。
+        let usePeak = count < levels.count
         var projected = Array(repeating: Float(0), count: count)
         for index in projected.indices {
             let lower = (index * levels.count) / count
@@ -49,13 +55,18 @@ final class SystemAudioSceneSpectrumAnalyzer {
             let boundedUpper = min(levels.count, upper)
             guard boundedLower < boundedUpper else { continue }
             var total: Float = 0
+            var peak: Float = 0
             var finiteCount = 0
             for level in levels[boundedLower..<boundedUpper] where level.isFinite {
-                total += min(1, max(0, level))
+                let boundedLevel = min(1, max(0, level))
+                total += boundedLevel
+                peak = max(peak, boundedLevel)
                 finiteCount += 1
             }
             guard finiteCount > 0 else { continue }
-            projected[index] = min(1, max(0, total / Float(finiteCount)))
+            projected[index] = usePeak
+                ? peak
+                : min(1, max(0, total / Float(finiteCount)))
         }
         return projected
     }
@@ -79,6 +90,7 @@ final class SystemAudioSceneSpectrumAnalyzer {
     private static let visualCompressionExponent: Float = 1.60
     /// 采集以约 30 Hz 发布。攻击保持接近一个发布周期，释放约 80 ms，避免旧值
     /// 长时间拖尾成波浪；两者都只跟随真实输入，不生成无输入周期信号。
+    /// 宿主侧平滑为项目策略，官方语义为作者侧平滑（client-runtime-static-forensics §7.4）。
     private static let attackMix: Float = 0.82
     private static let releaseRetention: Float = 0.68
     /// 系统音频的音乐内容通常带有明显的 1/f 频谱倾斜；不补偿时，低频峰值会
