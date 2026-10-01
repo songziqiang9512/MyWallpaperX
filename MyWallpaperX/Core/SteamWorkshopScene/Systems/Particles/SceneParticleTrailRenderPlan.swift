@@ -1,6 +1,12 @@
 import Foundation
 
 nonisolated struct SceneParticleTrailRenderPlan: Equatable, Sendable {
+    /// Sprite Trail orientation samples this many recent fixed-step positions
+    /// per particle. The simulator records the path chord (oldest retained
+    /// sample to current position) as a conservative approximation of the
+    /// ribbon tangent; full ribbon geometry remains a separate effort.
+    static let historySampleCapacity = 8
+
     private let length: Double
     private let minimumStretch: Double
     private let maximumStretch: Double

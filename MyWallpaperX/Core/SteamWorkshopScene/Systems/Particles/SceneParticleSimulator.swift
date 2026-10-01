@@ -28,6 +28,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         let eventColorContext: SceneParticleEventColorContext
         let stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
         let positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation]
+        let trailPositionHistory: SceneParticleTrailPositionHistory
     }
 
     let fixedTimeStep: Double
@@ -112,6 +113,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     var eventColorContext: SceneParticleEventColorContext
     private var stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
     var positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation] = [:]
+    /// Sprite Trail position rings, entry-aligned with `particles`. Systems
+    /// without a Sprite Trail renderer keep this empty and pay nothing.
+    private var trailPositionHistory = SceneParticleTrailPositionHistory(capacity: 0)
 
     nonisolated init(
         definition: SceneParticleDefinition,
@@ -125,6 +129,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         layerImageEmissionMap: SceneParticleLayerImageEmissionMap? = nil,
         worldSpaceFrame: SceneParticleWorldSpaceFrame? = nil,
         stepSnapshotPolicy: SceneParticleStepSnapshotPolicy? = nil,
+        trailHistoryCapacity: Int = 0,
         eventColorContext: SceneParticleEventColorContext = .unavailable
     ) {
         self.definition = definition
@@ -175,6 +180,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         turbulencePlans = definition.operators.map(SceneParticleTurbulencePlan.init)
         self.stepSnapshotRecorder = stepSnapshotPolicy.map(
             SceneParticleStepSnapshotRecorder.init(policy:)
+        )
+        self.trailPositionHistory = SceneParticleTrailPositionHistory(
+            capacity: trailHistoryCapacity
         )
         self.simulationSeed = seed
         self.fixedTimeStep = fixedTimeStep.isFinite && fixedTimeStep > 0 ? fixedTimeStep : 1.0 / 60.0
@@ -341,7 +349,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             pendingAudioEvaluationObservations: pendingAudioEvaluationObservations,
             eventColorContext: eventColorContext,
             stepSnapshotRecorder: stepSnapshotRecorder,
-            positionOscillationCache: positionOscillationCache
+            positionOscillationCache: positionOscillationCache,
+            trailPositionHistory: trailPositionHistory
         )
     }
 
@@ -366,6 +375,32 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         eventColorContext = snapshot.eventColorContext
         stepSnapshotRecorder = snapshot.stepSnapshotRecorder
         positionOscillationCache = snapshot.positionOscillationCache
+        trailPositionHistory = snapshot.trailPositionHistory
+    }
+
+    /// Sprite Trail direction samples for the current particle buffer, in the
+    /// buffer's authored order (ids ascending, so callers can merge-walk the
+    /// render set). Each sample is the chord from the oldest retained ring
+    /// position to the particle's current position: a conservative path-history
+    /// approximation of the trail tangent, smoothing spirals and compositional
+    /// motion that an instantaneous-velocity tangent turns into straight
+    /// stripes, and keeping a direction for slow particles that still have
+    /// path history. Degenerate chords are omitted so the caller falls back to
+    /// the instantaneous velocity direction.
+    nonisolated func trailDirectionSamples() -> [SceneParticleTrailDirectionSample] {
+        guard !trailPositionHistory.isEmpty else { return [] }
+        var samples: [SceneParticleTrailDirectionSample] = []
+        samples.reserveCapacity(particles.count)
+        for index in particles.indices {
+            let direction = particles[index].position
+                - trailPositionHistory.oldestPosition(entry: index)
+            let squaredLength = direction.x * direction.x
+                + direction.y * direction.y
+                + direction.z * direction.z
+            guard squaredLength.isFinite, squaredLength > 1e-12 else { continue }
+            samples.append(.init(id: particles[index].id, direction: direction))
+        }
+        return samples
     }
 
     private nonisolated func publishTransientRenderBirths(
@@ -513,13 +548,16 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             }
             if liveCount != readIndex {
                 particles[liveCount] = particle
+                trailPositionHistory.moveEntry(from: readIndex, to: liveCount)
             }
             liveCount += 1
         }
         if liveCount < particles.count {
             particles.removeLast(particles.count - liveCount)
+            trailPositionHistory.removeEntries(beyond: liveCount)
         }
         simulationTime += duration
+        trailPositionHistory.record(particles)
         stepSnapshotRecorder?.record(duration: duration, particles: particles)
     }
 
@@ -587,6 +625,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                 emitter, spawnPlan: spawnPlan, frame: emitterFrame
             ) {
                 particles.append(particle)
+                trailPositionHistory.seed(position: particle.position)
                 birthEvents.append(particle)
             }
         }

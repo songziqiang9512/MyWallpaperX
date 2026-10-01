@@ -526,9 +526,32 @@ final class SceneParticleRuntime {
             return
         }
         let particles = root.simulator.renderParticlesForCurrentAdvance()
+        // Sprite Trail orientation follows the particle's recent path chord
+        // instead of its instantaneous velocity. Samples are id-ascending and
+        // the render set is id-sorted, so one forward walk aligns them without
+        // per-particle lookups; particles without a sample (fresh births,
+        // degenerate chords, history-less child systems) keep the velocity
+        // direction. The stretch magnitude below stays velocity-based.
+        let trailDirections = root.trail != nil
+            ? root.simulator.trailDirectionSamples() : nil
+        var trailDirectionIndex = 0
         root.instances.removeAll(keepingCapacity: true)
         root.instances.reserveCapacity(particles.count)
         for particle in particles {
+            if let directions = trailDirections {
+                while trailDirectionIndex < directions.count,
+                      directions[trailDirectionIndex].id < particle.id {
+                    trailDirectionIndex += 1
+                }
+            }
+            let trailVelocity: SIMD3<Double>
+            if let directions = trailDirections,
+               trailDirectionIndex < directions.count,
+               directions[trailDirectionIndex].id == particle.id {
+                trailVelocity = directions[trailDirectionIndex].direction
+            } else {
+                trailVelocity = particle.velocity
+            }
             let frames = Self.spriteFrames(
                 animation: root.spriteAnimation,
                 staticAspect: root.staticSpriteAspect,
@@ -543,7 +566,7 @@ final class SceneParticleRuntime {
                 rotation: particle.rotation.particleFloatValue,
                 color: particle.color.particleFloatValue,
                 alpha: Float(particle.alpha) * layerAlpha,
-                velocity: particle.velocity.particleFloatValue,
+                velocity: trailVelocity.particleFloatValue,
                 trailStretch: root.trail?.stretch(for: particle.velocity),
                 currentFrame: frames.current.orientedForTrail(root.trail != nil),
                 nextFrame: frames.next?.orientedForTrail(root.trail != nil),
@@ -551,6 +574,29 @@ final class SceneParticleRuntime {
                 nextFrameAspect: frames.nextAspect,
                 frameMix: frames.mix
             ))
+        }
+        // Translucent particles blend as premultiplied "over", so draw order
+        // decides local brightness; simulation order is not a depth order and
+        // shows as uneven stacking and flicker. Sort far-to-near by the depth
+        // proxy available at rebuild time — the layer-local z axis. In this
+        // engine's orthographic and fallback-perspective frames the camera sits
+        // on the +z side looking toward -z, so SMALLER z is farther; ascending
+        // z therefore draws far first and near last, which is what "over"
+        // compositing requires. The proxy is exact for unrotated layers and an
+        // approximation for X/Y-rotated layers and authored perspective scenes.
+        // Only large translucent systems pay for the sort: additive blending
+        // is commutative (one/one) and order-invariant, opaque profiles are
+        // never admitted by the pipeline compiler, and the 256-instance
+        // threshold keeps small systems at zero sort cost. The index
+        // tiebreak makes the sort stable: equal-depth instances keep
+        // simulation order.
+        if root.renderState.blendMode == .translucent, root.instances.count >= 256 {
+            let order = root.instances.indices.sorted { lhs, rhs in
+                let lhsZ = root.instances[lhs].positionAndSize.z
+                let rhsZ = root.instances[rhs].positionAndSize.z
+                return lhsZ == rhsZ ? lhs < rhs : lhsZ < rhsZ
+            }
+            root.instances = order.map { root.instances[$0] }
         }
     }
 
@@ -694,7 +740,10 @@ final class SceneParticleRuntime {
             prewarmStepBudget: 3_600,
             layerImageEmissionMap: layerImageMap,
             worldSpaceFrame: worldSpaceFrame,
-            stepSnapshotPolicy: render.ropeTrail?.stepSnapshotPolicy
+            stepSnapshotPolicy: render.ropeTrail?.stepSnapshotPolicy,
+            trailHistoryCapacity: render.trail != nil
+                ? SceneParticleTrailRenderPlan.historySampleCapacity
+                : 0
         )
         return SceneParticleRootRenderRuntime(
             definition: asset.definition,

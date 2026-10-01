@@ -312,9 +312,16 @@ enum Harness {
         let alpha = changed(alpha: 0.2), size = changed(size: 8), color = changed(color: SIMD3(0, 1, 0))
         let invisible = changed(alpha: 0)
         var life = original
+        // Death retires the track; the ghost keeps draining its window instead
+        // of the trail vanishing together with the particle.
         let dead = life.advance(by: 0, particles: [], layerAlpha: 1)
-        let newborn = life.advance(by: 0, particles: [.init(id: 1, position: .zero,
-            size: 2, color: SIMD3(1, 1, 1), alpha: 1)], layerAlpha: 1)
+        // Revival un-retires the same track: it must emit exactly what a
+        // particle that never died emits, not a doubled copy.
+        let revived = life.advance(by: 0, particles: [.init(id: 1, position: SIMD3(16, 0, 0),
+            size: 2, color: SIMD3(1, 0, 0), alpha: 1)], layerAlpha: 1)
+        var survivor = original
+        let alive = survivor.advance(by: 0, particles: [.init(id: 1, position: SIMD3(16, 0, 0),
+            size: 2, color: SIMD3(1, 0, 0), alpha: 1)], layerAlpha: 1)
         life = original
         let replay = life.advance(by: 0, particles: [.init(id: 1, position: SIMD3(16, 0, 0),
             size: 8, color: SIMD3(1, 0, 0), alpha: 1)], layerAlpha: 1)
@@ -322,7 +329,12 @@ enum Harness {
                 "sizeUniform": !size.isEmpty && size.allSatisfy { $0.positionAndSize.w == 4 && $0.trailHeadJoin.w == 4 && $0.trailTailJoin.w == 4 },
                 "colorUniform": !color.isEmpty && color.allSatisfy { $0.colorAndFrameMix.x == 0 && $0.colorAndFrameMix.y == 1 },
                 "noOldAlpha": invisible.allSatisfy { $0.rotationAndAlpha.w == 0 },
-                "clearedOnDeath": dead.isEmpty && newborn.isEmpty,
+                "deathDrainsGhost": !dead.isEmpty,
+                "revivalMatchesNeverDied": revived.count == alive.count
+                    && zip(revived, alive).allSatisfy {
+                        $0.positionAndSize == $1.positionAndSize
+                            && $0.rotationAndAlpha == $1.rotationAndAlpha
+                    },
                 "replay": zip(size, replay).allSatisfy { $0.positionAndSize == $1.positionAndSize && $0.rotationAndAlpha == $1.rotationAndAlpha }]
     }
 
@@ -403,11 +415,16 @@ enum Harness {
                 && instance.rotationAndAlpha.w > 0
         }
         let restored = history
-        let cleared = history.advance(by: 1, particles: [], layerAlpha: 1).count
+        // Death drains inside the authored window instead of clearing: one
+        // second after the last live frame every retired track still emits
+        // its remaining tail, and only once the whole window has elapsed are
+        // the drained tracks removed and emit nothing.
+        let ghost = history.advance(by: 1, particles: [], layerAlpha: 1).count
+        let drained = history.advance(by: plan.length, particles: [], layerAlpha: 1).count
         history = restored
         let replay = history.advance(by: 0, particles: particles(at: 40), layerAlpha: 1)
         return ["accepted": true, "count": instances.count, "correct": correct,
-                "cleared": cleared, "replayed": replay.count]
+                "ghostDrain": ghost, "cleared": drained, "replayed": replay.count]
     }
 
     private static func historyContract() -> [String: Any] {
@@ -555,6 +572,13 @@ enum Harness {
             particles: [particle(id: 1, x: 30)],
             layerAlpha: 1
         ).count)
+        // Both particles stay dead from here: their ghosts drain inside the
+        // authored 1s window (four further 0.25 advances) before removal, so
+        // the emitted tail shrinks to zero and only then disappear the tracks.
+        counts.append(history.advance(by: 0.25, particles: [], layerAlpha: 1).count)
+        counts.append(history.advance(by: 0.25, particles: [], layerAlpha: 1).count)
+        counts.append(history.advance(by: 0.25, particles: [], layerAlpha: 1).count)
+        counts.append(history.advance(by: 0.25, particles: [], layerAlpha: 1).count)
         return counts
     }
 
@@ -778,6 +802,11 @@ class SceneParticleRopeTrailTests(unittest.TestCase):
         self.assertTrue(result["accepted"])
         self.assertGreaterEqual(result["count"], 20800)
         self.assertTrue(result["correct"])
+        # Death drains inside the authored 30s window instead of clearing:
+        # one second later every retired track still emits its remaining
+        # tail; after the whole window has elapsed the drained tracks are
+        # removed and emit nothing.
+        self.assertGreater(result["ghostDrain"], 0)
         self.assertEqual(result["cleared"], 0)
         self.assertEqual(result["replayed"], result["count"])
 
@@ -796,10 +825,32 @@ class SceneParticleRopeTrailTests(unittest.TestCase):
         self.assertIn([10, 0], directions)
         self.assertIn([0, 10], directions)
 
-    def test_history_clears_dead_or_invalid_tracks_and_is_partition_stable(self) -> None:
+    def test_history_drains_dead_or_invalid_tracks_and_is_partition_stable(self) -> None:
         history = self.result["history"]
-        self.assertEqual(history["lifecycleCounts"], [0, 2, 2, 0, 0])
-        self.assertEqual(history["invalidLifecycleCounts"], [1, 0, 0])
+        # Fixture pacing: length=1 with one 0.25 advance per frame, so the
+        # retention window spans four frames. Ghost-exhaustion semantics: a
+        # dead particle's track does not vanish at the death frame; its ghost
+        # keeps emitting the window remainder, drains tail-first, and the
+        # track is removed only once its newest sample has left the whole
+        # window (id 2 at elapsed 1.25s, id 1 at elapsed 2.0s where the count
+        # finally reaches 0).
+        #   frame A (0.00s, both born):  single sample each -> 0 segments
+        #   frame B (0.25s, both live):  1 segment each -> 2
+        #   frame C (0.50s, id 2 dies):  id 1 emits 2 live segments + id 2's
+        #                                 ghost emits 1 -> 3
+        #   frame D (0.75s, both dead):  id 1 ghost 2 + id 2 ghost 1 -> 3
+        #   frame E (1.00s, id 1 revives): revived id 1 emits 3 segments
+        #                                 exactly once + id 2 ghost 1 -> 4
+        #   frame F (1.25s):             id 2 fully drained and removed,
+        #                                 id 1 ghost shrinks to 2 -> 2
+        #   frames G/H (1.50/1.75s):     id 1 ghost keeps shrinking -> 1, 1
+        #   frame I (2.00s):             id 1 fully drained and removed -> 0
+        self.assertEqual(history["lifecycleCounts"], [0, 2, 3, 3, 4, 2, 1, 1, 0])
+        # A particle invalidated for one frame (NaN) retires like a death, so
+        # its ghost still emits that frame; on recovery the track is revived
+        # explicitly and emits the same geometry exactly once (2 segments, not
+        # the 4 that a live+retired double emission would produce).
+        self.assertEqual(history["invalidLifecycleCounts"], [1, 1, 2])
         self.assertEqual(history["staticAndZeroSizeCounts"], [0, 0])
         # Both sampling rates must cover the same authored path; the finer
         # one simply resolves it with more drawable nodes.

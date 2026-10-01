@@ -115,11 +115,18 @@ nonisolated struct SceneParticleRopeTrailHistory {
         var committed: [TimedSample]
         var current: TimedSample
         var appearance: SceneParticleRopeTrailParticle
+        /// Dead-particle retirement. Retired tracks stop appending samples
+        /// and drain inside the authored retention window instead of
+        /// disappearing at the frame the particle died.
+        var isRetired: Bool = false
     }
 
     private let plan: SceneParticleRopeTrailPlan
     private var elapsed: TimeInterval = 0
     private var tracks: [UInt64: Track] = [:]
+    /// Retired track ids in retirement order. Kept as an explicit sequence so
+    /// ghost emission stays deterministic across replayed frames.
+    private var retiredIDs: [UInt64] = []
 
     init(plan: SceneParticleRopeTrailPlan) {
         self.plan = plan
@@ -132,10 +139,27 @@ nonisolated struct SceneParticleRopeTrailHistory {
     ) -> [SceneParticleGPUInstance] {
         let validParticles = update(by: frameDelta, particles: particles)
         let safeLayerAlpha = layerAlpha.isFinite ? min(max(layerAlpha, 0), 1) : 0
-        return validParticles.flatMap { particle -> [SceneParticleGPUInstance] in
-            guard let track = tracks[particle.id] else { return [] }
-            return instances(for: track, layerAlpha: safeLayerAlpha)
+        let liveIDs = Set(validParticles.map(\.id))
+        var result: [SceneParticleGPUInstance] = []
+        result.reserveCapacity(validParticles.count + retiredIDs.count)
+        for particle in validParticles {
+            guard let track = tracks[particle.id] else { continue }
+            result.append(contentsOf: instances(
+                for: track, layerAlpha: safeLayerAlpha
+            ))
         }
+        // Retired ribbons keep emitting their draining remainder so a dead
+        // particle's tail fades out along the retention window instead of
+        // vanishing with the particle. Ids that are live again are skipped
+        // defensively: update() un-retires revived tracks, so the same
+        // geometry is emitted exactly once.
+        for id in retiredIDs where !liveIDs.contains(id) {
+            guard let track = tracks[id] else { continue }
+            result.append(contentsOf: instances(
+                for: track, layerAlpha: safeLayerAlpha
+            ))
+        }
+        return result
     }
 
     mutating func ingest(
@@ -153,8 +177,44 @@ nonisolated struct SceneParticleRopeTrailHistory {
         elapsed += delta
         let validParticles = particles.filter(Self.valid)
         let liveIDs = Set(validParticles.map(\.id))
-        for id in tracks.keys.filter({ !liveIDs.contains($0) }) {
-            tracks.removeValue(forKey: id)
+        // Revival is an explicit transition recorded in the same value as
+        // retirement, so a rolled-back frame restores both flags together: a
+        // retired id that is live again this frame rejoins the appending path
+        // and emits exactly once, instead of staying in the retired queue and
+        // being double-emitted until the particle dies again.
+        var stillRetiredIDs: [UInt64] = []
+        stillRetiredIDs.reserveCapacity(retiredIDs.count)
+        for id in retiredIDs {
+            guard liveIDs.contains(id) else {
+                stillRetiredIDs.append(id)
+                continue
+            }
+            if var track = tracks[id] {
+                track.isRetired = false
+                tracks[id] = track
+            }
+        }
+        retiredIDs = stillRetiredIDs
+        // Death is a simulation result, so retirement is derived from the same
+        // live-id set on every update: a rolled-back frame that revives the
+        // particle restores this whole history value and the track resumes
+        // appending, while replaying the death re-retires at the same elapsed
+        // time. Retired tracks stop appending and age out tail-first under the
+        // authored retention window; once the newest recorded sample has left
+        // the window the track is fully drained and removed. Same-frame deaths
+        // enter the queue in ascending id order so ghost drain order never
+        // depends on dictionary iteration order.
+        for id in tracks.keys.filter({ !liveIDs.contains($0) }).sorted() {
+            guard var track = tracks[id], !track.isRetired else { continue }
+            track.isRetired = true
+            tracks[id] = track
+            retiredIDs.append(id)
+        }
+        while let front = retiredIDs.first,
+              let track = tracks[front],
+              track.current.time + plan.length <= elapsed {
+            retiredIDs.removeFirst()
+            tracks.removeValue(forKey: front)
         }
 
         for particle in validParticles {
