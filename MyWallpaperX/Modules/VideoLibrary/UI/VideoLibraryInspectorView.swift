@@ -59,8 +59,29 @@ final class VideoLibraryInspectorView: NSView {
     private var previewImage: NSImage?
     /// 预览加载完成后才允许展示「未找到缩略图」提示，加载中的占位不算缺失
     private var hasFinishedPreviewLoad = false
+    /// 预览异步加载代数：每次重载自增，旧代数的迟到完成不得覆盖新一轮结果
+    /// （快速资源替换/缩略图补齐并发时，旧请求的图片会张冠李戴到新资源上）。
+    private var previewLoadGeneration = 0
+    /// 上一次预览加载的资产身份：$wallpapers 的无关 publish（收藏切换等）不重复触发磁盘解码。
+    private var lastPreviewLoadIdentity: PreviewAssetIdentity?
+
+    /// 预览资产的解析输入身份：源路径 + 两个派生资产路径。
+    private struct PreviewAssetIdentity: Equatable {
+        let path: String
+        let thumbnailPath: String?
+        let staticFramePath: String?
+    }
 
     private func loadPreviewImage() {
+        previewLoadGeneration += 1
+        let generation = previewLoadGeneration
+        // 重载开始回到「加载中」：占位不算缺失，缺失提示由本轮完成时裁决
+        hasFinishedPreviewLoad = false
+        lastPreviewLoadIdentity = PreviewAssetIdentity(
+            path: currentWallpaper.path,
+            thumbnailPath: currentWallpaper.thumbnailPath,
+            staticFramePath: currentWallpaper.staticFramePath
+        )
         let manager = wallpaperManager
         let wallpaper = currentWallpaper
         weak let weakSelf = self
@@ -76,8 +97,12 @@ final class VideoLibraryInspectorView: NSView {
             }
             guard let sourcePath = thumbPath ?? staticFramePath else {
                 DispatchQueue.main.async {
-                    weakSelf?.hasFinishedPreviewLoad = true
-                    weakSelf?.rebuildContent()
+                    guard let self = weakSelf, self.previewLoadGeneration == generation else { return }
+                    // 本轮结论是「无预览」：旧图必须清空，否则资源替换后旧资源的
+                    // 预览会一直挂在面板上
+                    self.previewImage = nil
+                    self.hasFinishedPreviewLoad = true
+                    self.rebuildContent()
                 }
                 return
             }
@@ -93,12 +118,25 @@ final class VideoLibraryInspectorView: NSView {
             }, completion: { image in
                 // ThumbnailCache 内存命中会在调用线程同步回调，统一收敛回主线程。
                 DispatchQueue.main.async {
-                    weakSelf?.previewImage = image
-                    weakSelf?.hasFinishedPreviewLoad = true
-                    weakSelf?.rebuildContent()
+                    guard let self = weakSelf, self.previewLoadGeneration == generation else { return }
+                    self.previewImage = image
+                    self.hasFinishedPreviewLoad = true
+                    self.rebuildContent()
                 }
             })
         }
+    }
+
+    /// 源路径或派生资产路径变化（资源替换/静帧补齐）时重载预览；
+    /// 身份未变化的 publish（收藏切换等）不重复触发磁盘解码。
+    private func reloadPreviewIfAssetIdentityChanged() {
+        let identity = PreviewAssetIdentity(
+            path: currentWallpaper.path,
+            thumbnailPath: currentWallpaper.thumbnailPath,
+            staticFramePath: currentWallpaper.staticFramePath
+        )
+        guard identity != lastPreviewLoadIdentity else { return }
+        loadPreviewImage()
     }
 
     /// Inspector 预览高度仅 156pt；静帧原图按 4096px 上限生成（WallpaperManager+StaticFramePipeline），
@@ -205,10 +243,24 @@ final class VideoLibraryInspectorView: NSView {
                 if self.loadedDetailsPath != nil,
                    self.loadedDetailsPath != self.currentWallpaper.path {
                     self.loadDetails()
+                    // 资源替换：源路径变化后旧预览图不再属于当前资源，按身份变化重载
+                    self.reloadPreviewIfAssetIdentityChanged()
                 } else {
                     self.rebuildContent()
                     self.refreshFooterActions()
                 }
+            }
+            .store(in: &cancellables)
+        // 缩略图生成完成不必然伴随库内容 publish——generateThumbnail 只写磁盘与
+        // 路径索引，模型 thumbnailPath 可能为 nil（WallpaperManager+CachePipeline）。
+        // 与网格（AppKitLibraryGridView）同一刷新通道：按标准化路径过滤后重载预览，
+        // resolvedThumbnailPath 每次重新解析磁盘，补齐后的文件可直接命中。
+        wallpaperManager.thumbnailReadyPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] changedPath in
+                guard let self,
+                      self.wallpaperManager.normalizedPath(self.currentWallpaper.path) == changedPath else { return }
+                self.loadPreviewImage()
             }
             .store(in: &cancellables)
         // 播放态变化（停止/切换）不一定伴随库内容变化；按钮的互斥形态
