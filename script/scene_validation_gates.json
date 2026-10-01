@@ -376,6 +376,7 @@
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadSelection.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Downloads.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+HelperIdleReaping.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryReclamation.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserView.swift",
         "script/tests/fixtures/SteamDownloadExecutionHarness.swift",
         "script/tests/fixtures/SteamReadyUpdateDeletionFixture.swift",
@@ -385,6 +386,8 @@
         "test_steam_client_lifecycle",
         "test_steam_download_execution",
         "test_steam_download_progress",
+        "test_steam_library_index_gc",
+        "test_steam_library_reload_coalescing",
         "test_steam_protocol_golden"
       ]
     },
@@ -499,6 +502,7 @@
         "test_scene_animated_material_visual_failure",
         "test_scene_asset_catalog_resource_view",
         "test_scene_bc_texture_uploader",
+        "test_scene_bc_upload_batch_capacity",
         "test_scene_frame_texture_registry",
         "test_scene_image_upload_completion",
         "test_scene_png_source_channels",

@@ -8,6 +8,15 @@ import zlib
 /// command queues are thread-safe; serial command-buffer order remains local
 /// to each synchronous upload while queue construction leaves the hot loop.
 nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
+    /// A serial Metal queue stops handing out command buffers once ~64 sit
+    /// uncompleted, so a load batch that defers every conversion commit to
+    /// its terminal flush blocks inside the load loop (the flush becomes
+    /// unreachable). The uncommitted lane therefore commits and drains its
+    /// pending prefix mid-batch at this budget: one in-flight buffer being
+    /// encoded plus the batch-end mipmap flush buffer still fit below the
+    /// device capacity with margin.
+    private let uncommittedBatchLimit: Int
+
     private let lock = NSLock()
     private var queues: [UInt64: MTLCommandQueue] = [:]
     private var creationAttempts = 0
@@ -17,7 +26,13 @@ nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
     private var mipmapFlushStorage = 0
     private var pendingUncommittedCommandBuffers: [MTLCommandBuffer] = []
     private var pendingUncommittedConversionTextures: [MTLTexture] = []
+    private var midBatchFailedConversionTextures: [MTLTexture] = []
     private var uncommittedEnqueueStorage = 0
+    private var midBatchFlushStorage = 0
+
+    init(uncommittedBatchLimit: Int = 32) {
+        self.uncommittedBatchLimit = uncommittedBatchLimit
+    }
 
     var creationAttemptCount: Int {
         lock.lock()
@@ -43,8 +58,9 @@ nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
     /// While a batch is active, mipmap generation commands defer to one
     /// command buffer committed at flush time instead of one synchronous
     /// round-trip per texture. `begin` resets any stale pending lists —
-    /// both lanes — so a cancelled pass cannot leak its buffers into the
-    /// next batch's flush accounting.
+    /// both lanes, including mid-batch drain failures — so a cancelled
+    /// pass cannot leak its buffers or identities into the next batch's
+    /// flush accounting.
     func beginMipmapBatch() {
         lock.lock()
         defer { lock.unlock() }
@@ -52,6 +68,7 @@ nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
         pendingMipmapTextures = []
         pendingUncommittedCommandBuffers = []
         pendingUncommittedConversionTextures = []
+        midBatchFailedConversionTextures = []
     }
 
     /// Returns true when the texture joined an active batch (generation
@@ -126,36 +143,70 @@ nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
     /// to the active batch: flush commits queued buffers in submission
     /// order (the shared serial queue completes them in that order) and
     /// waits for each. Returns false when no batch is active (caller
-    /// commits immediately).
+    /// commits immediately). When the pending prefix has reached the
+    /// uncommitted budget, it is committed and drained right here — the
+    /// load loop's next `makeCommandBuffer` must never wait on a flush
+    /// that only runs after the loop — and its failure identities survive
+    /// to the terminal flush's return.
     func enqueueUncommittedIfBatching(
         _ commandBuffer: MTLCommandBuffer,
         conversionTexture: MTLTexture
     ) -> Bool {
         lock.lock()
-        defer { lock.unlock() }
-        guard mipmapBatchActive else { return false }
+        guard mipmapBatchActive else {
+            lock.unlock()
+            return false
+        }
+        if pendingUncommittedCommandBuffers.count >= uncommittedBatchLimit {
+            let buffers = pendingUncommittedCommandBuffers
+            let conversionTextures = pendingUncommittedConversionTextures
+            pendingUncommittedCommandBuffers = []
+            pendingUncommittedConversionTextures = []
+            midBatchFlushStorage += 1
+            lock.unlock()
+            for buffer in buffers {
+                buffer.commit()
+            }
+            for (index, buffer) in buffers.enumerated() {
+                buffer.waitUntilCompleted()
+                guard buffer.status != .completed,
+                      index < conversionTextures.count else { continue }
+                lock.lock()
+                midBatchFailedConversionTextures.append(conversionTextures[index])
+                lock.unlock()
+            }
+            lock.lock()
+            guard mipmapBatchActive else {
+                lock.unlock()
+                return false
+            }
+        }
         pendingUncommittedCommandBuffers.append(commandBuffer)
         pendingUncommittedConversionTextures.append(conversionTexture)
         uncommittedEnqueueStorage += 1
+        lock.unlock()
         return true
     }
 
     /// Commits every queued command buffer in submission order and waits
     /// for each. Returns the conversion textures whose buffers did not
-    /// complete so the caller reclaims their entries.
+    /// complete — across the whole batch, including prefixes drained by
+    /// the budget mid-batch — so the caller reclaims their entries.
     @discardableResult
     func flushUncommittedCommandBuffers() -> [MTLTexture] {
         lock.lock()
         let buffers = pendingUncommittedCommandBuffers
         let conversionTextures = pendingUncommittedConversionTextures
+        let midBatchFailed = midBatchFailedConversionTextures
         pendingUncommittedCommandBuffers = []
         pendingUncommittedConversionTextures = []
+        midBatchFailedConversionTextures = []
         lock.unlock()
-        guard !buffers.isEmpty else { return [] }
+        guard !buffers.isEmpty else { return midBatchFailed }
         for buffer in buffers {
             buffer.commit()
         }
-        var failed: [MTLTexture] = []
+        var failed = midBatchFailed
         for (index, buffer) in buffers.enumerated() {
             buffer.waitUntilCompleted()
             if buffer.status != .completed, index < conversionTextures.count {
@@ -169,6 +220,12 @@ nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return uncommittedEnqueueStorage
+    }
+
+    var uncommittedMidBatchFlushCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return midBatchFlushStorage
     }
 }
 

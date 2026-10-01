@@ -393,6 +393,91 @@ import Metal
                 results["evictIdempotent"] = evictBudget.residentBytes == 0
             }
         }
+        // Bounded uncommitted lane (BC batch-capacity fix): the pending
+        // conversion prefix commits and drains at the budget instead of
+        // blocking the load loop on the device's command-buffer capacity.
+        let boundedQueue = SceneTextureUploadCommandQueue(uncommittedBatchLimit: 3)
+        boundedQueue.beginMipmapBatch()
+        var boundedDestinations: [MTLTexture] = []
+        for _ in 0..<7 {
+            if case let .loaded(destination) = SceneCompressedTextureUploader.upload(
+                container: makeTwoImageBC3Container(), pixelFormat: .bc3_rgba,
+                purpose: .premultipliedColor, uploadCommandQueue: boundedQueue,
+                device: device
+            ) {
+                boundedDestinations.append(destination)
+            }
+        }
+        results["boundedMidBatchFlushCount"] = boundedQueue.uncommittedMidBatchFlushCount
+        results["boundedEnqueueCount"] = boundedQueue.uncommittedEnqueueCount
+        results["boundedDestinationCount"] = boundedDestinations.count
+        results["boundedFlushCommitsAll"] =
+            boundedQueue.flushUncommittedCommandBuffers().isEmpty
+        // Mid-batch drain failure identity: fault 4 (terminal status reports
+        // error after real GPU completion) is active only while the third
+        // enqueue drains the first prefix, so only those conversion
+        // identities must reach the terminal flush's return.
+        let identityQueue = SceneTextureUploadCommandQueue(uncommittedBatchLimit: 2)
+        identityQueue.beginMipmapBatch()
+        var drainedIdentities: [MTLTexture] = []
+        var retainedIdentities: [MTLTexture] = []
+        for index in 0..<4 {
+            MWXSetUploadFault(device, index == 2 ? 4 : 0)
+            guard case let .loaded(destination) = SceneCompressedTextureUploader.upload(
+                container: makeTwoImageBC3Container(), pixelFormat: .bc3_rgba,
+                purpose: .premultipliedColor, uploadCommandQueue: identityQueue,
+                device: device
+            ) else { continue }
+            if index < 2 { drainedIdentities.append(destination) }
+            else { retainedIdentities.append(destination) }
+        }
+        MWXSetUploadFault(device, 0)
+        let identityFailures = identityQueue.flushUncommittedCommandBuffers()
+        results["identityMidBatchFlushCount"] = identityQueue.uncommittedMidBatchFlushCount
+        results["identityFailuresAreDrainedPrefixOnly"] =
+            drainedIdentities.count == 2 && retainedIdentities.count == 2
+            && drainedIdentities.allSatisfy { texture in
+                identityFailures.contains { $0 === texture }
+            }
+            && retainedIdentities.allSatisfy { texture in
+                !identityFailures.contains { $0 === texture }
+            }
+        // The queue keeps serving clean conversions after a faulted drain.
+        var identityRetryLoaded = false
+        if case .loaded = SceneCompressedTextureUploader.upload(
+            container: makeTwoImageBC3Container(), pixelFormat: .bc3_rgba,
+            purpose: .premultipliedColor, uploadCommandQueue: identityQueue,
+            device: device
+        ) {
+            identityRetryLoaded = true
+        }
+        results["identityRetryClean"] =
+            identityRetryLoaded
+            && identityQueue.flushUncommittedCommandBuffers().isEmpty
+        // A cancelled pass must not leak mid-batch failure identities into
+        // the next batch: begin() resets both lanes.
+        let resetQueue = SceneTextureUploadCommandQueue(uncommittedBatchLimit: 2)
+        resetQueue.beginMipmapBatch()
+        for index in 0..<3 {
+            MWXSetUploadFault(device, index == 2 ? 4 : 0)
+            _ = SceneCompressedTextureUploader.upload(
+                container: makeTwoImageBC3Container(), pixelFormat: .bc3_rgba,
+                purpose: .premultipliedColor, uploadCommandQueue: resetQueue,
+                device: device
+            )
+        }
+        MWXSetUploadFault(device, 0)
+        resetQueue.beginMipmapBatch()
+        var resetLoaded = false
+        if case .loaded = SceneCompressedTextureUploader.upload(
+            container: makeTwoImageBC3Container(), pixelFormat: .bc3_rgba,
+            purpose: .premultipliedColor, uploadCommandQueue: resetQueue,
+            device: device
+        ) {
+            resetLoaded = true
+        }
+        results["resetDropsStaleIdentities"] =
+            resetLoaded && resetQueue.flushUncommittedCommandBuffers().isEmpty
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: results))
     }
 
@@ -405,6 +490,32 @@ import Metal
             provider: CGDataProvider(data: rgba as CFData)!, decode: nil,
             shouldInterpolate: false, intent: .defaultIntent
         )!
+    }
+
+    static func makeTwoImageBC3Container() -> SceneTexContainer {
+        // BC3 block: alpha 128, color 0xF800 (red). 4x4 = one block.
+        let block = Data([
+            128, 128, 0, 0, 0, 0, 0, 0,
+            0x00, 0xF8, 0, 0, 0, 0, 0, 0,
+        ])
+        let mip = SceneTexContainer.Mip(width: 4, height: 4, data: block)
+        let frame0 = SceneTexContainer.SpriteFrame(
+            imageIndex: 0, duration: 0.035, origin: .zero,
+            xAxis: SIMD2(1, 0), yAxis: SIMD2(0, 1)
+        )
+        let frame1 = SceneTexContainer.SpriteFrame(
+            imageIndex: 1, duration: 0.035, origin: .zero,
+            xAxis: SIMD2(1, 0), yAxis: SIMD2(0, 1)
+        )
+        return SceneTexContainer(
+            format: 4, flags: 4,
+            textureWidth: 4, textureHeight: 4,
+            imageWidth: 4, imageHeight: 4,
+            containerVersion: .texb0002,
+            freeImageFormat: -1, isVideoMp4: false,
+            images: [.init(mips: [mip]), .init(mips: [mip])],
+            spriteFrames: [frame0, frame1]
+        )
     }
 
     static func describe(_ outcome: SceneTextureLoadOutcome) -> String {
@@ -504,6 +615,24 @@ class SceneImageUploadCompletionTests(unittest.TestCase):
         output = self.result
         self.assertEqual(output["faultedConversionCount"], 2)
         self.assertTrue(output["faultedConversionReportsIdentities"])
+
+    def test_uncommitted_batch_flushes_at_injected_limit_without_blocking(self) -> None:
+        output = self.result
+        self.assertEqual(output["boundedMidBatchFlushCount"], 2)
+        self.assertEqual(output["boundedEnqueueCount"], 7)
+        self.assertEqual(output["boundedDestinationCount"], 7)
+        self.assertTrue(output["boundedFlushCommitsAll"])
+
+    def test_midbatch_flush_failure_identity_survives_to_prepare_reclaim(self) -> None:
+        output = self.result
+        self.assertEqual(output["identityMidBatchFlushCount"], 1)
+        self.assertTrue(output["identityFailuresAreDrainedPrefixOnly"])
+
+    def test_midbatch_failure_retries_clean_after_fault_clears(self) -> None:
+        self.assertTrue(self.result["identityRetryClean"])
+
+    def test_cancelled_pass_resets_midbatch_identities_for_next_batch(self) -> None:
+        self.assertTrue(self.result["resetDropsStaleIdentities"])
 
     def test_flush_failure_evicts_unproven_texture_and_retries(self) -> None:
         output = self.result
