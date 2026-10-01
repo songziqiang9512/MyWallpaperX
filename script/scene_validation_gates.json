@@ -977,6 +977,19 @@
       ]
     },
     {
+      "id": "optional-named-failure",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift",
+        "script/tests/test_scene_optional_named_failure*.py"
+      ],
+      "modules": [
+        "test_scene_optional_named_failure",
+        "test_scene_optional_named_failure_integration"
+      ]
+    },
+    {
       "id": "material-program",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialAlphaAttenuationEligibility.swift",

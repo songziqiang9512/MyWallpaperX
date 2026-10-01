@@ -120,7 +120,7 @@ tracked full matrix 扩为全集 identity-only 基线。历史期待先分成有
 3. 可独立闭合者中，优先实际受阻样本多、受阻下游广、官方合同明确、改动半径小的项；列受益集合与代价，不只按 occurrence 高频排序。
 4. 两次实验均未移动首断点或减少工作量时，重新定位 producer-to-consumer 边，不继续微调同一形状 matcher。
 
-2026-10-02 的参考证据派生批次见[实施卡与59项去向](design/reference-evidence-implementation-cards.md)：D2/D3有界首片、RF01 shader-default、RF05诊断导出、RF03限定粒子四方法及连续排放扩展、RF07 raw/display分离均已有独立验收，冻结事实只在各执行记录保存。RF05 初始隐藏 provider 的资源准备及普通可见图片准入已完成八项App门；下一批先关闭途中发现的合法三候选输入阻断首帧问题，再进入D1。其余既有能力按具体组合反例推进。RF02新增Translation/Rotation及RF04隐式mip须准确consumer语义证据，不因第三方报告标记gap重写已有owner。
+2026-10-02 的参考证据派生批次见[实施卡与59项去向](design/reference-evidence-implementation-cards.md)：D2/D3有界首片、RF01 shader-default、RF05诊断导出、RF03限定粒子四方法及连续排放扩展、RF07 raw/display分离均已有独立验收，冻结事实只在各执行记录保存。RF05 初始隐藏 provider 的资源准备及普通可见图片准入已完成八项App门；途中发现的合法三候选输入阻断首帧问题已按局部失败合同修复并独立验收，下一能力批进入D1。其余既有能力按具体组合反例推进。RF02新增Translation/Rotation及RF04隐式mip须准确consumer语义证据，不因第三方报告标记gap重写已有owner。
 
 #### Batch 2 后继选序（2026-10-02）
 
@@ -129,8 +129,8 @@ tracked full matrix 扩为全集 identity-only 基线。历史期待先分成有
 | 顺序 | 批次与用户结果 | 开始/完成边界及下一方向 |
 |---|---|---|
 | 已验收、按职责提交 | RF03 连续排放播放控制 | 缺省/0 duration 系统能 pause/stop/play/query；反例、真实App与终审见实施卡执行记录。下一批 RF05 隐藏 provider。 |
-| 已验收、按职责提交 | RF05 named provider 准备与显示分离 | 三产品复用现役引用/准入/capture；冻结证据见实施卡。下一批先修 optional 三候选未准入组合的局部失败，再继续 D1。 |
-| 紧接修复 | optional/named 未支持组合的失败半径 | 真实三候选输入已证明全场首帧timeout；在现役stage准入局部拒绝该effect并保健康输出，不扩两候选合同、不吞identity错误。关闭后D1。 |
+| 已验收、按职责提交 | RF05 named provider 准备与显示分离 | 三产品复用现役引用/准入/capture；冻结证据见实施卡。后继 optional 三候选局部失败片亦已验收；继续 D1。 |
+| 已验收、按职责提交 | [optional/named 未支持组合的失败半径](design/optional-named-source-failure-design.md) | 同一原失败输入已恢复首帧与next-frame，effect保留入口、邻层正常、exact-two仍执行；冻结证据见[执行记录](../history/scene/rf05-optional-named-failure-implementation-2026-10-02.md)。不扩三候选支持，下一批D1。 |
 | 下一能力主批 | D1 非连续且带效果的 composition 子层 | 先黑盒区分父slot与末后代slot，再复用现役 graph 已有 isolated target scope，解除普通图片父子树的准入缺边并核实际source；独立子效果→组输出→父级唯一 compositor，先作者自写交错 fixture，再隔离真实样本。extent/颜色域/嵌套/失败/resize 必须随片闭合，旧捕获形状路能撤即撤。 |
 | 并行证据、就绪后接续 | RF02 companion 与 RF04 mip | 使用现有 Windows VM 核官方客户端身份，执行自有可区分黑盒输入；结果限定 profile 后实现反射→typed值→真实 sampler 或 source version→snapshot→consumer。不能按名称猜值，也不能无限期停在待证；每轮记录具体实验与下一可执行动作。 |
 | 后续作者能力 | D4/D11 显式 emitParticles | 单 emitter 的明确 count 与真实 birth/预算/事务先闭合，再据证扩多 emitter/children；不把 play 当 reset，不擅定默认 count。重建/拒绝不可重复出生。 |

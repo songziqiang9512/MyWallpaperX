@@ -109,7 +109,8 @@ extension SceneResolvedMaterialGraphExecutor {
             reasonCode != "material-finalizer-color-contract"
                 || graph.renderTargets.isEmpty
         guard dependencyOwnership.preEncodeVisualFailureSlots(in: graph) != nil,
-              ordinaryReason || framebufferPreparationLimitation,
+              ordinaryReason || framebufferPreparationLimitation
+                || reasonCode == "material-optional-named-fallback-unproven",
               ordinaryColorContractLimitation,
               visualFailureTopologyIsSupported(
                   reasonCode: reasonCode,
@@ -273,6 +274,7 @@ extension SceneResolvedMaterialGraphExecutor {
         }
         if reasonCode == "dependency-stage-reference-unavailable"
             || reasonCode == "dependency-stage-secondary-reference-unavailable"
+            || reasonCode == "material-optional-named-fallback-unproven"
             || reasonCode == "external-primary-provider-source-unavailable" {
             guard transition.nextState.historyClosureIdentities.isEmpty else {
                 return false

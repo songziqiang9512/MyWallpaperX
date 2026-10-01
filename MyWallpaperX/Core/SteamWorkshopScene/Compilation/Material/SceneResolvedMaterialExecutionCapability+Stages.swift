@@ -439,6 +439,30 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 }
                 return .failure(rejection(reasonCode))
             }
+            // The author resolver preserves material/instance provenance, so
+            // repeated named candidates can precede one optional user texture.
+            // An unproved fallback chain must not enter frame finalization
+            // without a dependency owner and block every surface frame.
+            for slot in template.textureSlots.compactMap({ $0 })
+            where activeTextureSlots.contains(slot.index) {
+                guard !template.graphRole.bindings.contains(where: { $0.slot == slot.index }),
+                      let terminal = slot.candidates.last,
+                      SceneResolvedMaterialMixedProviderSlotFact.OptionalInput(
+                          terminal.reference
+                      ) != nil,
+                      slot.candidates.dropLast().contains(where: {
+                          if case .provider(.namedLayerTarget) = $0.reference { return true }
+                          return false
+                      }),
+                      !variants.provesExactMixedNamedFallback(slot: slot.index) else { continue }
+                return .failure(envelopeRejection(
+                    .material(.init(phase: .texture, code: .textureBindingInvalid,
+                        slot: slot.index, details: ["optional-named-fallback-unproven"])),
+                    node: node,
+                    template: template,
+                    reasonCode: "material-optional-named-fallback-unproven"
+                ))
+            }
             if sourceRoute == .transparentDirectDraw,
                !variants.supportsTransparentDirectDraw {
                 return .failure(sourceRouteRejection(

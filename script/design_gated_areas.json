@@ -259,6 +259,22 @@
         "sceneColorHistory",
         "terminalSceneColor"
       ]
+    },
+    {
+      "id": "scene-optional-named-failure-radius",
+      "title": "未支持optional/named组合的局部失败",
+      "owner": "existing material stage admission / stage fold / graph visual passthrough",
+      "status": "approved",
+      "designDoc": "docs/scene/design/optional-named-source-failure-design.md",
+      "design_notes": "五判据1/2/4；真实三候选导致全场首帧timeout。独立设计复核接受：仅活跃且无graph override的末optional/lower named未证明组合，先variant/demand/invariant检查，再沿现有no-clear/no-history窄拓扑局部退化。不扩exact2、不改IR、不吞identity。稳定失败合同和行为门接管后退役。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
+      ],
+      "contentPatterns": [
+        "material-optional-named-fallback-unproven"
+      ]
     }
   ]
 }

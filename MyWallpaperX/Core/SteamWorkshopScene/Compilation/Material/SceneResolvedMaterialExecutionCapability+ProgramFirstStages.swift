@@ -383,6 +383,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 aggregate: aggregate
             ) else { return false }
         }
+        if failure.code == "material-optional-named-fallback-unproven" {
+            return dependencyStageFailureMayPassthrough(
+                product.graph,
+                pairStep: pairPlan.effects.first { $0.effect == product.graph.effects.first?.key }
+            )
+        }
         let ordinaryVisualFailure = [
             "material-generic-owner-revoked",
             "material-variant-envelope-frontend",
