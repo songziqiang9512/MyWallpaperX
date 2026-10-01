@@ -194,6 +194,22 @@ extension SteamWorkshopService {
             // acquire its own removal reservation after this synchronous handoff.
             if let previousIdentity { steamLibraryVersionLeaseRegistry.reclamationFailed(previousIdentity) }
         }
+        // 无所有权标记的旧版样本占据目标目录时按需收编。事务层对无标记
+        // 占用保持失败关闭（未知内容不得被静默覆盖），收编在服务层显式
+        // 完成：正在播放的旧样本拒绝更新，其余把旧目录移开，发布成功后
+        // 删除旧内容，失败回移。
+        var legacyAsideURL: URL?
+        if previousIdentity == nil,
+           let occupant = try? SteamWorkshopLibraryTransaction.absoluteDirectory(content),
+           (try? SteamWorkshopLibraryTransaction.markerCommit(in: occupant)) == nil {
+            if let record = latestDownloadRecord(for: request.id), isRecordCurrentlyPlaying(record) {
+                throw SteamWorkshopLibraryTransaction.Failure(message: "旧版样本正在播放，请先停止播放再更新。")
+            }
+            let aside = content.deletingLastPathComponent()
+                .appendingPathComponent(".retired-legacy-\(request.id)-\(UUID().uuidString)", isDirectory: true)
+            try FileManager.default.moveItem(at: content, to: aside)
+            legacyAsideURL = aside
+        }
         let item = request.item ?? browserItemForDownload(id: request.id)
             ?? Self.itemByMergingAuthorMetadata(into: nil, id: request.id, title: request.pageTitle,
                 author: "未知作者", authorProfileURL: nil, authorWorkshopURL: nil)
@@ -203,8 +219,18 @@ extension SteamWorkshopService {
             exportedVideoURL: commit.contentType == "video" ? commit.entryPath.map { content.appendingPathComponent($0) } : nil,
             legacyFolderURL: content)
         snapshot.commit = commit
-        try SteamWorkshopLibraryTransaction.publishCanonical(prepared,
-            metadata: JSONEncoder().encode(snapshot), libraryRoot: libraryRoot)
+        do {
+            try SteamWorkshopLibraryTransaction.publishCanonical(prepared,
+                metadata: JSONEncoder().encode(snapshot), libraryRoot: libraryRoot)
+            if let aside = legacyAsideURL {
+                try? FileManager.default.removeItem(at: aside)
+            }
+        } catch {
+            if let aside = legacyAsideURL {
+                try? FileManager.default.moveItem(at: aside, to: content)
+            }
+            throw error
+        }
     }
 
     /// Single current pointer lives in the existing metadata index. Managed version directories are
@@ -475,20 +501,6 @@ extension SteamWorkshopService {
     private func writeDownloadMetadataSnapshot(_ snapshot: SteamWorkshopDownloadMetadataSnapshot, to url: URL) {
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         try? data.write(to: url, options: Data.WritingOptions.atomic)
-    }
-
-    func metadataItemForCompletedDownload(_ request: SteamWorkshopPendingDownloadRequest) async -> SteamWorkshopBrowserItem? {
-        if let item = request.item ?? browserItemForDownload(id: request.id),
-           !SteamWorkshopDetailRefreshSupport.needsListRefresh(item) {
-            return item
-        }
-
-        let fallback = request.item ?? browserItemForDownload(id: request.id)
-        return await resolveCachedDownloadAuthorMetadata(
-            itemID: request.id,
-            fallback: fallback,
-            title: request.pageTitle
-        )
     }
 
     func loadDownloadMetadataEntry(forItemID itemID: String) -> (url: URL, snapshot: SteamWorkshopDownloadMetadataSnapshot)? {

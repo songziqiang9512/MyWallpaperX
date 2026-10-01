@@ -206,6 +206,9 @@ extension SteamWorkshopLibraryTransaction {
             _ = unlinkat(journal.value, current.workshopId + ".json", 0)
             _ = fsync(journal.value)
         }
+        // 空的事务日志目录不必常驻：读侧（recoverPublications/publishCanonical）
+        // 全部按需创建。有并发新意图时 ENOTEMPTY 自动放弃，无害。
+        _ = unlinkat(library.value, publicationsName, AT_REMOVEDIR)
     }
 
     static func recoverPublications(libraryRoot: URL, retaining identities: Set<String> = [],
@@ -222,6 +225,9 @@ extension SteamWorkshopLibraryTransaction {
             guard identities.isDisjoint(with: affected) else { continue }
             try finishPublication(intent, libraryRoot: libraryRoot)
         }
+        // 重放完所有意图后尝试撤掉空日志目录（finishPublication 内部也会
+        // 逐条撤）；仍有未恢复意图时 ENOTEMPTY 自动放弃。
+        _ = unlinkat(library.value, publicationsName, AT_REMOVEDIR)
     }
 
     /// Explicit user deletion is immediate, independent of background version retention.
