@@ -193,11 +193,13 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                     ) else {
                 throw Issue.sampler("bootstrap-frontend")
             }
+            // Same prepared-source typing rule as variant compilation: the
+            // canonical pair remains an input to name extraction only, so the
+            // unconditional seed and the compiled variants cannot disagree
+            // about a sampler's source-proven purpose.
             return try activeSamplers(
                 prepared,
                 activeNames: names,
-                analysisVertexSource: sources.vertex,
-                analysisFragmentSource: sources.fragment,
                 normalBlendModeIdentifiers: Set(
                     resolvedCombos.compactMap { name, value in
                         value == 0 ? name : nil

@@ -210,12 +210,15 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             }
             resolvedIntegerCombos = resolved
             do {
+                // Source-proven texture typing reads the prepared source:
+                // the canonical pair is a derived compiler input shape, and
+                // feeding it here would weld backend lowering details into
+                // the semantics layer. Cached analyses keep their stored
+                // descriptors instead of recomputing (fail-closed).
                 sourceActiveSamplers = try SceneResolvedMaterialShaderSchema
                     .activeSamplers(
                         prepared,
                         activeNames: Set(activeSamplerNames),
-                        analysisVertexSource: compilerSources.vertex,
-                        analysisFragmentSource: compilerSources.fragment,
                         normalBlendModeIdentifiers: normalBlendIdentifiers(
                             resolvedIntegerCombos
                         )
