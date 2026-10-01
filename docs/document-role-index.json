@@ -14,6 +14,7 @@
       "docs/scene/design/host-render-power-protocol-design.md",
       "docs/scene/design/particle-playback-state-design.md",
       "docs/scene/design/refactor-baseline.md",
+      "docs/scene/design/reference-evidence-implementation-cards.md",
       "docs/scene/design/rt-prefix-admission-design.md",
       "docs/scene/design/runtime-architecture.md",
       "docs/scene/design/runtime-as-built-map.md",
@@ -427,7 +428,7 @@
     {
       "path": "docs/scene/design/debug-frame-capture-lifecycle-design.md",
       "role": "active-plan",
-      "entrypoint": "docs/scene/scene-compatibility-roadmap.md",
+      "entrypoint": "docs/scene/design/reference-evidence-implementation-cards.md",
       "retirementCondition": "诊断请求有界、单次终结、独立 readback 导出及 surface/session/隔离退出 drain 通过行为门，稳定诊断合同接管后归档本文并删除对应设计登记。"
     },
     {
@@ -459,6 +460,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/engine-refactor-program.md",
       "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+    },
+    {
+      "path": "docs/scene/design/reference-evidence-implementation-cards.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/scene-compatibility-roadmap.md",
+      "retirementCondition": "各派生卡完成或明确退役，未完成能力由唯一 P 路线及其能力/证据 owner 接管，59 项去向无悬空项后归档；本文不保留完成日志。"
     },
     {
       "path": "docs/scene/design/rt-prefix-admission-design.md",

@@ -3,7 +3,7 @@
 
 # Scene 调试截图导出生命周期
 
-2026-10-02，设计边界 approved；属于 [P 路线](../scene-compatibility-roadmap.md) 的 RF05 派生片，排在 RF01 后、RF02/RF03 前。批准不表示实施、GPU、性能或发布验收。本文只使用我方代码及已定位诊断现场，不依赖第三方实现、私有 shader 或新的作者语义。
+2026-10-02，设计边界 approved；属于 [P 路线](../scene-compatibility-roadmap.md) 的 [RF05](reference-evidence-implementation-cards.md) 派生片，排在 RF01 后、RF02/RF03 前。批准不表示实施、GPU、性能或发布验收。本文只使用我方代码及已定位诊断现场，不依赖第三方实现、私有 shader 或新的作者语义。
 
 ## 1. 已证偏差、产生者与准入判定
 

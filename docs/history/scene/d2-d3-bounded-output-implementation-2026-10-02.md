@@ -14,7 +14,7 @@
 - 无 effects receiver 使用既有 offscreen source capture 与最终 compositor；graph claim 使用相同 fragment。Puppet/mesh 无可证明 source-atlas→world receiver 映射，局部保持 unlit。捕获失败回退完整 direct uniforms，保留透明度、tint、brightness、sprite UV；不会跳过 graph claim 或 source-copy 的拒绝。
 - 内建 shader 身份归同一 helper；删除 profile 的未消费 PBR 占位字段、重复 quad 及重复 snapshot 计算。miss 诊断仅记有限 reason，避免长期累积 layerID。
 
-这不是 EDR、PBR、阴影、reflection、ltube、任意作者 normal 槽、透明输出或官方像素 parity 的交付。clear=false 需要 raw sceneColor/history 与显示结果分离，见 [兼容路线](../../scene/scene-compatibility-roadmap.md)。
+这不是 EDR、PBR、阴影、reflection、ltube、任意作者 normal 槽、透明输出或官方像素 parity 的交付。clear=false 需要 raw sceneColor/history 与显示结果分离，见 [RF07-HISTORY](../../scene/design/reference-evidence-implementation-cards.md#rf07-history--clearfalse-原始颜色历史已移交证据)。
 
 ## 修前反例与修后门
 
@@ -64,4 +64,4 @@ HDR 首次 7 秒短跑的 present 统计无效；12 秒、warmup 5 秒复测 val
 
 ## 后继
 
-本机参考证据派生卡（随后续路线文档入库） 已覆盖59个唯一条目及当前owner；下一片 RF01 修 shader-default RT identity 的实际消费断点。未开放能力保留各设计的前置与纠正门，不以本片、设计 approved 或两个原样本 PASS 代替全部 Scene 兼容性。
+[参考证据实施卡](../../scene/design/reference-evidence-implementation-cards.md) 已覆盖59个唯一条目及当前owner；下一片 RF01 修 shader-default RT identity 的实际消费断点。未开放能力保留各设计的前置与纠正门，不以本片、设计 approved 或两个原样本 PASS 代替全部 Scene 兼容性。

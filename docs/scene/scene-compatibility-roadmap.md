@@ -113,14 +113,30 @@ tracked full matrix 扩为全集 identity-only 基线。历史期待先分成有
 
 ### 3.3 P1/P2 的公共能力选序
 
-RF05 的隔离诊断资源与退出 drain 合同见[截图导出生命周期设计](design/debug-frame-capture-lifecycle-design.md)。
-
 先按依赖拓扑解决上游，再比较候选：
 
 1. 新崩溃、unsafe failure、已有通过样本的可见回归优先。
 2. fresh 运行证实的最早公共失败优先于尚未到达的下游。
 3. 可独立闭合者中，优先实际受阻样本多、受阻下游广、官方合同明确、改动半径小的项；列受益集合与代价，不只按 occurrence 高频排序。
 4. 两次实验均未移动首断点或减少工作量时，重新定位 producer-to-consumer 边，不继续微调同一形状 matcher。
+
+2026-10-02 的参考证据派生批次见[实施卡与59项去向](design/reference-evidence-implementation-cards.md)：D2/D3有界首片、RF01 shader-default、RF05诊断导出、RF03限定粒子四方法及连续排放扩展、RF07 raw/display分离均已有独立验收，冻结事实只在各执行记录保存。当前推进 RF05 初始隐藏 provider 的资源准备缺边；其余既有能力按具体组合反例推进。RF02新增Translation/Rotation及RF04隐式mip须准确consumer语义证据，不因第三方报告标记gap重写已有owner。
+
+#### Batch 2 后继选序（2026-10-02）
+
+用户目标是把证据转成真实能力，不以完成设计文档或第三方条目数量收尾。十二项设计是候选责任边界，不是必须照单复制的功能清单。后续按下列队列逐批推进；新出现的可见回归仍按本节第一判据插队。每批先冻结 owned paths，执行反例→修复→真实消费/输出→独立终审，再按职责窄提交到 `codex/engine-refactor-program`，不推送；批记录必须给出下一批入口及未满足条件。不能把并行他人的改动整文件搭入提交。
+
+| 顺序 | 批次与用户结果 | 开始/完成边界及下一方向 |
+|---|---|---|
+| 已验收、按职责提交 | RF03 连续排放播放控制 | 缺省/0 duration 系统能 pause/stop/play/query；反例、真实App与终审见实施卡执行记录。下一批 RF05 隐藏 provider。 |
+| 当前实施 | RF05 初始隐藏但被采样的图片 provider | 三对照已定位启动资源首断点，selector 已复用现役引用分析；首轮八项 App 六过两败，继续关闭可见provider/optional fallback准入断点，全部目标门与终审通过后提交，不新增 provider owner。下一批 D1。 |
+| 下一能力主批 | D1 非连续且带效果的 composition 子层 | 先黑盒区分父slot与末后代slot，再复用现役 graph 已有 isolated target scope，解除普通图片父子树的准入缺边并核实际source；独立子效果→组输出→父级唯一 compositor，先作者自写交错 fixture，再隔离真实样本。extent/颜色域/嵌套/失败/resize 必须随片闭合，旧捕获形状路能撤即撤。 |
+| 并行证据、就绪后接续 | RF02 companion 与 RF04 mip | 使用现有 Windows VM 核官方客户端身份，执行自有可区分黑盒输入；结果限定 profile 后实现反射→typed值→真实 sampler 或 source version→snapshot→consumer。不能按名称猜值，也不能无限期停在待证；每轮记录具体实验与下一可执行动作。 |
+| 后续作者能力 | D4/D11 显式 emitParticles | 单 emitter 的明确 count 与真实 birth/预算/事务先闭合，再据证扩多 emitter/children；不把 play 当 reset，不擅定默认 count。重建/拒绝不可重复出生。 |
+| 后续画质能力 | D3 材质 normal 接收与 PBR，再阴影 | 先取得实际作者 map slot/purpose/坐标合同，落 normal-light 可见响应，再 metallic/roughness 及有合法 caster/depth 输入的阴影；每片跨材质/灯光/姿态反例独立验收。不能凭首片 diffuse 声称完整 PBR。 |
+| 输出扩展 | D2 可选 EDR | SDR 与 raw-history 已有基础；核屏幕 headroom、窗口迁移、系统能力和可测亮度后开放 EDR。无测量条件保留正确 SDR，证据不足不优先扩大输出风险。 |
+
+D8 的单点准入随 RF02/RF04 和 D1 的真实名字/用途需求收敛；D12 的已有 authored copy/link/postprocess 路径做版本与生命周期验收，仅缺失 mip profile另实施。D9 的 App 唯一 policy 与 D10 的 frame gate 已存在，按实际反例修复，不为追随第三方创建额外 throttle 状态、时钟或重试算法。D5 跨源回包、D7 下载失败可见性属于 Web/App 队列，保留设计并在 Scene 上述高收益能力后单独复核实施；D6 私有 MediaRemote 默认不启用，先产品分发/合规裁决，不能以“全部做完”为由绕过设计限制。
 
 下表是依赖排查顺序，不是已确认缺失列表，也不要求一次实现整个大类：
 

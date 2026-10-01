@@ -17,6 +17,10 @@
 | D11 | [粒子对象播放门与 reset 边界](particle-playback-state-design.md) |
 | D12 | [四类 copy 触发点的 graph 语义收敛](copy-pass-unification-design.md) |
 
+十二项不按编号机械实施：当前选序及每批提交/下一批边界见[后继选序](../scene-compatibility-roadmap.md#batch-2-后继选序2026-10-02)。Scene 缺失能力持续落代码，已有能力按反例收敛；Web/App 项独立排队，私有后端遵守各卡限制。
+
+后续实施与59项参考证据的去向见[派生实施卡](reference-evidence-implementation-cards.md)，选序仍归上述兼容路线；原设计基线的“仅文档”描述不代表后续产品实施状态。
+
 ## 基线与合并边界
 
 本批只编写设计。证据行号固定于独立工作树 `93b1b85a`；本批现已合入主开发分支 `codex/engine-refactor-program`；该分支有更晚产品改动，实施时须重核 owner 与现有实现，原基线观察不能当作最新能力结论。主分支的七项登记仅用于对齐 ID/模式/schema，不把其余产品改动复制到此工作树。
