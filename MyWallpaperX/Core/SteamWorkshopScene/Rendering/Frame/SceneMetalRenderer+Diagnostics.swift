@@ -1,4 +1,19 @@
+import Foundation
+
 extension SceneMetalRenderer {
+    /// Always-on stage timings mirror the telemetry-gated stages of
+    /// renderFrame; each is bypass-only accumulation with no control-flow
+    /// effect. Formerly a local function of renderFrame; self-contained
+    /// (no captures), so it lives as an instance method with identical
+    /// call sites and behavior.
+    @inline(__always) func hubStage(
+        _ metric: ScenePerformanceMetric, _ start: TimeInterval
+    ) {
+        ScenePerformanceCounterHub.shared.add(
+            metric, ScenePerformanceCounterHub.micros(since: start)
+        )
+    }
+
     func runtimeReportLines() -> [String] {
         let utilityLines = SceneUtilityLayerRuntimePlanner.reportLines(
             descriptor: renderDescriptor,

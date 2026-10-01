@@ -395,38 +395,60 @@ extension SceneMetalRenderer {
                         reasonCode: "utility-source-shape-invalid"
                     )
                 }
-                if sourceRoute.capturesCompositionSubtree,
-                   !hasOpaqueFullViewportUtilitySource(
-                       route: sourceRoute,
-                       imageTextures: imageTextures,
-                       frameContext: frameContext,
-                       worldFramesByLayerID: worldFramesByLayerID,
-                       cameraFrame: cameraFrame,
-                       parallaxConfiguration: parallaxConfiguration
-                   ) {
+                if sourceRoute.usesIsolatedGroupTarget {
+                    // D1: the group owns a transparent-clear target, so a
+                    // translucent group is a legal input and the legacy
+                    // opaque-full-viewport source proof does not apply. The
+                    // effect chain reads the whole viewport-sized group
+                    // surface 1:1; the extent is the parent composite space.
+                    guard viewportSize.width.isFinite,
+                          viewportSize.width > 0,
+                          viewportSize.height.isFinite,
+                          viewportSize.height > 0 else {
+                        return .rejected(
+                            reasonCode: "utility-offscreen-size-unavailable"
+                        )
+                    }
+                    utilityCaptureGeometry = SceneCaptureGeometry(
+                        sourceUV: .identity,
+                        outputMVP: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                        pixelSize: viewportSize
+                    )
+                    desiredSize = viewportSize
+                } else if sourceRoute.capturesCompositionSubtree,
+                          !hasOpaqueFullViewportUtilitySource(
+                              route: sourceRoute,
+                              imageTextures: imageTextures,
+                              frameContext: frameContext,
+                              worldFramesByLayerID: worldFramesByLayerID,
+                              cameraFrame: cameraFrame,
+                              parallaxConfiguration: parallaxConfiguration
+                          ) {
                     sourceCoverageFallbacks[layer.id] =
                         "utility-composition-subtree-source-coverage-unavailable"
                     continue
-                }
-                let model = imageModelMatrix(
-                    for: layer,
-                    worldFramesByLayerID: worldFramesByLayerID,
-                    parallaxMouseNormalized: frameContext.cameraParallaxPosition,
-                    configuration: parallaxConfiguration,
-                    visibleHalfExtents: cameraFrame.coverHalfExtents,
-                    usesPerspective: cameraFrame.resolvesPerspective(for: layer)
-                )
-                guard let geometry = SceneCaptureGeometryResolver.resolve(
-                    kind: utility.kind,
-                    layerMVP: cameraFrame.viewProjection(for: layer) * model,
-                    viewportSize: viewportSize
-                ) else {
-                    return .rejected(
-                        reasonCode: "utility-offscreen-size-unavailable"
+                } else {
+                    let model = imageModelMatrix(
+                        for: layer,
+                        worldFramesByLayerID: worldFramesByLayerID,
+                        parallaxMouseNormalized:
+                            frameContext.cameraParallaxPosition,
+                        configuration: parallaxConfiguration,
+                        visibleHalfExtents: cameraFrame.coverHalfExtents,
+                        usesPerspective: cameraFrame.resolvesPerspective(for: layer)
                     )
+                    guard let geometry = SceneCaptureGeometryResolver.resolve(
+                        kind: utility.kind,
+                        layerMVP: cameraFrame.viewProjection(for: layer) * model,
+                        viewportSize: viewportSize
+                    ) else {
+                        return .rejected(
+                            reasonCode: "utility-offscreen-size-unavailable"
+                        )
+                    }
+                    utilityCaptureGeometry = geometry
+                    desiredSize = geometry.pixelSize
                 }
-                utilityCaptureGeometry = geometry
-                desiredSize = geometry.pixelSize
             case .transparentDirectDraw:
                 guard layer.contentKind == "quad",
                       case .authoredCanvasDirectDraw =

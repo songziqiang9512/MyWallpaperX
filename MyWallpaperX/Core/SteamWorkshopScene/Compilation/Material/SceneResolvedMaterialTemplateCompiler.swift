@@ -187,17 +187,22 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
     ) throws -> Template.TextureReference {
         switch candidate.source {
         case let .asset(value):
-            if value.caseInsensitiveCompare("_rt_FullFrameBuffer") == .orderedSame {
+            // D8：`_rt_` 名经词汇表单点准入分派（保留/清空/改写的唯一解释
+            // 入口），不再内联叠加名字特判。未知 `_rt_` 名不当作资产路径：
+            // 保留诊断 token 硬拒绝。
+            switch SceneRenderTargetVocabulary.dispatch(authoredName: value) {
+            case .typedFrameInput:
                 return .provider(.sceneBackground(
                     consumerLayerID: context.node.effect.layerID
                 ))
-            }
-            if let reference = SceneNamedTextureReference.parse(value) {
+            case let .namedLayerTarget(reference):
                 return .provider(.namedLayerTarget(reference))
+            case let .unadmitted(name):
+                guard name.hasPrefix(SceneRenderTargetVocabulary.internalTargetPrefix) == false,
+                      let path = SceneVFSAssetPath(value)
+                else { throw textureFailure(.textureReferenceInvalid, slot, candidate.provenance) }
+                return .asset(path)
             }
-            guard let path = SceneVFSAssetPath(value)
-            else { throw textureFailure(.textureReferenceInvalid, slot, candidate.provenance) }
-            return .asset(path)
         case let .userTexture(input):
             guard let value = normalizedProviderValue(input.value)
             else { throw textureFailure(.textureReferenceInvalid, slot, candidate.provenance) }

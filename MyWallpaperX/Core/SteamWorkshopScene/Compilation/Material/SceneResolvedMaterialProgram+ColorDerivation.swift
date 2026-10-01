@@ -293,11 +293,15 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         }
         let framebufferInput: SceneShaderColorRepresentation
         if (transfer == .opaque || transfer == .premultipliedAlpha
-                || transfer == .generatedStraightAlpha),
+                || transfer == .generatedStraightAlpha
+                || transfer == .sourcedAlpha),
            framebufferRepresentations.isEmpty {
             // An opaque procedural pass can declare an authored framebuffer
             // sampler that the prepared variant never reads. Use one stable
             // identity value without claiming or requiring a sampled input.
+            // `.sourcedAlpha` shares the convention: its proven alpha is
+            // texture-sourced, not framebuffer-sourced, so a variant with
+            // no framebuffer facts makes no framebuffer-input claim.
             framebufferInput = .opaque
         } else if let contract = conditionalGeneratedRGBInputContract,
                   case let .straightAlphaPreserving(slot) = transfer,
@@ -443,6 +447,12 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             }) else { return nil }
             fragmentOutput = .premultipliedAlpha
         case .generatedStraightAlpha:
+            fragmentOutput = .premultipliedAlpha
+        case .sourcedAlpha:
+            // The contract is proven while the output alpha is not opaque:
+            // the terminal value returns to the compositor's premultiplied
+            // boundary (the emitting backend premultiplies once) and blend
+            // semantics follow the actual alpha value.
             fragmentOutput = .premultipliedAlpha
         case let .passthrough(slot):
             guard textureFacts.indices.contains(slot),

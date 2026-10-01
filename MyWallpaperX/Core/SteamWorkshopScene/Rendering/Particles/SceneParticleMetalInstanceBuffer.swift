@@ -16,6 +16,12 @@ final class SceneParticleMetalInstanceBuffer: @unchecked Sendable {
 
     private let lock = NSLock()
     private var slots: [Slot] = []
+    /// Growth ceiling for one system's instance buffer, tied to the frozen
+    /// whole-layer segment-instance budget. A system whose emission
+    /// exceeds it fails closed through the existing
+    /// `instanceBufferAllocationFailed` path (previous-current rendering)
+    /// instead of growing device memory without bound.
+    private static let maximumCapacity = SceneParticleRopeTrailPlan.maximumSegmentInstanceCount
     /// Completion handlers are armed before particle encoding starts.  Metal
     /// command-buffer ownership is therefore established before a command can
     /// cross the enqueue/commit boundary; marking a slot later only records
@@ -171,6 +177,7 @@ final class SceneParticleMetalInstanceBuffer: @unchecked Sendable {
     }
 
     private func prepareSlot(device: MTLDevice, requiredCount: Int) -> Int? {
+        guard requiredCount <= Self.maximumCapacity else { return nil }
         let slotIndex = currentSlotIndex
             ?? slots.indices.first(where: {
                 !slots[$0].isInFlight && slots[$0].capacity >= requiredCount
@@ -179,7 +186,10 @@ final class SceneParticleMetalInstanceBuffer: @unchecked Sendable {
 
         if let slotIndex {
             guard slots[slotIndex].capacity < requiredCount else { return slotIndex }
-            let capacity = max(requiredCount, max(slots[slotIndex].capacity * 2, 64))
+            let capacity = min(
+                max(requiredCount, max(slots[slotIndex].capacity * 2, 64)),
+                Self.maximumCapacity
+            )
             guard let buffer = makeBuffer(
                 device: device,
                 capacity: capacity,
@@ -194,7 +204,10 @@ final class SceneParticleMetalInstanceBuffer: @unchecked Sendable {
             return slotIndex
         }
 
-        let capacity = max(requiredCount, max(slots.map(\.capacity).max() ?? 0, 64))
+        let capacity = min(
+            max(requiredCount, max(slots.map(\.capacity).max() ?? 0, 64)),
+            Self.maximumCapacity
+        )
         let newIndex = slots.count
         guard let buffer = makeBuffer(
             device: device,

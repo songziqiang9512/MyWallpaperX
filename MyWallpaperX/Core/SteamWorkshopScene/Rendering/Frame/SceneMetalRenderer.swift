@@ -21,6 +21,11 @@ struct SceneMetalRenderer {
     let lightLayerIDs: [Int]
     let utilityPlansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
     let utilityCaptureLayerIDs: Set<Int>
+    /// D1 composition groups: nearest admitted group root per layer and the
+    /// ordered member list per group root. Both are launch-scoped facts of
+    /// the render descriptor; frame-local group passes are built per frame.
+    let compositionGroupMemberRootsByLayerID: [Int: Int]
+    let compositionGroupMembersByRootID: [Int: [Int]]
     let effectAdmissionCatalog: SceneEffectAdmissionCatalog
     let baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram
     let staticModelResources: ScenePreparedStaticModelResources
@@ -104,15 +109,6 @@ struct SceneMetalRenderer {
             SceneDesktopWallpaperHost.usesDebugEvidenceWindow
             ? effectExecutionTelemetry.makeFrame(frameIndex: frameContext.frameIndex)
             : nil
-        // Always-on stage timings mirror the telemetry-gated stages below;
-        // each is bypass-only accumulation with no control-flow effect.
-        @inline(__always) func hubStage(
-            _ metric: ScenePerformanceMetric, _ start: TimeInterval
-        ) {
-            ScenePerformanceCounterHub.shared.add(
-                metric, ScenePerformanceCounterHub.micros(since: start)
-            )
-        }
         performanceTelemetry?.beginStage("source-update")
         let hubSourceUpdateStart = ProcessInfo.processInfo.systemUptime
         let puppetAttachmentFrames = encodeSourceUpdates?(
@@ -256,6 +252,24 @@ struct SceneMetalRenderer {
             clearEnabled: frameDescriptor.camera.clearEnabled
         )
         performanceTelemetry?.endStage("prepass-encoder")
+        // D1 composition groups: frame-local isolated group passes. Members
+        // encode into their group target; allocation failure degrades the
+        // whole group to previous-current (members skipped, no leak).
+        let compositionGroupRuntime: SceneCompositionGroupFrameRuntime?
+        if let offscreenTexturePool,
+           !compositionGroupMemberRootsByLayerID.isEmpty {
+            compositionGroupRuntime = SceneCompositionGroupFrameRuntime(
+                parentPass: mainPass,
+                commandBuffer: commandBuffer,
+                offscreenTexturePool: offscreenTexturePool,
+                memberRootsByLayerID: compositionGroupMemberRootsByLayerID,
+                membersByRootID: compositionGroupMembersByRootID,
+                viewportSize: viewportSize
+            )
+        } else {
+            compositionGroupRuntime = nil
+        }
+        var lastLayerPass: SceneMainPassEncoder?
         var forwardGraphProviderLayerIDs: Set<Int> = []
         if let imagePipeline {
             performanceTelemetry?.beginStage("prepass-forward-providers")
@@ -297,7 +311,8 @@ struct SceneMetalRenderer {
                     time: time, mainPass: mainPass, commandBuffer: commandBuffer,
                     effectExecutionTrace: effectExecutionTrace,
                     resolvedMaterialFrameTargetPlans:
-                        resolvedMaterialFrameTargetPlans) {
+                        resolvedMaterialFrameTargetPlans,
+                    compositionGroupRuntime: compositionGroupRuntime) {
                     // A utility plan that hit typed identity drift already
                     // sealed the frame as failed, so stop the layer loop like
                     // every other `.invalid` consumer instead of encoding
@@ -305,6 +320,29 @@ struct SceneMetalRenderer {
                     stopsAfterClaimedFailure = true
                 }
             }
+            // D1: a composition-group member encodes into its group's
+            // isolated target. A degraded group skips the member entirely —
+            // uncomposited member content must never reach the parent
+            // target. The utility defer above stays registered so an
+            // enclosing group whose trigger lands on this layer still
+            // composites. Only one render encoder may be open per command
+            // buffer, so switching passes closes the previous layer's pass.
+            let layerMainPass: SceneMainPassEncoder
+            if let compositionGroupRuntime,
+               let groupPass = compositionGroupRuntime.renderPass(
+                   forLayerID: layer.id
+               ), groupPass !== mainPass {
+                layerMainPass = groupPass
+            } else if compositionGroupRuntime != nil,
+                      compositionGroupMemberRootsByLayerID[layer.id] != nil {
+                continue
+            } else {
+                layerMainPass = mainPass
+            }
+            if layerMainPass !== lastLayerPass {
+                lastLayerPass?.closeForOffscreen()
+            }
+            lastLayerPass = layerMainPass
             // Its graph was already executed and published before an earlier
             // consumer. Keep authored trigger order, but never consume the
             // same launch/frame claim twice.
@@ -353,7 +391,7 @@ struct SceneMetalRenderer {
                 framePlan: resolvedMaterialFrameTargetPlans[layer.id],
                 textureRegistry: textureRegistry,
                 dependencyRuntime: dependencyRuntime,
-                mainPass: mainPass,
+                mainPass: layerMainPass,
                 commandBuffer: commandBuffer,
                 geometryProduct: imageTextures.geometryProducts[layer.id],
                 imagePipeline: imagePipeline,
@@ -401,7 +439,7 @@ struct SceneMetalRenderer {
                     viewportSize: viewportSize,
                     pipeline: imagePipeline,
                     textureRegistry: textureRegistry,
-                    mainPass: mainPass,
+                    mainPass: layerMainPass,
                     geometryProduct: imageTextures.geometryProducts[layer.id]
                 )
                 // This route owns no publication of its own: an ordinary
@@ -568,7 +606,7 @@ struct SceneMetalRenderer {
                                 viewportSize: viewportSize,
                                 pipeline: imagePipeline,
                                 textureRegistry: textureRegistry,
-                                mainPass: mainPass
+                                mainPass: layerMainPass
                             ) == .published
                     }
                 } else {
@@ -629,7 +667,7 @@ struct SceneMetalRenderer {
                     allowsUnpublishedStaticSourceDraw:
                         layerSourceGraphFallbackPublisher == nil,
                     pipeline: imagePipeline,
-                    mainPass: mainPass,
+                    mainPass: layerMainPass,
                     executionTrace: effectExecutionTrace,
                     executionOrigin: Self.effectExecutionOrigin(
                         for: layer.contentKind
@@ -659,7 +697,12 @@ struct SceneMetalRenderer {
                     break frameLayers
                 }
             case "composition":
+                // D1: an isolated-group root without an admitted frame plan
+                // must keep previous-current. Its members encoded only into
+                // the group target, so the flat composition fallback would
+                // draw parent content that never contained them.
                 if resolvedMaterialFrameTargetPlans[layer.id] == nil,
+                   compositionGroupMembersByRootID[layer.id] == nil,
                    let imagePipeline {
                     _ = drawCompositionSourceFallback(
                         layer: layer,
@@ -670,7 +713,7 @@ struct SceneMetalRenderer {
                         cameraFrame: cameraFrame,
                         parallaxConfiguration: parallaxConfiguration,
                         time: time,
-                        mainPass: mainPass,
+                        mainPass: layerMainPass,
                         executionTrace: effectExecutionTrace
                     )
                 }
@@ -713,7 +756,7 @@ struct SceneMetalRenderer {
                         modelMatrix: modelMatrix
                     )
                     if staticModelDepthLease == nil, depthTarget == .shared {
-                        let targetExtent = mainPass.targetExtent
+                        let targetExtent = layerMainPass.targetExtent
                         staticModelDepthLease = staticModelDepthTargetPool.acquire(
                             device: device,
                             width: targetExtent.width,
@@ -730,7 +773,7 @@ struct SceneMetalRenderer {
                         modelDepthLease = staticModelDepthLease
                         clearsModelDepth = !staticModelDepthWasCleared
                     case .isolated:
-                        let targetExtent = mainPass.targetExtent
+                        let targetExtent = layerMainPass.targetExtent
                         modelDepthLease = staticModelDepthTargetPool.acquire(
                             device: device,
                             width: targetExtent.width,
@@ -742,7 +785,7 @@ struct SceneMetalRenderer {
                         clearsModelDepth = true
                     }
                     guard let modelDepthLease,
-                          let encoder = mainPass.encoder(
+                          let encoder = layerMainPass.encoder(
                               depthTexture: modelDepthLease.texture,
                               clearsDepth: clearsModelDepth,
                               clearDepth: 0
@@ -806,7 +849,7 @@ struct SceneMetalRenderer {
                     layer: layer,
                     resolvedFramePlan: resolvedMaterialFrameTargetPlans[layer.id],
                     frameContext: frameContext,
-                    mainPass: mainPass,
+                    mainPass: layerMainPass,
                     executionTrace: effectExecutionTrace
                 ) {
                     stopsAfterClaimedFailure = true
@@ -818,7 +861,7 @@ struct SceneMetalRenderer {
                     layerID: layer.id, worldFrame: frameWorldFrames[layer.id],
                     frame: .init(
                         frameContext: frameContext, cameraFrame: cameraFrame,
-                        mainPass: mainPass, commandBuffer: commandBuffer
+                        mainPass: layerMainPass, commandBuffer: commandBuffer
                     )
                 )
             case "particle":
@@ -838,7 +881,7 @@ struct SceneMetalRenderer {
                         Float(viewportSize.width),
                         Float(viewportSize.height)
                     ),
-                    mainPass: mainPass,
+                    mainPass: layerMainPass,
                     commandBuffer: commandBuffer,
                     performanceObservations: &particlePerformanceObservations
                 ) {
@@ -850,6 +893,10 @@ struct SceneMetalRenderer {
         }
         performanceTelemetry?.endStage("layer-loop")
         hubStage(.layerLoopMicros, hubLayerLoopStart)
+        // D1: no group encoder may outlive the layer loop — the compositor
+        // seal re-opens the main pass and Metal permits only one active
+        // render encoder per command buffer.
+        compositionGroupRuntime?.closeAllGroupEncoders()
 
         performanceTelemetry?.beginStage("compositor-seal")
         let hubCompositorSealStart = ProcessInfo.processInfo.systemUptime

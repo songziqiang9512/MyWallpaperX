@@ -227,6 +227,10 @@ extension SceneOffscreenTextureAllocationCache {
 
     nonisolated enum Key: Hashable {
         case composition(width: Int, height: Int)
+        /// D1 composition-group target: one isolated allocation per logical
+        /// group and extent, so simultaneous groups never share storage the
+        /// way the neutral composition copy target may.
+        case compositionGroup(layerID: Int, width: Int, height: Int)
         case sharedGraphPair(width: Int, height: Int)
         case graph(EffectKey)
         case layerGraph(SceneLayerGraphTargetPlan.Key)

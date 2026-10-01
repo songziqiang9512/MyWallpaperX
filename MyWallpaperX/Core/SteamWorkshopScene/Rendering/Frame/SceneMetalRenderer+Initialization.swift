@@ -98,6 +98,15 @@ extension SceneMetalRenderer {
         self.utilityCaptureLayerIDs = Set(
             utilityPlans.values.filter(\.shouldCapture).map(\.layerID)
         )
+        // D1 composition groups: static per-descriptor membership (nearest
+        // admitted group root per layer). Frame-local pass state is built
+        // from these maps each frame.
+        let compositionGroupMembership = SceneCompositionGroupFrameRuntime
+            .membership(of: Array(utilityPlans.values))
+        self.compositionGroupMemberRootsByLayerID =
+            compositionGroupMembership.memberRootsByLayerID
+        self.compositionGroupMembersByRootID =
+            compositionGroupMembership.membersByRootID
         let worldFramesByLayerID = SceneLayerWorldFrameResolver.compute(
             descriptor: renderDescriptor,
             byID: byID

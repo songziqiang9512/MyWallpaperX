@@ -27,7 +27,8 @@ enum SceneUtilityPlanFrameRenderer {
         effectExecutionTrace: SceneEffectExecutionFrameTrace?,
         resolvedMaterialFrameTargetPlans: [
             Int: SceneResolvedMaterialFrameTargetPlan
-        ] = [:]
+        ] = [:],
+        compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil
     ) -> Bool {
         for plan in plans {
             guard let layer = renderer.layersByID[plan.layerID] else { continue }
@@ -95,6 +96,47 @@ enum SceneUtilityPlanFrameRenderer {
                 dependencyRuntime.recordBindingFailure(for: layer.id)
                 captured = false
             } else {
+                // D1: an isolated-group composite reads the group's own
+                // target as its effect-chain source and encodes once into
+                // the enclosing pass. A degraded group (allocation failure,
+                // or a degraded enclosing group) keeps previous-current and
+                // never publishes uncomposited member content.
+                let isolatedGroupSource: (
+                    texture: MTLTexture,
+                    pixelSize: CGSize,
+                    compositePass: SceneMainPassEncoder
+                )?
+                if plan.usesIsolatedGroupTarget {
+                    // The members encoded only into the group target, so a
+                    // missing group runtime or degraded target must keep
+                    // previous-current; the legacy main-target capture can
+                    // never substitute for group content.
+                    guard let compositionGroupRuntime,
+                          let texture = compositionGroupRuntime
+                            .groupTexture(forRootID: plan.layerID),
+                          let compositePass = compositionGroupRuntime
+                            .compositeTargetPass(forRootID: plan.layerID) else {
+                        captured = false
+                        utilityCaptureTelemetry.record(
+                            layerID: layer.id,
+                            encoded: false,
+                            on: commandBuffer
+                        )
+                        dependencyRuntime.recordBindingIfRequired(
+                            for: layer.id,
+                            encoded: false,
+                            on: commandBuffer
+                        )
+                        continue
+                    }
+                    isolatedGroupSource = (
+                        texture,
+                        viewportSize,
+                        compositePass
+                    )
+                } else {
+                    isolatedGroupSource = nil
+                }
                 captured = SceneUtilityLayerRenderer.draw(
                     layer: layer,
                     plan: plan,
@@ -116,9 +158,12 @@ enum SceneUtilityPlanFrameRenderer {
                     pipeline: imagePipeline,
                     compositor: imageCompositor,
                     offscreenTexturePool: offscreenTexturePool,
-                    mainPass: mainPass,
+                    mainPass: isolatedGroupSource?.compositePass ?? mainPass,
                     resolvedMaterialFrameTargetPlan:
                         resolvedMaterialFrameTargetPlans[layer.id],
+                    isolatedGroupSource: isolatedGroupSource.map {
+                        (texture: $0.texture, pixelSize: $0.pixelSize)
+                    },
                     executionTrace: effectExecutionTrace
                 )
             }

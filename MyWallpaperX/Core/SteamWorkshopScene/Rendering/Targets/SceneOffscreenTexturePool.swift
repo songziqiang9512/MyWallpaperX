@@ -127,6 +127,51 @@ final class SceneOffscreenTexturePool {
         return CompositionTarget(texture: texture)
     }
 
+    /// D1 composition-group target. The allocation is keyed by the logical
+    /// group (its root layer) and the extent, so simultaneous groups each
+    /// own isolated storage; the format follows the pool's backbuffer color
+    /// contract and the caller clears transparently each frame. Content is
+    /// never preserved across frames — history retention stays explicit
+    /// graph-target territory.
+    func compositionGroupTarget(
+        layerID: Int,
+        width requestedWidth: Int,
+        height requestedHeight: Int
+    ) -> CompositionTarget? {
+        let (width, height) = SceneOffscreenResolutionPolicy.limitedDimensions(
+            width: requestedWidth,
+            height: requestedHeight,
+            maximumDimension: SceneOffscreenResolutionPolicy.maximumDimension(
+                hardLimit: maxDimension, includesAuthoredShader: false
+            )
+        )
+        let key = CacheKey.compositionGroup(
+            layerID: layerID,
+            width: width,
+            height: height
+        )
+        if let cached = allocationCache.allocation(for: key),
+           case .composition(let texture, _) = cached {
+            return CompositionTarget(texture: texture)
+        }
+        guard let byteCost = byteCost(width: width, height: height, textureCount: 1),
+              byteCost <= residentByteBudget,
+              let texture = makeTexture(
+                  width: width,
+                  height: height,
+                  label: "SceneCompositionGroup \(layerID) \(width)x\(height)"
+              ), let identity = allocationCache.issuePhysicalIdentity(
+                  textures: [texture]
+              ) else { return nil }
+        let candidate = Candidate(
+            key: key,
+            allocation: .composition(texture, identity),
+            byteCost: byteCost
+        )
+        guard allocationCache.commit([candidate]) else { return nil }
+        return CompositionTarget(texture: texture)
+    }
+
     func persistentTargetPlans(
         admittedGraphs: [SceneAuthoredEffectRenderPlan],
         materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>] = [:],

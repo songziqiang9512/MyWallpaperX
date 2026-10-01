@@ -440,7 +440,7 @@ extension SceneResolvedMaterialShaderSchema {
              .independentAlphaSignalUnderlayCompositing,
              .generatedStraightAlpha,
              .premultipliedAlpha,
-             .opaque, .unresolved, nil:
+             .opaque, .sourcedAlpha, .unresolved, nil:
             nil
         }
     }

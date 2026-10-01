@@ -36,6 +36,7 @@ extension SceneResolvedMaterialProgram {
             case generatedStraightAlpha
             case premultipliedAlpha
             case opaque
+            case sourcedAlpha
             case defaultStraightColorBoundary([Int])
             case unresolved
         }
@@ -224,6 +225,7 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
         case .generatedStraightAlpha: "generated-straight-alpha"
         case .premultipliedAlpha: "premultiplied"
         case .opaque: "opaque"
+        case .sourcedAlpha: "sourced-alpha"
         case let .defaultStraightColorBoundary(slots):
             "default-straight-boundary-\(slots.map(String.init).joined(separator: "_"))"
         case .unresolved: "unresolved"
@@ -265,6 +267,7 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
         case .generatedStraightAlpha: transfer = .generatedStraightAlpha
         case .premultipliedAlpha: transfer = .premultipliedAlpha
         case .opaque: transfer = .opaque
+        case .sourcedAlpha: transfer = .sourcedAlpha
         case let .defaultStraightColorBoundary(slots):
             transfer = .defaultStraightColorBoundary(slots)
         case .unresolved: transfer = .unresolved

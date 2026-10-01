@@ -1,4 +1,5 @@
 import Foundation
+import Metal
 
 struct SceneUtilityLayerRuntimePlan {
     enum Disposition: String {
@@ -15,8 +16,14 @@ struct SceneUtilityLayerRuntimePlan {
     let disposition: Disposition
     let requiresNamedTarget: Bool
     let triggerLayerID: Int
+    /// D1 isolated composition group: the ordered render-order member list
+    /// (every descendant, including nested-group members) when this plan
+    /// captures through a group-private render target. `nil` on the legacy
+    /// contiguous-prefix capture and on childless utility captures.
+    var isolatedGroupMembers: [Int]? = nil
 
     var shouldCapture: Bool { disposition == .capture }
+    var usesIsolatedGroupTarget: Bool { isolatedGroupMembers != nil }
 }
 
 enum SceneUtilityLayerRuntimePlanner {
@@ -95,7 +102,10 @@ enum SceneUtilityLayerRuntimePlanner {
                     kind: utility.kind,
                     disposition: disposition,
                     requiresNamedTarget: namedTargetLayerIDs.contains(layer.id),
-                    triggerLayerID: sourceRoute?.triggerLayerID ?? layer.id
+                    triggerLayerID: sourceRoute?.triggerLayerID ?? layer.id,
+                    isolatedGroupMembers: sourceRoute?.usesIsolatedGroupTarget
+                        == true
+                        ? sourceRoute?.orderedCompositionSubtreeLayerIDs : nil
                 )
             )
         })
@@ -252,6 +262,135 @@ enum SceneUtilityLayerRuntimePlanner {
             )
         }
         return lines
+    }
+}
+
+/// D1 composition-group frame runtime. Members draw into a group-private
+/// offscreen target with a transparent clear; the group composites once at
+/// its authored position (the last member in render order). A target
+/// allocation failure degrades the whole group to previous-current: members
+/// are skipped entirely and never leak uncomposited content into the parent
+/// target. Nested groups resolve innermost-first; an inner group whose
+/// parent pass is degraded skips its own composite for the same reason.
+final class SceneCompositionGroupFrameRuntime {
+    private let parentPass: SceneMainPassEncoder
+    private let commandBuffer: MTLCommandBuffer
+    private let offscreenTexturePool: SceneOffscreenTexturePool
+    private let memberRootsByLayerID: [Int: Int]
+    private let membersByRootID: [Int: [Int]]
+    private let viewportSize: CGSize
+    private var passesByRootID: [Int: SceneMainPassEncoder] = [:]
+    private var texturesByRootID: [Int: MTLTexture] = [:]
+    private var degradedRootIDs: Set<Int> = []
+
+    init(
+        parentPass: SceneMainPassEncoder,
+        commandBuffer: MTLCommandBuffer,
+        offscreenTexturePool: SceneOffscreenTexturePool,
+        memberRootsByLayerID: [Int: Int],
+        membersByRootID: [Int: [Int]],
+        viewportSize: CGSize
+    ) {
+        self.parentPass = parentPass
+        self.commandBuffer = commandBuffer
+        self.offscreenTexturePool = offscreenTexturePool
+        self.memberRootsByLayerID = memberRootsByLayerID
+        self.membersByRootID = membersByRootID
+        self.viewportSize = viewportSize
+    }
+
+    /// Static membership for one render descriptor: every layer maps to its
+    /// nearest admitted group root. A root nested inside another group maps
+    /// to the enclosing root, so its composite draws into the enclosing
+    /// group's pass.
+    static func membership(
+        of plans: [SceneUtilityLayerRuntimePlan]
+    ) -> (memberRootsByLayerID: [Int: Int], membersByRootID: [Int: [Int]]) {
+        let admitted = plans.filter {
+            $0.shouldCapture && $0.usesIsolatedGroupTarget
+        }
+        let membersByRootID = Dictionary(
+            uniqueKeysWithValues: admitted.map { ($0.layerID, $0.isolatedGroupMembers ?? []) }
+        )
+        let memberSetsByRootID = membersByRootID.mapValues(Set.init)
+        var memberRootsByLayerID: [Int: Int] = [:]
+        for (rootID, members) in memberSetsByRootID {
+            for memberID in members where memberID != rootID {
+                // Nearest root wins: replace a previously mapped root only
+                // when its subtree strictly contains this one (larger member
+                // set), so nesting resolves innermost-first.
+                if let existing = memberRootsByLayerID[memberID],
+                   (memberSetsByRootID[existing]?.count ?? Int.max)
+                       <= members.count {
+                    continue
+                }
+                memberRootsByLayerID[memberID] = rootID
+            }
+        }
+        return (memberRootsByLayerID, membersByRootID)
+    }
+
+    /// The render pass a layer's content must encode into: its nearest
+    /// admitted group's pass, or the frame's main pass for non-members.
+    /// `nil` means the group is degraded this frame and the layer must be
+    /// skipped so uncomposited content cannot reach the parent target.
+    func renderPass(forLayerID layerID: Int) -> SceneMainPassEncoder? {
+        guard let rootID = memberRootsByLayerID[layerID] else {
+            return parentPass
+        }
+        return renderPass(forRootID: rootID)
+    }
+
+    // inventory-entry: composition-rt 第一阶段遗留的诊断入口，后续阶段消费或整体删除
+    func isDegraded(rootID: Int) -> Bool {
+        degradedRootIDs.contains(rootID)
+    }
+
+    /// The composited output target of one group, creating the group pass on
+    /// first use. A freshly created target is transparently cleared.
+    func groupTexture(forRootID rootID: Int) -> MTLTexture? {
+        renderPass(forRootID: rootID).map { _ in texturesByRootID[rootID] }
+            ?? nil
+    }
+
+    /// The pass a group's single composite must encode into: the nearest
+    /// enclosing group's pass, or the frame's main pass. `nil` when an
+    /// enclosing group is degraded, in which case the composite is skipped.
+    func compositeTargetPass(forRootID rootID: Int) -> SceneMainPassEncoder? {
+        guard let enclosingRootID = memberRootsByLayerID[rootID] else {
+            return parentPass
+        }
+        return renderPass(forRootID: enclosingRootID)
+    }
+
+    func closeAllGroupEncoders() {
+        for pass in passesByRootID.values {
+            pass.closeForOffscreen()
+        }
+    }
+
+    private func renderPass(forRootID rootID: Int) -> SceneMainPassEncoder? {
+        if degradedRootIDs.contains(rootID) { return nil }
+        if let pass = passesByRootID[rootID] { return pass }
+        let width = max(1, Int(viewportSize.width.rounded(.up)))
+        let height = max(1, Int(viewportSize.height.rounded(.up)))
+        guard let target = offscreenTexturePool.compositionGroupTarget(
+            layerID: rootID,
+            width: width,
+            height: height
+        ), target.texture.width == width, target.texture.height == height else {
+            degradedRootIDs.insert(rootID)
+            return nil
+        }
+        let pass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: target.texture,
+            clearColor: MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0),
+            clearEnabled: true
+        )
+        passesByRootID[rootID] = pass
+        texturesByRootID[rootID] = target.texture
+        return pass
     }
 }
 
