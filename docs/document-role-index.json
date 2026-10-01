@@ -67,6 +67,16 @@
       ]
     },
     {
+      "path": "docs/history/cross-topic/ui-code-review-2026-09-30.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/README.md",
+        "AGENTS.md"
+      ]
+    },
+    {
       "path": "docs/history/cross-topic/web-scene-current-state-roadmap-2026-07-19.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",
@@ -95,6 +105,17 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/engine-refactor-program.md",
+        "docs/scene/semantics/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/mirage-da4fa7b3-six-domain-forensics-verdict-2026-10-01.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/semantics/source-index.md",
+        "docs/scene/semantics/miragewallpaper-rendering-reference.md",
         "docs/scene/semantics/coverage-ledger.md"
       ]
     },
@@ -236,6 +257,17 @@
         "docs/scene/semantics/coverage-ledger.md",
         "docs/scene/semantics/runtime-evidence-current.md",
         "docs/scene/semantics/scene-corpus-capability-inventory.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/scene-visual-quality-audit-2026-10-01.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/semantics/runtime-evidence-current.md",
+        "docs/scene/semantics/coverage-ledger.md",
+        "docs/scene/semantics/client-runtime-static-forensics.md"
       ]
     },
     {
