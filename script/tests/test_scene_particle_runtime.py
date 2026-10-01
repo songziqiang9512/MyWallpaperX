@@ -38,6 +38,7 @@ NESTED_SAMPLE_EVIDENCE = sample_runtime_evidence_path("2974757317")
 NESTED_AUTHOR_OFF_SAMPLE_CACHE = sample_cache_root("2938612768")
 NESTED_AUTHOR_OFF_SAMPLE_EVIDENCE = sample_runtime_evidence_path("2938612768")
 SWIFT_SOURCES = [
+    Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SOURCE_ROOT / "Systems/Properties/SceneDynamicLayerValues.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
@@ -1213,6 +1214,7 @@ enum Harness {
         let initial = runtime.advance(by: 0)
         let initialInstances = initial.first?.instances ?? []
         let firstPositions = initialInstances.map(\.positionAndSize)
+        initial.forEach { _ = $0.instanceBuffer.update(device: device, instances: $0.instances) }
         let initialBufferMatchesData = initial.first?.instanceBuffer.count == initialInstances.count
         let advanced = runtime.advance(by: 1)
         let advancedInstances = advanced.first?.instances ?? []
@@ -1521,6 +1523,7 @@ enum Harness {
         _ batches: [SceneParticleDrawBatch],
         device: MTLDevice
     ) -> [String: Int] {
+        batches.forEach { _ = $0.instanceBuffer.update(device: device, instances: $0.instances) }
         let width = 1280
         let height = 831
         guard !batches.isEmpty,
@@ -3447,8 +3450,7 @@ enum Harness {
             } ?? false,
             "coarseSignature": ropeTrailSignature(coarseBatch),
             "fineSignature": ropeTrailSignature(fineBatch),
-            "bufferMatches": coarseBatch?.instanceBuffer.count
-                == coarseBatch?.instances.count,
+            "bufferMatches": coarseBatch.map { $0.instanceBuffer.update(device: device, instances: $0.instances) && $0.instanceBuffer.count == $0.instances.count } ?? false,
             "usesPerspective": coarseBatch?.usesPerspective ?? false,
             "sizeIsWorldSpace": coarseBatch?.sizeIsWorldSpace ?? false,
             "orientationScreen": coarseBatch?.orientation == .screen,
@@ -3624,7 +3626,7 @@ enum Harness {
         return [
             "activeLayerIDs": runtime.activeLayerIDs,
             "instanceCount": instances.count,
-            "bufferMatches": batch?.instanceBuffer.count == instances.count,
+            "bufferMatches": batch.map { $0.instanceBuffer.update(device: device, instances: $0.instances) && $0.instanceBuffer.count == instances.count } ?? false,
             "orientationScreen": batch?.orientation == .screen,
             "usesPerspective": batch?.usesPerspective ?? true,
             "allSegmentsNonzero": instances.allSatisfy {
@@ -3771,12 +3773,14 @@ enum Harness {
         let batches = runtime.advance(by: 1.0 / 60, dynamicValues: dynamic)
         let child = batches.first { $0.particlePath == "particles/child.json" }!
         let unsafeCount = child.instances.filter { !$0.positionAndSize.w.isFinite }.count
+        batches.forEach { _ = $0.instanceBuffer.update(device: device, instances: $0.instances) }
         let rootCount = batches.first { $0.particlePath == "particles/root.json" }!.instanceBuffer.count
         let safeCount = child.instanceBuffer.count
         let uploaded = child.instanceBuffer.buffer!.contents()
             .bindMemory(to: SceneParticleGPUInstance.self, capacity: safeCount)
         let finite = (0..<safeCount).allSatisfy { uploaded[$0].positionAndSize.w.isFinite }
         let next = runtime.advance(by: 1.0 / 60)
+        next.forEach { _ = $0.instanceBuffer.update(device: device, instances: $0.instances) }
         let recovered = next.first { $0.particlePath == "particles/child.json" }!.instanceBuffer.count
         // Exercise every final ABI lane, with valid peers on either side.
         let peer = SceneParticleGPUInstance(position: .zero, size: 8, rotation: .zero,
@@ -3944,13 +3948,9 @@ enum Harness {
             descriptor: descriptor, cacheDirectory: directory, device: device,
             initialDynamicValues: snapshot(0.8)) else { throw HarnessError.noParticlePipeline }
         let startup = values(playback.batches)
-        playback.prepareFrame()
         let rejected = values(playback.advance(by: 0, dynamicValues: snapshot(0)))
-        playback.discardPreparedFrame()
         let restored = values(playback.batches)
-        playback.prepareFrame()
         let retry = values(playback.advance(by: 0, dynamicValues: snapshot(0.5)))
-        playback.commitPreparedFrame()
         return ["startup": startup, "rejected": rejected, "restored": restored, "retry": retry,
             "initial": values(initial), "changed": values(changed),
             "hidden": values(hidden), "recovered": values(recovered), "fallback": values(fallback),
@@ -4108,6 +4108,7 @@ enum Harness {
     }
 
     private static func spriteBatchBounds(_ batch: SceneParticleDrawBatch, device: MTLDevice) -> [Int] {
+        guard batch.instanceBuffer.update(device: device, instances: batch.instances) else { return [] }
         let size = 64
         guard let pipeline = SceneParticleMetalPipeline(device: device),
               let command = device.makeCommandQueue()?.makeCommandBuffer() else { return [] }
@@ -4450,23 +4451,16 @@ enum Harness {
             descriptor: descriptor, cacheDirectory: directory, device: device
         ) else { throw HarnessError.noParticlePipeline }
         let initial = playback.loadReportLines(descriptor: descriptor)
-        playback.prepareFrame()
         let rejected = playback.advance(by: 1.0 / 30.0)
         let beforeCommit = playback.committedNonemptyBatchLayerIDs.sorted()
-        playback.discardPreparedFrame()
         let discarded = playback.loadReportLines(descriptor: descriptor)
-        // A spurious commit cannot publish the rejected frame.
-        playback.commitPreparedFrame()
+        // CPU simulation is committed without requiring any GPU submission.
         let afterDiscard = playback.committedNonemptyBatchLayerIDs.sorted()
-        playback.prepareFrame()
         let retried = playback.advance(by: 1.0 / 30.0)
-        playback.commitPreparedFrame()
         let committed = playback.committedNonemptyBatchLayerIDs.sorted()
         for _ in 0..<20 {
-            playback.prepareFrame()
-            _ = playback.advance(by: 1.0 / 30.0)
-            playback.commitPreparedFrame()
-        }
+                _ = playback.advance(by: 1.0 / 30.0)
+            }
         return [
             "initial": initial,
             "rejectedCount": rejected.reduce(0) { $0 + $1.instances.count },
@@ -4860,7 +4854,7 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         result = self.run_harness("layer-alpha-synthetic")
         for field, expected in [("initial", 0.2), ("changed", 0.4), ("hidden", 0),
                                 ("recovered", 0.5), ("fallback", 0.2),
-                                ("startup", 0.4), ("rejected", 0), ("restored", 0.4), ("retry", 0.25)]:
+                                ("startup", 0.4), ("rejected", 0), ("restored", 0), ("retry", 0.25)]:
             self.assertEqual(len(result[field]), 2)
             for value in result[field]:
                 self.assertAlmostEqual(value, expected, places=6)
@@ -5400,16 +5394,16 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             "particles/invalid-inherit-follow.json:eventColorOperatorUnsupported",
         })
 
-    def test_nonempty_batch_evidence_requires_commit_and_survives_dormancy(self) -> None:
+    def test_simulation_evidence_advances_without_drawables_and_survives_dormancy(self) -> None:
         result = self.run_harness("batch-evidence-synthetic")
         self.assertIn("particle loaded: 2 / 2", result["initial"])
         self.assertIn("particle current nonempty: layers=[]", result["initial"])
         self.assertIn("particle committed nonempty: layers=[]", result["initial"])
         self.assertGreater(result["rejectedCount"], 0)
-        self.assertEqual(result["rejectedCount"], result["retriedCount"])
-        self.assertEqual(result["beforeCommit"], [])
-        self.assertEqual(result["afterDiscard"], [])
-        self.assertIn("particle current nonempty: layers=[]", result["discarded"])
+        self.assertEqual(result["retriedCount"], 0)
+        self.assertEqual(result["beforeCommit"], [200])
+        self.assertEqual(result["afterDiscard"], [200])
+        self.assertIn("particle current nonempty: layers=[200]", result["discarded"])
         self.assertEqual(result["committed"], [200])
         self.assertIn("particle loaded: 2 / 2", result["dormant"])
         self.assertIn("particle current nonempty: layers=[]", result["dormant"])

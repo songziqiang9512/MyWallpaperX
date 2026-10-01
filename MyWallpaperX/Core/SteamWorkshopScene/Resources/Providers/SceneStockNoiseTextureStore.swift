@@ -109,7 +109,7 @@ nonisolated struct SceneStockNoiseTextureStore {
         // replace(region:) requires CPU-visible storage; private textures
         // reject the upload (AGX driver crash observed 2026-09-26).
         descriptor.storageMode = .managed
-        guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
+        guard let texture = device.makeSceneTexture(descriptor: descriptor) else { return nil }
 
         var pixels = [UInt8](repeating: 0, count: side * side)
         let seed = Self.seed(for: name)

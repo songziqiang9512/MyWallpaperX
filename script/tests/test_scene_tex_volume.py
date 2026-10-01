@@ -23,6 +23,7 @@ STOCK_NEUTRAL = (
 )
 STOCK_LUT_DIRECTORY = STOCK_NEUTRAL.parent
 SWIFT_SOURCES = [
+    Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",

@@ -496,14 +496,6 @@ final class SceneParticleRuntime {
             }
             guard var root = layers[index].rootRender else { continue }
             rebuildGPUInstances(root: &root, layerAlpha: layerAlpha)
-            guard root.instanceBuffer.update(device: device, instances: root.instances) else {
-                addDiagnostic(
-                    kind: .instanceBufferAllocationFailed,
-                    layerID: layerID,
-                    path: layers[index].particlePath
-                )
-                continue
-            }
             batches.append(SceneParticleDrawBatch(
                 layerID: layerID,
                 particlePath: layers[index].particlePath,

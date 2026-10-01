@@ -200,7 +200,7 @@ struct SceneGraphRenderTargetTable {
         )
         descriptor.usage = [.renderTarget, .shaderRead]
         descriptor.storageMode = .private
-        let texture = device.makeTexture(descriptor: descriptor)
+        let texture = device.makeSceneTexture(descriptor: descriptor)
         let effectIndex = effect?.effectIndex ?? -1
         let name = specification.identity.name ?? specification.role
         texture?.label = "SceneGraphRT layer=\(layerID) effect=\(effectIndex) \(name) \(specification.format.rawValue)"

@@ -135,11 +135,18 @@
     {
       "id": "scene-frame-admission-retry",
       "title": "D10 — 帧不重叠准入与 busy 重探测",
-      "owner": "scene-e-route",
+      "owner": "SceneDesktopWallpaperHost / SceneMetalView / SceneMetalRenderer",
       "status": "approved",
       "designDoc": "docs/scene/design/frame-admission-retry-design.md",
-      "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
-      "matchPatterns": [],
+      "design_notes": "2026-10-01 用户裁决替换 all-surface rollback：共享模拟一次消费，每屏独立提交，恢复读最新状态。跨 clock/VM/provider/particle/Puppet 生命周期；设计与反例门、generic-only 迁移及退役条件见 designDoc。approved 不是运行验收。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession*FrameDriver*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticle*Runtime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePlaybackState.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift"
+      ],
       "contentPatterns": []
     },
     {
@@ -160,6 +167,44 @@
       "designDoc": "docs/scene/design/copy-pass-unification-design.md",
       "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
       "matchPatterns": [],
+      "contentPatterns": []
+    },
+    {
+      "id": "scene-submission-observation-isolation",
+      "title": "Scene 提交与终结观测解耦",
+      "owner": "SceneResolvedMaterialSubmissionCoordinator",
+      "status": "approved",
+      "designDoc": "docs/scene/design/runtime-architecture.md",
+      "design_notes": "§3.3 裁决：横切提交/终结/诊断并触及 publication 权威。产品 ledger/blueprint/tail 检查模式无关；真实 GPU 终结后生成观测，观测失败仅使证据无效。删除 pending observation 存储和 seal 的观测依赖；诊断开关/失败、GPU 失败、stale completion 与 next-frame 门通过后删除本条。批准设计边界，不代表运行验收。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator*.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
+      "id": "scene-candidate-session-activation",
+      "title": "Scene 候选首帧与会话提升",
+      "owner": "SceneDesktopWallpaperHost / SceneDesktopWallpaperSession / SceneScriptLocalStorageSession",
+      "status": "approved",
+      "designDoc": "docs/scene/design/scene-launch-responsiveness-contract.md",
+      "design_notes": "§4.2 先设计：将播放生命周期从请求 Host 迁至有界 Session role，首帧 GPU 完成后才提升可见性并退役旧场景；候选存储隔离、聚合音频需求及 drain；触发 identity/clock/publication/持久化，generic-only，失败/迟到/停止门闭合后退役本条。批准边界，不代表运行验收。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaper*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLocalStorage.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
+      "id": "scene-resident-resource-admission",
+      "title": "Scene shared resident admission",
+      "owner": "SceneResourceBudget / existing resource owners",
+      "status": "approved",
+      "designDoc": "docs/scene/design/scene-resource-admission.md",
+      "design_notes": "统一准入替换无父额度的原生分配；不是新增 registry。设计、覆盖边界、guard 产生者和退役条件见文档。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/**/*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/**/*.swift"
+      ],
       "contentPatterns": []
     }
   ]

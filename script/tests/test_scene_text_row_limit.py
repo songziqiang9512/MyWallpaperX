@@ -14,6 +14,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 TEXT_TEXTURE_LOADER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextTextureLoader.swift"
 SWIFT_SOURCES = [
+    Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SOURCE_ROOT / "Rendering/Composition/SceneBloomPostProcess.swift",
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
     SOURCE_ROOT / "Format/SceneDocument.swift",
@@ -283,6 +284,7 @@ struct SceneMdlPuppetAttachment {
 
 struct SceneAssetCatalog {
     struct ModelAsset {
+        var declaredSizeWH: [Float]? { nil }
         let relativePath: String
         let materialPath: String?
         let cropOffsetXY: [Float]?

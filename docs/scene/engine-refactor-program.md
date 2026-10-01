@@ -369,7 +369,7 @@ Steam 账号、订阅与下载获取的具体迁移由 [Steam 获取专项](scen
 
 **合同：**最小资源单元维护 pending→ready/failed/cancelled；上传中 staging 保活且受预算约束；跨队列依赖显式成立。取消、换 generation、失败 completion 不得发布；不要在持锁时等待。纹理尺寸、mip 权威、purpose、alpha、UV、sampler、原生 BC 与数据通道语义必须保持。异步化如需改变返回合同，同批迁移 producer/consumer，不能同步 API 外包一层任务却仍逐项 wait。新路径先 observe-only（只观察），再 prefer-generic 验证，最后 generic-only 撤旧路；不静默双执行。
 
-**验收：**AS1 的纹理组全部正反例；每个资源版本最多一次 ready publication、无 stale publication、GPU fault、过早释放或缺 mip 采样；量化 wait 次数/总时长、首帧、上传峰值与稳态 GPU 时间。收益必须覆盖额外 staging 峰值与转换成本。触达图像 mip 上传时补 failure completion 检查，不能提交失败仍当 ready。退出 GPU drain 的等待在 [Shutdown](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Shutdown.swift)属于后台安全屏障，本卡不删除。
+**验收：**AS1 的纹理组全部正反例；每个资源版本最多一次 ready publication、无 stale publication、GPU fault、过早释放或缺 mip 采样；量化 wait 次数/总时长、首帧、上传峰值与稳态 GPU 时间。收益必须覆盖额外 staging 峰值与转换成本。触达图像 mip 上传时补 failure completion 检查，不能提交失败仍当 ready。退出 GPU drain 的等待在 [Shutdown](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+Shutdown.swift)属于后台安全屏障，本卡不删除。
 
 ### 8.5 AS3 — Apple GPU 的合成与附件优化
 
@@ -399,7 +399,7 @@ Steam 账号、订阅与下载获取的具体迁移由 [Steam 获取专项](scen
 
 ### 8.8 AS6 — 帧节奏、背压与暂停能耗
 
-**入口／事实：**[FrameDriver](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift)采用 Timer/重试，[MetalView](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift)在部分 CPU 准备前取得 drawable。先执行 E4a 的 late acquire；正常模式仍有等待／唤醒证据才在同一 owner 内比较 [CAMetalDisplayLink](https://developer.apple.com/documentation/quartzcore/cametaldisplaylink)，不增加第二时间源，也不把 display-link 回调次数当作者模拟步数。
+**入口／事实：**[FrameDriver](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift)采用 Timer/重试，[MetalView](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift)在部分 CPU 准备前取得 drawable。先执行 E4a 的 late acquire；正常模式仍有等待／唤醒证据才在同一 owner 内比较 [CAMetalDisplayLink](https://developer.apple.com/documentation/quartzcore/cametaldisplaylink)，不增加第二时间源，也不把 display-link 回调次数当作者模拟步数。
 
 **实施：**遵循 E4 的单 pending token、completion/deadline 合流与多屏事务。已有 completion 唤醒失败实验须先复核，不把 GPU 完成回调直接连到递归 render。梳理 pause→frame driver→provider/音频/输入的消费者关系，只在无消费者时停止采样／解码。静态按需呈现必须证明无 time/script/media/particle 等动态依赖，并登记属性、输入、resize、恢复的 invalidation；判断不充分时继续正常调度。QoS 按任务延迟需求使用系统调度，不手动绑 P/E 核。
 

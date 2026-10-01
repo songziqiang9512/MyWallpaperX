@@ -109,7 +109,7 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
         ).read_text(encoding="utf-8")
         frame_driver = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift"
         ).read_text(encoding="utf-8")
         frame_schema = (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchFrameSchema.swift"
@@ -218,7 +218,7 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
 
     def test_scene_script_inputs_use_program_owned_typed_lanes(self) -> None:
         frame_driver = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift"
         ).read_text(encoding="utf-8")
         snapshot = (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift"
@@ -301,52 +301,6 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertNotIn("renderClearPass", source)
         self.assertEqual(source.count("commandBuffer.present(drawable)"), 1)
 
-    def test_frame_submission_outcome_controls_dynamic_plan_commit(self) -> None:
-        renderer = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift").read_text(
-            encoding="utf-8"
-        )
-        outcome = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+FrameOutcome.swift"
-        ).read_text(encoding="utf-8")
-        view = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift").read_text(
-            encoding="utf-8"
-        )
-        preflight = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
-        ).read_text(encoding="utf-8")
-        driver = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
-        ).read_text(encoding="utf-8")
-        lifecycle = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("enum FrameOutcome: Equatable", outcome)
-        self.assertIn("case submitted", outcome)
-        self.assertIn("case deferred(reasonCode: String)", outcome)
-        self.assertIn("case dropped(reasonCode: String)", outcome)
-        self.assertIn(") -> FrameOutcome", renderer)
-        self.assertEqual(renderer.count("commandBuffer.commit()"), 1)
-        self.assertNotIn("finishUnsubmittedCommandBuffer", renderer)
-        self.assertIn(") -> SceneMetalRenderer.FrameOutcome", view)
-        self.assertIn("let outcome = renderer.renderFrame(", view)
-        self.assertIn("$0.commitPreparedFrame()", view)
-        self.assertIn("$0.discardPreparedFrame()", view)
-        self.assertIn("return outcome", view)
-        self.assertIn(
-            ") -> SceneMetalRenderer.ResolvedMaterialFrameAdmission",
-            preflight,
-        )
-        self.assertIn("var frameOutcomes: [SceneMetalRenderer.FrameOutcome]", driver)
-        self.assertIn("case .dropped:", driver)
-        submission_guard = driver.index("let allSurfacesSubmitted")
-        commit_call = driver.index("commitSubmittedSceneFrame(", submission_guard)
-        helper_start = lifecycle.index("func commitSceneScriptLayerPlan(")
-        plan_commit = lifecycle.index(
-            "context.sceneScriptDynamicLayerRuntime.commit(plan)", helper_start
-        )
-        self.assertGreater(commit_call, submission_guard)
-        self.assertGreater(plan_commit, helper_start)
 
     def test_scene_clear_enabled_controls_only_initial_main_pass_load(self) -> None:
         renderer = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift").read_text(

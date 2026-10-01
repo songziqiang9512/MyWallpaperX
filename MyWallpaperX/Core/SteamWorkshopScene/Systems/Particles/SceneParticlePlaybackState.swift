@@ -3,11 +3,6 @@ import Metal
 import simd
 
 final class SceneParticlePlaybackState {
-    private struct FrameTransaction {
-        let runtime: SceneParticleRuntime.FrameSnapshot
-        let batches: [SceneParticleDrawBatch]
-    }
-
     private nonisolated static let maximumRealtimeSimulationDelta: TimeInterval = 2.0 / 60.0
 
     let lifecycleIdentity = UUID()
@@ -24,7 +19,6 @@ final class SceneParticlePlaybackState {
     /// periods. This is producer evidence, not GPU completion or visibility.
     private(set) var committedNonemptyBatchLayerIDs: Set<Int> = []
     private var didTeardown = false
-    private var frameTransaction: FrameTransaction?
     private var reportedAudioEvaluationIdentities:
         Set<SceneParticleRuntimeAudioEvaluationIdentity> = []
     var hasAudioConsumer: Bool { runtime.hasAudioConsumer }
@@ -82,40 +76,12 @@ final class SceneParticlePlaybackState {
             ),
             layerWorldFrames: layerWorldFrames
         )
-        if frameTransaction == nil {
-            stickyBatchLayerIDs.formUnion(batches.map(\.layerID))
-        }
-        return batches
-    }
-
-    /// Begins a host-frame transaction before simulation mutates its live
-    /// producer state. The host commits it only after every surface submits;
-    /// a deferred/dropped surface restores the prior particle timeline.
-    func prepareFrame() {
-        guard !didTeardown, frameTransaction == nil else { return }
-        frameTransaction = FrameTransaction(
-            runtime: runtime.frameSnapshot(),
-            batches: batches
-        )
-    }
-
-    func commitPreparedFrame() {
-        guard frameTransaction != nil else { return }
-        frameTransaction = nil
-        for batch in batches {
-            stickyBatchLayerIDs.insert(batch.layerID)
-            if !batch.instances.isEmpty {
-                committedNonemptyBatchLayerIDs.insert(batch.layerID)
-            }
+        stickyBatchLayerIDs.formUnion(batches.map(\.layerID))
+        for batch in batches where !batch.instances.isEmpty {
+            committedNonemptyBatchLayerIDs.insert(batch.layerID)
         }
         publishCommittedAudioEvaluationObservations()
-    }
-
-    func discardPreparedFrame() {
-        guard let frameTransaction else { return }
-        runtime.restoreFrame(frameTransaction.runtime)
-        batches = frameTransaction.batches
-        self.frameTransaction = nil
+        return batches
     }
 
     private func publishCommittedAudioEvaluationObservations() {
@@ -163,7 +129,6 @@ final class SceneParticlePlaybackState {
     func teardown(reason: String) -> SceneParticlePlaybackTeardownObservation? {
         guard !didTeardown else { return nil }
         didTeardown = true
-        frameTransaction = nil
         let observation = SceneParticlePlaybackTeardownObservation(
             lifecycleIdentity: lifecycleIdentity,
             reason: reason,

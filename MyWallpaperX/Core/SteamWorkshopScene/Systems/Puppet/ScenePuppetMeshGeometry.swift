@@ -52,11 +52,11 @@ enum ScenePuppetMeshGeometry {
             )
         }
         var indices = mesh.indices
-        guard let vertexBuffer = device.makeBuffer(
+        guard let vertexBuffer = device.makeSceneBuffer(
                   bytes: &vertices,
                   length: vertices.count * MemoryLayout<SceneQuadVertex>.stride
               ),
-              let indexBuffer = device.makeBuffer(
+              let indexBuffer = device.makeSceneBuffer(
                   bytes: &indices,
                   length: indices.count * MemoryLayout<UInt16>.stride
               )

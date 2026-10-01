@@ -65,6 +65,8 @@ enum SceneDesktopWallpaperHostLaunchError: LocalizedError {
     case invalidBoundedSceneScriptProgramAt(String)
     case requiredImagePipelineUnavailable
     case noSurface
+    case firstFrameFailed
+    case firstFrameTimeout
 
     var errorDescription: String? {
         switch self {
@@ -78,6 +80,10 @@ enum SceneDesktopWallpaperHostLaunchError: LocalizedError {
             "Scene 有界脚本目标在 \(phase) 无法形成，已停止启动。"
         case .requiredImagePipelineUnavailable:
             "Scene 必需的图像合成 pipeline 无法形成，已保留当前壁纸。"
+        case .firstFrameFailed:
+            "Scene 候选首帧执行失败，已保留当前壁纸。"
+        case .firstFrameTimeout:
+            "Scene 候选首帧等待超时，已保留当前壁纸。"
         case .noSurface:
             "Scene 宿主未能创建可播放表面。"
         }

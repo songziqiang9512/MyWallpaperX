@@ -70,42 +70,46 @@ extension DebugScenePlaybackRunner {
         )
         DispatchQueue.main.asyncAfter(deadline: .now() + request.delay) {
             let before = runtimeHost.debugSnapshot()
-            do {
-                let model = try runtimeHost.launch(
-                    rootURL: request.rootURL,
-                    propertyOverrides: propertyOverrides,
-                    userPropertyTextureURLs: textureURLs,
-                    logURL: logURL,
-                    recordID: recordID
-                )
-                runtimeHost.setPlaybackPaused(false)
-                let after = runtimeHost.debugSnapshot()
-                let layerIDs = model.renderDescriptor.layers.map(\.id)
-                    .sorted().map(String.init).joined(separator: ",")
-                NSLog(
-                    "MWX DEBUG SCENE: phase=scene-switch state=triggered accepted=true mode=%@ root=%@ layerIDs=%@ surfacesBefore=%d surfacesAfter=%d",
-                    request.usesAlternateRoot ? "alternate-input" : "same-input",
-                    request.rootURL.path,
-                    layerIDs,
-                    before.surfaceCount,
-                    after.surfaceCount
-                )
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                    requestSnapshot(
-                        reason: "scene-switch-after",
-                        outputDirectory: outputDirectory
+            Task {
+                do {
+                    let model = try await runtimeHost.launch(
+                        rootURL: request.rootURL,
+                        propertyOverrides: propertyOverrides,
+                        userPropertyTextureURLs: textureURLs,
+                        logURL: logURL,
+                        recordID: recordID
+                    )
+                    runtimeHost.setPlaybackPaused(false)
+                    let after = runtimeHost.debugSnapshot()
+                    let layerIDs = model.renderDescriptor.layers.map(\.id)
+                        .sorted().map(String.init).joined(separator: ",")
+                    NSLog(
+                        "MWX DEBUG SCENE: phase=scene-switch state=triggered accepted=true mode=%@ root=%@ layerIDs=%@ surfacesBefore=%d surfacesAfter=%d",
+                        request.usesAlternateRoot ? "alternate-input" : "same-input",
+                        request.rootURL.path,
+                        layerIDs,
+                        before.surfaceCount,
+                        after.surfaceCount
+                    )
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                        requestSnapshot(
+                            reason: "scene-switch-after",
+                            outputDirectory: outputDirectory
+                        )
+                    }
+                } catch {
+                    let after = runtimeHost.debugSnapshot()
+                    NSLog(
+                        "MWX DEBUG SCENE: phase=scene-switch state=triggered accepted=false mode=%@ root=%@ surfacesBefore=%d surfacesAfter=%d preserved=%@ running=%@ error=%@",
+                        request.usesAlternateRoot ? "alternate-input" : "same-input",
+                        request.rootURL.path,
+                        before.surfaceCount,
+                        after.surfaceCount,
+                        before.windowNumbers == after.windowNumbers ? "true" : "false",
+                        after.isFrameDriverActive ? "true" : "false",
+                        error.localizedDescription
                     )
                 }
-            } catch {
-                let after = runtimeHost.debugSnapshot()
-                NSLog(
-                    "MWX DEBUG SCENE: phase=scene-switch state=triggered accepted=false mode=%@ root=%@ surfacesBefore=%d surfacesAfter=%d error=%@",
-                    request.usesAlternateRoot ? "alternate-input" : "same-input",
-                    request.rootURL.path,
-                    before.surfaceCount,
-                    after.surfaceCount,
-                    error.localizedDescription
-                )
             }
         }
     }

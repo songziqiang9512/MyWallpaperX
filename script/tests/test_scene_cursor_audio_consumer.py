@@ -19,7 +19,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parents[2]
 DEMAND_SOURCE = (
     ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+AudioDemand.swift"
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+AudioDemand.swift"
 )
 
 
@@ -361,7 +361,15 @@ final class SceneAudioSpectrumInbox {
         includesCurrentProcess = active && requiresCurrentProcessAudioCapture
     }
 }
-final class SceneDesktopWallpaperHost {}
+final class SceneDesktopWallpaperSession {
+    var audioDemand = (spectrum: false, currentProcess: false)
+    var onAudioDemandChanged: (() -> Void)?
+    init() {
+        onAudioDemandChanged = { [unowned self] in
+            SceneAudioSpectrumInbox.shared.setDemand(audioDemand.spectrum, requiresCurrentProcessAudioCapture: audioDemand.currentProcess)
+        }
+    }
+}
 
 @main
 enum Harness {
@@ -376,7 +384,7 @@ enum Harness {
             sceneScriptCursorProgram: .init(hasAudioConsumers: true),
             soundPlaybackProgram: .init(bindings: [1])
         )
-        SceneDesktopWallpaperHost().updateAudioSpectrumDemand(
+        SceneDesktopWallpaperSession().updateAudioSpectrumDemand(
             context, hasParticleAudioConsumer: false
         )
         let payload: [String: Any] = [

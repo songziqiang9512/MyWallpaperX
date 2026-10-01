@@ -37,13 +37,13 @@ extension SceneMetalRenderer {
         }
     }
 
-    /// A synchronous Host-owned candidate. No buffer is enqueued until every
-    /// surface has encoded and sealed. Dropping a candidate releases its exact
+    /// A synchronous candidate for one display. Dropping it releases only its
     /// unsubmitted resources; GPU ownership starts only in submit().
     final class PreparedFrame: Equatable {
         private var commandBuffer: MTLCommandBuffer?
         private var submitActions: (() -> Void)?
         private var cancelActions: (() -> Void)?
+        private var completionObservers: [(Bool) -> Void] = []
 
         init(commandBuffer: MTLCommandBuffer,
              submit: @escaping () -> Void, cancel: @escaping () -> Void) {
@@ -55,9 +55,6 @@ extension SceneMetalRenderer {
         static func == (lhs: PreparedFrame, rhs: PreparedFrame) -> Bool { lhs === rhs }
 
         var isReady: Bool { commandBuffer?.status == .notEnqueued }
-        fileprivate var commandBufferIdentity: ObjectIdentifier? {
-            commandBuffer.map(ObjectIdentifier.init)
-        }
 
 #if DEBUG
         private var debugObservation: (frameIndex: UInt64, surfaceID: UInt32)?
@@ -66,6 +63,10 @@ extension SceneMetalRenderer {
             NSLog("MWX DEBUG SCENE: phase=surface-submission state=prepared frame=%llu surface=%u", frameIndex, surfaceID)
         }
 #endif
+
+        func whenCompleted(_ completion: @escaping (Bool) -> Void) {
+            completionObservers.append(completion)
+        }
 
         fileprivate func submit() {
             precondition(isReady)
@@ -76,6 +77,14 @@ extension SceneMetalRenderer {
                 }
             }
 #endif
+            let observers = completionObservers
+            if !observers.isEmpty {
+                commandBuffer?.addCompletedHandler { buffer in
+                    let succeeded = buffer.status == .completed && buffer.error == nil
+                    observers.forEach { $0(succeeded) }
+                }
+            }
+            completionObservers = []
             let action = submitActions
             // Consume ownership before callbacks; repeated resolution is inert.
             commandBuffer = nil
@@ -92,6 +101,7 @@ extension SceneMetalRenderer {
                 NSLog("MWX DEBUG SCENE: phase=surface-submission state=cancelled frame=%llu surface=%u submitted=false", observation.frameIndex, observation.surfaceID)
             }
 #endif
+            completionObservers = []
             let action = cancelActions
             commandBuffer = nil
             submitActions = nil
@@ -102,25 +112,15 @@ extension SceneMetalRenderer {
         deinit { cancel() }
     }
 
-    /// Called synchronously on the frame owner thread. Preparation can fail;
-    /// after preflight the submit segment contains no fallible admission work.
-    static func submitPreparedFrames(_ outcomes: inout [FrameOutcome], expectedCount: Int) -> Bool {
-        let candidates = outcomes.compactMap { outcome -> PreparedFrame? in
-            guard case let .prepared(candidate) = outcome else { return nil }
-            return candidate
+    /// Each display owns its submission. Resolve it before preparing another
+    /// display so a shared-source FIFO never depends on an unsubmitted peer.
+    static func submitPreparedFrame(_ outcome: FrameOutcome) -> FrameOutcome {
+        guard case let .prepared(candidate) = outcome else { return outcome }
+        guard candidate.isReady else {
+            return .dropped(reasonCode: "prepared-frame-already-resolved")
         }
-        guard expectedCount > 0, outcomes.count == expectedCount,
-              candidates.count == outcomes.count,
-              Set(candidates.compactMap(\.commandBufferIdentity)).count == candidates.count,
-              candidates.allSatisfy(\.isReady) else {
-            candidates.reversed().forEach { $0.cancel() }
-            return false
-        }
-        for index in outcomes.indices {
-            candidates[index].submit()
-            outcomes[index] = .submitted
-        }
-        return true
+        candidate.submit()
+        return .submitted
     }
 
     enum ResolvedMaterialFrameAdmission {

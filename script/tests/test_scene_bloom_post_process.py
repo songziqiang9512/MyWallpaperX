@@ -258,11 +258,7 @@ class SceneBloomPostProcessTests(unittest.TestCase):
                  str(SCENE / "SceneBloomPostProcess.metal"), "-o", str(folder / "bloom.air")],
                 ["xcrun", "-sdk", "macosx", "metallib", str(folder / "bloom.air"),
                  "-o", str(folder / "default.metallib")],
-                ["swiftc", "-import-objc-header", str(folder / "Fault.h"),
-                 str(folder / "fault.o"), *map(str, SWIFT_SOURCES),
-                 str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift"),
-                 str(SCENE / "SceneBloomPostProcess.swift"),
-                 str(folder / "Main.swift"), "-o", str(folder / "run")],
+                ["swiftc","-import-objc-header",str(folder / "Fault.h"),str(folder / "fault.o"),*map(str, SWIFT_SOURCES),str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift"),str(SCENE / "SceneBloomPostProcess.swift"),str(folder / "Main.swift"),"-o",str(folder / "run"),Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift"],
             ]
             for command in commands:
                 subprocess.run(command, capture_output=True, text=True, check=True, timeout=120)

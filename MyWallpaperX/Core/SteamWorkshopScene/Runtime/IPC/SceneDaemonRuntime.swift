@@ -288,10 +288,10 @@ final class SceneDaemonRuntime {
             host.applyPerformanceProfile(profile)
         case let .setVolume(volume):
             PlaybackVolumeState.shared.setNormalizedVolume(volume)
-            host.soundPlaybackRegistry?.setMasterVolume(Double(volume))
+            host.setMasterVolume(Double(volume))
         case let .setMuted(muted):
             PlaybackMuteState.shared.setMuted(muted)
-            host.soundPlaybackRegistry?.setMuted(muted)
+            host.setMuted(muted)
         case let .captureFrame(requestID):
             captureWallpaperFrame(requestID: requestID)
         case let .publishAudioSpectrum(frame):

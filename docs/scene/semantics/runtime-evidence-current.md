@@ -6,6 +6,18 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-10-01-lifecycle-integrity"></a>
+
+### E-2026-10-01-LIFECYCLE-INTEGRITY — 候选提升、共享模拟、独立呈现与 resident 准入
+
+**执行身份与结果：**隔离工作树从 `41e4c84d` 开始，纳入外部并行分支至 `674feadc` 的已提交变化后冻结验证；本批按用户追加授权合入并提交，未推送。Host 保留请求和唯一 active 决策，Session 拥有场景 VM/clock/surfaces；候选各屏首帧 GPU 完成后提升，失败/超时/迟到取消保留旧场景。候选 localStorage 暂不持久化，提升时合并 active 的未覆盖键。共享模拟一次消费，健康屏继续、缺 drawable 的屏恢复使用最新状态；诊断 observation 失败不阻止真实 GPU 成功后的产品 publication。GPU 与保留 decoded cache 使用同一父预算，视频按 backing 去重，资源仍被 GPU 引用时不返还额度。设计分别见[启动合同](../design/scene-launch-responsiveness-contract.md)、[帧合同](../design/frame-admission-retry-design.md)、[资源准入](../design/scene-resource-admission.md)。
+
+**验证：**合并后的 Debug build 成功；最终差异对应的 47 个定向模块累计复测为 45 通过、2 保留基线失败。后者在未修改的 `674feadc` 复现：`realtime_path_policy` 的 1 个旧源码形状断言、`resolved_material_program_finalizer` 的 3 个 texture-binding 行为断言；本批没有修改其产品 owner 或放宽断言。真实 Metal 提交测试覆盖独立提交/取消、FIFO、pin/tail/next-frame 和诊断开关及损坏观测；resource 测试覆盖并发准入、失败返还、decode 竞争、真实 in-flight 保留和 CV backing 去重。Session 状态机反例覆盖失败、超时、迟到结果、停止等待 drain；存储执行测试覆盖候选隔离、合并、失败候选和退役写入。
+
+**原生输出：**5 个自制 Scene fixture 的 App/QuickJS/Metal 用例通过：两屏缺 drawable、两屏提交前取消、全部屏缺 drawable、正常场景切换、首帧真实完成后注入候选拒绝。验证连续唯一脚本 frame/generation、真实 GPU completion、恢复 next-frame、切换/退役顺序及旧窗口身份保持；最终窗口 PNG 中稳定绿色层像素面积占比均超过 0.5%。这提供自制内容的 terminal compositor 证据，不代表任意作者效果视觉兼容。code-health、scene-defense、design-gate、分配入口单权威清单与迁移文档链接门通过。源码形状测试中与已删除职责绑定的部分由上述执行门替换；现有行为门保持。
+
+**证据与边界：**本机证据缓存 `docs/scene/evidence/20261001-lifecycle-integrity/` 保存模块结果、构建/门禁日志、原生 App 日志和截图、合入前后文件哈希清单。未测试真实多台物理显示器、长期高负载、完整 corpus、性能提升或官方 parity；未计入 driver/drawable、AVFoundation 私有缓冲和 VM/解析/解码瞬态的内存，因此总额度是可控 resident 预算，不是进程 RSS/OOM 保证。未签名发布、未推送。
+
 <a id="e-2026-09-30-varying-isolation"></a>
 
 ### E-2026-09-30-VARYING-ISOLATION — varying 隔离架构提案独立评审通过（E5 varying 类架构裁决，登记锚点）

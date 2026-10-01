@@ -195,7 +195,7 @@ extension SceneOffscreenTexturePool {
         descriptor.usage = [.renderTarget, .shaderRead]
         descriptor.storageMode = .private
         let factory = textureFactory ?? { [device] descriptor, label in
-            let texture = device.makeTexture(descriptor: descriptor)
+            let texture = device.makeSceneTexture(descriptor: descriptor)
             texture?.label = label
             return texture
         }

@@ -66,7 +66,7 @@ final class SceneFramebufferSnapshot {
         )
         descriptor.storageMode = .private
         descriptor.usage = .shaderRead
-        guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
+        guard let texture = device.makeSceneTexture(descriptor: descriptor) else { return nil }
         texture.label = "\(label) \(width)x\(height)"
         self.texture = texture
         residentByteCost = Self.byteCost(width: width, height: height, pixelFormat: pixelFormat) ?? 0

@@ -1,14 +1,6 @@
 import Foundation
 
 extension SceneMetalView {
-    func commitPreparedParticleFrame() {
-        particlePlayback?.commitPreparedFrame()
-    }
-
-    func discardPreparedParticleFrame() {
-        particlePlayback?.discardPreparedFrame()
-    }
-
     var hasParticleAudioConsumer: Bool {
         particlePlayback?.hasAudioConsumer == true
     }
@@ -22,9 +14,6 @@ extension SceneMetalView {
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) -> [SceneParticleDrawBatch] {
         guard let particlePlayback else { return [] }
-        performanceTelemetry?.beginStage("particle-prepare-frame")
-        particlePlayback.prepareFrame()
-        performanceTelemetry?.endStage("particle-prepare-frame")
         performanceTelemetry?.beginStage("particle-pointer-projection")
         let pointerLocalPositions = renderer.particlePointerLocalPositions(
             frameContext: frameContext,

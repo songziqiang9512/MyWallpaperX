@@ -529,7 +529,8 @@
           "SceneTextureProviderPublication.swift",
           "SceneTextureSampling.swift",
           "SceneTextureSlotBinding.swift",
-          "SceneTextureUVTransform.swift"
+          "SceneTextureUVTransform.swift",
+          "SceneResourceBudget.swift"
         ],
         "responsibility": "Textures: Shared resource identity, resolution, upload, residency and asynchronous publication."
       }
@@ -564,19 +565,22 @@
       },
       "Session": {
         "file_globs": [
-          "SceneDesktopWallpaperHost+AudioDemand.swift",
+          "SceneDesktopWallpaperSession+AudioDemand.swift",
           "SceneDesktopWallpaperHost+DeferredBaseImages.swift",
-          "SceneDesktopWallpaperHost+FrameDriver.swift",
-          "SceneDesktopWallpaperHost+FrameDriverCursor.swift",
-          "SceneDesktopWallpaperHost+FrameDriverLifecycle.swift",
+          "SceneDesktopWallpaperSession+FrameDriver.swift",
+          "SceneDesktopWallpaperSession+FrameDriverCursor.swift",
+          "SceneDesktopWallpaperSession+FrameDriverLifecycle.swift",
           "SceneDesktopWallpaperHost+Launch.swift",
           "SceneDesktopWallpaperHost+LiveConsumers.swift",
-          "SceneDesktopWallpaperHost+PointerEvents.swift",
-          "SceneDesktopWallpaperHost+Shutdown.swift",
-          "SceneDesktopWallpaperHost+SurfaceTeardown.swift",
-          "SceneDesktopWallpaperHost+TextScriptReport.swift",
-          "SceneDesktopWallpaperHost+VideoProviders.swift",
+          "SceneDesktopWallpaperSession+PointerEvents.swift",
+          "SceneDesktopWallpaperSession+Shutdown.swift",
+          "SceneDesktopWallpaperSession+SurfaceTeardown.swift",
+          "SceneDesktopWallpaperSession+TextScriptReport.swift",
+          "SceneDesktopWallpaperSession+VideoProviders.swift",
           "SceneDesktopWallpaperHost.swift",
+          "SceneDesktopWallpaperHost+Activation.swift",
+          "SceneDesktopWallpaperSession.swift",
+          "SceneDesktopWallpaperSession+LiveConsumers.swift",
           "SceneDesktopWallpaperLaunchModels.swift",
           "SceneDesktopWallpaperLaunchContext+PuppetBones.swift",
           "SceneDesktopWallpaperLaunchContext+StartupReport.swift",
@@ -700,7 +704,7 @@
           "SceneSharedLayerAlphaRuntime.swift",
           "SceneSharedLayerAlphaSyntax.swift",
           "SceneStaticModelMaterialPropertyBindingCompiler.swift",
-          "SceneSurfaceEvaluationTransaction.swift",
+          "SceneEvaluationTransaction.swift",
           "SceneUserProperty.swift",
           "SceneUserPropertyBindings.swift",
           "SceneUserPropertyDefinitionParser.swift",
@@ -1286,6 +1290,16 @@
           "Format/ScenePkgExtractionReport.swift",
           "Systems/Animation/SceneSpriteAnimation.swift",
           "Systems/Script/SceneScriptMediaEventBridge.swift"
+        ]
+      },
+      {
+        "id": "single-scene-resident-allocation-entry",
+        "role": "inventory",
+        "description": "Native Scene resource allocation has one admission account. Owner: SceneResourceAllocation. No per-screen or candidate bypass; imported video charges backing once.",
+        "pattern": "(?<!func )\\b(?:makeTexture\\(descriptor:|makeBuffer\\((?:bytes:|length:)|CVMetalTextureCacheCreateTextureFromImage\\()",
+        "baseline_occurrences": 4,
+        "allowed_files": [
+          "Resources/Textures/SceneResourceBudget.swift"
         ]
       }
     ]

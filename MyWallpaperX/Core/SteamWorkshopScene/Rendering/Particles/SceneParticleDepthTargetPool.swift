@@ -140,7 +140,7 @@ final class SceneParticleDepthTargetPool: @unchecked Sendable {
         )
         descriptor.storageMode = .private
         descriptor.usage = .renderTarget
-        let texture = device.makeTexture(descriptor: descriptor)
+        let texture = device.makeSceneTexture(descriptor: descriptor)
         texture?.label = "Scene particle depth slot \(slot)"
         return texture
     }

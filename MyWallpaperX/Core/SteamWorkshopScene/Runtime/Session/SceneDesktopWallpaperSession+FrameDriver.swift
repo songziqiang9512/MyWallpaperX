@@ -6,7 +6,7 @@ private enum SceneFrameDriverAttempt {
     case dropped
     case inactive
 }
-extension SceneDesktopWallpaperHost {
+extension SceneDesktopWallpaperSession {
     /// 帧节奏由性能预算档驱动（M0.7）：60=standard，30=efficient；
     /// 档位经 `.setPerformanceProfile` 命令热切换，下一次排帧生效。
     private var sceneFrameInterval: TimeInterval {
@@ -17,7 +17,7 @@ extension SceneDesktopWallpaperHost {
     }
 #if DEBUG
     static let debugSceneTimeOverride: TimeInterval? = {
-        guard usesDebugEvidenceWindow,
+        guard SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
               let rawValue = ProcessInfo.processInfo.environment[
                 "MYWALLPAPERX_SCENE_DEBUG_SCENE_TIME"
               ],
@@ -27,7 +27,7 @@ extension SceneDesktopWallpaperHost {
         return value
     }()
     static let debugWallDateOverride: Date? = {
-        guard usesDebugEvidenceWindow,
+        guard SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
               let rawValue = ProcessInfo.processInfo.environment[
                 "MYWALLPAPERX_SCENE_DEBUG_WALL_DATE"
               ] else { return nil }
@@ -42,7 +42,7 @@ extension SceneDesktopWallpaperHost {
         ScenePerformanceHUDController.shared.showIfNeeded()
 #endif
 #if DEBUG
-        if Self.usesDebugEvidenceWindow {
+        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
             NSLog(
                 "MWX DEBUG SCENE: phase=frame-driver-start paused=%@",
                 sceneClock.isPaused ? "true" : "false"
@@ -59,7 +59,7 @@ extension SceneDesktopWallpaperHost {
             pausedRetryUntil: sceneClock.isPaused ? initialDeadline + 1 : nil
         )
 #if DEBUG
-        if Self.usesDebugEvidenceWindow {
+        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
             NSLog(
                 "MWX DEBUG SCENE: phase=frame-driver-ready timer=%@",
                 frameTimer?.isValid == true ? "active" : "inactive"
@@ -146,17 +146,13 @@ extension SceneDesktopWallpaperHost {
             )
         }
         guard launchContext != nil, !surfaces.isEmpty else { return .inactive }
+        if sceneClock.isPaused && surfaces.values.allSatisfy({ $0.metalView.hasSimulationFrame }) {
+            return renderSurfaces()
+        }
         promotePendingDeferredLayerVisibilityIfReady()
         guard let launchContext else { return .inactive }
-        let sceneScriptProgramTimerFrameState = self.sceneScriptProgramTimerFrameState(launchContext)
-        guard sceneScriptProgramTimerFrameState.scalar.isComplete && sceneScriptProgramTimerFrameState.string.isComplete && sceneScriptProgramTimerFrameState.vector.isComplete && sceneScriptProgramTimerFrameState.cursor.isComplete else { discardSceneScriptProgramTimerFrameState(launchContext, sceneScriptProgramTimerFrameState); return .dropped }
-        guard surfaces.values.allSatisfy({
-            !$0.metalView.shouldDeferResolvedMaterialFrame
-        }) else { discardSceneScriptProgramTimerFrameState(launchContext, sceneScriptProgramTimerFrameState)
-            return .busy
-        }
 #if DEBUG
-        if Self.usesDebugEvidenceWindow {
+        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
             SceneFramePerformanceTelemetry.debugEvidence.recordDriverCallback()
         }
 #endif
@@ -166,7 +162,6 @@ extension SceneDesktopWallpaperHost {
 #else
         let wallDate = Date()
 #endif
-        let clockState = sceneClock.snapshot()
         let advancedTiming = sceneClock.advance(
             hostTime: CACurrentMediaTime(),
             wallDate: wallDate
@@ -190,7 +185,7 @@ extension SceneDesktopWallpaperHost {
         let timing = advancedTiming
 #endif
 #if DEBUG
-        if Self.usesDebugEvidenceWindow {
+        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
             SceneFramePerformanceTelemetry.debugEvidence.recordFrameDelta(
                 raw: timing.rawFrameTime,
                 dropped: timing.droppedFrameTime
@@ -200,8 +195,6 @@ extension SceneDesktopWallpaperHost {
         let definitionIndex = launchContext.dynamicDefinitionIndex
         let audioSpectrumFrame = SceneAudioSpectrumInbox.shared.prepareFrame()
         let audioSpectrum = audioSpectrumFrame.snapshot
-        let timelineObservationState = launchContext.timelinePlaybackRuntime
-            .observationSnapshot()
         let timelineValues = launchContext.timelinePlaybackRuntime.values(
             sceneTime: timing.sceneTime
         )
@@ -257,12 +250,12 @@ extension SceneDesktopWallpaperHost {
         // the authored descriptor is only the seed. Carry forward typed
         // targets when no higher-priority user/timeline producer is present.
         let sceneScriptStatefulTargets = launchContext.sceneScriptStatefulTargets
-        let previousSceneScriptValues = surfaces.values.first?.evaluationTransaction
+        let previousSceneScriptValues = evaluationTransaction
             .previousValues(for: sceneScriptStatefulTargets)
             .filter { target, _ in
                 launchContext.liveState.userValues[target] == nil
                     && timelineValues[target] == nil
-            } ?? [:]
+            }
         var commonSceneScriptValues = previousSceneScriptValues
         commonSceneScriptValues.merge(textScriptValues) { _, current in current }
         commonSceneScriptValues.merge(sharedLayerAlphaValues) { _, current in current }
@@ -301,12 +294,13 @@ extension SceneDesktopWallpaperHost {
             launchContext.textureAnimationPlaybackRuntime.snapshots(
                 sceneTime: timing.sceneTime
             )
+        let puppetPoseFrames = surfaces.mapValues {
+            $0.metalView.prepareSceneScriptPuppetPoseFrame(
+                timing: timing, dynamicValues: preliminaryForSceneScript
+            )
+        }
         let sceneScriptPuppetPoseFrame = surfaces.count == 1
-            ? surfaces.values.first?.metalView.prepareSceneScriptPuppetPoseFrame(
-                timing: timing,
-                dynamicValues: preliminaryForSceneScript
-            ) ?? .empty
-            : .empty
+            ? puppetPoseFrames.values.first ?? .empty : .empty
         let sceneScriptLayerSnapshotFailure: SceneScriptScalarRuntimeFailure?
         do {
             try launchContext.propertyVectorScriptProgram.domain?.publishLayerSnapshot(
@@ -346,7 +340,7 @@ extension SceneDesktopWallpaperHost {
                 timing.frameIndex, String(describing: failure), failure.code
             )
         }
-        let cursorPreparation = prepareSceneScriptCursorBatch(
+        let cursorBatch = prepareSceneScriptCursorBatch(
             launchContext: launchContext,
             timing: timing,
             preliminaryForSceneScript: preliminaryForSceneScript,
@@ -354,12 +348,10 @@ extension SceneDesktopWallpaperHost {
                 sceneScriptPuppetPoseFrame.attachmentFrames,
             layerSnapshotFailure: sceneScriptLayerSnapshotFailure
         )
-        let cursorBatch = cursorPreparation.batch
         let sceneScriptProgramFrameState = self.sceneScriptProgramFrameState(
             launchContext
         )
         let cursorResult: SceneScriptCursorFrameResult
-        var cursorEdgeState: SceneScriptCursorEdgeState?
         if let failure = sceneScriptLayerSnapshotFailure {
             cursorResult = .init(
                 failures: Dictionary(uniqueKeysWithValues:
@@ -371,8 +363,6 @@ extension SceneDesktopWallpaperHost {
                 layerMutations: [], inputBatchOverflowed: false
             )
         } else {
-            cursorEdgeState = launchContext.sceneScriptCursorProgram
-                .edgeStateSnapshot()
             cursorResult = launchContext.sceneScriptCursorProgram.dispatch(
                 batch: cursorBatch, frame: sceneScriptFrame,
                 userPropertiesJSON: userPropertiesJSON,
@@ -489,7 +479,7 @@ extension SceneDesktopWallpaperHost {
             $0 + $1.layerMutations.count
         }
 #if DEBUG
-        if Self.usesDebugEvidenceWindow, timing.frameIndex == 0 {
+        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow, timing.frameIndex == 0 {
             let effectSummary = ownerEffects.map { effect in
                 let dynamicCount = effect.layerMutations.filter(\.isDynamic).count
                 return "owner=\(effect.ownerTarget)"
@@ -543,7 +533,7 @@ extension SceneDesktopWallpaperHost {
             \.ownerTarget
         ))
 #if DEBUG
-        if Self.usesDebugEvidenceWindow, timing.frameIndex == 0 {
+        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow, timing.frameIndex == 0 {
             let admittedLayers = admittedOwnerEffects.reduce(0) {
                 $0 + $1.layerMutations.count
             }
@@ -629,31 +619,18 @@ extension SceneDesktopWallpaperHost {
             sceneScriptValues: admittedSceneScriptValues
         )
         let materialFunctionMutations = admittedOwnerEffects.flatMap(\.materialFunctionMutations)
-        var pendingSurfaceEvaluations: [(Surface, SceneSurfaceEvaluationTransaction.PendingEvaluation)] = []
-        var frameOutcomes: [SceneMetalRenderer.FrameOutcome] = []
-        frameOutcomes.reserveCapacity(surfaces.count)
-        let parallaxPointerStates = Dictionary(uniqueKeysWithValues: surfaces.map { ($0.key, $0.value.metalView.snapshotParallaxPointerSmoother()) })
-        let pointerPreviousStates = Dictionary(uniqueKeysWithValues: surfaces.map { ($0.key, $0.value.metalView.snapshotPointerPrevious()) })
+        let pendingEvaluation = evaluationTransaction.prepare(
+            frameIndex: timing.frameIndex, resolution: sharedSurfaceResolution
+        )
         for (displayID, surface) in surfaces {
             guard let mediaThumbnailSnapshot =
                 mediaThumbnailSnapshots[displayID] else {
-                frameOutcomes.append(.deferred(
-                    reasonCode: "media-thumbnail-snapshot-unavailable"
-                ))
                 continue
             }
-#if DEBUG
-            let mainFrameStart = ProcessInfo.processInfo.systemUptime
-#endif
-            let pendingEvaluation = surface.evaluationTransaction.prepare(
-                frameIndex: timing.frameIndex,
-                resolution: sharedSurfaceResolution
-            )
-            pendingSurfaceEvaluations.append((surface, pendingEvaluation))
             let resolvedDynamicValues = pendingEvaluation.resolution.snapshot
 #if DEBUG
             let dynamicValues: SceneDynamicSnapshot
-            if Self.usesDebugEvidenceWindow,
+            if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
                debugDropDynamicValuesFrameIndex == timing.frameIndex {
                 dynamicValues = .empty(
                     frameIndex: resolvedDynamicValues.frameIndex,
@@ -670,7 +647,7 @@ extension SceneDesktopWallpaperHost {
                 }
             } else {
                 dynamicValues = resolvedDynamicValues
-                if Self.usesDebugEvidenceWindow,
+                if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
                    debugDidDropDynamicValues,
                    !debugDidLogDynamicValuesRecovery,
                    let faultFrameIndex = debugDropDynamicValuesFrameIndex,
@@ -693,7 +670,8 @@ extension SceneDesktopWallpaperHost {
                 snapshot: dynamicValues
             )
 #endif
-            let frameOutcome = surface.metalView.renderFrame(
+            surface.didSubmitSimulationFrame = false
+            surface.metalView.updateSimulation(
                 timing: timing, dynamicValues: dynamicValues,
                 layerTopology: layerTopology.resolvingDynamicMaterialColors(from: dynamicValues),
                 dynamicTextFieldsByLayerID:
@@ -702,100 +680,18 @@ extension SceneDesktopWallpaperHost {
                 puppetBoneMutations: puppetBoneMutations,
                 mediaThumbnail: mediaThumbnailSnapshot,
                 audioSpectrum: audioSpectrum,
-                performanceTelemetry: Self.usesDebugEvidenceWindow
+                performanceTelemetry: SceneDesktopWallpaperHost.usesDebugEvidenceWindow
                     ? SceneFramePerformanceTelemetry.debugEvidence : nil
             )
-            frameOutcomes.append(frameOutcome)
-#if DEBUG
-            if Self.usesDebugEvidenceWindow,
-               timing.frameIndex <= 2,
-               case let .prepared(candidate) = frameOutcome {
-                candidate.observeCompletion(frameIndex: timing.frameIndex, surfaceID: displayID)
-            }
-            if Self.usesDebugEvidenceWindow,
-               debugRejectPreparedFrameOnce == timing.frameIndex,
-               frameOutcomes.count == surfaces.count {
-                debugRejectPreparedFrameOnce = nil
-                if case let .prepared(candidate) = frameOutcome { candidate.cancel() }
-                frameOutcomes[frameOutcomes.count - 1] = .dropped(
-                    reasonCode: "debug-evidence-prepared-surface-rejected"
-                )
-                NSLog("MWX DEBUG SCENE: phase=surface-submission state=rejected frame=%llu surface=%u totalSurfaces=%d", timing.frameIndex, displayID, surfaces.count)
-            }
-            if Self.usesDebugEvidenceWindow {
-                SceneFramePerformanceTelemetry.debugEvidence.recordMainFrame(
-                    duration: ProcessInfo.processInfo.systemUptime - mainFrameStart
-                )
-            }
-#endif
         }
-        // Every surface is sealed before any Metal buffer is submitted. A
-        // preparation failure cancels all candidates before host rollback.
-        let allSurfacesSubmitted = SceneMetalRenderer.submitPreparedFrames(
-            &frameOutcomes, expectedCount: surfaces.count
-        )
-        guard allSurfacesSubmitted else {
-            // A deferred/dropped surface must not consume a frame index or move the host-time anchor.
-            sceneClock.restore(clockState)
-            launchContext.timelinePlaybackRuntime.restoreObservationState(
-                timelineObservationState
-            )
-            for (displayID, state) in parallaxPointerStates {
-                surfaces[displayID]?.metalView.restoreParallaxPointerSmoother(state)
-            }
-            for (displayID, previous) in pointerPreviousStates {
-                surfaces[displayID]?.metalView.restorePointerPrevious(previous)
-            }
-            for (displayID, batch) in cursorPreparation.drainedPointerBatches {
-                surfaces[displayID]?.metalView
-                    .restoreSceneScriptPointerEvents(batch)
-            }
-            if let cursorEdgeState {
-                launchContext.sceneScriptCursorProgram
-                    .restoreEdgeState(cursorEdgeState)
-            }
-            restoreSceneScriptProgramFrameState(launchContext, sceneScriptProgramFrameState)
-            launchContext.sceneScriptStorageSession?.discardFrameTransaction()
-            surfaces.values.forEach {
-                $0.metalView.discardPreparedParticleFrame()
-                $0.metalView.puppetPlaybackStates.values.forEach { $0.discardBoneFrame() }
-            }
-            surfaces.values.forEach { $0.metalView.discardPreparedSpriteFrames() }
-            surfaces.values.forEach { $0.metalView.discardPreparedMaterialAssetFrame() }
-            surfaces.values.forEach { $0.metalView.discardPreparedFrameTexturePublication() }
-            surfaces.values.forEach { $0.metalView.discardPreparedMediaThumbnailUpdate() }
-            surfaces.values.forEach { $0.metalView.discardPreparedVideoFrames() }
-            surfaces.values.forEach { $0.metalView.discardPreparedDynamicTextUpdate() }
-            discardSceneScriptFrameOutcome(launchContext)
-            // Owner-local init rollback precedes the authoritative frame
-            // timer restore. Restoring retains callbacks; release snapshots.
-            restoreSceneScriptProgramTimerFrameState(launchContext, sceneScriptProgramTimerFrameState)
-            discardSceneScriptProgramTimerFrameState(launchContext, sceneScriptProgramTimerFrameState)
-#if DEBUG
-            if Self.usesDebugEvidenceWindow {
-                NSLog("MWX DEBUG SCENE: phase=host-frame-outcome state=discarded frame=%llu submittedSurfaces=%d totalSurfaces=%d",
-                      timing.frameIndex, frameOutcomes.filter(\.isSubmitted).count, surfaces.count)
-            }
-#endif
-            return frameOutcomes.contains(where: { $0.isDeferred })
-                ? .busy : .dropped
-        }
-        surfaces.values.forEach {
-            $0.metalView.commitPreparedParticleFrame()
-            $0.metalView.puppetPlaybackStates.values.forEach { $0.commitBoneFrame() }
-        }
-        surfaces.values.forEach { $0.metalView.commitPreparedMaterialAssetFrame() }
-        surfaces.values.forEach { $0.metalView.commitPreparedFrameTexturePublication() }
-        surfaces.values.forEach { $0.metalView.commitPreparedMediaThumbnailUpdate() }
-        surfaces.values.forEach { $0.metalView.commitPreparedVideoFrames() }
-        surfaces.values.forEach { $0.metalView.commitPreparedDynamicTextUpdate() }
+        let attempt = renderSurfaces()
         restoreSceneScriptProgramFrameState(
             launchContext, sceneScriptProgramFrameState,
             rejectedOwnerTargets: rejectedOwnerTargets
         )
-        commitSubmittedSceneFrame(
+        commitSimulatedSceneFrame(
             launchContext,
-            pendingSurfaceEvaluations: pendingSurfaceEvaluations,
+            pendingEvaluation: pendingEvaluation,
             pendingSharedLayerAlpha: pendingSharedLayerAlpha,
             animationMutations: animationMutations,
             videoCommands: videoCommands,
@@ -805,15 +701,83 @@ extension SceneDesktopWallpaperHost {
             rejectedOwnerTargets: rejectedOwnerTargets
         )
         SceneAudioSpectrumInbox.shared.commitFrame(audioSpectrumFrame)
-        discardSceneScriptProgramTimerFrameState(launchContext, sceneScriptProgramTimerFrameState)
-        return .rendered
+        // This cadence consumed its inputs regardless of GPU availability.
+        // A later cadence samples fresh state; it never replays this VM frame.
+        return attempt
+    }
+    private func renderSurfaces() -> SceneFrameDriverAttempt {
+        var frameOutcomes: [SceneMetalRenderer.FrameOutcome] = []
+        frameOutcomes.reserveCapacity(surfaces.count)
+        for (displayID, surface) in surfaces {
+            if sceneClock.isPaused && surface.didSubmitSimulationFrame { continue }
+#if DEBUG
+            let mainFrameStart = ProcessInfo.processInfo.systemUptime
+#endif
+            let frameOutcome = surface.metalView.renderFrame(
+                performanceTelemetry: SceneDesktopWallpaperHost.usesDebugEvidenceWindow
+                    ? SceneFramePerformanceTelemetry.debugEvidence : nil
+            )
+            if onFirstFrameCompletion != nil, case let .prepared(candidate) = frameOutcome {
+                candidate.whenCompleted { [weak self, weak surface] succeeded in
+                    DispatchQueue.main.async {
+                        guard let self, let surface, self.surfaces[displayID] === surface else { return }
+                        self.onFirstFrameCompletion?(displayID, succeeded)
+                    }
+                }
+            }
+            frameOutcomes.append(frameOutcome)
+#if DEBUG
+            if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
+               surface.metalView.simulationFrameIndex <= 2,
+               case let .prepared(candidate) = frameOutcome {
+                candidate.observeCompletion(frameIndex: surface.metalView.simulationFrameIndex, surfaceID: displayID)
+            }
+            if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
+               debugRejectPreparedFrameOnce == surface.metalView.simulationFrameIndex,
+               frameOutcomes.count == surfaces.count {
+                debugRejectPreparedFrameOnce = nil
+                if case let .prepared(candidate) = frameOutcome { candidate.cancel() }
+                frameOutcomes[frameOutcomes.count - 1] = .dropped(
+                    reasonCode: "debug-evidence-prepared-surface-rejected"
+                )
+                NSLog("MWX DEBUG SCENE: phase=surface-submission state=rejected frame=%llu surface=%u totalSurfaces=%d", surface.metalView.simulationFrameIndex, displayID, surfaces.count)
+            }
+            if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
+                SceneFramePerformanceTelemetry.debugEvidence.recordMainFrame(
+                    duration: ProcessInfo.processInfo.systemUptime - mainFrameStart
+                )
+            }
+#endif
+            let outcomeIndex = frameOutcomes.count - 1
+            let submitted = SceneMetalRenderer.submitPreparedFrame(frameOutcomes[outcomeIndex])
+            frameOutcomes[outcomeIndex] = submitted
+            if submitted.isSubmitted {
+                surface.didSubmitSimulationFrame = true
+                surface.metalView.commitPreparedMaterialAssetFrame()
+                surface.metalView.commitPreparedFrameTexturePublication()
+                surface.metalView.commitPreparedMediaThumbnailUpdate()
+                surface.metalView.commitPreparedDynamicTextUpdate()
+            } else {
+                surface.metalView.discardPreparedMaterialAssetFrame()
+                surface.metalView.discardPreparedFrameTexturePublication()
+                surface.metalView.discardPreparedMediaThumbnailUpdate()
+                surface.metalView.discardPreparedDynamicTextUpdate()
+            }
+        }
+        // The shared provider version is resolved once. A failed surface may
+        // not roll back a source already referenced by another submitted GPU.
+        videoTextureSourceRegistry?.commitPreparedFrame()
+        if sceneClock.isPaused && !surfaces.values.allSatisfy(\.didSubmitSimulationFrame) {
+            return frameOutcomes.contains(where: \.isDeferred) ? .busy : .dropped
+        }
+        return frameOutcomes.contains(where: \.isSubmitted) ? .rendered : .dropped
     }
 #if DEBUG
     private func logDebugDynamicLayerVisibilityIfChanged(
         descriptor: SceneRenderDescriptor,
         snapshot: SceneDynamicSnapshot
     ) {
-        guard Self.usesDebugEvidenceWindow else { return }
+        guard SceneDesktopWallpaperHost.usesDebugEvidenceWindow else { return }
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
             in: descriptor,
             snapshot: snapshot

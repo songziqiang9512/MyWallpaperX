@@ -1,6 +1,6 @@
 import QuartzCore
 
-extension SceneDesktopWallpaperHost {
+extension SceneDesktopWallpaperSession {
     func setPlaybackPaused(_ paused: Bool) {
         let hostTime = CACurrentMediaTime()
 #if DEBUG
@@ -31,7 +31,7 @@ extension SceneDesktopWallpaperHost {
                 sceneTime: sceneClock.currentSceneTime(hostTime: hostTime),
                 hostTime: hostTime
             )
-            soundPlaybackRegistry?.resume()
+            if isVisible { soundPlaybackRegistry?.resume() }
             if launchContext != nil {
                 startFrameDriver()
             }

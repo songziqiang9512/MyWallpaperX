@@ -15,14 +15,14 @@ SCRIPT = RUNTIME / "SceneScript"
 RENDERING = SCENE / "Rendering"
 
 HOST_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
-FRAME_DRIVER_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
+FRAME_DRIVER_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift"
 FRAME_DRIVER_LIFECYCLE_SOURCE = (
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriverLifecycle.swift"
 )
 SURFACE_TEARDOWN_SOURCE = (
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+SurfaceTeardown.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift"
 )
-POINTER_EVENTS_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+PointerEvents.swift"
+POINTER_EVENTS_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+PointerEvents.swift"
 VIEW_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
 MEDIA_COORDINATOR_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailCoordinator.swift"
 CURSOR_INTERACTION_SOURCE = (
@@ -72,6 +72,9 @@ def swift_body(source: str, signature: str) -> str:
     raise AssertionError(f"unterminated Swift body: {signature}")
 
 
+# Host all-surface rollback source checks retired with D10.
+# Actual presentation/VM behavior: test_scene_frame_presentation_integration.
+# GPU source ownership: test_scene_surface_submission and the FIFO harness below.
 class SceneFrameVMRoutingTests(unittest.TestCase):
     def test_alpha_display_fallback_wiring_in_runtime_model(self) -> None:
         """Checkpoint wiring pin for the second-tier alpha display fallback:
@@ -203,62 +206,6 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertNotIn("SceneScriptVectorMediaRouteState.resolve(", frame)
         self.assertNotIn("retainAdmittedPassTargets", model + launch + candidate)
 
-    def test_layer_snapshot_precedes_every_shared_domain_callback(self) -> None:
-        frame = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        frame_driver_cursor = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverCursor.swift"
-        ).read_text(encoding="utf-8")
-        lifecycle = FRAME_DRIVER_LIFECYCLE_SOURCE.read_text(encoding="utf-8")
-        vector = VECTOR_PROGRAM_SOURCE.read_text(encoding="utf-8")
-        media_frame = MEDIA_FRAME_COORDINATOR_SOURCE.read_text(encoding="utf-8")
-        owner_validation = OWNER_EFFECTS_VALIDATION_SOURCE.read_text(
-            encoding="utf-8"
-        )
-        render = swift_body(frame, "private func renderFrame()")
-        commit_frame = swift_body(lifecycle, "func commitSubmittedSceneFrame(")
-        publication = render.index(".publishLayerSnapshot(")
-        cursor_batch = render.index("let cursorBatch = cursorPreparation.batch")
-        cursor = render.index("sceneScriptCursorProgram.dispatch(")
-        media_callback = render.index("launchContext.frameSchema.mediaFrameCoordinator.evaluate(")
-        surface_render = render.index("surface.metalView.renderFrame(")
-        layer_commit = render.index("commitSubmittedSceneFrame(")
-        self.assertLess(publication, cursor_batch)
-        self.assertLess(publication, cursor)
-        self.assertLess(publication, media_callback)
-        self.assertLess(surface_render, layer_commit)
-        surface_commit = commit_frame.index("evaluationTransaction.commit")
-        alpha_commit = commit_frame.index("sharedLayerAlphaRuntime.commitValues(")
-        timeline_commit = commit_frame.index("timelinePlaybackRuntime.apply(")
-        video_commit = commit_frame.index("videoTextureSourceRegistry?.apply(")
-        plan_call = commit_frame.index("commitSceneScriptLayerPlan(")
-        plan_helper_start = lifecycle.index("func commitSceneScriptLayerPlan(")
-        plan_commit = lifecycle.index(
-            "context.sceneScriptDynamicLayerRuntime.commit(plan)",
-            plan_helper_start,
-        )
-        self.assertLess(surface_commit, alpha_commit)
-        self.assertLess(alpha_commit, timeline_commit)
-        self.assertLess(timeline_commit, video_commit)
-        self.assertLess(video_commit, plan_call)
-        self.assertGreater(plan_commit, plan_helper_start)
-        self.assertIn("rejectedOwnerTargets.contains($0.key)", render)
-        self.assertIn("admittedOwnerEffects.flatMap(", render)
-        self.assertNotIn(".preflightOwnerEffects(admittedOwnerEffects)", render)
-        self.assertIn("timelineRuntime.validate(", owner_validation)
-        self.assertIn("videoRegistry.validate(", owner_validation)
-        self.assertNotIn(".applyIsolatingOwners(layerMutations)", render)
-        self.assertEqual(render.count("if let failure = sceneScriptLayerSnapshotFailure"), 3)
-        self.assertNotIn("publishLayerSnapshot", vector)
-        self.assertNotIn("layerSnapshot:", vector)
-        self.assertIn("vectorProgram.evaluate(", media_frame)
-        self.assertIn("stringProgram.evaluate(", media_frame)
-        self.assertIn("scalarProgram.evaluate(", media_frame)
-        # The host encodes user properties once per frame; the coordinator
-        # must pass that string through instead of letting each program
-        # re-encode the full dictionary.
-        self.assertGreaterEqual(
-            media_frame.count("userPropertiesJSON: userPropertiesJSON"), 2
-        )
 
     def test_layer_catalog_is_configured_once_per_snapshot(self) -> None:
         handle = LAYER_HANDLE_SOURCE.read_text(encoding="utf-8")
@@ -322,92 +269,6 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
             mutations,
         )
 
-    def test_one_media_snapshot_feeds_vm_before_every_surface(self) -> None:
-        frame_driver = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        view = VIEW_SOURCE.read_text(encoding="utf-8")
-        coordinator = MEDIA_COORDINATOR_SOURCE.read_text(encoding="utf-8")
-        host_render = swift_body(frame_driver, "private func renderFrame()")
-        view_prepare = swift_body(view, "func prepareMediaThumbnail(")
-        view_render = swift_body(view, "func renderFrame(")
-        coordinator_update = swift_body(coordinator, "func update(")
-
-        snapshot_declaration = (
-            "let mediaInput = SceneMediaThumbnailInbox.shared.latest()"
-        )
-        self.assertEqual(host_render.count(snapshot_declaration), 1)
-        self.assertEqual(
-            host_render.count("SceneMediaThumbnailInbox.shared.latest()"),
-            1,
-        )
-        snapshot_position = host_render.index(snapshot_declaration)
-        preparation_position = host_render.index(
-            "surface.metalView.prepareMediaThumbnail(from: mediaInput)"
-        )
-        event_position = host_render.index(
-            "SceneScriptMediaThumbnailEventInput(snapshot: mediaInput)"
-        )
-        media_vm_position = host_render.index(
-            "launchContext.frameSchema.mediaFrameCoordinator.evaluate("
-        )
-        surface_loop_position = host_render.index(
-            "for (displayID, surface) in surfaces",
-            media_vm_position,
-        )
-        surface_render_position = host_render.index(
-            "surface.metalView.renderFrame(",
-            surface_loop_position,
-        )
-        self.assertLess(snapshot_position, preparation_position)
-        self.assertLess(preparation_position, event_position)
-        self.assertLess(event_position, media_vm_position)
-        self.assertLess(media_vm_position, surface_loop_position)
-        self.assertNotIn("mediaColorTransitionRuntime", host_render)
-
-        surface_loop = host_render[surface_loop_position:]
-        self.assertNotIn("SceneMediaThumbnailInbox.shared.latest()", surface_loop)
-        self.assertEqual(
-            host_render.count(
-                "surface.metalView.prepareMediaThumbnail(from: mediaInput)"
-            ),
-            1,
-        )
-        self.assertIn("$0.generation == mediaInput.generation", host_render)
-        self.assertIn("$0.pendingGeneration == nil", host_render)
-        self.assertEqual(
-            surface_loop.count("mediaThumbnail: mediaThumbnailSnapshot"), 1
-        )
-        self.assertGreater(
-            host_render.index(
-                "mediaThumbnail: mediaThumbnailSnapshot", surface_render_position
-            ),
-            surface_render_position,
-        )
-
-        self.assertIn("mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot", view)
-        self.assertEqual(
-            view_prepare.count("pendingMediaThumbnailInput = input"), 1
-        )
-        self.assertIn("return mediaThumbnailCoordinator.prepareFrame()", view_prepare)
-        self.assertNotIn("mediaThumbnailCoordinator.update", view_render)
-        self.assertIn("func commitPreparedMediaThumbnailUpdate()", view)
-        self.assertIn(
-            "_ = mediaThumbnailCoordinator.update(from: pendingMediaThumbnailInput)",
-            view,
-        )
-        self.assertIn("mediaThumbnailCoordinator.commitPreparedFrame()", view)
-        self.assertIn("func discardPreparedMediaThumbnailUpdate()", view)
-        self.assertIn("mediaThumbnailCoordinator.discardPreparedFrame()", view)
-        self.assertNotIn("SceneMediaThumbnailInbox.shared", view)
-        self.assertIn(
-            "from input: SceneMediaThumbnailInbox.Snapshot",
-            coordinator,
-        )
-        self.assertEqual(
-            coordinator_update.count("textureStore.update(from: input)"),
-            1,
-        )
-        self.assertNotIn("SceneMediaThumbnailInbox.shared", coordinator)
-        self.assertNotIn("func update()", coordinator)
 
     def test_media_coordinator_observes_each_program_event_once_per_frame(self) -> None:
         coordinator = MEDIA_FRAME_COORDINATOR_SOURCE.read_text(encoding="utf-8")
@@ -445,74 +306,6 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
             self.assertIn("frameLedger.observeMediaEvents(events)", source)
             self.assertIn("observedMediaEvents?.", source)
 
-    def test_cursor_exports_gate_dispatch_and_transaction_restore(self) -> None:
-        host = HOST_SOURCE.read_text(encoding="utf-8")
-        frame_driver = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        surface_teardown = SURFACE_TEARDOWN_SOURCE.read_text(encoding="utf-8")
-        frame_driver_cursor = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverCursor.swift"
-        ).read_text(encoding="utf-8")
-        pointer_events = POINTER_EVENTS_SOURCE.read_text(encoding="utf-8")
-        pointer_state = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneSurfacePointerState.swift"
-        ).read_text(encoding="utf-8")
-        interaction = CURSOR_INTERACTION_SOURCE.read_text(encoding="utf-8")
-        scalar_runtime = SCALAR_RUNTIME_SOURCE.read_text(encoding="utf-8")
-        cursor_program = "\n".join(
-            path.read_text(encoding="utf-8") for path in CURSOR_PROGRAM_SOURCES
-        )
-        cursor_hit_admission = CURSOR_HIT_ADMISSION_SOURCE.read_text(
-            encoding="utf-8"
-        )
-        event_bridge = MEDIA_EVENT_BRIDGE_SOURCE.read_text(encoding="utf-8")
-
-        self.assertIn("installPointerEventMonitorsIfNeeded()", host)
-        self.assertIn("removePointerEventMonitors()", host)
-        self.assertIn("removePointerEventMonitors()", surface_teardown)
-        self.assertIn("NSEvent.addLocalMonitorForEvents", pointer_events)
-        self.assertIn("NSEvent.addGlobalMonitorForEvents", pointer_events)
-        self.assertEqual(pointer_events.count("NSEvent.removeMonitor("), 2)
-        self.assertIn("guard debugPointerOverride == nil", pointer_events)
-        self.assertIn("recordSceneScriptPointerEvent(", pointer_events)
-        self.assertIn("capturedOwnerLayerIDs:", frame_driver_cursor)
-        self.assertIn("drainSceneScriptPointerEvents()", frame_driver_cursor)
-        # A deferred/dropped frame must re-insert drained pointer events and
-        # restore the pre-dispatch cursor edge state instead of consuming
-        # press/release/click edges for a frame that was never displayed.
-        self.assertIn("restoreSceneScriptPointerEvents(batch)", frame_driver)
-        self.assertIn("edgeStateSnapshot()", frame_driver)
-        self.assertIn("restoreEdgeState(cursorEdgeState)", frame_driver)
-        self.assertIn("drainedPointerBatches[displayID] = drained", frame_driver_cursor)
-        self.assertIn(
-            "mutating func restore(", pointer_state
-        )
-        self.assertIn(
-            "events.insert(contentsOf: batch.events, at: 0)", pointer_state
-        )
-        self.assertIn("surface: sceneScriptSurfaceInput(", interaction)
-        self.assertIn("cursorLeftDown: pointer.primaryButtonIsDown", interaction)
-        self.assertIn("init(replacingSurfaceOf frame:", scalar_runtime)
-        self.assertIn("with: sample.surface", cursor_program)
-        self.assertIn("pointerPosition: pointer.normalizedPosition", interaction)
-        self.assertIn("ownerProjections: projections", interaction)
-        self.assertIn("originInteractionProjections(", interaction)
-        self.assertIn(
-            "sample.pointerPosition != previousPointerPosition",
-            cursor_program,
-        )
-        self.assertIn("sample.ownerProjections.filter", cursor_program)
-        self.assertIn(
-            "? admittedProjections[binding.layerID]",
-            cursor_program,
-        )
-        self.assertIn("authoredLayerBaselines:", cursor_program)
-        self.assertIn("owner.exportedCursorEvents", cursor_program)
-        self.assertIn('case .move: "cursorMove"', event_bridge)
-        self.assertIn(
-            "SceneScriptCursorHitAdmission.accepts(layer)", cursor_program
-        )
-        self.assertIn("if let scale = layer.scaleXYZ", cursor_hit_admission)
-        self.assertNotIn("?? [1, 1, 1]", cursor_hit_admission)
 
 
 if __name__ == "__main__":

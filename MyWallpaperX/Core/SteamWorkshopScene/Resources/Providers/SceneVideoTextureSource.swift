@@ -568,23 +568,8 @@ final class SceneVideoTextureSource {
         let height = CVPixelBufferGetHeight(pixelBuffer)
         guard width > 0, height > 0 else { return nil }
 
-        var cvMetalTexture: CVMetalTexture?
-        let status = CVMetalTextureCacheCreateTextureFromImage(
-            kCFAllocatorDefault,
-            textureCache,
-            pixelBuffer,
-            nil,
-            .bgra8Unorm,
-            width,
-            height,
-            0,
-            &cvMetalTexture
-        )
-        guard status == kCVReturnSuccess,
-              let cvMetalTexture,
-              let texture = CVMetalTextureGetTexture(cvMetalTexture) else {
-            return nil
-        }
+        guard let cvMetalTexture = SceneResourceAllocation.importVideo(pixelBuffer, cache: textureCache),
+              let texture = CVMetalTextureGetTexture(cvMetalTexture) else { return nil }
 
         currentCVMetalTexture = cvMetalTexture
         return texture

@@ -45,6 +45,23 @@ HARNESS = r'''
     }
     static func main() throws {
         var out: [String:Any] = [:]
+        let active = session("activation")
+        try active.apply([mutation(.set,"seed","1"), mutation(.set,"deleted","7")])
+        let candidate = SceneScriptLocalStorageSession(recordID:"activation",
+            rootDirectory:URL(fileURLWithPath:CommandLine.arguments[1]), defersPersistence:true)
+        _ = try value(candidate,"seed")
+        try candidate.apply([mutation(.set,"seed","2"), mutation(.delete,"deleted")])
+        try active.apply([mutation(.set,"peer","3")])
+        out["candidateBeforePromotion"] = try [value(candidate,"seed"), value(session("activation"),"seed")]
+        active.retirePersistence()
+        candidate.activatePersistence(replacing:active)
+        out["candidateMerged"] = try [value(candidate,"seed"),value(candidate,"peer"),value(candidate,"deleted")]
+        try active.apply([mutation(.set,"seed","99")])
+        out["retiredCannotPublish"] = try value(session("activation"),"seed")
+        let abandoned = SceneScriptLocalStorageSession(recordID:"activation",
+            rootDirectory:URL(fileURLWithPath:CommandLine.arguments[1]), defersPersistence:true)
+        try abandoned.apply([mutation(.set,"seed","88")])
+        out["abandonedCannotPublish"] = try value(session("activation"),"seed")
         // Same-key overwrite/no-op must retain the later writer, even when
         // its operation initially left the merged candidate unchanged.
         let same = session("same"); _ = same.beginFrameTransaction()
@@ -224,6 +241,12 @@ class StorageTransactionTests(unittest.TestCase):
         binary=compile_vector_harness(root,HARNESS,"storage-owner")
         run=subprocess.run([str(binary),str(root/"store")],capture_output=True,text=True,check=True)
         cls.result=json.loads(run.stdout.strip().splitlines()[-1])
+
+    def test_candidate_storage_is_private_until_promotion_and_merges_active_peer_writes(self):
+        self.assertEqual(self.result["candidateBeforePromotion"], ["2", "1"])
+        self.assertEqual(self.result["candidateMerged"], ["2", "3", "missing"])
+        self.assertEqual(self.result["retiredCannotPublish"], "2")
+        self.assertEqual(self.result["abandonedCannotPublish"], "2")
 
     def test_ordered_overwrite_noop_clear_and_all_owner_batches(self):
         self.assertEqual(self.result["sameRejected"],[1]);self.assertEqual(self.result["sameValue"],"1")

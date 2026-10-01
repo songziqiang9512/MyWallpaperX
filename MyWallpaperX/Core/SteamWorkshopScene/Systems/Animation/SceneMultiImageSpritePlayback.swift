@@ -227,7 +227,7 @@ final class SceneMultiImageSpritePlayback: SceneSpriteTexturePlayback {
         )
         descriptor.usage = [.shaderRead, .shaderWrite]
         descriptor.storageMode = .private
-        guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
+        guard let texture = device.makeSceneTexture(descriptor: descriptor) else { return nil }
 
         self.texture = texture
         self.textureSet = textureSet

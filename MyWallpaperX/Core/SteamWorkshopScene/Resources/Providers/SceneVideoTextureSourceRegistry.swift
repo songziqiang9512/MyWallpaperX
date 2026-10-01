@@ -203,6 +203,12 @@ final class SceneVideoTextureSourceRegistry {
         self.rebuildingSourceIdentities = nil
     }
 
+    /// Resolve one shared decode publication after all display consumers have
+    /// sampled this simulation frame. GPU submission belongs to each consumer.
+    func commitPreparedFrame() {
+        sources.values.forEach { $0.commitPreparedFrame() }
+    }
+
     func stop() {
         sources.values.forEach { $0.stop() }
         sources.removeAll()

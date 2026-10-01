@@ -229,7 +229,7 @@ final class SceneParticleMetalInstanceBuffer: @unchecked Sendable {
         slotIndex: Int
     ) -> MTLBuffer? {
         let length = capacity * MemoryLayout<SceneParticleGPUInstance>.stride
-        let buffer = device.makeBuffer(length: length, options: .storageModeShared)
+        let buffer = device.makeSceneBuffer(length: length, options: .storageModeShared)
         buffer?.label = "Scene particle instances slot \(slotIndex)"
         return buffer
     }

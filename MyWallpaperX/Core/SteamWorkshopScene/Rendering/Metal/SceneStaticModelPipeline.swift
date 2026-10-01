@@ -250,14 +250,14 @@ struct SceneStaticModelPipeline {
             ? indices.withUnsafeBytes { Data($0) }
             : indices.map(UInt16.init).withUnsafeBytes { Data($0) }
         guard let vertexBuffer = vertices.withUnsafeBytes({ bytes in
-                  device.makeBuffer(
+                  device.makeSceneBuffer(
                       bytes: bytes.baseAddress!,
                       length: vertexLength,
                       options: []
                   )
               }),
               let indexBuffer = indexData.withUnsafeBytes({ bytes in
-                  device.makeBuffer(
+                  device.makeSceneBuffer(
                       bytes: bytes.baseAddress!,
                       length: bytes.count,
                       options: []

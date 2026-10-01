@@ -374,7 +374,7 @@ final class SceneOffscreenTexturePool {
         )
         descriptor.usage = [.renderTarget, .shaderRead]
         descriptor.storageMode = .private
-        let texture = device.makeTexture(descriptor: descriptor)
+        let texture = device.makeSceneTexture(descriptor: descriptor)
         texture?.label = label
         return texture
     }

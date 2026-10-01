@@ -2,7 +2,7 @@ import Foundation
 
 /// 把编译好的 Timeline 接到每帧的动态值求值上。
 ///
-/// 求值发生在 host 层而不是 `SceneSurfaceEvaluationTransaction` 内部：Timeline 只依赖
+/// 求值发生在 host 层而不是 `SceneEvaluationTransaction` 内部：Timeline 只依赖
 /// 绝对 scene time，对所有 surface 同值，算一次即可；transaction 仍按 surface 独立提交。
 nonisolated enum SceneTimelineRuntime {
     /// Timeline target 必须出现在 definitions 里，否则 `SceneDynamicSnapshotResolver`

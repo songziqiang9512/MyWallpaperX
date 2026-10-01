@@ -627,7 +627,7 @@ enum SceneImageTextureUploader {
         )
         descriptor.usage = [.shaderRead, .renderTarget]
         descriptor.storageMode = .shared
-        guard let texture = device.makeTexture(descriptor: descriptor) else {
+        guard let texture = device.makeSceneTexture(descriptor: descriptor) else {
             return .failure(.allocation)
         }
         rgba.withUnsafeBytes { bytes in

@@ -244,7 +244,7 @@ final class SceneParticleChildRuntime {
         )
         var batches: [SceneParticleDrawBatch] = []
         batches.reserveCapacity(templates.count)
-        var failures: [String] = []
+        let failures: [String] = []
         // DEBUG probe: throttled spawn/instance census (~1s of sim time) with
         // the built batch count, to distinguish bursty lifecycle windows from
         // batch-creation gaps at snapshot time.
@@ -252,10 +252,6 @@ final class SceneParticleChildRuntime {
         let censusDue = !didLogInstanceCensus || censusTimeAccumulator >= 1
         for template in templates {
             guard let instances = instanceScratch[template.index], !instances.isEmpty else {
-                continue
-            }
-            guard template.instanceBuffer.update(device: device, instances: instances) else {
-                failures.append(template.path)
                 continue
             }
             batches.append(SceneParticleDrawBatch(

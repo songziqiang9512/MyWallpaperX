@@ -24,6 +24,7 @@ GRAPH_EXECUTOR_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+DynamicUniformDiagnostics.swift"
 )
 SWIFT_SOURCES = [
+    Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SOURCE_ROOT / "Diagnostics/ScenePerformanceCounterHub.swift",
     SOURCE_ROOT / "Rendering/Composition/SceneBloomPostProcess.swift",
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
@@ -63,7 +64,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+AuthoredAssets.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextDescriptor.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneSurfaceEvaluationTransaction.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneEvaluationTransaction.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler+Camera.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineRuntime.swift",
@@ -254,6 +255,7 @@ struct SceneMdlPuppetAttachment {
 }
 struct SceneAssetCatalog {
     struct ModelAsset {
+        var declaredSizeWH: [Float]? { nil }
         let relativePath: String
         let materialPath: String?
         let cropOffsetXY: [Float]?
@@ -350,7 +352,7 @@ enum Harness {
 
         // 走真实 resolver：断言 Timeline 值真的落进 snapshot 而不是被丢弃。
         var samples: [String: Any] = [:]
-        var transaction = SceneSurfaceEvaluationTransaction()
+        var transaction = SceneEvaluationTransaction()
         for (frameIndex, sample) in [
             ("t0", 0.0), ("half", 1.0), ("closing", 1.5), ("late", 5.0),
             ("lateAgain", 5.0),

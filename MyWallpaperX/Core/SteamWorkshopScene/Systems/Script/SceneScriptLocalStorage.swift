@@ -150,6 +150,8 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
     private let lock = NSLock()
     private let fileURL: URL
     private var loadState: LoadState = .unloaded
+    private var defersPersistence: Bool
+    private var activationBase: Envelope?
     private var frameTransactionBase: Envelope?
     private var frameTransactionCandidate: Envelope?
 
@@ -179,7 +181,8 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
     private static let maximumFrameDependencies = 16_384
     private static let maximumReplayMutations = 16_384
 
-    init(recordID: String, rootDirectory: URL? = nil) {
+    init(recordID: String, rootDirectory: URL? = nil, defersPersistence: Bool = false) {
+        self.defersPersistence = defersPersistence
         let root = rootDirectory ?? Self.defaultRootDirectory()
         let digest = SHA256.hash(data: Data(recordID.utf8)).map {
             String(format: "%02x", $0)
@@ -290,7 +293,7 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
             }
         } else if candidate != current {
             loadState = .loaded(candidate)
-            PersistenceCoordinator.shared.schedule(candidate, for: fileURL)
+            if !defersPersistence { PersistenceCoordinator.shared.schedule(candidate, for: fileURL) }
         }
     }
 
@@ -387,7 +390,7 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
         clearFrameTransaction()
         guard changed else { return }
         loadState = .loaded(candidate)
-        PersistenceCoordinator.shared.schedule(candidate, for: fileURL)
+        if !defersPersistence { PersistenceCoordinator.shared.schedule(candidate, for: fileURL) }
     }
 
     func discardFrameTransaction() {
@@ -396,7 +399,66 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
         lock.unlock()
     }
 
+    /// Activation publishes only the candidate's changed keys. An outgoing
+    /// scene may have written other keys while the candidate was preparing.
+    func activatePersistence(replacing previous: SceneScriptLocalStorageSession?) {
+        let previousEnvelope = previous?.loadedEnvelope(for: fileURL)
+        lock.lock()
+        defer { lock.unlock() }
+        guard defersPersistence else { return }
+        guard case let .loaded(candidate) = loadState else {
+            defersPersistence = false
+            return
+        }
+        let base = activationBase ?? candidate
+        var merged = previousEnvelope ?? base
+        func merge(_ before: [String: String], _ after: [String: String], into current: inout [String: String]) {
+            for key in Set(before.keys).union(after.keys) where before[key] != after[key] {
+                current[key] = after[key]
+            }
+        }
+        merge(base.global, candidate.global, into: &merged.global)
+        for screen in Set(base.screens.keys).union(candidate.screens.keys) {
+            var current = merged.screens[screen] ?? [:]
+            merge(base.screens[screen] ?? [:], candidate.screens[screen] ?? [:], into: &current)
+            merged.screens[screen] = current.isEmpty ? nil : current
+        }
+        do {
+            try Self.validate(merged, validatingValues: false)
+            loadState = .loaded(merged)
+            defersPersistence = false
+            activationBase = nil
+            if merged != (previousEnvelope ?? base) {
+                PersistenceCoordinator.shared.schedule(merged, for: fileURL)
+            }
+        } catch {
+            // The merged envelope can exceed the existing storage budget when
+            // both sessions add disjoint keys. Reject only this storage owner.
+            loadState = .unavailable("candidate localStorage merge exceeds budget")
+            NSLog("MWX SceneScript VM: localStorage activation rejected failure=%@", error.localizedDescription)
+        }
+    }
+
+    /// Owner transfer ends outgoing publication before destroy callbacks.
+    func retirePersistence() {
+        lock.lock()
+        defersPersistence = true
+        lock.unlock()
+    }
+
+    private func loadedEnvelope(for requestedURL: URL) -> Envelope? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard fileURL == requestedURL, case let .loaded(envelope) = loadState else { return nil }
+        return envelope
+    }
+
     private func loadIfNeeded() throws -> Envelope {
+        defer {
+            if defersPersistence, activationBase == nil, case let .loaded(envelope) = loadState {
+                activationBase = envelope
+            }
+        }
         switch loadState {
         case let .loaded(envelope): return envelope
         case let .unavailable(message):

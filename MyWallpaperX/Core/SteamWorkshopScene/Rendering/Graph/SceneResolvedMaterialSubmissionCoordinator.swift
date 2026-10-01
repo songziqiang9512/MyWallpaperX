@@ -68,9 +68,6 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         let ledgerIDs: [UInt64]
         let commandBufferIdentities: Set<ObjectIdentifier>
         let finalTails: [Graph.EffectKey: Tail]
-        let successObservationsByLedger: [
-            UInt64: [SceneGraphExecutionObservation]
-        ]
         var gpuStatus: SceneGraphExecutionGPUCompletionStatus?
         var cancellationReason: String?
         var retiredHistoryPins: [SceneGraphRenderTargetResidencyPin]

@@ -36,39 +36,41 @@ extension DebugScenePlaybackRunner {
                 afterStop.surfaceCount
             )
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                do {
-                    _ = try runtimeHost.launch(
-                        rootURL: rootURL,
-                        propertyOverrides: propertyOverrides,
-                        userPropertyTextureURLs: userPropertyTextureURLs,
-                        logURL: logURL,
-                        recordID: recordID
-                    )
-                    runtimeHost.setPlaybackPaused(false)
-                    let afterRelaunch = runtimeHost
-                        .debugSnapshot()
-                    NSLog(
-                        "MWX DEBUG SCENE: phase=surface-stop-relaunch state=relaunched accepted=true surfacesBefore=%d surfacesAfterStop=%d surfacesAfterRelaunch=%d",
-                        before.surfaceCount,
-                        afterStop.surfaceCount,
-                        afterRelaunch.surfaceCount
-                    )
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                        requestSnapshot(
-                            reason: "surface-stop-relaunch-after",
-                            outputDirectory: outputDirectory
+                Task {
+                    do {
+                        _ = try await runtimeHost.launch(
+                            rootURL: rootURL,
+                            propertyOverrides: propertyOverrides,
+                            userPropertyTextureURLs: userPropertyTextureURLs,
+                            logURL: logURL,
+                            recordID: recordID
+                        )
+                        runtimeHost.setPlaybackPaused(false)
+                        let afterRelaunch = runtimeHost
+                            .debugSnapshot()
+                        NSLog(
+                            "MWX DEBUG SCENE: phase=surface-stop-relaunch state=relaunched accepted=true surfacesBefore=%d surfacesAfterStop=%d surfacesAfterRelaunch=%d",
+                            before.surfaceCount,
+                            afterStop.surfaceCount,
+                            afterRelaunch.surfaceCount
+                        )
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                            requestSnapshot(
+                                reason: "surface-stop-relaunch-after",
+                                outputDirectory: outputDirectory
+                            )
+                        }
+                    } catch {
+                        let afterRelaunch = runtimeHost
+                            .debugSnapshot()
+                        NSLog(
+                            "MWX DEBUG SCENE: phase=surface-stop-relaunch state=relaunched accepted=false surfacesBefore=%d surfacesAfterStop=%d surfacesAfterRelaunch=%d error=%@",
+                            before.surfaceCount,
+                            afterStop.surfaceCount,
+                            afterRelaunch.surfaceCount,
+                            error.localizedDescription
                         )
                     }
-                } catch {
-                    let afterRelaunch = runtimeHost
-                        .debugSnapshot()
-                    NSLog(
-                        "MWX DEBUG SCENE: phase=surface-stop-relaunch state=relaunched accepted=false surfacesBefore=%d surfacesAfterStop=%d surfacesAfterRelaunch=%d error=%@",
-                        before.surfaceCount,
-                        afterStop.surfaceCount,
-                        afterRelaunch.surfaceCount,
-                        error.localizedDescription
-                    )
                 }
             }
         }

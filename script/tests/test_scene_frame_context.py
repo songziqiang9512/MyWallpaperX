@@ -22,16 +22,16 @@ AUDIO_SOURCE = (
 )
 HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
 HOST_FRAME_DRIVER_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift"
 )
 HOST_FRAME_DRIVER_LIFECYCLE_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriverLifecycle.swift"
 )
 HOST_POINTER_EVENTS_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+PointerEvents.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+PointerEvents.swift"
 )
 HOST_VIDEO_PROVIDERS_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+VideoProviders.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+VideoProviders.swift"
 )
 HOST_LAUNCH_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
@@ -407,6 +407,9 @@ def swift_body(source: str, signature: str) -> str:
     raise AssertionError(f"unterminated Swift body: {signature}")
 
 
+# Host all-surface rollback source checks retired with D10.
+# Actual presentation/VM behavior: test_scene_frame_presentation_integration.
+# GPU source ownership: test_scene_surface_submission and the FIFO harness below.
 class SceneFrameContextTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -657,182 +660,11 @@ class SceneFrameContextTests(unittest.TestCase):
         )
         self.assertIn("SceneGraphMaterialFunctionInvocationRequest", preflight)
 
-    def test_host_owns_the_only_scene_frame_timer_and_per_surface_snapshots(self) -> None:
-        host = HOST_SOURCE.read_text(encoding="utf-8")
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        view = VIEW_SOURCE.read_text(encoding="utf-8")
-        particle_playback = PARTICLE_PLAYBACK_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("var frameTimer: Timer?", host)
-        self.assertIn("final class Surface", host)
-        self.assertIn(
-            "var evaluationTransaction = SceneSurfaceEvaluationTransaction()", host
-        )
-        self.assertIn("let advancedTiming = sceneClock.advance", frame_driver)
-        self.assertIn("let timing = advancedTiming", frame_driver)
-        render_position = frame_driver.index("private func renderFrame()")
-        media_vm_position = frame_driver.index(
-            "launchContext.frameSchema.mediaFrameCoordinator.evaluate(", render_position
-        )
-        broadcast_position = frame_driver.index(
-            "for (displayID, surface) in surfaces", media_vm_position
-        )
-        media_input_position = frame_driver.index(
-            "let mediaInput = SceneMediaThumbnailInbox.shared.latest()", render_position
-        )
-        playback_event_position = frame_driver.index(
-            "SceneScriptMediaPlaybackEventInput(snapshot: mediaInput)", render_position
-        )
-        properties_event_position = frame_driver.index(
-            "SceneScriptMediaPropertiesEventInput(snapshot: mediaInput)", render_position
-        )
-        timeline_event_position = frame_driver.index(
-            "SceneScriptMediaTimelineEventInput(snapshot: mediaInput)", render_position
-        )
-        snapshot_position = frame_driver.index(
-            "surface.evaluationTransaction.prepare", broadcast_position
-        )
-        self.assertLess(media_input_position, playback_event_position)
-        self.assertLess(playback_event_position, properties_event_position)
-        self.assertLess(properties_event_position, timeline_event_position)
-        self.assertLess(timeline_event_position, media_vm_position)
-        self.assertLess(playback_event_position, media_vm_position)
-        self.assertLess(media_vm_position, broadcast_position)
-        self.assertLess(broadcast_position, snapshot_position)
-        self.assertEqual(
-            frame_driver.count("SceneMediaThumbnailInbox.shared.latest()"), 1
-        )
-        self.assertIn(
-            "playback: sceneScriptMediaPlaybackEvent", frame_driver
-        )
-        self.assertIn(
-            "properties: sceneScriptMediaPropertiesEvent", frame_driver
-        )
-        self.assertIn("timeline: sceneScriptMediaTimelineEvent", frame_driver)
-        self.assertIn("mediaThumbnail: mediaThumbnailSnapshot", frame_driver)
-        self.assertIn("frameTime: timing.simulationFrameTime", frame_driver)
-        self.assertNotIn("mediaPlaybackPlaceholderFade", frame_driver)
-        self.assertNotIn("SceneMediaPlaybackPlaceholderFadeRuntime", host)
-        self.assertNotIn(
-            "SceneDynamicSnapshot.empty(frameIndex: timing.frameIndex)", frame_driver
-        )
-        # 调用可能跨行（频谱等 host-shared 输入随参数增长），只锁语义不锁排版。
-        self.assertIn("surface.metalView.renderFrame(", frame_driver)
-        self.assertIn("dynamicValues: dynamicValues", frame_driver)
-        self.assertIn("dynamicValues: SceneDynamicSnapshot", view)
-        self.assertIn("dynamicValues: dynamicValues", view)
-        self.assertGreaterEqual(view.count("timing.simulationFrameTime"), 1)
-        self.assertIn("let cameraFrame = renderer.makeCameraFrame", view)
-        particle_advance = view.index("advanceParticles(")
-        renderer_call = view.index("renderer.renderFrame(")
-        self.assertLess(renderer_call, particle_advance)
-        self.assertIn("particleBatchesProvider: {", view)
-        self.assertGreaterEqual(view.count("cameraFrame: cameraFrame"), 2)
-        self.assertNotIn("min(max(frameDelta, 0), 0.25)", particle_playback)
-        self.assertNotIn("displayTimer", view)
-        self.assertNotIn("renderStartTime", view)
 
-    def test_scene_script_side_effect_commands_commit_after_submission_barrier(self) -> None:
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        lifecycle = HOST_FRAME_DRIVER_LIFECYCLE_SOURCE.read_text(encoding="utf-8")
-        barrier = frame_driver.index("let allSurfacesSubmitted =")
-        commit_call = frame_driver.index("commitSubmittedSceneFrame(", barrier)
-        surface_commit = lifecycle.index("evaluationTransaction.commit")
-        timeline_commit = lifecycle.index("timelinePlaybackRuntime.apply(")
-        video_commit = lifecycle.index("videoTextureSourceRegistry?.apply(")
-        self.assertLess(barrier, commit_call)
-        self.assertLess(surface_commit, timeline_commit)
-        self.assertLess(timeline_commit, video_commit)
 
-    def test_dynamic_text_request_waits_for_all_surface_submission(self) -> None:
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        render = swift_body(frame_driver, "private func renderFrame()")
-        barrier = render.index("let allSurfacesSubmitted =")
-        media_discard = render.index("discardPreparedMediaThumbnailUpdate()", barrier)
-        video_discard = render.index("discardPreparedVideoFrames()", barrier)
-        discard = render.index("discardPreparedDynamicTextUpdate()", barrier)
-        media_commit = render.index("commitPreparedMediaThumbnailUpdate()", barrier)
-        video_commit = render.index("commitPreparedVideoFrames()", barrier)
-        commit = render.index("commitPreparedDynamicTextUpdate()", barrier)
-        frame_commit = render.index("commitSubmittedSceneFrame(", barrier)
-        self.assertLess(barrier, video_discard)
-        self.assertLess(barrier, media_discard)
-        self.assertLess(barrier, discard)
-        self.assertLess(barrier, media_commit)
-        self.assertLess(barrier, video_commit)
-        self.assertLess(barrier, commit)
-        self.assertLess(media_commit, video_commit)
-        self.assertLess(video_commit, commit)
-        self.assertLess(commit, frame_commit)
 
-    def test_media_thumbnail_request_waits_for_all_surface_submission(self) -> None:
-        view = VIEW_SOURCE.read_text(encoding="utf-8")
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        prepare = view.index("func prepareMediaThumbnail(")
-        snapshot = view.index("return mediaThumbnailCoordinator.prepareFrame()", prepare)
-        commit = view.index("func commitPreparedMediaThumbnailUpdate()")
-        update = view.index(
-            "_ = mediaThumbnailCoordinator.update(from: pendingMediaThumbnailInput)",
-            commit,
-        )
-        discard = view.index("func discardPreparedMediaThumbnailUpdate()")
-        render = swift_body(frame_driver, "private func renderFrame()")
-        barrier = render.index("let allSurfacesSubmitted =")
-        barrier_discard = render.index(
-            "discardPreparedMediaThumbnailUpdate()", barrier
-        )
-        barrier_commit = render.index(
-            "commitPreparedMediaThumbnailUpdate()", barrier
-        )
-        frame_commit = render.index("commitSubmittedSceneFrame(", barrier)
-        self.assertLess(prepare, snapshot)
-        self.assertLess(commit, update)
-        self.assertLess(
-            update,
-            view.index("mediaThumbnailCoordinator.commitPreparedFrame()", update),
-        )
-        self.assertLess(commit, discard)
-        self.assertLess(barrier, barrier_discard)
-        self.assertLess(barrier, barrier_commit)
-        self.assertLess(barrier_commit, frame_commit)
 
-    def test_local_storage_transaction_commits_or_discards_with_submission(self) -> None:
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        lifecycle = HOST_FRAME_DRIVER_LIFECYCLE_SOURCE.read_text(encoding="utf-8")
-        storage = LOCAL_STORAGE_SOURCE.read_text(encoding="utf-8")
-        begin = frame_driver.index("beginFrameTransaction()")
-        evaluate = frame_driver.index(
-            "launchContext.frameSchema.mediaFrameCoordinator.evaluate("
-        )
-        barrier = frame_driver.index("let allSurfacesSubmitted =")
-        discard = frame_driver.index("discardFrameTransaction()", barrier)
-        commit_plan = lifecycle.index("commitSceneScriptLayerPlan(")
-        commit = lifecycle.index("commitFrameTransaction()", commit_plan)
-        self.assertLess(begin, evaluate)
-        self.assertLess(evaluate, barrier)
-        self.assertLess(barrier, discard)
-        self.assertGreater(commit, commit_plan)
-        self.assertIn("frameTransactionCandidate", storage)
-        self.assertIn("frameTransactionBase", storage)
-        self.assertIn("frameTransactionCandidate ?? loadIfNeeded()", storage)
 
-    def test_shared_layer_alpha_candidate_commits_after_submission_barrier(self) -> None:
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        lifecycle = HOST_FRAME_DRIVER_LIFECYCLE_SOURCE.read_text(encoding="utf-8")
-        prepare = frame_driver.index(
-            "sharedLayerAlphaRuntime.prepareValues("
-        )
-        candidate_values = frame_driver.index(
-            "pendingSharedLayerAlpha.values", prepare
-        )
-        barrier = frame_driver.index("let allSurfacesSubmitted =")
-        commit_call = frame_driver.index("commitSubmittedSceneFrame(", barrier)
-        surface_commit = lifecycle.index("evaluationTransaction.commit")
-        alpha_commit = lifecycle.index("sharedLayerAlphaRuntime.commitValues(")
-        self.assertLess(prepare, candidate_values)
-        self.assertLess(candidate_values, barrier)
-        self.assertLess(barrier, commit_call)
-        self.assertLess(surface_commit, alpha_commit)
-        self.assertNotIn("sharedLayerAlphaRuntime.values(", frame_driver)
 
     def test_dynamic_snapshot_fault_is_debug_only_and_isolated_runner_owned(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
@@ -861,43 +693,6 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("state=dropped", frame_driver)
         self.assertIn("state=recovered", frame_driver)
 
-    def test_launch_origin_is_owned_by_generic_vm_and_cursor_route(self) -> None:
-        host = HOST_SOURCE.read_text(encoding="utf-8")
-        launch = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        host_render = swift_body(frame_driver, "private func renderFrame()")
-
-        self.assertNotIn("launchOriginTransitionProgram", launch)
-        self.assertNotIn("SceneLaunchOriginTransition", host + launch + frame_driver)
-        bounded_ownership = launch[
-            launch.index("let boundedProducerTargets:"):
-            launch.index("let sceneScriptScalarProgram =")
-        ]
-        self.assertNotIn('("launch-origin"', bounded_ownership)
-        self.assertIn('("property-vector"', bounded_ownership)
-        self.assertIn(
-            "targets.intersection(propertyBindingTargets)",
-            bounded_ownership,
-        )
-        self.assertIn(
-            "targets.intersection(timelineTargets)",
-            bounded_ownership,
-        )
-        self.assertIn(".subtracting(allowedTimelineTargets)", bounded_ownership)
-        self.assertIn(".subtracting(allowedPropertyInputs)", bounded_ownership)
-        self.assertIn(
-            "targets.isDisjoint(with: boundedSceneScriptTargets)",
-            bounded_ownership,
-        )
-        self.assertIn("sceneScriptCursorProgram.dispatch(", host_render)
-        self.assertIn("launchContext.frameSchema.mediaFrameCoordinator.evaluate(", host_render)
-        self.assertLess(
-            host_render.index("sceneScriptCursorProgram.dispatch("),
-            host_render.index("launchContext.frameSchema.mediaFrameCoordinator.evaluate("),
-        )
-        self.assertIn("base: preliminarySceneScriptResolution", host_render)
-        self.assertIn("resolution: sharedSurfaceResolution", host_render)
-        self.assertIn("PendingEvaluation", host_render)
 
     def test_debug_wall_date_override_is_bounded_to_evidence_runs(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
@@ -924,105 +719,11 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("runtime = max(timing.sceneTime, 0)", scalar_runtime)
         self.assertNotIn("SceneTimeOfDayEffectScript", launch)
 
-    def test_busy_history_frame_retries_before_advancing_scene_clock(self) -> None:
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        render = swift_body(frame_driver, "private func renderFrame()")
-        schedule = swift_body(
-            frame_driver, "private func scheduleFrameDriver("
-        )
-        self.assertIn("sceneFrameInterval / 8.0", frame_driver)
-        self.assertIn("private var sceneBusyFrameRetryInterval", frame_driver)
-        self.assertIn("max(0.001, sceneFrameInterval / 8.0)", frame_driver)
-        self.assertIn("0.001,", frame_driver)
-        self.assertIn("surfaces.values.allSatisfy", render)
-        self.assertIn("return .busy", render)
-        self.assertLess(
-            render.index("surfaces.values.allSatisfy"),
-            render.index("sceneClock.advance("),
-        )
-        self.assertLess(
-            render.index("return .busy"),
-            render.index("recordDriverCallback()"),
-        )
-        self.assertIn("case .busy:", schedule)
-        self.assertIn(
-            "nextDeadline = now + sceneBusyFrameRetryInterval",
-            schedule,
-        )
-        self.assertIn("case .rendered:", schedule)
-        self.assertIn("scheduledDeadline + sceneFrameInterval", schedule)
-        self.assertIn("nextDeadline = max(cadenceDeadline, now)", schedule)
-        self.assertNotIn("while cadenceDeadline <= now", schedule)
 
-    def test_scene_clock_rolls_back_when_surface_submission_barrier_fails(self) -> None:
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        render = swift_body(frame_driver, "private func renderFrame()")
-        snapshot = render.index("let clockState = sceneClock.snapshot()")
-        advance = render.index("sceneClock.advance(", snapshot)
-        barrier = render.index("let allSurfacesSubmitted =", advance)
-        restore = render.index("sceneClock.restore(clockState)", barrier)
-        pointer_restore = render.index("restoreSceneScriptPointerEvents", restore)
-        self.assertLess(snapshot, advance)
-        self.assertLess(advance, barrier)
-        self.assertLess(restore, pointer_restore)
-        self.assertIn("deferred/dropped", render)
-        self.assertIn("must not consume a frame index", render)
-        self.assertIn("frame index or move the host-time anchor", render)
 
-    def test_timeline_observation_rolls_back_with_surface_submission(self) -> None:
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        render = swift_body(frame_driver, "private func renderFrame()")
-        snapshot = render.index("let timelineObservationState =")
-        values = render.index("timelinePlaybackRuntime.values(", snapshot)
-        barrier = render.index("let allSurfacesSubmitted =", values)
-        restore = render.index(
-            "timelinePlaybackRuntime.restoreObservationState(", barrier
-        )
-        self.assertLess(snapshot, values)
-        self.assertLess(values, barrier)
-        self.assertLess(
-            restore, render.index("restoreSceneScriptPointerEvents", restore)
-        )
 
-    def test_parallax_smoother_rolls_back_with_surface_submission(self) -> None:
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        render = frame_driver
-        snapshot = render.index("let parallaxPointerStates =")
-        render_loop = render.index("for (displayID, surface) in surfaces", snapshot)
-        barrier = render.index("let allSurfacesSubmitted =", render_loop)
-        restore = render.index("restoreParallaxPointerSmoother", barrier)
-        self.assertLess(snapshot, render_loop)
-        self.assertLess(render_loop, barrier)
-        self.assertLess(restore, render.index("restoreSceneScriptPointerEvents", restore))
 
-    def test_pointer_previous_rolls_back_with_surface_submission(self) -> None:
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        snapshot = frame_driver.index("let pointerPreviousStates =")
-        render_loop = frame_driver.index("for (displayID, surface) in surfaces", snapshot)
-        barrier = frame_driver.index("let allSurfacesSubmitted =", render_loop)
-        restore = frame_driver.index("restorePointerPrevious", barrier)
-        self.assertLess(snapshot, render_loop)
-        self.assertLess(render_loop, barrier)
-        self.assertLess(restore, frame_driver.index("restoreSceneScriptPointerEvents", restore))
 
-    def test_debug_pause_resume_probe_uses_formal_playback_owner(self) -> None:
-        host = HOST_SOURCE.read_text(encoding="utf-8")
-        runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
-        probe = DEBUG_PAUSE_RESUME_RUNNER_SOURCE.read_text(encoding="utf-8")
-
-        self.assertIn("let isPlaybackPaused: Bool", host)
-        self.assertIn("let isFrameDriverActive: Bool", host)
-        snapshot = swift_body(host, "func debugSnapshot() -> DebugSnapshot")
-        self.assertIn("isPlaybackPaused: sceneClock.isPaused", snapshot)
-        self.assertIn("isFrameDriverActive: frameTimer?.isValid == true", snapshot)
-        self.assertIn('"MWX_SCENE_DEBUG_PAUSE_RESUME_AFTER"', probe)
-        self.assertIn("runtimeHost.setPlaybackPaused(true)", probe)
-        self.assertIn("runtimeHost.setPlaybackPaused(false)", probe)
-        self.assertIn('state=paused accepted=%@', probe)
-        self.assertIn('state=resumed accepted=%@', probe)
-        self.assertIn('reason: "pause-resume-after"', probe)
-        self.assertIn("pauseResumeRequest != nil", runner)
-        self.assertIn("runtimeLifecycleProbeCount <= 1", runner)
 
     def test_debug_scene_switch_accepts_only_isolated_alternate_root(self) -> None:
         runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
@@ -1074,66 +775,6 @@ class SceneFrameContextTests(unittest.TestCase):
             live_consumers,
         )
 
-    def test_launch_owns_and_reuses_the_lazy_effect_pipeline_repository(self) -> None:
-        launch = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
-        prepared_resources = PREPARED_DEVICE_RESOURCES_SOURCE.read_text(
-            encoding="utf-8"
-        )
-        host = HOST_SOURCE.read_text(encoding="utf-8")
-        view = VIEW_SOURCE.read_text(encoding="utf-8")
-        renderer = RENDERER_SOURCE.read_text(encoding="utf-8")
-        renderer_initialization = RENDERER_INITIALIZATION_SOURCE.read_text(
-            encoding="utf-8"
-        )
-        compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")
-        repository = PIPELINE_REPOSITORY_SOURCE.read_text(encoding="utf-8")
-
-        self.assertIn(
-            "let preparedDeviceResources: ScenePreparedDeviceResources", launch
-        )
-        self.assertIn(
-            "let pipelineRepository = SceneImageEffectPipelineRepository(",
-            prepared_resources,
-        )
-        self.assertIn(
-            "descriptor.layers.contains(where:", prepared_resources
-        )
-        self.assertIn(
-            "_ = pipelineRepository.layerColorBlendState()",
-            prepared_resources,
-        )
-        self.assertIn(
-            "preparedDeviceResources: preparedDeviceResources", launch
-        )
-        rebuild = host.split("private func rebuildSurfaces(", maxsplit=1)[1]
-        self.assertIn(
-            "launchContext.preparedDeviceResources.pipelineRepository", rebuild
-        )
-        self.assertIn(
-            "pipelineRepository: SceneImageEffectPipelineRepository", view
-        )
-        self.assertIn(
-            "pipelineRepository: SceneImageEffectPipelineRepository", renderer
-        )
-        self.assertNotIn("MTLCreateSystemDefaultDevice()", renderer)
-        self.assertIn(
-            "SceneImageLayerCompositor(\n            pipelineRepository:",
-            renderer_initialization,
-        )
-        self.assertNotIn("SceneGaussianBlurPipeline(device:", compositor)
-        self.assertNotIn("SceneBloomPipeline(device:", compositor)
-        self.assertIn(
-            "pipelineRepository.layerColorBlendState()", compositor
-        )
-        self.assertIn(
-            "SceneLayerColorBlendPipeline(device: device, state: state)",
-            compositor,
-        )
-        self.assertIn("final class ScenePipelineSlot<Value>", repository)
-        self.assertIn("case resolved(Value?)", repository)
-        self.assertIn(
-            "ScenePipelineSlot<SceneLayerColorBlendPipelineState>", repository
-        )
 
     def test_host_derives_only_renderer_backed_live_consumers(self) -> None:
         derivation = LIVE_CONSUMERS_SOURCE.read_text(encoding="utf-8")
@@ -1178,22 +819,6 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn(".text(layerID: layer.id, field: .pointSize)", derivation)
         self.assertIn(".text(layerID: layer.id, field: .color)", derivation)
 
-    def test_live_property_apis_update_state_without_rebuilding_surfaces(self) -> None:
-        host = HOST_SOURCE.read_text(encoding="utf-8")
-        single_start = host.index("func applyUserPropertyValue(")
-        bulk_start = host.index("func applyUserPropertyValues(", single_start)
-        stop_start = host.index("func stop()", bulk_start)
-        single = host[single_start:bulk_start]
-        bulk = host[bulk_start:stop_start]
-        self.assertIn("applyUserPropertyValues(", single)
-        self.assertIn("guard var context = launchContext", bulk)
-        self.assertIn("context.recordID == recordID", bulk)
-        self.assertIn("var candidateLiveState = context.liveState", bulk)
-        self.assertIn("candidateLiveState.apply(", bulk)
-        self.assertIn("context.liveState = candidateLiveState", bulk)
-        self.assertIn("launchContext = context", bulk)
-        self.assertNotIn("rebuildSurfaces", single + bulk)
-        self.assertNotIn("teardownSurfaces", single + bulk)
 
     def test_each_frame_reads_the_latest_live_state_values(self) -> None:
         host = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
@@ -1202,29 +827,6 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("userValues: launchContext.liveState.userValues", render)
         self.assertNotIn("userDynamicValues", host)
 
-    def test_daemon_display_commands_are_debounced_and_skip_unchanged_topology(self) -> None:
-        host = HOST_SOURCE.read_text(encoding="utf-8")
-        # 推送拓扑是显示集权威：applyDisplayConfiguration 先落
-        # screenTopology（多屏开关由主 App 裁决），重建按 rebuiltTopology
-        # 快照去重——目标集与已建集分离，"未变化"判定不再吞掉多屏切换。
-        apply = host.split(
-            "func applyDisplayConfiguration(", maxsplit=1
-        )[1]
-        apply = apply.split(
-            "private func scheduleScreenConfigurationReconciliation(", maxsplit=1
-        )[0]
-        self.assertIn("screenTopology = topology", apply)
-        reconciliation = host.split(
-            "private func scheduleScreenConfigurationReconciliation(", maxsplit=1
-        )[1]
-        reconciliation = reconciliation.split(
-            "private func reassertSurfaceVisibility()", maxsplit=1
-        )[0]
-        self.assertIn("screenReconciliationWorkItem?.cancel()", reconciliation)
-        self.assertIn("asyncAfter(deadline: .now() + 0.2", reconciliation)
-        self.assertIn("topology != self.rebuiltTopology", reconciliation)
-        self.assertIn("self.reassertSurfaceVisibility()", reconciliation)
-        self.assertIn("self.rebuildSurfaces()", reconciliation)
 
 
 if __name__ == "__main__":

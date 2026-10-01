@@ -14,15 +14,15 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneSurfaceEvaluationTransaction.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneEvaluationTransaction.swift",
 ]
 HOST_FRAME_DRIVER = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift"
 )
 HOST_FRAME_DRIVER_LIFECYCLE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriverLifecycle.swift"
 )
-TRANSACTION = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneSurfaceEvaluationTransaction.swift"
+TRANSACTION = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneEvaluationTransaction.swift"
 
 HARNESS = r'''
 import Foundation
@@ -36,11 +36,11 @@ enum Harness {
             valueType: .scalar,
             authoredValue: .scalar(0.25)
         )
-        var firstSurface = SceneSurfaceEvaluationTransaction()
-        var secondSurface = SceneSurfaceEvaluationTransaction()
-        var emptySurface = SceneSurfaceEvaluationTransaction()
-        var statefulSurface = SceneSurfaceEvaluationTransaction()
-        var pendingSurface = SceneSurfaceEvaluationTransaction()
+        var firstSurface = SceneEvaluationTransaction()
+        var secondSurface = SceneEvaluationTransaction()
+        var emptySurface = SceneEvaluationTransaction()
+        var statefulSurface = SceneEvaluationTransaction()
+        var pendingSurface = SceneEvaluationTransaction()
 
         let emptyFirst = emptySurface.evaluate(frameIndex: 40, definitions: [])
         let emptySecond = emptySurface.evaluate(frameIndex: 41, definitions: [])
@@ -167,7 +167,10 @@ enum Harness {
 '''
 
 
-class SceneSurfaceEvaluationTransactionTests(unittest.TestCase):
+# Host all-surface rollback source checks retired with D10.
+# Actual presentation/VM behavior: test_scene_frame_presentation_integration.
+# GPU source ownership: test_scene_surface_submission and the FIFO harness below.
+class SceneEvaluationTransactionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         if shutil.which("swiftc") is None:
@@ -238,49 +241,7 @@ class SceneSurfaceEvaluationTransactionTests(unittest.TestCase):
             ["0.75", "0.25", "0.75", "0.9", "0.75"],
         )
 
-    def test_host_commits_surface_evaluations_after_submission_barrier(self) -> None:
-        source = HOST_FRAME_DRIVER.read_text(encoding="utf-8")
-        lifecycle = HOST_FRAME_DRIVER_LIFECYCLE.read_text(encoding="utf-8")
-        self.assertIn("PendingEvaluation", source)
-        prepare_position = source.index(
-            "surface.evaluationTransaction.prepare("
-        )
-        outcome_position = source.index(
-            "let allSurfacesSubmitted =", prepare_position
-        )
-        commit_call_position = source.index(
-            "commitSubmittedSceneFrame(", outcome_position
-        )
-        self.assertLess(prepare_position, outcome_position)
-        self.assertLess(outcome_position, commit_call_position)
-        self.assertIn("func commitSubmittedSceneFrame(", lifecycle)
-        self.assertIn("evaluationTransaction.commit", lifecycle)
 
-    def test_host_reuses_one_typed_resolution_but_keeps_surface_prepare_owner(self) -> None:
-        source = HOST_FRAME_DRIVER.read_text(encoding="utf-8")
-        transaction = TRANSACTION.read_text(encoding="utf-8")
-        self.assertIn(
-            "let preliminarySceneScriptResolution = SceneDynamicSnapshotResolver().resolve(",
-            source,
-        )
-        self.assertIn(
-            "base: preliminarySceneScriptResolution",
-            source,
-        )
-        self.assertIn(
-            "let sharedSurfaceResolution = SceneDynamicSnapshotResolver().resolve(",
-            source,
-        )
-        self.assertIn("resolution: sharedSurfaceResolution", source)
-        self.assertNotIn("sceneScriptValues: commonSceneScriptValues", source)
-        self.assertIn(
-            "resolution: SceneDynamicSnapshotResolution",
-            transaction,
-        )
-        self.assertIn(
-            "generation/last-snapshot publication state",
-            transaction,
-        )
 
     def test_previous_value_projection_reads_requested_target_identity(self) -> None:
         source = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift").read_text(

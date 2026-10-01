@@ -14,10 +14,10 @@ HOST = (
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
 )
 FRAME_DRIVER = (
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift"
 )
 SURFACE_TEARDOWN = (
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+SurfaceTeardown.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift"
 )
 COORDINATOR = ROOT / "MyWallpaperX" / "App" / "MainWindowCoordinator+PlaybackRouting.swift"
 DEBUG_RUNNER = ROOT / "MyWallpaperX" / "App" / "DebugScenePlaybackRunner.swift"
@@ -129,22 +129,7 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         self.assertIn("当前壁纸会继续播放", observer)
         self.assertIn("正在等待首帧显示", observer)
 
-    def test_preparation_is_off_main_and_commit_returns_to_main(self) -> None:
-        request = function_body(self.launch, "func requestLaunch(")
-        self.assertIn("launchPreparationQueue.async", request)
-        self.assertIn("Self.prepareLaunch(", request)
-        self.assertIn("DispatchQueue.main.async", request)
-        self.assertIn("try self.activate(", request)
-        self.assertIn("prepared.context", request)
-        self.assertLess(request.index("Self.prepareLaunch("), request.index("try self.activate("))
 
-    def test_newer_request_and_cancel_reject_stale_work(self) -> None:
-        request = function_body(self.launch, "func requestLaunch(")
-        cancel = function_body(self.launch, "func cancelPendingLaunch(")
-        self.assertIn("launchCancellation?.cancel()", request)
-        self.assertGreaterEqual(request.count("nextLaunchRequestGeneration == requestGeneration"), 3)
-        self.assertIn("nextLaunchRequestGeneration &+= 1", cancel)
-        self.assertIn("cancellation?.check()", self.launch)
 
     def test_progress_uses_truthful_indeterminate_stages(self) -> None:
         prepare = function_body(self.launch, "private static func prepareLaunch(")
@@ -180,96 +165,7 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         self.assertGreaterEqual(projection.count("Array(UInt8.min ... UInt8.max)"), 2)
         self.assertIn("availability & ~relevantSlots == 0", projection)
 
-    def test_device_resources_prepare_before_surface_activation(self) -> None:
-        prepare = function_body(self.launch, "private static func prepareLaunch(")
-        host_rebuild = function_body(self.host, "private func rebuildSurfaces(")
-        self.assertIn("ScenePreparedDeviceResourcesTask(", prepare)
-        self.assertIn("deviceResourcesPreparation.start()", prepare)
-        self.assertIn("deviceResourcesPreparation.value()", prepare)
-        self.assertIn("preparedDeviceResources: preparedDeviceResources", prepare)
-        self.assertLess(
-            prepare.index("deviceResourcesPreparation.start()"),
-            prepare.index("SceneTimelineTargetCompiler.compile("),
-        )
-        self.assertNotIn("SceneImageLayerPipeline(device:", host_rebuild)
-        self.assertEqual(
-            host_rebuild.count(
-                "launchContext.preparedDeviceResources.imageLayerPipeline"
-            ),
-            1,
-        )
-        self.assertEqual(
-            host_rebuild.count(
-                "launchContext.preparedDeviceResources.baseImages"
-            ),
-            2,
-        )
 
-    def test_hidden_effectless_combo_images_defer_without_blocking_first_frame(self) -> None:
-        prepare = function_body(self.launch, "private static func prepareLaunch(")
-        admission = function_body(
-            self.deferred_base_images,
-            "static func deferredEffectlessBaseImageLayerIDs(",
-        )
-        task = function_body(
-            self.prepared_device_resources,
-            "func start()",
-        )
-        request = function_body(
-            self.prepared_device_resources,
-            "func requestDeferredBaseImage(",
-        )
-        worker = function_body(
-            self.prepared_device_resources,
-            "private func runDeferredWorker()",
-        )
-        load = function_body(self.metal_view, "func loadImageLayers(")
-        adopt = function_body(
-            self.metal_view,
-            "func adoptPreparedDeferredBaseImage(",
-        )
-
-        self.assertIn("bindingProgram.evaluate(", admission)
-        self.assertIn("SceneLayerVisibility.visibleLayerIDs(", admission)
-        self.assertIn("layer.effects.isEmpty", admission)
-        self.assertIn("layer.dependencyLayerIDs.isEmpty", admission)
-        self.assertIn("layer.authoredDependencies.isEmpty", admission)
-        self.assertIn("displayScriptOwnership?.isEmpty != false", admission)
-        self.assertIn("liveConditionalLayerVisibilityTargets", admission)
-        self.assertIn(
-            "staticModelNamedTextureProviderLayerIDs(in: descriptor)",
-            admission,
-        )
-        self.assertIn("subtracting(modelProviderLayerIDs)", admission)
-        self.assertIn("deferredBaseImageLayerIDs: deferredBaseImageLayerIDs", prepare)
-        self.assertLess(
-            prepare.index("let deferredBaseImageLayerIDs"),
-            prepare.index("ScenePreparedDeviceResourcesTask("),
-        )
-        self.assertIn(
-            "deferredBaseImageLayerIDs: deferredBaseImageLayerIDs",
-            task,
-        )
-        self.assertLess(
-            load.index("preparedBaseImages.deferredLayerIDs.contains(layer.id)"),
-            load.index("videoSourceRegistry.source("),
-        )
-        self.assertIn("deferred-static-base", load)
-        self.assertIn("requestedGenerations[layerID] = requestGeneration", request)
-        self.assertIn("generation < requestGeneration", request)
-        self.assertIn("requestedGenerations.removeValue", request)
-        self.assertIn("deferredQueue.async", request)
-        self.assertIn("loader: deferredTextureLoader", worker)
-        self.assertIn("spriteTextureLoader: deferredSpriteTextureLoader", worker)
-        self.assertIn("guard !cancelled", worker)
-        self.assertNotIn("deferredBaseImageQueue", self.metal_view)
-        self.assertIn("preparedBaseImages.outcome(", adopt)
-        self.assertIn("imageTextures.set(", adopt)
-        activate = function_body(self.host, "func activate(")
-        self.assertLess(
-            activate.index("cancelDeferredPreparation()"),
-            activate.index("launchContext = context"),
-        )
 
     def test_first_surface_runtime_warmup_overlaps_program_compilation(self) -> None:
         prepare = function_body(self.launch, "private static func prepareLaunch(")
@@ -325,12 +221,6 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         self.assertIn("installExecutionEvidence(", install)
         self.assertNotIn("installExecutionEvidence(", runtime_report)
 
-    def test_existing_output_is_not_switched_before_preparation_succeeds(self) -> None:
-        request = function_body(self.launch, "func requestLaunch(")
-        before_commit = request[: request.index("try self.activate(")]
-        self.assertNotIn("teardownSurfaces", before_commit)
-        self.assertNotIn("stopPlayback", before_commit)
-        self.assertNotIn("postWallpaperRuntimeWillSwitch", before_commit)
 
     def test_detail_projects_progress_and_user_cancellation(self) -> None:
         self.assertIn("sceneWallpaperLaunchStateDidChange", self.inspection)

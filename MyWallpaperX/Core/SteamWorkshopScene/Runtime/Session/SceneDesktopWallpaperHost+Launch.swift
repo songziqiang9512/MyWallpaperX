@@ -73,10 +73,16 @@ extension SceneDesktopWallpaperHost {
         recordID: String? = nil,
         completion: @escaping @MainActor (Result<SceneRuntimeModel, Error>) -> Void
     ) {
-        launchCancellation?.cancel()
+        cancelPendingLaunch()
         nextLaunchRequestGeneration &+= 1
         nextSceneScriptGeneration &+= 1
         let requestGeneration = nextLaunchRequestGeneration
+        pendingLaunchCompletion = completion
+        let complete: @MainActor (Result<SceneRuntimeModel, Error>) -> Void = { [weak self] result in
+            guard let self, self.nextLaunchRequestGeneration == requestGeneration else { return }
+            self.pendingLaunchCompletion = nil
+            completion(result)
+        }
         let scriptGeneration = nextSceneScriptGeneration
         let requestID = UUID()
         let cancellation = SceneWallpaperLaunchCancellation()
@@ -127,27 +133,28 @@ extension SceneDesktopWallpaperHost {
                             phase: .preparingSurfaces,
                             message: "正在准备显示器与 Scene 表面"
                         ))
-                        try self.activate(
+                        try self.beginCandidate(
                             prepared.context,
-                            firstFramePresentationRegistration: .init(
-                                requestID: requestID,
-                                recordID: recordID
-                            )
-                        )
-                        self.launchCancellation = nil
-                        self.publishLaunchState(.init(
-                            requestID: requestID,
-                            recordID: recordID,
-                            phase: .launched,
-                            message: "Scene 已开始渲染"
-                        ))
-                        completion(.success(prepared.model))
+                            firstPresentation: .init(requestID: requestID, recordID: recordID)
+                        ) { [weak self] result in
+                            guard let self, self.nextLaunchRequestGeneration == requestGeneration else { return }
+                            switch result {
+                            case .success:
+                                self.launchCancellation = nil
+                                self.publishLaunchState(.init(requestID: requestID,
+                                    recordID: recordID, phase: .launched, message: "Scene 首帧已完成并切换"))
+                                complete(.success(prepared.model))
+                            case let .failure(error):
+                                self.finishLaunchFailure(error, requestID: requestID,
+                                    recordID: recordID, completion: complete)
+                            }
+                        }
                     } catch {
                         self.finishLaunchFailure(
                             error,
                             requestID: requestID,
                             recordID: recordID,
-                            completion: completion
+                            completion: complete
                         )
                     }
                 }
@@ -161,7 +168,7 @@ extension SceneDesktopWallpaperHost {
                         error,
                         requestID: requestID,
                         recordID: recordID,
-                        completion: completion
+                        completion: complete
                     )
                 }
             }
@@ -177,6 +184,10 @@ extension SceneDesktopWallpaperHost {
         launchCancellation?.cancel()
         launchCancellation = nil
         nextLaunchRequestGeneration &+= 1
+        discardCandidate()
+        let completion = pendingLaunchCompletion
+        pendingLaunchCompletion = nil
+        DispatchQueue.main.async { completion?(.failure(SceneDesktopWallpaperHostLaunchError.cancelled)) }
         publishLaunchState(.init(
             requestID: state.requestID,
             recordID: state.recordID,
@@ -195,32 +206,23 @@ extension SceneDesktopWallpaperHost {
         return false
     }
 
-    @discardableResult
+#if DEBUG
+    /// The evidence runner awaits the same request/first-frame transaction as
+    /// the daemon. There is no synchronous activation bypass.
     func launch(
         rootURL: URL,
         propertyOverrides: [String: SceneUserPropertyValue] = [:],
         userPropertyTextureURLs: [String: URL] = [:],
         logURL: URL? = nil,
         recordID: String? = nil
-    ) throws -> SceneRuntimeModel {
-        nextSceneScriptGeneration &+= 1
-        // M3.2：同步 debug launch 与异步路径同口径记录 TTFVF 阶段。
-        Self.recordLaunchPhase(.accepted)
-        let prepared = try Self.prepareLaunch(
-            rootURL: rootURL,
-            propertyOverrides: propertyOverrides,
-            userPropertyTextureURLs: userPropertyTextureURLs,
-            logURL: logURL,
-            recordID: recordID,
-            sceneScriptGeneration: nextSceneScriptGeneration,
-            textureDecodeCacheBudget: textureDecodeCacheBudget,
-            cancellation: nil,
-            progress: { phase, _ in SceneDesktopWallpaperHost.recordLaunchPhase(phase) }
-        )
-        try activate(prepared.context)
-        Self.recordLaunchPhase(.launched)
-        return prepared.model
+    ) async throws -> SceneRuntimeModel {
+        try await withCheckedThrowingContinuation { continuation in
+            requestLaunch(rootURL: rootURL, propertyOverrides: propertyOverrides,
+                userPropertyTextureURLs: userPropertyTextureURLs, logURL: logURL,
+                recordID: recordID) { continuation.resume(with: $0) }
+        }
     }
+#endif
 
     private static func prepareLaunch(
         rootURL: URL,
@@ -543,7 +545,7 @@ extension SceneDesktopWallpaperHost {
         NSLog("MWX LAUNCH-STAGE: stage=first-surface-start elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
         try cancellation?.check()
         let sceneScriptStorageSession = recordID.map {
-            SceneScriptLocalStorageSession(recordID: $0)
+            SceneScriptLocalStorageSession(recordID: $0, defersPersistence: true)
         }
         let compileSceneScriptPrograms: (
             Set<SceneDynamicTarget>, Set<SceneDynamicTarget>

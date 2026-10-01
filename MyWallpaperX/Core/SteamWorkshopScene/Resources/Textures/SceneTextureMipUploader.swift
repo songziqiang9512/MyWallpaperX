@@ -51,7 +51,7 @@ enum SceneTextureMipUploader {
         descriptor.mipmapLevelCount = 1
         descriptor.usage = .shaderRead
         descriptor.storageMode = .shared
-        guard let texture = device.makeTexture(descriptor: descriptor) else {
+        guard let texture = device.makeSceneTexture(descriptor: descriptor) else {
             return .textureAllocationFailed(width: mip.width, height: mip.height)
         }
         rgba.withUnsafeBytes { bytes in
@@ -99,7 +99,7 @@ enum SceneTextureMipUploader {
             height: first.height,
             levelCount: images.count
         )
-        guard let texture = device.makeTexture(descriptor: descriptor) else {
+        guard let texture = device.makeSceneTexture(descriptor: descriptor) else {
             return .textureAllocationFailed(width: first.width, height: first.height)
         }
         for (level, image) in images.enumerated() {
@@ -160,7 +160,7 @@ enum SceneTextureMipUploader {
             height: first.height,
             levelCount: selectedImages.count
         )
-        guard let texture = device.makeTexture(descriptor: descriptor) else {
+        guard let texture = device.makeSceneTexture(descriptor: descriptor) else {
             return .textureAllocationFailed(width: first.width, height: first.height)
         }
         for (level, image) in selectedImages.enumerated() {
@@ -266,7 +266,7 @@ enum SceneTextureMipUploader {
             height: first.height,
             levelCount: uploadMips.count
         )
-        guard let texture = device.makeTexture(descriptor: textureDescriptor) else {
+        guard let texture = device.makeSceneTexture(descriptor: textureDescriptor) else {
             return .textureAllocationFailed(width: first.width, height: first.height)
         }
         for (level, mip) in uploadMips.enumerated() {

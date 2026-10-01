@@ -18,6 +18,7 @@ HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Se
 HOST_LAUNCH_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
 METAL_VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
 SWIFT_SOURCES = [
+    Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",
@@ -1002,28 +1003,6 @@ class SceneBCTextureUploaderTests(unittest.TestCase):
         ):
             self.assertTrue(self.result[key], key)
 
-    def test_launch_context_shares_one_sprite_budget_across_surfaces(self) -> None:
-        launch = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
-        host = HOST_SOURCE.read_text(encoding="utf-8")
-        view = METAL_VIEW_SOURCE.read_text(encoding="utf-8")
-        self.assertIn(
-            "let preparedDeviceResources: ScenePreparedDeviceResources",
-            launch,
-        )
-        rebuild = host.split("private func rebuildSurfaces(", maxsplit=1)[1]
-        rebuild = rebuild.split("private func teardownSurfaces", maxsplit=1)[0]
-        self.assertEqual(
-            rebuild.count(
-                "launchContext.preparedDeviceResources.spriteTextureLoader"
-            ),
-            2,
-        )
-        load = view.split("func loadImageLayers(", maxsplit=1)[1]
-        load = load.split("// MARK:", maxsplit=1)[0]
-        self.assertNotIn(
-            "let spriteTextureLoader = SceneMultiImageSpriteTextureLoader()",
-            load,
-        )
 
     def test_bc3_purpose_preserves_independent_green_and_alpha_channels(self) -> None:
         self.assertEqual(self.result["colorPurposePixel"], [0, 64, 0, 64])

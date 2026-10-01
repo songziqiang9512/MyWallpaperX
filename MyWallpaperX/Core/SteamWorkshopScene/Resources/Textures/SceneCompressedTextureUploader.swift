@@ -124,7 +124,7 @@ struct SceneCompressedTextureUploader {
         descriptor.mipmapLevelCount = selectedImages.count
         descriptor.usage = .shaderRead
         descriptor.storageMode = .shared
-        guard let texture = device.makeTexture(descriptor: descriptor) else {
+        guard let texture = device.makeSceneTexture(descriptor: descriptor) else {
             return .textureAllocationFailed(width: first.width, height: first.height)
         }
 
@@ -180,7 +180,7 @@ struct SceneCompressedTextureUploader {
         )
         descriptor.usage = [.shaderRead, .shaderWrite]
         descriptor.storageMode = .private
-        guard let destination = device.makeTexture(descriptor: descriptor),
+        guard let destination = device.makeSceneTexture(descriptor: descriptor),
               let commandQueue = uploadCommandQueue.commandQueue(for: device),
               let commandBuffer = commandQueue.makeCommandBuffer() else {
             return .textureAllocationFailed(width: region.width, height: region.height)
@@ -318,7 +318,7 @@ struct SceneCompressedTextureUploader {
         descriptor.mipmapLevelCount = mips.count
         descriptor.usage = .shaderRead
         descriptor.storageMode = .shared
-        guard let texture = device.makeTexture(descriptor: descriptor) else {
+        guard let texture = device.makeSceneTexture(descriptor: descriptor) else {
             return .textureAllocationFailed(width: firstMip.width, height: firstMip.height)
         }
 

@@ -1,23 +1,15 @@
 import AppKit
 import QuartzCore
 
-/// A frame may execute VM callbacks before every surface has admitted its
-/// command buffer. Keep the callback watermarks and live-property edge state
-/// provisional until the host barrier succeeds.
+/// Owner-local callback admission may reject typed effects. Presentation
+/// failure never restores these watermarks or replays an executed VM frame.
 struct SceneScriptProgramFrameStates {
     let scalar: SceneScriptProgramFrameState
     let string: SceneScriptProgramFrameState
     let vector: SceneScriptProgramFrameState
 }
 
-struct SceneScriptProgramTimerFrameStates {
-    let scalar: SceneScriptProgramTimerFrameState
-    let string: SceneScriptProgramTimerFrameState
-    let vector: SceneScriptProgramTimerFrameState
-    let cursor: SceneScriptProgramTimerFrameState
-}
-
-extension SceneDesktopWallpaperHost {
+extension SceneDesktopWallpaperSession {
     func sceneScriptProgramFrameState(
         _ context: SceneDesktopWallpaperLaunchContext
     ) -> SceneScriptProgramFrameStates {
@@ -37,20 +29,6 @@ extension SceneDesktopWallpaperHost {
         context.sceneScriptStringProgram.restoreFrameState(state.string, rejectedOwnerTargets: rejectedOwnerTargets)
         context.propertyVectorScriptProgram.restoreFrameState(state.vector, rejectedOwnerTargets: rejectedOwnerTargets)
     }
-
-    func sceneScriptProgramTimerFrameState(
-        _ context: SceneDesktopWallpaperLaunchContext
-    ) -> SceneScriptProgramTimerFrameStates { .init(scalar: context.sceneScriptScalarProgram.timerFrameStateSnapshot(), string: context.sceneScriptStringProgram.timerFrameStateSnapshot(), vector: context.propertyVectorScriptProgram.timerFrameStateSnapshot(), cursor: context.sceneScriptCursorProgram.timerFrameStateSnapshot()) }
-
-    func restoreSceneScriptProgramTimerFrameState(
-        _ context: SceneDesktopWallpaperLaunchContext,
-        _ state: SceneScriptProgramTimerFrameStates
-    ) { context.sceneScriptScalarProgram.restoreTimerFrameState(state.scalar); context.sceneScriptStringProgram.restoreTimerFrameState(state.string); context.propertyVectorScriptProgram.restoreTimerFrameState(state.vector); context.sceneScriptCursorProgram.restoreTimerFrameState(state.cursor) }
-
-    func discardSceneScriptProgramTimerFrameState(
-        _ context: SceneDesktopWallpaperLaunchContext,
-        _ state: SceneScriptProgramTimerFrameStates
-    ) { context.sceneScriptScalarProgram.discardTimerFrameState(state.scalar); context.sceneScriptStringProgram.discardTimerFrameState(state.string); context.propertyVectorScriptProgram.discardTimerFrameState(state.vector); context.sceneScriptCursorProgram.discardTimerFrameState(state.cursor) }
 
     func finalizeSceneScriptLayerMutations(
         _ context: SceneDesktopWallpaperLaunchContext,
@@ -79,13 +57,6 @@ extension SceneDesktopWallpaperHost {
         _ context: SceneDesktopWallpaperLaunchContext
     ) {
         finalizeSceneScriptLayerMutations(context, committing: false)
-    }
-
-    func discardSceneScriptFrameOutcome(
-        _ context: SceneDesktopWallpaperLaunchContext
-    ) {
-        finalizeSceneScriptLayerMutations(context, committing: false)
-        discardSceneScriptLayerSnapshot(context)
     }
 
     func discardSceneScriptLayerSnapshot(
@@ -123,10 +94,9 @@ extension SceneDesktopWallpaperHost {
         )
     }
 
-    func commitSubmittedSceneFrame(
+    func commitSimulatedSceneFrame(
         _ context: SceneDesktopWallpaperLaunchContext,
-        pendingSurfaceEvaluations:
-            [(Surface, SceneSurfaceEvaluationTransaction.PendingEvaluation)],
+        pendingEvaluation: SceneEvaluationTransaction.PendingEvaluation,
         pendingSharedLayerAlpha: SceneSharedLayerAlphaRuntime.PendingValues,
         animationMutations: [SceneTimelinePlaybackMutation],
         videoCommands: [SceneScriptVideoCommand],
@@ -136,9 +106,7 @@ extension SceneDesktopWallpaperHost {
         layerPlan: SceneScriptLayerMutationPlan,
         rejectedOwnerTargets: Set<SceneDynamicTarget>
     ) {
-        pendingSurfaceEvaluations.forEach {
-            $0.0.evaluationTransaction.commit($0.1)
-        }
+        evaluationTransaction.commit(pendingEvaluation)
         sharedLayerAlphaRuntime.commitValues(pendingSharedLayerAlpha)
         if !animationMutations.isEmpty,
            case .success = context.timelinePlaybackRuntime.apply(
@@ -165,7 +133,7 @@ extension SceneDesktopWallpaperHost {
                sceneTime: timing.sceneTime
            ) {
 #if DEBUG
-            if Self.usesDebugEvidenceWindow {
+            if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
                 NSLog(
                     "MWX SceneScript VM: textureAnimationCommands=%d callback=committed nextFrame=true route=generic-only",
                     textureAnimationCommands.count

@@ -125,7 +125,7 @@ final class SceneBloomPostProcess {
             )
             descriptor.usage = [.renderTarget, .shaderRead]
             descriptor.storageMode = .private
-            return device.makeTexture(descriptor: descriptor)
+            return device.makeSceneTexture(descriptor: descriptor)
         }
         let quarter = SIMD2(
             max(1, source.width / 4), max(1, source.height / 4)

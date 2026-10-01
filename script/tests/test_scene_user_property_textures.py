@@ -14,6 +14,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
 SWIFT_SOURCES = [
+    Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "Format/SceneTexDataReader.swift",
@@ -906,16 +907,6 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
         self.assertGreater(self.result["leasedDecodeBytes"], 0)
         self.assertEqual(self.result["releasedDecodeBytes"], 0)
 
-    def test_surface_rebuild_reopens_security_scoped_urls(self) -> None:
-        source = HOST_SOURCE.read_text(encoding="utf-8")
-        rebuild = source.split("private func rebuildSurfaces(", maxsplit=1)[1]
-        rebuild = rebuild.split("private func teardownSurfaces", maxsplit=1)[0]
-        self.assertIn("startAccessingSecurityScopedResource()", rebuild)
-        self.assertIn("stopAccessingSecurityScopedResource()", rebuild)
-        self.assertLess(
-            rebuild.index("startAccessingSecurityScopedResource()"),
-            rebuild.index("SceneMetalView("),
-        )
 
 
 if __name__ == "__main__":

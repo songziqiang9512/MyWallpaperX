@@ -83,6 +83,9 @@ final class ScenePuppetPlaybackState {
     /// containers so source updates do not allocate before the change guard.
     private var frameSamplesScratch: [ScenePuppetAnimationEvaluator.FrameSample?]
     private var signatureScratch: [FrameSignature]
+    private var preparedFrameSignature: [FrameSignature]?
+    private var preparedBoneRevision: UInt64?
+    private var preparedAttachmentFrames: [String: simd_float4x4] = [:]
     private var lastPreparedVertexBufferIndex = 0
     private var preparedPublicationCommandBuffer: ObjectIdentifier?
     private var scriptBoneOverrides: [Int: simd_float4x4] = [:]
@@ -94,8 +97,6 @@ final class ScenePuppetPlaybackState {
 #endif
     private var boneRevision: UInt64 = 0
     private var translationMotions: [Int: ScenePuppetTranslationMotion] = [:]
-    private var boneFrameBaseline: (overrides: [Int: simd_float4x4], revision: UInt64,
-        motions: [Int: ScenePuppetTranslationMotion])?
     private let submissions = SceneSourceUpdateStateFIFO(
         initial: SubmissionState()
     )
@@ -133,7 +134,7 @@ final class ScenePuppetPlaybackState {
         }
         let vertexBufferLength = mesh.vertices.count * MemoryLayout<SceneQuadVertex>.stride
         var indices = mesh.indices
-        guard let indexBuffer = device.makeBuffer(
+        guard let indexBuffer = device.makeSceneBuffer(
                   bytes: &indices,
                   length: indices.count * MemoryLayout<UInt16>.stride
               )
@@ -141,7 +142,7 @@ final class ScenePuppetPlaybackState {
             return .failure(.resourceAllocationFailed)
         }
         let vertexBuffers = (0 ..< 3).compactMap { _ in
-            device.makeBuffer(length: vertexBufferLength)
+            device.makeSceneBuffer(length: vertexBufferLength)
         }
         guard vertexBuffers.count == 3 else {
             return .failure(.resourceAllocationFailed)
@@ -165,13 +166,13 @@ final class ScenePuppetPlaybackState {
         ))
     }
 
-    func encode(
+    /// CPU pose preparation belongs to the simulation frame. Missing drawables
+    /// never stop bone physics or leave child world transforms on an old pose.
+    @discardableResult
+    func prepareFrame(
         sceneTime: Double,
-        dynamicValues: SceneDynamicSnapshot,
-        commandBuffer: MTLCommandBuffer,
-        transaction: SceneSourceUpdateTransaction
+        dynamicValues: SceneDynamicSnapshot
     ) -> [String: simd_float4x4] {
-        preparedPublicationCommandBuffer = ObjectIdentifier(commandBuffer as AnyObject)
         for index in selection.clips.indices {
             let clip = selection.clips[index]
             frameSamplesScratch[index] = isVisible(
@@ -192,51 +193,67 @@ final class ScenePuppetPlaybackState {
         }
         let frameSamples = frameSamplesScratch
         let signature = signatureScratch
-        let attachmentFrames = submissions.update(transaction: transaction) { submission in
-            guard signature != submission.frameSignature
-                    || submission.boneRevision != boneRevision else {
-                return submission.attachmentFrames
-            }
-            // Keep the expensive CPU skinning behind the frame signature
-            // guard. At display rates a source frame commonly repeats; the
-            // old order rebuilt every vertex array before discovering that
-            // no new GPU submission was needed.
-            let evaluated = positionScratch.withUnsafeMutableBufferPointer {
-                positions in
-                (try? evaluator.writeDeformedPositions(
-                    selection: selection,
-                    frameSamples: frameSamples,
-                    into: positions,
-                    localMatricesScratch: &localMatrixScratch,
-                    skinMatricesScratch: &skinMatrixScratch,
-                    worldMatricesScratch: &worldMatrixScratch,
-                    boneOverrides: scriptBoneOverrides
-                )) != nil
-            }
-            guard evaluated else { return submission.attachmentFrames }
-            if let frames = ScenePuppetAttachmentPoseProjection.frames(
-                attachments: attachments,
-                boneWorldMatrices: worldMatrixScratch
-            ) {
-                submission.attachmentFrames = frames
-            }
+        guard signature != preparedFrameSignature || boneRevision != preparedBoneRevision else {
+            return preparedAttachmentFrames
+        }
+        // Keep the expensive CPU skinning behind the frame signature
+        // guard. At display rates a source frame commonly repeats; the
+        // old order rebuilt every vertex array before discovering that
+        // no new GPU submission was needed.
+        let evaluated = positionScratch.withUnsafeMutableBufferPointer {
+            positions in
+            (try? evaluator.writeDeformedPositions(
+                selection: selection,
+                frameSamples: frameSamples,
+                into: positions,
+                localMatricesScratch: &localMatrixScratch,
+                skinMatricesScratch: &skinMatrixScratch,
+                worldMatricesScratch: &worldMatrixScratch,
+                boneOverrides: scriptBoneOverrides
+            )) != nil
+        }
+        guard evaluated else { return preparedAttachmentFrames }
+        if let frames = ScenePuppetAttachmentPoseProjection.frames(
+            attachments: attachments,
+            boneWorldMatrices: worldMatrixScratch
+        ) {
+            preparedAttachmentFrames = frames
+        }
 #if DEBUG
-            if boneRevision > 0, !recordedBoneSkin,
-               SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
-                recordedBoneSkin = true
-                let displacement = zip(positionScratch, mesh.vertices).reduce(Float(0)) {
-                    max($0, simd_length($1.0 - SIMD2($1.1.x, $1.1.y)))
-                }
-                NSLog("MWX DEBUG SCENE: phase=puppet-bone-skin layer=%d revision=%llu vertices=%d maxBindDisplacement=%.6f",
-                    layerID, boneRevision, positionScratch.count, displacement)
+        if boneRevision > 0, !recordedBoneSkin,
+           SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
+            recordedBoneSkin = true
+            let displacement = zip(positionScratch, mesh.vertices).reduce(Float(0)) {
+                max($0, simd_length($1.0 - SIMD2($1.1.x, $1.1.y)))
             }
+            NSLog("MWX DEBUG SCENE: phase=puppet-bone-skin layer=%d revision=%llu vertices=%d maxBindDisplacement=%.6f",
+                layerID, boneRevision, positionScratch.count, displacement)
+        }
 #endif
-            for index in mesh.vertices.indices {
-                let position = positionScratch[index]
-                vertexScratch[index] = SceneQuadVertex(
-                    position: position,
-                    texcoord: SIMD2(mesh.vertices[index].u, mesh.vertices[index].v)
-                )
+        for index in mesh.vertices.indices {
+            let position = positionScratch[index]
+            vertexScratch[index] = SceneQuadVertex(
+                position: position,
+                texcoord: SIMD2(mesh.vertices[index].u, mesh.vertices[index].v)
+            )
+        }
+        preparedFrameSignature = signature
+        preparedBoneRevision = boneRevision
+        return preparedAttachmentFrames
+    }
+
+    func encode(
+        sceneTime: Double,
+        dynamicValues: SceneDynamicSnapshot,
+        commandBuffer: MTLCommandBuffer,
+        transaction: SceneSourceUpdateTransaction
+    ) -> [String: simd_float4x4] {
+        let frames = prepareFrame(sceneTime: sceneTime, dynamicValues: dynamicValues)
+        preparedPublicationCommandBuffer = ObjectIdentifier(commandBuffer as AnyObject)
+        let attachmentFrames = submissions.update(transaction: transaction) { submission in
+            guard submission.frameSignature != preparedFrameSignature
+                    || submission.boneRevision != preparedBoneRevision else {
+                return submission.attachmentFrames
             }
             let vertexBuffer = vertexBuffers[submission.nextVertexBufferIndex]
             lastPreparedVertexBufferIndex = submission.nextVertexBufferIndex
@@ -250,9 +267,10 @@ final class ScenePuppetPlaybackState {
                 )
             }
 
-            submission.frameSignature = signature
+            submission.frameSignature = preparedFrameSignature
             submission.boneRevision = boneRevision
-            return submission.attachmentFrames
+            submission.attachmentFrames = frames
+            return frames
         }
 #if DEBUG
         if ScenePuppetBoneEvidence.isEnabled(for: layerID) {
@@ -394,9 +412,6 @@ final class ScenePuppetPlaybackState {
         boneWrittenInFrame = false
 #endif
         guard evaluator.rig.bones.contains(where: { $0.translationPhysics != nil }) else { return }
-        if boneFrameBaseline == nil {
-            boneFrameBaseline = (scriptBoneOverrides, boneRevision, translationMotions)
-        }
         let samples = selection.clips.map { clip in
             isVisible(clip.layer, dynamicValues: dynamicValues)
                 ? ScenePuppetAnimationEvaluator.frameSample(sceneTime: sceneTime,
@@ -425,7 +440,6 @@ final class ScenePuppetPlaybackState {
 
     func apply(scriptBoneMutations: [SceneScriptPuppetBoneMutation]) {
         guard scriptBoneMutations.contains(where: { $0.layerID == layerID }) else { return }
-        if boneFrameBaseline == nil { boneFrameBaseline = (scriptBoneOverrides, boneRevision, translationMotions) }
         var next = scriptBoneOverrides
         var accepted = false
         for mutation in scriptBoneMutations where mutation.layerID == layerID {
@@ -448,17 +462,6 @@ final class ScenePuppetPlaybackState {
         }
         scriptBoneOverrides = next
         if accepted { boneRevision &+= 1 }
-    }
-
-    func commitBoneFrame() { boneFrameBaseline = nil }
-
-    func discardBoneFrame() {
-        if let baseline = boneFrameBaseline {
-            scriptBoneOverrides = baseline.overrides
-            boneRevision = baseline.revision
-            translationMotions = baseline.motions
-        }
-        boneFrameBaseline = nil
     }
 
     private func isVisible(

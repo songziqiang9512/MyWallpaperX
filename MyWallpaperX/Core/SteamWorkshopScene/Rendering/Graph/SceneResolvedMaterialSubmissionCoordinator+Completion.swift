@@ -68,7 +68,6 @@ extension SceneResolvedMaterialSubmissionCoordinator {
 
     enum LedgerTerminal {
         case succeeded(
-            observations: [SceneGraphExecutionObservation],
             retainedHistoryPins: Set<ObjectIdentifier>
         )
         case failed(
@@ -165,14 +164,12 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 let priorPins = committedTails.values.compactMap(\.historyPin)
 
                 // State and history ownership become visible together while
-                // the serial lock is held. No fallible work follows promotion.
+                // the serial lock is held. Observation failures cannot undo promotion.
                 committedTails = head.finalTails
                 for identity in head.ledgerIDs {
-                    let observations = head.successObservationsByLedger[identity] ?? []
                     emission.append(terminalizeLedgerLocked(
                         identity,
                         as: .succeeded(
-                            observations: observations,
                             retainedHistoryPins: retained
                         )
                     ))
@@ -228,8 +225,6 @@ extension SceneResolvedMaterialSubmissionCoordinator {
 
     func submissionCanCommitLocked(_ submission: PendingSubmission) -> Bool {
         guard !submission.ledgerIDs.isEmpty,
-              Set(submission.successObservationsByLedger.keys)
-                == Set(submission.ledgerIDs),
               tailsAreValid(submission.finalTails) else { return false }
         return submission.ledgerIDs.allSatisfy { identity in
             guard let ledger = activeByID[identity] else { return false }
@@ -265,7 +260,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         activeTransactions.removeAll { $0 == identity }
         var emission = Emission()
         switch terminal {
-        case let .succeeded(observations, retained):
+        case let .succeeded(retained):
             if let commit = ledger.commit {
                 commit.submissionPin.release()
                 releasePins(
@@ -273,7 +268,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                     retaining: retained
                 )
             }
-            emission.observations = observations
+            emission.append(successObservationsLocked(for: ledger))
         case let .failed(reasonCode, gpu):
             emission.append(failureObservationsLocked(
                 for: ledger,
@@ -287,83 +282,58 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         return emission
     }
 
-    func successObservationsLocked(
-        ledgerIDs: [UInt64],
-        rejectionReason: inout String?
-    ) -> [UInt64: [SceneGraphExecutionObservation]]? {
-        var result: [UInt64: [SceneGraphExecutionObservation]] = [:]
-        for identity in ledgerIDs {
-            guard let ledger = activeByID[identity],
-                  let blueprint = ledger.blueprint,
-                  ledger.phase == .outputConsumed,
-                  Set(blueprint.mappingGenerations.keys)
-                    == Set(ledger.prepared.stages.map(\.effect)) else {
-                rejectionReason = "frame-success-ledger-incomplete"
-                return nil
-            }
-            guard capturesExecutionObservations else {
-                result[identity] = []
+    /// Observations describe a terminal result; they never authorize it.
+    /// The sealed ledger already passed the same product checks in both modes.
+    func successObservationsLocked(for ledger: PreparedLedger) -> Emission {
+        var emission = Emission()
+        guard capturesExecutionObservations else { return emission }
+        for value in ledger.prepared.stages {
+            let localFailure = ledger.localOutputFailureReasonCode
+            let committedBase = ledger.committedBaseTails[value.effect]
+            guard let mappingGeneration = localFailure == nil
+                ? ledger.blueprint?.mappingGenerations[value.effect]
+                : committedBase?.mappingGeneration ?? 0 else {
+                emission.diagnostics.append(
+                    "success-observation-mapping-generation-missing"
+                    + "-layer-\(value.effect.layerID)"
+                    + "-effect-\(value.effect.effectIndex)"
+                )
                 continue
             }
-            var observations: [SceneGraphExecutionObservation] = []
-            for value in ledger.prepared.stages {
-                let localFailure = ledger.localOutputFailureReasonCode
-                let committedBase = ledger.committedBaseTails[value.effect]
-                guard let mappingGeneration = localFailure == nil
-                    ? blueprint.mappingGenerations[value.effect]
-                    : committedBase?.mappingGeneration ?? 0 else {
-                    rejectionReason =
-                        "frame-success-mapping-generation-missing"
-                    return nil
-                }
-                do {
-                    observations.append(try
-                        SceneResolvedMaterialGraphObservationBuilder.make(
-                            value,
-                            runtimeInstanceIdentity: runtimeInstanceIdentity,
-                            frameIndex: ledger.frameIndex,
-                            transactionID: ledger.identity,
-                            executionEpoch: ledger.epoch,
-                            mappingGeneration: mappingGeneration,
-                            resetReason: localFailure == nil
-                                ? blueprint.resetReasons[value.effect] : nil,
-                            committedBaseState: localFailure == nil
-                                ? nil : committedBase?.state,
-                            terminalEffect: ledger.prepared.stages[
-                                ledger.prepared.stages.count - 1
-                            ].effect,
-                            terminalCompositorConsumed:
-                                ledger.compositorConsumed,
-                            outcome: localFailure.map {
-                                .failed(reasonCode: $0)
-                            } ?? .succeeded,
-                            gpu: localFailure == nil ? .completed : nil,
-                            dependencyProviders:
-                                ledger.preparedDependencyEffects
-                                    .map(\.providerLayerID)
-                        )
+            do {
+                emission.observations.append(try
+                    SceneResolvedMaterialGraphObservationBuilder.make(
+                        value,
+                        runtimeInstanceIdentity: runtimeInstanceIdentity,
+                        frameIndex: ledger.frameIndex,
+                        transactionID: ledger.identity,
+                        executionEpoch: ledger.epoch,
+                        mappingGeneration: mappingGeneration,
+                        resetReason: localFailure == nil
+                            ? ledger.blueprint?.resetReasons[value.effect] : nil,
+                        committedBaseState: localFailure == nil
+                            ? nil : committedBase?.state,
+                        terminalEffect: ledger.prepared.stages[
+                            ledger.prepared.stages.count - 1
+                        ].effect,
+                        terminalCompositorConsumed: ledger.compositorConsumed,
+                        outcome: localFailure.map {
+                            .failed(reasonCode: $0)
+                        } ?? .succeeded,
+                        gpu: localFailure == nil ? .completed : nil,
+                        dependencyProviders: ledger.preparedDependencyEffects
+                            .map(\.providerLayerID)
                     )
-                } catch let failure as
-                    SceneResolvedMaterialGraphObservationBuilder.Failure {
-                    rejectionReason =
-                        "frame-success-observation-\(failure.rawValue)"
-                        + "-layer-\(value.effect.layerID)"
-                        + "-effect-\(value.effect.effectIndex)"
-                    return nil
-                } catch let failure as SceneGraphExecutionObservationError {
-                    rejectionReason =
-                        "frame-success-observation-\(failure.rawValue)"
-                        + "-layer-\(value.effect.layerID)"
-                        + "-effect-\(value.effect.effectIndex)"
-                    return nil
-                } catch {
-                    rejectionReason = "frame-success-observation-unknown"
-                    return nil
-                }
+                )
+            } catch {
+                emission.diagnostics.append(
+                    "success-observation-\(String(describing: error))"
+                    + "-layer-\(value.effect.layerID)"
+                    + "-effect-\(value.effect.effectIndex)"
+                )
             }
-            result[identity] = observations
         }
-        return result
+        return emission
     }
 
     func failureObservationsLocked(

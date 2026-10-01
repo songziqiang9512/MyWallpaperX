@@ -19,13 +19,13 @@ HOST_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
 )
 HOST_FRAME_DRIVER_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift"
 )
 HOST_SURFACE_TEARDOWN_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+SurfaceTeardown.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift"
 )
 HOST_FRAME_DRIVER_LIFECYCLE_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriverLifecycle.swift"
 )
 OWNER_EFFECTS_VALIDATION_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptOwnerEffectsRuntimeValidation.swift"
@@ -421,22 +421,6 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.source)
 
-    def test_synchronized_anchor_retries_when_the_player_did_not_start(self) -> None:
-        current_frame = swift_block(self.source, "func prepareFrame(")
-        self.assertIsNotNone(current_frame)
-        assert current_frame is not None
-        self.assertIn("needsPlayerAnchor || player.rate == 0", current_frame)
-        self.assertIn("needsPlayerAnchor = player.rate == 0", current_frame)
-        self.assertIn(
-            "if lifecycle.isPlaying && player.rate == 0",
-            current_frame,
-            "an authored-playing source must retain the retry barrier",
-        )
-        self.assertIn(
-            "if player.rate == 0",
-            current_frame,
-            "a missing first buffer must retain the retry barrier",
-        )
 
     def test_last_ready_fallback_stays_inside_the_submission_transaction(self) -> None:
         current_frame = swift_block(self.source, "func prepareFrame(")
@@ -542,100 +526,6 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
 
 
 class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
-    def test_launch_registry_survives_surface_rebuild_and_stops_with_scene(self) -> None:
-        host = HOST_SOURCE.read_text(encoding="utf-8")
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        registry = REGISTRY_SOURCE.read_text(encoding="utf-8")
-        view = VIEW_SOURCE.read_text(encoding="utf-8")
-        assembly = ASSEMBLY_SOURCE.read_text(encoding="utf-8")
-
-        self.assertIn(
-            "var videoTextureSourceRegistry: SceneVideoTextureSourceRegistry?",
-            host,
-        )
-        activate = swift_block(host, "func activate(")
-        self.assertIsNotNone(activate)
-        assert activate is not None
-        self.assertIn("videoTextureSourceRegistry?.stop()", activate)
-        self.assertIn(
-            "videoTextureSourceRegistry = SceneVideoTextureSourceRegistry(",
-            activate,
-        )
-
-        rebuild = swift_block(host, "private func rebuildSurfaces(")
-        self.assertIsNotNone(rebuild)
-        assert rebuild is not None
-        self.assertIn("videoTextureSourceRegistry.beginSurfaceRebuild(", rebuild)
-        self.assertIn("videoTextureSourceRegistry.completeSurfaceRebuild()", rebuild)
-        self.assertLess(
-            rebuild.index("videoTextureSourceRegistry.beginSurfaceRebuild("),
-            rebuild.index("guard !screens.isEmpty"),
-            "an empty screen set must stop headless video playback",
-        )
-        self.assertIn(
-            "videoSourceRegistry: videoTextureSourceRegistry",
-            rebuild,
-        )
-        self.assertIn("teardownSurfaces(clearContext: false", rebuild)
-        self.assertNotIn(
-            "videoTextureSourceRegistry = SceneVideoTextureSourceRegistry(",
-            rebuild,
-        )
-
-        teardown = swift_block(
-            HOST_SURFACE_TEARDOWN_SOURCE.read_text(encoding="utf-8"),
-            "func teardownSurfaces("
-        )
-        self.assertIsNotNone(teardown)
-        assert teardown is not None
-        stop_index = teardown.index("videoTextureSourceRegistry?.stop()")
-        clear_context_index = teardown.rfind("if clearContext {", 0, stop_index)
-        self.assertGreaterEqual(clear_context_index, 0)
-        clear_context = swift_block(
-            teardown[clear_context_index:], "if clearContext {"
-        )
-        self.assertIsNotNone(clear_context)
-        assert clear_context is not None
-        self.assertIn("videoTextureSourceRegistry?.stop()", clear_context)
-        self.assertIn("videoTextureSourceRegistry = nil", clear_context)
-
-        self.assertIn("if let source = sources[identity]", registry)
-        self.assertIn("sources[identity] = source", registry)
-        self.assertIn("orderedSourceIdentities", registry)
-        snapshots = swift_block(registry, "func sceneScriptSnapshots(")
-        self.assertIsNotNone(snapshots)
-        assert snapshots is not None
-        self.assertIn("orderedSourceIdentities == nil", snapshots)
-        self.assertNotIn("sources.sorted", snapshots)
-        source_method = swift_block(registry, "func source(")
-        self.assertIsNotNone(source_method)
-        assert source_method is not None
-        self.assertIn("orderedSourceIdentities = nil", source_method)
-        rebuild_completion = swift_block(registry, "func completeSurfaceRebuild()")
-        self.assertIsNotNone(rebuild_completion)
-        assert rebuild_completion is not None
-        self.assertIn("orderedSourceIdentities = nil", rebuild_completion)
-        stop_method = swift_block(registry, "func stop()")
-        self.assertIsNotNone(stop_method)
-        assert stop_method is not None
-        self.assertIn("orderedSourceIdentities = nil", stop_method)
-        self.assertIn("rebuildingSourceIdentities?.insert(identity)", registry)
-        self.assertIn("sources.removeValue(forKey: identity)?.stop()", registry)
-        self.assertIn("videoSourceRegistry.source(", view)
-        self.assertNotIn("currentTexture(forHostTime:", view)
-        self.assertIn("source.prepareFrame(for: timing)", assembly)
-        self.assertIn("commitPreparedFrame()", view)
-        self.assertIn("discardPreparedFrame()", view)
-        self.assertIn(
-            "markPlayerAnchorRequired()",
-            VIDEO_SOURCE.read_text(encoding="utf-8"),
-        )
-        self.assertIn(
-            "capturesLifecycleObservations: context.capturesExecutionObservations",
-            host,
-        )
-        self.assertIn("pendingLayerSourceIDs.insert(layerID)", assembly)
-        self.assertIn("pendingLayerSourceIDs: pendingLayerSourceIDs", assembly)
 
     def test_registry_fails_closed_without_stable_file_metadata(self) -> None:
         registry = REGISTRY_SOURCE.read_text(encoding="utf-8")

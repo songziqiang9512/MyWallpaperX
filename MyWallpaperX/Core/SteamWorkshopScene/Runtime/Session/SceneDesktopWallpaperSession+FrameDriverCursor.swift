@@ -2,39 +2,28 @@ import AppKit
 import QuartzCore
 import simd
 
-extension SceneDesktopWallpaperHost {
-    struct SceneScriptCursorBatchPreparation {
-        let batch: SceneScriptCursorFrameBatch
-        let drainedPointerBatches:
-            [CGDirectDisplayID: SceneSurfacePointerEventBatch]
-    }
-
-    /// Builds the frame cursor batch while remembering which pointer events
-    /// were drained from each surface. The caller restores both the drained
-    /// batches and the cursor program edge state when the frame is not
-    /// submitted, so a deferred/dropped frame never consumes press/release/
-    /// click edges for input that was never displayed.
+extension SceneDesktopWallpaperSession {
+    /// Drain physical input once for this simulation frame. Presentation retry
+    /// consumes the evaluated frame and cannot replay its cursor callbacks.
     func prepareSceneScriptCursorBatch(
         launchContext: SceneDesktopWallpaperLaunchContext,
         timing: SceneFrameTiming,
         preliminaryForSceneScript: SceneDynamicSnapshot,
         puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot,
         layerSnapshotFailure: SceneScriptScalarRuntimeFailure?
-    ) -> SceneScriptCursorBatchPreparation {
+    ) -> SceneScriptCursorFrameBatch {
         guard layerSnapshotFailure == nil else {
-            return .init(batch: .init(samples: [], overflowed: false), drainedPointerBatches: [:])
+            return .init(samples: [], overflowed: false)
         }
         let program = launchContext.sceneScriptCursorProgram
         let edge = program.edgeStateSnapshot()
         let displayIDs = surfaces.keys.sorted()
-        var drainedPointerBatches: [CGDirectDisplayID: SceneSurfacePointerEventBatch] = [:]
         var groups: [Double: [CGDirectDisplayID: SceneSurfacePointerEvent]] = [:]
         var current: [CGDirectDisplayID: SceneSurfacePointerEvent] = [:]
         var overflowed = false
         for displayID in displayIDs {
             guard let view = surfaces[displayID]?.metalView else { continue }
             let drained = view.drainSceneScriptPointerEvents()
-            drainedPointerBatches[displayID] = drained
             overflowed = overflowed || drained.overflowed
             for event in drained.events {
                 groups[event.timestamp, default: [:]][displayID] = event
@@ -105,9 +94,6 @@ extension SceneDesktopWallpaperHost {
             wasDown = pointer.primaryButtonIsDown
             previousSurfaceID = displayID
         }
-        return .init(
-            batch: .init(samples: samples, overflowed: overflowed),
-            drainedPointerBatches: drainedPointerBatches
-        )
+        return .init(samples: samples, overflowed: overflowed)
     }
 }

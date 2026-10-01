@@ -58,6 +58,10 @@ enum ScenePerformanceMetric: Int, CaseIterable, Sendable {
     case graphResourceSourceCaptures
     case graphResourceInitializations
     case offscreenEffectCaptures
+    // Controlled resident resources, including candidate/draining sessions.
+    // This is application admission accounting, not RSS or driver allocation.
+    case sceneResidentBytes
+    case sceneResourceAdmissionRejections
 }
 
 /// Why an offscreen render pass was encoded. Every case must feed exactly one

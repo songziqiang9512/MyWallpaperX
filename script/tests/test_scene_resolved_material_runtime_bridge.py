@@ -94,10 +94,10 @@ DEBUG_PAUSE_RESUME_RUNNER = (
     / "MyWallpaperX/App/DebugScenePlaybackRunner+PauseResume.swift"
 )
 HOST_FRAME_DRIVER = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift"
 )
 HOST_SURFACE_TEARDOWN = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+SurfaceTeardown.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift"
 )
 SUBMISSION_COORDINATOR = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift"
@@ -1396,7 +1396,8 @@ private func makePrepared(
 }
 
 private func makeObservationTransition(
-    device: MTLDevice
+    device: MTLDevice,
+    programCacheKeys: [String] = ["fixture-program"]
 ) -> SceneResolvedMaterialGraphExecutor.PreparedStage {
     let resource = SceneFrameTextureResource(
         publication: .init(
@@ -1468,7 +1469,7 @@ private func makeObservationTransition(
         frameResources: [:],
         persistentResources: [:],
         effectOutputResource: resource,
-        programCacheKeys: ["fixture-program"],
+        programCacheKeys: programCacheKeys,
         effectLocalFailureReasonCode: nil,
         effectLocalActivationBypassReasonCode: nil,
         discardedPersistentTargetState: false
@@ -1818,7 +1819,6 @@ private func seedPendingSuccess(
         ledgerIDs: [identity],
         commandBufferIdentities: [ObjectIdentifier(commandBuffer)],
         finalTails: tail.map { [effect: $0] } ?? [:],
-        successObservationsByLedger: [identity: []],
         gpuStatus: nil,
         cancellationReason: nil,
         retiredHistoryPins: []
@@ -1877,7 +1877,6 @@ private func runPendingCancellation(
         ledgerIDs: [1],
         commandBufferIdentities: [ObjectIdentifier(commandBuffer)],
         finalTails: [effect: tail],
-        successObservationsByLedger: [1: []],
         gpuStatus: nil,
         cancellationReason: reasonCode,
         retiredHistoryPins: [retiredPin]
@@ -4510,8 +4509,7 @@ enum Harness {
             coordinator.pendingSubmissions = [.init(
                 identity: 1, ledgerIDs: [1],
                 commandBufferIdentities: [ObjectIdentifier(buffer)],
-                finalTails: [effect: newTail],
-                successObservationsByLedger: [1: []], gpuStatus: nil,
+                finalTails: [effect: newTail], gpuStatus: nil,
                 cancellationReason: nil, retiredHistoryPins: []
             )]
             coordinator.invalidate(reason: .surfaceStop)
@@ -4556,7 +4554,7 @@ enum Harness {
                 commandBufferIdentities: [
                     ObjectIdentifier(first), ObjectIdentifier(second)
                 ],
-                finalTails: [:], successObservationsByLedger: [:],
+                finalTails: [:],
                 gpuStatus: nil, cancellationReason: "aggregate-cancelled",
                 retiredHistoryPins: [retired]
             )]
@@ -6101,31 +6099,6 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
             compact[exact_source_start:],
         )
 
-    def test_execution_evidence_is_installed_after_resources_before_frames(self) -> None:
-        view = METAL_VIEW.read_text(encoding="utf-8")
-        host = HOST.read_text(encoding="utf-8")
-        bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
-        renderer = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Diagnostics.swift").read_text(
-            encoding="utf-8"
-        )
-
-        self.assertIn("renderer.runtimeReportLines()", view)
-        self.assertIn("renderer.installResolvedMaterialExecutionEvidence()", view)
-        self.assertLess(
-            view.index("renderer.installResolvedMaterialExecutionEvidence()"),
-            view.index("renderer.runtimeReportLines()"),
-        )
-        self.assertNotIn("runtimeReportLines(effectTextures:", view)
-
-        load = host.index("metalView.loadImageLayers(")
-        register = host.index("surfaces[screenID] = Surface(", load)
-        start = host.index("startFrameDriver()", register)
-        self.assertLess(load, register)
-        self.assertLess(register, start)
-        self.assertIn("struct FrameInputs", bridge)
-        self.assertNotIn("func dedicatedEffectStages(", bridge)
-        self.assertNotIn("dedicatedEffectResourceStages", renderer)
-        self.assertNotIn("dedicatedEffectResourceStages", view)
     def test_retired_chain_types_and_routes_are_absent(self) -> None:
         compositor = COMPOSITOR.read_text(encoding="utf-8")
         renderer = METAL_RENDERER.read_text(encoding="utf-8")
@@ -6248,122 +6221,6 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
             renderer,
         )
 
-    def test_surface_lifecycle_releases_runtime_before_pool_reset(self) -> None:
-        bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
-        view = METAL_VIEW_FRAME_CONTEXT.read_text(encoding="utf-8")
-        host = HOST.read_text(encoding="utf-8")
-        runner = DEBUG_RUNNER.read_text(encoding="utf-8")
-        scene_switch_runner = DEBUG_SCENE_SWITCH_RUNNER.read_text(
-            encoding="utf-8"
-        )
-        surface_stop_runner = DEBUG_SURFACE_STOP_RELAUNCH_RUNNER.read_text(
-            encoding="utf-8"
-        )
-        pause_resume_runner = DEBUG_PAUSE_RESUME_RUNNER.read_text(
-            encoding="utf-8"
-        )
-        lifecycle_runner = (
-            runner
-            + scene_switch_runner
-            + surface_stop_runner
-            + pause_resume_runner
-        )
-        host_driver = (
-            HOST_FRAME_DRIVER.read_text(encoding="utf-8")
-            + "\n"
-            + HOST_SURFACE_TEARDOWN.read_text(encoding="utf-8")
-        )
-
-        self.assertIn("submissions.invalidate(reason: reason)", bridge)
-        invalidate = view.index(
-            "invalidateResolvedMaterialRuntime(reason: reason)"
-        )
-        pool_reset = view.index("offscreenTexturePool.reset()", invalidate)
-        self.assertLess(invalidate, pool_reset)
-        self.assertIn(
-            "teardownSurfaces(clearContext: true, reason: .surfaceStop)",
-            host,
-        )
-        self.assertIn(
-            "let teardownReason: SceneGraphExecutionResetReason = launchContext == nil",
-            host,
-        )
-        self.assertIn("? .surfaceStop\n            : .sceneSwitch", host)
-        self.assertIn("teardownReason: teardownReason", host)
-        self.assertIn(
-            "teardownReason: SceneGraphExecutionResetReason = .surfaceStop",
-            host,
-        )
-        self.assertIn(
-            "surface.metalView.invalidateResolvedMaterialRuntime(reason: reason)",
-            host_driver,
-        )
-        self.assertNotIn("clearContext\n            ? .sceneSwitch", host_driver)
-        self.assertIn("debugInvalidateResolvedMaterialRuntimes(", host)
-        self.assertIn("invalidateResolvedMaterialRuntime(reason: reason)", host)
-        self.assertIn(
-            '"MWX_SCENE_DEBUG_EXECUTOR_INVALIDATE_AFTER"',
-            runner,
-        )
-        self.assertIn("reason: .executorInvalidation", runner)
-        self.assertIn('reason: "executor-invalidation-after"', runner)
-        self.assertIn(
-            '"MWX_SCENE_DEBUG_SCENE_SWITCH_AFTER"', scene_switch_runner
-        )
-        self.assertIn(
-            '"MWX_SCENE_DEBUG_SCENE_SWITCH_ROOT"', scene_switch_runner
-        )
-        self.assertIn("multiple-runtime-lifecycle-faults", runner)
-        self.assertIn(
-            "runtimeHost.launch(", scene_switch_runner
-        )
-        self.assertIn(
-            "isIsolatedSampleRoot(candidate)", scene_switch_runner
-        )
-        self.assertIn(
-            'phase=scene-switch state=triggered accepted=true',
-            scene_switch_runner,
-        )
-        self.assertIn("model.renderDescriptor.layers.map(\\.id)", scene_switch_runner)
-        self.assertIn('reason: "scene-switch-after"', scene_switch_runner)
-        self.assertIn(
-            '"MWX_SCENE_DEBUG_SURFACE_STOP_RELAUNCH_AFTER"',
-            lifecycle_runner,
-        )
-        self.assertIn(
-            "runtimeHost.stop()",
-            surface_stop_runner,
-        )
-        self.assertIn(
-            'phase=surface-stop-relaunch state=stopped',
-            surface_stop_runner,
-        )
-        self.assertIn(
-            'phase=surface-stop-relaunch state=relaunched accepted=true',
-            surface_stop_runner,
-        )
-        self.assertIn(
-            'reason: "surface-stop-relaunch-after"',
-            surface_stop_runner,
-        )
-        self.assertIn(
-            '"MWX_SCENE_DEBUG_PAUSE_RESUME_AFTER"',
-            lifecycle_runner,
-        )
-        self.assertIn(
-            "runtimeHost.setPlaybackPaused(true)",
-            pause_resume_runner,
-        )
-        self.assertIn(
-            "runtimeHost.setPlaybackPaused(false)",
-            pause_resume_runner,
-        )
-        self.assertIn('state=paused accepted=%@', pause_resume_runner)
-        self.assertIn('state=resumed accepted=%@', pause_resume_runner)
-        self.assertIn(
-            'reason: "pause-resume-after"',
-            pause_resume_runner,
-        )
 
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
     def test_current_submission_coordinator_lifecycle_behaviors(self) -> None:

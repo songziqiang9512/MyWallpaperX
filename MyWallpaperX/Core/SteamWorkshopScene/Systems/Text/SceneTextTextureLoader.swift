@@ -182,7 +182,7 @@ enum SceneTextTextureLoader {
             mipmapped: false
         )
         descriptor.usage = [.shaderRead]
-        guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
+        guard let texture = device.makeSceneTexture(descriptor: descriptor) else { return nil }
         texture.label = "SceneText \(layer.id)"
         texture.replace(
             region: MTLRegionMake2D(0, 0, width, height),

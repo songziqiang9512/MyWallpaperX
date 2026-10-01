@@ -96,7 +96,11 @@ accepted
 - 所有必须 surface 就绪后原子提升候选，随后退役旧 active；
 - 失败、取消、超时、显示器变化或 App teardown 时销毁 pending，保留或恢复旧 active。
 
-候选和 active 可以在迁移期间作为同一 host 内的两个 session role 共存，但每个显示器始终只有一个可见产品输出决定；不得静默双输出。
+候选和 active 是同一 host 内两个有界 session role。Host 唯一拥有请求、目标拓扑、公共播放意图和可见性提升；Session 拥有该场景的 VM、clock、provider、surface 与 GPU 租约。旧 Host 的播放字段和方法迁入 Session，不保留双执行路径。候选窗口在首帧 GPU/terminal compositor 完成前透明，声音暂停，不订阅鼠标边沿；必须 surface 集合全部成功后 Host 在主线程提升可见性，才退役旧 active。首帧 presented 观测在提升时才安装，不能把透明候选的 GPU completion 当作可见证据。
+
+候选的 localStorage 仍使用现有 session owner，但延迟持久化；候选取消、超时或被新请求替代不会把写入送到 persistence coordinator。同 record 替换时，提升只合入候选相对准备基线实际修改的键，保留旧 active 在此期间对其他键的写入。音频采集需求由 Host 聚合 active 与 candidate 的声明后送入既有 inbox，任一 session 退场不得清掉另一 session 的需求。
+
+设计前置范围：Session 提取、Host 首帧提升、localStorage 激活提交和 GPU drain，横切 identity／clock／publication／持久化，走 generic-only 迁移。请求 supersede、candidate 创建失败、首帧 GPU 失败、超时、拓扑变化和 stop 必须保留旧 active 或完成既有停止意图；retiring session 直到自己的 queue drain 完成才释放资源。验证必须执行 A→失败 B→成功 C、首帧迟到、同 record 存储写入、所有 owner 退场，以及正常逐帧脚本/多屏回归。门闭合后删除本批设计登记，保留本节唯一职责合同。
 
 ## 5. 缓存与预热
 

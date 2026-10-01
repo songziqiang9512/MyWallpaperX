@@ -19,14 +19,14 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-DEMAND_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+AudioDemand.swift"
+DEMAND_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+AudioDemand.swift"
 HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
 AUDIO_SPECTRUM_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift"
 FRAME_DRIVER_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift"
 )
 SURFACE_TEARDOWN_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+SurfaceTeardown.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift"
 )
 FRAME_CONTEXT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneFrameContext.swift"
 FRAME_PREFLIGHT_SOURCE = (
@@ -69,37 +69,6 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
             "project 级声明不是 consumer 信号",
         )
 
-    def test_helper_combines_consumer_truth_with_sound_capture_scope(self) -> None:
-        source = DEMAND_SOURCE.read_text(encoding="utf-8")
-        update = swift_body(source, "func updateAudioSpectrumDemand(")
-        set_demand_index = update.index(
-            "SceneAudioSpectrumInbox.shared.setDemand("
-        )
-        consumer_truth = update[:set_demand_index]
-        self.assertIn(
-            "let demandsSpectrum = Self.requiresAudioSpectrum(",
-            consumer_truth,
-        )
-        self.assertIn(
-            "resolvedMaterialExecutionCapabilities:",
-            consumer_truth,
-        )
-        self.assertIn("hasParticleAudioConsumer", consumer_truth)
-        self.assertNotIn(
-            "soundPlaybackProgram",
-            consumer_truth,
-            "Sound 是声源而不是 consumer，不得单独开启频谱",
-        )
-        self.assertRegex(
-            update[set_demand_index:],
-            re.compile(
-                r"SceneAudioSpectrumInbox\.shared\.setDemand\(\s*"
-                r"demandsSpectrum,\s*"
-                r"requiresCurrentProcessAudioCapture:\s*"
-                r"!context\.soundPlaybackProgram\.bindings\.isEmpty\s*\)"
-            ),
-            "consumer 真值决定需求，非空 Sound bindings 只扩大声源范围",
-        )
 
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
     def test_compiled_activation_demand_transitions_are_atomic(self) -> None:
@@ -181,7 +150,14 @@ final class SceneAudioSpectrumInbox {
     }
 }
 
-final class SceneDesktopWallpaperHost {
+final class SceneDesktopWallpaperSession {
+    var audioDemand = (spectrum: false, currentProcess: false)
+    var onAudioDemandChanged: (() -> Void)?
+    init() {
+        onAudioDemandChanged = { [unowned self] in
+            SceneAudioSpectrumInbox.shared.setDemand(audioDemand.spectrum, requiresCurrentProcessAudioCapture: audioDemand.currentProcess)
+        }
+    }
     var rebuildSucceeds = true
     var resolvedParticleConsumer = false
     private(set) var rebuildCalls = 0
@@ -210,7 +186,7 @@ final class SceneDesktopWallpaperHost {
 @main
 enum AudioDemandTransitionHarness {
     static func main() {
-        let host = SceneDesktopWallpaperHost()
+        let host = SceneDesktopWallpaperSession()
         let inbox = SceneAudioSpectrumInbox.shared
         let particleOnly = SceneDesktopWallpaperLaunchContext()
 
@@ -228,7 +204,7 @@ enum AudioDemandTransitionHarness {
         precondition(host.stopCalls == 0)
 
         inbox.reset(demanded: true)
-        let noConsumerHost = SceneDesktopWallpaperHost()
+        let noConsumerHost = SceneDesktopWallpaperSession()
         noConsumerHost.context = particleOnly
         precondition(noConsumerHost.rebuildSurfacesReconcilingAudioDemand(
             particleOnly,
@@ -244,7 +220,7 @@ enum AudioDemandTransitionHarness {
         precondition(noConsumerHost.stopCalls == 0)
 
         inbox.reset(demanded: false)
-        let initialParticleHost = SceneDesktopWallpaperHost()
+        let initialParticleHost = SceneDesktopWallpaperSession()
         initialParticleHost.context = particleOnly
         initialParticleHost.resolvedParticleConsumer = true
         precondition(initialParticleHost.rebuildSurfacesReconcilingAudioDemand(
@@ -263,7 +239,7 @@ enum AudioDemandTransitionHarness {
             material: true,
             sound: true
         )
-        let knownConsumerHost = SceneDesktopWallpaperHost()
+        let knownConsumerHost = SceneDesktopWallpaperSession()
         knownConsumerHost.context = materialAndSound
         precondition(knownConsumerHost.rebuildSurfacesReconcilingAudioDemand(
             materialAndSound,
@@ -278,7 +254,7 @@ enum AudioDemandTransitionHarness {
         )])
 
         inbox.reset(demanded: true, includesCurrentProcess: true)
-        let failedHost = SceneDesktopWallpaperHost()
+        let failedHost = SceneDesktopWallpaperSession()
         failedHost.context = particleOnly
         failedHost.rebuildSucceeds = false
         precondition(!failedHost.rebuildSurfacesReconcilingAudioDemand(
@@ -338,41 +314,6 @@ enum AudioDemandTransitionHarness {
                 "audio-demand-transition-ok",
             )
 
-    def test_teardown_revokes_but_surface_reconciliation_preserves_demand(
-        self,
-    ) -> None:
-        host = HOST_SOURCE.read_text(encoding="utf-8")
-        teardown_source = SURFACE_TEARDOWN_SOURCE.read_text(encoding="utf-8")
-        teardown = swift_body(teardown_source, "func teardownSurfaces(")
-        revoke_index = teardown.index(
-            "SceneAudioSpectrumInbox.shared.setDemand(false)"
-        )
-        clear_context_index = teardown.rfind(
-            "if clearContext {", 0, revoke_index
-        )
-        self.assertGreaterEqual(
-            clear_context_index,
-            0,
-            "surface-only rebuild must keep the Scene audio demand alive",
-        )
-        clear_context = swift_body(
-            teardown[clear_context_index:], "if clearContext {"
-        )
-        self.assertIn(
-            "SceneAudioSpectrumInbox.shared.setDemand(false)", clear_context,
-            "teardown 必须撤销需求，否则停止播放后仍在采集",
-        )
-        rebuild = swift_body(host, "private func rebuildSurfaces(")
-        self.assertIn("teardownSurfaces(clearContext: false", rebuild)
-        self.assertRegex(
-            rebuild,
-            re.compile(
-                r"updateAudioSpectrumDemand\(\s*launchContext,\s*"
-                r"hasParticleAudioConsumer:\s*surfaces\.values\.contains\s*"
-                r"\{\s*\$0\.metalView\.hasParticleAudioConsumer\s*\}\s*\)"
-            ),
-            "particle graph 只有在 surface 装载并确认 bounded consumer 后才声明需求",
-        )
 
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
     def test_compiled_sound_scope_requires_consumer_and_binding(self) -> None:

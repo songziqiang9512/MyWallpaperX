@@ -16,7 +16,7 @@ struct ScenePersistentGraphTargetAllocator {
         self.device = device
         self.cache = cache
         textureFactory = { descriptor, label in
-            let texture = device.makeTexture(descriptor: descriptor)
+            let texture = device.makeSceneTexture(descriptor: descriptor)
             texture?.label = label
             return texture
         }

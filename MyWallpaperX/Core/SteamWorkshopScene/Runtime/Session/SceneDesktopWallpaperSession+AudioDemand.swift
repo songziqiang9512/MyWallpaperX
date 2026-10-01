@@ -5,7 +5,7 @@
 
 import Foundation
 
-extension SceneDesktopWallpaperHost {
+extension SceneDesktopWallpaperSession {
     /// Owns the demand lifecycle around a surface rebuild.  Particle demand is
     /// unknown until the new surfaces have loaded, so the current exact demand
     /// is preserved first and only reconciled by `rebuildSurfaces` after the
@@ -44,11 +44,8 @@ extension SceneDesktopWallpaperHost {
         // this unknown to false would clear the shared snapshot and retire the
         // system tap during an audio -> particle-only scene switch.
         guard demandsSpectrum || hasParticleAudioConsumer != nil else { return }
-        SceneAudioSpectrumInbox.shared.setDemand(
-            demandsSpectrum,
-            requiresCurrentProcessAudioCapture:
-                !context.soundPlaybackProgram.bindings.isEmpty
-        )
+        audioDemand = (demandsSpectrum, !context.soundPlaybackProgram.bindings.isEmpty)
+        onAudioDemandChanged?()
     }
 
     /// 按 consumer 存在性声明频谱采集需求。

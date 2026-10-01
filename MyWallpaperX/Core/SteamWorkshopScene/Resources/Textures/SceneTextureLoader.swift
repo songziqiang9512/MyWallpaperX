@@ -26,8 +26,10 @@ nonisolated final class SceneTextureDecodeCacheBudget: @unchecked Sendable {
     private var limit: Int
     private var reserved = 0
     private var rejectedAdmissions = 0
+    private let resourceBudget: SceneResourceBudget
 
-    init(maximumBytes: Int) {
+    init(maximumBytes: Int, resourceBudget: SceneResourceBudget = .shared) {
+        self.resourceBudget = resourceBudget
         limit = max(maximumBytes, 0)
     }
 
@@ -59,7 +61,8 @@ nonisolated final class SceneTextureDecodeCacheBudget: @unchecked Sendable {
         guard byteCount >= 0 else { return false }
         lock.lock()
         defer { lock.unlock() }
-        guard byteCount <= limit - min(reserved, limit) else {
+        guard byteCount <= limit - min(reserved, limit),
+              resourceBudget.reserve(byteCount, kind: .decoded) else {
             rejectedAdmissions += 1
             return false
         }
@@ -69,7 +72,9 @@ nonisolated final class SceneTextureDecodeCacheBudget: @unchecked Sendable {
 
     fileprivate func release(_ byteCount: Int) {
         lock.lock()
-        reserved = max(reserved - max(byteCount, 0), 0)
+        precondition(byteCount >= 0 && byteCount <= reserved)
+        reserved -= byteCount
+        resourceBudget.release(byteCount, kind: .decoded)
         lock.unlock()
     }
 }

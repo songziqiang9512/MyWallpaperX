@@ -1,4 +1,4 @@
-"""Real Metal submission barrier and sealed coordinator cancellation behavior."""
+"""Real Metal independent display submission and coordinator cancellation behavior."""
 import json
 from pathlib import Path
 import subprocess
@@ -32,63 +32,124 @@ struct SceneMetalRenderer {}
    encoder.fill(buffer:output,range:buffer === a ? 0..<8:8..<16,value:value)
    encoder.endEncoding()
   }
-  var prepared:[Renderer.FrameOutcome]=[.prepared(candidate(1,a)),.prepared(candidate(2,b))]
+  let first=candidate(1,a), second=candidate(2,b)
   result["preparationDoesNotSubmit"] = a.status == .notEnqueued && b.status == .notEnqueued
     && output.contents().load(as:UInt8.self)==0 && events.isEmpty
-  result["allReadySubmit"] = Renderer.submitPreparedFrames(&prepared,expectedCount:2)
-  a.waitUntilCompleted();b.waitUntilCompleted()
-  result["bothGPUResults"] = a.status == .completed && b.status == .completed
-    && output.contents().load(as:UInt8.self)==11
-    && output.contents().advanced(by:8).load(as:UInt8.self)==22
-    && prepared.allSatisfy(\.isSubmitted) && events == [1,2]
-  result["cannotSubmitTwice"] = !Renderer.submitPreparedFrames(&prepared,expectedCount:2) && events == [1,2]
-
-  events=[]
-  let c=queue.makeCommandBuffer()!, d=queue.makeCommandBuffer()!
-  var rejected:[Renderer.FrameOutcome]=[.prepared(candidate(1,c)),.prepared(candidate(2,d)),.dropped(reasonCode:"sibling")]
-  result["siblingFailureSubmitsNothing"] = !Renderer.submitPreparedFrames(&rejected,expectedCount:3)
-    && c.status == .notEnqueued && d.status == .notEnqueued && events == [-2,-1]
-  rejected=[]
-  result["cancelledCandidatesDoNotResolveAgain"] = events == [-2,-1]
-  events=[]
-  var missing:[Renderer.FrameOutcome]=[.prepared(candidate(1,queue.makeCommandBuffer()!))]
-  result["missingSurfaceCancels"] = !Renderer.submitPreparedFrames(&missing,expectedCount:2) && events == [-1]
+  let outcomeA=Renderer.submitPreparedFrame(.prepared(first))
+  let unavailable=Renderer.submitPreparedFrame(.deferred(reasonCode:"drawable-unavailable"))
+  a.waitUntilCompleted()
+  result["healthyScreenCompletesWhilePeerMissing"] = outcomeA.isSubmitted && unavailable.isDeferred
+    && a.status == .completed && b.status == .notEnqueued
+    && output.contents().load(as:UInt8.self)==11 && events == [1]
+  let outcomeB=Renderer.submitPreparedFrame(.prepared(second))
+  b.waitUntilCompleted()
+  result["recoveredScreenCompletes"] = outcomeB.isSubmitted && b.status == .completed
+    && output.contents().advanced(by:8).load(as:UInt8.self)==22 && events == [1,2]
+  result["cannotSubmitTwice"] = !Renderer.submitPreparedFrame(.prepared(first)).isSubmitted
+    && !Renderer.submitPreparedFrame(.prepared(second)).isSubmitted && events == [1,2]
+  result["dropRemainsLocal"] = Renderer.submitPreparedFrame(.dropped(reasonCode:"target-rejected"))
+    == .dropped(reasonCode:"target-rejected") && events == [1,2]
   events=[]
   var abandoned:Renderer.PreparedFrame?=candidate(9,queue.makeCommandBuffer()!)
+  var cancelledCompletion=false
+  abandoned!.whenCompleted { _ in cancelledCompletion=true }
   result["abandonedWasReady"] = abandoned!.isReady
   abandoned=nil
-  result["deinitCancelsSynchronously"] = events == [-9]
-  events=[]
-  let duplicate=candidate(5,queue.makeCommandBuffer()!)
-  var duplicates:[Renderer.FrameOutcome]=[.prepared(duplicate),.prepared(duplicate)]
-  result["duplicateCandidateRejectedOnce"] = !Renderer.submitPreparedFrames(&duplicates,expectedCount:2) && events == [-5]
-
-  events=[]
-  let aliasBuffer=queue.makeCommandBuffer()!
-  var aliases:[Renderer.FrameOutcome]=[.prepared(candidate(6,aliasBuffer)),.prepared(candidate(7,aliasBuffer))]
-  result["aliasedBufferRejectedBeforeAnyCommit"] = !Renderer.submitPreparedFrames(&aliases,expectedCount:2)
-    && aliasBuffer.status == .notEnqueued && events == [-7,-6]
+  result["deinitCancelsSynchronously"] = events == [-9] && !cancelledCompletion
 
   let pool=SceneParticleDepthTargetPool()
   let fifo=SceneSourceUpdateStateFIFO(initial:0)
   var producerOK=true
-  for _ in 0..<16 {
-   var candidates:[Renderer.FrameOutcome]=[]
-   for _ in 0..<3 {
+  var expected=0
+  for frame in 0..<16 {
+   for screen in 0..<3 {
     guard let lease=pool.acquire(device:device,width:8,height:8) else {producerOK=false;break}
     let transaction=SceneSourceUpdateTransaction(), buffer=queue.makeCommandBuffer()!
-    fifo.update(transaction:transaction){$0 += 1}
-    candidates.append(.prepared(.init(commandBuffer:buffer,submit:{
+    let next=fifo.update(transaction:transaction){$0 += 1;return $0}
+    producerOK = next == expected+1 && producerOK
+    let candidate=Renderer.PreparedFrame(commandBuffer:buffer,submit:{
      transaction.arm(on:buffer);lease.arm(on:buffer);buffer.commit();transaction.didSubmit()
-    },cancel:{transaction.cancel();lease.cancel()})))
+    },cancel:{transaction.cancel();lease.cancel()})
+    if screen == 1 && frame < 8 {
+     candidate.cancel()
+    } else {
+     producerOK = Renderer.submitPreparedFrame(.prepared(candidate)).isSubmitted && producerOK
+     buffer.waitUntilCompleted()
+     producerOK = buffer.status == .completed && producerOK
+     expected += 1
+    }
    }
-   candidates.append(.deferred(reasonCode:"last-drawable"))
-   producerOK = !Renderer.submitPreparedFrames(&candidates,expectedCount:4) && producerOK
    let probe=SceneSourceUpdateTransaction()
-   producerOK = fifo.update(transaction:probe){$0} == 0 && producerOK
+   producerOK = fifo.update(transaction:probe){$0} == expected && producerOK
    probe.cancel()
   }
-  result["cancelReclaimsDepthAndSourceInReverseOrder"] = producerOK
+  result["independentCancelRetainsSubmittedSourcesAndReclaimsDepth"] = producerOK && expected == 40
+
+  // A missing diagnostic program label must not change product publication.
+  // Use the production observation builder, coordinator and real Metal buffer.
+  for capture in [false, true] {
+   for damagedObservation in [false, true] {
+    let recorder=LogRecorder()
+    let observed=Coordinator(device:device,capabilities:makeCapabilities(),
+     capturesExecutionObservations:capture,logSink:recorder.append)
+    let stage=makeObservationTransition(device:device,
+     programCacheKeys:damagedObservation ? [] : ["fixture-program"])
+    let graph=SceneResolvedMaterialGraphExecutor.PreparedGraph(stages:[stage],
+     finalResource:stage.effectOutputResource,finalTexture:stage.effectOutputResource.publication.texture,
+     historyTokensByEffect:[:])
+    let buffer=queue.makeCommandBuffer()!, pins=makeCommit(generation:3)
+    let marker=device.makeBuffer(length:4,options:.storageModeShared)!
+    memset(marker.contents(),0,4)
+    let encoder=buffer.makeBlitCommandEncoder()!
+    encoder.fill(buffer:marker,range:0..<4,value:37);encoder.endEncoding()
+    _ = observed.observeCommandBufferLocked(buffer)
+    observed.frameIsActive=true;observed.frame = .init(frameIndex:1)
+    let historyPin=SceneGraphRenderTargetResidencyPin(purpose:.history(effect,[.init(rawValue:"observed")]),generation:3)
+    let tail=makeTail(device:device,token:"observed",generation:3,pin:historyPin)
+    observed.activeByID[1]=makeLedger(coordinator:observed,identity:1,commandBuffer:buffer,
+     prepared:graph,commit:pins,
+     blueprint:.init(states:[effect:stage.transition.nextState],resources:[:],mappingGenerations:[effect:1],resetReasons:[:]),
+     candidate:[effect:tail],phase:.outputConsumed,consumed:true)
+    observed.activeTransactions=[1];observed.scheduledTails=[effect:tail]
+    let sealed=observed.sealFrame(on:buffer)
+    result["diagnosticModesSeal-\(capture)-\(damagedObservation)"]=sealed
+    result["noSuccessEvidenceBeforeGPU-\(capture)-\(damagedObservation)"] = !recorder.lines.contains{$0.contains("outcome=succeeded")}
+    _ = observed.endFrame()
+    if sealed {
+     buffer.commit();buffer.waitUntilCompleted()
+     observed.completeCommandBuffer(identity:ObjectIdentifier(buffer),
+      observationID:observed.commandBufferRecords[ObjectIdentifier(buffer)]?.observationID ?? 0,status:.completed)
+     result["diagnosticModesPublishAndRelease-\(capture)-\(damagedObservation)"] = buffer.status == .completed
+      && marker.contents().load(as:UInt8.self)==37 && pins.submissionPin.releaseCount==1
+      && observed.activeByID.isEmpty && observed.pendingSubmissions.isEmpty
+      && observed.committedTails[effect]?.historyPin === historyPin && historyPin.active
+      && !observed.shouldDeferFrame
+     result["successEvidenceMatchesCapture-\(capture)-\(damagedObservation)"] = recorder.lines.contains{$0.contains("outcome=succeeded")} == (capture && !damagedObservation)
+     if capture && damagedObservation {
+      result["failedObservationIsExplicit"] = recorder.lines.contains{$0.contains("success-observation-invalidProgram")}
+      result["failedObservationIsNotSuccess"] = !recorder.lines.contains{$0.contains("outcome=succeeded")}
+     }
+     let next=queue.makeCommandBuffer()!
+     observed.frameIsActive=true;observed.frameSealed=false;observed.frame = .init(frameIndex:2)
+     result["nextFrameAfterObservation-\(capture)-\(damagedObservation)"] = observed.sealFrame(on:next)
+     _ = observed.endFrame()
+     next.commit();next.waitUntilCompleted()
+     result["nextFrameGPUCompleted-\(capture)-\(damagedObservation)"] = next.status == .completed
+      && observed.committedTails[effect]?.historyPin === historyPin
+     observed.invalidate(reason:.surfaceStop)
+     result["historyRetiresAfterObservation-\(capture)-\(damagedObservation)"] = historyPin.releaseCount==1
+    }
+   }
+   let unsafe=Coordinator(device:device,capabilities:makeCapabilities(),capturesExecutionObservations:capture,logSink:{_ in})
+   let buffer=queue.makeCommandBuffer()!, pins=makeCommit(generation:1)
+   _ = unsafe.observeCommandBufferLocked(buffer)
+   unsafe.frameIsActive=true;unsafe.frame = .init(frameIndex:1)
+   unsafe.activeByID[1]=makeLedger(coordinator:unsafe,identity:1,commandBuffer:buffer,
+    prepared:makePrepared(device:device),commit:pins,blueprint:nil,candidate:[:],phase:.outputConsumed,consumed:true)
+   unsafe.activeTransactions=[1]
+   result["missingBlueprintStillRejects-\(capture)"] = !unsafe.sealFrame(on:buffer)
+    && buffer.status == .notEnqueued && pins.submissionPin.releaseCount==1
+  }
 
   let coordinator=makeCoordinator(device)
   let priorBuffer=queue.makeCommandBuffer()!, priorCommit=makeCommit(generation:1)
@@ -177,7 +238,8 @@ class SceneSurfaceSubmissionTests(unittest.TestCase):
         root=Path(cls.temp.name);source=root/"Harness.swift";binary=root/"harness"
         source.write_text(SUBMISSION_COORDINATOR_FIXTURE.split("@main",1)[0]+SCENE_DEPENDENCY_BINDING_SUPPORT+MAIN)
         scene=REPOSITORY_ROOT/"MyWallpaperX/Core/SteamWorkshopScene"
-        sources=[*SUBMISSION_SWIFT_SOURCES,scene/"Rendering/Frame/SceneMetalRenderer+FrameOutcome.swift",
+        sources=[
+    Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",*SUBMISSION_SWIFT_SOURCES,scene/"Rendering/Frame/SceneMetalRenderer+FrameOutcome.swift",
                  scene/"Rendering/Frame/SceneSourceUpdateTransaction.swift",
                  scene/"Rendering/Particles/SceneParticleDepthTargetPool.swift"]
         built=subprocess.run(["xcrun","--sdk","macosx","swiftc","-parse-as-library",*map(str,sources),

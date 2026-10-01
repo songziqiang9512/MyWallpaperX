@@ -34,7 +34,7 @@ nonisolated final class SceneDebugFrameCapture {
         let rowBytes = width * (isFloat ? 8 : 4)
         let byteCount = rowBytes * height
         guard texture.pixelFormat == .bgra8Unorm || isFloat,
-              let buffer = texture.device.makeBuffer(length: byteCount, options: .storageModeShared),
+              let buffer = texture.device.makeSceneBuffer(length: byteCount, options: .storageModeShared),
               let encoder = commandBuffer.makeBlitCommandEncoder() else {
             Self.reportFailure(reason: request.reason, stage: "metal-readback-setup")
             return

@@ -22,6 +22,7 @@ from scene_swift_source_sets import scene_swift_sources  # noqa: E402
 
 
 SWIFT_SOURCES = [
+    SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift",
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",
@@ -778,14 +779,7 @@ class SceneSamplerDefaultPurposeTests(unittest.TestCase):
         environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
         environment["MWX_SCENE_GENERIC_SHADER_ROUTE"] = "disable-generic"
         compilation = subprocess.run(
-            [
-                "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
-                str(support), *(str(path) for path in SWIFT_SOURCES),
-                str(SCENE_ROOT / "Resources/Providers/SceneStockNoiseTextureStore.swift"), str(harness),
-                "-framework", "Metal", "-framework", "CoreGraphics",
-                "-framework", "ImageIO", "-module-cache-path",
-                str(root / "module-cache"), "-o", str(binary),
-            ],
+            ["xcrun","--sdk","macosx","swiftc","-parse-as-library",str(support),*(str(path) for path in SWIFT_SOURCES),str(SCENE_ROOT / "Resources/Providers/SceneStockNoiseTextureStore.swift"),str(harness),"-framework","Metal","-framework","CoreGraphics","-framework","ImageIO","-module-cache-path",str(root / "module-cache"),"-o",str(binary)],
             cwd=REPOSITORY_ROOT, env=environment, capture_output=True, text=True,
         )
         if compilation.returncode != 0:

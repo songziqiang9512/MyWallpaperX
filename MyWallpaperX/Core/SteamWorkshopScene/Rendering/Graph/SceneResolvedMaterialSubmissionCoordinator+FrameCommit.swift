@@ -259,7 +259,6 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 ledgerIDs: identities,
                 commandBufferIdentities: pendingBuffers,
                 finalTails: committedTails,
-                successObservationsByLedger: [:],
                 gpuStatus: nil,
                 cancellationReason: reason,
                 retiredHistoryPins: []
@@ -521,22 +520,19 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             return true
         }
         let commandBufferIdentity = ObjectIdentifier(commandBuffer)
-        var observationRejectionReason: String?
         guard let observedBuffer = commandBufferRecords[commandBufferIdentity],
               observedBuffer.buffer === commandBuffer,
               activeTransactions.allSatisfy({ identity in
-            guard let ledger = activeByID[identity] else { return false }
+            guard let ledger = activeByID[identity],
+                  let blueprint = ledger.blueprint else { return false }
             return ledger.phase == .outputConsumed
                 && ledger.commandBuffer === commandBuffer
-        }), tailsAreValid(scheduledTails),
-            let observations = successObservationsLocked(
-                ledgerIDs: activeTransactions,
-                rejectionReason: &observationRejectionReason
-            ) else {
+                && Set(blueprint.mappingGenerations.keys)
+                    == Set(ledger.prepared.stages.map(\.effect))
+        }), tailsAreValid(scheduledTails) else {
             frameFailures += 1
             emission = failActiveFrameLocked(
-                reason: observationRejectionReason
-                    ?? "frame-success-blueprint-rejected"
+                reason: "frame-success-blueprint-rejected"
             )
             lock.unlock()
             emit(emission)
@@ -562,7 +558,6 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             ledgerIDs: ledgerIDs,
             commandBufferIdentities: [commandBufferIdentity],
             finalTails: scheduledTails,
-            successObservationsByLedger: observations,
             gpuStatus: nil,
             cancellationReason: nil,
             retiredHistoryPins: []

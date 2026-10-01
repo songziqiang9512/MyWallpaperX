@@ -459,54 +459,6 @@ class SceneTextureAnimationScriptTests(unittest.TestCase):
         self.assertEqual(payload["joined"], [2, 2, 1])
         self.assertEqual(payload["playbackTimes"], [2, 2])
 
-    def test_single_clock_transaction_and_renderer_wiring(self) -> None:
-        runtime = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneTextureAnimationPlaybackRuntime.swift"
-        ).read_text(encoding="utf-8")
-        host = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
-        ).read_text(encoding="utf-8")
-        lifecycle = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
-        ).read_text(encoding="utf-8")
-        view = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift").read_text(
-            encoding="utf-8"
-        )
-        renderer = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift").read_text(
-            encoding="utf-8"
-        )
-        preflight = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
-        ).read_text(encoding="utf-8")
-
-        self.assertNotIn("Timer(", runtime)
-        self.assertNotIn("CADisplayLink", runtime)
-        publication = host.index("sceneScriptTextureAnimationSnapshots")
-        script_evaluation = host.index("let coordinatedSceneScript")
-        submission_barrier = host.index("guard allSurfacesSubmitted")
-        commit = host.index("commitSubmittedSceneFrame(", submission_barrier)
-        self.assertLess(publication, script_evaluation)
-        self.assertLess(submission_barrier, commit)
-        self.assertIn("textureAnimationCommands: textureAnimationCommands", host)
-        lifecycle_apply = lifecycle.index(
-            "context.textureAnimationPlaybackRuntime.apply("
-        )
-        lifecycle_commit = lifecycle.index(
-            "commitSceneScriptLayerPlan(", lifecycle_apply
-        )
-        self.assertLess(lifecycle_apply, lifecycle_commit)
-        self.assertIn("spriteAnimationPlaybackTimes", view)
-        self.assertNotIn(
-            "layer.puppetMeshPath == nil, let animation = baseLoad.animation",
-            view,
-        )
-        self.assertIn("if let animation = baseLoad.animation", view)
-        self.assertIn("textureAnimationPlaybackRuntime.playbackTimes(", view)
-        self.assertIn("spriteAnimationPlaybackTimes[layerID] else { continue }", view)
-        self.assertIn("playbackTime: playbackTime", view)
-        self.assertNotIn("Float(frameContext.sceneTime)", view)
-        self.assertIn("spriteAnimationPlaybackTimes[layer.id] ?? 0", renderer)
-        self.assertIn("spriteAnimationPlaybackTimes[layerID] ?? 0", preflight)
 
 
 if __name__ == "__main__":

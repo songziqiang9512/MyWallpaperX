@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated struct SceneSurfaceEvaluationTransaction {
+nonisolated struct SceneEvaluationTransaction {
     nonisolated struct PendingEvaluation: Sendable {
         fileprivate let nextGeneration: UInt64
         let snapshot: SceneDynamicSnapshot
@@ -66,9 +66,8 @@ nonisolated struct SceneSurfaceEvaluationTransaction {
         return pending.resolution
     }
 
-    /// Resolves a candidate without publishing it. The host commits the
-    /// candidate only after every surface has submitted the same frame, so a
-    /// drawable/preflight failure cannot become SceneScript `previous-current`.
+    /// Resolves a candidate without publishing it. The scene simulation owns
+    /// previous-current independently of each display's presentation outcome.
     nonisolated mutating func prepare(
         frameIndex: UInt64,
         index: SceneDynamicSnapshotDefinitionIndex,
@@ -87,8 +86,7 @@ nonisolated struct SceneSurfaceEvaluationTransaction {
         return prepare(frameIndex: frameIndex, resolution: resolution)
     }
 
-    /// Reuses a host-shared typed payload while retaining this surface's own
-    /// generation/last-snapshot publication state.
+    /// Assigns the single scene generation to the shared typed payload.
     nonisolated mutating func prepare(
         frameIndex: UInt64,
         resolution: SceneDynamicSnapshotResolution
@@ -114,7 +112,7 @@ nonisolated struct SceneSurfaceEvaluationTransaction {
     }
 
     /// Publishes one previously prepared candidate. This is intentionally a
-    /// small value commit owned by the surface transaction; no second state
+    /// small value commit owned by the scene evaluation; no second state
     /// store or alternate compositor path is introduced.
     nonisolated mutating func commit(_ pending: PendingEvaluation) {
         generation = pending.nextGeneration

@@ -54,14 +54,15 @@ struct SceneMetalRenderer {
         spriteAnimationPlaybackTimes: [Int: Float],
         specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
         imagePipeline: SceneImageLayerPipeline?,
-        particleBatchesProvider: (SceneMetalRendererFrameWorldProjection) -> [SceneParticleDrawBatch],
+        frameProjection: SceneMetalRendererFrameWorldProjection,
+        particleBatches preparedParticleBatches: [SceneParticleDrawBatch],
         particlePipeline: SceneParticleMetalPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
         frameContext: SceneFrameContext,
         cameraFrame: SceneParticleCameraFrame,
         encodeSourceUpdates: ((
             MTLCommandBuffer, SceneSourceUpdateTransaction
-        ) -> ScenePuppetAttachmentFrameSnapshot)? = nil,
+        ) -> Void)? = nil,
         encodeFrameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         onDrawableWillPresent: ((CAMetalDrawable) -> Void)? = nil,
@@ -111,18 +112,11 @@ struct SceneMetalRenderer {
             : nil
         performanceTelemetry?.beginStage("source-update")
         let hubSourceUpdateStart = ProcessInfo.processInfo.systemUptime
-        let puppetAttachmentFrames = encodeSourceUpdates?(
-            commandBuffer, sourceUpdateTransaction
-        ) ?? .empty
+        encodeSourceUpdates?(commandBuffer, sourceUpdateTransaction)
         performanceTelemetry?.endStage("source-update")
         hubStage(.sourceUpdateMicros, hubSourceUpdateStart)
         performanceTelemetry?.beginStage("world-resolve")
         let hubWorldResolveStart = ProcessInfo.processInfo.systemUptime
-        let frameProjection = resolveFrameWorldProjection(
-            layerTopology: layerTopology,
-            dynamicValues: frameContext.dynamicValues,
-            puppetAttachmentFrames: puppetAttachmentFrames
-        )
         let frameDescriptor = frameProjection.descriptor
         let frameLayersByID = frameProjection.layersByID
         let frameWorldFrames = frameProjection.worldFrames
@@ -216,7 +210,11 @@ struct SceneMetalRenderer {
         // Sub-stages exist so the composite prepass cost can be attributed
         // before any optimization; they are additive observations only.
         performanceTelemetry?.beginStage("prepass-particles")
-        let particleBatches = particleBatchesProvider(frameProjection)
+        // CPU simulation produces immutable instances even while a display is
+        // unavailable. Acquire/upload a ring slot only for an admitted draw.
+        let particleBatches = preparedParticleBatches.filter {
+            $0.instanceBuffer.update(device: device, instances: $0.instances)
+        }
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
         var particlePerformanceObservations: [SceneParticlePerformanceObservation]? =
             performanceTelemetry == nil ? nil : []

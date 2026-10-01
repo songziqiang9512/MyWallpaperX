@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneDesktopWallpaperHost {
+extension SceneDesktopWallpaperSession {
     nonisolated static func textScriptReportLines(
         program: SceneTextScriptProgram
     ) -> [String] {

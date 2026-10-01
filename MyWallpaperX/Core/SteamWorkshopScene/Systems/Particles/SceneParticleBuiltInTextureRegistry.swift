@@ -28,7 +28,7 @@ final class SceneParticleBuiltInTextureRegistry {
         )
         descriptor.usage = .shaderRead
         descriptor.storageMode = .shared
-        guard let texture = device.makeTexture(descriptor: descriptor) else {
+        guard let texture = device.makeSceneTexture(descriptor: descriptor) else {
             return nil
         }
         texture.label = "Scene particle generated \(builtInTexture.rawValue)"

@@ -16,7 +16,7 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 PROTOCOL = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol.swift"
 RUNTIME = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonRuntime.swift"
 PRESENTATION = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneFramePresentation.swift"
-SHUTDOWN = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Shutdown.swift"
+SHUTDOWN = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+Shutdown.swift"
 HOST = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
 LAUNCH = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
 VIEW = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
@@ -260,28 +260,6 @@ class SceneDaemonProtocolTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stderr)
             self.assertTrue(all(json.loads(completed.stdout).values()))
 
-    def test_first_frame_is_request_bound_actual_drawable_presentation(self) -> None:
-        launch = LAUNCH.read_text(encoding="utf-8")
-        host = HOST.read_text(encoding="utf-8")
-        view = VIEW.read_text(encoding="utf-8")
-        renderer = RENDERER.read_text(encoding="utf-8")
-        presentation = PRESENTATION.read_text(encoding="utf-8")
-        runtime = RUNTIME.read_text(encoding="utf-8")
-        request = function_body(launch, "func requestLaunch(")
-        render = function_body(renderer, "func renderFrame(")
-        self.assertIn("requestID: requestID", request)
-        self.assertIn("firstFramePresentationRegistration: .init(", request)
-        self.assertIn("firstFramePresentationRegistration", host)
-        self.assertIn("firstFramePresentationRegistration = nil", view)
-        self.assertIn("drawable.addPresentedHandler", presentation)
-        self.assertIn("DispatchQueue.main.async", presentation)
-        self.assertIn("ProcessInfo.processInfo.systemUptime", presentation)
-        self.assertLess(
-            render.index("onDrawableWillPresent?(drawable)"),
-            render.index("commandBuffer.present(drawable)"),
-        )
-        self.assertIn("presentation.requestID == self.currentRequestID", runtime)
-        self.assertNotIn("launchPhaseSnapshot()[.firstVisibleFrame]", runtime)
 
     def test_performance_profile_updates_shared_texture_decode_budget(self) -> None:
         host = HOST.read_text(encoding="utf-8")

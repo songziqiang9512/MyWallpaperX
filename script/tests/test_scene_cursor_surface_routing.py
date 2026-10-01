@@ -45,7 +45,7 @@ final class SceneMetalView {
     }
 }
 struct SceneDesktopWallpaperLaunchContext { let sceneScriptCursorProgram:SceneScriptCursorProgram }
-final class SceneDesktopWallpaperHost {
+final class SceneDesktopWallpaperSession {
     struct Surface { let metalView:SceneMetalView }
     var surfaces:[UInt32:Surface] = [20:.init(metalView:.init(20)),10:.init(metalView:.init())]
     func feed(_ time:Double,_ down:Bool,inside:UInt32) {
@@ -55,7 +55,7 @@ final class SceneDesktopWallpaperHost {
             surface.metalView.events.append(.init(normalizedPosition:.init(x,0),isInside:id == inside,primaryButtonIsDown:down,timestamp:time))
         }
     }
-    func prepare(_ program:SceneScriptCursorProgram,failed:Bool=false) -> SceneScriptCursorBatchPreparation {
+    func prepare(_ program:SceneScriptCursorProgram,failed:Bool=false) -> SceneScriptCursorFrameBatch {
         prepareSceneScriptCursorBatch(launchContext:.init(sceneScriptCursorProgram:program),
             timing:.init(wallDate:Date(timeIntervalSince1970:0),simulationFrameTime:0.016,sceneTime:1),
             preliminaryForSceneScript:.empty(frameIndex:0),puppetAttachmentFrames:.empty,
@@ -71,12 +71,12 @@ CHECKS = r'''
           export function cursorUp(e){up++;publish();}
           export function cursorClick(e){click++;publish();}
         """
-        let denseHost = SceneDesktopWallpaperHost()
+        let denseHost = SceneDesktopWallpaperSession()
         let (dense,_) = try make([(.origin,script)])
         for i in 0..<64 { denseHost.feed(Double(i),i%2 == 0,inside:10) }
         let denseBatch = denseHost.prepare(dense)
         let denseView = denseHost.surfaces[10]!.metalView
-        out["denseEvents"] = denseBatch.batch.samples.count
+        out["denseEvents"] = denseBatch.samples.count
         out["denseResolves"] = denseView.worldResolveCount
         out["denseFrameMarkers"] = denseView.consumedFrameMarkers
         out["unusedSurfaceResolves"] = denseHost.surfaces[20]!.metalView.worldResolveCount
@@ -94,85 +94,88 @@ CHECKS = r'''
         denseHost.feed(102,false,inside:99)
         _ = denseHost.prepare(dense)
         out["outsideIdleResolves"] = denseView.worldResolveCount
-        let entryHost = SceneDesktopWallpaperHost()
+        let entryHost = SceneDesktopWallpaperSession()
         entryHost.feed(1,false,inside:99);entryHost.feed(2,false,inside:10)
         _ = entryHost.prepare(dense)
         out["outsideThenEntryResolves"] = entryHost.surfaces[10]!.metalView.worldResolveCount
         out["outsideThenEntryFrames"] = entryHost.surfaces[10]!.metalView.consumedFrameMarkers
-        let host = SceneDesktopWallpaperHost()
+        let host = SceneDesktopWallpaperSession()
         let (multi,_) = try make([(.origin,script)])
         host.feed(1,true,inside:10);host.feed(2,false,inside:10)
         let firstBatch = host.prepare(multi)
-        out["multiRapid"] = values(dispatch(multi,firstBatch.batch.samples))
-        out["multiRapidSurfaces"] = firstBatch.batch.samples.compactMap(\.surfaceID)
+        out["multiRapid"] = values(dispatch(multi,firstBatch.samples))
+        out["multiRapidSurfaces"] = firstBatch.samples.compactMap(\.surfaceID)
         multi.finalizeLayerMutations(committing:true)
         host.feed(3,true,inside:20);host.feed(4,false,inside:20)
-        out["secondSurface"] = values(dispatch(multi,host.prepare(multi).batch.samples))
+        out["secondSurface"] = values(dispatch(multi,host.prepare(multi).samples))
         multi.finalizeLayerMutations(committing:true)
         let (drag,_) = try make([(.origin,script)])
         host.feed(5,true,inside:10)
-        _ = dispatch(drag,host.prepare(drag).batch.samples);drag.finalizeLayerMutations(committing:true)
+        _ = dispatch(drag,host.prepare(drag).samples);drag.finalizeLayerMutations(committing:true)
         out["capturedSurface"] = drag.edgeStateSnapshot().capturedSurfaceID ?? 0
         host.feed(6,true,inside:20);host.feed(7,false,inside:20)
         let cross = host.prepare(drag)
-        out["crossSurfaces"] = cross.batch.samples.compactMap(\.surfaceID)
-        out["crossPositions"] = cross.batch.samples.map { Double($0.pointerPosition!.x) }
-        out["crossDrag"] = values(dispatch(drag,cross.batch.samples))
+        out["crossSurfaces"] = cross.samples.compactMap(\.surfaceID)
+        out["crossPositions"] = cross.samples.map { Double($0.pointerPosition!.x) }
+        out["crossDrag"] = values(dispatch(drag,cross.samples))
         drag.finalizeLayerMutations(committing:true)
         out["captureReleased"] = drag.edgeStateSnapshot().capturedSurfaceID == nil
-        let savedSurface = multi.edgeStateSnapshot()
         host.feed(8,true,inside:10);host.feed(9,false,inside:10)
-        let rejected = host.prepare(multi)
-        _ = dispatch(multi,rejected.batch.samples)
-        multi.finalizeLayerMutations(committing:false);multi.restoreEdgeState(savedSurface)
-        for (id,batch) in rejected.drainedPointerBatches { host.surfaces[id]!.metalView.events.restore(batch) }
-        out["retrySameBatch"] = host.prepare(multi).batch == rejected.batch
-        out["retrySameSurfaceState"] = multi.edgeStateSnapshot().previousSurfaceID == savedSurface.previousSurfaceID
+        let consumed = host.prepare(multi)
+        out["consumedClick"] = values(dispatch(multi,consumed.samples))
+        multi.finalizeLayerMutations(committing:true)
+        let next = host.prepare(multi)
+        out["nextBatchHasNoHistoricalEdges"] = next.samples.count == 1
+        _ = dispatch(multi,next.samples)
+        multi.finalizeLayerMutations(committing:true)
+        host.feed(9.5,true,inside:10);host.feed(9.6,false,inside:10)
+        out["nextClickNotReplayed"] = values(dispatch(multi,host.prepare(multi).samples))
+        multi.finalizeLayerMutations(committing:true)
         let (overflow,_) = try make([(.origin,script)])
         for i in 0...512 { host.surfaces[10]!.metalView.events.append(.init(normalizedPosition:.zero,isInside:true,primaryButtonIsDown:i%2 == 0,timestamp:Double(i+10))) }
         let lost = host.prepare(overflow)
-        out["overflowRejected"] = lost.batch.overflowed
-        out["overflowQuiet"] = dispatch(overflow,lost.batch.samples,overflow:lost.batch.overflowed).ownerEffects.isEmpty
+        out["overflowRejected"] = lost.overflowed
+        out["overflowQuiet"] = dispatch(overflow,lost.samples,overflow:lost.overflowed).ownerEffects.isEmpty
         overflow.finalizeLayerMutations(committing:true)
         host.feed(1000,true,inside:20);host.feed(1001,false,inside:20)
         let deferred = host.prepare(overflow,failed:true)
-        out["snapshotFailureKeepsQueue"] = deferred.drainedPointerBatches.isEmpty && deferred.batch.samples.isEmpty && host.prepare(overflow).batch.samples.count == 2
-        let singleHost = SceneDesktopWallpaperHost()
+        out["snapshotFailureKeepsQueue"] = deferred.samples.isEmpty && host.prepare(overflow).samples.count == 2
+        let singleHost = SceneDesktopWallpaperSession()
         singleHost.surfaces.removeValue(forKey:20)
         let (single,_) = try make([(.origin,script)])
         singleHost.feed(2000,true,inside:10);singleHost.feed(2001,false,inside:10)
         let singleBatch = singleHost.prepare(single)
-        out["singleRapid"] = values(dispatch(single,singleBatch.batch.samples))
-        out["singleSamples"] = singleBatch.batch.samples.count
+        out["singleRapid"] = values(dispatch(single,singleBatch.samples))
+        out["singleSamples"] = singleBatch.samples.count
         let (hover,_) = try make([(.origin,"""
           let enters=0,leaves=0;
           export function cursorEnter(e){thisLayer.origin=new Vec3(++enters,leaves,engine.screenResolution.x);}
           export function cursorLeave(e){thisLayer.origin=new Vec3(enters,++leaves,engine.screenResolution.x);}
         """)])
         host.feed(1002,false,inside:10)
-        _ = dispatch(hover,host.prepare(hover).batch.samples);hover.finalizeLayerMutations(committing:true)
+        _ = dispatch(hover,host.prepare(hover).samples);hover.finalizeLayerMutations(committing:true)
         host.feed(1003,false,inside:20)
         let beforeCrossing = hover.edgeStateSnapshot()
         let crossingBatch = host.prepare(hover)
-        out["surfaceHoverEdges"] = values(dispatch(hover,crossingBatch.batch.samples))
+        out["surfaceHoverEdges"] = values(dispatch(hover,crossingBatch.samples))
         hover.finalizeLayerMutations(committing:true,rejectedOwnerTargets:[target()])
         func contexts(_ program:SceneScriptCursorProgram) -> [[Double]] {
             program.edgeStateSnapshot().pendingEvents.map { [$0.surface!.screenSize.x,$0.surface!.cursorWorldPosition.x,$0.hit.worldPosition.x] }
         }
         out["crossingContexts"] = contexts(hover)
         hover.restoreEdgeState(beforeCrossing)
-        _ = dispatch(hover,crossingBatch.batch.samples)
+        _ = dispatch(hover,crossingBatch.samples)
         hover.finalizeLayerMutations(committing:true,rejectedOwnerTargets:[target()])
         out["retryContexts"] = contexts(hover)
         let (recreated,_) = try make([(.origin,script)])
         host.feed(3000,true,inside:10)
-        _ = dispatch(recreated,host.prepare(recreated).batch.samples);recreated.finalizeLayerMutations(committing:true)
+        _ = dispatch(recreated,host.prepare(recreated).samples);recreated.finalizeLayerMutations(committing:true)
         // The actual Host teardown now invokes this existing edge reset even
         // for clearContext:false. A new view may keep the same display ID.
         recreated.restoreEdgeState(.empty)
         host.surfaces[10] = .init(metalView:.init(10))
         host.feed(3001,false,inside:10)
-        out["recreatedReleaseQuiet"] = dispatch(recreated,host.prepare(recreated).batch.samples).ownerEffects.isEmpty
+        out["recreatedReleaseQuiet"] = dispatch(recreated,host.prepare(recreated).samples).ownerEffects.isEmpty
 '''
 
 class CursorSurfaceRoutingTests(unittest.TestCase):
@@ -180,7 +183,7 @@ class CursorSurfaceRoutingTests(unittest.TestCase):
     def setUpClass(cls):
         product = '\n'.join((SCENE / p).read_text() for p in (
             'Runtime/Frame/SceneSurfacePointerState.swift',
-            'Runtime/Session/SceneDesktopWallpaperHost+FrameDriverCursor.swift'))
+            'Runtime/Session/SceneDesktopWallpaperSession+FrameDriverCursor.swift'))
         helpers = HARNESS.split('    static func main() throws {')[0]
         source = SUPPORT + product + helpers + 'static func main() throws { var out:[String:Any] = [:]\n' + CHECKS + '\nprint(String(data:try JSONSerialization.data(withJSONObject:out),encoding:.utf8)!)\n}\n}'
         with tempfile.TemporaryDirectory(prefix='mwx-cursor-surfaces-') as tmp:
@@ -220,9 +223,10 @@ class CursorSurfaceRoutingTests(unittest.TestCase):
         self.assertEqual(self.result['crossDrag'],[1,1,0])
         self.assertTrue(self.result['captureReleased'])
 
-    def test_frame_retry_restores_order_and_surface_identity(self):
-        self.assertTrue(self.result['retrySameBatch'])
-        self.assertTrue(self.result['retrySameSurfaceState'])
+    def test_presentation_retry_cannot_replay_physical_edges(self):
+        self.assertTrue(self.result['nextBatchHasNoHistoricalEdges'])
+        self.assertEqual(self.result['consumedClick'], [3,3,3])
+        self.assertEqual(self.result['nextClickNotReplayed'], [4,4,4])
 
     def test_overflow_and_failed_snapshot_do_not_consume_partial_input(self):
         self.assertTrue(self.result['overflowRejected'])

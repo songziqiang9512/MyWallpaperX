@@ -1,14 +1,14 @@
 import AppKit
 import QuartzCore
 
-extension SceneDesktopWallpaperHost {
+extension SceneDesktopWallpaperSession {
     func teardownSurfaces(
         clearContext: Bool,
         reason: SceneGraphExecutionResetReason
     ) {
 #if DEBUG
         let shouldLogSurfaceTeardown =
-            Self.usesDebugEvidenceWindow && launchContext != nil
+            SceneDesktopWallpaperHost.usesDebugEvidenceWindow && launchContext != nil
         let timerWasActive = frameTimer?.isValid == true
 #endif
         if clearContext {
@@ -26,6 +26,7 @@ extension SceneDesktopWallpaperHost {
             surface.metalView.teardownParticlePlayback(reason: reason)
             surface.window.orderOut(nil)
             surface.window.close()
+            if !drainStarted { retireSurface(surface) }
         }
         surfaces.removeAll()
         // A display ID can be reused by a new view. Cancel input tied to the
@@ -56,7 +57,8 @@ extension SceneDesktopWallpaperHost {
                 )
             }
             pendingDeferredLayerVisibilityUpdate = nil
-            SceneAudioSpectrumInbox.shared.setDemand(false)
+            audioDemand = (false, false)
+            onAudioDemandChanged?()
             sharedLayerAlphaRuntime = .init(program: .empty)
 #if DEBUG
             debugDropDynamicValuesFrameIndex = nil

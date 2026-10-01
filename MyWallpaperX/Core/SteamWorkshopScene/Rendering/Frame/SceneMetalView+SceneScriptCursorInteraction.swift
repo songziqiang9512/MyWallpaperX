@@ -102,10 +102,6 @@ extension SceneMetalView {
         )
     }
 
-    func restoreSceneScriptPointerEvents(_ batch: SceneSurfacePointerEventBatch) {
-        sceneScriptPointerEvents.restore(batch)
-    }
-
 #if DEBUG
     /// One-shot calibration aid. The hit test unprojects the pointer's
     /// normalized position through this layer's MVP and keeps it inside the

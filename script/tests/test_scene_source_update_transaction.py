@@ -19,8 +19,8 @@ EFFECT_EXECUTION = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/
 UTILITY_PLAN = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityPlanFrameRenderer.swift"
 UTILITY_LAYER = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRenderer.swift"
 VIEW = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
-FRAME_DRIVER = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
-FRAME_DRIVER_LIFECYCLE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+FRAME_DRIVER = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift"
+FRAME_DRIVER_LIFECYCLE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriverLifecycle.swift"
 SCALAR_PROGRAM = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram.swift"
 STRING_PROGRAM = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptStringProgram.swift"
 VECTOR_PROGRAM = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorProgram.swift"
@@ -40,6 +40,9 @@ RUNTIME_BRIDGE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/Sc
 GRAPH_COMPOSITION = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift"
 
 
+# Host all-surface rollback source checks retired with D10.
+# Actual presentation/VM behavior: test_scene_frame_presentation_integration.
+# GPU source ownership: test_scene_surface_submission and the FIFO harness below.
 class SceneSourceUpdateTransactionTests(unittest.TestCase):
     def test_dynamic_image_provider_reuses_publications_for_value_only_updates(self) -> None:
         source = DYNAMIC_IMAGE_PROVIDER.read_text(encoding="utf-8")
@@ -56,101 +59,6 @@ class SceneSourceUpdateTransactionTests(unittest.TestCase):
         self.assertIn("dynamicImageTextures?.snapshot(", view)
         self.assertIn("topology: layerTopology", view)
 
-    def test_scene_script_program_state_retries_after_host_drop(self) -> None:
-        driver = FRAME_DRIVER.read_text(encoding="utf-8")
-        lifecycle = FRAME_DRIVER_LIFECYCLE.read_text(encoding="utf-8")
-        scalar = SCALAR_PROGRAM.read_text(encoding="utf-8")
-        string = STRING_PROGRAM.read_text(encoding="utf-8")
-        vector = VECTOR_PROGRAM.read_text(encoding="utf-8")
-        events = MEDIA_EVENT_BRIDGE.read_text(encoding="utf-8")
-        timer_host = TIMER_HOST.read_text(encoding="utf-8")
-        audio_spectrum = AUDIO_SPECTRUM.read_text(encoding="utf-8")
-        scalar_runtime = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarRuntime.swift"
-        ).read_text(encoding="utf-8")
-        layer_bridge = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerHandleBridge.swift"
-        ).read_text(encoding="utf-8")
-
-        timer_snapshot = driver.index("let sceneScriptProgramTimerFrameState")
-        snapshot = driver.index(
-            "let sceneScriptProgramFrameState", timer_snapshot
-        )
-        timer_guard = driver.index(
-            "sceneScriptProgramTimerFrameState.scalar.isComplete"
-        )
-        cursor_dispatch = driver.index(
-            "launchContext.sceneScriptCursorProgram.dispatch(", snapshot
-        )
-        coordinator = driver.index(
-            "launchContext.frameSchema.mediaFrameCoordinator.evaluate(",
-            cursor_dispatch,
-        )
-        host_barrier = driver.index("let allSurfacesSubmitted", coordinator)
-        restore = driver.index(
-            "restoreSceneScriptProgramFrameState(", host_barrier
-        )
-        storage_discard = driver.index(
-            "sceneScriptStorageSession?.discardFrameTransaction()", restore
-        )
-        commit = driver.index("commitSubmittedSceneFrame(", host_barrier)
-        snapshot_discard = driver.index(
-            "discardSceneScriptFrameOutcome(launchContext)", host_barrier
-        )
-        snapshot_finalize = lifecycle.index(
-            "finalizeSceneScriptLayerSnapshot(context)",
-        )
-        timer_discard = driver.index(
-            "discardSceneScriptProgramTimerFrameState(", commit
-        )
-        audio_prepare = driver.index(
-            "let audioSpectrumFrame = SceneAudioSpectrumInbox.shared.prepareFrame()"
-        )
-        audio_commit = driver.index(
-            "SceneAudioSpectrumInbox.shared.commitFrame(audioSpectrumFrame)",
-            commit,
-        )
-        self.assertLess(snapshot, cursor_dispatch)
-        self.assertLess(timer_snapshot, snapshot)
-        self.assertLess(timer_guard, cursor_dispatch)
-        self.assertLess(timer_snapshot, cursor_dispatch)
-        self.assertLess(cursor_dispatch, coordinator)
-        self.assertLess(coordinator, host_barrier)
-        self.assertLess(host_barrier, restore)
-        self.assertLess(restore, storage_discard)
-        self.assertGreater(commit, host_barrier)
-        self.assertGreater(snapshot_discard, restore)
-        self.assertLess(snapshot_discard, commit)
-        self.assertIn("discardSceneScriptFrameOutcome(launchContext)", driver)
-        self.assertGreater(snapshot_finalize, lifecycle.index("commitSceneScriptLayerPlan("))
-        self.assertGreater(timer_discard, commit)
-        self.assertLess(audio_prepare, cursor_dispatch)
-        self.assertLess(host_barrier, audio_commit)
-        self.assertLess(commit, audio_commit)
-        self.assertIn("struct FrameSnapshot", audio_spectrum)
-        self.assertIn("func prepareFrame()", audio_spectrum)
-        self.assertIn("func commitFrame(_ frame: FrameSnapshot)", audio_spectrum)
-        self.assertIn("sourceGeneration", audio_spectrum)
-
-        self.assertIn("frameStateSnapshot()", lifecycle)
-        self.assertIn("func restoreSceneScriptProgramFrameState(", lifecycle)
-        for source in (scalar, string, vector):
-            self.assertIn("consumedMediaThumbnailGenerations", source)
-            self.assertIn("appliedUserProperties", source)
-            self.assertIn("func frameStateSnapshot()", source)
-        self.assertIn("func restoreFrameState(", source)
-        self.assertIn("discardCommittedLayerSnapshot()", scalar_runtime)
-        self.assertIn("finalizeCommittedLayerSnapshot()", scalar_runtime)
-        self.assertIn("awaitingHostFrameOutcome: Bool = false", layer_bridge)
-        self.assertIn("if !awaitingHostFrameOutcome", layer_bridge)
-        self.assertIn("awaitingHostFrameOutcome: true", driver)
-        self.assertIn("func snapshot() -> Event?", events)
-        self.assertIn("mutating func restore(_ snapshot: Event?)", events)
-        self.assertIn("struct SceneScriptProgramFrameState: Sendable", events)
-        self.assertIn("struct SceneScriptProgramTimerFrameState", events)
-        self.assertIn("mwx_scene_quickjs_owner_timer_snapshot", timer_host)
-        self.assertIn("mwx_scene_quickjs_owner_timer_restore", timer_host)
-        self.assertIn("mwx_scene_quickjs_owner_timer_snapshot_destroy", timer_host)
 
     def test_transaction_rolls_back_in_reverse_once_and_commit_closes_it(self) -> None:
         if shutil.which("swiftc") is None:
@@ -504,56 +412,6 @@ enum Harness {
             output = subprocess.check_output([str(binary)], text=True).strip()
         self.assertEqual(output, "preserved")
 
-    def test_every_mutating_source_producer_registers_exact_rollback(self) -> None:
-        view = VIEW.read_text(encoding="utf-8")
-        puppet = PUPPET.read_text(encoding="utf-8")
-        sprite = SPRITE.read_text(encoding="utf-8")
-        particle_playback = PARTICLE_PLAYBACK.read_text(encoding="utf-8")
-        particle_view = PARTICLE_VIEW.read_text(encoding="utf-8")
-
-        source_closure = view.split("encodeSourceUpdates:", maxsplit=1)[1]
-        source_closure = source_closure.split(
-            "encodeFrameReadback:", maxsplit=1
-        )[0]
-        self.assertEqual(source_closure.count("transaction: transaction"), 2)
-        self.assertNotIn("encodeLayerSourceUpdates", view)
-
-        self.assertIn("SceneSourceUpdateStateFIFO(", puppet)
-        self.assertIn("submissions.update(transaction: transaction)", puppet)
-        self.assertIn(
-            "guard signature != submission.frameSignature\n"
-            "                    || submission.boneRevision != boneRevision else {\n"
-            "                return submission.attachmentFrames\n"
-            "            }",
-            puppet,
-        )
-        self.assertIn("submission.frameSignature = signature", puppet)
-
-        sprite_encode = sprite.index("conversion.encode(")
-        sprite_rollback = sprite.index("transaction.registerRollback", sprite_encode)
-        completion = sprite.index("commandBuffer.addCompletedHandler", sprite_rollback)
-        self.assertIn("submissionTracker.cancel(submission)", sprite[sprite_rollback:completion])
-        self.assertIn("if latest?.id == token.id", sprite)
-        self.assertIn("func discardLatest()", sprite)
-        self.assertIn("submissionTracker.discardLatest()", sprite)
-        self.assertIn("func discardPreparedSpriteFrames()", view)
-        frame_driver = FRAME_DRIVER.read_text(encoding="utf-8")
-        barrier = frame_driver.index("let allSurfacesSubmitted =")
-        self.assertIn("func prepareFrame()", particle_playback)
-        self.assertIn("func commitPreparedFrame()", particle_playback)
-        self.assertIn("func discardPreparedFrame()", particle_playback)
-        self.assertIn("particlePlayback.prepareFrame()", particle_view)
-        self.assertIn("particlePlayback?.discardPreparedFrame()", view)
-        self.assertIn("func commitPreparedParticleFrame()", particle_view)
-        self.assertIn("func discardPreparedParticleFrame()", particle_view)
-        particle_discard = frame_driver.index("discardPreparedParticleFrame()", barrier)
-        sprite_discard = frame_driver.index("discardPreparedSpriteFrames()", barrier)
-        asset_discard = frame_driver.index("discardPreparedMaterialAssetFrame()", barrier)
-        self.assertLess(particle_discard, sprite_discard)
-        self.assertLess(sprite_discard, asset_discard)
-        particle_commit = frame_driver.index("commitPreparedParticleFrame()", barrier)
-        asset_commit = frame_driver.index("commitPreparedMaterialAssetFrame()", barrier)
-        self.assertLess(particle_commit, asset_commit)
 
     def test_dynamic_text_provider_publishes_only_after_frame_submission(self) -> None:
         view = VIEW.read_text(encoding="utf-8")
@@ -577,137 +435,9 @@ enum Harness {
         self.assertIn("private var generationState", dynamic_text)
         self.assertIn("generationState.finish(request", dynamic_text)
 
-    def test_video_provider_publication_waits_for_host_submission_barrier(self) -> None:
-        view = VIEW.read_text(encoding="utf-8")
-        frame_driver = FRAME_DRIVER.read_text(encoding="utf-8")
-        outcome = view.index("let outcome = renderer.renderFrame(")
-        video_commit = view.index("func commitPreparedVideoFrames()")
-        video_discard = view.index("func discardPreparedVideoFrames()")
-        self.assertIn("videoTextureSources.values.forEach { $0.commitPreparedFrame() }", view[video_commit:])
-        self.assertIn("videoTextureSources.values.forEach { $0.discardPreparedFrame() }", view[video_discard:])
-        barrier = frame_driver.index("let allSurfacesSubmitted =")
-        discard = frame_driver.index("discardPreparedVideoFrames()", barrier)
-        commit = frame_driver.index("commitPreparedVideoFrames()", barrier)
-        dynamic_commit = frame_driver.index("commitPreparedDynamicTextUpdate()", barrier)
-        self.assertLess(barrier, discard)
-        self.assertLess(barrier, commit)
-        self.assertLess(commit, dynamic_commit)
 
-    def test_media_thumbnail_request_waits_for_host_submission_barrier(self) -> None:
-        view = VIEW.read_text(encoding="utf-8")
-        frame_driver = FRAME_DRIVER.read_text(encoding="utf-8")
-        prepare = view.index("func prepareMediaThumbnail(")
-        outcome = view.index("let outcome = renderer.renderFrame(")
-        self.assertLess(prepare, outcome)
-        self.assertIn("pendingMediaThumbnailInput = input", view[prepare:outcome])
-        self.assertNotIn(
-            "mediaThumbnailCoordinator.update(from: input)", view[prepare:outcome]
-        )
-        commit = view.index("func commitPreparedMediaThumbnailUpdate()")
-        discard = view.index("func discardPreparedMediaThumbnailUpdate()")
-        self.assertIn(
-            "mediaThumbnailCoordinator.update(from: pendingMediaThumbnailInput)",
-            view[commit:],
-        )
-        self.assertIn(
-            "mediaThumbnailCoordinator.commitPreparedFrame()",
-            view[commit:],
-        )
-        self.assertIn(
-            "mediaThumbnailCoordinator.discardPreparedFrame()",
-            view[discard:],
-        )
-        barrier = frame_driver.index("let allSurfacesSubmitted =")
-        barrier_discard = frame_driver.index(
-            "discardPreparedMediaThumbnailUpdate()", barrier
-        )
-        barrier_commit = frame_driver.index(
-            "commitPreparedMediaThumbnailUpdate()", barrier
-        )
-        frame_commit = frame_driver.index("commitSubmittedSceneFrame(", barrier)
-        self.assertLess(barrier, barrier_discard)
-        self.assertLess(barrier, barrier_commit)
-        self.assertLess(barrier_commit, frame_commit)
 
-    def test_frame_texture_publication_waits_for_host_submission_barrier(self) -> None:
-        registry = TEXTURE_REGISTRY.read_text(encoding="utf-8")
-        texture_frame = TEXTURE_FRAME.read_text(encoding="utf-8")
-        renderer = RENDERER.read_text(encoding="utf-8")
-        view = VIEW.read_text(encoding="utf-8")
-        frame_driver = FRAME_DRIVER.read_text(encoding="utf-8")
 
-        begin = registry.index("func beginFrame(")
-        commit = registry.index("func commitFramePublication()", begin)
-        discard = registry.index("func discardFramePublication()", commit)
-        self.assertIn("framePublicationBaseline = FramePublicationBaseline(", registry[begin:commit])
-        self.assertIn("if framePublicationBaseline != nil", registry[begin:commit])
-        self.assertIn("committedPublications = baseline.committedPublications", registry[discard:])
-        self.assertIn("entries.removeAll(keepingCapacity: true)", registry[discard:])
-
-        self.assertIn("textureRegistry.commitFramePublication()", texture_frame)
-        self.assertIn("textureRegistry.discardFramePublication()", texture_frame)
-        source_transaction = renderer.index("let sourceUpdateTransaction =")
-        renderer_defer = renderer.index("Unsubmitted source and registry state", source_transaction)
-        self.assertIn("discardUnsubmittedFrameResources()", renderer[renderer_defer:])
-
-        view_commit = view.index("func commitPreparedFrameTexturePublication()")
-        view_discard = view.index("func discardPreparedFrameTexturePublication()")
-        self.assertIn("renderer.commitFrameTexturePublication()", view[view_commit:])
-        self.assertIn("renderer.discardFrameTexturePublication()", view[view_discard:])
-        barrier = frame_driver.index("let allSurfacesSubmitted =")
-        barrier_discard_asset = frame_driver.index(
-            "discardPreparedMaterialAssetFrame()", barrier
-        )
-        barrier_discard = frame_driver.index("discardPreparedFrameTexturePublication()", barrier)
-        barrier_commit_asset = frame_driver.index(
-            "commitPreparedMaterialAssetFrame()", barrier
-        )
-        barrier_commit = frame_driver.index("commitPreparedFrameTexturePublication()", barrier)
-        frame_commit = frame_driver.index("commitSubmittedSceneFrame(", barrier)
-        self.assertLess(barrier_discard_asset, barrier_discard)
-        self.assertLess(barrier_commit_asset, barrier_commit)
-        self.assertLess(barrier, barrier_discard)
-        self.assertLess(barrier, barrier_commit)
-        self.assertLess(barrier_commit, frame_commit)
-
-    def test_animated_asset_cursor_waits_for_host_submission_barrier(self) -> None:
-        catalog = ASSET_CATALOG.read_text(encoding="utf-8")
-        bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
-        composition = GRAPH_COMPOSITION.read_text(encoding="utf-8")
-        texture_frame = TEXTURE_FRAME.read_text(encoding="utf-8")
-        view = VIEW.read_text(encoding="utf-8")
-        renderer = RENDERER.read_text(encoding="utf-8")
-        frame_driver = FRAME_DRIVER.read_text(encoding="utf-8")
-
-        states = catalog.index("func states(sceneTime:")
-        self.assertIn("if frameCursorBaseline != nil { commitFrame() }", catalog[states:])
-        self.assertIn("frameCursorBaseline = cursors", catalog[states:])
-        self.assertIn("func commitFrame()", catalog)
-        discard = catalog.index("func discardFrame()")
-        self.assertIn("cursors = frameCursorBaseline", catalog[discard:])
-        self.assertIn("assetProvider.commitFrame()", bridge)
-        self.assertIn("assetProvider.discardFrame()", bridge)
-        self.assertIn("resolvedMaterialRuntime?.commitResolvedAssetFrame()", composition)
-        self.assertIn("resolvedMaterialRuntime?.discardResolvedAssetFrame()", composition)
-
-        self.assertIn("imageCompositor.commitResolvedMaterialAssetFrame()", texture_frame)
-        self.assertIn("imageCompositor.discardResolvedMaterialAssetFrame()", texture_frame)
-        helper = texture_frame.index("func discardUnsubmittedFrameResources()")
-        self.assertLess(
-            texture_frame.index("discardResolvedMaterialAssetFrame()", helper),
-            texture_frame.index("discardFrameTexturePublication()", helper),
-        )
-        self.assertIn("renderer.commitResolvedMaterialAssetFrame()", view)
-        self.assertIn("renderer.discardResolvedMaterialAssetFrame()", view)
-        self.assertIn("discardUnsubmittedFrameResources()", renderer)
-
-        barrier = frame_driver.index("let allSurfacesSubmitted =")
-        discard_asset = frame_driver.index("discardPreparedMaterialAssetFrame()", barrier)
-        discard_registry = frame_driver.index("discardPreparedFrameTexturePublication()", barrier)
-        commit_asset = frame_driver.index("commitPreparedMaterialAssetFrame()", barrier)
-        commit_registry = frame_driver.index("commitPreparedFrameTexturePublication()", barrier)
-        self.assertLess(discard_asset, discard_registry)
-        self.assertLess(commit_asset, commit_registry)
 
 if __name__ == "__main__":
     unittest.main()

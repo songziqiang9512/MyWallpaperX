@@ -29,11 +29,11 @@ enum DebugScenePlaybackRunner {
         guard let rootPath = argumentValue(after: "--mwx-debug-scene-root") else { return }
         let requestUptime = ProcessInfo.processInfo.systemUptime
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            launchScene(rootPath: rootPath, requestUptime: requestUptime)
+            Task { await launchScene(rootPath: rootPath, requestUptime: requestUptime) }
         }
     }
 
-    private static func launchScene(rootPath: String, requestUptime: TimeInterval) {
+    private static func launchScene(rootPath: String, requestUptime: TimeInterval) async {
         let rootURL = URL(fileURLWithPath: rootPath, isDirectory: true)
             .resolvingSymlinksInPath().standardizedFileURL
         guard isIsolatedSampleRoot(rootURL) else {
@@ -272,7 +272,7 @@ enum DebugScenePlaybackRunner {
                 "MWX LAUNCH-STAGE: stage=runner-pre-launch elapsedMs=%.0f",
                 (ProcessInfo.processInfo.systemUptime - requestUptime) * 1_000
             )
-            let model = try runtimeHost.launch(
+            let model = try await runtimeHost.launch(
                 rootURL: rootURL,
                 propertyOverrides: requestedPropertyOverrides,
                 userPropertyTextureURLs: userPropertyTextureURLs,

@@ -32,7 +32,7 @@ project / scene / package / texture
 
 `TextureProduct` 的 mip 权威是编译后资源实际携带的 level 序列。`nomip` / `halfmip` 属于作者导入与离线编译输入，不能在没有格式证据时映射成 TEX V5 flag、第二套 sampler policy 或运行时 registry。有效 TEX 的单级或多级链在 upload、尺寸归一化、candidate 与 Program identity 中必须保持：单级 embedded/loose 纹理仍可走现役 bounded normalization且归一化后保持单级；已验证的多级 embedded color TEX 是作者编译后的采样产品，即使 base 长边超过 loose-image 的 4096 normalization limit，也必须在设备分配允许时完整保留 base 和所有 level，否则局部失败关闭。没有编译 TEX 权威的直接 PNG/JPEG 默认生成完整 mip 链；共享 sampler 只消费现有 texture 的 `mipmapLevelCount` 与现役 filter/address 状态。
 
-SceneScript 对 layer 的查询只能是上述主链状态的 typed projection。layer identity、作者顺序、parent、只读 authored size 和静态 transform 在 load/generation 边界由同一个 descriptor 准备；逐帧 local transform 与 world matrix 必须从现役 immutable dynamic snapshot 和 renderer 的 canonical world-frame resolver 取得，并随既有 surface transaction 原子提交、回滚。VM bridge 只验证并复制 column-major ABI，不能另做坐标换算或保存第二份 transform 权威。同一 callback 的 local transform setter 可读取自己的 staged local 值，但 world matrix 只在整帧提交后的下一 snapshot 更新；缺少 canonical matrix 时只拒绝该 getter。不得为 matrix、parent、attachment 或 dynamic layer 增设另一套坐标系统、snapshot、调度器或 renderer。
+SceneScript 对 layer 的查询只能是上述主链状态的 typed projection。layer identity、作者顺序、parent、只读 authored size 和静态 transform 在 load/generation 边界由同一个 descriptor 准备；逐帧 local transform 与 world matrix 必须从现役 immutable dynamic snapshot 和 renderer 的 canonical world-frame resolver 取得，并随共享模拟帧提交，surface 的呈现失败不回退已执行的脚本。VM bridge 只验证并复制 column-major ABI，不能另做坐标换算或保存第二份 transform 权威。同一 callback 的 local transform setter 可读取自己的 staged local 值，但 world matrix 只在整帧提交后的下一 snapshot 更新；缺少 canonical matrix 时只拒绝该 getter。不得为 matrix、parent、attachment 或 dynamic layer 增设另一套坐标系统、snapshot、调度器或 renderer。
 
 SceneScript cursor hit 同样只能消费 renderer 的 canonical world frame、camera projection 和 layer size。作者省略的 local transform 字段按 renderer 已有默认值及 parent 继承解析，cursor owner 不得要求这些字段重复显式声明，也不得另建平行的 hit-test 坐标或 parallax 规则。事件准入由 descriptor identity、typed owner、公开 callback 和静态预算决定，禁止扫描 JavaScript 源码写法来区分同一种 object visibility owner。
 
@@ -179,7 +179,9 @@ continue
 
 ### 3.3 保留事务安全，不扩大视觉失败半径
 
-现有 target pool、resource generation、frame reservation、publication、command-buffer completion、rollback、epoch invalidation 和唯一 terminal compositor owner 是应保留的底座。产品帧只保存提交/消费所需的轻量状态；完整 terminal observation、graph hash 和逐节点证据只在主动诊断或 benchmark 模式构造。快速出效果不等于放弃 GPU 事务安全，也不允许把证据系统变成提交成功的第二授权者。
+现有 target pool、resource generation、frame reservation、publication、command-buffer completion、rollback、epoch invalidation 和唯一 terminal compositor owner 是应保留的底座。提交准入只消费 ledger 相位、command buffer 身份、prepared blueprint 和资源/tail 完整性；这些产品检查在诊断开启或关闭时完全一致。pending submission 只保存 GPU 终结所需状态，不保存预先生成的成功 observation，也不以 observation 字典的成员集合证明 ledger 完整。
+
+完整 terminal observation、graph hash 和逐节点证据只在主动诊断或 benchmark 模式的真实 GPU 终结后构造。观测构造失败由既有 diagnostic 通道报告该 ledger/effect 的证据缺失，不能改变产品提交、已完成的 history promotion、pin 释放或后续帧准入；证据缺失不能计为验收成功。必要的安全检查归提交 owner，不能只放在观测 builder 中。此次边界收敛由既有 SubmissionCoordinator 持有，不新增 observer registry、回退 route 或平行提交 owner；删除 pending observation 存储和 observation 对 seal 的返回依赖后，以诊断开/关、观测失败、GPU 失败、stale completion 与 next-frame 的行为反例验证。
 
 需要改变的是 admission 粒度：Program/graph 可以按 effect 或依赖子图准备和提交，不能要求一层中所有 authored effect 都先形成完整 capability conservation 才允许任何可见结果。 SceneScript 的 layer `origin/scale/angles` setter 在身份/权限检查及完整三分量读取成功后，若收到数值型 NaN/Infinity，只拒绝这一次完整属性赋值、不产生 mutation，保留此前合法暂存值及回调其他操作。缺字段、转换/getter 异常、显式抛错、非法 typed return、identity 或预算失败仍服从原事务；颜色与创建初值不扩入此策略。这是项目的最小视觉失败范围，不宣称官方对非有限值的未公开行为。
 
@@ -417,7 +419,7 @@ Puppet、2D lighting/HDR、3D、RGB、offline bake、color/multi-display/device 
 | composition／fullscreen／utility | 准备作者子树、输出几何、捕获需求、依赖与触发顺序 | 只执行有效计划与 live transform／visibility | GraphProduct／既有 utility producer 在规定层序产生输入或写主 target；scene postprocess 只在存在已准备命令时执行 | 无支持的 utility 局部降级；不得新增独立 capture/compositor 补路径 |
 | 相机／parallax／灯光／深度 | 准备作者设置、引用与消费者索引；depth target 用现有 pool | 同帧动态相机、parent/world、灯光颜色等求值；按 surface 投影 | 作为 geometry／material 输入；光不是默认全屏纹理；阴影／HDR 等只有已有可执行合同才进 graph | 改值更新参数，改变 target 格式／尺寸才失效资源；未支持 pass 不虚构画面 |
 | user property／Timeline | 装载时形成 typed schema、binding、冲突裁决与 timeline lanes | property revision／scene time 在既定阶段投影；值优先级由目标声明，不靠调用覆盖顺序 | 作为 uniform、transform、visibility、text、media、particle 等 consumer 的值 | value-only 不 relaunch；resource/variant/topology 变化走相应失效域；没有 consumer 就显式不支持 |
-| SceneScript／timer／事件／localStorage | 准备编译／模块链接和 host handles，激活时接管 VM 线程；生命周期回调在合法 owner 与对象可用阶段执行 | 输入 snapshot→依协议顺序回调→typed mutation→局部 owner admission→frame commit；timer/event 的消费在提交后确认，拒绝可重试回调 | 不直接画图；修改现有产品状态、资源请求与命令 | exception/timeout/OOM 按现役最小失败合同；未提交 typed mutation 可撤。shared、模块变量、闭包与 retained 对象属于同一非事务 JS heap；失败不撤销已执行的 heap 写入，重试可重复副作用。Host 不序列化或替换 shared 来伪造回滚，读取 shared 的 peer 不享有 localStorage 式依赖撤回；值和 handle 仍须通过既有 typed/generation/预算门 |
+| SceneScript／timer／事件／localStorage | 准备编译／模块链接和 host handles，激活时接管 VM 线程；生命周期回调在合法 owner 与对象可用阶段执行 | 输入 snapshot→依协议顺序回调→typed mutation→局部 owner admission→simulation commit；timer/event 每模拟帧消费一次，屏幕失败不重放 | 不直接画图；修改现有产品状态、资源请求与命令 | exception/timeout/OOM 按现役最小失败合同；未提交 typed mutation 可撤。shared、模块变量、闭包与 retained 对象属于同一非事务 JS heap；失败不撤销已执行的 heap 写入；呈现重试必须复用已求值输入，不能重跑回调。Host 不序列化或替换 shared 来伪造回滚，读取 shared 的 peer 不享有 localStorage 式依赖撤回；值和 handle 仍须通过既有 typed/generation/预算门 |
 | 鼠标／音频频谱／系统媒体 | 有真实消费者时由现有 input/audio/media owner 订阅；准备 typed binding | 帧边界冻结可用输入；屏幕坐标经 canonical camera/world；音频与媒体使用来源时间／generation | 作为 VM、shader、particle、text 等输入；不是第二 clock 或独立 renderer | pause/失焦/设备变化/退场按需求撤订阅；缺输入用已声明默认值，不伪造资源 |
 | sound 层／音量 | 准备 sound binding；激活后现有 sound registry 接管音源，继承 pause/mute | authored 声音命令、属性与共享时钟控制播放 | **不进入视觉 compositor**；与同场景状态事务及生命周期同步的音频输出 | 缺失／不可解码只影响音源；切换／停止撤 observer、音频需求与播放实例 |
 | capture／HUD／诊断 | 仅明确请求时在当前执行链上安装 observer／readback | 消费实际执行结果；详细采集有界 | compositor terminal 的旁路，不能成为普通提交前置 | 结束即撤 observer、释放 readback；诊断耗时不混入普通性能结论 |
@@ -428,14 +430,14 @@ Puppet、2D lighting/HDR、3D、RGB、offline bake、color/multi-display/device 
 
 | 次序 | 逻辑阶段 | 对外可见性与写入约束 |
 |---|---|---|
-| 1 | 验证活动 request、暂停／surface 状态与可用提交容量 | 无容量不推进同一批事件；如果已取走输入，必须可恢复；不得 busy retry 重跑副作用 |
+| 1 | 验证活动 session、暂停与 cadence | 每 cadence 至多推进一次共享模拟；暂停首帧重试复用准备结果，不重跑 VM／粒子／骨骼 |
 | 2 | 冻结 host time、scene time、property revision、输入／音频／媒体及可用 provider | 一帧一份共享时间；surface 坐标输入单独投影，不能用另一屏的值 |
 | 3 | 求属性／Timeline／状态继承与 VM 前置 snapshot | 形成回调读取值；前帧已提交值与当前 typed producer 按既定优先级合并 |
 | 4 | 执行本帧合法生命周期／timer／input／update 回调并收集 mutation | 各回调排序服从 SceneScript 合同；同回调 local setter 可读 staged local，world getter 不随每次 setter 临时重算 |
 | 5 | admission 后提交为待执行状态，准备最终 pose／world／visibility／相机／灯光 | final pose 驱动 skinning、attachment 和子层；需 VM 前置的 pose 与此结果不能互换；回调后 world 在约定下一 snapshot 可见 |
 | 6 | 物化 provider 采样与模拟结果、确定 live extent、租赁 target、填 Program 参数 | 无变化复用；异步 text/video/resource 只采用已就绪版本。CPU 可先准备，GPU producer 在其 consumer 之前 encode |
 | 7 | 依赖 producer／effect graph／层合成／必要 scene postprocess 按计划编码 | 先完成 producer，后消费同帧输入；背景读取遵守准确的层序；每个 active 输出只消费一次 |
-| 8 | 全 surface encode/seal → 提交前屏障 → present/commandBuffer submit → host frame commit | 任一准备失败先逆序取消全部未提交候选；所有候选 buffer identity 唯一且未 enqueue 才进入同步提交段。已提交后的 GPU 异步失败不能用全局 CPU rollback 声称原子视觉撤回 |
+| 8 | 每屏独立 encode/seal → present/commandBuffer submit；共享 simulation commit 一次 | 一屏 drawable／资源缺失只取消该屏未提交资源，正常屏继续；恢复屏读取最新模拟输入接续本屏完成的 history，不补播旧事件。共享源的 GPU 更新沿既有 FIFO，每屏及时提交或取消；视频 decode publication 由共享 registry 统一完成。呈现失败不能回退 VM heap 之外的半套状态 |
 | 9 | GPU completion、publication terminal、资源租约回收；presented 通知 | 发布与完成沿同一 identity；出屏时间只来自实际 presented；失败只能影响真实依赖与后继 |
 
 同一 commandBuffer 中安全有序的 producer→consumer 不要求 CPU 等 GPU completion；跨 commandBuffer／跨队列必须有明确同步与版本许可。persistent history 不能因为物理纹理还在就视作已发布当前结果。
@@ -492,6 +494,6 @@ identity、generation、phase、线程与寿命：
 
 ### 8.6 当前差距与迁移入口
 
-上述阶段已有部分实现，但不能据此宣称整体完成。基点源码显示：activation 仍会停止旧 provider 并替换 context 后重建 surfaces；FrameDriver 已在全 surface 编码封口后统一提交，准备失败取消未提交候选后恢复 CPU 状态；已提交后的异步 GPU 失败仍不能全局视觉撤回；frame admission 仍构造多层请求／候选；统一命令还携带 Scene 专属类型；复杂对象和跨产品 publication 有明确未支持项。
+2026-10-01 的生命周期修复把请求权威保留在 `SceneDesktopWallpaperHost`，把每个场景的 VM、时钟、surface/provider 生命周期移到 `SceneDesktopWallpaperSession`。Host 只有一个 active 决策，候选各屏首帧 GPU 完成后才提升并退役旧会话；候选失败保持旧输出。共享模拟每拍提交一次，每屏独立呈现，缺 drawable 或准备失败不重放已执行回调，恢复读取最新模拟状态。离屏 history 仍是各屏独立的 previous-current，异步 GPU 失败不具备跨屏视觉回滚能力。真实多台物理显示器与长期播放仍需独立验收。
 
-因此候选激活不丢旧可见输出、异步 GPU 失败后的跨屏恢复及真实多显示器呈现、帧存储收敛分别进入重构档案的 E2／E4／E1；shader 语义收敛进入 E5。每次触达先判断是否偏离本节，按最短纵向结果纠正。偏差不能因旧测试通过就永久合法，也不能为了立即符合表格而进行无测量的整引擎重写。
+GPU 分配和保留的 decoded cache 进入唯一 `SceneResourceBudget` 父额度；原有 pool/cache 上限是子约束。候选、active 与 GPU 持有的退役资源一起计费，租约随实际资源释放；预算范围与未计入的系统/瞬态内存见[资源准入设计](scene-resource-admission.md)。帧请求封装、统一命令携带 Scene 类型及其他复杂对象缺口仍沿 E1/E2/E4/E5 分工推进；本批不据此声明整体兼容或性能完成。

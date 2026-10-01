@@ -1,15 +1,10 @@
 import AppKit
-import CoreGraphics
 import Foundation
-import OSLog
 import QuartzCore
 
+/// Owns requests and the single visible-session decision. Playback state lives
+/// entirely in SceneDesktopWallpaperSession, including candidate and drain roles.
 final class SceneDesktopWallpaperHost {
-    private static let performanceLogger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "MyWallpaperX",
-        category: "ScenePerformance"
-    )
-
 #if DEBUG
     struct DebugSnapshot {
         let surfaceCount: Int
@@ -20,686 +15,137 @@ final class SceneDesktopWallpaperHost {
 
 #endif
 
-    private final class HostWindow: NSWindow {
-        override var canBecomeKey: Bool { SceneDesktopWallpaperHost.usesDebugEvidenceWindow }
-        override var canBecomeMain: Bool { SceneDesktopWallpaperHost.usesDebugEvidenceWindow }
-    }
-
-    final class Surface {
-        let window: NSWindow
-        let metalView: SceneMetalView
-        var evaluationTransaction = SceneSurfaceEvaluationTransaction()
-
-        init(
-            window: NSWindow,
-            metalView: SceneMetalView
-        ) {
-            self.window = window
-            self.metalView = metalView
-        }
-    }
-
-    struct PendingDeferredLayerVisibilityUpdate {
-        let generation: UInt64
-        let replacements: [String: SceneUserPropertyValue]
-        let changedPropertyKeys: Set<String>
-        let layerIDs: Set<Int>
-        let recordID: String?
-    }
-
-    var surfaces: [CGDirectDisplayID: Surface] = [:]
-    var launchContext: SceneDesktopWallpaperLaunchContext?
-    private var activeSpaceObserver: NSObjectProtocol?
-    var localPointerEventMonitor: Any?
-    var globalPointerEventMonitor: Any?
-    var frameTimer: Timer?
-    var frameDriverDeadline: CFTimeInterval?
-    var screenReconciliationWorkItem: DispatchWorkItem?
-    var screenTopology: [SceneScreenTopology] = []
-    /// 最近一次实际建成表面的拓扑快照；与权威目标集 screenTopology
-    /// 分离，供屏拓扑协调判断"是否真的需要重建"。
-    var rebuiltTopology: [SceneScreenTopology] = []
-    var sceneClock = SceneClock(hostTime: CACurrentMediaTime())
-    var sharedLayerAlphaRuntime =
-        SceneSharedLayerAlphaRuntime(program: .empty)
-    var videoTextureSourceRegistry: SceneVideoTextureSourceRegistry?
-    var soundPlaybackRegistry: SceneSoundPlaybackRegistry?
-    var nextVideoProviderEpoch: UInt64 = 0
-    var nextSoundPlaybackEpoch: UInt64 = 0
     var nextSceneScriptGeneration: UInt64 = 0
     let launchPreparationQueue = DispatchQueue(
         label: "com.mywallpaperx.scene-launch-preparation",
         qos: .userInitiated
     )
+    var pendingLaunchCompletion: (@MainActor (Result<SceneRuntimeModel, Error>) -> Void)?
     var launchCancellation: SceneWallpaperLaunchCancellation?
     var nextLaunchRequestGeneration: UInt64 = 0
     var launchState: SceneWallpaperLaunchState?
-    var firstFramePresentationRegistration:
-        SceneFirstFramePresentationRegistration?
-    var nextDeferredPropertyGeneration: UInt64 = 0
-    var pendingDeferredLayerVisibilityUpdate:
-        PendingDeferredLayerVisibilityUpdate?
     let textureDecodeCacheBudget = SceneTextureDecodeCacheBudget(
         maximumBytes: PlaybackPerformanceProfile.current
             .sceneTextureDecodeCacheByteBudget
     )
+    var activeSession: SceneDesktopWallpaperSession?
+    var candidateSession: SceneDesktopWallpaperSession?
+    var retiringSessions: [ObjectIdentifier: SceneDesktopWallpaperSession] = [:]
+    var candidateDeadline: DispatchWorkItem?
+    var candidateCompletion: ((Result<Void, Error>) -> Void)?
+    var screenTopology: [SceneScreenTopology] = []
+    private(set) var performanceProfile: PlaybackPerformanceProfile = .current
+    private var playbackPaused = false
 #if DEBUG
-    var debugRejectPreparedFrameOnce: UInt64? = ProcessInfo.processInfo.environment[
-        "MWX_SCENE_DEBUG_REJECT_PREPARED_FRAME_ONCE"
-    ].flatMap(UInt64.init)
-    var debugPointerOverride: SceneSurfacePointerInput?
-    var debugSurfaceReferenceFrames: [CGDirectDisplayID: NSRect] = [:]
-    var debugDropDynamicValuesFrameIndex: UInt64?
-    var debugDidDropDynamicValues = false
-    var debugDidLogDynamicValuesRecovery = false
-    var debugDynamicLayerVisibilitySignature: String?
+    private var debugPointerOverride: SceneSurfacePointerInput?
+    private var debugDropDynamicValuesFrameIndex: UInt64?
 #endif
 
-    var activeRecordID: String? { launchContext?.recordID }
-    var isPlaybackActive: Bool {
-        launchContext != nil && !sceneClock.isPaused
-    }
-
-    /// 性能预算档（M0.7）：帧节奏与预算束随命令热切换，不重启壁纸。
-    private(set) var performanceProfile: PlaybackPerformanceProfile = .current
+    var activeRecordID: String? { activeSession?.activeRecordID }
+    var isPlaybackActive: Bool { activeSession?.isPlaybackActive == true }
 
     func applyPerformanceProfile(_ profile: PlaybackPerformanceProfile) {
         performanceProfile = profile
-        textureDecodeCacheBudget.updateMaximumBytes(
-            profile.sceneTextureDecodeCacheByteBudget
-        )
+        textureDecodeCacheBudget.updateMaximumBytes(profile.sceneTextureDecodeCacheByteBudget)
+        activeSession?.applyPerformanceProfile(profile)
+        candidateSession?.applyPerformanceProfile(profile)
     }
 
-    /// Refreshes resource gauges from constant-time owner values. This is
-    /// called by the daemon's 1 Hz stats timer, never by the frame driver.
+    func applyDisplayConfiguration(_ topology: [SceneScreenTopology]) {
+        guard topology != screenTopology else { return }
+        screenTopology = topology
+        cancelPendingLaunch()
+        activeSession?.applyDisplayConfiguration(topology)
+    }
+
+    func setPlaybackPaused(_ paused: Bool) {
+        playbackPaused = paused
+        activeSession?.setPlaybackPaused(paused)
+        candidateSession?.setPlaybackPaused(paused)
+    }
+
+    func setMasterVolume(_ volume: Double) {
+        activeSession?.soundPlaybackRegistry?.setMasterVolume(volume)
+        candidateSession?.soundPlaybackRegistry?.setMasterVolume(volume)
+    }
+
+    func setMuted(_ muted: Bool) {
+        activeSession?.soundPlaybackRegistry?.setMuted(muted)
+        // The candidate has no audible output until promotion.
+    }
+
+    @discardableResult
+    func applyUserPropertyValues(_ values: [String: SceneUserPropertyValue], changedPropertyKeys: Set<String>, recordID: String?) -> Bool {
+        // A prepared context freezes authored properties. A live edit of that
+        // record invalidates the candidate before it can replace newer state.
+        if !changedPropertyKeys.isEmpty, launchState?.recordID == recordID {
+            cancelPendingLaunch(recordID: recordID)
+        }
+        return activeSession?.applyUserPropertyValues(values, changedPropertyKeys: changedPropertyKeys, recordID: recordID) ?? false
+    }
+
+    @discardableResult
+    func applyUserPropertyValue(_ value: SceneUserPropertyValue, forPropertyKey key: String, recordID: String?) -> Bool {
+        applyUserPropertyValues([key: value], changedPropertyKeys: [key], recordID: recordID)
+    }
+
     func refreshPerformanceResourceGauges() {
-        var gpuAllocatedBytes: UInt64 = 0
-        var renderTargetPoolBytes: UInt64 = 0
-        var capturedDeviceAllocation = false
-        for surface in surfaces.values {
-            if !capturedDeviceAllocation {
-                gpuAllocatedBytes = UInt64(
-                    clamping: surface.metalView.renderer.device.currentAllocatedSize
-                )
-                capturedDeviceAllocation = true
-            }
-            let resident = UInt64(
-                clamping: surface.metalView.renderTargetResidentByteCost
-            )
-            let (sum, overflow) = renderTargetPoolBytes
-                .addingReportingOverflow(resident)
-            renderTargetPoolBytes = overflow ? UInt64.max : sum
-        }
+        // Sample all roles at the daemon's 1 Hz cadence, never per frame.
+        let sessions = [activeSession, candidateSession].compactMap { $0 }
+            + Array(retiringSessions.values)
+        let surfaces = sessions.flatMap { Array($0.surfaces.values) + Array($0.retiringSurfaces.values) }
         let hub = ScenePerformanceCounterHub.shared
-        hub.set(.gpuAllocatedBytes, gpuAllocatedBytes)
-        hub.set(.renderTargetPoolBytes, renderTargetPoolBytes)
-    }
-
-    /// A host is process-local runtime state. SceneDaemonRuntime owns the
-    /// product instance; the explicit DEBUG evidence runner owns its own.
-    init() {
-        installObservers()
-    }
-
-    deinit {
-        removePointerEventMonitors()
-        if let activeSpaceObserver {
-            NSWorkspace.shared.notificationCenter.removeObserver(
-                activeSpaceObserver
-            )
-        }
-    }
-
-    func activate(
-        _ context: SceneDesktopWallpaperLaunchContext,
-        firstFramePresentationRegistration:
-            SceneFirstFramePresentationRegistration? = nil
-    ) throws {
-        // Preparation has completed and relinquished the shared VM domain.
-        // Rebase QuickJS's stack guard before any main-thread provider/VM call.
-        context.propertyVectorScriptProgram.domain?.adoptCurrentThread()
-        let teardownReason: SceneGraphExecutionResetReason = launchContext == nil
-            ? .surfaceStop
-            : .sceneSwitch
-        screenReconciliationWorkItem?.cancel()
-        screenReconciliationWorkItem = nil
-        videoTextureSourceRegistry?.stop()
-        soundPlaybackRegistry?.stop()
-        soundPlaybackRegistry = nil
-        nextVideoProviderEpoch &+= 1
-        videoTextureSourceRegistry = SceneVideoTextureSourceRegistry(
-            epoch: nextVideoProviderEpoch,
-            capturesLifecycleObservations: context.capturesExecutionObservations
-        )
-        if let launchContext {
-            teardownSceneScriptOwners(launchContext, reason: teardownReason)
-            launchContext.preparedDeviceResources.baseImages
-                .cancelDeferredPreparation()
-        }
-        if let pending = pendingDeferredLayerVisibilityUpdate {
-            logDeferredLayerVisibilityTransition(
-                generation: pending.generation,
-                layerIDs: pending.layerIDs,
-                state: "cancelled:scene-switch"
-            )
-        }
-        pendingDeferredLayerVisibilityUpdate = nil
-        self.firstFramePresentationRegistration =
-            firstFramePresentationRegistration
-        launchContext = context
-        let activateStageStart = CACurrentMediaTime()
-#if DEBUG
-        debugDynamicLayerVisibilitySignature = nil
-#endif
-        sharedLayerAlphaRuntime = .init(
-            program: context.sharedLayerAlphaProgram
-        )
-        guard rebuildSurfacesReconcilingAudioDemand(
-            context,
-            rebuild: {
-                rebuildSurfaces(
-                    resetClock: true,
-                    teardownReason: teardownReason
-                )
-            },
-            revokeLaunch: { stop() }
-        ) else {
-            throw SceneDesktopWallpaperHostLaunchError.noSurface
-        }
-        NSLog("MWX LAUNCH-STAGE: stage=activate-surfaces elapsedMs=%.0f", (CACurrentMediaTime() - activateStageStart) * 1000)
-        nextSoundPlaybackEpoch &+= 1
-        let soundPlaybackRegistry = SceneSoundPlaybackRegistry(
-            program: context.soundPlaybackProgram,
-            epoch: nextSoundPlaybackEpoch
-        )
-        self.soundPlaybackRegistry = soundPlaybackRegistry
-        // 新注册表继承公共静音意图（M0.2）。
-        if PlaybackMuteState.shared.isMuted {
-            soundPlaybackRegistry.setMuted(true)
-        }
-        soundPlaybackRegistry.setMasterVolume(
-            Double(PlaybackVolumeState.shared.normalizedVolume)
-        )
-        soundPlaybackRegistry.start(
-            paused: sceneClock.isPaused,
-            userValues: context.liveState.userValues
-        )
-        installPointerEventMonitorsIfNeeded()
-        NSLog(
-            "MWX LAUNCH-STAGE: stage=activate-end elapsedMs=%.0f",
-            (CACurrentMediaTime() - activateStageStart) * 1000
-        )
-    }
-
-    @discardableResult
-    func applyUserPropertyValue(
-        _ value: SceneUserPropertyValue,
-        forPropertyKey propertyKey: String,
-        recordID: String?
-    ) -> Bool {
-        applyUserPropertyValues(
-            [propertyKey: value],
-            changedPropertyKeys: [propertyKey],
-            recordID: recordID
-        )
-    }
-
-    @discardableResult
-    func applyUserPropertyValues(
-        _ replacements: [String: SceneUserPropertyValue],
-        changedPropertyKeys: Set<String>,
-        recordID: String?
-    ) -> Bool {
-        guard var context = launchContext,
-              context.recordID == recordID else {
-            return false
-        }
-        var candidateLiveState = context.liveState
-        guard candidateLiveState.apply(
-            replacements: replacements,
-            changedPropertyKeys: changedPropertyKeys,
-            unavailableConsumerTargets:
-                Self.unavailableLiveScriptPropertyTargets(in: context)
-        ), soundPlaybackRegistry?.canApply(
-            userValues: candidateLiveState.userValues
-        ) != false else {
-            return false
-        }
-
-        let deferredLayerIDs = deferredLayerVisibilitySelection(
-            in: context,
-            effectiveValues: candidateLiveState.effectiveValues,
-            changedPropertyKeys: changedPropertyKeys
-        )
-        if !deferredLayerIDs.isEmpty {
-            guard nextDeferredPropertyGeneration < UInt64.max else {
-                return false
-            }
-            nextDeferredPropertyGeneration += 1
-            let generation = nextDeferredPropertyGeneration
-            let resources = context.preparedDeviceResources.baseImages
-            for layerID in deferredLayerIDs.sorted() {
-                resources.requestDeferredBaseImage(
-                    layerID: layerID,
-                    requestGeneration: generation
-                )
-            }
-            if let superseded = pendingDeferredLayerVisibilityUpdate {
-                logDeferredLayerVisibilityTransition(
-                    generation: superseded.generation,
-                    layerIDs: superseded.layerIDs,
-                    state: "superseded"
-                )
-            }
-            pendingDeferredLayerVisibilityUpdate = .init(
-                generation: generation,
-                replacements: replacements,
-                changedPropertyKeys: changedPropertyKeys,
-                layerIDs: deferredLayerIDs,
-                recordID: recordID
-            )
-            logDeferredLayerVisibilityTransition(
-                generation: generation,
-                layerIDs: deferredLayerIDs,
-                state: "pending"
-            )
-            promotePendingDeferredLayerVisibilityIfReady()
-            return true
-        }
-        if let pending = pendingDeferredLayerVisibilityUpdate,
-           !pending.changedPropertyKeys.isDisjoint(with: changedPropertyKeys) {
-            logDeferredLayerVisibilityTransition(
-                generation: pending.generation,
-                layerIDs: pending.layerIDs,
-                state: "superseded"
-            )
-            pendingDeferredLayerVisibilityUpdate = nil
-        }
-        context.liveState = candidateLiveState
-        soundPlaybackRegistry?.apply(userValues: candidateLiveState.userValues)
-        launchContext = context
-        return true
+        hub.set(.gpuAllocatedBytes, UInt64(clamping: surfaces.first?.metalView.renderer.device.currentAllocatedSize ?? 0))
+        hub.set(.renderTargetPoolBytes, surfaces.reduce(0) { $0 + UInt64(clamping: $1.metalView.renderTargetResidentByteCost) })
+        let budget = SceneResourceBudget.shared.snapshot
+        hub.set(.sceneResidentBytes, UInt64(budget.residentBytes))
+        hub.set(.sceneResourceAdmissionRejections, UInt64(budget.rejectionCount))
     }
 
     func stop() {
         cancelPendingLaunch()
-        teardownSurfaces(clearContext: true, reason: .surfaceStop)
+        if let activeSession {
+            self.activeSession = nil
+            retire(activeSession)
+        }
+        reconcileAudioDemand()
+    }
+
+    func configure(_ session: SceneDesktopWallpaperSession) {
+        session.applyPerformanceProfile(performanceProfile)
+        session.screenTopology = screenTopology
+        session.setPlaybackPaused(playbackPaused)
+#if DEBUG
+        session.debugPointerOverride = debugPointerOverride
+        session.debugDropDynamicValuesFrameIndex = debugDropDynamicValuesFrameIndex
+#endif
+        session.onAudioDemandChanged = { [weak self] in self?.reconcileAudioDemand() }
     }
 
 #if DEBUG
     func debugSnapshot() -> DebugSnapshot {
-        DebugSnapshot(
-            surfaceCount: surfaces.count,
-            windowNumbers: surfaces.values.map { $0.window.windowNumber }.sorted(),
-            isPlaybackPaused: sceneClock.isPaused,
-            isFrameDriverActive: frameTimer?.isValid == true
-        )
+        activeSession?.debugSnapshot() ?? .init(surfaceCount: 0, windowNumbers: [],
+            isPlaybackPaused: playbackPaused, isFrameDriverActive: false)
     }
-
-    @discardableResult
-    func requestDebugSnapshot(
-        windowNumber: Int,
-        reason: String,
-        outputDirectory: URL
-    ) -> Bool {
-        guard let surface = surfaces.values.first(where: {
-            $0.window.windowNumber == windowNumber
-        }) else { return false }
-        surface.metalView.requestDebugSnapshot(
-            reason: reason,
-            outputDirectory: outputDirectory
-        )
-        return true
+    func requestDebugSnapshot(windowNumber: Int, reason: String, outputDirectory: URL) -> Bool {
+        activeSession?.requestDebugSnapshot(windowNumber: windowNumber, reason: reason, outputDirectory: outputDirectory) ?? false
     }
-
-    /// DEBUG evidence: the current particle load report lines, captured at
-    /// request time so bursty/short-lifetime child systems are represented by
-    /// their live state instead of the launch-time zero-particle summary.
-    func debugParticleLoadReportLines() -> [String] {
-        surfaces.values.sorted { $0.window.windowNumber < $1.window.windowNumber }
-            .compactMap { $0.metalView.debugParticleLoadReportLines() }
-            .flatMap { $0 }
-    }
-
+    func debugParticleLoadReportLines() -> [String] { activeSession?.debugParticleLoadReportLines() ?? [] }
     func setDebugPointerOverride(_ input: SceneSurfacePointerInput?) {
         debugPointerOverride = input
-        updateMouseLocations()
+        activeSession?.setDebugPointerOverride(input)
     }
-
-    @discardableResult
-    func debugResizeSurfaces(scale: CGFloat) -> Bool {
-        guard Self.usesDebugEvidenceWindow,
-              scale.isFinite,
-              scale > 0,
-              scale <= 1,
-              !surfaces.isEmpty else { return false }
-        for (screenID, surface) in surfaces {
-            let reference = debugSurfaceReferenceFrames[screenID]
-                ?? surface.window.frame
-            debugSurfaceReferenceFrames[screenID] = reference
-            let size = CGSize(
-                width: max(1, reference.width * scale),
-                height: max(1, reference.height * scale)
-            )
-            let frame = NSRect(
-                x: reference.midX - size.width / 2,
-                y: reference.midY - size.height / 2,
-                width: size.width,
-                height: size.height
-            )
-            surface.window.setFrame(frame, display: true, animate: false)
-        }
-        return true
+    func debugResizeSurfaces(scale: CGFloat) -> Bool { activeSession?.debugResizeSurfaces(scale: scale) ?? false }
+    func debugInvalidateResolvedMaterialRuntimes(reason: SceneGraphExecutionResetReason) -> Bool {
+        activeSession?.debugInvalidateResolvedMaterialRuntimes(reason: reason) ?? false
     }
-
-    @discardableResult
-    func debugInvalidateResolvedMaterialRuntimes(
-        reason: SceneGraphExecutionResetReason
-    ) -> Bool {
-        guard Self.usesDebugEvidenceWindow,
-              !surfaces.isEmpty else { return false }
-        surfaces.values.forEach {
-            $0.metalView.invalidateResolvedMaterialRuntime(reason: reason)
-        }
-        return true
-    }
-
-    @discardableResult
     func setDebugDropDynamicValuesFrameIndex(_ frameIndex: UInt64?) -> Bool {
         guard Self.usesDebugEvidenceWindow else { return false }
         debugDropDynamicValuesFrameIndex = frameIndex
-        debugDidDropDynamicValues = false
-        debugDidLogDynamicValuesRecovery = false
+        _ = activeSession?.setDebugDropDynamicValuesFrameIndex(frameIndex)
         return true
     }
 #endif
-
-    private func installObservers() {
-        activeSpaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.activeSpaceDidChangeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.reassertSurfaceVisibility()
-        }
-    }
-
-    func applyDisplayConfiguration(_ topology: [SceneScreenTopology]) {
-        guard !topology.isEmpty else { return }
-        // 先落权威目标集：主 App 裁决的显示集（多屏开=全部、关=首屏）
-        // 是 rebuildSurfaces 的表面来源，不能只当变更触发器。
-        screenTopology = topology
-        scheduleScreenConfigurationReconciliation(topology)
-    }
-
-    private func scheduleScreenConfigurationReconciliation(
-        _ topology: [SceneScreenTopology]
-    ) {
-        guard launchContext != nil else { return }
-        screenReconciliationWorkItem?.cancel()
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self, self.launchContext != nil else { return }
-            guard topology != self.rebuiltTopology else {
-                Self.performanceLogger.debug(
-                    "Ignored unchanged Scene screen topology; surfaces=\(self.surfaces.count)"
-                )
-                self.reassertSurfaceVisibility()
-                return
-            }
-            Self.performanceLogger.info(
-                "Rebuilding Scene surfaces after screen topology change; old=\(self.rebuiltTopology.count) new=\(topology.count)"
-            )
-            guard let launchContext = self.launchContext else { return }
-            _ = self.rebuildSurfacesReconcilingAudioDemand(
-                launchContext,
-                rebuild: { self.rebuildSurfaces() },
-                revokeLaunch: { self.stop() }
-            )
-        }
-        screenReconciliationWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
-    }
-
-    private func reassertSurfaceVisibility() {
-        guard launchContext != nil else { return }
-        for surface in surfaces.values {
-            surface.window.level = Self.wallpaperWindowLevel
-            if !surface.window.isVisible {
-                surface.window.orderFrontRegardless()
-            }
-        }
-        updateMouseLocations()
-    }
-
-    @discardableResult
-    private func rebuildSurfaces(
-        resetClock: Bool = false,
-        teardownReason: SceneGraphExecutionResetReason = .surfaceStop
-    ) -> Bool {
-        guard let launchContext, let videoTextureSourceRegistry else { return false }
-
-        let rebuildHostTime = CACurrentMediaTime()
-        videoTextureSourceRegistry.beginSurfaceRebuild(
-            sceneTime: sceneClock.currentSceneTime(hostTime: rebuildHostTime),
-            hostTime: rebuildHostTime
-        )
-        defer { videoTextureSourceRegistry.completeSurfaceRebuild() }
-
-        // The pushed topology owns the visible display set (multi-display on
-        // = all screens; off = the first screen). Entries resolve back to
-        // their live NSScreen; screens that no longer exist are skipped.
-        // NSScreen capture stays as the pre-push fallback.
-        let allScreens = NSScreen.screens
-        let targetTopology = screenTopology.isEmpty
-            ? SceneScreenTopology.capture(screens: allScreens)
-            : screenTopology
-        let liveScreensByID = Dictionary(
-            uniqueKeysWithValues: allScreens.compactMap { screen in
-                Self.screenID(for: screen).map { ($0, screen) }
-            }
-        )
-        var surfaceScreens = targetTopology.compactMap { entry -> (NSScreen, CGDirectDisplayID)? in
-            liveScreensByID[entry.displayID].map { ($0, entry.displayID) }
-        }
-        guard !surfaceScreens.isEmpty else {
-            teardownSurfaces(clearContext: false, reason: teardownReason)
-            return false
-        }
-
-        let scopedURLs = launchContext.userPropertyTextureURLs.values.filter {
-            $0.startAccessingSecurityScopedResource()
-        }
-        defer { scopedURLs.forEach { $0.stopAccessingSecurityScopedResource() } }
-
-        teardownSurfaces(clearContext: false, reason: teardownReason)
-
-        let initialParticleDynamicValues = SceneDynamicSnapshotResolver().resolve(
-            frameIndex: 0,
-            generation: 0,
-            definitions: launchContext.sceneScriptScalarProgram.definitions,
-            userValues: [:],
-            timelineValues: [:],
-            sceneScriptValues: [:]
-        ).snapshot
-
-        var created = false
-        var wroteLog = false
-#if DEBUG
-        // Bounded evidence-only surfaces use actual independent views, drawables,
-        // graph runtimes and resource pools on the available physical screen.
-        if Self.usesDebugEvidenceWindow,
-           let requested = ProcessInfo.processInfo.environment[
-               "MWX_SCENE_DEBUG_SURFACE_COUNT"
-           ].flatMap(Int.init), (2...4).contains(requested),
-           let first = surfaceScreens.first {
-            while surfaceScreens.count < requested {
-                let identity = CGDirectDisplayID.max - UInt32(surfaceScreens.count)
-                guard !surfaceScreens.contains(where: { $0.1 == identity }) else { break }
-                surfaceScreens.append((first.0, identity))
-            }
-        }
-#endif
-        for (screen, screenID) in surfaceScreens {
-            let frame = screen.frame
-            guard let metalView = SceneMetalView(
-                renderDescriptor: launchContext.runtimeInput.renderDescriptor,
-                effectAdmissionCatalog: launchContext.effectAdmissionCatalog,
-                baseMaterialProviderBindings:
-                    launchContext.baseMaterialProviderBindings,
-                stockNoiseTextures: launchContext.stockNoiseTextures,
-                staticModelResources:
-                    launchContext.preparedDeviceResources.staticModels,
-                hasDynamicBloom: launchContext.runtimeInput.propertyBindingProgram
-                    .instructions.contains { $0.target == .scene(.bloomEnabled) },
-                instantiatedSceneScriptTargets: Set(
-                    launchContext.sceneScriptScalarProgram.definitions.map(
-                        \.target
-                    )
-                ),
-                scriptSourceEvidence:
-                    launchContext.sceneScriptSourceEvidence,
-                pipelineRepository:
-                    launchContext.preparedDeviceResources.pipelineRepository,
-                imageLayerPipeline:
-                    launchContext.preparedDeviceResources.imageLayerPipeline,
-                resolvedMaterialRuntime: launchContext.makeResolvedMaterialRuntime(),
-                textureAnimationPlaybackRuntime:
-                    launchContext.textureAnimationPlaybackRuntime,
-                textureUploadCommandQueue: launchContext.preparedDeviceResources
-                    .baseImages.textureLoader.uploadCommandQueue,
-                textureDecodeCacheBudget: launchContext.preparedDeviceResources
-                    .baseImages.textureLoader.decodeCacheBudget,
-                userPropertyTextureURLs: launchContext.userPropertyTextureURLs,
-                dynamicTextFieldsByLayerID:
-                    launchContext.frameSchema.dynamicTextFieldsByLayerID,
-                presentationStreamID: UInt64(screenID),
-                firstFramePresentationRegistration: {
-                    [weak firstFramePresentationRegistration] drawable in
-                    firstFramePresentationRegistration?.arm(on: drawable) ?? false
-                },
-                frame: frame
-            ) else {
-                continue
-            }
-            if wroteLog {
-                metalView.loadImageLayers(
-                    from: launchContext.cacheDirectory,
-                    resourceView: launchContext.resourceView,
-                    videoSourceRegistry: videoTextureSourceRegistry,
-                    preparedBaseImages:
-                        launchContext.preparedDeviceResources.baseImages,
-                    spriteTextureLoader:
-                        launchContext.preparedDeviceResources.spriteTextureLoader,
-                    initialDynamicValues: initialParticleDynamicValues
-                )
-            } else {
-                metalView.loadImageLayers(
-                    from: launchContext.cacheDirectory,
-                    resourceView: launchContext.resourceView,
-                    videoSourceRegistry: videoTextureSourceRegistry,
-                    preparedBaseImages:
-                        launchContext.preparedDeviceResources.baseImages,
-                    spriteTextureLoader:
-                        launchContext.preparedDeviceResources.spriteTextureLoader,
-                    initialDynamicValues: initialParticleDynamicValues,
-                    logURL: launchContext.logURL
-                )
-                launchContext.appendResolvedMaterialStartupReport()
-                Self.appendTextScriptReport(
-                    to: launchContext.logURL,
-                    program: launchContext.textScriptProgram
-                )
-                wroteLog = true
-            }
-
-            let window = HostWindow(
-                contentRect: frame,
-                styleMask: [.borderless],
-                backing: .buffered,
-                defer: false,
-                screen: screen
-            )
-            window.isReleasedWhenClosed = false
-            window.ignoresMouseEvents = true
-            window.backgroundColor = .clear
-            window.isOpaque = false
-            window.hasShadow = false
-            window.hidesOnDeactivate = false
-            window.sharingType = .readOnly
-            window.level = Self.wallpaperWindowLevel
-            window.collectionBehavior = Self.windowCollectionBehavior
-            window.contentView = metalView
-            if Self.usesDebugEvidenceWindow {
-                window.makeKeyAndOrderFront(nil)
-            } else {
-                window.orderFrontRegardless()
-            }
-            surfaces[screenID] = Surface(
-                window: window,
-                metalView: metalView
-            )
-            created = true
-        }
-
-        if !created {
-            teardownSurfaces(clearContext: false, reason: teardownReason)
-            return false
-        }
-
-        if resetClock {
-            let hostTime = CACurrentMediaTime()
-            let remainsPaused = sceneClock.isPaused
-            sceneClock.reset(hostTime: hostTime)
-            if remainsPaused {
-                sceneClock.pause(hostTime: hostTime)
-            }
-        }
-        updateAudioSpectrumDemand(launchContext, hasParticleAudioConsumer: surfaces.values.contains { $0.metalView.hasParticleAudioConsumer })
-        rebuiltTopology = targetTopology
-        let storageScreenIdentity = surfaces.count == 1
-            ? surfaces.keys.first.flatMap(Self.sceneScriptStorageScreenIdentity)
-            : nil
-        do {
-            try launchContext.propertyVectorScriptProgram.domain?
-                .setStorageScreenIdentity(storageScreenIdentity)
-        } catch {
-            NSLog(
-                "MWX SceneScript VM: localStorage screen identity unavailable failure=%@ fallback=global-only",
-                String(describing: error)
-            )
-        }
-        startFrameDriver()
-        return true
-    }
-
-    private static func screenID(for screen: NSScreen) -> CGDirectDisplayID? {
-        (screen.deviceDescription[NSDeviceDescriptionKey(rawValue: "NSScreenNumber")] as? NSNumber)?.uint32Value
-    }
-
-    private static func sceneScriptStorageScreenIdentity(
-        _ displayID: CGDirectDisplayID
-    ) -> String? {
-        let vendor = CGDisplayVendorNumber(displayID)
-        let model = CGDisplayModelNumber(displayID)
-        let serial = CGDisplaySerialNumber(displayID)
-        guard vendor != 0, model != 0, serial != 0 else { return nil }
-        return "display-v1-\(vendor)-\(model)-\(serial)"
-    }
-
-    private static var wallpaperWindowLevel: NSWindow.Level {
-        if usesDebugEvidenceWindow {
-            return .floating
-        }
-        return NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)) + 1)
-    }
-
-    private static var windowCollectionBehavior: NSWindow.CollectionBehavior {
-        if usesDebugEvidenceWindow {
-            return [.moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]
-        }
-        return [.canJoinAllSpaces, .stationary, .ignoresCycle]
-    }
-
     static var usesDebugEvidenceWindow: Bool {
 #if DEBUG
         ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-evidence-dir")

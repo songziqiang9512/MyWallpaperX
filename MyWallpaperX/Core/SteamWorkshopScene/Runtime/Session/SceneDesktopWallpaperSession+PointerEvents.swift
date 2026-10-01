@@ -1,7 +1,7 @@
 import AppKit
 import QuartzCore
 
-extension SceneDesktopWallpaperHost {
+extension SceneDesktopWallpaperSession {
     func updateMouseLocations() {
 #if DEBUG
         if let debugPointerOverride {
@@ -20,6 +20,7 @@ extension SceneDesktopWallpaperHost {
 
     func installPointerEventMonitorsIfNeeded() {
         removePointerEventMonitors()
+        guard isVisible else { return }
         guard launchContext?.sceneScriptCursorProgram.ownerCount ?? 0 > 0 else {
             return
         }
