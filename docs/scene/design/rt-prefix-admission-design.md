@@ -40,7 +40,7 @@ WE 来源 render-target 名只在 prepare 阶段解释一次，转换为 typed l
 
 ## fallback / route
 
-未知 optional binding 局部走已声明的 unavailable/default；required 绑定失败保留该 effect previous-current；非法 identity/path/预算失败 hard reject。迁移先 `observe-only` 比较两种归一化的 typed 结果，仅旧路写产品；随后按 profile `prefer-generic` 到 `generic-only`，不允许两个解析结果各自发布资源。
+未知或跨层 shader default 仅在实际需要该默认值时不准入；已由当前 variant 的候选 readiness 与最终 publication 验证胜出的合法 candidate 不因闲置 default 阻塞。未知 optional binding 局部走已声明的 unavailable/default；required 绑定失败保留该 effect previous-current；非法 identity/path/预算失败 hard reject。迁移先 `observe-only` 比较两种归一化的 typed 结果，仅旧路写产品；随后按 profile `prefer-generic` 到 `generic-only`，不允许两个解析结果各自发布资源。
 
 ## 纠正门
 

@@ -197,8 +197,8 @@ struct SceneRenderDescriptor {
     }
 }
 
-// Utility source routing has its own production gate. This executor harness
-// has no utility layers, so retain only the admission dependency shape here.
+// Utility descriptor grammar has its own production gate. This harness
+// supplies only the fullscreen route so it can exercise captured-main Programs.
 enum SceneUtilityLayerSourceRoute {
     enum Failure: String, Error { case utilityShape = "utility-shape" }
 
@@ -210,7 +210,8 @@ enum SceneUtilityLayerSourceRoute {
         layer: SceneRenderDescriptor.Layer,
         descriptor: SceneRenderDescriptor
     ) -> Result<Resolution, Failure> {
-        .failure(.utilityShape)
+        guard layer.utilityLayer?.kind == .fullscreen else { return .failure(.utilityShape) }
+        return .success(.init(capturesCompositionSubtree: false))
     }
 }
 
@@ -1472,6 +1473,7 @@ private func shaderContract(
     nodeIndex: Int,
     pass: Bool,
     internalDefault: Bool = false,
+    renderTargetDefault: String? = nil,
     samplerSchemaInvalid: Bool = false,
     frontendInvalid: Bool = false,
     uniformSchemaInvalid: Bool = false,
@@ -1539,7 +1541,18 @@ private func shaderContract(
         }
         """
     }
-    let fragment = dormantFragment ?? (implicitFramebuffer ? (implicitFramebufferAnnotation
+    let targetDefaultFragment = renderTargetDefault.map { token in
+        """
+        varying vec2 v_TexCoord;
+        uniform sampler2D g_Texture0; // {"default":"\(token)","hidden":true,"material":"albedo"}
+        void main() {
+            vec4 color = texSample2D(g_Texture0, v_TexCoord);
+            color.rgb = color.rgb.gbr;
+            gl_FragColor = color;
+        }
+        """
+    }
+    let fragment = targetDefaultFragment ?? dormantFragment ?? (implicitFramebuffer ? (implicitFramebufferAnnotation
         ? explicitFramebufferFragment : """
     varying vec2 v_TexCoord;
     uniform sampler2D g_Texture0;
@@ -1611,7 +1624,9 @@ private func shaderContract(
 
 private func implicitFramebufferTemplate(
     for node: Graph.Node,
-    historicalAlias: Bool = false
+    historicalAlias: Bool = false,
+    renderTargetDefault: String? = nil,
+    candidateAsset: SceneVFSAssetPath? = nil
 ) -> Template {
     guard let target = node.target, node.bindings.isEmpty else {
         fatalError("implicit framebuffer fixture is incomplete")
@@ -1619,12 +1634,15 @@ private func implicitFramebufferTemplate(
     let contract = shaderContract(
         nodeIndex: node.nodeIndex,
         pass: false,
+        renderTargetDefault: renderTargetDefault,
         implicitFramebuffer: true,
         implicitFramebufferAnnotation: historicalAlias,
         historicalFramebufferAlias: historicalAlias
     )
+    var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
+    if let candidateAsset { slots[0] = .init(index: 0, candidates: [.init(reference: .asset(candidateAsset), provenance: .instance)]) }
     return Template.validated(
-        textureSlots: Array(repeating: nil, count: 8),
+        textureSlots: slots,
         combos: [],
         uniformDeclarations: [],
         renderState: SceneMaterialRenderState.compile(
@@ -3879,6 +3897,7 @@ private func capabilities(
     functionsByEffect: [Graph.EffectKey: SceneJSONValue] = [:],
     assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
     assetFormatFacts: [String: Int] = [:],
+    capturedMainTarget: Bool = false,
     forcedInitiallyInactiveEffectKeys: Set<Graph.EffectKey> = []
 ) -> Capabilities {
     let graph = admittedGraph.renderGraph
@@ -3911,6 +3930,7 @@ private func capabilities(
                 )
             }
         )
+    if capturedMainTarget { consumer.utilityLayer = .init(kind: .fullscreen) }
     var layers: [SceneRenderDescriptor.Layer] = [consumer]
     if let namedProvider, let dependencyBinding {
         consumer.dependencyLayerIDs = [dependencyBinding.providerLayerID]
@@ -7959,6 +7979,63 @@ private enum Harness {
             resetGeneration: 1
         )
 
+        var rtDefaultResults: [String: Bool] = [:]
+        for suffix in ["", "_a", "_b", "_a-absent"] {
+            let absent = suffix == "_a-absent"
+            let token = "_rt_imageLayerComposite_\(layerID)\(absent ? "_a" : suffix)"
+            let resultKey = token + (absent ? "-absent" : "")
+            let candidatePath = SceneVFSAssetPath("textures/rf01-missing.tex")!
+            let candidateIdentity = SceneAssetTextureIdentity(path: candidatePath, purpose: .straightAlbedo)
+            let node = implicitFramebufferGraph.nodes[0]
+            let rtTemplate = implicitFramebufferTemplate(for: node, renderTargetDefault: token, candidateAsset: absent ? candidatePath : nil)
+            let rtCatalog = SceneResolvedMaterialRuntimeCatalog(entries: [
+                .init(effect: node.effect, nodeIndex: node.nodeIndex): .template(rtTemplate)
+            ], resourceDemandIssues: [])
+            let rtCapabilities = capabilities(implicitFramebufferChain, catalog: rtCatalog, assetStates: absent ? [candidateIdentity: .absent] : [:])
+            guard let claim = rtCapabilities.claim(implicitFramebufferChain),
+                  let executor = Executor(device: device, capabilities: rtCapabilities) else {
+                rtDefaultResults[resultKey + ":admitted"] = false
+                continue
+            }
+            rtDefaultResults[resultKey + ":admitted"] = true
+            let lease = makeLease(requireR4Plan(implicitFramebufferGraph), device: device, generation: 96)
+            for index: UInt64 in [96, 97] {
+                let buffer = queue.makeCommandBuffer()!
+                let value: UInt8 = absent ? 128 : 255
+                let source = makeSource(device, bgra: index == 96 ? [0, 0, value, value] : [0, value, 0, value])
+                let preparation = executor.prepare(
+                    token: claim.token, leases: [lease], historyRehydrateCopiesByEffect: [:],
+                    frame: frame(index, textureEntries: absent ? [.asset(candidateIdentity): .absent] : [:]), sourceTexture: source, sourceUniforms: .neutral(),
+                    sourcePipeline: sourcePipeline, frameInputs: .init(), commandBuffer: buffer,
+                    previousStates: [:], previousGraphResources: [:], effectGeneration: 96, resetGeneration: 96
+                )
+                guard case let .success(prepared) = preparation,
+                      executor.encode(prepared, commandBuffer: buffer) else {
+                    rtDefaultResults[resultKey + ":frame-\(index)"] = false
+                    continue
+                }
+                let targetDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: extent.width, height: extent.height, mipmapped: false)
+                targetDescriptor.usage = [.renderTarget, .shaderRead]
+                let terminal = device.makeTexture(descriptor: targetDescriptor)!
+                let renderPass = MTLRenderPassDescriptor()
+                renderPass.colorAttachments[0].texture = terminal
+                renderPass.colorAttachments[0].loadAction = .clear
+                renderPass.colorAttachments[0].storeAction = .store
+                let encoder = buffer.makeRenderCommandEncoder(descriptor: renderPass)!
+                sourcePipeline.bind(encoder: encoder)
+                sourcePipeline.drawLayer(texture: prepared.finalTexture, mvp: simd_float4x4(diagonal: SIMD4<Float>(2, 2, 1, 1)), uniforms: .neutral(), encoder: encoder)
+                encoder.endEncoding()
+                let readback = appendReadback(terminal, commandBuffer: buffer)!
+                let publication = prepared.stages.count == 1
+                    && prepared.stages[0].effectOutputResource.publication.requestIdentity == .graph(output)
+                buffer.commit(); buffer.waitUntilCompleted()
+                rtDefaultResults[resultKey + ":frame-\(index)"] = publication
+                    && buffer.status == .completed && buffer.error == nil
+                    && matches(readback.firstPixel, index == 96 ? [value, 0, 0, value] : [0, 0, value, value])
+                    && matches(readback.lastPixel, index == 96 ? [value, 0, 0, value] : [0, 0, value, value])
+            }
+        }
+
         let historicalFramebufferCapabilities = capabilities(
             implicitFramebufferChain,
             catalog: catalog(
@@ -8160,10 +8237,53 @@ private enum Harness {
             ordinaryChain,
             catalog: catalog(for: ordinaryGraph, nonOverwriteNodes: [1])
         )
+        let capturedDefaultGraph = graph(targets: [], nodes: [material(0, ordinal: 0, target: output, read: input)])
+        let capturedDefaultChain = admittedGraph(capturedDefaultGraph)
+        let capturedDefaultCapabilities = capabilities(capturedDefaultChain,
+            catalog: catalog(for: capturedDefaultGraph, internalDefaultNodes: [0], pixelTransformsByNode: [0: 1]), capturedMainTarget: true)
+        var capturedIdleDefaultGPU = false
+        if let claim = capturedDefaultCapabilities.claim(capturedDefaultChain),
+           capturedDefaultCapabilities.resolve(claim.token, for: capturedDefaultChain)?.sourceRoute == .capturedMainTargetTexture,
+           let executor = Executor(device: device, capabilities: capturedDefaultCapabilities),
+           let buffer = queue.makeCommandBuffer() {
+            let lease = makeLease(requirePlan(capturedDefaultGraph), device: device, generation: 99)
+            let preparation = executor.prepare(token: claim.token, leases: [lease], historyRehydrateCopiesByEffect: [:],
+                frame: frame(99), sourceTexture: source, sourceUniforms: .neutral(), sourcePipeline: sourcePipeline,
+                frameInputs: .init(), commandBuffer: buffer, previousStates: [:], previousGraphResources: [:],
+                effectGeneration: 99, resetGeneration: 99)
+            if case let .success(prepared) = preparation,
+               prepared.stages[0].programCacheKeys.count == 1,
+               executor.encode(prepared, commandBuffer: buffer),
+               let readback = appendReadback(prepared.finalTexture, commandBuffer: buffer) {
+                buffer.commit(); buffer.waitUntilCompleted()
+                capturedIdleDefaultGPU = buffer.status == .completed && buffer.error == nil
+                    && matches(readback.firstPixel, [255, 0, 0, 255]) && matches(readback.lastPixel, [255, 0, 0, 255])
+            }
+        }
         let internalDefaultCapabilities = capabilities(
             ordinaryChain,
-            catalog: catalog(for: ordinaryGraph, internalDefaultNodes: [1])
+            catalog: catalog(for: ordinaryGraph, internalDefaultNodes: [1], pixelTransformsByNode: [1: 1])
         )
+        var internalDefaultCandidateGPU = false
+        if let claim = internalDefaultCapabilities.claim(ordinaryChain),
+           let executor = Executor(device: device, capabilities: internalDefaultCapabilities),
+           let buffer = queue.makeCommandBuffer() {
+            let lease = makeLease(requirePlan(ordinaryGraph), device: device, generation: 98)
+            let preparation = executor.prepare(token: claim.token, leases: [lease], historyRehydrateCopiesByEffect: [:],
+                frame: frame(98), sourceTexture: source, sourceUniforms: .neutral(), sourcePipeline: sourcePipeline,
+                frameInputs: .init(), commandBuffer: buffer, previousStates: [:], previousGraphResources: [:],
+                effectGeneration: 98, resetGeneration: 98)
+            if case let .success(prepared) = preparation,
+               prepared.stages[0].programCacheKeys.count == 2,
+               executor.encode(prepared, commandBuffer: buffer),
+               let readback = appendReadback(prepared.finalTexture, commandBuffer: buffer) {
+                buffer.commit(); buffer.waitUntilCompleted()
+                internalDefaultCandidateGPU = buffer.status == .completed && buffer.error == nil
+                    && matches(readback.firstPixel, [255, 0, 0, 255])
+                    && matches(readback.lastPixel, [255, 0, 0, 255])
+            }
+        }
+
         let nonzeroClearCapabilities = capabilities(
             admittedGraph(nonzeroClearGraph),
             catalog: catalog(for: nonzeroClearGraph)
@@ -9093,6 +9213,7 @@ private enum Harness {
             "ordinaryCanClaim": ordinaryCapabilities.claim(ordinaryChain) != nil,
             "implicitFramebufferStructuralInferenceBindsEffectInput":
                 failureCode(implicitFramebufferPreparation) == "success",
+            "rtShaderDefaultsBindAndPublishAcrossFrames": rtDefaultResults.count == 12 && rtDefaultResults.values.allSatisfy { $0 },
             "historicalFramebufferAliasBindsEffectInput":
                 failureCode(historicalFramebufferPreparation) == "success",
             "historicalFramebufferAliasPublishesTypedOutput":
@@ -9150,15 +9271,8 @@ private enum Harness {
             "nonOverwriteRejectedBeforeFrame": nonOverwriteCapabilities.claim(
                 ordinaryChain
             ) == nil,
-            "internalDefaultFramebufferFailureUsesWholeEffectPassthrough": {
-                guard let claim = internalDefaultCapabilities.claim(
-                          ordinaryChain
-                      ), let capability = internalDefaultCapabilities.resolve(
-                          claim.token,
-                          for: ordinaryChain
-                      ) else { return false }
-                return capability.stages.first?.visualFailureReasonCode != nil
-            }(),
+            "capturedMainExplicitSourceIgnoresIdleDefaultOnGPU": capturedIdleDefaultGPU,
+            "selectedGraphCandidateIgnoresIdleUnknownDefaultAndExecutesShader": internalDefaultCandidateGPU,
             "rgbaClampProbeExecutes": rgbaClampProbe.executed,
             "rgbaClampPublicationIsTyped": rgbaClampProbe.publicationMatches,
             "rgbaClampProbeClampsOutOfRangeUV": matches(
@@ -9892,6 +10006,8 @@ private enum Harness {
                 declarationConflictMultiNodeFailure,
             "declarationConflictMultiNodeReport":
                 declarationConflictMultiNodeCapabilities.reportLines,
+            "rtDefaultDiagnostics": rtDefaultResults,
+            "capturedDefaultReport": capturedDefaultCapabilities.reportLines,
             "litCapture": litCapture,
         ]
         let data = try JSONSerialization.data(

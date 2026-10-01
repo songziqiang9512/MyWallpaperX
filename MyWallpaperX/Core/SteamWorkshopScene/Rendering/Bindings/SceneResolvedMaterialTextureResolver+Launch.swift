@@ -23,7 +23,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
               sampler.readinessCombo == nil,
               template.textureSlots.indices.contains(slot),
               case let .internalTarget(name)? = sampler.defaultTexture,
-              name.caseInsensitiveCompare("_rt_FullFrameBuffer") == .orderedSame,
+              case .typedFrameInput = name.admission,
               let layerID = template.effectContext?.key.layerID else { return nil }
         let reference = Template.TextureReference.provider(
             .sceneBackground(consumerLayerID: layerID)
@@ -31,6 +31,26 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         if let authored = template.textureSlots[slot]?.candidates.last?.reference,
            authored != reference { return nil }
         return sampler.purpose(for: reference) == nil ? nil : reference
+    }
+
+    /// The schema has already admitted the RT name. Only this projection
+    /// binds it to a concrete consuming graph; no frame reparses authored text.
+    static func renderTargetDefault(
+        template: Template,
+        sampler: SceneResolvedMaterialShaderSchema.Sampler,
+        slot: Int,
+        inputIdentity: Graph.TextureIdentity?
+    ) -> Template.TextureReference? {
+        guard sampler.slot == slot, sampler.readinessCombo == nil else { return nil }
+        if let background = sceneBackgroundDefault(template: template, sampler: sampler, slot: slot) {
+            return background
+        }
+        guard let inputIdentity,
+              SceneResolvedMaterialShaderSchema.exactEffectInput(inputIdentity, template: template),
+              SceneResolvedMaterialShaderSchema.sameLayerCompositeDefault(
+                  sampler.defaultTexture, inputIdentity: inputIdentity
+              ) else { return nil }
+        return .graph(inputIdentity)
     }
 
     /// Presence combos describe an authored binding, not the resource finally
@@ -143,10 +163,9 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                             assetStates: assetStates,
                             systemProviderStates: systemProviderStates
                         ) { required |= bit }
-                    case .internalTarget where sceneBackgroundDefault(
-                        template: template,
-                        sampler: sampler,
-                        slot: index
+                    case .internalTarget where renderTargetDefault(
+                        template: template, sampler: sampler, slot: index,
+                        inputIdentity: implicitFramebufferIdentity
                     ) != nil:
                         required |= bit
                     case .internalTarget where sampler.readinessCombo == nil:
@@ -243,6 +262,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         readinessMask: UInt8,
         formatSlots: Set<Int>,
+        implicitFramebufferIdentity: Graph.TextureIdentity? = nil,
         graphTextureFormatFacts: [
             Graph.TextureIdentity: SceneShaderTextureFormat
         ],
@@ -329,7 +349,16 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                                 return .failure(launchFailure(.identityInvariant, phase: .invariant))
                             }
                         case .internalTarget where sampler.readinessCombo == nil:
-                            possible.insert(nil)
+                            if let reference = renderTargetDefault(
+                                template: template, sampler: sampler, slot: slot,
+                                inputIdentity: implicitFramebufferIdentity ?? template.effectContext?.input
+                            ) {
+                                possible.formUnion(formats(
+                                    for: reference, resolvedPurpose: sampler.purpose(for: reference),
+                                    sampler: sampler, graphTextureFormatFacts: graphTextureFormatFacts,
+                                    assetFormatFacts: assetFormatFacts
+                                ))
+                            } else { possible.insert(nil) }
                         case .asset, .internalTarget, nil:
                             break
                         }

@@ -70,7 +70,7 @@ struct ResourceDemandAnalysisKey: Hashable {
 
 
     typealias Template = SceneResolvedMaterialTemplate
-    private static let schemaVersion = 1
+    private static let schemaVersion = 2
     private static let maximumEntryBytes = 256 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()

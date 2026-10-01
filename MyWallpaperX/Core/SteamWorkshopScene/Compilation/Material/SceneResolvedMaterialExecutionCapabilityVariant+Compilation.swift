@@ -775,7 +775,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         }
         let samplers = sourceActiveSamplers
         let bindings = frontend.textureBindings
-        if let internalTarget = unsupportedInternalTarget(in: samplers, template: template) {
+        if let internalTarget = unsupportedInternalTarget(in: samplers, template: template, inputIdentity: implicitFramebufferIdentity, readinessMask: variantKey.readinessMask) {
             throw failure(
                 .samplerInternalTargetUnsupported,
                 phase: .preparation,

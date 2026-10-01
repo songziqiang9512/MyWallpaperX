@@ -350,10 +350,9 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 slot: slot
             ) != nil
         if defaultAllowed,
-           let reference = sceneBackgroundDefault(
-               template: template,
-               sampler: sampler,
-               slot: slot
+           let reference = renderTargetDefault(
+               template: template, sampler: sampler, slot: slot,
+               inputIdentity: implicitFramebufferIdentity
            ) {
             return .selected(
                 reference,

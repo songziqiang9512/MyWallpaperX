@@ -2,7 +2,7 @@
 
 # Sampler 缺省输入与显式声明的优先级
 
-Owner：`SceneResolvedMaterialShaderSchema`。状态：设计 approved；限定为既有输入语义纠偏，不扩展作者能力。触发设计前置的原因是修改已冻结的结构推断家族。
+Owner：`SceneResolvedMaterialShaderSchema`。本文限定既有输入语义的优先级，不扩展作者能力；当前支持范围以[能力台账](../semantics/coverage-ledger.md)为准。触发设计前置的原因是修改已冻结的结构推断家族。
 
 `implicitFramebufferSlots` 只补齐未声明 material 角色的 slot 0。显式 material 声明必须由现有 alias、authored candidate 或有完整 effect-input/color-carrier 证明的 dormant 路径裁决；未知 material 不能因位于 slot 0 自动变成 framebuffer。label 本身不提供来源身份，仍走已有 alias 规则。不存在新 registry、第二套绑定逻辑或 sample 分派。
 

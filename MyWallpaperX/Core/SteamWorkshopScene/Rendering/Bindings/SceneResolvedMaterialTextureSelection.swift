@@ -140,42 +140,23 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
                         result[slot] = selection
                     }
                 }
-            case let .internalTarget(name):
-                guard let reference = Resolver.sceneBackgroundDefault(
-                    template: input.template,
-                    sampler: sampler,
-                    slot: slot
+            case let .internalTarget(target):
+                guard let reference = Resolver.renderTargetDefault(
+                    template: input.template, sampler: sampler, slot: slot,
+                    inputIdentity: input.implicitFramebufferIdentity
                 ) else {
-                    // The layer's own composite target
-                    // (`_rt_imageLayerComposite_<self>_{a,b}`) is published
-                    // by the graph executor from the pair base capture, so a
-                    // same-layer default resolves as that named target.
-                    if let selfComposite = SceneNamedTextureReference.parse(
-                        name
-                    ), selfComposite.providerLayerID == input.layerID {
-                        let providerReference = Template.TextureReference
-                            .provider(.namedLayerTarget(selfComposite))
-                        if let selection = try referenceSelection(
-                            providerReference,
-                            purpose: sampler.purpose(for: providerReference),
-                            provenance: .shaderDefault,
-                            input: input
-                        ) {
-                            result[slot] = selection
-                            continue
-                        }
-                    }
-                    result[slot] = .internalDefault(name)
+                    result[slot] = .internalDefault(target.authoredName)
                     continue
                 }
+                let sourceFact: SceneResolvedMaterialGraphInputSourceSlotFact?
+                if case let .graph(identity) = reference {
+                    sourceFact = .init(slot: slot, inputIdentity: identity,
+                        provenance: .sameLayerCompositeDefault, selectionProvenance: .shaderDefault)
+                } else { sourceFact = nil }
                 if let selection = try referenceSelection(
-                    reference,
-                    purpose: sampler.purpose(for: reference),
-                    provenance: .shaderDefault,
-                    input: input
-                ) {
-                    result[slot] = selection
-                }
+                    reference, purpose: sampler.purpose(for: reference),
+                    provenance: .shaderDefault, input: input, graphInputSourceFact: sourceFact
+                ) { result[slot] = selection }
             case nil: break
             }
         }

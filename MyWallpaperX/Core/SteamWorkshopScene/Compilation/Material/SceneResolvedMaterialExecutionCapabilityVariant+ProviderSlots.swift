@@ -102,17 +102,23 @@ nonisolated struct SceneResolvedMaterialMixedProviderSlotFact: Hashable {
 nonisolated extension SceneResolvedMaterialVariantCache {
     static func unsupportedInternalTarget(
         in samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
-        template: Template
+        template: Template,
+        inputIdentity: Graph.TextureIdentity?,
+        readinessMask: UInt8
     ) -> (slot: Int, name: String)? {
         for (slot, sampler) in samplers.sorted(by: { $0.key < $1.key }) {
             guard case let .internalTarget(name)? = sampler.defaultTexture else {
                 continue
             }
-            guard SceneResolvedMaterialTextureResolver.sceneBackgroundDefault(
-                template: template,
-                sampler: sampler,
-                slot: slot
-            ) != nil else { return (slot, name) }
+            // launchReadinessProjection derives this bit from the authored
+            // candidate chain. Frame selection revalidates the selected
+            // publication before binding; an idle default grants no resource.
+            if readinessMask & (UInt8(1) << UInt8(slot)) != 0,
+               template.textureSlots[slot]?.candidates.isEmpty == false { continue }
+            guard SceneResolvedMaterialTextureResolver.renderTargetDefault(
+                template: template, sampler: sampler, slot: slot,
+                inputIdentity: inputIdentity
+            ) != nil else { return (slot, name.authoredName) }
         }
         return nil
     }

@@ -16,6 +16,7 @@
       "docs/scene/design/rt-prefix-admission-design.md",
       "docs/scene/design/runtime-architecture.md",
       "docs/scene/design/runtime-as-built-map.md",
+      "docs/scene/design/sampler-alias-precedence.md",
       "docs/scene/design/scene-launch-responsiveness-contract.md",
       "docs/scene/design/scene-runtime-daemon-contract.md",
       "docs/scene/design/script-component-api-design.md",
@@ -204,6 +205,17 @@
         "docs/scene/semantics/source-index.md",
         "docs/scene/semantics/client-changelog-forensics.md",
         "docs/scene/semantics/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/rf01-shader-default-binding-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/scene-compatibility-roadmap.md",
+        "docs/scene/semantics/coverage-ledger.md",
+        "docs/scene/semantics/runtime-evidence-current.md"
       ]
     },
     {
@@ -413,6 +425,12 @@
       "path": "docs/scene/design/runtime-as-built-map.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
+      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+    },
+    {
+      "path": "docs/scene/design/sampler-alias-precedence.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/design/runtime-architecture.md",
       "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
     },
     {

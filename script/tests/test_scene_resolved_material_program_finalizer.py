@@ -1353,7 +1353,8 @@ private func finalize(
         Graph.TextureIdentity: SceneShaderTextureFormat
     ] = [:],
     textureSlotsOverride: [Template.TextureSlot?]? = nil,
-    effectContext: Template.EffectContext? = nil
+    effectContext: Template.EffectContext? = nil,
+    assetLaunchStatesOverride: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]? = nil
 ) -> Result<Program, SceneResolvedMaterialFailure> {
     let frame = SceneResolvedMaterialFrameSnapshot.validated(
         textureSnapshot: snapshot(
@@ -1434,7 +1435,7 @@ private func finalize(
                     }
                     return (assetIdentity, .ready(content))
                 }
-            let assetStates = Dictionary(uniqueKeysWithValues: assetStatePairs)
+            let assetStates = assetLaunchStatesOverride ?? Dictionary(uniqueKeysWithValues: assetStatePairs)
             switch cache.precompileLaunchEnvelope(
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
                 outputStorage: outputStorage,
@@ -3775,6 +3776,79 @@ private func namedProviderRuntimePurposeTokens(
         "data": selected(content: .data),
         "dataMaskRejected": selected(content: .data, mode: .opacityMask),
     ]
+}
+
+private func rtDefaultAdmissionTokens(_ device: MTLDevice) -> [String: String] {
+    var result: [String: String] = [:]
+    for token in ["_rt_imageLayerComposite_42", "_rt_imageLayerComposite_42_a", "_rt_imageLayerComposite_42_b", "_rt_imageLayerComposite_43_a", "_rt_imagelayercomposite_42_a", "_rt_unknown", "_rt_imageLayerComposite_42_c", "_rt_imageLayerComposite_-1", "_RT_imageLayerComposite_42_a"] {
+        let shader = contract(revision: "rt-default-\(token)", samplerMetadata: "{\"default\":\"\(token)\"}", uniformMetadata: nil, semanticProbes: false)
+        let value = template(shader, includePrimaryCandidate: false)
+        do {
+            let samplers = try SceneResolvedMaterialShaderSchema.bootstrapSamplers(value)
+            let facts = SceneResolvedMaterialShaderSchema.graphInputSourceSlotFacts(template: value, samplers: samplers, inputIdentity: graphTexture())
+            let projection = SceneResolvedMaterialTextureResolver.launchReadinessProjection(template: value, samplers: samplers, implicitFramebufferIdentity: graphTexture(), assetStates: [:])
+            switch projection {
+            case let .success(mask): result[token] = "ready:\(mask.requiredMask):fact:\(facts[0] != nil)"
+            case let .failure(failure): result[token] = "rejected:\(failure.code)"
+            }
+            let finalized = finalize(shader: shader, device: device, includePrimaryCandidate: false, implicitFramebufferIdentity: graphTexture())
+            switch finalized {
+            case let .success(program):
+                result[token + ":binding"] = program.textureSlots[0]?.reference == .graph(graphTexture()) && program.textureSlots[0]?.graphInputSourceFact?.inputIdentity == graphTexture() ? "graph-ingress" : "wrong-reference"
+            case let .failure(failure): result[token + ":binding"] = "rejected:\(failure.code)"
+            }
+            let override = finalize(shader: shader, device: device, implicitFramebufferIdentity: graphTexture())
+            result[token + ":override"] = failureToken(override)
+            if case let .internalTarget(target)? = samplers[0]?.defaultTexture {
+                result[token + ":spelling"] = target.authoredName
+                result[token + ":persistent"] = ScenePersistentSamplerRecord(sampler: samplers[0]!).rebuild() == samplers[0] ? "same" : "changed"
+            }
+            for (label, kind) in [("missing", SnapshotKind.missing), ("stale", .incomplete), ("purpose", .purposeMismatch)] {
+                result[token + ":" + label] = failureToken(finalize(shader: shader, device: device, includePrimaryCandidate: false, snapshotKind: kind, implicitFramebufferIdentity: graphTexture()))
+            }
+
+        } catch { result[token] = "schema-rejected" }
+    }
+    for (label, token, consumed) in [("dead-unknown", "_rt_unknown", false), ("active-presence", "_rt_imageLayerComposite_42_a", true)] {
+        let shader = contract(revision: "rt-\(label)", uniformMetadata: nil, semanticProbes: false,
+            fragmentSourceOverride: """
+            varying vec2 v_TexCoord;
+            uniform sampler2D g_Texture0; // {"default":"\(token)","combo":"INPUT"}
+            void main() { gl_FragColor = \(consumed ? "texSample2D(g_Texture0, v_TexCoord)" : "vec4(0.0, 0.0, 1.0, 1.0)"); }
+            """)
+        result[label] = failureToken(finalize(shader: shader, device: device, includePrimaryCandidate: false, implicitFramebufferIdentity: graphTexture()))
+    }
+    let fallbackPath = SceneVFSAssetPath("textures/rt-optional.tex")!
+    let fallbackIdentity = SceneAssetTextureIdentity(path: fallbackPath, purpose: .straightAlbedo)
+    let fallbackShader = contract(revision: "rt-absent-candidate", samplerMetadata: #"{"material":"albedo","default":"_rt_imageLayerComposite_42_a"}"#, uniformMetadata: nil, semanticProbes: false)
+    for (label, status, launch): (String, SceneFrameTextureLookupStatus, SceneAssetTextureLaunchState) in [
+        ("absent-candidate", .absent, .absent),
+        ("pending-candidate", .pending, .ready(.color(.resolved(.straightAlpha)))),
+        ("unavailable-candidate", .unavailable, .ready(.color(.resolved(.straightAlpha)))),
+        ("ready-candidate", readyStatus(device, identity: .asset(fallbackIdentity), purpose: .straightAlbedo, content: .color(.resolved(.straightAlpha))), .ready(.color(.resolved(.straightAlpha))))
+    ] {
+        let finalized = finalize(shader: fallbackShader, device: device, primaryReference: .asset(fallbackPath), graphBindingsOverride: [],
+            additionalEntries: [.asset(fallbackIdentity): status], implicitFramebufferIdentity: graphTexture(),
+            assetLaunchStatesOverride: [fallbackIdentity: launch])
+        result[label] = failureToken(finalized)
+        if case let .success(program) = finalized {
+            result[label + ":identity"] = program.textureSlots[0]?.reference == .graph(graphTexture()) ? "graph" : "asset"
+            result[label + ":purpose"] = program.textureSlots[0]?.expectedPurpose.reportToken
+        }
+    }
+    let context = Template.EffectContext(key: .init(layerID: fixtureLayerID, effectIndex: 0, descriptorID: "rf01"), input: graphTexture())
+    for token in ["_rt_FullFrameBuffer", "_RT_FULLFRAMEBUFFER", "_rt_fullframebuffer"] {
+        let shader = contract(revision: "rt-full-\(token)", samplerMetadata: "{\"default\":\"\(token)\"}", uniformMetadata: nil, semanticProbes: false)
+        let background = SceneFrameTextureIdentity.sceneBackground(fixtureLayerID)
+        let finalized = finalize(shader: shader, device: device, includePrimaryCandidate: false,
+            additionalEntries: [background: readyStatus(device, identity: background, purpose: .premultipliedColor, content: .color(.resolved(.premultipliedAlpha)))],
+            implicitFramebufferIdentity: graphTexture(), effectContext: context)
+        result[token] = failureToken(finalized)
+        if case let .success(program) = finalized {
+            result[token + ":identity"] = program.textureSlots[0]?.registryIdentity == background ? "background" : "wrong"
+        }
+    }
+    return result
 }
 
 @main
@@ -6247,6 +6321,7 @@ private enum Harness {
             "neutralTextureResolutionAnalyzer": neutralTextureResolutionAnalyzer,
             "neutralTextureResolutionFailures": neutralTextureResolutionFailures,
             "dormantGraphInputFacts": dormantGraphInputFacts,
+            "rtDefaultAdmission": rtDefaultAdmissionTokens(device),
             "capturedMainInternalTerminal": capturedMainInternalTerminal,
             "admittedEffectIngress": admittedEffectIngress,
             "failures": failures,
@@ -6330,6 +6405,42 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
         cls.warmed_result = json.loads(warmed.stdout)
         if not cls.result["metalAvailable"]:
             raise unittest.SkipTest("Metal is unavailable")
+
+    def test_rt_shader_defaults_share_typed_same_layer_ingress(self) -> None:
+        results = self.result["rtDefaultAdmission"]
+        for suffix in ("", "_a", "_b"):
+            self.assertEqual(results["_rt_imageLayerComposite_42" + suffix], "ready:1:fact:true", results)
+            self.assertEqual(results["_rt_imageLayerComposite_42" + suffix + ":binding"], "graph-ingress", results)
+        for token in ("_rt_imageLayerComposite_43_a", "_rt_imagelayercomposite_42_a", "_rt_unknown", "_rt_imageLayerComposite_42_c", "_rt_imageLayerComposite_-1", "_RT_imageLayerComposite_42_a"):
+            self.assertTrue(results[token].startswith("rejected:"), results)
+        for token in ("_rt_imageLayerComposite_42", "_rt_imageLayerComposite_42_a", "_rt_imageLayerComposite_42_b"):
+            self.assertEqual(results[token + ":spelling"], token)
+            self.assertEqual(results[token + ":persistent"], "same")
+            self.assertEqual(results[token + ":override"], "success", results)
+            for failure in ("missing", "stale", "purpose"):
+                self.assertNotEqual(results[token + ":" + failure], "success", results)
+
+    def test_absent_authored_asset_reaches_same_layer_default(self) -> None:
+        results = self.result["rtDefaultAdmission"]
+        self.assertEqual(results["absent-candidate"], "success", results)
+        self.assertEqual(results["absent-candidate:identity"], "graph", results)
+        self.assertEqual(results["absent-candidate:purpose"], "premultiplied-color", results)
+        self.assertEqual(results["ready-candidate"], "success", results)
+        self.assertEqual(results["ready-candidate:identity"], "asset", results)
+        self.assertEqual(results["ready-candidate:purpose"], "straight-albedo", results)
+        for label in ("pending-candidate", "unavailable-candidate"):
+            self.assertNotEqual(results[label], "success", results)
+
+    def test_rt_defaults_do_not_manufacture_authored_presence_or_reject_dead_sampler(self) -> None:
+        results = self.result["rtDefaultAdmission"]
+        self.assertEqual(results["dead-unknown"], "success", results)
+        self.assertNotEqual(results["active-presence"], "success", results)
+
+    def test_full_frame_default_keeps_case_insensitive_provider_identity(self) -> None:
+        results = self.result["rtDefaultAdmission"]
+        for token in ("_rt_FullFrameBuffer", "_RT_FULLFRAMEBUFFER", "_rt_fullframebuffer"):
+            self.assertEqual(results[token], "success", results)
+            self.assertEqual(results[token + ":identity"], "background", results)
 
     def test_persistent_cache_preserves_cold_run_results(self) -> None:
         self.assertGreater(self.variant_cache_record_count, 0)

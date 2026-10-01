@@ -334,14 +334,14 @@ extension SceneResolvedMaterialShaderSchema {
         )
         for (slot, sampler) in samplers {
             let provenance: GraphInputFact.Provenance?
-            if sampler.usesGraphInputMaterialAlias {
+            if template.textureSlots.indices.contains(slot), template.textureSlots[slot] == nil,
+               sameLayerCompositeDefault(sampler.defaultTexture, inputIdentity: inputIdentity) {
+                provenance = .sameLayerCompositeDefault
+            } else if sampler.usesGraphInputMaterialAlias {
                 provenance = .explicitMaterialAlias
             } else if implicit.contains(slot) {
                 provenance = .implicitMissingAlias
-            } else if sameLayerCompositeDefault(
-                sampler.defaultTexture,
-                inputIdentity: inputIdentity
-            ) || (template.textureSlots.indices.contains(slot)
+            } else if (template.textureSlots.indices.contains(slot)
                 && sameLayerCompositeCandidate(
                     template.textureSlots[slot],
                     inputIdentity: inputIdentity
@@ -371,10 +371,8 @@ extension SceneResolvedMaterialShaderSchema {
                     selectionProvenance =
                         .dormantUnresolvedMaterialGraphInput
                 case .sameLayerCompositeDefault:
-                    // TextureSelection fills the slot from the sampler
-                    // default path before graph-input selection runs, so the
-                    // fact only carries classification; the named-target
-                    // selection itself is a shader default.
+                    // The typed default lowers to this exact graph ingress;
+                    // its original RT spelling and variant remain in schema.
                     selectionProvenance = .shaderDefault
                 }
                 facts[slot] = .init(
@@ -447,7 +445,7 @@ extension SceneResolvedMaterialShaderSchema {
         }
     }
 
-    private nonisolated static func exactEffectInput(
+    nonisolated static func exactEffectInput(
         _ input: Graph.TextureIdentity,
         template: Template
     ) -> Bool {
@@ -471,14 +469,14 @@ extension SceneResolvedMaterialShaderSchema {
     /// composite target. The reference must stay same-layer: a cross-layer
     /// composite default has no graph-internal owner and is not a source
     /// fact.
-    private nonisolated static func sameLayerCompositeDefault(
+    nonisolated static func sameLayerCompositeDefault(
         _ defaultTexture: DefaultTexture?,
         inputIdentity: Graph.TextureIdentity
     ) -> Bool {
         guard case let .internalTarget(name)? = defaultTexture,
               inputIdentity.effect == nil,
               inputIdentity.name == nil,
-              let reference = SceneNamedTextureReference.parse(name),
+              case let .namedLayerTarget(reference) = name.admission,
               reference.providerLayerID == inputIdentity.layerID else {
             return false
         }

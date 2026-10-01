@@ -539,7 +539,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         let defaultTexture = sampler.map { sampler in
             switch sampler.defaultTexture {
             case let .asset(path): "asset:\(path.value)"
-            case let .internalTarget(name): "internal:\(name)"
+            case let .internalTarget(name): "internal:\(name.authoredName)"
             case nil: "<none>"
             }
         } ?? "<missing>"

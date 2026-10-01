@@ -104,6 +104,15 @@ extension SceneResolvedMaterialVariantCache {
         let activeSlots = Set(
             variant.frontendProgram.textureBindings.map(\.slot)
         )
+        let explicitSourceSlot = sourceBinding.flatMap { binding -> Int? in
+            guard let slot = binding.slot, binding.texture == effect.input,
+                  SceneResolvedMaterialPreviousBlurredCompositeEligibility.exactGraphOverride(
+                      slot: slot, identity: effect.input, template: template,
+                      allowsNamedInputProvenance: true),
+                  SceneResolvedMaterialPreviousBlurredCompositeEligibility.exactPreviousInputBinding(
+                      bindings: node.bindings, slot: slot, identity: effect.input) else { return nil }
+            return slot
+        }
         guard activeSlots.count
                 == variant.frontendProgram.textureBindings.count,
               activeSlots == Set(variant.activeSamplers.keys),
@@ -113,11 +122,11 @@ extension SceneResolvedMaterialVariantCache {
                         let sampler = variant.activeSamplers[slot] else {
                       return false
                   }
-                  // A source-fact slot is default-free, except the same-layer
-                  // composite default (`_rt_imageLayerComposite_<self>_{a,b}`)
-                  // which names the very ingress the fact classifies.
+                  // An exact explicit previous binding owns this input even
+                  // with an idle default. Otherwise only the same-layer
+                  // composite default may name this ingress.
                   return sampler.mode == .regular
-                      && (sampler.defaultTexture == nil
+                      && (slot == explicitSourceSlot || sampler.defaultTexture == nil
                           || (fact.provenance == .sameLayerCompositeDefault
                               && isSameLayerCompositeDefault(
                                   sampler.defaultTexture,
@@ -166,27 +175,14 @@ extension SceneResolvedMaterialVariantCache {
         }
         guard let sourceSampler = variant.activeSamplers[sourceSlot],
               sourceSampler.mode == .regular,
-              sourceSampler.defaultTexture == nil
+              sourceSlot == explicitSourceSlot || sourceSampler.defaultTexture == nil
                   || isSameLayerCompositeDefault(
                       sourceSampler.defaultTexture,
                       layerID: effect.key.layerID
                   ) else { return nil }
         if let activeSourceBinding {
             guard activeSourceBinding.slot == sourceSlot,
-                  activeSourceBinding.texture == effect.input,
-                  SceneResolvedMaterialPreviousBlurredCompositeEligibility
-                    .exactGraphOverride(
-                        slot: sourceSlot,
-                        identity: effect.input,
-                        template: template,
-                        allowsNamedInputProvenance: true
-                    ),
-                  SceneResolvedMaterialPreviousBlurredCompositeEligibility
-                    .exactPreviousInputBinding(
-                        bindings: activeBindings,
-                        slot: sourceSlot,
-                        identity: effect.input
-                    ) else { return nil }
+                  explicitSourceSlot == sourceSlot else { return nil }
         } else {
             // Bindings on other slots are provenance for their own slots and
             // are texture-vetted by the stage-level source guard above; the
@@ -297,7 +293,7 @@ extension SceneResolvedMaterialVariantCache {
         layerID: Int
     ) -> Bool {
         guard case let .internalTarget(name)? = defaultTexture,
-              let reference = SceneNamedTextureReference.parse(name),
+              case let .namedLayerTarget(reference) = name.admission,
               reference.providerLayerID == layerID else {
             return false
         }

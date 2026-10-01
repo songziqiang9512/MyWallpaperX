@@ -35,7 +35,7 @@ nonisolated struct ScenePersistentSamplerRecord: Codable, Equatable {
             defaultTextureValue = path.value
         case let .internalTarget(name):
             defaultTextureKind = 1
-            defaultTextureValue = name
+            defaultTextureValue = name.authoredName
         }
         readinessCombo = sampler.readinessCombo
         channelUse = sampler.channelUse.rawValue
@@ -78,7 +78,7 @@ nonisolated struct ScenePersistentSamplerRecord: Codable, Equatable {
         case 1:
             guard let value = defaultTextureValue,
                   !value.isEmpty else { return nil }
-            defaultTexture = .internalTarget(value)
+            defaultTexture = .internalTarget(.init(authoredName: value))
         default: return nil
         }
         let purpose: SceneTextureLoadPurpose?

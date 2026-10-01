@@ -31,7 +31,7 @@ nonisolated enum SceneRenderTargetVocabulary {
     /// 作者显式 `_rt_` 名的三种命运。空/占位绑定（清空 binding）在 schema
     /// 空串门处理，不经本分派；作者显式声明的 FBO 经 graph binding 到达，
     /// 不走本字符串面。
-    enum Fate: Equatable {
+    enum Fate: Hashable {
         /// 已证实 FullFrameBuffer 内建别名：改写为既有 typed frame input。
         case typedFrameInput
         /// 已证实 imageLayerComposite 语法：改写为 typed provider reference。
@@ -77,7 +77,17 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
 
     enum DefaultTexture: Hashable {
         case asset(SceneVFSAssetPath)
-        case internalTarget(String)
+        case internalTarget(RenderTargetDefault)
+    }
+
+    struct RenderTargetDefault: Hashable {
+        let authoredName: String
+        let admission: SceneRenderTargetVocabulary.Fate
+
+        init(authoredName: String) {
+            self.authoredName = authoredName
+            admission = SceneRenderTargetVocabulary.dispatch(authoredName: authoredName)
+        }
     }
 
     struct Sampler: Hashable {
@@ -784,13 +794,15 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             throw Issue.sampler(name)
         }
         if raw.isEmpty { return nil }
-        let normalized = raw.replacingOccurrences(of: "\\", with: "/").lowercased()
-        // D8 observe-only：前缀来自词汇表唯一常量；shader 默认值的改写/清空
-        // 命运要等 Rendering 侧消费点同批迁移后才按 profile 切换，本批仍以
-        // internalTarget 为产品写入结果（unknown 的硬拒绝在 variant 编译的
-        // unsupportedInternalTarget 保留）。
-        if normalized.hasPrefix(SceneRenderTargetVocabulary.internalTargetPrefix) {
-            return .internalTarget(normalized)
+        let target = RenderTargetDefault(authoredName: raw)
+        switch target.admission {
+        case .typedFrameInput, .namedLayerTarget:
+            return .internalTarget(target)
+        case .unadmitted:
+            // Reserved-prefix defaults remain RT diagnostics, never VFS assets.
+            if raw.lowercased().hasPrefix(SceneRenderTargetVocabulary.internalTargetPrefix) {
+                return .internalTarget(target)
+            }
         }
         guard let path = SceneVFSAssetPath(raw) else { throw Issue.sampler(name) }
         return .asset(path)

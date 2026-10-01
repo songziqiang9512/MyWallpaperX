@@ -328,6 +328,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                         samplers: samplers,
                         readinessMask: mask,
                         formatSlots: textureFormatSlots,
+                        implicitFramebufferIdentity: implicitFramebufferIdentity,
                         graphTextureFormatFacts: graphTextureFormatFacts,
                         assetFormatFacts: assetFormatFacts,
                         assetStates: assetStates,
