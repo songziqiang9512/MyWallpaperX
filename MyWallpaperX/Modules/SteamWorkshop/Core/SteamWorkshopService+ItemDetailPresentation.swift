@@ -58,6 +58,7 @@ extension SteamWorkshopService {
     func dismissItemDetail() {
         selectedItemDetailTask?.cancel()
         selectedItemDetailTask = nil
+        inFlightDetailItemID = nil
         isRefreshingSelectedBrowserItem = false
         selectedBrowserItemError = nil
         selectedBrowserItem = nil
@@ -86,8 +87,12 @@ extension SteamWorkshopService {
         if !forceRefresh && !SteamWorkshopDetailRefreshSupport.needsDownloadedMetadataRefresh(item) {
             return
         }
+        if selectedItemDetailTask != nil, inFlightDetailItemID == item.id, !forceRefresh {
+            return
+        }
 
         selectedItemDetailTask?.cancel()
+        inFlightDetailItemID = item.id
         isRefreshingSelectedDownloadDetailItem = true
         selectedDownloadDetailError = nil
 
@@ -107,6 +112,7 @@ extension SteamWorkshopService {
                 )
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
+                    if self.inFlightDetailItemID == item.id { self.inFlightDetailItemID = nil }
                     guard self.selectedDownloadInspectorItem?.id == item.id else { return }
                     self.selectedDownloadDetailItem = refreshed
                     self.mergeBrowserItem(refreshed)
@@ -117,7 +123,9 @@ extension SteamWorkshopService {
             } catch {
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
-                    guard let self, self.selectedDownloadInspectorItem?.id == item.id else { return }
+                    guard let self else { return }
+                    if self.inFlightDetailItemID == item.id { self.inFlightDetailItemID = nil }
+                    guard self.selectedDownloadInspectorItem?.id == item.id else { return }
                     self.isRefreshingSelectedDownloadDetailItem = false
                     self.selectedDownloadDetailError = error.localizedDescription
                 }
@@ -158,6 +166,7 @@ extension SteamWorkshopService {
         }
 
         selectedItemDetailTask?.cancel()
+        inFlightDetailItemID = item.id
         isRefreshingSelectedDownloadDetailItem = true
         selectedDownloadDetailError = nil
         statusMessage = "本地缺少作者工坊链接，正在按作品 ID 查询作者信息…"
@@ -170,8 +179,9 @@ extension SteamWorkshopService {
             )
             guard !Task.isCancelled else { return }
             await MainActor.run {
-                guard let self,
-                      self.selectedDownloadInspectorItem?.id == item.id,
+                guard let self else { return }
+                if self.inFlightDetailItemID == item.id { self.inFlightDetailItemID = nil }
+                guard self.selectedDownloadInspectorItem?.id == item.id,
                       let resolved else { return }
                 self.selectedDownloadDetailItem = resolved
                 self.mergeBrowserItem(resolved)
@@ -305,8 +315,12 @@ extension SteamWorkshopService {
         if !forceRefresh && !SteamWorkshopDetailRefreshSupport.needsRefresh(item) {
             return
         }
+        if selectedItemDetailTask != nil, inFlightDetailItemID == item.id, !forceRefresh {
+            return
+        }
 
         selectedItemDetailTask?.cancel()
+        inFlightDetailItemID = item.id
         isRefreshingSelectedBrowserItem = true
         selectedBrowserItemError = nil
 
@@ -321,6 +335,7 @@ extension SteamWorkshopService {
                 )
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
+                    if self.inFlightDetailItemID == item.id { self.inFlightDetailItemID = nil }
                     guard self.selectedBrowserItem?.id == item.id else { return }
                     self.selectedBrowserItem = refreshed
                     self.mergeBrowserItem(refreshed)
@@ -330,7 +345,9 @@ extension SteamWorkshopService {
             } catch {
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
-                    guard let self, self.selectedBrowserItem?.id == item.id else { return }
+                    guard let self else { return }
+                    if self.inFlightDetailItemID == item.id { self.inFlightDetailItemID = nil }
+                    guard self.selectedBrowserItem?.id == item.id else { return }
                     self.isRefreshingSelectedBrowserItem = false
                     self.selectedBrowserItemError = error.localizedDescription
                 }

@@ -4,9 +4,9 @@ import AppKit
 final class SteamWorkshopDetailFooterView: NSView {
     static let height = InspectorFooterMetrics.height
 
-    func configure(primary: NSView, webpage: NSView, properties: NSView) {
+    func configure(primary: NSView, webpage: NSView, properties: NSView, refresh: NSView) {
         subviews.forEach { $0.removeFromSuperview() }
-        for view in [primary, webpage, properties] {
+        for view in [primary, webpage, properties, refresh] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
             view.topAnchor.constraint(equalTo: topAnchor).isActive = true
@@ -16,9 +16,11 @@ final class SteamWorkshopDetailFooterView: NSView {
             primary.leadingAnchor.constraint(equalTo: leadingAnchor),
             webpage.leadingAnchor.constraint(equalTo: primary.trailingAnchor, constant: 8),
             properties.leadingAnchor.constraint(equalTo: webpage.trailingAnchor, constant: 8),
-            properties.trailingAnchor.constraint(equalTo: trailingAnchor),
+            refresh.leadingAnchor.constraint(equalTo: properties.trailingAnchor, constant: 8),
+            refresh.trailingAnchor.constraint(equalTo: trailingAnchor),
             webpage.widthAnchor.constraint(equalToConstant: Self.height),
-            properties.widthAnchor.constraint(equalToConstant: Self.height)
+            properties.widthAnchor.constraint(equalToConstant: Self.height),
+            refresh.widthAnchor.constraint(equalToConstant: Self.height)
         ])
     }
 }

@@ -347,6 +347,10 @@ final class SteamWorkshopService: ObservableObject {
     /// scan's result is published (see reloadInstalledItems).
     var installedLibraryScanGeneration = 0
     var selectedItemDetailTask: Task<Void, Never>?
+    /// Item ID of the in-flight `selectedItemDetailTask`. A live refresh for
+    /// the same item is reused instead of cancelled and re-issued (rapid
+    /// detail-panel re-opens re-fetched the same SteamKit details each time).
+    var inFlightDetailItemID: String?
     var discoveryBrowseSnapshot: SteamWorkshopDiscoveryBrowseSnapshot?
     var currentBrowserScrollOffsetY: CGFloat = 0
     var savedDiscoveryQueryBeforeAuthorBrowse: String?

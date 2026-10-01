@@ -171,6 +171,41 @@ extension SteamWorkshopService {
         let directory = detailCacheDirectoryURL()
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try? data.write(to: detailCacheFileURL(id: item.id), options: [.atomic])
+        DispatchQueue.global(qos: .utility).async {
+            Self.sweepExpiredDetailCaches()
+        }
+    }
+
+    // Guarded by detailCacheSweepLock; sweepExpiredDetailCaches runs off the
+    // main actor from a utility queue, so the lock is the sole synchronizer.
+    private nonisolated(unsafe) static let detailCacheSweepLock = NSLock()
+    private nonisolated(unsafe) static var lastDetailCacheSweepAt: Date?
+
+    /// Expired detail-cache files were previously never deleted (the TTL was
+    /// judged only at read time), so ItemDetails only grew until the user
+    /// cleared caches manually. Writes now trigger a rate-limited sweep, the
+    /// same pattern as ThumbnailCache's disk trim.
+    nonisolated static func sweepExpiredDetailCaches(now: Date = Date()) {
+        detailCacheSweepLock.lock()
+        if let last = lastDetailCacheSweepAt, now.timeIntervalSince(last) < 60 {
+            detailCacheSweepLock.unlock()
+            return
+        }
+        lastDetailCacheSweepAt = now
+        detailCacheSweepLock.unlock()
+        let cutoff = now.timeIntervalSince1970 - Constants.detailCacheTTL
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: detailCacheDirectoryURL(),
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        )) ?? []
+        for file in files where file.pathExtension.localizedLowercase == "json" {
+            let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?
+                .contentModificationDate?.timeIntervalSince1970 ?? 0
+            if modified < cutoff {
+                try? FileManager.default.removeItem(at: file)
+            }
+        }
     }
 
     /// Main-actor wrapper for the cold single-record paths (installedRecord
