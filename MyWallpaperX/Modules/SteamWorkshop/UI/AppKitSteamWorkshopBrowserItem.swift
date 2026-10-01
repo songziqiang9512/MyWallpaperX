@@ -280,6 +280,10 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         prefersCircularPlayBadge = false
         syncPreviewAnimationState()
         bindDownloadProgress(to: downloadProgressStore, itemID: item.id)
+        // 绑定回放（store 立即回调当前快照，浏览/已下载场景为 nil）被
+        // receiveDownloadProgress 的 tick-diff 早退拦截，初始内容应用改为
+        // 显式执行——否则标题、状态徽章与操作按钮在首次配置时全部缺位。
+        applyCurrentContent()
         loadPreview(from: item.previewImageURL, fallbackVideoURL: currentDownloadVideoURL)
     }
 
@@ -337,6 +341,9 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         prefersCircularPlayBadge = false
         syncPreviewAnimationState()
         bindDownloadProgress(to: downloadProgressStore, itemID: item.id)
+        // 与 configure 相同：绑定回放的 nil 快照被 tick-diff 早退拦截，
+        // 初始内容应用显式执行。
+        applyCurrentContent()
         loadPreview(from: item.previewImageURL, fallbackVideoURL: currentDownloadVideoURL)
     }
 
