@@ -6,6 +6,16 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-10-01-sampler-baseline-repair"></a>
+
+### E-2026-10-01-SAMPLER-BASELINE-REPAIR — 四项既存失败闭合
+
+**身份与根因：**基于 `dcb75696` 导出的隔离源码，仅叠加本批文件；主工作区并行任务仍在修改 shader/粒子/Video，因此其未提交变化不在本次验证身份内。上一批的 4 个失败已在 `674feadc` 复现，不是生命周期合入引入。两个材质用例来自隐式 framebuffer 推断覆盖显式 material，现仅在 material 未声明时应用缺省推断，保留既有合法 alias 与 dormant 证明路径；一个 neutral-resolution 用例来自 fixture 改源码却复用假内容摘要，现复用产品摘要函数并隔离、实际启用持久化缓存；一个 preflight 源码 helper 计数退役，由已有依赖准备顺序与动态 topology 执行测试承接。优先级设计见[缺省输入合同](../design/sampler-alias-precedence.md)。
+
+**执行证据：**原两个模块共 42 tests 通过，包含真实缓存目录存在记录、跨进程冷/热结果一致性，三个材质行为用例的预期未放宽。相邻 7 个模块最终通过：background provider、captured-main fallback、dependency plan、visible graph output plan、sampler default、dynamic layer runtime、source-proven auxiliary purpose；其中 planning 夹具因缺组合组新增接口先编译失败，补齐仅用于链接且调用即失败的 GPU doubles 后，两个消费者 31 tests 通过。Debug build、code-health（235 warnings，无硬失败）、scene-defense 与 design-gate 通过。没有新增产品 wrapper、matcher 或第二套绑定 owner；临时设计登记按闭合条件退役。
+
+**证据与边界：**`docs/scene/evidence/20261001-sampler-baseline-repair/` 保留冻结文件摘要、初次相邻检查失败及修复后结果、构建和门禁日志。结论限于声明/绑定/缓存准入与执行测试，不宣称新增视觉 parity、完整 corpus 或正在进行的另一批改动已验收；未启动真实样本、未推送。
+
 <a id="e-2026-10-01-lifecycle-integrity"></a>
 
 ### E-2026-10-01-LIFECYCLE-INTEGRITY — 候选提升、共享模拟、独立呈现与 resident 准入

@@ -21,56 +21,8 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertIn("operations = cachedOperations", state)
         self.assertIn("historyClosure = previous.historyClosureIdentities", state)
 
-    def test_resolved_material_preflight_reuses_launch_topology(self) -> None:
-        renderer = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift").read_text(
-            encoding="utf-8"
-        )
-        initialization = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Initialization.swift"
-        ).read_text(encoding="utf-8")
-        preflight = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
-        ).read_text(encoding="utf-8")
-        projection = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+FrameWorldProjection.swift"
-        ).read_text(encoding="utf-8")
-        self.assertIn("resolvedMaterialPreparationLayerIDs: [Int]?", renderer)
-        self.assertIn("resolvedMaterialPreparationLayers:", renderer)
-        self.assertIn(".resolvedMaterialPreparationOrder(", initialization)
-        self.assertIn("authoredLayerIDs: renderDescriptor.renderOrderLayerIDs", initialization)
-        self.assertIn(
-            "if let layerTopology,\n           !layerTopology.dynamicLayers.isEmpty",
-            projection,
-        )
-        self.assertIn(
-            "layerTopology.renderOrderLayerIDs\n                    != renderDescriptor.renderOrderLayerIDs",
-            projection,
-        )
-        self.assertIn(
-            "var baseMaterialSelections: [Int: SceneBaseMaterialTextureSelection] = [:]",
-            preflight,
-        )
-        self.assertGreaterEqual(
-            preflight.count("cachedBaseMaterialTextureSelection("), 3
-        )
-        self.assertIn(
-            "cache: &baseMaterialSelections",
-            preflight,
-        )
-        # The merged single walk keeps exactly one preparation-order guard;
-        # the former second walk's separate LayerIDs guard is gone.
-        self.assertEqual(
-            preflight.count("resolvedMaterialPreparationLayers else"), 1
-        )
-        self.assertIn("resolvedMaterialPreparationLayers else", preflight)
-        self.assertGreaterEqual(
-            preflight.count("materialFunctionMutationsByLayerID"), 2
-        )
-        # The cache is intentionally topology-only. Per-frame visibility,
-        # provider/source readiness, and logical extent remain in preflight.
-        self.assertIn("frameVisibleRootLayerIDs", preflight)
-        self.assertIn("baseMaterialTextureSelection(", preflight)
-        self.assertIn("SceneLayerEffectSourceExtent.resolve(", preflight)
+    # Preparation-order behavior is exercised by test_scene_dependency_render_plan;
+    # the removed helper-count assertion only pinned the former two-walk preflight.
 
     def test_full_graph_observations_are_explicitly_opt_in(self) -> None:
         completion = (

@@ -109,7 +109,8 @@ extension SceneResolvedMaterialShaderSchema {
     }
 
     /// A structural compatibility normalization for historical authored
-    /// materials that omitted the explicit framebuffer annotation.
+    /// materials that omitted a material role. An authored material key must
+    /// retain its explicit alias or proven dormant-input admission path.
     nonisolated static func implicitFramebufferSlots(
         template: Template,
         samplers: [Int: Sampler]
@@ -119,6 +120,7 @@ extension SceneResolvedMaterialShaderSchema {
               template.textureSlots[0] == nil,
               let sampler = samplers[0],
               sampler.name == "g_Texture0",
+              sampler.materialKey == nil,
               sampler.mode == .regular,
               sampler.defaultTexture == nil,
               samplers.allSatisfy({ slot, auxiliary in

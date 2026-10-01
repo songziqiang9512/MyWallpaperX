@@ -1,4 +1,5 @@
 import Foundation
+import Metal
 
 struct SceneDocument {
     struct ShaderValue {
@@ -115,6 +116,8 @@ enum SceneLayerVisibility {
     }
 }
 struct SceneUtilityLayerSourceRoute {
+    let usesIsolatedGroupTarget = false
+    let orderedCompositionSubtreeLayerIDs: [Int] = []
     let capturesCompositionSubtree: Bool
     let triggerLayerID: Int
     static func resolve(layer: SceneRenderDescriptor.Layer, descriptor: SceneRenderDescriptor)
@@ -123,3 +126,22 @@ struct SceneUtilityLayerSourceRoute {
     }
 }
 enum SceneBlendModeShaderSource { static let maximumMode = 31 }
+
+// This harness executes planning only. GPU dependencies share the production
+// source file but must never execute through these link-only test doubles.
+final class SceneMainPassEncoder {
+    init(commandBuffer: MTLCommandBuffer, target: MTLTexture,
+         clearColor: MTLClearColor, clearEnabled: Bool) {
+        fatalError("GPU encoding is outside the dependency planning harness")
+    }
+    func closeForOffscreen() {
+        fatalError("GPU encoding is outside the dependency planning harness")
+    }
+}
+
+final class SceneOffscreenTexturePool {
+    struct Target { let texture: MTLTexture }
+    func compositionGroupTarget(layerID: Int, width: Int, height: Int) -> Target? {
+        fatalError("GPU allocation is outside the dependency planning harness")
+    }
+}

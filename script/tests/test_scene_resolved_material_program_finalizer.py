@@ -67,6 +67,7 @@ VARIANT_COMPILATION_SOURCE = MATERIAL_PROGRAM_SOURCES[
 SWIFT_SOURCES = [
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SCENE_ROOT / "Format/SceneJSONValue.swift",
+    SCENE_ROOT / "Compilation/ShaderContract/SceneShaderContractLoader.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
@@ -538,30 +539,38 @@ private func contract(
             )
         ),
     ]
+    let nodes: [SceneShaderSourceGraph.Node] = stages.map { stage in
+        .init(
+            virtualPath: stage.relativePath,
+            provenance: .package,
+            source: stage.source,
+            rawSHA256: stage.rawSHA256,
+            byteCount: stage.source.utf8.count
+        )
+    }
     let sourceGraph = SceneShaderSourceGraph(
         roots: [
             .init(label: "vertex", virtualPath: "\(revision)/root.vert"),
             .init(label: "fragment", virtualPath: "\(revision)/root.frag"),
         ],
-        nodes: stages.map { stage in
-            .init(
-                virtualPath: stage.relativePath,
-                provenance: .package,
-                source: stage.source,
-                rawSHA256: stage.rawSHA256,
-                byteCount: stage.source.utf8.count
-            )
-        },
+        nodes: nodes,
         edges: [],
         diagnostics: [],
-        dependencySHA256: "fixture-dependency-\(revision)"
+        dependencySHA256: SceneShaderSourceGraph.dependencySHA256(
+            nodes: nodes, edges: []
+        )
     )
     return .init(
         identity: "fixture/\(revision)",
         sourceKind: .authoredSource,
         stages: stages,
         diagnostics: [],
-        canonicalSHA256: "fixture-contract-\(revision)",
+        canonicalSHA256: SceneShaderContractLoader.canonicalHash(
+            identity: "fixture/\(revision)",
+            sourceKind: .authoredSource,
+            stages: stages,
+            diagnostics: []
+        )!,
         sourceGraph: includeSourceGraph ? sourceGraph : nil
     )
 }
@@ -6265,6 +6274,9 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
         environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
+        shader_cache = root / "shader-cache"
+        shader_cache.mkdir()
+        environment["MWX_SCENE_GENERIC_SHADER_CACHE"] = str(shader_cache)
         # This standalone harness owns Finalizer/resource provenance and has no
         # signed compiler bundle. Exercise the explicit bounded rollback; the
         # generic owner and its failure boundary have separate product gates.
@@ -6307,8 +6319,20 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
         if completed.returncode != 0:
             raise RuntimeError(completed.stderr or completed.stdout)
         cls.result = json.loads(completed.stdout)
+        cls.variant_cache_record_count = sum(
+            1 for _ in shader_cache.glob("SceneVariantAnalysis-*/*.json")
+        )
+        warmed = subprocess.run(
+            [str(binary)], cwd=REPOSITORY_ROOT, env=environment,
+            capture_output=True, text=True, check=True,
+        )
+        cls.warmed_result = json.loads(warmed.stdout)
         if not cls.result["metalAvailable"]:
             raise unittest.SkipTest("Metal is unavailable")
+
+    def test_persistent_cache_preserves_cold_run_results(self) -> None:
+        self.assertGreater(self.variant_cache_record_count, 0)
+        self.assertEqual(self.warmed_result, self.result)
 
     @classmethod
     def tearDownClass(cls) -> None:
