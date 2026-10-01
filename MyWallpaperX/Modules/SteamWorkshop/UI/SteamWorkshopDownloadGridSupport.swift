@@ -59,6 +59,15 @@ enum SteamWorkshopDownloadGridSupport {
         }
     }
 
+    /// D7：多选「重试 N 项」的合格判定——只有失败意图可重试；进行中任务
+    /// 的动作是取消，ready 卡不在此列（更新失败走单卡的「重试更新」）。
+    static func isRetryEligible(_ record: SteamWorkshopDownloadRecord) -> Bool {
+        if case .failed = record.status {
+            return true
+        }
+        return false
+    }
+
     static func performPrimaryAction(
         for record: SteamWorkshopDownloadRecord,
         service: SteamWorkshopService,

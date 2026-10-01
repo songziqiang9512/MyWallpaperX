@@ -51,6 +51,9 @@ final class SteamWorkshopService: ObservableObject {
     }
     var removingDownloadIDs: Set<String> = []
     @Published private(set) var displayedDownloads: [SteamWorkshopDownloadRecord] = []
+    /// D7 下载页页头四类计数：可用/失败/进行中/未完成。与可见列表同源，
+    /// 由 refreshDisplayedDownloads 一次性推导发布。
+    @Published private(set) var downloadPageCounts: SteamWorkshopDownloadPageCounts = .empty
     /// M0.5：最近一次"设为壁纸/播放"pending 的记录 ID。点击立即置位
     /// （≤1 runloop turn 渲染加载态）；Scene launch 终态或 runtime 切换
     /// 通知清除；video/web 发送后另有 1.5s 兜底清除。
@@ -407,7 +410,20 @@ final class SteamWorkshopService: ObservableObject {
         observeWebPlaybackFailures()
         installLaunchPendingObservers()
         observeSteamAccountIdentityForPersonalSources()
+        observeDownloadJobStoreForProjection()
         installHelperIdleReaping()
+    }
+
+    /// D7：JobStore 是失败意图的持久 owner（弹窗清除、删除移除意图、重试推进
+    /// attempt 都只改 JobStore），这些变化不经过 `downloads` didSet，必须单独
+    /// 订阅以维持下载页失败投影与页头计数同源刷新。
+    private func observeDownloadJobStoreForProjection() {
+        downloadJobStore.$jobs
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.refreshDisplayedDownloads()
+            }
+            .store(in: &cancellables)
     }
 
     /// 启动重放单记录快路径：按 itemID 定向读取已发布元数据
@@ -476,14 +492,31 @@ final class SteamWorkshopService: ObservableObject {
             .removeDuplicates()
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                guard let self, self.source.isPersonal else { return }
+                guard let self else { return }
+                // 账号身份变化即刷新下载页失败投影：合成与历史判定都按现役账号
+                // 隔离，旧账号的失败意图不得展示给新账号（D7 跨账号不接管）。
+                self.refreshDisplayedDownloads()
+                guard self.source.isPersonal else { return }
                 self.navigateToBrowse()
             }
             .store(in: &cancellables)
     }
 
     private func refreshDisplayedDownloads() {
+        // D7 单一投影：先把现役账号的失败意图合成进 downloads（选中/删除/详情
+        // 因此走同一条 record 路径），再做过滤排序与页头计数。值相等守卫防止
+        // downloads didSet → refresh 自激：写回触发的重入趟在此处发现无差异
+        // 即收敛，深度恒为 2。
+        let merged = downloadsWithFailedIntents(from: downloads)
+        if merged != downloads {
+            downloads = merged
+            return
+        }
         displayedDownloads = filteredAndSortedDownloads(from: downloads)
+        let counts = downloadPageCounts(from: downloads)
+        if counts != downloadPageCounts {
+            downloadPageCounts = counts
+        }
         sanitizeDownloadSelectionAgainstDisplayedDownloads()
     }
 }

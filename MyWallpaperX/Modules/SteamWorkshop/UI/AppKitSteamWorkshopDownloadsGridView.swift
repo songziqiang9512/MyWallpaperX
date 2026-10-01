@@ -35,6 +35,17 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         return s
     }()
 
+    /// D7 页头计数：「可用 N · 失败 M · 进行中 K · 未完成 C」；搜索/筛选时
+    /// 另报「显示 X 项」。与可见列表同源（service.downloadPageCounts）。
+    private let countsLabel: NSTextField = {
+        let label = NSTextField(labelWithString: "")
+        label.alignment = .left
+        label.textColor = .secondaryLabelColor
+        label.font = .systemFont(ofSize: 11, weight: .regular)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+
     private lazy var collectionView: SteamWorkshopKeyboardCollectionView = {
         let cv = SteamWorkshopKeyboardCollectionView()
         cv.isSelectable = false
@@ -143,13 +154,18 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         scrollView.documentView = collectionView
 
         addSubview(scrollView)
+        addSubview(countsLabel)
         addSubview(emptyLabel)
 
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: topAnchor),
+            scrollView.topAnchor.constraint(equalTo: countsLabel.bottomAnchor, constant: 8),
             scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            countsLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            countsLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -4),
+            countsLabel.topAnchor.constraint(equalTo: topAnchor, constant: 6),
 
             emptyLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             emptyLabel.centerYAnchor.constraint(equalTo: centerYAnchor)
@@ -162,6 +178,13 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
             }
             .store(in: &cancellables)
 
+        service.$downloadPageCounts
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshCountsLabel()
+            }
+            .store(in: &cancellables)
+
         service.$launchPendingRecordID
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -171,8 +194,10 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
 
         service.$downloadsDisplayMode
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] mode in
-                self?.emptyLabel.stringValue = mode.emptyStateText
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.emptyLabel.stringValue = self.currentEmptyStateText()
+                self.refreshCountsLabel()
             }
             .store(in: &cancellables)
 
@@ -247,7 +272,11 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
             service.selectDownload(itemID: nil)
         }
 
+        // D7 空态三档：搜索无匹配 / 分类无记录 / 没有任何内容。失败项可见后
+        // 只有真正的空列表才进空态。
+        emptyLabel.stringValue = currentEmptyStateText()
         emptyLabel.isHidden = !orderedIDs.isEmpty
+        refreshCountsLabel()
 
         // Structure unchanged: the diffable apply would be a no-op, so skip
         // straight to reconfiguring only the visible cells whose record
@@ -437,6 +466,33 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         service.selectDownload(itemID: nil)
     }
 
+    private func refreshCountsLabel() {
+        let counts = service.downloadPageCounts
+        guard counts.hasAnyIntent || orderedIDs.isEmpty == false else {
+            countsLabel.stringValue = ""
+            return
+        }
+        var text = counts.headerText
+        let query = service.downloadsQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        if query.isEmpty == false || service.downloadsDisplayMode != .all {
+            text += " · 显示 \(orderedIDs.count) 项"
+        }
+        countsLabel.stringValue = text
+    }
+
+    /// D7 空态三档：搜索为「没有匹配的下载记录」，类型筛选为「此分类暂无
+    /// 下载记录」，否则为「还没有下载内容」。
+    private func currentEmptyStateText() -> String {
+        let query = service.downloadsQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        if query.isEmpty == false {
+            return "没有匹配的下载记录"
+        }
+        if service.downloadsDisplayMode != .all {
+            return "此分类暂无下载记录"
+        }
+        return "还没有下载内容"
+    }
+
     private func makeContextMenu(for indexPath: IndexPath?) -> NSMenu? {
         if let indexPath,
            indexPath.item >= 0,
@@ -464,6 +520,18 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
             if let primaryActionItem = makePrimaryActionMenuItem(for: record) {
                 menu.addItem(primaryActionItem)
             }
+            // D7：ready 卡存在失败意图（更新失败）时保留旧有效文件的播放主
+            // 动作，另给「重试更新」入口。
+            if record.status == .ready,
+               service.hasFailedDownloadIntent(for: record.id) {
+                menu.addItem(
+                    makeMenuItem(
+                        title: "重试更新",
+                        symbolName: "arrow.clockwise",
+                        action: #selector(contextRetrySelectedUpdate)
+                    )
+                )
+            }
 
             menu.addItem(
                 makeMenuItem(
@@ -483,6 +551,23 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
                 )
             )
             menu.addItem(.separator())
+        }
+
+        if service.isDownloadsMultiSelectMode {
+            // D7：多选重试只作用于可重试的失败意图，标题的 N 即合格数，
+            // 不悄悄作用于不可重试项。
+            let retryableCount = service.effectiveSelectedDownloadIDs
+                .compactMap { recordsByID[$0] }
+                .filter(SteamWorkshopDownloadGridSupport.isRetryEligible)
+                .count
+            menu.addItem(
+                makeMenuItem(
+                    title: "重试 \(retryableCount) 项",
+                    symbolName: "arrow.clockwise",
+                    action: #selector(contextRetrySelectedDownloads),
+                    isEnabled: retryableCount > 0
+                )
+            )
         }
 
         menu.addItem(
@@ -720,5 +805,21 @@ extension AppKitSteamWorkshopDownloadsContainerView {
 
     @objc private func contextDeleteSelected() {
         service.deleteSelectedDownload()
+    }
+
+    @objc private func contextRetrySelectedDownloads() {
+        // 只重试合格失败意图（D7：不悄悄作用于不可重试项）；重试入队与去重
+        // 由 service.downloadWorkshopItem 既有准入负责，不重复入队。
+        for record in service.effectiveSelectedDownloadIDs
+            .compactMap({ recordsByID[$0] })
+            .filter(SteamWorkshopDownloadGridSupport.isRetryEligible) {
+            service.downloadWorkshopItem(id: record.id, pageTitle: record.title)
+        }
+    }
+
+    @objc private func contextRetrySelectedUpdate() {
+        guard let record = service.selectedDownloadRecord,
+              record.status == .ready else { return }
+        service.downloadWorkshopItem(id: record.id, pageTitle: record.title)
     }
 }

@@ -560,7 +560,12 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         currentTitleText = item.title
         titleMarqueeView.text = displayTitle
         detailButton.setAccessibilityLabel("订阅：\(item.title)")
-        statusBadgeButton.toolTip = currentProgressSnapshot?.failureMessage ?? downloadRecord?.failureMessage
+        // D7：ready 卡存在失败意图（更新失败）时，徽章提示附带该失败摘要；
+        // 失败摘要不进搜索等隐式字段，只在此处可见。
+        let updateFailedMessage = resolvedUpdateFailedMessage(downloadRecord: downloadRecord)
+        statusBadgeButton.toolTip = currentProgressSnapshot?.failureMessage
+            ?? downloadRecord?.failureMessage
+            ?? updateFailedMessage
 
         currentActionKind = resolvedActionKind(
             downloadRecord: downloadRecord,
@@ -643,8 +648,20 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         case .failed:
             return currentProgressSnapshot?.statusText() ?? "下载失败 · 重试"
         case .idle, .ready:
+            // D7：已存在 ready 产物又发生更新失败时保留 ready 卡，仅附加
+            // 「更新失败」状态；播放动作仍走旧有效文件。
+            if resolvedUpdateFailedMessage(downloadRecord: downloadRecord) != nil {
+                return "已下载 · 更新失败"
+            }
             return item.title
         }
+    }
+
+    /// ready 卡的「更新失败」附加状态摘要：仅当记录已就绪且现役账号存在该
+    /// item 的持久失败意图时非 nil（D7：失败不覆盖已验证产物）。
+    private func resolvedUpdateFailedMessage(downloadRecord: SteamWorkshopDownloadRecord?) -> String? {
+        guard downloadRecord?.status == .ready, let record = downloadRecord else { return nil }
+        return SteamWorkshopService.shared.failedDownloadIntentMessage(for: record.id)
     }
 
     private func shouldPersistBar(for state: BarState) -> Bool {
