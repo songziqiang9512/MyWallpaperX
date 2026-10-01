@@ -78,7 +78,12 @@ struct SceneImageLayerCompositor {
             MTLTexture,
             SceneTextureContent
         ) -> SceneGraphOutputPublicationResult)? = nil,
+        // Invariant: the draw-only rescue is passed only when the fallback
+        // publisher is nil (see the renderer call site); a non-nil publisher
+        // handles the graph-role case by capture, and the two together are
+        // not a product combination.
         layerSourceGraphFallbackPublisher: ((MTLTexture) -> Bool)? = nil,
+        allowsUnpublishedStaticSourceDraw: Bool = false,
         pipeline: SceneImageLayerPipeline,
         mainPass: SceneMainPassEncoder,
         executionTrace: SceneEffectExecutionFrameTrace? = nil,
@@ -105,7 +110,8 @@ struct SceneImageLayerCompositor {
             publication: explicitLayerSourcePublication,
             route: resolvedMaterialRoute,
             allowsStaticSourceGraphPublication:
-                layerSourceGraphFallbackPublisher != nil
+                layerSourceGraphFallbackPublisher != nil,
+            allowsUnpublishedStaticSourceDraw: allowsUnpublishedStaticSourceDraw
         )
         if case let .success(passthroughPlan) = passthroughResolution {
             if request.blocksStaticLayerSourcePassthrough,
@@ -130,7 +136,9 @@ struct SceneImageLayerCompositor {
             executionTrace?.recordRouteOperation(
                 layerID: request.layer.id,
                 origin: executionOrigin,
-                operation: "degraded-layer-source-passthrough",
+                operation: passthroughPlan.degradedFromPublication
+                    ? "degraded-static-source-draw-only"
+                    : "degraded-layer-source-passthrough",
                 outcome: encoded
                     ? .encoded
                     : .failed(reasonCode: "main-pass-encode-failed")

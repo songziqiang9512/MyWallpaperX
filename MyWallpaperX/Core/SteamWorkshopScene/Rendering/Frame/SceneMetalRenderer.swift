@@ -626,6 +626,8 @@ struct SceneMetalRenderer {
                         resolvedMaterialGraphOutputPublisher,
                     layerSourceGraphFallbackPublisher:
                         layerSourceGraphFallbackPublisher,
+                    allowsUnpublishedStaticSourceDraw:
+                        layerSourceGraphFallbackPublisher == nil,
                     pipeline: imagePipeline,
                     mainPass: mainPass,
                     executionTrace: effectExecutionTrace,

@@ -67,26 +67,34 @@ struct SceneLayerSourcePassthroughPlan {
     let source: SourceAtom
     let modelViewProjection: simd_float4x4
     let projectedGeometry: ProjectedClippedQuad
+    /// True when the plan exists only because the unpublished static-source
+    /// draw-only rescue replaced the graph-role publication rejection. The
+    /// plan proves nothing about publication identity and must never publish
+    /// one; the named-graph consumer keeps its ordinary binding-miss path.
+    let degradedFromPublication: Bool
 
     private init(
         layerID: Int,
         visibleEffectIDs: [String],
         source: SourceAtom,
         modelViewProjection: simd_float4x4,
-        projectedGeometry: ProjectedClippedQuad
+        projectedGeometry: ProjectedClippedQuad,
+        degradedFromPublication: Bool
     ) {
         self.layerID = layerID
         self.visibleEffectIDs = visibleEffectIDs
         self.source = source
         self.modelViewProjection = modelViewProjection
         self.projectedGeometry = projectedGeometry
+        self.degradedFromPublication = degradedFromPublication
     }
 
     static func resolve(
         request: SceneImageLayerDrawRequest,
         publication: SceneTextureProviderPublication?,
         route: SceneResolvedMaterialClaimRoute,
-        allowsStaticSourceGraphPublication: Bool = false
+        allowsStaticSourceGraphPublication: Bool = false,
+        allowsUnpublishedStaticSourceDraw: Bool = false
     ) -> Result<Self, RejectionReason> {
         guard route.allowsLayerSourcePassthrough else {
             return .failure(.routeUnavailable)
@@ -155,14 +163,57 @@ struct SceneLayerSourcePassthroughPlan {
         // Media is already an exact current display atom. A graph role may
         // still block its named publication, but it must not remove the
         // provider's own compositor result. Static files need an exact
-        // reserved-target publisher.
-        guard resolvedSourceKind == .currentMedia
-            || !request.blocksStaticLayerSourcePassthrough
-            || allowsStaticSourceGraphPublication else {
+        // reserved-target publisher; when no publisher is active this frame,
+        // that role gates publication only, so the unpublished draw-only
+        // rescue may keep the provider's own main-pass draw. The guard keeps
+        // its rejection order while the flag-on path flows through the
+        // remaining geometry guard into plan construction.
+        let degradesToUnpublishedStaticDraw = resolvedSourceKind != .currentMedia
+            && request.blocksStaticLayerSourcePassthrough
+            && !allowsStaticSourceGraphPublication
+        guard !degradesToUnpublishedStaticDraw
+            || allowsUnpublishedStaticSourceDraw else {
             return .failure(.staticSourceGraphRolePresent)
         }
         guard let geometry = projectedGeometry(for: request.mvp) else {
             return .failure(.projectedGeometryInvalid)
+        }
+        if degradesToUnpublishedStaticDraw {
+            // The draw-only plan is built from the request-side texture atom:
+            // the same validated base sample the normal plan derives its UV
+            // from, but sourced without any publication identity. The nil
+            // branch is structurally unreachable - sourceKind resolution
+            // above already rejects a static file without a resolvable base
+            // candidate/sample - so this binding is an invariant, not a
+            // defense; the failure spelling only keeps the reason family.
+            guard let degradedCandidate = request.baseTextureCandidate,
+                  let degradedSample = request.resolvedBaseTextureSample() else {
+                return .failure(.staticSourceGraphRolePresent)
+            }
+            return .success(Self(
+                layerID: request.layer.id,
+                visibleEffectIDs: request.layer.effects.compactMap {
+                    $0.visible != false ? $0.id : nil
+                },
+                source: SourceAtom(
+                    kind: resolvedSourceKind,
+                    requestIdentity: .layerSource(request.layer.id),
+                    resourceIdentity: degradedCandidate.identity,
+                    resourceGeneration: degradedCandidate.generation,
+                    contentGeneration: publication.contentGeneration,
+                    purpose: degradedCandidate.purpose,
+                    content: degradedCandidate.content,
+                    physicalSize: degradedCandidate.physicalSize,
+                    mappedSize: degradedCandidate.mappedSize,
+                    texture: request.texture,
+                    uvTransform: degradedSample.textureFrame,
+                    sampling: degradedSample.sampling,
+                    authoredFormat: degradedCandidate.authoredFormat
+                ),
+                modelViewProjection: request.mvp,
+                projectedGeometry: geometry,
+                degradedFromPublication: true
+            ))
         }
         return .success(Self(
             layerID: request.layer.id,
@@ -185,7 +236,8 @@ struct SceneLayerSourcePassthroughPlan {
                 authoredFormat: publication.candidate.authoredFormat
             ),
             modelViewProjection: request.mvp,
-            projectedGeometry: geometry
+            projectedGeometry: geometry,
+            degradedFromPublication: false
         ))
     }
 
