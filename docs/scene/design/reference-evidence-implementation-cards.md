@@ -91,15 +91,15 @@ Vulkan缓存键/HLSL装配、per-display独立可执行模型、playlist、trans
 
 HDR clear=false 的 raw/candidate/display 分离、GPU成功提升、paused新epoch重绘及clear=true精确输出守恒已完成独立终审。实际owner反例、两项输出修复、诊断采样修正、冻结标准/故障App与未验证边界仅由[执行记录](../../history/scene/rf07-persistent-color-output-implementation-2026-10-02.md)保存；目标见[D2](hdr-tonemap-edr-design.md)，稳定生命周期见[架构§3.3](runtime-architecture.md#33-保留事务安全不扩大视觉失败半径)。不据本片开放透明终端、EDR或声明性能完成。唯一能力/运行owner接管后删除此移交指针，不在派生卡重复完成计数。
 
-### RF08 — D1 composition target scope
+### RF08 — D1 composition 的采集合同纠偏
 
-**目标/owner。** [D1](composition-render-target-design.md) 的非连续子层先经现役 material/effect graph 写组 target，组只在父作者序列中输出一次；prepared planner、target pool/lease、唯一 compositor 各保留现役职责。
+**目标/owner。** [D1](composition-render-target-design.md)已重新进入设计裁决。作者格式/descriptor拥有类型、parent和order，现planner拥有采集时点及读写边，pool/lease与唯一compositor保留职责。目标是正确作者输出，不是把旧isolated-group方案补完整。
 
-**当前事实。** 2026-10-02 fresh 核对：`SceneUtilityLayerSourceRoute.swift:178` 已有 resolveIsolatedGroup，允许交错成员和自带效果，不能按旧设计基线重写它；但 :252 限定 image/solid/text 必须无子层，真实2522组的图片成员又有图片子孙，仍被拒绝。`SceneResolvedMaterialFramePreflight.swift` 的isolated组source还需逐边核对是否保留mainTarget假设。旧连续prefix capture仍并存。下一片沿已有scope补合法作者树/实际source，不只删guard使非成员混入或子层重复绘制。
+**当前事实。** 2026-10-02公开[RGB composition说明](https://docs.wallpaperengine.io/en/scene/rgb/introduction.html#extra-notes-on-composition-layers)描述采集下方全部层，如场景相机；现parser只保留utility两flag及独立parent，没有已识别的isolated字段。`SceneUtilityLayerSourceRoute.swift:36,199–223,265–273`才将parent后代升级为私有target成员，且改变触发位置。现有isolated代码、旧设计和3226487183都不能作为该语义正确的证明。
 
-**实施/备选。** 选 D1 graph 内 scope，先在现有Windows环境核实官方客户端，再用G/A/X/B/Y/C半透明重叠自有输入区分父位置、末子位置与flat顺序，再冻结order lowering；不能把当前last-child触发或设计父位置猜测当官方事实。局部变换/clip与依赖闭包亦须明确；保留父 viewport extent，颜色域沿 D2，新增 target 仍计唯一预算。拒绝“放宽 capture形状”与另建renderer。成员未完成/资源失败时局部保留安全父结果，不泄漏半组；hazard/身份错误拒绝最小 unsafe group。
+**实施/备选。** 先在已核身份的Windows官方客户端用自有composition区分below非child/above child是否入源，校准GUI层序与JSON方向，再核真实copybackground/passthrough控件、区域与无effect行为。顺序的父slot/末child候选必须以已证采集域为前提。定案后更新D1并批准实施；保留正确capture owner，删除错误parent→membership分派，只有明确作者隔离profile才实现group scope。prepared与实际encode必须消费同一source，资源clear/extent/lease不变量不能证明隔离语义。
 
-**纠正门/退役。** 三子层各多effect、两个交错非成员、组半透明、嵌套/旋转/外扩、跨组引用及失败/resize/迟到completion；实际source→effect→publication→terminal→next-frame与ROI，普通帧prepare次数不增长。隔离3226487183只作为回归，不作分派。通用scope闭合、旧捕获形状路撤权后交稳定架构并退役此卡。
+**纠正门/退役。** 自写parent单变量、非child颜色、区域内外、child自身effect、root无effect及模式切换；实际source→effect→publication→terminal→next-frame与ROI，相称resize/迟到completion门，普通帧prepare次数不增长。真实样本只作回归；行为合同与实现闭合、无依据路撤权后交稳定架构并退役。
 
 ## 3. 全部59项去向
 

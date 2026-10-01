@@ -439,7 +439,7 @@
       "path": "docs/scene/design/composition-render-target-design.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/design/batch2-design-index.md",
-      "retirementCondition": "组隔离目标、作者顺序与失败事务通过实施门且并入稳定架构后，归档本文并删除对应设计登记。"
+      "retirementCondition": "composition采集范围、顺序、实际source及目标生命周期获得明确行为合同并通过实施门，稳定架构接管且无依据分派撤权或由已证profile接管后归档。"
     },
     {
       "path": "docs/scene/design/copy-pass-unification-design.md",

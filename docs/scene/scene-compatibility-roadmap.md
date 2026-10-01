@@ -131,7 +131,7 @@ tracked full matrix 扩为全集 identity-only 基线。历史期待先分成有
 | 已验收、按职责提交 | RF03 连续排放播放控制 | 缺省/0 duration 系统能 pause/stop/play/query；反例、真实App与终审见实施卡执行记录。下一批 RF05 隐藏 provider。 |
 | 已验收、按职责提交 | RF05 named provider 准备与显示分离 | 三产品复用现役引用/准入/capture；冻结证据见实施卡。后继 optional 三候选局部失败片亦已验收；继续 D1。 |
 | 已验收、按职责提交 | [optional/named 未支持组合的失败半径](design/runtime-architecture.md#33-保留事务安全不扩大视觉失败半径) | 同一原失败输入已恢复首帧与next-frame，effect保留入口、邻层正常、exact-two仍执行；冻结证据见[执行记录](../history/scene/rf05-optional-named-failure-implementation-2026-10-02.md)。不扩三候选支持，下一批D1。 |
-| 下一能力主批 | D1 非连续且带效果的 composition 子层 | 先黑盒区分父slot与末后代slot，再复用现役 graph 已有 isolated target scope，解除普通图片父子树的准入缺边并核实际source；独立子效果→组输出→父级唯一 compositor，先作者自写交错 fixture，再隔离真实样本。extent/颜色域/嵌套/失败/resize 必须随片闭合，旧捕获形状路能撤即撤。 |
+| 当前能力主批 | D1 composition 实际采集与效果输出 | 旧parent后代=隔离成员的方案已撤回。先用固定官方客户端判below非child与above child的采集行为，再核copybackground/passthrough、区域及顺序；沿现役source/graph/lease/compositor修真实断点，删除无依据分派。没有明确作者隔离模式则不扩group target。自写正反例→隔离样本，source/extent/颜色/失败/resize随实际profile闭合。 |
 | 并行证据、就绪后接续 | RF02 companion 与 RF04 mip | 使用现有 Windows VM 核官方客户端身份，执行自有可区分黑盒输入；结果限定 profile 后实现反射→typed值→真实 sampler 或 source version→snapshot→consumer。不能按名称猜值，也不能无限期停在待证；每轮记录具体实验与下一可执行动作。 |
 | 后续作者能力 | D4/D11 显式 emitParticles | 单 emitter 的明确 count 与真实 birth/预算/事务先闭合，再据证扩多 emitter/children；不把 play 当 reset，不擅定默认 count。重建/拒绝不可重复出生。 |
 | 后续画质能力 | D3 材质 normal 接收与 PBR，再阴影 | 先取得实际作者 map slot/purpose/坐标合同，落 normal-light 可见响应，再 metallic/roughness 及有合法 caster/depth 输入的阴影；每片跨材质/灯光/姿态反例独立验收。不能凭首片 diffuse 声称完整 PBR。 |

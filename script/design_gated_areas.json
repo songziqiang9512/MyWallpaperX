@@ -54,12 +54,15 @@
     },
     {
       "id": "scene-composition-render-target",
-      "title": "组合组独立渲染目标（composition subtree / model→material 合成 graph）",
+      "title": "composition采集范围、source与目标生命周期",
       "owner": "scene-e-route",
-      "status": "approved",
+      "status": "blocked-pending-design",
       "designDoc": "docs/scene/design/composition-render-target-design.md",
-      "design_notes": "render graph 的 target 生命周期与作者顺序解耦，横跨 executor/graph/资源三层；3226487183 层 2522 错位的根治路径，与缺口 1 同批。 设计裁决、限定准入、owner 与退役条件见 designDoc；approved 不表示运行能力或发布验收。",
-      "matchPatterns": [],
+      "design_notes": "2026-10-02公开composition camera/all-below说明与parent-only隔离假设冲突；先黑盒判采集范围、模式与顺序。旧无条件subtree设计撤回，按designDoc重新裁决后才能实施。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceRoute.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift"
+      ],
       "contentPatterns": [
         "SceneCompositionRenderTarget",
         "compositionGroupRenderTarget"
