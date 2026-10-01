@@ -179,7 +179,7 @@ continue
 
 ### 3.3 保留事务安全，不扩大视觉失败半径
 
-现有 target pool、resource generation、frame reservation、publication、command-buffer completion、rollback、epoch invalidation 和唯一 terminal compositor owner 是应保留的底座。提交准入只消费 ledger 相位、command buffer 身份、prepared blueprint 和资源/tail 完整性；这些产品检查在诊断开启或关闭时完全一致。pending submission 只保存 GPU 终结所需状态，不保存预先生成的成功 observation，也不以 observation 字典的成员集合证明 ledger 完整。
+现有 target pool、resource generation、frame reservation、publication、command-buffer completion、rollback、epoch invalidation 和唯一 terminal compositor owner 是应保留的底座。 HDR 保留画面的原始颜色属于同一 target pool/residency 与 submission completion 权威：作者合成的 completed raw 和 candidate raw 与显示 scratch 分离，Bloom/显示映射不得回写 raw；只有同 epoch 的 GPU 成功候选才能成为下一帧历史。空 graph、同帧纯导出和精确尺寸 display scratch 同样持有 terminal pin，reset 不提前释放在飞预算。同 epoch 同 simulation frame 不重复作者合成；新 extent/epoch 使用已存 snapshot 重绘，更新 render-only viewport/camera 而不推进 VM/模拟。提交准入只消费 ledger 相位、command buffer 身份、prepared blueprint 和资源/tail 完整性；这些产品检查在诊断开启或关闭时完全一致。pending submission 只保存 GPU 终结所需状态，不保存预先生成的成功 observation，也不以 observation 字典的成员集合证明 ledger 完整。
 
 完整 terminal observation、graph hash 和逐节点证据只在主动诊断或 benchmark 模式的真实 GPU 终结后构造。观测构造失败由既有 diagnostic 通道报告该 ledger/effect 的证据缺失，不能改变产品提交、已完成的 history promotion、pin 释放或后续帧准入；证据缺失不能计为验收成功。必要的安全检查归提交 owner，不能只放在观测 builder 中。此次边界收敛由既有 SubmissionCoordinator 持有，不新增 observer registry、回退 route 或平行提交 owner；删除 pending observation 存储和 observation 对 seal 的返回依赖后，以诊断开/关、观测失败、GPU 失败、stale completion 与 next-frame 的行为反例验证。
 

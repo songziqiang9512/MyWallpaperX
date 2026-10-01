@@ -95,15 +95,12 @@ final class SceneOffscreenTexturePool {
 
     func compositionTarget(
         width requestedWidth: Int,
-        height requestedHeight: Int
+        height requestedHeight: Int,
+        extentPolicy: SceneFullFrameExtentPolicy = .standard
     ) -> CompositionTarget? {
-        let (width, height) = SceneOffscreenResolutionPolicy.limitedDimensions(
-            width: requestedWidth,
-            height: requestedHeight,
-            maximumDimension: SceneOffscreenResolutionPolicy.maximumDimension(
-                hardLimit: maxDimension, includesAuthoredShader: false
-            )
-        )
+        guard let (width, height) = SceneOffscreenResolutionPolicy.resolvedDimensions(
+            width: requestedWidth, height: requestedHeight,
+            hardLimit: maxDimension, policy: extentPolicy) else { return nil }
         let key = CacheKey.composition(width: width, height: height)
         if let cached = allocationCache.allocation(for: key),
            case .composition(let texture, _) = cached {

@@ -108,7 +108,7 @@ final class SceneOffscreenTextureAllocationCache {
         var total = initial
         let victims = values.compactMap { key, entry -> (ResidentKey, Entry)? in
             guard entry.submissionPins.isEmpty,
-                  !entry.isResetInvalidated else { return nil }
+                  !entry.isResetInvalidated, entry.sceneColorPins.isEmpty else { return nil }
             switch key {
             case .current(let current) where protected.contains(current): return nil
             case .current, .retired: break
@@ -172,14 +172,16 @@ extension SceneOffscreenTextureAllocationCache {
             guard let located = residents.first(where: {
                 $0.value.submissionPins[identity] != nil
                     || $0.value.historyPins[identity] != nil
+                    || $0.value.sceneColorPins.contains(identity)
             }) else { return }
             let key = located.key
             var entry = located.value
             entry.submissionPins.removeValue(forKey: identity)
             entry.historyPins.removeValue(forKey: identity)
+            entry.sceneColorPins.remove(identity)
             residents.removeValue(forKey: key)
             switch key {
-            case .current(.layerGraph), .current(.sharedGraphPair):
+            case .current(.layerGraph), .current(.sharedGraphPair), .current(.sceneColor), .current(.composition):
                 residents[key] = entry
             case .history(let graphKey, _):
                 if let history = entry.historyOnlyEntry() {
@@ -187,7 +189,9 @@ extension SceneOffscreenTextureAllocationCache {
                 }
             case .retired(let generation):
                 if !entry.submissionPins.isEmpty { residents[key] = entry }
-                else if let history = entry.historyOnlyEntry() {
+                else if case .sceneColor = entry.allocation, !entry.sceneColorPins.isEmpty {
+                    residents[key] = entry
+                } else if let history = entry.historyOnlyEntry() {
                     if entry.isResetInvalidated { residents[key] = history }
                     else if case .history(let value) = history.allocation {
                         residents[.history(value.plan.key, generation)] = history
@@ -227,6 +231,7 @@ extension SceneOffscreenTextureAllocationCache {
 
     nonisolated enum Key: Hashable {
         case composition(width: Int, height: Int)
+        case sceneColor(width: Int, height: Int)
         /// D1 composition-group target: one isolated allocation per logical
         /// group and extent, so simultaneous groups never share storage the
         /// way the neutral composition copy target may.
@@ -238,6 +243,7 @@ extension SceneOffscreenTextureAllocationCache {
 
     enum Allocation {
         case composition(MTLTexture, PhysicalIdentity)
+        case sceneColor(SceneOffscreenTexturePool.SceneColorTargets)
         case sharedGraphPair(
             SceneOffscreenTexturePool.SharedGraphPair,
             PhysicalIdentity
@@ -249,6 +255,7 @@ extension SceneOffscreenTextureAllocationCache {
         var generation: UInt64 {
             switch self {
             case .composition(_, let identity): identity.generation
+            case .sceneColor(let targets): targets.identity.generation
             case .sharedGraphPair(_, let identity): identity.generation
             case .graph(let lease): lease.generation
             case .layerGraph(let graph): graph.generation
@@ -259,6 +266,7 @@ extension SceneOffscreenTextureAllocationCache {
         var textureCount: Int {
             switch self {
             case .composition: 1
+            case .sceneColor: 3
             case .sharedGraphPair: 2
             case .graph(let lease): lease.table.residentTextureCount
             case .layerGraph(let graph): graph.textureCount
@@ -280,9 +288,10 @@ extension SceneOffscreenTextureAllocationCache {
         var byteCost: Int
         var submissionPins: [UUID: SubmissionPin] = [:]
         var historyPins: [UUID: HistoryPin] = [:]
+        var sceneColorPins: Set<UUID> = []
         var isResetInvalidated = false
         var lastAccess: UInt64
-        var isPinned: Bool { !submissionPins.isEmpty || !historyPins.isEmpty }
+        var isPinned: Bool { !submissionPins.isEmpty || !historyPins.isEmpty || !sceneColorPins.isEmpty }
         var historyTokens: Set<Token> {
             historyPins.values.reduce(into: Set<Token>()) {
                 $0.formUnion($1.tokens)
@@ -327,6 +336,7 @@ extension SceneOffscreenTextureAllocationCache {
         }
 
         func historyOnlyEntry() -> Self? {
+            if case .sceneColor = allocation, !sceneColorPins.isEmpty { return self }
             let tokens = historyTokens
             guard !tokens.isEmpty else { return nil }
             let history: SceneGraphHistoryResidency?

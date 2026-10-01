@@ -71,6 +71,8 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         var gpuStatus: SceneGraphExecutionGPUCompletionStatus?
         var cancellationReason: String?
         var retiredHistoryPins: [SceneGraphRenderTargetResidencyPin]
+        var sceneColor: SceneColorReservation? = nil
+        var displayScratchPin: SceneGraphRenderTargetResidencyPin? = nil
     }
 
     struct CommandBufferRecord {
@@ -111,6 +113,9 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     var frameSealed = false
     var frameRequiresDrop = false
     var frameWaitsForPendingSubmission = false
+    var completedSceneColor: SceneColorReservation?
+    var preparedSceneColor: SceneColorReservation?
+    var preparedDisplayScratch: (commandBufferID: ObjectIdentifier, pin: SceneGraphRenderTargetResidencyPin)?
     var committedTails: [Graph.EffectKey: Tail] = [:]
     var scheduledTails: [Graph.EffectKey: Tail] = [:]
     var activeByID: [UInt64: PreparedLedger] = [:]
@@ -213,7 +218,8 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     /// dependent command buffers reach a terminal callback. No new frame may
     /// derive state from that suffix even when nominal capacity remains.
     func submissionQueueAcceptsFrameLocked() -> Bool {
-        pendingSubmissions.count < Self.maximumPendingSubmissions
+        !pendingSubmissions.contains(where: { $0.sceneColor != nil })
+            && pendingSubmissions.count < Self.maximumPendingSubmissions
             && pendingSubmissions.allSatisfy {
                 $0.cancellationReason == nil && $0.finalTails.isEmpty
             }

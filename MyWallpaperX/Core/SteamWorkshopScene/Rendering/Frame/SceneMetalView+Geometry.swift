@@ -26,6 +26,9 @@ extension SceneMetalView {
         )
         if metalLayer.drawableSize != pixelSize {
             metalLayer.drawableSize = pixelSize
+            if renderer.renderDescriptor.hdrEnabled && !renderer.renderDescriptor.camera.clearEnabled {
+                invalidateResolvedMaterialRuntime(reason: .allocationReprepare)
+            }
         }
     }
 }

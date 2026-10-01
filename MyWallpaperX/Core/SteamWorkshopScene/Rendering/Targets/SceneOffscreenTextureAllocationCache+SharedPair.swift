@@ -21,6 +21,8 @@ struct SceneOffscreenTextureAllocationCandidate {
     var keyMatchesAllocation: Bool {
         switch (key, allocation) {
         case (.composition, .composition): true
+        case let (.sceneColor(width, height), .sceneColor(targets)):
+            targets.first.width == width && targets.first.height == height
         case (.sharedGraphPair, .sharedGraphPair): true
         case (.graph(let effect), .graph(let lease)):
             lease.table.plan.output.effect == effect

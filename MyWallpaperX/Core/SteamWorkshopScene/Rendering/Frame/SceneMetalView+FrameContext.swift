@@ -11,6 +11,7 @@ extension SceneMetalView {
     ) {
         renderer.imageCompositor.invalidateResolvedMaterialRuntime(reason: reason)
         offscreenTexturePool.reset()
+        onRenderInvalidated?()
     }
 
     func makeFrameContext(

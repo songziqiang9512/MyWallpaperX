@@ -103,6 +103,7 @@ extension SceneOffscreenTextureAllocationCache {
             }
             let requiredByFrame: Bool = switch key {
             case .current(let current): requiredSharedPairKeys.contains(current)
+                    || !entry.sceneColorPins.isEmpty
             default: false
             }
             return SceneOffscreenTextureFramePreflight.Resident(

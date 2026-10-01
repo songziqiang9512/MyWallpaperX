@@ -1192,6 +1192,30 @@
       ]
     },
     {
+      "id": "persistent-color-output",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/*SceneColor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/*SceneColor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDisplayMappingPostProcess*",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexture*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+Geometry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+FrameContext.swift",
+        "script/tests/test_scene_persistent_color_*.py",
+        "script/tests/fixtures/ScenePersistentColor*",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ClearColor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
+      ],
+      "modules": [
+        "test_scene_persistent_color_output",
+        "test_scene_persistent_color_integration",
+        "test_scene_offscreen_texture_pool",
+        "test_scene_resolved_material_runtime_bridge"
+      ]
+    },
+    {
       "id": "particle-playback-author",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+ParticlePlayback.swift",

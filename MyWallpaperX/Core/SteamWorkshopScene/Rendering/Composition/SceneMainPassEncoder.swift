@@ -9,6 +9,7 @@ final class SceneMainPassEncoder {
     private var activeEncoder: MTLRenderCommandEncoder?
     private var activeDepthTexture: MTLTexture?
     private var isFinished = false
+    private var encodingFailed = false
 
     var targetExtent: (width: Int, height: Int) {
         (target.width, target.height)
@@ -56,6 +57,7 @@ final class SceneMainPassEncoder {
             descriptor.depthAttachment.storeAction = .store
         }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else {
+            encodingFailed = true
             return nil
         }
         encoder.label = "Scene main layer composite"
@@ -87,13 +89,15 @@ final class SceneMainPassEncoder {
         return operation(target, commandBuffer)
     }
 
-    func finishEnsuringClear() {
-        guard !isFinished else { return }
+    @discardableResult
+    func finishEnsuringClear() -> Bool {
+        guard !isFinished else { return !encodingFailed }
         if activeEncoder == nil {
             _ = encoder()
         }
         activeEncoder?.endEncoding()
         activeEncoder = nil
         isFinished = true
+        return !encodingFailed
     }
 }

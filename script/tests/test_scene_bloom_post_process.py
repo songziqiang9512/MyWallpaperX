@@ -257,7 +257,7 @@ enum SceneGPUCensus {
     // Independent, frozen behavior anchors rather than a second curve formula.
     results["dmCurveAnchors"] = [Float(1), 1.5, 3, 5, 12].map { curve.evaluate($0) }
 
-    let mapping = SceneDisplayMappingPostProcess(device: device, pixelFormat: .rgba16Float, hdrEnabled: true, clearEnabled: true)!
+    let mapping = SceneDisplayMappingPostProcess(device: device, pixelFormat: .rgba16Float, hdrEnabled: true)!
     func float16Texture(
       _ width: Int, _ height: Int, _ texels: [[Float16]]
     ) -> (texture: MTLTexture, bytes: [Float16]) {
@@ -289,7 +289,18 @@ enum SceneGPUCensus {
     ) -> Bool {
       let buffer = queue.makeCommandBuffer()!
       MWXArmEncoderFault(buffer, UInt(failEncoder))
-      let encoded = pass?.encode(source: source, commandBuffer: buffer) ?? false
+      let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: source.pixelFormat, width: source.width, height: source.height, mipmapped: false)
+      descriptor.storageMode = .shared
+      descriptor.usage = [.shaderRead, .renderTarget]
+      let target = device.makeTexture(descriptor: descriptor)!
+      let encoded = pass?.encode(source: source, target: target, commandBuffer: buffer) ?? false
+      if encoded, let copy = buffer.makeBlitCommandEncoder() {
+        copy.copy(from: target, sourceSlice: 0, sourceLevel: 0, sourceOrigin: .init(x: 0, y: 0, z: 0),
+          sourceSize: .init(width: source.width, height: source.height, depth: 1),
+          to: source, destinationSlice: 0, destinationLevel: 0, destinationOrigin: .init(x: 0, y: 0, z: 0))
+        copy.endEncoding()
+      }
       buffer.commit()
       buffer.waitUntilCompleted()
       precondition(buffer.status == .completed && buffer.error == nil)
@@ -377,28 +388,30 @@ enum SceneGPUCensus {
     // Non-HDR route is nil even if a target uses floating-point storage.
     let bypass = float16Texture(2, 1, [[0.75, 1, 3, 1], [0.25, 0.5, 0, 1]])
     let nonHDRMapping = SceneDisplayMappingPostProcess(
-      device: device, pixelFormat: .rgba16Float, hdrEnabled: false, clearEnabled: true)
+      device: device, pixelFormat: .rgba16Float, hdrEnabled: false)
     results["dmNilRouteZeroWork"] = nonHDRMapping == nil && !runMapping(nonHDRMapping, bypass.texture)
       && MWXEncoderAttempts() == 0 && readFloat16(bypass.texture, 2, 1) == bypass.bytes
 
     // An accumulating main pass must not repeatedly map retained display RGB.
     // The real main-pass owner keeps its attachment when clear is disabled.
     let accumulatingMapping = SceneDisplayMappingPostProcess(
-      device: device, pixelFormat: .rgba16Float, hdrEnabled: true, clearEnabled: false)
+      device: device, pixelFormat: .rgba16Float, hdrEnabled: true)
     let retained = float16Texture(1, 1, [[0.75, 0.75, 0.75, 1]])
+    let display = float16Texture(1, 1, [[0, 0, 0, 1]])
     for _ in 0..<2 {
       let buffer = queue.makeCommandBuffer()!
       let mainPass = SceneMainPassEncoder(
         commandBuffer: buffer, target: retained.texture,
         clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
       mainPass.finishEnsuringClear()
-      accumulatingMapping?.encode(source: retained.texture, commandBuffer: buffer)
+      accumulatingMapping?.encode(source: retained.texture, target: display.texture, commandBuffer: buffer)
       buffer.commit()
       buffer.waitUntilCompleted()
       precondition(buffer.status == .completed && buffer.error == nil)
     }
     results["dmAccumulatingPassUnchanged"] =
       readFloat16(retained.texture, 1, 1) == retained.bytes
+      && abs(Float(readFloat16(display.texture, 1, 1)[0]) - 2.0 / 3.0) <= 1.0 / 1024.0
 
     // Encoder failure mid-chain must preserve the source (blit is read-only).
     let faultTexels: [[Float16]] = [
@@ -419,12 +432,12 @@ enum SceneGPUCensus {
 
     // Launch-time pipeline failure: nil instance, no-op encode, then recovery.
     MWXArmPipelineFault(device, 1)
-    let broken = SceneDisplayMappingPostProcess(device: device, pixelFormat: .rgba16Float, hdrEnabled: true, clearEnabled: true)
+    let broken = SceneDisplayMappingPostProcess(device: device, pixelFormat: .rgba16Float, hdrEnabled: true)
     results["dmPipelineFailure1"] = broken == nil && MWXPipelineAttempts() == 1
     let noopCase = float16Texture(1, 1, [[3, 3, 3, 1]])
     let noopBuffer = queue.makeCommandBuffer()!
     MWXArmEncoderFault(noopBuffer, 0)
-    broken?.encode(source: noopCase.texture, commandBuffer: noopBuffer)
+    broken?.encode(source: noopCase.texture, target: float16Texture(4, 1, faultTexels).texture, commandBuffer: noopBuffer)
     noopBuffer.commit()
     noopBuffer.waitUntilCompleted()
     let noopReadback = readFloat16(noopCase.texture, 1, 1)
@@ -432,7 +445,7 @@ enum SceneGPUCensus {
       && noopReadback == noopCase.bytes && MWXEncoderAttempts() == 0
     MWXArmPipelineFault(device, 0)
     let recoveredMapping = SceneDisplayMappingPostProcess(
-      device: device, pixelFormat: .rgba16Float, hdrEnabled: true, clearEnabled: true)
+      device: device, pixelFormat: .rgba16Float, hdrEnabled: true)
     let recoveryEncoded = runMapping(recoveredMapping, noopCase.texture)
     let recoveryReadback = readFloat16(noopCase.texture, 1, 1)
     results["dmPipelineRecovery1"] = recoveredMapping != nil && recoveryEncoded

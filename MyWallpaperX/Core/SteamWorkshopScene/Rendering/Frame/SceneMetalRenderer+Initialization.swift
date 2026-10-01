@@ -30,13 +30,12 @@ extension SceneMetalRenderer {
                 device: device,
                 pixelFormat: renderDescriptor.colorTargetFormat.metalPixelFormat
             ) : nil
-        // Mapping requires a fresh opaque composite; accumulating scenes retain
-        // their existing output until pre-display history has a separate owner.
+        // Both HDR routes map a distinct opaque source; accumulating scenes
+        // retain raw scene color through the existing submission coordinator.
         self.displayMappingPostProcess = SceneDisplayMappingPostProcess(
             device: device,
             pixelFormat: renderDescriptor.colorTargetFormat.metalPixelFormat,
-            hdrEnabled: renderDescriptor.hdrEnabled,
-            clearEnabled: renderDescriptor.camera.clearEnabled
+            hdrEnabled: renderDescriptor.hdrEnabled
         )
         self.baseMaterialProviderBindings = baseMaterialProviderBindings
         self.stockNoiseTextures = stockNoiseTextures

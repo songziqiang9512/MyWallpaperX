@@ -229,6 +229,35 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/**/*.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-persistent-color-output",
+      "title": "RF07 clear=false raw sceneColor 与显示输出分离",
+      "owner": "scene-target-residency-and-submission",
+      "status": "approved",
+      "designDoc": "docs/scene/design/hdr-tonemap-edr-design.md",
+      "design_notes": "五判据1/2命中：跨target/residency/completion/terminal输出。D2 RF07段经独立只读设计复核，收紧同帧新epoch bootstrap、显示降级raw提升与display-only pin合同后批准；不代表实现验收。退役：多帧raw/display及失败门完成、稳定输出合同接管后删除登记。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/**/SceneResolvedMaterialSubmissionCoordinator+SceneColor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDisplayMappingPostProcess.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ClearColor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+FrameContext.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+Geometry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool+SceneColor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureResidency.swift"
+      ],
+      "contentPatterns": [
+        "SceneColorHistory",
+        "reserveSceneColor",
+        "sceneColorHistory",
+        "terminalSceneColor"
+      ]
     }
   ]
 }

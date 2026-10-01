@@ -14,7 +14,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     ) {
         var emission = Emission()
         lock.lock()
-        if frameIsActive || !activeTransactions.isEmpty {
+        if frameIsActive || !activeTransactions.isEmpty || preparedSceneColor != nil || preparedDisplayScratch != nil {
             emission = failActiveFrameLocked(reason: "frame-reentered-before-end")
         }
         frameIsActive = true
@@ -50,7 +50,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     func invalidate(reason: SceneGraphExecutionResetReason) {
         lock.lock()
         var emission = Emission()
-        if !activeTransactions.isEmpty {
+        if !activeTransactions.isEmpty || preparedSceneColor != nil || preparedDisplayScratch != nil {
             emission.append(failActiveFrameLocked(reason: reason.rawValue))
         }
         let pendingIDs = Set(pendingSubmissions.flatMap(\.ledgerIDs))
@@ -60,6 +60,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 as: .failed(reasonCode: reason.rawValue, gpu: nil)
             ))
         }
+        completedSceneColor?.lease.retention.release()
+        completedSceneColor = nil
         let committedPins = committedTails.values.compactMap(\.historyPin)
         if pendingSubmissions.isEmpty {
             releasePins(committedPins)
@@ -149,7 +151,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     func endFrame() -> [String] {
         var emission = Emission()
         lock.lock()
-        if !frameSealed && !activeTransactions.isEmpty {
+        if !frameSealed && (!activeTransactions.isEmpty || preparedSceneColor != nil || preparedDisplayScratch != nil) {
             frameFailures += 1
             emission = failActiveFrameLocked(reason: "frame-ended-before-seal")
         }

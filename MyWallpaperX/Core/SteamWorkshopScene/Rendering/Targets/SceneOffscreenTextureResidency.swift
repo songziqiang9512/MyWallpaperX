@@ -93,6 +93,7 @@ final class SceneGraphRenderTargetResidencyPin: @unchecked Sendable {
 
     enum Purpose: Hashable {
         case submission
+        case sceneColor
         case history(EffectKey, Set<Token>)
     }
 

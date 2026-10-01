@@ -201,6 +201,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         reason: String
     ) -> Emission {
         frameRequiresDrop = true
+        cancelPreparedSceneColorLocked()
         var emission = Emission()
         let identities = activeTransactions
         let bufferIdentities = Set(identities.compactMap {
@@ -511,7 +512,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             emit(emission)
             return false
         }
-        guard !activeTransactions.isEmpty else {
+        guard !activeTransactions.isEmpty || preparedSceneColor != nil || preparedDisplayScratch != nil else {
             frameSealed = true
             lock.unlock()
 #if DEBUG
@@ -520,7 +521,9 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             return true
         }
         let commandBufferIdentity = ObjectIdentifier(commandBuffer)
-        guard let observedBuffer = commandBufferRecords[commandBufferIdentity],
+        guard preparedDisplayScratch.map({ $0.commandBufferID == commandBufferIdentity }) != false,
+              preparedSceneColor.map({ $0.commandBufferID == commandBufferIdentity && $0.displayMapped != nil }) != false,
+              let observedBuffer = commandBufferRecords[commandBufferIdentity],
               observedBuffer.buffer === commandBuffer,
               activeTransactions.allSatisfy({ identity in
             guard let ledger = activeByID[identity],
@@ -560,8 +563,12 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             finalTails: scheduledTails,
             gpuStatus: nil,
             cancellationReason: nil,
-            retiredHistoryPins: []
+            retiredHistoryPins: [],
+            sceneColor: preparedSceneColor,
+            displayScratchPin: preparedDisplayScratch?.pin
         ))
+        preparedSceneColor = nil
+        preparedDisplayScratch = nil
         activeTransactions.removeAll(keepingCapacity: true)
         frameSealed = true
         lock.unlock()

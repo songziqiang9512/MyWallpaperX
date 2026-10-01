@@ -620,6 +620,15 @@ final class SceneDesktopWallpaperSession {
                 metalView: metalView,
                 scriptGeneration: launchContext.propertyVectorScriptProgram.generation
             )
+            if let surface = surfaces[screenID] {
+                metalView.onRenderInvalidated = { [weak self, weak surface] in
+                    DispatchQueue.main.async { [weak self, weak surface] in
+                        guard let self, let surface, self.surfaces[screenID] === surface else { return }
+                        surface.didSubmitSimulationFrame = false
+                        if self.sceneClock.isPaused { self.startFrameDriver() }
+                    }
+                }
+            }
             created = true
         }
 

@@ -438,12 +438,12 @@ enum DebugScenePlaybackRunner {
                     accepted ? "true" : "false"
                 )
                 guard accepted else { return }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    requestSnapshot(
-                        reason: String(format: "resize-%02d", index),
-                        outputDirectory: outputDirectory
-                    )
-                }
+                // Resize invalidation schedules the paused redraw on the
+                // main queue. Reserve capture before it consumes that frame.
+                requestSnapshot(
+                    reason: String(format: "resize-%02d", index),
+                    outputDirectory: outputDirectory
+                )
             }
         }
     }

@@ -425,6 +425,7 @@
           "SceneResolvedMaterialSubmissionCoordinator+Execution.swift",
           "SceneResolvedMaterialSubmissionCoordinator+FrameCommit.swift",
           "SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift",
+          "SceneResolvedMaterialSubmissionCoordinator+SceneColor.swift",
           "SceneResolvedMaterialSubmissionCoordinator.swift"
         ],
         "responsibility": "Graph: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
@@ -480,6 +481,7 @@
           "SceneOffscreenTextureAllocationCache.swift",
           "SceneOffscreenTextureFramePreflight.swift",
           "SceneOffscreenTexturePool+PersistentGraphTargets.swift",
+          "SceneOffscreenTexturePool+SceneColor.swift",
           "SceneOffscreenTexturePool.swift",
           "SceneOffscreenTextureResidentBudgetPolicy.swift",
           "SceneOffscreenTextureResidency.swift",

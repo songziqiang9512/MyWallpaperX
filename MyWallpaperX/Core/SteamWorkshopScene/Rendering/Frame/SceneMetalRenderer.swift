@@ -10,7 +10,7 @@ struct SceneMetalRenderer {
     // E2/Q1T: scene-level bloom post process (authored general.bloom).
     // Class instance so the enclosing struct stays value-semantics.
     let bloomPostProcess: SceneBloomPostProcess?
-    // Terminal SDR mapping is prepared only for HDR scenes that clear each frame.
+    // Terminal SDR mapping consumes a distinct, unmapped scene color source.
     let displayMappingPostProcess: SceneDisplayMappingPostProcess?
     let stockNoiseTextures: SceneStockNoiseTextureStore
     let pipelineRepository: SceneImageEffectPipelineRepository
@@ -96,6 +96,8 @@ struct SceneMetalRenderer {
         defer {
             if !didTransferFrameOwnership {
                 sourceUpdateTransaction.cancel()
+                imageCompositor.cancelUnsubmittedResolvedMaterialFrame(on: commandBuffer)
+                imageCompositor.resolvedMaterialRuntime?.endFrame()
                 discardUnsubmittedFrameResources()
             }
         }
@@ -112,6 +114,40 @@ struct SceneMetalRenderer {
             SceneDesktopWallpaperHost.usesDebugEvidenceWindow
             ? effectExecutionTelemetry.makeFrame(frameIndex: frameContext.frameIndex)
             : nil
+        beginTextureFrame(imageTextures, userPropertyTextures, userPropertyTextureStates,
+                          mediaThumbnail, frameContext)
+        let colorStart = encodeSceneColorStart(pool: offscreenTexturePool, target: drawable.texture,
+            frameIndex: frameContext.frameIndex, clearEnabled: frameProjection.descriptor.camera.clearEnabled,
+            commandBuffer: commandBuffer)
+        if let failure = colorStart.failure { return failure }
+        let sceneColor = colorStart.reservation
+        let mainTarget = sceneColor?.raw ?? drawable.texture
+        var particleBatches: [SceneParticleDrawBatch] = []
+        var particlePerformanceObservations: [SceneParticlePerformanceObservation]? =
+            performanceTelemetry == nil ? nil : []
+        defer {
+            if !didTransferFrameOwnership {
+                if let commandBuffer = particleSubmissionCommandBuffer,
+                   commandBuffer.status == .notEnqueued {
+                    // A command accepted by Metal owns every marked slot until its
+                    // completion handler. Only the pre-enqueue window may be rolled
+                    // back after a synchronous renderer failure.
+                    particleBatches.forEach {
+                        _ = $0.instanceBuffer.cancelUncommittedSubmission(
+                            on: commandBuffer
+                        )
+                    }
+                    particleBatches.forEach {
+                        _ = $0.instanceBuffer.cancelPending()
+                    }
+                } else if particleSubmissionCommandBuffer == nil {
+                    particleBatches.forEach {
+                        _ = $0.instanceBuffer.cancelPending()
+                    }
+                }
+            }
+        }
+        if sceneColor?.requiresDraw != false {
         performanceTelemetry?.beginStage("source-update")
         let hubSourceUpdateStart = ProcessInfo.processInfo.systemUptime
         encodeSourceUpdates?(commandBuffer, sourceUpdateTransaction)
@@ -191,7 +227,7 @@ struct SceneMetalRenderer {
             worldFramesByLayerID: frameWorldFrames,
             cameraFrame: cameraFrame,
             parallaxConfiguration: parallaxConfiguration,
-            mainTarget: drawable.texture,
+            mainTarget: mainTarget,
             commandBuffer: commandBuffer,
             frameLightSnapshot: frameLightSnapshot
         )
@@ -215,42 +251,18 @@ struct SceneMetalRenderer {
         performanceTelemetry?.beginStage("prepass-particles")
         // CPU simulation produces immutable instances even while a display is
         // unavailable. Acquire/upload a ring slot only for an admitted draw.
-        let particleBatches = preparedParticleBatches.filter {
+        particleBatches = preparedParticleBatches.filter {
             $0.instanceBuffer.update(device: device, instances: $0.instances)
         }
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
-        var particlePerformanceObservations: [SceneParticlePerformanceObservation]? =
-            performanceTelemetry == nil ? nil : []
         performanceTelemetry?.endStage("prepass-particles")
-        defer {
-            if !didTransferFrameOwnership {
-                if let commandBuffer = particleSubmissionCommandBuffer,
-                   commandBuffer.status == .notEnqueued {
-                    // A command accepted by Metal owns every marked slot until its
-                    // completion handler. Only the pre-enqueue window may be rolled
-                    // back after a synchronous renderer failure.
-                    particleBatches.forEach {
-                        _ = $0.instanceBuffer.cancelUncommittedSubmission(
-                            on: commandBuffer
-                        )
-                    }
-                    particleBatches.forEach {
-                        _ = $0.instanceBuffer.cancelPending()
-                    }
-                } else if particleSubmissionCommandBuffer == nil {
-                    particleBatches.forEach {
-                        _ = $0.instanceBuffer.cancelPending()
-                    }
-                }
-            }
-        }
         var stopsAfterClaimedFailure = false
         performanceTelemetry?.beginStage("prepass-encoder")
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
-            target: drawable.texture,
+            target: mainTarget,
             clearColor: sceneClearColor,
-            clearEnabled: frameDescriptor.camera.clearEnabled
+            clearEnabled: frameDescriptor.camera.clearEnabled || (sceneColor != nil && sceneColor?.previous == nil)
         )
         performanceTelemetry?.endStage("prepass-encoder")
         // D1 composition groups: frame-local isolated group passes. Members
@@ -916,26 +928,9 @@ struct SceneMetalRenderer {
         // render encoder per command buffer.
         compositionGroupRuntime?.closeAllGroupEncoders()
 
-        performanceTelemetry?.beginStage("compositor-seal")
-        let hubCompositorSealStart = ProcessInfo.processInfo.systemUptime
-        mainPass.finishEnsuringClear()
-        // Bloom chain over the completed composite; readback then observes
-        // the bloomed frame. Fail-soft by contract.
-        bloomPostProcess?.encode(
-            configuration: renderDescriptor.camera.bloom.resolving(
-                frameContext.dynamicValues
-            ),
-            source: drawable.texture,
-            commandBuffer: commandBuffer
-        )
-        // Map once after bloom; readback observes the presented color.
-        // A failed mapping preserves the completed composite.
-        displayMappingPostProcess?.encode(
-            source: drawable.texture,
-            commandBuffer: commandBuffer
-        )
-        guard imageCompositor.endResolvedMaterialFrame(on: commandBuffer) else {
-            return .dropped(reasonCode: "resolved-material-frame-seal-rejected")
+        let mainEncoded = mainPass.finishEnsuringClear()
+        if sceneColor != nil && !mainEncoded {
+            return .dropped(reasonCode: "scene-color-main-encoder-unavailable")
         }
 #if DEBUG
         if collectsPointLightExecutionEvidence {
@@ -957,6 +952,12 @@ struct SceneMetalRenderer {
             commandBuffer: commandBuffer
         )
 #endif
+        }
+        performanceTelemetry?.beginStage("compositor-seal")
+        let hubCompositorSealStart = ProcessInfo.processInfo.systemUptime
+        if let failure = encodeTerminalColor(sceneColor: sceneColor, target: drawable.texture,
+            offscreenTexturePool: offscreenTexturePool, dynamicValues: frameContext.dynamicValues,
+            commandBuffer: commandBuffer) { return failure }
         let preparedFrame = PreparedFrame(commandBuffer: commandBuffer, submit: {
             encodeFrameReadback?(drawable.texture, commandBuffer)
             onDrawableWillPresent?(drawable)

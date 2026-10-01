@@ -24,13 +24,6 @@ extension SceneMetalRenderer {
         commandBuffer: MTLCommandBuffer,
         frameLightSnapshot: SceneLightSnapshot? = nil
     ) -> SceneMetalRenderer.ResolvedMaterialFrameAdmission {
-        // Publish this frame's typed resources before target sizing or source
-        // admission. Otherwise preflight reads a stale/empty registry while
-        // preparation later encodes the current provider into that target.
-        beginTextureFrame(
-            imageTextures, userPropertyTextures, userPropertyStates,
-            mediaThumbnail, frameContext
-        )
         // Source selection is frame-scoped: provider readiness and authored
         // fallback state are refreshed above, then shared by the single
         // preflight walk that also builds the preparation requests below.

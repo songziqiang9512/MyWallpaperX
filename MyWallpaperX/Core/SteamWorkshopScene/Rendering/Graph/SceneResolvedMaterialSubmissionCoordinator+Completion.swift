@@ -12,11 +12,15 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             return
         }
         let bufferID = ObjectIdentifier(commandBuffer)
+        if preparedSceneColor?.commandBufferID == bufferID || preparedDisplayScratch?.commandBufferID == bufferID {
+            cancelPreparedSceneColorLocked()
+        }
         guard let index = pendingSubmissions.firstIndex(where: {
             $0.commandBufferIdentities.contains(bufferID)
         }) else {
+            pruneCommandBufferRecordsLocked()
             lock.unlock()
-            return // No graph ledgers in a successfully sealed empty frame.
+            return // No pending submission; unsubmitted terminal reservation was released.
         }
         guard index == pendingSubmissions.count - 1,
               activeTransactions.isEmpty,
@@ -26,6 +30,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             return // Never release a different or already dependent candidate.
         }
         let cancelled = pendingSubmissions.removeLast()
+        cancelled.displayScratchPin?.release()
+        if let sceneColor = cancelled.sceneColor { completeSceneColorLocked(sceneColor, succeeded: false) }
         var emission = Emission()
         for identity in cancelled.ledgerIDs.reversed() {
             emission.append(terminalizeLedgerLocked(identity, as: .cancelled))
@@ -54,6 +60,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         for identity in activeTransactions.reversed() {
             emission.append(terminalizeLedgerLocked(identity, as: .cancelled))
         }
+        cancelPreparedSceneColorLocked()
         activeTransactions.removeAll(keepingCapacity: true)
         preparedLedgerByLayerID.removeAll(keepingCapacity: true)
         restoreScheduledTailsLocked()
@@ -124,7 +131,9 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         let pending = pendingSubmissions.reduce(into: Set<ObjectIdentifier>()) {
             $0.formUnion($1.commandBufferIdentities)
         }
-        let retained = active.union(pending)
+        var retained = active.union(pending)
+        if let id = preparedSceneColor?.commandBufferID { retained.insert(id) }
+        if let id = preparedDisplayScratch?.commandBufferID { retained.insert(id) }
         commandBufferRecords = commandBufferRecords.filter {
             retained.contains($0.key)
         }
@@ -149,6 +158,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                     ))
                 }
                 releasePins(head.retiredHistoryPins)
+                head.displayScratchPin?.release()
+                if let sceneColor = head.sceneColor { completeSceneColorLocked(sceneColor, succeeded: false) }
                 continue
             }
             guard let status = head.gpuStatus else { break }
@@ -166,6 +177,13 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 // State and history ownership become visible together while
                 // the serial lock is held. Observation failures cannot undo promotion.
                 committedTails = head.finalTails
+                head.displayScratchPin?.release()
+                if let sceneColor = head.sceneColor {
+                    completeSceneColorLocked(sceneColor, succeeded: true)
+                    if capturesExecutionObservations {
+                        emission.diagnostics.append("scene-color-completed frame=\(sceneColor.frameIndex) allocation=\(sceneColor.lease.targets.identity.generation) member=\(sceneColor.member) authoredDraw=\(sceneColor.requiresDraw) mapped=\(sceneColor.displayMapped == true)")
+                    }
+                }
                 for identity in head.ledgerIDs {
                     emission.append(terminalizeLedgerLocked(
                         identity,
@@ -217,14 +235,15 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         _ submission: PendingSubmission
     ) -> Bool {
         let identities = Set(submission.ledgerIDs)
-        guard !identities.isEmpty,
+        guard !identities.isEmpty || submission.sceneColor != nil || submission.displayScratchPin != nil,
               identities.count == submission.ledgerIDs.count,
               !submission.commandBufferIdentities.isEmpty else { return false }
         return submissionCanCommitLocked(submission)
     }
 
     func submissionCanCommitLocked(_ submission: PendingSubmission) -> Bool {
-        guard !submission.ledgerIDs.isEmpty,
+        guard !submission.ledgerIDs.isEmpty || submission.sceneColor != nil || submission.displayScratchPin != nil,
+              submission.sceneColor.map({ $0.epoch == executionEpoch && $0.matchesCurrentEpoch }) != false,
               tailsAreValid(submission.finalTails) else { return false }
         return submission.ledgerIDs.allSatisfy { identity in
             guard let ledger = activeByID[identity] else { return false }

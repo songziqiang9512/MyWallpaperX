@@ -158,9 +158,10 @@ class SceneMetalView: NSView {
         // Keep authored display-referred values and SDR presentation. Float
         // storage preserves precision; it does not opt the display into EDR.
         layer.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
-        // The display mapping pass blits the drawable to an intermediate
-        // texture, so it needs a readable framebuffer like bloom.
-        layer.framebufferOnly = renderer.bloomPostProcess == nil
+        // HDR terminal export needs blits even when optional mapping pipeline
+        // preparation fails: accumulating scenes safely export retained raw.
+        layer.framebufferOnly = !renderDescriptor.hdrEnabled
+            && renderer.bloomPostProcess == nil
             && renderer.displayMappingPostProcess == nil
             && !renderDescriptor.requiresReadableFramebuffer(
             sceneBackgroundLayerIDs: resolvedMaterialRuntime.sceneBackgroundLayerIDs,
@@ -522,6 +523,7 @@ class SceneMetalView: NSView {
         let mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot
         let spriteTimes: [Int: Float]
     }
+    var onRenderInvalidated: (() -> Void)?
     private var simulationFrame: SimulationFrame?
     var hasSimulationFrame: Bool { simulationFrame != nil }
     var simulationFrameIndex: UInt64 { simulationFrame?.timing.frameIndex ?? 0 }
@@ -595,9 +597,22 @@ class SceneMetalView: NSView {
             return .deferred(reasonCode: "simulation-frame-unavailable")
         }
         let timing = simulationFrame.timing
-        let frameContext = simulationFrame.context
+        let savedContext = simulationFrame.context
+        let frameContext: SceneFrameContext
+        if savedContext.screenSize != metalLayer.drawableSize {
+            let camera = renderer.renderDescriptor.camera
+            frameContext = SceneFrameContext(timing: savedContext.timing,
+                dynamicValues: savedContext.dynamicValues,
+                canvasSize: CGSize(width: CGFloat(camera.orthoWidth ?? Float(metalLayer.drawableSize.width)),
+                                   height: CGFloat(camera.orthoHeight ?? Float(metalLayer.drawableSize.height))),
+                screenSize: metalLayer.drawableSize, pointer: savedContext.pointer,
+                cameraParallaxPosition: savedContext.cameraParallaxPosition,
+                cameraParallaxMouseInfluence: savedContext.cameraParallaxMouseInfluence,
+                materialFunctionMutations: [], audioSpectrum: savedContext.audioSpectrum)
+        } else { frameContext = savedContext }
         let dynamicValues = frameContext.dynamicValues
-        let cameraFrame = simulationFrame.camera
+        let cameraFrame = savedContext.screenSize == frameContext.screenSize
+            ? simulationFrame.camera : renderer.makeCameraFrame(frameContext: frameContext)
         let frameProjection = simulationFrame.projection
         let particleBatches = simulationFrame.particles
         let layerTopology = simulationFrame.topology

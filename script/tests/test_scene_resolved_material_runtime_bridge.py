@@ -120,6 +120,7 @@ GRAPH_OBSERVATION_BUILDER = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphObservationBuilder.swift"
 )
 SUBMISSION_SWIFT_SOURCES = [
+    SCENE_ROOT / "Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+SceneColor.swift",
     GRAPH_OBSERVATION,
     GRAPH_TELEMETRY,
     GRAPH_OBSERVATION_BUILDER,
@@ -673,7 +674,7 @@ struct SceneGraphRenderTargetLease {
 final class SceneGraphRenderTargetResidencyPin: @unchecked Sendable {
     typealias EffectKey = SceneAuthoredEffectRenderPlan.EffectKey
     typealias Token = SceneGraphExecutionState.PhysicalToken
-    enum Purpose: Hashable { case submission, history(EffectKey, Set<Token>) }
+    enum Purpose: Hashable { case submission, sceneColor, history(EffectKey, Set<Token>) }
     let purpose: Purpose
     let generation: UInt64
     private(set) var active = true
@@ -969,6 +970,27 @@ final class SceneFramePerformanceTelemetry: @unchecked Sendable {
 }
 
 final class SceneOffscreenTexturePool {
+    // Legacy graph tests never reserve terminal color. The dedicated RF07
+    // fixture compiles the real pool and coordinator together instead.
+    struct SceneColorTargets {
+        struct Identity { let generation: UInt64 }
+        let first: MTLTexture
+        let second: MTLTexture
+        let display: MTLTexture
+        let identity: Identity
+        func raw(_ member: Int) -> MTLTexture { member == 0 ? first : second }
+    }
+    struct SceneColorLease {
+        let targets: SceneColorTargets
+        let resetEpoch: UUID
+        let retention: SceneGraphRenderTargetResidencyPin
+        let submission: SceneGraphRenderTargetResidencyPin
+        func release() { retention.release(); submission.release() }
+    }
+    let sceneColorResetEpoch = UUID()
+    func reserveDisplayScratch(width: Int, height: Int)
+        -> (texture: MTLTexture, pin: SceneGraphRenderTargetResidencyPin)? { nil }
+    func reserveSceneColor(width: Int, height: Int) -> SceneColorLease? { nil }
     typealias Factory = (
         ScenePersistentGraphTargetFramePlan
     ) -> ScenePreparedPersistentGraphTargets?
