@@ -1249,7 +1249,8 @@
     {
       "id": "documentation",
       "patterns": [
-        "docs/**"
+        "docs/**",
+        "script/design_gated_areas.json"
       ],
       "modules": [
         "test_document_role_index",

@@ -1,0 +1,282 @@
+{
+  "schema_version": 1,
+  "policy": {
+    "purpose": "设计前置能力登记；本独立基线原无登记与 check_design_gate.py。本批只补设计和 JSON，不新增执行器，不宣称自动拦截已启用。",
+    "judgment_procedure": "逐项判断跨 owner、唯一权威、用户可见难逆合同、机器冻结家族、外部取证；任一为是须登记。新增能力先核对 designCriteria、ownerBoundary 与 designDoc，设计范围外的 profile 不随 approved 自动准入。",
+    "approval": "本批用户明确授权完成设计后改 approved 并同批提交。每项必须指向存在且登记为 active-plan 的设计文档，含目标合同、当前事实、owner、方案与备选、fallback、纠正门、退役条件。approved 只表示设计批准。",
+    "enforcement": "contentPatterns/matchPatterns 保留主开发分支对应七项格式与模式。pattern-ready 表示可供既有 checker 集成，不表示本基线存在执行门。无模式条目手动按改动职责审查；合并时保留主分支既有 policy/checker 与本批外条目，按其 schema 验证，不以此文件覆盖整份登记。",
+    "retirement": "能力按 designDoc 完成并通过验证后删除对应登记；设计合同由稳定权威接管，本文归档。若设计被替换，新设计先明确接管 owner/route/验收边界。",
+    "baseCommit": "93b1b85a",
+    "approvalDate": "2026-10-01",
+    "criteriaKeys": {
+      "crossOwner": "横切多个 owner 或主链节点",
+      "uniqueAuthority": "触碰唯一权威合同",
+      "hardToReverseUserContract": "用户可见且难逆的 API/数据/发布合同",
+      "frozenMachineBaseline": "触碰机器冻结结构家族",
+      "externalEvidence": "依赖官方或平台外部证据"
+    }
+  },
+  "areas": [
+    {
+      "id": "scene-composition-render-target",
+      "title": "D1 — composition 组独立渲染目标",
+      "owner": "scene-e-route",
+      "status": "approved",
+      "designDoc": "docs/scene/design/composition-render-target-design.md",
+      "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
+      "matchPatterns": [],
+      "contentPatterns": [
+        "SceneCompositionRenderTarget",
+        "compositionGroupRenderTarget"
+      ],
+      "ownerBoundary": "Compilation graph + Rendering Targets/Composition",
+      "designCriteria": {
+        "crossOwner": true,
+        "uniqueAuthority": true,
+        "hardToReverseUserContract": false,
+        "frozenMachineBaseline": true,
+        "externalEvidence": true
+      },
+      "retirementCondition": "组隔离目标、作者顺序与失败事务通过实施门且并入稳定架构后，归档本文并删除对应设计登记。",
+      "enforcement": "pattern-ready"
+    },
+    {
+      "id": "scene-hdr-tonemap-edr",
+      "title": "D2 — Scene HDR、tone mapping 与 EDR 输出",
+      "owner": "scene-e-route",
+      "status": "approved",
+      "designDoc": "docs/scene/design/hdr-tonemap-edr-design.md",
+      "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
+      "matchPatterns": [],
+      "contentPatterns": [
+        "wantsExtendedDynamicRange",
+        "EDRMetadata",
+        "maximumExtendedDynamicRangeColorComponentValue",
+        "toneMappingKnee"
+      ],
+      "ownerBoundary": "descriptor color contract + terminal compositor + SceneMetalView",
+      "designCriteria": {
+        "crossOwner": true,
+        "uniqueAuthority": true,
+        "hardToReverseUserContract": false,
+        "frozenMachineBaseline": false,
+        "externalEvidence": true
+      },
+      "retirementCondition": "SDR 映射与可选 EDR 的目标合同并入稳定输出架构且通过各自显示验收后归档，删除设计登记。",
+      "enforcement": "pattern-ready"
+    },
+    {
+      "id": "scene-2d-lighting-material",
+      "title": "D3 — 2D 材质光照、PBR 与阴影",
+      "owner": "scene-e-route",
+      "status": "approved",
+      "designDoc": "docs/scene/design/2d-lighting-material-design.md",
+      "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
+      "matchPatterns": [],
+      "contentPatterns": [
+        "SceneLitMaterial",
+        "SceneLightVolume",
+        "SceneShadowMap",
+        "SceneMaterialPBR"
+      ],
+      "ownerBoundary": "Material/ShaderFrontend + SceneLightSnapshot + graph targets",
+      "designCriteria": {
+        "crossOwner": true,
+        "uniqueAuthority": true,
+        "hardToReverseUserContract": false,
+        "frozenMachineBaseline": true,
+        "externalEvidence": true
+      },
+      "retirementCondition": "材质受光和各可选光照子能力分别通过合同门并进入稳定架构后归档，未完成 profile 保持明确准入限制。",
+      "enforcement": "pattern-ready"
+    },
+    {
+      "id": "scene-script-component-api",
+      "title": "D4 — SceneScript component、object 与 particle API",
+      "owner": "scene-e-route",
+      "status": "approved",
+      "designDoc": "docs/scene/design/script-component-api-design.md",
+      "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/**/SceneScript*Component*.swift"
+      ],
+      "contentPatterns": [
+        "registerSceneScriptComponent",
+        "sceneScriptComponentAPI"
+      ],
+      "ownerBoundary": "QuickJS bridge + host frame transaction + particle runtime",
+      "designCriteria": {
+        "crossOwner": true,
+        "uniqueAuthority": true,
+        "hardToReverseUserContract": true,
+        "frozenMachineBaseline": true,
+        "externalEvidence": true
+      },
+      "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。",
+      "enforcement": "pattern-ready"
+    },
+    {
+      "id": "web-cross-origin-reply-delivery",
+      "title": "D5 — Web 跨源 frame 定向回包与宿主推送",
+      "owner": "web-route",
+      "status": "approved",
+      "designDoc": "docs/web/cross-origin-reply-delivery-design.md",
+      "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
+      "matchPatterns": [],
+      "contentPatterns": [],
+      "ownerBoundary": "Lifecycle + RuntimeBridge frame delivery + DirectoryWatchers",
+      "designCriteria": {
+        "crossOwner": true,
+        "uniqueAuthority": true,
+        "hardToReverseUserContract": false,
+        "frozenMachineBaseline": false,
+        "externalEvidence": true
+      },
+      "retirementCondition": "所有宿主消息消费者使用同一 frame 定向投递并通过导航和跨源门，旧主 frame 中继撤权后归档。",
+      "enforcement": "manual-scope-review"
+    },
+    {
+      "id": "web-mediaremote-nowplaying",
+      "title": "D6 — Web 系统 now-playing 数据源与单一媒体状态",
+      "owner": "web-route",
+      "status": "approved",
+      "designDoc": "docs/web/mediaremote-nowplaying-design.md",
+      "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
+      "matchPatterns": [],
+      "contentPatterns": [
+        "MRMediaRemoteGetNowPlayingInfo",
+        "MediaRemote.framework"
+      ],
+      "ownerBoundary": "host media producer + RuntimeBridge arbiter + page reducer",
+      "designCriteria": {
+        "crossOwner": true,
+        "uniqueAuthority": true,
+        "hardToReverseUserContract": true,
+        "frozenMachineBaseline": false,
+        "externalEvidence": true
+      },
+      "retirementCondition": "唯一媒体仲裁落地并完成相应分发渠道验收，私有实验被公开能力替换或明确撤销后归档。",
+      "enforcement": "pattern-ready"
+    },
+    {
+      "id": "steam-downloads-failed-items-visibility",
+      "title": "D7 — Steam 下载页失败条目可见性",
+      "owner": "app-shell",
+      "status": "approved",
+      "designDoc": "docs/web/steam-downloads-failed-items-visibility-design.md",
+      "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
+      "matchPatterns": [],
+      "contentPatterns": [],
+      "ownerBoundary": "SteamWorkshopService job projection + AppKit downloads UI",
+      "designCriteria": {
+        "crossOwner": true,
+        "uniqueAuthority": true,
+        "hardToReverseUserContract": true,
+        "frozenMachineBaseline": false,
+        "externalEvidence": false
+      },
+      "retirementCondition": "失败项可见、重试、计数、空态与多选通过行为门，稳定 App 交互合同接管后归档并删除设计登记。",
+      "enforcement": "manual-scope-review"
+    },
+    {
+      "id": "scene-rt-prefix-admission",
+      "title": "D8 — RT 名称单点准入与分派",
+      "owner": "scene-e-route",
+      "status": "approved",
+      "designDoc": "docs/scene/design/rt-prefix-admission-design.md",
+      "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
+      "ownerBoundary": "existing texture-reference preparation + typed graph identity",
+      "designCriteria": {
+        "crossOwner": true,
+        "uniqueAuthority": true,
+        "hardToReverseUserContract": false,
+        "frozenMachineBaseline": true,
+        "externalEvidence": true
+      },
+      "retirementCondition": "所有 RT 名称解释收敛到准备期唯一入口，旧特判与机器预算同步收缩后归档。",
+      "matchPatterns": [],
+      "contentPatterns": [],
+      "enforcement": "manual-scope-review"
+    },
+    {
+      "id": "scene-host-render-power-protocol",
+      "title": "D9 — 宿主到渲染的 run、throttle、pause 协议",
+      "owner": "app-shell",
+      "status": "approved",
+      "designDoc": "docs/scene/design/host-render-power-protocol-design.md",
+      "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
+      "ownerBoundary": "PlaybackPolicyController/multiplexer + Scene IPC/session",
+      "designCriteria": {
+        "crossOwner": true,
+        "uniqueAuthority": true,
+        "hardToReverseUserContract": false,
+        "frozenMachineBaseline": false,
+        "externalEvidence": true
+      },
+      "retirementCondition": "App 唯一 power 裁决与版本化三态 IPC 验收，旧重复观察和布尔适配撤权后归档。",
+      "matchPatterns": [],
+      "contentPatterns": [],
+      "enforcement": "manual-scope-review"
+    },
+    {
+      "id": "scene-frame-admission-retry",
+      "title": "D10 — 帧不重叠准入与 busy 重探测",
+      "owner": "scene-e-route",
+      "status": "approved",
+      "designDoc": "docs/scene/design/frame-admission-retry-design.md",
+      "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
+      "ownerBoundary": "host frame driver + existing submission coordinator",
+      "designCriteria": {
+        "crossOwner": true,
+        "uniqueAuthority": true,
+        "hardToReverseUserContract": false,
+        "frozenMachineBaseline": true,
+        "externalEvidence": false
+      },
+      "retirementCondition": "现役帧准入的互斥、释放与短重试通过反例门且合同并入稳定时钟架构后归档，不新增平行定时器。",
+      "matchPatterns": [],
+      "contentPatterns": [],
+      "enforcement": "manual-scope-review"
+    },
+    {
+      "id": "scene-particle-playback-state",
+      "title": "D11 — 粒子对象播放门与 reset 边界",
+      "owner": "scene-e-route",
+      "status": "approved",
+      "designDoc": "docs/scene/design/particle-playback-state-design.md",
+      "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
+      "ownerBoundary": "existing SceneParticlePlaybackState/runtime + script bridge",
+      "designCriteria": {
+        "crossOwner": true,
+        "uniqueAuthority": true,
+        "hardToReverseUserContract": true,
+        "frozenMachineBaseline": false,
+        "externalEvidence": true
+      },
+      "retirementCondition": "对象排放控制与宿主暂停的组合合同通过事务和可见门，未知 reset profile 有明确归宿后归档。",
+      "matchPatterns": [],
+      "contentPatterns": [],
+      "enforcement": "manual-scope-review"
+    },
+    {
+      "id": "scene-copy-pass-unification",
+      "title": "D12 — 四类 copy 触发点的 graph 语义收敛",
+      "owner": "scene-e-route",
+      "status": "approved",
+      "designDoc": "docs/scene/design/copy-pass-unification-design.md",
+      "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
+      "ownerBoundary": "authored graph planner + resource pass encoder + terminal compositor",
+      "designCriteria": {
+        "crossOwner": true,
+        "uniqueAuthority": true,
+        "hardToReverseUserContract": false,
+        "frozenMachineBaseline": true,
+        "externalEvidence": true
+      },
+      "retirementCondition": "四类触发点均使用唯一 typed graph transfer 合同，重复路径撤权且 publication 门通过后归档。",
+      "matchPatterns": [],
+      "contentPatterns": [],
+      "enforcement": "manual-scope-review"
+    }
+  ]
+}
