@@ -1,7 +1,7 @@
 import Foundation
 
 extension SteamWorkshopService {
-    func resolveSceneContentType(
+    nonisolated static func resolveSceneContentType(
         project: SteamWorkshopProject?,
         directory: URL?,
         browserItem: SteamWorkshopBrowserItem?

@@ -5,6 +5,21 @@
 
 import Foundation
 
+/// Value snapshot of everything the installed-library record builders need
+/// from service state. The scan runs off the main actor; instead of reading
+/// service properties mid-scan it captures this once on the main actor.
+nonisolated struct SteamWorkshopInstalledLibraryScanContext: Sendable {
+    let libraryRoot: URL
+    let fallbackLibraryRoot: URL
+    let videoRoot: URL
+    let webRoot: URL
+    let sceneRoot: URL
+    let metadataIndexDirectory: URL
+    /// `selectedBrowserItem` first, then `browserItems` — the exact fallback
+    /// order of the removed `browserItemForDownload` reads.
+    let fallbackItemsByID: [String: SteamWorkshopBrowserItem]
+}
+
 extension SteamWorkshopService {
     nonisolated static func loadWorkshopProject(from projectFileURL: URL?) -> SteamWorkshopProject? {
         guard let projectFileURL,
@@ -158,14 +173,60 @@ extension SteamWorkshopService {
         try? data.write(to: detailCacheFileURL(id: item.id), options: [.atomic])
     }
 
+    /// Main-actor wrapper for the cold single-record paths (installedRecord
+    /// lookups, dependency resolution outside the bulk scan). The bulk scan
+    /// calls the static variant directly with its captured context.
     func buildInstalledRecord(at directory: URL, resolvingIDs: Set<String> = [],
                               managedSnapshots: [String: SteamWorkshopDownloadMetadataSnapshot]? = nil) -> SteamWorkshopDownloadRecord? {
-        let managed = managedSnapshots ?? managedDownloadSnapshots()
+        Self.scanBuildInstalledRecord(
+            at: directory,
+            resolvingIDs: resolvingIDs,
+            managedSnapshots: managedSnapshots ?? managedDownloadSnapshots(),
+            context: installedLibraryScanContext()
+        )
+    }
+
+    func buildInstalledRecord(from metadata: SteamWorkshopDownloadMetadataSnapshot?, legacyDirectory: URL?,
+                              fallbackProject: SteamWorkshopProject?, fallbackIdentifier: String,
+                              resolvingIDs: Set<String> = [],
+                              managedSnapshots: [String: SteamWorkshopDownloadMetadataSnapshot]? = nil) -> SteamWorkshopDownloadRecord? {
+        Self.scanBuildInstalledRecord(
+            from: metadata, legacyDirectory: legacyDirectory,
+            fallbackProject: fallbackProject, fallbackIdentifier: fallbackIdentifier,
+            resolvingIDs: resolvingIDs,
+            managedSnapshots: managedSnapshots ?? managedDownloadSnapshots(),
+            context: installedLibraryScanContext()
+        )
+    }
+
+    func installedLibraryScanContext() -> SteamWorkshopInstalledLibraryScanContext {
+        var fallbackItemsByID: [String: SteamWorkshopBrowserItem] = [:]
+        for item in browserItems {
+            fallbackItemsByID[item.id] = item
+        }
+        if let selectedBrowserItem {
+            fallbackItemsByID[selectedBrowserItem.id] = selectedBrowserItem
+        }
+        return SteamWorkshopInstalledLibraryScanContext(
+            libraryRoot: steamDownloadLibraryRootURL,
+            fallbackLibraryRoot: libraryRootURL,
+            videoRoot: videoLibraryRootURL,
+            webRoot: webLibraryRootURL,
+            sceneRoot: sceneLibraryRootURL,
+            metadataIndexDirectory: downloadMetadataIndexDirectoryURL(),
+            fallbackItemsByID: fallbackItemsByID
+        )
+    }
+
+    nonisolated static func scanBuildInstalledRecord(at directory: URL, resolvingIDs: Set<String>,
+                              managedSnapshots: [String: SteamWorkshopDownloadMetadataSnapshot],
+                              context: SteamWorkshopInstalledLibraryScanContext) -> SteamWorkshopDownloadRecord? {
+        let managed = managedSnapshots
         if let snapshot = managed[directory.lastPathComponent] {
             guard let commit = snapshot.commit,
-                  SteamWorkshopLibraryTransaction.isAvailable(commit, libraryRoot: steamDownloadLibraryRootURL) else { return nil }
-            return buildInstalledRecord(from: snapshot, legacyDirectory: snapshot.legacyFolderURL,
-                fallbackProject: nil, fallbackIdentifier: snapshot.item.id, resolvingIDs: resolvingIDs, managedSnapshots: managed)
+                  SteamWorkshopLibraryTransaction.isAvailable(commit, libraryRoot: context.libraryRoot) else { return nil }
+            return scanBuildInstalledRecord(from: snapshot, legacyDirectory: snapshot.legacyFolderURL,
+                fallbackProject: nil, fallbackIdentifier: snapshot.item.id, resolvingIDs: resolvingIDs, managedSnapshots: managed, context: context)
         }
         let projectURL = directory.appendingPathComponent("project.json")
         let metadataURL = Self.legacyDownloadMetadataFileURL(for: directory)
@@ -179,17 +240,17 @@ extension SteamWorkshopService {
         }
         let project = Self.loadWorkshopProject(from: projectURL)
         let identifier = directory.lastPathComponent
-        let metadata = loadDownloadMetadataSnapshot(legacyDirectory: directory, id: identifier)
-        return buildInstalledRecord(
+        let metadata = scanLoadDownloadMetadataSnapshot(legacyDirectory: directory, id: identifier, context: context)
+        return scanBuildInstalledRecord(
             from: metadata,
             legacyDirectory: directory,
             fallbackProject: project,
             fallbackIdentifier: identifier,
-            resolvingIDs: resolvingIDs, managedSnapshots: managed
+            resolvingIDs: resolvingIDs, managedSnapshots: managed, context: context
         )
     }
 
-    func resolveVideoURL(in directory: URL, preferredFileName: String?) -> URL? {
+    nonisolated static func resolveVideoURL(in directory: URL, preferredFileName: String?) -> URL? {
         let candidates = videoFileCandidates(in: directory)
         guard !candidates.isEmpty else { return nil }
 
@@ -232,7 +293,7 @@ extension SteamWorkshopService {
         }
     }
 
-    func resolveHTMLURL(in directory: URL, preferredFileName: String?) -> URL? {
+    nonisolated static func resolveHTMLURL(in directory: URL, preferredFileName: String?) -> URL? {
         let supportedExtensions = Set(["html", "htm"])
         let normalizedDirectory = directory.resolvingSymlinksInPath().standardizedFileURL
 
@@ -306,7 +367,7 @@ extension SteamWorkshopService {
         }.first
     }
 
-    func resolveContentType(
+    nonisolated static func resolveContentType(
         project: SteamWorkshopProject?,
         directory: URL?,
         videoURL: URL?,
@@ -314,7 +375,7 @@ extension SteamWorkshopService {
         dependencyItemID: String?,
         browserItem: SteamWorkshopBrowserItem?
     ) -> SteamWorkshopDownloadContentType {
-        if let sceneContentType = resolveSceneContentType(
+        if let sceneContentType = Self.resolveSceneContentType(
             project: project,
             directory: directory,
             browserItem: browserItem
@@ -441,18 +502,19 @@ extension SteamWorkshopService {
         )
     }
 
-    func buildInstalledRecord(
+    nonisolated static func scanBuildInstalledRecord(
         from metadata: SteamWorkshopDownloadMetadataSnapshot?,
         legacyDirectory: URL?,
         fallbackProject: SteamWorkshopProject?,
         fallbackIdentifier: String,
         resolvingIDs: Set<String> = [],
-        managedSnapshots: [String: SteamWorkshopDownloadMetadataSnapshot]? = nil
+        managedSnapshots: [String: SteamWorkshopDownloadMetadataSnapshot],
+        context: SteamWorkshopInstalledLibraryScanContext
     ) -> SteamWorkshopDownloadRecord? {
         let identifier = metadata?.item.id ?? fallbackIdentifier
         guard !resolvingIDs.contains(identifier) else { return nil }
         let resolving = resolvingIDs.union([identifier])
-        let managed = managedSnapshots ?? managedDownloadSnapshots()
+        let managed = managedSnapshots
         let resolvedLegacyDirectory: URL? = {
             if let legacyFolderURL = metadata?.legacyFolderURL,
                FileManager.default.fileExists(atPath: legacyFolderURL.path) {
@@ -539,14 +601,14 @@ extension SteamWorkshopService {
                   dependencyItemID != identifier else { return nil }
             if let snapshot = managed[dependencyItemID] {
                 guard let commit = snapshot.commit,
-                      SteamWorkshopLibraryTransaction.isAvailable(commit, libraryRoot: steamDownloadLibraryRootURL) else { return nil }
-                return buildInstalledRecord(from: snapshot, legacyDirectory: snapshot.legacyFolderURL,
-                    fallbackProject: nil, fallbackIdentifier: dependencyItemID, resolvingIDs: resolving, managedSnapshots: managed)
+                      SteamWorkshopLibraryTransaction.isAvailable(commit, libraryRoot: context.libraryRoot) else { return nil }
+                return scanBuildInstalledRecord(from: snapshot, legacyDirectory: snapshot.legacyFolderURL,
+                    fallbackProject: nil, fallbackIdentifier: dependencyItemID, resolvingIDs: resolving, managedSnapshots: managed, context: context)
             }
-            return buildInstalledRecord(at: webLibraryRootURL.appendingPathComponent(dependencyItemID, isDirectory: true),
-                resolvingIDs: resolving, managedSnapshots: managed)
-                ?? buildInstalledRecord(at: sceneLibraryRootURL.appendingPathComponent(dependencyItemID, isDirectory: true),
-                    resolvingIDs: resolving, managedSnapshots: managed)
+            return scanBuildInstalledRecord(at: context.webRoot.appendingPathComponent(dependencyItemID, isDirectory: true),
+                resolvingIDs: resolving, managedSnapshots: managed, context: context)
+                ?? scanBuildInstalledRecord(at: context.sceneRoot.appendingPathComponent(dependencyItemID, isDirectory: true),
+                    resolvingIDs: resolving, managedSnapshots: managed, context: context)
         }()
 
         let dependencyEntryHTMLURL = dependencyRecord?.webEntryURL
@@ -580,7 +642,7 @@ extension SteamWorkshopService {
             FileManager.default.fileExists(atPath: url.path) ? url : nil
         }
         let effectiveVideoURL = exportedVideoURL ?? sourceVideoURL
-        let browserItem = metadata?.item ?? browserItemForDownload(id: identifier)
+        let browserItem = metadata?.item ?? context.fallbackItemsByID[identifier] ?? Self.loadDetailCache(id: identifier)
         let contentType = resolveContentType(
             project: resolvedProject,
             directory: resolvedLegacyDirectory,
@@ -623,7 +685,7 @@ extension SteamWorkshopService {
             title: title?.isEmpty == false ? title! : (browserTitle.isEmpty ? "Workshop #\(identifier)" : browserTitle),
             description: description.isEmpty ? (browserItem?.descriptionText ?? "") : description,
             tags: tags.isEmpty ? (browserItem?.tags ?? []) : tags,
-            folderURL: resolvedLegacyDirectory ?? effectiveVideoURL?.deletingLastPathComponent() ?? libraryRootURL,
+            folderURL: resolvedLegacyDirectory ?? effectiveVideoURL?.deletingLastPathComponent() ?? context.fallbackLibraryRoot,
             projectFileURL: projectFileURL,
             ownEntryHTMLURL: directEntryHTMLURL,
             dependencyHostEntryHTMLURL: dependencyEntryHTMLURL,
@@ -685,7 +747,7 @@ extension SteamWorkshopService {
         return candidate
     }
 
-    private func videoFileCandidates(in directory: URL) -> [URL] {
+    nonisolated static private func videoFileCandidates(in directory: URL) -> [URL] {
         let supportedExtensions = Set(["mp4", "webm", "mov", "m4v"])
         guard let enumerator = FileManager.default.enumerator(
             at: directory,
@@ -708,7 +770,7 @@ extension SteamWorkshopService {
         }
     }
 
-    private func relativePath(for fileURL: URL, under directory: URL) -> String {
+    nonisolated static private func relativePath(for fileURL: URL, under directory: URL) -> String {
         let directoryPath = directory.standardizedFileURL.path
         let filePath = fileURL.standardizedFileURL.path
         guard filePath.hasPrefix(directoryPath) else {
@@ -718,15 +780,15 @@ extension SteamWorkshopService {
         return suffix.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
 
-    private func fileSizeText(for url: URL) -> String? {
+    nonisolated static private func fileSizeText(for url: URL) -> String? {
         guard let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? Int64 else {
             return nil
         }
         return Self.fileSizeText(forBytes: size)
     }
 
-    private func loadDownloadMetadataSnapshot(legacyDirectory: URL?, id: String) -> SteamWorkshopDownloadMetadataSnapshot? {
-        if let entry = loadDownloadMetadataEntry(forItemID: id) {
+    nonisolated static private func scanLoadDownloadMetadataSnapshot(legacyDirectory: URL?, id: String, context: SteamWorkshopInstalledLibraryScanContext) -> SteamWorkshopDownloadMetadataSnapshot? {
+        if let entry = Self.scanLoadDownloadMetadataEntry(forItemID: id, metadataIndexDirectory: context.metadataIndexDirectory) {
             return entry.snapshot
         }
 
@@ -738,7 +800,7 @@ extension SteamWorkshopService {
             }
         }
 
-        guard let item = browserItemForDownload(id: id) else { return nil }
+        guard let item = context.fallbackItemsByID[id] ?? Self.loadDetailCache(id: id) else { return nil }
         return SteamWorkshopDownloadMetadataSnapshot(
             fetchedAt: .distantPast,
             item: item,

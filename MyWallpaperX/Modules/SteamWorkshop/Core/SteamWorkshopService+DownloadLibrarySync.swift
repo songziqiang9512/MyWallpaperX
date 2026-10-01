@@ -1,6 +1,12 @@
 import Foundation
 
 extension SteamWorkshopService {
+    /// Rebuilds the installed-library index. The filesystem transaction and
+    /// the stateful schedulers stay on the main actor; the expensive pure
+    /// part (directory enumeration plus per-record construction — several
+    /// file stats and JSON decodes per record) runs detached and publishes
+    /// back through `applyInstalledLibraryRecords`. Only the newest scan's
+    /// result is applied.
     func reloadInstalledItems() {
         do { try SteamWorkshopLibraryTransaction.recoverPublications(libraryRoot: steamDownloadLibraryRootURL,
             retaining: referencedLibraryStorageIdentities()) }
@@ -9,41 +15,22 @@ extension SteamWorkshopService {
         scheduleLegacyLibraryPublicationMigration(from: managed)
         reconcileDownloadCommits(managed)
         scheduleTerminalDownloadCleanup()
-        let videoFiles = directVideoFiles(in: videoLibraryRootURL)
-        let webDirectories = directChildDirectories(in: webLibraryRootURL).filter {
-            !SteamWorkshopLibraryTransaction.isReservedManagedPublicDirectory(
-                $0, libraryRoot: steamDownloadLibraryRootURL
+        installedLibraryScanGeneration += 1
+        let generation = installedLibraryScanGeneration
+        let context = installedLibraryScanContext()
+        Task.detached(priority: .utility) { [weak self] in
+            let records = SteamWorkshopService.scanInstalledLibraryRecords(
+                managed: managed, context: context
             )
+            await MainActor.run { [weak self] in
+                guard let self, self.installedLibraryScanGeneration == generation else { return }
+                self.applyInstalledLibraryRecords(records)
+            }
         }
-        let sceneDirectories = directChildDirectories(in: sceneLibraryRootURL).filter {
-            !SteamWorkshopLibraryTransaction.isReservedManagedPublicDirectory(
-                $0, libraryRoot: steamDownloadLibraryRootURL
-            )
-        }
+    }
 
-        var records: [SteamWorkshopDownloadRecord] = managed.values.compactMap { snapshot in
-            guard let commit = snapshot.commit,
-                  SteamWorkshopLibraryTransaction.isAvailable(commit, libraryRoot: steamDownloadLibraryRootURL) else { return nil }
-            return buildInstalledRecord(from: snapshot, legacyDirectory: snapshot.legacyFolderURL,
-                fallbackProject: nil, fallbackIdentifier: snapshot.item.id, managedSnapshots: managed)
-        }
-        // Tombstones suppress stale legacy aliases; task history never creates a local wallpaper.
-        var seenIDs = Set(managed.keys)
-        for videoURL in videoFiles {
-            let metadata = loadVideoDownloadMetadataSnapshot(for: videoURL)
-            guard let record = buildInstalledVideoRecord(videoURL: videoURL, metadata: metadata),
-                  seenIDs.contains(record.id) == false else { continue }
-            records.append(record)
-            seenIDs.insert(record.id)
-        }
-        for directory in webDirectories + sceneDirectories {
-            guard let record = buildInstalledRecord(at: directory, managedSnapshots: managed),
-                  seenIDs.contains(record.id) == false else { continue }
-            records.append(record)
-            seenIDs.insert(record.id)
-        }
-
-        downloads = records.sorted { $0.updatedAt > $1.updatedAt }
+    private func applyInstalledLibraryRecords(_ records: [SteamWorkshopDownloadRecord]) {
+        downloads = records
 #if DEBUG
         if !ProcessInfo.processInfo.arguments.contains("--mwx-debug-run-web-workshop-id") {
             preloadWebRuntimeCaches(for: records)
@@ -69,7 +56,47 @@ extension SteamWorkshopService {
         scheduleLibraryVersionReclamation()
     }
 
-    private func directChildDirectories(in root: URL) -> [URL] {
+    nonisolated static func scanInstalledLibraryRecords(
+        managed: [String: SteamWorkshopDownloadMetadataSnapshot],
+        context: SteamWorkshopInstalledLibraryScanContext
+    ) -> [SteamWorkshopDownloadRecord] {
+        let videoFiles = scanDirectVideoFiles(in: context.videoRoot)
+        let webDirectories = scanDirectChildDirectories(in: context.webRoot).filter {
+            !SteamWorkshopLibraryTransaction.isReservedManagedPublicDirectory(
+                $0, libraryRoot: context.libraryRoot
+            )
+        }
+        let sceneDirectories = scanDirectChildDirectories(in: context.sceneRoot).filter {
+            !SteamWorkshopLibraryTransaction.isReservedManagedPublicDirectory(
+                $0, libraryRoot: context.libraryRoot
+            )
+        }
+
+        var records: [SteamWorkshopDownloadRecord] = managed.values.compactMap { snapshot in
+            guard let commit = snapshot.commit,
+                  SteamWorkshopLibraryTransaction.isAvailable(commit, libraryRoot: context.libraryRoot) else { return nil }
+            return scanBuildInstalledRecord(from: snapshot, legacyDirectory: snapshot.legacyFolderURL,
+                fallbackProject: nil, fallbackIdentifier: snapshot.item.id, managedSnapshots: managed, context: context)
+        }
+        // Tombstones suppress stale legacy aliases; task history never creates a local wallpaper.
+        var seenIDs = Set(managed.keys)
+        for videoURL in videoFiles {
+            let metadata = scanLoadVideoDownloadMetadataSnapshot(for: videoURL, context: context)
+            guard let record = scanBuildInstalledVideoRecord(videoURL: videoURL, metadata: metadata, context: context),
+                  seenIDs.contains(record.id) == false else { continue }
+            records.append(record)
+            seenIDs.insert(record.id)
+        }
+        for directory in webDirectories + sceneDirectories {
+            guard let record = scanBuildInstalledRecord(at: directory, resolvingIDs: [], managedSnapshots: managed, context: context),
+                  seenIDs.contains(record.id) == false else { continue }
+            records.append(record)
+            seenIDs.insert(record.id)
+        }
+        return records.sorted { $0.updatedAt > $1.updatedAt }
+    }
+
+    nonisolated static private func scanDirectChildDirectories(in root: URL) -> [URL] {
         ((try? FileManager.default.contentsOfDirectory(
             at: root,
             includingPropertiesForKeys: [.contentModificationDateKey],
@@ -77,7 +104,7 @@ extension SteamWorkshopService {
         )) ?? []).filter(\.hasDirectoryPath)
     }
 
-    private func directVideoFiles(in root: URL) -> [URL] {
+    nonisolated static private func scanDirectVideoFiles(in root: URL) -> [URL] {
         ((try? FileManager.default.contentsOfDirectory(
             at: root,
             includingPropertiesForKeys: [.contentModificationDateKey],
@@ -85,6 +112,67 @@ extension SteamWorkshopService {
         )) ?? []).filter { url in
             !url.hasDirectoryPath && isSupportedWorkshopVideoFile(url)
         }
+    }
+
+    nonisolated static private func isSupportedWorkshopVideoFile(_ url: URL) -> Bool {
+        Set(["mp4", "webm", "mov", "m4v"]).contains(url.pathExtension.localizedLowercase)
+    }
+
+    nonisolated static private func scanLoadVideoDownloadMetadataSnapshot(
+        for videoURL: URL,
+        context: SteamWorkshopInstalledLibraryScanContext
+    ) -> SteamWorkshopDownloadMetadataSnapshot? {
+        let metadataURL = context.metadataIndexDirectory
+            .appendingPathComponent(videoURL.deletingPathExtension().lastPathComponent)
+            .appendingPathExtension("json")
+        guard let data = try? Data(contentsOf: metadataURL),
+              let snapshot = try? JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: data) else {
+            return nil
+        }
+        return snapshot
+    }
+
+    nonisolated static private func scanBuildInstalledVideoRecord(
+        videoURL: URL,
+        metadata: SteamWorkshopDownloadMetadataSnapshot?,
+        context: SteamWorkshopInstalledLibraryScanContext
+    ) -> SteamWorkshopDownloadRecord? {
+        guard FileManager.default.fileExists(atPath: videoURL.path) else { return nil }
+        let identifier = metadata?.item.id ?? "video:\(videoURL.deletingPathExtension().lastPathComponent)"
+        let browserItem = metadata?.item
+        let title = browserItem?.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallbackTitle = videoURL.deletingPathExtension().lastPathComponent
+        let updatedAt = (try? videoURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? Date()
+        return SteamWorkshopDownloadRecord(
+            id: identifier,
+            title: title?.isEmpty == false ? title! : fallbackTitle,
+            description: browserItem?.descriptionText ?? "",
+            tags: browserItem?.tags ?? [],
+            folderURL: videoURL.deletingLastPathComponent(),
+            projectFileURL: nil,
+            ownEntryHTMLURL: nil,
+            dependencyHostEntryHTMLURL: nil,
+            dependencyHostFolderURL: nil,
+            entryHTMLURL: nil,
+            resolvedWebRootURL: nil,
+            previewURL: browserItem?.previewImageURL,
+            sourceVideoURL: nil,
+            exportedVideoURL: videoURL,
+            updatedAt: updatedAt,
+            sizeText: fileSizeTextForURL(videoURL) ?? "未知大小",
+            status: .ready,
+            browserItem: browserItem,
+            contentType: .video,
+            dependencyItemID: nil,
+            dependencyStatus: .none
+        )
+    }
+
+    nonisolated static private func fileSizeTextForURL(_ url: URL) -> String? {
+        guard let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? Int64 else {
+            return nil
+        }
+        return Self.fileSizeText(forBytes: size)
     }
 
     func publishDownloadedVersion(_ request: SteamWorkshopPendingDownloadRequest,
@@ -363,7 +451,7 @@ extension SteamWorkshopService {
         guard let item = item ?? browserItemForDownload(id: id) else { return }
         let project = Self.loadWorkshopProject(from: targetURL.appendingPathComponent("project.json"))
         try? FileManager.default.createDirectory(at: downloadMetadataIndexDirectoryURL(), withIntermediateDirectories: true)
-        let sourceVideoURL = resolveVideoURL(in: targetURL, preferredFileName: project?.file)
+        let sourceVideoURL = Self.resolveVideoURL(in: targetURL, preferredFileName: project?.file)
         let previewRelativePath = resolvePreviewRelativePath(in: targetURL)
         let sourceVideoRelativePath = sourceVideoURL.map { url in
             let basePath = targetURL.standardizedFileURL.path
@@ -404,7 +492,18 @@ extension SteamWorkshopService {
     }
 
     func loadDownloadMetadataEntry(forItemID itemID: String) -> (url: URL, snapshot: SteamWorkshopDownloadMetadataSnapshot)? {
-        let directURL = downloadMetadataFileURL(for: itemID)
+        Self.scanLoadDownloadMetadataEntry(
+            forItemID: itemID,
+            metadataIndexDirectory: downloadMetadataIndexDirectoryURL()
+        )
+    }
+
+    nonisolated static func scanLoadDownloadMetadataEntry(
+        forItemID itemID: String,
+        metadataIndexDirectory: URL
+    ) -> (url: URL, snapshot: SteamWorkshopDownloadMetadataSnapshot)? {
+        let directURL = metadataIndexDirectory
+            .appendingPathComponent("\(itemID).json")
         if let data = try? Data(contentsOf: directURL),
            let snapshot = try? JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: data),
            snapshot.item.id == itemID {
@@ -412,7 +511,7 @@ extension SteamWorkshopService {
         }
 
         let metadataFiles = (try? FileManager.default.contentsOfDirectory(
-            at: downloadMetadataIndexDirectoryURL(),
+            at: metadataIndexDirectory,
             includingPropertiesForKeys: nil,
             options: [.skipsHiddenFiles]
         )) ?? []
@@ -437,61 +536,6 @@ extension SteamWorkshopService {
             return downloadMetadataFileURL(forVideoURL: videoURL)
         }
         return downloadMetadataFileURL(for: record.id)
-    }
-
-    private func loadVideoDownloadMetadataSnapshot(for videoURL: URL) -> SteamWorkshopDownloadMetadataSnapshot? {
-        let metadataURL = downloadMetadataFileURL(forVideoURL: videoURL)
-        guard let data = try? Data(contentsOf: metadataURL),
-              let snapshot = try? JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: data) else {
-            return nil
-        }
-        return snapshot
-    }
-
-    private func buildInstalledVideoRecord(
-        videoURL: URL,
-        metadata: SteamWorkshopDownloadMetadataSnapshot?
-    ) -> SteamWorkshopDownloadRecord? {
-        guard FileManager.default.fileExists(atPath: videoURL.path) else { return nil }
-        let identifier = metadata?.item.id ?? "video:\(videoURL.deletingPathExtension().lastPathComponent)"
-        let browserItem = metadata?.item
-        let title = browserItem?.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let fallbackTitle = videoURL.deletingPathExtension().lastPathComponent
-        let updatedAt = (try? videoURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? Date()
-        return SteamWorkshopDownloadRecord(
-            id: identifier,
-            title: title?.isEmpty == false ? title! : fallbackTitle,
-            description: browserItem?.descriptionText ?? "",
-            tags: browserItem?.tags ?? [],
-            folderURL: videoURL.deletingLastPathComponent(),
-            projectFileURL: nil,
-            ownEntryHTMLURL: nil,
-            dependencyHostEntryHTMLURL: nil,
-            dependencyHostFolderURL: nil,
-            entryHTMLURL: nil,
-            resolvedWebRootURL: nil,
-            previewURL: browserItem?.previewImageURL,
-            sourceVideoURL: nil,
-            exportedVideoURL: videoURL,
-            updatedAt: updatedAt,
-            sizeText: fileSizeTextForURL(videoURL) ?? "未知大小",
-            status: .ready,
-            browserItem: browserItem,
-            contentType: .video,
-            dependencyItemID: nil,
-            dependencyStatus: .none
-        )
-    }
-
-    private func fileSizeTextForURL(_ url: URL) -> String? {
-        guard let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? Int64 else {
-            return nil
-        }
-        return Self.fileSizeText(forBytes: size)
-    }
-
-    private func isSupportedWorkshopVideoFile(_ url: URL) -> Bool {
-        Set(["mp4", "webm", "mov", "m4v"]).contains(url.pathExtension.localizedLowercase)
     }
 
     private func resolvePreviewRelativePath(in directory: URL) -> String? {

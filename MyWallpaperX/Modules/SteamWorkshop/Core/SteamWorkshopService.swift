@@ -343,6 +343,9 @@ final class SteamWorkshopService: ObservableObject {
     var libraryVersionReclamationTask: Task<Void, Never>?
     var legacyLibraryPublicationMigrationTask: Task<Void, Never>?
     var terminalDownloadCleanupTask: Task<Void, Never>?
+    /// Coalesces overlapping installed-library scans: only the newest
+    /// scan's result is published (see reloadInstalledItems).
+    var installedLibraryScanGeneration = 0
     var selectedItemDetailTask: Task<Void, Never>?
     var discoveryBrowseSnapshot: SteamWorkshopDiscoveryBrowseSnapshot?
     var currentBrowserScrollOffsetY: CGFloat = 0

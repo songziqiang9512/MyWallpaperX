@@ -40,28 +40,41 @@ extension SteamWorkshopService {
                 || $0.browserItem?.author.localizedLowercase.contains(normalized) == true
             }
         }
-        return filtered.sorted { lhs, rhs in
-            switch downloadsSortMode {
-            case .updatedAt:
-                if lhs.updatedAt == rhs.updatedAt {
-                    return lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
+        // Size ordering parses each record's size text exactly once instead of
+        // twice per comparison inside the sort closure (O(N log N) parses for
+        // an O(N log N) sort).
+        let sorted: [SteamWorkshopDownloadRecord]
+        if downloadsSortMode == .size {
+            let sized = filtered.map { record -> (record: SteamWorkshopDownloadRecord, bytes: Int64) in
+                (record, Self.parseByteCount(from: record.sizeText) ?? 0)
+            }
+            sorted = sized.sorted { lhs, rhs in
+                if lhs.bytes == rhs.bytes {
+                    return lhs.record.title.localizedStandardCompare(rhs.record.title) == .orderedAscending
                 }
-                return downloadsSortAscending ? (lhs.updatedAt < rhs.updatedAt) : (lhs.updatedAt > rhs.updatedAt)
-            case .title:
-                let comparison = lhs.title.localizedStandardCompare(rhs.title)
-                if comparison == .orderedSame {
+                return downloadsSortAscending ? (lhs.bytes < rhs.bytes) : (lhs.bytes > rhs.bytes)
+            }.map(\.record)
+        } else {
+            sorted = filtered.sorted { lhs, rhs in
+                switch downloadsSortMode {
+                case .updatedAt:
+                    if lhs.updatedAt == rhs.updatedAt {
+                        return lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
+                    }
                     return downloadsSortAscending ? (lhs.updatedAt < rhs.updatedAt) : (lhs.updatedAt > rhs.updatedAt)
+                case .title:
+                    let comparison = lhs.title.localizedStandardCompare(rhs.title)
+                    if comparison == .orderedSame {
+                        return downloadsSortAscending ? (lhs.updatedAt < rhs.updatedAt) : (lhs.updatedAt > rhs.updatedAt)
+                    }
+                    return downloadsSortAscending ? (comparison == .orderedAscending) : (comparison == .orderedDescending)
+                case .size:
+                    // Handled by the decorate-sort path above.
+                    return false
                 }
-                return downloadsSortAscending ? (comparison == .orderedAscending) : (comparison == .orderedDescending)
-            case .size:
-                let lhsSize = Self.parseByteCount(from: lhs.sizeText) ?? 0
-                let rhsSize = Self.parseByteCount(from: rhs.sizeText) ?? 0
-                if lhsSize == rhsSize {
-                    return lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
-                }
-                return downloadsSortAscending ? (lhsSize < rhsSize) : (lhsSize > rhsSize)
             }
         }
+        return sorted
     }
 
     func sanitizeDownloadSelectionAgainstDisplayedDownloads() {

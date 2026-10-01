@@ -38,11 +38,20 @@ final class SteamWorkshopSubscriptionStore: ObservableObject {
 
     /// A successful current-account subscribed page proves positive membership.
     /// Never overwrite an in-flight mutation or a newer known/readback result.
+    /// Newly proven IDs are merged into a copy and published once: a loop of
+    /// per-ID writes fans one page load into N full-store broadcasts, and every
+    /// broadcast re-runs every live card's heart chrome.
     func observeSubscribedIDs(_ ids: [String]) {
         synchronizeAccount()
         guard epoch != nil else { return }
+        var merged = states
+        var changed = false
         for id in ids where tasks[id] == nil && states[id] == nil {
-            states[id] = .known(true)
+            merged[id] = .known(true)
+            changed = true
+        }
+        if changed {
+            states = merged
         }
     }
 
