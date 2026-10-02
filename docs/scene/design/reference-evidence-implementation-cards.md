@@ -42,7 +42,7 @@
 
 **退役。** 支持profile的反射→typed值→GPU consumer闭合且证据/ABI回稳定权威后删卡；未公开family明确unknown，不计支持。
 
-**实施入口与继续取证。** A 的产品、实际 GPU／App 输出及验证边界集中在[实施记录](../../history/scene/rf02-authored-sampling-implementation-2026-10-03.md)，独立终审结论以该记录为准。测试发现非零起点 atlas 的 named consumer 在准备阶段拒绝并阻断全场首帧；下一批先沿既有 image provider／optional failure owner 定位并修复最小失败半径，再补合法 atlas 输出准入及真实消费，不扩大本批证据。B 保持 blocked：补不同 physical／mapped 尺寸与 Resolution 的交叉观察，排除头字段被忽略，再独立核重载稳定性与动画更新相位。已保存[数值观察](../../history/scene/rf02-companion-uniform-observations-2026-10-03.md)与 literal／active 单次采样原图，用户关闭观察窗口不影响原证据；无须重开旧探针。新行为定案后沿原反射、typed uniform、资源 publication 和 sampler 实施，不新增动画时钟。
+**实施入口与继续取证。** A 的产品、实际 GPU／App 输出及验证边界集中在[实施记录](../../history/scene/rf02-authored-sampling-implementation-2026-10-03.md)，独立终审结论以该记录为准。测试发现非零起点 atlas 的 named consumer 在准备阶段拒绝并阻断全场首帧；下一批按[named image graph输出设计](named-image-graph-output-design.md)沿既有 image provider／optional failure owner 修复最小失败半径，再补合法 atlas 输出准入及真实消费，不扩大本批证据。B 保持 blocked：补不同 physical／mapped 尺寸与 Resolution 的交叉观察，排除头字段被忽略，再独立核重载稳定性与动画更新相位。已保存[数值观察](../../history/scene/rf02-companion-uniform-observations-2026-10-03.md)与 literal／active 单次采样原图，用户关闭观察窗口不影响原证据；无须重开旧探针。新行为定案后沿原反射、typed uniform、资源 publication 和 sampler 实施，不新增动画时钟。
 
 ### RF03 — D4+D11 限定播放与显式出生
 
