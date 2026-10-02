@@ -16,6 +16,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-03 | Scene | 未定案实验 | [RF02 companion 研究检查点](scene/rf02-companion-research-checkpoint-2026-10-03.md) | 真实Swift拒绝反例、自有TEX与官方探针准入；数值语义未定案 | [RF02卡](../scene/design/reference-evidence-implementation-cards.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-03 | Scene | 退役设计 | [RF16 多材质模型设计](scene/rf16-model-material-segments-design-2026-10-03.md) | 段数工作预算、完整结构验证与资源局部失败裁决 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-03 | Scene | 实施证据 | [RF16 多材质模型显示](scene/rf16-model-material-segments-implementation-2026-10-03.md) | 5/8/64段真实消费、配额恢复及原包同帧可见性边界 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-03 | Scene | 退役设计 | [RF15 模型点光全向阴影设计](scene/rf15-model-point-shadow-design-2026-10-03.md) | 完整球域、逐tap跨面与六面原子发布裁决 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |

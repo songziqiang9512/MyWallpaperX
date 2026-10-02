@@ -411,6 +411,16 @@
       ]
     },
     {
+      "path": "docs/history/scene/rf02-companion-research-checkpoint-2026-10-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/design/reference-evidence-implementation-cards.md",
+        "docs/scene/scene-compatibility-roadmap.md"
+      ]
+    },
+    {
       "path": "docs/history/scene/rf03-continuous-playback-implementation-2026-10-02.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",

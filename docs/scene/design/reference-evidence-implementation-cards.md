@@ -42,7 +42,7 @@
 
 **退役。** 支持profile的反射→typed值→GPU consumer闭合且证据/ABI回稳定权威后删卡；未公开family明确unknown，不计支持。
 
-**下一取证批（已找到执行入口）。** 2026-10-02 公开检索及207个合法 package/2864个shader声明扫描未得到 companion数值布局；这只限定本轮检索，不代表永久不可知。现有 Parallels Windows 11 VM可用于实验，尚未核guest官方客户端版本/安装就绪。先核client build/hash/backend，以自有非方形atlas配公开pause/setFrame固定帧，独立阈值读取Rotation四分量/Translation两分量，再比较无变换/显式一次/显式两次的采样ROI，确定单位、分量布局、自动应用阶段与同帧publication。不能把本项目synthetic affine ABI直接别名成官方uniform；当前每次sampling自动变换尤其需排除重复变换。黑盒不能执行时登记具体缺失依赖并继续D1自有fixture及现役source/preflight边审查（D1作者输出顺序也依赖官方环境，不能猜定），不停止整个能力队列。
+**执行入口已走通，继续数值实验。** 固定官方客户端、自有单帧TEX准入、真实Swift修前反例及声明语法差分见[2026-10-03研究检查点](../../history/scene/rf02-companion-research-checkpoint-2026-10-03.md)。这解除“guest客户端未知/实验不能执行”的旧前置，不代表companion值或自动阶段已经定案。接续冻结v1.3.1六分量探针：完整网格及已知奇数低位控制通过后读取区间，再用自有非方形atlas、同容器palette、literal point与active companion程序区分自动应用次数。仍须独立核更新相位及非neutral frame，不能把synthetic ABI别名为官方uniform；实验失败保留具体反例并修实验，不跳过能力。数值与sampling合同定案后，沿原反射、typed uniform、资源publication和sampler实施。
 
 ### RF03 — D4+D11 限定播放与显式出生
 
