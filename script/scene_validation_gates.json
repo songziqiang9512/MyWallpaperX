@@ -687,7 +687,8 @@
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureFramePreflight.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureResidentBudgetPolicy.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneLayerGraphTargetPlan.swift"
       ],
       "modules": [
         "test_scene_graph_render_target_table",

@@ -101,16 +101,6 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
     let residentByteCost: Int
     let historyByteCost: Int
 
-    var fullFramePairByteCost: Int {
-        guard pairStorage == .shared else { return 0 }
-        let descriptor = fullFramePair.descriptor
-        let (pixels, pixelOverflow) = descriptor.extent.width
-            .multipliedReportingOverflow(by: descriptor.extent.height)
-        guard !pixelOverflow else { return Int.max }
-        let (bytes, byteOverflow) = pixels.multipliedReportingOverflow(by: 8)
-        return byteOverflow ? Int.max : bytes
-    }
-
     var sharedPairDimensions: (width: Int, height: Int)? {
         guard pairStorage == .shared else { return nil }
         return (
@@ -284,20 +274,22 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
             return .failure(.invalidPlan)
         }
 
-        var total = 0
+        let pairSlots = Set([pair.zeroSlot, pair.oneSlot])
+        var resident = 0
         var history = 0
-        for slot in slots {
+        // Shared pair textures are charged by the pool that owns them.
+        for slot in slots where pairStorage == .owned || !pairSlots.contains(slot.id) {
             let (pixels, pixelOverflow) = slot.descriptor.extent.width
                 .multipliedReportingOverflow(by: slot.descriptor.extent.height)
             guard !pixelOverflow else { return .failure(.byteCostOverflow) }
             let (bytes, byteOverflow) = pixels.multipliedReportingOverflow(
                 by: slot.descriptor.format.logicalBytesPerPixel
             )
-            let (nextTotal, totalOverflow) = total.addingReportingOverflow(bytes)
+            let (nextResident, totalOverflow) = resident.addingReportingOverflow(bytes)
             guard !byteOverflow, !totalOverflow else {
                 return .failure(.byteCostOverflow)
             }
-            total = nextTotal
+            resident = nextResident
             if slot.historyEffect != nil {
                 let (nextHistory, overflow) = history.addingReportingOverflow(bytes)
                 guard !overflow else { return .failure(.byteCostOverflow) }
@@ -307,21 +299,12 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
         // History is retained only from authored framebuffer slots. The
         // full-frame pair is a submission-scoped working surface, so sharing
         // it cannot move either pair member into the history closure.
-        let pairSlots = Set([pair.zeroSlot, pair.oneSlot])
         let historySlots = Set(slots.compactMap {
             $0.historyEffect == nil ? nil : $0.id
         })
         guard historySlots.isDisjoint(with: pairSlots) else {
             return .failure(.invalidPlan)
         }
-        let pairBytes: Int
-        let (pairPixels, pairPixelOverflow) = pairDescriptor.extent.width
-            .multipliedReportingOverflow(by: pairDescriptor.extent.height)
-        guard !pairPixelOverflow else { return .failure(.byteCostOverflow) }
-        let (pairCost, pairByteOverflow) = pairPixels.multipliedReportingOverflow(by: 8)
-        guard !pairByteOverflow else { return .failure(.byteCostOverflow) }
-        pairBytes = pairCost
-        let resident = pairStorage == .shared ? total - pairBytes : total
         guard resident >= 0, resident <= byteBudget else {
             return .failure(.byteBudgetExceeded)
         }

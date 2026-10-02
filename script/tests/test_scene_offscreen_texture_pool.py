@@ -728,6 +728,160 @@ enum Harness {
         return (prepared, commit, commandBuffer)
     }
 
+    static func formatAccounting(_ device: MTLDevice) -> [String: Bool] {
+        var checks: [String: Bool] = [:]
+        for (formatName, format, pixelFormat, pixelBytes) in [
+            ("sdr", SceneGraphRenderTargetPlan.TextureFormat.rgbaBackbuffer, MTLPixelFormat.bgra8Unorm, 4),
+            ("hdr", .rgba16f, .rgba16Float, 8),
+        ] {
+            for (width, height) in [(64, 32), (32, 96)] {
+                let pixels = width * height
+                let cases: [(String, Fixture, Int, Int)] = [
+                    ("direct", directFixture(effectIndex: 910), 0, 0),
+                    ("r8", fixture(effectIndex: 911, framebufferFormat: "r8"), pixels / 8, 0),
+                    ("history", historySwapFixture(effectIndex: 912, framebufferFormat: "rgba8888"), pixels * 8, pixels * 8),
+                ]
+                for (name, value, privateBytes, historyBytes) in cases {
+                    guard case .success(let target) = SceneGraphRenderTargetPlan.make(
+                        graph: value.execution.renderGraph, inputRole: .layerSource,
+                        inputWidth: width, inputHeight: height, backbufferFormat: format
+                    ) else { fatalError("format accounting target rejected") }
+                    for storage in [SceneLayerGraphTargetPlan.FullFramePairStorage.owned, .shared] {
+                        let expected = privateBytes + (storage == .owned ? pixels * pixelBytes * 2 : 0)
+                        let key = "\(formatName)-\(width)x\(height)-\(name)-\(storage)"
+                        let exact = SceneLayerGraphTargetPlan.make(
+                            plans: [target], pairPlan: pairPlan([value]), byteBudget: expected,
+                            pairStorage: storage
+                        )
+                        if case .success(let plan) = exact {
+                            checks[key] = plan.residentByteCost == expected
+                                && plan.historyByteCost == historyBytes
+                        } else { checks[key] = false }
+                        if expected > 0 {
+                            let short = SceneLayerGraphTargetPlan.make(
+                                plans: [target], pairPlan: pairPlan([value]), byteBudget: expected - 1,
+                                pairStorage: storage
+                            )
+                            if case .failure(.byteBudgetExceeded) = short {
+                                checks[key + "-short"] = true
+                            } else { checks[key + "-short"] = false }
+                        }
+                    }
+                }
+            }
+            let overflowFixture = directFixture(effectIndex: 913)
+            guard case .success(let overflowTarget) = SceneGraphRenderTargetPlan.make(
+                graph: overflowFixture.execution.renderGraph, inputRole: .layerSource,
+                inputWidth: Int.max, inputHeight: 2, backbufferFormat: format
+            ) else { fatalError("overflow value fixture rejected before cost owner") }
+            if case .failure(.byteCostOverflow) = SceneLayerGraphTargetPlan.make(
+                plans: [overflowTarget], pairPlan: pairPlan([overflowFixture]),
+                byteBudget: Int.max, pairStorage: .owned
+            ) { checks[formatName + "-overflow"] = true }
+            else { checks[formatName + "-overflow"] = false }
+            // API-boundary injection: a shared graph owns no pair bytes, while the
+            // real shared-pair allocation owner must reject overflow before allocating.
+            if case .success(let noPrivateSlots) = SceneLayerGraphTargetPlan.make(
+                plans: [overflowTarget], pairPlan: pairPlan([overflowFixture]),
+                byteBudget: 0, pairStorage: .shared
+            ) { checks[formatName + "-shared-overflow-private-zero"] = noPrivateSlots.residentByteCost == 0 }
+            else { checks[formatName + "-shared-overflow-private-zero"] = false }
+            let overflowPool = SceneOffscreenTexturePool(device: device, pixelFormat: pixelFormat)
+            var overflowFactoryCalls = 0
+            let impossiblePair = overflowPool.sharedPairCandidate(width: Int.max, height: 2) { _, _ in
+                overflowFactoryCalls += 1
+                return nil
+            }
+            checks[formatName + "-shared-overflow-allocation-refused"] = impossiblePair == nil
+                && overflowFactoryCalls == 0 && overflowPool.residentByteCost == 0
+                && overflowPool.pendingSharedPairByteCosts(for: [.sharedGraphPair(width: Int.max, height: 2)]) == nil
+            // Two distinct graphs, one physical pair, and two private R8 FBOs per graph.
+            // The two sizes exercise independent cache keys without modifying pool policy.
+            for dimensions in [[(64, 32), (64, 32)], [(64, 32), (32, 96)]] {
+                let identical = dimensions[0] == dimensions[1]
+                let label = formatName + (identical ? "-same-size-pool" : "-different-size-pool")
+                let pairPixels = identical ? 64 * 32 : 64 * 32 + 32 * 96
+                let expected = pairPixels * pixelBytes * 2
+                    + dimensions.reduce(0) { $0 + $1.0 * $1.1 / 8 }
+                for budget in [expected, expected - 1] {
+                    let pool = SceneOffscreenTexturePool(device: device, pixelFormat: pixelFormat, residentByteBudget: budget)
+                    guard let queue = device.makeCommandQueue(), let buffer = queue.makeCommandBuffer() else {
+                        fatalError("format accounting command buffer unavailable")
+                    }
+                    let values = dimensions.indices.map { fixture(effectIndex: 920 + $0, layerID: 920 + $0, framebufferFormat: "r8") }
+                    let plans = values.enumerated().compactMap { index, value in
+                        pool.framePlanForPersistentGraphTargets(
+                            admittedGraphs: admittedGraphs([value]), pairPlan: pairPlan([value]),
+                            requestedWidth: dimensions[index].0, requestedHeight: dimensions[index].1,
+                            usesSharedFullFrameWorkingPair: true, orderingContext: .init(commandBuffer: buffer)
+                        )
+                    }
+                    guard plans.count == 2 else { fatalError("format pool plan unavailable") }
+                    if budget < expected {
+                        checks[label + "-short"] = pool.preflightPersistentGraphTargets(plans)
+                            == .rejected(reasonCode: "frame-target-byte-budget-exceeded")
+                            && pool.residentByteCost == 0 && pool.residentTextureCount == 0
+                        continue
+                    }
+                    guard pool.preflightPersistentGraphTargets(plans) == .ready,
+                          let prepared = pool.preparePersistentGraphTargets(framePlans: plans),
+                          let commits = pool.commitAndPinPersistentGraphTargets(
+                              prepared, historyTokensByTarget: [[:], [:]], commandBuffer: buffer
+                          ) else { checks[label] = false; continue }
+                    let pairs = prepared.map { value in
+                        Set(value.leases.flatMap { [ObjectIdentifier($0.table.fullFramePair.first), ObjectIdentifier($0.table.fullFramePair.second)] })
+                    }
+                    let allTextures = prepared.flatMap { $0.leases.flatMap { Array($0.texturesByToken.values) } }
+                    var unique: [ObjectIdentifier: MTLTexture] = [:]
+                    for texture in allTextures { unique[ObjectIdentifier(texture)] = texture }
+                    let actualBytes = unique.values.reduce(0) { result, texture in
+                        result + texture.width * texture.height * (texture.pixelFormat == .r8Unorm ? 1 : pixelBytes)
+                    }
+                    checks[label] = pool.residentByteCost == expected && actualBytes == expected
+                        && (identical ? pairs[0] == pairs[1] : pairs[0].isDisjoint(with: pairs[1]))
+                        && unique.count == (identical ? 6 : 8)
+                    buffer.commit()
+                    buffer.waitUntilCompleted()
+                    checks[label + "-completed"] = buffer.status == .completed
+                    commits.forEach { $0.releaseAll() }
+                    guard let next = queue.makeCommandBuffer() else { fatalError("next buffer") }
+                    let nextPlans = values.enumerated().compactMap { index, value in
+                        pool.framePlanForPersistentGraphTargets(
+                            admittedGraphs: admittedGraphs([value]), pairPlan: pairPlan([value]),
+                            requestedWidth: dimensions[index].0, requestedHeight: dimensions[index].1,
+                            usesSharedFullFrameWorkingPair: true, orderingContext: .init(commandBuffer: next)
+                        )
+                    }
+                    guard let nextPrepared = pool.preparePersistentGraphTargets(framePlans: nextPlans),
+                          let nextCommits = pool.commitAndPinPersistentGraphTargets(
+                              nextPrepared, historyTokensByTarget: [[:], [:]], commandBuffer: next
+                          ) else { checks[label + "-next-frame"] = false; continue }
+                    checks[label + "-next-frame"] = nextPrepared.enumerated().allSatisfy { index, value in
+                        Set(value.leases.flatMap { [ObjectIdentifier($0.table.fullFramePair.first), ObjectIdentifier($0.table.fullFramePair.second)] }) == pairs[index]
+                    } && pool.residentByteCost == expected
+                    for value in nextPrepared {
+                        let pass = MTLRenderPassDescriptor()
+                        pass.colorAttachments[0].texture = value.leases.first?.table.fullFramePair.first
+                        pass.colorAttachments[0].loadAction = .clear
+                        pass.colorAttachments[0].storeAction = .store
+                        pass.colorAttachments[0].clearColor = MTLClearColorMake(0.25, 0.5, 0, 1)
+                        guard let encoder = next.makeRenderCommandEncoder(descriptor: pass) else {
+                            fatalError("next-frame clear")
+                        }
+                        encoder.endEncoding()
+                    }
+                    next.commit()
+                    next.waitUntilCompleted()
+                    checks[label + "-next-frame-completed"] = next.status == .completed
+                    nextCommits.forEach { $0.releaseAll() }
+                    pool.reset()
+                    checks[label + "-released"] = pool.residentByteCost == 0
+                }
+            }
+        }
+        return checks
+    }
+
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice() else {
             print("{\"metalUnavailable\":true}")
@@ -2732,7 +2886,11 @@ enum Harness {
                 && sharedHistoryPlan2.graphPlan.pairStorage == .shared
                 && sharedHistoryPlan2.graphPlan.residentByteCost
                     == sharedHistoryPlan2.graphPlan.historyByteCost
-                && sharedHistoryPlan2.graphPlan.fullFramePairByteCost == 32_768
+                && sharedHistoryPool.allocationCache.locked {
+                    sharedHistoryPool.allocationCache.residents[
+                        .current(.sharedGraphPair(width: 64, height: 64))
+                    ]?.byteCost == 32_768
+                }
                 && sharedHistorySlots.isDisjoint(with: sharedPairSlots)
                 && sharedHistoryTargetTokens2.isDisjoint(with: sharedPairTokens2)
                 && Set(sharedHistoryCopies2.map(\.sourceToken))
@@ -3549,6 +3707,7 @@ enum Harness {
 
         let result: [String: Any] = [
             "metalUnavailable": false,
+            "formatAccounting": formatAccounting(device),
             "automaticBudgetBoundsAreStable": automaticBudgetBoundsAreStable,
             "defaultPoolUsesDeviceBudget": defaultPoolUsesDeviceBudget,
             "explicit128BudgetIsPreserved": explicit128BudgetIsPreserved,
@@ -3783,6 +3942,8 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
                 "swiftc",
                 *(str(path) for path in SWIFT_SOURCES),
                 str(harness),
+                "-module-cache-path",
+                str(root / "module-cache"),
                 "-framework",
                 "Metal",
                 "-o",
@@ -3829,6 +3990,11 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertTrue(self.result["unsafeUnsubmittedSharedPairRejected"])
         self.assertTrue(self.result["differentQueueSharedPairRejected"])
         self.assertTrue(self.result["sharedPairOrderedReuseAndReleaseStable"])
+
+    def test_shared_and_owned_targets_charge_actual_format_and_physical_owner(self) -> None:
+        for case, passed in self.result["formatAccounting"].items():
+            with self.subTest(case=case):
+                self.assertTrue(passed)
 
     def test_whole_frame_shared_pair_residency_is_atomic(self) -> None:
         self.assertTrue(self.result["wholeFrameSharedPairSetIsAtomic"])
