@@ -121,7 +121,7 @@ HDR clear=false 的 raw/candidate/display 分离、GPU成功提升、paused新ep
 
 **先补输入，再自主实现。** [PBR中性交接](../../history/scene/d3-pbr-input-neutral-contract-2026-10-02.md)已定各tier的metallic/roughness键与default、map空用slider及场景灯的LIGHTING合同。没有slot2仍须消费声明default，不能另造PBR总开关。标量/default已沿同一lit producer落实，真实App缺响应反例及独立数值、启动用户属性与normal回归见[本片执行记录](../../history/scene/d3-pbr-scalar-implementation-2026-10-02.md)；此结果不代表slot2已实现。PBRMASKS组件index到stored channel、map与scalar组合继续从固定参考职责与官方作者实验补证，未经审查不猜RGBA。只缺某个动态/reset分支时限制该分支，不冻结明确静态输入。
 
-**最近纠正门。** 标量批补强真实instance纹理覆盖时发现，普通slot0仍未投影至既有base asset选择；同图旧门不能证明覆盖成功。按[本批反例](../../history/scene/d3-pbr-scalar-implementation-2026-10-02.md#补强测试发现的普通实例底图漏接)先在现Layer准备与共享path resolver补layer-local来源、同model隔离及缺资源边界，验证颜色替换和normal继承，再接slot2；不借此另建provider/loader。
+**最近纠正门。** 普通instance静态slot0漏接已在Layer准备与共享path resolver纠正，真实不同灰底图、normal继承、同model隔离、动画下一帧及缺坏资源局部失败通过实际App；冻结身份与证据见[本片记录](../../history/scene/d3-instance-base-texture-implementation-2026-10-02.md)。由稳定架构接管该责任，接续slot2输入补证与同一lit producer的贴图消费，不另建provider/loader。
 
 **owner与失败路。** prepared material profile拥有有效feature与需求；现cache/catalog/registry拥有数据纹理、逐槽frame与生命周期；同帧camera/light与lit producer拥有方向/材质响应。缺可选PBR资源只移除未可用的map输入，沿设计使用合法scalar/default并保留normal/alpha；identity/range/hazard仍拒最小unsafe unit，不能新建PBR registry、camera或compositor。
 

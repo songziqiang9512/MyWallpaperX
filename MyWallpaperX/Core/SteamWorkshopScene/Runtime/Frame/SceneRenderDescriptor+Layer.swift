@@ -8,6 +8,8 @@ extension SceneRenderDescriptor {
         var cameraPath: SceneDocument.Scene2DCameraPathDefinition? = nil
         let contentKind: String
         let imagePath: String?
+        /// Prepared layer-local static slot 0; nil inherits the model material.
+        var staticBaseTexturePath: String? = nil
         var staticModelPath: String? = nil
         var usesPerspective: Bool? = nil
         let particlePath: String?

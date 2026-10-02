@@ -24,6 +24,7 @@ import Foundation
 struct SceneRenderDescriptor {
     struct Layer {
         let imagePath: String?
+        var staticBaseTexturePath: String? = nil
     }
 
     struct ModelMaterialLink {

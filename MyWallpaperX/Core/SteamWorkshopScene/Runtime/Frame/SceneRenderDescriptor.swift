@@ -135,6 +135,11 @@ struct SceneRenderDescriptorBuilder {
                     cameraPath: object.cameraPath,
                     contentKind: contentKind,
                     imagePath: object.imagePath,
+                    staticBaseTexturePath: object.materialInstance.flatMap { instance in
+                        guard !instance.isMalformed,
+                              instance.userTextureInputs.allSatisfy({ $0 == nil }) else { return nil }
+                        return instance.textureSlots.first ?? nil
+                    },
                     staticModelPath: object.staticModelPath,
                     usesPerspective: object.usesPerspective,
                     particlePath: object.particlePath,

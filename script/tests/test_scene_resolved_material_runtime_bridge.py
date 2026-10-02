@@ -306,7 +306,8 @@ VFS_SUPPORT = r'''
 import Foundation
 
 struct SceneRenderDescriptor {
-    struct Layer { let imagePath: String? }
+    struct Layer { let imagePath: String?
+        var staticBaseTexturePath: String? = nil }
     struct ModelMaterialLink { let modelPath: String; let materialPath: String? }
     struct MaterialPassDescriptor { let materialPath: String; let texturePaths: [String] }
     let modelMaterialLinks: [ModelMaterialLink]

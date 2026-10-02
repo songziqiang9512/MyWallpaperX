@@ -67,7 +67,7 @@ class SceneAuthoredNormalTests(unittest.TestCase):
     struct MaterialPass { let materialPath: String; let texturePaths: [String] }
     var modelMaterialLinks: [ModelMaterialLink] = []
     var materialPasses: [MaterialPass] = []
-''').replace('let contentKind: String\n        let brightness:', 'var imagePath: String? = nil\n        let contentKind: String\n        let brightness:')
+''').replace('let contentKind: String\n        let brightness:', 'var imagePath: String? = nil\n        var staticBaseTexturePath: String? = nil\n        let contentKind: String\n        let brightness:')
             support.write_text(support_text+'\nenum SceneMatrix { static func scale(_ v: SIMD3<Float>) -> simd_float4x4 { simd_float4x4(diagonal: SIMD4(v,1)) } }\n')
             binary=work/'probe'
             command=['xcrun','swiftc','-D','SCENE_AUTHORED_NORMAL','-parse-as-library',*[str(p) for p in sources],str(support),str(ROOT/'script/tests/fixtures/SceneLitImageLayerHarness.swift'),str(ROOT/'script/tests/fixtures/SceneAuthoredNormalHarness.swift'),'-module-cache-path',str(work/'module-cache'),'-o',str(binary)]
@@ -98,13 +98,13 @@ class SceneAuthoredNormalIntegrationTests(unittest.TestCase):
                    corrupt=False, effect=False, animated=False, instance=False, slot2=False,
                    encoding='rgb', render_size=64, parent_transform=None, shader='genericimage2',
                    scalar_values=None, instance_scalar=None, light_origin='180 48 100', intensity=1.5,
-                   native_camera=None, layer_perspective=None, no_normal=False, reflection=0, property_defaults=None):
+                   native_camera=None, layer_perspective=None, no_normal=False, reflection=0, property_defaults=None, instance_base_size=(4,4), instance_base_animated=False, same_model_peer=False, instance_base_failure=None):
         import hashlib, struct, zlib, shutil
         from script.tests.test_scene_pkg_cache_extractor import make_package
         from script.web_benchmark_capture import png_rgb_pixels
-        def png(rgb):
+        def png(rgb, size=(4,4)):
             def chunk(k,v):return struct.pack('>I',len(v))+k+v+struct.pack('>I',zlib.crc32(k+v)&0xffffffff)
-            return b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',4,4,8,6,0,0,0))+chunk(b'IDAT',zlib.compress((b'\0'+bytes((*rgb,255))*4)*4))+chunk(b'IEND',b'')
+            return b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',*size,8,6,0,0,0))+chunk(b'IDAT',zlib.compress((b'\0'+bytes((*rgb,255))*size[0])*size[1]))+chunk(b'IEND',b'')
         def tex(fmt,w,h,data,flags=0):
             return b'TEXV0005\0TEXI0001\0'+struct.pack('<7I',fmt,flags,w,h,w,h,0)+b'TEXB0002\0'+struct.pack('<7I',1,1,w,h,0,0,len(data))+data
         rgb=(230 if sign>0 else 25,128,204)
@@ -120,13 +120,15 @@ class SceneAuthoredNormalIntegrationTests(unittest.TestCase):
             normaldata=tex(0,8,4,payload,4)+b'TEXS0002\0'+struct.pack('<I',2)
             for origin in (0,4):normaldata+=struct.pack('<If6f',0,2.5,origin,0,4,0,0,4)
         receiver={'id':1,'name':'Normal receiver','image':'models/receiver.json','origin':'80 48 0','size':(f'{render_size[0]} {render_size[1]}' if isinstance(render_size,tuple) else f'{render_size} {render_size}')}
-        if instance: receiver['instance']={'textures':['materials/albedo.png',None]}
+        if instance: receiver['instance']={'textures':['materials/instance.tex' if instance_base_animated else 'materials/instance.png',None]}
         if instance_scalar is not None: receiver['instance']={'constantshadervalues':instance_scalar}
         if layer_perspective is not None: receiver['perspective']=layer_perspective
         if effect: receiver['effects']=[{'id':10,'file':'effects/own_dim/effect.json','visible':True}]
         scene={'version':3,'general':{'orthogonalprojection':{'width':160,'height':96},'clearcolor':'0 0 0','ambientcolor':'0 0 0','skylightcolor':'0 0 0'},'objects':[receiver,
             {'id':2,'light':'lpoint','origin':light_origin,'color':'1 1 1','intensity':intensity,'radius':1000},
             {'id':99,'name':'Healthy peer','image':'models/util/solidlayer.json','origin':'140 80 0','size':'12 12','color':'0 1 0'}]}
+        if same_model_peer:
+            scene['objects'].append({'id':3,'name':'Same model inherited peer','image':'models/receiver.json','origin':'20 48 0','size':'16 16'})
         if native_camera:
             scene['general'].pop('orthogonalprojection')
             scene['camera']=native_camera
@@ -143,6 +145,15 @@ class SceneAuthoredNormalIntegrationTests(unittest.TestCase):
             'materials/own_dim.json':json.dumps({'passes':[{'shader':'own_dim','textures':[None],'blending':'normal','depthtest':'disabled','depthwrite':'disabled','cullmode':'nocull'}]}).encode(),
             'shaders/own_dim.vert':b'attribute vec3 a_Position;\nattribute vec2 a_TexCoord;\nvarying vec2 v_TexCoord;\nvoid main(){gl_Position=vec4(a_Position,1.0);v_TexCoord=a_TexCoord;}\n',
             'shaders/own_dim.frag':b'uniform sampler2D g_Texture0;\nvarying vec2 v_TexCoord;\nvoid main(){vec4 c=texSample2D(g_Texture0,v_TexCoord);c.rgb*=0.5;gl_FragColor=c;}\n'}
+        if instance:
+            if instance_base_animated:
+                payload=b''.join(bytes((64,64,64,255) if i%8<4 else (192,192,192,255)) for i in range(32))
+                data=tex(0,8,4,payload,4)+b'TEXS0002\0'+struct.pack('<I',2)
+                for origin in (0,4):data+=struct.pack('<If6f',0,2.5,origin,0,4,0,0,4)
+                entries['materials/instance.tex']=data
+            else:entries['materials/instance.png']=png((64,64,64),instance_base_size)
+        if instance_base_failure == 'missing':entries.pop('materials/instance.png',None)
+        if instance_base_failure == 'corrupt':entries['materials/instance.png']=b'corrupt selected asset'
         if not missing: entries[normalpath]=b'corrupt' if corrupt else normaldata
         with tempfile.TemporaryDirectory(prefix='mwx-normal-app-') as temporary:
             root=Path(temporary);content=root/'content';content.mkdir();home=root/'home';home.mkdir();evidence=root/'evidence'
@@ -154,6 +165,9 @@ class SceneAuthoredNormalIntegrationTests(unittest.TestCase):
             for path in sorted(evidence.glob('*-window.png')):
                 w,h,rows=png_rgb_pixels(path);samples=[list(rows[y][x*3:x*3+3]) for y in range(h//2-10,h//2+10) for x in range(w//2-10,w//2+10)]
                 pixels[path.name]={'center':list(rows[h//2][w//2*3:w//2*3+3]),'roiMean':[sum(v[c] for v in samples)/len(samples) for c in range(3)],'greenPeer':sum(row[x*3]<5 and row[x*3+1]>245 and row[x*3+2]<5 for row in rows[::4] for x in range(0,w,4)),'size':[w,h]}
+                if same_model_peer:
+                    peer=[list(rows[y][x*3:x*3+3]) for y in range(h//2-3,h//2+3) for x in range(w//8-3,w//8+3)]
+                    pixels[path.name]['sameModelPeerMean']=[sum(v[c] for v in peer)/len(peer) for c in range(3)]
             if destination:=os.environ.get('MWX_SCENE_INTEGRATION_EVIDENCE'):
                 saved=Path(destination)/self._testMethodName/f'{encoding}-{sign}-size{render_size}-parent{parent_transform}-case{getattr(self,"scenario_id","normal")}';saved.mkdir(parents=True,exist_ok=True)
                 shutil.copytree(content,saved/'content',dirs_exist_ok=True)
@@ -194,7 +208,13 @@ class SceneAuthoredNormalIntegrationTests(unittest.TestCase):
         for value in self.run_normal(corrupt=True).values():self.assertLessEqual(abs(value['roiMean'][0]-normal_expected(flat=True)),1)
 
     def test_instance_albedo_override_inherits_normal(self):
-        for value in self.run_normal(instance=True).values():self.assertLessEqual(abs(value['roiMean'][0]-normal_expected()),2)
+        # New albedo identity/64 differs from inherited 128; BC5 +X also
+        # differs from a lost-normal flat result. Both wrong paths are >14 away.
+        expected=pbr_expected((1,0,0),albedo=64)
+        for value in self.run_normal(instance=True,encoding='bc5').values():
+            self.assertLessEqual(abs(value['roiMean'][0]-expected),2,value)
+            self.assertGreater(abs(value['roiMean'][0]-pbr_expected((1,0,0))),10)
+            self.assertGreater(abs(value['roiMean'][0]-pbr_expected(albedo=64)),10)
 
     def test_slot2_is_not_normal(self):
         for value in self.run_normal(slot2=True).values():self.assertLessEqual(abs(value['roiMean'][0]-normal_expected(flat=True)),1)

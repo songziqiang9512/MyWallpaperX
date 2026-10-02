@@ -475,6 +475,23 @@
       ]
     },
     {
+      "id": "instance-base-texture-selection",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTexturePathResolver.swift",
+        "script/tests/test_scene_instance_base_texture.py"
+      ],
+      "modules": [
+        "test_scene_instance_base_texture",
+        "test_scene_authored_normal",
+        "test_scene_resource_view",
+        "test_scene_resolved_material_runtime_bridge",
+        "test_scene_sampler_default_purpose",
+        "test_scene_source_update_transaction"
+      ]
+    },
+    {
       "id": "resources",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneMultiImageSpritePlayback.swift",

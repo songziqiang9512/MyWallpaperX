@@ -76,6 +76,26 @@ XY超出单位圆时，方向落在正半球赤道并归一化，缺失Z取零�
 
 **退役。** 本片通过实际反例、真实App/资源门及独立终审后，input/purpose/frame/方向解释由现有稳定owner接管并删除窄登记；PBR、阴影、reflection、官方Y/packing/atlas parity与reset仍各自后继，不能因normal上线宣布D3完整完成。
 
+## F2 — 普通instance底图选择纠正（独立设计审查已批准）
+
+实际App纠正门及独立产品终审已完成，见[执行记录](../../history/scene/d3-instance-base-texture-implementation-2026-10-02.md)。稳定职责移交架构，临时F2登记同批退役；以下保留设计边界，不扩大为动态instance能力。
+
+**目标/已有合同。** 落实上文已有的同槽覆盖和“instance只改albedo不丢normal”：同model的两个图层可以分别选择自己的静态slot0，normal仍按slot1独立继承，plain及effects实际消费相同的选中来源。本片修真实底图身份，不增加provider、loader或运行时instance mutation能力。
+
+**当前事实与反例（a32e814f）。** `Format/SceneDocumentObject.swift:8–59`已保存instance的静态槽和typed user输入；`Runtime/Frame/SceneRenderDescriptor.swift:131–139`尚未投影实例底图，`Resources/Textures/SceneTexturePathResolver.swift:41–53`只按imagePath→model→material首pass选纹理。准备期`Runtime/Session/ScenePreparedDeviceResources.swift:128`与安装期`Rendering/Frame/SceneMetalView.swift:257`复用这个resolver，故都选错源。以上路径以`MyWallpaperX/Core/SteamWorkshopScene/`为前缀。已冻结[真实反例](../../history/scene/d3-pbr-scalar-implementation-2026-10-02.md#补强测试发现的普通实例底图漏接)：请求灰64的instance图却加载原灰128，保留BC5法线后的ROI36.55，而独立预期21.37979±2。失去normal另为37.19426，不能改容差混过。
+
+**owner与选择。** 在现Layer保留一个可向后解码的optional prepared静态slot0路径，由现descriptor builder在load/generation从typed instance投影一次；现SceneTexturePathResolver(for:layer)为准备、安装和相关base loader提供同一选择。保持既有imagePath入口前提，modelPath-only resolver继续服务原model/dynamic资源用途，不附着任意图层的instance。不得修改共享materialPasses/model link、逐帧读raw或重建asset需求扫描。
+
+合法instance的非空静态slot0覆盖该图层的material默认；null/省略/已归一化空值继承material。没有typed user输入（usertextures省略、合法空数组或userTextureInputs全nil）仍是静态选择；nil仅复用现parser对NSNull/空字符串的投影，不能另按value.isEmpty把非nil的property声明当空项。任何非nil typed user/system/property/path/unknown输入留给已有provider准入，本片不重定义其fallback匹配与失败路。非法集合形状沿原Format记录，不因为新增静态字段获得准入。没有slot0覆盖时完全走现model默认；旧descriptor缺新optional字段等价于无覆盖。未知作者reset和动态instance改写不从此静态投影推出。
+
+选中的resource URL/sourceKey、纹理pixel/mapped extent、采样与动画FrameProvider metadata必须来自同一来源，不可仅换MTLTexture而借旧material尺寸/UV。作者显式size或model声明尺寸仍由原几何owner决定，不能将换纹理误作作者几何重设。既有动态image provider的合法publication仍在frame assembly覆盖初始base；共享model-keyed动态资源准备保持原义，没有第二套动态选择。
+
+**备选/失败。** 拒绝在provider compiler、最后draw或共享material表里插入静态特例：分别会混淆provider权威、导致准备/安装身份不一致或串扰同model图层。选择既有descriptor→resolver链。显式非空来源一旦选中，文件缺失/解码失败遵从原base loader最小layer/source失败，不退回另一张material图假装成功；路径逃逸交原VFS拒绝。合法无覆盖才继承默认。后续unsafe range/ABI/target/publication仍原owner负责。本片不新增格式或专用占位资源。
+
+**纠正门。** 复用冻结source-v2的真实红与test-v3，不重复制造弱同图门。真实descriptor/resolver验证同model两层不同slot0、共享pass未改、null/empty继承、全null user与有provider区分、旧descriptor解码、missing/escape无二次选源。实际App在同一身份验证灰64+继承BC5、normal关闭负控、非identity effect、同model无override邻层和后帧；非方形/不同尺寸源区分纹理metadata与作者尺寸。动画资源验证选中源的FrameProvider/UV更新，dynamic/provider邻接门验证已发布动态源优先级及model-only解析未变。source/App/input、completion、publication/terminal与ROI各有相称证据；只读选择测试不冒充实际显示。
+
+**判据/退役。** 五判据1/2/4命中（prepared descriptor、base资源唯一选择、序列化/机器验证家族），3/5不新增：采用已有D3静态同槽合同，不裁新官方reset/私有算法。design-gate在本节独立批准前阻止上述三产品路径实施。真实红→绿、资源/邻层门及独立终审完成后移交稳定架构的base来源职责，同批删除窄登记；D3 PBR后继保持active。
+
 ## RF10 — slot2 直射材质响应（标量切片按独立审查意见修订后批准；贴图补证并行）
 
 **目标。** 普通2D builtin genericimage2/4中已明确作者输入的材质分量，在既有point/spot灯下产生可区分的金属度、粗糙度响应；与normal、作者transform及同帧view共同决定高光，随后沿原effect和唯一terminal显示。无需还原官方私有算法。本片不是环境反射、完整PBR或官方parity。

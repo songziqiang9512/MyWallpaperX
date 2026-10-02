@@ -92,7 +92,8 @@ nonisolated struct SceneResolvedMaterialNode {
     enum TextureProvenance: String, Hashable { case material, instance, userTexture, explicitBinding }
 }
 nonisolated struct SceneRenderDescriptor {
-    struct Layer { let imagePath: String? }
+    struct Layer { let imagePath: String?
+        var staticBaseTexturePath: String? = nil }
     struct ModelMaterialLink { let modelPath: String; let materialPath: String }
     struct MaterialPass { let materialPath: String; let texturePaths: [String] }
     let modelMaterialLinks: [ModelMaterialLink]
