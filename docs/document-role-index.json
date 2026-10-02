@@ -6,6 +6,7 @@
       "docs/architecture/appkit-migration.md",
       "docs/architecture/technology-stack-boundaries.md",
       "docs/scene/design/2d-lighting-material-design.md",
+      "docs/scene/design/authored-texture-coordinate-design.md",
       "docs/scene/design/composition-render-target-design.md",
       "docs/scene/design/copy-pass-unification-design.md",
       "docs/scene/design/debug-frame-capture-lifecycle-design.md",
@@ -775,6 +776,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/design/batch2-design-index.md",
       "retirementCondition": "材质受光和各可选光照子能力分别通过合同门并进入稳定架构后归档，未完成 profile 保持明确准入限制。"
+    },
+    {
+      "path": "docs/scene/design/authored-texture-coordinate-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/design/reference-evidence-implementation-cards.md",
+      "retirementCondition": "作者采样坐标与公开companion分别完成纠正门，稳定职责进入runtime-architecture后归档；未证profile不隐式批准。"
     },
     {
       "path": "docs/scene/design/composition-render-target-design.md",

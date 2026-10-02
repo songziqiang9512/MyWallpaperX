@@ -34,7 +34,7 @@
 
 **首断点。** `Compilation/Material/SceneResolvedMaterialHostUniformSchema.swift:35`目前分派synthetic texture transform、Resolution和audio；`:59`识别Resolution，`:28`已有ParallaxPosition。`Compilation/ShaderFrontend/SceneAuthoredShaderTextureTransformABI.swift:36`与`Compilation/ShaderPreparation/SceneShaderVariantResolver+Schema.swift:278`限定8槽，符合公开author合同。自动纹理变换存在不等于显式Rotation/Translation uniform已消费；现役产品未找到MipMapInfo producer。
 
-**前置 / 范围 / 不做。** 在现有shader合同设计中先登记每个公开uniform的准确类型、物理/映射尺寸、sprite旋转平移的值与更新相位、active sampler依赖、失败分类。首批只处理0…7有真实声明/消费的公开companion，逐producer闭合，不为清空缺口增加mirror符号或第二ABI。8…12、MipMapInfo/未公开Texel family保持待证；只有具体合法stock/corpus occurrence和中性行为规格能触发独立runtime profile设计，不能直接改变UInt8 mask/槽宽。本次实读[官方Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html#texture)与[Desaturation教程](https://docs.wallpaperengine.io/en/scene/shader/tutorials/desaturation.html#editing-the-shader)只固定Translation(vec2)/Rotation(vec4)及0…7声明范围。Translation单位/原点/符号、Rotation分量布局与自动texturetransform应用阶段仍unknown；须有官方黑盒或合法公开明确行为证据，冻结输入输出与不重复变换合同后才准实施。
+**前置 / 范围 / 不做。** 由[作者纹理坐标设计](authored-texture-coordinate-design.md)分别裁决采样入口纠正与公开companion值准入；在同一设计中登记每个公开uniform的准确类型、物理/映射尺寸、sprite旋转平移的值与更新相位、active sampler依赖、失败分类。首批只处理0…7有真实声明/消费的公开companion，逐producer闭合，不为清空缺口增加mirror符号或第二ABI。8…12、MipMapInfo/未公开Texel family保持待证；只有具体合法stock/corpus occurrence和中性行为规格能触发独立runtime profile设计，不能直接改变UInt8 mask/槽宽。本次实读[官方Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html#texture)与[Desaturation教程](https://docs.wallpaperengine.io/en/scene/shader/tutorials/desaturation.html#editing-the-shader)只固定Translation(vec2)/Rotation(vec4)及0…7声明范围。已取得的有限分量区间只约束对应输入；尺寸来源与动画相位仍须补证。采样操作保留作者坐标的公开合同和修前GPU反例由设计A接管，公开companion值按设计B另行冻结，不能把两者混为同一阻塞。
 
 **正反验收。** 自有declared+active fixture区分physical/mapped size、非方形sprite、rotation/translation与neutral transform；shader直接读取uniform与自动sampling结果各有oracle。缺sampler/dead uniform、类型/array/stage冲突、padding、wrong generation、provider尺寸变化、sprite新frame、ABI缓存失效及普通帧无reflection分别验证；最终GPU/ROI/publication/next-frame。未知uniform仍局部失败，不能用零值猜测成功。
 
@@ -42,7 +42,7 @@
 
 **退役。** 支持profile的反射→typed值→GPU consumer闭合且证据/ABI回稳定权威后删卡；未公开family明确unknown，不计支持。
 
-**继续采样阶段与时序取证。** 修前反例与准入过程见[研究检查点](../../history/scene/rf02-companion-research-checkpoint-2026-10-03.md)；已执行的分量差分、原图身份、完整区间及独审上限见[数值观察](../../history/scene/rf02-companion-uniform-observations-2026-10-03.md)。后继沿已冻结literal point、同容器palette和literal/active程序，以独立可见count控制区分自动应用次数；尺寸差分还须排除头字段被忽略，并独立核重载稳定性与动画更新相位。失败保留具体反例并修实验，不跳过能力；这些观察尚不授权把synthetic ABI别名为公开uniform。行为合同定案并完成相称设计后，沿原反射、typed uniform、资源publication和sampler实施。
+**实施入口与继续取证。** 公开采样别名合同与已执行原生Metal反例支持先修两compiler的额外坐标注入，保留基础图像compositor映射；设计A通过独审后实施，设计B的companion尺寸/动画值继续补证，不能互相代批。修前反例与准入过程见[研究检查点](../../history/scene/rf02-companion-research-checkpoint-2026-10-03.md)；已执行的分量差分、原图身份、完整区间及独审上限见[数值观察](../../history/scene/rf02-companion-uniform-observations-2026-10-03.md)。已执行的literal/active单次采样观察仍有重复性与profile上限；后继尺寸差分还须排除头字段被忽略，并独立核重载稳定性与动画更新相位。失败保留具体反例并修实验，不跳过能力；这些观察尚不授权把synthetic ABI别名为公开uniform。行为合同定案并完成相称设计后，沿原反射、typed uniform、资源publication和sampler实施。
 
 ### RF03 — D4+D11 限定播放与显式出生
 

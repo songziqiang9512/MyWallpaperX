@@ -262,6 +262,38 @@
         "sceneColorHistory",
         "terminalSceneColor"
       ]
+    },
+    {
+      "id": "scene-authored-sampling-coordinate",
+      "title": "RF02 作者二维采样坐标与内部变换ABI退役",
+      "owner": "scene-shader-compilation",
+      "status": "approved",
+      "designDoc": "docs/scene/design/authored-texture-coordinate-design.md",
+      "design_notes": "命中①两个compiler/Program/host binding跨owner、②唯一坐标与ABI解释、④同槽matcher及结构预算、⑤公开采样合同与官方黑盒；不涉及③用户数据格式。移除作者采样额外变换，保留base image owner，退役错误ABI和补偿matcher，验证缓存失效及GPU/compositor。A已获独立设计审查批准，验收并交稳定合同后删除登记；不批准公开companion值。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderMetalEmitter.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderTextureSamplingNormalizer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderTextureTransformABI.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
+      "id": "scene-public-texture-companion",
+      "title": "RF02 公开Rotation/Translation值与更新相位",
+      "owner": "scene-texture-publication-and-host-uniform",
+      "status": "blocked-pending-design",
+      "designDoc": "docs/scene/design/authored-texture-coordinate-design.md",
+      "design_notes": "命中①资源publication/host uniform跨owner、②帧值与generation、⑤公开接口完整数值语义；③用户数据格式、④新增结构家族均不需要。现有单帧区间不决定physical/mapped差分与动画相位；补证后另审B，不可借A采样修正批准。沿现有candidate编码公开值，不建第二ABI/clock；完成生命周期和可见正反门并交稳定合同后删除登记。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneTexDataReader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureCandidate.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader+Candidate.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneMaterialAssetTextureCatalog.swift"
+      ],
+      "contentPatterns": [
+        "case textureRotation",
+        "case textureTranslation"
+      ]
     }
   ]
 }
