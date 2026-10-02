@@ -16,6 +16,8 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-03 | Scene | 退役设计 | [RF16 多材质模型设计](scene/rf16-model-material-segments-design-2026-10-03.md) | 段数工作预算、完整结构验证与资源局部失败裁决 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
+| 2026-10-03 | Scene | 实施证据 | [RF16 多材质模型显示](scene/rf16-model-material-segments-implementation-2026-10-03.md) | 5/8/64段真实消费、配额恢复及原包同帧可见性边界 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-03 | Scene | 退役设计 | [RF15 模型点光全向阴影设计](scene/rf15-model-point-shadow-design-2026-10-03.md) | 完整球域、逐tap跨面与六面原子发布裁决 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-03 | Scene | 实施证据 | [RF15 模型点光全向阴影](scene/rf15-model-point-shadow-implementation-2026-10-03.md) | 缺影红绿、接缝数值修复、可选PSO失效与实际输出/生命周期门 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-02 | Scene | 退役设计 | [RF14 模型聚光阴影设计](scene/rf14-model-spot-shadow-design-2026-10-02.md) | 完整有限锥、四灯记录与原资源生命周期裁决 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |

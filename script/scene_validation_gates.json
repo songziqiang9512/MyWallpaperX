@@ -1722,6 +1722,16 @@
         "test_scene_material_user_emission",
         "test_scene_material_user_emission_arguments"
       ]
+    },
+    {
+      "id": "scene-static-model-material-segments",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlStaticModelReader.swift"
+      ],
+      "modules": [
+        "test_scene_static_model_reader",
+        "test_scene_static_model_parts"
+      ]
     }
   ]
 }

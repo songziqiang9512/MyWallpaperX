@@ -26,6 +26,8 @@
 
 现役 FullFrameBuffer 与同层 composite default 的 typed identity 到实际 binding 已闭合，包括两项独立终审发现的 absent候选回落及captured-main首consumer闲置default问题；边界、修前反例、终审、冻结App及七项正反像素门仅见[执行记录](../../history/scene/rf01-shader-default-binding-implementation-2026-10-02.md)。[D8](rt-prefix-admission-design.md)仍约束未知名字/跨层default，不据本片扩大family或声明parity。唯一能力/运行owner引用执行记录后删除此移交指针，不在本文维护完成计数。
 
+<a id="rf02-companion"></a>
+
 ### RF02 — 公开 uniform 的反射到consumer合同
 
 **owner / 输入输出。** ShaderContract/schema/finalizer保留作者声明和active reflection，现役HostUniformSchema为每个支持的uniform发布type/shape/source及typed frame值；UniformEncoder与同一material binding消费，Program identity包含必要ABI事实。
@@ -165,19 +167,9 @@ hidden image/solid source-only named albedo沿同一当前纹理、world、cover
 
 <a id="rf16-visible-model-admission"></a>
 
-### RF16 — 真实场景模型显示断点（当前批，先归因再设计实施）
+### RF16 — 通用有界多材质模型显示（已验收，职责已移交）
 
-[多材质前置设计](model-material-segments-design.md)选择显式每模型64段工作预算，保原几何字节额度、完整结构验证和资源局部失败；已获独立设计审查批准，开始实施与验证。真实五材质首拒已定位，完整材质消费与像素收益须沿本卡纠正门实证。
-
-**目标。** 将已实现灯光/模型能力落实到真实作者内容：首先定位历史模型准备差额的真实阶段及可见受害，再沿原owner恢复一个完整可见结果。不能把诊断数量作为交付，也不能根据历史22/24数字盲扩MDL格式或预算。
-
-**当前事实与owner。** RF15关闭时，既有两份隔离完整输入日志只列同样22个成功模型ID，没有失败阶段，旧零shadow事件也早于spot/point实现。随后使用原reader对隔离原包做CPU归因，24候选中22成功与旧App集合一致；模型479触发累计顶点预算，模型724触发五材质拒绝，输入前后不变。两者尚无当前可见受害证明，先选较小的多材质链追踪，不直接扩大顶点预算。`MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift:79–125`将resource、data、reader、mesh、material及texture失败分散局部跳过；`Runtime/Frame/SceneRuntimeSourceFacts.swift:117–127`的metadata读取更早使用完整reader，可能是同一上游失败。读取阶段的两处首拒点已由中性输出确认；通过首guard后的完整资源链、当前可见贡献仍需独立验证，不能把首拒点直接等同唯一画面原因。
-
-**方案与备选。** 复用已有隔离输入与RF15不可变App，用原load owner准确记录候选identity、阶段、typed error及实际可见性；普通帧不新增解析、全图诊断或第二registry。以真实首断点确定最小产品设计与独立自有反例；缺规格时继续查中性参考合同并做区分实验，不以缺现成方法跳过。若既有拒绝正确或该层不可见，纠正旧报告并定位真实可见断点，不为凑齐计数放宽安全门。
-
-**fallback与纠正门。** 原局部模型失败半径、健康已绘模型及主输出先保持；新的能力扩展按五判据落前置设计/登记再写产品。交付必须绑定原失败ROI恢复、自有反例红绿、健康控制、资源拒绝、实际completion/terminal/next-frame及独立终审，随后按职责提交。不修改真实corpus，不把只读归因或日志完善当能力完成。
-
-**退役。** 真实可见断点已恢复且稳定owner与相称证据完成移交后关闭；若原差额线索被证伪，保留裁决依据并由唯一路线选择下一可见能力。
+原reader的四段profile已改为明确工程工作预算，完整结构/依赖/资源及逐part主绘制沿原owner闭合；自有5/8App可见门、64段native消费、资源失败/新load恢复及独立终审见[执行记录](../../history/scene/rf16-model-material-segments-implementation-2026-10-03.md)。[设计](../../history/scene/rf16-model-material-segments-design-2026-10-03.md)归档，窄gate退役，稳定职责移交[架构](runtime-architecture.md)。原包准备恢复与可见收益严格分开；当前有限采样没有屏内ROI，不称原包显示恢复，479原预算保持。后继只由兼容路线选序。
 
 ## 3. 全部59项去向
 

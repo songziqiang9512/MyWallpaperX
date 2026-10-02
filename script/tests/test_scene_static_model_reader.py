@@ -37,7 +37,8 @@ enum Harness {
                 let model = parts[0]
                 entry["parts"] = parts.map { part in
                     ["material": part.materialPath, "indices": part.indices.map(Int.init),
-                     "elementSize": part.indexElementSize] as [String: Any]
+                     "elementSize": part.indexElementSize,
+                     "positions": part.vertices.map { [Double($0.position.x), Double($0.position.y), Double($0.position.z)] }] as [String: Any]
                 }
                 entry["materialPaths"] = try SceneMdlStaticModelReader.readMaterialPathsMetadata(data: data)
                 entry["ok"] = true
@@ -82,6 +83,13 @@ enum Harness {
             } catch let error as SceneMdlStaticModelReadError {
                 entry["ok"] = false
                 entry["error"] = error.description
+                if case let .materialSegmentBudgetExceeded(count) = error {
+                    entry["workBudgetCount"] = Int(count)
+                }
+                if case let .unsupportedMaterialCount(count) = error {
+                    entry["unsupportedCount"] = Int(count)
+                }
+                entry["fullMetadataRejected"] = (try? SceneMdlStaticModelReader.readMaterialPathsMetadata(data: Data(contentsOf: url))) == nil
             }
             results.append(entry)
         }
@@ -169,6 +177,23 @@ def build_model(
     )
 
 
+def build_parts(count, *, last_changes=None):
+    """Complete self-authored parts, distinct material/geometry, alternating index width."""
+    blobs = []
+    for i in range(count):
+        x = float(i * 4)
+        vertices = [((x + dx, y, 0.), normal, tangent, uv)
+                    for (dx, y), (_, normal, tangent, uv) in zip(
+                        [(0., 0.), (2., 0.), (0., 2.)], DEFAULT_VERTICES)]
+        options = dict(material_count=count, material=f'materials/parts/p{i:03}.json'.encode(),
+                       vertices=vertices, bounds=(x, 0., 0., x+2., 2., 0.), index_flag=i % 2)
+        if i == count - 1:
+            options.update(last_changes or {})
+        body = build_model(**options)
+        blobs.append(body[:-7] if i == 0 else b'\0' * 6 + body[21:-7])
+    return b''.join(blobs) + b'\0' * 7
+
+
 def build_legacy_model(
     *,
     material: bytes = b"materials/models/fixture/legacy.json",
@@ -235,7 +260,10 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
             "bad-nul.mdl": build_model(magic=b"MDLV0023X"),
             "bad-header-format.mdl": build_model(header_format=14),
             "multi-mesh.mdl": build_model(mesh_count=2),
-            "multi-material.mdl": build_model(material_count=5),
+            "over-work-budget.mdl": build_model(material_count=65),
+            "huge-work-budget.mdl": build_model(material_count=0xffffffff),
+            "zero-material.mdl": build_model(material_count=0),
+            "legacy-multipart.mdl": build_model(magic=b"MDLV0016\0", material_count=2),
             "unsafe-material.mdl": build_model(material=b"../escape.json"),
             "invalid-utf8-material.mdl": build_model(material=b"materials/\xff.json"),
             "uint32-indices.mdl": build_model(index_flag=1),
@@ -298,6 +326,21 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
             "legacy-extra-tail.mdl": build_legacy_model(trailer=b"\0\0"),
             "truncated.mdl": build_model()[:-1],
         }
+        for count in (4, 5, 8, 64, 65):
+            fixtures[f"complete-{count}.mdl"] = build_parts(count)
+        fixtures.update({
+            "late-truncated.mdl": build_parts(8)[:-13],
+            "late-index.mdl": build_parts(8, last_changes={"indices": (0, 1, 99)}),
+            "late-path.mdl": build_parts(8, last_changes={"material": b"../escape.json"}),
+            "late-finite.mdl": build_parts(8, last_changes={"vertices": [
+                ((float("nan"), 0., 0.), *DEFAULT_VERTICES[0][1:]), *DEFAULT_VERTICES[1:]]}),
+            "late-trailer.mdl": build_parts(8)[:-1] + b"\1",
+            # Each later declaration fits the individual byte limit, but adding
+            # already validated first-part bytes crosses the unchanged model budget.
+            "cumulative-vertex.mdl": build_parts(2, last_changes={"declared_vertex_byte_count": 67_108_848}),
+            "cumulative-index.mdl": (build_model(material_count=2, indices=(0,1,2)*4)[:-7]
+                + b"\0"*6 + build_model(index_flag=1, declared_index_byte_count=33_554_424)[21:]),
+        })
         for name, value in fixtures.items():
             (root / name).write_bytes(value)
         completed = subprocess.run(
@@ -315,6 +358,40 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls._tmp.cleanup()
+
+
+    def test_complete_segments_preserve_every_part(self):
+        for count in (4, 5, 8, 64):
+            row = self.results[f"complete-{count}.mdl"]
+            self.assertTrue(row["ok"], row)
+            expected = [{"material": f"materials/parts/p{i:03}.json",
+                         "indices": [0,1,2], "elementSize": 4 if i % 2 else 2,
+                         "positions": [[i*4,0,0],[i*4+2,0,0],[i*4,2,0]]}
+                        for i in range(count)]
+            self.assertEqual(row["parts"], expected)
+            self.assertEqual(row["materialPaths"], [p["material"] for p in expected])
+
+    def test_work_limit_is_typed_and_distinct_from_format_rejection(self):
+        for name, count in (("complete-65.mdl",65), ("over-work-budget.mdl",65),
+                            ("huge-work-budget.mdl",0xffffffff)):
+            row = self.results[name]
+            self.assertFalse(row["ok"], row)
+            self.assertEqual(row["workBudgetCount"], count)
+            self.assertTrue(row["fullMetadataRejected"])
+            self.assertNotIn("unsupportedCount", row)
+        for name, count in (("zero-material.mdl",0), ("legacy-multipart.mdl",2)):
+            self.assertEqual(self.results[name]["unsupportedCount"], count)
+
+    def test_late_corruption_and_cumulative_budget_reject_full_metadata(self):
+        for name, message in (("late-truncated.mdl","truncated"), ("late-index.mdl","index 99"),
+                ("late-path.mdl","material path"), ("late-finite.mdl","non-finite"),
+                ("late-trailer.mdl","trailer"), ("cumulative-vertex.mdl","vertex byte budget"),
+                ("cumulative-index.mdl","index byte budget")):
+            row = self.results[name]
+            self.assertFalse(row["ok"], row)
+            self.assertIn(message, row["error"])
+            self.assertTrue(row["fullMetadataRejected"], row)
+            self.assertNotIn("parts", row)
 
     def test_valid_profile_preserves_all_geometry_channels(self) -> None:
         result = self.results["valid.mdl"]
@@ -368,8 +445,8 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
         self.assertTrue(result["ok"], result)
         self.assertEqual(result["materialPaths"], ["materials/first.json", "materials/second.json"])
         self.assertEqual(result["parts"], [
-            {"material": "materials/first.json", "indices": [0, 1, 2], "elementSize": 2},
-            {"material": "materials/second.json", "indices": [0, 1, 2], "elementSize": 4},
+            {"material": "materials/first.json", "indices": [0, 1, 2], "elementSize": 2, "positions": [[-1,-1,0],[1,-1,0],[0,1,0]]},
+            {"material": "materials/second.json", "indices": [0, 1, 2], "elementSize": 4, "positions": [[-1,-1,0],[1,-1,0],[0,1,0]]},
         ])
         for name in ("bad-separator.mdl", "short-second.mdl", "bad-second-index.mdl"):
             self.assertFalse(self.results[name]["ok"], self.results[name])
@@ -392,7 +469,8 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
             ("bad-nul.mdl", "magic MDLV0023"),
             ("bad-header-format.mdl", "header format 14"),
             ("multi-mesh.mdl", "mesh count 2"),
-            ("multi-material.mdl", "material count 5"),
+            ("zero-material.mdl", "material count 0"),
+            ("legacy-multipart.mdl", "material count 2"),
             ("unknown-indices.mdl", "index flag 2"),
             ("bad-vertex-format.mdl", "vertex format 7"),
         ):

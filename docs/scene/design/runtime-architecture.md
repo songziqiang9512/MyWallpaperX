@@ -191,6 +191,8 @@ continue
 
 默认2D环境反射复用同一材质profile、准备期pipeline和plain/graph lit consumer，独立于直射开关；显式环境输入不能被默认快照冒名替代。首次实际受支持source消费前，现frame owner关闭活动编码器并对当时全局主场景前缀执行一次copy和完整mip生成；同帧共享，下一帧重新生产。typed资源直接进入本次提交，不另存registry或history。可选环境分配前，原池原子预留后续必需source与terminal scratch；实际分配失败不提交前缀eviction。所有实际composition scratch访问均取得同command buffer pin，group归现parent/root提交生命周期；同CB顺序复用，跨CB旧generation持续计费至completion，未提交取消可释放。反射仅增补共享lit表面项，保原覆盖、alpha和raw/display输出职责。具体准入与项目独立数值方法仍由[D3 F5设计](2d-lighting-material-design.md#f5-reflection-environment)限定，不外推官方parity。
 
+已支持静态模型的多个材质段由唯一reader完整验证后发布，保每段几何、局部索引、材质身份和文件绘制次序；不得只消费首段。MDLV0023每模型最多64段是装载工作预算，不是官方格式上限；MDLV0016仍单段，原累计编码顶点64MiB/索引32MiB等结构安全界保持。超段数在首path/逐段分配前typed预算拒绝，任一坏结构整模型拒绝；metadata同样完整验证。原资源准备的mesh/材质失败按part局部退化，成功子集不冒充完整模型；重新load可重新准备，不承诺同一partial cache即时补齐。资源计费和绘制仍属于原owner，不新增普通帧解析或另一套registry。验收与边界见[RF16记录](../../history/scene/rf16-model-material-segments-implementation-2026-10-03.md)。
+
 模型方向光与聚光阴影沿原 Format/descriptor 与唯一 LightSnapshot 保留作者投影意图和灯身份；只使用当前主链可绘的准备几何及同帧 world/visibility/material，不虚构 image 高度或第二套变换。候选复用原颜色绘制的变换准入，单个不可绘模型局部剔除；cast 与材质受光、相机 depth-write 分别属于不同合同。已准入的 source-only named albedo 与静态纹理使用同一当前纹理、frame/sampler、world及coverage投影和绘色，不要求caster另有静态albedo，也不重复应用provider alpha。
 
 mandatory 资源先于 optional 灯深度。静态输入保留原批准备；存在活跃named模型时，原完整forward仍只执行一次，现frame owner按原作者资源顺序准备真实source target、模型/粒子depth、plain scratch和实际消费者/utility快照，最后Bloom与display容量。已准入source-only可提前实际capture，普通normal/background provider只提前容量，内容与graph/主颜色仍在原位置执行；target/extent/identity选择共用原dependency owner，成功publication沿同epoch幂等复用。plain scratch需求使用原实际lighting payload与blend准入，本帧resolution交原consumer复用；environment闭包沿原F5准入且仅在原消费点执行。terminal仅在原pool准备容量并持有现pin，不抢先消费coordinator的一次性display reservation。所有准备不新增registry、depth plan或capture实现。

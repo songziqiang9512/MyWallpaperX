@@ -1,11 +1,11 @@
-<!-- document-role: active-plan -->
-<!-- retirementCondition: 通用有界多材质沿原reader/准备/输出完成结构、GPU、App与失败门并独立终审后，稳定合同移交，设计归档且删除窄gate；原包ROI未证不称恢复。 -->
+<!-- document-role: historical-evidence -->
+<!-- commandPolicy: historical-only -->
 
-# RF16 —通用有界多材质静态模型完整显示
+# RF16 — 通用有界多材质静态模型设计（2026-10-03，已退役）
 
-> 基线 `4184d55b`，2026-10-03。状态：方案A64已获独立设计审查ACCEPT，批准实施；不是产品验收。上接[RF16工作卡](reference-evidence-implementation-cards.md#rf16-visible-model-admission)。中性证据根 `/private/tmp/mwx-rf16/`。解析与资源策略由本项目独立设计，不消费参考私有表达。
+> **历史证据 — 非现役入口**。历史设计，基线 `4184d55b`，设计提交 `fcc0ea1f`。本批已通过独立产品终审并移交稳定架构；下文保留当时的方案裁决与验收要求，实际结果以同目录实施记录为准。上接[RF16工作卡](../../scene/design/reference-evidence-implementation-cards.md#rf16-visible-model-admission)。中性证据根 `/private/tmp/mwx-rf16/`。解析与资源策略由本项目独立设计，不消费参考私有表达。
 
-设计审查收据：`/private/tmp/mwx-rf16/design-review.md`，SHA `23c436843738408bc76eef5e1427b0e58f61b2b9202c1ea14da588b43be2f3b4`；绑定批准前文档SHA `85a603f25420b6ef9581e2220533b5a3f413a79ccab4f3c2c1cd98fe19356d4e`。仅翻批准状态并澄清修前红含义，纠正门仍待实施。
+设计审查收据：`/private/tmp/mwx-rf16/design-review.md`，SHA `23c436843738408bc76eef5e1427b0e58f61b2b9202c1ea14da588b43be2f3b4`；绑定批准前文档SHA `85a603f25420b6ef9581e2220533b5a3f413a79ccab4f3c2c1cd98fe19356d4e`。该收据属于批准实施前的设计阶段；产品纠正门结果见本批实施记录。
 
 ## 一、目标与现有事实
 
@@ -17,7 +17,7 @@
 - count5诊断消融 `material-count-ablation/result.json`（SHAf4e131a591992b1982f37e6f78d69bdea0a792275e844c2e7c3c0b0a806a7c46）：只在/tmp把materialCount上限4→5，其余原guard不变，724完整readParts通过，5parts三角数12/17568/32/2320/456，5个材质引用文件均存在。原红保留；不是产品实现或GPU/显示绿。
 - 当前RF15 source-v3不可变App原包观察 `/private/tmp/mwx-rf16/original-v1/report.md`：724与479均authored/effective visible true，但prepared缺失；frame0/1 completion、drain及App/输入身份保持。额外frame2日志断言失败已如实保留，不能写单次全绿。暂无724像素ROI。
 
-现4段界限是本项目bounded profile：`SceneMdlStaticModelReader.swift:202`与自有提交0cc11184/5a779cbd；现原测试只有完整2段正例，count5负例只是单段fixture改声明（`test_scene_static_model_reader.py:220–238,395`），并非完整5段格式非法的证据。精确中性参考 [Mirage中性参考](../semantics/miragewallpaper-rendering-reference.md)第254行 互证多material/submesh保留文件part顺序、按draw range顺序绘制、不能只捕获mesh0。它只贡献职责/作者顺序，不证明官方4/64上限、失败半径或具体算法。准入成本与失败策略仍由本项目原owner及实际证据设计。
+现4段界限是本项目bounded profile：`SceneMdlStaticModelReader.swift:202`与自有提交0cc11184/5a779cbd；现原测试只有完整2段正例，count5负例只是单段fixture改声明（`test_scene_static_model_reader.py:220–238,395`），并非完整5段格式非法的证据。精确中性参考 [Mirage中性参考](../../scene/semantics/miragewallpaper-rendering-reference.md)第254行 互证多material/submesh保留文件part顺序、按draw range顺序绘制、不能只捕获mesh0。它只贡献职责/作者顺序，不证明官方4/64上限、失败半径或具体算法。准入成本与失败策略仍由本项目原owner及实际证据设计。
 
 479约143.94MiB顶点声明超过原64MiB，资源成本职责单独保留，本片不放宽。5段724不是“完整24模型完成”，也不能推出原包阴影或parity。
 

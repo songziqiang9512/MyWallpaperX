@@ -8,6 +8,7 @@ nonisolated enum SceneMdlStaticModelReadError: Error, CustomStringConvertible,
     case unsupportedHeaderFormat(UInt32)
     case unsupportedMeshCount(UInt32)
     case unsupportedMaterialCount(UInt32)
+    case materialSegmentBudgetExceeded(UInt32)
     case invalidMaterialPath
     case unsupportedIndexFlag(UInt32)
     case invalidBounds
@@ -33,6 +34,8 @@ nonisolated enum SceneMdlStaticModelReadError: Error, CustomStringConvertible,
             return "unsupported static mdl mesh count \(value)"
         case .unsupportedMaterialCount(let value):
             return "unsupported static mdl material count \(value)"
+        case .materialSegmentBudgetExceeded(let value):
+            return "static mdl material segment work budget exceeded: \(value)"
         case .invalidMaterialPath:
             return "invalid static mdl material path"
         case .unsupportedIndexFlag(let value):
@@ -77,6 +80,8 @@ nonisolated enum SceneMdlStaticModelReader {
     private static let boundsHeaderTrailerByteCount = 7
     private static let derivedBoundsTrailerByteCount = 1
     private static let maximumPathByteCount = 4_096
+    /// Per-model load work budget, not a format maximum.
+    private static let maximumMaterialSegmentCount: UInt32 = 64
     private static let maximumVertexByteCount: UInt32 = 64 * 1_024 * 1_024
     private static let maximumIndexByteCount: UInt32 = 32 * 1_024 * 1_024
     private static let maximumAbsoluteValue: Float = 1_000_000
@@ -199,9 +204,12 @@ nonisolated enum SceneMdlStaticModelReader {
             throw SceneMdlStaticModelReadError.unsupportedMeshCount(meshCount)
         }
         let materialCount = try cursor.readUInt32(section: "material count")
-        guard materialCount > 0, materialCount <= 4,
+        guard materialCount > 0,
               materialCount == 1 || version == boundsHeaderVersion else {
             throw SceneMdlStaticModelReadError.unsupportedMaterialCount(materialCount)
+        }
+        guard materialCount <= maximumMaterialSegmentCount else {
+            throw SceneMdlStaticModelReadError.materialSegmentBudgetExceeded(materialCount)
         }
         let materialPath = try readMaterialPath(cursor: &cursor)
         return (version, headerFormat, materialPath, Int(materialCount))
