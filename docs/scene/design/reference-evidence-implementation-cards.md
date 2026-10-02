@@ -163,7 +163,7 @@ hidden image/solid source-only named albedo沿同一当前纹理、world、cover
 
 **纠正门。** 自有真实MDL三角+已支持材质先证旧App cast-on/off无阴影差，再验偏轴/锥内外/不同深度、移动灯与parent、跨近灯面、同面/近间隙、alpha cutout、cast=false仍receive、named冷帧/resize/next-frame；独立ray oracle及预登记ROI约束算法。多灯/紧配额/在飞取消须保原directional和mandatory输出；真实App核identity、publication、completion、terminal与后帧。不以声明数量推断原包收益，不宣称官方数值parity。
 
-**设计门与退役。** 跨typed identity、投影ABI和GPU生命周期，正式设计与窄gate approved后才实施。精确九owner与行为门由已批准前置设计限定。该完整有限域获得实际输出/资源验收与独立终审后移交稳定架构、归档临时设计；point保留为紧邻后继。
+**设计门与退役。** 跨typed identity、投影ABI和GPU生命周期，正式设计与窄gate approved后才实施。精确产品边界与行为门由已批准前置设计限定。该完整有限域获得实际输出/资源验收与独立终审后移交稳定架构、归档临时设计；point保留为紧邻后继。
 
 ## 3. 全部59项去向
 

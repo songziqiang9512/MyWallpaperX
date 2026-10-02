@@ -269,7 +269,7 @@
       "owner": "SceneLightSnapshot / existing static-model frame, pipeline and offscreen pool",
       "status": "approved",
       "designDoc": "docs/scene/design/model-spot-shadow-design.md",
-      "design_notes": "判据①②④⑤命中。现四灯内全部cast-on spot，完整有限透视锥、独立轴深度与真实receiver几何面；directional优先保护、mandatory一次、原单图record/ABI/pool替换，逐灯optional局部失败及在飞生命周期。正式v2设计已独审ACCEPT，真实旧App红例已固定；前置提交后仅按九owner实施；完整输出和资源终审后稳定合同接管并删除窄登记。",
+      "design_notes": "判据①②④⑤命中。现四灯内全部cast-on spot，完整有限透视锥、独立轴深度与真实receiver几何面；directional优先保护、mandatory一次、原单图record/ABI/pool替换，逐灯optional局部失败及在飞生命周期。正式v2设计已独审ACCEPT，真实旧App红例已固定；前置提交后按原owner实施；独审接受第10文件抽取projection/record以守1000行硬限，无新生命周期owner；完整输出和资源终审后稳定合同接管并删除窄登记。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneSpotLightDefinition.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift",
@@ -279,7 +279,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache+SharedPair.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache+SharedPair.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelShadow.swift"
       ],
       "contentPatterns": [
         "SceneSpotShadowProjection",

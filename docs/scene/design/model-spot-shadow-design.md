@@ -19,7 +19,7 @@
 
 证据根`/private/tmp/mwx-rf14/baseline-omag2q3t/`；protocol SHA `3ecb04a512c3b6e854631939b780bf4f30d055c19e8f9b3bdd370a7674b9d8e9`，index SHA `b465c8d368736ed6b083014cbadafdd8148dd80adc5b318eebaa5d20e2c5619a`。两个编译helper身份为执行后补核，与原App build身份一致，不追写预执行协议。原两parser实编探针`/private/tmp/mwx-rf14/bool-baseline/`另证明数字1/0被当前spot桥接为Bool，而原严格cast parser正确判invalid；显式true/false保持。探针首轮字符串转义编译失败保留，不计产品反例。
 
-独立设计ACCEPT绑定v2 freeze SHA `0e821a6bc6e4defb640b0f5ac231d1df49ddff42c57a9603d6b8b86260f61ed6`；报告`/private/tmp/mwx-rf14/design-review.md` SHA `c04035e9d21d8437cd642974725f4a9e8b5674fc6415a05162d79242cca77c91`。裁决仅批准九owner方案与后述先导/产品门，不证明深度API、空槽ABI或任何新GPU输出已通过。并行历史索引条目不纳本批。
+独立设计ACCEPT绑定v2 freeze SHA `0e821a6bc6e4defb640b0f5ac231d1df49ddff42c57a9603d6b8b86260f61ed6`；报告`/private/tmp/mwx-rf14/design-review.md` SHA `c04035e9d21d8437cd642974725f4a9e8b5674fc6415a05162d79242cca77c91`。v2裁决批准原九文件方案与后述先导/产品门，不证明深度API、空槽ABI或任何新GPU输出已通过。并行历史索引条目不纳本批。
 
 ## 当前事实、首断点与owner
 
@@ -63,7 +63,7 @@
 
 ## 精确实施边界
 
-只触达以下九个现owner（相对`MyWallpaperX/Core/SteamWorkshopScene/`）：
+只触达以下十个产品文件，职责仍由既有owner承担（相对`MyWallpaperX/Core/SteamWorkshopScene/`）：
 
 1. `Format/SceneSpotLightDefinition.swift`：原严格cast布尔解析。
 2. `Rendering/Lighting/SceneLightSnapshot.swift`：当前light identity/cast和投影参数。
@@ -74,6 +74,9 @@
 7. `Rendering/Targets/SceneOffscreenTexturePool.swift`：原单图入口扩成有界slot。
 8. `Rendering/Targets/SceneOffscreenTextureAllocationCache.swift`：key与pin/retired匹配。
 9. `Rendering/Targets/SceneOffscreenTextureAllocationCache+SharedPair.swift`：既有candidate格式/usage匹配。
+10. `Rendering/Metal/SceneStaticModelShadow.swift`：从原Pipeline完整移出的directional projection与统一shadow record，加独立spot projection；只承载数据/数学。
+
+结构补充已独立接受：原Pipeline基线873行，新增projection与四槽ABI将越过1000硬限；因此按同一职责抽出上述第10文件。原定义完整删除，不留别名或wrapper；新文件不负责allocation、pin、arm/cancel、PSO或encode，uniform/PSO/draw仍在原Pipeline。source-layout只登记此文件，不扩家族/行数预算，不混并行排序。此补充不改变已批准算法或运行验收范围。
 
 测试由独立owner实现，新spot输入及既有directional/RF13测试只适配必要ABI，不降低原断言。若还需产品路径，先指出具体consumer缺边并修订设计，不能新增万能wrapper。保护的台账、运行证据和重构计划不写；稳定移交通过本批历史记录、架构和唯一路线完成。
 

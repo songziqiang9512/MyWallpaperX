@@ -445,7 +445,8 @@
           "SceneImageEffectPipelineRepository.swift",
           "SceneLitImageLayerPipeline.swift",
           "SceneMetalPipeline.swift",
-          "SceneStaticModelPipeline.swift"
+          "SceneStaticModelPipeline.swift",
+          "SceneStaticModelShadow.swift"
         ],
         "responsibility": "Metal: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
       },
