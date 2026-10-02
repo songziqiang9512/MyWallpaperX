@@ -11,14 +11,14 @@ from typing import Any
 from scene_shader_compiler_artifact import ArtifactFailure
 
 
-def assert_transform_abi_request_and_cache_namespaces(
+def assert_sampling_semantics_request_and_cache_namespaces(
     test_case: Any,
     *,
     vertex: str,
     fragment: str,
 ) -> None:
-    # Execute the cache lookup with a valid pre-fix artifact in the same
-    # custom root. A source-version spelling is not evidence of retirement.
+    # Seed a current fixture under the previous request namespace, then execute
+    # lookup. Separately exercise the previous artifact schema at the new key.
     with tempfile.TemporaryDirectory(
         prefix="mwx-generic-artifact-test-"
     ) as directory:
@@ -27,10 +27,10 @@ def assert_transform_abi_request_and_cache_namespaces(
             root, route="observe-only"
         )
         current_key = test_case.request_key(
-            "mwx-generic-shader-request-v14", vertex, fragment
+            "mwx-generic-shader-request-v15", vertex, fragment
         )
         legacy_key = test_case.request_key(
-            "mwx-generic-shader-request-v13", vertex, fragment
+            "mwx-generic-shader-request-v14", vertex, fragment
         )
         test_case.assertEqual(observed["requestKey"], current_key)
         test_case.assertNotEqual(current_key, legacy_key)
@@ -47,6 +47,17 @@ def assert_transform_abi_request_and_cache_namespaces(
             "compiler-configuration-licensebundleunavailable",
         )
         test_case.assertNotIn("artifact-invalid-json", log)
+        previous_schema = test_case.artifact(current_key)
+        previous_schema["schemaVersion"] = 7
+        current_path = cache / f"{current_key}.json"
+        current_path.write_text(json.dumps(previous_schema), encoding="utf-8")
+        rejected, _, _, _ = test_case.run_harness(root, route="prefer-generic")
+        test_case.assertEqual(rejected["code"], "artifact-contract-rejected")
+        current_path.write_text(
+            json.dumps(test_case.artifact(current_key)), encoding="utf-8"
+        )
+        accepted, _, _, _ = test_case.run_harness(root, route="prefer-generic")
+        test_case.assertEqual(accepted["status"], "accepted")
 
 
 def assert_python_worker_rejects_typed_input_without_compatible_transfer(
@@ -86,13 +97,13 @@ def assert_independent_signal_request_contract(
             "kind": expected[0], "slot": expected[1],
         })
         keyed = test_case.request_key(
-            "mwx-generic-shader-request-v14",
+            "mwx-generic-shader-request-v15",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
             expected,
         )
         unresolved = test_case.request_key(
-            "mwx-generic-shader-request-v14",
+            "mwx-generic-shader-request-v15",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
         )
@@ -141,14 +152,14 @@ def assert_provider_backed_spatial_weighted_profile(
         test_case.assertEqual(request["schemaVersion"], 5)
         test_case.assertEqual(request["premultipliedColorInputSlots"], [1])
         expected_key = test_case.request_key(
-            "mwx-generic-shader-request-v14",
+            "mwx-generic-shader-request-v15",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
             premultiplied_color_input_slots=(1,),
             default_boundary_color_slots=(0,),
         )
         empty_contract_key = test_case.request_key(
-            "mwx-generic-shader-request-v14",
+            "mwx-generic-shader-request-v15",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
         )

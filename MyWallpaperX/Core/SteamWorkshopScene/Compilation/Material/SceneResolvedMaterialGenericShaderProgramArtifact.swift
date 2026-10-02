@@ -105,7 +105,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         outputSemantics: SceneGenericShaderOutputSemantics = .color,
         program: Program
     ) {
-        schemaVersion = 7
+        schemaVersion = 8
         kind = "scene-generic-shader-program-artifact"
         self.backendID = backendID
         self.requestKey = requestKey
@@ -121,7 +121,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         expectedFragmentOutputChannelUse:
             SceneAuthoredShaderProgram.FragmentOutputChannelUse
     ) -> SceneAuthoredShaderProgram? {
-        guard schemaVersion == 7,
+        guard schemaVersion == 8,
               kind == "scene-generic-shader-program-artifact",
               backendID == "glslang-spirv-cross-msl-v2",
               requestKey == expectedKey,
@@ -177,10 +177,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         guard bindings.count == raw.textureBindings.count,
               bindings.map(\.slot) == bindings.map(\.slot).sorted(),
               Set(bindings.map(\.slot)).count == bindings.count,
-              SceneMaterialTextureTransformABI.validates(
-                  layout: layout,
-                  activeSlots: Set(bindings.map(\.slot))
-              ), raw.premultipliedColorInputSlots
+              raw.premultipliedColorInputSlots
                 == expectedPremultipliedColorInputSlots.sorted(),
               Set(raw.premultipliedColorInputSlots).count
                 == raw.premultipliedColorInputSlots.count,

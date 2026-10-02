@@ -17,7 +17,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
             provenColorTransfer: SceneShaderColorTransfer?,
             premultipliedColorInputSlots: Set<Int>
         ) {
-            cacheSchemaVersion = 9
+            cacheSchemaVersion = 10
             vertexSourceSHA256 = ProgramCacheDigest.hash(Data(vertexSource.utf8))
             fragmentSourceSHA256 = ProgramCacheDigest.hash(Data(fragmentSource.utf8))
             self.runtimeLoopBounds = runtimeLoopBounds
@@ -207,8 +207,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
         let validation = validate(vertex: vertexUnit, fragment: fragmentUnit)
         guard validation.diagnostics.isEmpty,
               let uniformLayout = makeUniformLayout(
-                  validation.uniforms,
-                  textures: validation.textures
+                  validation.uniforms
               ) else {
             let layoutDiagnostic = validation.diagnostics.isEmpty
                 ? [SceneAuthoredShaderFrontendDiagnostic(
@@ -429,10 +428,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
                     }
                     continue
                 }
-                if declaration.name == "mwxRenderSize"
-                    || SceneMaterialTextureTransformABI.component(
-                        forFieldName: declaration.name
-                    ) != nil {
+                if declaration.name == "mwxRenderSize" {
                     diagnostics.append(.init(
                         code: .unsupportedDeclaration,
                         message: "Uniform '\(declaration.name)' is reserved by the host ABI.",
@@ -544,8 +540,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
     }
 
     private static func makeUniformLayout(
-        _ uniforms: [SceneAuthoredShaderUniformDeclaration],
-        textures: [SceneAuthoredShaderProgram.TextureBinding]
+        _ uniforms: [SceneAuthoredShaderUniformDeclaration]
     ) -> SceneAuthoredShaderUniformLayout? {
         var fields: [SceneAuthoredShaderUniformLayout.Field] = []
         var offset = 0
@@ -572,12 +567,6 @@ nonisolated enum SceneAuthoredShaderFrontend {
         if internalRemainder != 0 { offset += internalType.alignment - internalRemainder }
         fields.append(.init(name: "mwxRenderSize", type: internalType, offset: offset))
         offset += internalType.byteSize
-        guard let transforms = SceneMaterialTextureTransformABI.fields(
-            activeSlots: textures.map(\.slot),
-            startingAt: offset
-        ) else { return nil }
-        fields += transforms.fields
-        offset = transforms.endOffset
         let remainder = offset % 16
         if remainder != 0 { offset += 16 - remainder }
         guard offset <= 4_096 else { return nil }

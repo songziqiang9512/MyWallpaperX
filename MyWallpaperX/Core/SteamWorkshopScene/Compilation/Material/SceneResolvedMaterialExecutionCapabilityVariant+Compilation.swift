@@ -824,12 +824,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             )
         }
         let activeSlots = Set(bindings.map(\.slot))
-        let sameSlotMappedCoordinateFacts =
-            SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer.analyze(
-                vertexSource: compilerSources.vertex,
-                fragmentSource: compilerSources.fragment,
-                activeSamplerSlots: activeSlots
-            )
         let nonHost = frontend.uniformLayout.fields.filter {
             SceneResolvedMaterialUniformEncoder.hostUniform(
                 $0,
@@ -943,8 +937,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 sameAlphaReconstructedRGBInputContract,
             activeUniforms: uniforms,
             preparedUniformBindings: preparedUniformBindings,
-            neutralTextureResolution: neutralTextureResolution,
-            sameSlotMappedCoordinateFacts: sameSlotMappedCoordinateFacts
+            neutralTextureResolution: neutralTextureResolution
         )
     }
 

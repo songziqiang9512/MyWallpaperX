@@ -125,12 +125,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                     neutralTextureResolution.map { [$0.resolutionSlot] } ?? []
                 )
             )
-            guard let uniformLayout = addingTextureTransformFields(
-                to: stagedUniforms.layout,
-                activeSlots: resolutionTextureSlots
-            ) else {
-                throw Failure.uniformStageMismatch
-            }
+            let uniformLayout = stagedUniforms.layout
             var outputChannelUse = SceneAuthoredShaderFragmentOutputAnalyzer.analyze(
                 source: fragmentStage.source
             )
@@ -229,12 +224,6 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 metalSource: metalSource,
                 resolutionTextureSlots: resolutionTextureSlots
             )
-            guard validTextureTransformLayout(
-                uniformLayout,
-                activeSlots: Set(bindings.map(\.slot))
-            ) else {
-                throw Failure.uniformStageMismatch
-            }
             guard colorTransfer(color.transfer, isBoundBy: bindings) else {
                 if ProcessInfo.processInfo.arguments.contains(
                     "--mwx-debug-scene-evidence-dir"

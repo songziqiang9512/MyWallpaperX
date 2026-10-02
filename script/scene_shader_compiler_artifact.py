@@ -75,7 +75,6 @@ SPV_UNSAFE_ARRAY = re.compile(
     r"template<typename T, size_t Num>\s+struct spvUnsafeArray\s*\{.*?\n\};",
     re.DOTALL,
 )
-TEXTURE_TRANSFORM_FIELD = re.compile(r"mwxTexture(?P<slot>[0-7])Transform(?P<part>[01])")
 
 
 def expected_independent_color_transfer(value: Any) -> dict[str, Any] | None:
@@ -190,7 +189,7 @@ def _stage_local_uniform_layout(
     fragment_fields: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], int, dict[str, str], dict[str, str]]:
     def is_shared_internal(name: str) -> bool:
-        return name == "mwxRenderSize" or TEXTURE_TRANSFORM_FIELD.fullmatch(name) is not None
+        return name == "mwxRenderSize"
 
     vertex_names = {field["authoredName"] for field in vertex_fields}
     fragment_names = {field["authoredName"] for field in fragment_fields}
@@ -223,34 +222,6 @@ def _stage_local_uniform_layout(
     combined.extend(shared[name] for name in sorted(shared))
     fields, byte_size = _aligned_uniform_layout(combined)
     return fields, byte_size, mappings["vertex"], mappings["fragment"]
-
-
-def _validate_texture_transform_layout(
-    fields: list[dict[str, Any]],
-    texture_bindings: list[dict[str, Any]],
-) -> None:
-    expected = {
-        (binding["slot"], part)
-        for binding in texture_bindings
-        for part in (0, 1)
-    }
-    observed: set[tuple[int, int]] = set()
-    for field in fields:
-        match = TEXTURE_TRANSFORM_FIELD.fullmatch(field["authoredName"])
-        if match is None:
-            continue
-        key = (int(match.group("slot")), int(match.group("part")))
-        if (
-            key in observed
-            or field["name"] != field["authoredName"]
-            or field["type"] != "float4"
-            or "arrayCount" in field
-            or "stage" in field
-        ):
-            raise ArtifactFailure("texture-transform-layout")
-        observed.add(key)
-    if observed != expected:
-        raise ArtifactFailure("texture-transform-layout")
 
 
 def _normalize_uniform_struct(
@@ -733,7 +704,6 @@ def build_program_artifact(
     vertex_msl, fragment_msl = _deduplicate_stage_helpers(vertex_msl, fragment_msl)
     metal_source = vertex_msl.rstrip() + "\n\n" + fragment_msl.lstrip()
     texture_bindings = _texture_bindings(compiled_stages, metal_source)
-    _validate_texture_transform_layout(uniform_layout[0], texture_bindings)
     accumulator_work = None
     if expected is not None:
         preserving_fallback = (
@@ -772,7 +742,7 @@ def build_program_artifact(
         if static_loop_work > 256:
             raise ArtifactFailure("loop-budget")
     return {
-        "schemaVersion": 7,
+        "schemaVersion": 8,
         "kind": "scene-generic-shader-program-artifact",
         "backendID": backend_id,
         "requestKey": request_key,

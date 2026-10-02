@@ -84,6 +84,7 @@ nonisolated enum SceneFrameTextureIdentity: Hashable {
     case layerSource(Int)
     case namedLayerTarget(SceneNamedTextureReference)
     case sceneBackground(Int)
+    case sceneEnvironment
     case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
     case asset(SceneAssetTextureIdentity)
     case userProperty(String)
@@ -399,8 +400,6 @@ private func resolvedUniforms(
             switch host {
             case .renderSize:
                 value = data(SIMD2<Float>(1920, 1080))
-            case let .textureTransform(_, component):
-                value = data(component.identityValue)
             default:
                 fatalError("unexpected host field \(field.name)")
             }
@@ -1104,7 +1103,7 @@ private enum Harness {
                 && scalarBaseline.semanticIdentity.outputContract == .scalarRedUnorm
                 && scalarBaseline.outputContract == .scalarRedUnorm,
             "baselineAssembled": baseline.textureSlots.count == 8,
-            "uniformLayoutIncludesTransformABI": baseline.uniformBytes.count == 48,
+            "uniformLayoutMatchesDeclaredFields": baseline.uniformBytes.count == 16,
             "rawStateSynonymSemantic": baseline.semanticIdentity
                 == synonymState.semanticIdentity,
             "rawStateExcludedFromExact": baseline.exactIdentity

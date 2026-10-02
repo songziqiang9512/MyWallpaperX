@@ -224,7 +224,7 @@ private func runGenericProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "generic")
     let root = try cacheRoot()
     let directory = tierDirectory(
-        root: root, name: "SceneGenericShaderAnalysis-v3"
+        root: root, name: "SceneGenericShaderAnalysis-v4"
     )
     let input = makeGenericInput(marker: "probe-a")
     try expect(
@@ -275,8 +275,9 @@ private func runGenericProbe() throws -> ProbeOutput {
     try original.write(to: entry)
     try rewriteEntry(entry) {
         $0.replacingOccurrences(
-            of: "\"schemaVersion\":3",
-            with: "\"schemaVersion\":999"
+            of: #""schemaVersion":\d+"#,
+            with: "\"schemaVersion\":0",
+            options: .regularExpression
         )
     }
     try expect(
@@ -301,7 +302,7 @@ private func runVariantProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "variant")
     let root = try cacheRoot()
     let directory = tierDirectory(
-        root: root, name: "SceneVariantAnalysis-v8"
+        root: root, name: "SceneVariantAnalysis-v10"
     )
     let key = "probe-variant-key"
     try expect(
@@ -365,8 +366,9 @@ private func runVariantProbe() throws -> ProbeOutput {
     try original.write(to: entry)
     try rewriteEntry(entry) {
         $0.replacingOccurrences(
-            of: "\"schemaVersion\":8",
-            with: "\"schemaVersion\":999"
+            of: #""schemaVersion":\d+"#,
+            with: "\"schemaVersion\":0",
+            options: .regularExpression
         )
     }
     try expect(
@@ -433,7 +435,7 @@ private func runDemandProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "demand")
     let root = try cacheRoot()
     let directory = tierDirectory(
-        root: root, name: "SceneMaterialDemandAnalysis-v1"
+        root: root, name: "SceneMaterialDemandAnalysis-v2"
     )
     let key = SceneMaterialDemandAnalysisPersistentCache
         .ResourceDemandAnalysisKey(
@@ -483,8 +485,9 @@ private func runDemandProbe() throws -> ProbeOutput {
     try original.write(to: entry)
     try rewriteEntry(entry) {
         $0.replacingOccurrences(
-            of: "\"schemaVersion\":1",
-            with: "\"schemaVersion\":999"
+            of: #""schemaVersion":\d+"#,
+            with: "\"schemaVersion\":0",
+            options: .regularExpression
         )
     }
     try expect(

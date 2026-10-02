@@ -32,28 +32,9 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
         case ("g_TexelSizeHalf", .float2):
             .texelSize(scaleBitPattern: Double(0.5).bitPattern)
         default:
-            textureTransform(field, activeTextureSlots: activeTextureSlots)
-                ?? textureResolution(field, activeTextureSlots: activeTextureSlots)
+            textureResolution(field, activeTextureSlots: activeTextureSlots)
                 ?? audioSpectrum(field)
         }
-    }
-
-    private static func textureTransform(
-        _ field: SceneAuthoredShaderUniformLayout.Field,
-        activeTextureSlots: Set<Int>
-    ) -> Program.HostUniform? {
-        guard field.type == .float4,
-              field.arrayCount == nil,
-              field.stage == nil,
-              field.name == field.authoredName,
-              let value = SceneMaterialTextureTransformABI.component(
-                  forFieldName: field.name
-              ),
-              activeTextureSlots.contains(value.slot) else { return nil }
-        return .textureTransform(
-            slot: value.slot,
-            component: value.component
-        )
     }
 
     private static func textureResolution(

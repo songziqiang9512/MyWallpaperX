@@ -207,10 +207,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 varyingPrefixFacts[name] = fact
             }
             let varyings = vertexVaryings
-            guard uniforms["mwxRenderSize"] == nil,
-                  uniforms.keys.allSatisfy({
-                      SceneMaterialTextureTransformABI.component(forFieldName: $0) == nil
-                  }) else { throw Failure.reservedUniform }
+            guard uniforms["mwxRenderSize"] == nil else { throw Failure.reservedUniform }
 
             guard var vertex = parsed["vertex"], var fragment = parsed["fragment"] else {
                 throw Failure.stageLinkMismatch
@@ -313,18 +310,11 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             let activeUniforms = uniforms.keys.filter { name in
                 [vertex.body, fragment.body].contains { SceneGenericShaderSourceNormalizer.maskedContainsWord(name, in: $0) }
             }.sorted()
-            let activeSamplerSlots = samplers.compactMap { name, slot in
-                [vertex.body, fragment.body].contains { SceneGenericShaderSourceNormalizer.maskedContainsWord(name, in: $0) }
-                    ? slot : nil
-            }.sorted()
             let uniformLines = activeUniforms.map { name in
                 let shape = uniforms[name]!
                 let suffix = shape.count.map { "[\($0)]" } ?? ""
                 return "    \(shape.type) \(name)\(suffix);"
             } + ["    vec2 mwxRenderSize;"]
-                + SceneGenericShaderTextureSamplingNormalizer.uniformLines(
-                    activeSlots: activeSamplerSlots
-                )
             let varyingOrder = varyings.keys.sorted()
             var nextLocation = 0
             var locations: [String: Int] = [:]
@@ -386,9 +376,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                     "#define fmod(x, y) ((x) - (y) * trunc((x) / (y)))",
                     "layout(std140, set = 0, binding = 8) uniform MWXUniforms {",
                 ] + uniformLines + ["};"]
-                    + SceneGenericShaderTextureSamplingNormalizer.supportLines(
-                        activeSlots: activeSamplerSlots
-                    )
+                    + SceneGenericShaderTextureSamplingNormalizer.supportLines()
                     + samplerLines + interface + [value.body])
                     .joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines) + "\n"
             }

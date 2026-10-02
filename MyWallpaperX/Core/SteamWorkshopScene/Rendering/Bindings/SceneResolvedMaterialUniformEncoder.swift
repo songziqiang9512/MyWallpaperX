@@ -32,9 +32,7 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
         _ host: Program.HostUniform,
         type: SceneAuthoredShaderValueType,
         inputs: SceneAuthoredShaderUniformInputs,
-        slots: [Program.TextureSlot?],
-        sameSlotMappedCoordinateFacts:
-            Set<SceneAuthoredShaderSameSlotMappedCoordinateFact> = []
+        slots: [Program.TextureSlot?]
     ) -> Data? {
         switch host {
         case .renderSize:
@@ -115,35 +113,6 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
                 candidate.physicalSize.height,
                 candidate.mappedSize.width,
                 candidate.mappedSize.height,
-            ].map(Double.init), as: type)
-        case let .textureTransform(slot, component):
-            guard type == .float4,
-                  slots.indices.contains(slot),
-                  let resolvedSlot = slots[slot] else {
-                return nil
-            }
-            let candidate = resolvedSlot.resource.publication.candidate
-            let sourceOwnsMappedCoordinate =
-                sameSlotMappedCoordinateFacts.contains {
-                    $0.textureSlot == slot
-                }
-                    && candidate.axisAlignedMappedUVScale(
-                        expectedPurpose: resolvedSlot.expectedPurpose
-                    ) != nil
-            let value: SIMD4<Float>
-            if sourceOwnsMappedCoordinate {
-                value = component.identityValue
-            } else {
-                guard let transform = candidate.materialProgramUVTransform() else {
-                    return nil
-                }
-                value = switch component {
-                case .originAndXAxis: transform.uniform0
-                case .yAxis: transform.uniform1
-                }
-            }
-            return encodeComponents([
-                value.x, value.y, value.z, value.w,
             ].map(Double.init), as: type)
         case let .audioSpectrumLeft(count):
             return encodeSpectrum(

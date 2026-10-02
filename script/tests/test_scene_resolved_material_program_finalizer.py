@@ -3410,7 +3410,7 @@ private func admittedEffectIngressTokens(
     ]
 }
 
-private func sameSlotMappedCoordinateTokens(
+private func mappedTextureResolutionTokens(
     _ device: MTLDevice
 ) -> [String: Bool] {
     let maskPath = SceneVFSAssetPath(
@@ -3506,7 +3506,7 @@ private func sameSlotMappedCoordinateTokens(
     }
 
     guard case let .success(mappedProgram) = mapped,
-          case let .success(unprovenProgram) = unproven,
+          case .success = unproven,
           case let .success(translatedProgram) = translated else {
         return [
             "mapped-\(failureToken(mapped))": false,
@@ -3514,27 +3514,12 @@ private func sameSlotMappedCoordinateTokens(
             "translated-\(failureToken(translated))": false,
         ]
     }
-    let fact = mappedProgram.sameSlotMappedCoordinateFacts.first
     return [
         "programs": true,
-        "typedSourceOwner": mappedProgram.sameSlotMappedCoordinateFacts.count == 1
-            && fact?.textureSlot == 1
-            && fact?.sourceAttributeName == "a_TexCoord"
-            && fact?.varyingName == "v_TexCoord",
-        "sourceOwnerUsesIdentityTransform":
-            values(mappedProgram, "mwxTexture1Transform0") == [0, 0, 1, 0]
-            && values(mappedProgram, "mwxTexture1Transform1") == [0, 1, 0, 0],
         "resolutionPreservesPhysicalAndMapped":
             values(mappedProgram, "g_Texture1Resolution") == [4, 4, 2, 4],
-        "unprovenSourceRetainsHostMapping":
-            unprovenProgram.sameSlotMappedCoordinateFacts.isEmpty
-            && values(unprovenProgram, "mwxTexture0Transform0") == [0, 0, 0.5, 0]
-            && values(unprovenProgram, "mwxTexture0Transform1") == [0, 1, 0, 0],
-        "translatedCandidateRetainsHostMapping":
-            translatedProgram.sameSlotMappedCoordinateFacts.isEmpty
-            && values(translatedProgram, "mwxTexture1Transform0")
-                == [0.5, 0, 0.5, 0]
-            && values(translatedProgram, "mwxTexture1Transform1") == [0, 1, 0, 0],
+        "translatedResolutionPreservesPhysicalAndMapped":
+            values(translatedProgram, "g_Texture1Resolution") == [4, 4, 2, 4],
     ]
 }
 
@@ -5993,7 +5978,7 @@ private enum Harness {
         let dormantGraphInputFacts = dormantGraphInputFactTokens(device)
         let capturedMainInternalTerminal =
             capturedMainInternalTerminalTokens()
-        let sameSlotMappedCoordinate = sameSlotMappedCoordinateTokens(device)
+        let mappedTextureResolution = mappedTextureResolutionTokens(device)
         let mixedSystemNamedProvider = mixedSystemNamedProviderTokens(device)
         let namedProviderRuntimePurpose = namedProviderRuntimePurposeTokens(device)
         let effectProjectionRequirements = [
@@ -6009,7 +5994,7 @@ private enum Harness {
         ]
         let result: [String: Any] = [
             "metalAvailable": true,
-            "sameSlotMappedCoordinate": sameSlotMappedCoordinate,
+            "mappedTextureResolution": mappedTextureResolution,
             "mixedSystemNamedProvider": mixedSystemNamedProvider,
             "namedProviderRuntimePurpose": namedProviderRuntimePurpose,
             "effectProjectionRequirements": effectProjectionRequirements,
@@ -6482,19 +6467,19 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             self.result,
         )
 
-    def test_same_slot_authored_mapping_owns_only_axis_aligned_mapped_coordinate(
+    def test_mapped_texture_resolution_is_independent_of_candidate_translation(
         self,
     ) -> None:
         self.assertEqual(
             [
                 name
                 for name, passed in self.result[
-                    "sameSlotMappedCoordinate"
+                    "mappedTextureResolution"
                 ].items()
                 if not passed
             ],
             [],
-            self.result["sameSlotMappedCoordinate"],
+            self.result["mappedTextureResolution"],
         )
     def test_neutral_missing_texture_resolution_is_structural_and_fail_closed(
         self,

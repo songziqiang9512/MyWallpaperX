@@ -112,32 +112,6 @@ extension SceneGenericShaderArtifactBuilder {
 
     nonisolated private static func isSharedInternalUniform(_ name: String) -> Bool {
         name == "mwxRenderSize"
-            || SceneMaterialTextureTransformABI.component(forFieldName: name) != nil
-    }
-
-    nonisolated static func validTextureTransformLayout(
-        _ layout: ReflectedLayout,
-        activeSlots: Set<Int>
-    ) -> Bool {
-        let fields = layout.fields.compactMap {
-            field -> SceneAuthoredShaderUniformLayout.Field? in
-            guard let type = SceneAuthoredShaderValueType(rawValue: field.type) else {
-                return nil
-            }
-            return .init(
-                name: field.name,
-                authoredName: field.authoredName,
-                stage: field.stage.flatMap(SceneShaderContract.StageKind.init(rawValue:)),
-                type: type,
-                arrayCount: field.arrayCount,
-                offset: field.offset
-            )
-        }
-        return fields.count == layout.fields.count
-            && SceneMaterialTextureTransformABI.validates(
-                layout: .init(fields: fields, byteSize: layout.byteSize),
-                activeSlots: activeSlots
-            )
     }
 
     nonisolated static func resolutionTextureDependencySlots(
@@ -162,40 +136,6 @@ extension SceneGenericShaderArtifactBuilder {
             return source.range(of: pattern, options: .regularExpression) == nil
                 ? nil : slot
         })
-    }
-
-    nonisolated static func addingTextureTransformFields(
-        to layout: ReflectedLayout,
-        activeSlots: Set<Int>
-    ) -> ReflectedLayout? {
-        var fields = layout.fields
-        let byName = Dictionary(grouping: fields, by: \.name)
-        for slot in activeSlots.sorted() {
-            for component in [
-                SceneMaterialTextureTransformABI.Component.originAndXAxis,
-                .yAxis,
-            ] {
-                let name = SceneMaterialTextureTransformABI.fieldName(
-                    slot: slot,
-                    component: component
-                )
-                if let existing = byName[name] {
-                    guard existing.count == 1,
-                          existing[0].authoredName == name,
-                          existing[0].stage == nil,
-                          existing[0].type == "float4",
-                          existing[0].arrayCount == nil else { return nil }
-                    continue
-                }
-                fields.append(.init(
-                    name: name,
-                    authoredName: name,
-                    type: "float4",
-                    offset: 0
-                ))
-            }
-        }
-        return alignedLayout(fields)
     }
 
     nonisolated private static func alignedLayout(

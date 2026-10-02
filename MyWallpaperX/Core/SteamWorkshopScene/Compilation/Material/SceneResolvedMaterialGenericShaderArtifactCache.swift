@@ -97,7 +97,6 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             routeDecision: RouteDecision,
             backend: SceneAuthoredShaderProgram.Backend,
             graphInputDiagnostics: [String],
-            sameSlotMappedCoordinateDiagnostics: [String],
             layerID: Int,
             effectIndex: Int,
             descriptorID: String,
@@ -105,19 +104,15 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             preparedKey: String
         ) {
             let graphInputs = graphInputDiagnostics.joined(separator: ",")
-            let coordinateOwners = sameSlotMappedCoordinateDiagnostics.joined(
-                separator: ","
-            )
             let identity = [
                 String(layerID), String(effectIndex), descriptorID,
                 String(nodeIndex), backend.rawValue, preparedKey, graphInputs,
-                coordinateOwners,
             ].joined(separator: "|")
             guard lock.withLock({ executedIdentities.insert(identity).inserted }) else {
                 return
             }
             NSLog(
-                "MWX generic shader execution state=%@ profile=%@ layer=%d effect=%d descriptor=%@ node=%d backend=%@ prepared=%@ graphInputs=%@ coordinateOwners=%@",
+                "MWX generic shader execution state=%@ profile=%@ layer=%d effect=%d descriptor=%@ node=%d backend=%@ prepared=%@ graphInputs=%@",
                 routeDecision.state,
                 routeDecision.profile,
                 layerID,
@@ -126,8 +121,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 nodeIndex,
                 backend.rawValue,
                 preparedKey,
-                graphInputs.isEmpty ? "-" : graphInputs,
-                coordinateOwners.isEmpty ? "-" : coordinateOwners
+                graphInputs.isEmpty ? "-" : graphInputs
             )
         }
 
@@ -545,12 +539,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         ).first else { return nil }
         let root = caches
             .appendingPathComponent("com.songziqiang.MyWallpaperX", isDirectory: true)
-            // v10 retires artifacts compiled before the comparison-operand
-            // truncation gained its left-type proof: the request key covers
-            // authored sources and a compiler-semantics version. Further
-            // normalizer changes retire request keys for default AND custom
-            // cache roots (see SceneResolvedMaterialGenericShaderRequest).
-            .appendingPathComponent("SceneGenericShaderPrograms-v10", isDirectory: true)
+            // v11 retires the implicit coordinate transform and synthetic ABI.
+            // The request-key version also invalidates custom cache roots.
+            .appendingPathComponent("SceneGenericShaderPrograms-v11", isDirectory: true)
             .standardizedFileURL
         do {
             try FileManager.default.createDirectory(

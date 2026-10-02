@@ -53,7 +53,6 @@
       "includes": [],
       "sources": [
         "Compilation/ShaderFrontend/SceneAuthoredShaderFrontendModel.swift",
-        "Compilation/ShaderFrontend/SceneAuthoredShaderTextureTransformABI.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderLexer.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderBoundedLoopAdmission.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderRuntimeLoopAdmission.swift",
@@ -65,7 +64,6 @@
         "Compilation/ShaderFrontend/SceneAuthoredShaderFrontend+DiscreteMask.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderNeutralTextureResolutionAnalyzer.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderNeutralTextureTintAnalyzer.swift",
-        "Compilation/ShaderFrontend/SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderTextureChannelAnalyzer.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderAlphaAttenuationAnalyzer.swift",
@@ -303,7 +301,6 @@
         "Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
         "Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchColor.swift",
         "Compilation/Material/SceneResolvedMaterialProgramFinalizer+ColorInputs.swift",
-        "Compilation/Material/SceneResolvedMaterialProgramFinalizer+CoordinateOwnership.swift",
         "Compilation/Material/SceneResolvedMaterialProgramFinalizer.swift"
       ]
     },

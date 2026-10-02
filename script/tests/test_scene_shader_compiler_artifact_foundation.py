@@ -20,16 +20,12 @@ def artifact_arguments(fragment_msl: str) -> dict:
     reflection = {
         "types": {"_1": {"members": [
             {"name": "mwxRenderSize", "type": "vec2", "offset": 0},
-            {"name": "mwxTexture0Transform0", "type": "vec4", "offset": 16},
-            {"name": "mwxTexture0Transform1", "type": "vec4", "offset": 32},
         ]}},
-        "ubos": [{"type": "_1", "block_size": 48, "set": 0, "binding": 8}],
+        "ubos": [{"type": "_1", "block_size": 16, "set": 0, "binding": 8}],
         "textures": [{"name": "g_Texture0", "binding": 0}],
     }
     uniform_struct = """struct MWXUniforms {
     float2 mwxRenderSize;
-    float4 mwxTexture0Transform0;
-    float4 mwxTexture0Transform1;
 };"""
     return {
         "request_key": "a" * 64,
@@ -47,41 +43,13 @@ def artifact_arguments(fragment_msl: str) -> dict:
 class SceneShaderCompilerArtifactFoundationTests(unittest.TestCase):
     direct_fragment = """struct MWXUniforms {
     float2 mwxRenderSize;
-    float4 mwxTexture0Transform0;
-    float4 mwxTexture0Transform1;
 };
 fragment void f() {
-    float2 uv = uniforms.mwxTexture0Transform0.xy
-        + uniforms.mwxTexture0Transform0.zw * 0.5
-        + uniforms.mwxTexture0Transform1.xy * 0.5;
+    float2 uv = float2(0.5);
     out.mwxFragColor = g_Texture0.sample(s, uv);
 }
 """
 
-    def test_normalizer_routes_every_active_sampler_through_transform_abi(self) -> None:
-        normalized, _ = normalize_wallpaper_engine_pair([
-            {"stage": "vertex", "entryPoint": "main", "source": """
-attribute vec3 a_Position;
-attribute vec2 a_TexCoord;
-varying vec2 v_TexCoord;
-void main() { gl_Position = vec4(a_Position, 1.0); v_TexCoord = a_TexCoord; }
-"""},
-            {"stage": "fragment", "entryPoint": "main", "source": """
-uniform sampler2D g_Texture0;
-uniform sampler2D g_Texture3;
-varying vec2 v_TexCoord;
-void main() {
-    gl_FragColor = texSample2D(g_Texture0, v_TexCoord)
-        + texture2D(g_Texture3, v_TexCoord);
-}
-"""},
-        ], {})
-        sources = {stage["stage"]: stage["source"] for stage in normalized}
-        for slot in (0, 3):
-            self.assertIn(f"vec4 mwxTexture{slot}Transform0;", sources["fragment"])
-            self.assertIn(f"vec4 mwxTexture{slot}Transform1;", sources["fragment"])
-            self.assertIn(f"mwxTexture{slot}Coordinate", sources["fragment"])
-        self.assertNotIn("#define texSample2D texture", sources["fragment"])
 
     def test_worker_matrix_cast_uses_linkable_glsl_constructor(self) -> None:
         normalized, _ = normalize_wallpaper_engine_pair([

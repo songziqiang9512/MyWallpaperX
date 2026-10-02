@@ -472,18 +472,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         let coordinateSource = coordinateSuffix.map {
             "(\(coordinate.source)).\($0)"
         } ?? coordinate.source
-        let transform0 = SceneMaterialTextureTransformABI.fieldName(
-            slot: texture.slot,
-            component: .originAndXAxis
-        )
-        let transform1 = SceneMaterialTextureTransformABI.fieldName(
-            slot: texture.slot,
-            component: .yAxis
-        )
-        let transformedCoordinate = "mwxTextureCoordinate(\(coordinateSource), "
-            + "mwxUniforms.\(transform0), mwxUniforms.\(transform1))"
         let sample = "mwxTexture\(texture.slot).sample(mwxSampler\(texture.slot), "
-            + "\(transformedCoordinate)\(level))"
+            + "\(coordinateSource)\(level))"
         let sampledSource = context.unpremultipliedTextureSlots.contains(texture.slot)
             ? "mwxUnpremultiply(\(sample))"
             : sample

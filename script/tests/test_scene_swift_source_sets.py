@@ -30,7 +30,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         core = scene_swift_source_relpaths("authored_shader_frontend_core")
 
         self.assertEqual(len(support), 4)
-        self.assertEqual(len(implementation), 88)
+        self.assertEqual(len(implementation), 86)
         self.assertEqual(core, (*support, *implementation))
         syntax = next(
             index for index, path in enumerate(implementation)
@@ -215,12 +215,8 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             uniform,
         )
         self.assertEqual(len(schema), 6)
-        self.assertEqual(len(texture_finalization), 9)
+        self.assertEqual(len(texture_finalization), 8)
         self.assertEqual(len(variant_preparation), 24)
-        self.assertIn(
-            'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer+CoordinateOwnership.swift',
-            texture_finalization,
-        )
         self.assertIn(
             'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialCompiledVariant.swift',
             variant_preparation,
@@ -259,7 +255,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *texture_finalization,
             ),
         )
-        self.assertEqual(len(frame_finalization), 48)
+        self.assertEqual(len(frame_finalization), 47)
         self.assertEqual(len(template_compilation), 3)
         self.assertEqual(
             complete,
@@ -268,7 +264,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *frame_finalization,
             ),
         )
-        self.assertEqual(len(complete), 51)
+        self.assertEqual(len(complete), 50)
 
         # The producer set now crosses preparation and live-binding boundaries.
         # Keep its explicit cardinality/order above and verify those boundaries.

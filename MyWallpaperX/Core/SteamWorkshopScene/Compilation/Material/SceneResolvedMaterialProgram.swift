@@ -431,10 +431,6 @@ nonisolated struct SceneResolvedMaterialProgram {
         case parallaxPosition, screen
         case texelSize(scaleBitPattern: UInt64)
         case textureResolution(slot: Int)
-        case textureTransform(
-            slot: Int,
-            component: SceneMaterialTextureTransformABI.Component
-        )
         case audioSpectrumLeft(count: Int)
         case audioSpectrumRight(count: Int)
     }
@@ -523,8 +519,6 @@ nonisolated struct SceneResolvedMaterialProgram {
         let graphRole: SceneResolvedMaterialTemplate.GraphRole
         let outputStorage: OutputStorage
         let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
-        let sameSlotMappedCoordinateFacts:
-            Set<SceneAuthoredShaderSameSlotMappedCoordinateFact>
 
         init(
             preparedShader: SceneShaderPreparedProgram,
@@ -533,9 +527,7 @@ nonisolated struct SceneResolvedMaterialProgram {
             renderState: SceneMaterialRenderState,
             graphRole: SceneResolvedMaterialTemplate.GraphRole,
             outputStorage: OutputStorage = .color,
-            runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none,
-            sameSlotMappedCoordinateFacts:
-                Set<SceneAuthoredShaderSameSlotMappedCoordinateFact> = []
+            runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none
         ) {
             self.preparedShader = preparedShader
             self.textureSlots = textureSlots
@@ -544,7 +536,6 @@ nonisolated struct SceneResolvedMaterialProgram {
             self.graphRole = graphRole
             self.outputStorage = outputStorage
             self.runtimeLoopBounds = runtimeLoopBounds
-            self.sameSlotMappedCoordinateFacts = sameSlotMappedCoordinateFacts
         }
     }
 
@@ -567,8 +558,6 @@ nonisolated struct SceneResolvedMaterialProgram {
     let semanticIdentity: SemanticIdentity
     let exactIdentity: ExactIdentity
     let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
-    let sameSlotMappedCoordinateFacts:
-        Set<SceneAuthoredShaderSameSlotMappedCoordinateFact>
 
     static func assemble(_ input: AssemblyInput) -> Self? {
         guard let derived = SceneResolvedMaterialProgramDerivation.derive(input) else {
@@ -614,7 +603,6 @@ nonisolated struct SceneResolvedMaterialProgram {
         semanticIdentity = derived.semanticIdentity
         exactIdentity = derived.exactIdentity
         runtimeLoopBounds = input.runtimeLoopBounds
-        sameSlotMappedCoordinateFacts = input.sameSlotMappedCoordinateFacts
     }
 
     private init(
@@ -633,7 +621,6 @@ nonisolated struct SceneResolvedMaterialProgram {
         semanticIdentity = derived.semanticIdentity
         exactIdentity = derived.exactIdentity
         runtimeLoopBounds = input.runtimeLoopBounds
-        sameSlotMappedCoordinateFacts = input.sameSlotMappedCoordinateFacts
     }
 }
 

@@ -78,13 +78,14 @@ def request_cache_key(request: dict[str, Any]) -> str:
 
     digest = hashlib.sha256()
     for value in (
-        "mwx-generic-shader-request-v10",
+        "mwx-generic-shader-request-v15",
         str(request.get("sourceDialect", "glsl-450")),
         output_semantics,
         sources["vertex"],
         sources["fragment"],
         expected_color_transfer_key(expected),
         input_color_cache_key(input_slots),
+        "",  # Offline requests do not carry product default-boundary slots.
         json.dumps(request.get("defines", {}), sort_keys=True, separators=(",", ":")),
     ):
         encoded = value.encode("utf-8")

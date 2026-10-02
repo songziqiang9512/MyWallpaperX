@@ -22,7 +22,7 @@ from script.tests.scene_generic_shader_provider_test_support import (
     assert_independent_signal_request_contract,
     assert_provider_backed_spatial_weighted_profile,
     assert_python_worker_rejects_typed_input_without_compatible_transfer,
-    assert_transform_abi_request_and_cache_namespaces,
+    assert_sampling_semantics_request_and_cache_namespaces,
 )
 
 
@@ -5180,19 +5180,15 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
                 else {1: auxiliary_channel_use}
             )
         slots = [0, *sorted(auxiliary_channel_uses)]
-        transforms = " ".join(
-            f"float4 mwxTexture{slot}Transform{component};"
-            for slot in slots for component in range(2)
-        )
         metal = f"""
 #include <metal_stdlib>
 using namespace metal;
-struct Uniforms {{ float2 mwxRenderSize; {transforms} }};
+struct Uniforms {{ float2 mwxRenderSize; }};
 vertex float4 mwxGenericVertex(uint vertexID [[vertex_id]], constant Uniforms& u [[buffer(8)]]) {{ return float4(0.0); }}
-fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], constant Uniforms& u [[buffer(8)]]) {{ return g_Texture0.sample(sampler(), u.mwxTexture0Transform0.xy + u.mwxTexture0Transform0.zw * 0.5 + u.mwxTexture0Transform1.xy * 0.5); }}
+fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], constant Uniforms& u [[buffer(8)]]) {{ return g_Texture0.sample(sampler(), float2(0.5)); }}
 """.strip() + "\n"
         return {
-            "schemaVersion": 7,
+            "schemaVersion": 8,
             "kind": "scene-generic-shader-program-artifact",
             "backendID": "glslang-spirv-cross-msl-v2",
             "requestKey": key,
@@ -5207,12 +5203,8 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                     "fields": [{
                         "name": "mwxRenderSize", "authoredName": "mwxRenderSize",
                         "type": "float2", "offset": 0,
-                    }] + [{
-                        "name": f"mwxTexture{slot}Transform{component}",
-                        "authoredName": f"mwxTexture{slot}Transform{component}",
-                        "type": "float4", "offset": 16 + slot * 32 + component * 16,
-                    } for slot in slots for component in range(2)],
-                    "byteSize": 16 + len(slots) * 32,
+                    }],
+                    "byteSize": 16,
                 },
                 "textureBindings": [
                     {"name": f"g_Texture{slot}", "slot": slot, "channelUse": (
@@ -5252,11 +5244,9 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         reflection = {
             "types": {"_1": {"members": [
                 {"name": "mwxRenderSize", "type": "vec2", "offset": 0},
-                {"name": "mwxTexture0Transform0", "type": "vec4", "offset": 16},
-                {"name": "mwxTexture0Transform1", "type": "vec4", "offset": 32},
             ]}},
             "ubos": [{
-                "type": "_1", "block_size": 48, "set": 0, "binding": 8
+                "type": "_1", "block_size": 16, "set": 0, "binding": 8
             }],
             "textures": [{"name": "g_Texture0", "binding": 0}],
         }
@@ -5266,18 +5256,18 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         ]
         vertex_msl = """#include <metal_stdlib>
 using namespace metal;
-struct MWXUniforms { float2 mwxRenderSize; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };
+struct MWXUniforms { float2 mwxRenderSize; };
 vertex float4 mwxGenericVertex(uint vertexID [[vertex_id]]) {
     return float4(0.0);
 }
 """
         fragment_msl = """#include <metal_stdlib>
 using namespace metal;
-struct MWXUniforms { float2 mwxRenderSize; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };
+struct MWXUniforms { float2 mwxRenderSize; };
 struct Output { float4 mwxFragColor [[color(0)]]; };
 fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], constant MWXUniforms& uniforms [[buffer(8)]]) {
     Output out;
-    float2 uv = uniforms.mwxTexture0Transform0.xy + uniforms.mwxTexture0Transform0.zw * 0.5 + uniforms.mwxTexture0Transform1.xy * 0.5;
+    float2 uv = float2(0.5);
     out.mwxFragColor = g_Texture0.sample(sampler(), uv);
     return out;
 }
@@ -5328,7 +5318,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         return digest.hexdigest()
 
     def test_previous_compiler_semantics_artifact_is_not_reused(self):
-        assert_transform_abi_request_and_cache_namespaces(
+        assert_sampling_semantics_request_and_cache_namespaces(
             self,
             vertex=VERTEX,
             fragment=FRAGMENT,
@@ -6057,8 +6047,6 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             self.assertEqual(accepted["uniformBufferIndex"], 8)
             self.assertEqual(accepted["uniformNames"], [
                 "mwxRenderSize",
-                "mwxTexture0Transform0",
-                "mwxTexture0Transform1",
             ])
             self.assertEqual(accepted["textureSlots"], [0])
 

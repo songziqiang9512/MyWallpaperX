@@ -59,10 +59,6 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                   input.textureSlots,
                   frontend: frontend
               ),
-              SceneMaterialTextureTransformABI.validates(
-                  layout: frontend.uniformLayout,
-                  activeSlots: Set(textures.activeSlots)
-              ),
               let uniforms = resolveUniforms(
                   input.resolvedUniforms,
                   layout: frontend.uniformLayout,

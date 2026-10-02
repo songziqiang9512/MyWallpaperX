@@ -20,7 +20,7 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
 from scene_shader_compiler_artifact import (
     ArtifactFailure,
-    build_program_artifact as build_product_artifact,
+    build_program_artifact,
     request_cache_key,
 )
 from scene_shader_compiler_harness import (
@@ -53,44 +53,6 @@ def artifact_arguments(
         "msl_sources": {"vertex": vertex_msl, "fragment": fragment_msl},
         "maximum_artifact_bytes": 1_024_000,
     }
-
-
-def transform_abi_fixture(arguments: dict) -> dict:
-    values = copy.deepcopy(arguments)
-    slots = sorted({
-        texture["binding"]
-        for stage in values["compiled_stages"]
-        for texture in stage["reflection"].get("textures", [])
-    })
-    for stage in values["compiled_stages"]:
-        reflection = stage["reflection"]
-        uniform = reflection["ubos"][0]
-        members = reflection["types"][uniform["type"]]["members"]
-        offset = (uniform["block_size"] + 15) // 16 * 16
-        for slot in slots:
-            for part in (0, 1):
-                name = f"mwxTexture{slot}Transform{part}"
-                members.append({"name": name, "type": "vec4", "offset": offset})
-                offset += 16
-        uniform["block_size"] = offset
-    for stage, source in values["msl_sources"].items():
-        match = re.search(r"struct\s+MWXUniforms\s*\{.*?\};", source, re.DOTALL)
-        if match is None:
-            raise AssertionError("fixture uniform struct missing")
-        probes = " + ".join(
-            f"uniforms.mwxTexture{slot}Transform{part}.x"
-            for slot in slots for part in (0, 1)
-        ) or "0.0"
-        helper = (
-            f"\nfloat mwx{stage.title()}TransformProbe("
-            f"constant MWXUniforms& uniforms) {{ return {probes}; }}\n"
-        )
-        values["msl_sources"][stage] = source[:match.end()] + helper + source[match.end():]
-    return values
-
-
-def build_program_artifact(**arguments) -> dict:
-    return build_product_artifact(**transform_abi_fixture(arguments))
 
 
 class SceneShaderCompilerHarnessTests(unittest.TestCase):
@@ -138,28 +100,26 @@ class SceneShaderCompilerHarnessTests(unittest.TestCase):
                 output.write_text(json.dumps({
                     "types": {"_1": {"name": "MWXUniforms", "members": [
                         {"name": "mwxRenderSize", "type": "vec2", "offset": 0},
-                        {"name": "mwxTexture0Transform0", "type": "vec4", "offset": 16},
-                        {"name": "mwxTexture0Transform1", "type": "vec4", "offset": 32},
                     ]}},
-                    "ubos": [{"name": "MWXUniforms", "type": "_1", "block_size": 48, "set": 0, "binding": 8}],
+                    "ubos": [{"name": "MWXUniforms", "type": "_1", "block_size": 16, "set": 0, "binding": 8}],
                     "textures": textures,
                 }), encoding="utf-8")
             elif stage == "vertex":
                 output.write_text("\\n".join([
                     "#include <metal_stdlib>",
                     "using namespace metal;",
-                    "struct MWXUniforms { float2 mwxRenderSize; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };",
-                    "vertex float4 mwxGenericVertex(constant MWXUniforms& uniforms [[buffer(8)]], uint vertexID [[vertex_id]]) { return (uniforms.mwxTexture0Transform0 + uniforms.mwxTexture0Transform1) * 0.0; }",
+                    "struct MWXUniforms { float2 mwxRenderSize; };",
+                    "vertex float4 mwxGenericVertex(constant MWXUniforms& uniforms [[buffer(8)]], uint vertexID [[vertex_id]]) { return float4(0.0); }",
                 ]), encoding="utf-8")
             else:
                 output.write_text("\\n".join([
                     "#include <metal_stdlib>",
                     "using namespace metal;",
-                    "struct MWXUniforms { float2 mwxRenderSize; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };",
+                    "struct MWXUniforms { float2 mwxRenderSize; };",
                     "struct Output { float4 mwxFragColor [[color(0)]]; };",
                     "fragment Output mwxGenericFragment(constant MWXUniforms& uniforms [[buffer(8)]], texture2d<float> g_Texture0 [[texture(0)]]) {",
                     "    Output out;",
-                    "    float2 uv = uniforms.mwxTexture0Transform0.xy + uniforms.mwxTexture0Transform0.zw * 0.5 + uniforms.mwxTexture0Transform1.xy * 0.5;",
+                    "    float2 uv = float2(0.5);",
                     "    out.mwxFragColor = g_Texture0.sample(sampler(), uv);",
                     "    return out;",
                     "}",
@@ -283,7 +243,7 @@ class SceneShaderCompilerHarnessTests(unittest.TestCase):
             self.assertEqual(artifact["program"]["colorTransfer"], {
                 "kind": "passthrough", "slot": 0
             })
-            self.assertEqual(artifact["program"]["uniformLayout"]["byteSize"], 48)
+            self.assertEqual(artifact["program"]["uniformLayout"]["byteSize"], 16)
             self.assertEqual(artifact["program"]["metalPreflight"]["bytes"], 3)
             self.assertEqual(
                 artifact["program"]["fragmentOutputChannelUse"], "unproven"
@@ -395,13 +355,13 @@ fragment void f() {
         )
         self.assertEqual(
             [field["offset"] for field in artifact["program"]["uniformLayout"]["fields"]],
-            [0, 16, 32],
+            [0],
         )
         self.assertEqual(
             [field.get("stage") for field in artifact["program"]["uniformLayout"]["fields"]],
-            [None, None, None],
+            [None],
         )
-        self.assertEqual(artifact["program"]["uniformLayout"]["byteSize"], 48)
+        self.assertEqual(artifact["program"]["uniformLayout"]["byteSize"], 16)
         self.assertNotIn("packed_float3", artifact["program"]["metalSource"])
         kwargs["msl_sources"] = {
             "vertex": vertex_msl,
@@ -517,8 +477,6 @@ fragment void f() {
                 ("mwxV_g_Speed", "vertex"),
                 ("mwxF_g_Speed", "fragment"),
                 ("mwxRenderSize", None),
-                ("mwxTexture0Transform0", None),
-                ("mwxTexture0Transform1", None),
             ],
         )
         source = artifact["program"]["metalSource"]

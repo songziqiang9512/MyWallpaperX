@@ -28,9 +28,9 @@ nonisolated enum SceneGenericShaderAnalysisCache {
     /// The only invalidation lever for this tier: bump when any analyzer,
     /// normalizer or profile-classification semantic change lands (the shared
     /// frontendSchemaVersion constant has no mechanical bump guarantee).
-    /// v3: comparisons retain fractional bounds through numeric promotion;
-    /// only integer assignments may narrow their input.
-    private static let schemaVersion = 3
+    /// v4: normalized sampling preserves authored coordinates and no longer
+    /// carries the synthetic texture-transform ABI.
+    private static let schemaVersion = 4
     private static let maximumEntryBytes = 64 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()

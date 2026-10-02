@@ -384,10 +384,6 @@ extension SceneResolvedMaterialGraphExecutor {
                         graphInputDiagnostics: program.textureSlots.compactMap {
                             $0?.graphInputSourceFact?.diagnosticIdentity
                         },
-                        sameSlotMappedCoordinateDiagnostics:
-                            program.sameSlotMappedCoordinateFacts
-                                .map(\.diagnosticIdentity)
-                                .sorted(),
                         layerID: node.effect.layerID,
                         effectIndex: node.effect.effectIndex,
                         descriptorID: node.effect.descriptorID,

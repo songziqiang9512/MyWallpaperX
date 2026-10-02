@@ -77,8 +77,6 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     ]
     let neutralTextureResolution:
         SceneAuthoredShaderNeutralTextureResolutionFact?
-    let sameSlotMappedCoordinateFacts:
-        Set<SceneAuthoredShaderSameSlotMappedCoordinateFact>
 
     init(
         readinessMask: UInt8,
@@ -108,9 +106,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
             SceneResolvedMaterialPreparedUniformBinding
         ],
         neutralTextureResolution:
-            SceneAuthoredShaderNeutralTextureResolutionFact?,
-        sameSlotMappedCoordinateFacts:
-            Set<SceneAuthoredShaderSameSlotMappedCoordinateFact>
+            SceneAuthoredShaderNeutralTextureResolutionFact?
     ) {
         self.readinessMask = readinessMask
         self.textureFormats = textureFormats
@@ -134,7 +130,6 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.activeUniforms = activeUniforms
         self.preparedUniformBindings = preparedUniformBindings
         self.neutralTextureResolution = neutralTextureResolution
-        self.sameSlotMappedCoordinateFacts = sameSlotMappedCoordinateFacts
     }
 
     var requiresInvertibleEffectTextureProjection: Bool {

@@ -31,6 +31,7 @@ nonisolated enum SceneFrameTextureIdentity: Hashable {
     case layerSource(Int)
     case namedLayerTarget(SceneNamedTextureReference)
     case sceneBackground(Int)
+    case sceneEnvironment
     case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
     case asset(SceneAssetTextureIdentity)
     case userProperty(String)
@@ -245,10 +246,6 @@ private func uniforms(
         let value: Data
         if field.name == "mwxRenderSize" {
             value = bytes(SIMD2<Float>(2, 2))
-        } else if let transform = SceneMaterialTextureTransformABI.component(
-            forFieldName: field.name
-        ) {
-            value = bytes(transform.component.identityValue)
         } else {
             value = bytes(Float(0))
         }

@@ -247,7 +247,7 @@ WE GLSL-like source
 
 Slang、DXC + Metal Shader Converter 可以保留为对照，但在当前 corpus 没有证明它们比 GLSL → SPIR-V → MSL 少一层 dialect 转换以前，不作为首条产品路线。
 
-第一条执行切片只需普通 vertex/fragment、常见 uniform/sampler、combo 和 render state。复杂 geometry、3D system shader 和全部历史 dialect 不阻塞普通 effect 首次出画面。
+作者二维采样操作保留作者传入的坐标、sampler 与显式 LOD；两个 compiler lowering 不得逐次注入 candidate 的 atlas／padding 变换，也不得靠坐标形状分析抵消重复映射。无作者 shader 的基础图像由既有 compositor 消费纹理帧并映射一次；effect 完整输出按单位映射合成。公开纹理 companion 是独立 typed uniform 合同，不能作为内部 synthetic ABI 的别名；其未知尺寸／动画 profile 继续按[RF02设计](authored-texture-coordinate-design.md)定案。改变采样语义时，分析、Program 与持久化编译工件必须沿各自实际读取入口退役旧缓存。
 
 ### 4.2 SceneScript 的推荐 VM
 

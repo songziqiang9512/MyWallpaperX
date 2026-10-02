@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
-"""Shared material texture-transform ABI and real Metal consumption gate."""
+"""Authored texture coordinates through the real bounded Program/Metal path."""
 
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -35,113 +37,29 @@ nonisolated enum SceneDynamicSource: Hashable {
 EXTRA_SOURCES = [
     SCENE_ROOT / "Systems/Properties/SceneDynamicSnapshot.swift",
     SCENE_ROOT / "Rendering/Bindings/SceneAuthoredShaderFrameInputs.swift",
-    SCENE_ROOT
-    / "Compilation/Material/SceneResolvedMaterialHostUniformSchema.swift",
-    SCENE_ROOT
-    / "Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift",
-    SCENE_ROOT
-    / "Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneAuthoredShaderConstantNumericExpression.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderInactiveBuiltinOverloadCanonicalizer.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderBooleanScalarArithmeticNormalizer.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderFloatingModuloNormalizer.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderTernaryScalarConditionNormalizer.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderScalarArithmeticNormalizer.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderScalarBuiltInLiteralNormalizer.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderScalarVectorBroadcastNormalizer.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderTextureSamplingNormalizer.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderVaryingNormalizer.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderDirectFunctionVectorArgumentNormalizer.swift",
-    SCENE_ROOT / "Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer+Rewrites.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderDefaultStraightColorBoundaryLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderLoopGuardLowering.swift",
-    SCENE_ROOT / "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderExpectedColorTransfer.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderRGBA8UNormIndependentSignalArtifactAnalyzer.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder+ColorTransfer.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder+ColorTransferSpecializedLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder+StraightAlphaPreservingColorTransfer.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderGeneratedStraightRGBALowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderIndependentSignalLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderIndependentSignalCompositingLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderSameSlotCarrierBlendLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderSameSlotColorBlendAlphaUnionLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder+StageUniforms.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering+Utilities.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderSingleSampleStraightAlphaPreservingLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderScalarizedRGBPreservedAlphaLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderGeneratedRGBPreservedAlphaLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderOpaqueFromStraightColorLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderStraightAlphaWholeOutputUnionLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderTypedDataRGBFilterLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderRGBBlendScalarAlphaLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderAssociatedOverBlendLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderConditionalGeneratedRGBLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderSameAlphaReconstructedRGBFilterLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderPreviousBlurredCompositeLowering.swift",
-    SCENE_ROOT
-    / "Compilation/ShaderPreparation/SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape.swift",
-    SCENE_ROOT / "Compilation/ShaderPreparation/SceneGenericShaderBoundedLoopWork.swift",
+    SCENE_ROOT / "Compilation/Material/SceneResolvedMaterialHostUniformSchema.swift",
+    SCENE_ROOT / "Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift",
 ]
 SWIFT_SOURCES = list(dict.fromkeys([*PASS_ENCODER_SOURCES, *EXTRA_SOURCES]))
 
 
-HARNESS = r'''
+COORDINATE_HARNESS = r'''
 import CoreGraphics
 import Foundation
 import Metal
 import simd
 
 private typealias Program = SceneResolvedMaterialProgram
-private typealias Template = SceneResolvedMaterialTemplate
 private typealias Graph = SceneAuthoredEffectRenderPlan
 
+private struct CoordinateFixture {
+    let name: String
+    let vertex: String
+    let fragment: String
+    let slot: Int
+}
+
+private let point = "vec2(0.0891089141368866, 0.6699029207229614)"
 private let vertex = """
 attribute vec3 a_Position;
 attribute vec2 a_TexCoord;
@@ -151,563 +69,364 @@ void main() {
     gl_Position = vec4(a_Position, 1.0);
 }
 """
-private let fragment = """
-varying vec2 v_TexCoord;
-uniform sampler2D g_Texture0;
-void main() { gl_FragColor = texSample2D(g_Texture0, v_TexCoord); }
-"""
 
-private func prepared(_ marker: String) -> SceneShaderPreparedProgram {
-    func stage(
-        _ kind: SceneShaderContract.StageKind, _ source: String
-    ) -> SceneShaderPreparedSource {
-        .init(
-            frontendSchemaVersion: SceneShaderVariantEnvironment.frontendSchemaVersion,
-            sourceDialect: .wallpaperEngineGLSLLike,
-            backend: .mwxMetal,
-            stage: kind,
-            rootRelativePath: "\(marker)/\(kind.rawValue).shader",
-            source: source,
-            sourceMap: [],
-            activeAnnotations: [],
-            activeDeclarations: [],
-            dependencies: [],
-            dependencySHA256: "dependency-\(marker)-\(kind.rawValue)",
-            variantSHA256: "variant-\(marker)-\(kind.rawValue)",
-            preparedSHA256: "prepared-\(marker)-\(kind.rawValue)"
-        )
-    }
-    return .init(
-        vertex: stage(.vertex, vertex),
-        fragment: stage(.fragment, fragment),
-        colorContract: .unresolvedAuthoredPass,
-        cacheKey: "cache-\(marker)"
-    )
+private func fixture(
+    _ name: String, output: String, slot: Int = 1, vertexSource: String = vertex,
+    helper: String = ""
+) -> CoordinateFixture {
+    .init(name: name, vertex: vertexSource, fragment: """
+    varying vec2 v_TexCoord;
+    uniform sampler2D g_Texture\(slot);
+    \(helper)
+    void main() { \(output) }
+    """, slot: slot)
 }
 
-private func texture(_ device: MTLDevice) -> MTLTexture {
+private let coordinateFixtures = [
+    fixture("literal", output: "gl_FragColor = texSample2D(g_Texture1, \(point));"),
+    fixture("explicit", output: """
+        vec2 mapped = vec2(0.125) + 0.25 * \(point);
+        gl_FragColor = texSample2D(g_Texture1, mapped);
+        """),
+    fixture("mixed", output: """
+        vec4 raw = texSample2D(g_Texture1, \(point));
+        vec2 mapped = vec2(0.125) + 0.25 * \(point);
+        vec4 authored = texSample2D(g_Texture1, mapped);
+        gl_FragColor = vec4(raw.r, authored.g, authored.b, 1.0);
+        """),
+    fixture("varying", output: "gl_FragColor = texSample2D(g_Texture1, v_TexCoord);",
+        vertexSource: vertex.replacingOccurrences(of: "v_TexCoord = a_TexCoord;",
+            with: "v_TexCoord = \(point);")),
+    fixture("vertex-explicit", output: "gl_FragColor = texSample2D(g_Texture1, v_TexCoord);",
+        vertexSource: vertex.replacingOccurrences(of: "v_TexCoord = a_TexCoord;",
+            with: "v_TexCoord = vec2(0.125) + 0.25 * \(point);")),
+    fixture("helper-explicit", output: "gl_FragColor = texSample2D(g_Texture1, ownMap(\(point)));", helper: """
+        vec2 ownMap(vec2 arbitraryName) {
+            return vec2(0.125) + 0.25 * arbitraryName;
+        }
+        """),
+    fixture("lod-zero", output: "vec4 c = texSample2DLod(g_Texture1, \(point), 0.0); gl_FragColor = vec4(c.rgb, 1.0);"),
+    fixture("lod-one", output: "vec4 c = texSample2DLod(g_Texture1, \(point), 1.0); gl_FragColor = vec4(c.rgb, 1.0);"),
+    fixture("texture-lod-one", output: "vec4 c = texture2DLod(g_Texture1, \(point), 1.0); gl_FragColor = vec4(c.rgb, 1.0);"),
+    fixture("slot-zero", output: "gl_FragColor = texSample2D(g_Texture0, \(point));", slot: 0),
+    fixture("slot-seven", output: "gl_FragColor = texSample2D(g_Texture7, \(point));", slot: 7),
+]
+
+private func prepared(_ fixture: CoordinateFixture) -> SceneShaderPreparedProgram {
+    func stage(_ kind: SceneShaderContract.StageKind, _ source: String) -> SceneShaderPreparedSource {
+        let digest = SceneGenericShaderProgramArtifact.sha256(Data(source.utf8))
+        return .init(
+            frontendSchemaVersion: SceneShaderVariantEnvironment.frontendSchemaVersion,
+            sourceDialect: .wallpaperEngineGLSLLike, backend: .mwxMetal, stage: kind,
+            rootRelativePath: "self-authored/\(fixture.name)/\(kind.rawValue).shader",
+            source: source, sourceMap: [], activeAnnotations: [], activeDeclarations: [],
+            dependencies: [], dependencySHA256: digest, variantSHA256: digest,
+            preparedSHA256: digest
+        )
+    }
+    return .init(vertex: stage(.vertex, fixture.vertex),
+        fragment: stage(.fragment, fixture.fragment),
+        colorContract: .unresolvedAuthoredPass, cacheKey: "own-\(fixture.name)")
+}
+
+private func texture(_ device: MTLDevice, redOffset: UInt8 = 0) -> MTLTexture {
     let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-        pixelFormat: .rgba8Unorm, width: 4, height: 2, mipmapped: false
-    )
+        pixelFormat: .rgba8Unorm, width: 384, height: 192, mipmapped: true)
     descriptor.storageMode = .shared
     descriptor.usage = .shaderRead
     let value = device.makeTexture(descriptor: descriptor)!
-    let row: [UInt8] = [
-        255, 0, 0, 255, 255, 0, 0, 255,
-        0, 255, 0, 255, 0, 255, 0, 255,
-    ]
-    value.replace(
-        region: MTLRegionMake2D(0, 0, 4, 2), mipmapLevel: 0,
-        withBytes: row + row, bytesPerRow: 16
-    )
+    for level in 0..<value.mipmapLevelCount {
+        let width = max(1, 384 >> level), height = max(1, 192 >> level)
+        var bytes = [UInt8]()
+        bytes.reserveCapacity(width * height * 4)
+        for y in 0..<height {
+            for x in 0..<width {
+                if level == 0 {
+                    let c = x / 24, r = y / 24
+                    bytes += [UInt8(16 + 14*c) + redOffset, UInt8(16 + 14*r),
+                        UInt8(32 + 7*((c + 3*r) % 24)), 255]
+                } else {
+                    // Every authored level is initialized; level 1 differs from level 0.
+                    bytes += [77 + redOffset, 123, 201, 255]
+                }
+            }
+        }
+        bytes.withUnsafeBytes {
+            value.replace(region: MTLRegionMake2D(0, 0, width, height),
+                mipmapLevel: level, withBytes: $0.baseAddress!, bytesPerRow: width * 4)
+        }
+    }
     return value
 }
 
 private func target(_ device: MTLDevice) -> MTLTexture {
     let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-        pixelFormat: .rgba8Unorm, width: 2, height: 2, mipmapped: false
-    )
+        pixelFormat: .rgba8Unorm, width: 2, height: 2, mipmapped: false)
     descriptor.storageMode = .shared
     descriptor.usage = [.renderTarget, .shaderRead]
     return device.makeTexture(descriptor: descriptor)!
 }
 
-private func slot(
-    texture: MTLTexture,
-    transform: SceneTextureUVTransform,
-    contentGeneration: UInt64
+private func selectedSlot(
+    index: Int, texture: MTLTexture, transform: SceneTextureUVTransform,
+    generation: UInt64
 ) -> Program.TextureSlot {
-    let effect = Graph.EffectKey(
-        layerID: 42, effectIndex: 1, descriptorID: "synthetic-atlas"
-    )
-    let identity = Graph.TextureIdentity(
-        kind: .framebuffer,
-        layerID: 42,
-        effect: effect,
-        name: "synthetic-atlas"
-    )
+    let effect = Graph.EffectKey(layerID: 42, effectIndex: 1, descriptorID: "own-atlas")
+    let identity = Graph.TextureIdentity(kind: .framebuffer, layerID: 42,
+        effect: effect, name: "own-atlas")
     let candidate = SceneTextureCandidate(
-        texture: texture,
-        identity: .provider(.video(layerID: 42, lifecycleEpoch: 1)),
-        generation: .provider(contentGeneration: contentGeneration),
-        purpose: .premultipliedColor,
+        texture: texture, identity: .provider(.video(layerID: 42, lifecycleEpoch: 1)),
+        generation: .provider(contentGeneration: generation), purpose: .premultipliedColor,
         content: .color(.resolved(.premultipliedAlpha)),
-        physicalSize: CGSize(width: 4, height: 2),
-        mappedSize: CGSize(width: 4, height: 2),
-        uvTransform: transform,
-        sampling: .init(texFlags: 3)
-    )
-    let publication = SceneTextureProviderPublication(
-        requestIdentity: .graph(identity),
-        candidate: candidate,
-        contentGeneration: contentGeneration
-    )
-    return .init(
-        index: 0,
-        reference: .graph(identity),
-        registryIdentity: .graph(identity),
+        physicalSize: CGSize(width: 384, height: 192),
+        mappedSize: CGSize(width: 384, height: 192), uvTransform: transform,
+        sampling: .init(texFlags: 3))
+    return .init(index: index, reference: .graph(identity), registryIdentity: .graph(identity),
         diagnosticSelectionProvenance: .authored(.explicitBinding),
         expectedPurpose: .premultipliedColor,
-        resource: .init(
-            publication: publication,
-            resourceGeneration: contentGeneration
-        )
-    )
+        resource: .init(publication: .init(requestIdentity: .graph(identity),
+            candidate: candidate, contentGeneration: generation),
+            resourceGeneration: generation))
 }
 
-private func slots(_ slot: Program.TextureSlot) -> [Program.TextureSlot?] {
-    var result = Array<Program.TextureSlot?>(repeating: nil, count: 8)
-    result[0] = slot
-    return result
-}
-
-private func inputs() -> SceneAuthoredShaderUniformInputs {
-    .init(
-        frameIndex: 1,
-        renderSize: CGSize(width: 2, height: 2),
+private func inputs(index: Int, generation: UInt64) -> SceneAuthoredShaderUniformInputs {
+    .init(frameIndex: generation, renderSize: CGSize(width: 2, height: 2),
         screenSize: CGSize(width: 2, height: 2),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: matrix_identity_float4x4,
         effectOutputModelViewProjection: matrix_identity_float4x4,
         effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
-        sceneTime: 0,
-        dayTime: 0,
-        frameTime: 1 / 60,
-        pointerCurrentNDC: .zero,
-        pointerPreviousNDC: .zero,
-        texturePhysicalSizes: [0: CGSize(width: 4, height: 2)]
-    )
-}
-
-private func uniforms(
-    frontend: SceneAuthoredShaderProgram,
-    slots: [Program.TextureSlot?]
-) -> [Program.ResolvedUniform]? {
-    let values = inputs()
-    return frontend.uniformLayout.fields.map { field in
-        guard let host = SceneResolvedMaterialUniformEncoder.hostUniform(
-            field, slots: slots
-        ), let encoded = SceneResolvedMaterialUniformEncoder.encodeHost(
-            host, type: field.type, inputs: values, slots: slots
-        ) else { return nil }
-        return .init(field: field, source: .host(host), encodedValue: encoded)
-    }.compactMap { $0 }
-}
-
-private func state() -> SceneMaterialRenderState {
-    SceneMaterialRenderState.compile(
-        blending: "normal", depthTest: "disabled", depthWrite: "disabled",
-        cullMode: "nocull", alphaWriting: nil
-    )!
+        sceneTime: Float(generation), dayTime: 0, frameTime: 1 / 60,
+        pointerCurrentNDC: .zero, pointerPreviousNDC: .zero,
+        texturePhysicalSizes: [index: CGSize(width: 384, height: 192)])
 }
 
 private func assembly(
-    _ prepared: SceneShaderPreparedProgram,
-    frontend: SceneAuthoredShaderProgram,
-    slot: Program.TextureSlot
+    fixture: CoordinateFixture, frontend: SceneAuthoredShaderProgram,
+    selected: Program.TextureSlot, generation: UInt64
 ) -> Program.AssemblyInput? {
-    let textureSlots = slots(slot)
-    guard let resolved = uniforms(frontend: frontend, slots: textureSlots),
-          resolved.count == frontend.uniformLayout.fields.count else { return nil }
-    return .init(
-        preparedShader: prepared,
-        textureSlots: textureSlots,
+    var slots = Array<Program.TextureSlot?>(repeating: nil, count: 8)
+    slots[fixture.slot] = selected
+    var resolved: [Program.ResolvedUniform] = []
+    for field in frontend.uniformLayout.fields {
+        guard let host = SceneResolvedMaterialUniformEncoder.hostUniform(field, slots: slots),
+              let value = SceneResolvedMaterialUniformEncoder.encodeHost(host,
+                type: field.type, inputs: inputs(index: fixture.slot, generation: generation),
+                slots: slots) else { return nil }
+        resolved.append(.init(field: field, source: .host(host), encodedValue: value))
+    }
+    return .init(preparedShader: prepared(fixture), textureSlots: slots,
         resolvedUniforms: resolved,
-        renderState: state(),
-        graphRole: .init(
-            effectInput: .layerSource,
-            effectOutput: .effectOutput,
-            nodeTarget: .framebuffer,
-            bindings: [.init(slot: 0, texture: .framebuffer)]
-        )
-    )
-}
-
-private func genericFrontend(
-    layout: SceneAuthoredShaderUniformLayout
-) -> SceneAuthoredShaderProgram? {
-    let fields = layout.fields.map {
-        SceneGenericShaderProgramArtifact.Program.UniformLayout.Field(
-            name: $0.name,
-            authoredName: $0.authoredName,
-            stage: $0.stage?.rawValue,
-            type: $0.type.rawValue,
-            offset: $0.offset,
-            arrayCount: $0.arrayCount
-        )
-    }
-    let metal = """
-    #include <metal_stdlib>
-    using namespace metal;
-    struct MWXUniforms {
-        float2 mwxRenderSize;
-        float4 mwxTexture0Transform0;
-        float4 mwxTexture0Transform1;
-    };
-    struct MWXVertexOut { float4 position [[position]]; float2 uv; };
-    vertex MWXVertexOut mwxGenericVertex(uint id [[vertex_id]]) {
-        const float2 coordinates[4] = {
-            float2(0.0, 1.0), float2(1.0, 1.0),
-            float2(0.0, 0.0), float2(1.0, 0.0)
-        };
-        MWXVertexOut out;
-        out.uv = coordinates[id];
-        out.position = float4(
-            coordinates[id].x * 2.0 - 1.0,
-            (1.0 - coordinates[id].y) * 2.0 - 1.0,
-            0.0, 1.0
-        );
-        return out;
-    }
-    fragment float4 mwxGenericFragment(
-        MWXVertexOut in [[stage_in]],
-        constant MWXUniforms& uniforms [[buffer(8)]],
-        texture2d<float> g_Texture0 [[texture(0)]],
-        sampler g_Texture0Sampler [[sampler(0)]]) {
-        float2 uv = uniforms.mwxTexture0Transform0.xy
-            + uniforms.mwxTexture0Transform0.zw * in.uv.x
-            + uniforms.mwxTexture0Transform1.xy * in.uv.y;
-        return g_Texture0.sample(g_Texture0Sampler, uv);
-    }
-    """
-    let artifact = SceneGenericShaderProgramArtifact(
-        backendID: "glslang-spirv-cross-msl-v2",
-        requestKey: "synthetic-transform",
-        program: .init(
-            metalSource: metal,
-            metalSourceSHA256: SceneGenericShaderProgramArtifact.sha256(
-                Data(metal.utf8)
-            ),
-            vertexFunctionName: "mwxGenericVertex",
-            fragmentFunctionName: "mwxGenericFragment",
-            uniformBufferIndex: 8,
-            uniformLayout: .init(fields: fields, byteSize: layout.byteSize),
-            textureBindings: [.init(
-                name: "g_Texture0", slot: 0, channelUse: "unproven"
-            )],
-            staticLoopWork: 0,
-            premultipliedColorInputSlots: [],
-            colorTransfer: .init(kind: "passthrough", slot: 0, slots: nil),
-            fragmentOutputChannelUse: "unproven"
-        )
-    )
-    return artifact.makeProgram(
-        expectedKey: "synthetic-transform",
-        expectedColorTransfer: .passthrough(textureSlot: 0),
-        expectedFragmentOutputChannelUse: .redDefined
-    )
+        renderState: SceneMaterialRenderState.compile(blending: "normal",
+            depthTest: "disabled", depthWrite: "disabled", cullMode: "nocull",
+            alphaWriting: nil)!,
+        graphRole: .init(effectInput: .layerSource, effectOutput: .effectOutput,
+            nodeTarget: .framebuffer, bindings: [.init(slot: fixture.slot, texture: .framebuffer)]))
 }
 
 private func render(
-    _ program: Program?,
-    encoder: SceneResolvedMaterialPassEncoder,
-    queue: MTLCommandQueue,
-    device: MTLDevice
-) -> (completed: Bool, pixels: [UInt8]) {
+    _ program: Program, encoder: SceneResolvedMaterialPassEncoder,
+    queue: MTLCommandQueue, device: MTLDevice
+) throws -> [String: Any] {
     let output = target(device)
-    guard let program,
-          let pass = encoder.prepare(program: program, target: output),
+    guard let pass = encoder.prepare(program: program, target: output),
           let command = queue.makeCommandBuffer(),
           encoder.encode(pass, commandBuffer: command) else {
-        return (false, [])
+        throw NSError(domain: "pass-encode", code: 1)
     }
     command.commit()
     command.waitUntilCompleted()
+    let completed = command.status == .completed && command.error == nil
     var pixels = [UInt8](repeating: 0, count: 16)
-    output.getBytes(
-        &pixels, bytesPerRow: 8,
-        from: MTLRegionMake2D(0, 0, 2, 2), mipmapLevel: 0
-    )
-    return (command.status == .completed && command.error == nil, pixels)
-}
-
-private func uniformStageFailure(malformed: Bool) -> String {
-    let transformType = malformed ? "vec2" : "vec4"
-    let members: [[String: Any]] = malformed ? [
-        ["name": "mwxRenderSize", "type": "vec2", "offset": 0],
-        ["name": "mwxTexture0Transform0", "type": transformType, "offset": 16],
-        ["name": "mwxTexture0Transform1", "type": "vec4", "offset": 32],
-    ] : [["name": "mwxRenderSize", "type": "vec2", "offset": 0]]
-    let reflection: [String: Any] = [
-        "types": ["_1": ["members": members]],
-        "ubos": [[
-            "type": "_1", "block_size": malformed ? 48 : 16,
-            "set": 0, "binding": 8,
-        ]],
-        "textures": [["name": "g_Texture0", "binding": 0]],
-    ]
-    let data = try! JSONSerialization.data(withJSONObject: reflection)
-    let msl = """
-    #include <metal_stdlib>
-    using namespace metal;
-    struct MWXUniforms { float2 mwxRenderSize; };
-    fragment float4 main0(texture2d<float> g_Texture0 [[texture(0)]]) {
-        return g_Texture0.sample(sampler(), float2(0.5));
-    }
-    """
-    let stages = ["vertex", "fragment"].map { name in
-        SceneGenericShaderArtifactBuilder.Stage(
-            name: name,
-            source: name == "fragment" ? fragment : vertex,
-            authoredSource: name == "fragment" ? fragment : vertex,
-            msl: msl,
-            reflection: data
-        )
-    }
-    switch SceneGenericShaderArtifactBuilder.build(
-        requestKey: "negative", backendID: "glslang-spirv-cross-msl-v2",
-        stages: stages, maximumArtifactBytes: 100_000
-    ) {
-    case .success: return "accepted"
-    case let .failure(failure): return String(describing: failure)
-    }
-}
-
-@main
-private enum Main {
-    static func main() throws {
-        guard let device = MTLCreateSystemDefaultDevice(),
-              let queue = device.makeCommandQueue(),
-              let encoder = SceneResolvedMaterialPassEncoder(device: device) else {
-            print(#"{"metalAvailable":false}"#)
-            return
+    if completed {
+        pixels.withUnsafeMutableBytes {
+            output.getBytes($0.baseAddress!, bytesPerRow: 8,
+                from: MTLRegionMake2D(0, 0, 2, 2), mipmapLevel: 0)
         }
-        let source = texture(device)
-        let frame0 = SceneTextureUVTransform(
-            origin: .zero, xAxis: SIMD2(0.5, 0), yAxis: SIMD2(0, 1)
-        )
-        let frame1 = SceneTextureUVTransform(
-            origin: SIMD2(0.5, 0), xAxis: SIMD2(0.5, 0), yAxis: SIMD2(0, 1)
-        )
-        let identity = SceneTextureUVTransform.identity
-        let invalid = SceneTextureUVTransform(
-            origin: SIMD2(0.8, 0), xAxis: SIMD2(0.5, 0), yAxis: SIMD2(0, 1)
-        )
-        let shader = prepared("bounded")
-        let bounded = SceneAuthoredShaderFrontend.compile(
-            vertexSource: vertex, fragmentSource: fragment
-        ).program!
-        let generic = genericFrontend(layout: bounded.uniformLayout)!
+    }
+    return ["completed": completed, "pixels": pixels,
+        "pipelineAttempts": encoder.pipelineCompilationAttemptCount]
+}
 
-        func program(
-            frontend: SceneAuthoredShaderProgram,
-            transform: SceneTextureUVTransform,
-            generation: UInt64,
-            genericBackend: Bool
-        ) -> Program? {
-            let selected = slot(
-                texture: source,
-                transform: transform,
-                contentGeneration: generation
-            )
-            guard let input = assembly(shader, frontend: frontend, slot: selected) else {
-                return nil
+private func runCoordinates(
+    generic: Bool, frontend: (CoordinateFixture) throws -> SceneAuthoredShaderProgram
+) throws -> [String: Any] {
+    guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue(),
+          let encoder = SceneResolvedMaterialPassEncoder(device: device) else {
+        return ["metalAvailable": false]
+    }
+    let original = texture(device), replacement = texture(device, redOffset: 7)
+    let transforms = [SceneTextureUVTransform.identity,
+        SceneTextureUVTransform(origin: SIMD2(0.125, 0.125),
+            xAxis: SIMD2(0.25, 0), yAxis: SIMD2(0, 0.25)),
+        SceneTextureUVTransform.identity]
+    var results: [String: Any] = [:]
+    for fixture in coordinateFixtures {
+        let compiled = try frontend(fixture)
+        var frames: [[String: Any]] = []
+        var previous: Program?
+        for (index, transform) in transforms.enumerated() {
+            let generation = UInt64(index + 1)
+            let selected = selectedSlot(index: fixture.slot,
+                texture: index == 2 ? replacement : original,
+                transform: transform, generation: generation)
+            guard let input = assembly(fixture: fixture, frontend: compiled,
+                    selected: selected, generation: generation) else {
+                throw NSError(domain: "assembly-input-\(fixture.name)", code: index)
             }
-            return genericBackend ? Program.assembleCompiled(
-                input,
-                frontend: frontend,
-                routeDecision: .init(
-                    profile: "ordinary-shader",
-                    state: "prefer-generic",
-                    fallbackOwner: "bounded-frontend"
-                ),
-                conditionalGeneratedRGBInputContract: nil
-            ) : Program.assemble(input)
+            let program = generic ? Program.assembleCompiled(input, frontend: compiled,
+                routeDecision: .init(profile: "ordinary-shader", state: "prefer-generic",
+                    fallbackOwner: "bounded-frontend"),
+                conditionalGeneratedRGBInputContract: nil) : Program.assemble(input)
+            guard let program else {
+                throw NSError(domain: "program-\(fixture.name)", code: index,
+                    userInfo: [NSLocalizedDescriptionKey: "transfer=\(compiled.colorTransfer)"])
+            }
+            var frame = try render(program, encoder: encoder, queue: queue, device: device)
+            frame["generation"] = generation
+            frame["exactIdentityChanged"] = previous.map {
+                $0.exactIdentity != program.exactIdentity
+            } ?? true
+            frame["resourceGeneration"] = selected.resource.resourceGeneration
+            frames.append(frame)
+            previous = program
         }
+        results[fixture.name] = ["slot": fixture.slot,
+            "backend": String(describing: compiled.backend),
+            "physicalSize": [384, 192],
+            "vertexSHA256": SceneGenericShaderProgramArtifact.sha256(Data(fixture.vertex.utf8)),
+            "fragmentSHA256": SceneGenericShaderProgramArtifact.sha256(Data(fixture.fragment.utf8)),
+            "metalSHA256": SceneGenericShaderProgramArtifact.sha256(Data(compiled.metalSource.utf8)),
+            "frames": frames]
+    }
+    return ["metalAvailable": true, "device": device.name, "fixtures": results]
+}
+'''
 
-        let bounded0 = program(
-            frontend: bounded, transform: frame0, generation: 1,
-            genericBackend: false
-        )
-        let bounded1 = program(
-            frontend: bounded, transform: frame1, generation: 2,
-            genericBackend: false
-        )
-        let boundedIdentity = program(
-            frontend: bounded, transform: identity, generation: 3,
-            genericBackend: false
-        )
-        let boundedInvalid = program(
-            frontend: bounded, transform: invalid, generation: 4,
-            genericBackend: false
-        )
-        let bounded0Pixels = render(
-            bounded0, encoder: encoder, queue: queue, device: device
-        )
-        let attemptsAfterBounded0 = encoder.pipelineCompilationAttemptCount
-        let bounded1Pixels = render(
-            bounded1, encoder: encoder, queue: queue, device: device
-        )
-        let attemptsAfterBounded1 = encoder.pipelineCompilationAttemptCount
-        let identityPixels = render(
-            boundedIdentity, encoder: encoder, queue: queue, device: device
-        )
-
-        let generic0 = program(
-            frontend: generic, transform: frame0, generation: 1,
-            genericBackend: true
-        )
-        let generic1 = program(
-            frontend: generic, transform: frame1, generation: 2,
-            genericBackend: true
-        )
-        let generic0Pixels = render(
-            generic0, encoder: encoder, queue: queue, device: device
-        )
-        let attemptsAfterGeneric0 = encoder.pipelineCompilationAttemptCount
-        let generic1Pixels = render(
-            generic1, encoder: encoder, queue: queue, device: device
-        )
-        let attemptsAfterGeneric1 = encoder.pipelineCompilationAttemptCount
-
-        let red = Array(repeating: [UInt8](arrayLiteral: 255, 0, 0, 255), count: 4)
-            .flatMap { $0 }
-        let green = Array(repeating: [UInt8](arrayLiteral: 0, 255, 0, 255), count: 4)
-            .flatMap { $0 }
-        let identityExpected: [UInt8] = [
-            255, 0, 0, 255, 0, 255, 0, 255,
-            255, 0, 0, 255, 0, 255, 0, 255,
-        ]
-        let reservedFragment = """
-        varying vec2 v_TexCoord;
-        uniform sampler2D g_Texture0;
-        uniform vec4 mwxTexture0Transform0;
-        void main() { gl_FragColor = texSample2D(g_Texture0, v_TexCoord); }
-        """
-        let boundedReserved = SceneAuthoredShaderFrontend.compile(
-            vertexSource: vertex, fragmentSource: reservedFragment
-        )
-        let genericReserved = SceneGenericShaderSourceNormalizer.normalize(
-            vertexSource: vertex,
-            fragmentSource: reservedFragment,
-            maximumStageSourceBytes: 100_000
-        )
-        let normalized = SceneGenericShaderSourceNormalizer.normalize(
-            vertexSource: vertex,
-            fragmentSource: fragment,
-            maximumStageSourceBytes: 100_000
-        )
-        let normalizedConsumes: Bool
-        if case let .success(pair) = normalized {
-            normalizedConsumes = pair.fragment.contains(
-                "mwxTexture0Coordinate"
-            ) && pair.fragment.contains("#define texSample2D")
-                && pair.fragment.contains("#define texture2DLod")
-        } else { normalizedConsumes = false }
-        let genericReservedRejected: Bool
-        if case .failure(.reservedUniform) = genericReserved {
-            genericReservedRejected = true
-        } else { genericReservedRejected = false }
-        let result: [String: Any] = [
-            "metalAvailable": true,
-            "bounded": [
-                "programBuilt": bounded0 != nil && bounded1 != nil,
-                "frame0": bounded0Pixels.completed && bounded0Pixels.pixels == red,
-                "frame1": bounded1Pixels.completed && bounded1Pixels.pixels == green,
-                "mappedStatic": bounded0Pixels.pixels == red,
-                "identityStatic": identityPixels.completed
-                    && identityPixels.pixels == identityExpected,
-                "invalidRejected": boundedInvalid == nil,
-                "exactChanges": bounded0?.exactIdentity != bounded1?.exactIdentity,
-                "uniformChanges": bounded0?.uniformBytes != bounded1?.uniformBytes,
-                "semanticStable": bounded0?.semanticIdentity == bounded1?.semanticIdentity,
-                "pipelineStable": attemptsAfterBounded0 == attemptsAfterBounded1,
-            ],
-            "generic": [
-                "programBuilt": generic0 != nil && generic1 != nil,
-                "frame0": generic0Pixels.completed && generic0Pixels.pixels == red,
-                "frame1": generic1Pixels.completed && generic1Pixels.pixels == green,
-                "matchesBounded": generic0Pixels.pixels == bounded0Pixels.pixels
-                    && generic1Pixels.pixels == bounded1Pixels.pixels,
-                "pipelineStable": attemptsAfterGeneric0 == attemptsAfterGeneric1,
-                "normalizerConsumes": normalizedConsumes,
-            ],
-            "negative": [
-                "boundedReserved": boundedReserved.program == nil
-                    && boundedReserved.diagnostics.contains {
-                        $0.code == .unsupportedDeclaration
-                    },
-                "genericReserved": genericReservedRejected,
-                "missingABI": uniformStageFailure(malformed: false)
-                    == "uniformStageMismatch",
-                "malformedABI": uniformStageFailure(malformed: true)
-                    == "uniformStageMismatch",
-            ],
-        ]
-        let data = try JSONSerialization.data(
-            withJSONObject: result, options: [.sortedKeys]
-        )
-        FileHandle.standardOutput.write(data)
+HARNESS = COORDINATE_HARNESS + r'''
+@main private enum Main {
+    static func main() throws {
+        let result = try runCoordinates(generic: false) { fixture in
+            let compiled = SceneAuthoredShaderFrontend.compile(
+                vertexSource: fixture.vertex, fragmentSource: fixture.fragment)
+            guard let frontend = compiled.program else {
+                throw NSError(domain: "bounded-\(fixture.name)", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: String(describing: compiled.diagnostics)])
+            }
+            return frontend
+        }
+        FileHandle.standardOutput.write(
+            try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]))
     }
 }
 '''
 
 
+def source_hashes(paths: list[Path]) -> dict[str, str]:
+    return {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
+
+
+def fixture_environment(root: Path) -> dict[str, str]:
+    environment = os.environ.copy()
+    environment.update(
+        CLANG_MODULE_CACHE_PATH=str(root / "clang-cache"),
+        SWIFT_MODULECACHE_PATH=str(root / "swift-cache"),
+        MWX_SCENE_GENERIC_SHADER_CACHE=str(root / "program-cache"),
+    )
+    return environment
+
+
+def preserve_evidence(
+    root: Path, name: str, before: dict[str, str], after: dict[str, str],
+    command: list[str], compile_result: subprocess.CompletedProcess[str],
+    completed: subprocess.CompletedProcess[str],
+) -> None:
+    destination = os.environ.get("MWX_SCENE_COORDINATE_EVIDENCE")
+    if not destination:
+        return
+    output = Path(destination) / name
+    output.mkdir(parents=True, exist_ok=False)
+    for path in root.iterdir():
+        if path.is_file():
+            shutil.copy2(path, output / path.name)
+        elif path.name in ("artifacts", "Compiler.bundle"):
+            shutil.copytree(path, output / path.name)
+    (output / "identity.json").write_text(json.dumps({
+        "command": command, "inputHashesBefore": before, "inputHashesAfter": after,
+        "sameInputs": before == after, "compileExit": compile_result.returncode,
+        "runExit": completed.returncode,
+        "outputHashes": source_hashes([path for path in output.rglob("*") if path.is_file()]),
+    }, indent=2), encoding="utf-8")
+    (output / "compile.stderr").write_text(compile_result.stderr, encoding="utf-8")
+    (output / "result.json").write_text(completed.stdout, encoding="utf-8")
+    (output / "run.stderr").write_text(completed.stderr, encoding="utf-8")
+
+
+def assert_coordinate_pixels(test: unittest.TestCase, result: dict, backend: str) -> None:
+    # Independent fixed oracle for the self-authored nearest-sampled atlas.
+    expected = {
+        "literal": [30, 86, 144, 255], "explicit": [44, 44, 88, 255],
+        "mixed": [30, 44, 88, 255], "varying": [30, 86, 144, 255],
+        "vertex-explicit": [44, 44, 88, 255], "helper-explicit": [44, 44, 88, 255],
+        "lod-zero": [30, 86, 144, 255], "lod-one": [77, 123, 201, 255],
+        "texture-lod-one": [77, 123, 201, 255],
+        "slot-zero": [30, 86, 144, 255], "slot-seven": [30, 86, 144, 255],
+    }
+    test.assertEqual(set(result["fixtures"]), set(expected), result)
+    for name, pixel in expected.items():
+        with test.subTest(fixture=name):
+            fixture = result["fixtures"][name]
+            test.assertEqual(fixture["backend"], backend)
+            test.assertEqual(fixture["physicalSize"], [384, 192])
+            test.assertEqual(fixture["slot"], {"slot-zero": 0, "slot-seven": 7}.get(name, 1))
+            test.assertEqual(len(fixture["frames"]), 3)
+            for index, frame in enumerate(fixture["frames"]):
+                test.assertTrue(frame["completed"], frame)
+                test.assertTrue(frame["exactIdentityChanged"], frame)
+                test.assertEqual(frame["generation"], index + 1)
+                test.assertEqual(frame["resourceGeneration"], index + 1)
+                rgba = pixel.copy()
+                if index == 2:
+                    rgba[0] += 7
+                test.assertEqual(frame["pixels"], rgba * 4, (name, index, frame))
+            test.assertEqual(len({f["pipelineAttempts"] for f in fixture["frames"]}), 1, fixture)
+
+
 class SceneMaterialTextureTransformTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.temporary_directory = tempfile.TemporaryDirectory(
-            prefix="mwx-material-texture-transform-"
-        )
+        cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-authored-coordinate-")
+        cls.addClassCleanup(cls.temporary_directory.cleanup)
         root = Path(cls.temporary_directory.name)
-        support = root / "Support.swift"
-        harness = root / "Harness.swift"
-        binary = root / "material-texture-transform"
+        support, harness, binary = root / "Support.swift", root / "Harness.swift", root / "probe"
         support.write_text(SUPPORT, encoding="utf-8")
         harness.write_text(HARNESS, encoding="utf-8")
-        environment = os.environ.copy()
-        environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
-        environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
-        compilation = subprocess.run(
-            [
-                "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
-                str(support), *(str(path) for path in SWIFT_SOURCES), str(harness),
-                "-framework", "Metal", "-framework", "CoreGraphics",
-                "-module-cache-path", str(root / "module-cache"),
-                "-o", str(binary),
-            ],
-            cwd=REPOSITORY_ROOT,
-            env=environment,
-            capture_output=True,
-            text=True,
-        )
+        before = source_hashes([*SWIFT_SOURCES, support, harness])
+        command = [
+            "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
+            str(support), *map(str, SWIFT_SOURCES), str(harness),
+            "-framework", "Metal", "-framework", "CoreGraphics",
+            "-module-cache-path", str(root / "module-cache"), "-o", str(binary),
+        ]
+        environment = fixture_environment(root)
+        compilation = subprocess.run(command, cwd=REPOSITORY_ROOT, env=environment,
+            capture_output=True, text=True, timeout=180)
         if compilation.returncode != 0:
             raise RuntimeError(compilation.stderr)
-        completed = subprocess.run(
-            [str(binary)],
-            cwd=REPOSITORY_ROOT,
-            env=environment,
-            capture_output=True,
-            text=True,
-        )
+        completed = subprocess.run([str(binary)], cwd=root, env=environment,
+            capture_output=True, text=True, timeout=90)
+        after = source_hashes([*SWIFT_SOURCES, support, harness])
+        preserve_evidence(root, "bounded", before, after, command, compilation, completed)
+        if before != after:
+            raise RuntimeError("Compilation inputs changed during the coordinate gate")
         if completed.returncode != 0:
             raise RuntimeError(completed.stderr or completed.stdout)
         cls.result = json.loads(completed.stdout)
         if not cls.result["metalAvailable"]:
-            raise unittest.SkipTest("Metal is unavailable")
+            raise unittest.SkipTest("Metal is unavailable; no coordinate behavior evidence")
 
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.temporary_directory.cleanup()
-
-    def test_bounded_and_generic_consume_exact_transform_on_gpu(self) -> None:
-        self.assertEqual(
-            [key for key, value in self.result["bounded"].items() if not value],
-            [],
-            self.result,
-        )
-        self.assertEqual(
-            [key for key, value in self.result["generic"].items() if not value],
-            [],
-            self.result,
-        )
-
-    def test_reserved_and_malformed_abi_fail_typed(self) -> None:
-        self.assertEqual(
-            [key for key, value in self.result["negative"].items() if not value],
-            [],
-            self.result,
-        )
+    def test_authored_coordinates_survive_metadata_and_next_generation_on_gpu(self) -> None:
+        assert_coordinate_pixels(self, self.result, "boundedSwift")
 
 
 if __name__ == "__main__":
