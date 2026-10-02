@@ -17,6 +17,8 @@ final class SceneMainPassEncoder {
         (target.width, target.height)
     }
 
+    var targetPixelFormat: MTLPixelFormat { target.pixelFormat }
+
     init(
         commandBuffer: MTLCommandBuffer,
         target: MTLTexture,

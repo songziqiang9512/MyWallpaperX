@@ -23,7 +23,7 @@ struct SceneParticleMetalPipeline {
     private let refractAdditiveState: MTLRenderPipelineState
     private let depthStates: [Int: MTLDepthStencilState]
     private let samplerStates: SceneParticleSamplerStateSet
-    private let framebufferSnapshot: SceneFramebufferSnapshot
+    let framebufferSnapshot: SceneFramebufferSnapshot
     private let depthTargetPool = SceneParticleDepthTargetPool()
 
     var renderTargetResidentByteCost: Int {

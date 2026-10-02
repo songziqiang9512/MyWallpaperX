@@ -1,9 +1,11 @@
-<!-- document-role: active-plan -->
-<!-- retirementCondition: 背景快照必需容量与阴影共存通过实际GPU/App、资源失败和生命周期门，稳定职责移交架构、执行证据归历史后归档本文并删除窄设计登记。 -->
+<!-- document-role: historical-evidence -->
+<!-- commandPolicy: historical-only -->
 
-# RF12 — 背景快照容量准备
+# RF12 — 背景快照容量准备（退役设计）
 
-基线 `49e34a6c`。本设计承接[RF12工作卡](reference-evidence-implementation-cards.md#rf12-late-snapshot-capacity)，已获独立设计ACCEPT；本机报告 `/private/tmp/mwx-rf12/design-review.md` SHA `3ece13fe16807cee5100dbae352c5bbbfe089d120eba65c7427961893e8f7ef9`，绑定批准前设计SHA `e59510f95dc45a9891dfa7a0a93441b21efc4ad896c8c172a8ada456287fb920` 与登记SHA `b32731f1890f527dd5f306c796c6d8d4baa7585fc97ff69c86cdf7032dcb1b99`。批准设计不等于产品验收。它修复现有 color-blend、refraction 和[D3 F6方向光阴影](2d-lighting-material-design.md#f6-model-directional-shadow)不能同帧共存的资源断点，不改变混合、折射或阴影的视觉算法。
+> **历史证据 — 非现役入口**。RF12 v2 已通过实际资源/App门及独立产品终审；稳定合同由架构接管，执行证据见本目录 RF12 实施记录。本设计仅保留当时裁决，窄登记随职责交付退役。
+
+基线 `49e34a6c`。本设计承接[RF12工作卡](../../scene/design/reference-evidence-implementation-cards.md#rf12-late-snapshot-capacity)，已获独立设计ACCEPT；本机报告 `/private/tmp/mwx-rf12/design-review.md` SHA `3ece13fe16807cee5100dbae352c5bbbfe089d120eba65c7427961893e8f7ef9`，绑定批准前设计SHA `e59510f95dc45a9891dfa7a0a93441b21efc4ad896c8c172a8ada456287fb920` 与登记SHA `b32731f1890f527dd5f306c796c6d8d4baa7585fc97ff69c86cdf7032dcb1b99`。批准设计不等于产品验收。它修复现有 color-blend、refraction 和[D3 F6方向光阴影](../../scene/design/2d-lighting-material-design.md#f6-model-directional-shadow)不能同帧共存的资源断点，不改变混合、折射或阴影的视觉算法。
 
 ## 目标合同与当前事实
 
@@ -52,4 +54,4 @@ fallback仍局部：快照容量不足则该次optional shadow关闭，原效果
 
 ## 退役与后继
 
-通过上述有界共存、预算失败及生命周期门后，稳定容量/内容时序合同移交[runtime architecture](runtime-architecture.md)，真实红绿与执行身份归历史记录，本设计归档并删除窄登记。RF12关闭后按[唯一兼容路线](../scene-compatibility-roadmap.md)选择真实受益的model spot/point或named caster，不把缺官方公式作为跳过理由。
+通过上述有界共存、预算失败及生命周期门后，稳定容量/内容时序合同移交[runtime architecture](../../scene/design/runtime-architecture.md)，真实红绿与执行身份归历史记录，本设计归档并删除窄登记。RF12关闭后按[唯一兼容路线](../../scene/scene-compatibility-roadmap.md)选择真实受益的model spot/point或named caster，不把缺官方公式作为跳过理由。

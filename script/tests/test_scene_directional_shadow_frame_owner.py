@@ -52,7 +52,7 @@ struct SceneRenderDescriptor {
   var parentID:Int? = nil;var displayScriptOwnership:SceneLayerDisplayScriptOwnership? = nil
   var utilityLayer:Bool? = false;var usesPerspective:Bool? = false
   var alpha:Double? = 1;var contentKind:String = "model"
-  var modelShadowCastIntent:SceneShadowCastIntent? = nil
+  var modelShadowCastIntent:SceneShadowCastIntent? = nil;var colorBlendMode:Int? = nil
  }
  struct CameraDescriptor {
   let eye:[Float];let center:[Float];let up:[Float];let orthoWidth:Float?;let orthoHeight:Float?
@@ -96,9 +96,26 @@ struct TextureRegistry { let frameEpoch:UInt64 = 1 }
 struct SceneCompositionGroupFrameRuntime {
  func renderPass(forLayerID:Int)->SceneMainPassEncoder? { nil }
  func closeAllGroupEncoders() {}
+ func sourceIsAvailable(forLayerID:Int)->Bool {false}
+ func compositeTargetPass(forRootID:Int)->SceneMainPassEncoder? {nil}
 }
+
+struct SceneResolvedMaterialFrameTargetPlan {}
+struct SceneBaseImageTextureSnapshot {}
+struct FixtureImageSelection {let source:MTLTexture?}
+struct SceneUtilityLayerRuntimePlan {let layerID:Int;let usesIsolatedGroupTarget:Bool}
+enum SceneLayerColorBlendRenderer {static func supports(_ mode:Int)->Bool {fatalError("unused snapshot-demand shell")}}
+final class SceneImageLayerCompositor {
+ func prepareSnapshotCapacity(width:Int,height:Int,pixelFormat:MTLPixelFormat,then remaining:()->Bool)->Bool {fatalError("unused snapshot-demand shell")}
+}
+
 final class SceneMetalRenderer {
  let device:MTLDevice;let staticModelResources:ScenePreparedStaticModelResources
+ var utilityPlansByTriggerLayerID:[Int:[SceneUtilityLayerRuntimePlan]]=[:]
+ var layersByID:[Int:SceneRenderDescriptor.Layer]=[:]
+ let imageCompositor=SceneImageLayerCompositor()
+ func baseMaterialReadyProviderUsesAuthoredLayerColor(for layer:SceneRenderDescriptor.Layer,dynamicValues:SceneDynamicSnapshot)->Bool {fatalError("unused snapshot-demand shell")}
+ func baseMaterialTextureSelection(for layer:SceneRenderDescriptor.Layer,imageTextures:SceneBaseImageTextureSnapshot,readyProviderUsesAuthoredLayerColor:Bool)->FixtureImageSelection {fatalError("unused snapshot-demand shell")}
  let staticModelDepthTargetPool = SceneParticleDepthTargetPool()
  let dependencyRuntime = BindingObserver();let textureRegistry = TextureRegistry()
  init(device:MTLDevice, resources:ScenePreparedStaticModelResources) {

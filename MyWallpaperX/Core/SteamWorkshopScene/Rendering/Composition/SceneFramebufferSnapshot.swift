@@ -24,15 +24,27 @@ final class SceneFramebufferSnapshot {
         self.label = label
     }
 
+    /// Reserve real capacity without copying a background. The continuation may
+    /// prepare another snapshot owner; a failure restores every enclosing slot.
+    func prepareCapacity(width: Int, height: Int, pixelFormat: MTLPixelFormat,
+                         then prepareRemaining: () -> Bool) -> Bool {
+        let previous = texture
+        let previousCost = residentByteCost
+        guard destination(width: width, height: height, pixelFormat: pixelFormat) != nil else { return false }
+        guard prepareRemaining() else {
+            texture = previous
+            residentByteCost = previousCost
+            return false
+        }
+        return true
+    }
+
     func capture(
         target: MTLTexture,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         guard target.textureType == .type2D,
               target.sampleCount == 1,
-              target.pixelFormat == .bgra8Unorm || target.pixelFormat == .rgba16Float,
-              let cost = Self.byteCost(width: target.width, height: target.height, pixelFormat: target.pixelFormat),
-              cost <= (byteBudget ?? Self.defaultByteBudget * (target.pixelFormat == .rgba16Float ? 2 : 1)),
               let destination = destination(width: target.width, height: target.height, pixelFormat: target.pixelFormat),
               let encoder = commandBuffer.makeBlitCommandEncoder() else {
             return nil
@@ -54,6 +66,9 @@ final class SceneFramebufferSnapshot {
     }
 
     private func destination(width: Int, height: Int, pixelFormat: MTLPixelFormat) -> MTLTexture? {
+        guard pixelFormat == .bgra8Unorm || pixelFormat == .rgba16Float,
+              let cost = Self.byteCost(width: width, height: height, pixelFormat: pixelFormat),
+              cost <= (byteBudget ?? Self.defaultByteBudget * (pixelFormat == .rgba16Float ? 2 : 1)) else { return nil }
         if let texture, texture.width == width, texture.height == height,
            texture.pixelFormat == pixelFormat {
             return texture
@@ -69,7 +84,7 @@ final class SceneFramebufferSnapshot {
         guard let texture = device.makeSceneTexture(descriptor: descriptor) else { return nil }
         texture.label = "\(label) \(width)x\(height)"
         self.texture = texture
-        residentByteCost = Self.byteCost(width: width, height: height, pixelFormat: pixelFormat) ?? 0
+        residentByteCost = cost
         return texture
     }
 

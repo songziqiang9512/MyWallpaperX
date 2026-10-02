@@ -139,17 +139,23 @@ HDR clear=false 的 raw/candidate/display 分离、GPU成功提升、paused新ep
 
 <a id="rf12-late-snapshot-capacity"></a>
 
-### RF12 — 同帧背景快照的确定性资源准备（F6 后继）
+### RF12 — 背景快照与方向光阴影共存（已验收，职责已移交）
 
-实施目标和资源事务边界见[前置设计](framebuffer-snapshot-capacity-design.md)，批准前不改产品。
+color-blend/refraction原实例已准备实际必需容量，双实例后项失败整组回滚，空上传批次不再触发copy，utility使用真实enclosing target；逐消费者复制内容的作者顺序不变。实际App、物理配额及同队列在飞门已通过独立产品验收，冻结结果和未验边界只见[执行记录](../../history/scene/rf12-snapshot-shadow-coexistence-implementation-2026-10-02.md)。[前置设计](../../history/scene/rf12-framebuffer-snapshot-capacity-design-2026-10-02.md)归档，窄登记删除，稳定owner由[架构](runtime-architecture.md)接管。下一方向由唯一路线选择RF13，不将有界共存等同全部shadow能力。
 
-**用户结果与当前断点。** 已有 refraction 粒子和 image/solid/text 的 color-blend 在实际 draw 时才从 `Rendering/Composition/SceneFramebufferSnapshot.swift:29–75` 取得背景纹理；color-blend 与粒子分别持有该类的实例，各实例目前只保留单一尺寸。F6 因无法预留这些必需资源而在真实消费者存在时关闭 optional shadow，见[D3 F6](2d-lighting-material-design.md#f6-model-directional-shadow)。本卡让这些已有效果与新阴影共存，不把当前安全降级永久写成能力上限。
+<a id="rf13-named-model-shadow"></a>
 
-**owner 与选型。** 先冻结实际 prepared consumer 集合、同帧 target extent/format 与当前 copy 点；在原 snapshot/资源 owner 中准备真实所需容量，由原 capture 消费。复用现 frame/command buffer 生命周期，保持每个消费者看到其作者顺序之前的当前背景，不用 F5 首次反射前缀代替逐消费者 snapshot，不建立新资源 registry。容量设计先登记门禁并经独立审查批准，再实施；本卡本身不是新设计的实施授权。现 frameContext.screenSize 来自 drawableSize（SceneMetalView+FrameContext.swift:24），group 由该尺寸创建（SceneUtilityLayerRuntimePlan.swift:418–426），main raw 来自 drawable texture；没有证实同帧多尺寸的作者触发。先在各原实例保单槽并准备实际最终 target 容量，不把 layer crop/source extent 错当背景尺寸，也不为假设场景造多槽。若实际观测推翻单尺寸前提，再扩该 owner；不能只估字节或给 optional 留固定余量。
+### RF13 — 已准入 named albedo 模型参与方向光投影（RF12 后继）
 
-**纠正门与 fallback。** 自造真实作者输入先证明“效果正常但使阴影关闭”，再验证两者在同一 App 帧实际执行；跨帧至少两个 extent、同帧前后不同背景、透明/HDR、resize/在飞/取消/预算失败与下一帧恢复；同帧 main/group 实际尺寸先核验，不预设差异。必需资源不足仍保持原效果的失败半径，optional shadow 只在实际资源可消费时启用；没有真实 refraction batch 或可绘制 color-blend source 的声明不占容量。只在所有真实晚申请已被原 owner 的准备结果接管后删除 F6 对应排除；未 ready named-model binding 的另一边界不能混同关闭。
+**目标与选择。** 让现可显示的 hidden image/solid source-only named albedo 模型沿相同当前纹理、world、coverage参与方向光cast/receive，不因一个迟到publication关闭健康peer的整帧阴影。相较新point/spot光型，这一片先闭合已有真实模型输入和已有方向光的组合；不把缺私有公式当停工条件。真实 `3509243656` 两条named模型显示路径的既有验收只证明输入可达，不证明原包有cast-on灯或本片受益。`3589454154` 22/24模型差额尚缺确切reader失败种类，不据此抬格式上限。
 
-**退役与后继。** 稳定容量/顺序/生命周期合同移交架构、执行证据留批记录后退役本卡。随后按合法作者受益输入选择 model spot/point 阴影或 named caster 的下一切片；光型扩展继续使用唯一灯和模型 owner，不能用单向投影冒称全向 point。证据不完整时先做可区分实验，不用缺少官方公式作为跳过理由。
+**首断点与owner。** RF12基线下，`Rendering/Frame/SceneMetalRenderer+StaticModels.swift:156–160`在当前named publication未ready时取消shadow候选，`:253–254`即使ready仍用静态albedo presence限制caster；路径以`MyWallpaperX/Core/SteamWorkshopScene/`为前缀。`Rendering/Dependencies/SceneDependencyRenderPlan+StaticModel.swift:130–164`已只准入hidden image/solid、无effect/dependency/children的primary named源，`SceneDependencyFrameRuntime.swift:530–569`拥有同帧source capture，`SceneDependencyFrameRuntime+StaticModel.swift:79–109`拥有epoch/publication裁决。先核这些唯一owner，落设计并approved后实施；本卡不授权绕开设计门。
+
+**最小方案与备选。** 对当前活跃模型需要的已准入source-only provider，在原dependency准备边执行一次当前capture/publication；原model draw和shadow共用同一resolved albedo与coverage。原循环复用已captured结果，不能再做一次copy。只调整该原owner职责，不搬整段forward graph、不另造shadow provider、registry或图，也不借前帧纹理。provider target与原depth/scratch/Bloom/snapshot均先于optional shadow；合法不可用维持局部模型失败，身份错误仍最小unsafe unit硬拒绝。不能确定完整draw集合时保守保原路径，后继以具体可达反例继续补。
+
+**纠正门。** 从现自造MDL输入派生hidden source早/晚于模型、静态健康caster正控；旧App先证明named颜色真正完成而阴影关闭，新App证明同一当前纹理的颜色、投影及健康peer均正确。provider alpha0/1、castfalse仍接收、缺源、next-frame与资源失败/resize/cancel沿同一owner；实际按publication、GPU completion、terminal和预登记ROI验收，不能只数route。真实原包只作对应显示回归；加灯变体须标注为合法派生输入，不能冒称未修改原包收益。
+
+**退役与后继。** 实際显影、资源门和独审完成后移交稳定架构，删除临时设计门。随后比较point/spot的真实caster输入与模型reader中性失败归因；以实际可见收益决定下一片，不为清单数量做无consumer实现。
 
 ## 3. 全部59项去向
 

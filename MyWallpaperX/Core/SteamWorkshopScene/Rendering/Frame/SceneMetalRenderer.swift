@@ -269,9 +269,11 @@ struct SceneMetalRenderer {
         // before any optimization; they are additive observations only.
         performanceTelemetry?.beginStage("prepass-particles")
         // CPU simulation produces immutable instances even while a display is
-        // unavailable. Acquire/upload a ring slot only for an admitted draw.
+        // unavailable. Update even empty batches to clear stale current slots;
+        // only the actual uploaded draw set may request depth or background copies.
         particleBatches = preparedParticleBatches.filter {
             $0.instanceBuffer.update(device: device, instances: $0.instances)
+                && $0.instanceBuffer.currentDrawState() != nil
         }
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
         performanceTelemetry?.endStage("prepass-particles")
@@ -280,20 +282,7 @@ struct SceneMetalRenderer {
             frameVisibleLayerIDs.contains(layer.id)
                 && staticModelResources[layer.id]?.contains(where: { $0.material.receivesLighting }) == true
         }
-        let lateSnapshotNeeded = hasShadowReceiver && orderedLayers.contains { layer in
-            guard frameVisibleLayerIDs.contains(layer.id),
-                  compositionGroupRuntime?.renderPass(forLayerID: layer.id) != nil
-                    || compositionGroupRuntime == nil else { return false }
-            if particleBatchesByID[layer.id]?.contains(where: { $0.refraction != nil }) == true { return true }
-            let blend = layer.colorBlendMode ?? 0
-            return ["image", "solid", "text"].contains(layer.contentKind) && blend > 0
-                && SceneLayerColorBlendRenderer.supports(blend)
-                && (resolvedMaterialFrameTargetPlans[layer.id] != nil
-                    || baseMaterialTextureSelection(for: layer, imageTextures: imageTextures,
-                        readyProviderUsesAuthoredLayerColor: baseMaterialReadyProviderUsesAuthoredLayerColor(
-                            for: layer, dynamicValues: frameContext.dynamicValues)).source != nil)
-        }
-        let shadowCandidates = hasShadowReceiver && !lateSnapshotNeeded
+        let shadowCandidates = hasShadowReceiver
             ? shadowDrawCandidates(orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
                 worldFrames: frameWorldFrames, snapshot: frameContext.dynamicValues,
                 groups: compositionGroupRuntime) : nil
@@ -315,8 +304,15 @@ struct SceneMetalRenderer {
                 batches: particleBatchesByID, particlePipeline: particlePipeline,
                 mainPass: mainPass, groups: compositionGroupRuntime, pool: pool,
                 commandBuffer: commandBuffer, leases: &frameDepthLeases,
-                mandatoryCapacity: { prepareTerminalCapacity(sceneColor: sceneColor,
-                    target: drawable.texture, dynamicValues: frameContext.dynamicValues) },
+                mandatoryCapacity: {
+                    prepareTerminalCapacity(sceneColor: sceneColor,
+                        target: drawable.texture, dynamicValues: frameContext.dynamicValues)
+                    && prepareFramebufferSnapshotCapacity(orderedLayers: orderedLayers,
+                        visible: frameVisibleLayerIDs, framePlans: resolvedMaterialFrameTargetPlans,
+                        imageTextures: imageTextures, frameContext: frameContext,
+                        batches: particleBatchesByID, particlePipeline: particlePipeline,
+                        mainPass: mainPass, groups: compositionGroupRuntime)
+                },
                 recordsEvidence: SceneDesktopWallpaperHost.usesDebugEvidenceWindow && frameContext.frameIndex <= 2)
         }
         var stopsAfterClaimedFailure = false

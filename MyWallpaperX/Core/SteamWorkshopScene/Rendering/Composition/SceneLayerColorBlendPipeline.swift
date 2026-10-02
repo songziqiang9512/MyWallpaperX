@@ -71,7 +71,7 @@ final class SceneLayerColorBlendPipelineState {
 
 final class SceneLayerColorBlendPipeline {
     private let state: SceneLayerColorBlendPipelineState
-    private let framebufferSnapshot: SceneFramebufferSnapshot
+    let framebufferSnapshot: SceneFramebufferSnapshot
 
     var renderTargetResidentByteCost: Int {
         framebufferSnapshot.residentByteCost

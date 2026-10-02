@@ -270,10 +270,9 @@ class SceneDirectionalShadowIntegrationTests(unittest.TestCase):
         self.assertTrue(any('compositorConsumed=true' in line and 'gpuCompletion=completed' in line for line in events), log)
         self.assertTrue(any('trigger=next-frame' in line for line in events), log)
 
-    def test_actual_late_color_blend_disables_only_needed_shadow_frame(self):
+    def test_actual_late_color_blend_coexists_with_shadow(self):
         active = self.run_case('late-color-blend-active', healthy_effect=True, color_blend=1)
-        self.assert_visibility(active, shadowed=False)
-        self.assertFalse(active['shadowEvents'], active)
+        self.assert_visibility(active, shadowed=True)
         for phase in ['scene-ready-window.png', 'scene-after-window.png']:
             rgb = active['pixels'][phase]['healthy']
             self.assertGreater(rgb[1], max(rgb[0],rgb[2])+20, active)

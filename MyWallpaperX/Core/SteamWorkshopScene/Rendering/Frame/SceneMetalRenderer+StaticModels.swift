@@ -164,6 +164,69 @@ extension SceneMetalRenderer {
         return result
     }
 
+    /// Protect each original snapshot's single slot before optional shadow.
+    /// Capacity is shared by a surface's consumers; their background copies are not.
+    func prepareFramebufferSnapshotCapacity(
+        orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
+        framePlans: [Int: SceneResolvedMaterialFrameTargetPlan], imageTextures: SceneBaseImageTextureSnapshot,
+        frameContext: SceneFrameContext, batches: [Int: [SceneParticleDrawBatch]],
+        particlePipeline: SceneParticleMetalPipeline?, mainPass: SceneMainPassEncoder,
+        groups: SceneCompositionGroupFrameRuntime?
+    ) -> Bool {
+        var colorPass: SceneMainPassEncoder?
+        var particlePass: SceneMainPassEncoder?
+        func include(_ pass: SceneMainPassEncoder, in required: inout SceneMainPassEncoder?) -> Bool {
+            if let required {
+                // Group targets follow the viewport while the root uses the
+                // actual drawable. A single slot must cover every actual target,
+                // never an effect's cropped source or an assumed viewport size.
+                return required.targetExtent == pass.targetExtent
+                    && required.targetPixelFormat == pass.targetPixelFormat
+            }
+            required = pass
+            return true
+        }
+        for layer in orderedLayers {
+            if visible.contains(layer.id),
+               let pass = groups?.renderPass(forLayerID: layer.id) ?? (groups == nil ? mainPass : nil) {
+                if particlePipeline != nil,
+                   batches[layer.id]?.contains(where: { $0.refraction != nil }) == true,
+                   !include(pass, in: &particlePass) { return false }
+                let blend = layer.colorBlendMode ?? 0
+                if ["image", "solid", "text"].contains(layer.contentKind), blend > 0,
+                   SceneLayerColorBlendRenderer.supports(blend),
+                   framePlans[layer.id] != nil
+                    || baseMaterialTextureSelection(for: layer, imageTextures: imageTextures,
+                        readyProviderUsesAuthoredLayerColor: baseMaterialReadyProviderUsesAuthoredLayerColor(
+                            for: layer, dynamicValues: frameContext.dynamicValues)).source != nil,
+                   !include(pass, in: &colorPass) { return false }
+            }
+            // The layer-loop defer executes these admitted plans even when its
+            // trigger layer is hidden. Named inputs may publish later in this
+            // frame, so readiness comes from the frame plan, not a texture lookup.
+            for plan in utilityPlansByTriggerLayerID[layer.id] ?? [] where framePlans[plan.layerID] != nil {
+                guard let root = layersByID[plan.layerID], let blend = root.colorBlendMode,
+                      blend > 0, SceneLayerColorBlendRenderer.supports(blend),
+                      !plan.usesIsolatedGroupTarget || groups?.sourceIsAvailable(forLayerID: plan.layerID) == true,
+                      let pass = groups?.compositeTargetPass(forRootID: plan.layerID)
+                        ?? (groups == nil ? mainPass : nil) else { continue }
+                if !include(pass, in: &colorPass) { return false }
+            }
+        }
+        let prepareParticle = { () -> Bool in
+            guard let pass = particlePass, let particlePipeline else { return true }
+            let extent = pass.targetExtent
+            return particlePipeline.framebufferSnapshot.prepareCapacity(width: extent.width, height: extent.height,
+                pixelFormat: pass.targetPixelFormat, then: { true })
+        }
+        guard let pass = colorPass else { return prepareParticle() }
+        let extent = pass.targetExtent
+        // A later owner failure restores the earlier owner's old slot. Fixed
+        // preparation order therefore cannot change the original draw's budget priority.
+        return imageCompositor.prepareSnapshotCapacity(width: extent.width, height: extent.height,
+            pixelFormat: pass.targetPixelFormat, then: prepareParticle)
+    }
+
     func prepareModelShadow(
         state: StaticModelFrame, candidates: [Int: [StaticModelDraw]], light: SceneLightSnapshot.Directional,
         orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,

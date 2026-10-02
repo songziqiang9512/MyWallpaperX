@@ -52,6 +52,13 @@ struct SceneImageLayerCompositor {
         }
     }
 
+    func prepareSnapshotCapacity(width: Int, height: Int, pixelFormat: MTLPixelFormat,
+                                 then prepareRemaining: () -> Bool) -> Bool {
+        guard let pipeline = colorBlendPipelineSlot.resolve() else { return false }
+        return pipeline.framebufferSnapshot.prepareCapacity(width: width, height: height, pixelFormat: pixelFormat,
+                                                then: prepareRemaining)
+    }
+
     @discardableResult
     func draw(
         _ request: SceneImageLayerDrawRequest,
