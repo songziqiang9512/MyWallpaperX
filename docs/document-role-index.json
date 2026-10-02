@@ -12,6 +12,7 @@
       "docs/scene/design/frame-admission-retry-design.md",
       "docs/scene/design/hdr-tonemap-edr-design.md",
       "docs/scene/design/host-render-power-protocol-design.md",
+      "docs/scene/design/model-point-shadow-design.md",
       "docs/scene/design/particle-playback-state-design.md",
       "docs/scene/design/refactor-baseline.md",
       "docs/scene/design/reference-evidence-implementation-cards.md",
@@ -741,6 +742,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/design/batch2-design-index.md",
       "retirementCondition": "App 唯一 power 裁决与版本化三态 IPC 验收，旧重复观察和布尔适配撤权后归档。"
+    },
+    {
+      "path": "docs/scene/design/model-point-shadow-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/design/reference-evidence-implementation-cards.md",
+      "retirementCondition": "完整球域点光阴影通过相称 GPU、实际 App、资源生命周期证据及独立终审后，稳定合同移交 runtime-architecture，本文归档并删除窄设计门；表示被反例推翻时先修设计，不以缩减球域退役。"
     },
     {
       "path": "docs/scene/design/particle-playback-state-design.md",

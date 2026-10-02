@@ -262,6 +262,23 @@
         "sceneColorHistory",
         "terminalSceneColor"
       ]
+    },
+    {
+      "id": "scene-static-model-point-shadow",
+      "title": "RF15 模型点光完整球域阴影",
+      "owner": "scene-e-route",
+      "status": "approved",
+      "designDoc": "docs/scene/design/model-point-shadow-design.md",
+      "design_notes": "横切snapshot/投影/Metal/frame资源发布，依赖外部作者行为，独立设计审查已ACCEPT，批准六owner方案；不是产品/GPU验收。复用原六owner、四槽与pool；完整球域、逐tap跨面、六面原子发布及预算见设计。验收后稳定合同移交架构，设计归档并删除本条。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePointLightDefinition.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelShadow.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal"
+      ],
+      "contentPatterns": []
     }
   ]
 }

@@ -122,7 +122,7 @@ tracked full matrix 扩为全集 identity-only 基线。历史期待先分成有
 
 参考证据的责任分解与59项去向见[实施卡](design/reference-evidence-implementation-cards.md)，各已验收批次的冻结事实只由其执行记录保存。当前D3已沿同一主链接通normal、PBR标量/贴图、自发光属性、默认环境反射和有界模型方向光阴影；[RF13](design/reference-evidence-implementation-cards.md#rf13-named-model-shadow)进一步闭合source-only named模型的当前纹理投影、mandatory原序和背景内容相位，[执行记录](../history/scene/rf13-named-model-shadow-implementation-2026-10-02.md)限定验收范围。
 
-下一主片[RF14](design/reference-evidence-implementation-cards.md#rf14-model-spot-shadow)从唯一typed light的cast意图接通完整有限聚光锥阴影，先设计再实现，随后推进point全向投影。参考项目与公开资料提供中性行为和职责，我们独立设计算法并做真实输出正反例；缺少私有公式不能冻结整项能力。D1成员/flag、RF02新增Translation/Rotation与RF04隐式mip仍需可区分语义证据，按下表执行实验，不凭名字或历史gap重写既有owner。
+[RF14](design/reference-evidence-implementation-cards.md#rf14-model-spot-shadow)完整有限聚光投影已验收；当前主片[RF15](design/reference-evidence-implementation-cards.md#rf15-model-point-shadow)按[前置设计](design/model-point-shadow-design.md)推进完整点光球域、跨面采样和六面原子发布。参考项目与公开资料提供中性行为和职责，我们独立设计算法并做真实输出正反例；缺少私有公式不能冻结整项能力。D1成员/flag、RF02新增Translation/Rotation与RF04隐式mip仍需可区分语义证据，按下表执行实验，不凭名字或历史gap重写既有owner。
 
 #### Batch 2 后继选序（2026-10-02）
 

@@ -159,13 +159,13 @@ hidden image/solid source-only named albedo沿同一当前纹理、world、cover
 
 <a id="rf15-model-point-shadow"></a>
 
-### RF15 — 真实模型点光全向阴影（下一批，待前置设计）
+### RF15 — 真实模型点光全向阴影（当前批，设计已批准、实施中）
 
 **目标与选序。** RF14验收提交后，闭合现总四灯准入内全部cast-on point的完整球域，含六面边界与角部；只调制对应point direct，保其它灯、ambient/emission/alpha和唯一输出。方法由本项目独立设计，不因参考资料没有完整算法而跳过，也不以单面或半球冒充全向能力。[D3 F6](2d-lighting-material-design.md#f6-model-directional-shadow)的公开作者行为与中性资源合同仍是目标依据，不能把自有数值策略称官方parity。
 
 **当前首断点。** 以下路径相对`MyWallpaperX/Core/SteamWorkshopScene/`，以RF14冻结产品为准：`Format/ScenePointLightDefinition.swift:28`的cast仍需复用原严格Boolean判据；`Rendering/Lighting/SceneLightSnapshot.swift:16`的Point缺身份和cast意图；`Rendering/Composition/SceneStaticModel.metal:251`的point直射缺visibility。现统一shadow record、四槽pool及原frame emitter可承接，不新增灯或资源registry。真实原包收益仍需另证，不以声明数替代实际消费。
 
-**设计方向与owner。** 优先比较单灯六面atlas与cube/array在原pool、固定绑定、物理预算和接缝消费上的成本。完整六面、逐采样跨面映射、径向深度和几何面校正须先用独立三角射线验证；目标尺寸与四灯在飞成本按真实descriptor计费，不能为全向能力随意提高预算。现Format/snapshot拥有作者与当前身份，现投影数据/Pipeline/Metal拥有表示和消费，现StaticModels与pool/pin拥有完整发布和completion。正式设计登记并approved之前不实施。
+**设计方向与owner。** 优先比较单灯六面atlas与cube/array在原pool、固定绑定、物理预算和接缝消费上的成本。完整六面、逐采样跨面映射、径向深度和几何面校正须先用独立三角射线验证；目标尺寸与四灯在飞成本按真实descriptor计费，不能为全向能力随意提高预算。现Format/snapshot拥有作者与当前身份，现投影数据/Pipeline/Metal拥有表示和消费，现StaticModels与pool/pin拥有完整发布和completion。[六面 atlas 设计](model-point-shadow-design.md)已独立审查批准，修前真实 App 缺影反例已冻结；正在按完整纠正门实施。
 
 **fallback与纠正门。** mandatory先行，保已成功directional/spot；point的六面不完整则整灯无影，仍保原direct，已编码资源留到同提交完成。旧App cast on/off真实缺影正控后，验收完整六向、12边/8角及两侧、自影/正负近间隙、当前named coverage、混灯各自贡献、实际配额/在飞reset/cancel/恢复和完整App输出。不能以CPU投影、构建或六张非黑图宣称闭合。
 
