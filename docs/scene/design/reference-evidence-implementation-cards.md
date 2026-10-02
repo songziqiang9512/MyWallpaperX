@@ -167,6 +167,8 @@ hidden image/solid source-only named albedo沿同一当前纹理、world、cover
 
 ### RF16 — 真实场景模型显示断点（当前批，先归因再设计实施）
 
+[多材质前置设计](model-material-segments-design.md)选择显式每模型64段工作预算，保原几何字节额度、完整结构验证和资源局部失败；已获独立设计审查批准，开始实施与验证。真实五材质首拒已定位，完整材质消费与像素收益须沿本卡纠正门实证。
+
 **目标。** 将已实现灯光/模型能力落实到真实作者内容：首先定位历史模型准备差额的真实阶段及可见受害，再沿原owner恢复一个完整可见结果。不能把诊断数量作为交付，也不能根据历史22/24数字盲扩MDL格式或预算。
 
 **当前事实与owner。** RF15关闭时，既有两份隔离完整输入日志只列同样22个成功模型ID，没有失败阶段，旧零shadow事件也早于spot/point实现。随后使用原reader对隔离原包做CPU归因，24候选中22成功与旧App集合一致；模型479触发累计顶点预算，模型724触发五材质拒绝，输入前后不变。两者尚无当前可见受害证明，先选较小的多材质链追踪，不直接扩大顶点预算。`MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift:79–125`将resource、data、reader、mesh、material及texture失败分散局部跳过；`Runtime/Frame/SceneRuntimeSourceFacts.swift:117–127`的metadata读取更早使用完整reader，可能是同一上游失败。读取阶段的两处首拒点已由中性输出确认；通过首guard后的完整资源链、当前可见贡献仍需独立验证，不能把首拒点直接等同唯一画面原因。

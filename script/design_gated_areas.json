@@ -262,6 +262,18 @@
         "sceneColorHistory",
         "terminalSceneColor"
       ]
+    },
+    {
+      "id": "scene-static-model-material-segments",
+      "title": "RF16 通用有界模型材质段准入",
+      "owner": "scene-static-model-reader",
+      "status": "approved",
+      "designDoc": "docs/scene/design/model-material-segments-design.md",
+      "design_notes": "五判据①④⑤命中：跨结构依赖资源显示、原reader准入基线与中性作者内容。方案A64为工作上限非官方格式限制，保原64/32MiB几何预算和资源局部失败；独立设计审查ACCEPT，批准原Reader一文件方案；不是运行验收。结构/GPU/App及失败门通过并移交后删除。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlStaticModelReader.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }
