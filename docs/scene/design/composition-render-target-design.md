@@ -7,7 +7,7 @@
 
 ## 目标合同与判据
 
-恢复作者 composition 的实际输入、效果与画面合成结果：采集哪些层、在什么作者位置采集、copybackground/passthrough如何影响它，必须由公开合同与可区分官方黑盒确定；parent本身不得自动成为采集成员声明。输入沿既有 prepared graph、typed frame source、target lease 与唯一 compositor 执行。纹理寿命和源身份必须与实际source一致，不能用另一张纹理准备graph、到encode时只换外层request。
+恢复作者 composition 的实际输入、效果与画面合成结果：采集哪些层、在什么作者位置采集、copybackground/passthrough如何影响它，先由公开合同、既有官方研究的中性交接和固定reference的行为证据定案；只有资料仍不能区分的关键分支才补有界黑盒。parent本身不得自动成为采集成员声明。输入沿既有 prepared graph、typed frame source、target lease 与唯一 compositor 执行。纹理寿命和源身份必须与实际source一致，不能用另一张纹理准备graph、到encode时只换外层request。
 
 五判据中①跨 compilation/rendering/resources、②graph/target/compositor唯一权威、④冻结结构家族、⑤依赖官方作者语义均命中。③用户数据/持久化格式不涉及。设计通过前只做公开/黑盒研究、自有反例与现代码只读定位，不实施新的视觉语义。
 
@@ -19,11 +19,13 @@
 - **旧路径的自洽性风险**：`SceneResolvedMaterialFramePreflight.swift:658–670,828–837`仍将mainTarget交给graph preparation，而`SceneUtilityLayerRenderer`随后传group target；preparation实际固定的capture输入不会因draw request改变。`SceneUtilityLayerRuntimePlan.swift`的membership又依root可见效果/准入，且空组只close encoder、目标extent仍可能被pool缩小。只有作者确有隔离profile时才修这些group路径；若该profile无依据，应撤销错误路径，不能先把它完善成另一套错误合同。
 - 原交接中3226487183的“21/24/32/35”是作者数组位置，非layer ID；2522主组后代在该样本恰好连续，35位置为无效果composition。真实样本只能作回归，不能替代自写交错输入或决定算法。上述行号对应`92258a2d`附近，后续按冻结代码重核。
 
+2026-10-02 [首轮实验记录](../../history/scene/d1-composition-membership-attempt-2026-10-02.md)已证实我方真实parser/source route会因parent单变量改变成员和trigger，世界矩阵相同；官方自有composition已建立，但未得到效果启闭正控制，不能定采集语义。后续先提炼现有reference §6及官方研究的中性输入/输出、层序、group camera/target和生命周期合同；能建立自有正反例的职责采用我方算法落地，不以缺少像素golden阻塞。只有采集成员或flag等仍冲突的关键分支，再以可见effect正控制与加载身份做parent/order黑盒。设计状态不因成功启动窗口而改变。
+
 ## owner、候选与裁决顺序
 
 作者格式/descriptor拥有类型、parent和顺序；现役 planner拥有采集时点与读写边；既有target pool/lease和submission coordinator拥有预算、generation、pin及completion；graph executor消费精确准备的source；唯一compositor输出。不得增加独立renderer、resource registry或按sample分派。
 
-先判**采集范围**：建立官方编辑器生成的自写composition，区分下方非child是否进入source、child移到上方是否仍进入source；固定实际作者字段、GUI层序与颜色ROI，再分别变一个因素。随后才判copybackground/passthrough、无effect与identity effect、alpha/transform、采集位置及clip。旧“父slot/末后代slot/flat”实验以parent隔离为前提，只能在成员语义确证后使用。
+先判**采集范围**：按既有证据提取真实产生者、字段、source与顺序，区分官方已知、第三方行为和我方独立策略；不要把“缺方法/未实现”当作跳过理由。若资料仍无法区分下方非child是否进入source、child移到上方是否仍进入source，再用官方编辑器生成的自写composition补单变量实验，固定作者字段、GUI层序与颜色ROI。随后才判copybackground/passthrough、无effect与identity effect、alpha/transform、采集位置及clip。旧“父slot/末后代slot/flat”实验以parent隔离为前提，只能在成员语义确证后使用。
 
 候选及可证伪结果：
 
