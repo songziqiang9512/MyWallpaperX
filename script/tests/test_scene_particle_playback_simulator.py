@@ -160,6 +160,129 @@ import Foundation
         result["rearmReplaysInitialDelay"] = burst.particles.map(\.id) == burstIDs
         burst.advance(by: 0.25)
         result["burstRearmsOnceWithLiveRetained"] = burst.particles.count == 4 && Array(burst.particles.prefix(2).map(\.id)) == burstIDs
+
+        func explicit(_ sim: SceneParticleSimulator, count: Int,
+                      context: SceneParticleSimulator.EmissionContext = .init()) throws -> SceneParticleSimulator.PlaybackCandidate {
+            try sim.preparePlaybackCandidate(commands:[(.init(layerID:42,action:.emit,
+                revision:sim.playback.revision+1,count:count),context)],charge:{_,_ in},release:{_ in})
+        }
+        let manual=try make(initial:.init(intent:.stopped),maximum:1024,emitter:["name":"boxrandom","rate":0])
+        let manualBefore=manual.frameSnapshot()
+        let manualCandidate=try explicit(manual,count:1024)
+        result["explicit-preview-restores-committed"] = manual.particles.isEmpty
+            && manual.frameSnapshot().random.state==manualBefore.random.state
+            && manual.frameSnapshot().nextParticleID==manualBefore.nextParticleID
+        manual.restoreFrame(manualCandidate.state)
+        result["explicit-1024-stopped-no-automatic-work"] = manual.particles.count==1024
+            && manual.playback.intent == .stopped && manual.playbackObservation?.liveAny == true
+            && manual.playbackObservation?.rearmHasWork == false
+            && manual.frameSnapshot().nextParticleID==1024
+            && manual.frameSnapshot().simulationTime==manualBefore.simulationTime
+        let full=manual.frameSnapshot()
+        do { _=try explicit(manual,count:1);result["explicit-capacity-atomic"]=false }
+        catch { result["explicit-capacity-atomic"] = manual.particles==full.particles
+            && manual.frameSnapshot().random.state==full.random.state && manual.frameSnapshot().nextParticleID==full.nextParticleID }
+        let zeroCandidate=try explicit(manual,count:0)
+        result["explicit-zero-no-random-id-live-change"] = zeroCandidate.state.particles==full.particles
+            && zeroCandidate.state.random.state==full.random.state && zeroCandidate.state.nextParticleID==full.nextParticleID
+            && zeroCandidate.state.playback.intent==full.playback.intent
+        let short=try make(lifetime:0.1,initial:.init(intent:.paused),emitter:["name":"boxrandom","rate":0])
+        short.restoreFrame(try explicit(short,count:3).state)
+        short.advance(by:0.25)
+        result["explicit-short-life-events-and-transient"] = short.particles.isEmpty
+            && short.birthEvents.map(\.id)==[0,1,2] && short.deathEvents.map(\.id)==[0,1,2]
+            && short.renderParticlesForCurrentAdvance().map(\.id)==[0,1,2]
+        _=short.consumeBirthEvents();_=short.consumeDeathEvents();short.advance(by:0.25)
+        result["explicit-transient-only-once"] = short.renderParticlesForCurrentAdvance().isEmpty
+            && short.birthEvents.isEmpty && short.deathEvents.isEmpty
+        let invalidBirth=try make(lifetime:0,initial:.init(intent:.stopped))
+        let invalidBefore=invalidBirth.frameSnapshot()
+        do { _=try explicit(invalidBirth,count:3);result["explicit-lifetime-zero-restores"]=false }
+        catch { result["explicit-lifetime-zero-restores"] = invalidBirth.particles.isEmpty
+            && invalidBirth.frameSnapshot().random.state==invalidBefore.random.state
+            && invalidBirth.frameSnapshot().nextParticleID==invalidBefore.nextParticleID
+            && invalidBirth.diagnostics==invalidBefore.diagnostics && invalidBirth.birthEvents.isEmpty }
+        let overrideSim=try make(initial:.init(intent:.stopped))
+        let zeroLifetime=SceneParticleDefinitionParser().parseInstanceOverride(["lifetime":0])
+        do {_=try explicit(overrideSim,count:1,context:.init(instanceOverride:zeroLifetime));result["explicit-call-time-zero-rejects"]=false}
+        catch {result["explicit-call-time-zero-rejects"]=overrideSim.particles.isEmpty && overrideSim.frameSnapshot().nextParticleID==0}
+        overrideSim.restoreFrame(try explicit(overrideSim,count:1).state)
+        overrideSim.advance(by:0.25,dynamicInstanceOverride:zeroLifetime)
+        result["explicit-return-zero-does-not-rewrite-birth"] = overrideSim.particles.count==1 && overrideSim.particles[0].lifetime==10
+        var lateFailureSeed:UInt64?
+        for seed:UInt64 in 0..<64 {
+            let root:[String:Any] = ["material":"p.json","maxcount":8,
+                "emitter":[["name":"boxrandom","rate":0]],
+                "initializer":[["name":"lifetimerandom","min":-1,"max":1]],"renderer":[["name":"sprite"]]]
+            let randomSim=SceneParticleSimulator(definition:try SceneParticleDefinitionParser().parse(root:root),seed:seed)
+            guard (try? explicit(randomSim,count:1)) != nil else {continue}
+            let before=randomSim.frameSnapshot()
+            do { _=try explicit(randomSim,count:2) } catch {
+                lateFailureSeed=seed
+                result["explicit-random-late-failure-restores-all"] = randomSim.particles.isEmpty
+                    && randomSim.frameSnapshot().nextParticleID==before.nextParticleID
+                    && randomSim.frameSnapshot().random.state==before.random.state
+                    && randomSim.birthEvents.isEmpty && randomSim.trailDirectionSamples().isEmpty
+                    && randomSim.diagnostics==before.diagnostics
+                break
+            }
+        }
+        result["explicit-random-late-failure-real-producer"] = lateFailureSeed != nil
+
+        do {
+            let root:[String:Any] = ["material":"p.json","maxcount":8,
+                "controlpoint":[["id":1,"flags":1,"offset":"0 0 0"]],
+                "emitter":[["name":"sphererandom","instantaneous":4,"directions":"1 0 0","distancemin":2,"distancemax":2]],
+                "initializer":[["name":"mapsequencearoundcontrolpoint","controlpoint":1,"bounds":"0 1","count":4,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0"]],
+                "renderer":[["name":"sprite"]]]
+            let sim=SceneParticleSimulator(definition:SceneParticleDefinitionParser().parse(root:root),initialPlayback:.init(intent:.stopped),seed:71)
+            let before=sim.frameSnapshot()
+            do {_=try sim.preparePlaybackCandidate(commands:[(.init(layerID:42,action:.emit,revision:1,count:1),.init())],charge:{_,_ in},release:{_ in});result["explicitMissingPointerInitializerRejects"]=false}
+            catch {result["explicitMissingPointerInitializerRejects"] = sim.particles.isEmpty && sim.frameSnapshot().random.state==before.random.state && sim.frameSnapshot().nextParticleID==before.nextParticleID}
+            let valid=try sim.preparePlaybackCandidate(commands:[(.init(layerID:42,action:.emit,revision:1,count:1),.init(controlPoints:[1:SIMD3(5,6,0)]))],charge:{_,_ in},release:{_ in})
+            result["explicitValidPointerInitializerBirths"] = valid.state.particles.count==1 && valid.state.particles[0].position != SIMD3(2,0,0)
+        }
+        do {
+            let turbulent:[String:Any] = ["name":"turbulentvelocityrandom","forward":"0 1 0","right":"1 0 0","phasemin":0.7,"phasemax":0.7,"scale":0.2,"speedmin":25,"speedmax":25,"audioprocessingmode":3]
+            let root:[String:Any] = ["material":"p.json","maxcount":2048,
+                "emitter":[["name":"boxrandom","instantaneous":1024,"rate":0]],
+                "initializer":[["name":"lifetimerandom","min":10,"max":10]]+Array(repeating:turbulent,count:20),"renderer":[["name":"sprite"]]]
+            let sim=SceneParticleSimulator(definition:SceneParticleDefinitionParser().parse(root:root),trailHistoryCapacity:8)
+            sim.advance(by:0.02);sim.applyPlaybackTransition(.init(layerID:42,action:.pause,revision:1))
+            let committed=sim.frameSnapshot()
+            let audio=SceneParticleAudioInput(left:Array(repeating:1,count:16),right:Array(repeating:1,count:16),generation:3)
+            var active=0,peak=0,limit=16*1024*1024
+            var chargedWork:UInt64=0
+            func charge(_ work:UInt64,_ bytes:Int)throws {
+                guard bytes<=limit-active else {throw SceneParticleEmissionFailure.budgetExceeded}
+                active+=bytes;peak=max(peak,active);chargedWork+=work
+            }
+            func release(_ bytes:Int){active-=bytes}
+            func actualArrayStorage(_ snapshot:SceneParticleSimulator.FrameSnapshot)->Int {
+                let states=[snapshot.particles,snapshot.birthEvents,snapshot.deathEvents,snapshot.transientRenderBirths]
+                    .reduce(0){$0+$1.capacity*MemoryLayout<SceneParticleState>.stride}
+                let trail=Mirror(reflecting:snapshot.trailPositionHistory).children.reduce(0){bytes,entry in
+                    if let slots=entry.value as? [SIMD3<Double>] {return bytes+slots.capacity*MemoryLayout<SIMD3<Double>>.stride}
+                    if let heads=entry.value as? [UInt8] {return bytes+heads.capacity*MemoryLayout<UInt8>.stride}
+                    return bytes
+                }
+                return states+trail+snapshot.pendingAudioEvaluationObservations.capacity*MemoryLayout<SceneParticleAudioEvaluationObservation>.stride
+            }
+            let one=try sim.preparePlaybackCandidate(commands:[(.init(layerID:42,action:.emit,revision:2,count:1),.init(audio:audio))],charge:charge,release:release)
+            let firstActive=active
+            let two=try sim.preparePlaybackCandidate(starting:one.state,commands:[(.init(layerID:42,action:.emit,revision:3,count:1),.init(audio:audio))],charge:charge,release:release)
+            result["real-capacity-trail-audio-reservation"] = committed.particles.count==1024 && one.state.particles.count==1025 && two.state.particles.count==1026
+                && one.state.pendingAudioEvaluationObservations.count==20 && two.state.trailPositionHistory.entrySlotCount==8
+                && one.reservedBytes>=actualArrayStorage(one.state) && two.reservedBytes>=actualArrayStorage(two.state)
+                && peak==one.reservedBytes+two.reservedBytes && firstActive==one.reservedBytes && chargedWork>0 && chargedWork<=100_000
+            limit=active
+            do {_=try sim.preparePlaybackCandidate(starting:two.state,commands:[(.init(layerID:42,action:.emit,revision:4,count:1),.init(audio:audio))],charge:charge,release:release);result["real-capacity-refused-before-cow"]=false}
+            catch {result["real-capacity-refused-before-cow"] = active==one.reservedBytes+two.reservedBytes
+                && sim.particles==committed.particles && sim.frameSnapshot().random.state==committed.random.state && sim.frameSnapshot().nextParticleID==committed.nextParticleID}
+            release(one.reservedBytes);release(two.reservedBytes)
+            result["real-capacity-all-reservations-released"] = active==0
+            FileHandle.standardError.write(Data("capacity peak=\(peak) actual1=\(actualArrayStorage(one.state)) actual2=\(actualArrayStorage(two.state)) work=\(chargedWork)\n".utf8))
+        }
         print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
     }
 }
@@ -176,6 +299,7 @@ class SceneParticlePlaybackSimulatorTests(unittest.TestCase):
             self.assertEqual(compile_result.returncode, 0, compile_result.stderr)
             run = subprocess.run([str(binary)], capture_output=True, text=True)
             self.assertEqual(run.returncode, 0, run.stderr)
+            print(run.stdout + run.stderr)
             results = json.loads(run.stdout)
             for name, passed in results.items():
                 with self.subTest(name=name):

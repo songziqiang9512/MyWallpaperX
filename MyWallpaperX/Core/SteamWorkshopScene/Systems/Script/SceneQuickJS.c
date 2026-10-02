@@ -486,6 +486,8 @@ void mwx_scene_quickjs_begin_callback(MWXSceneQuickJSOwner *owner) {
 }
 
 void mwx_scene_quickjs_end_callback(MWXSceneQuickJSOwner *owner) {
+    if (owner != NULL && owner->domain->particle_boundary != NULL)
+        owner->domain->particle_boundary(owner->domain->particle_emission_opaque, owner, 0);
     MWXSceneQuickJSDomain *domain = owner->domain;
     domain->active_owner = NULL;
     domain->callback_active = false;
@@ -2330,4 +2332,56 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vector(
         }
     }
     return result;
+}
+
+// One cadence scope, independent of the JS callback interrupt reset. Native
+// copies and initializer work reserve before execution; no allocator interception.
+void mwx_scene_quickjs_domain_begin_particle_frame(MWXSceneQuickJSDomain *domain,
+    MWXSceneQuickJSParticleEmission callback, MWXSceneQuickJSParticleBoundary boundary,
+    void *opaque, uint64_t work, size_t bytes) {
+    if (domain == NULL || domain->particle_frame_active) return;
+    domain->particle_emission = callback;
+    domain->particle_boundary = boundary;
+    domain->particle_emission_opaque = opaque;
+    domain->particle_native_work = work;
+    domain->particle_native_limit = bytes;
+    domain->particle_native_reserved = 0;
+    domain->particle_frame_active = true;
+}
+void mwx_scene_quickjs_domain_end_particle_frame(MWXSceneQuickJSDomain *domain) {
+    if (domain == NULL) return;
+    domain->particle_emission = NULL;
+    domain->particle_boundary = NULL;
+    domain->particle_emission_opaque = NULL;
+    domain->particle_native_work = 0;
+    domain->particle_native_limit = 0;
+    domain->particle_native_reserved = 0;
+    domain->particle_frame_active = false;
+}
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_particle_charge(
+    MWXSceneQuickJSDomain *domain, uint64_t work, size_t bytes) {
+    if (domain == NULL || !domain->particle_frame_active) return MWX_SCENE_QUICKJS_STALE_OWNER;
+    if (domain->cancellation_check != NULL && domain->cancellation_check(domain->cancellation_opaque))
+        return MWX_SCENE_QUICKJS_BUDGET_EXCEEDED;
+    if (work > domain->particle_native_work ||
+        bytes > domain->particle_native_limit - domain->particle_native_reserved)
+        return MWX_SCENE_QUICKJS_BUDGET_EXCEEDED;
+    if (domain->callback_active && work > domain->interrupt_budget)
+        return MWX_SCENE_QUICKJS_BUDGET_EXCEEDED;
+    domain->particle_native_work -= work;
+    if (domain->callback_active) domain->interrupt_budget -= work;
+    domain->particle_native_reserved += bytes;
+    return MWX_SCENE_QUICKJS_OK;
+}
+void mwx_scene_quickjs_domain_particle_release(MWXSceneQuickJSDomain *domain, size_t bytes) {
+    if (domain == NULL) return;
+    // A mismatched release is an integrity failure, never unsigned underflow.
+    if (bytes > domain->particle_native_reserved) { domain->particle_native_work = 0; return; }
+    domain->particle_native_reserved -= bytes;
+}
+size_t mwx_scene_quickjs_domain_particle_reserved(const MWXSceneQuickJSDomain *domain) {
+    return domain == NULL ? 0 : domain->particle_native_reserved;
+}
+uint64_t mwx_scene_quickjs_domain_particle_work(const MWXSceneQuickJSDomain *domain) {
+    return domain == NULL ? 0 : domain->particle_native_work;
 }

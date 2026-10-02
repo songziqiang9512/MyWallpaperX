@@ -20,6 +20,12 @@ nonisolated struct SceneParticleTrailPositionHistory: Sendable {
     }
 
     var isEmpty: Bool { slots.isEmpty }
+    var entrySlotCount: Int { capacity }
+    /// Conservative COW/growth reservation, before any candidate writes.
+    func emissionStorageBytes(adding count: Int) -> Int {
+        2 * (max(slots.capacity, slots.count + count * capacity) * MemoryLayout<SIMD3<Double>>.stride
+             + max(heads.capacity, heads.count + count) * MemoryLayout<UInt8>.stride) + 128
+    }
 
     /// Appends one ring seeded with the particle's final birth position.
     /// Must be called for every appended particle before the next `record`.

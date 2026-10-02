@@ -81,6 +81,7 @@ nonisolated struct SceneScriptParticlePlaybackCommand: Equatable, Sendable {
     let action: SceneParticlePlaybackAction
     let callbackEpoch: UInt64
     let ordinal: UInt32
+    var count: Int = 0
 }
 
 nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
@@ -136,10 +137,10 @@ nonisolated enum SceneScriptParticlePlaybackCommandBridge {
                 return .failure(.mutationOverflow(String(cString: diagnostic)))
             }
             guard result == MWX_SCENE_QUICKJS_OK, let layerID = Int(exactly: raw.layer_id),
-                  raw.action <= 2, let action = SceneParticlePlaybackAction(rawValue: Int32(raw.action)) else {
+                  (raw.action <= 2 || raw.action == 4), let action = SceneParticlePlaybackAction(rawValue: Int32(raw.action)) else {
                 return .failure(.invalidArgument(String(cString: diagnostic)))
             }
-            commands.append(.init(layerID: layerID, action: action, callbackEpoch: raw.callback_epoch, ordinal: raw.ordinal))
+            commands.append(.init(layerID: layerID, action: action, callbackEpoch: raw.callback_epoch, ordinal: raw.ordinal, count: Int(raw.count)))
         }
         return .success(commands)
     }
@@ -910,5 +911,73 @@ nonisolated extension SceneScriptQuickJSDomain {
     private static func layerDiagnostic(_ buffer: [CChar]) -> String {
         let bytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
         return String(decoding: bytes, as: UTF8.self)
+    }
+}
+
+
+private nonisolated func sceneScriptParticleEmissionHost(
+    _ opaque: UnsafeMutableRawPointer?, _ owner: OpaquePointer?,
+    _ command: UnsafePointer<MWXSceneQuickJSParticlePlaybackCommand>?,
+    _ projection: UnsafeMutablePointer<MWXSceneQuickJSParticlePlaybackState>?
+) -> MWXSceneQuickJSResult {
+    guard let opaque, let owner, let command, let projection else { return MWX_SCENE_QUICKJS_STALE_OWNER }
+    let domain = Unmanaged<SceneScriptQuickJSDomain>.fromOpaque(opaque).takeUnretainedValue()
+    guard let host = domain.particleEmissionHost else { return MWX_SCENE_QUICKJS_STALE_OWNER }
+    do {
+        let value = try host(owner, command.pointee)
+        projection.pointee = .init(available: 1, live: value.liveAny ? 1 : 0,
+            emission_pending: value.emissionPending ? 1 : 0,
+            rearm_has_work: value.rearmHasWork ? 1 : 0,
+            intent: UInt32(value.intent.rawValue), revision: value.revision)
+        return MWX_SCENE_QUICKJS_OK
+    } catch let failure as SceneScriptScalarRuntimeFailure {
+        switch failure {
+        case .budgetExceeded: return MWX_SCENE_QUICKJS_BUDGET_EXCEEDED
+        case .staleOwner: return MWX_SCENE_QUICKJS_STALE_OWNER
+        default: return MWX_SCENE_QUICKJS_INVALID_ARGUMENT
+        }
+    } catch let failure as SceneParticleEmissionFailure {
+        switch failure {
+        case .budgetExceeded: return MWX_SCENE_QUICKJS_BUDGET_EXCEEDED
+        case .staleIdentity: return MWX_SCENE_QUICKJS_STALE_OWNER
+        case .unavailable: return MWX_SCENE_QUICKJS_INVALID_ARGUMENT
+        }
+    } catch { return MWX_SCENE_QUICKJS_INVALID_ARGUMENT }
+}
+
+private nonisolated func sceneScriptParticleBoundary(
+    _ opaque: UnsafeMutableRawPointer?, _ owner: OpaquePointer?, _ discard: UInt32
+) {
+    guard let opaque, let owner else { return }
+    let domain = Unmanaged<SceneScriptQuickJSDomain>.fromOpaque(opaque).takeUnretainedValue()
+    domain.particleEmissionBoundary?(owner, discard != 0)
+}
+
+extension SceneScriptQuickJSDomain {
+    func beginParticlePlaybackFrame(
+        onBoundary: @escaping (OpaquePointer, Bool) -> Void,
+
+        host: @escaping (OpaquePointer, MWXSceneQuickJSParticlePlaybackCommand) throws -> SceneParticlePlaybackObservation
+    ) {
+        precondition(particleEmissionHost == nil)
+        particleEmissionHost = host
+        particleEmissionBoundary = onBoundary
+        mwx_scene_quickjs_domain_begin_particle_frame(handle, sceneScriptParticleEmissionHost, sceneScriptParticleBoundary,
+            Unmanaged.passUnretained(self).toOpaque(), budget.interruptBudget, budget.maximumNativeTransientBytes)
+    }
+    func endParticlePlaybackFrame() {
+        particleEmissionHost = nil
+        particleEmissionBoundary = nil
+        mwx_scene_quickjs_domain_end_particle_frame(handle)
+    }
+    func chargeParticleWork(_ work: UInt64, bytes: Int) throws {
+        guard bytes >= 0 else { throw SceneScriptScalarRuntimeFailure.staleOwner }
+        let result = mwx_scene_quickjs_domain_particle_charge(handle, work, bytes)
+        guard result == MWX_SCENE_QUICKJS_OK else {
+            throw SceneScriptScalarRuntimeFailure.budgetExceeded("particle native cadence budget or cancellation")
+        }
+    }
+    func releaseParticleStorage(_ bytes: Int) {
+        mwx_scene_quickjs_domain_particle_release(handle, bytes)
     }
 }

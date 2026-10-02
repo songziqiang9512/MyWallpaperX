@@ -482,6 +482,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         excludingOwners: Set<SceneDynamicTarget> = [],
         particleObservations: [Int: SceneParticlePlaybackObservation] = [:],
         validateParticleTransitions: ([SceneParticlePlaybackTransition]) -> Bool = { $0.isEmpty },
+        rejectingParticleTransitions: ([SceneParticlePlaybackTransition], [SceneScriptOwnerEffects]) -> Set<SceneDynamicTarget> = { _, _ in [] },
         rejectingDependents: (Set<SceneDynamicTarget>) -> Set<SceneDynamicTarget> = { $0 },
         rejectingExternally: ([SceneScriptOwnerEffects])
             -> Set<SceneDynamicTarget>
@@ -502,6 +503,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             if !validateParticleTransitions(admission.layerPlan.particleTransitions) {
                 newlyRejected.formUnion(admission.admittedEffects.filter { !$0.particlePlaybackCommands.isEmpty }.map(\.ownerTarget))
             }
+            newlyRejected.formUnion(rejectingParticleTransitions(
+                admission.layerPlan.particleTransitions, admission.admittedEffects))
             newlyRejected.subtract(externallyRejected)
             if !newlyRejected.isEmpty {
                 externallyRejected.formUnion(newlyRejected)

@@ -43,13 +43,14 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/design/script-component-api-design.md",
-      "design_notes": "脚本 API 表面一旦实现即成为作者兼容合同，改起来最贵；需先定 API 面与宿主生命周期合同（台账 §6 L0）。 设计裁决、限定准入、owner 与退役条件见 designDoc；approved 不表示运行能力或发布验收。",
+      "design_notes": "批准现役句柄/事务扩展及D11显式count后继：调用时出生输入、同步真实预检、最终owner准入，禁止final-context不同即拒绝的无依据限制。默认count/未证API不开放；approved不是产品或运行验收。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/**/SceneScript*Component*.swift"
       ],
       "contentPatterns": [
         "registerSceneScriptComponent",
-        "sceneScriptComponentAPI"
+        "sceneScriptComponentAPI",
+        "emitParticles"
       ]
     },
     {
@@ -158,7 +159,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/design/particle-playback-state-design.md",
-      "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
+      "design_notes": "2026-10-02批准显式count后继：现runtime拥有实际出生，全surface真实预检/原子安装，调用期context按journal保留，native工作/临时预算在现domain计量，GPU失败不重放。默认/children/reset未知保持未开放；approved不是实施验收。",
       "matchPatterns": [],
       "contentPatterns": []
     },

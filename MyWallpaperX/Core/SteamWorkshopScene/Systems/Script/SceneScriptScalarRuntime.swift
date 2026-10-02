@@ -17,6 +17,7 @@ nonisolated struct SceneScriptScalarBudget: Equatable, Sendable {
     let heapBytes: Int
     let stackBytes: Int
     let interruptBudget: UInt64
+    var maximumNativeTransientBytes: Int { heapBytes }
     let maximumOwnerSourceBytes: Int
     let maximumCandidateSourceBytes: Int
 
@@ -64,6 +65,9 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
     let handle: OpaquePointer
     let budget: SceneScriptScalarBudget
     var storageSession: SceneScriptLocalStorageSession? = nil
+    var particleEmissionBoundary: ((OpaquePointer, Bool) -> Void)?
+    var particleEmissionHost: ((OpaquePointer, MWXSceneQuickJSParticlePlaybackCommand) throws -> SceneParticlePlaybackObservation)?
+
     var layerCatalogSignature: String?
     var layerSnapshotGeneration: UInt64 = 0
     var layerWorldTransformProjection:
@@ -86,6 +90,7 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
         self.handle = handle
     }
     deinit {
+        endParticlePlaybackFrame()
         clearConstructionBoundaryCheck()
         var diagnostic = [CChar](repeating: 0, count: 1)
         _ = mwx_scene_quickjs_domain_configure_storage(

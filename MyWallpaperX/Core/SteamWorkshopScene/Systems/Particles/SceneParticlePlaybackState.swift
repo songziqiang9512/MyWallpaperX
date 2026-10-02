@@ -58,6 +58,22 @@ final class SceneParticlePlaybackState {
         stickyBatchLayerIDs.formUnion(self.batches.map(\.layerID))
     }
 
+    func playbackLiveCount(charging: (UInt64) throws -> Void) throws -> Int {
+        try runtime.playbackLiveCount(charging: charging)
+    }
+    var playbackSimulators: [(Int, SceneParticleSimulator)] { didTeardown ? [] : runtime.playbackSimulators }
+    func emissionContext(layerID: Int, dynamicValues: SceneDynamicSnapshot,
+                         pointerLocalPosition: SIMD3<Double>?, audio: SceneParticleAudioInput,
+                         worldFrame: simd_float4x4?) throws -> SceneParticleSimulator.EmissionContext {
+        guard !didTeardown else { throw SceneParticleEmissionFailure.unavailable }
+        return try runtime.emissionContext(layerID: layerID, dynamicValues: dynamicValues,
+            pointerLocalPosition: pointerLocalPosition, audio: audio, worldFrame: worldFrame)
+    }
+    func clearStoppedPlaybackCaches(_ layerIDs: Set<Int>) {
+        runtime.clearStoppedPlaybackCaches(layerIDs)
+        batches.removeAll { layerIDs.contains($0.layerID) }
+    }
+
     func playbackObservation(layerID: Int) -> SceneParticlePlaybackObservation? {
         runtime.playbackObservation(layerID: layerID)
     }

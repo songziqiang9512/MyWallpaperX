@@ -345,6 +345,13 @@ extension SceneDesktopWallpaperSession {
                 timing.frameIndex, String(describing: failure), failure.code
             )
         }
+        let particleEmission = beginParticleEmissionFrame(context: launchContext, timing: timing,
+            preliminary: preliminarySceneScriptResolution, topology: layerMutationSnapshot,
+            poses: puppetPoseFrames, audio: audioSpectrum, inputSurfaceIDs: Set(mediaThumbnailSnapshots.keys))
+        defer {
+            particleEmission?.discard()
+            launchContext.propertyVectorScriptProgram.domain?.endParticlePlaybackFrame()
+        }
         let cursorBatch = prepareSceneScriptCursorBatch(
             launchContext: launchContext,
             timing: timing,
@@ -524,6 +531,18 @@ extension SceneDesktopWallpaperSession {
                                 && $0.metalView.validateParticlePlaybackTransitions(transitions)
                         })
                 },
+                rejectingParticleTransitions: { transitions, admitted in
+                    guard transitions.contains(where: { $0.action == .emit }) else { return [] }
+                    guard let particleEmission else {
+                        return Set(admitted.filter { !$0.particlePlaybackCommands.isEmpty }.map(\.ownerTarget))
+                    }
+                    guard let failed = particleEmission.prepare(transitions) else { return [] }
+                    return Set(admitted.filter { bundle in
+                        bundle.particlePlaybackCommands.contains {
+                            $0.callbackEpoch == failed.callbackEpoch && $0.ordinal == failed.ordinal
+                        }
+                    }.map(\.ownerTarget))
+                },
                 rejectingDependents: {
                     launchContext.sceneScriptStorageSession?.resolveRejectedOwners($0) ?? $0
                 }
@@ -636,6 +655,18 @@ extension SceneDesktopWallpaperSession {
         let pendingEvaluation = evaluationTransaction.prepare(
             frameIndex: timing.frameIndex, resolution: sharedSurfaceResolution
         )
+        let installsEmission = admission.layerPlan.particleTransitions.contains { $0.action == .emit }
+        if installsEmission {
+            particleEmission?.install()
+            let stopped = Set(admission.layerPlan.particleTransitions.filter { $0.action == .stop }.map(\.layerID))
+            for (id, surface) in surfaces {
+                surface.metalView.clearStoppedParticlePlaybackCaches(stopped)
+#if DEBUG
+                surface.metalView.logExplicitParticleInstall(admission.layerPlan.particleTransitions,
+                    frame: timing.frameIndex, surface: id)
+#endif
+            }
+        }
         for (displayID, surface) in surfaces {
             guard let mediaThumbnailSnapshot =
                 mediaThumbnailSnapshots[displayID] else {

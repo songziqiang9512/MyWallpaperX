@@ -51,6 +51,11 @@ nonisolated struct SceneParticleStepSnapshotRecorder: Sendable {
         self.policy = policy
     }
 
+    var emissionStorageBytes: Int {
+        128 + snapshots.capacity * MemoryLayout<SceneParticleStepSnapshot>.stride
+            + snapshots.reduce(0) { $0 + $1.particles.capacity * MemoryLayout<SceneParticleStepParticle>.stride }
+    }
+
     nonisolated mutating func clear() {
         snapshots.removeAll(keepingCapacity: true)
         pendingDuration = 0

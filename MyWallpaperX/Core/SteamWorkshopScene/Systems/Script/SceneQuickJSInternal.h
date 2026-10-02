@@ -244,6 +244,12 @@ struct MWXSceneQuickJSDomain {
     bool user_properties_snapshot_valid;
     JSClassID layer_handle_class_id;
     JSClassID asset_handle_class_id;
+    MWXSceneQuickJSParticleEmission particle_emission;
+    MWXSceneQuickJSParticleBoundary particle_boundary;
+    void *particle_emission_opaque;
+    uint64_t particle_native_work;
+    size_t particle_native_limit, particle_native_reserved;
+    bool particle_frame_active;
     uint64_t interrupt_budget;
     uint64_t owner_creation_budget;
     bool interrupted;

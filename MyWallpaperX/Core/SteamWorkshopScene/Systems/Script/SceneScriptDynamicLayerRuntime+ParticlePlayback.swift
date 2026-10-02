@@ -54,10 +54,10 @@ extension SceneScriptDynamicLayerRuntime {
                     failures.append(.init(ownerTarget: owner, failure: .staleOwner)); continue
                 }
                 let intent: SceneParticlePlaybackIntent
-                switch command.action { case .play: intent = .playing; case .pause: intent = .paused; case .stop: intent = .stopped }
+                switch command.action { case .play: intent = .playing; case .pause: intent = .paused; case .stop: intent = .stopped; case .emit: intent = previous.intent }
                 let next = SceneParticlePlaybackSnapshot(intent: intent, revision: previous.revision + 1)
                 plan.particlePlayback[command.layerID] = next
-                plan.particleTransitions.append(.init(layerID: command.layerID, action: command.action, revision: next.revision))
+                plan.particleTransitions.append(.init(layerID: command.layerID, action: command.action, revision: next.revision, count: command.count, callbackEpoch: command.callbackEpoch, ordinal: command.ordinal))
             }
         }
         plan.outcome = .init(committedMutationCount: plan.outcome.committedMutationCount,

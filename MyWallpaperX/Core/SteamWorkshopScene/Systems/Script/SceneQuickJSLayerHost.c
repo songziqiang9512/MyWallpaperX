@@ -1926,23 +1926,38 @@ static bool define_get_video_texture(
 // play/pause/stop and isPlaying share the ordinary layer-handle identity checks.
 static JSValue particle_playback_call(JSContext *context, JSValueConst this_value,
     int argc, JSValueConst *argv, int magic, void *opaque) {
-    (void)this_value; (void)argv;
+    (void)this_value;
     MWXSceneQuickJSLayerHandle *handle = opaque;
     MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
-    if (argc != 0 || record == NULL || !record->particle_playback.available)
+    if ((magic == 4 ? argc != 1 : argc != 0) || record == NULL || !record->particle_playback.available)
         return JS_ThrowTypeError(context, "particle playback unavailable or unsupported arguments");
     MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
+    uint32_t count = 0;
+    if (magic == 4) {
+        double value;
+        if (!JS_IsNumber(argv[0]) || JS_ToFloat64(context, &value, argv[0]) < 0 ||
+            !isfinite(value) || value < 0 || value > 1024 || floor(value) != value)
+            return JS_ThrowTypeError(context, "emitParticles requires an explicit integer from 0 to 1024");
+        count = (uint32_t)value;
+    }
     MWXSceneQuickJSParticlePlaybackState staged = record->particle_playback;
     for (size_t index = 0; index < owner->particle_playback_command_count; ++index) {
         const MWXSceneQuickJSParticlePlaybackCommand *command = &owner->particle_playback_commands[index];
         if (command->layer_id != record->layer_id || command->callback_epoch != owner->domain->callback_epoch) continue;
+        if (command->action == 4) { staged = command->verified_projection; continue; }
         staged.intent = command->action;
         if (command->action == 2) { staged.live = 0; staged.emission_pending = staged.rearm_has_work; }
         if (command->action == 0 && !staged.emission_pending)
             staged.emission_pending = staged.rearm_has_work;
     }
-    if (magic == 3)
+    if (magic == 3) {
+        if (owner->domain->particle_frame_active &&
+            mwx_scene_quickjs_domain_particle_charge(owner->domain, 1, 0) != MWX_SCENE_QUICKJS_OK) {
+            owner->particle_playback_command_overflow = true;
+            return JS_ThrowInternalError(context, "particle query native budget exceeded");
+        }
         return JS_NewBool(context, staged.live || (staged.intent == 0 && staged.emission_pending));
+    }
     if (owner->particle_playback_command_count >= MWX_SCENE_QUICKJS_MAX_PARTICLE_PLAYBACK_COMMANDS) {
         owner->particle_playback_command_overflow = true;
         return JS_ThrowInternalError(context, "particle playback command budget exceeded");
@@ -1952,18 +1967,29 @@ static JSValue particle_playback_call(JSContext *context, JSValueConst this_valu
         if (owner->particle_playback_commands[index - 1].callback_epoch != owner->domain->callback_epoch) break;
         ordinal += 1;
     }
-    const size_t index = owner->particle_playback_command_count++;
-    owner->particle_playback_commands[index] = (MWXSceneQuickJSParticlePlaybackCommand){
-        .layer_id = record->layer_id, .action = (uint32_t)magic,
-        .ordinal = (uint32_t)ordinal, .callback_epoch = owner->domain->callback_epoch
+    MWXSceneQuickJSParticlePlaybackCommand command = {
+        .layer_id = record->layer_id, .action = (uint32_t)magic, .count = count,
+        .ordinal = ordinal, .callback_epoch = owner->domain->callback_epoch
     };
+    if (magic == 4) {
+        if (owner->domain->particle_emission == NULL)
+            return JS_ThrowTypeError(context, "particle emission unavailable");
+        MWXSceneQuickJSResult result = owner->domain->particle_emission(
+            owner->domain->particle_emission_opaque, owner, &command, &command.verified_projection);
+        if (result != MWX_SCENE_QUICKJS_OK) {
+            if (result != MWX_SCENE_QUICKJS_INVALID_ARGUMENT)
+                owner->particle_playback_command_overflow = true;
+            return JS_ThrowInternalError(context, "particle emission rejected (%d)", (int)result);
+        }
+    }
+    owner->particle_playback_commands[owner->particle_playback_command_count++] = command;
     return JS_UNDEFINED;
 }
 
 static bool define_particle_playback(JSContext *context, JSValue layer,
     MWXSceneQuickJSOwner *owner, uint32_t index, bool owner_target, bool persistent) {
-    const char *names[] = {"play", "pause", "stop", "isPlaying"};
-    for (int action = 0; action < 4; ++action) {
+    const char *names[] = {"play", "pause", "stop", "isPlaying", "emitParticles"};
+    for (int action = 0; action < 5; ++action) {
         MWXSceneQuickJSLayerHandle *handle = calloc(1, sizeof(*handle));
         if (handle == NULL) return false;
         *handle = (MWXSceneQuickJSLayerHandle){ .domain = owner->domain,
@@ -3117,6 +3143,8 @@ void mwx_scene_quickjs_owner_discard_layer_mutations(
     MWXSceneQuickJSOwner *owner
 ) {
     if (owner == NULL || owner->domain == NULL) return;
+    if (owner->domain->particle_boundary != NULL)
+        owner->domain->particle_boundary(owner->domain->particle_emission_opaque, owner, 1);
     owner->initialization_pending = false;
     if (owner->initialization_timers != NULL) {
         mwx_scene_quickjs_owner_timer_restore(owner, owner->initialization_timers);
@@ -3881,6 +3909,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
 }
 
 size_t mwx_scene_quickjs_owner_particle_playback_command_count(const MWXSceneQuickJSOwner *owner) {
+    // A failed first native emit can be caught with an empty journal. Expose
+    // its unsafe status before Swift's zero-count fast path can accept it.
+    if (owner != NULL && owner->particle_playback_command_overflow)
+        return MWX_SCENE_QUICKJS_MAX_PARTICLE_PLAYBACK_COMMANDS + 1;
     return owner == NULL ? 0 : owner->particle_playback_command_count;
 }
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_particle_playback_command_at(
@@ -3899,4 +3931,24 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_particle_playback_command_at(
     }
     *command = owner->particle_playback_commands[requested];
     return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_particle_transform(
+    MWXSceneQuickJSOwner *owner, int64_t layer_id, double origin[3], double scale[3], double angles[3]) {
+    if (owner == NULL || owner->domain->active_owner != owner || !owner->domain->callback_active)
+        return MWX_SCENE_QUICKJS_STALE_OWNER;
+    for (uint32_t index = 0; index < owner->domain->layer_count; ++index) {
+        MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[index];
+        if (!record->configured || record->destroyed || record->layer_id != layer_id) continue;
+        MWXSceneQuickJSAuthoredLayerMutationRecord *mutation = mwx_scene_quickjs_authored_mutation_for_layer(owner, index);
+        MWXSceneQuickJSAuthoredLayerMutationRecord *baseline = mwx_scene_quickjs_authored_mutation_baseline_for_layer(owner, index);
+        memcpy(origin, authored_transform_value(owner, mutation, baseline, index,
+            MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN, mutation ? mutation->origin : record->current_origin, record->current_origin), 3 * sizeof(double));
+        memcpy(scale, authored_transform_value(owner, mutation, baseline, index,
+            MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE, mutation ? mutation->scale : record->scale, record->scale), 3 * sizeof(double));
+        memcpy(angles, authored_transform_value(owner, mutation, baseline, index,
+            MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES, mutation ? mutation->angles : record->angles, record->angles), 3 * sizeof(double));
+        return MWX_SCENE_QUICKJS_OK;
+    }
+    return MWX_SCENE_QUICKJS_STALE_OWNER;
 }

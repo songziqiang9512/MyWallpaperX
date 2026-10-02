@@ -114,7 +114,7 @@ nonisolated struct SceneParticleInitializerExecutionPlan: Sendable {
 }
 
 extension SceneParticleSimulator {
-    nonisolated func applyInitializers(to particle: inout SceneParticleState) {
+    nonisolated func applyInitializers(to particle: inout SceneParticleState, strict: Bool = false) -> Bool {
         for (initializerIndex, initializer) in definition.initializers.enumerated() {
             let executionPlan = initializerExecutionPlans[initializerIndex]
             switch initializer.kind {
@@ -160,22 +160,21 @@ extension SceneParticleSimulator {
                 particle.velocity += SceneParticleSimulationMath.turbulentVelocity(
                     executionPlan.turbulentVelocity, particle.position, simulationTime,
                     &random, audioInput: audioInput,
-                    preparedAudioFactor: audioFactor
+                    preparedAudioFactor: audioFactor, strict: strict
                 )
             case .positionOffset:
                 if let plan = executionPlan.positionOffset {
-                    SceneParticleSimulationMath.addFinite(
-                        SceneParticleSimulationMath.positionOffset(
+                    let delta = SceneParticleSimulationMath.positionOffset(
                             plan, position: particle.position, time: simulationTime,
-                            particleID: particle.id, simulationSeed: simulationSeed
-                        ),
-                        to: &particle.position
-                    )
+                            particleID: particle.id, simulationSeed: simulationSeed, strict: strict
+                        )
+                    if strict { particle.position += delta }
+                    else { SceneParticleSimulationMath.addFinite(delta, to: &particle.position) }
                 }
             case .positionAroundControlPoint:
                 guard let plan = positionAroundControlPointPlans[initializerIndex]
                 else { break }
-                applyPositionAroundControlPoint(plan, to: &particle)
+                if !applyPositionAroundControlPoint(plan, to: &particle), strict { return false }
             case .inheritEventColor:
                 if executionPlan.inheritsEventColor,
                    let color = eventColorContext.initializerColor {
@@ -185,6 +184,7 @@ extension SceneParticleSimulator {
                 break
             }
         }
+        return true
     }
 
 }

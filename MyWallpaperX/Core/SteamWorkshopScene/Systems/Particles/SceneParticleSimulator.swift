@@ -7,33 +7,9 @@ import Foundation
 /// system. Making the simulator itself a value copied its particle buffers through
 /// those records and forced Array COW checks throughout every operator hot path.
 nonisolated final class SceneParticleSimulator: @unchecked Sendable {
-    struct FrameSnapshot {
-        let playback: SceneParticlePlaybackSnapshot
-        let particles: [SceneParticleState]
-        let diagnostics: [SceneParticleSimulationDiagnostic]
-        let transientRenderBirths: [SceneParticleState]
-        let birthEvents: [SceneParticleState]
-        let deathEvents: [SceneParticleState]
-        let simulationTime: Double
-        let activeInstanceOverride: SceneParticleInstanceOverride?
-        let emitters: [SceneParticleEmitterState]
-        let random: SceneParticleRandomGenerator
-        let accumulator: Double
-        let nextParticleID: UInt64
-        let normalizedLives: [Double]
-        let dynamicControlPoints: [Int: SIMD3<Double>]
-        let dynamicControlPointAngles: [Int: SIMD3<Double>]
-        let audioInput: SceneParticleAudioInput
-        let observedNonSilentAudioComponents: Set<SceneParticleAudioComponentIdentity>
-        let pendingAudioEvaluationObservations: [SceneParticleAudioEvaluationObservation]
-        let eventColorContext: SceneParticleEventColorContext
-        let stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
-        let positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation]
-        let trailPositionHistory: SceneParticleTrailPositionHistory
-    }
 
     private(set) var playback = SceneParticlePlaybackSnapshot()
-    private let playbackHasWork: Bool?
+    let playbackHasWork: Bool?
 
     let fixedTimeStep: Double
     let maximumParticleCount: Int
@@ -98,6 +74,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     var random: SceneParticleRandomGenerator
     private var accumulator = 0.0
     private var nextParticleID: UInt64 = 0
+    private(set) var explicitBirthEventStart: Int?
+    let explicitInitializerWork: UInt64?
     private var normalizedLives: [Double] = []
     var dynamicControlPoints: [Int: SIMD3<Double>] = [:]
     /// The frame gravity conversion and world-space birth directions run
@@ -182,6 +160,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         initializerExecutionPlans = definition.initializers.map(
             SceneParticleInitializerExecutionPlan.init
         )
+        explicitInitializerWork = Self.explicitInitializerWork(
+            definition: definition, plans: initializerExecutionPlans,
+            controlPointPlans: positionAroundControlPointPlans)
         emitterSpawnPlans = definition.emitters.map(SceneParticleEmitterSpawnPlan.init)
         positionOscillationOperatorIndices = definition.operators.indices.filter {
             definition.operators[$0].kind == .oscillatePosition
@@ -213,13 +194,6 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         deathEvents.removeAll(keepingCapacity: true)
     }
 
-    var playbackObservation: SceneParticlePlaybackObservation? {
-        guard let playbackHasWork else { return nil }
-        return .init(liveAny: !particles.isEmpty,
-                     emissionPending: playbackHasWork && !hasFinishedEmission,
-                     rearmHasWork: playbackHasWork, intent: playback.intent, revision: playback.revision)
-    }
-
     func applyPlaybackTransition(_ transition: SceneParticlePlaybackTransition) {
         guard transition.revision > playback.revision else { return }
         switch transition.action {
@@ -228,9 +202,11 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                 for index in emitters.indices { emitters[index].rearm() }
             }
             playback.intent = .playing
+        case .emit: break // Birth is installed only from the validated candidate.
         case .pause: playback.intent = .paused
         case .stop:
             playback.intent = .stopped
+            explicitBirthEventStart = nil
             for index in emitters.indices { emitters[index].rearm() }
             particles.removeAll(keepingCapacity: true)
             transientRenderBirths.removeAll(keepingCapacity: true)
@@ -259,7 +235,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         self.audioInput = audioInput
         activeWorldSpaceFrame = worldSpaceFrameOverride ?? worldSpaceFrame
         guard duration.isFinite, duration > 0 else { return }
-        let birthEventStart = birthEvents.count
+        let birthEventStart = explicitBirthEventStart ?? birthEvents.count
+        explicitBirthEventStart = nil
         let deathEventStart = deathEvents.count
         for index in emitters.indices { emitters[index].beginFrame() }
         accumulator += duration
@@ -294,7 +271,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     }
 
     nonisolated func consumeBirthEvents() -> [SceneParticleState] {
-        defer { birthEvents.removeAll(keepingCapacity: true) }
+        defer { birthEvents.removeAll(keepingCapacity: true); explicitBirthEventStart = nil }
         return birthEvents
     }
 
@@ -378,6 +355,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             deathEvents: deathEvents,
             simulationTime: simulationTime,
             activeInstanceOverride: activeInstanceOverride,
+            activeWorldSpaceFrame: activeWorldSpaceFrame,
+            explicitBirthEventStart: explicitBirthEventStart,
             emitters: emitters,
             random: random,
             accumulator: accumulator,
@@ -404,6 +383,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         deathEvents = snapshot.deathEvents
         simulationTime = snapshot.simulationTime
         activeInstanceOverride = snapshot.activeInstanceOverride
+        activeWorldSpaceFrame = snapshot.activeWorldSpaceFrame
+        explicitBirthEventStart = snapshot.explicitBirthEventStart
         emitters = snapshot.emitters
         random = snapshot.random
         accumulator = snapshot.accumulator
@@ -668,17 +649,53 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             if let particle = makeParticle(
                 emitter, spawnPlan: spawnPlan, frame: emitterFrame
             ) {
-                particles.append(particle)
-                trailPositionHistory.seed(position: particle.position)
-                birthEvents.append(particle)
+                appendBirth(particle)
             }
+        }
+    }
+
+    func appendBirth(_ particle: SceneParticleState) {
+        particles.append(particle)
+        trailPositionHistory.seed(position: particle.position)
+        birthEvents.append(particle)
+    }
+
+    func emitExplicitly(count: Int, context: EmissionContext,
+                        chargeWork: (UInt64) throws -> Void) throws {
+        guard (0...1024).contains(count), playbackHasWork != nil,
+              let initializerWork = explicitInitializerWork else { throw SceneParticleEmissionFailure.unavailable }
+        guard count <= maximumParticleCount - particles.count else { throw SceneParticleEmissionFailure.budgetExceeded }
+        guard UInt64(count) <= UInt64.max - nextParticleID else { throw SceneParticleEmissionFailure.staleIdentity }
+        guard count > 0 else { return }
+        dynamicControlPoints = context.controlPoints
+        dynamicControlPointAngles = context.controlPointAngles
+        activeInstanceOverride = context.instanceOverride ?? instanceOverride
+        audioInput = context.audio
+        activeWorldSpaceFrame = context.worldFrame ?? worldSpaceFrame
+        guard let emitter = definition.emitters.first,
+              let frame = definition.emitterControlPointFrame(
+                for: emitter, instanceOverride: activeInstanceOverride,
+                dynamicControlPoints: dynamicControlPoints,
+                dynamicControlPointAngles: dynamicControlPointAngles,
+                controlPointsByID: controlPointsByID,
+                controlPointSourcesAreValid: controlPointSourcesAreValid,
+                preparedOrigin: emitterSpawnPlans[0].origin) else {
+            throw SceneParticleEmissionFailure.unavailable
+        }
+        if explicitBirthEventStart == nil { explicitBirthEventStart = birthEvents.count }
+        for _ in 0..<count {
+            try chargeWork(1 + 8 + initializerWork + UInt64(trailPositionHistory.entrySlotCount))
+            guard let particle = makeParticle(emitter, spawnPlan: emitterSpawnPlans[0], frame: frame, strict: true) else {
+                throw SceneParticleEmissionFailure.unavailable
+            }
+            appendBirth(particle)
         }
     }
 
     private nonisolated func makeParticle(
         _ emitter: SceneParticleEmitter,
         spawnPlan: SceneParticleEmitterSpawnPlan,
-        frame: SceneParticleEmitterControlPointFrame
+        frame: SceneParticleEmitterControlPointFrame, strict: Bool = false
     ) -> SceneParticleState? {
         guard spawnPlan.hasBoundedDirectionsAndSign,
               let speedMinimum = spawnPlan.speedMinimum,
@@ -708,7 +725,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             initialColor: SIMD3(repeating: 1), initialAlpha: 1, initialSize: 20
         )
         nextParticleID &+= 1
-        applyInitializers(to: &particle)
+        guard applyInitializers(to: &particle, strict: strict) else { return nil }
         particle.velocity = frame.direction(for: particle.velocity)
         applyInstanceOverride(to: &particle)
         if hasWorldSpaceMovement, let activeWorldSpaceFrame {

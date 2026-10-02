@@ -148,9 +148,27 @@ typedef struct MWXSceneQuickJSParticlePlaybackState {
 } MWXSceneQuickJSParticlePlaybackState;
 typedef struct MWXSceneQuickJSParticlePlaybackCommand {
     int64_t layer_id;
-    uint32_t action, ordinal;
+    uint32_t action, ordinal, count;
     uint64_t callback_epoch;
+    MWXSceneQuickJSParticlePlaybackState verified_projection;
 } MWXSceneQuickJSParticlePlaybackCommand;
+typedef MWXSceneQuickJSResult (*MWXSceneQuickJSParticleEmission)(
+    void *opaque, MWXSceneQuickJSOwner *owner,
+    const MWXSceneQuickJSParticlePlaybackCommand *command,
+    MWXSceneQuickJSParticlePlaybackState *projection);
+typedef void (*MWXSceneQuickJSParticleBoundary)(void *opaque, MWXSceneQuickJSOwner *owner, uint32_t discard);
+void mwx_scene_quickjs_domain_begin_particle_frame(MWXSceneQuickJSDomain *domain,
+    MWXSceneQuickJSParticleEmission callback, MWXSceneQuickJSParticleBoundary boundary,
+    void *opaque, uint64_t work, size_t bytes);
+void mwx_scene_quickjs_domain_end_particle_frame(MWXSceneQuickJSDomain *domain);
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_particle_charge(
+    MWXSceneQuickJSDomain *domain, uint64_t work, size_t bytes);
+void mwx_scene_quickjs_domain_particle_release(MWXSceneQuickJSDomain *domain, size_t bytes);
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_particle_transform(
+    MWXSceneQuickJSOwner *owner, int64_t layer_id, double origin[3], double scale[3], double angles[3]);
+size_t mwx_scene_quickjs_domain_particle_reserved(const MWXSceneQuickJSDomain *domain);
+uint64_t mwx_scene_quickjs_domain_particle_work(const MWXSceneQuickJSDomain *domain);
+
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_particle_playback(
     MWXSceneQuickJSDomain *domain, uint32_t layer_index,
     MWXSceneQuickJSParticlePlaybackState state, char *diagnostic, size_t diagnostic_capacity);

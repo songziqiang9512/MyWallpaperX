@@ -136,16 +136,16 @@ nonisolated enum SceneParticleSimulationMath {
         _ time: Double,
         _ random: inout SceneParticleRandomGenerator,
         audioInput: SceneParticleAudioInput = .silent,
-        preparedAudioFactor: Double? = nil
+        preparedAudioFactor: Double? = nil, strict: Bool = false
     ) -> SIMD3<Double> {
-        guard let value else { return .zero }
+        guard let value else { return strict ? SIMD3(repeating: .nan) : .zero }
         let audioFactor: Double
         if value.audioResponseEnabled {
             if let preparedAudioFactor {
                 audioFactor = preparedAudioFactor
             } else {
                 guard let plan = value.audioResponsePlan else {
-                    return .zero
+                    return strict ? SIMD3(repeating: .nan) : .zero
                 }
                 audioFactor = 1 + plan.evaluate(audioInput)
             }
@@ -160,12 +160,12 @@ nonisolated enum SceneParticleSimulationMath {
         guard phase.isFinite, time.isFinite, timeScale.isFinite,
               directionalOffset.isFinite,
               position.x.isFinite, position.y.isFinite, position.z.isFinite else {
-            return .zero
+            return strict ? SIMD3(repeating: .nan) : .zero
         }
         let noiseTime = phase + time * timeScale
         // Author positions select a coherent field; scale controls angular spread, not frequency.
         let point = position * 0.001 + SIMD3(noiseTime, 0, 0)
-        guard point.x.isFinite, point.y.isFinite, point.z.isFinite else { return .zero }
+        guard point.x.isFinite, point.y.isFinite, point.z.isFinite else { return strict ? SIMD3(repeating: .nan) : .zero }
         let turnNoise = gradientNoise(point, seed: 0xBF58476D1CE4E5B9)
         let planeNoise = gradientNoise(
             point + SIMD3(59.19, 71.41, 89.97), seed: 0x94D049BB133111EB
@@ -174,7 +174,7 @@ nonisolated enum SceneParticleSimulationMath {
         let normal = value.right
         let up = value.up
         let forwardLength = length(forward)
-        guard forwardLength.isFinite, forwardLength > 1e-9 else { return .zero }
+        guard forwardLength.isFinite, forwardLength > 1e-9 else { return strict ? SIMD3(repeating: .nan) : .zero }
         let base = forward / forwardLength
         let adjustedNormal = normal + up * planeNoise
         let tangentValue = SIMD3(
@@ -183,10 +183,10 @@ nonisolated enum SceneParticleSimulationMath {
             adjustedNormal.x * base.y - adjustedNormal.y * base.x
         )
         let tangentLength = length(tangentValue)
-        guard tangentLength.isFinite, tangentLength > 1e-9 else { return .zero }
+        guard tangentLength.isFinite, tangentLength > 1e-9 else { return strict ? SIMD3(repeating: .nan) : .zero }
         let tangent = tangentValue / tangentLength
         let angularScale = max(value.scale, 0)
-        guard angularScale.isFinite else { return .zero }
+        guard angularScale.isFinite else { return strict ? SIMD3(repeating: .nan) : .zero }
         let turn = directionalOffset + angularScale * Double.pi * turnNoise
         var direction = base * cos(turn) + tangent * sin(turn)
         var directionLength = length(direction)
@@ -194,7 +194,7 @@ nonisolated enum SceneParticleSimulationMath {
             direction = base
             directionLength = length(direction)
         }
-        guard directionLength.isFinite, directionLength > 1e-9 else { return .zero }
+        guard directionLength.isFinite, directionLength > 1e-9 else { return strict ? SIMD3(repeating: .nan) : .zero }
         let minimumSpeed = max(value.speedMinimum, 0)
         let maximumSpeed = max(value.speedMaximum, minimumSpeed)
         return direction / directionLength * random.value(minimumSpeed, maximumSpeed)
@@ -335,10 +335,10 @@ nonisolated enum SceneParticleSimulationMath {
         position: SIMD3<Double>,
         time: Double,
         particleID: UInt64,
-        simulationSeed: UInt64
+        simulationSeed: UInt64, strict: Bool = false
     ) -> SIMD3<Double> {
         guard position.x.isFinite, position.y.isFinite, position.z.isFinite,
-              time.isFinite else { return .zero }
+              time.isFinite else { return strict ? SIMD3(repeating: .nan) : .zero }
         var phaseRandom = SceneParticleRandomGenerator(
             state: simulationSeed ^ (particleID &* 0x9E3779B97F4A7C15)
         )
@@ -354,7 +354,7 @@ nonisolated enum SceneParticleSimulationMath {
         )
         guard point.x.isFinite, point.y.isFinite, point.z.isFinite,
               abs(point.x) < 1e12, abs(point.y) < 1e12, abs(point.z) < 1e12 else {
-            return .zero
+            return strict ? SIMD3(repeating: .nan) : .zero
         }
 
         var amplitude = 1.0
@@ -376,7 +376,7 @@ nonisolated enum SceneParticleSimulationMath {
             amplitude *= 0.5
             point *= 2
         }
-        guard amplitudeSum > 0 else { return .zero }
+        guard amplitudeSum > 0 else { return strict ? SIMD3(repeating: .nan) : .zero }
         noise /= amplitudeSum
         for index in 0..<3 { noise[index] = min(max(noise[index], -1), 1) }
         return noise * plan.directions * plan.distance

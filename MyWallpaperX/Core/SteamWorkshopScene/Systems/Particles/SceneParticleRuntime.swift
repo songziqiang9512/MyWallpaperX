@@ -53,6 +53,42 @@ final class SceneParticleRuntime {
     private var pendingAudioEvaluationObservations:
         [SceneParticleRuntimeAudioEvaluationObservation] = []
 
+    func playbackLiveCount(charging: (UInt64) throws -> Void) throws -> Int {
+        try charging(UInt64(layers.count))
+        return try layers.reduce(0) { count, layer in
+            try charging(UInt64(layer.childRuntime?.lifecycleSystemCount ?? 0))
+            return count + (layer.rootRender?.simulator.particles.count ?? 0)
+                + (layer.childRuntime?.lifecycleParticleCount ?? 0)
+        }
+    }
+    var playbackSimulators: [(Int, SceneParticleSimulator)] {
+        layers.compactMap { layer in layer.rootRender.map { (layer.layerID, $0.simulator) } }
+    }
+    func emissionContext(layerID: Int, dynamicValues: SceneDynamicSnapshot,
+                         pointerLocalPosition: SIMD3<Double>?, audio: SceneParticleAudioInput,
+                         worldFrame: simd_float4x4?) throws -> SceneParticleSimulator.EmissionContext {
+        guard let layer = layers.first(where: { $0.layerID == layerID }), let root = layer.rootRender else {
+            throw SceneParticleEmissionFailure.unavailable
+        }
+        var points = dynamicValues.particleControlPoints(layerID: layerID)
+        points.merge(root.definition.pointerControlPointValues(at: pointerLocalPosition,
+            identities: root.pointerControlPointIdentities)) { _, pointer in pointer }
+        let world = worldFrame.flatMap(SceneParticleWorldSpaceFrame.init(worldFrame:))
+        if worldSpaceRequiringLayerIDs.contains(layerID), world == nil {
+            throw SceneParticleEmissionFailure.unavailable
+        }
+        return .init(controlPoints: points,
+            controlPointAngles: dynamicValues.particleControlPointAngles(layerID: layerID),
+            instanceOverride: root.simulator.instanceOverride?.resolving(dynamicValues.particleInstanceValues(layerID: layerID)),
+            audio: audio, worldFrame: world)
+    }
+    func clearStoppedPlaybackCaches(_ layerIDs: Set<Int>) {
+        for index in layers.indices where layerIDs.contains(layers[index].layerID) {
+            layers[index].rootRender?.instances.removeAll(keepingCapacity: true)
+            layers[index].rootRender?.ropeTrailHistory?.clear()
+        }
+    }
+
     func playbackObservation(layerID: Int) -> SceneParticlePlaybackObservation? {
         layers.first { $0.layerID == layerID }?.rootRender?.simulator.playbackObservation
     }

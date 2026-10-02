@@ -7,7 +7,7 @@ extension SceneParticleSimulator {
     ) {
         guard definition.supportsBoundedPositionAroundControlPoint(initializer),
               let plan = initializer.positionAroundControlPointPlan else { return }
-        applyPositionAroundControlPoint(plan, to: &particle)
+        _ = applyPositionAroundControlPoint(plan, to: &particle)
     }
 
     /// Executes an already admitted authored plan. The dynamic control-point
@@ -15,9 +15,9 @@ extension SceneParticleSimulator {
     nonisolated func applyPositionAroundControlPoint(
         _ plan: SceneParticlePositionAroundControlPointPlan,
         to particle: inout SceneParticleState
-    ) {
+    ) -> Bool {
         guard let target = controlPointPosition(plan.controlPoint, offset: .zero)
-        else { return }
+        else { return false }
 
         let emitter = definition.emitters[0]
         let relative = definition.emitterControlPointSource(for: emitter) == plan.controlPoint
@@ -25,13 +25,13 @@ extension SceneParticleSimulator {
         let axialDistance = dot(relative, plan.axis)
         let radial = relative - plan.axis * axialDistance
         let radius = SceneParticleSimulationMath.length(radial)
-        guard radius.isFinite else { return }
+        guard radius.isFinite else { return false }
 
         let sequence = Double(particle.id % UInt64(plan.count)) / Double(plan.count)
         let phase = plan.bounds.lowerBound
             + (plan.bounds.upperBound - plan.bounds.lowerBound) * sequence
         let angle = phase * 2 * Double.pi
-        guard let basis = circleBasis(axis: plan.axis) else { return }
+        guard let basis = circleBasis(axis: plan.axis) else { return false }
         let mappedPosition = target + plan.axis * axialDistance
             + (basis.0 * cos(angle) + basis.1 * sin(angle)) * radius
         let sampledSpeed = SIMD3(
@@ -40,9 +40,10 @@ extension SceneParticleSimulator {
             random.value(plan.speedMinimum.z, plan.speedMaximum.z)
         )
         let rotatedSpeed = rotate(sampledSpeed, axis: plan.axis, angle: angle)
-        guard isFinite(mappedPosition), isFinite(rotatedSpeed) else { return }
+        guard isFinite(mappedPosition), isFinite(rotatedSpeed) else { return false }
         particle.position = mappedPosition
         particle.velocity += rotatedSpeed
+        return true
     }
 
     private nonisolated func circleBasis(

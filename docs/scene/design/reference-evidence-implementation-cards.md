@@ -42,11 +42,11 @@
 
 **下一取证批（已找到执行入口）。** 2026-10-02 公开检索及207个合法 package/2864个shader声明扫描未得到 companion数值布局；这只限定本轮检索，不代表永久不可知。现有 Parallels Windows 11 VM可用于实验，尚未核guest官方客户端版本/安装就绪。先核client build/hash/backend，以自有非方形atlas配公开pause/setFrame固定帧，独立阈值读取Rotation四分量/Translation两分量，再比较无变换/显式一次/显式两次的采样ROI，确定单位、分量布局、自动应用阶段与同帧publication。不能把本项目synthetic affine ABI直接别名成官方uniform；当前每次sampling自动变换尤其需排除重复变换。黑盒不能执行时登记具体缺失依赖并继续D1自有fixture及现役source/preflight边审查（D1作者输出顺序也依赖官方环境，不能猜定），不停止整个能力队列。
 
-### RF03 — D4+D11 限定粒子四方法已移交证据
+### RF03 — D4+D11 限定播放与显式出生
 
-prepared root、无 authored child、单个 supported 确定性 schedule 的 play/pause/stop/isPlaying 已完成真实VM事务、模拟/资源、冻结App六项显示/故障门及独立终审。当前能力边界、三项事务审查修复、错误分类反例、未验证GPU错误/RNG边界和冻结身份仅见[执行记录](../../history/scene/rf03-particle-playback-implementation-2026-10-02.md)；目标仍由[D4](script-component-api-design.md)/[D11](particle-playback-state-design.md)约束。emit/reset、多emitter、children、随机周期未开放，不能据四方法签收升级为完整组件API。唯一能力/运行owner接管后删除本移交指针，不在派生卡重复结果计数。
+prepared root、无 authored child、单个 supported 确定性 schedule 的 play/pause/stop/isPlaying 已完成真实VM事务、模拟/资源、冻结App六项显示/故障门及独立终审。当前能力边界、三项事务审查修复、错误分类反例、未验证GPU错误/RNG边界和冻结身份仅见[执行记录](../../history/scene/rf03-particle-playback-implementation-2026-10-02.md)；目标仍由[D4](script-component-api-design.md)/[D11](particle-playback-state-design.md)约束。默认emit数量、reset、多emitter、children、随机周期未开放，不能据限定方法升级为完整组件API。唯一能力/运行owner接管后删除本移交指针，不在派生卡重复结果计数。
 
-RF03 连续排放后继已独立验收：缺省/0 duration四方法和显式非法duration边界已闭合，修前反例、最终App与证据边界见[独立执行记录](../../history/scene/rf03-continuous-playback-implementation-2026-10-02.md)。下一批RF05隐藏provider，随后RF08/D1；显式burst与reset未随此开放。
+RF03 连续排放后继已独立验收：缺省/0 duration四方法和显式非法duration边界已闭合，修前反例、最终App与证据边界见[独立执行记录](../../history/scene/rf03-continuous-playback-implementation-2026-10-02.md)。显式burst未随连续排放片开放；其独立后继现已完成调用期真实出生事务与最终App验证，冻结范围、审查修复和HEAD既有失败仅见[显式出生记录](../../history/scene/rf03-explicit-particle-emission-implementation-2026-10-02.md)，已获独立终审ACCEPT并随该职责批提交。下一主能力片按路线回到RF08/D1实际source一致性；不重复创建粒子模拟或播放owner。
 
 ### RF04 — D12 mip触发与快照语义先定案
 
@@ -125,7 +125,7 @@ HDR clear=false 的 raw/candidate/display 分离、GPU成功提升、paused新ep
 | ID / 历史裁决 | 我方owner证据 path:line | 当前判定与去向 |
 |---|---|---|
 | particle-0 / corroborated | `MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+VideoProviders.swift:17`；`Systems/Particles/SceneParticlePlaybackState.swift:59` | host pause/共享delta存在；RF05补停发/冻结/恢复实际count/time。 |
-| particle-1 / gap | `MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerHandleBridge.swift:79`；`Systems/Particles/SceneParticleSimulator.swift:517` | 初次复核缺少的command/emission链已由RF03限定四方法闭合，见上方冻结记录；emit/reset等仍未开放，第三方freeze/stayPaused不升级为合同。 |
+| particle-1 / gap | `MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerHandleBridge.swift:79`；`Systems/Particles/SceneParticleSimulator.swift:517` | 初次复核缺少的command/emission链已由RF03限定四方法闭合，见上方冻结记录；显式count出生见RF03独立后继；默认count/reset等仍未开放，第三方freeze/stayPaused不升级为合同。 |
 | particle-2 / corroborated | `MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler.swift:91`、`:194` | root instance scalar/CP Timeline有bounded消费；报告节点四曲线不等于该profile，节点transform/child曲线继续待证，补实际consumer反例。 |
 | particle-3 / corroborated | `MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopeTrailPlan.swift:65`、`:66` | segments/subdivision默认与预算已有；补引用和边界，不升级parity。 |
 | particle-4 / mirage-specific | `MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildLifecycle.swift:4`、`:42` | 子系统准入/事件identity自有owner；隔离particle_idx/spawn_sequence簿记，不关闭CP eventfollow待验。 |

@@ -35,7 +35,7 @@ QuickJS domain owns JS object 与 callback roots；现役 Script bridge owns han
 | `thisLayer` / 现役 scene layer lookup | ILayer；粒子层提供 IParticleSystem 能力 | 四方法挂现役 layer handle，再按 prepared particle profile 准入；实例参数脚本可经 thisLayer 操作所属粒子系统 |
 | `IParticleSystem.play/pause/stop` | 无参 → void | 首片限已准备 root、无任何 authored child、恰一 supported 确定性 emitter schedule（periodic disabled 的有限 duration/burst 或默认连续排放，或 supported 且 duration/delay 各自 min=max 的周期窗口）；随机周期拒绝，转移语义引用 D11 |
 | `IParticleSystem.isPlaying` | 无参 → Boolean | session 对当前代有效实例作只读 OR projection；同 callback 叠加有序 journal，缺实例返回 unavailable 调用失败，不能伪装 false |
-| `IParticleSystem.emitParticles(count?)` | 可选 Number → void | 本首片全部显式 unsupported；后继须闭合实际 birth preflight、精确计数与预算，不能仅凭 n>0 伪造 staged 活跃；省略默认仍待公开声明/黑盒固定 |
+| `IParticleSystem.emitParticles(count?)` | 可选 Number → void | 限定交付显式整数 0…1024，取现役更小预算；真实出生、调用期输入、同 callback query 与全 surface 准入见 D11。省略、非整数/非有限/非 Number、额外参数仍局部失败；实际验证范围见[执行记录](../../history/scene/rf03-explicit-particle-emission-implementation-2026-10-02.md) |
 | `IParticleSystem.instance` | IParticleSystemInstance | [公开实例表](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystemInstance.html) 的 alpha/size/count/speed/lifetime/rate/colorn 为 Number，controlpoint0…7 为 Vec3；各字段消费相位单独验证 |
 
 普通 JS 自定义对象仍由 VM 管理，不因此变为可渲染对象。2026-10-02 再核[公开 globals](https://docs.wallpaperengine.io/en/scene/scenescript/reference.html)及[IThisPropertyObject](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IThisPropertyObject.html)：thisLayer指当前层，thisObject随属性归属动态变化；不能用人工把thisObject设为layer的C夹具代替真实实例参数脚本。component callbacks 首片只接现役 init/update/destroy 生命周期。`registerSceneScriptComponent` / `sceneScriptComponentAPI` 是内部装配命名候选；未找到公开签名的“注册任意组件回调”保持 unsupported，后继须补官方声明与独立合同后才扩大表面。
@@ -43,6 +43,8 @@ QuickJS domain owns JS object 与 callback roots；现役 Script bridge owns han
 handle 包含 scene generation、owner kind、object identity 与生命周期 epoch；C 与 Swift 两侧校验。create 先返回本事务 provisional handle，只在该事务内可见；准备失败回滚并撤销 handle，不能有部分 publication。destroy 在安全帧边界撤销，保留 GPU 资源到 completion；destroy callback 最多一次。
 
 安装发生在 descriptor/resources/handles 准备后、首次 init 前。update 不得递归触发另一轮更新；callback 产生的命令按作者事件顺序 staged。成功 JS 调用不等于已消费：先通过现役 callback/owner admission 的 Swift 验证，C staged mutation 与 Swift typed command 同时接纳或局部 discard；不能只撤 Swift 结果而留下 C 状态。共享 session 已消费的 VM 回调、对象命令和模拟状态服从 [D10](frame-admission-retry-design.md)，后续任一或全部 surface 的 drawable/encode/GPU 失败都不能重放回调或恢复旧命令；JS heap 本身不作为可回滚快照。
+
+显式数量发射的调用期输入与最终 owner 准入由 [D11 的后继切片](particle-playback-state-design.md#显式数量发射后继切片2026-10-02)统一拥有。native hook 只借用当前 cadence 的实际 runtime；不增加第二模拟器或持久出生队列。当前粒子 instanceoverride 脚本返回值由 Swift 在 callback 后 overlay，C 尚无 `.instance` setter：不得为了新 API 把后置返回值倒灌到先前出生，也不得新增“最终参数不同就拒绝 emit”的限制。
 
 同一 callback 内查询读取该事务已验证的 staged overlay，因此 stop 后 isPlaying 为 false，pause 后按尚存粒子判断，play 按 D11 的继续或重新 arm 结果判断，不能直接返回 playing Bool；create 后句柄访问能观察自己的操作。其他 callback（包括同 owner 的另一 timer、ended handler 或随后 update）读取本 cadence 的已提交镜像，不读取前 callback 的 journal；宿主 callback 内 drain 的 microtask 仍归该 callback。renderer 在共享模拟消费后观察，不等待任意一屏的 GPU 提交。overlay 不能跨拒绝存活，也不成为第二个持久对象库。现役 layer candidate plan 须保留本 cadence 已准入的有序 particle transitions 与 revision，不能将 stop→play 压成最终 playing。typed command 携现役 domain.callback_epoch 与 callback 内 ordinal，恢复实际 callback 调用顺序，不按 owner 分组后 flatMap 猜序，也不新增 clock；owner rejection 先移除该 owner 的命令，再重算 candidate intent、transitions 与 revision。每个现役 surface 在 updateSimulation 前消费一次，committed snapshot 仅保留当前作者意图及 revision，供 rebuild 初始化，旧 transitions 不重放。
 

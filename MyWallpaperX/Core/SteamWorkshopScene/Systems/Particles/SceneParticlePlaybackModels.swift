@@ -10,13 +10,16 @@ nonisolated struct SceneParticlePlaybackSnapshot: Equatable, Sendable {
 }
 
 nonisolated enum SceneParticlePlaybackAction: Int32, Equatable, Sendable {
-    case play = 0, pause = 1, stop = 2
+    case play = 0, pause = 1, stop = 2, emit = 4
 }
 
 nonisolated struct SceneParticlePlaybackTransition: Equatable, Sendable {
     let layerID: Int
     let action: SceneParticlePlaybackAction
     let revision: UInt64
+    var count: Int = 0
+    var callbackEpoch: UInt64 = 0
+    var ordinal: UInt32 = 0
 }
 
 nonisolated struct SceneParticlePlaybackObservation: Equatable, Sendable {
@@ -25,4 +28,8 @@ nonisolated struct SceneParticlePlaybackObservation: Equatable, Sendable {
     let rearmHasWork: Bool
     let intent: SceneParticlePlaybackIntent
     let revision: UInt64
+}
+
+nonisolated enum SceneParticleEmissionFailure: Error {
+    case unavailable, budgetExceeded, staleIdentity
 }
