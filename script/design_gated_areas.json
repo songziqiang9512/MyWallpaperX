@@ -262,6 +262,26 @@
         "sceneColorHistory",
         "terminalSceneColor"
       ]
+    },
+    {
+      "id": "scene-framebuffer-snapshot-capacity",
+      "title": "RF12 — 背景快照必需容量准备",
+      "owner": "SceneFramebufferSnapshot / existing color-blend and particle consumers / SceneMetalRenderer",
+      "status": "approved",
+      "designDoc": "docs/scene/design/framebuffer-snapshot-capacity-design.md",
+      "design_notes": "判据①跨frame/consumer/resource，②必需容量与GPU生命周期，④冻结家族，⑤公开Metal保留/次序合同。原snapshot实例同步可回退准备，逐consumer copy内容不变，不造多槽/第二registry。独立设计审查批准后实施；实际共存与资源门验收、稳定合同接管后整条删除。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneFramebufferSnapshot.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLayerColorBlendPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer*.swift"
+      ],
+      "contentPatterns": [
+        "prepareSnapshotCapacity",
+        "prepareFramebufferSnapshotCapacity"
+      ]
     }
   ]
 }

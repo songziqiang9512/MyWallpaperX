@@ -141,6 +141,8 @@ HDR clear=false 的 raw/candidate/display 分离、GPU成功提升、paused新ep
 
 ### RF12 — 同帧背景快照的确定性资源准备（F6 后继）
 
+实施目标和资源事务边界见[前置设计](framebuffer-snapshot-capacity-design.md)，批准前不改产品。
+
 **用户结果与当前断点。** 已有 refraction 粒子和 image/solid/text 的 color-blend 在实际 draw 时才从 `Rendering/Composition/SceneFramebufferSnapshot.swift:29–75` 取得背景纹理；color-blend 与粒子分别持有该类的实例，各实例目前只保留单一尺寸。F6 因无法预留这些必需资源而在真实消费者存在时关闭 optional shadow，见[D3 F6](2d-lighting-material-design.md#f6-model-directional-shadow)。本卡让这些已有效果与新阴影共存，不把当前安全降级永久写成能力上限。
 
 **owner 与选型。** 先冻结实际 prepared consumer 集合、同帧 target extent/format 与当前 copy 点；在原 snapshot/资源 owner 中准备真实所需容量，由原 capture 消费。复用现 frame/command buffer 生命周期，保持每个消费者看到其作者顺序之前的当前背景，不用 F5 首次反射前缀代替逐消费者 snapshot，不建立新资源 registry。容量设计先登记门禁并经独立审查批准，再实施；本卡本身不是新设计的实施授权。现 frameContext.screenSize 来自 drawableSize（SceneMetalView+FrameContext.swift:24），group 由该尺寸创建（SceneUtilityLayerRuntimePlan.swift:418–426），main raw 来自 drawable texture；没有证实同帧多尺寸的作者触发。先在各原实例保单槽并准备实际最终 target 容量，不把 layer crop/source extent 错当背景尺寸，也不为假设场景造多槽。若实际观测推翻单尺寸前提，再扩该 owner；不能只估字节或给 optional 留固定余量。

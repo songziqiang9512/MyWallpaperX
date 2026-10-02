@@ -10,6 +10,7 @@
       "docs/scene/design/copy-pass-unification-design.md",
       "docs/scene/design/debug-frame-capture-lifecycle-design.md",
       "docs/scene/design/frame-admission-retry-design.md",
+      "docs/scene/design/framebuffer-snapshot-capacity-design.md",
       "docs/scene/design/hdr-tonemap-edr-design.md",
       "docs/scene/design/host-render-power-protocol-design.md",
       "docs/scene/design/particle-playback-state-design.md",
@@ -659,6 +660,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/design/batch2-design-index.md",
       "retirementCondition": "现役帧准入的互斥、释放与短重试通过反例门且合同并入稳定时钟架构后归档，不新增平行定时器。"
+    },
+    {
+      "path": "docs/scene/design/framebuffer-snapshot-capacity-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/design/reference-evidence-implementation-cards.md",
+      "retirementCondition": "背景快照必需容量与阴影共存通过实际GPU/App、资源失败和生命周期门，稳定职责移交架构、执行证据归历史后归档本文并删除窄设计登记。"
     },
     {
       "path": "docs/scene/design/hdr-tonemap-edr-design.md",
