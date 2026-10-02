@@ -262,6 +262,23 @@
         "sceneColorHistory",
         "terminalSceneColor"
       ]
+    },
+    {
+      "id": "scene-2d-reflection-environment",
+      "title": "2D reflection-only环境输入与表面响应",
+      "owner": "prepared material profile / graph-target publication / shared lit consumer",
+      "status": "blocked-pending-design",
+      "designDoc": "docs/scene/design/2d-lighting-material-design.md",
+      "design_notes": "F5先定N3环境来源/顺序/生命周期；不因公式缺失跳过，按中性合同独立实现。产品验收移交稳定架构后退役窄登记。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneLitImageLayerPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal"
+      ],
+      "contentPatterns": [
+        "SceneReflectionEnvironment",
+        "reflectionEnvironmentTexture"
+      ]
     }
   ]
 }

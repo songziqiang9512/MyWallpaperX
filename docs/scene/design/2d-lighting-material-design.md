@@ -341,3 +341,24 @@ Host live admission将实际准备的2D brightness目标与已有model目标合�
 普通视觉输入缺失只关闭该emission分量，MR/normal/albedo和健康邻层按既有合同保留；stale record、类型/range不合和不可消费同key兄弟目标仍由原属性事务拒绝、旧revision及输出保留。shader ABI与Metal数值策略保持F3；若真实红证显示其它必需改动，先修订本设计再释放。
 
 纠正门包括上述真实解析/transaction/GPU/App和原包首断点，并要求Debug构建、code-health、scene-defense、design-gate及独立终审绑定精确源码/test/App身份。当前合法scene-root instance投影、已有3D材料属性须回归。成功后稳定owner合同移交架构、执行身份和上限归历史、窄gate删除；退役的是catalog亮度无producer/consumer与结构需求漏接，不退役其它动态材质能力、原包剩余缺口或官方parity。
+
+
+<a id="f5-reflection-environment"></a>
+
+## F5 — reflection-only 环境输入与表面响应（N3研究中，产品设计未批准）
+
+基线`6a95278f`。本批闭合普通builtin genericimage2/4的REFLECTION1、LIGHTING0材料：法线、roughness、reflectivity及slot2 B影响实际反射，保持direct独立、现alpha/HDR和唯一terminal。方法与数值由本项目独立实现，不等待或复制官方公式。五判据①跨material/资源/graph/consumer，②触及唯一target/publication生命周期，⑤外部输入语义，故登记`scene-2d-reflection-environment`，来源/顺序和最小产品设计批准前不写产品。
+
+**当前事实。** 以下路径相对Scene根：`Systems/Properties/SceneMaterialPropertyBindingCompiler.swift:64`和`Compilation/Material/SceneBaseMaterialLightingProfile.swift:56`仅以LIGHTING准入；profile`:100`及`Rendering/Metal/SceneLitImageLayerPipeline.swift:163`未消费Reflection bit4。`Runtime/Session/SceneDesktopWallpaperHost+Launch.swift:489`只准备normal/map，无env producer；`Resources/Textures/SceneTextureProviderPublication.swift:314`的sameFrameSceneBackground是作者顺序前缀、单mip，不能未经定案冒称环境。显式系统RT则在`Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift:193–201`另受准入限制。此为静态首断点，旧App缺响应反例待实际运行，不先写已复现。
+
+**已有输入与真实候选。** [官方公开合同](https://docs.wallpaperengine.io/en/scene/lighting/introduction.html)规定Lighting/Reflection独立、roughness控制模糊、Reflectivity整体强度及Reflection map局部权重；[已审中性声明](../../history/scene/d3-pbr-input-neutral-contract-2026-10-02.md)和[通道合同](../../history/scene/d3-pbr-map-input-neutral-contract-2026-10-02.md)已定reflectivity默认1和B职责。合法3780119725的普通层276材料声明LIGHTING0/REFLECTION1、reflectivity4、roughness0.53、normal及slot2，无instance/effect；同包层308有effect，可作后继正例。它们没有显式env输入，不能据名称或第三方planar路径推断隐含来源。作者字段只作回归输入，不作dispatch键。
+
+**N3唯一研究问题。** builtin REFLECTION消费何种颜色资源、何时生成、是否纳入接收者自身？先在旧App/实际builder记录缺少profile/资源消费，再由隔离research-only上下文按[官方取证工作流](../semantics/official-client-behavior-research-workflow.md)读取最小作者声明：sampler角色/default、2D或cube类型、presence、reflectivitydistance输入角色。只交中性字段/顺序/lifecycle，不交shader行、函数体、伪码、payload或公式；已有声明充分时不反编译。
+
+候选为本帧前缀、本帧完整场景、previous frame或静态环境。官方黑盒先用普通image可见正控制确认输入身份/viewport，再用红绿环境板置于接收者前后及一次magenta脉冲，区分内容范围和延迟；第二接收者观察自反射反馈；clear边缘及normal/view移动只定输入坐标/alpha职责。每次只变一个变量。沿既有Parallels合法客户端入口；上次D1未取得effect正控制，不等于客户端不能运行。若运行条件不足，只将官方parity记not-run，继续经审查静态中性合同下的独立有界实现；不能拿无正控制截图裁决资源来源。
+
+**方案/owner。** 输入定案后由原profile准备有效intent/静态值和需求，原graph/target池分配并发布typed env，原registry验证generation/epoch，plain/effect共同lit producer消费。normal/view决定自有取样方向、roughness控制有界模糊、metallic与reflectivity及B决定反射份额；具体独立方法在资源合同确定后设计评审。反射与direct分开启用，不改作者LIGHTING来借通路，不建第二registry/clock/compositor。若需history/mips，必须扩原资源descriptor/预算/在飞生命周期，不能裸texture别名或仅开mip标志。planar camera、3D和完整RT词汇不捆绑本片。
+
+**fallback与纠正门。** 可选env缺失只关反射并保原层/邻层；identity、hazard、generation、真实预算等unsafe仍拒最小单元。自有红绿空间环境区分反射与整体增亮，normal翻转、REFLECTION0/reflectivity0、roughness对比度、B分区、alpha/HDR和下一帧脉冲均须可判别；plain与非identity effect共用消费，实际allocation→encode→completion→publication→terminal→next-frame留证。资源切换/resize/失败按选定输入合同验证，未测明确列出，不以官方公式缺失或单图非黑收口。
+
+**退役。** N3中性合同经独审后替换本节的unknown和研究动作，批准最小产品设计再实施；产品/App及独立终审通过后将稳定资源职责移交架构、执行记录归历史、删除窄gate。未来Puppet/planar/动态材质字段保持独立后继，不由本片代验。
