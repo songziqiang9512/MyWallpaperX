@@ -57,9 +57,17 @@ normal provider并非全部已reservation：`SceneResolvedMaterialFramePreflight
 
 不能在每个image/utility/normal provider处永久停准备来规避所有者缺失。必要的容量职责在原owner内补齐，冷/resize中间provider是验收门；原RF12未支持extent组合仍单独标明，不能用它掩盖新漏项。
 
+### F1纠正：容量需求由真实lighting payload决定（设计补丁已批准）
+
+v1独审定位了实际反例：reflection-only且`LIGHTING=0`的层遇缺失/unsupported normal时，原`SceneResolvedMaterialFramePreflight+LitCapture.swift:137–139`产生miss，plain request没有sourceLighting且blend为0，本来不消费scratch；只看`profile.surfaceEnabled`会在较晚健康模型depth之前预留无消费者容量。geometry、pipeline、light packing和payload validation也沿同一真实producer拒绝，不能另造只匹配这一反例的normal条件。
+
+容量准备调用原`makeLitCapturePayload`获得实际typed resolution，lighting只在payload存在时产生scratch需求，color-blend仍按原实际消费准入。resolution保存于现frame准备记录，原`preparePlainSourceLighting`消费同一结果并保原诊断；未访问的层沿原现场resolve。输入使用同一已冻结frame light/dynamic/world/source snapshot，不反复packLights，不新增lighting matcher或registry。environmentSource只保原延迟闭包，准备时不执行，真正背景内容仍由原consumer第一次调用取得；沿原F5 admission决定闭包是否可用，不能因新增scratch准备成功而把原nil变为可用或改变reflection.scratchReady。beginTextureFrame已一次性发布normal/map的asset状态，这类lookup不依赖后续named publication，缓存本帧miss不锁掉合法named晚恢复。
+
+为复用这一原producer，需将`Frame/SceneResolvedMaterialFramePreflight+LitCapture.swift`纳入第七个原owner路径，仅增加原plain消费入口可选prepared resolution；其余六路径不扩。补丁独立设计ACCEPT绑定freeze SHA `e5d0fad83c44c730fa2ba892b6d9fd3214a7fb4e960a889a9bc63e586915f3a6`；复核`/private/tmp/mwx-rf13/design-f1-review.md` SHA `311e313c4e4d581b89e13e71ae8cb34972265bac88b7a3f15a60e860c1232fa3`。前置提交后批准第七路径实施，产品F1负/正控仍未验收。最小反例必须实际编译该producer与容量入口，在紧nativequota下证明reflection-only缺normal不消耗scratch且后续模型depth存活；配对可生成payload的场景仍需正确保容量，不能删掉所有lighting预留来过门。
+
 ### 精确实施职责
 
-产品拟仅触达以下六个原owner文件（均相对`MyWallpaperX/Core/SteamWorkshopScene/Rendering/`）：`Frame/SceneMetalRenderer.swift`、`Frame/SceneMetalRenderer+StaticModels.swift`、`Frame/SceneMetalRenderer+DependencyProviders.swift`、`Frame/SceneResolvedMaterialFramePreflight+Admission.swift`、`Dependencies/SceneDependencyFrameRuntime.swift`、`Dependencies/SceneDependencyFrameRuntime+StaticModel.swift`。提取raw输入调用必须替换现forward/主循环重复计算，保主循环先前source identity拒绝。无需新增shader、pool、registry、reservation ABI或parser。其他路径须先指出现owner的具体缺口并修订设计；本精确方案已获独立设计ACCEPT：冻结v3 SHA `2f91ab8f673b2e22f7fab67d87143199f572cbf2c13d8f1e951eb37908d344aa`，复核记录`/private/tmp/mwx-rf13/design-review-v1.md` SHA `aa8f9ee0ae000f160268f4770738eacd103d83d49d7c882cc272aa4fd20a5f36`。裁决仅批准此实施边界，产品仍须通过后述行为门与独立终审。
+产品仅触达以下七个原owner文件（均相对`MyWallpaperX/Core/SteamWorkshopScene/Rendering/`）：`Frame/SceneMetalRenderer.swift`、`Frame/SceneMetalRenderer+StaticModels.swift`、`Frame/SceneMetalRenderer+DependencyProviders.swift`、`Frame/SceneResolvedMaterialFramePreflight+Admission.swift`、`Frame/SceneResolvedMaterialFramePreflight+LitCapture.swift`、`Dependencies/SceneDependencyFrameRuntime.swift`、`Dependencies/SceneDependencyFrameRuntime+StaticModel.swift`。提取raw输入调用必须替换现forward/主循环重复计算，保主循环先前source identity拒绝。无需新增shader、pool、registry、reservation ABI或parser。其他路径须先指出现owner的具体缺口并修订设计；本精确方案已获独立设计ACCEPT：冻结v3 SHA `2f91ab8f673b2e22f7fab67d87143199f572cbf2c13d8f1e951eb37908d344aa`，复核记录`/private/tmp/mwx-rf13/design-review-v1.md` SHA `aa8f9ee0ae000f160268f4770738eacd103d83d49d7c882cc272aa4fd20a5f36`。裁决仅批准此实施边界，产品仍须通过后述行为门与独立终审。
 
 ## Fallback 与纠正门
 
