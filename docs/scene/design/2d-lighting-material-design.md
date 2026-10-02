@@ -36,7 +36,7 @@ Compilation/Material 与 ShaderFrontend 归一化 authored material feature 和 
 2. albedo/emissive 使用明确颜色解码；normal/roughness/metalness 为 data，禁止 sRGB decode。缺省 normal 使用项目平面法线；其余缺省值仅在公开声明/合法 authored 数据可确定时开放，不猜私有打包通道。
 3. 光照在 base material producer 完成、layer effects 之前执行。graph claim 使用其 source capture；无 effects 的普通 receiver 使用同一材质 fragment，经现役 compositor 的 offscreen source capture/target 再进入唯一最终合成，不建立假 effect 或第二 graph。世界位置按 unit quad 的上方对应纹理首行约定与完整 model matrix 计算；世界距离/spot 锥角不随矩形尺寸、旋转或非均匀 scale 扭曲，法线用同帧逆转置 basis。缺 map 与中性 map 均计算同一 N·L，不添加虚构 z lift；首片的 stock normal 限制由下节“作者 normal 后继”接替；其当前开放范围与终审状态见[作者 normal 实施证据](../../history/scene/d3-authored-normal-input-implementation-2026-10-02.md)。typed light snapshot 由 renderer 每帧只发布一次，所有 consumer 使用同一份；lit PSO 在 launch preparation 完成，普通帧只读。Puppet/mesh 的变形后世界位置不能由 source atlas unit quad 推出，首片对此局部保持 unlit 并报告 `receiver-geometry-unsupported`，退役门为 geometry owner 提供同帧变形后 receiver mapping。结果仍保留原 alpha/几何，HDR 接 [D2](hdr-tonemap-edr-design.md)。不把 standalone 可见光束当受光证据。
 4. 首片为已有 point/spot 的无阴影受光。ltube 必须先补公开/自有行为 profile，不能伪装成一个 point；灯数量沿既有预算，超额灯的选择遵守作者顺序并记录 bounded 限制。
-5. 阴影采用显式 caster/receiver 与 graph-owned depth/visibility target。首个阴影 profile 限一个 spot shadow、一个不超过 2048×2048 的 depth target，实际字节按格式计入现役 resident budget；point 全向和 ltube 阴影暂不开放，不把一张平面图伪装成全向遮挡。这些是项目实施预算，不是官方上限，prepare 时验证峰值并允许按用户质量选更低分辨率；没有可证明的深度/遮挡输入时关闭该 material 的 shadow 分量，不从图片颜色推断高度。
+5. 阴影沿真实模型几何、typed light snapshot 与现役 target 生命周期实现，具体首片由下文[F6](#f6-model-directional-shadow)取代原 one-spot 草案。官方公开合同明确模型与灯的投影开关，尚不据此为普通 image 新造 caster/receiver；normal 不充当遮挡高度。首片选择有实际作者受益输入的单方向光，point 全向与 spot 作为后继，不把单张投影图冒充全向遮挡。
 6. Reflection 与 light volume 分为后继独立 profile：前者复用 graph/camera/target，后者仍由现役独立几何绘制但可消费相同遮挡 publication；两者不由受光上线自动准入。
 
 ## 作者 normal 后继（2026-10-02 独立设计审查已批准）
@@ -433,3 +433,52 @@ Launch现有profile normal/map聚合应能自然接入，不为环境建立第�
 **App与上限。** 冻结最终source/test/三binary身份后运行plain/effect、真实层276原材质资产的严格标注presentation；能执行的原完整包另记首断点与完成输出，不删除其effect/script冒称恢复。REFLECTION0/reflectivity0/缺env保原像素，LIGHTING0增加灯不改变反射底色。保留allocation→编码顺序→typed readiness→GPU completion→terminal与下一帧证据，不以非黑或route count闭合。相应inner模块、Debug checkpoint、code-health/scene-defense/design-gate与独立终审必须通过；不机械扩大到全Scene或官方parity。
 
 成功后稳定资源与数值策略移交架构，实际身份/反例/未测上限归历史，删除本窄gate；退役的是reflection-only无producer/consumer及环境生命周期空缺，不退役未知官方时序/公式、Puppet/planar、动态材质能力或完整RT词汇。本有界实现已获产品独立终审ACCEPT，稳定职责移交现架构；实际运行与未测边界只由执行记录说明。后继为有合法caster/depth输入的阴影及显式环境输入等独立切片，不把本片扩大成完整D3或官方parity。
+
+
+<a id="f6-model-directional-shadow"></a>
+## F6 — 静态模型单方向光阴影（设计已批准，实施待验收）
+
+### 目标、证据与范围纠正
+
+基线 `67b2b644`。本片使现已准备的 direct static-model 三角几何在显式启用投影的方向光下互相遮挡，仅衰减该灯的直射贡献，继续由现模型 draw 写入唯一 compositor。它可用于含模型的正交或透视 Scene；普通 image、Puppet、粒子不因层 Z 或 normal 被虚构为模型投影者。五判据①跨 Format/prepare/frame/Metal、②光源与资源唯一权威、④资源/ABI基线、⑤外部作者合同命中；窄登记 `scene-static-model-directional-shadow` 已获独立设计 ACCEPT。审查绑定批准前文档 SHA `b3f1936541f25b5a6dadd34c46652dcf74d773dccd31e1a629f7975d299c1be9`、登记 SHA `38476482cc9fc62db8c6967cbf457224896b7b02379ef758e0e64293c88d190f`；本机 `/private/tmp/mwx-2d-shadow/design-review.md` SHA `141296d6b307980deb4b49f1b7212c5144148908ac144a6cf1601d0685537d9f`。批准设计不是产品验收。
+
+- `official-public-contract`：[3D Advanced Lighting](https://docs.wallpaperengine.io/en/scene/models/lighting.html) 明确 point/spot/directional 均支持、灯须开启投影、模型默认投影且可逐模型关闭；[模型介绍](https://docs.wallpaperengine.io/en/scene/models/introduction.html)允许 2D Scene 含真实 3D 模型。它们不公开投影数学、透明度规则或序列化字段。
+- `third-party-reference-pattern`：[Mirage 中性参考 §8.4](../semantics/miragewallpaper-rendering-reference.md#84-lightingfogshadow-和-volumetrics)记录 flags/uniform、缺 shadow atlas 及正交 image 抑制整灯。只采用输入/职责边界，不继承关整灯策略，不复制实现。它不能证明 image 投影合同。
+- `authored-corpus-observation`：只读 207 个合法包的 scene JSON，`3589454154/scene.pkg::scene.json:1206` 的 directional 259 声明 `castshadow=true`，同场 24 个 model 中 21 个省略、3 个显式 false；无 `receiveshadow` 声明。两个开启 spot 的样本没有对应默认 model caster。因此替换旧 one-spot 优先级，选择 directional。模型 metadata 中至少两个仍触及现 reader 上限，声明数量不是运行准入或受益数量。完整作者场景须另测，不能把模型缺省值当成所有模型已经绘制。
+- `MyWallpaperX-current-evidence`：以下路径前缀均为 `MyWallpaperX/Core/SteamWorkshopScene/`。`Format/SceneDirectionalLightDefinition.swift:7–20` 未投影 cast；`Rendering/Lighting/SceneLightSnapshot.swift:8–30` 没有灯身份/投影意图；model 的 object→descriptor 没有 cast 字段。`Resources/Textures/ScenePreparedStaticModelResources.swift:9–19` 已持有 mesh、typed albedo、material；`Rendering/Frame/SceneMetalRenderer.swift:744–855` 已从同帧 world/snapshot 画真实模型。`Rendering/Composition/SceneStaticModel.metal:146–154` 的 coverage 排除 tint-mask alpha。上述为静态首断点，旧 App 实际反例另验。
+
+### 输入和唯一 owner
+
+原 Format/loader→descriptor 保留 model object 的静态 `castshadow`：合法省略默认 true，显式 false 只关闭投影、不关闭模型显示或接收；不是新 receive 键。方向光定义保留显式 true，省略不自动开灯阴影。字段存在但类型非法与合法省略区分，不能将 malformed 开关误升默认 true；startup user 解析沿原 loader，live cast 开关不伪称已支持。typed 灯身份与意图进入现 `SceneLightSnapshot`，首个被该四灯预算接纳且显式开启的方向光获得本片 shadow；其他灯原照明不变，不另扫 raw 灯表或按数值猜身份。
+
+`ScenePreparedStaticModelResources` 沿已验证顶点一次保存局部 bounds 与 caster 候选，沿同一 pipeline 在准备期创建 depth PSO；不用未核 header bounds 覆盖实际顶点。普通帧只消费当前模型 world/visibility/material alpha、现 snapshot 与准备资源。caster 的材质受光开关与投影开关独立，unlit 模型仍可投影；receiver 必须是原模型受光 consumer。默认只绘制当前主链能产生的模型几何，不复制/补造被 importer 拒绝的模型；该输入缺口需记录，不能宣称完整作者阴影。
+
+现 renderer 的 model draw/depth preparation 可按完整职责提取到同 owner extension，避免继续扩张大循环。模型 alpha、纹理 frame/sampler、world 和可见性直接复用原帧值，不能另建属性、变换、clock、资源表或 compositor。没有 shadow 灯/receiver 时不新增每帧目标、深度绘制或全模型 bounds 遍历。
+
+### 独立投影与材质策略
+
+一个 1024×1024 depth32Float 目标是本项目有界质量选择，非官方上限；本片不增加假质量 UI。用当前合格 caster/receiver 的 world bounds 和唯一方向光构造正交灯空间，覆盖主相机外、作者顺序较晚的 caster，不使用 F5 主画面前缀或屏幕深度。方向近坐标轴时采用确定的稳定 basis；平面/薄 bounds 给有限安全深度区间。bounds、偏移和深度比较的数学由本项目独立实现，使用世界 texel 尺度的有界偏移及有限邻域比较；远近、clear 与 compare 方向配套，不误借相机 reverse-Z。不能按 sample、层名、路径或截图调整算法。范围扩大降低精度属于本质量边界，须有不同尺度/相机/变换的独立反例。
+
+透明策略明确为硬 cutout 阴影：采用原材质与 layer opacity、原 coverage alpha 共同决定是否覆盖；覆盖不超过一半的片元不投影，其余写灯深度。tint-mask alpha 不参与 coverage。该阈值和半透明不产生透射色是独立项目策略，非官方 alpha/parity 结论；不得因为 writesDepth 关闭便认为该材质不是 caster，也不得让透明 texel 整块遮挡。预先固定 zero/partial/opaque 与 tint-mask 对照。首片 caster 使用现 ready 静态 albedo 与无变形 mesh；尚未可消费的 named/provider caster 明确局部不提供该 caster 阴影，原模型/灯照明保留，不能借 stale texture。动态 provider caster 是独立后继，不能声称本片完整覆盖它。
+
+同帧 light-space target 成功写入后才交给模型 receiver；receiver 使用自己的真实 world position，只调整选中方向光的 direct diffuse，保留 ambient、emission、其他灯、材质颜色/alpha、HDR 和后处理。cast=false 模型仍可接收。无当前 map、超额 shadow 灯或未支持光型保持原 direct，不能关整灯、改 image 受光或复用上一帧遮挡。
+
+### 资源、失败与生命周期
+
+depth target 进入原 `SceneOffscreenTexturePool`/allocation cache，独立 key 与 depth32Float 实际 4-byte 成本；复用现 generation、submission pin、retired 和 reset/completion 边界，不建 shadow pool/registry。原相机 `SceneParticleDepthTargetPool` 只有 renderTarget usage，不能直接当 shaderRead 灯深度。depth publication 至少绑定同一 frame epoch、light identity、投影、allocation generation 和实际 texture；receiver 不消费 stale/alias/range-invalid map。
+
+**optional 不能抢原画面。** 已有 graph/history/group/scene-color 先准备；实际必需 plain/HDR scratch 复用 F5 的原子预留。静态模型共享/隔离相机 depth 与需 depth 的粒子仍在 loop 晚分配，必须沿原 depth-plan/pool 把本帧实际需要的 leases 提前取得并交回原 draw 消费，再尝试 shadow。只估成本、固定余量或新增 shadow 专用 depth slot 均不成立。前移不得增加重复深度资源，也不得改变原 shared/isolated 或粒子清深度时序；无 shadow 场景沿原需求路径。mandatory 预留失败时关闭本次 optional 尝试，原路径仍按原失败半径执行，已取得的必需 lease 继续被原 draw 消费或安全取消，不能再次申请造成假耗尽。原模型分支的 named albedo 依赖 `SceneMetalRenderer.swift:757–770` 在 late draw 读取当前 registry，准备时尚未 ready 的合法 provider 会使实际 draw 集合及 shared/isolated depth 顺序不能准确前移：这种帧本片关闭 shadow optional，model/particle draw 保持原申请和消费路径，不提前占槽也不重算第二次 plan。只有实际 mandatory draw 集合可在首次 shadow 分配前确定时才前移；不得仅按静态model数量预占或把 pending 当 absent。其它无法确定的真实晚分配生产者同样不获本片 shadow 准入，须先补确定性 owner 后另扩设计。
+
+现 `SceneResolvedMaterialFramePreflight+Admission.swift:122–130` 的 reflection-only 触发改为当前 shadow/reflection 消费需求共同触发同一 scratch 预留，不复制枚举器，shadow-only 也必须保护原 image/HDR 目标。
+
+另有真实晚分配：`Rendering/Frame/SceneMetalRenderer+Particles.swift:56–61` 的已准备 refraction batch，以及 `Rendering/Composition/SceneLayerColorBlendPipeline.swift:205–212` 的非零 color-blend consumer，经同 `SceneFramebufferSnapshot` 临时分配当前背景。首片遇实际可绘制消费者存在这些未预留需求时，关闭本帧 shadow optional，沿原输出路径，不对全部粒子或所有非零但未参与绘制的层泛化拒绝。后继须在现 snapshot owner 补多 extent 容量预留后撤掉这项边界，不能永久把缺方法列为不支持。`SceneBloomPostProcess.swift:120–128,189` 的末尾 intermediate 分配则沿该原 owner 增加有真实调用的容量准备：使用当帧 resolved bloom 配置和实际终端 source extent/format，取得原缓存的两张实际纹理后才准入 shadow；末尾只沿原 encode 复用，计算与显示顺序不变。准备失败本帧无 shadow，原 bloom 仍保留其既有局部失败与重试合同，不复制 bloom cache/算法。
+
+任何已追加 GPU 访问的 map/pin 随 command buffer 所有权：未提交 cancel 释放，提交后仅 actual completion 释放；receiver 后续失败也不能提前回收 map。不同在飞 command buffer 不覆盖旧 map；resize/reset 保留 retired 成本至完成。target 分配、预算或 encode 失败拒绝该 optional shadow，保留原模型/灯与健康邻层，不发布半成品、不改 history。非法 GPU range、epoch/generation/alias 拒最小 unsafe 绑定；不能拿局部 fallback 吞掉主图或主资源错误。
+
+### 纠正门、备选与退役
+
+先用不可变旧 App 与自造合法模型证明 direct lighting 已实际显示、cast 开关/遮挡无响应，再用相同输入验新结果。固定实际 App/源码身份，验证首帧和 next-frame 的 caster depth encode→当前发布→receiver→GPU completion→唯一 terminal 及遮挡/健康双 ROI。
+
+必须覆盖：灯 false/true、模型省略/true/false、cast=false 仍接收、unlit 仍投影；主相机外/晚顺序 caster、移动与父变换、方向改变、相机正交/透视；zero/partial/opaque/tint-mask；ambient/emission/第二灯保留；关闭零额外 shadow 分配；在飞两帧不同内容、cancel/reset/resize、未写 map 不发布、stale identity、真实 allocation 注入失败及后续恢复。mandatory model/particle depth 与多个 image scratch 的正好预算边界必须证明原画面未因 optional 退化。真实 `3589454154` 的受益数量与更早 importer/材质缺口单列，不以完整场景开机或非黑宣称官方 parity。
+
+one-spot 草案无当前可证 caster 受益，故后移；point 需要完整全向覆盖，不能用一面替代；屏幕空间后处理丢主相机外 caster，另建 deferred renderer 扩大职责，均不选。选现 static geometry + single directional depth pass，是最小真实投影闭环；私有公式缺失不构成停工条件。通过实际行为/GPU/App、Debug、code-health、scene-defense、design-gate 与独立终审后，稳定 owner 移交架构、实际身份及未验边界归执行记录并删除窄登记；未完成 point/spot/image/provider caster 与官方 parity 不随之退役。

@@ -38,6 +38,39 @@
       ]
     },
     {
+      "id": "scene-static-model-directional-shadow",
+      "title": "D3 F6 — 静态模型单方向光阴影",
+      "owner": "scene-e-route / SceneLightSnapshot / prepared static model / existing offscreen pool",
+      "status": "approved",
+      "designDoc": "docs/scene/design/2d-lighting-material-design.md",
+      "design_notes": "判据①跨Format、prepared geometry、typed frame与Metal；②唯一灯/target生命周期；④资源与ABI机器基线；⑤官方公开模型投影合同。替换旧one-spot草案：先用实际模型caster/receiver与显式方向光输入，独立算法，不为image捏造投影合同。设计批准与实际GPU/App验证后稳定职责移交架构并删除本窄登记。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/**/*Shadow*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/**/*Shadow*.metal",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDirectionalLightDefinition.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocumentObject.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Particles.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+Admission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneBloomPostProcess.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ClearColor.swift"
+      ],
+      "contentPatterns": [
+        "SceneDirectionalShadow",
+        "reserveShadowDepth"
+      ]
+    },
+    {
       "id": "scene-script-component-api",
       "title": "SceneScript component / object / particle API",
       "owner": "scene-e-route",
