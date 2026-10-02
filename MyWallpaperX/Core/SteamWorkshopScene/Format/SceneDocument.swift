@@ -204,6 +204,7 @@ struct SceneDocumentLoader {
             cameraPath: SceneDocument.Scene2DCameraPathDefinition.parse(root),
             imagePath: imagePath,
             staticModelPath: normalizedPath(root["model"] as? String),
+            modelShadowCastIntent: .parse(root["castshadow"]),
             particlePath: normalizedPath(root["particle"] as? String),
             sound: SceneDocument.SceneSoundLayerDefinition.parse(
                 resolvedObject: root,

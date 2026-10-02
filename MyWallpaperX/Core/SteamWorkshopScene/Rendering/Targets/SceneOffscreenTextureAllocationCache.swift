@@ -185,7 +185,7 @@ extension SceneOffscreenTextureAllocationCache {
             entry.sceneColorPins.remove(identity)
             residents.removeValue(forKey: key)
             switch key {
-            case .current(.layerGraph), .current(.sharedGraphPair), .current(.sceneColor), .current(.composition), .current(.compositionGroup), .current(.environment):
+            case .current(.layerGraph), .current(.sharedGraphPair), .current(.sceneColor), .current(.composition), .current(.compositionGroup), .current(.environment), .current(.directionalShadow):
                 residents[key] = entry
             case .history(let graphKey, _):
                 if let history = entry.historyOnlyEntry() {
@@ -236,10 +236,11 @@ extension SceneOffscreenTextureAllocationCache {
     nonisolated enum Key: Hashable {
         case composition(width: Int, height: Int)
         case environment(width: Int, height: Int)
+        case directionalShadow(width: Int, height: Int)
 
         var retainsReplacedSubmission: Bool {
             switch self {
-            case .composition, .compositionGroup, .environment: true
+            case .composition, .compositionGroup, .environment, .directionalShadow: true
             default: false
             }
         }

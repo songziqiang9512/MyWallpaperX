@@ -141,6 +141,7 @@ struct SceneRenderDescriptorBuilder {
                         return instance.textureSlots.first ?? nil
                     },
                     staticModelPath: object.staticModelPath,
+                    modelShadowCastIntent: object.modelShadowCastIntent,
                     usesPerspective: object.usesPerspective,
                     particlePath: object.particlePath,
                     pointLight: object.pointLight,

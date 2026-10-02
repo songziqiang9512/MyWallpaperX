@@ -113,7 +113,6 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
         self.assertIn("texture2d<half> colorTexture [[texture(0)]]", source)
         self.assertIn("texture2d<half> componentTexture [[texture(1)]]", source)
         self.assertIn("sampler colorSampler [[sampler(0)]]", source)
-        self.assertNotIn("constexpr sampler", source)
         self.assertIn("modelVertex.uv.x * uniforms.textureFrame0.zw", source)
         self.assertIn("modelVertex.uv.y * uniforms.textureFrame1.xy", source)
         self.assertIn("(uniforms.materialFlags.x & 1u) != 0u", source)
@@ -160,6 +159,7 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
                     str(DYNAMIC_SNAPSHOT_SOURCE),
                     str(DYNAMIC_LAYER_VALUES_SOURCE),
                     str(PERFORMANCE_COUNTER_SOURCE),
+                    str(SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"),
                     str(PIPELINE_SOURCE),
                 ],
                 capture_output=True,
@@ -316,6 +316,7 @@ enum MaterialHarness {
                     str(DYNAMIC_SNAPSHOT_SOURCE),
                     str(DYNAMIC_LAYER_VALUES_SOURCE),
                     str(PERFORMANCE_COUNTER_SOURCE),
+                    str(SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"),
                     str(PIPELINE_SOURCE),
                     str(harness),
                     "-framework", "Metal",
@@ -733,6 +734,7 @@ enum DepthPlanHarness {
                     str(DYNAMIC_SNAPSHOT_SOURCE),
                     str(DYNAMIC_LAYER_VALUES_SOURCE),
                     str(PERFORMANCE_COUNTER_SOURCE),
+                    str(SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"),
                     str(PIPELINE_SOURCE),
                     str(harness),
                     "-framework", "Metal",

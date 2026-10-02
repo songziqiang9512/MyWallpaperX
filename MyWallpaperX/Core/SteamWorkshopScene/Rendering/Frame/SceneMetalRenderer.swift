@@ -103,9 +103,8 @@ struct SceneMetalRenderer {
         // Submitted candidates remain provisional until the host barrier.
         var frameDepthLeases: [SceneParticleDepthTargetLease] = []
         defer { if !didTransferFrameOwnership { frameDepthLeases.forEach { $0.cancel() } } }
-        var staticModelDepthLease: SceneParticleDepthTargetLease?
-        var staticModelDepthWasCleared = false
-        var staticModelDepthPlan = SceneStaticModelDepthPlan()
+        let modelFrame = StaticModelFrame()
+        defer { if !didTransferFrameOwnership { modelFrame.cancel() } }
         // M2 Patch A：effect 执行证据链（每帧 trace + SHA256 cohort）只属于
         // 诊断/基准模式（runtime-architecture §5.5）；正常播放为 nil，
         // 全部 record 调用点为 optional 旁路。
@@ -262,16 +261,6 @@ struct SceneMetalRenderer {
         case let .rejected(reasonCode):
             return .dropped(reasonCode: reasonCode)
         }
-        if let pool = offscreenTexturePool,
-           let targets = reserveReflectionScratch(pool: pool, imageTextures: imageTextures,
-            frameContext: frameContext, framePlans: resolvedMaterialFrameTargetPlans,
-            visibleLayerIDs: frameVisibleLayerIDs, orderedLayers: orderedLayers,
-            worldFrames: frameWorldFrames, cameraFrame: cameraFrame, parallax: parallaxConfiguration,
-            terminalExtent: sceneColor == nil && displayMappingPostProcess != nil
-                ? (drawable.texture.width, drawable.texture.height) : nil,
-            commandBuffer: commandBuffer) {
-            reflection.admit(targets)
-        }
         performanceTelemetry?.endStage("prologue")
         hubStage(.prologueMicros, hubPrologueStart)
         performanceTelemetry?.beginStage("prepass")
@@ -286,6 +275,50 @@ struct SceneMetalRenderer {
         }
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
         performanceTelemetry?.endStage("prepass-particles")
+        let shadowLight = frameLightSnapshot.directional.first { $0.castsShadow }
+        let hasShadowReceiver = shadowLight != nil && orderedLayers.contains { layer in
+            frameVisibleLayerIDs.contains(layer.id)
+                && staticModelResources[layer.id]?.contains(where: { $0.material.receivesLighting }) == true
+        }
+        let lateSnapshotNeeded = hasShadowReceiver && orderedLayers.contains { layer in
+            guard frameVisibleLayerIDs.contains(layer.id),
+                  compositionGroupRuntime?.renderPass(forLayerID: layer.id) != nil
+                    || compositionGroupRuntime == nil else { return false }
+            if particleBatchesByID[layer.id]?.contains(where: { $0.refraction != nil }) == true { return true }
+            let blend = layer.colorBlendMode ?? 0
+            return ["image", "solid", "text"].contains(layer.contentKind) && blend > 0
+                && SceneLayerColorBlendRenderer.supports(blend)
+                && (resolvedMaterialFrameTargetPlans[layer.id] != nil
+                    || baseMaterialTextureSelection(for: layer, imageTextures: imageTextures,
+                        readyProviderUsesAuthoredLayerColor: baseMaterialReadyProviderUsesAuthoredLayerColor(
+                            for: layer, dynamicValues: frameContext.dynamicValues)).source != nil)
+        }
+        let shadowCandidates = hasShadowReceiver && !lateSnapshotNeeded
+            ? shadowDrawCandidates(orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
+                worldFrames: frameWorldFrames, snapshot: frameContext.dynamicValues,
+                groups: compositionGroupRuntime) : nil
+        var scratchReady = false
+        if let pool = offscreenTexturePool,
+           let targets = reserveOptionalEffectScratch(requiresShadow: shadowCandidates != nil,
+            pool: pool, imageTextures: imageTextures,
+            frameContext: frameContext, framePlans: resolvedMaterialFrameTargetPlans,
+            visibleLayerIDs: frameVisibleLayerIDs, orderedLayers: orderedLayers,
+            worldFrames: frameWorldFrames, cameraFrame: cameraFrame, parallax: parallaxConfiguration,
+            terminalExtent: sceneColor == nil && displayMappingPostProcess != nil
+                ? (drawable.texture.width, drawable.texture.height) : nil,
+            commandBuffer: commandBuffer) {
+            reflection.admit(targets); scratchReady = true
+        }
+        if scratchReady, let shadowCandidates, let shadowLight, let pool = offscreenTexturePool {
+            prepareModelShadow(state: modelFrame, candidates: shadowCandidates, light: shadowLight,
+                orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
+                batches: particleBatchesByID, particlePipeline: particlePipeline,
+                mainPass: mainPass, groups: compositionGroupRuntime, pool: pool,
+                commandBuffer: commandBuffer, leases: &frameDepthLeases,
+                mandatoryCapacity: { prepareTerminalCapacity(sceneColor: sceneColor,
+                    target: drawable.texture, dynamicValues: frameContext.dynamicValues) },
+                recordsEvidence: SceneDesktopWallpaperHost.usesDebugEvidenceWindow && frameContext.frameIndex <= 2)
+        }
         var stopsAfterClaimedFailure = false
         var lastLayerPass: SceneMainPassEncoder?
         var forwardGraphProviderLayerIDs: Set<Int> = []
@@ -742,130 +775,13 @@ struct SceneMetalRenderer {
             case "project", "fullscreen":
                 break
             case "model":
-                guard let pipeline = staticModelResources.pipeline,
-                      let preparedParts = staticModelResources[layer.id] else { continue }
-                for prepared in preparedParts {
-                    let albedoTexture: MTLTexture
-                    let albedoTextureFrame: SceneTextureUVTransform
-                    let albedoSampling: SceneTextureSampling
-                    let albedoIsPremultiplied: Bool
-                    if let albedo = prepared.albedo {
-                        albedoTexture = albedo.texture
-                        albedoTextureFrame = albedo.uvTransform
-                        albedoSampling = albedo.sampling
-                        albedoIsPremultiplied = false
-                    } else if let reference = prepared.namedAlbedo,
-                              let albedo = dependencyRuntime.staticModelNamedAlbedo(
-                                  for: layer.id,
-                                  materialPath: prepared.materialPath,
-                                  expectedReference: reference,
-                                  textureRegistry: textureRegistry
-                              ) {
-                        albedoTexture = albedo.texture
-                        albedoTextureFrame = albedo.textureFrame
-                        albedoSampling = albedo.sampling
-                        albedoIsPremultiplied = albedo.isPremultiplied
-                    } else {
-                        dependencyRuntime.recordStaticModelBindingFailure(
-                            for: layer.id
-                        )
-                        continue
-                    }
-                    let modelMatrix = frameWorldFrames[layer.id]
-                        ?? SceneMatrix.identity()
-                    let depthTarget = staticModelDepthPlan.target(
-                        geometryIdentity: prepared.geometryIdentity,
-                        modelMatrix: modelMatrix
-                    )
-                    if staticModelDepthLease == nil, depthTarget == .shared {
-                        let targetExtent = layerMainPass.targetExtent
-                        staticModelDepthLease = staticModelDepthTargetPool.acquire(
-                            device: device,
-                            width: targetExtent.width,
-                            height: targetExtent.height
-                        )
-                        if let staticModelDepthLease {
-                            frameDepthLeases.append(staticModelDepthLease)
-                        }
-                    }
-                    let modelDepthLease: SceneParticleDepthTargetLease?
-                    let clearsModelDepth: Bool
-                    switch depthTarget {
-                    case .shared:
-                        modelDepthLease = staticModelDepthLease
-                        clearsModelDepth = !staticModelDepthWasCleared
-                    case .isolated:
-                        let targetExtent = layerMainPass.targetExtent
-                        modelDepthLease = staticModelDepthTargetPool.acquire(
-                            device: device,
-                            width: targetExtent.width,
-                            height: targetExtent.height
-                        )
-                        if let modelDepthLease {
-                            frameDepthLeases.append(modelDepthLease)
-                        }
-                        clearsModelDepth = true
-                    }
-                    guard let modelDepthLease,
-                          let encoder = layerMainPass.encoder(
-                              depthTexture: modelDepthLease.texture,
-                              clearsDepth: clearsModelDepth,
-                              clearDepth: 0
-                          ) else {
-                        continue
-                    }
-                    if depthTarget == .shared {
-                        staticModelDepthWasCleared = true
-                    }
-                    let alpha = Float(SceneDynamicLayerValues.alpha(
-                        layerID: layer.id,
-                        authoredValue: layer.alpha,
-                        snapshot: frameContext.dynamicValues
-                    ))
-                    let material = prepared.material.resolvingDynamicValues(
-                        layerID: layer.id, materialPath: prepared.dynamicMaterialPath,
-                        snapshot: frameContext.dynamicValues
-                    ).resolvingDynamicViewTintBack(
-                        SceneDynamicLayerValues.color(
-                            layerID: layer.id,
-                            authoredValue: prepared.material.viewTint.map {
-                                [$0.back.x, $0.back.y, $0.back.z]
-                            },
-                            snapshot: frameContext.dynamicValues
-                        )
-                    )
-                    let encoded = pipeline.draw(
-                        mesh: prepared.mesh,
-                        texture: albedoTexture,
-                        colorTextureIsPremultiplied: albedoIsPremultiplied,
-                        emissiveMask: prepared.emissiveMask?.texture,
-                        emissiveMaskTextureFrame: prepared.emissiveMask?.uvTransform,
-                        emissiveMaskSampling: prepared.emissiveMask?.sampling,
-                        modelMatrix: modelMatrix,
-                        viewProjection: cameraFrame.reverseDepthViewProjection(
-                            usesPerspective: cameraFrame.resolvesPerspective(for: layer)
-                        ),
-                        cameraPosition: cameraFrame.perspectiveEyePosition,
-                        textureFrame: albedoTextureFrame,
-                        sampling: albedoSampling,
-                        layerAlpha: alpha,
-                        material: material,
-                        lighting: frameLightSnapshot,
-                        writesDepth: prepared.writesDepth,
-                        encoder: encoder
-                    )
+                let lit = drawStaticModel(layer: layer, state: modelFrame,
+                    worldFrames: frameWorldFrames, frameContext: frameContext,
+                    cameraFrame: cameraFrame, lighting: frameLightSnapshot,
+                    pass: layerMainPass, commandBuffer: commandBuffer, leases: &frameDepthLeases)
 #if DEBUG
-                    if collectsPointLightExecutionEvidence,
-                       encoded, material.receivesLighting {
-                        pointLitStaticModelLayerIDs.append(layer.id)
-                    }
+                if collectsPointLightExecutionEvidence, lit { pointLitStaticModelLayerIDs.append(layer.id) }
 #endif
-                    dependencyRuntime.recordStaticModelBindingIfRequired(
-                        for: layer.id,
-                        encoded: encoded,
-                        on: commandBuffer
-                    )
-                }
             case "quad":
                 if !drawQuadLayer(
                     layer: layer,
@@ -905,9 +821,10 @@ struct SceneMetalRenderer {
                     ),
                     mainPass: layerMainPass,
                     commandBuffer: commandBuffer,
+                    preparedDepth: modelFrame.particleDepth[layer.id],
                     performanceObservations: &particlePerformanceObservations
                 ) {
-                    frameDepthLeases.append(depthLease)
+                    if modelFrame.particleDepth[layer.id] == nil { frameDepthLeases.append(depthLease) }
                 }
             default:
                 continue
@@ -969,6 +886,7 @@ struct SceneMetalRenderer {
             sourceUpdateTransaction.arm(on: commandBuffer)
             frameDepthLeases.forEach { $0.arm(on: commandBuffer) }
             reflectionFrame?.arm()
+            modelFrame.arm(on: commandBuffer)
             mainPassForSubmission?.armCompositionPins()
             commandBuffer.commit()
             sourceUpdateTransaction.didSubmit()
@@ -977,6 +895,7 @@ struct SceneMetalRenderer {
             sourceUpdateTransaction.cancel()
             compositionGroupRuntime?.cancel()
             reflectionFrame?.cancel()
+            modelFrame.cancel()
             mainPassForSubmission?.cancelCompositionPins()
             frameDepthLeases.forEach { $0.cancel() }
             particleBatches.forEach {

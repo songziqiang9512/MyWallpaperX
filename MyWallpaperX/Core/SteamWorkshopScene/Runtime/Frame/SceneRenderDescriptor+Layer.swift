@@ -11,6 +11,7 @@ extension SceneRenderDescriptor {
         /// Prepared layer-local static slot 0; nil inherits the model material.
         var staticBaseTexturePath: String? = nil
         var staticModelPath: String? = nil
+        var modelShadowCastIntent: SceneShadowCastIntent? = nil
         var usesPerspective: Bool? = nil
         let particlePath: String?
         var pointLight: ScenePointLightDefinition? = nil

@@ -10,6 +10,7 @@ extension SceneMetalRenderer {
         viewportSize: SIMD2<Float>,
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
+        preparedDepth: StaticModelFrame.Depth? = nil,
         performanceObservations: inout [SceneParticlePerformanceObservation]?
     ) -> SceneParticleDepthTargetLease? {
         // Install completion ownership before the first draw.  A command can
@@ -27,10 +28,13 @@ extension SceneMetalRenderer {
         }
         let usesDepth = batches.contains { $0.renderState.requiresDepthAttachment }
         let targetExtent = mainPass.targetExtent
-        let depthLease = usesDepth ? pipeline.acquireDepthTarget(
-            width: targetExtent.width,
-            height: targetExtent.height
-        ) : nil
+        let depthLease: SceneParticleDepthTargetLease?
+        if let preparedDepth {
+            depthLease = preparedDepth.lease
+        } else {
+            depthLease = usesDepth ? pipeline.acquireDepthTarget(
+                width: targetExtent.width, height: targetExtent.height) : nil
+        }
         guard !usesDepth || depthLease != nil else {
             batches.forEach { _ = $0.instanceBuffer.cancelPending() }
             return nil

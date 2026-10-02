@@ -364,6 +364,7 @@
           "SceneMetalRenderer+LightEvidence.swift",
           "SceneMetalRenderer+ParticlePointer.swift",
           "SceneMetalRenderer+Particles.swift",
+          "SceneMetalRenderer+StaticModels.swift",
           "SceneMetalRenderer+TextureFrame.swift",
           "SceneMetalRenderer+UtilitySourceCoverage.swift",
           "SceneMetalRenderer.swift",

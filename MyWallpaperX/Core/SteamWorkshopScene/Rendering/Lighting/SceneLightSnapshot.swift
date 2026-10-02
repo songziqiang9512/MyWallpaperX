@@ -6,6 +6,8 @@ struct SceneLightSnapshot {
     static let maximumLightCount = 4
 
     struct Directional {
+        var layerID: Int? = nil
+        var castsShadow: Bool = false
         let directionTowardLight: SIMD3<Float>
         let color: SIMD3<Float>
         let intensity: Float
@@ -175,6 +177,7 @@ struct SceneLightSnapshot {
               let intensity,
               intensity.isFinite, intensity >= 0 else { return nil }
         return Directional(
+            layerID: layer.id, castsShadow: definition.shadowCastIntent == .enabled,
             directionTowardLight: direction,
             color: dynamicColor
                 ?? color(definition.colorRGB, fallback: SIMD3(1, 1, 1)),

@@ -4,9 +4,24 @@ import Foundation
 /// Loss-preserving inputs needed by lit material programs for authored
 /// directional lights. Dynamic wrappers contribute their authored fallback;
 /// the live typed-input owner can replace it without changing this shape.
+enum SceneShadowCastIntent: String, Codable, Equatable {
+    case omitted, enabled, disabled, invalid
+
+    nonisolated static func parse(_ raw: Any?) -> Self {
+        guard let raw else { return .omitted }
+        let value = (raw as? [String: Any])?["value"] ?? raw
+        guard let number = value as? NSNumber,
+              CFGetTypeID(number) == CFBooleanGetTypeID() else { return .invalid }
+        return number.boolValue ? .enabled : .disabled
+    }
+
+    var modelCastsShadow: Bool { self == .omitted || self == .enabled }
+}
+
 struct SceneDirectionalLightDefinition: Codable, Equatable {
     let colorRGB: [Float]?
     let intensity: Float?
+    var shadowCastIntent: SceneShadowCastIntent? = nil
 
     nonisolated static func parse(
         _ root: [String: Any]
@@ -17,7 +32,8 @@ struct SceneDirectionalLightDefinition: Codable, Equatable {
         }
         return SceneDirectionalLightDefinition(
             colorRGB: vector(resolvedValue(root["color"])),
-            intensity: number(resolvedValue(root["intensity"]))
+            intensity: number(resolvedValue(root["intensity"])),
+            shadowCastIntent: .parse(root["castshadow"])
         )
     }
 

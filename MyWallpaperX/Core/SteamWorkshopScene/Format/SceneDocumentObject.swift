@@ -276,6 +276,7 @@ extension SceneDocument {
         /// Direct static 3D model authored at `objects[].model`. Puppet image
         /// meshes remain owned by the image/animation path and do not use this.
         var staticModelPath: String? = nil
+        var modelShadowCastIntent: SceneShadowCastIntent = .omitted
         let particlePath: String?
         let sound: SceneSoundLayerDefinition?
         var pointLight: ScenePointLightDefinition? = nil

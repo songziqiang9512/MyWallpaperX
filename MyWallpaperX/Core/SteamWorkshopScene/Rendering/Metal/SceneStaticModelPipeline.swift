@@ -4,6 +4,8 @@ import simd
 struct SceneStaticModelMesh {
     fileprivate let vertexBuffer: MTLBuffer
     fileprivate let indexBuffer: MTLBuffer
+    let boundsMinimum: SIMD3<Float>
+    let boundsMaximum: SIMD3<Float>
     let indexCount: Int
     fileprivate let indexType: MTLIndexType
 }
@@ -116,6 +118,78 @@ struct SceneStaticModelMaterial {
     }
 }
 
+/// Light projection uses actual prepared vertex bounds and current world transforms.
+/// It is independent of the scene camera, so offscreen casters remain represented.
+struct SceneDirectionalShadowProjection {
+    let worldToClip: simd_float4x4
+    let depthBias: Float
+
+    static func make(
+        bounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4)],
+        directionTowardLight: SIMD3<Float>, resolution: Int
+    ) -> Self? {
+        let toward = SIMD3<Double>(directionTowardLight)
+        let magnitude = simd_length(toward)
+        guard magnitude.isFinite, magnitude > 0, !bounds.isEmpty else { return nil }
+        let z = -toward / magnitude
+        let reference = abs(z.y) < 0.9 ? SIMD3<Double>(0, 1, 0) : SIMD3<Double>(1, 0, 0)
+        let x = simd_normalize(simd_cross(reference, z))
+        let y = simd_cross(z, x)
+        var minimum = SIMD3<Double>(repeating: .infinity)
+        var maximum = SIMD3<Double>(repeating: -.infinity)
+        for item in bounds {
+            for corner in 0..<8 {
+                let local = SIMD4<Float>(
+                    corner & 1 == 0 ? item.minimum.x : item.maximum.x,
+                    corner & 2 == 0 ? item.minimum.y : item.maximum.y,
+                    corner & 4 == 0 ? item.minimum.z : item.maximum.z, 1)
+                let transformed = item.world * local
+                let point = SIMD3<Double>(Double(transformed.x), Double(transformed.y), Double(transformed.z))
+                guard point.x.isFinite, point.y.isFinite, point.z.isFinite else { return nil }
+                let light = SIMD3(simd_dot(point, x), simd_dot(point, y), simd_dot(point, z))
+                minimum = simd_min(minimum, light); maximum = simd_max(maximum, light)
+            }
+        }
+        let span = maximum - minimum
+        let scale = max(simd_reduce_max(span), 0.0001)
+        let texel = max(span.x, span.y, scale * 0.001) / Double(resolution)
+        let padding = max(texel * 2, scale * 0.001)
+        minimum -= SIMD3(repeating: padding)
+        maximum += SIMD3(repeating: padding)
+        let extent = maximum - minimum
+        let rowX = SIMD4<Double>(x * (2 / extent.x), -(maximum.x + minimum.x) / extent.x)
+        let rowY = SIMD4<Double>(y * (2 / extent.y), -(maximum.y + minimum.y) / extent.y)
+        let rowZ = SIMD4<Double>(z / extent.z, -minimum.z / extent.z)
+        let matrix = simd_double4x4(rows: [rowX, rowY, rowZ, SIMD4(0, 0, 0, 1)])
+        let result = simd_float4x4(columns: (SIMD4<Float>(matrix.columns.0),
+            SIMD4<Float>(matrix.columns.1), SIMD4<Float>(matrix.columns.2), SIMD4<Float>(matrix.columns.3)))
+        guard (0..<4).allSatisfy({ column in
+            (0..<4).allSatisfy { result[column][$0].isFinite }
+        }) else { return nil }
+        // Receiver-plane correction handles the filter footprint. Leave only
+        // Float32 transform/interpolation/compare rounding tolerance, scaled
+        // by the fragment's depth arithmetic magnitude in the shader.
+        return Self(worldToClip: result, depthBias: 8 * Float.ulpOfOne)
+    }
+}
+
+struct SceneStaticModelShadow {
+    let texture: MTLTexture
+    let frameEpoch: UInt64
+    let generation: UInt64
+    let lightLayerID: Int
+    let worldToLightClip: simd_float4x4
+    let depthBias: Float
+    let commandBuffer: MTLCommandBuffer
+}
+
+private struct SceneStaticModelShadowUniforms {
+    var modelToLightClip: simd_float4x4
+    var textureFrame0: SIMD4<Float>
+    var textureFrame1: SIMD4<Float>
+    var coverage: SIMD4<Float>
+}
+
 private struct SceneStaticModelUniforms {
     var modelMatrix: simd_float4x4
     var viewProjectionMatrix: simd_float4x4
@@ -163,6 +237,8 @@ private struct SceneStaticModelUniforms {
     var spotColorIntensity2: SIMD4<Float>
     var spotColorIntensity3: SIMD4<Float>
     var spotOuterCosines: SIMD4<Float>
+    var worldToShadowClip: simd_float4x4
+    var shadowParameters: SIMD4<Float>
 }
 
 /// Fixed, bounded pipeline for decoded static-model triangles. It consumes the
@@ -175,6 +251,8 @@ struct SceneStaticModelPipeline {
     private let writingDepthState: MTLDepthStencilState
     private let nonwritingDepthState: MTLDepthStencilState
     private let samplerStates: SceneTextureSamplerStateSet
+    private let shadowState: MTLRenderPipelineState?
+    private let shadowDepthState: MTLDepthStencilState?
 
     init?(
         device: MTLDevice,
@@ -227,6 +305,16 @@ struct SceneStaticModelPipeline {
         self.writingDepthState = writingDepthState
         self.nonwritingDepthState = nonwritingDepthState
         self.samplerStates = samplerStates
+        let shadowDescriptor = MTLRenderPipelineDescriptor()
+        shadowDescriptor.label = "Scene directional model shadow"
+        shadowDescriptor.vertexFunction = library.makeFunction(name: "sceneStaticModelShadowVertex")
+        shadowDescriptor.fragmentFunction = library.makeFunction(name: "sceneStaticModelShadowFragment")
+        shadowDescriptor.depthAttachmentPixelFormat = .depth32Float
+        shadowState = try? device.makeRenderPipelineState(descriptor: shadowDescriptor)
+        let shadowDepth = MTLDepthStencilDescriptor()
+        shadowDepth.depthCompareFunction = .lessEqual
+        shadowDepth.isDepthWriteEnabled = true
+        shadowDepthState = device.makeDepthStencilState(descriptor: shadowDepth)
     }
 
     /// Uploads immutable decoded geometry after validating the fixed Swift/MSL
@@ -270,6 +358,8 @@ struct SceneStaticModelPipeline {
         return SceneStaticModelMesh(
             vertexBuffer: vertexBuffer,
             indexBuffer: indexBuffer,
+            boundsMinimum: vertices.reduce(vertices[0].position) { simd_min($0, $1.position) },
+            boundsMaximum: vertices.reduce(vertices[0].position) { simd_max($0, $1.position) },
             indexCount: indices.count,
             indexType: usesWideIndices ? .uint32 : .uint16
         )
@@ -294,6 +384,9 @@ struct SceneStaticModelPipeline {
         material: SceneStaticModelMaterial,
         lighting: SceneLightSnapshot,
         writesDepth: Bool,
+        shadow: SceneStaticModelShadow? = nil,
+        frameEpoch: UInt64 = 0,
+        commandBuffer: MTLCommandBuffer? = nil,
         encoder: MTLRenderCommandEncoder
     ) -> Bool {
         guard Self.isFinite(modelMatrix),
@@ -322,6 +415,13 @@ struct SceneStaticModelPipeline {
               Self.isValid(material.viewTint),
               let normalMatrix = Self.normalMatrix(for: modelMatrix) else {
             return false
+        }
+        let acceptedShadow = shadow.flatMap { value -> (SceneStaticModelShadow, Int)? in
+            guard value.frameEpoch == frameEpoch, value.commandBuffer === commandBuffer,
+                  let index = lighting.directional.firstIndex(where: {
+                      $0.layerID == value.lightLayerID && $0.castsShadow
+                  }) else { return nil }
+            return (value, index)
         }
         let lights = Self.encodedLights(lighting.directional)
         let points = Self.encodedPoints(lighting.point)
@@ -423,7 +523,10 @@ struct SceneStaticModelPipeline {
                 spots[1].outerCosine,
                 spots[2].outerCosine,
                 spots[3].outerCosine
-            )
+            ),
+            worldToShadowClip: acceptedShadow?.0.worldToLightClip ?? matrix_identity_float4x4,
+            shadowParameters: SIMD4(acceptedShadow.map { Float($0.1) } ?? -1,
+                acceptedShadow?.0.depthBias ?? 0, 0, 0)
         )
 
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
@@ -443,6 +546,7 @@ struct SceneStaticModelPipeline {
             length: MemoryLayout<SceneStaticModelUniforms>.stride,
             index: 1
         )
+        encoder.setFragmentTexture(acceptedShadow?.0.texture, index: 2)
         encoder.setFragmentTexture(texture, index: 0)
         // Keep the fixed Metal ABI bound even when this optional channel is
         // absent; the material flag prevents the placeholder from sampling.
@@ -467,6 +571,40 @@ struct SceneStaticModelPipeline {
             indexBuffer: mesh.indexBuffer,
             indexBufferOffset: 0
         )
+        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+        return true
+    }
+
+    /// Uses the same validated mesh and alpha contract as the color draw.
+    /// The frame owner supplies the light target and closes this encoder before reads.
+    func drawShadow(
+        mesh: SceneStaticModelMesh, texture: MTLTexture,
+        textureFrame: SceneTextureUVTransform, sampling: SceneTextureSampling,
+        modelMatrix: simd_float4x4, lightViewProjection: simd_float4x4,
+        layerAlpha: Float, material: SceneStaticModelMaterial,
+        encoder: MTLRenderCommandEncoder
+    ) -> Bool {
+        guard let shadowState, let shadowDepthState,
+              Self.isFinite(modelMatrix), Self.isFinite(lightViewProjection),
+              Self.isValid(textureFrame), sampling.isResolvedForMaterialProgram,
+              !sampling.usesClampBorderFallback, layerAlpha.isFinite,
+              material.opacity.isFinite, texture.device === device else { return false }
+        var uniforms = SceneStaticModelShadowUniforms(
+            modelToLightClip: lightViewProjection * modelMatrix,
+            textureFrame0: textureFrame.uniform0, textureFrame1: textureFrame.uniform1,
+            coverage: SIMD4(min(max(material.opacity * layerAlpha, 0), 1),
+                            material.textureAlphaIsOpacity ? 1 : 0, 0, 0))
+        encoder.setRenderPipelineState(shadowState)
+        encoder.setDepthStencilState(shadowDepthState)
+        encoder.setFrontFacing(.counterClockwise)
+        encoder.setCullMode(.back)
+        encoder.setVertexBuffer(mesh.vertexBuffer, offset: 0, index: 0)
+        encoder.setVertexBytes(&uniforms, length: MemoryLayout<SceneStaticModelShadowUniforms>.stride, index: 1)
+        encoder.setFragmentBytes(&uniforms, length: MemoryLayout<SceneStaticModelShadowUniforms>.stride, index: 1)
+        encoder.setFragmentTexture(texture, index: 0)
+        encoder.setFragmentSamplerState(samplerStates.state(for: sampling), index: 0)
+        encoder.drawIndexedPrimitives(type: .triangle, indexCount: mesh.indexCount,
+            indexType: mesh.indexType, indexBuffer: mesh.indexBuffer, indexBufferOffset: 0)
         ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
         return true
     }
@@ -520,7 +658,7 @@ struct SceneStaticModelPipeline {
     /// same test that executes this gate; host-side drift rejects pipeline
     /// preparation before any draw can be encoded.
     static let hasExpectedUniformABI =
-        MemoryLayout<SceneStaticModelUniforms>.stride == 864
+        MemoryLayout<SceneStaticModelUniforms>.stride == 944
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.modelMatrix) == 0
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.viewProjectionMatrix) == 64
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.normalMatrix) == 128

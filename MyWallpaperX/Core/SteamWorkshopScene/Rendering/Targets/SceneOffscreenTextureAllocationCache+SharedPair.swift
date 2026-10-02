@@ -22,6 +22,10 @@ struct SceneOffscreenTextureAllocationCandidate {
         switch (key, allocation) {
         case let (.composition(width, height), .composition(texture, _)):
             texture.width == width && texture.height == height && texture.mipmapLevelCount == 1
+        case let (.directionalShadow(width, height), .composition(texture, _)):
+            texture.width == width && texture.height == height
+                && texture.pixelFormat == .depth32Float && texture.mipmapLevelCount == 1
+                && texture.usage.contains([.shaderRead, .renderTarget])
         case let (.environment(width, height), .composition(texture, _)):
             texture.width == width && texture.height == height
         case let (.compositionGroup(_, width, height), .composition(texture, _)):

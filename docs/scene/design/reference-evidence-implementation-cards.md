@@ -125,9 +125,9 @@ HDR clear=false 的 raw/candidate/display 分离、GPU成功提升、paused新ep
 
 **owner与失败路。** prepared material profile拥有有效feature与需求；现cache/catalog/registry拥有数据纹理、逐槽frame与生命周期；同帧camera/light与lit producer拥有方向/材质响应。缺可选PBR资源只移除未可用的map输入，沿设计使用合法scalar/default并保留normal/alpha；identity/range/hazard仍拒最小unsafe unit，不能新建PBR registry、camera或compositor。
 
-**备选与边界。** 默认typed环境reflection-only已完成本片验收；sameFrameSceneBackground仍是独立的逐consumer单mip合同。真实REFLECTION=1/LIGHTING=0的两个完整原包、显式环境输入等仍属后继边界；本片材料presentation不等于完整原包恢复。第二备选为既有direct-static 3D有界PBR，须独立核该model家族输入，不照搬2D slot2。环境来源、reset和额外动态provider不作为直射片的无限前置。RF11首帧预算片已恢复实际原包输出；[D3 F4](2d-lighting-material-design.md#f4-material-user-emission)已沿原属性owner接通catalog emissivebrightness启动、实时0→1→0与回滚，实际App、原包六目标和固定alpha材料贡献门已执行，冻结结果与终审状态见[执行记录](../../history/scene/d3-material-user-emission-implementation-2026-10-02.md)。F5的隐藏2D输入和第三方一次共享本帧前缀顺序已获[中性审查](../../history/scene/d3-reflection-environment-neutral-contract-2026-10-02.md)，不等同官方时序证明；[F5设计与实施卡](2d-lighting-material-design.md#f5-reflection-environment)的默认环境反射已接入真实主链，实际GPU/App与终审状态见[执行记录](../../history/scene/d3-reflection-environment-implementation-2026-10-02.md)。下一片按[D3 F6](2d-lighting-material-design.md#f6-model-directional-shadow)推进现静态模型的单方向光阴影：公开合同与合法语料已把投影范围纠正为真实模型几何，选有作者受益输入的directional；复用现灯、mesh、target与compositor，独立算法并验证遮挡/不遮挡、移动灯/对象、mandatory资源保护和局部失败；缺私有算法不作为跳过理由；其它字段、Puppet受光与instance实时输入按真实consumer独立扩展，不在profile直接求值raw、不建立第二属性通路。真实sun完整包的共同既有首帧预算断点已在RF11消除重复计费；这不是完整画面一致性结论。
+**备选与边界。** 默认typed环境reflection-only已完成本片验收；sameFrameSceneBackground仍是独立的逐consumer单mip合同。真实REFLECTION=1/LIGHTING=0的两个完整原包、显式环境输入等仍属后继边界；本片材料presentation不等于完整原包恢复。第二备选为既有direct-static 3D有界PBR，须独立核该model家族输入，不照搬2D slot2。环境来源、reset和额外动态provider不作为直射片的无限前置。RF11首帧预算片已恢复实际原包输出；[D3 F4](2d-lighting-material-design.md#f4-material-user-emission)已沿原属性owner接通catalog emissivebrightness启动、实时0→1→0与回滚，实际App、原包六目标和固定alpha材料贡献门已执行，冻结结果与终审状态见[执行记录](../../history/scene/d3-material-user-emission-implementation-2026-10-02.md)。F5的隐藏2D输入和第三方一次共享本帧前缀顺序已获[中性审查](../../history/scene/d3-reflection-environment-neutral-contract-2026-10-02.md)，不等同官方时序证明；[F5设计与实施卡](2d-lighting-material-design.md#f5-reflection-environment)的默认环境反射已接入真实主链，实际GPU/App与终审状态见[执行记录](../../history/scene/d3-reflection-environment-implementation-2026-10-02.md)。[D3 F6](2d-lighting-material-design.md#f6-model-directional-shadow)已实现现静态模型的单方向光阴影，实际验收见[执行记录](../../history/scene/d3-model-directional-shadow-implementation-2026-10-02.md)：公开合同与合法语料已把投影范围纠正为真实模型几何，选有作者受益输入的directional；复用现灯、mesh、target与compositor，独立算法并验证遮挡/不遮挡、移动灯/对象、mandatory资源保护和局部失败；缺私有算法不作为跳过理由；其它字段、Puppet受光与instance实时输入按真实consumer独立扩展，不在profile直接求值raw、不建立第二属性通路。真实sun完整包的共同既有首帧预算断点已在RF11消除重复计费；这不是完整画面一致性结论。
 
-**纠正门/退役。** 先建立实际缺响应反例；逐通道自写阶梯、固定灯与normal，检查独立分量、粗糙度高光范围、相机/灯移动、作者开关和无串通道。slot2独立frame/sampler、同路径color/data、下一帧更新、缺图局部退化与健康邻层均过实际消费门；plain/effect到terminal有身份、completion、publication与ROI。真实作者材料另做隔离回归，不能以自有oracle宣称官方PBR。本片稳定职责已移交原owner，默认环境反射验收见F5执行记录；下一按[D3 F6](2d-lighting-material-design.md#f6-model-directional-shadow)推进静态模型单方向光阴影。
+**纠正门/退役。** 先建立实际缺响应反例；逐通道自写阶梯、固定灯与normal，检查独立分量、粗糙度高光范围、相机/灯移动、作者开关和无串通道。slot2独立frame/sampler、同路径color/data、下一帧更新、缺图局部退化与健康邻层均过实际消费门；plain/effect到terminal有身份、completion、publication与ROI。真实作者材料另做隔离回归，不能以自有oracle宣称官方PBR。本片稳定职责已移交原owner，默认环境反射验收见F5执行记录；F6有界实现已通过独立终审，下一按[RF12](#rf12-late-snapshot-capacity)消除背景快照晚申请对阴影共存的限制。
 
 <a id="rf11-frame-target-budget"></a>
 
@@ -136,6 +136,18 @@ HDR clear=false 的 raw/candidate/display 分离、GPU成功提升、paused新ep
 **结果与owner。** 完整作者包原先被shared HDR pair重复计费阻断首帧。`SceneLayerGraphTargetPlan`现只累加实际私有槽，shared pair仍由原pool按key及实际格式计费；不涨预算、不降精度、不改变alias或lease。行为红证、HDR/SDR预算边界、真实allocation/completion/next-frame及原包输出证据见[执行记录](../../history/scene/rf11-shared-hdr-target-budget-implementation-2026-10-02.md)。稳定职责移交[架构§3.3](runtime-architecture.md#33-保留事务安全不扩大视觉失败半径)，原[窄设计](../../history/scene/rf11-shared-graph-pair-budget-design-2026-10-02.md)保留设计决策来源。
 
 **验证上限与后继。** 相同原输入、预算策略和单surface配置已完成GPU frame0/1/2及安全drain，作者开场字卡可见并变化；不证明后续太阳系全景、官方parity或性能改善。真正超预算、整数溢出、history、generation和在飞资源门保持原拒绝。下一片回RF10的2D材料用户属性：先沿唯一resolver核声明、层身份和事务，再接现lit consumer，之后继续明确环境资源的reflection和阴影。
+
+<a id="rf12-late-snapshot-capacity"></a>
+
+### RF12 — 同帧背景快照的确定性资源准备（F6 后继）
+
+**用户结果与当前断点。** 已有 refraction 粒子和 image/solid/text 的 color-blend 在实际 draw 时才从 `Rendering/Composition/SceneFramebufferSnapshot.swift:29–75` 取得背景纹理；color-blend 与粒子分别持有该类的实例，各实例目前只保留单一尺寸。F6 因无法预留这些必需资源而在真实消费者存在时关闭 optional shadow，见[D3 F6](2d-lighting-material-design.md#f6-model-directional-shadow)。本卡让这些已有效果与新阴影共存，不把当前安全降级永久写成能力上限。
+
+**owner 与选型。** 先冻结实际 prepared consumer 集合、同帧 target extent/format 与当前 copy 点；在原 snapshot/资源 owner 中准备真实所需容量，由原 capture 消费。复用现 frame/command buffer 生命周期，保持每个消费者看到其作者顺序之前的当前背景，不用 F5 首次反射前缀代替逐消费者 snapshot，不建立新资源 registry。容量设计先登记门禁并经独立审查批准，再实施；本卡本身不是新设计的实施授权。现 frameContext.screenSize 来自 drawableSize（SceneMetalView+FrameContext.swift:24），group 由该尺寸创建（SceneUtilityLayerRuntimePlan.swift:418–426），main raw 来自 drawable texture；没有证实同帧多尺寸的作者触发。先在各原实例保单槽并准备实际最终 target 容量，不把 layer crop/source extent 错当背景尺寸，也不为假设场景造多槽。若实际观测推翻单尺寸前提，再扩该 owner；不能只估字节或给 optional 留固定余量。
+
+**纠正门与 fallback。** 自造真实作者输入先证明“效果正常但使阴影关闭”，再验证两者在同一 App 帧实际执行；跨帧至少两个 extent、同帧前后不同背景、透明/HDR、resize/在飞/取消/预算失败与下一帧恢复；同帧 main/group 实际尺寸先核验，不预设差异。必需资源不足仍保持原效果的失败半径，optional shadow 只在实际资源可消费时启用；没有真实 refraction batch 或可绘制 color-blend source 的声明不占容量。只在所有真实晚申请已被原 owner 的准备结果接管后删除 F6 对应排除；未 ready named-model binding 的另一边界不能混同关闭。
+
+**退役与后继。** 稳定容量/顺序/生命周期合同移交架构、执行证据留批记录后退役本卡。随后按合法作者受益输入选择 model spot/point 阴影或 named caster 的下一切片；光型扩展继续使用唯一灯和模型 owner，不能用单向投影冒称全向 point。证据不完整时先做可区分实验，不用缺少官方公式作为跳过理由。
 
 ## 3. 全部59项去向
 

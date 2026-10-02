@@ -191,6 +191,8 @@ continue
 
 默认2D环境反射复用同一材质profile、准备期pipeline和plain/graph lit consumer，独立于直射开关；显式环境输入不能被默认快照冒名替代。首次实际受支持source消费前，现frame owner关闭活动编码器并对当时全局主场景前缀执行一次copy和完整mip生成；同帧共享，下一帧重新生产。typed资源直接进入本次提交，不另存registry或history。可选环境分配前，原池原子预留后续必需source与terminal scratch；实际分配失败不提交前缀eviction。所有实际composition scratch访问均取得同command buffer pin，group归现parent/root提交生命周期；同CB顺序复用，跨CB旧generation持续计费至completion，未提交取消可释放。反射仅增补共享lit表面项，保原覆盖、alpha和raw/display输出职责。具体准入与项目独立数值方法仍由[D3 F5设计](2d-lighting-material-design.md#f5-reflection-environment)限定，不外推官方parity。
 
+静态模型方向光阴影沿原 Format/descriptor 与唯一 LightSnapshot 保留作者投影意图和灯身份；只使用当前主链可绘的准备几何及同帧 world/visibility/material，不虚构 image 高度或第二套变换。候选复用原颜色绘制的变换准入，单个不可绘模型局部剔除；cast 与材质受光、相机 depth-write 开关分别属于不同合同。原模型/粒子 depth 计划、实际 source/terminal scratch 与 Bloom 容量先准备并交原 draw 一次消费，再向既有 offscreen pool 申请 optional 灯深度，失败不抢占原输出。尚不能提前确定的 late binding/snapshot 需求保持原绘制路径，并局部关闭本帧 shadow；扩展这些组合须在原 owner 补完确定性资源准备后撤销边界。当前灯深度只随同一 frame/command buffer 发布，已编码资源 pin 到真实 completion；未提交才取消，不把前帧阴影冒作当前结果。接收端只衰减对应方向光的直射分量，保留其它光、ambient、emission、alpha 与唯一显示输出；滤波按真实接收几何校正，失效 tap 局部回无影。具体质量、投影和 cutout 策略及光型/几何范围由[D3 F6](2d-lighting-material-design.md#f6-model-directional-shadow)限定，不外推完整阴影或官方 parity。
+
 不得为了“统一”把所有对象压进一个 draw call、一个巨型类型或一个先建完才可运行的平台，也不得让专用子系统重新拥有第二套资源、属性、图、帧时序或最终输出。新增专用子系统时，先声明它生产哪种共享运行对象、如何接入现有 graph/output、局部失败如何回到安全的 previous current。
 
 ### 3.5 启动是候选事务，不是全量兼容门

@@ -436,11 +436,11 @@ Launch现有profile normal/map聚合应能自然接入，不为环境建立第�
 
 
 <a id="f6-model-directional-shadow"></a>
-## F6 — 静态模型单方向光阴影（设计已批准，实施待验收）
+## F6 — 静态模型单方向光阴影（有界实现已验收）
 
 ### 目标、证据与范围纠正
 
-基线 `67b2b644`。本片使现已准备的 direct static-model 三角几何在显式启用投影的方向光下互相遮挡，仅衰减该灯的直射贡献，继续由现模型 draw 写入唯一 compositor。它可用于含模型的正交或透视 Scene；普通 image、Puppet、粒子不因层 Z 或 normal 被虚构为模型投影者。五判据①跨 Format/prepare/frame/Metal、②光源与资源唯一权威、④资源/ABI基线、⑤外部作者合同命中；窄登记 `scene-static-model-directional-shadow` 已获独立设计 ACCEPT。审查绑定批准前文档 SHA `b3f1936541f25b5a6dadd34c46652dcf74d773dccd31e1a629f7975d299c1be9`、登记 SHA `38476482cc9fc62db8c6967cbf457224896b7b02379ef758e0e64293c88d190f`；本机 `/private/tmp/mwx-2d-shadow/design-review.md` SHA `141296d6b307980deb4b49f1b7212c5144148908ac144a6cf1601d0685537d9f`。批准设计不是产品验收。
+基线 `67b2b644`。本片使现已准备的 direct static-model 三角几何在显式启用投影的方向光下互相遮挡，仅衰减该灯的直射贡献，继续由现模型 draw 写入唯一 compositor。它可用于含模型的正交或透视 Scene；普通 image、Puppet、粒子不因层 Z 或 normal 被虚构为模型投影者。五判据①跨 Format/prepare/frame/Metal、②光源与资源唯一权威、④资源/ABI基线、⑤外部作者合同命中；窄登记 `scene-static-model-directional-shadow` 已获独立设计 ACCEPT。审查绑定批准前文档 SHA `b3f1936541f25b5a6dadd34c46652dcf74d773dccd31e1a629f7975d299c1be9`、登记 SHA `38476482cc9fc62db8c6967cbf457224896b7b02379ef758e0e64293c88d190f`；本机 `/private/tmp/mwx-2d-shadow/design-review.md` SHA `141296d6b307980deb4b49f1b7212c5144148908ac144a6cf1601d0685537d9f`。设计批准本身不是产品验收；本片现已通过独立产品终审，冻结身份、实际红绿与未验边界见[执行记录](../../history/scene/d3-model-directional-shadow-implementation-2026-10-02.md)。仅本窄登记退役，完整D3与其余光型保持原边界。
 
 - `official-public-contract`：[3D Advanced Lighting](https://docs.wallpaperengine.io/en/scene/models/lighting.html) 明确 point/spot/directional 均支持、灯须开启投影、模型默认投影且可逐模型关闭；[模型介绍](https://docs.wallpaperengine.io/en/scene/models/introduction.html)允许 2D Scene 含真实 3D 模型。它们不公开投影数学、透明度规则或序列化字段。
 - `third-party-reference-pattern`：[Mirage 中性参考 §8.4](../semantics/miragewallpaper-rendering-reference.md#84-lightingfogshadow-和-volumetrics)记录 flags/uniform、缺 shadow atlas 及正交 image 抑制整灯。只采用输入/职责边界，不继承关整灯策略，不复制实现。它不能证明 image 投影合同。
@@ -457,7 +457,7 @@ Launch现有profile normal/map聚合应能自然接入，不为环境建立第�
 
 ### 独立投影与材质策略
 
-一个 1024×1024 depth32Float 目标是本项目有界质量选择，非官方上限；本片不增加假质量 UI。用当前合格 caster/receiver 的 world bounds 和唯一方向光构造正交灯空间，覆盖主相机外、作者顺序较晚的 caster，不使用 F5 主画面前缀或屏幕深度。方向近坐标轴时采用确定的稳定 basis；平面/薄 bounds 给有限安全深度区间。bounds、偏移和深度比较的数学由本项目独立实现，使用世界 texel 尺度的有界偏移及有限邻域比较；远近、clear 与 compare 方向配套，不误借相机 reverse-Z。不能按 sample、层名、路径或截图调整算法。范围扩大降低精度属于本质量边界，须有不同尺度/相机/变换的独立反例。
+一个 1024×1024 depth32Float 目标是本项目有界质量选择，非官方上限；本片不增加假质量 UI。用当前合格 caster/receiver 的 world bounds 和唯一方向光构造正交灯空间，覆盖主相机外、作者顺序较晚的 caster，不使用 F5 主画面前缀或屏幕深度。方向近坐标轴时采用确定的稳定 basis；平面/薄 bounds 给有限安全深度区间。bounds、偏移和深度比较的数学由本项目独立实现，有限邻域比较必须按实际接收几何平面把比较深度校正到各采样 texel 中心，只保有限精度所需的数值偏移：先从真实 world 导数求灯空间平面，数值裕量涵盖 world→shadow 变换及斜面传播的运算量级；其固定保守系数是项目策略，不是全域 GPU 误差定理。越过 map 有效深度域的外推 tap 只局部回无影并保留原权重；不能靠放大全局偏移吞掉近间隙真遮挡。真实几何导数与材质插值法线职责分开，光线趋于几何切面等退化输入只局部回无 shadow 分量；远近、clear 与 compare 方向配套，不误借相机 reverse-Z。不能按 sample、层名、路径或截图调整算法。范围扩大降低精度属于本质量边界，须有不同尺度/相机/变换的独立反例。
 
 透明策略明确为硬 cutout 阴影：采用原材质与 layer opacity、原 coverage alpha 共同决定是否覆盖；覆盖不超过一半的片元不投影，其余写灯深度。tint-mask alpha 不参与 coverage。该阈值和半透明不产生透射色是独立项目策略，非官方 alpha/parity 结论；不得因为 writesDepth 关闭便认为该材质不是 caster，也不得让透明 texel 整块遮挡。预先固定 zero/partial/opaque 与 tint-mask 对照。首片 caster 使用现 ready 静态 albedo 与无变形 mesh；尚未可消费的 named/provider caster 明确局部不提供该 caster 阴影，原模型/灯照明保留，不能借 stale texture。动态 provider caster 是独立后继，不能声称本片完整覆盖它。
 
@@ -471,7 +471,7 @@ depth target 进入原 `SceneOffscreenTexturePool`/allocation cache，独立 key
 
 现 `SceneResolvedMaterialFramePreflight+Admission.swift:122–130` 的 reflection-only 触发改为当前 shadow/reflection 消费需求共同触发同一 scratch 预留，不复制枚举器，shadow-only 也必须保护原 image/HDR 目标。
 
-另有真实晚分配：`Rendering/Frame/SceneMetalRenderer+Particles.swift:56–61` 的已准备 refraction batch，以及 `Rendering/Composition/SceneLayerColorBlendPipeline.swift:205–212` 的非零 color-blend consumer，经同 `SceneFramebufferSnapshot` 临时分配当前背景。首片遇实际可绘制消费者存在这些未预留需求时，关闭本帧 shadow optional，沿原输出路径，不对全部粒子或所有非零但未参与绘制的层泛化拒绝。后继须在现 snapshot owner 补多 extent 容量预留后撤掉这项边界，不能永久把缺方法列为不支持。`SceneBloomPostProcess.swift:120–128,189` 的末尾 intermediate 分配则沿该原 owner 增加有真实调用的容量准备：使用当帧 resolved bloom 配置和实际终端 source extent/format，取得原缓存的两张实际纹理后才准入 shadow；末尾只沿原 encode 复用，计算与显示顺序不变。准备失败本帧无 shadow，原 bloom 仍保留其既有局部失败与重试合同，不复制 bloom cache/算法。
+另有真实晚分配：`Rendering/Frame/SceneMetalRenderer+Particles.swift:56–61` 的已准备 refraction batch，以及 `Rendering/Composition/SceneLayerColorBlendPipeline.swift:205–212` 的非零 color-blend consumer，经同 `SceneFramebufferSnapshot` 临时分配当前背景。首片遇实际可绘制消费者存在这些未预留需求时，关闭本帧 shadow optional，沿原输出路径，不对全部粒子或所有非零但未参与绘制的层泛化拒绝。后继须在现 snapshot owner 补实际 target 容量预留后撤掉这项边界；是否需要同帧多 extent 先由真实消费者证明，不能把 source crop 当成背景尺寸，不能永久把缺方法列为不支持。`SceneBloomPostProcess.swift:120–128,189` 的末尾 intermediate 分配则沿该原 owner 增加有真实调用的容量准备：使用当帧 resolved bloom 配置和实际终端 source extent/format，取得原缓存的两张实际纹理后才准入 shadow；末尾只沿原 encode 复用，计算与显示顺序不变。准备失败本帧无 shadow，原 bloom 仍保留其既有局部失败与重试合同，不复制 bloom cache/算法。
 
 任何已追加 GPU 访问的 map/pin 随 command buffer 所有权：未提交 cancel 释放，提交后仅 actual completion 释放；receiver 后续失败也不能提前回收 map。不同在飞 command buffer 不覆盖旧 map；resize/reset 保留 retired 成本至完成。target 分配、预算或 encode 失败拒绝该 optional shadow，保留原模型/灯与健康邻层，不发布半成品、不改 history。非法 GPU range、epoch/generation/alias 拒最小 unsafe 绑定；不能拿局部 fallback 吞掉主图或主资源错误。
 

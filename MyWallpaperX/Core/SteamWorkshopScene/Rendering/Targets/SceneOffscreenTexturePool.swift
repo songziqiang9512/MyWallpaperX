@@ -152,7 +152,7 @@ final class SceneOffscreenTexturePool {
         dimensions: [(width: Int, height: Int)], commandBuffer: MTLCommandBuffer,
         textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil
     ) -> [PinnedTexture]? {
-        reserveFrameTextures(dimensions: dimensions, mipmapped: false,
+        reserveFrameTextures(dimensions: dimensions, kind: .composition,
             commandBuffer: commandBuffer, textureFactory: textureFactory)
     }
 
@@ -160,12 +160,20 @@ final class SceneOffscreenTexturePool {
         width: Int, height: Int, commandBuffer: MTLCommandBuffer,
         textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil
     ) -> PinnedTexture? {
-        reserveFrameTextures(dimensions: [(width, height)], mipmapped: true,
+        reserveFrameTextures(dimensions: [(width, height)], kind: .environment,
             commandBuffer: commandBuffer, textureFactory: textureFactory)?.first
     }
 
+    func reserveDirectionalShadow(width: Int, height: Int, commandBuffer: MTLCommandBuffer,
+                                  textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil) -> PinnedTexture? {
+        reserveFrameTextures(dimensions: [(width, height)], kind: .shadow,
+            commandBuffer: commandBuffer, textureFactory: textureFactory)?.first
+    }
+
+    private enum FrameTextureKind { case composition, environment, shadow }
+
     private func reserveFrameTextures(
-        dimensions: [(width: Int, height: Int)], mipmapped: Bool,
+        dimensions: [(width: Int, height: Int)], kind: FrameTextureKind,
         commandBuffer: MTLCommandBuffer, textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)?
     ) -> [PinnedTexture]? {
         if dimensions.isEmpty { return [] }
@@ -173,17 +181,23 @@ final class SceneOffscreenTexturePool {
         var descriptors: [CacheKey: MTLTextureDescriptor] = [:]
         var costs: [CacheKey: Int] = [:]
         for (width, height) in dimensions {
-            let key = mipmapped ? CacheKey.environment(width: width, height: height)
-                : .composition(width: width, height: height)
+            let key: CacheKey = switch kind {
+            case .composition: .composition(width: width, height: height)
+            case .environment: .environment(width: width, height: height)
+            case .shadow: .directionalShadow(width: width, height: height)
+            }
             if !keys.insert(key).inserted { continue }
             guard width > 0, height > 0, width <= maxDimension, height <= maxDimension else { return nil }
-            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: pixelFormat,
-                width: width, height: height, mipmapped: mipmapped)
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: kind == .shadow ? .depth32Float : pixelFormat,
+                width: width, height: height, mipmapped: kind == .environment)
             descriptor.storageMode = .private
             descriptor.usage = [.shaderRead, .renderTarget]
             var cost = 0, w = width, h = height
             for _ in 0..<descriptor.mipmapLevelCount {
-                guard let level = byteCost(width: w, height: h, textureCount: 1) else { return nil }
+                let (pixels, pixelOverflow) = w.multipliedReportingOverflow(by: h)
+                let (level, byteOverflow) = pixels.multipliedReportingOverflow(
+                    by: kind == .shadow ? 4 : backbufferFormat.logicalBytesPerPixel)
+                guard !pixelOverflow, !byteOverflow else { return nil }
                 let (next, overflow) = cost.addingReportingOverflow(level)
                 guard !overflow else { return nil }
                 cost = next; w = max(1, w / 2); h = max(1, h / 2)

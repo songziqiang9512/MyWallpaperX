@@ -111,15 +111,15 @@ extension SceneMetalRenderer {
             return .rejected(reasonCode: reasonCode)
         }
     }
-    func reserveReflectionScratch(
-        pool: SceneOffscreenTexturePool, imageTextures: SceneBaseImageTextureSnapshot,
+    func reserveOptionalEffectScratch(
+        requiresShadow: Bool, pool: SceneOffscreenTexturePool, imageTextures: SceneBaseImageTextureSnapshot,
         frameContext: SceneFrameContext, framePlans: [Int: SceneResolvedMaterialFrameTargetPlan],
         visibleLayerIDs: Set<Int>, orderedLayers: [SceneRenderDescriptor.Layer],
         worldFrames: [Int: simd_float4x4], cameraFrame: SceneParticleCameraFrame,
         parallax: SceneLayerParallax.Configuration, terminalExtent: (width: Int, height: Int)?,
         commandBuffer: MTLCommandBuffer
     ) -> [SceneOffscreenTexturePool.PinnedTexture]? {
-        guard orderedLayers.contains(where: { layer in
+        guard requiresShadow || orderedLayers.contains(where: { layer in
             guard visibleLayerIDs.contains(layer.id) || framePlans[layer.id] != nil,
                   imageTextures.geometryProducts[layer.id] == nil,
                   let profile = baseMaterialProviderBindings.lightingProfileByLayerID[layer.id],

@@ -34,6 +34,8 @@ struct SceneStaticModelUniforms {
     float4 spotDirectionInnerCosine[4];
     float4 spotColorIntensity[4];
     float4 spotOuterCosines;
+    float4x4 worldToShadowClip;
+    float4 shadowParameters;
 };
 
 struct SceneStaticModelRasterVertex {
@@ -67,10 +69,65 @@ vertex SceneStaticModelRasterVertex sceneStaticModelVertex(
     return out;
 }
 
+float sceneDirectionalVisibility(float3 position, depth2d<float> shadow,
+    constant SceneStaticModelUniforms &uniforms) {
+    float4 projected = uniforms.worldToShadowClip * float4(position, 1.0);
+    float3 clip = projected.xyz / projected.w;
+    float2 uv = float2(clip.x * 0.5 + 0.5, 0.5 - clip.y * 0.5);
+    // The directional light projection is orthographic. Differentiate world
+    // position before its affine projection so small geometry does not lose
+    // its UV/depth slope by subtracting separately rounded translated values.
+    float3 lightDX = (uniforms.worldToShadowClip * float4(dfdx(position), 0.0)).xyz;
+    float3 lightDY = (uniforms.worldToShadowClip * float4(dfdy(position), 0.0)).xyz;
+    float3 plane = cross(float3(lightDX.x * 0.5, -lightDX.y * 0.5, lightDX.z),
+                         float3(lightDY.x * 0.5, -lightDY.y * 0.5, lightDY.z));
+    // A triangle tangent to the light direction has no finite depth over light
+    // UV; screen-degenerate helper quads can also produce a zero Jacobian.
+    // Keep this optional visibility local to the receiver fragment.
+    if (plane.z == 0.0) return 1.0;
+    float2 depthGradient = -plane.xy / plane.z;
+    if (!all(isfinite(depthGradient))) return 1.0;
+    if (any(uv < 0.0) || any(uv > 1.0) || clip.z < 0.0 || clip.z > 1.0) return 1.0;
+    constexpr sampler shadowSampler(coord::normalized, address::clamp_to_edge,
+                                    filter::nearest, compare_func::less_equal);
+    float2 extent = float2(shadow.get_width(), shadow.get_height());
+    // Affine projection can cancel large world-coordinate terms even when the
+    // resulting clip value is small. Propagate those Float32 arithmetic scales
+    // through UV conversion and the receiver-plane slope, using the same
+    // fixed numerical margin as the final reference-depth additions.
+    float3 projectionMagnitude = abs(uniforms.worldToShadowClip[0].xyz * position.x)
+        + abs(uniforms.worldToShadowClip[1].xyz * position.y)
+        + abs(uniforms.worldToShadowClip[2].xyz * position.z)
+        + abs(uniforms.worldToShadowClip[3].xyz);
+    float depthMagnitude = projectionMagnitude.z
+        + dot(abs(depthGradient), (projectionMagnitude.xy + 1.0) * 0.5);
+    float visibility = 0.0;
+    for (int y = -1; y <= 1; ++y) {
+        for (int x = -1; x <= 1; ++x) {
+            float2 pixel = clamp(floor(uv * extent) + float2(x, y), float2(0.0), extent - 1.0);
+            float2 sampleUV = (pixel + 0.5) / extent;
+            float2 correction = depthGradient * (sampleUV - uv);
+            float referenceDepth = clip.z + correction.x + correction.y;
+            // Near-tangent receiver planes can leave the map's depth domain
+            // within this finite filter footprint. Clear depth is not an
+            // occluder beyond that domain; retain this tap's unoccluded weight.
+            if (referenceDepth < 0.0 || referenceDepth > 1.0) {
+                visibility += 1.0;
+                continue;
+            }
+            float precisionBias = uniforms.shadowParameters.y
+                * max(1.0, depthMagnitude + abs(correction.x) + abs(correction.y));
+            visibility += shadow.sample_compare(shadowSampler, sampleUV, referenceDepth - precisionBias);
+        }
+    }
+    return visibility / 9.0;
+}
+
 fragment half4 sceneStaticModelFragment(
     SceneStaticModelRasterVertex in [[stage_in]],
     texture2d<half> colorTexture [[texture(0)]],
     texture2d<half> componentTexture [[texture(1)]],
+    depth2d<float> shadowTexture [[texture(2)]],
     sampler colorSampler [[sampler(0)]],
     sampler componentSampler [[sampler(1)]],
     constant SceneStaticModelUniforms &uniforms [[buffer(1)]]) {
@@ -94,7 +151,9 @@ fragment half4 sceneStaticModelFragment(
          ++lightIndex) {
         float4 light = uniforms.lightDirectionIntensity[lightIndex];
         float diffuse = max(dot(normal, light.xyz), 0.0);
-        lighting += uniforms.lightColor[lightIndex].xyz * light.w * diffuse;
+        float visibility = uniforms.shadowParameters.x == float(lightIndex)
+            ? sceneDirectionalVisibility(in.worldPosition, shadowTexture, uniforms) : 1.0;
+        lighting += uniforms.lightColor[lightIndex].xyz * light.w * diffuse * visibility;
     }
     uint pointCount = receivesLighting ? uniforms.lightCounts.y : 0u;
     for (uint lightIndex = 0; lightIndex < min(pointCount, 4u); ++lightIndex) {
@@ -202,4 +261,33 @@ fragment half4 sceneStaticModelFragment(
     // Static-model inputs preserve straight texture channels. Convert the
     // material result to the existing premultiplied main-pass contract here.
     return half4(litColor * outputAlpha, outputAlpha);
+}
+
+struct SceneStaticModelShadowUniforms {
+    float4x4 modelToLightClip;
+    float4 textureFrame0;
+    float4 textureFrame1;
+    float4 coverage;
+};
+struct SceneStaticModelShadowVertexOut {
+    float4 position [[position]];
+    float2 uv;
+};
+vertex SceneStaticModelShadowVertexOut sceneStaticModelShadowVertex(
+    uint vertexID [[vertex_id]], constant SceneStaticModelVertex *vertices [[buffer(0)]],
+    constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
+    SceneStaticModelVertex modelVertex = vertices[vertexID];
+    SceneStaticModelShadowVertexOut out;
+    out.position = uniforms.modelToLightClip * float4(modelVertex.position, 1.0);
+    out.uv = uniforms.textureFrame0.xy + modelVertex.uv.x * uniforms.textureFrame0.zw
+        + modelVertex.uv.y * uniforms.textureFrame1.xy;
+    return out;
+}
+fragment void sceneStaticModelShadowFragment(
+    SceneStaticModelShadowVertexOut in [[stage_in]],
+    texture2d<half> albedo [[texture(0)]], sampler albedoSampler [[sampler(0)]],
+    constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
+    float coverage = uniforms.coverage.x;
+    if (uniforms.coverage.y != 0.0) coverage *= float(albedo.sample(albedoSampler, in.uv).a);
+    if (coverage <= 0.5) discard_fragment();
 }

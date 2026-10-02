@@ -16,6 +16,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-02 | Scene | 实施证据 | [D3 静态模型方向光阴影](scene/d3-model-directional-shadow-implementation-2026-10-02.md) | 可绘模型投影、局部失败、资源与实际输出验收边界 | [架构](../scene/design/runtime-architecture.md)、[D3设计](../scene/design/2d-lighting-material-design.md)、[兼容路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-02 | 跨领域 | 改良提案 | [仓库改良方案研究](cross-topic/repo-improvement-program-2026-10-02.md) | 六视角现状侦察＋四主题业界调研收敛的 18 条 P0-P2 改良条目全档（P0 5/P1 7/P2 6，逐条含证据/验收门/退役条件与路线图；两轮三视角审查＋独立终审后修订版 3；研究工作流全程零写入，实施须另行立项） | [文档入口](../README.md)、[AGENTS](../../AGENTS.md) |
 | 2026-10-02 | 全项目 | 审查记录 | [全项目 Bug 与优化机会审查](cross-topic/project-wide-review-2026-10-02.md) | 16 车道并行静态审查、逐条独立核实后的 50 条确认问题与 7 条驳回候选全档（bug: high 4/medium 9/low 11；optimization: high 0/medium 6/low 20；741 文件） | [文档入口](../README.md)、[AGENTS](../../AGENTS.md) |
 | 2026-10-02 | Scene | 实施证据 | [D3 默认环境反射](scene/d3-reflection-environment-implementation-2026-10-02.md) | 同帧共享前缀、真实mip与独立表面响应；最终验收状态见记录 | [D3设计](../scene/design/2d-lighting-material-design.md#f5-reflection-environment)、[RF10卡](../scene/design/reference-evidence-implementation-cards.md#rf10-pbr-direct)、[架构](../scene/design/runtime-architecture.md) |

@@ -127,6 +127,15 @@ extension SceneMetalRenderer {
         return (value, nil)
     }
 
+    func prepareTerminalCapacity(
+        sceneColor: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?,
+        target: MTLTexture, dynamicValues: SceneDynamicSnapshot
+    ) -> Bool {
+        bloomPostProcess?.prepareCapacity(
+            configuration: renderDescriptor.camera.bloom.resolving(dynamicValues),
+            source: sceneColor?.display ?? target) ?? true
+    }
+
     func encodeTerminalColor(sceneColor: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?,
                              target: MTLTexture, offscreenTexturePool: SceneOffscreenTexturePool?,
                              dynamicValues: SceneDynamicSnapshot, commandBuffer: MTLCommandBuffer) -> FrameOutcome? {

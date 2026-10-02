@@ -108,6 +108,14 @@ final class SceneBloomPostProcess {
         }
     }
 
+    /// Reserve the same physical intermediates used by terminal encode, before
+    /// optional shadow consumes the shared GPU quota. No GPU commands are emitted.
+    func prepareCapacity(configuration: SceneBloomConfiguration, source: MTLTexture) -> Bool {
+        guard configuration.enabled, configuration.strength != 0 else { return true }
+        guard source.pixelFormat == pixelFormat, source.device === device else { return false }
+        return intermediateTargets(on: device, matching: source) != nil
+    }
+
     private func intermediateTargets(
         on device: MTLDevice,
         matching source: MTLTexture
