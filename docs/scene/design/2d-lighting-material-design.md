@@ -345,20 +345,88 @@ Host live admission将实际准备的2D brightness目标与已有model目标合�
 
 <a id="f5-reflection-environment"></a>
 
-## F5 — reflection-only 环境输入与表面响应（N3研究中，产品设计未批准）
+## F5 — reflection-only 环境输入与表面响应（设计已批准，待实施验收）
 
-基线`6a95278f`。本批闭合普通builtin genericimage2/4的REFLECTION1、LIGHTING0材料：法线、roughness、reflectivity及slot2 B影响实际反射，保持direct独立、现alpha/HDR和唯一terminal。方法与数值由本项目独立实现，不等待或复制官方公式。五判据①跨material/资源/graph/consumer，②触及唯一target/publication生命周期，⑤外部输入语义，故登记`scene-2d-reflection-environment`，来源/顺序和最小产品设计批准前不写产品。
+### 目标、事实与取证边界
 
-**当前事实。** 以下路径相对Scene根：`Systems/Properties/SceneMaterialPropertyBindingCompiler.swift:64`和`Compilation/Material/SceneBaseMaterialLightingProfile.swift:56`仅以LIGHTING准入；profile`:100`及`Rendering/Metal/SceneLitImageLayerPipeline.swift:163`未消费Reflection bit4。`Runtime/Session/SceneDesktopWallpaperHost+Launch.swift:489`只准备normal/map，无env producer；`Resources/Textures/SceneTextureProviderPublication.swift:314`的sameFrameSceneBackground是作者顺序前缀、单mip，不能未经定案冒称环境。显式系统RT则在`Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift:193–201`另受准入限制。此为静态首断点，旧App缺响应反例待实际运行，不先写已复现。
+产品基线`6a95278f`，设计基线`70932836`。本片闭合普通、单pass、固定builtin genericimage2/4的REFLECTION1表面响应；LIGHTING0与LIGHTING1均可独立反射，plain与effect共同消费，保留现direct、normal、MR、emission、alpha/HDR和唯一terminal。Puppet/变形几何、utility抓主画面、3D、planar camera、显式作者slot3/provider扩展、材质动态reflection属性不在本片。五判据①横切material/资源/graph/consumer、②触及target/publication生命周期、⑤外部输入语义，窄gate `scene-2d-reflection-environment`按2026-10-02独审ACCEPT翻为approved，仅准下述范围实施。审查绑定批准前完整文档SHA `a9f38fb907c4c21570fe1f8cea6965a83fd38a62fffe9de425f984850233c7d3`；本机`product-design-review.md` SHA `c1dc184bf92e8d0669649acc435a74cc51addfbdf41492ba8bf01ca3957c5ca8`，与下述证据包同目录；批准设计不等于产品验收。
 
-**已有输入与真实候选。** [官方公开合同](https://docs.wallpaperengine.io/en/scene/lighting/introduction.html)规定Lighting/Reflection独立、roughness控制模糊、Reflectivity整体强度及Reflection map局部权重；[已审中性声明](../../history/scene/d3-pbr-input-neutral-contract-2026-10-02.md)和[通道合同](../../history/scene/d3-pbr-map-input-neutral-contract-2026-10-02.md)已定reflectivity默认1和B职责。合法3780119725的普通层276材料声明LIGHTING0/REFLECTION1、reflectivity4、roughness0.53、normal及slot2，无instance/effect；同包层308有effect，可作后继正例。它们没有显式env输入，不能据名称或第三方planar路径推断隐含来源。作者字段只作回归输入，不作dispatch键。
+**已复现的首断点。** `SceneBaseMaterialLightingProfile`和`SceneMaterialPropertyBindingCompiler.supportsBuiltinImageLighting`把准入系于LIGHTING1；旧profile未消费Reflection bit4，Launch没有环境producer，plain和graph入口都以lightingEnabled跳过共同lit producer。实际disk builder的4个对照保留genericimage4、LIGHTING0、REFLECTION0/1、reflectivity0/4和三个纹理槽，但均无normal/map需求及表面payload。冻结F4 App的4组隔离presentation均完成后续帧并drain，8张ready/after图逐像素一致；保留了真实层276的原模型、材质关联和三个纹理，只固定展示姿态/alpha、去除其它场景对象，红绿板与clear是自有对照。它证明旧产品缺消费，不裁环境来源。完整身份与原图在本机`/private/tmp/mwx-reflection-environment/report.md`及`evidence-manifest.json`，不将隔离展示称为原完整包恢复。
 
-**N3唯一研究问题。** builtin REFLECTION消费何种颜色资源、何时生成、是否纳入接收者自身？先在旧App/实际builder记录缺少profile/资源消费，再由隔离research-only上下文按[官方取证工作流](../semantics/official-client-behavior-research-workflow.md)读取最小作者声明：sampler角色/default、2D或cube类型、presence、reflectivitydistance输入角色。只交中性字段/顺序/lifecycle，不交shader行、函数体、伪码、payload或公式；已有声明充分时不反编译。
+**输入与来源分层。** [官方公开作者合同](https://docs.wallpaperengine.io/en/scene/lighting/introduction.html)将Lighting/Reflection分开，roughness控制模糊，reflectivity控制整体反射。已有[声明合同](../../history/scene/d3-pbr-input-neutral-contract-2026-10-02.md)和[map合同](../../history/scene/d3-pbr-map-input-neutral-contract-2026-10-02.md)提供默认值、slot2 B及header presence职责。[F5中性档案](../../history/scene/d3-reflection-environment-neutral-contract-2026-10-02.md)分别保存官方声明的slot3默认2D `_rt_MipMappedFrameBuffer`，以及第三方固定版本的首次消费前主scene版本、同执行共享、后续执行重新copy/mip这一结构参考；后者不是官方runtime证据。资源顺序中性稿SHA `573fd2b0e4ad423aa815a8e8e376763c69db3dcc4745e7b6d61941fa3dd2f369`已获独审ACCEPT，声明presence不自动成为运行gate。官方黑盒/golden/parity均未执行，以下是本项目明确选择。
 
-候选为本帧前缀、本帧完整场景、previous frame或静态环境。官方黑盒先用普通image可见正控制确认输入身份/viewport，再用红绿环境板置于接收者前后及一次magenta脉冲，区分内容范围和延迟；第二接收者观察自反射反馈；clear边缘及normal/view移动只定输入坐标/alpha职责。每次只变一个变量。沿既有Parallels合法客户端入口；上次D1未取得effect正控制，不等于客户端不能运行。若运行条件不足，只将官方parity记not-run，继续经审查静态中性合同下的独立有界实现；不能拿无正控制截图裁决资源来源。
+合法3780119725层276的材料有LIGHTING0/REFLECTION1、reflectivity4、roughness0.53、normal及slot2，无instance/effects，是普通输入回归；同包层308有effect，可作独立受控对照。sample/layer/path/hash只标识证据，禁止成为算法选择条件。实现上下文保持did-not-receive-raw-static-output，不读私有shader、payload、参考源码或原研究会话。
 
-**方案/owner。** 输入定案后由原profile准备有效intent/静态值和需求，原graph/target池分配并发布typed env，原registry验证generation/epoch，plain/effect共同lit producer消费。normal/view决定自有取样方向、roughness控制有界模糊、metallic与reflectivity及B决定反射份额；具体独立方法在资源合同确定后设计评审。反射与direct分开启用，不改作者LIGHTING来借通路，不建第二registry/clock/compositor。若需history/mips，必须扩原资源descriptor/预算/在飞生命周期，不能裸texture别名或仅开mip标志。planar camera、3D和完整RT词汇不捆绑本片。
+### 作者输入与准备结果
 
-**fallback与纠正门。** 可选env缺失只关反射并保原层/邻层；identity、hazard、generation、真实预算等unsafe仍拒最小单元。自有红绿空间环境区分反射与整体增亮，normal翻转、REFLECTION0/reflectivity0、roughness对比度、B分区、alpha/HDR和下一帧脉冲均须可判别；plain与非identity effect共用消费，实际allocation→encode→completion→publication→terminal→next-frame留证。资源切换/resize/失败按选定输入合同验证，未测明确列出，不以官方公式缺失或单图非黑收口。
+沿现profile/compiler一次准备两种独立意图：direct仍只由LIGHTING1准入；reflection要求明确builtin identity、REFLECTION1、当前可消费的普通image receiver及有效静态reflection参数；实际执行还要求现typed normal解析为可采样ready，非geometry，且source/target准入成功。缺失/unsupported/invalid normal只关闭反射，不改变direct原有flat-normal fallback。不得把现F4亮度属性compiler的LIGHTING条件顺带放开，不得改变legacy缺shader的原direct admission。直接光开启与反射开启共同决定是否准备现normal和MR资源；emission仍遵守F3/F4原准入，不因reflection-only附带打开。
 
-**退役。** N3中性合同经独审后替换本节的unknown和研究动作，批准最小产品设计再实施；产品/App及独立终审通过后将稳定资源职责移交架构、执行记录归历史、删除窄gate。未来Puppet/planar/动态材质字段保持独立后继，不由本片代验。
+reflectivity缺省1；reflectivitydistance在genericimage4的声明默认4，在genericimage2未有对应声明，本片统一取4仅为项目默认；两者接受可表示为Float的有限非负静态数值，reflectivity3/4及更大合法值不截为1。reflectivity0关闭反射意图且不单为它生产环境；distance0是合法的零空间偏移，并不关闭反射。显式非法、null、未解析user/script/timeline只关闭该层反射，保原底色/direct及其它合法分量，不能吞成缺省有效值。instance逐键覆盖材质，缺键继承，显式坏值不能回落底材质。复用现typed scalar投影与精确startup provenance，增加这两个键；合法scene-root instance已由原resolver处理的启动值可用，catalog未解析wrapper保持unsupported。普通帧不再读raw、文件或重建profile，不新增动态reflection通路。
+
+MR继续用既有tier默认和合法slot2 R/G替代规则，reflection-only也可消费它们。slot2 B只作反射局部权重：沿F3相同`.mask`、fullUV、sampler、FrameProvider、已证RGBA/BC格式和header presence，扩大现component mask到bit4，一次采样供MR/反射/emission。`PBRMASKS0`关闭整个map；`REFLECTION_MAP0`关闭B；缺combo且header有presence或显式1且header有presence才消费B；显式1不制造headerless presence。没有有效B时反射使用标量权重1，map缺失/损坏/unsupported只退回scalar，不能顺带关闭合法normal、direct或整层。材质或instance slot2含不支持的typed user provider时沿F3局部mapunsupported；empty/allnil与其它槽的现优先级不变。B=0是真零权重；若只凭贴图内容才能得知全零，不要求CPU读回或扫描来省一次环境生产。
+
+### 帧内来源、第一次消费与编码顺序
+
+每个surface的每次实际scene绘制只产生一份环境：**在第一个已通过source/target/receiver准入、确将执行反射source capture的操作写入前，捕获当时全局raw main scene前缀，生成完整mip，供本次提交其余反射source共用。** 不是按layer ID找第一个声明，不是preflight时抓取，不是逐receiver抓取，也不是previous-frame history。隐藏且未被实际依赖执行的层、非法receiver、REFLECTION0、reflectivity0、当帧normal未ready不触发。有效consumer的标量强度必须大于0，但不读取或扫描整张B判零。首尝试失败则本帧保持unavailable；不能到后一个receiver再重试、偷偷改变前缀截点。下一帧重新尝试。
+
+现forward dependency provider可以在普通layer loop前实际执行；这里仅指真正携带prepared lit payload的graph source，若它首先消费，环境为此时已初始化的clear/合法seed。DependencySourceFallback及raw named source capture没有lighting payload，不能触发环境或改变其raw publication；不得把所有forward provider一概当反射consumer。保持现provider执行及最终作者合成次序，不新建scheduler或移动layer。分组成员尚未提交全局main的颜色不属于前缀；不得把layerMainPass/组内target当成全scene。首receiver此前其它pass若已写入main，该内容可以存在：不按对象身份或REFLECTION flag过滤“自身”。两个surface分别拥有其main、frame epoch、分配和首消费位置，不相互借纹理。
+
+复用`SceneMainPassEncoder.withReadableTarget`初始化/保持clear、store并关闭main encoder；调用前先沿现composition runtime关闭活动group encoder。捕获的是`SceneMetalRenderer`本帧实际mainTarget：HDR clear-disabled时为现scene-color owner已seed的raw，clear-enabled时为当前清除/累积目标，均在Bloom/D2 terminal之前。相同command buffer上依次追加完整level0 copy、mip生成、source draw读取；编码顺序给出GPU依赖，不做CPU等GPU。ready只表示这些前置命令已成功追加且绑定同一提交，不等于GPU完成。命令buffer最终失败仍由原提交/输出事务裁决。
+
+**准备与消费必须分开。** effect的sourceLighting在整帧preflight就冻结，不能把尚未写入的reserved texture发布ready。准备只保存reflection意图/静态输入/同帧矩阵。renderer的现frame scope持有一次lazy capture及结果/pin；把窄的执行期环境解析依赖沿原graph执行调用传到source-capture叶端，plain经过同一操作。两个实际叶端——`SceneGraphResourcePassEncoder.encodeSourceCapture`与`SceneOffscreenEffectRenderer.captureSource`——都必须覆盖：只有source/target已准入、payload有有效reflection意图且尚未创建source render encoder时才解析，pipeline只接最终typed资源。不能让shader/pipeline回调registry、逐receiver改prepared graph或引入可变payload wrapper。plain无环境/零反射且无direct时沿原unlit draw；effect无环境时沿原unlit source command，不强迫一个新的shader round-trip造成禁用时像素漂移。
+
+### Typed资源、预算优先级与释放
+
+复用`SceneFrameTextureResource`、candidate、SlotBinding及现offscreen pool/cache的物理generation和pin。新增一项同帧环境request/provider identity，包含当前frame epoch和物理allocation identity；完整atom携带extent、格式、颜色表示、mip范围和采样合同。现sameFrameSceneBackground是逐consumer单mip合同，不冒名复用或放宽它。环境可如该资源一样直接传入执行链，不进入persistentEntries/committedPublications、不继承prior frame；不新增环境registry。frame owner只缓存本帧唯一结果，既不维护长期current，也不保存history。
+
+环境target采用现pool格式及main的精确extent，SDR保持既有非sRGB数值域，HDR保持RGBA16F线性存储；不额外gamma变换，不缩小来凑预算。用独立environment key避免与composition scratch同key互相覆盖；尽量复用现allocation表示，不复制池。完整mip到1×1，cache按每一实际mip尺寸与实际format字节数逐级检查/求和，非方形/奇数尺寸不使用近似比例；物理GPU配额仍由`makeSceneTexture`和Metal descriptor实际大小计费，不合并cache与全局GPU预算。
+
+**optional不能抢mandatory。** 现graph/history/group/scene-color admission与pin先完成。plain capture在旧compositor中仍可能晚分配，不能假设graph preflight已经覆盖。只在本帧确有有效reflection候选时，沿同一prepared source selection/extent计算并尝试预留该帧后续已知必需plain capture scratch（包括新反射source所需目标），按实际extent键去重复用，同command buffer pin至completion。此为现frame target admission的扩充，不是第二份graph。先在原cache的revision快照上stage整个required scratch工作集，选定可复用allocation、完成预算模拟并实际分配全部缺失MTLTexture；此阶段不commit resident、不evict旧cache、不逐个调用会立刻commit的compositionTarget。所有候选齐备后，在原cache同一锁/原子commit边界复核revision和既有allocation身份，将完整工作集一起commit并取得同一command buffer的submission pins；期间completion或reset改变revision则整组放弃，原resident不变。分配/模拟/复核任一步失败都释放未提交候选，保留原resident内容及可用旧纹理，再按原路径绘制；不能只releasePins声称已经回滚此前逐个commit造成的eviction。identity issuer的单调序号空洞无需回退，不构成texture publication。环境仅在上述原子预留成功后分配；实际MTLTexture及pin同时保护逻辑cache和物理GPU配额，只有成本估计或记账不够。成功预留者由后续普通capture消费相同physical texture，不再在旁边另分配。任何可选预留失败都放弃本帧reflection，不能由这次可选尝试引起全帧defer、丢层或history变更。不得重分配/吞掉已有图的在飞资源，也不能用一个固定“剩余裕量”猜测后续开销。无reflection候选不扩普通帧的目标枚举/分配。特别是现`SceneImageLayerCompositor`在compositionTarget分配失败时直接failed，后面的lit fallback并不覆盖它：本片必须在新增reflection-only路由的target缺失处分开处理，恢复原direct uniforms/pipeline，不宣称已有fallback会接住；合法LIGHTING1保留原失败策略，但其原目标已受上述优先预留保护，不能被optional环境恶化。
+
+旧submission尚在飞时，新帧不得重写它读的环境；现ordering context只准同一个尚未enqueued的command buffer内复用，不代表同queue的不同帧可重写；旧pin未完成时必须分配新generation或本帧局部无反射。cache替换时保留旧pinned allocation为retired，release/current-key/reset分支同批覆盖，不能只加创建分支漏掉计费。本片新增submission pin同时保护environment和普通`.composition` scratch：scratch也只准在同一notEnqueued command buffer内复用，或在旧submission pins全释放后复用；不能沿现compositionTarget无跨buffer检查的路径直接重写。跨command buffer替换同key的current composition时，必须把旧pinned generation转retired并持续计费至其actual completion，不能沿现stageCandidates仅保留compositionGroup的分支丢掉它；同一原cache owner内一起修正两类资源的复用、替换及释放。resize换精确尺寸/generation，旧资源留到真实completion；多surface各自pool计费。早退/PreparedFrame.cancel释放未提交pin；提交后只能completion释放，不靠cancel时会被丢弃的observer。一旦copy或mip任一命令已追加，该texture即使之后准备失败、receiver失败或未publish，也已属于该command buffer的潜在在飞写入，pin不能提前释放：未提交随cancel释放，提交则等actual completion。只有确定尚未追加任何访问命令的失败候选才可立即放弃。copy/mip失败不发布ready、不污染旧current，也不借旧帧环境遮错。
+
+### 独立数值方法与坐标职责
+
+本项目选择**基于视向的镜面方向、有限距离投影到同帧scene、真实mip模糊、正辐射叠加**。公开背景只采用反射方向和Fresnel的通用意义，不复制shader或私有数学；[Filament公开说明](https://google.github.io/filament/main/filament.html#materialsystem/specularbrdf/fresnel(specularf))说明视角相关反射及金属/非金属正对反射率的区别。下列行为为本项目独立策略，不声称screen-space reflection深度求交、物理环境积分、官方公式或能量守恒的完整材质模型。
+
+- **接收位置。** 沿现lit逻辑quad与完整position model得到world位置，包含作者/parent变换、intrinsic extent、实际camera/parallax几何结果。normal方向继续使用排除intrinsic像素尺寸的现direction basis；albedo、normal、map自己的frame/UV只改变取样，不移动接收位置。plain传其真实scene sourceMVP；effect传已有sourceMVP，不能用effect局部fragment.position或offscreen target尺寸替代全scene屏幕坐标。两路只在同一lit payload增加同帧scene VP/source投影参数，不复制坐标算法。
+- **法线与视向。** 继续D3完整RGB/RG/BC5解码与normal basis；normal texture本身未ready关闭反射，ready纹理中相反方向线性过滤抵消的零向量沿D3退flat，不另造无效法线算法；perspective用现camera eye指向viewer，orthographic用现camera basis中恒定toward-viewer。归一化后按公开几何镜面反射构造取样方向。普通image是双面卡片，本片Fresnel使用法线与视向夹角的绝对余弦；翻转整个法线符号不改变反射方向或强度，不能把纯正负Z当作必然不同的oracle。正负切向倾斜必须移动采样方向。平面法线正对viewer有正常正对反射率，不乘一个会令flat结果消失的侧向量，也不把NoL引入环境项。
+- **距离与投影。** `reflectivitydistance`选项目world单位：从接收位置沿反射方向前进这个有限距离，再用本帧该receiver实际选择的scene VP投影；默认4就是4个现scene世界单位，不乘纹理宽高、camera zoom或私设场景比例。不声称这是官方单位。在典型像素单位orthographic场景中4是小位移；normal正对时屏幕XY不变、仍可反射其背后前缀。perspective按真实投影产生不同结果，不强制flat必须identity。distance0按原接收位置采样。clip到UV采用现Metal viewport的上下方向且只翻转一次；投影落屏幕外用clamp-to-edge，不repeat。合法透视位姿/大有限距离可把目标投到相机后或产生不可表示clip，此像素仅反射为0，保留底色/direct；不得把无定义除法、NaN或Inf送入采样。
+- **粗糙度。** 现有效roughness零对应level0，一对应最后实际mip；中间值在完整mip级范围内连续线性选择并用trilinear clamp采样，方向采样不额外偏向camera。使用真实生成的mip，不伪造模糊多次采样，不新增roughness卷积资源或PSO。它是本项目有界模糊策略，不冒称GGX预过滤环境积分。Metal mip过滤误差以自有常色/整块和可核对梯度门界定，不假定任意图像平均都逐bit确定。
+- **反射权重与颜色。** 沿RF10的非金属正对反射率0.04、金属正对色取未乘tint的albedo straight RGB并仅在反射率域限制0…1，用metallic在两者间过渡；掠射趋向白色，采用Schlick型视角插值。reflectivity和有效B共同缩放该项；B零严格无贡献，reflectivity大于1保留，不作为概率截断。缺B使用权重1。环境采样RGB已是scene合成后的辐射，**不再乘环境alpha、不unpremultiply环境**，防止透明边缘和mip被重复衰减或放大；反射颜色不额外乘albedo RGB，金属颜色已经通过反射率参与。
+- **原底色、direct与alpha。** LIGHTING0保留原unlit albedo/tint/opacity底色，再加入反射；不接受场景ambient/point/spot直射，不因scene灯变亮。LIGHTING1保留现direct/ambient/emission结果再加同一反射项，不重算或削减已有direct。反射按receiver albedo coverage和现layer tint/opacity约定恰好调制一次，最终alpha与无反射完全相同；alpha0无RGB泄漏。故本片明确是作者可控的正辐射叠加，不将底色能量补偿塞进旧输出。REFLECTION0、reflectivity0或env失败要回到对应原路径/原像素，不能靠“接近”掩盖新增round-trip。
+- **HDR与有限域。** 不先clamp到1，不对环境做tone map；覆盖/tint/opacity完成后才按现RGBA16F有限存储上限65504饱和，再交原terminal D2。复用现lit局部乘积缩放方法，避免大reflectivity、HDR环境和极小coverage相乘时提前overflow或Inf与0相乘；不扩通用安全数学框架。Fresnel与B合并只涉及有界因子；对合法有限作者数值的实际极端门验证，不能靠降低强度过关。SDR继续由原目标格式的存储行为裁决，不另做曝光策略。
+
+### 具体owner与体量上限
+
+此链不能以“只加一个texture字段”掩盖时序/预算扩权。允许评审的精确产品候选为以下26个既有路径，均相对`MyWallpaperX/Core/SteamWorkshopScene/`；实施只改实际需要者。不得新建registry/provider/pipeline/clock/history/compositor。需要清单外路径或新增文件时先给完整owner理由并补设计，不能以测试方便放宽边界。
+
+| 职责 | 既有路径 |
+| --- | --- |
+| static instance键及启动provenance | `Format/SceneDocument.swift`；`Format/SceneDocumentObject.swift` |
+| material准入/逐键选择 | `Compilation/Material/SceneBaseMaterialLightingProfile.swift`；`Systems/Properties/SceneMaterialPropertyBindingCompiler.swift` |
+| 同帧数据和目标准备 | `Rendering/Frame/SceneResolvedMaterialFramePreflight+LitCapture.swift`；`Rendering/Frame/SceneResolvedMaterialFramePreflight.swift`；`Rendering/Frame/SceneResolvedMaterialFramePreflight+Admission.swift` |
+| 一个surface/frame捕获scope | `Rendering/Frame/SceneMetalRenderer.swift`；`Rendering/Frame/SceneMetalRenderer+ClearColor.swift`；`Rendering/Frame/SceneMetalRenderer+DependencyProviders.swift` |
+| 原plain/graph执行边界晚绑定 | `Rendering/Composition/SceneImageLayerCompositor.swift`；`Rendering/Composition/SceneResolvedMaterialGraphComposition.swift`；`Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift`；`Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift`；`Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Execution.swift`；`Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift`；`Rendering/Graph/SceneGraphResourcePassEncoder.swift` |
+| 一个shader和对应ABI | `Rendering/Metal/SceneLitImageLayerPipeline.swift`；`Rendering/Composition/SceneLitImageLayer.metal` |
+| 原池/计费/在飞pin | `Rendering/Targets/SceneOffscreenTexturePool.swift`；`Rendering/Targets/SceneOffscreenTextureAllocationCache.swift`；`Rendering/Targets/SceneOffscreenTextureAllocationCache+SharedPair.swift` |
+| 原typed资源identity/atom | `Resources/Textures/SceneFrameTextureRegistry.swift`；`Resources/Textures/SceneTextureCandidate.swift`；`Resources/Textures/SceneTextureProviderPublication.swift` |
+| 新identity的现有穷举报告分支 | `Compilation/Material/SceneResolvedMaterialProgramFinalizer+ColorInputs.swift`（仅同步稳定report token，不新增准入或以default吞掉新case） |
+
+Launch现有profile normal/map聚合应能自然接入，不为环境建立第二asset demand；MainPassEncoder、camera、terminal/history、全局GPU预算无需新算法。普通帧只消费typed snapshot、已准备selection/extent和本帧命令，不parse/compile/建图/全图hash。现结构/防御基线不扩大；encode期传递是一个真实资源依赖，不保留未消费helper、兼容重载或复制background matcher。
+
+新增校验逐条绑定真实producer：在飞旧帧/resize产生generation与pin冲突；预先source准备和活动group encoder产生读写时序风险；真实逻辑预算及GPU quota产生分配拒绝；透视camera/大距离产生无效投影；现composition scratch复用产生物理alias风险。canonical publication/SlotBinding已证明的request/purpose不在下层重复检查。首consumer未执行不生产、首失败不后移、env optional不拒全scene是可观察行为，不是无producer的未来防御。
+
+### 方案取舍、纠正门与退役
+
+选择本帧首次实际消费前的一次共享前缀，因为中性结构与本项目既有编码分段能形成明确copy→mip→read依赖；不选每receiver新快照、previous-frame历史或直接采正在写的main。选择world-unit投影而非任意乘场景宽度，保持单位可解释；选择真实mip和现shader的反射项而非新后处理PSO。无官方数值公式不阻止上述独立策略，官方图像parity保持not-run；不能把该策略写成恢复私有实现。
+
+**准备/CPU门。** 原4组无消费红证保持；actual project/catalog/instance→profile证明LIGHTING/REFLECTION独立、明确builtin/非法receiver、reflectivity0/1/4与默认、distance0/4及invalid、instance缺键/显式null/合法startup provenance。真实loader→candidate确认B与presence/combo分离、格式、fullUV/animation及其它分量不污染。已有关联normal/MR/F4亮度/staticModel回归，不用源码字符串断言准入。
+
+**数值/GPU门。** 在实施前冻结自有double oracle及独立审查数值向量：常色环境的flat正对与掠射、金属/非金属、reflectivity0/1/4、B0/.5/1、alpha0/.25/1、tint/opacity和HDR极端乘积。空间环境用已知红绿区块/梯度证明方向而非整体增亮；正负切向normal、完整法线反号不变、default4世界尺度与distance0、非零world origin、intrinsic尺寸/parent scale/rotation、camera pan/zoom/orthographic/perspective。plain和非identity effect使用不同capture尺寸却采同scene位置；normal/map自有frame非零origin和不同采样区域。roughness0/中间/1明确使用level0/中间/末级，常色不因roughness变暗，纹理对比度随模糊下降。已有half存储误差标准不随结果放宽；新mip采样容差须先按实际过滤输入定义。
+
+**资源/GPU门。** 两receiver之间插绿板：首份环境只含此前红板、两receiver共享，绿板仍正常最终绘制；next-frame脉冲排除跨帧缓存。首consumer前无draw时正确clear，clear-disabled用合法seed；forward provider最早执行、group尚未合成、多surface各自首消费。关闭全部有效consumer零环境分配/复制；首捕获失败本帧不晚重试。奇数非方形SDR/HDR完整mip成本、恰少1byte、真实GPU quota注入/精确释放retry；必需plain/graph目标与健康邻层不被optional挤掉；多个不同extent的scratch在第N项真实分配失败时，原resident/旧texture保持不变，并用实际cache事件证明无前缀commit/eviction。原子commit前completion/reset改revision的反例必须整组退出。取消、延迟completion、resize/reset及同key多generation门同时覆盖scratch和environment，保留旧pin到实际完成、持续计入retired成本且无未写ready，stale/alias局部拒绝；故障注入与自然作者路径分开报告。
+
+**App与上限。** 冻结最终source/test/三binary身份后运行plain/effect、真实层276原材质资产的严格标注presentation；能执行的原完整包另记首断点与完成输出，不删除其effect/script冒称恢复。REFLECTION0/reflectivity0/缺env保原像素，LIGHTING0增加灯不改变反射底色。保留allocation→编码顺序→typed readiness→GPU completion→terminal与下一帧证据，不以非黑或route count闭合。相应inner模块、Debug checkpoint、code-health/scene-defense/design-gate与独立终审必须通过；不机械扩大到全Scene或官方parity。
+
+成功后稳定资源与数值策略移交架构，实际身份/反例/未测上限归历史，删除本窄gate；退役的是reflection-only无producer/consumer及环境生命周期空缺，不退役未知官方时序/公式、Puppet/planar、动态材质能力或完整RT词汇。设计已批准实施；产品仍须完成上述行为门、独立终审和职责提交，不能把本设计批准当能力完成。
