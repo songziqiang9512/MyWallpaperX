@@ -602,7 +602,7 @@ struct SceneMetalRenderer {
                     .lightingEnabled == true {
                     switch makeLitCapturePayload(
                         profile: baseMaterialProviderBindings.lightingProfileByLayerID[layer.id],
-                        snapshot: frameLightSnapshot,
+                        snapshot: frameLightSnapshot, dynamicValues: frameContext.dynamicValues,
                         layerModelMatrix: model,
                         layerWorldFrame: frameWorldFrames[layer.id] ?? SceneMatrix.identity(),
                         usesPerspective: usesPerspective, cameraFrame: cameraFrame,

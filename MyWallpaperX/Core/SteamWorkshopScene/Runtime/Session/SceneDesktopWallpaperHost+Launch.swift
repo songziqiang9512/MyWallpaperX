@@ -483,7 +483,8 @@ extension SceneDesktopWallpaperHost {
                 descriptor: runtimeInput.renderDescriptor,
                 materialInstancesByLayerID:
                     model.sceneDocument.materialInstancesByLayerID,
-                scriptBindings: model.sceneDocument.scriptBindings
+                scriptBindings: model.sceneDocument.scriptBindings,
+                materialPropertyTargets: Set(runtimeInput.propertyBindingProgram.instructions.map(\.target))
             )
         let lightingDemands = Set(baseMaterialProviderBindings.lightingProfileByLayerID.values
             .flatMap { [$0.normalAsset, $0.mapAsset].compactMap { $0 } })
@@ -739,6 +740,8 @@ extension SceneDesktopWallpaperHost {
                 preparedStaticModelLayerIDs: Set(
                     preparedDeviceResources.staticModels.preparedLayerIDs
                 ),
+                preparedImageMaterialTargets: Set(baseMaterialProviderBindings.lightingProfileByLayerID.values
+                    .compactMap(\.emissionPropertyTarget)),
                 propertyVectorScriptProgram: propertyVectorScriptProgram,
                 sceneScriptScalarProgram: sceneScriptScalarProgram,
                 sceneScriptStringProgram: sceneScriptStringProgram

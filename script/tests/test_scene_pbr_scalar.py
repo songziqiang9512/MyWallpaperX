@@ -13,7 +13,7 @@ SCENE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene'
 
 class ScenePBRScalarTests(unittest.TestCase):
     def test_startup_property_resolution_reaches_profile(self):
-        from script.tests import test_scene_timeline_document as document, test_scene_user_properties as properties
+        from script.tests import test_scene_timeline_document as document, test_scene_user_properties as properties, test_scene_static_model_material_properties as material
         support=document.HARNESS_SOURCE.split('@main',1)[0]
         start=support.index('enum SceneUserPropertyValue {}');end=support.index('struct ScenePkgExtractionReport')
         support=support[:start]+support[end:]
@@ -23,10 +23,10 @@ struct SceneAssetTextureIdentity: Hashable, Sendable {
     init?(virtualPath:String,purpose:SceneTextureLoadPurpose) {}
 }
 struct SceneRenderDescriptor {
-    struct Layer { let id=1; let isImageRenderable=true; let imagePath:String?=nil }
+    struct Layer { let id=1; let isImageRenderable=true; let imagePath:String?=nil; let staticModelPath:String?=nil; let puppetMeshPath:String?=nil }
     struct Link { let modelPath:String; let materialPath:String? }
     struct MaterialPassDescriptor {
-        let materialPath="material"; let shaderPath:String?="genericimage2"
+        let passIndex=0; let materialPath="material"; let shaderPath:String?="genericimage2"
         let combos=["LIGHTING":1]; let textureSlots:[String?]=[]
         let userTextureInputs:[SceneEffectTextureInput?]=[]
         var constantShaderValues:[String:SceneDocument.ShaderValue]=[:]
@@ -40,13 +40,13 @@ struct SceneRenderDescriptor {
         let doc=try SceneDocumentLoader().load(from:url,propertyCatalog:catalog,propertyOverrides:["m":.number(0.8)])
         let profiles=doc.objects.map { object in
             SceneBaseMaterialLightingProfileCompiler.profile(layer:.init(),materialInstance:object.materialInstance,
-                materialPasses:[.init()]).scalarMaterial!.x
+                materialPasses:[.init()],materialPropertyTargets:[]).scalarMaterial!.x
         }
         let unresolved:[Any]=["m",["name":"m"],17]
         let unbound=unresolved.map { user in
             var pass=SceneRenderDescriptor.MaterialPassDescriptor()
             pass.constantShaderValues=["metallic":SceneDocumentLoader.shaderValue(from:["user":user,"value":0.8])]
-            return SceneBaseMaterialLightingProfileCompiler.profile(layer:.init(),materialInstance:nil,materialPasses:[pass]).scalarMaterial!.x
+            return SceneBaseMaterialLightingProfileCompiler.profile(layer:.init(),materialInstance:nil,materialPasses:[pass],materialPropertyTargets:[]).scalarMaterial!.x
         }
         print(String(decoding:try JSONSerialization.data(withJSONObject:["profiles":profiles,"unbound":unbound]),as:UTF8.self))
     }
@@ -59,7 +59,7 @@ struct SceneRenderDescriptor {
                           {'user':'m','value':.2,'script':'export function update(v){return v;}'},
                           {'user':'m','value':.8},{'user':'missing','value':None}]
             scene=work/'scene.json';scene.write_text(json.dumps({'objects':[{'id':i+1,'instance':{'constantshadervalues':{'metallic':v}}} for i,v in enumerate(declarations)]}))
-            sources=list(dict.fromkeys([p for p in document.SWIFT_SOURCES if p.name != 'SceneUserPropertyResolutionStub.swift']+properties.SWIFT_SOURCES+[SCENE/'Compilation/Material/SceneBaseMaterialLightingProfile.swift',SCENE/'Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift']))
+            sources=list(dict.fromkeys([p for p in document.SWIFT_SOURCES if p.name != 'SceneUserPropertyResolutionStub.swift']+properties.SWIFT_SOURCES+material.SOURCES+[SCENE/'Compilation/Material/SceneBaseMaterialLightingProfile.swift',SCENE/'Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift']))
             compiled=subprocess.run(['xcrun','swiftc',*map(str,sources),str(source),'-module-cache-path',str(work/'cache'),'-o',str(binary)],capture_output=True,text=True)
             self.assertEqual(compiled.returncode,0,compiled.stderr)
             result=subprocess.run([str(binary),str(scene)],capture_output=True,text=True);self.assertEqual(result.returncode,0,result.stderr)

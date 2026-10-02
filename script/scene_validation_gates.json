@@ -1703,14 +1703,24 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCameraFrame.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyBindings.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyResolver.swift",
-        "script/tests/test_scene_authored_pbr_map.py"
+        "script/tests/test_scene_authored_pbr_map.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneMaterialPropertyBindingCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneProperties.swift",
+        "script/tests/test_scene_static_model_material_properties.py",
+        "script/tests/test_scene_material_user_emission.py",
+        "script/tests/test_scene_material_user_emission_arguments.py"
       ],
       "modules": [
         "test_scene_authored_pbr_map",
         "test_scene_pbr_scalar",
         "test_scene_lit_image_layer",
         "test_scene_authored_normal",
-        "test_scene_base_material_provider_binding"
+        "test_scene_base_material_provider_binding",
+        "test_scene_static_model_material_properties",
+        "test_scene_property_live_update_state",
+        "test_scene_material_user_emission",
+        "test_scene_material_user_emission_arguments"
       ]
     }
   ]

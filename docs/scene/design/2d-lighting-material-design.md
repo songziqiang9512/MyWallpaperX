@@ -198,7 +198,7 @@ Emission采用项目独立策略：有效map调制作者 emissivecolor 与 emiss
 
 literal material常量已由catalog保留；literal/已解析静态instance值沿上述两Format owner接入。未解析 script/Timeline/user wrapper只关emission并给有界原因，不能将raw fallback冒充已解析默认。
 
-Universe 的 **material文件** brightness wrapper未经 scene-root resolver处理；现material属性compiler以staticModelPath为准入。本片不借2D新特判读其raw value，也不为凑样本数建立第二属性通路。若独立追踪发现已有2D合法typed当前值producer可复用，再报完整owner、单独补设计；否则本批明确它的configured emission未闭合。公开的默认1不能绕过明确wrapper。
+F3未接通Universe的material用户属性：catalog wrapper未经scene-root resolver、compiler仅准staticModel。后继F4沿唯一property Program补齐此producer与同帧consumer，具体范围和优先级以下节为准；不能借公开默认1绕过明确wrapper。
 
 真实验证先选3662790108中的sun-4/sun-1两项：保留原material/scene作者内容，在隔离副本运行，确认header只有emissive、MR scalar/default仍在、literal/defaultemission进入输出。保存原/后源码App/input身份、图层source/组件状态、completion/terminal/nextframe与可辨ROI；其它效果或既有失败单独归因。未改变LIGHTING的两项reflection-only样本不是本批受益对象。官方blackbox未运行；有本机输出不等于官方parity。
 
@@ -244,3 +244,100 @@ Universe 的 **material文件** brightness wrapper未经 scene-root resolver处�
 ## 退役条件
 
 稳定架构接管 material/light/target 边界，已开放 profile 验收且旧重复受光路径撤权后归档。设计批准不等于 PBR、shadow、reflection、ltube 已支持。
+
+
+<a id="f4-material-user-emission"></a>
+
+## F4 — 2D material 自发光亮度用户属性（独立设计审查已批准）
+
+基线`769d8a5e11daa8da4c38c33a92bb6418f1c97b55`。五判据①跨属性编译、资源准备、实时更新与渲染consumer，②触唯一property identity/事务及资源需求合同，命中设计前置；③不改持久格式，④不新增结构家族，⑤沿已批准作者输入与独立F3输出策略，无新私有公式需求。登记`scene-2d-material-property`批准前不写产品。
+
+### 可见目标与选择
+
+优先闭合 material 文件里的合法 `emissivebrightness={user:"constellations",value:2.3}`：属性启动值与0→1→0实时修改进入原共享 lit producer，plain 和 effect 两路同结果，不重建Scene/Program/纹理。Universe 3437487219 的 project slider 默认1/range0…1、三层146/135/143共用models/Universe.json、无instance override；scout提供material SHA `4fc65fa8a29edccefbe94fb0fed2ea0fc45c87e2607d5b91e2fbb34d804d2cd3`。作者输入与修前反例、修后运行身份均见[本片执行记录](../../history/scene/d3-material-user-emission-implementation-2026-10-02.md)，此处定义目标范围。
+
+选择首片仅扩已准入 builtin genericimage2/4、LIGHTING=1 且现lit producer可消费的普通image接收者的 catalog emissivebrightness 无条件直接user绑定，保留静态 emissivecolor及现slot2合同。已有Puppet geometry会在LitCapture读取亮度前返回geometryUnsupported（`SceneRenderDescriptor.swift:92,195`、`SceneMetalView.swift:310–335`、`SceneResolvedMaterialFramePreflight+LitCapture.swift:54`）；本片不得为此产生虚假可消费的新instruction，原alpha与静态/3D路径保持原职责。Puppet受光保留后继能力，并不因本片准入边界而退役。复用现material属性compiler与同一个property Program/snapshot，不开第二解析或更新通道；不改Metal ABI/BRDF/资源provider。metallic/roughness/emissivecolor的动态属性、material script/Timeline、动态纹理或combo仍不从此片推出。相比先补“启动wrapper静态值”，完整live纵向能避免UI每次改值仍relaunch而且再次读不到catalog值的无效fallback。
+
+### 修前真实首断点（基线）
+
+路径以下相对 `MyWallpaperX/Core/SteamWorkshopScene/`：
+
+1. `Format/SceneDocument.swift:111–117` resolver只处理scene root；`Runtime/Frame/SceneRuntimeSourceFacts`随后加载catalog。`Resources/Assets/SceneAssetCatalog.swift:226–239,290`保留material wrapper typed ShaderValue，未通过scene-root resolver。
+2. `Systems/Properties/SceneStaticModelMaterialPropertyBindingCompiler.swift:19`只选择layer.staticModelPath；普通imagePath的合法material wrapper未形成property binding。
+3. `Runtime/Frame/SceneRuntimeModel.swift:92–103`将此compiler输出合并到唯一ScenePropertyBindingCompiler，因此漏binding后没有对应definition/instruction/snapshot值。服务 `Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneProperties.swift:144,343`复用同compiler裁actionableKey，UI准入也遗漏。
+4. `Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift:108–120`只激活preparedStaticModelLayerIDs的materialConstant，即使仅补编译也仍拒live。
+5. `Compilation/Material/SceneBaseMaterialLightingProfile.swift:76–88,113–120`拒未解析user wrapper，emission=nil并移除allowed bit8；emission-only材料不产生map需求。合法literal brightness0仍有效并保需求，不是当前遗漏。
+6. `Rendering/Frame/SceneResolvedMaterialFramePreflight+LitCapture.swift:119–127`只使用不可变profile.emission；plain `SceneMetalRenderer.swift:603`与graph `SceneResolvedMaterialFramePreflight.swift:825`虽都有同帧frameContext.dynamicValues，却未传给该consumer。
+
+### 唯一身份、启动与优先级
+
+复用现 `.materialConstant(layerID, passIndex:0, name:"emissivebrightness", materialPath:canonicalPath)`，共享material资产的每层仍为独立目标。`ScenePropertyBindingCompiler+TargetMapping.swift:50–66`已规范化material path；不要新造key或以sample/layerID切算法。
+
+将现StaticModelMaterialPropertyBindingCompiler原地职责迁移并更名为SceneMaterialPropertyBindingCompiler，作为唯一material属性投影owner，保留3D已有字段及准入。本片只为2D新增上述一个已消费字段。入口应同时拿到descriptor与现typed instances，按每层最终有效作者来源选择：
+
+- instance明确提供该key（包括0、非法值或合法scene-root启动投影）时，抑制底material binding；非法instance不得借旧material值伪装继承。
+- instance未提供该key时继承material；共用material不意味着合并layer target。
+- 有效startup instance wrapper已经由 `SceneDocument.swift:126` 的精确provenance、`SceneDocumentObject.swift:69–75`剥除user后投影为静态值，尊重该现事实。本片不声称它获得新的实时instance绑定。
+- 材料wrapper沿原compiler对exact user/value、string合法key、有限一分量fallback的typed验证；script/Timeline/条件wrapper/非法shape不读raw fallback假装支持。
+- 静态instance suppress与binding选择必须在编译前完成，不能同时发布两个writer再用帧调用顺序覆盖。现scene-root instance wrapper的unsupported/rebuild-required策略不暗中删除；与新material绑定共用属性key时，仍服从整个property Program的原原子/重建裁决。若要扩instance实时链，应另明确相应path owner，而非本片偷读rawValue。
+
+启动值与fallback归唯一Program：`ScenePropertyBindingProgram.swift:509–555`生成作者fallback definition与validated instruction；`:95`起evaluate选effective user值；`SceneDynamicSnapshot.swift:625`起以authored definitions为底再应用typed user。Universe默认1应胜过wrapper fallback2.3，不将UI最大1错误地夹掉合法authored fallback。缺失/无效effective值沿原Program/snapshot fallback；consumer不重新查catalog或解释wrapper，也不在profile另冻一份fallback。
+
+“已支持绑定”和“当前值”分开：准备期必须有通过原Program校验的目标才能标为2D动态consumer；没有definition/instruction不能因只见user字符串就准入。静态合法color是本片新增brightness binding的准入前提：compiler与profile复用同一静态分量来源/验证，显式非法或未解析color使该emission分量无consumer时，不得先生成不可消费的brightness instruction而连带拒绝同key已有alpha更新。缺省color仍按F3合法默认，不能把显式错误伪造成默认。合法color下缺/坏map或作者关闭map组件仅影响输出，prepared亮度target仍由同帧consumer读取；原slot2/metadata/provider规则不变。profile保存现typed目标与静态color所需的最小准备结果；帧内只读snapshot并形成现emission payload。
+
+### 资源需求与live事务
+
+有合法可执行brightness binding时，slot2需求由prepared能力决定，不由当前值是否为0或当前emission输出决定；0仍加载同一资源，以便0→1不用新资源通路。若当前snapshot值到最终consumer后因负数或不可表示Float等已存在输入边界使emission无效，最小关闭emission，保MR/normal/albedo；已准备的合法binding与map需求保留，后续合法值可恢复。此处不改变Program对非法用户修改的拒绝/fallback：live invalid一般先被原owner拒绝，不能将它说成成功更新后“局部关灯”。缺/坏/非法map仍沿F3原局部fallback。
+
+`Host+Launch.swift:482–490`已有profile→lightingDemands→同catalog加载；应给profile compiler传入同一已编译property Program/typed支持目标，在该处准备可恢复需求，不能每帧load或profile新增JSON解析。
+
+Host live admission将实际准备的2D brightness目标与已有model目标合并，不因layer是image就放行所有materialConstant；仍通过统一activeConsumerTargets检查。`ScenePropertyLiveUpdateState.swift:58`全兄弟目标先验证、构造candidate并一次提交；`SceneDesktopWallpaperSession.swift:225–287`先candidate、consumer canApply后替换context；recordID不符在:221拒绝。复用这些owner，不引入新commit/clock/revision。
+
+`Session+FrameDriver.swift:266–271`将同一liveState.userValues送唯一snapshot。plain/graph两caller都把frameContext.dynamicValues交同一LitCapture；consumer按prepared target读取这一个snapshot，校验已有有限非负及Float表示边界，输出原emission SIMD/payload，Metal无变化。snapshot身份/priority由现frameContext保证，不加无producer stale guard。后续任何取消、错误类型、未知key、无法消费兄弟target均遵原atomic拒绝且旧liveState/revision/画面保留；暂停时先值提交，下个真实frame采用，不另开定时器。
+
+### 最小owned候选（约10个existing职责）
+
+1. `Systems/Properties/SceneStaticModelMaterialPropertyBindingCompiler.swift`（更名同owner）：泛化layer source选择与2D字段投影，保3D。
+2. `Runtime/Frame/SceneRuntimeModel.swift`：传typed instance，编译唯一Program。
+3. `MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneProperties.swift`：同compiler的UI actionable与target支持。
+4. `Compilation/Material/SceneBaseMaterialLightingProfile.swift`：已批准动态target与静态color/当前emission分离、结构需求。
+5. `Compilation/Material/SceneBaseMaterialProviderBindingCompiler.swift`：传准备期typed property能力到同profile。
+6. `Runtime/Session/SceneDesktopWallpaperHost+Launch.swift`：统一Program准备输入与activeConsumer目标贯通。
+7. `Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift`：仅实际prepared2D目标激活。
+8. `Rendering/Frame/SceneResolvedMaterialFramePreflight+LitCapture.swift`：同帧snapshot→原emission。
+9. `Rendering/Frame/SceneMetalRenderer.swift`：plain caller传snapshot。
+10. `Rendering/Frame/SceneResolvedMaterialFramePreflight.swift`：graph caller传snapshot。
+
+具体接口由实现压缩；避免compiler/profile各复制一套材质关联/准入逻辑，准备期选择应有一个canonical owner。无须新增registry/provider/Metalpipeline/全局fallback。若rename，需要root精确layout/validation paths收敛，不能盲加别名wrapper。不预授权现property owner改语义或把未知动态instance纳入本片。
+
+### 修前真实红与纠正门
+
+以下门的实际结果归[执行记录](../../history/scene/d3-material-user-emission-implementation-2026-10-02.md)；必须先冻结RF11 immutable App与自有输入/test/oracle，再执行：
+
+- CPU真实project→scene/catalog→descriptor→compiler→Program→profile：三个同model image层、default1/fallback2.3，期待三个唯一layer target、current emission1及实际map需求。旧实现应无三个binding且emission-only map未需求。不是Python模拟或source字符串assert。
+- CPU material共享fanout与优先级：一层static instance0、一层无override、一层static正值；只继承层有material producer；合法startup instance照现投影；无静态字段不能混成0。保3D已有绑定与custom/multipass/Lighting0/非法wrapper负控。
+- CPU原live-state事务：0→1→0、同值no-op revision稳定、合法缺effective fallback、错误类型/超range/同key一个unsupported sibling/recordID stale时全拒且旧值/版本不变。若构造consumer-only负值注入，明确非自然UI通路。
+- GPU consumer/API门：相同prepared map/normal/albedo资源，读取两帧snapshot brightness0/1及旧snapshot重放，plain/effect同emission结果；black ambient/no lights仍响应，alpha/normal/MR不回归。错误类型/缺目标遵原fallback，不能绕typed Program。
+- 真实自有App：三层fanout、plain与nonidentity effect、0→1→0可判别ROI、实际property-update accepted=true、same session/no relaunch、健康邻层、frame completion/publication/terminal及next-frame。启动0也保map需求；invalid live回滚保持旧图。所有runner/test冻结后才启动，执行期间不改模块。
+- Universe完整原21对象包：先记录旧不可见/无响应的确切firstbreak；修后用同原输入、默认与合法user覆盖运行。若其它loader/准入/VM等阻断，明确原包未恢复，再用原material+资产独立presentation证明本consumer贡献；不删原脚本后声称原包收益。
+
+复用 `test_scene_static_model_material_properties`、`test_scene_property_live_update_state`、`test_scene_authored_pbr_map`及现pbr_scalar的actual behavior harness；更新必要source-list/stubs，不添加shape tests。执行失败半径先CPU再checkpoint build，再冻结App与GPU；code-health/defense/design必跑，原3D邻接不可因泛化漏掉。
+
+
+### 同会话纠正门补充（独立设计审查已批准）
+
+现`MyWallpaperX/App/DebugScenePlaybackRunner.swift:507–530`只在ready后调度一次live dictionary；`DebugScenePlaybackRunner+Arguments.swift:117–136`只解析单次dictionary。单独两进程的0→1与1→0不能冒称同会话完整cycle。为执行本批已批准的可见门，扩现DEBUG runner两文件，新增顺序dictionary数组参数`--mwx-debug-scene-live-property-sequence-json`；无此参数时保持原single flag行为，显式sequence优先于single。每步沿现ready后的2秒间隔顺序调用原`runtimeHost.applyUserPropertyValues`，保留同record/session/window，逐步记录序号和accepted；原live-property-update整行保持兼容，序号单独记录在sequence-step事件，避免旧consumer的连续字段及keys尾字段被破坏。复用现periodic snapshot验证中间亮帧与最后暗帧，不新增产品property state、clock或观察常驻路径。
+
+序列复用现strict dictionary值/key/总输入大小验证；整个数组验证后才调度，坏元素不能留下已执行前缀，明确诊断且不执行该序列。输入producer就是显式debug CLI JSON。场景关闭后不再发后续步，沿原isClosing边界；不改普通播放或原host事务。此诊断输入有本批App用例实际调用，不留无人调用入口。两App文件由单一实施者持有，设计释放前不写。
+
+合法原Universe的同key还绑定三层alpha（scene objects[1..3]，层146/135/143）；旧运行证据已有三个alpha instruction，key不在rebuildRequired列表。146/143初始隐藏但已有alpha consumer。F4须验证新增三个emission target与三个alpha target共同原子更新，不能只激活可见层导致隐藏兄弟拒绝整key。完整原包0/1全图差异本来也可由alpha造成，emission因果须由固定alpha的presentation及typed消费门证明，再核原包六target同帧、无relaunch及next-frame。此补充不新增材质准入profile，也不把文本命中当运行consumer。
+
+### 方案裁决、纠正与退役
+
+本片选择catalog中`emissivebrightness`完整启动及实时链，因为真实作者声明已明确，原Program、snapshot及lit payload能承载，无需另造解析器或shading。只剥startup wrapper会保留更新后重启仍无结果的断点；逐帧解析raw会引入第二property权威，两者不选。暂不扩其它材质字段或instance实时绑定；这些保留后继，不能把本片小范围验收当D3完成。
+
+现compiler更名为`SceneMaterialPropertyBindingCompiler`，迁移现调用/source lists，不留旧别名wrapper或重复compiler。路径清单只做这一个owner的替换；并行layout排序改动保持原样且不搭入本批提交。禁止增加新registry、property state或计时器；新增guard须指明实际typed输入producer，终审逐项核对。
+
+普通视觉输入缺失只关闭该emission分量，MR/normal/albedo和健康邻层按既有合同保留；stale record、类型/range不合和不可消费同key兄弟目标仍由原属性事务拒绝、旧revision及输出保留。shader ABI与Metal数值策略保持F3；若真实红证显示其它必需改动，先修订本设计再释放。
+
+纠正门包括上述真实解析/transaction/GPU/App和原包首断点，并要求Debug构建、code-health、scene-defense、design-gate及独立终审绑定精确源码/test/App身份。当前合法scene-root instance投影、已有3D材料属性须回归。成功后稳定owner合同移交架构、执行身份和上限归历史、窄gate删除；退役的是catalog亮度无producer/consumer与结构需求漏接，不退役其它动态材质能力、原包剩余缺口或官方parity。

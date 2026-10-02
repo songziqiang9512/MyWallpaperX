@@ -68,13 +68,15 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
         let facts=SceneRuntimeSourceFactsBuilder().build(rootURL:root)
         let document=facts.sceneDocument!,descriptor=facts.renderDescriptor!
         let instances=Dictionary(uniqueKeysWithValues:document.objects.compactMap { o in o.materialInstance.map { (o.id,$0) } })
-        let profiles=SceneBaseMaterialLightingProfileCompiler.profiles(descriptor:descriptor,materialInstancesByLayerID:instances)
+        let profiles=SceneBaseMaterialLightingProfileCompiler.profiles(descriptor:descriptor,materialInstancesByLayerID:instances,materialPropertyTargets:[])
         let result=descriptor.layers.map { layer -> [String:Any] in
             let p=profiles[layer.id]!
             let source:String
             switch p.mapSource { case .disabled:source="disabled";case .invalid:source="invalid";case .unsupported:source="unsupported";case let .asset(a):source=a.path }
+            let emission: [Float]?
+            if case let .constant(value) = p.emission { emission = [value.x,value.y,value.z,value.w] } else { emission = nil }
             return ["id":layer.id,"source":source,"allowed":p.mapAllowedComponents,"required":p.mapRequiredComponents,
-                "emission":p.emission.map { [$0.x,$0.y,$0.z,$0.w] } as Any? ?? NSNull(),
+                "emission":emission as Any? ?? NSNull(),
                 "material":p.scalarMaterial.map { [$0.x,$0.y] } as Any? ?? NSNull()]
         }
         print(String(decoding:try JSONSerialization.data(withJSONObject:result),as:UTF8.self))

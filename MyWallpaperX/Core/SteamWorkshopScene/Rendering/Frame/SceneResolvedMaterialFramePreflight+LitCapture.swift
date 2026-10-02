@@ -41,6 +41,7 @@ extension SceneMetalRenderer {
     func makeLitCapturePayload(
         profile: SceneBaseMaterialLightingProfile?,
         snapshot: SceneLightSnapshot?,
+        dynamicValues: SceneDynamicSnapshot,
         layerModelMatrix: simd_float4x4,
         layerWorldFrame: simd_float4x4,
         usesPerspective: Bool,
@@ -107,6 +108,16 @@ extension SceneMetalRenderer {
             ))
         )
         guard let lights else { return .miss(.lightPackingRejected) }
+        let emission: SIMD4<Float>?
+        switch profile.emission {
+        case let .constant(value): emission = value
+        case let .propertyBrightness(color, target):
+            if case let .scalar(brightness) = dynamicValues[target]?.value,
+               brightness >= 0, brightness.isFinite, Float(brightness).isFinite {
+                emission = SIMD4(color, Float(brightness))
+            } else { emission = nil }
+        case nil: emission = nil
+        }
         guard let payload = SceneBaseMaterialLitCapturePayload(
             pipeline: litPipeline,
             lights: lights,
@@ -114,7 +125,7 @@ extension SceneMetalRenderer {
             materialMap: materialMap,
             mapAllowedComponents: profile.mapAllowedComponents,
             mapRequiredComponents: profile.mapRequiredComponents,
-            emission: profile.emission
+            emission: emission
         ) else { return .miss(.payloadInvalid) }
         return .payload(payload)
     }

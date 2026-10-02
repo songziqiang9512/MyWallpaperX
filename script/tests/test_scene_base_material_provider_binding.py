@@ -132,6 +132,7 @@ struct SceneRenderDescriptor {
     }
     struct MaterialPassDescriptor {
         let materialPath: String
+        let passIndex = 0
         var shaderPath: String? = nil
         var combos: [String: Int] = [:]
         let textureSlots: [String?]
@@ -151,6 +152,8 @@ struct SceneRenderDescriptor {
     }
     struct Layer {
         let id: Int
+        let puppetMeshPath: String? = nil
+        let staticModelPath: String? = nil
         let contentKind: String
         let imagePath: String?
         var effects: [EffectDescriptor]
@@ -162,7 +165,7 @@ struct SceneRenderDescriptor {
     let texturePropertyKeys: [String]
 }
 
-enum SceneJSONValue: Equatable { case bool(Bool) }
+
 enum SceneScriptBindingValueType { case boolean, number }
 struct SceneScriptBindingOwner {
     enum Kind { case effect, object }
@@ -651,7 +654,7 @@ let program = SceneBaseMaterialProviderBindingCompiler.compile(
         306: litInstance,
     ],
     scriptBindings: [directBinding, timedBinding, unsupportedBinding]
-)
+, materialPropertyTargets: [])
 let projected = SceneInitialMediaEffectVisibilityProjection.apply(
     to: descriptor,
     scriptBindings: [directBinding, timedBinding, unsupportedBinding],
@@ -687,7 +690,7 @@ func materialLighting(shader: String, override: Int? = nil) -> Bool {
     return SceneBaseMaterialLightingProfileCompiler.profile(
         layer: descriptor.layers.first { $0.id == 300 }!,
         materialInstance: instance, materialPasses: [pass]
-    ).lightingEnabled
+    , materialPropertyTargets: []).lightingEnabled
 }
 let authoredMaterialLighting = [
     materialLighting(shader: authoredPass[0]["shader"] as! String),
@@ -700,7 +703,7 @@ let directlyCompiledProfiles = SceneBaseMaterialLightingProfileCompiler
     .profiles(
         descriptor: descriptor,
         materialInstancesByLayerID: litMaterialInstancesByLayerID
-    )
+    , materialPropertyTargets: [])
 let lightingProfilesMatchDirectCompiler =
     directlyCompiledProfiles == program.lightingProfileByLayerID
 func authoredNormal(_ slots: [String?], instanceSlots: [String?] = [],
@@ -711,7 +714,7 @@ func authoredNormal(_ slots: [String?], instanceSlots: [String?] = [],
         userTextureInputs: [], hasUserTextureOverride: false,
         combos: combo.map { ["NORMALMAP": $0] } ?? [:], unknownKeys: [], isMalformed: false)
     return SceneBaseMaterialLightingProfileCompiler.profile(layer: descriptor.layers[0],
-        materialInstance: instance, materialPasses: [pass]).normalAsset?.path.value ?? "absent"
+        materialInstance: instance, materialPasses: [pass], materialPropertyTargets: []).normalAsset?.path.value ?? "absent"
 }
 let authoredNormals = [
     authoredNormal(["albedo", "maps/authored.png"]),
@@ -728,12 +731,12 @@ let authoredNormals = [
 let unsupportedNormal = SceneBaseMaterialLightingProfileCompiler.profile(
     layer: descriptor.layers[0], materialInstance: nil, materialPasses: [.init(
         materialPath: "normal.json", shaderPath: "genericimage2", combos: ["LIGHTING": 1],
-        textureSlots: ["albedo", "fallback"], userTextureInputs: [nil, current])])
+        textureSlots: ["albedo", "fallback"], userTextureInputs: [nil, current])], materialPropertyTargets: [])
 let unsupportedNormalReported: Bool
 if case .unsupported = unsupportedNormal.normalSource { unsupportedNormalReported = true }
 else { unsupportedNormalReported = false }
 let missingNormalPass = SceneBaseMaterialLightingProfileCompiler.profile(
-    layer: descriptor.layers[0], materialInstance: litNormalInstance, materialPasses: [])
+    layer: descriptor.layers[0], materialInstance: litNormalInstance, materialPasses: [], materialPropertyTargets: [])
 func scalarProfile(_ shader: String?, material: [String:SceneDocument.ShaderValue] = [:], instance: [String:SceneDocument.ShaderValue] = [:]) -> [Float] {
     var pass = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: "scalar", shaderPath: shader,
         combos: ["LIGHTING":1], textureSlots: ["albedo"], userTextureInputs: [])
@@ -741,7 +744,7 @@ func scalarProfile(_ shader: String?, material: [String:SceneDocument.ShaderValu
     var overlay = litInstance
     overlay.scalarShaderValues = instance
     let profile = SceneBaseMaterialLightingProfileCompiler.profile(layer: descriptor.layers[0],
-        materialInstance: overlay, materialPasses: [pass])
+        materialInstance: overlay, materialPasses: [pass], materialPropertyTargets: [])
     return profile.scalarMaterial.map { [$0.x,$0.y] } ?? []
 }
 let scalarProfiles = [
@@ -804,6 +807,7 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
     def test_current_and_previous_binding_compiler_is_shared_and_fail_closed(self) -> None:
         if shutil.which("swiftc") is None:
             self.skipTest("swiftc is unavailable")
+        from script.tests import test_scene_static_model_material_properties as material
         with tempfile.TemporaryDirectory(prefix="mwx-media-binding-") as directory:
             root = Path(directory)
             harness = root / "main.swift"
@@ -811,11 +815,10 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
             binary = root / "binding"
             subprocess.run(
                 [
-                    "swiftc", str(SOURCE), str(COMPILER_SOURCE),
+                    "swiftc", *map(str, material.SOURCES), str(SOURCE), str(COMPILER_SOURCE),
                     str(LIGHTING_PROFILE_SOURCE),
-                    str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift"),
                     str(VISIBILITY_SOURCE),
-                    str(harness), "-o", str(binary),
+                    str(harness), "-module-cache-path", str(root / "cache"), "-o", str(binary),
                 ],
                 check=True,
                 cwd=ROOT,

@@ -13,6 +13,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = [
+    SCENE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
@@ -22,7 +23,7 @@ SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgram.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgramValidator.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneStaticModelMaterialPropertyBindingCompiler.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneMaterialPropertyBindingCompiler.swift",
 ]
 
 STUBS = r'''
@@ -31,18 +32,25 @@ enum SceneShaderUserValueKind {
 }
 
 struct SceneDocument {
+    struct SceneLayerMaterialInstance { let isMalformed: Bool; let combos: [String:Int]; let scalarShaderValues: [String:ShaderValue]? }
     struct ShaderValue {
         let userBinding: String?
         let userValueKind: SceneShaderUserValueKind?
         let components: [Double]?
         let bindingKeys: [String]
+        let scriptSource: String? = nil
+        let timeline: Int? = nil
+        let timelineDiagnostics: [String] = []
     }
 }
 
 struct SceneRenderDescriptor {
     struct Layer {
         let id: Int
+        let puppetMeshPath: String? = nil
         let staticModelPath: String?
+        let isImageRenderable = false
+        let imagePath: String? = nil
     }
 
     struct ModelMaterialLink {
@@ -53,6 +61,8 @@ struct SceneRenderDescriptor {
     struct MaterialPassDescriptor {
         let materialPath: String
         let passIndex: Int
+        let shaderPath: String? = nil
+        let combos: [String:Int] = [:]
         let constantShaderValues: [String: SceneDocument.ShaderValue]
     }
 
@@ -103,8 +113,8 @@ enum Harness {
             ],
             materialPasses: [pass0, pass1]
         )
-        let bindings = SceneStaticModelMaterialPropertyBindingCompiler.compile(
-            descriptor: descriptor
+        let bindings = SceneMaterialPropertyBindingCompiler.compile(
+            descriptor: descriptor, materialInstancesByLayerID: [:]
         )
         precondition(bindings.count == 10)
 
@@ -175,8 +185,8 @@ enum Harness {
             modelMaterialLinks: descriptor.modelMaterialLinks,
             materialPasses: [pass0, pass0]
         )
-        precondition(SceneStaticModelMaterialPropertyBindingCompiler.compile(
-            descriptor: duplicatePassDescriptor
+        precondition(SceneMaterialPropertyBindingCompiler.compile(
+            descriptor: duplicatePassDescriptor, materialInstancesByLayerID: [:]
         ).isEmpty)
 
         let multipart = SceneRenderDescriptor(
@@ -189,7 +199,7 @@ enum Harness {
                 constantShaderValues: ["color": wrapper("emissive", [1, 0.5, 0.25])]
             )]
         )
-        let multiBindings = SceneStaticModelMaterialPropertyBindingCompiler.compile(descriptor: multipart)
+        let multiBindings = SceneMaterialPropertyBindingCompiler.compile(descriptor: multipart, materialInstancesByLayerID: [:])
         precondition(multiBindings.count == 12)
         let mapped = multiBindings.compactMap {
             ScenePropertyBindingCompiler.map($0, propertyKind: nil)?.target

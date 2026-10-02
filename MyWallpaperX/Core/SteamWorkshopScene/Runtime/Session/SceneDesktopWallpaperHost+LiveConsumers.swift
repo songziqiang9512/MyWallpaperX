@@ -24,6 +24,7 @@ extension SceneDesktopWallpaperHost {
             SceneResolvedMaterialExecutionCapabilityCatalog,
         soundPlaybackProgram: SceneSoundPlaybackProgram,
         preparedStaticModelLayerIDs: Set<Int>,
+        preparedImageMaterialTargets: Set<SceneDynamicTarget>,
         propertyVectorScriptProgram: SceneScriptVectorProgram,
         sceneScriptScalarProgram: SceneScriptScalarProgram,
         sceneScriptStringProgram: SceneScriptStringProgram
@@ -46,6 +47,7 @@ extension SceneDesktopWallpaperHost {
                     resolvedMaterialExecutionCapabilities,
                 soundPlaybackProgram: soundPlaybackProgram,
                 preparedStaticModelLayerIDs: preparedStaticModelLayerIDs,
+                preparedImageMaterialTargets: preparedImageMaterialTargets,
                 propertyVectorScriptProgram: propertyVectorScriptProgram,
                 sceneScriptScalarProgram: sceneScriptScalarProgram,
                 sceneScriptStringProgram: sceneScriptStringProgram
@@ -62,6 +64,7 @@ extension SceneDesktopWallpaperHost {
             SceneResolvedMaterialExecutionCapabilityCatalog,
         soundPlaybackProgram: SceneSoundPlaybackProgram,
         preparedStaticModelLayerIDs: Set<Int>,
+        preparedImageMaterialTargets: Set<SceneDynamicTarget>,
         propertyVectorScriptProgram: SceneScriptVectorProgram,
         sceneScriptScalarProgram: SceneScriptScalarProgram,
         sceneScriptStringProgram: SceneScriptStringProgram
@@ -127,6 +130,7 @@ extension SceneDesktopWallpaperHost {
                 .union(lightTargets)
                 .union(layerVisibilityTargets)
                 .union(modelMaterialTargets)
+                .union(preparedImageMaterialTargets)
                 .union(soundPlaybackProgram.liveConsumerTargets)
                 .union(propertyVectorScriptProgram.livePropertyInputTargets)
                 .union(sceneScriptScalarProgram.livePropertyInputTargets)

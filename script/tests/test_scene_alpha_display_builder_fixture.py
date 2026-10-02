@@ -89,7 +89,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Properties/ScenePropertyBindingProgram.swift",
     SOURCE_ROOT / "Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
     SOURCE_ROOT / "Systems/Properties/ScenePropertyBindingProgramValidator.swift",
-    SOURCE_ROOT / "Systems/Properties/SceneStaticModelMaterialPropertyBindingCompiler.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneMaterialPropertyBindingCompiler.swift",
     SOURCE_ROOT / "Systems/Properties/SceneSharedLayerAlphaCompiler.swift",
     SOURCE_ROOT / "Systems/Properties/SceneSharedLayerAlphaProgram.swift",
     SOURCE_ROOT / "Systems/Properties/SceneSharedLayerAlphaSyntax.swift",

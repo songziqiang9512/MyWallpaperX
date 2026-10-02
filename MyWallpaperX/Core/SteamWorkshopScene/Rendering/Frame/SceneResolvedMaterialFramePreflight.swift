@@ -825,6 +825,7 @@ extension SceneMetalRenderer {
                 switch makeLitCapturePayload(
                     profile: lightingProfileByLayerID[layerID],
                     snapshot: frameLightSnapshot,
+                    dynamicValues: frameContext.dynamicValues,
                     layerModelMatrix: simd_inverse(cameraFrame.viewProjection(for: layer))
                         * sourceMVP,
                     layerWorldFrame: layerModelMatrix,

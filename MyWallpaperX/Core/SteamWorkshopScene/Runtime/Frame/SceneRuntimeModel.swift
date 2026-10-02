@@ -90,8 +90,9 @@ struct SceneRuntimeModelBuilder {
             throw BuildError.missingRenderDescriptor
         }
         let sceneBindings = sceneDocument.userPropertyResolution.bindingReport
-        let materialBindings = SceneStaticModelMaterialPropertyBindingCompiler.compile(
-            descriptor: renderDescriptor
+        let materialBindings = SceneMaterialPropertyBindingCompiler.compile(
+            descriptor: renderDescriptor,
+            materialInstancesByLayerID: sceneDocument.materialInstancesByLayerID
         )
         let compilation = ScenePropertyBindingCompiler().compile(
             report: .init(

@@ -15,7 +15,15 @@ nonisolated struct SceneBaseMaterialLightingProfile: Equatable, Sendable {
     /// Bits match the authored component metadata, excluding reflection.
     var mapAllowedComponents: UInt32 = 0
     var mapRequiredComponents: UInt32 = 0
-    var emission: SIMD4<Float>? = nil
+    enum Emission: Equatable, Sendable {
+        case constant(SIMD4<Float>)
+        case propertyBrightness(color: SIMD3<Float>, target: SceneDynamicTarget)
+    }
+    var emission: Emission? = nil
+    var emissionPropertyTarget: SceneDynamicTarget? {
+        guard case let .propertyBrightness(_, target) = emission else { return nil }
+        return target
+    }
     var mapAsset: SceneAssetTextureIdentity? {
         guard case let .asset(identity) = mapSource else { return nil }
         return identity
@@ -37,7 +45,8 @@ enum SceneBaseMaterialLightingProfileCompiler {
     static func profile(
         layer: SceneRenderDescriptor.Layer,
         materialInstance: SceneDocument.SceneLayerMaterialInstance?,
-        materialPasses: [SceneRenderDescriptor.MaterialPassDescriptor]
+        materialPasses: [SceneRenderDescriptor.MaterialPassDescriptor],
+        materialPropertyTargets: Set<SceneDynamicTarget>
     ) -> SceneBaseMaterialLightingProfile {
         guard layer.isImageRenderable,
               materialInstance?.isMalformed != true,
@@ -46,6 +55,9 @@ enum SceneBaseMaterialLightingProfileCompiler {
         let isBuiltin = pass?.shaderPath.map(SceneBuiltinShaderIdentity.isImage) ?? true
         let lightingEnabled = isBuiltin
             && (materialInstance?.combos["LIGHTING"] ?? pass?.combos["LIGHTING"]) == 1
+        let builtinLighting = SceneMaterialPropertyBindingCompiler.supportsBuiltinImageLighting(
+            layer: layer, instance: materialInstance, passes: materialPasses
+        )
         // Fixed built-in slot 1 is the normal input. Null instance slots inherit
         // the material; an explicit NORMALMAP=0 disables that optional input.
         func slot(_ slots: [String?]) -> String? {
@@ -57,8 +69,7 @@ enum SceneBaseMaterialLightingProfileCompiler {
             ? materialInstance?.userTextureInputs : pass?.userTextureInputs
         let hasUnsupportedProvider = input?.indices.contains(1) == true
             && input?[1] != nil
-        let normalEnabled = lightingEnabled
-            && pass?.shaderPath.map(SceneBuiltinShaderIdentity.isImage) == true
+        let normalEnabled = builtinLighting
             && (materialInstance?.combos["NORMALMAP"] ?? pass?.combos["NORMALMAP"]) != 0
         let normalSource: SceneBaseMaterialLightingProfile.TextureSource
         if !normalEnabled { normalSource = .disabled }
@@ -70,23 +81,10 @@ enum SceneBaseMaterialLightingProfileCompiler {
         var profile = SceneBaseMaterialLightingProfile(
             lightingEnabled: lightingEnabled, normalSource: normalSource
         )
-        if lightingEnabled, let shader = pass?.shaderPath,
-           SceneBuiltinShaderIdentity.isImage(shader) {
+        if builtinLighting, let pass, let shader = pass.shaderPath {
             let tierFour = shader.lowercased() == "genericimage4"
-            func components(_ key: String, count: Int, fallback: [Double]) -> [Double]? {
-                guard let value = materialInstance?.scalarShaderValues?[key]
-                    ?? pass?.constantShaderValues[key] else { return fallback }
-                guard value.userBinding == nil,
-                      value.userValueKind == nil || value.userValueKind == .null,
-                      value.scriptSource == nil,
-                      value.timeline == nil, value.timelineDiagnostics.isEmpty,
-                      value.bindingKeys.allSatisfy({ $0 == "value" || $0 == "user" }),
-                      let components = value.components, components.count == count,
-                      components.allSatisfy(\.isFinite) else { return nil }
-                return components
-            }
             func scalar(_ key: String, default fallback: Double) -> Float {
-                guard let value = components(key, count: 1, fallback: [fallback])?.first else {
+                guard let value = SceneMaterialPropertyBindingCompiler.staticComponents(key, instance: materialInstance, pass: pass, count: 1, fallback: [fallback])?.first else {
                     NSLog("MWX SCENE: schema=base-material-scalar component=%@ fallback=tier-default reason=invalid-or-unresolved", key)
                     return Float(fallback)
                 }
@@ -97,7 +95,7 @@ enum SceneBaseMaterialLightingProfileCompiler {
                 scalar("roughness", default: tierFour ? 0.7 : 0.5)
             )
             func combo(_ key: String) -> Int? {
-                materialInstance?.combos[key] ?? pass?.combos[key]
+                materialInstance?.combos[key] ?? pass.combos[key]
             }
             for (key, bit) in [("METALLIC_MAP", UInt32(1)), ("ROUGHNESS_MAP", 2), ("EMISSIVE_MAP", 8)] {
                 switch combo(key) {
@@ -110,11 +108,20 @@ enum SceneBaseMaterialLightingProfileCompiler {
                     NSLog("MWX SCENE: schema=base-material-map component=%@ status=unsupported fallback=component-disabled", key)
                 }
             }
-            if let color = components("emissivecolor", count: 3, fallback: [1, 1, 1]),
-               let brightness = components("emissivebrightness", count: 1, fallback: [1])?.first,
-               (color + [brightness]).allSatisfy({ $0 >= 0 && Float($0).isFinite }) {
-                profile.emission = SIMD4(Float(color[0]), Float(color[1]), Float(color[2]), Float(brightness))
-            } else {
+            if let rgb = SceneMaterialPropertyBindingCompiler.emissionColor(instance: materialInstance, pass: pass) {
+                let target = SceneDynamicTarget.materialConstant(
+                    layerID: layer.id, passIndex: pass.passIndex,
+                    name: "emissivebrightness",
+                    materialPath: pass.materialPath.replacingOccurrences(of: "\\", with: "/").localizedLowercase
+                )
+                if materialPropertyTargets.contains(target) {
+                    profile.emission = .propertyBrightness(color: rgb, target: target)
+                } else if let brightness = SceneMaterialPropertyBindingCompiler.staticComponents("emissivebrightness", instance: materialInstance, pass: pass, count: 1, fallback: [1])?.first,
+                          brightness >= 0, Float(brightness).isFinite {
+                    profile.emission = .constant(SIMD4(rgb, Float(brightness)))
+                }
+            }
+            if profile.emission == nil {
                 NSLog("MWX SCENE: schema=base-material-emission status=invalid-or-unresolved fallback=disabled")
             }
             if profile.emission == nil { profile.mapAllowedComponents &= 3 }
@@ -129,10 +136,10 @@ enum SceneBaseMaterialLightingProfileCompiler {
                 profile.mapSource = .disabled
             } else if combo("PBRMASKS") != nil && combo("PBRMASKS") != 1 {
                 profile.mapSource = .unsupported
-            } else if hasMapProvider(pass?.userTextureInputs ?? [])
+            } else if hasMapProvider(pass.userTextureInputs)
                         || hasMapProvider(materialInstance?.userTextureInputs ?? []) {
                 profile.mapSource = .unsupported
-            } else if let path = mapPath(materialInstance?.textureSlots ?? []) ?? mapPath(pass?.textureSlots ?? []) {
+            } else if let path = mapPath(materialInstance?.textureSlots ?? []) ?? mapPath(pass.textureSlots) {
                 profile.mapSource = SceneAssetTextureIdentity(virtualPath: path, purpose: .mask)
                     .map { .asset($0) } ?? .invalid
             }
@@ -141,43 +148,22 @@ enum SceneBaseMaterialLightingProfileCompiler {
         return profile
     }
 
-    /// Projects every image-renderable layer of the launch descriptor. The
-    /// material-pass association mirrors the base-material provider
-    /// binding compiler: model material links resolve the layer's image
-    /// path to a material path, then the descriptor's material passes.
+    /// Uses the shared prepared image association and the validated Program's
+    /// targets; the profile never interprets a current property value.
     static func profiles(
         descriptor: SceneRenderDescriptor,
-        materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance]
+        materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance],
+        materialPropertyTargets: Set<SceneDynamicTarget>
     ) -> [Int: SceneBaseMaterialLightingProfile] {
-        let materialPathByModelPath = descriptor.modelMaterialLinks.reduce(
-            into: [String: String]()
-        ) { result, link in
-            guard let materialPath = link.materialPath else { return }
-            result[normalized(link.modelPath)] = normalized(materialPath)
-        }
-        let materialPassesByPath = Dictionary(
-            grouping: descriptor.materialPasses,
-            by: { normalized($0.materialPath) }
-        )
-        var profiles: [Int: SceneBaseMaterialLightingProfile] = [:]
-        for layer in descriptor.layers where layer.isImageRenderable {
-            let materialPasses: [SceneRenderDescriptor.MaterialPassDescriptor]
-            if let imagePath = layer.imagePath,
-               let materialPath = materialPathByModelPath[normalized(imagePath)] {
-                materialPasses = materialPassesByPath[materialPath] ?? []
-            } else {
-                materialPasses = []
-            }
-            profiles[layer.id] = profile(
+        let passes = SceneMaterialPropertyBindingCompiler.imageMaterialPasses(descriptor: descriptor)
+        return descriptor.layers.reduce(into: [:]) { result, layer in
+            guard layer.isImageRenderable else { return }
+            result[layer.id] = profile(
                 layer: layer,
                 materialInstance: materialInstancesByLayerID[layer.id],
-                materialPasses: materialPasses
+                materialPasses: passes[layer.id] ?? [],
+                materialPropertyTargets: materialPropertyTargets
             )
         }
-        return profiles
-    }
-
-    private static func normalized(_ path: String) -> String {
-        path.replacingOccurrences(of: "\\", with: "/").localizedLowercase
     }
 }

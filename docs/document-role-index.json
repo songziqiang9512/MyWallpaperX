@@ -200,6 +200,16 @@
       ]
     },
     {
+      "path": "docs/history/scene/d3-material-user-emission-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/design/2d-lighting-material-design.md",
+        "docs/scene/design/reference-evidence-implementation-cards.md"
+      ]
+    },
+    {
       "path": "docs/history/scene/d3-normal-input-neutral-contract-2026-10-02.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",

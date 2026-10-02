@@ -356,10 +356,13 @@ enum DebugScenePlaybackRunner {
                     outputDirectory: evidenceDirectory
                 )
             }
-            let livePropertyOverrides = requestedLivePropertyOverrides
-            if !livePropertyOverrides.isEmpty {
-                scheduleAudioSpectrumLivePropertyObservations()
-                scheduleLivePropertyUpdate(livePropertyOverrides)
+            if let sequence = requestedLivePropertySequence {
+                if !sequence.isEmpty {
+                    scheduleAudioSpectrumLivePropertyObservations()
+                    scheduleLivePropertyUpdate(sequence, index: 0)
+                }
+            } else {
+                NSLog("MWX DEBUG SCENE: phase=live-property-sequence state=rejected reason=invalid-input")
             }
             schedulePerformanceMeasurement(
                 duration: requestedDuration,
@@ -506,10 +509,12 @@ enum DebugScenePlaybackRunner {
     }
 
     private static func scheduleLivePropertyUpdate(
-        _ replacements: [String: SceneUserPropertyValue]
+        _ sequence: [[String: SceneUserPropertyValue]], index: Int
     ) {
+        guard sequence.indices.contains(index) else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             guard !isClosing else { return }
+            let replacements = sequence[index]
             let before = runtimeHost.debugSnapshot()
             let accepted = runtimeHost.applyUserPropertyValues(
                 replacements,
@@ -526,6 +531,9 @@ enum DebugScenePlaybackRunner {
                 after.windowNumbers.map(String.init).joined(separator: ","),
                 replacements.keys.sorted().joined(separator: ",")
             )
+            NSLog("MWX DEBUG SCENE: phase=live-property-sequence-step index=%d accepted=%@",
+                  index, accepted ? "true" : "false")
+            scheduleLivePropertyUpdate(sequence, index: index + 1)
         }
     }
 

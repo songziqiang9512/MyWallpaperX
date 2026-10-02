@@ -6,31 +6,17 @@ enum SceneBaseMaterialProviderBindingCompiler {
         materialInstancesByLayerID: [
             Int: SceneDocument.SceneLayerMaterialInstance
         ],
-        scriptBindings: [SceneScriptBindingIR]
+        scriptBindings: [SceneScriptBindingIR],
+        materialPropertyTargets: Set<SceneDynamicTarget>
     ) -> SceneBaseMaterialProviderBindingProgram {
         _ = scriptBindings
         let texturePropertyKeys = Set(descriptor.texturePropertyKeys)
-        let materialPathByModelPath = descriptor.modelMaterialLinks.reduce(
-            into: [String: String]()
-        ) { result, link in
-            guard let materialPath = link.materialPath else { return }
-            result[normalized(link.modelPath)] = normalized(materialPath)
-        }
-        let materialPassesByPath = Dictionary(
-            grouping: descriptor.materialPasses,
-            by: { normalized($0.materialPath) }
-        )
+        let passesByLayer = SceneMaterialPropertyBindingCompiler.imageMaterialPasses(descriptor: descriptor)
         var accepted: [Int: SceneBaseMaterialProviderBindingProgram.BaseMaterialBinding] = [:]
         var rejected: [Int: String] = [:]
 
         for layer in descriptor.layers where layer.isImageRenderable {
-            let materialPasses: [SceneRenderDescriptor.MaterialPassDescriptor]
-            if let imagePath = layer.imagePath,
-               let materialPath = materialPathByModelPath[normalized(imagePath)] {
-                materialPasses = materialPassesByPath[materialPath] ?? []
-            } else {
-                materialPasses = []
-            }
+            let materialPasses = passesByLayer[layer.id] ?? []
             let candidate: (
                 source: SceneBaseMaterialProviderBindingProgram.BaseMaterialBinding.Source,
                 textureSlots: [String?],
@@ -145,7 +131,8 @@ enum SceneBaseMaterialProviderBindingCompiler {
             lightingProfileByLayerID: SceneBaseMaterialLightingProfileCompiler
                 .profiles(
                     descriptor: descriptor,
-                    materialInstancesByLayerID: materialInstancesByLayerID
+                    materialInstancesByLayerID: materialInstancesByLayerID,
+                    materialPropertyTargets: materialPropertyTargets
                 )
         )
     }

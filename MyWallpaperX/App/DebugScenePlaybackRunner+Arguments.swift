@@ -114,8 +114,22 @@ extension DebugScenePlaybackRunner {
         requestedPropertyValues(after: "--mwx-debug-scene-properties-json")
     }
 
-    static var requestedLivePropertyOverrides: [String: SceneUserPropertyValue] {
-        requestedPropertyValues(after: "--mwx-debug-scene-live-properties-json")
+    static var requestedLivePropertySequence: [[String: SceneUserPropertyValue]]? {
+        let flag = "--mwx-debug-scene-live-property-sequence-json"
+        guard ProcessInfo.processInfo.arguments.contains(flag) else {
+            let single = requestedPropertyValues(after: "--mwx-debug-scene-live-properties-json")
+            return single.isEmpty ? [] : [single]
+        }
+        guard let payload = argumentValue(after: flag),
+              let data = payload.data(using: .utf8), data.count <= 65_536,
+              let objects = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else { return nil }
+        var sequence: [[String: SceneUserPropertyValue]] = []
+        for object in objects {
+            guard let values = propertyValues(from: object) else { return nil }
+            sequence.append(values)
+        }
+        return sequence
     }
 
     static func requestedPropertyValues(
@@ -130,10 +144,16 @@ extension DebugScenePlaybackRunner {
         guard let payload = argumentValue(after: flag) else { return [:] }
         guard let data = payload.data(using: .utf8), data.count <= 65_536,
               let object = try? JSONSerialization.jsonObject(with: data)
-                as? [String: Any],
-              object.count <= 64 else {
+                as? [String: Any] else {
             return nil
         }
+        return propertyValues(from: object)
+    }
+
+    private static func propertyValues(
+        from object: [String: Any]
+    ) -> [String: SceneUserPropertyValue]? {
+        guard object.count <= 64 else { return nil }
         var values: [String: SceneUserPropertyValue] = [:]
         for (key, rawValue) in object {
             guard !key.isEmpty,

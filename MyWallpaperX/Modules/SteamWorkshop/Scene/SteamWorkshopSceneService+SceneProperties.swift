@@ -141,8 +141,9 @@ extension SteamWorkshopService {
             return nil
         }
         let materialBindings =
-            SceneStaticModelMaterialPropertyBindingCompiler.compile(
-                descriptor: renderDescriptor
+            SceneMaterialPropertyBindingCompiler.compile(
+                descriptor: renderDescriptor,
+                materialInstancesByLayerID: document.materialInstancesByLayerID
             )
         let actionableKeys = Set(
             (
@@ -151,7 +152,8 @@ extension SteamWorkshopService {
             ).compactMap { binding in
                 supportsScenePropertyTarget(
                     binding.target,
-                    in: renderDescriptor
+                    in: renderDescriptor,
+                    materialInstancesByLayerID: document.materialInstancesByLayerID
                 ) ? binding.reference.key : nil
             }
         )
@@ -279,7 +281,8 @@ extension SteamWorkshopService {
 
     private func supportsScenePropertyTarget(
         _ target: SceneUserPropertyBindingTarget,
-        in renderDescriptor: SceneRenderDescriptor
+        in renderDescriptor: SceneRenderDescriptor,
+        materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance]
     ) -> Bool {
         switch target {
         case .layerVisibility, .layerAlpha, .text, .soundVolume:
@@ -340,8 +343,9 @@ extension SteamWorkshopService {
                 in: renderDescriptor
             )
         case .materialShaderValue:
-            return SceneStaticModelMaterialPropertyBindingCompiler.compile(
-                descriptor: renderDescriptor
+            return SceneMaterialPropertyBindingCompiler.compile(
+                descriptor: renderDescriptor,
+                materialInstancesByLayerID: materialInstancesByLayerID
             ).contains { $0.target == target }
         case let .scriptProperty(layerID, _):
             return renderDescriptor.layers.contains { $0.id == layerID }
