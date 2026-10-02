@@ -226,6 +226,37 @@ extension SceneMetalRenderer {
     /// later than their consumer. Static providers use the existing source
     /// capture; effectful providers consume their prepared graph claim. Both
     /// remain offscreen and preserve authored final composition order.
+    /// The original forward and authored calls share the exact raw source inputs.
+    /// Capacity-only returns nil on success; it never reports a publication.
+    func captureRawDependencyProvider(
+        layer: SceneRenderDescriptor.Layer, source: SceneBaseMaterialTextureSource?,
+        imageTextures: SceneBaseImageTextureSnapshot, imagePipeline: SceneImageLayerPipeline,
+        frameContext: SceneFrameContext, worldFrames: [Int: simd_float4x4],
+        cameraFrame: SceneParticleCameraFrame, parallax: SceneLayerParallax.Configuration,
+        viewportSize: CGSize, mainPass: SceneMainPassEncoder, preparesCapacityOnly: Bool = false
+    ) -> SceneGraphOutputPublicationResult? {
+        let model = imageModelMatrix(for: layer, worldFramesByLayerID: worldFrames,
+            renderSizeOverride: imageTextures.layerSourceRenderSize(for: layer.id),
+            parallaxMouseNormalized: frameContext.cameraParallaxPosition, configuration: parallax,
+            visibleHalfExtents: cameraFrame.coverHalfExtents,
+            usesPerspective: cameraFrame.resolvesPerspective(for: layer))
+        let mvp = cameraFrame.viewProjection(for: layer) * model
+        if preparesCapacityOnly {
+            return dependencyRuntime.prepareCaptureCapacity(layer: layer, sourceTexture: source?.texture,
+                sourceCandidate: source?.candidate, layerMVP: mvp, viewportSize: viewportSize,
+                textureRegistry: textureRegistry) ? nil : .unavailable(reasonCode: "named-provider-capacity-unavailable")
+        }
+        return dependencyRuntime.captureProviderIfRequired(layer: layer, sourceTexture: source?.texture,
+            sourceCandidate: source?.candidate, usesAuthoredLayerColor: source?.usesAuthoredLayerColor ?? true,
+            providerAlpha: Float(SceneDynamicLayerValues.alpha(layerID: layer.id,
+                authoredValue: layer.alpha, snapshot: frameContext.dynamicValues)),
+            providerColor: SceneDynamicLayerValues.color(layerID: layer.id,
+                authoredValue: layer.colorRGB, snapshot: frameContext.dynamicValues),
+            layerMVP: mvp, viewportSize: viewportSize, pipeline: imagePipeline,
+            textureRegistry: textureRegistry, mainPass: mainPass,
+            geometryProduct: imageTextures.geometryProducts[layer.id])
+    }
+
     func prepareForwardDependencyProviders(
         orderedLayers: [SceneRenderDescriptor.Layer],
         layersByID: [Int: SceneRenderDescriptor.Layer],
@@ -297,40 +328,11 @@ extension SceneMetalRenderer {
                         dynamicValues: frameContext.dynamicValues
                     )
             ).source
-            let model = imageModelMatrix(
-                for: provider,
-                worldFramesByLayerID: worldFramesByLayerID,
-                renderSizeOverride: imageTextures.layerSourceRenderSize(
-                    for: provider.id
-                ),
-                parallaxMouseNormalized: frameContext.cameraParallaxPosition,
-                configuration: parallaxConfiguration,
-                visibleHalfExtents: cameraFrame.coverHalfExtents,
-                usesPerspective: cameraFrame.resolvesPerspective(for: provider)
-            )
-            let captureResult = dependencyRuntime.captureProviderIfRequired(
-                layer: provider,
-                sourceTexture: baseSource?.texture,
-                sourceCandidate: baseSource?.candidate,
-                usesAuthoredLayerColor:
-                    baseSource?.usesAuthoredLayerColor ?? true,
-                providerAlpha: Float(SceneDynamicLayerValues.alpha(
-                    layerID: provider.id,
-                    authoredValue: provider.alpha,
-                    snapshot: frameContext.dynamicValues
-                )),
-                providerColor: SceneDynamicLayerValues.color(
-                    layerID: provider.id,
-                    authoredValue: provider.colorRGB,
-                    snapshot: frameContext.dynamicValues
-                ),
-                layerMVP: cameraFrame.viewProjection(for: provider) * model,
-                viewportSize: viewportSize,
-                pipeline: imagePipeline,
-                textureRegistry: textureRegistry,
-                mainPass: mainPass,
-                geometryProduct: imageTextures.geometryProducts[provider.id]
-            )
+            let captureResult = captureRawDependencyProvider(layer: provider, source: baseSource,
+                imageTextures: imageTextures, imagePipeline: imagePipeline, frameContext: frameContext,
+                worldFrames: worldFramesByLayerID, cameraFrame: cameraFrame,
+                parallax: parallaxConfiguration, viewportSize: viewportSize, mainPass: mainPass)
+
             // Same policy as the visible capture route: an ordinary miss is
             // localized by the consumer-side resolution, while a typed
             // identity rejection can only be seen here and aborts the prepass

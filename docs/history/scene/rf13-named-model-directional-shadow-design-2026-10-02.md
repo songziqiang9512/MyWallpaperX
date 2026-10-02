@@ -1,9 +1,11 @@
-<!-- document-role: active-plan -->
-<!-- retirementCondition: 已准入source-only named模型的当前方向光投影通过真实App、mandatory预算与资源生命周期门及独立终审，稳定职责移交架构、证据归历史后归档本文并删除窄登记。 -->
+<!-- document-role: historical-evidence -->
+<!-- commandPolicy: historical-only -->
 
 # RF13 — 当前 named albedo 模型参与方向光投影
 
-基线 `d5908b53`。承接[RF13工作卡](reference-evidence-implementation-cards.md#rf13-named-model-shadow)。**设计已批准，实施/运行验收尚未完成**；`scene-named-model-directional-shadow`登记为`approved`。本文不修改原named source准入或私有阴影算法。
+> **历史证据 — 非现役入口**。本文保留实施前裁决及当时验收待办；RF13 已完成有界产品验收，结果见[执行记录](rf13-named-model-shadow-implementation-2026-10-02.md)。稳定职责见[架构](../../scene/design/runtime-architecture.md)。
+
+基线 `d5908b53`。承接[RF13工作卡](../../scene/design/reference-evidence-implementation-cards.md#rf13-named-model-shadow)。**设计已批准，实施/运行验收尚未完成**；`scene-named-model-directional-shadow`登记为`approved`。本文不修改原named source准入或私有阴影算法。
 
 ## 目标合同与当前事实
 
@@ -22,7 +24,7 @@
 
 ## 参考证据的用途
 
-[Mirage参考](../semantics/miragewallpaper-rendering-reference.md#64-rendergraph-的资源版本) §6.4将材质slot read、target write和linked source版本作为同一依赖图职责；§11.6区分隐藏但被采样的source私有写入与最终显示。这些`third-party-reference-pattern`中性信息支持当前帧producer先于consumer、隐藏不等于无资源的目标，不是官方精确调度或预算公式。其§8.4明确固定版本没有完整shadow atlas，不能复制不存在的实现来假闭合。本项目继续使用已经独立实现的F6投影，仅纠正准备/消费的缺边。
+[Mirage参考](../../scene/semantics/miragewallpaper-rendering-reference.md#64-rendergraph-的资源版本) §6.4将材质slot read、target write和linked source版本作为同一依赖图职责；§11.6区分隐藏但被采样的source私有写入与最终显示。这些`third-party-reference-pattern`中性信息支持当前帧producer先于consumer、隐藏不等于无资源的目标，不是官方精确调度或预算公式。其§8.4明确固定版本没有完整shadow atlas，不能复制不存在的实现来假闭合。本项目继续使用已经独立实现的F6投影，仅纠正准备/消费的缺边。
 
 ## Owner、方案与待裁决点
 
@@ -79,4 +81,4 @@ v1独审定位了实际反例：reflection-only且`LIGHTING=0`的层遇缺失/un
 
 ## 退役条件
 
-真实缺影反例、原显示保护和资源门均关闭并获独立终审后，稳定职责移交[runtime architecture](runtime-architecture.md)，冻结运行记录归历史；本设计归档且删除窄gate。其余D3与后继仅由[兼容路线](../scene-compatibility-roadmap.md)排序，不将方法未知当永久跳过。
+真实缺影反例、原显示保护和资源门均关闭并获独立终审后，稳定职责移交[runtime architecture](../../scene/design/runtime-architecture.md)，冻结运行记录归历史；本设计归档且删除窄gate。其余D3与后继仅由[兼容路线](../../scene/scene-compatibility-roadmap.md)排序，不将方法未知当永久跳过。

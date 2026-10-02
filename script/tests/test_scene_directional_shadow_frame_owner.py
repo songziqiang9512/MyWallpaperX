@@ -124,6 +124,75 @@ final class SceneMetalRenderer {
 }
 '''
 
+
+# RF13's ordered preparation is outside this F6 probe. Keep its compile-only
+# dependencies separate: the named-model test imports SHELL and supplies real
+# owners for these calls. Any accidental use here must fail, not emulate them.
+UNUSED_ORDERED_SUPPORT = r'''
+struct SceneImageLayerPipeline {}
+struct SceneLayerParallax { struct Configuration {} }
+enum SceneGraphOutputPublicationResult {
+ case published
+ case unavailable(reasonCode:String)
+ case invalid(reasonCode:String)
+}
+enum SceneLitCapturePayloadResolution {
+ enum Miss { case profileMissing }
+ case miss(Miss)
+}
+struct SceneEffectExecutionFrameTrace {
+ enum Outcome { case failed(reasonCode:String) }
+ func recordRouteOperation(layerID:Int,origin:String,operation:String,outcome:Outcome) {
+  fatalError("unused RF13 ordered preparation shell")
+ }
+}
+struct FixtureLightingProfile { let surfaceEnabled:Bool }
+struct FixtureProviderBindings { let lightingProfileByLayerID:[Int:FixtureLightingProfile] }
+struct FixtureGeometryProduct {}
+extension BindingObserver {
+ func requiresDemandedGraphOutputCapture(for id:Int)->Bool { fatalError("unused RF13 ordered preparation shell") }
+ func requiresCapture(for id:Int,activeStaticModelConsumerLayerIDs:Set<Int>)->Bool { fatalError("unused RF13 ordered preparation shell") }
+ func requiresGraphOutputCapture(for id:Int)->Bool { fatalError("unused RF13 ordered preparation shell") }
+ func isStaticModelSourceProvider(_ id:Int)->Bool { fatalError("unused RF13 ordered preparation shell") }
+}
+extension SceneFrameContext {
+ var cameraParallaxPosition:SIMD2<Float> { fatalError("unused RF13 ordered preparation shell") }
+}
+extension SceneBaseImageTextureSnapshot {
+ func layerSourceRenderSize(for id:Int)->[Float]? { fatalError("unused RF13 ordered preparation shell") }
+ var geometryProducts:[Int:FixtureGeometryProduct] { fatalError("unused RF13 ordered preparation shell") }
+}
+extension SceneMetalRenderer {
+ var baseMaterialProviderBindings:FixtureProviderBindings { fatalError("unused RF13 ordered preparation shell") }
+ static func effectExecutionOrigin(for contentKind:String)->String { fatalError("unused RF13 ordered preparation shell") }
+ func captureRawDependencyProvider(layer:SceneRenderDescriptor.Layer,source:MTLTexture?,
+  imageTextures:SceneBaseImageTextureSnapshot,imagePipeline:SceneImageLayerPipeline,
+  frameContext:SceneFrameContext,worldFrames:[Int:simd_float4x4],cameraFrame:SceneParticleCameraFrame,
+  parallax:SceneLayerParallax.Configuration,viewportSize:CGSize,mainPass:SceneMainPassEncoder,
+  preparesCapacityOnly:Bool)->SceneGraphOutputPublicationResult? {
+  fatalError("unused RF13 ordered preparation shell")
+ }
+ func imageModelMatrix(for layer:SceneRenderDescriptor.Layer,worldFramesByLayerID:[Int:simd_float4x4],
+  renderSizeOverride:[Float]?,parallaxMouseNormalized:SIMD2<Float>,configuration:SceneLayerParallax.Configuration,
+  visibleHalfExtents:SIMD2<Float>,usesPerspective:Bool)->simd_float4x4 {
+  fatalError("unused RF13 ordered preparation shell")
+ }
+ func makeLitCapturePayload(profile:FixtureLightingProfile,snapshot:SceneLightSnapshot,
+  dynamicValues:SceneDynamicSnapshot,layerModelMatrix:simd_float4x4,layerWorldFrame:simd_float4x4,
+  usesPerspective:Bool,cameraFrame:SceneParticleCameraFrame,sceneViewProjection:simd_float4x4,
+  environmentSource:((MTLCommandBuffer)->SceneFrameTextureResource?)?,
+  geometryProduct:FixtureGeometryProduct?)->SceneLitCapturePayloadResolution {
+  fatalError("unused RF13 ordered preparation shell")
+ }
+ func compositionScratchDimensions(for layer:SceneRenderDescriptor.Layer,pool:SceneOffscreenTexturePool,
+  imageTextures:SceneBaseImageTextureSnapshot,frameContext:SceneFrameContext,
+  worldFrames:[Int:simd_float4x4],cameraFrame:SceneParticleCameraFrame,
+  parallax:SceneLayerParallax.Configuration,lightingResolution:SceneLitCapturePayloadResolution)->[(width:Int,height:Int)]? {
+  fatalError("unused RF13 ordered preparation shell")
+ }
+}
+'''
+
 MAIN = r'''
 @main enum FrameOwnerProbe {
  static func main() throws {
@@ -248,7 +317,7 @@ MAIN = r'''
  }
 }
 '''
-HARNESS = pool_fixture.HARNESS.split('@main', 1)[0] + SHELL + MAIN
+HARNESS = pool_fixture.HARNESS.split('@main', 1)[0] + SHELL + UNUSED_ORDERED_SUPPORT + MAIN
 
 
 def typecheck():

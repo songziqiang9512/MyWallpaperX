@@ -111,6 +111,60 @@ extension SceneMetalRenderer {
             return .rejected(reasonCode: reasonCode)
         }
     }
+    /// A single original plain consumer, shared by the F5 batch and the
+    /// author-ordered mandatory preparation. Empty means no scratch consumer.
+    func compositionScratchDimensions(
+        for layer: SceneRenderDescriptor.Layer, pool: SceneOffscreenTexturePool,
+        imageTextures: SceneBaseImageTextureSnapshot, frameContext: SceneFrameContext,
+        worldFrames: [Int: simd_float4x4], cameraFrame: SceneParticleCameraFrame,
+        parallax: SceneLayerParallax.Configuration,
+        lightingResolution: SceneLitCapturePayloadResolution? = nil
+    ) -> [(width: Int, height: Int)]? {
+        // Only these authored kinds enter the plain image compositor. Model,
+        // particle and light draws do not consume its colorBlend/profile fields.
+        guard ["image", "solid", "text"].contains(layer.contentKind) else { return [] }
+        let blendMode = layer.colorBlendMode ?? 0
+        // The document preserves arbitrary authored integers. The compositor
+        // rejects unsupported modes before both blend and lighting captures.
+        guard SceneLayerColorBlendRenderer.supports(blendMode) else { return [] }
+        let profile = baseMaterialProviderBindings.lightingProfileByLayerID[layer.id]
+        let lightingNeedsCapture: Bool
+        switch lightingResolution {
+        case .payload(_)?: lightingNeedsCapture = true
+        case .miss(_)?: lightingNeedsCapture = false
+        case nil:
+            // The original F5 batch precedes reflection admission. Its existing
+            // capacity policy is unchanged; the ordered path supplies the actual
+            // post-admission producer result, including a plain/direct miss.
+            lightingNeedsCapture = profile?.surfaceEnabled == true && imageTextures.geometryProducts[layer.id] == nil
+        }
+        let needsCapture = lightingNeedsCapture || blendMode > 0
+        guard needsCapture,
+              let source = baseMaterialTextureSelection(for: layer, imageTextures: imageTextures,
+                readyProviderUsesAuthoredLayerColor: baseMaterialReadyProviderUsesAuthoredLayerColor(
+                for: layer, dynamicValues: frameContext.dynamicValues)).source else { return [] }
+        let extent: SceneLayerEffectSourceExtent?
+        if layer.contentKind == "solid" {
+            let model = imageModelMatrix(for: layer, worldFramesByLayerID: worldFrames,
+                renderSizeOverride: imageTextures.layerSourceRenderSize(for: layer.id),
+                parallaxMouseNormalized: frameContext.cameraParallaxPosition, configuration: parallax,
+                visibleHalfExtents: cameraFrame.coverHalfExtents,
+                usesPerspective: cameraFrame.resolvesPerspective(for: layer))
+            extent = SceneCaptureGeometryResolver.projectedPixelSize(
+                layerMVP: cameraFrame.viewProjection(for: layer) * model,
+                viewportSize: frameContext.screenSize).flatMap(SceneLayerEffectSourceExtent.init(pixelSize:))
+        } else {
+            extent = SceneLayerEffectSourceExtent.resolve(
+                publishedRenderSizeWH: imageTextures.layerSourceRenderSize(for: layer.id),
+                authoredRenderSizeWH: layer.renderSizeWH, candidateMappedSize: source.candidate?.mappedSize)
+        }
+        guard let size = extent?.pixelSize,
+              let resolved = SceneOffscreenResolutionPolicy.resolvedDimensions(
+                width: max(1, Int(size.width.rounded(.up))), height: max(1, Int(size.height.rounded(.up))),
+                hardLimit: pool.maxDimension, policy: .standard) else { return nil }
+        return [resolved]
+    }
+
     func reserveOptionalEffectScratch(
         requiresShadow: Bool, pool: SceneOffscreenTexturePool, imageTextures: SceneBaseImageTextureSnapshot,
         frameContext: SceneFrameContext, framePlans: [Int: SceneResolvedMaterialFrameTargetPlan],
@@ -131,33 +185,10 @@ extension SceneMetalRenderer {
         var dimensions: [(width: Int, height: Int)] = []
         if let terminalExtent { dimensions.append(terminalExtent) }
         for layer in orderedLayers where visibleLayerIDs.contains(layer.id) && framePlans[layer.id] == nil {
-            let profile = baseMaterialProviderBindings.lightingProfileByLayerID[layer.id]
-            let needsCapture = (profile?.surfaceEnabled == true && imageTextures.geometryProducts[layer.id] == nil)
-                || (layer.colorBlendMode ?? 0) != 0
-            guard needsCapture,
-                  let source = baseMaterialTextureSelection(for: layer, imageTextures: imageTextures,
-                    readyProviderUsesAuthoredLayerColor: baseMaterialReadyProviderUsesAuthoredLayerColor(
-                        for: layer, dynamicValues: frameContext.dynamicValues)).source else { continue }
-            let extent: SceneLayerEffectSourceExtent?
-            if layer.contentKind == "solid" {
-                let model = imageModelMatrix(for: layer, worldFramesByLayerID: worldFrames,
-                    renderSizeOverride: imageTextures.layerSourceRenderSize(for: layer.id),
-                    parallaxMouseNormalized: frameContext.cameraParallaxPosition, configuration: parallax,
-                    visibleHalfExtents: cameraFrame.coverHalfExtents,
-                    usesPerspective: cameraFrame.resolvesPerspective(for: layer))
-                extent = SceneCaptureGeometryResolver.projectedPixelSize(
-                    layerMVP: cameraFrame.viewProjection(for: layer) * model,
-                    viewportSize: frameContext.screenSize).flatMap(SceneLayerEffectSourceExtent.init(pixelSize:))
-            } else {
-                extent = SceneLayerEffectSourceExtent.resolve(
-                    publishedRenderSizeWH: imageTextures.layerSourceRenderSize(for: layer.id),
-                    authoredRenderSizeWH: layer.renderSizeWH, candidateMappedSize: source.candidate?.mappedSize)
-            }
-            guard let size = extent?.pixelSize,
-                  let resolved = SceneOffscreenResolutionPolicy.resolvedDimensions(
-                    width: max(1, Int(size.width.rounded(.up))), height: max(1, Int(size.height.rounded(.up))),
-                    hardLimit: pool.maxDimension, policy: .standard) else { return nil }
-            dimensions.append(resolved)
+            guard let required = compositionScratchDimensions(for: layer, pool: pool,
+                imageTextures: imageTextures, frameContext: frameContext, worldFrames: worldFrames,
+                cameraFrame: cameraFrame, parallax: parallax) else { return nil }
+            dimensions.append(contentsOf: required)
         }
         return pool.reserveCompositionTargets(dimensions: dimensions, commandBuffer: commandBuffer)
     }

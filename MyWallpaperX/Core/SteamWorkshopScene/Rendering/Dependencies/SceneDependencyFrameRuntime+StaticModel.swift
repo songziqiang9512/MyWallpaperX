@@ -76,6 +76,10 @@ extension SceneDependencyFrameRuntime {
         return !consumerIDs.isDisjoint(with: activeStaticModelConsumerLayerIDs)
     }
 
+    func isStaticModelSourceProvider(_ layerID: Int) -> Bool {
+        staticModelProviderLayerIDs.contains(layerID) && !nonStaticModelProviderLayerIDs.contains(layerID)
+    }
+
     func staticModelNamedAlbedo(
         for consumerLayerID: Int,
         materialPath: String,

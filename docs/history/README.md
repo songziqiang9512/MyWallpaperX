@@ -16,6 +16,8 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-02 | Scene | 退役设计 | [RF13 named 模型方向光设计](scene/rf13-named-model-directional-shadow-design-2026-10-02.md) | 当前publication与mandatory资源原序准备裁决 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
+| 2026-10-02 | Scene | 实施证据 | [RF13 named 模型阴影](scene/rf13-named-model-shadow-implementation-2026-10-02.md) | 真实当前纹理投影、背景内容相位、部分失败与在飞资源门 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-02 | Scene | 退役设计 | [RF12 背景快照容量设计](scene/rf12-framebuffer-snapshot-capacity-design-2026-10-02.md) | 原实例容量事务、逐消费者copy与同队列资源寿命裁决 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-02 | Scene | 实施证据 | [RF12 快照与阴影共存](scene/rf12-snapshot-shadow-coexistence-implementation-2026-10-02.md) | 实际混合/折射共存、空粒子零复制与双实例容量回滚的红绿证据 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-02 | 跨领域 | 改良提案 | [仓库改良方案研究](cross-topic/repo-improvement-program-2026-10-02.md) | 六视角现状侦察＋四主题业界调研收敛的 18 条 P0-P2 改良条目全档（P0 5/P1 7/P2 6，逐条含证据/验收门/退役条件与路线图；两轮三视角审查＋独立终审后修订版 3；研究工作流全程零写入，实施须另行立项） | [文档入口](../README.md)、[AGENTS](../../AGENTS.md) |

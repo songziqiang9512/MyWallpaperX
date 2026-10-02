@@ -1,3 +1,4 @@
+import CoreGraphics
 import Metal
 import simd
 
@@ -27,6 +28,7 @@ extension SceneMetalRenderer {
         var sharedWasCleared = false
         var prepared: [Int: [StaticModelDraw]]?
         var particleDepth: [Int: Depth] = [:]
+        var plainLighting: [Int: SceneLitCapturePayloadResolution] = [:]
         var shadow: SceneStaticModelShadow?
         var pins: [SceneGraphRenderTargetResidencyPin] = []
 
@@ -62,14 +64,16 @@ extension SceneMetalRenderer {
     }
 
     func staticModelDraws(layer: SceneRenderDescriptor.Layer,
-                         worldFrames: [Int: simd_float4x4], snapshot: SceneDynamicSnapshot) -> [StaticModelDraw] {
+                         worldFrames: [Int: simd_float4x4], snapshot: SceneDynamicSnapshot,
+                         requiresCompleteNamedInputs: Bool = false) -> [StaticModelDraw]? {
         guard let parts = staticModelResources[layer.id] else { return [] }
         let world = worldFrames[layer.id] ?? SceneMatrix.identity()
         // Authored zero scale can leave planar geometry while the color draw
         // rejects its singular normal transform. Apply that same admission before
         // collecting depth leases, shadow bounds or casters for this layer.
         guard SceneStaticModelPipeline.normalMatrix(for: world) != nil else { return [] }
-        return parts.compactMap { entry in
+        var hasMissingInput = false
+        let draws: [StaticModelDraw] = parts.compactMap { entry in
             let texture: MTLTexture
             let frame: SceneTextureUVTransform
             let sampling: SceneTextureSampling
@@ -84,6 +88,7 @@ extension SceneMetalRenderer {
                 texture = albedo.texture; frame = albedo.textureFrame
                 sampling = albedo.sampling; premultiplied = albedo.isPremultiplied
             } else {
+                hasMissingInput = true
                 dependencyRuntime.recordStaticModelBindingFailure(for: layer.id)
                 return nil
             }
@@ -99,6 +104,7 @@ extension SceneMetalRenderer {
                 alpha: Float(SceneDynamicLayerValues.alpha(layerID: layer.id,
                     authoredValue: layer.alpha, snapshot: snapshot)))
         }
+        return requiresCompleteNamedInputs && hasMissingInput ? nil : draws
     }
 
     func drawStaticModel(layer: SceneRenderDescriptor.Layer, state: StaticModelFrame,
@@ -108,7 +114,7 @@ extension SceneMetalRenderer {
                          leases: inout [SceneParticleDepthTargetLease]) -> Bool {
         guard let pipeline = staticModelResources.pipeline else { return false }
         let draws = state.prepared?[layer.id]
-            ?? staticModelDraws(layer: layer, worldFrames: worldFrames, snapshot: frameContext.dynamicValues)
+            ?? staticModelDraws(layer: layer, worldFrames: worldFrames, snapshot: frameContext.dynamicValues) ?? []
         var encodedLit = false
         for draw in draws {
             let depth = draw.depth ?? state.depth(for: draw, pass: pass,
@@ -152,16 +158,58 @@ extension SceneMetalRenderer {
         var result: [Int: [StaticModelDraw]] = [:]
         for layer in orderedLayers where visible.contains(layer.id) && layer.contentKind == "model" {
             if let groups, groups.renderPass(forLayerID: layer.id) == nil { continue }
-            guard let parts = staticModelResources[layer.id] else { continue }
-            for part in parts where part.namedAlbedo != nil {
-                guard let reference = part.namedAlbedo,
-                      dependencyRuntime.staticModelNamedAlbedo(for: layer.id,
-                        materialPath: part.materialPath, expectedReference: reference,
-                        textureRegistry: textureRegistry) != nil else { return nil }
-            }
-            result[layer.id] = staticModelDraws(layer: layer, worldFrames: worldFrames, snapshot: snapshot)
+            guard let draws = staticModelDraws(layer: layer, worldFrames: worldFrames, snapshot: snapshot,
+                requiresCompleteNamedInputs: true) else { return nil }
+            result[layer.id] = draws
         }
         return result
+    }
+
+    private func visitFramebufferSnapshotConsumers(
+        layer: SceneRenderDescriptor.Layer, includesLayer: Bool,
+        framePlans: [Int: SceneResolvedMaterialFrameTargetPlan], imageTextures: SceneBaseImageTextureSnapshot,
+        frameContext: SceneFrameContext, batches: [Int: [SceneParticleDrawBatch]],
+        particlePipeline: SceneParticleMetalPipeline?, mainPass: SceneMainPassEncoder,
+        groups: SceneCompositionGroupFrameRuntime?,
+        color: (SceneMainPassEncoder) -> Bool, particle: (SceneMainPassEncoder) -> Bool
+    ) -> Bool {
+        if includesLayer,
+           let pass = groups?.renderPass(forLayerID: layer.id) ?? (groups == nil ? mainPass : nil) {
+            if particlePipeline != nil,
+               batches[layer.id]?.contains(where: { $0.refraction != nil }) == true,
+               !particle(pass) { return false }
+            let blend = layer.colorBlendMode ?? 0
+            if ["image", "solid", "text"].contains(layer.contentKind), blend > 0,
+               SceneLayerColorBlendRenderer.supports(blend),
+               framePlans[layer.id] != nil
+                || baseMaterialTextureSelection(for: layer, imageTextures: imageTextures,
+                    readyProviderUsesAuthoredLayerColor: baseMaterialReadyProviderUsesAuthoredLayerColor(
+                        for: layer, dynamicValues: frameContext.dynamicValues)).source != nil,
+               !color(pass) { return false }
+        }
+        // The layer-loop defer executes these admitted plans even when its
+        // trigger layer is hidden. Named inputs may publish later in this
+        // frame, so readiness comes from the frame plan, not a texture lookup.
+        for plan in utilityPlansByTriggerLayerID[layer.id] ?? [] where framePlans[plan.layerID] != nil {
+            guard let root = layersByID[plan.layerID], let blend = root.colorBlendMode,
+                  blend > 0, SceneLayerColorBlendRenderer.supports(blend),
+                  !plan.usesIsolatedGroupTarget || groups?.sourceIsAvailable(forLayerID: plan.layerID) == true,
+                  let pass = groups?.compositeTargetPass(forRootID: plan.layerID)
+                    ?? (groups == nil ? mainPass : nil) else { continue }
+            if !color(pass) { return false }
+        }
+        return true
+    }
+
+    private func includeSnapshotTarget(_ pass: SceneMainPassEncoder,
+                                       in required: inout SceneMainPassEncoder?) -> Bool {
+        if let required {
+            // A later extent must not replace an earlier unencoded snapshot slot.
+            return required.targetExtent == pass.targetExtent
+                && required.targetPixelFormat == pass.targetPixelFormat
+        }
+        required = pass
+        return true
     }
 
     /// Protect each original snapshot's single slot before optional shadow.
@@ -175,43 +223,12 @@ extension SceneMetalRenderer {
     ) -> Bool {
         var colorPass: SceneMainPassEncoder?
         var particlePass: SceneMainPassEncoder?
-        func include(_ pass: SceneMainPassEncoder, in required: inout SceneMainPassEncoder?) -> Bool {
-            if let required {
-                // Group targets follow the viewport while the root uses the
-                // actual drawable. A single slot must cover every actual target,
-                // never an effect's cropped source or an assumed viewport size.
-                return required.targetExtent == pass.targetExtent
-                    && required.targetPixelFormat == pass.targetPixelFormat
-            }
-            required = pass
-            return true
-        }
         for layer in orderedLayers {
-            if visible.contains(layer.id),
-               let pass = groups?.renderPass(forLayerID: layer.id) ?? (groups == nil ? mainPass : nil) {
-                if particlePipeline != nil,
-                   batches[layer.id]?.contains(where: { $0.refraction != nil }) == true,
-                   !include(pass, in: &particlePass) { return false }
-                let blend = layer.colorBlendMode ?? 0
-                if ["image", "solid", "text"].contains(layer.contentKind), blend > 0,
-                   SceneLayerColorBlendRenderer.supports(blend),
-                   framePlans[layer.id] != nil
-                    || baseMaterialTextureSelection(for: layer, imageTextures: imageTextures,
-                        readyProviderUsesAuthoredLayerColor: baseMaterialReadyProviderUsesAuthoredLayerColor(
-                            for: layer, dynamicValues: frameContext.dynamicValues)).source != nil,
-                   !include(pass, in: &colorPass) { return false }
-            }
-            // The layer-loop defer executes these admitted plans even when its
-            // trigger layer is hidden. Named inputs may publish later in this
-            // frame, so readiness comes from the frame plan, not a texture lookup.
-            for plan in utilityPlansByTriggerLayerID[layer.id] ?? [] where framePlans[plan.layerID] != nil {
-                guard let root = layersByID[plan.layerID], let blend = root.colorBlendMode,
-                      blend > 0, SceneLayerColorBlendRenderer.supports(blend),
-                      !plan.usesIsolatedGroupTarget || groups?.sourceIsAvailable(forLayerID: plan.layerID) == true,
-                      let pass = groups?.compositeTargetPass(forRootID: plan.layerID)
-                        ?? (groups == nil ? mainPass : nil) else { continue }
-                if !include(pass, in: &colorPass) { return false }
-            }
+            guard visitFramebufferSnapshotConsumers(layer: layer, includesLayer: visible.contains(layer.id),
+                framePlans: framePlans, imageTextures: imageTextures, frameContext: frameContext,
+                batches: batches, particlePipeline: particlePipeline, mainPass: mainPass, groups: groups,
+                color: { includeSnapshotTarget($0, in: &colorPass) },
+                particle: { includeSnapshotTarget($0, in: &particlePass) }) else { return false }
         }
         let prepareParticle = { () -> Bool in
             guard let pass = particlePass, let particlePipeline else { return true }
@@ -236,11 +253,9 @@ extension SceneMetalRenderer {
         leases: inout [SceneParticleDepthTargetLease], mandatoryCapacity: () -> Bool,
         recordsEvidence: Bool
     ) {
-        guard let pipeline = staticModelResources.pipeline, let lightID = light.layerID else { return }
+        guard staticModelResources.pipeline != nil, light.layerID != nil else { return }
         var prepared = candidates
         var complete = true
-        var casters: [StaticModelDraw] = []
-        var bounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4)] = []
         for layer in orderedLayers where visible.contains(layer.id) {
             guard let pass = groups?.renderPass(forLayerID: layer.id) ?? (groups == nil ? mainPass : nil) else { continue }
             if var draws = prepared[layer.id] {
@@ -249,13 +264,6 @@ extension SceneMetalRenderer {
                                             device: device, leases: &leases)
                     draws[index].depth = depth
                     complete = complete && depth.lease != nil
-                    let draw = draws[index]
-                    let casts = (layer.modelShadowCastIntent?.modelCastsShadow ?? true)
-                        && draw.entry.albedo != nil
-                    if casts { casters.append(draw) }
-                    if casts || draw.material.receivesLighting {
-                        bounds.append((draw.entry.mesh.boundsMinimum, draw.entry.mesh.boundsMaximum, draw.world))
-                    }
                 }
                 prepared[layer.id] = draws
             }
@@ -268,7 +276,143 @@ extension SceneMetalRenderer {
             }
         }
         state.prepared = prepared
-        guard complete, !casters.isEmpty, mandatoryCapacity(),
+        guard complete else { return }
+        emitModelShadow(state: state, light: light, orderedLayers: orderedLayers,
+            mainPass: mainPass, groups: groups, pool: pool, commandBuffer: commandBuffer,
+            recordsEvidence: recordsEvidence, mandatoryCapacity: mandatoryCapacity)
+    }
+
+    /// Preserve the original mandatory allocation prefix before optional shadow.
+    /// Only an actual capture's typed invalid result aborts the frame. A resource
+    /// miss leaves the prefix for the original draw and the suffix unprepared.
+    func prepareOrderedModelShadow(
+        state: StaticModelFrame, light: SceneLightSnapshot.Directional, lighting: SceneLightSnapshot,
+        orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
+        activeNamedModels: Set<Int>, forwardGraphProviders: Set<Int>,
+        framePlans: [Int: SceneResolvedMaterialFrameTargetPlan], imageTextures: SceneBaseImageTextureSnapshot,
+        imagePipeline: SceneImageLayerPipeline, frameContext: SceneFrameContext,
+        worldFrames: [Int: simd_float4x4], cameraFrame: SceneParticleCameraFrame,
+        parallax: SceneLayerParallax.Configuration, viewportSize: CGSize,
+        batches: [Int: [SceneParticleDrawBatch]], particlePipeline: SceneParticleMetalPipeline?,
+        mainPass: SceneMainPassEncoder, groups: SceneCompositionGroupFrameRuntime?,
+        pool: SceneOffscreenTexturePool, commandBuffer: MTLCommandBuffer,
+        leases: inout [SceneParticleDepthTargetLease], terminalCapacity: () -> Bool,
+        recordsEvidence: Bool, executionTrace: SceneEffectExecutionFrameTrace? = nil,
+        environmentSource: ((MTLCommandBuffer) -> SceneFrameTextureResource?)? = nil
+    ) -> String? {
+        guard staticModelResources.pipeline != nil else { return nil }
+        state.prepared = [:]
+        var colorPass: SceneMainPassEncoder?
+        var particlePass: SceneMainPassEncoder?
+        for layer in orderedLayers {
+            let pass = groups?.renderPass(forLayerID: layer.id) ?? (groups == nil ? mainPass : nil)
+            let drawsLayer = pass != nil && !forwardGraphProviders.contains(layer.id)
+                && !(dependencyRuntime.requiresDemandedGraphOutputCapture(for: layer.id) && !visible.contains(layer.id))
+            if let pass, drawsLayer {
+                if dependencyRuntime.requiresCapture(for: layer.id, activeStaticModelConsumerLayerIDs: activeNamedModels),
+                   !dependencyRuntime.requiresGraphOutputCapture(for: layer.id) {
+                    let source = baseMaterialTextureSelection(for: layer, imageTextures: imageTextures,
+                        readyProviderUsesAuthoredLayerColor: baseMaterialReadyProviderUsesAuthoredLayerColor(
+                            for: layer, dynamicValues: frameContext.dynamicValues)).source
+                    let result = captureRawDependencyProvider(layer: layer, source: source,
+                        imageTextures: imageTextures, imagePipeline: imagePipeline, frameContext: frameContext,
+                        worldFrames: worldFrames, cameraFrame: cameraFrame, parallax: parallax,
+                        viewportSize: viewportSize, mainPass: pass,
+                        preparesCapacityOnly: !dependencyRuntime.isStaticModelSourceProvider(layer.id))
+                    if case let .invalid(reason)? = result {
+                        executionTrace?.recordRouteOperation(layerID: layer.id,
+                            origin: Self.effectExecutionOrigin(for: layer.contentKind),
+                            operation: "named-provider-capture", outcome: .failed(reasonCode: reason))
+                        return reason
+                    }
+                    if case .unavailable? = result { return nil }
+                }
+                if visible.contains(layer.id) {
+                    if layer.contentKind == "model" {
+                        guard var draws = staticModelDraws(layer: layer, worldFrames: worldFrames,
+                            snapshot: frameContext.dynamicValues, requiresCompleteNamedInputs: true) else { return nil }
+                        state.prepared?[layer.id] = draws
+                        for index in draws.indices {
+                            let depth = state.depth(for: draws[index], pass: pass, pool: staticModelDepthTargetPool,
+                                device: device, leases: &leases)
+                            draws[index].depth = depth
+                            state.prepared?[layer.id] = draws
+                            guard depth.lease != nil else { return nil }
+                        }
+                    }
+                    if let particlePipeline, batches[layer.id]?.contains(where: { $0.renderState.requiresDepthAttachment }) == true {
+                        let extent = pass.targetExtent
+                        let lease = particlePipeline.acquireDepthTarget(width: extent.width, height: extent.height)
+                        state.particleDepth[layer.id] = .init(lease: lease, clears: true)
+                        guard let lease else { return nil }
+                        leases.append(lease)
+                    }
+                    if framePlans[layer.id] == nil, ["image", "solid", "text"].contains(layer.contentKind) {
+                        let resolution: SceneLitCapturePayloadResolution
+                        if let profile = baseMaterialProviderBindings.lightingProfileByLayerID[layer.id], profile.surfaceEnabled {
+                            let model = imageModelMatrix(for: layer, worldFramesByLayerID: worldFrames,
+                                renderSizeOverride: imageTextures.layerSourceRenderSize(for: layer.id),
+                                parallaxMouseNormalized: frameContext.cameraParallaxPosition, configuration: parallax,
+                                visibleHalfExtents: cameraFrame.coverHalfExtents,
+                                usesPerspective: cameraFrame.resolvesPerspective(for: layer))
+                            // This only constructs the original typed payload. Its
+                            // environment closure still runs at the original draw.
+                            resolution = makeLitCapturePayload(profile: profile, snapshot: lighting,
+                                dynamicValues: frameContext.dynamicValues, layerModelMatrix: model,
+                                layerWorldFrame: worldFrames[layer.id] ?? SceneMatrix.identity(),
+                                usesPerspective: cameraFrame.resolvesPerspective(for: layer), cameraFrame: cameraFrame,
+                                sceneViewProjection: cameraFrame.viewProjection(for: layer),
+                                environmentSource: environmentSource, geometryProduct: imageTextures.geometryProducts[layer.id])
+                            state.plainLighting[layer.id] = resolution
+                        } else { resolution = .miss(.profileMissing) }
+                        guard let dimensions = compositionScratchDimensions(for: layer, pool: pool,
+                            imageTextures: imageTextures, frameContext: frameContext, worldFrames: worldFrames,
+                            cameraFrame: cameraFrame, parallax: parallax, lightingResolution: resolution),
+                              let targets = pool.reserveCompositionTargets(dimensions: dimensions, commandBuffer: commandBuffer)
+                        else { return nil }
+                        targets.forEach { mainPass.retainCompositionPin($0.pin) }
+                    }
+                }
+            }
+            guard visitFramebufferSnapshotConsumers(layer: layer, includesLayer: drawsLayer && visible.contains(layer.id),
+                framePlans: framePlans, imageTextures: imageTextures, frameContext: frameContext,
+                batches: batches, particlePipeline: particlePipeline, mainPass: mainPass, groups: groups,
+                color: { pass in
+                    guard includeSnapshotTarget(pass, in: &colorPass) else { return false }
+                    return imageCompositor.prepareSnapshotCapacity(width: pass.targetExtent.width,
+                        height: pass.targetExtent.height, pixelFormat: pass.targetPixelFormat, then: { true })
+                }, particle: { pass in
+                    guard includeSnapshotTarget(pass, in: &particlePass), let particlePipeline else { return false }
+                    return particlePipeline.framebufferSnapshot.prepareCapacity(width: pass.targetExtent.width,
+                        height: pass.targetExtent.height, pixelFormat: pass.targetPixelFormat, then: { true })
+                }) else { return nil }
+        }
+        guard terminalCapacity() else { return nil }
+        emitModelShadow(state: state, light: light, orderedLayers: orderedLayers,
+            mainPass: mainPass, groups: groups, pool: pool, commandBuffer: commandBuffer,
+            recordsEvidence: recordsEvidence)
+        return nil
+    }
+
+    private func emitModelShadow(
+        state: StaticModelFrame, light: SceneLightSnapshot.Directional,
+        orderedLayers: [SceneRenderDescriptor.Layer], mainPass: SceneMainPassEncoder,
+        groups: SceneCompositionGroupFrameRuntime?, pool: SceneOffscreenTexturePool,
+        commandBuffer: MTLCommandBuffer, recordsEvidence: Bool, mandatoryCapacity: () -> Bool = { true }
+    ) {
+        guard let pipeline = staticModelResources.pipeline, let lightID = light.layerID else { return }
+        var casters: [StaticModelDraw] = []
+        var bounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4)] = []
+        for layer in orderedLayers {
+            for draw in state.prepared?[layer.id] ?? [] {
+                let casts = layer.modelShadowCastIntent?.modelCastsShadow ?? true
+                if casts { casters.append(draw) }
+                if casts || draw.material.receivesLighting {
+                    bounds.append((draw.entry.mesh.boundsMinimum, draw.entry.mesh.boundsMaximum, draw.world))
+                }
+            }
+        }
+        guard !casters.isEmpty, mandatoryCapacity(),
               let projection = SceneDirectionalShadowProjection.make(bounds: bounds,
                 directionTowardLight: light.directionTowardLight, resolution: 1024),
               let target = pool.reserveDirectionalShadow(width: 1024, height: 1024,

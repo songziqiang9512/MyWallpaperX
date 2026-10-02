@@ -282,7 +282,8 @@ struct SceneMetalRenderer {
             frameVisibleLayerIDs.contains(layer.id)
                 && staticModelResources[layer.id]?.contains(where: { $0.material.receivesLighting }) == true
         }
-        let shadowCandidates = hasShadowReceiver
+        let preparesNamedModelShadow = hasShadowReceiver && !activeStaticModelNamedAlbedoLayerIDs.isEmpty
+        let shadowCandidates = hasShadowReceiver && !preparesNamedModelShadow
             ? shadowDrawCandidates(orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
                 worldFrames: frameWorldFrames, snapshot: frameContext.dynamicValues,
                 groups: compositionGroupRuntime) : nil
@@ -341,6 +342,37 @@ struct SceneMetalRenderer {
                 stopsAfterClaimedFailure = true
             }
             performanceTelemetry?.endStage("prepass-forward-providers")
+        }
+        if !stopsAfterClaimedFailure, preparesNamedModelShadow,
+           let shadowLight, let pool = offscreenTexturePool, let imagePipeline {
+            if let reason = prepareOrderedModelShadow(state: modelFrame, light: shadowLight, lighting: frameLightSnapshot,
+                orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
+                activeNamedModels: activeStaticModelNamedAlbedoLayerIDs,
+                forwardGraphProviders: forwardGraphProviderLayerIDs,
+                framePlans: resolvedMaterialFrameTargetPlans, imageTextures: imageTextures,
+                imagePipeline: imagePipeline, frameContext: frameContext, worldFrames: frameWorldFrames,
+                cameraFrame: cameraFrame, parallax: parallaxConfiguration, viewportSize: viewportSize,
+                batches: particleBatchesByID, particlePipeline: particlePipeline,
+                mainPass: mainPass, groups: compositionGroupRuntime, pool: pool,
+                commandBuffer: commandBuffer, leases: &frameDepthLeases,
+                terminalCapacity: {
+                    guard prepareTerminalCapacity(sceneColor: sceneColor, target: drawable.texture,
+                        dynamicValues: frameContext.dynamicValues) else { return false }
+                    if sceneColor == nil, displayMappingPostProcess != nil {
+                        // Only capacity/pin here. The coordinator's one-shot
+                        // display reservation still belongs to terminal encode.
+                        guard let targets = pool.reserveCompositionTargets(
+                            dimensions: [(drawable.texture.width, drawable.texture.height)],
+                            commandBuffer: commandBuffer) else { return false }
+                        targets.forEach { mainPass.retainCompositionPin($0.pin) }
+                    }
+                    return true
+                }, recordsEvidence: SceneDesktopWallpaperHost.usesDebugEvidenceWindow && frameContext.frameIndex <= 2,
+                executionTrace: effectExecutionTrace,
+                environmentSource: reflection.scratchReady ? environmentSource : nil) {
+                imageCompositor.recordResolvedMaterialFramePreflightFailure(reason)
+                stopsAfterClaimedFailure = true
+            }
         }
         performanceTelemetry?.endStage("prepass")
         hubStage(.prepassMicros, hubPrepassStart)
@@ -455,40 +487,11 @@ struct SceneMetalRenderer {
                 activeStaticModelConsumerLayerIDs:
                     activeStaticModelNamedAlbedoLayerIDs
             ) {
-                let providerModel = imageModelMatrix(
-                    for: layer, worldFramesByLayerID: frameWorldFrames,
-                    renderSizeOverride: imageTextures.layerSourceRenderSize(
-                        for: layer.id
-                    ),
-                    parallaxMouseNormalized: parallaxMouseNormalized,
-                    configuration: parallaxConfiguration,
-                    visibleHalfExtents: cameraFrame.coverHalfExtents,
-                    usesPerspective: cameraFrame.resolvesPerspective(for: layer)
-                )
-                let captureResult = dependencyRuntime.captureProviderIfRequired(
-                    layer: layer,
-                    sourceTexture: baseSource?.texture,
-                    sourceCandidate: baseSource?.candidate,
-                    usesAuthoredLayerColor:
-                        baseSource?.usesAuthoredLayerColor ?? true,
-                    providerAlpha: Float(SceneDynamicLayerValues.alpha(
-                        layerID: layer.id,
-                        authoredValue: layer.alpha,
-                        snapshot: frameContext.dynamicValues
-                    )),
-                    providerColor: SceneDynamicLayerValues.color(
-                        layerID: layer.id,
-                        authoredValue: layer.colorRGB,
-                        snapshot: frameContext.dynamicValues
-                    ),
-                    layerMVP: cameraFrame.viewProjection(for: layer)
-                        * providerModel,
-                    viewportSize: viewportSize,
-                    pipeline: imagePipeline,
-                    textureRegistry: textureRegistry,
-                    mainPass: layerMainPass,
-                    geometryProduct: imageTextures.geometryProducts[layer.id]
-                )
+                let captureResult = captureRawDependencyProvider(layer: layer, source: baseSource,
+                    imageTextures: imageTextures, imagePipeline: imagePipeline, frameContext: frameContext,
+                    worldFrames: frameWorldFrames, cameraFrame: cameraFrame,
+                    parallax: parallaxConfiguration, viewportSize: viewportSize, mainPass: layerMainPass)
+
                 // This route owns no publication of its own: an ordinary
                 // miss keeps previous-current and the consumer-side
                 // resolution localises it. A typed identity rejection is only
@@ -635,7 +638,8 @@ struct SceneMetalRenderer {
                 preparePlainSourceLighting(request: &request, snapshot: frameLightSnapshot,
                     model: model, worldFrame: frameWorldFrames[layer.id] ?? SceneMatrix.identity(),
                     cameraFrame: cameraFrame, usesPerspective: usesPerspective,
-                    environmentSource: reflection.scratchReady ? environmentSource : nil)
+                    environmentSource: reflection.scratchReady ? environmentSource : nil,
+                    preparedResolution: modelFrame.plainLighting[layer.id])
                 let explicitLayerSourcePublication = imageTextures
                     .explicitLayerSourcePublication(
                         for: layer.id,

@@ -39,12 +39,13 @@ extension SceneMetalRenderer {
     func preparePlainSourceLighting(request: inout SceneImageLayerDrawRequest,
         snapshot: SceneLightSnapshot, model: simd_float4x4, worldFrame: simd_float4x4,
         cameraFrame: SceneParticleCameraFrame, usesPerspective: Bool,
-        environmentSource: ((MTLCommandBuffer) -> SceneFrameTextureResource?)?) {
+        environmentSource: ((MTLCommandBuffer) -> SceneFrameTextureResource?)?,
+        preparedResolution: SceneLitCapturePayloadResolution? = nil) {
         let layer = request.layer
         guard request.resolvedMaterialFrameTargetPlan == nil,
               let profile = baseMaterialProviderBindings.lightingProfileByLayerID[layer.id],
               profile.surfaceEnabled else { return }
-        switch makeLitCapturePayload(profile: profile, snapshot: snapshot,
+        switch preparedResolution ?? makeLitCapturePayload(profile: profile, snapshot: snapshot,
             dynamicValues: request.dynamicValues, layerModelMatrix: model, layerWorldFrame: worldFrame,
             usesPerspective: usesPerspective, cameraFrame: cameraFrame,
             sceneViewProjection: cameraFrame.viewProjection(for: layer),

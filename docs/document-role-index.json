@@ -12,7 +12,6 @@
       "docs/scene/design/frame-admission-retry-design.md",
       "docs/scene/design/hdr-tonemap-edr-design.md",
       "docs/scene/design/host-render-power-protocol-design.md",
-      "docs/scene/design/named-model-directional-shadow-design.md",
       "docs/scene/design/particle-playback-state-design.md",
       "docs/scene/design/refactor-baseline.md",
       "docs/scene/design/reference-evidence-implementation-cards.md",
@@ -519,6 +518,26 @@
       ]
     },
     {
+      "path": "docs/history/scene/rf13-named-model-directional-shadow-design-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/design/runtime-architecture.md",
+        "docs/scene/scene-compatibility-roadmap.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/rf13-named-model-shadow-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/design/runtime-architecture.md",
+        "docs/scene/scene-compatibility-roadmap.md"
+      ]
+    },
+    {
       "path": "docs/history/scene/runtime-evidence-index.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",
@@ -702,12 +721,6 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/design/batch2-design-index.md",
       "retirementCondition": "App 唯一 power 裁决与版本化三态 IPC 验收，旧重复观察和布尔适配撤权后归档。"
-    },
-    {
-      "path": "docs/scene/design/named-model-directional-shadow-design.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/design/reference-evidence-implementation-cards.md",
-      "retirementCondition": "已准入source-only named模型的当前方向光投影通过真实App、mandatory预算与资源生命周期门及独立终审，稳定职责移交架构、证据归历史后归档本文并删除窄登记。"
     },
     {
       "path": "docs/scene/design/particle-playback-state-design.md",

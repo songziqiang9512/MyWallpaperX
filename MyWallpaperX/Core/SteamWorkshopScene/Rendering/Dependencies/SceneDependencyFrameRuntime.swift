@@ -253,6 +253,136 @@ final class SceneDependencyFrameRuntime {
         plan.blocksStaticLayerSourcePassthrough(for: layerID)
     }
 
+    private enum CaptureTarget {
+        case target(MTLTexture)
+        case finished(SceneGraphOutputPublicationResult)
+    }
+
+    /// Capacity is not publication. Normal providers can read the main target,
+    /// so their original capture remains at its authored position.
+    func prepareCaptureCapacity(
+        layer: SceneRenderDescriptor.Layer, sourceTexture: MTLTexture?,
+        sourceCandidate: SceneTextureCandidate?, layerMVP: simd_float4x4,
+        viewportSize: CGSize, textureRegistry: SceneFrameTextureRegistry
+    ) -> Bool {
+        switch captureTarget(layer: layer, sourceTexture: sourceTexture,
+            sourceCandidate: sourceCandidate, layerMVP: layerMVP,
+            viewportSize: viewportSize, textureRegistry: textureRegistry) {
+        case .target, .finished(.published): return true
+        case .finished: return false
+        }
+    }
+
+    private func captureTarget(
+        layer: SceneRenderDescriptor.Layer, sourceTexture: MTLTexture?,
+        sourceCandidate: SceneTextureCandidate?, layerMVP: simd_float4x4,
+        viewportSize: CGSize, textureRegistry: SceneFrameTextureRegistry
+    ) -> CaptureTarget {
+        let frameEpoch = textureRegistry.frameEpoch
+        synchronizeReservations(to: frameEpoch)
+        let reference = SceneNamedTextureReference(
+            providerLayerID: layer.id,
+            variant: .primary
+        )
+        let reservation = reservationsByProviderLayerID[layer.id]
+        if reservation == nil,
+           textureRegistry.completeNamedLayerTargetTexture(
+               reference: reference,
+               frameEpoch: frameEpoch
+           ) != nil {
+            return .finished(.published)
+        }
+        let providerBindings = providerBindingsByLayerID[layer.id] ?? []
+        let hasStaticModelBindings = staticModelProviderLayerIDs
+            .contains(layer.id)
+        var captureFailureReason: String?
+        let extent = captureExtentForProvider(
+            layer: layer,
+            providerBindings: providerBindings,
+            hasStaticModelBinding: hasStaticModelBindings,
+            reservation: reservation,
+            frameEpoch: frameEpoch,
+            sourceTexture: sourceTexture,
+            sourceCandidate: sourceCandidate,
+            layerMVP: layerMVP,
+            viewportSize: viewportSize,
+            failureReason: &captureFailureReason
+        )
+        let hasNormalBindings = !providerBindings.isEmpty
+        guard hasNormalBindings || hasStaticModelBindings else {
+            return .finished(.invalid(reasonCode: "named-provider-binding-missing"))
+        }
+        guard hasNormalBindings != hasStaticModelBindings else {
+            // Mixed image and static-model consumers are not a proven capture
+            // shape. Keep the previous local radius instead of stopping the
+            // frame; the consumer side still localizes its missing
+            // publication.
+            return .finished(.unavailable(
+                reasonCode: "named-provider-binding-shape-unsupported"
+            ))
+        }
+        guard let extent else {
+            // A reservation is this frame's identity proof for the provider.
+            // Once it exists, failing to reconstruct the same extent is
+            // identity drift and must fail closed; otherwise the source is
+            // simply not ready and the ordinary local miss still applies.
+            return .finished(reservation == nil
+                ? .unavailable(
+                    reasonCode: captureFailureReason
+                        ?? "named-provider-source-unavailable"
+                )
+                : .invalid(
+                    reasonCode: captureFailureReason
+                        ?? "named-provider-capture-identity-invalid"
+                ))
+        }
+        let binding = providerBindings.first
+        let providerTargetKind = binding.map {
+            EffectTargetReservation.Kind($0.kind)
+        }
+        guard binding == nil || providerBindings.allSatisfy({
+            EffectTargetReservation.Kind($0.kind) == providerTargetKind
+        }) else {
+            return .finished(.invalid(reasonCode: "named-provider-binding-kind-invalid"))
+        }
+        let target: MTLTexture
+        if let reservation {
+            guard reservation.frameEpoch == frameEpoch,
+                  reservation.providerLayerID == layer.id,
+                  binding.map({
+                      reservation.kind == .init($0.kind)
+                  }) == true,
+                  reservation.width == extent.width,
+                  reservation.height == extent.height,
+                  reservation.texture.width == extent.width,
+                  reservation.texture.height == extent.height else {
+                return .finished(.invalid(reasonCode: "named-provider-reservation-invalid"))
+            }
+            if let publishedTexture = textureRegistry
+                .completeNamedLayerTargetTexture(
+                    reference: reference,
+                    frameEpoch: frameEpoch
+                ) {
+                guard publishedTexture === reservation.texture else {
+                    return .finished(.invalid(reasonCode: "named-provider-publication-identity-invalid"))
+                }
+                return .finished(.published)
+            }
+            target = reservation.texture
+        } else {
+            guard let pooledTarget = targetPool.texture(
+                      for: layer.id,
+                      width: extent.width,
+                      height: extent.height
+                  ) else {
+                return .finished(.unavailable(reasonCode: "named-provider-target-unavailable"))
+            }
+            target = pooledTarget
+        }
+
+        return .target(target)
+    }
+
     @discardableResult
     func captureProviderIfRequired(
         layer: SceneRenderDescriptor.Layer,
@@ -293,113 +423,19 @@ final class SceneDependencyFrameRuntime {
             return .unavailable(reasonCode: "named-provider-capture-unavailable")
         }
 #endif
-        let frameEpoch = textureRegistry.frameEpoch
-        synchronizeReservations(to: frameEpoch)
-        let reference = SceneNamedTextureReference(
-            providerLayerID: layer.id,
-            variant: .primary
-        )
-        let reservation = reservationsByProviderLayerID[layer.id]
-        if reservation == nil,
-           textureRegistry.completeNamedLayerTargetTexture(
-               reference: reference,
-               frameEpoch: frameEpoch
-           ) != nil {
-            return .published
-        }
-        let providerBindings = providerBindingsByLayerID[layer.id] ?? []
-        let hasStaticModelBindings = staticModelProviderLayerIDs
-            .contains(layer.id)
-        var captureFailureReason: String?
-        let extent = captureExtentForProvider(
-            layer: layer,
-            providerBindings: providerBindings,
-            hasStaticModelBinding: hasStaticModelBindings,
-            reservation: reservation,
-            frameEpoch: frameEpoch,
-            sourceTexture: sourceTexture,
-            sourceCandidate: sourceCandidate,
-            layerMVP: layerMVP,
-            viewportSize: viewportSize,
-            failureReason: &captureFailureReason
-        )
-        let hasNormalBindings = !providerBindings.isEmpty
-        guard hasNormalBindings || hasStaticModelBindings else {
-            captureTelemetry.recordFailure(layerID: layer.id)
-            return .invalid(reasonCode: "named-provider-binding-missing")
-        }
-        guard hasNormalBindings != hasStaticModelBindings else {
-            // Mixed image and static-model consumers are not a proven capture
-            // shape. Keep the previous local radius instead of stopping the
-            // frame; the consumer side still localizes its missing
-            // publication.
-            captureTelemetry.recordFailure(layerID: layer.id)
-            return .unavailable(
-                reasonCode: "named-provider-binding-shape-unsupported"
-            )
-        }
-        guard let extent else {
-            captureTelemetry.recordFailure(layerID: layer.id)
-            // A reservation is this frame's identity proof for the provider.
-            // Once it exists, failing to reconstruct the same extent is
-            // identity drift and must fail closed; otherwise the source is
-            // simply not ready and the ordinary local miss still applies.
-            return reservation == nil
-                ? .unavailable(
-                    reasonCode: captureFailureReason
-                        ?? "named-provider-source-unavailable"
-                )
-                : .invalid(
-                    reasonCode: captureFailureReason
-                        ?? "named-provider-capture-identity-invalid"
-                )
-        }
-        let binding = providerBindings.first
-        let providerTargetKind = binding.map {
-            EffectTargetReservation.Kind($0.kind)
-        }
-        guard binding == nil || providerBindings.allSatisfy({
-            EffectTargetReservation.Kind($0.kind) == providerTargetKind
-        }) else {
-            return .invalid(reasonCode: "named-provider-binding-kind-invalid")
-        }
         let target: MTLTexture
-        if let reservation {
-            guard reservation.frameEpoch == frameEpoch,
-                  reservation.providerLayerID == layer.id,
-                  binding.map({
-                      reservation.kind == .init($0.kind)
-                  }) == true,
-                  reservation.width == extent.width,
-                  reservation.height == extent.height,
-                  reservation.texture.width == extent.width,
-                  reservation.texture.height == extent.height else {
-                captureTelemetry.recordFailure(layerID: layer.id)
-                return .invalid(reasonCode: "named-provider-reservation-invalid")
-            }
-            if let publishedTexture = textureRegistry
-                .completeNamedLayerTargetTexture(
-                    reference: reference,
-                    frameEpoch: frameEpoch
-                ) {
-                guard publishedTexture === reservation.texture else {
-                    captureTelemetry.recordFailure(layerID: layer.id)
-                    return .invalid(reasonCode: "named-provider-publication-identity-invalid")
-                }
-                return .published
-            }
-            target = reservation.texture
-        } else {
-            guard let pooledTarget = targetPool.texture(
-                      for: layer.id,
-                      width: extent.width,
-                      height: extent.height
-                  ) else {
-                captureTelemetry.recordFailure(layerID: layer.id)
-                return .unavailable(reasonCode: "named-provider-target-unavailable")
-            }
-            target = pooledTarget
+        switch captureTarget(layer: layer, sourceTexture: sourceTexture,
+            sourceCandidate: sourceCandidate, layerMVP: layerMVP,
+            viewportSize: viewportSize, textureRegistry: textureRegistry) {
+        case let .target(value): target = value
+        case let .finished(result):
+            if result != .published { captureTelemetry.recordFailure(layerID: layer.id) }
+            return result
         }
+        let frameEpoch = textureRegistry.frameEpoch
+        let reference = SceneNamedTextureReference(providerLayerID: layer.id, variant: .primary)
+        let binding = providerBindingsByLayerID[layer.id]?.first
+        let hasStaticModelBindings = staticModelProviderLayerIDs.contains(layer.id)
 
         let encoded: Bool
         switch binding?.kind {

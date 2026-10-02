@@ -145,19 +145,23 @@ color-blend/refraction原实例已准备实际必需容量，双实例后项失�
 
 <a id="rf13-named-model-shadow"></a>
 
-### RF13 — 已准入 named albedo 模型参与方向光投影（RF12 后继）
+### RF13 — 已准入 named albedo 模型方向光投影（已验收，职责已移交）
 
-实施前裁决见[前置设计](named-model-directional-shadow-design.md)，未approved前禁止产品实施。
+hidden image/solid source-only named albedo沿同一当前纹理、world、coverage参与方向光cast/receive。原owner按原资源顺序准备，原forward一次，source-only提前内容、normal/background仅容量；部分失败保mandatory前缀与后缀原循环。真实App、当前alpha、背景相位、紧配额及在飞resize/cancel门已获独立产品验收，冻结身份与范围仅见[执行记录](../../history/scene/rf13-named-model-shadow-implementation-2026-10-02.md)。[前置设计](../../history/scene/rf13-named-model-directional-shadow-design-2026-10-02.md)归档，窄登记删除，稳定职责移交[架构](runtime-architecture.md)。下一主片RF14。
 
-**目标与选择。** 让现可显示的 hidden image/solid source-only named albedo 模型沿相同当前纹理、world、coverage参与方向光cast/receive，解决合法同帧provider尚未准备而关闭投影的缺口；真实source不可用时保健康peer颜色，完整caster集合未知仍可保守关闭本帧阴影。相较新point/spot光型，这一片先闭合已有真实模型输入和已有方向光的组合；不把缺私有公式当停工条件。真实 `3509243656` 两条named模型显示路径的既有验收只证明输入可达，不证明原包有cast-on灯或本片受益。`3589454154` 22/24模型差额尚缺确切reader失败种类，不据此抬格式上限。
+<a id="rf14-model-spot-shadow"></a>
 
-**首断点与owner。** RF12基线下，`Rendering/Frame/SceneMetalRenderer+StaticModels.swift:156–160`在当前named publication未ready时取消shadow候选，`:253–254`即使ready仍用静态albedo presence限制caster；路径以`MyWallpaperX/Core/SteamWorkshopScene/`为前缀。`Rendering/Dependencies/SceneDependencyRenderPlan+StaticModel.swift:130–164`已只准入hidden image/solid、无effect/dependency/children的primary named源，`SceneDependencyFrameRuntime.swift:530–569`拥有同帧source capture，`SceneDependencyFrameRuntime+StaticModel.swift:79–109`拥有epoch/publication裁决。先核这些唯一owner，落设计并approved后实施；本卡不授权绕开设计门。
+### RF14 — 真实模型聚光阴影（下一主片，先设计）
 
-**最小方案与备选。** 精确选型统一见[前置设计](named-model-directional-shadow-design.md)：原owner按原资源顺序准备，原forward一次，source-only提前内容而normal/background仅提前容量，mandatory先于optional shadow。冷启动及resize的“较早健康模型→中间provider→较晚named模型”必须覆盖；first-model-only与cache-only不作为完成。没有第二registry或复制alpha解释；部分失败保原资源前缀与后缀原循环。
+**目标与依据。** 让已合法显示的静态/named模型在cast-on聚光锥内形成实际遮挡，只衰减该灯直射贡献，保ambient、其它灯、alpha和原唯一输出。[D3 F6](2d-lighting-material-design.md#f6-model-directional-shadow)引用的公开合同支持point/spot/directional投影；[Mirage参考](../semantics/miragewallpaper-rendering-reference.md)提供输入与资源职责，其固定revision没有完整shadow atlas，不提供可复制算法。透视投影与质量策略由本项目独立设计、以合法自有输入验证，方法缺失不跳过。
 
-**纠正门。** 从现自造MDL输入派生hidden source早/晚于模型、静态健康caster正控；旧App先证明named颜色真正完成而阴影关闭，新App证明同一当前纹理的颜色、投影及健康peer均正确。provider alpha0/1、castfalse仍接收、缺源、next-frame与资源失败/resize/cancel沿同一owner；实际按publication、GPU completion、terminal和预登记ROI验收，不能只数route。真实原包只作对应显示回归；加灯变体须标注为合法派生输入，不能冒称未修改原包收益。
+**当前首断点与owner。** 路径相对`MyWallpaperX/Core/SteamWorkshopScene/`：`Format/SceneSpotLightDefinition.swift:19,37`已有castshadow，`Rendering/Lighting/SceneLightSnapshot.swift:23–30,239–247`的Spot丢失该意图及layer identity；`Rendering/Metal/SceneStaticModelPipeline.swift:419–424`只校验directional shadow，`Rendering/Composition/SceneStaticModel.metal:178–203`的spot贡献尚无可见性项。沿原typed snapshot、真实draw集合、现pool/pin与原model pipeline闭合，不新建灯registry/atlas manager/compositor。
 
-**退役与后继。** 实際显影、资源门和独审完成后移交稳定架构，删除临时设计门。随后比较point/spot的真实caster输入与模型reader中性失败归因；以实际可见收益决定下一片，不为清单数量做无consumer实现。
+**选型与fallback。** 先完整覆盖spot有限透视锥体，再做point全向域及接缝。前置设计必须定清w与有效深度、锥尖/近远范围、几何校正滤波、同帧多灯target identity/预算、directional既有成功资源保护和completion寿命；不能照搬directional的affine假设或只做point单面。optional分配/单灯投影失败保该灯原direct及健康灯，unsafe identity沿原owner拒绝。22/24模型reader差额先取具体错误与可见贡献，不猜测放宽格式边界；若归因证实主构图缺失，可依唯一路线改排优先级。
+
+**纠正门。** 自有真实MDL三角+已支持材质先证旧App cast-on/off无阴影差，再验偏轴/锥内外/不同深度、移动灯与parent、跨近灯面、同面/近间隙、alpha cutout、cast=false仍receive、named冷帧/resize/next-frame；独立ray oracle及预登记ROI约束算法。多灯/紧配额/在飞取消须保原directional和mandatory输出；真实App核identity、publication、completion、terminal与后帧。不以声明数量推断原包收益，不宣称官方数值parity。
+
+**设计门与退役。** 跨typed identity、投影ABI和GPU生命周期，正式设计与窄gate approved后才实施。本卡只定后继，未批准产品写入。该完整有限域获得实际输出/资源验收与独立终审后移交稳定架构、归档临时设计；point保留为紧邻后继。
 
 ## 3. 全部59项去向
 
