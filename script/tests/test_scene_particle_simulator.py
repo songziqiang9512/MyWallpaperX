@@ -1428,13 +1428,57 @@ enum Harness {
             ),
             controlPointForceJSON(scale: "2", threshold: "20", controlPoint: 8),
             controlPointForceJSON(scale: "2", threshold: "20", pointOffset: "0 0"),
-            controlPointForceJSON(scale: "2", threshold: "20", systemFlags: 1),
-            controlPointForceJSON(scale: "2", threshold: "20", systemFlags: 4),
-            controlPointForceJSON(scale: "2", threshold: "20", movementFlags: 1),
         ].map { source -> SceneParticleSimulator in
             var simulator = simulator(source, seed: 1, step: 1)
             simulator.advance(by: 1, dynamicControlPoints: [1: SIMD3(10, 0, 0)])
             return simulator
+        }
+        let pointerForceFlagCases = [
+            ("worldSpaceSystem", 1, 0),
+            ("perspectiveSystem", 4, 0),
+            ("worldSpaceMovement", 0, 1),
+        ]
+        let pointerForceFlagResults = pointerForceFlagCases.map { fixture -> [String: Any] in
+            let (name, systemFlags, movementFlags) = fixture
+            let source = controlPointForceJSON(
+                scale: "2", threshold: "20",
+                systemFlags: systemFlags, movementFlags: movementFlags
+            )
+            let parser = SceneParticleDefinitionParser()
+            let definition = parser.parse(root: try! object(source))
+            let identities = definition.pointerControlPointIdentities
+            let pointerValues = definition.pointerControlPointValues(
+                at: SIMD3(10, 0, 0), identities: identities
+            )
+            let live = SceneParticleSimulator(definition: definition, seed: 1, fixedTimeStep: 1)
+            live.advance(by: 1, dynamicControlPoints: pointerValues)
+
+            // A non-origin birth distinguishes missing input from a false
+            // fallback to the origin, which would accelerate this particle.
+            var missingRoot = try! object(source)
+            var missingEmitters = missingRoot["emitter"] as! [[String: Any]]
+            missingEmitters[0]["distancemin"] = "5 0 0"
+            missingEmitters[0]["distancemax"] = "5 0 0"
+            missingRoot["emitter"] = missingEmitters
+            let missing = SceneParticleSimulator(
+                definition: parser.parse(root: missingRoot), seed: 1, fixedTimeStep: 1
+            )
+            missing.advance(by: 1)
+            return [
+                "name": name,
+                "systemFlags": definition.flags.rawValue,
+                "movementFlags": definition.operators.first { $0.kind == .movement }?.rawFlags ?? -1,
+                "forceSupported": definition.operators.contains {
+                    $0.kind == .controlPointAttract && definition.supportsBoundedControlPointForce($0)
+                },
+                "pointerIdentities": identities,
+                "pointerMapped": pointerValues[1].map(vector) ?? [],
+                "velocity": vector(live.particles[0].velocity),
+                "diagnostics": live.diagnostics.map(\.kind.rawValue).sorted(),
+                "missingPointerVelocity": vector(missing.particles[0].velocity),
+                "missingPointerPosition": vector(missing.particles[0].position),
+                "missingPointerDiagnostics": missing.diagnostics.map(\.kind.rawValue).sorted(),
+            ]
         }
 
         var operators = simulator(operatorJSON, seed: 1, step: 0.25)
@@ -2302,6 +2346,7 @@ enum Harness {
             "invalidControlPointForceDiagnostics": invalidControlPointForces.map {
                 $0.diagnostics.map(\.kind.rawValue)
             },
+            "pointerForceFlagResults": pointerForceFlagResults,
             "overrideDiagnostics": overridden.diagnostics.map(\.kind.rawValue),
             "liveOverrideDiagnostics": liveOverride.diagnostics.map(\.kind.rawValue),
             "liveZeroCount": liveZeroCount,
@@ -3703,10 +3748,39 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         )
         self.assertEqual(
             self.results["invalidControlPointForceVelocities"],
-            [[0, 0, 0]] * 11,
+            [[0, 0, 0]] * 8,
         )
+        self.assertEqual(len(self.results["invalidControlPointForceDiagnostics"]), 8)
         for diagnostics in self.results["invalidControlPointForceDiagnostics"]:
             self.assertIn("controlPointForceUnsupported", diagnostics)
+        expected_flags = {
+            "worldSpaceSystem": (1, 0),
+            "perspectiveSystem": (4, 0),
+            "worldSpaceMovement": (0, 1),
+        }
+        flag_results = self.results["pointerForceFlagResults"]
+        self.assertEqual([row["name"] for row in flag_results], list(expected_flags))
+        for row in flag_results:
+            with self.subTest(flags=row["name"], pointer="present"):
+                self.assertEqual(
+                    (row["systemFlags"], row["movementFlags"]),
+                    expected_flags[row["name"]],
+                )
+                self.assertTrue(row["forceSupported"])
+                self.assertEqual(row["pointerIdentities"], [1])
+                self.assertEqual(row["pointerMapped"], [10, 0, 0])
+                self.assertEqual(row["velocity"], [2, 0, 0])
+                self.assertEqual(
+                    row["diagnostics"],
+                    ["controlPointForceBounded", "pointerControlPointBounded"],
+                )
+            with self.subTest(flags=row["name"], pointer="missing"):
+                self.assertEqual(row["missingPointerVelocity"], [0, 0, 0])
+                self.assertEqual(row["missingPointerPosition"], [5, 0, 0])
+                self.assertEqual(
+                    row["missingPointerDiagnostics"],
+                    ["controlPointForceBounded", "pointerControlPointBounded"],
+                )
 
     def test_random_periodic_emission_uses_bounded_active_and_delay_windows(self) -> None:
         self.assertEqual(self.results["periodicFirstWindowCount"], 2)
