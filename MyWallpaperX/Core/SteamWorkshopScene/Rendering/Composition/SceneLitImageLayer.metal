@@ -62,6 +62,8 @@ struct SceneLitImageLayerLightPayload {
     float4 mapFrame1;
     uint4 mapSamplingComponents;
     float4 emission;
+    float4x4 sceneViewProjection;
+    float4 reflection;
 };
 
 // Texture-frame affine transform uses the common source uniform ABI.
@@ -170,6 +172,7 @@ fragment float4 sceneLitImageLayerFrag(
     texture2d<float> sourceTexture [[texture(0)]],
     texture2d<float> normalTexture [[texture(1)]],
     texture2d<float> materialMapTexture [[texture(2)]],
+    texture2d<float> environmentTexture [[texture(3)]],
     constant SceneImageLayerFragmentUniforms &uniforms [[buffer(0)]],
     constant SceneLitImageLayerLightPayload &payload [[buffer(1)]]
 ) {
@@ -305,6 +308,12 @@ fragment float4 sceneLitImageLayerFrag(
         radiance[channel] = sceneLitStoredTerm(1.0, payload.ambientHasNormal[channel],
             1.0, 1.0, color[channel], uniforms.tint[channel], uniforms.alpha);
     }
+    if (payload.reflection.w == 0.0) {
+        for (uint channel = 0; channel < 3; ++channel) {
+            radiance[channel] = sceneLitStoredTerm(1.0, 1.0, 1.0, 1.0,
+                color[channel], uniforms.tint[channel], uniforms.alpha);
+        }
+    }
     for (int index = 0; index < 4; index++) {
         if (float(index) >= payload.lightCounts.x) {
             break;
@@ -348,6 +357,35 @@ fragment float4 sceneLitImageLayerFrag(
         radiance = min(float3(65504.0), radiance + sceneLitDirect(normal, view,
             towardLight, color, material, spotColorIntensity[index].rgb,
             spotColorIntensity[index].w, falloff * cone, uniforms.tint.rgb, uniforms.alpha));
+    }
+
+    if (payload.reflection.z != 0.0) {
+        // Independent projective approximation: mirror the incoming view ray,
+        // travel the authored project-world distance, project with this scene's
+        // camera. Capture-local fragment coordinates never address the scene.
+        const float3 direction = reflect(-view, normal);
+        const float4 clip = payload.sceneViewProjection
+            * float4(world + payload.reflection.y * direction, 1.0);
+        if (all(isfinite(clip)) && clip.w > 0.0) {
+            const float2 sceneUV = float2(0.5, 0.5)
+                + float2(0.5, -0.5) * (clip.xy / clip.w);
+            if (all(isfinite(sceneUV))) {
+                const float lod = material.y * float(environmentTexture.get_num_mip_levels() - 1);
+                const float3 environment = environmentTexture.sample(
+                    linearClampSampler, sceneUV, level(lod)).rgb;
+                const float3 baseReflectance = mix(float3(0.04),
+                    clamp(color.rgb / color.a, 0.0, 1.0), material.x);
+                const float grazing = pow(1.0 - clamp(abs(dot(normal, view)), 0.0, 1.0), 5.0);
+                const float3 fresnel = mix(baseReflectance, float3(1.0), grazing);
+                const float weight = (components & 4u) != 0u ? mapped.b : 1.0;
+                for (uint channel = 0; channel < 3; ++channel) {
+                    const float contribution = sceneLitStoredTerm(fresnel[channel] * weight,
+                        payload.reflection.x, environment[channel], 1.0,
+                        color.a, uniforms.tint[channel], uniforms.alpha);
+                    radiance[channel] = min(65504.0, radiance[channel] + contribution);
+                }
+            }
+        }
     }
 
     if ((components & 8u) != 0u) {

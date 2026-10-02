@@ -83,6 +83,7 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
         frameEpoch: UInt64
     )
     case sceneBackground(consumerLayerID: Int, frameEpoch: UInt64)
+    case sceneEnvironment(frameEpoch: UInt64, allocationGeneration: UInt64)
     case video(layerID: Int, lifecycleEpoch: UInt64)
 
     var reportToken: String {
@@ -99,6 +100,8 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
         case let .namedLayerTarget(providerLayerID, variant, frameEpoch):
             return "named-layer-target:\(providerLayerID):"
                 + "\(variant):epoch:\(frameEpoch)"
+        case let .sceneEnvironment(epoch, generation):
+            return "scene-environment:epoch:\(epoch):allocation:\(generation)"
         case let .sceneBackground(consumerLayerID, frameEpoch):
             return "scene-background:\(consumerLayerID):epoch:\(frameEpoch)"
         case let .video(layerID, lifecycleEpoch):

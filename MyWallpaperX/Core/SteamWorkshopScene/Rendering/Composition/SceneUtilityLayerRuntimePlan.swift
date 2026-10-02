@@ -433,7 +433,8 @@ final class SceneCompositionGroupFrameRuntime {
             commandBuffer: commandBuffer,
             target: target.texture,
             clearColor: MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0),
-            clearEnabled: true
+            clearEnabled: true,
+            submissionOwner: parentPass
         )
         passesByRootID[rootID] = pass
         texturesByRootID[rootID] = target.texture

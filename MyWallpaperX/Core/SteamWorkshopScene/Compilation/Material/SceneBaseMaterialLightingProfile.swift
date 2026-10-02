@@ -6,6 +6,9 @@ nonisolated struct SceneBaseMaterialLightingProfile: Equatable, Sendable {
     let lightingEnabled: Bool
     /// Absent only for the legacy implicit-shader diffuse admission.
     var scalarMaterial: SIMD2<Float>? = nil
+    /// Strength and project world-space sampling distance.
+    var reflection: SIMD2<Float>? = nil
+    var surfaceEnabled: Bool { lightingEnabled || reflection != nil }
     enum TextureSource: Equatable, Sendable {
         case disabled, unsupported, invalid
         case asset(SceneAssetTextureIdentity)
@@ -55,9 +58,27 @@ enum SceneBaseMaterialLightingProfileCompiler {
         let isBuiltin = pass?.shaderPath.map(SceneBuiltinShaderIdentity.isImage) ?? true
         let lightingEnabled = isBuiltin
             && (materialInstance?.combos["LIGHTING"] ?? pass?.combos["LIGHTING"]) == 1
-        let builtinLighting = SceneMaterialPropertyBindingCompiler.supportsBuiltinImageLighting(
+        let builtinSurface = SceneMaterialPropertyBindingCompiler.supportsBuiltinImage(
             layer: layer, instance: materialInstance, passes: materialPasses
         )
+        let builtinLighting = builtinSurface && lightingEnabled
+        // This slice owns only the declared default environment. Empty/null
+        // instance slots inherit; they cannot erase an authored provider.
+        let hasExplicitEnvironment = [materialInstance?.textureSlots, pass?.textureSlots]
+            .compactMap { $0 }.contains { $0.indices.contains(3) && $0[3]?.isEmpty == false }
+            || [materialInstance?.userTextureInputs, pass?.userTextureInputs]
+                .compactMap { $0 }.contains { $0.indices.contains(3) && $0[3] != nil }
+        var reflection: SIMD2<Float>?
+        if builtinSurface, layer.puppetMeshPath == nil, !hasExplicitEnvironment,
+           (materialInstance?.combos["REFLECTION"] ?? pass?.combos["REFLECTION"]) == 1,
+           let pass,
+           let strength = SceneMaterialPropertyBindingCompiler.staticComponents(
+            "reflectivity", instance: materialInstance, pass: pass, count: 1, fallback: [1])?.first,
+           let distance = SceneMaterialPropertyBindingCompiler.staticComponents(
+            "reflectivitydistance", instance: materialInstance, pass: pass, count: 1, fallback: [4])?.first,
+           strength > 0, distance >= 0, Float(strength).isFinite, Float(distance).isFinite {
+            reflection = SIMD2(Float(strength), Float(distance))
+        }
         // Fixed built-in slot 1 is the normal input. Null instance slots inherit
         // the material; an explicit NORMALMAP=0 disables that optional input.
         func slot(_ slots: [String?]) -> String? {
@@ -69,7 +90,7 @@ enum SceneBaseMaterialLightingProfileCompiler {
             ? materialInstance?.userTextureInputs : pass?.userTextureInputs
         let hasUnsupportedProvider = input?.indices.contains(1) == true
             && input?[1] != nil
-        let normalEnabled = builtinLighting
+        let normalEnabled = (builtinLighting || reflection != nil)
             && (materialInstance?.combos["NORMALMAP"] ?? pass?.combos["NORMALMAP"]) != 0
         let normalSource: SceneBaseMaterialLightingProfile.TextureSource
         if !normalEnabled { normalSource = .disabled }
@@ -79,9 +100,9 @@ enum SceneBaseMaterialLightingProfileCompiler {
                 .map { .asset($0) } ?? .invalid
         } else { normalSource = .disabled }
         var profile = SceneBaseMaterialLightingProfile(
-            lightingEnabled: lightingEnabled, normalSource: normalSource
+            lightingEnabled: lightingEnabled, reflection: reflection, normalSource: normalSource
         )
-        if builtinLighting, let pass, let shader = pass.shaderPath {
+        if builtinLighting || reflection != nil, let pass, let shader = pass.shaderPath {
             let tierFour = shader.lowercased() == "genericimage4"
             func scalar(_ key: String, default fallback: Double) -> Float {
                 guard let value = SceneMaterialPropertyBindingCompiler.staticComponents(key, instance: materialInstance, pass: pass, count: 1, fallback: [fallback])?.first else {
@@ -97,7 +118,7 @@ enum SceneBaseMaterialLightingProfileCompiler {
             func combo(_ key: String) -> Int? {
                 materialInstance?.combos[key] ?? pass.combos[key]
             }
-            for (key, bit) in [("METALLIC_MAP", UInt32(1)), ("ROUGHNESS_MAP", 2), ("EMISSIVE_MAP", 8)] {
+            for (key, bit) in [("METALLIC_MAP", UInt32(1)), ("ROUGHNESS_MAP", 2), ("REFLECTION_MAP", 4), ("EMISSIVE_MAP", 8)] {
                 switch combo(key) {
                 case nil: profile.mapAllowedComponents |= bit
                 case 1:
@@ -108,7 +129,7 @@ enum SceneBaseMaterialLightingProfileCompiler {
                     NSLog("MWX SCENE: schema=base-material-map component=%@ status=unsupported fallback=component-disabled", key)
                 }
             }
-            if let rgb = SceneMaterialPropertyBindingCompiler.emissionColor(instance: materialInstance, pass: pass) {
+            if builtinLighting, let rgb = SceneMaterialPropertyBindingCompiler.emissionColor(instance: materialInstance, pass: pass) {
                 let target = SceneDynamicTarget.materialConstant(
                     layerID: layer.id, passIndex: pass.passIndex,
                     name: "emissivebrightness",
@@ -124,7 +145,8 @@ enum SceneBaseMaterialLightingProfileCompiler {
             if profile.emission == nil {
                 NSLog("MWX SCENE: schema=base-material-emission status=invalid-or-unresolved fallback=disabled")
             }
-            if profile.emission == nil { profile.mapAllowedComponents &= 3 }
+            if profile.emission == nil { profile.mapAllowedComponents &= 7 }
+            if reflection == nil { profile.mapAllowedComponents &= ~4 }
             func hasMapProvider(_ inputs: [SceneEffectTextureInput?]) -> Bool {
                 inputs.indices.contains(2) && inputs[2] != nil
             }

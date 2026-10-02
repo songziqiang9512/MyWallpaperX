@@ -29,6 +29,8 @@ enum SceneOffscreenEffectRenderer {
         sourceLighting: SceneBaseMaterialLitCapturePayload? = nil
     ) -> Bool {
         if sourceTexture === target { return true }
+        let sourceLighting = sourceLighting?.resolvingEnvironment(
+            for: target, commandBuffer: commandBuffer)
         guard let encoder = beginEncoder(commandBuffer: commandBuffer, target: target) else {
             return false
         }
@@ -38,6 +40,7 @@ enum SceneOffscreenEffectRenderer {
                 texture: sourceTexture,
                 normalTexture: sourceLighting.normalTexture,
                 materialMapTexture: sourceLighting.materialMapTexture,
+                environmentTexture: sourceLighting.environmentTexture,
                 mvp: fullTargetMVP,
                 uniforms: sourceUniforms,
                 litPayload: sourceLighting.lights,

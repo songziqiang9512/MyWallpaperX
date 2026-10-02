@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -79,6 +80,33 @@ enum SceneTextureLoadOutcome {
 
 @main
 enum Harness {
+
+    static func environmentPublication(_ device: MTLDevice) -> [String: Bool] {
+        func texture(_ levels: Int, format: MTLPixelFormat = .rgba16Float, usage: MTLTextureUsage = [.shaderRead, .renderTarget]) -> MTLTexture {
+            let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format, width: 13, height: 7, mipmapped: true)
+            d.mipmapLevelCount = levels; d.usage = usage
+            return device.makeTexture(descriptor: d)!
+        }
+        let full = texture(4)
+        let first = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: full)!
+        let second = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 8, allocationGeneration: 3, texture: full)!
+        let replacement = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 4, texture: full)!
+        let candidate = first.publication.candidate
+        return [
+            "environmentExactAtom": first.publication.isComplete && first.resourceGeneration == 3
+                && first.publication.requestIdentity == .sceneEnvironment && first.publication.contentGeneration == 7
+                && candidate.texture === full && candidate.identity == .provider(.sceneEnvironment(frameEpoch: 7, allocationGeneration: 3))
+                && candidate.generation == .provider(contentGeneration: 7)
+                && candidate.purpose == .premultipliedColor && candidate.uvTransform == .identity,
+            "environmentEpochChangesAtom": !first.publication.isSameAtom(as: second.publication),
+            "environmentAllocationChangesAtom": !first.publication.isSameAtom(as: replacement.publication),
+            "environmentPartialMipRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: texture(3)) == nil,
+            "environmentUnsupportedFormatRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: texture(4, format: .rgba32Float)) == nil,
+            "environmentNoRenderTargetRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: texture(4, usage: .shaderRead)) == nil,
+            "environmentZeroEpochRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 0, allocationGeneration: 3, texture: full) == nil
+        ]
+    }
+
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw NSError(domain: "SceneFrameTextureRegistryTests", code: 1)
@@ -1153,6 +1181,7 @@ enum Harness {
             && SceneTextureSampling(texFlags: 8).rawFlags == 8
 
         let result: [String: Any] = [
+            "environmentPublication": environmentPublication(device),
             "frameEpochAdvanced": secondEpoch == firstEpoch + 1,
             "persistentGenerationsStable": secondFallback.generation == firstFallback.generation
                 && secondProperty.generation == firstProperty.generation
@@ -1306,10 +1335,17 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
             [str(cls.binary)], check=True, capture_output=True, text=True
         )
         cls.result = json.loads(completed.stdout)
+        if destination := os.environ.get("MWX_REFLECTION_EVIDENCE"):
+            Path(destination).mkdir(parents=True, exist_ok=True)
+            (Path(destination)/"registry.json").write_text(json.dumps(cls.result, indent=2))
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_environment_publication_is_a_complete_frame_allocation_atom(self) -> None:
+        for key, passed in self.result["environmentPublication"].items():
+            self.assertTrue(passed, key)
 
     def test_typed_provider_requires_a_complete_publication(self) -> None:
         for key in (

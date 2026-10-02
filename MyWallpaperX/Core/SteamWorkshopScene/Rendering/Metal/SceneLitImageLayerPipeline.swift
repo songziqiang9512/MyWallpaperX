@@ -47,6 +47,9 @@ struct SceneLitImageLayerLightPayload {
     /// x = sampler; y = enabled component bits (metal/rough/emission).
     var mapSamplingComponents = SIMD4<UInt32>.zero
     var emission = SIMD4<Float>.zero
+    var sceneViewProjection = matrix_identity_float4x4
+    /// strength, project world distance, environment ready, direct enabled.
+    var reflection = SIMD4<Float>(0, 4, 0, 1)
 }
 
 /// One claimed layer's lit base-capture request. Built by the frame
@@ -123,9 +126,13 @@ struct SceneBaseMaterialLitCapturePayload {
     }
 
     let pipeline: SceneLitImageLayerPipeline
-    let lights: SceneLitImageLayerLightPayload
+    private(set) var lights: SceneLitImageLayerLightPayload
     let normal: TextureInput
     let materialMap: TextureInput
+    private var environmentSource: ((MTLCommandBuffer) -> SceneFrameTextureResource?)?
+    private(set) var environmentTexture: MTLTexture?
+    var requiresReflection: Bool { lights.reflection.x > 0 && normalTexture != nil }
+    var hasDirectLighting: Bool { lights.reflection.w != 0 }
     var normalTexture: MTLTexture? {
         guard case let .ready(binding, _) = normal else { return nil }
         return binding.texture
@@ -143,12 +150,15 @@ struct SceneBaseMaterialLitCapturePayload {
         materialMap: TextureInput = .disabled,
         mapAllowedComponents: UInt32 = 0,
         mapRequiredComponents: UInt32 = 0,
-        emission: SIMD4<Float>? = nil
+        emission: SIMD4<Float>? = nil,
+        environmentSource: ((MTLCommandBuffer) -> SceneFrameTextureResource?)? = nil
     ) {
         guard lights.isFinite else { return nil }
         self.pipeline = pipeline
         self.normal = normal
         self.materialMap = materialMap
+        self.environmentSource = environmentSource
+        self.environmentTexture = nil
         var packed = lights
         packed.ambientHasNormal.w = 0
         if case let .ready(binding, encoding) = normal {
@@ -162,7 +172,7 @@ struct SceneBaseMaterialLitCapturePayload {
         packed.emission = emission ?? .zero
         if case let .ready(binding, _) = materialMap {
             let header = ((binding.sampling.rawFlags ?? 0) >> 20) & 15
-            let enabled = header & mapAllowedComponents & (emission == nil ? 3 : 11)
+            let enabled = header & mapAllowedComponents & (emission == nil ? 7 : 15)
             let uv = binding.uvTransform
             packed.mapFrame0 = SIMD4(uv.origin.x, uv.origin.y, uv.xAxis.x, uv.xAxis.y)
             packed.mapFrame1 = SIMD4(uv.yAxis.x, uv.yAxis.y, 0, 0)
@@ -188,11 +198,32 @@ struct SceneBaseMaterialLitCapturePayload {
         let normalValid = compatible(normalTexture)
         let mapValid = compatible(materialMapTexture)
         if normalValid && mapValid { return self }
-        return Self(pipeline: pipeline, lights: lights,
+        var value = Self(pipeline: pipeline, lights: lights,
             normal: normalValid ? normal : .invalid,
             materialMap: mapValid ? materialMap : .invalid,
             mapAllowedComponents: lights.mapSamplingComponents.y,
-            emission: lights.emission)
+            emission: lights.emission, environmentSource: environmentSource)
+        value?.environmentTexture = environmentTexture
+        return value
+    }
+
+    /// Called before creating a source render encoder. Prepared payloads keep
+    /// immutable intent; this value is local to one actual encode operation.
+    func resolvingEnvironment(for target: MTLTexture, commandBuffer: MTLCommandBuffer) -> Self? {
+        guard var value = validated(for: target) else { return nil }
+        if value.requiresReflection, value.environmentTexture == nil {
+            value.environmentTexture = value.environmentSource?(commandBuffer)?.publication.texture
+        }
+        value.environmentSource = nil
+        if let texture = value.environmentTexture,
+           value.requiresReflection, texture !== target,
+           texture.device.registryID == target.device.registryID {
+            value.lights.reflection.z = 1
+        } else {
+            value.environmentTexture = nil
+            value.lights.reflection.z = 0
+        }
+        return value.hasDirectLighting || value.environmentTexture != nil ? value : nil
     }
 
     /// Position maps the unit quad into world space. Direction uses the authored
@@ -282,7 +313,9 @@ private extension SceneLitImageLayerLightPayload {
             modelMatrix.columns.2, modelMatrix.columns.3,
             normalBasis.columns.0, normalBasis.columns.1,
             normalBasis.columns.2, normalBasis.columns.3, material, view,
-            mapFrame0, mapFrame1, emission,
+            mapFrame0, mapFrame1, emission, reflection,
+            sceneViewProjection.columns.0, sceneViewProjection.columns.1,
+            sceneViewProjection.columns.2, sceneViewProjection.columns.3,
         ].allSatisfy(sceneLitIsFinite)
     }
 }
@@ -327,6 +360,7 @@ final class SceneLitImageLayerPipeline {
         texture: MTLTexture,
         normalTexture: MTLTexture?,
         materialMapTexture: MTLTexture? = nil,
+        environmentTexture: MTLTexture? = nil,
         mvp: simd_float4x4,
         uniforms: SceneLayerFragmentUniforms,
         litPayload: SceneLitImageLayerLightPayload,
@@ -353,6 +387,7 @@ final class SceneLitImageLayerPipeline {
         encoder.setFragmentTexture(texture, index: 0)
         encoder.setFragmentTexture(normalTexture ?? texture, index: 1)
         encoder.setFragmentTexture(materialMapTexture ?? texture, index: 2)
+        encoder.setFragmentTexture(environmentTexture ?? texture, index: 3)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
     }

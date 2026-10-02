@@ -1,6 +1,90 @@
 import Metal
 
 extension SceneMetalRenderer {
+    /// One submission's optional environment and the mandatory scratch it may
+    /// not evict. Prepared source payloads reference only this frame's resolver.
+    final class ReflectionFrame {
+        private let pool: SceneOffscreenTexturePool?
+        private let mainPass: SceneMainPassEncoder
+        private let groupRuntime: SceneCompositionGroupFrameRuntime?
+        private let commandBuffer: MTLCommandBuffer
+        private let frameEpoch: UInt64
+        private var pins: [SceneGraphRenderTargetResidencyPin] = []
+        private var attempted = false
+        private var resource: SceneFrameTextureResource?
+        private(set) var scratchReady = false
+
+        init(pool: SceneOffscreenTexturePool?, mainPass: SceneMainPassEncoder,
+             groupRuntime: SceneCompositionGroupFrameRuntime?, commandBuffer: MTLCommandBuffer,
+             frameEpoch: UInt64) {
+            self.pool = pool; self.mainPass = mainPass; self.groupRuntime = groupRuntime
+            self.commandBuffer = commandBuffer; self.frameEpoch = frameEpoch
+        }
+
+        func admit(_ targets: [SceneOffscreenTexturePool.PinnedTexture]) {
+            pins.append(contentsOf: targets.map(\.pin))
+            scratchReady = true
+        }
+
+        func resolve(_ actual: MTLCommandBuffer) -> SceneFrameTextureResource? {
+            guard actual === commandBuffer, scratchReady else { return nil }
+            if attempted { return resource }
+            attempted = true
+            let extent = mainPass.targetExtent
+            guard let reserved = pool?.reserveEnvironment(width: extent.width, height: extent.height,
+                commandBuffer: commandBuffer) else { return nil }
+            // Encoding a copy already creates an in-flight writer, even if
+            // publication or the eventual receiver subsequently fails.
+            pins.append(reserved.pin)
+            groupRuntime?.closeAllGroupEncoders()
+            let copied = mainPass.withReadableTarget { source, buffer in
+                guard let blit = buffer.makeBlitCommandEncoder() else { return false }
+                blit.copy(from: source, sourceSlice: 0, sourceLevel: 0,
+                    sourceOrigin: MTLOriginMake(0, 0, 0),
+                    sourceSize: MTLSizeMake(source.width, source.height, 1),
+                    to: reserved.texture, destinationSlice: 0, destinationLevel: 0,
+                    destinationOrigin: MTLOriginMake(0, 0, 0))
+                if reserved.texture.mipmapLevelCount > 1 { blit.generateMipmaps(for: reserved.texture) }
+                blit.endEncoding()
+                return true
+            }
+            guard copied == true else { return nil }
+            resource = .sameFrameEnvironment(frameEpoch: frameEpoch,
+                allocationGeneration: reserved.pin.generation, texture: reserved.texture)
+            return resource
+        }
+
+        func arm() {
+            let submittedPins = pins
+            commandBuffer.addCompletedHandler { _ in submittedPins.forEach { $0.release() } }
+            pins.removeAll(); resource = nil; scratchReady = false
+        }
+
+        func cancel() {
+            pins.forEach { $0.release() }
+            pins.removeAll(); resource = nil; scratchReady = false
+        }
+    }
+
+    /// Establish the current raw main source and its group encoders before
+    /// preparing any source payload that can request the shared prefix.
+    func makeScenePass(target: MTLTexture, clearEnabled: Bool,
+                       pool: SceneOffscreenTexturePool?, visibleLayerIDs: Set<Int>,
+                       viewportSize: CGSize, commandBuffer: MTLCommandBuffer)
+        -> (SceneMainPassEncoder, SceneCompositionGroupFrameRuntime?) {
+        let mainPass = SceneMainPassEncoder(commandBuffer: commandBuffer,
+            target: target, clearColor: sceneClearColor, clearEnabled: clearEnabled)
+        var groups: SceneCompositionGroupFrameRuntime?
+        if let pool, !compositionGroupMemberRootsByLayerID.isEmpty {
+            groups = SceneCompositionGroupFrameRuntime(parentPass: mainPass,
+                commandBuffer: commandBuffer, offscreenTexturePool: pool,
+                memberRootsByLayerID: compositionGroupMemberRootsByLayerID,
+                membersByRootID: compositionGroupMembersByRootID, viewportSize: viewportSize)
+        }
+        groups?.reserveSources(orderedRootIDs: compositionGroupRootIDs, visibleLayerIDs: visibleLayerIDs)
+        return (mainPass, groups)
+    }
+
     var sceneClearColor: MTLClearColor {
         let color = renderDescriptor.camera.clearColor
         let red = Double(color.count > 0 ? color[0] : 0.7)

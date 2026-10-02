@@ -88,7 +88,7 @@ struct SceneRenderDescriptor {
         let decoded = try JSONDecoder().decode(SceneDocument.SceneLayerMaterialInstance.self,from:encoded)
         precondition(decoded == a)
         let malformed=SceneDocument.SceneLayerMaterialInstance.parse(["constantshadervalues":NSNull()])!
-        precondition(malformed.scalarShaderValues?.count == 4)
+        precondition(malformed.scalarShaderValues?.keys.sorted() == ["emissivebrightness","emissivecolor","metallic","reflectivity","reflectivitydistance","roughness"])
         precondition(malformed.scalarShaderValues!.values.allSatisfy { $0.components == nil })
         let dynamic=SceneDocument.SceneLayerMaterialInstance.parse(["constantshadervalues":["roughness":["value":0.2,"script":"export function update(v){return v;}"]]])!
         precondition(dynamic.scalarShaderValues?["roughness"]?.scriptSource != nil)

@@ -8,6 +8,8 @@ final class SceneMainPassEncoder {
     private var nextLoadAction: MTLLoadAction
     private var activeEncoder: MTLRenderCommandEncoder?
     private var activeDepthTexture: MTLTexture?
+    private let submissionOwner: SceneMainPassEncoder?
+    private var compositionPins: [SceneGraphRenderTargetResidencyPin] = []
     private var isFinished = false
     private var encodingFailed = false
 
@@ -19,13 +21,34 @@ final class SceneMainPassEncoder {
         commandBuffer: MTLCommandBuffer,
         target: MTLTexture,
         clearColor: MTLClearColor,
-        clearEnabled: Bool
+        clearEnabled: Bool,
+        submissionOwner: SceneMainPassEncoder? = nil
     ) {
+        self.submissionOwner = submissionOwner
         self.commandBuffer = commandBuffer
         self.target = target
         self.clearColor = clearColor
         self.clearEnabled = clearEnabled
         self.nextLoadAction = clearEnabled ? .clear : .load
+    }
+
+    /// Group passes share their root submission's lifetime. A source capture
+    /// can fail after encoding, so its allocation still lives until completion.
+    func retainCompositionPin(_ pin: SceneGraphRenderTargetResidencyPin?) {
+        guard let pin else { return }
+        if let submissionOwner { submissionOwner.retainCompositionPin(pin) }
+        else { compositionPins.append(pin) }
+    }
+
+    func armCompositionPins() {
+        let pins = compositionPins
+        compositionPins.removeAll()
+        commandBuffer.addCompletedHandler { _ in pins.forEach { $0.release() } }
+    }
+
+    func cancelCompositionPins() {
+        compositionPins.forEach { $0.release() }
+        compositionPins.removeAll()
     }
 
     func encoder() -> MTLRenderCommandEncoder? {

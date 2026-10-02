@@ -32,9 +32,10 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
             let passes = imagePasses[layer.id] ?? []
             let instance = materialInstancesByLayerID[layer.id]
             guard layer.puppetMeshPath == nil,
-                  supportsBuiltinImageLighting(layer: layer, instance: instance, passes: passes),
+                  supportsBuiltinImage(layer: layer, instance: instance, passes: passes),
                   instance?.scalarShaderValues?["emissivebrightness"] == nil,
                   let pass = passes.first,
+                  (instance?.combos["LIGHTING"] ?? pass.combos["LIGHTING"]) == 1,
                   emissionColor(instance: instance, pass: pass) != nil,
                   let value = binding(layerID: layer.id, pass: pass, name: "emissivebrightness")
             else { return [] }
@@ -61,14 +62,13 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
         }
     }
 
-    static func supportsBuiltinImageLighting(
+    static func supportsBuiltinImage(
         layer: SceneRenderDescriptor.Layer,
         instance: SceneDocument.SceneLayerMaterialInstance?,
         passes: [SceneRenderDescriptor.MaterialPassDescriptor]
     ) -> Bool {
         layer.isImageRenderable && instance?.isMalformed != true && passes.count == 1
             && passes.first?.shaderPath.map(SceneBuiltinShaderIdentity.isImage) == true
-            && (instance?.combos["LIGHTING"] ?? passes.first?.combos["LIGHTING"]) == 1
     }
 
     static func staticComponents(

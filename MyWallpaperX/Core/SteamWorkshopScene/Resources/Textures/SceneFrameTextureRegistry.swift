@@ -16,6 +16,7 @@ nonisolated enum SceneFrameTextureIdentity: Hashable {
     case layerSource(Int)
     case namedLayerTarget(SceneNamedTextureReference)
     case sceneBackground(Int)
+    case sceneEnvironment
     case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
     case asset(SceneAssetTextureIdentity)
     case userProperty(String)
@@ -28,6 +29,7 @@ nonisolated enum SceneFrameTextureIdentity: Hashable {
             return "layer:\(layerID)"
         case let .namedLayerTarget(reference):
             return "named:\(reference.providerLayerID):\(reference.variant.rawValue)"
+        case .sceneEnvironment: return "scene-environment"
         case let .sceneBackground(consumerLayerID):
             return "scene-background:\(consumerLayerID)"
         case let .graph(identity):

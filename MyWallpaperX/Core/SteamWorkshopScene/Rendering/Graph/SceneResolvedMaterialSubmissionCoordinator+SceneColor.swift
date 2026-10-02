@@ -29,7 +29,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         guard frameIsActive, preparedDisplayScratch == nil,
               preparedSceneColor == nil, commandBuffer.status == .notEnqueued,
               submissionQueueAcceptsFrameLocked(),
-              let lease = pool.reserveDisplayScratch(width: width, height: height)
+              let lease = pool.reserveDisplayScratch(width: width, height: height, commandBuffer: commandBuffer)
         else { return nil }
         guard observeCommandBufferLocked(commandBuffer) else {
             lease.pin.release()

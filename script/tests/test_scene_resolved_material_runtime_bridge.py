@@ -125,10 +125,8 @@ SUBMISSION_SWIFT_SOURCES = [
     GRAPH_TELEMETRY,
     GRAPH_OBSERVATION_BUILDER,
     OFFSCREEN_RESOLUTION_POLICY,
-    # Mechanical sync: FramePreparationRequest gained the lit base-capture
-    # payload (D3 first slice); the payload type ships with the lit pipeline.
+    # Lighting is an opaque carried leaf in this coordinator-only fixture.
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneLitImageLayerPipeline.swift",
     RUNTIME_BRIDGE,
     SUBMISSION_COORDINATOR,
     SUBMISSION_LIFECYCLE,
@@ -989,7 +987,7 @@ final class SceneOffscreenTexturePool {
         func release() { retention.release(); submission.release() }
     }
     let sceneColorResetEpoch = UUID()
-    func reserveDisplayScratch(width: Int, height: Int)
+    func reserveDisplayScratch(width: Int, height: Int, commandBuffer: MTLCommandBuffer)
         -> (texture: MTLTexture, pin: SceneGraphRenderTargetResidencyPin)? { nil }
     func reserveSceneColor(width: Int, height: Int) -> SceneColorLease? { nil }
     typealias Factory = (
@@ -1065,6 +1063,7 @@ final class SceneOffscreenTexturePool {
     }
 }
 
+struct SceneBaseMaterialLitCapturePayload {}
 struct SceneLayerFragmentUniforms {}
 struct SceneImageLayerPipeline { static func bindQuad(encoder: MTLRenderCommandEncoder) {} }
 struct SceneImageLayerMasks {}
@@ -4990,10 +4989,10 @@ struct SceneFrameTextureResource {
     ) -> SceneFrameTextureResource? { nil }
 }
 
-struct SceneOffscreenCompositionTarget { let texture: MTLTexture }
-
-protocol SceneOffscreenTexturePool: AnyObject {
-    func compositionTarget(width: Int, height: Int) -> SceneOffscreenCompositionTarget?
+struct SceneGraphRenderTargetResidencyPin {}
+class SceneOffscreenTexturePool {
+    struct CompositionTarget { let texture: MTLTexture; let pin: SceneGraphRenderTargetResidencyPin? = nil }
+    func compositionTarget(width: Int, height: Int, commandBuffer: MTLCommandBuffer?) -> CompositionTarget? { nil }
 }
 
 struct SceneLayerEffectSourceExtent { let pixelSize: CGSize }
@@ -5037,7 +5036,11 @@ struct SceneLayerFragmentUniforms {
     let textureFrame1: SIMD4<Float>
 }
 
-struct SceneBaseMaterialLitCapturePayload {}
+struct SceneBaseMaterialLitCapturePayload {
+    let requiresReflection = false
+    let hasDirectLighting = true
+    func resolvingEnvironment(for target: MTLTexture, commandBuffer: MTLCommandBuffer) -> Self? { self }
+}
 final class SceneImageLayerPipeline { static func bindQuad(encoder: MTLRenderCommandEncoder) {} }
 
 final class SceneLayerColorBlendPipeline {
@@ -5073,6 +5076,7 @@ final class SceneImageEffectPipelineRepository {
 }
 
 final class SceneMainPassEncoder {
+    func retainCompositionPin(_ pin: SceneGraphRenderTargetResidencyPin?) {}
     let device: MTLDevice
     init(device: MTLDevice) { self.device = device }
     func encoder() -> MTLRenderCommandEncoder? { nil }
@@ -5136,7 +5140,7 @@ enum SceneOffscreenEffectRenderer {
 final class FixtureCompositionPool: SceneOffscreenTexturePool {
     let target: MTLTexture
     init(target: MTLTexture) { self.target = target }
-    func compositionTarget(width: Int, height: Int) -> SceneOffscreenCompositionTarget? {
+    override func compositionTarget(width: Int, height: Int, commandBuffer: MTLCommandBuffer?) -> CompositionTarget? {
         .init(texture: target)
     }
 }

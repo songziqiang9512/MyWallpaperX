@@ -67,7 +67,7 @@ final class SceneOffscreenTextureAllocationCache {
         }
     }
 
-    private func stageCandidates(
+    func stageCandidates(
         _ candidates: [Candidate],
         protectedKeys: Set<Key> = []
     ) -> Staged? {
@@ -81,7 +81,7 @@ final class SceneOffscreenTextureAllocationCache {
         let protected = Set(candidates.map(\.key)).union(protectedKeys)
         for candidate in candidates {
             let previous = next.removeValue(forKey: .current(candidate.key))
-            if case .compositionGroup = candidate.key,
+            if candidate.key.retainsReplacedSubmission,
                let previous, previous.isPinned {
                 next[.retired(previous.allocation.generation)] = previous
             }
@@ -185,7 +185,7 @@ extension SceneOffscreenTextureAllocationCache {
             entry.sceneColorPins.remove(identity)
             residents.removeValue(forKey: key)
             switch key {
-            case .current(.layerGraph), .current(.sharedGraphPair), .current(.sceneColor), .current(.composition), .current(.compositionGroup):
+            case .current(.layerGraph), .current(.sharedGraphPair), .current(.sceneColor), .current(.composition), .current(.compositionGroup), .current(.environment):
                 residents[key] = entry
             case .history(let graphKey, _):
                 if let history = entry.historyOnlyEntry() {
@@ -235,6 +235,14 @@ extension SceneOffscreenTextureAllocationCache {
 
     nonisolated enum Key: Hashable {
         case composition(width: Int, height: Int)
+        case environment(width: Int, height: Int)
+
+        var retainsReplacedSubmission: Bool {
+            switch self {
+            case .composition, .compositionGroup, .environment: true
+            default: false
+            }
+        }
         case sceneColor(width: Int, height: Int)
         /// D1 composition-group target: one isolated allocation per logical
         /// group and extent, so simultaneous groups never share storage the

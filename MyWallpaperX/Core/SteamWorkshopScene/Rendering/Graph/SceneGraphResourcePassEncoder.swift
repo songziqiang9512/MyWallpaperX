@@ -174,6 +174,8 @@ final class SceneGraphResourcePassEncoder {
         sourceLighting: SceneBaseMaterialLitCapturePayload?,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
+        let sourceLighting = sourceLighting?.resolvingEnvironment(
+            for: target, commandBuffer: commandBuffer)
         let descriptor = MTLRenderPassDescriptor()
         descriptor.colorAttachments[0].texture = target
         descriptor.colorAttachments[0].loadAction = .clear
@@ -192,6 +194,7 @@ final class SceneGraphResourcePassEncoder {
                 texture: source,
                 normalTexture: sourceLighting.normalTexture,
                 materialMapTexture: sourceLighting.materialMapTexture,
+                environmentTexture: sourceLighting.environmentTexture,
                 mvp: Self.fullTargetMVP,
                 uniforms: uniforms,
                 litPayload: sourceLighting.lights,

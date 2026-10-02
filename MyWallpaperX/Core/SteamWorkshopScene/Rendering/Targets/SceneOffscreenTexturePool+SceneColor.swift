@@ -29,24 +29,13 @@ extension SceneOffscreenTexturePool {
 
     /// Cleared scenes need one exact scratch surface, held through the same
     /// completion pin domain. This reuses composition storage, not raw history.
-    func reserveDisplayScratch(width: Int, height: Int)
+    func reserveDisplayScratch(width: Int, height: Int, commandBuffer: MTLCommandBuffer)
         -> (texture: MTLTexture, pin: SceneGraphRenderTargetResidencyPin)? {
-        guard let target = compositionTarget(width: width, height: height,
+        guard let target = compositionTarget(width: width, height: height, commandBuffer: commandBuffer,
             extentPolicy: .init(maximumDimensionClass: .poolLimit,
                                 requiresExactInputExtent: true)) else { return nil }
-        let key = CacheKey.composition(width: width, height: height)
-        return allocationCache.locked {
-            guard var entry = allocationCache.residents[.current(key)],
-                  !entry.isResetInvalidated,
-                  case .composition(let texture, let identity) = entry.allocation,
-                  texture === target.texture else { return nil }
-            let pinID = UUID()
-            entry.submissionPins[pinID] = .init(orderingContext: nil)
-            allocationCache.residents[.current(key)] = entry
-            allocationCache.revision = UUID()
-            return (texture, .init(identity: pinID, purpose: .submission,
-                generation: identity.generation, cache: allocationCache))
-        }
+        guard let pin = target.pin else { return nil }
+        return (target.texture, pin)
     }
 
     /// Exact terminal extent: unlike a layer effect this may never silently

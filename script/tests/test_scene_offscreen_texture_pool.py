@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -13,6 +14,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "Rendering/Composition/SceneMainPassEncoder.swift",
     SOURCE_ROOT / "Rendering/Targets/SceneOffscreenTexturePool+SceneColor.swift",
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
@@ -879,6 +881,129 @@ enum Harness {
                 }
             }
         }
+        return checks
+    }
+
+
+    static func reflectionResidency(_ device: MTLDevice) -> [String: Bool] {
+        let queue = device.makeCommandQueue()!
+        var checks: [String: Bool] = [:]
+        // Independent NPOT costs: (13*7 + 6*3 + 3*1 + 1*1) texels.
+        for (format, bytes) in [(MTLPixelFormat.rgba8Unorm, 4), (.rgba16Float, 8)] {
+            let total = 113 * bytes
+            let short = SceneOffscreenTexturePool(device: device, pixelFormat: format, residentByteBudget: total - 1)
+            var calls = 0
+            let denied = short.reserveEnvironment(width: 13, height: 7, commandBuffer: queue.makeCommandBuffer()!, textureFactory: {
+                calls += 1; return device.makeTexture(descriptor: $0)
+            })
+            checks["npot-short-\(bytes)"] = denied == nil && calls == 0 && short.residentByteCost == 0
+            let exact = SceneOffscreenTexturePool(device: device, pixelFormat: format, residentByteBudget: total)
+            let cb = queue.makeCommandBuffer()!
+            let first = exact.reserveEnvironment(width: 13, height: 7, commandBuffer: cb)!
+            let same = exact.reserveEnvironment(width: 13, height: 7, commandBuffer: cb)!
+            checks["npot-exact-\(bytes)"] = first.texture.mipmapLevelCount == 4 && exact.residentByteCost == total
+            checks["same-cb-reuses-\(bytes)"] = first.texture === same.texture && first.pin.generation == same.pin.generation
+            checks["other-cb-blocked-\(bytes)"] = exact.reserveEnvironment(width: 13, height: 7, commandBuffer: queue.makeCommandBuffer()!) == nil
+            exact.reset()
+            checks["reset-retains-pinned-\(bytes)"] = exact.residentByteCost == total
+            first.pin.release()
+            checks["other-pin-retains-\(bytes)"] = exact.residentByteCost == total
+            same.pin.release()
+            checks["cancel-releases-\(bytes)"] = exact.residentByteCost == 0
+        }
+        // A late Nth actual Metal allocation failure must not evict idle prior
+        // storage or publish an earlier successful prefix of the workset.
+        for failure in 1...3 {
+            let pool = SceneOffscreenTexturePool(device: device, residentByteBudget: 512)
+            let old = pool.compositionTarget(width: 8, height: 8, commandBuffer: nil)!.texture
+            let revision = pool.allocationCache.revision, access = pool.allocationCache.accessCounter
+            let cb = queue.makeCommandBuffer()!
+            var calls = 0
+            let result = pool.reserveCompositionTargets(dimensions: [(4,4),(6,6),(7,7)], commandBuffer: cb, textureFactory: {
+                calls += 1
+                return calls == failure ? nil : device.makeTexture(descriptor: $0)
+            })
+            checks["nth-allocation-zero-mutation-\(failure)"] = result == nil && calls == failure
+                && pool.residentAllocationCount == 1 && pool.residentByteCost == 256
+                && pool.allocationCache.revision == revision && pool.allocationCache.accessCounter == access
+                && pool.compositionTarget(width: 8, height: 8, commandBuffer: nil)!.texture === old
+        }
+        let raced = SceneOffscreenTexturePool(device: device, residentByteBudget: 1024)
+        _ = raced.compositionTarget(width: 8, height: 8, commandBuffer: nil)
+        var callsAfterReset = 0
+        var resetRevision = raced.allocationCache.revision
+        let aborted = raced.reserveCompositionTargets(dimensions: [(4,4),(6,6)], commandBuffer: queue.makeCommandBuffer()!, textureFactory: { descriptor in
+            callsAfterReset += 1
+            let texture = device.makeTexture(descriptor: descriptor)
+            if callsAfterReset == 1 { raced.reset(); resetRevision = raced.allocationCache.revision }
+            return texture
+        })
+        checks["reset-during-allocation-aborts-whole-stage"] = aborted == nil && callsAfterReset == 2
+            && raced.residentAllocationCount == 0 && raced.residentByteCost == 0
+            && raced.allocationCache.revision == resetRevision
+        let pool = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba16Float, residentByteBudget: 896)
+        let cb = queue.makeCommandBuffer()!
+        let mandatory = pool.reserveCompositionTargets(dimensions: [(8,8),(4,4),(4,4)], commandBuffer: cb)!
+        let display = mandatory.first { $0.texture.width == 8 }!.texture
+        checks["mandatory-deduplicates"] = mandatory.count == 2 && pool.residentByteCost == 640
+        let revision = pool.allocationCache.revision
+        checks["optional-cannot-steal-display"] = pool.reserveEnvironment(width: 8, height: 8, commandBuffer: cb) == nil
+            && pool.residentByteCost == 640 && pool.allocationCache.revision == revision
+            && pool.compositionTarget(width: 8, height: 8, commandBuffer: cb)!.texture === display
+        mandatory.forEach { $0.pin.release() }
+        pool.reset()
+        checks["mandatory-cancel-releases"] = pool.residentByteCost == 0
+        // Actual GPU work retains an old generation across reset and replacement.
+        let lifecycle = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba16Float, residentByteBudget: 4096)
+        let oldCB = queue.makeCommandBuffer()!
+        let old = lifecycle.reserveEnvironment(width: 13, height: 7, commandBuffer: oldCB)!
+        let render = MTLRenderPassDescriptor()
+        render.colorAttachments[0].texture = old.texture
+        render.colorAttachments[0].loadAction = .clear; render.colorAttachments[0].storeAction = .store
+        render.colorAttachments[0].clearColor = MTLClearColorMake(0.25, 0.5, 0.75, 1)
+        oldCB.makeRenderCommandEncoder(descriptor: render)!.endEncoding()
+        let blit = oldCB.makeBlitCommandEncoder()!; blit.generateMipmaps(for: old.texture); blit.endEncoding()
+        lifecycle.reset()
+        let nextCB = queue.makeCommandBuffer()!
+        let next = lifecycle.reserveEnvironment(width: 7, height: 5, commandBuffer: nextCB)!
+        checks["resize-retains-old-generation"] = old.texture !== next.texture && old.pin.generation != next.pin.generation
+            && lifecycle.residentByteCost == (113 + 35 + 6 + 1) * 8
+        let finished = DispatchSemaphore(value: 0)
+        oldCB.addCompletedHandler { _ in old.pin.release(); finished.signal() }
+        oldCB.commit(); oldCB.waitUntilCompleted(); finished.wait()
+        checks["gpu-completion-releases-old"] = oldCB.status == .completed && oldCB.error == nil && lifecycle.residentByteCost == 42 * 8
+        next.pin.release(); lifecycle.reset()
+        checks["next-cancel-releases"] = lifecycle.residentByteCost == 0
+
+        // Reflection A -> ordinary B -> reflection C share the same scratch
+        // owner. B is held on a real GPU event while C requests that extent.
+        let interleaved = SceneOffscreenTexturePool(device: device, residentByteBudget: 512)
+        let frameA = queue.makeCommandBuffer()!
+        let reservedA = interleaved.reserveCompositionTargets(dimensions: [(8,8)], commandBuffer: frameA)!.first!
+        let frameB = queue.makeCommandBuffer()!, event = device.makeSharedEvent()!
+        frameB.encodeWaitForEvent(event, value: 1)
+        let ordinary = interleaved.compositionTarget(width: 8, height: 8, commandBuffer: frameB)!
+        let root = SceneMainPassEncoder(commandBuffer: frameB, target: ordinary.texture,
+            clearColor: MTLClearColorMake(0,1,0,1), clearEnabled: true)
+        let child = SceneMainPassEncoder(commandBuffer: frameB, target: ordinary.texture,
+            clearColor: MTLClearColorMake(0,0,0,0), clearEnabled: false, submissionOwner: root)
+        child.retainCompositionPin(ordinary.pin)
+        precondition(root.finishEnsuringClear()); root.armCompositionPins()
+        let completedB = DispatchSemaphore(value: 0)
+        frameB.addCompletedHandler { _ in completedB.signal() }; frameB.commit()
+        let frameC = queue.makeCommandBuffer()!
+        checks["ordinary-between-reflections-keeps-pin"] = ordinary.texture !== reservedA.texture
+            && interleaved.reserveCompositionTargets(dimensions: [(8,8)], commandBuffer: frameC) == nil
+            && interleaved.residentByteCost == 512
+        reservedA.pin.release()
+        let reservedC = interleaved.reserveCompositionTargets(dimensions: [(8,8)], commandBuffer: frameC)!.first!
+        checks["pending-ordinary-never-reused"] = reservedC.texture !== ordinary.texture
+            && interleaved.residentByteCost == 512
+        event.signaledValue = 1; frameB.waitUntilCompleted(); completedB.wait()
+        checks["ordinary-completion-retires-generation"] = frameB.status == .completed && frameB.error == nil
+            && interleaved.residentByteCost == 256
+        reservedC.pin.release(); interleaved.reset()
+        checks["interleaved-cancel-releases"] = interleaved.residentByteCost == 0
         return checks
     }
 
@@ -3708,6 +3833,7 @@ enum Harness {
         let result: [String: Any] = [
             "metalUnavailable": false,
             "formatAccounting": formatAccounting(device),
+            "reflectionResidency": reflectionResidency(device),
             "automaticBudgetBoundsAreStable": automaticBudgetBoundsAreStable,
             "defaultPoolUsesDeviceBudget": defaultPoolUsesDeviceBudget,
             "explicit128BudgetIsPreserved": explicit128BudgetIsPreserved,
@@ -3960,12 +4086,19 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         if completed.returncode != 0:
             raise RuntimeError(completed.stderr)
         cls.result = json.loads(completed.stdout)
+        if destination := os.environ.get("MWX_REFLECTION_EVIDENCE"):
+            Path(destination).mkdir(parents=True, exist_ok=True)
+            (Path(destination)/"pool.json").write_text(json.dumps(cls.result, indent=2))
         if cls.result["metalUnavailable"]:
             raise unittest.SkipTest("Metal is unavailable")
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_reflection_resources_are_atomic_budgeted_and_submission_pinned(self) -> None:
+        for key, passed in self.result["reflectionResidency"].items():
+            self.assertTrue(passed, key)
 
     def test_automatic_budget_admits_302_shape_without_weakening_explicit_cap(self) -> None:
         self.assertTrue(self.result["automaticBudgetBoundsAreStable"])

@@ -34,6 +34,26 @@ enum SceneLitCapturePayloadResolution {
 }
 
 extension SceneMetalRenderer {
+    /// Plain receivers use the same typed source producer as prepared graphs;
+    /// optional reflection absence leaves the original direct route available.
+    func preparePlainSourceLighting(request: inout SceneImageLayerDrawRequest,
+        snapshot: SceneLightSnapshot, model: simd_float4x4, worldFrame: simd_float4x4,
+        cameraFrame: SceneParticleCameraFrame, usesPerspective: Bool,
+        environmentSource: ((MTLCommandBuffer) -> SceneFrameTextureResource?)?) {
+        let layer = request.layer
+        guard request.resolvedMaterialFrameTargetPlan == nil,
+              let profile = baseMaterialProviderBindings.lightingProfileByLayerID[layer.id],
+              profile.surfaceEnabled else { return }
+        switch makeLitCapturePayload(profile: profile, snapshot: snapshot,
+            dynamicValues: request.dynamicValues, layerModelMatrix: model, layerWorldFrame: worldFrame,
+            usesPerspective: usesPerspective, cameraFrame: cameraFrame,
+            sceneViewProjection: cameraFrame.viewProjection(for: layer),
+            environmentSource: environmentSource, geometryProduct: request.geometryProduct) {
+        case let .payload(payload): request.sourceLighting = payload
+        case let .miss(reason): SceneBaseMaterialLitCaptureMissLog.record(reason: reason, layerID: layer.id)
+        }
+    }
+
     /// Resolves one claimed layer's lit capture payload from the frame light
     /// snapshot and the same layer model matrix the base capture uses. A
     /// unavailable or rejected normal keeps valid flat lighting. Only a whole
@@ -46,6 +66,8 @@ extension SceneMetalRenderer {
         layerWorldFrame: simd_float4x4,
         usesPerspective: Bool,
         cameraFrame: SceneParticleCameraFrame,
+        sceneViewProjection: simd_float4x4,
+        environmentSource: ((MTLCommandBuffer) -> SceneFrameTextureResource?)?,
         geometryProduct: SceneGeometryProduct? = nil
     ) -> SceneLitCapturePayloadResolution {
         // Mesh/puppet source atlases do not identify a unique world receiver
@@ -77,7 +99,7 @@ extension SceneMetalRenderer {
         case .invalid: materialMap = .invalid
         }
         let lights = SceneBaseMaterialLitCapturePayload.packLights(
-            pointLights: snapshot.point.map { light in
+            pointLights: (profile.lightingEnabled ? snapshot.point : []).map { light in
                 SceneBaseMaterialLitCapturePayload.PointLight(
                     position: light.position,
                     color: light.color,
@@ -85,7 +107,7 @@ extension SceneMetalRenderer {
                     radius: light.radius
                 )
             },
-            spotLights: snapshot.spot.map { light in
+            spotLights: (profile.lightingEnabled ? snapshot.spot : []).map { light in
                 SceneBaseMaterialLitCapturePayload.SpotLight(
                     position: light.position,
                     direction: light.directionFromLight,
@@ -96,7 +118,7 @@ extension SceneMetalRenderer {
                     outerConeCosine: light.outerConeCosine
                 )
             },
-            ambient: snapshot.ambient,
+            ambient: profile.lightingEnabled ? snapshot.ambient : .zero,
             material: profile.scalarMaterial,
             view: cameraFrame.materialView(usesPerspective: usesPerspective),
             layerModelMatrix: layerModelMatrix,
@@ -107,7 +129,13 @@ extension SceneMetalRenderer {
                 ), 1
             ))
         )
-        guard let lights else { return .miss(.lightPackingRejected) }
+        guard var lights else { return .miss(.lightPackingRejected) }
+        lights.sceneViewProjection = sceneViewProjection
+        lights.reflection = SIMD4(profile.reflection?.x ?? 0,
+            profile.reflection?.y ?? 4, 0, profile.lightingEnabled ? 1 : 0)
+        if !profile.lightingEnabled {
+            guard profile.reflection != nil, environmentSource != nil, case .ready = normal else { return .miss(.profileMissing) }
+        }
         let emission: SIMD4<Float>?
         switch profile.emission {
         case let .constant(value): emission = value
@@ -125,7 +153,7 @@ extension SceneMetalRenderer {
             materialMap: materialMap,
             mapAllowedComponents: profile.mapAllowedComponents,
             mapRequiredComponents: profile.mapRequiredComponents,
-            emission: emission
+            emission: emission, environmentSource: environmentSource
         ) else { return .miss(.payloadInvalid) }
         return .payload(payload)
     }

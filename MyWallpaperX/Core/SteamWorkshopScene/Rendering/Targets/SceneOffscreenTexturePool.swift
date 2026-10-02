@@ -33,6 +33,7 @@ final class SceneOffscreenTexturePool {
     /// stages never receive this surface; they use persistent graph targets.
     struct CompositionTarget {
         let texture: MTLTexture
+        let pin: SceneGraphRenderTargetResidencyPin?
     }
 
     struct SharedGraphPair {
@@ -96,16 +97,32 @@ final class SceneOffscreenTexturePool {
     func compositionTarget(
         width requestedWidth: Int,
         height requestedHeight: Int,
+        commandBuffer: MTLCommandBuffer?,
         extentPolicy: SceneFullFrameExtentPolicy = .standard
     ) -> CompositionTarget? {
         guard let (width, height) = SceneOffscreenResolutionPolicy.resolvedDimensions(
             width: requestedWidth, height: requestedHeight,
             hardLimit: maxDimension, policy: extentPolicy) else { return nil }
         let key = CacheKey.composition(width: width, height: height)
-        if let cached = allocationCache.allocation(for: key),
-           case .composition(let texture, _) = cached {
-            return CompositionTarget(texture: texture)
+        func pinCurrent() -> CompositionTarget? {
+            allocationCache.locked {
+                guard var entry = allocationCache.residents[.current(key)],
+                      !entry.isResetInvalidated,
+                      entry.submissionPins.values.allSatisfy({ $0.orderingContext?.accepts(commandBuffer) == true }),
+                      case .composition(let texture, let identity) = entry.allocation else { return nil }
+                var pin: SceneGraphRenderTargetResidencyPin?
+                if let commandBuffer {
+                    let pinID = UUID()
+                    entry.submissionPins[pinID] = .init(orderingContext: .init(commandBuffer: commandBuffer))
+                    allocationCache.residents[.current(key)] = entry
+                    allocationCache.revision = UUID()
+                    pin = .init(identity: pinID, purpose: .submission,
+                        generation: identity.generation, cache: allocationCache)
+                }
+                return CompositionTarget(texture: texture, pin: pin)
+            }
         }
+        if let current = pinCurrent() { return current }
         guard let byteCost = byteCost(width: width, height: height, textureCount: 1),
               byteCost <= residentByteBudget,
               let texture = makeTexture(
@@ -121,7 +138,109 @@ final class SceneOffscreenTexturePool {
             byteCost: byteCost
         )
         guard allocationCache.commit([candidate]) else { return nil }
-        return CompositionTarget(texture: texture)
+        return pinCurrent()
+    }
+
+    struct PinnedTexture {
+        let texture: MTLTexture
+        let pin: SceneGraphRenderTargetResidencyPin
+    }
+
+    /// Stage all actual textures before changing residency. Completion/reset can
+    /// change the revision while Metal allocates; that aborts the whole group.
+    func reserveCompositionTargets(
+        dimensions: [(width: Int, height: Int)], commandBuffer: MTLCommandBuffer,
+        textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil
+    ) -> [PinnedTexture]? {
+        reserveFrameTextures(dimensions: dimensions, mipmapped: false,
+            commandBuffer: commandBuffer, textureFactory: textureFactory)
+    }
+
+    func reserveEnvironment(
+        width: Int, height: Int, commandBuffer: MTLCommandBuffer,
+        textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil
+    ) -> PinnedTexture? {
+        reserveFrameTextures(dimensions: [(width, height)], mipmapped: true,
+            commandBuffer: commandBuffer, textureFactory: textureFactory)?.first
+    }
+
+    private func reserveFrameTextures(
+        dimensions: [(width: Int, height: Int)], mipmapped: Bool,
+        commandBuffer: MTLCommandBuffer, textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)?
+    ) -> [PinnedTexture]? {
+        if dimensions.isEmpty { return [] }
+        var keys: Set<CacheKey> = []
+        var descriptors: [CacheKey: MTLTextureDescriptor] = [:]
+        var costs: [CacheKey: Int] = [:]
+        for (width, height) in dimensions {
+            let key = mipmapped ? CacheKey.environment(width: width, height: height)
+                : .composition(width: width, height: height)
+            if !keys.insert(key).inserted { continue }
+            guard width > 0, height > 0, width <= maxDimension, height <= maxDimension else { return nil }
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: pixelFormat,
+                width: width, height: height, mipmapped: mipmapped)
+            descriptor.storageMode = .private
+            descriptor.usage = [.shaderRead, .renderTarget]
+            var cost = 0, w = width, h = height
+            for _ in 0..<descriptor.mipmapLevelCount {
+                guard let level = byteCost(width: w, height: h, textureCount: 1) else { return nil }
+                let (next, overflow) = cost.addingReportingOverflow(level)
+                guard !overflow else { return nil }
+                cost = next; w = max(1, w / 2); h = max(1, h / 2)
+            }
+            descriptors[key] = descriptor; costs[key] = cost
+        }
+        let planned: (revision: UUID, missing: Set<CacheKey>)? = allocationCache.locked {
+            var proposed = allocationCache.residents
+            var missing: Set<CacheKey> = []
+            var incoming = 0
+            for key in keys {
+                if let entry = proposed[.current(key)], !entry.isResetInvalidated,
+                   entry.submissionPins.values.allSatisfy({ $0.orderingContext?.accepts(commandBuffer) == true }) {
+                    continue
+                }
+                missing.insert(key)
+                if let previous = proposed.removeValue(forKey: .current(key)), previous.isPinned {
+                    proposed[.retired(previous.allocation.generation)] = previous
+                }
+                let (next, overflow) = incoming.addingReportingOverflow(costs[key]!)
+                guard !overflow else { return nil }
+                incoming = next
+            }
+            guard allocationCache.evictToFit(&proposed, incomingCost: incoming, protected: keys) else { return nil }
+            return (allocationCache.revision, missing)
+        }
+        guard let planned else { return nil }
+        var candidates: [Candidate] = []
+        for key in planned.missing {
+            let descriptor = descriptors[key]!
+            guard let texture = textureFactory?(descriptor) ?? (textureFactory == nil ? device.makeSceneTexture(descriptor: descriptor) : nil),
+                  let identity = allocationCache.issuePhysicalIdentity(textures: [texture]) else { return nil }
+            candidates.append(.init(key: key, allocation: .composition(texture, identity), byteCost: costs[key]!))
+        }
+        return allocationCache.locked {
+            guard allocationCache.revision == planned.revision else { return nil }
+            let staged: AllocationCache.Staged
+            if candidates.isEmpty {
+                staged = (allocationCache.residents, allocationCache.accessCounter)
+            } else {
+                guard let value = allocationCache.stageCandidates(candidates, protectedKeys: keys) else { return nil }
+                staged = value
+            }
+            var values = staged.values
+            var result: [PinnedTexture] = []
+            for key in keys {
+                guard var entry = values[.current(key)],
+                      case let .composition(texture, identity) = entry.allocation else { return nil }
+                let id = UUID()
+                entry.submissionPins[id] = .init(orderingContext: .init(commandBuffer: commandBuffer))
+                values[.current(key)] = entry
+                result.append(.init(texture: texture, pin: .init(identity: id, purpose: .submission,
+                    generation: identity.generation, cache: allocationCache)))
+            }
+            allocationCache.apply((values, staged.access))
+            return result
+        }
     }
 
     /// D1 composition-group target. The allocation is keyed by the logical

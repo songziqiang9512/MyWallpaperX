@@ -62,7 +62,7 @@ nonisolated struct SceneTextureProviderPublication {
             // failure diagnosed by MaterialProgram. Do not collapse it into
             // an incomplete publication integrity failure here.
             return true
-        case .layerSource, .namedLayerTarget, .sceneBackground, .graph,
+        case .layerSource, .namedLayerTarget, .sceneBackground, .sceneEnvironment, .graph,
              .userProperty:
             return true
         }
@@ -309,6 +309,30 @@ nonisolated struct SceneFrameTextureResource {
             reference: reference,
             frameEpoch: frameEpoch
         ) ? result : nil
+    }
+
+    /// Published only after this frame's copy and all mip-generation commands
+    /// precede reads on the same submission. It never enters persistent history.
+    static func sameFrameEnvironment(
+        frameEpoch: UInt64, allocationGeneration: UInt64, texture: MTLTexture
+    ) -> Self? {
+        guard frameEpoch > 0, texture.textureType == .type2D, texture.sampleCount == 1,
+              texture.usage.contains(.shaderRead), texture.usage.contains(.renderTarget),
+              texture.pixelFormat == .bgra8Unorm || texture.pixelFormat == .rgba8Unorm
+                || texture.pixelFormat == .rgba16Float else { return nil }
+        let levels = Int(floor(log2(Double(max(texture.width, texture.height))))) + 1
+        guard texture.mipmapLevelCount == levels else { return nil }
+        let size = CGSize(width: texture.width, height: texture.height)
+        let candidate = SceneTextureCandidate(texture: texture,
+            identity: .provider(.sceneEnvironment(frameEpoch: frameEpoch,
+                allocationGeneration: allocationGeneration)),
+            generation: .provider(contentGeneration: frameEpoch),
+            purpose: .premultipliedColor, content: .color(.resolved(.premultipliedAlpha)),
+            physicalSize: size, mappedSize: size, uvTransform: .identity, sampling: .linearClamp)
+        let publication = SceneTextureProviderPublication(requestIdentity: .sceneEnvironment,
+            candidate: candidate, contentGeneration: frameEpoch)
+        guard publication.isComplete else { return nil }
+        return Self(publication: publication, resourceGeneration: allocationGeneration)
     }
 
     static func sameFrameSceneBackground(

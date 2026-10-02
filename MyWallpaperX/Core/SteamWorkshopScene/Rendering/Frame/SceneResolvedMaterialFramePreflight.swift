@@ -19,6 +19,7 @@ extension SceneMetalRenderer {
         mainTarget: MTLTexture,
         commandBuffer: MTLCommandBuffer,
         baseMaterialSelections: inout [Int: SceneBaseMaterialTextureSelection],
+        environmentSource: ((MTLCommandBuffer) -> SceneFrameTextureResource?)?,
         frameLightSnapshot: SceneLightSnapshot? = nil,
         compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil
     ) -> SceneResolvedMaterialGraphComposition.FramePreflightResult {
@@ -819,7 +820,7 @@ extension SceneMetalRenderer {
             case .capturedMainTargetTexture, .transparentDirectDraw:
                 sourceRouteCapturesTexture = false
             }
-            if lightingProfileByLayerID[layerID]?.lightingEnabled == true,
+            if lightingProfileByLayerID[layerID]?.surfaceEnabled == true,
                sourceRouteCapturesTexture,
                sourceTexture != nil {
                 switch makeLitCapturePayload(
@@ -831,6 +832,8 @@ extension SceneMetalRenderer {
                     layerWorldFrame: layerModelMatrix,
                     usesPerspective: cameraFrame.resolvesPerspective(for: layer),
                     cameraFrame: cameraFrame,
+                    sceneViewProjection: cameraFrame.viewProjection(for: layer),
+                    environmentSource: environmentSource,
                     geometryProduct: imageTextures.geometryProducts[layerID]
                 ) {
                 case let .payload(value):

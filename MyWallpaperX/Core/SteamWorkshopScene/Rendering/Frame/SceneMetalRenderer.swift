@@ -146,6 +146,10 @@ struct SceneMetalRenderer {
                 }
             }
         }
+        var mainPassForSubmission: SceneMainPassEncoder?
+        defer { if !didTransferFrameOwnership { mainPassForSubmission?.cancelCompositionPins() } }
+        var reflectionFrame: ReflectionFrame?
+        defer { if !didTransferFrameOwnership { reflectionFrame?.cancel() } }
         var compositionGroupRuntime: SceneCompositionGroupFrameRuntime?
         defer { if !didTransferFrameOwnership { compositionGroupRuntime?.cancel() } }
         if sceneColor?.requiresDraw != false {
@@ -211,26 +215,18 @@ struct SceneMetalRenderer {
         var pointLitStaticModelLayerIDs: [Int] = []
 #endif
         performanceTelemetry?.beginStage("prepass-encoder")
-        let mainPass = SceneMainPassEncoder(
-            commandBuffer: commandBuffer,
-            target: mainTarget,
-            clearColor: sceneClearColor,
-            clearEnabled: frameDescriptor.camera.clearEnabled || (sceneColor != nil && sceneColor?.previous == nil)
-        )
+        let (mainPass, groups) = makeScenePass(target: mainTarget,
+            clearEnabled: frameDescriptor.camera.clearEnabled || (sceneColor != nil && sceneColor?.previous == nil),
+            pool: offscreenTexturePool, visibleLayerIDs: frameVisibleLayerIDs,
+            viewportSize: viewportSize, commandBuffer: commandBuffer)
+        compositionGroupRuntime = groups
+        mainPassForSubmission = mainPass
         performanceTelemetry?.endStage("prepass-encoder")
-        if let offscreenTexturePool,
-           !compositionGroupMemberRootsByLayerID.isEmpty {
-            compositionGroupRuntime = SceneCompositionGroupFrameRuntime(
-                parentPass: mainPass,
-                commandBuffer: commandBuffer,
-                offscreenTexturePool: offscreenTexturePool,
-                memberRootsByLayerID: compositionGroupMemberRootsByLayerID,
-                membersByRootID: compositionGroupMembersByRootID,
-                viewportSize: viewportSize
-            )
-        }
-        compositionGroupRuntime?.reserveSources(
-            orderedRootIDs: compositionGroupRootIDs, visibleLayerIDs: frameVisibleLayerIDs)
+        let reflection = ReflectionFrame(pool: offscreenTexturePool, mainPass: mainPass,
+            groupRuntime: compositionGroupRuntime, commandBuffer: commandBuffer,
+            frameEpoch: textureRegistry.frameEpoch)
+        reflectionFrame = reflection
+        let environmentSource: (MTLCommandBuffer) -> SceneFrameTextureResource? = reflection.resolve
         performanceTelemetry?.beginStage("frame-admission")
         let hubFrameAdmissionStart = ProcessInfo.processInfo.systemUptime
         let resolvedMaterialFrameAdmission = admitResolvedMaterialFrameTargets(
@@ -251,6 +247,7 @@ struct SceneMetalRenderer {
             parallaxConfiguration: parallaxConfiguration,
             mainTarget: mainTarget,
             commandBuffer: commandBuffer,
+            environmentSource: environmentSource,
             frameLightSnapshot: frameLightSnapshot,
             compositionGroupRuntime: compositionGroupRuntime
         )
@@ -264,6 +261,16 @@ struct SceneMetalRenderer {
             return .deferred(reasonCode: reasonCode)
         case let .rejected(reasonCode):
             return .dropped(reasonCode: reasonCode)
+        }
+        if let pool = offscreenTexturePool,
+           let targets = reserveReflectionScratch(pool: pool, imageTextures: imageTextures,
+            frameContext: frameContext, framePlans: resolvedMaterialFrameTargetPlans,
+            visibleLayerIDs: frameVisibleLayerIDs, orderedLayers: orderedLayers,
+            worldFrames: frameWorldFrames, cameraFrame: cameraFrame, parallax: parallaxConfiguration,
+            terminalExtent: sceneColor == nil && displayMappingPostProcess != nil
+                ? (drawable.texture.width, drawable.texture.height) : nil,
+            commandBuffer: commandBuffer) {
+            reflection.admit(targets)
         }
         performanceTelemetry?.endStage("prologue")
         hubStage(.prologueMicros, hubPrologueStart)
@@ -596,23 +603,10 @@ struct SceneMetalRenderer {
                     authoredShaderFrameInputs: .init(frameContext: frameContext),
                     geometryProduct: geometryProduct
                 )
-                // Plain and graph receivers share the same lit source producer.
-                if resolvedFramePlan == nil,
-                   baseMaterialProviderBindings.lightingProfileByLayerID[layer.id]?
-                    .lightingEnabled == true {
-                    switch makeLitCapturePayload(
-                        profile: baseMaterialProviderBindings.lightingProfileByLayerID[layer.id],
-                        snapshot: frameLightSnapshot, dynamicValues: frameContext.dynamicValues,
-                        layerModelMatrix: model,
-                        layerWorldFrame: frameWorldFrames[layer.id] ?? SceneMatrix.identity(),
-                        usesPerspective: usesPerspective, cameraFrame: cameraFrame,
-                        geometryProduct: geometryProduct
-                    ) {
-                    case let .payload(payload): request.sourceLighting = payload
-                    case let .miss(reason):
-                        SceneBaseMaterialLitCaptureMissLog.record(reason: reason, layerID: layer.id)
-                    }
-                }
+                preparePlainSourceLighting(request: &request, snapshot: frameLightSnapshot,
+                    model: model, worldFrame: frameWorldFrames[layer.id] ?? SceneMatrix.identity(),
+                    cameraFrame: cameraFrame, usesPerspective: usesPerspective,
+                    environmentSource: reflection.scratchReady ? environmentSource : nil)
                 let explicitLayerSourcePublication = imageTextures
                     .explicitLayerSourcePublication(
                         for: layer.id,
@@ -974,12 +968,16 @@ struct SceneMetalRenderer {
             compositionGroupRuntime?.arm()
             sourceUpdateTransaction.arm(on: commandBuffer)
             frameDepthLeases.forEach { $0.arm(on: commandBuffer) }
+            reflectionFrame?.arm()
+            mainPassForSubmission?.armCompositionPins()
             commandBuffer.commit()
             sourceUpdateTransaction.didSubmit()
         }, cancel: {
             imageCompositor.cancelUnsubmittedResolvedMaterialFrame(on: commandBuffer)
             sourceUpdateTransaction.cancel()
             compositionGroupRuntime?.cancel()
+            reflectionFrame?.cancel()
+            mainPassForSubmission?.cancelCompositionPins()
             frameDepthLeases.forEach { $0.cancel() }
             particleBatches.forEach {
                 _ = $0.instanceBuffer.cancelUncommittedSubmission(on: commandBuffer)

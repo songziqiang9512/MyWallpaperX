@@ -263,6 +263,17 @@
       ]
     },
     {
+      "path": "docs/history/scene/d3-reflection-environment-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/design/runtime-architecture.md",
+        "docs/scene/design/2d-lighting-material-design.md",
+        "docs/scene/design/reference-evidence-implementation-cards.md"
+      ]
+    },
+    {
       "path": "docs/history/scene/d3-reflection-environment-neutral-contract-2026-10-02.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",

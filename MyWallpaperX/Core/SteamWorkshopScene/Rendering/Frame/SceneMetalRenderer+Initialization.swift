@@ -42,7 +42,7 @@ extension SceneMetalRenderer {
         self.staticModelResources = staticModelResources
         self.pipelineRepository = pipelineRepository
         if baseMaterialProviderBindings.lightingProfileByLayerID.values
-            .contains(where: \.lightingEnabled) {
+            .contains(where: \.surfaceEnabled) {
             _ = pipelineRepository.prepareLitImageLayer()
         }
         self.imageCompositor = SceneImageLayerCompositor(

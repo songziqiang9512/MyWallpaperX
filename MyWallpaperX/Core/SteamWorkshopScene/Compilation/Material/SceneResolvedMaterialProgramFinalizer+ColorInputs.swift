@@ -121,6 +121,7 @@ nonisolated extension SceneResolvedMaterialProgramFinalizer {
         case .layerSource: "layer-source"
         case .namedLayerTarget: "named-layer-target"
         case .sceneBackground: "scene-background"
+        case .sceneEnvironment: "scene-environment"
         case let .graph(identity): "graph-\(identity.kind.rawValue)"
         case .asset: "asset"
         case .userProperty: "user-property"
@@ -139,6 +140,7 @@ nonisolated extension SceneResolvedMaterialProgramFinalizer {
         case .provider(.mediaThumbnailPrevious): "provider-media-thumbnail-previous"
         case .provider(.namedLayerTarget): "provider-named-layer"
         case .provider(.sceneBackground): "provider-scene-background"
+        case .provider(.sceneEnvironment): "provider-scene-environment"
         case .provider(.video): "provider-video"
         }
     }

@@ -13,6 +13,7 @@ ROOT = Path(os.environ.get('MWX_MATERIAL_USER_REPOSITORY', str(Path(__file__).re
 SCENE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene'
 SUPPORT = builder.HARNESS_SOURCE.split('@main',1)[0] + r'''
 import simd
+import Metal
 // Leaves outside the material/property consumer under test.
 enum SceneTextureLoadPurpose { case normal, mask }
 struct SceneAssetTextureIdentity: Equatable, Sendable {
@@ -22,11 +23,21 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
 enum SceneFrameTextureIdentity { case asset(SceneAssetTextureIdentity) }
 struct Registry { func lookup(_ identity:SceneFrameTextureIdentity)->Bool { true } }
 struct SceneGeometryProduct {}
+struct SceneFrameTextureResource {}
+struct SceneImageLayerDrawRequest {
+    let layer:SceneRenderDescriptor.Layer
+    let resolvedMaterialFrameTargetPlan:Int?=nil
+    let dynamicValues:SceneDynamicSnapshot
+    let geometryProduct:SceneGeometryProduct?=nil
+    var sourceLighting:SceneBaseMaterialLitCapturePayload?
+}
+struct ProviderBindings { var lightingProfileByLayerID:[Int:SceneBaseMaterialLightingProfile]=[:] }
+struct PackedLights { var sceneViewProjection=matrix_identity_float4x4; var reflection=SIMD4<Float>.zero }
 struct SceneLightSnapshot {
     struct Light { let position:SIMD3<Float>;let directionFromLight:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float;let innerConeCosine:Float;let outerConeCosine:Float }
     let point:[Light]=[];let spot:[Light]=[];let ambient=SIMD3<Float>.zero
 }
-struct SceneParticleCameraFrame { func materialView(usesPerspective:Bool)->Bool { false } }
+struct SceneParticleCameraFrame { func materialView(usesPerspective:Bool)->Bool { false }; func viewProjection(for layer:SceneRenderDescriptor.Layer)->simd_float4x4 { matrix_identity_float4x4 } }
 enum SceneCameraProjection { static func imageCardYDirection(usesPerspective:Bool,sceneOrthoHeight:Float?)->Float { 1 } }
 struct SceneBaseMaterialLitCapturePayload {
     enum TextureInput { case disabled, unsupported, invalid, ready
@@ -35,13 +46,13 @@ struct SceneBaseMaterialLitCapturePayload {
     }
     struct PointLight { let position:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float }
     struct SpotLight { let position:SIMD3<Float>;let direction:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float;let innerConeCosine:Float;let outerConeCosine:Float }
-    static func packLights(pointLights:[PointLight],spotLights:[SpotLight],ambient:SIMD3<Float>,material:SIMD2<Float>?,view:Bool,layerModelMatrix:simd_float4x4,normalModelMatrix:simd_float4x4)->Bool? { true }
+    static func packLights(pointLights:[PointLight],spotLights:[SpotLight],ambient:SIMD3<Float>,material:SIMD2<Float>?,view:Bool,layerModelMatrix:simd_float4x4,normalModelMatrix:simd_float4x4)->PackedLights? { PackedLights() }
     let emission:SIMD4<Float>?
-    init?(pipeline:Int,lights:Bool,normal:TextureInput,materialMap:TextureInput,mapAllowedComponents:UInt32,mapRequiredComponents:UInt32,emission:SIMD4<Float>?) { self.emission=emission }
+    init?(pipeline:Int,lights:PackedLights,normal:TextureInput,materialMap:TextureInput,mapAllowedComponents:UInt32,mapRequiredComponents:UInt32,emission:SIMD4<Float>?,environmentSource:((MTLCommandBuffer)->SceneFrameTextureResource?)?) { self.emission=emission }
 }
 struct Pipelines { let litImageLayer:Int?=1 }
 struct SceneMetalRenderer {
-    let pipelineRepository=Pipelines();let textureRegistry=Registry()
+    let pipelineRepository=Pipelines();let textureRegistry=Registry();let baseMaterialProviderBindings=ProviderBindings()
     let renderDescriptor:SceneRenderDescriptor
 }
 @main enum Probe {
@@ -60,7 +71,7 @@ struct SceneMetalRenderer {
                 let p=profiles[id]!
                 let emission:Any
                 switch renderer.makeLitCapturePayload(profile:p,snapshot:SceneLightSnapshot(),dynamicValues:snap,
-                    layerModelMatrix:SceneMatrix.identity(),layerWorldFrame:SceneMatrix.identity(),usesPerspective:false,cameraFrame:.init()) {
+                    layerModelMatrix:SceneMatrix.identity(),layerWorldFrame:SceneMatrix.identity(),usesPerspective:false,cameraFrame:.init(),sceneViewProjection:matrix_identity_float4x4,environmentSource:nil) {
                 case let .payload(payload): emission=payload.emission.map { [$0.x,$0.y,$0.z,$0.w] } as Any? ?? NSNull()
                 case .miss: emission="miss"
                 }

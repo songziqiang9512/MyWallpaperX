@@ -54,6 +54,97 @@ def map_oracle(v):
     return result+[source[3]*f(v['opacity'])]
 
 class SceneAuthoredPBRMapTests(unittest.TestCase):
+    def test_reflection_intent_from_authored_input(self):
+        from script.tests import test_scene_alpha_display_builder_fixture as builder
+        support=builder.HARNESS_SOURCE.split('@main',1)[0]+r'''
+enum SceneTextureLoadPurpose { case normal, mask }
+struct SceneAssetTextureIdentity: Equatable, Sendable {
+    let path:String;let purpose:SceneTextureLoadPurpose
+    init?(virtualPath:String,purpose:SceneTextureLoadPurpose) { self.path=virtualPath;self.purpose=purpose }
+}
+@main enum ReflectionProfileProbe {
+    static func main() throws {
+        let facts=SceneRuntimeSourceFactsBuilder().build(rootURL:URL(fileURLWithPath:CommandLine.arguments[1]))
+        let document=facts.sceneDocument!,descriptor=facts.renderDescriptor!
+        let instances=Dictionary(uniqueKeysWithValues:document.objects.compactMap { o in o.materialInstance.map { (o.id,$0) } })
+        let profiles=SceneBaseMaterialLightingProfileCompiler.profiles(descriptor:descriptor,materialInstancesByLayerID:instances,materialPropertyTargets:[])
+        let result=descriptor.layers.map { layer -> [String:Any] in
+            let p=profiles[layer.id]!
+            return ["id":layer.id,"direct":p.lightingEnabled,"surface":p.surfaceEnabled,
+                "reflection":p.reflection.map { [$0.x,$0.y] } as Any? ?? NSNull(),
+                "normalDemand":p.normalAsset != nil,
+                "reflectionMapAllowed":p.mapAllowedComponents & 4 != 0]
+        }
+        print(String(decoding:try JSONSerialization.data(withJSONObject:result),as:UTF8.self))
+    }
+}
+'''
+        base={'shader':'genericimage2','combos':{'LIGHTING':0,'REFLECTION':1,'NORMALMAP':1},
+              'textures':['materials/base.png','materials/normal.png','materials/map.tex']}
+        cases=[]
+        def add(name,patch=None,instance=None,reflection=(1,4),direct=False):
+            material=json.loads(json.dumps(base));material.update(patch or {})
+            cases.append((name,material,instance,dict(reflection=list(reflection) if reflection is not None else None,
+                         direct=direct,surface=direct or reflection is not None)))
+        add('generic2-default')
+        add('generic4-default',{'shader':'genericimage4'})
+        add('independent-both',{'combos':{'LIGHTING':1,'REFLECTION':1}},direct=True)
+        add('direct-only',{'combos':{'LIGHTING':1,'REFLECTION':0}},reflection=None,direct=True)
+        add('reflection-zero',{'combos':{'LIGHTING':0,'REFLECTION':0}},reflection=None)
+        add('strength-zero',{'constantshadervalues':{'reflectivity':0}},reflection=None)
+        add('strength-four',{'constantshadervalues':{'reflectivity':4}},reflection=(4,4))
+        add('distance-zero',{'constantshadervalues':{'reflectivitydistance':0}},reflection=(1,0))
+        add('instance-inherit',{'constantshadervalues':{'reflectivity':4}},instance={'constantshadervalues':{'roughness':.7}},reflection=(4,4))
+        add('instance-override',{'constantshadervalues':{'reflectivity':4}},instance={'constantshadervalues':{'reflectivity':3}},reflection=(3,4))
+        add('instance-null-closes',{'constantshadervalues':{'reflectivity':4}},instance={'constantshadervalues':{'reflectivity':None}},reflection=None)
+        add('null-closes',{'constantshadervalues':{'reflectivity':None}},reflection=None)
+        add('negative-closes',{'constantshadervalues':{'reflectivity':-1}},reflection=None)
+        add('overflow-closes',{'constantshadervalues':{'reflectivity':1e100}},reflection=None)
+        add('distance-negative-closes',{'constantshadervalues':{'reflectivitydistance':-1}},reflection=None)
+        add('catalog-wrapper-unsupported',{'constantshadervalues':{'reflectivity':{'user':'strength','value':3}}},reflection=None)
+        add('instance-startup',instance={'constantshadervalues':{'reflectivity':{'user':'strength','value':3}}},reflection=(2,4))
+        add('instance-authored-fallback',instance={'constantshadervalues':{'reflectivity':{'user':'absent','value':3}}},reflection=(3,4))
+        add('script-unsupported',instance={'constantshadervalues':{'reflectivity':{'value':3,'script':'export function update(v){return v;}'}}},reflection=None)
+        add('custom-retained',{'shader':'own_shader'},reflection=None)
+        add('implicit-direct-retained',{'shader':None,'combos':{'LIGHTING':1,'REFLECTION':1}},reflection=None,direct=True)
+        slot3=['materials/base.png','materials/normal.png','materials/map.tex','materials/environment.png']
+        direct_reflection={'LIGHTING':1,'REFLECTION':1}
+        add('slot3-material-asset',{'textures':slot3,'combos':direct_reflection},reflection=None,direct=True)
+        add('slot3-material-canonical',{'textures':slot3[:3]+['_rt_MipMappedFrameBuffer'],'combos':direct_reflection},reflection=None,direct=True)
+        provider=[None,None,None,{'type':'system','name':'$mediaThumbnail'}]
+        add('slot3-material-provider',{'usertextures':provider,'combos':direct_reflection},reflection=None,direct=True)
+        add('slot3-instance-asset',instance={'textures':[None,None,None,'materials/other.png']},reflection=None)
+        add('slot3-instance-canonical',instance={'textures':[None,None,None,'_rt_MipMappedFrameBuffer']},reflection=None)
+        add('slot3-instance-provider',instance={'usertextures':provider},reflection=None)
+        add('slot3-null-inherits-material',{'textures':slot3,'combos':direct_reflection},instance={'textures':[None,None,None,None]},reflection=None,direct=True)
+        add('slot3-null-retains-provider',{'usertextures':provider,'combos':direct_reflection},instance={'usertextures':[None,None,None,None]},reflection=None,direct=True)
+        add('slot3-null-default-stays-supported',instance={'textures':[None,None,None,None],'usertextures':[None,None,None,None]})
+        with tempfile.TemporaryDirectory(prefix='mwx-reflection-profile-') as temporary:
+            work=Path(temporary);(work/'materials').mkdir();(work/'models').mkdir();objects=[]
+            for i,(name,material,instance,_) in enumerate(cases):
+                (work/f'materials/{i}.json').write_text(json.dumps({'passes':[material]}))
+                (work/f'models/{i}.json').write_text(json.dumps({'material':f'materials/{i}.json','width':64,'height':64}))
+                obj={'id':i+1,'image':f'models/{i}.json'}
+                if instance is not None:obj['instance']=instance
+                objects.append(obj)
+            (work/'project.json').write_text(json.dumps({'type':'scene','file':'scene.json','general':{'properties':{'strength':{'type':'slider','value':2}}}}))
+            (work/'scene.json').write_text(json.dumps({'objects':objects}))
+            source=work/'Harness.swift';source.write_text(support);binary=work/'probe'
+            sources=list(dict.fromkeys(builder.SWIFT_SOURCES+[builder.SOURCE_ROOT/'Compilation/Material/SceneBaseMaterialLightingProfile.swift',builder.SOURCE_ROOT/'Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift']))
+            compile_result=subprocess.run(['xcrun','swiftc',*map(str,sources),str(source),'-module-cache-path',str(work/'cache'),'-o',str(binary)],capture_output=True,text=True)
+            self.assertEqual(compile_result.returncode,0,compile_result.stderr)
+            run=subprocess.run([str(binary),str(work)],capture_output=True,text=True);self.assertEqual(run.returncode,0,run.stderr)
+            result=json.loads(run.stdout);self.assertEqual(len(result),len(cases))
+            report=dict(schema='f5-authored-profile-v1',cases=[c[0] for c in cases],actual=result)
+            print(json.dumps(report,sort_keys=True))
+            if destination:=os.environ.get('MWX_REFLECTION_EVIDENCE'):
+                Path(destination).mkdir(parents=True,exist_ok=True)
+                (Path(destination)/'authored-profile.json').write_text(json.dumps(report,indent=2))
+            for actual,(name,_,_,expected) in zip(result,cases):
+                for key,wanted in expected.items():self.assertEqual(actual[key],wanted,(name,actual))
+                if expected['reflection'] is not None:self.assertTrue(actual['normalDemand'],(name,actual))
+
+
     def test_authored_map_profile_and_emission_projection(self):
         from script.tests import test_scene_alpha_display_builder_fixture as builder
         support=builder.HARNESS_SOURCE.split('@main',1)[0]+r'''

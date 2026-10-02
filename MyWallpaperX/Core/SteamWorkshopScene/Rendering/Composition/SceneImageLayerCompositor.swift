@@ -89,6 +89,7 @@ struct SceneImageLayerCompositor {
         executionTrace: SceneEffectExecutionFrameTrace? = nil,
         executionOrigin: SceneEffectExecutionOrigin = .image
     ) -> DrawOutcome {
+        var request = request
         guard request.resolvedMaterialFrameTargetPlan == nil
             || resolvedMaterialRuntime != nil else {
             executionTrace?.recordRouteOperation(
@@ -234,6 +235,19 @@ struct SceneImageLayerCompositor {
                 reasonCode: "layer-color-blend-pipeline-unavailable")
             return .failed
         }
+        if resolvedMaterialClaim == nil, let lighting = request.sourceLighting,
+           lighting.requiresReflection {
+            request.sourceLighting = mainPass.encodeOffscreen { buffer in
+                guard let pool = request.offscreenTexturePool,
+                      let dimensions = offscreenDimensions(for: request),
+                      let target = pool.compositionTarget(width: dimensions.width,
+                        height: dimensions.height, commandBuffer: buffer) else {
+                    return lighting.hasDirectLighting ? lighting : nil
+                }
+                mainPass.retainCompositionPin(target.pin)
+                return lighting.resolvingEnvironment(for: target.texture, commandBuffer: buffer)
+            }
+        }
         let routesOffscreen = request.requiresSourceCopy
             || resolvedMaterialClaim != nil
             || layerColorBlendMode > 0
@@ -282,10 +296,12 @@ struct SceneImageLayerCompositor {
                 guard let dimensions = offscreenDimensions(for: request) else {
                     return .failed
                 }
-                guard let target = pool.compositionTarget(
-                    width: dimensions.width,
-                    height: dimensions.height
-                ) else { return .failed }
+                guard let target = mainPass.encodeOffscreen({ buffer -> SceneOffscreenTexturePool.CompositionTarget? in
+                    guard let target = pool.compositionTarget(width: dimensions.width,
+                        height: dimensions.height, commandBuffer: buffer) else { return nil }
+                    mainPass.retainCompositionPin(target.pin)
+                    return target
+                }) else { return .failed }
                 renderedTexture = mainPass.encodeOffscreen { commandBuffer in
                     SceneOffscreenEffectRenderer.captureSource(
                         sourceTexture: request.texture,
@@ -505,10 +521,12 @@ struct SceneImageLayerCompositor {
         guard let colorBlendPipeline = colorBlendPipelineSlot.resolve(),
               let pool = request.offscreenTexturePool,
               let dimensions = offscreenDimensions(for: request),
-              let target = pool.compositionTarget(
-                  width: dimensions.width,
-                  height: dimensions.height
-              ),
+              let target = mainPass.encodeOffscreen({ buffer -> SceneOffscreenTexturePool.CompositionTarget? in
+                  guard let target = pool.compositionTarget(width: dimensions.width,
+                      height: dimensions.height, commandBuffer: buffer) else { return nil }
+                  mainPass.retainCompositionPin(target.pin)
+                  return target
+              }),
               let styledSource = mainPass.encodeOffscreen({ commandBuffer in
                   SceneOffscreenEffectRenderer.captureSource(
                       sourceTexture: plan.source.texture,
