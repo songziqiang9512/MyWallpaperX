@@ -147,11 +147,13 @@ color-blend/refraction原实例已准备实际必需容量，双实例后项失�
 
 ### RF13 — 已准入 named albedo 模型参与方向光投影（RF12 后继）
 
-**目标与选择。** 让现可显示的 hidden image/solid source-only named albedo 模型沿相同当前纹理、world、coverage参与方向光cast/receive，不因一个迟到publication关闭健康peer的整帧阴影。相较新point/spot光型，这一片先闭合已有真实模型输入和已有方向光的组合；不把缺私有公式当停工条件。真实 `3509243656` 两条named模型显示路径的既有验收只证明输入可达，不证明原包有cast-on灯或本片受益。`3589454154` 22/24模型差额尚缺确切reader失败种类，不据此抬格式上限。
+实施前裁决见[前置设计](named-model-directional-shadow-design.md)，未approved前禁止产品实施。
+
+**目标与选择。** 让现可显示的 hidden image/solid source-only named albedo 模型沿相同当前纹理、world、coverage参与方向光cast/receive，解决合法同帧provider尚未准备而关闭投影的缺口；真实source不可用时保健康peer颜色，完整caster集合未知仍可保守关闭本帧阴影。相较新point/spot光型，这一片先闭合已有真实模型输入和已有方向光的组合；不把缺私有公式当停工条件。真实 `3509243656` 两条named模型显示路径的既有验收只证明输入可达，不证明原包有cast-on灯或本片受益。`3589454154` 22/24模型差额尚缺确切reader失败种类，不据此抬格式上限。
 
 **首断点与owner。** RF12基线下，`Rendering/Frame/SceneMetalRenderer+StaticModels.swift:156–160`在当前named publication未ready时取消shadow候选，`:253–254`即使ready仍用静态albedo presence限制caster；路径以`MyWallpaperX/Core/SteamWorkshopScene/`为前缀。`Rendering/Dependencies/SceneDependencyRenderPlan+StaticModel.swift:130–164`已只准入hidden image/solid、无effect/dependency/children的primary named源，`SceneDependencyFrameRuntime.swift:530–569`拥有同帧source capture，`SceneDependencyFrameRuntime+StaticModel.swift:79–109`拥有epoch/publication裁决。先核这些唯一owner，落设计并approved后实施；本卡不授权绕开设计门。
 
-**最小方案与备选。** 对当前活跃模型需要的已准入source-only provider，在原dependency准备边执行一次当前capture/publication；原model draw和shadow共用同一resolved albedo与coverage。原循环复用已captured结果，不能再做一次copy。只调整该原owner职责，不搬整段forward graph、不另造shadow provider、registry或图，也不借前帧纹理。provider target与原depth/scratch/Bloom/snapshot均先于optional shadow；合法不可用维持局部模型失败，身份错误仍最小unsafe unit硬拒绝。不能确定完整draw集合时保守保原路径，后继以具体可达反例继续补。
+**最小方案与备选。** 精确选型统一见[前置设计](named-model-directional-shadow-design.md)：原owner按原资源顺序准备，原forward一次，source-only提前内容而normal/background仅提前容量，mandatory先于optional shadow。冷启动及resize的“较早健康模型→中间provider→较晚named模型”必须覆盖；first-model-only与cache-only不作为完成。没有第二registry或复制alpha解释；部分失败保原资源前缀与后缀原循环。
 
 **纠正门。** 从现自造MDL输入派生hidden source早/晚于模型、静态健康caster正控；旧App先证明named颜色真正完成而阴影关闭，新App证明同一当前纹理的颜色、投影及健康peer均正确。provider alpha0/1、castfalse仍接收、缺源、next-frame与资源失败/resize/cancel沿同一owner；实际按publication、GPU completion、terminal和预登记ROI验收，不能只数route。真实原包只作对应显示回归；加灯变体须标注为合法派生输入，不能冒称未修改原包收益。
 

@@ -262,6 +262,26 @@
         "sceneColorHistory",
         "terminalSceneColor"
       ]
+    },
+    {
+      "id": "scene-named-model-directional-shadow",
+      "title": "RF13 — 当前named albedo模型方向光投影",
+      "owner": "SceneDependencyFrameRuntime / existing provider preparation / static model frame owner",
+      "status": "approved",
+      "designDoc": "docs/scene/design/named-model-directional-shadow-design.md",
+      "design_notes": "判据①跨dependency/frame/shadow，②唯一publication/资源生命周期，④冻结家族。按原作者资源顺序准备，原forward一次，source-only提前内容、normal仅容量且背景内容原位；复用原epoch/depth/pool，冷启动与resize中间provider必验。完整A经冻结v3独立设计ACCEPT，只批准文档六个精确owner，不代表运行验收。实际cast/receive和mandatory资源门通过、稳定合同接管后删除窄登记。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+DependencyProviders.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+StaticModel.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+Admission.swift"
+      ],
+      "contentPatterns": [
+        "prepareStaticModelShadowProviders",
+        "prepareNamedModelShadowProviders"
+      ]
     }
   ]
 }
