@@ -42,7 +42,7 @@
 
 **退役。** 支持profile的反射→typed值→GPU consumer闭合且证据/ABI回稳定权威后删卡；未公开family明确unknown，不计支持。
 
-**执行入口已走通，继续数值实验。** 固定官方客户端、自有单帧TEX准入、真实Swift修前反例及声明语法差分见[2026-10-03研究检查点](../../history/scene/rf02-companion-research-checkpoint-2026-10-03.md)。这解除“guest客户端未知/实验不能执行”的旧前置，不代表companion值或自动阶段已经定案。接续冻结v1.3.1六分量探针：完整网格及已知奇数低位控制通过后读取区间，再用自有非方形atlas、同容器palette、literal point与active companion程序区分自动应用次数。仍须独立核更新相位及非neutral frame，不能把synthetic ABI别名为官方uniform；实验失败保留具体反例并修实验，不跳过能力。数值与sampling合同定案后，沿原反射、typed uniform、资源publication和sampler实施。
+**继续采样阶段与时序取证。** 修前反例与准入过程见[研究检查点](../../history/scene/rf02-companion-research-checkpoint-2026-10-03.md)；已执行的分量差分、原图身份、完整区间及独审上限见[数值观察](../../history/scene/rf02-companion-uniform-observations-2026-10-03.md)。后继沿已冻结literal point、同容器palette和literal/active程序，以独立可见count控制区分自动应用次数；尺寸差分还须排除头字段被忽略，并独立核重载稳定性与动画更新相位。失败保留具体反例并修实验，不跳过能力；这些观察尚不授权把synthetic ABI别名为公开uniform。行为合同定案并完成相称设计后，沿原反射、typed uniform、资源publication和sampler实施。
 
 ### RF03 — D4+D11 限定播放与显式出生
 
