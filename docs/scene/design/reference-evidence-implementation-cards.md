@@ -151,7 +151,9 @@ hidden image/solid source-only named albedo沿同一当前纹理、world、cover
 
 <a id="rf14-model-spot-shadow"></a>
 
-### RF14 — 真实模型聚光阴影（下一主片，先设计）
+### RF14 — 真实模型聚光阴影（设计已批准，实施中）
+
+[前置设计](model-spot-shadow-design.md)已获独立设计ACCEPT，窄gate为`approved`；旧App真实缺影反例已固定。先验证透视depth/多图ABI，再接通原owner；尚未产品验收。
 
 **目标与依据。** 让已合法显示的静态/named模型在cast-on聚光锥内形成实际遮挡，只衰减该灯直射贡献，保ambient、其它灯、alpha和原唯一输出。[D3 F6](2d-lighting-material-design.md#f6-model-directional-shadow)引用的公开合同支持point/spot/directional投影；[Mirage参考](../semantics/miragewallpaper-rendering-reference.md)提供输入与资源职责，其固定revision没有完整shadow atlas，不提供可复制算法。透视投影与质量策略由本项目独立设计、以合法自有输入验证，方法缺失不跳过。
 
@@ -161,7 +163,7 @@ hidden image/solid source-only named albedo沿同一当前纹理、world、cover
 
 **纠正门。** 自有真实MDL三角+已支持材质先证旧App cast-on/off无阴影差，再验偏轴/锥内外/不同深度、移动灯与parent、跨近灯面、同面/近间隙、alpha cutout、cast=false仍receive、named冷帧/resize/next-frame；独立ray oracle及预登记ROI约束算法。多灯/紧配额/在飞取消须保原directional和mandatory输出；真实App核identity、publication、completion、terminal与后帧。不以声明数量推断原包收益，不宣称官方数值parity。
 
-**设计门与退役。** 跨typed identity、投影ABI和GPU生命周期，正式设计与窄gate approved后才实施。本卡只定后继，未批准产品写入。该完整有限域获得实际输出/资源验收与独立终审后移交稳定架构、归档临时设计；point保留为紧邻后继。
+**设计门与退役。** 跨typed identity、投影ABI和GPU生命周期，正式设计与窄gate approved后才实施。精确九owner与行为门由已批准前置设计限定。该完整有限域获得实际输出/资源验收与独立终审后移交稳定架构、归档临时设计；point保留为紧邻后继。
 
 ## 3. 全部59项去向
 

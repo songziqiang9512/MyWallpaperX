@@ -12,6 +12,7 @@
       "docs/scene/design/frame-admission-retry-design.md",
       "docs/scene/design/hdr-tonemap-edr-design.md",
       "docs/scene/design/host-render-power-protocol-design.md",
+      "docs/scene/design/model-spot-shadow-design.md",
       "docs/scene/design/particle-playback-state-design.md",
       "docs/scene/design/refactor-baseline.md",
       "docs/scene/design/reference-evidence-implementation-cards.md",
@@ -721,6 +722,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/design/batch2-design-index.md",
       "retirementCondition": "App 唯一 power 裁决与版本化三态 IPC 验收，旧重复观察和布尔适配撤权后归档。"
+    },
+    {
+      "path": "docs/scene/design/model-spot-shadow-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/design/reference-evidence-implementation-cards.md",
+      "retirementCondition": "已准入聚光灯对真实模型的完整有限锥投影经旧反例、实际GPU/App、多灯资源生命周期及独立终审通过，稳定职责移交架构、冻结结果归历史后归档本文并删除窄gate。"
     },
     {
       "path": "docs/scene/design/particle-playback-state-design.md",
