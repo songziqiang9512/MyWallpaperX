@@ -82,6 +82,26 @@
       ]
     },
     {
+      "path": "docs/history/cross-topic/project-wide-review-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/README.md",
+        "AGENTS.md"
+      ]
+    },
+    {
+      "path": "docs/history/cross-topic/repo-improvement-program-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/README.md",
+        "AGENTS.md"
+      ]
+    },
+    {
       "path": "docs/history/cross-topic/ui-code-review-2026-09-30.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",
