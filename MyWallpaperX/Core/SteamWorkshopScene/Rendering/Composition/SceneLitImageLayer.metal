@@ -53,6 +53,9 @@ struct SceneLitImageLayerLightPayload {
     float4 lightCounts;
     float4x4 modelMatrix;
     float4x4 normalBasis;
+    float4 normalFrame0;
+    float4 normalFrame1;
+    uint4 normalSamplingEncoding;
 };
 
 // Texture-frame affine transform uses the common source uniform ABI.
@@ -130,12 +133,27 @@ fragment float4 sceneLitImageLayerFrag(
     const bool hasNormal = payload.ambientHasNormal.w != 0.0;
     float3 normal = float3(0.0, 0.0, 1.0);
     if (hasNormal) {
-        // Tangent-space normal decode: RGB -> [-1, 1]. The normal texture is
-        // loaded with the data `.normal` purpose (no sRGB decode).
-        normal = normalTexture.sample(
-            linearClampSampler,
-            clamp(input.texcoord, 0.0, 1.0)
-        ).xyz * 2.0 - 1.0;
+        const float2 normalLocalUV = clamp(input.texcoord, 0.0, 1.0);
+        const float2 normalUV = payload.normalFrame0.xy
+            + normalLocalUV.x * payload.normalFrame0.zw
+            + normalLocalUV.y * payload.normalFrame1.xy;
+        float3 sampled;
+        switch (payload.normalSamplingEncoding.x) {
+        case 1u: sampled = normalTexture.sample(linearRepeatSampler, normalUV).xyz; break;
+        case 2u: sampled = normalTexture.sample(nearestClampSampler, normalUV).xyz; break;
+        case 3u: sampled = normalTexture.sample(nearestRepeatSampler, normalUV).xyz; break;
+        default: sampled = normalTexture.sample(linearClampSampler, normalUV).xyz; break;
+        }
+        if (payload.normalSamplingEncoding.y == 0u) {
+            // Full RGB retains authored Z, including the negative hemisphere.
+            normal = sampled * 2.0 - 1.0;
+            // Opposing encoded directions can cancel under linear filtering.
+            if (dot(normal, normal) == 0.0) normal = float3(0, 0, 1);
+        } else {
+            const float2 xy = payload.normalSamplingEncoding.y == 1u
+                ? sampled.xy * 2.0 - 1.0 : sampled.xy;
+            normal = float3(xy, sqrt(max(0.0, 1.0 - dot(xy, xy))));
+        }
     }
     normal = (payload.normalBasis * float4(normal, 0)).xyz;
     normal /= max(length(normal), 1e-6);

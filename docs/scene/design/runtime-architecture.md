@@ -187,7 +187,7 @@ continue
 
 ### 3.4 通用执行不等于单体 renderer
 
-2D image/composition、3D model、particle、text、media、lighting 和 post-process 可以保留各自真正需要的专用 importer、simulation、geometry 或 provider；通用指的是它们必须共享稳定的 scene/object identity、frame clock、typed state、resource/provider、Material Program、graph/target 生命周期和最终 compositor output。
+2D image/composition、3D model、particle、text、media、lighting 和 post-process 可以保留各自真正需要的专用 importer、simulation、geometry 或 provider；通用指的是它们必须共享稳定的 scene/object identity、frame clock、typed state、resource/provider、Material Program、graph/target 生命周期和最终 compositor output。 2D材质的作者normal由准备期material profile确定用途与asset identity，复用唯一catalog、FrameProvider和registry；plain与effect共用同一lit source producer。每槽的完整frame、sampler与存储编码随typed candidate消费，不能借用albedo坐标或按stock路径猜用途。unitquad到固有像素尺寸的映射只属于位置model；法线方向使用同帧作者/父层world与card朝向，保留作者旋转、镜像和非均匀scale，排除固有尺寸、pivot及投影。可选normal缺失/未支持或候选非法只移除该分量并保留合法flat-lit输出，非法候选绝不绑定；albedo、target和全帧身份的unsafe仍由原owner拒绝。具体builtin准入及独立方向策略见[D3设计](2d-lighting-material-design.md)，不把此owner合同扩成PBR、reflection或官方parity。
 
 不得为了“统一”把所有对象压进一个 draw call、一个巨型类型或一个先建完才可运行的平台，也不得让专用子系统重新拥有第二套资源、属性、图、帧时序或最终输出。新增专用子系统时，先声明它生产哪种共享运行对象、如何接入现有 graph/output、局部失败如何回到安全的 previous current。
 

@@ -827,6 +827,8 @@ extension SceneMetalRenderer {
                     snapshot: frameLightSnapshot,
                     layerModelMatrix: simd_inverse(cameraFrame.viewProjection(for: layer))
                         * sourceMVP,
+                    layerWorldFrame: layerModelMatrix,
+                    usesPerspective: cameraFrame.resolvesPerspective(for: layer),
                     geometryProduct: imageTextures.geometryProducts[layerID]
                 ) {
                 case let .payload(value):

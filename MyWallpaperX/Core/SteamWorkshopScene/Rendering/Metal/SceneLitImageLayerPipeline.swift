@@ -34,6 +34,10 @@ struct SceneLitImageLayerLightPayload {
     var lightCounts = SIMD4<Float>.zero
     var modelMatrix = matrix_identity_float4x4
     var normalBasis = matrix_identity_float4x4
+    var normalFrame0 = SIMD4<Float>(0, 0, 1, 0)
+    var normalFrame1 = SIMD4<Float>(0, 1, 0, 0)
+    /// x = sampler mode; y = RGB UNORM / RG UNORM / RG SNORM.
+    var normalSamplingEncoding = SIMD4<UInt32>.zero
 }
 
 /// One claimed layer's lit base-capture request. Built by the frame
@@ -58,42 +62,105 @@ struct SceneBaseMaterialLitCapturePayload {
         let outerConeCosine: Float
     }
 
+    enum NormalInput {
+        case disabled, unavailable, invalid, unsupported
+        case ready(SceneTextureSlotBinding, encoding: UInt32)
+
+        static func resolve(_ lookup: SceneFrameTextureLookupStatus?) -> Self {
+            switch lookup {
+            case let .ready(resource): resolve(resource.publication.candidate)
+            case .incomplete: .invalid
+            case .absent, .pending, .unavailable, nil: .unavailable
+            }
+        }
+
+        static func resolve(_ candidate: SceneTextureCandidate) -> Self {
+            guard let binding = SceneTextureSlotBinding(slotIndex: 1, candidate: candidate)
+            else { return .invalid }
+            guard candidate.materialProgramUVTransform() != nil,
+                  candidate.sampling.isResolvedForMaterialProgram,
+                  !candidate.sampling.usesClampBorderFallback else { return .unsupported }
+            let encoding: UInt32
+            switch binding.pixelFormat {
+            case .rgba8Unorm, .bc1_rgba, .bc2_rgba, .bc3_rgba: encoding = 0
+            case .rg8Unorm: encoding = 1
+            case .bc5_rgSnorm: encoding = 2
+            default: return .unsupported
+            }
+            return .ready(binding, encoding: encoding)
+        }
+
+        var status: String {
+            switch self {
+            case .disabled: "disabled"
+            case .unavailable: "unavailable"
+            case .invalid: "invalid"
+            case .unsupported: "unsupported"
+            case .ready: "ready"
+            }
+        }
+    }
+
+    private static let diagnosticLock = NSLock()
+    private static var reportedNormalStates = Set<String>()
+    private static func report(_ normal: NormalInput) {
+        guard normal.status != "ready", normal.status != "disabled" else { return }
+        diagnosticLock.lock()
+        defer { diagnosticLock.unlock() }
+        guard reportedNormalStates.insert(normal.status).inserted else { return }
+        NSLog("MWX SCENE: schema=base-material-normal status=%@ fallback=flat-lit", normal.status)
+    }
+
     let pipeline: SceneLitImageLayerPipeline
     let lights: SceneLitImageLayerLightPayload
-    let normalTexture: MTLTexture?
+    let normal: NormalInput
+    var normalTexture: MTLTexture? {
+        guard case let .ready(binding, _) = normal else { return nil }
+        return binding.texture
+    }
 
     init?(
         pipeline: SceneLitImageLayerPipeline,
         lights: SceneLitImageLayerLightPayload,
-        normalTexture: MTLTexture?
+        normal: NormalInput
     ) {
         guard lights.isFinite else { return nil }
         self.pipeline = pipeline
+        self.normal = normal
         var packed = lights
-        packed.ambientHasNormal.w = normalTexture == nil ? 0 : 1
+        packed.ambientHasNormal.w = 0
+        if case let .ready(binding, encoding) = normal {
+            packed.ambientHasNormal.w = 1
+            let uv = binding.uvTransform
+            packed.normalFrame0 = SIMD4(uv.origin.x, uv.origin.y, uv.xAxis.x, uv.xAxis.y)
+            packed.normalFrame1 = SIMD4(uv.yAxis.x, uv.yAxis.y, 0, 0)
+            packed.normalSamplingEncoding = SIMD4(binding.sampling.imageLayerUniformMode, encoding, 0, 0)
+        }
         self.lights = packed
-        self.normalTexture = normalTexture
+        Self.report(normal)
     }
 
-    /// Graph allocation and composition-pool targets can differ in format;
-    /// registry resources can belong to an obsolete device. Never bind either.
-    func isCompatible(with target: MTLTexture) -> Bool {
+    /// A bad normal is rejected independently of a legal capture target. The
+    /// texture alias/device check belongs here, where the encode target exists.
+    func validated(for target: MTLTexture) -> Self? {
         guard target.pixelFormat == pipeline.pixelFormat,
-              pipeline.state.device.registryID == target.device.registryID else { return false }
-        guard let normal = normalTexture else { return true }
-        return normal.device.registryID == target.device.registryID
-            && normal.textureType == .type2D && normal.sampleCount == 1
-            && normal.usage.contains(.shaderRead) && normal !== target
+              pipeline.state.device.registryID == target.device.registryID else { return nil }
+        guard let texture = normalTexture else { return self }
+        guard texture.device.registryID == target.device.registryID,
+              texture !== target else {
+            return Self(pipeline: pipeline, lights: lights, normal: .invalid)
+        }
+        return self
     }
 
-    /// Preserve world distances and cone angles under rectangular, rotated,
-    /// reflected or nonuniformly scaled layer geometry. The fragment transforms
-    /// the unit quad into the same world space as the shared frame snapshot.
+    /// Position maps the unit quad into world space. Direction uses the authored
+    /// world transform and card orientation, excluding intrinsic pixel extent.
     static func packLights(
         pointLights: [PointLight],
         spotLights: [SpotLight],
         ambient: SIMD3<Float>,
-        layerModelMatrix: simd_float4x4
+        layerModelMatrix: simd_float4x4,
+        normalModelMatrix: simd_float4x4
     ) -> SceneLitImageLayerLightPayload? {
         // Four is the physical shader ABI capacity, not another admission budget.
         // SceneLightSnapshot selects lights in authored order before this call.
@@ -103,7 +170,7 @@ struct SceneBaseMaterialLitCapturePayload {
               ambient.x >= 0, ambient.y >= 0, ambient.z >= 0 else { return nil }
         var payload = SceneLitImageLayerLightPayload()
         payload.modelMatrix = layerModelMatrix
-        payload.normalBasis = simd_transpose(simd_inverse(layerModelMatrix))
+        payload.normalBasis = simd_transpose(simd_inverse(normalModelMatrix))
         payload.ambientHasNormal = SIMD4(ambient, 0)
         payload.lightCounts = SIMD4(Float(pointLights.count), Float(spotLights.count), 0, 0)
         var positions = [SIMD4<Float>](repeating: .zero, count: 4)

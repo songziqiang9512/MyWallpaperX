@@ -4,10 +4,18 @@ import Foundation
 /// Custom shader sources retain their existing frontend and output authority.
 nonisolated struct SceneBaseMaterialLightingProfile: Equatable, Sendable {
     let lightingEnabled: Bool
-    let normalTextureSlotPath: String?
+    enum NormalSource: Equatable, Sendable {
+        case disabled, unsupported, invalid
+        case asset(SceneAssetTextureIdentity)
+    }
+    let normalSource: NormalSource
+    var normalAsset: SceneAssetTextureIdentity? {
+        guard case let .asset(identity) = normalSource else { return nil }
+        return identity
+    }
 
     static let disabled = SceneBaseMaterialLightingProfile(
-        lightingEnabled: false, normalTextureSlotPath: nil
+        lightingEnabled: false, normalSource: .disabled
     )
 }
 
@@ -27,18 +35,29 @@ enum SceneBaseMaterialLightingProfileCompiler {
         let isBuiltin = pass?.shaderPath.map(SceneBuiltinShaderIdentity.isImage) ?? true
         let lightingEnabled = isBuiltin
             && (materialInstance?.combos["LIGHTING"] ?? pass?.combos["LIGHTING"]) == 1
-        // Until authored arbitrary-map slot semantics are established, only a
-        // data-purpose semantic registry entry supplies a normal. Absent maps
-        // use the same plane normal as a neutral normal texture.
-        let slots = materialInstance?.textureSlots.isEmpty == false
-            ? materialInstance!.textureSlots : (pass?.textureSlots ?? [])
-        let normalTextureSlotPath = slots.first { slot in
-            guard let slot, let path = SceneVFSAssetPath(slot) else { return false }
-            return SceneStockTextureSemanticRegistry.purpose(for: path) == .normal
-        } ?? nil
+        // Fixed built-in slot 1 is the normal input. Null instance slots inherit
+        // the material; an explicit NORMALMAP=0 disables that optional input.
+        func slot(_ slots: [String?]) -> String? {
+            guard slots.indices.contains(1), let value = slots[1],
+                  !value.isEmpty else { return nil }
+            return value
+        }
+        let input = materialInstance?.hasUserTextureOverride == true
+            ? materialInstance?.userTextureInputs : pass?.userTextureInputs
+        let hasUnsupportedProvider = input?.indices.contains(1) == true
+            && input?[1] != nil
+        let normalEnabled = lightingEnabled
+            && pass?.shaderPath.map(SceneBuiltinShaderIdentity.isImage) == true
+            && (materialInstance?.combos["NORMALMAP"] ?? pass?.combos["NORMALMAP"]) != 0
+        let normalSource: SceneBaseMaterialLightingProfile.NormalSource
+        if !normalEnabled { normalSource = .disabled }
+        else if hasUnsupportedProvider { normalSource = .unsupported }
+        else if let path = slot(materialInstance?.textureSlots ?? []) ?? slot(pass?.textureSlots ?? []) {
+            normalSource = SceneAssetTextureIdentity(virtualPath: path, purpose: .normal)
+                .map { .asset($0) } ?? .invalid
+        } else { normalSource = .disabled }
         return SceneBaseMaterialLightingProfile(
-            lightingEnabled: lightingEnabled,
-            normalTextureSlotPath: normalTextureSlotPath
+            lightingEnabled: lightingEnabled, normalSource: normalSource
         )
     }
 

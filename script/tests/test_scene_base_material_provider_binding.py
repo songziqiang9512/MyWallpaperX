@@ -68,13 +68,21 @@ enum SceneFrameTextureIdentity: Hashable {
     case system(SceneSystemProviderTextureIdentity)
     case materialUserProperty(SceneUserPropertyTextureIdentity)
 }
-struct SceneVFSAssetPath {
+struct SceneVFSAssetPath: Hashable, Sendable {
     let value: String
     init?(_ rawValue: String) {
         let normalized = rawValue.replacingOccurrences(of: "\\", with: "/")
             .lowercased()
         guard !normalized.isEmpty else { return nil }
         value = normalized
+    }
+}
+struct SceneAssetTextureIdentity: Equatable, Sendable {
+    let path: SceneVFSAssetPath
+    let purpose: SceneTextureLoadPurpose
+    init?(virtualPath: String, purpose: SceneTextureLoadPurpose) {
+        guard let path = SceneVFSAssetPath(virtualPath) else { return nil }
+        self.path = path; self.purpose = purpose
     }
 }
 enum SceneStockTextureSemanticRegistry {
@@ -605,7 +613,7 @@ let descriptor = SceneRenderDescriptor(layers: [
         userTextureInputs: [current]
     ),
     .init(
-        materialPath: "materials/lit-normal.json", textureSlots: ["fallback"],
+        materialPath: "materials/lit-normal.json", shaderPath: "genericimage2", textureSlots: ["fallback"],
         userTextureInputs: [current]
     ),
 ], texturePropertyKeys: ["customCover"])
@@ -686,7 +694,41 @@ let directlyCompiledProfiles = SceneBaseMaterialLightingProfileCompiler
     )
 let lightingProfilesMatchDirectCompiler =
     directlyCompiledProfiles == program.lightingProfileByLayerID
+func authoredNormal(_ slots: [String?], instanceSlots: [String?] = [],
+    combo: Int? = nil, shader: String? = "genericimage2", lighting: Int = 1) -> String {
+    let pass = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: "normal.json",
+        shaderPath: shader, combos: ["LIGHTING": lighting], textureSlots: slots, userTextureInputs: [])
+    let instance = SceneDocument.SceneLayerMaterialInstance(id: nil, textureSlots: instanceSlots,
+        userTextureInputs: [], hasUserTextureOverride: false,
+        combos: combo.map { ["NORMALMAP": $0] } ?? [:], unknownKeys: [], isMalformed: false)
+    return SceneBaseMaterialLightingProfileCompiler.profile(layer: descriptor.layers[0],
+        materialInstance: instance, materialPasses: [pass]).normalAsset?.path.value ?? "absent"
+}
+let authoredNormals = [
+    authoredNormal(["albedo", "maps/authored.png"]),
+    authoredNormal(["albedo", nil, "effects/waterripplenormal"]),
+    authoredNormal(["albedo", "maps/authored.png"], instanceSlots: ["alternate", nil]),
+    authoredNormal(["albedo", "maps/authored.png"], instanceSlots: [nil, "maps/override.png"]),
+    authoredNormal(["albedo", "maps/authored.png"], combo: 0),
+    authoredNormal(["albedo"], combo: 1),
+    authoredNormal(["albedo", "maps/authored.png"], shader: "genericimage4"),
+    authoredNormal(["albedo", "maps/authored.png"], shader: "custom"),
+    authoredNormal(["albedo", "maps/authored.png"], lighting: 0),
+    authoredNormal(["albedo", "maps/authored.png"], shader: nil),
+]
+let unsupportedNormal = SceneBaseMaterialLightingProfileCompiler.profile(
+    layer: descriptor.layers[0], materialInstance: nil, materialPasses: [.init(
+        materialPath: "normal.json", shaderPath: "genericimage2", combos: ["LIGHTING": 1],
+        textureSlots: ["albedo", "fallback"], userTextureInputs: [nil, current])])
+let unsupportedNormalReported: Bool
+if case .unsupported = unsupportedNormal.normalSource { unsupportedNormalReported = true }
+else { unsupportedNormalReported = false }
+let missingNormalPass = SceneBaseMaterialLightingProfileCompiler.profile(
+    layer: descriptor.layers[0], materialInstance: litNormalInstance, materialPasses: [])
 let result: [String: Any] = [
+    "authoredNormals": authoredNormals,
+    "normalAdmission": [unsupportedNormalReported, unsupportedNormal.normalAsset == nil,
+        missingNormalPass.lightingEnabled, missingNormalPass.normalAsset == nil],
     "accepted": program.currentLayerIDs.sorted(),
     "previousAccepted": program.previousLayerIDs.sorted(),
     "authoredMaterialLighting": authoredMaterialLighting,
@@ -696,14 +738,14 @@ let result: [String: Any] = [
                 String(layerID),
                 [
                     profile.lightingEnabled ? 1 : 0,
-                    profile.normalTextureSlotPath == nil ? 0 : 1,
+                    profile.normalAsset == nil ? 0 : 1,
                 ]
             )
         }
     ),
     "lightingProfileNormalSlotPaths": Dictionary(uniqueKeysWithValues:
         program.lightingProfileByLayerID.map { layerID, profile in
-            (String(layerID), profile.normalTextureSlotPath ?? "")
+            (String(layerID), profile.normalAsset?.path.value ?? "")
         }
     ),
     "lightingProfilesMatchDirectCompiler": lightingProfilesMatchDirectCompiler,
@@ -820,6 +862,10 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
         # D3 first slice: authored material lighting profile gate. The same
         # compiled harness payload carries the lighting profile keys.
         self.assertEqual(result["authoredMaterialLighting"], [True, True, False, False, True])
+        self.assertEqual(result["authoredNormals"], ["maps/authored.png", "absent",
+            "maps/authored.png", "maps/override.png", "absent", "absent",
+            "maps/authored.png", "absent", "absent", "absent"])
+        self.assertEqual(result["normalAdmission"], [True] * 4)
         profiles = result["lightingProfiles"]
         # Authored LIGHTING combo == 1 with no authored shader pass enables
         # the built-in lit base capture.
@@ -830,7 +876,7 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
         # frontend; the built-in lighting is never stacked on top.
         self.assertEqual(profiles["302"], [0, 0])
         # A registry-matched normal slot alone does not enable lighting.
-        self.assertEqual(profiles["303"], [0, 1])
+        self.assertEqual(profiles["303"], [0, 0])
         # A tiered combo value (> 1) is deliberately rejected: unlike the
         # static-model `!= 0` precedent, the profile compiler fails closed.
         self.assertEqual(profiles["304"], [0, 0])
@@ -840,7 +886,7 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
         self.assertNotIn("306", profiles)
         self.assertEqual(
             result["lightingProfileNormalSlotPaths"]["303"],
-            "effects/waterripplenormal",
+            "",
         )
         self.assertTrue(result["lightingProfilesMatchDirectCompiler"])
 

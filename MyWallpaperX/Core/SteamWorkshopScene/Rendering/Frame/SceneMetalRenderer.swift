@@ -596,9 +596,7 @@ struct SceneMetalRenderer {
                     authoredShaderFrameInputs: .init(frameContext: frameContext),
                     geometryProduct: geometryProduct
                 )
-                // Graph claims receive this same producer payload in preflight.
-                // A plain receiver uses the existing offscreen source capture and
-                // the same final compositor, with no fabricated graph/effect.
+                // Plain and graph receivers share the same lit source producer.
                 if resolvedFramePlan == nil,
                    baseMaterialProviderBindings.lightingProfileByLayerID[layer.id]?
                     .lightingEnabled == true {
@@ -606,6 +604,8 @@ struct SceneMetalRenderer {
                         profile: baseMaterialProviderBindings.lightingProfileByLayerID[layer.id],
                         snapshot: frameLightSnapshot,
                         layerModelMatrix: model,
+                        layerWorldFrame: frameWorldFrames[layer.id] ?? SceneMatrix.identity(),
+                        usesPerspective: usesPerspective,
                         geometryProduct: geometryProduct
                     ) {
                     case let .payload(payload): request.sourceLighting = payload

@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from script.tests import test_scene_frame_texture_registry as texture_fixture
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -807,7 +808,7 @@ class SceneGraphResourcePassEncoderTests(unittest.TestCase):
             support = root / "Support.swift"
             harness = root / "Harness.swift"
             binary = root / "graph-resource-pass-test"
-            support.write_text(SUPPORT, encoding="utf-8")
+            support.write_text(SUPPORT + texture_fixture.HARNESS_SOURCE.split("@main",1)[0], encoding="utf-8")
             harness.write_text(HARNESS, encoding="utf-8")
             environment = os.environ.copy()
             environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
@@ -820,6 +821,7 @@ class SceneGraphResourcePassEncoderTests(unittest.TestCase):
                     "swiftc",
                     "-parse-as-library",
                     str(support),
+                    *(str(path) for path in texture_fixture.SWIFT_SOURCES),
                     str(
                         REPOSITORY_ROOT
                         / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift"

@@ -36,12 +36,14 @@ enum SceneLitCapturePayloadResolution {
 extension SceneMetalRenderer {
     /// Resolves one claimed layer's lit capture payload from the frame light
     /// snapshot and the same layer model matrix the base capture uses. A
-    /// missing normal texture keeps the flat-normal default (lighting stays
-    /// active); every other miss keeps the layer unlit for this frame.
+    /// unavailable or rejected normal keeps valid flat lighting. Only a whole
+    /// producer miss keeps the layer unlit for this frame.
     func makeLitCapturePayload(
         profile: SceneBaseMaterialLightingProfile?,
         snapshot: SceneLightSnapshot?,
         layerModelMatrix: simd_float4x4,
+        layerWorldFrame: simd_float4x4,
+        usesPerspective: Bool,
         geometryProduct: SceneGeometryProduct? = nil
     ) -> SceneLitCapturePayloadResolution {
         // Mesh/puppet source atlases do not identify a unique world receiver
@@ -55,17 +57,14 @@ extension SceneMetalRenderer {
         guard let litPipeline = pipelineRepository.litImageLayer else {
             return .miss(.pipelineUnavailable)
         }
-        // Normal map lookup via the stock semantic registry slot: a missing
-        // registry entry or unloaded texture keeps the declared flat normal
-        // (the project plane normal), it never disables lighting.
-        let normalTexture: MTLTexture?
-        if let slotPath = profile.normalTextureSlotPath,
-           let path = SceneVFSAssetPath(slotPath) {
-            normalTexture = textureRegistry.texture(
-                for: .asset(.init(path: path, purpose: .normal))
-            )
-        } else {
-            normalTexture = nil
+        let normal: SceneBaseMaterialLitCapturePayload.NormalInput
+        switch profile.normalSource {
+        case let .asset(asset):
+            let identity = SceneFrameTextureIdentity.asset(asset)
+            normal = .resolve(textureRegistry.lookup(identity))
+        case .disabled: normal = .disabled
+        case .unsupported: normal = .unsupported
+        case .invalid: normal = .invalid
         }
         let lights = SceneBaseMaterialLitCapturePayload.packLights(
             pointLights: snapshot.point.map { light in
@@ -88,13 +87,19 @@ extension SceneMetalRenderer {
                 )
             },
             ambient: snapshot.ambient,
-            layerModelMatrix: layerModelMatrix
+            layerModelMatrix: layerModelMatrix,
+            normalModelMatrix: layerWorldFrame * SceneMatrix.scale(SIMD3(
+                1, SceneCameraProjection.imageCardYDirection(
+                    usesPerspective: usesPerspective,
+                    sceneOrthoHeight: renderDescriptor.camera.orthoHeight
+                ), 1
+            ))
         )
         guard let lights else { return .miss(.lightPackingRejected) }
         guard let payload = SceneBaseMaterialLitCapturePayload(
             pipeline: litPipeline,
             lights: lights,
-            normalTexture: normalTexture
+            normal: normal
         ) else { return .miss(.payloadInvalid) }
         return .payload(payload)
     }

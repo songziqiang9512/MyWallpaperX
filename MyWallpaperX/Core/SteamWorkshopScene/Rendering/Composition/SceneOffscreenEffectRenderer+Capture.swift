@@ -32,7 +32,7 @@ enum SceneOffscreenEffectRenderer {
         guard let encoder = beginEncoder(commandBuffer: commandBuffer, target: target) else {
             return false
         }
-        if let sourceLighting, sourceLighting.isCompatible(with: target) {
+        if let sourceLighting = sourceLighting?.validated(for: target) {
             sourceLighting.pipeline.bind(encoder: encoder)
             sourceLighting.pipeline.drawLayer(
                 texture: sourceTexture,

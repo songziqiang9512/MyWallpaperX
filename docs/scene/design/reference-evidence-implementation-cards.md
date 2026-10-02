@@ -87,6 +87,8 @@ Vulkan缓存键/HLSL装配、per-display独立可执行模型、playlist、trans
 **依赖 / 复杂度 / 退役。** Web egress 与 daemon 异常生命周期各须责任域先定政策和设计，未裁决不估算产品改动；现有桥接补证为低至中等，安全/兼容政策改动为高。另域 owner 接管或明确排除后，删除这里的候选指针；不得借本 Scene 卡改变 Web 行为。
 
 
+<a id="rf07-history--clearfalse-原始颜色历史已移交证据"></a>
+
 ### RF07-HISTORY — clear=false 原始颜色历史已移交证据
 
 HDR clear=false 的 raw/candidate/display 分离、GPU成功提升、paused新epoch重绘及clear=true精确输出守恒已完成独立终审。实际owner反例、两项输出修复、诊断采样修正、冻结标准/故障App与未验证边界仅由[执行记录](../../history/scene/rf07-persistent-color-output-implementation-2026-10-02.md)保存；目标见[D2](hdr-tonemap-edr-design.md)，稳定生命周期见[架构§3.3](runtime-architecture.md#33-保留事务安全不扩大视觉失败半径)。不据本片开放透明终端、EDR或声明性能完成。唯一能力/运行owner接管后删除此移交指针，不在派生卡重复完成计数。
@@ -100,6 +102,30 @@ HDR clear=false 的 raw/candidate/display 分离、GPU成功提升、paused新ep
 **实施/备选。** 已从固定参考项目提炼[中性合同](../../history/scene/d1-composition-neutral-contract-2026-10-02.md)。D1资源窄片已修正group key/尺寸准入、prepare与实际source错配，以及组内无子层composition的写回目标/同trigger执行序；真实反例、冻结App与clear/resize/completion结果见[执行记录](../../history/scene/d1-composition-source-implementation-2026-10-02.md)，稳定资源合同由架构§3.3接管。成员/flag仍用有可见effect正控制的官方自有输入区分below非child/above child、copybackground缺省/false/true；仅确认的profile才改变source route。资源修复不升级为官方隔离语义。
 
 **纠正门/退役。** 自写parent单变量、非child颜色、区域内外、child自身effect、root无effect及模式切换；实际source→effect→publication→terminal→next-frame与ROI，相称resize/迟到completion门，普通帧prepare次数不增长。真实样本只作回归；行为合同与实现闭合、无依据路撤权后交稳定架构并退役。
+
+### RF09 — D3 作者 normal 输入与采样
+
+**目标/owner。** 将固定builtin作者slot1 normal接入现base profile→asset catalog→typed frame registry→lit producer→唯一compositor，沿现资源和normal basis独立实现方向处理。[D3后继设计](2d-lighting-material-design.md)拥有格式/覆盖/失败裁决，[经审查的中性交接](../../history/scene/d3-normal-input-neutral-contract-2026-10-02.md)提供声明与职责证据；不复制参考算法。
+
+**首断点/实施。** 基线按stock路径扫描导致普通slot1无需求、slot2误归normal及frame丢失；已沿同一profile/catalog/registry/producer贯通。真实App又揭示固有图片尺寸污染normal方向，已分离位置model与同帧作者world方向，并由原PNG反例证明修复。19格式/方向GPU门、精确逐槽采样及21个有效App场景已通过独立产品终审，失败与测试身份澄清见[执行记录](../../history/scene/d3-authored-normal-input-implementation-2026-10-02.md)。稳定职责由[架构§3.4](runtime-architecture.md#34-通用执行不等于单体-renderer)接管，窄登记退役；NORMALMAP/instance及独立方向策略仍按D3设计，不冒称官方reset/parity。
+
+**纠正门/后继。** 自有normal方向、neutral/缺图、Lighting关闭、错误sRGB、purpose区分、nonzero-origin frame/下一帧、plain/effects两路均验证实际输出与生命周期；真实正样本另核，不从genericimage出现次数推断受益。本片按职责提交；下一批由RF10落实slot2直射材质响应，环境反射与阴影分别补其输入合同，不能借normal上线宣称整项D3完成。
+
+<a id="rf10-pbr-direct"></a>
+
+### RF10 — D3 slot2 PBR 的首个直射材质响应（normal 后继工作卡）
+
+**目标/选型。** normal 窄片关闭后，优先将普通2D quad的作者slot2 PBR输入接到既有point/spot材质响应，形成可区分的粗糙度、金属度或反射强度变化。这里只确定下一批方向，尚非产品设计批准。沿现base profile→同catalog/data purpose→typed frame→lit source→effects→唯一terminal复用normal与相机owner；采用可验证的独立shading策略，不等待官方私有公式，也不复制参考实现。
+
+**当前事实与首断点（2026-10-02）。** `Resources/Assets/SceneAssetCatalog.swift:233–238`和`Runtime/Frame/SceneRenderDescriptor.swift:264–276`仍保留slot2、combos与shader values；`Compilation/Material/SceneBaseMaterialLightingProfile.swift:36–55`只消费LIGHTING/NORMALMAP/slot1，是普通builtin PBR语义的首断点。`Rendering/Composition/SceneLitImageLayer.metal`已有世界位置、normal和point/spot，尚无PBR/view参数。以上路径以`MyWallpaperX/Core/SteamWorkshopScene/`为前缀，实施前重核。合法corpus已有LIGHTING=1且slot2非空的作者材料，但尚不能据声明称受益。
+
+**先补输入，再自主实现。** [中性交接](../../history/scene/d3-normal-input-neutral-contract-2026-10-02.md)只确定slot2含metallic/roughness/reflection/emissive四种语义，没有给出RGBA排列。下一步限定研究为N1准确通道/格式/default/presence、scalar键与map优先级，N2各材质分量与LIGHTING/REFLECTION的作者开关关系；优先固定作者声明与合法保存差分，必要时由隔离研究者从参考项目返回中性职责/数据流。不得按名称猜通道或把REFLECTION等同direct specular。确认有界输入后，先更新D3设计和门禁，再实施独立材质算法。只缺某个动态/reset分支时限制该分支，不冻结明确静态输入。
+
+**owner与失败路。** prepared material profile拥有有效feature与需求；现cache/catalog/registry拥有数据纹理、逐槽frame与生命周期；同帧camera/light与lit producer拥有方向/材质响应。缺可选PBR资源只关闭相应分量，保留已验证diffuse/normal/alpha；identity/range/hazard仍拒最小unsafe unit，不能新建PBR registry、camera或compositor。
+
+**备选与边界。** 明确typed环境输入的reflection-only是第一备选；现sameFrameSceneBackground是作者顺序前缀颜色、单mip资源，不是已有环境反射合同。真实REFLECTION=1/LIGHTING=0的两包保留后继，不能改作者LIGHTING后声称原样本恢复。第二备选为既有direct-static 3D有界PBR，须独立核该model家族输入，不照搬2D slot2。环境来源、reset和额外动态provider不作为直射片的无限前置。
+
+**纠正门/退役。** 先建立实际缺响应反例；逐通道自写阶梯、固定灯与normal，检查独立分量、粗糙度高光范围、相机/灯移动、作者开关和无串通道。slot2独立frame/sampler、同路径color/data、下一帧更新、缺图局部退化与健康邻层均过实际消费门；plain/effect到terminal有身份、completion、publication与ROI。真实作者材料另做隔离回归，不能以自有oracle宣称官方PBR。设计、实现和独立终审闭合后移交稳定owner，继续环境反射与有合法caster/depth的阴影。
 
 ## 3. 全部59项去向
 

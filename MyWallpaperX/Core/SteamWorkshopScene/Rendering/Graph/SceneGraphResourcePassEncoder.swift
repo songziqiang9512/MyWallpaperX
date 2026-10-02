@@ -63,10 +63,7 @@ final class SceneGraphResourcePassEncoder {
                 target: target,
                 pipeline: pipeline
             ) else { return nil }
-            let lighting = validLitCapture(
-                target: target,
-                sourceLighting: sourceLighting
-            ) ? sourceLighting : nil
+            let lighting = sourceLighting?.validated(for: target)
             return PreparedCommand(
                 kind: .sourceCapture,
                 ownerToken: ownerToken,
@@ -189,8 +186,7 @@ final class SceneGraphResourcePassEncoder {
         }
         encoder.label = "Scene graph source capture"
         SceneGPUCensus.recordOffscreenRender(.graphResourceSourceCapture)
-        if let sourceLighting,
-           validLitCapture(target: target, sourceLighting: sourceLighting) {
+        if let sourceLighting = sourceLighting?.validated(for: target) {
             sourceLighting.pipeline.bind(encoder: encoder)
             sourceLighting.pipeline.drawLayer(
                 texture: source,
@@ -303,16 +299,6 @@ final class SceneGraphResourcePassEncoder {
             && source.sampleCount == 1
             && source.usage.contains(.shaderRead)
             && ObjectIdentifier(source) != ObjectIdentifier(target)
-    }
-
-    /// A lit capture additionally needs its PSO to match the capture target
-    /// format and, when a normal texture is declared, a shader-readable 2D
-    /// texture on the same device. Failure downgrades to the unlit capture.
-    private func validLitCapture(
-        target: MTLTexture,
-        sourceLighting: SceneBaseMaterialLitCapturePayload?
-    ) -> Bool {
-        sourceLighting?.isCompatible(with: target) == true
     }
 
     private func validCopy(

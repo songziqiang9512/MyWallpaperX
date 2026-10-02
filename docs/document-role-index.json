@@ -178,6 +178,28 @@
       ]
     },
     {
+      "path": "docs/history/scene/d3-authored-normal-input-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/design/2d-lighting-material-design.md",
+        "docs/scene/scene-compatibility-roadmap.md",
+        "docs/scene/design/runtime-architecture.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/d3-normal-input-neutral-contract-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/design/2d-lighting-material-design.md",
+        "docs/scene/scene-compatibility-roadmap.md",
+        "docs/scene/semantics/source-index.md"
+      ]
+    },
+    {
       "path": "docs/history/scene/engine-refactor-program-before-2026-09-15.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",

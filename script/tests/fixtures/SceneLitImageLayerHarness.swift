@@ -2,7 +2,9 @@ import Foundation
 import Metal
 import simd
 
+#if !SCENE_AUTHORED_NORMAL
 @main
+#endif
 enum Harness {
     static let width = 32
     static let height = 16
@@ -29,16 +31,37 @@ enum Harness {
         return t
     }
 
+    static func candidate(_ texture: MTLTexture) -> SceneTextureCandidate {
+        SceneTextureCandidate(texture: texture, identity: .builtIn(name: "self-authored"),
+            generation: .immutable(revision: 1), purpose: .normal, content: .data,
+            physicalSize: CGSize(width: texture.width, height: texture.height),
+            mappedSize: CGSize(width: texture.width, height: texture.height),
+            uvTransform: .identity, sampling: .directImageFallback, authoredFormat: nil)
+    }
+
+    static func normalTexture(_ device: MTLDevice, x: Int8) -> MTLTexture {
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bc5_rgSnorm,
+            width: 4, height: 4, mipmapped: false)
+        descriptor.storageMode = .shared; descriptor.usage = .shaderRead
+        let result = device.makeTexture(descriptor: descriptor)!
+        let bytes: [UInt8] = [UInt8(bitPattern: x), UInt8(bitPattern: x), 0,0,0,0,0,0,
+                             0,0,0,0,0,0,0,0]
+        bytes.withUnsafeBytes { result.replace(region: MTLRegionMake2D(0,0,4,4), mipmapLevel: 0,
+            withBytes: $0.baseAddress!, bytesPerRow: 16) }
+        return result
+    }
+
     static func render(
         _ device: MTLDevice, _ queue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline, lit: SceneLitImageLayerPipeline,
-        payload: SceneLitImageLayerLightPayload?, normal: MTLTexture? = nil
+        payload: SceneLitImageLayerLightPayload?, normal: MTLTexture? = nil,
+        normalInput: SceneBaseMaterialLitCapturePayload.NormalInput? = nil
     ) -> [Float] {
         let source = texture(device, fill: albedo)
         let captured = texture(device)
         let terminal = texture(device)
         let command = queue.makeCommandBuffer()!
-        let lighting = payload.flatMap { SceneBaseMaterialLitCapturePayload(pipeline: lit, lights: $0, normalTexture: normal) }
+        let lighting = payload.flatMap { SceneBaseMaterialLitCapturePayload(pipeline: lit, lights: $0, normal: normalInput ?? normal.map { .resolve(candidate($0)) } ?? .disabled) }
         precondition(SceneOffscreenEffectRenderer.captureSource(
             sourceTexture: source, target: captured, sourceUniforms: uniforms,
             pipeline: pipeline, commandBuffer: command, sourceLighting: lighting
@@ -74,8 +97,8 @@ enum Harness {
         let library = try device.makeLibrary(URL: URL(fileURLWithPath: CommandLine.arguments[1]))
         let pipeline = SceneImageLayerPipeline(device: device, pixelFormat: .rgba16Float, library: library)!
         let lit = SceneLitImageLayerPipeline(device: device, pixelFormat: .rgba16Float, library: library)!
-        let flat = texture(device, fill: SIMD4(0.5, 0.5, 1, 1))
-        let tilted = texture(device, fill: SIMD4(1, 0.5, 0.5, 1))
+        let flat = normalTexture(device, x: 0)
+        let tilted = normalTexture(device, x: 127)
         let ambient = SIMD3<Float>(repeating: 0.03)
         typealias Capture = SceneBaseMaterialLitCapturePayload
         var caseCount = 0
@@ -83,14 +106,16 @@ enum Harness {
         var flatError: Float = 0
         var moveDelta: Float = 0
         var previous: [Float] = []
-        for model in [matrix(200, 100), matrix(80, 320), matrix(200, 100, angle: .pi/2)] {
+        for (model, normalModel) in [(matrix(200, 100), matrix(1, 1)),
+            (matrix(80, 320), matrix(1, 1)),
+            (matrix(200, 100, angle: .pi/2), matrix(1, 1, angle: .pi/2))] {
             for position in [SIMD3<Float>(20, 75, 80), SIMD3<Float>(20, -95, 80)] {
                 for useTilted in [false, true] {
                     let point = Capture.PointLight(position: position, color: SIMD3(1, 0.7, 0.4), intensity: 2, radius: 500)
-                    let payload = Capture.packLights(pointLights: [point], spotLights: [], ambient: ambient, layerModelMatrix: model)!
+                    let payload = Capture.packLights(pointLights: [point], spotLights: [], ambient: ambient, layerModelMatrix: model, normalModelMatrix: normalModel)!
                     let pixels = render(device, queue, pipeline: pipeline, lit: lit, payload: payload, normal: useTilted ? tilted : nil)
                     let tangentNormal = useTilted ? SIMD3<Float>(1, 0, 0) : SIMD3<Float>(0, 0, 1)
-                    let n4 = simd_transpose(simd_inverse(model)) * SIMD4(tangentNormal, 0)
+                    let n4 = simd_transpose(simd_inverse(normalModel)) * SIMD4(tangentNormal, 0)
                     let normal = simd_normalize(SIMD3(n4.x,n4.y,n4.z))
                     for y in 0..<height { for x in 0..<width {
                         let local = SIMD4<Float>((Float(x)+0.5)/Float(width)-0.5, 0.5-(Float(y)+0.5)/Float(height), 0, 1)
@@ -119,7 +144,7 @@ enum Harness {
         let model = matrix(300, 90, angle: 0.4)
         let spot = Capture.SpotLight(position: SIMD3(20, 30, 100), direction: SIMD3(0, 0, -1),
             color: SIMD3(repeating: 1), intensity: 3, radius: 500, innerConeCosine: 0.95, outerConeCosine: 0.7)
-        let spotPayload = Capture.packLights(pointLights: [], spotLights: [spot], ambient: ambient, layerModelMatrix: model)!
+        let spotPayload = Capture.packLights(pointLights: [], spotLights: [spot], ambient: ambient, layerModelMatrix: model, normalModelMatrix: matrix(1, 1, angle: 0.4))!
         let spotPixels = render(device, queue, pipeline: pipeline, lit: lit, payload: spotPayload)
         for y in 0..<height { for x in 0..<width {
             let w = model * SIMD4<Float>((Float(x)+0.5)/Float(width)-0.5, 0.5-(Float(y)+0.5)/Float(height), 0, 1)
@@ -129,7 +154,7 @@ enum Harness {
             let amount = pow(max(0, 1-distance/spot.radius),2) * max(0,delta.z/distance) * cone * spot.intensity
             maxError = max(maxError,abs(spotPixels[(y*width+x)*4]-albedo.x*(ambient.x+amount)))
         }}
-        let zero = Capture.packLights(pointLights: [], spotLights: [], ambient: ambient, layerModelMatrix: model)!
+        let zero = Capture.packLights(pointLights: [], spotLights: [], ambient: ambient, layerModelMatrix: model, normalModelMatrix: matrix(1, 1, angle: 0.4))!
         let zeroPixels = render(device, queue, pipeline: pipeline, lit: lit, payload: zero)
         let restored = render(device, queue, pipeline: pipeline, lit: lit, payload: spotPayload)
         let restorationError = zip(spotPixels,restored).map { abs($0-$1) }.max()!
@@ -139,7 +164,7 @@ enum Harness {
         precondition(maxError < 0.002 && flatError == 0 && moveDelta > 0.03 && restorationError == 0)
         precondition(zeroPixels[0] < restored.max()! && abs(unlit[0]-albedo.x) < 0.001)
         precondition(Capture.packLights(pointLights: [], spotLights: [], ambient: ambient,
-            layerModelMatrix: simd_float4x4()) == nil)
+            layerModelMatrix: simd_float4x4(), normalModelMatrix: matrix_identity_float4x4) == nil)
         let result: [String: Any] = ["rectangleRotationNormalCases": caseCount, "maxOracleError": maxError,
             "flatNormalError": flatError, "verticalMoveDelta": moveDelta, "nextFrameRestoreError": restorationError,
             "spotAlongNegativeZ": true, "plainUnlitUnchanged": true,

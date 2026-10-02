@@ -479,8 +479,16 @@ extension SceneDesktopWallpaperHost {
             modelBuildMs,
             (resourcesStageStart - prepareEntry) * 1000
         )
+        let baseMaterialProviderBindings = SceneBaseMaterialProviderBindingCompiler.compile(
+                descriptor: runtimeInput.renderDescriptor,
+                materialInstancesByLayerID:
+                    model.sceneDocument.materialInstancesByLayerID,
+                scriptBindings: model.sceneDocument.scriptBindings
+            )
+        let normalDemands = Set(baseMaterialProviderBindings.lightingProfileByLayerID.values
+            .compactMap(\.normalAsset))
         let materialAssetCatalog = SceneMaterialAssetTextureCatalog(
-            demands: resolvedMaterialCatalog.assetDemands,
+            demands: resolvedMaterialCatalog.assetDemands.union(normalDemands),
             resourceView: model.resourceView,
             descriptor: runtimeInput.renderDescriptor,
             textureUploadCommandQueue: textureUploadCommandQueue,
@@ -488,12 +496,6 @@ extension SceneDesktopWallpaperHost {
             device: device
         )
         NSLog("MWX LAUNCH-STAGE: stage=catalog-decode elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
-        let baseMaterialProviderBindings = SceneBaseMaterialProviderBindingCompiler.compile(
-                descriptor: runtimeInput.renderDescriptor,
-                materialInstancesByLayerID:
-                    model.sceneDocument.materialInstancesByLayerID,
-                scriptBindings: model.sceneDocument.scriptBindings
-            )
         let stockNoiseTextures = try SceneStockNoiseTextureStore(
             assetStates: materialAssetCatalog.launchStates,
             systemDemands: resolvedMaterialCatalog.systemProviderDemands

@@ -1647,6 +1647,25 @@
         "test_scene_composition_source_identity",
         "test_scene_utility_layers"
       ]
+    },
+    {
+      "id": "authored-normal-input",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+LitCapture.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneGraphResourcePassEncoder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneLitImageLayerPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
+      ],
+      "modules": [
+        "test_scene_authored_normal",
+        "test_scene_lit_image_layer",
+        "test_scene_base_material_provider_binding"
+      ]
     }
   ]
 }

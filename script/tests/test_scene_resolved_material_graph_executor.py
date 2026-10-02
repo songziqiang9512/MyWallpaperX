@@ -2236,10 +2236,11 @@ private func makeSource(
     height: Int = 1,
     usage: MTLTextureUsage = .shaderRead,
     bgra: [UInt8] = [0, 0, 255, 255],
-    pixelsBGRA: [UInt8]? = nil
+    pixelsBGRA: [UInt8]? = nil,
+    pixelFormat: MTLPixelFormat = .bgra8Unorm
 ) -> MTLTexture {
     let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-        pixelFormat: .bgra8Unorm,
+        pixelFormat: pixelFormat,
         width: width,
         height: height,
         mipmapped: false
@@ -2766,7 +2767,8 @@ private func runLitCaptureScenarios(
         device,
         width: litWidth,
         height: litHeight,
-        bgra: [128, 128, 255, 255]
+        bgra: [255, 128, 128, 255],
+        pixelFormat: .rgba8Unorm
     )
 
     let litPipeline = SceneLitImageLayerPipeline(
@@ -2786,12 +2788,20 @@ private func runLitCaptureScenarios(
                 pointLights: points,
                 spotLights: spots,
                 ambient: ambient,
-                layerModelMatrix: layerMatrix
+                layerModelMatrix: layerMatrix,
+                normalModelMatrix: matrix_identity_float4x4
             ).flatMap { lights in
                 SceneBaseMaterialLitCapturePayload(
                     pipeline: pipeline,
                     lights: lights,
-                    normalTexture: normal
+                    normal: normal.map { texture in
+                        .resolve(SceneTextureCandidate(texture: texture,
+                            identity: .builtIn(name: "lit-test-normal"),
+                            generation: .immutable(revision: 1), purpose: .normal, content: .data,
+                            physicalSize: CGSize(width: texture.width, height: texture.height),
+                            mappedSize: CGSize(width: texture.width, height: texture.height),
+                            uvTransform: .identity, sampling: .directImageFallback, authoredFormat: nil))
+                    } ?? .disabled
                 )
             }
         }
@@ -3013,7 +3023,8 @@ private func runLitCaptureScenarios(
         pointLights: fiveAuthorOrdered,
         spotLights: [],
         ambient: SIMD3(1, 1, 1),
-        layerModelMatrix: layerMatrix
+        layerModelMatrix: layerMatrix,
+        normalModelMatrix: matrix_identity_float4x4
     )
     results["overCapacityPayloadIsRejected"] = packedFive == nil
     let fiveLightRun = executeLitRun(
