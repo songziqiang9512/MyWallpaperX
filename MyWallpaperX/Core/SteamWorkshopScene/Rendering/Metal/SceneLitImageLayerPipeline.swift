@@ -38,6 +38,10 @@ struct SceneLitImageLayerLightPayload {
     var normalFrame1 = SIMD4<Float>(0, 1, 0, 0)
     /// x = sampler mode; y = RGB UNORM / RG UNORM / RG SNORM.
     var normalSamplingEncoding = SIMD4<UInt32>.zero
+    /// x/y = metallic/perceptual roughness; z = explicit builtin admission.
+    var material = SIMD4<Float>.zero
+    /// xyz = perspective eye (w=1) or orthographic toward-viewer (w=0).
+    var view = SIMD4<Float>(0, 0, 1, 0)
 }
 
 /// One claimed layer's lit base-capture request. Built by the frame
@@ -159,6 +163,8 @@ struct SceneBaseMaterialLitCapturePayload {
         pointLights: [PointLight],
         spotLights: [SpotLight],
         ambient: SIMD3<Float>,
+        material: SIMD2<Float>?,
+        view: SIMD4<Float>,
         layerModelMatrix: simd_float4x4,
         normalModelMatrix: simd_float4x4
     ) -> SceneLitImageLayerLightPayload? {
@@ -169,6 +175,8 @@ struct SceneBaseMaterialLitCapturePayload {
               abs(simd_determinant(layerModelMatrix)) > 1e-9,
               ambient.x >= 0, ambient.y >= 0, ambient.z >= 0 else { return nil }
         var payload = SceneLitImageLayerLightPayload()
+        payload.material = material.map { SIMD4($0.x, $0.y, 1, 0) } ?? .zero
+        payload.view = view
         payload.modelMatrix = layerModelMatrix
         payload.normalBasis = simd_transpose(simd_inverse(normalModelMatrix))
         payload.ambientHasNormal = SIMD4(ambient, 0)
@@ -235,7 +243,7 @@ private extension SceneLitImageLayerLightPayload {
             modelMatrix.columns.0, modelMatrix.columns.1,
             modelMatrix.columns.2, modelMatrix.columns.3,
             normalBasis.columns.0, normalBasis.columns.1,
-            normalBasis.columns.2, normalBasis.columns.3,
+            normalBasis.columns.2, normalBasis.columns.3, material, view,
         ].allSatisfy(sceneLitIsFinite)
     }
 }

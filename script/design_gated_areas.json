@@ -38,6 +38,20 @@
       ]
     },
     {
+      "id": "scene-2d-pbr-direct-response",
+      "title": "RF10 — 2D slot2 PBR 直射材质响应",
+      "owner": "SceneBaseMaterialLightingProfile / FrameProvider / SceneLitImageLayerPipeline",
+      "status": "approved",
+      "designDoc": "docs/scene/design/2d-lighting-material-design.md",
+      "design_notes": "2026-10-02 RF10标量片批准：五判据1/2/4/5命中、3否；中性v1经独立审查，设计补齐介电/金属、同帧投影、alpha/HDR半浮点域、数值边界及静态typed override。只实施LIGHTING1 builtin2/4的metallic/roughness及tier默认；slot2解码/flags/映射组合仍待补证与增补设计，不得猜测。沿现profile/camera/资源/output owner；标量实际反例及终审后窄提交，贴图后继也闭合并交稳定owner后删除此登记。approved不是产品/官方parity验收。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneLitImageLayerPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal"
+      ],
+      "contentPatterns": []
+    },
+    {
       "id": "scene-script-component-api",
       "title": "SceneScript component / object / particle API",
       "owner": "scene-e-route",

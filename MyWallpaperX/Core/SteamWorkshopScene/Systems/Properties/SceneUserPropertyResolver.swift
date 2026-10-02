@@ -16,6 +16,7 @@ nonisolated struct SceneUserPropertyDocumentResolver {
         let parser = SceneUserPropertyBindingParser()
         let report = parser.parse(root: root)
         var resolvedCount = 0
+        var startupValuePaths: Set<SceneUserPropertyPath> = []
         var diagnostics = report.diagnostics
         let resolved = resolveValue(
             root,
@@ -24,13 +25,15 @@ nonisolated struct SceneUserPropertyDocumentResolver {
             effectiveValues: effectiveValues,
             parser: parser,
             resolvedCount: &resolvedCount,
+            startupValuePaths: &startupValuePaths,
             diagnostics: &diagnostics
         ) as? [String: Any] ?? root
         return SceneUserPropertyResolution(
             root: resolved,
             bindingReport: report,
             diagnostics: diagnostics,
-            resolvedBindingCount: resolvedCount
+            resolvedBindingCount: resolvedCount,
+            startupValuePaths: startupValuePaths
         )
     }
 
@@ -41,6 +44,7 @@ nonisolated struct SceneUserPropertyDocumentResolver {
         effectiveValues: [String: SceneUserPropertyValue],
         parser: SceneUserPropertyBindingParser,
         resolvedCount: inout Int,
+        startupValuePaths: inout Set<SceneUserPropertyPath>,
         diagnostics: inout [SceneUserPropertyBindingDiagnostic]
     ) -> Any {
         if let dictionary = value as? [String: Any] {
@@ -53,6 +57,7 @@ nonisolated struct SceneUserPropertyDocumentResolver {
                     effectiveValues: effectiveValues,
                     parser: parser,
                     resolvedCount: &resolvedCount,
+                    startupValuePaths: &startupValuePaths,
                     diagnostics: &diagnostics
                 )
             }
@@ -62,6 +67,7 @@ nonisolated struct SceneUserPropertyDocumentResolver {
             let propertyPath = SceneUserPropertyPath(components: path)
             let target = parser.target(for: path, root: root)
             guard let effectiveValue = effectiveValues[reference.key] else {
+                if reference.condition == nil { startupValuePaths.insert(propertyPath) }
                 diagnostics.append(.init(
                     kind: .missingEffectiveValue,
                     path: propertyPath,
@@ -76,6 +82,7 @@ nonisolated struct SceneUserPropertyDocumentResolver {
             } else {
                 result["value"] = effectiveValue.foundationValue
             }
+            startupValuePaths.insert(propertyPath)
             resolvedCount += 1
             return result
         }
@@ -88,6 +95,7 @@ nonisolated struct SceneUserPropertyDocumentResolver {
                     effectiveValues: effectiveValues,
                     parser: parser,
                     resolvedCount: &resolvedCount,
+                    startupValuePaths: &startupValuePaths,
                     diagnostics: &diagnostics
                 )
             }

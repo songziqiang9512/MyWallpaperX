@@ -107,7 +107,7 @@ HDR clear=false 的 raw/candidate/display 分离、GPU成功提升、paused新ep
 
 **目标/owner。** 将固定builtin作者slot1 normal接入现base profile→asset catalog→typed frame registry→lit producer→唯一compositor，沿现资源和normal basis独立实现方向处理。[D3后继设计](2d-lighting-material-design.md)拥有格式/覆盖/失败裁决，[经审查的中性交接](../../history/scene/d3-normal-input-neutral-contract-2026-10-02.md)提供声明与职责证据；不复制参考算法。
 
-**首断点/实施。** 基线按stock路径扫描导致普通slot1无需求、slot2误归normal及frame丢失；已沿同一profile/catalog/registry/producer贯通。真实App又揭示固有图片尺寸污染normal方向，已分离位置model与同帧作者world方向，并由原PNG反例证明修复。19格式/方向GPU门、精确逐槽采样及21个有效App场景已通过独立产品终审，失败与测试身份澄清见[执行记录](../../history/scene/d3-authored-normal-input-implementation-2026-10-02.md)。稳定职责由[架构§3.4](runtime-architecture.md#34-通用执行不等于单体-renderer)接管，窄登记退役；NORMALMAP/instance及独立方向策略仍按D3设计，不冒称官方reset/parity。
+**首断点/实施。** 基线按stock路径扫描导致普通slot1无需求、slot2误归normal及frame丢失；已沿同一profile/catalog/registry/producer贯通。真实App又揭示固有图片尺寸污染normal方向，已分离位置model与同帧作者world方向，并由原PNG反例证明修复。格式/方向GPU门、精确逐槽采样及实际App组合已通过独立产品终审；RF10后继复核又发现一项instance fixture错字段，已收紧该项旧证据并安排真实入口补跑。失败、测试身份澄清与更正见[执行记录](../../history/scene/d3-authored-normal-input-implementation-2026-10-02.md)。稳定职责由[架构§3.4](runtime-architecture.md#34-通用执行不等于单体-renderer)接管，窄登记退役；NORMALMAP/instance及独立方向策略仍按D3设计，不冒称官方reset/parity。
 
 **纠正门/后继。** 自有normal方向、neutral/缺图、Lighting关闭、错误sRGB、purpose区分、nonzero-origin frame/下一帧、plain/effects两路均验证实际输出与生命周期；真实正样本另核，不从genericimage出现次数推断受益。本片按职责提交；下一批由RF10落实slot2直射材质响应，环境反射与阴影分别补其输入合同，不能借normal上线宣称整项D3完成。
 
@@ -115,13 +115,15 @@ HDR clear=false 的 raw/candidate/display 分离、GPU成功提升、paused新ep
 
 ### RF10 — D3 slot2 PBR 的首个直射材质响应（normal 后继工作卡）
 
-**目标/选型。** normal 窄片关闭后，优先将普通2D quad的作者slot2 PBR输入接到既有point/spot材质响应，形成可区分的粗糙度、金属度或反射强度变化。这里只确定下一批方向，尚非产品设计批准。沿现base profile→同catalog/data purpose→typed frame→lit source→effects→唯一terminal复用normal与相机owner；采用可验证的独立shading策略，不等待官方私有公式，也不复制参考实现。
+**目标/选型。** normal 窄片关闭后，优先将普通2D quad的作者slot2 PBR输入接到既有point/spot材质响应，形成可区分的粗糙度、金属度响应。[D3设计](2d-lighting-material-design.md)已批准先闭合明确的无map标量/default切片，贴图通道补证并行；标量提交后继续slot2，不能把一个未知分支扩大为整项冻结。沿现base profile→同catalog/data purpose→typed frame→lit source→effects→唯一terminal复用normal与相机owner；采用可验证的独立shading策略，不等待官方私有公式，也不复制参考实现。
 
-**当前事实与首断点（2026-10-02）。** `Resources/Assets/SceneAssetCatalog.swift:233–238`和`Runtime/Frame/SceneRenderDescriptor.swift:264–276`仍保留slot2、combos与shader values；`Compilation/Material/SceneBaseMaterialLightingProfile.swift:36–55`只消费LIGHTING/NORMALMAP/slot1，是普通builtin PBR语义的首断点。`Rendering/Composition/SceneLitImageLayer.metal`已有世界位置、normal和point/spot，尚无PBR/view参数。以上路径以`MyWallpaperX/Core/SteamWorkshopScene/`为前缀，实施前重核。合法corpus已有LIGHTING=1且slot2非空的作者材料，但尚不能据声明称受益。
+**实施前事实与首断点（1548aad4，2026-10-02）。** `Resources/Assets/SceneAssetCatalog.swift:233–238`和`Runtime/Frame/SceneRenderDescriptor.swift:264–276`仍保留slot2、combos与shader values；`Compilation/Material/SceneBaseMaterialLightingProfile.swift:36–55`只消费LIGHTING/NORMALMAP/slot1，是普通builtin PBR语义的首断点。`Rendering/Composition/SceneLitImageLayer.metal`已有世界位置、normal和point/spot，尚无PBR/view参数。以上路径以`MyWallpaperX/Core/SteamWorkshopScene/`为前缀，实施前重核。合法corpus已有LIGHTING=1且slot2非空的作者材料，但尚不能据声明称受益。
 
-**先补输入，再自主实现。** [中性交接](../../history/scene/d3-normal-input-neutral-contract-2026-10-02.md)只确定slot2含metallic/roughness/reflection/emissive四种语义，没有给出RGBA排列。下一步限定研究为N1准确通道/格式/default/presence、scalar键与map优先级，N2各材质分量与LIGHTING/REFLECTION的作者开关关系；优先固定作者声明与合法保存差分，必要时由隔离研究者从参考项目返回中性职责/数据流。不得按名称猜通道或把REFLECTION等同direct specular。确认有界输入后，先更新D3设计和门禁，再实施独立材质算法。只缺某个动态/reset分支时限制该分支，不冻结明确静态输入。
+**先补输入，再自主实现。** [PBR中性交接](../../history/scene/d3-pbr-input-neutral-contract-2026-10-02.md)已定各tier的metallic/roughness键与default、map空用slider及场景灯的LIGHTING合同。没有slot2仍须消费声明default，不能另造PBR总开关。标量/default已沿同一lit producer落实，真实App缺响应反例及独立数值、启动用户属性与normal回归见[本片执行记录](../../history/scene/d3-pbr-scalar-implementation-2026-10-02.md)；此结果不代表slot2已实现。PBRMASKS组件index到stored channel、map与scalar组合继续从固定参考职责与官方作者实验补证，未经审查不猜RGBA。只缺某个动态/reset分支时限制该分支，不冻结明确静态输入。
 
-**owner与失败路。** prepared material profile拥有有效feature与需求；现cache/catalog/registry拥有数据纹理、逐槽frame与生命周期；同帧camera/light与lit producer拥有方向/材质响应。缺可选PBR资源只关闭相应分量，保留已验证diffuse/normal/alpha；identity/range/hazard仍拒最小unsafe unit，不能新建PBR registry、camera或compositor。
+**最近纠正门。** 标量批补强真实instance纹理覆盖时发现，普通slot0仍未投影至既有base asset选择；同图旧门不能证明覆盖成功。按[本批反例](../../history/scene/d3-pbr-scalar-implementation-2026-10-02.md#补强测试发现的普通实例底图漏接)先在现Layer准备与共享path resolver补layer-local来源、同model隔离及缺资源边界，验证颜色替换和normal继承，再接slot2；不借此另建provider/loader。
+
+**owner与失败路。** prepared material profile拥有有效feature与需求；现cache/catalog/registry拥有数据纹理、逐槽frame与生命周期；同帧camera/light与lit producer拥有方向/材质响应。缺可选PBR资源只移除未可用的map输入，沿设计使用合法scalar/default并保留normal/alpha；identity/range/hazard仍拒最小unsafe unit，不能新建PBR registry、camera或compositor。
 
 **备选与边界。** 明确typed环境输入的reflection-only是第一备选；现sameFrameSceneBackground是作者顺序前缀颜色、单mip资源，不是已有环境反射合同。真实REFLECTION=1/LIGHTING=0的两包保留后继，不能改作者LIGHTING后声称原样本恢复。第二备选为既有direct-static 3D有界PBR，须独立核该model家族输入，不照搬2D slot2。环境来源、reset和额外动态provider不作为直射片的无限前置。
 

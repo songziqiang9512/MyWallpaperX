@@ -829,6 +829,7 @@ extension SceneMetalRenderer {
                         * sourceMVP,
                     layerWorldFrame: layerModelMatrix,
                     usesPerspective: cameraFrame.resolvesPerspective(for: layer),
+                    cameraFrame: cameraFrame,
                     geometryProduct: imageTextures.geometryProducts[layerID]
                 ) {
                 case let .payload(value):

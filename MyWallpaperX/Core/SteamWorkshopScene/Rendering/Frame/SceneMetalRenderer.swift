@@ -605,7 +605,7 @@ struct SceneMetalRenderer {
                         snapshot: frameLightSnapshot,
                         layerModelMatrix: model,
                         layerWorldFrame: frameWorldFrames[layer.id] ?? SceneMatrix.identity(),
-                        usesPerspective: usesPerspective,
+                        usesPerspective: usesPerspective, cameraFrame: cameraFrame,
                         geometryProduct: geometryProduct
                     ) {
                     case let .payload(payload): request.sourceLighting = payload

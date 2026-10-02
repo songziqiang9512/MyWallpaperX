@@ -1,7 +1,7 @@
 #include <metal_stdlib>
 using namespace metal;
 
-// Project-owned bounded diffuse point/spot lighting in world space.
+// Project-owned bounded direct material response in world space.
 // The source fragment preserves premultiplied coverage; this is not PBR parity.
 
 struct SceneImageLayerVaryings {
@@ -56,6 +56,8 @@ struct SceneLitImageLayerLightPayload {
     float4 normalFrame0;
     float4 normalFrame1;
     uint4 normalSamplingEncoding;
+    float4 material;
+    float4 view;
 };
 
 // Texture-frame affine transform uses the common source uniform ABI.
@@ -68,11 +70,95 @@ static float2 sceneLitImageLayerTextureFrameUV(
         + uv.y * uniforms.textureFrame1.xy;
 }
 
+// Finite author coordinates can overflow a squared length or subtraction.
+// An undefined geometric direction closes only that direct-light term.
+static float3 sceneLitDirection(float3 delta) {
+    const float scale = max(max(abs(delta.x), abs(delta.y)), abs(delta.z));
+    if (!(scale > 0.0) || !isfinite(scale)) return float3(0.0);
+    return normalize(delta / scale);
+}
+
 static float sceneLitFalloff(float3 delta, float radius) {
-    if (radius <= 0.0) {
-        return 0.0;
+    const float scale = max(max(abs(delta.x), abs(delta.y)), abs(delta.z));
+    if (!(scale > 0.0) || !isfinite(scale)) return 0.0;
+    const float distanceRatio = (scale / radius) * length(delta / scale);
+    const float remaining = max(0.0, 1.0 - distanceRatio);
+    return remaining * remaining;
+}
+
+// Complete covered/tinted contribution, before the rgba16f store. Factoring
+// exponents prevents finite bright lamps times tiny opacity from overflowing
+// before coverage. The result stays HDR; 65504 is storage, not tone mapping.
+static float sceneLitStoredTerm(float response, float intensity, float lightColor,
+    float falloff, float coveredColor, float tint, float opacity) {
+    const float factors[7] = {response, intensity, lightColor, falloff,
+        coveredColor, tint, opacity};
+    float product = 1.0;
+    bool needsScaling = false;
+    for (uint i = 0; i < 7; ++i) {
+        if (!(factors[i] > 0.0)) return 0.0;
+        product *= factors[i];
+        needsScaling = needsScaling || !isfinite(product) || product < 0x1p-126f;
     }
-    return pow(max(0.0, 1.0 - length(delta) / radius), 2.0);
+    if (!needsScaling) return min(65504.0, product);
+    float mantissa = 1.0;
+    int exponent = 0;
+    for (uint i = 0; i < 7; ++i) {
+        int componentExponent;
+        mantissa *= frexp(factors[i], componentExponent);
+        exponent += componentExponent;
+    }
+    int normalizationExponent;
+    mantissa = frexp(mantissa, normalizationExponent);
+    exponent += normalizationExponent;
+    if (exponent > 16) return 65504.0;
+    return min(65504.0, ldexp(mantissa, exponent));
+}
+
+static float3 sceneLitDirect(float3 normal, float3 view, float3 light,
+    float4 source, float4 material, float3 lightColor, float intensity,
+    float falloff, float3 tint, float opacity) {
+    const float noL = clamp(dot(normal, light), 0.0, 1.0);
+    float3 diffuseWeight = float3(noL);
+    float3 specularWeight = float3(0.0);
+    if (material.z != 0.0) {
+        const float metallic = material.x;
+        const float3 reflectance = clamp(source.rgb / source.a, 0.0, 1.0);
+        const float3 f0 = mix(float3(0.04), reflectance, metallic);
+        float3 fresnel = f0;
+        const float noV = clamp(dot(normal, view), 0.0, 1.0);
+        if (noL > 0.0 && noV > 0.0) {
+            const float3 halfway = normalize(light + view);
+            const float noH = clamp(dot(normal, halfway), 0.0, 1.0);
+            const float voH = clamp(dot(view, halfway), 0.0, 1.0);
+            const float slope = max(0.01, material.y * material.y);
+            const float a2 = slope * slope;
+            const float h2 = noH * noH;
+            const float distributionDenominator = (1.0 - h2) + a2 * h2;
+            // pi cancels the GGX distribution pi in the legacy lamp units.
+            const float scaledDistribution = a2 /
+                (distributionDenominator * distributionDenominator);
+            const float visibilityScale = max(noL, noV);
+            const float l = noL / visibilityScale, v = noV / visibilityScale;
+            const float visibilityDenominator = l * sqrt(a2 + (1.0-a2)*noV*noV)
+                + v * sqrt(a2 + (1.0-a2)*noL*noL);
+            // Height-correlated Smith, already multiplied by outgoing NoL.
+            const float weightedVisibility = 0.5 * l / visibilityDenominator;
+            const float grazing = pow(1.0 - voH, 5.0);
+            fresnel = f0 + (1.0 - f0) * grazing;
+            specularWeight = fresnel * (scaledDistribution * weightedVisibility);
+        }
+        diffuseWeight = (1.0-metallic) * (1.0-fresnel) * noL;
+    }
+    float3 result;
+    for (uint channel = 0; channel < 3; ++channel) {
+        const float diffuse = sceneLitStoredTerm(diffuseWeight[channel], intensity,
+            lightColor[channel], falloff, source[channel], tint[channel], opacity);
+        const float specular = sceneLitStoredTerm(specularWeight[channel], intensity,
+            lightColor[channel], falloff, source.a, tint[channel], opacity);
+        result[channel] = min(65504.0, diffuse + specular);
+    }
+    return result;
 }
 
 fragment float4 sceneLitImageLayerFrag(
@@ -126,6 +212,8 @@ fragment float4 sceneLitImageLayerFrag(
         color = sourceTexture.sample(linearClampSampler, sourceUV);
         break;
     }
+
+    if (color.a <= 0.0) return float4(0.0);
 
     // Shared quad convention: +Y up and texture v=0 at the top.
     const float4 local = float4(input.texcoord.x - 0.5, 0.5 - input.texcoord.y, 0, 1);
@@ -189,7 +277,12 @@ fragment float4 sceneLitImageLayerFrag(
         payload.spotColorIntensity3,
     };
 
-    float3 lighting = payload.ambientHasNormal.rgb;
+    const float3 view = sceneLitDirection(payload.view.xyz - world * payload.view.w);
+    float3 radiance;
+    for (uint channel = 0; channel < 3; ++channel) {
+        radiance[channel] = sceneLitStoredTerm(1.0, payload.ambientHasNormal[channel],
+            1.0, 1.0, color[channel], uniforms.tint[channel], uniforms.alpha);
+    }
     for (int index = 0; index < 4; index++) {
         if (float(index) >= payload.lightCounts.x) {
             break;
@@ -202,12 +295,10 @@ fragment float4 sceneLitImageLayerFrag(
         if (falloff <= 0.0) {
             continue;
         }
-        const float3 towardLight = delta / max(length(delta), 1e-6);
-        const float directionTerm = saturate(dot(normal, towardLight));
-        lighting += pointColor[index].rgb
-            * pointColor[index].w
-            * falloff
-            * directionTerm;
+        const float3 towardLight = sceneLitDirection(delta);
+        radiance = min(float3(65504.0), radiance + sceneLitDirect(normal, view,
+            towardLight, color, payload.material, pointColor[index].rgb,
+            pointColor[index].w, falloff, uniforms.tint.rgb, uniforms.alpha));
     }
     for (int index = 0; index < 4; index++) {
         if (float(index) >= payload.lightCounts.y) {
@@ -221,7 +312,7 @@ fragment float4 sceneLitImageLayerFrag(
         if (falloff <= 0.0) {
             continue;
         }
-        const float3 receiverDirection = -delta / max(length(delta), 1e-6);
+        const float3 receiverDirection = -sceneLitDirection(delta);
         const float cosAngle = dot(receiverDirection, spotDirectionCone[index].xyz);
         const float innerCosine = spotDirectionCone[index].w;
         const float outerCosine = payload.spotOuterConeCosines[index];
@@ -231,16 +322,12 @@ fragment float4 sceneLitImageLayerFrag(
         if (cone <= 0.0) {
             continue;
         }
-        const float3 towardLight = delta / max(length(delta), 1e-6);
-        const float directionTerm = saturate(dot(normal, towardLight));
-        lighting += spotColorIntensity[index].rgb
-            * spotColorIntensity[index].w
-            * falloff
-            * cone
-            * directionTerm;
+        const float3 towardLight = sceneLitDirection(delta);
+        radiance = min(float3(65504.0), radiance + sceneLitDirect(normal, view,
+            towardLight, color, payload.material, spotColorIntensity[index].rgb,
+            spotColorIntensity[index].w, falloff * cone, uniforms.tint.rgb, uniforms.alpha));
     }
 
     // Multiply RGB only: alpha, coverage and premultiplied edges stay exact.
-    color.rgb *= max(lighting, 0.0);
-    return color * uniforms.tint * uniforms.alpha;
+    return float4(radiance, color.a * uniforms.tint.a * uniforms.alpha);
 }

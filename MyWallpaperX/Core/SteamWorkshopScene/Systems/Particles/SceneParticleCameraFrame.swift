@@ -209,6 +209,12 @@ struct SceneParticleCameraFrame: Sendable {
         defaultsToPerspective = false
     }
 
+    /// xyz is an eye (w=1) or the parallel toward-viewer direction (w=0).
+    /// Orthographic layers keep the canvas view, even in a native camera scene.
+    func materialView(usesPerspective: Bool) -> SIMD4<Float> {
+        usesPerspective ? SIMD4(perspectiveEyePosition, 1) : SIMD4(0, 0, 1, 0)
+    }
+
     func viewProjection(usesPerspective: Bool) -> simd_float4x4 {
         usesPerspective ? perspectiveViewProjection : orthographicViewProjection
     }

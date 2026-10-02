@@ -101,10 +101,16 @@ enum SceneStockTextureSemanticRegistry {
     }
 }
 
+enum SceneShaderUserValueKind { case null, string, number, object }
 struct SceneDocument {
     struct ShaderValue {
         let userBinding: String?
         let components: [Double]?
+        var userValueKind: SceneShaderUserValueKind? = nil
+        var scriptSource: String? = nil
+        var timeline: Int? = nil
+        var timelineDiagnostics: [String] = []
+        var bindingKeys: [String] = []
     }
     struct SceneLayerMaterialInstance {
         let id: Int?
@@ -114,6 +120,7 @@ struct SceneDocument {
         let combos: [String: Int]
         let unknownKeys: [String]
         let isMalformed: Bool
+        var scalarShaderValues: [String: ShaderValue]? = nil
     }
 }
 
@@ -128,6 +135,7 @@ struct SceneRenderDescriptor {
         var combos: [String: Int] = [:]
         let textureSlots: [String?]
         let userTextureInputs: [SceneEffectTextureInput?]
+        var constantShaderValues: [String: SceneDocument.ShaderValue] = [:]
     }
     struct EffectDescriptor {
         struct PassDescriptor {
@@ -725,7 +733,26 @@ if case .unsupported = unsupportedNormal.normalSource { unsupportedNormalReporte
 else { unsupportedNormalReported = false }
 let missingNormalPass = SceneBaseMaterialLightingProfileCompiler.profile(
     layer: descriptor.layers[0], materialInstance: litNormalInstance, materialPasses: [])
+func scalarProfile(_ shader: String?, material: [String:SceneDocument.ShaderValue] = [:], instance: [String:SceneDocument.ShaderValue] = [:]) -> [Float] {
+    var pass = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: "scalar", shaderPath: shader,
+        combos: ["LIGHTING":1], textureSlots: ["albedo"], userTextureInputs: [])
+    pass.constantShaderValues = material
+    var overlay = litInstance
+    overlay.scalarShaderValues = instance
+    let profile = SceneBaseMaterialLightingProfileCompiler.profile(layer: descriptor.layers[0],
+        materialInstance: overlay, materialPasses: [pass])
+    return profile.scalarMaterial.map { [$0.x,$0.y] } ?? []
+}
+let scalarProfiles = [
+    scalarProfile("genericimage2"), scalarProfile("genericimage4"), scalarProfile(nil),
+    scalarProfile("genericimage2",material:["metallic":.init(userBinding:nil,components:[0]),"roughness":.init(userBinding:nil,components:[1])]),
+    scalarProfile("genericimage4",material:["metallic":.init(userBinding:nil,components:[0.8])],instance:["roughness":.init(userBinding:nil,components:[0.2])]),
+    scalarProfile("genericimage4",material:["metallic":.init(userBinding:nil,components:[0.8])],instance:["metallic":.init(userBinding:nil,components:[Double.nan])]),
+    scalarProfile("genericimage2",material:["roughness":.init(userBinding:"live",components:[0.1])]),
+    scalarProfile("genericimage2",material:["metallic":.init(userBinding:nil,components:[2]),"roughness":.init(userBinding:nil,components:[-1])]),
+]
 let result: [String: Any] = [
+    "scalarProfiles": scalarProfiles,
     "authoredNormals": authoredNormals,
     "normalAdmission": [unsupportedNormalReported, unsupportedNormal.normalAsset == nil,
         missingNormalPass.lightingEnabled, missingNormalPass.normalAsset == nil],
@@ -793,6 +820,10 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
                 cwd=ROOT,
             )
             result = json.loads(subprocess.check_output([str(binary)], text=True))
+        expected = [[.5,.5],[0,.7],[],[0,1],[.8,.2],[0,.7],[.5,.5],[1,0]]
+        for actual, wanted in zip(result["scalarProfiles"], expected):
+            self.assertEqual(len(actual),len(wanted))
+            for a,b in zip(actual,wanted): self.assertAlmostEqual(a,b,places=6)
         self.assertEqual(result["accepted"], [10, 20, 110])
         self.assertEqual(result["previousAccepted"], [30])
         self.assertEqual(result["propertyAccepted"], [170, 180])

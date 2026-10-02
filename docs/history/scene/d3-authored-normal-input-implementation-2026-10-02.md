@@ -62,3 +62,9 @@ v1 的真实 loader/GPU 门区分了 RG8、BC5 的有符号采样与 RGB 完整 
 只读 corpus 检索覆盖 207 个包、1195 个 genericimage2/4 pass；找到两包三项已关联 normal 材质，但其 REFLECTION=1，LIGHTING=0 或未声明。它们是作者绑定正例和本片 lighting 关闭反例，不能声称本片恢复了这些原场景的受光。`corpus-normal-candidates.md` 保存精确 package index 与 JSON entry 身份；没有读取私有 shader 或纹理 payload 猜用途。
 
 下一片按这些真实 reflection/PBR 消费者确定作者开关、环境输入及 masks 通道合同，然后在已有 normal、资源、frame 与 lit producer 上独立实现有界反射/材质响应；缺官方数学时用可区分自有输入验证项目算法，不能退回整项等待。阴影另沿合法 caster/depth 输入闭合。不宣称本片完成 PBR、reflection、shadow、额外动态 provider、官方 Y/packing/atlas parity、全 corpus、性能或发布验收。
+
+## RF10 后继复核更正（2026-10-02）
+
+RF10 实施时发现，原 App 方法 `test_instance_albedo_override_inherits_normal` 的 fixture 将 layer 覆盖写入 `objects[].material`，产品实际解析入口是 `objects[].instance`。因此原截图确实完成了普通受光/normal显示，但**不能证明实际 instance 解析、覆盖和 normal 继承链**。原12方法/21场景统计包含这一次错字段运行：保留其运行计数与原产物，针对预定语义的有效组合应扣除此项，不能继续用它提升 instance 端到端证据。
+
+该问题不撤销独立的CPU profile继承反例/正证、纹理/GPU结果或其他App场景；但CPU模型替身也不能补成完整instance运行证明。RF10已把fixture输入改至实际instance，并要求带可区分值的端到端补跑；补跑身份和结果由RF10本批执行记录负责，不覆盖旧截图或旧manifest。

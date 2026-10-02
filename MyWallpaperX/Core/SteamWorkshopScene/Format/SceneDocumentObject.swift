@@ -14,10 +14,12 @@ extension SceneDocument {
         let combos: [String: Int]
         let unknownKeys: [String]
         let isMalformed: Bool
+        var scalarShaderValues: [String: ShaderValue]? = nil
 
         nonisolated static func parse(
             _ raw: Any?,
-            authoredRaw: Any? = nil
+            authoredRaw: Any? = nil,
+            startupScalarKeys: Set<String> = []
         ) -> Self? {
             guard let raw else { return nil }
             let authoredValue = authoredRaw ?? raw
@@ -36,7 +38,7 @@ extension SceneDocument {
             let textureValues = root["textures"] as? [Any]
             let userTextureValues = root["usertextures"] as? [Any]
             let comboValues = root["combos"] as? [String: Int]
-            let knownKeys = Set(["id", "textures", "usertextures", "combos"])
+            let knownKeys = Set(["id", "textures", "usertextures", "combos", "constantshadervalues"])
             return Self(
                 id: root["id"] as? Int,
                 textureSlots: (textureValues ?? []).map { value in
@@ -58,7 +60,21 @@ extension SceneDocument {
                 isMalformed: (root.keys.contains("textures") && textureValues == nil)
                     || (root.keys.contains("usertextures") && userTextureValues == nil)
                     || (root.keys.contains("combos") && comboValues == nil)
-                    || (root.keys.contains("id") && root["id"] as? Int == nil)
+                    || (root.keys.contains("id") && root["id"] as? Int == nil),
+                scalarShaderValues: ["metallic", "roughness"].reduce(into: [:]) { values, key in
+                    guard let declaration = root["constantshadervalues"] else { return }
+                    if let constants = declaration as? [String: Any] {
+                        guard let raw = constants[key] else { return }
+                        var projected = raw
+                        if startupScalarKeys.contains(key), var wrapper = raw as? [String: Any] {
+                            wrapper.removeValue(forKey: "user")
+                            projected = wrapper
+                        }
+                        values[key] = SceneDocumentLoader.shaderValue(from: projected)
+                    } else {
+                        values[key] = SceneDocumentLoader.shaderValue(from: NSNull())
+                    }
+                }
             )
         }
     }

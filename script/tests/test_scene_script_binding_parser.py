@@ -13,6 +13,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 DOCUMENT_SOURCES = [
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneUserPropertyResolutionStub.swift",
     SOURCE_ROOT / "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
     SOURCE_ROOT / "Format/SceneDocument.swift",
@@ -323,9 +324,7 @@ struct SceneUserPropertyCatalog {
     static let empty = SceneUserPropertyCatalog(definitions: [])
 }
 
-struct SceneUserPropertyResolution {
-    let root: [String: Any]
-}
+
 
 struct SceneUserPropertyDocumentResolver {
     func resolve(
@@ -414,9 +413,7 @@ struct SceneUserPropertyCatalog {
     static let empty = SceneUserPropertyCatalog(definitions: [])
 }
 
-struct SceneUserPropertyResolution {
-    let root: [String: Any]
-}
+
 
 struct SceneUserPropertyDocumentResolver {
     func resolve(

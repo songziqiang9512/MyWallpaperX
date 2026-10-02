@@ -309,6 +309,10 @@ enum Harness {
             "nativeUtilityUsesOrthoProjection": nativeFrame.viewProjection(
                 for: nativeUtilityLayer
             ) == nativeFrame.orthographicViewProjection,
+            "materialViewOrtho": vector3(SIMD3(nativeFrame.materialView(usesPerspective:false).x,nativeFrame.materialView(usesPerspective:false).y,nativeFrame.materialView(usesPerspective:false).z)),
+            "materialViewOrthoParallel": nativeFrame.materialView(usesPerspective:false).w == 0,
+            "materialViewPerspectiveEye": nativeFrame.materialView(usesPerspective:true) == SIMD4(nativeFrame.perspectiveEyePosition,1),
+            "materialViewPanInvariant": dynamicFrame.materialView(usesPerspective:false) == frame.materialView(usesPerspective:false),
             "nativeExplicitOrtho": nativeFrame.resolvesPerspective(
                 layerOverride: false
             ),
@@ -440,6 +444,11 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_material_view_uses_projection_owner(self):
+        self.assertEqual(self.result['materialViewOrtho'],[0,0,1])
+        for key in ['materialViewOrthoParallel','materialViewPerspectiveEye','materialViewPanInvariant']:
+            self.assertTrue(self.result[key],key)
 
     def test_cover_uses_drawable_aspect_without_letterboxing(self) -> None:
         self.assertAlmostEqual(self.result["coverHalfExtents"][0], 830.7692, places=3)

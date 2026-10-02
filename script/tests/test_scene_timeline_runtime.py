@@ -24,6 +24,7 @@ GRAPH_EXECUTOR_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+DynamicUniformDiagnostics.swift"
 )
 SWIFT_SOURCES = [
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneUserPropertyResolutionStub.swift",
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SOURCE_ROOT / "Diagnostics/ScenePerformanceCounterHub.swift",
     SOURCE_ROOT / "Rendering/Composition/SceneBloomPostProcess.swift",
@@ -234,7 +235,7 @@ struct SceneUserPropertyCatalog {
     let definitions: [SceneUserPropertyDefinition]
     static let empty = SceneUserPropertyCatalog(definitions: [])
 }
-struct SceneUserPropertyResolution { let root: [String: Any] }
+
 struct SceneUserPropertyDocumentResolver {
     func resolve(
         root: [String: Any],

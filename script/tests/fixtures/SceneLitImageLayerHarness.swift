@@ -91,6 +91,36 @@ enum Harness {
             SIMD4(0, 0, 1, 0), SIMD4(20, -10, 0, 1))
     }
 
+    // Independent double oracle: explicit correlated masking G from lambda,
+    // separate GGX D/F and the original lamp-unit pi conversion.
+    static func materialResponse(normal: SIMD3<Float>, light: SIMD3<Float>,
+        view: SIMD3<Float> = SIMD3(0,0,1), source: SIMD4<Float> = albedo,
+        metallic: Double = 0.5, roughness: Double = 0.5) -> SIMD3<Float> {
+        if simd_length(light) == 0 { return .zero }
+        let n = simd_normalize(SIMD3<Double>(normal)), l = simd_normalize(SIMD3<Double>(light))
+        let v = simd_length(view) > 0 ? simd_normalize(SIMD3<Double>(view)) : .zero
+        let nl = max(0,simd_dot(n,l)), nv = simd_dot(n,v)
+        var result = SIMD3<Float>.zero
+        for c in 0..<3 {
+            let base = source.w > 0 ? Double(source[c]/source.w) : 0
+            let f0 = 0.04*(1-metallic)+min(1,max(0,base))*metallic
+            var f = f0, spec = 0.0
+            if nl > 0 && nv > 0 {
+                let h = simd_normalize(l+v), nh = max(0,simd_dot(n,h))
+                let a = max(0.01,roughness*roughness), a2 = a*a
+                let d = a2 / (Double.pi*pow(1+(a2-1)*nh*nh,2))
+                func lambda(_ cosine: Double) -> Double {
+                    (sqrt(1+a2*(1-cosine*cosine)/(cosine*cosine))-1)/2
+                }
+                let g = 1/(1+lambda(nl)+lambda(nv))
+                f = f0+(1-f0)*pow(1-max(0,min(1,simd_dot(v,h))),5)
+                spec = Double.pi*d*g*f/(4*nl*nv)*nl
+            }
+            result[c] = Float(((1-metallic)*(1-f)*base*nl+spec)*Double(source.w))
+        }
+        return result
+    }
+
     static func main() throws {
         let device = MTLCreateSystemDefaultDevice()!
         let queue = device.makeCommandQueue()!
@@ -112,7 +142,7 @@ enum Harness {
             for position in [SIMD3<Float>(20, 75, 80), SIMD3<Float>(20, -95, 80)] {
                 for useTilted in [false, true] {
                     let point = Capture.PointLight(position: position, color: SIMD3(1, 0.7, 0.4), intensity: 2, radius: 500)
-                    let payload = Capture.packLights(pointLights: [point], spotLights: [], ambient: ambient, layerModelMatrix: model, normalModelMatrix: normalModel)!
+                    let payload = Capture.packLights(pointLights: [point], spotLights: [], ambient: ambient, material: SIMD2(0.5,0.5), view: SIMD4(0,0,1,0), layerModelMatrix: model, normalModelMatrix: normalModel)!
                     let pixels = render(device, queue, pipeline: pipeline, lit: lit, payload: payload, normal: useTilted ? tilted : nil)
                     let tangentNormal = useTilted ? SIMD3<Float>(1, 0, 0) : SIMD3<Float>(0, 0, 1)
                     let n4 = simd_transpose(simd_inverse(normalModel)) * SIMD4(tangentNormal, 0)
@@ -122,10 +152,10 @@ enum Harness {
                         let w = model * local
                         let delta = position - SIMD3(w.x,w.y,w.z)
                         let distance = simd_length(delta)
-                        let amount = pow(max(0, 1-distance/point.radius), 2) * max(0, simd_dot(normal, delta/distance)) * point.intensity
-                        let lighting = ambient + point.color * amount
+                        let amount = pow(max(0, 1-distance/point.radius), 2) * point.intensity
+                        let response = materialResponse(normal: normal, light: delta/distance)
                         for channel in 0..<3 {
-                            maxError = max(maxError, abs(pixels[(y*width+x)*4+channel] - albedo[channel]*lighting[channel]))
+                            maxError = max(maxError, abs(pixels[(y*width+x)*4+channel] - (albedo[channel]*ambient[channel] + point.color[channel]*amount*response[channel])))
                         }
                         precondition(abs(pixels[(y*width+x)*4+3]-0.5) < 0.001)
                     }}
@@ -144,17 +174,18 @@ enum Harness {
         let model = matrix(300, 90, angle: 0.4)
         let spot = Capture.SpotLight(position: SIMD3(20, 30, 100), direction: SIMD3(0, 0, -1),
             color: SIMD3(repeating: 1), intensity: 3, radius: 500, innerConeCosine: 0.95, outerConeCosine: 0.7)
-        let spotPayload = Capture.packLights(pointLights: [], spotLights: [spot], ambient: ambient, layerModelMatrix: model, normalModelMatrix: matrix(1, 1, angle: 0.4))!
+        let spotPayload = Capture.packLights(pointLights: [], spotLights: [spot], ambient: ambient, material: SIMD2(0.5,0.5), view: SIMD4(0,0,1,0), layerModelMatrix: model, normalModelMatrix: matrix(1, 1, angle: 0.4))!
         let spotPixels = render(device, queue, pipeline: pipeline, lit: lit, payload: spotPayload)
         for y in 0..<height { for x in 0..<width {
             let w = model * SIMD4<Float>((Float(x)+0.5)/Float(width)-0.5, 0.5-(Float(y)+0.5)/Float(height), 0, 1)
             let delta = spot.position - SIMD3(w.x,w.y,w.z)
             let distance = simd_length(delta)
             let cone = min(1, max(0, (simd_dot(-delta/distance,spot.direction)-spot.outerConeCosine)/(spot.innerConeCosine-spot.outerConeCosine)))
-            let amount = pow(max(0, 1-distance/spot.radius),2) * max(0,delta.z/distance) * cone * spot.intensity
-            maxError = max(maxError,abs(spotPixels[(y*width+x)*4]-albedo.x*(ambient.x+amount)))
+            let amount = pow(max(0, 1-distance/spot.radius),2) * cone * spot.intensity
+            let response = materialResponse(normal: SIMD3(0,0,1), light: delta/distance)
+            maxError = max(maxError,abs(spotPixels[(y*width+x)*4]-(albedo.x*ambient.x+response.x*amount)))
         }}
-        let zero = Capture.packLights(pointLights: [], spotLights: [], ambient: ambient, layerModelMatrix: model, normalModelMatrix: matrix(1, 1, angle: 0.4))!
+        let zero = Capture.packLights(pointLights: [], spotLights: [], ambient: ambient, material: SIMD2(0.5,0.5), view: SIMD4(0,0,1,0), layerModelMatrix: model, normalModelMatrix: matrix(1, 1, angle: 0.4))!
         let zeroPixels = render(device, queue, pipeline: pipeline, lit: lit, payload: zero)
         let restored = render(device, queue, pipeline: pipeline, lit: lit, payload: spotPayload)
         let restorationError = zip(spotPixels,restored).map { abs($0-$1) }.max()!
@@ -163,7 +194,7 @@ enum Harness {
         precondition(unlit == unlitAgain)
         precondition(maxError < 0.002 && flatError == 0 && moveDelta > 0.03 && restorationError == 0)
         precondition(zeroPixels[0] < restored.max()! && abs(unlit[0]-albedo.x) < 0.001)
-        precondition(Capture.packLights(pointLights: [], spotLights: [], ambient: ambient,
+        precondition(Capture.packLights(pointLights: [], spotLights: [], ambient: ambient, material: SIMD2(0.5,0.5), view: SIMD4(0,0,1,0),
             layerModelMatrix: simd_float4x4(), normalModelMatrix: matrix_identity_float4x4) == nil)
         let result: [String: Any] = ["rectangleRotationNormalCases": caseCount, "maxOracleError": maxError,
             "flatNormalError": flatError, "verticalMoveDelta": moveDelta, "nextFrameRestoreError": restorationError,

@@ -1666,6 +1666,29 @@
         "test_scene_lit_image_layer",
         "test_scene_base_material_provider_binding"
       ]
+    },
+    {
+      "id": "pbr-scalar-response",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument+ShaderValue.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocumentObject.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+LitCapture.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneLitImageLayerPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCameraFrame.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyBindings.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyResolver.swift"
+      ],
+      "modules": [
+        "test_scene_pbr_scalar",
+        "test_scene_lit_image_layer",
+        "test_scene_authored_normal",
+        "test_scene_base_material_provider_binding"
+      ]
     }
   ]
 }

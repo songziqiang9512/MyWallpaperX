@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from script.tests import test_scene_texture_candidate as texture_fixture
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -30,7 +31,7 @@ import simd
 
 final class SceneSpotLightPipeline { init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {} }
 final class SceneLayerColorBlendPipelineState { init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {} }
-struct SceneRenderDescriptor { struct Layer { let id = 7; var alpha: Float = 1 } }
+
 struct SceneResolvedMaterialFrameTargetPlan {}
 struct SceneEffectExecutionFrameTrace {}
 struct SceneFrameContext { let dynamicValues = 0 }
@@ -140,11 +141,13 @@ class DirectDrawCompositionTests(unittest.TestCase):
         cls.addClassCleanup(cls.temp.cleanup)
         folder = Path(cls.temp.name)
         harness = folder / "Harness.swift"
-        harness.write_text(HARNESS)
+        support = texture_fixture.HARNESS.split('@main', 1)[0]
+        support = support.replace('let contentKind: String', 'let id = 7; var alpha: Float = 1; var contentKind: String = "image"').replace('let brightness: Double?', 'var brightness: Double? = nil')
+        harness.write_text(support + '\nenum SceneMatrix { static func scale(_ v: SIMD3<Float>) -> simd_float4x4 { simd_float4x4(diagonal: SIMD4(v,1)) } }\n' + HARNESS)
         commands = [
             ["xcrun", "-sdk", "macosx", "metal", "-c", str(SHADER), "-o", str(folder/"image.air")],
             ["xcrun", "-sdk", "macosx", "metallib", str(folder/"image.air"), "-o", str(folder/"default.metallib")],
-            ["swiftc", *map(str, SOURCES), str(harness), "-o", str(folder/"test")],
+            ["swiftc", *map(str, dict.fromkeys(texture_fixture.SWIFT_SOURCES + SOURCES)), str(harness), "-module-cache-path", str(folder/"module-cache"), "-o", str(folder/"test")],
         ]
         for command in commands:
             result = subprocess.run(command, capture_output=True, text=True, timeout=180)

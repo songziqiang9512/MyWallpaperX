@@ -42,7 +42,7 @@ import simd
         let model=matrix_identity_float4x4
         let position=SIMD3<Float>(4,3,5)
         let point=Capture.PointLight(position:position,color:SIMD3(repeating:1),intensity:1,radius:100)
-        let lights=Capture.packLights(pointLights:[point],spotLights:[],ambient:.zero,layerModelMatrix:model,normalModelMatrix:model)!
+        let lights=Capture.packLights(pointLights:[point],spotLights:[],ambient:.zero,material:SIMD2(0.5,0.5),view:SIMD4(0,0,1,0),layerModelMatrix:model,normalModelMatrix:model)!
         func render(_ normal:Capture.NormalInput) -> [Float] {
             Harness.render(device,queue,pipeline:pipeline,lit:lit,payload:lights,normalInput:normal)
         }
@@ -71,8 +71,9 @@ import simd
             for y in 0..<Harness.height { for x in 0..<Harness.width {
                 let world=SIMD3<Float>((Float(x)+0.5)/Float(Harness.width)-0.5,0.5-(Float(y)+0.5)/Float(Harness.height),0)
                 let delta=position-world,distance=simd_length(delta)
-                let diffuse=pow(max(0,1-distance/100),2)*max(0,simd_dot(normal,delta/distance))
-                for channel in 0..<3 { maxError=max(maxError,abs(pixels[(y*Harness.width+x)*4+channel]-Harness.albedo[channel]*diffuse)) }
+                let attenuation=pow(max(0,1-distance/100),2)
+                let response=Harness.materialResponse(normal:normal,light:delta/distance)
+                for channel in 0..<3 { maxError=max(maxError,abs(pixels[(y*Harness.width+x)*4+channel]-response[channel]*attenuation)) }
             }}
             cases += 1
         }
@@ -222,8 +223,9 @@ import simd
                 let n=simd_normalize(SIMD3<Float>(r*2-1,128.0/255*2-1,204.0/255*2-1))
                 let world=SIMD3<Float>(u-0.5,0.5-(Float(y)+0.5)/Float(Harness.height),0)
                 let delta=position-world,distance=simd_length(delta)
-                let response=pow(1-distance/100,2)*max(0,simd_dot(n,delta/distance))
-                for channel in 0..<3 { error=max(error,abs(pixels[(y*Harness.width+x)*4+channel]-Harness.albedo[channel]*response)) }
+                let attenuation=pow(1-distance/100,2)
+                let response=Harness.materialResponse(normal:n,light:delta/distance)
+                for channel in 0..<3 { error=max(error,abs(pixels[(y*Harness.width+x)*4+channel]-response[channel]*attenuation)) }
             }}
             return error
         }

@@ -2788,6 +2788,7 @@ private func runLitCaptureScenarios(
                 pointLights: points,
                 spotLights: spots,
                 ambient: ambient,
+                material: nil, view: SIMD4(0,0,1,0),
                 layerModelMatrix: layerMatrix,
                 normalModelMatrix: matrix_identity_float4x4
             ).flatMap { lights in
@@ -3023,6 +3024,7 @@ private func runLitCaptureScenarios(
         pointLights: fiveAuthorOrdered,
         spotLights: [],
         ambient: SIMD3(1, 1, 1),
+        material: nil, view: SIMD4(0,0,1,0),
         layerModelMatrix: layerMatrix,
         normalModelMatrix: matrix_identity_float4x4
     )

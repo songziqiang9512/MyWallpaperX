@@ -209,6 +209,9 @@ nonisolated struct SceneUserPropertyResolution {
     let bindingReport: SceneUserPropertyBindingReport
     let diagnostics: [SceneUserPropertyBindingDiagnostic]
     let resolvedBindingCount: Int
+    /// Paths whose startup value was applied or whose legal unconditional
+    /// reference retained its authored fallback. This is not a dynamic claim.
+    var startupValuePaths: Set<SceneUserPropertyPath> = []
 }
 
 nonisolated struct SceneUserPropertyBindingParser {

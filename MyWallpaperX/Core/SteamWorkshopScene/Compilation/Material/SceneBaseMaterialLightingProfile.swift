@@ -4,6 +4,8 @@ import Foundation
 /// Custom shader sources retain their existing frontend and output authority.
 nonisolated struct SceneBaseMaterialLightingProfile: Equatable, Sendable {
     let lightingEnabled: Bool
+    /// Absent only for the legacy implicit-shader diffuse admission.
+    var scalarMaterial: SIMD2<Float>? = nil
     enum NormalSource: Equatable, Sendable {
         case disabled, unsupported, invalid
         case asset(SceneAssetTextureIdentity)
@@ -56,9 +58,34 @@ enum SceneBaseMaterialLightingProfileCompiler {
             normalSource = SceneAssetTextureIdentity(virtualPath: path, purpose: .normal)
                 .map { .asset($0) } ?? .invalid
         } else { normalSource = .disabled }
-        return SceneBaseMaterialLightingProfile(
+        var profile = SceneBaseMaterialLightingProfile(
             lightingEnabled: lightingEnabled, normalSource: normalSource
         )
+        if lightingEnabled, let shader = pass?.shaderPath,
+           SceneBuiltinShaderIdentity.isImage(shader) {
+            let tierFour = shader.lowercased() == "genericimage4"
+            func scalar(_ key: String, default fallback: Float) -> Float {
+                guard let value = materialInstance?.scalarShaderValues?[key]
+                    ?? pass?.constantShaderValues[key] else { return fallback }
+                // Unresolved dynamic wrappers are not startup scalar values.
+                guard value.userBinding == nil,
+                      value.userValueKind == nil || value.userValueKind == .null,
+                      value.scriptSource == nil,
+                      value.timeline == nil, value.timelineDiagnostics.isEmpty,
+                      value.bindingKeys.allSatisfy({ $0 == "value" || $0 == "user" }),
+                      let components = value.components, components.count == 1,
+                      components[0].isFinite else {
+                    NSLog("MWX SCENE: schema=base-material-scalar component=%@ fallback=tier-default reason=invalid-or-unresolved", key)
+                    return fallback
+                }
+                return Float(min(1, max(0, components[0])))
+            }
+            profile.scalarMaterial = SIMD2(
+                scalar("metallic", default: tierFour ? 0 : 0.5),
+                scalar("roughness", default: tierFour ? 0.7 : 0.5)
+            )
+        }
+        return profile
     }
 
     /// Projects every image-renderable layer of the launch descriptor. The

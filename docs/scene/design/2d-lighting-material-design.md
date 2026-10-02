@@ -76,6 +76,38 @@ XY超出单位圆时，方向落在正半球赤道并归一化，缺失Z取零�
 
 **退役。** 本片通过实际反例、真实App/资源门及独立终审后，input/purpose/frame/方向解释由现有稳定owner接管并删除窄登记；PBR、阴影、reflection、官方Y/packing/atlas parity与reset仍各自后继，不能因normal上线宣布D3完整完成。
 
+## RF10 — slot2 直射材质响应（标量切片按独立审查意见修订后批准；贴图补证并行）
+
+**目标。** 普通2D builtin genericimage2/4中已明确作者输入的材质分量，在既有point/spot灯下产生可区分的金属度、粗糙度响应；与normal、作者transform及同帧view共同决定高光，随后沿原effect和唯一terminal显示。无需还原官方私有算法。本片不是环境反射、完整PBR或官方parity。
+
+**当前事实。** 1548aad4基线，`Compilation/Material/SceneBaseMaterialLightingProfile.swift:36–63`只消费LIGHTING/NORMALMAP/slot1；`Runtime/Session/SceneDesktopWallpaperHost+Launch.swift:482–493`只为normal补充资源需求；`Rendering/Composition/SceneLitImageLayer.metal:28–58`没有PBR/view输入，现输出只漫反射。`Format/SceneDocumentObject.swift:8–65`只投影instance纹理/combo，scalar仍在loss-preserving原始值中。以上以`MyWallpaperX/Core/SteamWorkshopScene/`为前缀。五判据1/2/4/5命中，3否。
+
+**作者输入与准入。** [中性v1](../../history/scene/d3-pbr-input-neutral-contract-2026-10-02.md)已独立审查（SHA-256 `94e2dfaee39c7206484dd86e2fe4fe25ec8dda2c885f01a07bf4bafa1be49480`），确定material key `metallic`/`roughness`及genericimage2默认0.5/0.5、genericimage4默认0/0.7；声明editor range均为0…1。公开合同规定map空时使用对应slider。本片对有限超range值选择夹至材质物理域、非法/非finite分量局部回该tier默认，这是项目策略，不把editor range当官方播放器限制。零值不能当缺省。Format复用现ShaderValue解析；静态instance同键覆盖material、未提供键继承material，明确值最终来自现属性解析投影。null/reset与后续动态更改不冒称官方规范，不在帧里读raw JSON。只新增实际消费的两个标量，不顺带解析未来reflection/emissive字段。 支持的启动时用户属性值由现typed解析/失效owner提供：`SceneUserPropertyResolver`在实际写入有效用户值，或对合法无条件引用明确保留作者fallback时，通过既有`SceneUserPropertyResolution`发布该路径的typed启动值结果，再按原scene/object/instance路径传至对应scalar。后者不增加原resolvedBindingCount；合法作者fallback由原owner保留，不能二次改成tier默认。缺失/非法fallback仍局部分量回tier默认。不能靠user字段是否消失、数值是否变化或无diagnostic反推解析成功。material catalog未经该resolver处理的wrapper以及非法user形状不因此获准；未解析的连续script/Timeline wrapper不由本片读取或冻结raw value，局部分量用默认并保持明确unsupported边界，不新增动态属性通路。
+
+| 输入 | 本片直射响应 |
+| --- | --- |
+| single-pass builtin2/4，effective LIGHTING=1，无slot2 | 使用有效scalar或该tier声明default；不要求显式scalar或另造PBR总开关 |
+| 同上，REFLECTION为0、1或缺省 | direct合同相同；REFLECTION不是额外AND条件，也不启用环境反射 |
+| LIGHTING=0/缺省，即便REFLECTION=1或有map | 不因此启用direct，原unlit/其他owner保留 |
+| custom/source-backed、多pass、现不接纳geometry receiver | 保留既有route，不叠加本片 |
+| 已请求slot2，但具体分量解码尚未获批准或资源不可用 | 可选map分量局部未生效，仍以有效scalar/default提供有界材质响应；不是把presence改成absent或声称真实贴图已支持 |
+
+**贴图继续补证。** slot2作者组件与presence键已定，尚需component index到stored channel以及map-vs-scalar关系的证据；研究与标量实现并行，未审查前不猜RGBA、不借当前model alpha假证。本片没有复制私有数学；direct微表面响应及fallback是项目自有有界策略，N2没有官方像素实测，不能称官方shader内部gate已证。`reflectivity`、emissive及环境输入在对应合同获证后接入，不能用其editor0…1范围改写合法语料中reflectivity=3。
+
+**owner/生命周期。** Format沿现ShaderValue解析投影静态有效instance值，profile在load/generation归一化feature/constants。贴图后继获批后才贡献其data purpose需求和asset identity；标量片不新增未消费的slot2字段、资源需求或绑定。现normal等资源仍由唯一catalog/cache/FrameProvider/registry加载和发布逐槽candidate。common lit capture逐帧只消费typed prepared material、同帧camera/light和current candidate；slot2使用自己的frame、origin/axes、sampler、generation，不能借用albedo/normal坐标。两条plain/graph capture使用同一payload与fragment；PSO仍prepare-once。没有第二registry、camera、graph、compositor。
+
+**相机与方向。** 接入已有SceneParticleCameraFrame，按现resolvesPerspective判定每层投影。透视从同帧eye与真实world receiver求view；正交沿SceneCameraProjection当前固定朝-Z视图取平行toward-viewer，不受native perspective basis或虚构有限eye干扰。位置继续完整model；normal继续size-free作者world basis；图片固有尺寸不得改变normal方向。相机平移、视场与resize沿当前frame owner更新，普通帧不解析JSON。
+
+**独立方案及备选。** 采用公开microfacet模型的GGX分布、Smith可见性和Schlick角度反射行为，由本项目独立编写；公开理论入口[Filament材质模型](https://google.github.io/filament/main/filament.html#materialsystem/specularbrdf)，不复制源码或私有数学。粗糙度决定高光宽度，金属度改变漫反射份额和镜面颜色；具体作者系数合成由N1/N2约束。选择height-correlated Smith可见性，包含其分母职责，受光余弦只乘一次。既有漫反射没有标准化因子，镜面项在原灯单位中对应校正一次，不能把旧灯强度改成另一套单位。微表面粗糙度下限为0.01，对应感知粗糙度不超过0.1的有限光斑；这是作者零值的项目数值策略，endpoint必须实际验证，不冒称官方。灯距离、强度和spot锥体保留既有owner。本片不改全局颜色政策。介电正对反射率采用项目固定0.04，金属镜面颜色由straight albedo混合；direct漫反射同时按非金属份额和该角度未被反射的能量份额减少，镜面响应单独累加（沿实施前独立方案，不保留纯diffuse的双计能量）；只有作为反射率输入的albedo限制在0…1，原diffuse/ambient的HDR源亮度不因该局部域截断，属于项目HDR扩展而非全链能量守恒声明。ambient保持旧近似，不随金属度压制、不当IBL。背向view或light、eye/light与receiver重合形成零方向时，镜面贡献为零，无法定义半向量时以正对反射率分配可定义的direct漫反射，ambient与normal保留，不拒整层。备选全屏后处理缺材质normal/enable/coverage；另建deferred或PBR框架增加无消费者职责，均不采用。环境资源只在后继有明确typed输入时引入。
+
+**alpha/HDR。** 当前source为premultiplied颜色；材质运算需要straight albedo时在非零coverage下取回，输出再覆盖一次，透明texel输出精确零。tint/作者opacity只施加一次。普通高于1的结果保留至既有D2映射。仅最终含coverage、tint和opacity的非负通道写入值超出RGBA16F有限域时饱和至65504，这是本producer的存储表示域裁决，不是clamp1或新增tonemap；不在乘coverage之前夹裸radiance。零贡献在可能溢出乘法之前成为零，稳定计算须区分正溢出与真正非法值，不能把NaN当亮值。RGBA16F溢出会在既有D2非finite处理变黑，是本裁决的实际风险产生者。独立oracle包含正对最光滑金属、近距离强度30的单灯及四灯、alpha0/0.25/1、零tint/opacity和finite极端强度配低coverage；禁止降低灯强使门变绿。无map builtin的旧纯diffuse由上述有效默认接管；Lighting0/custom/未准入route保留原行为。normal方向、格式、逐槽frame和尺寸独立性测试保留，新亮度须由独立材质oracle解释，不靠放宽容差迁就。
+
+**fallback/route。** 缺失、坏图、不支持的可选slot2不夺取整层或健康邻层输出；按上表使用合法scalar/default，不能因坏map关闭合法normal或整套受光。已拒candidate不绑定GPU，normal继续独立工作。albedo/target/range/hazard、identity与publication破坏仍由原owner拒最小unsafe unit；不因PBR可降级放松。Puppet/变形receiver没有world mapping时保持原局部unlit。新增guard必须逐项指名作者数值、透明texel、资源failure/alias等真实产生者，不重复registry保证。
+
+**纠正门。** 标量片先闭合修前真实App双输入无响应反例、scalar one-variable反例；独立double oracle覆盖倾斜N/L/V、非零Z、roughness峰值和离轴宽度、金属颜色/漫反射份额，区别普通增亮。覆盖禁用、缺省、显式零与instance，以及未知slot2仍用scalar的局部边界；alpha0/partial/1、HDR>1、tint、normal反向与parent非均匀scale；正交平移不造透视高光、透视eye移动真实改变。贴图解码获批后另闭合逐通道、全零map、missing/corrupt、实际FrameProvider同texture换frame/取消重试、slot2独立UV/sampler及color/data用途隔离，不能用标量验收代替。标量片plain与非identity effect经过completion/publication/terminal/next-frame并有健康邻层。测试/App/源码身份先冻结再运行，原失败保留；自有oracle不冒充官方golden。
+
+**退役。** 标量片先完成可见门与独立终审并按职责提交；窄登记在贴图输入/解码后继也闭合、稳定输入/owner移交架构后删除。D3整体登记保留，贴图之后推进明确环境资源的reflection与有合法caster/depth的shadow。未知某个分支只限制该分支，不以缺官方公式停止整个能力。
+
 ## fallback / route
 
 按 feature 精确降级：normal map 不可用时可走已声明 flat-normal；可选 shadow/reflection 缺失保留已验证直射与 base material；完整 lighting shader 失败保留安全 unlit base current，并报告局部 miss。非法 GPU range、预算或 stale light/target hard reject 最小 unsafe unit。`prefer-generic` 只选一条 material 输出，完成后 `generic-only`。

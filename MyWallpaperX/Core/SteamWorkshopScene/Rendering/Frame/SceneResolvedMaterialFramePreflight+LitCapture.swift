@@ -44,6 +44,7 @@ extension SceneMetalRenderer {
         layerModelMatrix: simd_float4x4,
         layerWorldFrame: simd_float4x4,
         usesPerspective: Bool,
+        cameraFrame: SceneParticleCameraFrame,
         geometryProduct: SceneGeometryProduct? = nil
     ) -> SceneLitCapturePayloadResolution {
         // Mesh/puppet source atlases do not identify a unique world receiver
@@ -87,6 +88,8 @@ extension SceneMetalRenderer {
                 )
             },
             ambient: snapshot.ambient,
+            material: profile.scalarMaterial,
+            view: cameraFrame.materialView(usesPerspective: usesPerspective),
             layerModelMatrix: layerModelMatrix,
             normalModelMatrix: layerWorldFrame * SceneMatrix.scale(SIMD3(
                 1, SceneCameraProjection.imageCardYDirection(

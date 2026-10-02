@@ -122,7 +122,13 @@ struct SceneDocumentLoader {
                 object,
                 authoredRoot: authoredObjects.indices.contains(index)
                     ? authoredObjects[index]
-                    : object
+                    : object,
+                startupMaterialScalarKeys: Set(["metallic", "roughness"].filter { key in
+                    propertyResolution.startupValuePaths.contains(.init(components: [
+                        .key("objects"), .index(index), .key("instance"),
+                        .key("constantshadervalues"), .key(key)
+                    ]))
+                })
             )
         }
         let duplicateObjectIDs = Dictionary(grouping: objects, by: \.id)
@@ -169,7 +175,8 @@ struct SceneDocumentLoader {
 
     nonisolated private static func parseObject(
         _ root: [String: Any],
-        authoredRoot: [String: Any]
+        authoredRoot: [String: Any],
+        startupMaterialScalarKeys: Set<String>
     ) -> SceneDocument.SceneObject? {
         guard let id = root["id"] as? Int else { return nil }
         let effects = root["effects"] as? [[String: Any]] ?? []
@@ -210,7 +217,8 @@ struct SceneDocumentLoader {
             ),
             materialInstance: SceneDocument.SceneLayerMaterialInstance.parse(
                 root["instance"],
-                authoredRaw: authoredRoot["instance"]
+                authoredRaw: authoredRoot["instance"],
+                startupScalarKeys: startupMaterialScalarKeys
             ),
             utilityLayer: SceneUtilityLayer.parse(imagePath: imagePath, object: root),
             shape: stringValue(root["shape"])?.lowercased(),
@@ -372,7 +380,7 @@ struct SceneDocumentLoader {
         }
     }
 
-    nonisolated private static func shaderValue(from value: Any) -> SceneDocument.ShaderValue {
+    nonisolated static func shaderValue(from value: Any) -> SceneDocument.ShaderValue {
         if let double = value as? Double {
             return SceneDocument.ShaderValue(
                 rawValue: String(double),
