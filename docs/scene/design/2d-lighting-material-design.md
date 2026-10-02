@@ -128,6 +128,107 @@ XY超出单位圆时，方向落在正半球赤道并归一化，缺失Z取零�
 
 **退役。** 标量片先完成可见门与独立终审并按职责提交；窄登记在贴图输入/解码后继也闭合、稳定输入/owner移交架构后删除。D3整体登记保留，贴图之后推进明确环境资源的reflection与有合法caster/depth的shadow。未知某个分支只限制该分支，不以缺官方公式停止整个能力。
 
+## F3 — slot2材质贴图与静态自发光（独立设计审查已批准）
+
+本片已通过独立产品/实际App/有界真实材料验收，冻结身份及原场景未恢复边界见[执行记录](../../history/scene/d3-pbr-map-emission-implementation-2026-10-02.md)。稳定slot2职责由架构接管，窄登记同批退役；下述设计仍限定开放范围。
+
+基线`3f13619c`。五判据1/2/4/5命中，3不新增；本节已获独立设计审查ACCEPT，按以下九个既有产品owner释放实施；设计批准不等于运行验收。root与实现者均未接收原始静态表达。
+
+### 结果与取舍
+
+一次闭合作者 slot2 普通资产 → 既有 data 资源与逐帧 candidate → 同一 lit producer 的可见结果：已启用的 metallic/roughness 分量改变现有独立 BRDF，已启用的 emissive 分量贡献不依赖场景灯的作者颜色。共用一次 map 采样、现有资源预算、FrameProvider、registry 和最终 compositor。选择 MR 与静态 emissive 同批，因为真实三项 LIGHTING1 材料均是 emissive-only；只做 MR 不能宣称它们受益。两 sun 的 literal/static 输入是本批真实验证目标，Universe 的材料用户属性输入按下述限制报告。
+
+不新增 renderer、PSO、registry、provider、clock、camera 或独立缓存；不接 reflection/环境资源，不改变原 REFLECTION-only 材料 LIGHTING，不扩大 LIGHTING0 emissive。不等待官方私有 BRDF/emissive 公式；数值策略明确属于项目独立实现，官方 native 动态/像素 parity 保持 not-run。
+
+### 输入依据与边界
+
+输入档案见[贴图中性合同增量](../../history/scene/d3-pbr-map-input-neutral-contract-2026-10-02.md)。已独审中性 v6 SHA `09ba8a3a61e8d0277c9681e9c2b8e0ba266c8565a68e2356f7372af984592de4`、v7 SHA `1192938f70c4320cb229583f7a8ea1a15355eb299871e90d1669b41ce197608e`，以及已批准 v3 归档提供：固定 builtin genericimage2/4 零基 slot2 为 PBR masks；component 顺序与 header bits20…23 对应 metallic/roughness/reflection/emissive presence；逻辑采样结果 R/G 分别替代 metallic/roughness 输入，emissive 使用 A 并共同消费 emissivecolor/brightness。v7 只补固定第三方 helper 保持 sample-result 分量，不证明各种物理字节顺序或官方 native backend。项目沿自身已验证的解码器取得 RGBA 采样结果，不手读 payload，不从上述索引反推 raw byte 布局。
+
+首片使用现有 loader 支持的普通静态或既有动画 TEX asset，解码后的 GPU 格式限 `.rgba8Unorm`、`.bc1_rgba`、`.bc2_rgba`、`.bc3_rgba`；每种以真实 loader 自有 RGBA 输入验证。BC1 的已解码 alpha 行为由项目格式验证，不以格式名制造新的 alpha 值。单/双通道、signed normal、浮点或 sRGB GPU 格式本片不当作四通道 map，局部 unsupported；不人为重建缺失分量。PNG/其它普通图可沿现 loader 解析，但无 TEX header 时不能自动产生本片 component presence；显式1也不制造 presence。
+
+`emissivecolor` 为已有 typed 三分量颜色，缺省 white；`emissivebrightness` 为已有 typed 单值，缺省1。有效值须非负且能安全表示为现有 shader 数值；显式0合法。typed输出缺数值、维数错误、负值、非有限或不可表达值只关闭 emission，不关 MR/normal/整层。字段缺省不同于这些显式坏输入，不能将坏输入吞成“已解析默认”。本片不承诺原始词法严格性：当前`Format/SceneDocument.swift:383–453`与`Resources/Assets/SceneAssetCatalog.swift:297–349`的数字串投影会略过不可解析词，数值入口也存在JSON Boolean桥接待核边界；profile不能恢复已丢失的信息，不在帧内重解析raw。真实parser到profile门必须标出这个上限，不用手造ShaderValue冒充作者级拒绝。后继严格化应在这两个准备期producer收敛并验证相邻consumer，不把旧宽松行为确立为目标规范。不以 editor brightness0…10冒称播放器 clamp；合法大于10可进入项目 HDR 边界。
+
+### 准入及 presence 策略（项目保守裁决，非官方 precedence）
+
+仅当前单 pass、已证 explicit genericimage2/4、effective LIGHTING=1 的 image-renderable receiver 准入。保留现 custom/multipass/无world mapping行为。REFLECTION 不成为 direct/emissive AND 条件，也不在本片产生环境响应。
+
+material combos 为 default，静态 instance 同键覆盖；slot2 非空 instance 覆盖、null/省略继承，沿已用第三方职责形成的项目策略，不宣称官方 reset。本片保守按slot2分别检查material和instance：任一包含非nil typed user/system/property/path/unknown输入，则该map为unsupported；静态instance path、instance usertextures空数组或全nil不能清除既有material provider声明。整体PBRMASKS=0优先disabled且不因本片加载该map；无slot2 provider声明时才按静态path覆盖。其它槽provider不阻断本map。该裁决只属于map局部，不复制normal整数组选择，不重定义既有provider或未知reset。源路径在 profile 编译成既有 VFS asset identity，非法路径局部 invalid，不在帧内重解析路径。
+
+三个状态分别保留：声明请求/关闭、header component presence、资源 availability。
+
+| 输入情形 | 本片行为 |
+| --- | --- |
+| effective `PBRMASKS=0` | 关闭整个 slot2 输入，不加载仅为本片所需的资源，MR仍用scalar，emission为0 |
+| 对应 effective `METALLIC_MAP/ROUGHNESS_MAP/EMISSIVE_MAP=0` | 只关闭该分量；不影响其它分量 |
+| combo缺省或明确1，且对应真实header bit为1 | 可采用该分量；combo1只是允许，不补造metadata |
+| combo1但header bit为0；或headerless asset | 该分量保留scalar/无emission，记录有界冲突或无metadata状态；不用整张图存在替代presence |
+| 非0/1显式combo值 | 对应整体/分量局部 unsupported，采用同一保守关闭结果，不猜真值 |
+| header仅emissive | metallic/roughness scalar/default完整保留；只可能增加emission |
+| reflection bit存在 | 本片不消费B；不能借此制造MR/emission |
+| 启用分量的采样值为0 | 0是合法值；MR替代为0、emission贡献0，不能回scalar/default |
+| map请求但缺失/损坏/候选拒绝 | availability失败，MR回各自已准备scalar，emission为0；保持声明请求状态而非伪造presence=absent |
+
+显式 combo 与 header 冲突仅拒绝该分量；整体 explicit0 拒绝整个map。即使所有分量后续不可用，仍不得借原图另一个通道补救。
+
+### 自有可见数值行为
+
+每fragment先以 slot2 自己的 logical-UV convention、完整 origin/axes 和 sampler 采样一次。只对准入分量提取已解码 R/G/A：MR直接替代对应已准备scalar，保持现有 GGX/Smith/Schlick、roughness数值下界、相机/normal方向、ambient与灯单位。
+
+Emission采用项目独立策略：有效map调制作者 emissivecolor 与 emissivebrightness，作为与 ambient/direct分开的正辐射贡献一次加入同一结果。该贡献不随 N/L/V、灯数量/强度或是否有灯改变；不额外乘 albedo RGB。保留现 layer RGB tint 作为整层颜色调制，透明覆盖取现 albedo alpha，并与 layer opacity/tint alpha 的既有合成约定一致；最终 alpha与未加emission时完全相同。RGB coverage/opacity只应用一次，不先饱和再覆盖；保留HDR大于1，最终有限rgba16f存储上限遵守现65504约束。这是设计选择而非恢复私有公式。
+
+典型无灯反例：显式黑ambient、zero lights、非零map/color/brightness必须可见；brightness0或该map0必须无emission；只改normal/灯位置不能改变emission项。不能用普通BRDF增亮冒充自发光。有效但很大的有限作者值与很小覆盖组合沿现lit存储算术处理，防止中间overflow/inf乘0；不扩通用数值框架。
+
+### Owner、最小改动范围与普通帧
+
+前缀 `MyWallpaperX/Core/SteamWorkshopScene/`，预计9个原有产品路径：
+
+1. `Compilation/Material/SceneBaseMaterialLightingProfile.swift`：load/generation准备slot2 typed source、effective分量意图、MR fallback、emission值与有效性；presence不等availability。
+2. `Runtime/Session/SceneDesktopWallpaperHost+Launch.swift`：把实际可能消费的slot2 `.mask` identity加入同catalog需求Set，与normal/graph需求去重。
+3. `Rendering/Frame/SceneResolvedMaterialFramePreflight+LitCapture.swift`：按prepared identity读取current registry状态，产生该帧typed map binding/局部结果，与normal独立。
+4. `Rendering/Metal/SceneLitImageLayerPipeline.swift`：同一payload携带map fullUV/sampler/component状态和emission值；同target-aware边界处理可选map；同draw绑定texture2。
+5. `Rendering/Composition/SceneLitImageLayer.metal`：一次sample、MR输入选择、一次emission贡献；复用现辐射存储策略。
+6. `Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift`：现plain/source capture传递同payload/map。
+7. `Rendering/Graph/SceneGraphResourcePassEncoder.swift`：现graph source capture传递同payload/map。
+8. `Format/SceneDocumentObject.swift`：在现typed instance常量投影加入emissivecolor/brightness，按实际维数保留，不读取帧raw。
+9. `Format/SceneDocument.swift`：现startupValuePaths provenance按这两个key贯通instance；有效已解析值或原resolver合法保留fallback才有启动成功身份，不能看值是否改变来猜。
+
+不需扩 candidate/loader/registry/FrameProvider：`SceneTextureSampling.rawFlags` 已保留header，animated candidate复制它，publication.sameAtom单独比较rawFlags；physical/mapped/UV/sampler/epoch/purpose同属现candidate。`.mask`为现有load purpose，content为`.data`，source channels保留，无sRGB或alpha预乘。逐帧只有typed状态解析/bitmask选择和uniform打包，不文件IO、JSON解析、编译/建图、完整hash或新增资源缓存。
+
+### 启动属性及真实样本上限
+
+literal material常量已由catalog保留；literal/已解析静态instance值沿上述两Format owner接入。未解析 script/Timeline/user wrapper只关emission并给有界原因，不能将raw fallback冒充已解析默认。
+
+Universe 的 **material文件** brightness wrapper未经 scene-root resolver处理；现material属性compiler以staticModelPath为准入。本片不借2D新特判读其raw value，也不为凑样本数建立第二属性通路。若独立追踪发现已有2D合法typed当前值producer可复用，再报完整owner、单独补设计；否则本批明确它的configured emission未闭合。公开的默认1不能绕过明确wrapper。
+
+真实验证先选3662790108中的sun-4/sun-1两项：保留原material/scene作者内容，在隔离副本运行，确认header只有emissive、MR scalar/default仍在、literal/defaultemission进入输出。保存原/后源码App/input身份、图层source/组件状态、completion/terminal/nextframe与可辨ROI；其它效果或既有失败单独归因。未改变LIGHTING的两项reflection-only样本不是本批受益对象。官方blackbox未运行；有本机输出不等于官方parity。
+
+### Failure、预算和新增guard的实际producer
+
+- 缺图/坏TEX/loader拒绝：现catalog unavailable。局部MR fallback+无emission，合法normal与健康邻层继续；不重试另一路图。
+- 非法path：既有VFS identity拒绝该map；不能扩大到整个scene。
+- headerless/冲突/非0或1combos：真实PNG、作者显式0/1/其它Int与TEX flags是producer；在prepared意图/typedmetadata边界裁决，不按像素扫描。
+- format/UV/sampler unsupported：真实loader可产出RG/signed/不支持border等形态，继承canonical binding验证和该片格式范围，拒该map。
+- stale/identity/purpose/epoch/range：现registry/publication/binding拒绝最小unsafe candidate；不要再加无可达producer的requestidentity/purpose重复检查。
+- target别名/foreigndevice：最终target-aware验证拒map，保留安全scalar/normal；若albedo/target自身unsafe，原整层capture拒绝保持。这类map故障门须标API注入，不假称普通asset自然复现。
+- 预算：沿现shared decode/resource预算、upload queue、catalog持有与释放；同path同purpose需求Set去重，不建PBR cache。decode-cache预算仅管可重建bytes，拒绝cache准入仍允许合法加载，不能误改为整资源失败；应检查rejection增加而cache resident不增、释放回基线。真正GPU allocation由现SceneResourceBudget/SceneResourceAllocation先reserve，配额不足则不allocate并局部MRfallback/emission0。独立harness可预备target/邻层，再精确预留shared剩余配额，用fresh loader加载未缓存source证明拒绝；defer释放所注入额度，重试成功且最终占用回原基线。该证据是配额账本注入，不称物理OOM或自然内存耗尽。data over-cap不借color resample隐藏失败。
+- emission坏常量/wrapper：真实typed ShaderValue/实例作者输入是producer，仅关闭emission，不让默认值掩盖明确错误。
+
+### 纠正门与交付门
+
+**先红。** 用冻结F2 App和自有TEX RGBA+header：保持灯/normal/scalar，其它条件不变，仅改Metallic或Roughness map；另用黑ambient/无灯的emissive-only图证明旧输出无响应。输入、独立预期、原App/test身份先冻结，不能把旧scalar red当map red。
+
+**CPU/typed。** 真实parser/profile/launch需求：两个builtin、LIGHTING0/custom/multipass、各combo0/1/缺省/冲突、单component/全zero/map-onlyemissive/headerless、静态instanceasset和literal常量、null继承、合法startupproof与未解析/非法wrapper、合法0/非法类型/负数/不可表达数。补明确对照：pass slot2 typed user加instance静态path、同例instance usertextures空数组都维持MRfallback/emission0；没有pass provider且instance全nil则静态准入；其它槽provider不阻断slot2。离散purpose/slot/metadata必须exact。只断行为，不源码字符串。
+
+**实际GPU。** 自有RGBA8及BC1/2/3解码channel blocks，R/G/A单变量与毒化其它分量；map替代scalar和zero值；samepath color/data用途分离、透明RGB及错误sRGB差分；独立double BRDF oracle和无灯emission oracle，不放宽上批方向/HDR容差。各alpha0/.25/1、largebrightness、极小coverage/tint、no-lights、normal反向、健康peer。map独立fullUV非零origin且与albedo/normal取不同块，nearest/linear给精确预期；actual FrameProvider同texture换frame、discard/retry/epoch和metadata变化；missing/corrupt/unsupported/alias/foreigndevice分别回安全结果。cache拒绝但合法加载与真实GPU配额拒绝/释放分别验证，不以手造nil替代。
+
+**实际App最小集。** plain MR两个独立单变量，nonidentity effect MR；无灯emissive0/1/2、彩色、effect；emissive-only保持MR fallback；instance不同map/静态常量；动画map ready/after；missing/corrupt保normal/邻层；两个sun原作者材料的隔离代表运行。CPU/GPU/App脚本与产品先freeze，运行中不改模块；每门有实际completion/publication/terminal/nextframe，ROI配独立oracle。Universe只报告已知输入限制，不冒称第三个绿色收益。
+
+复用 `test_scene_pbr_scalar.py`、base-material-profile门、lit/normal实际harness及graph capture邻接；新增聚合`test_scene_authored_pbr_map.py`适合清晰承载新loader/component/App门。按实际ABI/source-list失败半径选择现模块；checkpoint Debug build、code-health、scene-defense、design-gate；精确产品/test/Appmanifest交独立终审，不以build或module选择计划当完成。
+
+### 退役与剩余
+
+本片独审通过、所有实际纠正门达标并窄提交后，删除对应MR+静态emissive窄gate登记，稳定owner合同归现架构，执行身份/红绿/上限归历史记录。退休的是当前“slot2无prepareddata consumer/静态emissive无输出”断点，不退休官方parity、完整LIGHTING/REFLECTION gate、reflection环境资源、Universe材料动态属性或其它未验证格式。没有未消费的futurepayload、wrapper或临时旁路留给下一批。
+
 ## fallback / route
 
 按 feature 精确降级：normal map 不可用时可走已声明 flat-normal；可选 shadow/reflection 缺失保留已验证直射与 base material；完整 lighting shader 失败保留安全 unlit base current，并报告局部 miss。非法 GPU range、预算或 stale light/target hard reject 最小 unsafe unit。`prefer-generic` 只选一条 material 输出，完成后 `generic-only`。

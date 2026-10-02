@@ -18,7 +18,7 @@ class ScenePBRScalarTests(unittest.TestCase):
         start=support.index('enum SceneUserPropertyValue {}');end=support.index('struct ScenePkgExtractionReport')
         support=support[:start]+support[end:]
         support+=r'''
-enum SceneTextureLoadPurpose { case normal }
+enum SceneTextureLoadPurpose { case normal, mask }
 struct SceneAssetTextureIdentity: Hashable, Sendable {
     init?(virtualPath:String,purpose:SceneTextureLoadPurpose) {}
 }
@@ -88,7 +88,7 @@ struct SceneRenderDescriptor {
         let decoded = try JSONDecoder().decode(SceneDocument.SceneLayerMaterialInstance.self,from:encoded)
         precondition(decoded == a)
         let malformed=SceneDocument.SceneLayerMaterialInstance.parse(["constantshadervalues":NSNull()])!
-        precondition(malformed.scalarShaderValues?.count == 2)
+        precondition(malformed.scalarShaderValues?.count == 4)
         precondition(malformed.scalarShaderValues!.values.allSatisfy { $0.components == nil })
         let dynamic=SceneDocument.SceneLayerMaterialInstance.parse(["constantshadervalues":["roughness":["value":0.2,"script":"export function update(v){return v;}"]]])!
         precondition(dynamic.scalarShaderValues?["roughness"]?.scriptSource != nil)

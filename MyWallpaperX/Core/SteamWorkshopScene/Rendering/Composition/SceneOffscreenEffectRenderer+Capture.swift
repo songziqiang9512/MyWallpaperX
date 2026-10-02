@@ -37,6 +37,7 @@ enum SceneOffscreenEffectRenderer {
             sourceLighting.pipeline.drawLayer(
                 texture: sourceTexture,
                 normalTexture: sourceLighting.normalTexture,
+                materialMapTexture: sourceLighting.materialMapTexture,
                 mvp: fullTargetMVP,
                 uniforms: sourceUniforms,
                 litPayload: sourceLighting.lights,

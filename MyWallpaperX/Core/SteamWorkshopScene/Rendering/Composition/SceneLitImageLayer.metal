@@ -58,6 +58,10 @@ struct SceneLitImageLayerLightPayload {
     uint4 normalSamplingEncoding;
     float4 material;
     float4 view;
+    float4 mapFrame0;
+    float4 mapFrame1;
+    uint4 mapSamplingComponents;
+    float4 emission;
 };
 
 // Texture-frame affine transform uses the common source uniform ABI.
@@ -165,6 +169,7 @@ fragment float4 sceneLitImageLayerFrag(
     SceneImageLayerVaryings input [[stage_in]],
     texture2d<float> sourceTexture [[texture(0)]],
     texture2d<float> normalTexture [[texture(1)]],
+    texture2d<float> materialMapTexture [[texture(2)]],
     constant SceneImageLayerFragmentUniforms &uniforms [[buffer(0)]],
     constant SceneLitImageLayerLightPayload &payload [[buffer(1)]]
 ) {
@@ -219,6 +224,23 @@ fragment float4 sceneLitImageLayerFrag(
     const float4 local = float4(input.texcoord.x - 0.5, 0.5 - input.texcoord.y, 0, 1);
     const float3 world = (payload.modelMatrix * local).xyz;
     const bool hasNormal = payload.ambientHasNormal.w != 0.0;
+    float4 material = payload.material;
+    float4 mapped = float4(0.0);
+    const uint components = payload.mapSamplingComponents.y;
+    if (components != 0u) {
+        const float2 localUV = clamp(input.texcoord, 0.0, 1.0);
+        const float2 mapUV = payload.mapFrame0.xy
+            + localUV.x * payload.mapFrame0.zw + localUV.y * payload.mapFrame1.xy;
+        switch (payload.mapSamplingComponents.x) {
+        case 1u: mapped = materialMapTexture.sample(linearRepeatSampler, mapUV); break;
+        case 2u: mapped = materialMapTexture.sample(nearestClampSampler, mapUV); break;
+        case 3u: mapped = materialMapTexture.sample(nearestRepeatSampler, mapUV); break;
+        default: mapped = materialMapTexture.sample(linearClampSampler, mapUV); break;
+        }
+        if ((components & 1u) != 0u) material.x = mapped.r;
+        if ((components & 2u) != 0u) material.y = mapped.g;
+    }
+
     float3 normal = float3(0.0, 0.0, 1.0);
     if (hasNormal) {
         const float2 normalLocalUV = clamp(input.texcoord, 0.0, 1.0);
@@ -297,7 +319,7 @@ fragment float4 sceneLitImageLayerFrag(
         }
         const float3 towardLight = sceneLitDirection(delta);
         radiance = min(float3(65504.0), radiance + sceneLitDirect(normal, view,
-            towardLight, color, payload.material, pointColor[index].rgb,
+            towardLight, color, material, pointColor[index].rgb,
             pointColor[index].w, falloff, uniforms.tint.rgb, uniforms.alpha));
     }
     for (int index = 0; index < 4; index++) {
@@ -324,10 +346,18 @@ fragment float4 sceneLitImageLayerFrag(
         }
         const float3 towardLight = sceneLitDirection(delta);
         radiance = min(float3(65504.0), radiance + sceneLitDirect(normal, view,
-            towardLight, color, payload.material, spotColorIntensity[index].rgb,
+            towardLight, color, material, spotColorIntensity[index].rgb,
             spotColorIntensity[index].w, falloff * cone, uniforms.tint.rgb, uniforms.alpha));
     }
 
-    // Multiply RGB only: alpha, coverage and premultiplied edges stay exact.
+    if ((components & 8u) != 0u) {
+        for (uint channel = 0; channel < 3; ++channel) {
+            const float emission = sceneLitStoredTerm(mapped.a, payload.emission.w,
+                payload.emission[channel], 1.0, color.a, uniforms.tint[channel], uniforms.alpha);
+            radiance[channel] = min(65504.0, radiance[channel] + emission);
+        }
+    }
+
+    // Emission and lighting share coverage; neither changes alpha.
     return float4(radiance, color.a * uniforms.tint.a * uniforms.alpha);
 }

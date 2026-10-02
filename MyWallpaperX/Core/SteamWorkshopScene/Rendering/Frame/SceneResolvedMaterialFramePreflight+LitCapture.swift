@@ -58,7 +58,7 @@ extension SceneMetalRenderer {
         guard let litPipeline = pipelineRepository.litImageLayer else {
             return .miss(.pipelineUnavailable)
         }
-        let normal: SceneBaseMaterialLitCapturePayload.NormalInput
+        let normal: SceneBaseMaterialLitCapturePayload.TextureInput
         switch profile.normalSource {
         case let .asset(asset):
             let identity = SceneFrameTextureIdentity.asset(asset)
@@ -66,6 +66,14 @@ extension SceneMetalRenderer {
         case .disabled: normal = .disabled
         case .unsupported: normal = .unsupported
         case .invalid: normal = .invalid
+        }
+        let materialMap: SceneBaseMaterialLitCapturePayload.TextureInput
+        switch profile.mapSource {
+        case let .asset(asset):
+            materialMap = .resolve(textureRegistry.lookup(.asset(asset)), kind: .materialMap)
+        case .disabled: materialMap = .disabled
+        case .unsupported: materialMap = .unsupported
+        case .invalid: materialMap = .invalid
         }
         let lights = SceneBaseMaterialLitCapturePayload.packLights(
             pointLights: snapshot.point.map { light in
@@ -102,7 +110,11 @@ extension SceneMetalRenderer {
         guard let payload = SceneBaseMaterialLitCapturePayload(
             pipeline: litPipeline,
             lights: lights,
-            normal: normal
+            normal: normal,
+            materialMap: materialMap,
+            mapAllowedComponents: profile.mapAllowedComponents,
+            mapRequiredComponents: profile.mapRequiredComponents,
+            emission: profile.emission
         ) else { return .miss(.payloadInvalid) }
         return .payload(payload)
     }

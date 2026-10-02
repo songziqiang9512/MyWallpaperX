@@ -191,6 +191,7 @@ final class SceneGraphResourcePassEncoder {
             sourceLighting.pipeline.drawLayer(
                 texture: source,
                 normalTexture: sourceLighting.normalTexture,
+                materialMapTexture: sourceLighting.materialMapTexture,
                 mvp: Self.fullTargetMVP,
                 uniforms: uniforms,
                 litPayload: sourceLighting.lights,

@@ -55,7 +55,7 @@ enum Harness {
         _ device: MTLDevice, _ queue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline, lit: SceneLitImageLayerPipeline,
         payload: SceneLitImageLayerLightPayload?, normal: MTLTexture? = nil,
-        normalInput: SceneBaseMaterialLitCapturePayload.NormalInput? = nil
+        normalInput: SceneBaseMaterialLitCapturePayload.TextureInput? = nil
     ) -> [Float] {
         let source = texture(device, fill: albedo)
         let captured = texture(device)

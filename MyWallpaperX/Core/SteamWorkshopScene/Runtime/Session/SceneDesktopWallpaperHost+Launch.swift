@@ -485,10 +485,10 @@ extension SceneDesktopWallpaperHost {
                     model.sceneDocument.materialInstancesByLayerID,
                 scriptBindings: model.sceneDocument.scriptBindings
             )
-        let normalDemands = Set(baseMaterialProviderBindings.lightingProfileByLayerID.values
-            .compactMap(\.normalAsset))
+        let lightingDemands = Set(baseMaterialProviderBindings.lightingProfileByLayerID.values
+            .flatMap { [$0.normalAsset, $0.mapAsset].compactMap { $0 } })
         let materialAssetCatalog = SceneMaterialAssetTextureCatalog(
-            demands: resolvedMaterialCatalog.assetDemands.union(normalDemands),
+            demands: resolvedMaterialCatalog.assetDemands.union(lightingDemands),
             resourceView: model.resourceView,
             descriptor: runtimeInput.renderDescriptor,
             textureUploadCommandQueue: textureUploadCommandQueue,

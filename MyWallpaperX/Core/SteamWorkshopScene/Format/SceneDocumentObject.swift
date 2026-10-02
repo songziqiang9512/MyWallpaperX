@@ -61,7 +61,7 @@ extension SceneDocument {
                     || (root.keys.contains("usertextures") && userTextureValues == nil)
                     || (root.keys.contains("combos") && comboValues == nil)
                     || (root.keys.contains("id") && root["id"] as? Int == nil),
-                scalarShaderValues: ["metallic", "roughness"].reduce(into: [:]) { values, key in
+                scalarShaderValues: ["metallic", "roughness", "emissivecolor", "emissivebrightness"].reduce(into: [:]) { values, key in
                     guard let declaration = root["constantshadervalues"] else { return }
                     if let constants = declaration as? [String: Any] {
                         guard let raw = constants[key] else { return }

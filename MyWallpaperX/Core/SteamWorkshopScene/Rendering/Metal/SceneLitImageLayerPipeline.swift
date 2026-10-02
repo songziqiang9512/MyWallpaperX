@@ -42,6 +42,11 @@ struct SceneLitImageLayerLightPayload {
     var material = SIMD4<Float>.zero
     /// xyz = perspective eye (w=1) or orthographic toward-viewer (w=0).
     var view = SIMD4<Float>(0, 0, 1, 0)
+    var mapFrame0 = SIMD4<Float>(0, 0, 1, 0)
+    var mapFrame1 = SIMD4<Float>(0, 1, 0, 0)
+    /// x = sampler; y = enabled component bits (metal/rough/emission).
+    var mapSamplingComponents = SIMD4<UInt32>.zero
+    var emission = SIMD4<Float>.zero
 }
 
 /// One claimed layer's lit base-capture request. Built by the frame
@@ -66,29 +71,31 @@ struct SceneBaseMaterialLitCapturePayload {
         let outerConeCosine: Float
     }
 
-    enum NormalInput {
+    enum TextureInput {
+        enum Kind { case normal, materialMap }
         case disabled, unavailable, invalid, unsupported
         case ready(SceneTextureSlotBinding, encoding: UInt32)
 
-        static func resolve(_ lookup: SceneFrameTextureLookupStatus?) -> Self {
+        static func resolve(_ lookup: SceneFrameTextureLookupStatus?, kind: Kind = .normal) -> Self {
             switch lookup {
-            case let .ready(resource): resolve(resource.publication.candidate)
+            case let .ready(resource): resolve(resource.publication.candidate, kind: kind)
             case .incomplete: .invalid
             case .absent, .pending, .unavailable, nil: .unavailable
             }
         }
 
-        static func resolve(_ candidate: SceneTextureCandidate) -> Self {
-            guard let binding = SceneTextureSlotBinding(slotIndex: 1, candidate: candidate)
+        static func resolve(_ candidate: SceneTextureCandidate, kind: Kind = .normal) -> Self {
+            guard let binding = SceneTextureSlotBinding(slotIndex: kind == .normal ? 1 : 2, candidate: candidate)
             else { return .invalid }
             guard candidate.materialProgramUVTransform() != nil,
                   candidate.sampling.isResolvedForMaterialProgram,
                   !candidate.sampling.usesClampBorderFallback else { return .unsupported }
+            if kind == .materialMap && candidate.sampling.rawFlags == nil { return .unsupported }
             let encoding: UInt32
             switch binding.pixelFormat {
             case .rgba8Unorm, .bc1_rgba, .bc2_rgba, .bc3_rgba: encoding = 0
-            case .rg8Unorm: encoding = 1
-            case .bc5_rgSnorm: encoding = 2
+            case .rg8Unorm where kind == .normal: encoding = 1
+            case .bc5_rgSnorm where kind == .normal: encoding = 2
             default: return .unsupported
             }
             return .ready(binding, encoding: encoding)
@@ -106,31 +113,42 @@ struct SceneBaseMaterialLitCapturePayload {
     }
 
     private static let diagnosticLock = NSLock()
-    private static var reportedNormalStates = Set<String>()
-    private static func report(_ normal: NormalInput) {
-        guard normal.status != "ready", normal.status != "disabled" else { return }
+    private static var reportedTextureStates = Set<String>()
+    private static func report(status: String, role: String) {
+        guard status != "ready", status != "disabled" else { return }
         diagnosticLock.lock()
         defer { diagnosticLock.unlock() }
-        guard reportedNormalStates.insert(normal.status).inserted else { return }
-        NSLog("MWX SCENE: schema=base-material-normal status=%@ fallback=flat-lit", normal.status)
+        guard reportedTextureStates.insert(role + ":" + status).inserted else { return }
+        NSLog("MWX SCENE: schema=base-material-%@ status=%@ fallback=%@", role, status, role == "normal" ? "flat-lit" : "scalar-no-emission")
     }
 
     let pipeline: SceneLitImageLayerPipeline
     let lights: SceneLitImageLayerLightPayload
-    let normal: NormalInput
+    let normal: TextureInput
+    let materialMap: TextureInput
     var normalTexture: MTLTexture? {
         guard case let .ready(binding, _) = normal else { return nil }
+        return binding.texture
+    }
+
+    var materialMapTexture: MTLTexture? {
+        guard case let .ready(binding, _) = materialMap else { return nil }
         return binding.texture
     }
 
     init?(
         pipeline: SceneLitImageLayerPipeline,
         lights: SceneLitImageLayerLightPayload,
-        normal: NormalInput
+        normal: TextureInput,
+        materialMap: TextureInput = .disabled,
+        mapAllowedComponents: UInt32 = 0,
+        mapRequiredComponents: UInt32 = 0,
+        emission: SIMD4<Float>? = nil
     ) {
         guard lights.isFinite else { return nil }
         self.pipeline = pipeline
         self.normal = normal
+        self.materialMap = materialMap
         var packed = lights
         packed.ambientHasNormal.w = 0
         if case let .ready(binding, encoding) = normal {
@@ -140,8 +158,22 @@ struct SceneBaseMaterialLitCapturePayload {
             packed.normalFrame1 = SIMD4(uv.yAxis.x, uv.yAxis.y, 0, 0)
             packed.normalSamplingEncoding = SIMD4(binding.sampling.imageLayerUniformMode, encoding, 0, 0)
         }
+        packed.mapSamplingComponents = .zero
+        packed.emission = emission ?? .zero
+        if case let .ready(binding, _) = materialMap {
+            let header = ((binding.sampling.rawFlags ?? 0) >> 20) & 15
+            let enabled = header & mapAllowedComponents & (emission == nil ? 3 : 11)
+            let uv = binding.uvTransform
+            packed.mapFrame0 = SIMD4(uv.origin.x, uv.origin.y, uv.xAxis.x, uv.xAxis.y)
+            packed.mapFrame1 = SIMD4(uv.yAxis.x, uv.yAxis.y, 0, 0)
+            packed.mapSamplingComponents = SIMD4(binding.sampling.imageLayerUniformMode, enabled, 0, 0)
+            if mapRequiredComponents & ~header != 0 {
+                Self.report(status: "component-unavailable", role: "map")
+            }
+        }
         self.lights = packed
-        Self.report(normal)
+        Self.report(status: normal.status, role: "normal")
+        Self.report(status: materialMap.status, role: "map")
     }
 
     /// A bad normal is rejected independently of a legal capture target. The
@@ -149,12 +181,18 @@ struct SceneBaseMaterialLitCapturePayload {
     func validated(for target: MTLTexture) -> Self? {
         guard target.pixelFormat == pipeline.pixelFormat,
               pipeline.state.device.registryID == target.device.registryID else { return nil }
-        guard let texture = normalTexture else { return self }
-        guard texture.device.registryID == target.device.registryID,
-              texture !== target else {
-            return Self(pipeline: pipeline, lights: lights, normal: .invalid)
+        func compatible(_ texture: MTLTexture?) -> Bool {
+            guard let texture else { return true }
+            return texture.device.registryID == target.device.registryID && texture !== target
         }
-        return self
+        let normalValid = compatible(normalTexture)
+        let mapValid = compatible(materialMapTexture)
+        if normalValid && mapValid { return self }
+        return Self(pipeline: pipeline, lights: lights,
+            normal: normalValid ? normal : .invalid,
+            materialMap: mapValid ? materialMap : .invalid,
+            mapAllowedComponents: lights.mapSamplingComponents.y,
+            emission: lights.emission)
     }
 
     /// Position maps the unit quad into world space. Direction uses the authored
@@ -244,6 +282,7 @@ private extension SceneLitImageLayerLightPayload {
             modelMatrix.columns.2, modelMatrix.columns.3,
             normalBasis.columns.0, normalBasis.columns.1,
             normalBasis.columns.2, normalBasis.columns.3, material, view,
+            mapFrame0, mapFrame1, emission,
         ].allSatisfy(sceneLitIsFinite)
     }
 }
@@ -287,6 +326,7 @@ final class SceneLitImageLayerPipeline {
     func drawLayer(
         texture: MTLTexture,
         normalTexture: MTLTexture?,
+        materialMapTexture: MTLTexture? = nil,
         mvp: simd_float4x4,
         uniforms: SceneLayerFragmentUniforms,
         litPayload: SceneLitImageLayerLightPayload,
@@ -312,6 +352,7 @@ final class SceneLitImageLayerPipeline {
         )
         encoder.setFragmentTexture(texture, index: 0)
         encoder.setFragmentTexture(normalTexture ?? texture, index: 1)
+        encoder.setFragmentTexture(materialMapTexture ?? texture, index: 2)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
     }

@@ -36,6 +36,7 @@ struct SceneEffectTextureInput: Equatable {
 enum SceneTextureLoadPurpose: Hashable {
     case premultipliedColor
     case normal
+    case mask
 }
 enum SceneTextureProviderIdentity: Hashable {
     case mediaThumbnailCurrent

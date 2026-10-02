@@ -43,7 +43,7 @@ import simd
         let position=SIMD3<Float>(4,3,5)
         let point=Capture.PointLight(position:position,color:SIMD3(repeating:1),intensity:1,radius:100)
         let lights=Capture.packLights(pointLights:[point],spotLights:[],ambient:.zero,material:SIMD2(0.5,0.5),view:SIMD4(0,0,1,0),layerModelMatrix:model,normalModelMatrix:model)!
-        func render(_ normal:Capture.NormalInput) -> [Float] {
+        func render(_ normal:Capture.TextureInput) -> [Float] {
             Harness.render(device,queue,pipeline:pipeline,lit:lit,payload:lights,normalInput:normal)
         }
         var cases=0, maxError:Float=0
@@ -105,7 +105,7 @@ import simd
         let srgb=device.makeTexture(descriptor:srgbDescriptor)!
         let srgbBytes=Array(repeating:[UInt8(230),128,204,255],count:16).flatMap{$0}
         srgbBytes.withUnsafeBytes { srgb.replace(region:MTLRegionMake2D(0,0,4,4),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:16) }
-        let srgbInput=Capture.NormalInput.resolve(Harness.candidate(srgb))
+        let srgbInput=Capture.TextureInput.resolve(Harness.candidate(srgb))
         // Small BC1/2/3 files exercise the actual loader's RGBA decode route.
         // The same parsed blocks also exercise its native uploader contract.
         var nativeBCResults:[Bool]=[]
@@ -118,7 +118,7 @@ import simd
             check(render(.resolve(candidate)),simd_normalize(SIMD3<Float>(132.0/255*2-1,130.0/255*2-1,-1)))
             let container=loader.texContainer(from:directory.appendingPathComponent("bc\(format).tex"))!
             guard case let .loaded(native)=SceneCompressedTextureUploader.uploadNativeImage(container.images[0],pixelFormat:pixelFormat,device:device) else { fatalError("native BC upload") }
-            let value=sample(native),input=Capture.NormalInput.resolve(Harness.candidate(native))
+            let value=sample(native),input=Capture.TextureInput.resolve(Harness.candidate(native))
             let pixels=render(input)
             nativeBCResults.append(input.status == "ready" && abs(value.x-0.52)<0.02
                 && abs(value.y-0.51)<0.02 && value.z == 0
@@ -131,13 +131,13 @@ import simd
         let c=candidates[1]
         let publication=SceneTextureProviderPublication(requestIdentity:identity,candidate:c,contentGeneration:1)
         registry.set(publication,for:identity)
-        let ready=Capture.NormalInput.resolve(registry.lookup(identity))
+        let ready=Capture.TextureInput.resolve(registry.lookup(identity))
         let bad=SceneTextureProviderPublication(requestIdentity:identity,candidate:copy(c,size:CGSize(width:8,height:4)),contentGeneration:2)
         registry.set(bad,for:identity)
-        let invalid=Capture.NormalInput.resolve(registry.lookup(identity))
-        let missing=Capture.NormalInput.resolve(Optional<SceneFrameTextureLookupStatus>.none)
+        let invalid=Capture.TextureInput.resolve(registry.lookup(identity))
+        let missing=Capture.TextureInput.resolve(Optional<SceneFrameTextureLookupStatus>.none)
         registry.set(.init(requestIdentity:identity,candidate:copy(c,purpose:.flow),contentGeneration:3),for:identity)
-        let wrongPurpose=Capture.NormalInput.resolve(registry.lookup(identity))
+        let wrongPurpose=Capture.TextureInput.resolve(registry.lookup(identity))
         // Two frames share one physical atlas, but publish a different full UV atom.
         let atlas=try load("atlas",tex(format:0,width:8,height:4,bytes:(0..<32).flatMap { index in
             index % 8 < 4 ? [UInt8(230),128,204,255] : [25,128,204,255]
@@ -250,7 +250,7 @@ import simd
             "badPhysicalRangeRejected":invalid.status == "invalid" && render(invalid) == flat,
             "wrongPurposeRejected":wrongPurpose.status == "invalid" && render(wrongPurpose) == flat,
             "missingIsFlatLit":missing.status == "unavailable" && render(missing) == flat,
-            "unsupportedIsFlatLit":Capture.NormalInput.resolve(unsupported).status == "unsupported" && render(.resolve(unsupported)) == flat,
+            "unsupportedIsFlatLit":Capture.TextureInput.resolve(unsupported).status == "unsupported" && render(.resolve(unsupported)) == flat,
             "sameTextureDifferentFrame":first.texture === second.texture && frameA != frameB && frameA == frameARestored,
             "ownSampler":sampledLinear != sampledNearest,
             "exactUVAndSamplerOracle":uvOracleErrors.allSatisfy { $0 < 0.002 },

@@ -98,7 +98,7 @@ class SceneAuthoredNormalIntegrationTests(unittest.TestCase):
                    corrupt=False, effect=False, animated=False, instance=False, slot2=False,
                    encoding='rgb', render_size=64, parent_transform=None, shader='genericimage2',
                    scalar_values=None, instance_scalar=None, light_origin='180 48 100', intensity=1.5,
-                   native_camera=None, layer_perspective=None, no_normal=False, reflection=0, property_defaults=None, instance_base_size=(4,4), instance_base_animated=False, same_model_peer=False, instance_base_failure=None):
+                   native_camera=None, layer_perspective=None, no_normal=False, reflection=0, property_defaults=None, instance_base_size=(4,4), instance_base_animated=False, same_model_peer=False, instance_base_failure=None, pbr_map=None, no_lights=False):
         import hashlib, struct, zlib, shutil
         from script.tests.test_scene_pkg_cache_extractor import make_package
         from script.web_benchmark_capture import png_rgb_pixels
@@ -121,12 +121,13 @@ class SceneAuthoredNormalIntegrationTests(unittest.TestCase):
             for origin in (0,4):normaldata+=struct.pack('<If6f',0,2.5,origin,0,4,0,0,4)
         receiver={'id':1,'name':'Normal receiver','image':'models/receiver.json','origin':'80 48 0','size':(f'{render_size[0]} {render_size[1]}' if isinstance(render_size,tuple) else f'{render_size} {render_size}')}
         if instance: receiver['instance']={'textures':['materials/instance.tex' if instance_base_animated else 'materials/instance.png',None]}
-        if instance_scalar is not None: receiver['instance']={'constantshadervalues':instance_scalar}
+        if instance_scalar is not None: receiver.setdefault('instance',{})['constantshadervalues']=instance_scalar
         if layer_perspective is not None: receiver['perspective']=layer_perspective
         if effect: receiver['effects']=[{'id':10,'file':'effects/own_dim/effect.json','visible':True}]
         scene={'version':3,'general':{'orthogonalprojection':{'width':160,'height':96},'clearcolor':'0 0 0','ambientcolor':'0 0 0','skylightcolor':'0 0 0'},'objects':[receiver,
             {'id':2,'light':'lpoint','origin':light_origin,'color':'1 1 1','intensity':intensity,'radius':1000},
             {'id':99,'name':'Healthy peer','image':'models/util/solidlayer.json','origin':'140 80 0','size':'12 12','color':'0 1 0'}]}
+        if no_lights:scene['objects']=[o for o in scene['objects'] if o['id']!=2]
         if same_model_peer:
             scene['objects'].append({'id':3,'name':'Same model inherited peer','image':'models/receiver.json','origin':'20 48 0','size':'16 16'})
         if native_camera:
@@ -154,6 +155,26 @@ class SceneAuthoredNormalIntegrationTests(unittest.TestCase):
             else:entries['materials/instance.png']=png((64,64,64),instance_base_size)
         if instance_base_failure == 'missing':entries.pop('materials/instance.png',None)
         if instance_base_failure == 'corrupt':entries['materials/instance.png']=b'corrupt selected asset'
+        if pbr_map is not None:
+            material=json.loads(entries['materials/receiver.json']);p=material['passes'][0]
+            p['textures']=(p['textures']+[None]*3)[:3];p['textures'][2]='materials/pbr.tex'
+            p['combos'].update(pbr_map.get('combos',{}))
+            entries['materials/receiver.json']=json.dumps(material).encode()
+            data=tex(0,4,4,bytes(pbr_map['rgba'])*16,pbr_map['flags'])
+            if pbr_map.get('animated'):
+                payload=b''.join(bytes(pbr_map['rgba'] if i%8<4 else pbr_map['next_rgba']) for i in range(32))
+                data=tex(0,8,4,payload,pbr_map['flags']|4)+b'TEXS0002\0'+struct.pack('<I',2)
+                for origin in (0,4):data+=struct.pack('<If6f',0,2.5,origin,0,4,0,0,4)
+            entries['materials/pbr.tex']=data
+            if pbr_map.get('headerless'):
+                p['textures'][2]='materials/map-headerless.png';entries[p['textures'][2]]=png(pbr_map['rgba'][:3])
+                entries['materials/receiver.json']=json.dumps(material).encode()
+            if pbr_map.get('missing'):entries.pop('materials/pbr.tex')
+            if pbr_map.get('corrupt'):entries['materials/pbr.tex']=b'corrupt map'
+            if 'instance_rgba' in pbr_map:
+                receiver.setdefault('instance',{})['textures']=[None,None,'materials/instance-map.tex']
+                entries['materials/instance-map.tex']=tex(0,4,4,bytes(pbr_map['instance_rgba'])*16,pbr_map['flags'])
+                entries['scene.json']=json.dumps(scene).encode()
         if not missing: entries[normalpath]=b'corrupt' if corrupt else normaldata
         with tempfile.TemporaryDirectory(prefix='mwx-normal-app-') as temporary:
             root=Path(temporary);content=root/'content';content.mkdir();home=root/'home';home.mkdir();evidence=root/'evidence'

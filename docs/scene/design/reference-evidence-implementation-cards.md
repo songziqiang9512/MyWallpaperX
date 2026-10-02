@@ -119,15 +119,27 @@ HDR clear=false 的 raw/candidate/display 分离、GPU成功提升、paused新ep
 
 **实施前事实与首断点（1548aad4，2026-10-02）。** `Resources/Assets/SceneAssetCatalog.swift:233–238`和`Runtime/Frame/SceneRenderDescriptor.swift:264–276`仍保留slot2、combos与shader values；`Compilation/Material/SceneBaseMaterialLightingProfile.swift:36–55`只消费LIGHTING/NORMALMAP/slot1，是普通builtin PBR语义的首断点。`Rendering/Composition/SceneLitImageLayer.metal`已有世界位置、normal和point/spot，尚无PBR/view参数。以上路径以`MyWallpaperX/Core/SteamWorkshopScene/`为前缀，实施前重核。合法corpus已有LIGHTING=1且slot2非空的作者材料，但尚不能据声明称受益。
 
-**先补输入，再自主实现。** [PBR中性交接](../../history/scene/d3-pbr-input-neutral-contract-2026-10-02.md)已定各tier的metallic/roughness键与default、map空用slider及场景灯的LIGHTING合同。没有slot2仍须消费声明default，不能另造PBR总开关。标量/default已沿同一lit producer落实，真实App缺响应反例及独立数值、启动用户属性与normal回归见[本片执行记录](../../history/scene/d3-pbr-scalar-implementation-2026-10-02.md)；此结果不代表slot2已实现。PBRMASKS组件index到stored channel、map与scalar组合继续从固定参考职责与官方作者实验补证，未经审查不猜RGBA。只缺某个动态/reset分支时限制该分支，不冻结明确静态输入。
+**先补输入，再自主实现。** [PBR中性交接](../../history/scene/d3-pbr-input-neutral-contract-2026-10-02.md)已定各tier的metallic/roughness键与default、map空用slider及场景灯的LIGHTING合同。没有slot2仍须消费声明default，不能另造PBR总开关。标量/default已沿同一lit producer落实，真实App缺响应反例及独立数值、启动用户属性与normal回归见[本片执行记录](../../history/scene/d3-pbr-scalar-implementation-2026-10-02.md)；此结果不代表slot2已实现。[v6/v7中性增量](../../history/scene/d3-pbr-map-input-neutral-contract-2026-10-02.md)已通过隔离审查，区分component presence、逻辑R/G/A选择与第三方采样保持。F3按D3设计同时接入MR贴图和静态自发光，共享一次slot2采样，两个sun作者材料已通过有界贡献消融；F3已沿九个既有owner接通，通过独立数值、资源、冻结App及真实材料贡献消融验收；实际红绿、身份与最终结论只见[执行记录](../../history/scene/d3-pbr-map-emission-implementation-2026-10-02.md)。显式combo/header冲突及headerless采用明确项目保守分支，官方动态parity仍未运行。Universe材料用户属性另追原owner，不能把raw fallback冒称已解析；只限制具体未决分支。
 
-**最近纠正门。** 普通instance静态slot0漏接已在Layer准备与共享path resolver纠正，真实不同灰底图、normal继承、同model隔离、动画下一帧及缺坏资源局部失败通过实际App；冻结身份与证据见[本片记录](../../history/scene/d3-instance-base-texture-implementation-2026-10-02.md)。由稳定架构接管该责任，接续slot2输入补证与同一lit producer的贴图消费，不另建provider/loader。
+**最近纠正门。** 普通instance静态slot0漏接已在Layer准备与共享path resolver纠正，真实不同灰底图、normal继承、同model隔离、动画下一帧及缺坏资源局部失败通过实际App；冻结身份与证据见[本片记录](../../history/scene/d3-instance-base-texture-implementation-2026-10-02.md)。F2底图与F3贴图消费职责均由稳定架构接管，不另建provider/loader。
 
 **owner与失败路。** prepared material profile拥有有效feature与需求；现cache/catalog/registry拥有数据纹理、逐槽frame与生命周期；同帧camera/light与lit producer拥有方向/材质响应。缺可选PBR资源只移除未可用的map输入，沿设计使用合法scalar/default并保留normal/alpha；identity/range/hazard仍拒最小unsafe unit，不能新建PBR registry、camera或compositor。
 
-**备选与边界。** 明确typed环境输入的reflection-only是第一备选；现sameFrameSceneBackground是作者顺序前缀颜色、单mip资源，不是已有环境反射合同。真实REFLECTION=1/LIGHTING=0的两包保留后继，不能改作者LIGHTING后声称原样本恢复。第二备选为既有direct-static 3D有界PBR，须独立核该model家族输入，不照搬2D slot2。环境来源、reset和额外动态provider不作为直射片的无限前置。
+**备选与边界。** 明确typed环境输入的reflection-only是第一备选；现sameFrameSceneBackground是作者顺序前缀颜色、单mip资源，不是已有环境反射合同。真实REFLECTION=1/LIGHTING=0的两包保留后继，不能改作者LIGHTING后声称原样本恢复。第二备选为既有direct-static 3D有界PBR，须独立核该model家族输入，不照搬2D slot2。环境来源、reset和额外动态provider不作为直射片的无限前置。RF11首帧预算片后继续已知Universe材料属性断点：现`SceneStaticModelMaterialPropertyBindingCompiler`只收staticModel，`Host+LiveConsumers`只准已准备model，2D lit profile亦未消费materialConstant快照。下一片先核精确作者wrapper及原属性owner，设计每层身份、启动/更新/回滚与局部失败，再把用户brightness等合法结果送现lit consumer；不在profile直接求值raw，不为此另建属性通路。真实sun完整包的共同既有首帧预算断点已移交RF11优先处理。
 
 **纠正门/退役。** 先建立实际缺响应反例；逐通道自写阶梯、固定灯与normal，检查独立分量、粗糙度高光范围、相机/灯移动、作者开关和无串通道。slot2独立frame/sampler、同路径color/data、下一帧更新、缺图局部退化与健康邻层均过实际消费门；plain/effect到terminal有身份、completion、publication与ROI。真实作者材料另做隔离回归，不能以自有oracle宣称官方PBR。设计、实现和独立终审闭合后移交稳定owner，继续环境反射与有合法caster/depth的阴影。
+
+<a id="rf11-frame-target-budget"></a>
+
+### RF11 — 真实复杂场景的首帧目标预算（F3后继优先）
+
+**目标与当前事实。** 3662790108完整作者包在F3冻结App中完成准备后反复遭`frame-target-byte-budget-exceeded`，未取得GPU完成帧；精确输入、预算与进程结果见[F3执行记录](../../history/scene/d3-pbr-map-emission-implementation-2026-10-02.md)。旧F2在相同输入与单surface配置、同一宿主显示环境、预算与runner下也复现相同required/budget/residents及无完成帧；完整包未产生PNG，实际drawable尺寸未直接记录；本次是共同既有首帧断点，不能归为F3新增退化，也不证明预算本身错误。下一批优先处理这个真实输出阻断，再继续2D材料属性与环境反射。
+
+**owner与首问。** `Rendering/Targets/SceneOffscreenTextureFramePreflight.swift:223–240`负责总需求拒绝，`SceneOffscreenTextureAllocationCache.swift:25`拥有池预算，`SceneOffscreenTexturePool+PersistentGraphTargets.swift:164–167`负责实际resident/plans投影（路径相对`MyWallpaperX/Core/SteamWorkshopScene/`）。下一批先区分真实不可约需求、重复计费、可顺序复用的target及不必要的consumer需求；无证据不能直接涨预算或按样本删效果。若涉及唯一graph/resource生命周期，先补设计与门禁登记再改产品。
+
+**fallback与纠正门。** 保持unsafe target不能绑定、旧安全输出保全；拟改变局部视觉失败路线时必须明示最小拒绝单位，不能静默吞整层。保存新旧完整包失败现场；先用自有有界输入建立反例，验证真实lease/预算/共享复用/history/completion/resize/next-frame及健康邻层，再回同身份原场景验证。只取得首帧不宣称完整视觉parity，准备耗时单独记录而不把一次timeout当性能回归。
+
+**退役。** 首断点在通用owner中消除、全场输出及安全反例通过独审后，稳定合同移交架构，执行证据归历史；不为单个样本留下特殊target分支。
 
 ## 3. 全部59项去向
 

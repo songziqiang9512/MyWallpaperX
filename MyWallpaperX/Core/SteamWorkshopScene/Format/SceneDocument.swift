@@ -123,7 +123,7 @@ struct SceneDocumentLoader {
                 authoredRoot: authoredObjects.indices.contains(index)
                     ? authoredObjects[index]
                     : object,
-                startupMaterialScalarKeys: Set(["metallic", "roughness"].filter { key in
+                startupMaterialScalarKeys: Set(["metallic", "roughness", "emissivecolor", "emissivebrightness"].filter { key in
                     propertyResolution.startupValuePaths.contains(.init(components: [
                         .key("objects"), .index(index), .key("instance"),
                         .key("constantshadervalues"), .key(key)
