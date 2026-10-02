@@ -145,6 +145,28 @@
       ]
     },
     {
+      "path": "docs/history/scene/d1-composition-neutral-contract-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/design/composition-render-target-design.md",
+        "docs/scene/scene-compatibility-roadmap.md",
+        "docs/scene/semantics/source-index.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/d1-composition-source-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/scene-compatibility-roadmap.md",
+        "docs/scene/design/composition-render-target-design.md",
+        "docs/scene/design/runtime-architecture.md"
+      ]
+    },
+    {
       "path": "docs/history/scene/d2-d3-bounded-output-implementation-2026-10-02.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",

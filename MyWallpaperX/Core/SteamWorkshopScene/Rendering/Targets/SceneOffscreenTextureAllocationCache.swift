@@ -80,7 +80,11 @@ final class SceneOffscreenTextureAllocationCache {
         var access = accessCounter
         let protected = Set(candidates.map(\.key)).union(protectedKeys)
         for candidate in candidates {
-            next.removeValue(forKey: .current(candidate.key))
+            let previous = next.removeValue(forKey: .current(candidate.key))
+            if case .compositionGroup = candidate.key,
+               let previous, previous.isPinned {
+                next[.retired(previous.allocation.generation)] = previous
+            }
             guard !next.values.contains(where: {
                 $0.allocation.generation == candidate.allocation.generation
             }) else { return nil }
@@ -181,7 +185,7 @@ extension SceneOffscreenTextureAllocationCache {
             entry.sceneColorPins.remove(identity)
             residents.removeValue(forKey: key)
             switch key {
-            case .current(.layerGraph), .current(.sharedGraphPair), .current(.sceneColor), .current(.composition):
+            case .current(.layerGraph), .current(.sharedGraphPair), .current(.sceneColor), .current(.composition), .current(.compositionGroup):
                 residents[key] = entry
             case .history(let graphKey, _):
                 if let history = entry.historyOnlyEntry() {

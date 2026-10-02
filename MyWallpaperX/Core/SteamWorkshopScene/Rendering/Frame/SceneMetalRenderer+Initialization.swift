@@ -77,9 +77,26 @@ extension SceneMetalRenderer {
             device: device
         )
         self.dependencyRuntime = dependencyRuntime
+        let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
+            in: renderDescriptor,
+            dependencyPlan: dependencyRuntime.plan,
+            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
+        )
+        let capturesByTrigger = Dictionary(grouping:
+            utilityPlans.values.filter(\.shouldCapture), by: \.triggerLayerID)
+        let capturedLayerIDs = Set(utilityPlans.values.filter(\.shouldCapture).map(\.layerID))
+        // Graph transactions follow the existing utility trigger schedule:
+        // members complete before their root; nested roots consume inner first.
+        let executionLayerIDs = renderDescriptor.renderOrderLayerIDs.flatMap { layerID in
+            let roots = (capturesByTrigger[layerID] ?? []).sorted {
+                ($0.isolatedGroupMembers?.count ?? 0)
+                    < ($1.isolatedGroupMembers?.count ?? 0)
+            }.map(\.layerID)
+            return (capturedLayerIDs.contains(layerID) ? [] : [layerID]) + roots
+        }
         let preparationLayerIDs = dependencyRuntime
             .resolvedMaterialPreparationOrder(
-                authoredLayerIDs: renderDescriptor.renderOrderLayerIDs
+                authoredLayerIDs: executionLayerIDs
             )
         let byID = Dictionary(
             uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) }
@@ -97,11 +114,6 @@ extension SceneMetalRenderer {
             descriptor: renderDescriptor,
             layersByID: byID
         )
-        let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
-            in: renderDescriptor,
-            dependencyPlan: dependencyRuntime.plan,
-            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
-        )
         self.utilityPlansByTriggerLayerID = Dictionary(
             grouping: utilityPlans.values.filter(\.shouldCapture),
             by: \.triggerLayerID
@@ -118,6 +130,9 @@ extension SceneMetalRenderer {
             compositionGroupMembership.memberRootsByLayerID
         self.compositionGroupMembersByRootID =
             compositionGroupMembership.membersByRootID
+        self.compositionGroupRootIDs = executionLayerIDs.filter {
+            compositionGroupMembership.membersByRootID[$0] != nil
+        }
         let worldFramesByLayerID = SceneLayerWorldFrameResolver.compute(
             descriptor: renderDescriptor,
             byID: byID

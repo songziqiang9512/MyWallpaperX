@@ -22,7 +22,8 @@ extension SceneMetalRenderer {
         parallaxConfiguration: SceneLayerParallax.Configuration,
         mainTarget: MTLTexture,
         commandBuffer: MTLCommandBuffer,
-        frameLightSnapshot: SceneLightSnapshot? = nil
+        frameLightSnapshot: SceneLightSnapshot? = nil,
+        compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil
     ) -> SceneMetalRenderer.ResolvedMaterialFrameAdmission {
         // Source selection is frame-scoped: provider readiness and authored
         // fallback state are refreshed above, then shared by the single
@@ -44,7 +45,8 @@ extension SceneMetalRenderer {
             mainTarget: mainTarget,
             commandBuffer: commandBuffer,
             baseMaterialSelections: &baseMaterialSelections,
-            frameLightSnapshot: frameLightSnapshot
+            frameLightSnapshot: frameLightSnapshot,
+            compositionGroupRuntime: compositionGroupRuntime
         ) {
         case let .ready(plans, localFallbacks, preparationRequests):
             guard imageCompositor.installResolvedMaterialFrameLocalFallbacks(

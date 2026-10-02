@@ -178,78 +178,6 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertIn("audioSpectrum: audioSpectrum", utility_renderer)
         self.assertIn("audioSpectrum: frameContext.audioSpectrum", metal_renderer)
 
-    def test_resolved_utility_uses_the_current_main_target_and_frame_plan(self) -> None:
-        runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")
-        source_route = SOURCE_ROUTE_SOURCE.read_text(encoding="utf-8")
-        source_coverage = SOURCE_COVERAGE_SOURCE.read_text(encoding="utf-8")
-        preflight = FRAME_PREFLIGHT_SOURCE.read_text(encoding="utf-8")
-        coordinator = SUBMISSION_COORDINATOR_SOURCE.read_text(encoding="utf-8")
-        effect_execution = EFFECT_EXECUTION_SOURCE.read_text(encoding="utf-8")
-        frame_renderer = UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
-        utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
-
-        self.assertIn("resolvedMaterialLayerIDs.contains(layer.id)", runtime_plan)
-        self.assertIn(
-            "SceneUtilityLayerSourceRoute.resolve(",
-            runtime_plan,
-        )
-        self.assertIn("triggerLayerID: sourceRoute?.triggerLayerID", runtime_plan)
-        self.assertIn("order.first == layer.id", source_route)
-        self.assertIn("Set(orderedSubtree) == subtreeIDs", source_route)
-        self.assertIn("hasImplicitOpaqueCompositionAlpha(layer)", source_route)
-        self.assertIn("layer.alpha == nil", source_route)
-        self.assertIn("$0.host == .alpha", source_route)
-        self.assertIn('$0.host == "alpha"', source_route)
-        self.assertIn(".color(.resolved(.opaque))", source_coverage)
-        self.assertIn(
-            "isAxisAlignedFullViewportCoverage(",
-            source_coverage,
-        )
-        self.assertIn(
-            "utility-composition-subtree-source-coverage-unavailable",
-            preflight,
-        )
-        self.assertIn(
-            "utility-composition-subtree-source-coverage-unavailable",
-            coordinator,
-        )
-        self.assertIn(
-            "resolvedMaterialFrameTargetPlans[$0.layerID] != nil",
-            effect_execution,
-        )
-        self.assertIn(
-            r"by: \.triggerLayerID",
-            METAL_RENDERER_INITIALIZATION_SOURCE.read_text(encoding="utf-8"),
-        )
-        self.assertIn("case .capturedMainTargetTexture:", preflight)
-        # One resolve per layer since the sizing/preparation double walk
-        # collapsed into a single pass.
-        self.assertEqual(
-            preflight.count("SceneUtilityLayerSourceRoute.resolve("),
-            1,
-        )
-        self.assertIn("sourceTexture = mainTarget", preflight)
-        self.assertIn("textureFrame = geometry.sourceUV", preflight)
-        self.assertIn("outputMVP = geometry.outputMVP", preflight)
-        self.assertIn("case .emittedOutputGeometry:", preflight)
-        self.assertIn("outputMVP", preflight)
-        self.assertEqual(
-            preflight.count("modelViewProjection: effectProjectionMVP"),
-            2,
-        )
-        self.assertIn(
-            "resolvedMaterialFrameTargetPlans: [",
-            effect_execution + frame_renderer,
-        )
-        self.assertIn(
-            "resolvedMaterialFrameTargetPlans[layer.id]",
-            frame_renderer,
-        )
-        self.assertIn(
-            "resolvedMaterialFrameTargetPlan:",
-            utility_renderer,
-        )
-
     def test_resolved_utility_dependency_keeps_full_frame_closed_and_consumes_once(
         self,
     ) -> None:
@@ -287,17 +215,6 @@ class SceneUtilityLayerTests(unittest.TestCase):
             "($0.slotIndex==3&&$0.blendMode==0)",
             compact_compositor,
         )
-
-    def test_captured_main_accepts_exact_authored_filter_programs(self) -> None:
-        conservation = CAPTURED_MAIN_SOURCE_CONSERVATION.read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("exactGraphReferences(", conservation)
-        self.assertIn("variant.graphInputSourceSlotFacts", conservation)
-        self.assertIn("activeSourceBinding.texture == effect.input", conservation)
-        self.assertIn("return .sourceConsumer(slot: sourceSlot)", conservation)
-        self.assertIn("target == effect.output", conservation)
-        self.assertNotIn("capturedMainColorSourceSlot", conservation)
 
     def test_utility_has_no_legacy_authored_route_or_telemetry(self) -> None:
         utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")

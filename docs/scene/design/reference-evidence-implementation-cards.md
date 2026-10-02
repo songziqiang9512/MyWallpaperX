@@ -97,7 +97,7 @@ HDR clear=false 的 raw/candidate/display 分离、GPU成功提升、paused新ep
 
 **当前事实。** 2026-10-02公开[RGB composition说明](https://docs.wallpaperengine.io/en/scene/rgb/introduction.html#extra-notes-on-composition-layers)描述采集下方全部层，如场景相机；现parser只保留utility两flag及独立parent，没有已识别的isolated字段。`SceneUtilityLayerSourceRoute.swift:36,199–223,265–273`才将parent后代升级为私有target成员，且改变触发位置。现有isolated代码、旧设计和3226487183都不能作为该语义正确的证明。
 
-**实施/备选。** 先在已核身份的Windows官方客户端用自有composition区分below非child/above child是否入源，校准GUI层序与JSON方向，再核真实copybackground/passthrough控件、区域与无effect行为。顺序的父slot/末child候选必须以已证采集域为前提。定案后更新D1并批准实施；保留正确capture owner，删除错误parent→membership分派，只有明确作者隔离profile才实现group scope。prepared与实际encode必须消费同一source，资源clear/extent/lease不变量不能证明隔离语义。
+**实施/备选。** 已从固定参考项目提炼[中性合同](../../history/scene/d1-composition-neutral-contract-2026-10-02.md)。D1资源窄片已修正group key/尺寸准入、prepare与实际source错配，以及组内无子层composition的写回目标/同trigger执行序；真实反例、冻结App与clear/resize/completion结果见[执行记录](../../history/scene/d1-composition-source-implementation-2026-10-02.md)，稳定资源合同由架构§3.3接管。成员/flag仍用有可见effect正控制的官方自有输入区分below非child/above child、copybackground缺省/false/true；仅确认的profile才改变source route。资源修复不升级为官方隔离语义。
 
 **纠正门/退役。** 自写parent单变量、非child颜色、区域内外、child自身effect、root无effect及模式切换；实际source→effect→publication→terminal→next-frame与ROI，相称resize/迟到completion门，普通帧prepare次数不增长。真实样本只作回归；行为合同与实现闭合、无依据路撤权后交稳定架构并退役。
 

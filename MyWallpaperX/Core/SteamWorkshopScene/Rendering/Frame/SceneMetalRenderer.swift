@@ -23,11 +23,10 @@ struct SceneMetalRenderer {
     let lightLayerIDs: [Int]
     let utilityPlansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
     let utilityCaptureLayerIDs: Set<Int>
-    /// D1 composition groups: nearest admitted group root per layer and the
-    /// ordered member list per group root. Both are launch-scoped facts of
-    /// the render descriptor; frame-local group passes are built per frame.
+    /// Prepared group membership and execution order; passes remain frame-local.
     let compositionGroupMemberRootsByLayerID: [Int: Int]
     let compositionGroupMembersByRootID: [Int: [Int]]
+    let compositionGroupRootIDs: [Int]
     let effectAdmissionCatalog: SceneEffectAdmissionCatalog
     let baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram
     let staticModelResources: ScenePreparedStaticModelResources
@@ -147,6 +146,8 @@ struct SceneMetalRenderer {
                 }
             }
         }
+        var compositionGroupRuntime: SceneCompositionGroupFrameRuntime?
+        defer { if !didTransferFrameOwnership { compositionGroupRuntime?.cancel() } }
         if sceneColor?.requiresDraw != false {
         performanceTelemetry?.beginStage("source-update")
         let hubSourceUpdateStart = ProcessInfo.processInfo.systemUptime
@@ -209,6 +210,27 @@ struct SceneMetalRenderer {
             && !frameLightSnapshot.point.isEmpty
         var pointLitStaticModelLayerIDs: [Int] = []
 #endif
+        performanceTelemetry?.beginStage("prepass-encoder")
+        let mainPass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: mainTarget,
+            clearColor: sceneClearColor,
+            clearEnabled: frameDescriptor.camera.clearEnabled || (sceneColor != nil && sceneColor?.previous == nil)
+        )
+        performanceTelemetry?.endStage("prepass-encoder")
+        if let offscreenTexturePool,
+           !compositionGroupMemberRootsByLayerID.isEmpty {
+            compositionGroupRuntime = SceneCompositionGroupFrameRuntime(
+                parentPass: mainPass,
+                commandBuffer: commandBuffer,
+                offscreenTexturePool: offscreenTexturePool,
+                memberRootsByLayerID: compositionGroupMemberRootsByLayerID,
+                membersByRootID: compositionGroupMembersByRootID,
+                viewportSize: viewportSize
+            )
+        }
+        compositionGroupRuntime?.reserveSources(
+            orderedRootIDs: compositionGroupRootIDs, visibleLayerIDs: frameVisibleLayerIDs)
         performanceTelemetry?.beginStage("frame-admission")
         let hubFrameAdmissionStart = ProcessInfo.processInfo.systemUptime
         let resolvedMaterialFrameAdmission = admitResolvedMaterialFrameTargets(
@@ -229,7 +251,8 @@ struct SceneMetalRenderer {
             parallaxConfiguration: parallaxConfiguration,
             mainTarget: mainTarget,
             commandBuffer: commandBuffer,
-            frameLightSnapshot: frameLightSnapshot
+            frameLightSnapshot: frameLightSnapshot,
+            compositionGroupRuntime: compositionGroupRuntime
         )
         performanceTelemetry?.endStage("frame-admission")
         hubStage(.frameAdmissionMicros, hubFrameAdmissionStart)
@@ -257,31 +280,6 @@ struct SceneMetalRenderer {
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
         performanceTelemetry?.endStage("prepass-particles")
         var stopsAfterClaimedFailure = false
-        performanceTelemetry?.beginStage("prepass-encoder")
-        let mainPass = SceneMainPassEncoder(
-            commandBuffer: commandBuffer,
-            target: mainTarget,
-            clearColor: sceneClearColor,
-            clearEnabled: frameDescriptor.camera.clearEnabled || (sceneColor != nil && sceneColor?.previous == nil)
-        )
-        performanceTelemetry?.endStage("prepass-encoder")
-        // D1 composition groups: frame-local isolated group passes. Members
-        // encode into their group target; allocation failure degrades the
-        // whole group to previous-current (members skipped, no leak).
-        let compositionGroupRuntime: SceneCompositionGroupFrameRuntime?
-        if let offscreenTexturePool,
-           !compositionGroupMemberRootsByLayerID.isEmpty {
-            compositionGroupRuntime = SceneCompositionGroupFrameRuntime(
-                parentPass: mainPass,
-                commandBuffer: commandBuffer,
-                offscreenTexturePool: offscreenTexturePool,
-                memberRootsByLayerID: compositionGroupMemberRootsByLayerID,
-                membersByRootID: compositionGroupMembersByRootID,
-                viewportSize: viewportSize
-            )
-        } else {
-            compositionGroupRuntime = nil
-        }
         var lastLayerPass: SceneMainPassEncoder?
         var forwardGraphProviderLayerIDs: Set<Int> = []
         if let imagePipeline {
@@ -973,6 +971,7 @@ struct SceneMetalRenderer {
                 )
             }
             performanceTelemetry?.recordSubmitted(on: commandBuffer)
+            compositionGroupRuntime?.arm()
             sourceUpdateTransaction.arm(on: commandBuffer)
             frameDepthLeases.forEach { $0.arm(on: commandBuffer) }
             commandBuffer.commit()
@@ -980,6 +979,7 @@ struct SceneMetalRenderer {
         }, cancel: {
             imageCompositor.cancelUnsubmittedResolvedMaterialFrame(on: commandBuffer)
             sourceUpdateTransaction.cancel()
+            compositionGroupRuntime?.cancel()
             frameDepthLeases.forEach { $0.cancel() }
             particleBatches.forEach {
                 _ = $0.instanceBuffer.cancelUncommittedSubmission(on: commandBuffer)

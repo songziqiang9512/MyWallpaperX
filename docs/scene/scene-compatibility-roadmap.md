@@ -120,7 +120,7 @@ tracked full matrix 扩为全集 identity-only 基线。历史期待先分成有
 3. 可独立闭合者中，优先实际受阻样本多、受阻下游广、官方合同明确、改动半径小的项；列受益集合与代价，不只按 occurrence 高频排序。
 4. 两次实验均未移动首断点或减少工作量时，重新定位 producer-to-consumer 边，不继续微调同一形状 matcher。
 
-2026-10-02 的参考证据派生批次见[实施卡与59项去向](design/reference-evidence-implementation-cards.md)：D2/D3有界首片、RF01 shader-default、RF05诊断导出、RF03限定粒子四方法及连续排放扩展、RF07 raw/display分离均已有独立验收，冻结事实只在各执行记录保存。RF05 初始隐藏 provider 的资源准备及普通可见图片准入已完成八项App门；途中发现的合法三候选输入阻断首帧问题已按局部失败合同修复并独立验收，D1首轮官方实验未取得效果启闭正控制，冻结边界见[实验记录](../history/scene/d1-composition-membership-attempt-2026-10-02.md)。D1成员语义保留待定案；D4/D11显式数量发射已完成调用期输入、真实出生事务及最终App验证，冻结范围见[执行记录](../history/scene/rf03-explicit-particle-emission-implementation-2026-10-02.md)，已获独立终审ACCEPT并按职责提交。下一主能力片为D1 prepared/encoded实际source一致性，不将未定成员语义扩大为资源正确性整体冻结。其余既有能力按具体组合反例推进。RF02新增Translation/Rotation及RF04隐式mip须准确consumer语义证据，不因第三方报告标记gap重写已有owner。
+2026-10-02 的参考证据派生批次见[实施卡与59项去向](design/reference-evidence-implementation-cards.md)：D2/D3有界首片、RF01 shader-default、RF05诊断导出、RF03限定粒子四方法及连续排放扩展、RF07 raw/display分离均已有独立验收，冻结事实只在各执行记录保存。RF05 初始隐藏 provider 的资源准备及普通可见图片准入已完成八项App门；途中发现的合法三候选输入阻断首帧问题已按局部失败合同修复并独立验收，D1首轮官方实验未取得效果启闭正控制，冻结边界见[实验记录](../history/scene/d1-composition-membership-attempt-2026-10-02.md)。D1成员语义保留待定案；D4/D11显式数量发射已完成调用期输入、真实出生事务及最终App验证，冻结范围见[执行记录](../history/scene/rf03-explicit-particle-emission-implementation-2026-10-02.md)，已获独立终审ACCEPT并按职责提交。D1 prepared/encoded实际source资源窄片亦已完成真实输出门和产品终审，冻结范围见[执行记录](../history/scene/d1-composition-source-implementation-2026-10-02.md)。下一主能力片为D3作者normal输入至既有受光producer，不将未定官方算法或成员语义扩大为整项能力冻结。其余既有能力按具体组合反例推进。RF02新增Translation/Rotation及RF04隐式mip须准确consumer语义证据，不因第三方报告标记gap重写已有owner。
 
 #### Batch 2 后继选序（2026-10-02）
 
@@ -133,9 +133,9 @@ tracked full matrix 扩为全集 identity-only 基线。历史期待先分成有
 | 已验收、按职责提交 | [optional/named 未支持组合的失败半径](design/runtime-architecture.md#33-保留事务安全不扩大视觉失败半径) | 同一原失败输入已恢复首帧与next-frame，effect保留入口、邻层正常、exact-two仍执行；冻结证据见[执行记录](../history/scene/rf05-optional-named-failure-implementation-2026-10-02.md)。不扩三候选支持，下一批D1。 |
 | 官方取证待续 | D1 composition 实际采集与效果输出 | 旧parent后代=隔离成员的方案已撤回。先从既有官方研究/参考报告提取采集、group target和生命周期中性合同，自有正反例约束我方独立实现；关键成员/flag分支仍不明才补固定官方黑盒，不以缺方法或像素golden整体跳过；沿现役source/graph/lease/compositor修真实断点，删除无依据分派。没有明确作者隔离模式则不扩group target。自写正反例→隔离样本，source/extent/颜色/失败/resize随实际profile闭合。 |
 | 并行证据、就绪后接续 | RF02 companion 与 RF04 mip | 使用现有 Windows VM 核官方客户端身份，执行自有可区分黑盒输入；结果限定 profile 后实现反射→typed值→真实 sampler 或 source version→snapshot→consumer。不能按名称猜值，也不能无限期停在待证；每轮记录具体实验与下一可执行动作。 |
-| 已验收、按职责提交 | D4/D11 显式 emitParticles | 真实出生、全surface事务、native预算和调用期输入已贯通；最终17项App门通过，范围及既有失败见[执行记录](../history/scene/rf03-explicit-particle-emission-implementation-2026-10-02.md)。现有pointer force测试分歧先单独归因；未开放默认数量/children/reset。 |
-| 下一主能力批（已选择） | D1 prepared/encoded source 一致性 | 将新中性交接落库并批准窄设计；真实两色source与非identity effect先证prepare绑定main而encode要求另一source的反例，再修既有graph/lease/compositor。工作空间、clear、resize、completion按同一source生命周期验收。成员/flag不明分支继续有界研究，不复制参考算法，不以缺官方像素golden跳过已明确的不变量。 |
-| 后续画质能力 | D3 材质 normal 接收与 PBR，再阴影 | 先取得实际作者 map slot/purpose/坐标合同，落 normal-light 可见响应，再 metallic/roughness 及有合法 caster/depth 输入的阴影；每片跨材质/灯光/姿态反例独立验收。不能凭首片 diffuse 声称完整 PBR。 |
+| 已验收、按职责提交 | D4/D11 显式 emitParticles | 真实出生、全surface事务、native预算和调用期输入已贯通；最终17项App门通过，范围及既有失败见[执行记录](../history/scene/rf03-explicit-particle-emission-implementation-2026-10-02.md)。未开放默认数量/children/reset。 |
+| 已验收、按职责提交 | D1 目标准入与prepared/encoded source 一致性 | 真实pool与错源像素反例已修复；终审发现的组内childless composition也已沿同一pass/执行序闭合。冻结App、资源寿命和测试边界见[执行记录](../history/scene/d1-composition-source-implementation-2026-10-02.md)。成员/flag仍由D1设计继续定案，下一批D3。 |
+| 下一主能力片 | D3 材质 normal 接收与 PBR，再阴影 | 中性交接已确认genericimage2/4零基slot1为normal、slot2为PBR。先设计并贯通作者binding→data-purpose需求/加载→同帧typed candidate→现役lit consumer；独立定义和验证RGB及可证明存储编码的两通道方向处理，每槽保留frame身份，不以未知私有数学停工。再推进metallic/roughness与有合法caster/depth输入的阴影；不得把有界normal自有门扩大为官方PBR/atlas兼容。 |
 | 输出扩展 | D2 可选 EDR | SDR 与 raw-history 已有基础；核屏幕 headroom、窗口迁移、系统能力和可测亮度后开放 EDR。无测量条件保留正确 SDR，证据不足不优先扩大输出风险。 |
 
 D8 的单点准入随 RF02/RF04 和 D1 的真实名字/用途需求收敛；D12 的已有 authored copy/link/postprocess 路径做版本与生命周期验收，仅缺失 mip profile另实施。D9 的 App 唯一 policy 与 D10 的 frame gate 已存在，按实际反例修复，不为追随第三方创建额外 throttle 状态、时钟或重试算法。D5 跨源回包、D7 下载失败可见性属于 Web/App 队列，保留设计并在 Scene 上述高收益能力后单独复核实施；D6 私有 MediaRemote 默认不启用，先产品分发/合规裁决，不能以“全部做完”为由绕过设计限制。

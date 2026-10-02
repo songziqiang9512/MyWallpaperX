@@ -282,6 +282,8 @@ final class SceneCompositionGroupFrameRuntime {
     private var passesByRootID: [Int: SceneMainPassEncoder] = [:]
     private var texturesByRootID: [Int: MTLTexture] = [:]
     private var degradedRootIDs: Set<Int> = []
+    private var sourcePins: [SceneGraphRenderTargetResidencyPin] = []
+    private let resetEpoch: UUID
 
     init(
         parentPass: SceneMainPassEncoder,
@@ -297,6 +299,47 @@ final class SceneCompositionGroupFrameRuntime {
         self.memberRootsByLayerID = memberRootsByLayerID
         self.membersByRootID = membersByRootID
         self.viewportSize = viewportSize
+        self.resetEpoch = offscreenTexturePool.sceneColorResetEpoch
+    }
+
+    /// Reserve the selected sources before graph preparation. No encoder is
+    /// created until the layer loop writes or consumes a source.
+    func reserveSources(orderedRootIDs: [Int], visibleLayerIDs: Set<Int>) {
+        for rootID in orderedRootIDs {
+            if visibleLayerIDs.contains(rootID) {
+                _ = renderPass(forRootID: rootID)
+            } else {
+                degradedRootIDs.insert(rootID)
+            }
+        }
+    }
+
+    func sourceIsAvailable(forLayerID layerID: Int) -> Bool {
+        var current: Int? = membersByRootID[layerID] == nil
+            ? memberRootsByLayerID[layerID] : layerID
+        while let rootID = current {
+            if degradedRootIDs.contains(rootID) { return false }
+            current = memberRootsByLayerID[rootID]
+        }
+        return true
+    }
+
+    func preparedSource(forLayerID layerID: Int, mainTarget: MTLTexture) -> MTLTexture? {
+        guard sourceIsAvailable(forLayerID: layerID) else { return nil }
+        let rootID = membersByRootID[layerID] == nil
+            ? memberRootsByLayerID[layerID] : layerID
+        return rootID.flatMap { texturesByRootID[$0] } ?? (rootID == nil ? mainTarget : nil)
+    }
+
+    func cancel() {
+        sourcePins.forEach { $0.release() }
+        sourcePins.removeAll()
+    }
+
+    func arm() {
+        let pins = sourcePins
+        sourcePins.removeAll()
+        commandBuffer.addCompletedHandler { _ in pins.forEach { $0.release() } }
     }
 
     /// Static membership for one render descriptor: every layer maps to its
@@ -349,8 +392,11 @@ final class SceneCompositionGroupFrameRuntime {
     /// The composited output target of one group, creating the group pass on
     /// first use. A freshly created target is transparently cleared.
     func groupTexture(forRootID rootID: Int) -> MTLTexture? {
-        renderPass(forRootID: rootID).map { _ in texturesByRootID[rootID] }
-            ?? nil
+        guard resetEpoch == offscreenTexturePool.sceneColorResetEpoch,
+              sourceIsAvailable(forLayerID: rootID),
+              let pass = passesByRootID[rootID] else { return nil }
+        // A frame with no member draw must still initialize the reused source.
+        return pass.withReadableTarget { texture, _ in texture }
     }
 
     /// The pass a group's single composite must encode into: the nearest
@@ -377,8 +423,9 @@ final class SceneCompositionGroupFrameRuntime {
         guard let target = offscreenTexturePool.compositionGroupTarget(
             layerID: rootID,
             width: width,
-            height: height
-        ), target.texture.width == width, target.texture.height == height else {
+            height: height,
+            commandBuffer: commandBuffer
+        ) else {
             degradedRootIDs.insert(rootID)
             return nil
         }
@@ -390,6 +437,7 @@ final class SceneCompositionGroupFrameRuntime {
         )
         passesByRootID[rootID] = pass
         texturesByRootID[rootID] = target.texture
+        sourcePins.append(target.pin)
         return pass
     }
 }

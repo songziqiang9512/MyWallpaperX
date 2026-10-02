@@ -55,14 +55,13 @@
     },
     {
       "id": "scene-composition-render-target",
-      "title": "composition采集范围、source与目标生命周期",
+      "title": "composition作者采集成员、模式与顺序",
       "owner": "scene-e-route",
       "status": "blocked-pending-design",
       "designDoc": "docs/scene/design/composition-render-target-design.md",
-      "design_notes": "2026-10-02公开composition camera/all-below说明与parent-only隔离假设冲突；先黑盒判采集范围、模式与顺序。旧无条件subtree设计撤回，按designDoc重新裁决后才能实施。",
+      "design_notes": "成员/模式仍待中性行为或有界黑盒定案，旧parent-only隔离语义批准撤回。资源准入、source/destination一致性及生命周期窄片已实施并交runtime-architecture §3.3，窄登记同批退役；SourceRoute仍冻结，不得借修资源扩成员语义。",
       "matchPatterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceRoute.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceRoute.swift"
       ],
       "contentPatterns": [
         "SceneCompositionRenderTarget",

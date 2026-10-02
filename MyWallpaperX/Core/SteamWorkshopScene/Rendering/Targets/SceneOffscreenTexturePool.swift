@@ -133,26 +133,45 @@ final class SceneOffscreenTexturePool {
     func compositionGroupTarget(
         layerID: Int,
         width requestedWidth: Int,
-        height requestedHeight: Int
-    ) -> CompositionTarget? {
-        let (width, height) = SceneOffscreenResolutionPolicy.limitedDimensions(
+        height requestedHeight: Int,
+        commandBuffer: MTLCommandBuffer
+    ) -> (texture: MTLTexture, pin: SceneGraphRenderTargetResidencyPin)? {
+        guard let (width, height) = SceneOffscreenResolutionPolicy.resolvedDimensions(
             width: requestedWidth,
             height: requestedHeight,
-            maximumDimension: SceneOffscreenResolutionPolicy.maximumDimension(
-                hardLimit: maxDimension, includesAuthoredShader: false
-            )
-        )
+            hardLimit: maxDimension,
+            policy: .exactSamplingTexture
+        ) else { return nil }
         let key = CacheKey.compositionGroup(
             layerID: layerID,
             width: width,
             height: height
         )
-        if let cached = allocationCache.allocation(for: key),
-           case .composition(let texture, _) = cached {
-            return CompositionTarget(texture: texture)
+        func pinCurrent() -> (MTLTexture, SceneGraphRenderTargetResidencyPin)? {
+            allocationCache.locked {
+                guard var entry = allocationCache.residents[.current(key)],
+                      !entry.isResetInvalidated,
+                      entry.submissionPins.values.allSatisfy({
+                          $0.orderingContext?.accepts(commandBuffer) == true
+                      }),
+                      case .composition(let texture, let identity) = entry.allocation
+                else { return nil }
+                let pinID = UUID()
+                entry.submissionPins[pinID] = .init(orderingContext:
+                    .init(commandBuffer: commandBuffer))
+                allocationCache.residents[.current(key)] = entry
+                allocationCache.revision = UUID()
+                return (texture, .init(identity: pinID, purpose: .submission,
+                    generation: identity.generation, cache: allocationCache))
+            }
         }
+        if let current = pinCurrent() { return current }
         guard let byteCost = byteCost(width: width, height: height, textureCount: 1),
               byteCost <= residentByteBudget,
+              allocationCache.locked({
+                  var proposed = allocationCache.residents
+                  return allocationCache.evictToFit(&proposed, incomingCost: byteCost)
+              }),
               let texture = makeTexture(
                   width: width,
                   height: height,
@@ -166,7 +185,7 @@ final class SceneOffscreenTexturePool {
             byteCost: byteCost
         )
         guard allocationCache.commit([candidate]) else { return nil }
-        return CompositionTarget(texture: texture)
+        return pinCurrent()
     }
 
     func persistentTargetPlans(

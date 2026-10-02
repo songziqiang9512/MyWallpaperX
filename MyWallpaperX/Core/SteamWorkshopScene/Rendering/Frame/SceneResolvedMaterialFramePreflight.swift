@@ -19,7 +19,8 @@ extension SceneMetalRenderer {
         mainTarget: MTLTexture,
         commandBuffer: MTLCommandBuffer,
         baseMaterialSelections: inout [Int: SceneBaseMaterialTextureSelection],
-        frameLightSnapshot: SceneLightSnapshot? = nil
+        frameLightSnapshot: SceneLightSnapshot? = nil,
+        compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil
     ) -> SceneResolvedMaterialGraphComposition.FramePreflightResult {
         performanceTelemetry?.beginStage("admit-preflight-targets")
         defer { performanceTelemetry?.endStage("admit-preflight-targets") }
@@ -160,6 +161,18 @@ extension SceneMetalRenderer {
                imageTextures.isLayerSourcePending(binding.providerLayerID) {
                 sourceCoverageFallbacks[layer.id] = "layer-source-not-ready"
                 continue
+            }
+            let selectedMainSource: MTLTexture
+            if let compositionGroupRuntime {
+                guard let source = compositionGroupRuntime.preparedSource(
+                    forLayerID: layerID, mainTarget: mainTarget
+                ) else {
+                    graphTargetFallbacks[layerID] = "frame-target-plan-rejected"
+                    continue
+                }
+                selectedMainSource = source
+            } else {
+                selectedMainSource = mainTarget
             }
             let desiredSize: CGSize
             let effectSourceExtentContract = imageTextures.geometryProducts[
@@ -661,7 +674,7 @@ extension SceneMetalRenderer {
                     return invalid("layer-\(layerID)-utility-geometry-invalid")
                 }
                 outputMVP = geometry.outputMVP
-                sourceTexture = mainTarget
+                sourceTexture = selectedMainSource
                 sourceCandidate = nil
                 sourceUsesAuthoredLayerColor = false
                 textureFrame = geometry.sourceUV

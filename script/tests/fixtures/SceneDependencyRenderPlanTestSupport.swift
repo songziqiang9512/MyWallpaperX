@@ -24,6 +24,7 @@ struct SceneUtilityLayer {
     let kind: Kind
 }
 
+#if !SCENE_ACTUAL_COMPOSITION_TARGETS
 struct SceneAuthoredEffectRenderPlan {
     struct EffectKey: Hashable {
         let layerID: Int
@@ -31,6 +32,8 @@ struct SceneAuthoredEffectRenderPlan {
         let descriptorID: String
     }
 }
+
+#endif
 
 struct SceneEffectTextureInput {
     enum Kind: Equatable { case path, system, property, unknown }
@@ -127,11 +130,15 @@ struct SceneUtilityLayerSourceRoute {
 }
 enum SceneBlendModeShaderSource { static let maximumMode = 31 }
 
+#if !SCENE_ACTUAL_COMPOSITION_TARGETS
 // This harness executes planning only. GPU dependencies share the production
 // source file but must never execute through these link-only test doubles.
 final class SceneMainPassEncoder {
     init(commandBuffer: MTLCommandBuffer, target: MTLTexture,
          clearColor: MTLClearColor, clearEnabled: Bool) {
+        fatalError("GPU encoding is outside the dependency planning harness")
+    }
+    func withReadableTarget<Result>(_ operation: (MTLTexture, MTLCommandBuffer) -> Result) -> Result? {
         fatalError("GPU encoding is outside the dependency planning harness")
     }
     func closeForOffscreen() {
@@ -140,8 +147,14 @@ final class SceneMainPassEncoder {
 }
 
 final class SceneOffscreenTexturePool {
-    struct Target { let texture: MTLTexture }
-    func compositionGroupTarget(layerID: Int, width: Int, height: Int) -> Target? {
+    let sceneColorResetEpoch = UUID()
+    struct Target { let texture: MTLTexture; let pin: SceneGraphRenderTargetResidencyPin }
+    func compositionGroupTarget(layerID: Int, width: Int, height: Int, commandBuffer: MTLCommandBuffer) -> Target? {
         fatalError("GPU allocation is outside the dependency planning harness")
     }
 }
+
+final class SceneGraphRenderTargetResidencyPin {
+    func release() { fatalError("GPU pin release is outside the dependency planning harness") }
+}
+#endif

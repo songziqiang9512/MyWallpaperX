@@ -28,17 +28,11 @@ extension SceneMetalRenderer {
             resolvedMaterialFrameTargetPlans[$0.layerID] != nil
         }
         guard !plans.isEmpty else { return true }
-        // D1 嵌套组由内向外准备：同一 trigger 可能同时承载内层与外层组
-        // plan（内层组位于 renderOrder 末尾时，内层最后成员即外层最后
-        // 成员）。utilityPlansByTriggerLayerID 按 Dictionary 哈希序构建，
-        // 顺序不确定；必须按成员集合大小升序（更小的内层组先合成），
-        // 外层 composite 才恒在其全部嵌套内层 composite 之后读取自身
-        // target。键互异（嵌套组内层集合严格小于外层；兄弟组成员集不
-        // 相交、不可能共享 trigger），排序结果确定。legacy plan 无组
-        // 成员，落在最后，其顺序与本排序无关。
+        // A childless capture inside a group executes before its enclosing
+        // group at a shared trigger, just like a smaller nested group.
         let orderedPlans = plans.sorted {
-            ($0.isolatedGroupMembers?.count ?? Int.max)
-                < ($1.isolatedGroupMembers?.count ?? Int.max)
+            ($0.isolatedGroupMembers?.count ?? 0)
+                < ($1.isolatedGroupMembers?.count ?? 0)
         }
         // D1: only one render encoder may be active per command buffer, and a
         // utility composite (legacy capture or group) must encode into the
