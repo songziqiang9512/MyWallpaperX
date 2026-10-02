@@ -135,6 +135,51 @@ float3 sceneShadowCrossMagnitude(float3 a, float3 b) {
     return a.yzx * b.zxy + a.zxy * b.yzx;
 }
 
+struct SceneShadowReceiverPlane {
+    float3 position;
+    float3 normal;
+    float3 normalMagnitude;
+    float height;
+    float heightMagnitude;
+    bool valid;
+};
+
+SceneShadowReceiverPlane sceneShadowReceiverPlane(float3 position, float3 origin,
+    float3x3 basis, float3 worldDX, float3 worldDY) {
+    SceneShadowReceiverPlane result = {};
+    float3 relative = position - origin;
+    float3 q = basis * relative;
+    result.position = q;
+    float3 a = basis * worldDX, b = basis * worldDY;
+    float aScale = max(max(abs(a.x), abs(a.y)), abs(a.z));
+    float bScale = max(max(abs(b.x), abs(b.y)), abs(b.z));
+    // Real edge-on/helper-quad geometry may have no usable screen-plane area.
+    if (aScale == 0.0 || bScale == 0.0) return result;
+    a /= aScale; b /= bScale;
+    float3 n = cross(a, b);
+    float nScale = max(max(abs(n.x), abs(n.y)), abs(n.z));
+    if (nScale == 0.0 || !isfinite(nScale)) return result;
+    n /= nScale;
+    float h = dot(n, q);
+    float3x3 absoluteBasis(abs(basis[0]), abs(basis[1]), abs(basis[2]));
+    // Propagate the actual relative-position, rotation, cross and dot scales.
+    // Eight epsilons is a conservative project margin, not an interpolation
+    // error theorem. The paired near-contact controls constrain its usefulness.
+    float3 qMagnitude = absoluteBasis * (abs(position) + abs(origin) + abs(relative));
+    float3 aMagnitude = absoluteBasis * abs(worldDX) / aScale + abs(a);
+    float3 bMagnitude = absoluteBasis * abs(worldDY) / bScale + abs(b);
+    float3 nMagnitude = (sceneShadowCrossMagnitude(a, b)
+        + sceneShadowCrossMagnitude(aMagnitude, b)
+        + sceneShadowCrossMagnitude(a, bMagnitude)) / nScale + abs(n);
+    float hMagnitude = dot(abs(n), abs(q) + qMagnitude) + dot(nMagnitude, abs(q));
+    result.normal = n;
+    result.normalMagnitude = nMagnitude;
+    result.height = h;
+    result.heightMagnitude = hMagnitude;
+    result.valid = true;
+    return result;
+}
+
 float sceneSpotVisibility(float3 position, float3 worldDX, float3 worldDY,
     depth2d<float> shadow, constant SceneModelShadowUniforms &uniforms) {
     float3x3 basis(uniforms.transform[0].xyz, uniforms.transform[1].xyz, uniforms.transform[2].xyz);
@@ -146,28 +191,11 @@ float sceneSpotVisibility(float3 position, float3 worldDX, float3 worldDY,
     float2 uv = float2(0.5 + q.x / (2.0 * tangent * q.z),
                       0.5 - q.y / (2.0 * tangent * q.z));
     if (any(uv < 0.0) || any(uv > 1.0)) return 1.0;
-    float3 a = basis * worldDX, b = basis * worldDY;
-    float aScale = max(max(abs(a.x), abs(a.y)), abs(a.z));
-    float bScale = max(max(abs(b.x), abs(b.y)), abs(b.z));
-    // Real edge-on/helper-quad geometry may have no usable screen-plane area.
-    if (aScale == 0.0 || bScale == 0.0) return 1.0;
-    a /= aScale; b /= bScale;
-    float3 n = cross(a, b);
-    float nScale = max(max(abs(n.x), abs(n.y)), abs(n.z));
-    if (nScale == 0.0 || !isfinite(nScale)) return 1.0;
-    n /= nScale;
-    float h = dot(n, q);
-    float3x3 absoluteBasis(abs(basis[0]), abs(basis[1]), abs(basis[2]));
-    // Propagate the actual relative-position, rotation, cross and dot scales.
-    // Eight epsilons is a conservative project margin, not an interpolation
-    // error theorem. The paired near-contact controls constrain its usefulness.
-    float3 qMagnitude = absoluteBasis * (abs(position) + abs(uniforms.positionRadius.xyz) + abs(relative));
-    float3 aMagnitude = absoluteBasis * abs(worldDX) / aScale + abs(a);
-    float3 bMagnitude = absoluteBasis * abs(worldDY) / bScale + abs(b);
-    float3 nMagnitude = (sceneShadowCrossMagnitude(a, b)
-        + sceneShadowCrossMagnitude(aMagnitude, b)
-        + sceneShadowCrossMagnitude(a, bMagnitude)) / nScale + abs(n);
-    float hMagnitude = dot(abs(n), abs(q) + qMagnitude) + dot(nMagnitude, abs(q));
+    SceneShadowReceiverPlane plane = sceneShadowReceiverPlane(position,
+        uniforms.positionRadius.xyz, basis, worldDX, worldDY);
+    if (!plane.valid) return 1.0;
+    float3 n = plane.normal, nMagnitude = plane.normalMagnitude;
+    float h = plane.height, hMagnitude = plane.heightMagnitude;
     constexpr sampler shadowSampler(coord::normalized, address::clamp_to_edge,
                                     filter::nearest, compare_func::less_equal);
     float2 extent = float2(shadow.get_width(), shadow.get_height());
@@ -202,6 +230,93 @@ float sceneSpotVisibility(float3 position, float3 worldDX, float3 worldDY,
     return visibility / 9.0;
 }
 
+// Columns map face coordinates to world-relative coordinates. This fixed
+// layout matches the CPU caster bases; ties select X, then Y, then Z.
+constant float3x3 scenePointFaceToWorld[6] = {
+    float3x3(float3(0, 0, -1), float3(0, 1, 0), float3(1, 0, 0)),
+    float3x3(float3(0, 0, 1), float3(0, 1, 0), float3(-1, 0, 0)),
+    float3x3(float3(0, 0, 1), float3(1, 0, 0), float3(0, 1, 0)),
+    float3x3(float3(0, 0, -1), float3(1, 0, 0), float3(0, -1, 0)),
+    float3x3(float3(1, 0, 0), float3(0, 1, 0), float3(0, 0, 1)),
+    float3x3(float3(-1, 0, 0), float3(0, 1, 0), float3(0, 0, -1))
+};
+uint scenePointShadowFace(float3 direction) {
+    float3 magnitude = abs(direction);
+    if (magnitude.x >= magnitude.y && magnitude.x >= magnitude.z) return direction.x >= 0.0 ? 0u : 1u;
+    if (magnitude.y >= magnitude.z) return direction.y >= 0.0 ? 2u : 3u;
+    return direction.z >= 0.0 ? 4u : 5u;
+}
+
+
+float2 scenePointShadowUV(float3 local) {
+    // Exact face ties must stay at 0/1 before floor chooses the nine-tap
+    // footprint; fast reciprocal cancellation can move zero below the face.
+    float2 ratio = precise::divide(local.xy, float2(local.z));
+    return fma(float2(0.5, -0.5), ratio, float2(0.5));
+}
+
+float scenePointVisibility(float3 position, float3 worldDX, float3 worldDY,
+    depth2d<float> shadow, constant SceneModelShadowUniforms &uniforms) {
+    SceneShadowReceiverPlane plane = sceneShadowReceiverPlane(position,
+        uniforms.positionRadius.xyz, float3x3(1.0), worldDX, worldDY);
+    float3 q = plane.position;
+    float radialDistance = length(q), radius = uniforms.positionRadius.w;
+    // A coincident light has zero direct contribution; finite authored/world
+    // values can also overflow relative-position or distance arithmetic.
+    if (!plane.valid || !isfinite(radialDistance) || radialDistance == 0.0 || radialDistance >= radius) return 1.0;
+    uint centerFace = scenePointShadowFace(q);
+    float3 center = transpose(scenePointFaceToWorld[centerFace]) * q;
+    float2 uv = scenePointShadowUV(center);
+    float2 faceExtent = float2(shadow.get_width() / 3, shadow.get_height() / 2);
+    float3 n = plane.normal;
+    constexpr sampler shadowSampler(coord::normalized, address::clamp_to_edge,
+                                    filter::nearest, compare_func::less_equal);
+    float visibility = 0.0;
+    for (int y = -1; y <= 1; ++y) {
+        for (int x = -1; x <= 1; ++x) {
+            // Do not clamp to the center face: this ray may cross an edge or
+            // corner. Requantize on its chosen face, then use THAT texel's ray.
+            float2 initialUV = (floor(uv * faceExtent) + float2(x, y) + 0.5) / faceExtent;
+            float3 initialRay = scenePointFaceToWorld[centerFace]
+                * float3(2.0 * initialUV.x - 1.0, 1.0 - 2.0 * initialUV.y, 1.0);
+            uint face = scenePointShadowFace(initialRay);
+            float3 local = transpose(scenePointFaceToWorld[face]) * initialRay;
+            float2 projectedUV = scenePointShadowUV(local);
+            float2 pixel = clamp(floor(projectedUV * faceExtent), float2(0.0), faceExtent - 1.0);
+            float2 sampleUV = (pixel + 0.5) / faceExtent;
+            float3 localRay(2.0 * sampleUV.x - 1.0, 1.0 - 2.0 * sampleUV.y, 1.0);
+            float3 ray = scenePointFaceToWorld[face] * localRay;
+            float rayLength = length(ray), denominator = dot(n, ray);
+            float distance = plane.height / denominator;
+            float referenceDepth = distance * rayLength / radius;
+            // A real receiver plane can meet adjacent rays behind the light,
+            // outside its sphere or at a tangent. Keep this tap's ninth weight.
+            if (denominator == 0.0 || !isfinite(referenceDepth) || distance <= 0.0 || referenceDepth >= 1.0) {
+                visibility += 1.0;
+                continue;
+            }
+            float3 localMagnitude(2.0 * abs(sampleUV.x) + 1.0 + abs(localRay.x),
+                                  2.0 * abs(sampleUV.y) + 1.0 + abs(localRay.y), 0.0);
+            // Face transforms only permute/sign components. Propagate the
+            // actual plane/ray quotient and radial length, not an axial bias.
+            float3 rayMagnitude = abs(scenePointFaceToWorld[face] * localMagnitude);
+            float denominatorMagnitude = dot(abs(n), abs(ray) + rayMagnitude)
+                + dot(plane.normalMagnitude, abs(ray));
+            float distanceMagnitude = (plane.heightMagnitude + abs(distance) * denominatorMagnitude)
+                / abs(denominator) + abs(distance);
+            float lengthMagnitude = dot(abs(ray), abs(ray) + rayMagnitude) / rayLength + rayLength;
+            float depthMagnitude = (rayLength * distanceMagnitude + abs(distance) * lengthMagnitude)
+                / radius + abs(referenceDepth);
+            float precisionBias = uniforms.parameters.z * max(1.0, depthMagnitude);
+            if (!isfinite(precisionBias)) { visibility += 1.0; continue; }
+            float2 tile = float2(face % 3u, face / 3u);
+            float2 atlasUV = (tile + sampleUV) / float2(3.0, 2.0);
+            visibility += shadow.sample_compare(shadowSampler, atlasUV, referenceDepth - precisionBias);
+        }
+    }
+    return visibility / 9.0;
+}
+
 fragment half4 sceneStaticModelFragment(
     SceneStaticModelRasterVertex in [[stage_in]],
     texture2d<half> colorTexture [[texture(0)]],
@@ -228,14 +343,18 @@ fragment half4 sceneStaticModelFragment(
         : float3(1.0);
     float directionalVisibility[4] = {1.0, 1.0, 1.0, 1.0};
     float spotVisibility[4] = {1.0, 1.0, 1.0, 1.0};
+    float pointVisibility[4] = {1.0, 1.0, 1.0, 1.0};
     for (uint slot = 0; receivesLighting && slot < 4; ++slot) {
         constant SceneModelShadowUniforms &map = uniforms.shadows[slot];
         if (map.identity.z == 0u) continue;
         if (map.identity.x == 0u) {
             directionalVisibility[map.identity.y] = sceneDirectionalVisibility(
                 in.worldPosition, worldDX, worldDY, shadowTextures[slot], map);
-        } else {
+        } else if (map.identity.x == 1u) {
             spotVisibility[map.identity.y] = sceneSpotVisibility(
+                in.worldPosition, worldDX, worldDY, shadowTextures[slot], map);
+        } else {
+            pointVisibility[map.identity.y] = scenePointVisibility(
                 in.worldPosition, worldDX, worldDY, shadowTextures[slot], map);
         }
     }
@@ -266,7 +385,7 @@ fragment half4 sceneStaticModelFragment(
         radial *= radial;
         float diffuse = max(dot(normal, directionTowardLight), 0.0);
         float4 colorIntensity = uniforms.pointColorIntensity[lightIndex];
-        lighting += colorIntensity.xyz * colorIntensity.w * radial * diffuse;
+        lighting += colorIntensity.xyz * colorIntensity.w * radial * diffuse * pointVisibility[lightIndex];
     }
     uint spotCount = receivesLighting ? uniforms.lightCounts.z : 0u;
     for (uint lightIndex = 0; lightIndex < min(spotCount, 4u); ++lightIndex) {
@@ -362,6 +481,7 @@ struct SceneStaticModelShadowUniforms {
     float4x4 worldToLight;
     float4 positionRadius;
     float4 projectionParameters;
+    float4 viewport; // origin.xy, face extent.zw
     float4 textureFrame0;
     float4 textureFrame1;
     float4 coverage;
@@ -413,22 +533,33 @@ vertex SceneStaticModelSpotShadowVertexOut sceneStaticModelSpotShadowVertex(
     return out;
 }
 struct SceneStaticModelSpotShadowDepth { float depth [[depth(any)]]; };
-fragment SceneStaticModelSpotShadowDepth sceneStaticModelSpotShadowFragment(
-    SceneStaticModelSpotShadowVertexOut in [[stage_in]],
-    texture2d<half> albedo [[texture(0)]], sampler albedoSampler [[sampler(0)]],
-    constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
-    // Interpolated q remains on the triangle plane, but subpixel raster
-    // snapping can move its ray. Re-evaluate depth at the actual pixel center.
-    // Derivatives precede coverage discard and every non-uniform branch.
+float2 sceneStaticModelPerspectiveShadowDepth(SceneStaticModelSpotShadowVertexOut in,
+    texture2d<half> albedo, sampler albedoSampler,
+    constant SceneStaticModelShadowUniforms &uniforms) {
+    // Interpolated q stays on the triangle plane, but raster snapping shifts
+    // its ray. Derivatives precede every branch and coverage discard.
     float3 n = cross(dfdx(in.lightPosition), dfdy(in.lightPosition));
-    float2 uv = in.position.xy / uniforms.projectionParameters.yz;
+    float2 uv = (in.position.xy - uniforms.viewport.xy) / uniforms.viewport.zw;
     float3 ray((2.0 * uv.x - 1.0) * uniforms.projectionParameters.x,
                (1.0 - 2.0 * uv.y) * uniforms.projectionParameters.x, 1.0);
     float denominator = dot(n, ray);
     float distance = dot(n, in.lightPosition) / denominator;
+    float radialDistance = distance * length(ray);
     sceneStaticModelShadowCoverage(in.uv, albedo, albedoSampler, uniforms);
     // Edge-on triangles have no finite forward intersection for this ray.
     if (denominator == 0.0 || !isfinite(distance) || distance <= 0.0
-        || distance * length(ray) >= uniforms.positionRadius.w) discard_fragment();
-    return {distance / uniforms.positionRadius.w};
+        || radialDistance >= uniforms.positionRadius.w) discard_fragment();
+    return float2(distance, radialDistance) / uniforms.positionRadius.w;
+}
+fragment SceneStaticModelSpotShadowDepth sceneStaticModelSpotShadowFragment(
+    SceneStaticModelSpotShadowVertexOut in [[stage_in]],
+    texture2d<half> albedo [[texture(0)]], sampler albedoSampler [[sampler(0)]],
+    constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
+    return {sceneStaticModelPerspectiveShadowDepth(in, albedo, albedoSampler, uniforms).x};
+}
+fragment SceneStaticModelSpotShadowDepth sceneStaticModelPointShadowFragment(
+    SceneStaticModelSpotShadowVertexOut in [[stage_in]],
+    texture2d<half> albedo [[texture(0)]], sampler albedoSampler [[sampler(0)]],
+    constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
+    return {sceneStaticModelPerspectiveShadowDepth(in, albedo, albedoSampler, uniforms).y};
 }

@@ -329,7 +329,7 @@ PIXEL_MAIN = r'''
     let covered = (c["uses_coverage_alpha"] as? Bool ?? true) && !tint
     let uvFrame = SceneTextureUVTransform(origin:SIMD2(Float(c["sample_u"] as? Double ?? 0.5)-0.5,0),xAxis:SIMD2(1,0),yAxis:SIMD2(0,1))
     let sampleFlags = UInt32(c["sample_flags"] as? Int ?? 2)
-    precondition(pipeline.drawShadow(mesh:meshes[index],texture:coverageTexture(c),textureFrame:uvFrame,sampling:SceneTextureSampling(texFlags:sampleFlags),modelMatrix:casterWorld,projection:.directional(projection),targetExtent:(width:map.width,height:map.height),layerAlpha:Float(c["layer_alpha"] as? Double ?? 1),material:material(Float(c["material_opacity"] as? Double ?? 1),covered,tint,c["receives_lighting"] as? Bool ?? true),encoder:encoder))
+    precondition(pipeline.drawShadow(mesh:meshes[index],texture:coverageTexture(c),textureFrame:uvFrame,sampling:SceneTextureSampling(texFlags:sampleFlags),modelMatrix:casterWorld,projection:.directional(projection),face:0,viewport:MTLViewport(originX:0,originY:0,width:Double(map.width),height:Double(map.height),znear:0,zfar:1),layerAlpha:Float(c["layer_alpha"] as? Double ?? 1),material:material(Float(c["material_opacity"] as? Double ?? 1),covered,tint,c["receives_lighting"] as? Bool ?? true),encoder:encoder))
    }
    encoder.endEncoding()
    let shadow = SceneStaticModelShadow(texture:map,frameEpoch:7,generation:1,lightLayerID:10,projection:.directional(projection),commandBuffer:cb)

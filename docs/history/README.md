@@ -16,6 +16,8 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-03 | Scene | 退役设计 | [RF15 模型点光全向阴影设计](scene/rf15-model-point-shadow-design-2026-10-03.md) | 完整球域、逐tap跨面与六面原子发布裁决 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
+| 2026-10-03 | Scene | 实施证据 | [RF15 模型点光全向阴影](scene/rf15-model-point-shadow-implementation-2026-10-03.md) | 缺影红绿、接缝数值修复、可选PSO失效与实际输出/生命周期门 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-02 | Scene | 退役设计 | [RF14 模型聚光阴影设计](scene/rf14-model-spot-shadow-design-2026-10-02.md) | 完整有限锥、四灯记录与原资源生命周期裁决 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-02 | Scene | 实施证据 | [RF14 模型聚光阴影](scene/rf14-model-spot-shadow-implementation-2026-10-02.md) | 旧缺影红绿、独立投影、多灯与移动灯App、失败发布及在飞资源门 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-02 | Scene | 退役设计 | [RF13 named 模型方向光设计](scene/rf13-named-model-directional-shadow-design-2026-10-02.md) | 当前publication与mandatory资源原序准备裁决 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |

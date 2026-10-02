@@ -427,8 +427,11 @@ extension SceneMetalRenderer {
             case .spot(let value):
                 guard let value = SceneSpotShadowProjection.make(light: value) else { continue }
                 projection = .spot(value)
+            case .point(let value):
+                projection = .point(ScenePointShadowProjection(light: value))
             }
-            guard let target = pool.reserveModelShadow(slot: slot, width: 1024, height: 1024,
+            guard let target = pool.reserveModelShadow(slot: slot,
+                width: 1024 * projection.atlasColumns, height: 1024 * projection.atlasRows,
                 commandBuffer: commandBuffer) else { continue }
             state.pins.append(target.pin)
             mainPass.closeForOffscreen(); groups?.closeAllGroupEncoders()
@@ -440,12 +443,17 @@ extension SceneMetalRenderer {
             guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else { continue }
             encoder.label = "Scene model shadow slot \(slot)"
             var encoded = true
-            for draw in casters {
-                encoded = pipeline.drawShadow(mesh: draw.entry.mesh, texture: draw.texture,
-                    textureFrame: draw.textureFrame, sampling: draw.sampling,
-                    modelMatrix: draw.world, projection: projection,
-                    targetExtent: (target.texture.width, target.texture.height),
-                    layerAlpha: draw.alpha, material: draw.material, encoder: encoder) && encoded
+            for face in 0..<projection.faceCount {
+                let viewport = projection.viewport(face: face, width: target.texture.width, height: target.texture.height)
+                encoder.setViewport(viewport)
+                encoder.setScissorRect(MTLScissorRect(x: Int(viewport.originX), y: Int(viewport.originY),
+                    width: Int(viewport.width), height: Int(viewport.height)))
+                for draw in casters {
+                    encoded = pipeline.drawShadow(mesh: draw.entry.mesh, texture: draw.texture,
+                        textureFrame: draw.textureFrame, sampling: draw.sampling,
+                        modelMatrix: draw.world, projection: projection, face: face, viewport: viewport,
+                        layerAlpha: draw.alpha, material: draw.material, encoder: encoder) && encoded
+                }
             }
             encoder.endEncoding()
             // An incomplete map is never published, but any encoded access

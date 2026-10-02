@@ -142,7 +142,7 @@ DEPTH_MAIN = r'''
    let target=d.makeTexture(descriptor:td)!,cb=queue.makeCommandBuffer()!
    let rp=MTLRenderPassDescriptor();rp.depthAttachment.texture=target;rp.depthAttachment.loadAction = .clear;rp.depthAttachment.storeAction = .store;rp.depthAttachment.clearDepth=1
    let e=cb.makeRenderCommandEncoder(descriptor:rp)!
-   precondition(pipeline.drawShadow(mesh:mesh,texture:albedo,textureFrame:.identity,sampling:.linearClamp,modelMatrix:matrix_identity_float4x4,projection:.spot(projection),targetExtent:(width:size,height:size),layerAlpha:1,material:material,encoder:e));e.endEncoding()
+   precondition(pipeline.drawShadow(mesh:mesh,texture:albedo,textureFrame:.identity,sampling:.linearClamp,modelMatrix:matrix_identity_float4x4,projection:.spot(projection),face:0,viewport:MTLViewport(originX:0,originY:0,width:Double(size),height:Double(size),znear:0,zfar:1),layerAlpha:1,material:material,encoder:e));e.endEncoding()
    let rowBytes=((size*4+255)/256)*256
    let buf=d.makeBuffer(length:rowBytes*size,options:.storageModeShared)!,b=cb.makeBlitCommandEncoder()!
    b.copy(from:target,sourceSlice:0,sourceLevel:0,sourceOrigin:.init(x:0,y:0,z:0),sourceSize:.init(width:size,height:size,depth:1),to:buf,destinationOffset:0,destinationBytesPerRow:rowBytes,destinationBytesPerImage:rowBytes*size);b.endEncoding();cb.commit();cb.waitUntilCompleted()
@@ -400,7 +400,7 @@ MULTI_MAIN = r'''
     let mapDesc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:1024,height:1024,mipmapped:false);mapDesc.storageMode = .private;mapDesc.usage = [.renderTarget,.shaderRead]
     let map=d.makeTexture(descriptor:mapDesc)!,rp=MTLRenderPassDescriptor();rp.depthAttachment.texture=map;rp.depthAttachment.loadAction = .clear;rp.depthAttachment.storeAction = .store;rp.depthAttachment.clearDepth=1
     let e=cb.makeRenderCommandEncoder(descriptor:rp)!
-    if let casters {precondition(pipeline.drawShadow(mesh:casters,texture:albedo,textureFrame:.identity,sampling:.linearClamp,modelMatrix:matrix_identity_float4x4,projection:projection,targetExtent:(1024,1024),layerAlpha:1,material:material,encoder:e))};e.endEncoding()
+    if let casters {precondition(pipeline.drawShadow(mesh:casters,texture:albedo,textureFrame:.identity,sampling:.linearClamp,modelMatrix:matrix_identity_float4x4,projection:projection,face:0,viewport:MTLViewport(originX:0,originY:0,width:1024,height:1024,znear:0,zfar:1),layerAlpha:1,material:material,encoder:e))};e.endEncoding()
     records.append(.init(texture:map,frameEpoch:8,generation:UInt64(i+1),lightLayerID:10+i,projection:projection,commandBuffer:cb))
    }
    var buffers:[MTLBuffer]=[]

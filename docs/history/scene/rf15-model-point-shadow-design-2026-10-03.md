@@ -1,9 +1,11 @@
-<!-- document-role: active-plan -->
-<!-- retirementCondition: 完整球域点光阴影通过相称 GPU、实际 App、资源生命周期证据及独立终审后，稳定合同移交 runtime-architecture，本文归档并删除窄设计门；表示被反例推翻时先修设计，不以缩减球域退役。 -->
+<!-- document-role: historical-evidence -->
+<!-- commandPolicy: historical-only -->
 
-# RF15 — 模型点光全向阴影
+# RF15 — 模型点光全向阴影（退役设计）
 
-> 基线 `8236d908`，2026-10-02；状态：独立设计审查 ACCEPT，批准实施。设计批准不是实现验收。上接 [RF15 工作卡](reference-evidence-implementation-cards.md#rf15-model-point-shadow) 与 [D3](2d-lighting-material-design.md#f6-model-directional-shadow)。
+> **历史证据 — 非现役入口**。本文保留批准设计时的行为合同与选型。RF15已通过独立产品终审；窄登记退役，稳定职责移交[架构](../../scene/design/runtime-architecture.md)，实际结果与未验边界见[执行记录](rf15-model-point-shadow-implementation-2026-10-03.md)。下文“待实施”仅指设计时点。
+
+> 基线 `8236d908`，2026-10-02；状态：独立设计审查 ACCEPT，批准实施。设计批准不是实现验收。上接 [RF15 工作卡](../../scene/design/reference-evidence-implementation-cards.md#rf15-model-point-shadow) 与 [D3](../../scene/design/2d-lighting-material-design.md#f6-model-directional-shadow)。
 
 设计审查收据：`/private/tmp/mwx-rf15/design-review.md`，SHA `d06521fe41e80e058dd14233fd2a85c26e882a8bd2f6583f76d80f3774ec6f93`；审查设计 SHA `5deffd6ebb1b594b7f42076593e3ec7d632b414cc8385c497cc92b21ecee9f97`。本次仅翻批准状态与登记，完整 GPU/App 纠正门仍待实施。
 
@@ -13,7 +15,7 @@
 
 五判据：横切 owner=是；触碰唯一资源/发布合同=是；难逆数据/API=否；机器冻结家族=是（不增预算）；外部行为证据=是。
 
-[官方模型光照合同](https://docs.wallpaperengine.io/en/scene/models/lighting.html)说明模型和灯的投影开关，点光、聚光、方向光可投影，不规定算法。[Mirage 中性参考 §8.4](../semantics/miragewallpaper-rendering-reference.md)第323–327行支持灯输入、四灯传递；该参考修订没有 shadow atlas，不能据此跳过实现，也不能宣称沿用官方算法。本项目独立选择六面 atlas、径向比较和跨面采样。正式文档不收录参考代码、地址、伪代码或算法公式。
+[官方模型光照合同](https://docs.wallpaperengine.io/en/scene/models/lighting.html)说明模型和灯的投影开关，点光、聚光、方向光可投影，不规定算法。[Mirage 中性参考 §8.4](../../scene/semantics/miragewallpaper-rendering-reference.md)第323–327行支持灯输入、四灯传递；该参考修订没有 shadow atlas，不能据此跳过实现，也不能宣称沿用官方算法。本项目独立选择六面 atlas、径向比较和跨面采样。正式文档不收录参考代码、地址、伪代码或算法公式。
 
 ## 当前事实与首断点
 

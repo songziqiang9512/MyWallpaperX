@@ -159,17 +159,23 @@ hidden image/solid source-only named albedo沿同一当前纹理、world、cover
 
 <a id="rf15-model-point-shadow"></a>
 
-### RF15 — 真实模型点光全向阴影（当前批，设计已批准、实施中）
+### RF15 — 真实模型点光全向阴影（已验收，职责已移交）
 
-**目标与选序。** RF14验收提交后，闭合现总四灯准入内全部cast-on point的完整球域，含六面边界与角部；只调制对应point direct，保其它灯、ambient/emission/alpha和唯一输出。方法由本项目独立设计，不因参考资料没有完整算法而跳过，也不以单面或半球冒充全向能力。[D3 F6](2d-lighting-material-design.md#f6-model-directional-shadow)的公开作者行为与中性资源合同仍是目标依据，不能把自有数值策略称官方parity。
+现总四灯内全部cast-on point沿原snapshot、六面atlas、同提交pin与typed record投影；六面完整后原子发布，每tap跨面消费，只调制对应direct。完整球域、当前named输入、混灯及资源失败的实际范围由[执行记录](../../history/scene/rf15-model-point-shadow-implementation-2026-10-03.md)固定。[前置设计](../../history/scene/rf15-model-point-shadow-design-2026-10-03.md)归档，窄gate删除，稳定职责移交[架构](runtime-architecture.md)。不宣称官方parity、完整原包收益或性能完成。
 
-**当前首断点。** 以下路径相对`MyWallpaperX/Core/SteamWorkshopScene/`，以RF14冻结产品为准：`Format/ScenePointLightDefinition.swift:28`的cast仍需复用原严格Boolean判据；`Rendering/Lighting/SceneLightSnapshot.swift:16`的Point缺身份和cast意图；`Rendering/Composition/SceneStaticModel.metal:251`的point直射缺visibility。现统一shadow record、四槽pool及原frame emitter可承接，不新增灯或资源registry。真实原包收益仍需另证，不以声明数替代实际消费。
+<a id="rf16-visible-model-admission"></a>
 
-**设计方向与owner。** 优先比较单灯六面atlas与cube/array在原pool、固定绑定、物理预算和接缝消费上的成本。完整六面、逐采样跨面映射、径向深度和几何面校正须先用独立三角射线验证；目标尺寸与四灯在飞成本按真实descriptor计费，不能为全向能力随意提高预算。现Format/snapshot拥有作者与当前身份，现投影数据/Pipeline/Metal拥有表示和消费，现StaticModels与pool/pin拥有完整发布和completion。[六面 atlas 设计](model-point-shadow-design.md)已独立审查批准，修前真实 App 缺影反例已冻结；正在按完整纠正门实施。
+### RF16 — 真实场景模型显示断点（当前批，先归因再设计实施）
 
-**fallback与纠正门。** mandatory先行，保已成功directional/spot；point的六面不完整则整灯无影，仍保原direct，已编码资源留到同提交完成。旧App cast on/off真实缺影正控后，验收完整六向、12边/8角及两侧、自影/正负近间隙、当前named coverage、混灯各自贡献、实际配额/在飞reset/cancel/恢复和完整App输出。不能以CPU投影、构建或六张非黑图宣称闭合。
+**目标。** 将已实现灯光/模型能力落实到真实作者内容：首先定位历史模型准备差额的真实阶段及可见受害，再沿原owner恢复一个完整可见结果。不能把诊断数量作为交付，也不能根据历史22/24数字盲扩MDL格式或预算。
 
-**退役条件。** 该完整合同获相称GPU/App/生命周期证据及独立终审后，稳定职责移交架构，设计与执行证据归历史；若先导推翻候选表示，保原失败并修方案，不能静默缩减球域或放宽bias。
+**当前事实与owner。** RF15关闭时，既有两份隔离完整输入日志只列同样22个成功模型ID，没有失败阶段，旧零shadow事件也早于spot/point实现。随后使用原reader对隔离原包做CPU归因，24候选中22成功与旧App集合一致；模型479触发累计顶点预算，模型724触发五材质拒绝，输入前后不变。两者尚无当前可见受害证明，先选较小的多材质链追踪，不直接扩大顶点预算。`MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift:79–125`将resource、data、reader、mesh、material及texture失败分散局部跳过；`Runtime/Frame/SceneRuntimeSourceFacts.swift:117–127`的metadata读取更早使用完整reader，可能是同一上游失败。读取阶段的两处首拒点已由中性输出确认；通过首guard后的完整资源链、当前可见贡献仍需独立验证，不能把首拒点直接等同唯一画面原因。
+
+**方案与备选。** 复用已有隔离输入与RF15不可变App，用原load owner准确记录候选identity、阶段、typed error及实际可见性；普通帧不新增解析、全图诊断或第二registry。以真实首断点确定最小产品设计与独立自有反例；缺规格时继续查中性参考合同并做区分实验，不以缺现成方法跳过。若既有拒绝正确或该层不可见，纠正旧报告并定位真实可见断点，不为凑齐计数放宽安全门。
+
+**fallback与纠正门。** 原局部模型失败半径、健康已绘模型及主输出先保持；新的能力扩展按五判据落前置设计/登记再写产品。交付必须绑定原失败ROI恢复、自有反例红绿、健康控制、资源拒绝、实际completion/terminal/next-frame及独立终审，随后按职责提交。不修改真实corpus，不把只读归因或日志完善当能力完成。
+
+**退役。** 真实可见断点已恢复且稳定owner与相称证据完成移交后关闭；若原差额线索被证伪，保留裁决依据并由唯一路线选择下一可见能力。
 
 ## 3. 全部59项去向
 

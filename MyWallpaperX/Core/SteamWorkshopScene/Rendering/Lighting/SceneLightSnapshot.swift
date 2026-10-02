@@ -14,6 +14,8 @@ struct SceneLightSnapshot {
     }
 
     struct Point {
+        var layerID: Int? = nil
+        var castsShadow: Bool = false
         let position: SIMD3<Float>
         let color: SIMD3<Float>
         let intensity: Float
@@ -36,23 +38,26 @@ struct SceneLightSnapshot {
     enum ShadowLight {
         case directional(Directional)
         case spot(Spot)
+        case point(Point)
 
         var layerID: Int? {
             switch self {
             case .directional(let light): light.layerID
             case .spot(let light): light.layerID
+            case .point(let light): light.layerID
             }
         }
     }
 
-    /// The existing directional allocation keeps priority. Spot order remains
-    /// the order already accepted by this snapshot's shared four-light limit.
+    /// Preserve directional and spot priority before complete point atlases.
+    /// Each group keeps this snapshot's already-admitted author order.
     var shadowLights: [ShadowLight] {
         var result: [ShadowLight] = []
         if let light = directional.first(where: { $0.castsShadow }) {
             result.append(.directional(light))
         }
         result.append(contentsOf: spot.filter { $0.castsShadow }.map { .spot($0) })
+        result.append(contentsOf: point.filter { $0.castsShadow }.map { .point($0) })
         return result
     }
 
@@ -232,6 +237,7 @@ struct SceneLightSnapshot {
               radius.isFinite, radius > 0,
               let position = position(of: frame) else { return nil }
         return Point(
+            layerID: layer.id, castsShadow: definition.castsShadow == true,
             position: position,
             color: dynamicColor
                 ?? color(definition.colorRGB, fallback: SIMD3(1, 1, 1)),

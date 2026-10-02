@@ -19,13 +19,14 @@ struct ScenePointLightDefinition: Codable, Equatable {
         guard let rawKind = root["light"] as? String else { return nil }
         let kind = rawKind.localizedLowercase
         guard kind == "lpoint" || kind == "point" else { return nil }
+        let shadow = SceneShadowCastIntent.parse(root["castshadow"])
         return ScenePointLightDefinition(
             kind: kind,
             colorRGB: vector(resolvedValue(root["color"])),
             intensity: number(resolvedValue(root["intensity"])),
             radius: number(resolvedValue(root["radius"])),
             castsVolumetrics: resolvedValue(root["castvolumetrics"]) as? Bool,
-            castsShadow: resolvedValue(root["castshadow"]) as? Bool,
+            castsShadow: shadow == .enabled ? true : shadow == .disabled ? false : nil,
             isSolid: resolvedValue(root["solid"]) as? Bool
         )
     }

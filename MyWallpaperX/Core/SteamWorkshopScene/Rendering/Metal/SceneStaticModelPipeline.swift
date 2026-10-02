@@ -124,6 +124,7 @@ private struct SceneStaticModelShadowUniforms {
     var worldToLight: simd_float4x4
     var positionRadius: SIMD4<Float>
     var projectionParameters: SIMD4<Float>
+    var viewport: SIMD4<Float>
     var textureFrame0: SIMD4<Float>
     var textureFrame1: SIMD4<Float>
     var coverage: SIMD4<Float>
@@ -147,6 +148,10 @@ private struct SceneModelShadowUniforms {
             positionRadius = SIMD4(value.position, value.radius)
             parameters = SIMD4(value.tanHalfAngle, value.outerCosine, value.depthBias, 0)
             identity = SIMD4(1, UInt32(lightIndex), 1, 0)
+        case .point(let value):
+            positionRadius = SIMD4(value.position, value.radius)
+            parameters.z = value.depthBias
+            identity = SIMD4(2, UInt32(lightIndex), 1, 0)
         }
     }
 }
@@ -216,6 +221,7 @@ struct SceneStaticModelPipeline {
     private let samplerStates: SceneTextureSamplerStateSet
     private let shadowState: MTLRenderPipelineState?
     private let spotShadowState: MTLRenderPipelineState?
+    private let pointShadowState: MTLRenderPipelineState?
     private let shadowDepthState: MTLDepthStencilState?
 
     init?(
@@ -274,11 +280,28 @@ struct SceneStaticModelPipeline {
         shadowDescriptor.vertexFunction = library.makeFunction(name: "sceneStaticModelShadowVertex")
         shadowDescriptor.fragmentFunction = library.makeFunction(name: "sceneStaticModelShadowFragment")
         shadowDescriptor.depthAttachmentPixelFormat = .depth32Float
-        shadowState = try? device.makeRenderPipelineState(descriptor: shadowDescriptor)
+        // Metal permits a nil fragment for depth-only pipelines. Each model
+        // shadow requires its fragment for coverage and the chosen depth domain.
+        if shadowDescriptor.vertexFunction != nil, shadowDescriptor.fragmentFunction != nil {
+            shadowState = try? device.makeRenderPipelineState(descriptor: shadowDescriptor)
+        } else {
+            shadowState = nil
+        }
         shadowDescriptor.label = "Scene spot model shadow"
         shadowDescriptor.vertexFunction = library.makeFunction(name: "sceneStaticModelSpotShadowVertex")
         shadowDescriptor.fragmentFunction = library.makeFunction(name: "sceneStaticModelSpotShadowFragment")
-        spotShadowState = try? device.makeRenderPipelineState(descriptor: shadowDescriptor)
+        if shadowDescriptor.vertexFunction != nil, shadowDescriptor.fragmentFunction != nil {
+            spotShadowState = try? device.makeRenderPipelineState(descriptor: shadowDescriptor)
+        } else {
+            spotShadowState = nil
+        }
+        shadowDescriptor.label = "Scene point model shadow"
+        shadowDescriptor.fragmentFunction = library.makeFunction(name: "sceneStaticModelPointShadowFragment")
+        if shadowDescriptor.vertexFunction != nil, shadowDescriptor.fragmentFunction != nil {
+            pointShadowState = try? device.makeRenderPipelineState(descriptor: shadowDescriptor)
+        } else {
+            pointShadowState = nil
+        }
         let shadowDepth = MTLDepthStencilDescriptor()
         shadowDepth.depthCompareFunction = .lessEqual
         shadowDepth.isDepthWriteEnabled = true
@@ -392,6 +415,8 @@ struct SceneStaticModelPipeline {
                 index = lighting.directional.firstIndex { $0.layerID == value.lightLayerID && $0.castsShadow }
             case .spot:
                 index = lighting.spot.firstIndex { $0.layerID == value.lightLayerID && $0.castsShadow }
+            case .point:
+                index = lighting.point.firstIndex { $0.layerID == value.lightLayerID && $0.castsShadow }
             }
             return index.map { (value, $0) }
         }
@@ -562,7 +587,7 @@ struct SceneStaticModelPipeline {
         mesh: SceneStaticModelMesh, texture: MTLTexture,
         textureFrame: SceneTextureUVTransform, sampling: SceneTextureSampling,
         modelMatrix: simd_float4x4, projection: SceneStaticModelShadowProjection,
-        targetExtent: (width: Int, height: Int),
+        face: Int, viewport: MTLViewport,
         layerAlpha: Float, material: SceneStaticModelMaterial,
         encoder: MTLRenderCommandEncoder
     ) -> Bool {
@@ -577,7 +602,12 @@ struct SceneStaticModelPipeline {
             pipeline = spotShadowState
             light = value.worldToLight
             positionRadius = SIMD4(value.position, value.radius)
-            parameters = SIMD4(value.tanHalfAngle, Float(targetExtent.width), Float(targetExtent.height), 0)
+            parameters.x = value.tanHalfAngle
+        case .point(let value):
+            pipeline = pointShadowState
+            light = ScenePointShadowProjection.worldToFaces[face]
+            positionRadius = SIMD4(value.position, value.radius)
+            parameters.x = 1
         }
         guard let pipeline, let shadowDepthState,
               Self.isFinite(modelMatrix), Self.isFinite(clip),
@@ -587,6 +617,7 @@ struct SceneStaticModelPipeline {
         var uniforms = SceneStaticModelShadowUniforms(
             modelToLightClip: clip, modelMatrix: modelMatrix, worldToLight: light,
             positionRadius: positionRadius, projectionParameters: parameters,
+            viewport: SIMD4(Float(viewport.originX), Float(viewport.originY), Float(viewport.width), Float(viewport.height)),
             textureFrame0: textureFrame.uniform0, textureFrame1: textureFrame.uniform1,
             coverage: SIMD4(min(max(material.opacity * layerAlpha, 0), 1),
                             material.textureAlphaIsOpacity ? 1 : 0, 0, 0))
@@ -659,12 +690,13 @@ struct SceneStaticModelPipeline {
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.positionRadius) == 64
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.parameters) == 80
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.identity) == 96
-        && MemoryLayout<SceneStaticModelShadowUniforms>.stride == 272
+        && MemoryLayout<SceneStaticModelShadowUniforms>.stride == 288
         && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.modelMatrix) == 64
         && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.worldToLight) == 128
         && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.positionRadius) == 192
-        && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.textureFrame0) == 224
-        && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.coverage) == 256
+        && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.viewport) == 224
+        && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.textureFrame0) == 240
+        && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.coverage) == 272
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.shadow0) == 864
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.shadow3) == 1200
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.modelMatrix) == 0

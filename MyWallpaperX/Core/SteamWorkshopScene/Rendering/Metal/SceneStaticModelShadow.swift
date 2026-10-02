@@ -89,9 +89,54 @@ struct SceneSpotShadowProjection {
     }
 }
 
+/// Six axis faces cover the complete finite point-light sphere. Each basis
+/// has right cross up == forward; Metal's viewport supplies the Y inversion.
+struct ScenePointShadowProjection {
+    let position: SIMD3<Float>
+    let radius: Float
+    let depthBias: Float
+
+    init(light: SceneLightSnapshot.Point) {
+        position = light.position
+        radius = max(light.radius, 1e-4)
+        depthBias = 8 * Float.ulpOfOne
+    }
+
+    static let worldToFaces: [simd_float4x4] = [
+        (SIMD3<Float>(0, 0, -1), SIMD3<Float>(0, 1, 0), SIMD3<Float>(1, 0, 0)),
+        (SIMD3<Float>(0, 0, 1), SIMD3<Float>(0, 1, 0), SIMD3<Float>(-1, 0, 0)),
+        (SIMD3<Float>(0, 0, 1), SIMD3<Float>(1, 0, 0), SIMD3<Float>(0, 1, 0)),
+        (SIMD3<Float>(0, 0, -1), SIMD3<Float>(1, 0, 0), SIMD3<Float>(0, -1, 0)),
+        (SIMD3<Float>(1, 0, 0), SIMD3<Float>(0, 1, 0), SIMD3<Float>(0, 0, 1)),
+        (SIMD3<Float>(-1, 0, 0), SIMD3<Float>(0, 1, 0), SIMD3<Float>(0, 0, -1))
+    ].map { right, up, forward in
+        simd_float4x4(rows: [SIMD4(right, 0), SIMD4(up, 0), SIMD4(forward, 0), SIMD4(0, 0, 0, 1)])
+    }
+}
+
 enum SceneStaticModelShadowProjection {
     case directional(SceneDirectionalShadowProjection)
     case spot(SceneSpotShadowProjection)
+    case point(ScenePointShadowProjection)
+
+    var faceCount: Int {
+        if case .point = self { return 6 }
+        return 1
+    }
+
+    var atlasColumns: Int {
+        if case .point = self { return 3 }
+        return 1
+    }
+
+    var atlasRows: Int { faceCount / atlasColumns }
+
+    func viewport(face: Int, width: Int, height: Int) -> MTLViewport {
+        let faceWidth = width / atlasColumns, faceHeight = height / atlasRows
+        return MTLViewport(originX: Double(face % atlasColumns * faceWidth),
+            originY: Double(face / atlasColumns * faceHeight), width: Double(faceWidth),
+            height: Double(faceHeight), znear: 0, zfar: 1)
+    }
 }
 
 struct SceneStaticModelShadow {

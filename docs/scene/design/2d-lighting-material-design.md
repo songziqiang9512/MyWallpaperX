@@ -438,7 +438,7 @@ Launch现有profile normal/map聚合应能自然接入，不为环境建立第�
 <a id="f6-model-directional-shadow"></a>
 ## F6 — 静态模型单方向光阴影（有界实现已验收）
 
-下文保存directional首片边界；后继聚光的现役职责见[架构](runtime-architecture.md)，范围与证据见[RF14记录](../../history/scene/rf14-model-spot-shadow-implementation-2026-10-02.md)，不以首片的单图描述覆盖现多图owner。
+下文保存directional首片边界；后继聚光与完整球域点光的现役职责见[架构](runtime-architecture.md)，范围与证据见[RF14记录](../../history/scene/rf14-model-spot-shadow-implementation-2026-10-02.md)、[RF15记录](../../history/scene/rf15-model-point-shadow-implementation-2026-10-03.md)，不以首片的单图描述覆盖现多图owner。
 
 ### 目标、证据与范围纠正
 
