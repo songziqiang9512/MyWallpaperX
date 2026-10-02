@@ -591,6 +591,11 @@ extension SceneMetalRenderer {
                 guard let reservedInput = reserveDependencyInput(
                     providerSource
                 ) else {
+                    if dependencyFailureReason == "image-provider-mapping-unavailable" {
+                        dependencyEffects = []
+                        dependencyUnavailability = .providerSourceUnavailable
+                        break
+                    }
                     return invalid(
                         "layer-\(layerID)-dependency-input-invalid"
                             + (dependencyFailureReason.map { "-\($0)" } ?? "")

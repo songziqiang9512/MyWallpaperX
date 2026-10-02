@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import os
 import shutil
 import subprocess
 import tempfile
@@ -495,6 +497,11 @@ struct SceneTextureCandidate {
     let content: SceneTextureContent
     let sampling: SceneTextureSampling
     let uvTransform: SceneTextureUVTransform
+    // This older regression shell uses identity-only prepared candidates.
+    // Actual metadata admission is exercised by the native-owner gate below.
+    var physicalSize: CGSize { CGSize(width: texture.width, height: texture.height) }
+    var mappedSize: CGSize { physicalSize }
+    func materialProgramUVTransform() -> SceneTextureUVTransform? { uvTransform }
 
     func axisAlignedMappedUVScale(
         expectedPurpose: SceneTexturePurpose
@@ -2050,6 +2057,488 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "epochAdvanceClearsReservation": True,
                 },
             )
+
+
+ATLAS_NATIVE_MAIN = r'''
+@main enum AtlasNamedProbe {
+    static func texture(_ device: MTLDevice, _ width: Int, _ height: Int) -> MTLTexture {
+        let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm,
+            width: width, height: height, mipmapped: false)
+        d.storageMode = .shared; d.usage = [.shaderRead, .renderTarget]
+        return device.makeSceneTexture(descriptor: d)!
+    }
+    static func candidate(_ t: MTLTexture) -> SceneTextureCandidate {
+        .init(texture: t, identity: .builtIn(name: "own-atlas"),
+            generation: .immutable(revision: 1), purpose: .premultipliedColor,
+            content: .color(.resolved(.premultipliedAlpha)),
+            physicalSize: CGSize(width: t.width, height: t.height),
+            mappedSize: CGSize(width: t.width, height: t.height),
+            uvTransform: .init(origin: SIMD2(0.25, 0.25),
+                xAxis: SIMD2(0.5, 0), yAxis: SIMD2(0, 0.5)), sampling: .linearClamp)
+    }
+    static func main() throws {
+        guard let d = MTLCreateSystemDefaultDevice() else {
+            print("{\"metalUnavailable\":true}"); return
+        }
+        let source = texture(d, 64, 32), registry = SceneFrameTextureRegistry()
+        let provider = SceneRenderDescriptor.Layer(id: 700, contentKind: "image",
+            utilityLayer: nil, alpha: 1, colorRGB: [1, 1, 1], effects: [.init(visible: true)])
+        let binding = SceneDependencyRenderPlan.Binding(consumerLayerID: 701,
+            providerLayerID: 700, slot: .init(effectID: "owned", passIndex: 0, slotIndex: 1),
+            blendMode: 0, kind: .visibleImageGraphOutput)
+        let runtime = SceneDependencyFrameRuntime(descriptor: .init(layers: [provider],
+            bindings: [701: binding], graphOutputProviderLayerIDs: [700]),
+            visibleLayerIDs: [700, 701], executableUtilityConsumerLayerIDs: [], device: d)
+        let epoch = registry.beginFrame(frameIndex: 1, layerSources: [:])
+        var reason: String?
+        let reserved = runtime.reserveEffectInput(for: binding, providerLayer: provider,
+            providerTexture: source, providerCandidate: candidate(source),
+            layerMVP: matrix_identity_float4x4, viewportSize: CGSize(width: 80, height: 40),
+            preparedOutputExtent: (80, 40), frameEpoch: epoch, failureReason: &reason)
+        var report: [String: Any] = ["reservationAccepted": reserved != nil,
+            "reservationReason": reason as Any? ?? NSNull(),
+            "sourceExtent": [source.width, source.height],
+            "targetExtent": [reserved?.texture.width ?? 0, reserved?.texture.height ?? 0]]
+        if reserved != nil {
+            report["publication"] = try publication(d)
+            report["safety"] = try safety(d)
+            report["lifecycle"] = try lifecycle(d)
+            report["budget"] = budget(d)
+        }
+        print(String(decoding: try JSONSerialization.data(withJSONObject: report,
+            options: [.sortedKeys]), as: UTF8.self))
+    }
+}
+'''
+
+
+ATLAS_NATIVE_EXTRA = r'''
+extension AtlasNamedProbe {
+    static func fixture(_ d: MTLDevice, planned: Bool = true) ->
+        (SceneRenderDescriptor.Layer, [SceneDependencyRenderPlan.Binding], SceneDependencyFrameRuntime) {
+        let provider = SceneRenderDescriptor.Layer(id: 700, contentKind: "image",
+            utilityLayer: nil, alpha: 1, colorRGB: [1, 1, 1], effects: planned ? [.init(visible: true)] : [])
+        let bindings = [701, 702].map { consumer in
+            SceneDependencyRenderPlan.Binding(consumerLayerID: consumer, providerLayerID: 700,
+                slot: .init(effectID: "own-\(consumer)", passIndex: 0, slotIndex: 1),
+                blendMode: 0, kind: planned ? .visibleImageGraphOutput : .imageLayerBlend)
+        }
+        let runtime = SceneDependencyFrameRuntime(descriptor: .init(layers: [provider],
+            bindings: Dictionary(uniqueKeysWithValues: bindings.map { ($0.consumerLayerID, $0) }),
+            graphOutputProviderLayerIDs: planned ? [700] : []), visibleLayerIDs: [700, 701, 702],
+            executableUtilityConsumerLayerIDs: [], device: d)
+        return (provider, bindings, runtime)
+    }
+    static func reserve(_ f: (SceneRenderDescriptor.Layer, [SceneDependencyRenderPlan.Binding], SceneDependencyFrameRuntime),
+        _ source: MTLTexture, _ c: SceneTextureCandidate?, _ epoch: UInt64,
+        _ extent: (Int, Int)? = (80, 40), consumer: Int = 0) -> (SceneDependencyEffectInput?, String?) {
+        var reason: String?
+        let input = f.2.reserveEffectInput(for: f.1[consumer], providerLayer: f.0,
+            providerTexture: source, providerCandidate: c, layerMVP: matrix_identity_float4x4,
+            viewportSize: CGSize(width: 80, height: 40), preparedOutputExtent: extent,
+            frameEpoch: epoch, failureReason: &reason)
+        return (input, reason)
+    }
+    static func altered(_ c: SceneTextureCandidate, texture t: MTLTexture? = nil,
+        physical: CGSize? = nil, mapped: CGSize? = nil, uv: SceneTextureUVTransform? = nil,
+        purpose: SceneTextureLoadPurpose? = nil, sampling: SceneTextureSampling? = nil) -> SceneTextureCandidate {
+        .init(texture: t ?? c.texture, identity: c.identity, generation: c.generation,
+            purpose: purpose ?? c.purpose, content: c.content, physicalSize: physical ?? c.physicalSize,
+            mappedSize: mapped ?? c.mappedSize, uvTransform: uv ?? c.uvTransform,
+            sampling: sampling ?? c.sampling)
+    }
+    static func status(_ value: SceneGraphOutputPublicationResult?) -> String {
+        switch value {
+        case .published: return "published"
+        case let .invalid(reason): return "invalid:" + reason
+        case let .unavailable(reason): return "unavailable:" + reason
+        case nil: return "not-required"
+        }
+    }
+    static func resolution(_ r: SceneDependencyFrameRuntime, _ registry: SceneFrameTextureRegistry) -> String {
+        switch r.resolvedMaterialEffectInputResolution(for: 701, textureRegistry: registry) {
+        case .ready: return "ready"
+        case let .invalid(reason): return "invalid:" + reason
+        case let .unavailable(reason): return "unavailable:" + reason
+        }
+    }
+    // Deliberately distinct graph-final bytes, supplied at the prepared-output
+    // boundary. This native gate does not claim to execute an effect compiler.
+    static func bytes(_ width: Int, _ height: Int, _ phase: Int) -> [UInt8] {
+        (0 ..< width * height).flatMap { i -> [UInt8] in
+            let x = i % width, y = i / width
+            return [UInt8((x * 3 + phase * 17) % 256), UInt8((y * 5 + phase * 31) % 256),
+                    UInt8((x + y + phase * 43) % 256), 255]
+        }
+    }
+    static func pattern(_ d: MTLDevice, _ width: Int, _ height: Int, _ phase: Int) -> MTLTexture {
+        let t = texture(d, width, height), data = bytes(width, height, phase)
+        data.withUnsafeBytes { t.replace(region: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0,
+            withBytes: $0.baseAddress!, bytesPerRow: width * 4) }
+        return t
+    }
+    static func read(_ t: MTLTexture) -> [UInt8] {
+        var data = [UInt8](repeating: 0, count: t.width * t.height * 4)
+        t.getBytes(&data, bytesPerRow: t.width * 4, from: MTLRegionMake2D(0, 0, t.width, t.height), mipmapLevel: 0)
+        return data
+    }
+    static func readback(_ d: MTLDevice, _ source: MTLTexture, _ cb: MTLCommandBuffer) -> MTLTexture {
+        let output = texture(d, source.width, source.height), blit = cb.makeBlitCommandEncoder()!
+        blit.copy(from: source, sourceSlice: 0, sourceLevel: 0, sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
+            sourceSize: MTLSize(width: source.width, height: source.height, depth: 1),
+            to: output, destinationSlice: 0, destinationLevel: 0, destinationOrigin: MTLOrigin(x: 0, y: 0, z: 0))
+        blit.endEncoding(); return output
+    }
+    static func copies() -> UInt64 {
+        ScenePerformanceCounterHub.shared.snapshot()[.graphOutputPublicationCopies] ?? 0
+    }
+    static func publication(_ d: MTLDevice) throws -> [[String: Any]] {
+        let f = fixture(d), source = texture(d, 64, 32), registry = SceneFrameTextureRegistry()
+        let q = d.makeCommandQueue()!, image = SceneImageLayerPipeline(device: d)!
+        let reference = SceneNamedTextureReference(providerLayerID: 700, variant: .primary)
+        var rows: [[String: Any]] = []
+        for phase in [1, 2] {
+            let epoch = registry.beginFrame(frameIndex: UInt64(phase), layerSources: [:])
+            let c = phase == 1 ? candidate(source) : nil
+            let first = reserve(f, source, c, epoch), second = reserve(f, source, c, epoch, consumer: 1)
+            let before = resolution(f.2, registry), output = pattern(d, 80, 40, phase), cb = q.makeCommandBuffer()!
+            let installed = f.2.installPreparedGraphOutputs([700: output], frameEpoch: epoch), count = copies()
+            let published = status(f.2.publishGraphOutputIfRequired(layerID: 700, texture: output,
+                publicationRole: .visibleMainLoop, textureRegistry: registry, commandBuffer: cb))
+            let repeated = status(f.2.publishGraphOutputIfRequired(layerID: 700, texture: output,
+                publicationRole: .visibleMainLoop, textureRegistry: registry, commandBuffer: cb))
+            let inputs = [701, 702].compactMap { f.2.effectInput(for: $0, textureRegistry: registry) }
+            let atom = registry.completeNamedLayerTargetResource(reference: reference, frameEpoch: epoch)
+            var draws: [MTLTexture] = []
+            for input in inputs {
+                let target = texture(d, 80, 40)
+                let pass = SceneMainPassEncoder(commandBuffer: cb, target: target,
+                    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
+                var mvp = matrix_identity_float4x4; mvp.columns.0.x = 2; mvp.columns.1.y = 2
+                let encoder = pass.encoder()!; image.bind(encoder: encoder)
+                image.drawLayer(texture: input.texture, mvp: mvp, uniforms: .neutral(), encoder: encoder)
+                precondition(pass.finishEnsuringClear()); draws.append(target)
+            }
+            let copied = readback(d, first.0!.texture, cb)
+            cb.commit(); cb.waitUntilCompleted(); registry.commitFramePublication()
+            let expected = bytes(80, 40, phase)
+            rows.append(["epoch": epoch, "candidateProvided": phase == 1,
+                "installed": installed, "published": published, "repeated": repeated,
+                "beforePublication": before, "resolution": resolution(f.2, registry),
+                "shared": first.0?.texture === second.0?.texture && inputs.count == 2
+                    && inputs.allSatisfy { $0.texture === first.0?.texture },
+                "typed": atom?.publication.texture === first.0?.texture,
+                "copies": copies() - count, "copiedExactly": read(copied) == expected,
+                "consumerCount": draws.count,
+                "consumerPixelsMatch": draws.allSatisfy { zip(read($0), expected).allSatisfy { abs(Int($0.0) - Int($0.1)) <= 1 } },
+                "firstPixelBGRA": Array(read(copied).prefix(4)), "completed": cb.status == .completed && cb.error == nil])
+        }
+        return rows
+    }
+    static func safety(_ d: MTLDevice) throws -> [String: Any] {
+        let source = texture(d, 64, 32), c = candidate(source), q = d.makeCommandQueue()!
+        let bad: [(String, SceneTextureCandidate)] = [
+            ("physical-nan", altered(c, physical: CGSize(width: CGFloat.nan, height: 32))),
+            ("physical-noninteger", altered(c, physical: CGSize(width: 64.5, height: 32))),
+            ("physical-mismatch", altered(c, physical: CGSize(width: 63, height: 32))),
+            ("mapped-zero", altered(c, mapped: CGSize(width: 0, height: 32))),
+            ("mapped-infinite", altered(c, mapped: CGSize(width: CGFloat.infinity, height: 32))),
+            ("mapped-noninteger", altered(c, mapped: CGSize(width: 63.5, height: 32))),
+            ("mapped-outbounds", altered(c, mapped: CGSize(width: 65, height: 32))),
+            ("uv-nan", altered(c, uv: .init(origin: SIMD2(Float.nan, 0), xAxis: SIMD2(0.5, 0), yAxis: SIMD2(0, 0.5)))),
+            ("uv-outbounds", altered(c, uv: .init(origin: SIMD2(0.75, 0), xAxis: SIMD2(0.5, 0), yAxis: SIMD2(0, 0.5)))),
+            ("uv-negative", altered(c, uv: .init(origin: SIMD2(-0.25, 0), xAxis: SIMD2(0.5, 0), yAxis: SIMD2(0, 0.5)))),
+            ("wrong-texture", altered(c, texture: texture(d, 64, 32))),
+            ("wrong-purpose", altered(c, purpose: .preservedChannels))]
+        var invalid: [[String: Any]] = []
+        for (name, value) in bad {
+            let f = fixture(d), registry = SceneFrameTextureRegistry(), epoch = registry.beginFrame(frameIndex: 1, layerSources: [:])
+            let result = reserve(f, source, value, epoch)
+            invalid.append(["name": name, "accepted": result.0 != nil, "reason": result.1 as Any? ?? NSNull(),
+                "publication": status(f.2.publishGraphOutputIfRequired(layerID: 700, texture: source,
+                    publicationRole: .visibleMainLoop, textureRegistry: registry, commandBuffer: q.makeCommandBuffer()!))])
+        }
+        let raw = fixture(d, planned: false), rawResult = reserve(raw, source, c, 1, nil)
+        let nilRawResult = reserve(fixture(d, planned: false), source, nil, 1, nil)
+        let invalidDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm,
+            width: 64, height: 32, mipmapped: false)
+        invalidDescriptor.usage = .renderTarget
+        let invalidTexture = d.makeSceneTexture(descriptor: invalidDescriptor)!
+        let invalidActualTexture = reserve(fixture(d), invalidTexture, nil, 1)
+        let forged = reserve(fixture(d, planned: false), source, c, 1)
+        let absent = reserve(fixture(d), source, c, 1, nil)
+        let invalidExtent = reserve(fixture(d), source, c, 1, (0, 40))
+        let fallbackFixture = fixture(d), fallbackRegistry = SceneFrameTextureRegistry()
+        let fallbackEpoch = fallbackRegistry.beginFrame(frameIndex: 1, layerSources: [:])
+        let fallbackSource = pattern(d, 64, 32, 6), fallbackCandidate = altered(candidate(fallbackSource), uv: .identity)
+        let fallbackInput = reserve(fallbackFixture, fallbackSource, fallbackCandidate, fallbackEpoch, nil)
+        let fallbackCB = q.makeCommandBuffer()!
+        let fallbackPass = SceneMainPassEncoder(commandBuffer: fallbackCB, target: texture(d, 64, 32),
+            clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
+        let fallbackPublished = status(fallbackFixture.2.captureGraphSourceFallbackIfRequired(
+            layer: fallbackFixture.0, sourceTexture: fallbackSource, sourceCandidate: fallbackCandidate,
+            layerMVP: matrix_identity_float4x4, viewportSize: CGSize(width: 64, height: 32),
+            pipeline: SceneImageLayerPipeline(device: d)!, textureRegistry: fallbackRegistry, mainPass: fallbackPass))
+        precondition(fallbackPass.finishEnsuringClear())
+        let fallbackBytes = readback(d, fallbackInput.0!.texture, fallbackCB)
+        fallbackCB.commit(); fallbackCB.waitUntilCompleted(); fallbackRegistry.commitFramePublication()
+        let tiny = texture(d, 4096, 4096)
+        let tinyCandidate = altered(candidate(tiny), mapped: CGSize(width: 1, height: 1),
+            uv: .init(origin: .zero, xAxis: SIMD2(1.0 / 4096.0, 0), yAxis: SIMD2(0, 1.0 / 4096.0)))
+        let tinyResult = reserve(fixture(d, planned: false), tiny, tinyCandidate, 1, nil)
+        let f = fixture(d), registry = SceneFrameTextureRegistry(), epoch = registry.beginFrame(frameIndex: 1, layerSources: [:])
+        let valid = reserve(f, source, c, epoch)
+        let conflict = reserve(f, source, c, epoch, (81, 40))
+        let wrongExtent = f.2.installPreparedGraphOutputs([700: texture(d, 79, 40)], frameEpoch: epoch)
+        let wrongExtentPublication = status(f.2.publishGraphOutputIfRequired(layerID: 700, texture: texture(d, 79, 40),
+            publicationRole: .visibleMainLoop, textureRegistry: registry, commandBuffer: q.makeCommandBuffer()!))
+        let alias = f.2.installPreparedGraphOutputs([700: valid.0!.texture], frameEpoch: epoch)
+        let aliasPublication = status(f.2.publishGraphOutputIfRequired(layerID: 700, texture: valid.0!.texture,
+            publicationRole: .visibleMainLoop, textureRegistry: registry, commandBuffer: q.makeCommandBuffer()!))
+        let output = pattern(d, 80, 40, 1), cb = q.makeCommandBuffer()!
+        let good = status(f.2.publishGraphOutputIfRequired(layerID: 700, texture: output,
+            publicationRole: .visibleMainLoop, textureRegistry: registry, commandBuffer: cb))
+        let changed = status(f.2.publishGraphOutputIfRequired(layerID: 700, texture: pattern(d, 80, 40, 2),
+            publicationRole: .visibleMainLoop, textureRegistry: registry, commandBuffer: cb))
+        cb.commit(); cb.waitUntilCompleted(); registry.commitFramePublication()
+        let nextEpoch = registry.beginFrame(frameIndex: 2, layerSources: [:])
+        let staleRegistryRefused = !registry.publishReservedNamedLayerTarget(reference: .init(providerLayerID: 700, variant: .primary),
+            frameEpoch: epoch, texture: valid.0!.texture)
+        let stale = status(f.2.publishGraphOutputIfRequired(layerID: 700, texture: output,
+            publicationRole: .visibleMainLoop, textureRegistry: registry, commandBuffer: q.makeCommandBuffer()!))
+        return ["invalidCandidates": invalid, "rawMappingAccepted": rawResult.0 != nil,
+            "rawMappingReason": rawResult.1 as Any? ?? NSNull(),
+            "nilRawAccepted": nilRawResult.0 != nil, "nilRawReason": nilRawResult.1 as Any? ?? NSNull(),
+            "invalidActualTextureAccepted": invalidActualTexture.0 != nil,
+            "invalidActualTextureReason": invalidActualTexture.1 as Any? ?? NSNull(),
+            "fakePlanReason": forged.1 as Any? ?? NSNull(), "missingPlanExtentReason": absent.1 as Any? ?? NSNull(),
+            "fakePlanAccepted": forged.0 != nil, "missingPlanExtentAccepted": absent.0 != nil,
+            "invalidPlanExtentAccepted": invalidExtent.0 != nil, "conflictAccepted": conflict.0 != nil,
+            "invalidPlanExtentReason": invalidExtent.1 as Any? ?? NSNull(), "tinyRawAccepted": tinyResult.0 != nil,
+            "plannedRawFallbackAccepted": fallbackInput.0 != nil, "plannedRawFallbackReason": fallbackInput.1 as Any? ?? NSNull(),
+            "plannedRawFallbackPublication": fallbackPublished,
+            "plannedRawFallbackPixels": zip(read(fallbackBytes), bytes(64, 32, 6)).allSatisfy { abs(Int($0.0) - Int($0.1)) <= 1 },
+            "plannedRawFallbackCompleted": fallbackCB.status == .completed && fallbackCB.error == nil,
+            "tinyRawReason": tinyResult.1 as Any? ?? NSNull(), "conflictReason": conflict.1 as Any? ?? NSNull(),
+            "wrongExtentInstalled": wrongExtent, "wrongExtentPublication": wrongExtentPublication,
+            "aliasInstalled": alias, "aliasPublication": aliasPublication,
+            "goodPublication": good, "changedSourcePublication": changed,
+            "staleRegistryRefused": staleRegistryRefused, "epochAdvanced": nextEpoch > epoch,
+            "stalePublication": stale, "completed": cb.status == .completed && cb.error == nil]
+    }
+    static func lifecycle(_ d: MTLDevice) throws -> [String: Any] {
+        let f = fixture(d), source = texture(d, 64, 32), q = d.makeCommandQueue()!, event = d.makeSharedEvent()!
+        var cb: MTLCommandBuffer? = q.makeCommandBuffer()!
+        cb!.encodeWaitForEvent(event, value: 1)
+        defer { event.signaledValue = 1 }
+        weak var oldTarget: MTLTexture?
+        var copied: MTLTexture?, recoveryBytes: MTLTexture?, recoveryCB: MTLCommandBuffer?
+        var result: [String: Any] = [:]
+        autoreleasepool {
+            let registry = SceneFrameTextureRegistry(), epoch = registry.beginFrame(frameIndex: 1, layerSources: [:])
+            let first = reserve(f, source, candidate(source), epoch)
+            oldTarget = first.0!.texture
+            let output = pattern(d, 80, 40, 3)
+            result["firstPublication"] = status(f.2.publishGraphOutputIfRequired(layerID: 700, texture: output,
+                publicationRole: .visibleMainLoop, textureRegistry: registry, commandBuffer: cb!))
+            copied = readback(d, first.0!.texture, cb!); registry.commitFramePublication(); cb!.commit()
+            result["pending"] = cb!.status != .completed && cb!.status != .error
+            let next = registry.beginFrame(frameIndex: 2, layerSources: [:]), second = reserve(f, source, candidate(source), next, (120, 60))
+            let cancelled = q.makeCommandBuffer()!, nextOutput = pattern(d, 120, 60, 4)
+            result["resizedDistinct"] = second.0?.texture !== first.0?.texture
+                && second.0?.texture.width == 120 && second.0?.texture.height == 60
+            result["cancelledPublication"] = status(f.2.publishGraphOutputIfRequired(layerID: 700, texture: nextOutput,
+                publicationRole: .visibleMainLoop, textureRegistry: registry, commandBuffer: cancelled))
+            registry.discardFramePublication()
+            result["cancelledNotSubmitted"] = cancelled.status == .notEnqueued
+            result["cancelledUnavailable"] = resolution(f.2, registry)
+            let recoveryEpoch = registry.beginFrame(frameIndex: 3, layerSources: [:])
+            let recovered = reserve(f, source, candidate(source), recoveryEpoch, (120, 60))
+            let recoveredOutput = pattern(d, 120, 60, 5)
+            recoveryCB = q.makeCommandBuffer()!
+            result["recoveryEpochAdvanced"] = recoveryEpoch > next && next > epoch
+            result["recoveryReserved"] = recovered.0 != nil && recovered.1 == nil
+            result["recoveryPublication"] = status(f.2.publishGraphOutputIfRequired(layerID: 700, texture: recoveredOutput,
+                publicationRole: .visibleMainLoop, textureRegistry: registry, commandBuffer: recoveryCB!))
+            recoveryBytes = readback(d, recovered.0!.texture, recoveryCB!)
+            registry.commitFramePublication(); recoveryCB!.commit()
+        }
+        result["oldTargetRetainedInFlight"] = oldTarget != nil
+        event.signaledValue = 1; cb!.waitUntilCompleted()
+        recoveryCB!.waitUntilCompleted()
+        result["completed"] = cb!.status == .completed && cb!.error == nil
+        result["oldPixelsSurviveResizeCancel"] = read(copied!) == bytes(80, 40, 3)
+        cb = nil
+        result["oldTargetReleasedAfterCompletion"] = oldTarget == nil
+        result["recoveryCompleted"] = recoveryCB!.status == .completed && recoveryCB!.error == nil
+        result["recoveryPixels"] = read(recoveryBytes!) == bytes(120, 60, 5)
+        return result
+    }
+    static func budget(_ d: MTLDevice) -> [String: Any] {
+        let f = fixture(d), source = texture(d, 64, 32), registry = SceneFrameTextureRegistry()
+        let epoch = registry.beginFrame(frameIndex: 1, layerSources: [:]), b = SceneResourceBudget.shared
+        let q = d.makeCommandQueue()!, output = pattern(d, 80, 40, 7), cb = q.makeCommandBuffer()!
+        let rejectionsBefore = b.snapshot.rejectionCount
+        let held = b.maximumBytes - b.snapshot.residentBytes
+        precondition(b.reserve(held, kind: .gpu))
+        let failed = reserve(f, source, candidate(source), epoch)
+        let failedPublication = status(f.2.publishGraphOutputIfRequired(layerID: 700, texture: output,
+            publicationRole: .visibleMainLoop, textureRegistry: registry, commandBuffer: cb))
+        let rejected = b.snapshot.rejectionCount
+        b.release(held, kind: .gpu)
+        let recovered = reserve(f, source, candidate(source), epoch)
+        return ["acceptedUnderExhaustion": failed.0 != nil, "reason": failed.1 as Any? ?? NSNull(),
+            "budgetRejectionObserved": rejected > rejectionsBefore, "failedPublication": failedPublication,
+            "recoveryAccepted": recovered.0 != nil && recovered.1 == nil,
+            "unpublishedResolution": resolution(f.2, registry)]
+    }
+}
+'''
+
+
+def run_native_atlas_probe():
+    # The existing scaffold supplies only already-prepared plan/peripheral
+    # types. Runtime, pool, registry, candidates, allocation and Metal are real.
+    # Import lazily: named-model fixtures already import this module's shell.
+    from script.tests import test_scene_named_model_shadow as native
+    from script.tests.test_scene_directional_shadow import run_swift
+
+    parent = os.environ.get("MWX_ATLAS_NAMED_EVIDENCE")
+    if parent:
+        Path(parent).mkdir(parents=True, exist_ok=True)
+    work = Path(tempfile.mkdtemp(prefix="atlas-named-", dir=parent))
+    snapshot = work / "production"
+    sources = list(native.DEPENDENCY_SOURCES)
+    metal = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal"
+    ref = os.environ.get("MWX_ATLAS_NAMED_PRODUCT_REF")
+    inputs = {}
+    for source in [*sources, metal]:
+        relative = source.relative_to(REPOSITORY_ROOT)
+        data = (subprocess.check_output(["git", "show", f"{ref}:{relative}"], cwd=REPOSITORY_ROOT)
+                if ref else source.read_bytes())
+        frozen = snapshot / relative
+        frozen.parent.mkdir(parents=True, exist_ok=True)
+        frozen.write_bytes(data)
+        digest = hashlib.sha256(data).hexdigest()
+        if not ref and hashlib.sha256(source.read_bytes()).hexdigest() != digest:
+            raise AssertionError(f"production source changed while freezing: {source}")
+        inputs[str(source)] = {"frozen": str(frozen), "sha256": digest,
+                               "productionRef": ref or "current-tree"}
+    support = native.dependency_support() + ATLAS_NATIVE_MAIN + ATLAS_NATIVE_EXTRA
+    identity = {"inputs": inputs, "harnessSHA256": hashlib.sha256(support.encode()).hexdigest(),
+                "testSHA256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                "scope": "real native owners; prepared plan and unused peripherals scaffolded"}
+    (work / "input-manifest.json").write_text(json.dumps(identity, indent=2))
+    previous = {key: os.environ.get(key) for key in
+                ("MWX_DIRECTIONAL_SHADOW_EVIDENCE", "MWX_DIRECTIONAL_SHADOW_PRODUCT_SNAPSHOT")}
+    os.environ["MWX_DIRECTIONAL_SHADOW_EVIDENCE"] = str(work)
+    os.environ.pop("MWX_DIRECTIONAL_SHADOW_PRODUCT_SNAPSHOT", None)
+    try:
+        result = run_swift([snapshot / s.relative_to(REPOSITORY_ROOT) for s in sources],
+            support, label="atlas-named", metal_sources=[snapshot / metal.relative_to(REPOSITORY_ROOT)])
+    finally:
+        for key, value in previous.items():
+            if value is None: os.environ.pop(key, None)
+            else: os.environ[key] = value
+        after = {str(Path(value["frozen"])): hashlib.sha256(Path(value["frozen"]).read_bytes()).hexdigest()
+                 for value in inputs.values()}
+        (work / "inputs-after.json").write_text(json.dumps(after, indent=2))
+        if any(after[value["frozen"]] != value["sha256"] for value in inputs.values()):
+            raise AssertionError(f"frozen production input changed: {work}")
+    return result
+
+
+class SceneAtlasNamedNativeOwnerTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.report = run_native_atlas_probe()
+
+    def test_legal_atlas_reserves_actual_prepared_extent(self):
+        self.assertTrue(self.report["reservationAccepted"], self.report)
+        self.assertIsNone(self.report["reservationReason"])
+        self.assertEqual(self.report["sourceExtent"], [64, 32])
+        self.assertEqual(self.report["targetExtent"], [80, 40])
+
+    def test_two_consumers_share_once_per_epoch_and_observe_changed_pixels(self):
+        rows = self.report["publication"]
+        self.assertEqual(len(rows), 2)
+        self.assertLess(rows[0]["epoch"], rows[1]["epoch"])
+        self.assertEqual([row["candidateProvided"] for row in rows], [True, False])
+        self.assertNotEqual(rows[0]["firstPixelBGRA"], rows[1]["firstPixelBGRA"])
+        for row in rows:
+            with self.subTest(epoch=row["epoch"]):
+                self.assertEqual(row["beforePublication"], "unavailable:external-primary-provider-capture-unavailable")
+                self.assertEqual(row["published"], "published")
+                self.assertEqual(row["repeated"], "published")
+                self.assertEqual(row["resolution"], "ready")
+                self.assertEqual(row["copies"], 1)
+                self.assertEqual(row["consumerCount"], 2)
+                for key in ("installed", "shared", "typed", "copiedExactly", "consumerPixelsMatch", "completed"):
+                    self.assertTrue(row[key], (key, row))
+
+    def test_illegal_metadata_and_texture_identity_are_hard_rejected(self):
+        self.assertFalse(self.report["safety"]["invalidActualTextureAccepted"])
+        self.assertEqual(self.report["safety"]["invalidActualTextureReason"], "image-provider-invalid")
+        rows = self.report["safety"]["invalidCandidates"]
+        self.assertEqual({row["name"] for row in rows}, {
+            "physical-nan", "physical-noninteger", "physical-mismatch", "mapped-zero", "mapped-infinite",
+            "mapped-noninteger", "mapped-outbounds", "uv-nan", "uv-outbounds", "uv-negative", "wrong-texture", "wrong-purpose"})
+        for row in rows:
+            with self.subTest(input=row["name"]):
+                self.assertFalse(row["accepted"], row)
+                self.assertEqual(row["reason"], "image-provider-invalid")
+                self.assertEqual(row["publication"], "invalid:named-provider-reservation-missing")
+
+    def test_raw_mapping_miss_preserves_tiny_and_planned_source_fallback(self):
+        row = self.report["safety"]
+        self.assertFalse(row["rawMappingAccepted"])
+        self.assertEqual(row["rawMappingReason"], "image-provider-mapping-unavailable")
+        self.assertFalse(row["nilRawAccepted"])
+        self.assertEqual(row["nilRawReason"], "image-provider-mapping-unavailable")
+        self.assertEqual(row["missingPlanExtentReason"], "image-provider-mapping-unavailable")
+        self.assertFalse(row["missingPlanExtentAccepted"])
+        self.assertTrue(row["tinyRawAccepted"])
+        self.assertIsNone(row["tinyRawReason"])
+        self.assertTrue(row["plannedRawFallbackAccepted"])
+        self.assertIsNone(row["plannedRawFallbackReason"])
+        self.assertEqual(row["plannedRawFallbackPublication"], "published")
+        self.assertTrue(row["plannedRawFallbackPixels"])
+        self.assertTrue(row["plannedRawFallbackCompleted"])
+
+    def test_prepared_plan_extent_alias_and_stale_publication_rejections(self):
+        row = self.report["safety"]
+        self.assertEqual(row["fakePlanReason"], "prepared-output-plan-invalid")
+        self.assertEqual(row["invalidPlanExtentReason"], "prepared-output-plan-invalid")
+        self.assertEqual(row["conflictReason"], "reservation-mismatch")
+        for key in ("fakePlanAccepted", "invalidPlanExtentAccepted", "conflictAccepted"):
+            self.assertFalse(row[key], (key, row))
+        self.assertFalse(row["wrongExtentInstalled"])
+        self.assertEqual(row["wrongExtentPublication"], "invalid:named-provider-publication-identity-invalid")
+        self.assertFalse(row["aliasInstalled"])
+        self.assertEqual(row["aliasPublication"], "invalid:named-provider-publication-identity-invalid")
+        self.assertEqual(row["goodPublication"], "published")
+        self.assertEqual(row["changedSourcePublication"], "invalid:named-provider-publication-identity-invalid")
+        self.assertTrue(row["staleRegistryRefused"] and row["epochAdvanced"] and row["completed"])
+        self.assertEqual(row["stalePublication"], "invalid:named-provider-reservation-missing")
+
+    def test_inflight_resize_cancel_preserves_original_and_recovers(self):
+        row = self.report["lifecycle"]
+        for key in ("pending", "resizedDistinct", "cancelledNotSubmitted", "oldTargetRetainedInFlight",
+                    "completed", "oldPixelsSurviveResizeCancel", "oldTargetReleasedAfterCompletion",
+                    "recoveryReserved", "recoveryEpochAdvanced", "recoveryCompleted", "recoveryPixels"):
+            self.assertTrue(row[key], (key, row))
+        self.assertEqual(row["firstPublication"], "published")
+        self.assertEqual(row["cancelledPublication"], "published")
+        self.assertEqual(row["cancelledUnavailable"], "unavailable:external-primary-provider-capture-unavailable")
+        self.assertEqual(row["recoveryPublication"], "published")
+
+    def test_real_resident_budget_failure_stays_resource_rejection(self):
+        row = self.report["budget"]
+        self.assertFalse(row["acceptedUnderExhaustion"])
+        self.assertEqual(row["reason"], "target-pool-unavailable")
+        self.assertEqual(row["failedPublication"], "invalid:named-provider-reservation-missing")
+        self.assertTrue(row["budgetRejectionObserved"] and row["recoveryAccepted"])
+        self.assertEqual(row["unpublishedResolution"], "unavailable:external-primary-provider-capture-unavailable")
 
 
 if __name__ == "__main__":

@@ -280,19 +280,6 @@
         "case textureRotation",
         "case textureTranslation"
       ]
-    },
-    {
-      "id": "scene-named-image-graph-output",
-      "title": "Named image graph输出资格与局部视觉失败",
-      "owner": "scene-dependency-reservation-and-frame-preflight",
-      "status": "approved",
-      "designDoc": "docs/scene/design/named-image-graph-output-design.md",
-      "design_notes": "命中①dependency preparation/publication跨owner、②唯一resource/failure权威、④既有dependency家族；不改用户数据格式，不依赖新的私有算法。按prepared graph真实extent准入合法atlas输出，ordinary raw mapping miss复用现有局部回退，保留identity/epoch/hazard/budget硬门。原v1实际输出及局部失败/生命周期门独审完成后删登记并移交稳定架构。 设计v2独立审查ACCEPT，保留原尺寸/UV完整性与计划关联，禁止扩大nil降级；审批只授权设计范围，不表示运行验收。",
-      "matchPatterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime+Geometry.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
-      ],
-      "contentPatterns": []
     }
   ]
 }

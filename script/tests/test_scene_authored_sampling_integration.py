@@ -90,22 +90,84 @@ def fixture_entries():
     return {"type": "scene", "file": "scene.json"}, entries
 
 
-def preregistration():
+SECOND_COLORS = ((0, 255, 255), (255, 0, 255), (255, 255, 0), (0, 0, 255))
+ORIGINAL_ATLAS_PACKAGE_SHA256 = "3c2a32970436923433f6c7ad82735811b882067f6214df453c46cff8e92dc4f2"
+ORIGINAL_PROJECT_SHA256 = "2a5e61fb3064dc35c646e3dce93f13967496219ea96ddad8a73545d1b6207f60"
+
+
+def changing_atlas():
+    # Two disjoint, equal positive-axis frames; frame one lasts 2 seconds,
+    # frame two lasts an hour. Ready is requested at 1 second, after at 3.
+    # Expected colors are fixed by request class before either image is read.
+    width, height = 128, 32
+    payload = bytearray()
+    for y in range(height):
+        for x in range(width):
+            color = SENTINEL
+            for origin, palette in ((16, COLORS), (80, SECOND_COLORS)):
+                if origin <= x < origin + 32 and 8 <= y < 24:
+                    color = palette[int(y >= 16) * 2 + int(x >= origin + 16)]
+            payload.extend((*color, 255))
+    result = (b"TEXV0005\0TEXI0001\0" + struct.pack("<7I", 0, 4, width, height, width, height, 0)
+              + b"TEXB0002\0" + struct.pack("<2I", 1, 1)
+              + struct.pack("<5I", width, height, 0, len(payload), len(payload)) + payload
+              + b"TEXS0002\0" + struct.pack("<I", 2))
+    for origin, duration in ((16, 2.0), (80, 3600.0)):
+        result += struct.pack("<if6f", 0, duration, origin, 8, 32, 0, 0, 16)
+    return bytes(result)
+
+
+def case_fixture(case):
     project, entries = fixture_entries()
+    panels = list(PANELS)
+    if case == "padding":
+        return project, entries, panels
+    entries = {name: data.replace(b"_rt_imageLayerComposite_22_a", b"_rt_imageLayerComposite_12_a")
+               if name.endswith(".json") else data for name, data in entries.items()}
+    scene = json.loads(entries["scene.json"])
+    scene["objects"][-1]["dependencies"] = [12]
+    entries["scene.json"] = encoded(scene)
+    # This exact old failing input is the atlas positive control, not a
+    # regenerated lookalike or the later padding substitution.
+    assert hashlib.sha256(make_package(list(entries.items()))).hexdigest() == ORIGINAL_ATLAS_PACKAGE_SHA256
+    assert hashlib.sha256(encoded(project)).hexdigest() == ORIGINAL_PROJECT_SHA256
+    if case == "raw-miss":
+        del scene["objects"][1]["effects"]
+        panels = [(layer, x, y, effect and layer not in (12, 31)) for layer, x, y, effect in panels]
+    elif case == "two-consumers":
+        scene["objects"][-1]["origin"] = "80 40 0"
+        second = json.loads(json.dumps(scene["objects"][-1]))
+        second.update(id=32, name="Second named output consumer", origin="176 40 0")
+        second["effects"][0]["id"] = 320
+        second["effects"][0]["passes"][0]["id"] = 321
+        scene["objects"].append(second)
+        panels[-1] = (31, 80, 152, True)
+        panels.append((32, 176, 152, True))
+    elif case == "new-frame":
+        entries["materials/axis.tex"] = changing_atlas()
+    elif case not in ("atlas", "resize"):
+        raise ValueError(case)
+    entries["scene.json"] = encoded(scene)
+    return project, entries, panels
+
+
+def preregistration(case="padding"):
+    project, entries, panels = case_fixture(case)
     hashes = {name: hashlib.sha256(data).hexdigest() for name, data in entries.items()}
     hashes["project.json"] = hashlib.sha256(encoded(project)).hexdigest()
     hashes["scene.pkg"] = hashlib.sha256(make_package(list(entries.items()))).hexdigest()
-    return {"inputSHA256": hashes, "canvas": CANVAS, "panelSize": [64, 32],
+    return {"case": case, "inputSHA256": hashes, "canvas": CANVAS, "panelSize": [64, 32],
             "panels": [{"id": layer, "center": [x, y],
                         "quadrantRGB": [list((c[1], c[2], c[0]) if effect else c) for c in COLORS]}
-                       for layer, x, y, effect in PANELS],
+                       for layer, x, y, effect in panels],
+            "newFramePalette": SECOND_COLORS if case == "new-frame" else None,
             "oracle": {"interiorInsetCanvas": 3, "minimumCorrectAreaFraction": .99,
                        "channelTolerance": 3, "outsideBoundaryOffsetCanvas": 2,
                        "outsideRGB": [0, 0, 0], "sentinelRGB": SENTINEL},
             "timingLimit": "ready/after PNG plus completed later frames; no strict adjacent-frame pixel binding"}
 
 
-def measure_capture(path):
+def measure_capture(path, panel_specs=PANELS, second_frame=False):
     width, height, rows = png_rgb_pixels(path)
     scale = max(width / CANVAS[0], height / CANVAS[1])
     def point(x, y):
@@ -118,9 +180,9 @@ def measure_capture(path):
             raise AssertionError(f"preregistered ROI outside capture: {(x, y, width, height)}")
         return list(rows[iy][ix * 3:ix * 3 + 3])
     panels = []
-    for layer, cx, cy, effect in PANELS:
+    for layer, cx, cy, effect in panel_specs:
         quadrants = []
-        for q, color in enumerate(COLORS):
+        for q, color in enumerate(SECOND_COLORS if second_frame and layer in (11, 12, 31) else COLORS):
             expected = (color[1], color[2], color[0]) if effect else color
             left, top = cx - 32 + (q % 2) * 32, cy - 16 + (q // 2) * 16
             x0, y0 = point(left + 3, top + 3)
@@ -148,21 +210,24 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
             raise unittest.SkipTest("requires explicitly frozen Debug App executable")
         cls.app = Path(executable).resolve(strict=True)
 
-    def test_axis_padding_effect_and_named_consumer(self):
-        protocol = preregistration()
+    def run_case(self, case):
+        protocol = preregistration(case)
         with tempfile.TemporaryDirectory(prefix="mwx-authored-sampling-") as temporary:
             root = Path(temporary)
             content, home, evidence = root / "content", root / "home", root / "evidence"
             content.mkdir()
             home.mkdir()
-            project, entries = fixture_entries()
+            project, entries, panel_specs = case_fixture(case)
             (content / "project.json").write_bytes(encoded(project))
             (content / "scene.pkg").write_bytes(make_package(list(entries.items())))
             (root / "preregistration.json").write_bytes(encoded(protocol))
             env = os.environ.copy()
             env.update(HOME=str(home), CFFIXED_USER_HOME=str(home), MWX_SCENE_DEBUG_SURFACE_COUNT="1")
             command = [str(self.app), "--mwx-debug-scene-root", str(content),
-                       "--mwx-debug-scene-duration", "6", "--mwx-debug-scene-evidence-dir", str(evidence)]
+                       "--mwx-debug-scene-duration", "8" if case == "resize" else "6",
+                       "--mwx-debug-scene-evidence-dir", str(evidence)]
+            if case == "resize":
+                command += ["--mwx-debug-scene-resize-sequence", "2:0.5,3:1"]
             result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=60)
             log = result.stdout + result.stderr
             (root / "app.log").write_text(log)
@@ -171,7 +236,8 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
             try:
                 preview = "\n".join(p.read_text() for p in evidence.glob("*preview*.log"))
                 captures = sorted(evidence.glob("*-window.png"))
-                measurements = {p.name: measure_capture(p) for p in captures}
+                measurements = {p.name: measure_capture(p, panel_specs,
+                    second_frame=case == "new-frame" and "after" in p.name) for p in captures}
                 (root / "measurements.json").write_bytes(encoded(measurements))
                 self.assertEqual(result.returncode, 0, log[-6000:])
                 self.assertIn("gpuDrained=true", log)
@@ -179,10 +245,27 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                 self.assertGreaterEqual(len(captures), 2)
                 self.assertTrue(any("ready" in p.name for p in captures))
                 self.assertTrue(any("after" in p.name for p in captures))
-                for layer in (12, 22, 31):
+                effect_layers = (22,) if case == "raw-miss" else (12, 22, 31)
+                if case == "two-consumers":
+                    effect_layers += (32,)
+                for layer in effect_layers:
                     self.assertRegex(log + preview, rf"generic shader execution [^\n]*layer={layer} effect=0 ")
-                self.assertRegex(log, r"phase=(?:visible|named)-graph-output-publication layer=22 status=succeeded")
-                self.assertIn("phase=named-target-binding layer=31 status=succeeded", log)
+                provider = 22 if case == "padding" else 12
+                if case == "raw-miss":
+                    self.assertNotIn("phase=named-target-capture layer=12 status=succeeded", log)
+                    self.assertNotIn("phase=named-target-binding layer=31 status=succeeded", log)
+                    self.assertNotRegex(log, r"phase=(?:visible|named)-graph-output-publication layer=12 status=succeeded")
+                else:
+                    self.assertRegex(log, rf"phase=(?:visible|named)-graph-output-publication layer={provider} status=succeeded")
+                    self.assertIn("phase=named-target-binding layer=31 status=succeeded", log)
+                if case == "two-consumers":
+                    self.assertIn("phase=named-target-binding layer=32 status=succeeded", log)
+                if case == "resize":
+                    self.assertIn("phase=surface-resize index=0 scale=0.5000 accepted=true", log)
+                    self.assertIn("phase=surface-resize index=1 scale=1.0000 accepted=true", log)
+                    ready = measurements["scene-ready-window.png"]["size"]
+                    self.assertEqual(measurements["scene-resize-00-window.png"]["size"], [n // 2 for n in ready])
+                    self.assertEqual(measurements["scene-resize-01-window.png"]["size"], ready)
                 for name, measurement in measurements.items():
                     for panel in measurement["panels"]:
                         for quadrant in panel["quadrants"]:
@@ -201,3 +284,21 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                     for path in root.glob("*.json"):
                         shutil.copy2(path, saved / path.name)
                     shutil.copy2(root / "app.log", saved / "app.log")
+
+    def test_axis_padding_effect_and_named_consumer(self):
+        self.run_case("padding")
+
+    def test_original_atlas_named_package(self):
+        self.run_case("atlas")
+
+    def test_raw_atlas_miss_preserves_entry_and_healthy_peers(self):
+        self.run_case("raw-miss")
+
+    def test_two_consumers_share_atlas_graph_output(self):
+        self.run_case("two-consumers")
+
+    def test_new_atlas_frame_reaches_named_output(self):
+        self.run_case("new-frame")
+
+    def test_resize_preserves_atlas_named_output(self):
+        self.run_case("resize")

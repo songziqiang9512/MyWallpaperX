@@ -85,6 +85,18 @@ extension SceneDependencyFrameRuntime {
                 return nil
             }
         }
+        let requiresGraphOutput = plan.requiredGraphOutputProviderLayerIDs
+            .contains(providerLayer.id)
+        // Prepared extents come from the provider's frame plan. A caller may
+        // not turn an unplanned raw provider into a graph publication by
+        // supplying a size. A required provider can still have no executable
+        // graph this frame; its original source fallback keeps raw eligibility.
+        guard preparedOutputExtent.map({
+            requiresGraphOutput && $0.width > 0 && $0.height > 0
+        }) ?? true else {
+            failureReason = "prepared-output-plan-invalid"
+            return nil
+        }
         guard let extent = Self.captureExtent(
             binding: binding,
             providerLayer: providerLayer,
@@ -96,6 +108,7 @@ extension SceneDependencyFrameRuntime {
             layerMVP: layerMVP,
             viewportSize: viewportSize,
             preparedOutputExtent: preparedOutputExtent,
+            usesPreparedGraphOutput: requiresGraphOutput && preparedOutputExtent != nil,
             failureReason: &failureReason
         ) else {
             return nil
@@ -238,18 +251,37 @@ extension SceneDependencyFrameRuntime {
         layerMVP: simd_float4x4,
         viewportSize: CGSize,
         preparedOutputExtent: (width: Int, height: Int)? = nil,
+        usesPreparedGraphOutput: Bool = false,
         failureReason: inout String?
     ) -> (width: Int, height: Int)? {
         switch binding.kind {
         case .imageLayerBlend, .visibleImageGraphOutput:
             guard binding.providerLayerID == providerLayer.id,
                   let providerTexture,
-                  let providerCandidate,
-                  isExactImageProviderCandidate(
-                      providerCandidate,
-                      matching: providerTexture
-                  ) else {
+                  providerTexture.textureType == .type2D,
+                  providerTexture.sampleCount == 1,
+                  providerTexture.usage.contains(.shaderRead) else {
                 failureReason = "image-provider-invalid"
+                return nil
+            }
+            if let providerCandidate,
+               !isExactImageProviderCandidate(
+                   providerCandidate,
+                   matching: providerTexture,
+                   requiresExactMapping: false
+               ) {
+                failureReason = "image-provider-invalid"
+                return nil
+            }
+            if !usesPreparedGraphOutput,
+               providerCandidate?.axisAlignedMappedUVScale(
+                   expectedPurpose: .premultipliedColor
+               ) == nil {
+                // Specialized sprite loading intentionally has no Candidate;
+                // its prepared graph source is validated by the original
+                // source capture. Raw capture still needs its exact profile.
+                // Missing that visual metadata is not a forged resource.
+                failureReason = "image-provider-mapping-unavailable"
                 return nil
             }
             return normalizedExtent(
@@ -365,22 +397,35 @@ extension SceneDependencyFrameRuntime {
 
     static func isExactImageProviderCandidate(
         _ candidate: SceneTextureCandidate,
-        matching texture: MTLTexture
+        matching texture: MTLTexture,
+        requiresExactMapping: Bool = true
     ) -> Bool {
+        let physical = candidate.physicalSize
+        let mapped = candidate.mappedSize
         guard candidate.texture === texture,
               candidate.purpose == .premultipliedColor,
               candidate.content.isResolved,
               candidate.sampling.isResolvedForMaterialProgram,
               !candidate.sampling.usesClampBorderFallback,
-              candidate.axisAlignedMappedUVScale(
-                  expectedPurpose: .premultipliedColor
-              ) != nil,
+              physical.width == CGFloat(texture.width),
+              physical.height == CGFloat(texture.height),
+              mapped.width.isFinite, mapped.height.isFinite,
+              mapped.width > 0, mapped.height > 0,
+              mapped.width.rounded() == mapped.width,
+              mapped.height.rounded() == mapped.height,
+              mapped.width <= physical.width,
+              mapped.height <= physical.height,
+              candidate.materialProgramUVTransform() != nil,
               texture.textureType == .type2D,
               texture.sampleCount == 1,
               texture.usage.contains(.shaderRead) else {
             return false
         }
-        return true
+        // Unlike SlotBinding, this raw profile has no UV-area floor. A tiny
+        // positive mapped region is still valid; do not tighten that contract.
+        return !requiresExactMapping || candidate.axisAlignedMappedUVScale(
+            expectedPurpose: .premultipliedColor
+        ) != nil
     }
 
     /// Encodes either the original atlas or its graph-final color through the

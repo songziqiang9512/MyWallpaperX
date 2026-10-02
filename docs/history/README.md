@@ -16,6 +16,8 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-03 | Scene | 实施证据 | [RF02 atlas named 输出](scene/rf02-atlas-named-output-implementation-2026-10-03.md) | 原失败包恢复、specialized来源、动态App与资源失败半径 | [架构](../scene/design/runtime-architecture.md)、[RF02卡](../scene/design/reference-evidence-implementation-cards.md)、[兼容路线](../scene/scene-compatibility-roadmap.md) |
+| 2026-10-03 | Scene | 退役设计 | [RF02 atlas named 设计](scene/rf02-atlas-named-output-design-2026-10-03.md) | graph与raw资格分离、source fallback和nil candidate裁决 | [架构](../scene/design/runtime-architecture.md)、[兼容路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-03 | Scene | 实施证据 | [RF02 作者采样坐标](scene/rf02-authored-sampling-implementation-2026-10-03.md) | 两 compiler 采样纠正、旧缓存退役、真实GPU与App验证及atlas named遗留红例 | [架构](../scene/design/runtime-architecture.md)、[RF02卡](../scene/design/reference-evidence-implementation-cards.md)、[兼容路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-03 | Scene | 黑盒观察 | [RF02 五组 companion 数值观察](scene/rf02-companion-uniform-observations-2026-10-03.md) | 原图逐格核对、完整量化区间及分量差分；自动采样和时序尚未定案 | [RF02卡](../scene/design/reference-evidence-implementation-cards.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-03 | Scene | 未定案实验 | [RF02 companion 研究检查点](scene/rf02-companion-research-checkpoint-2026-10-03.md) | 真实Swift拒绝反例、自有TEX与官方探针准入；数值语义未定案 | [RF02卡](../scene/design/reference-evidence-implementation-cards.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |

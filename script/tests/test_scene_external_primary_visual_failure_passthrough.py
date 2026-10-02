@@ -232,7 +232,9 @@ HARNESS = replace_once(
             independentFramebufferChain,
             catalog: catalog(
                 for: independentFramebufferGraph,
-                internalDefaultNodes: [0],
+                // Use an explicitly invalid author sampler declaration;
+                // an RT default can become supported and is not a failure oracle.
+                samplerSchemaInvalidNodes: [0],
                 namedProvidersByNode: [2: namedReference]
             ),
             namedProvider: namedReference,
@@ -432,6 +434,103 @@ HARNESS = replace_once(
                 dependencyUnavailability: .providerSourceUnavailable
             )
         )
+        // A missing optional source must not turn a graph with persistent
+        // history or authored clears into a successful passthrough. Establish
+        // executable ready controls first, then reuse their committed state.
+        func protectedGraphRejectsUnavailable(_ selectedGraph: Graph) -> String {
+            let chain = admittedGraph(selectedGraph)
+            let binding = SceneDependencyRenderPlan.Binding(
+                consumerLayerID: layerID,
+                providerLayerID: namedReference.providerLayerID,
+                slot: .init(effectID: effect.descriptorID, passIndex: 0, slotIndex: 1),
+                blendMode: 0,
+                kind: .resolvedMaterial
+            )
+            let selectedCapabilities = capabilities(
+                chain,
+                catalog: catalog(for: selectedGraph, namedProvidersByNode: [0: namedReference]),
+                namedProvider: namedReference,
+                dependencyBinding: binding
+            )
+            guard let claim = selectedCapabilities.claim(chain),
+                  let capability = selectedCapabilities.resolve(claim.token, for: chain),
+                  let executor = Executor(device: device, capabilities: selectedCapabilities),
+                  let readyInputs = externalDependencyInput,
+                  let readyCommand = queue.makeCommandBuffer() else { return "setup-rejected:" + selectedCapabilities.reportLines.joined(separator: " | ") }
+            let leases = [makeLease(requireR4Plan(selectedGraph), device: device, generation: 71)]
+            let readyResult = executor.prepare(
+                token: claim.token, leases: leases, historyRehydrateCopiesByEffect: [:],
+                frame: frame(60), sourceTexture: makeSource(device, width: 2, height: 2),
+                sourceUniforms: .neutral(), sourcePipeline: sourcePipeline,
+                frameInputs: readyInputs, commandBuffer: readyCommand,
+                previousStates: [:], previousGraphResources: [:],
+                effectGeneration: 1, resetGeneration: 1
+            )
+            guard case let .success(ready) = readyResult,
+                  ready.stages.count == 1,
+                  ready.stages[0].effectLocalFailureReasonCode == nil,
+                  executor.encode(ready, commandBuffer: readyCommand),
+                  let beforeReadback = appendReadback(ready.finalTexture, commandBuffer: readyCommand)
+            else { return "ready-" + failureCode(readyResult) }
+            readyCommand.commit()
+            readyCommand.waitUntilCompleted()
+            guard readyCommand.status == .completed, readyCommand.error == nil,
+                  let unavailableCommand = queue.makeCommandBuffer() else { return "ready-gpu-failed" }
+            let committed = ready.stages[0]
+            let unavailable = executor.prepare(
+                token: claim.token, leases: leases, historyRehydrateCopiesByEffect: [:],
+                frame: frame(61), sourceTexture: makeSource(device, width: 2, height: 2),
+                sourceUniforms: .neutral(), sourcePipeline: sourcePipeline,
+                frameInputs: .init(dependencyUnavailability: .providerSourceUnavailable),
+                commandBuffer: unavailableCommand,
+                previousStates: [effect: committed.transition.nextState],
+                previousGraphResources: [effect: committed.persistentResources],
+                effectGeneration: 1, resetGeneration: 1
+            )
+            guard case .failure = unavailable else { return "unsafe-passthrough-accepted" }
+            // Even submitting this rejected preparation may not alter the
+            // previously committed output. No encode call receives a success.
+            guard let afterReadback = appendReadback(ready.finalTexture, commandBuffer: unavailableCommand)
+            else { return "rejected-readback-setup" }
+            unavailableCommand.commit()
+            unavailableCommand.waitUntilCompleted()
+            guard unavailableCommand.status == .completed, unavailableCommand.error == nil,
+                  beforeReadback.firstPixel == afterReadback.firstPixel,
+                  beforeReadback.lastPixel == afterReadback.lastPixel,
+                  let recoveryCommand = queue.makeCommandBuffer(),
+                  let recoveryResource = SceneFrameTextureResource.reservedNamedLayerTarget(
+                      reference: namedReference, frameEpoch: 62, texture: providerTexture
+                  ) else { return "rejected-mutated-output" }
+            let recovery = executor.prepare(
+                token: claim.token, leases: leases, historyRehydrateCopiesByEffect: [:],
+                frame: frame(62), sourceTexture: makeSource(device, width: 2, height: 2),
+                sourceUniforms: .neutral(), sourcePipeline: sourcePipeline,
+                frameInputs: .init(dependencyEffects: [.init(
+                    frameEpoch: 62, texture: providerTexture, namedReference: namedReference,
+                    reservedMaterialResource: recoveryResource
+                )]), commandBuffer: recoveryCommand,
+                previousStates: [effect: committed.transition.nextState],
+                previousGraphResources: [effect: committed.persistentResources],
+                effectGeneration: 1, resetGeneration: 1
+            )
+            guard case let .success(recovered) = recovery,
+                  recovered.stages[0].effectLocalFailureReasonCode == nil,
+                  executor.encode(recovered, commandBuffer: recoveryCommand)
+            else { return "recovery-" + failureCode(recovery) }
+            recoveryCommand.commit()
+            recoveryCommand.waitUntilCompleted()
+            guard recoveryCommand.status == .completed, recoveryCommand.error == nil
+            else { return "recovery-gpu-failed" }
+            return "ready-rejected-preserved-recovered"
+        }
+        let unavailableHistoryResult = protectedGraphRejectsUnavailable(historyGraph(fixedSize: false))
+        let unavailableClearResult = protectedGraphRejectsUnavailable(graph(
+            targets: [rawTarget(first, clear: .string("1 0 0 0"))],
+            nodes: [
+                material(0, ordinal: 0, target: first, read: input),
+                material(1, ordinal: 1, target: output, read: first),
+            ]
+        ))
         let externalLaunchStaleResource =
             SceneFrameTextureResource.reservedNamedLayerTarget(
                 reference: namedReference,
@@ -563,7 +662,9 @@ HARNESS = replace_once(
 HARNESS = replace_once(
     HARNESS,
     '                "crossLayer": crossLayerFailure,\n',
-    '''                "externalLaunchFailure":
+    '''                "unavailableHistoryResult": unavailableHistoryResult,
+                "unavailableClearResult": unavailableClearResult,
+                "externalLaunchFailure":
                     externalLaunchFailure.failureCode,
                 "externalRuntimeFailure":
                     externalRuntimeFailure.failureCode,
@@ -586,6 +687,19 @@ HARNESS = replace_once(
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class ExternalPrimaryVisualFailurePassthroughTests(unittest.TestCase):
+    def test_unavailable_source_preserves_history_and_clear_boundary(self) -> None:
+        compilation, completed = compile_harness(SUPPORT, HARNESS)
+        self.assertEqual(compilation.returncode, 0, compilation.stderr)
+        self.assertIsNotNone(completed)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = json.loads(completed.stdout)
+        if not payload["metalAvailable"]:
+            self.skipTest("Metal is unavailable")
+        for key in ("unavailableHistoryResult", "unavailableClearResult"):
+            self.assertEqual(payload["failureCodes"][key], "ready-rejected-preserved-recovered", (key, payload["failureCodes"][key]))
+        for key in ("externalProviderSourceUnavailableLocalizesAndContinues", "externalLaunchFailureCannotMaskStaleProvider", "externalConsumerRecovers"):
+            self.assertTrue(payload["results"][key], (key, payload))
+
     def test_consumer_failure_preserves_provider_and_continues_suffix(self) -> None:
         compilation, completed = compile_harness(SUPPORT, HARNESS)
         self.assertEqual(compilation.returncode, 0, compilation.stderr)

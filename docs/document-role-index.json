@@ -13,7 +13,6 @@
       "docs/scene/design/frame-admission-retry-design.md",
       "docs/scene/design/hdr-tonemap-edr-design.md",
       "docs/scene/design/host-render-power-protocol-design.md",
-      "docs/scene/design/named-image-graph-output-design.md",
       "docs/scene/design/particle-playback-state-design.md",
       "docs/scene/design/refactor-baseline.md",
       "docs/scene/design/reference-evidence-implementation-cards.md",
@@ -410,6 +409,27 @@
         "docs/scene/scene-compatibility-roadmap.md",
         "docs/scene/semantics/coverage-ledger.md",
         "docs/scene/semantics/runtime-evidence-current.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/rf02-atlas-named-output-design-2026-10-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/design/runtime-architecture.md",
+        "docs/scene/scene-compatibility-roadmap.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/rf02-atlas-named-output-implementation-2026-10-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/design/runtime-architecture.md",
+        "docs/scene/design/reference-evidence-implementation-cards.md",
+        "docs/scene/scene-compatibility-roadmap.md"
       ]
     },
     {
@@ -830,12 +850,6 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/design/batch2-design-index.md",
       "retirementCondition": "App 唯一 power 裁决与版本化三态 IPC 验收，旧重复观察和布尔适配撤权后归档。"
-    },
-    {
-      "path": "docs/scene/design/named-image-graph-output-design.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/design/reference-evidence-implementation-cards.md",
-      "retirementCondition": "原atlas named输出、局部视觉失败与安全生命周期门独审完成，稳定合同移交runtime-architecture、证据归档后退役。"
     },
     {
       "path": "docs/scene/design/particle-playback-state-design.md",
