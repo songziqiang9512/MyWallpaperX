@@ -1,15 +1,17 @@
-<!-- document-role: active-plan -->
-<!-- retirementCondition: 已准入聚光灯对真实模型的完整有限锥投影经旧反例、实际GPU/App、多灯资源生命周期及独立终审通过，稳定职责移交架构、冻结结果归历史后归档本文并删除窄gate。 -->
+<!-- document-role: historical-evidence -->
+<!-- commandPolicy: historical-only -->
 
-# RF14 — 真实模型聚光阴影
+# RF14 — 真实模型聚光阴影（退役设计）
 
-基线 `170d48dd`。[工作卡](reference-evidence-implementation-cards.md#rf14-model-spot-shadow)承接RF13；本设计已获独立设计ACCEPT，`scene-static-model-spot-shadow`为`approved`，产品可在前置提交后按本文实施；运行能力尚未验收。本文保存行为合同和项目选型，不含参考代码、私有表达或算法公式。
+> **历史证据 — 非现役入口**。 设计批准与实施时的裁决完整保留。RF14已获独立产品终审，窄gate退役；现役职责由[架构](../../scene/design/runtime-architecture.md)接管，结果及未验边界见[执行记录](rf14-model-spot-shadow-implementation-2026-10-02.md)。下文的“当前”“可实施”仅指前置设计时点。
+
+基线 `170d48dd`。[工作卡](../../scene/design/reference-evidence-implementation-cards.md#rf14-model-spot-shadow)承接RF13；本设计已获独立设计ACCEPT，`scene-static-model-spot-shadow`为`approved`，产品可在前置提交后按本文实施；运行能力尚未验收。本文保存行为合同和项目选型，不含参考代码、私有表达或算法公式。
 
 ## 目标合同与证据
 
 当前四灯总准入内，全部显式cast-on spot对已合法显示的真实模型几何形成遮挡，包括RF13已准入source-only named albedo。每灯覆盖完整有限前向锥域；只衰减该spot的direct贡献，保其它灯、ambient、emission、alpha与唯一输出。模型默认cast、显式false仍receive、unlit仍可cast；coverage沿现F6合同，不新造receive作者字段。普通image、Puppet、particle不虚构几何成为caster。
 
-[官方3D Advanced Lighting](https://docs.wallpaperengine.io/en/scene/models/lighting.html)提供三光型可投影、逐灯开启与逐模型关闭的公开目标；其未规定投影数值或预算。现役中性入口为[D3 F6](2d-lighting-material-design.md#f6-model-directional-shadow)。[Mirage参考](../semantics/miragewallpaper-rendering-reference.md)§6.4支持资源读写版本职责检查，§8.4只有灯输入/shadow flag且无完整atlas；不采用其整灯抑制策略，不据此推断官方算法。缺少可照搬的方法不关闭该能力，以下选择由本项目独立实现和验证。
+[官方3D Advanced Lighting](https://docs.wallpaperengine.io/en/scene/models/lighting.html)提供三光型可投影、逐灯开启与逐模型关闭的公开目标；其未规定投影数值或预算。现役中性入口为[D3 F6](../../scene/design/2d-lighting-material-design.md#f6-model-directional-shadow)。[Mirage参考](../../scene/semantics/miragewallpaper-rendering-reference.md)§6.4支持资源读写版本职责检查，§8.4只有灯输入/shadow flag且无完整atlas；不采用其整灯抑制策略，不据此推断官方算法。缺少可照搬的方法不关闭该能力，以下选择由本项目独立实现和验证。
 
 当前没有已证实的完整原包spot/model可见受益，不以声明数量替代消费证据。首先交付自有合法MDL与lspot组合的真实新能力，再以真实输入扩展；不宣称官方像素一致性。
 
@@ -42,6 +44,10 @@
 使用灯的当前位置/方向建立透视锥，透视XY与片元正向轴深度配合；覆盖现spot直射衰减的有效范围，包括其现有极小radius数值保护。outer视野须包含作者角和当前cosine量化所表达的照明域，inner不缩小投影范围。投影从相对灯位置构造，避免无必要的大世界平移消去；参数由高精度CPU计算后核可表示性。
 
 不设置任意正near而永久漏掉近灯caster，不因某顶点在灯后就丢弃整三角。灯源平面、锥侧与跨平面三角交由真实齐次裁剪，片元在原coverage后写正向轴深度；球域外本来无direct贡献，不产生投影。该方案是本项目待验证的实现选择；[Apple深度接口](https://developer.apple.com/documentation/metal/calculating-primitive-visibility-using-depth-testing)和[公开MSL规格](https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf)只是接口依据。规格PDF在草案研究中未成功读取，不能把具体裁剪/片元depth组合声称为已证；批准后先导MSL编译与真实三角门必须先验证。
+
+先导执行已纠正轴深度的具体消费点：直接使用光栅插值的位置深度，在非对齐三角上与理想采样灯射线发生偏差；原8组、固定误差门下最大误差约0.000122。由插值位置的真实caster几何面与实际fragment采样中心射线求交，保持同一输入/门后8组通过、最大误差约0.000000217。原红、对齐坐标正控与修正结果保留在`/private/tmp/mwx-rf14/`，只证明公开API微证，不代表产品。
+
+这项澄清已独立接受，仍是同一完整锥和轴深度合同：现depth uniform传实际target extent，fragment位置已经是采样中心，不重复增加半像素；caster导数在coverage/discard分支前取得，实际无定义平面/交点只丢对应片元，不写NaN或退回未校正深度。原微证的无剔除、直角锥和64像素目标不能替代实际产品PSO、其它角度、self与正负间隙门；不改变原directional策略。
 
 保留原directional投影和质量策略，不把它的affine深度梯度直接用于spot。worldPosition导数须在进入spot循环的距离、cone等非一致分支前统一取得，不能在分支内首次求导。spot接收端从当前真实几何的屏幕导数取接收面，按各实际采样texel的灯射线与该面交点作深度比较。材质shading normal不替代几何面。沿原九tap数量和实际texel中心取样；落在有效域外或不存在有效前向交点的tap局部回无影，不用假深度或随意斜率阈值。
 
@@ -94,4 +100,4 @@ Swift/Metal与Debug构建、code-health、scene-defense、design-gate及文档�
 
 ## 退役条件与后继
 
-完整有限锥输出、全准入spot及混directional、资源生命周期门和独立产品终审通过后，稳定职责移交[runtime architecture](runtime-architecture.md)，冻结证据入历史、本文归档并删除窄gate。下一主片在现透视/资源链上做point全向投影与面接缝；不能以本片通过关闭整个D3。reader差额若有具体中性归因与主构图收益，可由[唯一路线](../scene-compatibility-roadmap.md)重新排序。
+完整有限锥输出、全准入spot及混directional、资源生命周期门和独立产品终审通过后，稳定职责移交[runtime architecture](../../scene/design/runtime-architecture.md)，冻结证据入历史、本文归档并删除窄gate。下一主片在现透视/资源链上做point全向投影与面接缝；不能以本片通过关闭整个D3。reader差额若有具体中性归因与主构图收益，可由[唯一路线](../../scene/scene-compatibility-roadmap.md)重新排序。

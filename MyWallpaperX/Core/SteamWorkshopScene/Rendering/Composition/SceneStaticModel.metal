@@ -8,6 +8,13 @@ struct SceneStaticModelVertex {
     float2 uv;
 };
 
+struct SceneModelShadowUniforms {
+    float4x4 transform;
+    float4 positionRadius;
+    float4 parameters; // tan(half cone), outer cosine, numerical margin, unused
+    uint4 identity; // projection kind, current light index, enabled, unused
+};
+
 struct SceneStaticModelUniforms {
     float4x4 modelMatrix;
     float4x4 viewProjectionMatrix;
@@ -34,8 +41,7 @@ struct SceneStaticModelUniforms {
     float4 spotDirectionInnerCosine[4];
     float4 spotColorIntensity[4];
     float4 spotOuterCosines;
-    float4x4 worldToShadowClip;
-    float4 shadowParameters;
+    SceneModelShadowUniforms shadows[4];
 };
 
 struct SceneStaticModelRasterVertex {
@@ -69,16 +75,16 @@ vertex SceneStaticModelRasterVertex sceneStaticModelVertex(
     return out;
 }
 
-float sceneDirectionalVisibility(float3 position, depth2d<float> shadow,
-    constant SceneStaticModelUniforms &uniforms) {
-    float4 projected = uniforms.worldToShadowClip * float4(position, 1.0);
+float sceneDirectionalVisibility(float3 position, float3 worldDX, float3 worldDY,
+    depth2d<float> shadow, constant SceneModelShadowUniforms &uniforms) {
+    float4 projected = uniforms.transform * float4(position, 1.0);
     float3 clip = projected.xyz / projected.w;
     float2 uv = float2(clip.x * 0.5 + 0.5, 0.5 - clip.y * 0.5);
     // The directional light projection is orthographic. Differentiate world
     // position before its affine projection so small geometry does not lose
     // its UV/depth slope by subtracting separately rounded translated values.
-    float3 lightDX = (uniforms.worldToShadowClip * float4(dfdx(position), 0.0)).xyz;
-    float3 lightDY = (uniforms.worldToShadowClip * float4(dfdy(position), 0.0)).xyz;
+    float3 lightDX = (uniforms.transform * float4(worldDX, 0.0)).xyz;
+    float3 lightDY = (uniforms.transform * float4(worldDY, 0.0)).xyz;
     float3 plane = cross(float3(lightDX.x * 0.5, -lightDX.y * 0.5, lightDX.z),
                          float3(lightDY.x * 0.5, -lightDY.y * 0.5, lightDY.z));
     // A triangle tangent to the light direction has no finite depth over light
@@ -95,10 +101,10 @@ float sceneDirectionalVisibility(float3 position, depth2d<float> shadow,
     // resulting clip value is small. Propagate those Float32 arithmetic scales
     // through UV conversion and the receiver-plane slope, using the same
     // fixed numerical margin as the final reference-depth additions.
-    float3 projectionMagnitude = abs(uniforms.worldToShadowClip[0].xyz * position.x)
-        + abs(uniforms.worldToShadowClip[1].xyz * position.y)
-        + abs(uniforms.worldToShadowClip[2].xyz * position.z)
-        + abs(uniforms.worldToShadowClip[3].xyz);
+    float3 projectionMagnitude = abs(uniforms.transform[0].xyz * position.x)
+        + abs(uniforms.transform[1].xyz * position.y)
+        + abs(uniforms.transform[2].xyz * position.z)
+        + abs(uniforms.transform[3].xyz);
     float depthMagnitude = projectionMagnitude.z
         + dot(abs(depthGradient), (projectionMagnitude.xy + 1.0) * 0.5);
     float visibility = 0.0;
@@ -115,8 +121,81 @@ float sceneDirectionalVisibility(float3 position, depth2d<float> shadow,
                 visibility += 1.0;
                 continue;
             }
-            float precisionBias = uniforms.shadowParameters.y
+            float precisionBias = uniforms.parameters.z
                 * max(1.0, depthMagnitude + abs(correction.x) + abs(correction.y));
+            visibility += shadow.sample_compare(shadowSampler, sampleUV, referenceDepth - precisionBias);
+        }
+    }
+    return visibility / 9.0;
+}
+
+// Absolute multiplication scales for a cross product, without cancellation.
+float3 sceneShadowCrossMagnitude(float3 a, float3 b) {
+    a = abs(a); b = abs(b);
+    return a.yzx * b.zxy + a.zxy * b.yzx;
+}
+
+float sceneSpotVisibility(float3 position, float3 worldDX, float3 worldDY,
+    depth2d<float> shadow, constant SceneModelShadowUniforms &uniforms) {
+    float3x3 basis(uniforms.transform[0].xyz, uniforms.transform[1].xyz, uniforms.transform[2].xyz);
+    float3 relative = position - uniforms.positionRadius.xyz;
+    float3 q = basis * relative;
+    float radius = uniforms.positionRadius.w;
+    if (!all(isfinite(q)) || q.z <= 0.0 || length(q) >= radius) return 1.0;
+    float tangent = uniforms.parameters.x;
+    float2 uv = float2(0.5 + q.x / (2.0 * tangent * q.z),
+                      0.5 - q.y / (2.0 * tangent * q.z));
+    if (any(uv < 0.0) || any(uv > 1.0)) return 1.0;
+    float3 a = basis * worldDX, b = basis * worldDY;
+    float aScale = max(max(abs(a.x), abs(a.y)), abs(a.z));
+    float bScale = max(max(abs(b.x), abs(b.y)), abs(b.z));
+    // Real edge-on/helper-quad geometry may have no usable screen-plane area.
+    if (aScale == 0.0 || bScale == 0.0) return 1.0;
+    a /= aScale; b /= bScale;
+    float3 n = cross(a, b);
+    float nScale = max(max(abs(n.x), abs(n.y)), abs(n.z));
+    if (nScale == 0.0 || !isfinite(nScale)) return 1.0;
+    n /= nScale;
+    float h = dot(n, q);
+    float3x3 absoluteBasis(abs(basis[0]), abs(basis[1]), abs(basis[2]));
+    // Propagate the actual relative-position, rotation, cross and dot scales.
+    // Eight epsilons is a conservative project margin, not an interpolation
+    // error theorem. The paired near-contact controls constrain its usefulness.
+    float3 qMagnitude = absoluteBasis * (abs(position) + abs(uniforms.positionRadius.xyz) + abs(relative));
+    float3 aMagnitude = absoluteBasis * abs(worldDX) / aScale + abs(a);
+    float3 bMagnitude = absoluteBasis * abs(worldDY) / bScale + abs(b);
+    float3 nMagnitude = (sceneShadowCrossMagnitude(a, b)
+        + sceneShadowCrossMagnitude(aMagnitude, b)
+        + sceneShadowCrossMagnitude(a, bMagnitude)) / nScale + abs(n);
+    float hMagnitude = dot(abs(n), abs(q) + qMagnitude) + dot(nMagnitude, abs(q));
+    constexpr sampler shadowSampler(coord::normalized, address::clamp_to_edge,
+                                    filter::nearest, compare_func::less_equal);
+    float2 extent = float2(shadow.get_width(), shadow.get_height());
+    float visibility = 0.0;
+    for (int y = -1; y <= 1; ++y) {
+        for (int x = -1; x <= 1; ++x) {
+            float2 pixel = clamp(floor(uv * extent) + float2(x, y), float2(0.0), extent - 1.0);
+            float2 sampleUV = (pixel + 0.5) / extent;
+            float3 ray((2.0 * sampleUV.x - 1.0) * tangent,
+                       (1.0 - 2.0 * sampleUV.y) * tangent, 1.0);
+            float denominator = dot(n, ray);
+            float distance = h / denominator;
+            float referenceDepth = distance / radius;
+            // A finite footprint can cross a tangent, the apex, sphere or cone.
+            // Such a tap has no valid forward receiver-plane depth in this map.
+            if (denominator == 0.0 || !isfinite(referenceDepth) || distance <= 0.0
+                || distance * length(ray) >= radius
+                || 1.0 / length(ray) < uniforms.parameters.y) {
+                visibility += 1.0;
+                continue;
+            }
+            float3 rayMagnitude((2.0 * abs(sampleUV.x) + 1.0) * tangent + abs(ray.x),
+                                (2.0 * abs(sampleUV.y) + 1.0) * tangent + abs(ray.y), 0.0);
+            float denominatorMagnitude = dot(abs(n), abs(ray) + rayMagnitude) + dot(nMagnitude, abs(ray));
+            float depthMagnitude = (hMagnitude + abs(distance) * denominatorMagnitude)
+                / abs(denominator) / radius + abs(referenceDepth);
+            float precisionBias = uniforms.parameters.z * max(1.0, depthMagnitude);
+            if (!isfinite(precisionBias)) { visibility += 1.0; continue; }
             visibility += shadow.sample_compare(shadowSampler, sampleUV, referenceDepth - precisionBias);
         }
     }
@@ -127,10 +206,12 @@ fragment half4 sceneStaticModelFragment(
     SceneStaticModelRasterVertex in [[stage_in]],
     texture2d<half> colorTexture [[texture(0)]],
     texture2d<half> componentTexture [[texture(1)]],
-    depth2d<float> shadowTexture [[texture(2)]],
+    array<depth2d<float>, 4> shadowTextures [[texture(2)]],
     sampler colorSampler [[sampler(0)]],
     sampler componentSampler [[sampler(1)]],
     constant SceneStaticModelUniforms &uniforms [[buffer(1)]]) {
+    // Derivatives must be evaluated before distance/cone/material branches.
+    float3 worldDX = dfdx(in.worldPosition), worldDY = dfdy(in.worldPosition);
     half4 albedo = colorTexture.sample(colorSampler, in.uv);
     if ((uniforms.materialFlags.x & 2u) != 0u) {
         albedo.rgb = albedo.a > half(1e-5)
@@ -145,14 +226,26 @@ fragment half4 sceneStaticModelFragment(
     float3 lighting = receivesLighting
         ? uniforms.ambientColor.xyz
         : float3(1.0);
+    float directionalVisibility[4] = {1.0, 1.0, 1.0, 1.0};
+    float spotVisibility[4] = {1.0, 1.0, 1.0, 1.0};
+    for (uint slot = 0; receivesLighting && slot < 4; ++slot) {
+        constant SceneModelShadowUniforms &map = uniforms.shadows[slot];
+        if (map.identity.z == 0u) continue;
+        if (map.identity.x == 0u) {
+            directionalVisibility[map.identity.y] = sceneDirectionalVisibility(
+                in.worldPosition, worldDX, worldDY, shadowTextures[slot], map);
+        } else {
+            spotVisibility[map.identity.y] = sceneSpotVisibility(
+                in.worldPosition, worldDX, worldDY, shadowTextures[slot], map);
+        }
+    }
     uint lightCount = uniforms.lightCounts.x;
     for (uint lightIndex = 0;
          receivesLighting && lightIndex < min(lightCount, 4u);
          ++lightIndex) {
         float4 light = uniforms.lightDirectionIntensity[lightIndex];
         float diffuse = max(dot(normal, light.xyz), 0.0);
-        float visibility = uniforms.shadowParameters.x == float(lightIndex)
-            ? sceneDirectionalVisibility(in.worldPosition, shadowTexture, uniforms) : 1.0;
+        float visibility = directionalVisibility[lightIndex];
         lighting += uniforms.lightColor[lightIndex].xyz * light.w * diffuse * visibility;
     }
     uint pointCount = receivesLighting ? uniforms.lightCounts.y : 0u;
@@ -200,7 +293,7 @@ fragment half4 sceneStaticModelFragment(
         float diffuse = max(dot(normal, directionTowardLight), 0.0);
         float4 colorIntensity = uniforms.spotColorIntensity[lightIndex];
         lighting += colorIntensity.xyz * colorIntensity.w
-            * radial * cone * diffuse;
+            * radial * cone * diffuse * spotVisibility[lightIndex];
     }
     half authoredOpacity = half(uniforms.materialColorAndOpacity.w);
     half outputAlpha = authoredOpacity * (
@@ -265,6 +358,10 @@ fragment half4 sceneStaticModelFragment(
 
 struct SceneStaticModelShadowUniforms {
     float4x4 modelToLightClip;
+    float4x4 modelMatrix;
+    float4x4 worldToLight;
+    float4 positionRadius;
+    float4 projectionParameters;
     float4 textureFrame0;
     float4 textureFrame1;
     float4 coverage;
@@ -283,11 +380,55 @@ vertex SceneStaticModelShadowVertexOut sceneStaticModelShadowVertex(
         + modelVertex.uv.y * uniforms.textureFrame1.xy;
     return out;
 }
+void sceneStaticModelShadowCoverage(float2 uv, texture2d<half> albedo,
+    sampler albedoSampler, constant SceneStaticModelShadowUniforms &uniforms) {
+    float coverage = uniforms.coverage.x;
+    if (uniforms.coverage.y != 0.0) coverage *= float(albedo.sample(albedoSampler, uv).a);
+    if (coverage <= 0.5) discard_fragment();
+}
 fragment void sceneStaticModelShadowFragment(
     SceneStaticModelShadowVertexOut in [[stage_in]],
     texture2d<half> albedo [[texture(0)]], sampler albedoSampler [[sampler(0)]],
     constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
-    float coverage = uniforms.coverage.x;
-    if (uniforms.coverage.y != 0.0) coverage *= float(albedo.sample(albedoSampler, in.uv).a);
-    if (coverage <= 0.5) discard_fragment();
+    sceneStaticModelShadowCoverage(in.uv, albedo, albedoSampler, uniforms);
+}
+struct SceneStaticModelSpotShadowVertexOut {
+    float4 position [[position]];
+    float2 uv;
+    float3 lightPosition;
+};
+vertex SceneStaticModelSpotShadowVertexOut sceneStaticModelSpotShadowVertex(
+    uint vertexID [[vertex_id]], constant SceneStaticModelVertex *vertices [[buffer(0)]],
+    constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
+    SceneStaticModelVertex modelVertex = vertices[vertexID];
+    float3 world = (uniforms.modelMatrix * float4(modelVertex.position, 1.0)).xyz;
+    float3 q = (uniforms.worldToLight * float4(world - uniforms.positionRadius.xyz, 0.0)).xyz;
+    SceneStaticModelSpotShadowVertexOut out;
+    // Homogeneous clipping retains the forward part of triangles crossing the
+    // light's apex plane. Fragment axial depth needs no arbitrary positive near.
+    out.position = float4(q.xy / uniforms.projectionParameters.x, 0.0, q.z);
+    out.lightPosition = q;
+    out.uv = uniforms.textureFrame0.xy + modelVertex.uv.x * uniforms.textureFrame0.zw
+        + modelVertex.uv.y * uniforms.textureFrame1.xy;
+    return out;
+}
+struct SceneStaticModelSpotShadowDepth { float depth [[depth(any)]]; };
+fragment SceneStaticModelSpotShadowDepth sceneStaticModelSpotShadowFragment(
+    SceneStaticModelSpotShadowVertexOut in [[stage_in]],
+    texture2d<half> albedo [[texture(0)]], sampler albedoSampler [[sampler(0)]],
+    constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
+    // Interpolated q remains on the triangle plane, but subpixel raster
+    // snapping can move its ray. Re-evaluate depth at the actual pixel center.
+    // Derivatives precede coverage discard and every non-uniform branch.
+    float3 n = cross(dfdx(in.lightPosition), dfdy(in.lightPosition));
+    float2 uv = in.position.xy / uniforms.projectionParameters.yz;
+    float3 ray((2.0 * uv.x - 1.0) * uniforms.projectionParameters.x,
+               (1.0 - 2.0 * uv.y) * uniforms.projectionParameters.x, 1.0);
+    float denominator = dot(n, ray);
+    float distance = dot(n, in.lightPosition) / denominator;
+    sceneStaticModelShadowCoverage(in.uv, albedo, albedoSampler, uniforms);
+    // Edge-on triangles have no finite forward intersection for this ray.
+    if (denominator == 0.0 || !isfinite(distance) || distance <= 0.0
+        || distance * length(ray) >= uniforms.positionRadius.w) discard_fragment();
+    return {distance / uniforms.positionRadius.w};
 }

@@ -29,7 +29,7 @@ extension SceneMetalRenderer {
         var prepared: [Int: [StaticModelDraw]]?
         var particleDepth: [Int: Depth] = [:]
         var plainLighting: [Int: SceneLitCapturePayloadResolution] = [:]
-        var shadow: SceneStaticModelShadow?
+        var shadows: [SceneStaticModelShadow] = []
         var pins: [SceneGraphRenderTargetResidencyPin] = []
 
         func depth(for draw: StaticModelDraw, pass: SceneMainPassEncoder,
@@ -55,11 +55,11 @@ extension SceneMetalRenderer {
         func arm(on commandBuffer: MTLCommandBuffer) {
             let submitted = pins
             commandBuffer.addCompletedHandler { _ in submitted.forEach { $0.release() } }
-            pins.removeAll(); shadow = nil
+            pins.removeAll(); shadows.removeAll()
         }
         func cancel() {
             pins.forEach { $0.release() }
-            pins.removeAll(); shadow = nil
+            pins.removeAll(); shadows.removeAll()
         }
     }
 
@@ -134,13 +134,15 @@ extension SceneMetalRenderer {
                 cameraPosition: cameraFrame.perspectiveEyePosition,
                 textureFrame: draw.textureFrame, sampling: draw.sampling,
                 layerAlpha: draw.alpha, material: draw.material, lighting: lighting,
-                writesDepth: draw.entry.writesDepth, shadow: state.shadow,
+                writesDepth: draw.entry.writesDepth, shadows: state.shadows,
                 frameEpoch: textureRegistry.frameEpoch, commandBuffer: commandBuffer, encoder: encoder)
 #if DEBUG
-            if encoded, draw.material.receivesLighting, let shadow = state.shadow,
+            if encoded, draw.material.receivesLighting,
                SceneDesktopWallpaperHost.usesDebugEvidenceWindow && frameContext.frameIndex <= 2 {
-                NSLog("MWX Scene shadow phase=receiver epoch=%llu light=%d generation=%llu layer=%d",
-                    shadow.frameEpoch, shadow.lightLayerID, shadow.generation, layer.id)
+                for shadow in state.shadows {
+                    NSLog("MWX Scene shadow phase=receiver epoch=%llu light=%d generation=%llu layer=%d",
+                        shadow.frameEpoch, shadow.lightLayerID, shadow.generation, layer.id)
+                }
             }
 #endif
             encodedLit = encodedLit || (encoded && draw.material.receivesLighting)
@@ -245,7 +247,7 @@ extension SceneMetalRenderer {
     }
 
     func prepareModelShadow(
-        state: StaticModelFrame, candidates: [Int: [StaticModelDraw]], light: SceneLightSnapshot.Directional,
+        state: StaticModelFrame, candidates: [Int: [StaticModelDraw]], lights: [SceneLightSnapshot.ShadowLight],
         orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
         batches: [Int: [SceneParticleDrawBatch]], particlePipeline: SceneParticleMetalPipeline?,
         mainPass: SceneMainPassEncoder, groups: SceneCompositionGroupFrameRuntime?,
@@ -253,7 +255,7 @@ extension SceneMetalRenderer {
         leases: inout [SceneParticleDepthTargetLease], mandatoryCapacity: () -> Bool,
         recordsEvidence: Bool
     ) {
-        guard staticModelResources.pipeline != nil, light.layerID != nil else { return }
+        guard staticModelResources.pipeline != nil else { return }
         var prepared = candidates
         var complete = true
         for layer in orderedLayers where visible.contains(layer.id) {
@@ -277,7 +279,7 @@ extension SceneMetalRenderer {
         }
         state.prepared = prepared
         guard complete else { return }
-        emitModelShadow(state: state, light: light, orderedLayers: orderedLayers,
+        emitModelShadow(state: state, lights: lights, orderedLayers: orderedLayers,
             mainPass: mainPass, groups: groups, pool: pool, commandBuffer: commandBuffer,
             recordsEvidence: recordsEvidence, mandatoryCapacity: mandatoryCapacity)
     }
@@ -286,7 +288,7 @@ extension SceneMetalRenderer {
     /// Only an actual capture's typed invalid result aborts the frame. A resource
     /// miss leaves the prefix for the original draw and the suffix unprepared.
     func prepareOrderedModelShadow(
-        state: StaticModelFrame, light: SceneLightSnapshot.Directional, lighting: SceneLightSnapshot,
+        state: StaticModelFrame, lights: [SceneLightSnapshot.ShadowLight], lighting: SceneLightSnapshot,
         orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
         activeNamedModels: Set<Int>, forwardGraphProviders: Set<Int>,
         framePlans: [Int: SceneResolvedMaterialFrameTargetPlan], imageTextures: SceneBaseImageTextureSnapshot,
@@ -388,66 +390,81 @@ extension SceneMetalRenderer {
                 }) else { return nil }
         }
         guard terminalCapacity() else { return nil }
-        emitModelShadow(state: state, light: light, orderedLayers: orderedLayers,
+        emitModelShadow(state: state, lights: lights, orderedLayers: orderedLayers,
             mainPass: mainPass, groups: groups, pool: pool, commandBuffer: commandBuffer,
             recordsEvidence: recordsEvidence)
         return nil
     }
 
     private func emitModelShadow(
-        state: StaticModelFrame, light: SceneLightSnapshot.Directional,
+        state: StaticModelFrame, lights: [SceneLightSnapshot.ShadowLight],
         orderedLayers: [SceneRenderDescriptor.Layer], mainPass: SceneMainPassEncoder,
         groups: SceneCompositionGroupFrameRuntime?, pool: SceneOffscreenTexturePool,
         commandBuffer: MTLCommandBuffer, recordsEvidence: Bool, mandatoryCapacity: () -> Bool = { true }
     ) {
-        guard let pipeline = staticModelResources.pipeline, let lightID = light.layerID else { return }
+        guard let pipeline = staticModelResources.pipeline else { return }
+        let includesDirectional = lights.contains { if case .directional = $0 { return true }; return false }
         var casters: [StaticModelDraw] = []
         var bounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4)] = []
         for layer in orderedLayers {
             for draw in state.prepared?[layer.id] ?? [] {
                 let casts = layer.modelShadowCastIntent?.modelCastsShadow ?? true
                 if casts { casters.append(draw) }
-                if casts || draw.material.receivesLighting {
+                if includesDirectional && (casts || draw.material.receivesLighting) {
                     bounds.append((draw.entry.mesh.boundsMinimum, draw.entry.mesh.boundsMaximum, draw.world))
                 }
             }
         }
-        guard !casters.isEmpty, mandatoryCapacity(),
-              let projection = SceneDirectionalShadowProjection.make(bounds: bounds,
-                directionTowardLight: light.directionTowardLight, resolution: 1024),
-              let target = pool.reserveDirectionalShadow(width: 1024, height: 1024,
-                commandBuffer: commandBuffer) else { return }
-        state.pins.append(target.pin)
-        mainPass.closeForOffscreen(); groups?.closeAllGroupEncoders()
-        let descriptor = MTLRenderPassDescriptor()
-        descriptor.depthAttachment.texture = target.texture
-        descriptor.depthAttachment.loadAction = .clear
-        descriptor.depthAttachment.storeAction = .store
-        descriptor.depthAttachment.clearDepth = 1
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else { return }
-        encoder.label = "Scene directional model shadow"
-        var encoded = true
-        for draw in casters {
-            encoded = pipeline.drawShadow(mesh: draw.entry.mesh, texture: draw.texture,
-                textureFrame: draw.textureFrame, sampling: draw.sampling,
-                modelMatrix: draw.world, lightViewProjection: projection.worldToClip,
-                layerAlpha: draw.alpha, material: draw.material, encoder: encoder) && encoded
-        }
-        encoder.endEncoding()
-        guard encoded else { return }
-#if DEBUG
-        if recordsEvidence {
-            NSLog("MWX Scene shadow phase=depth-written epoch=%llu light=%d generation=%llu casters=%d",
-                textureRegistry.frameEpoch, lightID, target.pin.generation, casters.count)
-            let epoch = textureRegistry.frameEpoch, generation = target.pin.generation
-            commandBuffer.addCompletedHandler { completed in
-                NSLog("MWX Scene shadow phase=completed epoch=%llu light=%d generation=%llu status=%ld",
-                    epoch, lightID, generation, completed.status.rawValue)
+        guard !casters.isEmpty, mandatoryCapacity() else { return }
+        for (slot, light) in lights.enumerated() {
+            guard let lightID = light.layerID else { continue }
+            let projection: SceneStaticModelShadowProjection
+            switch light {
+            case .directional(let value):
+                guard let value = SceneDirectionalShadowProjection.make(bounds: bounds,
+                    directionTowardLight: value.directionTowardLight, resolution: 1024) else { continue }
+                projection = .directional(value)
+            case .spot(let value):
+                guard let value = SceneSpotShadowProjection.make(light: value) else { continue }
+                projection = .spot(value)
             }
-        }
+            guard let target = pool.reserveModelShadow(slot: slot, width: 1024, height: 1024,
+                commandBuffer: commandBuffer) else { continue }
+            state.pins.append(target.pin)
+            mainPass.closeForOffscreen(); groups?.closeAllGroupEncoders()
+            let descriptor = MTLRenderPassDescriptor()
+            descriptor.depthAttachment.texture = target.texture
+            descriptor.depthAttachment.loadAction = .clear
+            descriptor.depthAttachment.storeAction = .store
+            descriptor.depthAttachment.clearDepth = 1
+            guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else { continue }
+            encoder.label = "Scene model shadow slot \(slot)"
+            var encoded = true
+            for draw in casters {
+                encoded = pipeline.drawShadow(mesh: draw.entry.mesh, texture: draw.texture,
+                    textureFrame: draw.textureFrame, sampling: draw.sampling,
+                    modelMatrix: draw.world, projection: projection,
+                    targetExtent: (target.texture.width, target.texture.height),
+                    layerAlpha: draw.alpha, material: draw.material, encoder: encoder) && encoded
+            }
+            encoder.endEncoding()
+            // An incomplete map is never published, but any encoded access
+            // retains its submission pin until this command buffer finishes.
+            guard encoded else { continue }
+#if DEBUG
+            if recordsEvidence {
+                NSLog("MWX Scene shadow phase=depth-written epoch=%llu light=%d generation=%llu casters=%d",
+                    textureRegistry.frameEpoch, lightID, target.pin.generation, casters.count)
+                let epoch = textureRegistry.frameEpoch, generation = target.pin.generation
+                commandBuffer.addCompletedHandler { completed in
+                    NSLog("MWX Scene shadow phase=completed epoch=%llu light=%d generation=%llu status=%ld",
+                        epoch, lightID, generation, completed.status.rawValue)
+                }
+            }
 #endif
-        state.shadow = SceneStaticModelShadow(texture: target.texture, frameEpoch: textureRegistry.frameEpoch,
-            generation: target.pin.generation, lightLayerID: lightID,
-            worldToLightClip: projection.worldToClip, depthBias: projection.depthBias, commandBuffer: commandBuffer)
+            state.shadows.append(SceneStaticModelShadow(texture: target.texture, frameEpoch: textureRegistry.frameEpoch,
+                generation: target.pin.generation, lightLayerID: lightID,
+                projection: projection, commandBuffer: commandBuffer))
+        }
     }
 }

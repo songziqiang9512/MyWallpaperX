@@ -277,8 +277,8 @@ struct SceneMetalRenderer {
         }
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
         performanceTelemetry?.endStage("prepass-particles")
-        let shadowLight = frameLightSnapshot.directional.first { $0.castsShadow }
-        let hasShadowReceiver = shadowLight != nil && orderedLayers.contains { layer in
+        let shadowLights = frameLightSnapshot.shadowLights
+        let hasShadowReceiver = !shadowLights.isEmpty && orderedLayers.contains { layer in
             frameVisibleLayerIDs.contains(layer.id)
                 && staticModelResources[layer.id]?.contains(where: { $0.material.receivesLighting }) == true
         }
@@ -299,8 +299,8 @@ struct SceneMetalRenderer {
             commandBuffer: commandBuffer) {
             reflection.admit(targets); scratchReady = true
         }
-        if scratchReady, let shadowCandidates, let shadowLight, let pool = offscreenTexturePool {
-            prepareModelShadow(state: modelFrame, candidates: shadowCandidates, light: shadowLight,
+        if scratchReady, let shadowCandidates, let pool = offscreenTexturePool {
+            prepareModelShadow(state: modelFrame, candidates: shadowCandidates, lights: shadowLights,
                 orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
                 batches: particleBatchesByID, particlePipeline: particlePipeline,
                 mainPass: mainPass, groups: compositionGroupRuntime, pool: pool,
@@ -344,8 +344,8 @@ struct SceneMetalRenderer {
             performanceTelemetry?.endStage("prepass-forward-providers")
         }
         if !stopsAfterClaimedFailure, preparesNamedModelShadow,
-           let shadowLight, let pool = offscreenTexturePool, let imagePipeline {
-            if let reason = prepareOrderedModelShadow(state: modelFrame, light: shadowLight, lighting: frameLightSnapshot,
+           let pool = offscreenTexturePool, let imagePipeline {
+            if let reason = prepareOrderedModelShadow(state: modelFrame, lights: shadowLights, lighting: frameLightSnapshot,
                 orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
                 activeNamedModels: activeStaticModelNamedAlbedoLayerIDs,
                 forwardGraphProviders: forwardGraphProviderLayerIDs,

@@ -36,7 +36,7 @@ Compilation/Material 与 ShaderFrontend 归一化 authored material feature 和 
 2. albedo/emissive 使用明确颜色解码；normal/roughness/metalness 为 data，禁止 sRGB decode。缺省 normal 使用项目平面法线；其余缺省值仅在公开声明/合法 authored 数据可确定时开放，不猜私有打包通道。
 3. 光照在 base material producer 完成、layer effects 之前执行。graph claim 使用其 source capture；无 effects 的普通 receiver 使用同一材质 fragment，经现役 compositor 的 offscreen source capture/target 再进入唯一最终合成，不建立假 effect 或第二 graph。世界位置按 unit quad 的上方对应纹理首行约定与完整 model matrix 计算；世界距离/spot 锥角不随矩形尺寸、旋转或非均匀 scale 扭曲，法线用同帧逆转置 basis。缺 map 与中性 map 均计算同一 N·L，不添加虚构 z lift；首片的 stock normal 限制由下节“作者 normal 后继”接替；其当前开放范围与终审状态见[作者 normal 实施证据](../../history/scene/d3-authored-normal-input-implementation-2026-10-02.md)。typed light snapshot 由 renderer 每帧只发布一次，所有 consumer 使用同一份；lit PSO 在 launch preparation 完成，普通帧只读。Puppet/mesh 的变形后世界位置不能由 source atlas unit quad 推出，首片对此局部保持 unlit 并报告 `receiver-geometry-unsupported`，退役门为 geometry owner 提供同帧变形后 receiver mapping。结果仍保留原 alpha/几何，HDR 接 [D2](hdr-tonemap-edr-design.md)。不把 standalone 可见光束当受光证据。
 4. 首片为已有 point/spot 的无阴影受光。ltube 必须先补公开/自有行为 profile，不能伪装成一个 point；灯数量沿既有预算，超额灯的选择遵守作者顺序并记录 bounded 限制。
-5. 阴影沿真实模型几何、typed light snapshot 与现役 target 生命周期实现，具体首片由下文[F6](#f6-model-directional-shadow)取代原 one-spot 草案。官方公开合同明确模型与灯的投影开关，尚不据此为普通 image 新造 caster/receiver；normal 不充当遮挡高度。首片选择有实际作者受益输入的单方向光，point 全向与 spot 作为后继，不把单张投影图冒充全向遮挡。
+5. 阴影沿真实模型几何、typed light snapshot 与现役 target 生命周期实现，具体首片由下文[F6](#f6-model-directional-shadow)取代原 one-spot 草案。官方公开合同明确模型与灯的投影开关，尚不据此为普通 image 新造 caster/receiver；normal 不充当遮挡高度。首片选择有实际作者受益输入的单方向光；完整有限聚光后继已由[RF14](../../history/scene/rf14-model-spot-shadow-implementation-2026-10-02.md)验收，下一由[RF15工作卡](reference-evidence-implementation-cards.md#rf15-model-point-shadow)推进point完整全向，不把单张投影图冒充全向遮挡。
 6. Reflection 与 light volume 分为后继独立 profile：前者复用 graph/camera/target，后者仍由现役独立几何绘制但可消费相同遮挡 publication；两者不由受光上线自动准入。
 
 ## 作者 normal 后继（2026-10-02 独立设计审查已批准）
@@ -437,6 +437,8 @@ Launch现有profile normal/map聚合应能自然接入，不为环境建立第�
 
 <a id="f6-model-directional-shadow"></a>
 ## F6 — 静态模型单方向光阴影（有界实现已验收）
+
+下文保存directional首片边界；后继聚光的现役职责见[架构](runtime-architecture.md)，范围与证据见[RF14记录](../../history/scene/rf14-model-spot-shadow-implementation-2026-10-02.md)，不以首片的单图描述覆盖现多图owner。
 
 ### 目标、证据与范围纠正
 

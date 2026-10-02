@@ -26,7 +26,7 @@ SOURCES = list(dict.fromkeys([
     *(getattr(model_fixture, name) for name in [
         'MODEL_SOURCE', 'DIRECTIONAL_LIGHT_SOURCE', 'POINT_LIGHT_SOURCE',
         'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE',
-        'DYNAMIC_LAYER_VALUES_SOURCE', 'PIPELINE_SOURCE']),
+        'DYNAMIC_LAYER_VALUES_SOURCE', 'PIPELINE_SOURCE', 'SHADOW_SOURCE']),
     SCENE/'Rendering/Frame/SceneMetalRenderer+StaticModels.swift',
     SCENE/'Rendering/Frame/SceneMetalRenderer+Particles.swift',
 ]))
@@ -271,7 +271,7 @@ MAIN = r'''
   let candidates=renderer.shadowDrawCandidates(orderedLayers:layers,visible:visible,worldFrames:world,snapshot:dynamic,groups:nil)!
   precondition(candidates[5]?.isEmpty==true)
   if mode != "original" {
-   renderer.prepareModelShadow(state:state,candidates:candidates,light:light,orderedLayers:layers,visible:visible,
+   renderer.prepareModelShadow(state:state,candidates:candidates,lights:[.directional(light)],orderedLayers:layers,visible:visible,
       batches:[4:[batch]],particlePipeline:particles,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,
       leases:&leases,mandatoryCapacity:{true},recordsEvidence:false)
   }
@@ -280,7 +280,7 @@ MAIN = r'''
   let isolated=state.prepared?[2]?.first?.depth?.lease
   let other=state.prepared?[3]?.first?.depth?.lease
   let preparedParticle=state.particleDepth[4]?.lease
-  let published=state.shadow != nil
+  let published = !state.shadows.isEmpty
   let modelBytesBefore=renderer.staticModelDepthTargetPool.residentByteCost
   let particleBytesBefore=particles.renderTargetResidentByteCost
   let rejectionsBefore=SceneResourceBudget.shared.snapshot.rejectionCount

@@ -13,6 +13,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 METAL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal"
+SHADOW_SOURCE = SCENE_ROOT / "Rendering/Metal/SceneStaticModelShadow.swift"
 PIPELINE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift"
 DYNAMIC_SNAPSHOT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift"
 DYNAMIC_LAYER_VALUES_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicLayerValues.swift"
@@ -161,6 +162,7 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
                     str(PERFORMANCE_COUNTER_SOURCE),
                     str(SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"),
                     str(PIPELINE_SOURCE),
+                    str(SHADOW_SOURCE),
                 ],
                 capture_output=True,
                 text=True,
@@ -318,6 +320,7 @@ enum MaterialHarness {
                     str(PERFORMANCE_COUNTER_SOURCE),
                     str(SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"),
                     str(PIPELINE_SOURCE),
+                    str(SHADOW_SOURCE),
                     str(harness),
                     "-framework", "Metal",
                     "-o", str(executable),
@@ -736,6 +739,7 @@ enum DepthPlanHarness {
                     str(PERFORMANCE_COUNTER_SOURCE),
                     str(SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"),
                     str(PIPELINE_SOURCE),
+                    str(SHADOW_SOURCE),
                     str(harness),
                     "-framework", "Metal",
                     "-o", str(executable),

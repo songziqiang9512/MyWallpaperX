@@ -21,6 +21,8 @@ struct SceneLightSnapshot {
     }
 
     struct Spot {
+        var layerID: Int? = nil
+        var castsShadow: Bool = false
         let position: SIMD3<Float>
         let directionFromLight: SIMD3<Float>
         let color: SIMD3<Float>
@@ -28,6 +30,30 @@ struct SceneLightSnapshot {
         let radius: Float
         let innerConeCosine: Float
         let outerConeCosine: Float
+        let outerConeDegrees: Float
+    }
+
+    enum ShadowLight {
+        case directional(Directional)
+        case spot(Spot)
+
+        var layerID: Int? {
+            switch self {
+            case .directional(let light): light.layerID
+            case .spot(let light): light.layerID
+            }
+        }
+    }
+
+    /// The existing directional allocation keeps priority. Spot order remains
+    /// the order already accepted by this snapshot's shared four-light limit.
+    var shadowLights: [ShadowLight] {
+        var result: [ShadowLight] = []
+        if let light = directional.first(where: { $0.castsShadow }) {
+            result.append(.directional(light))
+        }
+        result.append(contentsOf: spot.filter { $0.castsShadow }.map { .spot($0) })
+        return result
     }
 
     let ambient: SIMD3<Float>
@@ -237,6 +263,7 @@ struct SceneLightSnapshot {
               let position = position(of: frame) else { return nil }
         let degreesToHalfRadians = Float.pi / 360
         return Spot(
+            layerID: layer.id, castsShadow: definition.castsShadow == true,
             position: position,
             directionFromLight: direction,
             color: dynamicColor
@@ -244,7 +271,8 @@ struct SceneLightSnapshot {
             intensity: intensity,
             radius: radius,
             innerConeCosine: cos(innerCone * degreesToHalfRadians),
-            outerConeCosine: cos(outerCone * degreesToHalfRadians)
+            outerConeCosine: cos(outerCone * degreesToHalfRadians),
+            outerConeDegrees: outerCone
         )
     }
 

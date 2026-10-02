@@ -276,13 +276,13 @@ FRAME_MAIN=r'''
   let pre=ScenePerformanceCounterHub.shared.snapshot()[.framebufferCaptures] ?? 0
   let candidates=renderer.shadowDrawCandidates(orderedLayers:layers,visible:visible,worldFrames:world,snapshot:dynamic,groups:nil)!
   var capacity=false
-  renderer.prepareModelShadow(state:state,candidates:candidates,light:light,orderedLayers:layers,visible:visible,batches:batches,particlePipeline:particle,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,leases:&leases,mandatoryCapacity:{
+  renderer.prepareModelShadow(state:state,candidates:candidates,lights:[.directional(light)],orderedLayers:layers,visible:visible,batches:batches,particlePipeline:particle,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,leases:&leases,mandatoryCapacity:{
    capacity=renderer.prepareFramebufferSnapshotCapacity(orderedLayers:layers,visible:visible,framePlans:plans,imageTextures:.init(),frameContext:context,batches:batches,particlePipeline:particle,mainPass:pass,groups:nil)
    return capacity
   },recordsEvidence:false)
   let noCopy=(ScenePerformanceCounterHub.shared.snapshot()[.framebufferCaptures] ?? 0)==pre
   let colorBytes=renderer.imageCompositor.color.renderTargetResidentByteCost,particleBytes=particle.framebufferSnapshot.residentByteCost
-  let published=state.shadow != nil
+  let published = !state.shadows.isEmpty
   let modelDraw=renderer.drawStaticModel(layer:layers[0],state:state,worldFrames:world,frameContext:context,cameraFrame:camera,lighting:lighting,pass:pass,commandBuffer:cb,leases:&leases)
   if !hidden {
    let bg=pass.withReadableTarget {t,c in renderer.imageCompositor.color.snapshot(target:t,commandBuffer:c)}!!
@@ -300,7 +300,7 @@ FRAME_MAIN=r'''
  }
 }
 '''
-FRAME_HARNESS=frame_fixture.pool_fixture.HARNESS.split('@main',1)[0]+FRAME_SHELL+FRAME_MAIN
+FRAME_HARNESS=frame_fixture.pool_fixture.HARNESS.split('@main',1)[0]+FRAME_SHELL+frame_fixture.UNUSED_ORDERED_SUPPORT.replace('struct SceneImageLayerPipeline {}','')+FRAME_MAIN
 
 class SceneSnapshotFrameOwnerTests(unittest.TestCase):
     @classmethod

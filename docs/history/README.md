@@ -16,6 +16,8 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-02 | Scene | 退役设计 | [RF14 模型聚光阴影设计](scene/rf14-model-spot-shadow-design-2026-10-02.md) | 完整有限锥、四灯记录与原资源生命周期裁决 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
+| 2026-10-02 | Scene | 实施证据 | [RF14 模型聚光阴影](scene/rf14-model-spot-shadow-implementation-2026-10-02.md) | 旧缺影红绿、独立投影、多灯与移动灯App、失败发布及在飞资源门 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-02 | Scene | 退役设计 | [RF13 named 模型方向光设计](scene/rf13-named-model-directional-shadow-design-2026-10-02.md) | 当前publication与mandatory资源原序准备裁决 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-02 | Scene | 实施证据 | [RF13 named 模型阴影](scene/rf13-named-model-shadow-implementation-2026-10-02.md) | 真实当前纹理投影、背景内容相位、部分失败与在飞资源门 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |
 | 2026-10-02 | Scene | 退役设计 | [RF12 背景快照容量设计](scene/rf12-framebuffer-snapshot-capacity-design-2026-10-02.md) | 原实例容量事务、逐消费者copy与同队列资源寿命裁决 | [架构](../scene/design/runtime-architecture.md)、[实施路线](../scene/scene-compatibility-roadmap.md) |

@@ -45,16 +45,16 @@ POOL_MAIN = r'''
         var checks: [String: Bool] = [:]
         let short = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba16Float, residentByteBudget: 255)
         var factories = 0
-        let denied = short.reserveDirectionalShadow(width: 8, height: 8, commandBuffer: queue.makeCommandBuffer()!, textureFactory: {
+        let denied = short.reserveModelShadow(slot: 0, width: 8, height: 8, commandBuffer: queue.makeCommandBuffer()!, textureFactory: {
             factories += 1; return device.makeTexture(descriptor: $0)
         })
         checks["budget-refuses-before-factory"] = denied == nil && factories == 0 && short.residentByteCost == 0
         let failed = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba16Float, residentByteBudget: 256)
-        let nilTexture = failed.reserveDirectionalShadow(width: 8, height: 8, commandBuffer: queue.makeCommandBuffer()!, textureFactory: { _ in
+        let nilTexture = failed.reserveModelShadow(slot: 0, width: 8, height: 8, commandBuffer: queue.makeCommandBuffer()!, textureFactory: { _ in
             factories += 1; return nil
         })
         checks["actual-factory-nil-no-residency"] = nilTexture == nil && factories == 1 && failed.residentByteCost == 0
-        let retry = failed.reserveDirectionalShadow(width: 8, height: 8, commandBuffer: queue.makeCommandBuffer()!)
+        let retry = failed.reserveModelShadow(slot: 0, width: 8, height: 8, commandBuffer: queue.makeCommandBuffer()!)
         checks["same-pool-recovers-after-factory-failure"] = retry != nil && failed.residentByteCost == 256
         failed.reset(); retry?.pin.release()
         let physicalDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .depth32Float, width: 8, height: 8, mipmapped: false)
@@ -63,11 +63,11 @@ POOL_MAIN = r'''
         let global = SceneResourceBudget(maximumBytes: physicalBytes)
         precondition(global.reserve(1, kind: .gpu))
         let physicalPool = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba16Float, residentByteBudget: 1024)
-        let deniedPhysical = physicalPool.reserveDirectionalShadow(width: 8, height: 8, commandBuffer: queue.makeCommandBuffer()!, textureFactory: { device.makeSceneTexture(descriptor: $0, budget: global) })
+        let deniedPhysical = physicalPool.reserveModelShadow(slot: 0, width: 8, height: 8, commandBuffer: queue.makeCommandBuffer()!, textureFactory: { device.makeSceneTexture(descriptor: $0, budget: global) })
         checks["global-physical-quota-rejection"] = deniedPhysical == nil && global.snapshot.rejectionCount == 1 && global.snapshot.residentBytes == 1 && physicalPool.residentByteCost == 0
         global.release(1, kind: .gpu)
         autoreleasepool {
-            let physical = physicalPool.reserveDirectionalShadow(width: 8, height: 8, commandBuffer: queue.makeCommandBuffer()!, textureFactory: { device.makeSceneTexture(descriptor: $0, budget: global) })!
+            let physical = physicalPool.reserveModelShadow(slot: 0, width: 8, height: 8, commandBuffer: queue.makeCommandBuffer()!, textureFactory: { device.makeSceneTexture(descriptor: $0, budget: global) })!
             physicalPool.reset()
             checks["global-physical-lease-retained-by-pin"] = global.snapshot.residentBytes == physicalBytes && physicalPool.residentByteCost == 256
             physical.pin.release()
@@ -75,12 +75,12 @@ POOL_MAIN = r'''
         checks["global-physical-retry-cancel-releases"] = global.snapshot.residentBytes == 0 && physicalPool.residentByteCost == 0
         let exact = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba16Float, residentByteBudget: 256)
         let exactCB = queue.makeCommandBuffer()!
-        let a = exact.reserveDirectionalShadow(width: 8, height: 8, commandBuffer: exactCB)!
-        let same = exact.reserveDirectionalShadow(width: 8, height: 8, commandBuffer: exactCB)!
+        let a = exact.reserveModelShadow(slot: 0, width: 8, height: 8, commandBuffer: exactCB)!
+        let same = exact.reserveModelShadow(slot: 0, width: 8, height: 8, commandBuffer: exactCB)!
         checks["depth32-exact-cost-and-usage"] = a.texture.pixelFormat == .depth32Float && a.texture.mipmapLevelCount == 1
             && a.texture.usage.contains(.shaderRead) && a.texture.usage.contains(.renderTarget) && exact.residentByteCost == 256
         checks["same-cb-storage-and-generation"] = a.texture === same.texture && a.pin.generation == same.pin.generation
-        checks["other-cb-cannot-overwrite-pending"] = exact.reserveDirectionalShadow(width: 8, height: 8, commandBuffer: queue.makeCommandBuffer()!) == nil
+        checks["other-cb-cannot-overwrite-pending"] = exact.reserveModelShadow(slot: 0, width: 8, height: 8, commandBuffer: queue.makeCommandBuffer()!) == nil
         exact.reset(); a.pin.release()
         checks["reset-retains-other-pin"] = exact.residentByteCost == 256
         same.pin.release()
@@ -88,12 +88,12 @@ POOL_MAIN = r'''
 
         let lifecycle = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba16Float, residentByteBudget: 396)
         let cb = queue.makeCommandBuffer()!
-        let first = lifecycle.reserveDirectionalShadow(width: 8, height: 8, commandBuffer: cb)!
+        let first = lifecycle.reserveModelShadow(slot: 0, width: 8, height: 8, commandBuffer: cb)!
         clear(first.texture, 0.25, cb)
         let pixels = readback(first.texture, cb, device)
         lifecycle.reset()
         let nextCB = queue.makeCommandBuffer()!
-        let resized = lifecycle.reserveDirectionalShadow(width: 7, height: 5, commandBuffer: nextCB)!
+        let resized = lifecycle.reserveModelShadow(slot: 0, width: 7, height: 5, commandBuffer: nextCB)!
         checks["resize-retains-old-pinned-generation"] = resized.texture !== first.texture
             && resized.pin.generation != first.pin.generation && lifecycle.residentByteCost == 396
         let semaphore = DispatchSemaphore(value: 0)
@@ -109,17 +109,17 @@ POOL_MAIN = r'''
         let heldCB = queue.makeCommandBuffer()!
         let event = device.makeSharedEvent()!
         heldCB.encodeWaitForEvent(event, value: 1)
-        let held = pending.reserveDirectionalShadow(width: 8, height: 8, commandBuffer: heldCB)!
+        let held = pending.reserveModelShadow(slot: 0, width: 8, height: 8, commandBuffer: heldCB)!
         clear(held.texture, 0.375, heldCB)
         let heldPixels = readback(held.texture, heldCB, device)
         let heldDone = DispatchSemaphore(value: 0)
         heldCB.addCompletedHandler { _ in held.pin.release(); heldDone.signal() }
         heldCB.commit()
         pending.reset()
-        let newer = pending.reserveDirectionalShadow(width: 8, height: 8, commandBuffer: queue.makeCommandBuffer()!)!
+        let newer = pending.reserveModelShadow(slot: 0, width: 8, height: 8, commandBuffer: queue.makeCommandBuffer()!)!
         checks["submitted-blocked-cb-retains-old-generation"] = heldCB.status != .completed && newer.texture !== held.texture
             && newer.pin.generation != held.pin.generation && pending.residentByteCost == 512
-        checks["third-cb-refused-while-gpu-blocked"] = pending.reserveDirectionalShadow(width: 8, height: 8, commandBuffer: queue.makeCommandBuffer()!) == nil
+        checks["third-cb-refused-while-gpu-blocked"] = pending.reserveModelShadow(slot: 0, width: 8, height: 8, commandBuffer: queue.makeCommandBuffer()!) == nil
         event.signaledValue = 1
         heldCB.waitUntilCompleted(); heldDone.wait()
         checks["signal-completion-preserves-old-content"] = heldCB.status == .completed && heldCB.error == nil
@@ -131,7 +131,7 @@ POOL_MAIN = r'''
         let mandatoryCB = queue.makeCommandBuffer()!
         let required = mandatory.reserveCompositionTargets(dimensions: [(width: 8, height: 8)], commandBuffer: mandatoryCB)!
         checks["mandatory-real-target-priority"] = required.count == 1 && mandatory.residentByteCost == 512
-            && mandatory.reserveDirectionalShadow(width: 8, height: 8, commandBuffer: mandatoryCB) == nil
+            && mandatory.reserveModelShadow(slot: 0, width: 8, height: 8, commandBuffer: mandatoryCB) == nil
             && mandatory.residentByteCost == 512
         let descriptor = MTLRenderPassDescriptor()
         descriptor.colorAttachments[0].texture = required[0].texture
@@ -163,7 +163,7 @@ POOL_MAIN = r'''
             defer { SceneResourceBudget.shared.release(available, kind: .gpu) }
             let quotaCB = queue.makeCommandBuffer()!
             let optional = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba16Float, residentByteBudget: 1024)
-            checks["mandatory-bloom-model-particle-before-optional-physical-refusal"] = optional.reserveDirectionalShadow(width: 8, height: 8, commandBuffer: quotaCB) == nil && optional.residentByteCost == 0
+            checks["mandatory-bloom-model-particle-before-optional-physical-refusal"] = optional.reserveModelShadow(slot: 0, width: 8, height: 8, commandBuffer: quotaCB) == nil && optional.residentByteCost == 0
             clear(modelDepth.texture, 0.25, quotaCB); clear(particleDepth.texture, 0.5, quotaCB)
             let modelPixel = readback(modelDepth.texture, quotaCB, device)
             let particlePixel = readback(particleDepth.texture, quotaCB, device)
@@ -329,10 +329,10 @@ PIXEL_MAIN = r'''
     let covered = (c["uses_coverage_alpha"] as? Bool ?? true) && !tint
     let uvFrame = SceneTextureUVTransform(origin:SIMD2(Float(c["sample_u"] as? Double ?? 0.5)-0.5,0),xAxis:SIMD2(1,0),yAxis:SIMD2(0,1))
     let sampleFlags = UInt32(c["sample_flags"] as? Int ?? 2)
-    precondition(pipeline.drawShadow(mesh:meshes[index],texture:coverageTexture(c),textureFrame:uvFrame,sampling:SceneTextureSampling(texFlags:sampleFlags),modelMatrix:casterWorld,lightViewProjection:projection.worldToClip,layerAlpha:Float(c["layer_alpha"] as? Double ?? 1),material:material(Float(c["material_opacity"] as? Double ?? 1),covered,tint,c["receives_lighting"] as? Bool ?? true),encoder:encoder))
+    precondition(pipeline.drawShadow(mesh:meshes[index],texture:coverageTexture(c),textureFrame:uvFrame,sampling:SceneTextureSampling(texFlags:sampleFlags),modelMatrix:casterWorld,projection:.directional(projection),targetExtent:(width:map.width,height:map.height),layerAlpha:Float(c["layer_alpha"] as? Double ?? 1),material:material(Float(c["material_opacity"] as? Double ?? 1),covered,tint,c["receives_lighting"] as? Bool ?? true),encoder:encoder))
    }
    encoder.endEncoding()
-   let shadow = SceneStaticModelShadow(texture:map,frameEpoch:7,generation:1,lightLayerID:10,worldToLightClip:projection.worldToClip,depthBias:projection.depthBias,commandBuffer:cb)
+   let shadow = SceneStaticModelShadow(texture:map,frameEpoch:7,generation:1,lightLayerID:10,projection:.directional(projection),commandBuffer:cb)
    // Authored camera sample at the chosen world point, independent of product light projection.
    let scale = Float(v["camera_scale"] as? Double ?? 0.05)
    var view = simd_float4x4(rows:[SIMD4(scale,0,0,-Float(position[0])*scale),SIMD4(0,-scale,0,Float(position[1])*scale),SIMD4(0,0,-0.001,0.5),SIMD4(0,0,0,1)])
@@ -354,9 +354,9 @@ PIXEL_MAIN = r'''
      .init(layerID:10,castsShadow:true,directionTowardLight:toward,color:SIMD3(repeating:1),intensity:selected),
      .init(layerID:11,directionTowardLight:SIMD3(0,0,1),color:SIMD3(0.5,0.7,1),intensity:mode == 5 ? 0 : 0.2)],point:[],spot:[],overflowCount:0)
     let enabled = v["shadow_enabled"] as? Bool ?? true
-    let wrongLight = SceneStaticModelShadow(texture:map,frameEpoch:7,generation:1,lightLayerID:999,worldToLightClip:projection.worldToClip,depthBias:projection.depthBias,commandBuffer:cb)
+    let wrongLight = SceneStaticModelShadow(texture:map,frameEpoch:7,generation:1,lightLayerID:999,projection:.directional(projection),commandBuffer:cb)
     let testedShadow = mode == 7 ? wrongLight : shadow
-    precondition(pipeline.draw(mesh:receiver,texture:albedo,colorTextureIsPremultiplied:false,emissiveMask:emissionMask,emissiveMaskTextureFrame:.identity,emissiveMaskSampling:.linearClamp,modelMatrix:receiverWorld,viewProjection:view,cameraPosition:SIMD3(Float(position[0]),Float(position[1]),100),textureFrame:.identity,sampling:.linearClamp,layerAlpha:0.75,material:material(1,false,false,true,mode == 6 ? 0 : 0.8),lighting:lights,writesDepth:true,shadow:(mode == 2 || mode == 3 || mode >= 7) && enabled ? testedShadow : nil,frameEpoch:mode == 3 ? 8 : 7,commandBuffer:mode == 8 ? queue.makeCommandBuffer()! : cb,encoder:e))
+    precondition(pipeline.draw(mesh:receiver,texture:albedo,colorTextureIsPremultiplied:false,emissiveMask:emissionMask,emissiveMaskTextureFrame:.identity,emissiveMaskSampling:.linearClamp,modelMatrix:receiverWorld,viewProjection:view,cameraPosition:SIMD3(Float(position[0]),Float(position[1]),100),textureFrame:.identity,sampling:.linearClamp,layerAlpha:0.75,material:material(1,false,false,true,mode == 6 ? 0 : 0.8),lighting:lights,writesDepth:true,shadows:(mode == 2 || mode == 3 || mode >= 7) && enabled ? [testedShadow] : [],frameEpoch:mode == 3 ? 8 : 7,commandBuffer:mode == 8 ? queue.makeCommandBuffer()! : cb,encoder:e))
     e.endEncoding()
     let b = device.makeBuffer(length:256,options:.storageModeShared)!
     let blit = cb.makeBlitCommandEncoder()!
@@ -374,7 +374,7 @@ PIXEL_MAIN = r'''
 class SceneDirectionalShadowPixelTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        sources = [getattr(model_fixture, name) for name in ['MODEL_SOURCE', 'SAMPLING_SOURCE', 'UV_TRANSFORM_SOURCE', 'DIRECTIONAL_LIGHT_SOURCE', 'POINT_LIGHT_SOURCE', 'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE', 'DYNAMIC_LAYER_VALUES_SOURCE', 'PERFORMANCE_COUNTER_SOURCE', 'PIPELINE_SOURCE']]
+        sources = [getattr(model_fixture, name) for name in ['MODEL_SOURCE', 'SAMPLING_SOURCE', 'UV_TRANSFORM_SOURCE', 'DIRECTIONAL_LIGHT_SOURCE', 'POINT_LIGHT_SOURCE', 'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE', 'DYNAMIC_LAYER_VALUES_SOURCE', 'PERFORMANCE_COUNTER_SOURCE', 'PIPELINE_SOURCE', 'SHADOW_SOURCE']]
         sources.append(SCENE/'Resources/Textures/SceneResourceBudget.swift')
         cls.vectors = freeze_vectors()
         for name, u, flags, alpha in [('frame-left', .25, 3, 0), ('frame-right', .75, 3, .75),

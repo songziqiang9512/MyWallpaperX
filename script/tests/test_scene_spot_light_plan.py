@@ -16,6 +16,7 @@ SOURCES = [
     SCENE_ROOT / "Format/SceneTimelineAnimation.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineEvaluator.swift",
     SCENE_ROOT / "Format/SceneSpotLightDefinition.swift",
+    SCENE_ROOT / "Format/SceneDirectionalLightDefinition.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPlan.swift",
 ]
 

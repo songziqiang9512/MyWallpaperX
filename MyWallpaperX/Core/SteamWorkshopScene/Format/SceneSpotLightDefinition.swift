@@ -34,7 +34,13 @@ struct SceneSpotLightDefinition: Codable, Equatable {
             exponent: number(resolvedValue(root["exponent"])),
             volumetricsExponent: number(resolvedValue(root["volumetricsexponent"])),
             castsVolumetrics: resolvedValue(root["castvolumetrics"]) as? Bool,
-            castsShadow: resolvedValue(root["castshadow"]) as? Bool,
+            castsShadow: {
+                switch SceneShadowCastIntent.parse(root["castshadow"]) {
+                case .enabled: true
+                case .disabled: false
+                case .omitted, .invalid: nil
+                }
+            }(),
             isSolid: resolvedValue(root["solid"]) as? Bool
         )
     }
