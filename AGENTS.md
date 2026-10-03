@@ -1,38 +1,28 @@
 # MyWallpaperX 开发规则
 
-本文件只保存会改变实现、验证、提交或工作区安全的长期约束。Scene 的日常操作、验证梯度和消融规则统一见 [`docs/scene/development/development-workflow.md`](docs/scene/development/development-workflow.md)；当前能力和运行事实不写在这里。
+目标：维护可靠的原生 macOS 壁纸程序（Swift/AppKit，Scene 使用 Metal），重视用户可见正确性、响应与能耗、长期可维护性。仓库结构、合同、测试和文档也是产品开发的一部分，让人和 Agent 能迅速找到当前事实并完成可复验的修改。以用户当前要求为准。
 
-## 1. 工作区安全
+## 开工与范围
 
-- 开工先运行 `git status --short --branch --untracked-files=all`，划定本批 owned paths；保留其他改动。禁止 `git reset --hard`、`git checkout --`、`git clean`、`git add -A` 和宽泛覆盖操作。
-- 只读审查不得编辑、构建、生成缓存、暂存或提交。实现任务按风险完成最小可验证结果；未授权不提交、不推送。
-- 真实 Scene 样本根 `~/Movies/MyWallpaperX/创意工坊/Scene` 只读。benchmark、属性注入、缓存、staged App、DerivedData 和临时 `HOME` 使用隔离副本/目录，并在报告后清理可重建产物。
-- 只改当前目标的完整职责边界。删除历史材料、唯一失败现场或归属不明的生成物前列出精确清单并取得确认；可重建缓存也必须按精确清单处理，禁止递归清理仓库根、`.codex` 根或真实样本根。
+- 写代码前先从用户角度想清楚：要解决什么问题、期望什么结果、本项目的产品类型和当前开发方向是什么。结合当前事实，用简短说明给出本次目标、涉及职责与验证方式；信息已足够时直接推进，不重复询问或另造任务书。
+- 能力开发或自主选题时，按用户价值、已证能力缺口、通用覆盖/依赖解锁、成本风险与可验证性，简短比较可行方向（通常2–3个，不强凑分数或另建文档），明确本批最小可用结果和停止条件。优先补齐真实缺失能力；达到验收、收益递减或反复失败时重新评估，必要时主动换方法或重排授权范围内的下一项，不惯性细化同一路径。不为提高评分扩大范围或新增指标；用户指定目标不能擅自替换，正确性与安全底线不参与取舍。
+- 先看 `git status --short --branch --untracked-files=all`，明确本次修改文件，保留其他会话改动。禁止 `git reset --hard`、`git checkout --`、`git clean`、`git add -A` 等宽泛操作；只读审查不编辑、不构建、不生成缓存、不暂存或提交。
+- 从[文档入口](docs/README.md)、[仓库地图](docs/architecture/repository-map.md)和[技术栈合同](docs/architecture/technology-stack-boundaries.md)定位。当前代码与可复现证据说明现状，用户目标和架构合同决定方向，旧实现不能反向定义规范。Scene 从[当前路线](docs/scene/README.md)选读，不从历史报告开始。
+- 重要新能力先做顶层设计：按[设计判定与记录](docs/development/repository-workflow.md#设计判定与记录)新建或修订现有设计，先写入仓库再实施代码；说明目标、职责/数据流、方案取舍、失败与退出、验收。常规局部修复直接实施，不另造审批流程。设计落库不等于授权 Git 提交。
 
-## 2. 事实与目标
+## 代码与验证
 
-- 当前事实按以下顺序核对：当前代码和可复现运行证据 → 本文 → 长期架构合同 → 专题当前表/路线 → 历史证据。目标合同按官方作者行为、本文和长期架构裁决；旧代码、测试、目录和历史报告不能把错误现状升级为规范。
-- Scene 资料按 [`source-index.md`](docs/scene/semantics/source-index.md) 的 named source taxonomy 分类，类别清单只由该索引维护；历史摘要、旧计划本身不构成当前事实，也本身不构成上下文污染。
-- Scene 当前入口是：[`docs/README.md`](docs/README.md) → [Scene 一页说明](docs/scene/README.md)；按任务选择 [`docs/scene/development/development-workflow.md`](docs/scene/development/development-workflow.md) → [架构](docs/scene/design/runtime-architecture.md)、[路线](docs/scene/scene-compatibility-roadmap.md)、[能力台账](docs/scene/semantics/coverage-ledger.md)、[运行证据](docs/scene/semantics/runtime-evidence-current.md)。不要从历史计划或截图开始任务。
-- 目标主链只有一条：`authored data -> prepared Program/graph/resources -> typed frame update -> Metal encode -> unique compositor/output`。不得按 sample/layer/path/hash/screenshot 选择视觉算法，不得新增第二套 property、provider、clock、graph、resource registry 或 compositor。
-- 能力级改动先设计后实施。判定程序（任一命中即为设计前置能力）：①横切多个 owner 或主链节点；②触碰唯一权威合同（identity/clock/graph/resource lifecycle/compositor）；③错误用户可见且难以回退（用户数据、发布语义、持久化格式）；④触碰机器基线冻结的家族；⑤依赖官方语义或私有框架等外部取证。命中后先登记 `script/design_gated_areas.json`（owner、设计要点、触发模式、退役条件）并落设计文档，状态未 approved 前出现实施迹象会被 `script/check_design_gate.py`（产品路径变更时自动附加为 `design-gate` 门）拒绝；视觉 parity 类实现开工前先按官方取证工作流定行为规格，无法定案的在设计文档写保守分支与依据，不得实现时顺手裁决。
-- 任何偏差都写清目标合同、当前事实、owner、fallback/route、纠正门和退役条件；触达旧 owner 时优先在当前纵向结果内纠偏，不能为兼容错误实现继续扩张 matcher、wrapper、专用分支或测试预期。新增 guard 或兜底分支必须能指名会违反它的产生者（file:line 或可观测事件）；指不出的按过度防御驳回，由批次终审逐条核对。
-- 结构性家族（形状 analyzer/matcher、请求包装层、protocol、registry、专用 fallback）与防御面（零调用方入口、典范 helper 副本、identity/摘要路径的吞错）的规模只允许收缩：家族由 `script/scene_source_layout.json` 的机器预算冻结，防御面由 `script/scene_defense_baseline.json` 冻结；增长必须写明 owner、理由与退役条件后显式改基线，收缩随对应卡关闭同批 ratchet 下降。
-- 规则与合同文档本身按删除方向维护：修订必须收敛或替换现有条款，不得只在末尾追加；新增约束优先落成机器可检的门（ratchet、清单、脚本），无法机械化的约束必须自带判定程序。
+- 自有代码单文件不超过 **1000 行**；保持职责清楚、目录归属一致，不为缩行数制造 wrapper、碎片文件或重复 owner。第三方引入及生成代码除外，保留来源和上游布局；第三方 C/ABI 不做纯行数拆分。门禁覆盖范围见工作流，未覆盖语言仍需审查，不能把过门当作全部达标。
+- Scene 保持 `authored data → prepared Program/graph/resources → typed frame update → Metal encode → unique compositor/output`。普通帧不重新解析、编译、建图或做整图序列化/哈希、完整诊断；不按样本、路径、hash 或截图选择视觉算法。
+- identity、clock、graph、资源生命周期与最终输出各有唯一权威；迁移明确旧 owner 何时退出。资源越界、陈旧句柄等安全错误拒绝最小不安全单元，普通视觉失败局部降级。
+- 验证按影响面选择现有最近门，工具入口见[开发工作流](docs/development/repository-workflow.md)。Swift 产品变更做 Debug build；GPU、VM、生命周期和可见变化补隔离代表运行。文档和脚本修改不自动要求全 App 构建。
+- 测试优先断言输入、输出、事件与失败反例。长期回归保留；已退役且无独立价值的测试可删除，同时修正调用与登记。不为测试数量、文件覆盖率或旧源码形状而加测试。
+- 反复发生、能客观判定且检查成本合理的问题优先复用门禁/棘轮；每个门写清检测范围、失败含义与调整/退役条件。职责质量和设计取舍仍须审查；修复存量后同步收紧基线，合理扩张须有设计与验证依据，不能只改数字过门。构建成功、非黑或少数样本通过只证明相应范围。
 
-## 3. Scene 硬边界
+## 材料与收尾
 
-- 普通帧不得重新解析、编译、建图、整图序列化/哈希或构造完整 observation；解析、reflection、ABI/target 检查、Program/graph/pipeline preparation 只在 load、generation 或明确 invalidation 执行。
-- identity、作者顺序、frame state、资源/target/publication/completion 生命周期和最终输出各只有一个产品权威。迁移 owner 必须显式为 `observe-only`、`prefer-generic`、`generic-only` 或 `disable-generic`；不得静默双执行。
-- 路径逃逸、非法 GPU range、target hazard/ABI 不匹配、stale handle、generation/epoch/publication/lifecycle 破坏、VM/compiler timeout、OOM 或预算超限硬拒绝最小 unsafe unit。shader/pass、optional provider、脚本 API、粒子组件等视觉失败默认局部 fail soft，保留 previous-current 和安全 compositor 输出。
-- 完整诊断、hash、route/fallback 聚合、截图和 corpus instrumentation 只在主动诊断、验证或 milestone；不得成为普通播放的提交前置。`recognized`、`wired`、compile success、route 数、非黑、matrix PASS 和单样本通过不能单独宣称视觉兼容、性能完成或官方 parity。
-- 真实官方行为研究只有在公开资料、现有黑盒和合法 corpus 无法回答会阻塞当前纵向切片的可观察语义时才启动，并遵守 [`official-client-behavior-research-workflow.md`](docs/scene/semantics/official-client-behavior-research-workflow.md) 的 clean-room 隔离；实现上下文不得消费私有伪代码、地址、shader、payload、资产或算法表达。
-- 实现上下文偶遇研究原始表达时，若能够明确证明与当前切片无关则隔离且不传播；否则立即停止该职责的产品写入，无法判断是否重叠时按重叠处理。
-
-## 4. 验证、提交与报告
-
-- 门禁服从实际失败半径：inner → checkpoint → integration → milestone。模块必须显式选择；`--scope scene` 不等于全量，full/fixed/签名/发布只在风险确实跨越时运行。变更含 Swift 时验证计划自动附加 `code-health`，命中 Scene 产品路径时再附加防御面棘轮 `scene-defense`，产品路径变更附加设计前置门 `design-gate`；各基线只许在同批说明退役理由后下降。
-- 产品代码测试断言行为（输入、输出、事件、反例），不得把源码文本、内部符号名或实现形状作为通过条件；存量按所属卡迁移，不为通过形状门新增同类断言。
-- Swift 产品改动在 checkpoint 再 Debug build；GPU/VM/资源/生命周期/可见变化使用隔离代表内容；可见结论必须有实际执行身份、completion、publication、terminal compositor、next-frame 及相称 ROI/事件证据。
-- 一个批次交付一个可见或可执行结果。提交只包含一个职责批次，信息写明问题、根因、实际结果和验证；禁止宽泛暂存。用户明确要求发布时，按[Agent 自动发布流程](docs/release/release-signing.md)完成日志撰写、版本提交、推送、构建、公开 Release 与结果核验，不把这些操作交给用户手工完成。
-- `.codex` 是可重建工作区，不是源码或知识库；`docs/scene/evidence/` 是仓库忽略的本机证据缓存。正式工具进 `script/`，测试进 `script/tests/`，一次性文件进 `/private/tmp`。最终报告明确实际改动、验证结果、跳过/未验证边界、工作区和提交状态。
+- 真实用户媒体和 `~/Movies/MyWallpaperX/创意工坊/Scene` 只读；测试副本、临时 HOME、App 和构建产物放隔离目录。
+- 每轮结束清理本轮已停止使用的 DerivedData、staged App、临时样本、缓存和重试输出；连续迭代可留一份缓存并说明路径。最终日志、必要截图和失败复现按[产物保留规则](.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)限量保留。未知归属、运行中目录与唯一未解决证据先保留，不按整个根目录清理。
+- 文档按引擎专题组织；`docs/scene/` 内按路线、架构、能力、开发方法和历史分类。同一事实只保留一个权威，代码变更同步对应合同/状态及引用，已完成过程归档；修订规则优先替换或合并旧条款。正式工具进 `script/`，测试进 `script/tests/`，本机产物进忽略的 `.artifacts/` 或任务临时目录。
+- 官方行为研究遵守[研究工作流](docs/scene/development/official-client-behavior-research-workflow.md)的 clean-room 隔离；实现上下文不消费私有实现表达，发生重叠就停止该职责写入。
+- 收尾说明实际改动、验证及未覆盖范围、产物去留和 Git 状态。未经授权不提交、不推送；明确要求发布时按[发布流程](docs/release/release-signing.md)完成端到端交付。
