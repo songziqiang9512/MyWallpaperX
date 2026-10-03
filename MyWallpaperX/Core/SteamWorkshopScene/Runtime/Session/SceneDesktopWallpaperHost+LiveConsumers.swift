@@ -128,6 +128,10 @@ extension SceneDesktopWallpaperHost {
                 }
             }
         )
+        let referencedProviderLayerIDs = Set(
+            SceneDependencyGraphAnalysis.references(in: descriptor.layers)
+                .map(\.providerLayerID)
+        )
         let layerVisibilityTargets = Set(
             SceneDynamicLayerVisibilityRouteAdmission.targets(
                 in: descriptor,
@@ -137,6 +141,15 @@ extension SceneDesktopWallpaperHost {
                     return false
                 }
                 guard utilityPlans[layerID]?.kind == .fullscreen else {
+                    return true
+                }
+                // A legal standalone fullscreen without any effects has no
+                // output to prepare. Potentially active effects still require
+                // the actual execution capability and capture below.
+                if let layer = descriptor.layers.first(where: { $0.id == layerID }),
+                   layer.effects.isEmpty, layer.authoredDependencies.isEmpty,
+                   utilityPlans[layerID]?.requiresNamedTarget == false,
+                   !referencedProviderLayerIDs.contains(layerID) {
                     return true
                 }
                 return resolvedMaterialExecutionCapabilities.executionLayerIDs

@@ -193,3 +193,25 @@ optional 首次改用 rgbmask 后，真实解析产生 `material named → insta
 真实QuickJS→两个Simulator的事务回归确认旧IDs 0/1先清，再安装新IDs 2/3/4；stale identity拒绝整owner、无安装调用、旧人口/RNG/revision不变。生命周期、属性deferred promotion、动态schema、帧提交及既有粒子回归通过，10个依赖外部语料的旧case明确跳过。两项旧fixture载体缺依赖已独立修复；新事务测试的种子revision不同步及诊断Swift类型推导错误均属无效初测，修后进入实际prepare路径通过。静态代码/设计/文档/依赖门通过；既有结构库存66/登记65两项失败保留，未抬基线。全语料、任意child/flags、GPU错误恢复及官方RNG/像素parity未验。隐藏空root重复清理有后续可省成本，但无本片性能测量。
 
 **真实样本与后继。** 隔离2938612768最终App正常首帧、播放和GPU排空；5个粒子实例已准备。背景key `newproperty2` 两次仍拒绝：1021/1054各有一个当前inactive effect，fullscreen layer visibility仍要求capture/execution资格，阻断完整23目标cohort。后继先修这类无输出准入并保留真正缺capture的失败反例，再验背景整组切换；不计真实293完整正确。真实原件SHA复验未变；工作卡15/16（93.75%）不变，RF05与长期Goal继续开放。最终有界日志/自有输入/官方截图/App像素及身份限期保存在本机 `rf05-particle-visibility-20261004` 证据包；官方首个PNG黄色控制与失败启动不计有效语义观察。
+
+
+<a id="rf05-inactive-fullscreen-design"></a>
+### 2026-10-04 初始关闭的全屏 effect 准备
+
+**目标与断点。** 真实293的背景属性仍受两个初始effect关闭的fullscreen阻塞。现有inactive effect admission排除了所有utility；仅放宽layer visibility不能支持独立effect开关。优先复用现有准备链，胜过无条件空输出豁免或另设重建路径。
+
+**职责与边界。** 原SceneDirectBoolEffectVisibilityRouteAdmission接纳有动态owner、无父子/依赖且合法source route的独立fullscreen，保留普通媒体script依赖特权的原范围；graph planner仍须证明inactive stage可安全passthrough，实际catalog负责资源/执行准入。原utility planner为已准备fullscreen保留capture，帧snapshot决定实际执行。Host仅对完全没有effect、没有named-target职责且无依赖的合法fullscreen允许visibility空操作；有effect但无execution仍拒绝完整cohort。不增加owner、普通帧解析或graph重建。
+
+**验收与退出。** 自有App验证独立layer/effect开关及隐藏时更新，白/灰底与后置绿色邻层、同window/session、Metal完成/drain；缺shader、缺粒子资源和依赖形态保持负例。复验真实293背景combo及独立effect属性，报告实际截图与接受边界，不以live=true冒充视觉兼容。Debug、相关原生门及独审通过后将稳定合同合入原架构并退役登记；RF05及完整样本目标继续开放。
+
+自有共享bool App反例进一步定位：原TargetMapping只接Combo条件layerVisibility，缺direct bool映射，导致同键effect/particle全部落入rebuild。将layerVisibility映射为原typed bool target，继续由实际Host资源准入决定整键可用；不扩大层拓扑或绕过资源失败。共享bool App门保留为长期回归。
+
+#### 有界实施结果
+
+四个既有产品职责接通：inactive fullscreen effect准入、已准备capture保留、零effect无命名职责的visibility空操作，以及direct bool layerVisibility映射。后者由共享effect/particle开关的实际失败反例定位，限制为非负ID及bool属性，错误类型继续原拒绝；普通帧未增加解析/建图或新owner。修前初始inactive开关拒绝，最终自有App七门通过（171.431s）：白→灰→白、隐藏时更新后再显示，以及同key灰背景/红粒子同步出现和消失；后置绿peer保持正确。缺shader与缺particle texture仍整键拒绝。
+
+冻结四源Debug通过；属性编译/提交46门、activation 23门、最终相邻23门及原graph Metal门71.614s通过。初版共享bool失败与修前反例保留，不计最终PASS。结构库存66/登记65的两项既存失败未改阈值；测试carrier无需扩充，超长executor保持原样。实际资源、GPU completion/drain、窗口/会话及原始像素证据由独立审查复核，单surface App不等于物理多屏或全样本兼容。
+
+真实293同一冻结App首帧123.180s，背景1..8共八次同window/session即时接受；前三种有实际Metal截图。第四种起读回报metal-readback-setup，后续有superseded；最终GPU failed=0且drain完成，仍不能从接受或GPU完成推出全部八种画面正确。独立newproperty43两次拒绝：两个fullscreen已准备，但blur_combine的source-proven-previous-blurred-composite-unowned使stage保留inactive passthrough，没有冒充effect live consumer。进程采样落在原PNG解码；不把本次冷启动与旧样本时长直接做性能归因。
+
+独立终审复算27张自有PNG/81ROI均正确率1.0、最大通道误差0，四产品源码/输入/App身份零漂移，有界ACCEPT。普通证据保留14天；真实293未闭合的读回/blur反例另行保护。下一批先定位切换后的资源/最终输出与读回失败，再接blur合成；其后多surface失败隔离与PNG准备成本。工作卡仍15/16（93.75%），RF05与全样本目标开放。

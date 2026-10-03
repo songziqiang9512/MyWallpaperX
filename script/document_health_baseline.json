@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 527,
-      "bytes": 83612
+      "bytes": 83742
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 259,
-      "bytes": 48751
+      "bytes": 48728
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -178,7 +178,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 243,
-      "bytes": 32548
+      "bytes": 32593
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,
@@ -1151,24 +1151,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "87f46b10f397e6e4929815691b6fa4b3d3cf2692ce4f67a847a0598013bf26c8",
-      "after": "d0c6ec6772ef1d152bd1bd79dee85eb415a625c546522e5e97a9739238f52b3d",
-      "owner": "scene-rf05",
-      "reason": "Align RF05 committed pending-intent and PNG evidence plus bounded fullscreen implementation with actual retained authority bodies; no runtime scope expansion.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-hidden-fullscreen-result"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "9c39ea7a00bf55d6543f285f9aaa3d82f0355f645d28be7af527a190fd6eec07",
-      "after": "a5313561d97a90c18e237eb2e1fb98b96dda3618b5e118d526c27ec902801443",
-      "owner": "scene-rf05-particle",
-      "reason": "Replace rebuild-only particle visibility with implemented prepared-resource and same-frame emission contract; link bounded evidence and keep the inactive-effect fullscreen cohort gap explicit. No new status owner.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-particle-visibility-design"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "35614873a456f00dcca33e1a45458e307e4d40d49a9a9f29bcd540237c80d277",
       "after": "76c9bd31fc94a97ae75b25709347d992687db561e575a48f9d68ad07799b2bd8",
@@ -1187,12 +1169,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "a5313561d97a90c18e237eb2e1fb98b96dda3618b5e118d526c27ec902801443",
+      "after": "5765aed4a2898c527d33f68b96f6ebc981b656dbc2a6c4d63ecd005d1dcd8ef2",
+      "owner": "scene-rf05-fullscreen",
+      "reason": "Replace stale RF05 direction with implemented fullscreen and direct-bool contract and bounded real-sample output gaps; preserve one current authority.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-inactive-fullscreen-design"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
+      "before": "d0c6ec6772ef1d152bd1bd79dee85eb415a625c546522e5e97a9739238f52b3d",
+      "after": "37a1397281f23f87cacb7844f26519dc747b45e63778e156c0a02b482c9d63df",
+      "owner": "scene-rf05-fullscreen",
+      "reason": "Replace stale RF05 direction with implemented fullscreen and direct-bool contract and bounded real-sample output gaps; preserve one current authority.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-inactive-fullscreen-design"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "740e2d52788c3fb76616dd3cf9489a3e22cb70ed76293063af75987b005752d5",
-      "after": "1f556bb2a9d38ba226503c8047ac8e102a0765713c424a2e2e25de3d826f5f71",
-      "owner": "scene-rf05-particle",
-      "reason": "Replace rebuild-only particle visibility with implemented prepared-resource and same-frame emission contract; link bounded evidence and keep the inactive-effect fullscreen cohort gap explicit. No new status owner.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-particle-visibility-design"
+      "before": "1f556bb2a9d38ba226503c8047ac8e102a0765713c424a2e2e25de3d826f5f71",
+      "after": "9970f1a1f54555ba8342c9be83239c37f04f238e7fdc90e4f6e576a380db68f1",
+      "owner": "scene-rf05-fullscreen",
+      "reason": "Replace stale RF05 direction with implemented fullscreen and direct-bool contract and bounded real-sample output gaps; preserve one current authority.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-inactive-fullscreen-design"
     }
   ]
 }

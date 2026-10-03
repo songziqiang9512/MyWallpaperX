@@ -1,8 +1,8 @@
 import Foundation
 
 /// Narrows validated Boolean effect visibility to ordinary, prepared root
-/// layers. Cross-layer providers/consumers and utility or hierarchy-owned
-/// output keep their existing route for both active and startup-inactive work.
+/// layers and standalone fullscreen captures. Cross-layer providers and
+/// hierarchy-owned output keep their existing preparation route.
 nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
     static func startupInactiveTargets(
         in descriptor: SceneRenderDescriptor,
@@ -95,22 +95,25 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
             // script-gated stage does not use that route. Provider layers
             // stay rejected.
             let scriptOwned = scriptOwnedCandidates.contains(target)
-            if !scriptOwned {
+            let standaloneFullscreen = layer.contentKind == "fullscreen"
+                && layer.utilityLayer?.kind == .fullscreen
+                && (try? SceneUtilityLayerSourceRoute.resolve(
+                    layer: layer, descriptor: descriptor
+                ).get()) != nil
+            guard standaloneFullscreen
+                || (["image", "solid", "text"].contains(layer.contentKind)
+                    && layer.utilityLayer == nil) else { return nil }
+            if !scriptOwned || standaloneFullscreen {
                 guard layer.dependencyLayerIDs.isEmpty,
                       layer.authoredDependencies.isEmpty,
-                      ["image", "solid", "text"].contains(layer.contentKind),
                       !dependencyConsumerLayerIDs.contains(layerID),
                       !dependencyPlan.staticLayerSourcePassthroughBlockedLayerIDs
                         .contains(layerID)
                 else { return nil }
-            } else {
-                guard ["image", "solid", "text"]
-                    .contains(layer.contentKind) else { return nil }
             }
             guard !dependencyProviderLayerIDs.contains(layerID) else {
                 return nil
             }
-            guard case nil = layer.utilityLayer else { return nil }
             return target
         })
     }

@@ -349,9 +349,9 @@
       "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f41c97ad7e28459f961c966cb9bf6ba728ad65dab764549dab2b093aafc487fc",
+        "sourceSHA256": "58c48a42c1906407880104f362ac063b4379b2b53804bb7cb1ed54ba5526fdb7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对粒子显隐合同、RF05有界证据链接与未关闭的真实组合缺口；本收据只标记导航维护。",
+        "scope": "核对RF05 fullscreen准备、无输出边界与typed显隐合同；本收据仅标记导航维护。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

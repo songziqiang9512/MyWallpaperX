@@ -1,9 +1,9 @@
-"""Conditional fullscreen execution and atomic unavailable-cohort rejection.
+"""Fullscreen layer/effect visibility and atomic unavailable-cohort rejection.
 
 All package content is authored here or by existing owned fixture helpers.
 Requires MWX_SCENE_INTEGRATION_APP; only MWX_SCENE_INTEGRATION_EVIDENCE retains
-inputs, logs and captures. This proves a fullscreen prerequisite, not real293
-whole-key repair, particle activation, or official pixel parity.
+inputs, logs and captures. Owned fullscreen/particle cohorts do not establish
+real293 whole-key repair or official pixel parity.
 """
 from pathlib import Path
 import hashlib
@@ -11,22 +11,33 @@ import json
 import os
 import re
 import shutil
+import struct
 import subprocess
 import tempfile
 import unittest
+import zlib
 
 from .test_scene_composition_authored_order_integration import VERTEX, encoded, measure_capture
 from .test_scene_pkg_cache_extractor import make_package
 
 
-WHITE, GRAY, GREEN = (255, 255, 255), (128, 128, 128), (0, 255, 0)
+WHITE, GRAY, GREEN, RED = (255, 255, 255), (128, 128, 128), (0, 255, 0), (255, 0, 0)
 RECTS = {"background": (116, 116, 140, 140), "child": (52, 116, 76, 140),
          "nonchild": (180, 116, 204, 140)}
 FRAGMENT = (b"uniform sampler2D g_Texture0;\nvarying vec2 v_TexCoord;\n"
             b"void main(){vec4 c=texSample2D(g_Texture0,v_TexCoord);c.rgb*=0.5;gl_FragColor=c;}\n")
 
 
-def fixture_entries(*, mixed_particle=False, no_capture=False):
+def white_png():
+    def chunk(kind, payload):
+        return (struct.pack(">I", len(payload)) + kind + payload
+                + struct.pack(">I", zlib.crc32(kind + payload) & 0xffffffff))
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 4, 4, 8, 6, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress((b"\0" + b"\xff" * 16) * 4)) + chunk(b"IEND", b""))
+
+
+def fixture_entries(*, mixed_particle=False, no_capture=False, inactive_effect=False,
+                    missing_shader=False, legal_particle=False):
     def visible(condition, fallback=True):
         return {"user": {"name": "mode", "condition": condition}, "value": fallback}
     objects = [
@@ -34,7 +45,8 @@ def fixture_entries(*, mixed_particle=False, no_capture=False):
          "origin": "128 128 0", "size": "256 256", "color": "1 1 1"},
         {"id": 20, "name": "Owned fullscreen dim filter", "image": "models/util/fullscreenlayer.json",
          "origin": "128 128 0", "size": "256 256", "visible": visible("on"),
-         "effects": [{"id": 200, "file": "effects/own_dim/effect.json", "visible": True}]},
+         "effects": [{"id": 200, "file": "effects/own_dim/effect.json",
+                      "visible": {"user": "fx", "value": False} if inactive_effect else True}]},
         {"id": 30, "name": "Healthy later green peer", "image": "models/own_solid.json",
          "origin": "192 128 0", "size": "48 48", "color": "0 1 0"}]
     entries = {
@@ -46,33 +58,46 @@ def fixture_entries(*, mixed_particle=False, no_capture=False):
         "shaders/own_dim.vert": VERTEX,
         "shaders/own_dim.frag": FRAGMENT}
     if no_capture:
-        # A structural fullscreen target without an effect has no captured
-        # execution owner. Its presence alone cannot advertise live readiness.
+        # This authored fullscreen layer contributes no pixels. Visibility is
+        # a legal no-op; an unavailable authored effect is a different case.
         objects[1].pop("effects")
         for name in ("effects/own_dim/effect.json", "materials/own_dim.json",
                      "shaders/own_dim.vert", "shaders/own_dim.frag"):
             entries.pop(name)
-    if mixed_particle:
-        objects.append({"id": 42, "name": "Particle cohort with missing texture", "particle": "particles/owned.json",
-                        "origin": "64 128 0", "scale": "1 1 1", "visible": visible("unsupported", False)})
-        # The particle has no actual texture resource, so its visibility owner
-        # cannot be prepared. The entire property cohort must stay unchanged.
+    if missing_shader:
+        entries.pop("shaders/own_dim.frag")
+    if mixed_particle or legal_particle:
+        particle_visibility = ({"user": "fx", "value": False}
+                               if legal_particle and inactive_effect
+                               else visible("on" if legal_particle else "unsupported", False))
+        size = 48 if legal_particle else 20
+        objects.append({"id": 42, "name": "Owned red particle cohort" if legal_particle
+                        else "Particle cohort with missing texture", "particle": "particles/owned.json",
+                        "origin": "64 128 0", "scale": "1 1 1",
+                        "visible": particle_visibility})
+        # The negative cohort deliberately omits its actual texture. The legal
+        # cohort uses a stationary sprite after the fullscreen authored slot.
         entries["particles/owned.json"] = encoded({"material": "materials/owned_particle.json",
             "maxcount": 64, "starttime": 0.5,
             "emitter": [{"name": "sphererandom", "rate": 8, "duration": 20, "instantaneous": 1,
                          "distancemin": 0, "distancemax": 0}],
             "initializer": [{"name": "lifetimerandom", "min": 30, "max": 30},
-                            {"name": "sizerandom", "min": 20, "max": 20},
+                            {"name": "sizerandom", "min": size, "max": size},
                             {"name": "colorrandom", "min": "255 0 0", "max": "255 0 0"}],
             "renderer": [{"name": "sprite"}]})
         entries["materials/owned_particle.json"] = encoded({"passes": [{"shader": "genericparticle",
             "textures": ["owned_particle.png"], "blending": "translucent", "depthtest": "disabled",
             "depthwrite": "disabled", "cullmode": "nocull"}]})
+        if legal_particle:
+            entries["materials/owned_particle.png"] = white_png()
     entries["scene.json"] = encoded({"version": 3, "general": {
         "orthogonalprojection": {"width": 256, "height": 256}, "clearcolor": "1 1 1"}, "objects": objects})
     definition = {"type": "combo", "value": "on", "options": [
         {"label": value, "value": value} for value in ("off", "on", "unsupported")]}
-    return {"type": "scene", "file": "scene.json", "general": {"properties": {"mode": definition}}}, entries
+    properties = {"mode": definition}
+    if inactive_effect:
+        properties["fx"] = {"type": "bool", "value": False}
+    return {"type": "scene", "file": "scene.json", "general": {"properties": properties}}, entries
 
 
 def file_hashes(paths):
@@ -94,24 +119,39 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
         cls.app = Path(executable).resolve(strict=True)
         cls.frozen_app_hashes = app_hashes(cls.app)
 
-    def run_case(self, *, mixed_particle=False, no_capture=False):
-        unavailable = mixed_particle or no_capture
-        sequence = [{"mode": "on"}, {"mode": "unsupported" if mixed_particle else "off"}]
-        accepted = ["false", "false"] if unavailable else ["true", "true"]
-        def oracle(dim):
+    def run_case(self, *, mixed_particle=False, no_capture=False, inactive_effect=False,
+                 missing_shader=False, legal_particle=False, launch=None, sequence=None,
+                 expected_dims=None):
+        unavailable = mixed_particle or missing_shader
+        launch = launch or {"mode": "off", **({"fx": False} if inactive_effect else {})}
+        sequence = sequence or [{"mode": "on"}, {"mode": "unsupported" if mixed_particle else "off"}]
+        if expected_dims is None:
+            expected_dims = [not (unavailable or no_capture), False]
+        self.assertEqual(len(sequence), len(expected_dims))
+        accepted = ["false" if unavailable else "true"] * len(sequence)
+        def oracle(dim, particle=False):
             return {key: {"canvasRect": RECTS[key], "expectedRGB": GREEN if key == "nonchild"
+                          else RED if key == "child" and particle
                           else GRAY if dim else WHITE} for key in RECTS}
+        after_delay = 2 * len(sequence) + 3
+        snapshots = {"scene-ready-window.png": oracle(False)}
+        times = {"scene-ready-window.png": 1}
+        for index, dim in enumerate(expected_dims):
+            # Each intermediate capture is 1.5s after its property request and
+            # 0.5s before the next; the last gets the existing settled 'after'.
+            name = ("scene-after-window.png" if index == len(sequence) - 1
+                    else f"scene-series-{2 + index * 2:04d}-window.png")
+            snapshots[name] = oracle(dim, legal_particle and index == 0)
+            times[name] = after_delay if index == len(sequence) - 1 else 3.5 + index * 2
         protocol = {"canvas": 256, "channelTolerance": 4, "minimumCorrectFraction": .99,
-                    "launch": {"mode": "off"}, "sequenceEvery2Seconds": sequence,
+                    "launch": launch, "sequenceEvery2Seconds": sequence,
                     "expectedStepAccepted": accepted, "mixedParticleMissingTexture": mixed_particle,
-                    "noCapturedExecution": no_capture,
-                    "snapshotTimesSeconds": {"scene-ready-window.png": 1,
-                        "scene-series-0002-window.png": 3.5, "scene-after-window.png": 7},
-                    "snapshotOracles": {"scene-ready-window.png": oracle(False),
-                        "scene-series-0002-window.png": oracle(not unavailable),
-                        "scene-after-window.png": oracle(False)},
+                    "noEffectNoOp": no_capture, "initiallyInactiveEffect": inactive_effect,
+                    "missingEffectFragment": missing_shader, "legalParticleCohort": legal_particle,
+                    "snapshotTimesSeconds": times, "snapshotOracles": snapshots,
                     "captureMapping": "centered orthographic cover, 256 square canvas"}
-        project, entries = fixture_entries(mixed_particle=mixed_particle, no_capture=no_capture)
+        project, entries = fixture_entries(mixed_particle=mixed_particle, no_capture=no_capture,
+            inactive_effect=inactive_effect, missing_shader=missing_shader, legal_particle=legal_particle)
         self.assertEqual(app_hashes(self.app), self.frozen_app_hashes)
         with tempfile.TemporaryDirectory(prefix="mwx-fullscreen-visibility-") as temporary:
             root = Path(temporary)
@@ -123,8 +163,8 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
             (root / "preregistration.json").write_bytes(encoded(protocol))
             input_paths = (content / "project.json", content / "scene.pkg")
             command = [str(self.app), "--mwx-debug-scene-root", str(content),
-                "--mwx-debug-scene-duration", "9", "--mwx-debug-scene-evidence-dir", str(evidence),
-                "--mwx-debug-scene-after-snapshot-delay", "7", "--mwx-debug-scene-periodic-snapshot-interval", "1",
+                "--mwx-debug-scene-duration", str(after_delay + 2), "--mwx-debug-scene-evidence-dir", str(evidence),
+                "--mwx-debug-scene-after-snapshot-delay", str(after_delay), "--mwx-debug-scene-periodic-snapshot-interval", "1",
                 "--mwx-debug-scene-properties-json", json.dumps(protocol["launch"]),
                 "--mwx-debug-scene-live-property-sequence-json", json.dumps(sequence)]
             identity = {"command": command, "appSHA256": self.frozen_app_hashes,
@@ -154,12 +194,13 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
                 self.assertEqual(log.count("phase=session-activated "), 1, log[-5000:])
                 self.assertIn("gpuDrained=true", log)
                 self.assertRegex(log, r"state=completed frame=[1-9]\d* surface=\d+ gpu=completed")
-                for reason in ("ready", "series-0002", "after"):
+                for name in snapshots:
+                    reason = name.removeprefix("scene-").removesuffix("-window.png")
                     self.assertRegex(log, rf"phase=snapshot reason={reason} request=\d+ source=metal ")
                 self.assertNotRegex(log, r"phase=snapshot-(?:failed|rejected)")
-                if not unavailable:
+                if not unavailable and not no_capture:
                     self.assertRegex(log + preview, r"generic shader execution [^\n]*layer=20 effect=0 ")
-                elif no_capture:
+                elif no_capture or missing_shader:
                     self.assertNotRegex(log + preview, r"generic shader execution [^\n]*layer=20 effect=0 ")
                 for name, measured in pixels.items():
                     for roi, value in measured["rois"].items():
@@ -197,8 +238,27 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
     def test_missing_particle_texture_rejects_the_entire_fullscreen_cohort(self):
         self.run_case(mixed_particle=True)
 
-    def test_fullscreen_without_captured_execution_keeps_visibility_rejected(self):
+    def test_fullscreen_without_effect_accepts_visibility_as_noop(self):
         self.run_case(no_capture=True)
+
+    def test_initially_inactive_effect_preserves_layer_toggle_and_live_bool(self):
+        self.run_case(inactive_effect=True,
+            sequence=[{"mode": "on"}, {"fx": True}, {"fx": False}, {"mode": "off"}],
+            expected_dims=[False, True, False, False])
+
+    def test_effect_changes_while_layer_hidden_are_retained_for_show(self):
+        self.run_case(inactive_effect=True, launch={"mode": "on", "fx": False},
+            sequence=[{"mode": "off"}, {"fx": True}, {"mode": "on"}, {"mode": "off"},
+                      {"fx": False}, {"mode": "on"}],
+            expected_dims=[False, False, True, False, False, False])
+
+    def test_active_effect_missing_shader_rejects_fullscreen_visibility(self):
+        self.run_case(missing_shader=True)
+
+    def test_legal_particle_and_inactive_fullscreen_effect_share_bool_key(self):
+        self.run_case(legal_particle=True, inactive_effect=True,
+            launch={"mode": "on", "fx": False}, sequence=[{"fx": True}, {"fx": False}],
+            expected_dims=[True, False])
 
 
 if __name__ == "__main__":
