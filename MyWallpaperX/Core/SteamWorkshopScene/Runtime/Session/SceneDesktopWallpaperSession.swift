@@ -325,11 +325,13 @@ final class SceneDesktopWallpaperSession {
     /// DEBUG evidence: the current particle load report lines, captured at
     /// request time so bursty/short-lifetime child systems are represented by
     /// their live state instead of the launch-time zero-particle summary.
+    #if DEBUG
     func debugParticleLoadReportLines() -> [String] {
         surfaces.values.sorted { $0.window.windowNumber < $1.window.windowNumber }
             .compactMap { $0.metalView.debugParticleLoadReportLines() }
             .flatMap { $0 }
     }
+    #endif
 
     func setDebugPointerOverride(_ input: SceneSurfacePointerInput?) {
         debugPointerOverride = input

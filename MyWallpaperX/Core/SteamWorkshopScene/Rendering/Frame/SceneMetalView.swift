@@ -62,9 +62,11 @@ class SceneMetalView: NSView {
     /// DEBUG evidence: the particle load report at request time. The launch-
     /// time summary undercounts child-only containers whose particles spawn
     /// after advance-by-0.
+    #if DEBUG
     func debugParticleLoadReportLines() -> [String]? {
         particlePlayback?.loadReportLines(descriptor: renderer.renderDescriptor)
     }
+    #endif
     private var dynamicTextTextures: SceneDynamicTextTextureStore?
     private var pendingDynamicTextUpdate: (
         snapshot: SceneDynamicSnapshot,
