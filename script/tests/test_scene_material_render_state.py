@@ -72,7 +72,7 @@ enum SceneMdlPuppetAttachmentReader {
 
 enum SceneDocument {}
 
-struct SceneTimelineAnimation: Codable {}
+struct SceneTimelineAnimation: Codable, Equatable {}
 
 enum SceneDocumentLoader {}
 

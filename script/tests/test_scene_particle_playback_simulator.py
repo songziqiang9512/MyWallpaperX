@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from test_scene_particle_simulator import SWIFT_SOURCES
+from script.tests.test_scene_particle_simulator import SWIFT_SOURCES
 
 HARNESS = r'''
 import Foundation
