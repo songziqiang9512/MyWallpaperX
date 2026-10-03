@@ -1,0 +1,1726 @@
+{
+  "schemaVersion": 1,
+  "detector": {
+    "id": "python-unittest-swift-declaration-literal-v1",
+    "methods": [
+      "assertIn",
+      "assertNotIn"
+    ],
+    "keywords": [
+      "func",
+      "let",
+      "var",
+      "struct",
+      "class",
+      "enum",
+      "case",
+      "guard",
+      "if"
+    ],
+    "scope": "Git tracked and untracked non-ignored script/tests/test_*.py files",
+    "boundary": "AST attribute calls with a literal string first argument starting with a listed keyword followed by whitespace; multiline and either quote style included. Computed strings, non-keyword expressions, other assertion methods and behavioral correctness are outside this signal."
+  },
+  "entries": [
+    {
+      "path": "script/tests/test_scene_animated_base_sampler.py",
+      "scope": "SceneAnimatedBaseSamplerTests.test_specialized_sampler_reaches_both_request_builders",
+      "method": "assertIn",
+      "literal": "let baseTextureSampling: SceneTextureSampling?",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_animated_base_sampler.py",
+      "scope": "SceneAnimatedBaseSamplerTests.test_specialized_sampler_reaches_both_request_builders",
+      "method": "assertIn",
+      "literal": "var specializedBaseTextureSamplings: [Int: SceneTextureSampling]",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_audio_demand.py",
+      "scope": "SceneAudioDemandWiringTests.test_host_samples_one_spectrum_per_frame_for_all_surfaces",
+      "method": "assertIn",
+      "literal": "let audioSpectrum = audioSpectrumFrame.snapshot",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_audio_demand.py",
+      "scope": "SceneAudioDemandWiringTests.test_host_samples_one_spectrum_per_frame_for_all_surfaces",
+      "method": "assertIn",
+      "literal": "let audioSpectrumFrame = SceneAudioSpectrumInbox.shared.prepareFrame()",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_audio_demand.py",
+      "scope": "SceneAudioDemandWiringTests.test_spectrum_reaches_the_unified_executor_inputs",
+      "method": "assertIn",
+      "literal": "let audioSpectrum: SceneAudioSpectrumSnapshot",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_audio_demand.py",
+      "scope": "SceneAudioDemandWiringTests.test_unified_program_audio_consumer_source_contract",
+      "method": "assertIn",
+      "literal": "case .resolved(_, let materials, _):",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_audio_demand.py",
+      "scope": "SceneAudioDemandWiringTests.test_unified_program_audio_consumer_source_contract",
+      "method": "assertNotIn",
+      "literal": "case .dedicated:",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_audio_spectrum_input.py",
+      "scope": "SceneAudioSpectrumWiringTests.test_debug_audio_consumption_proof_joins_encoded_uniform_to_snapshot",
+      "method": "assertIn",
+      "literal": "func recordTypedAudioSpectrumUniformConsumptions(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_audio_spectrum_input.py",
+      "scope": "SceneAudioSpectrumWiringTests.test_service_gates_capture_on_any_consumer",
+      "method": "assertIn",
+      "literal": "var onSceneLevels:",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_audio_spectrum_input.py",
+      "scope": "SceneAudioSpectrumWiringTests.test_service_gates_capture_on_any_consumer",
+      "method": "assertIn",
+      "literal": "var sceneEnabled = false",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_background_material_provider.py",
+      "scope": "SceneBackgroundMaterialProviderTests.test_route_is_exact_and_layer_ordered",
+      "method": "assertIn",
+      "literal": "case .externalAggregate: false",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_background_material_provider.py",
+      "scope": "SceneBackgroundMaterialProviderTests.test_route_is_exact_and_layer_ordered",
+      "method": "assertIn",
+      "literal": "case .none, .externalPrimary, .graphInternal: true",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_camera_shake.py",
+      "scope": "SceneCameraShakeTests.test_report_and_single_camera_owner_wiring",
+      "method": "assertIn",
+      "literal": "let cameraFrame = renderer.makeCameraFrame",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_capture_geometry.py",
+      "scope": "SceneCaptureGeometryTests.test_collapsed_solid_uses_admitted_projected_extent",
+      "method": "assertIn",
+      "literal": "if layer.contentKind == \"solid\"",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_captured_main_preflight_fallback.py",
+      "scope": "SceneCapturedMainPreflightFallbackTests.test_product_contract_is_typed_bounded_and_compositor_visible",
+      "method": "assertIn",
+      "literal": "case .capturedMainTargetTexture",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_compatibility_context.py",
+      "scope": "SceneCompatibilityContextTests.test_project_document_and_runtime_keep_the_two_axes_separate",
+      "method": "assertIn",
+      "literal": "let declaredVersion: SceneDeclaredInteger",
+      "count": 2
+    },
+    {
+      "path": "script/tests/test_scene_compatibility_context.py",
+      "scope": "SceneCompatibilityContextTests.test_project_document_and_runtime_keep_the_two_axes_separate",
+      "method": "assertIn",
+      "literal": "var compatibilityContext: SceneCompatibilityContext",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_daemon_client_wiring.py",
+      "scope": "SceneDaemonClientWiringTests.test_display_topology_has_one_app_to_daemon_control_path",
+      "method": "assertIn",
+      "literal": "func applyDisplayConfiguration(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_daemon_client_wiring.py",
+      "scope": "SceneDaemonClientWiringTests.test_scene_events_are_request_filtered_before_ui_projection",
+      "method": "assertIn",
+      "literal": "case \"propertyUpdateResult\"",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_daemon_client_wiring.py",
+      "scope": "SceneDaemonClientWiringTests.test_scene_events_are_request_filtered_before_ui_projection",
+      "method": "assertIn",
+      "literal": "guard pendingRequestID == requestID else { return }",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_daemon_protocol.py",
+      "scope": "SceneDaemonProtocolTests.test_daemon_mode_skips_main_ui_and_reports_property_results",
+      "method": "assertIn",
+      "literal": "case let .setDisplayConfiguration(topology)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_detail_diagnostics_on_demand.py",
+      "scope": "SceneDetailDiagnosticsOnDemandTests.test_inspection_runs_off_main_and_rejects_stale_completion",
+      "method": "assertIn",
+      "literal": "guard presentedIdentity == identity",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_detail_diagnostics_on_demand.py",
+      "scope": "SceneDetailDiagnosticsOnDemandTests.test_inspection_runs_off_main_and_rejects_stale_completion",
+      "method": "assertIn",
+      "literal": "guard request?.id == requestID",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_dynamic_snapshot.py",
+      "scope": "SceneDynamicSnapshotTests.test_valid_resolution_avoids_diagnostic_sort_and_field_collection",
+      "method": "assertIn",
+      "literal": "guard diagnostics.count > 1 else { return diagnostics }",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_dynamic_text_generation.py",
+      "scope": "SceneDynamicTextGenerationTests.test_ready_texture_publication_declares_premultiplied_metadata",
+      "method": "assertNotIn",
+      "literal": "let renderSizes:",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_dynamic_text_generation.py",
+      "scope": "SceneDynamicTextGenerationTests.test_static_text_layers_leave_generation_state_untouched_after_preparation",
+      "method": "assertIn",
+      "literal": "guard !dynamicFields.isEmpty",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_dynamic_text_generation.py",
+      "scope": "SceneDynamicTextGenerationTests.test_static_text_layers_leave_generation_state_untouched_after_preparation",
+      "method": "assertIn",
+      "literal": "var signatureRefreshLayerIDs: Set<Int> = []",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_dynamic_text_generation.py",
+      "scope": "SceneDynamicTextGenerationTests.test_static_text_update_has_a_quiescent_gate_without_bypassing_dynamic_state",
+      "method": "assertIn",
+      "literal": "if !hasAdmittedDynamicLayer && !hasAuthoredDynamicFields",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_dynamic_text_generation.py",
+      "scope": "SceneDynamicTextGenerationTests.test_text_provider_frame_pin_is_cleared_only_at_host_outcome",
+      "method": "assertIn",
+      "literal": "let dynamicTextSnapshot = dynamicTextTextures?.prepareFrame()",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_effect_execution_telemetry.py",
+      "scope": "SceneEffectExecutionTelemetryTests.test_unified_execution_uses_single_backend_identity",
+      "method": "assertNotIn",
+      "literal": "case dedicated",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_context.py",
+      "scope": "SceneFrameContextTests.test_dynamic_snapshot_fault_is_debug_only_and_isolated_runner_owned",
+      "method": "assertIn",
+      "literal": "func setDebugDropDynamicValuesFrameIndex(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_context.py",
+      "scope": "SceneFrameContextTests.test_dynamic_snapshot_fault_is_debug_only_and_isolated_runner_owned",
+      "method": "assertIn",
+      "literal": "guard Self.usesDebugEvidenceWindow else { return false }",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_context.py",
+      "scope": "SceneFrameContextTests.test_dynamic_snapshot_fault_is_debug_only_and_isolated_runner_owned",
+      "method": "assertIn",
+      "literal": "let resolvedDynamicValues =",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_context.py",
+      "scope": "SceneFrameContextTests.test_dynamic_snapshot_fault_is_debug_only_and_isolated_runner_owned",
+      "method": "assertIn",
+      "literal": "var debugDropDynamicValuesFrameIndex: UInt64?",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_context.py",
+      "scope": "SceneFrameContextTests.test_host_derives_only_renderer_backed_live_consumers",
+      "method": "assertIn",
+      "literal": "case \"composition\", \"project\", \"fullscreen\":",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_context.py",
+      "scope": "SceneFrameContextTests.test_host_derives_only_renderer_backed_live_consumers",
+      "method": "assertIn",
+      "literal": "case \"image\":",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_context.py",
+      "scope": "SceneFrameContextTests.test_host_derives_only_renderer_backed_live_consumers",
+      "method": "assertIn",
+      "literal": "case \"particle\"",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_context.py",
+      "scope": "SceneFrameContextTests.test_host_derives_only_renderer_backed_live_consumers",
+      "method": "assertIn",
+      "literal": "case \"solid\":",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_context.py",
+      "scope": "SceneFrameContextTests.test_host_derives_only_renderer_backed_live_consumers",
+      "method": "assertIn",
+      "literal": "case \"text\":",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_context.py",
+      "scope": "SceneFrameContextTests.test_host_derives_only_renderer_backed_live_consumers",
+      "method": "assertIn",
+      "literal": "if layer.supportsDirectLayerColorConsumer",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_context.py",
+      "scope": "SceneFrameContextTests.test_host_derives_only_renderer_backed_live_consumers",
+      "method": "assertIn",
+      "literal": "let effectTargets = resolvedMaterialExecutionCapabilities.liveConsumerTargets",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_context.py",
+      "scope": "SceneFrameContextTests.test_launch_callers_forward_raw_root_and_host_owns_runtime_input",
+      "method": "assertIn",
+      "literal": "let effectAdmissionCatalog: SceneEffectAdmissionCatalog",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_context.py",
+      "scope": "SceneFrameContextTests.test_launch_callers_forward_raw_root_and_host_owns_runtime_input",
+      "method": "assertIn",
+      "literal": "let runtimeInput: SceneRuntimeInput",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_context.py",
+      "scope": "SceneFrameContextTests.test_material_mutation_failure_remains_typed_and_local",
+      "method": "assertIn",
+      "literal": "case .mutationOverflow: \"mutation-overflow\"",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_context.py",
+      "scope": "SceneFrameContextTests.test_material_mutation_failure_remains_typed_and_local",
+      "method": "assertIn",
+      "literal": "guard !functionName.isEmpty",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_context.py",
+      "scope": "SceneFrameContextTests.test_scenescript_material_mutation_stays_on_existing_frame_and_graph_chain",
+      "method": "assertIn",
+      "literal": "let materialFunctionMutationsByLayerID = Dictionary(\n            grouping: frameContext.materialFunctionMutations",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_context.py",
+      "scope": "SceneFrameContextTests.test_time_of_day_is_a_typed_generic_vm_frame_input",
+      "method": "assertIn",
+      "literal": "struct SceneScriptFrameInput",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_alpha_display_fallback_wiring_in_runtime_model",
+      "method": "assertIn",
+      "literal": "let alphaClaimedTargets = sharedAlphaTargets\n            .union(projectedScalarTargets)\n            .union(timelineTargets)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_layer_catalog_is_configured_once_per_snapshot",
+      "method": "assertIn",
+      "literal": "guard configured == catalogToken else",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_layer_mutation_bridge_rejects_malformed_dto_before_owner_plan",
+      "method": "assertIn",
+      "literal": "case (.destroy, 0, 0), (.destroy, 1, 0), (.upsert, 1, 0):",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_layer_mutation_bridge_rejects_malformed_dto_before_owner_plan",
+      "method": "assertIn",
+      "literal": "case (.upsert, 0, _)\n                where !fields.isEmpty && fields.isSubset(of: .authoredFields):",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_layer_mutation_bridge_rejects_malformed_dto_before_owner_plan",
+      "method": "assertIn",
+      "literal": "case UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY.rawValue):",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_layer_mutation_bridge_rejects_malformed_dto_before_owner_plan",
+      "method": "assertIn",
+      "literal": "case UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT.rawValue):",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_layer_mutation_bridge_rejects_malformed_dto_before_owner_plan",
+      "method": "assertIn",
+      "literal": "if raw.dynamic == 1",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_media_coordinator_observes_each_program_event_once_per_frame",
+      "method": "assertIn",
+      "literal": "func observeMediaEvents(_ events: SceneScriptMediaFrameEvents)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_media_coordinator_observes_each_program_event_once_per_frame",
+      "method": "assertIn",
+      "literal": "let observedScalarEvents = scalarProgram.observeMediaEvents(events)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_media_coordinator_observes_each_program_event_once_per_frame",
+      "method": "assertIn",
+      "literal": "let observedStringEvents = stringProgram.observeMediaEvents(events)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_media_coordinator_observes_each_program_event_once_per_frame",
+      "method": "assertIn",
+      "literal": "let observedVectorEvents = vectorProgram.observeMediaEvents(events)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_media_route_rebuilds_to_a_fresh_fixed_point_and_keeps_authored_fallbacks",
+      "method": "assertIn",
+      "literal": "case disableGeneric = \"disable-generic\"",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_media_route_rebuilds_to_a_fresh_fixed_point_and_keeps_authored_fallbacks",
+      "method": "assertIn",
+      "literal": "case genericOnly = \"generic-only\"",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_media_route_rebuilds_to_a_fresh_fixed_point_and_keeps_authored_fallbacks",
+      "method": "assertIn",
+      "literal": "guard let rawValue else { return .genericOnly }",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_media_route_rebuilds_to_a_fresh_fixed_point_and_keeps_authored_fallbacks",
+      "method": "assertIn",
+      "literal": "let committedPrograms = routedPrograms.programs",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_media_route_rebuilds_to_a_fresh_fixed_point_and_keeps_authored_fallbacks",
+      "method": "assertNotIn",
+      "literal": "case observeOnly = \"observe-only\"",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_user_property_revision_ack_is_shared_and_restored_with_frame_state",
+      "method": "assertIn",
+      "literal": "func changedJSON(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_user_property_revision_ack_is_shared_and_restored_with_frame_state",
+      "method": "assertIn",
+      "literal": "let appliedUserProperties: SceneScriptAppliedUserPropertyState",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_frame_vm_routing.py",
+      "scope": "SceneFrameVMRoutingTests.test_user_property_revision_ack_is_shared_and_restored_with_frame_state",
+      "method": "assertIn",
+      "literal": "struct SceneScriptAppliedUserPropertyState",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_layer_world_frame.py",
+      "scope": "SceneLayerWorldFrameTests.test_dynamic_world_frame_uses_snapshot_transform_index",
+      "method": "assertIn",
+      "literal": "guard let layer = byID[layerID]",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_media_thumbnail_provider.py",
+      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
+      "method": "assertIn",
+      "literal": "func commitPreparedFrame()",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_media_thumbnail_provider.py",
+      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
+      "method": "assertIn",
+      "literal": "func discardPreparedFrame()",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_media_thumbnail_provider.py",
+      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
+      "method": "assertIn",
+      "literal": "func prepareFrame() -> Snapshot",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_media_thumbnail_provider.py",
+      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
+      "method": "assertIn",
+      "literal": "if !snapshotDirty, let cachedSnapshot",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_media_thumbnail_provider.py",
+      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
+      "method": "assertIn",
+      "literal": "if layer.contentKind != \"solid\" {",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_media_thumbnail_provider.py",
+      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
+      "method": "assertIn",
+      "literal": "if let preparedFrameSnapshot { return preparedFrameSnapshot }",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_media_thumbnail_provider.py",
+      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
+      "method": "assertIn",
+      "literal": "let color = usesAuthoredLayerColor",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_opaque_alpha_weighted_loop_average_owner.py",
+      "scope": "SceneOpaqueAlphaWeightedLoopAverageOwnerTests.test_typed_opaque_input_contract_reaches_frame_finalization",
+      "method": "assertIn",
+      "literal": "let associatedOverOverlaySlot =",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_particle_audio_declaration.py",
+      "scope": "SceneParticleAudioSchemaContractTests.test_audio_declaration_is_shared_by_all_three_component_kinds",
+      "method": "assertIn",
+      "literal": "struct SceneParticleAudioResponse",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_particle_simulator.py",
+      "scope": "SceneParticleSimulatorTests.test_operator_execution_plans_are_prepared_once",
+      "method": "assertIn",
+      "literal": "if controlPointsByID.isEmpty",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_particle_simulator.py",
+      "scope": "SceneParticleSimulatorTests.test_operator_execution_plans_are_prepared_once",
+      "method": "assertIn",
+      "literal": "if let controlPointsByID",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_particle_simulator.py",
+      "scope": "SceneParticleSimulatorTests.test_operator_execution_plans_are_prepared_once",
+      "method": "assertIn",
+      "literal": "let alphaFade:",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_particle_simulator.py",
+      "scope": "SceneParticleSimulatorTests.test_operator_execution_plans_are_prepared_once",
+      "method": "assertIn",
+      "literal": "let audioResponsePlan",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_particle_simulator.py",
+      "scope": "SceneParticleSimulatorTests.test_operator_execution_plans_are_prepared_once",
+      "method": "assertIn",
+      "literal": "let boids:",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_particle_simulator.py",
+      "scope": "SceneParticleSimulatorTests.test_operator_execution_plans_are_prepared_once",
+      "method": "assertIn",
+      "literal": "let capVelocity:",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_particle_simulator.py",
+      "scope": "SceneParticleSimulatorTests.test_operator_execution_plans_are_prepared_once",
+      "method": "assertIn",
+      "literal": "let collisionPlane:",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_particle_simulator.py",
+      "scope": "SceneParticleSimulatorTests.test_operator_execution_plans_are_prepared_once",
+      "method": "assertIn",
+      "literal": "let directions = plan.directions",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_particle_simulator.py",
+      "scope": "SceneParticleSimulatorTests.test_operator_execution_plans_are_prepared_once",
+      "method": "assertIn",
+      "literal": "let initialDelayAdmission",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_particle_simulator.py",
+      "scope": "SceneParticleSimulatorTests.test_operator_execution_plans_are_prepared_once",
+      "method": "assertIn",
+      "literal": "let minimum = plan.boxDistanceMinimum",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_particle_simulator.py",
+      "scope": "SceneParticleSimulatorTests.test_operator_execution_plans_are_prepared_once",
+      "method": "assertIn",
+      "literal": "let minimum = plan.sphereDistanceMinimum",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_particle_simulator.py",
+      "scope": "SceneParticleSimulatorTests.test_operator_execution_plans_are_prepared_once",
+      "method": "assertIn",
+      "literal": "let periodicEmissionAdmission",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_particle_simulator.py",
+      "scope": "SceneParticleSimulatorTests.test_operator_execution_plans_are_prepared_once",
+      "method": "assertIn",
+      "literal": "let positionOffset: SceneParticlePositionOffsetPlan?",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_particle_simulator.py",
+      "scope": "SceneParticleSimulatorTests.test_operator_execution_plans_are_prepared_once",
+      "method": "assertIn",
+      "literal": "let velocityRemap:",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_particle_simulator.py",
+      "scope": "SceneParticleSimulatorTests.test_operator_execution_plans_are_prepared_once",
+      "method": "assertIn",
+      "literal": "let vortex:",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_camera_properties_use_the_existing_typed_frame_consumer",
+      "method": "assertIn",
+      "literal": "let cameraTargets = Set(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_camera_properties_use_the_existing_typed_frame_consumer",
+      "method": "assertIn",
+      "literal": "let orthoHeight = renderDescriptor.camera.orthoHeight",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_camera_properties_use_the_existing_typed_frame_consumer",
+      "method": "assertIn",
+      "literal": "let orthoWidth = renderDescriptor.camera.orthoWidth",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_effect_properties_validate_descriptor_identity_without_path_allowlists",
+      "method": "assertIn",
+      "literal": "case let .effectVisibility(layerID, effectIndex, effectPath)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_effect_properties_validate_descriptor_identity_without_path_allowlists",
+      "method": "assertIn",
+      "literal": "let .shaderValue(layerID, effectIndex, _, _, effectPath)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_layer_color_is_live_for_solid_and_effectless_image_layers",
+      "method": "assertIn",
+      "literal": "case let .layerColor(layerID):",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_layer_color_is_live_for_solid_and_effectless_image_layers",
+      "method": "assertIn",
+      "literal": "if layer.supportsDirectLayerColorConsumer",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_layer_color_is_live_for_solid_and_effectless_image_layers",
+      "method": "assertIn",
+      "literal": "let hasConsumer = layer.supportsDirectLayerColorConsumer",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_layer_color_is_live_for_solid_and_effectless_image_layers",
+      "method": "assertIn",
+      "literal": "let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_particle_properties_are_actionable_only_for_particle_layers",
+      "method": "assertIn",
+      "literal": "case \"particle\":",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_particle_properties_are_actionable_only_for_particle_layers",
+      "method": "assertIn",
+      "literal": "case let .particle(layerID, _):",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_puppet_animation_visibility_is_live_only_for_bound_layers",
+      "method": "assertIn",
+      "literal": "case let .puppetAnimationVisibility(layerID, animationLayerID):",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_reset_uses_only_old_override_keys_and_texture_changes_force_rebuild",
+      "method": "assertIn",
+      "literal": "if !removedTextureBookmarks,",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_reset_uses_only_old_override_keys_and_texture_changes_force_rebuild",
+      "method": "assertIn",
+      "literal": "let changedDefaults = defaultValues.filter",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_reset_uses_only_old_override_keys_and_texture_changes_force_rebuild",
+      "method": "assertIn",
+      "literal": "let changedPropertyKeys = Set(overrides.keys)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_texture_bookmark_clear_reports_whether_runtime_resources_changed",
+      "method": "assertIn",
+      "literal": "var removedBookmark = false",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_uniform_layer_scale_is_live_for_the_shared_world_frame",
+      "method": "assertIn",
+      "literal": "case let .layerScale(layerID):",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_routing.py",
+      "scope": "ScenePropertyLiveRoutingTests.test_unready_deferred_selection_preserves_previous_current",
+      "method": "assertIn",
+      "literal": "case .bool(true)? = selectedValues",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_property_live_update_state.py",
+      "scope": "ScenePropertyLiveUpdateStateTests.test_effect_visibility_mapping_is_generic_and_live_rejection_requests_relaunch",
+      "method": "assertIn",
+      "literal": "if !PlaybackCommandMultiplexer.shared.dispatch(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_puppet_mesh.py",
+      "scope": "PuppetMeshWorldGeometryContractTests.test_static_and_animated_puppets_share_world_geometry_mapping",
+      "method": "assertIn",
+      "literal": "case absent",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_puppet_mesh.py",
+      "scope": "PuppetMeshWorldGeometryContractTests.test_static_and_animated_puppets_share_world_geometry_mapping",
+      "method": "assertIn",
+      "literal": "case exactSamplingTexture",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_puppet_mesh.py",
+      "scope": "PuppetMeshWorldGeometryContractTests.test_static_and_animated_puppets_share_world_geometry_mapping",
+      "method": "assertIn",
+      "literal": "case rejected",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_puppet_mesh.py",
+      "scope": "PuppetMeshWorldGeometryContractTests.test_static_and_animated_puppets_share_world_geometry_mapping",
+      "method": "assertIn",
+      "literal": "func bindGeometry(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_puppet_mesh.py",
+      "scope": "PuppetMeshWorldGeometryContractTests.test_static_and_animated_puppets_share_world_geometry_mapping",
+      "method": "assertIn",
+      "literal": "func setPuppetGeometry(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_puppet_mesh.py",
+      "scope": "PuppetMeshWorldGeometryContractTests.test_static_and_animated_puppets_share_world_geometry_mapping",
+      "method": "assertIn",
+      "literal": "if let geometryProduct",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_puppet_mesh.py",
+      "scope": "PuppetMeshWorldGeometryContractTests.test_static_and_animated_puppets_share_world_geometry_mapping",
+      "method": "assertIn",
+      "literal": "let geometryProducts: [Int: SceneGeometryProduct]",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_puppet_mesh.py",
+      "scope": "PuppetMeshWorldGeometryContractTests.test_static_and_animated_puppets_share_world_geometry_mapping",
+      "method": "assertNotIn",
+      "literal": "var renderSize:",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_realtime_path_policy.py",
+      "scope": "SceneRealtimePathPolicyTests.test_dynamic_frame_schema_is_prepared_at_launch",
+      "method": "assertIn",
+      "literal": "let definitionIndex = launchContext.dynamicDefinitionIndex",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_realtime_path_policy.py",
+      "scope": "SceneRealtimePathPolicyTests.test_dynamic_frame_schema_is_prepared_at_launch",
+      "method": "assertIn",
+      "literal": "let sceneScriptStatefulTargets = launchContext.sceneScriptStatefulTargets",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_realtime_path_policy.py",
+      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
+      "method": "assertIn",
+      "literal": "func applyingFrameValues(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_realtime_path_policy.py",
+      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
+      "method": "assertIn",
+      "literal": "guard let index = layerIndicesByID[layer.id]",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_realtime_path_policy.py",
+      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
+      "method": "assertIn",
+      "literal": "if cachedSnapshotTopologyRevision != topologyRevision",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_realtime_path_policy.py",
+      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
+      "method": "assertIn",
+      "literal": "let dynamicLayerIDs: Set<Int>",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_realtime_path_policy.py",
+      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
+      "method": "assertIn",
+      "literal": "let dynamicLayerTopologyCache",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_realtime_path_policy.py",
+      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
+      "method": "assertIn",
+      "literal": "let layerIndicesByID: [Int: Int]",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_realtime_path_policy.py",
+      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
+      "method": "assertIn",
+      "literal": "let lightLayerIDs: [Int]",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_realtime_path_policy.py",
+      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
+      "method": "assertIn",
+      "literal": "let orderedLayerPositionsByID: [Int: Int]",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_realtime_path_policy.py",
+      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
+      "method": "assertIn",
+      "literal": "let orderedLayers: [SceneRenderDescriptor.Layer]",
+      "count": 2
+    },
+    {
+      "path": "script/tests/test_scene_realtime_path_policy.py",
+      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
+      "method": "assertNotIn",
+      "literal": "let orderedLayers = authoredLayerIDs.compactMap",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_realtime_path_policy.py",
+      "scope": "SceneRealtimePathPolicyTests.test_normal_product_frames_skip_execution_diagnostics",
+      "method": "assertIn",
+      "literal": "guard capturesExecutionObservations else { return }",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_realtime_path_policy.py",
+      "scope": "SceneRealtimePathPolicyTests.test_normal_product_frames_skip_execution_diagnostics",
+      "method": "assertIn",
+      "literal": "if capturesExecutionDiagnostics {",
+      "count": 2
+    },
+    {
+      "path": "script/tests/test_scene_realtime_path_policy.py",
+      "scope": "SceneRealtimePathPolicyTests.test_normal_product_frames_skip_execution_diagnostics",
+      "method": "assertIn",
+      "literal": "if capturesExecutionObservations {",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_realtime_path_policy.py",
+      "scope": "SceneRealtimePathPolicyTests.test_static_graph_work_is_reused_for_stable_generations",
+      "method": "assertIn",
+      "literal": "let reusesStaticPlan = !reparsed && !allocationChanged",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_realtime_path_policy.py",
+      "scope": "SceneRealtimePathPolicyTests.test_system_provider_demand_order_is_prepared",
+      "method": "assertIn",
+      "literal": "let orderedSystemProviderDemands:",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_execution_capability.py",
+      "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_aggregate_catalog_reuse_exports_each_authored_reference_slot",
+      "method": "assertIn",
+      "literal": "case let .externalAggregate(aggregate):",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_execution_capability.py",
+      "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_capability_catalog_has_one_program_first_execution_route",
+      "method": "assertIn",
+      "literal": "case let .failure(programFailure):",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_execution_capability.py",
+      "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_capability_catalog_has_one_program_first_execution_route",
+      "method": "assertIn",
+      "literal": "let programResult = compileStages(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_execution_capability.py",
+      "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_capability_catalog_has_one_program_first_execution_route",
+      "method": "assertNotIn",
+      "literal": "case dedicated",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_execution_capability.py",
+      "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_uniform_and_geometry_sources_are_prepared_before_frames",
+      "method": "assertIn",
+      "literal": "case emittedOutputGeometry",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_execution_capability.py",
+      "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_uniform_and_geometry_sources_are_prepared_before_frames",
+      "method": "assertIn",
+      "literal": "guard let directDrawOutputMVP =",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_execution_capability.py",
+      "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_uniform_and_geometry_sources_are_prepared_before_frames",
+      "method": "assertIn",
+      "literal": "let frameInputContract: FrameInputContract",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_execution_capability.py",
+      "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_uniform_and_geometry_sources_are_prepared_before_frames",
+      "method": "assertIn",
+      "literal": "let resolvedIntegerCombos: [String: Int]",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_execution_capability.py",
+      "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_uniform_and_geometry_sources_are_prepared_before_frames",
+      "method": "assertIn",
+      "literal": "struct FrameInputContract: Equatable",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_execution_capability.py",
+      "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_uniform_and_geometry_sources_are_prepared_before_frames",
+      "method": "assertIn",
+      "literal": "struct SceneResolvedMaterialPreparedUniformBinding: Hashable",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_execution_capability.py",
+      "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_unknown_execution_family_cannot_create_dedicated_owner",
+      "method": "assertNotIn",
+      "literal": "case .admittedDedicated, .admittedFallback",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_asset_catalog_is_eager_exact_and_fail_closed",
+      "method": "assertIn",
+      "literal": "func makeFrameProvider() -> FrameProvider",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
+      "method": "assertIn",
+      "literal": "case .failed:\n                    return .failed",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
+      "method": "assertIn",
+      "literal": "case .notMigrated:\n            return .unclaimed",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
+      "method": "assertIn",
+      "literal": "case .published:",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
+      "method": "assertIn",
+      "literal": "case let .failed(reasonCode):",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
+      "method": "assertIn",
+      "literal": "case let .rejected(reasonCode):\n                return .rejected(reasonCode: reasonCode)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
+      "method": "assertIn",
+      "literal": "case rejected(reasonCode: String)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
+      "method": "assertIn",
+      "literal": "enum RejectionReason: String, Error",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
+      "method": "assertIn",
+      "literal": "func preflightResolvedMaterialFrameTargets(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
+      "method": "assertIn",
+      "literal": "func rejectResolvedMaterialClaim(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
+      "method": "assertIn",
+      "literal": "guard !resolvedMaterialRoute.isRejected else { return .failed }",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
+      "method": "assertIn",
+      "literal": "guard graphExecutionTicket.finalContent != .data else {",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
+      "method": "assertIn",
+      "literal": "if bypassReason != nil {\n            return ([], nil)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
+      "method": "assertIn",
+      "literal": "let dispositionCatalog =",
+      "count": 2
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
+      "method": "assertIn",
+      "literal": "let passthroughResolution = SceneLayerSourcePassthroughPlan.resolve(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
+      "method": "assertIn",
+      "literal": "let resolvedMaterialRoute = resolvedMaterialClaim(for: request)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
+      "method": "assertNotIn",
+      "literal": "guard let claim = route.execution else { continue }",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_external_dependency_is_late_ready_and_composited_once",
+      "method": "assertIn",
+      "literal": "func recordClaimedFailure(reasonCode: String)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_external_dependency_is_late_ready_and_composited_once",
+      "method": "assertIn",
+      "literal": "let consumesExternalPrimaryDependency: Bool",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_external_dependency_is_late_ready_and_composited_once",
+      "method": "assertIn",
+      "literal": "let dependencyOwnership: SceneResolvedMaterialDependencyOwnership",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_external_dependency_is_late_ready_and_composited_once",
+      "method": "assertNotIn",
+      "literal": "let preparedDependencyEffect:",
+      "count": 2
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_frame_ordering_context_reaches_reserve_and_commit",
+      "method": "assertIn",
+      "literal": "func preflightResolvedMaterialFrameTargets(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_frame_ordering_context_reaches_reserve_and_commit",
+      "method": "assertIn",
+      "literal": "let orderingContext",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_normal_invalidation_is_not_a_graph_failure_diagnostic",
+      "method": "assertIn",
+      "literal": "case .surfaceStop, .sceneSwitch:",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_normal_invalidation_is_not_a_graph_failure_diagnostic",
+      "method": "assertIn",
+      "literal": "case SceneGraphExecutionResetReason.surfaceStop.rawValue,",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_normal_invalidation_is_not_a_graph_failure_diagnostic",
+      "method": "assertIn",
+      "literal": "case cancelled",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_observer_precedes_encoding_and_frame_uses_one_buffer",
+      "method": "assertIn",
+      "literal": "func completeCommandBuffer(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_observer_precedes_encoding_and_frame_uses_one_buffer",
+      "method": "assertIn",
+      "literal": "guard commandBuffer.status == .notEnqueued",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_observer_precedes_encoding_and_frame_uses_one_buffer",
+      "method": "assertIn",
+      "literal": "guard ledger.commandBuffer === commandBuffer",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_preview_and_inline_reporting_only_describe_typed_execution_owners",
+      "method": "assertNotIn",
+      "literal": "if executionStageCount > 1",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_resource_demands_share_schema_and_never_guess_regular_assets",
+      "method": "assertIn",
+      "literal": "guard projection.reachesDefault",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
+      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_resource_demands_share_schema_and_never_guess_regular_assets",
+      "method": "assertIn",
+      "literal": "if case .graph = candidate.reference",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_resolved_material_stage_activation.py",
+      "scope": "SceneResolvedMaterialStageActivationTests.test_provider_backed_pointer_stage_reuses_exact_passthrough_contract",
+      "method": "assertNotIn",
+      "literal": "guard dependencyOwnership == .none",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_runtime_input.py",
+      "scope": "SceneRuntimeInputTests.test_asset_catalog_generates_contracts_from_material_shaders",
+      "method": "assertIn",
+      "literal": "let shaderContracts: [SceneShaderContract]",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_runtime_input.py",
+      "scope": "SceneRuntimeInputTests.test_builder_compiles_runtime_input_without_file_round_trip",
+      "method": "assertIn",
+      "literal": "let runtimeInput: SceneRuntimeInput",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_runtime_input.py",
+      "scope": "SceneRuntimeInputTests.test_builder_compiles_runtime_input_without_file_round_trip",
+      "method": "assertNotIn",
+      "literal": "let diagnostics: SceneDiagnosticsReport",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_script_dynamic_layer_runtime.py",
+      "scope": "SceneScriptDynamicLayerRuntimeTests.test_material_color_projection_has_quiescent_and_lazy_copy_gates",
+      "method": "assertIn",
+      "literal": "guard let resolvedLayers else { return self }",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_script_dynamic_layer_runtime.py",
+      "scope": "SceneScriptDynamicLayerRuntimeTests.test_material_color_projection_has_quiescent_and_lazy_copy_gates",
+      "method": "assertIn",
+      "literal": "if resolvedLayers == nil",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_script_dynamic_layer_runtime.py",
+      "scope": "SceneScriptDynamicLayerRuntimeTests.test_material_color_projection_has_quiescent_and_lazy_copy_gates",
+      "method": "assertIn",
+      "literal": "var resolvedLayers: [SceneRenderDescriptor.Layer]?",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_script_layer_transform_projection.py",
+      "scope": "SceneScriptLayerTransformProjectionTests.test_unadmitted_scale_script_keeps_the_resolved_layer_current",
+      "method": "assertIn",
+      "literal": "let runtimeDescriptor = particleProjectedDescriptor",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_script_quickjs_media_lifecycle.py",
+      "scope": "SceneScriptQuickJSMediaLifecycleTest.test_export_probe_errors_fail_owner_construction",
+      "method": "assertIn",
+      "literal": "guard result == MWX_SCENE_QUICKJS_OK else",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_shader_persistent_cache.py",
+      "scope": "SceneShaderPersistentCacheTests.test_disk_failure_is_optional_and_capacity_is_bounded",
+      "method": "assertIn",
+      "literal": "guard let data = try? Data(contentsOf: url)",
+      "count": 2
+    },
+    {
+      "path": "script/tests/test_scene_shader_presence_combo.py",
+      "scope": "AuthoredPresenceComboAdmissionTests.test_reachability_requires_authored_presence_combo",
+      "method": "assertIn",
+      "literal": "case .selected:",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_shader_presence_combo.py",
+      "scope": "AuthoredPresenceComboAdmissionTests.test_reachability_requires_authored_presence_combo",
+      "method": "assertIn",
+      "literal": "if required & bit == 0, hasOptionalSource { optional |= bit }",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_shader_variant_environment.py",
+      "scope": "SceneShaderVariantEnvironmentTests.test_product_target_opt_in_is_carried_by_one_program_candidate",
+      "method": "assertIn",
+      "literal": "let compatibilityTargetAdmissionPending = prepared.all.allSatisfy",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_source_update_transaction.py",
+      "scope": "SceneSourceUpdateTransactionTests.test_dynamic_text_provider_publishes_only_after_frame_submission",
+      "method": "assertIn",
+      "literal": "func discardPreparedDynamicTextUpdate()",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_source_update_transaction.py",
+      "scope": "SceneSourceUpdateTransactionTests.test_renderer_wires_exact_layer_source_publication_without_consuming_dependency",
+      "method": "assertIn",
+      "literal": "case layerSourcePassthrough",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_source_update_transaction.py",
+      "scope": "SceneSourceUpdateTransactionTests.test_renderer_wires_exact_layer_source_publication_without_consuming_dependency",
+      "method": "assertIn",
+      "literal": "case let .normal(consumedDependency),\n                 let .geometryEncoded(consumedDependency):",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_source_update_transaction.py",
+      "scope": "SceneSourceUpdateTransactionTests.test_renderer_wires_exact_layer_source_publication_without_consuming_dependency",
+      "method": "assertIn",
+      "literal": "func explicitLayerSourcePublication(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_static_model_rendering.py",
+      "scope": "SceneStaticModelRenderingTests.test_descriptor_preserves_direct_model_as_authored_order_layer",
+      "method": "assertIn",
+      "literal": "let renderOrderLayerIDs",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_static_model_rendering.py",
+      "scope": "SceneStaticModelRenderingTests.test_descriptor_preserves_direct_model_as_authored_order_layer",
+      "method": "assertIn",
+      "literal": "var staticModelPath: String? = nil",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_static_model_rendering.py",
+      "scope": "SceneStaticModelRenderingTests.test_preparation_reuses_typed_texture_and_device_resource_owners",
+      "method": "assertIn",
+      "literal": "let albedo: SceneTextureCandidate",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_static_model_rendering.py",
+      "scope": "SceneStaticModelRenderingTests.test_preparation_reuses_typed_texture_and_device_resource_owners",
+      "method": "assertIn",
+      "literal": "let emissiveMask: SceneTextureCandidate?",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_static_model_rendering.py",
+      "scope": "SceneStaticModelRenderingTests.test_preparation_reuses_typed_texture_and_device_resource_owners",
+      "method": "assertIn",
+      "literal": "let geometryIdentity: String",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_static_model_rendering.py",
+      "scope": "SceneStaticModelRenderingTests.test_preparation_reuses_typed_texture_and_device_resource_owners",
+      "method": "assertIn",
+      "literal": "let material: SceneStaticModelMaterial",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_static_model_rendering.py",
+      "scope": "SceneStaticModelRenderingTests.test_preparation_reuses_typed_texture_and_device_resource_owners",
+      "method": "assertIn",
+      "literal": "let staticModels: ScenePreparedStaticModelResources",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_static_model_rendering.py",
+      "scope": "SceneStaticModelRenderingTests.test_preparation_reuses_typed_texture_and_device_resource_owners",
+      "method": "assertIn",
+      "literal": "let viewTint: SceneStaticModelViewTint?",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_static_model_rendering.py",
+      "scope": "SceneStaticModelRenderingTests.test_preparation_reuses_typed_texture_and_device_resource_owners",
+      "method": "assertIn",
+      "literal": "var preparedLayerIDs: [Int]",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_static_model_rendering.py",
+      "scope": "SceneStaticModelRenderingTests.test_renderer_uses_existing_main_pass_and_surface_route",
+      "method": "assertIn",
+      "literal": "case .isolated:",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_static_model_rendering.py",
+      "scope": "SceneStaticModelRenderingTests.test_renderer_uses_existing_main_pass_and_surface_route",
+      "method": "assertIn",
+      "literal": "let frameLightSnapshot = SceneLightSnapshot.make(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_surface_evaluation_transaction.py",
+      "scope": "SceneEvaluationTransactionTests.test_previous_value_projection_reads_requested_target_identity",
+      "method": "assertIn",
+      "literal": "guard let resolved = values[target]",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_text_script_runtime.py",
+      "scope": "SceneTextScriptRuntimeTests.test_wall_date_context_is_shared_only_by_date_script_bindings",
+      "method": "assertIn",
+      "literal": "if wallDateContext == nil",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_text_script_runtime.py",
+      "scope": "SceneTextScriptRuntimeTests.test_wall_date_context_is_shared_only_by_date_script_bindings",
+      "method": "assertIn",
+      "literal": "var wallDateContext: SceneTextScriptSubsetRuntime.FrameContext?",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_texture_animation_script.py",
+      "scope": "SceneTextureAnimationScriptTests.test_atlas_transform_reuses_prepared_frame_end_times",
+      "method": "assertIn",
+      "literal": "if remaining < frameEndTimes[middle]",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_texture_animation_script.py",
+      "scope": "SceneTextureAnimationScriptTests.test_atlas_transform_reuses_prepared_frame_end_times",
+      "method": "assertIn",
+      "literal": "var upper = frameEndTimes.count",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_timeline_evaluator.py",
+      "scope": "SceneTimelineEvaluatorTests.test_long_lanes_use_binary_span_search",
+      "method": "assertIn",
+      "literal": "let middle = (lower + upper) / 2",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_timeline_evaluator.py",
+      "scope": "SceneTimelineEvaluatorTests.test_long_lanes_use_binary_span_search",
+      "method": "assertIn",
+      "literal": "var lower = 0",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_timeline_evaluator.py",
+      "scope": "SceneTimelineEvaluatorTests.test_long_lanes_use_binary_span_search",
+      "method": "assertIn",
+      "literal": "var upper = lane.count",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_timeline_runtime.py",
+      "scope": "SceneTimelineRuntimeTests.test_playback_projection_reuses_authored_order_and_elapsed_value",
+      "method": "assertIn",
+      "literal": "let elapsed = elapsedFrames(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_timeline_runtime.py",
+      "scope": "SceneTimelineRuntimeTests.test_prepared_program_has_frame_driven_uniform_consumption_proof",
+      "method": "assertIn",
+      "literal": "case (.sceneScript, .sceneScript):",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_timeline_runtime.py",
+      "scope": "SceneTimelineRuntimeTests.test_prepared_program_has_frame_driven_uniform_consumption_proof",
+      "method": "assertIn",
+      "literal": "case (.timeline, .timeline):",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_timeline_runtime.py",
+      "scope": "SceneTimelineRuntimeTests.test_prepared_program_has_frame_driven_uniform_consumption_proof",
+      "method": "assertIn",
+      "literal": "func recordTypedFrameDrivenUniformConsumptions(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_utility_layers.py",
+      "scope": "SceneUtilityLayerTests.test_document_and_descriptor_preserve_generic_dependencies",
+      "method": "assertIn",
+      "literal": "if let utilityLayer = object.utilityLayer",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_utility_layers.py",
+      "scope": "SceneUtilityLayerTests.test_hidden_solid_provider_uses_source_texture_capture",
+      "method": "assertIn",
+      "literal": "guard let sourceTexture else",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_utility_layers.py",
+      "scope": "SceneUtilityLayerTests.test_hidden_solid_provider_uses_source_texture_capture",
+      "method": "assertNotIn",
+      "literal": "case .resolvedMaterial, .solidLayer:",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_utility_layers.py",
+      "scope": "SceneUtilityLayerTests.test_rejected_graph_suppression_does_not_retire_typed_dependencies",
+      "method": "assertIn",
+      "literal": "let dependencyEffect = request.dependencyEffects.first",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_utility_layers.py",
+      "scope": "SceneUtilityLayerTests.test_utility_capture_requires_unified_layer_ownership",
+      "method": "assertNotIn",
+      "literal": "case dedicated",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_video_texture_source.py",
+      "scope": "SceneVideoProviderOwnershipContractTests.test_registry_fails_closed_without_stable_file_metadata",
+      "method": "assertIn",
+      "literal": "guard let sourceKey = loader.sourceKey(for: url)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_wallpaper_async_launch.py",
+      "scope": "SceneWallpaperAsyncLaunchTests.test_launch_availability_projection_preserves_fail_closed_fallback",
+      "method": "assertIn",
+      "literal": "guard (0 ..< 8).contains(slot.index)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_wallpaper_async_launch.py",
+      "scope": "SceneWallpaperAsyncLaunchTests.test_launch_availability_projection_preserves_fail_closed_fallback",
+      "method": "assertIn",
+      "literal": "guard let readinessSlots = readinessComboSlotMask(template)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_wallpaper_async_launch.py",
+      "scope": "SceneWallpaperAsyncLaunchTests.test_product_launch_does_not_construct_startup_diagnostics",
+      "method": "assertIn",
+      "literal": "if report.isEnabled",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_scene_wallpaper_benchmark.py",
+      "scope": "SceneWallpaperBenchmarkTests.test_performance_only_run_skips_execution_observations",
+      "method": "assertIn",
+      "literal": "if no_execution_observations:",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_steam_auth_gate.py",
+      "scope": "SteamAuthGateTests.test_login_panel_exposes_keyboard_and_accessibility_actions",
+      "method": "assertIn",
+      "literal": "let zoomQRButton",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_steam_backend_migration.py",
+      "scope": "SteamBackendMigrationTests.test_every_product_browse_context_has_one_structured_route",
+      "method": "assertIn",
+      "literal": "case .author",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_steam_backend_migration.py",
+      "scope": "SteamBackendMigrationTests.test_every_product_browse_context_has_one_structured_route",
+      "method": "assertIn",
+      "literal": "case .details",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_steam_backend_migration.py",
+      "scope": "SteamBackendMigrationTests.test_every_product_browse_context_has_one_structured_route",
+      "method": "assertIn",
+      "literal": "if shouldUseSteamKitStructuredBrowse",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_steam_backend_migration.py",
+      "scope": "SteamBackendMigrationTests.test_structured_details_publish_dependency_and_creator_identity",
+      "method": "assertIn",
+      "literal": "if let creatorSteamId, !validID(creatorSteamId)",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_steam_backend_migration.py",
+      "scope": "SteamBackendMigrationTests.test_structured_details_publish_dependency_and_creator_identity",
+      "method": "assertIn",
+      "literal": "let creatorSteamId: String?",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_steam_backend_migration.py",
+      "scope": "SteamBackendMigrationTests.test_structured_details_publish_dependency_and_creator_identity",
+      "method": "assertIn",
+      "literal": "let dependencyIds: [String]",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_steam_browse_failure_footer.py",
+      "scope": "SteamBrowseFailureFooterTests.test_retry_reuses_current_pagination_owner",
+      "method": "assertIn",
+      "literal": "guard browserState == .loaded",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_steam_download_tasks_popover.py",
+      "scope": "SteamDownloadTasksPopoverTests.test_popover_uses_existing_owners_and_bounded_observation",
+      "method": "assertIn",
+      "literal": "func startObserving()",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_steam_download_tasks_popover.py",
+      "scope": "SteamDownloadTasksPopoverTests.test_popover_uses_existing_owners_and_bounded_observation",
+      "method": "assertIn",
+      "literal": "func stopObserving()",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_steam_download_tasks_popover.py",
+      "scope": "SteamDownloadTasksPopoverTests.test_popover_uses_existing_owners_and_bounded_observation",
+      "method": "assertIn",
+      "literal": "var downloadTasksPopoverController",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_steam_keyboard_navigation.py",
+      "scope": "SteamKeyboardNavigationTests.test_downloads_escape_closes_only_the_active_steam_surface",
+      "method": "assertIn",
+      "literal": "var isVisible: Bool",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_system_audio_spectrum.py",
+      "scope": "SystemAudioSpectrumTests.test_scene_frames_preserve_capture_generation_and_scope",
+      "method": "assertIn",
+      "literal": "let captureProcessScope = processScope",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_system_audio_spectrum.py",
+      "scope": "SystemAudioSpectrumTests.test_scene_frames_preserve_capture_generation_and_scope",
+      "method": "assertIn",
+      "literal": "let captureToken = SceneAudioSpectrumCaptureToken(",
+      "count": 1
+    },
+    {
+      "path": "script/tests/test_system_audio_spectrum.py",
+      "scope": "SystemAudioSpectrumTests.test_scene_frames_preserve_capture_generation_and_scope",
+      "method": "assertIn",
+      "literal": "let resourceGeneration = captureResourceGeneration",
+      "count": 1
+    }
+  ]
+}

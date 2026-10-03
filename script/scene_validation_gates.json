@@ -23,11 +23,11 @@
       "retirement": "Retire only if the compiler or another mandatory gate enforces the same file-size ratchet."
     },
     "build-verify": {
-      "risk": "The product target no longer builds or the built app cannot launch.",
+      "risk": "The product target no longer compiles or assembles its linked app and bundled resources.",
       "trigger": "Checkpoint or later validation for product, project, or bundled resource changes.",
       "cost": "medium",
       "serialized": true,
-      "retirement": "Replace only with a gate that builds the same product target and verifies launchability."
+      "retirement": "Replace only with a gate that builds the same product target and configuration; launch/runtime validation is a separate gate."
     },
     "targeted-sample": {
       "risk": "Executable unit coverage passes while the affected real Scene path is visually or structurally broken.",
@@ -63,6 +63,90 @@
       "cost": "low",
       "serialized": false,
       "retirement": "Retire only if the compiler or another mandatory gate enforces the same defensive-surface ratchet."
+    },
+    "design-gate": {
+      "risk": "Implementation of a registered capability starts before its design is approved.",
+      "trigger": "Product paths (including non-Swift Scene files), or Swift files change in any phase.",
+      "cost": "low",
+      "serialized": false,
+      "retirement": "Retire only when an equivalent mandatory gate enforces design approval before implementation; zero current hits do not retire this gate."
+    },
+    "release-tests": {
+      "risk": "Release contracts outside the changed-path mapping regress.",
+      "trigger": "Explicit --test-scope release selection.",
+      "cost": "medium",
+      "serialized": false,
+      "retirement": "Retire when the test runner retires its explicit release scope."
+    },
+    "all-tests": {
+      "risk": "A repository contract outside the changed-path mapping regresses.",
+      "trigger": "Explicit --test-scope all selection.",
+      "cost": "high",
+      "serialized": false,
+      "retirement": "Retire when the test runner retires its explicit all scope."
+    },
+    "unmapped-change": {
+      "risk": "A changed file escapes validation without a reviewed gate or exemption.",
+      "trigger": "A selected changed path has no executable mapping or explicit no-gate classification.",
+      "cost": "none",
+      "serialized": false,
+      "retirement": "Replace only when another mandatory selector rejects every unclassified changed path."
+    },
+    "scene-structure": {
+      "risk": "A source owner, directory contract, structural family budget, or declared retirement state violates the frozen authority.",
+      "trigger": "Scene product/layout or structural governance changes in inner and later phases.",
+      "cost": "low",
+      "serialized": false,
+      "retirement": "Replace only with an equivalent mandatory gate preserving this contract and its negative cases."
+    },
+    "document-links": {
+      "risk": "A Git-visible Markdown link or fragment points to a missing target.",
+      "trigger": "Documentation or link-check governance changes in checkpoint and later phases.",
+      "cost": "low-to-medium",
+      "serialized": false,
+      "retirement": "Replace only with an equivalent mandatory gate preserving this contract and its negative cases."
+    },
+    "test-assertions": {
+      "risk": "Tests add declaration-shape assertions in place of observable behavior coverage.",
+      "trigger": "Python test modules, shape checker/baseline, or validation registry changes in any phase.",
+      "cost": "low",
+      "serialized": false,
+      "retirement": "Replace only with an equivalent mandatory gate preserving this contract and its negative cases."
+    },
+    "repository-artifacts": {
+      "risk": "Generated bulk enters Git-visible tool and documentation roots.",
+      "trigger": "Changes within script/, docs/, .agents/, or .github/ in any phase.",
+      "cost": "low",
+      "serialized": false,
+      "retirement": "Replace only when an equivalent mandatory tracked-artifact budget protects these roots without restricting product media."
+    },
+    "scene-dependencies": {
+      "risk": "Rendering consumes new Compilation internals outside prepared contracts.",
+      "trigger": "Scene Swift, dependency policy or any script/tests Python or Swift input changes; Python is scanned conservatively for embedded Swift.",
+      "cost": "low",
+      "serialized": false,
+      "retirement": "Replace only with an equivalent deterministic check of the same authority and failure boundary."
+    },
+    "document-health": {
+      "risk": "Current documents grow stale or regain historical payload, or permanent anchors are lost.",
+      "trigger": "Documentation, role index or document lifecycle policy changes.",
+      "cost": "low",
+      "serialized": false,
+      "retirement": "Replace only with an equivalent deterministic check of the same authority and failure boundary."
+    },
+    "repository-residue": {
+      "risk": "Session artifacts become product sources or bundled resources.",
+      "trigger": "Product sources, residue policy or repository governance changes.",
+      "cost": "low",
+      "serialized": false,
+      "retirement": "Replace only with an equivalent deterministic check of the same authority and failure boundary."
+    },
+    "app-debug-layout": {
+      "risk": "Debug-only sources drift into the App root or release compilation.",
+      "trigger": "App Debug source or layout policy changes.",
+      "cost": "low",
+      "serialized": false,
+      "retirement": "Replace only with equivalent compiler-backed directory and conditional-scope enforcement."
     }
   },
   "path_groups": [
@@ -252,8 +336,10 @@
     {
       "id": "playback-command-control",
       "patterns": [
-        "MyWallpaperX/Core/PlaybackControl/**",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+PlaybackControl.swift"
+        "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift",
+        "MyWallpaperX/Core/PlaybackControl/PlaybackEngineControlling.swift",
+        "MyWallpaperX/Core/PlaybackControl/PlaybackCommandMultiplexer.swift",
+        "MyWallpaperX/Core/PlaybackControl/PlaybackIntentEpoch.swift"
       ],
       "modules": [
         "test_playback_command_multiplexer"
@@ -263,7 +349,7 @@
       "id": "daemon-line-framing",
       "patterns": [
         "MyWallpaperX.xcodeproj/project.pbxproj",
-        "MyWallpaperX/App/DebugWebRuntimeSwitchRunner.swift",
+        "MyWallpaperX/App/*DebugWebRuntimeSwitchRunner.swift",
         "MyWallpaperX/Core/DaemonKit/**",
         "MyWallpaperX/Core/Playback/WallpaperEngine.swift",
         "MyWallpaperX/Core/Playback/WallpaperEngine+DaemonEvents.swift",
@@ -297,7 +383,7 @@
       "id": "scene-daemon-runtime",
       "patterns": [
         "MyWallpaperX/App/MyWallpaperXApplication.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemon*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift",
@@ -317,16 +403,17 @@
         "test_scene_daemon_client_wiring",
         "test_scene_daemon_protocol",
         "test_scene_wallpaper_async_launch",
-        "test_steam_playback_lifetime"
+        "test_steam_playback_lifetime",
+        "test_scene_renderer_submission_stage"
       ]
     },
     {
       "id": "scene-daemon-control-plane",
       "patterns": [
         "MyWallpaperX/App/AppDelegate.swift",
-        "MyWallpaperX/App/DebugSceneDaemonClientRunner.swift",
-        "MyWallpaperX/App/DebugSceneDaemonSwitchControlPolicy.swift",
-        "MyWallpaperX/App/DebugSceneProductEntryPolicy.swift",
+        "MyWallpaperX/App/*DebugSceneDaemonClientRunner.swift",
+        "MyWallpaperX/App/*DebugSceneDaemonSwitchControlPolicy.swift",
+        "MyWallpaperX/App/*DebugSceneProductEntryPolicy.swift",
         "MyWallpaperX/App/MainWindowCoordinator.swift",
         "MyWallpaperX/App/MainWindowCoordinator+PlaybackRouting.swift",
         "MyWallpaperX/App/StatusBarController.swift",
@@ -334,18 +421,13 @@
         "MyWallpaperX/Core/Playback/WallpaperEngine+DaemonEvents.swift",
         "MyWallpaperX/Core/Playback/WallpaperEngine+DaemonSessionLifecycle.swift",
         "MyWallpaperX/Core/Playback/WallpaperEngine+PlaybackControl.swift",
-        "MyWallpaperX/Core/PlaybackControl/PlaybackPolicyController.swift",
         "MyWallpaperX/Core/PlaybackControl/PlaybackCommandMultiplexer.swift",
-        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Persistence.swift",
         "script/tests/test_playback_policy.py",
         "script/tests/test_playback_policy_delivery.py",
         "MyWallpaperX/Core/SteamWorkshopWeb/Engine/WallpaperEngine+WebWallpaper.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/VideoPlaybackCommandHandler.swift",
-        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift",
-        "MyWallpaperX/Core/PlaybackControl/ImportedVideoAutoplayGate.swift",
-        "MyWallpaperX/Core/PlaybackControl/WallpaperRuntimeSwitch.swift",
         "script/tests/test_daemon_process_transport.py",
         "script/tests/test_debug_scene_product_entry_policy.py",
         "script/tests/test_scene_daemon_client_wiring.py"
@@ -577,14 +659,14 @@
       "id": "scene-debug-capture",
       "patterns": [
         "MyWallpaperX/App/AppDelegate.swift",
-        "MyWallpaperX/App/DebugScenePlaybackRunner+HostOwnership.swift",
-        "MyWallpaperX/App/DebugScenePlaybackRunner+PauseResume.swift",
-        "MyWallpaperX/App/DebugScenePlaybackRunner+Performance.swift",
-        "MyWallpaperX/App/DebugScenePlaybackRunner+SceneSwitch.swift",
-        "MyWallpaperX/App/DebugScenePlaybackRunner+SurfaceStopRelaunch.swift",
-        "MyWallpaperX/App/DebugScenePlaybackRunner.swift",
+        "MyWallpaperX/App/*DebugScenePlaybackRunner+HostOwnership.swift",
+        "MyWallpaperX/App/*DebugScenePlaybackRunner+PauseResume.swift",
+        "MyWallpaperX/App/*DebugScenePlaybackRunner+Performance.swift",
+        "MyWallpaperX/App/*DebugScenePlaybackRunner+SceneSwitch.swift",
+        "MyWallpaperX/App/*DebugScenePlaybackRunner+SurfaceStopRelaunch.swift",
+        "MyWallpaperX/App/*DebugScenePlaybackRunner.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneDebugFrameCapture.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+Debug.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+Shutdown.swift",
@@ -594,7 +676,8 @@
       ],
       "modules": [
         "test_scene_debug_frame_capture",
-        "test_scene_debug_capture_shutdown"
+        "test_scene_debug_capture_shutdown",
+        "test_scene_renderer_submission_stage"
       ]
     },
     {
@@ -663,7 +746,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLayerSourcePassthroughPlan.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerDrawRequest.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneFrameLayerTextureAssembly.swift"
       ],
@@ -679,7 +762,8 @@
         "test_scene_media_thumbnail_provider",
         "test_scene_base_material_provider_binding",
         "test_scene_wallpaper_benchmark",
-        "test_scene_visible_graph_output_render_plan"
+        "test_scene_visible_graph_output_render_plan",
+        "test_scene_renderer_submission_stage"
       ]
     },
     {
@@ -731,7 +815,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+InputValidation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift",
@@ -787,7 +871,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Failure.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialStageActivation.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialStageActivation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneRenderTargetVocabulary.swift"
       ],
       "modules": [
         "test_scene_effect_render_graph",
@@ -831,18 +916,12 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectStageAuthoredFallbackOwnerPartition.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift",
         "script/tests/test_scene_generic_shader_incumbent_owner_deferred.py",
-        "script/tests/test_scene_property_binding_program.py",
-        "script/tests/test_scene_pulse_dedicated_family_retirement.py",
-        "script/tests/test_scene_standard_blur_dedicated_family_retirement.py",
-        "script/tests/test_scene_xray_dedicated_family_retirement.py"
+        "script/tests/test_scene_property_binding_program.py"
       ],
       "modules": [
         "test_scene_resolved_material_previous_blurred_composite_graph_admission",
         "test_scene_generic_shader_incumbent_owner_deferred",
-        "test_scene_property_binding_program",
-        "test_scene_pulse_dedicated_family_retirement",
-        "test_scene_standard_blur_dedicated_family_retirement",
-        "test_scene_xray_dedicated_family_retirement"
+        "test_scene_property_binding_program"
       ]
     },
     {
@@ -895,9 +974,6 @@
       ],
       "modules": [
         "test_scene_effect_execution_telemetry",
-        "test_scene_pulse_dedicated_family_retirement",
-        "test_scene_standard_blur_dedicated_family_retirement",
-        "test_scene_xray_dedicated_family_retirement",
         "test_scene_effect_render_graph",
         "test_scene_graph_admission_compiler",
         "test_scene_graph_texture_publication",
@@ -953,9 +1029,6 @@
         "test_scene_resolved_material_execution_capability",
         "test_scene_resolved_material_fbo_stage_activation",
         "test_scene_resolved_material_stage_activation",
-        "test_scene_pulse_dedicated_family_retirement",
-        "test_scene_standard_blur_dedicated_family_retirement",
-        "test_scene_xray_dedicated_family_retirement",
         "test_scene_resolved_material_graph_executor",
         "test_scene_external_primary_visual_failure_passthrough",
         "test_scene_persistent_history_visual_failure_rollback",
@@ -1025,7 +1098,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+InputValidation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift",
@@ -1062,7 +1135,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureSelection.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneRenderTargetVocabulary.swift"
       ],
       "modules": [
         "test_scene_opaque_loop_sample_average_owner",
@@ -1091,7 +1165,6 @@
         "test_scene_resolved_material_graph_executor",
         "test_scene_resolved_material_pass_encoder",
         "test_scene_resolved_material_program_derivation",
-        "test_scene_standard_blur_dedicated_family_retirement",
         "test_scene_resolved_material_program_finalizer",
         "test_scene_sampler_default_purpose",
         "test_scene_source_proven_auxiliary_texture_purpose",
@@ -1253,7 +1326,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexture*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator*.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+Geometry.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+FrameContext.swift",
         "script/tests/test_scene_persistent_color_*.py",
@@ -1265,7 +1338,8 @@
         "test_scene_persistent_color_output",
         "test_scene_persistent_color_integration",
         "test_scene_offscreen_texture_pool",
-        "test_scene_resolved_material_runtime_bridge"
+        "test_scene_resolved_material_runtime_bridge",
+        "test_scene_renderer_submission_stage"
       ]
     },
     {
@@ -1376,7 +1450,7 @@
     {
       "id": "scene-debug-runner",
       "patterns": [
-        "MyWallpaperX/App/DebugScenePlaybackRunner*.swift"
+        "MyWallpaperX/App/*DebugScenePlaybackRunner*.swift"
       ],
       "modules": [
         "test_scene_frame_context",
@@ -1434,7 +1508,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+InputValidation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift",
@@ -1473,7 +1547,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift",
         "script/scene_swift_source_sets.json",
-        "script/scene_swift_source_sets.py"
+        "script/scene_swift_source_sets.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneRenderTargetVocabulary.swift"
       ],
       "modules": [
         "test_scene_swift_source_sets"
@@ -1483,19 +1558,27 @@
       "id": "documentation",
       "patterns": [
         "docs/**",
-        "script/design_gated_areas.json"
+        "script/design_gated_areas.json",
+        "script/document_registry.py",
+        "script/tests/test_document_registry.py",
+        "script/document_health.py",
+        "script/document_health_baseline.json",
+        "script/tests/test_document_health.py",
+        "AGENTS.md",
+        "MyWallpaperX/Core/SteamWorkshopScene/AGENTS.md"
       ],
       "modules": [
         "test_document_role_index",
         "test_scene_governance_contract",
-        "test_scene_semantics_coverage"
+        "test_scene_semantics_coverage",
+        "test_document_registry",
+        "test_document_health"
       ]
     },
     {
       "id": "semantics",
       "patterns": [
         "AGENTS.md",
-        "docs/scene/semantics/**",
         "script/scene_source_layout.json",
         "script/scene_swift_source_sets.json",
         "script/scene_swift_source_sets.py",
@@ -1590,7 +1673,7 @@
         "script/scene_capability_census_snapshot.json",
         "script/scene_capability_family_map.json",
         "script/scene_capability_repair_ledger.json",
-        "docs/scene/semantics/scene-corpus-capability-inventory.md"
+        "docs/scene/capabilities/scene-corpus-capability-inventory.md"
       ],
       "modules": [
         "test_scene_capability_census"
@@ -1601,7 +1684,7 @@
       "patterns": [
         "script/scene_sample_acceptance_ledger.py",
         "script/scene_sample_acceptance_verdicts.json",
-        "docs/scene/semantics/scene-sample-acceptance-ledger.md",
+        "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
         "script/scene_sample_debug_archive.json"
       ],
       "modules": [
@@ -1618,14 +1701,33 @@
         "script/run_scene_tests.py",
         "script/verify_scene_change.py",
         "script/scene_validation_gates.json",
-        ".github/workflows/**"
+        ".github/workflows/**",
+        "script/check_test_assertions.py",
+        "script/test_assertion_baseline.json",
+        "script/check_repository_artifacts.py",
+        "script/tests/test_check_repository_artifacts.py",
+        "script/repository_health.py",
+        "script/tests/test_repository_health.py",
+        "script/check_design_gate.py",
+        "script/tests/test_check_design_gate.py",
+        "script/repository_artifact_baseline.json",
+        "script/commit_preflight.py",
+        "script/repository_residue.py",
+        "script/check_code_health.py"
       ],
       "modules": [
         "test_scene_governance_contract",
         "test_check_code_health",
         "test_check_scene_defense",
         "test_scene_test_runner",
-        "test_verify_scene_change"
+        "test_verify_scene_change",
+        "test_check_test_assertions",
+        "test_check_repository_artifacts",
+        "test_repository_health",
+        "test_check_design_gate",
+        "test_commit_preflight",
+        "test_repository_residue",
+        "test_debug_source_layout"
       ]
     },
     {
@@ -1662,14 +1764,15 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+EffectExecution.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Initialization.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+ForwardPreparation.swift"
       ],
       "modules": [
         "test_scene_composition_source_identity",
-        "test_scene_utility_layers"
+        "test_scene_utility_layers",
+        "test_scene_renderer_submission_stage"
       ]
     },
     {
@@ -1678,7 +1781,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+LitCapture.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneGraphResourcePassEncoder.swift",
@@ -1688,7 +1791,8 @@
       "modules": [
         "test_scene_authored_normal",
         "test_scene_lit_image_layer",
-        "test_scene_base_material_provider_binding"
+        "test_scene_base_material_provider_binding",
+        "test_scene_renderer_submission_stage"
       ]
     },
     {
@@ -1700,7 +1804,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocumentObject.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+LitCapture.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneGraphResourcePassEncoder.swift",
@@ -1726,7 +1830,8 @@
         "test_scene_static_model_material_properties",
         "test_scene_property_live_update_state",
         "test_scene_material_user_emission",
-        "test_scene_material_user_emission_arguments"
+        "test_scene_material_user_emission_arguments",
+        "test_scene_renderer_submission_stage"
       ]
     },
     {
@@ -1738,6 +1843,253 @@
         "test_scene_static_model_reader",
         "test_scene_static_model_parts"
       ]
+    },
+    {
+      "id": "video-settings-policy",
+      "patterns": [
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Persistence.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift",
+        "MyWallpaperX/Core/PlaybackControl/PlaybackPolicyController.swift"
+      ],
+      "modules": [
+        "test_playback_policy",
+        "test_playback_policy_delivery"
+      ]
+    },
+    {
+      "id": "import-autoplay-runtime-intent",
+      "patterns": [
+        "MyWallpaperX/Core/PlaybackControl/ImportedVideoAutoplayGate.swift",
+        "MyWallpaperX/Core/PlaybackControl/WallpaperRuntimeSwitch.swift",
+        "MyWallpaperX/Core/PlaybackControl/PlaybackResourceLifetime.swift",
+        "MyWallpaperX/App/ImportedVideoPlaybackObserver.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+ImportProcessing.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+WallpaperApplication.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift",
+        "MyWallpaperX/App/MainWindowCoordinator+PlaybackRouting.swift"
+      ],
+      "modules": [
+        "test_imported_video_autoplay_gate"
+      ]
+    },
+    {
+      "id": "bundled-video-import",
+      "patterns": [
+        "MyWallpaperX/Modules/VideoLibrary/Core/BundledVideoLibrary.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+BundledVideos.swift"
+      ],
+      "modules": [
+        "test_bundled_video_library"
+      ]
+    },
+    {
+      "id": "video-inspector-preview",
+      "patterns": [
+        "MyWallpaperX/Models/VideoWallpaper.swift",
+        "MyWallpaperX/Shared/UI/ThumbnailCache.swift",
+        "MyWallpaperX/Shared/UI/InspectorFadingScrollView.swift",
+        "MyWallpaperX/Shared/UI/InspectorFooterMetrics.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorSupport.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorView.swift"
+      ],
+      "modules": [
+        "test_video_inspector_preview_reload"
+      ]
+    },
+    {
+      "id": "steam-library-publication",
+      "patterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryTransaction.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryTransaction+FailedVisibility.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryPublication.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryVersionLease.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadLibrarySync.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryReclamation.swift"
+      ],
+      "modules": [
+        "test_steam_library_transaction",
+        "test_steam_library_publication"
+      ]
+    },
+    {
+      "id": "steam-library-shell-actions",
+      "patterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryRecords.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseNavigation.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Downloads.swift",
+        "MyWallpaperX/Shell/AppKitMainSplitView.swift",
+        "MyWallpaperX/Shell/AppKitMainSplitView+SteamSelection.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDownloadTasksPopover.swift"
+      ],
+      "modules": [
+        "test_steam_library_interactions"
+      ]
+    },
+    {
+      "id": "scene-debug-pointer-schedule",
+      "patterns": [
+        "script/tests/fixtures/SceneDebugPointerScheduleHarness.swift"
+      ],
+      "modules": [
+        "test_scene_wallpaper_benchmark"
+      ]
+    },
+    {
+      "id": "source-authority",
+      "patterns": [
+        "script/source_authority.py"
+      ],
+      "modules": [
+        "test_scene_semantics_coverage"
+      ]
+    },
+    {
+      "id": "scene-shadow-performance-telemetry",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift",
+        "script/tests/fixtures/SceneShadowTelemetryHarness.swift"
+      ],
+      "modules": [
+        "test_scene_performance_telemetry"
+      ]
+    },
+    {
+      "id": "scene-terminal-runtime-bridge-harnesses",
+      "patterns": [
+        "script/tests/fixtures/SceneStaticSourceDrawOnlyHarness.swift",
+        "script/tests/fixtures/SceneTerminalSealHarness.swift"
+      ],
+      "modules": [
+        "test_scene_resolved_material_runtime_bridge"
+      ]
+    },
+    {
+      "id": "scene-dependency-boundaries",
+      "patterns": [
+        "script/check_scene_dependencies.py",
+        "script/scene_dependency_baseline.json",
+        "script/tests/test_check_scene_dependencies.py"
+      ],
+      "modules": [
+        "test_check_scene_dependencies"
+      ]
+    },
+    {
+      "id": "app-debug-layout",
+      "patterns": [
+        "MyWallpaperX/App/*Debug*.swift",
+        "script/tests/test_debug_source_layout.py"
+      ],
+      "modules": [
+        "test_debug_source_layout"
+      ]
+    },
+    {
+      "id": "renderer-submission-stage",
+      "patterns": [
+        "script/tests/fixtures/SceneRendererSubmissionStageHarness.swift",
+        "script/tests/test_scene_renderer_submission_stage.py"
+      ],
+      "modules": [
+        "test_scene_renderer_submission_stage"
+      ]
+    },
+    {
+      "id": "legacy-source-family-consumers",
+      "patterns": [
+        "script/tests/source_family.py"
+      ],
+      "modules": [
+        "test_scene_animated_base_sampler",
+        "test_scene_camera_shake",
+        "test_scene_daemon_protocol",
+        "test_scene_frame_context",
+        "test_scene_dependency_render_plan",
+        "test_scene_generic_shader_incumbent_owner_deferred",
+        "test_scene_dynamic_layer_values",
+        "test_scene_media_thumbnail_provider",
+        "test_scene_layer_screen_anchor",
+        "test_scene_opaque_alpha_weighted_loop_average_owner",
+        "test_scene_performance_telemetry",
+        "test_scene_puppet_mesh",
+        "test_scene_realtime_path_policy",
+        "test_scene_resolved_material_runtime_bridge",
+        "test_scene_resolved_material_execution_capability",
+        "test_scene_resolved_material_program_finalizer",
+        "test_scene_source_update_transaction",
+        "test_scene_solid_layers",
+        "test_scene_shader_variant_environment",
+        "test_scene_static_model_rendering",
+        "test_scene_utility_layers",
+        "test_scene_wallpaper_async_launch"
+      ]
     }
-  ]
+  ],
+  "method_gates": {
+    "scene-structure": {
+      "module": "test_scene_semantics_coverage",
+      "class": "SceneSemanticsCoverageTests",
+      "minimum_phase": "inner",
+      "groups": [
+        "semantics",
+        "repository-governance",
+        "validation-governance"
+      ],
+      "patterns": [
+        "MyWallpaperX/**",
+        "script/scene_source_layout.json",
+        "script/tests/test_scene_semantics_coverage.py",
+        "script/source_authority.py"
+      ],
+      "methods": [
+        "test_scene_sources_follow_the_documented_directory_layout",
+        "test_render_chain_authority_matches_the_ratcheted_inventory",
+        "test_render_chain_declared_completion_state_meets_targets",
+        "test_render_chain_ratchet_cannot_rise_above_committed_baseline",
+        "test_render_chain_ratchet_rejects_new_owner_recovery_and_selector",
+        "test_render_chain_completion_distinguishes_inventory_from_retirement",
+        "test_render_chain_scan_preserves_rule_ranges_and_refreshes_between_calls",
+        "test_flat_layout_rejects_unregistered_missing_and_relocated_files",
+        "test_passive_declaration_classification_preserves_global_analyzer_discovery",
+        "test_local_alias_metric_rejects_new_owners_and_unclassified_references",
+        "test_classification_migration_binds_both_measured_contracts",
+        "test_owner_relocation_preserves_calls_and_refuses_forged_receipts",
+        "test_ci_base_rejects_committed_receipt_tampering_and_invalid_base"
+      ]
+    },
+    "document-links": {
+      "module": "test_scene_semantics_coverage",
+      "class": "SceneSemanticsCoverageTests",
+      "minimum_phase": "checkpoint",
+      "groups": [
+        "documentation",
+        "semantics",
+        "repository-governance",
+        "validation-governance"
+      ],
+      "patterns": [
+        "script/tests/test_scene_semantics_coverage.py"
+      ],
+      "methods": [
+        "test_relative_markdown_links_and_fragments_in_documentation_exist",
+        "test_documentation_links_include_untracked_but_exclude_ignored_artifacts"
+      ]
+    },
+    "app-debug-layout": {
+      "module": "test_debug_source_layout",
+      "class": "DebugSourceLayoutTests",
+      "methods": [
+        "test_debug_sources_are_scoped_under_app_debug",
+        "test_xcode_source_root_is_synchronized"
+      ],
+      "minimum_phase": "inner",
+      "patterns": [
+        "MyWallpaperX/App/*Debug*.swift",
+        "script/tests/test_debug_source_layout.py"
+      ],
+      "groups": [
+        "validation-governance"
+      ]
+    }
+  }
 }

@@ -13,15 +13,22 @@ import subprocess
 import tempfile
 
 if __package__:
+    from .commit_preflight import area_trailers
     from .validate_release_notes import ROOT, validate_release
     from .release_version import PROJECT, project_version, appcast_version, require_newer
 else:
+    from commit_preflight import area_trailers
     from validate_release_notes import ROOT, validate_release
     from release_version import PROJECT, project_version, appcast_version, require_newer
 
 
 def run(*args: str) -> str:
     return subprocess.check_output(args, cwd=ROOT, text=True).strip()
+
+
+def release_areas(commit_messages: list[str]) -> list[str]:
+    """Read optional Area trailers for reviewed release-note grouping, without publishing."""
+    return sorted({area for message in commit_messages for area in area_trailers(message)})
 
 
 def publish(version: str, test_scope: str = "release") -> None:
