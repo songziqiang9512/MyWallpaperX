@@ -20,6 +20,8 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
             "material-finalizer-optional-texture-content-mismatch"
         case optionalTextureSamplingUnresolved =
             "material-finalizer-optional-texture-sampling-unresolved"
+        case sceneEnvironmentUnavailable =
+            "material-finalizer-scene-environment-unavailable"
         case systemProviderUnavailable =
             "material-finalizer-system-provider-unavailable"
         case systemProviderPending =
@@ -165,6 +167,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
         case system(String)
         case namedLayerTarget(SceneNamedTextureReference)
         case sceneBackground(consumerLayerID: Int)
+        case sceneEnvironment
     }
 
     enum TextureReference: Hashable {

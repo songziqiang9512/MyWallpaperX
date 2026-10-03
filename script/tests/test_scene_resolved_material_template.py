@@ -357,6 +357,7 @@ private func referenceToken(_ value: Template.TextureReference) -> String {
             return "named:\(reference.providerLayerID):\(reference.variant.rawValue)"
         case let .sceneBackground(consumerLayerID):
             return "scene-background:\(consumerLayerID)"
+        case .sceneEnvironment: return "scene-environment"
         }
     case let .graph(identity): return "graph:\(identity.kind.rawValue):\(identity.layerID)"
     }

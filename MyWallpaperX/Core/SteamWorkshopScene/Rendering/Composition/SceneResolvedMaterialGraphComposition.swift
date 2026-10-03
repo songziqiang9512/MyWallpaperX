@@ -274,6 +274,7 @@ extension SceneImageLayerCompositor {
         _ requests: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest],
         pool: SceneOffscreenTexturePool?,
         commandBuffer: MTLCommandBuffer,
+        resourceBundle: SceneResolvedMaterialFrameResourceBundle? = nil,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) -> SceneResolvedMaterialRuntimeBridge.FramePreparationResult {
         guard let resolvedMaterialRuntime else {
@@ -284,6 +285,7 @@ extension SceneImageLayerCompositor {
             requests,
             pool: pool,
             commandBuffer: commandBuffer,
+            resourceBundle: resourceBundle,
             performanceTelemetry: performanceTelemetry
         )
     }

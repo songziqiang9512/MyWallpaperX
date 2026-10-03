@@ -90,32 +90,21 @@ B 的实际阶段环已确认：`admitResolvedMaterialFrameTargets` 的实际 Pr
 可选历史必须在现有 graph/group/history、plain/HDR scratch 及可确定的 depth/Bloom/framebuffer 容量获得保护后准入，使用既有 pin/预算，不以固定余量猜测。具体复用 `StaticModelFrame` 的 actual draw/depth lease preparation 与既有 terminal/framebuffer capacity：共用必需准备后，shadow 或 environment 才分别尝试可选分配。model 与 particle 按实际需求独立准备，不能把现 `prepareModelShadow` 的 model pipeline guard 原样搬到整个共用 helper。late named 无法给完整 draw 集等无法保护的真实晚分配依赖，只放弃本帧环境，原画面照旧。snapshot allocation/encoder 失败只撤销本 CB 的可选历史候选；不得取消原 HDR persistence reservation 或使无反射 suffix 丢失。已编码可选资源 pin 随实际 CB 完成释放，不能 CPU 撤销在飞写入。无可读前序时仍可生成本帧候选以便下一帧启动；连续失败后读取的可能是更早成功画面，身份必须如实表示。
 
 <a id="rf04-b-admission"></a>
-### B 待实验合同：真实容量与准备阶段边界
+### B 实施合同：实际资源准备与 Program 完成分相
 
-**状态与撤回理由。** B仍为 `blocked-pending-design`，不开放作者接口。本批已实现共用实际 factory 回收；真实 owner、Debug 与隔离 App 验证见[后继实施记录](../../history/rf04-completed-scene-environment-implementation-2026-10-03.md#后继原生分配失败后的闲置缓存回收)，它不替代 B 的阶段准入。撤回先前“pool 联合预检 + terminal 可选 mip”的推荐：静态追踪显示 pool 锁和逻辑 resident 预算不覆盖 `SceneResourceBudget.shared` 的进程级准入；真实纹理按 `heapTextureSizeAndAlign` 计费且最终析构才返还，候选可能先分配、后 apply 模拟驱逐。即使 pool 预检通过，旧 idle cache 仍可能令 mandatory 的父账 reserve 先失败；另读父账 snapshot 也不能消除并发竞争。已用33个冻结产品源和受控真实 `SceneResourceBudget` 实例复现 allocation 反例：同一528384-byte native mandatory 在空池成功，有22528-byte environment或33024-byte snapshot闲置项时，逻辑预检允许驱逐而真实factory拒绝；合法reset释放旧资源后原请求恢复。独审有界接受，身份与原始输出已合并至本机归档`.artifacts/scene-evidence/runs/rf04-native-allocation-recovery-20261003`内`prior-counterexample/`，原独立保护包随修复退役。实验未提交CB，不证明GPU执行或App画面故障；A既有正常预算验收不扩张也不改写。
+**裁决（2026-10-04）。** 采用已落库的接续方案，B 设计登记 `approved`；这表示实施准入，不等同产品验收。原 cache 真实容量、原 coordinator 三帧及局部省略实验已闭合，Bridge/renderer 分相获独立静态审查。历史试验与弃选理由由[实施记录](../../history/rf04-completed-scene-environment-implementation-2026-10-03.md)保留，不继续以原型批次代替产品交付。保留 completed raw 同 CB 派生方案，不改 terminal 为另一个 mip 缓存 owner。
 
-**本批共用回收合同。** 沿原 pool/cache owner 接入 frame、单项/组合 composition、scene color 及 shared pair/graph 的完整逻辑分配批次；真实 factory 返回 nil 才触发恢复，每批最多回收一次，只重试当前失败的 factory 一次，保留已成功的候选前缀。`reclaimIdleAllocations` 与 `evictToFit` 共用唯一 victim / `historyOnlyEntry` 规则，保护完整 requested keys 和所有已选 allocation generations，包括 retired 复用、shared pair、history seed 与替换对象；submission/scene-color pin 和 HDR persistence retention 继续保护实际资源。同锁核对 expected revision 后才回收，并返回本次修改的 revision；无合法 victim 或 revision 冲突即失败，不接纳另一次并发修改的版本。shared-pair commit 与最终 stage/apply 仍在该批次核对 revision，不以恢复发布部分结果。
+**顺序与所有权。** `preflight.ready` 的同批 plans/requests 沿原 pool 整批预检、取得真实 targets，再由原 allocation cache 登记一次性 preparation handle。fresh pending 按实际成本计费，cached/reused storage 不重复计费；preparation pins 保护真实 generation/seed/shared pair。物化不授予 claim、不提前提交 history。完成既有 mandatory depth、terminal、framebuffer 容量保护后，现 ReflectionFrame 才派生可选环境。原 coordinator 在锁内核对 runtime/execution/frame、pool/CB 和精确请求，消费真实 executor 成功 subset，沿原 stage/apply 提交 history/tails；锁内不回调 renderer。全部局部省略可提交空 subset；取消/reset/错误不发布新 history。prepared graph outputs 仍只在原 ready 后安装。
 
-实际回收或降格后，须在返回前释放移除的 Entry/dictionary 等暂存强引用；物理额度仅随真实资源析构返还，GPU 或外部引用仍存时允许重试失败。父账仍只记字节，不增加资源/预算 owner、跨 session 驱逐、全局 snapshot 预测或手动返还额度。候选失败可损失合法可重建 idle cache，不得改变 committed history、completed receipt 或在飞资源。本批以本地/全局配额组合、外部强引用、真实阻塞 submission、retired 复用、候选第 N 次失败和各分配入口验证此合同；这些受控准入证据不代表物理 OOM 或全 Scene 低内存保证。
+**作者输入与失败。** 词汇表仅准入精确 `_rt_MipMappedFrameBuffer`，显式 binding 与 shader default 均转换为同一 typed environment provider。已准备活跃变体一次生成需求，普通帧不解析作者字符串；此需求同时驱动环境分配、drawable 可读设置与 resize invalidation。F5 与作者 sampler 共用现 ReflectionFrame 的 source receipt/publication，不随槽号变义。环境 atom 覆盖同 frameEpoch/frameIndex 的冻结 snapshot，explicit unavailable 撤销旧 ready；不能只写 live registry。首帧缺历史由精确 VariantCache proof 和原 GraphExecutor previous-current 拓扑局部降级，后继帧无需 relaunch 恢复；错误 identity/purpose 不借此放宽，不伪造 ready 或替代纹理。
 
-**再裁决 B 阶段。** 共用容量反例收敛后，比较在原 owner 内分离“实际 mandatory 资源/lease 准入”与“Program finalize/history commit”：保持已证明必要的物理分配顺序，先取得真实 mandatory 容量，再准备可选环境并绑定作者 Program。不能把依赖 executor 结果的 `commitAndPinPersistentGraphTargets` 整体提前，也不能以资源准入冒充 graph/history publication；须证明中途失败、reset、history seed 和局部回退的事务边界。是否继续同 CB 从 completed raw 派生，或采用 terminal 缓存，届时按真实成本和生命周期裁决；本段不预定 terminal mip、不新增预测容量框架。late named 等无法闭合真实资源顺序的 profile 不计支持，不能以永久 passthrough 宣称完成。
+**成本与退出。** 继续沿原 cache 的实际 factory 失败回收：每个完整逻辑分配批次最多恢复一次，仅重试失败 factory，保护完整 requested keys、generations 和现有 pins；实际析构才返还父账额度。prepared targets 转交与 subset commit 使用同一 cache，不能靠强引用或模拟驱逐冒充准入。capacity miss 保持原 mandatory/optional 半径；late named 无法先取得完整 draw/depth 的 profile 本帧环境 unavailable，原健康链继续，不计新增支持。旧 idle cache 可被合法回收，committed history、completed receipt 和在飞资源不可破坏。
 
-**阶段证据与当前边界。** [准备窗口](../../history/rf04-completed-scene-environment-implementation-2026-10-03.md#b-资源准备窗口实验)证明强引用或零分配cache-hit不能保护后继commit；[原cache原型](../../history/rf04-completed-scene-environment-implementation-2026-10-03.md#b-实际资源准入原型)已覆盖pending计费、subset和净容量转交。[原coordinator阶段原型](../../history/rf04-completed-scene-environment-implementation-2026-10-03.md#b-原-coordinator-阶段原型)已运行真实Program/三帧GPU及reset/取消红绿门，但Bridge请求仍为fixture，真实executor局部省略、renderer和作者绑定未获准入。不得用mock executor失败补该缺口。
-
-**接续合同。** `preflight.ready`的同批plans/requests先沿原pool整批预检、取得实际targets与一次性handle；物化不授予claim，不提前提交history。可确定mandatory受保护后才由现ReflectionFrame派生环境；原coordinator检查runtime/execution/frame、pool/CB及精确请求，消费真实executor成功subset后提交原history/tails。其NSLock内不回调renderer。环境用既有canonical atom比较覆盖同frameEpoch/frameIndex的冻结snapshot，explicit unavailable撤销旧ready，仅写live registry无效；prepared graph outputs仍只在原ready后安装。capacity miss沿原mandatory/optional失败半径，不能一概拒绝整帧。下一门先补真实utility/finalizer局部省略，再接真实Bridge/Admission/Drawing并做Debug/隔离App。late named完整draw/depth仍依赖provider执行、forward provider依赖finalized Program；未闭合profile本帧环境unavailable，原健康链继续，不计新增支持，也不以永久passthrough冒充完成。
-
-**不变的用户与所有权合同。** 上文第1、6、7项仍是 B 目标：静态 typed 资格预编译真实 Program，首帧缺历史经精确 VariantCache 证明与 GraphExecutor previous-current 拓扑局部降级，后继成功帧无需 relaunch 恢复；不伪造 ready/1×1、不放宽所有 provider。F5 与合法不同槽的作者 sampler 必须共用同一 source receipt/publication，切换时撤销被替代的派生路径，不能双执行。completed history、FIFO completion、identity/reset 仍各归原 owner；可选环境不得提高 HDR mandatory raw 的最低成本。
-
-**最小实验与准入门。** 实验使用真实 pool、`makeSceneTexture` 与父账，native descriptor 的 format/usage/storage/mip 必须一致；记录真实 factory 次数、父账 resident/rejection、pool resident、weak reference 与 generation，不能只跑算术模拟。
-
-- 容量对照：idle environment 或 optional snapshot 占用旧额度，mandatory descriptor 在实际回收前后分别申请；覆盖本地/全局同时紧与仅全局紧、外部强引用、在飞 retired、候选第 N 次分配失败。比较同一 mandatory 输入在无旧 cache 控制组与实验组的结果，并核最终引用释放后才恢复额度。
-- 阶段实验：按最终候选拆分 actual lease 与 finalize，证明真实 mandatory 已取得后才派生/绑定环境，首帧局部回退、下一帧恢复，失败不 advance history/receipt。是否要求同 CB old-read/new-write 的不同 physical generation，由最终选定的存储/覆写路径决定；任何路径都须证明在飞 pin、失败与 stale completion 不发布错误字节或版本。
-
-两项实验与独审完成后再决定 B 实施准入。产品完成另验两个不同槽与 F5 同源、后置层进入后继环境、FullFrameBuffer 当前语义、预算失败下健康邻层、容量恢复、HDR 原预算、同 frame 重画、resize/独立 surface、无 consumer 零新增及普通 capture-off App；Debug build 与 frozen diff 独审按实施影响面执行。成本使用真实父账字节与实际共存生命周期，不以 `R/M` 逻辑估算代替准入；官方 GPU 帧延迟、HDR/alpha/kernel parity 仍不在声明内。
+**产品验收。** 实际作者不同槽、显式/default、无 F5 需求、首帧降级/后帧恢复、后置层进入环境与健康邻层，均须到真实 App 输出；另验 capture-off drawable。资源门保持真实配额、subset、省略、取消/reset、history、在飞 pin 和最终释放反例；沿既有 owner 门保护 FullFrameBuffer 当前语义、HDR 原预算、resize/独立 surface 和无 consumer 零新增。Debug、最近回归与冻结 diff 独审完成后才按职责提交。未运行的官方 GPU 帧延迟、HDR/alpha/kernel parity 不计完成。
 
 ### 实施门与完成条件
 
-- A 按独立审查的既有 F5/历史职责登记 `approved`，完成真实可见与生命周期门后提交；B 的 preflight/mandatory 阶段环另经独审定案前保持 blocked，旧 D12/F5/A approved 均不替代它。
+- A 按独立审查的既有 F5/历史职责登记 `approved`，完成真实可见与生命周期门后提交；B 按上节独立分相合同登记 approved，产品运行与独审仍单独验收。
 - owner 行为门：普通 BGRA8/RGBA8 与既有 RGBA16F、首帧、两次成功提交、取消、GPU 失败 seam、stale completion、resize、paused export、独立 surface、精确预算和 display scratch 按需；pending 不能读，receipt 必须对应实际生产帧。
 - GPU 门：A 用自有颜色/时间词经实际 history→copy/mip→不同 LOD consumer→唯一 terminal；两个测试消费者共享源，后置可见层进入后继历史；FullFrameBuffer 仍读当前语义。B 另验实际作者不同槽绑定。明确项目采样容差，不能把 mip 端点量化当官方滤波公式。
 - App 门：A 以隔离自有原型检查内置反射、局部缺历史/预算失败、健康邻层、下一帧启动，并包含关闭 Debug capture 的普通 drawable 运行；B 另验实际作者 sampler。Debug build；最终冻结 diff 独立审查。无 consumer 不增加 history 分配或 mip encode。

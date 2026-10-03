@@ -78,7 +78,7 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                     false
                 }
                 let isFramebufferInput = switch slot.reference {
-                case .graph, .provider(.sceneBackground): true
+                case .graph, .provider(.sceneBackground), .provider(.sceneEnvironment): true
                 default: false
                 }
                 return .init(
@@ -122,7 +122,7 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                     false
                 }
                 let isFramebufferInput = switch slot.reference {
-                case .graph, .provider(.sceneBackground): true
+                case .graph, .provider(.sceneBackground), .provider(.sceneEnvironment): true
                 default: false
                 }
                 return .init(
@@ -589,7 +589,7 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             false
         }
         let isFramebufferInput = switch slot.reference {
-        case .graph, .provider(.sceneBackground): true
+        case .graph, .provider(.sceneBackground), .provider(.sceneEnvironment): true
         default: false
         }
         return .init(

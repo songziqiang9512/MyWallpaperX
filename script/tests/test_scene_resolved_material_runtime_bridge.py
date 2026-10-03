@@ -120,6 +120,18 @@ GRAPH_TELEMETRY = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagno
 GRAPH_OBSERVATION_BUILDER = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphObservationBuilder.swift"
 )
+REAL_RESOURCE_PHASE_SWIFT_SOURCES = [
+    SCENE_ROOT / "Rendering/Graph/SceneResolvedMaterialFrameResourceBundle.swift",
+    SCENE_ROOT / "Rendering/Targets/SceneOffscreenTextureAllocationCache+PreparationAdmission.swift",
+]
+# The legacy one-phase fixture uses a nil-only, trap-on-new-phase adapter.
+# Real pool/target fixtures add REAL_RESOURCE_PHASE_SWIFT_SOURCES instead.
+RESOURCE_PHASE_UNAVAILABLE_SUPPORT = (
+    Path(__file__).with_name("fixtures") / "SceneFrameResourcePhaseUnavailable.swift"
+).read_text(encoding="utf-8")
+RESOURCE_PHASE_UNAVAILABLE_HANDLE_SUPPORT = RESOURCE_PHASE_UNAVAILABLE_SUPPORT.split(
+    "// COORDINATOR_RESOURCE_PHASE_UNAVAILABLE", 1
+)[0]
 SUBMISSION_SWIFT_SOURCES = [
     SCENE_ROOT / "Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+SceneColor.swift",
     GRAPH_OBSERVATION,
@@ -189,12 +201,12 @@ SUBMISSION_COORDINATOR_FIXTURE = "\n".join(
         "SceneSubmissionLifecycleChecks.swift",
         "SceneSubmissionCoordinatorMain.swift",
     )
-) + SCENE_DEPENDENCY_BINDING_SUPPORT
+) + SCENE_DEPENDENCY_BINDING_SUPPORT + RESOURCE_PHASE_UNAVAILABLE_SUPPORT
 
 
 STATIC_SOURCE_DRAW_ONLY_HARNESS = (
     REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticSourceDrawOnlyHarness.swift"
-).read_text(encoding="utf-8")
+).read_text(encoding="utf-8") + RESOURCE_PHASE_UNAVAILABLE_HANDLE_SUPPORT
 
 
 class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):

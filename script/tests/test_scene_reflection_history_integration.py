@@ -115,14 +115,14 @@ def reflection_oracle() -> dict:
     }
 
 
-def measure_capture(path: Path) -> dict:
+def measure_capture(path: Path, rois: dict | None = None) -> dict:
     decoded = png_rgb_pixels(path)
     if decoded is None:
         raise AssertionError(f"undecodable capture: {path}")
     width, height, rows = decoded
     scale = max(width / CANVAS[0], height / CANVAS[1])
     measurements = {"size": [width, height], "coverScale": scale}
-    for label, (world_x, world_y) in ROIS.items():
+    for label, (world_x, world_y) in (ROIS if rois is None else rois).items():
         center_x = width / 2 + (world_x - CANVAS[0] / 2) * scale
         center_y = height / 2 + (world_y - CANVAS[1] / 2) * scale
         radius = 3 * scale

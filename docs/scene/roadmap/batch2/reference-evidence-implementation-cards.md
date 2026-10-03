@@ -16,6 +16,8 @@
 
 ## 2. 派生工作卡
 
+进度口径（2026-10-04）：RF00–RF16中RF06另属Web/Daemon，16张Scene卡已有14张完成各自有界验收（87.5%）；剩RF05组合闭环、RF08/D1采集合同。此为当前队列进度，不是Scene全兼容率或长期Goal完成率；新增真实缺口仍由现役路线选序。
+
 以下排列细化 P1/P2 已选责任，不另立总路线。RF00/RF01 与 RF05 诊断导出片已转证据移交；RF03 限定粒子四方法与 RF07 raw/display 分离也已转证据移交。RF05 其余既有能力组合仍待补证，条件卡在前置合同和证据满足后才进入产品写入。
 
 ### RF00 — D2/D3 有界首片已移交证据
@@ -46,11 +48,9 @@ RF03 连续排放后继已独立验收：缺省/0 duration四方法和显式非�
 
 **最小结果 / owner。** 合法作者 `_rt_MipMappedFrameBuffer` 与默认 F5 反射共享历史 scene color 派生的完整 mip，资源不随 sampler 槽号变义。沿现有 prepared Program、`completedSceneColor`、pool pin、`ReflectionFrame` 和唯一 terminal 完成；不新增历史或输出 owner。
 
-**当前差距。** A已迁移默认F5至完成raw历史，Debug、真实owner/GPU、后置红层与late named/depth组合App及产品独审均通过，冻结身份和范围见[实施记录](../../history/rf04-completed-scene-environment-implementation-2026-10-03.md)。vocabulary仍未准入作者名称；受控真实父账的闲置cache反例已获有界独审，共用实际factory回收已落地，真实配额/生命周期、Debug与隔离App验证见同一实施记录。每个完整逻辑分配批次最多恢复一次，保留成功前缀，只重试失败factory；保护所有requested generations与pins，按同锁revision提交，额度仍由真实析构返还。合同与证据边界见[D12 B前置容量合同](copy-pass-unification-design.md#rf04-b-admission)。B仍为blocked-pending-design，尚未准入实际mandatory lease与Program finalize阶段拆分或作者绑定；A通过不等于B可用。
+**交付边界。** A默认F5与B精确作者mip名均已沿共享完成历史接入。资源准备、Bridge/renderer、显式/default与首帧局部恢复由原owner完成；能力以[架构合同](../../architecture/runtime-architecture.md)为准，实际App画面、回归、独审修复与未覆盖范围见[实施记录](../../history/rf04-completed-scene-environment-implementation-2026-10-03.md#b-作者环境输入落地)。不据此开放late named、其它RT名称、FBO自动mip或官方parity。
 
-**实施次序。** A已扩展原完成raw的按需snapshot与真实producer receipt并迁移F5。共用回收已收口；准备窗口实测否定仅靠强引用或零分配缓存命中的准入；原cache资源原型及原coordinator三帧GPU/生命周期门已通过，见[D12](copy-pass-unification-design.md#rf04-b-admission)；下一步补真实executor局部省略，再接Bridge/renderer与作者绑定；作者sampler与F5共用publication，首帧局部可恢复。是否迁移A消费期copy/mip须随最终方案定案。普通 authored FBO 自动 mip、data/cube/array、未知名称及官方 HDR/alpha/kernel parity 不在本片开放。
-
-**验收 / 停止。** Debug、实际 owner 生命周期/GPU 及隔离 App 可见门，最终冻结独审后按职责提交；未获真实资源不发布 ready，optional 失败保留健康画面。完成片移交稳定合同并撤销旧前缀路径，D12 其他 copy 触发点另审；随后执行 D1 固定成员差分，不继续机械增加本轮静态截图。
+**后继。** 本卡有界结果交回稳定owner，下一批为RF08/D1采集成员与作者顺序；不再拆分本卡证据批次。真实回归仍保护mandatory资源、previous history与唯一compositor。
 
 ### RF05 — 既有能力补真正跨层/跨屏反例
 

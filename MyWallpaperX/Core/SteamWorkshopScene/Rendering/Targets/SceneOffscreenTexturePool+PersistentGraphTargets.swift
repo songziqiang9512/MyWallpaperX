@@ -79,6 +79,15 @@ extension SceneOffscreenTextureAllocationCache {
             return .rejected(reasonCode: "frame-target-shared-pair-unavailable")
         }
 
+        let requestedKeys = Set(plans.map(\.key))
+        guard !residents.values.contains(where: { entry in
+            guard !entry.preparationPins.isEmpty else { return false }
+            if case .layerGraph(let graph) = entry.allocation {
+                return requestedKeys.contains(graph.plan.key)
+            }
+            return false
+        }) else { return .rejected(reasonCode: "frame-target-preparation-active") }
+
         var snapshot = residents.enumerated().map { offset, value in
             let (key, entry) = value
             let location: SceneOffscreenTextureFramePreflight.Location = switch key {
@@ -86,6 +95,7 @@ extension SceneOffscreenTextureAllocationCache {
             case .current: .currentOther
             case .retired: .retired
             case .history: .history
+            case .pending: .currentOther
             }
             let (graphPlan, history): (
                 SceneLayerGraphTargetPlan?, SceneGraphHistoryResidency?
@@ -108,10 +118,10 @@ extension SceneOffscreenTextureAllocationCache {
             }
             return SceneOffscreenTextureFramePreflight.Resident(
                 id: offset,
-                location: location,
-                graphPlan: graphPlan,
-                history: history,
-                demotedHistory: demotedHistory,
+                location: entry.preparationPins.isEmpty ? location : .currentOther,
+                graphPlan: entry.preparationPins.isEmpty ? graphPlan : nil,
+                history: entry.preparationPins.isEmpty ? history : nil,
+                demotedHistory: entry.preparationPins.isEmpty ? demotedHistory : nil,
                 byteCost: entry.byteCost,
                 submissionPinCount: entry.submissionPins.count,
                 historyPinCount: entry.historyPins.count,
@@ -124,7 +134,7 @@ extension SceneOffscreenTextureAllocationCache {
                 isResetInvalidated: entry.isResetInvalidated,
                 lastAccess: entry.lastAccess,
                 existedBeforeFrame: true,
-                requiredByFrame: requiredByFrame
+                requiredByFrame: requiredByFrame || !entry.preparationPins.isEmpty
             )
         }
         for (_, byteCost) in pendingSharedPairByteCosts {

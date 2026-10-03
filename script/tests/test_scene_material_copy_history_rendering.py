@@ -28,6 +28,7 @@ RUNTIME_FIXTURE = runpy.run_path(
 SWIFT_SOURCES = list(dict.fromkeys([
     *EXECUTOR_FIXTURE["CONTRACT_FIXTURE"]["SWIFT_SOURCES"],
     *POOL_FIXTURE["SWIFT_SOURCES"],
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialFrameResourceBundle.swift",
     *(
         path
         for path in RUNTIME_FIXTURE["SUBMISSION_SWIFT_SOURCES"]
@@ -287,6 +288,7 @@ class SceneMaterialCopyHistoryRenderingTests(unittest.TestCase):
                     str(support),
                     *(str(path) for path in SWIFT_SOURCES),
                     str(harness),
+                    str(HARNESS_PATH.with_name("SceneMaterialFrameResourceBundleChecks.swift")),
                     str(main),
                     "-framework",
                     "Metal",
@@ -317,9 +319,18 @@ class SceneMaterialCopyHistoryRenderingTests(unittest.TestCase):
         payload = json.loads(completed.stdout)
         if not payload["metalAvailable"]:
             self.skipTest("Metal is unavailable")
+        def assert_checks(value):
+            if isinstance(value, dict):
+                for child in value.values():
+                    assert_checks(child)
+            elif isinstance(value, bool):
+                self.assertTrue(value, payload)
+        for section in ("resourceBundleIdentity", "resourceBundleCapacity", "environmentOverlay"):
+            assert_checks(payload[section])
         self.assertEqual(payload["quarterFailure"], "success", payload)
         self.assertEqual(payload["threeQuarterFailure"], "success", payload)
         for key in (
+            "resourcePhasePreservesOriginalPixels",
             "serialQuarterConverges",
             "inFlightQuarterConverges",
             "serialThreeQuarterConverges",

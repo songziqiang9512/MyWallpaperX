@@ -39,7 +39,11 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 return slot
             }
         )
-        let premultipliedInputSlotsForProfile: (String) -> Set<Int> = { profile in
+        let sceneEnvironmentSlots = Set(sourceActiveSamplers.compactMap { slot, sampler in
+            SceneResolvedMaterialTextureResolver.sceneEnvironmentReference(
+                template: template, sampler: sampler, slot: slot) == nil ? nil : slot
+        })
+        let profileInputSlots: (String) -> Set<Int> = { profile in
             switch profile {
             case SceneGenericShaderCapabilityProfile
                 .providerBackedGraphInputSpatialWeightedColorBlend.rawValue:
@@ -57,6 +61,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             default:
                 sceneBackgroundDefaultSlots
             }
+        }
+        let premultipliedInputSlotsForProfile: (String) -> Set<Int> = {
+            profileInputSlots($0).union(sceneEnvironmentSlots)
         }
         let frontend: SceneAuthoredShaderProgram
         let routeDecision:

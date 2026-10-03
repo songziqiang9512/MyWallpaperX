@@ -127,14 +127,19 @@ extension SceneMetalRenderer {
         performanceTelemetry?.endStage("frame-admission")
         hubStage(.frameAdmissionMicros, hubFrameAdmissionStart)
         let resolvedMaterialFrameTargetPlans: [Int: SceneResolvedMaterialFrameTargetPlan]
+        let preparationRequests: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest]
+        let resourceBundle: SceneResolvedMaterialFrameResourceBundle?
         switch resolvedMaterialFrameAdmission {
-        case let .ready(plans):
+        case let .ready(plans, requests, bundle):
             resolvedMaterialFrameTargetPlans = plans
+            preparationRequests = requests
+            resourceBundle = bundle
         case let .deferred(reasonCode):
             return .deferred(reasonCode: reasonCode)
         case let .rejected(reasonCode):
             return .dropped(reasonCode: reasonCode)
         }
+        defer { resourceBundle?.cancel() }
         performanceTelemetry?.endStage("prologue")
         hubStage(.prologueMicros, hubPrologueStart)
         performanceTelemetry?.beginStage("prepass")
@@ -191,6 +196,7 @@ extension SceneMetalRenderer {
                 },
                 recordsEvidence: SceneDesktopWallpaperHost.usesDebugEvidenceWindow && frameContext.frameIndex <= 2)
         }
+        var preparedEnvironment: SceneFrameTextureResource?
         if let targets = optionalScratch {
             var history: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?
             // The late named-shadow owner prepares its own ordered depth set.
@@ -219,6 +225,30 @@ extension SceneMetalRenderer {
                     frameIndex: frameContext.frameIndex, commandBuffer: commandBuffer, intent: .snapshot)
             }
             reflection.admit(targets, sceneColor: history)
+            // history is assigned only after the complete mandatory-capacity gate.
+            if history != nil { preparedEnvironment = reflection.resolve(commandBuffer) }
+        }
+        // No coordinator lock is held here. Late named dependencies retain
+        // their ordered preparation; they cannot promise early environment capacity.
+        if let runtime = imageCompositor.resolvedMaterialRuntime {
+            let atom: SceneFrameTextureLookupStatus = preparedEnvironment.map { .ready($0) } ?? .unavailable
+            let snapshot = SceneFrameTextureRegistrySnapshot(frameEpoch: textureRegistry.frameEpoch,
+                frameIndex: frameContext.frameIndex, entries: [.sceneEnvironment: atom])
+            guard runtime.overlayPreparedSceneEnvironment(from: snapshot) else {
+                imageCompositor.recordResolvedMaterialFramePreflightFailure("frame-environment-overlay-rejected")
+                _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
+                return .dropped(reasonCode: "frame-environment-overlay-rejected")
+            }
+        }
+        performanceTelemetry?.beginStage("frame-admission")
+        let hubFrameFinalizationStart = ProcessInfo.processInfo.systemUptime
+        let finalized = finalizeResolvedMaterialFrameTargets(preparationRequests,
+            resourceBundle: resourceBundle, pool: offscreenTexturePool,
+            commandBuffer: commandBuffer, performanceTelemetry: performanceTelemetry)
+        performanceTelemetry?.endStage("frame-admission")
+        hubStage(.frameAdmissionMicros, hubFrameFinalizationStart)
+        guard finalized else {
+            return .dropped(reasonCode: "resolved-material-frame-preparation-rejected")
         }
         var stopsAfterClaimedFailure = false
         var forwardGraphProviderLayerIDs: Set<Int> = []

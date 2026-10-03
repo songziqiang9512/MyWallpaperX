@@ -601,6 +601,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
     }
     var executionLayerIDs: Set<Int> { Set(capabilitiesByLayerID.keys) }
+    // The legacy one-phase inputs contain no authored environment sampler.
+    func requiresSceneEnvironment(layerID: Int) -> Bool { false }
     var visibilityOwnedLayerIDs: Set<Int> { [] }
     var admittedResolvedMaterialReferences:
         Set<SceneDependencyRenderPlan.Reference> { [] }
@@ -982,4 +984,3 @@ final class SceneResolvedMaterialGraphExecutor {
     }
     func reset() -> Bool { true }
 }
-

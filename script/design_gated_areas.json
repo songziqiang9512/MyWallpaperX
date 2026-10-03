@@ -285,9 +285,9 @@
       "id": "scene-authored-environment-input",
       "title": "RF04 B 作者 environment sampler 的preflight与局部失败",
       "owner": "scene-rf04",
-      "status": "blocked-pending-design",
+      "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
-      "design_notes": "B需要解开actual Program preflight早于optional mip准入的阶段环，禁止提前抢mandatory、假ready或永久passthrough；A默认F5迁移不授予B实施。 机器门定位尚未接入该命名输入的Vocabulary入口；全文件字面content扫描会将中立研究和待设计文档误判成实现，故不以sampler字符串触发。其他B职责仍受设计判定规则约束。",
+      "design_notes": "D12 B 分相合同已落库：原cache实际准备/pins与coordinator subset commit保持单一owner，mandatory容量后派生环境，再完成Program；资源/coordinator局部省略与取消/reset实验闭合，真实Bridge/renderer独审已定案。作者显式/default及drawable需求沿同一typed provider，首帧精确局部降级；产品验收与发布不由设计批准替代。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneRenderTargetVocabulary.swift"
       ],

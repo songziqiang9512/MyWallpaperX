@@ -195,6 +195,8 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                 return .provider(.sceneBackground(
                     consumerLayerID: context.node.effect.layerID
                 ))
+            case .sceneEnvironment:
+                return .provider(.sceneEnvironment)
             case let .namedLayerTarget(reference):
                 return .provider(.namedLayerTarget(reference))
             case let .unadmitted(name):

@@ -235,7 +235,7 @@ struct ScenePersistentGraphTargetAllocator {
             allocation: .layerGraph(allocation),
             byteCost: plan.residentByteCost
         )
-        guard let copies = rehydrateCopies(
+        guard let copies = Self.rehydrateCopies(
             seed: reservation.historySeed,
             allocation: allocation
         ) else { return nil }
@@ -265,7 +265,7 @@ struct ScenePersistentGraphTargetAllocator {
         )
     }
 
-    private func rehydrateCopies(
+    static func rehydrateCopies(
         seed: SceneGraphHistorySeed?,
         allocation: SceneLayerGraphTargetAllocation
     ) -> [

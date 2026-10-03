@@ -57,14 +57,15 @@ extension SceneOffscreenTextureAllocationCache {
     }
 
     func currentSharedPairLocked(
-        for plan: SceneLayerGraphTargetPlan
+        for plan: SceneLayerGraphTargetPlan,
+        values: [ResidentKey: Entry]
     ) -> SharedPair? {
         guard let dimensions = plan.sharedPairDimensions else { return nil }
         let key = Key.sharedGraphPair(
             width: dimensions.width,
             height: dimensions.height
         )
-        guard let entry = residents[.current(key)],
+        guard let entry = values[.current(key)],
               !entry.isResetInvalidated,
               case .sharedGraphPair(let pair, let identity) = entry.allocation else {
             return nil
@@ -143,7 +144,7 @@ extension SceneOffscreenTextureAllocationCache.Entry {
         orderingContext: SceneGraphCommandQueueOrderingContext?
     ) -> Bool {
         guard case .sharedGraphPair = allocation,
-              !isResetInvalidated else { return false }
+              preparationPins.isEmpty, !isResetInvalidated else { return false }
         guard !submissionPins.isEmpty else { return true }
         guard let orderingContext, orderingContext.isPending else { return false }
         let current = orderingContext.commandBuffer

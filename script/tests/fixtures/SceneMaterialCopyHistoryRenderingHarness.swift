@@ -670,7 +670,8 @@ private func submitCoordinatorFrame(
     source: MTLTexture,
     pipeline: SceneImageLayerPipeline,
     queue: MTLCommandQueue,
-    expectedContent: SceneTextureContent
+    expectedContent: SceneTextureContent,
+    usesExternalResourceBundle: Bool = true
 ) -> PendingCoordinatorFrame {
     guard let commandBuffer = queue.makeCommandBuffer() else {
         fatalError("coordinator command buffer unavailable")
@@ -693,15 +694,31 @@ private func submitCoordinatorFrame(
         sourcePipeline: pipeline,
         frameInputs: .init()
     )
+    let bundle = usesExternalResourceBundle ? coordinator.prepareFrameResourceBundle(
+        plans: [targetPlan], pool: pool, commandBuffer: commandBuffer) : nil
+    if usesExternalResourceBundle && bundle == nil { fatalError("resource bundle allocation failed") }
+    let generations = pool.allocationCache.locked {
+        Set(pool.allocationCache.residents.compactMap { key, entry -> UInt64? in
+            if case .pending = key { return entry.allocation.generation }
+            return nil
+        })
+    }
     switch coordinator.prepareFrame(
-        [request],
-        pool: pool,
-        commandBuffer: commandBuffer
+        [request], pool: pool, commandBuffer: commandBuffer, resourceBundle: bundle
     ) {
     case .ready:
         break
     case let .rejected(reason):
         fatalError("coordinator frame preparation failed: \(reason)")
+    }
+    if usesExternalResourceBundle {
+        bundle?.cancel() // Ownership already moved; cannot cancel the local commit.
+        guard let identity = coordinator.preparedLedgerByLayerID[claim.layerID],
+              let commit = coordinator.activeByID[identity]?.commit,
+              generations.contains(commit.submissionPin.generation),
+              pool.allocationCache.locked({ pool.allocationCache.residents.values.allSatisfy {
+                  $0.preparationPins.isEmpty
+              } }) else { fatalError("external bundle did not transfer exact targets") }
     }
     consumePreparedClaim(claim, coordinator: coordinator)
 
@@ -790,7 +807,8 @@ func runCoordinatorSequence(
     device: MTLDevice,
     queue: MTLCommandQueue,
     source: MTLTexture,
-    pipeline: SceneImageLayerPipeline
+    pipeline: SceneImageLayerPipeline,
+    usesExternalResourceBundle: Bool = true
 ) -> CoordinatorSequenceResult {
     let renderGraph = graph()
     let admittedGraph = admitted(renderGraph)
@@ -811,6 +829,10 @@ func runCoordinatorSequence(
         capabilities: catalog,
         logSink: { _ in }
     )
+    defer {
+        coordinator.invalidate(reason: .surfaceStop)
+        pool.reset()
+    }
     let claim = claimedExecution(catalog: catalog, admitted: admittedGraph)
     func submit(_ index: UInt64) -> PendingCoordinatorFrame {
         submitCoordinatorFrame(
@@ -823,7 +845,8 @@ func runCoordinatorSequence(
             source: source,
             pipeline: pipeline,
             queue: queue,
-            expectedContent: .color(.resolved(.premultipliedAlpha))
+            expectedContent: .color(.resolved(.premultipliedAlpha)),
+            usesExternalResourceBundle: usesExternalResourceBundle
         )
     }
     var results: [CoordinatorFrameResult] = []
@@ -901,4 +924,23 @@ func sequenceMatches(
                 && approximately(frame.historyPixels, expected(scale: scale))
                 && approximately(frame.outputPixels, expected(scale: scale))
         }
+}
+
+func makePhaseProbeState(device: MTLDevice, queue: MTLCommandQueue,
+    source: MTLTexture, pipeline: SceneImageLayerPipeline, budget: Int = 1_048_576) -> PhaseProbeState {
+    let renderGraph = graph(), admittedGraph = admitted(graph())
+    let catalog = capabilities(graph: renderGraph, admitted: admittedGraph, mixWeight: 0.25, content: .color)
+    let coordinator = SceneResolvedMaterialSubmissionCoordinator(device: device, capabilities: catalog, logSink: { _ in })
+    let pool = SceneOffscreenTexturePool(device: device, residentByteBudget: budget)
+    let claim = claimedExecution(catalog: catalog, admitted: admittedGraph)
+    let buffer = queue.makeCommandBuffer()!
+    beginFrame(coordinator, index: 10)
+    let allocation = pool.framePlanForPersistentGraphTargets(admittedGraphs: [renderGraph],
+        pairPlan: pairPlan(for: renderGraph), requestedWidth: extent.width, requestedHeight: extent.height,
+        usesSharedFullFrameWorkingPair: true, orderingContext: .init(commandBuffer: buffer))!
+    let target = SceneResolvedMaterialFrameTargetPlan(token: claim.token, allocation: allocation)
+    let request = SceneResolvedMaterialRuntimeBridge.FramePreparationRequest(claim: claim,
+        targetPlan: target, sourceTexture: source, sourceUniforms: .neutral(),
+        sourcePipeline: pipeline, frameInputs: .init())
+    return .init(coordinator: coordinator, pool: pool, buffer: buffer, target: target, request: request)
 }

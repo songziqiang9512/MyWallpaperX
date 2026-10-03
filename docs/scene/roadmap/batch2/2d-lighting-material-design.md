@@ -367,7 +367,7 @@ MR继续用既有tier默认和合法slot2 R/G替代规则，reflection-only也�
 
 ### 环境来源、预算与提交职责
 
-2026-10-03的官方有界时序证据推翻本片先前采用的“首次消费前main前缀”项目策略。该旧策略及其验收只作为[历史实施记录](../../history/d3-reflection-environment-implementation-2026-10-02.md)保留，不能继续约束当前运行源。后继裁决统一由[D12 RF04](copy-pass-unification-design.md#rf04-completed-scene-environment)拥有；A迁移默认F5至已完成raw历史，B作者sampler仍待preflight阶段设计，不能由F5原批准状态推定可用。
+2026-10-03的官方有界时序证据推翻本片先前采用的“首次消费前main前缀”项目策略。该旧策略及其验收只作为[历史实施记录](../../history/d3-reflection-environment-implementation-2026-10-02.md)保留，不能继续约束当前运行源。后继裁决统一由[D12 RF04](copy-pass-unification-design.md#rf04-completed-scene-environment)拥有；A迁移默认F5至已完成raw历史，B作者sampler已按D12独立分相合同实施，有界验收不由F5原批准状态推定。
 
 稳定的唯一history owner、snapshot/persistence、mandatory优先级、真实producer receipt和失败/退出合同见[运行时架构](../../architecture/runtime-architecture.md)。plain与graph仍在实际source capture前消费同一个执行期解析闭包；prepared payload不冒充ready，原provider与作者合成顺序不变。无历史时沿原unlit source/draw降级，不改变合法direct分量或制造假纹理。两个surface各用其原pool、frame epoch与completion，不相互借历史。以下保留独立材质数值策略，其scene取样源服从RF04，不再表示当前main前缀。
 

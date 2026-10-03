@@ -102,3 +102,14 @@ V1真实执行暴露三处候选问题：96-byte pool预算下先物化shared pa
 V2获有界ACCEPT，无未解决P1/P2，审查SHA256为`4a0697c2ab19f769e075cfab2f383b7c23d7f62c96d65dbc1900e4a10b81cb6f`。962成员逐SHA核验并提升至`.artifacts/scene-evidence/runs/rf04-b-coordinator-phase-prototype-20261004`，archive SHA256为`9e39915106f2fdaba0d11ca36a3ed757a8616dd4061252b7607251cbe18544cf`，默认14天；包含冻结候选、初始错误observer、红绿及生命周期结果和独审。约271MiB停止使用的编译缓存/binary已清理，候选源供接续，原唯一App构建缓存保持。
 
 RuntimeBridge request/claim和compositor消费仍是fixture接口；overlay使用合成source receipt，不证明真实completed producer。未验证actual executor局部省略、作者environment采样、真实renderer/Bridge、named/depth顺序、重叠新准入submission或App。已有captured-main fallback测试注入mock executor失败，不能补本门。下一步先用真实utility admission/finalizer加健康history层闭合局部省略，再接Bridge与Drawing并跑Debug/隔离App；B继续未准入。
+
+
+## B 作者环境输入落地
+
+2026-10-04 后继将资源/coordinator 原型接入真实 Bridge、renderer 与 authored sampler。精确名称的显式绑定和 shader default 共用现 environment provider，准备阶段缓存需求；原 cache 一次性资源准入与原 coordinator subset commit 分离，mandatory容量后才派生环境。稳定所有权与失败合同见[架构](../architecture/runtime-architecture.md)。旧节中的未准入状态仅描述各自记录时点。
+
+真实 App 的同一自有输入，修前 receiver 为灰色 `[128,128,128]`；接线后显式槽0、槽3及default槽2均能读取后置红层，receiver为红色且绿色邻层不变。作者取样与F5组合也保留两者输出。首帧明确走environment unavailable局部降级，后继实际material node、compositor与GPU完成恢复。独审发现prepared需求未覆盖drawable/resize，已并入原判断；capture-off门使用普通模式绘制计数，不要求只在capture模式生成的逐帧日志。
+
+真实资源门覆盖原coordinator/history三帧、局部失败省略后健康index1、与原one-phase逐字节一致；显式surfaceStop后native账户回零。持久copy-history门已使用真实bundle并保留typed-data、在飞history及identity/cancel/capacity/canonical-overlay反例。旧one-phase mock门明确禁止新phase调用，不冒充实际资源门。最终Debug通过；相关回归去重57项通过，真实资源GPU门通过；最终App去重12项通过、1项专用mapping故障App未提供而跳过。独立产品及测试窄审接受；结果、源码/App身份和修前后画面保留在本机有界包 `rf04-authored-environment-20261004`（14天）。
+
+可见结论只覆盖这些自有输入与既有F5/HDR回归，不代表真实Workshop全包或官方像素等价。late named、其它RT名称、自动FBO mip、官方HDR/alpha/kernel parity不扩张；下一批转D1/RF08采集成员与作者顺序，停止继续拆本片证据批次。

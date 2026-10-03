@@ -208,6 +208,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         let sceneBackgroundRequirement: SceneBackgroundRequirement?
+        let requiresSceneEnvironment: Bool
         let frameInputContract: FrameInputContract
         let graphFramebufferColorRepresentations: [
             Graph.TextureIdentity: SceneShaderColorRepresentation
@@ -233,6 +234,9 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             self.dependencyOwnership = dependencyOwnership
             sourceRoute = admitted.sourceRoute
             self.sceneBackgroundRequirement = sceneBackgroundRequirement
+            requiresSceneEnvironment = materials.values.contains {
+                $0.variants.hasSceneEnvironmentConsumer
+            }
             let emittedOutputGeometrySource: FrameInputContract
                 .EmittedOutputGeometrySource = switch admitted.sourceRoute {
             case .capturedLayerTexture:
@@ -654,6 +658,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 break
             }
         }
+    }
+
+    func requiresSceneEnvironment(layerID: Int) -> Bool {
+        capabilitiesByLayerID[layerID]?.requiresSceneEnvironment == true
     }
 
     var sceneBackgroundLayerIDs: Set<Int> {

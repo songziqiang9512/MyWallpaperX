@@ -120,18 +120,28 @@ extension SceneOffscreenTextureAllocationCache {
             guard let reservation = reserveGraphLocked(
                 plan: plan,
                 orderingContext: orderingContext,
-                pendingSharedPairs: pendingSharedPairs
+                pendingSharedPairs: pendingSharedPairs, values: residents
             ) else { return nil }
             result.append(reservation)
         }
         return result
     }
 
-    private func reserveGraphLocked(
+    func reserveGraphLocked(
         plan: SceneLayerGraphTargetPlan,
         orderingContext: SceneGraphCommandQueueOrderingContext?,
-        pendingSharedPairs: [Key: SharedPair] = [:]
+        pendingSharedPairs: [Key: SharedPair] = [:],
+        values: [ResidentKey: Entry]
     ) -> GraphReservation? {
+        // A foreign preparation is an actual resident dependency, not ordered GPU work.
+        guard !values.values.contains(where: { entry in
+            guard !entry.preparationPins.isEmpty else { return false }
+            switch entry.allocation {
+            case .layerGraph(let graph): return graph.plan.key == plan.key
+            case .history(let history): return history.plan.key == plan.key
+            default: return false
+            }
+        }) else { return nil }
         let byteCost = plan.residentByteCost
         let sharedPair: SharedPair?
         if plan.pairStorage == .shared {
@@ -139,10 +149,10 @@ extension SceneOffscreenTextureAllocationCache {
             let key = Key.sharedGraphPair(
                 width: dimensions.width, height: dimensions.height
             )
-            guard let value = currentSharedPairLocked(for: plan)
+            guard let value = currentSharedPairLocked(for: plan, values: values)
                     ?? pendingSharedPairs[key] else { return nil }
             sharedPair = value
-            if let entry = residents[.current(value.key)] {
+            if let entry = values[.current(value.key)] {
                 guard entry.permitsSharedPairReuse(
                     orderingContext: orderingContext
                 ) else { return nil }
@@ -155,10 +165,10 @@ extension SceneOffscreenTextureAllocationCache {
         let current = ResidentKey.current(.layerGraph(plan.key))
         guard byteCost >= 0,
               SceneResolvedMaterialInFlightCapacity.admitsNewSubmission(
-                  Array(residents.values),
+                  Array(values.values),
                   graphKey: plan.key
               ) else { return nil }
-        let currentEntry = residents[current]
+        let currentEntry = values[current]
         if let currentEntry {
             guard case .layerGraph(let graph) = currentEntry.allocation else {
                 return nil
@@ -187,7 +197,7 @@ extension SceneOffscreenTextureAllocationCache {
                 )
             }
         }
-        let idle = residents.compactMap { key, entry
+        let idle = values.compactMap { key, entry
             -> (key: ResidentKey, entry: Entry,
                 graph: SceneLayerGraphTargetAllocation)? in
             guard case .retired = key,
@@ -207,11 +217,11 @@ extension SceneOffscreenTextureAllocationCache {
             replacingGenerations.insert(consumed.graph.generation)
         }
         guard SceneResolvedMaterialInFlightCapacity.admitsNewAllocation(
-            residents.values.map(\.allocation),
+            values.values.map(\.allocation),
             graphKey: plan.key,
             replacingGenerations: replacingGenerations
         ) else { return nil }
-        var staged = residents
+        var staged = values
         let replaced: Entry?
         if currentEntry?.submissionPins.isEmpty == false {
             replaced = currentEntry
@@ -266,190 +276,200 @@ extension SceneOffscreenTextureAllocationCache {
             sharedPair: sharedPair
         )
     }
+    typealias CommitPinRecord = (
+        graph: SceneLayerGraphTargetAllocation, submission: UUID,
+        history: [EffectKey: UUID], tokens: [EffectKey: Set<Token>],
+        sharedPair: (generation: UInt64, submission: UUID)?
+    )
+    typealias StagedGraphCommit = (residency: Staged, pins: [CommitPinRecord])
+
     func commitAndPin(
         _ requests: [ScenePreparedPersistentGraphTargets.CommitRequest]
     ) -> [ScenePreparedPersistentGraphTargets.Commit]? {
         locked {
-            typealias Effective = (
-                request: ScenePreparedPersistentGraphTargets.CommitRequest,
-                reservation: GraphReservation,
-                graph: SceneLayerGraphTargetAllocation,
-                requestedHistory: Set<Token>
-            )
-            guard !requests.isEmpty,
-                  Set(requests.map(\.candidate.key)).count == requests.count,
-                  requests.allSatisfy({ $0.cache === self }) else { return nil }
-            var effective: [Effective] = []
-            for request in requests {
-                let candidate = request.candidate
-                let original = request.reservation
-                guard original.resetEpoch == resetEpoch,
-                      original.orderingContext?.accepts(request.commandBuffer)
-                        ?? true,
-                      case .layerGraph(let graph) = candidate.allocation,
-                      candidate.key == .layerGraph(graph.plan.key),
-                      candidate.byteCost == graph.plan.residentByteCost,
-                      sharedPairMatches(
-                          original.sharedPair,
-                          allocation: graph
-                      ),
-                      let requestedHistory = graph.validatedHistoryTokens(
-                          request.historyTokensByEffect,
-                          discarding: request.discardedHistoryEffects
-                      ) else { return nil }
-                let reservation: GraphReservation
-                if original.revision == revision {
-                    reservation = original
-                } else {
-                    guard let refreshed = reserveGraphLocked(
-                        plan: graph.plan,
-                        orderingContext: original.orderingContext,
-                        pendingSharedPairs: [:]
-                    ), reservationStillMatches(original, refreshed) else {
-                        return nil
-                    }
-                    reservation = refreshed
-                }
-                effective.append((request, reservation, graph, requestedHistory))
-            }
-            var next = residents
-            var access = accessCounter
-            var pinRecords: [(
-                graph: SceneLayerGraphTargetAllocation,
-                submission: UUID,
-                history: [EffectKey: UUID],
-                tokens: [EffectKey: Set<Token>],
-                sharedPair: (generation: UInt64, submission: UUID)?
-            )] = []
-            for value in effective {
-                let candidate = value.request.candidate
-                let reservation = value.reservation
-                let graph = value.graph
-                let historyTokens = value.request.historyTokensByEffect
-                guard reservation.reusableAllocation == nil
-                        || reservation.reusableAllocation?.generation
-                            == reservation.consumedRetiredGeneration,
-                      SceneResolvedMaterialInFlightCapacity.admitsNewSubmission(
-                          Array(next.values),
-                          graphKey: graph.plan.key
-                      ) else { return nil }
-                var submissionPins: [UUID: Entry.SubmissionPin] = [:]
-                var historyPins: [UUID: Entry.HistoryPin] = [:]
-                if let generation = reservation.historySeedGeneration {
-                    guard next.values.contains(where: { entry in
-                        guard !entry.isResetInvalidated,
-                              entry.allocation.generation == generation,
-                              let seed = entry.historyOnlyEntry(),
-                              case .history(let history) = seed.allocation else {
-                            return false
-                        }
-                        return history.isCompatible(with: graph.plan)
-                    }) else { return nil }
-                }
-                if !consumeRetired(
-                    reservation,
-                    candidate: graph,
-                    values: &next
-                ) { return nil }
-                if let generation = reservation.replacedCurrentGeneration {
-                    let key = ResidentKey.current(candidate.key)
-                    guard let replaced = next.removeValue(forKey: key),
-                          replaced.allocation.generation == generation else {
-                        return nil
-                    }
-                    if !replaced.submissionPins.isEmpty {
-                        let retired = ResidentKey.retired(generation)
-                        guard next[retired] == nil else { return nil }
-                        next[retired] = replaced
-                    } else if let history = replaced.historyOnlyEntry() {
-                        next[.history(graph.plan.key, generation)] = history
-                    }
-                }
-                let existing = next.removeValue(forKey: .current(candidate.key))
-                if let cached = reservation.cachedAllocation {
-                    guard cached.generation == graph.generation,
-                          existing?.allocation.generation == graph.generation else {
-                        return nil
-                    }
-                    if existing?.submissionPins.isEmpty == false {
-                        guard historyTokens.isEmpty,
-                              existing?.permitsOrderedSubmissionReuse(
-                                  for: graph.plan,
-                                  orderingContext: reservation.orderingContext
-                              ) == true else { return nil }
-                    }
-                    submissionPins = existing?.submissionPins ?? [:]
-                    historyPins = existing?.historyPins ?? [:]
-                } else {
-                    guard existing == nil,
-                          !next.values.contains(where: {
-                              $0.allocation.generation == graph.generation
-                          }) else { return nil }
-                }
-                let (nextAccess, overflow) = access.addingReportingOverflow(1)
-                guard !overflow else { return nil }
-                access = nextAccess
-                let submissionID = UUID()
-                let historyIDs = Dictionary(uniqueKeysWithValues:
-                    historyTokens.map { ($0.key, UUID()) }
-                )
-                let sharedPairPin: (generation: UInt64, submission: UUID)?
-                if let sharedPair = reservation.sharedPair {
-                    let pairKey = ResidentKey.current(sharedPair.key)
-                    guard var pairEntry = next[pairKey],
-                          case .sharedGraphPair(_, let identity) = pairEntry.allocation,
-                          identity.generation == sharedPair.identity.generation,
-                          pairEntry.permitsSharedPairReuse(
-                              orderingContext: reservation.orderingContext
-                          ) else {
-                        return nil
-                    }
-                    let pin = UUID()
-                    guard pairEntry.submissionPins.updateValue(
-                        .init(orderingContext: reservation.orderingContext),
-                        forKey: pin
-                    ) == nil else { return nil }
-                    next[pairKey] = pairEntry
-                    sharedPairPin = (identity.generation, pin)
-                } else {
-                    sharedPairPin = nil
-                }
-                guard submissionPins.updateValue(
-                    .init(orderingContext: reservation.orderingContext),
-                    forKey: submissionID
-                ) == nil else { return nil }
-                var entry = Entry(
-                    allocation: candidate.allocation,
-                    byteCost: candidate.byteCost,
-                    submissionPins: submissionPins,
-                    historyPins: historyPins,
-                    lastAccess: access
-                )
-                for (effect, tokens) in historyTokens {
-                    guard tokens.isSubset(of: value.requestedHistory),
-                          let identity = historyIDs[effect],
-                          entry.historyPins.updateValue(
-                              .init(effect: effect, tokens: tokens),
-                              forKey: identity
-                          ) == nil else { return nil }
-                }
-                next[.current(candidate.key)] = entry
-                pinRecords.append((
-                    graph,
-                    submissionID,
-                    historyIDs,
-                    historyTokens,
-                    sharedPairPin
-                ))
-            }
-            guard evictToFit(
-                &next,
-                incomingCost: 0,
-                protected: Set(requests.map(\.candidate.key))
-            ) else { return nil }
-            apply((next, access))
-            return pinRecords.map(makeCommit)
+            guard let staged = stageGraphCommitLocked(requests, values: residents)
+            else { return nil }
+            apply(staged.residency)
+            return staged.pins.map(makeCommit)
         }
     }
 
+    /// The only graph commit algorithm. All residency reads use this explicit
+    /// view, including reservation refresh, shared pairs, history and capacity.
+    /// Caller owns the lock; this method neither applies nor constructs pins.
+    func stageGraphCommitLocked(
+        _ requests: [ScenePreparedPersistentGraphTargets.CommitRequest],
+        values: [ResidentKey: Entry],
+        forceReservationRefresh: Bool = false
+    ) -> StagedGraphCommit? {
+        typealias Effective = (
+            request: ScenePreparedPersistentGraphTargets.CommitRequest,
+            reservation: GraphReservation,
+            graph: SceneLayerGraphTargetAllocation,
+            requestedHistory: Set<Token>
+        )
+        guard !requests.isEmpty,
+              Set(requests.map(\.candidate.key)).count == requests.count,
+              requests.allSatisfy({ $0.cache === self }) else { return nil }
+        var effective: [Effective] = []
+        for request in requests {
+            let candidate = request.candidate
+            let original = request.reservation
+            guard original.resetEpoch == resetEpoch,
+                  original.orderingContext?.accepts(request.commandBuffer)
+                    ?? true,
+                  case .layerGraph(let graph) = candidate.allocation,
+                  candidate.key == .layerGraph(graph.plan.key),
+                  candidate.byteCost == graph.plan.residentByteCost,
+                  sharedPairMatches(
+                      original.sharedPair,
+                      allocation: graph
+                  ),
+                  let requestedHistory = graph.validatedHistoryTokens(
+                      request.historyTokensByEffect,
+                      discarding: request.discardedHistoryEffects
+                  ) else { return nil }
+            let reservation: GraphReservation
+            if !forceReservationRefresh && original.revision == revision {
+                reservation = original
+            } else {
+                guard let refreshed = reserveGraphLocked(
+                    plan: graph.plan, orderingContext: original.orderingContext,
+                    pendingSharedPairs: [:], values: values
+                ), reservationStillMatches(original, refreshed) else { return nil }
+                reservation = refreshed
+            }
+            effective.append((request, reservation, graph, requestedHistory))
+        }
+        var next = values
+        var access = accessCounter
+        var pinRecords: [CommitPinRecord] = []
+        for value in effective {
+            let candidate = value.request.candidate
+            let reservation = value.reservation
+            let graph = value.graph
+            let historyTokens = value.request.historyTokensByEffect
+            guard reservation.reusableAllocation == nil
+                    || reservation.reusableAllocation?.generation
+                        == reservation.consumedRetiredGeneration,
+                  SceneResolvedMaterialInFlightCapacity.admitsNewSubmission(
+                      Array(next.values),
+                      graphKey: graph.plan.key
+                  ) else { return nil }
+            var submissionPins: [UUID: Entry.SubmissionPin] = [:]
+            var historyPins: [UUID: Entry.HistoryPin] = [:]
+            if let generation = reservation.historySeedGeneration {
+                guard next.values.contains(where: { entry in
+                    guard !entry.isResetInvalidated,
+                          entry.allocation.generation == generation,
+                          let seed = entry.historyOnlyEntry(),
+                          case .history(let history) = seed.allocation else {
+                        return false
+                    }
+                    return history.isCompatible(with: graph.plan)
+                }) else { return nil }
+            }
+            if !consumeRetired(
+                reservation,
+                candidate: graph,
+                values: &next
+            ) { return nil }
+            if let generation = reservation.replacedCurrentGeneration {
+                let key = ResidentKey.current(candidate.key)
+                guard let replaced = next.removeValue(forKey: key),
+                      replaced.allocation.generation == generation else {
+                    return nil
+                }
+                if !replaced.submissionPins.isEmpty {
+                    let retired = ResidentKey.retired(generation)
+                    guard next[retired] == nil else { return nil }
+                    next[retired] = replaced
+                } else if let history = replaced.historyOnlyEntry() {
+                    next[.history(graph.plan.key, generation)] = history
+                }
+            }
+            let existing = next.removeValue(forKey: .current(candidate.key))
+            if let cached = reservation.cachedAllocation {
+                guard cached.generation == graph.generation,
+                      existing?.allocation.generation == graph.generation else {
+                    return nil
+                }
+                if existing?.submissionPins.isEmpty == false {
+                    guard historyTokens.isEmpty,
+                          existing?.permitsOrderedSubmissionReuse(
+                              for: graph.plan,
+                              orderingContext: reservation.orderingContext
+                          ) == true else { return nil }
+                }
+                submissionPins = existing?.submissionPins ?? [:]
+                historyPins = existing?.historyPins ?? [:]
+            } else {
+                guard existing == nil,
+                      !next.values.contains(where: {
+                          $0.allocation.generation == graph.generation
+                      }) else { return nil }
+            }
+            let (nextAccess, overflow) = access.addingReportingOverflow(1)
+            guard !overflow else { return nil }
+            access = nextAccess
+            let submissionID = UUID()
+            let historyIDs = Dictionary(uniqueKeysWithValues:
+                historyTokens.map { ($0.key, UUID()) }
+            )
+            let sharedPairPin: (generation: UInt64, submission: UUID)?
+            if let sharedPair = reservation.sharedPair {
+                let pairKey = ResidentKey.current(sharedPair.key)
+                guard var pairEntry = next[pairKey],
+                      case .sharedGraphPair(_, let identity) = pairEntry.allocation,
+                      identity.generation == sharedPair.identity.generation,
+                      pairEntry.permitsSharedPairReuse(
+                          orderingContext: reservation.orderingContext
+                      ) else {
+                    return nil
+                }
+                let pin = UUID()
+                guard pairEntry.submissionPins.updateValue(
+                    .init(orderingContext: reservation.orderingContext),
+                    forKey: pin
+                ) == nil else { return nil }
+                next[pairKey] = pairEntry
+                sharedPairPin = (identity.generation, pin)
+            } else {
+                sharedPairPin = nil
+            }
+            guard submissionPins.updateValue(
+                .init(orderingContext: reservation.orderingContext),
+                forKey: submissionID
+            ) == nil else { return nil }
+            var entry = Entry(
+                allocation: candidate.allocation,
+                byteCost: candidate.byteCost,
+                submissionPins: submissionPins,
+                historyPins: historyPins,
+                lastAccess: access
+            )
+            for (effect, tokens) in historyTokens {
+                guard tokens.isSubset(of: value.requestedHistory),
+                      let identity = historyIDs[effect],
+                      entry.historyPins.updateValue(
+                          .init(effect: effect, tokens: tokens),
+                          forKey: identity
+                      ) == nil else { return nil }
+            }
+            next[.current(candidate.key)] = entry
+            pinRecords.append((
+                graph,
+                submissionID,
+                historyIDs,
+                historyTokens,
+                sharedPairPin
+            ))
+        }
+        guard evictToFit(
+            &next,
+            incomingCost: 0,
+            protected: Set(requests.map(\.candidate.key))
+        ) else { return nil }
+        return ((next, access), pinRecords)
+    }
 }

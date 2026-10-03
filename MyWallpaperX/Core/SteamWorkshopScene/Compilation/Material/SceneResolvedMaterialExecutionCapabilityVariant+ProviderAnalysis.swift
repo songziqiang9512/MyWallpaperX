@@ -76,10 +76,14 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 ) == nil ? nil : slot
             }
         )
+        let activeSceneEnvironmentTextureSlots = Set(sourceActiveSamplers.compactMap { slot, sampler in
+            SceneResolvedMaterialTextureResolver.sceneEnvironmentReference(
+                template: template, sampler: sampler, slot: slot) == nil ? nil : slot
+        })
         let activeExternalProviderTextureSlots = externalProviderTextureSlots(
             in: template,
             activeTextureSlots: Set(sourceActiveSamplers.keys)
-        ).union(activeSceneBackgroundTextureSlots)
+        ).union(activeSceneBackgroundTextureSlots).union(activeSceneEnvironmentTextureSlots)
         let staticallyTerminalNamedLayerProviderTextureSlots =
             terminalNamedLayerProviderTextureSlots(
                 in: template,
@@ -100,7 +104,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 sceneBackgroundSlots: activeSceneBackgroundTextureSlots,
                 graphSlots: Set(activeGraphTextureIdentities.keys),
                 conditionalFact: conditionalGeneratedRGBFact
-            )
+            ).union(activeSceneEnvironmentTextureSlots)
         let spatialWeightedColorBlendExternalColorSlot: Int?
         if let fact = spatialWeightedColorBlendFact,
            activeExternalProviderTextureSlots == [fact.straightColorSlot],

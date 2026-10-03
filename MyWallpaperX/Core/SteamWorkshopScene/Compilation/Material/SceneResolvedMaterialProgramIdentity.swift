@@ -322,6 +322,8 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
             return asset.path == path && asset.purpose == purpose
         case let (.userProperty(request), .materialUserProperty(property)):
             return property.propertyKey == request.key && property.purpose == purpose
+        case (.provider(.sceneEnvironment), .sceneEnvironment):
+            return purpose == .premultipliedColor
         case let (.provider(.system(expected)), .system(actual)):
             return actual.name == expected && actual.purpose == purpose
         case let (

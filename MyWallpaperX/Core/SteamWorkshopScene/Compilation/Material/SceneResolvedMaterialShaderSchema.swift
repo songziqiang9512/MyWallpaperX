@@ -736,7 +736,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         if raw.isEmpty { return nil }
         let target = RenderTargetDefault(authoredName: raw)
         switch target.admission {
-        case .typedFrameInput, .namedLayerTarget:
+        case .typedFrameInput, .sceneEnvironment, .namedLayerTarget:
             return .internalTarget(target)
         case .unadmitted:
             // Reserved-prefix defaults remain RT diagnostics, never VFS assets.

@@ -95,6 +95,7 @@ final class SceneOffscreenTextureAllocationCache {
         var access = accessCounter
         let protected = Set(candidates.map(\.key)).union(protectedKeys)
         for candidate in candidates {
+            guard next[.current(candidate.key)]?.preparationPins.isEmpty != false else { return nil }
             let previous = next.removeValue(forKey: .current(candidate.key))
             if candidate.key.retainsReplacedSubmission,
                let previous, previous.isPinned {
@@ -157,14 +158,14 @@ final class SceneOffscreenTextureAllocationCache {
         protectedGenerations: Set<UInt64>
     ) -> [ResidentKey] {
         values.compactMap { key, entry -> (ResidentKey, UInt64)? in
-            guard entry.submissionPins.isEmpty,
+            guard entry.preparationPins.isEmpty, entry.submissionPins.isEmpty,
                   !entry.isResetInvalidated, entry.sceneColorPins.isEmpty,
                   !protectedGenerations.contains(entry.allocation.generation)
             else { return nil }
             switch key {
             case .current(let current) where protectedKeys.contains(current): return nil
             case .current, .retired: break
-            case .history: return nil
+            case .history, .pending: return nil
             }
             return (key, entry.lastAccess)
         }.sorted { $0.1 < $1.1 }.map { $0.0 }
@@ -235,40 +236,49 @@ extension SceneOffscreenTextureAllocationCache {
             entry.historyPins.removeValue(forKey: identity)
             entry.sceneColorPins.remove(identity)
             residents.removeValue(forKey: key)
-            switch key {
-            case .current(.layerGraph), .current(.sharedGraphPair), .current(.sceneColor), .current(.composition), .current(.compositionGroup), .current(.environment), .current(.modelShadow):
-                residents[key] = entry
-            case .history(let graphKey, _):
-                if let history = entry.historyOnlyEntry() {
-                    residents[.history(graphKey, history.allocation.generation)] = history
-                }
-            case .retired(let generation):
-                if !entry.submissionPins.isEmpty { residents[key] = entry }
-                else if case .sceneColor = entry.allocation, !entry.sceneColorPins.isEmpty {
-                    residents[key] = entry
-                } else if let history = entry.historyOnlyEntry() {
-                    if entry.isResetInvalidated { residents[key] = history }
-                    else if case .history(let value) = history.allocation {
-                        residents[.history(value.plan.key, generation)] = history
-                    }
-                } else if !entry.isResetInvalidated,
-                          case .layerGraph = entry.allocation { residents[key] = entry }
-            case .current:
-                break
-            }
+            storeAfterPinRelease(entry, key: key, into: &residents)
             revision = UUID()
         }
+    }
+
+    // Caller holds the cache lock. Preparation protects full storage even after
+    // an external submission/history pin releases; it never fabricates history.
+    func storeAfterPinRelease(_ entry: Entry, key: ResidentKey,
+                              into values: inout [ResidentKey: Entry]) {
+        if !entry.preparationPins.isEmpty { values[key] = entry; return }
+        switch key {
+            case .current(.layerGraph), .current(.sharedGraphPair), .current(.sceneColor), .current(.composition), .current(.compositionGroup), .current(.environment), .current(.modelShadow):
+                values[key] = entry
+            case .history(let graphKey, _):
+                if let history = entry.historyOnlyEntry() {
+                    values[.history(graphKey, history.allocation.generation)] = history
+                }
+            case .retired(let generation):
+                if !entry.submissionPins.isEmpty { values[key] = entry }
+                else if case .sceneColor = entry.allocation, !entry.sceneColorPins.isEmpty {
+                    values[key] = entry
+                } else if let history = entry.historyOnlyEntry() {
+                    if entry.isResetInvalidated { values[key] = history }
+                    else if case .history(let value) = history.allocation {
+                        values[.history(value.plan.key, generation)] = history
+                    }
+                } else if !entry.isResetInvalidated,
+                          case .layerGraph = entry.allocation { values[key] = entry }
+            case .current, .pending:
+                break
+            }
     }
 
     func reset() {
         locked {
             var retained: [ResidentKey: Entry] = [:]
-            for entry in residents.values where entry.isPinned {
-                var value = !entry.submissionPins.isEmpty
+            for (key, entry) in residents where entry.isPinned {
+                var value = !entry.preparationPins.isEmpty || !entry.submissionPins.isEmpty
                     ? Optional(entry) : entry.historyOnlyEntry()
                 value?.isResetInvalidated = true
                 if let value {
-                    retained[.retired(value.allocation.generation)] = value
+                    if case .pending = key { retained[key] = value }
+                    else { retained[.retired(value.allocation.generation)] = value }
                 }
             }
             residents = retained
@@ -354,9 +364,10 @@ extension SceneOffscreenTextureAllocationCache {
         var submissionPins: [UUID: SubmissionPin] = [:]
         var historyPins: [UUID: HistoryPin] = [:]
         var sceneColorPins: Set<UUID> = []
+        var preparationPins: Set<UUID> = []
         var isResetInvalidated = false
         var lastAccess: UInt64
-        var isPinned: Bool { !submissionPins.isEmpty || !historyPins.isEmpty || !sceneColorPins.isEmpty }
+        var isPinned: Bool { !preparationPins.isEmpty || !submissionPins.isEmpty || !historyPins.isEmpty || !sceneColorPins.isEmpty }
         var historyTokens: Set<Token> {
             historyPins.values.reduce(into: Set<Token>()) {
                 $0.formUnion($1.tokens)
@@ -373,7 +384,7 @@ extension SceneOffscreenTextureAllocationCache {
             orderingContext: SceneGraphCommandQueueOrderingContext?
         ) -> Bool {
             guard let orderingContext,
-                  !isResetInvalidated,
+                  preparationPins.isEmpty, !isResetInvalidated,
                   !submissionPins.isEmpty,
                   submissionPins.count
                     < SceneResolvedMaterialInFlightCapacity.maximumSubmissions,
@@ -424,6 +435,7 @@ extension SceneOffscreenTextureAllocationCache {
     }
 
     enum ResidentKey: Hashable {
+        case pending(UUID, SceneLayerGraphTargetPlan.Key)
         case current(Key)
         case history(SceneLayerGraphTargetPlan.Key, UInt64)
         case retired(UInt64)

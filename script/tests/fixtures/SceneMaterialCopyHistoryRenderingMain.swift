@@ -92,10 +92,27 @@ private enum Harness {
             source: source,
             pipeline: pipeline
         )
+        let originalOnePhase = runCoordinatorSequence(
+            mixWeight: 0.25, exercisesInFlightBoundary: false,
+            device: device, queue: queue, source: source, pipeline: pipeline,
+            usesExternalResourceBundle: false
+        )
         let quarterScales: [Float] = [0.25, 0.4375, 0.578125]
         let threeQuarterScales: [Float] = [0.75, 0.9375, 0.984375]
         let payload: [String: Any] = [
             "metalAvailable": true,
+            "resourceBundleIdentity": coordinatorBundleIdentityChecks(
+                device: device, queue: queue, source: source, pipeline: pipeline),
+            "resourceBundleCapacity": phaseCapacityCheck(
+                device: device, queue: queue, source: source, pipeline: pipeline),
+            "environmentOverlay": phaseOverlayChecks(
+                device: device, queue: queue, source: source, pipeline: pipeline),
+            "resourcePhasePreservesOriginalPixels": zip(serialQuarter.frames, originalOnePhase.frames)
+                .allSatisfy { lhs, rhs in
+                    lhs.currentPixels == rhs.currentPixels
+                        && lhs.historyPixels == rhs.historyPixels
+                        && lhs.outputPixels == rhs.outputPixels
+                },
             "sourceCaptureIsExact": exactSourceCapture,
             "colorHistoryPublishesColor": serialQuarter.frames.allSatisfy {
                 $0.finalContent == .color(.resolved(.premultipliedAlpha))

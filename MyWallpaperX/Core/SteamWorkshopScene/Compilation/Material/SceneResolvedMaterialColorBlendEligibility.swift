@@ -149,6 +149,51 @@ nonisolated enum SceneResolvedMaterialColorBlendEligibility {
 }
 
 nonisolated extension SceneResolvedMaterialVariantCache {
+    /// Immutable launch demand; evaluating it never consults frame readiness.
+    var hasSceneEnvironmentConsumer: Bool {
+        let snapshot = launchEnvelopeCapabilitySnapshot()
+        guard snapshot.hasCachedReachability, snapshot.allEntriesReady else { return false }
+        return snapshot.variants.contains { variant in
+            variant.frontendProgram.textureBindings.contains { binding in
+                guard let sampler = variant.activeSamplers[binding.slot] else { return false }
+                return Self.selectsSceneEnvironment(template: snapshot.template,
+                    sampler: sampler, slot: binding.slot)
+            }
+        }
+    }
+
+    /// Availability may discard only an effect whose cached Program envelope
+    /// proves this exact renderer-owned source. Pair/history topology remains
+    /// GraphExecutor's independent prerequisite for previous-current fallback.
+    func provesEffectLocalSceneEnvironmentTextureFailure(slot: Int) -> Bool {
+        guard (0 ..< 8).contains(slot) else { return false }
+        let snapshot = launchEnvelopeCapabilitySnapshot()
+        guard snapshot.hasCachedReachability, snapshot.allEntriesReady,
+              snapshot.inputIdentity != nil, !snapshot.variants.isEmpty,
+              !snapshot.template.graphRole.bindings.contains(where: { $0.slot == slot })
+        else { return false }
+        var consumed = false
+        for variant in snapshot.variants {
+            let bindings = variant.frontendProgram.textureBindings.filter { $0.slot == slot }
+            guard let sampler = variant.activeSamplers[slot] else {
+                guard bindings.isEmpty else { return false }
+                continue
+            }
+            guard bindings.count == 1,
+                  Self.selectsSceneEnvironment(template: snapshot.template, sampler: sampler, slot: slot)
+            else { return false }
+            consumed = true
+        }
+        return consumed
+    }
+
+    private static func selectsSceneEnvironment(
+        template: Template, sampler: SceneResolvedMaterialShaderSchema.Sampler, slot: Int
+    ) -> Bool {
+        SceneResolvedMaterialTextureResolver.sceneEnvironmentReference(
+            template: template, sampler: sampler, slot: slot) != nil
+    }
+
     /// Pointer position is an optional frame provider. Only an envelope whose
     /// every compiled variant actively consumes the spatial-weighted profile's
     /// pointer host value may gate the complete effect as one activation unit.

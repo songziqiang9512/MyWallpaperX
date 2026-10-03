@@ -33,6 +33,33 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         return sampler.purpose(for: reference) == nil ? nil : reference
     }
 
+    static func sceneEnvironmentReference(
+        template: Template, sampler: SceneResolvedMaterialShaderSchema.Sampler, slot: Int
+    ) -> Template.TextureReference? {
+        guard template.textureSlots.indices.contains(slot), sampler.slot == slot,
+              sampler.purpose(for: .provider(.sceneEnvironment)) == .premultipliedColor
+        else { return nil }
+        if let selected = template.textureSlots[slot]?.candidates.last?.reference {
+            return selected == .provider(.sceneEnvironment) ? selected : nil
+        }
+        return sceneEnvironmentDefault(template: template, sampler: sampler, slot: slot)
+    }
+
+    static func sceneEnvironmentDefault(
+        template: Template,
+        sampler: SceneResolvedMaterialShaderSchema.Sampler,
+        slot: Int
+    ) -> Template.TextureReference? {
+        guard sampler.slot == slot, sampler.readinessCombo == nil,
+              template.textureSlots.indices.contains(slot),
+              case let .internalTarget(name)? = sampler.defaultTexture,
+              case .sceneEnvironment = name.admission else { return nil }
+        let reference = Template.TextureReference.provider(.sceneEnvironment)
+        if let authored = template.textureSlots[slot]?.candidates.last?.reference,
+           authored != reference { return nil }
+        return sampler.purpose(for: reference) == .premultipliedColor ? reference : nil
+    }
+
     /// The schema has already admitted the RT name. Only this projection
     /// binds it to a concrete consuming graph; no frame reparses authored text.
     static func renderTargetDefault(
@@ -42,6 +69,9 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         inputIdentity: Graph.TextureIdentity?
     ) -> Template.TextureReference? {
         guard sampler.slot == slot, sampler.readinessCombo == nil else { return nil }
+        if let environment = sceneEnvironmentDefault(template: template, sampler: sampler, slot: slot) {
+            return environment
+        }
         if let background = sceneBackgroundDefault(template: template, sampler: sampler, slot: slot) {
             return background
         }

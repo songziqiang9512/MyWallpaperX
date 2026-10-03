@@ -346,12 +346,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-03",
+      "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bf7325d3f6aab05259c4d681fd34fe562aacf645a5c1ed44d7c7a6789c0725e4",
+        "sourceSHA256": "6af5a24d295ce1f88529f04b9e6f45958efb7f3178ca19732f18b54eb27ee92d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对原cache的allocation recovery、保护集合和revision合同及D12路由；B作者输入仍未准入，导航复核不替代运行验收。",
+        "scope": "RF04作者环境已接入原资源/协调/合成owner；核对稳定合同与有界运行记录链接，导航复核不替代产品运行验收。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -477,12 +477,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-03",
+      "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fed4a7a4e3df626d4533a4f26e62797f9f633b84f38b974008b4c9befda3614a",
+        "sourceSHA256": "9494767e5a413fd3c9dfa270d1ec99ab91dc75179adf05988ec054bd5a59050e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "RF02 A/B稳定合同、冻结执行记录入口、角色和永久锚点迁移核对；仅文档收口，未复跑产品验收。",
+        "scope": "RF04作者环境已接入原资源/协调/合成owner；核对稳定合同与有界运行记录链接，导航复核不替代产品运行验收。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

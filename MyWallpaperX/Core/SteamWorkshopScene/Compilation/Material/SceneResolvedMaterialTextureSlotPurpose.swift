@@ -35,7 +35,7 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
             )
         }
         let directPurpose = sampler.purpose(for: candidate.reference)
-        if case .provider(.namedLayerTarget) = candidate.reference {
+        if candidate.reference.isRendererColorProvider {
             // The registry atom is the compositor's premultiplied publication.
             // A source-proven straight-color sampler is reconciled by the
             // compiled Program's typed input conversion, not by relabelling
@@ -186,6 +186,15 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
                 provenance: candidate.provenance,
                 purpose: $0
             )
+        }
+    }
+}
+
+private extension SceneResolvedMaterialTemplate.TextureReference {
+    var isRendererColorProvider: Bool {
+        switch self {
+        case .provider(.namedLayerTarget), .provider(.sceneEnvironment): true
+        default: false
         }
     }
 }

@@ -91,6 +91,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 return .namedLayerTarget(reference)
             case let .sceneBackground(consumerLayerID):
                 return .sceneBackground(consumerLayerID)
+            case .sceneEnvironment:
+                return .sceneEnvironment
             }
         case let .graph(graph):
             return .graph(graph)

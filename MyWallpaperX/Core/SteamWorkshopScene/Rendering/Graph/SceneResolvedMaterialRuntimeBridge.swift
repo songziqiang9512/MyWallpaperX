@@ -319,6 +319,10 @@ final class SceneResolvedMaterialRuntimeBridge {
         capabilities.admittedResolvedMaterialReferences
     }
 
+    func requiresSceneEnvironment(layerID: Int) -> Bool {
+        capabilities.requiresSceneEnvironment(layerID: layerID)
+    }
+
     var sceneBackgroundLayerIDs: Set<Int> {
         capabilities.sceneBackgroundLayerIDs
     }
@@ -491,16 +495,36 @@ final class SceneResolvedMaterialRuntimeBridge {
         )
     }
 
+    func prepareFrameResourceBundle(
+        plans: [SceneResolvedMaterialFrameTargetPlan],
+        pool: SceneOffscreenTexturePool,
+        commandBuffer: MTLCommandBuffer
+    ) -> SceneResolvedMaterialFrameResourceBundle? {
+        submissions.prepareFrameResourceBundle(
+            plans: plans,
+            pool: pool,
+            commandBuffer: commandBuffer
+        )
+    }
+
+    func overlayPreparedSceneEnvironment(
+        from snapshot: SceneFrameTextureRegistrySnapshot
+    ) -> Bool {
+        submissions.overlayPreparedSceneEnvironment(from: snapshot)
+    }
+
     func prepareFrame(
         _ requests: [FramePreparationRequest],
         pool: SceneOffscreenTexturePool?,
         commandBuffer: MTLCommandBuffer,
+        resourceBundle: SceneResolvedMaterialFrameResourceBundle? = nil,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) -> FramePreparationResult {
         submissions.prepareFrame(
             requests,
             pool: pool,
             commandBuffer: commandBuffer,
+            resourceBundle: resourceBundle,
             performanceTelemetry: performanceTelemetry
         )
     }

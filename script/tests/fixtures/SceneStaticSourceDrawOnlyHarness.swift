@@ -410,8 +410,12 @@ final class SceneResolvedMaterialRuntimeBridge {
         _ requests: [FramePreparationRequest],
         pool: SceneOffscreenTexturePool?,
         commandBuffer: MTLCommandBuffer,
+        resourceBundle: SceneResolvedMaterialFrameResourceBundle? = nil,
         performanceTelemetry: SceneFramePerformanceTelemetry?
-    ) -> FramePreparationResult { .ready }
+    ) -> FramePreparationResult {
+        precondition(resourceBundle == nil, "resource phase is outside this draw-only fixture")
+        return .ready
+    }
     func preparedOutputTexturesByLayerID() -> [Int: MTLTexture]? { nil }
     func preparedExternalDependencyBypassReason(layerID: Int) -> String? { nil }
     func installFrameLocalFallbacks(_ fallbacks: [Int: String]) -> Bool {

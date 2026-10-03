@@ -428,7 +428,11 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         reference: Template.TextureReference,
         purpose: SceneTextureLoadPurpose
     ) -> Failure.EffectLocalVisualFallback? {
-        optionalVisualReference(reference, purpose: purpose) ? fallback : nil
+        if reference == .provider(.sceneEnvironment),
+           purpose == .premultipliedColor, fallback == .optionalTextureUnavailable {
+            return .sceneEnvironmentUnavailable
+        }
+        return optionalVisualReference(reference, purpose: purpose) ? fallback : nil
     }
 
     private static func typedVisualFallback(
@@ -437,6 +441,10 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         reference: Template.TextureReference,
         purpose: SceneTextureLoadPurpose
     ) -> Failure.EffectLocalVisualFallback? {
+        if reference == .provider(.sceneEnvironment),
+           purpose == .premultipliedColor, optional == .optionalTextureUnavailable {
+            return .sceneEnvironmentUnavailable
+        }
         if optionalVisualReference(reference, purpose: purpose) {
             return optional
         }

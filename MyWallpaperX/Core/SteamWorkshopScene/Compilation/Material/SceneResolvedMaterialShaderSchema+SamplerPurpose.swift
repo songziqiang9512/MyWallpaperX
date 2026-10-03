@@ -200,6 +200,8 @@ extension SceneResolvedMaterialShaderSchema.Sampler {
                 return .premultipliedColor
             case .sceneBackground:
                 return mode.explicitPurpose ?? .premultipliedColor
+            case .sceneEnvironment:
+                return mode == .regular ? .premultipliedColor : nil
             case .system:
                 break
             }

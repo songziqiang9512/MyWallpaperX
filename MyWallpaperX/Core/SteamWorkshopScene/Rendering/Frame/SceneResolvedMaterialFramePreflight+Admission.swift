@@ -62,43 +62,23 @@ extension SceneMetalRenderer {
                     reasonCode: "frame-local-fallback-install-rejected"
                 )
             }
-            performanceTelemetry?.beginStage("admit-prepare-frame")
-            defer { performanceTelemetry?.endStage("admit-prepare-frame") }
-            switch imageCompositor.prepareResolvedMaterialFrame(
-                preparationRequests,
-                pool: offscreenTexturePool,
-                commandBuffer: commandBuffer,
-                performanceTelemetry: performanceTelemetry
-            ) {
-            case .ready:
-                // Observation only: splits admit-prepare-frame into the
-                // coordinator's preparation and the provider-output install so
-                // the remaining unattributed share can be located.
-                performanceTelemetry?.beginStage("admit-install-graph-outputs")
-                defer {
-                    performanceTelemetry?.endStage("admit-install-graph-outputs")
-                }
-                guard let preparedOutputs = imageCompositor
-                        .preparedResolvedMaterialOutputTexturesByLayerID(),
-                      dependencyRuntime.installPreparedGraphOutputs(
-                        preparedOutputs,
-                        frameEpoch: textureRegistry.frameEpoch
-                      ) else {
+            let resourceBundle: SceneResolvedMaterialFrameResourceBundle?
+            if preparationRequests.isEmpty {
+                resourceBundle = nil
+            } else {
+                guard let pool = offscreenTexturePool,
+                      let bundle = imageCompositor.resolvedMaterialRuntime?.prepareFrameResourceBundle(
+                        plans: preparationRequests.map(\.targetPlan), pool: pool,
+                        commandBuffer: commandBuffer) else {
                     imageCompositor.recordResolvedMaterialFramePreflightFailure(
-                        "prepared-provider-output-install-rejected"
-                    )
+                        "frame-target-plan-allocation-failed")
                     _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
-                    return .rejected(
-                        reasonCode: "prepared-provider-output-install-rejected"
-                    )
+                    return .rejected(reasonCode: "frame-target-plan-allocation-failed")
                 }
-            case .rejected:
-                _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
-                return .rejected(
-                    reasonCode: "resolved-material-frame-preparation-rejected"
-                )
+                resourceBundle = bundle
             }
-            return .ready(plans: plans)
+            return .ready(plans: plans, preparationRequests: preparationRequests,
+                resourceBundle: resourceBundle)
         case .deferred:
             _ = imageCompositor.deferResolvedMaterialFrame()
             _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
@@ -111,6 +91,51 @@ extension SceneMetalRenderer {
             return .rejected(reasonCode: reasonCode)
         }
     }
+    /// Complete the same preflight requests after mandatory resources and the
+    /// optional environment phase. Only the original coordinator publishes graph output.
+    func finalizeResolvedMaterialFrameTargets(
+        _ preparationRequests: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest],
+        resourceBundle: SceneResolvedMaterialFrameResourceBundle?,
+        pool offscreenTexturePool: SceneOffscreenTexturePool?,
+        commandBuffer: MTLCommandBuffer,
+        performanceTelemetry: SceneFramePerformanceTelemetry? = nil
+    ) -> Bool {
+        performanceTelemetry?.beginStage("admit-prepare-frame")
+        defer { performanceTelemetry?.endStage("admit-prepare-frame") }
+        switch imageCompositor.prepareResolvedMaterialFrame(
+            preparationRequests,
+            pool: offscreenTexturePool,
+            commandBuffer: commandBuffer,
+            resourceBundle: resourceBundle,
+            performanceTelemetry: performanceTelemetry
+        ) {
+        case .ready:
+            // Observation only: splits admit-prepare-frame into the
+            // coordinator's preparation and the provider-output install so
+            // the remaining unattributed share can be located.
+            performanceTelemetry?.beginStage("admit-install-graph-outputs")
+            defer {
+                performanceTelemetry?.endStage("admit-install-graph-outputs")
+            }
+            guard let preparedOutputs = imageCompositor
+                    .preparedResolvedMaterialOutputTexturesByLayerID(),
+                  dependencyRuntime.installPreparedGraphOutputs(
+                    preparedOutputs,
+                    frameEpoch: textureRegistry.frameEpoch
+                  ) else {
+                imageCompositor.recordResolvedMaterialFramePreflightFailure(
+                    "prepared-provider-output-install-rejected"
+                )
+                _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
+                return false
+            }
+        case .rejected:
+            _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
+            return false
+        }
+        return true
+    }
+
     /// A single original plain consumer, shared by the F5 batch and the
     /// author-ordered mandatory preparation. Empty means no scratch consumer.
     func compositionScratchDimensions(
@@ -171,8 +196,12 @@ extension SceneMetalRenderer {
         visibleLayerIDs: Set<Int>, orderedLayers: [SceneRenderDescriptor.Layer]
     ) -> Bool {
         orderedLayers.contains { layer in
-            guard visibleLayerIDs.contains(layer.id) || framePlans[layer.id] != nil,
-                  imageTextures.geometryProducts[layer.id] == nil,
+            guard visibleLayerIDs.contains(layer.id) || framePlans[layer.id] != nil else { return false }
+            if framePlans[layer.id] != nil,
+               imageCompositor.resolvedMaterialRuntime?.requiresSceneEnvironment(layerID: layer.id) == true {
+                return true
+            }
+            guard imageTextures.geometryProducts[layer.id] == nil,
                   let profile = baseMaterialProviderBindings.lightingProfileByLayerID[layer.id],
                   profile.reflection != nil, let asset = profile.normalAsset,
                   case .ready = SceneBaseMaterialLitCapturePayload.TextureInput.resolve(

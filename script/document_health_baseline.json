@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 525,
-      "bytes": 82166
+      "bytes": 82408
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 367,
-      "bytes": 167677
+      "bytes": 167700
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 275,
@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 66,
-      "bytes": 5763
+      "bytes": 5812
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -130,15 +130,15 @@
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
       "lines": 472,
-      "bytes": 100594
+      "bytes": 100603
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 67,
       "bytes": 13916
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
-      "lines": 122,
-      "bytes": 25164
+      "lines": 111,
+      "bytes": 20704
     },
     "docs/scene/roadmap/batch2/debug-frame-capture-lifecycle-design.md": {
       "lines": 88,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 257,
-      "bytes": 49705
+      "bytes": 48784
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -178,7 +178,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 242,
-      "bytes": 32774
+      "bytes": 32238
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,
@@ -1097,15 +1097,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e3a90ee8b514a2bbc0b9957959ab6cc3b2bfebb769935fd32c53d237920090d6",
-      "after": "b9d1c3df3cebc117466b0f3d5ece94e9af7ed34eb605184df7c9d6853f8cf1eb",
-      "owner": "scene-rf02-companion",
-      "reason": "Reconcile the implemented RF02 public companion boundary and accepted execution evidence with the existing authority; retain unknown families, frontend array rejection and measured-profile limits.",
-      "decision": "docs/scene/history/rf02-public-companion-implementation-2026-10-03.md#knowledge-handoff"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/authored-texture-coordinate-design.md",
       "before": "dd701990d386e3c125831575003b389b4ec9861c38285b903761dc3d431535ed",
       "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
@@ -1133,15 +1124,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "ffef7c9c8001fe9309897364e8bce29683159691fce0f1441f4bdcb9004f227a",
-      "after": "dafb0b8c3a9d5e557b5e78d755211d3182de2b2e729d805c64987fc852e3fd4e",
-      "owner": "Scene RF04 allocation recovery",
-      "reason": "Record the existing cache owner recovery contract after the native-quota counterexample; retain actual deinit accounting and one retry per allocation batch, without admitting authored RF04 B.",
-      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
       "before": "6af3547d0905fbf547567dd287ba885a1eba62dc0fee86862ebfbce77ff6bd1f",
       "after": "c2ad39154dbd26a71716690ca68b00a8a63c4bab2253995f215c83dd29e102f9",
@@ -1156,6 +1138,42 @@
       "after": "35b4fcaa315719ef7e05b39bc939d1f0a5917823c91b12b4685e1eaf38c9914e",
       "owner": "Scene RF04 B resource admission prototype",
       "reason": "Record actual subset and net-capacity resource experiments; retain original owners and failure semantics, with renderer integration still unadmitted.",
+      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "dafb0b8c3a9d5e557b5e78d755211d3182de2b2e729d805c64987fc852e3fd4e",
+      "after": "bee6443b127bdb392e2beacf33cfffd1bbb9ed131d8b9126a4c90858370e79fb",
+      "owner": "Scene RF04 authored environment",
+      "reason": "Replace prototype-only state with implemented authored input, actual ownership contract and bounded validation; close RF04 card and continue D1.",
+      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "fbaa7d341426965e9ad468a57cdfe07f52aafea79b8af59062e3d530efcd28fd",
+      "after": "be437097576b0b364827cc65b78d6189b7b7d7f5058780249fb7f5aa84f13763",
+      "owner": "Scene RF04 authored environment",
+      "reason": "Replace prototype-only state with implemented authored input, actual ownership contract and bounded validation; close RF04 card and continue D1.",
+      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "b9d1c3df3cebc117466b0f3d5ece94e9af7ed34eb605184df7c9d6853f8cf1eb",
+      "after": "c6101635cf718feca3523923c7f7dfffb369548d9c39d226843f3a72eaf4d2aa",
+      "owner": "Scene RF04 authored environment",
+      "reason": "Replace prototype-only state with implemented authored input, actual ownership contract and bounded validation; close RF04 card and continue D1.",
+      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+      "before": "e2723caaa3e691eabbbaf1f9c7962dbc554fba62efef275c620919234a4ae87e",
+      "after": "b286074b03ad0715d4a93cdfe0febf41345e073c0e22e7482ea74576034d6667",
+      "owner": "Scene RF04 authored environment",
+      "reason": "Replace prototype-only state with implemented authored input, actual ownership contract and bounded validation; close RF04 card and continue D1.",
       "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
     }
   ]

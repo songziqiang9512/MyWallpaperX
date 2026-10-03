@@ -252,6 +252,9 @@ extension SceneResolvedMaterialGraphExecutor {
                                 .provesEffectLocalOptionalTextureFailure(
                                     slot: slot
                                 )
+                        case .sceneEnvironmentUnavailable:
+                            proven = material.variants
+                                .provesEffectLocalSceneEnvironmentTextureFailure(slot: slot)
                         case .systemProviderPending,
                              .systemProviderUnavailable,
                              .systemProviderPurposeMismatch,

@@ -34,6 +34,22 @@ final class ScenePreparedPersistentGraphTargets {
         let commandBuffer: MTLCommandBuffer?
     }
 
+    struct AdmissionInput {
+        let historyRehydrateCopiesByEffect: [EffectKey: [HistoryRehydrateCopy]]
+        let cache: SceneOffscreenTextureAllocationCache
+        let candidate: SceneOffscreenTextureAllocationCache.Candidate
+        let reservation: SceneOffscreenTextureAllocationCache.GraphReservation
+    }
+
+    func takeAdmissionInput() -> AdmissionInput? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard isAvailable else { return nil }
+        isAvailable = false
+        return .init(historyRehydrateCopiesByEffect: historyRehydrateCopiesByEffect,
+            cache: cache, candidate: candidate, reservation: reservation)
+    }
+
     let leases: [SceneGraphRenderTargetLease]
     let historyRehydrateCopiesByEffect: [EffectKey: [HistoryRehydrateCopy]]
     private let cache: SceneOffscreenTextureAllocationCache

@@ -100,6 +100,7 @@ nonisolated extension SceneResolvedMaterialProgramFinalizer {
         case .provider(.system): "provider-system"
         case .provider(.namedLayerTarget): "provider-named-layer"
         case .provider(.sceneBackground): "provider-scene-background"
+        case .provider(.sceneEnvironment): "provider-scene-environment"
         case let .graph(identity): "graph-\(identity.kind.rawValue)"
         }
     }

@@ -309,6 +309,8 @@ private func textureSlot(
             registryIdentity = .namedLayerTarget(reference)
         case let .sceneBackground(consumerLayerID):
             registryIdentity = .sceneBackground(consumerLayerID)
+        case .sceneEnvironment:
+            fatalError("scene environment requires the real producer fixture")
         }
     case let .graph(identity):
         registryIdentity = .graph(identity)

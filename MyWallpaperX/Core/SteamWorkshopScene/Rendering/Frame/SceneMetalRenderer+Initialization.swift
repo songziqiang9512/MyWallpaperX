@@ -5,7 +5,15 @@ import simd
 
 extension SceneMetalRenderer {
     var hasPreparedReflectionConsumers: Bool {
-        baseMaterialProviderBindings.lightingProfileByLayerID.values.contains { $0.reflection != nil }
+        if baseMaterialProviderBindings.lightingProfileByLayerID.values.contains(where: {
+            $0.reflection != nil
+        }) {
+            return true
+        }
+        guard let runtime = imageCompositor.resolvedMaterialRuntime else { return false }
+        return runtime.executionLayerIDs.contains {
+            runtime.requiresSceneEnvironment(layerID: $0)
+        }
     }
 
     init?(

@@ -236,8 +236,13 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         _ requests: [Bridge.FramePreparationRequest],
         pool: SceneOffscreenTexturePool?,
         commandBuffer: MTLCommandBuffer,
+        resourceBundle: SceneResolvedMaterialFrameResourceBundle? = nil,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) -> Bridge.FramePreparationResult {
+        // Move ownership before locking. A later bundle cancel or second take
+        // cannot cancel the possession executing this frame preparation.
+        let resourcePossession = resourceBundle?.take()
+        defer { resourcePossession?.admission.cancel() }
         var emission = Emission()
         lock.lock()
         guard terminalFailureReason == nil, frameIsActive,
@@ -248,6 +253,15 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
               preparedLedgerByLayerID.isEmpty else {
             let reason = terminalFailureReason ?? (frameRequiresDrop
                 ? "frame-command-buffer-invalidated" : "frame-envelope-invalid")
+            emission = framePreparationFailureLocked([], reason: reason)
+            lock.unlock()
+            emit(emission)
+            return .rejected(reasonCode: reason)
+        }
+        guard resourceBundle == nil || resourcePossession?.isValidForFramePreparation(
+            coordinator: self, frame: frame, plans: requests.map(\.targetPlan),
+            pool: pool, commandBuffer: commandBuffer) == true else {
+            let reason = "frame-resource-bundle-mismatch"
             emission = framePreparationFailureLocked([], reason: reason)
             lock.unlock()
             emit(emission)
@@ -325,34 +339,41 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         }
         let targetAllocations = requests.map { $0.targetPlan.allocation }
         performanceTelemetry?.beginStage("admit-target-pool")
-        switch pool.preflightPersistentGraphTargets(targetAllocations) {
-        case .ready:
-            break
-        case .temporarilyBlocked:
-            let reason = "frame-target-plan-temporarily-blocked"
-            emission = framePreparationFailureLocked([], reason: reason)
-            lock.unlock()
-            emit(emission)
-            return .rejected(reasonCode: reason)
-        case let .rejected(reasonCode):
-            emission = framePreparationFailureLocked([], reason: reasonCode)
-            lock.unlock()
-            emit(emission)
-            return .rejected(reasonCode: reasonCode)
-        }
-        guard let preparedTargets = pool.preparePreflightedPersistentGraphTargets(
-            framePlans: targetAllocations
-        ) else {
-            performanceTelemetry?.endStage("admit-target-pool")
-            let reason = "frame-target-plan-allocation-failed"
-            emission = framePreparationFailureLocked([], reason: reason)
-            lock.unlock()
-            emit(emission)
-            return .rejected(reasonCode: reason)
+        let preparedTargets: [ScenePreparedPersistentGraphTargets]
+        if let resourcePossession {
+            preparedTargets = resourcePossession.targets
+        } else {
+            switch pool.preflightPersistentGraphTargets(targetAllocations) {
+            case .ready:
+                break
+            case .temporarilyBlocked:
+                let reason = "frame-target-plan-temporarily-blocked"
+                emission = framePreparationFailureLocked([], reason: reason)
+                lock.unlock()
+                emit(emission)
+                return .rejected(reasonCode: reason)
+            case let .rejected(reasonCode):
+                emission = framePreparationFailureLocked([], reason: reasonCode)
+                lock.unlock()
+                emit(emission)
+                return .rejected(reasonCode: reasonCode)
+            }
+            guard let allocated = pool.preparePreflightedPersistentGraphTargets(
+                framePlans: targetAllocations
+            ) else {
+                performanceTelemetry?.endStage("admit-target-pool")
+                let reason = "frame-target-plan-allocation-failed"
+                emission = framePreparationFailureLocked([], reason: reason)
+                lock.unlock()
+                emit(emission)
+                return .rejected(reasonCode: reason)
+            }
+            preparedTargets = allocated
         }
 
         performanceTelemetry?.endStage("admit-target-pool")
         var candidates: [PreparedFrameCandidate] = []
+        var candidateInputIndices: [Int] = []
         var provisionalTails = scheduledTails
         let externallyConsumedProviderLayerIDs = Set(requests.flatMap {
             request -> [Int] in
@@ -536,6 +557,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 emit(emission)
                 return .rejected(reasonCode: reason)
             }
+            candidateInputIndices.append(index)
             candidates.append(.init(
                 layerID: claim.layerID,
                 capabilityToken: claim.token,
@@ -563,7 +585,24 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             return .rejected(reasonCode: reason)
         }
         let commits: [Commit]
-        if candidates.isEmpty {
+        if let resourcePossession {
+            guard let committed = resourcePossession.admission.finalize(
+                selectedInputIndices: candidateInputIndices,
+                historyTokensByTarget: candidates.map { $0.prepared.historyTokensByEffect },
+                discardedHistoryEffectsByTarget: candidates.map { candidate in
+                    Set(candidate.prepared.stages.compactMap { stage in
+                        stage.discardedPersistentTargetState ? stage.effect : nil
+                    })
+                }, commandBuffer: commandBuffer
+            ) else {
+                let reason = "persistent-allocation-commit-rejected"
+                emission = framePreparationFailureLocked(candidates, reason: reason)
+                lock.unlock()
+                emit(emission)
+                return .rejected(reasonCode: reason)
+            }
+            commits = committed
+        } else if candidates.isEmpty {
             commits = []
         } else {
             guard let committed = pool.commitAndPinPersistentGraphTargets(

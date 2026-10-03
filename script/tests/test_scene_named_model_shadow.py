@@ -335,6 +335,7 @@ def typecheck_dependency_support():
 
 from script.tests import test_scene_directional_shadow_frame_owner as frame_fixture
 from script.tests import test_scene_offscreen_texture_pool as pool_fixture
+from script.tests.test_scene_resolved_material_runtime_bridge import RESOURCE_PHASE_UNAVAILABLE_HANDLE_SUPPORT
 
 ORDERED_SOURCES=list(dict.fromkeys([*DEPENDENCY_SOURCES,*frame_fixture.SOURCES]))
 
@@ -640,61 +641,12 @@ def admission_support():
         'self.device=device;staticModelResources=resources;renderDescriptor=descriptor\n  pipelineRepository=FixturePipelines(litImageLayer:SceneLitImageLayerPipeline(device:device))')
     s=s.replace('struct ColorTargetFormat {let metalPixelFormat:',
         'var camera:CameraDescriptor {.init(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:64,orthoHeight:64,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000)}\n struct ColorTargetFormat {let metalPixelFormat:')
-    return s+ADMISSION_EXTRA
+    s=s.replace('struct SceneResolvedMaterialFrameTargetPlan {}',
+        'struct SceneResolvedMaterialFrameTargetPlan {let token:SceneResolvedMaterialExecutionCapabilityCatalog.Token;let allocation:ScenePersistentGraphTargetFramePlan}')
+    return s+RESOURCE_PHASE_UNAVAILABLE_HANDLE_SUPPORT+ADMISSION_EXTRA
 
 
-ADMISSION_EXTRA=r'''
-struct FixtureProfiles {var lightingProfileByLayerID:[Int:SceneBaseMaterialLightingProfile]=[:]}
-struct FixturePipelines {let litImageLayer:SceneLitImageLayerPipeline?}
-struct SceneSpriteAnimation {}
-struct SceneMediaThumbnailTextureStore {struct Snapshot {}}
-struct SceneBaseMaterialTextureSelection {}
-struct SceneFramePerformanceTelemetry {
- func beginStage(_ name:String) {};func endStage(_ name:String) {}
-}
-struct SceneEffectTextureInput:Sendable {}
-struct SceneDocument {
- struct SceneLayerMaterialInstance {
-  let isMalformed:Bool;let combos:[String:Int];let textureSlots:[String?]
-  let userTextureInputs:[SceneEffectTextureInput?];let hasUserTextureOverride:Bool
- }
-}
-extension SceneRenderDescriptor {
- struct MaterialPassDescriptor {
-  let shaderPath:String?;let combos:[String:Int];let textureSlots:[String?]
-  let userTextureInputs:[SceneEffectTextureInput?];let passIndex:Int;let materialPath:String
- }
-}
-enum SceneBuiltinShaderIdentity {
- static func isImage(_ name:String)->Bool {fatalError("profile compiler is outside this prepared-profile probe")}
-}
-enum SceneMaterialPropertyBindingCompiler {
- static func supportsBuiltinImage(layer:SceneRenderDescriptor.Layer,instance:SceneDocument.SceneLayerMaterialInstance?,passes:[SceneRenderDescriptor.MaterialPassDescriptor])->Bool {fatalError("outside prepared-profile probe")}
- static func staticComponents(_ key:String,instance:SceneDocument.SceneLayerMaterialInstance?,pass:SceneRenderDescriptor.MaterialPassDescriptor,count:Int,fallback:[Double])->[Double]? {fatalError("outside prepared-profile probe")}
- static func emissionColor(instance:SceneDocument.SceneLayerMaterialInstance?,pass:SceneRenderDescriptor.MaterialPassDescriptor)->SIMD3<Float>? {fatalError("outside prepared-profile probe")}
- static func imageMaterialPasses(descriptor:SceneRenderDescriptor)->[Int:[SceneRenderDescriptor.MaterialPassDescriptor]] {fatalError("outside prepared-profile probe")}
-}
-struct SceneImageLayerDrawRequest {
- let layer:SceneRenderDescriptor.Layer;let dynamicValues:SceneDynamicSnapshot
- var resolvedMaterialFrameTargetPlan:SceneResolvedMaterialFrameTargetPlan?=nil
- var geometryProduct:SceneGeometryProduct?=nil;var sourceLighting:SceneBaseMaterialLitCapturePayload?=nil
-}
-enum FixturePreflight {case ready([Int:SceneResolvedMaterialFrameTargetPlan],Int,Int),deferred,rejected(reasonCode:String)}
-extension SceneMetalRenderer {
- enum ResolvedMaterialFrameAdmission {case ready(plans:[Int:SceneResolvedMaterialFrameTargetPlan]),deferred(reasonCode:String),rejected(reasonCode:String)}
- func imageModelMatrix(for layer:SceneRenderDescriptor.Layer,worldFramesByLayerID:[Int:simd_float4x4],renderSizeOverride:[Float]?,parallaxMouseNormalized:SIMD2<Float>,configuration:SceneLayerParallax.Configuration,visibleHalfExtents:SIMD2<Float>,usesPerspective:Bool)->simd_float4x4 {worldFramesByLayerID[layer.id] ?? matrix_identity_float4x4}
- func preflightResolvedMaterialFrameTargets(imageTextures:SceneBaseImageTextureSnapshot,spriteAnimations:[Int:SceneSpriteAnimation],spriteAnimationPlaybackTimes:[Int:Float],performanceTelemetry:SceneFramePerformanceTelemetry?,specializedBaseTextureSamplings:[Int:SceneTextureSampling],imagePipeline:SceneImageLayerPipeline?,offscreenTexturePool:SceneOffscreenTexturePool?,frameVisibleLayerIDs:Set<Int>,frameContext:SceneFrameContext,worldFramesByLayerID:[Int:simd_float4x4],cameraFrame:SceneParticleCameraFrame,parallaxConfiguration:SceneLayerParallax.Configuration,mainTarget:MTLTexture,commandBuffer:MTLCommandBuffer,baseMaterialSelections:inout[Int:SceneBaseMaterialTextureSelection],environmentSource:((MTLCommandBuffer)->SceneFrameTextureResource?)?,frameLightSnapshot:SceneLightSnapshot?,compositionGroupRuntime:SceneCompositionGroupFrameRuntime?)->FixturePreflight {fatalError("graph preflight outside admission sizing probe")}
-}
-extension SceneImageLayerCompositor {
- enum Preparation {case ready,rejected}
- func installResolvedMaterialFrameLocalFallbacks(_ value:Int)->Bool {fatalError("unused graph admission")}
- func recordResolvedMaterialFramePreflightFailure(_ reason:String) {fatalError("unused graph admission")}
- func endResolvedMaterialFrame(on cb:MTLCommandBuffer)->Bool {fatalError("unused graph admission")}
- func deferResolvedMaterialFrame()->Bool {fatalError("unused graph admission")}
- func prepareResolvedMaterialFrame(_ value:Int,pool:SceneOffscreenTexturePool?,commandBuffer:MTLCommandBuffer,performanceTelemetry:SceneFramePerformanceTelemetry?)->Preparation {fatalError("unused graph admission")}
- func preparedResolvedMaterialOutputTexturesByLayerID()->[Int:MTLTexture]? {fatalError("unused graph admission")}
-}
-'''
+ADMISSION_EXTRA=(Path(__file__).with_name('fixtures')/'SceneNamedModelShadowAdmissionSupport.swift').read_text(encoding='utf-8')
 
 
 def typecheck_admission_support():
@@ -924,6 +876,21 @@ def mixed_main():
     # the batch preparation call with the actual ordered owner under test.
     s=s.replace('let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:model,entries:[1:[entry]]))',
       'let descriptor=SceneRenderDescriptor(layers:[])\n  let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:model,entries:[1:[entry]]),descriptor:descriptor)')
+    s=s.replace('let plans:[Int:SceneResolvedMaterialFrameTargetPlan]=utility ? [7:.init()]:[6:.init()]',r'''
+  // Membership-only prepared-input marker; it never reaches a graph resource owner.
+  let markerLayerID=utility ? 7:6
+  let markerSource=SceneAuthoredEffectRenderPlan.TextureIdentity(kind:.layerSource,layerID:markerLayerID,effect:nil,name:nil)
+  let markerAllocation=ScenePersistentGraphTargetFramePlan(residencyDomainID:UUID(),graphPlan:.init(
+    key:.init(layerID:markerLayerID,effects:[],pairStorage:.owned),
+    pairPlan:.init(layerID:markerLayerID,baseCaptureIdentity:markerSource,baseCaptureMember:.zero,
+      transitionCount:0,effects:[],terminalMember:.zero,terminalOutputIdentity:markerSource),
+    fullFramePair:.init(descriptor:.init(extent:.init(width:target.width,height:target.height),
+      format:.rgbaBackbuffer,addressMode:.clampToEdge),zeroSlot:0,oneSlot:1),
+    pairStorage:.owned,stages:[],slots:[],residentByteCost:0,historyByteCost:0),orderingContext:nil)
+  let plans:[Int:SceneResolvedMaterialFrameTargetPlan]=utility
+    ? [7:.init(token:.init(),allocation:markerAllocation)]
+    : [6:.init(token:.init(),allocation:markerAllocation)]
+''')
     a=s.index('  let candidates=renderer.shadowDrawCandidates(');b=s.index('  let noCopy=',a)
     s=s[:a]+r'''
   var terminalCalled=false

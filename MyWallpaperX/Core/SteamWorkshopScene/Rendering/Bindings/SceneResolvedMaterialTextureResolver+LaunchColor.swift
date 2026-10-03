@@ -271,7 +271,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                           case .ready? = systemProviderStates[
                               .init(name: name, purpose: purpose)
                           ] else { return .unknownInternalGraph }
-                case .namedLayerTarget, .sceneBackground:
+                case .namedLayerTarget, .sceneBackground, .sceneEnvironment:
                     break
                 }
             }
@@ -424,7 +424,9 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                         ? .data
                         : .color(.resolved(.premultipliedAlpha))
                 )
-            case .sceneBackground:
+            case .sceneBackground, .sceneEnvironment:
+                // Provider contract only; no readiness or concrete resource is
+                // fabricated here. Frame finalization still requires publication.
                 return .init(
                     isGraphReference: false,
                     isFramebufferInput: true,
