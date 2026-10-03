@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RF07 direct product-owner checks and the pre-change terminal-output red case.
+"""RF07 terminal-output and RF04 completed-raw environment product-owner checks.
 
 GPU: python3.12 -m unittest script.tests.test_scene_persistent_color_output.ScenePersistentColorOutputTests
 
@@ -61,7 +61,7 @@ final class SceneCompositionGroupFrameRuntime {
         fatalError("terminal fixture must not reserve composition groups")
     }
     func closeAllGroupEncoders() {
-        fatalError("terminal fixture must not capture reflection prefixes")
+        fatalError("terminal fixture must not close composition groups")
     }
 }
 struct SceneMetalRenderer {
@@ -190,32 +190,90 @@ REFLECTION_PRODUCER = r'''
 import Foundation
 import Metal
 
-@main enum ReflectionProducerProbe {
+@main enum ReflectionCompletedSceneProbe {
+    typealias Coordinator = SceneResolvedMaterialSubmissionCoordinator
+    struct Frame {
+        let reflection: SceneMetalRenderer.ReflectionFrame
+        let pass: SceneMainPassEncoder
+        let commandBuffer: MTLCommandBuffer
+        let reservation: Coordinator.SceneColorReservation
+        let main: MTLTexture
+        let dynamic: SceneDynamicSnapshot
+    }
+
     static func main() throws {
         let device = MTLCreateSystemDefaultDevice()!, queue = device.makeCommandQueue()!
         let pool = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba16Float,
             maxDimension: 16, residentByteBudget: 4096)
-        func texture(_ width: Int, _ height: Int) -> MTLTexture {
+        let owner = Coordinator(device: device, capabilities: .init(admissionCandidates: [],
+            materialCatalog: .init(entries: [:], resourceDemandIssues: [])),
+            capturesExecutionObservations: false, logSink: { _ in })
+        let renderer = SceneMetalRenderer(renderDescriptor: .init(hdrEnabled: false,
+            camera: .init(clearColor: [0, 0, 0], bloom: .init(enabled: false, strength: 0,
+                threshold: 1, tint: SIMD3(1, 1, 1)))),
+            imageCompositor: .init(resolvedMaterialRuntime: owner),
+            bloomPostProcess: nil, displayMappingPostProcess: nil)
+        func texture(_ width: Int = 4, _ height: Int = 2,
+                     color: [Float16]? = nil) -> MTLTexture {
             let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Float,
                 width: width, height: height, mipmapped: false)
             d.storageMode = .shared; d.usage = [.shaderRead, .renderTarget]
-            return device.makeSceneTexture(descriptor: d)!
+            let result = device.makeSceneTexture(descriptor: d)!
+            if let color {
+                let values = Array(repeating: color, count: width * height).flatMap { $0 }
+                values.withUnsafeBytes { result.replace(region: MTLRegionMake2D(0, 0, width, height),
+                    mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: width * 8) }
+            }
+            return result
         }
-        let source = texture(4, 2)
-        var pixels: [Float16] = []
-        for _ in 0..<2 { for x in 0..<4 {
-            pixels += x < 2 ? [2, 0, 0, 0.25] : [0, 4, 0, 0.75]
-        } }
-        pixels.withUnsafeBytes { source.replace(region: MTLRegionMake2D(0, 0, 4, 2),
-            mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 32) }
-        func makeFrame(_ epoch: UInt64) -> (SceneMetalRenderer.ReflectionFrame, SceneMainPassEncoder, MTLCommandBuffer) {
+        func prepare(_ index: UInt64, _ epoch: UInt64, main: MTLTexture) -> Frame {
+            let dynamic = SceneDynamicSnapshotResolver().resolve(
+                frameIndex: index, generation: epoch, definitions: []).snapshot
+            owner.beginFrame(textureSnapshot: .init(frameEpoch: epoch, frameIndex: index, entries: [:]),
+                dynamicSnapshot: dynamic, frameInputs: .init(frameIndex: index,
+                    screenSize: CGSize(width: 4, height: 2), sceneTime: Float(index),
+                    dayTime: 0, frameTime: 1 / 60, pointerCurrentNDC: .zero, pointerPreviousNDC: .zero))
             let cb = queue.makeCommandBuffer()!
-            let pass = SceneMainPassEncoder(commandBuffer: cb, target: source,
+            // Protect actual mandatory capacity before optional history in
+            // the production pool's existing pin and residency domain.
+            let targets = pool.reserveCompositionTargets(dimensions: [(4, 2)], commandBuffer: cb)!
+            let reservation = owner.reserveSceneColor(pool: pool, width: 4, height: 2,
+                frameIndex: index, commandBuffer: cb, intent: .snapshot)!
+            let pass = SceneMainPassEncoder(commandBuffer: cb, target: main,
                 clearColor: MTLClearColorMake(0, 0, 0, 0), clearEnabled: false)
-            let frame = SceneMetalRenderer.ReflectionFrame(pool: pool, mainPass: pass,
+            let reflection = SceneMetalRenderer.ReflectionFrame(pool: pool, mainPass: pass,
                 groupRuntime: nil, commandBuffer: cb, frameEpoch: epoch)
-            frame.admit(pool.reserveCompositionTargets(dimensions: [(4, 2)], commandBuffer: cb)!)
-            return (frame, pass, cb)
+            reflection.admit(targets, sceneColor: reservation)
+            return Frame(reflection: reflection, pass: pass, commandBuffer: cb,
+                reservation: reservation, main: main, dynamic: dynamic)
+        }
+        func capture(_ value: Frame, failingBlit: Bool = false) -> SceneMetalRenderer.FrameOutcome? {
+            // Only the actual main owner determines whether its raw source
+            // has finished. The carrier does not assert fake drawing success.
+            value.reflection.mainSourceCompleted = value.pass.finishEnsuringClear()
+            if failingBlit { MWXArmBlitFault(value.commandBuffer, 1) }
+            let outcome = renderer.encodeReflectionSnapshot(value.reflection,
+                source: value.main, commandBuffer: value.commandBuffer)
+            if failingBlit { MWXArmBlitFault(value.commandBuffer, 0) }
+            return outcome
+        }
+        func seal(_ value: Frame) -> Bool {
+            renderer.encodeTerminalColor(sceneColor: nil, target: value.main,
+                offscreenTexturePool: pool, dynamicValues: value.dynamic,
+                commandBuffer: value.commandBuffer) == nil
+        }
+        func complete(_ value: Frame, status: SceneGraphExecutionGPUCompletionStatus = .completed,
+                      alreadyArmed: Bool = false) -> Bool {
+            let id = ObjectIdentifier(value.commandBuffer)
+            let observation = owner.commandBufferRecords[id]!.observationID
+            if !alreadyArmed { value.reflection.arm() }
+            value.commandBuffer.commit(); value.commandBuffer.waitUntilCompleted()
+            let succeeded = value.commandBuffer.status == .completed && value.commandBuffer.error == nil
+            precondition(succeeded)
+            // Real commands complete first. The explicit failed case injects
+            // only the existing completion seam, not a hardware device fault.
+            owner.completeCommandBuffer(identity: id, observationID: observation, status: status)
+            return succeeded
         }
         func readMip(_ source: MTLTexture, _ level: Int) -> [Float] {
             let w = max(1, source.width >> level), h = max(1, source.height >> level)
@@ -230,61 +288,182 @@ import Metal
                 from: MTLRegionMake2D(0, 0, w, h), mipmapLevel: 0) }
             return values.prefix(4).map(Float.init)
         }
+        // Self-authored measurement consumers read the product mip at distinct
+        // slots and LODs. They do not open B's authored Program sampler route.
+        let consumerLibrary = try device.makeLibrary(source: """
+            #include <metal_stdlib>
+            using namespace metal;
+            kernel void sampleHistory(texture2d<float> nearColor [[texture(1)]],
+                                      texture2d<float> farColor [[texture(7)]],
+                                      device float4* result [[buffer(0)]]) {
+                constexpr sampler s(coord::normalized, address::clamp_to_edge,
+                                    filter::linear, mip_filter::linear);
+                result[0] = nearColor.sample(s, float2(0.125, 0.5), level(0));
+                result[1] = farColor.sample(s, float2(0.5, 0.5), level(2));
+            }
+            """, options: nil)
+        let consumers = try device.makeComputePipelineState(
+            function: consumerLibrary.makeFunction(name: "sampleHistory")!)
+        func sample(_ resource: SceneFrameTextureResource, on cb: MTLCommandBuffer) -> MTLBuffer {
+            let result = device.makeBuffer(length: 32, options: .storageModeShared)!
+            let encoder = cb.makeComputeCommandEncoder()!
+            encoder.setComputePipelineState(consumers)
+            encoder.setTexture(resource.publication.texture, index: 1)
+            encoder.setTexture(resource.publication.texture, index: 7)
+            encoder.setBuffer(result, offset: 0, index: 0)
+            encoder.dispatchThreads(MTLSizeMake(1, 1, 1), threadsPerThreadgroup: MTLSizeMake(1, 1, 1))
+            encoder.endEncoding()
+            return result
+        }
+        func sampled(_ buffer: MTLBuffer) -> [Float] {
+            Array(UnsafeBufferPointer(start: buffer.contents().bindMemory(to: Float.self, capacity: 8), count: 8))
+        }
         var checks: [String: Bool] = [:]
-        let (first, firstPass, firstCB) = makeFrame(1)
-        let a = first.resolve(firstCB)!
+        let patternedMain = texture()
+        var pixels: [Float16] = []
+        for _ in 0..<2 { for x in 0..<4 {
+            pixels += x < 2 ? [2, 0, 0, 0.25] : [0, 4, 0, 0.75]
+        } }
+        pixels.withUnsafeBytes { patternedMain.replace(region: MTLRegionMake2D(0, 0, 4, 2),
+            mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 32) }
+        let first = prepare(1, 101, main: patternedMain)
+        checks["bootstrapHasNoReadableHistory"] = first.reservation.previous == nil
+            && first.reservation.previousReceipt == nil && owner.completedSceneColor == nil
+            && first.reflection.resolve(first.commandBuffer) == nil
+            && first.reflection.resolve(first.commandBuffer) == nil
+        let firstReceipt = first.reservation.producerReceipt
+        checks["receiptComesFromRealSubmission"] = firstReceipt.frameIndex == 1
+            && firstReceipt.frameEpoch == 101 && firstReceipt.executionEpoch == owner.executionEpoch
+            && firstReceipt.commandBufferObservationID == owner.commandBufferRecords[ObjectIdentifier(first.commandBuffer)]!.sourceObservationID
+            && firstReceipt.allocationGeneration == first.reservation.lease.targets.identity.generation
+            && firstReceipt.resetEpoch == pool.sceneColorResetEpoch
+        checks["terminalCapturesRaw"] = capture(first) == nil
+            && first.reflection.mainSourceCompleted && owner.preparedSceneColor?.snapshotCopied == true
+            && owner.preparedSceneColor?.displayMapped == nil
+        checks["pendingCannotPublishHistory"] = seal(first) && owner.completedSceneColor == nil
+            && owner.pendingSubmissions.count == 1 && owner.shouldDeferFrame
+        checks["firstGPUCompleted"] = complete(first)
+        checks["completedSnapshotStoresOnlyMetadata"] = owner.completedSceneColor?.producerReceipt == firstReceipt
+            && owner.completedSceneColor?.persistenceReservation == nil
+        checks["armClearsFrameHistory"] = first.reflection.snapshot == nil
+            && !first.reflection.scratchReady && first.reflection.resolve(first.commandBuffer) == nil
+
+        // Same simulation frame redraws into the other member with a distinct
+        // actual submission receipt; snapshot is not a paused raw export.
+        let second = prepare(1, 102, main: texture(color: [0, 0, 7, 1]))
+        checks["completedRawIsFrozenBeforeCurrentDraw"] = second.reservation.previous === first.reservation.raw
+            && second.reservation.previousReceipt == firstReceipt
+            && second.reservation.member != first.reservation.member && second.reservation.requiresDraw
+        let a = second.reflection.resolve(second.commandBuffer)!
         checks["fullRealMipChain"] = a.publication.texture.mipmapLevelCount == 3
-        checks["typedPublished"] = a.publication.isComplete && a.publication.requestIdentity == .sceneEnvironment
-            && a.publication.contentGeneration == 1
-        // Change the actual main source after capture. A second resolver call
-        // in this frame must preserve the original red/green prefix.
-        let clear = MTLRenderPassDescriptor()
-        clear.colorAttachments[0].texture = source
-        clear.colorAttachments[0].loadAction = .clear
-        clear.colorAttachments[0].storeAction = .store
-        clear.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 3, 1)
-        firstCB.makeRenderCommandEncoder(descriptor: clear)!.endEncoding()
-        let again = first.resolve(firstCB)!
-        checks["sameFrameSameResource"] = again.publication.texture === a.publication.texture
-            && again.resourceGeneration == a.resourceGeneration
-        precondition(firstPass.finishEnsuringClear())
-        first.arm(); firstCB.commit(); firstCB.waitUntilCompleted()
-        checks["firstCompleted"] = firstCB.status == .completed && firstCB.error == nil
+        checks["typedPublicationPreservesProducer"] = a.publication.isComplete
+            && a.publication.requestIdentity == .sceneEnvironment && a.publication.contentGeneration == 102
+            && a.publication.candidate.identity == .provider(.sceneEnvironment(frameEpoch: 102,
+                allocationGeneration: a.resourceGeneration, source: firstReceipt))
+            && a.resourceGeneration == pool.allocationCache.allocation(for: .environment(width: 4, height: 2))?.generation
+            && a.publication.texture.width == 4 && a.publication.texture.height == 2
+            && firstReceipt.frameEpoch != a.publication.contentGeneration
+        let beforeSuffix = sample(a, on: second.commandBuffer)
+        second.pass.encodeOffscreen { cb in
+            let clear = MTLRenderPassDescriptor()
+            clear.colorAttachments[0].texture = second.main
+            clear.colorAttachments[0].loadAction = .clear
+            clear.colorAttachments[0].storeAction = .store
+            clear.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 3, 1)
+            cb.makeRenderCommandEncoder(descriptor: clear)!.endEncoding()
+        }
+        let again = second.reflection.resolve(second.commandBuffer)!
+        checks["sameCommandBufferConsumersShareAtom"] = a.publication.isSameAtom(as: again.publication)
+            && a.publication.texture === again.publication.texture && a.resourceGeneration == again.resourceGeneration
+        checks["foreignCommandBufferCannotRead"] = second.reflection.resolve(queue.makeCommandBuffer()!) == nil
+        let afterSuffix = sample(again, on: second.commandBuffer)
+        let secondObservation = owner.commandBufferRecords[ObjectIdentifier(second.commandBuffer)]!.sourceObservationID
+        checks["secondTerminalAndGPUCompleted"] = capture(second) == nil && seal(second) && complete(second)
         let firstBase = readMip(a.publication.texture, 0), firstLast = readMip(a.publication.texture, 2)
-        checks["firstPrefixNotRecaptured"] = firstBase == [2, 0, 0, 0.25]
-        checks["gpuGeneratedAverage"] = firstLast == [1, 2, 0, 0.5]
+        let secondReceipt = second.reservation.producerReceipt
+        checks["currentMainDoesNotChangeHistoricalMips"] = firstBase == [2, 0, 0, 0.25]
+            && firstLast == [1, 2, 0, 0.5] && sampled(beforeSuffix) == sampled(afterSuffix)
+        checks["sameFrameRedrawHasDistinctProductionReceipt"] = secondReceipt.frameIndex == firstReceipt.frameIndex
+            && secondReceipt.commandBufferObservationID != firstReceipt.commandBufferObservationID
+            && secondReceipt.commandBufferObservationID == secondObservation
+            && secondReceipt.allocationGeneration == second.reservation.lease.targets.identity.generation
+            && secondReceipt.frameEpoch == 102 && owner.completedSceneColor?.producerReceipt == secondReceipt
+        checks["terminalIncludesLateLayerInNextRaw"] = readMip(second.reservation.raw, 0) == [0, 0, 3, 1]
 
-        let (second, secondPass, secondCB) = makeFrame(2)
-        let b = second.resolve(secondCB)!
-        checks["completionAllowsStorageReuse"] = b.publication.texture === a.publication.texture
-        checks["newFramePublication"] = b.publication.contentGeneration == 2
+        let third = prepare(2, 103, main: texture(color: [7, 0, 0, 1]))
+        let blue = third.reflection.resolve(third.commandBuffer)!
+        let nextSample = sample(blue, on: third.commandBuffer)
+        checks["completionAllowsMipStorageReuse"] = blue.publication.texture === a.publication.texture
+            && blue.publication.contentGeneration == 103
+            && blue.publication.candidate.identity == .provider(.sceneEnvironment(frameEpoch: 103,
+                allocationGeneration: blue.resourceGeneration, source: secondReceipt))
+        third.pass.encodeOffscreen { cb in
+            precondition(renderer.copySceneColor(second.reservation.raw, to: third.main, commandBuffer: cb))
+        }
+        checks["nextTerminalAndGPUCompleted"] = capture(third) == nil && seal(third) && complete(third)
+        let nextLast = readMip(blue.publication.texture, 2)
+        checks["nextReadsCompletedLateLayer"] = nextLast == [0, 0, 3, 1]
+        let latestReceipt = third.reservation.producerReceipt
+
+        let abandoned = prepare(3, 104, main: texture(color: [9, 0, 0, 1]))
+        _ = abandoned.reflection.resolve(abandoned.commandBuffer)!
+        checks["cancelCandidateWasReallySealed"] = capture(abandoned) == nil && seal(abandoned)
+            && owner.pendingSubmissions.count == 1
+        abandoned.reflection.cancel(); owner.cancelUnsubmittedFrame(on: abandoned.commandBuffer)
+        abandoned.reflection.cancel(); owner.cancelUnsubmittedFrame(on: abandoned.commandBuffer)
+        checks["cancelKeepsCompletedAndClearsFrameHistory"] = owner.completedSceneColor?.producerReceipt == latestReceipt
+            && owner.pendingSubmissions.isEmpty && !owner.shouldDeferFrame
+            && abandoned.reflection.snapshot == nil && !abandoned.reflection.scratchReady
+            && abandoned.reflection.resolve(abandoned.commandBuffer) == nil
+            && abandoned.commandBuffer.status == .notEnqueued
+
+        let failedMip = prepare(3, 105, main: texture(color: [8, 0, 0, 1]))
+        MWXArmBlitFault(failedMip.commandBuffer, 1)
+        let missing = failedMip.reflection.resolve(failedMip.commandBuffer)
+        MWXArmBlitFault(failedMip.commandBuffer, 0)
+        checks["failedMipAttemptIsNotRetried"] = missing == nil
+            && failedMip.reflection.resolve(failedMip.commandBuffer) == nil
+        checks["failedMipStillAllowsTerminalCapture"] = capture(failedMip) == nil && seal(failedMip)
+        checks["failedGPUSeamUsesRealCompletedCommands"] = complete(failedMip, status: .failed)
+        checks["failedCompletionKeepsPriorRawAndReceipt"] = owner.completedSceneColor?.producerReceipt == latestReceipt
+            && readMip(third.reservation.raw, 0) == [0, 0, 3, 1]
+
+        let failedCapture = prepare(3, 106, main: texture(color: [6, 0, 0, 1]))
+        _ = failedCapture.reflection.resolve(failedCapture.commandBuffer)!
+        checks["failedCaptureDetachesOnlySnapshot"] = capture(failedCapture, failingBlit: true) == nil
+            && owner.preparedSceneColor?.snapshotPublicationDetached == true
+            && owner.preparedSceneColor?.snapshotCopied == false
+        checks["detachedCaptureHasHealthyTerminal"] = seal(failedCapture) && complete(failedCapture)
+        checks["detachedCaptureCannotPromote"] = owner.completedSceneColor?.producerReceipt == latestReceipt
+            && readMip(third.reservation.raw, 0) == [0, 0, 3, 1]
+
+        let reset = prepare(4, 107, main: texture(color: [0, 5, 0, 1]))
+        _ = reset.reflection.resolve(reset.commandBuffer)!
+        checks["resetCandidateWasReallySealed"] = capture(reset) == nil && seal(reset)
+        reset.reflection.arm()
+        owner.invalidate(reason: .allocationReprepare); pool.reset()
+        // 2 raw x 4x2x8 + mandatory 4x2x8 + mip (8+2+1)x8.
+        checks["resetRetainsAllInFlightPins"] = pool.residentByteCost == 280
+            && owner.completedSceneColor == nil
+        checks["resetBufferReallyCompletes"] = complete(reset, alreadyArmed: true)
+        checks["resetCompletionCannotPromoteAndReleasesPins"] = owner.completedSceneColor == nil
+            && pool.residentByteCost == 0 && owner.pendingSubmissions.isEmpty
+
+        let cancelledReset = prepare(5, 108, main: texture(color: [1, 0, 0, 1]))
+        checks["newResetEpochHasNoPrior"] = cancelledReset.reservation.previous == nil
+            && cancelledReset.reservation.previousReceipt == nil
+            && cancelledReset.reservation.producerReceipt.resetEpoch != latestReceipt.resetEpoch
+        checks["cancelResetCandidateWasReallySealed"] = capture(cancelledReset) == nil && seal(cancelledReset)
         pool.reset()
-        checks["resetRetainsInFlightMipAndScratch"] = pool.residentByteCost == 152
-        precondition(secondPass.finishEnsuringClear())
-        second.arm(); secondCB.commit(); secondCB.waitUntilCompleted()
-        checks["secondCompleted"] = secondCB.status == .completed && secondCB.error == nil
-        checks["completionReleasesResetResidency"] = pool.residentByteCost == 0
-        let nextLast = readMip(b.publication.texture, 2)
-        checks["nextFrameFreshPrefix"] = nextLast == [0, 0, 3, 1]
-
-        let (cancelled, cancelPass, cancelCB) = makeFrame(3)
-        _ = cancelled.resolve(cancelCB)!
-        precondition(cancelPass.finishEnsuringClear())
-        pool.reset()
-        checks["unsubmittedCommandsRemainPinned"] = pool.residentByteCost == 152
-        cancelled.cancel(); cancelled.cancel()
-        checks["cancelReleasesExactlyOnce"] = pool.residentByteCost == 0 && cancelCB.status == .notEnqueued
-
-        let (failed, failurePass, failureCB) = makeFrame(4)
-        MWXArmBlitFault(failureCB, 1)
-        let missing = failed.resolve(failureCB)
-        MWXArmBlitFault(failureCB, 0)
-        checks["failedAttemptNotRetriedInFrame"] = missing == nil && failed.resolve(failureCB) == nil
-        precondition(failurePass.finishEnsuringClear())
-        pool.reset(); failed.cancel()
-        checks["failedAttemptCancelReleases"] = pool.residentByteCost == 0
+        checks["unsubmittedCommandsRemainPinned"] = pool.residentByteCost == 192
+        cancelledReset.reflection.cancel(); owner.cancelUnsubmittedFrame(on: cancelledReset.commandBuffer)
+        cancelledReset.reflection.cancel(); owner.cancelUnsubmittedFrame(on: cancelledReset.commandBuffer)
+        checks["cancelResetReleasesExactlyOnce"] = pool.residentByteCost == 0
+            && cancelledReset.commandBuffer.status == .notEnqueued && owner.completedSceneColor == nil
         let result: [String: Any] = ["checks": checks, "firstBase": firstBase,
             "firstLastMip": firstLast, "nextLastMip": nextLast,
+            "firstConsumerSlots": sampled(beforeSuffix), "afterSuffixConsumerSlots": sampled(afterSuffix),
+            "nextConsumerSlots": sampled(nextSample),
             "generatedMipLevels": a.publication.texture.mipmapLevelCount]
         print(String(data: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), encoding: .utf8)!)
     }
@@ -293,7 +472,7 @@ import Metal
 
 
 class SceneReflectionEnvironmentProducerTests(unittest.TestCase):
-    def test_actual_prefix_copy_generates_mips_and_obeys_submission_lifetime(self):
+    def test_completed_raw_history_generates_shared_mips_and_obeys_submission_lifetime(self):
         result = _compile_and_run("ReflectionProducer.swift", source=REFLECTION_PRODUCER)
         for name, passed in result["checks"].items():
             with self.subTest(name=name):
@@ -301,6 +480,9 @@ class SceneReflectionEnvironmentProducerTests(unittest.TestCase):
         self.assertEqual(result["firstBase"], [2, 0, 0, .25])
         self.assertEqual(result["firstLastMip"], [1, 2, 0, .5])
         self.assertEqual(result["nextLastMip"], [0, 0, 3, 1])
+        self.assertEqual(result["firstConsumerSlots"], [2, 0, 0, .25, 1, 2, 0, .5])
+        self.assertEqual(result["afterSuffixConsumerSlots"], result["firstConsumerSlots"])
+        self.assertEqual(result["nextConsumerSlots"], [0, 0, 3, 1] * 2)
 
 
 if __name__ == "__main__":

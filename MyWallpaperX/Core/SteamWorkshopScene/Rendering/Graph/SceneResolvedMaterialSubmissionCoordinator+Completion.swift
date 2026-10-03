@@ -179,9 +179,9 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 committedTails = head.finalTails
                 head.displayScratchPin?.release()
                 if let sceneColor = head.sceneColor {
-                    completeSceneColorLocked(sceneColor, succeeded: true)
-                    if capturesExecutionObservations {
-                        emission.diagnostics.append("scene-color-completed frame=\(sceneColor.frameIndex) allocation=\(sceneColor.lease.targets.identity.generation) member=\(sceneColor.member) authoredDraw=\(sceneColor.requiresDraw) mapped=\(sceneColor.displayMapped == true)")
+                    let promoted = completeSceneColorLocked(sceneColor, succeeded: true)
+                    if promoted, capturesExecutionObservations {
+                        emission.diagnostics.append("scene-color-completed frame=\(sceneColor.producerReceipt.frameIndex) allocation=\(sceneColor.lease.targets.identity.generation) member=\(sceneColor.member) authoredDraw=\(sceneColor.requiresDraw) mapped=\(sceneColor.displayMapped == true) intent=\(sceneColor.intent) sourceSubmission=\(sceneColor.producerReceipt.commandBufferObservationID)")
                     }
                 }
                 for identity in head.ledgerIDs {

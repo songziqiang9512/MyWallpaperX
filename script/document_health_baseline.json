@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 521,
-      "bytes": 80691
+      "lines": 523,
+      "bytes": 81488
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -129,16 +129,16 @@
       "bytes": 19030
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
-      "lines": 486,
-      "bytes": 108600
+      "lines": 472,
+      "bytes": 100594
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 67,
       "bytes": 13916
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
-      "lines": 57,
-      "bytes": 6000
+      "lines": 121,
+      "bytes": 25719
     },
     "docs/scene/roadmap/batch2/debug-frame-capture-lifecycle-design.md": {
       "lines": 88,
@@ -161,8 +161,8 @@
       "bytes": 22962
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
-      "lines": 263,
-      "bytes": 50548
+      "lines": 257,
+      "bytes": 49083
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -178,7 +178,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 242,
-      "bytes": 32449
+      "bytes": 32670
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,
@@ -1088,15 +1088,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "577e7a88abeb2e4724b6d63f7f817760abfa7fe8d9994437cae3fb2787a24ad0",
-      "after": "f6b1504f9d67d90f6bea0f6ebffc33035488a6a4b3589227fb935bae99fcfe3d",
-      "owner": "scene-rf02-companion",
-      "reason": "Reconcile the implemented RF02 public companion boundary and accepted execution evidence with the existing authority; retain unknown families, frontend array rejection and measured-profile limits.",
-      "decision": "docs/scene/history/rf02-public-companion-implementation-2026-10-03.md#knowledge-handoff"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "ea4be9b347a6702bbeed2391b11396316addedf5e5ee38cf128f5e1f19bdbfce",
       "after": "2f9f7e6ac41675082e7611b679174ba9373a963a3bba2e9712e09b82ba8a8fe6",
@@ -1123,15 +1114,6 @@
       "decision": "docs/scene/history/rf02-public-companion-implementation-2026-10-03.md#knowledge-handoff"
     },
     {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "2ec6b039db05006e2bd55cb0fb98c085a18600d13eab0cd63520bf2c65d44a2e",
-      "after": "9a48a2c4ffd47b921fb7f66450484a319c757bed9c2484aff931de91135e1f80",
-      "owner": "scene-rf02-companion",
-      "reason": "Reconcile the implemented RF02 public companion boundary and accepted execution evidence with the existing authority; retain unknown families, frontend array rejection and measured-profile limits.",
-      "decision": "docs/scene/history/rf02-public-companion-implementation-2026-10-03.md#knowledge-handoff"
-    },
-    {
       "section": "archives",
       "path": "docs/scene/history/rf02-authored-texture-coordinate-design-2026-10-03.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
@@ -1139,6 +1121,33 @@
       "owner": "scene-rf02-companion",
       "reason": "Preserve the approved RF02 A/B design body and all seven original anchors; only relative Markdown links are mechanically relocated, with original and preserved identities recorded.",
       "decision": "docs/scene/history/rf02-public-companion-implementation-2026-10-03.md#knowledge-handoff"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "f6b1504f9d67d90f6bea0f6ebffc33035488a6a4b3589227fb935bae99fcfe3d",
+      "after": "ffef7c9c8001fe9309897364e8bce29683159691fce0f1441f4bdcb9004f227a",
+      "owner": "Scene RF04",
+      "reason": "Replace obsolete main-prefix reflection with reviewed completed-history contract; record bounded A evidence and explicit blocked B capacity design without duplicating runtime results.",
+      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-completed-scene-environment"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
+      "before": "f58cbc44aba19bc8a20c60c24448c10b84be34db0d4792e571e8394cc895eb83",
+      "after": "442ce1df18358fe56882067f81ede942338ffc113001fc20077b4c07450c7a45",
+      "owner": "Scene RF04",
+      "reason": "Replace obsolete main-prefix reflection with reviewed completed-history contract; record bounded A evidence and explicit blocked B capacity design without duplicating runtime results.",
+      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-completed-scene-environment"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
+      "before": "9a48a2c4ffd47b921fb7f66450484a319c757bed9c2484aff931de91135e1f80",
+      "after": "f569fdf447a7ee036ae67473791b4b99bd2251832ca67336dc49f13b2a35f611",
+      "owner": "Scene RF04",
+      "reason": "Replace obsolete main-prefix reflection with reviewed completed-history contract; record bounded A evidence and explicit blocked B capacity design without duplicating runtime results.",
+      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-completed-scene-environment"
     }
   ]
 }

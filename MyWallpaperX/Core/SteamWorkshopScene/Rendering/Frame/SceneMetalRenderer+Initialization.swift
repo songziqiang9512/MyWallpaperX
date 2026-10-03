@@ -4,6 +4,10 @@ import QuartzCore
 import simd
 
 extension SceneMetalRenderer {
+    var hasPreparedReflectionConsumers: Bool {
+        baseMaterialProviderBindings.lightingProfileByLayerID.values.contains { $0.reflection != nil }
+    }
+
     init?(
         renderDescriptor: SceneRenderDescriptor,
         effectAdmissionCatalog: SceneEffectAdmissionCatalog,

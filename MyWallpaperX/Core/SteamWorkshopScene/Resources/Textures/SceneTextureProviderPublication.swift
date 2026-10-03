@@ -312,10 +312,12 @@ nonisolated struct SceneFrameTextureResource {
         ) ? result : nil
     }
 
-    /// Published only after this frame's copy and all mip-generation commands
-    /// precede reads on the same submission. It never enters persistent history.
+    /// A submission-local mip derivation of completed raw scene color. The
+    /// completion owner supplies the source identity; this frame's copy and
+    /// mip-generation commands must precede reads on the same submission.
     static func sameFrameEnvironment(
-        frameEpoch: UInt64, allocationGeneration: UInt64, texture: MTLTexture
+        frameEpoch: UInt64, allocationGeneration: UInt64, texture: MTLTexture,
+        source: SceneCompletedColorSourceIdentity
     ) -> Self? {
         guard frameEpoch > 0, texture.textureType == .type2D, texture.sampleCount == 1,
               texture.usage.contains(.shaderRead), texture.usage.contains(.renderTarget),
@@ -326,7 +328,7 @@ nonisolated struct SceneFrameTextureResource {
         let size = CGSize(width: texture.width, height: texture.height)
         let candidate = SceneTextureCandidate(texture: texture,
             identity: .provider(.sceneEnvironment(frameEpoch: frameEpoch,
-                allocationGeneration: allocationGeneration)),
+                allocationGeneration: allocationGeneration, source: source)),
             generation: .provider(contentGeneration: frameEpoch),
             purpose: .premultipliedColor, content: .color(.resolved(.premultipliedAlpha)),
             physicalSize: size, mappedSize: size, uvTransform: .identity, sampling: .linearClamp)

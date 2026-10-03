@@ -266,6 +266,32 @@
         "sceneColorHistory",
         "terminalSceneColor"
       ]
+    },
+    {
+      "id": "scene-completed-environment-input",
+      "title": "RF04 A 已完成 Scene color 的默认 F5 历史输入",
+      "owner": "scene-rf04",
+      "status": "approved",
+      "designDoc": "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
+      "design_notes": "A独立设计审查接受completedSceneColor复用、snapshot同frame轮换、intent专属seal/局部detach、drawable可读与mandatory保护；只迁移现有F5，B作者preflight阶段环仍独立blocked。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+SceneColor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool+SceneColor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ClearColor.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
+      "id": "scene-authored-environment-input",
+      "title": "RF04 B 作者 environment sampler 的preflight与局部失败",
+      "owner": "scene-rf04",
+      "status": "blocked-pending-design",
+      "designDoc": "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
+      "design_notes": "B需要解开actual Program preflight早于optional mip准入的阶段环，禁止提前抢mandatory、假ready或永久passthrough；A默认F5迁移不授予B实施。 机器门定位尚未接入该命名输入的Vocabulary入口；全文件字面content扫描会将中立研究和待设计文档误判成实现，故不以sampler字符串触发。其他B职责仍受设计判定规则约束。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneRenderTargetVocabulary.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

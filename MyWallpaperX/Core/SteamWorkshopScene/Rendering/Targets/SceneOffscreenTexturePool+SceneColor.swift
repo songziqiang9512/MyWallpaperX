@@ -2,6 +2,11 @@ import Foundation
 import Metal
 
 extension SceneOffscreenTexturePool {
+    nonisolated enum SceneColorIntent: Hashable {
+        case persistence
+        case snapshot
+    }
+
     var sceneColorResetEpoch: UUID { allocationCache.locked { allocationCache.resetEpoch } }
 
     /// Surface-local storage in the existing residency domain. Only the
@@ -9,7 +14,8 @@ extension SceneOffscreenTexturePool {
     struct SceneColorTargets {
         let first: MTLTexture
         let second: MTLTexture
-        let display: MTLTexture
+        let display: MTLTexture?
+        let intent: SceneColorIntent
         let identity: SceneOffscreenTexturePhysicalIdentity
 
         func raw(_ member: Int) -> MTLTexture { member == 0 ? first : second }
@@ -17,6 +23,7 @@ extension SceneOffscreenTexturePool {
 
     struct SceneColorLease {
         let targets: SceneColorTargets
+        let key: CacheKey
         let resetEpoch: UUID
         let retention: SceneGraphRenderTargetResidencyPin
         let submission: SceneGraphRenderTargetResidencyPin
@@ -42,14 +49,22 @@ extension SceneOffscreenTexturePool {
     /// downscale, because admission and the compositor share the same target.
     func reserveSceneColor(
         width: Int, height: Int,
+        intent: SceneColorIntent = .persistence,
         textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil
     ) -> SceneColorLease? {
+        let textureCount = intent == .persistence ? 3 : 2
         guard width > 0, height > 0, width <= maxDimension, height <= maxDimension,
-              pixelFormat == .rgba16Float,
-              let cost = byteCost(width: width, height: height, textureCount: 3),
+              [.bgra8Unorm, .rgba8Unorm, .rgba16Float].contains(pixelFormat),
+              intent == .snapshot || pixelFormat == .rgba16Float,
+              let cost = byteCost(width: width, height: height, textureCount: textureCount),
               cost <= residentByteBudget else { return nil }
-        let key = CacheKey.sceneColor(width: width, height: height)
+        let key = CacheKey.sceneColor(width: width, height: height,
+                                      pixelFormat: pixelFormat, intent: intent)
         if allocationCache.allocation(for: key) == nil {
+            guard allocationCache.locked({
+                var proposed = allocationCache.residents
+                return allocationCache.evictToFit(&proposed, incomingCost: cost)
+            }) else { return nil }
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(
                 pixelFormat: pixelFormat, width: width, height: height, mipmapped: false)
             descriptor.storageMode = .private
@@ -57,12 +72,18 @@ extension SceneOffscreenTexturePool {
             let factory = textureFactory ?? { [device] in
                 device.makeSceneTexture(descriptor: $0)
             }
-            guard let first = factory(descriptor), let second = factory(descriptor),
-                  let display = factory(descriptor),
-                  let identity = allocationCache.issuePhysicalIdentity(
-                    textures: [first, second, display]) else { return nil }
+            guard let first = factory(descriptor), let second = factory(descriptor) else { return nil }
+            let display: MTLTexture?
+            if intent == .persistence {
+                guard let target = factory(descriptor) else { return nil }
+                display = target
+            } else {
+                display = nil
+            }
+            guard let identity = allocationCache.issuePhysicalIdentity(
+                    textures: [first, second] + (display.map { [$0] } ?? [])) else { return nil }
             let targets = SceneColorTargets(first: first, second: second,
-                                           display: display, identity: identity)
+                                           display: display, intent: intent, identity: identity)
             guard allocationCache.commit([.init(key: key,
                 allocation: .sceneColor(targets), byteCost: cost)]) else { return nil }
         }
@@ -75,7 +96,7 @@ extension SceneOffscreenTexturePool {
             entry.submissionPins[submissionID] = .init(orderingContext: nil)
             allocationCache.residents[.current(key)] = entry
             allocationCache.revision = UUID()
-            return SceneColorLease(targets: targets,
+            return SceneColorLease(targets: targets, key: key,
                 resetEpoch: allocationCache.resetEpoch,
                 retention: .init(identity: retentionID, purpose: .sceneColor,
                     generation: targets.identity.generation, cache: allocationCache),

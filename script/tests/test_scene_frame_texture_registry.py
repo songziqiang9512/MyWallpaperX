@@ -88,22 +88,39 @@ enum Harness {
             return device.makeTexture(descriptor: d)!
         }
         let full = texture(4)
-        let first = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: full)!
-        let second = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 8, allocationGeneration: 3, texture: full)!
-        let replacement = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 4, texture: full)!
+        // This is a publication-unit fixture identity, not a claim that a
+        // submission owner produced this texture. Owner receipts are exercised
+        // by test_scene_persistent_color_output's actual completion chain.
+        let source = SceneCompletedColorSourceIdentity(frameIndex: 41, frameEpoch: 5,
+            executionEpoch: 2,
+            commandBufferObservationID: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
+            allocationGeneration: 9,
+            resetEpoch: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!)
+        let otherProducer = SceneCompletedColorSourceIdentity(frameIndex: source.frameIndex,
+            frameEpoch: source.frameEpoch, executionEpoch: source.executionEpoch,
+            commandBufferObservationID: UUID(uuidString: "33333333-3333-3333-3333-333333333333")!,
+            allocationGeneration: source.allocationGeneration, resetEpoch: source.resetEpoch)
+        let first = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: full, source: source)!
+        let second = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 8, allocationGeneration: 3, texture: full, source: source)!
+        let replacement = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 4, texture: full, source: source)!
+        let changedProducer = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: full, source: otherProducer)!
         let candidate = first.publication.candidate
         return [
             "environmentExactAtom": first.publication.isComplete && first.resourceGeneration == 3
                 && first.publication.requestIdentity == .sceneEnvironment && first.publication.contentGeneration == 7
-                && candidate.texture === full && candidate.identity == .provider(.sceneEnvironment(frameEpoch: 7, allocationGeneration: 3))
+                && candidate.texture === full && candidate.identity == .provider(.sceneEnvironment(frameEpoch: 7, allocationGeneration: 3, source: source))
                 && candidate.generation == .provider(contentGeneration: 7)
                 && candidate.purpose == .premultipliedColor && candidate.uvTransform == .identity,
             "environmentEpochChangesAtom": !first.publication.isSameAtom(as: second.publication),
             "environmentAllocationChangesAtom": !first.publication.isSameAtom(as: replacement.publication),
-            "environmentPartialMipRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: texture(3)) == nil,
-            "environmentUnsupportedFormatRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: texture(4, format: .rgba32Float)) == nil,
-            "environmentNoRenderTargetRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: texture(4, usage: .shaderRead)) == nil,
-            "environmentZeroEpochRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 0, allocationGeneration: 3, texture: full) == nil
+            "environmentProducerSubmissionChangesAtom": first.publication.contentGeneration == changedProducer.publication.contentGeneration
+                && first.resourceGeneration == changedProducer.resourceGeneration
+                && candidate.texture === changedProducer.publication.texture
+                && !first.publication.isSameAtom(as: changedProducer.publication),
+            "environmentPartialMipRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: texture(3), source: source) == nil,
+            "environmentUnsupportedFormatRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: texture(4, format: .rgba32Float), source: source) == nil,
+            "environmentNoRenderTargetRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: texture(4, usage: .shaderRead), source: source) == nil,
+            "environmentZeroEpochRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 0, allocationGeneration: 3, texture: full, source: source) == nil
         ]
     }
 
@@ -1343,7 +1360,7 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
 
-    def test_environment_publication_is_a_complete_frame_allocation_atom(self) -> None:
+    def test_environment_publication_identifies_consumer_and_completed_source(self) -> None:
         for key, passed in self.result["environmentPublication"].items():
             self.assertTrue(passed, key)
 

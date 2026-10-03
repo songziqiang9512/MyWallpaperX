@@ -256,14 +256,32 @@ extension SceneMetalRenderer {
         recordsEvidence: Bool
     ) {
         guard staticModelResources.pipeline != nil else { return }
-        var prepared = candidates
+        guard prepareMandatoryDepth(state: state, candidates: candidates,
+            orderedLayers: orderedLayers, visible: visible, batches: batches,
+            particlePipeline: particlePipeline, mainPass: mainPass, groups: groups,
+            leases: &leases) else { return }
+        emitModelShadow(state: state, lights: lights, orderedLayers: orderedLayers,
+            mainPass: mainPass, groups: groups, pool: pool, commandBuffer: commandBuffer,
+            recordsEvidence: recordsEvidence, mandatoryCapacity: mandatoryCapacity)
+    }
+
+    /// Both optional producers protect the real draws' leases. Particle depth
+    /// is independent of whether this scene has a static-model pipeline.
+    func prepareMandatoryDepth(
+        state: StaticModelFrame, candidates: [Int: [StaticModelDraw]],
+        orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
+        batches: [Int: [SceneParticleDrawBatch]], particlePipeline: SceneParticleMetalPipeline?,
+        mainPass: SceneMainPassEncoder, groups: SceneCompositionGroupFrameRuntime?,
+        leases: inout [SceneParticleDepthTargetLease]
+    ) -> Bool {
+        var prepared = state.prepared ?? candidates
         var complete = true
         for layer in orderedLayers where visible.contains(layer.id) {
             guard let pass = groups?.renderPass(forLayerID: layer.id) ?? (groups == nil ? mainPass : nil) else { continue }
-            if var draws = prepared[layer.id] {
+            if staticModelResources.pipeline != nil, var draws = prepared[layer.id] {
                 for index in draws.indices {
-                    let depth = state.depth(for: draws[index], pass: pass, pool: staticModelDepthTargetPool,
-                                            device: device, leases: &leases)
+                    let depth = draws[index].depth ?? state.depth(for: draws[index], pass: pass,
+                        pool: staticModelDepthTargetPool, device: device, leases: &leases)
                     draws[index].depth = depth
                     complete = complete && depth.lease != nil
                 }
@@ -272,16 +290,17 @@ extension SceneMetalRenderer {
             if let particlePipeline, let layerBatches = batches[layer.id],
                layerBatches.contains(where: { $0.renderState.requiresDepthAttachment }) {
                 let extent = pass.targetExtent
-                let lease = particlePipeline.acquireDepthTarget(width: extent.width, height: extent.height)
-                state.particleDepth[layer.id] = .init(lease: lease, clears: true)
-                if let lease { leases.append(lease) } else { complete = false }
+                if let existing = state.particleDepth[layer.id] {
+                    complete = complete && existing.lease != nil
+                } else {
+                    let lease = particlePipeline.acquireDepthTarget(width: extent.width, height: extent.height)
+                    state.particleDepth[layer.id] = .init(lease: lease, clears: true)
+                    if let lease { leases.append(lease) } else { complete = false }
+                }
             }
         }
         state.prepared = prepared
-        guard complete else { return }
-        emitModelShadow(state: state, lights: lights, orderedLayers: orderedLayers,
-            mainPass: mainPass, groups: groups, pool: pool, commandBuffer: commandBuffer,
-            recordsEvidence: recordsEvidence, mandatoryCapacity: mandatoryCapacity)
+        return complete
     }
 
     /// Preserve the original mandatory allocation prefix before optional shadow.

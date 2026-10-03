@@ -77,6 +77,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
 
     struct CommandBufferRecord {
         let observationID: UInt64
+        let sourceObservationID = UUID()
         let buffer: MTLCommandBuffer
         var terminalStatus: SceneGraphExecutionGPUCompletionStatus?
     }
@@ -113,7 +114,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     var frameSealed = false
     var frameRequiresDrop = false
     var frameWaitsForPendingSubmission = false
-    var completedSceneColor: SceneColorReservation?
+    var completedSceneColor: CompletedSceneColor?
     var preparedSceneColor: SceneColorReservation?
     var preparedDisplayScratch: (commandBufferID: ObjectIdentifier, pin: SceneGraphRenderTargetResidencyPin)?
     var committedTails: [Graph.EffectKey: Tail] = [:]

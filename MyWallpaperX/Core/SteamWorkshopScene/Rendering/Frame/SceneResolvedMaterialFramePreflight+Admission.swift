@@ -165,6 +165,22 @@ extension SceneMetalRenderer {
         return [resolved]
     }
 
+    func hasReflectionConsumers(
+        imageTextures: SceneBaseImageTextureSnapshot,
+        framePlans: [Int: SceneResolvedMaterialFrameTargetPlan],
+        visibleLayerIDs: Set<Int>, orderedLayers: [SceneRenderDescriptor.Layer]
+    ) -> Bool {
+        orderedLayers.contains { layer in
+            guard visibleLayerIDs.contains(layer.id) || framePlans[layer.id] != nil,
+                  imageTextures.geometryProducts[layer.id] == nil,
+                  let profile = baseMaterialProviderBindings.lightingProfileByLayerID[layer.id],
+                  profile.reflection != nil, let asset = profile.normalAsset,
+                  case .ready = SceneBaseMaterialLitCapturePayload.TextureInput.resolve(
+                    textureRegistry.lookup(.asset(asset))) else { return false }
+            return true
+        }
+    }
+
     func reserveOptionalEffectScratch(
         requiresShadow: Bool, pool: SceneOffscreenTexturePool, imageTextures: SceneBaseImageTextureSnapshot,
         frameContext: SceneFrameContext, framePlans: [Int: SceneResolvedMaterialFrameTargetPlan],
@@ -173,15 +189,9 @@ extension SceneMetalRenderer {
         parallax: SceneLayerParallax.Configuration, terminalExtent: (width: Int, height: Int)?,
         commandBuffer: MTLCommandBuffer
     ) -> [SceneOffscreenTexturePool.PinnedTexture]? {
-        guard requiresShadow || orderedLayers.contains(where: { layer in
-            guard visibleLayerIDs.contains(layer.id) || framePlans[layer.id] != nil,
-                  imageTextures.geometryProducts[layer.id] == nil,
-                  let profile = baseMaterialProviderBindings.lightingProfileByLayerID[layer.id],
-                  profile.reflection != nil, let asset = profile.normalAsset,
-                  case .ready = SceneBaseMaterialLitCapturePayload.TextureInput.resolve(
-                    textureRegistry.lookup(.asset(asset))) else { return false }
-            return true
-        }) else { return nil }
+        guard requiresShadow || hasReflectionConsumers(imageTextures: imageTextures,
+            framePlans: framePlans, visibleLayerIDs: visibleLayerIDs,
+            orderedLayers: orderedLayers) else { return nil }
         var dimensions: [(width: Int, height: Int)] = []
         if let terminalExtent { dimensions.append(terminalExtent) }
         for layer in orderedLayers where visibleLayerIDs.contains(layer.id) && framePlans[layer.id] == nil {

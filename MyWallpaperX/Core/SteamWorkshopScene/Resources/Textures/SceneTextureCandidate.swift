@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import Metal
 import simd
 
@@ -72,6 +73,17 @@ nonisolated struct SceneUserPropertyTextureIdentity: Hashable, Sendable {
     }
 }
 
+/// Identity of raw scene color promoted by the submission completion owner.
+/// A repeated simulation frame can produce a different submitted image.
+nonisolated struct SceneCompletedColorSourceIdentity: Hashable, Sendable {
+    let frameIndex: UInt64
+    let frameEpoch: UInt64
+    let executionEpoch: UInt64
+    let commandBufferObservationID: UUID
+    let allocationGeneration: UInt64
+    let resetEpoch: UUID
+}
+
 nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
     case dynamicText(layerID: Int)
     case graph(allocationGeneration: UInt64, physicalToken: String)
@@ -83,7 +95,8 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
         frameEpoch: UInt64
     )
     case sceneBackground(consumerLayerID: Int, frameEpoch: UInt64)
-    case sceneEnvironment(frameEpoch: UInt64, allocationGeneration: UInt64)
+    case sceneEnvironment(frameEpoch: UInt64, allocationGeneration: UInt64,
+                          source: SceneCompletedColorSourceIdentity)
     case video(layerID: Int, lifecycleEpoch: UInt64)
 
     var reportToken: String {
@@ -100,8 +113,12 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
         case let .namedLayerTarget(providerLayerID, variant, frameEpoch):
             return "named-layer-target:\(providerLayerID):"
                 + "\(variant):epoch:\(frameEpoch)"
-        case let .sceneEnvironment(epoch, generation):
+        case let .sceneEnvironment(epoch, generation, source):
             return "scene-environment:epoch:\(epoch):allocation:\(generation)"
+                + ":source:\(source.commandBufferObservationID.uuidString)"
+                + ":source-frame:\(source.frameIndex):source-epoch:\(source.frameEpoch)"
+                + ":source-execution:\(source.executionEpoch)"
+                + ":source-allocation:\(source.allocationGeneration):source-reset:\(source.resetEpoch.uuidString)"
         case let .sceneBackground(consumerLayerID, frameEpoch):
             return "scene-background:\(consumerLayerID):epoch:\(frameEpoch)"
         case let .video(layerID, lifecycleEpoch):

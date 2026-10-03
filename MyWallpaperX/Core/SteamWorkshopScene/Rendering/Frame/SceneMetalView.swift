@@ -163,6 +163,7 @@ class SceneMetalView: NSView {
         // HDR terminal export needs blits even when optional mapping pipeline
         // preparation fails: accumulating scenes safely export retained raw.
         layer.framebufferOnly = !renderDescriptor.hdrEnabled
+            && !renderer.hasPreparedReflectionConsumers
             && renderer.bloomPostProcess == nil
             && renderer.displayMappingPostProcess == nil
             && !renderDescriptor.requiresReadableFramebuffer(

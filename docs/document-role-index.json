@@ -349,9 +349,9 @@
       "lastReviewed": "2026-10-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1e8d1d2766381d7252d5b129141e427a62bf42b31a3113d346187ae811ff008f",
+        "sourceSHA256": "3b79e9d3291d661b2c220674b61b3bdc79de979a16bc6f06882e002ad9ef1f19",
         "method": "document_registry --audit + document_health --check",
-        "scope": "RF02 A/B稳定合同、冻结执行记录入口、角色和永久锚点迁移核对；仅文档收口，未复跑产品验收。",
+        "scope": "RF04 A替换旧F5 main前缀的稳定owner/失败合同，核对D12与D3路由；B作者输入仍待设计。导航复核不替代最终运行验收。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -1019,6 +1019,27 @@
         "docs/scene/roadmap/scene-compatibility-roadmap.md",
         "docs/scene/capabilities/coverage-ledger.md",
         "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf04-completed-scene-environment-implementation-2026-10-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+        "docs/scene/roadmap/batch2/copy-pass-unification-design.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf04-scene-mip-observations-2026-10-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+        "docs/scene/roadmap/batch2/copy-pass-unification-design.md"
       ]
     },
     {

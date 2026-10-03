@@ -522,7 +522,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         }
         let commandBufferIdentity = ObjectIdentifier(commandBuffer)
         guard preparedDisplayScratch.map({ $0.commandBufferID == commandBufferIdentity }) != false,
-              preparedSceneColor.map({ $0.commandBufferID == commandBufferIdentity && $0.displayMapped != nil }) != false,
+              preparedSceneColor.map({ $0.commandBufferID == commandBufferIdentity && $0.terminalOutputMarked }) != false,
               let observedBuffer = commandBufferRecords[commandBufferIdentity],
               observedBuffer.buffer === commandBuffer,
               activeTransactions.allSatisfy({ identity in

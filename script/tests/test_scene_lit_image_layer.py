@@ -33,6 +33,13 @@ import Metal
 import simd
 @main enum ReflectionHarness {
     typealias Capture = SceneBaseMaterialLitCapturePayload
+    // A typed publication-unit fixture. These numerical tests deliberately do
+    // not assert that this identity came from the runtime completion owner.
+    static let sourceReceipt = SceneCompletedColorSourceIdentity(frameIndex: 41,
+        frameEpoch: 5, executionEpoch: 2,
+        commandBufferObservationID: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
+        allocationGeneration: 9,
+        resetEpoch: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!)
     static func texture(_ device:MTLDevice, width:Int=1,height:Int=1,
                         format:MTLPixelFormat = .rgba16Float,mips:Bool=false,values:[Float]?=nil)->MTLTexture {
         let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:format,width:width,height:height,mipmapped:mips)
@@ -142,7 +149,7 @@ import simd
             let payload=Capture(pipeline:lit,lights:packed,normal:normal(device,v["normal_texel"] as! [String:Any]),
                 materialMap:map(device,v["map_texel"] as! [Int]),mapAllowedComponents:4,
                 environmentSource:{ _ in attempts+=1;return v["environment_ready"] as! Bool ?
-                    .sameFrameEnvironment(frameEpoch:1,allocationGeneration:1,texture:environment) : nil })!
+                    .sameFrameEnvironment(frameEpoch:1,allocationGeneration:1,texture:environment,source:sourceReceipt) : nil })!
             let uniform=SceneLayerFragmentUniforms(time:0,alpha:number(v,"opacity"),dependencyBlendMode:0,usesDependencyBlend:0,cursorUV:.zero,
                 sourceSampling:.zero,tint:SIMD4(SIMD3(floats(v,"tint")),(v["tint_alpha"] as? NSNumber)?.floatValue ?? 1),
                 textureFrame0:SIMD4(0,0,1,0),textureFrame1:SIMD4(0,1,0,0))
@@ -197,7 +204,7 @@ import simd
                 view:SIMD4(0,0,1,0),layerModelMatrix:matrix_identity_float4x4,normalModelMatrix:matrix_identity_float4x4)!
             p.reflection=SIMD4(1,0,0,0)
             let payload=Capture(pipeline:lit32,lights:p,normal:normal(device,["format":"bc5-rg-snorm","endpoints":[0,0]]),
-                environmentSource:{ _ in .sameFrameEnvironment(frameEpoch:1,allocationGeneration:1,texture:env) })!
+                environmentSource:{ _ in .sameFrameEnvironment(frameEpoch:1,allocationGeneration:1,texture:env,source:sourceReceipt) })!
             let accepted=SceneOffscreenEffectRenderer.captureSource(sourceTexture:source,target:target,
                 sourceUniforms:Harness.uniforms,pipeline:base32,commandBuffer:cb,sourceLighting:payload)
             cb.commit();cb.waitUntilCompleted()
@@ -224,7 +231,7 @@ import simd
             let matrix=(v["vp"] as! [[NSNumber]]).map { SIMD4<Float>($0.map(\.floatValue)) }
             p.sceneViewProjection=simd_float4x4(rows:matrix)
             let payload=Capture(pipeline:lit32,lights:p,normal:normal(device,v["normal_texel"] as! [String:Any]),
-                environmentSource:{ _ in .sameFrameEnvironment(frameEpoch:1,allocationGeneration:1,texture:env) })!
+                environmentSource:{ _ in .sameFrameEnvironment(frameEpoch:1,allocationGeneration:1,texture:env,source:sourceReceipt) })!
             precondition(SceneOffscreenEffectRenderer.captureSource(sourceTexture:source,target:target,sourceUniforms:Harness.uniforms,
                 pipeline:base32,commandBuffer:cb,sourceLighting:payload))
             cb.commit();cb.waitUntilCompleted()

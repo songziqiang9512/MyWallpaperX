@@ -244,7 +244,8 @@ extension SceneOffscreenTextureAllocationCache {
             default: false
             }
         }
-        case sceneColor(width: Int, height: Int)
+        case sceneColor(width: Int, height: Int, pixelFormat: MTLPixelFormat,
+                        intent: SceneOffscreenTexturePool.SceneColorIntent)
         /// D1 composition-group target: one isolated allocation per logical
         /// group and extent, so simultaneous groups never share storage the
         /// way the neutral composition copy target may.
@@ -279,7 +280,7 @@ extension SceneOffscreenTextureAllocationCache {
         var textureCount: Int {
             switch self {
             case .composition: 1
-            case .sceneColor: 3
+            case .sceneColor(let targets): targets.display == nil ? 2 : 3
             case .sharedGraphPair: 2
             case .graph(let lease): lease.table.residentTextureCount
             case .layerGraph(let graph): graph.textureCount

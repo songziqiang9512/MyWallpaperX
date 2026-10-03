@@ -11,10 +11,10 @@ import Metal
                 materialCatalog: .init(entries: [:], resourceDemandIssues: [])),
                 capturesExecutionObservations: false, logSink: { _ in })
         }
-        func begin(_ owner: Coordinator, _ index: UInt64, _ size: Int = 4) {
+        func begin(_ owner: Coordinator, _ index: UInt64, _ size: Int = 4, frameEpoch: UInt64? = nil) {
             let snapshot = SceneDynamicSnapshotResolver().resolve(
                 frameIndex: index, generation: index, definitions: []).snapshot
-            owner.beginFrame(textureSnapshot: .init(frameEpoch: index, frameIndex: index, entries: [:]),
+            owner.beginFrame(textureSnapshot: .init(frameEpoch: frameEpoch ?? index, frameIndex: index, entries: [:]),
                 dynamicSnapshot: snapshot, frameInputs: .init(frameIndex: index,
                     screenSize: CGSize(width: size, height: size), sceneTime: Float(index),
                     dayTime: 0, frameTime: 1 / 60, pointerCurrentNDC: .zero, pointerPreviousNDC: .zero))
@@ -22,8 +22,8 @@ import Metal
         func pool(_ budget: Int = 1_048_576) -> SceneOffscreenTexturePool {
             .init(device: device, pixelFormat: .rgba16Float, maxDimension: 64, residentByteBudget: budget)
         }
-        func texture(_ size: Int = 4) -> MTLTexture {
-            let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Float,
+        func texture(_ size: Int = 4, pixelFormat: MTLPixelFormat = .rgba16Float) -> MTLTexture {
+            let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: pixelFormat,
                 width: size, height: size, mipmapped: false)
             d.storageMode = .shared; d.usage = [.shaderRead, .renderTarget]
             return device.makeSceneTexture(descriptor: d)!
@@ -87,13 +87,14 @@ import Metal
                 precondition(pass.finishEnsuringClear())
             }
             let target = texture(size)
-            copy(reservation.raw, reservation.display, cb)
+            let scratch = reservation.display!
+            copy(reservation.raw, scratch, cb)
             if bloomEnabled {
                 precondition(bloom.encode(configuration: .init(enabled: true, strength: 1,
-                    threshold: 0.3, tint: SIMD3(1, 1, 1)), source: reservation.display, commandBuffer: cb))
+                    threshold: 0.3, tint: SIMD3(1, 1, 1)), source: scratch, commandBuffer: cb))
             }
             if mappingFault { MWXArmEncoderFault(cb, 1) }
-            let mapped = mapping.encode(source: reservation.display, target: target, commandBuffer: cb)
+            let mapped = mapping.encode(source: scratch, target: target, commandBuffer: cb)
             if mappingFault { MWXArmEncoderFault(cb, 0) }
             if !mapped { copy(reservation.raw, target, cb) }
             precondition(owner.markSceneColorOutput(on: cb, mapped: mapped))
@@ -126,7 +127,7 @@ import Metal
             complete(cb)
             alphaFrames.append(read(r.raw) + read(display))
         }
-        let alphaRaw = read(owner.completedSceneColor!.raw)
+        let alphaRaw = read(owner.completedSceneColor!.persistenceReservation!.raw)
         let (bloomR, bloomCB, bloomDisplay) = prepare(3, bloomEnabled: true)
         complete(bloomCB)
         let brightDisplay = read(bloomDisplay)
@@ -142,7 +143,7 @@ import Metal
         // Reset restores the independent lifecycle scenarios below to their seed.
         owner.invalidate(reason: .allocationReprepare); storage.reset()
         let (_, seedCB, _) = prepare(1); complete(seedCB)
-        let seededRaw = owner.completedSceneColor!.raw
+        let seededRaw = owner.completedSceneColor!.persistenceReservation!.raw
         begin(owner, 2)
         let bootstrapFaultCB = queue.makeCommandBuffer()!
         let bootstrapR = owner.reserveSceneColor(pool: storage, width: 4, height: 4,
@@ -153,20 +154,20 @@ import Metal
         checks["mainEncoderFailureDetected"] = !bootstrapPass.finishEnsuringClear()
         MWXArmEncoderFault(bootstrapFaultCB, 0)
         owner.cancelUnsubmittedFrame(on: bootstrapFaultCB); _ = owner.endFrame()
-        checks["mainEncoderFailureKeepsCompleted"] = owner.completedSceneColor?.raw === seededRaw
+        checks["mainEncoderFailureKeepsCompleted"] = owner.completedSceneColor?.persistenceReservation?.raw === seededRaw
             && !owner.shouldDeferFrame
-        let before = owner.completedSceneColor!.raw
+        let before = owner.completedSceneColor!.persistenceReservation!.raw
         let (_, cancelled, _) = prepare(2)
         owner.cancelUnsubmittedFrame(on: cancelled)
-        checks["cancelKeepsCompleted"] = owner.completedSceneColor!.raw === before
+        checks["cancelKeepsCompleted"] = owner.completedSceneColor!.persistenceReservation!.raw === before
             && owner.completedSceneColor!.frameIndex == 1 && !owner.shouldDeferFrame
         let (_, failed, _) = prepare(2)
         complete(failed, status: .failed)
-        checks["injectedFailureKeepsCompleted"] = owner.completedSceneColor!.raw === before
+        checks["injectedFailureKeepsCompleted"] = owner.completedSceneColor!.persistenceReservation!.raw === before
             && owner.completedSceneColor!.frameIndex == 1 && !owner.shouldDeferFrame
         let (recovery, recovered, _) = prepare(2)
         complete(recovered)
-        checks["nextFrameAfterFailure"] = owner.completedSceneColor!.raw === recovery.raw
+        checks["nextFrameAfterFailure"] = owner.completedSceneColor!.persistenceReservation!.raw === recovery.raw
             && owner.completedSceneColor!.frameIndex == 2
 
         let (_, staleBuffer, _) = prepare(3)
@@ -185,7 +186,7 @@ import Metal
         let (export, exportBuffer, _) = prepare(2, size: 8)
         checks["sameEpochPausedExportPins"] = !export.requiresDraw && owner.shouldDeferFrame
         complete(exportBuffer)
-        checks["pausedExportCompleted"] = owner.completedSceneColor!.raw === export.raw
+        checks["pausedExportCompleted"] = owner.completedSceneColor!.persistenceReservation!.raw === export.raw
             && !owner.shouldDeferFrame
 
         // Exercise the actual renderer terminal helper, not a reconstruction
@@ -203,7 +204,7 @@ import Metal
             let r = owner.reserveSceneColor(pool: storage, width: 8, height: 8,
                 frameIndex: frameIndex, commandBuffer: cb)!
             copy(r.previous!, r.raw, cb)
-            let previousCompleted = owner.completedSceneColor!.raw
+            let previousCompleted = owner.completedSceneColor!.persistenceReservation!.raw
             let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 3,
                 generation: 3, definitions: []).snapshot
             MWXArmBlitFault(cb, UInt(mask))
@@ -219,7 +220,7 @@ import Metal
                 checks["actualHelperBothBlitsDrop"] = outcome == .dropped(
                     reasonCode: "scene-color-display-export-unavailable")
                 owner.cancelUnsubmittedFrame(on: cb); _ = owner.endFrame()
-                checks["actualHelperDroppedOutputCannotPromote"] = owner.completedSceneColor?.raw === previousCompleted
+                checks["actualHelperDroppedOutputCannotPromote"] = owner.completedSceneColor?.persistenceReservation?.raw === previousCompleted
                     && owner.pendingSubmissions.isEmpty && !owner.shouldDeferFrame
             }
         }
@@ -274,6 +275,219 @@ import Metal
         owner.invalidate(reason: .surfaceStop); storage.reset()
         other.invalidate(reason: .surfaceStop); otherPool.reset()
         checks["stopReleasesTerminalResidency"] = storage.residentByteCost == 0 && otherPool.residentByteCost == 0
+
+        func completeOn(_ runtime: Coordinator, _ buffer: MTLCommandBuffer,
+                        status: SceneGraphExecutionGPUCompletionStatus = .completed) {
+            let identity = ObjectIdentifier(buffer)
+            let observation = runtime.commandBufferRecords[identity]!.observationID
+            buffer.commit(); buffer.waitUntilCompleted()
+            precondition(buffer.status == .completed && buffer.error == nil)
+            runtime.completeCommandBuffer(identity: identity, observationID: observation, status: status)
+        }
+        func bytes(_ source: MTLTexture) -> [UInt8] {
+            let destination = texture(source.width, pixelFormat: source.pixelFormat)
+            let buffer = queue.makeCommandBuffer()!
+            copy(source, destination, buffer); buffer.commit(); buffer.waitUntilCompleted()
+            precondition(buffer.status == .completed && buffer.error == nil)
+            let stride = source.pixelFormat == .rgba16Float ? 8 : 4
+            var result = [UInt8](repeating: 0, count: source.width * source.height * stride)
+            result.withUnsafeMutableBytes {
+                destination.getBytes($0.baseAddress!, bytesPerRow: source.width * stride,
+                    from: MTLRegionMake2D(0, 0, source.width, source.height), mipmapLevel: 0)
+            }
+            return result
+        }
+        func snapshot(_ runtime: Coordinator, _ cache: SceneOffscreenTexturePool,
+                      index: UInt64, epoch: UInt64, size: Int = 4,
+                      color: MTLClearColor, copyFault: Bool = false)
+            -> (Coordinator.SceneColorReservation, MTLCommandBuffer) {
+            begin(runtime, index, size, frameEpoch: epoch)
+            let buffer = queue.makeCommandBuffer()!
+            let value = runtime.reserveSceneColor(pool: cache, width: size, height: size,
+                frameIndex: index, commandBuffer: buffer, intent: .snapshot)!
+            let source = texture(size, pixelFormat: cache.pixelFormat)
+            let pass = SceneMainPassEncoder(commandBuffer: buffer, target: source,
+                clearColor: color, clearEnabled: true)
+            precondition(pass.finishEnsuringClear())
+            let renderer = SceneMetalRenderer(renderDescriptor: .init(hdrEnabled: false,
+                camera: .init(clearColor: [0, 0, 0], bloom: .disabled)),
+                imageCompositor: .init(resolvedMaterialRuntime: runtime),
+                bloomPostProcess: nil, displayMappingPostProcess: nil)
+            checks["snapshot-\(cache.pixelFormat.rawValue)-\(epoch)-cannotMarkDisplayOutput"] =
+                !runtime.markSceneColorOutput(on: buffer, mapped: false)
+            if copyFault { MWXArmBlitFault(buffer, 1) }
+            let copied = renderer.copySceneColor(source, to: value.raw, commandBuffer: buffer)
+            if copyFault { MWXArmBlitFault(buffer, 0) }
+            if copied { precondition(runtime.markSceneColorSnapshot(on: buffer)) }
+            else { precondition(runtime.detachPreparedSceneColorSnapshot(on: buffer)) }
+            precondition(runtime.sealFrame(on: buffer)); _ = runtime.endFrame()
+            return (value, buffer)
+        }
+        let red = MTLClearColorMake(1, 0, 0, 1)
+        let green = MTLClearColorMake(0, 1, 0, 1)
+        for format: MTLPixelFormat in [.bgra8Unorm, .rgba8Unorm, .rgba16Float] {
+            let label = "snapshot-\(format.rawValue)"
+            let runtime = coordinator()
+            let cache = SceneOffscreenTexturePool(device: device, pixelFormat: format,
+                maxDimension: 64, residentByteBudget: 1_048_576)
+            let (first, firstBuffer) = snapshot(runtime, cache, index: 7, epoch: 701, color: red)
+            checks["\(label)-firstPendingUnavailable"] = first.previous == nil && first.previousReceipt == nil
+                && first.display == nil && first.requiresDraw && runtime.completedSceneColor == nil
+                && runtime.shouldDeferFrame && !runtime.markSceneColorOutput(on: firstBuffer, mapped: false)
+            checks["\(label)-realFormatAndCount"] = first.raw.pixelFormat == format
+                && cache.residentTextureCount == 2
+                && cache.residentByteCost == 4 * 4 * (format == .rgba16Float ? 8 : 4) * 2
+            completeOn(runtime, firstBuffer)
+            let firstBytes = bytes(first.raw)
+            checks["\(label)-rawCopyPreservesColor"] = format == .rgba16Float
+                ? read(first.raw) == [1, 0, 0, 1]
+                : Array(firstBytes.prefix(4)) == (format == .bgra8Unorm ? [0, 0, 255, 255] : [255, 0, 0, 255])
+            checks["\(label)-completedMetadataOnly"] = runtime.completedSceneColor?.persistenceReservation == nil
+                && runtime.completedSceneColor?.producerReceipt == first.producerReceipt
+                && cache.allocationCache.locked { cache.allocationCache.residents.values.allSatisfy { !$0.isPinned } }
+            let (failedCandidate, failedBuffer) = snapshot(runtime, cache, index: 7, epoch: 702, color: green)
+            checks["\(label)-sameFrameUsesOtherMember"] = failedCandidate.requiresDraw
+                && failedCandidate.raw !== first.raw && failedCandidate.previous === first.raw
+                && failedCandidate.previousReceipt == first.producerReceipt
+                && failedCandidate.producerReceipt.frameIndex == first.producerReceipt.frameIndex
+                && failedCandidate.producerReceipt.frameEpoch == 702
+                && failedCandidate.producerReceipt.commandBufferObservationID
+                    != first.producerReceipt.commandBufferObservationID
+            completeOn(runtime, failedBuffer, status: .failed)
+            checks["\(label)-sameFrameFailurePreservesBytesAndIdentity"] = bytes(first.raw) == firstBytes
+                && runtime.completedSceneColor?.producerReceipt == first.producerReceipt
+                && runtime.pendingSubmissions.isEmpty && !runtime.shouldDeferFrame
+            let (second, secondBuffer) = snapshot(runtime, cache, index: 7, epoch: 703, color: green)
+            completeOn(runtime, secondBuffer)
+            let secondBytes = bytes(second.raw)
+            checks["\(label)-secondSuccessHasActualReceipt"] = secondBytes != firstBytes
+                && second.previousReceipt == first.producerReceipt
+                && runtime.completedSceneColor?.producerReceipt == second.producerReceipt
+                && second.producerReceipt.frameEpoch == 703
+            let (_, cancelledBuffer) = snapshot(runtime, cache, index: 8, epoch: 704, color: red)
+            runtime.cancelUnsubmittedFrame(on: cancelledBuffer)
+            checks["\(label)-cancelPreservesCompleted"] = bytes(second.raw) == secondBytes
+                && runtime.completedSceneColor?.producerReceipt == second.producerReceipt
+                && !runtime.shouldDeferFrame
+            let (_, detachedBuffer) = snapshot(runtime, cache, index: 8, epoch: 705,
+                color: red, copyFault: true)
+            checks["\(label)-copyFailureRetainsUntilTerminal"] = runtime.shouldDeferFrame
+                && runtime.pendingSubmissions[0].sceneColor?.snapshotPublicationDetached == true
+                && cache.allocationCache.locked { cache.allocationCache.residents.values.contains { $0.isPinned } }
+            completeOn(runtime, detachedBuffer)
+            checks["\(label)-copyFailureKeepsPrior"] = runtime.completedSceneColor?.producerReceipt == second.producerReceipt
+                && bytes(second.raw) == secondBytes && !runtime.shouldDeferFrame
+            let (_, staleBuffer) = snapshot(runtime, cache, index: 9, epoch: 706, color: red)
+            runtime.invalidate(reason: .allocationReprepare); cache.reset()
+            checks["\(label)-resetRetainsInFlightPair"] = cache.residentTextureCount == 2
+            completeOn(runtime, staleBuffer)
+            checks["\(label)-staleCompletionReleasesWithoutPromotion"] = runtime.completedSceneColor == nil
+                && cache.residentByteCost == 0 && !runtime.shouldDeferFrame
+            let (resizedSnapshot, resizedBuffer) = snapshot(runtime, cache, index: 7, epoch: 707,
+                size: 8, color: green)
+            checks["\(label)-resizeHasNoOldHistory"] = resizedSnapshot.previous == nil
+                && resizedSnapshot.previousReceipt == nil && resizedSnapshot.raw.width == 8
+            completeOn(runtime, resizedBuffer)
+            runtime.invalidate(reason: .surfaceStop); cache.reset()
+            checks["\(label)-stopReleasesSnapshotCache"] = cache.residentByteCost == 0
+
+            let rawCost = 4 * 4 * (format == .rgba16Float ? 8 : 4)
+            let exactCache = SceneOffscreenTexturePool(device: device, pixelFormat: format,
+                maxDimension: 64, residentByteBudget: rawCost * 2)
+            let exactLease = exactCache.reserveSceneColor(width: 4, height: 4, intent: .snapshot)
+            checks["\(label)-exactTwoTargetBudget"] = exactLease != nil
+                && exactCache.residentByteCost == rawCost * 2 && exactCache.residentTextureCount == 2
+            exactLease?.release(); exactCache.reset()
+            let shortCache = SceneOffscreenTexturePool(device: device, pixelFormat: format,
+                maxDimension: 64, residentByteBudget: rawCost * 2 - 1)
+            checks["\(label)-shortBudgetPublishesNothing"] = shortCache.reserveSceneColor(
+                width: 4, height: 4, intent: .snapshot) == nil && shortCache.residentTextureCount == 0
+        }
+
+        // A completed optional pair must yield to the next frame's actual
+        // mandatory scratch. No admission retry or fake history is involved.
+        let yieldingOwner = coordinator()
+        let yieldingPool = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba8Unorm,
+            maxDimension: 64, residentByteBudget: 4 * 4 * 4 * 2)
+        let (yielded, yieldedBuffer) = snapshot(yieldingOwner, yieldingPool, index: 1, epoch: 11, color: red)
+        completeOn(yieldingOwner, yieldedBuffer)
+        begin(yieldingOwner, 2, frameEpoch: 12)
+        let mandatoryBuffer = queue.makeCommandBuffer()!
+        let mandatoryScratch = yieldingOwner.reserveDisplayScratch(pool: yieldingPool, width: 4,
+            height: 4, commandBuffer: mandatoryBuffer)
+        let unavailable = yieldingOwner.reserveSceneColor(pool: yieldingPool, width: 4, height: 4,
+            frameIndex: 2, commandBuffer: mandatoryBuffer, intent: .snapshot)
+        checks["snapshotYieldsToMandatoryNextFrame"] = mandatoryScratch != nil && unavailable == nil
+            && yieldingPool.residentTextureCount == 1
+            && yieldingPool.allocationCache.allocation(for: yielded.lease.key) == nil
+        let mandatoryPass = SceneMainPassEncoder(commandBuffer: mandatoryBuffer, target: mandatoryScratch!,
+            clearColor: green, clearEnabled: true)
+        precondition(mandatoryPass.finishEnsuringClear())
+        precondition(yieldingOwner.sealFrame(on: mandatoryBuffer)); _ = yieldingOwner.endFrame()
+        completeOn(yieldingOwner, mandatoryBuffer)
+        checks["mandatoryFrameCompletesWithOptionalUnavailable"] = yieldingOwner.pendingSubmissions.isEmpty
+            && !yieldingOwner.shouldDeferFrame && bytes(mandatoryScratch!) != bytes(yielded.raw)
+        let (restarted, restartBuffer) = snapshot(yieldingOwner, yieldingPool, index: 3, epoch: 13, color: green)
+        checks["evictedSnapshotMetadataCannotBecomeReady"] = restarted.previous == nil
+            && restarted.previousReceipt == nil
+            && restarted.producerReceipt.allocationGeneration != yielded.producerReceipt.allocationGeneration
+        completeOn(yieldingOwner, restartBuffer)
+        let (availableAgain, availableBuffer) = snapshot(yieldingOwner, yieldingPool,
+            index: 4, epoch: 14, color: red)
+        checks["snapshotRestartsAfterMandatoryEviction"] = availableAgain.previous === restarted.raw
+            && availableAgain.previousReceipt == restarted.producerReceipt
+        yieldingOwner.cancelUnsubmittedFrame(on: availableBuffer)
+        yieldingOwner.invalidate(reason: .surfaceStop); yieldingPool.reset()
+
+        // Detaching a copied snapshot keeps both its encoded allocation and an
+        // independent mandatory display pin until this exact buffer completes.
+        let detachedOwner = coordinator(), detachedPool = pool()
+        begin(detachedOwner, 1)
+        let detachBuffer = queue.makeCommandBuffer()!
+        let displayPin = detachedOwner.reserveDisplayScratch(pool: detachedPool, width: 4,
+            height: 4, commandBuffer: detachBuffer)!
+        let detached = detachedOwner.reserveSceneColor(pool: detachedPool, width: 4, height: 4,
+            frameIndex: 1, commandBuffer: detachBuffer, intent: .snapshot)!
+        let detachedPass = SceneMainPassEncoder(commandBuffer: detachBuffer, target: displayPin,
+            clearColor: red, clearEnabled: true)
+        precondition(detachedPass.finishEnsuringClear())
+        copy(displayPin, detached.raw, detachBuffer)
+        precondition(detachedOwner.markSceneColorSnapshot(on: detachBuffer))
+        precondition(detachedOwner.detachPreparedSceneColorSnapshot(on: detachBuffer))
+        checks["detachPreservesMandatoryDisplayScratch"] = detachedOwner.preparedDisplayScratch != nil
+            && detachedOwner.preparedSceneColor?.snapshotPublicationDetached == true
+        precondition(detachedOwner.sealFrame(on: detachBuffer)); _ = detachedOwner.endFrame()
+        detachedPool.reset()
+        checks["detachEncodedPinsRetainedThroughTerminal"] = detachedPool.residentTextureCount == 3
+        completeOn(detachedOwner, detachBuffer)
+        checks["detachCannotPublishAndReleasesAtTerminal"] = detachedOwner.completedSceneColor == nil
+            && detachedPool.residentByteCost == 0 && !detachedOwner.shouldDeferFrame
+
+        let exactPersistence = pool(4 * 4 * 8 * 3)
+        let exactPersistenceLease = exactPersistence.reserveSceneColor(width: 4, height: 4)
+        checks["persistenceStillRequiresThreeTargets"] = exactPersistenceLease?.targets.display != nil
+            && exactPersistence.residentTextureCount == 3 && exactPersistence.residentByteCost == 4 * 4 * 8 * 3
+        exactPersistenceLease?.release(); exactPersistence.reset()
+
+        let unmarkedOwner = coordinator(), unmarkedPool = pool()
+        begin(unmarkedOwner, 1)
+        let unmarkedBuffer = queue.makeCommandBuffer()!
+        let unmarked = unmarkedOwner.reserveSceneColor(pool: unmarkedPool, width: 4, height: 4,
+            frameIndex: 1, commandBuffer: unmarkedBuffer, intent: .snapshot)
+        checks["snapshotCannotSealWithoutTerminalCopy"] = unmarked != nil
+            && !unmarkedOwner.sealFrame(on: unmarkedBuffer)
+            && unmarkedOwner.completedSceneColor == nil
+        _ = unmarkedOwner.endFrame(); unmarkedPool.reset()
+        begin(unmarkedOwner, 2)
+        let persistenceBuffer = queue.makeCommandBuffer()!
+        let persistence = unmarkedOwner.reserveSceneColor(pool: unmarkedPool, width: 4, height: 4,
+            frameIndex: 2, commandBuffer: persistenceBuffer)
+        checks["snapshotAPIsCannotDetachMandatoryPersistence"] = persistence != nil
+            && !unmarkedOwner.markSceneColorSnapshot(on: persistenceBuffer)
+            && !unmarkedOwner.detachPreparedSceneColorSnapshot(on: persistenceBuffer)
+            && unmarkedOwner.preparedSceneColor?.intent == .persistence
+        unmarkedOwner.cancelUnsubmittedFrame(on: persistenceBuffer); _ = unmarkedOwner.endFrame()
+        unmarkedPool.reset()
         let largePool = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba16Float,
             maxDimension: 8192, residentByteBudget: 128 * 1024 * 1024)
         let largeSource = texture(2056), largeCB = queue.makeCommandBuffer()!

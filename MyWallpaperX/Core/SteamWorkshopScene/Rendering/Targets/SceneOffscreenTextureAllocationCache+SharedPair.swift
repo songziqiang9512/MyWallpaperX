@@ -30,8 +30,17 @@ struct SceneOffscreenTextureAllocationCandidate {
             texture.width == width && texture.height == height
         case let (.compositionGroup(_, width, height), .composition(texture, _)):
             texture.width == width && texture.height == height
-        case let (.sceneColor(width, height), .sceneColor(targets)):
-            targets.first.width == width && targets.first.height == height
+        case let (.sceneColor(width, height, pixelFormat, intent), .sceneColor(targets)):
+            targets.intent == intent
+                && targets.first.width == width && targets.first.height == height
+                && targets.first.pixelFormat == pixelFormat
+                && targets.second.width == width && targets.second.height == height
+                && targets.second.pixelFormat == pixelFormat
+                && targets.first.mipmapLevelCount == 1 && targets.second.mipmapLevelCount == 1
+                && (intent == .snapshot ? targets.display == nil : targets.display.map {
+                    $0.width == width && $0.height == height
+                        && $0.pixelFormat == pixelFormat && $0.mipmapLevelCount == 1
+                } == true)
         case (.sharedGraphPair, .sharedGraphPair): true
         case (.graph(let effect), .graph(let lease)):
             lease.table.plan.output.effect == effect

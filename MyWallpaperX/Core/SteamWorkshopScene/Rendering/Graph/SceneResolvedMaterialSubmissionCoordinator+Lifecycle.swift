@@ -60,7 +60,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 as: .failed(reasonCode: reason.rawValue, gpu: nil)
             ))
         }
-        completedSceneColor?.lease.retention.release()
+        completedSceneColor?.persistenceReservation?.lease.retention.release()
         completedSceneColor = nil
         let committedPins = committedTails.values.compactMap(\.historyPin)
         if pendingSubmissions.isEmpty {

@@ -42,21 +42,15 @@ prepared root、无 authored child、单个 supported 确定性 schedule 的 pla
 
 RF03 连续排放后继已独立验收：缺省/0 duration四方法和显式非法duration边界已闭合，修前反例、最终App与证据边界见[独立执行记录](../../history/rf03-particle-playback-implementation-2026-10-02.md#rf03-continuous)。显式burst未随连续排放片开放；其独立后继现已完成调用期真实出生事务与最终App验证，冻结范围、审查修复和HEAD既有失败仅见[显式出生记录](../../history/rf03-particle-playback-implementation-2026-10-02.md#rf03-explicit-emission)，已获独立终审ACCEPT并随该职责批提交。后续选序见[兼容路线](../scene-compatibility-roadmap.md#batch-2-后继选序2026-10-02)；不重复创建粒子模拟或播放owner。
 
-### RF04 — D12 mip触发与快照语义先定案
+### RF04 — D12 已完成画面的共享 mip 输入
 
-**owner / 输入输出。** 既有graph准备生成source version→mip snapshot/generation→consumer依赖；lease/allocation/publication仍唯一。SceneGraphResourcePassEncoder降低明确copy或mip生成操作，terminal compositor只消费末结果。
+**最小结果 / owner。** 合法作者 `_rt_MipMappedFrameBuffer` 与默认 F5 反射共享历史 scene color 派生的完整 mip，资源不随 sampler 槽号变义。沿现有 prepared Program、`completedSceneColor`、pool pin、`ReflectionFrame` 和唯一 terminal 完成；不新增历史或输出 owner。
 
-**首断点。** 名称 owner 是 `Compilation/Material/SceneRenderTargetVocabulary.swift:49–59`：FullFrameBuffer/imageLayerComposite 已准入，MipMappedFrameBuffer 仍为 typed unadmitted；Schema:23 仅持 admission。普通 authored FBO allocator（`Rendering/Targets/SceneGraphRenderTargetTable.swift:199/224`）及 resource transfer（`Rendering/Graph/SceneGraphResourcePassEncoder.swift:285/318`）仍为 single-mip，但默认2D反射 F5 已在 `Rendering/Frame/SceneMetalRenderer+ClearColor.swift:29–53` 的实际 source consumer 前捕获全局 raw main 前缀并生成完整 mips，同帧共享、下一帧重建，稳定合同见[架构§3.3](../../architecture/runtime-architecture.md#33-保留事务安全不扩大视觉失败半径)。这不表示作者 hidden/default MipMappedFrameBuffer 已准入；两个 source 入口仍在 encoder 前 resolve，缺合法名称和读取相位证据时保持局部拒绝。authored copy 的原序和现有 transfer owner 不重写。
+**当前差距。** A已迁移默认F5至完成raw历史，Debug、真实owner/GPU、后置红层与late named/depth组合App及产品独审均通过，冻结身份和范围见[实施记录](../../history/rf04-completed-scene-environment-implementation-2026-10-03.md)。vocabulary仍未准入作者名称；B的terminal独立mip与精确mandatory容量预检方案在[D12 RF04设计](copy-pass-unification-design.md#rf04-completed-scene-environment)审查，未获实验与设计验收前保持blocked。A通过不等于B可用；新官方有界历史呈现证据已取代旧main前缀策略。
 
-**前置 / 范围 / 不做。** [D12](copy-pass-unification-design.md)批准typed transfer边界，不证明mip消费者全部语义。先用合法自有 hidden/default consumer 与公开/中性行为协议固定实际 source/read phase、尺寸、level、颜色/alpha/data用途及source覆写命运；无证据不能把mip生成绑到slot3或“copy=true”。D8身份是前置，颜色域与D2一致。link别名、authored copy、末跳已有路径先审计alias/snapshot与版本，不因名字不同做物理copy；无消费者零生产。未知mip/颜色profile保持准入拒绝。
+**实施次序。** A已扩展原完成raw的按需snapshot与真实producer receipt并迁移F5。B先验证精确容量预检与同CB读旧/写新generation隔离，再接入真实作者Program和局部可恢复fallback；作者sampler与F5共用publication后退役A消费期copy/mip。普通 authored FBO 自动 mip、data/cube/array、未知名称及官方 HDR/alpha/kernel parity 不在本片开放。
 
-**正反验收。** 不同mip独立色格，copy前后覆写source区分alias与snapshot；精确subresource/extent/format、1×1 probe反例、self-copy/hazard、mip/slice越界、history pin、resize、encoder/GPU失败、反序completion、无consumer成本与next-frame版本。bit-copy精确字节，明确render transfer用预冻结容差；不在copy重复blend/tone map，不绕terminal自行present。
-
-**依赖 / 复杂度。** 必须先有区分 alias/snapshot/mip 读取时点的合法 consumer 证据，RF01 身份和颜色域合同就绪；高，涉及 graph/version/lease 与 GPU subresource 生命周期。
-
-**退役。** 每个已开放触发profile的producer→transfer→consumer/版本生命周期闭合，旧重复路径与预算下降，稳定graph合同接管后删卡。
-
-**下一取证批。** 与RF02共用已识别Windows环境，但分别冻结输入。公开ordinary FBO与texSample2DLod不足以证明自动mip生成；先让自有effect实际使用候选hidden/default target，以普通纹理为control验证名称准入，再分别改变frame/layer/effect/pass颜色、FBO extent、LOD频率格及source后续覆盖，区分读取相位、alias/snapshot和level可用性。slot置换必须不改变资源语义；颜色/alpha/数据用途另测。只有实际合法consumer及前述事实定案后扩D12，不凭`_rt_`或槽3生成资源。
+**验收 / 停止。** Debug、实际 owner 生命周期/GPU 及隔离 App 可见门，最终冻结独审后按职责提交；未获真实资源不发布 ready，optional 失败保留健康画面。完成片移交稳定合同并撤销旧前缀路径，D12 其他 copy 触发点另审；随后执行 D1 固定成员差分，不继续机械增加本轮静态截图。
 
 ### RF05 — 既有能力补真正跨层/跨屏反例
 
@@ -180,7 +174,7 @@ hidden image/solid source-only named albedo沿同一当前纹理、world、cover
 | render-6 / gap | `MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift:257`、`:312`；`Compilation/Material/SceneResolvedMaterialShaderSchema.swift:316` | lexical/annotation/schema/reflection已存在并支持PASS。RF02公开0…7 Rotation/Translation 已闭合有界host链，未公开uniform另需具体合法输入；Mirage缺PASS不继承。 |
 | render-7 / mirage-specific | `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer.swift:454` | 最近owner为我方prepared ABI验证；隔离HLSL packoffset/glslang workaround。 |
 | render-8 / mirage-specific | `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramIdentity.swift:1` | 我方Program identity已独立；隔离Vulkan缓存键字节/哈希算法。 |
-| render-9 / gap | `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlanner.swift:317`；`Rendering/Graph/SceneGraphResourcePassEncoder.swift:105`；`Rendering/Composition/SceneFramebufferSnapshot.swift:43` | authored copy已实现；mip snapshot缺生产/身份/trigger合同→RF04待证后实施。 |
+| render-9 / gap | `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlanner.swift:317`；`Rendering/Graph/SceneGraphResourcePassEncoder.swift:105`；`Rendering/Composition/SceneFramebufferSnapshot.swift:43` | authored copy已实现；mip源/相位证据已独审→RF04 A完成历史迁移并获有界产品独审，B作者绑定待容量预检实验及设计验收。 |
 
 ### particle（10）
 

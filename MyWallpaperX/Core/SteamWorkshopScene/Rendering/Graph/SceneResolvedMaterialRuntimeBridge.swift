@@ -292,12 +292,20 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
 
     func reserveSceneColor(pool: SceneOffscreenTexturePool, width: Int, height: Int,
-                           frameIndex: UInt64, commandBuffer: MTLCommandBuffer)
+                           frameIndex: UInt64, commandBuffer: MTLCommandBuffer,
+                           intent: SceneOffscreenTexturePool.SceneColorIntent = .persistence)
         -> SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation? {
         submissions.reserveSceneColor(pool: pool, width: width, height: height,
-                                      frameIndex: frameIndex, commandBuffer: commandBuffer)
+                                      frameIndex: frameIndex, commandBuffer: commandBuffer, intent: intent)
     }
 
+    func markSceneColorSnapshot(on commandBuffer: MTLCommandBuffer) -> Bool {
+        submissions.markSceneColorSnapshot(on: commandBuffer)
+    }
+
+    func detachPreparedSceneColorSnapshot(on commandBuffer: MTLCommandBuffer) -> Bool {
+        submissions.detachPreparedSceneColorSnapshot(on: commandBuffer)
+    }
 
     var runtimeDispositionSubjects: [ExactEffectSubject] {
         capabilities.runtimeDispositionOwnerships.flatMap(\.subjects)

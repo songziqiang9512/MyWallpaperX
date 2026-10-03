@@ -162,6 +162,7 @@ extension SceneMetalRenderer {
                 worldFrames: frameWorldFrames, snapshot: frameContext.dynamicValues,
                 groups: compositionGroupRuntime) : nil
         var scratchReady = false
+        var optionalScratch: [SceneOffscreenTexturePool.PinnedTexture]?
         if let pool = offscreenTexturePool,
            let targets = reserveOptionalEffectScratch(requiresShadow: shadowCandidates != nil,
             pool: pool, imageTextures: imageTextures,
@@ -171,7 +172,7 @@ extension SceneMetalRenderer {
             terminalExtent: sceneColor == nil && displayMappingPostProcess != nil
                 ? (drawable.texture.width, drawable.texture.height) : nil,
             commandBuffer: commandBuffer) {
-            reflection.admit(targets); scratchReady = true
+            optionalScratch = targets; scratchReady = true
         }
         if scratchReady, let shadowCandidates, let pool = offscreenTexturePool {
             prepareModelShadow(state: modelFrame, candidates: shadowCandidates, lights: shadowLights,
@@ -189,6 +190,35 @@ extension SceneMetalRenderer {
                         mainPass: mainPass, groups: compositionGroupRuntime)
                 },
                 recordsEvidence: SceneDesktopWallpaperHost.usesDebugEvidenceWindow && frameContext.frameIndex <= 2)
+        }
+        if let targets = optionalScratch {
+            var history: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?
+            // The late named-shadow owner prepares its own ordered depth set.
+            // Do not pre-acquire leases that it would replace on this frame.
+            if !preparesNamedModelShadow,
+               hasReflectionConsumers(imageTextures: imageTextures,
+                framePlans: resolvedMaterialFrameTargetPlans, visibleLayerIDs: frameVisibleLayerIDs,
+                orderedLayers: orderedLayers),
+               let pool = offscreenTexturePool,
+               let candidates = shadowDrawCandidates(orderedLayers: orderedLayers,
+                visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,
+                snapshot: frameContext.dynamicValues, groups: compositionGroupRuntime),
+               prepareMandatoryDepth(state: modelFrame, candidates: candidates,
+                orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
+                batches: particleBatchesByID, particlePipeline: particlePipeline,
+                mainPass: mainPass, groups: compositionGroupRuntime, leases: &frameDepthLeases),
+               prepareTerminalCapacity(sceneColor: sceneColor, target: drawable.texture,
+                dynamicValues: frameContext.dynamicValues),
+               prepareFramebufferSnapshotCapacity(orderedLayers: orderedLayers,
+                visible: frameVisibleLayerIDs, framePlans: resolvedMaterialFrameTargetPlans,
+                imageTextures: imageTextures, frameContext: frameContext,
+                batches: particleBatchesByID, particlePipeline: particlePipeline,
+                mainPass: mainPass, groups: compositionGroupRuntime) {
+                history = sceneColor ?? imageCompositor.resolvedMaterialRuntime?.reserveSceneColor(
+                    pool: pool, width: mainTarget.width, height: mainTarget.height,
+                    frameIndex: frameContext.frameIndex, commandBuffer: commandBuffer, intent: .snapshot)
+            }
+            reflection.admit(targets, sceneColor: history)
         }
         var stopsAfterClaimedFailure = false
         var forwardGraphProviderLayerIDs: Set<Int> = []

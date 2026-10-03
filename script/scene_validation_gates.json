@@ -1332,14 +1332,17 @@
         "script/tests/test_scene_persistent_color_*.py",
         "script/tests/fixtures/ScenePersistentColor*",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ClearColor.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift",
+        "script/tests/test_scene_reflection_history_*.py"
       ],
       "modules": [
         "test_scene_persistent_color_output",
         "test_scene_persistent_color_integration",
         "test_scene_offscreen_texture_pool",
         "test_scene_resolved_material_runtime_bridge",
-        "test_scene_renderer_submission_stage"
+        "test_scene_renderer_submission_stage",
+        "test_scene_reflection_history_integration",
+        "test_scene_reflection_history_named_depth"
       ]
     },
     {
@@ -1957,10 +1960,18 @@
       "id": "scene-terminal-runtime-bridge-harnesses",
       "patterns": [
         "script/tests/fixtures/SceneStaticSourceDrawOnlyHarness.swift",
-        "script/tests/fixtures/SceneTerminalSealHarness.swift"
+        "script/tests/fixtures/SceneTerminalSealHarness.swift",
+        "script/tests/fixtures/SceneSubmission*.swift",
+        "script/tests/fixtures/SceneAssetCatalogHarness.swift",
+        "script/tests/fixtures/SceneTextureVFSSupport.swift",
+        "script/tests/fixtures/SceneTypedDataAttachmentHarness.swift"
       ],
       "modules": [
-        "test_scene_resolved_material_runtime_bridge"
+        "test_scene_resolved_material_runtime_bridge",
+        "test_scene_frame_rejection_fault",
+        "test_scene_surface_submission",
+        "test_scene_captured_main_preflight_fallback",
+        "test_scene_material_copy_history_rendering"
       ]
     },
     {

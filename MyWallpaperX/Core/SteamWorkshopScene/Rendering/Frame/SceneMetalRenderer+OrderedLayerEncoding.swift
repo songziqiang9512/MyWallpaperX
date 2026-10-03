@@ -332,6 +332,7 @@ extension SceneMetalRenderer {
         compositionGroupRuntime?.closeAllGroupEncoders()
 
         let mainEncoded = mainPass.finishEnsuringClear()
+        reflection.mainSourceCompleted = mainEncoded
         if sceneColor != nil && !mainEncoded {
             return .dropped(reasonCode: "scene-color-main-encoder-unavailable")
         }

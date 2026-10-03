@@ -12,7 +12,13 @@ extension SceneMetalRenderer {
         private var pins: [SceneGraphRenderTargetResidencyPin] = []
         private var attempted = false
         private var resource: SceneFrameTextureResource?
+        private var history: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?
         private(set) var scratchReady = false
+        var mainSourceCompleted = false
+
+        var snapshot: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation? {
+            history?.intent == .snapshot ? history : nil
+        }
 
         init(pool: SceneOffscreenTexturePool?, mainPass: SceneMainPassEncoder,
              groupRuntime: SceneCompositionGroupFrameRuntime?, commandBuffer: MTLCommandBuffer,
@@ -21,8 +27,10 @@ extension SceneMetalRenderer {
             self.commandBuffer = commandBuffer; self.frameEpoch = frameEpoch
         }
 
-        func admit(_ targets: [SceneOffscreenTexturePool.PinnedTexture]) {
+        func admit(_ targets: [SceneOffscreenTexturePool.PinnedTexture],
+                   sceneColor: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?) {
             pins.append(contentsOf: targets.map(\.pin))
+            history = sceneColor
             scratchReady = true
         }
 
@@ -30,6 +38,9 @@ extension SceneMetalRenderer {
             guard actual === commandBuffer, scratchReady else { return nil }
             if attempted { return resource }
             attempted = true
+            guard let source = history?.previous, let sourceIdentity = history?.previousReceipt else {
+                return nil
+            }
             let extent = mainPass.targetExtent
             guard let reserved = pool?.reserveEnvironment(width: extent.width, height: extent.height,
                 commandBuffer: commandBuffer) else { return nil }
@@ -37,7 +48,7 @@ extension SceneMetalRenderer {
             // publication or the eventual receiver subsequently fails.
             pins.append(reserved.pin)
             groupRuntime?.closeAllGroupEncoders()
-            let copied = mainPass.withReadableTarget { source, buffer in
+            let copied = mainPass.encodeOffscreen { buffer in
                 guard let blit = buffer.makeBlitCommandEncoder() else { return false }
                 blit.copy(from: source, sourceSlice: 0, sourceLevel: 0,
                     sourceOrigin: MTLOriginMake(0, 0, 0),
@@ -50,24 +61,25 @@ extension SceneMetalRenderer {
             }
             guard copied == true else { return nil }
             resource = .sameFrameEnvironment(frameEpoch: frameEpoch,
-                allocationGeneration: reserved.pin.generation, texture: reserved.texture)
+                allocationGeneration: reserved.pin.generation, texture: reserved.texture,
+                source: sourceIdentity)
             return resource
         }
 
         func arm() {
             let submittedPins = pins
             commandBuffer.addCompletedHandler { _ in submittedPins.forEach { $0.release() } }
-            pins.removeAll(); resource = nil; scratchReady = false
+            pins.removeAll(); resource = nil; history = nil; scratchReady = false
         }
 
         func cancel() {
             pins.forEach { $0.release() }
-            pins.removeAll(); resource = nil; scratchReady = false
+            pins.removeAll(); resource = nil; history = nil; scratchReady = false
         }
     }
 
-    /// Establish the current raw main source and its group encoders before
-    /// preparing any source payload that can request the shared prefix.
+    /// Establish the current raw main pass and group encoders before preparing
+    /// source payloads; optional reflection resolves completed history separately.
     func makeScenePass(target: MTLTexture, clearEnabled: Bool,
                        pool: SceneOffscreenTexturePool?, visibleLayerIDs: Set<Int>,
                        viewportSize: CGSize, commandBuffer: MTLCommandBuffer)
@@ -140,16 +152,19 @@ extension SceneMetalRenderer {
                              target: MTLTexture, offscreenTexturePool: SceneOffscreenTexturePool?,
                              dynamicValues: SceneDynamicSnapshot, commandBuffer: MTLCommandBuffer) -> FrameOutcome? {
         if let sceneColor {
+            guard let display = sceneColor.display else {
+                return .dropped(reasonCode: "scene-color-display-reservation-invalid")
+            }
             // Only display scratch sees Bloom or the nonlinear output curve.
             // A paused export reuses raw without traversing authored layers.
-            let copied = copySceneColor(sceneColor.raw, to: sceneColor.display, commandBuffer: commandBuffer)
+            let copied = copySceneColor(sceneColor.raw, to: display, commandBuffer: commandBuffer)
             if copied {
                 bloomPostProcess?.encode(configuration: renderDescriptor.camera.bloom.resolving(
-                    dynamicValues), source: sceneColor.display,
+                    dynamicValues), source: display,
                     commandBuffer: commandBuffer)
             }
             let mapped = copied && displayMappingPostProcess?.encode(
-                source: sceneColor.display, target: target,
+                source: display, target: target,
                 commandBuffer: commandBuffer) == true
             if !mapped && !copySceneColor(sceneColor.raw, to: target, commandBuffer: commandBuffer) {
                 return .dropped(reasonCode: "scene-color-display-export-unavailable")
@@ -174,6 +189,22 @@ extension SceneMetalRenderer {
         }
         guard imageCompositor.endResolvedMaterialFrame(on: commandBuffer) else {
             return .dropped(reasonCode: "resolved-material-frame-seal-rejected")
+        }
+        return nil
+    }
+
+    /// Optional capture shares the original completion owner. A failed copy
+    /// keeps the ordinary terminal output and cannot promote this candidate.
+    func encodeReflectionSnapshot(_ reflection: ReflectionFrame?, source: MTLTexture,
+                                  commandBuffer: MTLCommandBuffer) -> FrameOutcome? {
+        guard let reflection, let snapshot = reflection.snapshot else { return nil }
+        let copied = reflection.mainSourceCompleted
+            && copySceneColor(source, to: snapshot.raw, commandBuffer: commandBuffer)
+        if copied, imageCompositor.resolvedMaterialRuntime?.markSceneColorSnapshot(on: commandBuffer) == true {
+            return nil
+        }
+        guard imageCompositor.resolvedMaterialRuntime?.detachPreparedSceneColorSnapshot(on: commandBuffer) == true else {
+            return .dropped(reasonCode: "scene-color-snapshot-identity-rejected")
         }
         return nil
     }

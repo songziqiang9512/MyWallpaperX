@@ -187,6 +187,8 @@ struct SceneMetalRenderer {
         }
         performanceTelemetry?.beginStage("compositor-seal")
         let hubCompositorSealStart = ProcessInfo.processInfo.systemUptime
+        if let failure = encodeReflectionSnapshot(reflectionFrame, source: mainTarget,
+            commandBuffer: commandBuffer) { return failure }
         if let failure = encodeTerminalColor(sceneColor: sceneColor, target: drawable.texture,
             offscreenTexturePool: offscreenTexturePool, dynamicValues: frameContext.dynamicValues,
             commandBuffer: commandBuffer) { return failure }
