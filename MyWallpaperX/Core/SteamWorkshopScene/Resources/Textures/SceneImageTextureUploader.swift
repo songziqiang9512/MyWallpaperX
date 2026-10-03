@@ -376,7 +376,7 @@ enum SceneImageTextureUploader {
                 cursor += 1
                 var row = Array(inflated[cursor..<(cursor + rowBytes)])
                 cursor += rowBytes
-                for index in 0..<rowBytes {
+                for index in 0..<(filter == 0 ? 0 : rowBytes) {
                     let left = index < 4 ? 0 : Int(row[index - 4])
                     let above = Int(previous[index])
                     let upperLeft = index < 4 ? 0 : Int(previous[index - 4])
@@ -394,9 +394,21 @@ enum SceneImageTextureUploader {
                     row[index] &+= UInt8(prediction)
                 }
                 let y = startY + rowIndex * stepY
-                for x in 0..<columns {
-                    let destination = (y * width + startX + x * stepX) * 4
-                    pixels.replaceSubrange(destination..<(destination + 4), with: row[(x * 4)..<(x * 4 + 4)])
+                if stepX == 1 {
+                    // Ordinary rows and Adam7's final pass are contiguous.
+                    // Copy once per row instead of rebuilding a slice for
+                    // every pixel; preserve transparent RGB unchanged.
+                    let destination = (y * width + startX) * 4
+                    pixels.replaceSubrange(destination..<(destination + rowBytes), with: row)
+                } else {
+                    for x in 0..<columns {
+                        let destination = (y * width + startX + x * stepX) * 4
+                        let source = x * 4
+                        pixels[destination] = row[source]
+                        pixels[destination + 1] = row[source + 1]
+                        pixels[destination + 2] = row[source + 2]
+                        pixels[destination + 3] = row[source + 3]
+                    }
                 }
                 previous = row
             }

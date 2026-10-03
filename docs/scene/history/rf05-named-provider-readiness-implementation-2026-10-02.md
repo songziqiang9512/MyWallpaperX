@@ -127,3 +127,22 @@ optional 首次改用 rgbmask 后，真实解析产生 `material named → insta
 源码/App/输入 hash、原始截图、CPU/App 日志及审查保存在 `.artifacts/scene-evidence/runs/rf05-deferred-intent-20261004`（14 天）；最终身份以包内 `build-identity-v2.json` 为准。code-health、依赖、防御、设计、Debug 布局和 residue 门通过。结构门仍有 RF04 已存在的两项失败：`shape-derived-analyzer-fleet` 实际 66、登记 65；本批未改该库存，也未抬基线。
 
 下一批优先 hidden consumer 条件激活与 script fallback：真实输入 `2938612768` 有两 consumer 共用 hidden provider，先用同结构自有输入找到执行断点，再按真实样本复验。当前 RF05 只关闭本子批，初值/脚本/多 surface 组合尚未全闭合；既定 Scene 卡仍为 15/16（93.75%），不代表全部真实样本兼容率。
+
+
+<a id="rf05-png-decode-cost"></a>
+### RF05 后继组合核验与 PNG 准备成本（2026-10-04）
+
+产品基线 `27972161`。三个自有 App 组合均沿现有实现正确执行：隐藏 consumer 开启；两个 consumer 共用隐藏 provider，分别开启并关闭其中一个；visibility script 先返回 false、随后 exception，再使用最新 user 条件显示。每例 9 张 Metal readback、固定 ROI、GPU completion/drain 与输入/App 前后身份闭合，未据此改写已有正常路径，也不宣称对应真实 Workshop 整包已正确。
+
+本批实际修改 `SceneImageTextureUploader.decodeRGBA8PNG`：filter 0 跳过恒零预测；连续行一次复制（含 Adam7 最后一 pass），其余交错像素直接写四通道，移除逐像素 slice/replace 开销。CRC、inflate 完整性、尺寸/字节预算、APNG、原颜色空间与透明 RGB 合同未变；同一入口继续服务普通图片、内嵌 PNG 与媒体，不增加缓存或 owner。
+
+同输入单次 Debug App：两张 4096² PNG 从 generation 2 pending 到 committed，修前 15.509 秒、修后 0.376 秒；ready/after 四张实际输出及健康邻层像素相同。这是资源准备/提交时间，不是物理屏幕首像素时延，也不是 Release App 性能。独立 native harness 预载同一 RGBA 输入，每项三次，计时仅生产 decodeSourceImage，provider 读取及 SHA 在计时外；1024² 输入中位数：
+
+| 编译 | filter 0 修前→修后 | filter 4 修前→修后 |
+|---|---|---|
+| `-Onone` | 483.397→10.134 ms | 610.298→481.786 ms |
+| `-O` | 13.339→3.759 ms | 9.465→8.737 ms |
+
+四轮共 84 次输出 SHA 与独立原始 RGBA 一致。9×11 Adam7 的优化编译测量有微秒级回退，不声称所有 PNG 均加速；这里只接受有界收益。通道门覆盖 60 个尺寸/交错/滤波组合，并保留损坏输入和 APNG 回归；Debug build 与相邻上传门按最终冻结源码执行。原静态显隐断言退役后漏收紧的登记已由独立窄提交 `29e3650a` 从 249 降至 248，不混入本产品修改。
+
+最终源码、输入、App、native 原始测量及独立审查保存在 `.artifacts/scene-evidence/runs/rf05-png-decode-20261004`（14 天）。已知结构库存 66/登记65 的两项基线失败仍保留。下一步对真实 `2938612768` 执行隔离加载和属性切换，按首个公共失败定位修复；暂停期间延迟属性只确认了静态等待边界，尚未裁决冻结画面语义，不写成已修复。RF05 与完整真实样本目标继续开放，工作卡仍 15/16。

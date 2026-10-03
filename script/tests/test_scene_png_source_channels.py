@@ -93,7 +93,7 @@ for path in CommandLine.arguments.dropFirst() {
         return [json.loads(line) for line in run.stdout.splitlines()]
 
     def test_every_filter_and_interlace_retains_all_four_channels(self):
-        for width, height in [(1, 1), (2, 3), (9, 11)]:
+        for width, height in [(1, 1), (2, 3), (9, 11), (1, 17), (17, 1), (257, 17)]:
             rng = random.Random(4231)
             pixels = bytes(v for _ in range(width * height)
                            for v in [rng.randrange(256), rng.randrange(256), rng.randrange(256), rng.choice([0, 64, 255])])
