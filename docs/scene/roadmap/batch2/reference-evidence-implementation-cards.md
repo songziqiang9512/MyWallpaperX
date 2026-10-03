@@ -46,9 +46,9 @@ RF03 连续排放后继已独立验收：缺省/0 duration四方法和显式非�
 
 **最小结果 / owner。** 合法作者 `_rt_MipMappedFrameBuffer` 与默认 F5 反射共享历史 scene color 派生的完整 mip，资源不随 sampler 槽号变义。沿现有 prepared Program、`completedSceneColor`、pool pin、`ReflectionFrame` 和唯一 terminal 完成；不新增历史或输出 owner。
 
-**当前差距。** A已迁移默认F5至完成raw历史，Debug、真实owner/GPU、后置红层与late named/depth组合App及产品独审均通过，冻结身份和范围见[实施记录](../../history/rf04-completed-scene-environment-implementation-2026-10-03.md)。vocabulary仍未准入作者名称；B的terminal独立mip与精确mandatory容量预检方案在[D12 RF04设计](copy-pass-unification-design.md#rf04-completed-scene-environment)审查，未获实验与设计验收前保持blocked。A通过不等于B可用；新官方有界历史呈现证据已取代旧main前缀策略。
+**当前差距。** A已迁移默认F5至完成raw历史，Debug、真实owner/GPU、后置红层与late named/depth组合App及产品独审均通过，冻结身份和范围见[实施记录](../../history/rf04-completed-scene-environment-implementation-2026-10-03.md)。vocabulary仍未准入作者名称；B的前置容量实验已在受控真实父账复现闲置cache阻断mandatory申请，已获有界独审，先修共用回收再决定实际mandatory lease与Program finalize的阶段拆分；原pool预检预测方案不足，当前实验门见[D12 RF04设计](copy-pass-unification-design.md#rf04-completed-scene-environment)，产品保持blocked。A通过不等于B可用；新官方有界历史呈现证据已取代旧main前缀策略。
 
-**实施次序。** A已扩展原完成raw的按需snapshot与真实producer receipt并迁移F5。B先验证精确容量预检与同CB读旧/写新generation隔离，再接入真实作者Program和局部可恢复fallback；作者sampler与F5共用publication后退役A消费期copy/mip。普通 authored FBO 自动 mip、data/cube/array、未知名称及官方 HDR/alpha/kernel parity 不在本片开放。
+**实施次序。** A已扩展原完成raw的按需snapshot与真实producer receipt并迁移F5。B先复现并修共用容量断点，再验证先取得真实mandatory资源、后完成Program绑定；作者sampler与F5共用publication，首帧局部可恢复。是否迁移A消费期copy/mip须随最终方案定案。普通 authored FBO 自动 mip、data/cube/array、未知名称及官方 HDR/alpha/kernel parity 不在本片开放。
 
 **验收 / 停止。** Debug、实际 owner 生命周期/GPU 及隔离 App 可见门，最终冻结独审后按职责提交；未获真实资源不发布 ready，optional 失败保留健康画面。完成片移交稳定合同并撤销旧前缀路径，D12 其他 copy 触发点另审；随后执行 D1 固定成员差分，不继续机械增加本轮静态截图。
 

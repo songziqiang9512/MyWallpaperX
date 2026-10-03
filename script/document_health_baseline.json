@@ -137,8 +137,8 @@
       "bytes": 13916
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
-      "lines": 121,
-      "bytes": 25719
+      "lines": 116,
+      "bytes": 22374
     },
     "docs/scene/roadmap/batch2/debug-frame-capture-lifecycle-design.md": {
       "lines": 88,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 257,
-      "bytes": 49083
+      "bytes": 49271
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -178,7 +178,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 242,
-      "bytes": 32670
+      "bytes": 32720
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,
@@ -1142,12 +1142,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "before": "c25df4117137aa7bc2c8afb13736d4e3fdd4885bd592835aa74a95362ca4cbe6",
+      "after": "a83f1a3d0fa29bf881786ffcddd57a3733361456b13f06a87654e0f3c019d32c",
+      "owner": "Scene RF04 capacity prerequisite",
+      "reason": "Withdraw insufficient pool-only capacity prediction; record actual allocation counterexample and prerequisite before authored sampler admission.",
+      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "9a48a2c4ffd47b921fb7f66450484a319c757bed9c2484aff931de91135e1f80",
-      "after": "f569fdf447a7ee036ae67473791b4b99bd2251832ca67336dc49f13b2a35f611",
-      "owner": "Scene RF04",
-      "reason": "Replace obsolete main-prefix reflection with reviewed completed-history contract; record bounded A evidence and explicit blocked B capacity design without duplicating runtime results.",
-      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-completed-scene-environment"
+      "before": "f569fdf447a7ee036ae67473791b4b99bd2251832ca67336dc49f13b2a35f611",
+      "after": "ab1ea36bfe840e0e0c835f1716e88a6aac6a4f1a2b5c3b6af4a0db8382cb1423",
+      "owner": "Scene RF04 capacity prerequisite",
+      "reason": "Withdraw insufficient pool-only capacity prediction; record actual allocation counterexample and prerequisite before authored sampler admission.",
+      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
     }
   ]
 }
