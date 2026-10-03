@@ -62,9 +62,10 @@ nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission {
         return true
     }
 
-    /// The product source route resolves every childless utility flag pair to
-    /// captured main. This gate preserves each authored pair as a distinct
-    /// diagnostic cohort; dependency and child lifecycles remain outside.
+    /// Utility sources use the shared captured-texture graph ingress. A
+    /// composition with copybackground=false prepares a transparent group
+    /// texture, while background captures use their enclosing pass. Flag
+    /// pairs remain distinct cohorts; dependency and child lifecycles stay outside.
     private static func sourceCohort(
         _ layer: SceneRenderDescriptor.Layer
     ) -> SourceCohort? {

@@ -173,6 +173,7 @@ extension SceneMetalRenderer {
         frameContext: SceneFrameContext, batches: [Int: [SceneParticleDrawBatch]],
         particlePipeline: SceneParticleMetalPipeline?, mainPass: SceneMainPassEncoder,
         groups: SceneCompositionGroupFrameRuntime?,
+        utilityExecution: SceneUtilityLayerRuntimePlanner.Execution,
         color: (SceneMainPassEncoder) -> Bool, particle: (SceneMainPassEncoder) -> Bool
     ) -> Bool {
         if includesLayer,
@@ -192,7 +193,7 @@ extension SceneMetalRenderer {
         // The layer-loop defer executes these admitted plans even when its
         // trigger layer is hidden. Named inputs may publish later in this
         // frame, so readiness comes from the frame plan, not a texture lookup.
-        for plan in utilityPlansByTriggerLayerID[layer.id] ?? [] where framePlans[plan.layerID] != nil {
+        for plan in utilityExecution.plansByTriggerLayerID[layer.id] ?? [] where framePlans[plan.layerID] != nil {
             guard let root = layersByID[plan.layerID], let blend = root.colorBlendMode,
                   blend > 0, SceneLayerColorBlendRenderer.supports(blend),
                   !plan.usesIsolatedGroupTarget || groups?.sourceIsAvailable(forLayerID: plan.layerID) == true,
@@ -221,7 +222,8 @@ extension SceneMetalRenderer {
         framePlans: [Int: SceneResolvedMaterialFrameTargetPlan], imageTextures: SceneBaseImageTextureSnapshot,
         frameContext: SceneFrameContext, batches: [Int: [SceneParticleDrawBatch]],
         particlePipeline: SceneParticleMetalPipeline?, mainPass: SceneMainPassEncoder,
-        groups: SceneCompositionGroupFrameRuntime?
+        groups: SceneCompositionGroupFrameRuntime?,
+        utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
     ) -> Bool {
         var colorPass: SceneMainPassEncoder?
         var particlePass: SceneMainPassEncoder?
@@ -229,6 +231,7 @@ extension SceneMetalRenderer {
             guard visitFramebufferSnapshotConsumers(layer: layer, includesLayer: visible.contains(layer.id),
                 framePlans: framePlans, imageTextures: imageTextures, frameContext: frameContext,
                 batches: batches, particlePipeline: particlePipeline, mainPass: mainPass, groups: groups,
+                utilityExecution: utilityExecution,
                 color: { includeSnapshotTarget($0, in: &colorPass) },
                 particle: { includeSnapshotTarget($0, in: &particlePass) }) else { return false }
         }
@@ -316,6 +319,7 @@ extension SceneMetalRenderer {
         parallax: SceneLayerParallax.Configuration, viewportSize: CGSize,
         batches: [Int: [SceneParticleDrawBatch]], particlePipeline: SceneParticleMetalPipeline?,
         mainPass: SceneMainPassEncoder, groups: SceneCompositionGroupFrameRuntime?,
+        utilityExecution: SceneUtilityLayerRuntimePlanner.Execution,
         pool: SceneOffscreenTexturePool, commandBuffer: MTLCommandBuffer,
         leases: inout [SceneParticleDepthTargetLease], terminalCapacity: () -> Bool,
         recordsEvidence: Bool, executionTrace: SceneEffectExecutionFrameTrace? = nil,
@@ -398,6 +402,7 @@ extension SceneMetalRenderer {
             guard visitFramebufferSnapshotConsumers(layer: layer, includesLayer: drawsLayer && visible.contains(layer.id),
                 framePlans: framePlans, imageTextures: imageTextures, frameContext: frameContext,
                 batches: batches, particlePipeline: particlePipeline, mainPass: mainPass, groups: groups,
+                utilityExecution: utilityExecution,
                 color: { pass in
                     guard includeSnapshotTarget(pass, in: &colorPass) else { return false }
                     return imageCompositor.prepareSnapshotCapacity(width: pass.targetExtent.width,

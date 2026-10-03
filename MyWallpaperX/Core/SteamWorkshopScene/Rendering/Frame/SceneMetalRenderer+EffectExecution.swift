@@ -20,27 +20,23 @@ extension SceneMetalRenderer {
         resolvedMaterialFrameTargetPlans: [
             Int: SceneResolvedMaterialFrameTargetPlan
         ] = [:],
-        compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil
+        compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil,
+        utilityExecution: SceneUtilityLayerRuntimePlanner.Execution,
+        layersByID: [Int: SceneRenderDescriptor.Layer]
     ) -> Bool {
-        guard let planned = utilityPlansByTriggerLayerID[layerID],
+        guard let planned = utilityExecution.plansByTriggerLayerID[layerID],
               let imagePipeline, let offscreenTexturePool else { return true }
         let plans = planned.filter {
             resolvedMaterialFrameTargetPlans[$0.layerID] != nil
         }
         guard !plans.isEmpty else { return true }
-        // A childless capture inside a group executes before its enclosing
-        // group at a shared trigger, just like a smaller nested group.
-        let orderedPlans = plans.sorted {
-            ($0.isolatedGroupMembers?.count ?? 0)
-                < ($1.isolatedGroupMembers?.count ?? 0)
-        }
         // D1: only one render encoder may be active per command buffer, and a
-        // utility composite (legacy capture or group) must encode into the
+        // utility composite must encode into the
         // main/enclosing pass while member passes are closed.
         compositionGroupRuntime?.closeAllGroupEncoders()
         let encoded = SceneUtilityPlanFrameRenderer.render(
             renderer: self,
-            plans: orderedPlans,
+            plans: plans,
             dependencyRuntime: dependencyRuntime,
             imageCompositor: imageCompositor,
             utilityCaptureTelemetry: utilityCaptureTelemetry,
@@ -56,7 +52,8 @@ extension SceneMetalRenderer {
             commandBuffer: commandBuffer,
             effectExecutionTrace: effectExecutionTrace,
             resolvedMaterialFrameTargetPlans: resolvedMaterialFrameTargetPlans,
-            compositionGroupRuntime: compositionGroupRuntime
+            compositionGroupRuntime: compositionGroupRuntime,
+            layersByID: layersByID
         )
         // The composite opened the main/enclosing pass; the layer loop's
         // pass bookkeeping does not track it, so close every encoder the

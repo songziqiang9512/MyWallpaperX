@@ -30,6 +30,13 @@ final class MTLCommandBuffer {
     }
 }
 struct SceneResolvedMaterialFrameTargetPlan {}
+// Admission/resource preparation is outside this submission-stage probe.
+// Uninhabited opaque leaves satisfy FrameOutcome's carried signature without
+// recreating either owner or allowing a fixture admission-success path.
+enum SceneResolvedMaterialRuntimeBridge {
+    enum FramePreparationRequest {}
+}
+enum SceneResolvedMaterialFrameResourceBundle {}
 struct SceneEffectExecutionFrameTrace {}
 struct SceneParticlePerformanceObservation {}
 final class SceneEffectExecutionTelemetry {

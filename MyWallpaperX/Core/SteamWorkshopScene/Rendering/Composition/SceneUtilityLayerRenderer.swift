@@ -35,9 +35,9 @@ enum SceneUtilityLayerRenderer {
         case .project: executionOrigin = .utilityProject
         case .fullscreen: executionOrigin = .utilityFullscreen
         }
-        // D1 isolated group: the group's own transparent-clear target is the
+        // The group's initialized target is the
         // effect-chain source. Members already encoded their content there
-        // in authored relative order; the composite is a single 1:1 blit of
+        // in authored relative order; the composite is a single 1:1 draw of
         // that target through the root effect chain into the enclosing pass,
         // so no main-target capture and no source copy apply.
         if let isolatedGroupSource {

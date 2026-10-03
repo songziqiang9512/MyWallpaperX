@@ -489,8 +489,6 @@ enum SceneSubmissionAdmissionChecks {
         }
 
         for (reason, resultKey) in [
-            ("utility-composition-subtree-source-coverage-unavailable",
-             "utilitySubtreeCoverageFallbackRemainsLayerLocal"),
             ("layer-source-not-ready", "pendingSourceFallbackRemainsLayerLocal")
         ] {
             let recorder = LogRecorder()

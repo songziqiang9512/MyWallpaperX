@@ -10,6 +10,8 @@ struct SceneUtilityLayer: Codable, Equatable {
     let kind: Kind
     let copyBackground: Bool
     let passthrough: Bool
+    /// Preserve the author's omission separately from the resolved behavior.
+    var authoredCopyBackground: Bool? = nil
 
     nonisolated static func parse(
         imagePath: String?,
@@ -17,10 +19,12 @@ struct SceneUtilityLayer: Codable, Equatable {
     ) -> SceneUtilityLayer? {
         guard let kind = kind(for: imagePath) else { return nil }
         let config = object["config"] as? [String: Any]
+        let authoredCopyBackground = boolValue(object["copybackground"])
         return SceneUtilityLayer(
             kind: kind,
-            copyBackground: boolValue(object["copybackground"]) ?? false,
-            passthrough: boolValue(config?["passthrough"]) ?? false
+            copyBackground: authoredCopyBackground ?? (kind == .composition),
+            passthrough: boolValue(config?["passthrough"]) ?? false,
+            authoredCopyBackground: authoredCopyBackground
         )
     }
 

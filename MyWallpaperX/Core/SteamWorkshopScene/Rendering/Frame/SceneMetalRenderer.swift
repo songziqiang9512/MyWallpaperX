@@ -21,12 +21,9 @@ struct SceneMetalRenderer {
     let parallaxByLayerID: [Int: SceneLayerParallax.Resolution]
     let layersByID: [Int: SceneRenderDescriptor.Layer]
     let lightLayerIDs: [Int]
-    let utilityPlansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
-    let utilityCaptureLayerIDs: Set<Int>
     /// Prepared group membership and execution order; passes remain frame-local.
-    let compositionGroupMemberRootsByLayerID: [Int: Int]
-    let compositionGroupMembersByRootID: [Int: [Int]]
-    let compositionGroupRootIDs: [Int]
+    let utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
+    var utilityCaptureLayerIDs: Set<Int> { utilityExecution.captureLayerIDs }
     let effectAdmissionCatalog: SceneEffectAdmissionCatalog
     let baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram
     let staticModelResources: ScenePreparedStaticModelResources

@@ -22,6 +22,8 @@ struct SceneDocument {
 struct SceneUtilityLayer {
     enum Kind: String { case composition, project, fullscreen }
     let kind: Kind
+    var copyBackground: Bool = true
+    init(kind: Kind) { self.kind = kind }
 }
 
 #if !SCENE_ACTUAL_COMPOSITION_TARGETS
@@ -133,6 +135,11 @@ enum SceneBlendModeShaderSource { static let maximumMode = 31 }
 #if !SCENE_ACTUAL_COMPOSITION_TARGETS
 // This harness executes planning only. GPU dependencies share the production
 // source file but must never execute through these link-only test doubles.
+enum SceneGPUCensus {
+    static func recordTextureCopy(texture: MTLTexture) {
+        fatalError("GPU copy census is outside the dependency planning harness")
+    }
+}
 final class SceneMainPassEncoder {
     init(commandBuffer: MTLCommandBuffer, target: MTLTexture,
          clearColor: MTLClearColor, clearEnabled: Bool) {

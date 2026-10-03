@@ -51,10 +51,19 @@ struct TerminalCompositor {
 }
 // Terminal-only carrier: these frame/group entrypoints are outside this
 // gate's asserted source and deliberately trap if accidentally exercised.
+enum SceneUtilityLayerRuntimePlanner {
+    struct Execution {
+        let memberRootsByLayerID: [Int: Int]
+        let membersByRootID: [Int: [Int]]
+        let orderedRootIDs: [Int]
+        let copyBackgroundRootIDs: Set<Int>
+    }
+}
 final class SceneCompositionGroupFrameRuntime {
     init(parentPass: SceneMainPassEncoder, commandBuffer: MTLCommandBuffer,
          offscreenTexturePool: SceneOffscreenTexturePool,
-         memberRootsByLayerID: [Int: Int], membersByRootID: [Int: [Int]], viewportSize: CGSize) {
+         memberRootsByLayerID: [Int: Int], membersByRootID: [Int: [Int]], viewportSize: CGSize,
+         copyBackgroundRootIDs: Set<Int> = []) {
         fatalError("terminal fixture must not prepare composition groups")
     }
     func reserveSources(orderedRootIDs: [Int], visibleLayerIDs: Set<Int>) {
@@ -65,9 +74,6 @@ final class SceneCompositionGroupFrameRuntime {
     }
 }
 struct SceneMetalRenderer {
-    let compositionGroupMemberRootsByLayerID: [Int: Int] = [:]
-    let compositionGroupMembersByRootID: [Int: [Int]] = [:]
-    let compositionGroupRootIDs: [Int] = []
     let renderDescriptor: TerminalRenderDescriptor
     let imageCompositor: TerminalCompositor
     let bloomPostProcess: SceneBloomPostProcess?

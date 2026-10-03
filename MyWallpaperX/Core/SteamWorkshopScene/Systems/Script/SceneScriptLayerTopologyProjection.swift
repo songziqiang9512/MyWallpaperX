@@ -6,6 +6,12 @@ nonisolated extension SceneRenderDescriptor {
             !topology.destroyedAuthoredLayerIDs.contains($0.id)
         }
         merged.append(contentsOf: topology.dynamicLayers)
+        // Destroyed children no longer belong to the projected descriptor.
+        // Refresh this index only at the existing topology revision boundary.
+        let liveLayerIDs = Set(merged.map(\.id))
+        for index in merged.indices {
+            merged[index].childLayerIDs.removeAll { !liveLayerIDs.contains($0) }
+        }
         return .init(
             entryPath: entryPath, camera: camera, lighting: lighting,
             hdrEnabled: hdrEnabled,

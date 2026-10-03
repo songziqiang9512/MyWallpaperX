@@ -249,7 +249,7 @@ FRAME_MAIN=r'''
   let utility=mode=="utility-trigger",hidden=mode=="hidden-no-demand"
   let layers=[SceneRenderDescriptor.Layer(id:1),.init(id:6,contentKind:"image",colorBlendMode:1),.init(id:42,contentKind:"particle"),.init(id:7,contentKind:"utility",colorBlendMode:1),.init(id:8,visible:false,contentKind:"trigger")]
   renderer.layersByID=Dictionary(uniqueKeysWithValues:layers.map{($0.id,$0)})
-  if utility {renderer.utilityPlansByTriggerLayerID=[8:[.init(layerID:7,usesIsolatedGroupTarget:false)]]}
+  if utility {renderer.utilityExecution = .init(plansByTriggerLayerID:[8:[.init(layerID:7,usesIsolatedGroupTarget:false)]])}
   let visible:Set<Int>=hidden || utility ? [1]:[1,6,42]
   let plans:[Int:SceneResolvedMaterialFrameTargetPlan]=utility ? [7:.init()]:[6:.init()]
   let dynamic=SceneDynamicSnapshot.empty(frameIndex:1,generation:1),context=SceneFrameContext(dynamicValues:dynamic)
@@ -277,7 +277,7 @@ FRAME_MAIN=r'''
   let candidates=renderer.shadowDrawCandidates(orderedLayers:layers,visible:visible,worldFrames:world,snapshot:dynamic,groups:nil)!
   var capacity=false
   renderer.prepareModelShadow(state:state,candidates:candidates,lights:[.directional(light)],orderedLayers:layers,visible:visible,batches:batches,particlePipeline:particle,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,leases:&leases,mandatoryCapacity:{
-   capacity=renderer.prepareFramebufferSnapshotCapacity(orderedLayers:layers,visible:visible,framePlans:plans,imageTextures:.init(),frameContext:context,batches:batches,particlePipeline:particle,mainPass:pass,groups:nil)
+   capacity=renderer.prepareFramebufferSnapshotCapacity(orderedLayers:layers,visible:visible,framePlans:plans,imageTextures:.init(),frameContext:context,batches:batches,particlePipeline:particle,mainPass:pass,groups:nil,utilityExecution:renderer.utilityExecution)
    return capacity
   },recordsEvidence:false)
   let noCopy=(ScenePerformanceCounterHub.shared.snapshot()[.framebufferCaptures] ?? 0)==pre

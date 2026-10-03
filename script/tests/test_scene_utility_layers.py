@@ -16,9 +16,6 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayer.swift"
 RUNTIME_PLAN_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift"
 SOURCE_ROUTE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceRoute.swift"
-SOURCE_COVERAGE_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceCoverage.swift"
-)
 UTILITY_RENDERER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRenderer.swift"
 METAL_RENDERER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
 METAL_RENDERER_INITIALIZATION_SOURCE = (
@@ -74,6 +71,8 @@ enum Harness {
             ("models/util/fullscreenlayer.json", [:]),
             ("models/user/composelayer.json", [:]),
             (nil, [:]),
+            ("models/util/composelayer.json", ["copybackground": false]),
+            ("models/util/composelayer.json", ["copybackground": ["value": true]]),
         ]
         let parsed = fixtures.map { SceneUtilityLayer.parse(imagePath: $0.0, object: $0.1) }
         let result: [String: Any] = [
@@ -116,12 +115,12 @@ class SceneUtilityLayerTests(unittest.TestCase):
     def test_canonical_paths_are_typed_without_matching_user_models(self) -> None:
         self.assertEqual(
             self.result["kinds"],
-            ["composition", "project", "fullscreen", "none", "none"],
+            ["composition", "project", "fullscreen", "none", "none", "composition", "composition"],
         )
 
-    def test_utility_flags_are_authored_opt_in(self) -> None:
-        self.assertEqual(self.result["copyBackground"], [False, True, False, False, False])
-        self.assertEqual(self.result["passthrough"], [True, False, False, False, False])
+    def test_composition_background_default_and_explicit_flags(self) -> None:
+        self.assertEqual(self.result["copyBackground"], [True, True, False, False, False, False, True])
+        self.assertEqual(self.result["passthrough"], [True, False, False, False, False, False, False])
 
     def test_document_and_descriptor_preserve_generic_dependencies(self) -> None:
         document = (SOURCE_ROOT / "Format/SceneDocument.swift").read_text(encoding="utf-8")

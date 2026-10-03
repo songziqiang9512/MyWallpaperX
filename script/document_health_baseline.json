@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 525,
-      "bytes": 82408
+      "bytes": 82796
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 367,
-      "bytes": 167700
+      "bytes": 167709
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 275,
@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 66,
-      "bytes": 5812
+      "bytes": 5881
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -133,8 +133,8 @@
       "bytes": 100603
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
-      "lines": 67,
-      "bytes": 13916
+      "lines": 34,
+      "bytes": 6611
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
       "lines": 111,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 257,
-      "bytes": 48784
+      "bytes": 48152
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -178,7 +178,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 242,
-      "bytes": 32238
+      "bytes": 32498
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,
@@ -1115,15 +1115,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "83dd54ad5dcbfd77a127b83fbfcdfd1def87f4711c6ecdcbc5519ef7b881eae5",
-      "after": "f6d2c400427867319978be7e6f4eab74152693a87d2a4515766e3653f4679e00",
-      "owner": "Scene RF04 B resource admission prototype",
-      "reason": "Record actual subset and net-capacity resource experiments; retain original owners and failure semantics, with renderer integration still unadmitted.",
-      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
       "before": "6af3547d0905fbf547567dd287ba885a1eba62dc0fee86862ebfbce77ff6bd1f",
       "after": "c2ad39154dbd26a71716690ca68b00a8a63c4bab2253995f215c83dd29e102f9",
@@ -1142,39 +1133,48 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "dafb0b8c3a9d5e557b5e78d755211d3182de2b2e729d805c64987fc852e3fd4e",
-      "after": "bee6443b127bdb392e2beacf33cfffd1bbb9ed131d8b9126a4c90858370e79fb",
-      "owner": "Scene RF04 authored environment",
-      "reason": "Replace prototype-only state with implemented authored input, actual ownership contract and bounded validation; close RF04 card and continue D1.",
-      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "fbaa7d341426965e9ad468a57cdfe07f52aafea79b8af59062e3d530efcd28fd",
-      "after": "be437097576b0b364827cc65b78d6189b7b7d7f5058780249fb7f5aa84f13763",
-      "owner": "Scene RF04 authored environment",
-      "reason": "Replace prototype-only state with implemented authored input, actual ownership contract and bounded validation; close RF04 card and continue D1.",
-      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b9d1c3df3cebc117466b0f3d5ece94e9af7ed34eb605184df7c9d6853f8cf1eb",
-      "after": "c6101635cf718feca3523923c7f7dfffb369548d9c39d226843f3a72eaf4d2aa",
-      "owner": "Scene RF04 authored environment",
-      "reason": "Replace prototype-only state with implemented authored input, actual ownership contract and bounded validation; close RF04 card and continue D1.",
-      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
       "before": "e2723caaa3e691eabbbaf1f9c7962dbc554fba62efef275c620919234a4ae87e",
       "after": "b286074b03ad0715d4a93cdfe0febf41345e073c0e22e7482ea74576034d6667",
       "owner": "Scene RF04 authored environment",
       "reason": "Replace prototype-only state with implemented authored input, actual ownership contract and bounded validation; close RF04 card and continue D1.",
       "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "bee6443b127bdb392e2beacf33cfffd1bbb9ed131d8b9126a4c90858370e79fb",
+      "after": "479ccf3d1329a73c947a9b0a71c01341946f87b31e011009bae3cd40993beb7e",
+      "owner": "scene-d1",
+      "reason": "Replace obsolete composition prefix and transparent-default assumptions with the implemented bounded background and authored-order contract; full evidence remains historical.",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "be437097576b0b364827cc65b78d6189b7b7d7f5058780249fb7f5aa84f13763",
+      "after": "fb67594d6e354ddc66c883f2d0d18b3d2d80a352bca123a8e68dd57401bc3131",
+      "owner": "scene-d1",
+      "reason": "Replace obsolete composition prefix and transparent-default assumptions with the implemented bounded background and authored-order contract; full evidence remains historical.",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "c6101635cf718feca3523923c7f7dfffb369548d9c39d226843f3a72eaf4d2aa",
+      "after": "fcb1e1a7b4210b5f776c9ae304b691dae7278a541d07e7b28d1e74d8a6b213b1",
+      "owner": "scene-d1",
+      "reason": "Replace obsolete composition prefix and transparent-default assumptions with the implemented bounded background and authored-order contract; full evidence remains historical.",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
+      "before": "eda8084c4193bb9fd32c01faa43464b1572d9c4097e8219decb6a46f7d694806",
+      "after": "87f46b10f397e6e4929815691b6fa4b3d3cf2692ce4f67a847a0598013bf26c8",
+      "owner": "scene-d1",
+      "reason": "Replace obsolete composition prefix and transparent-default assumptions with the implemented bounded background and authored-order contract; full evidence remains historical.",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
     }
   ]
 }

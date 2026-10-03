@@ -22,7 +22,7 @@ extension SceneRenderDescriptor {
         let dependencyLayerIDs: [Int]
         var authoredDependencies: [SceneObjectDependency] = []
         let parentID: Int?
-        let childLayerIDs: [Int]
+        var childLayerIDs: [Int]
         let attachmentName: String?
         let parentAttachmentBindFrame: [Float]?
         let puppetAnimationLayers: [ScenePuppetAnimationLayer]

@@ -214,14 +214,7 @@
     "retirement": "Shrink family by family onto shared homes and ratchet allowedGroups down; the floor is 0 once no two functions share a body."
   },
   "deadEntries": [],
-  "inventoryEntries": [
-    {
-      "name": "isDegraded",
-      "file": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift",
-      "kind": "func",
-      "reason": "composition-rt 第一阶段遗留的诊断入口，后续阶段消费或整体删除"
-    }
-  ],
+  "inventoryEntries": [],
   "acknowledgedChanges": [
     {
       "detail": "canonical helper containsWord target changed from 'Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift' to 'Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift'",

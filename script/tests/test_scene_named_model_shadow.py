@@ -381,7 +381,7 @@ struct SceneEffectExecutionFrameTrace {
 }
 final class SceneMetalRenderer {
  let device:MTLDevice;let staticModelResources:ScenePreparedStaticModelResources
- var utilityPlansByTriggerLayerID:[Int:[SceneUtilityLayerRuntimePlan]]=[:]
+ var utilityExecution=SceneUtilityLayerRuntimePlanner.Execution()
  var layersByID:[Int:SceneRenderDescriptor.Layer]=[:]
  let imageCompositor=SceneImageLayerCompositor()
  let staticModelDepthTargetPool=SceneParticleDepthTargetPool()
@@ -513,7 +513,7 @@ ORDERED_MAIN=r'''
    let error=renderer.prepareOrderedModelShadow(state:state,lights:[.directional(light)],lighting:lighting,orderedLayers:layers,visible:Set(layers.filter{$0.visible != false}.map(\.id)),
     activeNamedModels:partial ? []:[2],forwardGraphProviders:[],framePlans:[:],imageTextures:sources,imagePipeline:image,
     frameContext:frame,worldFrames:world,cameraFrame:camera,parallax:.init(),viewportSize:CGSize(width:size,height:size),
-    batches:[:],particlePipeline:nil,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,leases:&leases,
+    batches:[:],particlePipeline:nil,mainPass:pass,groups:nil,utilityExecution:renderer.utilityExecution,pool:pool,commandBuffer:cb,leases:&leases,
     terminalCapacity:{true},recordsEvidence:false)
    let capturePrepared=captures()-captureStart,published = !state.shadows.isEmpty
    let preparedIDs=state.prepared?.keys.sorted() ?? []
@@ -784,7 +784,7 @@ PUBLICATION_FUNCTIONS=r'''
   let state=SceneMetalRenderer.StaticModelFrame(),pool=SceneOffscreenTexturePool(device:d,pixelFormat:.bgra8Unorm,residentByteBudget:8*1024*1024)
   var leases:[SceneParticleDepthTargetLease]=[]
   paint(red);let before=captures()
-  let invalid=renderer.prepareOrderedModelShadow(state:state,lights:[.directional(light)],lighting:lighting,orderedLayers:[provider,second],visible:[],activeNamedModels:[],forwardGraphProviders:[],framePlans:[:],imageTextures:sources,imagePipeline:image,frameContext:frame,worldFrames:[11:screen,12:screen],cameraFrame:camera,parallax:.init(),viewportSize:CGSize(width:64,height:64),batches:[:],particlePipeline:nil,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,leases:&leases,terminalCapacity:{true},recordsEvidence:false)
+  let invalid=renderer.prepareOrderedModelShadow(state:state,lights:[.directional(light)],lighting:lighting,orderedLayers:[provider,second],visible:[],activeNamedModels:[],forwardGraphProviders:[],framePlans:[:],imageTextures:sources,imagePipeline:image,frameContext:frame,worldFrames:[11:screen,12:screen],cameraFrame:camera,parallax:.init(),viewportSize:CGSize(width:64,height:64),batches:[:],particlePipeline:nil,mainPass:pass,groups:nil,utilityExecution:renderer.utilityExecution,pool:pool,commandBuffer:cb,leases:&leases,terminalCapacity:{true},recordsEvidence:false)
   let early=captures()-before,earlyPublication=renderer.textureRegistry.completeNamedLayerTargetTexture(reference:ref,frameEpoch:epoch) != nil
   paint(blue)
   func capture(_ layer:SceneRenderDescriptor.Layer)->SceneGraphOutputPublicationResult? {renderer.captureRawDependencyProvider(layer:layer,source:nil,imageTextures:sources,imagePipeline:image,frameContext:frame,worldFrames:[11:screen,12:screen],cameraFrame:camera,parallax:.init(),viewportSize:CGSize(width:64,height:64),mainPass:pass)}
@@ -898,7 +898,7 @@ def mixed_main():
   let error=renderer.prepareOrderedModelShadow(state:state,lights:[.directional(light)],lighting:lighting,orderedLayers:layers,visible:visible,
     activeNamedModels:[],forwardGraphProviders:[],framePlans:plans,imageTextures:.init(sources:[:]),imagePipeline:image,
     frameContext:context,worldFrames:world,cameraFrame:camera,parallax:.init(),viewportSize:CGSize(width:64,height:64),
-    batches:batches,particlePipeline:particle,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,leases:&leases,
+    batches:batches,particlePipeline:particle,mainPass:pass,groups:nil,utilityExecution:renderer.utilityExecution,pool:pool,commandBuffer:cb,leases:&leases,
     terminalCapacity:{terminalCalled=true;return true},recordsEvidence:false)
   precondition(error == nil)
   let capacity=terminalCalled
@@ -1019,7 +1019,7 @@ NAMED_RECEIVER_FUNCTIONS=r'''
   let invalid=renderer.prepareOrderedModelShadow(state:state,lights:[.directional(light)],lighting:lighting,orderedLayers:layers,
    visible:[1,2,3],activeNamedModels:[2,3],forwardGraphProviders:[],framePlans:[:],imageTextures:sources,imagePipeline:image,
    frameContext:frame,worldFrames:[:],cameraFrame:camera,parallax:.init(),viewportSize:CGSize(width:64,height:64),
-   batches:[:],particlePipeline:nil,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,leases:&leases,
+   batches:[:],particlePipeline:nil,mainPass:pass,groups:nil,utilityExecution:renderer.utilityExecution,pool:pool,commandBuffer:cb,leases:&leases,
    terminalCapacity:{true},recordsEvidence:false)
   let shadowCreated = !state.shadows.isEmpty
   let current=renderer.textureRegistry.completeNamedLayerTargetTexture(reference:reference,frameEpoch:epoch)!
@@ -1064,7 +1064,7 @@ NAMED_RECEIVER_FUNCTIONS=r'''
    let nextInvalid=renderer.prepareOrderedModelShadow(state:nextState,lights:[.directional(light)],lighting:lighting,orderedLayers:layers,
     visible:[1,2,3],activeNamedModels:[2,3],forwardGraphProviders:[],framePlans:[:],imageTextures:nextSources,imagePipeline:image,
     frameContext:nextFrame,worldFrames:[:],cameraFrame:camera,parallax:.init(),viewportSize:CGSize(width:size,height:size),
-    batches:[:],particlePipeline:nil,mainPass:cancelledPass,groups:nil,pool:pool,commandBuffer:cancelledCB,leases:&nextLeases,
+    batches:[:],particlePipeline:nil,mainPass:cancelledPass,groups:nil,utilityExecution:renderer.utilityExecution,pool:pool,commandBuffer:cancelledCB,leases:&nextLeases,
     terminalCapacity:{true},recordsEvidence:false)
    let resized=renderer.textureRegistry.completeNamedLayerTargetTexture(reference:reference,frameEpoch:nextEpoch)!
    let newShadow = !nextState.shadows.isEmpty

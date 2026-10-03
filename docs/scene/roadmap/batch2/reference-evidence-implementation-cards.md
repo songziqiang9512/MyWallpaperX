@@ -16,7 +16,7 @@
 
 ## 2. 派生工作卡
 
-进度口径（2026-10-04）：RF00–RF16中RF06另属Web/Daemon，16张Scene卡已有14张完成各自有界验收（87.5%）；剩RF05组合闭环、RF08/D1采集合同。此为当前队列进度，不是Scene全兼容率或长期Goal完成率；新增真实缺口仍由现役路线选序。
+进度口径（2026-10-04）：RF00–RF16中RF06另属Web/Daemon，16张Scene卡已有15张完成各自有界验收（93.75%）；剩RF05组合闭环。此为当前队列进度，不是Scene全兼容率或长期Goal完成率；新增真实缺口仍由现役路线选序。
 
 以下排列细化 P1/P2 已选责任，不另立总路线。RF00/RF01 与 RF05 诊断导出片已转证据移交；RF03 限定粒子四方法与 RF07 raw/display 分离也已转证据移交。RF05 其余既有能力组合仍待补证，条件卡在前置合同和证据满足后才进入产品写入。
 
@@ -43,6 +43,8 @@
 prepared root、无 authored child、单个 supported 确定性 schedule 的 play/pause/stop/isPlaying 已完成真实VM事务、模拟/资源、冻结App六项显示/故障门及独立终审。当前能力边界、三项事务审查修复、错误分类反例、未验证GPU错误/RNG边界和冻结身份仅见[执行记录](../../history/rf03-particle-playback-implementation-2026-10-02.md)；目标仍由[D4](script-component-api-design.md)/[D11](particle-playback-state-design.md)约束。默认emit数量、reset、多emitter、children、随机周期未开放，不能据限定方法升级为完整组件API。唯一能力/运行owner接管后删除本移交指针，不在派生卡重复结果计数。
 
 RF03 连续排放后继已独立验收：缺省/0 duration四方法和显式非法duration边界已闭合，修前反例、最终App与证据边界见[独立执行记录](../../history/rf03-particle-playback-implementation-2026-10-02.md#rf03-continuous)。显式burst未随连续排放片开放；其独立后继现已完成调用期真实出生事务与最终App验证，冻结范围、审查修复和HEAD既有失败仅见[显式出生记录](../../history/rf03-particle-playback-implementation-2026-10-02.md#rf03-explicit-emission)，已获独立终审ACCEPT并随该职责批提交。后续选序见[兼容路线](../scene-compatibility-roadmap.md#batch-2-后继选序2026-10-02)；不重复创建粒子模拟或播放owner。
+
+<a id="rf04--d12-已完成画面的共享-mip-输入"></a>
 
 ### RF04 — D12 已完成画面的共享 mip 输入
 
@@ -81,15 +83,13 @@ Vulkan缓存键/HLSL装配、per-display独立可执行模型、playlist、trans
 
 HDR clear=false 的 raw/candidate/display 分离、GPU成功提升、paused新epoch重绘及clear=true精确输出守恒已完成独立终审。实际owner反例、两项输出修复、诊断采样修正、冻结标准/故障App与未验证边界仅由[执行记录](../../history/rf07-persistent-color-output-implementation-2026-10-02.md)保存；目标见[D2](hdr-tonemap-edr-design.md)，稳定生命周期见[架构§3.3](../../architecture/runtime-architecture.md#33-保留事务安全不扩大视觉失败半径)。不据本片开放透明终端、EDR或声明性能完成。唯一能力/运行owner接管后删除此移交指针，不在派生卡重复完成计数。
 
-### RF08 — D1 composition 的采集合同纠偏
+### RF08 — D1 普通 composition 已按有界合同完成
 
-**目标/owner。** [D1](composition-render-target-design.md)已重新进入设计裁决。作者格式/descriptor拥有类型、parent和order，现planner拥有采集时点及读写边，pool/lease与唯一compositor保留职责。目标是正确作者输出，不是把旧isolated-group方案补完整。
+**结果。** 普通 parent 分组按根作者位置完成；copybackground 缺省/true 纳入当时 enclosing 背景，false 透明，后方非 child 不提前入效果。现役 Execution 统一准备、容量和绘制顺序，拓扑 revision 才重建；资源继续沿原 pool/pin/completion 与唯一 compositor。无依据 prefix/末后代 route 已删除。
 
-**当前事实。** 2026-10-02公开[RGB composition说明](https://docs.wallpaperengine.io/en/scene/rgb/introduction.html#extra-notes-on-composition-layers)描述采集下方全部层，如场景相机；现parser只保留utility两flag及独立parent，没有已识别的isolated字段。`SceneUtilityLayerSourceRoute.swift:36,199–223,265–273`才将parent后代升级为私有target成员，且改变触发位置。现有isolated代码、旧设计和3226487183都不能作为该语义正确的证明。
+**验收/边界。** 官方自有正控制与差分裁决见[D1设计](composition-render-target-design.md)；23个实际 App 案例、资源门、输入/像素独立复核及未证范围由[实施记录](../../history/d1-composition-authored-order-implementation-2026-10-04.md)接管。只完成普通 profile，不据此开放 passthrough、特殊 transform/clip、任意组 alpha 或完整官方 parity。稳定职责已交[架构§3.3](../../architecture/runtime-architecture.md#33-保留事务安全不扩大视觉失败半径)。
 
-**实施/备选。** 已从固定参考项目提炼[中性合同](../../history/d1-composition-neutral-contract-2026-10-02.md)。D1资源窄片已修正group key/尺寸准入、prepare与实际source错配，以及组内无子层composition的写回目标/同trigger执行序；真实反例、冻结App与clear/resize/completion结果见[执行记录](../../history/d1-composition-source-implementation-2026-10-02.md)，稳定资源合同由架构§3.3接管。成员/flag仍用有可见effect正控制的官方自有输入区分below非child/above child、copybackground缺省/false/true；仅确认的profile才改变source route。资源修复不升级为官方隔离语义。
-
-**纠正门/退役。** 自写parent单变量、非child颜色、区域内外、child自身effect、root无effect及模式切换；实际source→effect→publication→terminal→next-frame与ROI，相称resize/迟到completion门，普通帧prepare次数不增长。真实样本只作回归；行为合同与实现闭合、无依据路撤权后交稳定架构并退役。
+**下一批。** RF05 先核首帧 property override → hidden provider 消费 → live visibility/script fallback 的组合，出现实际断点即修现役 owner；随后核单 surface 提交失败与其他 surface 继续呈现。不要重跑已闭合的单项研究或另做证据批。
 
 ### RF09 — D3 作者 normal 输入与采样
 

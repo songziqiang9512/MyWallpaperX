@@ -69,7 +69,9 @@ extension SceneMetalRenderer {
                     effectExecutionTrace: effectExecutionTrace,
                     resolvedMaterialFrameTargetPlans:
                         resolvedMaterialFrameTargetPlans,
-                    compositionGroupRuntime: compositionGroupRuntime) {
+                    compositionGroupRuntime: compositionGroupRuntime,
+                    utilityExecution: frameProjection.utilityExecution,
+                    layersByID: frameProjection.layersByID) {
                     // A utility plan that hit typed identity drift already
                     // sealed the frame as failed, so stop the layer loop like
                     // every other `.invalid` consumer instead of encoding
@@ -87,11 +89,11 @@ extension SceneMetalRenderer {
             let layerMainPass: SceneMainPassEncoder
             if let compositionGroupRuntime,
                let groupPass = compositionGroupRuntime.renderPass(
-                   forLayerID: layer.id
+                   forLayerID: layer.id, beginsRendering: true
                ), groupPass !== mainPass {
                 layerMainPass = groupPass
             } else if compositionGroupRuntime != nil,
-                      compositionGroupMemberRootsByLayerID[layer.id] != nil {
+                      frameProjection.utilityExecution.memberRootsByLayerID[layer.id] != nil {
                 continue
             } else {
                 layerMainPass = mainPass
@@ -251,7 +253,7 @@ extension SceneMetalRenderer {
                 // the group target, so the flat composition fallback would
                 // draw parent content that never contained them.
                 if resolvedMaterialFrameTargetPlans[layer.id] == nil,
-                   compositionGroupMembersByRootID[layer.id] == nil,
+                   frameProjection.utilityExecution.membersByRootID[layer.id] == nil,
                    let imagePipeline {
                     _ = drawCompositionSourceFallback(
                         layer: layer,

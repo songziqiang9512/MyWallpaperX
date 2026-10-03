@@ -91,7 +91,8 @@ extension SceneMetalRenderer {
         let (mainPass, groups) = makeScenePass(target: mainTarget,
             clearEnabled: frameDescriptor.camera.clearEnabled || (sceneColor != nil && sceneColor?.previous == nil),
             pool: offscreenTexturePool, visibleLayerIDs: frameVisibleLayerIDs,
-            viewportSize: viewportSize, commandBuffer: commandBuffer)
+            viewportSize: viewportSize, commandBuffer: commandBuffer,
+            utilityExecution: frameProjection.utilityExecution)
         compositionGroupRuntime = groups
         mainPassForSubmission = mainPass
         performanceTelemetry?.endStage("prepass-encoder")
@@ -122,7 +123,9 @@ extension SceneMetalRenderer {
             commandBuffer: commandBuffer,
             environmentSource: environmentSource,
             frameLightSnapshot: frameLightSnapshot,
-            compositionGroupRuntime: compositionGroupRuntime
+            compositionGroupRuntime: compositionGroupRuntime,
+            preparationLayers: frameProjection.preparationLayers,
+            utilityExecution: frameProjection.utilityExecution
         )
         performanceTelemetry?.endStage("frame-admission")
         hubStage(.frameAdmissionMicros, hubFrameAdmissionStart)
@@ -192,7 +195,8 @@ extension SceneMetalRenderer {
                         visible: frameVisibleLayerIDs, framePlans: resolvedMaterialFrameTargetPlans,
                         imageTextures: imageTextures, frameContext: frameContext,
                         batches: particleBatchesByID, particlePipeline: particlePipeline,
-                        mainPass: mainPass, groups: compositionGroupRuntime)
+                        mainPass: mainPass, groups: compositionGroupRuntime,
+                        utilityExecution: frameProjection.utilityExecution)
                 },
                 recordsEvidence: SceneDesktopWallpaperHost.usesDebugEvidenceWindow && frameContext.frameIndex <= 2)
         }
@@ -219,7 +223,8 @@ extension SceneMetalRenderer {
                 visible: frameVisibleLayerIDs, framePlans: resolvedMaterialFrameTargetPlans,
                 imageTextures: imageTextures, frameContext: frameContext,
                 batches: particleBatchesByID, particlePipeline: particlePipeline,
-                mainPass: mainPass, groups: compositionGroupRuntime) {
+                mainPass: mainPass, groups: compositionGroupRuntime,
+                utilityExecution: frameProjection.utilityExecution) {
                 history = sceneColor ?? imageCompositor.resolvedMaterialRuntime?.reserveSceneColor(
                     pool: pool, width: mainTarget.width, height: mainTarget.height,
                     frameIndex: frameContext.frameIndex, commandBuffer: commandBuffer, intent: .snapshot)
@@ -286,7 +291,8 @@ extension SceneMetalRenderer {
                 imagePipeline: imagePipeline, frameContext: frameContext, worldFrames: frameWorldFrames,
                 cameraFrame: cameraFrame, parallax: parallaxConfiguration, viewportSize: viewportSize,
                 batches: particleBatchesByID, particlePipeline: particlePipeline,
-                mainPass: mainPass, groups: compositionGroupRuntime, pool: pool,
+                mainPass: mainPass, groups: compositionGroupRuntime,
+                utilityExecution: frameProjection.utilityExecution, pool: pool,
                 commandBuffer: commandBuffer, leases: &frameDepthLeases,
                 terminalCapacity: {
                     guard prepareTerminalCapacity(sceneColor: sceneColor, target: drawable.texture,

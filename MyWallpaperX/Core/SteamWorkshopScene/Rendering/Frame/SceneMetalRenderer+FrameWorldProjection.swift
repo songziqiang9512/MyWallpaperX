@@ -9,6 +9,8 @@ struct SceneMetalRendererFrameWorldProjection {
     let dynamicLayerIDs: Set<Int>
     let lightLayerIDs: [Int]
     let worldFrames: [Int: simd_float4x4]
+    let utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
+    let preparationLayers: [SceneRenderDescriptor.Layer]?
 }
 
 extension SceneMetalRenderer {
@@ -23,13 +25,19 @@ extension SceneMetalRenderer {
         let orderedLayers: [SceneRenderDescriptor.Layer]
         let dynamicLayerIDs: Set<Int>
         let lightLayerIDs: [Int]
+        let utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
+        let preparationLayers: [SceneRenderDescriptor.Layer]?
         if let layerTopology,
            !layerTopology.dynamicLayers.isEmpty
                 || layerTopology.renderOrderLayerIDs
-                    != renderDescriptor.renderOrderLayerIDs {
+                    != renderDescriptor.renderOrderLayerIDs
+                || !layerTopology.destroyedAuthoredLayerIDs.isEmpty {
             let projection = dynamicLayerTopologyCache.resolve(
                 baseDescriptor: renderDescriptor,
-                topology: layerTopology
+                topology: layerTopology,
+                dependencyRuntime: dependencyRuntime,
+                resolvedMaterialLayerIDs:
+                    imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? []
             )
             descriptor = projection.descriptor
             layersByID = projection.layersByID
@@ -37,6 +45,8 @@ extension SceneMetalRenderer {
             orderedLayers = projection.orderedLayers
             dynamicLayerIDs = projection.dynamicLayerIDs
             lightLayerIDs = projection.lightLayerIDs
+            utilityExecution = projection.utilityExecution
+            preparationLayers = projection.preparationLayers
         } else {
             descriptor = renderDescriptor
             layersByID = self.layersByID
@@ -44,6 +54,8 @@ extension SceneMetalRenderer {
             orderedLayers = authoredLayers
             dynamicLayerIDs = []
             lightLayerIDs = self.lightLayerIDs
+            utilityExecution = self.utilityExecution
+            preparationLayers = resolvedMaterialPreparationLayers
         }
         return SceneMetalRendererFrameWorldProjection(
             descriptor: descriptor,
@@ -58,7 +70,9 @@ extension SceneMetalRenderer {
                 staticFrames: staticWorldFrames,
                 dynamicLayerIDs: dynamicLayerIDs,
                 puppetAttachmentFrames: puppetAttachmentFrames
-            )
+            ),
+            utilityExecution: utilityExecution,
+            preparationLayers: preparationLayers
         )
     }
 

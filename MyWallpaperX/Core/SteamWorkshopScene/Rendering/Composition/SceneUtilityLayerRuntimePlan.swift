@@ -16,10 +16,8 @@ struct SceneUtilityLayerRuntimePlan {
     let disposition: Disposition
     let requiresNamedTarget: Bool
     let triggerLayerID: Int
-    /// D1 isolated composition group: the ordered render-order member list
-    /// (every descendant, including nested-group members) when this plan
-    /// captures through a group-private render target. `nil` on the legacy
-    /// contiguous-prefix capture and on childless utility captures.
+    /// Descendants in authored relative order. Empty still denotes the
+    /// transparent source of a childless composition with copybackground=false.
     var isolatedGroupMembers: [Int]? = nil
 
     var shouldCapture: Bool { disposition == .capture }
@@ -27,6 +25,58 @@ struct SceneUtilityLayerRuntimePlan {
 }
 
 enum SceneUtilityLayerRuntimePlanner {
+    struct Execution {
+        let orderedLayerIDs: [Int]
+        let plansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
+        let captureLayerIDs: Set<Int>
+        let memberRootsByLayerID: [Int: Int]
+        let membersByRootID: [Int: [Int]]
+        let orderedRootIDs: [Int]
+        let copyBackgroundRootIDs: Set<Int>
+    }
+
+    /// Prepared once per descriptor/topology revision. Members execute at
+    /// their root's authored position; preparation and encode share this order.
+    static func execution(
+        in descriptor: SceneRenderDescriptor,
+        plans: [Int: SceneUtilityLayerRuntimePlan]
+    ) -> Execution {
+        let values = Array(plans.values)
+        let membership = SceneCompositionGroupFrameRuntime.membership(of: values)
+        // A no-effect group needs only ordering: its children draw directly to
+        // the enclosing pass, without an extra target or graph transaction.
+        let orderMembership = SceneCompositionGroupFrameRuntime.membership(
+            of: values, includesNoEffectGroups: true
+        )
+        var ordered: [Int] = []
+        func append(_ layerID: Int) {
+            if let members = orderMembership.membersByRootID[layerID] {
+                for memberID in members where
+                    orderMembership.memberRootsByLayerID[memberID] == layerID {
+                    append(memberID)
+                }
+            }
+            ordered.append(layerID)
+        }
+        for layerID in descriptor.renderOrderLayerIDs where
+            orderMembership.memberRootsByLayerID[layerID] == nil {
+            append(layerID)
+        }
+        let captures = values.filter(\.shouldCapture)
+        return Execution(
+            orderedLayerIDs: ordered,
+            plansByTriggerLayerID: Dictionary(grouping: captures, by: \.triggerLayerID),
+            captureLayerIDs: Set(captures.map(\.layerID)),
+            memberRootsByLayerID: membership.memberRootsByLayerID,
+            membersByRootID: membership.membersByRootID,
+            orderedRootIDs: ordered.filter { membership.membersByRootID[$0] != nil },
+            copyBackgroundRootIDs: Set(descriptor.layers.compactMap { layer in
+                membership.membersByRootID[layer.id] != nil
+                    && layer.utilityLayer?.copyBackground == true ? layer.id : nil
+            })
+        )
+    }
+
     static func plans(
         in descriptor: SceneRenderDescriptor,
         resolvedMaterialLayerIDs: Set<Int> = [],
@@ -265,9 +315,9 @@ enum SceneUtilityLayerRuntimePlanner {
     }
 }
 
-/// D1 composition-group frame runtime. Members draw into a group-private
-/// offscreen target with a transparent clear; the group composites once at
-/// its authored position (the last member in render order). A target
+/// Composition-group frame runtime. Members draw into a private source
+/// initialized from the enclosing background or transparent clear, then
+/// composite once at their root's authored position. A target
 /// allocation failure degrades the whole group to previous-current: members
 /// are skipped entirely and never leak uncomposited content into the parent
 /// target. Nested groups resolve innermost-first; an inner group whose
@@ -278,11 +328,13 @@ final class SceneCompositionGroupFrameRuntime {
     private let offscreenTexturePool: SceneOffscreenTexturePool
     private let memberRootsByLayerID: [Int: Int]
     private let membersByRootID: [Int: [Int]]
+    private let copyBackgroundRootIDs: Set<Int>
     private let viewportSize: CGSize
     private var passesByRootID: [Int: SceneMainPassEncoder] = [:]
     private var texturesByRootID: [Int: MTLTexture] = [:]
     private var degradedRootIDs: Set<Int> = []
     private var sourcePins: [SceneGraphRenderTargetResidencyPin] = []
+    private var initializedRootIDs: Set<Int> = []
     private let resetEpoch: UUID
 
     init(
@@ -291,13 +343,15 @@ final class SceneCompositionGroupFrameRuntime {
         offscreenTexturePool: SceneOffscreenTexturePool,
         memberRootsByLayerID: [Int: Int],
         membersByRootID: [Int: [Int]],
-        viewportSize: CGSize
+        viewportSize: CGSize,
+        copyBackgroundRootIDs: Set<Int> = []
     ) {
         self.parentPass = parentPass
         self.commandBuffer = commandBuffer
         self.offscreenTexturePool = offscreenTexturePool
         self.memberRootsByLayerID = memberRootsByLayerID
         self.membersByRootID = membersByRootID
+        self.copyBackgroundRootIDs = copyBackgroundRootIDs
         self.viewportSize = viewportSize
         self.resetEpoch = offscreenTexturePool.sceneColorResetEpoch
     }
@@ -307,7 +361,7 @@ final class SceneCompositionGroupFrameRuntime {
     func reserveSources(orderedRootIDs: [Int], visibleLayerIDs: Set<Int>) {
         for rootID in orderedRootIDs {
             if visibleLayerIDs.contains(rootID) {
-                _ = renderPass(forRootID: rootID)
+                _ = reservePass(forRootID: rootID)
             } else {
                 degradedRootIDs.insert(rootID)
             }
@@ -347,10 +401,12 @@ final class SceneCompositionGroupFrameRuntime {
     /// to the enclosing root, so its composite draws into the enclosing
     /// group's pass.
     static func membership(
-        of plans: [SceneUtilityLayerRuntimePlan]
+        of plans: [SceneUtilityLayerRuntimePlan],
+        includesNoEffectGroups: Bool = false
     ) -> (memberRootsByLayerID: [Int: Int], membersByRootID: [Int: [Int]]) {
         let admitted = plans.filter {
-            $0.shouldCapture && $0.usesIsolatedGroupTarget
+            $0.usesIsolatedGroupTarget && ($0.shouldCapture
+                || (includesNoEffectGroups && $0.disposition == .skippedNoEffect))
         }
         let membersByRootID = Dictionary(
             uniqueKeysWithValues: admitted.map { ($0.layerID, $0.isolatedGroupMembers ?? []) }
@@ -377,16 +433,14 @@ final class SceneCompositionGroupFrameRuntime {
     /// admitted group's pass, or the frame's main pass for non-members.
     /// `nil` means the group is degraded this frame and the layer must be
     /// skipped so uncomposited content cannot reach the parent target.
-    func renderPass(forLayerID layerID: Int) -> SceneMainPassEncoder? {
+    func renderPass(
+        forLayerID layerID: Int,
+        beginsRendering: Bool = false
+    ) -> SceneMainPassEncoder? {
         guard let rootID = memberRootsByLayerID[layerID] else {
             return parentPass
         }
-        return renderPass(forRootID: rootID)
-    }
-
-    // inventory-entry: composition-rt 第一阶段遗留的诊断入口，后续阶段消费或整体删除
-    func isDegraded(rootID: Int) -> Bool {
-        degradedRootIDs.contains(rootID)
+        return beginsRendering ? beginGroup(forRootID: rootID) : reservePass(forRootID: rootID)
     }
 
     /// The composited output target of one group, creating the group pass on
@@ -394,7 +448,7 @@ final class SceneCompositionGroupFrameRuntime {
     func groupTexture(forRootID rootID: Int) -> MTLTexture? {
         guard resetEpoch == offscreenTexturePool.sceneColorResetEpoch,
               sourceIsAvailable(forLayerID: rootID),
-              let pass = passesByRootID[rootID] else { return nil }
+              let pass = beginGroup(forRootID: rootID) else { return nil }
         // A frame with no member draw must still initialize the reused source.
         return pass.withReadableTarget { texture, _ in texture }
     }
@@ -402,11 +456,15 @@ final class SceneCompositionGroupFrameRuntime {
     /// The pass a group's single composite must encode into: the nearest
     /// enclosing group's pass, or the frame's main pass. `nil` when an
     /// enclosing group is degraded, in which case the composite is skipped.
-    func compositeTargetPass(forRootID rootID: Int) -> SceneMainPassEncoder? {
+    func compositeTargetPass(
+        forRootID rootID: Int,
+        beginsRendering: Bool = false
+    ) -> SceneMainPassEncoder? {
         guard let enclosingRootID = memberRootsByLayerID[rootID] else {
             return parentPass
         }
-        return renderPass(forRootID: enclosingRootID)
+        return beginsRendering
+            ? beginGroup(forRootID: enclosingRootID) : reservePass(forRootID: enclosingRootID)
     }
 
     func closeAllGroupEncoders() {
@@ -415,7 +473,49 @@ final class SceneCompositionGroupFrameRuntime {
         }
     }
 
-    private func renderPass(forRootID rootID: Int) -> SceneMainPassEncoder? {
+    private func beginGroup(forRootID rootID: Int) -> SceneMainPassEncoder? {
+        guard sourceIsAvailable(forLayerID: rootID),
+              let pass = reservePass(forRootID: rootID) else { return nil }
+        if initializedRootIDs.contains(rootID) { return pass }
+        // Initialize enclosing groups first. Reservation never samples pixels:
+        // this background belongs to the root's actual authored position.
+        guard let enclosingPass = compositeTargetPass(
+            forRootID: rootID, beginsRendering: true
+        ) else { return nil }
+        closeAllGroupEncoders()
+        parentPass.closeForOffscreen()
+        let initialized: Bool
+        if copyBackgroundRootIDs.contains(rootID) {
+            initialized = enclosingPass.withReadableTarget { source, _ in
+                pass.withReadableTarget { target, commandBuffer in
+                    // Both targets come from the viewport-sized frame/pool
+                    // producers; a resize or format mismatch cannot be blitted.
+                    guard source.width == target.width,
+                          source.height == target.height,
+                          source.pixelFormat == target.pixelFormat else { return false }
+                    guard let blit = commandBuffer.makeBlitCommandEncoder() else { return false }
+                    blit.copy(from: source, sourceSlice: 0, sourceLevel: 0,
+                        sourceOrigin: MTLOrigin(),
+                        sourceSize: MTLSize(width: source.width, height: source.height, depth: 1),
+                        to: target, destinationSlice: 0, destinationLevel: 0,
+                        destinationOrigin: MTLOrigin())
+                    blit.endEncoding()
+                    SceneGPUCensus.recordTextureCopy(texture: target)
+                    return true
+                } ?? false
+            } ?? false
+        } else {
+            initialized = pass.withReadableTarget { _, _ in true } ?? false
+        }
+        guard initialized else {
+            degradedRootIDs.insert(rootID)
+            return nil
+        }
+        initializedRootIDs.insert(rootID)
+        return pass
+    }
+
+    private func reservePass(forRootID rootID: Int) -> SceneMainPassEncoder? {
         if degradedRootIDs.contains(rootID) { return nil }
         if let pass = passesByRootID[rootID] { return pass }
         let width = max(1, Int(viewportSize.width.rounded(.up)))

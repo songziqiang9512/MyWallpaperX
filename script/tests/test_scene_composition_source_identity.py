@@ -266,7 +266,7 @@ class SceneCompositionSourceIntegrationTests(unittest.TestCase):
         from script.tests.test_scene_pkg_cache_extractor import make_package
         scene = {"version": 3, "general": {"orthogonalprojection": {"width": 160, "height": 96}, "clearcolor": "0 0 1"}, "objects": [
             {"id": 1, "name": "Blue main", "image": "models/util/solidlayer.json", "origin": "80 48 0", "size": "160 96", "color": background},
-            {"id": 20, "name": "Selected source", "image": "models/util/composelayer.json", "origin": "0 0 0", "size": "160 96", "effects": [{"id": 200, "file": "effects/own_dim/effect.json", "visible": enabled}]},
+            {"id": 20, "name": "Selected source", "copybackground": False, "image": "models/util/composelayer.json", "origin": "0 0 0", "size": "160 96", "effects": [{"id": 200, "file": "effects/own_dim/effect.json", "visible": enabled}]},
             {"id": 21, "parent": 20, "name": "Red source", "image": "models/util/solidlayer.json", "origin": "80 48 0", "size": "32 32", "color": "1 0 0"},
             {"id": 99, "name": "Healthy green peer", "image": "models/util/solidlayer.json", "origin": "140 80 0", "size": "12 12", "color": "0 1 0"}
         ]}
@@ -277,7 +277,7 @@ class SceneCompositionSourceIntegrationTests(unittest.TestCase):
             scene["objects"][2]["effects"] = [{"id": 210, "file":"effects/own_dim/effect.json", "visible":True}]
         if nested:
             scene["objects"][2]["parent"] = 30
-            scene["objects"].insert(2, {"id":30,"parent":20,"name":"Inner selected source","image":"models/util/composelayer.json","origin":"0 0 0","size":"160 96","effects":[{"id":300,"file":"effects/own_dim/effect.json","visible":True}]})
+            scene["objects"].insert(2, {"id":30,"parent":20,"name":"Inner selected source","copybackground":False,"image":"models/util/composelayer.json","origin":"0 0 0","size":"160 96","effects":[{"id":300,"file":"effects/own_dim/effect.json","visible":True}]})
         if childless_position:
             utility = {"id":30,"parent":20,"name":"Childless capture","image":"models/util/composelayer.json","origin":"80 48 0","size":"160 96","effects":[{"id":300,"file":"effects/own_dim/effect.json","visible":True}]}
             scene["objects"].insert(2 if childless_position == "first" else 3, utility)
@@ -290,6 +290,7 @@ class SceneCompositionSourceIntegrationTests(unittest.TestCase):
         if capture_main:
             scene["objects"][0]["color"] = "1 0 0"
             scene["objects"][1]["origin"] = "80 48 0"
+            scene["objects"][1]["copybackground"] = True
             scene["objects"].pop(2)
         entries = {
             "scene.json": json.dumps(scene).encode(),

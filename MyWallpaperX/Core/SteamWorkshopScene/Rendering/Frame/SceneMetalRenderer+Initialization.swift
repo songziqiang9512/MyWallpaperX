@@ -94,26 +94,18 @@ extension SceneMetalRenderer {
             dependencyPlan: dependencyRuntime.plan,
             resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
         )
-        let capturesByTrigger = Dictionary(grouping:
-            utilityPlans.values.filter(\.shouldCapture), by: \.triggerLayerID)
-        let capturedLayerIDs = Set(utilityPlans.values.filter(\.shouldCapture).map(\.layerID))
-        // Graph transactions follow the existing utility trigger schedule:
-        // members complete before their root; nested roots consume inner first.
-        let executionLayerIDs = renderDescriptor.renderOrderLayerIDs.flatMap { layerID in
-            let roots = (capturesByTrigger[layerID] ?? []).sorted {
-                ($0.isolatedGroupMembers?.count ?? 0)
-                    < ($1.isolatedGroupMembers?.count ?? 0)
-            }.map(\.layerID)
-            return (capturedLayerIDs.contains(layerID) ? [] : [layerID]) + roots
-        }
+        let utilityExecution = SceneUtilityLayerRuntimePlanner.execution(
+            in: renderDescriptor, plans: utilityPlans
+        )
+        self.utilityExecution = utilityExecution
         let preparationLayerIDs = dependencyRuntime
             .resolvedMaterialPreparationOrder(
-                authoredLayerIDs: executionLayerIDs
+                authoredLayerIDs: utilityExecution.orderedLayerIDs
             )
         let byID = Dictionary(
             uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) }
         )
-        self.authoredLayers = renderDescriptor.renderOrderLayerIDs.compactMap {
+        self.authoredLayers = utilityExecution.orderedLayerIDs.compactMap {
             byID[$0]
         }
         self.resolvedMaterialPreparationLayerIDs = preparationLayerIDs
@@ -126,25 +118,6 @@ extension SceneMetalRenderer {
             descriptor: renderDescriptor,
             layersByID: byID
         )
-        self.utilityPlansByTriggerLayerID = Dictionary(
-            grouping: utilityPlans.values.filter(\.shouldCapture),
-            by: \.triggerLayerID
-        )
-        self.utilityCaptureLayerIDs = Set(
-            utilityPlans.values.filter(\.shouldCapture).map(\.layerID)
-        )
-        // D1 composition groups: static per-descriptor membership (nearest
-        // admitted group root per layer). Frame-local pass state is built
-        // from these maps each frame.
-        let compositionGroupMembership = SceneCompositionGroupFrameRuntime
-            .membership(of: Array(utilityPlans.values))
-        self.compositionGroupMemberRootsByLayerID =
-            compositionGroupMembership.memberRootsByLayerID
-        self.compositionGroupMembersByRootID =
-            compositionGroupMembership.membersByRootID
-        self.compositionGroupRootIDs = executionLayerIDs.filter {
-            compositionGroupMembership.membersByRootID[$0] != nil
-        }
         let worldFramesByLayerID = SceneLayerWorldFrameResolver.compute(
             descriptor: renderDescriptor,
             byID: byID

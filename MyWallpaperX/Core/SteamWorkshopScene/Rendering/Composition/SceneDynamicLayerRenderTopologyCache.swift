@@ -14,6 +14,9 @@ final class SceneDynamicLayerRenderTopologyCache {
         let orderedLayerPositionsByID: [Int: Int]
         let dynamicLayerIDs: Set<Int>
         let lightLayerIDs: [Int]
+        let utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
+        let preparationLayers: [SceneRenderDescriptor.Layer]?
+        let preparationLayerPositionsByID: [Int: Int]
 
         /// Dynamic layer values are surface/frame scoped. Keep the complete
         /// value record out of the revision cache so two surfaces cannot
@@ -25,12 +28,16 @@ final class SceneDynamicLayerRenderTopologyCache {
             var descriptor = descriptor
             var layersByID = layersByID
             var orderedLayers = orderedLayers
+            var preparationLayers = preparationLayers
             for layer in topology.dynamicLayers {
                 guard let index = layerIndicesByID[layer.id] else { continue }
                 descriptor.layers[index] = layer
                 layersByID[layer.id] = layer
                 if let orderedIndex = orderedLayerPositionsByID[layer.id] {
                     orderedLayers[orderedIndex] = layer
+                }
+                if let index = preparationLayerPositionsByID[layer.id] {
+                    preparationLayers?[index] = layer
                 }
             }
             return .init(
@@ -42,7 +49,10 @@ final class SceneDynamicLayerRenderTopologyCache {
                 orderedLayers: orderedLayers,
                 orderedLayerPositionsByID: orderedLayerPositionsByID,
                 dynamicLayerIDs: dynamicLayerIDs,
-                lightLayerIDs: lightLayerIDs
+                lightLayerIDs: lightLayerIDs,
+                utilityExecution: utilityExecution,
+                preparationLayers: preparationLayers,
+                preparationLayerPositionsByID: preparationLayerPositionsByID
             )
         }
     }
@@ -53,7 +63,9 @@ final class SceneDynamicLayerRenderTopologyCache {
 
     func resolve(
         baseDescriptor: SceneRenderDescriptor,
-        topology: SceneScriptLayerTopologySnapshot
+        topology: SceneScriptLayerTopologySnapshot,
+        dependencyRuntime: SceneDependencyFrameRuntime,
+        resolvedMaterialLayerIDs: Set<Int>
     ) -> Projection {
         if revision == topology.topologyRevision, let projection {
             lastResolveWasCacheHit = true
@@ -71,9 +83,17 @@ final class SceneDynamicLayerRenderTopologyCache {
         )
         let dynamicLayerIDs = Set(topology.dynamicLayers.map(\.id))
         let authoredLayerIDs = descriptor.renderOrderLayerIDs
-        let orderedLayers = authoredLayerIDs.compactMap { layersByID[$0] }
+        let utilityExecution = SceneUtilityLayerRuntimePlanner.execution(
+            in: descriptor,
+            plans: SceneUtilityLayerRuntimePlanner.plans(
+                in: descriptor, dependencyPlan: dependencyRuntime.plan,
+                resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
+            )
+        )
+        let executionLayerIDs = utilityExecution.orderedLayerIDs
+        let orderedLayers = executionLayerIDs.compactMap { layersByID[$0] }
         let orderedLayerPositionsByID = Dictionary(
-            uniqueKeysWithValues: authoredLayerIDs.enumerated().compactMap {
+            uniqueKeysWithValues: executionLayerIDs.enumerated().compactMap {
                 offset, layerID in
                 layersByID[layerID] == nil ? nil : (layerID, offset)
             }
@@ -81,6 +101,16 @@ final class SceneDynamicLayerRenderTopologyCache {
         let lightLayerIDs = SceneLightSnapshot.orderedLightLayerIDs(
             descriptor: descriptor,
             layersByID: layersByID
+        )
+        let preparationLayerIDs = dependencyRuntime.resolvedMaterialPreparationOrder(
+            authoredLayerIDs: executionLayerIDs
+        )
+        let preparationLayers = preparationLayerIDs.flatMap { ids in
+            let layers = ids.compactMap { layersByID[$0] }
+            return layers.count == ids.count ? layers : nil
+        }
+        let preparationLayerPositionsByID = Dictionary(uniqueKeysWithValues:
+            (preparationLayerIDs ?? []).enumerated().map { ($0.element, $0.offset) }
         )
         let projection = Projection(
             descriptor: descriptor,
@@ -93,7 +123,10 @@ final class SceneDynamicLayerRenderTopologyCache {
             orderedLayers: orderedLayers,
             orderedLayerPositionsByID: orderedLayerPositionsByID,
             dynamicLayerIDs: dynamicLayerIDs,
-            lightLayerIDs: lightLayerIDs
+            lightLayerIDs: lightLayerIDs,
+            utilityExecution: utilityExecution,
+            preparationLayers: preparationLayers,
+            preparationLayerPositionsByID: preparationLayerPositionsByID
         )
         revision = topology.topologyRevision
         self.projection = projection

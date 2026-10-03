@@ -21,18 +21,23 @@ extension SceneMetalRenderer {
         baseMaterialSelections: inout [Int: SceneBaseMaterialTextureSelection],
         environmentSource: ((MTLCommandBuffer) -> SceneFrameTextureResource?)?,
         frameLightSnapshot: SceneLightSnapshot? = nil,
-        compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil
+        compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil,
+        preparationLayers: [SceneRenderDescriptor.Layer]? = nil,
+        utilityExecution: SceneUtilityLayerRuntimePlanner.Execution? = nil
     ) -> SceneResolvedMaterialGraphComposition.FramePreflightResult {
         performanceTelemetry?.beginStage("admit-preflight-targets")
         defer { performanceTelemetry?.endStage("admit-preflight-targets") }
         let lightingProfileByLayerID =
             baseMaterialProviderBindings.lightingProfileByLayerID
         let viewportSize = frameContext.screenSize
-        guard let orderedLayers = resolvedMaterialPreparationLayers else {
+        guard let orderedLayers = utilityExecution == nil
+                ? (preparationLayers ?? resolvedMaterialPreparationLayers)
+                : preparationLayers else {
             return .rejected(
                 reasonCode: "resolved-material-preparation-order-invalid"
             )
         }
+        let utilityExecution = utilityExecution ?? self.utilityExecution
         let availableExecutionLayerIDs =
             imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? []
         // The renderer already walked the frame's visible layer set from the
@@ -131,7 +136,7 @@ extension SceneMetalRenderer {
             // available for this frame-local unsupported unit.
             if layer.contentKind == "composition",
                layer.utilityLayer?.kind == .composition,
-               !utilityCaptureLayerIDs.contains(layer.id) {
+               !utilityExecution.captureLayerIDs.contains(layer.id) {
                 continue
             }
             // An accepted dynamic root that is false in the committed frame
@@ -291,20 +296,14 @@ extension SceneMetalRenderer {
                 desiredSize = projectedSize
             case .capturedMainTargetTexture:
                 guard let utility = layer.utilityLayer,
-                      layer.contentKind == utility.kind.rawValue,
-                      case let .success(sourceRoute) =
-                        SceneUtilityLayerSourceRoute.resolve(
-                          layer: layer,
-                          descriptor: renderDescriptor
-                      ) else {
+                      layer.contentKind == utility.kind.rawValue else {
                     return .rejected(
                         reasonCode: "utility-source-shape-invalid"
                     )
                 }
-                if sourceRoute.usesIsolatedGroupTarget {
-                    // D1: the group owns a transparent-clear target, so a
-                    // translucent group is a legal input and the legacy
-                    // opaque-full-viewport source proof does not apply. The
+                if utilityExecution.membersByRootID[layer.id] != nil {
+                    // The group owns its initialized source target, including
+                    // transparent content. The
                     // effect chain reads the whole viewport-sized group
                     // surface 1:1; the extent is the parent composite space.
                     guard viewportSize.width.isFinite,
@@ -321,18 +320,6 @@ extension SceneMetalRenderer {
                         pixelSize: viewportSize
                     )
                     desiredSize = viewportSize
-                } else if sourceRoute.capturesCompositionSubtree,
-                          !hasOpaqueFullViewportUtilitySource(
-                              route: sourceRoute,
-                              imageTextures: imageTextures,
-                              frameContext: frameContext,
-                              worldFramesByLayerID: worldFramesByLayerID,
-                              cameraFrame: cameraFrame,
-                              parallaxConfiguration: parallaxConfiguration
-                          ) {
-                    sourceCoverageFallbacks[layer.id] =
-                        "utility-composition-subtree-source-coverage-unavailable"
-                    continue
                 } else {
                     let model = imageModelMatrix(
                         for: layer,

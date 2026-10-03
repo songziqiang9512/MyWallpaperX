@@ -28,10 +28,11 @@ enum SceneUtilityPlanFrameRenderer {
         resolvedMaterialFrameTargetPlans: [
             Int: SceneResolvedMaterialFrameTargetPlan
         ] = [:],
-        compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil
+        compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil,
+        layersByID: [Int: SceneRenderDescriptor.Layer]
     ) -> Bool {
         for plan in plans {
-            guard let layer = renderer.layersByID[plan.layerID] else { continue }
+            guard let layer = layersByID[plan.layerID] else { continue }
             let model = renderer.imageModelMatrix(
                 for: layer,
                 worldFramesByLayerID: worldFramesByLayerID,
@@ -102,7 +103,7 @@ enum SceneUtilityPlanFrameRenderer {
                 let compositePass: SceneMainPassEncoder?
                 if let compositionGroupRuntime {
                     compositePass = compositionGroupRuntime
-                        .compositeTargetPass(forRootID: plan.layerID)
+                        .compositeTargetPass(forRootID: plan.layerID, beginsRendering: true)
                 } else {
                     compositePass = mainPass
                 }

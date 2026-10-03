@@ -903,7 +903,6 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "emptyExecutionFamilyDropsOnlyInvalidKey",
                 "invalidCapabilityTokenRejectsWithoutLegacyFallback",
                 "typedTargetDescriptorFallbackRemainsLayerLocal",
-                "utilitySubtreeCoverageFallbackRemainsLayerLocal",
                 "pendingSourceFallbackRemainsLayerLocal",
                 "preflightFailureReasonReachesCoordinatorEvidence",
                 "claimWaitsForAtomicFramePreparation",

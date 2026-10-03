@@ -104,6 +104,16 @@ struct SceneResolvedMaterialFrameTargetPlan {}
 struct SceneBaseImageTextureSnapshot {}
 struct FixtureImageSelection {let source:MTLTexture?}
 struct SceneUtilityLayerRuntimePlan {let layerID:Int;let usesIsolatedGroupTarget:Bool}
+// Prepared schedule input only. This probe compiles the real snapshot/depth
+// consumers; composition planning and group pixels are covered by the App gate.
+enum SceneUtilityLayerRuntimePlanner {
+ struct Execution {
+  let plansByTriggerLayerID:[Int:[SceneUtilityLayerRuntimePlan]]
+  init(plansByTriggerLayerID:[Int:[SceneUtilityLayerRuntimePlan]]=[:]) {
+   self.plansByTriggerLayerID=plansByTriggerLayerID
+  }
+ }
+}
 enum SceneLayerColorBlendRenderer {static func supports(_ mode:Int)->Bool {fatalError("unused snapshot-demand shell")}}
 final class SceneImageLayerCompositor {
  func prepareSnapshotCapacity(width:Int,height:Int,pixelFormat:MTLPixelFormat,then remaining:()->Bool)->Bool {fatalError("unused snapshot-demand shell")}
@@ -111,7 +121,7 @@ final class SceneImageLayerCompositor {
 
 final class SceneMetalRenderer {
  let device:MTLDevice;let staticModelResources:ScenePreparedStaticModelResources
- var utilityPlansByTriggerLayerID:[Int:[SceneUtilityLayerRuntimePlan]]=[:]
+ var utilityExecution=SceneUtilityLayerRuntimePlanner.Execution()
  var layersByID:[Int:SceneRenderDescriptor.Layer]=[:]
  let imageCompositor=SceneImageLayerCompositor()
  func baseMaterialReadyProviderUsesAuthoredLayerColor(for layer:SceneRenderDescriptor.Layer,dynamicValues:SceneDynamicSnapshot)->Bool {fatalError("unused snapshot-demand shell")}

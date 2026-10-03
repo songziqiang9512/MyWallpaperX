@@ -57,9 +57,9 @@
       "id": "scene-composition-render-target",
       "title": "composition作者采集成员、模式与顺序",
       "owner": "scene-e-route",
-      "status": "blocked-pending-design",
+      "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/composition-render-target-design.md",
-      "design_notes": "成员/模式仍待中性行为或有界黑盒定案，旧parent-only隔离语义批准撤回。资源准入、source/destination一致性及生命周期窄片已实施并交runtime-architecture §3.3，窄登记同批退役；SourceRoute仍冻结，不得借修资源扩成员语义。",
+      "design_notes": "2026-10-04 固定官方自有黑盒批准普通 composition parent 组、根位置合成、copybackground 缺省/true 纳入 enclosing 背景及 false 透明源；按现有 pool/graph/compositor 实施。passthrough、特殊变换/裁切和完整 parity 未批准；approved 不是已实现。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceRoute.swift"
       ],
