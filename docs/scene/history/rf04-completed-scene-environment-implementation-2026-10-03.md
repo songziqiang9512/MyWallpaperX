@@ -61,3 +61,20 @@ A之后的真实配额反例揭示：pool仅在临时字典里预测驱逐，旧
 composition另以同一固定App补跑15项、204.834s全部通过，覆盖真实group source、childless/nested capture、空源清除、取消恢复与resize；原无App调用的skip不被计为这次执行。三个直接消费者初跑成功、pool编译修正后29项通过；仅源码场景同构不替代这些实际运行结果。
 
 整批25文件冻结独审为有界ACCEPT、无P1/P2，记录SHA256为`7a2e634c4fc998d711d487c1603c64b6e9a6fa035578bdd9eb643b53b438dd46`；10项门禁与14个治理模块均通过。最终证据提升至`.artifacts/scene-evidence/runs/rf04-native-allocation-recovery-20261003`，334个成员逐SHA核验，archive SHA256为`980451f61d167faa7811a349e567e9591a0c52a1d358de317d032ba325b65736`，默认14天。原protected容量反例五个文件以原字节保存在archive的`prior-counterexample/`，原独立保护包随问题解决退役；47张最终App PNG、实际输入、原失败与通过日志、源码身份及独审一并保留。原collector的非数字归档键不符合promotion schema，改为本机数字键后成功，不改变archive字节或验收结果。
+
+## B 资源准备窗口实验
+
+基线`97c456c7`。本轮把optional调用插入真实pool的prepare→commit窗口，验证拟议阶段顺序；现役coordinator先commit/pin再返回SceneDrawing分配optional，不能把这些反例称为当前App故障。原pool、allocator、cache、native账户直接执行，未改产品代码。
+
+| 对照 | 真实结果 | 支持的结论 |
+| --- | --- | --- |
+| P1 shared，无插入 / 正常optional / 首次factory nil触发回收 | commit为true/true/false；正常插入改变revision但保shared generation，仍成功；回收后shared generation消失，原prepared texture identity保持但提交拒绝。 | 强引用不保护reservation身份，单纯revision变化不是失败原因。nil来自实验seam，三行真实native rejection均0。 |
+| P2 owned fresh，无optional / 新optional被pin | graph逻辑成本9216、真实native prepare增量9600，提交前pool尚未记fresh；新增optional逻辑340后原commit失败，无插入成功。 | 实际物化不等于进入同pool驻留账。 |
+| P3 预存idle environment，无读pin / cache-hit读pin | 无读pin提交成功；缓存命中factory为0，加pin后失败。 | terminal缓存的零新分配不能单独绕过mandatory实际计费与保护；并非否定所有terminal存储方案。 |
+| 严格无history的owned/shared提前resource commit对照 | 两行原commit先成功，pool成本9216；后续optional在factory前拒绝，graph仍在。 | 原计费/pin可保护资源，不证明一般history或Program阶段允许提前提交。 |
+
+最终9行方向断言通过；35个编译输入身份前后不变，native账户0→0、真实native rejection总数0，所有CB未提交。另有先行4行P2/P3 smoke得到相同结果。首个完整probe的texture比较误用了字典description顺序、revision观测放在commit之后；仅修观测为有序ObjectIdentifier及commit前revision后重跑，原输出保留，不计产品故障。
+
+本证据没有运行Program、scene history producer receipt、mip内容、GPU命令或App，不支持一般history准入。下一步只验证原cache内fresh pending计费、原generation保护与同锁原子转交；是否以及如何接入renderer、局部fallback省略candidate与所有mandatory顺序，仍受D12 B阶段门约束。
+
+本批9行实验与5个文档获独立有界ACCEPT、无P1/P2，审查记录SHA256为`cbb8fdd112e8e1acf399e3fa720a998913220d4fcf0bce0e154945bcd4d09d69`。文档健康及4个文档/设计模块通过；初次预算收据重复同path，经替换为唯一最新收据后通过，原失败日志保留。78个证据成员已逐SHA核验并提升至`.artifacts/scene-evidence/runs/rf04-b-resource-phase-experiment-20261004`，archive SHA256为`dc8ed7eae5d4ffd5cf017ed2d79c73933670e2a4df4d8f16ae7a53f0bfefb9b4`，默认14天；包含源身份、实际harness/结果、初始观测纠正、审查及设计候选，不含binary/cache。隔离资源原型仍在进行，未计入本批验收。

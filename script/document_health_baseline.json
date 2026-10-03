@@ -137,8 +137,8 @@
       "bytes": 13916
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
-      "lines": 118,
-      "bytes": 23416
+      "lines": 122,
+      "bytes": 25036
     },
     "docs/scene/roadmap/batch2/debug-frame-capture-lifecycle-design.md": {
       "lines": 88,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 257,
-      "bytes": 49495
+      "bytes": 49651
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -178,7 +178,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 242,
-      "bytes": 32720
+      "bytes": 32779
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,
@@ -1125,10 +1125,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "f569fdf447a7ee036ae67473791b4b99bd2251832ca67336dc49f13b2a35f611",
-      "after": "ab1ea36bfe840e0e0c835f1716e88a6aac6a4f1a2b5c3b6af4a0db8382cb1423",
-      "owner": "Scene RF04 capacity prerequisite",
-      "reason": "Withdraw insufficient pool-only capacity prediction; record actual allocation counterexample and prerequisite before authored sampler admission.",
+      "before": "ab1ea36bfe840e0e0c835f1716e88a6aac6a4f1a2b5c3b6af4a0db8382cb1423",
+      "after": "83dd54ad5dcbfd77a127b83fbfcdfd1def87f4711c6ecdcbc5519ef7b881eae5",
+      "owner": "Scene RF04 B phase experiment",
+      "reason": "Record actual owner counterexamples and constrain the next original-cache admission prototype; no authored sampler or renderer phase admission.",
       "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
     },
     {
@@ -1143,19 +1143,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
-      "before": "a32196c331c3fcb77d9d6281d68e7ff08d8e7a7e9cf9677e6facc903eccd088b",
-      "after": "f2b9253604a8465a4bbd0033d710fbcab032b9a461f370c203add66785b6f674",
-      "owner": "Scene RF04 allocation recovery",
-      "reason": "Record the existing cache owner recovery contract after the native-quota counterexample; retain actual deinit accounting and one retry per allocation batch, without admitting authored RF04 B. Consolidate the resolved protected counterexample into the verified bounded recovery evidence package.",
+      "before": "f2b9253604a8465a4bbd0033d710fbcab032b9a461f370c203add66785b6f674",
+      "after": "6af3547d0905fbf547567dd287ba885a1eba62dc0fee86862ebfbce77ff6bd1f",
+      "owner": "Scene RF04 B phase experiment",
+      "reason": "Record actual owner counterexamples and constrain the next original-cache admission prototype; no authored sampler or renderer phase admission.",
       "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "a83f1a3d0fa29bf881786ffcddd57a3733361456b13f06a87654e0f3c019d32c",
-      "after": "03309e5569562dafc4df4086aa00146b3b1875d6cb2e4f53b85c89f3c5597246",
-      "owner": "Scene RF04 allocation recovery",
-      "reason": "Record the existing cache owner recovery contract after the native-quota counterexample; retain actual deinit accounting and one retry per allocation batch, without admitting authored RF04 B.",
+      "before": "03309e5569562dafc4df4086aa00146b3b1875d6cb2e4f53b85c89f3c5597246",
+      "after": "92c97d2f5981a3f81ca6072179a73420dc90ece19a4e630aca8cbf2ec8307b80",
+      "owner": "Scene RF04 B phase experiment",
+      "reason": "Record actual owner counterexamples and constrain the next original-cache admission prototype; no authored sampler or renderer phase admission.",
       "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
     }
   ]

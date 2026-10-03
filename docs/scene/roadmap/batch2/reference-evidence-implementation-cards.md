@@ -48,7 +48,7 @@ RF03 连续排放后继已独立验收：缺省/0 duration四方法和显式非�
 
 **当前差距。** A已迁移默认F5至完成raw历史，Debug、真实owner/GPU、后置红层与late named/depth组合App及产品独审均通过，冻结身份和范围见[实施记录](../../history/rf04-completed-scene-environment-implementation-2026-10-03.md)。vocabulary仍未准入作者名称；受控真实父账的闲置cache反例已获有界独审，共用实际factory回收已落地，真实配额/生命周期、Debug与隔离App验证见同一实施记录。每个完整逻辑分配批次最多恢复一次，保留成功前缀，只重试失败factory；保护所有requested generations与pins，按同锁revision提交，额度仍由真实析构返还。合同与证据边界见[D12 B前置容量合同](copy-pass-unification-design.md#rf04-b-admission)。B仍为blocked-pending-design，尚未准入实际mandatory lease与Program finalize阶段拆分或作者绑定；A通过不等于B可用。
 
-**实施次序。** A已扩展原完成raw的按需snapshot与真实producer receipt并迁移F5。共用回收收口后，裁决B先取得真实mandatory资源、后完成Program绑定的阶段合同；作者sampler与F5共用publication，首帧局部可恢复。是否迁移A消费期copy/mip须随最终方案定案。普通 authored FBO 自动 mip、data/cube/array、未知名称及官方 HDR/alpha/kernel parity 不在本片开放。
+**实施次序。** A已扩展原完成raw的按需snapshot与真实producer receipt并迁移F5。共用回收已收口；准备窗口实测否定仅靠强引用或零分配缓存命中的准入，下一步验证原cache内pending实际计费、世代保护与同锁转交，再裁决B先取得真实mandatory资源、后完成Program绑定的阶段合同；作者sampler与F5共用publication，首帧局部可恢复。是否迁移A消费期copy/mip须随最终方案定案。普通 authored FBO 自动 mip、data/cube/array、未知名称及官方 HDR/alpha/kernel parity 不在本片开放。
 
 **验收 / 停止。** Debug、实际 owner 生命周期/GPU 及隔离 App 可见门，最终冻结独审后按职责提交；未获真实资源不发布 ready，optional 失败保留健康画面。完成片移交稳定合同并撤销旧前缀路径，D12 其他 copy 触发点另审；随后执行 D1 固定成员差分，不继续机械增加本轮静态截图。
 

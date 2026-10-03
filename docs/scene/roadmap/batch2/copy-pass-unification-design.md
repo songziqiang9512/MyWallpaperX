@@ -100,6 +100,10 @@ B 的实际阶段环已确认：`admitResolvedMaterialFrameTargets` 的实际 Pr
 
 **再裁决 B 阶段。** 共用容量反例收敛后，比较在原 owner 内分离“实际 mandatory 资源/lease 准入”与“Program finalize/history commit”：保持已证明必要的物理分配顺序，先取得真实 mandatory 容量，再准备可选环境并绑定作者 Program。不能把依赖 executor 结果的 `commitAndPinPersistentGraphTargets` 整体提前，也不能以资源准入冒充 graph/history publication；须证明中途失败、reset、history seed 和局部回退的事务边界。是否继续同 CB 从 completed raw 派生，或采用 terminal 缓存，届时按真实成本和生命周期裁决；本段不预定 terminal mip、不新增预测容量框架。late named 等无法闭合真实资源顺序的 profile 不计支持，不能以永久 passthrough 宣称完成。
 
+**准备窗口实验与原型方向。** 基线`97c456c7`的真实owner对照已证明：prepared强引用不保shared reservation；fresh已分配而未计入pool时，新optional或零分配cache-hit加pin均可使后继commit失败。普通revision变化仍可提交；严格无history的提前resource commit仅为资源层正控制。执行身份与声明边界见[B准备窗口记录](../../history/rf04-completed-scene-environment-implementation-2026-10-03.md#b-资源准备窗口实验)。因此terminal存储不能单独解环，停止把“缓存命中无新分配”当准入依据。
+
+下一步原型限定原cache：一个短寿命一次性handle；fresh已物化candidate在原`residents`以pending项计费，cached/reusable在原entry计费且不重复登记；独立preparation标记保护原shared、seed、replaced/retired generations。最终持同锁构造仅剥离本批标记/pending的工作view，复用唯一commit校验与组装核心，一次apply；无release→reacquire窗口，无新预算/history ledger。失败或取消仅撤销本批准入，reset与外部pin仍按原身份拒绝。资源层须证明fresh/零分配缓存、shared/cached、retired复用、history seed错误、完整批次取消/reset；同时暴露保护旧来源与fresh共存的峰值成本，不能冒充原replacement净成本等价。此处只限定实验，不批准产品路由；原型的完整candidate集合还须与现役finalizer局部fallback可省略candidate的行为协调，不能将视觉局部失败扩大为整帧拒绝。之后才裁决renderer阶段、全部mandatory顺序及作者绑定。
+
 **不变的用户与所有权合同。** 上文第1、6、7项仍是 B 目标：静态 typed 资格预编译真实 Program，首帧缺历史经精确 VariantCache 证明与 GraphExecutor previous-current 拓扑局部降级，后继成功帧无需 relaunch 恢复；不伪造 ready/1×1、不放宽所有 provider。F5 与合法不同槽的作者 sampler 必须共用同一 source receipt/publication，切换时撤销被替代的派生路径，不能双执行。completed history、FIFO completion、identity/reset 仍各归原 owner；可选环境不得提高 HDR mandatory raw 的最低成本。
 
 **最小实验与准入门。** 实验使用真实 pool、`makeSceneTexture` 与父账，native descriptor 的 format/usage/storage/mip 必须一致；记录真实 factory 次数、父账 resident/rejection、pool resident、weak reference 与 generation，不能只跑算术模拟。
