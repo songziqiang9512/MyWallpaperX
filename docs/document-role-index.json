@@ -349,9 +349,9 @@
       "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d6596aa71aad500ca2b5cec4c7a19c637819fe3b37fa27ec6014a5c76ddcfea2",
+        "sourceSHA256": "e90832e1c106e08850ce38b6dcc2f8c5313ec1ecfd464fa28cdfbeddc6189a60",
         "method": "document_registry --audit + document_health --check",
-        "scope": "RF04作者环境已接入原资源/协调/合成owner；核对稳定合同与有界运行记录链接，导航复核不替代产品运行验收。",
+        "scope": "核对RF05连续属性、PNG与隐藏fullscreen有界实现的合同/证据链接，修正随正文变化的导航身份；不扩大运行结论。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -388,12 +388,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-03",
+      "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d04bf8be8f68791d19f3114b45f0728b47fee4cf81f18946870e3679cc8bcbee",
+        "sourceSHA256": "9032825ff7ada4f96aeb1c79c78af6967b86669b144057d73754796989780d76",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
+        "scope": "核对RF05连续属性、PNG与隐藏fullscreen有界实现的合同/证据链接，修正随正文变化的导航身份；不扩大运行结论。",
         "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
       }
     },
@@ -480,9 +480,9 @@
       "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "315bc30da55b136cb00ca2c7bc7a1e60235b030487ced237b52fe207db43583b",
+        "sourceSHA256": "29b0d9fe5ebe287337904a755145698d25bda1e9ea147f8b29bb09561b898440",
         "method": "document_registry --audit + document_health --check",
-        "scope": "RF04作者环境已接入原资源/协调/合成owner；核对稳定合同与有界运行记录链接，导航复核不替代产品运行验收。",
+        "scope": "核对RF05连续属性、PNG与隐藏fullscreen有界实现的合同/证据链接，修正随正文变化的导航身份；不扩大运行结论。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

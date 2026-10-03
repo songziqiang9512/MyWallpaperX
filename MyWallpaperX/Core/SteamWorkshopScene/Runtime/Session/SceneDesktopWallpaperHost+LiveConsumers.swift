@@ -105,11 +105,22 @@ extension SceneDesktopWallpaperHost {
                 }
             }
         )
-        let layerVisibilityTargets =
+        let layerVisibilityTargets = Set(
             SceneDynamicLayerVisibilityRouteAdmission.targets(
                 in: descriptor,
                 candidates: propertyBindingProgram.liveLayerVisibilityTargets
-            )
+            ).filter { target in
+                guard case let .layer(layerID, .visibility) = target else {
+                    return false
+                }
+                guard utilityPlans[layerID]?.kind == .fullscreen else {
+                    return true
+                }
+                return resolvedMaterialExecutionCapabilities.executionLayerIDs
+                    .contains(layerID)
+                    && utilityPlans[layerID]?.shouldCapture == true
+            }
+        )
         let modelMaterialTargets = Set<SceneDynamicTarget>(
             propertyBindingProgram.instructions.compactMap { instruction in
                 guard case let .materialConstant(layerID, _, _, _) =

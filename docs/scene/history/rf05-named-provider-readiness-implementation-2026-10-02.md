@@ -146,3 +146,25 @@ optional 首次改用 rgbmask 后，真实解析产生 `material named → insta
 四轮共 84 次输出 SHA 与独立原始 RGBA 一致。9×11 Adam7 的优化编译测量有微秒级回退，不声称所有 PNG 均加速；这里只接受有界收益。通道门覆盖 60 个尺寸/交错/滤波组合，并保留损坏输入和 APNG 回归；Debug build 与相邻上传门按最终冻结源码执行。原静态显隐断言退役后漏收紧的登记已由独立窄提交 `29e3650a` 从 249 降至 248，不混入本产品修改。
 
 最终源码、输入、App、native 原始测量及独立审查保存在 `.artifacts/scene-evidence/runs/rf05-png-decode-20261004`（14 天）。已知结构库存 66/登记65 的两项基线失败仍保留。下一步对真实 `2938612768` 执行隔离加载和属性切换，按首个公共失败定位修复；暂停期间延迟属性只确认了静态等待边界，尚未裁决冻结画面语义，不写成已修复。RF05 与完整真实样本目标继续开放，工作卡仍 15/16。
+
+
+<a id="rf05-conditional-fullscreen-design"></a>
+### 2026-10-04 隐藏全屏后处理即时切换（原实施前设计）
+
+真实 `2938612768` 在冻结 `8bb5f522` 的正确签名隔离 App 中完成首帧，但背景 combo 两次 live 请求均拒绝。其 key 同时控制 image/fullscreen/particle/text/solid 显示；现役 live route 不准备隐藏 fullscreen 或 particle，任一未准备目标令整键回退重建。产品 service 已有重建回退，不能将 Debug live=false 外推为整个属性功能失败。
+
+**目标/取舍。** 补齐具有 typed visibility owner 的独立 fullscreen 后处理准备及即时开关，作为真实组合的必要前置。完整23-target还缺粒子潜在可见准备、hidden simulation/child/RNG合同；本片不称整键可live。拒绝原拟 false-to-false 未准备目标豁免：脚本可覆盖 property visibility，两个 user false 不证明最终隐藏。保留完整 cohort 原子校验，避免 accepted 而资源未准备。Debug启动PNG成本另行处理。
+
+**职责/数据流。** 原 `SceneDynamicLayerVisibilityRouteAdmission` 只扩无父/无子/无依赖、合法source route的 fullscreen utility 候选；原 graph admission/catalog、utility plan、preflight/pool 和唯一 compositor 负责准备与执行。计划准备不改 authored visible；隐藏帧不申领/编码该 graph，显示帧才捕获当前主画面。Utility planner只为已由graph admission接受的fullscreen保留capture计划；Host仅以实际execution ID及可capture计划声明live consumer；无owner、非法route、依赖/父子形态保持原边界。普通帧不解析、建图或增加资源owner，不修改property validator。
+
+**验收/退出。** 自有 App先证旧版本不能开启隐藏fullscreen，再证开/关真实颜色、正确作者slot、首帧/后续GPU completion、退出drain和窗口不重建；同key含未准备粒子的负例仍须整笔拒绝，旧画面不变。Swift Debug build、相邻property/utility/graph门及独立审查通过后，将稳定职责并入原合同并删除临时设计登记。若现役source或生命周期不能承载则修原owner，不新增第二路径。后继补齐粒子动态准备后，再闭合真实293整组交互。
+
+
+<a id="rf05-hidden-fullscreen-result"></a>
+#### 实施与验收
+
+三个产品职责已落地：结构admission准备有owner的合格fullscreen；utility planner保留已admitted capture；Host仅实际execution及capture就绪才声明live consumer。完整property cohort验证未放宽；稳定合同归[运行架构](../architecture/runtime-architecture.md#83-一帧的有序工作与可见时间)前的utility说明，临时设计登记已退役。
+
+同自有输入修前两次live均拒绝，修后off→on→off两次接受，白底→128灰→白，后置green保持255，window/session不重建。含未准备粒子的同键负例、无effect/captured execution的fullscreen均整笔拒绝并保持白底。长期App三门通过（59.798s）；相邻property/visibility/utility/routing 44门与真实graph executor GPU harness通过（73.360s），Debug build通过。独审重算探针9张登记图/27个ROI、全输入/App身份及GPU完成/消费/drain，无新增P1/P2。既有结构库存66/登记65两项失败继续保留，未抬基线。
+
+本机证据 `.artifacts/scene-evidence/runs/rf05-hidden-fullscreen-20261004` 限期14天。真实293第一次adhoc helper运行因签名不合产品Team门而无效；有效重跑已用正确helper签名，首帧78.239s，两次live拒绝由完整cohort解释，不能声称本片已修复整键或所有真实样本。后继补粒子潜在可见准备、hidden simulation/child/RNG与再显示语义，再复验真实293；公开visible合同没有规定hidden模拟策略，先做最小官方对照。工作卡15/16不变，RF05继续开放。

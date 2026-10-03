@@ -450,6 +450,8 @@ Puppet、2D lighting/HDR、3D、RGB、offline bake、color/multi-display/device 
 | sound 层／音量 | 准备 sound binding；激活后现有 sound registry 接管音源，继承 pause/mute | authored 声音命令、属性与共享时钟控制播放 | **不进入视觉 compositor**；与同场景状态事务及生命周期同步的音频输出 | 缺失／不可解码只影响音源；切换／停止撤 observer、音频需求与播放实例 |
 | capture／HUD／诊断 | 仅明确请求时在当前执行链上安装 observer／readback | 消费实际执行结果；详细采集有界 | compositor terminal 的旁路，不能成为普通提交前置 | 结束即撤 observer、释放 readback；诊断耗时不混入普通性能结论 |
 
+独立 fullscreen 的 typed visibility owner 可以在初始隐藏时沿原 captured-main 路径准备 graph 与 capture 计划，限定无父、无子、无依赖且 source route 合法。只有实际执行准入与 capture 计划均成立，Host 才声明其 live consumer；准备不授予当前显示权，隐藏帧不申领 graph transaction，显示帧由同一 committed snapshot 决定捕获和合成。整键 property cohort 仍原子检查全部 consumer，不能因某个 user 条件当前为 false 就豁免未准备对象；未支持的粒子等消费者保持现役重建回退。
+
 ### 8.3 一帧的有序工作与可见时间
 
 下面定义逻辑阶段，不要求按表新增类或一一拆函数。并发与缓存只能保留这些 happens-before 关系；现役代码在 preflight 前后存在特殊 provider 时，应固定其 phase，不通过多次重试改变作者含义。

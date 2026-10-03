@@ -114,7 +114,15 @@ enum SceneUtilityLayerRuntimePlanner {
             ).get()
             let hasVisibleEffects = layer.effects.contains { $0.visible != false }
             let disposition: SceneUtilityLayerRuntimePlan.Disposition
-            if !visibleLayerIDs.contains(layer.id) {
+            // Admission may prepare a dynamically visible fullscreen while
+            // its authored seed is hidden. Keep its existing capture route;
+            // the committed frame's target plans still gate actual encoding.
+            let preparedFullscreen = utility.kind == .fullscreen
+                && layer.contentKind == "fullscreen"
+                && resolvedMaterialLayerIDs.contains(layer.id)
+                && layer.parentID == nil && layer.childLayerIDs.isEmpty
+                && layer.dependencyLayerIDs.isEmpty && sourceRoute != nil
+            if !visibleLayerIDs.contains(layer.id) && !preparedFullscreen {
                 disposition = .skippedHidden
             } else if !layer.dependencyLayerIDs.isEmpty {
                 let binding = dependencyPlan.bindingsByConsumerLayerID[layer.id]

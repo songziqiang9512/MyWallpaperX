@@ -1811,6 +1811,7 @@
       "modules": [
         "test_scene_composition_source_identity",
         "test_scene_composition_authored_order_integration",
+        "test_scene_fullscreen_visibility_integration",
         "test_scene_utility_layers",
         "test_scene_renderer_submission_stage"
       ]

@@ -51,7 +51,8 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
 /// A dynamic layer-wide visibility owner may prepare an ordinary root as an
 /// execution candidate without making it visible. A composition root may join
 /// only when its lifecycle already exists at launch; activating a previously
-/// hidden utility or changing hierarchy still requires rebuild. The frame
+/// hidden fullscreen can prepare its existing main-target route; other hidden
+/// utilities or changing hierarchy still require rebuild. The frame
 /// snapshot remains the only compositor visibility authority.
 nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
     static func targets(
@@ -81,6 +82,12 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
                 || (layer.contentKind == "composition"
                     && visibleLayerIDs.contains(layerID)
                     && layer.utilityLayer?.kind == .composition)
+                || (layer.contentKind == "fullscreen"
+                    && layer.utilityLayer?.kind == .fullscreen
+                    && layer.dependencyLayerIDs.isEmpty
+                    && (try? SceneUtilityLayerSourceRoute.resolve(
+                        layer: layer, descriptor: descriptor
+                    ).get()) != nil)
             else { continue }
             admitted.insert(target)
         }
