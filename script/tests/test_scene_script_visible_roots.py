@@ -17,17 +17,26 @@ struct SceneLayerDisplayScriptOwnership {
     var fields: [String] { [] }
 }
 struct SceneRenderDescriptor {
-    struct Utility { enum Kind { case composition }; let kind: Kind }
+    struct Utility { enum Kind { case composition, fullscreen }; let kind: Kind }
     struct Layer {
         let id: Int
         var visible: Bool? = false
         var parentID: Int? = nil
         var childLayerIDs: [Int] = []
+        var dependencyLayerIDs: [Int] = []
         var contentKind: String = "image"
         var utilityLayer: Utility? = nil
         var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
     }
     let layers: [Layer]
+}
+// This root-only fixture never enters the utility source route. Keep that
+// unexercised dependency unavailable instead of pretending a capture exists.
+enum SceneUtilityLayerSourceRoute {
+    static func resolve(layer: SceneRenderDescriptor.Layer,
+                        descriptor: SceneRenderDescriptor) -> Result<Int, NSError> {
+        fatalError("fullscreen source route is outside this root fixture")
+    }
 }
 @main enum Harness {
     static func main() throws {
@@ -76,7 +85,9 @@ class ScriptVisibleRootTests(unittest.TestCase):
             harness = root / 'Harness.swift'
             harness.write_text(HARNESS)
             binary = root / 'run'
-            subprocess.run(['swiftc', str(SCENE / 'Systems/Properties/SceneDynamicSnapshot.swift'), str(SCENE / 'Rendering/Geometry/SceneLayerVisibility.swift'), str(admission), str(harness), '-o', str(binary)], check=True, capture_output=True, text=True)
+            built = subprocess.run(['swiftc', str(SCENE / 'Systems/Properties/SceneDynamicSnapshot.swift'), str(SCENE / 'Rendering/Geometry/SceneLayerVisibility.swift'), str(admission), str(harness), '-o', str(binary)], capture_output=True, text=True)
+            if built.returncode:
+                raise AssertionError(built.stdout + built.stderr)
             cls.result = json.loads(subprocess.check_output([str(binary)], text=True))
 
     def test_arbitrary_script_layer_lookup_prepares_supported_roots(self):

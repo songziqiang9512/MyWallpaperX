@@ -8,6 +8,7 @@ import unittest
 from .test_scene_resolved_material_runtime_bridge import (
     REPOSITORY_ROOT, SUBMISSION_COORDINATOR_FIXTURE, SUBMISSION_SWIFT_SOURCES,
     SCENE_DEPENDENCY_BINDING_SUPPORT,
+    RESOURCE_PHASE_UNAVAILABLE_SUPPORT,
 )
 
 MAIN = r'''
@@ -236,7 +237,8 @@ class SceneSurfaceSubmissionTests(unittest.TestCase):
     def setUpClass(cls):
         cls.temp=tempfile.TemporaryDirectory(prefix="scene-surface-submission-")
         root=Path(cls.temp.name);source=root/"Harness.swift";binary=root/"harness"
-        source.write_text(SUBMISSION_COORDINATOR_FIXTURE.split("@main",1)[0]+SCENE_DEPENDENCY_BINDING_SUPPORT+MAIN)
+        source.write_text(SUBMISSION_COORDINATOR_FIXTURE.split("@main",1)[0]
+                          +SCENE_DEPENDENCY_BINDING_SUPPORT+RESOURCE_PHASE_UNAVAILABLE_SUPPORT+MAIN)
         scene=REPOSITORY_ROOT/"MyWallpaperX/Core/SteamWorkshopScene"
         sources=[
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",*SUBMISSION_SWIFT_SOURCES,scene/"Rendering/Frame/SceneMetalRenderer+FrameOutcome.swift",
