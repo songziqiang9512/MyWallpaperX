@@ -78,3 +78,13 @@ composition另以同一固定App补跑15项、204.834s全部通过，覆盖真�
 本证据没有运行Program、scene history producer receipt、mip内容、GPU命令或App，不支持一般history准入。下一步只验证原cache内fresh pending计费、原generation保护与同锁原子转交；是否以及如何接入renderer、局部fallback省略candidate与所有mandatory顺序，仍受D12 B阶段门约束。
 
 本批9行实验与5个文档获独立有界ACCEPT、无P1/P2，审查记录SHA256为`cbb8fdd112e8e1acf399e3fa720a998913220d4fcf0bce0e154945bcd4d09d69`。文档健康及4个文档/设计模块通过；初次预算收据重复同path，经替换为唯一最新收据后通过，原失败日志保留。78个证据成员已逐SHA核验并提升至`.artifacts/scene-evidence/runs/rf04-b-resource-phase-experiment-20261004`，archive SHA256为`dc8ed7eae5d4ffd5cf017ed2d79c73933670e2a4df4d8f16ae7a53f0bfefb9b4`，默认14天；包含源身份、实际harness/结果、初始观测纠正、审查及设计候选，不含binary/cache。隔离资源原型仍在进行，未计入本批验收。
+
+## B 实际资源准入原型
+
+基线`8115315f`（产品源与`97c456c7`相同），全部改动在隔离副本；未把未接入的owner加入产品。V1真实cache原型五组通过，V2保留五组并新增8条subset选择、4条未选history对照，独审分别有界ACCEPT。完整集合、合法有序subset、全省略及非法选择均在同cache锁消费；未选有效cached/history保留，外部pin已释放的未选history不留空entry。fresh物化资源以原pending项计费，cached/reusable不重复计费，无第二预算或history账。
+
+V1/V2仍会全量保留旧current而要求峰值容量；静态追踪证明正常history连续帧也可进入这一路径，不只是resize。V3改为原cache锁内实际降格/消费可回收旧entry，再按真实工作view重取reservation，严格核seed闭包、shared世代和已物化rehydrate的source/target纹理与token。取消、全省略或错误tokens只保留旧有效history，不发布新current；submission仍在时不提前降格。真实native额度依旧只随最后引用释放。
+
+最终V3七组方向断言通过，包括新增10行净容量/取消/外部submission/shared换代对照。连续三次资源prepare/finalize（未提交CB）的full成本16384、history成本8192，准入均为24576，严格低于两幅完整图的32768；原seed纹理与token保持，只有原owner释放history后才退出。真实新pair在准入前替换使旧候选拒绝，准入期间则受保护；native账户0→0。首次shared测试误用`sharedPairCandidate`命中旧缓存，没有制造不同generation，纠正为真实新纹理和同cache签发的physical identity后通过；产品源未因该测试失败修改。原始夹具、失败及修正后结果均保留，不能称为产品换代故障。
+
+V1原29项pool回归8.963s、V3原29项10.236s均通过；它们包含既有GPU路径，只支持原one-phase回归。全部新增admission probe未提交CB，不证明实际rehydrate像素、Program/coordinator局部fallback、scene receipt、mip内容、App或RF04 B能力。最终V3资源独审与五文档独审均为有界ACCEPT、无P1/P2；资源审查SHA256为`22235baa8eb24f8c76290e242f7a2a75ecc8f5060cad628da0d83f1e157511c4`。V1/V2/V3各40/41/42个执行输入零漂移，文档健康及4个文档/设计模块通过。239个证据成员已逐SHA验证并提升到`.artifacts/scene-evidence/runs/rf04-b-resource-admission-prototype-20261004`，archive SHA256为`6c1d2a8a142f30a9dc3b815d4966517fc58a494bcf7b61be1c73672288c4e8dd`，默认14天。包含三个原型、真实Harness、初失败/修正结果与审查；约277MiB临时编译缓存和binary已清理，隔离候选源保留供后续阶段实验，唯一连续App构建缓存仍为`/private/tmp/mwx-scene-next-build/cache`。下一步先验证[D12阶段候选](../roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission)，不把资源原型通过等同作者名称准入。
