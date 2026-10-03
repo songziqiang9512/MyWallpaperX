@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 367,
-      "bytes": 167721
+      "bytes": 167677
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 275,
@@ -89,8 +89,8 @@
       "bytes": 331316
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 48,
-      "bytes": 3479
+      "lines": 66,
+      "bytes": 5647
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -182,7 +182,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 242,
-      "bytes": 32498
+      "bytes": 32438
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,
@@ -1072,6 +1072,15 @@
       "owner": "repository-governance",
       "reason": "Final review aligns Scene local-fix guidance with the existing design-first policy; no new product capability or validation claims.",
       "decision": "docs/development/repository-workflow.md#设计判定与记录"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "0bcb1702a8d3d90636437076fe078667884c479acf1fde36165bea84a2a7fbed",
+      "after": "e3a90ee8b514a2bbc0b9957959ab6cc3b2bfebb769935fd32c53d237920090d6",
+      "owner": "scene-runtime-evidence",
+      "reason": "Add one compact entry to already accepted Batch2 execution records so current capability summaries no longer report implemented bounded features as missing; no new runtime claim.",
+      "decision": "docs/development/repository-workflow.md#代码与知识交付"
     }
   ]
 }

@@ -481,9 +481,9 @@
       "lastReviewed": "2026-10-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "27216e4e962e832c74da13715e355c1c0b1c42178c255c5933d2aba04c82bb07",
+        "sourceSHA256": "2b8146e29624ed2b853909a162df4a69b12c955d80e3c48bdab73a6020481475",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
+        "scope": "Batch2 冻结证据入口与永久锚点核对；仅导航维护，未复跑历史产品验收",
         "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
       }
     },

@@ -18,7 +18,25 @@
 | 生命周期与发布完整性 | [生命周期完整性记录](#e-2026-10-01-lifecycle-integrity) |
 | SceneScript 显隐准备与交互 | [统一显隐记录](#e-2026-09-27-unified-effect-visibility) |
 | 音频共享 producer 与产品入口 | [共享 producer 记录](#e-2026-09-22-audio-shared-canonical-producer)、[普通产品入口记录](#e-2026-09-22-audio-ordinary-scene-web) |
+| Batch2 已实施职责与仍待证输入 | [冻结执行记录](#batch2-frozen-records)；按职责查询有界输出、失败与未验profile |
 | 其他能力或旧批次 | 在[证据包](#evidence-packages)中按精确 `E-*` 查询；本表不是完整能力或验收矩阵 |
+
+<a id="batch2-frozen-records"></a>
+
+### Batch2 冻结执行记录
+
+2026-10-03仅同步查询入口，未复跑当前HEAD。各记录拥有独立代码/输入/App身份、实际范围和未验边界；不得拼成共同验收或提升为官方parity、发布/性能完成。
+
+| 职责 | 精确冻结记录 |
+|---|---|
+| HDR raw/display与计费 | [RF07](../history/rf07-persistent-color-output-implementation-2026-10-02.md)、[RF11](../history/rf11-shared-hdr-target-budget-implementation-2026-10-02.md) |
+| 2D normal/PBR/emission | [MR/emission](../history/d3-pbr-map-emission-implementation-2026-10-02.md)、[live亮度](../history/d3-material-user-emission-implementation-2026-10-02.md)；前序normal/标量证据沿记录内链接 |
+| 默认环境与容量 | [F5反射](../history/d3-reflection-environment-implementation-2026-10-02.md)、[RF12共存](../history/rf12-snapshot-shadow-coexistence-implementation-2026-10-02.md) |
+| 模型阴影与材质段 | [RF15 point](../history/rf15-model-point-shadow-implementation-2026-10-03.md)、[RF16材质段](../history/rf16-model-material-segments-implementation-2026-10-03.md)；前序directional/spot/named沿记录内链接，724仅准备恢复 |
+| RT/named/诊断 | [RF01](../history/rf01-shader-default-binding-implementation-2026-10-02.md)、[RF05 named](../history/rf05-named-provider-readiness-implementation-2026-10-02.md)、[诊断生命周期](../history/rf05-debug-capture-lifecycle-implementation-2026-10-02.md) |
+| composition source | [D1资源/输出](../history/d1-composition-source-implementation-2026-10-02.md)；成员/flag待证 |
+| 粒子播放/出生 | [RF03](../history/rf03-particle-playback-implementation-2026-10-02.md)；默认count/reset未开放 |
+| 作者采样/companion | [RF02 A](../history/rf02-authored-sampling-implementation-2026-10-03.md)、[atlas named](../history/rf02-atlas-named-output-implementation-2026-10-03.md)、[B官方观察](../history/rf02-companion-uniform-observations-2026-10-03.md)；B尺寸/动画相位待证 |
 
 <a id="evidence-levels"></a>
 
