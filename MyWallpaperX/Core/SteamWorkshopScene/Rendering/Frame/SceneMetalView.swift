@@ -445,6 +445,10 @@ class SceneMetalView: NSView {
         } else {
             report.append("particle runtime: pipeline unavailable")
         }
+        // Specialized images and particle templates can repopulate the shared
+        // loader after base-image preparation evicted its decoded cache. All
+        // surface sources now own their GPU products; release those CPU copies.
+        loader.evictDecodedCaches()
         report.append("")
         report.append(
             "prepared static base resource usage: hits=\(preparedBaseImageHitCount)"

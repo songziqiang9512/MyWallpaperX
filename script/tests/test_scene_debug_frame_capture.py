@@ -31,6 +31,13 @@ final class Events: @unchecked Sendable {
     }
 }
 struct SceneResolvedMaterialFrameTargetPlan {}
+// FrameOutcome carries admission/resource types that this capture probe never
+// constructs. Keep these leaves uninhabited; capture and PreparedFrame remain
+// the real production implementations, without a fixture admission path.
+enum SceneResolvedMaterialRuntimeBridge {
+    enum FramePreparationRequest {}
+}
+enum SceneResolvedMaterialFrameResourceBundle {}
 final class SceneMetalRenderer {}
 @main enum Harness {
     static func check(_ condition: @autoclosure () -> Bool, _ message: String) {

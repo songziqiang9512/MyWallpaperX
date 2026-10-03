@@ -570,6 +570,7 @@ final class ScenePreparedDeviceResourcesTask {
                     textureLoader: baseImages.textureLoader,
                     cancellationCheck: checkCancellation
                 )
+                baseImages.textureLoader.evictDecodedCaches()
                 return ScenePreparedDeviceResources(
                     pipelineRepository: pipelineRepository,
                     imageLayerPipeline: imageLayerPipeline,

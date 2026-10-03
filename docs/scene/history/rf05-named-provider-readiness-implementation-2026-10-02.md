@@ -215,3 +215,13 @@ optional 首次改用 rgbmask 后，真实解析产生 `material named → insta
 真实293同一冻结App首帧123.180s，背景1..8共八次同window/session即时接受；前三种有实际Metal截图。第四种起读回报metal-readback-setup，后续有superseded；最终GPU failed=0且drain完成，仍不能从接受或GPU完成推出全部八种画面正确。独立newproperty43两次拒绝：两个fullscreen已准备，但blur_combine的source-proven-previous-blurred-composite-unowned使stage保留inactive passthrough，没有冒充effect live consumer。进程采样落在原PNG解码；不把本次冷启动与旧样本时长直接做性能归因。
 
 独立终审复算27张自有PNG/81ROI均正确率1.0、最大通道误差0，四产品源码/输入/App身份零漂移，有界ACCEPT。普通证据保留14天；真实293未闭合的读回/blur反例另行保护。下一批先定位切换后的资源/最终输出与读回失败，再接blur合成；其后多surface失败隔离与PNG准备成本。工作卡仍15/16（93.75%），RF05与全样本目标开放。
+
+
+<a id="rf05-late-decoded-release"></a>
+### 2026-10-04 晚期解码缓存回收
+
+基础图片已经清过缓存，但后续静态模型、特殊图片和粒子模板仍会通过同一loader重新填充CPU解码缓存；会话持有loader令这些副本持续占总预算。现有两个同步准备结束点再次evict，仅释放CPU缓存及其lease，GPU cache和各消费者已准备资源保持原owner。诊断读回失败增加分配/预算快照，保留原失败退出，不改变配额。
+
+真实293同输入/同八种切换：修前失败时decoded为63,887,105 bytes，修后为0。两次均能取得前四模式PNG，后四仍无足够预算；不能把截图增量、FPS或启动速度算作本片收益。修后首次失败resident为3,172,532,928/3,178,278,912，23,756,544-byte读回仍被拒；4,141.660ms最大呈现间隔未修，blur开关仍拒绝。全部八次背景属性接受、GPU failed=0与drain完成均不等于全部画面正确。
+
+Debug构建、18项相邻原生门与修复载体后的截图生命周期门、14项deferred意图门通过；3项实际App回归（74.523s）覆盖粒子显隐、双surface及粒子/fullscreen共享开关。既有结构库存66/登记65的两项失败仍保留，未抬基线。独立只读审查未发现新增P1/P2。本片回归验证loader晚期再填充/再次回收、真实Metal预算拒绝→回收后准入，以及既有GPU纹理对象和红色像素不变；它不直接调用两个准备结束点，实际App覆盖消费者接线。验证与独审结果由本机rf05-late-decoded-release-20261004包固定；资源失败最小证据另行保护。下一批继续定位GPU持有/重复上传与切换间断，其后blur和多surface隔离。工作卡15/16（93.75%）不变，全样本正确率未建立，RF05与Goal继续开放。

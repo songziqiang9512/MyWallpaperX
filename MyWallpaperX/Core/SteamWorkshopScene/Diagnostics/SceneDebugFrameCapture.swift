@@ -123,8 +123,15 @@ nonisolated final class SceneDebugFrameCapture: @unchecked Sendable {
             finishOutstanding()
             return
         }
-        guard let buffer = texture.device.makeSceneBuffer(length: byteCount, options: .storageModeShared),
+        let allocatedBuffer = texture.device.makeSceneBuffer(length: byteCount, options: .storageModeShared)
+        guard let buffer = allocatedBuffer,
               let encoder = commandBuffer.makeBlitCommandEncoder() else {
+            let budget = SceneResourceBudget.shared.snapshot
+            NSLog("MWX DEBUG SCENE: phase=snapshot-allocation-failed bufferReady=%@ requestedBytes=%ld residentBytes=%ld decodedBytes=%ld maximumBytes=%ld deviceAllocatedBytes=%llu",
+                  allocatedBuffer == nil ? "false" : "true", size,
+                  budget.residentBytes, budget.decodedBytes,
+                  SceneResourceBudget.shared.maximumBytes,
+                  texture.device.currentAllocatedSize)
             finish(request, bytes: size, failure: "metal-readback-setup")
             return
         }
