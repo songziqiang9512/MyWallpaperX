@@ -21,7 +21,7 @@ authored data → loss-preserving IR → prepared Program/graph/resources
 
 解析、shader/reflection、ABI/target 检查、graph lowering、pipeline preparation 和静态索引属于 load、generation 或明确 invalidation。普通帧只消费准备结果、更新 typed state、检查必要的 generation/epoch/target/publication/completion 并执行。任何只服务报告、hash、route 统计、census 或未来扩展的机制不能成为播放前置。
 
-新增或修改任何播放能力时，先按[逐对象生命周期与落代码合同](../design/runtime-architecture.md#8-scene-播放生命周期与落代码合同)确定装载、准备、帧更新、合成及释放 owner；只在当前批次说明中填写其输入、consumer、失效与反例，不另建重复设计文档。
+新增或修改任何播放能力时，先按[逐对象生命周期与落代码合同](../architecture/runtime-architecture.md#8-scene-播放生命周期与落代码合同)确定装载、准备、帧更新、合成及释放 owner；是否先设计按[仓库设计判定](../../development/repository-workflow.md#设计判定与记录)执行；既有合同内的局部修复在当前批次说明输入、consumer、失效与反例，不另建重复设计。
 
 ## 模型自主性
 
@@ -33,7 +33,7 @@ authored data → loss-preserving IR → prepared Program/graph/resources
 - 新路径没有扩大普通帧成本；
 - 结论不超过实际证据。
 
-开始实现前只需回答四件事：要恢复的用户结果、共享链的第一个错误 identity/state/resource/output、当前 owner/fallback、能够证明结果的最小正反证据。答不出来时，先建立能区分候选原因的 observable，不要增加抽象层。
+开始实现前至少明确四件事：要恢复的用户结果、共享链的第一个错误 identity/state/resource/output、当前 owner/fallback、能够证明结果的最小正反证据。答不出来时，先建立能区分候选原因的 observable，不要增加抽象层。
 
 ## 效率与验证
 
@@ -55,10 +55,10 @@ authored data → loss-preserving IR → prepared Program/graph/resources
 
 ## 事实和文档
 
-- 最终怎样：[`runtime-architecture.md`](../design/runtime-architecture.md)；
-- 工程成本、架构与减重顺序：[重构计划](../engine-refactor-program.md)；
-- 作者行为、能力与可见验收顺序：[兼容路线](../scene-compatibility-roadmap.md)，具体开放问题只看派生队列；
-- 现在能什么：[`semantics/coverage-ledger.md`](../semantics/coverage-ledger.md)及专项表；
-- 实际发生什么：[`semantics/runtime-evidence-current.md`](../semantics/runtime-evidence-current.md)。
+- 最终怎样：[`runtime-architecture.md`](../architecture/runtime-architecture.md)；
+- 工程成本、架构与减重顺序：[重构计划](../roadmap/engine-refactor-program.md)；
+- 作者行为、能力与可见验收顺序：[兼容路线](../roadmap/scene-compatibility-roadmap.md)，具体开放问题只看派生队列；
+- 现在能什么：[`semantics/coverage-ledger.md`](../capabilities/coverage-ledger.md)及专项表；
+- 实际发生什么：[`semantics/runtime-evidence-current.md`](../capabilities/runtime-evidence-current.md)。
 
-资料的热/冷分层、官方参考与代码的边界、长流水账的读取范围见[`语义手册`](../semantics/README.md)。同一事实只保留一个权威解释。历史、研究取证、原始报告和本机缓存按需读取，不进入普通实现上下文。无决定性证据时停止写文档，回到代码和共享运行断点。
+资料的热/冷分层、官方参考与代码的边界、长流水账的读取范围见[`语义手册`](../capabilities/README.md)。同一事实只保留一个权威解释。历史、研究取证、原始报告和本机缓存按需读取，不进入普通实现上下文。无决定性证据时停止写文档，回到代码和共享运行断点。

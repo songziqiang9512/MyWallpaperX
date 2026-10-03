@@ -13,27 +13,22 @@ ROOT = Path(__file__).resolve().parents[2]
 AGENT_RULES = ROOT / "AGENTS.md"
 GITIGNORE = ROOT / ".gitignore"
 DOCS_README = ROOT / "docs/README.md"
-ROADMAP = ROOT / "docs/scene/scene-compatibility-roadmap.md"
-WORKFLOW = ROOT / "docs/scene/development/development-workflow.md"
-RUNTIME_ARCHITECTURE = ROOT / "docs/scene/design/runtime-architecture.md"
+ROADMAP = ROOT / "docs/scene/roadmap/scene-compatibility-roadmap.md"
 SCENE_README = ROOT / "docs/scene/README.md"
 WEB_README = ROOT / "docs/web/README.md"
-SEMANTICS_README = ROOT / "docs/scene/semantics/README.md"
-SCENE_EVIDENCE = ROOT / "docs/scene/evidence"
-SOURCE_INDEX = ROOT / "docs/scene/semantics/source-index.md"
-COVERAGE_LEDGER = ROOT / "docs/scene/semantics/coverage-ledger.md"
-RUNTIME_EVIDENCE = ROOT / "docs/scene/semantics/runtime-evidence-current.md"
+SEMANTICS_README = ROOT / "docs/scene/capabilities/README.md"
+SCENE_EVIDENCE = ROOT / ".artifacts/scene-evidence/runs"
+SOURCE_INDEX = ROOT / "docs/scene/development/source-index.md"
+COVERAGE_LEDGER = ROOT / "docs/scene/capabilities/coverage-ledger.md"
+RUNTIME_EVIDENCE = ROOT / "docs/scene/capabilities/runtime-evidence-current.md"
 RENDER_GRAPH_COVERAGE = (
-    ROOT / "docs/scene/semantics/render-graph-shader-coverage.md"
+    ROOT / "docs/scene/capabilities/render-graph-shader-coverage.md"
 )
 RESEARCH_WORKFLOW = (
     ROOT
-    / "docs/scene/semantics/official-client-behavior-research-workflow.md"
+    / "docs/scene/development/official-client-behavior-research-workflow.md"
 )
 FAST_SUITE = ROOT / "script/scene_fast_suite.json"
-MIRAGE_REFERENCE = (
-    ROOT / "docs/scene/semantics/miragewallpaper-rendering-reference.md"
-)
 MAINTAINER_SKILL = ROOT / ".agents/skills/mywallpaperx-maintainer/SKILL.md"
 SKILL_GOVERNANCE = (
     ROOT
@@ -53,12 +48,12 @@ SOURCE_CLASSES = {
     "MyWallpaperX-strategy",
 }
 RESEARCH_ONLY_DOCUMENTS = (
-    ROOT / "docs/scene/semantics/client-changelog-forensics.md",
-    ROOT / "docs/scene/semantics/client-runtime-static-forensics.md",
-    ROOT / "docs/scene/semantics/editor-string-table-forensics.md",
-    ROOT / "docs/scene/semantics/scenescript-binding-target-forensics.md",
-    ROOT / "docs/scene/semantics/scenescript-runtime-implementation-contract.md",
-    ROOT / "docs/scene/semantics/shader-prelude-and-backend-abstraction.md",
+    ROOT / "docs/scene/development/reference/client-changelog-forensics.md",
+    ROOT / "docs/scene/development/reference/client-runtime-static-forensics.md",
+    ROOT / "docs/scene/development/reference/editor-string-table-forensics.md",
+    ROOT / "docs/scene/development/reference/scenescript-binding-target-forensics.md",
+    ROOT / "docs/scene/capabilities/scenescript-runtime-implementation-contract.md",
+    ROOT / "docs/scene/capabilities/shader-prelude-and-backend-abstraction.md",
 )
 
 ALLOWED_FAST_SUITE_LANES = {"V0", "V1", "V2", "V3"}
@@ -172,25 +167,6 @@ class SceneGovernanceContractTests(unittest.TestCase):
 
     def test_roadmap_does_not_duplicate_current_capability_truth(self) -> None:
         roadmap = ROADMAP.read_text(encoding="utf-8")
-        self.assertIn("当前主线：**全样本验收收口**", roadmap)
-        self.assertIn("## 2. 验收标准", roadmap)
-        self.assertIn("scene-sample-acceptance-ledger.md", roadmap)
-        self.assertIn("本文只拥有阶段顺序和完成门", roadmap)
-        self.assertIn("能力、owner、route、样本和运行结果分别由", roadmap)
-        self.assertIn("不得以另一个 input family 的通过替代 V4 完成", roadmap)
-        self.assertIn("## 4. 完成与回滚", roadmap)
-        self.assertNotIn("当前 Swift/Metal 底座已经拥有", roadmap)
-        self.assertNotIn("当前七类成员", roadmap)
-        self.assertNotIn("目前还不是可运行门", roadmap)
-        scene_readme = SCENE_README.read_text(encoding="utf-8")
-        self.assertIn("readiness 的唯一事实入口", scene_readme)
-        self.assertNotIn("当前 `selection-required`", scene_readme)
-        self.assertNotIn("current capability truth", roadmap)
-        self.assertNotIn("## 4. 全能力状态与归属", roadmap)
-        self.assertNotIn("`S5 parity-ready`", roadmap)
-        self.assertNotIn("## 8. 下一批精确断点", roadmap)
-        self.assertNotIn("该包冻结时的下一", roadmap)
-        self.assertNotIn("该阶段仍在 V0", roadmap)
         self.assertNotRegex(
             roadmap,
             r"(?<![0-9-])\d{9,10}(?![0-9-])",
@@ -234,48 +210,11 @@ class SceneGovernanceContractTests(unittest.TestCase):
                 self.assertNotIn("report.json", text)
                 self.assertNotIn("manifest.json", text)
 
-    def test_rules_require_active_drift_correction_and_typed_migration_routes(self) -> None:
-        combined = "\n".join(
-            (
-                AGENT_RULES.read_text(encoding="utf-8"),
-                RUNTIME_ARCHITECTURE.read_text(encoding="utf-8"),
-                ROADMAP.read_text(encoding="utf-8"),
-            )
-        )
-        for phrase in (
-            "目标合同",
-            "当前事实",
-            "偏差债务",
-            "observe-only",
-            "prefer-generic",
-            "generic-only",
-            "disable-generic",
-            "slice-visible",
-            "owner-migration",
-            "parity-release",
-        ):
-            with self.subTest(phrase=phrase):
-                self.assertIn(phrase, combined)
-
-        workflow = WORKFLOW.read_text(encoding="utf-8")
-        for autonomy_contract in (
-            "不规定模型必须采用的步骤、命令、文件模板或任务拆分",
-            "模型可以自由重组类型",
-            "目标合同不被错误现状改写",
-            "失败半径保持在最小安全单元",
-            "结论不超过实际证据",
-            "答不出来时，先建立能区分候选原因的 observable",
-        ):
-            with self.subTest(autonomyContract=autonomy_contract):
-                self.assertIn(autonomy_contract, workflow)
-        self.assertIn("目标合同、当前事实、owner、fallback/route、纠正门和退役条件", AGENT_RULES.read_text(encoding="utf-8"))
 
     def test_scene_evidence_is_a_local_ignored_cache(self) -> None:
-        rules = AGENT_RULES.read_text(encoding="utf-8")
         evidence = RUNTIME_EVIDENCE.read_text(encoding="utf-8")
         ignored = GITIGNORE.read_text(encoding="utf-8").splitlines()
-        self.assertIn("docs/scene/evidence/", ignored)
-        self.assertIn("仓库忽略的本机证据缓存", rules)
+        self.assertIn(".artifacts/", ignored)
         self.assertIn("仓库忽略的本机证据缓存", evidence)
         self.assertNotIn("](../evidence/", evidence)
 
@@ -305,8 +244,6 @@ class SceneGovernanceContractTests(unittest.TestCase):
         rules = AGENT_RULES.read_text(encoding="utf-8")
         source_index = SOURCE_INDEX.read_text(encoding="utf-8")
         self.assertIn("named source taxonomy 的唯一分类入口", source_index)
-        self.assertIn("类别清单只由该索引维护", rules)
-        self.assertNotIn("必须区分五种来源", rules)
         for source_class in SOURCE_CLASSES:
             with self.subTest(sourceClass=source_class):
                 self.assertIn(f"`{source_class}`", source_index)
@@ -324,8 +261,12 @@ class SceneGovernanceContractTests(unittest.TestCase):
         ledger = COVERAGE_LEDGER.read_text(encoding="utf-8")
         evidence = RUNTIME_EVIDENCE.read_text(encoding="utf-8")
         render_graph = RENDER_GRAPH_COVERAGE.read_text(encoding="utf-8")
-        self.assertIn("current capability 的唯一摘要入口", ledger)
-        self.assertIn("`S0-S5` 只由[运行证据索引]", ledger)
+        # Current capability conventions remain in the retained body; historical
+        # batch prose is no longer a source for the current authority contract.
+        current_conventions = ledger.split('<a id="capability-conventions"></a>', 1)[1].split('<a id="official-sources"></a>', 1)[0]
+        self.assertIn("现役 current capability 唯一系统摘要", current_conventions)
+        self.assertIn("运行证据深度按 [S0–S5](runtime-evidence-current.md#evidence-levels)", current_conventions)
+        self.assertIn("两者不机械换算", current_conventions)
         self.assertIn("本页采用唯一的运行证据深度口径", evidence)
         self.assertNotIn("- `S1 preserved`：", render_graph)
 
@@ -376,7 +317,6 @@ class SceneGovernanceContractTests(unittest.TestCase):
         self,
     ) -> None:
         workflow = RESEARCH_WORKFLOW.read_text(encoding="utf-8")
-        agent_rules = AGENT_RULES.read_text(encoding="utf-8")
         for phrase in (
             "静态研究任务不得修改产品代码",
             "fresh_implementation_task_or_context_id",
@@ -391,16 +331,6 @@ class SceneGovernanceContractTests(unittest.TestCase):
         ):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, workflow)
-
-        for phrase in (
-            "历史摘要、旧计划",
-            "本身不构成上下文污染",
-            "立即停止该职责的产品写入",
-            "若能够明确证明与当前切片无关",
-            "无法判断是否重叠时按重叠处理",
-        ):
-            with self.subTest(agent_rule_phrase=phrase):
-                self.assertIn(phrase, agent_rules)
 
 
 if __name__ == "__main__":

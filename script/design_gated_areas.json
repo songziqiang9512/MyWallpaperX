@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "policy": {
-    "purpose": "设计前置能力登记：下列能力属于「先设计、后实施」类——跨 owner/唯一权威合同/用户可见难逆/机器基线冻结/依赖外部取证。实施开始（新增文件或引入触发符号）而状态仍为 blocked-pending-design 时，script/check_design_gate.py 退出非零。",
-    "judgment_procedure": "新增条目须自带判定程序，逐条回答：1) 该能力是否横切多个 owner 或主链节点；2) 是否触碰唯一权威合同（identity/clock/graph/resource lifecycle/compositor）；3) 错误是否用户可见且难以回退（用户数据、发布语义、持久化格式）；4) 是否触碰机器基线冻结的家族；5) 是否依赖官方语义/私有框架等外部取证。任一条为是即登记，并写 owner、设计要点与退役条件。",
-    "approval": "状态从 blocked-pending-design 改为 approved 必须同批提交设计文档（designDoc 指向仓库内路径）并在提交信息写明 owner 与裁决依据；false positive 通过收窄 matchPatterns/contentPatterns 处理，同样显式改本文件并写理由。",
-    "retirement": "能力落地后（设计已实施且过验证门），条目整条删除；仅文档登记而无触发模式（patterns 为空）的条目不参与机器检查，只作为清单存在。"
+    "purpose": "重要能力先设计再实施；判定及记录的唯一流程见 docs/development/repository-workflow.md#设计判定与记录。已登记 blocked-pending-design 能力命中匹配模式时，check_design_gate.py 拒绝实施。",
+    "judgment_procedure": "按仓库工作流的五项判定检查本次能力与既有设计覆盖；命中后先落设计，登记 owner、designDoc、设计要点、有效匹配范围及退役条件。空模式或未登记能力不能由机器保证，仍须人工判定。",
+    "approval": "先在仓库保存或修订设计文件，再将已明确方案与边界的条目标为 approved，并在 design_notes 说明裁决依据；未定部分保持 blocked-pending-design。落库不要求自动 Git 提交，提交/发布遵守用户授权。误报可凭具体产生者收窄模式并记录理由；不得只改状态绕过未完成设计。",
+    "retirement": "能力实施并过验证门后，将稳定职责移交现有合同并删除该窄条目；未完成的独立范围继续登记，不把部分完成扩为整体批准。"
   },
   "areas": [
     {
@@ -12,7 +12,7 @@
       "title": "Scene HDR / tone mapping / EDR 输出管线",
       "owner": "scene-e-route",
       "status": "approved",
-      "designDoc": "docs/scene/design/hdr-tonemap-edr-design.md",
+      "designDoc": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
       "design_notes": "端到端输出管线：HDR target 格式链→高亮滚降/knee→EDR 元数据与 CAMetalLayer 呈现。已有地基证据 E-2026-09-27-SCENE-COLOR-PRECISION（RGBA16F 贯通≠真 HDR）。 设计裁决、限定准入、owner 与退役条件见 designDoc；approved 不表示运行能力或发布验收。",
       "matchPatterns": [],
       "contentPatterns": [
@@ -27,7 +27,7 @@
       "title": "2D 材质光照 / PBR / 阴影 / 反射",
       "owner": "scene-e-route",
       "status": "approved",
-      "designDoc": "docs/scene/design/2d-lighting-material-design.md",
+      "designDoc": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
       "design_notes": "材质模型与光传递路径设计决定后续所有 material 形状；台账 L0 家族（3662790108 动态点光 ROI 已正证、接近闭合的静态点光/强度除外）。 设计裁决、限定准入、owner 与退役条件见 designDoc；approved 不表示运行能力或发布验收。",
       "matchPatterns": [],
       "contentPatterns": [
@@ -42,7 +42,7 @@
       "title": "SceneScript component / object / particle API",
       "owner": "scene-e-route",
       "status": "approved",
-      "designDoc": "docs/scene/design/script-component-api-design.md",
+      "designDoc": "docs/scene/roadmap/batch2/script-component-api-design.md",
       "design_notes": "批准现役句柄/事务扩展及D11显式count后继：调用时出生输入、同步真实预检、最终owner准入，禁止final-context不同即拒绝的无依据限制。默认count/未证API不开放；approved不是产品或运行验收。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/**/SceneScript*Component*.swift"
@@ -58,7 +58,7 @@
       "title": "composition作者采集成员、模式与顺序",
       "owner": "scene-e-route",
       "status": "blocked-pending-design",
-      "designDoc": "docs/scene/design/composition-render-target-design.md",
+      "designDoc": "docs/scene/roadmap/batch2/composition-render-target-design.md",
       "design_notes": "成员/模式仍待中性行为或有界黑盒定案，旧parent-only隔离语义批准撤回。资源准入、source/destination一致性及生命周期窄片已实施并交runtime-architecture §3.3，窄登记同批退役；SourceRoute仍冻结，不得借修资源扩成员语义。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceRoute.swift"
@@ -96,7 +96,7 @@
       "title": "Scene inline alpha 脚本显示权第二级 fallback 释放（d1-1 fail-closed→fail-soft）",
       "owner": "scene-e-route",
       "status": "approved",
-      "designDoc": "docs/scene/design/alpha-display-fallback-design.md",
+      "designDoc": "docs/scene/capabilities/alpha-display-fallback-design.md",
       "design_notes": "判定主轴是该 alpha 绑定在当前运行时是否存在可达 publication 路径（scalar owner/shared-alpha/Timeline 三条），而非表达式分类。admit 桶准入规则零放宽；downgrade 桶在 launch 期对 claimed（shared ∪ scalar ∪ timeline）补集内的 alpha 所有权释放为 false，保留 authored 值与 visible 位；suppress 桶收窄为 F6（无 alpha 压制面）/F7（跨层 mutation）两个有正面证据的封闭集合。无官方 parity，回滚单点=删除唯一 call site。裁决依据与三桶论证见 designDoc。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/**/SceneScriptScalarDisplayProjection.swift"
@@ -120,7 +120,7 @@
       "title": "D8 — RT 名称单点准入与分派",
       "owner": "scene-e-route",
       "status": "approved",
-      "designDoc": "docs/scene/design/rt-prefix-admission-design.md",
+      "designDoc": "docs/scene/roadmap/batch2/rt-prefix-admission-design.md",
       "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
       "matchPatterns": [],
       "contentPatterns": []
@@ -130,7 +130,7 @@
       "title": "D9 — 宿主到渲染的 run、throttle、pause 协议",
       "owner": "app-shell",
       "status": "approved",
-      "designDoc": "docs/scene/design/host-render-power-protocol-design.md",
+      "designDoc": "docs/scene/roadmap/batch2/host-render-power-protocol-design.md",
       "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
       "matchPatterns": [],
       "contentPatterns": []
@@ -140,15 +140,18 @@
       "title": "D10 — 帧不重叠准入与 busy 重探测",
       "owner": "SceneDesktopWallpaperHost / SceneMetalView / SceneMetalRenderer",
       "status": "approved",
-      "designDoc": "docs/scene/design/frame-admission-retry-design.md",
-      "design_notes": "2026-10-01 用户裁决替换 all-surface rollback：共享模拟一次消费，每屏独立提交，恢复读最新状态。跨 clock/VM/provider/particle/Puppet 生命周期；设计与反例门、generic-only 迁移及退役条件见 designDoc。approved 不是运行验收。",
+      "designDoc": "docs/scene/roadmap/batch2/frame-admission-retry-design.md",
+      "design_notes": "2026-10-01 用户裁决替换 all-surface rollback：共享模拟一次消费，每屏独立提交，恢复读最新状态。跨 clock/VM/provider/particle/Puppet 生命周期；设计与反例门、generic-only 迁移及退役条件见 designDoc。approved 不是运行验收。 2026-10-03 仓库改良P1-5批准同designDoc的职责提取：保留renderFrame终态/defer/ownership转移；Compilation同cache内分prepared analysis/artifact route/finalization，不改变算法或生命周期权威。 P1-5 source-set整合：同目录原字节抽离既有SceneRenderTargetVocabulary enum以恢复最小Template/census真实编译，设计已先补，无语义/类型预算增长。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession*FrameDriver*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticle*Runtime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePlaybackState.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneRenderTargetVocabulary.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift"
       ],
       "contentPatterns": []
     },
@@ -157,7 +160,7 @@
       "title": "D11 — 粒子对象播放门与 reset 边界",
       "owner": "scene-e-route",
       "status": "approved",
-      "designDoc": "docs/scene/design/particle-playback-state-design.md",
+      "designDoc": "docs/scene/roadmap/batch2/particle-playback-state-design.md",
       "design_notes": "2026-10-02批准显式count后继：现runtime拥有实际出生，全surface真实预检/原子安装，调用期context按journal保留，native工作/临时预算在现domain计量，GPU失败不重放。默认/children/reset未知保持未开放；approved不是实施验收。",
       "matchPatterns": [],
       "contentPatterns": []
@@ -167,8 +170,8 @@
       "title": "Scene DEBUG 独立 readback 导出与隔离退出 drain",
       "owner": "SceneDebugFrameCapture / SceneDesktopWallpaperSession / DebugScenePlaybackRunner",
       "status": "approved",
-      "designDoc": "docs/scene/design/debug-frame-capture-lifecycle-design.md",
-      "design_notes": "2026-10-02 RF05 前置设计；五判据①②④⑤命中：横切提交/诊断/退役/隔离退出，资源与completion生命周期、现役冻结Frame/Session及公开Metal等待合同。③否，不改变用户数据。已证产生者是80ms periodic与ready/after；最多2 required+1 periodic pending、2个GPU/queued/running readback，局部字节backpressure派生自唯一resident预算四分之一，CPU可控scratch沿现有decoded子额。prepare cancel不consume；提交前登记outstanding，closed且outstanding归零才drain；Session先保存capture，retireSurface在GPU与export都终结后释放。非隔离产品/Web退出owner不变。行为门及稳定合同接管后整条删除；approved不表示产品或性能验收。",
+      "designDoc": "docs/scene/roadmap/batch2/debug-frame-capture-lifecycle-design.md",
+      "design_notes": "2026-10-02 RF05 前置设计；五判据①②④⑤命中：横切提交/诊断/退役/隔离退出，资源与completion生命周期、现役冻结Frame/Session及公开Metal等待合同。③否，不改变用户数据。已证产生者是80ms periodic与ready/after；最多2 required+1 periodic pending、2个GPU/queued/running readback，局部字节backpressure派生自唯一resident预算四分之一，CPU可控scratch沿现有decoded子额。prepare cancel不consume；提交前登记outstanding，closed且outstanding归零才drain；Session先保存capture，retireSurface在GPU与export都终结后释放。非隔离产品/Web退出owner不变。行为门及稳定合同接管后整条删除；approved不表示产品或性能验收。 2026-10-03批准同一Runner内证据启动/调度职责提取：保留await前后closing、pointer预置、capture分支及既有DispatchQueue，不新增clock/registry；真实扩展行为harness与Debug build后归入原诊断owner。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneDebugFrameCapture.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
@@ -177,11 +180,12 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+Shutdown.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift",
-        "MyWallpaperX/App/DebugScenePlaybackRunner.swift",
-        "MyWallpaperX/App/DebugScenePlaybackRunner+HostOwnership.swift",
-        "MyWallpaperX/App/DebugScenePlaybackRunner+SceneSwitch.swift",
-        "MyWallpaperX/App/DebugScenePlaybackRunner+SurfaceStopRelaunch.swift",
-        "MyWallpaperX/App/AppDelegate.swift"
+        "MyWallpaperX/App/Debug/DebugScenePlaybackRunner.swift",
+        "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+HostOwnership.swift",
+        "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+SceneSwitch.swift",
+        "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+SurfaceStopRelaunch.swift",
+        "MyWallpaperX/App/AppDelegate.swift",
+        "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+EvidenceSchedule.swift"
       ],
       "contentPatterns": []
     },
@@ -190,7 +194,7 @@
       "title": "D12 — 四类 copy 触发点的 graph 语义收敛",
       "owner": "scene-e-route",
       "status": "approved",
-      "designDoc": "docs/scene/design/copy-pass-unification-design.md",
+      "designDoc": "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
       "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
       "matchPatterns": [],
       "contentPatterns": []
@@ -200,7 +204,7 @@
       "title": "Scene 提交与终结观测解耦",
       "owner": "SceneResolvedMaterialSubmissionCoordinator",
       "status": "approved",
-      "designDoc": "docs/scene/design/runtime-architecture.md",
+      "designDoc": "docs/scene/architecture/runtime-architecture.md",
       "design_notes": "§3.3 裁决：横切提交/终结/诊断并触及 publication 权威。产品 ledger/blueprint/tail 检查模式无关；真实 GPU 终结后生成观测，观测失败仅使证据无效。删除 pending observation 存储和 seal 的观测依赖；诊断开关/失败、GPU 失败、stale completion 与 next-frame 门通过后删除本条。批准设计边界，不代表运行验收。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator*.swift"
@@ -212,7 +216,7 @@
       "title": "Scene 候选首帧与会话提升",
       "owner": "SceneDesktopWallpaperHost / SceneDesktopWallpaperSession / SceneScriptLocalStorageSession",
       "status": "approved",
-      "designDoc": "docs/scene/design/scene-launch-responsiveness-contract.md",
+      "designDoc": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
       "design_notes": "§4.2 先设计：将播放生命周期从请求 Host 迁至有界 Session role，首帧 GPU 完成后才提升可见性并退役旧场景；候选存储隔离、聚合音频需求及 drain；触发 identity/clock/publication/持久化，generic-only，失败/迟到/停止门闭合后退役本条。批准边界，不代表运行验收。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaper*.swift",
@@ -225,7 +229,7 @@
       "title": "Scene shared resident admission",
       "owner": "SceneResourceBudget / existing resource owners",
       "status": "approved",
-      "designDoc": "docs/scene/design/scene-resource-admission.md",
+      "designDoc": "docs/scene/architecture/scene-resource-admission.md",
       "design_notes": "统一准入替换无父额度的原生分配；不是新增 registry。设计、覆盖边界、guard 产生者和退役条件见文档；RF05 startup source readiness限定隐藏named provider准备，复用现引用分析、不授予publication。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/**/*.swift",
@@ -239,7 +243,7 @@
       "title": "RF07 clear=false raw sceneColor 与显示输出分离",
       "owner": "scene-target-residency-and-submission",
       "status": "approved",
-      "designDoc": "docs/scene/design/hdr-tonemap-edr-design.md",
+      "designDoc": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
       "design_notes": "五判据1/2命中：跨target/residency/completion/terminal输出。D2 RF07段经独立只读设计复核，收紧同帧新epoch bootstrap、显示降级raw提升与display-only pin合同后批准；不代表实现验收。退役：多帧raw/display及失败门完成、稳定输出合同接管后删除登记。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/**/SceneResolvedMaterialSubmissionCoordinator+SceneColor.swift",
@@ -268,7 +272,7 @@
       "title": "RF02 公开Rotation/Translation值与更新相位",
       "owner": "scene-texture-publication-and-host-uniform",
       "status": "blocked-pending-design",
-      "designDoc": "docs/scene/design/authored-texture-coordinate-design.md",
+      "designDoc": "docs/scene/roadmap/batch2/authored-texture-coordinate-design.md",
       "design_notes": "命中①资源publication/host uniform跨owner、②帧值与generation、⑤公开接口完整数值语义；③用户数据格式、④新增结构家族均不需要。现有单帧区间不决定physical/mapped差分与动画相位；补证后另审B，不可借A采样修正批准。沿现有candidate编码公开值，不建第二ABI/clock；完成生命周期和可见正反门并交稳定合同后删除登记。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneTexDataReader.swift",

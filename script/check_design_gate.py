@@ -96,12 +96,12 @@ def evaluate(
     violations: list[str] = []
     advisory: list[str] = []
     for area in registry["areas"]:
-        if area["status"] != "blocked-pending-design":
-            continue
         if not area["matchPatterns"] and not area["contentPatterns"]:
+            if area["status"] == "approved":
+                continue
             advisory.append(
                 f"{area['id']}: {area['title']}（owner={area['owner']}）——清单登记、"
-                "无机器模式，实施前按 AGENTS.md 设计前置判定程序执行设计"
+                "无机器模式，实施前按 docs/development/repository-workflow.md#设计判定与记录 执行设计"
             )
             continue
         matched_paths = [
@@ -117,6 +117,12 @@ def evaluate(
             for symbol in file_hits_content(candidate, area["contentPatterns"]):
                 matched_symbols.append((p, symbol))
         if matched_paths or matched_symbols:
+            if area["status"] == "approved":
+                advisory.append(
+                    f"{area['id']}: approved owner={area['owner']} design={area['designDoc']} "
+                    f"paths={','.join(matched_paths)} symbols={len(matched_symbols)}"
+                )
+                continue
             details = []
             if matched_paths:
                 details.append("新增/变更文件命中: " + ", ".join(matched_paths[:5]))
@@ -130,9 +136,9 @@ def evaluate(
                 f"  owner={area['owner']}  状态={area['status']}\n"
                 f"  {'; '.join(details)}\n"
                 "  该能力属设计前置类：先落设计文档（写入 designDoc 并将状态改为 "
-                "approved，同批提交 owner 与裁决依据），或确属误报时收窄 "
-                "matchPatterns/contentPatterns 并写理由。判定程序见 AGENTS.md 与 "
-                "script/design_gated_areas.json 的 policy。"
+                "approved，并记录 owner 与裁决依据；Git 提交另按用户授权），或确属误报时收窄 "
+                "matchPatterns/contentPatterns 并写理由。判定程序见 "
+                "docs/development/repository-workflow.md#设计判定与记录。"
             )
     return violations, advisory
 
@@ -165,7 +171,7 @@ def main() -> int:
         for v in violations:
             print(f"  - {v}")
         return 1
-    print(f"design-gate: pass（{len(paths)} 个变更路径无设计前置命中）")
+    print(f"design-gate: pass（{len(paths)} 个变更路径无未批准的设计前置命中）")
     return 0
 
 

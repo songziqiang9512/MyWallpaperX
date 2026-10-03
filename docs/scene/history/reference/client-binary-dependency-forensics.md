@@ -1,0 +1,159 @@
+# 官方客户端二进制与第三方依赖取证
+> **历史证据 — 非现役入口**
+
+审查日期：2026-07-26；Ghidra 深层增补：2026-07-30；32/64 位交叉复核：2026-07-31
+取证快照：Wallpaper Engine 2.8.42 的 `bin/`、`ui/dist/videos/`、`assets/shaders/{base,editor,HLSL}`、`distribution/`
+审查方式：静态检查
+
+> 文档角色：模块、第三方来源和动态预览的证据导航。依赖或文件存在只说明候选实现来源，不证明 MyWallpaperX 已采用同一算法，也不升级当前能力等级；现状统一查 [覆盖台账](../../capabilities/coverage-ledger.md) 和 [运行证据索引](../runtime-evidence-index.md)。
+
+## 1. 结论先行
+
+1. **官方音频频谱的 FFT 实现依赖 FFTS**（Anthony M. Blake，BSD）。项目当前已有 `L3 bounded` 的 16/32/64 host 输入与严格 consumers，但频段、归一化和平滑仍是项目工程选择；识别上游库不构成数值 parity。
+2. **blend mode 数学的来源是 Romain Dura 的 Photoshop Blend Functions**（公开 MIT 库，即广为流传的 PhotoshopMath 系列 shader）。`common_blending.h` 的 `ApplyBlending` 32 模式表与该公开库同源；项目 Tint backend 的对照基准从「只读随包 GLSL」升级为「随包 GLSL + 其声明的上游公开库」。
+3. **Advanced Fluid Simulation 的算法蓝本是 WebGL-Fluid-Simulation**（Pavel Dobryakov 的公开 MIT 项目）。该 effect 当前 `L2`（约 20 nodes/swap graph-only）；官方声明许可意味着其 pass 结构可与该公开实现对照解读（advection/divergence/pressure/gradient subtract 的标准分解）。
+4. **粒子噪声栈**：CPU 侧 Perlin Simplex Noise（Sebastien Rombauts）+ FastNoise 2（Jordan Peck），GPU 侧 GLSL noise（Ashima Arts / Stefan Gustavson 的 webgl-noise）+ GLSL hash（David Hoskins）。turbulence/simplex/fbm 的官方噪声族全部有公开参照。
+5. **字体栈是 FreeType2 + HarfBuzz + msdfgen**，与 [changelog 取证](../../development/reference/client-changelog-forensics.md) §4 的 MSDF 结论互证（REV 4344 "Added msdfgen license" 对应的 license 就在本清单）。
+6. **BC 纹理压缩使用 AMD Compressonator SDK**（2020 版）。项目 BC1/2/3/5 解码若需数值对照，Compressonator 的公开解码器是官方声明的实现来源。
+7. **SceneScript VM 是 V8** 的第三重独立证据（license 清单 + `bin/scenescript32/64.dll` 独立模块 + changelog 10 条）。
+8. **编辑器的深度图自动生成是 MiDaS/DPT 深度估计模型**（PyTorch 栈）。Depth Parallax 官方描述里的 "generate automatically" 是 AI 模型推理，属编辑器 authoring 能力，**播放器不需要实现**。
+9. `ui/dist/videos/previews` 随包 165 个官方元素预览视频（webm，12 MB），是粒子组件与 effect 的**官方动态行为参考**，权威性高于 WaifuX SceneBake；文件名为 16 位十六进制哈希，静态检索未找到哈希到元素名的映射表。
+
+## 2. 第三方依赖清单
+
+### 2.1 主清单（`licenses_main.html`，34 项）
+
+按 Scene 系统归组。HTML 中库名列表与文本块存在嵌套错位，两个泛名条目按关联信息归属到具体库。
+
+| 库 | 身份确认 | 对应 Scene 系统 | 项目当前等级 |
+|---|---|---|---|
+| **V8** | — | SceneScript VM | `L0`，见 [changelog 取证](../../development/reference/client-changelog-forensics.md) §3 |
+| **FFTS** | Anthony M. Blake 2012-2013 | 官方客户端音频频谱 FFT 参照 | Audio frame input `L3 bounded`；项目未复用官方私有参数 |
+| **Photoshop Blend Functions** | Romain Dura（romz）2012 | `common_blending.h` blend mode 数学 | Tint `L3`；[blend 名单](../../development/reference/editor-string-table-forensics.md#4-blend-mode-官方名单35) |
+| **WebGL-Fluid-Simulation** | Pavel Dobryakov（MIT） | Advanced Fluid Simulation effect | `L2` graph-only |
+| **Perlin Simplex Noise** | Sebastien Rombauts（MIT） | CPU 粒子噪声 | turbulent velocity `L3` 非等价实现 |
+| **FastNoise 2** | Jordan Peck 2020（MIT） | CPU 噪声（simplex/fbm 族） | 同上 |
+| **GLSL noise** | Ashima Arts / Stefan Gustavson | shader 内 simplex/classic noise | shader 执行 `L0-L1` |
+| **GLSL hash** | David Hoskins 2014 | shader hash 函数 | 同上 |
+| **glsl-rotate** | Damien Seguin 2018 | shader 旋转工具 | 同上 |
+| **Voronoi JCash** | MIT | Voronoi 纹理工具（changelog REV 4249-4251 的 voronoi utilities） | 编辑器 authoring，播放器无需实现 |
+| **FreeType2** | — | 字体解析 | Text/Font `L3`（项目用 CoreText） |
+| **HarfBuzz** | — | 文本 shaping | 同上 |
+| **msdfgen** | MIT | MSDF 字形生成 | outline/shadow `L1`，见 changelog §4 |
+| **SDF CPU Computation** | TKMI-kyon 2022 | puppet 深度 SDF 自动生成（REV 3974） | 编辑器 authoring |
+| **AMD Compressonator SDK** | AMD 2020 | BC/DXT 纹理压缩编解码 | PKG/TEX `L3` |
+| **LZ4** | Yann Collet 2011-2017 | TEX LZ4 解压 | 已实现 |
+| **LodePNG** | Lode Vandevenne，version 20160118 | PNG 编解码 | 已实现（平台解码器） |
+| **FreeImage** | — | 图像解码 | 同上 |
+| **Wuffs** | — | 图像安全解码（Google） | 同上 |
+| **CGif** | — | GIF 编解码 | gifscene 路径 |
+| **nQuant.cs** | — | 调色板量化 | 编辑器侧 |
+| **Assimp** | 3-clause BSD | 3D 模型导入 | 3D `L0`；对应 `bin/assimp-vc143-mt*.dll` |
+| **GLM** | OpenGL Mathematics | 数学库（changelog 多条优化记录） | — |
+| **JsonCpp** | 1.9.6（REV 4130） | JSON 解析 | — |
+| **RapidJSON** | — | JSON 解析（与 JsonCpp 并存） | — |
+| **Poly2Tri** | 2009-2018 | 三角剖分（puppet mesh/clipping） | Puppet `L2-L3` |
+| **triangleraster** | — | 三角形光栅化 | — |
+| **SFML 2** | — | 多媒体基础库 | — |
+| **OpenCV** | — | 图像处理（编辑器） | 编辑器 authoring |
+| **CEF** | Marshall A. Greenblatt / Google | UI 与 Web 壁纸 | Web 模块另册 |
+| **Monaco Editor** | — | 脚本编辑器 | 编辑器 authoring |
+| **Bodymovin** | — | UI Lottie 动画 | 与 Scene 无关 |
+
+### 2.2 编辑器扩展清单（`licenses_editor_extensions.html`，14 项）
+
+PyTorch、Torch Vision、Torch Audio、timm、**MiDaS**、**DPT**、OpenCV（含 External）、NumPy（含 External）、PIP、TCL、Python、Research。
+
+这是编辑器「AI 深度图生成」功能的完整 Python 栈。**结论：Depth Parallax 的 depth map 在作者侧由 MiDaS/DPT 推理生成，产物是普通纹理**；播放器只消费纹理，不需要任何 AI 组件。这缩小了 Depth Parallax `L1 -> L3` 的实现范围：只需 depth 纹理采样位移，不需生成链。
+
+## 3. `bin/` 磁盘模块清单
+
+[Windows 取证记录](../windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §4 记录的是 Parallels 运行时**已加载**的 4 个模块（`d3d11`/`dxgi`/`d3dcompiler_47_x32`/`scenescript32`）。以下是磁盘上的完整装载面（62 个文件，511 MB；`.dll` 28 个）：
+
+| 组 | 文件 | 结构事实 / 边界（逐项等级见下文） |
+|---|---|---|
+| Scene 脚本 | `scenescript32.dll` / `scenescript64.dll` | V8 VM 独立模块边界 |
+| Shader 编译 | `d3dcompiler_47.dll` / `d3dcompiler_47_x32.dll` | FXC，SM5 路径 |
+| Shader 编译（新） | `dxcompiler.dll` / `dxil.dll` | **DXC/DXIL 存在于磁盘**，说明官方具备 SM6 编译链；但随包 blob 只有 `blobsSM40`（DXBC），运行时是否走 DXC 未证实 |
+| 3D 模型 | `assimp-vc143-mt32.dll` / `-mt64.dll` | 与 licenses 的 Assimp 对应；VC143 工具链 |
+| 图像 | `FreeImage32.dll` / `FreeImage64.dll` | — |
+| 媒体 | `mediaextensions32/64.dll` | 音频扩展集成；主程序实际使用面仍需调用链与动态状态互证 |
+| 资源 | `resourceutil32/64.dll` | 资源编译/工具 |
+| RGB 设备 | `CUESDK.x64_2017.dll` / `CUESDK_2017.dll` | Corsair iCUE；`plugins/led/` 另有 LED 插件（本机加载失败，错误码 126/183，见根 `log.txt`） |
+| UI/Web | `libcef.dll`、`libEGL.dll`、`libGLESv2.dll`、`vk_swiftshader.dll`、`vulkan-1.dll`、`chrome_elf.dll`、`icudtl.dat`、`*.pak` | CEF/ANGLE/SwiftShader，全部属 UI 进程，与 `wallpaper32.exe` Scene 渲染无关（§4.2 已界定） |
+| 桌面注入 | `applicationwallpaperinject32/64.exe`、`cloneextensions32/64.dll`、`edgewallpaper64.exe` | Windows 桌面集成，无 macOS 对应义务 |
+| 诊断 | `diagnostics32/64.exe`、`apputil32.exe`、`steammdmp32/64.dll` | `steammdmp` 的唯一公开导出为 `WriteSteamMiniDump`，属于崩溃转储边界，不是媒体桥 |
+| Steam | `steam_api.dll` / `steam_api64.dll` | — |
+
+`distribution/` 与 `bin/`+`plugins/` 内容为同一套发行 payload（文件名集合仅差 3 个运行时状态文件：`playliststatetime.bin`、`workshopcache.json`、`workshopcache_editor.json`），无独立证据价值，后续不再检查。
+
+### 3.1 Ghidra 深层静态取证方法与边界
+
+2.8.42 深层增补使用 Ghidra 12.1.2，将 PE import/export、RTTI、字符串 xref、从命名入口开始的有限调用可达性与选择性反编译组合起来。选择性反编译只用于恢复高层模块职责；只有得到公开文档、随包结构化资产或多个独立静态线索互证的结论才进入正式合同。
+
+证据解释：
+
+- 命名入口到命名依赖的直接/thunk-aware 可达性可以确认正向路径存在；
+- 未解析 COM/vtable/函数指针会削弱负面结论，不能用“没有可达”证明功能不存在；
+- 字符串、RTTI 或单一反编译表达只能作为定位线索；
+- 本项目不保存地址、伪代码、函数体、字节或客户端私有算法表达；原始 Ghidra project 和一次性脚本在归纳完成后删除。
+
+### 3.2 模块级结构事实
+
+| 模块 | 深层静态可支持的结构事实 | 不能据此推出 |
+|---|---|---|
+| `resourceutil64.dll` | 三个命名 image loader 都汇入 32-bit 像素转换和方向规范化；GIF 是独立的 open/prepare/advance/free 生命周期 | 所有 Scene TEX 都应在运行时全局翻转；最终通道、颜色空间或 alpha convention |
+| `resourcecompiler64.exe` | sidecar 字段解析、格式选择与 TEXB/TEXS 写出属于同一离线编译边界；272 个无歧义 sidecar/TEX 配对用于互证 | numeric format 单独决定 color/data/normal 语义 |
+| `wallpaper64.exe` | 存在集中式 indexed material/texture resolver、shader frontend/built-in binder、effect condition admission，以及显式的 device-loss/scene rebuild 事务 | shader 数学、完整 override 优先级、Metal 等价参数或 Windows 像素结果 |
+| `scenescript64.dll` | 主程序执行严格版本握手后创建独立 engine；engine 有固定事件表、timer/watchdog/耗时统计，owner `destroy` 需要宿主显式派发 | MyWallpaperX 当前已有通用 VM、全部 API/event 或官方预算数值 |
+| `mediaextensions64.dll` | 主程序经公开 factory 动态取得音频扩展；模块覆盖 source/device/context、queue、capture、pause/resume 与线程化 teardown | 主程序使用全部 OpenAL 面；该模块是通用媒体解码器 |
+| `winrtutil64.exe` | 主程序以辅助进程边界启动；模块聚合系统媒体会话、storage stream、thumbnail/Shell image 与异步注册/注销 | 每张封面的精确变换顺序、WinRT 事件顺序或 macOS 应复制该进程拓扑 |
+| `wallpaperservice64.exe` | Windows Service、电源/会话通知和每用户进程编排器；未发现主程序直接名称/导入关系 | 官方 Scene pause/clock 算法 |
+| `cloneextensions64.dll` | 主程序动态解析 clone/composition 入口；模块有独立 surface/window/swapchain create/update/destroy 边界 | 所有 Scene 与显示配置都使用 clone 路径；跨平台应复制 DirectComposition |
+
+这些结果证明深层静态分析对 resolver、binder、frontend 与生命周期边界有价值；它仍不替代公开 schema、真实样本动态证据和 Windows pixel golden。
+
+### 3.3 仍未闭合的静态研究队列
+
+当前完成的是 32/64 位 `wallpaper` 与 `scenescript` 的第一轮结构交叉，以及 `resourceutil64.dll`、`resourcecompiler64.exe`、`mediaextensions64.dll`、`winrtutil64.exe`、`wallpaperservice64.exe`、`cloneextensions64.dll` 六个模块的**有界深挖**，不是客户端全量分析。交叉结果、输入哈希与证据边界统一见 [官方客户端运行机制静态取证](../../development/reference/client-runtime-static-forensics.md)。每项只归纳可迁移的结构事实；地址、伪代码、函数体、私有算法表达和客户端 payload 均不进入项目。
+
+| 优先级 | 后续主题 | Ghidra 仍可回答 | 必须由动态/自有 fixture 回答 |
+|---|---|---|---|
+| 高 | TEX / slot / sampler 链 | `TEXV/TEXI/TEXB/TEXS` 分支及 flags/尺寸/mip 参与 slot metadata、sampler、fallback 的可达路径 | 完整路径、UV、padding、sRGB、alpha、swizzle、DXT5n/BC5 解包与 GPU 像素 |
+| 高 | RenderGraph / FBO / history / render state | copy/swap/history/clear/unique/format/target/compose 的已识别参与者、局部顺序与资源生命周期线索 | 全局所有权/顺序、跨帧 history、alias/clear 值及 blend/depth/cull/write-mask 输出 |
+| 高 | Particle factory 与生命周期 | 可识别 factory、initializer/operator/renderer 阶段、child/control-point、排序/批次/释放入口 | 完整所有权、数值公式、随机种子、fixed-step、逐帧阶段顺序和视觉轨迹 |
+| 高 | SceneScript 宿主绑定可恢复表 | `thisScene`/`thisLayer`/`engine`/`input`/storage/renderContext 等可识别注册子集、owner 类型和 error-scope 线索 | 完整绑定覆盖、事件重入、异常、销毁顺序、API 副作用和跨帧可见性 |
+| 高 | Video / Sound 实际宿主调用 | 可识别 Media Foundation 状态参与者、Scene clock/seek/loop/reset 调用点与主程序使用的 OpenAL 子集 | 完整 state machine/所有权、A/V 同步、设备中断、事件顺序、视频颜色空间和 frame readiness |
+| 高 | Material override / variant | 可识别 authored/default/user/system/provider 参与者、variant key 与 render-state 注入点 | 完整来源集合、优先级和最终输出；继续用项目自有 fixture 验证，不复刻内部算法 |
+
+32 位结构差分已确认关键 parser/resolver/particle/final-output 与 SceneScript host bridge 在两条 ABI 路径中对应，但函数数量、xref 与 CRT/API 细节不同，不能推出内部、像素、时序或性能等价。后续优先处理 TEX/sampler、FBO/history/state、particle、SceneScript host binding 与 video/Sound；text/MSDF、3D/Lighting/Puppet、HDR/final combine、GIF 与 resource compiler 的 trim/rotation/mip 属中收益缺口。
+
+FreeImage、Assimp、OpenAL Soft、DXC/DXIL、CEF、ANGLE、SwiftShader、Vulkan 与设备 SDK 已有公开源码或正式 API，原则上研究官方客户端如何调用它们，不继续反编译第三方库本身。`wallpaperui.exe` 的作者字段优先取结构化 UI/locale/default project；`webwallpaper64.exe`、注入器、screensaver、installer、launcher 等不混入当前 Scene 播放链批次。任何静态结果都不能代替 Windows 同步像素、事件顺序和生命周期证据。
+
+## 4. `assets/shaders` 子目录补漏
+
+[Shader Prelude 文档](../../capabilities/shader-prelude-and-backend-abstraction.md) 的 census 口径覆盖 `assets/shaders` 顶层并明确排除 `HLSL/`；三个子目录在此登记完整面：
+
+| 子目录 | 文件 | 性质 |
+|---|---|---|
+| `base/` | `model_fragment_v1.h`、`model_vertex_v1.h` | 3D model shader 基座；`model_vertex_v1.h` 被顶层 include 5 次（Prelude §3 已计数），fragment 侧此前未登记 |
+| `editor/` | `editorparticlelayerdependency.{frag,vert}`、`meshviewportshading.{frag,vert}` | 编辑器专用视口 shader，播放器无义务 |
+| `HLSL/` | `dx11fallback.{frag,vert}`、`dx11playlistgaussian.{frag,vert}`、`dx11playlisttransition.{frag,geom,vert}` | D3D11 专用回退与播放列表过渡（Prelude §10 已收录其 15 个 `g_` 符号） |
+
+`declarations.json`（4.7 KB）已由 [Windows 取证记录](../windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §17 收录其 shader/texture format 声明结构。
+
+## 5. 官方元素预览视频
+
+`ui/dist/videos/previews/`：165 个 `.webm`，共 12 MB，文件名为 16 位十六进制哈希。changelog REV 4182-4187 记录其来源（"Added video previews for all element add dialogs" / "Added element preview videos"）。
+
+- 定位：粒子 emitter/initializer/operator/renderer、effect 等「添加元素」对话框的官方动态演示。
+- 价值：官方动态行为参考，可用于 V3 动态对照阶段人工比对组件行为方向（如 vortex 旋向、boids 聚群形态）；权威性高于第三方 SceneBake。
+- 限制：文件名哈希到元素名的映射表未在 `scripts.js`、场景 JSON 或 CSS 中静态检索到（推断由编辑器运行时拼接，等级 C）；使用时需人工按内容识别。48 个 `assets/scenes/particleelementpreviews/<组件名>/` 官方预览工程已由 [官方默认工程 corpus](official-default-projects-fixture-inventory.md) 与 preset corpus census 收录，两者互补：工程给可解析的输入，视频给官方渲染的输出。
+
+## 6. 不应从本文推出的结论
+
+1. license 清单证明官方**使用**了某库，不证明某系统**只**由该库实现，也不证明未做修改；数值对照仍需运行门。
+2. `dxcompiler.dll` 在磁盘存在不证明 Scene shader 走 SM6；已观测 blob 均为 `SHDV0069`+DXBC（SM4.0）。
+3. UI 栈（CEF/ANGLE/Vulkan/SwiftShader）与 Scene 渲染进程无关，不得据此推断 Scene 后端。
+4. 编辑器扩展的 PyTorch/MiDaS 栈属 authoring 工具；播放器兼容性不含任何 AI 推理义务。
+5. 本文不改变 [覆盖台账](../../capabilities/coverage-ledger.md) 任何等级；它只把若干 `L0`/`L1` 系统的「实现参照来源」从未知变为已知。

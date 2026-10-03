@@ -14,10 +14,10 @@
 
 1. [文档入口](../README.md)定义事实角色和冲突裁决，[`AGENTS.md`](../../AGENTS.md)约束实现、验证、提交和工作区安全；
 2. 本文是技术栈职责、跨语言边界和依赖准入的唯一长期入口；
-3. [Scene 兼容运行时架构](../scene/design/runtime-architecture.md)规定官方/参考证据如何转化为项目执行结构；
-4. [Scene 兼容执行路线](../scene/scene-compatibility-roadmap.md)决定当前迁移顺序和停止项；
-5. [Scene 语义手册](../scene/semantics/README.md)和专项覆盖表记录语义合同与当前能力，[能力依赖图](../scene/semantics/capability-dependency-map.md)只记录前置关系；
-6. [运行证据索引](../scene/semantics/runtime-evidence-current.md)决定当前构建、签名和真实运行证据；
+3. [Scene 兼容运行时架构](../scene/architecture/runtime-architecture.md)规定官方/参考证据如何转化为项目执行结构；
+4. [Scene 兼容执行路线](../scene/roadmap/scene-compatibility-roadmap.md)决定当前迁移顺序和停止项；
+5. [Scene 语义手册](../scene/capabilities/README.md)和专项覆盖表记录语义合同与当前能力，[能力依赖图](../scene/architecture/capability-dependency-map.md)只记录前置关系；
+6. [运行证据索引](../scene/capabilities/runtime-evidence-current.md)决定当前构建、签名和真实运行证据；
 7. [Web 现役状态](../web/current-state.md)决定 Web 当前源码所有权、证据边界和待验收项。
 
 本文使用三种状态词：
@@ -30,7 +30,7 @@
 
 ## 1. 产品基线与迁移目标
 
-**硬件目标：仅支持 Apple Silicon（arm64），不承担 Intel／Rosetta 产品兼容。** 自有 App、helper、compiler/VM worker 的发行构建统一 arm64；第三方嵌套二进制必须具备可原生执行的 arm64 slice，不为减包盲目修改供应商签名。默认覆盖最低系统允许的 M1 及更新设备，具体 Metal 能力按 device/pipeline 查询，不把最新芯片能力作为全机型前提。最低 macOS 版本由构建与发布配置统一声明；取消 Intel 支持不等于提升最低系统版本。此处是目标合同，落地与验收见[工程计划的 Apple Silicon 专项](../scene/engine-refactor-program.md#apple-silicon)。
+**硬件目标：仅支持 Apple Silicon（arm64），不承担 Intel／Rosetta 产品兼容。** 自有 App、helper、compiler/VM worker 的发行构建统一 arm64；第三方嵌套二进制必须具备可原生执行的 arm64 slice，不为减包盲目修改供应商签名。默认覆盖最低系统允许的 M1 及更新设备，具体 Metal 能力按 device/pipeline 查询，不把最新芯片能力作为全机型前提。最低 macOS 版本由构建与发布配置统一声明；取消 Intel 支持不等于提升最低系统版本。此处是目标合同，落地与验收见[工程计划的 Apple Silicon 专项](../scene/roadmap/engine-refactor-program.md#apple-silicon)。
 
 产品基线是 Swift-first 的原生 macOS 工程：AppKit 承担 App 生命周期、主界面、窗口和桌面宿主，SwiftUI 只作为 [AppKit 迁移计划](appkit-migration.md)列出的受控残留；Swift 承担产品模型、播放生命周期与 Scene host/runtime 所有权，Metal 承担 Scene GPU 执行，Python 承担测试、矩阵和开发自动化。通用 JavaScript VM、shader compiler 或隔离 service 当前是否已取得产品执行权，不在长期合同中保存移动快照；只由当前源码、对应专项覆盖表和运行证据索引裁决。
 
@@ -55,7 +55,7 @@ Scene 的迁移目标已经确定：保留 Swift/Metal 产品底座，把作者�
 | Metal + MSL | GPU 渲染、合成、effect、粒子和经性能证据选择的 compute kernel | 不按样本、路径、hash 或资产名决定产品算法 |
 | C | ECMAScript VM 嵌入 API、稳定跨语言 ABI、opaque handle、buffer 与销毁合同 | 不承载第二套资源/属性/RenderGraph 模型 |
 | C++ | 第三方 shader compiler、IR/reflection 转换及必要的 compiler worker 内部实现 | 不接管 App、窗口、资源生命周期、用户属性或 compositor |
-| C# + .NET（限定迁移目标） | 独立 SteamService 的 Steam 网络认证、结构化浏览/订阅查询、CDN 传输；按 [Steam 获取计划](../scene/scene-steamkit-migration-plan.md) SK0 验证后取得对应执行权 | 不进入播放 multiplexer，不接管 UI、用户意图、库记录、Scene 状态、graph 或 compositor；不得扩成通用后台平台 |
+| C# + .NET（限定迁移目标） | 独立 SteamService 的 Steam 网络认证、结构化浏览/订阅查询、CDN 传输；按 [Steam 获取计划](../scene/roadmap/scene-steamkit-migration-plan.md) SK0 验证后取得对应执行权 | 不进入播放 multiplexer，不接管 UI、用户意图、库记录、Scene 状态、graph 或 compositor；不得扩成通用后台平台 |
 | JavaScript | Workshop SceneScript 内容及项目自有脚本 fixture | 不作为主 App UI、产品服务或构建系统语言 |
 | Python 3.12 | 测试、fixture、benchmark、矩阵、证据聚合和开发工具 | 不进入 App 帧循环或成为发布产品的 Scene runtime 依赖 |
 | Objective-C / Objective-C++ | Apple 或第三方 API 没有可维护 Swift/C 入口时的薄适配层 | 不作为新模块默认实现语言 |
@@ -192,7 +192,7 @@ backend 先在独立 subprocess harness 中通过项目 fixture 和只读隔离 
 
 ## 7. 迁移顺序
 
-具体纵向切片、快速回滚和退役条件以[Scene 兼容执行路线](../scene/scene-compatibility-roadmap.md)为准：
+具体纵向切片、快速回滚和退役条件以[Scene 兼容执行路线](../scene/roadmap/scene-compatibility-roadmap.md)为准：
 
 1. V0 普通 authored material/shader 从声明到 compositor；
 2. V1 多 pass、FBO、command、history 和 cross-layer graph；
@@ -254,4 +254,4 @@ V0 必须先取得真实可见结果；V1–V3 的独立研究和 fixture 可以
 
 只有语言、GPU backend、VM、compiler、service、跨语言/跨进程 owner、生命周期、安全边界或现役架构路线改变时修改本文。单个 capability 完成度、样本数字、一次性能结果和实验日志进入专项覆盖表、运行证据索引或对应批次记录。
 
-修改本文时必须同时检查 `AGENTS.md`、[文档入口](../README.md)、[Scene 专题入口](../scene/README.md)、[兼容运行时架构](../scene/design/runtime-architecture.md)、[语义手册](../scene/semantics/README.md)和链接门，避免产生第二份技术栈真相。
+修改本文时必须同时检查 `AGENTS.md`、[文档入口](../README.md)、[Scene 专题入口](../scene/README.md)、[兼容运行时架构](../scene/architecture/runtime-architecture.md)、[语义手册](../scene/capabilities/README.md)和链接门，避免产生第二份技术栈真相。

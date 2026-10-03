@@ -8,16 +8,19 @@ import unittest
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+from script.document_registry import managed_documents, validate, local_targets, ROLES, HISTORY_ROOTS
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DOCUMENTATION_ROOT = REPOSITORY_ROOT / "docs"
 ROLE_INDEX_PATH = DOCUMENTATION_ROOT / "document-role-index.json"
 HISTORY_README_PATH = DOCUMENTATION_ROOT / "history" / "README.md"
+HISTORY_README_PATHS = [REPOSITORY_ROOT / root / "README.md" for root in HISTORY_ROOTS]
 AGENT_RULES_PATH = REPOSITORY_ROOT / "AGENTS.md"
 OFFICIAL_CLIENT_WORKFLOW_PATH = (
     DOCUMENTATION_ROOT
     / "scene"
-    / "semantics"
+    / "development"
     / "official-client-behavior-research-workflow.md"
 )
 RELEASE_DOCUMENT_PATH = DOCUMENTATION_ROOT / "release" / "release-signing.md"
@@ -29,7 +32,7 @@ REPOSITORY_SOURCE_LINK_PATTERN = re.compile(
     r"`(?:MyWallpaperX|WallpaperDaemonSources)/[^`]+(?:\.swift|/)`"
 )
 HISTORICAL_BANNER = "> **历史证据 — 非现役入口**"
-VALID_ROLES = {"active-plan", "stable-contract", "historical-evidence"}
+VALID_ROLES = ROLES
 CURRENT_ROLE_MARKER_PATTERN = re.compile(
     r"<!--\s*document-role:\s*(active-plan|stable-contract)\s*-->"
 )
@@ -60,8 +63,9 @@ def local_markdown_targets(source: Path) -> set[Path]:
 
 def current_role_declarations() -> dict[str, str | None]:
     declarations: dict[str, str | None] = {}
-    for path in DOCUMENTATION_ROOT.rglob("*.md"):
-        if path.resolve().is_relative_to((DOCUMENTATION_ROOT / "history").resolve()):
+    for relative in sorted(managed_documents(REPOSITORY_ROOT)):
+        path = REPOSITORY_ROOT / relative
+        if any(path.resolve().is_relative_to((REPOSITORY_ROOT / root).resolve()) for root in HISTORY_ROOTS):
             continue
         header = "\n".join(path.read_text(encoding="utf-8").splitlines()[:12])
         marker = CURRENT_ROLE_MARKER_PATTERN.search(header)
@@ -81,12 +85,12 @@ class DocumentRoleIndexTests(unittest.TestCase):
         discovery = self.index.get("discovery")
         self.assertIsInstance(discovery, dict)
         self.discovery = discovery
-        history_root = discovery.get("historyRoot")
-        self.assertIsInstance(history_root, str)
-        self.history_root = REPOSITORY_ROOT / history_root
+        history_roots = discovery.get("historyRoots")
+        self.assertEqual(history_roots, list(HISTORY_ROOTS))
+        self.history_roots = [REPOSITORY_ROOT / root for root in history_roots]
 
     def test_schema_and_role_definitions_are_explicit(self) -> None:
-        self.assertEqual(self.index.get("schemaVersion"), 1)
+        self.assertEqual(self.index.get("schemaVersion"), 2)
         definitions = self.index.get("roleDefinitions")
         self.assertIsInstance(definitions, dict)
         self.assertEqual(set(definitions), VALID_ROLES)
@@ -96,7 +100,7 @@ class DocumentRoleIndexTests(unittest.TestCase):
         )
         self.assertEqual(
             definitions["stable-contract"].get("requiredMetadata"),
-            ["currentStateAuthority"],
+            ["currentStateAuthority", "lastReviewed", "reviewBasis"],
         )
         self.assertEqual(
             definitions["historical-evidence"].get("requiredMetadata"),
@@ -108,10 +112,10 @@ class DocumentRoleIndexTests(unittest.TestCase):
         )
 
     def test_discovery_uses_history_root_plus_declared_current_roles(self) -> None:
-        self.assertEqual(set(self.discovery), {"historyRoot", "additionalPaths"})
+        self.assertEqual(set(self.discovery), {"historyRoots", "additionalPaths", "managedRoot", "policy"})
         self.assertEqual(
-            self.history_root.resolve(),
-            (DOCUMENTATION_ROOT / "history").resolve(),
+            [p.resolve() for p in self.history_roots],
+            [(DOCUMENTATION_ROOT / "history").resolve(), (DOCUMENTATION_ROOT / "scene/history").resolve()],
         )
         self.assertTrue(HISTORY_README_PATH.is_file())
 
@@ -130,7 +134,7 @@ class DocumentRoleIndexTests(unittest.TestCase):
                 path = REPOSITORY_ROOT / relative_path
                 self.assertTrue(path.is_file())
                 self.assertEqual(path.suffix, ".md")
-                self.assertFalse(path.resolve().is_relative_to(self.history_root.resolve()))
+                self.assertFalse(any(path.resolve().is_relative_to(root.resolve()) for root in self.history_roots))
                 self.assertIsNotNone(
                     declarations[relative_path],
                     "current plans/contracts need an explicit machine role marker",
@@ -138,16 +142,20 @@ class DocumentRoleIndexTests(unittest.TestCase):
 
         discovered = {
             path.relative_to(REPOSITORY_ROOT).as_posix()
-            for path in self.history_root.rglob("*.md")
-            if path.resolve() != HISTORY_README_PATH.resolve()
+            for path in (REPOSITORY_ROOT / p for p in managed_documents(REPOSITORY_ROOT))
+            if any(path.is_relative_to(root) for root in self.history_roots)
+            if path not in HISTORY_README_PATHS
         }
         discovered.update(str(path) for path in additional_paths)
         indexed = {str(document["path"]) for document in self.documents}
         self.assertEqual(
             indexed,
-            discovered,
-            "document role index must cover every history document plus declared current roles",
+            managed_documents(REPOSITORY_ROOT),
+            "document role index must cover all Git-visible documentation, including unmarked files",
         )
+
+    def test_complete_registry_contract(self) -> None:
+        self.assertEqual(validate(REPOSITORY_ROOT, self.index), [])
 
     def test_current_role_markers_match_indexed_roles(self) -> None:
         declarations = current_role_declarations()
@@ -161,45 +169,46 @@ class DocumentRoleIndexTests(unittest.TestCase):
     def test_all_history_documents_are_explicit_historical_evidence(self) -> None:
         history_documents = {
             path.relative_to(REPOSITORY_ROOT).as_posix()
-            for path in self.history_root.rglob("*.md")
-            if path.resolve() != HISTORY_README_PATH.resolve()
+            for path in (REPOSITORY_ROOT / p for p in managed_documents(REPOSITORY_ROOT))
+            if any(path.is_relative_to(root) for root in self.history_roots)
+            if path not in HISTORY_README_PATHS
         }
         indexed_history = {
             str(document["path"]): document
             for document in self.documents
-            if (REPOSITORY_ROOT / str(document["path"]))
-            .resolve()
-            .is_relative_to(self.history_root.resolve())
+            if document.get("role") == "historical-evidence"
+            and any((REPOSITORY_ROOT / str(document["path"])).resolve().is_relative_to(root.resolve()) for root in self.history_roots)
         }
         self.assertEqual(set(indexed_history), history_documents)
         for relative_path, document in indexed_history.items():
             with self.subTest(path=relative_path):
                 self.assertEqual(document.get("role"), "historical-evidence")
-                self.assertEqual(document.get("entrypoint"), "docs/history/README.md")
+                expected_entry = "docs/scene/history/README.md" if relative_path.startswith("docs/scene/history/") else "docs/history/README.md"
+                self.assertEqual(document.get("entrypoint"), expected_entry)
                 text = (REPOSITORY_ROOT / relative_path).read_text(encoding="utf-8")
                 self.assertIn(HISTORICAL_BANNER, "\n".join(text.splitlines()[:12]))
 
     def test_history_readme_authorities_match_machine_index(self) -> None:
         rows: dict[str, set[str]] = {}
-        for line in HISTORY_README_PATH.read_text(encoding="utf-8").splitlines():
-            if not line.startswith("| 20"):
-                continue
-            raw_targets = MARKDOWN_LINK_PATTERN.findall(line)
-            self.assertGreaterEqual(len(raw_targets), 2, line)
-            resolved = []
-            for raw_target in raw_targets:
-                parsed = urlsplit(raw_target.strip())
-                self.assertFalse(parsed.scheme or parsed.netloc, raw_target)
-                resolved.append(
-                    (HISTORY_README_PATH.parent / unquote(parsed.path))
-                    .resolve()
-                    .relative_to(REPOSITORY_ROOT)
-                    .as_posix()
-                )
-            historical_path, *authorities = resolved
-            self.assertNotIn(historical_path, rows)
-            rows[historical_path] = set(authorities)
-
+        for history_readme in HISTORY_README_PATHS:
+            for line in history_readme.read_text(encoding="utf-8").splitlines():
+                if not line.startswith("| 20"):
+                    continue
+                raw_targets = MARKDOWN_LINK_PATTERN.findall(line)
+                self.assertGreaterEqual(len(raw_targets), 2, line)
+                resolved = []
+                for raw_target in raw_targets:
+                    parsed = urlsplit(raw_target.strip())
+                    self.assertFalse(parsed.scheme or parsed.netloc, raw_target)
+                    resolved.append(
+                        (history_readme.parent / unquote(parsed.path))
+                        .resolve()
+                        .relative_to(REPOSITORY_ROOT)
+                        .as_posix()
+                    )
+                historical_path, *authorities = resolved
+                self.assertNotIn(historical_path, rows)
+                rows[historical_path] = set(authorities)
         indexed = {
             str(document["path"]): set(document["currentAuthorities"])
             for document in self.documents
@@ -230,17 +239,17 @@ class DocumentRoleIndexTests(unittest.TestCase):
     def test_dated_markdown_outside_history_must_be_declared(self) -> None:
         dated_outside_history = [
             path.relative_to(REPOSITORY_ROOT).as_posix()
-            for path in DOCUMENTATION_ROOT.rglob("*.md")
+            for path in (REPOSITORY_ROOT / p for p in managed_documents(REPOSITORY_ROOT))
             if DATED_MARKDOWN_PATTERN.search(path.name)
-            and not path.resolve().is_relative_to(self.history_root.resolve())
+            and not any(path.resolve().is_relative_to(root.resolve()) for root in self.history_roots)
         ]
         self.assertEqual(
             dated_outside_history,
             [path for path in self.discovery["additionalPaths"] if DATED_MARKDOWN_PATTERN.search(Path(path).name)],
         )
 
-    def test_dated_active_plan_is_explicitly_declared(self) -> None:
-        path = "docs/scene/scene-open-breakpoint-queue-2026-09-09.md"
+    def test_derived_breakpoint_plan_is_explicitly_declared(self) -> None:
+        path = "docs/scene/roadmap/scene-open-breakpoint-queue.md"
         self.assertIn(path, self.discovery["additionalPaths"])
         document = next(document for document in self.documents if document["path"] == path)
         self.assertEqual(document["role"], "active-plan")
@@ -263,11 +272,11 @@ class DocumentRoleIndexTests(unittest.TestCase):
             for document in self.documents
             if document.get("role") == "active-plan"
             and str(document["path"]).startswith("docs/scene/")
-            and str(document["path"]) == "docs/scene/scene-compatibility-roadmap.md"
+            and str(document["path"]) == "docs/scene/roadmap/scene-compatibility-roadmap.md"
         ]
         self.assertEqual(
             scene_active_plans,
-            ["docs/scene/scene-compatibility-roadmap.md"],
+            ["docs/scene/roadmap/scene-compatibility-roadmap.md"],
         )
 
     def test_role_specific_metadata_points_to_current_authorities(self) -> None:
@@ -296,7 +305,7 @@ class DocumentRoleIndexTests(unittest.TestCase):
                         REPOSITORY_SOURCE_LINK_PATTERN,
                         "stable contracts must not freeze current source-file locations",
                     )
-                else:
+                elif role == "historical-evidence":
                     self.assertEqual(document.get("commandPolicy"), "historical-only")
                     authorities = document.get("currentAuthorities")
                     self.assertIsInstance(authorities, list)
@@ -315,7 +324,7 @@ class DocumentRoleIndexTests(unittest.TestCase):
                 self.assertTrue(entrypoint_path.is_file())
                 self.assertIn(
                     (REPOSITORY_ROOT / relative_path).resolve(),
-                    local_markdown_targets(entrypoint_path),
+                    {(REPOSITORY_ROOT / p).resolve() for p in local_targets(REPOSITORY_ROOT, entrypoint)},
                     "entrypoint must contain a Markdown link to the indexed document",
                 )
 
@@ -324,7 +333,7 @@ class DocumentRoleIndexTests(unittest.TestCase):
         workflow = OFFICIAL_CLIENT_WORKFLOW_PATH.read_text(encoding="utf-8")
 
         self.assertIn(
-            "docs/scene/semantics/official-client-behavior-research-workflow.md",
+            "docs/scene/development/official-client-behavior-research-workflow.md",
             rules,
         )
         for heading in (

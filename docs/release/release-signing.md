@@ -1,5 +1,7 @@
 # Release signing and notarization
 
+<!-- document-role: stable-contract -->
+
 GitHub Actions builds are signed and notarized before being attached to GitHub Releases. Configure these repository secrets before relying on release downloads:
 
 - `BUILD_CERTIFICATE_BASE64`: Base64-encoded `.p12` export of the Developer ID Application certificate.

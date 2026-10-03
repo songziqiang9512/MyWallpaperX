@@ -1,0 +1,113 @@
+<!-- document-role: historical-evidence -->
+<!-- commandPolicy: historical-only -->
+
+# RF05 named provider 启动准备与显示分离（2026-10-02）
+
+> **历史证据 — 非现役入口**。当前权威：[兼容路线](../roadmap/scene-compatibility-roadmap.md)、[能力台账](../capabilities/coverage-ledger.md)、[运行证据](../capabilities/runtime-evidence-current.md)。后两份并行权威未改；本记录只保存本批冻结事实。
+
+同页历史分节：[未支持组合局部失败后继记录](#rf05-optional-failure)。
+
+## 结果与职责
+
+基线为接管后的主分支；本批三个产品文件：`SceneDesktopWallpaperHost+DeferredBaseImages.swift`、`SceneDependencyRenderPlan+ImageProgramReference.swift`、`SceneDependencyRenderPlan+BindingCompilation.swift`。设计见[启动资源准备合同](../architecture/scene-resource-admission.md)。没有新 registry、capture 或 publication owner。
+
+1. Host 启动 defer 只豁免 static-model named providers，导致属性初值覆盖为隐藏的普通 image source 不加载，消费层显示白色原图。现复用唯一引用分析的普通及 potential optional named provider 集合，保证潜在 source 可准备；未消费隐藏图片仍 defer，terminal user texture 遮蔽不误加载，隐藏 consumer 的潜在来源可保守准备。
+2. 已加载的普通图片初值可见时，又被 named composite 两入口拒绝。两入口共用现有 predicate，开放无 effects、无两类 dependencies、无 children、非 Puppet 普通图片，显示隐藏与 source 资格分离。旧 hidden 分支等价；generic 专属依赖约束保留在其调用处。可见 effectful image 仍走 graph-final，顺序、循环、purpose、预算及 generation 不放宽。
+
+## 反例与实际验证
+
+本机证据根 `/private/tmp/mwx-rf05-provider/`；自写 PNG、shader、scene/package，未改真实样本。最终 `manifest-final-v2.json` 固定三个产品、两个测试及20个 App payload 的 SHA256。签名 App 为 `frozen-v2.app`，CDHash `c944b19aa0ce46ea9c40230d404c40054ed573b6`；实际 Debug dylib SHA256 `c851a0f95f64b6d4145708338e6aea92456f054ed134cbbb4b14ec824d8c2e99`，metallib `991cdb9f9e431e782210cfeacb285fbf64d2d6736e13a27c59e7057c0718ffcc`。
+
+- 修前冻结 App 三对照中，常量隐藏来源消费蓝色，无消费者保持黑色且 defer；属性隐藏来源却消费白色，绿色邻层正常。最终同输入 red 单门仍失败，输入 SHA 与修后一致。
+- 首轮修后八门六过两败：初始可见→隐藏仍白；未声明用途的 optional RGBA shader 被现役用途准入拒绝。保留原日志，不把后者称为非法作者语法。
+- visible 准入 Swift 红例成立；修后 dependency 模块28项通过，含显式/缺省可见、前向 capture、Puppet/children/deps 排除与 effectful 不进 raw。首次相邻 dependency/registry 37项通过（49.933s）；最终改动的 dependency 模块另跑28项。
+- 最终同一 v2 App 七门通过（149.808s）加限定 exact-two-candidate rgbmask optional 门通过（20.603s）。七门执行时测试文件的 optional 分支尚未去掉重复 named，其余七门输入和断言未变；执行时源码另存 `integration-seven-run-source.py`，不能声称单次八门同一测试字节。覆盖常量隐藏、属性初值覆盖隐藏、无消费者 defer、隐藏 consumer 保守准备、live 双向、terminal shadow、optional unavailable 后 named fallback。中心蓝色/白色/黑色及绿色邻层按输入判定，provider 显示独立负 ROI；要求实际 named capture/binding、frame completion、terminal ready/after、next-frame 与 gpuDrained 退出。不是仅检查资源已加载。
+- 完整 Debug build 与 strict/deep 签名通过；code-health 1047 Swift、0 error、237 review warnings；防御面0 dead/18 canonical/3 swallow保持，design-gate通过。独立终审结论另核同一源码、测试与冻结 App。
+
+## 未关闭边界与下一批
+
+optional 首次改用 rgbmask 后，真实解析产生 `material named → instance named → system userTexture` 三候选；它超出现役 mixed-provider 两候选 profile，并导致 `resourceSnapshotUnresolved` 阻断全场首帧。完整输入及 timeout 保存在 `optional-profile-v2/`。本批第八门仅移除材料层重复 named，保持 instance named + system 的既有合同与蓝色 oracle；没有将原三候选计为通过。
+
+下一批先在现役 prepared/material 准入关闭这个未支持组合的失败半径：局部退化该 effect，保护健康层与终端，不泛吞 identity/snapshot 错误，不为通过扩大 matcher。该可见阻断修复后继续 D1 composition 层级与真实 source。任意 optional shader、三候选兼容、跨屏、性能提升及官方 parity 均未由本批证明。
+
+<a id="rf05-optional-failure"></a>
+
+## 未支持组合局部失败后继记录
+
+下文完整保留该阶段的历史裁决、证据身份和未验证边界；其中状态与后继顺序仅适用于原记录日期。
+
+<!-- document-role: historical-evidence -->
+<!-- commandPolicy: historical-only -->
+
+<a id="rf05-optional-failure--rf05-未支持-optionalnamed-组合的局部失败2026-10-02"></a>
+### RF05 未支持 optional/named 组合的局部失败（2026-10-02）
+
+> **历史证据 — 非现役入口**。当前权威：[兼容路线](../roadmap/scene-compatibility-roadmap.md)、[能力台账](../capabilities/coverage-ledger.md)、[运行证据](../capabilities/runtime-evidence-current.md)。后两份并行权威未改；本记录只保存本批冻结事实。
+
+<a id="rf05-optional-failure--结果与职责"></a>
+#### 结果与职责
+
+基线 `5f603403`。真实作者解析保留 material named、instance named、system userTexture 三候选，但既有 mixed-provider 只证明两候选；未支持组合仍进入帧准备，optional 不可用时又无 named 依赖 owner，导致全场首帧反复拒绝。
+
+实施前批准的设计（保存在本记录末尾）选择三个现役职责：`SceneResolvedMaterialExecutionCapability+Stages` 在 variant、active demand、invariant 后对活跃且未被 graph 覆盖的未证明组合产生可定位的 launch rejection；`+ProgramFirstStages` 与 `SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough` 复用现有无 history、无 clear 的窄拓扑证明，将安全 effect 留在入口颜色。候选顺序、IR、用途、exact-two profile 均未扩大；不增加 registry、matcher/helper 家族或每帧分析。
+
+<a id="rf05-optional-failure--冻结身份与实际输出"></a>
+#### 冻结身份与实际输出
+
+本机证据根 `/private/tmp/mwx-optional-failsoft/`。旧 App 运行新反例门失败（7.785s，`app-red.log`），`phase=launch-failed`/首帧 timeout；同一自写 package 为2641字节，SHA256 `905a211c779383c75961e471d1f5495ab0b5e87263398218cb76af05e7c98274`。修前后所有作者输入 hash 相等。
+
+新 `frozen-v1.app` 的 CDHash 为 `5153e1e1de46bf60b7f814d6a5fc66a7d94e9db4`；实际 Debug dylib SHA256 `2ceafe6e927e3d28555353cccec004623d55b48aeb1b0d1741658a824631d370`、metallib `f9146b9b0990f669db61deb207ab797c170bbc7393948447fbeb621519676542`。三个产品文件在 build-source 与冻结 diff 一致，`payload-v1.json`保存2561文件 hash，strict/deep 签名通过。
+
+两项真实 App 门通过（46.506s）：三候选 consumer 在 ready/after 保留白色入口，中心通道255，绿色邻层175个采样点，蓝色来源不贡献，named capture/binding为0；exact-two 对照仍为蓝色中心并有实际 named capture/binding。每场 frame0/1/2 同 surface GPU completion，publication、terminal consumption、next-frame及退出 drain 有实际事件；三候选 materials=0/rejected=1，不能把白色结果称为 named fallback 已执行。
+
+<a id="rf05-optional-failure--行为门与终审"></a>
+#### 行为门与终审
+
+最终 `final-v1/manifest.json` SHA256 为 `e5d32c7653c941493d0f4db389b6b88edc60d1f41b9b09c96f78d580bfbdb05c`，绑定三个产品、两个测试、构建输入及 App payload。独立只读终审重算这些身份及448项 harness dependency；App 2561个 payload 无差异，接受本有界修复。
+
+- 实际作者解析及 stage 行为两门通过（201.253s），13项断言覆盖：三候选局部失败、零 materials/依赖申领、exact-two继续执行、不同 provider/secondary不归一化、两个相邻有效 effect、inactive slot、terminal asset、authoritative graph override，以及 history 与真实 clearFunctions 拒绝。clear 另有可执行正控制。
+- 边界门曾失败：graph override 测试只改 graphRole、未随真实 producer 追加 `.graph` 候选，触发模板身份错误；terminal asset 测试缺少匹配 path/purpose 的 ready/data 与 r8 事实。按实际诊断补足输入后强断言通过，未放宽产品 gate。产品三个文件在各轮始终相同；旧失败日志保留，不把早期测试版本冒称最终版本。
+- 相邻 finalizer 33门通过（99.722s），既有 graph executor GPU 模块通过（99.902s）；覆盖既有 exact-two system/property envelope、缺失/不完整状态及 copy/swap 拒绝。不是本片全部状态均有独立真实媒体 App 对照。
+- Debug build、strict/deep 签名、code-health通过（1047 Swift、0 error、237 review warnings），防御面保持0 dead/18 canonical/3 swallow。设计门通过；其输出“无设计前置命中”来自 checker 跳过 approved 条目，另以 `design-match-audit.json` 确认三条产品路径匹配已批准设计。没有改基线规避。
+- `test_document_role_index` 与 `test_scene_governance_contract` 在本批精确暂存快照中25门通过（1.041s）。共享工作区首跑的两项失败来自并行新建的全仓审查文档尚未登记；其后该任务新增的登记与索引行完整留在工作区，未混入本批。产品没有新增普通帧解析、建图或 hash。
+
+<a id="rf05-optional-failure--未验证边界与下一批"></a>
+#### 未验证边界与下一批
+
+此片恢复的是合法但未支持输入的安全失败半径，不支持三候选 fallback，不保证任意 optional shader、真实媒体迟到、物理多屏、性能或官方 parity。history/clear及 unsafe command 拓扑仍受原硬门约束。现有两个候选的执行合同由对照保护。
+
+下一能力批是 D1：核官方 composition 外层顺序，再在既有 scope 中闭合普通图片父子层级、实际 group source、透明 clear、extent及 GPU lifetime，撤销可退役的旧捕获分支，不创建第二 compositor。
+
+<a id="rf05-optional-failure--已退役的设计裁决"></a>
+#### 已退役的设计裁决
+
+本片已实施、验证并独立接受，一般失败合同由[稳定架构§3.3](../architecture/runtime-architecture.md#33-保留事务安全不扩大视觉失败半径)拥有。按设计门 policy.retirement 删除完成的临时登记；以下保留实施前设计的独有依据，不再作为 active plan。
+
+本设计在实施前 approved，属于[兼容路线](../roadmap/scene-compatibility-roadmap.md) RF05 后继；五判据①②④命中：跨 prepared stage 与执行输出、唯一依赖/失败合同及冻结材质家族。只使用本项目源码与自写输入的行为证据，不扩作者 profile，不读取参考项目实现。
+
+<a id="rf05-optional-failure--目标合同与现状"></a>
+##### 目标合同与现状
+
+合法作者输入超出现役 mixed-provider profile 时，只退化已证明可安全跳过的 effect，保留其入口颜色、其他层和相邻有效效果。不能让局部视觉不支持反复阻断全场首帧；identity、cycle、range、history 与 target 生命周期错误继续硬拒绝最小 unsafe unit。
+
+`SceneAuthoredMaterialResolver.swift:105–119,247` 依次保留 material named、instance named、system userTexture 三项 provenance；`SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift:48–64` 的 exact mixed 合同只接受两候选。`SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift:582–608` 不申领该未证明 named dependency，stage却可继续准入。运行时选到 unavailable system 后，`SceneResolvedMaterialTextureResolver.swift:351–356` 产生 resourceSnapshotUnresolved；`SceneResolvedMaterialGraphExecutor+Preparation.swift:255–261` 缺局部失败证明，整帧反复拒绝。
+
+真实修前输入与签名 App 见[RF05 执行记录](rf05-named-provider-readiness-implementation-2026-10-02.md)的三候选边界；本机 package SHA256 为 `905a211c779383c75961e471d1f5495ab0b5e87263398218cb76af05e7c98274`，日志记录 rendered=0、151次尝试均drop。退出成功不等于呈现成功。路径行号为 `5f603403` 附近定位线索，实施需按冻结代码重核。
+
+<a id="rf05-optional-failure--owner方案与备选"></a>
+##### owner、方案与备选
+
+选现役 `SceneResolvedMaterialExecutionCapability+Stages`：先执行真实 variant、active demand、invariant验证，再检查 launchEnvelopeActiveTextureSlots 中没有 authoritative graph override、terminal candidate 为现typed OptionalInput且lower candidate有named的实际slot。复用现 exact mixed proof；未证明时产生可归因到node/slot的专用 launch rejection。全inactive、静态asset/graph终端遮蔽不触发。不修改候选IR、顺序、purpose或选择器，不新增 matcher/helper family。
+
+`+ProgramFirstStages` 的现失败fold只将该专用reason送入既有 `dependencyStageFailureMayPassthrough`，保留no-clear约束；失败stage不安装materials或申领named执行，相邻支持stage沿原ownership/order守恒。`SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough` 消费同reason且复用相同无history窄拓扑，不能加入更宽的ordinary history-capable列表。
+
+备选扩大frame-time吞错会混淆缺资源与identity错误；去重作者候选或放宽exact2会改变支持合同；引入新依赖结果类型会扩多个owner。本片均不选。新增拒绝的产生者是上述真实三候选模板，拒绝范围只能缩小到这个未证明的活跃optional/named责任。
+
+<a id="rf05-optional-failure--fallback纠正门与退役"></a>
+##### fallback、纠正门与退役
+
+安全拓扑按现有effect-entry passthrough；clear/history/copy/swap等不满足安全证明时沿既有拒绝，不捏造history或publication。不得把局部白色原图称为三候选named fallback执行成功。
+
+验收：真实作者解析保留三候选及provenance；launch仅该stage退化、零材料/依赖申领；同修前package在签名App出现首帧/next-frame completion、白consumer和绿peer、无timeout及虚假capture；相邻支持effect继续执行；exact2 system/property的ready/absent/pending/unavailable原合同不回退；inactive/terminal-shadow/graph override不误拒绝；不同provider、secondary、错误slot identity及unsafe拓扑不被归一化。Swift行为门、Debug build、code-health、防御/设计门和独立终审均按本片失败半径执行。
+
+稳定材质失败合同接管且上述门通过后归档本设计并删除临时登记；未来扩大mixed profile必须另行设计，不能用本片安全输出当兼容性完成。

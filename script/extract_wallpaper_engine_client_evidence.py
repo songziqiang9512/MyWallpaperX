@@ -9,7 +9,7 @@
 3. `bin/` 的磁盘依赖清单（技术栈推断输入）。
 
 只做只读静态提取，不执行任何 Windows 二进制，也不复制官方 shader、纹理、
-模型或 payload。输出是事实索引，供 docs/scene/semantics 下的取证文档引用。
+模型或 payload。输出是事实索引，供 docs/scene/development/reference 下的取证文档引用。
 
 用法：
 

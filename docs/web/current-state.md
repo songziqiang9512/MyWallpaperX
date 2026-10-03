@@ -14,7 +14,7 @@
 |---|---|---|
 | 项目解释 | `SteamWorkshopService` 的 Web Core | 原始 `project.json` 是声明源；构建 descriptor、runtime model、playback context 与诊断，不覆盖作者文件 |
 | 播放协调 | `WallpaperEngine` | 保存当前 Web request/content/property 状态，执行共享暂停结果，处理属性、音频需求、显示器与 runtime 切换 |
-| 暂停策略 | `PlaybackPolicyController` → `PlaybackCommandMultiplexer` | 四个节能开关与锁屏/休眠统一控制 Video/Web/Scene；手动暂停独立保留，Web 不再额外按低电量模式暂停。归属与验证边界见 [E2b](../scene/engine-refactor-program.md) |
+| 暂停策略 | `PlaybackPolicyController` → `PlaybackCommandMultiplexer` | 四个节能开关与锁屏/休眠统一控制 Video/Web/Scene；手动暂停独立保留，Web 不再额外按低电量模式暂停。归属与验证边界见 [E2b](../scene/roadmap/engine-refactor-program.md) |
 | 生产宿主 | `DedicatedWebWallpaperHostPlaceholderAdapter` | 当前唯一生产 Web 宿主（`WallpaperEngine.dedicatedWebHostAdapter`，`WallpaperEngine.swift:73`）；负责每显示器 WKWebView surface、生命周期、输入、属性、音频和本地资源桥接 |
 | daemon Web 路径 | 无 | 旧宿主策略切换与 `.daemonDiagnosticsHarness` 已随 aee7c08a 删除；daemon 不再持有 Web 宿主，扩展第二套宿主仍需先有可复现证据 |
 | 本地资源 | `WebWallpaperLocalSchemeHandler` 等 | 受控读取项目根、MIME/响应转换和兼容资源映射；不能扩大为任意文件访问。loopback 档另受「入口前缀 + `SameSite=Strict` 会话 cookie」双重凭据约束 |

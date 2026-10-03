@@ -102,7 +102,7 @@ python3.12 -B script/verify_scene_change.py --base HEAD --phase inner
 | 项目文档与职责导航 | [文档入口](docs/README.md) |
 | 开发、验证及工作区约束 | [AGENTS.md](AGENTS.md) |
 | Scene 的结构与开发方式 | [Scene 入口](docs/scene/README.md) · [开发工作流](docs/scene/development/development-workflow.md) |
-| Scene 已实现的能力和局限 | [能力台账](docs/scene/semantics/coverage-ledger.md) · [运行证据](docs/scene/semantics/runtime-evidence-current.md) |
+| Scene 已实现的能力和局限 | [能力台账](docs/scene/capabilities/coverage-ledger.md) · [运行证据](docs/scene/capabilities/runtime-evidence-current.md) |
 | Web 的实现及验证边界 | [Web 当前状态](docs/web/current-state.md) |
 | 自动打包、签名与 GitHub Release | [Agent 发布流程](docs/release/release-signing.md) |
 

@@ -1,35 +1,40 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "discovery": {
-    "historyRoot": "docs/history",
     "additionalPaths": [
       "docs/architecture/appkit-migration.md",
       "docs/architecture/technology-stack-boundaries.md",
-      "docs/scene/design/2d-lighting-material-design.md",
-      "docs/scene/design/authored-texture-coordinate-design.md",
-      "docs/scene/design/composition-render-target-design.md",
-      "docs/scene/design/copy-pass-unification-design.md",
-      "docs/scene/design/debug-frame-capture-lifecycle-design.md",
-      "docs/scene/design/frame-admission-retry-design.md",
-      "docs/scene/design/hdr-tonemap-edr-design.md",
-      "docs/scene/design/host-render-power-protocol-design.md",
-      "docs/scene/design/particle-playback-state-design.md",
-      "docs/scene/design/refactor-baseline.md",
-      "docs/scene/design/reference-evidence-implementation-cards.md",
-      "docs/scene/design/rt-prefix-admission-design.md",
-      "docs/scene/design/runtime-architecture.md",
-      "docs/scene/design/runtime-as-built-map.md",
-      "docs/scene/design/sampler-alias-precedence.md",
-      "docs/scene/design/scene-launch-responsiveness-contract.md",
-      "docs/scene/design/scene-runtime-daemon-contract.md",
-      "docs/scene/design/script-component-api-design.md",
+      "docs/development/repository-workflow.md",
+      "docs/release/release-signing.md",
+      "docs/scene/architecture/refactor-baseline.md",
+      "docs/scene/architecture/runtime-architecture.md",
+      "docs/scene/architecture/runtime-as-built-map.md",
+      "docs/scene/architecture/scene-dependency-boundaries.md",
+      "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "docs/scene/architecture/scene-resource-admission.md",
+      "docs/scene/architecture/scene-runtime-daemon-contract.md",
+      "docs/scene/capabilities/alpha-display-fallback-design.md",
+      "docs/scene/capabilities/runtime-evidence-current.md",
+      "docs/scene/capabilities/sampler-alias-precedence.md",
+      "docs/scene/capabilities/static-source-draw-only-degradation.md",
       "docs/scene/development/development-workflow.md",
-      "docs/scene/engine-refactor-program.md",
-      "docs/scene/scene-compatibility-roadmap.md",
-      "docs/scene/scene-open-breakpoint-queue-2026-09-09.md",
-      "docs/scene/scene-steamkit-migration-plan.md",
-      "docs/scene/semantics/official-client-behavior-research-workflow.md",
-      "docs/scene/semantics/runtime-evidence-current.md",
+      "docs/scene/development/official-client-behavior-research-workflow.md",
+      "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+      "docs/scene/roadmap/batch2/authored-texture-coordinate-design.md",
+      "docs/scene/roadmap/batch2/composition-render-target-design.md",
+      "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
+      "docs/scene/roadmap/batch2/debug-frame-capture-lifecycle-design.md",
+      "docs/scene/roadmap/batch2/frame-admission-retry-design.md",
+      "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
+      "docs/scene/roadmap/batch2/host-render-power-protocol-design.md",
+      "docs/scene/roadmap/batch2/particle-playback-state-design.md",
+      "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "docs/scene/roadmap/batch2/rt-prefix-admission-design.md",
+      "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "docs/scene/roadmap/engine-refactor-program.md",
+      "docs/scene/roadmap/scene-compatibility-roadmap.md",
+      "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "docs/scene/roadmap/scene-steamkit-migration-plan.md",
       "docs/web/cross-origin-reply-delivery-design.md",
       "docs/web/mediaremote-nowplaying-design.md",
       "docs/web/steam-downloads-failed-items-visibility-design.md",
@@ -37,6 +42,12 @@
       "docs/web/web-project-json-localization.md",
       "docs/web/web-project-json-runtime-model.md",
       "docs/web/web-wallpaper-benchmark-standard.md"
+    ],
+    "managedRoot": "docs",
+    "policy": "Git tracked and nonignored untracked Markdown; missing tracked files are excluded as deletions. Ignored evidence/cache is not documentation authority.",
+    "historyRoots": [
+      "docs/history",
+      "docs/scene/history"
     ]
   },
   "roleDefinitions": {
@@ -47,7 +58,9 @@
     },
     "stable-contract": {
       "requiredMetadata": [
-        "currentStateAuthority"
+        "currentStateAuthority",
+        "lastReviewed",
+        "reviewBasis"
       ]
     },
     "historical-evidence": {
@@ -56,9 +69,32 @@
         "currentAuthorities"
       ],
       "commandPolicy": "historical-only"
+    },
+    "navigation": {
+      "requiredMetadata": [
+        "purpose"
+      ]
+    },
+    "current-state": {
+      "requiredMetadata": [
+        "purpose"
+      ]
+    },
+    "reference": {
+      "requiredMetadata": [
+        "purpose",
+        "commandPolicy"
+      ],
+      "commandPolicy": "reference-only"
     }
   },
   "documents": [
+    {
+      "path": "docs/README.md",
+      "role": "navigation",
+      "entrypoint": "README.md",
+      "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。"
+    },
     {
       "path": "docs/architecture/appkit-migration.md",
       "role": "active-plan",
@@ -66,10 +102,56 @@
       "retirementCondition": "产品目标内的 SwiftUI import、NSHosting 接点和 SwiftUI-to-AppKit bridge 经可复现扫描与构建门证明全部为零，且长期架构合同已接管最终职责后，将本文转为 historical-evidence。"
     },
     {
+      "path": "docs/architecture/repository-map.md",
+      "role": "current-state",
+      "entrypoint": "docs/README.md",
+      "purpose": "全仓任务到实际 owner 的导航与已知边界，不定义新的产品权威。"
+    },
+    {
       "path": "docs/architecture/technology-stack-boundaries.md",
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
-      "currentStateAuthority": "docs/README.md"
+      "currentStateAuthority": "docs/README.md",
+      "lastReviewed": "2026-10-03",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "d814ea91c19e723f468ee0ba2e633b23c6c3b96d30d10bd1401b82ea2b1815c0",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
+        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+      }
+    },
+    {
+      "path": "docs/development/repository-improvement.md",
+      "role": "navigation",
+      "entrypoint": "docs/README.md",
+      "purpose": "已完成仓库改良的永久旧锚点与历史记录入口，稳定职责由工作流及仓库地图接管。"
+    },
+    {
+      "path": "docs/development/repository-workflow.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/README.md",
+      "currentStateAuthority": "docs/architecture/repository-map.md",
+      "lastReviewed": "2026-10-03",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "7bb484d86f175e63d3fd58086383e88024de6cebfdf0400210801770881a9370",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "现役角色、入口、合同路由和可达锚点的机器审计",
+        "limitations": "不证明产品运行、语义完整性或官方parity"
+      }
+    },
+    {
+      "path": "docs/development/structural-governance-design.md",
+      "role": "navigation",
+      "entrypoint": "docs/development/repository-improvement.md",
+      "purpose": "已完成分类设计的永久旧链接及classification_migration历史身份；现行职责由工作流和机器合同承担。"
+    },
+    {
+      "path": "docs/history/README.md",
+      "role": "navigation",
+      "entrypoint": "docs/README.md",
+      "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。"
     },
     {
       "path": "docs/history/architecture/framework-architecture-memo.md",
@@ -88,8 +170,8 @@
       "entrypoint": "docs/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
-        "docs/scene/semantics/miragewallpaper-rendering-reference.md",
-        "docs/scene/design/runtime-architecture.md"
+        "docs/scene/development/reference/miragewallpaper-rendering-reference.md",
+        "docs/scene/architecture/runtime-architecture.md"
       ]
     },
     {
@@ -113,12 +195,24 @@
       ]
     },
     {
+      "path": "docs/history/cross-topic/repository-improvement-completion-2026-10-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/development/repository-workflow.md",
+        "docs/architecture/repository-map.md",
+        "docs/README.md"
+      ],
+      "uniqueValue": "原18项与M1–M8的实施、历史验收身份、等价裁决及收口更正；固定最近100条提交的任务路由频率取样；已完成结构治理设计。"
+    },
+    {
       "path": "docs/history/cross-topic/scene-capability-census-2026-10-02.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
-        "docs/scene/semantics/coverage-ledger.md",
+        "docs/scene/capabilities/coverage-ledger.md",
         "docs/README.md"
       ]
     },
@@ -139,623 +233,9 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/web/current-state.md",
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/breakpoint-queue-before-2026-09-15.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/scene-open-breakpoint-queue-2026-09-09.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/d1-composition-membership-attempt-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/composition-render-target-design.md",
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/source-index.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/d1-composition-neutral-contract-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/composition-render-target-design.md",
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/source-index.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/d1-composition-source-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/design/composition-render-target-design.md",
-        "docs/scene/design/runtime-architecture.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/d2-d3-bounded-output-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/d3-authored-normal-input-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/2d-lighting-material-design.md",
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/design/runtime-architecture.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/d3-instance-base-texture-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/2d-lighting-material-design.md",
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/design/runtime-architecture.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/d3-material-user-emission-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/2d-lighting-material-design.md",
-        "docs/scene/design/reference-evidence-implementation-cards.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/d3-model-directional-shadow-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/runtime-architecture.md",
-        "docs/scene/design/2d-lighting-material-design.md",
-        "docs/scene/scene-compatibility-roadmap.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/d3-normal-input-neutral-contract-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/2d-lighting-material-design.md",
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/source-index.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/d3-pbr-input-neutral-contract-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/2d-lighting-material-design.md",
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/source-index.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/d3-pbr-map-emission-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/2d-lighting-material-design.md",
-        "docs/scene/design/reference-evidence-implementation-cards.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/d3-pbr-map-input-neutral-contract-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/2d-lighting-material-design.md",
-        "docs/scene/design/reference-evidence-implementation-cards.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/d3-pbr-scalar-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/2d-lighting-material-design.md",
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/design/runtime-architecture.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/d3-reflection-environment-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/runtime-architecture.md",
-        "docs/scene/design/2d-lighting-material-design.md",
-        "docs/scene/design/reference-evidence-implementation-cards.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/d3-reflection-environment-neutral-contract-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/2d-lighting-material-design.md",
-        "docs/scene/design/reference-evidence-implementation-cards.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/engine-refactor-program-before-2026-09-15.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/engine-refactor-program.md",
-        "docs/scene/semantics/coverage-ledger.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/mirage-da4fa7b3-six-domain-forensics-verdict-2026-10-01.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/semantics/source-index.md",
-        "docs/scene/semantics/miragewallpaper-rendering-reference.md",
-        "docs/scene/semantics/coverage-ledger.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/reference/client-binary-dependency-forensics.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/semantics/source-index.md",
-        "docs/scene/semantics/client-runtime-static-forensics.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/reference/client-changelog-appendix.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/semantics/source-index.md",
-        "docs/scene/semantics/client-changelog-forensics.md",
-        "docs/scene/semantics/coverage-ledger.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/reference/official-default-projects-fixture-inventory.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/semantics/source-index.md",
-        "docs/scene/semantics/scene-corpus-capability-inventory.md",
-        "docs/scene/semantics/coverage-ledger.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/reference/official-page-catalog.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/semantics/source-index.md",
-        "docs/scene/semantics/official-page-map.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/reference/official-page-crosswalk.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/semantics/source-index.md",
-        "docs/scene/semantics/official-page-map.md",
-        "docs/scene/semantics/coverage-ledger.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/reference/zcompat-backward-compatibility-forensics.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/semantics/source-index.md",
-        "docs/scene/semantics/client-changelog-forensics.md",
-        "docs/scene/semantics/coverage-ledger.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf01-shader-default-binding-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf02-atlas-named-output-design-2026-10-03.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/runtime-architecture.md",
-        "docs/scene/scene-compatibility-roadmap.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf02-atlas-named-output-implementation-2026-10-03.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/runtime-architecture.md",
-        "docs/scene/design/reference-evidence-implementation-cards.md",
-        "docs/scene/scene-compatibility-roadmap.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf02-authored-sampling-implementation-2026-10-03.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/runtime-architecture.md",
-        "docs/scene/design/reference-evidence-implementation-cards.md",
-        "docs/scene/scene-compatibility-roadmap.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf02-companion-research-checkpoint-2026-10-03.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/reference-evidence-implementation-cards.md",
-        "docs/scene/scene-compatibility-roadmap.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf02-companion-uniform-observations-2026-10-03.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/reference-evidence-implementation-cards.md",
-        "docs/scene/scene-compatibility-roadmap.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf03-continuous-playback-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf03-explicit-particle-emission-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf03-particle-playback-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf05-debug-capture-lifecycle-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf05-named-provider-readiness-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf05-optional-named-failure-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf07-persistent-color-output-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf11-shared-graph-pair-budget-design-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/runtime-architecture.md",
-        "docs/scene/design/reference-evidence-implementation-cards.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf11-shared-hdr-target-budget-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/runtime-architecture.md",
-        "docs/scene/design/reference-evidence-implementation-cards.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf12-framebuffer-snapshot-capacity-design-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/runtime-architecture.md",
-        "docs/scene/scene-compatibility-roadmap.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf12-snapshot-shadow-coexistence-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/runtime-architecture.md",
-        "docs/scene/scene-compatibility-roadmap.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf13-named-model-directional-shadow-design-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/runtime-architecture.md",
-        "docs/scene/scene-compatibility-roadmap.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf13-named-model-shadow-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/runtime-architecture.md",
-        "docs/scene/scene-compatibility-roadmap.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf14-model-spot-shadow-design-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/runtime-architecture.md",
-        "docs/scene/scene-compatibility-roadmap.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf14-model-spot-shadow-implementation-2026-10-02.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/runtime-architecture.md",
-        "docs/scene/scene-compatibility-roadmap.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf15-model-point-shadow-design-2026-10-03.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/runtime-architecture.md",
-        "docs/scene/scene-compatibility-roadmap.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf15-model-point-shadow-implementation-2026-10-03.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/runtime-architecture.md",
-        "docs/scene/scene-compatibility-roadmap.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf16-model-material-segments-design-2026-10-03.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/runtime-architecture.md",
-        "docs/scene/scene-compatibility-roadmap.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/rf16-model-material-segments-implementation-2026-10-03.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/design/runtime-architecture.md",
-        "docs/scene/scene-compatibility-roadmap.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/runtime-evidence-index.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/semantics/runtime-evidence-current.md",
-        "docs/scene/semantics/coverage-ledger.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/scene-capability-development-plan-2026-07-22.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/scene-generic-execution-refactor-plan-2026-08-15.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/scene-reference-audit-effects-runtime-2026-07-24.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/semantics/source-index.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/scene-reference-project-audit-2026-07-24.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/semantics/source-index.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/scene-render-chain-refactor-plan-2026-08-03.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/scene-sample-assessment-2026-07-22.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md",
-        "docs/scene/semantics/scene-corpus-capability-inventory.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/scene-visual-quality-audit-2026-10-01.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/semantics/runtime-evidence-current.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/client-runtime-static-forensics.md"
-      ]
-    },
-    {
-      "path": "docs/history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/semantics/source-index.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md"
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
     {
@@ -804,196 +284,1642 @@
       ]
     },
     {
-      "path": "docs/scene/design/2d-lighting-material-design.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/design/batch2-design-index.md",
-      "retirementCondition": "材质受光和各可选光照子能力分别通过合同门并进入稳定架构后归档，未完成 profile 保持明确准入限制。"
+      "path": "docs/release/bundle-content.md",
+      "role": "current-state",
+      "entrypoint": "docs/release/release-signing.md",
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
     },
     {
-      "path": "docs/scene/design/authored-texture-coordinate-design.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/design/reference-evidence-implementation-cards.md",
-      "retirementCondition": "作者采样坐标与公开companion分别完成纠正门，稳定职责进入runtime-architecture后归档；未证profile不隐式批准。"
-    },
-    {
-      "path": "docs/scene/design/composition-render-target-design.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/design/batch2-design-index.md",
-      "retirementCondition": "composition采集范围、顺序、实际source及目标生命周期获得明确行为合同并通过实施门，稳定架构接管且无依据分派撤权或由已证profile接管后归档。"
-    },
-    {
-      "path": "docs/scene/design/copy-pass-unification-design.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/design/batch2-design-index.md",
-      "retirementCondition": "四类触发点均使用唯一 typed graph transfer 合同，重复路径撤权且 publication 门通过后归档。"
-    },
-    {
-      "path": "docs/scene/design/debug-frame-capture-lifecycle-design.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/design/reference-evidence-implementation-cards.md",
-      "retirementCondition": "诊断请求有界、单次终结、独立 readback 导出及 surface/session/隔离退出 drain 通过行为门，稳定诊断合同接管后归档本文并删除对应设计登记。"
-    },
-    {
-      "path": "docs/scene/design/frame-admission-retry-design.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/design/batch2-design-index.md",
-      "retirementCondition": "现役帧准入的互斥、释放与短重试通过反例门且合同并入稳定时钟架构后归档，不新增平行定时器。"
-    },
-    {
-      "path": "docs/scene/design/hdr-tonemap-edr-design.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/design/batch2-design-index.md",
-      "retirementCondition": "SDR 映射与可选 EDR 的目标合同并入稳定输出架构且通过各自显示验收后归档，删除设计登记。"
-    },
-    {
-      "path": "docs/scene/design/host-render-power-protocol-design.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/design/batch2-design-index.md",
-      "retirementCondition": "App 唯一 power 裁决与版本化三态 IPC 验收，旧重复观察和布尔适配撤权后归档。"
-    },
-    {
-      "path": "docs/scene/design/particle-playback-state-design.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/design/batch2-design-index.md",
-      "retirementCondition": "对象排放控制与宿主暂停的组合合同通过事务和可见门，未知 reset profile 有明确归宿后归档。"
-    },
-    {
-      "path": "docs/scene/design/refactor-baseline.md",
-      "role": "stable-contract",
-      "entrypoint": "docs/scene/engine-refactor-program.md",
-      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
-    },
-    {
-      "path": "docs/scene/design/reference-evidence-implementation-cards.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/scene-compatibility-roadmap.md",
-      "retirementCondition": "各派生卡完成或明确退役，未完成能力由唯一 P 路线及其能力/证据 owner 接管，59 项去向无悬空项后归档；本文不保留完成日志。"
-    },
-    {
-      "path": "docs/scene/design/rt-prefix-admission-design.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/design/batch2-design-index.md",
-      "retirementCondition": "所有 RT 名称解释收敛到准备期唯一入口，旧特判与机器预算同步收缩后归档。"
-    },
-    {
-      "path": "docs/scene/design/runtime-architecture.md",
+      "path": "docs/release/release-signing.md",
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
-      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+      "currentStateAuthority": "docs/release/bundle-content.md",
+      "lastReviewed": "2026-09-28",
+      "reviewBasis": {
+        "kind": "git-document-change",
+        "revision": "e4119b0b1a3d9b3c069556f6ab9403d9c3447432",
+        "scope": "可审计的最近文档维护事件；原合同含义与证据仍由正文自身界定",
+        "limitations": "不是本轮全文或产品运行复验；陈旧门衡量文档维护年龄"
+      }
     },
     {
-      "path": "docs/scene/design/runtime-as-built-map.md",
+      "path": "docs/releases/2.10.0.md",
+      "role": "reference",
+      "entrypoint": "docs/README.md",
+      "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
+      "commandPolicy": "reference-only"
+    },
+    {
+      "path": "docs/releases/TEMPLATE.md",
+      "role": "reference",
+      "entrypoint": "docs/release/release-signing.md",
+      "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
+      "commandPolicy": "reference-only"
+    },
+    {
+      "path": "docs/scene/README.md",
+      "role": "navigation",
+      "entrypoint": "README.md",
+      "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。"
+    },
+    {
+      "path": "docs/scene/architecture/capability-dependency-map.md",
+      "role": "current-state",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+    },
+    {
+      "path": "docs/scene/architecture/refactor-baseline.md",
       "role": "stable-contract",
-      "entrypoint": "docs/scene/README.md",
-      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+      "entrypoint": "docs/scene/roadmap/engine-refactor-program.md",
+      "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
+      "lastReviewed": "2026-10-03",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "dfe5428a656dbfbcb51a727c6622841fb2014f4f65b12e6929d3f08d38943659",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
+        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+      }
     },
     {
-      "path": "docs/scene/design/sampler-alias-precedence.md",
-      "role": "stable-contract",
-      "entrypoint": "docs/scene/design/runtime-architecture.md",
-      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
-    },
-    {
-      "path": "docs/scene/design/scene-launch-responsiveness-contract.md",
+      "path": "docs/scene/architecture/runtime-architecture.md",
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
-      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+      "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
+      "lastReviewed": "2026-10-03",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "5a2b2a098d100dc1a59fe6a108419d2c66cb0bfeeb331472cc1b33956cfcde0d",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
+        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+      }
     },
     {
-      "path": "docs/scene/design/scene-runtime-daemon-contract.md",
+      "path": "docs/scene/architecture/runtime-as-built-map.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
-      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+      "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
+      "lastReviewed": "2026-10-03",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "9003d5e16568c185e7d362c250449e4fd3cdd7cdaff911b6284774ceca4cb005",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
+        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+      }
     },
     {
-      "path": "docs/scene/design/script-component-api-design.md",
+      "path": "docs/scene/architecture/scene-dependency-boundaries.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/README.md",
+      "currentStateAuthority": "docs/architecture/repository-map.md",
+      "lastReviewed": "2026-10-03",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "6149e7429deb7bf95a25f61ae0f95ce43312abf8e33cc5a52d8a69296e3ded46",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
+        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+      }
+    },
+    {
+      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/README.md",
+      "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
+      "lastReviewed": "2026-10-03",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "d04bf8be8f68791d19f3114b45f0728b47fee4cf81f18946870e3679cc8bcbee",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
+        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+      }
+    },
+    {
+      "path": "docs/scene/architecture/scene-resource-admission.md",
       "role": "active-plan",
-      "entrypoint": "docs/scene/design/batch2-design-index.md",
-      "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。"
+      "entrypoint": "docs/scene/README.md",
+      "retirementCondition": "对应实现与反例验证完成、稳定架构接管且设计登记退役后转为历史证据；设计批准不代表运行验收。"
+    },
+    {
+      "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/README.md",
+      "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
+      "lastReviewed": "2026-10-03",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "cb8d387df1fbfc2f87ad4f76cec6ab3a05fa880001fbdde1c30b62d0c1cb478d",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
+        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+      }
+    },
+    {
+      "path": "docs/scene/architecture/scene-startup-pipeline.md",
+      "role": "current-state",
+      "entrypoint": "docs/scene/README.md",
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+    },
+    {
+      "path": "docs/scene/capabilities/README.md",
+      "role": "navigation",
+      "entrypoint": "docs/scene/README.md",
+      "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。"
+    },
+    {
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "role": "current-state",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+    },
+    {
+      "path": "docs/scene/capabilities/alpha-display-fallback-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/README.md",
+      "retirementCondition": "对应实现与反例验证完成、稳定架构接管且设计登记退役后转为历史证据；设计批准不代表运行验收。"
+    },
+    {
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "role": "current-state",
+      "entrypoint": "README.md",
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+    },
+    {
+      "path": "docs/scene/capabilities/effect-execution-coverage.md",
+      "role": "current-state",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+    },
+    {
+      "path": "docs/scene/capabilities/effects-reference.md",
+      "role": "reference",
+      "entrypoint": "docs/scene/development/source-index.md",
+      "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
+      "commandPolicy": "reference-only"
+    },
+    {
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "role": "current-state",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+    },
+    {
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "role": "current-state",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+    },
+    {
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
+      "lastReviewed": "2026-10-03",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "27216e4e962e832c74da13715e355c1c0b1c42178c255c5933d2aba04c82bb07",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
+        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+      }
+    },
+    {
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "role": "current-state",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+    },
+    {
+      "path": "docs/scene/capabilities/runtime-systems-reference.md",
+      "role": "reference",
+      "entrypoint": "docs/scene/development/source-index.md",
+      "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
+      "commandPolicy": "reference-only"
+    },
+    {
+      "path": "docs/scene/capabilities/sampler-alias-precedence.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/architecture/runtime-architecture.md",
+      "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
+      "lastReviewed": "2026-10-03",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "b45ffd04bdf5c7b2388149ae01c705a0907d65599b73650fc801f2806e4fb9e3",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
+        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+      }
+    },
+    {
+      "path": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
+      "role": "current-state",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+    },
+    {
+      "path": "docs/scene/capabilities/scene-format-and-render-graph.md",
+      "role": "reference",
+      "entrypoint": "docs/scene/development/source-index.md",
+      "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
+      "commandPolicy": "reference-only"
+    },
+    {
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "role": "current-state",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+    },
+    {
+      "path": "docs/scene/capabilities/scene-sample-debug-ledger.md",
+      "role": "current-state",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+    },
+    {
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "role": "current-state",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+    },
+    {
+      "path": "docs/scene/capabilities/scenescript-runtime-implementation-contract.md",
+      "role": "reference",
+      "entrypoint": "docs/scene/development/source-index.md",
+      "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
+      "commandPolicy": "reference-only"
+    },
+    {
+      "path": "docs/scene/capabilities/shader-prelude-and-backend-abstraction.md",
+      "role": "reference",
+      "entrypoint": "docs/scene/development/source-index.md",
+      "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
+      "commandPolicy": "reference-only"
+    },
+    {
+      "path": "docs/scene/capabilities/static-source-draw-only-degradation.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/README.md",
+      "retirementCondition": "对应实现与反例验证完成、稳定架构接管且设计登记退役后转为历史证据；设计批准不代表运行验收。"
+    },
+    {
+      "path": "docs/scene/capabilities/stock-asset-bundle.md",
+      "role": "reference",
+      "entrypoint": "docs/scene/development/source-index.md",
+      "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
+      "commandPolicy": "reference-only"
     },
     {
       "path": "docs/scene/development/development-workflow.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
-      "currentStateAuthority": "docs/scene/semantics/runtime-evidence-current.md"
+      "currentStateAuthority": "docs/scene/capabilities/runtime-evidence-current.md",
+      "lastReviewed": "2026-10-03",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "704ff3e3037e4616109f839fcfb53f66e882d4c6609be0fc9db2ae67be2a6ea0",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
+        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+      }
     },
     {
-      "path": "docs/scene/engine-refactor-program.md",
+      "path": "docs/scene/development/official-client-behavior-research-workflow.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "currentStateAuthority": "docs/scene/development/source-index.md",
+      "lastReviewed": "2026-10-03",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "f0849c6fb1520a2aa23f8cb82f8b96fd0867dc6e674a013e706f87ce3ab7d082",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
+        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+      }
+    },
+    {
+      "path": "docs/scene/development/reference/client-changelog-forensics.md",
+      "role": "reference",
+      "entrypoint": "docs/scene/development/source-index.md",
+      "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
+      "commandPolicy": "reference-only"
+    },
+    {
+      "path": "docs/scene/development/reference/client-runtime-static-forensics.md",
+      "role": "reference",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
+      "commandPolicy": "reference-only"
+    },
+    {
+      "path": "docs/scene/development/reference/editor-string-table-forensics.md",
+      "role": "reference",
+      "entrypoint": "docs/scene/development/source-index.md",
+      "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
+      "commandPolicy": "reference-only"
+    },
+    {
+      "path": "docs/scene/development/reference/miragewallpaper-rendering-reference.md",
+      "role": "reference",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
+      "commandPolicy": "reference-only"
+    },
+    {
+      "path": "docs/scene/development/reference/official-page-map.md",
+      "role": "reference",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
+      "commandPolicy": "reference-only"
+    },
+    {
+      "path": "docs/scene/development/reference/scenescript-binding-target-forensics.md",
+      "role": "reference",
+      "entrypoint": "docs/scene/development/source-index.md",
+      "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
+      "commandPolicy": "reference-only"
+    },
+    {
+      "path": "docs/scene/development/source-index.md",
+      "role": "reference",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
+      "commandPolicy": "reference-only"
+    },
+    {
+      "path": "docs/scene/history/README.md",
+      "role": "navigation",
+      "entrypoint": "docs/scene/README.md",
+      "purpose": "Scene固定历史与当前权威的按需索引，不产生现役任务。"
+    },
+    {
+      "path": "docs/scene/history/breakpoint-queue-before-2026-09-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/coverage-ledger-batches-through-2026-10-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "cutoff": "2026-10-03",
+      "uniqueValue": "原批次全文及永久锚点；完整保留运行身份与未验证边界"
+    },
+    {
+      "path": "docs/scene/history/d1-composition-membership-attempt-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/composition-render-target-design.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/development/source-index.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/d1-composition-neutral-contract-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/composition-render-target-design.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/development/source-index.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/d1-composition-source-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/roadmap/batch2/composition-render-target-design.md",
+        "docs/scene/architecture/runtime-architecture.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/d2-d3-bounded-output-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/d3-authored-normal-input-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/architecture/runtime-architecture.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/d3-instance-base-texture-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/architecture/runtime-architecture.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/d3-material-user-emission-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/d3-model-directional-shadow-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/d3-normal-input-neutral-contract-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/development/source-index.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/d3-pbr-input-neutral-contract-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/development/source-index.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/d3-pbr-map-emission-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/d3-pbr-map-input-neutral-contract-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/d3-pbr-scalar-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/architecture/runtime-architecture.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/d3-reflection-environment-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/d3-reflection-environment-neutral-contract-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/engine-refactor-program-before-2026-09-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/engine-refactor-program.md",
+        "docs/scene/capabilities/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/mirage-da4fa7b3-six-domain-forensics-verdict-2026-10-01.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/development/source-index.md",
+        "docs/scene/development/reference/miragewallpaper-rendering-reference.md",
+        "docs/scene/capabilities/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/new-sample-gap-analysis-2026-09-30.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md"
+      ],
+      "cutoff": "2026-09-30",
+      "uniqueValue": "固定新样本诊断、实测输入与失败解释，页首明确旧composition解释已经失效而原样本尚未重新验收。"
+    },
+    {
+      "path": "docs/scene/history/reference/client-binary-dependency-forensics.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/development/source-index.md",
+        "docs/scene/development/reference/client-runtime-static-forensics.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/reference/client-changelog-appendix.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/development/source-index.md",
+        "docs/scene/development/reference/client-changelog-forensics.md",
+        "docs/scene/capabilities/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/reference/official-default-projects-fixture-inventory.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/development/source-index.md",
+        "docs/scene/capabilities/scene-corpus-capability-inventory.md",
+        "docs/scene/capabilities/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/reference/official-page-catalog.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/development/source-index.md",
+        "docs/scene/development/reference/official-page-map.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/reference/official-page-crosswalk.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/development/source-index.md",
+        "docs/scene/development/reference/official-page-map.md",
+        "docs/scene/capabilities/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/reference/zcompat-backward-compatibility-forensics.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/development/source-index.md",
+        "docs/scene/development/reference/client-changelog-forensics.md",
+        "docs/scene/capabilities/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf01-shader-default-binding-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf02-atlas-named-output-implementation-2026-10-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf02-authored-sampling-implementation-2026-10-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf02-companion-research-checkpoint-2026-10-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf02-companion-uniform-observations-2026-10-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf03-particle-playback-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf05-debug-capture-lifecycle-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf07-persistent-color-output-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf11-shared-hdr-target-budget-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf12-snapshot-shadow-coexistence-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf13-named-model-shadow-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf14-model-spot-shadow-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf15-model-point-shadow-implementation-2026-10-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf16-model-material-segments-implementation-2026-10-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/runtime-evidence-batches-through-2026-10-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "cutoff": "2026-10-03",
+      "uniqueValue": "原批次全文及永久锚点；完整保留运行身份与未验证边界"
+    },
+    {
+      "path": "docs/scene/history/runtime-evidence-index.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/capabilities/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/scene-capability-development-plan-2026-07-22.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/scene-generic-execution-refactor-plan-2026-08-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/scene-reference-audit-effects-runtime-2026-07-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/development/source-index.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/scene-reference-project-audit-2026-07-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/development/source-index.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/scene-render-chain-refactor-plan-2026-08-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/scene-sample-assessment-2026-07-22.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/capabilities/scene-corpus-capability-inventory.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/scene-visual-quality-audit-2026-10-01.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/development/reference/client-runtime-static-forensics.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/development/source-index.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "retirementCondition": "材质受光和各可选光照子能力分别通过合同门并进入稳定架构后归档，未完成 profile 保持明确准入限制。"
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/authored-texture-coordinate-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "retirementCondition": "作者采样坐标与公开companion分别完成纠正门，稳定职责进入runtime-architecture后归档；未证profile不隐式批准。"
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "role": "navigation",
+      "entrypoint": "docs/README.md",
+      "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。"
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "retirementCondition": "composition采集范围、顺序、实际source及目标生命周期获得明确行为合同并通过实施门，稳定架构接管且无依据分派撤权或由已证profile接管后归档。"
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "retirementCondition": "四类触发点均使用唯一 typed graph transfer 合同，重复路径撤权且 publication 门通过后归档。"
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/debug-frame-capture-lifecycle-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "retirementCondition": "诊断请求有界、单次终结、独立 readback 导出及 surface/session/隔离退出 drain 通过行为门，稳定诊断合同接管后归档本文并删除对应设计登记。"
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/frame-admission-retry-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "retirementCondition": "现役帧准入的互斥、释放与短重试通过反例门且合同并入稳定时钟架构后归档，不新增平行定时器。"
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "retirementCondition": "SDR 映射与可选 EDR 的目标合同并入稳定输出架构且通过各自显示验收后归档，删除设计登记。"
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/host-render-power-protocol-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "retirementCondition": "App 唯一 power 裁决与版本化三态 IPC 验收，旧重复观察和布尔适配撤权后归档。"
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/particle-playback-state-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "retirementCondition": "对象排放控制与宿主暂停的组合合同通过事务和可见门，未知 reset profile 有明确归宿后归档。"
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/scene-compatibility-roadmap.md",
+      "retirementCondition": "各派生卡完成或明确退役，未完成能力由唯一 P 路线及其能力/证据 owner 接管，59 项去向无悬空项后归档；本文不保留完成日志。"
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/rt-prefix-admission-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "retirementCondition": "所有 RT 名称解释收敛到准备期唯一入口，旧特判与机器预算同步收缩后归档。"
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。"
+    },
+    {
+      "path": "docs/scene/roadmap/engine-refactor-program.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "E0–E8 完成或经证据裁决不适用、旧职责撤权、当前文档收敛、性能与恢复门通过，稳定合同接管终态后转 historical-evidence。本文是项目工程重构入口，不接管兼容能力和样本验收；性能基线不等待兼容路线 P5。"
     },
     {
-      "path": "docs/scene/scene-compatibility-roadmap.md",
+      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "冻结全集每个样本完成声明与条件场景覆盖、真实显示/动态/参数人工验收和固定官方一致性对照，P5 通过，旧 owner 撤权，unknown/unsupported 未被计作完成，稳定架构、能力与证据权威接管终态后转 historical-evidence；范围缩减须另有明确裁决。"
     },
     {
-      "path": "docs/scene/scene-open-breakpoint-queue-2026-09-09.md",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
-      "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该日期化派生执行入口时，删除或转为 historical-evidence。"
+      "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。"
     },
     {
-      "path": "docs/scene/scene-steamkit-migration-plan.md",
+      "path": "docs/scene/roadmap/scene-steamkit-migration-plan.md",
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "作为工程路线 E2/E6/E8 的 Steam 获取专项细化，SK0–SK7 完成、SteamCMD 与自动社区登录/个人 HTML 获取产品路径撤除、主动密码/QR 登录和浏览/订阅/下载/UI/发布门通过，稳定合同与功能证据接管终态后转历史；不决定 Scene 兼容任务顺序。"
     },
     {
-      "path": "docs/scene/semantics/official-client-behavior-research-workflow.md",
-      "role": "stable-contract",
-      "entrypoint": "docs/scene/semantics/README.md",
-      "currentStateAuthority": "docs/scene/semantics/source-index.md"
-    },
-    {
-      "path": "docs/scene/semantics/runtime-evidence-current.md",
-      "role": "stable-contract",
-      "entrypoint": "docs/scene/semantics/README.md",
-      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+      "path": "docs/web/README.md",
+      "role": "navigation",
+      "entrypoint": "docs/README.md",
+      "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。"
     },
     {
       "path": "docs/web/cross-origin-reply-delivery-design.md",
       "role": "active-plan",
-      "entrypoint": "docs/scene/design/batch2-design-index.md",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "所有宿主消息消费者使用同一 frame 定向投递并通过导航和跨源门，旧主 frame 中继撤权后归档。"
+    },
+    {
+      "path": "docs/web/current-state.md",
+      "role": "current-state",
+      "entrypoint": "README.md",
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
     },
     {
       "path": "docs/web/mediaremote-nowplaying-design.md",
       "role": "active-plan",
-      "entrypoint": "docs/scene/design/batch2-design-index.md",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "唯一媒体仲裁落地并完成相应分发渠道验收，私有实验被公开能力替换或明确撤销后归档。"
     },
     {
       "path": "docs/web/steam-downloads-failed-items-visibility-design.md",
       "role": "active-plan",
-      "entrypoint": "docs/scene/design/batch2-design-index.md",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "失败项可见、重试、计数、空态与多选通过行为门，稳定 App 交互合同接管后归档并删除设计登记。"
     },
     {
       "path": "docs/web/wallpaper-engine-web-rules.md",
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
-      "currentStateAuthority": "docs/web/current-state.md"
+      "currentStateAuthority": "docs/web/current-state.md",
+      "lastReviewed": "2026-08-16",
+      "reviewBasis": {
+        "kind": "git-document-change",
+        "revision": "848b1c9c930342b396571d00fad8cc1b0707f34d",
+        "scope": "可审计的最近文档维护事件；原合同含义与证据仍由正文自身界定",
+        "limitations": "不是本轮全文或产品运行复验；陈旧门衡量文档维护年龄"
+      }
     },
     {
       "path": "docs/web/web-project-json-localization.md",
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
-      "currentStateAuthority": "docs/web/current-state.md"
+      "currentStateAuthority": "docs/web/current-state.md",
+      "lastReviewed": "2026-08-16",
+      "reviewBasis": {
+        "kind": "git-document-change",
+        "revision": "848b1c9c930342b396571d00fad8cc1b0707f34d",
+        "scope": "可审计的最近文档维护事件；原合同含义与证据仍由正文自身界定",
+        "limitations": "不是本轮全文或产品运行复验；陈旧门衡量文档维护年龄"
+      }
     },
     {
       "path": "docs/web/web-project-json-runtime-model.md",
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
-      "currentStateAuthority": "docs/web/current-state.md"
+      "currentStateAuthority": "docs/web/current-state.md",
+      "lastReviewed": "2026-08-16",
+      "reviewBasis": {
+        "kind": "git-document-change",
+        "revision": "848b1c9c930342b396571d00fad8cc1b0707f34d",
+        "scope": "可审计的最近文档维护事件；原合同含义与证据仍由正文自身界定",
+        "limitations": "不是本轮全文或产品运行复验；陈旧门衡量文档维护年龄"
+      }
     },
     {
       "path": "docs/web/web-wallpaper-benchmark-standard.md",
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
-      "currentStateAuthority": "docs/web/current-state.md"
+      "currentStateAuthority": "docs/web/current-state.md",
+      "lastReviewed": "2026-10-01",
+      "reviewBasis": {
+        "kind": "git-document-change",
+        "revision": "afe8f8c5eefaaecad84e01e33ca98b042d582eec",
+        "scope": "可审计的最近文档维护事件；原合同含义与证据仍由正文自身界定",
+        "limitations": "不是本轮全文或产品运行复验；陈旧门衡量文档维护年龄"
+      }
     }
-  ]
+  ],
+  "taskRoutes": [
+    {
+      "id": "repository",
+      "title": "仓库规则、结构和文档治理",
+      "keywords": [
+        "规范",
+        "文档",
+        "架构",
+        "质量",
+        "管理"
+      ],
+      "documents": [
+        "docs/development/repository-workflow.md",
+        "docs/architecture/repository-map.md",
+        "docs/scene/architecture/scene-dependency-boundaries.md"
+      ],
+      "sourcePaths": [
+        "AGENTS.md",
+        "script/scene_validation_gates.json",
+        "script/code_health_baseline.json"
+      ],
+      "verification": "先运行 document_registry.py --check，再按 owned paths 预览已有验证编排器。",
+      "owner": "AGENTS.md",
+      "firstRead": "docs/development/repository-workflow.md",
+      "nearestTestGroups": [
+        "documentation"
+      ],
+      "verificationPhases": [
+        {
+          "phase": "inner",
+          "gateRefs": [
+            "document-links",
+            "scene-structure"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scene-visual",
+      "title": "修复 Scene 视觉缺陷",
+      "keywords": [
+        "scene",
+        "视觉",
+        "黑屏",
+        "sampler",
+        "材质",
+        "作者采样",
+        "UV",
+        "atlas"
+      ],
+      "documents": [
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/sampler-alias-precedence.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/architecture/refactor-baseline.md",
+        "docs/scene/architecture/runtime-as-built-map.md",
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+        "docs/scene/architecture/scene-runtime-daemon-contract.md",
+        "docs/scene/development/development-workflow.md",
+        "docs/scene/development/official-client-behavior-research-workflow.md",
+        "docs/scene/roadmap/batch2/authored-texture-coordinate-design.md"
+      ],
+      "sourcePaths": [
+        "MyWallpaperX/Core/SteamWorkshopScene"
+      ],
+      "verification": "先选最近模块 inner；涉及输出时 checkpoint 构建、integration 隔离 sample，记录 completion/publication/compositor/next-frame。",
+      "owner": "MyWallpaperX/Core/SteamWorkshopScene",
+      "firstRead": "docs/scene/capabilities/coverage-ledger.md#current-overview",
+      "nearestTestGroups": [
+        "rendering",
+        "authored-sampling-integration"
+      ],
+      "verificationPhases": [
+        {
+          "phase": "inner",
+          "gateRefs": [
+            "focused-tests"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        },
+        {
+          "phase": "checkpoint",
+          "gateRefs": [
+            "code-health",
+            "build-verify",
+            "design-gate"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        },
+        {
+          "phase": "integration",
+          "gateRefs": [
+            "targeted-sample"
+          ],
+          "requiredArguments": [
+            "--app",
+            "--sample-id",
+            "--sample-root",
+            "--output-dir"
+          ]
+        },
+        {
+          "phase": "milestone",
+          "gateRefs": [
+            "matrix-tier-selection"
+          ],
+          "requiredArguments": [
+            "--matrix-tier",
+            "--reason",
+            "--app",
+            "--sample-root",
+            "--output-dir"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "design",
+      "title": "设计前置判定",
+      "keywords": [
+        "设计",
+        "新增能力",
+        "跨模块",
+        "owner"
+      ],
+      "documents": [
+        "docs/architecture/technology-stack-boundaries.md",
+        "docs/development/repository-workflow.md"
+      ],
+      "sourcePaths": [
+        "AGENTS.md",
+        "script/design_gated_areas.json",
+        "script/check_design_gate.py"
+      ],
+      "verification": "按 AGENTS 五问决定登记；query 的 designAreas 来自现役登记。approved 不代表产品行为验收。",
+      "owner": "AGENTS.md",
+      "firstRead": "docs/development/repository-workflow.md",
+      "nearestTestGroups": [
+        "documentation"
+      ],
+      "verificationPhases": [
+        {
+          "phase": "inner",
+          "gateRefs": [
+            "design-gate"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "app",
+      "title": "AppKit 界面和交互",
+      "keywords": [
+        "app",
+        "ui",
+        "界面",
+        "菜单",
+        "shell"
+      ],
+      "documents": [
+        "docs/architecture/repository-map.md",
+        "docs/architecture/appkit-migration.md"
+      ],
+      "sourcePaths": [
+        "MyWallpaperX/App",
+        "MyWallpaperX/Shell"
+      ],
+      "verification": "预览实际路径的最近行为模块；Swift checkpoint 构建，可见交互实际操作验证。",
+      "owner": "MyWallpaperX/App",
+      "firstRead": "docs/architecture/repository-map.md",
+      "nearestTestGroups": [
+        "playback-command-control"
+      ],
+      "verificationPhases": [
+        {
+          "phase": "inner",
+          "gateRefs": [
+            "focused-tests"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        },
+        {
+          "phase": "checkpoint",
+          "gateRefs": [
+            "code-health",
+            "build-verify",
+            "design-gate"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "video",
+      "title": "Video 播放、导入和持久化",
+      "keywords": [
+        "video",
+        "视频",
+        "导入",
+        "持久化"
+      ],
+      "documents": [
+        "docs/architecture/repository-map.md",
+        "docs/architecture/technology-stack-boundaries.md"
+      ],
+      "sourcePaths": [
+        "MyWallpaperX/Core/Playback",
+        "MyWallpaperX/Modules/VideoLibrary"
+      ],
+      "verification": "显式选择请求/ready/会话/持久化行为反例；改生命周期再验证隔离 daemon 与迟到事件。",
+      "owner": "MyWallpaperX/Core/Playback",
+      "firstRead": "docs/architecture/repository-map.md",
+      "nearestTestGroups": [
+        "playback-command-control"
+      ],
+      "verificationPhases": [
+        {
+          "phase": "inner",
+          "gateRefs": [
+            "focused-tests"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        },
+        {
+          "phase": "checkpoint",
+          "gateRefs": [
+            "code-health",
+            "build-verify",
+            "design-gate"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "web",
+      "title": "Web 导航、属性和媒体",
+      "keywords": [
+        "web",
+        "网页",
+        "webkit"
+      ],
+      "documents": [
+        "docs/web/current-state.md",
+        "docs/web/web-project-json-runtime-model.md",
+        "docs/web/wallpaper-engine-web-rules.md",
+        "docs/web/web-project-json-localization.md",
+        "docs/web/web-wallpaper-benchmark-standard.md"
+      ],
+      "sourcePaths": [
+        "MyWallpaperX/Core/SteamWorkshopWeb"
+      ],
+      "verification": "按导航/属性/媒体风险选最近模块；真实 Web session 与导航失效另验。",
+      "owner": "MyWallpaperX/Core/SteamWorkshopWeb",
+      "firstRead": "docs/web/current-state.md",
+      "nearestTestGroups": [
+        "web-host-lifecycle",
+        "web-playback-policy"
+      ],
+      "verificationPhases": [
+        {
+          "phase": "inner",
+          "gateRefs": [
+            "focused-tests"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        },
+        {
+          "phase": "checkpoint",
+          "gateRefs": [
+            "code-health",
+            "build-verify",
+            "design-gate"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "steam",
+      "title": "Steam 登录、下载和入库",
+      "keywords": [
+        "steam",
+        "登录",
+        "下载",
+        "工坊"
+      ],
+      "documents": [
+        "docs/scene/roadmap/scene-steamkit-migration-plan.md",
+        "docs/architecture/repository-map.md"
+      ],
+      "sourcePaths": [
+        "SteamService",
+        "MyWallpaperX/Modules/SteamWorkshop"
+      ],
+      "verification": "协议/离线门先行，账户切换、下载恢复与真实账号验收分别声明。",
+      "owner": "SteamService",
+      "firstRead": "docs/scene/roadmap/scene-steamkit-migration-plan.md#2-现状重构落点与唯一职责",
+      "nearestTestGroups": [
+        "steam-helper-runtime",
+        "steam-download-control"
+      ],
+      "verificationPhases": [
+        {
+          "phase": "inner",
+          "gateRefs": [
+            "focused-tests"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        },
+        {
+          "phase": "checkpoint",
+          "gateRefs": [
+            "code-health",
+            "build-verify",
+            "design-gate"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "playback",
+      "title": "跨引擎暂停、切换和静态输出",
+      "keywords": [
+        "暂停",
+        "切换",
+        "静态",
+        "系统策略"
+      ],
+      "documents": [
+        "docs/architecture/repository-map.md",
+        "docs/scene/roadmap/engine-refactor-program.md"
+      ],
+      "sourcePaths": [
+        "MyWallpaperX/Core/PlaybackControl",
+        "MyWallpaperX/App/MainWindowCoordinator+PlaybackRouting.swift"
+      ],
+      "verification": "明确各 runtime owner；验证用户/系统暂停组合、迟到事件、切换与停止，不只运行单引擎门。",
+      "owner": "MyWallpaperX/Core/PlaybackControl",
+      "firstRead": "docs/architecture/repository-map.md",
+      "nearestTestGroups": [
+        "playback-command-control"
+      ],
+      "verificationPhases": [
+        {
+          "phase": "inner",
+          "gateRefs": [
+            "focused-tests"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        },
+        {
+          "phase": "checkpoint",
+          "gateRefs": [
+            "code-health",
+            "build-verify",
+            "design-gate"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "release",
+      "title": "发布新版本",
+      "keywords": [
+        "发布",
+        "release",
+        "签名",
+        "公证"
+      ],
+      "documents": [
+        "docs/release/release-signing.md",
+        "docs/release/bundle-content.md"
+      ],
+      "sourcePaths": [
+        "script/publish_release.py",
+        ".github/workflows/build.yml"
+      ],
+      "verification": "仅用户明确授权发布时执行完整发布合同；普通 CI 不发布。",
+      "owner": "script/publish_release.py",
+      "firstRead": "docs/release/release-signing.md#正式发布流程",
+      "nearestTestGroups": [
+        "release-preparation"
+      ],
+      "verificationPhases": [
+        {
+          "phase": "inner",
+          "gateRefs": [
+            "release-tests"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        }
+      ]
+    }
+  ],
+  "taskFrequencyEvidence": {
+    "path": "docs/history/cross-topic/repository-improvement-completion-2026-10-03.md",
+    "revision": "6105ffe5648330ee758a9ebb1e54d2f2edcd4309",
+    "sampleLimit": 100,
+    "sampleCount": 100,
+    "recordsSHA256": "06eacef45e3aafcaa40da6302ed03e98a1051e010fb08e73eb3af6ad0f87a968",
+    "scopeCounts": {
+      "app-shell": 1,
+      "audio": 1,
+      "comparison": 1,
+      "compiler": 1,
+      "history": 1,
+      "layout": 1,
+      "review": 1,
+      "scene": 55,
+      "scene-particle": 1,
+      "scene-particles": 2,
+      "scene-resources": 1,
+      "scene-shader": 2,
+      "scene-textures": 2,
+      "sil": 4,
+      "steam": 1,
+      "steam-core": 1,
+      "steam-library": 3,
+      "steam-net": 1,
+      "steam-ui": 5,
+      "unclassified": 10,
+      "video-inspector": 2,
+      "video-library": 2,
+      "web": 1
+    },
+    "method": "git subject conventional-commit scope; unmatched subjects stay unclassified"
+  },
+  "terminology": [
+    {
+      "term": "S0-S5",
+      "aliases": [
+        "S0",
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5",
+        "证据深度"
+      ],
+      "authority": "docs/scene/capabilities/runtime-evidence-current.md#evidence-levels",
+      "owner": "运行证据合同"
+    },
+    {
+      "term": "E-*",
+      "aliases": [
+        "证据包",
+        "E-"
+      ],
+      "authority": "docs/scene/capabilities/runtime-evidence-current.md#evidence-packages",
+      "owner": "运行证据合同"
+    },
+    {
+      "term": "named source taxonomy",
+      "aliases": [
+        "来源分类",
+        "taxonomy"
+      ],
+      "authority": "docs/scene/development/source-index.md#scene-资料来源与证据索引",
+      "owner": "资料来源索引"
+    },
+    {
+      "term": "recognized/wired",
+      "aliases": [
+        "recognized",
+        "wired",
+        "能力等级"
+      ],
+      "authority": "docs/scene/capabilities/coverage-ledger.md#capability-conventions",
+      "owner": "能力台账"
+    },
+    {
+      "term": "owned paths",
+      "aliases": [
+        "owned",
+        "工作区安全"
+      ],
+      "authority": "docs/development/repository-workflow.md#并行与验证",
+      "owner": "仓库规则"
+    },
+    {
+      "term": "家族/防御面",
+      "aliases": [
+        "家族",
+        "防御面",
+        "结构性家族"
+      ],
+      "authority": "docs/development/repository-workflow.md#代码与知识交付",
+      "owner": "仓库规则"
+    }
+  ],
+  "pointerEntrypoints": [
+    {
+      "path": "MyWallpaperX/Core/SteamWorkshopScene/AGENTS.md",
+      "authority": "AGENTS.md",
+      "maxLines": 10,
+      "purpose": "只提供Scene子树到根规则与现役合同的指针，不拥有新规则"
+    }
+  ],
+  "routingContract": "repository-task-routing-v1"
 }
