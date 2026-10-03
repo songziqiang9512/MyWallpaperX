@@ -19,10 +19,10 @@ Use this Skill as a compact method and routing layer, never as a snapshot of the
 
 ## Start With Scope And Authority
 
-1. Classify the request as discussion, read-only review, diagnosis, or implementation. Never let Skill activation expand the user's authorization.
+1. Before coding, identify the user's intended outcome, the native macOS product direction, and the current gap; briefly connect the chosen scope to that outcome and its verification. Classify the request as discussion, read-only review, diagnosis, or implementation. Never let Skill activation expand the user's authorization.
 2. Run `git status --short --branch --untracked-files=all` at task start, including read-only review or diagnosis. Assign this batch an explicit owned path set and preserve every unrelated modified, deleted, staged, or untracked path; repeat status before writing when concurrent work may have changed it.
 3. Follow repository-root `AGENTS.md` for implementation, validation, commit, sample, and workspace safety rules.
-4. Read `docs/README.md` when the task involves behavior, architecture, evidence, documentation, or owner selection. Use its current document-role routing instead of searching history broadly.
+4. Read `docs/README.md` when the task involves behavior, architecture, evidence, documentation, or owner selection. Use its current document-role routing instead of searching history broadly. Repository structure, contracts, tests, and navigation are part of product delivery; maintain their existing owner alongside the changed behavior.
 
 Resolve two different questions separately:
 
@@ -67,7 +67,9 @@ Do not broadly load `docs/history/`, `.codex` reports, real Workshop content, or
 
 ## Define The Decision Note
 
-Keep a short decision note in the working context; do not create a document for a small change:
+For an important capability or architecture change, first follow `docs/development/repository-workflow.md#设计判定与记录`: revise an existing design or save a new design in the repository before implementation, then synchronize the existing design registry. A passing pattern gate does not prove design coverage or quality. Do not create a competing plan or infer Git commit permission from this requirement.
+
+For a small change, keep the decision note in the working context rather than creating a document:
 
 ```yaml
 mode: discussion | read-only-review | diagnosis | implementation
