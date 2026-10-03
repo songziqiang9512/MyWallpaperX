@@ -43,3 +43,21 @@
 产品证据已限量提升到`.artifacts/scene-evidence/runs/rf04-completed-scene-environment-20261003`；150个归档文件逐SHA复核，archive SHA256为`afe6cdd3ee4910266dd0e535e9736326e69bd58e8037b852867be9ccc7fb3d19`。包含最终源码/测试身份、真实输入、10张原PNG（含错误fixture两张）、原失败/通过日志及独审；不含App、临时HOME或缓存。默认保留14天，数字sample id只作本机归档键，不是Workshop来源。官方证据已独立提升到`.artifacts/scene-evidence/runs/rf04-official-mip-consumer-observations-20261003`，不得混称产品回归。构建缓存仅留`/private/tmp/mwx-scene-next-build/cache`供连续迭代，staged App与临时HOME在本批结束清理。
 
 未覆盖硬件真实GPU故障、全部原包/多surface动态组合、官方HDR/alpha/kernel parity和B作者sampler。构建、少量自有App及项目数值oracle不代表全Scene兼容、性能提升或发布就绪。
+
+## 后继：原生分配失败后的闲置缓存回收
+
+A之后的真实配额反例揭示：pool仅在临时字典里预测驱逐，旧闲置纹理仍持有原生额度，mandatory候选会在实际apply驱逐前分配失败。修复基线为`8eca8adf`，不是官方行为兼容扩展，也不开放B作者名称。
+
+回收仍属于原allocation cache，与逻辑驱逐共用victim/history闭包规则。实际factory返回nil后，每个逻辑分配批次最多回收一次并只重试失败项，成功前缀保留；shared pair与随后graph共用额度。完整请求key、cached/reusable/retired及history来源generation、submission和SceneColor retention受保护；原子返回本次revision，外部变更不被吸收。native账户只在真实纹理最后引用释放时退还，不手动返账、不跨pool驱逐，也不提前发布graph/history。损失可重建idle缓存允许发生，重试仍失败则拒绝该批候选。
+
+最终7个产品文件manifest SHA256为`6e6b71eccd80a9a21118275638b68a10817b7e22a9c74e6dbcc44ee552d7c580`。Debug构建与12项新增回归17.650s通过，产品及两组各35个编译输入身份无漂移。28组非graph真实预算组合覆盖frame、单composition、group、environment、shadow、snapshot和persistence；owned/shared graph两组调用完整pool入口，冷/暖所需native charge均为9600 bytes，idle为5888 bytes，另一pool的pinned资源512 bytes保持；一次真实quota rejection后回收成功，最终账户恢复。人工reserve只限制准入额度，不是物理设备OOM实验。
+
+外部强引用保留实际额度时，缓存可已移除而retry仍失败；释放最后引用后原请求恢复。真实shared-event阻塞CB的在飞pin在完成前保持，completion后请求可恢复；此用例无像素回读。定向factory nil补充检查一次恢复、前缀identity、retired复用到最终commit和外部revision拒绝，不能混作硬件故障。
+
+隔离最终Debug App共8项测试、159.962s：7项实际执行通过，覆盖3个plain反射、2个late named/depth及4个HDR/暂停resize场景；缺少专门移除mapping函数的故障App用例明确skip。默认Ref0/Ref1接收区保持128³/179,128,128及健康邻层；capture-off仅证明正常提交/drain。HDR runner本身不保存每case App身份，另以固定App三artifact、最终源码manifest、完整命令及日志联合登记，范围不扩成官方parity、全Scene兼容、性能或发布结论。
+
+旧pool测试的三条Nth分配“零缓存变化”要求与本次恢复合同冲突，已改为一次恢复/保前缀/失败不发布。其余143个顶层结果键、29个Python测试、17段case正文和顺序、pre-main支持及跨段对象传递经独立机械核对保持；载体拆为六个完整职责Swift fixture与420行Python，均≤1000行。机械保持不证明新函数scope下全部ARC轨迹相同；真实pool的29项回归8.882s通过，另跑直接消费者。首跑新断言误用不存在的cache accessor，修为原锁内residents查询后通过；原编译失败日志保留，不冒称产品故障。
+
+composition另以同一固定App补跑15项、204.834s全部通过，覆盖真实group source、childless/nested capture、空源清除、取消恢复与resize；原无App调用的skip不被计为这次执行。三个直接消费者初跑成功、pool编译修正后29项通过；仅源码场景同构不替代这些实际运行结果。
+
+整批25文件冻结独审为有界ACCEPT、无P1/P2，记录SHA256为`7a2e634c4fc998d711d487c1603c64b6e9a6fa035578bdd9eb643b53b438dd46`；10项门禁与14个治理模块均通过。最终证据提升至`.artifacts/scene-evidence/runs/rf04-native-allocation-recovery-20261003`，334个成员逐SHA核验，archive SHA256为`980451f61d167faa7811a349e567e9591a0c52a1d358de317d032ba325b65736`，默认14天。原protected容量反例五个文件以原字节保存在archive的`prior-counterexample/`，原独立保护包随问题解决退役；47张最终App PNG、实际输入、原失败与通过日志、源码身份及独审一并保留。原collector的非数字归档键不符合promotion schema，改为本机数字键后成功，不改变archive字节或验收结果。

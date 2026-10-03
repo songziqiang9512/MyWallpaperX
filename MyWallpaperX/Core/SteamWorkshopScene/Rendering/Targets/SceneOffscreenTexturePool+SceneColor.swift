@@ -61,9 +61,11 @@ extension SceneOffscreenTexturePool {
         let key = CacheKey.sceneColor(width: width, height: height,
                                       pixelFormat: pixelFormat, intent: intent)
         if allocationCache.allocation(for: key) == nil {
-            guard allocationCache.locked({
+            guard var expectedRevision = allocationCache.locked({ () -> UUID? in
                 var proposed = allocationCache.residents
-                return allocationCache.evictToFit(&proposed, incomingCost: cost)
+                guard allocationCache.evictToFit(&proposed, incomingCost: cost,
+                    protected: [key]) else { return nil }
+                return allocationCache.revision
             }) else { return nil }
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(
                 pixelFormat: pixelFormat, width: width, height: height, mipmapped: false)
@@ -72,10 +74,21 @@ extension SceneOffscreenTexturePool {
             let factory = textureFactory ?? { [device] in
                 device.makeSceneTexture(descriptor: $0)
             }
-            guard let first = factory(descriptor), let second = factory(descriptor) else { return nil }
+            var attemptedRecovery = false
+            func allocate() -> MTLTexture? {
+                if let texture = factory(descriptor) { return texture }
+                guard !attemptedRecovery else { return nil }
+                attemptedRecovery = true
+                guard let revision = allocationCache.reclaimIdleAllocations(
+                    expectedRevision: expectedRevision, protectedKeys: [key])
+                else { return nil }
+                expectedRevision = revision
+                return factory(descriptor)
+            }
+            guard let first = allocate(), let second = allocate() else { return nil }
             let display: MTLTexture?
             if intent == .persistence {
-                guard let target = factory(descriptor) else { return nil }
+                guard let target = allocate() else { return nil }
                 display = target
             } else {
                 display = nil
@@ -84,8 +97,14 @@ extension SceneOffscreenTexturePool {
                     textures: [first, second] + (display.map { [$0] } ?? [])) else { return nil }
             let targets = SceneColorTargets(first: first, second: second,
                                            display: display, intent: intent, identity: identity)
-            guard allocationCache.commit([.init(key: key,
-                allocation: .sceneColor(targets), byteCost: cost)]) else { return nil }
+            guard allocationCache.locked({
+                guard allocationCache.revision == expectedRevision,
+                      let staged = allocationCache.stageCandidates([.init(key: key,
+                        allocation: .sceneColor(targets), byteCost: cost)],
+                        protectedKeys: [key]) else { return false }
+                allocationCache.apply(staged)
+                return true
+            }) else { return nil }
         }
         return allocationCache.locked {
             guard var entry = allocationCache.residents[.current(key)],

@@ -349,9 +349,9 @@
       "lastReviewed": "2026-10-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3b79e9d3291d661b2c220674b61b3bdc79de979a16bc6f06882e002ad9ef1f19",
+        "sourceSHA256": "bf7325d3f6aab05259c4d681fd34fe562aacf645a5c1ed44d7c7a6789c0725e4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "RF04 A替换旧F5 main前缀的稳定owner/失败合同，核对D12与D3路由；B作者输入仍待设计。导航复核不替代最终运行验收。",
+        "scope": "核对原cache的allocation recovery、保护集合和revision合同及D12路由；B作者输入仍未准入，导航复核不替代运行验收。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

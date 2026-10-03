@@ -1318,6 +1318,38 @@
       ]
     },
     {
+      "id": "offscreen-pool-fixtures",
+      "patterns": [
+        "script/tests/test_scene_offscreen_texture_pool.py",
+        "script/tests/fixtures/SceneOffscreenPool*.swift"
+      ],
+      "modules": [
+        "test_scene_offscreen_texture_pool",
+        "test_scene_allocation_recovery",
+        "test_scene_graph_allocation_recovery",
+        "test_scene_composition_source_identity",
+        "test_scene_directional_shadow",
+        "test_scene_material_copy_history_rendering"
+      ]
+    },
+    {
+      "id": "allocation-recovery",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/ScenePersistentGraphTargetAllocator.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
+        "script/tests/test_scene_allocation_recovery.py",
+        "script/tests/test_scene_graph_allocation_recovery.py",
+        "script/tests/fixtures/SceneAllocationRecoveryHarness.swift",
+        "script/tests/fixtures/scene_graph_allocation_recovery.swift"
+      ],
+      "modules": [
+        "test_scene_allocation_recovery",
+        "test_scene_graph_allocation_recovery"
+      ]
+    },
+    {
       "id": "persistent-color-output",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/*SceneColor.swift",

@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 523,
-      "bytes": 81488
+      "lines": 525,
+      "bytes": 82166
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -137,8 +137,8 @@
       "bytes": 13916
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
-      "lines": 116,
-      "bytes": 22374
+      "lines": 118,
+      "bytes": 23416
     },
     "docs/scene/roadmap/batch2/debug-frame-capture-lifecycle-design.md": {
       "lines": 88,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 257,
-      "bytes": 49271
+      "bytes": 49495
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1124,38 +1124,38 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "f6b1504f9d67d90f6bea0f6ebffc33035488a6a4b3589227fb935bae99fcfe3d",
-      "after": "ffef7c9c8001fe9309897364e8bce29683159691fce0f1441f4bdcb9004f227a",
-      "owner": "Scene RF04",
-      "reason": "Replace obsolete main-prefix reflection with reviewed completed-history contract; record bounded A evidence and explicit blocked B capacity design without duplicating runtime results.",
-      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-completed-scene-environment"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
-      "before": "f58cbc44aba19bc8a20c60c24448c10b84be34db0d4792e571e8394cc895eb83",
-      "after": "442ce1df18358fe56882067f81ede942338ffc113001fc20077b4c07450c7a45",
-      "owner": "Scene RF04",
-      "reason": "Replace obsolete main-prefix reflection with reviewed completed-history contract; record bounded A evidence and explicit blocked B capacity design without duplicating runtime results.",
-      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-completed-scene-environment"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "c25df4117137aa7bc2c8afb13736d4e3fdd4885bd592835aa74a95362ca4cbe6",
-      "after": "a83f1a3d0fa29bf881786ffcddd57a3733361456b13f06a87654e0f3c019d32c",
+      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
+      "before": "f569fdf447a7ee036ae67473791b4b99bd2251832ca67336dc49f13b2a35f611",
+      "after": "ab1ea36bfe840e0e0c835f1716e88a6aac6a4f1a2b5c3b6af4a0db8382cb1423",
       "owner": "Scene RF04 capacity prerequisite",
       "reason": "Withdraw insufficient pool-only capacity prediction; record actual allocation counterexample and prerequisite before authored sampler admission.",
       "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "f569fdf447a7ee036ae67473791b4b99bd2251832ca67336dc49f13b2a35f611",
-      "after": "ab1ea36bfe840e0e0c835f1716e88a6aac6a4f1a2b5c3b6af4a0db8382cb1423",
-      "owner": "Scene RF04 capacity prerequisite",
-      "reason": "Withdraw insufficient pool-only capacity prediction; record actual allocation counterexample and prerequisite before authored sampler admission.",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "ffef7c9c8001fe9309897364e8bce29683159691fce0f1441f4bdcb9004f227a",
+      "after": "dafb0b8c3a9d5e557b5e78d755211d3182de2b2e729d805c64987fc852e3fd4e",
+      "owner": "Scene RF04 allocation recovery",
+      "reason": "Record the existing cache owner recovery contract after the native-quota counterexample; retain actual deinit accounting and one retry per allocation batch, without admitting authored RF04 B.",
+      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
+      "before": "a32196c331c3fcb77d9d6281d68e7ff08d8e7a7e9cf9677e6facc903eccd088b",
+      "after": "f2b9253604a8465a4bbd0033d710fbcab032b9a461f370c203add66785b6f674",
+      "owner": "Scene RF04 allocation recovery",
+      "reason": "Record the existing cache owner recovery contract after the native-quota counterexample; retain actual deinit accounting and one retry per allocation batch, without admitting authored RF04 B. Consolidate the resolved protected counterexample into the verified bounded recovery evidence package.",
+      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "before": "a83f1a3d0fa29bf881786ffcddd57a3733361456b13f06a87654e0f3c019d32c",
+      "after": "03309e5569562dafc4df4086aa00146b3b1875d6cb2e4f53b85c89f3c5597246",
+      "owner": "Scene RF04 allocation recovery",
+      "reason": "Record the existing cache owner recovery contract after the native-quota counterexample; retain actual deinit accounting and one retry per allocation batch, without admitting authored RF04 B.",
       "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
     }
   ]

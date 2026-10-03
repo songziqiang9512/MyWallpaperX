@@ -36,35 +36,50 @@ final class SceneOffscreenTextureAllocationCache {
         _ candidates: [Candidate],
         requiredKeys: Set<Key>
     ) -> Bool {
+        locked { commitSharedGraphPairsLocked(candidates, requiredKeys: requiredKeys) }
+    }
+
+    func commitSharedGraphPairs(
+        _ candidates: [Candidate],
+        requiredKeys: Set<Key>,
+        expectedRevision: UUID
+    ) -> UUID? {
         locked {
-            let candidateKeys = Set(candidates.map(\.key))
-            guard !requiredKeys.isEmpty,
-                  candidateKeys.count == candidates.count,
-                  candidateKeys.isSubset(of: requiredKeys),
-                  requiredKeys.allSatisfy({ key in
-                      guard case .sharedGraphPair = key else { return false }
-                      if candidateKeys.contains(key) { return true }
-                      guard let entry = residents[.current(key)],
-                            !entry.isResetInvalidated,
-                            case .sharedGraphPair = entry.allocation else {
-                          return false
-                      }
-                      return true
-                  }), candidates.allSatisfy({ candidate in
-                      guard case .sharedGraphPair = candidate.key,
-                            case .sharedGraphPair = candidate.allocation else {
-                          return false
-                      }
-                      return candidate.keyMatchesAllocation
-                  }) else { return false }
-            guard !candidates.isEmpty else { return true }
-            guard let staged = stageCandidates(
-                candidates,
-                protectedKeys: requiredKeys
-            ) else { return false }
-            apply(staged)
-            return true
+            guard revision == expectedRevision,
+                  commitSharedGraphPairsLocked(candidates, requiredKeys: requiredKeys)
+            else { return nil }
+            return revision
         }
+    }
+
+    private func commitSharedGraphPairsLocked(
+        _ candidates: [Candidate], requiredKeys: Set<Key>
+    ) -> Bool {
+        let candidateKeys = Set(candidates.map(\.key))
+        guard !requiredKeys.isEmpty,
+              candidateKeys.count == candidates.count,
+              candidateKeys.isSubset(of: requiredKeys),
+              requiredKeys.allSatisfy({ key in
+                  guard case .sharedGraphPair = key else { return false }
+                  if candidateKeys.contains(key) { return true }
+                  guard let entry = residents[.current(key)],
+                        !entry.isResetInvalidated,
+                        case .sharedGraphPair = entry.allocation else {
+                      return false
+                  }
+                  return true
+              }), candidates.allSatisfy({ candidate in
+                  guard case .sharedGraphPair = candidate.key,
+                        case .sharedGraphPair = candidate.allocation else {
+                      return false
+                  }
+                  return candidate.keyMatchesAllocation
+              }) else { return false }
+        guard !candidates.isEmpty else { return true }
+        guard let staged = stageCandidates(candidates, protectedKeys: requiredKeys)
+        else { return false }
+        apply(staged)
+        return true
     }
 
     func stageCandidates(
@@ -110,31 +125,67 @@ final class SceneOffscreenTextureAllocationCache {
         let (initial, overflow) = base.addingReportingOverflow(incomingCost)
         guard !overflow else { return false }
         var total = initial
-        let victims = values.compactMap { key, entry -> (ResidentKey, Entry)? in
+        let victims = evictionVictims(in: values, protectedKeys: protected,
+                                     protectedGenerations: [])
+        for victim in victims where total > byteBudget {
+            total -= evictVictim(victim, from: &values)
+        }
+        return total <= byteBudget
+    }
+
+    /// Reclaims rebuildable residency only after a real allocation failed.
+    /// Resource leases release physical quota when their textures deinitialize.
+    func reclaimIdleAllocations(
+        expectedRevision: UUID, protectedKeys: Set<Key>,
+        protectedGenerations: Set<UInt64> = []
+    ) -> UUID? {
+        autoreleasepool {
+            locked {
+                guard revision == expectedRevision else { return nil }
+                let victims = evictionVictims(in: residents, protectedKeys: protectedKeys,
+                                             protectedGenerations: protectedGenerations)
+                guard !victims.isEmpty else { return nil }
+                for victim in victims { _ = evictVictim(victim, from: &residents) }
+                revision = UUID()
+                return revision
+            }
+        }
+    }
+
+    private func evictionVictims(
+        in values: [ResidentKey: Entry], protectedKeys: Set<Key>,
+        protectedGenerations: Set<UInt64>
+    ) -> [ResidentKey] {
+        values.compactMap { key, entry -> (ResidentKey, UInt64)? in
             guard entry.submissionPins.isEmpty,
-                  !entry.isResetInvalidated, entry.sceneColorPins.isEmpty else { return nil }
+                  !entry.isResetInvalidated, entry.sceneColorPins.isEmpty,
+                  !protectedGenerations.contains(entry.allocation.generation)
+            else { return nil }
             switch key {
-            case .current(let current) where protected.contains(current): return nil
+            case .current(let current) where protectedKeys.contains(current): return nil
             case .current, .retired: break
             case .history: return nil
             }
-            return (key, entry)
-        }.sorted { $0.1.lastAccess < $1.1.lastAccess }
-        for victim in victims where total > byteBudget {
-            values.removeValue(forKey: victim.0)
-            let graphKey: SceneLayerGraphTargetPlan.Key? = switch victim.1.allocation {
-            case .layerGraph(let graph): graph.plan.key
-            case .history(let history): history.plan.key
-            default: nil
-            }
-            if let graphKey, let history = victim.1.historyOnlyEntry() {
-                values[.history(graphKey, history.allocation.generation)] = history
-                total -= victim.1.byteCost - history.byteCost
-            } else {
-                total -= victim.1.byteCost
-            }
+            return (key, entry.lastAccess)
+        }.sorted { $0.1 < $1.1 }.map { $0.0 }
+    }
+
+    /// Both logical eviction and allocation recovery preserve the same history
+    /// closure. Return only scalar cost; never retain a removed Entry in a plan.
+    private func evictVictim(
+        _ key: ResidentKey, from values: inout [ResidentKey: Entry]
+    ) -> Int {
+        guard let victim = values.removeValue(forKey: key) else { return 0 }
+        let graphKey: SceneLayerGraphTargetPlan.Key? = switch victim.allocation {
+        case .layerGraph(let graph): graph.plan.key
+        case .history(let history): history.plan.key
+        default: nil
         }
-        return total <= byteBudget
+        if let graphKey, let history = victim.historyOnlyEntry() {
+            values[.history(graphKey, history.allocation.generation)] = history
+            return victim.byteCost - history.byteCost
+        }
+        return victim.byteCost
     }
 
     private func cost(_ values: [ResidentKey: Entry]) -> Int? {

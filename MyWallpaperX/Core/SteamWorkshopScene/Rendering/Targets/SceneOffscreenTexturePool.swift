@@ -98,7 +98,8 @@ final class SceneOffscreenTexturePool {
         width requestedWidth: Int,
         height requestedHeight: Int,
         commandBuffer: MTLCommandBuffer?,
-        extentPolicy: SceneFullFrameExtentPolicy = .standard
+        extentPolicy: SceneFullFrameExtentPolicy = .standard,
+        textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil
     ) -> CompositionTarget? {
         guard let (width, height) = SceneOffscreenResolutionPolicy.resolvedDimensions(
             width: requestedWidth, height: requestedHeight,
@@ -123,22 +124,10 @@ final class SceneOffscreenTexturePool {
             }
         }
         if let current = pinCurrent() { return current }
-        guard let byteCost = byteCost(width: width, height: height, textureCount: 1),
-              byteCost <= residentByteBudget,
-              let texture = makeTexture(
-                  width: width,
-                  height: height,
-                  label: "SceneCompositionSource \(width)x\(height)"
-              ), let identity = allocationCache.issuePhysicalIdentity(
-                  textures: [texture]
-              ) else { return nil }
-        let candidate = Candidate(
-            key: key,
-            allocation: .composition(texture, identity),
-            byteCost: byteCost
-        )
-        guard allocationCache.commit([candidate]) else { return nil }
-        return pinCurrent()
+        guard let texture = allocateCompositionTexture(key: key, width: width, height: height,
+            label: "SceneCompositionSource \(width)x\(height)", textureFactory: textureFactory),
+              let current = pinCurrent(), current.texture === texture else { return nil }
+        return current
     }
 
     struct PinnedTexture {
@@ -230,11 +219,24 @@ final class SceneOffscreenTexturePool {
             guard allocationCache.evictToFit(&proposed, incomingCost: incoming, protected: keys) else { return nil }
             return (allocationCache.revision, missing)
         }
-        guard let planned else { return nil }
+        guard var planned else { return nil }
+        let allocate = textureFactory ?? { [device] in
+            device.makeSceneTexture(descriptor: $0)
+        }
+        var reclaimedIdle = false
         var candidates: [Candidate] = []
         for key in planned.missing {
             let descriptor = descriptors[key]!
-            guard let texture = textureFactory?(descriptor) ?? (textureFactory == nil ? device.makeSceneTexture(descriptor: descriptor) : nil),
+            var texture = allocate(descriptor)
+            if texture == nil, !reclaimedIdle {
+                reclaimedIdle = true
+                guard let revision = allocationCache.reclaimIdleAllocations(
+                    expectedRevision: planned.revision, protectedKeys: keys)
+                else { return nil }
+                planned.revision = revision
+                texture = allocate(descriptor)
+            }
+            guard let texture,
                   let identity = allocationCache.issuePhysicalIdentity(textures: [texture]) else { return nil }
             candidates.append(.init(key: key, allocation: .composition(texture, identity), byteCost: costs[key]!))
         }
@@ -273,7 +275,8 @@ final class SceneOffscreenTexturePool {
         layerID: Int,
         width requestedWidth: Int,
         height requestedHeight: Int,
-        commandBuffer: MTLCommandBuffer
+        commandBuffer: MTLCommandBuffer,
+        textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil
     ) -> (texture: MTLTexture, pin: SceneGraphRenderTargetResidencyPin)? {
         guard let (width, height) = SceneOffscreenResolutionPolicy.resolvedDimensions(
             width: requestedWidth,
@@ -305,26 +308,57 @@ final class SceneOffscreenTexturePool {
             }
         }
         if let current = pinCurrent() { return current }
+        guard let texture = allocateCompositionTexture(key: key, width: width, height: height,
+            label: "SceneCompositionGroup \(layerID) \(width)x\(height)", textureFactory: textureFactory),
+              let current = pinCurrent(), current.0 === texture else { return nil }
+        return current
+    }
+
+    /// Single-target composition uses the same allocation/revision boundary
+    /// for standalone sources and composition groups; pinning follows commit.
+    private func allocateCompositionTexture(
+        key: CacheKey, width: Int, height: Int, label: String,
+        textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)?
+    ) -> MTLTexture? {
         guard let byteCost = byteCost(width: width, height: height, textureCount: 1),
-              byteCost <= residentByteBudget,
-              allocationCache.locked({
-                  var proposed = allocationCache.residents
-                  return allocationCache.evictToFit(&proposed, incomingCost: byteCost)
-              }),
-              let texture = makeTexture(
-                  width: width,
-                  height: height,
-                  label: "SceneCompositionGroup \(layerID) \(width)x\(height)"
-              ), let identity = allocationCache.issuePhysicalIdentity(
-                  textures: [texture]
-              ) else { return nil }
-        let candidate = Candidate(
-            key: key,
-            allocation: .composition(texture, identity),
-            byteCost: byteCost
-        )
-        guard allocationCache.commit([candidate]) else { return nil }
-        return pinCurrent()
+              byteCost <= residentByteBudget else { return nil }
+        let protected: Set<CacheKey> = [key]
+        guard var expectedRevision = allocationCache.locked({ () -> UUID? in
+            var proposed = allocationCache.residents
+            if let previous = proposed.removeValue(forKey: .current(key)), previous.isPinned {
+                proposed[.retired(previous.allocation.generation)] = previous
+            }
+            guard allocationCache.evictToFit(&proposed, incomingCost: byteCost,
+                                            protected: protected) else { return nil }
+            return allocationCache.revision
+        }) else { return nil }
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: pixelFormat,
+            width: width, height: height, mipmapped: false)
+        descriptor.usage = [.renderTarget, .shaderRead]
+        descriptor.storageMode = .private
+        let allocate = textureFactory ?? { [device] in
+            device.makeSceneTexture(descriptor: $0)
+        }
+        var texture = allocate(descriptor)
+        if texture == nil {
+            guard let revision = allocationCache.reclaimIdleAllocations(
+                expectedRevision: expectedRevision, protectedKeys: protected)
+            else { return nil }
+            expectedRevision = revision
+            texture = allocate(descriptor)
+        }
+        guard let texture,
+              let identity = allocationCache.issuePhysicalIdentity(textures: [texture])
+        else { return nil }
+        texture.label = label
+        let candidate = Candidate(key: key, allocation: .composition(texture, identity), byteCost: byteCost)
+        return allocationCache.locked {
+            guard allocationCache.revision == expectedRevision,
+                  let staged = allocationCache.stageCandidates([candidate], protectedKeys: protected)
+            else { return nil }
+            allocationCache.apply(staged)
+            return texture
+        }
     }
 
     func persistentTargetPlans(
@@ -520,17 +554,4 @@ final class SceneOffscreenTexturePool {
         return totalOverflow ? nil : total
     }
 
-    func makeTexture(width: Int, height: Int, label: String) -> MTLTexture? {
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: pixelFormat,
-            width: width,
-            height: height,
-            mipmapped: false
-        )
-        descriptor.usage = [.renderTarget, .shaderRead]
-        descriptor.storageMode = .private
-        let texture = device.makeSceneTexture(descriptor: descriptor)
-        texture?.label = label
-        return texture
-    }
 }

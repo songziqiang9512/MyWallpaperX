@@ -41,33 +41,52 @@ struct ScenePersistentGraphTargetAllocator {
 
     func prepare(
         plans: [GraphPlan],
-        orderingContext: SceneGraphCommandQueueOrderingContext? = nil
+        orderingContext: SceneGraphCommandQueueOrderingContext? = nil,
+        recoveryBatch: SceneGraphAllocationRecoveryBatch? = nil
     ) -> [ScenePreparedPersistentGraphTargets]? {
+        let recoveryBatch = recoveryBatch ?? makeRecoveryBatch(plans: plans)
         guard !plans.isEmpty,
               let reservations = cache.reserveGraphs(
                   plans: plans, orderingContext: orderingContext
               ) else { return nil }
-        return prepare(plans: plans, reservations: reservations)
+        return prepare(plans: plans, reservations: reservations, recoveryBatch: recoveryBatch)
     }
 
     func prepare(
         plans: [GraphPlan],
-        reservations: [SceneOffscreenTextureAllocationCache.GraphReservation]
+        reservations: [SceneOffscreenTextureAllocationCache.GraphReservation],
+        recoveryBatch: SceneGraphAllocationRecoveryBatch? = nil
     ) -> [ScenePreparedPersistentGraphTargets]? {
-        guard !plans.isEmpty, plans.count == reservations.count else { return nil }
+        let recoveryBatch = recoveryBatch ?? makeRecoveryBatch(plans: plans)
+        guard !plans.isEmpty, plans.count == reservations.count,
+              recoveryBatch.protect(reservations) else { return nil }
         var result: [ScenePreparedPersistentGraphTargets] = []
         for (plan, reservation) in zip(plans, reservations) {
             guard valid(seed: reservation.historySeed, for: plan),
-                  let prepared = prepare(plan: plan, reservation: reservation)
+                  let prepared = prepare(plan: plan, reservation: reservation,
+                    recoveryBatch: recoveryBatch)
             else { return nil }
             result.append(prepared)
         }
-        return result
+        // Reservations retain their original identities. The existing final
+        // commit refresh must still prove reservationStillMatches after reclaim.
+        return recoveryBatch.isCurrent ? result : nil
+    }
+
+    private func makeRecoveryBatch(plans: [GraphPlan]) -> SceneGraphAllocationRecoveryBatch {
+        var keys = Set(plans.map { SceneOffscreenTextureAllocationCache.Key.layerGraph($0.key) })
+        for plan in plans where plan.pairStorage == .shared {
+            if let extent = plan.sharedPairDimensions {
+                keys.insert(.sharedGraphPair(width: extent.width, height: extent.height))
+            }
+        }
+        return .init(cache: cache, protectedKeys: keys)
     }
 
     private func prepare(
         plan: GraphPlan,
-        reservation: SceneOffscreenTextureAllocationCache.GraphReservation
+        reservation: SceneOffscreenTextureAllocationCache.GraphReservation,
+        recoveryBatch: SceneGraphAllocationRecoveryBatch
     ) -> ScenePreparedPersistentGraphTargets? {
         if let cached = reservation.cachedAllocation {
             let candidate = SceneOffscreenTextureAllocationCache.Candidate(
@@ -111,7 +130,9 @@ struct ScenePersistentGraphTargetAllocator {
             for slot in framebufferSlots {
                 let descriptor = textureDescriptor(for: slot.descriptor)
                 let label = "SceneLayerGraphRT layer=\(plan.key.layerID) slot=\(slot.id)"
-                guard let texture = textureFactory(descriptor, label) else { return nil }
+                guard let texture = recoveryBatch.makeTexture({
+                    textureFactory(descriptor, label)
+                }) else { return nil }
                 allocated[slot.id] = texture
             }
             texturesBySlot = allocated

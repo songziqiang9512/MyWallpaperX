@@ -175,9 +175,11 @@ extension SceneOffscreenTexturePool {
     func sharedPairCandidate(
         width: Int,
         height: Int,
-        textureFactory: ScenePersistentGraphTargetAllocator.TextureFactory? = nil
+        textureFactory: ScenePersistentGraphTargetAllocator.TextureFactory? = nil,
+        recoveryBatch: SceneGraphAllocationRecoveryBatch? = nil
     ) -> Candidate? {
         let key = CacheKey.sharedGraphPair(width: width, height: height)
+        let recoveryBatch = recoveryBatch ?? .init(cache: allocationCache, protectedKeys: [key])
         guard let byteCost = byteCost(
             width: width,
             height: height,
@@ -201,8 +203,8 @@ extension SceneOffscreenTexturePool {
             return texture
         }
         let label = "sharedPair:\(width)x\(height)"
-        guard let first = factory(descriptor, "SceneSharedPairA \(label)"),
-              let second = factory(descriptor, "SceneSharedPairB \(label)"),
+        guard let first = recoveryBatch.makeTexture({ factory(descriptor, "SceneSharedPairA \(label)") }),
+              let second = recoveryBatch.makeTexture({ factory(descriptor, "SceneSharedPairB \(label)") }),
               let physicalIdentity = allocationCache.issuePhysicalIdentity(
                   textures: [first, second]
               ) else { return nil }
@@ -335,12 +337,13 @@ extension SceneOffscreenTexturePool {
     func preparePersistentGraphTargets(
         framePlans: [ScenePersistentGraphTargetFramePlan]
     ) -> [ScenePreparedPersistentGraphTargets]? {
-        guard let requiredSharedPairKeys = requiredSharedPairKeys(for: framePlans),
-              ensureSharedPairs(requiredSharedPairKeys),
+        guard let requiredSharedPairKeys = requiredSharedPairKeys(for: framePlans) else { return nil }
+        let recoveryBatch = graphRecoveryBatch(framePlans: framePlans, sharedKeys: requiredSharedPairKeys)
+        guard ensureSharedPairs(requiredSharedPairKeys, recoveryBatch: recoveryBatch),
               preflightPersistentGraphTargets(framePlans) == .ready else {
             return nil
         }
-        return allocatePreparedPersistentGraphTargets(framePlans)
+        return allocatePreparedPersistentGraphTargets(framePlans, recoveryBatch: recoveryBatch)
     }
 
     /// Same-thread fast path for callers that just received `.ready` from
@@ -352,22 +355,32 @@ extension SceneOffscreenTexturePool {
     func preparePreflightedPersistentGraphTargets(
         framePlans: [ScenePersistentGraphTargetFramePlan]
     ) -> [ScenePreparedPersistentGraphTargets]? {
-        guard let requiredSharedPairKeys = requiredSharedPairKeys(for: framePlans),
-              ensureSharedPairs(requiredSharedPairKeys) else {
+        guard let requiredSharedPairKeys = requiredSharedPairKeys(for: framePlans) else { return nil }
+        let recoveryBatch = graphRecoveryBatch(framePlans: framePlans, sharedKeys: requiredSharedPairKeys)
+        guard ensureSharedPairs(requiredSharedPairKeys, recoveryBatch: recoveryBatch) else {
             return nil
         }
-        return allocatePreparedPersistentGraphTargets(framePlans)
+        return allocatePreparedPersistentGraphTargets(framePlans, recoveryBatch: recoveryBatch)
+    }
+
+    private func graphRecoveryBatch(
+        framePlans: [ScenePersistentGraphTargetFramePlan], sharedKeys: Set<CacheKey>
+    ) -> SceneGraphAllocationRecoveryBatch {
+        .init(cache: allocationCache,
+              protectedKeys: sharedKeys.union(framePlans.map { .layerGraph($0.graphPlan.key) }))
     }
 
     private func allocatePreparedPersistentGraphTargets(
-        _ framePlans: [ScenePersistentGraphTargetFramePlan]
+        _ framePlans: [ScenePersistentGraphTargetFramePlan],
+        recoveryBatch: SceneGraphAllocationRecoveryBatch
     ) -> [ScenePreparedPersistentGraphTargets]? {
         let contexts = framePlans.compactMap(\.orderingContext)
         return ScenePersistentGraphTargetAllocator(
             device: device, cache: allocationCache
         ).prepare(
             plans: framePlans.map(\.graphPlan),
-            orderingContext: contexts.first
+            orderingContext: contexts.first,
+            recoveryBatch: recoveryBatch
         )
     }
 
