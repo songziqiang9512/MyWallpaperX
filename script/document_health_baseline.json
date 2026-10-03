@@ -137,8 +137,8 @@
       "bytes": 13916
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
-      "lines": 124,
-      "bytes": 26111
+      "lines": 122,
+      "bytes": 25164
     },
     "docs/scene/roadmap/batch2/debug-frame-capture-lifecycle-design.md": {
       "lines": 88,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 257,
-      "bytes": 49718
+      "bytes": 49705
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -178,7 +178,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 242,
-      "bytes": 32813
+      "bytes": 32774
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,

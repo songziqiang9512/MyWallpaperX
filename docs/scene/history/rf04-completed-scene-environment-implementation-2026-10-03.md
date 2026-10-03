@@ -88,3 +88,17 @@ V1/V2仍会全量保留旧current而要求峰值容量；静态追踪证明正�
 最终V3七组方向断言通过，包括新增10行净容量/取消/外部submission/shared换代对照。连续三次资源prepare/finalize（未提交CB）的full成本16384、history成本8192，准入均为24576，严格低于两幅完整图的32768；原seed纹理与token保持，只有原owner释放history后才退出。真实新pair在准入前替换使旧候选拒绝，准入期间则受保护；native账户0→0。首次shared测试误用`sharedPairCandidate`命中旧缓存，没有制造不同generation，纠正为真实新纹理和同cache签发的physical identity后通过；产品源未因该测试失败修改。原始夹具、失败及修正后结果均保留，不能称为产品换代故障。
 
 V1原29项pool回归8.963s、V3原29项10.236s均通过；它们包含既有GPU路径，只支持原one-phase回归。全部新增admission probe未提交CB，不证明实际rehydrate像素、Program/coordinator局部fallback、scene receipt、mip内容、App或RF04 B能力。最终V3资源独审与五文档独审均为有界ACCEPT、无P1/P2；资源审查SHA256为`22235baa8eb24f8c76290e242f7a2a75ecc8f5060cad628da0d83f1e157511c4`。V1/V2/V3各40/41/42个执行输入零漂移，文档健康及4个文档/设计模块通过。239个证据成员已逐SHA验证并提升到`.artifacts/scene-evidence/runs/rf04-b-resource-admission-prototype-20261004`，archive SHA256为`6c1d2a8a142f30a9dc3b815d4966517fc58a494bcf7b61be1c73672288c4e8dd`，默认14天。包含三个原型、真实Harness、初失败/修正结果与审查；约277MiB临时编译缓存和binary已清理，隔离候选源保留供后续阶段实验，唯一连续App构建缓存仍为`/private/tmp/mwx-scene-next-build/cache`。下一步先验证[D12阶段候选](../roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission)，不把资源原型通过等同作者名称准入。
+
+## B 原 coordinator 阶段原型
+
+基线`a7d1d02e`，产品工作树未接入。隔离候选在原cache资源handle上增加一次性bundle：锁外先完成整批preflight与实际物化，原coordinator仍检查claim、runtime/execution/frame身份、pool、CB和精确plans；只把真实executor成功的input indices交原subset commit。环境仅覆盖同frameEpoch/frameIndex的冻结snapshot，保持唯一publication与增量digest。
+
+V1真实执行暴露三处候选问题：96-byte pool预算下先物化shared pair，整批拒绝后仍占逻辑96/native256；generic-complete的preservedChannels/data纹理被接纳为环境；显式unavailable没有撤销旧ready。V2恢复preflight后才分配，并复用canonical publication的`isSameAtom`验完整语义；显式unavailable精确替换，缺entry表示不更新。bundle另复用既有runtimeInstanceIdentity，地址ABA建议静态关闭，未声称动态复现地址重用。
+
+同四fixture的V1恰三项预期失败、V2全通过；各301产品源与307执行输入零漂移。真实coordinator/executor/Program/pool/Metal连续三帧得到独立递推比例0.25、0.4375、0.578125，current/history/output逐像素满足oracle且与原one-phase完全相同。首轮负向测试误要求pool归零，纠正为保留同generation/两纹理/96-byte的合法空闲shared pair，并拒绝其余pending、graph/history和pin状态；原结果保留。
+
+另四项真实生命周期检查全过，308输入零漂移：invalidate后复用相同frame元数据仍因executionEpoch拒绝；pool reset在原commit拒绝；错误claim命中原ownership检查；已消费bundle的cancel/第二coordinator重放不影响首真实commit，只有首coordinator正常defer才释放。负例起始没有旧history，只证明不发布新history。GPU结果保存聚合断言，未持久化原始pixel数组；独审核observer与冻结实际输出，没有声称独立重算已存像素。
+
+V2获有界ACCEPT，无未解决P1/P2，审查SHA256为`4a0697c2ab19f769e075cfab2f383b7c23d7f62c96d65dbc1900e4a10b81cb6f`。962成员逐SHA核验并提升至`.artifacts/scene-evidence/runs/rf04-b-coordinator-phase-prototype-20261004`，archive SHA256为`9e39915106f2fdaba0d11ca36a3ed757a8616dd4061252b7607251cbe18544cf`，默认14天；包含冻结候选、初始错误observer、红绿及生命周期结果和独审。约271MiB停止使用的编译缓存/binary已清理，候选源供接续，原唯一App构建缓存保持。
+
+RuntimeBridge request/claim和compositor消费仍是fixture接口；overlay使用合成source receipt，不证明真实completed producer。未验证actual executor局部省略、作者environment采样、真实renderer/Bridge、named/depth顺序、重叠新准入submission或App。已有captured-main fallback测试注入mock executor失败，不能补本门。下一步先用真实utility admission/finalizer加健康history层闭合局部省略，再接Bridge与Drawing并跑Debug/隔离App；B继续未准入。
