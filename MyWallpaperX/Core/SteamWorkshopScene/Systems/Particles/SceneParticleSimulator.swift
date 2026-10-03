@@ -206,18 +206,18 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         case .pause: playback.intent = .paused
         case .stop:
             playback.intent = .stopped
-            explicitBirthEventStart = nil
             for index in emitters.indices { emitters[index].rearm() }
-            particles.removeAll(keepingCapacity: true)
-            transientRenderBirths.removeAll(keepingCapacity: true)
-            birthEvents.removeAll(keepingCapacity: true)
-            deathEvents.removeAll(keepingCapacity: true)
-            normalizedLives.removeAll(keepingCapacity: true)
-            positionOscillationCache.removeAll(keepingCapacity: true)
-            trailPositionHistory.removeEntries(beyond: 0)
-            stepSnapshotRecorder?.clear()
+            discardPopulationForPlayback()
         }
         playback.revision = transition.revision
+    }
+
+    /// Completed emitters and author pause/stop intent survive visibility changes.
+    func restartPopulationForVisibility() {
+        for index in emitters.indices where playback.intent == .playing && !emitters[index].hasFinishedEmission(
+            plan: emitterSpawnPlans[index], maximumEmissionDuration: maximumEmissionDuration
+        ) { emitters[index].rearm() }
+        discardPopulationForPlayback()
     }
 
     nonisolated func advance(
@@ -226,8 +226,12 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         dynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
         dynamicInstanceOverride: SceneParticleInstanceOverride? = nil,
         audioInput: SceneParticleAudioInput = .silent,
-        worldSpaceFrameOverride: SceneParticleWorldSpaceFrame? = nil
+        worldSpaceFrameOverride: SceneParticleWorldSpaceFrame? = nil,
+        allowsEmission: Bool = true
     ) {
+        let intent = playback.intent
+        if !allowsEmission { playback.intent = .paused }
+        defer { playback.intent = intent }
         transientRenderBirths.removeAll(keepingCapacity: true)
         self.dynamicControlPoints = dynamicControlPoints
         self.dynamicControlPointAngles = dynamicControlPointAngles

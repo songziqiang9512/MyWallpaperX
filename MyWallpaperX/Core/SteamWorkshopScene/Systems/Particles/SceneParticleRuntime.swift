@@ -6,6 +6,9 @@ import simd
 /// Particle positions and sizes stay in the author-defined layer-local coordinate system.
 /// The renderer applies the layer world frame, Y-axis convention, and layer scale once.
 final class SceneParticleRuntime {
+    private let descriptor: SceneRenderDescriptor
+    private let visibilityLayersByID: [Int: SceneRenderDescriptor.Layer]
+
     struct FrameSnapshot {
         struct LayerSnapshot {
             struct RootSnapshot {
@@ -17,6 +20,7 @@ final class SceneParticleRuntime {
 
             let root: RootSnapshot?
             let child: SceneParticleChildRuntime.FrameSnapshot?
+            let wasVisible: Bool?
         }
 
         let layers: [LayerSnapshot]
@@ -63,6 +67,32 @@ final class SceneParticleRuntime {
     }
     var playbackSimulators: [(Int, SceneParticleSimulator)] {
         layers.compactMap { layer in layer.rootRender.map { (layer.layerID, $0.simulator) } }
+    }
+    func playbackVisibility(layerID: Int, dynamicValues: SceneDynamicSnapshot)
+        -> SceneParticlePlaybackVisibility? {
+        guard let index = layers.firstIndex(where: { $0.layerID == layerID }) else { return nil }
+        let visible = SceneLayerVisibility.isEffectivelyVisible(layerID: layerID, in: descriptor,
+            layersByID: visibilityLayersByID, snapshot: dynamicValues)
+        return .init(isVisible: visible, resetsPopulation: !visible
+            || (layers[index].wasVisible != nil && layers[index].wasVisible != visible))
+    }
+    /// The transaction has validated the complete surface/instance set. Install
+    /// its simulator and visibility checkpoint together, without a second reset.
+    func installPlaybackCandidate(layerID: Int, state: SceneParticleSimulator.FrameSnapshot,
+                                  visibility: SceneParticlePlaybackVisibility?) {
+        guard let index = layers.firstIndex(where: { $0.layerID == layerID }),
+              var root = layers[index].rootRender else {
+            preconditionFailure("validated particle instance disappeared during install")
+        }
+        root.simulator.restoreFrame(state)
+        if let visibility {
+            layers[index].wasVisible = visibility.isVisible
+            if visibility.resetsPopulation {
+                root.instances = []
+                root.ropeTrailHistory?.clear(keepingCapacity: false)
+            }
+        }
+        layers[index].rootRender = root
     }
     func emissionContext(layerID: Int, dynamicValues: SceneDynamicSnapshot,
                          pointerLocalPosition: SIMD3<Double>?, audio: SceneParticleAudioInput,
@@ -154,10 +184,13 @@ final class SceneParticleRuntime {
         initialDiagnostics: [SceneParticleRuntimeDiagnostic] = [],
         staticWorldSpaceFrames: [Int: SceneParticleWorldSpaceFrame]? = nil,
         staticWorldSpaceChains: [Int: Set<Int>]? = nil,
+        preparedParticleVisibilityLayerIDs: Set<Int> = [],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
         initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
     ) {
         self.device = device
+        self.descriptor = descriptor
+        visibilityLayersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
         diagnostics = initialDiagnostics
         let staticWorldSpaceFrames = staticWorldSpaceFrames
             ?? descriptor.staticParticleWorldSpaceFrames
@@ -165,7 +198,7 @@ final class SceneParticleRuntime {
             ?? descriptor.staticParticleWorldSpaceChains
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let particleLayers = Self.orderedLayers(in: descriptor).filter {
-            visibleIDs.contains($0.id)
+            (visibleIDs.contains($0.id) || preparedParticleVisibilityLayerIDs.contains($0.id))
                 && $0.contentKind == "particle"
                 && $0.particlePath != nil
                 && $0.particleInstanceOverride?.alpha?.isStaticZeroScalar != true
@@ -446,6 +479,19 @@ final class SceneParticleRuntime {
         var batches: [SceneParticleDrawBatch] = []
         for index in layers.indices {
             let layerID = layers[index].layerID
+            let isVisible = SceneLayerVisibility.isEffectivelyVisible(
+                layerID: layerID, in: descriptor,
+                layersByID: visibilityLayersByID, snapshot: dynamicValues
+            )
+            // Hidden cadences discard their root births as well, so an explicit
+            // hidden emission cannot survive until a later show. Children keep
+            // their independent aging lifecycle below.
+            if !isVisible || (layers[index].wasVisible != nil && layers[index].wasVisible != isVisible) {
+                layers[index].rootRender?.simulator.restartPopulationForVisibility()
+                layers[index].rootRender?.instances.removeAll(keepingCapacity: true)
+                layers[index].rootRender?.ropeTrailHistory?.clear()
+            }
+            layers[index].wasVisible = isVisible
             let layerDelta = frozenWorldSpaceLayerIDs.contains(layerID)
                 ? 0 : frameDelta
             let worldSpaceFrameOverride = liveWorldSpaceFrames[layerID]
@@ -464,7 +510,7 @@ final class SceneParticleRuntime {
                 layerID: layerID
             )
             let dynamicOverride = dynamicValues.particleInstanceValues(layerID: layerID)
-            if let root = layers[index].rootRender {
+            if isVisible, let root = layers[index].rootRender {
                 var rootControlPoints = dynamicControlPoints
                 let pointerValues = root.definition.pointerControlPointValues(
                     at: pointerLocalPositions[layerID],
@@ -508,7 +554,8 @@ final class SceneParticleRuntime {
                     dynamicControlPoints: dynamicControlPoints,
                     dynamicControlPointAngles: controlPointAngles,
                     audioInput: audioInput,
-                    worldSpaceFrameOverride: worldSpaceFrameOverride
+                    worldSpaceFrameOverride: worldSpaceFrameOverride,
+                    isVisible: isVisible
                 )
                 pendingAudioEvaluationObservations.append(contentsOf:
                     childRuntime.consumeAudioEvaluationObservations().map {
@@ -536,7 +583,7 @@ final class SceneParticleRuntime {
                     )
                 }
             }
-            guard var root = layers[index].rootRender else { continue }
+            guard isVisible, var root = layers[index].rootRender else { continue }
             rebuildGPUInstances(root: &root, layerAlpha: layerAlpha)
             batches.append(SceneParticleDrawBatch(
                 layerID: layerID,
@@ -570,7 +617,8 @@ final class SceneParticleRuntime {
             }
             return FrameSnapshot.LayerSnapshot(
                 root: root,
-                child: layer.childRuntime?.frameSnapshot()
+                child: layer.childRuntime?.frameSnapshot(),
+                wasVisible: layer.wasVisible
             )
         }, pendingAudioEvaluationObservations: pendingAudioEvaluationObservations,
            frozenWorldSpaceLayerIDs: frozenWorldSpaceLayerIDs,
@@ -580,6 +628,7 @@ final class SceneParticleRuntime {
     func restoreFrame(_ snapshot: FrameSnapshot) {
         guard snapshot.layers.count == layers.count else { return }
         for index in layers.indices {
+            layers[index].wasVisible = snapshot.layers[index].wasVisible
             if let rootSnapshot = snapshot.layers[index].root,
                var root = layers[index].rootRender {
                 rootSnapshot.simulator.restoreFrame(rootSnapshot.simulatorFrame)

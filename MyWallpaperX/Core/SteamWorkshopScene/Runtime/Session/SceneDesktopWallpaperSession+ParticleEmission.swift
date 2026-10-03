@@ -14,8 +14,14 @@ extension SceneDesktopWallpaperSession {
         func captureInstances() -> [SceneParticlePlaybackTransaction.Instance] {
             identities = capturedSurfaces.mapValues { $0.metalView.particlePlaybackIdentity }
             return capturedSurfaces.flatMap { id, surface in
-                surface.metalView.particlePlaybackSimulators.map {
-                    .init(surfaceID: id, layerID: $0.0, simulator: $0.1)
+                surface.metalView.particlePlaybackSimulators.map { layerID, simulator in
+                    .init(surfaceID: id, layerID: layerID, simulator: simulator,
+                        visibility: surface.metalView.particlePlaybackVisibility(layerID: layerID,
+                            dynamicValues: preliminary.snapshot),
+                        install: { state, visibility in MainActor.assumeIsolated {
+                            surface.metalView.installParticlePlaybackCandidate(layerID: layerID,
+                                state: state, visibility: visibility)
+                        } })
                 }
             }
         }

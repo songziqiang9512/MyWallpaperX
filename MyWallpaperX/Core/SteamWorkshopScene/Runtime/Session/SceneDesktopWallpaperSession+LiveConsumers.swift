@@ -1,6 +1,27 @@
 import Foundation
 
 extension SceneDesktopWallpaperSession {
+    func particleVisibilityResourcesPrepared(
+        layerID: Int,
+        context: SceneDesktopWallpaperLaunchContext
+    ) -> Bool {
+        !surfaces.isEmpty && Set(surfaces.keys) == preparedSurfaceIDs
+            && surfaces.values.allSatisfy {
+                $0.scriptGeneration == context.propertyVectorScriptProgram.generation
+                    && $0.metalView.preparedParticleLayerIDs.contains(layerID)
+            }
+    }
+
+    func unavailableLiveConsumerTargets(
+        in context: SceneDesktopWallpaperLaunchContext
+    ) -> Set<SceneDynamicTarget> {
+        let particleTargets = context.preparedParticleVisibilityLayerIDs
+            .filter { !particleVisibilityResourcesPrepared(layerID: $0, context: context) }
+            .map { SceneDynamicTarget.layer(layerID: $0, field: .visibility) }
+        return SceneDesktopWallpaperHost.unavailableLiveScriptPropertyTargets(in: context)
+            .union(particleTargets)
+    }
+
     @discardableResult
     func applyUserPropertyValue(
         _ value: SceneUserPropertyValue,
@@ -25,8 +46,7 @@ extension SceneDesktopWallpaperSession {
             return false
         }
         var candidateLiveState = context.liveState
-        let unavailableTargets =
-            SceneDesktopWallpaperHost.unavailableLiveScriptPropertyTargets(in: context)
+        let unavailableTargets = unavailableLiveConsumerTargets(in: context)
         guard candidateLiveState.apply(
             replacements: replacements,
             changedPropertyKeys: changedPropertyKeys,
@@ -191,8 +211,7 @@ extension SceneDesktopWallpaperSession {
         guard candidateLiveState.apply(
             replacements: pending.replacements,
             changedPropertyKeys: pending.changedPropertyKeys,
-            unavailableConsumerTargets:
-                SceneDesktopWallpaperHost.unavailableLiveScriptPropertyTargets(in: context)
+            unavailableConsumerTargets: unavailableLiveConsumerTargets(in: context)
         ), soundPlaybackRegistry?.canApply(
             userValues: candidateLiveState.userValues
         ) != false else {

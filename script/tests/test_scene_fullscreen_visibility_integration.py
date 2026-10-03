@@ -16,7 +16,6 @@ import tempfile
 import unittest
 
 from .test_scene_composition_authored_order_integration import VERTEX, encoded, measure_capture
-from .test_scene_hidden_provider_integration import fixture_entries as source_fixture
 from .test_scene_pkg_cache_extractor import make_package
 
 
@@ -54,10 +53,10 @@ def fixture_entries(*, mixed_particle=False, no_capture=False):
                      "shaders/own_dim.vert", "shaders/own_dim.frag"):
             entries.pop(name)
     if mixed_particle:
-        objects.append({"id": 42, "name": "Unsupported live particle cohort", "particle": "particles/owned.json",
+        objects.append({"id": 42, "name": "Particle cohort with missing texture", "particle": "particles/owned.json",
                         "origin": "64 128 0", "scale": "1 1 1", "visible": visible("unsupported", False)})
-        # A real authored particle definition, even though its activation is
-        # rejected. No success stub stands in for resource preparation.
+        # The particle has no actual texture resource, so its visibility owner
+        # cannot be prepared. The entire property cohort must stay unchanged.
         entries["particles/owned.json"] = encoded({"material": "materials/owned_particle.json",
             "maxcount": 64, "starttime": 0.5,
             "emitter": [{"name": "sphererandom", "rate": 8, "duration": 20, "instantaneous": 1,
@@ -69,7 +68,6 @@ def fixture_entries(*, mixed_particle=False, no_capture=False):
         entries["materials/owned_particle.json"] = encoded({"passes": [{"shader": "genericparticle",
             "textures": ["owned_particle.png"], "blending": "translucent", "depthtest": "disabled",
             "depthwrite": "disabled", "cullmode": "nocull"}]})
-        entries["materials/owned_particle.png"] = source_fixture()[1]["materials/white.png"]
     entries["scene.json"] = encoded({"version": 3, "general": {
         "orthogonalprojection": {"width": 256, "height": 256}, "clearcolor": "1 1 1"}, "objects": objects})
     definition = {"type": "combo", "value": "on", "options": [
@@ -105,7 +103,7 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
                           else GRAY if dim else WHITE} for key in RECTS}
         protocol = {"canvas": 256, "channelTolerance": 4, "minimumCorrectFraction": .99,
                     "launch": {"mode": "off"}, "sequenceEvery2Seconds": sequence,
-                    "expectedStepAccepted": accepted, "mixedParticle": mixed_particle,
+                    "expectedStepAccepted": accepted, "mixedParticleMissingTexture": mixed_particle,
                     "noCapturedExecution": no_capture,
                     "snapshotTimesSeconds": {"scene-ready-window.png": 1,
                         "scene-series-0002-window.png": 3.5, "scene-after-window.png": 7},
@@ -196,7 +194,7 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
     def test_prepared_fullscreen_can_show_and_hide_in_authored_slot(self):
         self.run_case()
 
-    def test_mixed_particle_cohort_rejects_even_when_particle_stays_hidden(self):
+    def test_missing_particle_texture_rejects_the_entire_fullscreen_cohort(self):
         self.run_case(mixed_particle=True)
 
     def test_fullscreen_without_captured_execution_keeps_visibility_rejected(self):

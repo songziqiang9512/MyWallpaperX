@@ -101,6 +101,7 @@ nonisolated struct SceneScriptParticlePlaybackCommand: Sendable {
     let action: SceneParticlePlaybackAction
     let callbackEpoch: UInt64
     let ordinal: UInt32
+    var count: Int = 0
 }
 nonisolated struct SceneScriptOwnerEffects: Sendable {
     let ownerTarget: SceneDynamicTarget
@@ -271,6 +272,17 @@ enum Harness {
             authoredMutationLayerIDs: [10]
         )
         let beforeCreate = runtime.snapshot()
+        let visibilityRuntime = SceneScriptDynamicLayerRuntime(
+            descriptor: descriptor, authoredMutationLayerIDs: []
+        )
+        let visibilityDefinitions = visibilityRuntime.authoredLayerDefinitions
+        let visibilityBefore = visibilityRuntime.snapshot()
+        let visibilityPlan = visibilityRuntime.preflightIsolatingOwners([
+            mutation(20, dynamic: false, fields: [.visibility], visible: false)
+        ])
+        let visibilityPreflightIsReadOnly = visibilityRuntime.snapshot().authoredLayerValues.isEmpty
+        visibilityRuntime.commit(visibilityPlan)
+        let visibilityAfter = visibilityRuntime.snapshot()
         let styleRuntime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [10])
         let stylePlan = styleRuntime.preflightIsolatingOwners([mutation(10, dynamic: false, alpha: 0.25, fields: [.alpha, .color])])
         let styleBeforeCommit = styleRuntime.snapshot().authoredLayerValues.isEmpty
@@ -570,6 +582,22 @@ enum Harness {
                 .text(layerID: 20, field: .font)
             ] == .string("fonts/selected.ttf"),
             "authoredDefinitionCount": runtime.authoredLayerDefinitions.count,
+            "authoredDefinitionTargets": Set(runtime.authoredLayerDefinitions.map(\.target)) == Set([
+                .layer(layerID: 10, field: .origin), .layer(layerID: 10, field: .scale),
+                .layer(layerID: 10, field: .angles), .layer(layerID: 10, field: .visibility),
+                .layer(layerID: 20, field: .visibility), .layer(layerID: 20, field: .scale),
+                .text(layerID: 20, field: .content), .text(layerID: 20, field: .font)]),
+            "visibilityLanesPreparedBeforeFirstWrite": Set(visibilityDefinitions.map(\.target)) == Set([
+                .layer(layerID: 10, field: .visibility), .layer(layerID: 20, field: .visibility)])
+                && visibilityDefinitions.allSatisfy { $0.authoredValue == .bool(true) },
+            "visibilityCandidatePublishedBeforeCommit": visibilityPlan.authoredLayerValues[
+                .layer(layerID: 20, field: .visibility)] == .bool(false),
+            "visibilityPreflightIsReadOnly": visibilityPreflightIsReadOnly,
+            "visibilityCommitRetainsLaneWithoutSchemaChange": visibilityAfter.authoredLayerValues[
+                .layer(layerID: 20, field: .visibility)] == .bool(false)
+                && visibilityBefore.authoredLayerValues.isEmpty
+                && visibilityRuntime.authoredDefinitionRevision == 0
+                && visibilityRuntime.topologyRevision == 0,
             "rejected": !succeeded(rejected),
             "failedBatchTextRolledBack": afterRejected.authoredLayerValues[
                 .text(layerID: 20, field: .content)
@@ -708,11 +736,18 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["peerScalePublished"])
         self.assertTrue(self.result["peerTextPublished"])
         self.assertTrue(self.result["peerFontPublished"])
-        self.assertEqual(self.result["authoredDefinitionCount"], 7)
+        self.assertEqual(self.result["authoredDefinitionCount"], 8)
+        self.assertTrue(self.result["authoredDefinitionTargets"])
         self.assertTrue(self.result["rejected"])
         self.assertTrue(self.result["failedBatchTextRolledBack"])
         self.assertEqual(self.result["rollbackLayers"], [-1])
         self.assertEqual(self.result["rollbackOrder"], [10, 20, -1])
+
+    def test_visibility_lane_exists_before_the_first_authored_handle_write(self) -> None:
+        self.assertTrue(self.result["visibilityLanesPreparedBeforeFirstWrite"])
+        self.assertTrue(self.result["visibilityCandidatePublishedBeforeCommit"])
+        self.assertTrue(self.result["visibilityPreflightIsReadOnly"])
+        self.assertTrue(self.result["visibilityCommitRetainsLaneWithoutSchemaChange"])
 
     def test_destroy_removes_only_the_dynamic_layer(self) -> None:
         self.assertTrue(self.result["destroySucceeded"])

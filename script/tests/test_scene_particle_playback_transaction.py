@@ -31,9 +31,10 @@ final class SceneDesktopWallpaperSession {
     static let target = SceneDynamicTarget.particle(layerID:42,field:.alpha)
     static func main() throws {
         let descriptor = SceneRenderDescriptor(layers:[.init(id:42,layerIndex:0,name:"particles",visible:true,originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:nil,alpha:1,effects:[],contentKind:"particle",sizeWH:[100,100])])
-        func simulator(_ initial:SceneParticlePlaybackSnapshot = .init(), start:Double = 0.5) throws -> SceneParticleSimulator {
+        func simulator(_ initial:SceneParticlePlaybackSnapshot = .init(), start:Double = 0.5,
+                       rate:Double = 4) throws -> SceneParticleSimulator {
             let root:[String:Any] = ["material":"p.json","maxcount":100,"starttime":start,
-                "emitter":[["name":"boxrandom","rate":4,"duration":1,"distancemax":2]],
+                "emitter":[["name":"boxrandom","rate":rate,"duration":1,"distancemax":2]],
                 "initializer":[["name":"lifetimerandom","min":10,"max":10]],"renderer":[["name":"sprite"]]]
             return SceneParticleSimulator(definition:try SceneParticleDefinitionParser().parse(root:root),initialPlayback:initial,seed:81,fixedTimeStep:0.25)
         }
@@ -76,7 +77,7 @@ final class SceneDesktopWallpaperSession {
                 let state=SceneScriptDynamicLayerRuntime(descriptor:descriptor,authoredMutationLayerIDs:[])
                 let admitted=state.preflightOwnerEffectsToFixedPoint([effects(emitAuthor,evaluated)],
                     particleObservations:[42:emitSim.playbackObservation!],validateParticleTransitions:{_ in true},
-                    rejectingParticleTransitions:{ commands,bundles in
+                    rejectingParticleTransitions:{ commands,bundles,_ in
                         guard let failed=tx.prepare(commands) else{return []}
                         return Set(bundles.filter{$0.particlePlaybackCommands.contains{$0.callbackEpoch==failed.callbackEpoch && $0.ordinal==failed.ordinal}}.map(\.ownerTarget))
                     }){_ in []}
@@ -94,6 +95,124 @@ final class SceneDesktopWallpaperSession {
             result["explicit_emit_native_storage_released"] = mwx_scene_quickjs_domain_particle_reserved(emitDomain.handle)==0
             result["explicit_emit_native_work_charged"] = mwx_scene_quickjs_domain_particle_work(emitDomain.handle)<emitDomain.budget.interruptBudget
             emitDomain.endParticlePlaybackFrame()
+        }
+        for order in ["before", "after"] {
+            for failsPreparation in [false, true] {
+                var hiddenDescriptor = descriptor
+                hiddenDescriptor.layers[0].visible = false
+                let d = try SceneScriptQuickJSDomain(); try d.configureLayerCatalog(hiddenDescriptor)
+                let a = try simulator(start: 0, rate: 0), b = try simulator(start: 0, rate: 0)
+                var current = true
+                var installedVisibility: [UInt32: SceneParticlePlaybackVisibility] = [:]
+                var installedSurfaces: [UInt32] = []
+                let tx = SceneParticlePlaybackTransaction(instances: [a, b].enumerated().map { index, sim in
+                    SceneParticlePlaybackTransaction.Instance(surfaceID: UInt32(index + 1), layerID: 42, simulator: sim,
+                        visibility: .init(isVisible: false, resetsPopulation: true),
+                        install: { state, visibility in
+                            sim.restoreFrame(state)
+                            installedSurfaces.append(UInt32(index + 1))
+                            installedVisibility[UInt32(index + 1)] = visibility
+                        })
+                }, surfaceIDs: [1, 2], charge: { try d.chargeParticleWork($0, bytes: $1) },
+                   release: { d.releaseParticleStorage($0) }, isCurrent: { current },
+                   totalLiveCount: { a.particles.count + b.particles.count })
+                func beginPlaybackFrame() {
+                    d.beginParticlePlaybackFrame(onBoundary: { native, discarded in
+                        tx.callbackBoundary(owner: UInt(bitPattern: native), discardOwner: discarded)
+                    }) { native, raw in
+                        var prefix = try SceneScriptParticlePlaybackCommandBridge.commands(owner: native).get()
+                            .filter { $0.callbackEpoch == raw.callback_epoch }.map {
+                                SceneParticlePlaybackTransition(layerID: $0.layerID, action: $0.action, revision: 0,
+                                    count: $0.count, callbackEpoch: $0.callbackEpoch, ordinal: $0.ordinal)
+                            }
+                        prefix.append(.init(layerID: Int(raw.layer_id), action: .emit, revision: 0,
+                            count: Int(raw.count), callbackEpoch: raw.callback_epoch, ordinal: raw.ordinal))
+                        return try tx.preview(owner: UInt(bitPattern: native), prefix: prefix) { _ in .init() }
+                    }
+                }
+                let key = "same-frame-\(order)-\(failsPreparation ? "failed" : "accepted")"
+                let runtime = SceneScriptDynamicLayerRuntime(descriptor: hiddenDescriptor, authoredMutationLayerIDs: [])
+                // Seed both real owners through the prior committed callback;
+                // simulator and Runtime revisions must describe the same emit.
+                beginPlaybackFrame()
+                try d.publishLayerSnapshot(.empty(frameIndex: 0), descriptor: hiddenDescriptor,
+                    particlePlaybackObservations: [42: a.playbackObservation!])
+                let seedAuthor = try owner(d, "export function update(v){thisLayer.emitParticles(2);return v;}")
+                let seedValue = try evaluate(seedAuthor)
+                let seed = runtime.preflightOwnerEffects([effects(seedAuthor, seedValue)],
+                    particleObservations: [42: a.playbackObservation!])
+                let seedPrepared = tx.prepare(seed.layerPlan.particleTransitions) == nil
+                if seedPrepared && !seed.layerPlan.particleTransitions.isEmpty {
+                    tx.install(); runtime.commit(seed.layerPlan); seedAuthor.commitLayerMutations()
+                }
+                result[key + "-prior-hidden-emit-commits-through-real-owner"] = seed.rejectedOwners.isEmpty
+                    && seedPrepared && [a, b].allSatisfy { $0.particles.map(\.id) == [0, 1] && $0.playback.revision == 1 }
+                    && runtime.snapshot().particlePlayback[42]?.revision == 1
+                tx.discard(); d.endParticlePlaybackFrame()
+                let before = [a.frameSnapshot(), b.frameSnapshot()]
+                installedVisibility.removeAll(); installedSurfaces.removeAll()
+                beginPlaybackFrame()
+                try d.publishLayerSnapshot(.empty(frameIndex: 1), descriptor: hiddenDescriptor,
+                    particlePlaybackObservations: [42: a.playbackObservation!])
+                let commands = order == "before" ? "thisLayer.emitParticles(3);thisLayer.visible=true;"
+                    : "thisLayer.visible=true;thisLayer.emitParticles(3);"
+                let author = try owner(d, "export function update(v){\(commands)return v;}")
+                let evaluated = try evaluate(author)
+                result[key + "-preview-restores-real-committed-state"] = zip([a, b], before).allSatisfy { sim, old in
+                    sim.particles == old.particles && sim.playback == old.playback
+                        && sim.frameSnapshot().random.state == old.random.state
+                        && sim.frameSnapshot().nextParticleID == old.nextParticleID
+                } && installedVisibility.isEmpty && installedSurfaces.isEmpty
+                current = !failsPreparation
+                let admitted = runtime.preflightOwnerEffectsToFixedPoint([effects(author, evaluated)],
+                    particleObservations: [42: a.playbackObservation!], validateParticleTransitions: { _ in true },
+                    rejectingParticleTransitions: { transitions, bundles, _ in
+                        let candidate = runtime.preflightOwnerEffects(bundles,
+                            particleObservations: [42: a.playbackObservation!]).layerPlan
+                        guard case let .bool(visible)? = candidate.authoredLayerValues[
+                            .layer(layerID: 42, field: .visibility)] else { return Set(bundles.map(\.ownerTarget)) }
+                        guard let failed = tx.prepare(transitions, visibility: { _ in
+                            .init(isVisible: visible, resetsPopulation: true)
+                        }) else { return [] }
+                        return Set(bundles.filter { $0.particlePlaybackCommands.contains {
+                            $0.callbackEpoch == failed.callbackEpoch && $0.ordinal == failed.ordinal
+                        }}.map(\.ownerTarget))
+                    }) { _ in [] }
+                if failsPreparation {
+                    result[key + "-rejects-whole-owner-without-install"] = admitted.externallyRejectedOwners == [author.target]
+                        && admitted.admission.layerPlan.particleTransitions.isEmpty
+                        && admitted.admission.layerPlan.authoredLayerValues.isEmpty && installedVisibility.isEmpty
+                        && installedSurfaces.isEmpty
+                        && zip([a, b], before).allSatisfy { sim, old in
+                            sim.particles == old.particles && sim.playback == old.playback
+                                && sim.frameSnapshot().random.state == old.random.state
+                                && sim.frameSnapshot().nextParticleID == old.nextParticleID
+                        }
+                } else {
+                    tx.install()
+                    result[key + "-reset-before-replay-and-visibility-install"] = admitted.externallyRejectedOwners.isEmpty
+                        && installedVisibility.count == 2
+                        && installedSurfaces.sorted() == [1, 2]
+                        && installedVisibility.values.allSatisfy { $0.isVisible && $0.resetsPopulation }
+                        && [a, b].allSatisfy { $0.particles.map(\.id) == [2, 3, 4] && $0.playback.revision == 2 }
+                    a.advance(by: 0.25); b.advance(by: 0.25)
+                    result[key + "-new-births-survive-next-advance"] = [a, b].allSatisfy {
+                        $0.particles.map(\.id) == [2, 3, 4] && $0.particles.allSatisfy { $0.age == 0.25 }
+                    }
+                }
+                let installedIDs = installedVisibility.keys.sorted()
+                let liveIDs = [a, b].map { $0.particles.map(\.id) }
+                let trace: [String] = ["fixture visibility transaction \(key):",
+                    "seedRejected=\(seed.rejectedOwners.count)",
+                    "internalRejected=\(admitted.admission.rejectedOwners.count)",
+                    "externalRejected=\(admitted.externallyRejectedOwners.count)",
+                    "transitions=\(admitted.admission.layerPlan.particleTransitions.count)",
+                    "ids=\(liveIDs) installed=\(installedIDs)"]
+                FileHandle.standardError.write(Data((trace.joined(separator: " ") + "\n").utf8))
+                tx.discard()
+                result[key + "-all-native-storage-released"] = mwx_scene_quickjs_domain_particle_reserved(d.handle) == 0
+                d.endParticlePlaybackFrame()
+            }
         }
         for method in ["pause","stop"] {
             let domain=try SceneScriptQuickJSDomain();try domain.configureLayerCatalog(descriptor)
@@ -306,7 +425,7 @@ final class SceneDesktopWallpaperSession {
             _ bundles:[SceneScriptOwnerEffects],_ sim:SceneParticleSimulator, rejected:Set<SceneDynamicTarget> = []) -> SceneScriptOwnerEffectsFixedPointAdmission {
             state.preflightOwnerEffectsToFixedPoint(bundles,excludingOwners:rejected,
                 particleObservations:[42:sim.playbackObservation!],validateParticleTransitions:{_ in true},
-                rejectingParticleTransitions:{commands,admitted in
+                rejectingParticleTransitions:{commands,admitted,_ in
                     guard let failed=tx.prepare(commands) else{return []}
                     return Set(admitted.filter{$0.particlePlaybackCommands.contains{$0.callbackEpoch==failed.callbackEpoch && $0.ordinal==failed.ordinal}}.map(\.ownerTarget))
                 }){_ in []}

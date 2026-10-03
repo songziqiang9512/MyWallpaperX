@@ -186,7 +186,8 @@ final class SceneParticleChildRuntime {
         dynamicControlPoints: [Int: SIMD3<Double>] = [:],
         dynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
         audioInput: SceneParticleAudioInput = .silent,
-        worldSpaceFrameOverride: SceneParticleWorldSpaceFrame? = nil
+        worldSpaceFrameOverride: SceneParticleWorldSpaceFrame? = nil,
+        isVisible: Bool = true
     ) -> SceneParticleChildAdvanceResult {
         var limitations: Set<String> = []
         var retiredRenderSystems: [SceneParticleChildSystem] = []
@@ -198,7 +199,8 @@ final class SceneParticleChildRuntime {
             dynamicControlPoints: dynamicControlPoints,
             dynamicControlPointAngles: dynamicControlPointAngles,
             audioInput: audioInput,
-            worldSpaceFrameOverride: worldSpaceFrameOverride
+            worldSpaceFrameOverride: worldSpaceFrameOverride,
+            allowsEmission: isVisible
         )
         retireCompletedSystems(depth: 1, into: &retiredRenderSystems)
         spawn(
@@ -223,8 +225,16 @@ final class SceneParticleChildRuntime {
             audioInput: audioInput,
             worldSpaceFrameOverride: worldSpaceFrameOverride,
             retiredRenderSystems: &retiredRenderSystems,
-            limitations: &limitations
+            limitations: &limitations,
+            allowsEmission: isVisible
         )
+
+        guard isVisible else {
+            for key in instanceScratch.keys { instanceScratch[key]?.removeAll(keepingCapacity: true) }
+            return SceneParticleChildAdvanceResult(
+                batches: [], bufferFailurePaths: [], limitationDetails: limitations.sorted()
+            )
+        }
 
         // Retirement is collected by depth, while system IDs preserve authored
         // creation order across depths. Sort only on the exceptional retirement
@@ -359,7 +369,8 @@ final class SceneParticleChildRuntime {
         dynamicControlPoints: [Int: SIMD3<Double>],
         dynamicControlPointAngles: [Int: SIMD3<Double>],
         audioInput: SceneParticleAudioInput,
-        worldSpaceFrameOverride: SceneParticleWorldSpaceFrame? = nil
+        worldSpaceFrameOverride: SceneParticleWorldSpaceFrame? = nil,
+        allowsEmission: Bool
     ) -> [SceneParticleChildParentFrame] {
         let parentsByID: [UInt64: SceneParticleState] = templates.contains {
             $0.depth == 1 && $0.trigger == .follow
@@ -389,7 +400,8 @@ final class SceneParticleChildRuntime {
                     dynamicInstanceValues
                 ),
                 audioInput: audioInput,
-                worldSpaceFrameOverride: worldSpaceFrameOverride
+                worldSpaceFrameOverride: worldSpaceFrameOverride,
+                allowsEmission: allowsEmission
             )
             collectAudioEvaluationObservations(systemAt: index)
             let births = systems[index].simulator.consumeBirthEvents()
@@ -419,7 +431,8 @@ final class SceneParticleChildRuntime {
         audioInput: SceneParticleAudioInput,
         worldSpaceFrameOverride: SceneParticleWorldSpaceFrame? = nil,
         retiredRenderSystems: inout [SceneParticleChildSystem],
-        limitations: inout Set<String>
+        limitations: inout Set<String>,
+        allowsEmission: Bool
     ) {
         guard !nestedParentPaths.isEmpty else { return }
         var liveParents: [UInt64: (origin: SIMD3<Double>, particles: [UInt64: SceneParticleState])]
@@ -460,7 +473,8 @@ final class SceneParticleChildRuntime {
                     dynamicInstanceValues
                 ),
                 audioInput: audioInput,
-                worldSpaceFrameOverride: worldSpaceFrameOverride
+                worldSpaceFrameOverride: worldSpaceFrameOverride,
+                allowsEmission: allowsEmission
             )
             collectAudioEvaluationObservations(systemAt: index)
             let births = systems[index].simulator.consumeBirthEvents()

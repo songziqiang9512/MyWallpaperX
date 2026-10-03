@@ -82,6 +82,7 @@ final class FixtureAdoption {
 
 final class FixtureView {
     let adoption: FixtureAdoption
+    var preparedParticleLayerIDs: Set<Int> = []
     var staged: Set<Int> = []
     var committed: Set<Int> = []
     var attempts = 0
@@ -115,11 +116,14 @@ final class FixtureSound {
 
 struct FixtureRuntimeInput { let propertyBindingProgram: ScenePropertyBindingProgram }
 struct FixtureDeviceResources { let baseImages: FixtureResources }
+struct FixtureScriptProgram { var generation: UInt64 = 1 }
 struct SceneDesktopWallpaperLaunchContext {
     let recordID: String?
     var liveState: ScenePropertyLiveUpdateState
     let runtimeInput: FixtureRuntimeInput
     let preparedDeviceResources: FixtureDeviceResources
+    var preparedParticleVisibilityLayerIDs: Set<Int> = []
+    var propertyVectorScriptProgram = FixtureScriptProgram()
     var unavailable: Set<SceneDynamicTarget> = []
 }
 
@@ -131,9 +135,13 @@ enum SceneDesktopWallpaperHost {
 }
 
 final class SceneDesktopWallpaperSession {
-    struct Surface { let metalView: FixtureView }
+    struct Surface {
+        let metalView: FixtureView
+        var scriptGeneration: UInt64 = 1
+    }
     var launchContext: SceneDesktopWallpaperLaunchContext?
     var surfaces: [Int: Surface] = [:]
+    var preparedSurfaceIDs: Set<Int> = []
     var soundPlaybackRegistry: FixtureSound? = FixtureSound()
     var nextDeferredPropertyGeneration: UInt64 = 0
     var pendingDeferredLayerVisibilityUpdate: PendingDeferredLayerVisibilityUpdate?
@@ -149,14 +157,21 @@ import Foundation
     static let level = SceneDynamicTarget.layer(layerID: 33, field: .alpha)
     static let optional = SceneDynamicTarget.scriptInstanceProperty(
         layerID: 44, path: ["optional"])
+    static let particle = SceneDynamicTarget.layer(layerID: 42, field: .visibility)
 
-    static func make() -> (SceneDesktopWallpaperSession, FixtureResources, FixtureAdoption) {
+    static func make(particleCohort: Bool = false)
+        -> (SceneDesktopWallpaperSession, FixtureResources, FixtureAdoption) {
+        let particleDefinitions: [SceneDynamicTargetDefinition] = particleCohort
+            ? [.init(target: particle, valueType: .bool, authoredValue: .bool(false))] : []
+        let particleInstructions: [ScenePropertyBindingInstruction] = particleCohort
+            ? [.init(propertyKey: "A", path: .init(components: [.key("A")]),
+                     target: particle, valueType: .bool, condition: .string("on"))] : []
         let program = ScenePropertyBindingProgram(
             definitions: [
                 .init(target: a, valueType: .bool, authoredValue: .bool(false)),
                 .init(target: b, valueType: .bool, authoredValue: .bool(false)),
                 .init(target: level, valueType: .scalar, authoredValue: .scalar(0.2)),
-            ],
+            ] + particleDefinitions,
             instructions: [
                 .init(propertyKey: "A", path: .init(components: [.key("A")]),
                     target: a, valueType: .bool, condition: .string("on")),
@@ -164,22 +179,26 @@ import Foundation
                     target: b, valueType: .bool, condition: .string("on")),
                 .init(propertyKey: "level", path: .init(components: [.key("level")]),
                     target: level, valueType: .scalar),
-            ],
+            ] + particleInstructions,
             conditionalValueDomainsByPropertyKey: ["A": ["off", "on"], "B": ["off", "on"]]
         )
         let state = ScenePropertyLiveUpdateState(
             program: program,
             effectiveValues: ["A": .string("off"), "B": .string("off"),
                 "level": .number(0.2), "optional": .string("seed")],
-            activeConsumerTargets: [a, b, level, optional],
+            activeConsumerTargets: Set([a, b, level, optional]).union(particleCohort ? [particle] : []),
             scriptUserPropertyConsumerTargetsByKey: ["optional": [optional]]
         )
         let resources = FixtureResources()
         let adoption = FixtureAdoption()
         let session = SceneDesktopWallpaperSession(.init(recordID: "own-input",
             liveState: state, runtimeInput: .init(propertyBindingProgram: program),
-            preparedDeviceResources: .init(baseImages: resources)))
+            preparedDeviceResources: .init(baseImages: resources),
+            preparedParticleVisibilityLayerIDs: particleCohort ? [42] : []))
         installSurfaces(session, adoption)
+        if particleCohort {
+            session.surfaces.values.forEach { $0.metalView.preparedParticleLayerIDs = [42] }
+        }
         return (session, resources, adoption)
     }
 
@@ -187,6 +206,7 @@ import Foundation
                                 _ adoption: FixtureAdoption) {
         session.surfaces = [1: .init(metalView: FixtureView(adoption)),
                            2: .init(metalView: FixtureView(adoption))]
+        session.preparedSurfaceIDs = [1, 2]
     }
 
     static func apply(_ session: SceneDesktopWallpaperSession,
@@ -219,9 +239,12 @@ import Foundation
             let view = session.surfaces[id]!.metalView
             return ["id": id, "staged": view.staged.sorted(),
                 "committed": view.committed.sorted(), "attempts": view.attempts,
-                "discards": view.discards, "commits": view.commits]
+                "discards": view.discards, "commits": view.commits,
+                "preparedParticleIDs": view.preparedParticleLayerIDs.sorted(),
+                "scriptGeneration": session.surfaces[id]!.scriptGeneration]
         }
-        return ["visible": [boolean(a), boolean(b)], "level": levelValue,
+        return ["visible": [boolean(a), boolean(b)], "particleVisible": boolean(particle),
+            "revision": state.revision, "level": levelValue,
             "optional": optionalValue, "pending": pending, "views": views,
             "requests": resources.requests.map { [Int($0.layerID), Int($0.generation)] },
             "soundApplies": session.soundPlaybackRegistry?.applies ?? 0]
@@ -340,6 +363,37 @@ import Foundation
             resources.statuses[11] = .failed("own-controlled-load-failure")
             session.promotePendingDeferredLayerVisibilityIfReady()
             output["disjointFailure"] = ["accepted": [show, level],
+                "waiting": waiting, "final": snapshot(session, resources)]
+        }
+        do {
+            let (session, resources, _) = make(particleCohort: true)
+            let accepted = apply(session, ["A": .string("on")])
+            resources.statuses[11] = .ready
+            session.promotePendingDeferredLayerVisibilityIfReady()
+            output["preparedParticleCohort"] = ["accepted": accepted,
+                "final": snapshot(session, resources)]
+        }
+        for fault in ["missing-surface-resource", "generation", "surface-set"] {
+            let (session, resources, _) = make(particleCohort: true)
+            switch fault {
+            case "missing-surface-resource": session.surfaces[2]!.metalView.preparedParticleLayerIDs = []
+            case "generation": session.surfaces[2]!.scriptGeneration = 2
+            default: session.preparedSurfaceIDs = [1, 2, 3]
+            }
+            let before = snapshot(session, resources)
+            let accepted = apply(session, ["A": .string("on")])
+            output["particleAdmission-\(fault)"] = ["accepted": accepted,
+                "before": before, "final": snapshot(session, resources)]
+        }
+        for fault in ["missing-surface-resource", "generation"] {
+            let (session, resources, _) = make(particleCohort: true)
+            let accepted = apply(session, ["A": .string("on")])
+            let waiting = snapshot(session, resources)
+            if fault == "generation" { session.surfaces[2]!.scriptGeneration = 2 }
+            else { session.surfaces[2]!.metalView.preparedParticleLayerIDs = [] }
+            resources.statuses[11] = .ready
+            session.promotePendingDeferredLayerVisibilityIfReady()
+            output["particlePromotion-\(fault)"] = ["accepted": accepted,
                 "waiting": waiting, "final": snapshot(session, resources)]
         }
         print(String(decoding: try JSONSerialization.data(
@@ -483,6 +537,41 @@ class SceneDeferredPropertyIntentTests(unittest.TestCase):
         self.assertEqual(result["waiting"]["level"], 0.7)
         self.assertEqual(result["final"]["level"], 0.7)
         self.assert_committed(result["final"], [False, False], [])
+
+    def test_prepared_particle_and_image_cohort_commit_together(self) -> None:
+        result = self.result["preparedParticleCohort"]
+        self.assertTrue(result["accepted"])
+        self.assert_committed(result["final"], [True, False], [11])
+        self.assertTrue(result["final"]["particleVisible"])
+        self.assertEqual(result["final"]["revision"], 1)
+        self.assertEqual(result["final"]["soundApplies"], 1)
+
+    def test_every_current_surface_must_have_particle_resources_before_accepting_the_key(self) -> None:
+        for fault in ("missing-surface-resource", "generation", "surface-set"):
+            with self.subTest(fault=fault):
+                result = self.result[f"particleAdmission-{fault}"]
+                self.assertFalse(result["accepted"])
+                self.assertEqual(result["final"], result["before"])
+                self.assert_committed(result["final"], [False, False], [])
+                self.assertFalse(result["final"]["particleVisible"])
+                self.assertEqual(result["final"]["requests"], [])
+                self.assertEqual(result["final"]["revision"], 0)
+                self.assertEqual(result["final"]["soundApplies"], 0)
+
+    def test_pending_image_particle_cohort_rechecks_resources_at_final_promotion(self) -> None:
+        for fault in ("missing-surface-resource", "generation"):
+            with self.subTest(fault=fault):
+                result = self.result[f"particlePromotion-{fault}"]
+                self.assertTrue(result["accepted"])
+                self.assertEqual(result["waiting"]["pending"]["layers"], [11])
+                self.assertFalse(result["waiting"]["particleVisible"])
+                self.assert_committed(result["final"], [False, False], [])
+                self.assertFalse(result["final"]["particleVisible"])
+                self.assertEqual(result["final"]["revision"], 0)
+                self.assertEqual(result["final"]["soundApplies"], 0)
+                for view in result["final"]["views"]:
+                    self.assertEqual(view["attempts"], 1)
+                    self.assertEqual(view["discards"], 1)
 
 
 if __name__ == "__main__":

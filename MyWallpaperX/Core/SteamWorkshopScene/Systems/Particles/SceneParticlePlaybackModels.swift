@@ -4,6 +4,12 @@ nonisolated enum SceneParticlePlaybackIntent: Int32, Equatable, Sendable {
     case playing = 0, paused = 1, stopped = 2
 }
 
+/// Frame input projected by the particle runtime's existing visibility owner.
+nonisolated struct SceneParticlePlaybackVisibility {
+    let isVisible: Bool
+    let resetsPopulation: Bool
+}
+
 nonisolated struct SceneParticlePlaybackSnapshot: Equatable, Sendable {
     var intent: SceneParticlePlaybackIntent = .playing
     var revision: UInt64 = 0

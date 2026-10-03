@@ -45,11 +45,12 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         )
         self.dynamicImageTemplates = dynamicImageTemplates
         order = descriptor.renderOrderLayerIDs
-        let initialDefinitions = descriptor.layers.filter {
-            authoredMutationLayerIDs.contains($0.id)
-        }.flatMap {
-            layer -> [SceneDynamicTargetDefinition] in
-            Self.initialAuthoredDefinitions(for: layer)
+        let initialDefinitions = descriptor.layers.flatMap { layer -> [SceneDynamicTargetDefinition] in
+            if authoredMutationLayerIDs.contains(layer.id) { return Self.initialAuthoredDefinitions(for: layer) }
+            // A prepared authored handle may receive its first visibility write
+            // this cadence. Register the typed lane before callbacks, including
+            // ancestor containers, so the shared snapshot can consume it now.
+            return [Self.definition(for: .layer(layerID: layer.id, field: .visibility), layer: layer)].compactMap { $0 }
         }
         authoredDefinitionOrder = initialDefinitions.map(\.target)
         authoredDefinitionsByTarget = Dictionary(
@@ -482,7 +483,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         excludingOwners: Set<SceneDynamicTarget> = [],
         particleObservations: [Int: SceneParticlePlaybackObservation] = [:],
         validateParticleTransitions: ([SceneParticlePlaybackTransition]) -> Bool = { $0.isEmpty },
-        rejectingParticleTransitions: ([SceneParticlePlaybackTransition], [SceneScriptOwnerEffects]) -> Set<SceneDynamicTarget> = { _, _ in [] },
+        rejectingParticleTransitions: ([SceneParticlePlaybackTransition], [SceneScriptOwnerEffects], Set<SceneDynamicTarget>) -> Set<SceneDynamicTarget> = { _, _, _ in [] },
         rejectingDependents: (Set<SceneDynamicTarget>) -> Set<SceneDynamicTarget> = { $0 },
         rejectingExternally: ([SceneScriptOwnerEffects])
             -> Set<SceneDynamicTarget>
@@ -504,7 +505,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 newlyRejected.formUnion(admission.admittedEffects.filter { !$0.particlePlaybackCommands.isEmpty }.map(\.ownerTarget))
             }
             newlyRejected.formUnion(rejectingParticleTransitions(
-                admission.layerPlan.particleTransitions, admission.admittedEffects))
+                admission.layerPlan.particleTransitions, admission.admittedEffects,
+                externallyRejected.union(admission.rejectedOwners.compactMap(\.ownerTarget))))
             newlyRejected.subtract(externallyRejected)
             if !newlyRejected.isEmpty {
                 externallyRejected.formUnion(newlyRejected)

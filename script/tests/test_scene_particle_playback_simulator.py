@@ -161,6 +161,103 @@ import Foundation
         burst.advance(by: 0.25)
         result["burstRearmsOnceWithLiveRetained"] = burst.particles.count == 4 && Array(burst.particles.prefix(2).map(\.id)) == burstIDs
 
+        let continuousEmitter: [String: Any] = ["name": "boxrandom", "rate": 4, "distancemax": 2]
+        let visibility = try make(start: 2, historyMotion: true,
+            initial: .init(revision: 7), emitter: continuousEmitter)
+        let visibilityReference = try make(start: 2, historyMotion: true,
+            initial: .init(revision: 7), emitter: continuousEmitter)
+        visibility.advance(by: 0.125); visibilityReference.advance(by: 0.125)
+        let visibleBefore = visibility.frameSnapshot()
+        result["visibilityStartsWithRealWarmupAndResidual"] = visibleBefore.particles.count == 8
+            && visibleBefore.simulationTime == 2 && visibleBefore.accumulator == 0.125
+            && !visibleBefore.positionOscillationCache.isEmpty
+            && !visibility.trailDirectionSamples().isEmpty
+        visibility.restartPopulationForVisibility()
+        let visibleReset = visibility.frameSnapshot()
+        result["visibilityClearsPopulationAndRetainedRenderHistory"] = visibility.particles.isEmpty
+            && visibility.renderParticlesForCurrentAdvance().isEmpty
+            && visibility.birthEvents.isEmpty && visibility.deathEvents.isEmpty
+            && visibility.trailDirectionSamples().isEmpty && visibility.consumeStepSnapshots().isEmpty
+            && visibleReset.normalizedLives.isEmpty && visibleReset.positionOscillationCache.isEmpty
+        result["visibilityPreservesClockRNGMonotonicIDAndRevision"] = visibleReset.simulationTime == visibleBefore.simulationTime
+            && visibleReset.accumulator == visibleBefore.accumulator
+            && visibleReset.random.state == visibleBefore.random.state
+            && visibleReset.nextParticleID == visibleBefore.nextParticleID
+            && visibleReset.playback == visibleBefore.playback
+        visibility.advance(by: 0.125); visibilityReference.advance(by: 0.125)
+        result["visibilityShowDoesNotRepeatStarttimeWarmup"] = visibility.particles.count == 1
+            && visibility.particles[0].id == visibleBefore.nextParticleID
+            && visibility.particles[0].age == 0.25 && visibility.simulationTime == 2.25
+            && visibility.frameSnapshot().nextParticleID == visibleBefore.nextParticleID + 1
+        result["visibilityFutureBirthKeepsTheRandomSequence"] = visibility.particles.first == visibilityReference.particles.last
+            && visibility.frameSnapshot().random.state == visibilityReference.frameSnapshot().random.state
+        for action in [SceneParticlePlaybackAction.pause, .stop] {
+            let held = try make(start: 0.5, emitter: continuousEmitter)
+            command(held, action, 9)
+            let before = held.frameSnapshot()
+            held.restartPopulationForVisibility()
+            let restarted = held.frameSnapshot()
+            held.advance(by: 0.5)
+            result["visibilityRetains-\(action)-IntentAndRevision"] = held.particles.isEmpty
+                && held.playback == before.playback && held.playback.revision == 9
+                && restarted.random.state == before.random.state
+                && restarted.nextParticleID == before.nextParticleID
+                && restarted.simulationTime == before.simulationTime
+                && held.simulationTime == before.simulationTime + 0.5
+        }
+        let exhausted = try make(start: 2, initial: .init(revision: 13))
+        let exhaustedBefore = exhausted.frameSnapshot()
+        result["visibilityFiniteEmitterReallyFinished"] = !exhaustedBefore.particles.isEmpty
+            && exhausted.hasFinishedEmission && exhausted.playback.intent == .playing
+        exhausted.restartPopulationForVisibility()
+        let exhaustedReset = exhausted.frameSnapshot()
+        exhausted.advance(by: 0.5)
+        result["visibilityFinishedDurationDoesNotRestartEmission"] = exhausted.particles.isEmpty
+            && exhausted.birthEvents.isEmpty && exhausted.hasFinishedEmission
+            && exhausted.playbackObservation?.emissionPending == false
+            && exhaustedReset.emitters.map(\.elapsed) == exhaustedBefore.emitters.map(\.elapsed)
+            && exhaustedReset.emitters.map(\.emittedInstantaneous) == exhaustedBefore.emitters.map(\.emittedInstantaneous)
+            && exhausted.frameSnapshot().nextParticleID == exhaustedBefore.nextParticleID
+            && exhausted.frameSnapshot().random.state == exhaustedBefore.random.state
+            && exhausted.playback == exhaustedBefore.playback
+
+        // This is the real simulator gate used for retained child systems.
+        // It verifies advancement without pretending to exercise Runtime topology.
+        let childRoot: [String: Any] = ["material": "p.json", "maxcount": 32,
+            "emitter": [["name": "sphererandom", "rate": 4, "instantaneous": 1,
+                         "distancemin": 0, "distancemax": 0]],
+            "initializer": [["name": "lifetimerandom", "min": 6, "max": 6],
+                            ["name": "velocityrandom", "min": "20 0 0", "max": "20 0 0"]],
+            "operator": [["name": "movement", "flags": 1, "gravity": "0 0 0"]],
+            "renderer": [["name": "sprite"]]]
+        let retained = SceneParticleSimulator(definition: try SceneParticleDefinitionParser().parse(root: childRoot),
+            initialPlayback: .init(revision: 5), seed: 81, fixedTimeStep: 0.25)
+        retained.advance(by: 0.5)
+        _ = retained.consumeBirthEvents(); _ = retained.consumeDeathEvents()
+        let retainedBefore = retained.frameSnapshot()
+        retained.advance(by: 1, allowsEmission: false)
+        let hidden = retained.frameSnapshot()
+        result["hiddenEmissionGateKeepsIDsIntentAndRNG"] = !retainedBefore.particles.isEmpty
+            && hidden.particles.map(\.id) == retainedBefore.particles.map(\.id)
+            && hidden.nextParticleID == retainedBefore.nextParticleID
+            && hidden.random.state == retainedBefore.random.state
+            && hidden.playback == retainedBefore.playback && retained.birthEvents.isEmpty
+        result["hiddenEmissionGateAdvancesExistingPositionAndAge"] = zip(hidden.particles, retainedBefore.particles).allSatisfy { current, previous in
+            abs(current.age - previous.age - 1) < 1e-12
+                && abs(current.position.x - previous.position.x - 20) < 1e-12
+        } && hidden.simulationTime == retainedBefore.simulationTime + 1
+        retained.advance(by: 0.25)
+        result["hiddenEmissionGateResumesBirthsWithoutClearingSurvivors"] = retained.particles.count == retainedBefore.particles.count + 1
+            && retained.particles.last?.id == retainedBefore.nextParticleID
+            && Array(retained.particles.prefix(retainedBefore.particles.count).map(\.id)) == retainedBefore.particles.map(\.id)
+        _ = retained.consumeBirthEvents(); _ = retained.consumeDeathEvents()
+        let dyingIDs = retained.particles.map(\.id)
+        retained.advance(by: 10, allowsEmission: false)
+        result["hiddenEmissionGateAllowsNaturalDeathWithoutNewBirths"] = retained.particles.isEmpty
+            && retained.birthEvents.isEmpty && retained.deathEvents.map(\.id).sorted() == dyingIDs.sorted()
+            && retained.frameSnapshot().nextParticleID == retainedBefore.nextParticleID + 1
+            && retained.playback == retainedBefore.playback
+
         func explicit(_ sim: SceneParticleSimulator, count: Int,
                       context: SceneParticleSimulator.EmissionContext = .init()) throws -> SceneParticleSimulator.PlaybackCandidate {
             try sim.preparePlaybackCandidate(commands:[(.init(layerID:42,action:.emit,

@@ -62,9 +62,9 @@ nonisolated struct SceneScriptLayerMutationApplyOutcome: Sendable {
 }
 
 /// Opaque, side-effect-free candidate state. Rendering keeps using the snapshot
-/// captured before this plan; committing it only publishes accepted owner
-/// mutations to the next frame. Particle transitions are consumed once before
-/// this cadence's simulation; only final intent/revision persists on commit.
+/// captured before this plan for topology and non-visibility authored setters.
+/// Accepted visibility and particle transitions share the current cadence's
+/// typed snapshot and simulation; commit retains their values and final intent.
 nonisolated struct SceneScriptLayerMutationPlan: Sendable {
     var particlePlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
     var particleTransitions: [SceneParticlePlaybackTransition] = []

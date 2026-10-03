@@ -36,4 +36,5 @@ struct SceneParticleLayerRuntime {
     let layerAlpha: Float
     var rootRender: SceneParticleRootRenderRuntime?
     var childRuntime: SceneParticleChildRuntime?
+    var wasVisible: Bool? = nil
 }

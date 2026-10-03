@@ -515,10 +515,50 @@ extension SceneDesktopWallpaperSession {
             [SceneScriptOwnerEffectsRuntimeFailure] = []
         // A later callback can fail after this owner has already produced
         // cursor effects. Reject the whole owner result before admission.
+        // A pure visible return has no side-effect bundle. Seed its rejection
+        // here so its value, any earlier cursor writes and storage readers
+        // share the same fixed-point owner decision as an explicit setter.
+        let unpreparedParticleVisibilityOwners: Set<SceneDynamicTarget> = Set([
+            sceneScriptVectorResult.values,
+            sceneScriptStringResult.values,
+            sceneScriptResult.values,
+        ].flatMap { values in
+            values.compactMap { entry -> SceneDynamicTarget? in
+                guard case let .layer(layerID, .visibility) = entry.key,
+                      launchContext.particleLayerIDs.contains(layerID),
+                      case .bool(true) = entry.value,
+                      !self.particleVisibilityResourcesPrepared(
+                        layerID: layerID, context: launchContext
+                      ) else { return nil }
+                return entry.key
+            }
+        })
         let executionFailedOwners = Set(cursorResult.failures.keys)
             .union(sceneScriptVectorResult.failures.keys)
             .union(sceneScriptStringResult.failures.keys)
             .union(sceneScriptResult.failures.keys)
+            .union(unpreparedParticleVisibilityOwners)
+        // Visibility and explicit emission consume one admitted frame value.
+        // Other authored setters retain their existing next-cadence contract.
+        func frameScriptValues(_ admitted: [SceneScriptOwnerEffects],
+                               excluding rejected: Set<SceneDynamicTarget>)
+            -> [SceneDynamicTarget: SceneDynamicValue] {
+            var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
+            for mutation in admitted.flatMap(\.layerMutations)
+                where !mutation.isDynamic && mutation.kind == .upsert && mutation.fields.contains(.visibility) {
+                values[.layer(layerID: mutation.layerID, field: .visibility)] = .bool(mutation.visible)
+            }
+            values.merge(sceneScriptStringResult.values.filter { !rejected.contains($0.key) }) { _, current in current }
+            values.merge(sceneScriptResult.values.filter { !rejected.contains($0.key) }) { _, current in current }
+            values.merge(sceneScriptVectorResult.values.filter { !rejected.contains($0.key) }) { _, current in current }
+            return values
+        }
+        func frameResolution(_ admitted: [SceneScriptOwnerEffects],
+                             excluding rejected: Set<SceneDynamicTarget>) -> SceneDynamicSnapshotResolution {
+            SceneDynamicSnapshotResolver().resolve(frameIndex: timing.frameIndex, generation: 0,
+                index: definitionIndex, base: preliminarySceneScriptResolution,
+                sceneScriptValues: frameScriptValues(admitted, excluding: rejected))
+        }
         let fixedPoint = launchContext.sceneScriptDynamicLayerRuntime
             .preflightOwnerEffectsToFixedPoint(
                 ownerEffects, excludingOwners: executionFailedOwners,
@@ -531,12 +571,16 @@ extension SceneDesktopWallpaperSession {
                                 && $0.metalView.validateParticlePlaybackTransitions(transitions)
                         })
                 },
-                rejectingParticleTransitions: { transitions, admitted in
+                rejectingParticleTransitions: { transitions, admitted, rejected in
                     guard transitions.contains(where: { $0.action == .emit }) else { return [] }
                     guard let particleEmission else {
                         return Set(admitted.filter { !$0.particlePlaybackCommands.isEmpty }.map(\.ownerTarget))
                     }
-                    guard let failed = particleEmission.prepare(transitions) else { return [] }
+                    let resolution = frameResolution(admitted, excluding: rejected)
+                    guard let failed = particleEmission.prepare(transitions, visibility: { instance in
+                        self.surfaces[instance.surfaceID]?.metalView.particlePlaybackVisibility(
+                            layerID: instance.layerID, dynamicValues: resolution.snapshot)
+                    }) else { return [] }
                     return Set(admitted.filter { bundle in
                         bundle.particlePlaybackCommands.contains {
                             $0.callbackEpoch == failed.callbackEpoch && $0.ordinal == failed.ordinal
@@ -557,7 +601,21 @@ extension SceneDesktopWallpaperSession {
                         timing: timing
                     )
                 runtimeValidationFailures.append(contentsOf: failures)
+                let unpreparedParticleOwners = admitted.compactMap {
+                    owner -> SceneDynamicTarget? in
+                    guard owner.layerMutations.contains(where: { mutation in
+                        !mutation.isDynamic && mutation.kind == .upsert
+                            && mutation.fields.contains(.visibility)
+                            && mutation.visible
+                            && launchContext.particleLayerIDs.contains(mutation.layerID)
+                            && !self.particleVisibilityResourcesPrepared(
+                                layerID: mutation.layerID, context: launchContext
+                            )
+                    }) else { return nil }
+                    return owner.ownerTarget
+                }
                 return Set(failures.map(\.ownerTarget))
+                    .union(unpreparedParticleOwners)
             }
         let admission = fixedPoint.admission
         let admittedOwnerEffects = admission.admittedEffects
@@ -624,33 +682,11 @@ extension SceneDesktopWallpaperSession {
         let textureAnimationCommands = admittedOwnerEffects.flatMap(
             \.textureAnimationCommands
         )
-        func admittedValues(
-            _ values: [SceneDynamicTarget: SceneDynamicValue]
-        ) -> [SceneDynamicTarget: SceneDynamicValue] {
-            values.filter { !rejectedOwnerTargets.contains($0.key) }
-        }
-        var admittedSceneScriptValues = admittedValues(
-            sceneScriptStringResult.values
-        )
-        admittedSceneScriptValues.merge(
-            admittedValues(sceneScriptResult.values),
-            uniquingKeysWith: { _, genericValue in genericValue }
-        )
-        admittedSceneScriptValues.merge(
-            admittedValues(sceneScriptVectorResult.values),
-            uniquingKeysWith: { _, genericValue in genericValue }
-        )
         // The preliminary snapshot already contains authored, user-property,
         // timeline, and stateful SceneScript lanes. Overlay only the current
         // admitted results so surface preparation does not walk every
         // definition a second time on the same frame.
-        let sharedSurfaceResolution = SceneDynamicSnapshotResolver().resolve(
-            frameIndex: timing.frameIndex,
-            generation: 0,
-            index: definitionIndex,
-            base: preliminarySceneScriptResolution,
-            sceneScriptValues: admittedSceneScriptValues
-        )
+        let sharedSurfaceResolution = frameResolution(admittedOwnerEffects, excluding: rejectedOwnerTargets)
         let materialFunctionMutations = admittedOwnerEffects.flatMap(\.materialFunctionMutations)
         let pendingEvaluation = evaluationTransaction.prepare(
             frameIndex: timing.frameIndex, resolution: sharedSurfaceResolution

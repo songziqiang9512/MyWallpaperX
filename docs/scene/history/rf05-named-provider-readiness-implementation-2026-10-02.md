@@ -168,3 +168,28 @@ optional 首次改用 rgbmask 后，真实解析产生 `material named → insta
 同自有输入修前两次live均拒绝，修后off→on→off两次接受，白底→128灰→白，后置green保持255，window/session不重建。含未准备粒子的同键负例、无effect/captured execution的fullscreen均整笔拒绝并保持白底。长期App三门通过（59.798s）；相邻property/visibility/utility/routing 44门与真实graph executor GPU harness通过（73.360s），Debug build通过。独审重算探针9张登记图/27个ROI、全输入/App身份及GPU完成/消费/drain，无新增P1/P2。既有结构库存66/登记65两项失败继续保留，未抬基线。
 
 本机证据 `.artifacts/scene-evidence/runs/rf05-hidden-fullscreen-20261004` 限期14天。真实293第一次adhoc helper运行因签名不合产品Team门而无效；有效重跑已用正确helper签名，首帧78.239s，两次live拒绝由完整cohort解释，不能声称本片已修复整键或所有真实样本。后继补粒子潜在可见准备、hidden simulation/child/RNG与再显示语义，再复验真实293；公开visible合同没有规定hidden模拟策略，先做最小官方对照。工作卡15/16不变，RF05继续开放。
+
+
+<a id="rf05-particle-visibility-design"></a>
+### 2026-10-04 粒子潜在显现与生命周期
+
+**目标。** 让初始隐藏、由 typed visibility 或 SceneScript 控制的粒子在原窗口中显现，推进真实背景属性的完整 consumer cohort；同时修正现有可见粒子后来隐藏时的模拟规则。仅扩充候选而接受空资源不构成完成。
+
+**职责/取舍。** Host 在现有动态可见性准入选择可能显现的独立粒子根，将准备需求交给原 MetalView / ParticlePlaybackState / ParticleRuntime；不改 authored visible、不另建资源或模拟 owner。每个 surface 保留实际准备成功的粒子身份，Session 的既有 unavailableConsumerTargets 负责整键原子拒绝，surface 集合和 script generation 必须与当前会话匹配。准备失败局部降级，不能借静态 candidate、空 draw batch 或其他 surface 成功冒充可用。脚本直接改 visible 同样必须消费已准备实例及唯一 committed snapshot；child-only 和部分 child 失败应保持原局部失败语义。
+
+**待裁决。** 官方公开 visible 只说明显示状态，不能推出 hidden 等于 pause、stop 或持续模拟。固定 2.8.0.42 自有双系统黑盒，以标记时钟及数量/位置区分继续、冻结、重启和仅停止发射；结果决定原 runtime 的推进策略。在此之前不批准隐藏状态模拟改变。一般性候选按作者语义识别，不按真实样本 ID/路径选择算法。
+
+**验收/退出。** 自有初始隐藏→显示、显示→隐藏→显示、同键失败原子性、多 surface 实际准备缺失和脚本可见性；既有粒子 playback/child 回归，Debug、真实 App/GPU 和独审。随后重跑真实背景组合。普通帧不重建粒子图或纹理；隐藏路径能省去的工作须符合已证行为。最终稳定职责移交现有架构后退役窄登记，未证子系统语义继续明示，不能称全粒子 parity。
+
+
+**首个行为裁决与实施分工。** 自有白 TEX 的固定官方 cycle 两次重复，在首次隐藏前两条粒子轨迹一致；t≈4.2及8.3重新显示时 experiment 仅有出生位置附近的新粒子，control仍保有多粒子长轨迹，排除持续模拟及原位置冻结续播。初始隐藏对照同样在显示时从出生状态开始。原 PNG黄色点状首试控制无效，不计结论。批准潜在准备与实际资源准入接线；运行时必须在现有 owner 中处理重新启动，不能仅解除 visible 过滤。starttime、pause/stop交互和child恢复仍由同一最小黑盒继续裁决，未证部分不得擅自等同。脚本 setter 与纯 visible返回两条路径都须拒绝未准备目标的显示请求；允许单独隐藏但同owner其他无效请求仍整笔拒绝。
+
+
+**生命周期与事务裁决。** 后续自有差分确认：根的重新显示不重做 starttime；已完成 duration 的 emitter、paused/stopped 不因显示复活。静态子系统（含无根renderer容器）保留已有粒子并继续运动/老化，但隐藏期间不新增发射。RNG精确序列与所有flags不由这些观察证明。两个 paused 控制将 `emitParticles(1)` 分别放在 show setter 前、后，同帧出生均在显示后保留；单独隐藏帧的显式出生不会积累到稍后show。故现有“命令先install、advance再清群”不可接受，也不需要另建有序visibility journal。沿原粒子transaction在候选基线处理可见性，再重放当前帧命令，固定点重算失败owner；install原子提交原runtime的可见性与population。准入后的可见性setter（含父层）进入本cadence唯一typed snapshot，模拟与合成读取同值，不新增skip-reset标记、第二时钟或第二状态owner。preview也须使用同一可见性基线，防止满旧population导致合法show+emit在最终prepare前被拒绝。帧放弃必须同时恢复population、wasVisible和child状态。
+
+
+**实施与验收。** 原 Host/Session→MetalView→ParticlePlaybackState/Runtime 已接通潜在根准备、全 surface/代际实际资源检查及同帧 visibility/emission 事务；纯 `visible` callback 也进入既有 bool VM。稳定合同移交[架构粒子职责](../architecture/runtime-architecture.md)及[粒子 G17](../capabilities/particle-component-coverage.md)，窄设计登记退役。冻结20个Swift输入的排序紧凑路径/哈希映射 SHA256 为 `dd80a9d7e7fe71dcc142f27f726760b7a22a565c9d9d756c56fb00371ea9b7a9`。Debug构建通过；8项粒子App与3项既有全屏App通过，独审重算36张粒子登记PNG：23张hidden无白粒子、13张visible的出生位置/同帧蓝时钟及绿色邻层全部通过。两种同回调show/emit位置差均≤0.678 scene px；3个重合出生的数量另由实际runtime记录验证，PNG本身不计重合粒子数。双surface只证明两个实际surface完成与同会话接受，不外推物理多屏逐屏像素。
+
+真实QuickJS→两个Simulator的事务回归确认旧IDs 0/1先清，再安装新IDs 2/3/4；stale identity拒绝整owner、无安装调用、旧人口/RNG/revision不变。生命周期、属性deferred promotion、动态schema、帧提交及既有粒子回归通过，10个依赖外部语料的旧case明确跳过。两项旧fixture载体缺依赖已独立修复；新事务测试的种子revision不同步及诊断Swift类型推导错误均属无效初测，修后进入实际prepare路径通过。静态代码/设计/文档/依赖门通过；既有结构库存66/登记65两项失败保留，未抬基线。全语料、任意child/flags、GPU错误恢复及官方RNG/像素parity未验。隐藏空root重复清理有后续可省成本，但无本片性能测量。
+
+**真实样本与后继。** 隔离2938612768最终App正常首帧、播放和GPU排空；5个粒子实例已准备。背景key `newproperty2` 两次仍拒绝：1021/1054各有一个当前inactive effect，fullscreen layer visibility仍要求capture/execution资格，阻断完整23目标cohort。后继先修这类无输出准入并保留真正缺capture的失败反例，再验背景整组切换；不计真实293完整正确。真实原件SHA复验未变；工作卡15/16（93.75%）不变，RF05与长期Goal继续开放。最终有界日志/自有输入/官方截图/App像素及身份限期保存在本机 `rf05-particle-visibility-20261004` 证据包；官方首个PNG黄色控制与失败启动不计有效语义观察。

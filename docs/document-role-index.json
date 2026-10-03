@@ -349,9 +349,9 @@
       "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e90832e1c106e08850ce38b6dcc2f8c5313ec1ecfd464fa28cdfbeddc6189a60",
+        "sourceSHA256": "f41c97ad7e28459f961c966cb9bf6ba728ad65dab764549dab2b093aafc487fc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对RF05连续属性、PNG与隐藏fullscreen有界实现的合同/证据链接，修正随正文变化的导航身份；不扩大运行结论。",
+        "scope": "核对粒子显隐合同、RF05有界证据链接与未关闭的真实组合缺口；本收据只标记导航维护。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -480,9 +480,9 @@
       "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "29b0d9fe5ebe287337904a755145698d25bda1e9ea147f8b29bb09561b898440",
+        "sourceSHA256": "45f48e612f914035d26d3904d00e1e0bc662013679e48e3617b3daa8a9f4774a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对RF05连续属性、PNG与隐藏fullscreen有界实现的合同/证据链接，修正随正文变化的导航身份；不扩大运行结论。",
+        "scope": "核对粒子显隐合同、RF05有界证据链接与未关闭的真实组合缺口；本收据只标记导航维护。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

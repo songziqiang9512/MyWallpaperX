@@ -36,9 +36,9 @@
 | RT/named/诊断 | [RF01](../history/rf01-shader-default-binding-implementation-2026-10-02.md)、[RF05 named](../history/rf05-named-provider-readiness-implementation-2026-10-02.md)、[诊断生命周期](../history/rf05-debug-capture-lifecycle-implementation-2026-10-02.md) |
 | PNG 准备成本 | [行复制优化与隐藏消费者组合](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-png-decode-cost)：同输入 Debug App 两张4096²资源准备/提交15.509→0.376秒；native `-O` 有界测量，不外推整款App或所有PNG |
 | 连续属性交互 | [RF05 pending intent](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-deferred-intent)：独立开启/部分取消/同键取消/拒绝后保留，四项 App 最终像素；多 surface 仅 CPU 受控回滚，不外推物理多屏 |
-| 隐藏全屏后处理 | [RF05 fullscreen](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-hidden-fullscreen-result)：自有 App 开/关像素、同窗口及未准备整键拒绝；真实293完整属性仍需粒子生命周期 |
+| 隐藏全屏后处理 | [RF05 fullscreen](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-hidden-fullscreen-result)：自有 App 开/关像素、同窗口及未准备整键拒绝；真实293完整属性仍属RF05后继组合 |
 | composition source | [D1普通分组/背景/根顺序](../history/d1-composition-authored-order-implementation-2026-10-04.md)；23项App正反例与资源生命周期，未知模式不外推 |
-| 粒子播放/出生 | [RF03](../history/rf03-particle-playback-implementation-2026-10-02.md)；默认count/reset未开放 |
+| 粒子播放/出生/显隐 | [RF03](../history/rf03-particle-playback-implementation-2026-10-02.md)、[RF05显隐](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-particle-visibility-design)；各自有界验收，默认count/reset未开放 |
 | 作者采样/companion | [RF02 A](../history/rf02-authored-sampling-implementation-2026-10-03.md)、[atlas named](../history/rf02-atlas-named-output-implementation-2026-10-03.md)、[B官方观察](../history/rf02-companion-uniform-observations-2026-10-03.md)、[B实施与验收状态](../history/rf02-public-companion-implementation-2026-10-03.md)；量化/呈现上限与项目产品合同分别读取 |
 
 <a id="evidence-levels"></a>

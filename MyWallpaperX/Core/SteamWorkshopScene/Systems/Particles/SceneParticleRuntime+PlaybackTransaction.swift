@@ -7,6 +7,16 @@ nonisolated final class SceneParticlePlaybackTransaction {
         let surfaceID: UInt32
         let layerID: Int
         let simulator: SceneParticleSimulator
+        let visibility: SceneParticlePlaybackVisibility?
+        let install: (SceneParticleSimulator.FrameSnapshot, SceneParticlePlaybackVisibility?) -> Void
+
+        init(surfaceID: UInt32, layerID: Int, simulator: SceneParticleSimulator,
+             visibility: SceneParticlePlaybackVisibility? = nil,
+             install: ((SceneParticleSimulator.FrameSnapshot, SceneParticlePlaybackVisibility?) -> Void)? = nil) {
+            self.surfaceID = surfaceID; self.layerID = layerID; self.simulator = simulator
+            self.visibility = visibility
+            self.install = install ?? { state, _ in simulator.restoreFrame(state) }
+        }
     }
     struct CommandIdentity: Hashable {
         let epoch: UInt64
@@ -32,6 +42,7 @@ nonisolated final class SceneParticlePlaybackTransaction {
     private let totalLiveCount: () throws -> Int
     private var contexts: [CommandIdentity: Context] = [:]
     private var candidates: [Int: SceneParticleSimulator.PlaybackCandidate] = [:]
+    private var candidateVisibility: [Int: SceneParticlePlaybackVisibility] = [:]
     private var callbackEpoch: UInt64?
     private var callbackOrdinal: UInt32?
     private var finalPrepared = false
@@ -79,6 +90,7 @@ nonisolated final class SceneParticlePlaybackTransaction {
     private func discardCandidates() {
         for candidate in candidates.values { release(candidate.reservedBytes) }
         candidates.removeAll()
+        candidateVisibility.removeAll()
         finalPrepared = false
     }
 
@@ -93,6 +105,9 @@ nonisolated final class SceneParticlePlaybackTransaction {
         guard let command = prefix.last, command.action == .emit else { throw SceneParticleEmissionFailure.unavailable }
         if callbackEpoch != command.callbackEpoch {
             discardCandidates(); callbackOrdinal = nil; callbackEpoch = command.callbackEpoch
+            // A hidden published population cannot consume capacity before a
+            // callback's final show value is known. Replay shares the same reset.
+            for index in instances.indices { candidateVisibility[index] = instances[index].visibility }
         }
         let key = CommandIdentity(command)
         let indices = instances.indices.filter { instances[$0].layerID == command.layerID }
@@ -154,11 +169,13 @@ nonisolated final class SceneParticlePlaybackTransaction {
 
     /// Returns the earliest failing command, so fixed-point admission removes
     /// its actual owner and rebuilds survivors rather than rejecting peers.
-    func prepare(_ transitions: [SceneParticlePlaybackTransition]) -> SceneParticlePlaybackTransition? {
+    func prepare(_ transitions: [SceneParticlePlaybackTransition],
+                 visibility: (Instance) -> SceneParticlePlaybackVisibility? = { _ in nil }) -> SceneParticlePlaybackTransition? {
         discardCandidates(); callbackEpoch = nil; callbackOrdinal = nil
         guard !transitions.isEmpty else { finalPrepared = true; return nil }
         do { try prepareMetadata(); try chargeTraversal() } catch { return transitions.first }
         guard identitiesAreCurrent() else { return transitions.first }
+        for index in instances.indices { candidateVisibility[index] = visibility(instances[index]) }
         for transition in transitions {
             do {
                 let previous = candidates
@@ -191,6 +208,7 @@ nonisolated final class SceneParticlePlaybackTransaction {
                     revision: baseRevision + 1, count: local.count,
                     callbackEpoch: local.callbackEpoch, ordinal: local.ordinal)
                 next[index] = try sim.preparePlaybackCandidate(starting: candidates[index]?.state,
+                    resettingPopulation: candidates[index] == nil && candidateVisibility[index]?.resetsPopulation == true,
                     commands: [(local, context?.values[offset])], charge: charge, release: release)
             }
             let baseline = try totalLiveCount()
@@ -213,7 +231,7 @@ nonisolated final class SceneParticlePlaybackTransaction {
     func install() {
         assert(finalPrepared && identitiesAreCurrent())
         for (index, candidate) in candidates {
-            instances[index].simulator.restoreFrame(candidate.state)
+            instances[index].install(candidate.state, candidateVisibility[index])
         }
         discardCandidates()
     }

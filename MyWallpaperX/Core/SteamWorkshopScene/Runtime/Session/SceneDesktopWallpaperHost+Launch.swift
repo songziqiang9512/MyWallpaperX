@@ -4,6 +4,8 @@ import Metal
 
 struct SceneDesktopWallpaperLaunchContext {
     let runtimeInput: SceneRuntimeInput
+    let particleLayerIDs: Set<Int>
+    let preparedParticleVisibilityLayerIDs: Set<Int>
     let effectAdmissionCatalog: SceneEffectAdmissionCatalog
     let resolvedMaterialCatalog: SceneResolvedMaterialRuntimeCatalog
     let resolvedMaterialExecutionCapabilities:
@@ -422,12 +424,19 @@ extension SceneDesktopWallpaperHost {
             .union(sceneScriptScalarTargets)
             .union(sceneScriptStringTargets)
             .union(runtimeInput.scriptOwnedEffectVisibilityTargets)
+        let hasScriptLayerAccess = !model.sceneDocument.scriptBindings.isEmpty
+        let preparedParticleVisibilityLayerIDs = Self.particleVisibilityLayerIDs(
+            in: runtimeInput.renderDescriptor,
+            candidates: propertyVectorScriptTargets
+                .union(propertyLayerVisibilityTargets),
+            hasScriptLayerAccess: hasScriptLayerAccess
+        )
         let dynamicLayerVisibilityOwnerTargets =
             SceneDynamicLayerVisibilityRouteAdmission.targets(
                 in: runtimeInput.renderDescriptor,
                 candidates: propertyVectorScriptTargets
                     .union(propertyLayerVisibilityTargets),
-                hasScriptLayerAccess: !model.sceneDocument.scriptBindings.isEmpty
+                hasScriptLayerAccess: hasScriptLayerAccess
             )
         let projectedLayerVisibilityRootLayerIDs = Set(
             dynamicLayerVisibilityOwnerTargets.compactMap { target -> Int? in
@@ -696,6 +705,10 @@ extension SceneDesktopWallpaperHost {
         try cancellation?.check()
         let context = SceneDesktopWallpaperLaunchContext(
             runtimeInput: runtimeInput,
+            particleLayerIDs: Set(runtimeInput.renderDescriptor.layers
+                .filter { $0.contentKind == "particle" }.map(\.id)),
+            preparedParticleVisibilityLayerIDs:
+                preparedParticleVisibilityLayerIDs,
             effectAdmissionCatalog: effectAdmissionCatalog,
             resolvedMaterialCatalog: resolvedMaterialCatalog,
             resolvedMaterialExecutionCapabilities:
@@ -742,6 +755,8 @@ extension SceneDesktopWallpaperHost {
                 ),
                 preparedImageMaterialTargets: Set(baseMaterialProviderBindings.lightingProfileByLayerID.values
                     .compactMap(\.emissionPropertyTarget)),
+                preparedParticleVisibilityLayerIDs:
+                    preparedParticleVisibilityLayerIDs,
                 propertyVectorScriptProgram: propertyVectorScriptProgram,
                 sceneScriptScalarProgram: sceneScriptScalarProgram,
                 sceneScriptStringProgram: sceneScriptStringProgram

@@ -58,6 +58,9 @@ class SceneMetalView: NSView {
     var puppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
     private var imagePipeline: SceneImageLayerPipeline?
     var particlePlayback: SceneParticlePlaybackState?
+    var preparedParticleLayerIDs: Set<Int> {
+        particlePlayback?.preparedLayerIDs ?? []
+    }
 
     /// DEBUG evidence: the particle load report at request time. The launch-
     /// time summary undercounts child-only containers whose particles spawn
@@ -203,6 +206,7 @@ class SceneMetalView: NSView {
         videoSourceRegistry: SceneVideoTextureSourceRegistry,
         preparedBaseImages: ScenePreparedBaseImageResources,
         spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
+        preparedParticleVisibilityLayerIDs: Set<Int> = [],
         initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
         logURL: URL? = nil
@@ -431,6 +435,8 @@ class SceneMetalView: NSView {
                 descriptor: renderer.renderDescriptor, texturesByLayerID: imageTextures.textures,
                 animatedSourceLayerIDs: Set(loadedSpriteAnimations.keys)
             ),
+            preparedParticleVisibilityLayerIDs:
+                preparedParticleVisibilityLayerIDs,
             initialDynamicValues: initialDynamicValues,
             initialPlayback: initialPlayback
         )

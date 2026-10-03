@@ -8,6 +8,8 @@ final class SceneParticlePlaybackState {
     let lifecycleIdentity = UUID()
     let pipeline: SceneParticleMetalPipeline
     private let runtime: SceneParticleRuntime
+    private let retainedLayerIDs: Set<Int>
+    var preparedLayerIDs: Set<Int> { didTeardown ? [] : retainedLayerIDs }
     /// Prepared once with the playback graph; no per-frame particle topology
     /// scan is needed to decide whether pointer projection is required.
     let pointerControlPointLayerIDs: Set<Int>
@@ -33,6 +35,7 @@ final class SceneParticlePlaybackState {
         resourceView: SceneResourceView? = nil,
         textureLoader: SceneTextureLoader = SceneTextureLoader(),
         layerImage: SceneParticleLayerImageEmitterCompilation = .empty,
+        preparedParticleVisibilityLayerIDs: Set<Int> = [],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
         initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
     ) {
@@ -49,10 +52,13 @@ final class SceneParticlePlaybackState {
             layerImageEmissionMaps: layerImage.mapsByLayerID,
             initialDiagnostics: layerImage.diagnostics,
             staticWorldSpaceFrames: descriptor.staticParticleWorldSpaceFrames,
+            preparedParticleVisibilityLayerIDs:
+                preparedParticleVisibilityLayerIDs,
             initialDynamicValues: initialDynamicValues,
             initialPlayback: initialPlayback
         )
         self.runtime = runtime
+        self.retainedLayerIDs = Set(runtime.activeLayerIDs)
         self.pointerControlPointLayerIDs = runtime.pointerControlPointLayerIDs
         self.batches = runtime.advance(by: 0, dynamicValues: initialDynamicValues)
         stickyBatchLayerIDs.formUnion(self.batches.map(\.layerID))
@@ -62,6 +68,14 @@ final class SceneParticlePlaybackState {
         try runtime.playbackLiveCount(charging: charging)
     }
     var playbackSimulators: [(Int, SceneParticleSimulator)] { didTeardown ? [] : runtime.playbackSimulators }
+    func playbackVisibility(layerID: Int, dynamicValues: SceneDynamicSnapshot)
+        -> SceneParticlePlaybackVisibility? {
+        runtime.playbackVisibility(layerID: layerID, dynamicValues: dynamicValues)
+    }
+    func installPlaybackCandidate(layerID: Int, state: SceneParticleSimulator.FrameSnapshot,
+                                  visibility: SceneParticlePlaybackVisibility?) {
+        runtime.installPlaybackCandidate(layerID: layerID, state: state, visibility: visibility)
+    }
     func emissionContext(layerID: Int, dynamicValues: SceneDynamicSnapshot,
                          pointerLocalPosition: SIMD3<Double>?, audio: SceneParticleAudioInput,
                          worldFrame: simd_float4x4?) throws -> SceneParticleSimulator.EmissionContext {

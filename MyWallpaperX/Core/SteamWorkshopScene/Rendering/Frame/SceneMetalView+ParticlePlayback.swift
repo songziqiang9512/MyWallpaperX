@@ -3,6 +3,15 @@ import Foundation
 extension SceneMetalView {
     var particlePlaybackIdentity: UUID? { particlePlayback?.lifecycleIdentity }
     var particlePlaybackSimulators: [(Int, SceneParticleSimulator)] { particlePlayback?.playbackSimulators ?? [] }
+    func particlePlaybackVisibility(layerID: Int, dynamicValues: SceneDynamicSnapshot)
+        -> SceneParticlePlaybackVisibility? {
+        particlePlayback?.playbackVisibility(layerID: layerID, dynamicValues: dynamicValues)
+    }
+    func installParticlePlaybackCandidate(layerID: Int, state: SceneParticleSimulator.FrameSnapshot,
+                                         visibility: SceneParticlePlaybackVisibility?) {
+        precondition(particlePlayback != nil)
+        particlePlayback?.installPlaybackCandidate(layerID: layerID, state: state, visibility: visibility)
+    }
     func particleLiveCount(charging: (UInt64) throws -> Void) throws -> Int {
         try particlePlayback?.playbackLiveCount(charging: charging) ?? 0
     }

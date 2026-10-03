@@ -148,9 +148,9 @@ nonisolated struct SceneParticleRopeTrailHistory {
 
     /// Bounded-state evidence: the combined live + retired track
     /// population and the retired drain depth.
-    mutating func clear() {
-        tracks.removeAll(keepingCapacity: true)
-        retiredIDs.removeAll(keepingCapacity: true)
+    mutating func clear(keepingCapacity: Bool = true) {
+        tracks.removeAll(keepingCapacity: keepingCapacity)
+        retiredIDs.removeAll(keepingCapacity: keepingCapacity)
     }
 
     var totalTrackCount: Int { tracks.count }

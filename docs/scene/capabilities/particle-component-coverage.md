@@ -156,7 +156,7 @@ definition bitfield 直接参与 renderer variant 选择，静态可识别维度
 | G14 Component authored order | 多个 emitter/initializer/operator 按作者顺序组成一个系统。 | `L2` | [PAR] [SIM] [T-DEF] [T-SIM] | 数组顺序已路由，但没有顺序交换的定向断言；renderer 最终只选一个支持项。 | 重复同类 component、顺序交换与 Windows 状态 golden。 |
 | G15 Fixed simulation step | 模拟必须使用明确 dt，实时和离线才能稳定复现。 | `L3` | [SIM] [PLAY] [T-SIM] | 固定 1/60；共享 clock 把 simulation delta 限为项目 policy 0.25 秒并记录 dropped-time/discontinuity，particle 不再私有 clamp。 | 真实 pause/sleep、长卡顿视觉、seek/history、离线 fixed-clock 等价门。 |
 | G16 Deterministic seed | 同 wallpaper/system/particle seed 应可重放随机结果。 | `L3` | [SUP] [SIM] [T-SIM] | 当前 seed 只来自 layer ID；未建立 wallpaper/system/component seed hierarchy。 | 明确 seed 合成合同并与 Windows 分布/序列核验。 |
-| G17 Visibility and parent gating | 不可见或被父级隐藏的粒子层不得继续当作可见输出。 | `L3` | [RUN] [PLAY] [T-RUN] | 初始化时过滤 visible layer；运行中 visibility 变化仍依赖 Scene 重建。 | typed live visibility、停止发射/恢复策略和资源代际门。 |
+| G17 Visibility and parent gating | 不可见或被父级隐藏的粒子层不得继续当作可见输出。 | `L3` | [RUN] [PLAY] [T-RUN] | 已准备的独立 root 经 typed visibility 原位显隐；每个 surface/脚本代际都须有实际 particle runtime。隐藏清 root population，显示从新出生恢复；不重跑 starttime、不隐式 play 已暂停/停止或完成的 emitter。child 隐藏期间继续旧粒子运动/寿命并停止新排放。同帧可见性与显式出生共用原事务，未准备的 true 请求整 owner/属性键拒绝。验证范围见[RF05](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-particle-visibility-design)。 | 任意组合/祖先动态准入、完整官方粒子分布与真实语料全量回归；保留原 world-space/renderer 失败边界。 |
 | G18 Pause/resume | 暂停时不发射；恢复是否追帧由统一时钟合同决定。 | `L2` | [PLAY] [SIM] [T-SIM] | host pause 停止 frame driver，共享 clock resume 首帧 simulation delta 为 0；没有 particle-specific state/视觉运行门。 | 真实 pause/sleep、seek/history 与 particle count/time 负向门。 |
 
 ## 4. Emitters

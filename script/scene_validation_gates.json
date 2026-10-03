@@ -1408,14 +1408,19 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorCandidateModels.swift",
         "script/tests/fixtures/SceneParticlePlayback*",
         "script/tests/scene_vector_vm_test_support.py",
-        "script/tests/test_scene_particle_playback_*.py"
+        "script/tests/test_scene_particle_playback_*.py",
+        "script/tests/test_scene_particle_visibility_integration.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleLayerRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopeTrailPlan.swift"
       ],
       "modules": [
         "test_scene_particle_playback_author",
         "test_scene_particle_playback_simulator",
         "test_scene_particle_playback_transaction",
         "test_scene_particle_runtime",
-        "test_scene_particle_playback_integration"
+        "test_scene_particle_playback_integration",
+        "test_scene_particle_visibility_integration"
       ]
     },
     {

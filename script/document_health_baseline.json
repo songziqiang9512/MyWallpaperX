@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 527,
-      "bytes": 83392
+      "bytes": 83612
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -82,7 +82,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 393,
-      "bytes": 137836
+      "bytes": 138360
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 562,
@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 69,
-      "bytes": 6708
+      "bytes": 6852
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -161,8 +161,8 @@
       "bytes": 22962
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
-      "lines": 257,
-      "bytes": 48338
+      "lines": 259,
+      "bytes": 48751
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1142,36 +1142,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "479ccf3d1329a73c947a9b0a71c01341946f87b31e011009bae3cd40993beb7e",
-      "after": "9c39ea7a00bf55d6543f285f9aaa3d82f0355f645d28be7af527a190fd6eec07",
-      "owner": "scene-rf05",
-      "reason": "Align RF05 committed pending-intent and PNG evidence plus bounded fullscreen implementation with actual retained authority bodies; no runtime scope expansion.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-hidden-fullscreen-result"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
       "before": "8ec456894cdc81ff485627e86715a28b03c6904a2f601ec8056aa301fda43870",
       "after": "f40a903009e180fe67b68769fcbf4a50e9f7b2c7ba7f28cda1605703ea541a8a",
-      "owner": "scene-rf05",
-      "reason": "Align RF05 committed pending-intent and PNG evidence plus bounded fullscreen implementation with actual retained authority bodies; no runtime scope expansion.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-hidden-fullscreen-result"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "fcb1e1a7b4210b5f776c9ae304b691dae7278a541d07e7b28d1e74d8a6b213b1",
-      "after": "817120ed3a3d46c2611373d705261e5d29edbcddfbe2693e6a2615f893de382a",
-      "owner": "scene-rf05",
-      "reason": "Align RF05 committed pending-intent and PNG evidence plus bounded fullscreen implementation with actual retained authority bodies; no runtime scope expansion.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-hidden-fullscreen-result"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "3e7a816bcba9caab3554f229e23766e10458d0d89ea9c1925cd87c725daae26a",
-      "after": "740e2d52788c3fb76616dd3cf9489a3e22cb70ed76293063af75987b005752d5",
       "owner": "scene-rf05",
       "reason": "Align RF05 committed pending-intent and PNG evidence plus bounded fullscreen implementation with actual retained authority bodies; no runtime scope expansion.",
       "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-hidden-fullscreen-result"
@@ -1184,6 +1157,42 @@
       "owner": "scene-rf05",
       "reason": "Align RF05 committed pending-intent and PNG evidence plus bounded fullscreen implementation with actual retained authority bodies; no runtime scope expansion.",
       "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-hidden-fullscreen-result"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "9c39ea7a00bf55d6543f285f9aaa3d82f0355f645d28be7af527a190fd6eec07",
+      "after": "a5313561d97a90c18e237eb2e1fb98b96dda3618b5e118d526c27ec902801443",
+      "owner": "scene-rf05-particle",
+      "reason": "Replace rebuild-only particle visibility with implemented prepared-resource and same-frame emission contract; link bounded evidence and keep the inactive-effect fullscreen cohort gap explicit. No new status owner.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-particle-visibility-design"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "35614873a456f00dcca33e1a45458e307e4d40d49a9a9f29bcd540237c80d277",
+      "after": "76c9bd31fc94a97ae75b25709347d992687db561e575a48f9d68ad07799b2bd8",
+      "owner": "scene-rf05-particle",
+      "reason": "Replace rebuild-only particle visibility with implemented prepared-resource and same-frame emission contract; link bounded evidence and keep the inactive-effect fullscreen cohort gap explicit. No new status owner.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-particle-visibility-design"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "817120ed3a3d46c2611373d705261e5d29edbcddfbe2693e6a2615f893de382a",
+      "after": "204e0be19a4bbd32a7efa8d014bd36d0aa1f8c1e1b16211d6047a76710b175e4",
+      "owner": "scene-rf05-particle",
+      "reason": "Replace rebuild-only particle visibility with implemented prepared-resource and same-frame emission contract; link bounded evidence and keep the inactive-effect fullscreen cohort gap explicit. No new status owner.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-particle-visibility-design"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "before": "740e2d52788c3fb76616dd3cf9489a3e22cb70ed76293063af75987b005752d5",
+      "after": "1f556bb2a9d38ba226503c8047ac8e102a0765713c424a2e2e25de3d826f5f71",
+      "owner": "scene-rf05-particle",
+      "reason": "Replace rebuild-only particle visibility with implemented prepared-resource and same-frame emission contract; link bounded evidence and keep the inactive-effect fullscreen cohort gap explicit. No new status owner.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-particle-visibility-design"
     }
   ]
 }

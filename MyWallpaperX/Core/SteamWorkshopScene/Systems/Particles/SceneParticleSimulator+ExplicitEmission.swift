@@ -11,29 +11,45 @@ extension SceneParticleSimulator {
 
     struct FrameSnapshot {
         let playback: SceneParticlePlaybackSnapshot
-        let particles: [SceneParticleState]
+        var particles: [SceneParticleState]
         let diagnostics: [SceneParticleSimulationDiagnostic]
-        let transientRenderBirths: [SceneParticleState]
-        let birthEvents: [SceneParticleState]
-        let deathEvents: [SceneParticleState]
+        var transientRenderBirths: [SceneParticleState]
+        var birthEvents: [SceneParticleState]
+        var deathEvents: [SceneParticleState]
         let simulationTime: Double
         let activeInstanceOverride: SceneParticleInstanceOverride?
         let activeWorldSpaceFrame: SceneParticleWorldSpaceFrame?
-        let explicitBirthEventStart: Int?
+        var explicitBirthEventStart: Int?
         let emitters: [SceneParticleEmitterState]
         let random: SceneParticleRandomGenerator
         let accumulator: Double
         let nextParticleID: UInt64
-        let normalizedLives: [Double]
+        var normalizedLives: [Double]
         let dynamicControlPoints: [Int: SIMD3<Double>]
         let dynamicControlPointAngles: [Int: SIMD3<Double>]
         let audioInput: SceneParticleAudioInput
         let observedNonSilentAudioComponents: Set<SceneParticleAudioComponentIdentity>
         let pendingAudioEvaluationObservations: [SceneParticleAudioEvaluationObservation]
         let eventColorContext: SceneParticleEventColorContext
-        let stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
-        let positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation]
-        let trailPositionHistory: SceneParticleTrailPositionHistory
+        var stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
+        var positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation]
+        var trailPositionHistory: SceneParticleTrailPositionHistory
+    }
+
+    /// Clear the population through the same rollback state as explicit emission.
+    /// This does not invent a playback command, rewind clocks or reuse IDs.
+    func discardPopulationForPlayback() {
+        var state = frameSnapshot()
+        state.particles = []
+        state.transientRenderBirths = []
+        state.birthEvents = []
+        state.deathEvents = []
+        state.explicitBirthEventStart = nil
+        state.normalizedLives = []
+        state.positionOscillationCache = [:]
+        state.trailPositionHistory.removeEntries(beyond: 0)
+        state.stepSnapshotRecorder?.clear()
+        restoreFrame(state)
     }
 
     struct EmissionContext: Equatable, Sendable {
@@ -64,6 +80,7 @@ extension SceneParticleSimulator {
     /// candidate is a transaction value, never another simulator or RNG owner.
     func preparePlaybackCandidate(
         starting: FrameSnapshot? = nil,
+        resettingPopulation: Bool = false,
         commands: [(SceneParticlePlaybackTransition, EmissionContext?)],
         charge: (UInt64, Int) throws -> Void,
         release: (Int) -> Void
@@ -76,6 +93,7 @@ extension SceneParticleSimulator {
         let bytes = frameSnapshot().emissionStorageBytes(adding: additions, initializers: definition.initializers.count)
         try charge(UInt64((bytes + 63) / 64), bytes)
         do {
+            if resettingPopulation { restartPopulationForVisibility() }
             for (command, context) in commands {
                 guard command.revision > playback.revision else { continue }
                 guard playback.revision < UInt64.max,

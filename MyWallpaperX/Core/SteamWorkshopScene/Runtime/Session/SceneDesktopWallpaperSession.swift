@@ -481,6 +481,8 @@ final class SceneDesktopWallpaperSession {
                         launchContext.preparedDeviceResources.baseImages,
                     spriteTextureLoader:
                         launchContext.preparedDeviceResources.spriteTextureLoader,
+                    preparedParticleVisibilityLayerIDs:
+                        launchContext.preparedParticleVisibilityLayerIDs,
                     initialPlayback: launchContext.sceneScriptDynamicLayerRuntime.snapshot().particlePlayback,
                     initialDynamicValues: initialParticleDynamicValues
                 )
@@ -493,6 +495,8 @@ final class SceneDesktopWallpaperSession {
                         launchContext.preparedDeviceResources.baseImages,
                     spriteTextureLoader:
                         launchContext.preparedDeviceResources.spriteTextureLoader,
+                    preparedParticleVisibilityLayerIDs:
+                        launchContext.preparedParticleVisibilityLayerIDs,
                     initialPlayback: launchContext.sceneScriptDynamicLayerRuntime.snapshot().particlePlayback,
                     initialDynamicValues: initialParticleDynamicValues,
                     logURL: launchContext.logURL
