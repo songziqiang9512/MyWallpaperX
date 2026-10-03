@@ -7,79 +7,79 @@
   "static_boundary": "粗映射在声明覆盖层面多对多成立；family 内的颜色/状态/组合语义差异仍按语义 profile 待修复/验收时细化，未细化前 profile 携带 coarse 后缀且不算语义闭合。",
   "vocabulary": {
     "cap.resource.index": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "PKG/TEX/资源索引"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "PKG/TEX/资源索引"},
       "scope": "入口/VFS/PKG/TEX/字体/模型/音频等作者资源的定位、索引与 fingerprint 职责。"
     },
     "cap.resource.texture-provider": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Typed texture provider"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "Typed texture provider"},
       "scope": "typed 纹理 slot/provider、purpose、generation、publication 与 candidate 合同。"
     },
     "cap.layer.ir": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Scene IR 与基础层级"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "Scene IR 与基础层级"},
       "scope": "对象/层级/顺序/父子 transform/visibility 的 loss-preserving IR 与 admission。"
     },
     "cap.material.ir": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "EffectDefinition/Material IR"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "EffectDefinition/Material IR"},
       "scope": "effect definition、material pass、slot、combo、constant 的保真 IR 与 Program 合同。"
     },
     "cap.effect.executor": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Bounded effect executors"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "Bounded effect executors"},
       "scope": "effect 链按 prepared Program/graph 执行、previous-current 与局部失败半径。"
     },
     "cap.shader.source-contract": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Shader source/include/annotation/declaration contract"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "Shader source/include/annotation/declaration contract"},
       "scope": "作者 shader source/include/annotation/declaration 保真与 preparation 合同。"
     },
     "cap.graph.fbo": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Generic FBO command graph"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "Generic FBO command graph"},
       "scope": "FBO/copy/swap/compose/condition 等 authored graph command 与 target 计划。"
     },
     "cap.graph.utility-composition": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Utility composition"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "Utility composition"},
       "scope": "utility/composition/fullscreen 对象与 bounded current capture。"
     },
     "cap.particle.runtime": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Particle runtime"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "Particle runtime"},
       "scope": "粒子 definition/emitter/initializer/operator/renderer/control point/child 的准备与模拟。"
     },
     "cap.text.runtime": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Text/Font runtime"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "Text/Font runtime"},
       "scope": "文字/字体的栅格化、排版与纹理 publication。"
     },
     "cap.audio.declarations": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Audio declarations"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "Audio declarations"},
       "scope": "音频声明（sound 层、audio combo/常量、音频资源）的登记与消费资格。"
     },
     "cap.light.hdr": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "2D lighting/Scene HDR"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "2D lighting/Scene HDR"},
       "scope": "2D 灯光/Scene HDR 目标合同；当前级别 L0，声明映射不表示执行支持。"
     },
     "cap.camera.parallax": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Camera Parallax"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "Camera Parallax"},
       "scope": "相机视差状态与 live 属性。"
     },
     "cap.camera.shake": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Scene Camera Shake"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "Scene Camera Shake"},
       "scope": "Scene 相机 shake 状态与 live 属性。"
     },
     "cap.timeline.runtime": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Timeline runtime"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "Timeline runtime"},
       "scope": "作者 animation/Timeline 的解析、evaluator 与 playback。"
     },
     "cap.scenescript.binding-ir": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "SceneScript property binding IR"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "SceneScript property binding IR"},
       "scope": "SceneScript wrapper/binding 的保真 IR 与准入。"
     },
     "cap.property.user": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "User Properties"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "User Properties"},
       "scope": "user/project 属性 schema、UI 去向、typed snapshot 与 binding。"
     },
     "cap.property.atomic-state": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Atomic live property state/routing"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "Atomic live property state/routing"},
       "scope": "live property 原子求值、优先级路由与 visibility/condition 消费。"
     },
     "cap.model3d.runtime": {
-      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "3D model/camera/physics"},
+      "authority": {"doc": "docs/scene/capabilities/coverage-ledger.md", "row": "3D model/camera/physics"},
       "scope": "3D 模型/几何/scene camera 的 bounded 执行；physics 当前 L0。"
     }
   },

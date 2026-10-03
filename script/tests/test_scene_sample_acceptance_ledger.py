@@ -27,6 +27,7 @@ from scene_sample_acceptance_ledger import (  # noqa: E402
     render_markdown,
     validate_verdict_references,
 )
+from scene_capability_census_io import is_sample_directory_name, iter_sample_directories
 
 
 V2_LAYOUT_SAMPLE = "3782650329-d56d3d28-3f43-4796-bc3b-2bfe1a30452a"
@@ -43,6 +44,17 @@ def _archive(rows: list[dict]) -> dict:
 
 def _verdicts(entries: dict) -> dict:
     return {"schemaVersion": 1, "allowedVerdicts": list(ALLOWED_VERDICTS), "verdicts": entries}
+
+
+def _build_recorded_scope(sample_ids: list[str], samples: Path, archive: Path,
+                          verdicts: Path, repository_root: Path | None = None) -> dict:
+    """Freeze only inventory selection; all row values still come from inputs."""
+    selected = [path for path in iter_sample_directories(samples) if path.name in sample_ids]
+    missing = set(sample_ids) - {path.name for path in selected}
+    if missing:
+        raise ValueError(f'recorded samples are unavailable: {sorted(missing)}')
+    with patch('scene_sample_acceptance_ledger.iter_sample_directories', return_value=selected):
+        return build_ledger(samples, archive, verdicts, repository_root)
 
 
 class SceneSampleAcceptanceLedgerTests(unittest.TestCase):
@@ -484,7 +496,22 @@ class SceneSampleAcceptanceLedgerTests(unittest.TestCase):
             self.skipTest("read-only sample root is unavailable")
         if not DEFAULT_OUTPUT.is_file():
             self.skipTest("generated page is not present")
-        ledger = build_ledger(DEFAULT_SAMPLES_ROOT, DEFAULT_ARCHIVE, DEFAULT_VERDICTS)
+        page = DEFAULT_OUTPUT.read_text(encoding="utf-8")
+        # The saved page records its corpus scope, including not-run samples
+        # absent from the runtime archive. Later downloads are not new evidence
+        # for that snapshot. Consume only IDs here, never rendered row values.
+        sample_ids = [line.split('`', 2)[1] for line in page.splitlines()
+                      if line.startswith('| `')
+                      and is_sample_directory_name(line.split('`', 2)[1])]
+        self.assertTrue(sample_ids)
+        self.assertEqual(len(sample_ids), len(set(sample_ids)))
+        archived_ids = {row['id'] for row in json.loads(DEFAULT_ARCHIVE.read_text())['samples']}
+        self.assertLessEqual(archived_ids, set(sample_ids))
+        available = {path.name for path in iter_sample_directories(DEFAULT_SAMPLES_ROOT)}
+        if missing := sorted(set(sample_ids) - available):
+            self.skipTest(f'full saved-page regeneration requires unavailable recorded samples: {missing}')
+        ledger = _build_recorded_scope(sample_ids, DEFAULT_SAMPLES_ROOT,
+                                       DEFAULT_ARCHIVE, DEFAULT_VERDICTS)
         strip = [
             line
             for line in render_markdown(ledger).splitlines()
@@ -492,10 +519,48 @@ class SceneSampleAcceptanceLedgerTests(unittest.TestCase):
         ]
         committed = [
             line
-            for line in DEFAULT_OUTPUT.read_text(encoding="utf-8").splitlines()
+            for line in page.splitlines()
             if not line.startswith("- 本页生成于")
         ]
         self.assertEqual(committed, strip)
+
+    def test_recorded_scope_ignores_new_downloads_without_inventing_acceptance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = self._corpus(root)
+            archive = _write(root / 'archive.json', _archive([
+                {'id': '10', 'runtime': {'status': 'blocked', 'firstBreakpoint': None}},
+            ]))
+            overlay = _write(root / 'verdicts.json', _verdicts({
+                '20': {'verdict': 'fail', 'reviewedOn': '2026-09-08', 'note': 'observed'},
+            }))
+            before = _build_recorded_scope(['10', '20'], samples, archive, overlay, root)
+            (samples / '99').mkdir()
+            _write(samples / '99/project.json', {'title': 'New unreviewed download'})
+            after = _build_recorded_scope(['10', '20'], samples, archive, overlay, root)
+            self.assertEqual(before['samples'], after['samples'])
+            self.assertEqual(before['summary'], after['summary'])
+            stable_page = lambda ledger: [line for line in render_markdown(ledger).splitlines()
+                                          if not line.startswith('- 本页生成于')]
+            self.assertEqual(stable_page(before), stable_page(after))
+            self.assertEqual(after['source']['sampleCount'], 2)
+            rows = {row['id']: row for row in after['samples']}
+            self.assertEqual(rows['10']['runtimeStatus'], 'blocked')
+            self.assertEqual(rows['20']['runtimeStatus'], 'not-run')
+            self.assertEqual(rows['20']['verdict'], 'fail')
+            current = build_ledger(samples, archive, overlay, root)
+            new_row = next(row for row in current['samples'] if row['id'] == '99')
+            self.assertEqual((new_row['runtimeStatus'], new_row['verdict']),
+                             ('not-run', 'unreviewed'))
+            _write(overlay, _verdicts({
+                '20': {'verdict': 'pass', 'reviewedOn': '2026-09-08', 'note': 'review changed'},
+            }))
+            changed = _build_recorded_scope(['10', '20'], samples, archive, overlay, root)
+            self.assertNotEqual(stable_page(before), stable_page(changed))
+            self.assertEqual(next(row for row in changed['samples'] if row['id'] == '20')['verdict'],
+                             'pass')
+            with self.assertRaisesRegex(ValueError, 'recorded samples are unavailable'):
+                _build_recorded_scope(['10', '20', '100'], samples, archive, overlay, root)
 
     def test_verdict_loader_never_rewrites_the_human_overlay(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -8893,10 +8893,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--audio-declaration-snapshot",
         type=Path,
-        default=Path(__file__).with_name(
-            "scene_capability_census_snapshot.json"
-        ),
-        help="tracked capability snapshot that owns the audio relationship IDs",
+        default=(Path(__file__).resolve().parents[1]
+                 / ".artifacts/scene-evidence/census/scene_capability_census_snapshot.json"),
+        help="local census cache that owns the audio relationship IDs; generate explicitly when absent",
     )
     parser.add_argument(
         "--product-entry-properties-json",
@@ -9101,6 +9100,15 @@ def main() -> int:
         if args.product_entry_audio_baseline
         else args.matrix.expanduser().resolve()
     )
+    if args.product_entry_audio_baseline and not matrix_path.is_file():
+        print(
+            f"Scene benchmark precondition failed: census cache is missing: {matrix_path}; "
+            "pass --audio-declaration-snapshot <existing-cache> or explicitly run "
+            "python3.12 script/scene_capability_census.py generate with the matching "
+            "--samples-root and --snapshot first",
+            file=sys.stderr,
+        )
+        return 2
     try:
         unfiltered_matrix = (
             load_audio_declaration_matrix(matrix_path)

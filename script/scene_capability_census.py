@@ -64,6 +64,7 @@ DEFAULT_STOCK_ROOT = (
 DEFAULT_MATRIX = REPOSITORY_ROOT / "script/scene_wallpaper_full_sample_matrix.json"
 DEFAULT_LEDGER = REPOSITORY_ROOT / "script/scene_capability_repair_ledger.json"
 DEFAULT_FAMILY_MAP = REPOSITORY_ROOT / "script/scene_capability_family_map.json"
+DEFAULT_SNAPSHOT = REPOSITORY_ROOT / ".artifacts/scene-evidence/census/scene_capability_census_snapshot.json"
 
 DOMAINS = (
     "resource",
@@ -1687,7 +1688,7 @@ def validate_repair_references(
                         "field": field,
                         "reference": reference,
                     })
-                elif target.is_relative_to(repository_root / "docs/scene/evidence") or target.is_relative_to(repository_root / ".codex"):
+                elif target.is_relative_to(repository_root / ".artifacts/scene-evidence") or target.is_relative_to(repository_root / ".codex"):
                     # Local evidence caches are intentionally not shipped in Git.
                     # Executable regression gates above remain mandatory.
                     continue
@@ -2092,7 +2093,7 @@ def render_markdown(census: dict[str, Any]) -> str:
         "",
         "> 状态：现役 corpus 事实、公共结构影响面与修复事件索引。",
         ">",
-        "> 本页由 `script/scene_capability_census.py` 从只读 authored corpus 生成；完整 family、样本归属、参数/字段 profile、compact layer/pass/slot occurrence index 与守恒摘要在 `script/scene_capability_census_snapshot.json`。资源 identity 和详细 owner 事实仅在显式 `query --live` 时从私有 corpus 重建。系统 current capability 只以 `coverage-ledger.md` 为摘要，逐项合同/专题内等级以专项表为准，App/GPU/ROI 证据仍以 `runtime-evidence-current.md` 为准。",
+        "> 本页由 `script/scene_capability_census.py` 从只读 authored corpus 生成；完整 family、样本归属、参数/字段 profile、compact layer/pass/slot occurrence index 与守恒摘要在 `.artifacts/scene-evidence/census/scene_capability_census_snapshot.json`。资源 identity 和详细 owner 事实仅在显式 `query --live` 时从私有 corpus 重建。系统 current capability 只以 `coverage-ledger.md` 为摘要，逐项合同/专题内等级以专项表为准，App/GPU/ROI 证据仍以 `runtime-evidence-current.md` 为准。",
         "",
         "## 1. 当前结论",
         "",
@@ -2229,7 +2230,7 @@ def render_markdown(census: dict[str, Any]) -> str:
         vocabulary_rows = census.get("capability_vocabulary", {})
         for capability, bucket in capability_coverage.items():
             authority = ((vocabulary_rows.get(capability) or {}).get("authority") or {})
-            anchor_doc = str(authority.get("doc", "")).replace("docs/scene/semantics/", "")
+            anchor_doc = str(authority.get("doc", "")).replace("docs/scene/capabilities/", "")
             anchor_row = str(authority.get("row", "")).replace("|", "\\|")
             lines.append(
                 f"| `{capability}` | [{anchor_row}]({anchor_doc}) | "
@@ -2339,12 +2340,12 @@ def render_markdown(census: dict[str, Any]) -> str:
         "```bash",
         "python3.12 script/scene_capability_census.py generate \\",
         "  --samples-root \"$HOME/Movies/MyWallpaperX/创意工坊/Scene\" \\",
-        "  --snapshot script/scene_capability_census_snapshot.json \\",
-        "  --markdown docs/scene/semantics/scene-corpus-capability-inventory.md",
+        "  --snapshot .artifacts/scene-evidence/census/scene_capability_census_snapshot.json \\",
+        "  --markdown docs/scene/capabilities/scene-corpus-capability-inventory.md",
         "python3.12 script/scene_capability_census.py verify \\",
         "  --samples-root \"$HOME/Movies/MyWallpaperX/创意工坊/Scene\" \\",
-        "  --snapshot script/scene_capability_census_snapshot.json \\",
-        "  --markdown docs/scene/semantics/scene-corpus-capability-inventory.md",
+        "  --snapshot .artifacts/scene-evidence/census/scene_capability_census_snapshot.json \\",
+        "  --markdown docs/scene/capabilities/scene-corpus-capability-inventory.md",
         "python3.12 script/scene_capability_census.py query \\",
         "  --family <family-key>",
         "# 需要当前私有 corpus 的详细 resource/owner 事实时显式追加 --live",
@@ -2461,6 +2462,9 @@ def generate(args: argparse.Namespace) -> int:
 
 
 def verify(args: argparse.Namespace) -> int:
+    if not args.snapshot.is_file():
+        print(f"snapshot cache missing: {args.snapshot}; pass --snapshot or run generate explicitly before verify", file=sys.stderr)
+        return 1
     ensure_outputs_outside_roots([args.snapshot, args.markdown], [args.samples_root, args.stock_root])
     expected = build_census(
         args.samples_root, args.stock_root, args.matrix, args.ledger,
@@ -2503,15 +2507,22 @@ def query(args: argparse.Namespace) -> int:
         snapshot = getattr(
             args,
             "snapshot",
-            REPOSITORY_ROOT / "script/scene_capability_census_snapshot.json",
+            DEFAULT_SNAPSHOT,
         )
         try:
             stored = json.loads(snapshot.read_text(encoding="utf-8"))
             candidates = stored["validation"]["occurrence_index"]["items"]
         except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
-            print(f"unable to query committed census snapshot: {error}", file=sys.stderr)
+            print(
+                f"unable to query local census snapshot {snapshot}: {error}. "
+                "Pass --snapshot <existing-cache> or explicitly run "
+                "python3.12 script/scene_capability_census.py generate "
+                "with your --samples-root and --snapshot; use query --live "
+                "only when a private corpus scan is intended.",
+                file=sys.stderr,
+            )
             return 1
-        source = "committed-snapshot"
+        source = "cached-snapshot"
     matches = [
         value
         for value in candidates
@@ -2546,26 +2557,26 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
             subparser.add_argument(
                 "--snapshot",
                 type=Path,
-                default=REPOSITORY_ROOT / "script/scene_capability_census_snapshot.json",
+                default=DEFAULT_SNAPSHOT,
             )
             subparser.add_argument(
                 "--markdown",
                 type=Path,
                 default=(
                     REPOSITORY_ROOT
-                    / "docs/scene/semantics/scene-corpus-capability-inventory.md"
+                    / "docs/scene/capabilities/scene-corpus-capability-inventory.md"
                 ),
             )
         else:
             subparser.add_argument(
                 "--snapshot",
                 type=Path,
-                default=REPOSITORY_ROOT / "script/scene_capability_census_snapshot.json",
+                default=DEFAULT_SNAPSHOT,
             )
             subparser.add_argument(
                 "--live",
                 action="store_true",
-                help="rebuild the private authored corpus instead of querying the committed compact index",
+                help="rebuild the private authored corpus instead of querying the local cached compact index",
             )
             subparser.add_argument("--family")
             subparser.add_argument("--sample")

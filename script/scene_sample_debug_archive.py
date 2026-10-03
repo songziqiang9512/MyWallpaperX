@@ -34,7 +34,7 @@ from scene_diagnostic_report import (
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SAMPLES_ROOT = Path.home() / "Movies/MyWallpaperX/创意工坊/Scene"
-DEFAULT_SNAPSHOT = REPOSITORY_ROOT / "script/scene_capability_census_snapshot.json"
+DEFAULT_SNAPSHOT = REPOSITORY_ROOT / ".artifacts/scene-evidence/census/scene_capability_census_snapshot.json"
 
 CLAIM_BOUNDARY = (
     "runtime-first-breakpoint-and-lifecycle-diagnostics-only-not-visual-correctness"
@@ -101,6 +101,12 @@ def build_archive(
     snapshot_path: Path,
     report_paths: Sequence[Path],
 ) -> dict[str, Any]:
+    if not snapshot_path.is_file():
+        raise ValueError(
+            f"census cache is missing: {snapshot_path}; pass --snapshot <existing-cache> "
+            "or explicitly run python3.12 script/scene_capability_census.py generate "
+            "with the matching --samples-root and --snapshot first"
+        )
     if not samples_root.is_dir():
         raise ValueError(f"samples root is not a directory: {samples_root}")
     if not report_paths:

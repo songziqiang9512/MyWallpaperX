@@ -11,6 +11,7 @@ import unittest
 from collections import Counter
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 
 SCRIPT_ROOT = Path(__file__).resolve().parents[1]
@@ -18,6 +19,7 @@ if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
 import scene_capability_census as census
+import scene_sample_debug_archive as debug_archive
 from scene_capability_census_io import (
     PkgArchive,
     ResolvedResource,
@@ -52,6 +54,33 @@ def json_bytes(value: object) -> bytes:
 
 
 class SceneCapabilityCensusTests(unittest.TestCase):
+    def test_cli_defaults_use_local_evidence_cache(self) -> None:
+        expected = census.REPOSITORY_ROOT / ".artifacts/scene-evidence/census/scene_capability_census_snapshot.json"
+        for command in ("generate", "verify", "query"):
+            self.assertEqual(census.parse_args([command]).snapshot, expected)
+        self.assertEqual(
+            debug_archive.parse_args(["--report", "/tmp/report.json", "--output", "/tmp/archive.json"]).snapshot,
+            expected,
+        )
+
+    def test_missing_query_cache_fails_actionably_without_live_scan(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            args = census.parse_args(["query", "--sample", "123", "--snapshot", str(Path(directory) / "absent.json")])
+            error = io.StringIO()
+            with patch.object(census, "build_census") as build, redirect_stderr(error):
+                self.assertEqual(census.query(args), 1)
+                build.assert_not_called()
+            self.assertIn("--snapshot <existing-cache>", error.getvalue())
+            self.assertIn("generate", error.getvalue())
+
+    def test_missing_archive_cache_fails_before_sample_discovery(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch.object(debug_archive, "iter_sample_directories") as discover:
+                with self.assertRaisesRegex(ValueError, "--snapshot <existing-cache>"):
+                    debug_archive.build_archive(root, root / "absent.json", [root / "report.json"])
+                discover.assert_not_called()
+
     def test_scenescript_cursor_hook_profile_requires_proven_export(self) -> None:
         profile = script_profile(r'''
             // export function cursorClick() {}
@@ -746,7 +775,7 @@ class SceneCapabilityCensusTests(unittest.TestCase):
             query_output = io.StringIO()
             with redirect_stdout(query_output):
                 self.assertEqual(census.query(snapshot_query), 0)
-            self.assertEqual(json.loads(query_output.getvalue())["source"], "committed-snapshot")
+            self.assertEqual(json.loads(query_output.getvalue())["source"], "cached-snapshot")
             snapshot.write_text("{}", encoding="utf-8")
             self.assertEqual(census.verify(args), 1)
             with self.assertRaises(ValueError):
@@ -790,6 +819,14 @@ class SceneCapabilityCensusTests(unittest.TestCase):
             })()
             with redirect_stderr(io.StringIO()), redirect_stdout(io.StringIO()):
                 self.assertEqual(census.query(unfiltered), 2)
+
+    def test_verify_missing_cache_does_not_scan_live_corpus(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            args = type("Args", (), {"snapshot": Path(directory) / "missing.json"})()
+            with patch.object(census, "build_census") as build, redirect_stderr(io.StringIO()) as error:
+                self.assertEqual(census.verify(args), 1)
+            build.assert_not_called()
+            self.assertIn("generate", error.getvalue())
 
     def test_pkg_reader_reports_duplicate_path_without_hiding_it(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-census-") as directory:
@@ -979,7 +1016,7 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                 "family_key": "effect/fixture@1",
                 "commit": "not-a-commit",
                 "targeted_samples": ["0000000000"],
-                "roi_evidence": ["docs/scene/semantics/does-not-exist.md"],
+                "roi_evidence": ["docs/scene/capabilities/does-not-exist.md"],
                 "regression_gates": [
                     {
                         "kind": "synthetic-positive",
@@ -1000,7 +1037,7 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                     "date": "2026-09-17",
                     "state": "implemented",
                     "commit": "abcdef0",
-                    "evidence_refs": ["docs/scene/semantics/does-not-exist.md"],
+                    "evidence_refs": ["docs/scene/capabilities/does-not-exist.md"],
                     "notes": "fixture",
                 }],
             }],
@@ -1024,7 +1061,7 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                 "family_key": "test", "commit": "abcdef0",
                 "regression_gates": [{"kind": "synthetic-positive",
                     "reference": ".codex/missing.py#test_example"}],
-                "roi_evidence": ["docs/scene/evidence/run.json", ".codex/result.json",
+                "roi_evidence": [".artifacts/scene-evidence/run.json", ".codex/result.json",
                                  "docs/missing.md"],
             }]}
             failures = census.validate_repair_references(ledger, set(), Path(directory))
@@ -1034,10 +1071,12 @@ class SceneCapabilityCensusTests(unittest.TestCase):
 
     def test_default_repair_ledger_has_no_dangling_references(self) -> None:
         ledger = census.load_repair_ledger(census.DEFAULT_LEDGER)
-        snapshot = json.loads(
-            (census.REPOSITORY_ROOT / "script/scene_capability_census_snapshot.json")
-            .read_text(encoding="utf-8")
-        )
+        if not census.DEFAULT_SNAPSHOT.is_file():
+            self.skipTest(
+                "private corpus census cache unavailable; generate explicitly at "
+                f"{census.DEFAULT_SNAPSHOT} to check default repair-ledger sample relationships"
+            )
+        snapshot = json.loads(census.DEFAULT_SNAPSHOT.read_text(encoding="utf-8"))
         sample_ids: set[str] = set()
 
         def collect(node: object) -> None:

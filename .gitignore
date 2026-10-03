@@ -50,6 +50,8 @@ MyWallpaperX.xcodeproj/project.xcworkspace/xcuserdata/songziqiang.xcuserdatad/Us
 .claude/
 .codex/
 .cursor/skills/
+.artifacts/
+# Old evidence location remains ignored during external tool migration
 docs/scene/evidence/
 MyWallpaperX/Resources/SteamCMDRuntime.bundle/Steam/logs/
 

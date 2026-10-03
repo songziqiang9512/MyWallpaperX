@@ -46,7 +46,7 @@ DEFAULT_SAMPLES_ROOT = Path.home() / "Movies/MyWallpaperX/创意工坊/Scene"
 DEFAULT_ARCHIVE = REPOSITORY_ROOT / "script/scene_sample_debug_archive.json"
 DEFAULT_VERDICTS = REPOSITORY_ROOT / "script/scene_sample_acceptance_verdicts.json"
 DEFAULT_OUTPUT = (
-    REPOSITORY_ROOT / "docs/scene/semantics/scene-sample-acceptance-ledger.md"
+    REPOSITORY_ROOT / "docs/scene/capabilities/scene-sample-acceptance-ledger.md"
 )
 
 ALLOWED_VERDICTS = ("unreviewed", "pass", "fail", "platform-unsupported")
@@ -699,7 +699,7 @@ def render_markdown(ledger: Mapping[str, Any]) -> str:
         f"已裁决但缺截图/视频身份的条目：**{summary['reviewedWithoutEvidence']}**"
         "（P0.2 `sample → verdict` 关系要求的字段；缺项保持 `unknown`，不由生成器补写）。"
         "此处只统计**裁决自己引用的** run/截图身份，与 corpus 清单"
-        "（docs/scene/semantics/scene-corpus-capability-inventory.md）的「人工对照」列"
+        "（docs/scene/capabilities/scene-corpus-capability-inventory.md）的「人工对照」列"
         "（样本目录自带的用户截图 `截屏*.png` 与 `用户观察说明.md`）不是同一事实，"
         "两页不可互相替代。",
     ]
