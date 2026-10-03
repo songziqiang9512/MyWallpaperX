@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-POLICY_SOURCE = ROOT / "MyWallpaperX/App/DebugSceneProductEntryPolicy.swift"
+POLICY_SOURCE = ROOT / "MyWallpaperX/App/Debug/DebugSceneProductEntryPolicy.swift"
 
 
 class DebugSceneProductEntryPolicyTests(unittest.TestCase):

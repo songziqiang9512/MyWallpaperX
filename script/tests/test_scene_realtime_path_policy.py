@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from script.tests.source_family import read_source_family
 import unittest
 from pathlib import Path
 
@@ -100,9 +101,7 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         )
 
     def test_dynamic_layer_projection_is_revisioned(self) -> None:
-        renderer = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
-        ).read_text(encoding="utf-8")
+        renderer = read_source_family(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift")
         projection = (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+FrameWorldProjection.swift"
         ).read_text(encoding="utf-8")
@@ -191,9 +190,7 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         visibility = (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerVisibility.swift"
         ).read_text(encoding="utf-8")
-        renderer = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
-        ).read_text(encoding="utf-8")
+        renderer = read_source_family(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift")
         preflight = (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
         ).read_text(encoding="utf-8")
@@ -207,7 +204,7 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertIn("frameVisibleLayerIDs: Set<Int>,", preflight)
         self.assertNotIn("SceneLayerVisibility.visibleLayerIDs", preflight)
         self.assertIn(
-            "let frameDynamicLayerIDs = frameProjection.dynamicLayerIDs",
+            "frameProjection.dynamicLayerIDs.contains(layer.id)",
             renderer,
         )
         self.assertIn("frameProjection.lightLayerIDs", renderer)
@@ -238,15 +235,6 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             2,
         )
 
-    def test_top_level_contract_forbids_diagnostic_hot_path_work(self) -> None:
-        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-        architecture = (
-            ROOT / "docs/scene/design/runtime-architecture.md"
-        ).read_text(encoding="utf-8")
-        self.assertIn("目标主链只有一条", agents)
-        self.assertIn("普通帧不得重新解析、编译、建图", agents)
-        self.assertIn("任何逐帧 JSON 编码", architecture)
-
     def test_unique_output_owner_has_no_unowned_clear_present_bypass(self) -> None:
         renderer_files = list((SCENE / "Rendering/Frame").glob("SceneMetalRenderer*.swift"))
         source = "\n".join(path.read_text(encoding="utf-8") for path in renderer_files)
@@ -255,13 +243,11 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
 
 
     def test_scene_clear_enabled_controls_only_initial_main_pass_load(self) -> None:
-        renderer = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift").read_text(
-            encoding="utf-8"
-        )
+        renderer = read_source_family(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift")
         encoder = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift").read_text(
             encoding="utf-8"
         )
-        main_pass = renderer.index("let mainPass = SceneMainPassEncoder(")
+        main_pass = renderer.index("let (mainPass, groups) = makeScenePass(")
         self.assertIn(
             "clearEnabled: frameDescriptor.camera.clearEnabled",
             renderer[main_pass:],

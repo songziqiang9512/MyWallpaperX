@@ -101,7 +101,15 @@
           "SceneResolvedMaterialShaderSchema.swift",
           "SceneResolvedMaterialTemplateCompiler.swift",
           "SceneResolvedMaterialTextureSlotPurpose.swift",
-          "SceneResolvedMaterialVisualFailureTopology.swift"
+          "SceneResolvedMaterialVisualFailureTopology.swift",
+          "SceneResolvedMaterialExecutionCapabilityVariant+Preparation.swift",
+          "SceneResolvedMaterialExecutionCapabilityVariant+ColorAnalysis.swift",
+          "SceneResolvedMaterialExecutionCapabilityVariant+ProviderAnalysis.swift",
+          "SceneResolvedMaterialExecutionCapabilityVariant+Artifact.swift",
+          "SceneResolvedMaterialExecutionCapabilityVariant+Frontend.swift",
+          "SceneResolvedMaterialExecutionCapabilityVariant+Finalization.swift",
+          "SceneResolvedMaterialExecutionCapabilityVariant+CompileProfile.swift",
+          "SceneRenderTargetVocabulary.swift"
         ],
         "responsibility": "Material: Load/generation-time authored compilation and immutable prepared products; no frame submission ownership."
       },
@@ -379,7 +387,11 @@
           "SceneResolvedMaterialFramePreflight+AggregateReservation.swift",
           "SceneResolvedMaterialFramePreflight+LitCapture.swift",
           "SceneResolvedMaterialFramePreflight.swift",
-          "SceneSourceUpdateTransaction.swift"
+          "SceneSourceUpdateTransaction.swift",
+          "SceneMetalRenderer+SceneDrawing.swift",
+          "SceneMetalRenderer+OrderedLayerEncoding.swift",
+          "SceneMetalRenderer+ImageLayerEncoding.swift",
+          "SceneMetalRenderer+Submission.swift"
         ],
         "responsibility": "Frame: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
       },
@@ -482,8 +494,8 @@
           "SceneOffscreenTexturePool+PersistentGraphTargets.swift",
           "SceneOffscreenTexturePool+SceneColor.swift",
           "SceneOffscreenTexturePool.swift",
-          "SceneOffscreenTextureResidentBudgetPolicy.swift",
           "SceneOffscreenTextureResidency.swift",
+          "SceneOffscreenTextureResidentBudgetPolicy.swift",
           "ScenePersistentGraphTargetAllocator.swift"
         ],
         "responsibility": "Targets: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
@@ -749,9 +761,9 @@
           "SceneScriptAudioHost.swift",
           "SceneScriptBooleanVisibilityValidation.swift",
           "SceneScriptCursorHitAdmission.swift",
-          "SceneScriptCursorProgramModels.swift",
           "SceneScriptCursorProgram+Construction.swift",
           "SceneScriptCursorProgram.swift",
+          "SceneScriptCursorProgramModels.swift",
           "SceneScriptDynamicImageReferenceAnalysis.swift",
           "SceneScriptDynamicLayerRuntime+ParticlePlayback.swift",
           "SceneScriptDynamicLayerRuntime.swift",
@@ -766,10 +778,10 @@
           "SceneScriptLocalStorage.swift",
           "SceneScriptMediaEventBridge.swift",
           "SceneScriptMediaFrameCoordinator.swift",
-          "SceneScriptProgramFrameLedger.swift",
           "SceneScriptOwnerEffectsRuntimeValidation.swift",
           "SceneScriptOwnerLifecycleBridge.swift",
           "SceneScriptParticleProjection.swift",
+          "SceneScriptProgramFrameLedger.swift",
           "SceneScriptPropertyInput.swift",
           "SceneScriptQuickJSProgramCandidate.swift",
           "SceneScriptQuickJSProgramCandidateModels.swift",
@@ -778,16 +790,16 @@
           "SceneScriptScalarProgram.swift",
           "SceneScriptScalarRuntime.swift",
           "SceneScriptStringProgram.swift",
+          "SceneScriptValueOwner+Cursor.swift",
+          "SceneScriptValueOwner+PuppetBones.swift",
           "SceneScriptValueOwner+String.swift",
+          "SceneScriptValueRuntime.swift",
           "SceneScriptVectorCandidateCatalog.swift",
           "SceneScriptVectorCandidateModels.swift",
           "SceneScriptVectorMediaRouteCandidate.swift",
-          "SceneScriptValueOwner+Cursor.swift",
-          "SceneScriptValueOwner+PuppetBones.swift",
           "SceneScriptVectorProgram+Registrations.swift",
           "SceneScriptVectorProgram.swift",
-          "SceneScriptVectorProgramModels.swift",
-          "SceneScriptValueRuntime.swift"
+          "SceneScriptVectorProgramModels.swift"
         ],
         "responsibility": "Script: Capability-owned state, evaluation and preparation; uses the existing clock, resource registry and compositor."
       },
@@ -1215,7 +1227,7 @@
       {
         "id": "shape-derived-analyzer-fleet",
         "role": "inventory",
-        "description": "Contract/Link/Parser/Admission/Conversion-named types carry the E5 analyzers and admission decisions that escape `shape-analyzer-fleet`, whose pattern only matches names ending in `Analyzer`. The two rules cap the reviewed inventory at 122 declarations (57 Analyzer + 65 five-suffix). Owner: Scene analysis-family consolidation. Retirement: shrink family by family onto shared homes and ratchet baseline_occurrences with allowed_files.",
+        "description": "Broad five-suffix type discovery remains global. The E5 family has 65 counted declarations; reviewed passive value declarations are classified separately by exact declaration and lexical scope, never excluded by filename alone. Owner: Scene analysis-family consolidation. Retire classifications when declarations disappear or move into the counted family.",
         "pattern": "^[ \\t]*(?:@\\w+[ \\t]+)*(?:nonisolated[ \\t]+|public[ \\t]+|internal[ \\t]+|private[ \\t]+|fileprivate[ \\t]+|final[ \\t]+)*(?:struct|enum|class)[ \\t]+\\w*(?:Contract|Link|Parser|Admission|Conversion)\\b",
         "baseline_occurrences": 65,
         "allowed_files": [
@@ -1269,7 +1281,35 @@
           "Systems/Script/SceneScriptLayerTopologyModels.swift",
           "Systems/Text/SceneTextMediaPropertiesCompiler.swift",
           "Systems/Text/SceneTextScriptSubsetCompiler.swift"
-        ]
+        ],
+        "metric": "classified-declarations",
+        "classifications": [
+          {
+            "kind": "passive-value-declaration",
+            "file": "Diagnostics/SceneDebugFrameCapture.swift",
+            "scope": [
+              {
+                "kind": "class",
+                "name": "SceneDebugFrameCapture"
+              }
+            ],
+            "conditions": [
+              "DEBUG"
+            ],
+            "declaration": "enum Admission: Equatable { case accepted(UInt64), rejected(String) }",
+            "owner": "SceneDebugFrameCapture diagnostic enqueue result",
+            "reason": "A reviewed passive result for diagnostic enqueue, not an authored semantic analyzer. Exact shape only bounds this static classification; it is not runtime proof.",
+            "retirement": "Remove when the diagnostic result declaration is removed; re-review any shape, scope or conditional change."
+          }
+        ],
+        "classification_migration": {
+          "from_contract_sha256": "0474f14f38e1eb3ae60dc35d062734307473abc531ca5383ad0ae3404785882c",
+          "to_contract_sha256": "b48c75642acf909108eff2eb393da197da2c6890321c58e9fe0deadad28c830b",
+          "design_doc": "docs/development/structural-governance-design.md",
+          "owner": "repository structural governance",
+          "reason": "Replace name-occurrence ambiguity with explicitly reviewed bounded declaration classification while retaining global discovery.",
+          "retirement": "One-time migration only; freeze classification once committed and remove with its retired inventory."
+        }
       },
       {
         "id": "bounded-frontend-product-entry",
@@ -1278,19 +1318,64 @@
         "pattern": "SceneAuthoredShaderFrontend\\.compile\\(",
         "baseline_occurrences": 2,
         "allowed_files": [
-          "Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
+          "Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Frontend.swift",
           "Compilation/Material/SceneResolvedMaterialProgram+Derivation.swift"
-        ]
+        ],
+        "owner_relocation": {
+          "from_file": "Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
+          "to_file": "Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Frontend.swift",
+          "from_contract_sha256": "61581e16d26190677d9b6a5e258c42e4d0200fdab482a82433e019c956a8fd6b",
+          "to_contract_sha256": "452b31d9384b2b05c71b355eed270bf5610b4edc5c83575720588324f117eeab",
+          "design_doc": "docs/scene/roadmap/batch2/frame-admission-retry-design.md",
+          "owner": "SceneResolvedMaterialVariantCache frontend stage",
+          "reason": "P1-5 moves the complete artifact admission and bounded frontend stage. The old owner remains as coordinator; exact call tokens and both global call counts stay unchanged.",
+          "retirement": "Keep this one-time receipt immutable after commit until the bounded frontend inventory retires completely."
+        }
       },
       {
         "id": "legacy-dependency-singular-route",
         "role": "inventory",
-        "description": "The singular dependency lane was collapsed into the ordered vector; the five remaining occurrences are the compositor's read-only alias of the first element, and no legacy resolution lane may return.",
+        "description": "Count the one immutable local alias of the ordered dependency vector, rather than its read occurrences. Broad singular-name discovery remains global and every occurrence must classify as the approved binding or bounded read within its owning function; new state, owners and unclassified references reject. Retire when the alias is removed.",
         "pattern": "dependencyEffect(?!s)",
-        "baseline_occurrences": 5,
+        "baseline_occurrences": 1,
         "allowed_files": [
           "Rendering/Composition/SceneImageLayerCompositor.swift"
-        ]
+        ],
+        "metric": "local-alias-declarations",
+        "classifications": [
+          {
+            "kind": "local-readonly-alias",
+            "file": "Rendering/Composition/SceneImageLayerCompositor.swift",
+            "scope": [
+              {
+                "kind": "struct",
+                "name": "SceneImageLayerCompositor"
+              },
+              {
+                "kind": "func",
+                "name": "drawOutcome"
+              }
+            ],
+            "identifier": "dependencyEffect",
+            "declaration": "let dependencyEffect = request.dependencyEffects.first",
+            "reads": [
+              "dependencyEffect.map",
+              "dependencyEffect?.texture",
+              "dependencyEffect?.blendMode"
+            ],
+            "owner": "SceneImageLayerCompositor.drawOutcome local dependency vector projection",
+            "reason": "The added source-lighting fallback read consumes the same immutable vector projection and does not declare another singular owner. Reads remain bounded syntactically; runtime correctness requires product behavior tests.",
+            "retirement": "Remove classification and ratchet declaration count to zero when the local alias is removed; any new binding or read form requires review."
+          }
+        ],
+        "classification_migration": {
+          "from_contract_sha256": "1d6a76f4a7f6d6aad622db9f87f7ad6f09f4a646152cb53ab3227929829e9151",
+          "to_contract_sha256": "7e5061ff95a03979a41f5735986bf3e238e1dd88d0ce02b5314d26cb79e8bb3d",
+          "design_doc": "docs/development/structural-governance-design.md",
+          "owner": "repository structural governance",
+          "reason": "Replace name-occurrence ambiguity with explicitly reviewed bounded declaration classification while retaining global discovery.",
+          "retirement": "One-time migration only; freeze classification once committed and remove with its retired inventory."
+        }
       },
       {
         "id": "scene-protocol-declarations",
@@ -1315,5 +1400,65 @@
         ]
       }
     ]
+  },
+  "declared_flat_directories": {
+    "Diagnostics": {
+      "files": [
+        "SceneDebugFrameCapture.swift",
+        "SceneDiagnostics.swift",
+        "SceneEffectExecutionFrameTrace.swift",
+        "SceneEffectExecutionTelemetry.swift",
+        "SceneFramePerformanceTelemetry.swift",
+        "SceneGPUCensus.swift",
+        "SceneGPUCompletionTelemetry.swift",
+        "SceneGraphExecutionObservation.swift",
+        "SceneGraphExecutionTelemetry.swift",
+        "ScenePerformanceCounterHub.swift",
+        "ScenePerformanceHUD.swift",
+        "SceneSignposts.swift"
+      ],
+      "responsibility": "Explicit diagnostics, observation and evidence export; no product submission authority."
+    },
+    "Format": {
+      "files": [
+        "SceneBCTextureDecoder.swift",
+        "SceneCompatibilityContext.swift",
+        "SceneDirectionalLightDefinition.swift",
+        "SceneDocument+General.swift",
+        "SceneDocument+NumericParsing.swift",
+        "SceneDocument+ShaderValue.swift",
+        "SceneDocument+Timeline.swift",
+        "SceneDocument.swift",
+        "SceneDocumentObject.swift",
+        "SceneJSONValue.swift",
+        "SceneMdlPuppetAnimation.swift",
+        "SceneMdlPuppetAnimationReader.swift",
+        "SceneMdlPuppetAttachmentReader.swift",
+        "SceneMdlPuppetMeshReader.swift",
+        "SceneMdlPuppetRigReader.swift",
+        "SceneMdlStaticModel.swift",
+        "SceneMdlStaticModelReader.swift",
+        "SceneObjectDependency.swift",
+        "ScenePkgCacheExtractor.swift",
+        "ScenePkgExtractionReport.swift",
+        "ScenePkgReader.swift",
+        "ScenePointLightDefinition.swift",
+        "SceneProject.swift",
+        "ScenePuppetAnimationLayer.swift",
+        "ScenePuppetBoneCatalog.swift",
+        "SceneScriptBindingDefinition.swift",
+        "SceneScriptSourceEvidence.swift",
+        "SceneSpotLightDefinition.swift",
+        "SceneTexContainer.swift",
+        "SceneTexDataReader.swift",
+        "SceneTimelineAnimation.swift"
+      ],
+      "responsibility": "Authored file and value models, decoding and parsing; no live rendering ownership."
+    }
+  },
+  "dependency_contract": {
+    "authority": "script/scene_dependency_baseline.json",
+    "design": "docs/scene/architecture/scene-dependency-boundaries.md",
+    "gate": "scene-dependencies"
   }
 }

@@ -424,10 +424,10 @@ class SceneDebugCaptureShutdownTests(unittest.TestCase):
                 "Core/SteamWorkshopScene/Diagnostics/SceneDebugFrameCapture.swift",
                 "Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
                 "Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+Shutdown.swift",
-                "App/DebugScenePlaybackRunner+HostOwnership.swift",
-                "App/DebugScenePlaybackRunner+SceneSwitch.swift",
-                "App/DebugScenePlaybackRunner+PauseResume.swift",
-                "App/DebugScenePlaybackRunner+SurfaceStopRelaunch.swift",
+                "App/Debug/DebugScenePlaybackRunner+HostOwnership.swift",
+                "App/Debug/DebugScenePlaybackRunner+SceneSwitch.swift",
+                "App/Debug/DebugScenePlaybackRunner+PauseResume.swift",
+                "App/Debug/DebugScenePlaybackRunner+SurfaceStopRelaunch.swift",
             ]
             proxy = directory / "Proxy.m"
             proxy.write_text(PROXY_SOURCE)
@@ -449,12 +449,12 @@ class SceneDebugCaptureShutdownTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="mwx-appkit-shutdown-") as raw:
             directory = Path(raw)
             delegate = (ROOT / "MyWallpaperX/App/AppDelegate.swift").read_text()
-            runner = (ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner.swift").read_text()
+            runner = (ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner.swift").read_text()
             source = APPKIT_TEMPLATE.replace("// PRODUCTION_TERMINATION_METHOD", production_method(
                 delegate, " func applicationShouldTerminate(_ sender: NSApplication)").replace("func applicationShouldTerminate(", "func ownedApplicationShouldTerminate("))
             source = source.replace("// PRODUCTION_RUNNER_TERMINATION", production_method(
                 runner, "    static func terminate(after delay: TimeInterval)"))
-            performance = (ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner+Performance.swift").read_text()
+            performance = (ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+Performance.swift").read_text()
             source = source.replace("// PRODUCTION_PERFORMANCE_PROFILE", production_method(
                 performance, "    static func applyRequestedPerformanceProfile() -> Bool"))
             harness = directory / "AppKit.swift"
@@ -463,7 +463,7 @@ class SceneDebugCaptureShutdownTests(unittest.TestCase):
             sources = ["Core/SteamWorkshopScene/Diagnostics/SceneDebugFrameCapture.swift",
                        "Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
                        "Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+Shutdown.swift",
-                       "App/DebugScenePlaybackRunner+HostOwnership.swift"]
+                       "App/Debug/DebugScenePlaybackRunner+HostOwnership.swift"]
             compilation = subprocess.run(["xcrun", "swiftc", "-D", "DEBUG", *[str(ROOT / "MyWallpaperX" / p) for p in sources],
                                           str(harness), "-o", str(binary)], capture_output=True, text=True)
             self.assertEqual(compilation.returncode, 0, compilation.stderr)

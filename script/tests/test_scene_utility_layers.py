@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from script.tests.source_family import read_source_family
 import json
 import shutil
 import subprocess
@@ -154,7 +155,7 @@ class SceneUtilityLayerTests(unittest.TestCase):
 
     def test_planned_utility_chain_loads_and_receives_effect_resources(self) -> None:
         metal_view = METAL_VIEW_SOURCE.read_text(encoding="utf-8")
-        metal_renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8") \
+        metal_renderer = read_source_family(METAL_RENDERER_SOURCE) \
             + UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
             "resolvedMaterialRuntime.userPropertyDemands",
@@ -170,7 +171,7 @@ class SceneUtilityLayerTests(unittest.TestCase):
     def test_utility_capture_receives_the_frame_audio_snapshot(self) -> None:
         utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
         metal_renderer = (
-            METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+            read_source_family(METAL_RENDERER_SOURCE)
             + METAL_RENDERER_INITIALIZATION_SOURCE.read_text(encoding="utf-8")
             + UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
         )
@@ -250,7 +251,7 @@ class SceneUtilityLayerTests(unittest.TestCase):
         runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")
         utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
         metal_renderer = (
-            METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+            read_source_family(METAL_RENDERER_SOURCE)
             + METAL_RENDERER_INITIALIZATION_SOURCE.read_text(encoding="utf-8")
             + UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
         )
@@ -315,7 +316,7 @@ class SceneUtilityLayerTests(unittest.TestCase):
     ) -> None:
         catalog = AUTHORED_CATALOG_SOURCE.read_text(encoding="utf-8")
         dependency_runtime = DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
-        image_renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+        image_renderer = read_source_family(METAL_RENDERER_SOURCE)
         utility_renderer = UTILITY_FRAME_RENDERER_SOURCE.read_text(
             encoding="utf-8"
         )

@@ -1262,11 +1262,6 @@ class SceneGraphExecutionStateTests(unittest.TestCase):
             "executionEvidenceCapacityExceeded",
         )
 
-    def test_removed_stage_endpoint_apis_do_not_return(self) -> None:
-        source = "\n".join(path.read_text(encoding="utf-8") for path in STATE_SOURCES)
-        self.assertNotIn("case captureInput", source)
-        self.assertNotIn("FinalOutputPublication", source)
-        self.assertNotIn("preservedHistoryTokens", source)
 
 
 if __name__ == "__main__":

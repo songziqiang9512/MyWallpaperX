@@ -18,7 +18,7 @@ class SceneMaterialUserEmissionArgumentsTests(unittest.TestCase):
                     print(String(decoding:try JSONSerialization.data(withJSONObject:["value":value]),as:UTF8.self))
                 }
             }''')
-            sources=[ROOT/'MyWallpaperX/App/DebugScenePlaybackRunner+Arguments.swift',ROOT/'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift']
+            sources=[ROOT/'MyWallpaperX/App/Debug/DebugScenePlaybackRunner+Arguments.swift',ROOT/'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift']
             result=subprocess.run(['xcrun','swiftc','-D','DEBUG',*map(str,sources),str(source),'-module-cache-path',str(work/'cache'),'-framework','AppKit','-o',str(binary)],capture_output=True,text=True)
             self.assertEqual(result.returncode,0,result.stderr)
             single='--mwx-debug-scene-live-properties-json';sequence='--mwx-debug-scene-live-property-sequence-json'

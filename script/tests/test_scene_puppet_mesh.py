@@ -10,6 +10,7 @@ Swift reader against them through a compiled harness.
 
 from __future__ import annotations
 
+from script.tests.source_family import read_source_family
 import json
 import shutil
 import struct
@@ -446,9 +447,7 @@ class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
         compositor = (
             REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift"
         ).read_text(encoding="utf-8")
-        renderer = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift").read_text(
-            encoding="utf-8"
-        )
+        renderer = read_source_family(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift")
         blend_pipeline = (
             REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLayerColorBlendPipeline.swift"
         ).read_text(encoding="utf-8")

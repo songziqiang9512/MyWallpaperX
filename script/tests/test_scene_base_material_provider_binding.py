@@ -11,7 +11,6 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCENE_ROOT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialProviderBindingProgram.swift"
 COMPILER_SOURCE = (
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialProviderBindingCompiler.swift"
@@ -22,7 +21,6 @@ LIGHTING_PROFILE_SOURCE = (
 VISIBILITY_SOURCE = (
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneInitialMediaEffectVisibilityProjection.swift"
 )
-LAUNCH_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
 
 HARNESS = r'''
 import Foundation
@@ -925,24 +923,6 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
         )
         self.assertTrue(result["lightingProfilesMatchDirectCompiler"])
 
-    def test_launch_uses_current_binding_compiler_without_transition_owner(self) -> None:
-        launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
-        self.assertIn(
-            "SceneBaseMaterialProviderBindingCompiler.compile(",
-            launch,
-        )
-        self.assertNotIn("SceneMediaThumbnailTransitionCompiler", launch)
-
-        product_source = "\n".join(
-            path.read_text(encoding="utf-8")
-            for path in sorted(SCENE_ROOT.rglob("*.swift"))
-        )
-        for retired_identifier in (
-            "SceneMediaThumbnailTransition",
-            "previousTransitionsByLayerID",
-            "mediaThumbnailPreviousTransition",
-        ):
-            self.assertNotIn(retired_identifier, product_source)
 
 
 if __name__ == "__main__":

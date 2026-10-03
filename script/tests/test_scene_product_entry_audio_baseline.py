@@ -11,6 +11,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
@@ -80,9 +81,26 @@ class SceneProductEntryAudioBaselineTests(unittest.TestCase):
             sys.argv = previous
         self.assertTrue(arguments.product_entry_audio_baseline)
         self.assertEqual(
-            arguments.audio_declaration_snapshot.name,
-            "scene_capability_census_snapshot.json",
+            arguments.audio_declaration_snapshot,
+            SCRIPT_DIR.parent / ".artifacts/scene-evidence/census/scene_capability_census_snapshot.json",
         )
+
+    def test_missing_audio_cache_fails_before_output_or_app_staging(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-audio-cache-missing-") as directory:
+            root = Path(directory)
+            output = root / "results"
+            argv = [
+                "scene_wallpaper_benchmark.py", "--app", str(root / "App"),
+                "--sample-root", str(root / "samples"), "--output-dir", str(output),
+                "--product-entry-audio-baseline", "--audio-declaration-snapshot", str(root / "absent.json"),
+            ]
+            error = io.StringIO()
+            with patch.object(sys, "argv", argv), patch.object(benchmark, "stage_signed_app") as stage, contextlib.redirect_stderr(error):
+                self.assertEqual(benchmark.main(), 2)
+                stage.assert_not_called()
+            self.assertFalse(output.exists())
+            self.assertIn("--audio-declaration-snapshot <existing-cache>", error.getvalue())
+            self.assertIn("generate", error.getvalue())
 
     def test_snapshot_relationship_ids_are_the_only_matrix_owner(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-audio-snapshot-") as directory:

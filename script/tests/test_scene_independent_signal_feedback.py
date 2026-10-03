@@ -18,6 +18,13 @@ EXECUTOR_FIXTURE = runpy.run_path(str(EXECUTOR_GATE))
 compile_harness = EXECUTOR_FIXTURE["compile_harness"]
 SUPPORT = EXECUTOR_FIXTURE["SUPPORT"]
 HARNESS_PREFIX = EXECUTOR_FIXTURE["HARNESS"].split("@main", 1)[0]
+CONTRACT_ROOT = Path(__file__).resolve().parents[2] / (
+    "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract"
+)
+CONTRACT_SOURCES = [
+    CONTRACT_ROOT / "SceneShaderContractLoader.swift",
+    CONTRACT_ROOT / "SceneBuiltinShaderIdentity.swift",
+]
 
 
 HARNESS = HARNESS_PREFIX + r'''
@@ -49,6 +56,14 @@ private func signalContract(
         stage(.vertex, path: "\(prefix).vert", source: vertexSource),
         stage(.fragment, path: "\(prefix).frag", source: fragmentSource),
     ]
+    // Analysis caches trust the same immutable content identity as the loader.
+    // Positive and negative sources must never share a fabricated digest.
+    let canonicalSHA256 = SceneShaderContractLoader.canonicalHash(
+        identity: prefix,
+        sourceKind: .authoredSource,
+        stages: stages,
+        diagnostics: []
+    )!
     let sourceGraph = SceneShaderSourceGraph(
         roots: [
             .init(label: "vertex", virtualPath: "\(prefix).vert"),
@@ -65,14 +80,14 @@ private func signalContract(
         },
         edges: [],
         diagnostics: [],
-        dependencySHA256: "independent-feedback-dependency-\(nodeIndex)"
+        dependencySHA256: canonicalSHA256
     )
     return .init(
         identity: prefix,
         sourceKind: .authoredSource,
         stages: stages,
         diagnostics: [],
-        canonicalSHA256: "independent-feedback-contract-\(nodeIndex)",
+        canonicalSHA256: canonicalSHA256,
         sourceGraph: sourceGraph
     )
 }
@@ -433,6 +448,23 @@ private enum Harness {
             signalFeedbackGraph(),
             validComposite: false
         )
+        let validSourceIdentity = signalContract(
+            nodeIndex: 1, fragmentSource: signalCompositeSource()
+        ).canonicalSHA256
+        results["sourceIdentitySeparatesPositiveAndNegative"] =
+            validSourceIdentity != signalContract(
+                nodeIndex: 1,
+                fragmentSource: signalCompositeSource(validAlphaTail: false)
+            ).canonicalSHA256
+        results["sourceIdentityStableForRepeatedContent"] =
+            validSourceIdentity == signalContract(
+                nodeIndex: 1, fragmentSource: signalCompositeSource()
+            ).canonicalSHA256
+        // Revisit the positive input after the negative one in the same cache
+        // lifetime: neither analysis result may poison the other direction.
+        results["positiveRemainsTypedAfterNegative"] = !notTyped(
+            signalFeedbackGraph()
+        )
 
         let payload: [String: Any] = [
             "metalAvailable": true,
@@ -452,7 +484,9 @@ private enum Harness {
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneIndependentSignalFeedbackTests(unittest.TestCase):
     def test_feedback_executes_and_unsafe_shapes_stay_untyped(self) -> None:
-        compilation, completed = compile_harness(SUPPORT, HARNESS)
+        compilation, completed = compile_harness(
+            SUPPORT, HARNESS, additional_sources=CONTRACT_SOURCES
+        )
         self.assertEqual(compilation.returncode, 0, compilation.stderr)
         self.assertIsNotNone(completed)
         assert completed is not None

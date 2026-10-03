@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from script.tests.source_family import read_source_family
 import unittest
 from pathlib import Path
 
@@ -20,7 +21,7 @@ SURFACE_TEARDOWN = (
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift"
 )
 COORDINATOR = ROOT / "MyWallpaperX" / "App" / "MainWindowCoordinator+PlaybackRouting.swift"
-DEBUG_RUNNER = ROOT / "MyWallpaperX" / "App" / "DebugScenePlaybackRunner.swift"
+DEBUG_RUNNER = ROOT / "MyWallpaperX" / "App" / "Debug" / "DebugScenePlaybackRunner.swift"
 INSPECTION = (
     ROOT
     / "MyWallpaperX"
@@ -91,7 +92,7 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
             encoding="utf-8"
         )
         cls.metal_view = METAL_VIEW.read_text(encoding="utf-8")
-        cls.metal_renderer = METAL_RENDERER.read_text(encoding="utf-8")
+        cls.metal_renderer = read_source_family(METAL_RENDERER)
         cls.renderer_diagnostics = RENDERER_DIAGNOSTICS.read_text(encoding="utf-8")
         cls.text_loader = TEXT_LOADER.read_text(encoding="utf-8")
         cls.deferred_base_images = DEFERRED_BASE_IMAGES.read_text(

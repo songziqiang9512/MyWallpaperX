@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Report Swift files over the review limit and enforce the hard-limit ratchet."""
+"""Enforce one 1000-line limit for every managed Swift source file."""
 
 from __future__ import annotations
 
@@ -10,32 +10,29 @@ import sys
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-try:
-    from script.source_relocations import unchanged_source_relocations
-except ModuleNotFoundError:
-    from source_relocations import unchanged_source_relocations
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BASELINE_RELATIVE_PATH = Path("script/code_health_baseline.json")
 BASELINE_PATH = REPO_ROOT / BASELINE_RELATIVE_PATH
+HARD_LINE_LIMIT = 1000
+CURRENT_SCHEMA = 4
 
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--check", action="store_true", help="validate the current source tree (default)")
-    mode.add_argument(
-        "--ratchet-baseline",
-        action="store_true",
-        help="lower or remove existing legacy limits after files shrink",
-    )
-    parser.add_argument(
-        "--base-ref",
-        help="Git ref whose baseline must not be expanded (recommended in CI)",
-    )
+    parser.add_argument("--check", action="store_true", help="validate the source tree (default)")
+    parser.add_argument("--base-ref", help="Git ref used to verify source-root coverage")
     parser.add_argument("--format", choices=("text", "github"), default="text")
     return parser.parse_args()
+
+
+def validate_repo_relative_path(value: Any, source: str) -> None:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{source} contains an invalid repository path: {value!r}")
+    path = PurePosixPath(value)
+    if (path.is_absolute() or path.as_posix() != value or ".." in path.parts
+            or value == "." or any(character in value for character in "*?[]")):
+        raise ValueError(f"{source} path must be normalized and repository-relative: {value!r}")
 
 
 def read_baseline_text(text: str, source: str) -> dict[str, Any]:
@@ -43,119 +40,31 @@ def read_baseline_text(text: str, source: str) -> dict[str, Any]:
         baseline = json.loads(text)
     except json.JSONDecodeError as error:
         raise ValueError(f"{source} is not valid JSON: {error}") from error
-
-    schema_version = baseline.get("schemaVersion")
-    if (
-        not isinstance(schema_version, int)
-        or isinstance(schema_version, bool)
-        or schema_version not in (1, 2, 3)
-    ):
-        raise ValueError(f"{source} must use schemaVersion 1, 2 or 3")
-
-    if schema_version == 1:
-        line_limit = baseline.get("lineLimit")
-        if not isinstance(line_limit, int) or isinstance(line_limit, bool) or line_limit <= 0:
-            raise ValueError(f"{source} lineLimit must be a positive integer")
-        review_line_limit = line_limit
-        hard_line_limit: int | None = None
-    else:
-        review_line_limit = baseline.get("reviewLineLimit")
-        hard_line_limit = baseline.get("hardLineLimit")
-        if (
-            not isinstance(review_line_limit, int)
-            or isinstance(review_line_limit, bool)
-            or review_line_limit <= 0
-        ):
-            raise ValueError(f"{source} reviewLineLimit must be a positive integer")
-        if (
-            not isinstance(hard_line_limit, int)
-            or isinstance(hard_line_limit, bool)
-            or hard_line_limit <= review_line_limit
-        ):
-            raise ValueError(
-                f"{source} hardLineLimit must be an integer greater than reviewLineLimit"
-            )
-        if "lineLimit" in baseline:
-            raise ValueError(
-                f"{source} schemaVersion {schema_version} must not contain lineLimit"
-            )
-        if schema_version < 3 and "reviewWarningFiles" in baseline:
-            raise ValueError(
-                f"{source} schemaVersion {schema_version} must not contain reviewWarningFiles"
-            )
-
-    source_roots = baseline.get("sourceRoots")
-    if (
-        not isinstance(source_roots, list)
-        or not source_roots
-        or any(not isinstance(root, str) or not root for root in source_roots)
-        or len(source_roots) != len(set(source_roots))
-    ):
+    if not isinstance(baseline, dict):
+        raise ValueError(f"{source} must be an object")
+    version = baseline.get("schemaVersion")
+    if type(version) is not int or version not in (1, 2, 3, CURRENT_SCHEMA):
+        raise ValueError(f"{source} has an unsupported schemaVersion")
+    roots = baseline.get("sourceRoots")
+    if (not isinstance(roots, list) or not roots
+            or any(not isinstance(root, str) or not root for root in roots)
+            or len(roots) != len(set(roots))):
         raise ValueError(f"{source} sourceRoots must be a non-empty list of unique paths")
-    for root in source_roots:
-        validate_repo_relative_path(root, source, expected_suffix=None)
-
-    legacy_files = baseline.get("legacyFiles")
-    if not isinstance(legacy_files, dict):
-        raise ValueError(f"{source} legacyFiles must be an object")
-    for path, allowance in legacy_files.items():
-        validate_repo_relative_path(path, source, expected_suffix=".swift")
-        if not belongs_to_source_root(path, source_roots):
-            raise ValueError(f"{source} legacy path is outside sourceRoots: {path}")
-        exception_floor = hard_line_limit if hard_line_limit is not None else review_line_limit
-        if (
-            not isinstance(allowance, int)
-            or isinstance(allowance, bool)
-            or allowance <= exception_floor
-        ):
-            limit_name = "hardLineLimit" if hard_line_limit is not None else "lineLimit"
-            raise ValueError(f"{source} allowance for {path} must exceed {limit_name}")
-
-    review_warning_files = baseline.get("reviewWarningFiles", {})
-    if not isinstance(review_warning_files, dict):
-        raise ValueError(f"{source} reviewWarningFiles must be an object")
-    for path, allowance in review_warning_files.items():
-        validate_repo_relative_path(path, source, expected_suffix=".swift")
-        if not belongs_to_source_root(path, source_roots):
-            raise ValueError(f"{source} review-warning path is outside sourceRoots: {path}")
-        if path in legacy_files:
-            raise ValueError(
-                f"{source} file is locked in both legacyFiles and reviewWarningFiles: {path}"
-            )
-        if (
-            not isinstance(allowance, int)
-            or isinstance(allowance, bool)
-            or allowance <= review_line_limit
-        ):
-            raise ValueError(
-                f"{source} review-warning allowance for {path} must exceed reviewLineLimit"
-            )
-
-    normalized = dict(baseline)
-    normalized["reviewLineLimit"] = review_line_limit
-    normalized["hardLineLimit"] = hard_line_limit
-    normalized["reviewWarningFiles"] = review_warning_files
-    normalized.pop("lineLimit", None)
-    return normalized
-
-
-def validate_repo_relative_path(value: Any, source: str, expected_suffix: str | None) -> None:
-    if not isinstance(value, str) or not value:
-        raise ValueError(f"{source} contains an invalid repository path: {value!r}")
-    path = PurePosixPath(value)
-    if path.is_absolute() or path.as_posix() != value or ".." in path.parts or value == ".":
-        raise ValueError(f"{source} path must be normalized and repository-relative: {value!r}")
-    if expected_suffix is not None and not value.endswith(expected_suffix):
-        raise ValueError(f"{source} path must end in {expected_suffix}: {value!r}")
-
-
-def belongs_to_source_root(path: str, source_roots: list[str]) -> bool:
-    path_parts = PurePosixPath(path).parts
-    for root in source_roots:
-        root_parts = PurePosixPath(root).parts
-        if path_parts[: len(root_parts)] == root_parts:
-            return True
-    return False
+    for root in roots:
+        validate_repo_relative_path(root, source)
+    if version == CURRENT_SCHEMA:
+        unknown = set(baseline) - {"schemaVersion", "hardLineLimit", "sourceRoots", "policy"}
+        if unknown:
+            raise ValueError(f"{source} has unsupported policy fields: {', '.join(sorted(unknown))}")
+        if type(baseline.get("hardLineLimit")) is not int or baseline["hardLineLimit"] != HARD_LINE_LIMIT:
+            raise ValueError(f"{source} hardLineLimit must be exactly {HARD_LINE_LIMIT}; no exceptions")
+    else:
+        # Read-only historical input. The user-authorized schema 4 replacement
+        # retires review thresholds and per-file/family locks, not source roots.
+        limit = baseline.get("lineLimit" if version == 1 else "hardLineLimit")
+        if type(limit) is not int or limit <= 0:
+            raise ValueError(f"{source} historical line limit must be a positive integer")
+    return baseline
 
 
 def load_current_baseline() -> dict[str, Any]:
@@ -164,325 +73,104 @@ def load_current_baseline() -> dict[str, Any]:
     except OSError as error:
         raise ValueError(f"cannot read {BASELINE_RELATIVE_PATH}: {error}") from error
     baseline = read_baseline_text(text, str(BASELINE_RELATIVE_PATH))
-    if baseline["schemaVersion"] != 3:
-        raise ValueError(f"{BASELINE_RELATIVE_PATH} must use schemaVersion 3")
+    if baseline["schemaVersion"] != CURRENT_SCHEMA:
+        raise ValueError(f"{BASELINE_RELATIVE_PATH} must use schemaVersion {CURRENT_SCHEMA}")
     return baseline
 
 
-def swift_line_counts(baseline: dict[str, Any]) -> dict[str, int]:
-    counts: dict[str, int] = {}
-    for relative_root in baseline["sourceRoots"]:
-        root = REPO_ROOT / relative_root
-        if not root.is_dir():
-            raise ValueError(f"configured source root does not exist: {relative_root}")
+def belongs_to_source_root(path: str, source_roots: list[str]) -> bool:
+    parts = PurePosixPath(path).parts
+    return any(parts[:len(PurePosixPath(root).parts)] == PurePosixPath(root).parts
+               for root in source_roots)
 
+
+def swift_line_counts(baseline: dict[str, Any]) -> dict[str, int]:
+    for relative_root in baseline["sourceRoots"]:
+        if not (REPO_ROOT / relative_root).is_dir():
+            raise ValueError(f"configured source root does not exist: {relative_root}")
     result = subprocess.run(
         ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.swift"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        check=False,
+        cwd=REPO_ROOT, capture_output=True, check=False,
     )
     if result.returncode != 0:
         raise ValueError(f"git ls-files failed with exit code {result.returncode}")
-
     try:
-        relative_paths = sorted(
-            raw_path.decode("utf-8")
-            for raw_path in result.stdout.split(b"\0")
-            if raw_path
-        )
+        paths = sorted({raw.decode("utf-8") for raw in result.stdout.split(b"\0") if raw})
     except UnicodeDecodeError as error:
         raise ValueError(f"Swift source path is not valid UTF-8: {error}") from error
-
-    unmanaged_paths = [
-        path for path in relative_paths if not belongs_to_source_root(path, baseline["sourceRoots"])
-    ]
-    if unmanaged_paths:
-        raise ValueError(
-            "Swift files are outside configured sourceRoots: " + ", ".join(unmanaged_paths)
-        )
-
-    for relative_path in relative_paths:
-        path = REPO_ROOT / relative_path
+    unmanaged = [path for path in paths if not belongs_to_source_root(path, baseline["sourceRoots"])]
+    if unmanaged:
+        raise ValueError("Swift files are outside configured sourceRoots: " + ", ".join(unmanaged))
+    counts = {}
+    for relative in paths:
+        path = REPO_ROOT / relative
         if not path.is_file():
-            continue
+            continue  # Deleted tracked files have no current body to measure.
         try:
-            counts[relative_path] = len(path.read_text(encoding="utf-8").splitlines())
+            counts[relative] = len(path.read_text(encoding="utf-8").splitlines())
         except (OSError, UnicodeDecodeError) as error:
-            raise ValueError(f"cannot read {relative_path}: {error}") from error
-    return dict(sorted(counts.items()))
+            raise ValueError(f"cannot read {relative}: {error}") from error
+    return counts
 
 
-def current_tree_findings(
-    baseline: dict[str, Any], counts: dict[str, int]
-) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
-    review_line_limit = baseline["reviewLineLimit"]
-    hard_line_limit = baseline["hardLineLimit"]
-    legacy_files: dict[str, int] = baseline["legacyFiles"]
-    review_warning_files: dict[str, int] = baseline["reviewWarningFiles"]
-    errors: list[tuple[str, str]] = []
-    warnings: list[tuple[str, str]] = []
-
-    for path, allowance in legacy_files.items():
-        count = counts.get(path)
-        if count is None:
-            errors.append(
-                (path, "legacy entry is stale because the file no longer exists; ratchet the baseline")
-            )
-        elif count <= hard_line_limit:
-            errors.append(
-                (
-                    path,
-                    f"file is now {count} lines and no longer exceeds the {hard_line_limit}-line "
-                    "hard limit; remove its legacy entry with --ratchet-baseline",
-                )
-            )
-        elif count < allowance:
-            errors.append(
-                (
-                    path,
-                    f"file shrank from {allowance} to {count} lines; lock in the improvement "
-                    "with --ratchet-baseline",
-                )
-            )
-        elif count > allowance:
-            errors.append((path, f"file grew from its locked allowance {allowance} to {count} lines"))
-        else:
-            warnings.append(
-                (
-                    path,
-                    f"file has {count} lines; it exceeds the {review_line_limit}-line review limit "
-                    f"and is locked to its historical allowance of {allowance}",
-                )
-            )
-
-    for path, allowance in review_warning_files.items():
-        count = counts.get(path)
-        if count is None:
-            errors.append(
-                (
-                    path,
-                    "review-warning entry is stale because the file no longer exists; "
-                    "ratchet the baseline",
-                )
-            )
-        elif count <= review_line_limit:
-            errors.append(
-                (
-                    path,
-                    f"file is now {count} lines and no longer exceeds the {review_line_limit}-line "
-                    "review limit; remove its review-warning entry with --ratchet-baseline",
-                )
-            )
-        elif count < allowance:
-            errors.append(
-                (
-                    path,
-                    f"file shrank from {allowance} to {count} lines; lock in the improvement "
-                    "with --ratchet-baseline",
-                )
-            )
-        elif count > allowance:
-            errors.append(
-                (
-                    path,
-                    f"file grew from its locked review-warning allowance {allowance} "
-                    f"to {count} lines",
-                )
-            )
-        else:
-            warnings.append(
-                (
-                    path,
-                    f"file has {count} lines; it exceeds the {review_line_limit}-line review limit "
-                    f"and is locked to its review-warning allowance of {allowance}",
-                )
-            )
-
-    for path, count in counts.items():
-        if path in legacy_files or path in review_warning_files:
-            continue
-        if count > hard_line_limit:
-            errors.append(
-                (
-                    path,
-                    f"new or unbaselined file has {count} lines; hard limit is {hard_line_limit}",
-                )
-            )
-        elif count > review_line_limit:
-            warnings.append(
-                (
-                    path,
-                    f"file has {count} lines; review limit is {review_line_limit} "
-                    f"(hard limit is {hard_line_limit})",
-                )
-            )
-
-    return errors, warnings
+def current_tree_findings(baseline: dict[str, Any], counts: dict[str, int]) -> list[tuple[str, str]]:
+    # Validate the policy even for callers using in-memory data.
+    read_baseline_text(json.dumps(baseline), str(BASELINE_RELATIVE_PATH))
+    if baseline["schemaVersion"] != CURRENT_SCHEMA:
+        raise ValueError("historical baselines cannot govern the current source tree")
+    return [(path, f"file has {count} lines; hard limit is {HARD_LINE_LIMIT}")
+            for path, count in counts.items() if count > HARD_LINE_LIMIT]
 
 
 def baseline_at_ref(base_ref: str) -> tuple[dict[str, Any] | None, str | None]:
-    commit_check = subprocess.run(
+    commit = subprocess.run(
         ["git", "rev-parse", "--verify", f"{base_ref}^{{commit}}"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
+        cwd=REPO_ROOT, capture_output=True, text=True, check=False,
     )
-    if commit_check.returncode != 0:
+    if commit.returncode != 0:
         raise ValueError(f"base ref is not a commit: {base_ref}")
-
+    resolved = commit.stdout.strip()
+    listing = subprocess.run(
+        ["git", "ls-tree", "--name-only", resolved, "--", BASELINE_RELATIVE_PATH.as_posix()],
+        cwd=REPO_ROOT, capture_output=True, text=True, check=False,
+    )
+    if listing.returncode != 0:
+        raise ValueError(f"cannot inspect code-health baseline at {base_ref}")
+    if not listing.stdout.strip():
+        return None, f"{base_ref} predates the code-health baseline; historical source-root check skipped"
     result = subprocess.run(
-        ["git", "show", f"{base_ref}:{BASELINE_RELATIVE_PATH.as_posix()}"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
+        ["git", "show", f"{resolved}:{BASELINE_RELATIVE_PATH.as_posix()}"],
+        cwd=REPO_ROOT, capture_output=True, text=True, check=False,
     )
     if result.returncode != 0:
-        return None, f"{base_ref} predates the code-health baseline; historical expansion check skipped"
-    baseline = read_baseline_text(result.stdout, f"{base_ref}:{BASELINE_RELATIVE_PATH}")
-    if baseline["schemaVersion"] == 1:
-        return (
-            baseline,
-            f"{base_ref} uses schemaVersion 1; hardLineLimit history starts with schemaVersion 2",
-        )
-    return baseline, None
+        raise ValueError(f"cannot read code-health baseline at {base_ref}")
+    return read_baseline_text(result.stdout, f"{base_ref}:{BASELINE_RELATIVE_PATH}"), None
 
 
 def historical_problems(current: dict[str, Any], previous: dict[str, Any]) -> list[tuple[str, str]]:
-    problems: list[tuple[str, str]] = []
     baseline_path = BASELINE_RELATIVE_PATH.as_posix()
-
-    if current["reviewLineLimit"] > previous["reviewLineLimit"]:
-        problems.append(
-            (
-                baseline_path,
-                "reviewLineLimit increased from "
-                f"{previous['reviewLineLimit']} to {current['reviewLineLimit']}",
-            )
-        )
-
-    previous_hard_limit = previous.get("hardLineLimit")
-    if (
-        previous_hard_limit is not None
-        and current["hardLineLimit"] > previous_hard_limit
-        # Explicitly authorized policy migration (2026-09-24), not a
-        # general exemption from the historical ratchet.
-        and not (previous_hard_limit == 800 and current["hardLineLimit"] == 1000)
-    ):
-        problems.append(
-            (
-                baseline_path,
-                f"hardLineLimit increased from {previous_hard_limit} to {current['hardLineLimit']}",
-            )
-        )
-
-    removed_roots = sorted(set(previous["sourceRoots"]) - set(current["sourceRoots"]))
-    if removed_roots:
-        problems.append((baseline_path, f"source roots cannot be removed: {', '.join(removed_roots)}"))
-
-    previous_legacy: dict[str, int] = previous["legacyFiles"]
-    for path, allowance in current["legacyFiles"].items():
-        previous_allowance = previous_legacy.get(path)
-        if previous_allowance is None:
-            problems.append((baseline_path, f"new legacy exception is not allowed: {path}"))
-        elif allowance > previous_allowance:
-            problems.append(
-                (baseline_path, f"legacy allowance for {path} increased from {previous_allowance} to {allowance}")
-            )
-
-    previous_review_warning: dict[str, int] = previous["reviewWarningFiles"]
-    for path, allowance in current["reviewWarningFiles"].items():
-        previous_allowance = previous_review_warning.get(path)
-        if previous_allowance is None:
-            problems.append(
-                (baseline_path, f"new review-warning lock is not allowed: {path}")
-            )
-        elif allowance > previous_allowance:
-            problems.append(
-                (
-                    baseline_path,
-                    f"review-warning allowance for {path} increased from "
-                    f"{previous_allowance} to {allowance}",
-                )
-            )
-
-    return problems
+    try:
+        read_baseline_text(json.dumps(current), baseline_path)
+        if current["schemaVersion"] != CURRENT_SCHEMA:
+            raise ValueError(f"current policy must use schemaVersion {CURRENT_SCHEMA}")
+    except ValueError as error:
+        return [(baseline_path, str(error))]
+    # Schema 4 is the explicit 2026-10-03 policy replacement: one fixed 1000
+    # ceiling, no review threshold or per-file exception/ratchet. Later schema 4
+    # baselines still cannot change that ceiling or reduce managed root coverage.
+    removed = sorted(set(previous["sourceRoots"]) - set(current["sourceRoots"]))
+    return [(baseline_path, f"source roots cannot be removed: {', '.join(removed)}")] if removed else []
 
 
 def escape_github(value: str) -> str:
     return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
 
 
-def emit_finding(severity: str, path: str, message: str, output_format: str) -> None:
-    label = severity.upper()
-    if output_format == "github":
-        print(
-            f"::{severity} file={escape_github(path)},line=1,title=Swift file health "
-            f"{label}::{escape_github(message)}"
-        )
-    else:
-        print(f"{label} {path}: {message}", file=sys.stderr)
-
-
 def emit_problem(path: str, message: str, output_format: str) -> None:
-    emit_finding("error", path, message, output_format)
-
-
-def emit_notice(message: str, output_format: str) -> None:
     if output_format == "github":
-        print(f"::notice title=Swift file health::{escape_github(message)}")
+        print(f"::error file={escape_github(path)},line=1,title=Swift file health ERROR::{escape_github(message)}")
     else:
-        print(f"NOTICE {message}")
-
-
-def ratchet_baseline(baseline: dict[str, Any], counts: dict[str, int]) -> int:
-    review_line_limit = baseline["reviewLineLimit"]
-    hard_line_limit = baseline["hardLineLimit"]
-    legacy_files: dict[str, int] = baseline["legacyFiles"]
-    review_warning_files: dict[str, int] = baseline["reviewWarningFiles"]
-    blockers: list[tuple[str, str]] = []
-
-    for path, count in counts.items():
-        legacy_allowance = legacy_files.get(path)
-        review_allowance = review_warning_files.get(path)
-        if count > hard_line_limit and legacy_allowance is None and review_allowance is None:
-            blockers.append((path, f"cannot add a legacy exception for a {count}-line file"))
-        elif legacy_allowance is not None and count > legacy_allowance:
-            blockers.append((path, f"cannot ratchet a file that grew from {legacy_allowance} to {count} lines"))
-        if review_allowance is not None and count > review_allowance:
-            blockers.append(
-                (path, f"cannot ratchet a review-warning file that grew from {review_allowance} to {count} lines")
-            )
-
-    if blockers:
-        for path, message in blockers:
-            emit_problem(path, message, "text")
-        return 1
-
-    updated_legacy = {
-        path: counts[path]
-        for path in sorted(legacy_files)
-        if path in counts and counts[path] > hard_line_limit
-    }
-    updated_review_warning = {
-        path: counts[path]
-        for path in sorted(review_warning_files)
-        if path in counts and counts[path] > review_line_limit
-    }
-    if updated_legacy == legacy_files and updated_review_warning == review_warning_files:
-        print("Code-health baseline is already at the current minimum.")
-        return 0
-
-    baseline["legacyFiles"] = updated_legacy
-    baseline["reviewWarningFiles"] = updated_review_warning
-    BASELINE_PATH.write_text(json.dumps(baseline, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
-    print(
-        f"Ratchet updated: {len(legacy_files)} -> {len(updated_legacy)} legacy files, "
-        f"{len(review_warning_files)} -> {len(updated_review_warning)} review-warning files."
-    )
-    return 0
+        print(f"ERROR {path}: {message}", file=sys.stderr)
 
 
 def main() -> int:
@@ -490,57 +178,21 @@ def main() -> int:
     try:
         baseline = load_current_baseline()
         counts = swift_line_counts(baseline)
+        errors = current_tree_findings(baseline, counts)
+        if arguments.base_ref:
+            previous, notice = baseline_at_ref(arguments.base_ref)
+            if notice:
+                print(f"NOTICE {notice}")
+            if previous is not None:
+                errors.extend(historical_problems(baseline, previous))
     except ValueError as error:
         emit_problem(BASELINE_RELATIVE_PATH.as_posix(), str(error), arguments.format)
         return 1
-
-    if arguments.ratchet_baseline:
-        if arguments.base_ref:
-            emit_problem(BASELINE_RELATIVE_PATH.as_posix(), "--base-ref cannot be used while ratcheting", arguments.format)
-            return 2
-        return ratchet_baseline(baseline, counts)
-
-    errors, warnings = current_tree_findings(baseline, counts)
-    if arguments.base_ref:
-        try:
-            previous, notice = baseline_at_ref(arguments.base_ref)
-            if notice:
-                emit_notice(notice, arguments.format)
-            if previous is not None:
-                relocations = unchanged_source_relocations(
-                    REPO_ROOT, arguments.base_ref, previous["legacyFiles"],
-                    set(baseline["legacyFiles"]) - set(previous["legacyFiles"]),
-                )
-                previous = {**previous, "legacyFiles": {
-                    relocations.get(path, path): allowance
-                    for path, allowance in previous["legacyFiles"].items()
-                }}
-                review_relocations = unchanged_source_relocations(
-                    REPO_ROOT, arguments.base_ref, previous["reviewWarningFiles"],
-                    set(baseline["reviewWarningFiles"]) - set(previous["reviewWarningFiles"]),
-                )
-                previous = {**previous, "reviewWarningFiles": {
-                    review_relocations.get(path, path): allowance
-                    for path, allowance in previous["reviewWarningFiles"].items()
-                }}
-                errors.extend(historical_problems(baseline, previous))
-        except ValueError as error:
-            errors.append((BASELINE_RELATIVE_PATH.as_posix(), str(error)))
-
-    for path, message in warnings:
-        emit_finding("warning", path, message, arguments.format)
     for path, message in errors:
         emit_problem(path, message, arguments.format)
     if errors:
         return 1
-
-    print(
-        f"Code health passed: {len(counts)} Swift files, "
-        f"{len(baseline['legacyFiles'])} locked legacy files, "
-        f"{len(baseline['reviewWarningFiles'])} locked review-warning files, "
-        f"{baseline['reviewLineLimit']}-line review limit, "
-        f"{baseline['hardLineLimit']}-line hard limit, {len(warnings)} warnings."
-    )
+    print(f"Code health passed: {len(counts)} Swift files, {HARD_LINE_LIMIT}-line hard limit; no per-file exceptions.")
     return 0
 
 

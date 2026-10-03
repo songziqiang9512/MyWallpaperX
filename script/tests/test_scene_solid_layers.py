@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from script.tests.source_family import read_source_family
 import json
 import re
 import shutil
@@ -717,9 +718,7 @@ class SceneSolidLayerTests(unittest.TestCase):
                 r"[\s\S]{0,160}values\.tint"
             ),
         )
-        renderer = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift").read_text(
-            encoding="utf-8"
-        )
+        renderer = read_source_family(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift")
         self.assertIn("tint: baseSource.usesAuthoredLayerColor", renderer)
         self.assertRegex(
             compositor_uniforms,

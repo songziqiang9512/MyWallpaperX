@@ -1,3 +1,4 @@
+from script.tests.source_family import read_source_family
 from pathlib import Path
 import unittest
 
@@ -101,9 +102,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         compiled = (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialCompiledVariant.swift"
         ).read_text(encoding="utf-8")
-        compilation = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
-        ).read_text(encoding="utf-8")
+        compilation = read_source_family(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift")
         finalizer = (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer.swift"
         ).read_text(encoding="utf-8")

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import importlib.util
 import io
 import json
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -18,379 +20,170 @@ GATE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(GATE)
 
 
-def baseline(
-    *,
-    review_limit: int = 400,
-    hard_limit: int = 800,
-    legacy_files: dict[str, int] | None = None,
-    review_warning_files: dict[str, int] | None = None,
-) -> dict[str, object]:
-    return {
-        "schemaVersion": 3,
-        "reviewLineLimit": review_limit,
-        "hardLineLimit": hard_limit,
-        "sourceRoots": ["MyWallpaperX", "WallpaperDaemonSources"],
-        "legacyFiles": legacy_files or {},
-        "reviewWarningFiles": review_warning_files or {},
-    }
+def baseline() -> dict:
+    return {"schemaVersion": 4, "hardLineLimit": 1000,
+            "sourceRoots": ["MyWallpaperX", "WallpaperDaemonSources"]}
+
+
+def git(root: Path, *arguments: str) -> str:
+    return subprocess.run(["git", *arguments], cwd=root, check=True,
+                          capture_output=True, text=True).stdout.strip()
 
 
 class CodeHealthGateTests(unittest.TestCase):
-    def test_authorized_thousand_line_transition_keeps_future_ratchet(self) -> None:
-        self.assertEqual([], GATE.historical_problems(
-            baseline(hard_limit=1000), baseline(hard_limit=800),
-        ))
-        self.assertTrue(GATE.historical_problems(
-            baseline(hard_limit=1001), baseline(hard_limit=1000),
-        ))
+    def test_one_ceiling_accepts_400_401_and_1000_without_warnings(self):
+        counts = {f"MyWallpaperX/File{count}.swift": count for count in (0, 400, 401, 999, 1000)}
+        self.assertEqual(GATE.current_tree_findings(baseline(), counts), [])
+        counts["MyWallpaperX/New.swift"] = 1001
+        self.assertEqual(GATE.current_tree_findings(baseline(), counts), [
+            ("MyWallpaperX/New.swift", "file has 1001 lines; hard limit is 1000")])
 
-    def test_current_tree_warns_between_review_and_hard_limits(self) -> None:
-        errors, warnings = GATE.current_tree_findings(
-            baseline(legacy_files={"MyWallpaperX/Legacy.swift": 900}),
-            {
-                "MyWallpaperX/AtReviewLimit.swift": 400,
-                "MyWallpaperX/NeedsReview.swift": 401,
-                "MyWallpaperX/AtHardLimit.swift": 800,
-                "MyWallpaperX/Legacy.swift": 900,
-            },
-        )
+    def test_growth_shrink_removal_and_new_family_files_need_no_lock_updates(self):
+        for counts in ({"MyWallpaperX/Renderer+New.swift": 999},
+                       {"MyWallpaperX/PreviouslyLocked.swift": 950},
+                       {"MyWallpaperX/PreviouslyLocked.swift": 500}, {}):
+            self.assertEqual(GATE.current_tree_findings(baseline(), counts), [])
 
-        self.assertEqual([], errors)
-        self.assertEqual(
-            {
-                "MyWallpaperX/NeedsReview.swift",
-                "MyWallpaperX/AtHardLimit.swift",
-                "MyWallpaperX/Legacy.swift",
-            },
-            {path for path, _ in warnings},
-        )
-        self.assertTrue(all("review" in message for _, message in warnings))
+    def test_schema_rejects_changed_ceiling_and_every_exception_mechanism(self):
+        for ceiling in (True, None, 400, 999, 1001, 5000):
+            value = baseline(); value["hardLineLimit"] = ceiling
+            with self.subTest(ceiling=ceiling), self.assertRaises(ValueError):
+                GATE.read_baseline_text(json.dumps(value), "fixture")
+        for field in ("reviewLineLimit", "reviewWarningFiles", "legacyFiles", "graduatedFamilies", "lineLimit"):
+            value = baseline(); value[field] = {}
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                GATE.read_baseline_text(json.dumps(value), "fixture")
+        for value in ([], None, {**baseline(), "schemaVersion": True},
+                      {**baseline(), "schemaVersion": 5}):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                GATE.read_baseline_text(json.dumps(value), "fixture")
 
-    def test_current_tree_rejects_growth_and_new_file_over_hard_limit(self) -> None:
-        errors, warnings = GATE.current_tree_findings(
-            baseline(legacy_files={"MyWallpaperX/Legacy.swift": 900}),
-            {
-                "MyWallpaperX/Legacy.swift": 901,
-                "MyWallpaperX/New.swift": 801,
-            },
-        )
+    def test_source_roots_are_exact_normalized_nonempty_unique_paths(self):
+        for roots in ([], ["MyWallpaperX", "MyWallpaperX"], [None], [""],
+                      ["/tmp/source"], ["../source"], ["MyWallpaperX/../Other"],
+                      ["MyWallpaperX/"], ["."], ["MyWallpaperX/*"]):
+            with self.subTest(roots=roots), self.assertRaises(ValueError):
+                GATE.read_baseline_text(json.dumps({**baseline(), "sourceRoots": roots}), "fixture")
+        self.assertTrue(GATE.belongs_to_source_root("MyWallpaperX/App/App.swift", baseline()["sourceRoots"]))
+        self.assertFalse(GATE.belongs_to_source_root("MyWallpaperXBackup/File.swift", baseline()["sourceRoots"]))
 
-        self.assertEqual([], warnings)
-        self.assertEqual(2, len(errors))
-        self.assertIn("grew", errors[0][1])
-        self.assertIn("hard limit", errors[1][1])
+    def test_authorized_schema_replacement_retires_old_locks_but_preserves_roots(self):
+        for version in (1, 2, 3):
+            old = {"schemaVersion": version, "sourceRoots": baseline()["sourceRoots"],
+                   "legacyFiles": {"MyWallpaperX/Old.swift": 1200}}
+            if version == 1:
+                old["lineLimit"] = 400
+            else:
+                old.update(reviewLineLimit=400, hardLineLimit=800 if version == 2 else 1000)
+            if version == 3:
+                old.update(reviewWarningFiles={"MyWallpaperX/Locked.swift": 850},
+                           graduatedFamilies={"renderer": {"maxLines": 400}})
+            previous = GATE.read_baseline_text(json.dumps(old), "historical")
+            self.assertEqual(GATE.historical_problems(baseline(), previous), [])
+            with self.assertRaises(ValueError):
+                GATE.current_tree_findings(previous, {})
+            reduced = baseline(); reduced["sourceRoots"] = ["MyWallpaperX"]
+            self.assertTrue(GATE.historical_problems(reduced, previous))
 
-    def test_current_tree_requires_ratchet_after_shrink_or_delete(self) -> None:
-        errors, warnings = GATE.current_tree_findings(
-            baseline(
-                legacy_files={
-                    "MyWallpaperX/Shrank.swift": 900,
-                    "MyWallpaperX/BelowHardLimit.swift": 850,
-                    "MyWallpaperX/Deleted.swift": 850,
-                }
-            ),
-            {
-                "MyWallpaperX/Shrank.swift": 875,
-                "MyWallpaperX/BelowHardLimit.swift": 800,
-            },
-        )
+    def test_committed_unified_policy_cannot_raise_ceiling_or_restore_exceptions(self):
+        previous = baseline()
+        variants = [{**previous, "hardLineLimit": 1001},
+                    {**previous, "legacyFiles": {"MyWallpaperX/Large.swift": 1200}},
+                    {**previous, "sourceRoots": ["MyWallpaperX"]},
+                    {**previous, "schemaVersion": 3}]
+        for current in variants:
+            self.assertTrue(GATE.historical_problems(current, previous))
+        expanded = copy.deepcopy(previous); expanded["sourceRoots"].append("script/tests/fixtures")
+        self.assertEqual(GATE.historical_problems(expanded, previous), [])
 
-        self.assertEqual([], warnings)
-        self.assertEqual(3, len(errors))
-        self.assertTrue(all("ratchet" in message for _, message in errors))
-
-    def test_current_tree_locks_review_warnings_with_directional_ratchet(self) -> None:
-        errors, warnings = GATE.current_tree_findings(
-            baseline(
-                review_warning_files={
-                    "MyWallpaperX/Locked.swift": 850,
-                    "MyWallpaperX/Shrank.swift": 850,
-                    "MyWallpaperX/Grew.swift": 850,
-                    "MyWallpaperX/Resolved.swift": 850,
-                    "MyWallpaperX/Deleted.swift": 850,
-                }
-            ),
-            {
-                "MyWallpaperX/Locked.swift": 850,
-                "MyWallpaperX/Shrank.swift": 849,
-                "MyWallpaperX/Grew.swift": 851,
-                "MyWallpaperX/Resolved.swift": 400,
-            },
-        )
-
-        self.assertEqual(4, len(errors))
-        messages = "\n".join(message for _, message in errors)
-        self.assertIn("shrank from 850 to 849", messages)
-        self.assertIn("grew from its locked review-warning allowance 850 to 851", messages)
-        self.assertIn(
-            "no longer exceeds the 400-line review limit; remove its review-warning entry",
-            messages,
-        )
-        self.assertIn("review-warning entry is stale", messages)
-        locked = [message for path, message in warnings if path == "MyWallpaperX/Locked.swift"]
-        self.assertEqual(1, len(locked))
-        self.assertIn("locked to its review-warning allowance of 850", locked[0])
-        self.assertNotIn("MyWallpaperX/Resolved.swift", {path for path, _ in warnings})
-
-    def test_history_rejects_weaker_limits_roots_and_exceptions(self) -> None:
-        previous = baseline(
-            legacy_files={"MyWallpaperX/Legacy.swift": 900},
-            review_warning_files={"MyWallpaperX/ReviewLocked.swift": 850},
-        )
-        current = baseline(
-            review_limit=401,
-            hard_limit=801,
-            legacy_files={
-                "MyWallpaperX/Legacy.swift": 901,
-                "MyWallpaperX/New.swift": 850,
-            },
-            review_warning_files={
-                "MyWallpaperX/ReviewLocked.swift": 851,
-                "MyWallpaperX/ReviewNew.swift": 860,
-            },
-        )
-        current["sourceRoots"] = ["MyWallpaperX"]
-
-        problems = GATE.historical_problems(current, previous)
-
-        self.assertEqual(7, len(problems))
-        messages = "\n".join(message for _, message in problems)
-        self.assertIn("reviewLineLimit increased from 400 to 401", messages)
-        self.assertIn("hardLineLimit increased from 800 to 801", messages)
-        self.assertIn("source roots cannot be removed", messages)
-        self.assertIn("increased from 900 to 901", messages)
-        self.assertIn("new legacy exception", messages)
-        self.assertIn(
-            "review-warning allowance for MyWallpaperX/ReviewLocked.swift increased from 850 to 851",
-            messages,
-        )
-        self.assertIn("new review-warning lock is not allowed: MyWallpaperX/ReviewNew.swift", messages)
-
-    def test_history_allows_tighter_limits_and_removing_exceptions(self) -> None:
-        previous = baseline(
-            legacy_files={"MyWallpaperX/Legacy.swift": 900},
-            review_warning_files={"MyWallpaperX/ReviewLocked.swift": 850},
-        )
-        current = baseline(
-            review_limit=350,
-            hard_limit=750,
-            review_warning_files={"MyWallpaperX/ReviewLocked.swift": 800},
-        )
-
-        self.assertEqual([], GATE.historical_problems(current, previous))
-
-    def test_schema_three_validates_limits_paths_and_lock_floors(self) -> None:
-        valid = baseline()
-        GATE.read_baseline_text(json.dumps(valid), "fixture")
-
-        invalid_limits = (
-            dict(valid, schemaVersion=True),
-            dict(valid, schemaVersion=4),
-            dict(valid, reviewLineLimit=True),
-            dict(valid, hardLineLimit=400),
-            dict(valid, lineLimit=400),
-            dict(valid, schemaVersion=2),
-        )
-        for invalid in invalid_limits:
-            with self.subTest(invalid=invalid):
-                with self.assertRaises(ValueError):
-                    GATE.read_baseline_text(json.dumps(invalid), "fixture")
-
-        for invalid_root in ("/tmp/source", "../source", "MyWallpaperX/../Other", "MyWallpaperX/"):
-            invalid = dict(valid, sourceRoots=[invalid_root])
-            with self.subTest(root=invalid_root):
-                with self.assertRaises(ValueError):
-                    GATE.read_baseline_text(json.dumps(invalid), "fixture")
-
-        invalid_exception = dict(
-            valid,
-            legacyFiles={"MyWallpaperX/AtHardLimit.swift": 800},
-        )
-        with self.assertRaises(ValueError):
-            GATE.read_baseline_text(json.dumps(invalid_exception), "fixture")
-
-        unmanaged = dict(
-            valid,
-            legacyFiles={"MyWallpaperXTests/Oversized.swift": 900},
-        )
-        with self.assertRaises(ValueError):
-            GATE.read_baseline_text(json.dumps(unmanaged), "fixture")
-
-        invalid_review_locks = (
-            dict(valid, reviewWarningFiles="locked"),
-            dict(valid, reviewWarningFiles={"MyWallpaperX/AtReviewLimit.swift": 400}),
-            dict(valid, reviewWarningFiles={"MyWallpaperXTests/Oversized.swift": 500}),
-            dict(
-                valid,
-                legacyFiles={"MyWallpaperX/Legacy.swift": 900},
-                reviewWarningFiles={"MyWallpaperX/Legacy.swift": 500},
-            ),
-        )
-        for invalid in invalid_review_locks:
-            with self.subTest(invalid=invalid):
-                with self.assertRaises(ValueError):
-                    GATE.read_baseline_text(json.dumps(invalid), "fixture")
-
-    def test_schema_two_is_read_only_migration_input(self) -> None:
-        previous = {
-            "schemaVersion": 2,
-            "reviewLineLimit": 400,
-            "hardLineLimit": 1000,
-            "sourceRoots": ["MyWallpaperX"],
-            "legacyFiles": {"MyWallpaperX/Legacy.swift": 1001},
-        }
-
-        parsed = GATE.read_baseline_text(json.dumps(previous), "fixture")
-
-        self.assertEqual(2, parsed["schemaVersion"])
-        self.assertEqual({}, parsed["reviewWarningFiles"])
-
-    def test_schema_one_is_read_only_migration_input(self) -> None:
-        previous = {
-            "schemaVersion": 1,
-            "lineLimit": 400,
-            "sourceRoots": ["MyWallpaperX"],
-            "legacyFiles": {"MyWallpaperX/Legacy.swift": 900},
-        }
-
-        parsed = GATE.read_baseline_text(json.dumps(previous), "fixture")
-
-        self.assertEqual(1, parsed["schemaVersion"])
-        self.assertEqual(400, parsed["reviewLineLimit"])
-        self.assertIsNone(parsed["hardLineLimit"])
-        self.assertEqual({}, parsed["reviewWarningFiles"])
-        self.assertNotIn("lineLimit", parsed)
-
-    def test_source_root_membership_uses_path_components(self) -> None:
-        roots = ["MyWallpaperX", "WallpaperDaemonSources"]
-
-        self.assertTrue(GATE.belongs_to_source_root("MyWallpaperX/App/AppDelegate.swift", roots))
-        self.assertTrue(GATE.belongs_to_source_root("WallpaperDaemonSources/main.swift", roots))
-        self.assertFalse(GATE.belongs_to_source_root("MyWallpaperXTests/AppTests.swift", roots))
-        self.assertFalse(GATE.belongs_to_source_root("MyWallpaperXBackup/File.swift", roots))
-
-    def test_ratchet_removes_resolved_entries_and_lowers_remaining_allowance(self) -> None:
-        current = baseline(
-            legacy_files={
-                "MyWallpaperX/Shrank.swift": 900,
-                "MyWallpaperX/BelowHardLimit.swift": 850,
-                "MyWallpaperX/Deleted.swift": 850,
-            },
-            review_warning_files={
-                "MyWallpaperX/ReviewResolved.swift": 850,
-                "MyWallpaperX/ReviewShrank.swift": 850,
-                "MyWallpaperX/ReviewDeleted.swift": 850,
-            },
-        )
-        counts = {
-            "MyWallpaperX/Shrank.swift": 875,
-            "MyWallpaperX/BelowHardLimit.swift": 800,
-            "MyWallpaperX/ReviewResolved.swift": 400,
-            "MyWallpaperX/ReviewShrank.swift": 820,
-        }
-
+    def test_historical_schemas_cannot_be_used_as_current_configuration(self):
         with tempfile.TemporaryDirectory() as directory:
-            output_path = Path(directory) / "baseline.json"
-            with (
-                patch.object(GATE, "BASELINE_PATH", output_path),
-                redirect_stdout(io.StringIO()),
-            ):
-                result = GATE.ratchet_baseline(current, counts)
-            updated = json.loads(output_path.read_text(encoding="utf-8"))
+            path = Path(directory) / "baseline.json"
+            path.write_text(json.dumps({"schemaVersion": 3, "hardLineLimit": 1000,
+                                       "sourceRoots": ["MyWallpaperX"]}))
+            with patch.object(GATE, "BASELINE_PATH", path), self.assertRaises(ValueError):
+                GATE.load_current_baseline()
 
-        self.assertEqual(0, result)
-        self.assertEqual({"MyWallpaperX/Shrank.swift": 875}, updated["legacyFiles"])
-        self.assertEqual(
-            {"MyWallpaperX/ReviewShrank.swift": 820}, updated["reviewWarningFiles"]
-        )
+    def test_scan_includes_untracked_and_force_tracked_ignored_swift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); git(root, "init", "--quiet")
+            (root / "MyWallpaperX").mkdir(); (root / "WallpaperDaemonSources").mkdir()
+            (root / ".gitignore").write_text("MyWallpaperX/Ignored*.swift\n")
+            (root / "MyWallpaperX/Tracked.swift").write_text("line\n" * 1000)
+            (root / "MyWallpaperX/New File.swift").write_text("line\n" * 1001)
+            (root / "MyWallpaperX/Ignored.swift").write_text("line\n" * 2000)
+            forced = root / "MyWallpaperX/IgnoredTracked.swift"
+            forced.write_text("line\n" * 1001)
+            deleted = root / "MyWallpaperX/Deleted.swift"; deleted.write_text("deleted\n")
+            git(root, "add", "MyWallpaperX/Tracked.swift", "MyWallpaperX/Deleted.swift")
+            git(root, "add", "-f", "MyWallpaperX/IgnoredTracked.swift")
+            deleted.unlink()
+            with patch.object(GATE, "REPO_ROOT", root):
+                counts = GATE.swift_line_counts(baseline())
+            self.assertEqual(counts, {"MyWallpaperX/IgnoredTracked.swift": 1001,
+                                     "MyWallpaperX/New File.swift": 1001,
+                                     "MyWallpaperX/Tracked.swift": 1000})
+            self.assertEqual(len(GATE.current_tree_findings(baseline(), counts)), 2)
 
-    def test_ratchet_cannot_add_or_expand_hard_limit_exception(self) -> None:
-        current = baseline(legacy_files={"MyWallpaperX/Legacy.swift": 900})
-        counts = {
-            "MyWallpaperX/Legacy.swift": 901,
-            "MyWallpaperX/New.swift": 801,
-        }
+    def test_scan_rejects_missing_roots_unmanaged_sources_and_invalid_utf8(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); git(root, "init", "--quiet")
+            with patch.object(GATE, "REPO_ROOT", root):
+                with self.assertRaisesRegex(ValueError, "does not exist"):
+                    GATE.swift_line_counts(baseline())
+                (root / "MyWallpaperX").mkdir(); (root / "WallpaperDaemonSources").mkdir()
+                outside = root / "Outside.swift"; outside.write_text("code")
+                with self.assertRaisesRegex(ValueError, "outside configured"):
+                    GATE.swift_line_counts(baseline())
+                outside.unlink()
+                (root / "MyWallpaperX/Bad.swift").write_bytes(b"\xff")
+                with self.assertRaisesRegex(ValueError, "cannot read"):
+                    GATE.swift_line_counts(baseline())
 
-        with redirect_stderr(io.StringIO()):
-            result = GATE.ratchet_baseline(current, counts)
+    def test_real_git_base_distinguishes_absence_invalid_ref_and_committed_raise(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); git(root, "init", "--quiet")
+            git(root, "config", "user.name", "Code Health Fixture")
+            git(root, "config", "user.email", "health@example.invalid")
+            git(root, "commit", "--allow-empty", "--quiet", "-m", "before baseline")
+            empty = git(root, "rev-parse", "HEAD")
+            path = root / GATE.BASELINE_RELATIVE_PATH; path.parent.mkdir()
+            path.write_text(json.dumps(baseline()))
+            git(root, "add", str(GATE.BASELINE_RELATIVE_PATH))
+            git(root, "commit", "--quiet", "-m", "unified policy")
+            original = git(root, "rev-parse", "HEAD")
+            path.write_text(json.dumps({**baseline(), "hardLineLimit": 1001}))
+            git(root, "add", str(GATE.BASELINE_RELATIVE_PATH))
+            git(root, "commit", "--quiet", "-m", "unauthorized increase")
+            with patch.object(GATE, "REPO_ROOT", root):
+                self.assertIsNone(GATE.baseline_at_ref(empty)[0])
+                self.assertEqual(GATE.baseline_at_ref(original)[0], baseline())
+                with self.assertRaisesRegex(ValueError, "not a commit"):
+                    GATE.baseline_at_ref("missing-reference")
+                with self.assertRaisesRegex(ValueError, "exactly 1000"):
+                    GATE.baseline_at_ref("HEAD")
 
-        self.assertEqual(1, result)
+    def test_cli_has_no_ratchet_write_mode(self):
+        with patch("sys.argv", ["check_code_health.py", "--ratchet-baseline"]), redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as raised:
+                GATE.parse_arguments()
+        self.assertEqual(raised.exception.code, 2)
 
-    def test_ratchet_cannot_expand_review_warning_allowance(self) -> None:
-        current = baseline(review_warning_files={"MyWallpaperX/Locked.swift": 850})
-
-        with redirect_stderr(io.StringIO()) as stderr:
-            grew = GATE.ratchet_baseline(current, {"MyWallpaperX/Locked.swift": 851})
-            breached_hard_limit = GATE.ratchet_baseline(
-                current, {"MyWallpaperX/Locked.swift": 1001}
-            )
-
-        self.assertEqual(1, grew)
-        self.assertEqual(1, breached_hard_limit)
-        self.assertIn(
-            "cannot ratchet a review-warning file that grew from 850 to 851",
-            stderr.getvalue(),
-        )
-        self.assertIn(
-            "cannot ratchet a review-warning file that grew from 850 to 1001",
-            stderr.getvalue(),
-        )
-        self.assertNotIn("cannot add a legacy exception", stderr.getvalue())
-
-    def test_main_warning_only_succeeds_and_labels_warning(self) -> None:
-        arguments = argparse.Namespace(
-            check=True,
-            ratchet_baseline=False,
-            base_ref=None,
-            format="text",
-        )
-        current = baseline()
-        stdout = io.StringIO()
-        stderr = io.StringIO()
-
-        with (
-            patch.object(GATE, "parse_arguments", return_value=arguments),
-            patch.object(GATE, "load_current_baseline", return_value=current),
-            patch.object(
-                GATE,
-                "swift_line_counts",
-                return_value={"MyWallpaperX/NeedsReview.swift": 401},
-            ),
-            redirect_stdout(stdout),
-            redirect_stderr(stderr),
-        ):
-            result = GATE.main()
-
-        self.assertEqual(0, result)
-        self.assertIn("WARNING MyWallpaperX/NeedsReview.swift", stderr.getvalue())
-        self.assertNotIn("ERROR", stderr.getvalue())
-        self.assertIn("1 warnings", stdout.getvalue())
-
-    def test_main_hard_limit_error_fails_and_labels_error(self) -> None:
-        arguments = argparse.Namespace(
-            check=True,
-            ratchet_baseline=False,
-            base_ref=None,
-            format="github",
-        )
-        current = baseline()
-        stdout = io.StringIO()
-
-        with (
-            patch.object(GATE, "parse_arguments", return_value=arguments),
-            patch.object(GATE, "load_current_baseline", return_value=current),
-            patch.object(
-                GATE,
-                "swift_line_counts",
-                return_value={"MyWallpaperX/TooLarge.swift": 801},
-            ),
-            redirect_stdout(stdout),
-        ):
-            result = GATE.main()
-
-        self.assertEqual(1, result)
-        self.assertIn("::error file=MyWallpaperX/TooLarge.swift", stdout.getvalue())
-        self.assertNotIn("::warning", stdout.getvalue())
+    def test_main_below_ceiling_is_quiet_and_over_ceiling_emits_github_error(self):
+        for count in (401, 1000, 1001):
+            args = argparse.Namespace(check=True, base_ref=None, format="github")
+            stdout, stderr = io.StringIO(), io.StringIO()
+            with (patch.object(GATE, "parse_arguments", return_value=args),
+                  patch.object(GATE, "load_current_baseline", return_value=baseline()),
+                  patch.object(GATE, "swift_line_counts", return_value={"MyWallpaperX/Test.swift": count}),
+                  redirect_stdout(stdout), redirect_stderr(stderr)):
+                result = GATE.main()
+            self.assertEqual(result, int(count > 1000))
+            self.assertNotIn("warning", stdout.getvalue().lower() + stderr.getvalue().lower())
+            if count > 1000:
+                self.assertIn("::error file=MyWallpaperX/Test.swift", stdout.getvalue())
+            else:
+                self.assertIn("1000-line hard limit", stdout.getvalue())
 
 
 if __name__ == "__main__":

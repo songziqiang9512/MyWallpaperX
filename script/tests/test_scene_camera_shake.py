@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from script.tests.source_family import read_source_family
 import json
 import math
 import os
@@ -307,9 +308,7 @@ class SceneCameraShakeTests(unittest.TestCase):
         camera_owner = (
             REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Camera.swift"
         ).read_text(encoding="utf-8")
-        renderer = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift").read_text(
-            encoding="utf-8"
-        )
+        renderer = read_source_family(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift")
         pointer = (
             REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ParticlePointer.swift"
         ).read_text(encoding="utf-8")

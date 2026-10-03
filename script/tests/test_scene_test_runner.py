@@ -5,9 +5,11 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import contextlib
 import io
 import sys
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -29,6 +31,49 @@ AVAILABLE_MODULES = [
 ]
 
 
+def missing_local_test_imports(directory: Path) -> list[str]:
+    """Check local module paths without importing or executing test consumers.
+
+    Namespace-package imports name child modules; imports from a .py module
+    name attributes, whose behavior remains the consumer test's responsibility.
+    """
+    roots = {path.stem for path in directory.glob('*.py')}
+    roots.update(path.name for path in directory.iterdir() if path.is_dir())
+    missing = []
+    for file in directory.rglob('*.py'):
+        for node in ast.walk(ast.parse(file.read_text(encoding='utf-8'))):
+            names = []
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                module = node.module or ''
+                if node.level:
+                    parent = ['script', 'tests', *file.relative_to(directory).parts[:-1]]
+                    module = '.'.join(parent[:len(parent) - node.level + 1]
+                                      + (module.split('.') if module else []))
+                names = [module]
+            for name in names:
+                if name == 'script.tests':
+                    parts = []
+                elif name.startswith('script.tests.'):
+                    parts = name.split('.')[2:]
+                elif name.split('.')[0] in roots or name.startswith('test_'):
+                    parts = name.split('.')
+                else:
+                    continue
+                target = directory.joinpath(*parts)
+                candidates = [target]
+                if (isinstance(node, ast.ImportFrom) and target.is_dir()
+                        and not (target / '__init__.py').is_file()):
+                    candidates.extend(target / alias.name for alias in node.names
+                                      if alias.name != '*')
+                for candidate in candidates:
+                    if not candidate.with_suffix('.py').is_file() and not candidate.is_dir():
+                        missing.append(f'{file.relative_to(directory)}: '
+                                       f'{candidate.relative_to(directory)}')
+    return sorted(set(missing))
+
+
 class RunSceneTestsSelectionTests(unittest.TestCase):
     def test_release_scope_is_bounded_and_requires_every_declared_module(self) -> None:
         available = sorted(runner.RELEASE_MODULES | {"test_scene_unrelated_effect"})
@@ -41,6 +86,41 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
     def test_release_profile_references_real_test_modules(self) -> None:
         available = [path.stem for path in runner.TESTS_DIRECTORY.glob("test_*.py")]
         self.assertTrue(runner.discover_modules(available, scope="release"))
+
+    def test_test_module_imports_and_declared_release_selection_still_exist(self) -> None:
+        self.assertEqual(missing_local_test_imports(runner.TESTS_DIRECTORY), [])
+
+    def test_local_import_audit_resolves_fixture_children_and_relative_support(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / 'fixtures').mkdir()
+            oracle = directory / 'fixtures/oracle.py'
+            support = directory / 'support.py'
+            oracle.write_text('from ..support import value\n')
+            support.write_text('value = 1\n')
+            consumer = directory / 'test_consumer.py'
+            imports = [
+                'import script.tests.fixtures.oracle',
+                'from script.tests.fixtures.oracle import value',
+                'from script.tests.fixtures import oracle',
+                'from .fixtures import oracle',
+                'from .fixtures.oracle import value',
+                'from . import support',
+                'from .support import value',
+            ]
+            consumer.write_text('\n'.join(imports) + '\n')
+            self.assertEqual(missing_local_test_imports(directory), [])
+            oracle.unlink()
+            for statement in imports[:5]:
+                with self.subTest(statement=statement):
+                    consumer.write_text(statement + '\n')
+                    self.assertEqual(missing_local_test_imports(directory),
+                                     ['test_consumer.py: fixtures/oracle'])
+            oracle.write_text('from ..support import value\n')
+            consumer.write_text('\n'.join(imports[-2:]) + '\n')
+            support.unlink()
+            self.assertEqual(missing_local_test_imports(directory),
+                             ['fixtures/oracle.py: support', 'test_consumer.py: support'])
 
     def test_default_scope_preserves_all_module_selection(self) -> None:
         self.assertEqual(

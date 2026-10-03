@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from script.tests.source_family import read_source_family
 import json
 import re
 import shutil
@@ -430,7 +431,9 @@ class SceneLayerScreenAnchorTests(unittest.TestCase):
         ))
         # Renderer 的两个 image model、prepared geometry，以及 utility
         # model 路径都要喂真实的 cover 半宽高。
-        renderer = RENDERER_SOURCE.read_text(encoding="utf-8")
+        renderer = read_source_family(RENDERER_SOURCE) + RENDERER_SOURCE.with_name(
+            "SceneMetalRenderer+StaticModels.swift"
+        ).read_text(encoding="utf-8")
         effect_execution = EFFECT_EXECUTION_SOURCE.read_text(encoding="utf-8")
         utility_frame_renderer = UTILITY_FRAME_RENDERER_SOURCE.read_text(
             encoding="utf-8"

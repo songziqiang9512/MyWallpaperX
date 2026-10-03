@@ -28,7 +28,7 @@ RUNTIME_MODEL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/R
 DIAGNOSTICS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneDiagnostics.swift"
 HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
 HOST_LAUNCH_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
-DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
+DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner.swift"
 PLAYBACK_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+ScenePlayback.swift"

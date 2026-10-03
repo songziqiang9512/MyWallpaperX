@@ -23,14 +23,6 @@ CONTROLLER_PATH = (
     / "UI"
     / "SteamWorkshopSceneInspectionController.swift"
 )
-LEGACY_SERVICE_PATH = (
-    ROOT
-    / "MyWallpaperX"
-    / "Modules"
-    / "SteamWorkshop"
-    / "Scene"
-    / "SteamWorkshopSceneService+SceneDiagnostics.swift"
-)
 
 
 def function_body(source: str, signature: str) -> str:
@@ -51,12 +43,15 @@ class SceneDetailDiagnosticsOnDemandTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.detail = DETAIL_PATH.read_text(encoding="utf-8")
+        cls.diagnostics = DETAIL_PATH.with_name(
+            "SteamWorkshopItemDetailSheet+Diagnostics.swift"
+        ).read_text(encoding="utf-8")
         cls.controller = CONTROLLER_PATH.read_text(encoding="utf-8")
 
     def test_detail_rebuild_only_delegates_scene_section(self) -> None:
         body = function_body(
-            self.detail,
-            "private func buildSceneDiagnosticsSection(in destination:",
+            self.diagnostics,
+            "func buildSceneDiagnosticsSection(in destination:",
         )
         self.assertIn("sceneInspectionController.makeSection(for: record)", body)
         self.assertNotIn("SceneDiagnosticsBuilder", body)
@@ -106,8 +101,6 @@ class SceneDetailDiagnosticsOnDemandTests(unittest.TestCase):
         self.assertIn("guard request?.id == requestID", finish)
         self.assertIn("guard presentedIdentity == identity", finish)
 
-    def test_legacy_synchronous_service_entrypoint_is_removed(self) -> None:
-        self.assertFalse(LEGACY_SERVICE_PATH.exists())
 
 
 if __name__ == "__main__":

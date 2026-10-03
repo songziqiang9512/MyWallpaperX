@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from script.tests.source_family import read_source_family
 import json
 import shutil
 import subprocess
@@ -80,18 +81,18 @@ METAL_VIEW_FRAME_CONTEXT = (
 METAL_VIEW = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
 TEXT_TEXTURE_LOADER = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextTextureLoader.swift"
 HOST = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
-DEBUG_RUNNER = REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
+DEBUG_RUNNER = REPOSITORY_ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner.swift"
 DEBUG_SCENE_SWITCH_RUNNER = (
     REPOSITORY_ROOT
-    / "MyWallpaperX/App/DebugScenePlaybackRunner+SceneSwitch.swift"
+    / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+SceneSwitch.swift"
 )
 DEBUG_SURFACE_STOP_RELAUNCH_RUNNER = (
     REPOSITORY_ROOT
-    / "MyWallpaperX/App/DebugScenePlaybackRunner+SurfaceStopRelaunch.swift"
+    / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+SurfaceStopRelaunch.swift"
 )
 DEBUG_PAUSE_RESUME_RUNNER = (
     REPOSITORY_ROOT
-    / "MyWallpaperX/App/DebugScenePlaybackRunner+PauseResume.swift"
+    / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+PauseResume.swift"
 )
 HOST_FRAME_DRIVER = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift"
@@ -150,6 +151,10 @@ TEXTURE_SAMPLING_TYPES = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift"
 )
 STATIC_SOURCE_DRAW_ONLY_SOURCES = [
+    SCENE_ROOT / "Rendering/Composition/SceneFramebufferSnapshot.swift",
+    SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift",
+    SCENE_ROOT / "Diagnostics/ScenePerformanceCounterHub.swift",
+    SCENE_ROOT / "Diagnostics/SceneGPUCensus.swift",
     LAYER_SOURCE_PASSTHROUGH_PLAN,
     DRAW_REQUEST,
     COMPOSITOR,
@@ -4916,739 +4921,9 @@ enum Harness {
 ''' + SCENE_DEPENDENCY_BINDING_SUPPORT
 
 
-STATIC_SOURCE_DRAW_ONLY_HARNESS = r'''
-import CoreGraphics
-import Foundation
-import Metal
-import simd
-
-// Harness stubs mirror the exact member surface the compiled product files
-// touch. Product files listed in STATIC_SOURCE_DRAW_ONLY_SOURCES stay verbatim.
-
-nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
-    case premultipliedColor, straightAlbedo, preservedChannels, mask, noise
-    case flow, phase, normal, depth, lookupTable
-}
-
-enum SceneFrameTextureIdentity: Equatable { case layerSource(Int) }
-
-nonisolated struct SceneTextureProviderPublication {
-    let requestIdentity: SceneFrameTextureIdentity
-    let candidate: SceneTextureCandidate
-    let contentGeneration: UInt64
-    var isComplete: Bool
-
-    var texture: MTLTexture { candidate.texture }
-}
-
-struct SceneRenderDescriptor {
-    struct Layer {
-        let id: Int
-        let contentKind: String
-        var effects: [EffectDescriptor] = []
-        var colorBlendMode: Int? = nil
-        var clampUVs: Bool = false
-        var noInterpolation: Bool = false
-        var brightness: Float? = nil
-    }
-
-    struct EffectDescriptor {
-        let id: String
-        let file: String
-        var visible: Bool? = nil
-        var passes: [PassDescriptor] = []
-    }
-
-    struct PassDescriptor {
-        let id: String
-        let passIndex: Int
-        var texturePaths: [String] = []
-        var textureSlots: [String?] = []
-        var userTextureInputs: [String] = []
-        var combos: [String: Int] = [:]
-    }
-}
-
-struct SceneNamedTextureReference {
-    enum Variant { case primary }
-    let providerLayerID: Int
-    let variant: Variant
-}
-
-struct SceneEffectPassSlot {
-    let slotIndex: Int
-}
-
-struct SceneFrameTextureResource {
-    static func reservedNamedLayerTarget(
-        reference: SceneNamedTextureReference,
-        frameEpoch: UInt64,
-        texture: MTLTexture,
-        content: SceneTextureContent,
-        consumerLayerID: Int
-    ) -> SceneFrameTextureResource? { nil }
-}
-
-struct SceneGraphRenderTargetResidencyPin {}
-class SceneOffscreenTexturePool {
-    struct CompositionTarget { let texture: MTLTexture; let pin: SceneGraphRenderTargetResidencyPin? = nil }
-    func compositionTarget(width: Int, height: Int, commandBuffer: MTLCommandBuffer?) -> CompositionTarget? { nil }
-}
-
-struct SceneLayerEffectSourceExtent { let pixelSize: CGSize }
-
-struct SceneDynamicSnapshot {
-    static func empty(frameIndex: Int) -> SceneDynamicSnapshot { .init() }
-}
-
-enum SceneAudioSpectrumSnapshot { case silent }
-
-struct SceneAuthoredShaderFrameInputs {}
-
-struct SceneGeometryProduct {}
-
-enum SceneGraphExecutionResetReason { case deviceLoss }
-
-enum SceneBlendModeShaderSource { static let maximumMode = 32 }
-
-enum SceneLayerVisibility {
-    static func hasCurrentSourceDisplayAuthority(
-        for layer: SceneRenderDescriptor.Layer,
-        snapshot: SceneDynamicSnapshot?
-    ) -> Bool { true }
-}
-
-enum SceneLayerColorBlendRenderer {
-    static func supports(_ blendMode: Int) -> Bool {
-        (0 ... SceneBlendModeShaderSource.maximumMode).contains(blendMode)
-    }
-}
-
-struct SceneLayerFragmentUniforms {
-    let time: Float
-    let alpha: Float
-    let dependencyBlendMode: UInt32
-    let usesDependencyBlend: UInt32
-    let cursorUV: SIMD2<Float>
-    let sourceSampling: SIMD2<UInt32>
-    let tint: SIMD4<Float>
-    let textureFrame0: SIMD4<Float>
-    let textureFrame1: SIMD4<Float>
-}
-
-struct SceneBaseMaterialLitCapturePayload {
-    let requiresReflection = false
-    let hasDirectLighting = true
-    func resolvingEnvironment(for target: MTLTexture, commandBuffer: MTLCommandBuffer) -> Self? { self }
-}
-final class SceneImageLayerPipeline { static func bindQuad(encoder: MTLRenderCommandEncoder) {} }
-
-final class SceneLayerColorBlendPipeline {
-    let device: MTLDevice
-    init(device: MTLDevice, state: Int) { self.device = device }
-    var renderTargetResidentByteCost: Int { 0 }
-}
-
-final class ScenePipelineSlot<Value> {
-    private let factory: () -> Value?
-    private var resolved: Value?
-    private var isResolved = false
-    init(factory: @escaping () -> Value?) { self.factory = factory }
-    func resolve() -> Value? {
-        guard !isResolved else { return resolved }
-        resolved = factory()
-        isResolved = true
-        return resolved
-    }
-    func resolvedValue() -> Value? { isResolved ? resolved : nil }
-}
-
-enum SceneGraphOutputPublicationResult: Equatable {
-    case published
-    case unavailable(reasonCode: String)
-    case invalid(reasonCode: String)
-}
-
-final class SceneImageEffectPipelineRepository {
-    let device: MTLDevice
-    init(device: MTLDevice) { self.device = device }
-    func layerColorBlendState() -> Int? { 0 }
-}
-
-final class SceneMainPassEncoder {
-    func retainCompositionPin(_ pin: SceneGraphRenderTargetResidencyPin?) {}
-    let device: MTLDevice
-    init(device: MTLDevice) { self.device = device }
-    func encoder() -> MTLRenderCommandEncoder? { nil }
-    func encodeOffscreen<Result>(
-        _ operation: (MTLCommandBuffer) -> Result
-    ) -> Result {
-        operation(device.makeCommandQueue()!.makeCommandBuffer()!)
-    }
-    func withReadableTarget<Result>(
-        _ operation: (MTLTexture, MTLCommandBuffer) -> Result
-    ) -> Result? { nil }
-}
-
-enum SceneImageLayerMainPassRenderer {
-    struct RecordedDraw {
-        let texture: MTLTexture
-        let dependencyTexture: MTLTexture?
-        let layerID: Int
-        let uniforms: SceneLayerFragmentUniforms
-    }
-
-    static var recorded: [RecordedDraw] = []
-
-    static func draw(
-        texture: MTLTexture,
-        mvp: simd_float4x4,
-        uniforms: SceneLayerFragmentUniforms,
-        dependencyTexture: MTLTexture?,
-        layer: SceneRenderDescriptor.Layer,
-        pipeline: SceneImageLayerPipeline,
-        colorBlendPipeline: SceneLayerColorBlendPipeline?,
-        geometryProduct: SceneGeometryProduct? = nil,
-        mainPass: SceneMainPassEncoder
-    ) -> Bool {
-        recorded.append(.init(
-            texture: texture,
-            dependencyTexture: dependencyTexture,
-            layerID: layer.id,
-            uniforms: uniforms
-        ))
-        return true
-    }
-}
-
-enum SceneOffscreenEffectRenderer {
-    static var captureSucceeds = false
-    static var capturedUniforms: SceneLayerFragmentUniforms?
-    static func captureSource(
-        sourceTexture: MTLTexture,
-        target: MTLTexture,
-        sourceUniforms: SceneLayerFragmentUniforms,
-        pipeline: SceneImageLayerPipeline,
-        commandBuffer: MTLCommandBuffer,
-        sourceLighting: SceneBaseMaterialLitCapturePayload? = nil
-    ) -> Bool {
-        capturedUniforms = sourceUniforms
-        return captureSucceeds
-    }
-}
-
-final class FixtureCompositionPool: SceneOffscreenTexturePool {
-    let target: MTLTexture
-    init(target: MTLTexture) { self.target = target }
-    override func compositionTarget(width: Int, height: Int, commandBuffer: MTLCommandBuffer?) -> CompositionTarget? {
-        .init(texture: target)
-    }
-}
-
-enum SceneEffectExecutionOrigin { case image, solid, text, quad }
-
-enum SceneEffectRouteOperationOutcome: Equatable {
-    case encoded
-    case failed(reasonCode: String)
-}
-
-enum SceneEffectCPUInvocationOutcome {
-    case encodedOutput
-    case failed(reasonCode: String)
-}
-
-struct SceneEffectExecutionIdentity {
-    let layerID: Int
-    let effectIndex: Int
-    let descriptorID: String
-}
-
-final class SceneEffectExecutionFrameTrace {
-    struct RouteRecord: Equatable {
-        let layerID: Int
-        let origin: SceneEffectExecutionOrigin
-        let operation: String
-        let outcome: SceneEffectRouteOperationOutcome
-    }
-
-    private(set) var records: [RouteRecord] = []
-
-    @discardableResult
-    func recordRouteOperation(
-        layerID: Int,
-        origin: SceneEffectExecutionOrigin,
-        operation: String,
-        outcome: SceneEffectRouteOperationOutcome
-    ) -> Bool {
-        records.append(.init(
-            layerID: layerID,
-            origin: origin,
-            operation: operation,
-            outcome: outcome
-        ))
-        return true
-    }
-
-    @discardableResult
-    func recordExact(
-        identity: SceneEffectExecutionIdentity,
-        origin: SceneEffectExecutionOrigin,
-        family: String,
-        backend: String,
-        outcome: SceneEffectCPUInvocationOutcome
-    ) -> Bool { true }
-}
-
-enum SceneResolvedMaterialExecutionCapabilityCatalog {
-    struct Token: Equatable {}
-}
-
-struct ScenePersistentGraphTargetFramePlan {
-    struct GraphPlanKey { let layerID: Int }
-    struct GraphPlan { let key: GraphPlanKey }
-    let graphPlan: GraphPlan
-}
-
-enum ScenePersistentGraphTargetPlanningFailure {
-    static func isLocalFallbackReasonCode(_ reasonCode: String) -> Bool { false }
-}
-
-struct SceneSystemProviderTextureIdentity: Hashable {}
-
-enum SceneFrameTextureRegistry {
-    enum ProviderStatus: Hashable { case ready }
-}
-
-struct SceneFrameTextureRegistrySnapshot {}
-
-final class SceneFramePerformanceTelemetry {}
-
-enum SceneTextureProviderState {
-    case ready(SceneTextureProviderPublication), absent, pending, unavailable
-}
-
-final class SceneResolvedMaterialRuntimeBridge {
-    struct SceneBackgroundRequirement {}
-    enum SourceRoute: Equatable { case transparentDirectDraw }
-    struct FrameInputContract {
-        enum EmittedOutputGeometrySource { case authoredCanvasDirectDraw }
-        let emittedOutputGeometrySource: EmittedOutputGeometrySource
-    }
-    struct Token: Equatable {}
-    enum DependencyOwnership {
-        struct Aggregate { let hasStrictBindingVector: Bool; let bindings: [Int] }
-        case unowned
-        case externalAggregate(Aggregate)
-    }
-    struct ClaimedExecution {
-        let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
-        let layerID: Int
-        let dependencyOwnership: DependencyOwnership
-        let sceneBackgroundRequirement: SceneBackgroundRequirement?
-        let sourceRoute: SourceRoute
-        let frameInputContract: FrameInputContract
-    }
-    enum ClaimOutcome {
-        case notMigrated
-        case rejected(reasonCode: String)
-        case claimed(ClaimedExecution)
-    }
-    struct ExecutionTicket {
-        let finalContent: SceneTextureContent
-        let consumesExternalPrimaryDependency: Bool
-    }
-    enum ExecutionResult {
-        case encoded(texture: MTLTexture, ticket: ExecutionTicket)
-        case failed(reasonCode: String)
-    }
-    enum MarkOutcome { case consumed; case failed(reasonCode: String) }
-    struct FramePreparationRequest {}
-    enum FramePreparationResult { case ready; case rejected(reasonCode: String) }
-    struct ExecutionEvidenceSubject {
-        struct Key {
-            let layerID: Int
-            let effectIndex: Int
-            let descriptorID: String
-        }
-        let key: Key
-        let family: String
-    }
-    enum ExecutionEvidenceOutcome {
-        case encodedOutput
-        case failed(reasonCode: String)
-    }
-
-    var shouldDeferFrame: Bool { false }
-    func invalidate(reason: SceneGraphExecutionResetReason) {}
-    func claim(layerID: Int) -> ClaimOutcome { .notMigrated }
-    func preflightClaim(layerID: Int) -> ClaimOutcome { .notMigrated }
-    func recordClaimedFailure(reasonCode: String) {}
-    func executeClaimed(
-        claim: ClaimedExecution,
-        dependencyEffects: [SceneDependencyEffectInput],
-        sceneBackgroundTexture: MTLTexture?,
-        commandBuffer: MTLCommandBuffer
-    ) -> ExecutionResult { .failed(reasonCode: "harness-inert") }
-    func executionEvidenceSubjects(
-        for claim: ClaimedExecution
-    ) -> [ExecutionEvidenceSubject] { [] }
-    func executionEvidenceOutcome(
-        for subject: ExecutionEvidenceSubject,
-        claim: ClaimedExecution,
-        ticket: ExecutionTicket
-    ) -> ExecutionEvidenceOutcome { .encodedOutput }
-    func executionEvidenceFamily(
-        for key: ExecutionEvidenceSubject.Key
-    ) -> String? { nil }
-    func markComposite(
-        _ ticket: ExecutionTicket,
-        texture: MTLTexture,
-        consumed: Bool
-    ) -> MarkOutcome { .consumed }
-    func markNamedPublication(
-        _ ticket: ExecutionTicket,
-        texture: MTLTexture,
-        published: Bool
-    ) -> MarkOutcome { .consumed }
-    func discardNamedPublicationOutputLocally(
-        _ ticket: ExecutionTicket,
-        texture: MTLTexture,
-        reasonCode: String
-    ) -> MarkOutcome { .consumed }
-    func rejectPreparedExternalDependencyLocally(
-        layerID: Int,
-        reasonCode: String
-    ) -> Bool { false }
-    func prepareFrame(
-        _ requests: [FramePreparationRequest],
-        pool: SceneOffscreenTexturePool?,
-        commandBuffer: MTLCommandBuffer,
-        performanceTelemetry: SceneFramePerformanceTelemetry?
-    ) -> FramePreparationResult { .ready }
-    func preparedOutputTexturesByLayerID() -> [Int: MTLTexture]? { nil }
-    func preparedExternalDependencyBypassReason(layerID: Int) -> String? { nil }
-    func installFrameLocalFallbacks(_ fallbacks: [Int: String]) -> Bool {
-        fallbacks.isEmpty
-    }
-    func deferPreparedFrame() -> Bool { true }
-    func resolvedAssetStates(
-        sceneTime: TimeInterval
-    ) -> [SceneAssetTextureIdentity: SceneTextureProviderState] { [:] }
-    func commitResolvedAssetFrame() {}
-    func discardResolvedAssetFrame() {}
-    func systemProviderBlocks(
-        for states: [SceneSystemProviderTextureIdentity: SceneTextureProviderState]
-    ) -> [SceneSystemProviderTextureIdentity: SceneFrameTextureRegistry.ProviderStatus] { [:] }
-    func beginFrame(
-        textureSnapshot: SceneFrameTextureRegistrySnapshot,
-        dynamicSnapshot: SceneDynamicSnapshot,
-        frameInputs: SceneAuthoredShaderFrameInputs
-    ) {}
-    func cancelUnsubmittedFrame(on commandBuffer: MTLCommandBuffer) {}
-    func sealFrame(on commandBuffer: MTLCommandBuffer) -> Bool { true }
-    func endFrame() {}
-}
-
-struct StaticSourceDrawOnlyReport: Codable {
-    var litCaptureFailureKeepsAuthoredUniforms = false
-    var litCaptureRecoveryUsesCapturedTexture = false
-    var metalAvailable = false
-    var degradedPlanBuilt = false
-    var degradedPlanDrawsRequestTexture = false
-    var degradedPlanKeepsStaticFileAtom = false
-    var degradedPlanCarriesLayerSourceIdentity = false
-    var degradedPlanKeepsResolvedSample = false
-    var degradedPlanContentMirrorsRequestCandidate = false
-    var degradedPlanGeometryDrawable = false
-    var graphPublicationActiveBuildsNormalPlan = false
-    var flagOffKeepsGraphRoleRejection = false
-    var flagOnBlendGuardUnaffected = false
-    var flagOnTextureFrameGuardUnaffected = false
-    var compositorDegradedEncoded = false
-    var compositorDegradedDrewRequestBaseTexture = false
-    var compositorDegradedTraceOperation = false
-    var compositorFlagOffFails = false
-    var compositorFlagOffTraceReason = false
-}
-
-@main
-struct StaticSourceDrawOnlyHarness {
-    static func makeTexture(_ device: MTLDevice) -> MTLTexture {
-        let descriptor = MTLTextureDescriptor()
-        descriptor.textureType = .type2D
-        descriptor.pixelFormat = .rgba8Unorm
-        descriptor.width = 4
-        descriptor.height = 4
-        descriptor.usage = [.shaderRead]
-        return device.makeTexture(descriptor: descriptor)!
-    }
-
-    static func main() {
-        var report = StaticSourceDrawOnlyReport()
-        guard let device = MTLCreateSystemDefaultDevice() else {
-            emit(report)
-            return
-        }
-        report.metalAvailable = true
-        let texture = makeTexture(device)
-        let candidate = SceneTextureCandidate(
-            texture: texture,
-            identity: .file(path: "textures/base.png"),
-            generation: .file(
-                byteCount: 64,
-                modifiedAtBits: 1,
-                revision: .init(
-                    fileSystemID: 1,
-                    fileID: 2,
-                    statusChangedAtSeconds: 0,
-                    statusChangedAtNanoseconds: 0
-                )
-            ),
-            purpose: .premultipliedColor,
-            content: .color(.resolved(.premultipliedAlpha)),
-            physicalSize: CGSize(width: 4, height: 4),
-            mappedSize: CGSize(width: 4, height: 4),
-            uvTransform: .identity,
-            sampling: .linearClamp
-        )
-        let publication = SceneTextureProviderPublication(
-            requestIdentity: .layerSource(875),
-            candidate: candidate,
-            contentGeneration: 7,
-            isComplete: true
-        )
-        let visibleEffects = [SceneRenderDescriptor.EffectDescriptor(
-            id: "875#effect#0",
-            file: "effects/blur/effect.json",
-            visible: true,
-            passes: []
-        )]
-
-        func blockedRequest(
-            blendMode: Int?,
-            textureFrame: SceneTextureUVTransform = .identity
-        ) -> SceneImageLayerDrawRequest {
-            SceneImageLayerDrawRequest(
-                layer: SceneRenderDescriptor.Layer(
-                    id: 875,
-                    contentKind: "image",
-                    effects: visibleEffects,
-                    colorBlendMode: blendMode
-                ),
-                texture: texture,
-                baseTextureCandidate: candidate,
-                masks: .empty,
-                textureFrame: textureFrame,
-                mvp: matrix_identity_float4x4,
-                uniforms: SceneImageLayerUniformValues(
-                    time: 0,
-                    alpha: 1,
-                    cursorUV: .zero
-                ),
-                offscreenTexturePool: nil,
-                effectSourceExtent: nil,
-                requiresSourceCopy: false,
-                finalCompositeAlpha: nil,
-                blocksStaticLayerSourcePassthrough: true
-            )
-        }
-
-        // 1. Blocked static source + flag on + resolvable texture -> degraded
-        //    draw-only plan that never claims publication identity.
-        let request = blockedRequest(blendMode: 0)
-        let flagOnResult = SceneLayerSourcePassthroughPlan.resolve(
-            request: request,
-            publication: publication,
-            route: .unclaimed,
-            allowsStaticSourceGraphPublication: false,
-            allowsUnpublishedStaticSourceDraw: true
-        )
-        if case let .success(plan) = flagOnResult {
-            report.degradedPlanBuilt = plan.degradedFromPublication
-            report.degradedPlanDrawsRequestTexture =
-                plan.source.texture === request.texture
-            report.degradedPlanKeepsStaticFileAtom =
-                plan.source.kind == .staticFile
-            report.degradedPlanCarriesLayerSourceIdentity =
-                plan.source.requestIdentity == .layerSource(875)
-            report.degradedPlanKeepsResolvedSample =
-                plan.source.uvTransform == .identity
-                && request.resolvedBaseTextureSample()
-                    .map { plan.source.sampling == $0.sampling } == true
-            report.degradedPlanContentMirrorsRequestCandidate =
-                plan.source.resourceIdentity == candidate.identity
-                && plan.source.resourceGeneration == candidate.generation
-                && plan.source.purpose == candidate.purpose
-                && plan.source.content == candidate.content
-                && plan.source.physicalSize == candidate.physicalSize
-                && plan.source.mappedSize == candidate.mappedSize
-                && plan.source.authoredFormat == candidate.authoredFormat
-            report.degradedPlanGeometryDrawable =
-                plan.projectedGeometry.clippedArea > 0
-                && plan.projectedGeometry.clippedNDCVertices.count >= 3
-        }
-
-        // Complement: an active graph publisher keeps the normal plan shape.
-        let publisherActiveResult = SceneLayerSourcePassthroughPlan.resolve(
-            request: request,
-            publication: publication,
-            route: .unclaimed,
-            allowsStaticSourceGraphPublication: true,
-            allowsUnpublishedStaticSourceDraw: true
-        )
-        if case let .success(plan) = publisherActiveResult {
-            report.graphPublicationActiveBuildsNormalPlan =
-                !plan.degradedFromPublication
-        }
-
-        // 2. Flag off keeps the exact graph-role rejection.
-        let flagOffResult = SceneLayerSourcePassthroughPlan.resolve(
-            request: request,
-            publication: publication,
-            route: .unclaimed
-        )
-        if case let .failure(reason) = flagOffResult {
-            report.flagOffKeepsGraphRoleRejection =
-                reason == .staticSourceGraphRolePresent
-        }
-
-        // 4. Flag on rescues only the graph-role rejection; every other guard
-        //    still rejects with its own reason.
-        let blendResult = SceneLayerSourcePassthroughPlan.resolve(
-            request: blockedRequest(blendMode: 99),
-            publication: publication,
-            route: .unclaimed,
-            allowsStaticSourceGraphPublication: false,
-            allowsUnpublishedStaticSourceDraw: true
-        )
-        if case let .failure(reason) = blendResult {
-            report.flagOnBlendGuardUnaffected = reason == .layerBlendUnsupported
-        }
-        let textureFrameResult = SceneLayerSourcePassthroughPlan.resolve(
-            request: blockedRequest(
-                blendMode: 0,
-                textureFrame: SceneTextureUVTransform(
-                    origin: SIMD2(0.25, 0.25),
-                    xAxis: SIMD2(0.5, 0),
-                    yAxis: SIMD2(0, 0.5)
-                )
-            ),
-            publication: publication,
-            route: .unclaimed,
-            allowsStaticSourceGraphPublication: false,
-            allowsUnpublishedStaticSourceDraw: true
-        )
-        if case let .failure(reason) = textureFrameResult {
-            report.flagOnTextureFrameGuardUnaffected =
-                reason == .textureFrameNonidentity
-        }
-
-        // 5. Compositor: unclaimed + graph-role rejection + flag encodes the
-        //    base texture in the main pass and traces the draw-only route;
-        //    flag off fails closed with the unchanged reason.
-        let pipeline = SceneImageLayerPipeline()
-        let mainPass = SceneMainPassEncoder(device: device)
-        let compositor = SceneImageLayerCompositor(
-            pipelineRepository: SceneImageEffectPipelineRepository(device: device)
-        )
-        SceneImageLayerMainPassRenderer.recorded.removeAll()
-        let degradedTrace = SceneEffectExecutionFrameTrace()
-        let degradedOutcome = compositor.drawOutcome(
-            request,
-            explicitLayerSourcePublication: publication,
-            resolvedMaterialGraphOutputPublisher: nil,
-            layerSourceGraphFallbackPublisher: nil,
-            allowsUnpublishedStaticSourceDraw: true,
-            pipeline: pipeline,
-            mainPass: mainPass,
-            executionTrace: degradedTrace,
-            executionOrigin: .image
-        )
-        report.compositorDegradedEncoded =
-            degradedOutcome == .layerSourcePassthrough
-        report.compositorDegradedDrewRequestBaseTexture =
-            SceneImageLayerMainPassRenderer.recorded.count == 1
-            && SceneImageLayerMainPassRenderer.recorded[0].texture
-                === request.texture
-            && SceneImageLayerMainPassRenderer.recorded[0].dependencyTexture
-                == nil
-        report.compositorDegradedTraceOperation = degradedTrace.records == [
-            .init(
-                layerID: 875,
-                origin: .image,
-                operation: "degraded-static-source-draw-only",
-                outcome: .encoded
-            )
-        ]
-        SceneImageLayerMainPassRenderer.recorded.removeAll()
-        let failedTrace = SceneEffectExecutionFrameTrace()
-        let failedOutcome = compositor.drawOutcome(
-            request,
-            explicitLayerSourcePublication: publication,
-            resolvedMaterialGraphOutputPublisher: nil,
-            layerSourceGraphFallbackPublisher: nil,
-            pipeline: pipeline,
-            mainPass: mainPass,
-            executionTrace: failedTrace,
-            executionOrigin: .image
-        )
-        report.compositorFlagOffFails = failedOutcome == .failed
-            && SceneImageLayerMainPassRenderer.recorded.isEmpty
-        report.compositorFlagOffTraceReason = failedTrace.records == [
-            .init(
-                layerID: 875,
-                origin: .image,
-                operation: "unclaimed-effect-product-authority",
-                outcome: .failed(
-                    reasonCode:
-                        "unclaimed-visible-effects-static-source-graph-role-present"
-                )
-            )
-        ]
-        // A capture encoder can be unavailable before any command is emitted.
-        // The optional lit path must draw the original authored source intact.
-        let target = makeTexture(device)
-        let sprite = SceneTextureUVTransform(origin: SIMD2(0.25, 0.125),
-            xAxis: SIMD2(0.5, 0), yAxis: SIMD2(0, 0.25))
-        let authoredTint = SIMD3<Float>(0.2, 0.6, 0.8)
-        let litRequest = SceneImageLayerDrawRequest(
-            layer: .init(id: 876, contentKind: "image"), texture: texture,
-            masks: .empty, textureFrame: sprite,
-            mvp: matrix_identity_float4x4,
-            uniforms: .init(time: 0, alpha: 0.25, cursorUV: .zero, tint: authoredTint),
-            offscreenTexturePool: FixtureCompositionPool(target: target),
-            effectSourceExtent: .init(pixelSize: CGSize(width: 4, height: 4)),
-            requiresSourceCopy: false, finalCompositeAlpha: nil,
-            sourceLighting: SceneBaseMaterialLitCapturePayload()
-        )
-        SceneImageLayerMainPassRenderer.recorded.removeAll()
-        _ = compositor.drawOutcome(litRequest, explicitLayerSourcePublication: nil,
-            pipeline: pipeline, mainPass: mainPass)
-        let failedCaptureDraw = SceneImageLayerMainPassRenderer.recorded.last!
-        report.litCaptureFailureKeepsAuthoredUniforms = failedCaptureDraw.texture === texture
-            && failedCaptureDraw.uniforms.alpha == 0.25
-            && failedCaptureDraw.uniforms.tint == SIMD4(authoredTint, 1)
-            && failedCaptureDraw.uniforms.textureFrame0 == sprite.uniform0
-            && failedCaptureDraw.uniforms.textureFrame1 == sprite.uniform1
-        SceneOffscreenEffectRenderer.captureSucceeds = true
-        SceneImageLayerMainPassRenderer.recorded.removeAll()
-        _ = compositor.drawOutcome(litRequest, explicitLayerSourcePublication: nil,
-            pipeline: pipeline, mainPass: mainPass)
-        let recoveryDraw = SceneImageLayerMainPassRenderer.recorded.last!
-        report.litCaptureRecoveryUsesCapturedTexture = recoveryDraw.texture === target
-            && recoveryDraw.uniforms.alpha == 1
-            && SceneOffscreenEffectRenderer.capturedUniforms?.alpha == 0.25
-            && SceneOffscreenEffectRenderer.capturedUniforms?.tint == SIMD4(authoredTint, 1)
-            && SceneOffscreenEffectRenderer.capturedUniforms?.textureFrame0 == sprite.uniform0
-        emit(report)
-    }
-
-    static func emit(_ report: StaticSourceDrawOnlyReport) {
-        let data = try! JSONEncoder().encode(report)
-        print(String(decoding: data, as: UTF8.self))
-    }
-}
-'''
+STATIC_SOURCE_DRAW_ONLY_HARNESS = (
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticSourceDrawOnlyHarness.swift"
+).read_text(encoding="utf-8")
 
 
 class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
@@ -5779,7 +5054,7 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
             encoding="utf-8"
         )
         bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
-        metal_renderer = METAL_RENDERER.read_text(encoding="utf-8")
+        metal_renderer = read_source_family(METAL_RENDERER)
         execution_evidence = RENDERER_EXECUTION_EVIDENCE.read_text(
             encoding="utf-8"
         )
@@ -5987,7 +5262,7 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
     def test_static_source_draw_only_degradation_rescues_only_graph_role(
         self,
     ) -> None:
-        """Static-source draw-only degradation (docs/scene/design/
+        """Static-source draw-only degradation (docs/scene/capabilities/
         static-source-draw-only-degradation.md §3.4): the unpublished draw
         rescue applies only when the passthrough plan's sole failing guard is
         the static-source graph role, with the request-side texture atom
@@ -5998,41 +5273,31 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
         ) as directory:
             root = Path(directory)
             harness = root / "Harness.swift"
-            binary = root / "static-source-draw-only"
             harness.write_text(
                 STATIC_SOURCE_DRAW_ONLY_HARNESS, encoding="utf-8"
             )
-            compilation = subprocess.run(
-                [
-                    "xcrun",
-                    "--sdk",
-                    "macosx",
-                    "swiftc",
-                    "-parse-as-library",
-                    *(str(source) for source in STATIC_SOURCE_DRAW_ONLY_SOURCES),
-                    str(harness),
-                    "-framework",
-                    "Metal",
-                    "-module-cache-path",
-                    str(root / "module-cache"),
-                    "-o",
-                    str(binary),
-                ],
-                capture_output=True,
-                text=True,
-                timeout=300,
-            )
-            self.assertEqual(compilation.returncode, 0, compilation.stderr)
-            completed = subprocess.run(
-                [str(binary)],
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
-            self.assertEqual(
-                completed.returncode, 0, completed.stdout + completed.stderr
-            )
-            result = json.loads(completed.stdout)
+
+            def compile_and_run(sources: list[Path], name: str) -> dict:
+                binary = root / name
+                compilation = subprocess.run(
+                    [
+                        "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
+                        *(str(source) for source in sources), str(harness),
+                        "-framework", "Metal", "-module-cache-path",
+                        str(root / "module-cache"), "-o", str(binary),
+                    ],
+                    capture_output=True, text=True, timeout=300,
+                )
+                self.assertEqual(compilation.returncode, 0, compilation.stderr)
+                completed = subprocess.run(
+                    [str(binary)], capture_output=True, text=True, timeout=60,
+                )
+                self.assertEqual(
+                    completed.returncode, 0, completed.stdout + completed.stderr
+                )
+                return json.loads(completed.stdout)
+
+            result = compile_and_run(STATIC_SOURCE_DRAW_ONLY_SOURCES, "production")
             if not result["metalAvailable"]:
                 self.skipTest("Metal device unavailable")
             self.assertTrue(result["litCaptureFailureKeepsAuthoredUniforms"],
@@ -6041,6 +5306,7 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
                 result,
                 {
                     "metalAvailable": True,
+                    "snapshotCapacityCommitsAndRollsBack": True,
                     "litCaptureFailureKeepsAuthoredUniforms": True,
                     "litCaptureRecoveryUsesCapturedTexture": True,
                     "degradedPlanBuilt": True,
@@ -6061,6 +5327,28 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
                     "compositorFlagOffTraceReason": True,
                 },
             )
+
+            # Mutate only an isolated product copy. The exact edit is a fault
+            # injection precondition; the pass/fail oracle is actual texture
+            # identity after completed Metal captures, not source shape.
+            snapshot_source = SCENE_ROOT / "Rendering/Composition/SceneFramebufferSnapshot.swift"
+            source_text = snapshot_source.read_text(encoding="utf-8")
+            fault = "            texture = previous\n"
+            if source_text.count(fault) != 1:
+                self.fail("texture rollback fault injection must match exactly once")
+            mutated_source = root / "SceneFramebufferSnapshotWithoutTextureRollback.swift"
+            mutated_source.write_text(source_text.replace(fault, ""), encoding="utf-8")
+            mutated_sources = [
+                mutated_source if source == snapshot_source else source
+                for source in STATIC_SOURCE_DRAW_ONLY_SOURCES
+            ]
+            faulty_result = compile_and_run(mutated_sources, "without-texture-rollback")
+            self.assertEqual(faulty_result, {
+                **result, "snapshotCapacityCommitsAndRollsBack": False,
+            })
+            print("snapshot rollback texture identity oracle: production=PASS; "
+                  "temporary product without texture restore=REJECTED; "
+                  "all other observations unchanged")
 
     def test_external_dependency_is_late_ready_and_composited_once(self) -> None:
         bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
@@ -6190,19 +5478,6 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
             compact[exact_source_start:],
         )
 
-    def test_retired_chain_types_and_routes_are_absent(self) -> None:
-        compositor = COMPOSITOR.read_text(encoding="utf-8")
-        renderer = METAL_RENDERER.read_text(encoding="utf-8")
-        product = compositor + renderer
-        for retired in (
-            "SceneAuthoredEffectExecutionChain",
-            "SceneAuthoredEffectGraphPlanner",
-            "authoredEffectChain",
-            "chainsByLayerID",
-            "renderLegacyAuthoredChain",
-            "legacy-authored-chain-product-dispatch",
-        ):
-            self.assertNotIn(retired, product)
 
     def test_frame_ordering_context_reaches_reserve_and_commit(self) -> None:
         frame_preflight = FRAME_PREFLIGHT.read_text(encoding="utf-8")
@@ -6289,28 +5564,16 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
         self.assertIn("func completeCommandBuffer(", completion)
         self.assertIn("commandBufferIdentities", completion)
 
-    def test_production_frame_is_sealed_before_command_buffer_commit(self) -> None:
-        compositor = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift").read_text(
-            encoding="utf-8"
-        )
-        renderer = METAL_RENDERER.read_text(encoding="utf-8")
-        frame_end = renderer.index(
-            "imageCompositor.endResolvedMaterialFrame(on: commandBuffer)"
-        )
-        abandon_unsealed = renderer.index("return", frame_end)
-        command_commit = renderer.index("commandBuffer.commit()", frame_end)
-        self.assertIn(
-            "return resolvedMaterialRuntime?.sealFrame(on: commandBuffer) ?? true",
-            compositor,
-        )
-        self.assertLess(frame_end, command_commit)
-        self.assertLess(abandon_unsealed, command_commit)
-        self.assertIn(
-            "guard imageCompositor.endResolvedMaterialFrame(on: commandBuffer) else {\n"
-            "            return .dropped(reasonCode: \"resolved-material-frame-seal-rejected\")\n"
-            "        }",
-            renderer,
-        )
+    def test_terminal_seal_rejection_keeps_real_buffer_unsubmitted(self) -> None:
+        # Compile the actual terminal helper and submission owner; the carrier
+        # supplies app dependencies. This does not execute the full renderer.
+        from script.tests.test_scene_persistent_color_output import _compile_and_run
+        result = _compile_and_run("SceneTerminalSealHarness.swift")
+        self.assertEqual(result["accepted"], [True, False, True])
+        self.assertEqual(result["beforeSubmit"], [True, True, True])
+        self.assertEqual(result["marker"], [11, 0, 33])
+        self.assertEqual(result["completed"], [True, False, True])
+        self.assertEqual(result["rejection"], "resolved-material-frame-seal-rejected")
 
 
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")

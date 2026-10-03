@@ -1,0 +1,147 @@
+import Foundation
+import QuartzCore
+
+nonisolated extension SceneResolvedMaterialVariantCache {
+    static func resolveVariantFrontend(
+        template: Template,
+        sourceActiveSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        spatialWeightedColorBlendExternalColorSlot: Int?,
+        premultipliedColorAuxiliarySlots: Set<Int>,
+        artifactStart: Double,
+        artifactResolution: SceneResolvedMaterialGenericShaderArtifactCache.Resolution,
+        compatibilityTargetAdmissionPending: Bool,
+        onBoundedFrontendCompilation: () -> Void,
+        compilerSources: SceneAuthoredShaderBackendCanonicalizer.Pair,
+        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds,
+        sourceColorTransfer: SceneShaderColorTransfer
+    ) throws -> (
+        frontend: SceneAuthoredShaderProgram,
+        routeDecision: SceneGenericShaderRouteDecision,
+        boundedOutput: SceneAuthoredShaderFrontendOutput?,
+        artifactFailure: [String],
+        premultipliedInputSlotsForProfile: (String) -> Set<Int>
+    ) {
+        // A sampler whose only source is the internal scene-background
+        // default reads a publication the registry defines as premultiplied
+        // color; that slot crosses the color boundary by contract, not by
+        // authored color-flow analysis.
+        let sceneBackgroundDefaultSlots: Set<Int> = Set(
+            sourceActiveSamplers.compactMap { (
+                slot: Int,
+                sampler: SceneResolvedMaterialShaderSchema.Sampler
+            ) -> Int? in
+                guard case .internalTarget = sampler.defaultTexture,
+                      SceneResolvedMaterialTextureResolver.sceneBackgroundDefault(
+                          template: template,
+                          sampler: sampler,
+                          slot: slot
+                      ) != nil else { return nil }
+                return slot
+            }
+        )
+        let premultipliedInputSlotsForProfile: (String) -> Set<Int> = { profile in
+            switch profile {
+            case SceneGenericShaderCapabilityProfile
+                .providerBackedGraphInputSpatialWeightedColorBlend.rawValue:
+                spatialWeightedColorBlendExternalColorSlot.map { [$0] } ?? []
+            case SceneGenericShaderCapabilityProfile
+                .sourceProvenGraphInputOverlayAlphaBlend.rawValue,
+                 SceneGenericShaderCapabilityProfile
+                .sourceProvenGraphInputOverlayColorBlendAlphaPreserving.rawValue,
+                 SceneGenericShaderCapabilityProfile
+                .sourceProvenGraphInputAssociatedOverBlend.rawValue,
+                 SceneGenericShaderCapabilityProfile
+                .sourceProvenGraphInputConditionalGeneratedRGBPreservedAlpha
+                .rawValue:
+                premultipliedColorAuxiliarySlots
+            default:
+                sceneBackgroundDefaultSlots
+            }
+        }
+        let frontend: SceneAuthoredShaderProgram
+        let routeDecision:
+            SceneGenericShaderRouteDecision
+        let boundedOutput: SceneAuthoredShaderFrontendOutput?
+        let artifactFailure: [String]
+        SceneResolvedMaterialVariantCompileProfile.add(
+            artifact: (CACurrentMediaTime() - artifactStart) * 1000
+        )
+        switch artifactResolution {
+        case let .accepted(program, requestKey, decision):
+            frontend = program
+            routeDecision = decision
+            boundedOutput = nil
+            artifactFailure = ["generic-artifact-accepted", requestKey]
+        case let .ownerDeferred(code, requestKey, decision):
+            if compatibilityTargetAdmissionPending {
+                throw failure(
+                    .shaderFrontendFailed,
+                    phase: .frontend,
+                    details: [
+                        "compatibility-target-unadmitted",
+                        "generic-artifact", code, requestKey, decision.profile,
+                    ]
+                )
+            }
+            throw failure(
+                .genericProductOwnerDeferred,
+                phase: .frontend,
+                details: ["generic-artifact", code, requestKey, decision.profile]
+            )
+        case let .unavailable(
+            code,
+            requestKey,
+            permitsBoundedFrontend,
+            decision
+        ):
+            routeDecision = decision
+            guard permitsBoundedFrontend else {
+                throw failure(
+                    .shaderFrontendFailed,
+                    phase: .frontend,
+                    genericOwnerFailure: compatibilityTargetAdmissionPending
+                        ? nil : .productOwnerRevoked,
+                    details: [
+                        "generic-artifact", code, requestKey,
+                        "bounded-frontend-owner-revoked",
+                        compatibilityTargetAdmissionPending
+                            ? "compatibility-target-unadmitted"
+                            : "compatibility-target-not-applicable",
+                    ]
+                )
+            }
+            onBoundedFrontendCompilation()
+            let output = SceneAuthoredShaderFrontend.compile(
+                vertexSource: compilerSources.vertex,
+                fragmentSource: compilerSources.fragment,
+                runtimeLoopBounds: runtimeLoopBounds,
+                provenColorTransfer: sourceColorTransfer,
+                premultipliedColorInputSlots:
+                    premultipliedInputSlotsForProfile(decision.profile)
+            )
+            guard output.diagnostics.isEmpty,
+                  let bounded = output.program else {
+                throw failure(
+                    .shaderFrontendFailed,
+                    phase: .frontend,
+                    genericOwnerFailure:
+                        compatibilityTargetAdmissionPending
+                            ? nil : genericOwnerFailure(routeDecision),
+                    details: SceneResolvedMaterialExecutionCapabilityDiagnostics
+                        .frontendFailure(template: template, output: output)
+                        + ["generic-artifact", code, requestKey]
+                )
+            }
+            frontend = bounded
+            boundedOutput = output
+            artifactFailure = ["generic-artifact", code, requestKey]
+        }
+        return (
+            frontend,
+            routeDecision,
+            boundedOutput,
+            artifactFailure,
+            premultipliedInputSlotsForProfile
+        )
+    }
+}

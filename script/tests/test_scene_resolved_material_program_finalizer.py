@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from script.tests.source_family import read_source_family
 import hashlib
 import json
 import os
@@ -6992,9 +6993,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
         template_compiler = TEMPLATE_COMPILER_SOURCE.read_text(encoding="utf-8")
         schema = SHADER_SCHEMA_SOURCE.read_text(encoding="utf-8")
         reachability = SHADER_REACHABILITY_SOURCE.read_text(encoding="utf-8")
-        variant_compilation = VARIANT_COMPILATION_SOURCE.read_text(
-            encoding="utf-8"
-        )
+        variant_compilation = read_source_family(VARIANT_COMPILATION_SOURCE)
         target_token = "compatibilityTarget: .windowsDX11ShaderModel4"
         self.assertEqual(runtime_catalog.count(target_token), 1)
         self.assertNotIn(target_token, schema)

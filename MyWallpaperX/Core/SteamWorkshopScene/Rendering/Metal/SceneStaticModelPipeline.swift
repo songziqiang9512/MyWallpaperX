@@ -621,6 +621,7 @@ struct SceneStaticModelPipeline {
             textureFrame0: textureFrame.uniform0, textureFrame1: textureFrame.uniform1,
             coverage: SIMD4(min(max(material.opacity * layerAlpha, 0), 1),
                             material.textureAlphaIsOpacity ? 1 : 0, 0, 0))
+        ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
         encoder.setRenderPipelineState(pipeline)
         encoder.setDepthStencilState(shadowDepthState)
         encoder.setFrontFacing(.counterClockwise)

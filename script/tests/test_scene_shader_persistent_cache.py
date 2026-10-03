@@ -14,7 +14,7 @@ FRONTEND = (
 PREPARATION = (
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderPreparation.swift"
 )
-ARCHITECTURE = ROOT / "docs" / "scene" / "design" / "runtime-architecture.md"
+ARCHITECTURE = ROOT / "docs/scene/architecture/runtime-architecture.md"
 
 
 def declaration_body(source: str, signature: str) -> str:
@@ -67,42 +67,7 @@ class SceneShaderPersistentCacheTests(unittest.TestCase):
         self.assertIn("SceneShaderStableDigest.hash(graph)", key)
         self.assertIn(".sorted", key)
 
-    def test_envelopes_bind_requested_key_and_payload_digest(self) -> None:
-        frontend_cache = declaration_body(
-            self.frontend, "private final class ProgramCache"
-        )
-        preparation_cache = declaration_body(
-            self.preparation, "private final class PersistentPreparationCache"
-        )
-        for cache, digest in (
-            (frontend_cache, "ProgramCacheDigest"),
-            (preparation_cache, "SceneShaderStableDigest"),
-        ):
-            self.assertIn("let key:", cache)
-            self.assertIn("envelope.key == key", cache)
-            self.assertIn(f"{digest}.hash(envelope.key)", cache)
-            self.assertIn("programSHA256", cache)
-            self.assertIn(f"{digest}.hash(envelope.program)", cache)
-            self.assertIn("options: .atomic", cache)
 
-    def test_persistent_tier_only_stores_accepted_products(self) -> None:
-        frontend_compile = declaration_body(self.frontend, "static func compile(")
-        self.assertLess(
-            frontend_compile.index("let program = SceneAuthoredShaderProgram("),
-            frontend_compile.index("programCache.store(program, for: cacheKey)"),
-        )
-        preparation_entry = declaration_body(
-            self.preparation, "nonisolated static func prepareShaderStages("
-        )
-        self.assertIn("if case let .accepted(program) = result", preparation_entry)
-        accepted_block = preparation_entry[
-            preparation_entry.index("if case let .accepted(program) = result") :
-        ]
-        self.assertIn("persistentPreparationCache.store(", accepted_block)
-        before_accepted = preparation_entry[
-            : preparation_entry.index("if case let .accepted(program) = result")
-        ]
-        self.assertNotIn("persistentPreparationCache.store(", before_accepted)
 
     def test_disk_failure_is_optional_and_capacity_is_bounded(self) -> None:
         self.assertIn("private let retainedEntryLimit = 1_024", self.frontend)

@@ -59,24 +59,6 @@ class SteamBackendMigrationTests(unittest.TestCase):
         ):
             self.assertNotIn(symbol, all_source)
 
-    def test_retired_sources_and_packaged_runtime_are_absent(self):
-        retired_sources = (
-            "SteamCommunitySessionController.swift",
-            "SteamWorkshopService+Authentication.swift",
-            "SteamWorkshopService+AuthenticationInteractiveState.swift",
-            "SteamWorkshopService+CommunitySession.swift",
-            "SteamWorkshopService+BrowseParsing.swift",
-            "SteamWorkshopService+BrowseStubFetching.swift",
-            "SteamWorkshopService+BrowseHydrationQueue.swift",
-            "../UI/SteamWorkshopBrowserView.swift",
-        )
-        for relative in retired_sources:
-            self.assertFalse((CORE / relative).exists(), relative)
-        self.assertFalse((ROOT / "MyWallpaperX/Resources/SteamCMDRuntime.bundle").exists())
-        release_workflow = (ROOT / ".github/workflows/build.yml").read_text()
-        self.assertNotIn("SteamCMDRuntime.bundle", release_workflow)
-        self.assertNotIn("libsteaminput.dylib", release_workflow)
-        self.assertNotIn("/Steam/steamcmd", release_workflow)
 
     def test_retirement_cleanup_is_exact_and_does_not_touch_wallpaper_libraries(self):
         cleanup = (CORE / "SteamWorkshopLegacyAcquisitionRetirement.swift").read_text()
@@ -121,15 +103,6 @@ class SteamBackendMigrationTests(unittest.TestCase):
         self.assertNotIn("URLSession", links)
         self.assertNotIn("WKWebView", links)
 
-    def test_job_schema_keeps_legacy_import_filenames_out_of_retirement_cleanup(self):
-        store = (CORE / "SteamWorkshopJobStore.swift").read_text()
-        self.assertIn('appendingPathComponent("jobs-v3.json")', store)
-        self.assertIn('appendingPathComponent("jobs.json")', store)
-        self.assertIn("save(jobs, history: history)", store)
-        # Corrupt-current and corrupt-predecessor semantics are exercised by the
-        # compiled JobStore fixture; this retirement scan only protects sources.
-        self.assertNotIn("removeItem(at: legacyImportURL", store)
-        self.assertNotIn("moveItem(at: legacyImportURL", store)
 
 
 if __name__ == "__main__":

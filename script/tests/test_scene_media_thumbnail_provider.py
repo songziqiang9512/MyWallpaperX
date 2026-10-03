@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from script.tests.source_family import read_source_family
 import json
 import os
 import shutil
@@ -1314,7 +1315,7 @@ print(String(decoding: data, as: UTF8.self))
 
 class SceneMediaThumbnailProviderTests(unittest.TestCase):
     def test_base_material_route_reports_ready_and_rejected_provider(self) -> None:
-        renderer = RENDERER.read_text(encoding="utf-8")
+        renderer = read_source_family(RENDERER)
         dependency = (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime.swift"
         ).read_text(encoding="utf-8")
@@ -1349,11 +1350,10 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         ).read_text(encoding="utf-8") + (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+Admission.swift"
         ).read_text(encoding="utf-8")
-        begin = preflight.index("beginTextureFrame(")
-        target_preflight = preflight.index(
-            "switch preflightResolvedMaterialFrameTargets(", begin
-        )
-        self.assertLess(begin, target_preflight)
+        begin = renderer.index("beginTextureFrame(")
+        frame_preparation = renderer.index("admitResolvedMaterialFrameTargets(", begin)
+        self.assertLess(begin, frame_preparation)
+        target_preflight = preflight.index("switch preflightResolvedMaterialFrameTargets(")
         self.assertIn('if layer.contentKind != "solid" {', preflight)
         self.assertIn("SceneLayerEffectSourceExtent.resolve(", preflight)
         self.assertIn("authoredRenderSizeWH: layer.renderSizeWH", preflight)

@@ -16,6 +16,7 @@ CAPTURE_SOURCE = (
 
 HARNESS_SOURCE = r'''
 import AppKit
+import Darwin
 @preconcurrency import Metal
 
 final class Events: @unchecked Sendable {
@@ -41,6 +42,18 @@ final class SceneMetalRenderer {}
     static func drain(_ capture: SceneDebugFrameCapture) {
         let done = DispatchSemaphore(value: 0)
         capture.closeAndDrain { done.signal() }; wait(done)
+    }
+    static func waitForLeaseReturn(to baseline: Int) {
+        let deadline = DispatchTime.now() + 5
+        // Drain delivers terminal notifications; destruction of the dispatch
+        // closure and its captured Metal buffer may follow that notification.
+        // Check the real account, not elapsed sleep or another test attempt.
+        while SceneResourceBudget.shared.snapshot.residentBytes != baseline {
+            let remaining = SceneResourceBudget.shared.snapshot.residentBytes - baseline
+            check(DispatchTime.now() < deadline,
+                  "real buffer leases did not return: remaining bytes=\(remaining)")
+            sched_yield()
+        }
     }
     static func texture(_ device: MTLDevice, width: Int = 4, value: UInt8 = 64,
                         format: MTLPixelFormat = .bgra8Unorm) -> MTLTexture {
@@ -194,7 +207,13 @@ final class SceneMetalRenderer {}
             check(events.snapshot.count == 1 && events.snapshot[0].failure == "metal-readback-setup", "failed budget cleanup")
         }
         autoreleasepool {
-            let events = Events(), capture = SceneDebugFrameCapture(observeTerminal: { events.append($0) })
+            let events = Events()
+            let exportEntered = DispatchSemaphore(value: 0), allowExport = DispatchSemaphore(value: 0)
+            let drainNotified = DispatchSemaphore(value: 0), allowDrainReturn = DispatchSemaphore(value: 0)
+            let capture = SceneDebugFrameCapture(
+                beforeExport: { exportEntered.signal(); wait(allowExport) },
+                observeTerminal: { events.append($0) }
+            )
             let source = texture(device)
             capture.request(reason: "cancel", outputDirectory: dir)
             let cancelled = queue.makeCommandBuffer()!
@@ -208,10 +227,21 @@ final class SceneMetalRenderer {}
                 capture.encodeIfRequested(texture: source, commandBuffer: next); next.commit()
             }, cancel: {})
             check(SceneMetalRenderer.submitPreparedFrame(.prepared(nextFrame)).isSubmitted, "next submit")
-            next.waitUntilCompleted(); drain(capture)
+            next.waitUntilCompleted(); wait(exportEntered)
+            // Register while export is deliberately held, so this callback
+            // runs from finish() inside the real export closure. Hold its
+            // return to expose the notification-before-capture-release window.
+            capture.closeAndDrain {
+                drainNotified.signal()
+                wait(allowDrainReturn)
+            }
+            allowExport.signal(); wait(drainNotified)
             check(events.snapshot.count == 1 && events.snapshot[0].failure == nil, "cancel lost pending request")
+            check(SceneResourceBudget.shared.snapshot.residentBytes > baseline,
+                  "controlled drain window did not retain its real buffer lease")
+            allowDrainReturn.signal()
         }
-        check(SceneResourceBudget.shared.snapshot.residentBytes == baseline, "real buffer leases did not return")
+        waitForLeaseReturn(to: baseline)
         print("PASS: completion-independent snapshot, global bounds, request terminals, errors, real leases, cancel, precision")
     }
 }

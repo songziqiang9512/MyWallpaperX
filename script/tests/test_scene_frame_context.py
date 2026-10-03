@@ -94,18 +94,18 @@ PIPELINE_REPOSITORY_SOURCE = (
 COORDINATOR_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/App/MainWindowCoordinator+PlaybackRouting.swift"
 )
-DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
+DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner.swift"
 DEBUG_ARGUMENTS_RUNNER_SOURCE = (
     REPOSITORY_ROOT
-    / "MyWallpaperX/App/DebugScenePlaybackRunner+Arguments.swift"
+    / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+Arguments.swift"
 )
 DEBUG_SCENE_SWITCH_RUNNER_SOURCE = (
     REPOSITORY_ROOT
-    / "MyWallpaperX/App/DebugScenePlaybackRunner+SceneSwitch.swift"
+    / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+SceneSwitch.swift"
 )
 DEBUG_PAUSE_RESUME_RUNNER_SOURCE = (
     REPOSITORY_ROOT
-    / "MyWallpaperX/App/DebugScenePlaybackRunner+PauseResume.swift"
+    / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+PauseResume.swift"
 )
 
 HARNESS = r'''
@@ -113,12 +113,15 @@ import Foundation
 
 // UI/GPU surfaces only; camera selection and frame/input projection below
 // compile the production implementations.
-struct SceneGraphExecutionResetReason {}
+struct SceneGraphExecutionResetReason { let label: String }
+enum InvalidationEvents { static var values: [String] = [] }
 struct FrameTestCompositor {
     var shouldDeferResolvedMaterialFrame = false
-    func invalidateResolvedMaterialRuntime(reason: SceneGraphExecutionResetReason) {}
+    func invalidateResolvedMaterialRuntime(reason: SceneGraphExecutionResetReason) {
+        InvalidationEvents.values.append("compositor:\(reason.label)")
+    }
 }
-struct FrameTestPool { func reset() {} }
+struct FrameTestPool { func reset() { InvalidationEvents.values.append("pool-reset") } }
 struct FrameTestCamera {
     var orthoWidth: Float? = 1920
     var orthoHeight: Float? = 1080
@@ -132,6 +135,7 @@ struct FrameTestRenderer {
 }
 struct FrameTestMetalLayer { var drawableSize = CGSize(width: 3024, height: 1964) }
 struct SceneMetalView {
+    var onRenderInvalidated: (() -> Void)?
     var renderer = FrameTestRenderer()
     var metalLayer = FrameTestMetalLayer()
     var offscreenTexturePool = FrameTestPool()
@@ -143,6 +147,14 @@ struct SceneMetalView {
 @main
 enum Harness {
     static func main() throws {
+        var invalidatedView = SceneMetalView()
+        invalidatedView.onRenderInvalidated = { InvalidationEvents.values.append("callback") }
+        invalidatedView.invalidateResolvedMaterialRuntime(reason: .init(label: "executor"))
+        let withCallback = InvalidationEvents.values
+        InvalidationEvents.values = []
+        invalidatedView.onRenderInvalidated = nil
+        invalidatedView.invalidateResolvedMaterialRuntime(reason: .init(label: "surface"))
+        let withoutCallback = InvalidationEvents.values
         var clock = SceneClock(hostTime: 10)
         let first = clock.advance(
             hostTime: 10.25,
@@ -250,6 +262,8 @@ enum Harness {
             isPrimaryButtonDown: true
         ))
         let payload: [String: Any] = [
+            "invalidationWithCallback": withCallback,
+            "invalidationWithoutCallback": withoutCallback,
             "cameraSelection": cameraSelection.map { [$0.x, $0.y] },
             "shaderParallax": [shaderInputs.parallaxPositionNDC.x, shaderInputs.parallaxPositionNDC.y],
             "shaderPointer": [shaderInputs.pointerCurrentNDC.x, shaderInputs.pointerCurrentNDC.y],
@@ -414,6 +428,7 @@ class SceneFrameContextTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-scene-frame-context-")
+        cls.addClassCleanup(cls.temporary_directory.cleanup)
         directory = Path(cls.temporary_directory.name)
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
@@ -430,6 +445,7 @@ class SceneFrameContextTests(unittest.TestCase):
                 str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneAuthoredShaderFrameInputs.swift"),
                 str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneAuthoredShaderFrameInputs+FrameContext.swift"),
                 str(harness),
+                "-module-cache-path", str(directory / "module-cache"),
                 "-o",
                 str(binary),
             ],
@@ -443,9 +459,11 @@ class SceneFrameContextTests(unittest.TestCase):
         )
         cls.result = json.loads(completed.stdout)
 
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.temporary_directory.cleanup()
+    def test_invalidation_notifies_after_compositor_and_pool_reset(self) -> None:
+        self.assertEqual(self.result["invalidationWithCallback"],
+                         ["compositor:executor", "pool-reset", "callback"])
+        self.assertEqual(self.result["invalidationWithoutCallback"],
+                         ["compositor:surface", "pool-reset"])
 
     def test_production_camera_input_selects_dynamic_override_and_disabled_center(self) -> None:
         expected = [[0.4, -0.2], [0.2, -0.1], [0, 0], [0, 0], [0.2, -0.1]]

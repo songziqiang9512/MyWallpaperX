@@ -114,8 +114,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
 
 class PlaybackPolicyDeliveryTests(unittest.TestCase):
     def test_paused_scene_admission_presents_once_without_running_timer(self):
-        driver = (CORE / "SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift").read_text()
-        pause = (CORE / "SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+VideoProviders.swift").read_text()
+        driver = (CORE / "SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift").read_text()
+        pause = (CORE / "SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+VideoProviders.swift").read_text()
         harness = r'''
 import Foundation
 import QuartzCore
@@ -146,6 +146,7 @@ final class Sounds {
 }
 final class Host {
     var sceneClock = Clock()
+    var isVisible = true
     var launchContext: Int? = 1
     var videoTextureSourceRegistry: Providers?
     var soundPlaybackRegistry: Sounds?

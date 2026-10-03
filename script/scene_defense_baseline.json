@@ -236,16 +236,8 @@
       "reason": "batch 3c moved the shared source-text helpers to a file every caller subset compiles"
     },
     {
-      "detail": "canonical helper isEmbeddedImagePayload target changed from 'Resources/Textures/SceneTextureLoader.swift' to 'Format/SceneTexContainer.swift'",
-      "reason": "batch 3a moved the shared payload predicates into the Format layer so narrow harness subsets keep compiling"
-    },
-    {
       "detail": "canonical helper isEmbeddedImagePayload was added to the reviewed set",
       "reason": "batch 3a locked the consolidated Resources/Textures helpers at a single copy"
-    },
-    {
-      "detail": "canonical helper isMP4Payload target changed from 'Resources/Textures/SceneTextureLoader.swift' to 'Format/SceneTexContainer.swift'",
-      "reason": "batch 3a moved the shared payload predicates into the Format layer so narrow harness subsets keep compiling"
     },
     {
       "detail": "canonical helper isMP4Payload was added to the reviewed set",
@@ -270,10 +262,6 @@
     {
       "detail": "inventory waiver grew with isDegraded in MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift",
       "reason": "composition-rt 第一阶段遗留的诊断入口，后续阶段消费或整体删除"
-    },
-    {
-      "detail": "retired swallow pattern identity-empty-fallback: allowance 1 -> 0",
-      "reason": "batch 4b 把摘要编码失败改为显式失败：ShaderContract canonical hash 走诊断码、X-Ray stock identity 走 nil 比较、dependency payload 按已证总成立政策改 try!"
     }
   ]
 }

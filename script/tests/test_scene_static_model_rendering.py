@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from script.tests.source_family import read_source_family
 import unittest
 from pathlib import Path
 
@@ -74,37 +75,40 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
         self.assertIn("var preparedLayerIDs: [Int]", resources)
 
     def test_renderer_uses_existing_main_pass_and_surface_route(self) -> None:
-        renderer = RENDERER.read_text(encoding="utf-8")
+        renderer = read_source_family(RENDERER)
         view = VIEW.read_text(encoding="utf-8")
-        host = HOST.read_text(encoding="utf-8")
+        host = HOST.with_name("SceneDesktopWallpaperSession.swift").read_text(encoding="utf-8")
         topology = TOPOLOGY.read_text(encoding="utf-8")
         model_case = renderer.split('case "model":', 1)[1].split(
             'case "quad":', 1
         )[0]
-        self.assertIn("mainPass.encoder(", model_case)
-        self.assertIn("pipeline.draw(", model_case)
-        self.assertIn("emissiveMask: prepared.emissiveMask?.texture", model_case)
-        self.assertIn("emissiveMaskTextureFrame: prepared.emissiveMask?.uvTransform", model_case)
-        self.assertIn("emissiveMaskSampling: prepared.emissiveMask?.sampling", model_case)
-        self.assertIn("prepared.material.resolvingDynamicValues(", model_case)
-        self.assertIn(").resolvingDynamicViewTintBack(", model_case)
-        self.assertIn("material: material", model_case)
-        self.assertIn("cameraPosition: cameraFrame.perspectiveEyePosition", model_case)
+        self.assertIn("drawStaticModel(layer: layer, state: modelFrame", model_case)
+        self.assertIn("worldFrames: frameWorldFrames", model_case)
         self.assertIn("lighting: frameLightSnapshot", model_case)
+        model_stage = RENDERER.with_name("SceneMetalRenderer+StaticModels.swift").read_text(encoding="utf-8")
+        self.assertIn("pass.encoder(", model_stage)
+        self.assertIn("pipeline.draw(", model_stage)
+        self.assertIn("emissiveMask: draw.entry.emissiveMask?.texture", model_stage)
+        self.assertIn("emissiveMaskTextureFrame: draw.entry.emissiveMask?.uvTransform", model_stage)
+        self.assertIn("emissiveMaskSampling: draw.entry.emissiveMask?.sampling", model_stage)
+        self.assertIn("entry.material.resolvingDynamicValues(", model_stage)
+        self.assertIn(").resolvingDynamicViewTintBack(", model_stage)
+        self.assertIn("material: draw.material", model_stage)
+        self.assertIn("cameraPosition: cameraFrame.perspectiveEyePosition", model_stage)
         self.assertIn("let frameLightSnapshot = SceneLightSnapshot.make(", renderer)
         self.assertIn("layersByID: frameLayersByID", renderer)
         self.assertIn("worldFramesByLayerID: frameWorldFrames", renderer)
         self.assertIn("dynamicLayerColors: dynamicLightColors", renderer)
         self.assertIn("entryPath: entryPath, camera: camera, lighting: lighting", topology)
-        self.assertIn("staticModelDepthPlan.target(", model_case)
-        self.assertIn("case .isolated:", model_case)
-        self.assertIn("frameWorldFrames[layer.id]", model_case)
-        self.assertIn("cameraFrame.resolvesPerspective(", model_case)
-        self.assertIn("usesPerspective: cameraFrame.resolvesPerspective(for: layer)", model_case)
-        self.assertIn("cameraFrame.reverseDepthViewProjection(", model_case)
-        self.assertIn("clearDepth: 0", model_case)
-        self.assertNotIn("makeCommandQueue", model_case)
-        self.assertNotIn("CAMetalLayer", model_case)
+        self.assertIn("plan.target(geometryIdentity:", model_stage)
+        self.assertIn("case .isolated:", model_stage)
+        self.assertIn("worldFrames[layer.id]", model_stage)
+        self.assertIn("cameraFrame.resolvesPerspective(", model_stage)
+        self.assertIn("usesPerspective: cameraFrame.resolvesPerspective(for: layer)", model_stage)
+        self.assertIn("cameraFrame.reverseDepthViewProjection(", model_stage)
+        self.assertIn("clearDepth: 0", model_stage)
+        self.assertNotIn("makeCommandQueue", model_case + model_stage)
+        self.assertNotIn("CAMetalLayer", model_case + model_stage)
         self.assertIn("staticModelResources: staticModelResources", view)
         self.assertIn("prepared static model layers:", view)
         self.assertIn("launchContext.preparedDeviceResources.staticModels", host)

@@ -13,7 +13,9 @@ def unchanged_source_relocations(
     by_digest: dict[bytes, list[str]] = {}
     for path in sorted(set(candidates)):
         source = root / path
-        if source.is_file():
+        existed = subprocess.run(['git', 'cat-file', '-e', f'{base_ref}:{path}'],
+                                 cwd=root, capture_output=True).returncode == 0
+        if source.is_file() and not source.is_symlink() and not existed:
             digest = hashlib.sha256(source.read_bytes()).digest()
             by_digest.setdefault(digest, []).append(path)
     result: dict[str, str] = {}

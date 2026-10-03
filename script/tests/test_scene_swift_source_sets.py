@@ -214,9 +214,9 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift',
             uniform,
         )
-        self.assertEqual(len(schema), 6)
+        self.assertEqual(len(schema), 7)
         self.assertEqual(len(texture_finalization), 8)
-        self.assertEqual(len(variant_preparation), 24)
+        self.assertEqual(len(variant_preparation), 31)
         self.assertIn(
             'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialCompiledVariant.swift',
             variant_preparation,
@@ -255,7 +255,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *texture_finalization,
             ),
         )
-        self.assertEqual(len(frame_finalization), 47)
+        self.assertEqual(len(frame_finalization), 55)
         self.assertEqual(len(template_compilation), 3)
         self.assertEqual(
             complete,
@@ -264,7 +264,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *frame_finalization,
             ),
         )
-        self.assertEqual(len(complete), 50)
+        self.assertEqual(len(complete), 58)
 
         # The producer set now crosses preparation and live-binding boundaries.
         # Keep its explicit cardinality/order above and verify those boundaries.

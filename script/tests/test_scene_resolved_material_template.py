@@ -18,6 +18,7 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 PROGRAM_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram.swift"
 TEXTURE_CANDIDATE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureCandidate.swift"
 SWIFT_SOURCES = [
+    SCENE_ROOT / "Compilation/Material/SceneRenderTargetVocabulary.swift",
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptValueOwnership.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",

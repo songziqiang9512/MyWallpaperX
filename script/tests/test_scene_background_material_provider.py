@@ -313,7 +313,7 @@ class SceneBackgroundMaterialProviderTests(unittest.TestCase):
         # TemplateCompiler 内联字面量已退役），由
         # test_rt_name_vocabulary_dispatch_behavior 做行为级防回归断言。
         vocabulary = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneRenderTargetVocabulary.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("caseInsensitiveCompare(fullFrameBufferName)", vocabulary)
         self.assertIn("SceneRenderTargetVocabulary.dispatch(authoredName: value)", compiler)

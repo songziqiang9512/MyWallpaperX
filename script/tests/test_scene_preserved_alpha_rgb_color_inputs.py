@@ -77,6 +77,7 @@ nonisolated struct SceneSystemProviderTextureIdentity: Hashable {
 }
 
 nonisolated enum SceneFrameTextureIdentity: Hashable {
+    case sceneEnvironment
     case layerSource(Int)
     case namedLayerTarget(SceneNamedTextureReference)
     case sceneBackground(Int)

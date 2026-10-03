@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from script.tests.source_family import read_source_family
 import json
 import os
 from pathlib import Path
@@ -456,9 +457,7 @@ class SceneOpaqueAlphaWeightedLoopAverageOwnerTests(unittest.TestCase):
                 self.assertNotEqual(observed["routeProfile"], PROFILE)
 
     def test_typed_opaque_input_contract_reaches_frame_finalization(self) -> None:
-        compilation = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
-        ).read_text(encoding="utf-8")
+        compilation = read_source_family(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift")
         finalizer = (
             REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer+ColorInputs.swift"
         ).read_text(encoding="utf-8")

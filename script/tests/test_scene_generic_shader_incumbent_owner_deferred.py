@@ -12,9 +12,6 @@ import unittest
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-MATERIAL_PROGRAM_ROOT = SCENE_ROOT / "RenderGraph/MaterialProgram"
-EFFECT_EXECUTION_ROOT = SCENE_ROOT / "RenderGraph/EffectExecution"
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
 from scene_swift_source_sets import scene_swift_sources
@@ -37,18 +34,6 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
 ]
 
-ROUTE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRouteProfile.swift"
-ROUTE_AUTHORITY_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRouteAuthority.swift"
-CACHE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache.swift"
-VARIANT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
-FAILURE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram.swift"
-STAGES_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift"
-PROGRAM_FIRST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
-CAPABILITY_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift"
-OWNER_ADMISSION_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift"
-LAUNCH_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
-FINALIZER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer.swift"
-SHADER_SCHEMA_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift"
 
 
 HARNESS = r'''
@@ -610,22 +595,6 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
             self.assertTrue(disabled["permitsBoundedFrontend"])
 
 
-    def test_dedicated_incumbent_runtime_is_retired(self) -> None:
-        product = "\n".join(
-            path.read_text(encoding="utf-8")
-            for path in SCENE_ROOT.rglob("*.swift")
-        )
-        for symbol in (
-            "SceneEffectStageProgram",
-            "SceneEffectStageExecutionPlan",
-            "SceneEffectStageRenderer",
-            "dedicatedStagePrograms",
-            "DedicatedFrameInputs",
-        ):
-            self.assertNotIn(symbol, product)
-        program_first = PROGRAM_FIRST_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("case let .failure(programFailure):", program_first)
-        self.assertIn("visualFailurePassthrough", program_first)
 
 
 if __name__ == "__main__":

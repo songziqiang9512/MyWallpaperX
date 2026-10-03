@@ -68,7 +68,7 @@ SWIFT_SOURCES = [
 ]
 
 
-def compile_harness(support_text: str, harness_text: str):
+def compile_harness(support_text: str, harness_text: str, additional_sources=()):
     with tempfile.TemporaryDirectory(
         prefix="mwx-resolved-material-graph-executor-"
     ) as directory:
@@ -92,6 +92,7 @@ def compile_harness(support_text: str, harness_text: str):
                 "SCENE_GRAPH_TESTING",
                 str(support),
                 *(str(path) for path in SWIFT_SOURCES),
+                *(str(path) for path in additional_sources),
                 str(harness),
                 "-framework",
                 "Metal",

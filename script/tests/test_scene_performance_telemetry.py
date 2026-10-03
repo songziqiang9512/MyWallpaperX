@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from script.tests.source_family import read_source_family
 import json
 import subprocess
 import tempfile
@@ -31,30 +32,16 @@ COUNTER_HUB_SOURCE = (
 DAEMON_RUNTIME_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonRuntime.swift"
 )
-RENDER_COMMAND_SOURCES = [
-    REPOSITORY_ROOT / path
-    for path in [
-    Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPipeline.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalPipeline.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLayerColorBlendPipeline.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetMeshGeometry.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift",
-    ]
-]
-DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
+DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner.swift"
 ARGUMENTS_RUNNER_SOURCE = (
     REPOSITORY_ROOT
-    / "MyWallpaperX/App/DebugScenePlaybackRunner+Arguments.swift"
+    / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+Arguments.swift"
 )
 PERFORMANCE_RUNNER_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner+Performance.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+Performance.swift"
 )
 PROCESS_CPU_TIME_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner+ProcessCPUTime.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+ProcessCPUTime.swift"
 )
 PARTICLE_PLAYBACK_SOURCE = (
     REPOSITORY_ROOT
@@ -525,7 +512,7 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         host = HOST_SOURCE.read_text(encoding="utf-8")
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         view = VIEW_SOURCE.read_text(encoding="utf-8")
-        renderer = RENDERER_SOURCE.read_text(encoding="utf-8")
+        renderer = read_source_family(RENDERER_SOURCE)
         runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
         arguments_runner = ARGUMENTS_RUNNER_SOURCE.read_text(encoding="utf-8")
         performance_runner = PERFORMANCE_RUNNER_SOURCE.read_text(encoding="utf-8")
@@ -709,19 +696,21 @@ class ScenePerformanceCounterHubTests(unittest.TestCase):
             8_294_400 + 4_147_200 + 2_073_600,
         )
 
-    def test_render_commands_record_every_pipeline_bind_and_draw(self) -> None:
-        source = "\n".join(
-            path.read_text(encoding="utf-8") for path in RENDER_COMMAND_SOURCES
-        )
-        self.assertEqual(
-            source.count("encoder.setRenderPipelineState("),
-            source.count(".bump(.pipelineStateBinds)"),
-        )
-        self.assertEqual(
-            source.count("encoder.drawPrimitives(")
-            + source.count("encoder.drawIndexedPrimitives("),
-            source.count(".recordDraw(usesGeometry:"),
-        )
+    def test_shadow_encode_records_bind_and_draw_only_for_accepted_commands(self) -> None:
+        from unittest.mock import patch
+        from script.tests import test_scene_spot_model_shadow as spot
+        fixture = REPOSITORY_ROOT / 'script/tests/fixtures/SceneShadowTelemetryHarness.swift'
+        support = 'import Foundation\nimport Metal\nimport simd\n' + spot.model.LIGHTING_STUB + fixture.read_text()
+        with tempfile.TemporaryDirectory(prefix='mwx-shadow-telemetry-', dir='/private/tmp') as directory:
+            with patch.dict('os.environ', {'MWX_DIRECTIONAL_SHADOW_EVIDENCE': directory,
+                                          'MWX_DIRECTIONAL_SHADOW_PRODUCT_SNAPSHOT': ''}):
+                report = spot.shared.run_swift(spot.sources(), support, label='telemetry',
+                                              metal_sources=[spot.model.METAL_SOURCE])
+        self.assertEqual(report['rows'], [
+            {'accepted': False, 'completed': True, 'binds': 0, 'draws': 0, 'geometry': 0},
+            {'accepted': True, 'completed': True, 'binds': 1, 'draws': 1, 'geometry': 1},
+            {'accepted': True, 'completed': True, 'binds': 1, 'draws': 1, 'geometry': 1},
+        ])
 
     def test_resource_gauges_are_sampled_at_one_hertz_outside_frame_driver(self) -> None:
         runtime = DAEMON_RUNTIME_SOURCE.read_text(encoding="utf-8")

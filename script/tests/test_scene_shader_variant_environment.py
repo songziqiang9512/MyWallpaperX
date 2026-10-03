@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from script.tests.source_family import read_source_family
 import json
 import os
 from pathlib import Path
@@ -291,11 +292,12 @@ private func resolved(
 }
 
 private func failure(
-    _ result: Result<SceneShaderVariantEnvironment, SceneShaderVariantResolver.Failure>
+    _ result: Result<SceneShaderVariantEnvironment, SceneShaderVariantResolver.Failure>,
+    line: UInt = #line
 ) throws -> SceneShaderVariantResolver.Failure {
     switch result {
     case .success:
-        throw HarnessFailure(description: "Expected variant failure.")
+        throw HarnessFailure(description: "Expected variant failure at harness line \(line).")
     case let .failure(failure): return failure
     }
 }
@@ -954,7 +956,7 @@ private func runReadinessFixtures() throws -> [String] {
     for source in [
         "uniform float u_Missing; // [COMBO] {\"default\":1}",
         "uniform float u_DisabledMissing; // [COMBO_DISABLED] {\"default\":1}",
-        "uniform float u_DisabledScalar; // [OFF_COMBO] 1",
+        "uniform float u_DisabledArray; // [OFF_COMBO] [1]",
     ] {
         let malformedMarkerFailure = try failure(variant(makeStage(source)))
         try expect(
@@ -962,6 +964,30 @@ private func runReadinessFixtures() throws -> [String] {
             "Variant marker without an object and combo identifier was ignored."
         )
     }
+    // The lexical parser recognizes COMBO attempts with object/array JSON
+    // payloads. A marker followed by a bare scalar is prose, so inject an
+    // actual typed scalar annotation to exercise the resolver's non-object
+    // rejection instead of accidentally testing an empty schema.
+    let scalarAnnotationStage = SceneShaderContract.Stage(
+        kind: .fragment,
+        relativePath: "shaders/scalar.frag",
+        source: "",
+        rawSHA256: SceneShaderStableDigest.hash(Data()),
+        includes: [],
+        annotations: [.init(
+            marker: "[OFF_COMBO]",
+            value: .number(1),
+            variantValue: .integer(1),
+            raw: "// [OFF_COMBO] 1",
+            line: 1
+        )],
+        declarations: []
+    )
+    let scalarMarkerFailure = try failure(variant(scalarAnnotationStage))
+    try expect(
+        scalarMarkerFailure.code == .invalidAnnotation,
+        "A typed scalar combo annotation bypassed the object-payload requirement."
+    )
     return [
         "readiness_provenance", "deterministic_readiness_failure",
         "explicit_conflicts", "shared_slot_conflict",
@@ -1514,10 +1540,8 @@ class SceneShaderVariantEnvironmentTests(unittest.TestCase):
             REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift"
         ).read_text(encoding="utf-8")
         self.assertEqual(runtime_catalog_source.count(target_token), 1)
-        owner_source = (
-            material_program_root
-            / "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
-        ).read_text(encoding="utf-8")
+        owner_source = read_source_family(material_program_root
+            / "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift")
         self.assertIn(
             "compatibilityTarget: template.compatibilityTarget",
             owner_source,

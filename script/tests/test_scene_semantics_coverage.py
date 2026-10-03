@@ -2,21 +2,32 @@
 
 from __future__ import annotations
 
-import fnmatch
+import copy
 import html
 import json
+import os
 import re
 import subprocess
 import tempfile
 import unittest
-from collections import defaultdict
 from pathlib import Path
+from unittest.mock import patch
 from urllib.parse import unquote, urlsplit
+
+from script.document_registry import managed_documents
+from script.source_authority import (
+    authority_metric_digest,
+    authority_relocation_transition_violations,
+    classification_transition_violations,
+    render_chain_authority_violations,
+    render_chain_completion_violations,
+    scene_source_layout_violations,
+)
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DOCUMENTATION_ROOT = REPOSITORY_ROOT / "docs"
-SEMANTICS_ROOT = REPOSITORY_ROOT / "docs/scene/semantics"
+SEMANTICS_ROOT = REPOSITORY_ROOT / "docs/scene/capabilities"
 SCENE_SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SCENE_LAYOUT_PATH = REPOSITORY_ROOT / "script/scene_source_layout.json"
 INLINE_LINK_PATTERN = re.compile(r"!?\[[^\]]*\]\(([^)\n]+)\)")
@@ -74,304 +85,71 @@ def markdown_anchors(text: str) -> set[str]:
     return anchors
 
 
-def swift_without_comments(text: str) -> str:
-    output: list[str] = []
-    index = 0
-    block_depth = 0
-    state = "code"
-    while index < len(text):
-        if state == "line-comment":
-            if text[index] == "\n":
-                output.append("\n")
-                state = "code"
-            else:
-                output.append(" ")
-            index += 1
-            continue
-        if state == "block-comment":
-            if text.startswith("/*", index):
-                output.extend("  ")
-                block_depth += 1
-                index += 2
-            elif text.startswith("*/", index):
-                output.extend("  ")
-                block_depth -= 1
-                index += 2
-                if block_depth == 0:
-                    state = "code"
-            else:
-                output.append("\n" if text[index] == "\n" else " ")
-                index += 1
-            continue
-        if state == "string":
-            output.append(text[index])
-            if text[index] == "\\" and index + 1 < len(text):
-                output.append(text[index + 1])
-                index += 2
-            else:
-                if text[index] == '"':
-                    state = "code"
-                index += 1
-            continue
-        if state == "multiline-string":
-            if text.startswith('"""', index):
-                output.extend('"""')
-                index += 3
-                state = "code"
-            else:
-                output.append(text[index])
-                index += 1
-            continue
-        if text.startswith("//", index):
-            output.extend("  ")
-            index += 2
-            state = "line-comment"
-        elif text.startswith("/*", index):
-            output.extend("  ")
-            index += 2
-            block_depth = 1
-            state = "block-comment"
-        elif text.startswith('"""', index):
-            output.extend('"""')
-            index += 3
-            state = "multiline-string"
-        elif text[index] == '"':
-            output.append('"')
-            index += 1
-            state = "string"
-        else:
-            output.append(text[index])
-            index += 1
-    return "".join(output)
-
-
-def render_chain_authority_violations(
-    source_root: Path,
-    rules: list[dict[str, object]],
-    repository_root: Path | None = None,
-) -> list[str]:
-    violations: list[str] = []
-    all_sources = sorted(source_root.rglob("*.swift"))
-    for rule in rules:
-        rule_id = str(rule["id"])
-        pattern = re.compile(str(rule["pattern"]), re.MULTILINE)
-        allowed_files = [str(value) for value in rule["allowed_files"]]
-        scope_files = [str(value) for value in rule.get("scope_files", [])]
-        rule_source_root = source_root
-        scan_root = rule.get("scan_root")
-        if scan_root is not None:
-            if repository_root is None:
-                violations.append(
-                    f"{rule_id}: scan_root requires an explicit repository root"
-                )
-                continue
-            rule_source_root = repository_root / str(scan_root)
-        sources = (
-            [rule_source_root / relative for relative in scope_files]
-            if scope_files
-            else (
-                sorted(rule_source_root.rglob("*.swift"))
-                if scan_root is not None
-                else all_sources
-            )
-        )
-        matches_by_file: dict[str, int] = {}
-        for source in sources:
-            if not source.is_file():
-                violations.append(f"{rule_id}: scope file is missing: {source}")
-                continue
-            relative = source.relative_to(rule_source_root).as_posix()
-            searchable = swift_without_comments(source.read_text(encoding="utf-8"))
-            start_marker = rule.get("start_marker")
-            end_marker = rule.get("end_marker")
-            if start_marker is not None:
-                start = searchable.find(str(start_marker))
-                if start < 0:
-                    violations.append(
-                        f"{rule_id}: start marker missing in {relative}"
-                    )
-                    continue
-                searchable = searchable[start:]
-            if end_marker is not None:
-                end = searchable.find(str(end_marker))
-                if end < 0:
-                    violations.append(f"{rule_id}: end marker missing in {relative}")
-                    continue
-                searchable = searchable[:end]
-            count = len(pattern.findall(searchable))
-            if count:
-                matches_by_file[relative] = count
-
-        actual_files = sorted(matches_by_file)
-        actual_occurrences = sum(matches_by_file.values())
-        baseline_occurrences = int(rule["baseline_occurrences"])
-        if actual_files != allowed_files:
-            violations.append(
-                f"{rule_id}: files {actual_files} != baseline {allowed_files}"
-            )
-        if actual_occurrences != baseline_occurrences:
-            violations.append(
-                f"{rule_id}: occurrences {actual_occurrences} != baseline "
-                f"{baseline_occurrences}; ratchet the manifest when authority shrinks"
-            )
-    return violations
-
-
-def render_chain_completion_violations(
-    source_root: Path,
-    layout: dict[str, object],
-    repository_root: Path | None = None,
-) -> list[str]:
-    contract = layout["render_chain_authority_ratchet"]
-    assert isinstance(contract, dict)
-    rules = contract["rules"]
-    states = contract["completion_state"]
-    assert isinstance(rules, list)
-    assert isinstance(states, dict)
-
-    violations = render_chain_authority_violations(
-        source_root,
-        rules,
-        repository_root,
-    )
-    r4_state = str(states.get("r4"))
-    r5_state = str(states.get("r5"))
-    if r5_state in {"partial", "complete"} and r4_state != "complete":
-        violations.append("r5: cannot start before r4 is complete")
-
-    completed_phases: set[str] = set()
-    if r4_state == "complete":
-        completed_phases.add("r4")
-    if r5_state == "complete":
-        completed_phases.update({"r4", "r5"})
-    for rule in rules:
-        if rule.get("role") != "retirement":
-            continue
-        phase = str(rule["completion_phase"])
-        if phase not in completed_phases:
-            continue
-        baseline = int(rule["baseline_occurrences"])
-        target = int(rule["completion_target_occurrences"])
-        if baseline != target:
-            violations.append(
-                f"{rule['id']}: {phase} completion requires {target} "
-                f"occurrences, found {baseline}"
-            )
-        if target == 0 and rule["allowed_files"]:
-            violations.append(
-                f"{rule['id']}: completed zero target must have no allowed files"
-            )
-    return violations
-
-
-def committed_scene_layout() -> dict[str, object] | None:
+def validation_base() -> str:
+    requested = os.environ.get("MWX_VALIDATION_BASE", "HEAD")
     result = subprocess.run(
-        ["git", "show", "HEAD:script/scene_source_layout.json"],
-        cwd=REPOSITORY_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
+        ["git", "rev-parse", "--verify", f"{requested}^{{commit}}"],
+        cwd=REPOSITORY_ROOT, capture_output=True, text=True, check=True,
     )
-    if result.returncode != 0:
+    return result.stdout.strip()
+
+
+def committed_scene_layout(base_ref: str | None = None) -> dict[str, object] | None:
+    base_ref = base_ref or validation_base()
+    # Only a valid historical tree that predates this file may omit its baseline.
+    listing = subprocess.run(
+        ["git", "ls-tree", "--name-only", base_ref, "--", "script/scene_source_layout.json"],
+        cwd=REPOSITORY_ROOT, capture_output=True, text=True, check=True,
+    )
+    if not listing.stdout.strip():
         return None
-    try:
-        return json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return None
+    result = subprocess.run(
+        ["git", "show", f"{base_ref}:script/scene_source_layout.json"],
+        cwd=REPOSITORY_ROOT, capture_output=True, text=True, check=True,
+    )
+    return json.loads(result.stdout)
 
 
 class SceneSemanticsCoverageTests(unittest.TestCase):
     def test_scene_sources_follow_the_documented_directory_layout(self) -> None:
         layout = json.loads(SCENE_LAYOUT_PATH.read_text(encoding="utf-8"))
         self.assertEqual(layout["schema_version"], 3)
-        self.assertEqual(
-            REPOSITORY_ROOT / layout["source_root"],
-            SCENE_SOURCE_ROOT,
-        )
-        self.assertEqual(
-            sorted(path.name for path in SCENE_SOURCE_ROOT.glob("*.swift")),
-            [],
-            "SteamWorkshopScene is a classification root and must not contain Swift files",
-        )
-        actual_directories = {
-            path.relative_to(SCENE_SOURCE_ROOT).parts[0]
-            for path in SCENE_SOURCE_ROOT.rglob("*.swift")
+        self.assertEqual(REPOSITORY_ROOT / layout["source_root"], SCENE_SOURCE_ROOT)
+        violations = scene_source_layout_violations(SCENE_SOURCE_ROOT, layout)
+        self.assertEqual(violations, [], "Scene source layout violations:\n" + "\n".join(violations))
+
+    def test_flat_layout_rejects_unregistered_missing_and_relocated_files(self) -> None:
+        layout = {
+            "top_level_directories": ["Format", "Diagnostics"],
+            "declared_second_level_directories": {},
+            "declared_flat_directories": {
+                "Format": {"files": ["Model.swift"]},
+                "Diagnostics": {"files": ["Trace.swift"]},
+            },
+            "forbidden_directory_names": ["Misc"],
         }
-        self.assertEqual(
-            actual_directories,
-            set(layout["top_level_directories"]),
-        )
-
-        declared_nested = layout["declared_second_level_directories"]
-        misplaced: list[str] = []
-        sources_by_name: defaultdict[str, list[Path]] = defaultdict(list)
-        for source in sorted(SCENE_SOURCE_ROOT.rglob("*.swift")):
-            relative = source.relative_to(SCENE_SOURCE_ROOT)
-            sources_by_name[source.name].append(relative)
-            if len(relative.parts) == 2:
-                continue
-            if len(relative.parts) != 3:
-                misplaced.append(
-                    f"{relative.as_posix()}: Scene Swift depth must be one or two"
-                )
-                continue
-            top_level, second_level, filename = relative.parts
-            contract = declared_nested.get(top_level, {}).get(second_level)
-            if contract is None:
-                misplaced.append(
-                    f"{relative.as_posix()}: second-level directory is not declared"
-                )
-                continue
-            if not any(
-                fnmatch.fnmatchcase(filename, pattern)
-                for pattern in contract["file_globs"]
-            ):
-                misplaced.append(
-                    f"{relative.as_posix()}: filename is outside its directory contract"
-                )
-
-        for top_level, second_levels in declared_nested.items():
-            for second_level, contract in second_levels.items():
-                expected_parent = Path(top_level) / second_level
-                for pattern in contract["file_globs"]:
-                    matches = [
-                        source
-                        for source in SCENE_SOURCE_ROOT.rglob(pattern)
-                        if source.is_file()
-                    ]
-                    if not matches:
-                        misplaced.append(
-                            f"{expected_parent}/{pattern}: layout glob matched no files"
-                        )
-                    for source in matches:
-                        relative = source.relative_to(SCENE_SOURCE_ROOT)
-                        if relative.parent != expected_parent:
-                            misplaced.append(
-                                f"{relative.as_posix()}: belongs in {expected_parent}"
-                            )
-
-        duplicate_names = {
-            name: paths
-            for name, paths in sources_by_name.items()
-            if len(paths) > 1
-        }
-        self.assertEqual(
-            duplicate_names,
-            {},
-            "Scene Swift basenames must stay unique for reliable navigation",
-        )
-        forbidden_names = set(layout["forbidden_directory_names"])
-        forbidden_directories = sorted(
-            path.relative_to(SCENE_SOURCE_ROOT).as_posix()
-            for path in SCENE_SOURCE_ROOT.rglob("*")
-            if path.is_dir() and path.name in forbidden_names
-        )
-        self.assertEqual(forbidden_directories, [])
-        self.assertEqual(
-            misplaced,
-            [],
-            "Scene source layout violations:\n" + "\n".join(misplaced),
-        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for relative in ("Format/Model.swift", "Diagnostics/Trace.swift"):
+                path = root / relative
+                path.parent.mkdir(exist_ok=True)
+                path.touch()
+            self.assertEqual(scene_source_layout_violations(root, layout), [])
+            for relative in ("Format/New.swift", "Diagnostics/New.swift", "Rendering/New.swift",
+                             "New.swift", "Format/Deep/New.swift", "Format/Deep/More/New.swift"):
+                with self.subTest(relative=relative):
+                    path = root / relative
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.touch()
+                    self.assertTrue(any(relative in value for value in
+                                        scene_source_layout_violations(root, layout)))
+                    path.unlink()
+            (root / "Format/Model.swift").rename(root / "Diagnostics/Model.swift")
+            self.assertTrue(any("belongs in Format" in value for value in
+                                scene_source_layout_violations(root, layout)))
+            (root / "Diagnostics/Model.swift").unlink()
+            self.assertTrue(any("matched no files" in value for value in
+                                scene_source_layout_violations(root, layout)))
 
     def test_render_chain_authority_matches_the_ratcheted_inventory(self) -> None:
         layout = json.loads(SCENE_LAYOUT_PATH.read_text(encoding="utf-8"))
@@ -395,6 +173,12 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             self.assertEqual(rule["allowed_files"], [])
         for rule in rules:
             self.assertIn(rule["role"], {"required", "inventory", "retirement"})
+            if rule.get("classifications"):
+                self.assertEqual(rule["role"], "inventory")
+                self.assertIn(rule.get("metric"), {"classified-declarations", "local-alias-declarations"})
+                for classification in rule["classifications"]:
+                    for field in ("owner", "reason", "retirement", "scope", "declaration", "file"):
+                        self.assertTrue(classification.get(field), f"missing classification {field}")
             self.assertEqual(rule["allowed_files"], sorted(rule["allowed_files"]))
             if "scope_files" in rule:
                 self.assertEqual(rule["scope_files"], sorted(rule["scope_files"]))
@@ -466,7 +250,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         )
 
     def test_render_chain_ratchet_cannot_rise_above_committed_baseline(self) -> None:
-        committed = committed_scene_layout()
+        base_ref = validation_base()
+        committed = committed_scene_layout(base_ref)
         if committed is None or "render_chain_authority_ratchet" not in committed:
             self.skipTest("the committed checkout predates the R4-0 authority ratchet")
         previous = {
@@ -492,7 +277,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             for path in rule["allowed_files"]
         }
         moves = unchanged_source_relocations(
-            REPOSITORY_ROOT, "HEAD", old_paths,
+            REPOSITORY_ROOT, base_ref, old_paths,
             (path.relative_to(REPOSITORY_ROOT).as_posix()
              for path in SCENE_SOURCE_ROOT.rglob("*.swift")),
         )
@@ -515,12 +300,34 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             if new_rule is None:
                 violations.append(f"{rule_id}: committed rule was removed")
                 continue
+            violations.extend(classification_transition_violations(old_rule, new_rule))
             if int(new_rule["baseline_occurrences"]) > int(old_rule["baseline_occurrences"]):
                 violations.append(f"{rule_id}: baseline occurrence increased")
             renamed_allowed = {
                 renamed_scene_files.get(path, path)
                 for path in old_rule["allowed_files"]
             }
+            relocation_errors = []
+            previous_sources, current_sources = {}, {}
+            if new_rule.get("owner_relocation") is not None and old_rule.get("owner_relocation") is None:
+                listing = subprocess.run(
+                    ["git", "grep", "-l", "-E", "--", old_rule["pattern"], base_ref, "--", scene_prefix],
+                    cwd=REPOSITORY_ROOT, capture_output=True, text=True, check=False,
+                )
+                self.assertIn(listing.returncode, (0, 1), listing.stderr)
+                for entry in listing.stdout.splitlines():
+                    relative = entry.removeprefix(f"{base_ref}:").removeprefix(scene_prefix)
+                    previous_sources[relative] = subprocess.run(
+                        ["git", "show", f"{base_ref}:{scene_prefix}{relative}"], cwd=REPOSITORY_ROOT,
+                        capture_output=True, text=True, check=True,
+                    ).stdout
+                current_sources = {path.relative_to(SCENE_SOURCE_ROOT).as_posix(): path.read_text()
+                                   for path in SCENE_SOURCE_ROOT.rglob("*.swift")}
+            relocation_errors = authority_relocation_transition_violations(
+                old_rule, new_rule, previous_sources, current_sources)
+            violations.extend(relocation_errors)
+            exact_owner_relocated = (new_rule.get("owner_relocation") is not None
+                                     and old_rule.get("owner_relocation") is None and not relocation_errors)
             new_allowed = set(new_rule["allowed_files"])
             new_only_allowed = new_allowed - renamed_allowed
             old_only_allowed = renamed_allowed - new_allowed
@@ -528,7 +335,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                 subprocess.run(
                     [
                         "git", "cat-file", "-e",
-                        f"HEAD:MyWallpaperX/Core/SteamWorkshopScene/{path}",
+                        f"{base_ref}:MyWallpaperX/Core/SteamWorkshopScene/{path}",
                     ],
                     cwd=REPOSITORY_ROOT,
                     check=False,
@@ -553,6 +360,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             if (
                 not new_allowed.issubset(renamed_allowed)
                 and not inventory_consolidated_without_growth
+                and not exact_owner_relocated
             ):
                 violations.append(f"{rule_id}: allowed file set increased")
             renamed_scope = {
@@ -591,6 +399,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                 and (
                     new_allowed == renamed_allowed
                     or inventory_consolidated_without_growth
+                    or exact_owner_relocated
                 )
                 and set(new_rule.get("scope_files", [])) == renamed_scope
             )
@@ -599,6 +408,99 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                     if new_rule.get(field) != old_rule.get(field):
                         violations.append(f"{rule_id}: {field} changed")
         self.assertEqual(violations, [])
+
+    def test_ci_base_rejects_committed_receipt_tampering_and_invalid_base(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-authority-ci-base-") as temporary:
+            root = Path(temporary)
+            def git(*arguments: str) -> str:
+                return subprocess.run(["git", *arguments], cwd=root, check=True,
+                                      capture_output=True, text=True).stdout.strip()
+            git("init", "--quiet")
+            git("config", "user.name", "Ratchet Fixture")
+            git("config", "user.email", "ratchet@example.invalid")
+            scene = root / "MyWallpaperX/Core/SteamWorkshopScene"
+            scene.mkdir(parents=True)
+            (scene / "Owner.swift").write_text("struct Owner {}\n")
+            path = root / "script/scene_source_layout.json"
+            path.parent.mkdir()
+            rule = {"id": "bounded-frontend-product-entry", "role": "inventory",
+                    "pattern": r"SceneAuthoredShaderFrontend\.compile\(",
+                    "baseline_occurrences": 1, "allowed_files": ["Owner.swift"]}
+            prior_rule = {**rule, "allowed_files": ["Origin.swift"]}
+            rule["owner_relocation"] = {
+                "from_file": "Origin.swift", "to_file": "Owner.swift",
+                "from_contract_sha256": authority_metric_digest(prior_rule),
+                "to_contract_sha256": authority_metric_digest(rule),
+                "design_doc": "docs/scene/roadmap/batch2/frame-admission-retry-design.md",
+                "owner": "variant preparation", "reason": "original committed receipt",
+                "retirement": "retire only after all calls disappear",
+            }
+            layout = {"render_chain_authority_ratchet": {"rules": [rule]}}
+            path.write_text(json.dumps(layout))
+            git("add", "script/scene_source_layout.json", "MyWallpaperX/Core/SteamWorkshopScene/Owner.swift")
+            git("commit", "--quiet", "-m", "original receipt")
+            original = git("rev-parse", "HEAD")
+            rule["owner_relocation"]["reason"] = "rewritten in a later commit"
+            path.write_text(json.dumps(layout))
+            git("add", "script/scene_source_layout.json")
+            git("commit", "--quiet", "-m", "tamper receipt")
+            with patch.dict(globals(), REPOSITORY_ROOT=root, SCENE_SOURCE_ROOT=scene,
+                            SCENE_LAYOUT_PATH=path):
+                with patch.dict(os.environ, MWX_VALIDATION_BASE="HEAD"):
+                    self.test_render_chain_ratchet_cannot_rise_above_committed_baseline()
+                with patch.dict(os.environ, MWX_VALIDATION_BASE=original):
+                    with self.assertRaisesRegex(AssertionError, "committed owner relocation"):
+                        self.test_render_chain_ratchet_cannot_rise_above_committed_baseline()
+                with patch.dict(os.environ, MWX_VALIDATION_BASE="missing-base-ref"):
+                    with self.assertRaises(subprocess.CalledProcessError):
+                        committed_scene_layout()
+
+    def test_owner_relocation_preserves_calls_and_refuses_forged_receipts(self) -> None:
+        old = {"id": "bounded-frontend-product-entry", "role": "inventory",
+               "pattern": r"SceneAuthoredShaderFrontend\.compile\(", "baseline_occurrences": 2,
+               "allowed_files": ["Origin.swift", "Stable.swift"]}
+        new = {**old, "allowed_files": ["Destination.swift", "Stable.swift"]}
+        receipt = {"from_file": "Origin.swift", "to_file": "Destination.swift",
+                   "from_contract_sha256": authority_metric_digest(old),
+                   "to_contract_sha256": authority_metric_digest(new),
+                   "design_doc": "docs/scene/roadmap/batch2/frame-admission-retry-design.md",
+                   "owner": "variant preparation", "reason": "whole frontend stage moved",
+                   "retirement": "retire only after all calls disappear"}
+        new["owner_relocation"] = receipt
+        call = 'SceneAuthoredShaderFrontend.compile(vertexSource: "a", fragmentSource: make("b"))'
+        previous = {"Origin.swift": call, "Stable.swift": call}
+        current = {"Origin.swift": "struct Retained {}", "Destination.swift": call, "Stable.swift": call}
+        self.assertEqual(authority_relocation_transition_violations(old, new, previous, current), [])
+        altered = copy.deepcopy(current)
+        altered["Destination.swift"] = call.replace('"a"', '"changed"')
+        self.assertTrue(authority_relocation_transition_violations(old, new, previous, altered))
+        for path in ("Destination.swift", "Third.swift"):
+            altered = {**current, path: call + "\n" + call}
+            self.assertTrue(authority_relocation_transition_violations(old, new, previous, altered))
+        for field, value in (("pattern", "compile"), ("scope_files", ["Destination.swift"]),
+                             ("baseline_occurrences", 3), ("allowed_files", ["Destination.swift", "Third.swift"])):
+            altered = copy.deepcopy(new)
+            altered[field] = value
+            altered["owner_relocation"]["to_contract_sha256"] = authority_metric_digest(altered)
+            self.assertTrue(authority_relocation_transition_violations(old, altered, previous, current))
+        for field in ("from_contract_sha256", "to_contract_sha256", "from_file", "to_file", "design_doc", "owner"):
+            altered = copy.deepcopy(new)
+            altered["owner_relocation"][field] = "forged"
+            if field == "owner":
+                altered["owner_relocation"][field] = ""
+            self.assertTrue(authority_relocation_transition_violations(old, altered, previous, current))
+        self.assertEqual(authority_relocation_transition_violations(new, copy.deepcopy(new), {}, {}), [])
+        for field, changed in (("pattern", "compile"), ("scope_files", ["Destination.swift"]),
+                               ("allowed_files", ["Destination.swift", "NewOwner.swift"])):
+            altered = copy.deepcopy(new); altered[field] = changed
+            self.assertTrue(authority_relocation_transition_violations(new, altered, {}, {}))
+        for action in ("rewrite", "delete"):
+            altered = copy.deepcopy(new)
+            if action == "rewrite":
+                altered["owner_relocation"]["reason"] = "rewrite a committed receipt"
+            else:
+                del altered["owner_relocation"]
+            self.assertTrue(authority_relocation_transition_violations(new, altered, {}, {}))
 
     def test_render_chain_ratchet_rejects_new_owner_recovery_and_selector(self) -> None:
         rules = [
@@ -669,6 +571,156 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                 any(value.startswith("product-wide:") for value in violations)
             )
 
+    def test_passive_declaration_classification_preserves_global_analyzer_discovery(self) -> None:
+        layout = json.loads(SCENE_LAYOUT_PATH.read_text())
+        rule = copy.deepcopy(next(rule for rule in layout["render_chain_authority_ratchet"]["rules"]
+                                  if rule.get("metric") == "classified-declarations"))
+        rule.update(baseline_occurrences=0, allowed_files=[])
+        classification = rule["classifications"][0]
+        declaration = classification["declaration"]
+        positive = "#if DEBUG\nfinal class SceneDebugFrameCapture {\n" + declaration + "\n}\n#endif\n"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / classification["file"]
+            source.parent.mkdir(parents=True)
+            source.write_text(positive)
+            self.assertEqual(render_chain_authority_violations(root, [rule]), [])
+            source.write_text(positive.replace(declaration, 'let message = """\n#endif\n"""\n' + declaration))
+            self.assertEqual(render_chain_authority_violations(root, [rule]), [])
+            mutations = {
+                "same-file analyzer": positive.replace("\n}\n", "\nstruct NewAdmission {}\n}\n"),
+                "method in passive enum": positive.replace("rejected(String) }", "rejected(String); func resolve() {} }"),
+                "state in passive enum": positive.replace("rejected(String) }", "rejected(String); static var count = 0 }"),
+                "changed condition": positive.replace("#if DEBUG", "#if RELEASE"),
+                "alternate branch": positive.replace("#if DEBUG", "#if DEBUG\n#else"),
+                "changed owner": positive.replace("SceneDebugFrameCapture", "OtherCapture"),
+                "nested scope": positive.replace(declaration, "func nested() { " + declaration + " }"),
+                "removed declaration": positive.replace(declaration, ""),
+                "signature in string": positive.replace(declaration, 'let text = "' + declaration + '"'),
+                "fake conditional in string": positive.replace("#if DEBUG\n", "", 1).replace(
+                    "\n#endif\n", "\n").replace(declaration, 'let message = """\n#if DEBUG\n"""\n' + declaration),
+            }
+            for name, content in mutations.items():
+                with self.subTest(name=name):
+                    source.write_text(content)
+                    self.assertTrue(render_chain_authority_violations(root, [rule]))
+            source.write_text(positive)
+            (root / "New.swift").write_text("struct NewAdmission {}\n")
+            self.assertTrue(render_chain_authority_violations(root, [rule]))
+            (root / "New.swift").write_text("extension SceneDebugFrameCapture.Admission { func resolve() {} }\n")
+            self.assertTrue(render_chain_authority_violations(root, [rule]))
+            (root / "New.swift").write_text("extension SceneDebugFrameCapture.`Admission` { func resolve() {} }\n")
+            self.assertTrue(render_chain_authority_violations(root, [rule]))
+            (root / "New.swift").write_text("typealias ResultType = SceneDebugFrameCapture.Admission\nextension ResultType { func resolve() {} }\n")
+            self.assertTrue(render_chain_authority_violations(root, [rule]))
+            (root / "New.swift").write_text("typealias Holder = SceneDebugFrameCapture\n")
+            (root / "Alias.swift").write_text("typealias ResultType = Holder.Admission\n")
+            (root / "Extension.swift").write_text("extension ResultType { func resolve() {} }\n")
+            self.assertTrue(any("New.swift: typealias" in value for value in
+                                render_chain_authority_violations(root, [rule])))
+
+    def test_local_alias_metric_rejects_new_owners_and_unclassified_references(self) -> None:
+        layout = json.loads(SCENE_LAYOUT_PATH.read_text())
+        rule = next(rule for rule in layout["render_chain_authority_ratchet"]["rules"]
+                    if rule.get("metric") == "local-alias-declarations")
+        classification = rule["classifications"][0]
+        declaration = classification["declaration"]
+        body = declaration + "\nlet texture = dependencyEffect?.texture\n"
+        def wrapped(body: str) -> str:
+            return "struct SceneImageLayerCompositor {\nfunc drawOutcome() {\n" + body + "\n}\n}\n"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / classification["file"]
+            source.parent.mkdir(parents=True)
+            source.write_text(wrapped(body))
+            self.assertEqual(render_chain_authority_violations(root, [rule]), [])
+            source.write_text(wrapped(body + "let second = dependencyEffect?.texture\n"))
+            self.assertEqual(render_chain_authority_violations(root, [rule]), [])
+            mutations = {
+                "second declaration": wrapped(body + declaration),
+                "mutable alias": wrapped(body.replace("let dependencyEffect", "var dependencyEffect")),
+                "different producer": wrapped(body.replace("dependencyEffects.first", "otherEffects.first")),
+                "extended producer": wrapped(body.replace("dependencyEffects.first", "dependencyEffects.first ?? other")),
+                "new unknown read": wrapped(body + "consume(dependencyEffect)"),
+                "property owner": wrapped(body) + "struct Other { let dependencyEffect: Int }",
+                "outside scope": wrapped(body) + "let other = dependencyEffect?.texture",
+                "wrong owning function": wrapped(body).replace("func drawOutcome", "func other"),
+                "nested declaration": wrapped("if enabled { " + body + " }"),
+                "member reference": wrapped(body + "let other = request.dependencyEffect?.texture"),
+                "assignment": wrapped(body + "dependencyEffect?.texture = replacement"),
+                "compound assignment": wrapped(body + "dependencyEffect?.blendMode %= 2"),
+                "indexed assignment": wrapped(body + "dependencyEffect?.texture[0] = replacement"),
+                "inout": wrapped(body + "mutate(&dependencyEffect?.texture)"),
+            }
+            for name, content in mutations.items():
+                with self.subTest(name=name):
+                    source.write_text(content)
+                    self.assertTrue(render_chain_authority_violations(root, [rule]))
+            source.write_text(wrapped(body))
+            (root / "New.swift").write_text("let dependencyEffect = other.first\n")
+            self.assertTrue(render_chain_authority_violations(root, [rule]))
+
+    def test_classification_migration_binds_both_measured_contracts(self) -> None:
+        # Protocol counterexamples must not depend on whether the repository's
+        # first migration has already been committed. The separate live ratchet
+        # test checks the selected Git base against the real current inventory.
+        for metric in ("classified-declarations", "local-alias-declarations"):
+            old = {
+                "id": "fixture-inventory", "role": "inventory",
+                "pattern": "fixtureOwner", "baseline_occurrences": 5,
+                "allowed_files": ["Owner.swift"],
+            }
+            new = copy.deepcopy(old)
+            new.update(metric=metric, baseline_occurrences=1, classifications=[{
+                "declaration": "let fixtureOwner = request.owners.first",
+            }])
+            new["classification_migration"] = {
+                "from_contract_sha256": authority_metric_digest(old),
+                "to_contract_sha256": authority_metric_digest(new),
+                "design_doc": "docs/development/structural-governance-design.md",
+                "owner": "fixture owner", "reason": "reviewed metric migration",
+                "retirement": "remove with the retired inventory",
+            }
+            self.assertEqual(classification_transition_violations(old, new), [])
+            self.assertEqual(classification_transition_violations(new, copy.deepcopy(new)), [])
+            for digest in ("from_contract_sha256", "to_contract_sha256"):
+                invalid = copy.deepcopy(new)
+                invalid["classification_migration"][digest] = "0" * 64
+                self.assertTrue(classification_transition_violations(old, invalid))
+            altered = copy.deepcopy(new)
+            altered["classifications"][0]["declaration"] += " changed"
+            self.assertTrue(classification_transition_violations(old, altered))
+            altered["classification_migration"]["to_contract_sha256"] = authority_metric_digest(altered)
+            self.assertTrue(classification_transition_violations(new, altered))
+            retired = copy.deepcopy(old)
+            retired["role"] = "retirement"
+            self.assertTrue(classification_transition_violations(retired, new))
+            removed = copy.deepcopy(new)
+            del removed["classification_migration"]
+            self.assertTrue(classification_transition_violations(new, removed))
+            reopened = copy.deepcopy(altered)
+            reopened["classification_migration"]["from_contract_sha256"] = authority_metric_digest(removed)
+            reopened["classification_migration"]["to_contract_sha256"] = authority_metric_digest(reopened)
+            self.assertTrue(classification_transition_violations(removed, reopened))
+            for field, value in (("pattern", "NEVER"), ("scan_root", "Elsewhere"),
+                                 ("scope_files", ["Only.swift"]), ("start_marker", "START"),
+                                 ("end_marker", "END")):
+                with self.subTest(field=field):
+                    narrowed = copy.deepcopy(new)
+                    narrowed[field] = value
+                    self.assertTrue(classification_transition_violations(new, narrowed))
+                    narrowed["classification_migration"]["to_contract_sha256"] = authority_metric_digest(narrowed)
+                    self.assertTrue(classification_transition_violations(old, narrowed))
+            shrunk = copy.deepcopy(new)
+            shrunk["baseline_occurrences"] -= 1
+            self.assertEqual(classification_transition_violations(new, shrunk), [])
+            retired = copy.deepcopy(new)
+            retired.update(classifications=[], baseline_occurrences=0, allowed_files=[])
+            del retired["classification_migration"]
+            self.assertEqual(classification_transition_violations(new, retired), [])
+            reopened["classification_migration"]["from_contract_sha256"] = authority_metric_digest(retired)
+            self.assertTrue(classification_transition_violations(retired, reopened))
+
     def test_render_chain_completion_distinguishes_inventory_from_retirement(self) -> None:
         rules = [
             {
@@ -720,7 +772,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
 
     def test_relative_markdown_links_and_fragments_in_documentation_exist(self) -> None:
         missing: list[str] = []
-        for document in sorted(DOCUMENTATION_ROOT.rglob("*.md")):
+        for relative in sorted(managed_documents(REPOSITORY_ROOT)):
+            document = REPOSITORY_ROOT / relative
             text = document.read_text(encoding="utf-8")
             for target in markdown_link_targets(text):
                 parsed = urlsplit(target)
@@ -745,6 +798,38 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                         )
 
         self.assertEqual(missing, [], "Missing relative Markdown links:\n" + "\n".join(missing))
+
+    def test_render_chain_scan_preserves_rule_ranges_and_refreshes_between_calls(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "Owner.swift"
+            source.write_text("FIRST\nOWNER()\nSECOND\nOWNER()\nEND\n// OWNER()\n")
+            rules = [
+                {"id": "first", "pattern": "OWNER", "allowed_files": ["Owner.swift"],
+                 "baseline_occurrences": 1, "start_marker": "FIRST", "end_marker": "SECOND"},
+                {"id": "second", "pattern": "OWNER", "allowed_files": ["Owner.swift"],
+                 "baseline_occurrences": 1, "start_marker": "SECOND", "end_marker": "END"},
+            ]
+            self.assertEqual(render_chain_authority_violations(root, rules), [])
+            source.write_text("FIRST\nOWNER()\nSECOND\nOWNER()\nOWNER()\nEND\n")
+            violations = render_chain_authority_violations(root, rules)
+            self.assertEqual(len(violations), 1)
+            self.assertIn("second: occurrences 2 != baseline 1", violations[0])
+
+    def test_documentation_links_include_untracked_but_exclude_ignored_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "--quiet"], cwd=root, check=True, capture_output=True)
+            (root / ".gitignore").write_text("docs/evidence/\n")
+            (root / "docs/evidence").mkdir(parents=True)
+            (root / "docs/evidence/ignored.md").write_text("[ignored broken link](missing.md)")
+            (root / "docs/one.md").write_text("[two](two.md)")
+            (root / "docs/two.md").write_text("# Two\n")
+            with patch(__name__ + ".REPOSITORY_ROOT", root):
+                self.test_relative_markdown_links_and_fragments_in_documentation_exist()
+                (root / "docs/untracked.md").write_text("[broken](missing.md)")
+                with self.assertRaisesRegex(AssertionError, "untracked.md"):
+                    self.test_relative_markdown_links_and_fragments_in_documentation_exist()
 
 
 if __name__ == "__main__":

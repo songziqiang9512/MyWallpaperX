@@ -66,6 +66,7 @@ CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlanner+Resolution.swift",
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneAuthoredMaterialResolver.swift"],
     "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneRenderTargetVocabulary.swift",
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneShaderSourceGraph.swift"],
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneShaderLegacyAnnotationJSON.swift"],
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneShaderContract.swift"],
@@ -76,6 +77,7 @@ CURRENT_SOURCE_PATHS = (
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneResourceView.swift"],
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneResourceIndex.swift"],
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneShaderContractLoader.swift"],
+    AUTHORED_EFFECT_PLANNING_SOURCES["SceneBuiltinShaderIdentity.swift"],
     AUTHORED_EFFECT_PLANNING_SOURCES[
         "SceneShaderContractLoader+SourceGraph.swift"
     ],

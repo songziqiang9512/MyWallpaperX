@@ -1,79 +1,6 @@
 import Foundation
 import QuartzCore
 
-/// Launch-only aggregate profile of the per-variant compilation segments.
-/// The capability catalog resets it once per construction and logs one
-/// summary after its parallel workers finish; ordinary frames never touch it.
-nonisolated enum SceneResolvedMaterialVariantCompileProfile {
-    private static let lock = NSLock()
-    private static var prepareMs: Double = 0
-    private static var canonicalizeMs: Double = 0
-    private static var analysisMs: Double = 0
-    private static var artifactMs: Double = 0
-    private static var variants = 0
-    private static var totalStart: Double = 0
-    private static var totalMs: Double = 0
-
-    static func reset() {
-        lock.withLock {
-            prepareMs = 0
-            canonicalizeMs = 0
-            analysisMs = 0
-            artifactMs = 0
-            variants = 0
-            totalStart = 0
-            totalMs = 0
-        }
-    }
-
-    static func beginVariant() {
-        lock.withLock {
-            totalStart = CACurrentMediaTime()
-        }
-    }
-
-    static func endVariant() {
-        lock.withLock {
-            totalMs += (CACurrentMediaTime() - totalStart) * 1000
-            variants += 1
-        }
-    }
-
-    static func add(
-        prepare: Double = 0, canonicalize: Double = 0,
-        analysis: Double = 0, artifact: Double = 0
-    ) {
-        lock.withLock {
-            prepareMs += prepare
-            canonicalizeMs += canonicalize
-            analysisMs += analysis
-            artifactMs += artifact
-        }
-    }
-
-    static func logSummaryIfMeasured() {
-        let (count, prepare, canonicalize, analysis, artifact, total) =
-            lock.withLock {
-                (
-                    variants, prepareMs, canonicalizeMs, analysisMs,
-                    artifactMs, totalMs
-                )
-            }
-        guard count > 0 else { return }
-        NSLog(
-            "MWX LAUNCH-STAGE: capability-detail variants=%d totalMs=%.0f prepareMs=%.0f canonicalizeMs=%.0f analysisMs=%.0f artifactMs=%.0f restMs=%.0f",
-            count, total, prepare, canonicalize, analysis, artifact,
-            total - prepare - canonicalize - analysis - artifact
-        )
-    }
-}
-
-private func normalBlendIdentifiers(
-    _ combos: [String: Int]
-) -> Set<String> {
-    Set(combos.compactMap { name, value in value == 0 ? name : nil })
-}
-
 nonisolated extension SceneResolvedMaterialVariantCache {
     static func compile(
         template: Template,
@@ -89,144 +16,25 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             ($0, readinessMask & (1 << UInt8($0)) != 0)
         })
         SceneResolvedMaterialVariantCompileProfile.beginVariant()
-        let profileStart = CACurrentMediaTime()
-        let prepared: SceneShaderPreparedProgram
-        switch SceneAuthoredShaderPreparation.prepareShaderStages(
-            contract: template.shaderContract,
-            compatibilityTarget: template.compatibilityTarget,
-            combos: template.comboValues,
-            inactiveComboProviders: Set(template.inheritedInactiveCombos),
-            textureReadiness: readiness,
-            textureFormats: variantKey.resolvedTextureFormats
-        ) {
-        case let .accepted(value): prepared = value
-        case let .rejected(rejection):
-            throw failure(
-                .shaderPreparationFailed,
-                phase: .preparation,
-                details: [rejection.phase.rawValue, rejection.code.rawValue]
-                    + rejection.details
-            )
-        case .notApplicable:
-            throw failure(.identityInvariant, phase: .invariant)
-        }
-        SceneResolvedMaterialVariantCompileProfile.add(
-            prepare: (CACurrentMediaTime() - profileStart) * 1000
+        let (
+            prepared,
+            variantAnalysisKey,
+            cachedAnalysis,
+            compilerSources,
+            compatibilityTargetAdmissionPending,
+            analysisStart,
+            runtimeLoopBounds,
+            resolvedIntegerCombos,
+            activeSamplerNames,
+            sourceActiveSamplers
+        ) = try prepareVariantSources(
+            template: template,
+            variantKey: variantKey,
+            readinessMask: readinessMask,
+            readiness: readiness,
+            implicitFramebufferIdentity: implicitFramebufferIdentity,
+            outputIsRGBA8Unorm: outputIsRGBA8Unorm
         )
-        let variantAnalysisKey = SceneResolvedMaterialVariantAnalysisCache
-            .keyDigest(
-                contractIdentity: template.shaderContract.identity,
-                contractCanonicalSHA256: template.shaderContract
-                    .canonicalSHA256,
-                textureSlotShapes: template.textureSlots.map { slot in
-                    slot.map {
-                        "\($0.index):"
-                            + $0.candidates.map { candidate in
-                                switch candidate.reference {
-                                case .asset: "a"
-                                case .userProperty: "u"
-                                case .provider: "p"
-                                case .graph: "g"
-                                }
-                            }.joined(separator: ",")
-                    }
-                },
-                combos: template.comboValues,
-                inheritedInactiveCombos: Set(
-                    template.inheritedInactiveCombos
-                ),
-                uniformDeclarations: template.uniformDeclarations,
-                compatibilityTarget: template.compatibilityTarget,
-                implicitFramebufferIdentity: implicitFramebufferIdentity,
-                readinessMask: readinessMask,
-                resolvedTextureFormats: variantKey.resolvedTextureFormats,
-                outputIsRGBA8Unorm: outputIsRGBA8Unorm
-            )
-        let cachedAnalysis = variantAnalysisKey.flatMap {
-            SceneResolvedMaterialVariantAnalysisCache.load(keySHA256: $0)
-        }
-        let canonicalizeStart = CACurrentMediaTime()
-        let compatibilityTargetAdmissionPending = prepared.all.allSatisfy {
-            $0.compatibilityTarget == .windowsDX11ShaderModel4
-        } && prepared.all.contains {
-            !$0.compatibilityMacroDependencies.isEmpty
-        }
-        let compilerSources: SceneAuthoredShaderBackendCanonicalizer.Pair
-        if let cachedAnalysis, !cachedAnalysis.canonicalVertex.isEmpty,
-           !cachedAnalysis.canonicalFragment.isEmpty {
-            compilerSources = SceneAuthoredShaderBackendCanonicalizer.Pair(
-                vertex: cachedAnalysis.canonicalVertex,
-                fragment: cachedAnalysis.canonicalFragment
-            )
-        } else {
-            compilerSources = SceneAuthoredShaderBackendCanonicalizer
-                .canonicalize(
-                    vertex: prepared.vertex.source,
-                    fragment: prepared.fragment.source
-                )
-        }
-        SceneResolvedMaterialVariantCompileProfile.add(
-            canonicalize: (CACurrentMediaTime() - canonicalizeStart) * 1000
-        )
-        let analysisStart = CACurrentMediaTime()
-        let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
-        if let cachedAnalysis {
-            runtimeLoopBounds = cachedAnalysis.runtimeLoopBounds
-        } else {
-            runtimeLoopBounds = SceneResolvedMaterialRuntimeLoopBoundResolver
-                .resolve(
-                    template: template,
-                    prepared: prepared
-                )
-        }
-        let resolvedIntegerCombos: [String: Int]
-        let activeSamplerNames: Set<String>
-        let sourceActiveSamplers: [
-            Int: SceneResolvedMaterialShaderSchema.Sampler
-        ]
-        if let cachedAnalysis {
-            resolvedIntegerCombos = cachedAnalysis.resolvedIntegerCombos
-            activeSamplerNames = cachedAnalysis.activeSamplerNames
-            sourceActiveSamplers = cachedAnalysis.sourceActiveSamplers
-        } else {
-            activeSamplerNames = SceneAuthoredShaderDeadBindingAnalyzer
-                .activeSamplerNamesForSchema(
-                    vertexSource: compilerSources.vertex,
-                    fragmentSource: compilerSources.fragment,
-                    runtimeLoopBounds: runtimeLoopBounds
-                ) ?? []
-            guard let resolved =
-                    SceneAuthoredShaderPreparation.resolvedIntegerCombos(
-                        contract: template.shaderContract,
-                        prepared: prepared,
-                        combos: template.comboValues,
-                        inactiveComboProviders: Set(
-                            template.inheritedInactiveCombos
-                        ),
-                        textureReadiness: readiness,
-                        textureFormats: variantKey.resolvedTextureFormats
-                    ) else {
-                throw failure(.shaderPreparationFailed, phase: .preparation)
-            }
-            resolvedIntegerCombos = resolved
-            do {
-                // Source-proven texture typing reads the prepared source:
-                // the canonical pair is a derived compiler input shape, and
-                // feeding it here would weld backend lowering details into
-                // the semantics layer. Cached analyses keep their stored
-                // descriptors instead of recomputing (fail-closed).
-                sourceActiveSamplers = try SceneResolvedMaterialShaderSchema
-                    .activeSamplers(
-                        prepared,
-                        activeNames: Set(activeSamplerNames),
-                        normalBlendModeIdentifiers: normalBlendIdentifiers(
-                            resolvedIntegerCombos
-                        )
-                    )
-            } catch {
-                throw failure(.authoredSamplerSchemaInvalid)
-            }
-        }
         let normalBlendModeIdentifiers = Set(
             resolvedIntegerCombos.compactMap { name, value in
                 value == 0 ? name : nil
@@ -245,631 +53,138 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         let graphTextureSlots = Set(activeGraphTextureIdentities.compactMap {
             $0.value.kind == .framebuffer ? $0.key : nil
         })
-        let spatialWeightedColorBlendFact: SceneAuthoredShaderSpatialWeightedColorBlendFact?
-        let analyzedSourceColorTransfer: SceneShaderColorTransfer
-        let sourceCarriedRGBAFact: SceneAuthoredShaderGeneratedStraightRGBAAnalyzer.SourceCarriedFact?
-        let rgba8UnormAccumulatorSourceSlot: Int?
-        let conditionalGeneratedRGBFact: SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.Fact?
-        let sameAlphaReconstructedRGBFact: SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer.Fact?
-        if let cachedAnalysis {
-            spatialWeightedColorBlendFact = SceneResolvedMaterialVariantAnalysisCache
-                .rebuild(cachedAnalysis.spatialWeightedColorBlend)
-            analyzedSourceColorTransfer = cachedAnalysis.sourceColorTransfer
-            sourceCarriedRGBAFact = SceneResolvedMaterialVariantAnalysisCache
-                .rebuild(cachedAnalysis.sourceCarriedRGBA)
-            rgba8UnormAccumulatorSourceSlot =
-                cachedAnalysis.rgba8UnormAccumulatorSourceSlot
-            conditionalGeneratedRGBFact = SceneResolvedMaterialVariantAnalysisCache
-                .rebuild(cachedAnalysis.conditionalGeneratedRGB)
-            sameAlphaReconstructedRGBFact = SceneResolvedMaterialVariantAnalysisCache
-                .rebuild(cachedAnalysis.sameAlphaReconstructedRGB)
-        } else {
-            spatialWeightedColorBlendFact =
-                SceneAuthoredShaderSpatialWeightedColorBlendAnalyzer.analyze(
-                    fragmentSource: compilerSources.fragment,
-                    normalBlendModeIdentifiers: normalBlendModeIdentifiers
-                )
-            analyzedSourceColorTransfer =
-                SceneAuthoredShaderColorTransferAnalyzer.analyze(
-                    fragmentSource: compilerSources.fragment,
-                    provenRuntimeLoopBounds: runtimeLoopBounds.fragment
-                )
-            sourceCarriedRGBAFact =
-                SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
-                    .analyzeSourceCarried(fragmentSource: compilerSources.fragment)
-            rgba8UnormAccumulatorSourceSlot = outputIsRGBA8Unorm
-                ? SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer
-                    .rgba8UnormAttachmentSourceSlot(
-                        fragmentSource: compilerSources.fragment
-                    )
-                : nil
-            conditionalGeneratedRGBFact =
-                SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.analyze(
-                    fragmentSource: compilerSources.fragment
-                )
-            sameAlphaReconstructedRGBFact =
-                SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer.analyze(
-                    fragmentSource: compilerSources.fragment
-                )
-        }
-        let rgbBlendScalarAlphaFact =
-            SceneAuthoredShaderColorTransferAnalyzer.rgbBlendScalarAlphaFact(
-                fragmentSource: compilerSources.fragment
-            )
-        let targetAwareSourceColorTransfer: SceneShaderColorTransfer =
-            if analyzedSourceColorTransfer == .unresolved,
-               let rgba8UnormAccumulatorSourceSlot {
-                .independentAlphaSignalPreserving(
-                    textureSlot: rgba8UnormAccumulatorSourceSlot
-                )
-            } else {
-                analyzedSourceColorTransfer
-            }
-        let sourceColorTransfer: SceneShaderColorTransfer =
-            spatialWeightedColorBlendFact.map {
-                .straightAlphaPreserving(textureSlot: $0.sourceSlot)
-            } ?? targetAwareSourceColorTransfer
-        let sourceCarriedAuxiliaryDataSlots =
-            sourceCarriedRGBAFact?.colorTransfer == sourceColorTransfer
-            ? sourceCarriedRGBAFact?.auxiliaryDataSlots ?? [] : []
-        let spatialWeightedColorBlendTypedAuxiliarySlots = Set(
-            sourceActiveSamplers.compactMap { slot, sampler in
-                sampler.sourceProvenPurpose == nil ? nil : slot
-            }
+        let (
+            spatialWeightedColorBlendFact,
+            sourceCarriedRGBAFact,
+            rgba8UnormAccumulatorSourceSlot,
+            conditionalGeneratedRGBFact,
+            sameAlphaReconstructedRGBFact,
+            rgbBlendScalarAlphaFact,
+            sourceColorTransfer
+        ) = analyzeVariantColor(
+            cachedAnalysis: cachedAnalysis,
+            compilerSources: compilerSources,
+            normalBlendModeIdentifiers: normalBlendModeIdentifiers,
+            runtimeLoopBounds: runtimeLoopBounds,
+            outputIsRGBA8Unorm: outputIsRGBA8Unorm
         )
-        let mixedProviderFacts = mixedProviderSlotFacts(
-            in: template,
-            samplers: sourceActiveSamplers
-        )
-        let mixedProviderSlots = Set(mixedProviderFacts.keys)
-        let selectedMixedDataSlots = Set(mixedProviderFacts.compactMap {
-            slot, _ in variantKey.selectedTexturePurposes[slot]
-                == .preservedChannels ? slot : nil
-        })
-        let selectedMixedPremultipliedSlots = Set(
-            mixedProviderFacts.compactMap { slot, _ in
-                variantKey.selectedTexturePurposes[slot]
-                    == .premultipliedColor ? slot : nil
-            }
-        )
-        guard selectedMixedDataSlots.union(selectedMixedPremultipliedSlots)
-                == mixedProviderSlots else {
-            throw failure(
-                .textureVariantKeyIdentityInvariant,
-                phase: .invariant,
-                details: ["mixed-provider-purpose-profile"]
-            )
-        }
-        let activeSceneBackgroundTextureSlots = Set(
-            sourceActiveSamplers.compactMap { slot, sampler in
-                SceneResolvedMaterialTextureResolver.sceneBackgroundDefault(
-                    template: template,
-                    sampler: sampler,
-                    slot: slot
-                ) == nil ? nil : slot
-            }
-        )
-        let activeExternalProviderTextureSlots = externalProviderTextureSlots(
-            in: template,
-            activeTextureSlots: Set(sourceActiveSamplers.keys)
-        ).union(activeSceneBackgroundTextureSlots)
-        let staticallyTerminalNamedLayerProviderTextureSlots =
-            terminalNamedLayerProviderTextureSlots(
-                in: template,
-                activeTextureSlots: Set(sourceActiveSamplers.keys)
-            )
-            .subtracting(mixedProviderSlots)
-            .subtracting(sourceCarriedAuxiliaryDataSlots)
-        let activeTerminalNamedLayerProviderTextureSlots =
-            staticallyTerminalNamedLayerProviderTextureSlots.union(
-                selectedMixedPremultipliedSlots
-            )
-        let premultipliedColorAuxiliarySlots =
-            premultipliedAuxiliaryColorSlots(
-                template: template,
-                samplers: sourceActiveSamplers,
-                externalSlots: activeExternalProviderTextureSlots,
-                terminalNamedSlots: activeTerminalNamedLayerProviderTextureSlots,
-                sceneBackgroundSlots: activeSceneBackgroundTextureSlots,
-                graphSlots: Set(activeGraphTextureIdentities.keys),
-                conditionalFact: conditionalGeneratedRGBFact
-            )
-        let spatialWeightedColorBlendExternalColorSlot: Int?
-        if let fact = spatialWeightedColorBlendFact,
-           activeExternalProviderTextureSlots == [fact.straightColorSlot],
-           activeTerminalNamedLayerProviderTextureSlots == [fact.straightColorSlot] {
-            spatialWeightedColorBlendExternalColorSlot = fact.straightColorSlot
-        } else {
-            spatialWeightedColorBlendExternalColorSlot = nil
-        }
-        let preservedAlphaRGBColorSlots: Set<Int>
-        if let fact = SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.analyzeAny(
-            fragmentSource: compilerSources.fragment
-        ) {
-            preservedAlphaRGBColorSlots = Set(fact.colorSampleCallCounts.keys)
-        } else if let fact = SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(
-            fragmentSource: compilerSources.fragment
-        ) {
-            preservedAlphaRGBColorSlots = [fact.sourceSlot]
-        } else if let fact = sameAlphaReconstructedRGBFact {
-            preservedAlphaRGBColorSlots = [fact.sourceSlot]
-        } else if let fact = rgbBlendScalarAlphaFact {
-            preservedAlphaRGBColorSlots = [fact.sourceSlot]
-        } else {
-            preservedAlphaRGBColorSlots = []
-        }
-        let conditionalGeneratedRGBInputContract:
-            SceneResolvedMaterialProgramDerivation
-                .ConditionalGeneratedRGBInputContract?
-        if let fact = conditionalGeneratedRGBFact,
-           sourceColorTransfer == .straightAlphaPreserving(
-            textureSlot: fact.alphaCarrierSlot
-           ) {
-            conditionalGeneratedRGBInputContract = .init(
-                alphaCarrierSlot: fact.alphaCarrierSlot,
-                generatedOpaqueColorSlots: fact.generatedOpaqueColorSlots,
-                scalarRedSlots: fact.scalarRedSlots,
-                scalarGreenSlots: fact.scalarGreenSlots,
-                scalarBlueSlots: fact.scalarBlueSlots,
-                scalarAlphaSlots: fact.scalarAlphaSlots
-            )
-        } else {
-            conditionalGeneratedRGBInputContract = nil
-        }
-        let sameAlphaReconstructedRGBInputContract:
-            SceneResolvedMaterialProgramDerivation
-                .SameAlphaReconstructedRGBInputContract?
-        if let fact = sameAlphaReconstructedRGBFact,
-           sourceColorTransfer == (fact.preservesSnapshotAlpha
-            ? .straightAlphaPreserving(textureSlot: fact.sourceSlot)
-            : .straightAlpha(textureSlot: fact.sourceSlot)) {
-            sameAlphaReconstructedRGBInputContract = .init(
-                sourceSlot: fact.sourceSlot,
-                dataSlots: fact.auxiliarySlots
-            )
-        } else {
-            sameAlphaReconstructedRGBInputContract = nil
-        }
-        let sourceGraphInputFacts = SceneResolvedMaterialShaderSchema
-            .graphInputSourceSlotFacts(
-                template: template,
-                samplers: sourceActiveSamplers,
-                inputIdentity: implicitFramebufferIdentity,
-                sourceColorTransfer: sourceColorTransfer
-            )
-        var graphInputTextureSlots = Set(activeGraphTextureIdentities.keys)
-        graphInputTextureSlots.formUnion(template.graphRole.bindings.compactMap {
-            sourceActiveSamplers[$0.slot] == nil ? nil : $0.slot
-        })
-        graphInputTextureSlots.formUnion(sourceGraphInputFacts.keys)
-        let typedStaticDataAuxiliarySlots = typedStaticDataAuxiliarySlots(
+        let (
+            sourceCarriedAuxiliaryDataSlots,
+            spatialWeightedColorBlendTypedAuxiliarySlots,
+            selectedMixedDataSlots,
+            activeExternalProviderTextureSlots,
+            premultipliedColorAuxiliarySlots,
+            spatialWeightedColorBlendExternalColorSlot,
+            preservedAlphaRGBColorSlots,
+            conditionalGeneratedRGBInputContract,
+            sameAlphaReconstructedRGBInputContract,
+            sourceGraphInputFacts,
+            graphInputTextureSlots,
+            typedStaticDataAuxiliarySlots,
+            graphR8TextureSlots,
+            activeTextureSlots,
+            activeOpacityMaskSlots,
+            neutralTextureResolution
+        ) = try deriveVariantProviderFacts(
             template: template,
-            samplers: sourceActiveSamplers,
-            graphInputSlots: graphInputTextureSlots
-        ).subtracting(mixedProviderSlots)
-        let graphR8TextureSlots = Set(activeGraphTextureIdentities.compactMap {
-            graphTextureFormatFacts[$0.value] == .r8 ? $0.key : nil
-        })
-        let activeTextureSlots: Set<Int> = Set(activeSamplerNames.compactMap { name -> Int? in
-            guard name.hasPrefix("g_Texture"),
-                  let slot = Int(name.dropFirst("g_Texture".count)) else {
-                return nil
-            }
-            return slot
-        })
-        let activeOpacityMaskSlots = Set(sourceActiveSamplers.compactMap {
-            slot, sampler in sampler.mode == .opacityMask ? slot : nil
-        })
-        let neutralTextureResolution: SceneAuthoredShaderNeutralTextureResolutionFact?
-        if let cachedAnalysis {
-            neutralTextureResolution = SceneResolvedMaterialVariantAnalysisCache
-                .rebuild(cachedAnalysis.neutralTextureResolution)
-        } else {
-            neutralTextureResolution =
-                SceneAuthoredShaderNeutralTextureResolutionAnalyzer.analyze(
-                    vertexSource: compilerSources.vertex,
-                    fragmentSource: compilerSources.fragment,
-                    activeSamplerSlots: activeTextureSlots
-                )
-        }
+            variantKey: variantKey,
+            sourceActiveSamplers: sourceActiveSamplers,
+            sourceCarriedRGBAFact: sourceCarriedRGBAFact,
+            sourceColorTransfer: sourceColorTransfer,
+            spatialWeightedColorBlendFact: spatialWeightedColorBlendFact,
+            conditionalGeneratedRGBFact: conditionalGeneratedRGBFact,
+            sameAlphaReconstructedRGBFact: sameAlphaReconstructedRGBFact,
+            rgbBlendScalarAlphaFact: rgbBlendScalarAlphaFact,
+            compilerSources: compilerSources,
+            implicitFramebufferIdentity: implicitFramebufferIdentity,
+            activeGraphTextureIdentities: activeGraphTextureIdentities,
+            graphTextureFormatFacts: graphTextureFormatFacts,
+            activeSamplerNames: activeSamplerNames,
+            cachedAnalysis: cachedAnalysis
+        )
         let outputSemantics: SceneGenericShaderOutputSemantics = switch outputStorage {
         case .redGreenUnorm: .redGreenUnorm
         case .preservedRGBAUnorm: .preservedRGBAUnorm
         default: .color
         }
-        // Recomputed per launch on purpose: the eligibility trio reads
-        // per-node template facts (graphRole, effectContext, owner
-        // eligibility, exact candidate identities) that are outside the
-        // variant analysis key, so caching it would leak one node's
-        // admission authority to another node sharing the key.
-        let alphaAttenuationSourceSlot: Int?
-        let colorBlendSourceSlot: Int?
-        let previousBlurredCompositeSlots:
-            SceneResolvedMaterialPreviousBlurredCompositeEligibility.Slots?
-        let alphaAttenuationFact: SceneAuthoredShaderAlphaAttenuationFact?
-        let colorBlendFact: SceneAuthoredShaderGraphInputColorBlendFact?
-        let previousBlurredCompositeAnalyzerFact:
-            SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.Fact?
-        if let cachedAnalysis {
-            // The cached facts are the source-pure analyzer prefix; the
-            // per-node validation segment re-runs every launch.
-            alphaAttenuationFact = SceneResolvedMaterialVariantAnalysisCache
-                .rebuild(cachedAnalysis.alphaAttenuationFact)
-            colorBlendFact = SceneResolvedMaterialVariantAnalysisCache.rebuild(
-                cachedAnalysis.colorBlendFact
-            )
-            previousBlurredCompositeAnalyzerFact =
-                SceneResolvedMaterialVariantAnalysisCache.rebuild(
-                    cachedAnalysis.previousBlurredCompositeFact
-                )
-        } else {
-            alphaAttenuationFact = SceneAuthoredShaderAlphaAttenuationAnalyzer
-                .analyze(fragmentSource: prepared.fragment.source)
-            colorBlendFact = SceneAuthoredShaderGraphInputColorBlendAnalyzer
-                .analyze(fragmentSource: prepared.fragment.source)
-            previousBlurredCompositeAnalyzerFact =
-                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
-                    fragmentSource: compilerSources.fragment
-                )
-        }
-        if let fact = alphaAttenuationFact,
-            SceneResolvedMaterialAlphaAttenuationEligibility.validated(
-                fact: fact,
-                samplers: sourceActiveSamplers,
-                template: template,
-                implicitFramebufferIdentity: implicitFramebufferIdentity,
-                graphInputSourceSlotFacts: sourceGraphInputFacts
-            ) {
-            alphaAttenuationSourceSlot = fact.sourceSlot
-        } else {
-            alphaAttenuationSourceSlot = nil
-        }
-        if let fact = colorBlendFact,
-            SceneResolvedMaterialColorBlendEligibility.transfer(
-                sourceColorTransfer, matches: fact
-            ), SceneResolvedMaterialColorBlendEligibility.validated(
-                fact: fact,
-                samplers: sourceActiveSamplers,
-                template: template,
-                implicitFramebufferIdentity: implicitFramebufferIdentity,
-                graphInputSourceSlotFacts: sourceGraphInputFacts
-            ) {
-            colorBlendSourceSlot = fact.sourceSlot
-        } else {
-            colorBlendSourceSlot = nil
-        }
-        if let fact = previousBlurredCompositeAnalyzerFact,
-            template.previousBlurredCompositeGenericOwnerEligible,
-            let slots = SceneResolvedMaterialPreviousBlurredCompositeEligibility
-                .validated(
-                    shape: fact,
-                    prepared: prepared,
-                    samplers: sourceActiveSamplers,
-                    template: template,
-                    implicitFramebufferIdentity: implicitFramebufferIdentity,
-                    activeGraphTextureIdentities: activeGraphTextureIdentities
-                ) {
-            previousBlurredCompositeSlots = slots
-        } else {
-            previousBlurredCompositeSlots = nil
-        }
-        SceneResolvedMaterialVariantCompileProfile.add(
-            analysis: (CACurrentMediaTime() - analysisStart) * 1000
-        )
-        let artifactStart = CACurrentMediaTime()
-        let artifactResolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
-            vertexSource: compilerSources.vertex,
-            fragmentSource: compilerSources.fragment,
-            alphaAttenuationSourceSlot: alphaAttenuationSourceSlot,
-            colorBlendSourceSlot: colorBlendSourceSlot,
-            previousBlurredCompositeBlurredSlot: previousBlurredCompositeSlots?.blurred,
-            previousBlurredCompositePreviousSlot: previousBlurredCompositeSlots?.previous,
-            previousBlurredCompositeMaskSlot: previousBlurredCompositeSlots?.mask,
-            hasExternalProviderTexture:
-                !activeExternalProviderTextureSlots.isEmpty,
-            producesScalarRedOutput: outputStorage == .scalarRedUnorm
-                || outputStorage == .scalarRedFloat16,
-            producesRedGreenUnormOutput: outputStorage == .redGreenUnorm,
-            hasOnlyScalarDataInputs:
-                SceneResolvedMaterialShaderSchema.hasOnlyScalarDataInputs(
-                    sourceActiveSamplers,
-                    activeSlots: activeTextureSlots,
-                    resolvedFormats: variantKey.resolvedTextureFormats
-                ),
-            isSourceIndependentPremultipliedOutput:
-                outputStorage == .color
-                    && sourceActiveSamplers[0] == nil
-                    && graphTextureSlots.isEmpty
-                    && graphInputTextureSlots.isEmpty,
+        let (
+            alphaAttenuationFact,
+            colorBlendFact,
+            previousBlurredCompositeAnalyzerFact,
+            artifactStart,
+            artifactResolution
+        ) = resolveVariantArtifact(
+            template: template,
+            variantKey: variantKey,
+            prepared: prepared,
+            cachedAnalysis: cachedAnalysis,
+            compilerSources: compilerSources,
+            sourceActiveSamplers: sourceActiveSamplers,
+            implicitFramebufferIdentity: implicitFramebufferIdentity,
+            sourceGraphInputFacts: sourceGraphInputFacts,
+            sourceColorTransfer: sourceColorTransfer,
+            activeGraphTextureIdentities: activeGraphTextureIdentities,
+            analysisStart: analysisStart,
+            activeExternalProviderTextureSlots: activeExternalProviderTextureSlots,
+            outputStorage: outputStorage,
+            activeTextureSlots: activeTextureSlots,
             graphTextureSlots: graphTextureSlots,
             graphInputTextureSlots: graphInputTextureSlots,
-            activeTextureSlots: activeTextureSlots,
             activeOpacityMaskSlots: activeOpacityMaskSlots,
             typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
-            preservedChannelsExternalProviderTextureSlots:
-                selectedMixedDataSlots.union(
-                    sourceCarriedAuxiliaryDataSlots.intersection(
-                        activeExternalProviderTextureSlots
-                    )
-                ),
-            premultipliedColorAuxiliarySlots:
-                premultipliedColorAuxiliarySlots,
-            spatialWeightedColorBlendSourceSlot:
-                spatialWeightedColorBlendFact?.sourceSlot,
-            spatialWeightedColorBlendActiveSlots:
-                spatialWeightedColorBlendFact?.activeSlots ?? [],
-            spatialWeightedColorBlendTypedAuxiliarySlots:
-                spatialWeightedColorBlendTypedAuxiliarySlots,
-            spatialWeightedColorBlendExternalColorSlot:
-                spatialWeightedColorBlendExternalColorSlot,
-            r8TextureSlots: graphR8TextureSlots,
-            hasDefaultedOpacityMaskSampler:
-                SceneResolvedMaterialShaderSchema.hasOnlyDefaultedOpacityMaskAuxiliary(
-                    sourceActiveSamplers,
-                    graphInputSlots: graphInputTextureSlots
-                ),
-            hasOnlyTypedOpacityMaskAuxiliary:
-                SceneResolvedMaterialShaderSchema.hasOnlyTypedOpacityMaskAuxiliary(
-                    sourceActiveSamplers,
-                    graphInputSlots: graphInputTextureSlots
-                ),
-            hasOnlyGraphInputSampler:
-                !sourceActiveSamplers.isEmpty
-                    && Set(sourceActiveSamplers.keys) == graphInputTextureSlots,
+            selectedMixedDataSlots: selectedMixedDataSlots,
+            sourceCarriedAuxiliaryDataSlots: sourceCarriedAuxiliaryDataSlots,
+            premultipliedColorAuxiliarySlots: premultipliedColorAuxiliarySlots,
+            spatialWeightedColorBlendFact: spatialWeightedColorBlendFact,
+            spatialWeightedColorBlendTypedAuxiliarySlots: spatialWeightedColorBlendTypedAuxiliarySlots,
+            spatialWeightedColorBlendExternalColorSlot: spatialWeightedColorBlendExternalColorSlot,
+            graphR8TextureSlots: graphR8TextureSlots,
             outputIsRGBA8Unorm: outputIsRGBA8Unorm,
-            sourceColorTransfer: sourceColorTransfer,
             outputSemantics: outputSemantics,
             runtimeLoopBounds: runtimeLoopBounds
         )
-        // A sampler whose only source is the internal scene-background
-        // default reads a publication the registry defines as premultiplied
-        // color; that slot crosses the color boundary by contract, not by
-        // authored color-flow analysis.
-        let sceneBackgroundDefaultSlots: Set<Int> = Set(
-            sourceActiveSamplers.compactMap { (
-                slot: Int,
-                sampler: SceneResolvedMaterialShaderSchema.Sampler
-            ) -> Int? in
-                guard case .internalTarget = sampler.defaultTexture,
-                      SceneResolvedMaterialTextureResolver.sceneBackgroundDefault(
-                          template: template,
-                          sampler: sampler,
-                          slot: slot
-                      ) != nil else { return nil }
-                return slot
-            }
+        let (
+            frontend,
+            routeDecision,
+            boundedOutput,
+            artifactFailure,
+            premultipliedInputSlotsForProfile
+        ) = try resolveVariantFrontend(
+            template: template,
+            sourceActiveSamplers: sourceActiveSamplers,
+            spatialWeightedColorBlendExternalColorSlot: spatialWeightedColorBlendExternalColorSlot,
+            premultipliedColorAuxiliarySlots: premultipliedColorAuxiliarySlots,
+            artifactStart: artifactStart,
+            artifactResolution: artifactResolution,
+            compatibilityTargetAdmissionPending: compatibilityTargetAdmissionPending,
+            onBoundedFrontendCompilation: onBoundedFrontendCompilation,
+            compilerSources: compilerSources,
+            runtimeLoopBounds: runtimeLoopBounds,
+            sourceColorTransfer: sourceColorTransfer
         )
-        let premultipliedInputSlotsForProfile: (String) -> Set<Int> = { profile in
-            switch profile {
-            case SceneGenericShaderCapabilityProfile
-                .providerBackedGraphInputSpatialWeightedColorBlend.rawValue:
-                spatialWeightedColorBlendExternalColorSlot.map { [$0] } ?? []
-            case SceneGenericShaderCapabilityProfile
-                .sourceProvenGraphInputOverlayAlphaBlend.rawValue,
-                 SceneGenericShaderCapabilityProfile
-                .sourceProvenGraphInputOverlayColorBlendAlphaPreserving.rawValue,
-                 SceneGenericShaderCapabilityProfile
-                .sourceProvenGraphInputAssociatedOverBlend.rawValue,
-                 SceneGenericShaderCapabilityProfile
-                .sourceProvenGraphInputConditionalGeneratedRGBPreservedAlpha
-                .rawValue:
-                premultipliedColorAuxiliarySlots
-            default:
-                sceneBackgroundDefaultSlots
-            }
-        }
-        let frontend: SceneAuthoredShaderProgram
-        let routeDecision:
-            SceneGenericShaderRouteDecision
-        let boundedOutput: SceneAuthoredShaderFrontendOutput?
-        let artifactFailure: [String]
-        SceneResolvedMaterialVariantCompileProfile.add(
-            artifact: (CACurrentMediaTime() - artifactStart) * 1000
+        let (
+            sourceProvenOpaqueColorSlots,
+            samplers,
+            graphInputFacts,
+            uniforms,
+            preparedUniformBindings,
+            associatedOverOverlaySlot
+        ) = try finalizeVariantBindings(
+            template: template,
+            variantKey: variantKey,
+            prepared: prepared,
+            compilerSources: compilerSources,
+            routeDecision: routeDecision,
+            compatibilityTargetAdmissionPending: compatibilityTargetAdmissionPending,
+            frontend: frontend,
+            boundedOutput: boundedOutput,
+            artifactFailure: artifactFailure,
+            sourceActiveSamplers: sourceActiveSamplers,
+            implicitFramebufferIdentity: implicitFramebufferIdentity,
+            sourceGraphInputFacts: sourceGraphInputFacts,
+            sourceColorTransfer: sourceColorTransfer,
+            neutralTextureResolution: neutralTextureResolution
         )
-        switch artifactResolution {
-        case let .accepted(program, requestKey, decision):
-            frontend = program
-            routeDecision = decision
-            boundedOutput = nil
-            artifactFailure = ["generic-artifact-accepted", requestKey]
-        case let .ownerDeferred(code, requestKey, decision):
-            if compatibilityTargetAdmissionPending {
-                throw failure(
-                    .shaderFrontendFailed,
-                    phase: .frontend,
-                    details: [
-                        "compatibility-target-unadmitted",
-                        "generic-artifact", code, requestKey, decision.profile,
-                    ]
-                )
-            }
-            throw failure(
-                .genericProductOwnerDeferred,
-                phase: .frontend,
-                details: ["generic-artifact", code, requestKey, decision.profile]
-            )
-        case let .unavailable(
-            code,
-            requestKey,
-            permitsBoundedFrontend,
-            decision
-        ):
-            routeDecision = decision
-            guard permitsBoundedFrontend else {
-                throw failure(
-                    .shaderFrontendFailed,
-                    phase: .frontend,
-                    genericOwnerFailure: compatibilityTargetAdmissionPending
-                        ? nil : .productOwnerRevoked,
-                    details: [
-                        "generic-artifact", code, requestKey,
-                        "bounded-frontend-owner-revoked",
-                        compatibilityTargetAdmissionPending
-                            ? "compatibility-target-unadmitted"
-                            : "compatibility-target-not-applicable",
-                    ]
-                )
-            }
-            onBoundedFrontendCompilation()
-            let output = SceneAuthoredShaderFrontend.compile(
-                vertexSource: compilerSources.vertex,
-                fragmentSource: compilerSources.fragment,
-                runtimeLoopBounds: runtimeLoopBounds,
-                provenColorTransfer: sourceColorTransfer,
-                premultipliedColorInputSlots:
-                    premultipliedInputSlotsForProfile(decision.profile)
-            )
-            guard output.diagnostics.isEmpty,
-                  let bounded = output.program else {
-                throw failure(
-                    .shaderFrontendFailed,
-                    phase: .frontend,
-                    genericOwnerFailure:
-                        compatibilityTargetAdmissionPending
-                            ? nil : genericOwnerFailure(routeDecision),
-                    details: SceneResolvedMaterialExecutionCapabilityDiagnostics
-                        .frontendFailure(template: template, output: output)
-                        + ["generic-artifact", code, requestKey]
-                )
-            }
-            frontend = bounded
-            boundedOutput = output
-            artifactFailure = ["generic-artifact", code, requestKey]
-        }
-        let sourceProvenOpaqueColorSlots: Set<Int>
-        if routeDecision.profile
-            == SceneGenericShaderCapabilityProfile
-                .sourceProvenGraphTargetOpaqueAlphaWeightedLoopAverage.rawValue {
-            guard let fact =
-                    SceneAuthoredShaderOpaqueAlphaWeightedLoopAverageAnalyzer
-                        .analyze(fragmentSource: compilerSources.fragment) else {
-                throw failure(
-                    .identityInvariant,
-                    phase: .invariant,
-                    details: ["opaque-color-source-contract-missing"]
-                )
-            }
-            sourceProvenOpaqueColorSlots = [fact.sourceSlot]
-        } else {
-            sourceProvenOpaqueColorSlots = []
-        }
-        // Compatibility-target branch selection is only a Program candidate.
-        // The route decision becomes product ownership when every admission
-        // check below succeeds and the compiled Variant is returned.
-        let genericOwnerFailure = compatibilityTargetAdmissionPending
-            ? nil : genericOwnerFailure(routeDecision)
-        guard
-              SceneResolvedMaterialProgramDerivation.validPreparedStages(prepared),
-              SceneResolvedMaterialProgramDerivation.uniqueAndValid(
-                  frontend.uniformLayout
-              ) else {
-            throw failure(
-                .shaderFrontendFailed,
-                phase: .frontend,
-                genericOwnerFailure: genericOwnerFailure,
-                details: (boundedOutput.map {
-                    SceneResolvedMaterialExecutionCapabilityDiagnostics
-                        .frontendFailure(template: template, output: $0)
-                } ?? []) + artifactFailure
-            )
-        }
-        let samplers = sourceActiveSamplers
-        let bindings = frontend.textureBindings
-        if let internalTarget = unsupportedInternalTarget(in: samplers, template: template, inputIdentity: implicitFramebufferIdentity, readinessMask: variantKey.readinessMask) {
-            throw failure(
-                .samplerInternalTargetUnsupported,
-                phase: .preparation,
-                slot: internalTarget.slot,
-                genericOwnerFailure: genericOwnerFailure,
-                details: [internalTarget.name]
-            )
-        }
-        do {
-            try validateSamplerBindings(samplers, bindings: bindings)
-        } catch let failure as Failure {
-            throw failure.withGenericOwnerFailure(genericOwnerFailure)
-        }
-        let graphInputFacts = SceneResolvedMaterialShaderSchema
-            .graphInputSourceSlotFacts(
-                template: template,
-                samplers: samplers,
-                inputIdentity: implicitFramebufferIdentity,
-                sourceColorTransfer: frontend.colorTransfer,
-                frontendBindings: bindings
-            )
-        let bindingFactTokens = bindings.map {
-            "\($0.slot):\($0.name):\($0.channelUse.rawValue)"
-        }.sorted()
-        guard graphInputFacts == sourceGraphInputFacts else {
-            throw failure(
-                .samplerBindingIdentityMismatch,
-                phase: .invariant,
-                genericOwnerFailure: genericOwnerFailure,
-                details: [
-                    "graph-input-source-fact-divergence",
-                    "source-transfer-\(sourceColorTransfer)",
-                    "frontend-transfer-\(frontend.colorTransfer)",
-                    "source-slots-\(sourceGraphInputFacts.keys.sorted())",
-                    "frontend-slots-\(graphInputFacts.keys.sorted())",
-                    "bindings-\(bindingFactTokens)",
-                ]
-            )
-        }
-        if declaresActivePass(prepared) {
-            throw failure(
-                .activePassUnsupported,
-                phase: .preparation,
-                genericOwnerFailure: genericOwnerFailure,
-                details: ["active-pass"]
-            )
-        }
-        let activeSlots = Set(bindings.map(\.slot))
-        let nonHost = frontend.uniformLayout.fields.filter {
-            SceneResolvedMaterialUniformEncoder.hostUniform(
-                $0,
-                activeTextureSlots: activeSlots
-            ) == nil
-        }
-        let uniforms: [String: SceneResolvedMaterialShaderSchema.Uniform]
-        do {
-            uniforms = try SceneResolvedMaterialShaderSchema.activeUniforms(
-                nonHost,
-                prepared: prepared
-            )
-        } catch {
-            throw failure(
-                .uniformBindingInvalid,
-                phase: .uniform,
-                genericOwnerFailure: genericOwnerFailure,
-                details: [String(describing: error)]
-            )
-        }
-        let preparedUniformBindings: [
-            SceneResolvedMaterialPreparedUniformBinding
-        ]
-        do {
-            preparedUniformBindings = try SceneResolvedMaterialProgramFinalizer
-                .prepareUniformBindings(
-                    template: template,
-                    fields: frontend.uniformLayout.fields,
-                    activeUniforms: uniforms,
-                    activeTextureSlots: activeSlots,
-                    neutralTextureResolution: neutralTextureResolution
-                )
-        } catch let failure as Failure {
-            throw failure.withGenericOwnerFailure(genericOwnerFailure)
-        } catch {
-            throw failure(
-                .uniformBindingInvalid,
-                phase: .uniform,
-                genericOwnerFailure: genericOwnerFailure,
-                details: ["prepared-uniform-binding-unexpected-failure"]
-            )
-        }
-        let associatedOverOverlaySlot =
-            SceneResolvedMaterialProgramDerivation.associatedOverOverlaySlot(
-                fragmentSource: prepared.fragment.source
-            )
         if cachedAnalysis == nil, let variantAnalysisKey {
             SceneResolvedMaterialVariantAnalysisCache.store(
                 record: SceneResolvedMaterialVariantAnalysisCache.Record(
@@ -941,53 +256,4 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         )
     }
 
-    private static func declaresActivePass(
-        _ prepared: SceneShaderPreparedProgram
-    ) -> Bool {
-        prepared.all.contains { source in
-            source.activeAnnotations.contains { annotation in
-                annotation.annotation.marker?.caseInsensitiveCompare("[PASS]")
-                    == .orderedSame
-            }
-        }
-    }
-
-    static func failure(
-        _ code: Failure.Code,
-        phase: Failure.Phase = .texture,
-        slot: Int? = nil,
-        genericOwnerFailure: Failure.GenericOwnerFailure? = nil,
-        details: [String] = []
-    ) -> Failure {
-        .init(
-            phase: phase,
-            code: code,
-            slot: slot,
-            genericOwnerFailure: genericOwnerFailure,
-            details: details
-        )
-    }
-
-    /// A migrated generic-only profile may select the bounded frontend as its
-    /// source-proven runtime-loop primary or explicit disable-generic rollback.
-    /// If that shared compiler fails, the generic product owner is exhausted
-    /// and Program-first must not revive a retained dedicated implementation.
-    static func genericOwnerFailure(
-        _ decision: SceneGenericShaderRouteDecision
-    ) -> Failure.GenericOwnerFailure? {
-        guard let profile = SceneGenericShaderCapabilityProfile(
-                  rawValue: decision.profile
-              ),
-              let state = SceneGenericShaderRouteState(
-                  rawValue: decision.state
-              ),
-              let fallbackOwner = SceneGenericShaderFallbackOwner(
-                  rawValue: decision.fallbackOwner
-              ),
-              profile.defaultRouteState == .genericOnly else { return nil }
-        if state == .disableGeneric, fallbackOwner == .boundedFrontend {
-            return .sharedRollbackExhausted
-        }
-        return .productOwnerRevoked
-    }
 }

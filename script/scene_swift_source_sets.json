@@ -282,6 +282,7 @@
       "description": "Active shader schema, loop-bound resolution, sampler purpose, and reachability.",
       "includes": [],
       "sources": [
+        "Compilation/Material/SceneRenderTargetVocabulary.swift",
         "Compilation/Material/SceneResolvedMaterialEffectIngress.swift",
         "Compilation/Material/SceneResolvedMaterialShaderSchema.swift",
         "Rendering/Bindings/SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
@@ -331,7 +332,14 @@
         "Compilation/Material/SceneResolvedMaterialGenericShaderRouteProfile.swift",
         "Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeEligibility.swift",
         "Compilation/Material/SceneResolvedMaterialVariantAnalysisCache.swift",
-        "Compilation/Material/ScenePersistentSamplerRecord.swift"
+        "Compilation/Material/ScenePersistentSamplerRecord.swift",
+        "Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Preparation.swift",
+        "Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+ColorAnalysis.swift",
+        "Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+ProviderAnalysis.swift",
+        "Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Artifact.swift",
+        "Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Frontend.swift",
+        "Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Finalization.swift",
+        "Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CompileProfile.swift"
       ]
     },
     "resolved_material_frame_finalization": {

@@ -131,6 +131,10 @@ private func contract(
     let combo = active ? "" : #"// [COMBO] {"combo":"ACTIVE","default":0}"#
     let guardOpen = active ? "" : "#if ACTIVE"
     let guardClose = active ? "" : "#endif"
+    // The animated publication changes independently of this declared author
+    // input. Both finalizations receive the same sceneTime below.
+    let authoredUniform = samplerSlot == 3 ? "uniform float g_Time;" : ""
+    let authoredGain = samplerSlot == 3 ? " * (1.0 + g_Time)" : ""
     let vertex = """
     attribute vec3 a_Position;
     attribute vec2 a_TexCoord;
@@ -139,6 +143,7 @@ private func contract(
     """
     let fragment = """
     varying vec2 v_TexCoord;
+    \(authoredUniform)
     \(combo)
     \(guardOpen)
     uniform sampler2D g_Texture\(samplerSlot); // {"default":"\(path)"}
@@ -146,7 +151,7 @@ private func contract(
     void main() {
         vec4 outputColor = vec4(1.0);
     \(guardOpen)
-        outputColor.rgb = texSample2D(g_Texture\(samplerSlot), v_TexCoord).rgb;
+        outputColor.rgb = texSample2D(g_Texture\(samplerSlot), v_TexCoord).rgb\(authoredGain);
     \(guardClose)
         gl_FragColor = outputColor;
     }
@@ -504,8 +509,17 @@ private func productChain(
                 ]
             && animatedFrame0?.semanticIdentity
                 == animatedLater?.semanticIdentity
-            && animatedFrame0?.exactIdentity != animatedLater?.exactIdentity
-            && animatedFrame0?.uniformBytes != animatedLater?.uniformBytes,
+            && animatedFrame0?.exactIdentity != animatedLater?.exactIdentity,
+        "animatedPublicationUVChanges": animatedPublication.candidate.uvTransform
+            != laterAnimatedPublication.candidate.uvTransform,
+        "animatedContentGenerationChanges": animatedPublication.contentGeneration
+            != laterAnimatedPublication.contentGeneration,
+        // RF02: candidate atlas frames do not inject synthetic author uniforms.
+        // A real declared host input remains present and stable across frames.
+        "authoredUniformBytesStable": animatedFrame0?.semanticIdentity
+            .activeUniforms.contains(where: { $0.fieldName == "g_Time" }) == true
+            && animatedFrame0?.uniformBytes.isEmpty == false
+            && animatedFrame0?.uniformBytes == animatedLater?.uniformBytes,
         "animatedFailure": animatedFailure,
     ]
 }
@@ -856,6 +870,9 @@ class SceneSamplerDefaultPurposeTests(unittest.TestCase):
                 "animatedPublication": True,
                 "animatedSelection": True,
                 "animatedProgramIdentity": True,
+                "animatedPublicationUVChanges": True,
+                "animatedContentGenerationChanges": True,
+                "authoredUniformBytesStable": True,
                 "animatedFailure": "not-failure",
             },
             self.result,

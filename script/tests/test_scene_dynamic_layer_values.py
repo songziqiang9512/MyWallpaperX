@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from script.tests.source_family import read_source_family
 import json
 import shutil
 import subprocess
@@ -133,6 +134,116 @@ enum Harness {
 '''
 
 
+UTILITY_ALPHA_HARNESS = r'''
+import Foundation
+import simd
+
+// GPU surfaces are observation doubles. The production utility draw function
+// makes all route, source-uniform and compositor-request decisions.
+struct MTLTexture { let identity: Int }
+struct SceneRenderDescriptor { struct Layer {} }
+struct SceneUtilityLayerRuntimePlan {
+    enum Kind { case composition, project, fullscreen }
+    let shouldCapture: Bool
+    let kind: Kind
+}
+enum SceneEffectExecutionOrigin { case utilityComposition, utilityProject, utilityFullscreen }
+struct SceneImageLayerMasks {}
+struct SceneDynamicSnapshot {}
+struct SceneAudioSpectrumSnapshot {}
+struct SceneDependencyEffectInput {}
+struct SceneImageLayerPipeline {}
+struct SceneOffscreenTexturePool {}
+struct SceneResolvedMaterialFrameTargetPlan {}
+struct SceneEffectExecutionFrameTrace {}
+struct SceneTextureUVTransform { static let identity = Self() }
+struct SceneLayerEffectSourceExtent {
+    init?(pixelSize: CGSize) { if pixelSize.width <= 0 || pixelSize.height <= 0 { return nil } }
+}
+enum SceneMatrix {
+    static func scale(_ value: SIMD3<Float>) -> simd_float4x4 {
+        simd_float4x4(diagonal: SIMD4(value.x, value.y, value.z, 1))
+    }
+}
+struct SceneImageLayerUniformValues {
+    let time: Float
+    let alpha: Float
+    let cursorUV: SIMD2<Float>
+    let cursorIsInside: Bool
+}
+struct SceneImageLayerDrawRequest {
+    let layer: SceneRenderDescriptor.Layer
+    let texture: MTLTexture
+    let masks: SceneImageLayerMasks
+    let textureFrame: SceneTextureUVTransform
+    let mvp: simd_float4x4
+    let uniforms: SceneImageLayerUniformValues
+    let offscreenTexturePool: SceneOffscreenTexturePool
+    let resolvedMaterialFrameTargetPlan: SceneResolvedMaterialFrameTargetPlan?
+    let effectSourceExtent: SceneLayerEffectSourceExtent?
+    let requiresSourceCopy: Bool
+    let finalCompositeAlpha: Float
+    let dependencyEffects: [SceneDependencyEffectInput]
+    let requiresDependencyEffect: Bool
+    let dynamicValues: SceneDynamicSnapshot
+    let audioSpectrum: SceneAudioSpectrumSnapshot
+}
+struct SceneCaptureGeometryResolver {
+    struct Geometry {
+        let sourceUV = SceneTextureUVTransform.identity
+        let outputMVP = matrix_identity_float4x4
+        let pixelSize = CGSize(width: 2, height: 2)
+    }
+    static func resolve(kind: SceneUtilityLayerRuntimePlan.Kind,
+                        layerMVP: simd_float4x4, viewportSize: CGSize) -> Geometry? { Geometry() }
+}
+final class SceneMainPassEncoder {
+    var captures = 0
+    func withReadableTarget<T>(_ body: (MTLTexture, Int) -> T) -> T? {
+        captures += 1
+        return body(MTLTexture(identity: 1), 0)
+    }
+}
+final class SceneImageLayerCompositor {
+    var requests: [SceneImageLayerDrawRequest] = []
+    func draw(_ request: SceneImageLayerDrawRequest, pipeline: SceneImageLayerPipeline,
+              mainPass: SceneMainPassEncoder, executionTrace: SceneEffectExecutionFrameTrace?,
+              executionOrigin: SceneEffectExecutionOrigin) -> Bool {
+        requests.append(request)
+        return true
+    }
+}
+@main enum Harness {
+    static func main() throws {
+        var results: [[String: Any]] = []
+        for isolated in [false, true] {
+            for alpha: Float in [0, 0.25, 0.5, 1] {
+                let compositor = SceneImageLayerCompositor()
+                let pass = SceneMainPassEncoder()
+                let drawn = SceneUtilityLayerRenderer.draw(
+                    layer: .init(), plan: .init(shouldCapture: true, kind: .composition),
+                    layerMVP: matrix_identity_float4x4, viewportSize: CGSize(width: 2, height: 2),
+                    time: 0, finalCompositeAlpha: alpha, masks: .init(), cursorUV: .zero,
+                    pointerIsInside: false, dynamicValues: .init(), audioSpectrum: .init(),
+                    pipeline: .init(), compositor: compositor, offscreenTexturePool: .init(),
+                    mainPass: pass, isolatedGroupSource: isolated
+                        ? (MTLTexture(identity: 2), CGSize(width: 2, height: 2)) : nil)
+                results.append(["isolated": isolated, "alpha": alpha, "drawn": drawn,
+                                "captures": pass.captures,
+                                "requests": compositor.requests.map {
+                                    ["sourceAlpha": $0.uniforms.alpha,
+                                     "finalAlpha": $0.finalCompositeAlpha,
+                                     "sourceCopy": $0.requiresSourceCopy,
+                                     "texture": $0.texture.identity] as [String: Any]
+                                }])
+            }
+        }
+        print(String(data: try JSONSerialization.data(withJSONObject: results), encoding: .utf8)!)
+    }
+}
+'''
+
+
 class SceneDynamicLayerValuesTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -203,7 +314,7 @@ class SceneDynamicLayerValuesTests(unittest.TestCase):
             self.assertAlmostEqual(actual, wanted, places=6)
 
     def test_renderer_consumes_snapshot_for_non_particle_layer_alpha(self) -> None:
-        renderer = RENDERER_SOURCE.read_text(encoding="utf-8")
+        renderer = read_source_family(RENDERER_SOURCE)
         utility_frame_renderer = UTILITY_FRAME_RENDERER_SOURCE.read_text(
             encoding="utf-8"
         )
@@ -246,12 +357,49 @@ class SceneDynamicLayerValuesTests(unittest.TestCase):
         )
 
     def test_utility_capture_keeps_source_neutral_and_applies_alpha_once(self) -> None:
-        utility = UTILITY_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("finalCompositeAlpha: Float", utility)
-        self.assertIn("alpha: 1", utility)
-        self.assertIn("finalCompositeAlpha: finalCompositeAlpha", utility)
-        self.assertEqual(utility.count("finalCompositeAlpha: finalCompositeAlpha"), 1)
-        self.assertNotIn("Float(layer.alpha ?? 1)", utility)
+        # Execute the real utility owner through both exclusive routes. Doubles
+        # observe its compositor handoff; this is not GPU pixel/blend evidence.
+        original = UTILITY_SOURCE.read_text(encoding="utf-8")
+        variants = {
+            "production": original,
+            "source-alpha-reapplied": original.replace("alpha: 1,", "alpha: finalCompositeAlpha,"),
+            "terminal-alpha-squared": original.replace(
+                "finalCompositeAlpha: finalCompositeAlpha,",
+                "finalCompositeAlpha: finalCompositeAlpha * finalCompositeAlpha,"),
+        }
+        def assert_handoff(rows: list[dict]) -> None:
+            self.assertEqual(len(rows), 8)
+            for row in rows:
+                self.assertTrue(row["drawn"])
+                self.assertEqual(row["captures"], 0 if row["isolated"] else 1)
+                self.assertEqual(len(row["requests"]), 1)
+                request = row["requests"][0]
+                self.assertEqual(request["sourceAlpha"], 1)
+                self.assertEqual(request["finalAlpha"], row["alpha"])
+                self.assertEqual(request["sourceCopy"], not row["isolated"])
+                self.assertEqual(request["texture"], 2 if row["isolated"] else 1)
+
+        with tempfile.TemporaryDirectory(prefix="mwx-utility-alpha-") as temporary:
+            directory = Path(temporary)
+            harness = directory / "Harness.swift"
+            harness.write_text(UTILITY_ALPHA_HARNESS, encoding="utf-8")
+            for name, source in variants.items():
+                with self.subTest(owner=name):
+                    owner = directory / "SceneUtilityLayerRenderer.swift"
+                    owner.write_text(source, encoding="utf-8")
+                    binary = directory / name
+                    compiled = subprocess.run(
+                        ["swiftc", str(owner), str(harness), "-o", str(binary)],
+                        capture_output=True, text=True,
+                    )
+                    self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+                    result = subprocess.run([str(binary)], check=True, capture_output=True, text=True)
+                    rows = json.loads(result.stdout)
+                    if name == "production":
+                        assert_handoff(rows)
+                    else:
+                        with self.assertRaises(AssertionError):
+                            assert_handoff(rows)
 
 
 if __name__ == "__main__":

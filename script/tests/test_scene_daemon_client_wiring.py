@@ -54,7 +54,7 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
 
     def test_direct_host_evidence_uses_a_debug_owned_instance(self) -> None:
         runner = (
-            ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner+HostOwnership.swift"
+            ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+HostOwnership.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("#if DEBUG", runner)
         self.assertIn("static let runtimeHost = SceneDesktopWallpaperHost()", runner)
@@ -78,7 +78,7 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonRuntime.swift"
         ).read_text(encoding="utf-8")
         host = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("resolvingBookmarkData: bookmarkData", runtime)
         self.assertIn("options: [.withSecurityScope]", runtime)
@@ -107,12 +107,13 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
         self.assertIn("func applyDisplayConfiguration(", host)
         self.assertNotIn("NSApplication.didChangeScreenParametersNotification", host)
         self.assertNotIn("wallpaperRuntimeWillSwitch", host)
-        self.assertIn("NSWorkspace.shared.notificationCenter.addObserver", host)
-        self.assertIn("NSWorkspace.shared.notificationCenter.removeObserver", host)
+        session = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift").read_text()
+        self.assertIn("NSWorkspace.shared.notificationCenter.addObserver", session)
+        self.assertIn("NSWorkspace.shared.notificationCenter.removeObserver", session)
 
     def test_debug_switch_runner_exercises_same_daemon_and_app_exit(self) -> None:
         runner = (
-            ROOT / "MyWallpaperX/App/DebugSceneDaemonClientRunner.swift"
+            ROOT / "MyWallpaperX/App/Debug/DebugSceneDaemonClientRunner.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("--mwx-debug-scene-switch-root", runner)
         self.assertIn('"switchCompletedInSameDaemon": switchCompleted', runner)
@@ -125,7 +126,7 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
         """Execute the production DEBUG switch-control policy."""
         policy = (
             ROOT
-            / "MyWallpaperX/App/DebugSceneDaemonSwitchControlPolicy.swift"
+            / "MyWallpaperX/App/Debug/DebugSceneDaemonSwitchControlPolicy.swift"
         )
         harness = r'''
 @main

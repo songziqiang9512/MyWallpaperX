@@ -7,6 +7,18 @@ from script.source_relocations import unchanged_source_relocations
 
 
 class SourceRelocationTests(unittest.TestCase):
+    def test_existing_identical_destination_cannot_claim_deleted_owner(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(['git', 'init', '-q', directory], check=True)
+            for name in ('old.swift', 'existing.swift'):
+                (root / name).write_text('same source')
+            subprocess.run(['git', 'add', 'old.swift', 'existing.swift'], cwd=root, check=True)
+            subprocess.run(['git', '-c', 'user.name=Fixture', '-c', 'user.email=f@example.test',
+                            'commit', '-qm', 'fixture'], cwd=root, check=True)
+            (root / 'old.swift').unlink()
+            self.assertEqual(unchanged_source_relocations(root, 'HEAD', ['old.swift'], ['existing.swift']), {})
+
     def test_only_unique_unchanged_moves_transfer_identity(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from script.tests.source_family import read_source_family
 import subprocess
 import tempfile
 import unittest
@@ -27,7 +28,7 @@ class SceneAnimatedBaseSamplerTests(unittest.TestCase):
         load = LOAD_SOURCE.read_text(encoding="utf-8")
         view = VIEW_SOURCE.read_text(encoding="utf-8")
         request = REQUEST_SOURCE.read_text(encoding="utf-8")
-        renderer = RENDERER_SOURCE.read_text(encoding="utf-8")
+        renderer = read_source_family(RENDERER_SOURCE)
         preflight = PREFLIGHT_SOURCE.read_text(encoding="utf-8")
 
         self.assertIn(

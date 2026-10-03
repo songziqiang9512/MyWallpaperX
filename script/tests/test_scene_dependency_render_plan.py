@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from script.tests.source_family import read_source_family
 import json
 import os
 import shutil
@@ -51,6 +52,18 @@ SWIFT_SOURCES = [
 
 HARNESS_SOURCE = r'''
 import Foundation
+import Metal
+
+// Dependency planning never encodes GPU work. Match the current constructor
+// contract while retaining the fixture's fail-fast encoding boundary.
+extension SceneMainPassEncoder {
+    convenience init(commandBuffer: MTLCommandBuffer, target: MTLTexture,
+                     clearColor: MTLClearColor, clearEnabled: Bool,
+                     submissionOwner: SceneMainPassEncoder) {
+        self.init(commandBuffer: commandBuffer, target: target,
+                  clearColor: clearColor, clearEnabled: clearEnabled)
+    }
+}
 
 @main
 enum Harness {
@@ -3450,7 +3463,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
     ) -> None:
         launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
         catalog = ADMISSION_CATALOG_SOURCE.read_text(encoding="utf-8")
-        renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+        renderer = read_source_family(METAL_RENDERER_SOURCE)
         renderer_initialization = METAL_RENDERER_INITIALIZATION_SOURCE.read_text(
             encoding="utf-8"
         )
@@ -3490,7 +3503,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         )
 
     def test_parent_aware_visibility_precedes_layer_draw_request(self) -> None:
-        renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+        renderer = read_source_family(METAL_RENDERER_SOURCE)
         visibility_guard = renderer.index(
             "guard frameVisibleLayerIDs.contains(layer.id) else { continue }"
         )
@@ -3539,7 +3552,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         )
 
     def test_forward_image_provider_preparation_precedes_authored_layer_loop(self) -> None:
-        renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+        renderer = read_source_family(METAL_RENDERER_SOURCE)
         dependency_provider = DEPENDENCY_PROVIDER_SOURCE.read_text(
             encoding="utf-8"
         )
@@ -3547,7 +3560,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         static_model_dependency_runtime = (
             STATIC_MODEL_DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
         )
-        main_pass = renderer.index("let mainPass = SceneMainPassEncoder(")
+        main_pass = renderer.index("let (mainPass, groups) = makeScenePass(")
         forward_preparation = renderer.index(
             "prepareForwardDependencyProviders(", main_pass
         )

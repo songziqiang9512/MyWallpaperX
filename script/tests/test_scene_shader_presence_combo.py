@@ -22,7 +22,7 @@ WATERWAVES_FRAG = (
     / "waterwaves/shaders/effects/waterwaves.frag"
 )
 EFFECTS_REFERENCE = (
-    REPOSITORY_ROOT / "docs/scene/semantics/effects-reference.md"
+    REPOSITORY_ROOT / "docs/scene/capabilities/effects-reference.md"
 )
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from script.tests.source_family import read_source_family
 import shutil
 import subprocess
 import tempfile
@@ -194,7 +195,7 @@ enum Harness {
         )
 
     def test_renderer_wires_exact_layer_source_publication_without_consuming_dependency(self) -> None:
-        source = RENDERER.read_text(encoding="utf-8")
+        source = read_source_family(RENDERER)
         compositor = COMPOSITOR.read_text(encoding="utf-8")
         texture_load = BASE_IMAGE_TEXTURE_LOAD.read_text(encoding="utf-8")
         snapshot = texture_load.split(
@@ -222,20 +223,26 @@ enum Harness {
             "let drawOutcome = imageCompositor.drawOutcome(",
             missing_dependency_guard,
         )
-        binding_record = source.index(
-            "dependencyRuntime.recordBindingIfRequired(", draw_outcome
+        # The image stage returns its outcome to the ordered-loop caller before
+        # binding publication; inspect each real body instead of concatenation order.
+        ordered = RENDERER.with_name("SceneMetalRenderer+OrderedLayerEncoding.swift").read_text(encoding="utf-8")
+        image_call = ordered.index("let imageResult = encodeImageLayer(")
+        returned_outcome = ordered.index("guard let drawOutcome = imageResult.outcome", image_call)
+        binding_record = ordered.index("dependencyRuntime.recordBindingIfRequired(", returned_outcome)
+        claimed_failure_stop = ordered.index(
+            "resolvedMaterialFrameTargetPlans[layer.id] != nil", binding_record
         )
-        claimed_failure_stop = source.index(
-            "request.resolvedMaterialFrameTargetPlan != nil", binding_record
-        )
+        image_return = source.index("return (false, drawOutcome)", draw_outcome)
 
         self.assertLess(publication, publication_lookup)
         self.assertLess(publication_lookup, missing_dependency_guard)
         self.assertLess(missing_dependency_guard, draw_outcome)
-        self.assertLess(draw_outcome, binding_record)
+        self.assertLess(image_call, returned_outcome)
+        self.assertLess(returned_outcome, binding_record)
+        self.assertLess(draw_outcome, image_return)
         self.assertLess(binding_record, claimed_failure_stop)
         self.assertIn(
-            "for: layer.id,\n                        matching: texture",
+            "for: layer.id,\n                matching: texture",
             source[publication:missing_dependency_guard],
         )
         self.assertIn("request.dependencyEffects.isEmpty", source[
@@ -243,11 +250,11 @@ enum Harness {
         ])
         self.assertIn(
             "explicitLayerSourcePublication: explicitLayerSourcePublication",
-            source[draw_outcome:binding_record],
+            source[draw_outcome:image_return],
         )
         self.assertIn(
             "encoded: drawOutcome.consumedDependency",
-            source[binding_record:claimed_failure_stop],
+            ordered[binding_record:],
         )
 
         outcome = compositor.split("enum DrawOutcome: Equatable", maxsplit=1)[1]
