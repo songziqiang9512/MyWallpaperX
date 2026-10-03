@@ -778,13 +778,6 @@
       "count": 1
     },
     {
-      "path": "script/tests/test_scene_property_live_routing.py",
-      "scope": "ScenePropertyLiveRoutingTests.test_unready_deferred_selection_preserves_previous_current",
-      "method": "assertIn",
-      "literal": "case .bool(true)? = selectedValues",
-      "count": 1
-    },
-    {
       "path": "script/tests/test_scene_property_live_update_state.py",
       "scope": "ScenePropertyLiveUpdateStateTests.test_effect_visibility_mapping_is_generic_and_live_rejection_requests_relaunch",
       "method": "assertIn",
