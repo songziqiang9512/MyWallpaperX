@@ -423,27 +423,42 @@ enum DebugScenePlaybackRunner {
         guard sequence.indices.contains(index) else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             guard !isClosing else { return }
-            let replacements = sequence[index]
-            let before = runtimeHost.debugSnapshot()
-            let accepted = runtimeHost.applyUserPropertyValues(
-                replacements,
-                changedPropertyKeys: Set(replacements.keys),
-                recordID: debugRecordID
+            // Exercise accepted edits before the frame driver can promote
+            // deferred resources. Normal evidence sequences remain spaced.
+            let isBurst = ProcessInfo.processInfo.arguments.contains(
+                "--mwx-debug-scene-live-property-burst"
             )
-            let after = runtimeHost.debugSnapshot()
-            NSLog(
-                "MWX DEBUG SCENE: phase=live-property-update accepted=%@ surfacesBefore=%d surfacesAfter=%d windowsBefore=%@ windowsAfter=%@ keys=%@",
-                accepted ? "true" : "false",
-                before.surfaceCount,
-                after.surfaceCount,
-                before.windowNumbers.map(String.init).joined(separator: ","),
-                after.windowNumbers.map(String.init).joined(separator: ","),
-                replacements.keys.sorted().joined(separator: ",")
-            )
-            NSLog("MWX DEBUG SCENE: phase=live-property-sequence-step index=%d accepted=%@",
-                  index, accepted ? "true" : "false")
-            scheduleLivePropertyUpdate(sequence, index: index + 1)
+            let indices = isBurst ? index..<sequence.count : index..<(index + 1)
+            for step in indices {
+                applyLivePropertyUpdate(sequence[step], index: step)
+            }
+            if !isBurst {
+                scheduleLivePropertyUpdate(sequence, index: index + 1)
+            }
         }
+    }
+
+    private static func applyLivePropertyUpdate(
+        _ replacements: [String: SceneUserPropertyValue], index: Int
+    ) {
+        let before = runtimeHost.debugSnapshot()
+        let accepted = runtimeHost.applyUserPropertyValues(
+            replacements,
+            changedPropertyKeys: Set(replacements.keys),
+            recordID: debugRecordID
+        )
+        let after = runtimeHost.debugSnapshot()
+        NSLog(
+            "MWX DEBUG SCENE: phase=live-property-update accepted=%@ surfacesBefore=%d surfacesAfter=%d windowsBefore=%@ windowsAfter=%@ keys=%@",
+            accepted ? "true" : "false",
+            before.surfaceCount,
+            after.surfaceCount,
+            before.windowNumbers.map(String.init).joined(separator: ","),
+            after.windowNumbers.map(String.init).joined(separator: ","),
+            replacements.keys.sorted().joined(separator: ",")
+        )
+        NSLog("MWX DEBUG SCENE: phase=live-property-sequence-step index=%d accepted=%@",
+              index, accepted ? "true" : "false")
     }
 
     private static let executorInvalidationDelayEnvironmentKey =

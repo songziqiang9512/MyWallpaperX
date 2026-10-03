@@ -1,6 +1,127 @@
 import Foundation
 
 extension SceneDesktopWallpaperSession {
+    @discardableResult
+    func applyUserPropertyValue(
+        _ value: SceneUserPropertyValue,
+        forPropertyKey propertyKey: String,
+        recordID: String?
+    ) -> Bool {
+        applyUserPropertyValues(
+            [propertyKey: value],
+            changedPropertyKeys: [propertyKey],
+            recordID: recordID
+        )
+    }
+
+    @discardableResult
+    func applyUserPropertyValues(
+        _ replacements: [String: SceneUserPropertyValue],
+        changedPropertyKeys: Set<String>,
+        recordID: String?
+    ) -> Bool {
+        guard var context = launchContext,
+              context.recordID == recordID else {
+            return false
+        }
+        var candidateLiveState = context.liveState
+        let unavailableTargets =
+            SceneDesktopWallpaperHost.unavailableLiveScriptPropertyTargets(in: context)
+        guard candidateLiveState.apply(
+            replacements: replacements,
+            changedPropertyKeys: changedPropertyKeys,
+            unavailableConsumerTargets: unavailableTargets
+        ), soundPlaybackRegistry?.canApply(
+            userValues: candidateLiveState.userValues
+        ) != false else {
+            return false
+        }
+        var deferredLayerIDs = deferredLayerVisibilitySelection(
+            in: context,
+            effectiveValues: candidateLiveState.effectiveValues,
+            changedPropertyKeys: changedPropertyKeys
+        )
+        var acceptedReplacements = replacements
+        var acceptedKeys = changedPropertyKeys
+        let pending = pendingDeferredLayerVisibilityUpdate
+        let mergesPending = pending.map {
+            !deferredLayerIDs.isEmpty
+                || !$0.changedPropertyKeys.isDisjoint(with: changedPropertyKeys)
+        } ?? false
+        if mergesPending, let pending {
+            // Independent edits that need no resource stay immediate. Edits
+            // sharing this transaction preserve all accepted pending keys;
+            // the latest replacement (including removal) wins for each key.
+            acceptedReplacements = pending.replacements
+            acceptedKeys.formUnion(pending.changedPropertyKeys)
+            for key in changedPropertyKeys {
+                acceptedReplacements[key] = replacements[key]
+            }
+            candidateLiveState = context.liveState
+            guard candidateLiveState.apply(
+                replacements: acceptedReplacements,
+                changedPropertyKeys: acceptedKeys,
+                unavailableConsumerTargets: unavailableTargets
+            ), soundPlaybackRegistry?.canApply(
+                userValues: candidateLiveState.userValues
+            ) != false else {
+                return false
+            }
+            deferredLayerIDs = deferredLayerVisibilitySelection(
+                in: context,
+                effectiveValues: candidateLiveState.effectiveValues,
+                changedPropertyKeys: acceptedKeys
+            )
+        }
+        if !deferredLayerIDs.isEmpty {
+            guard nextDeferredPropertyGeneration < UInt64.max else {
+                return false
+            }
+            nextDeferredPropertyGeneration += 1
+            let generation = nextDeferredPropertyGeneration
+            let resources = context.preparedDeviceResources.baseImages
+            for layerID in deferredLayerIDs.sorted() {
+                resources.requestDeferredBaseImage(
+                    layerID: layerID,
+                    requestGeneration: generation
+                )
+            }
+            if let superseded = pendingDeferredLayerVisibilityUpdate {
+                logDeferredLayerVisibilityTransition(
+                    generation: superseded.generation,
+                    layerIDs: superseded.layerIDs,
+                    state: "superseded"
+                )
+            }
+            pendingDeferredLayerVisibilityUpdate = .init(
+                generation: generation,
+                replacements: acceptedReplacements,
+                changedPropertyKeys: acceptedKeys,
+                layerIDs: deferredLayerIDs,
+                recordID: recordID
+            )
+            logDeferredLayerVisibilityTransition(
+                generation: generation,
+                layerIDs: deferredLayerIDs,
+                state: "pending"
+            )
+            promotePendingDeferredLayerVisibilityIfReady()
+            return true
+        }
+        if mergesPending, let pending {
+            logDeferredLayerVisibilityTransition(
+                generation: pending.generation,
+                layerIDs: pending.layerIDs,
+                state: "superseded"
+            )
+            pendingDeferredLayerVisibilityUpdate = nil
+        }
+        context.liveState = candidateLiveState
+        soundPlaybackRegistry?.apply(userValues: candidateLiveState.userValues)
+        launchContext = context
+        return true
+    }
+
     func deferredLayerVisibilitySelection(
         in context: SceneDesktopWallpaperLaunchContext,
         effectiveValues: [String: SceneUserPropertyValue],

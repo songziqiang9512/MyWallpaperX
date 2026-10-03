@@ -34,6 +34,7 @@
 | 默认/作者环境与容量 | [RF04共享历史](../history/rf04-completed-scene-environment-implementation-2026-10-03.md#b-作者环境输入落地)、[RF12共存](../history/rf12-snapshot-shadow-coexistence-implementation-2026-10-02.md) |
 | 模型阴影与材质段 | [RF15 point](../history/rf15-model-point-shadow-implementation-2026-10-03.md)、[RF16材质段](../history/rf16-model-material-segments-implementation-2026-10-03.md)；前序directional/spot/named沿记录内链接，724仅准备恢复 |
 | RT/named/诊断 | [RF01](../history/rf01-shader-default-binding-implementation-2026-10-02.md)、[RF05 named](../history/rf05-named-provider-readiness-implementation-2026-10-02.md)、[诊断生命周期](../history/rf05-debug-capture-lifecycle-implementation-2026-10-02.md) |
+| 连续属性交互 | [RF05 pending intent](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-deferred-intent)：独立开启/部分取消/同键取消/拒绝后保留，四项 App 最终像素；多 surface 仅 CPU 受控回滚，不外推物理多屏 |
 | composition source | [D1普通分组/背景/根顺序](../history/d1-composition-authored-order-implementation-2026-10-04.md)；23项App正反例与资源生命周期，未知模式不外推 |
 | 粒子播放/出生 | [RF03](../history/rf03-particle-playback-implementation-2026-10-02.md)；默认count/reset未开放 |
 | 作者采样/companion | [RF02 A](../history/rf02-authored-sampling-implementation-2026-10-03.md)、[atlas named](../history/rf02-atlas-named-output-implementation-2026-10-03.md)、[B官方观察](../history/rf02-companion-uniform-observations-2026-10-03.md)、[B实施与验收状态](../history/rf02-public-companion-implementation-2026-10-03.md)；量化/呈现上限与项目产品合同分别读取 |

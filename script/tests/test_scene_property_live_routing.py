@@ -22,8 +22,6 @@ EDITOR_SOURCE = REPOSITORY_ROOT / (
 LIVE_CONSUMERS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift"
 LAYER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift"
 RUNTIME_MODEL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift"
-HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
-METAL_VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
 
 
 def method_body(source: str, signature: str) -> str:
@@ -49,8 +47,6 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         cls.live_consumers = LIVE_CONSUMERS_SOURCE.read_text(encoding="utf-8")
         cls.layer = LAYER_SOURCE.read_text(encoding="utf-8")
         cls.runtime_model = RUNTIME_MODEL_SOURCE.read_text(encoding="utf-8")
-        cls.host = HOST_SOURCE.read_text(encoding="utf-8")
-        cls.metal_view = METAL_VIEW_SOURCE.read_text(encoding="utf-8")
 
     def test_single_update_persists_before_live_attempt_and_rebuilds_on_rejection(self) -> None:
         update = method_body(self.service, "func updateScenePropertyValue(")
@@ -64,58 +60,6 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         self.assertIn(".setProperty(", update)
         self.assertIn("revision: scenePropertyCommandRevision", update)
         self.assertIn("to: .scene", update)
-
-    def test_unready_deferred_selection_preserves_previous_current(self) -> None:
-        selection = method_body(
-            self.live_consumers,
-            "func deferredLayerVisibilitySelection(",
-        )
-        promote = method_body(
-            self.live_consumers,
-            "func promotePendingDeferredLayerVisibilityIfReady()",
-        )
-        apply = method_body(self.host, "func applyUserPropertyValues(")
-        adoption = method_body(
-            self.metal_view,
-            "func adoptPreparedDeferredBaseImage(",
-        )
-
-        self.assertIn("propertyBindingProgram.evaluate(", selection)
-        self.assertIn("case .bool(true)? = selectedValues", selection)
-        self.assertIn("deferredLayerIDs.contains(layerID)", selection)
-        self.assertLess(
-            apply.index("candidateLiveState.apply("),
-            apply.index("deferredLayerVisibilitySelection("),
-        )
-        self.assertIn("requestDeferredBaseImage(", apply)
-        self.assertIn("pendingDeferredLayerVisibilityUpdate = .init(", apply)
-        self.assertIn("return true", apply)
-        self.assertIn("statuses.allSatisfy({ $0 == .ready })", promote)
-        self.assertLess(
-            promote.index("adoptPreparedDeferredBaseImage"),
-            promote.index("context.liveState = candidateLiveState"),
-        )
-        self.assertLess(
-            promote.index("case let .failed(code)"),
-            promote.index("context.liveState = candidateLiveState"),
-        )
-        self.assertIn("preparedBaseImages.outcome(", adoption)
-        self.assertIn("imageTextures.set(", adoption)
-        self.assertIn(
-            "discardPreparedDeferredBaseImages",
-            promote,
-            "partial multi-surface adoption must roll back before live-state commit",
-        )
-        self.assertIn(
-            "commitPreparedDeferredBaseImages",
-            promote,
-            "adopted resources need an explicit commit boundary",
-        )
-        self.assertIn(
-            "adoptedDeferredBaseImageURLs",
-            self.metal_view,
-            "surface resource ownership must retain a rollback identity",
-        )
 
     def test_live_success_does_not_cancel_an_existing_fallback(self) -> None:
         update = method_body(self.service, "func updateScenePropertyValue(")

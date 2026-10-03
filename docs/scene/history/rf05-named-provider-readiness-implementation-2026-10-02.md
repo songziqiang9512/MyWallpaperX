@@ -111,3 +111,19 @@ optional 首次改用 rgbmask 后，真实解析产生 `material named → insta
 验收：真实作者解析保留三候选及provenance；launch仅该stage退化、零材料/依赖申领；同修前package在签名App出现首帧/next-frame completion、白consumer和绿peer、无timeout及虚假capture；相邻支持effect继续执行；exact2 system/property的ready/absent/pending/unavailable原合同不回退；inactive/terminal-shadow/graph override不误拒绝；不同provider、secondary、错误slot identity及unsafe拓扑不被归一化。Swift行为门、Debug build、code-health、防御/设计门和独立终审均按本片失败半径执行。
 
 稳定材质失败合同接管且上述门通过后归档本设计并删除临时登记；未来扩大mixed profile必须另行设计，不能用本片安全输出当兼容性完成。
+
+
+<a id="rf05-deferred-intent"></a>
+### RF05 资源准备期间连续属性意图（2026-10-04）
+
+基线 `38be3dcefd4c3ecb9dfa1b19ec60a78d14dec158`。首断点是 Session 用最后一笔请求覆盖整个 pending：A 开启后再开启 B，或 bulk A/B 开启后只取消 A，都会丢掉仍有效的独立意图。当前修复在同一 Session 合并待提交键、同键最新值含删除胜出，并向原资源 owner 请求完整所需 layer 集合；无重叠且不需资源的修改仍立即提交。稳定边界归[启动合同](../architecture/scene-launch-responsiveness-contract.md)。apply 与 promotion 收在同一 LiveConsumers extension，未增加属性 owner、graph、clock 或输出路径。
+
+实际画面收益：隐藏启动后连续开启两层，两张图都出现；取消其中一层仍显示另一层；取消同键不会迟到显示，无效后续修改不会清除已接受修改。自有输入的健康绿色邻层保持不变。Debug runner 只增加同步 burst 入口以命中资源尚未准备的交互时序。
+
+验证：实际 Session 方法与真实 property program/state 的 CPU 基线出现三项反例（独立更新、部分撤销、删除值），修后 11 门通过，含两 surface 部分接入回滚/重试、无 surface 等待和资源失败后的独立即时值保留。相邻属性/activation/runner 32 门通过。最终 Debug App 四项 burst 门通过，要求完整 pending/superseded/committed identity、窗口不重建、Metal 首帧/后帧 ROI 及 GPU drain；原 hidden-provider show/hide 两项 App 控制通过。此处两 surface 是受控 CPU seam，不声称物理多屏验收。 独立终审有界 ACCEPT：初版独立即时值被延迟的 P2 已修复；最终 8 PNG、24 ROI 独立复算像素误差为 0。
+
+初次 App 输入为两张 4096² PNG，9 秒内未完成准备；延长同一输入至 40 秒，实际各约 7.8 秒准备后完成提交，排除本次调度卡死。最终四门用 1024² PNG，仍强制证明进入 pending 并重叠，不把未命中时序当通过。Debug 解码耗时仅作为后续候选，不作 Release 性能结论。初次测试 prepared entries 误写为 2，已按实际“0 即时 + 2 deferred”纠正；旧失败不计最终 PASS。
+
+源码/App/输入 hash、原始截图、CPU/App 日志及审查保存在 `.artifacts/scene-evidence/runs/rf05-deferred-intent-20261004`（14 天）；最终身份以包内 `build-identity-v2.json` 为准。code-health、依赖、防御、设计、Debug 布局和 residue 门通过。结构门仍有 RF04 已存在的两项失败：`shape-derived-analyzer-fleet` 实际 66、登记 65；本批未改该库存，也未抬基线。
+
+下一批优先 hidden consumer 条件激活与 script fallback：真实输入 `2938612768` 有两 consumer 共用 hidden provider，先用同结构自有输入找到执行断点，再按真实样本复验。当前 RF05 只关闭本子批，初值/脚本/多 surface 组合尚未全闭合；既定 Scene 卡仍为 15/16（93.75%），不代表全部真实样本兼容率。

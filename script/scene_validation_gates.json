@@ -2071,6 +2071,23 @@
         "test_scene_utility_layers",
         "test_scene_wallpaper_async_launch"
       ]
+    },
+    {
+      "id": "scene-deferred-property-intent",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+LiveConsumers.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift",
+        "MyWallpaperX/App/Debug/DebugScenePlaybackRunner.swift",
+        "script/tests/test_scene_deferred_property_intent.py",
+        "script/tests/test_scene_deferred_property_integration.py"
+      ],
+      "modules": [
+        "test_scene_deferred_property_intent",
+        "test_scene_deferred_property_integration",
+        "test_scene_property_live_update_state",
+        "test_scene_material_user_emission_arguments"
+      ]
     }
   ],
   "method_gates": {

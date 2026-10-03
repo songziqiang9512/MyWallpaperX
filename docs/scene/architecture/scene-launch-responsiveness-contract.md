@@ -102,6 +102,8 @@ accepted
 
 设计前置范围：Session 提取、Host 首帧提升、localStorage 激活提交和 GPU drain，横切 identity／clock／publication／持久化，走 generic-only 迁移。请求 supersede、candidate 创建失败、首帧 GPU 失败、超时、拓扑变化和 stop 必须保留旧 active 或完成既有停止意图；retiring session 直到自己的 queue drain 完成才释放资源。验证必须执行 A→失败 B→成功 C、首帧迟到、同 record 存储写入、所有 owner 退场，以及正常逐帧脚本/多屏回归。门闭合后删除本批设计登记，保留本节唯一职责合同。
 
+已接受但仍等待 deferred 图片资源的属性修改由 Session 的单个 pending transaction 保存：独立键累积，同键以最新值（含删除）覆盖，先验证完整候选，再按完整所需 layer 集合请求当前 generation。无重叠且无需 deferred 资源的新修改立即提交，不扩大到其他图片的等待/失败范围；新命令被拒绝时不得破坏已接受 pending；所有 surface 资源接入成功后才提交同一 typed liveState，部分接入失败沿现有回滚边界处理。
+
 ## 5. 缓存与预热
 
 缓存分三层，失效条件必须显式且不得绕过安全校验：
