@@ -19,6 +19,8 @@ from script.tests.test_scene_material_texture_transform import (
     SCENE_ROOT,
     SUPPORT,
     SWIFT_SOURCES,
+    assert_companion_pixels,
+    assert_companion_rejections,
     assert_coordinate_pixels,
     fixture_environment,
     preserve_evidence,
@@ -43,7 +45,7 @@ HARNESS = COORDINATE_HARNESS + r'''
         let cache = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
         try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
         var artifacts: [String: Any] = [:]
-        var result = try runCoordinates(generic: true) { fixture in
+        let compileFixture: (CoordinateFixture) throws -> SceneAuthoredShaderProgram = { fixture in
             let key = SceneResolvedMaterialGenericShaderRequest.key(
                 vertexSource: fixture.vertex, fragmentSource: fixture.fragment,
                 outputSemantics: .color, expectedColorTransfer: nil,
@@ -77,6 +79,8 @@ HARNESS = COORDINATE_HARNESS + r'''
             ]
             return frontend
         }
+        var result = try runCoordinates(generic: true, frontend: compileFixture)
+        result["companions"] = try runCompanions(generic: true, frontend: compileFixture)
         result["artifacts"] = artifacts
         result["compiler"] = "SceneGenericShaderCompiler.compile"
         FileHandle.standardOutput.write(
@@ -154,12 +158,19 @@ class SceneGenericShaderTextureTransformCompilerTests(unittest.TestCase):
     def test_actual_swift_compiler_artifact_preserves_authored_coordinates_on_gpu(self) -> None:
         assert_coordinate_pixels(self, self.result, "genericCompilerArtifact")
         self.assertEqual(self.result["compiler"], "SceneGenericShaderCompiler.compile")
-        self.assertEqual(set(self.result["artifacts"]), set(self.result["fixtures"]))
+        all_fixtures = self.result["fixtures"] | self.result["companions"]["fixtures"]
+        self.assertEqual(set(self.result["artifacts"]), set(all_fixtures))
         for name, artifact in self.result["artifacts"].items():
             with self.subTest(fixture=name):
-                self.assertEqual(artifact["metalSHA256"], self.result["fixtures"][name]["metalSHA256"])
+                self.assertEqual(artifact["metalSHA256"], all_fixtures[name]["metalSHA256"])
                 self.assertEqual(len(artifact["requestKey"]), 64)
                 self.assertEqual(len(artifact["artifactSHA256"]), 64)
+
+    def test_reviewed_companion_profiles_use_actual_compiler_and_gpu(self) -> None:
+        assert_companion_pixels(self, self.result, "genericCompilerArtifact")
+
+    def test_compiled_companion_shape_binding_and_program_boundaries_fail_closed(self) -> None:
+        assert_companion_rejections(self, self.result)
 
 
 if __name__ == "__main__":

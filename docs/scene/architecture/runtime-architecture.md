@@ -247,7 +247,17 @@ WE GLSL-like source
 
 Slang、DXC + Metal Shader Converter 可以保留为对照，但在当前 corpus 没有证明它们比 GLSL → SPIR-V → MSL 少一层 dialect 转换以前，不作为首条产品路线。
 
-作者二维采样操作保留作者传入的坐标、sampler 与显式 LOD；两个 compiler lowering 不得逐次注入 candidate 的 atlas／padding 变换，也不得靠坐标形状分析抵消重复映射。无作者 shader 的基础图像由既有 compositor 消费纹理帧并映射一次；effect 完整输出按单位映射合成。公开纹理 companion 是独立 typed uniform 合同，不能作为内部 synthetic ABI 的别名；其未知尺寸／动画 profile 继续按[RF02设计](../roadmap/batch2/authored-texture-coordinate-design.md)定案。改变采样语义时，分析、Program 与持久化编译工件必须沿各自实际读取入口退役旧缓存。
+<a id="authored-texture-companion"></a>
+
+### 作者采样与公开纹理 companion
+
+作者二维采样操作保留作者传入的坐标、sampler 与显式 LOD；两个 compiler lowering 不得逐次注入 candidate 的 atlas／padding 变换，也不得靠坐标形状分析抵消重复映射。无作者 shader 的基础图像由既有 compositor 消费纹理帧并映射一次；effect 完整输出按单位映射合成。
+
+公开 `g_Texture0…7Rotation: float4`、`g_Texture0…7Translation: float2` 与既有 Resolution 同属唯一 HostUniformSchema。R/T 只接受准确名称、对应类型、非数组和当前 active sampler；vertex/fragment 共用所选槽的 typed host 值。R/T 的准确名称即使有作者 default、静态声明或动态来源，也不能在 schema 失败后退回普通 uniform：准备绑定与 Program source identity 都沿同一名称权威拒绝，失败仍限于实际受影响的 pass/effect。Resolution 沿既有 neutral/self-composite 合同处理。bounded frontend 未准入的 uniform 数组在 frontend 失败，不得据此声称 Program 数组 consumer 已支持。8…12、MipMapInfo 和其它未公开 family 保持 unknown。
+
+值只由本帧已发布的 `SceneTextureCandidate` 产生。catalog 选到 TEX sprite 帧时与既有 `uvTransform` 一起发布 `isSpriteSheet=true`，包括单帧 sprite；Rotation 为 `(xAxis.x, xAxis.y, yAxis.x, yAxis.y)`，Translation 为 `origin`，不再归一化或复制另一份变换。静态资源及完成映射的 graph/provider 输出为 non-sprite，公开 R/T 取零；这是基于有界非 sprite 观察和公开用途限定的项目合同，不宣称所有官方 provider 都已测得精确零值。reader、合法资源准入及非轴/多 image 限制不随此合同扩大。
+
+sprite 来源事实进入 publication atom 比较和 Program exact texture identity；它不选择 shader variant，不进入 pipeline semantic identity。host 编码每帧读取当前 candidate，复用现有选帧、contentGeneration、commit/discard、registry 与 completion/compositor，不增加时钟、普通帧反射或摘要。A 的采样语义迁移已沿实际读取入口退役旧工件；B 仅补 host producer，不改变编译布局与工件解释，合法旧 compiler artifact 可复用，当前 host 值仍重新编码。冷/热及旧工件复用的实际身份与未验边界见[RF02 B 实施记录](../history/rf02-public-companion-implementation-2026-10-03.md)，原裁决仅由[设计归档](../history/rf02-authored-texture-coordinate-design-2026-10-03.md)保留。官方量化区间与所采呈现一致性不外推精确内部相位、全格式兼容或官方 parity。
 
 ### 4.2 SceneScript 的推荐 VM
 

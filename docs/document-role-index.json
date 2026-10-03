@@ -20,7 +20,6 @@
       "docs/scene/development/development-workflow.md",
       "docs/scene/development/official-client-behavior-research-workflow.md",
       "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
-      "docs/scene/roadmap/batch2/authored-texture-coordinate-design.md",
       "docs/scene/roadmap/batch2/composition-render-target-design.md",
       "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
       "docs/scene/roadmap/batch2/debug-frame-capture-lifecycle-design.md",
@@ -350,10 +349,10 @@
       "lastReviewed": "2026-10-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5a2b2a098d100dc1a59fe6a108419d2c66cb0bfeeb331472cc1b33956cfcde0d",
+        "sourceSHA256": "1e8d1d2766381d7252d5b129141e427a62bf42b31a3113d346187ae811ff008f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
-        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+        "scope": "RF02 A/B稳定合同、冻结执行记录入口、角色和永久锚点迁移核对；仅文档收口，未复跑产品验收。",
+        "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
     {
@@ -481,10 +480,10 @@
       "lastReviewed": "2026-10-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2b8146e29624ed2b853909a162df4a69b12c955d80e3c48bdab73a6020481475",
+        "sourceSHA256": "fed4a7a4e3df626d4533a4f26e62797f9f633b84f38b974008b4c9befda3614a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Batch2 冻结证据入口与永久锚点核对；仅导航维护，未复跑历史产品验收",
-        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+        "scope": "RF02 A/B稳定合同、冻结执行记录入口、角色和永久锚点迁移核对；仅文档收口，未复跑产品验收。",
+        "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
     {
@@ -969,6 +968,17 @@
       ]
     },
     {
+      "path": "docs/scene/history/rf02-authored-texture-coordinate-design-2026-10-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/rf02-companion-research-checkpoint-2026-10-03.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -984,6 +994,18 @@
       "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/rf02-public-companion-implementation-2026-10-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
         "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
         "docs/scene/roadmap/scene-compatibility-roadmap.md"
       ]
@@ -1210,9 +1232,9 @@
     },
     {
       "path": "docs/scene/roadmap/batch2/authored-texture-coordinate-design.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "retirementCondition": "作者采样坐标与公开companion分别完成纠正门，稳定职责进入runtime-architecture后归档；未证profile不隐式批准。"
+      "role": "navigation",
+      "entrypoint": "docs/scene/history/rf02-authored-texture-coordinate-design-2026-10-03.md",
+      "purpose": "保留RF02批准设计的永久锚点；现役合同进入runtime-architecture，原文保存在历史归档。"
     },
     {
       "path": "docs/scene/roadmap/batch2/batch2-design-index.md",
@@ -1450,8 +1472,7 @@
         "docs/scene/architecture/scene-launch-responsiveness-contract.md",
         "docs/scene/architecture/scene-runtime-daemon-contract.md",
         "docs/scene/development/development-workflow.md",
-        "docs/scene/development/official-client-behavior-research-workflow.md",
-        "docs/scene/roadmap/batch2/authored-texture-coordinate-design.md"
+        "docs/scene/development/official-client-behavior-research-workflow.md"
       ],
       "sourcePaths": [
         "MyWallpaperX/Core/SteamWorkshopScene"

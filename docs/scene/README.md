@@ -16,7 +16,7 @@
 
 [运行时架构](architecture/runtime-architecture.md)、[实际代码地图](architecture/runtime-as-built-map.md)、[进程合同](architecture/scene-runtime-daemon-contract.md)、[启动响应合同](architecture/scene-launch-responsiveness-contract.md)与[启动现况图](architecture/scene-startup-pipeline.md)各自维护目标或当前事实。
 
-[Sampler 合同](capabilities/sampler-alias-precedence.md)、[作者采样坐标裁决](roadmap/batch2/authored-texture-coordinate-design.md)、[设计索引](roadmap/batch2/batch2-design-index.md)按首断点读取；局部失败查[alpha fallback](capabilities/alpha-display-fallback-design.md)、[资源准入](architecture/scene-resource-admission.md)与[draw-only降级](capabilities/static-source-draw-only-degradation.md)。
+[Sampler 合同](capabilities/sampler-alias-precedence.md)、[作者采样与公开 companion](architecture/runtime-architecture.md#authored-texture-companion)、[设计索引](roadmap/batch2/batch2-design-index.md)按首断点读取；局部失败查[alpha fallback](capabilities/alpha-display-fallback-design.md)、[资源准入](architecture/scene-resource-admission.md)与[draw-only降级](capabilities/static-source-draw-only-degradation.md)。
 
 ## 去哪里改代码
 

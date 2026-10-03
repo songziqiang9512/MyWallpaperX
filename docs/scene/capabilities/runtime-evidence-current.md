@@ -36,7 +36,7 @@
 | RT/named/诊断 | [RF01](../history/rf01-shader-default-binding-implementation-2026-10-02.md)、[RF05 named](../history/rf05-named-provider-readiness-implementation-2026-10-02.md)、[诊断生命周期](../history/rf05-debug-capture-lifecycle-implementation-2026-10-02.md) |
 | composition source | [D1资源/输出](../history/d1-composition-source-implementation-2026-10-02.md)；成员/flag待证 |
 | 粒子播放/出生 | [RF03](../history/rf03-particle-playback-implementation-2026-10-02.md)；默认count/reset未开放 |
-| 作者采样/companion | [RF02 A](../history/rf02-authored-sampling-implementation-2026-10-03.md)、[atlas named](../history/rf02-atlas-named-output-implementation-2026-10-03.md)、[B官方观察](../history/rf02-companion-uniform-observations-2026-10-03.md)；B尺寸/动画相位待证 |
+| 作者采样/companion | [RF02 A](../history/rf02-authored-sampling-implementation-2026-10-03.md)、[atlas named](../history/rf02-atlas-named-output-implementation-2026-10-03.md)、[B官方观察](../history/rf02-companion-uniform-observations-2026-10-03.md)、[B实施与验收状态](../history/rf02-public-companion-implementation-2026-10-03.md)；量化/呈现上限与项目产品合同分别读取 |
 
 <a id="evidence-levels"></a>
 

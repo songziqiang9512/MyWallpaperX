@@ -79,6 +79,7 @@ nonisolated struct SceneTextureProviderPublication {
             && candidate.physicalSize == other.candidate.physicalSize
             && candidate.mappedSize == other.candidate.mappedSize
             && candidate.uvTransform == other.candidate.uvTransform
+            && candidate.isSpriteSheet == other.candidate.isSpriteSheet
             && candidate.sampling == other.candidate.sampling
             && candidate.sampling.rawFlags == other.candidate.sampling.rawFlags
             && candidate.authoredFormat == other.candidate.authoredFormat

@@ -120,6 +120,7 @@ final class SceneMaterialAssetTextureCatalog {
                     xAxis: frame.xAxis,
                     yAxis: frame.yAxis
                 ),
+                isSpriteSheet: true,
                 sampling: base.sampling,
                 authoredFormat: base.authoredFormat
             )

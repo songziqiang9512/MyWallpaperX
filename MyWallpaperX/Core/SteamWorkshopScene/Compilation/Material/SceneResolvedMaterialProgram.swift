@@ -431,6 +431,8 @@ nonisolated struct SceneResolvedMaterialProgram {
         case parallaxPosition, screen
         case texelSize(scaleBitPattern: UInt64)
         case textureResolution(slot: Int)
+        case textureRotation(slot: Int)
+        case textureTranslation(slot: Int)
         case audioSpectrumLeft(count: Int)
         case audioSpectrumRight(count: Int)
     }

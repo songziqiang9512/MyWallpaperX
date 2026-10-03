@@ -158,7 +158,7 @@ class DocumentRegistryTests(unittest.TestCase):
         sampler = 'docs/scene/capabilities/sampler-alias-precedence.md'
         self.assertIn(sampler, query(index, 'sampler', ROOT)['routes'][0]['documents'])
         for term in ('sampler', '作者采样', 'UV', 'atlas'):
-            self.assertIn('docs/scene/roadmap/batch2/authored-texture-coordinate-design.md',
+            self.assertIn('docs/scene/architecture/runtime-architecture.md',
                           query(index, term, ROOT)['routes'][0]['documents'], term)
         for entry in ('docs/README.md', 'docs/scene/README.md', 'docs/scene/capabilities/README.md'):
             self.assertIn(sampler, local_targets(ROOT, entry), entry)

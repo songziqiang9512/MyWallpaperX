@@ -464,6 +464,8 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
             field,
             activeTextureSlots: activeTextureSlots
         )
+        guard expectedHost != nil || !SceneResolvedMaterialHostUniformSchema
+            .requiresTextureCompanionHost(field.authoredName) else { return nil }
         switch source {
         case let .host(host):
             guard host == expectedHost else { return nil }

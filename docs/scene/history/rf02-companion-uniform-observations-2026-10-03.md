@@ -1,11 +1,13 @@
 <!-- document-role: historical-evidence -->
 <!-- commandPolicy: historical-only -->
 <!-- cutoffDate: 2026-10-03 -->
-<!-- uniqueValue: 五个自有slot1输入在固定官方客户端的完整量化区间及原图身份；不构成产品实现或自动采样合同。 -->
+<!-- uniqueValue: 自有slot1的数值区间、尺寸差分、非sprite默认值与动画同屏一致性及原图身份；不构成产品实现或全profile合同。 -->
 
-# RF02：五组公开纹理 companion 的官方呈现观察
+# RF02：公开纹理 companion 的有界官方呈现观察
 
 > **历史证据 — 非现役入口**。捕获截止2026-10-03 03:17:39（Asia/Shanghai）；仓库基线`06ae4fce`，本批未改产品。当前方向查[RF02卡](../roadmap/batch2/reference-evidence-implementation-cards.md#rf02-companion)及[兼容路线](../roadmap/scene-compatibility-roadmap.md)。前置修前反例和探针准入过程见[上一检查点](rf02-companion-research-checkpoint-2026-10-03.md)。本机原始工件根为`/private/tmp/mwx-rf02/`；以下相对工件名均相对该目录，用户原图保留在`/Users/songziqiang/Desktop/`。
+
+最终中性证据已晋升到 `.artifacts/scene-evidence/runs/rf02-companion-observations-20261003`，原始临时根已退役。90 张尺寸/默认值补证和360 张动画快照全部独审 ACCEPT，1111 个保留文件 SHA 已核对；目录另含协议共享控制图，450 是补证实验快照数。以下原路径只描述当时 provenance，现存身份以保留包 manifest 为准；实施结果另见[RF02 B](rf02-public-companion-implementation-2026-10-03.md)。
 
 ## 观察范围与准入
 
@@ -67,3 +69,45 @@ slot1 v1.3.1探针SHA-256 `9426d94e9fdb27086077bfbada2314363c419cd37a38b2fe8b398
 - **未完成产品实施。** 本轮没有MyWallpaperX GPU执行、completion/publication/terminal compositor/next-frame证据；先前真实Swift的active companion拒绝反例仍未修复。本记录不改变能力等级或宣布parity。
 
 本轮只消费自有作者输入、公开接口和官方黑盒输出；未读取或复制stock/private shader、反编译表达或第三方实现。受保护的能力台账、运行证据总表和工程执行档案未修改；并行`script/scene_source_layout.json`保留。
+
+
+## 后续补证：mapped-width 差分与重复呈现
+
+本节为同日后续批次的独立观察；上文的五组原始记录及其截止身份不变。后续全部 450 张原图、协议、自有输入、捕获身份日志和独审记录已按产物规则提取到 `.artifacts/scene-evidence/runs/rf02-companion-observations-20261003/`（约 12.3 MiB）；`official/report.json` 及 `manifest.json` 保存原相对路径到保留文件的映射。逐格派生报告可由原图与冻结 analyzer 重算，opaque vertex 表达未读取或提取。自有证据根为 `/private/tmp/mwx-scene-next-rf02/`，固定客户端及其 SHA 与上文相同。`protocol-freeze.json` 冻结 32 项输入、探针、协议和分析文件，SHA-256 `4fef873422b350acb72b590e5db5e52d6d56bb15ccd09b1e8a5d45c66afeacf7`；汇总 `dimension-results.json` SHA-256 `684971b09b70e2a09b4124a8690a90cdc0c6c0ae5e7a232803c633722ea68b6c`。
+
+基准继续使用 axis 的 slot1、单 image、单帧 TEX。差分只把 mapped-width 候选字段 384 改为 192：295040 字节文件仅第 34、35 字节不同，像素 payload 与末尾 45 字节 sprite 表完全相同。基准 TEX SHA-256 `f2e15837e5e63d729fb696c5b4634014a906268ae5d7e25dd5ced8c2ece5e7b4`；差分 TEX `803bfc63c8e7114c5747cc8d1b36e5c0f83c895fe5940eb9fda09c63bd63fd86`。独立的自有 Resolution 探针 SHA-256 `2dee877e8de24a795b1c58506380d426574430997beeba1709361843d5306655`；companion 探针沿用上文 v1.3.1。Resolution 使用单独冻结的四未知行协议，其余行是已知控制，不能套用六未知行 companion 解码器。
+
+| profile | Rotation.xyzw | Translation.xy | Resolution.xyzw |
+| --- | --- | --- | --- |
+| physical/mapped 均 384×192 | C, Z, Z, C | A, A | [384,384.015625), [192,192.015625), [384,384.015625), [192,192.015625) |
+| physical 384×192、mapped 192×192 | C, Z, Z, C | A, A | [384,384.015625), [192,192.015625), [192,192.015625), [192,192.015625) |
+
+四个程序/profile 各三次独立新窗口加载、每次三张间隔呈现快照，共 36 张全幅 768×384 原 PNG。每个 profile 的三次加载使用不同窗口 handle 和 command PID，主进程均为 7492；不是三个独立客户端进程。独审从原图重算 18432 格、2654208 个中心像素：全部命中预登记端点且 alpha=255，方向、八已知控制、Resolution 额外控制、guard/parity/tier 与 sampler 末行全匹配；逐格计数及半开区间与报告一致。原图字节与 host log 中的捕获载荷一致，32 项冻结文件无漂移。
+
+**可采用的推断：** Resolution.z 的独立响应排除了该头字段被忽略；在这一已准入输入中，改变 mapped-width 未使 companion 离开原量化盒，排除当前 mapped-width 分母候选（Rotation.x≈0.5、Translation.x≈0.25），与按 384 宽度归一化的候选一致。header physical 与首 mip 尺寸在本轮相同，不能区分二者作为内部来源。RT 与 Resolution 分程序测量，同进程资源缓存未单独观察；间隔快照不等于连续 GPU completion，区间相同不等于逐位值相同。本节不证明高度、动画相位、非 sprite/provider 默认值或产品实现，这些由各自后续记录闭合。
+
+
+## 后续补证：mapped-height 与非 sprite 默认值
+
+同一后续证据根的 `supplement/` 冻结 29 项文件，`freeze.json` SHA-256 `3839725cfc03e4749a24bc745ab36544ee70d44721441dca7502f3be9c64c489`；`results.json` SHA-256 `70b69e1e0b346ac9aaf0f7e5a1990a958ab084172b27b540ebecf75a19e7f1a7`，`capture-index.json` SHA-256 `6d108905981f9fabdd44dd18e74fe108b2ece7616ff41ce5a1a758317c5b11d6`。客户端、物理/首 mip 尺寸、公开探针和端点准入沿用宽度实验；输入修改全部在自有 TEX 上完成。
+
+| 输入 profile | 独立改动 | Rotation.xyzw / Translation.xy | Resolution 观察 |
+| --- | --- | --- | --- |
+| SPRITEY | axis 仅第 38 字节 mapped-height 192→96；payload/完整 sprite suffix 不变 | C,Z,Z,C / A,A | xy=[384,384.015625),[192,192.015625)，z=[384,384.015625)，w=[96,96.0009765625) |
+| NSFULL | axis 清除 sprite flag 4→0，移除末 45 字节 sprite suffix；payload 不变 | Z,Z,Z,Z / Z,Z | xyzw 与 full 384×192 基准的四盒相同 |
+| NSPAD | NSFULL 同时改 mapped pair 为 192×96；payload 不变 | Z,Z,Z,Z / Z,Z | xy 与 full 基准相同，z=[192,192.015625)，w=[96,96.0009765625) |
+
+每组 RT/Resolution 分程序，各三次新窗口加载、每次三张间隔呈现快照，共 54 张。独审重算 27648 格、3981312 个中心像素，全部为对应端点且 alpha=255；所有已知控制、计数、转录和区间一致。每个 profile 三次加载的 handle/command PID 不同，主进程仍为 7492；原图、host 捕获载荷、输入和冻结身份全部一致。
+
+**可采用的推断：** SPRITEY 的 Resolution.w 明确响应且 RT 保持原盒，排除本实验按 mapped-height 归一化的候选（Rotation.w≈0.5、Translation.y≈0.25）。NSFULL/NSPAD 的六个零盒排除单位或 padding 比例矩阵，可为本项目“非 sprite companion 取零”的实现合同提供有界依据，不能声称精确官方零值或全部 provider 已测。NSPAD 同时改变两个 mapped 轴，不能单独归因；96 使用 mid tier 的 1/1024 区间宽度，不可误写为 high tier 的 1/64。动画、其它格式、非有限值及产品可见验收仍独立待证。
+
+
+## 后续补证：动画的同屏绑定一致性
+
+`animation/` 使用自有双 image TEX，每个 image 为纯红或纯绿，两个 sprite 记录各持续 0.4 秒，Translation 候选分别为 (0.125,0.125) 与 (0.375,0.25)，Rotation 均为 (0.25,0,0,0.25)。片段探针同屏输出六个公开 companion 的量化网格和固定 literal 坐标的 raw sampler 颜色阈值码；颜色读取不使用 companion 坐标，因此可独立区分当前纹理与帧值是否错配。两组 header/mip 尺寸均 384×192。
+
+自有 TEX SHA-256 `1c93f794ab044619851d28f97169be4f99c75cb68ace9680129717e5ffa97eea`；`animation/manifest.json` SHA-256 `613f6858d2d5db9e2a4598dffa7c08712c74d0aac7b233256a42780bffd9859c`；`animation/freeze.json` SHA-256 `3fb780cb56029e40ecdc6905179966effd248b0a1db3b7b5bbb43cf4ad66ed52`；`animation/results.json` SHA-256 `b4507a3714fe69ba9a31a9f498746417bc221925db677614662966e6cabf4202`。身份和捕获索引见同目录 `capture-index.json`。
+
+三次新窗口加载各 120 张原 PNG，主进程仍为 7492，窗口 handle 分别 4916122、4456750、7340624。独审重算 184320 格、26542080 个中心像素，并核对所有原图与 host 捕获载荷、metadata、输入和索引身份；得到红色及对应 companion 183 对、绿色及对应 companion 177 对，每次加载各观察到 12 次状态切换；没有 invalid、unknown 或有效错配，512 格中心区均 100% 命中端点。三次采集实际间隔范围分别为 22.474–123.632、21.378–76.389、17.93–65.748 毫秒。
+
+这只支持所采呈现状态中的绑定一致性，不证明内部 CPU/GPU 的精确更新阶段、连续或原子的 render frame、一个 GPU frame 内的时限或循环边界全部状态。双 image 是官方观察输入；MyWallpaperX 仍限定现有单 atlas 准入，产品帧事务及可见输出必须另行运行验证。18 项动画冻结、32 项原协议及 29 项补充冻结均无漂移，独审 ACCEPT；捕获索引 SHA-256 `043e9263611e3f30704b63a3b8e92ad3dee37f3129204c862b231933a29aa6d0`。

@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 511,
-      "bytes": 78694
+      "lines": 521,
+      "bytes": 80691
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -86,11 +86,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 562,
-      "bytes": 331316
+      "bytes": 331799
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 66,
-      "bytes": 5647
+      "bytes": 5763
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -132,10 +132,6 @@
       "lines": 486,
       "bytes": 108600
     },
-    "docs/scene/roadmap/batch2/authored-texture-coordinate-design.md": {
-      "lines": 64,
-      "bytes": 10447
-    },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 67,
       "bytes": 13916
@@ -165,8 +161,8 @@
       "bytes": 22962
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
-      "lines": 271,
-      "bytes": 51802
+      "lines": 263,
+      "bytes": 50548
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -182,7 +178,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 242,
-      "bytes": 32438
+      "bytes": 32449
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,
@@ -986,6 +982,23 @@
       "originalBodySHA256": "3e29700c4a8d3a8c88486aa8edc6169cc6aa044419746fc6ff3fe258208e7a34",
       "originalLines": 47,
       "originalBytes": 7688
+    },
+    {
+      "source": "docs/scene/roadmap/batch2/authored-texture-coordinate-design.md",
+      "archive": "docs/scene/history/rf02-authored-texture-coordinate-design-2026-10-03.md",
+      "anchors": [
+        "owner-与方案裁决",
+        "rf02-作者纹理坐标与公开-companion-的职责",
+        "两项准入fallback-与缓存",
+        "当前事实与首断点",
+        "目标合同与证据范围",
+        "纠正门与交付",
+        "退役条件"
+      ],
+      "preservedBodySHA256": "33f6da26666033ae2d239177ecb6569d46aca20f935db45f529f2a24be3cc3ac",
+      "originalBodySHA256": "9cbddb991253808965eb7d758c9db3e727316530ea93df0c9037af6ba68dfbe2",
+      "originalLines": 72,
+      "originalBytes": 14067
     }
   ],
   "snapshots": [
@@ -1075,12 +1088,57 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "577e7a88abeb2e4724b6d63f7f817760abfa7fe8d9994437cae3fb2787a24ad0",
+      "after": "f6b1504f9d67d90f6bea0f6ebffc33035488a6a4b3589227fb935bae99fcfe3d",
+      "owner": "scene-rf02-companion",
+      "reason": "Reconcile the implemented RF02 public companion boundary and accepted execution evidence with the existing authority; retain unknown families, frontend array rejection and measured-profile limits.",
+      "decision": "docs/scene/history/rf02-public-companion-implementation-2026-10-03.md#knowledge-handoff"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "ea4be9b347a6702bbeed2391b11396316addedf5e5ee38cf128f5e1f19bdbfce",
+      "after": "2f9f7e6ac41675082e7611b679174ba9373a963a3bba2e9712e09b82ba8a8fe6",
+      "owner": "scene-rf02-companion",
+      "reason": "Reconcile the implemented RF02 public companion boundary and accepted execution evidence with the existing authority; retain unknown families, frontend array rejection and measured-profile limits.",
+      "decision": "docs/scene/history/rf02-public-companion-implementation-2026-10-03.md#knowledge-handoff"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0bcb1702a8d3d90636437076fe078667884c479acf1fde36165bea84a2a7fbed",
-      "after": "e3a90ee8b514a2bbc0b9957959ab6cc3b2bfebb769935fd32c53d237920090d6",
-      "owner": "scene-runtime-evidence",
-      "reason": "Add one compact entry to already accepted Batch2 execution records so current capability summaries no longer report implemented bounded features as missing; no new runtime claim.",
-      "decision": "docs/development/repository-workflow.md#代码与知识交付"
+      "before": "e3a90ee8b514a2bbc0b9957959ab6cc3b2bfebb769935fd32c53d237920090d6",
+      "after": "b9d1c3df3cebc117466b0f3d5ece94e9af7ed34eb605184df7c9d6853f8cf1eb",
+      "owner": "scene-rf02-companion",
+      "reason": "Reconcile the implemented RF02 public companion boundary and accepted execution evidence with the existing authority; retain unknown families, frontend array rejection and measured-profile limits.",
+      "decision": "docs/scene/history/rf02-public-companion-implementation-2026-10-03.md#knowledge-handoff"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/authored-texture-coordinate-design.md",
+      "before": "dd701990d386e3c125831575003b389b4ec9861c38285b903761dc3d431535ed",
+      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "owner": "scene-rf02-companion",
+      "reason": "Retire the completed RF02 A/B active design into an anchored navigation entry; stable responsibilities and bounded evidence are owned by runtime architecture and the implementation record.",
+      "decision": "docs/scene/history/rf02-public-companion-implementation-2026-10-03.md#knowledge-handoff"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
+      "before": "2ec6b039db05006e2bd55cb0fb98c085a18600d13eab0cd63520bf2c65d44a2e",
+      "after": "9a48a2c4ffd47b921fb7f66450484a319c757bed9c2484aff931de91135e1f80",
+      "owner": "scene-rf02-companion",
+      "reason": "Reconcile the implemented RF02 public companion boundary and accepted execution evidence with the existing authority; retain unknown families, frontend array rejection and measured-profile limits.",
+      "decision": "docs/scene/history/rf02-public-companion-implementation-2026-10-03.md#knowledge-handoff"
+    },
+    {
+      "section": "archives",
+      "path": "docs/scene/history/rf02-authored-texture-coordinate-design-2026-10-03.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "619aa0ff57860cab80485ed2e23958d85cdd61ca192a9817d1cbf4247a03e28e",
+      "owner": "scene-rf02-companion",
+      "reason": "Preserve the approved RF02 A/B design body and all seven original anchors; only relative Markdown links are mechanically relocated, with original and preserved identities recorded.",
+      "decision": "docs/scene/history/rf02-public-companion-implementation-2026-10-03.md#knowledge-handoff"
     }
   ]
 }

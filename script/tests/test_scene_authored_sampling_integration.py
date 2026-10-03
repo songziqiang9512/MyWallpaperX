@@ -2,7 +2,7 @@
 
 The oracle is fixed in canvas coordinates before launch. Source capture performs
 host image mapping once; authored sampling of that capture keeps its own UV.
-This does not test the separately blocked texture-companion value contract.
+Companion cases explicitly map a separately bound authored atlas once.
 """
 from pathlib import Path
 import hashlib
@@ -34,7 +34,7 @@ def encoded(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
 
 
-def texture(axis):
+def texture(axis, colors=COLORS):
     """One uncompressed RGBA mip; one positive-axis TEXS frame or padding."""
     width, height = 64, 32
     ox, oy = (16, 8) if axis else (0, 0)
@@ -43,7 +43,7 @@ def texture(axis):
         for x in range(width):
             color = SENTINEL
             if ox <= x < ox + 32 and oy <= y < oy + 16:
-                color = COLORS[int(y >= oy + 8) * 2 + int(x >= ox + 16)]
+                color = colors[int(y >= oy + 8) * 2 + int(x >= ox + 16)]
             payload.extend((*color, 255))
     mapped = (width, height) if axis else (32, 16)
     result = (b"TEXV0005\0TEXI0001\0"
@@ -95,7 +95,7 @@ ORIGINAL_ATLAS_PACKAGE_SHA256 = "3c2a32970436923433f6c7ad82735811b882067f6214df4
 ORIGINAL_PROJECT_SHA256 = "2a5e61fb3064dc35c646e3dce93f13967496219ea96ddad8a73545d1b6207f60"
 
 
-def changing_atlas():
+def changing_atlas(permute=False):
     # Two disjoint, equal positive-axis frames; frame one lasts 2 seconds,
     # frame two lasts an hour. Ready is requested at 1 second, after at 3.
     # Expected colors are fixed by request class before either image is read.
@@ -107,6 +107,8 @@ def changing_atlas():
             for origin, palette in ((16, COLORS), (80, SECOND_COLORS)):
                 if origin <= x < origin + 32 and 8 <= y < 24:
                     color = palette[int(y >= 16) * 2 + int(x >= origin + 16)]
+                    if permute:
+                        color = (color[1], color[2], color[0])
             payload.extend((*color, 255))
     result = (b"TEXV0005\0TEXI0001\0" + struct.pack("<7I", 0, 4, width, height, width, height, 0)
               + b"TEXB0002\0" + struct.pack("<2I", 1, 1)
@@ -143,6 +145,51 @@ def case_fixture(case):
         scene["objects"].append(second)
         panels[-1] = (31, 80, 152, True)
         panels.append((32, 176, 152, True))
+    elif case in ("companion", "companion-vertex", "companion-frame") or case.startswith("invalid-companion-"):
+        # The independent slot1 asset reaches the real asset publication owner;
+        # slot0's already captured image must not supply these uniforms.
+        entries["materials/companion.tex"] = texture(True, tuple((g, b, r) for r, g, b in COLORS))
+        scene["objects"][1]["effects"][0]["file"] = "effects/own_companion/effect.json"
+        scene["objects"][1]["effects"][0]["passes"][0]["textures"] = [None, "materials/companion.tex"]
+        entries["effects/own_companion/effect.json"] = encoded({
+            "passes": [{"material": "materials/own_companion.json"}]})
+        entries["materials/own_companion.json"] = encoded({"passes": [{
+            "shader": "own_companion", "textures": [None, "materials/companion.tex"],
+            "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled",
+            "cullmode": "nocull"}]})
+        declarations = (b"uniform vec4 g_Texture1Rotation;\n"
+                        b"uniform vec2 g_Texture1Translation;\n")
+        expression = (b"g_Texture1Translation + g_Texture1Rotation.xy * v_TexCoord.x"
+                      b" + g_Texture1Rotation.zw * v_TexCoord.y")
+        entries["shaders/own_companion.vert"] = VERTEX
+        fragment = (b'uniform sampler2D g_Texture1; // {"material":"albedo"}\n'
+                    b"varying vec2 v_TexCoord;\n"
+                    + declarations + b"void main(){vec4 c=texSample2D(g_Texture1,"
+                    + expression + b");gl_FragColor=vec4(c.rgb*c.a,c.a);}\n")
+        if case == "companion-vertex":
+            entries["shaders/own_companion.vert"] = declarations + VERTEX.replace(
+                b"v_TexCoord=a_TexCoord;", b"v_TexCoord="
+                + expression.replace(b"v_TexCoord", b"a_TexCoord") + b";")
+            fragment = fragment.replace(declarations, b"").replace(expression, b"v_TexCoord")
+        if case.startswith("invalid-companion-"):
+            kind = case.removeprefix("invalid-companion-")
+            declarations = {
+                "type": b'uniform vec3 g_Texture1Rotation; // {"default":"0 0 0"}\n',
+                "array": b'uniform vec4 g_Texture1Rotation[1]; // {"default":"0 0 0 0"}\n',
+                "inactive": b'uniform vec4 g_Texture1Rotation; // {"default":"0 0 0 0"}\n',
+            }
+            slot = 0 if kind == "inactive" else 1
+            name = b"g_Texture1Rotation[0]" if kind == "array" else b"g_Texture1Rotation"
+            fragment = (f'uniform sampler2D g_Texture{slot}; // {{"material":"albedo"}}\n'.encode()
+                        + b"varying vec2 v_TexCoord;\n" + declarations[kind]
+                        + f"void main(){{vec4 c=texSample2D(g_Texture{slot},v_TexCoord+".encode()
+                        + name + b".xy);gl_FragColor=vec4(c.rgb*c.a,c.a);}\n")
+            panels = [(layer, x, y, effect and layer not in (12, 31))
+                      for layer, x, y, effect in panels]
+        entries["shaders/own_companion.frag"] = fragment
+        if case == "companion-frame":
+            entries["materials/axis.tex"] = changing_atlas()
+            entries["materials/companion.tex"] = changing_atlas(permute=True)
     elif case == "new-frame":
         entries["materials/axis.tex"] = changing_atlas()
     elif case not in ("atlas", "resize"):
@@ -160,7 +207,7 @@ def preregistration(case="padding"):
             "panels": [{"id": layer, "center": [x, y],
                         "quadrantRGB": [list((c[1], c[2], c[0]) if effect else c) for c in COLORS]}
                        for layer, x, y, effect in panels],
-            "newFramePalette": SECOND_COLORS if case == "new-frame" else None,
+            "newFramePalette": SECOND_COLORS if case in ("new-frame", "companion-frame") else None,
             "oracle": {"interiorInsetCanvas": 3, "minimumCorrectAreaFraction": .99,
                        "channelTolerance": 3, "outsideBoundaryOffsetCanvas": 2,
                        "outsideRGB": [0, 0, 0], "sentinelRGB": SENTINEL},
@@ -237,7 +284,8 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                 preview = "\n".join(p.read_text() for p in evidence.glob("*preview*.log"))
                 captures = sorted(evidence.glob("*-window.png"))
                 measurements = {p.name: measure_capture(p, panel_specs,
-                    second_frame=case == "new-frame" and "after" in p.name) for p in captures}
+                    second_frame=case in ("new-frame", "companion-frame") and "after" in p.name)
+                    for p in captures}
                 (root / "measurements.json").write_bytes(encoded(measurements))
                 self.assertEqual(result.returncode, 0, log[-6000:])
                 self.assertIn("gpuDrained=true", log)
@@ -246,6 +294,15 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                 self.assertTrue(any("ready" in p.name for p in captures))
                 self.assertTrue(any("after" in p.name for p in captures))
                 effect_layers = (22,) if case == "raw-miss" else (12, 22, 31)
+                if case.startswith("invalid-companion-"):
+                    effect_layers = (22, 31)
+                    if case == "invalid-companion-array":
+                        self.assertIn("reason=frontend/shaderFrontendFailed", log)
+                        self.assertIn("g_Texture1Rotation' has an unsupported array shape", log)
+                    else:
+                        self.assertIn("reason=uniform/staticUniformBindingInvalid", log)
+                        self.assertIn("details=g_Texture1Rotation", log)
+                    self.assertNotRegex(log + preview, r"generic shader execution [^\n]*layer=12 effect=0 ")
                 if case == "two-consumers":
                     effect_layers += (32,)
                 for layer in effect_layers:
@@ -302,3 +359,21 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
 
     def test_resize_preserves_atlas_named_output(self):
         self.run_case("resize")
+
+    def test_fragment_companion_maps_bound_asset_once(self):
+        self.run_case("companion")
+
+    def test_vertex_companion_maps_bound_asset_once(self):
+        self.run_case("companion-vertex")
+
+    def test_companion_tracks_actual_asset_frame_and_named_output(self):
+        self.run_case("companion-frame")
+
+    def test_companion_wrong_type_default_cannot_bypass_host_abi(self):
+        self.run_case("invalid-companion-type")
+
+    def test_companion_array_default_cannot_bypass_host_abi(self):
+        self.run_case("invalid-companion-array")
+
+    def test_companion_without_active_sampler_cannot_use_default(self):
+        self.run_case("invalid-companion-inactive")

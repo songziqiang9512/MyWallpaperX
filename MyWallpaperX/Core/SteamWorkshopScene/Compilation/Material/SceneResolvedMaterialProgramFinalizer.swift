@@ -205,6 +205,14 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 }
                 return .init(field: field, source: .host(host))
             }
+            guard !SceneResolvedMaterialHostUniformSchema
+                .requiresTextureCompanionHost(field.authoredName) else {
+                throw failure(
+                    .uniform,
+                    .staticUniformBindingInvalid,
+                    details: [field.name]
+                )
+            }
             guard let schema else {
                 throw failure(
                     .uniform,

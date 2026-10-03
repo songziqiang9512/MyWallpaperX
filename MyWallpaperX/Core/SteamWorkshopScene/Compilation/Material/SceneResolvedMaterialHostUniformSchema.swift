@@ -32,30 +32,45 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
         case ("g_TexelSizeHalf", .float2):
             .texelSize(scaleBitPattern: Double(0.5).bitPattern)
         default:
-            textureResolution(field, activeTextureSlots: activeTextureSlots)
+            textureUniform(field, activeTextureSlots: activeTextureSlots)
                 ?? audioSpectrum(field)
         }
     }
 
-    private static func textureResolution(
+    private static func textureUniform(
         _ field: SceneAuthoredShaderUniformLayout.Field,
         activeTextureSlots: Set<Int>
     ) -> Program.HostUniform? {
         let name = field.authoredName
-        guard field.type == .float4,
-              name.hasPrefix("g_Texture"),
-              name.hasSuffix("Resolution") else { return nil }
-        let start = name.index(
-            name.startIndex,
-            offsetBy: "g_Texture".count
-        )
-        let end = name.index(
-            name.endIndex,
-            offsetBy: -"Resolution".count
-        )
-        guard start < end, let slot = Int(name[start ..< end]),
+        guard field.arrayCount == nil,
+              let slot = textureSlotPrefix(name),
               activeTextureSlots.contains(slot) else { return nil }
-        return .textureResolution(slot: slot)
+        switch (name, field.type) {
+        case ("g_Texture\(slot)Resolution", .float4):
+            return .textureResolution(slot: slot)
+        case ("g_Texture\(slot)Rotation", .float4):
+            return .textureRotation(slot: slot)
+        case ("g_Texture\(slot)Translation", .float2):
+            return .textureTranslation(slot: slot)
+        default:
+            return nil
+        }
+    }
+
+    /// A malformed public companion cannot become an authored static/dynamic
+    /// uniform merely because its type or active binding failed resolution.
+    /// Resolution retains its separate neutral/self-composite contracts.
+    static func requiresTextureCompanionHost(_ name: String) -> Bool {
+        guard let slot = textureSlotPrefix(name) else { return false }
+        return name == "g_Texture\(slot)Rotation"
+            || name == "g_Texture\(slot)Translation"
+    }
+
+    private static func textureSlotPrefix(_ name: String) -> Int? {
+        guard name.hasPrefix("g_Texture"),
+              let slot = Int(name.dropFirst("g_Texture".count).prefix(1)),
+              (0 ..< 8).contains(slot) else { return nil }
+        return slot
     }
 
     private static func audioSpectrum(

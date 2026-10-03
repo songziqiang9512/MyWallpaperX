@@ -149,6 +149,7 @@ extension SceneResolvedMaterialProgram {
         let physicalExtent: [Int]
         let mappedExtent: [Int]
         let uvBitPatterns: [UInt32]
+        let isSpriteSheet: Bool
         let sampling: SceneTextureSampling
         let samplingRawFlags: UInt32?
         let authoredFormat: SceneShaderTextureFormat?

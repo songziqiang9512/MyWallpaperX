@@ -28,21 +28,13 @@
 
 <a id="rf02-companion"></a>
 
-### RF02 — 公开 uniform 的反射到consumer合同
+### RF02 — 作者采样与公开 companion 的有界实现
 
-**owner / 输入输出。** ShaderContract/schema/finalizer保留作者声明和active reflection，现役HostUniformSchema为每个支持的uniform发布type/shape/source及typed frame值；UniformEncoder与同一material binding消费，Program identity包含必要ABI事实。
+**已实现边界。** A 已让两 compiler 保留作者采样坐标；atlas named 的 graph/raw 来源及局部失败沿原 owner 处理。B 已在同一 candidate 的 sprite 来源与帧变换上接通 0…7 Rotation/Translation typed host，vertex/fragment 共用所选槽；reserved companion 的错误类型或缺 active sampler 不能由作者 default 绕过。稳定数值、publication/exact identity、帧事务及合法旧工件复用合同只由[架构](../../architecture/runtime-architecture.md#authored-texture-companion)拥有，原 A/B 裁决已[归档](../../history/rf02-authored-texture-coordinate-design-2026-10-03.md)。
 
-**首断点。** 公开 Resolution 已有 host producer；Rotation／Translation 与 MipMapInfo 尚未建立完整值合同。采样入口与 companion 值分别由设计 A／B 管理；A 移除额外坐标注入与同槽补偿机制，不改变基础图像映射或开放新的资源 profile。
+**证据与上限。** [A](../../history/rf02-authored-sampling-implementation-2026-10-03.md)、[atlas named](../../history/rf02-atlas-named-output-implementation-2026-10-03.md)与[B实施记录](../../history/rf02-public-companion-implementation-2026-10-03.md)各自固定真实 producer→consumer→GPU/compositor、缓存、反例及最终验收状态；不合成共同全兼容结论。[官方补证](../../history/rf02-companion-uniform-observations-2026-10-03.md)只支持已测尺寸差分、非 sprite 量化盒和所采动画呈现一致性，不恢复精确浮点值或内部 CPU/GPU 相位。bounded uniform 数组在 frontend 失败，不能记成实际 Program 数组 consumer 验收。
 
-**前置 / 范围 / 不做。** 由[作者纹理坐标设计](authored-texture-coordinate-design.md)分别裁决采样入口纠正与公开companion值准入；在同一设计中登记每个公开uniform的准确类型、物理/映射尺寸、sprite旋转平移的值与更新相位、active sampler依赖、失败分类。首批只处理0…7有真实声明/消费的公开companion，逐producer闭合，不为清空缺口增加mirror符号或第二ABI。8…12、MipMapInfo/未公开Texel family保持待证；只有具体合法stock/corpus occurrence和中性行为规格能触发独立runtime profile设计，不能直接改变UInt8 mask/槽宽。本次实读[官方Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html#texture)与[Desaturation教程](https://docs.wallpaperengine.io/en/scene/shader/tutorials/desaturation.html#editing-the-shader)只固定Translation(vec2)/Rotation(vec4)及0…7声明范围。已取得的有限分量区间只约束对应输入；尺寸来源与动画相位仍须补证。采样操作保留作者坐标的公开合同和修前GPU反例由设计A接管，公开companion值按设计B另行冻结，不能把两者混为同一阻塞。
-
-**正反验收。** 自有declared+active fixture区分physical/mapped size、非方形sprite、rotation/translation与neutral transform；shader直接读取uniform与自动sampling结果各有oracle。缺sampler/dead uniform、类型/array/stage冲突、padding、wrong generation、provider尺寸变化、sprite新frame、ABI缓存失效及普通帧无reflection分别验证；最终GPU/ROI/publication/next-frame。未知uniform仍局部失败，不能用零值猜测成功。
-
-**依赖 / 复杂度。** 公开类型/更新相位与合法 active consumer 先定案，RT companion 消费依赖 RF01；中等至高，未公开 family 不进入实施估算。
-
-**退役。** 支持profile的反射→typed值→GPU consumer闭合且证据/ABI回稳定权威后删卡；未公开family明确unknown，不计支持。
-
-**实施入口与继续取证。** A 的产品、实际 GPU／App 输出及验证边界集中在[实施记录](../../history/rf02-authored-sampling-implementation-2026-10-03.md)，独立终审结论以该记录为准。非零起点 atlas 的 named 输出及局部失败批已完成原包、动态帧、双消费者与resize实际App验证；实施范围、设计纠偏和最终审批状态见[本批记录](../../history/rf02-atlas-named-output-implementation-2026-10-03.md)，稳定职责归[架构§3.3](../../architecture/runtime-architecture.md#33-保留事务安全不扩大视觉失败半径)。B 保持 blocked：补不同 physical／mapped 尺寸与 Resolution 的交叉观察，排除头字段被忽略，再独立核重载稳定性与动画更新相位。已保存[数值观察](../../history/rf02-companion-uniform-observations-2026-10-03.md)与 literal／active 单次采样原图，用户关闭观察窗口不影响原证据；无须重开旧探针。新行为定案后沿原反射、typed uniform、资源 publication 和 sampler 实施，不新增动画时钟。
+**仍未知与后继。** 8…12、MipMapInfo/未公开 Texel family、非轴/多 image 与所有 provider 官方默认值不计支持；具体合法 occurrence 和中性行为规格才能启动独立设计，不改变 UInt8 mask/槽宽。B 最终冻结与独审由实施记录收口，随后按[兼容路线](../scene-compatibility-roadmap.md#batch-2-后继选序2026-10-02)推进 RF04→D1；不再重开已独审的尺寸/动画探针，也不新增另一套 ABI 或时钟。
 
 ### RF03 — D4+D11 限定播放与显式出生
 
@@ -54,9 +46,9 @@ RF03 连续排放后继已独立验收：缺省/0 duration四方法和显式非�
 
 **owner / 输入输出。** 既有graph准备生成source version→mip snapshot/generation→consumer依赖；lease/allocation/publication仍唯一。SceneGraphResourcePassEncoder降低明确copy或mip生成操作，terminal compositor只消费末结果。
 
-**首断点。** `Compilation/Material/SceneResolvedMaterialShaderSchema.swift:23`未准入MipMappedFrameBuffer；`Rendering/Composition/SceneFramebufferSnapshot.swift:43`只复制level0、`:65`非mip；`Rendering/Targets/SceneGraphRenderTargetTable.swift:199`非mip；`Rendering/Graph/SceneGraphResourcePassEncoder.swift:339`限定单mip。相反，authored copy已经由`Compilation/Graph/SceneAuthoredEffectRenderPlanner.swift:317`保序并由encoder:105准备，不重写该链。
+**首断点。** 名称 owner 是 `Compilation/Material/SceneRenderTargetVocabulary.swift:49–59`：FullFrameBuffer/imageLayerComposite 已准入，MipMappedFrameBuffer 仍为 typed unadmitted；Schema:23 仅持 admission。普通 authored FBO allocator（`Rendering/Targets/SceneGraphRenderTargetTable.swift:199/224`）及 resource transfer（`Rendering/Graph/SceneGraphResourcePassEncoder.swift:285/318`）仍为 single-mip，但默认2D反射 F5 已在 `Rendering/Frame/SceneMetalRenderer+ClearColor.swift:29–53` 的实际 source consumer 前捕获全局 raw main 前缀并生成完整 mips，同帧共享、下一帧重建，稳定合同见[架构§3.3](../../architecture/runtime-architecture.md#33-保留事务安全不扩大视觉失败半径)。这不表示作者 hidden/default MipMappedFrameBuffer 已准入；两个 source 入口仍在 encoder 前 resolve，缺合法名称和读取相位证据时保持局部拒绝。authored copy 的原序和现有 transfer owner 不重写。
 
-**前置 / 范围 / 不做。** [D12](copy-pass-unification-design.md)批准typed transfer边界，不证明mip消费者全部语义。先用合法内容与公开/中性行为协议固定hidden g_Texture3 default等具体消费者的读取时点、尺寸、level、颜色/alpha/data用途及source覆写命运；无证据不能把mip生成绑到slot3或“copy=true”。D8身份是前置，颜色域与D2一致。link别名、authored copy、末跳已有路径先审计alias/snapshot与版本，不因名字不同做物理copy；无消费者零生产。未知mip/颜色profile保持准入拒绝。
+**前置 / 范围 / 不做。** [D12](copy-pass-unification-design.md)批准typed transfer边界，不证明mip消费者全部语义。先用合法自有 hidden/default consumer 与公开/中性行为协议固定实际 source/read phase、尺寸、level、颜色/alpha/data用途及source覆写命运；无证据不能把mip生成绑到slot3或“copy=true”。D8身份是前置，颜色域与D2一致。link别名、authored copy、末跳已有路径先审计alias/snapshot与版本，不因名字不同做物理copy；无消费者零生产。未知mip/颜色profile保持准入拒绝。
 
 **正反验收。** 不同mip独立色格，copy前后覆写source区分alias与snapshot；精确subresource/extent/format、1×1 probe反例、self-copy/hazard、mip/slice越界、history pin、resize、encoder/GPU失败、反序completion、无consumer成本与next-frame版本。bit-copy精确字节，明确render transfer用预冻结容差；不在copy重复blend/tone map，不绕terminal自行present。
 
@@ -179,13 +171,13 @@ hidden image/solid source-only named albedo沿同一当前纹理、world、cover
 
 | ID / 历史裁决 | 我方owner证据 path:line | 当前判定与去向 |
 |---|---|---|
-| render-0 / gap | `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift:49`；`Compilation/ShaderPreparation/SceneShaderVariantResolver+Schema.swift:278`（后二级路径均相对SteamWorkshopScene） | 有限定RT词汇表；8槽符合官方公开author合同。RF01已闭合现役family首片，见上方执行记录；RF02取证companion，8…12/MipMapInfo待证，不复制14名前缀表。 |
+| render-0 / gap | `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift:49`；`Compilation/ShaderPreparation/SceneShaderVariantResolver+Schema.swift:278`（后二级路径均相对SteamWorkshopScene） | 有限定RT词汇表；8槽符合官方公开author合同。RF01已闭合现役family首片，见上方执行记录；RF02已实现公开0…7 companion，8…12/MipMapInfo待证，不复制14名前缀表。 |
 | render-1 / gap | `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift:193`；`Compilation/Material/SceneResolvedMaterialShaderSchema.swift:787` | 初次复核时explicit已用单点，default仍lowercase/raw分派；这条缺边已由RF01闭合，见上方移交记录。 |
 | render-2 / gap | `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlanner.swift:306`、`:328` | 作者FBO/命令端点已保留。补证/消歧；自有FullCompoBuffer1/2 fixture不证明内建名字语义。 |
 | render-3 / gap | `MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneBloomPostProcess.swift:6`、`:51`；`Rendering/Frame/SceneMetalRenderer.swift:925` | scene Bloom已存在。RF00验D2显示域与一次映射；Mirage双别名/内部名字不增API。 |
 | render-4 / corroborated | `MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift:13`；`Rendering/Dependencies/SceneDependencyRenderPlan+Aggregate.swift:112` | provider reference及消费闭包已存在；RF05补hidden-reference/resize/generation。 |
 | render-5 / gap | `MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift:111`；`Compilation/Material/SceneResolvedMaterialProgramFinalizer.swift:296` | prepare/finalize到执行链已有。补职责引用；不为四阶段函数形状重新组织产品。 |
-| render-6 / gap | `MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift:257`、`:312`；`Compilation/Material/SceneResolvedMaterialShaderSchema.swift:316` | lexical/annotation/schema/reflection已存在并支持PASS。RF02仅追具体未闭合uniform；Mirage缺PASS不继承。 |
+| render-6 / gap | `MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift:257`、`:312`；`Compilation/Material/SceneResolvedMaterialShaderSchema.swift:316` | lexical/annotation/schema/reflection已存在并支持PASS。RF02公开0…7 Rotation/Translation 已闭合有界host链，未公开uniform另需具体合法输入；Mirage缺PASS不继承。 |
 | render-7 / mirage-specific | `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer.swift:454` | 最近owner为我方prepared ABI验证；隔离HLSL packoffset/glslang workaround。 |
 | render-8 / mirage-specific | `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramIdentity.swift:1` | 我方Program identity已独立；隔离Vulkan缓存键字节/哈希算法。 |
 | render-9 / gap | `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlanner.swift:317`；`Rendering/Graph/SceneGraphResourcePassEncoder.swift:105`；`Rendering/Composition/SceneFramebufferSnapshot.swift:43` | authored copy已实现；mip snapshot缺生产/身份/trigger合同→RF04待证后实施。 |

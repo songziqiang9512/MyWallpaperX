@@ -35,6 +35,7 @@ nonisolated extension SceneResolvedMaterialProgramIdentity {
                 transform.yAxis.x.bitPattern,
                 transform.yAxis.y.bitPattern,
             ],
+            isSpriteSheet: candidate.isSpriteSheet,
             sampling: candidate.sampling,
             samplingRawFlags: candidate.sampling.rawFlags,
             authoredFormat: candidate.authoredFormat,

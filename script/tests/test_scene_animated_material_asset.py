@@ -54,6 +54,7 @@ import Metal
 private let firstPath = SceneVFSAssetPath("particle/fog/fog2-a")!
 private let secondPath = SceneVFSAssetPath("particle/fog/fog2-b")!
 private let zeroDurationPath = SceneVFSAssetPath("valid/zero-duration")!
+private let staticPath = SceneVFSAssetPath("valid/static")!
 private let invalidPaths = [
     "rotated", "nonfinite", "out-of-range", "duration-overflow",
     "empty", "multi-image", "decode",
@@ -89,11 +90,14 @@ private enum Main {
         let zeroDuration = SceneAssetTextureIdentity(
             path: zeroDurationPath, purpose: .preservedChannels
         )
+        let staticIdentity = SceneAssetTextureIdentity(
+            path: staticPath, purpose: .preservedChannels
+        )
         let invalid = invalidPaths.map {
             SceneAssetTextureIdentity(path: $0, purpose: .preservedChannels)
         }
         let catalog = SceneMaterialAssetTextureCatalog(
-            demands: Set([first, second, zeroDuration] + invalid),
+            demands: Set([first, second, zeroDuration, staticIdentity] + invalid),
             resourceView: view,
             descriptor: SceneRenderDescriptor(),
             device: device
@@ -143,7 +147,9 @@ private enum Main {
               let zeroAfterBoundary = publication(
                   zeroAfterBoundaryStates, zeroDuration
               ),
-              let independent = publication(independentStates, first) else {
+              let independent = publication(independentStates, first),
+              let staticFrame0 = publication(frame0States, staticIdentity),
+              let staticLater = publication(laterStates, staticIdentity) else {
             throw NSError(domain: "animated-provider", code: 1)
         }
 
@@ -159,6 +165,7 @@ private enum Main {
         let staleRetained: Bool
         if case let .ready(resource)? = registry.lookup(.asset(first)) {
             staleRetained = resource.publication.isSameAtom(as: later)
+                && resource.publication.candidate.isSpriteSheet
         } else { staleRetained = false }
 
         let firstURL = root.appendingPathComponent("particle/fog/fog2-a.tex")
@@ -183,6 +190,7 @@ private enum Main {
         let revisionRecovered: Bool
         if case let .ready(resource)? = registry.lookup(.asset(first)) {
             revisionRecovered = resource.publication.isSameAtom(as: revised)
+                && resource.publication.candidate.isSpriteSheet
         } else { revisionRecovered = false }
 
         let wrongPurpose = SceneAssetTextureIdentity(
@@ -266,6 +274,15 @@ private enum Main {
             "metalAvailable": true,
             "stockShape": shape,
             "launchReady": launchReady,
+            "spriteProvenance": [frame0, stable, later, wrap, secondFrame0,
+                zeroFrame0, zeroStable, zeroBeforeBoundary, zeroAfterBoundary,
+                independent, revised].allSatisfy { $0.candidate.isSpriteSheet },
+            "transactionalSpriteProvenance": [transactionalAccepted,
+                transactionalDiscarded, transactionalRetry, transactionalAfterCommit]
+                .allSatisfy { $0.candidate.isSpriteSheet },
+            "staticProvenance": !staticFrame0.candidate.isSpriteSheet
+                && !staticLater.candidate.isSpriteSheet
+                && staticFrame0.isSameAtom(as: staticLater),
             "twoIdentities": secondFrame0.requestIdentity == .asset(second)
                 && secondFrame0.candidate.physicalSize
                     == frame0.candidate.physicalSize
@@ -335,6 +352,13 @@ class SceneAnimatedMaterialAssetTests(unittest.TestCase):
         (resources / "valid").mkdir(parents=True)
         shutil.copyfile(STOCK_FOG2, resources / "particle/fog/fog2-a.tex")
         shutil.copyfile(STOCK_FOG2, resources / "particle/fog/fog2-b.tex")
+        shutil.copyfile(
+            REPOSITORY_ROOT / (
+                "MyWallpaperX/Resources/SceneStockAssets.bundle/assets/"
+                "materials/editor/testusertexture.png"
+            ),
+            resources / "valid/static.png",
+        )
         (resources / "valid/zero-duration.tex").write_bytes(
             animated_r8_tex([
                 (0, 0, (0, 0, 2, 0, 0, 4)),

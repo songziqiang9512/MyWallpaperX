@@ -179,6 +179,10 @@ nonisolated struct SceneTextureCandidate {
     let physicalSize: CGSize
     let mappedSize: CGSize
     let uvTransform: SceneTextureUVTransform
+    /// The transform belongs to an admitted sprite frame, including a
+    /// single-frame sheet. Static padding and completed render targets do not
+    /// supply public sprite companions from their image mapping.
+    let isSpriteSheet: Bool
     let sampling: SceneTextureSampling
     let authoredFormat: SceneShaderTextureFormat?
 
@@ -191,6 +195,7 @@ nonisolated struct SceneTextureCandidate {
         physicalSize: CGSize,
         mappedSize: CGSize,
         uvTransform: SceneTextureUVTransform,
+        isSpriteSheet: Bool = false,
         sampling: SceneTextureSampling,
         authoredFormat: SceneShaderTextureFormat? = nil
     ) {
@@ -202,6 +207,7 @@ nonisolated struct SceneTextureCandidate {
         self.physicalSize = physicalSize
         self.mappedSize = mappedSize
         self.uvTransform = uvTransform
+        self.isSpriteSheet = isSpriteSheet
         self.sampling = sampling
         self.authoredFormat = authoredFormat
     }
