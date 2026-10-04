@@ -174,6 +174,9 @@
 <a id="particle-turbulent-forward-blackbox"></a>
 2026-10-04 官方2.8.0.42 `wallpaper32.exe`（SHA256 `daac1ea7c991207fdb6098616757e3dae393850f6862845db55d04921b6bda07`）隔离窗口黑盒：自有白色TEX、PKGV0001包及蓝色年龄标尺，在phase/scale/offset=0、speed=10时，forward长度1/2/20对应速度约10.25/19.68/199.82，支持保留作者forward幅度。flags=0、正交轴、forward长度2、speed40、offset±0.5的XY速度约(∓38.45,70.61)，与现有平面旋转相符；局部非均匀scale和Z旋转的位移亦匹配现有层变换。无层变换的size32、速度100、trail length0.05约80×16场景单位，仅支持这一受控几何。v1错误包头产生棋盘纹理，不纳入正式白纹理验收；有效v2/v3共11张原PNG与测量随本机批次证据保存。非正交轴、noise、随机分布、透视及全样本像素仍未知；未读取私有实现。产品结果见[幅度修复](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-turbulent-forward)。
 
+<a id="particle-turbulent-axis-blackbox"></a>
+2026-10-04同版本/hash官方窗口后继：六个自有白纹理输入、flags=0、phase/scale/timeScale=0、up省略。forward=`0 2 0`、normal=`0 1 1`、speed40、offset−0.5的XY速度约(27.129,75.212)，正offset或反向normal约(−27.104,75.304)，normal×10约(27.136,75.374)；正交控制约(38.203,70.158)。这些结果支持按单位轴旋转并保留forward沿轴分量，否定原归一化切向量的平面近似。forward=`1 20 1`的余差原因仍未知，不归因为投影/phase。公开[Normal/Offset合同](https://docs.wallpaperengine.io/en/scene/particles/component/initializer.html#turbulent-velocity-random)不提供私有算法，实施采用标准旋转数学；noise/up映射、随机分布与全样本parity不在验收内。首次截图被既有窗口遮挡已排除，重新激活本批窗口后执行；六个guest包SHA与host一致。产品结果见[轴旋转修复](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-turbulent-axis)。
+
 ### 1.6 Timeline
 
 - https://docs.wallpaperengine.io/en/scene/timeline/introduction.html

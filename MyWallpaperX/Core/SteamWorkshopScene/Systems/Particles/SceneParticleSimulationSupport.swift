@@ -177,6 +177,9 @@ nonisolated enum SceneParticleSimulationMath {
         guard forwardLength.isFinite, forwardLength > 1e-9 else { return strict ? SIMD3(repeating: .nan) : .zero }
         let base = forward / forwardLength
         let adjustedNormal = normal + up * planeNoise
+        let normalLength = length(adjustedNormal)
+        guard normalLength.isFinite, normalLength > 1e-9 else { return strict ? SIMD3(repeating: .nan) : .zero }
+        let axis = adjustedNormal / normalLength
         let tangentValue = SIMD3(
             adjustedNormal.y * base.z - adjustedNormal.z * base.y,
             adjustedNormal.z * base.x - adjustedNormal.x * base.z,
@@ -184,11 +187,14 @@ nonisolated enum SceneParticleSimulationMath {
         )
         let tangentLength = length(tangentValue)
         guard tangentLength.isFinite, tangentLength > 1e-9 else { return strict ? SIMD3(repeating: .nan) : .zero }
-        let tangent = tangentValue / tangentLength
+        let tangent = tangentValue / normalLength
         let angularScale = max(value.scale, 0)
         guard angularScale.isFinite else { return strict ? SIMD3(repeating: .nan) : .zero }
         let turn = directionalOffset + angularScale * Double.pi * turnNoise
+        // Rotate about the authored axis, preserving the component along it.
+        let parallel = axis * (axis.x * base.x + axis.y * base.y + axis.z * base.z)
         var direction = base * cos(turn) + tangent * sin(turn)
+            + parallel * (1 - cos(turn))
         var directionLength = length(direction)
         if !directionLength.isFinite || directionLength <= 1e-9 {
             direction = base

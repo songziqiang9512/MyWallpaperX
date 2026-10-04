@@ -480,9 +480,9 @@
       "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "83837a5378ee1d6ffddf68283d215f6a928f93c7632392c6c56e150c9218d8d1",
+        "sourceSHA256": "429c91cf3cee72c5131d798972c6d7138d9d32e019b520d899431469a3bf1365",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对forward幅度、粒子显隐与未闭合真实样本的证据导航；不含运行验收。",
+        "scope": "核对粒子幅度/轴旋转与未闭合样本的证据导航；不含运行验收。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

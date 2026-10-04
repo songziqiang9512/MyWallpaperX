@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Authored turbulent forward magnitude through real parse, birth and simulation.
+"""Turbulent forward magnitude and axis rotation through actual birth/simulation.
 
 CPU-only Swift execution. MWX_SCENE_TURBULENT_FORWARD_SOURCE may select a frozen
 before version of SceneParticleSimulationSupport.swift for a red/green run.
-This does not claim angular/noise parity or Metal card geometry.
+This does not claim general noise/up parity or Metal card geometry.
 """
 from __future__ import annotations
 
@@ -24,7 +24,8 @@ HARNESS = r'''
 import Foundation
 
 @main enum Harness {
-    static func make(_ forward: String, count: Int = 1) throws
+    static func make(_ forward: String, normal: String = "0 0 1",
+                     offset: Double = 0, speed: Double = 10, count: Int = 1) throws
         -> (SceneParticleSimulator, SceneParticleTrailRenderPlan) {
         let authored: [String: Any] = [
             "material": "owned.json", "maxcount": count, "starttime": 0, "flags": 0,
@@ -34,9 +35,9 @@ import Foundation
                 ["name": "lifetimerandom", "min": 8, "max": 8],
                 ["name": "sizerandom", "min": 32, "max": 32],
                 ["name": "turbulentvelocityrandom", "forward": forward,
-                 "right": "0 0 1", "scale": 0, "offset": 0,
+                 "right": normal, "scale": 0, "offset": offset,
                  "phasemin": 0, "phasemax": 0, "timescale": 0,
-                 "speedmin": 10, "speedmax": 10]],
+                 "speedmin": speed, "speedmax": speed]],
             "operator": [["name": "movement", "flags": 0, "gravity": "0 0 0", "drag": 0]],
             "renderer": [["name": "spritetrail", "length": 0.007]]]
         // Exercise the same JSON representation accepted from authored files.
@@ -65,6 +66,7 @@ import Foundation
          "stretch": sim.particles.map { Double(trail.stretch(for: $0.velocity)) },
          "historyCount": sim.trailDirectionSamples().count,
          "nextID": sim.frameSnapshot().nextParticleID,
+         "randomState": sim.frameSnapshot().random.state,
          "gpuFinite": sim.particles.allSatisfy {
              SceneParticleSimulationMath.isGPUFinite($0.position)
                 && SceneParticleSimulationMath.isGPUFinite($0.velocity) },
@@ -93,7 +95,40 @@ import Foundation
         unsafe.advance(by: 2)
         let (peer, peerTrail) = try make("0 2 0", count: 4)
         peer.advance(by: 2)
-        let payload: [String: Any] = ["cases": cases,
+        let axes: [(String, String, Double)] = [
+            ("tilted-negative", "0 1 1", -0.5), ("tilted-positive", "0 1 1", 0.5),
+            ("reversed-normal", "0 -1 -1", -0.5), ("scaled-normal", "0 10 10", -0.5),
+            ("zero-offset", "0 1 1", 0), ("orthogonal", "0 0 1", -0.5)]
+        var axisCases: [[String: Any]] = []
+        for (name, normal, offset) in axes {
+            let (sim, trail) = try make("0 2 0", normal: normal, offset: offset, speed: 40)
+            sim.advance(by: 0.125)
+            let birth = observe(sim, trail)
+            for _ in 1..<16 { sim.advance(by: 0.125) }
+            axisCases.append(["name": name, "birth": birth, "after": observe(sim, trail)])
+        }
+        func explicit(_ sim: SceneParticleSimulator) throws -> SceneParticleSimulator.PlaybackCandidate {
+            try sim.preparePlaybackCandidate(commands: [(.init(layerID: 42, action: .emit,
+                revision: 1, count: 1), .init())], charge: { _, _ in }, release: { _ in })
+        }
+        let (explicitPeer, _) = try make("0 2 0", offset: -0.5, speed: 40, count: 2)
+        let positive = try explicit(explicitPeer)
+        var invalidAxes: [[String: Any]] = []
+        for normal in ["0 1 0", "0 0 0"] {
+            let (sim, _) = try make("0 2 0", normal: normal, offset: -0.5, speed: 40, count: 2)
+            let before = sim.frameSnapshot()
+            var rejected = false
+            do { _ = try explicit(sim) }
+            catch SceneParticleEmissionFailure.unavailable { rejected = true }
+            let after = sim.frameSnapshot()
+            invalidAxes.append(["normal": normal, "rejected": rejected,
+                "unchanged": after.particles == before.particles && after.random.state == before.random.state
+                    && after.nextParticleID == before.nextParticleID && after.playback == before.playback
+                    && after.simulationTime == before.simulationTime && after.diagnostics == before.diagnostics
+                    && after.birthEvents == before.birthEvents])
+        }
+        let payload: [String: Any] = ["cases": cases, "axisCases": axisCases,
+            "invalidAxes": invalidAxes, "explicitPositive": positive.state.particles.map { vector($0.velocity) },
             "overflowInputsIndividuallyFinite": Float(1e38).isFinite && Float(10).isFinite,
             "overflow": observe(unsafe, unsafeTrail), "safePeer": observe(peer, peerTrail)]
         print(String(decoding: try JSONSerialization.data(withJSONObject: payload,
@@ -176,6 +211,43 @@ class SceneParticleTurbulentForwardTests(unittest.TestCase):
         for position, velocity in zip(peer["positions"], peer["velocities"]):
             self.assert_vector(velocity, [0, 20, 0])
             self.assert_vector(position, [0, 40, 0])
+
+    def test_non_orthogonal_axis_retains_parallel_component_and_magnitude(self):
+        # Independent unit-axis rotation values, declared before product changes.
+        # Black-box XY observations identify this bounded offset/zero-noise case;
+        # Z is the explicit standard rotation contract, not an observed GPU value.
+        positive_x = [27.12040395368359, 75.10330247561491, 4.89669752438509]
+        negative_x = [-27.12040395368359, 75.10330247561491, 4.89669752438509]
+        expected = [positive_x, negative_x, negative_x, positive_x, [0, 80, 0],
+                    [38.35404308833624, 70.20660495122982, 0]]
+        cases = self.result["axisCases"]
+        self.assertEqual(len(cases), len(expected))
+        random_states = set()
+        for case, velocity in zip(cases, expected):
+            with self.subTest(case=case["name"]):
+                birth, after = case["birth"], case["after"]
+                self.assertEqual(birth["count"], 1)
+                self.assertEqual(after["count"], 1)
+                self.assert_vector(birth["velocities"][0], velocity)
+                self.assert_vector(after["velocities"][0], velocity)
+                self.assert_vector(birth["positions"][0], [v * .125 for v in velocity])
+                self.assert_vector(after["positions"][0], [v * 2 for v in velocity])
+                self.assertAlmostEqual(sum(v * v for v in after["velocities"][0]), 6400, places=8)
+                self.assertAlmostEqual(after["stretch"][0], .56, places=6)
+                self.assertEqual(after["time"], 2)
+                self.assertEqual(after["historyCount"], 1)
+                self.assertTrue(after["gpuFinite"])
+                random_states.add(after["randomState"])
+        self.assertEqual(len(random_states), 1, "axis changes preserve RNG consumption order")
+
+    def test_parallel_and_zero_axes_reject_strict_birth_with_rollback(self):
+        self.assertEqual(len(self.result["explicitPositive"]), 1)
+        self.assert_vector(self.result["explicitPositive"][0], [38.35404308833624, 70.20660495122982, 0])
+        self.assertEqual([case["normal"] for case in self.result["invalidAxes"]], ["0 1 0", "0 0 0"])
+        for case in self.result["invalidAxes"]:
+            with self.subTest(normal=case["normal"]):
+                self.assertTrue(case["rejected"])
+                self.assertTrue(case["unchanged"])
 
 
 if __name__ == "__main__":
