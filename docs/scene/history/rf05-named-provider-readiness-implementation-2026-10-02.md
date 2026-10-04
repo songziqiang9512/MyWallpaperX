@@ -225,3 +225,17 @@ optional 首次改用 rgbmask 后，真实解析产生 `material named → insta
 真实293同输入/同八种切换：修前失败时decoded为63,887,105 bytes，修后为0。两次均能取得前四模式PNG，后四仍无足够预算；不能把截图增量、FPS或启动速度算作本片收益。修后首次失败resident为3,172,532,928/3,178,278,912，23,756,544-byte读回仍被拒；4,141.660ms最大呈现间隔未修，blur开关仍拒绝。全部八次背景属性接受、GPU failed=0与drain完成均不等于全部画面正确。
 
 Debug构建、18项相邻原生门与修复载体后的截图生命周期门、14项deferred意图门通过；3项实际App回归（74.523s）覆盖粒子显隐、双surface及粒子/fullscreen共享开关。既有结构库存66/登记65的两项失败仍保留，未抬基线。独立只读审查未发现新增P1/P2。本片回归验证loader晚期再填充/再次回收、真实Metal预算拒绝→回收后准入，以及既有GPU纹理对象和红色像素不变；它不直接调用两个准备结束点，实际App覆盖消费者接线。验证与独审结果由本机rf05-late-decoded-release-20261004包固定；资源失败最小证据另行保护。下一批继续定位GPU持有/重复上传与切换间断，其后blur和多surface隔离。工作卡15/16（93.75%）不变，全样本正确率未建立，RF05与Goal继续开放。
+
+
+<a id="rf05-video-backing-retirement"></a>
+### 2026-10-04 视频 backing 退休与真实背景切换
+
+实际分配探针排除了本样本同purpose重复上传：普通loader的46次上传没有同来源/设备/用途重复，约486MB，非视频大额存活峰值约715MB。视频导入失败时仍持165个backing、2,433,034,560 bytes；原入口把backing关联到Core Video cache持有的纹理，缓存存活时旧帧不能及时退休。自有四帧预算下100次导入仅4次成功，flush也不恢复，销毁cache才归零。
+
+修复限定原importVideo：独立同格式texture view共享存储，同时保CVMetalTexture binding和CVPixelBuffer backing；租约仍按同一backing一次计费，GPU保view期间持续记账。Source的last/pending Frame已有view，不再另保currentCVMetalTexture及rollback副本。没有新cache、像素拷贝、配额扩大或每帧分析。初版只保binding的候选被GPU保账门否定（提前释放backing对象/额度），该候选App截图不计最终验收。
+
+最终Debug和7项原生资源/截图/提交门、7项视频状态门通过。连续100帧default/flush各峰值两帧；另保GPU阻塞旧帧时100次仍成功、峰值三帧。四帧满额仍拒第五帧，GPU旧帧和当前帧全64² BGRA像素正确；完成后只留当前帧，全部owner释放后cache仍活着但额度归零。两个已知结构库存66/登记65失败继续保留，未抬基线。
+
+最终冻结App在同一293输入与八模式顺序下，八次背景属性接受，25次实际Metal截图全成功，目标分配与读回失败均0。采样445次callback均提交、444次已完成/呈现、GPU failed=0，随后安全drain；最大呈现间隔75ms。GPU分配采样峰值1,104,412,672 bytes；修前诊断运行约3.45GB。历史4.14秒间断在本批若干未修诊断中也未复现，故不作普遍FPS或4.14→75ms因果加速声明；本片证明视频退休及该序列输出恢复，不是全画面官方parity、物理多屏或所有样本验收。
+
+最终身份、原生反例和八张原始模式截图分包保留于本机rf05-video-retirement-20261004及rf05-video-retirement-captures-20261004（各低于32MiB、14天）。下一批直接处理两个fullscreen的blur_combine previous-blurred-composite首断点，之后多surface失败隔离；工作卡15/16（93.75%）不变，RF05及全样本Goal继续开放。

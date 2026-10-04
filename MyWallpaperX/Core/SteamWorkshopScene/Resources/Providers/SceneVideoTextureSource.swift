@@ -44,7 +44,6 @@ final class SceneVideoTextureSource {
     private let capturesLifecycleObservations: Bool
     private var endObserver: NSObjectProtocol?
     private var lifecycle = SceneVideoProviderLifecycleState(epoch: 0)
-    private var currentCVMetalTexture: CVMetalTexture?
     private var lastFrame: Frame?
     private var pendingFrame: Frame?
     private var pendingFrameIndex: UInt64?
@@ -54,7 +53,6 @@ final class SceneVideoTextureSource {
         let hasStarted: Bool
         let needsPlayerAnchor: Bool
         let playerEventState: SceneVideoPlayerEventState
-        let currentCVMetalTexture: CVMetalTexture?
     }
     private var pendingPreparationSnapshot: FramePreparationSnapshot?
     private var hasStarted = false
@@ -189,8 +187,7 @@ final class SceneVideoTextureSource {
             endedGeneration: endedGeneration,
             hasStarted: hasStarted,
             needsPlayerAnchor: needsPlayerAnchor,
-            playerEventState: playerEventState,
-            currentCVMetalTexture: currentCVMetalTexture
+            playerEventState: playerEventState
         )
         if !hasStarted {
             lifecycle.start(
@@ -331,7 +328,6 @@ final class SceneVideoTextureSource {
             }
             needsPlayerAnchor = preparation.needsPlayerAnchor
             playerEventState = preparation.playerEventState
-            currentCVMetalTexture = preparation.currentCVMetalTexture
         }
         // AVPlayer may have advanced while the candidate was being encoded.
         // Re-anchor on the next attempt so a rejected surface cannot move the
@@ -486,7 +482,6 @@ final class SceneVideoTextureSource {
         }
         player.pause()
         player.replaceCurrentItem(with: nil)
-        currentCVMetalTexture = nil
         lastFrame = nil
         pendingFrame = nil
         pendingFrameIndex = nil
@@ -568,10 +563,6 @@ final class SceneVideoTextureSource {
         let height = CVPixelBufferGetHeight(pixelBuffer)
         guard width > 0, height > 0 else { return nil }
 
-        guard let cvMetalTexture = SceneResourceAllocation.importVideo(pixelBuffer, cache: textureCache),
-              let texture = CVMetalTextureGetTexture(cvMetalTexture) else { return nil }
-
-        currentCVMetalTexture = cvMetalTexture
-        return texture
+        return SceneResourceAllocation.importVideo(pixelBuffer, cache: textureCache)
     }
 }

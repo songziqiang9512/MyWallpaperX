@@ -64,8 +64,12 @@ nonisolated private final class SceneResourceLease {
 }
 
 nonisolated private final class SceneVideoResourceLifetime {
+    let binding: CVMetalTexture
     let backing: CVPixelBuffer
-    init(_ backing: CVPixelBuffer) { self.backing = backing }
+    init(binding: CVMetalTexture, backing: CVPixelBuffer) {
+        self.binding = binding
+        self.backing = backing
+    }
 }
 
 nonisolated enum SceneResourceAllocation {
@@ -85,7 +89,7 @@ nonisolated enum SceneResourceAllocation {
     static func importVideo(
         _ pixelBuffer: CVPixelBuffer, cache: CVMetalTextureCache,
         budget: SceneResourceBudget = .shared
-    ) -> CVMetalTexture? {
+    ) -> MTLTexture? {
         let bytes = CVPixelBufferGetDataSize(pixelBuffer)
         var imported: CVMetalTexture?
         let status = CVMetalTextureCacheCreateTextureFromImage(
@@ -93,18 +97,21 @@ nonisolated enum SceneResourceAllocation {
             CVPixelBufferGetWidth(pixelBuffer), CVPixelBufferGetHeight(pixelBuffer), 0, &imported
         )
         guard status == kCVReturnSuccess, let imported,
-              let texture = CVMetalTextureGetTexture(imported) else { return nil }
+              let texture = CVMetalTextureGetTexture(imported),
+              let view = texture.makeTextureView(pixelFormat: texture.pixelFormat) else { return nil }
         importLock.lock()
         defer { importLock.unlock() }
-        // CV may create several texture views for one backing buffer. Account
-        // the backing once, and retain it for every GPU-visible view.
+        // Account a shared backing once. Retain the CV wrapper on a separate
+        // view, never on the cache-owned texture: that would keep the backing
+        // alive through the cache and prevent retired video frames recycling.
+        // GPU retention of this view keeps the CV binding and backing alive.
         if objc_getAssociatedObject(pixelBuffer, &leaseKey) == nil {
             guard budget.reserve(bytes, kind: .gpu) else { return nil }
             let lease = SceneResourceLease(budget: budget, bytes: bytes)
             objc_setAssociatedObject(pixelBuffer, &leaseKey, lease, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         }
-        objc_setAssociatedObject(texture, &leaseKey, SceneVideoResourceLifetime(pixelBuffer), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-        return imported
+        objc_setAssociatedObject(view, &leaseKey, SceneVideoResourceLifetime(binding: imported, backing: pixelBuffer), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        return view
     }
 }
 

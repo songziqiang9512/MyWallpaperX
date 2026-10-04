@@ -54,7 +54,7 @@
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 37,
-      "bytes": 7066
+      "bytes": 7226
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 122,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 259,
-      "bytes": 48685
+      "bytes": 48673
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -178,7 +178,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 243,
-      "bytes": 32567
+      "bytes": 32557
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,
@@ -1179,29 +1179,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "6de0d2641ca44ac307764f85bde4fddf5a668997af9fe0fbcd85f7bf8c6d25d6",
-      "after": "ee32555f746e9f947476b890953a2fa24c82bb9f39fb440b9cca54325c75b415",
-      "owner": "scene-resource-lifetime",
-      "reason": "Record existing loader retirement boundary and replace next-work pointer with the remaining GPU pressure failure; no expansion of compatibility claims.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-late-decoded-release"
+      "before": "ee32555f746e9f947476b890953a2fa24c82bb9f39fb440b9cca54325c75b415",
+      "after": "f0c438db06a1027042354a9394da5ed8cf59183bb185e67b976eff900323f5f4",
+      "owner": "scene-video-resource-lifetime",
+      "reason": "Correct existing video binding/backing retirement contract and replace next-work pointers after actual eight-mode capture recovery; retain compatibility limits.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-video-backing-retirement"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "9970f1a1f54555ba8342c9be83239c37f04f238e7fdc90e4f6e576a380db68f1",
-      "after": "a128292888249169e64748a22de2670264e228869fb8a42e74acdc75ce202939",
-      "owner": "scene-resource-lifetime",
-      "reason": "Record existing loader retirement boundary and replace next-work pointer with the remaining GPU pressure failure; no expansion of compatibility claims.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-late-decoded-release"
+      "before": "a128292888249169e64748a22de2670264e228869fb8a42e74acdc75ce202939",
+      "after": "b1fe31f922aba94f508003e5ba8d8a53ac4248b661654e5b06a0537945066872",
+      "owner": "scene-video-resource-lifetime",
+      "reason": "Correct existing video binding/backing retirement contract and replace next-work pointers after actual eight-mode capture recovery; retain compatibility limits.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-video-backing-retirement"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "37a1397281f23f87cacb7844f26519dc747b45e63778e156c0a02b482c9d63df",
-      "after": "d89616e68257eb06c1b9cfde2317187f46fcdc3dfc8094cbe501f22e03b341ba",
-      "owner": "scene-resource-lifetime",
-      "reason": "Record existing loader retirement boundary and replace next-work pointer with the remaining GPU pressure failure; no expansion of compatibility claims.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-late-decoded-release"
+      "before": "d89616e68257eb06c1b9cfde2317187f46fcdc3dfc8094cbe501f22e03b341ba",
+      "after": "442daf6f2c837bbe91480fa50f68524be0ffa6fb3f7e3286d50d37529b65a1c8",
+      "owner": "scene-video-resource-lifetime",
+      "reason": "Correct existing video binding/backing retirement contract and replace next-work pointers after actual eight-mode capture recovery; retain compatibility limits.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-video-backing-retirement"
     }
   ]
 }

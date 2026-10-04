@@ -442,7 +442,6 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
             "hasStarted: hasStarted",
             "needsPlayerAnchor: needsPlayerAnchor",
             "playerEventState: playerEventState",
-            "currentCVMetalTexture: currentCVMetalTexture",
         ):
             with self.subTest(snapshot=token):
                 self.assertIn(token, current_frame)
@@ -468,7 +467,6 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
             "hasStarted = preparation.hasStarted",
             "needsPlayerAnchor = preparation.needsPlayerAnchor",
             "playerEventState = preparation.playerEventState",
-            "currentCVMetalTexture = preparation.currentCVMetalTexture",
             "if preparation?.hasStarted ?? true",
         ):
             with self.subTest(restore=token):
