@@ -4,9 +4,7 @@
 >
 > 网络核验使用系统代理 `http://127.0.0.1:7897`。
 >
-> 本索引只做来源与证据导航，不决定现役开发顺序、能力等级或下一批。现役顺序只看[Scene 兼容路线](../roadmap/scene-compatibility-roadmap.md)，当前能力与运行事实只看[覆盖台账](../capabilities/coverage-ledger.md)和[运行证据索引](../capabilities/runtime-evidence-current.md)。
-
-当现有来源仍不足以决定当前纵向切片时，研究者必须先按[官方客户端行为研究与一致性验证工作流](official-client-behavior-research-workflow.md)建立有界问题、研究卡、clean-room 输出边界和官方黑盒一致性门；不得从本页直接跳到宽泛反编译或产品实现。
+> 本索引只导航来源；开发顺序见[Scene路线](../roadmap/scene-compatibility-roadmap.md)，能力/运行事实见[覆盖台账](../capabilities/coverage-ledger.md)和[运行证据索引](../capabilities/runtime-evidence-current.md)。来源不足时，先按[官方研究工作流](official-client-behavior-research-workflow.md)建立有界问题、研究卡、clean-room输出和官方黑盒门，不得直接宽泛反编译或实施产品。
 
 本页是全库 named source taxonomy 的唯一分类入口。以下来源不得在一个结论中互相替代，也不得再另建 `A`–`E` 全局等级：
 
@@ -20,7 +18,7 @@
 | `MyWallpaperX-current-evidence` | 当前代码/配置、自动门，以及绑定精确 commit、App、fixture 和环境的可复现运行证据 | 未运行路径、未覆盖输入、跨版本结果或 Wallpaper Engine 等价；代码/测试存在也不单独证明可见结果 |
 | `MyWallpaperX-strategy` | 项目自有的兼容运行时架构、路线、安全边界和验证决策 | 官方内部处理方式、当前已经支持或用户可见结果 |
 
-没有公开或无法验证的内部行为保持 unknown，不用作者语料或第三方猜测补成“官方规则”，也不把项目自有 strategy 倒写成官方事实。固定客户端静态观察是 `research-context-only`：产品实现不得消费地址、伪代码、函数体、私有算法表达或静态观察原文，只能消费已经独立写入项目语义合同的行为边界、项目正反 fixture 和官方结果对照协议。
+未知内部行为保持unknown；作者语料、第三方猜测或自有strategy不得冒充官方规则。静态观察是`research-context-only`；产品不得消费地址、伪代码、函数体、私有算法或静态原文，只消费独立语义合同、项目正反fixture和官方对照协议。
 
 ## 1. 官方公开资料
 
@@ -37,7 +35,7 @@
 
 本轮固定官方文档 revision：[`b26412295cbfd0ee5cdceff67e2c95069527aa1b`](https://github.com/Wallpaper-Engine-Team/wallpaper-engine-docs/commit/b26412295cbfd0ee5cdceff67e2c95069527aa1b)，也是 2026-07-22 核验时的远端 `HEAD`。线上页面与源码发生漂移时，先对比该 revision，不从记忆猜改动。
 
-当某个具体行为问题需要补证时，先查已有现役合同、合法 corpus 和官方公开资料，再用固定输入做官方客户端黑盒差分。只有它们仍无法回答会阻塞公共设计的字段归属、producer-to-consumer 顺序、状态或生命周期问题时，才对已记录哈希的官方客户端做范围明确的 clean-room 静态复核；只在官方资料仍不足或需要交叉检查完整链时读取固定 revision 第三方参考。这是取证导航，不是开发批次顺序。不得把 Ghidra 或 Mirage 审查变成每批前置仪式，也不得从客户端或第三方复制算法表达、payload、伪代码、地址或资产；静态结构不能代替项目自有正反门、隔离样本或官方客户端动态 golden。
+补证先查现役合同、合法corpus和官方公开资料，再做固定输入的官方黑盒差分。若仍无法解答阻塞公共设计的字段归属、producer-to-consumer顺序、状态或生命周期问题，才对哈希固定客户端做有界clean-room静态复核；官方资料不足或需全链交叉检查时才读固定revision第三方参考。取证导航不决定开发顺序，Ghidra/Mirage不是每批前置；禁止复制算法、payload、伪代码、地址或资产，静态结构不能替代自有正反门、隔离样本或官方动态golden。
 
 2026-07-22 sitemap 中 Scene 页面按首级目录计数：
 
@@ -176,6 +174,8 @@
 
 <a id="particle-turbulent-axis-blackbox"></a>
 2026-10-04同版本/hash官方窗口后继：六个自有白纹理输入、flags=0、phase/scale/timeScale=0、up省略。forward=`0 2 0`、normal=`0 1 1`、speed40、offset−0.5的XY速度约(27.129,75.212)，正offset或反向normal约(−27.104,75.304)，normal×10约(27.136,75.374)；正交控制约(38.203,70.158)。这些结果支持按单位轴旋转并保留forward沿轴分量，否定原归一化切向量的平面近似。forward=`1 20 1`的余差原因仍未知，不归因为投影/phase。公开[Normal/Offset合同](https://docs.wallpaperengine.io/en/scene/particles/component/initializer.html#turbulent-velocity-random)不提供私有算法，实施采用标准旋转数学；noise/up映射、随机分布与全样本parity不在验收内。首次截图被既有窗口遮挡已排除，重新激活本批窗口后执行；六个guest包SHA与host一致。产品结果见[轴旋转修复](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-turbulent-axis)。
+
+2026-10-04同版本/hash官方自有Sprite黑盒（flags=0）：top-level `alpha`静态/value wrapper/绑定/`thisLayer.alpha`均不调制输出；top=.25或0的灰128仍128，白255的top=.01仍255。`instanceoverride.alpha`相同三形态及`thisLayer.instance.alpha=.25`均32，instance=0黑；top=.01+instance=.25仍32。白255的particle alpha=.25得64；texture alpha64在两blend均64。仅此受控profile，非完整parity；见[alpha合同](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-particle-alpha-contract)。
 
 ### 1.6 Timeline
 

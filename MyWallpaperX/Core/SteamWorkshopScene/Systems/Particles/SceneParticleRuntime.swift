@@ -344,7 +344,6 @@ final class SceneParticleRuntime {
                     layerID: layer.id,
                     particlePath: path,
                     definition: asset.definition,
-                    layerAlpha: Float(min(max(layer.alpha ?? 1, 0), 1)),
                     rootRender: nil,
                     childRuntime: retainedChildRuntime
                 ))
@@ -390,7 +389,6 @@ final class SceneParticleRuntime {
                 layerID: layer.id,
                 particlePath: path,
                 definition: asset.definition,
-                layerAlpha: Float(min(max(layer.alpha ?? 1, 0), 1)),
                 rootRender: rootRender,
                 childRuntime: retainedChildRuntime
             ))
@@ -495,11 +493,6 @@ final class SceneParticleRuntime {
             let layerDelta = frozenWorldSpaceLayerIDs.contains(layerID)
                 ? 0 : frameDelta
             let worldSpaceFrameOverride = liveWorldSpaceFrames[layerID]
-            let layerAlpha = SceneDynamicLayerValues.alpha(
-                layerID: layerID,
-                authoredValue: Double(layers[index].layerAlpha),
-                snapshot: dynamicValues
-            )
             var births: [SceneParticleState] = []
             var deaths: [SceneParticleState] = []
             var parentParticles: [SceneParticleState] = []
@@ -543,12 +536,14 @@ final class SceneParticleRuntime {
                 layers[index].rootRender = root
             }
             if let childRuntime = layers[index].childRuntime {
+                // Particle opacity comes from particle/instance alpha;
+                // generic layer alpha does not modulate particle renderers.
                 let result = childRuntime.advance(
                     by: layerDelta,
                     spawnEvents: births,
                     deathEvents: deaths,
                     parentParticles: parentParticles,
-                    layerAlpha: layerAlpha,
+                    layerAlpha: 1,
                     dynamicInstanceValues: dynamicOverride,
                     pointerLocalPosition: pointerLocalPositions[layerID],
                     dynamicControlPoints: dynamicControlPoints,
@@ -584,7 +579,7 @@ final class SceneParticleRuntime {
                 }
             }
             guard isVisible, var root = layers[index].rootRender else { continue }
-            rebuildGPUInstances(root: &root, layerAlpha: layerAlpha)
+            rebuildGPUInstances(root: &root)
             batches.append(SceneParticleDrawBatch(
                 layerID: layerID,
                 particlePath: layers[index].particlePath,
@@ -662,14 +657,13 @@ final class SceneParticleRuntime {
     }
 
     private func rebuildGPUInstances(
-        root: inout SceneParticleRootRenderRuntime,
-        layerAlpha: Float
+        root: inout SceneParticleRootRenderRuntime
     ) {
         let stepSnapshots = root.simulator.consumeStepSnapshots()
         if let rope = root.rope {
             root.instances = rope.instances(
                 particles: root.simulator.particles,
-                layerAlpha: layerAlpha,
+                layerAlpha: 1,
                 simulationTime: root.simulator.simulationTime
             )
             return
@@ -677,7 +671,7 @@ final class SceneParticleRuntime {
         if var history = root.ropeTrailHistory {
             root.instances = history.advance(
                 snapshots: stepSnapshots, currentParticles: root.simulator.particles,
-                layerAlpha: layerAlpha
+                layerAlpha: 1
             )
             root.ropeTrailHistory = history
             return
@@ -722,7 +716,7 @@ final class SceneParticleRuntime {
                 size: Float(particle.size),
                 rotation: particle.rotation.particleFloatValue,
                 color: particle.color.particleFloatValue,
-                alpha: Float(particle.alpha) * layerAlpha,
+                alpha: Float(particle.alpha),
                 velocity: trailVelocity.particleFloatValue,
                 trailStretch: root.trail?.stretch(for: particle.velocity),
                 currentFrame: frames.current.orientedForTrail(root.trail != nil),

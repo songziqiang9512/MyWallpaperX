@@ -1417,7 +1417,10 @@
         "script/tests/test_scene_particle_visibility_integration.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleLayerRuntime.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopeTrailPlan.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopeTrailPlan.swift",
+        "script/tests/fixtures/SceneParticleRuntime*Harness.swift",
+        "script/tests/scene_particle_runtime_*_cases.py",
+        "script/tests/test_scene_particle_runtime.py"
       ],
       "modules": [
         "test_scene_particle_playback_author",

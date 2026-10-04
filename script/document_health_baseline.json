@@ -82,7 +82,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 393,
-      "bytes": 138340
+      "bytes": 138118
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 562,
@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 69,
-      "bytes": 6802
+      "bytes": 6800
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -182,7 +182,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,
-      "bytes": 49679
+      "bytes": 49674
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
