@@ -461,3 +461,27 @@ CPU visibility/readable各15项通过，HEAD分别5项/1项失败；后者仅为
 最终V3 Debug冻结1085份产品源码无漂移；未改347原包播放35秒，进程47.254秒，93图输出与115绑定均成功。root实看两张不同时间的Metal截图，放射星轨已恢复并随场景变化，日期/时钟/公式及暗背景保留，退出GPU排空、输入/App身份不变。一次既有scale badReturn仍在，不据单条首帧日志判持续失败，也不宣称整个样本、官方像素或全208样本正确性验收。
 
 相邻graph-output runtime八门通过；结构门仅保留既有shape-derived-analyzer 66/登记65两项失败，未抬基线。独立终审及有限证据归本机`rf05-model-graph-albedo-20261004`（14天、单包32MiB内）。临时App/副本/HOME收尾后清理，只保留后续候选App和一份构建缓存。下一批优先复验3509243656的连续播放、文字及交互，以新的公共断点修复扩展真实覆盖；376斜光仍为未解。15/16卡只是有界卡口径，全样本正确率未知，长期Goal继续开放。
+
+
+<a id="rf05-text-outline-shadow"></a>
+### 文字描边与投影实施决定（2026-10-04）
+
+当前真实声明有outline/outlinethickness/outlinecolor与dropshadow/offset/size/opacity/color，现TextDescriptor和共同光栅器均未消费。沿既有descriptor保留typed样式，静态load和动态text/font/pointSize/color更新共用原TextTextureLoader；纹理、尺寸、generation及最终compositor继续由现owner负责，不新增渲染器、逐帧解析或独立样式缓存。`msdf=true`不能成为拒绝样式的条件；独立栅格算法不冒充官方MSDF实现，spacing等独立缺口不算本片已完成。
+
+描边厚度单位、内外扩展与投影偏移方向/模糊范围先用同字体、自有文字的官方黑盒决定，再实施数值映射；关闭、描边厚度为零或投影opacity为零保留原像素及几何。轮廓与投影只作用字形，不给整个不透明背景投影；光栅缩放必须同步样式尺寸，既有padding、对齐、换行与pivot不漂移。非法样式数值局部停用该装饰，不能丢整层文字；资源失败沿原纹理publication保旧值。新增字体算法或扩大逐帧职责均须重新评估。
+
+验收同时包括真实声明读取、自有官方正控制/单变量、旧App反例、静态与动态同内容像素恒等、字号/字体变化后样式保留、alpha/边缘/最大纹理缩放，以及未修改原包的最终画面。Debug、邻近文字门、独立审查及身份冻结通过后收口，不能用一张有描边的图代替全部文字或全样本兼容；实施前决定不等于运行验收。
+
+**边界补充决定。** tight自有O的官方可见投影超出glyph框，原candidate在size1/padding0实测截边。装饰外边距由同一typed文字样式一次决定，纹理/logical extent对称扩展，原内容排版和opaque background仍限原盒；唯一layer transform把相同外边距加入原pivot inset，不能只扩纹理导致边对齐漂移。静态/动态/命名及普通effect仍消费原完整publication。非有限或超本地4096场景单位装饰预算只停当前装饰，不新增buffer owner；该预算不是官方支持上限。官方大offset的夹取范围仍待独立判别，不把自有宽偏移测试冒充官方幅度一致。
+
+
+基线2966caca。先复验350原包60秒与11次live属性切换，未重现旧intro/undefined，拖动试次未进入正确窗口不计通过；随后按当前metadata选择四样本11处文字样式缺口。官方2.8.0.42自有输入确认描边4/8为场景单位、fill核心保留，投影含描边且正Y向下，size0/2/4同输出、6/12软尾增宽。fresh tight O的padding0/128目标ROI逐RGB相同；X尖角允许超过半径，故采用独立有界miter近似而非圆化，不宣称MSDF内部或边缘parity。大offset96/48实际约24/24的原因仍未知，留作后继裁决。
+
+最终画布由共同光栅器对称扩展，原wrap/opaque盒不增长；publication携带新texture与logical extent，原transform补同一inset。独审发现cursor使用原作者size却被补inset的回归，已限定仅published size override补偿；原内容hit语义保持，不冒充解决旧动态文字命中尺寸问题。outline厚度预算4096，含miter margin可达12288，shadow margin预算4096；组合最大16384，物理纹理仍受2048上限。超预算样式局部停用。
+
+冻结V4 Debug的1085份源码无漂移。两份未改原样本3806202923/3765760121各播放18秒，进程26.869/26.067秒；root实看最终Metal图及局部：红色日期恢复黑色描边，白色日期/时钟/星期恢复投影，字形与原场景保留。输入/App身份不变，退出GPU排空；380原有一次exception同基线保留，376无failure token。只证明这两份样本的文字视觉改善，完整交互/特效/官方画面及全208正确率仍未知。
+
+
+最终自有91输入同fixture/harness对照：旧owner 12门47失败子例，candidate 12门全过（native39.768/42.421秒），证明装饰、tight正负投影、字号/字体更新、alpha、预算与pivot的实际像素。相邻row-limit 15门通过，文字几何/绑定/generation/script四模块及登记四模块通过。实际App九种水平×垂直对齐的同输入开/关对照均有outline/shadow，fill边界漂移≤1输出像素；首试loose夹具缺PKG未准备成功，已排除，正式两次PKG运行8秒左右且身份不变/GPU排空。结构门仍仅旧shape-derived-analyzer 66/65两项失败，未抬库存基线。
+
+相邻pivot/anchor两模块通过；原pivot测试中只接受旧padding源码拼写的regex已退役，保留真实几何门并以本批glyph/published extent及App九对齐对照补足行为证据。设计临时gate随实施闭合退役，稳定owner与能力边界接管。

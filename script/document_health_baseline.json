@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 534,
-      "bytes": 87091
+      "bytes": 87204
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 367,
-      "bytes": 167709
+      "bytes": 168237
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 275,
@@ -89,8 +89,8 @@
       "bytes": 331799
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 69,
-      "bytes": 6793
+      "lines": 70,
+      "bytes": 7070
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 49583
+      "bytes": 49605
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1016,192 +1016,39 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/development/repository-workflow.md",
-      "before": "dea438baf30dc7755f6b5bbd99947d85a8e2bf0a8e348fc732410a66ec491f6a",
-      "after": "1a6bb92bc31a31a517d4fc034ec0956a6a4efb4a8ff868ef025ede5c2e619074",
-      "owner": "repository-governance",
-      "reason": "Review corrections: restore commit discipline and documented document evolution; retire completed plans and stale diagnosis; move the derived queue to a stable path with only four historical link substitutions.",
-      "decision": "docs/history/cross-topic/repository-improvement-completion-2026-10-03.md#governance-closeout-corrections"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/structural-governance-design.md",
-      "before": "36937466d96485a688f74e3836584a6330d474314b70eeb729a5bc383362f3dd",
-      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "owner": "repository-governance",
-      "reason": "Review corrections: restore commit discipline and documented document evolution; retire completed plans and stale diagnosis; move the derived queue to a stable path with only four historical link substitutions.",
-      "decision": "docs/history/cross-topic/repository-improvement-completion-2026-10-03.md#governance-closeout-corrections"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/scene-dependency-boundaries.md",
-      "before": "38cb60bfece9916cf35461bd0e82ca8dc5b0bd497a11368b594e499f19ab3143",
-      "after": "7e35972189bb6f1ee8a8407db9b7bb2c2c0cb07fdfac647a71c8882ba04a98be",
-      "owner": "repository-governance",
-      "reason": "Review corrections: restore commit discipline and documented document evolution; retire completed plans and stale diagnosis; move the derived queue to a stable path with only four historical link substitutions.",
-      "decision": "docs/history/cross-topic/repository-improvement-completion-2026-10-03.md#governance-closeout-corrections"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/new-sample-gap-analysis.md",
-      "before": "c8126f5e22dce492b2ea5722eb6bfafe4662da88f5c0feebabac3daf6102669c",
-      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "owner": "repository-governance",
-      "reason": "Review corrections: restore commit discipline and documented document evolution; retire completed plans and stale diagnosis; move the derived queue to a stable path with only four historical link substitutions.",
-      "decision": "docs/history/cross-topic/repository-improvement-completion-2026-10-03.md#governance-closeout-corrections"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue-2026-09-09.md",
-      "before": "78b4c22bb6df2f8765bdcf5841fa7735173ddb52c551ac0d8c7d061c923b80cc",
-      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "owner": "repository-governance",
-      "reason": "Review corrections: restore commit discipline and documented document evolution; retire completed plans and stale diagnosis; move the derived queue to a stable path with only four historical link substitutions.",
-      "decision": "docs/history/cross-topic/repository-improvement-completion-2026-10-03.md#governance-closeout-corrections"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "96f40028fe401b4096c0d7fa1b9e4f411975bc61f564da15308d0fa1aecf3c43",
-      "owner": "repository-governance",
-      "reason": "Review corrections: restore commit discipline and documented document evolution; retire completed plans and stale diagnosis; move the derived queue to a stable path with only four historical link substitutions.",
-      "decision": "docs/history/cross-topic/repository-improvement-completion-2026-10-03.md#governance-closeout-corrections"
-    },
-    {
-      "section": "archives",
-      "path": "docs/scene/history/runtime-evidence-batches-through-2026-10-03.md",
-      "before": "ffa8f49c8dde5ec798d7060b1dfd95043e00dc1e9879c0e5d3312cf0f2cb8a12",
-      "after": "0ca16fc057c4005058d2b6f00d8298a6ad2a1c11a7e93d36b10a29d20e7768b9",
-      "owner": "repository-governance",
-      "reason": "Review corrections: restore commit discipline and documented document evolution; retire completed plans and stale diagnosis; move the derived queue to a stable path with only four historical link substitutions.",
-      "decision": "docs/history/cross-topic/repository-improvement-completion-2026-10-03.md#governance-closeout-corrections"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "a04964f74a59a468f0e335c5027c9b2da5b9fd4c0957ee0f8ca814c340fdc8f4",
-      "after": "c2ac7a126c11ba1595b88b1c06457872f98c291bbe5ceedec80202f0b3f867b9",
-      "owner": "repository-governance",
-      "reason": "Final review aligns Scene local-fix guidance with the existing design-first policy; no new product capability or validation claims.",
-      "decision": "docs/development/repository-workflow.md#设计判定与记录"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "ea4be9b347a6702bbeed2391b11396316addedf5e5ee38cf128f5e1f19bdbfce",
-      "after": "2f9f7e6ac41675082e7611b679174ba9373a963a3bba2e9712e09b82ba8a8fe6",
-      "owner": "scene-rf02-companion",
-      "reason": "Reconcile the implemented RF02 public companion boundary and accepted execution evidence with the existing authority; retain unknown families, frontend array rejection and measured-profile limits.",
-      "decision": "docs/scene/history/rf02-public-companion-implementation-2026-10-03.md#knowledge-handoff"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/authored-texture-coordinate-design.md",
-      "before": "dd701990d386e3c125831575003b389b4ec9861c38285b903761dc3d431535ed",
-      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "owner": "scene-rf02-companion",
-      "reason": "Retire the completed RF02 A/B active design into an anchored navigation entry; stable responsibilities and bounded evidence are owned by runtime architecture and the implementation record.",
-      "decision": "docs/scene/history/rf02-public-companion-implementation-2026-10-03.md#knowledge-handoff"
-    },
-    {
-      "section": "archives",
-      "path": "docs/scene/history/rf02-authored-texture-coordinate-design-2026-10-03.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "619aa0ff57860cab80485ed2e23958d85cdd61ca192a9817d1cbf4247a03e28e",
-      "owner": "scene-rf02-companion",
-      "reason": "Preserve the approved RF02 A/B design body and all seven original anchors; only relative Markdown links are mechanically relocated, with original and preserved identities recorded.",
-      "decision": "docs/scene/history/rf02-public-companion-implementation-2026-10-03.md#knowledge-handoff"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
-      "before": "6af3547d0905fbf547567dd287ba885a1eba62dc0fee86862ebfbce77ff6bd1f",
-      "after": "c2ad39154dbd26a71716690ca68b00a8a63c4bab2253995f215c83dd29e102f9",
-      "owner": "Scene RF04 B resource admission prototype",
-      "reason": "Record actual subset and net-capacity resource experiments; retain original owners and failure semantics, with renderer integration still unadmitted.",
-      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
-      "before": "e2723caaa3e691eabbbaf1f9c7962dbc554fba62efef275c620919234a4ae87e",
-      "after": "b286074b03ad0715d4a93cdfe0febf41345e073c0e22e7482ea74576034d6667",
-      "owner": "Scene RF04 authored environment",
-      "reason": "Replace prototype-only state with implemented authored input, actual ownership contract and bounded validation; close RF04 card and continue D1.",
-      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md#rf04-b-admission"
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "26a5d8987d2e3099aedc3b4b2ffd7f663a0e6b1fa1445a1a2318153258fd3633",
+      "after": "0cdd7a877e987214bd1c72af2b1179c391dafdad2a4a9e437c0fc30edff5ec0e",
+      "owner": "scene-text-outline-shadow",
+      "reason": "Replace missing text decoration status with shared raster, extent and bounded real output evidence; advance the next-work pointer.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-text-outline-shadow"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "be437097576b0b364827cc65b78d6189b7b7d7f5058780249fb7f5aa84f13763",
-      "after": "fb67594d6e354ddc66c883f2d0d18b3d2d80a352bca123a8e68dd57401bc3131",
-      "owner": "scene-d1",
-      "reason": "Replace obsolete composition prefix and transparent-default assumptions with the implemented bounded background and authored-order contract; full evidence remains historical.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-      "before": "8ec456894cdc81ff485627e86715a28b03c6904a2f601ec8056aa301fda43870",
-      "after": "f40a903009e180fe67b68769fcbf4a50e9f7b2c7ba7f28cda1605703ea541a8a",
-      "owner": "scene-rf05",
-      "reason": "Align RF05 committed pending-intent and PNG evidence plus bounded fullscreen implementation with actual retained authority bodies; no runtime scope expansion.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-hidden-fullscreen-result"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "35614873a456f00dcca33e1a45458e307e4d40d49a9a9f29bcd540237c80d277",
-      "after": "76c9bd31fc94a97ae75b25709347d992687db561e575a48f9d68ad07799b2bd8",
-      "owner": "scene-rf05-particle",
-      "reason": "Replace rebuild-only particle visibility with implemented prepared-resource and same-frame emission contract; link bounded evidence and keep the inactive-effect fullscreen cohort gap explicit. No new status owner.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-particle-visibility-design"
+      "before": "fb67594d6e354ddc66c883f2d0d18b3d2d80a352bca123a8e68dd57401bc3131",
+      "after": "eacb98c4a4a66db290079df0daae61a1cb49df178a652916708b885f4b4e2756",
+      "owner": "scene-text-outline-shadow",
+      "reason": "Replace missing text decoration status with shared raster, extent and bounded real output evidence; advance the next-work pointer.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-text-outline-shadow"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "817120ed3a3d46c2611373d705261e5d29edbcddfbe2693e6a2615f893de382a",
-      "after": "204e0be19a4bbd32a7efa8d014bd36d0aa1f8c1e1b16211d6047a76710b175e4",
-      "owner": "scene-rf05-particle",
-      "reason": "Replace rebuild-only particle visibility with implemented prepared-resource and same-frame emission contract; link bounded evidence and keep the inactive-effect fullscreen cohort gap explicit. No new status owner.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-particle-visibility-design"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "ee32555f746e9f947476b890953a2fa24c82bb9f39fb440b9cca54325c75b415",
-      "after": "f0c438db06a1027042354a9394da5ed8cf59183bb185e67b976eff900323f5f4",
-      "owner": "scene-video-resource-lifetime",
-      "reason": "Correct existing video binding/backing retirement contract and replace next-work pointers after actual eight-mode capture recovery; retain compatibility limits.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-video-backing-retirement"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "befc6f7611df2456cb98647d056f5680be1b10abfd3b2644a754f18f0e8fa924",
-      "after": "26a5d8987d2e3099aedc3b4b2ffd7f663a0e6b1fa1445a1a2318153258fd3633",
-      "owner": "scene-model-graph-albedo",
-      "reason": "Integrate model graph-final demand through existing runtime ownership and replace the completed next-work pointer.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-model-graph-albedo"
+      "before": "6ce4dc1480bff834bb53ee393f04efa681f322b1d614ce5396e1e86fcb01ffc9",
+      "after": "7ee3054cba0b5c0d5d714f8a06ef19089eb2e25ff8670eb90c16d7cc84138dbd",
+      "owner": "scene-text-outline-shadow",
+      "reason": "Replace missing text decoration status with shared raster, extent and bounded real output evidence; advance the next-work pointer.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-text-outline-shadow"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "11ee502a4583b11cfa9df61d3a3bad23a58bdf8256a56fc62135eac19944925e",
-      "after": "d4ad65b53591f120c7e47822605b37f5a00da1ae7e2a89c403180fd8ff537dce",
-      "owner": "scene-model-graph-albedo",
-      "reason": "Integrate model graph-final demand through existing runtime ownership and replace the completed next-work pointer.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-model-graph-albedo"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "f5942d91c375a57bbace0dfb87501894993aa5215e1c42f3709baf1b1795b1f3",
-      "after": "6d123d943aec2398150277fc2375c8edd78dbc691c304b5ed501c9f09d3d985f",
-      "owner": "scene-model-graph-albedo",
-      "reason": "Integrate model graph-final demand through existing runtime ownership and replace the completed next-work pointer.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-model-graph-albedo"
+      "before": "d4ad65b53591f120c7e47822605b37f5a00da1ae7e2a89c403180fd8ff537dce",
+      "after": "6f19939fc22ffe187b0d8fabfabc06e26ee77d64d049bbe46eb7d0e35d3ae961",
+      "owner": "scene-text-outline-shadow",
+      "reason": "Replace missing text decoration status with shared raster, extent and bounded real output evidence; advance the next-work pointer.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-text-outline-shadow"
     }
   ]
 }

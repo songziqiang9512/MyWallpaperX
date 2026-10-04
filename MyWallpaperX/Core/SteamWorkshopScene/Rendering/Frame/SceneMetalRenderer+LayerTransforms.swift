@@ -37,12 +37,15 @@ extension SceneMetalRenderer {
         )
         // image/solid 的 `alignment` 与 text 的 horizontal/vertical alignment 都会定义
         // origin 落在哪条 quad 边上，但它们来自两套作者字段，不能互相代替。
+        // Only a published text raster carries the decoration border. Queries
+        // using authored geometry (including content hit boxes) keep its pivot.
+        let textBorder = renderSizeOverride == nil ? 0 : (layer.textStyle?.decorationInset ?? 0)
         let pivot = layer.contentKind == "text"
             ? SceneTextLayerPivot.unitOffset(
                 horizontal: layer.textStyle?.horizontalAlignment,
                 vertical: layer.textStyle?.verticalAlignment,
                 renderSize: size,
-                padding: layer.textStyle?.padding ?? 0
+                padding: (layer.textStyle?.padding ?? 0) + textBorder
             )
             : SceneImageLayerPivot.unitOffset(alignment: layer.imageAlignment)
         let shift = parallax + screenAnchor

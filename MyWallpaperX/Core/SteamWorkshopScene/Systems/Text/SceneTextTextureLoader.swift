@@ -126,15 +126,20 @@ enum SceneTextTextureLoader {
         )
         // Initial and updated content use the same font measurement contract.
         // Saved editor geometry is not an implicit wrapping/clipping limit.
-        let renderSize = autoSizedRenderSize(
+        let contentRenderSize = autoSizedRenderSize(
                 text: text,
                 style: style,
                 font: sourceFont.font,
                 baseRenderSize: baseRenderSize
             )
+        let inset = style.decorationInset
+        let renderSize = contentRenderSize.flatMap { size -> [Float]? in
+            guard size.count >= 2 else { return nil }
+            return [size[0] + inset * 2, size[1] + inset * 2]
+        }
         guard let layout = SceneTextGeometry.rasterLayout(
             renderSize: renderSize,
-            padding: style.padding,
+            padding: style.padding + inset * 2,
             maxDimension: maxDimension
         ) else { return nil }
         let font = layout.scale == 1
@@ -250,7 +255,8 @@ enum SceneTextTextureLoader {
         context.clear(bounds)
         if style.opaqueBackground {
             context.setFillColor(color(style.backgroundColorRGB, brightness: style.backgroundBrightness))
-            context.fill(bounds)
+            let border = CGFloat(style.decorationInset * layout.scale)
+            context.fill(bounds.insetBy(dx: border, dy: border))
         }
 
         let padding = CGFloat(layout.padding)
@@ -289,7 +295,7 @@ enum SceneTextTextureLoader {
         )
         let wrapWidth = style.limitWidth
             ? limitedWrapWidth
-            : contentWidth + padding * 2
+            : contentWidth + CGFloat(style.padding * layout.scale)
         let limited = SceneTextRowLimit.limitedText(
             text,
             style: style,
@@ -335,16 +341,60 @@ enum SceneTextTextureLoader {
         let path = CGPath(rect: CGRect(x: x, y: y, width: wrapWidth, height: textHeight), transform: nil)
         let frame = CTFramesetterCreateFrame(framesetter, CFRange(location: 0, length: 0), path, nil)
         context.textMatrix = .identity
+        context.saveGState()
+        let scale = CGFloat(layout.scale)
+        let shadow = style.dropShadow
+        if let shadow {
+            context.setShadow(
+                offset: CGSize(
+                    width: CGFloat(shadow.offset[0]) * scale,
+                    height: -CGFloat(shadow.offset[1]) * scale
+                ),
+                blur: max(4, CGFloat(shadow.size)) * scale,
+                color: color(shadow.colorRGB, brightness: 1, alpha: CGFloat(shadow.opacity))
+            )
+            // The group contains glyphs and their outline, but not the opaque
+            // background. Apply opacity and shadow once to the combined caster.
+            context.beginTransparencyLayer(auxiliaryInfo: nil)
+        }
+        if let outline = style.outline,
+           let outlined = CFAttributedStringCreateMutableCopy(kCFAllocatorDefault, 0, attributed) {
+            // CoreText stroke width is a percentage of the font size and is
+            // centered on the glyph edge. Authored thickness is the outward
+            // radius in scene pixels, independent of point size. Restore the
+            // original fill afterward so the outline cannot eat the glyph.
+            let radius = min(
+                CGFloat(outline.thickness) * CGFloat(layout.scale),
+                CGFloat(max(width, height)) * 2
+            )
+            context.setLineJoin(.miter)
+            context.setMiterLimit(CGFloat(SceneTextDescriptor.Outline.miterLimit))
+            let strokePercent = radius * 200 / CTFontGetSize(font)
+            let range = CFRange(location: 0, length: CFAttributedStringGetLength(outlined))
+            CFAttributedStringSetAttribute(
+                outlined, range, kCTStrokeWidthAttributeName, strokePercent as CFNumber
+            )
+            CFAttributedStringSetAttribute(
+                outlined, range, kCTStrokeColorAttributeName, color(outline.colorRGB, brightness: 1)
+            )
+            let outlineFramesetter = CTFramesetterCreateWithAttributedString(outlined)
+            let outlineFrame = CTFramesetterCreateFrame(
+                outlineFramesetter, CFRange(location: 0, length: 0), path, nil
+            )
+            CTFrameDraw(outlineFrame, context)
+        }
         CTFrameDraw(frame, context)
+        if shadow != nil { context.endTransparencyLayer() }
+        context.restoreGState()
     }
 
-    private static func color(_ rgb: [Float], brightness: Float) -> CGColor {
+    private static func color(_ rgb: [Float], brightness: Float, alpha: CGFloat = 1) -> CGColor {
         let components = (0..<3).map { index in
             CGFloat(min(max((rgb.indices.contains(index) ? rgb[index] : 1) * brightness, 0), 1))
         }
         return CGColor(
             colorSpace: CGColorSpaceCreateDeviceRGB(),
-            components: components + [1]
+            components: components + [alpha]
         )!
     }
 

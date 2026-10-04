@@ -1322,7 +1322,8 @@
         "text"
       ],
       "modules": [
-        "test_scene_text_script_runtime"
+        "test_scene_text_script_runtime",
+        "test_scene_text_decoration"
       ]
     },
     {

@@ -346,12 +346,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-04",
+      "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "991dd2060a1a14722662e2aa5c07dfe13b9d0f2c71329b0cd1015c14c70ac2dc",
+        "sourceSHA256": "babafdf771c0ce0056eabefc88acb26b6488984408d05ea66f59bcc295df001d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Navigation and design receipt for model graph-output demand; runtime acceptance remains separately bounded.",
+        "scope": "Text decoration ownership and bounded evidence navigation; runtime acceptance is separately identified.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -477,12 +477,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-04",
+      "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f18e068bb5eecee227636da62354daf7e7173466e5fb85be394e42ad685c3ade",
+        "sourceSHA256": "c8901aaed501b4b1b81b66787cd7384e20dea97678f3736530e28c1828220508",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对粒子instance alpha及未闭合样本的证据导航；不含运行验收。",
+        "scope": "Text decoration ownership and bounded evidence navigation; runtime acceptance is separately identified.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
