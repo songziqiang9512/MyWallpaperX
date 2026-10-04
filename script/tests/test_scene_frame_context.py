@@ -135,7 +135,8 @@ struct FrameTestRenderer {
 }
 struct FrameTestMetalLayer { var drawableSize = CGSize(width: 3024, height: 1964) }
 struct SceneMetalView {
-    var onRenderInvalidated: (() -> Void)?
+    enum RenderInvalidation { case surface, mediaPublication }
+    var onRenderInvalidated: ((RenderInvalidation) -> Void)?
     var renderer = FrameTestRenderer()
     var metalLayer = FrameTestMetalLayer()
     var offscreenTexturePool = FrameTestPool()
@@ -148,7 +149,7 @@ struct SceneMetalView {
 enum Harness {
     static func main() throws {
         var invalidatedView = SceneMetalView()
-        invalidatedView.onRenderInvalidated = { InvalidationEvents.values.append("callback") }
+        invalidatedView.onRenderInvalidated = { _ in InvalidationEvents.values.append("callback") }
         invalidatedView.invalidateResolvedMaterialRuntime(reason: .init(label: "executor"))
         let withCallback = InvalidationEvents.values
         InvalidationEvents.values = []

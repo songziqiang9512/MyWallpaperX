@@ -147,6 +147,7 @@ extension SceneDesktopWallpaperSession {
         }
         guard launchContext != nil, !surfaces.isEmpty else { return .inactive }
         if sceneClock.isPaused && surfaces.values.allSatisfy({ $0.metalView.hasSimulationFrame }) {
+            _ = refreshPausedMediaPublications()
             return renderSurfaces()
         }
         promotePendingDeferredLayerVisibilityIfReady()
@@ -203,7 +204,7 @@ extension SceneDesktopWallpaperSession {
             surfaces.map { displayID, surface in
                 (
                     displayID,
-                    surface.metalView.prepareMediaThumbnail(from: mediaInput)
+                    surface.metalView.prepareMediaThumbnail()
                 )
             }
         )
@@ -769,6 +770,7 @@ extension SceneDesktopWallpaperSession {
                 materialFunctionMutations: materialFunctionMutations,
                 puppetBoneMutations: puppetBoneMutations,
                 mediaThumbnail: mediaThumbnailSnapshot,
+                mediaInput: mediaInput,
                 audioSpectrum: audioSpectrum,
                 performanceTelemetry: SceneDesktopWallpaperHost.usesDebugEvidenceWindow
                     ? SceneFramePerformanceTelemetry.debugEvidence : nil
@@ -795,6 +797,26 @@ extension SceneDesktopWallpaperSession {
         // A later cadence samples fresh state; it never replays this VM frame.
         return attempt
     }
+    /// Refresh resources for the already-consumed cadence only when the whole
+    /// current surface cohort is terminal. A partial completion is not a draw.
+    @discardableResult
+    func refreshPausedMediaPublications() -> Bool {
+        let publications = surfaces.mapValues { $0.metalView.pausedMediaThumbnailPublication() }
+        guard !surfaces.isEmpty, Set(surfaces.keys) == preparedSurfaceIDs,
+              Set(surfaces.values.map { $0.metalView.simulationFrameIndex }).count == 1,
+              publications.values.allSatisfy({ $0 != nil }),
+              Set(publications.values.compactMap { $0?.generation }).count == 1 else { return false }
+        var changed = false
+        for (id, surface) in surfaces {
+            if let publication = publications[id] ?? nil,
+               surface.metalView.refreshPausedMediaThumbnail(publication) {
+                surface.didSubmitSimulationFrame = false
+                changed = true
+            }
+        }
+        return changed
+    }
+
     private func renderSurfaces() -> SceneFrameDriverAttempt {
         var frameOutcomes: [SceneMetalRenderer.FrameOutcome] = []
         frameOutcomes.reserveCapacity(surfaces.count)

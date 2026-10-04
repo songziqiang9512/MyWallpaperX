@@ -263,3 +263,17 @@ Debug构建、18项相邻原生门与修复载体后的截图生命周期门、1
 最终Debug与17项相邻原生门通过；六项实际双surface故障/恢复门通过。延迟两秒、暂停双surface的实际App与同App静态NEW TEXT对照一致：3024×1964读回中128,190个白色文字核心像素的mask、边界和数量完全相同，绿色邻层35,721像素保持正确；两个surface均在frame0重画并完成，脚本没有重放。像素仅代表选中的一个surface，不能外推物理多屏逐屏像素；暂停后没有新invalidation的晚期after截图在退出时失败属预期，不算成功截图。依赖、代码健康、防御、设计与产物门通过；结构门原两项66/65库存失败保留。
 
 此修复让已暂停场景的晚到文字真正出现在最终画面，不需要恢复播放或resize；未做性能对照，也未证明全部真实文字内容及官方排版。最小自有输入、前后反例、PNG和身份保留于本机`rf05-paused-text-20261004`（<32MiB、14天）；临时App退出后清理，复用一份checkpoint缓存。下一批优先核异步媒体首帧/重建后的发布与暂停重画，若无实际断点则回到真实样本失败队列；不扩充纯证据批。工作卡15/16（93.75%）不变，RF05与全样本Goal继续开放。
+
+
+<a id="rf05-paused-media-publication"></a>
+### 2026-10-04 暂停媒体资源发布修复
+
+修前正常播放显示自有青色封面，暂停首帧后两个store均ready却不重画。原View的重复pending输入在提交失败时丢失；改由SimulationFrame持Host已采输入，成功提交幂等update，失败只解除资源pin。Store在接受成功/缺失/坏图终态后锁外通知，stale不通知。Session仅在全surface同冻结frame/已采generation皆terminal时更新资源快照，不重采Inbox、执行VM或媒体事件；旧surface仍受身份检查。
+
+初版复验发现单面拒绝令两个decode错开约30ms，首个ready沿通用失效入口提前重画备用图。改用原失效回调的typed reason，媒体通知先检查完整cohort且changed再唤醒；后续同代通知不额外重画，正常播放由下cadence取资源。文字/窗口等仍按原surface失效处理，无新timer、cache或提交owner；Debug证据模式有界延迟只固定回归时序。
+
+最终实际App三门通过：同输入control/暂停晚到、一次单面提交拒绝后恢复、坏封面回退。选定surface的3024×1964 PNG分别含571,536个青色封面像素或同面积红色作者fallback，35,721个绿色邻层像素保留；正常control与暂停青色面积一致。两个surface均在最后store terminal之后完成frame0，媒体事件实际执行一次，无VM重放，GPU排空。首个fixture用不支持的solid.color脚本导致owners=0，已改为已支持visible布尔入口；该无效初测及初版提前重画不计验收。
+
+Debug、8项原生provider/事务门及frame-context载体适配通过；文字、共享VM和粒子相邻实际App回归以最终冻结日志为准。依赖、健康、防御、设计与产物门通过；结构库存66/登记65的两项既存失败保留。只证明冻结帧已采媒体输入的晚到资源刷新，不承诺暂停期间新Inbox事件被执行，也不外推物理多屏逐屏像素、官方parity或性能提升。最小自有反例、身份与PNG保留本机`rf05-paused-media-20261004`（<32MiB、14天），临时App清理，保留一份checkpoint缓存。
+
+下一批回到真实Pixels（3122339805）：本次25秒隔离运行两次Metal读回及GPU排空正常，历史三层text bad-return未复现，但layer101/effect0仍有effectVisibility的out-of-cohort mutation拒绝。先取得中性mutation形态并修共享owner边界，保留越界写入负例；其次复验3470948192，不沿用旧失败当当前事实。当前卡15/16（93.75%）不变，RF05与全样本Goal开放。

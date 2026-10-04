@@ -94,6 +94,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
     private let queue: DispatchQueue
     private let imageDecoder: (Data) -> CGImage?
     private let lock = NSLock()
+    private var publicationHandler: (@Sendable () -> Void)?
     private var requestedGeneration: UInt64 = 0
     private var readyGeneration: UInt64 = 0
     private var currentTextures: [SceneTextureLoadPurpose: MTLTexture] = [:]
@@ -124,6 +125,12 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         )
     }
 
+    func setPublicationHandler(_ handler: @escaping @Sendable () -> Void) {
+        lock.lock()
+        publicationHandler = handler
+        lock.unlock()
+    }
+
     func update(from input: SceneMediaThumbnailInbox.Snapshot) {
         lock.lock()
         guard input.generation != requestedGeneration else {
@@ -147,7 +154,9 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             pendingRequest = nil
             readyGeneration = input.generation
             reportedPendingGeneration = nil
+            let handler = publicationHandler
             lock.unlock()
+            handler?()
             return
         }
         let request = DecodeRequest(
@@ -340,6 +349,14 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
 
     private func decode(_ request: DecodeRequest) {
         guard shouldContinue(request) else { return }
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-evidence-dir"),
+           let raw = ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_MEDIA_THUMBNAIL_DELAY"],
+           let delay = Double(raw), delay.isFinite, delay > 0, delay <= 5 {
+            Thread.sleep(forTimeInterval: delay)
+        }
+#endif
+        guard shouldContinue(request) else { return }
         let input = request.input
         let currentImage = input.current.flatMap(imageDecoder)
         guard shouldContinue(request) else { return }
@@ -366,9 +383,11 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         }
         guard !request.isCancelled else { return }
         lock.lock()
-        defer { lock.unlock() }
         guard pendingRequest === request,
-              requestedGeneration == input.generation else { return }
+              requestedGeneration == input.generation else {
+            lock.unlock()
+            return
+        }
         if input.current == nil {
             currentTextures.removeAll(keepingCapacity: true)
             previousTextures.removeAll(keepingCapacity: true)
@@ -403,7 +422,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         pendingRequest = nil
         snapshotDirty = true
 #if DEBUG
-        print(
+        NSLog("%@",
             "MWX media thumbnail store: phase=ready"
                 + " generation=\(input.generation)"
                 + " hasColor=\(decodedTextures[.premultipliedColor] != nil)"
@@ -412,6 +431,9 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
                 + " hasPreviousPreserved=\(previousTextures[.preservedChannels] != nil)"
         )
 #endif
+        let handler = publicationHandler
+        lock.unlock()
+        handler?()
     }
 
     private func shouldContinue(_ request: DecodeRequest) -> Bool {

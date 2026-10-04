@@ -18,6 +18,10 @@ final class SceneMediaThumbnailCoordinator {
         )
     }
 
+    func setPublicationHandler(_ handler: @escaping @Sendable () -> Void) {
+        textureStore.setPublicationHandler(handler)
+    }
+
     func update(
         from input: SceneMediaThumbnailInbox.Snapshot
     ) -> SceneMediaThumbnailTextureStore.Snapshot {

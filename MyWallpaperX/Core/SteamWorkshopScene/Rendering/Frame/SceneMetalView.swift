@@ -76,7 +76,6 @@ class SceneMetalView: NSView {
         dynamicLayers: [SceneRenderDescriptor.Layer],
         dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>]
     )?
-    private var pendingMediaThumbnailInput: SceneMediaThumbnailInbox.Snapshot?
     private var firstFramePresentationRegistration:
         ((CAMetalDrawable) -> Bool)?
     private var dynamicImageTextures: SceneDynamicImageTextureProvider?
@@ -189,6 +188,9 @@ class SceneMetalView: NSView {
         )
         parallaxPointerSmoother = SceneParallaxPointerSmoother()
         super.init(frame: frame)
+        mediaThumbnailCoordinator.setPublicationHandler { [weak self] in
+            DispatchQueue.main.async { [weak self] in self?.onRenderInvalidated?(.mediaPublication) }
+        }
         self.layer = layer
         wantsLayer = true
         imagePipeline = imageLayerPipeline
@@ -424,7 +426,7 @@ class SceneMetalView: NSView {
             onPublication: { [weak self] store in
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.dynamicTextTextures === store else { return }
-                    self.onRenderInvalidated?()
+                    self.onRenderInvalidated?(.surface)
                 }
             }
         )
@@ -520,11 +522,26 @@ class SceneMetalView: NSView {
         }
     }
 
-    func prepareMediaThumbnail(
-        from input: SceneMediaThumbnailInbox.Snapshot
-    ) -> SceneMediaThumbnailTextureStore.Snapshot {
-        pendingMediaThumbnailInput = input
-        return mediaThumbnailCoordinator.prepareFrame()
+    func prepareMediaThumbnail() -> SceneMediaThumbnailTextureStore.Snapshot {
+        mediaThumbnailCoordinator.prepareFrame()
+    }
+
+    func pausedMediaThumbnailPublication() -> SceneMediaThumbnailTextureStore.Snapshot? {
+        guard let simulationFrame else { return nil }
+        let snapshot = mediaThumbnailCoordinator.snapshot()
+        guard snapshot.generation == simulationFrame.mediaInput.generation,
+              snapshot.pendingGeneration == nil else { return nil }
+        return snapshot
+    }
+
+    func refreshPausedMediaThumbnail(_ snapshot: SceneMediaThumbnailTextureStore.Snapshot) -> Bool {
+        guard let frame = simulationFrame,
+              snapshot.generation == frame.mediaInput.generation,
+              snapshot.pendingGeneration == nil,
+              frame.mediaThumbnail.generation != snapshot.generation
+                || frame.mediaThumbnail.pendingGeneration != nil else { return false }
+        simulationFrame?.mediaThumbnail = snapshot
+        return true
     }
 
     func registerFirstPresentation(_ registration: @escaping (CAMetalDrawable) -> Bool) {
@@ -539,10 +556,15 @@ class SceneMetalView: NSView {
         let particles: [SceneParticleDrawBatch]
         let topology: SceneScriptLayerTopologySnapshot
         let textFields: [Int: Set<SceneDynamicTextField>]
-        let mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot
+        var mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot
+        let mediaInput: SceneMediaThumbnailInbox.Snapshot
         let spriteTimes: [Int: Float]
     }
-    var onRenderInvalidated: (() -> Void)?
+    enum RenderInvalidation {
+        case surface
+        case mediaPublication
+    }
+    var onRenderInvalidated: ((RenderInvalidation) -> Void)?
     private var simulationFrame: SimulationFrame?
     var hasSimulationFrame: Bool { simulationFrame != nil }
     var simulationFrameIndex: UInt64 { simulationFrame?.timing.frameIndex ?? 0 }
@@ -555,6 +577,7 @@ class SceneMetalView: NSView {
         materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = [],
         puppetBoneMutations: [SceneScriptPuppetBoneMutation] = [],
         mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot,
+        mediaInput: SceneMediaThumbnailInbox.Snapshot,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) {
@@ -605,7 +628,8 @@ class SceneMetalView: NSView {
             timing: timing, context: frameContext, camera: cameraFrame,
             projection: frameProjection, particles: particleBatches,
             topology: layerTopology, textFields: dynamicTextFieldsByLayerID,
-            mediaThumbnail: mediaThumbnail, spriteTimes: spriteAnimationPlaybackTimes
+            mediaThumbnail: mediaThumbnail, mediaInput: mediaInput,
+            spriteTimes: spriteAnimationPlaybackTimes
         )
     }
 
@@ -757,17 +781,14 @@ class SceneMetalView: NSView {
     }
 
     func commitPreparedMediaThumbnailUpdate() {
-        guard let pendingMediaThumbnailInput else {
-            mediaThumbnailCoordinator.commitPreparedFrame()
-            return
+        if let simulationFrame {
+            _ = mediaThumbnailCoordinator.update(from: simulationFrame.mediaInput)
         }
-        self.pendingMediaThumbnailInput = nil
-        _ = mediaThumbnailCoordinator.update(from: pendingMediaThumbnailInput)
         mediaThumbnailCoordinator.commitPreparedFrame()
     }
 
     func discardPreparedMediaThumbnailUpdate() {
-        pendingMediaThumbnailInput = nil
+        // Keep the sampled input in the frozen frame for a paused retry.
         mediaThumbnailCoordinator.discardPreparedFrame()
     }
 

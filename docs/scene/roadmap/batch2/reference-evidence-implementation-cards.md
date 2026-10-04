@@ -62,7 +62,7 @@ RF03 连续排放后继已独立验收：缺省/0 duration四方法和显式非�
 
 **正反验收。** 诊断导出片已完成独立终审、真实AppKit反例及完整App退出/呈现门，结果仅见[冻结执行记录](../../history/rf05-debug-capture-lifecycle-implementation-2026-10-02.md)，合同见[诊断截图生命周期设计](debug-frame-capture-lifecycle-design.md)；短HDR对照不宣称性能完成。named provider 准备及显示分离片已完成八项签名App门，范围、原失败、受限optional profile与独立终审见[冻结记录](../../history/rf05-named-provider-readiness-implementation-2026-10-02.md)。途中发现的三候选未支持组合阻断首帧，已由[独立局部失败批](../../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-optional-failure)恢复安全入口和健康邻层；未扩大候选执行profile，RF05全卡仍未完成。资源准备期间连续属性意图已修复并用实际 App 验证，见[有界子批](../../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-deferred-intent)。其余组合门仍待执行： 初值覆盖→首帧hidden剪枝→live变化→script authored fallback不污染；visible bool/value-bool/user string/name-condition及数值wrapper保守分支分别验证。隐藏provider被跨层采样仍执行，隐藏未消费对象不贡献输出；toggle、同帧不同消费者、错purpose/stale generation、resize/reload和provider晚到验证publication闭包。一屏drawable缺失、另一屏真实completion、所有屏失败后恢复，VM heap/timer/input/localStorage与粒子RNG/child births/Puppet physics每cadence一次消费，恢复使用最新typed snapshot。pause首帧、run profile切换、政策重连/继承及旧epoch分别验收。
 
-**当前下一步。** [暂停文字修复与双surface恢复](../../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-paused-text-publication)已验。继查媒体首帧/重建后发布，无断点则回真实失败队列；RF05开放。
+**当前下一步。** [暂停媒体发布](../../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-paused-media-publication)已验。转真实effectVisibility事务拒绝，后继见该记录；RF05开放。
 
 **D9/D10边界。** D9只在确有App可表达throttle需求时扩协议，不制造空第三态或renderer系统observer。当前FrameDriver:770只在paused未提交时返回busy，:773运行态未提交返回dropped正常cadence；:149已具simulationFrame的paused重试仅renderSurfaces。故“interval/8重复模拟”静态猜测不成立，只有执行反例可重新立修复项。不复制Miragefade、重放结构、计时/超时常量。
 
