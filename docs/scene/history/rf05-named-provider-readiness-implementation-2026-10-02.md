@@ -277,3 +277,12 @@ Debug构建、18项相邻原生门与修复载体后的截图生命周期门、1
 Debug、8项原生provider/事务门及frame-context载体适配通过；文字、共享VM和粒子相邻实际App回归以最终冻结日志为准。依赖、健康、防御、设计与产物门通过；结构库存66/登记65的两项既存失败保留。只证明冻结帧已采媒体输入的晚到资源刷新，不承诺暂停期间新Inbox事件被执行，也不外推物理多屏逐屏像素、官方parity或性能提升。最小自有反例、身份与PNG保留本机`rf05-paused-media-20261004`（<32MiB、14天），临时App清理，保留一份checkpoint缓存。
 
 下一批回到真实Pixels（3122339805）：本次25秒隔离运行两次Metal读回及GPU排空正常，历史三层text bad-return未复现，但layer101/effect0仍有effectVisibility的out-of-cohort mutation拒绝。先取得中性mutation形态并修共享owner边界，保留越界写入负例；其次复验3470948192，不沿用旧失败当当前事实。当前卡15/16（93.75%）不变，RF05与全样本Goal开放。
+
+<a id="rf05-effect-owner-alias"></a>
+### 同一特效句柄的可见状态事务（2026-10-04）
+
+真实Pixels（3122339805）的中性探针确认：layer101/effect0的visibility owner只写回自身effect（fields256），却被当作跨cohort layer mutation拒绝。现于既有C句柄入口按layer/effect身份复用thisObject.visible的staged/pending/committed状态；name/index及thisScene lookup读取同一事务。保留stale handle、active owner、effectful Bool检查和跨effect/层副作用拒绝，不新增状态、owner或普通帧解析；临时探针已撤除。
+
+修前真实QuickJS新增五个别名反例失败，修后同owner别名、双向read-your-writes、事件回滚重试/idle quiet及bad-return恢复通过，跨effect/层/其他字段继续拒绝。自有App复用现役fullscreen fixture，仅以scene time控制同effect：修前3.5秒仍白，修后1/3.5/7秒为白/灰/白，后置绿色邻层不变；同窗口、真实Metal读回与GPU排空成立。Pixels最终25秒运行原拒绝消失、两次截图与排空正常，输入及源码/App身份未变。未做官方像素对照、全部交互或性能测量，不能据此宣称Pixels或全样本完成。
+
+最小自有输入、前后像素、真实中性日志与身份保留于本机`rf05-effect-owner-alias-20261004`（14天）；构建与独审结果由冻结证据记录。临时App/样本在归档后清理，仅复用一份checkpoint缓存。下一批复验真实3470948192（水滴 三体）的pass API/变换/最终合成，以当前实际失败决定修复，不把历史异常当作现状；其次复验3509243656。工作卡15/16（93.75%）不变，RF05与全样本Goal开放；完整样本正确率尚无可报告分母。

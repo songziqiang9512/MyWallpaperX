@@ -251,6 +251,8 @@
       ],
       "modules": [
         "test_scene_cross_layer_effect_visibility",
+        "test_scene_effect_cursor_visibility",
+        "test_scene_effect_visibility_alias_integration",
         "test_scene_cursor_audio_consumer",
         "test_scene_cursor_candidate_collision",
         "test_scene_dynamic_layer_visibility",

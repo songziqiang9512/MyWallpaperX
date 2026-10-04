@@ -339,14 +339,8 @@ bool mwx_scene_quickjs_owner_has_staged_effect_visibility(
     return owner != NULL && !owner->disabled && owner->effect_visibility_staged;
 }
 
-static JSValue effect_visibility_getter(
-    JSContext *context,
-    JSValueConst this_value,
-    int argc,
-    JSValueConst *argv,
-    int magic,
-    void *opaque
-) {
+static JSValue effect_visibility_getter(JSContext *context, JSValueConst this_value,
+    int argc, JSValueConst *argv, int magic, void *opaque) {
     (void)this_value; (void)argc; (void)argv; (void)magic;
     MWXSceneQuickJSOwner *owner = opaque;
     if (owner == NULL || owner->domain == NULL ||
@@ -363,14 +357,8 @@ static JSValue effect_visibility_getter(
     );
 }
 
-static JSValue effect_visibility_setter(
-    JSContext *context,
-    JSValueConst this_value,
-    int argc,
-    JSValueConst *argv,
-    int magic,
-    void *opaque
-) {
+static JSValue effect_visibility_setter(JSContext *context, JSValueConst this_value,
+    int argc, JSValueConst *argv, int magic, void *opaque) {
     (void)this_value; (void)magic;
     MWXSceneQuickJSOwner *owner = opaque;
     if (owner == NULL || owner->domain == NULL ||
@@ -386,13 +374,8 @@ static JSValue effect_visibility_setter(
 }
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_effect_visibility_target(
-    MWXSceneQuickJSOwner *owner,
-    int64_t layer_id,
-    int64_t effect_index,
-    bool seed_visible,
-    char *diagnostic,
-    size_t diagnostic_capacity
-) {
+    MWXSceneQuickJSOwner *owner, int64_t layer_id, int64_t effect_index,
+    bool seed_visible, char *diagnostic, size_t diagnostic_capacity) {
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
     if (owner == NULL || owner->domain == NULL ||
         owner->domain->callback_active || layer_id < -9007199254740991LL ||
@@ -881,11 +864,17 @@ static JSValue layer_effect_visible(JSContext *ctx, JSValueConst this_value,
     if (r == NULL || h->effect_index >= r->effect_count)
         return JS_ThrowTypeError(ctx, "effect handle is stale");
     MWXSceneQuickJSOwner *owner = h->domain->active_owner;
+    if (write && (owner->value_only || argc != 1 || !JS_IsBool(argv[0])))
+        return JS_ThrowTypeError(ctx, "effect visibility expects an effectful Boolean write");
+    // Both handles name the same owner state, including staged reads and rollback.
+    if (owner->effect_visibility_configured && owner->effect_visibility_layer_id == r->layer_id &&
+        owner->effect_visibility_effect_index == h->effect_index) {
+        return write ? effect_visibility_setter(ctx, this_value, argc, argv, 0, owner)
+                     : effect_visibility_getter(ctx, this_value, argc, argv, 0, owner);
+    }
     MWXSceneQuickJSAuthoredLayerMutationRecord *m =
         mwx_scene_quickjs_authored_mutation_for_layer(owner, h->layer_index);
     if (write) {
-        if (owner->value_only || argc != 1 || !JS_IsBool(argv[0]))
-            return JS_ThrowTypeError(ctx, "effect visibility expects an effectful Boolean write");
         if (m == NULL) m = mwx_scene_quickjs_stage_authored_mutation(owner, h->layer_index);
         if (m == NULL) return JS_ThrowInternalError(ctx, "effect mutation budget exceeded");
         if (m->effect_visible == NULL) {

@@ -114,7 +114,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 402,
-      "bytes": 96926
+      "bytes": 96924
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 259,
-      "bytes": 48570
+      "bytes": 48544
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -178,7 +178,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 243,
-      "bytes": 32426
+      "bytes": 32420
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,
