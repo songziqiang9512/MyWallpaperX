@@ -35,17 +35,6 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         return s
     }()
 
-    /// D7 页头计数：「可用 N · 失败 M · 进行中 K · 未完成 C」；搜索/筛选时
-    /// 另报「显示 X 项」。与可见列表同源（service.downloadPageCounts）。
-    private let countsLabel: NSTextField = {
-        let label = NSTextField(labelWithString: "")
-        label.alignment = .left
-        label.textColor = .secondaryLabelColor
-        label.font = .systemFont(ofSize: 11, weight: .regular)
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-
     private lazy var collectionView: SteamWorkshopKeyboardCollectionView = {
         let cv = SteamWorkshopKeyboardCollectionView()
         cv.isSelectable = false
@@ -154,18 +143,13 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         scrollView.documentView = collectionView
 
         addSubview(scrollView)
-        addSubview(countsLabel)
         addSubview(emptyLabel)
 
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: countsLabel.bottomAnchor, constant: 8),
+            scrollView.topAnchor.constraint(equalTo: topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
-
-            countsLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
-            countsLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -4),
-            countsLabel.topAnchor.constraint(equalTo: topAnchor, constant: 6),
 
             emptyLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             emptyLabel.centerYAnchor.constraint(equalTo: centerYAnchor)
@@ -175,13 +159,6 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] records in
                 self?.applyRecords(records)
-            }
-            .store(in: &cancellables)
-
-        service.$downloadPageCounts
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.refreshCountsLabel()
             }
             .store(in: &cancellables)
 
@@ -197,7 +174,6 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
             .sink { [weak self] _ in
                 guard let self else { return }
                 self.emptyLabel.stringValue = self.currentEmptyStateText()
-                self.refreshCountsLabel()
             }
             .store(in: &cancellables)
 
@@ -276,7 +252,6 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         // 只有真正的空列表才进空态。
         emptyLabel.stringValue = currentEmptyStateText()
         emptyLabel.isHidden = !orderedIDs.isEmpty
-        refreshCountsLabel()
 
         // Structure unchanged: the diffable apply would be a no-op, so skip
         // straight to reconfiguring only the visible cells whose record
@@ -464,20 +439,6 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         guard !service.isDownloadsMultiSelectMode else { return }
         keyboardFocusedID = nil
         service.selectDownload(itemID: nil)
-    }
-
-    private func refreshCountsLabel() {
-        let counts = service.downloadPageCounts
-        guard counts.hasAnyIntent || orderedIDs.isEmpty == false else {
-            countsLabel.stringValue = ""
-            return
-        }
-        var text = counts.headerText
-        let query = service.downloadsQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        if query.isEmpty == false || service.downloadsDisplayMode != .all {
-            text += " · 显示 \(orderedIDs.count) 项"
-        }
-        countsLabel.stringValue = text
     }
 
     /// D7 空态三档：搜索为「没有匹配的下载记录」，类型筛选为「此分类暂无

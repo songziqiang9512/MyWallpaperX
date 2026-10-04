@@ -5,31 +5,6 @@
 
 import Foundation
 
-/// 下载页页头计数（D7）。四类计数与可见列表同源（记录 ⊕ JobStore 失败意图），
-/// 不允许出现第二份计数来源。
-struct SteamWorkshopDownloadPageCounts: Equatable {
-    /// 可用内容（ready 记录）。
-    let readyCount: Int
-    /// 失败意图（failed 记录，含 JobStore 合成的持久失败）。
-    let failedCount: Int
-    /// 失败后的重试进行中（queued/downloading 且带失败历史）。
-    let inProgressRetryCount: Int
-    /// 重试取消后的未完成意图（仅计数，卡片投影待后续实施片）。
-    let unfinishedCount: Int
-
-    static let empty = SteamWorkshopDownloadPageCounts(
-        readyCount: 0, failedCount: 0, inProgressRetryCount: 0, unfinishedCount: 0
-    )
-
-    var hasAnyIntent: Bool {
-        readyCount > 0 || failedCount > 0 || inProgressRetryCount > 0 || unfinishedCount > 0
-    }
-
-    var headerText: String {
-        "可用 \(readyCount) · 失败 \(failedCount) · 进行中 \(inProgressRetryCount) · 未完成 \(unfinishedCount)"
-    }
-}
-
 extension SteamWorkshopService {
     /// D7 单一投影：记录 ⊕ 现役账号失败意图 → 模式过滤 → 搜索 → 排序。
     /// 失败项与失败后的重试任务保留在下载页；从未失败的新 queued/downloading
@@ -185,40 +160,6 @@ extension SteamWorkshopService {
             contentType: .unknown,
             dependencyItemID: nil,
             dependencyStatus: .none
-        )
-    }
-
-    /// 页头四类计数：与可见列表同一合并来源（downloadsWithFailedIntents）。
-    func downloadPageCounts(from records: [SteamWorkshopDownloadRecord]) -> SteamWorkshopDownloadPageCounts {
-        let merged = downloadsWithFailedIntents(from: records)
-        var readyCount = 0
-        var failedCount = 0
-        var inProgressRetryCount = 0
-        for record in merged {
-            switch record.status {
-            case .ready:
-                readyCount += 1
-            case .failed:
-                failedCount += 1
-            case .queued, .downloading:
-                if hasFailedDownloadHistory(itemID: record.id) {
-                    inProgressRetryCount += 1
-                }
-            }
-        }
-        var unfinishedItemIDs = Set<String>()
-        if let account = currentSteamDownloadAccount {
-            for job in downloadJobStore.jobs where job.state == .cancelled && job.accountSteamId == account {
-                if hasFailedDownloadHistory(itemID: job.workshopItemId, accountSteamId: account) {
-                    unfinishedItemIDs.insert(job.workshopItemId)
-                }
-            }
-        }
-        return SteamWorkshopDownloadPageCounts(
-            readyCount: readyCount,
-            failedCount: failedCount,
-            inProgressRetryCount: inProgressRetryCount,
-            unfinishedCount: unfinishedItemIDs.count
         )
     }
 
