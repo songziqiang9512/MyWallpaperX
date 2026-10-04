@@ -23,6 +23,7 @@ struct SceneUtilityLayer {
     enum Kind: String { case composition, project, fullscreen }
     let kind: Kind
     var copyBackground: Bool = true
+    var passthrough: Bool = false
     init(kind: Kind) { self.kind = kind }
 }
 

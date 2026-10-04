@@ -11,15 +11,15 @@
 
 ## 2026-10-04 有界行为裁决与实施
 
-**直接结果。** 固定 Wallpaper Engine 2.8.42 / wallpaper32 SHA256 `daac1ea7c991207fdb6098616757e3dae393850f6862845db55d04921b6bda07`，自有 256×256 正交场景、512×512 客户区，使用公开 shader 语法自写 RGB 反色且保留 alpha。无效果基线为蓝背景、黄 child、红非 child；同一 input 的 `copybackground` 省略/true 得到黄背景、蓝 child、青非 child，false 得到蓝背景、蓝 child、红非 child。把非 child 从根前移到根后、child 前，该层保持红，背景/child 不变。两次间隔约 0.2 秒的呈现截图与预登记 ROI 一致（不声称连续 GPU 帧），通道容差 4。独立的全屏控制确认 effect off 黄/on 蓝；parent 使数组根前或根后的 child 都进入根效果。原始父子图层坐标经局部 origin 补偿，世界位置相同。证据在本批隔离记录，收尾保存冻结身份与最终结果；错误 shader 构造及 intrinsic texture 尺寸不符的先导尝试不作语义证据。
+**已有裁决。** 官方 2.8.42 自有黑盒覆盖 parent child、根前后位置、非 child 前后移动、copybackground 三态与空组，具体结果和身份见上方执行记录。成员随 parent 分组，根按作者位置合成；copybackground 缺省/true 采集当时 enclosing 背景，false 透明。不得恢复 prefix 或末后代触发的旧推断。
 
-**批准合同。** 普通 composition 的 parent 后代确为组内容；按作者根位置合成，成员在各自作者相对顺序下先完成，不能把根延后到最后后代的原数组位置。`copybackground` 缺省等于 true；true 在组开始时复制当时 enclosing pass 背景，false 从透明开始。child 关系不排除已显式纳入的背景，也不能使后方非 child 提前进入。parent 的世界变换/可见性仍归原 owner。原“parent 只决定变换”的候选及“缺省 false、所有组透明”的旧假设被反例排除；保留分组，撤掉无依据 prefix 优化与 parent-before-child 限制。
+**现役链路。** SourceRoute/RuntimePlanner 在 descriptor/topology revision 准备成员和唯一执行顺序，graph preparation 与 encode 共用；组纹理由原 pool 预留/pin，真正写入时才复制 enclosing 背景或 clear，嵌套组仍只合成一次。普通帧不重建 parent 闭包；资源/generation/hazard/completion 延续原裁决，局部效果失败不增加第二套 registry/history/compositor。多 sibling/嵌套属项目一致性推广，尚非官方逐项对照。
 
-**实现与取舍。** 沿现有 SourceRoute/RuntimePlanner 准备一次确定的组成员与有效执行顺序；同一顺序同时用于 graph preparation 与实际 layer encode。不在普通帧重建 parent 闭包或另建 scheduler。组纹理仍由既有 pool 预留/pin，背景复制只在真正开始写入该组时发生，不能在帧准入阶段提前复制空主帧。copy/clear 后准备与实际采样使用同一 target；嵌套组复制自己的 enclosing pass，完成后只合成一次。拒绝只改缺省值或放开 guard：现有透明 clear 与末后代 trigger 会继续取错源/遮住后层。动态 topology 使用现役变更/缓存边界，不能把静态计划错误复用于改变后的关系。
+## 组合层实时显隐实施决定（2026-10-04）
 
-**失败与退出。** source allocation/generation/hazard/command completion 继续由既有 pool/coordinator 裁决。局部 effect 失败保持安全组输入/父输出；不增加组 history、fallback registry 或第二 compositor。无 effect、空组、copybackground=false、子层 effect、嵌套、交错非 child、root 在 child 前后均进入相称反例；未知 passthrough 与特殊 transform/clip 不据此宣称支持。
+真实326的时钟与分组开关被热更新准入拒绝，而同场景月亮开关可接受；产品可回退重载，这不是整样本无法显隐的证明。本批使已有合法固定分组在同一窗口内切换，避免为可见性变化重建场景。复用 SourceRoute 对普通 composition 成员的裁决，原 visibility 准入/准备闭包覆盖合法 composition 祖先及后代；无环、唯一身份、父子索引一致仍必需，passthrough、依赖型组与未支持成员仍保留原边界。无子层的背景采集 composition 同样沿既有 source route 准备，不因嵌套而遗漏。初始隐藏的子图、图片及文字进入既有 launch preparation，已准备组保留 capture 计划；无 effect 组仅保留顺序，实际分配、编码和输出仍由当前 typed visibility 集决定。drawable 可读用途在启动时涵盖潜在高级混合层，不能用初始隐藏撤销后续采样所需能力。不新增树、时钟或 compositor owner，不在普通帧重建闭包。
 
-**验收与停止。** 自有 parser→plan→GPU→最终 App 输出同时验证三色 ROI、同帧/后帧、组外健康层与 clear/resize/completion；Debug build、最近回归与独立只读审查通过后按职责提交。修前/修后截图证明背景由漏处理变为入效果、显式 true 由漏效果变为执行、后方非 child 不再被错误覆盖。此 profile 完成即停止扩展，未证模式另列后续，不以更多静态报告代替代码。多 sibling/嵌套是项目一致性推广及实施回归，不冒充本组官方逐项对照。
+验收包含初始隐藏→显示→隐藏→恢复、嵌套组、子层自身 false、子 effect/文字、健康邻层与静态显隐像素对照，以及畸形层级反例、Debug build 和真实326同输入开关。普通视觉资源失败继续局部降级；非法结构拒绝目标，整键原子准入不拆分。完成此固定分组闭环即收口，不借机扩大 passthrough、变换裁切或官方 parity；启动准备可能增加，实际热更新是否避免重载及画面是否恢复分别验证。
 
 ## 现有资源合同与历史依据
 

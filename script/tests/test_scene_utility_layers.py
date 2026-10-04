@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from script.tests.source_family import read_source_family
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -62,6 +63,29 @@ CAPTURED_MAIN_SOURCE_CONSERVATION = (
 HARNESS_SOURCE = r'''
 import Foundation
 
+struct SceneLayerDisplayScriptOwnership {
+    let visible: Bool
+    let alpha: Bool
+    var isEmpty: Bool { !visible && !alpha }
+    var fields: [String] { [] }
+}
+struct SceneRenderDescriptor {
+    struct Layer {
+        let id: Int
+        var visible: Bool? = true
+        var parentID: Int? = nil
+        var contentKind = "image"
+        var colorBlendMode: Int? = nil
+        var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
+    }
+    struct MaterialPass { let combos: [String: Int] }
+    let layers: [Layer]
+    var materialPasses: [MaterialPass] = []
+}
+struct SceneDependencyRenderPlan {
+    var requiredProviderLayerIDs: Set<Int> = []
+}
+
 @main
 enum Harness {
     static func main() throws {
@@ -75,10 +99,28 @@ enum Harness {
             ("models/util/composelayer.json", ["copybackground": ["value": true]]),
         ]
         let parsed = fixtures.map { SceneUtilityLayer.parse(imagePath: $0.0, object: $0.1) }
+        func readable(_ layers: [SceneRenderDescriptor.Layer]) -> Bool {
+            SceneRenderDescriptor(layers: layers).requiresReadableFramebuffer(
+                sceneBackgroundLayerIDs: [], utilityCaptureLayerIDs: [],
+                dependencyPlan: .init())
+        }
+        let maximum = SceneBlendModeShaderSource.maximumMode
+        var hiddenBlend: [String: Bool] = [:]
+        for kind in ["image", "solid", "text"] {
+            hiddenBlend[kind] = readable([
+                .init(id: 1, visible: false, contentKind: kind, colorBlendMode: 1)])
+        }
         let result: [String: Any] = [
             "kinds": parsed.map { $0?.kind.rawValue ?? "none" },
             "copyBackground": parsed.map { $0?.copyBackground ?? false },
             "passthrough": parsed.map { $0?.passthrough ?? false },
+            "hiddenAdvancedBlend": hiddenBlend,
+            "parentHiddenAdvancedBlend": readable([
+                .init(id: 10, visible: false, contentKind: "composition"),
+                .init(id: 11, parentID: 10, colorBlendMode: maximum)]),
+            "ordinaryBlend": readable([.init(id: 1, visible: false, colorBlendMode: 0)]),
+            "absentBlend": readable([.init(id: 1, visible: false)]),
+            "invalidBlend": readable([.init(id: 1, colorBlendMode: maximum + 1)]),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -96,9 +138,22 @@ class SceneUtilityLayerTests(unittest.TestCase):
         directory = Path(cls.temporary_directory.name)
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+        # Compile the unchanged production extension. Its other renderer
+        # owners require Metal; this CPU gate exercises only drawable usage.
+        source_path = Path(os.environ.get(
+            "MWX_SCENE_UTILITY_READABLE_SOURCE", str(RUNTIME_PLAN_SOURCE)))
+        runtime_source = source_path.read_text(encoding="utf-8")
+        readable = directory / "ReadableFramebuffer.swift"
+        readable.write_text(
+            "import Foundation\n" + runtime_source[runtime_source.rindex("extension SceneRenderDescriptor {"):],
+            encoding="utf-8")
         cls.binary = directory / "scene-utility-layers"
         subprocess.run(
-            ["xcrun", "--sdk", "macosx", "swiftc", str(SOURCE), str(harness), "-o", str(cls.binary)],
+            ["xcrun", "--sdk", "macosx", "swiftc", str(SOURCE),
+             str(SOURCE_ROOT / "Systems/Properties/SceneDynamicSnapshot.swift"),
+             str(SOURCE_ROOT / "Rendering/Geometry/SceneLayerVisibility.swift"),
+             str(SOURCE_ROOT / "Rendering/Composition/SceneBlendModeShaderSource.swift"),
+             str(readable), str(harness), "-o", str(cls.binary)],
             check=True,
             capture_output=True,
             text=True,
@@ -121,6 +176,15 @@ class SceneUtilityLayerTests(unittest.TestCase):
     def test_composition_background_default_and_explicit_flags(self) -> None:
         self.assertEqual(self.result["copyBackground"], [True, True, False, False, False, False, True])
         self.assertEqual(self.result["passthrough"], [True, False, False, False, False, False, False])
+
+    def test_hidden_advanced_blend_reserves_readable_drawable_usage(self) -> None:
+        self.assertEqual(self.result["hiddenAdvancedBlend"],
+                         {"image": True, "solid": True, "text": True})
+        self.assertTrue(self.result["parentHiddenAdvancedBlend"])
+
+    def test_ordinary_or_unsupported_blend_does_not_request_readable_drawable(self) -> None:
+        for key in ("ordinaryBlend", "absentBlend", "invalidBlend"):
+            self.assertFalse(self.result[key], key)
 
     def test_document_and_descriptor_preserve_generic_dependencies(self) -> None:
         document = (SOURCE_ROOT / "Format/SceneDocument.swift").read_text(encoding="utf-8")

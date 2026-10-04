@@ -48,12 +48,10 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
     }
 }
 
-/// A dynamic visibility owner prepares its ordinary subtree without making
-/// it visible or changing child visibility. A composition root may join
-/// only when its lifecycle already exists at launch; activating a previously
-/// hidden fullscreen can prepare its existing main-target route; other hidden
-/// utilities or changing hierarchy still require rebuild. The frame
-/// snapshot remains the only compositor visibility authority.
+/// A dynamic visibility owner prepares its supported subtree without making
+/// it visible or changing child visibility. Fixed composition groups reuse
+/// their existing source route; unsupported utilities or changing hierarchy
+/// still require rebuild. The frame snapshot remains the visibility authority.
 nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
     static func targets(
         in descriptor: SceneRenderDescriptor,
@@ -80,7 +78,7 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
                   let layers = descriptorGroups[layerID],
                   layers.count == 1,
                   let layer = layers.first else { continue }
-            if ordinarySubtree(layerID: layerID, groups: descriptorGroups, children: children) != nil {
+            if visibilitySubtree(layerID: layerID, descriptor: descriptor, groups: descriptorGroups, children: children) != nil {
                 admitted.insert(target)
                 continue
             }
@@ -91,7 +89,7 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
                layer.contentKind == "model", layer.staticModelPath != nil,
                layer.utilityLayer == nil, layer.effects.isEmpty,
                layer.childLayerIDs.isEmpty, children[layerID, default: []].isEmpty,
-               ordinarySubtree(layerID: layerID, groups: descriptorGroups,
+               visibilitySubtree(layerID: layerID, descriptor: descriptor, groups: descriptorGroups,
                                children: children, preparedModelLeafID: layerID) != nil {
                 admitted.insert(target)
                 continue
@@ -122,8 +120,8 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
         let children = childrenByParent(in: descriptor)
         return layerIDs(in: descriptor, candidates: candidates).reduce(into: Set<Int>()) {
             result, layerID in
-            result.formUnion(ordinarySubtree(
-                layerID: layerID, groups: groups, children: children
+            result.formUnion(visibilitySubtree(
+                layerID: layerID, descriptor: descriptor, groups: groups, children: children
             ) ?? [layerID])
         }
     }
@@ -138,36 +136,48 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
         }
     }
 
-    private static func ordinarySubtree(
+    private static func visibilitySubtree(
         layerID: Int,
+        descriptor: SceneRenderDescriptor,
         groups: [Int: [SceneRenderDescriptor.Layer]],
         children: [Int: [Int]],
         preparedModelLeafID: Int? = nil
     ) -> Set<Int>? {
-        func ordinaryLayer(_ id: Int) -> SceneRenderDescriptor.Layer? {
+        func supportedLayer(_ id: Int) -> SceneRenderDescriptor.Layer? {
             guard let group = groups[id], group.count == 1,
-                  let layer = group.first, layer.utilityLayer == nil,
-                  (["container", "image", "solid", "text"].contains(layer.contentKind)
-                    || id == preparedModelLeafID)
-            else { return nil }
+                  let layer = group.first else { return nil }
+            if let utility = layer.utilityLayer {
+                // Resolve each nested group too: a valid outer member list
+                // does not prove a nested group's dependency/source contract.
+                guard utility.kind == .composition, !utility.passthrough,
+                      layer.dependencyLayerIDs.isEmpty,
+                      layer.authoredDependencies.isEmpty,
+                      (try? SceneUtilityLayerSourceRoute.resolve(
+                        layer: layer, descriptor: descriptor
+                      ).get()) != nil else { return nil }
+            } else {
+                guard ["container", "image", "solid", "text"].contains(layer.contentKind)
+                    || id == preparedModelLeafID else { return nil }
+            }
             let childIDs = children[id, default: []]
             guard Set(layer.childLayerIDs) == Set(childIDs),
                   layer.childLayerIDs.count == childIDs.count else { return nil }
             return layer
         }
         // Validate ancestry even for a leaf edit. Only the explicitly prepared
-        // model leaf can join this route; other specialized hierarchies cannot.
+        // model leaf can join this route; specialized members still require
+        // the composition source resolver's supported subtree contract.
         var ancestors: Set<Int> = []
         var current: Int? = layerID
         while let id = current {
-            guard ancestors.insert(id).inserted, let layer = ordinaryLayer(id)
+            guard ancestors.insert(id).inserted, let layer = supportedLayer(id)
             else { return nil }
             current = layer.parentID
         }
         var pending = [layerID]
         var result: Set<Int> = []
         while let id = pending.popLast() {
-            guard result.insert(id).inserted, ordinaryLayer(id) != nil
+            guard result.insert(id).inserted, supportedLayer(id) != nil
             else { return nil }
             let childIDs = children[id, default: []]
             pending.append(contentsOf: childIDs)

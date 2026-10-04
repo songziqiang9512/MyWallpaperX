@@ -122,7 +122,17 @@ enum SceneUtilityLayerRuntimePlanner {
                 && resolvedMaterialLayerIDs.contains(layer.id)
                 && layer.parentID == nil && layer.childLayerIDs.isEmpty
                 && layer.dependencyLayerIDs.isEmpty && sourceRoute != nil
-            if !visibleLayerIDs.contains(layer.id) && !preparedFullscreen {
+            let isolatedComposition = utility.kind == .composition
+                && sourceRoute?.usesIsolatedGroupTarget == true
+            let preparedComposition = utility.kind == .composition
+                && !utility.passthrough && sourceRoute != nil
+                && layer.dependencyLayerIDs.isEmpty && layer.authoredDependencies.isEmpty
+                && resolvedMaterialLayerIDs.contains(layer.id)
+            let preparedUtility = preparedFullscreen || preparedComposition
+            // Hidden prepared groups retain their source plan. No-effect
+            // groups retain only ordering and allocate no capture target.
+            if !visibleLayerIDs.contains(layer.id) && !preparedUtility
+                && !(isolatedComposition && !hasVisibleEffects) {
                 disposition = .skippedHidden
             } else if !layer.dependencyLayerIDs.isEmpty {
                 let binding = dependencyPlan.bindingsByConsumerLayerID[layer.id]
@@ -143,7 +153,7 @@ enum SceneUtilityLayerRuntimePlanner {
                 } else {
                     disposition = .unsupportedDependencies
                 }
-            } else if !hasVisibleEffects && !preparedFullscreen {
+            } else if !hasVisibleEffects && !preparedUtility {
                 disposition = .skippedNoEffect
             } else if sourceRoute == nil, !layer.childLayerIDs.isEmpty {
                 disposition = .unsupportedChildren
@@ -563,10 +573,10 @@ extension SceneRenderDescriptor {
         if materialPasses.contains(where: { $0.combos["REFRACT"] == 1 }) {
             return true
         }
-        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: self)
+        // Drawable usage is fixed at launch. A prepared layer can become
+        // visible later, including through a parent, and then read the target.
         if layers.contains(where: { layer in
-            visibleLayerIDs.contains(layer.id)
-                && ["image", "solid", "text"].contains(layer.contentKind)
+            ["image", "solid", "text"].contains(layer.contentKind)
                 && (1 ... SceneBlendModeShaderSource.maximumMode).contains(
                     layer.colorBlendMode ?? 0
                 )

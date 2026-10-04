@@ -349,9 +349,9 @@
       "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5016b5c1ee3e3804e3071fe7b7ddb3585567381097d4148f657500f079ea6fc0",
+        "sourceSHA256": "972cd00151be38babd476aa0a797e19195ef615d13d3c139cccaa67062959158",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对RF05普通层级与已准备静态模型属性显隐职责；本收据仅标记导航维护。",
+        "scope": "核对RF05固定组合层显隐、准备与可读目标职责；本收据仅标记导航维护。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

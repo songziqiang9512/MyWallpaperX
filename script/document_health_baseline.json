@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 529,
-      "bytes": 84690
+      "bytes": 84685
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -134,7 +134,7 @@
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 34,
-      "bytes": 6611
+      "bytes": 5686
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
       "lines": 111,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 50536
+      "bytes": 50535
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,

@@ -1,4 +1,4 @@
-"""Typed/script visibility prepares ordinary hierarchies without revealing them."""
+"""Typed/script visibility prepares ordinary/composition trees without revealing them."""
 import json
 import os
 from pathlib import Path
@@ -78,21 +78,61 @@ struct SceneDependencyRenderPlan {
             layers = [.init(id: 10, childLayerIDs: [11], contentKind: "container"),
                       .init(id: 11, parentID: 10,
                             contentKind: name == "utility" ? "composition" : name,
-                            utilityLayer: name == "utility" ? .init(kind: .composition) : nil)]
+                            utilityLayer: name == "utility"
+                                ? .init(kind: .composition, passthrough: true) : nil)]
         case "foreign-ancestor": layers = [.init(id: 10, parentID: 11, contentKind: "text"),
                                             .init(id: 11, childLayerIDs: [10], contentKind: "model")]
         default: fatalError("unknown owned fixture")
         }
         return .init(layers: layers)
     }
+    static func composition(_ violation: String? = nil) -> SceneRenderDescriptor {
+        var ancestor = SceneRenderDescriptor.Layer(
+            id: 90, visible: true, childLayerIDs: [100], contentKind: "container")
+        var root = SceneRenderDescriptor.Layer(
+            id: 100, parentID: 90, childLayerIDs: [110, 120], contentKind: "composition",
+            utilityLayer: .init(kind: .composition, copyBackground: false))
+        var inner = SceneRenderDescriptor.Layer(
+            id: 110, visible: true, parentID: 100, childLayerIDs: [111, 112],
+            contentKind: "composition", utilityLayer: .init(kind: .composition),
+            effects: [.init(visible: false)])
+        var image = SceneRenderDescriptor.Layer(id: 111, visible: true, parentID: 110)
+        let text = SceneRenderDescriptor.Layer(id: 112, parentID: 110, contentKind: "text")
+        let solid = SceneRenderDescriptor.Layer(id: 120, visible: true, parentID: 100,
+                                               contentKind: "solid")
+        let peer = SceneRenderDescriptor.Layer(id: 130, visible: true, contentKind: "solid")
+        switch violation {
+        case "passthrough": root.utilityLayer?.passthrough = true
+        case "dependency": root.dependencyLayerIDs = [130]
+        case "authored-dependency": root.authoredDependencies = [130]
+        case "inner-dependency": inner.dependencyLayerIDs = [130]
+        case "inner-authored-dependency": inner.authoredDependencies = [130]
+        case "inner-passthrough": inner.utilityLayer?.passthrough = true
+        case "inner-kind": inner.contentKind = "fullscreen"
+        case "particle", "model", "container": image.contentKind = violation!
+        case "fullscreen":
+            image.contentKind = "fullscreen"
+            image.utilityLayer = .init(kind: .fullscreen)
+        case "missing-parent": ancestor.childLayerIDs = []; root.parentID = 999
+        case "child-index": inner.childLayerIDs = [111]
+        case nil: break
+        default: fatalError("unknown owned composition fixture")
+        }
+        return .init(layers: [ancestor, root, inner, image, text, solid, peer])
+    }
     static func main() throws {
         if CommandLine.arguments.count > 1 {
-            let descriptor = negative(CommandLine.arguments[1])
-            let targets = ids(descriptor, candidates: [target(10)])
+            let name = CommandLine.arguments[1]
+            let isComposition = name.hasPrefix("composition-")
+            let descriptor = isComposition
+                ? composition(String(name.dropFirst("composition-".count))) : negative(name)
+            let candidates: Set<SceneDynamicTarget> = isComposition
+                ? [target(100), target(110), target(111), target(130)] : [target(10)]
+            let targets = ids(descriptor, candidates: candidates)
             var output: [String: Any] = ["targets": targets]
 #if PREPARATION_API
             output["preparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
-                in: descriptor, candidates: [target(10)]).sorted()
+                in: descriptor, candidates: [isComposition ? target(100) : target(10)]).sorted()
 #endif
             print(String(data: try JSONSerialization.data(withJSONObject: output), encoding: .utf8)!)
             return
@@ -198,6 +238,73 @@ struct SceneDependencyRenderPlan {
             invalidModels[kind] = modelTargets([parent, leaf] + extras)
         }
         output["invalidModels"] = invalidModels
+        let groups = composition()
+        let groupTargets: Set<SceneDynamicTarget> = [target(90), target(100), target(110),
+                                                    target(111), target(112), target(120)]
+        output["compositionTargets"] = ids(groups, candidates: groupTargets)
+        output["scriptCompositionTargets"] = ids(groups, candidates: [], scripts: true)
+        let groupDefinition = SceneDynamicTargetDefinition(
+            target: target(100), valueType: .bool, authoredValue: .bool(false))
+        func groupVisible(_ value: Bool, frame: UInt64) -> [Int] {
+            let snapshot = SceneDynamicSnapshotResolver().resolve(
+                frameIndex: frame, generation: 1, definitions: [groupDefinition],
+                userValues: [target(100): .bool(value)]).snapshot
+            return SceneLayerVisibility.visibleLayerIDs(in: groups, snapshot: snapshot).sorted()
+        }
+        output["compositionHidden"] = groupVisible(false, frame: 0)
+        output["compositionShown"] = groupVisible(true, frame: 1)
+        output["compositionHiddenAgain"] = groupVisible(false, frame: 2)
+        output["compositionShownAgain"] = groupVisible(true, frame: 3)
+#if PREPARATION_API
+        output["compositionPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+            in: groups, candidates: [target(100)]).sorted()
+        output["compositionAncestorPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+            in: groups, candidates: [target(90)]).sorted()
+        output["compositionLeafPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+            in: groups, candidates: [target(111)]).sorted()
+#endif
+        let initiallyVisibleGroup = SceneRenderDescriptor(layers: [
+            .init(id: 140, visible: true, childLayerIDs: [141, 142], contentKind: "composition",
+                  utilityLayer: .init(kind: .composition)),
+            .init(id: 141, visible: true, parentID: 140),
+            .init(id: 142, parentID: 140, contentKind: "text")])
+        output["compositionBackgroundTargets"] = ids(
+            initiallyVisibleGroup, candidates: [target(140), target(141), target(142)])
+        let hiddenBackground = SceneRenderDescriptor(layers: [
+            .init(id: 150, contentKind: "composition", utilityLayer: .init(kind: .composition),
+                  effects: [.init(visible: true)]),
+            .init(id: 151, visible: true, contentKind: "solid")])
+        let clockShape = SceneRenderDescriptor(layers: [
+            .init(id: 160, childLayerIDs: [161, 162], contentKind: "composition",
+                  utilityLayer: .init(kind: .composition)),
+            .init(id: 161, visible: true, parentID: 160, contentKind: "text"),
+            .init(id: 162, visible: true, parentID: 160, contentKind: "composition",
+                  utilityLayer: .init(kind: .composition),
+                  effects: [.init(visible: true), .init(visible: true)])])
+        output["hiddenBackgroundTargets"] = ids(hiddenBackground, candidates: [target(150)])
+        output["clockBackgroundTargets"] = ids(clockShape,
+            candidates: [target(160), target(161), target(162)])
+        let clockSource = try SceneUtilityLayerSourceRoute.resolve(
+            layer: clockShape.layers[2], descriptor: clockShape).get()
+        output["clockChildSourceUsesEnclosingBackground"] = !clockSource.usesIsolatedGroupTarget
+            && !clockSource.capturesCompositionSubtree && clockSource.triggerLayerID == 162
+        func backgroundVisible(_ descriptor: SceneRenderDescriptor, owner: Int, value: Bool) -> [Int] {
+            let definition = SceneDynamicTargetDefinition(target: target(owner),
+                valueType: .bool, authoredValue: .bool(false))
+            let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                definitions: [definition], userValues: [target(owner): .bool(value)]).snapshot
+            return SceneLayerVisibility.visibleLayerIDs(in: descriptor, snapshot: snapshot).sorted()
+        }
+        output["hiddenBackgroundFalse"] = backgroundVisible(hiddenBackground, owner: 150, value: false)
+        output["hiddenBackgroundTrue"] = backgroundVisible(hiddenBackground, owner: 150, value: true)
+        output["clockBackgroundFalse"] = backgroundVisible(clockShape, owner: 160, value: false)
+        output["clockBackgroundTrue"] = backgroundVisible(clockShape, owner: 160, value: true)
+#if PREPARATION_API
+        output["hiddenBackgroundPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+            in: hiddenBackground, candidates: [target(150)]).sorted()
+        output["clockBackgroundPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+            in: clockShape, candidates: [target(160)]).sorted()
+#endif
         print(String(data: try JSONSerialization.data(withJSONObject: output), encoding: .utf8)!)
     }
 }
@@ -251,7 +358,7 @@ class ScriptVisibleRootTests(unittest.TestCase):
         cls.directory.cleanup()
 
     def test_arbitrary_script_layer_lookup_prepares_supported_roots(self):
-        self.assertEqual(self.result['scriptRoots'], [1, 2, 4, 5, 6, 7, 8])
+        self.assertEqual(self.result['scriptRoots'], [1, 2, 3, 4, 5, 6, 7, 8])
 
     def test_no_script_keeps_only_explicit_typed_candidates(self):
         self.assertEqual(self.result['noScripts'], [])
@@ -296,3 +403,44 @@ class ScriptVisibleRootTests(unittest.TestCase):
         for name, targets in self.result['invalidModels'].items():
             with self.subTest(case=name):
                 self.assertEqual(targets, [])
+
+    def test_isolated_composition_parents_and_descendants_share_visibility_admission(self):
+        self.assertEqual(self.result['compositionTargets'], [90, 100, 110, 111, 112, 120])
+        self.assertEqual(self.result['scriptCompositionTargets'], [90, 100, 110, 111, 112, 120, 130])
+        self.assertEqual(self.result['compositionBackgroundTargets'], [140, 141, 142])
+
+    def test_composition_preparation_contains_hidden_descendants_without_revealing_them(self):
+        self.assertEqual(self.result['compositionPreparation'], [100, 110, 111, 112, 120])
+        self.assertEqual(self.result['compositionAncestorPreparation'], [90, 100, 110, 111, 112, 120])
+        self.assertEqual(self.result['compositionLeafPreparation'], [111])
+        self.assertEqual(self.result['compositionHidden'], [90, 130])
+
+    def test_composition_visibility_cycles_keep_child_false_and_independent_peer(self):
+        self.assertEqual(self.result['compositionShown'], [90, 100, 110, 111, 120, 130])
+        self.assertEqual(self.result['compositionHiddenAgain'], [90, 130])
+        self.assertEqual(self.result['compositionShownAgain'], [90, 100, 110, 111, 120, 130])
+
+    def test_hidden_childless_background_capture_prepares_without_revealing(self):
+        self.assertEqual(self.result['hiddenBackgroundTargets'], [150])
+        self.assertEqual(self.result['hiddenBackgroundPreparation'], [150])
+        self.assertEqual(self.result['hiddenBackgroundFalse'], [151])
+        self.assertEqual(self.result['hiddenBackgroundTrue'], [150, 151])
+
+    def test_nested_childless_background_capture_keeps_parent_visibility_authority(self):
+        self.assertEqual(self.result['clockBackgroundTargets'], [160, 161, 162])
+        self.assertEqual(self.result['clockBackgroundPreparation'], [160, 161, 162])
+        self.assertTrue(self.result['clockChildSourceUsesEnclosingBackground'])
+        self.assertEqual(self.result['clockBackgroundFalse'], [])
+        self.assertEqual(self.result['clockBackgroundTrue'], [160, 161, 162])
+
+    def test_unsupported_composition_subtrees_reject_locally(self):
+        for name in ('passthrough', 'dependency', 'authored-dependency', 'inner-dependency',
+                     'inner-authored-dependency', 'inner-passthrough', 'inner-kind',
+                     'particle', 'model', 'container', 'fullscreen', 'missing-parent', 'child-index'):
+            with self.subTest(case=name):
+                run = subprocess.run([str(self.binary), 'composition-' + name],
+                                     capture_output=True, text=True)
+                self.assertEqual(run.returncode, 0, run.stderr[-3000:])
+                result = json.loads(run.stdout)
+                self.assertEqual(result['targets'], [130])
+                self.assertEqual(result['preparation'], [])
