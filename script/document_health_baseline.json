@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 529,
-      "bytes": 85276
+      "lines": 534,
+      "bytes": 87091
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 49609
+      "bytes": 49583
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -178,7 +178,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 243,
-      "bytes": 32443
+      "bytes": 32445
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,
@@ -1178,30 +1178,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "08dcc9c0c3992d82bf3a4b419513b26dba8273a5732608430965a2d91f7046a3",
-      "after": "0298046d41c4dfcc76c231be5a5c2beb6663fa0e00b9fe89756886935222e209",
-      "owner": "scene-prepared-model-visibility",
-      "reason": "Wire prepared static model leaf visibility through the existing consumer owner and replace the next-work pointer; retain bounded evidence and unsupported hierarchy limits.",
-      "decision": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "b044c6e08dc75ad00b081ad6e7fe90a1c3868282e42b1c09d4e252bb9ceb6742",
-      "after": "befc6f7611df2456cb98647d056f5680be1b10abfd3b2644a754f18f0e8fa924",
-      "owner": "scene-static-model-culling",
-      "reason": "Record existing authored Cull state reaching both color and shadow draws without replacing lifecycle owners; update the actual next provider breakpoint.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-model-culling"
+      "before": "befc6f7611df2456cb98647d056f5680be1b10abfd3b2644a754f18f0e8fa924",
+      "after": "26a5d8987d2e3099aedc3b4b2ffd7f663a0e6b1fa1445a1a2318153258fd3633",
+      "owner": "scene-model-graph-albedo",
+      "reason": "Integrate model graph-final demand through existing runtime ownership and replace the completed next-work pointer.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-model-graph-albedo"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "a487ce362de2e2d1dfeceee0efe2579777a064364e6fff1d3ae89299357f8578",
-      "after": "11ee502a4583b11cfa9df61d3a3bad23a58bdf8256a56fc62135eac19944925e",
-      "owner": "scene-static-model-culling",
-      "reason": "Record existing authored Cull state reaching both color and shadow draws without replacing lifecycle owners; update the actual next provider breakpoint.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-model-culling"
+      "before": "11ee502a4583b11cfa9df61d3a3bad23a58bdf8256a56fc62135eac19944925e",
+      "after": "d4ad65b53591f120c7e47822605b37f5a00da1ae7e2a89c403180fd8ff537dce",
+      "owner": "scene-model-graph-albedo",
+      "reason": "Integrate model graph-final demand through existing runtime ownership and replace the completed next-work pointer.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-model-graph-albedo"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
+      "before": "f5942d91c375a57bbace0dfb87501894993aa5215e1c42f3709baf1b1795b1f3",
+      "after": "6d123d943aec2398150277fc2375c8edd78dbc691c304b5ed501c9f09d3d985f",
+      "owner": "scene-model-graph-albedo",
+      "reason": "Integrate model graph-final demand through existing runtime ownership and replace the completed next-work pointer.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-model-graph-albedo"
     }
   ]
 }

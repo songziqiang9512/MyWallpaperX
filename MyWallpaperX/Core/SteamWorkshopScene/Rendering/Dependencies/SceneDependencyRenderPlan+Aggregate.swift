@@ -120,6 +120,15 @@ extension SceneDependencyRenderPlan {
         var reachable = visibleRootLayerIDs.intersection(
             availableExecutionLayerIDs
         )
+        // A model is a visible consumer without an executable effect graph.
+        // Its typed material demand activates only the available provider
+        // graph; hidden models contribute no frame execution requirement.
+        for binding in staticModelBindingsByConsumerLayerID.values
+        where visibleRootLayerIDs.contains(binding.consumerLayerID)
+            && requiredGraphOutputProviderLayerIDs.contains(binding.providerLayerID)
+            && availableExecutionLayerIDs.contains(binding.providerLayerID) {
+            reachable.insert(binding.providerLayerID)
+        }
         var changed = true
         while changed {
             changed = false

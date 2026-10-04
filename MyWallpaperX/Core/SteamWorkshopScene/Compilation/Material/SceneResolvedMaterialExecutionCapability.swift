@@ -448,7 +448,15 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         Self.retainExecutableDependencyClosure(
             in: &accepted,
             rejected: &rejected,
-            candidateLayerIDs: Set(admissionCandidates.map(\.layerID))
+            candidateLayerIDs: Set(admissionCandidates.map(\.layerID)),
+            staticModelGraphOutputProviderLayerIDs: Set(
+                admissionCandidates.compactMap { candidate in
+                    guard case let .success(admitted) = candidate.result,
+                          admitted.isStaticModelGraphOutputPreparationRoot
+                    else { return nil }
+                    return admitted.layerID
+                }
+            )
         )
         SceneResolvedMaterialVariantCompileProfile.logSummaryIfMeasured()
         capabilitiesByLayerID = accepted
@@ -461,14 +469,16 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     }
 
     /// A hidden graph-output provider has product execution authority only
-    /// while it remains reachable from an admitted visible consumer. The
-    /// closure is recomputed after Program compilation so a
+    /// while it remains reachable from an admitted visible consumer or an
+    /// admitted direct model material demand. The model never owns a graph
+    /// capability itself. The closure is recomputed after Program compilation so a
     /// rejected consumer cannot leave an orphan provider transaction that has
     /// no named-target reservation and would otherwise drop the whole frame.
     private static func retainExecutableDependencyClosure(
         in accepted: inout [Int: LayerCapability],
         rejected: inout [String: Int],
-        candidateLayerIDs: Set<Int>
+        candidateLayerIDs: Set<Int>,
+        staticModelGraphOutputProviderLayerIDs: Set<Int>
     ) {
         var didChange = true
         while didChange {
@@ -526,6 +536,11 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             var reachable = Set(accepted.compactMap { layerID, capability in
                 capability.isVisibleExecutionRoot ? layerID : nil
             })
+            reachable.formUnion(
+                staticModelGraphOutputProviderLayerIDs.intersection(
+                    graphProviderLayerIDs
+                )
+            )
             var frontier = Array(reachable)
             while let layerID = frontier.popLast() {
                 guard let capability = accepted[layerID] else { continue }

@@ -447,3 +447,17 @@ CPU visibility/readable各15项通过，HEAD分别5项/1项失败；后者仅为
 冻结候选Debug通过且1085份产品源码无漂移。同一direct-TEX输入35秒回放从无星纹变为可见放射状星轨；只证明cull修复，不冒充作者scroll效果或相位parity。原包35秒回放仍缺星轨、一次scale badReturn保留，14/115/186及文字仍在，两次退出GPU排空。后继必须把effectful provider纳入现graph准备、publication及消费者，不能移除准入guard后以raw capture代替效果输出。
 
 自有八材质段真实App对照覆盖正反绕序、nocull规范化、normal/缺省/未知、同模型混合状态及独立健康邻居。旧App反面颜色与阴影均失败，候选三场景全部通过；两帧像素稳定、输入/App身份不变且GPU排空。真实reader与动态复制CPU门通过；该证据不外推整个样本或官方阴影parity。
+
+
+<a id="rf05-model-graph-albedo"></a>
+### 隐藏特效图输出进入静态模型颜色与阴影（2026-10-04）
+
+基线`6d446683`。上一批已修nocull，但未改347原包仍缺星轨：模型named输入只接受source-only，隐藏93的scroll未进入模型115。现将已准入、顺序独立的隐藏image/solid图纳入既有准备闭包、帧需求、前置执行和publication；模型读取完整premultiplied颜色输出，颜色/阴影消费同帧纹理。两个入口共用原target pool及reservation校验，不伪造effect slot、不以raw capture替代特效、不增加输出或时钟owner。稳定范围见[架构合同](../architecture/runtime-architecture.md#model-effectful-named-output)。
+
+独立审查发现无材质资源模型可能激活未执行的provider事务，进而阻断后续健康图。已用visible与prepared named模型交集决定需求，memo包含prepared集合；合法MDL/link但非法材质的实际App按model→healthy graph→provider作者序验证局部拒绝，健康图继续经历明暗和透明三阶段。typed data可合法发布但不能作为模型albedo，资源预算失败只降级当前依赖；native证明释放预算后可恢复，并另验跨epoch清理。
+
+最终新增8门通过（86.460秒）：真实plan、Runtime/Metal publication和实际App覆盖provider前后顺序、动态颜色/alpha与阴影、source-only、显隐恢复、双模型共享、同帧只复制一次、变尺寸/epoch清理、分配失败恢复及无资源模型反例。有效旧App同输入的模型仍是背景85，候选跟随独立witness的green50/100及透明背景85，能区分raw source绿色200与graph-final。早期helper被deep adhoc覆盖导致签名无效，以及P1夹具字段误拼的运行均不计验收；最终使用符合产品Team检查的helper，未放松产品签名策略。
+
+最终V3 Debug冻结1085份产品源码无漂移；未改347原包播放35秒，进程47.254秒，93图输出与115绑定均成功。root实看两张不同时间的Metal截图，放射星轨已恢复并随场景变化，日期/时钟/公式及暗背景保留，退出GPU排空、输入/App身份不变。一次既有scale badReturn仍在，不据单条首帧日志判持续失败，也不宣称整个样本、官方像素或全208样本正确性验收。
+
+相邻graph-output runtime八门通过；结构门仅保留既有shape-derived-analyzer 66/登记65两项失败，未抬基线。独立终审及有限证据归本机`rf05-model-graph-albedo-20261004`（14天、单包32MiB内）。临时App/副本/HOME收尾后清理，只保留后续候选App和一份构建缓存。下一批优先复验3509243656的连续播放、文字及交互，以新的公共断点修复扩展真实覆盖；376斜光仍为未解。15/16卡只是有界卡口径，全样本正确率未知，长期Goal继续开放。

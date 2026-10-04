@@ -36,7 +36,7 @@ extension SceneMetalRenderer {
             visibleHalfExtents: cameraFrame.coverHalfExtents,
             usesPerspective: cameraFrame.resolvesPerspective(for: provider)
         )
-        return dependencyRuntime.captureGraphSourceFallbackIfRequired(
+        let result = dependencyRuntime.captureGraphSourceFallbackIfRequired(
             layer: provider,
             sourceTexture: baseSource?.texture,
             sourceCandidate: baseSource?.candidate,
@@ -48,6 +48,14 @@ extension SceneMetalRenderer {
             textureRegistry: textureRegistry,
             mainPass: mainPass,
             geometryProduct: imageTextures.geometryProducts[provider.id]
-        ) == .published
+        )
+        switch result {
+        case .published?, .unavailable?:
+            // The consumer localizes a missing color publication; an ordinary
+            // resource miss must not discard unrelated scene content.
+            return true
+        case .invalid?, nil:
+            return false
+        }
     }
 }

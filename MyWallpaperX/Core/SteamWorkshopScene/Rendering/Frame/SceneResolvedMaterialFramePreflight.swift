@@ -50,7 +50,9 @@ extension SceneMetalRenderer {
         let activeExecutionLayerIDs = dependencyRuntime
             .resolvedMaterialExecutionLayerIDs(
                 visibleRootLayerIDs: frameVisibleRootLayerIDs,
-                availableExecutionLayerIDs: availableExecutionLayerIDs
+                availableExecutionLayerIDs: availableExecutionLayerIDs,
+                activeStaticModelConsumerLayerIDs: frameVisibleLayerIDs
+                    .intersection(staticModelResources.namedAlbedoLayerIDs)
             )
         var byLayerID: [Int: SceneResolvedMaterialFrameTargetPlan] = [:]
         var allocationPlans: [ScenePersistentGraphTargetFramePlan] = []
@@ -444,6 +446,26 @@ extension SceneMetalRenderer {
             else {
                 graphTargetFallbacks[claim.layerID] = "frame-target-plan-rejected"
                 continue
+            }
+            if dependencyRuntime.isStaticModelSourceProvider(layerID),
+               dependencyRuntime.requiresGraphOutputCapture(for: layerID) {
+                guard let extent = preparedGraphOutputExtent(
+                    for: layerID, plans: byLayerID
+                ) else { return invalid("model-provider-output-extent-missing") }
+                var failureReason: String?
+                guard dependencyRuntime.reserveStaticModelGraphOutput(
+                    providerLayer: layer,
+                    preparedOutputExtent: extent,
+                    frameEpoch: textureRegistry.frameEpoch,
+                    failureReason: &failureReason
+                ) else {
+                    guard failureReason == "target-pool-unavailable" else {
+                        return invalid(failureReason ?? "model-provider-reservation-invalid")
+                    }
+                    byLayerID.removeValue(forKey: layerID)
+                    graphTargetFallbacks[layerID] = "model-provider-target-unavailable"
+                    continue
+                }
             }
             allocationPlans.append(allocation)
             // The preparation request for this layer is assembled in the same

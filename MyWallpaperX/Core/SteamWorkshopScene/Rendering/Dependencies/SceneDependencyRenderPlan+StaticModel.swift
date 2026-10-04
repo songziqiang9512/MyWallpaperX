@@ -64,8 +64,9 @@ extension SceneDependencyRenderPlan {
 
     /// Compiles only the shared direct-model contract: one exact model link,
     /// material pass zero/slot zero, a primary named target, and one hidden
-    /// static image/solid provider declared by the consumer. Shader/material values
-    /// remain owned by the existing static-model pipeline.
+    /// image/solid provider declared by the consumer. An effectful provider must
+    /// have no external dependencies and use an authored-order-independent graph.
+    /// Shader/material values remain owned by the existing static-model pipeline.
     nonisolated static func staticModelNamedTextureBindings(
         descriptor: SceneRenderDescriptor,
         layersByID: [Int: SceneRenderDescriptor.Layer],
@@ -131,9 +132,10 @@ extension SceneDependencyRenderPlan {
                   ["image", "solid"].contains(provider.contentKind),
                   provider.utilityLayer.map({ _ in false }) ?? true,
                   provider.visible == false,
-                  provider.effects.isEmpty,
                   provider.dependencyLayerIDs.isEmpty,
                   provider.childLayerIDs.isEmpty,
+                  provider.effects.isEmpty
+                    || Self.providerGraphIsAuthoredOrderIndependent(provider),
                   let consumerOrder = order[consumer.id],
                   let providerOrder = order[providerID],
                   consumerOrder != providerOrder else {

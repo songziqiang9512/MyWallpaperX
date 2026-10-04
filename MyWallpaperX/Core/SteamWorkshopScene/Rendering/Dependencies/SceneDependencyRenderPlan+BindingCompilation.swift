@@ -73,6 +73,16 @@ extension SceneDependencyRenderPlan {
         // declared the dependency, so the provider chain must be ready when
         // the layer is shown.
         var reachableConsumerLayerIDs = visibleLayerIDs
+        // Direct model materials have no effect slot/reference. Preserve the
+        // actual hidden provider's graph preparation through their typed
+        // material bindings without manufacturing a model graph identity.
+        for binding in staticModelCompilation.bindings.values {
+            if layersByID[binding.providerLayerID]?.effects.contains(
+                where: { $0.visible != false }
+            ) == true {
+                reachableConsumerLayerIDs.insert(binding.providerLayerID)
+            }
+        }
         for reference in references where layersByID[reference.providerLayerID] != nil {
             reachableConsumerLayerIDs.insert(reference.consumerLayerID)
         }
@@ -324,6 +334,11 @@ extension SceneDependencyRenderPlan {
             aggregate.providerLayerIDs.filter { providerID in
                 layersByID[providerID]?.effects.contains(where: { $0.visible != false }) == true
             }
+        }).union(staticModelResolution.bindings.values.compactMap { binding in
+            guard layersByID[binding.providerLayerID]?.effects.contains(
+                where: { $0.visible != false }
+            ) == true else { return nil }
+            return binding.providerLayerID
         })
         self.staticLayerSourcePassthroughBlockedLayerIDs = passthroughBlockedLayerIDs
         self.cyclicLayerIDs = cyclicLayerIDs

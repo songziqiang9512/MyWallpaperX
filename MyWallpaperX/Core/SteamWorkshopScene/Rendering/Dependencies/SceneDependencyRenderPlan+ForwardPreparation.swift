@@ -27,30 +27,35 @@ extension SceneDependencyRenderPlan {
             authoredLayerIDs.map { ($0, 0) }
         )
         var successors: [Int: Set<Int>] = [:]
-        func admitEdge(_ binding: Binding) {
-            guard available.contains(binding.providerLayerID),
-                  available.contains(binding.consumerLayerID),
-                  binding.providerLayerID != binding.consumerLayerID,
-                  requiredGraphOutputProviderLayerIDs.contains(
-                      binding.providerLayerID
-                  ) else { return }
+        func admitEdge(providerLayerID: Int, consumerLayerID: Int) {
+            guard available.contains(providerLayerID),
+                  available.contains(consumerLayerID),
+                  providerLayerID != consumerLayerID,
+                  requiredGraphOutputProviderLayerIDs.contains(providerLayerID)
+            else { return }
             // Only an effectful provider owns an earlier graph transaction.
             // A static forward provider is captured by the renderer prepass;
             // moving its consumer in this ledger would diverge from authored
             // compositor consumption order and make safe predecessors appear
             // unconsumed.
-            if successors[binding.providerLayerID, default: []]
-                .insert(binding.consumerLayerID).inserted {
-                indegree[binding.consumerLayerID, default: 0] += 1
+            if successors[providerLayerID, default: []]
+                .insert(consumerLayerID).inserted {
+                indegree[consumerLayerID, default: 0] += 1
             }
         }
         for binding in bindingsByConsumerLayerID.values {
-            admitEdge(binding)
+            admitEdge(providerLayerID: binding.providerLayerID,
+                consumerLayerID: binding.consumerLayerID)
         }
         for aggregate in multiProviderAggregatesByConsumerLayerID.values {
             for binding in aggregate.bindings {
-                admitEdge(binding)
+                admitEdge(providerLayerID: binding.providerLayerID,
+                    consumerLayerID: binding.consumerLayerID)
             }
+        }
+        for binding in staticModelBindingsByConsumerLayerID.values {
+            admitEdge(providerLayerID: binding.providerLayerID,
+                consumerLayerID: binding.consumerLayerID)
         }
         var forwardGraphProviders = Set(
             bindingsByConsumerLayerID.values.compactMap {
@@ -63,6 +68,12 @@ extension SceneDependencyRenderPlan {
                 forwardGraphProviders.insert(binding.providerLayerID)
             }
         }
+        // Model color and optional shadow preparation share the same current
+        // input. Independent effect graphs therefore publish in the prepass
+        // even when their provider precedes the model in authored order.
+        forwardGraphProviders.formUnion(
+            staticModelBindingsByConsumerLayerID.values.map(\.providerLayerID)
+        )
         forwardGraphProviders.formIntersection(requiredGraphOutputProviderLayerIDs)
         var changed = true
         while changed {
@@ -145,7 +156,8 @@ extension SceneDependencyRenderPlan {
             }
         }
         for binding in staticModelBindingsByConsumerLayerID.values
-        where binding.requiresForwardCapture
+        where (binding.requiresForwardCapture
+                || requiredGraphOutputProviderLayerIDs.contains(binding.providerLayerID))
             && activeStaticModelConsumerLayerIDs.contains(
                 binding.consumerLayerID
             ) {

@@ -105,6 +105,7 @@ final class SceneDependencyFrameRuntime {
     private var executionLayerIDsMemo: (
         visibleRootLayerIDs: Set<Int>,
         availableExecutionLayerIDs: Set<Int>,
+        activeStaticModelConsumerLayerIDs: Set<Int>,
         result: Set<Int>
     )?
     /// Defensive same-frame publication identity. The claim/ticket bridge
@@ -203,20 +204,30 @@ final class SceneDependencyFrameRuntime {
 
     func resolvedMaterialExecutionLayerIDs(
         visibleRootLayerIDs: Set<Int>,
-        availableExecutionLayerIDs: Set<Int>
+        availableExecutionLayerIDs: Set<Int>,
+        activeStaticModelConsumerLayerIDs: Set<Int> = []
     ) -> Set<Int> {
         if let memo = executionLayerIDsMemo,
            memo.visibleRootLayerIDs == visibleRootLayerIDs,
-           memo.availableExecutionLayerIDs == availableExecutionLayerIDs {
+           memo.availableExecutionLayerIDs == availableExecutionLayerIDs,
+           memo.activeStaticModelConsumerLayerIDs == activeStaticModelConsumerLayerIDs {
             return memo.result
         }
+        // Model visibility alone is not an executable demand: mesh/material
+        // preparation may have failed. Match the exact consumers used by the
+        // forward prepass so no orphan graph transaction blocks healthy peers.
+        let modelConsumers = Set(plan.staticModelBindingsByConsumerLayerID.keys)
+        let executionRoots = visibleRootLayerIDs.subtracting(modelConsumers)
+            .union(visibleRootLayerIDs.intersection(activeStaticModelConsumerLayerIDs)
+                .intersection(modelConsumers))
         let result = plan.resolvedMaterialExecutionLayerIDs(
-            visibleRootLayerIDs: visibleRootLayerIDs,
+            visibleRootLayerIDs: executionRoots,
             availableExecutionLayerIDs: availableExecutionLayerIDs
         )
         executionLayerIDsMemo = (
             visibleRootLayerIDs,
             availableExecutionLayerIDs,
+            activeStaticModelConsumerLayerIDs,
             result
         )
         return result
@@ -351,7 +362,8 @@ final class SceneDependencyFrameRuntime {
                   reservation.providerLayerID == layer.id,
                   binding.map({
                       reservation.kind == .init($0.kind)
-                  }) == true,
+                  }) ?? (hasStaticModelBindings
+                      && reservation.kind == (layer.contentKind == "solid" ? .solidLayer : .image)),
                   reservation.width == extent.width,
                   reservation.height == extent.height,
                   reservation.texture.width == extent.width,

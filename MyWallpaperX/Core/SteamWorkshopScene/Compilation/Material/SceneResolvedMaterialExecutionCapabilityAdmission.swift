@@ -19,6 +19,9 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
     let sourceRoute: SourceRoute
     let isVisibleExecutionRoot: Bool
     let isGraphOutputProvider: Bool
+    /// Launch preparation demand from a direct model material. This preserves
+    /// the provider capability without making either layer a visible graph root.
+    let isStaticModelGraphOutputPreparationRoot: Bool
     let requiresGraphOutputProvider: Bool
 
     init(
@@ -32,6 +35,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         sourceRoute: SourceRoute,
         isVisibleExecutionRoot: Bool,
         isGraphOutputProvider: Bool,
+        isStaticModelGraphOutputPreparationRoot: Bool = false,
         requiresGraphOutputProvider: Bool
     ) {
         self.layerID = layerID
@@ -44,6 +48,8 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         self.sourceRoute = sourceRoute
         self.isVisibleExecutionRoot = isVisibleExecutionRoot
         self.isGraphOutputProvider = isGraphOutputProvider
+        self.isStaticModelGraphOutputPreparationRoot =
+            isStaticModelGraphOutputPreparationRoot
         self.requiresGraphOutputProvider = requiresGraphOutputProvider
     }
 }
@@ -307,6 +313,10 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         )
         let graphOutputProviderLayerIDs =
             dependencyPlan.requiredGraphOutputProviderLayerIDs
+        let staticModelGraphOutputProviderLayerIDs = Set(
+            dependencyPlan.staticModelBindingsByConsumerLayerID.values
+                .map(\.providerLayerID)
+        ).intersection(graphOutputProviderLayerIDs)
         let safeStartupInactiveTargets =
             SceneDirectBoolEffectVisibilityRouteAdmission.startupInactiveTargets(
                 in: descriptor,
@@ -515,6 +525,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                         executableVisibleRootLayerIDs.contains(layerID),
                     isGraphOutputProvider:
                         graphOutputProviderLayerIDs.contains(layerID),
+                    isStaticModelGraphOutputPreparationRoot:
+                        staticModelGraphOutputProviderLayerIDs.contains(layerID),
                     requiresGraphOutputProvider: {
                         switch dependencyOwnership {
                         case let .externalPrimary(binding):
@@ -614,6 +626,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
         isVisibleExecutionRoot: Bool,
         isGraphOutputProvider: Bool,
+        isStaticModelGraphOutputPreparationRoot: Bool,
         requiresGraphOutputProvider: Bool,
         conditionSchemaEvidence: [Graph.EffectKey: SceneGraphConditionSchemaEvidence]
     ) -> Result<SceneResolvedMaterialAdmittedLayer, Failure> {
@@ -680,6 +693,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 sourceRoute: sourceRoute,
                 isVisibleExecutionRoot: isVisibleExecutionRoot,
                 isGraphOutputProvider: isGraphOutputProvider,
+                isStaticModelGraphOutputPreparationRoot:
+                    isStaticModelGraphOutputPreparationRoot,
                 requiresGraphOutputProvider: requiresGraphOutputProvider
             ))
         } catch let rejection as Failure {

@@ -1043,12 +1043,14 @@
     {
       "id": "layer-dependencies",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/**"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/**",
+        "script/tests/test_scene_model_graph_albedo.py"
       ],
       "modules": [
         "test_scene_dependency_capture_fault",
         "test_scene_dependency_graph_output_runtime",
         "test_scene_dependency_render_plan",
+        "test_scene_model_graph_albedo",
         "test_scene_named_render_target_pool",
         "test_scene_visible_graph_output_render_plan",
         "test_scene_utility_layers"

@@ -80,6 +80,34 @@ extension SceneDependencyFrameRuntime {
         staticModelProviderLayerIDs.contains(layerID) && !nonStaticModelProviderLayerIDs.contains(layerID)
     }
 
+    /// A model has no effect-pass slot. Reserve its provider's prepared graph
+    /// output directly in the same provider ledger used by effect consumers.
+    func reserveStaticModelGraphOutput(
+        providerLayer: SceneRenderDescriptor.Layer,
+        preparedOutputExtent: (width: Int, height: Int),
+        frameEpoch: UInt64,
+        failureReason: inout String?
+    ) -> Bool {
+        guard frameEpoch > 0,
+              staticModelProviderLayerIDs.contains(providerLayer.id),
+              plan.requiredGraphOutputProviderLayerIDs.contains(providerLayer.id),
+              let extent = Self.normalizedExtent(
+                  width: preparedOutputExtent.width,
+                  height: preparedOutputExtent.height
+              ) else {
+            failureReason = "static-model-graph-output-plan-invalid"
+            return false
+        }
+        return reserveProviderTarget(
+            providerLayerID: providerLayer.id,
+            kind: providerLayer.contentKind == "solid" ? .solidLayer : .image,
+            extent: extent,
+            sourceExtent: preparedOutputExtent,
+            frameEpoch: frameEpoch,
+            failureReason: &failureReason
+        ) != nil
+    }
+
     func staticModelNamedAlbedo(
         for consumerLayerID: Int,
         materialPath: String,

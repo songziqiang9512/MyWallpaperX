@@ -349,9 +349,9 @@
       "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dee7a4eb4e6c58df2da2e12da66e8ba27f50fc4ed48f214930962ef4cb1f9e9b",
+        "sourceSHA256": "991dd2060a1a14722662e2aa5c07dfe13b9d0f2c71329b0cd1015c14c70ac2dc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对静态模型颜色及阴影Cull接线、旧缺省策略与有界运行记录指针；只为导航维护收据。",
+        "scope": "Navigation and design receipt for model graph-output demand; runtime acceptance remains separately bounded.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

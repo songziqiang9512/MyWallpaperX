@@ -121,16 +121,43 @@ extension SceneDependencyFrameRuntime {
         } else {
             sourceExtent = extent
         }
+        guard let texture = reserveProviderTarget(
+            providerLayerID: providerLayer.id,
+            kind: .init(binding.kind),
+            extent: extent,
+            sourceExtent: sourceExtent,
+            geometryProduct: geometryProduct,
+            frameEpoch: frameEpoch,
+            failureReason: &failureReason
+        ) else { return nil }
+        return makeEffectInput(
+            binding: binding,
+            frameEpoch: frameEpoch,
+            texture: texture
+        )
+    }
+
+    /// The provider owns one physical reservation, independently of whether
+    /// an effect slot or a model material requested its current graph output.
+    func reserveProviderTarget(
+        providerLayerID: Int,
+        kind: EffectTargetReservation.Kind,
+        extent: (width: Int, height: Int),
+        sourceExtent: (width: Int, height: Int),
+        geometryProduct: SceneGeometryProduct? = nil,
+        frameEpoch: UInt64,
+        failureReason: inout String?
+    ) -> MTLTexture? {
         synchronizeReservations(to: frameEpoch)
-        if plan.requiredGraphOutputProviderLayerIDs.contains(providerLayer.id) {
-            demandedGraphOutputProviderLayerIDs.insert(providerLayer.id)
+        if plan.requiredGraphOutputProviderLayerIDs.contains(providerLayerID) {
+            demandedGraphOutputProviderLayerIDs.insert(providerLayerID)
         }
 
         let texture: MTLTexture
-        if let reservation = reservationsByProviderLayerID[providerLayer.id] {
+        if let reservation = reservationsByProviderLayerID[providerLayerID] {
             guard reservation.frameEpoch == frameEpoch,
-                  reservation.providerLayerID == providerLayer.id,
-                  reservation.kind == .init(binding.kind),
+                  reservation.providerLayerID == providerLayerID,
+                  reservation.kind == kind,
                   reservation.width == extent.width,
                   reservation.height == extent.height,
                   reservation.sourceWidth == sourceExtent.width,
@@ -146,7 +173,7 @@ extension SceneDependencyFrameRuntime {
             texture = reservation.texture
         } else {
             guard let reservedTexture = targetPool.texture(
-                      for: providerLayer.id,
+                      for: providerLayerID,
                       width: extent.width,
                       height: extent.height
                   ), reservedTexture.width == extent.width,
@@ -155,10 +182,10 @@ extension SceneDependencyFrameRuntime {
                 failureReason = "target-pool-unavailable"
                 return nil
             }
-            reservationsByProviderLayerID[providerLayer.id] =
+            reservationsByProviderLayerID[providerLayerID] =
                 EffectTargetReservation(
-                    providerLayerID: providerLayer.id,
-                    kind: .init(binding.kind),
+                    providerLayerID: providerLayerID,
+                    kind: kind,
                     texture: reservedTexture,
                     width: extent.width,
                     height: extent.height,
@@ -172,11 +199,7 @@ extension SceneDependencyFrameRuntime {
             texture = reservedTexture
         }
 
-        return makeEffectInput(
-            binding: binding,
-            frameEpoch: frameEpoch,
-            texture: texture
-        )
+        return texture
     }
 
     func captureExtentForProvider(
