@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 368,
-      "bytes": 168576
+      "bytes": 168534
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 275,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 49844
+      "bytes": 49771
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,

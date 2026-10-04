@@ -145,6 +145,35 @@ extension SteamWorkshopService {
                 descriptor: renderDescriptor,
                 materialInstancesByLayerID: document.materialInstancesByLayerID
             )
+        // Descriptor keys are declarations, not consumers. Base slots retain
+        // their prepared provider contract, including instance precedence and
+        // fallback validation; effect slots already carry the parser's typed
+        // property identity and use the same authored identity boundary as
+        // effect scalar controls in this context.
+        let baseMaterialProviders = SceneBaseMaterialProviderBindingCompiler.compile(
+            descriptor: renderDescriptor,
+            materialInstancesByLayerID: document.materialInstancesByLayerID,
+            scriptBindings: [],
+            materialPropertyTargets: []
+        )
+        let declaredTextureKeys = Set(renderDescriptor.texturePropertyKeys)
+        let effectTextureKeys = renderDescriptor.layers.flatMap { layer in
+            layer.effects.flatMap { effect in
+                effect.passes.flatMap { pass -> [String] in
+                    guard pass.textureSlots.dropFirst(8).allSatisfy({ $0 == nil }),
+                          pass.userTextureInputs.dropFirst(8).allSatisfy({ $0 == nil })
+                    else { return [] }
+                    return pass.userTextureInputs.prefix(8).compactMap { input in
+                        guard let input, input.kind == .property,
+                              declaredTextureKeys.contains(input.value),
+                              SceneUserPropertyTextureIdentity(
+                                propertyKey: input.value, purpose: .premultipliedColor
+                              ) != nil else { return nil }
+                        return input.value
+                    }
+                }
+            }
+        }
         let actionableKeys = Set(
             (
                 document.userPropertyResolution.bindingReport.bindings
@@ -156,7 +185,8 @@ extension SteamWorkshopService {
                     materialInstancesByLayerID: document.materialInstancesByLayerID
                 ) ? binding.reference.key : nil
             }
-        )
+        ).union(baseMaterialProviders.userPropertyDemands.map(\.propertyKey))
+            .union(effectTextureKeys)
         let catalog = project.userProperties
         let context = SteamWorkshopScenePropertyContext(
             catalog: catalog,

@@ -256,7 +256,7 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 | `bool` | `L3` | 条件/部分 target；不得按名称自动启用 effect |
 | `combo` | `L3` | option value/条件；补全部 authored target |
 | `textinput` | `L3` | 可编辑/持久化；有效可见 direct text consumer 可无重建更新，其他 target 仍重建 |
-| `texture`/`scenetexture` | `L3 bounded` | PNG/JPEG picker/bookmark及exact slot-0、single-pass base-material consumer；真实`3122339805`的一个property replacement已经typed registry与唯一compositor可见；补effect mask、particle、video、variant与其他material shape，见[E-V4-USER-PROPERTY-BASE-MATERIAL-INGRESS](../history/runtime-evidence-index.md#e-v4-user-property-base-material-ingress) |
+| `texture`/`scenetexture` | `L3 bounded` | PNG/JPEG picker/bookmark；面板收集已准入base与effect pass纹理引用。真实293换封面、312 base已可见，见[入口与边界](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-texture-picker)；effect材料独立声明、mask、particle、video、variant及任意material shape未验 |
 | `usershortcut` | `L0` | parser 当前归为 unsupported；需 macOS 授权和安全降级 |
 | group/order/condition | `L3` | 独立窗口已支持；补嵌套/全条件和负向门 |
 | reset/default/override | `L3` | layer alpha reset/override 可原子 live 提交；texture bookmark 或非 live key 仍重建；补跨重启 UI 门 |

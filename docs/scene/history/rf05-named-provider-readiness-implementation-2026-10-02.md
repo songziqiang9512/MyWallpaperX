@@ -531,3 +531,17 @@ V2 Debug冻结1085份源码无漂移。实际App自有九对齐同输入padding0
 真实1937925563原包只读副本、固定PCM、同一0→.25→1序列：基线三次拒绝，V2三次接受且保持同window/session；实际画面两侧音频条在.25透出背景、1恢复不透明。两版各播放18秒，最终V2进程43.057秒且GPU排空，原媒体hash无漂移；不同时间音频/粒子相位不作逐像素parity或性能比较。12层材料声明复用不等于12个样本验收，208整样本正确率仍未知。
 
 最终本机证据包 `.artifacts/scene-evidence/runs/image-material-alpha-20261005/final/samples/1/runtime_evidence.zip`，SHA `2dcc75840a2481fe5a7cf322d2c475772364994314b6863307ded7ad743b2aa1`；限定14日保存。下一批转293文件纹理连续替换的未验操作，不重复已验八背景/模糊；同语料没有BC5或已关联builtin非默认Brightness，不扩无收益分支。
+
+
+<a id="rf05-texture-picker"></a>
+### 文件纹理选图入口恢复（2026-10-05）
+
+基线19344b01。真实2938612768的newproperty25由775的effect pass usertextures[1]消费，但scenePropertyContext只收集user wrapper/scalar绑定，遗漏裸纹理键，导致文件选择控件未进入actionableDefinitions。修复在原属性服务收集typed effect pass的合法0…7槽property引用并与scenetexture声明相交；base复用原BaseMaterialProviderBindingCompiler准入结果，保留exact slot-0、single-pass、instance优先及fallback合同。不直接开放全部声明，不新增解析、纹理、graph或输出owner。effect材料内部的独立usertextures声明未扩入本片。
+
+文件选择仍经原PNG/JPEG picker、bookmark和180ms合并Host重载；不是scalar热切，也不重启App。真实隔离原包加两张自有红/蓝PNG、固定PCM和媒体关闭状态，用同record的Host候选替换检验下游：旧/新App都将封面从红[255,0,0]换成蓝[0,0,255]，白标记保持[255,255,255]，圆角与其它图层继续合成。故本批新增收益是恢复普通面板入口，不宣称新造纹理合成能力。Debug runner跳过picker/bookmark交互；UI入口由实际context行为回归约束，不声称完成文件对话框/跨重启授权实测。
+
+最终Debug冻结1085份产品源无漂移，deep strict签名通过，dylib SHA 3382a3641636bb16a81156cc00597be3ba818d99d3adff7a59d2001436555551。两版各播放60秒，候选进程89.431秒；同Host切换accepted且surface维持1，结束为0、gpuDrained=true。真实媒体hash无漂移；动态背景/音频不同相位不作像素parity或性能对比。首次24秒试次在第二次资源准备结束前正常关闭，排除切换验收，不记产品失败。
+
+实际sourceFacts→完整属性服务→actionableDefinitions的4个native方法在旧Service为3失败/1通过，合法effect/base消费者均漏入；候选连同既有门共18通过。纹理加载18项、base与live状态17项通过；13个结构门仍为既有analyzer 66/65的两项失败，其余职责/设计/文档门通过，未放宽结构基线。独立只读审查核对入口、同源码App与红蓝图；最终冻结身份由证据包manifest保存。
+
+证据限量保存于`.artifacts/scene-evidence/runs/texture-picker-20261005/final/samples/1/runtime_evidence.zip`（14日）；仅留必要日志、两张截图、源码/输入身份和自有图片，不复制真实包。208整样本正确率仍未知，RF05未完成。下一批检查普通产品文件选择、reset及失效bookmark后的恢复，或发现更早的真实合成断点后重排，不重复已证红蓝渲染路径。
