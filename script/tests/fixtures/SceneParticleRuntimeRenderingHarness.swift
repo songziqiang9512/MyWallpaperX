@@ -5,6 +5,89 @@ import Metal
 import simd
 
 extension Harness {
+    /// Executes the production root/child instance builders with own assets.
+    /// A real device prepares the resources; this mode submits no GPU work.
+    static func syntheticTrailDirection() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-trail-direction-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        let cases: [(String, String, String?, String)] = [
+            ("curve", "10 300 0", "0 -150 0", "spritetrail"),
+            ("slow-y", "0 1e-12 0", nil, "spritetrail"),
+            ("zero", "0 0 0", nil, "spritetrail"),
+            ("large", "1e38 -1e38 1e38", nil, "spritetrail"),
+            ("ordinary", "0 2 0", nil, "sprite"),
+        ]
+        var layers: [SceneRenderDescriptor.Layer] = []
+        for (index, item) in cases.enumerated() {
+            let (name, velocity, gravity, renderer) = item
+            let childPath = "particles/\(name)-child.json"
+            var authored: [String: Any] = [
+                "material": "materials/shared.json", "maxcount": 1, "flags": 0,
+                "emitter": [["name": "boxrandom", "rate": 0, "instantaneous": 1,
+                             "distancemin": "0 0 0", "distancemax": "0 0 0"]],
+                "initializer": [["name": "lifetimerandom", "min": 10, "max": 10],
+                                ["name": "sizerandom", "min": 8, "max": 8],
+                                ["name": "velocityrandom", "min": velocity, "max": velocity]],
+                "operator": gravity.map { [["name": "movement", "flags": 0,
+                                             "gravity": $0, "drag": 0] as [String: Any]] } ?? [],
+                "renderer": [["name": renderer, "length": 0.05,
+                              "minlength": 0.2, "maxlength": 10]],
+            ]
+            try writeJSON(authored, to: directory.appendingPathComponent(childPath))
+            authored["children"] = [["name": childPath, "type": "static"]]
+            let rootPath = "particles/\(name)-root.json"
+            try writeJSON(authored, to: directory.appendingPathComponent(rootPath))
+            layers.append(layer(101 + index, rootPath))
+        }
+        let descriptor = SceneRenderDescriptor(layers: layers,
+            renderOrderLayerIDs: layers.map(\.id), materialPasses: [.init(
+                materialPath: "materials/shared.json", shaderPath: "genericparticle",
+                texturePaths: ["shared.png"], blending: "additive")])
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let runtime = SceneParticleRuntime(descriptor: descriptor, cacheDirectory: directory, device: device)
+        var batches: [SceneParticleDrawBatch] = []
+        func advance(_ steps: Int) {
+            for _ in 0..<steps { batches = runtime.advance(by: 1.0 / 60.0) }
+        }
+        func observation() -> [String: Any] {
+            let snapshot = runtime.frameSnapshot()
+            var output: [String: Any] = [:]
+            for (index, item) in cases.enumerated() {
+                let (name, _, _, _) = item
+                let states = snapshot.layers[index]
+                for (kind, particle) in [
+                    ("root", states.root?.simulatorFrame.particles.first),
+                    ("child", states.child?.systems.first?.simulatorFrame.particles.first),
+                ] {
+                    guard let particle, let batch = batches.first(where: {
+                        $0.layerID == 101 + index && $0.particlePath == "particles/\(name)-\(kind).json"
+                    }), batch.instances.count == 1, let instance = batch.instances.first else {
+                        continue
+                    }
+                    output["\(name)-\(kind)"] = [
+                        "velocity": [particle.velocity.x, particle.velocity.y, particle.velocity.z],
+                        "packedDirection": [instance.velocityAndTrail.x, instance.velocityAndTrail.y,
+                                            instance.velocityAndTrail.z],
+                        "stretch": instance.velocityAndTrail.w,
+                        "gpuFinite": instance.isFinite, "age": particle.age,
+                    ]
+                }
+            }
+            return output
+        }
+        advance(117)
+        let rising = observation()
+        advance(6)
+        return ["rising": rising, "falling": observation(),
+                "activeLayerIDs": runtime.activeLayerIDs,
+                "rootCount": runtime.lifecycleSnapshot.rootParticleCount,
+                "childCount": runtime.lifecycleSnapshot.childParticleCount,
+                "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue)]
+    }
+
     static func instanceBufferBudget() throws -> [String: Any] {
         // The per-system instance buffer growth ceiling is tied to the
         // frozen whole-layer segment-instance budget: an emission beyond it

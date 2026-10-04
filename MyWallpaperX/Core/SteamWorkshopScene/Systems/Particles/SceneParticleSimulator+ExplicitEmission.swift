@@ -33,7 +33,6 @@ extension SceneParticleSimulator {
         let eventColorContext: SceneParticleEventColorContext
         var stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
         var positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation]
-        var trailPositionHistory: SceneParticleTrailPositionHistory
     }
 
     /// Clear the population through the same rollback state as explicit emission.
@@ -47,7 +46,6 @@ extension SceneParticleSimulator {
         state.explicitBirthEventStart = nil
         state.normalizedLives = []
         state.positionOscillationCache = [:]
-        state.trailPositionHistory.removeEntries(beyond: 0)
         state.stepSnapshotRecorder?.clear()
         restoreFrame(state)
     }
@@ -169,7 +167,6 @@ extension SceneParticleSimulator.FrameSnapshot {
         let notices = 2 * (diagnostics.capacity + diagnostics.count + 8) * 256
             + 2 * (pendingAudioEvaluationObservations.capacity + initializers) * 256
         return MemoryLayout<Self>.stride + 1024 + arrays + buckets + notices
-            + trailPositionHistory.emissionStorageBytes(adding: count)
             + (stepSnapshotRecorder?.emissionStorageBytes ?? 0)
     }
 }

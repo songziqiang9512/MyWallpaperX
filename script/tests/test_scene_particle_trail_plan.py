@@ -57,6 +57,12 @@ enum Harness {
             length: nil, minimumLength: nil, maximumLength: 4
         )!
         let speeds: [Double] = [0, 100, 200, 400, 10_000]
+        let directionInputs: [SIMD3<Double>] = [
+            SIMD3(3, 4, 0), SIMD3(0, 1e-30, 0), SIMD3(0, -1e-30, 0),
+            SIMD3(1e38, -1e38, 1e38), SIMD3(1e300, -1e300, 1e300),
+            SIMD3(Double.leastNonzeroMagnitude, 0, 0), .zero,
+            SIMD3(.nan, 1, 0), SIMD3(0, .infinity, 1), SIMD3(1, 0, -.infinity),
+        ]
 
         let invalidPlans: [SceneParticleTrailRenderPlan?] = [
             SceneParticleTrailRenderPlan(length: .nan, minimumLength: nil, maximumLength: nil),
@@ -89,6 +95,13 @@ enum Harness {
             "maximumOnly": [maximumOnly.stretch(for: .zero), maximumOnly.stretch(for: SIMD3(100, 0, 0))],
             "nonFiniteSpeed": bounded.stretch(for: SIMD3(.nan, 0, 0)),
             "invalidCount": invalidPlans.compactMap { $0 }.count,
+            "directions": directionInputs.map { velocity in
+                let direction = authored.direction(for: velocity)
+                return [direction.x, direction.y, direction.z]
+            },
+            "directionIgnoresStretchBounds": directionInputs.allSatisfy {
+                authored.direction(for: $0) == orientationOnly.direction(for: $0)
+            },
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -156,6 +169,23 @@ class SceneParticleTrailRenderPlanTests(unittest.TestCase):
 
     def test_invalid_authored_values_fail_closed(self) -> None:
         self.assertEqual(self.result["invalidCount"], 0)
+
+    def test_direction_preserves_tiny_and_large_finite_velocity_axes(self) -> None:
+        import math
+        unit_diagonal = 1 / math.sqrt(3)
+        expected = [[.6, .8, 0], [0, 1, 0], [0, -1, 0],
+                    [unit_diagonal, -unit_diagonal, unit_diagonal],
+                    [unit_diagonal, -unit_diagonal, unit_diagonal], [1, 0, 0]]
+        for actual, target in zip(self.result["directions"][:6], expected):
+            with self.subTest(target=target):
+                self.assertEqual(len(actual), 3)
+                for value, component in zip(actual, target):
+                    self.assertAlmostEqual(value, component, places=6)
+                self.assertAlmostEqual(math.hypot(*actual), 1, places=6)
+        self.assertTrue(self.result["directionIgnoresStretchBounds"])
+
+    def test_zero_and_invalid_directions_preserve_the_gpu_zero_fallback(self) -> None:
+        self.assertEqual(self.result["directions"][6:], [[0, 0, 0]] * 4)
 
 
 if __name__ == "__main__":

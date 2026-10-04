@@ -375,12 +375,6 @@ extension SceneParticleChildTemplate {
             particleBudget: particleBudget,
             maximumEmissionDuration: maximumEmissionDuration,
             worldSpaceFrame: worldSpaceFrame,
-            // Trail-declaring child systems record the same fixed-capacity
-            // position rings as the root path, so trailDirectionSamples()
-            // exposes chord directions for them too.
-            trailHistoryCapacity: trail != nil
-                ? SceneParticleTrailRenderPlan.historySampleCapacity
-                : 0,
             eventColorContext: eventColorContext
         )
     }
@@ -405,7 +399,7 @@ extension SceneParticleChildTemplate {
             rotation: particle.rotation.particleFloatValue,
             color: particle.color.particleFloatValue,
             alpha: Float(particle.alpha) * layerAlpha,
-            velocity: velocity.particleFloatValue,
+            velocity: trail?.direction(for: velocity) ?? velocity.particleFloatValue,
             trailStretch: trail?.stretch(for: velocity),
             currentFrame: frames.current.orientedForTrail(trail != nil),
             nextFrame: frames.next?.orientedForTrail(trail != nil),

@@ -51,7 +51,7 @@ import Foundation
             throw NSError(domain: "owned-trail-admission", code: 1)
         }
         let sim = SceneParticleSimulator(definition: definition, seed: 81,
-            fixedTimeStep: 0.125, trailHistoryCapacity: SceneParticleTrailRenderPlan.historySampleCapacity)
+            fixedTimeStep: 0.125)
         return (sim, trail)
     }
 
@@ -64,7 +64,6 @@ import Foundation
          "velocities": sim.particles.map { vector($0.velocity) },
          "positions": sim.particles.map { vector($0.position) },
          "stretch": sim.particles.map { Double(trail.stretch(for: $0.velocity)) },
-         "historyCount": sim.trailDirectionSamples().count,
          "nextID": sim.frameSnapshot().nextParticleID,
          "randomState": sim.frameSnapshot().random.state,
          "gpuFinite": sim.particles.allSatisfy {
@@ -191,7 +190,6 @@ class SceneParticleTurbulentForwardTests(unittest.TestCase):
         expected = [.07, .14, 1.4, .035, .35]
         for case, stretch in zip(self.result["cases"], expected):
             with self.subTest(forward=case["forward"]):
-                self.assertEqual(case["after"]["historyCount"], 1)
                 self.assertAlmostEqual(case["birth"]["stretch"][0], stretch, places=6)
                 self.assertAlmostEqual(case["after"]["stretch"][0], stretch, places=6)
                 self.assertTrue(case["repeatSameSeed"])
@@ -235,7 +233,6 @@ class SceneParticleTurbulentForwardTests(unittest.TestCase):
                 self.assertAlmostEqual(sum(v * v for v in after["velocities"][0]), 6400, places=8)
                 self.assertAlmostEqual(after["stretch"][0], .56, places=6)
                 self.assertEqual(after["time"], 2)
-                self.assertEqual(after["historyCount"], 1)
                 self.assertTrue(after["gpuFinite"])
                 random_states.add(after["randomState"])
         self.assertEqual(len(random_states), 1, "axis changes preserve RNG consumption order")

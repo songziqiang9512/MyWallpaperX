@@ -281,6 +281,8 @@ enum Harness {
             try printJSON(syntheticSubframeChildLifecycle())
         case "sprite-geometry-synthetic":
             try printJSON(syntheticSpriteGeometry())
+        case "trail-direction-synthetic":
+            try printJSON(syntheticTrailDirection())
         case "child-capacity-synthetic":
             try printJSON(syntheticChildCapacity())
         case "synthetic":

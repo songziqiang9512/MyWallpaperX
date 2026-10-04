@@ -12,18 +12,18 @@ HARNESS = r'''
 import Foundation
 @main enum Harness {
     static func main() throws {
-        func make(start: Double = 0, lifetime: Double = 10, historyMotion: Bool = false,
+        func make(start: Double = 0, lifetime: Double = 10, cacheMotion: Bool = false,
                   initial: SceneParticlePlaybackSnapshot = .init(),
                   maximum: Int = 100, emitter: [String: Any]? = nil, multiple: Bool = false, children: [[String: Any]] = []) throws -> SceneParticleSimulator {
             let root: [String: Any] = ["material": "p.json", "maxcount": maximum, "starttime": start,
                 "emitter": Array(repeating: emitter ?? ["name": "boxrandom", "rate": 4, "duration": 1, "distancemax": 2], count: multiple ? 2 : 1),
                 "initializer": [["name": "lifetimerandom", "min": lifetime, "max": lifetime]],
-                "operator": historyMotion ? [["name": "oscillateposition", "frequencymin": 2, "frequencymax": 2,
+                "operator": cacheMotion ? [["name": "oscillateposition", "frequencymin": 2, "frequencymax": 2,
                     "scalemin": "8 4 0", "scalemax": "8 4 0", "phasemin": 0, "phasemax": 0, "mask": "1 0.5 0"]] : [],
                 "children": children, "renderer": [["name": "sprite"]]]
             return SceneParticleSimulator(definition: try SceneParticleDefinitionParser().parse(root: root),
                 initialPlayback: initial, seed: 81, fixedTimeStep: 0.25,
-                stepSnapshotPolicy: .init(interval: 0.25, maximumSnapshots: 8), trailHistoryCapacity: 4)
+                stepSnapshotPolicy: .init(interval: 0.25, maximumSnapshots: 8))
         }
         func command(_ sim: SceneParticleSimulator, _ action: SceneParticlePlaybackAction, _ revision: UInt64) {
             sim.applyPlaybackTransition(.init(layerID: 42, action: action, revision: revision))
@@ -38,17 +38,17 @@ import Foundation
             && paused.particles[0].age > prepared[0].age
         paused.advance(by: 12)
         result["pausedParticlesDieAndTimeContinues"] = paused.particles.isEmpty && paused.simulationTime > 12
-        let stop = try make(start: 0.5, historyMotion: true)
+        let stop = try make(start: 0.5, cacheMotion: true)
         let before = stop.frameSnapshot()
-        result["stopStartsWithRealCachesAndHistory"] = !before.positionOscillationCache.isEmpty
-            && !before.normalizedLives.isEmpty && !stop.trailDirectionSamples().isEmpty
+        result["stopStartsWithRealCaches"] = !before.positionOscillationCache.isEmpty
+            && !before.normalizedLives.isEmpty
         var recorded = before.stepSnapshotRecorder
         result["stopStartsWithRealStepSnapshots"] = recorded?.consume(particles: before.particles).isEmpty == false
         command(stop, .stop, 1)
         let after = stop.frameSnapshot()
         result["stopClearsLiveEventsAndHistory"] = stop.particles.isEmpty
             && stop.renderParticlesForCurrentAdvance().isEmpty && stop.birthEvents.isEmpty && stop.deathEvents.isEmpty
-            && stop.trailDirectionSamples().isEmpty && stop.consumeStepSnapshots().isEmpty
+            && stop.consumeStepSnapshots().isEmpty
             && after.normalizedLives.isEmpty && after.positionOscillationCache.isEmpty
         result["stopPreservesTimeIDRandomAccumulator"] = before.simulationTime == after.simulationTime
             && before.nextParticleID == after.nextParticleID && before.random.state == after.random.state
@@ -162,22 +162,23 @@ import Foundation
         result["burstRearmsOnceWithLiveRetained"] = burst.particles.count == 4 && Array(burst.particles.prefix(2).map(\.id)) == burstIDs
 
         let continuousEmitter: [String: Any] = ["name": "boxrandom", "rate": 4, "distancemax": 2]
-        let visibility = try make(start: 2, historyMotion: true,
+        let visibility = try make(start: 2, cacheMotion: true,
             initial: .init(revision: 7), emitter: continuousEmitter)
-        let visibilityReference = try make(start: 2, historyMotion: true,
+        let visibilityReference = try make(start: 2, cacheMotion: true,
             initial: .init(revision: 7), emitter: continuousEmitter)
         visibility.advance(by: 0.125); visibilityReference.advance(by: 0.125)
         let visibleBefore = visibility.frameSnapshot()
+        var visibilityRecorded = visibleBefore.stepSnapshotRecorder
         result["visibilityStartsWithRealWarmupAndResidual"] = visibleBefore.particles.count == 8
             && visibleBefore.simulationTime == 2 && visibleBefore.accumulator == 0.125
             && !visibleBefore.positionOscillationCache.isEmpty
-            && !visibility.trailDirectionSamples().isEmpty
+            && visibilityRecorded?.consume(particles: visibleBefore.particles).isEmpty == false
         visibility.restartPopulationForVisibility()
         let visibleReset = visibility.frameSnapshot()
         result["visibilityClearsPopulationAndRetainedRenderHistory"] = visibility.particles.isEmpty
             && visibility.renderParticlesForCurrentAdvance().isEmpty
             && visibility.birthEvents.isEmpty && visibility.deathEvents.isEmpty
-            && visibility.trailDirectionSamples().isEmpty && visibility.consumeStepSnapshots().isEmpty
+            && visibility.consumeStepSnapshots().isEmpty
             && visibleReset.normalizedLives.isEmpty && visibleReset.positionOscillationCache.isEmpty
         result["visibilityPreservesClockRNGMonotonicIDAndRevision"] = visibleReset.simulationTime == visibleBefore.simulationTime
             && visibleReset.accumulator == visibleBefore.accumulator
@@ -319,7 +320,7 @@ import Foundation
                 result["explicit-random-late-failure-restores-all"] = randomSim.particles.isEmpty
                     && randomSim.frameSnapshot().nextParticleID==before.nextParticleID
                     && randomSim.frameSnapshot().random.state==before.random.state
-                    && randomSim.birthEvents.isEmpty && randomSim.trailDirectionSamples().isEmpty
+                    && randomSim.birthEvents.isEmpty
                     && randomSim.diagnostics==before.diagnostics
                 break
             }
@@ -344,7 +345,7 @@ import Foundation
             let root:[String:Any] = ["material":"p.json","maxcount":2048,
                 "emitter":[["name":"boxrandom","instantaneous":1024,"rate":0]],
                 "initializer":[["name":"lifetimerandom","min":10,"max":10]]+Array(repeating:turbulent,count:20),"renderer":[["name":"sprite"]]]
-            let sim=SceneParticleSimulator(definition:SceneParticleDefinitionParser().parse(root:root),trailHistoryCapacity:8)
+            let sim=SceneParticleSimulator(definition:SceneParticleDefinitionParser().parse(root:root))
             sim.advance(by:0.02);sim.applyPlaybackTransition(.init(layerID:42,action:.pause,revision:1))
             let committed=sim.frameSnapshot()
             let audio=SceneParticleAudioInput(left:Array(repeating:1,count:16),right:Array(repeating:1,count:16),generation:3)
@@ -358,18 +359,13 @@ import Foundation
             func actualArrayStorage(_ snapshot:SceneParticleSimulator.FrameSnapshot)->Int {
                 let states=[snapshot.particles,snapshot.birthEvents,snapshot.deathEvents,snapshot.transientRenderBirths]
                     .reduce(0){$0+$1.capacity*MemoryLayout<SceneParticleState>.stride}
-                let trail=Mirror(reflecting:snapshot.trailPositionHistory).children.reduce(0){bytes,entry in
-                    if let slots=entry.value as? [SIMD3<Double>] {return bytes+slots.capacity*MemoryLayout<SIMD3<Double>>.stride}
-                    if let heads=entry.value as? [UInt8] {return bytes+heads.capacity*MemoryLayout<UInt8>.stride}
-                    return bytes
-                }
-                return states+trail+snapshot.pendingAudioEvaluationObservations.capacity*MemoryLayout<SceneParticleAudioEvaluationObservation>.stride
+                return states+snapshot.pendingAudioEvaluationObservations.capacity*MemoryLayout<SceneParticleAudioEvaluationObservation>.stride
             }
             let one=try sim.preparePlaybackCandidate(commands:[(.init(layerID:42,action:.emit,revision:2,count:1),.init(audio:audio))],charge:charge,release:release)
             let firstActive=active
             let two=try sim.preparePlaybackCandidate(starting:one.state,commands:[(.init(layerID:42,action:.emit,revision:3,count:1),.init(audio:audio))],charge:charge,release:release)
-            result["real-capacity-trail-audio-reservation"] = committed.particles.count==1024 && one.state.particles.count==1025 && two.state.particles.count==1026
-                && one.state.pendingAudioEvaluationObservations.count==20 && two.state.trailPositionHistory.entrySlotCount==8
+            result["real-capacity-audio-reservation"] = committed.particles.count==1024 && one.state.particles.count==1025 && two.state.particles.count==1026
+                && one.state.pendingAudioEvaluationObservations.count==20
                 && one.reservedBytes>=actualArrayStorage(one.state) && two.reservedBytes>=actualArrayStorage(two.state)
                 && peak==one.reservedBytes+two.reservedBytes && firstActive==one.reservedBytes && chargedWork>0 && chargedWork<=100_000
             limit=active

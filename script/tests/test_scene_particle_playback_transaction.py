@@ -635,7 +635,7 @@ final class SceneDesktopWallpaperSession {
                 dynamicControlPointAngles:old.dynamicControlPointAngles,audioInput:old.audioInput,
                 observedNonSilentAudioComponents:old.observedNonSilentAudioComponents,pendingAudioEvaluationObservations:old.pendingAudioEvaluationObservations,
                 eventColorContext:old.eventColorContext,stepSnapshotRecorder:old.stepSnapshotRecorder,
-                positionOscillationCache:old.positionOscillationCache,trailPositionHistory:old.trailPositionHistory))
+                positionOscillationCache:old.positionOscillationCache))
             let (d,tx)=try emissionScope([sim])
             let author=try owner(d,"export function update(v){thisLayer.pause();try{thisLayer.emitParticles(1);}catch(e){}return v;}")
             do {_=try evaluate(author);result["caught-id-overflow-rejects-owner"]=false}

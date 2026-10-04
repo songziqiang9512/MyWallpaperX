@@ -75,7 +75,6 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+ExplicitEmission.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime+PlaybackTransaction.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleTrailPositionHistory.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Initializer.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Random.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+InstanceOverride.swift",
@@ -207,6 +206,36 @@ class SceneParticleRuntimeTests(
             self.assertEqual(result[name]["textureSize"], [8, 8])
             self.assertEqual(result[name]["uvScale"], [0.25, 1])
 
+    def test_root_and_child_trail_packing_uses_current_motion_and_safe_unit_direction(self) -> None:
+        import math
+        result = self.run_harness("trail-direction-synthetic")
+        self.assertEqual(result["activeLayerIDs"], [101, 102, 103, 104, 105])
+        self.assertEqual(result["rootCount"], 5)
+        self.assertEqual(result["childCount"], 5)
+        self.assertEqual(result["diagnosticKinds"], [])
+        diagonal = 1 / math.sqrt(3)
+        for phase, curve_y in [("rising", .6), ("falling", -.6)]:
+            values = result[phase]
+            self.assertEqual(len(values), 10)
+            for kind in ["root", "child"]:
+                expected = {"curve": ([.8, curve_y, 0], .625), "slow-y": ([0, 1, 0], .2),
+                            "zero": ([0, 0, 0], .2),
+                            "large": ([diagonal, -diagonal, diagonal], 10),
+                            "ordinary": ([0, 2, 0], -1)}
+                for name, (direction, stretch) in expected.items():
+                    with self.subTest(phase=phase, kind=kind, name=name):
+                        observed = values[f"{name}-{kind}"]
+                        self.assertTrue(observed["gpuFinite"])
+                        for actual, component in zip(observed["packedDirection"], direction):
+                            self.assertAlmostEqual(actual, component, places=6)
+                        self.assertAlmostEqual(observed["stretch"], stretch, places=6)
+                # These authored values make the old seven-step chord diverge
+                # on both sides of the apex; old particles still own their speed.
+                curve = values[f"curve-{kind}"]
+                self.assertAlmostEqual(curve["velocity"][0], 10, places=8)
+                self.assertAlmostEqual(curve["velocity"][1], 12.5 * curve_y, places=8)
+                self.assertEqual(curve["velocity"][2], 0)
+
     def test_synthetic_rejects_unsupported_roots_and_keeps_diagnostics(self) -> None:
         result = self.run_harness("synthetic")
         self.assertEqual(
@@ -229,7 +258,7 @@ class SceneParticleRuntimeTests(
         self.assertEqual(result["batchTextureSizes"]["6"], [32, 128])
         self.assertEqual(result["batchTextureSizes"]["7"], [64, 64])
         self.assertAlmostEqual(result["trailStretch"], 5)
-        self.assertEqual(result["trailVelocity"], [100, 0, 0])
+        self.assertEqual(result["trailVelocity"], [1, 0, 0])
         self.assertEqual(result["defaultTrailStretch"], 2)
         self.assertEqual(result["childTrailStretch"], 2)
         self.assertTrue(result["rendererWorldOrientation"])

@@ -1399,7 +1399,6 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime+PlaybackTransaction.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator*.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleTrailPositionHistory.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.h",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSInternal.h",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerHost.c",

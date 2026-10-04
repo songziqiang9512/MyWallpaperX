@@ -397,3 +397,13 @@ CPU visibility/readable各15项通过，HEAD分别5项/1项失败；后者仅为
 同冻结输入在实际MyWallpaperX运行：旧版unit/quarter/double三行均为(81.51,-23.50)；修复后同帧分别为(74.91,-21.72)/(18.79,-5.21)/(149.81,-43.05)，x-only保留unit的X且Y约0，zero保持原位。绿色原点与蓝色时钟确认采样，未跨运行硬比相位。此项目自有零scale门验证消费到最终像素，不充当官方轨迹golden。真实376原包前后各35秒正常播放、Metal捕获及GPU排空；上发丝斜光仍缺，整样本未验收。
 
 新增6项parse→Simulator门在旧math产生7个失败子例，修复后全过；覆盖倍率、各轴/零/负mask、顺序、RNG不变与Float累加溢出只拒绝当前粒子。Debug及相邻CPU门通过，最终审查与归档身份归本机`rf05-turbulence-mask-20261004`。不增加owner，不量化性能收益；下一批核SpriteTrail转向几何。工作卡仍15/16（93.75%），RF05及全样本正确性开放。
+
+
+<a id="rf05-trail-direction"></a>
+### SpriteTrail当前速度定向与历史退役（2026-10-04）
+
+自有白纹理单粒子抛物线的实际App near-apex主轴56.31°，自身六质心轨迹切线34.31°，误差22.00°；8槽历史弦预测57.29°。独立像素复算排除了时钟起点、裁切及白阈值，官方同版本/hash六曲线帧的误差0.05...2.40°、直线六帧为0°。因此当前速度统一负责SpriteTrail方向和stretch：已有TrailRenderPlan用max-abs与Double hypot生成安全Float单位方向，root与child共用，child仍先经原transform.velocity。删除仅SpriteTrail使用的8槽环、模拟器构造/记录/快照/预算接线；RopeTrail的step recorder及回滚保留。每个SpriteTrail粒子不再保存8个Double位置与head，不宣称测得CPU/能耗改善。
+
+冻结Debug候选的相同曲线after主轴−26.57°、自身轨迹切线−30.96°，误差4.39°，处于半隐式fixed-step与像素误差界；不跨运行硬比clock/角度。自有低速Y输入`.00006`在旧root因历史弦与GPU阈值错配显示水平，修复后竖直；static child始终竖直、zero始终保持既有水平fallback。实际Runtime packing门覆盖root/child、apex两侧、低速、zero、大有限值、普通Sprite不变及stretch。真实376原包35秒播放/截图/退出排空通过，上发丝斜光仍缺；不能把上述门报成整样本修复。
+
+官方position-only补充探针出现新assert且无有效像素，修正输入后的启动又进入恢复提示，两组均不计行为证据；只关闭本轮窗口/新进程、删除本轮guest目录并恢复VM暂停，既有editor错误窗口未处理。不据失败猜测oscillation或零速官方语义。正式证据归本机`rf05-trail-direction-20261004`，下一批追376覆盖区域及材质/合成首断点；若无新断点则重排其他真实故障。15/16卡（93.75%）仅为有界卡口径，RF05、长期Goal与全样本正确性仍开放。

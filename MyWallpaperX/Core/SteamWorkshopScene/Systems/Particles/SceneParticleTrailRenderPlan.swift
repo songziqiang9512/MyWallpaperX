@@ -1,12 +1,6 @@
 import Foundation
 
 nonisolated struct SceneParticleTrailRenderPlan: Equatable, Sendable {
-    /// Sprite Trail orientation samples this many recent fixed-step positions
-    /// per particle. The simulator records the path chord (oldest retained
-    /// sample to current position) as a conservative approximation of the
-    /// ribbon tangent; full ribbon geometry remains a separate effort.
-    static let historySampleCapacity = 8
-
     private let length: Double
     private let minimumStretch: Double
     private let maximumStretch: Double
@@ -39,6 +33,23 @@ nonisolated struct SceneParticleTrailRenderPlan: Equatable, Sendable {
         self.length = length
         self.minimumStretch = minimumLength
         self.maximumStretch = maximumLength
+    }
+
+    /// Normalize before narrowing to Float so every finite nonzero velocity
+    /// keeps its direction, including very slow motion and large magnitudes.
+    nonisolated func direction(for velocity: SIMD3<Double>) -> SIMD3<Float> {
+        guard velocity.x.isFinite,
+              velocity.y.isFinite,
+              velocity.z.isFinite else { return .zero }
+        let maximumMagnitude = max(abs(velocity.x), max(abs(velocity.y), abs(velocity.z)))
+        guard maximumMagnitude > 0 else { return .zero }
+        let scaled = velocity / maximumMagnitude
+        let magnitude = hypot(hypot(scaled.x, scaled.y), scaled.z)
+        return SIMD3(
+            Float(scaled.x / magnitude),
+            Float(scaled.y / magnitude),
+            Float(scaled.z / magnitude)
+        )
     }
 
     nonisolated func stretch(for velocity: SIMD3<Double>) -> Float {

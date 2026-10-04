@@ -676,32 +676,9 @@ final class SceneParticleRuntime {
             return
         }
         let particles = root.simulator.renderParticlesForCurrentAdvance()
-        // Sprite Trail orientation follows the particle's recent path chord
-        // instead of its instantaneous velocity. Samples are id-ascending and
-        // the render set is id-sorted, so one forward walk aligns them without
-        // per-particle lookups; particles without a sample (fresh births,
-        // degenerate chords, history-less child systems) keep the velocity
-        // direction. The stretch magnitude below stays velocity-based.
-        let trailDirections = root.trail != nil
-            ? root.simulator.trailDirectionSamples() : nil
-        var trailDirectionIndex = 0
         root.instances.removeAll(keepingCapacity: true)
         root.instances.reserveCapacity(particles.count)
         for particle in particles {
-            if let directions = trailDirections {
-                while trailDirectionIndex < directions.count,
-                      directions[trailDirectionIndex].id < particle.id {
-                    trailDirectionIndex += 1
-                }
-            }
-            let trailVelocity: SIMD3<Double>
-            if let directions = trailDirections,
-               trailDirectionIndex < directions.count,
-               directions[trailDirectionIndex].id == particle.id {
-                trailVelocity = directions[trailDirectionIndex].direction
-            } else {
-                trailVelocity = particle.velocity
-            }
             let frames = Self.spriteFrames(
                 animation: root.spriteAnimation,
                 staticAspect: root.staticSpriteAspect,
@@ -716,7 +693,8 @@ final class SceneParticleRuntime {
                 rotation: particle.rotation.particleFloatValue,
                 color: particle.color.particleFloatValue,
                 alpha: Float(particle.alpha),
-                velocity: trailVelocity.particleFloatValue,
+                velocity: root.trail?.direction(for: particle.velocity)
+                    ?? particle.velocity.particleFloatValue,
                 trailStretch: root.trail?.stretch(for: particle.velocity),
                 currentFrame: frames.current.orientedForTrail(root.trail != nil),
                 nextFrame: frames.next?.orientedForTrail(root.trail != nil),
@@ -892,10 +870,7 @@ final class SceneParticleRuntime {
             prewarmStepBudget: 3_600,
             layerImageEmissionMap: layerImageMap,
             worldSpaceFrame: worldSpaceFrame,
-            stepSnapshotPolicy: render.ropeTrail?.stepSnapshotPolicy,
-            trailHistoryCapacity: render.trail != nil
-                ? SceneParticleTrailRenderPlan.historySampleCapacity
-                : 0
+            stepSnapshotPolicy: render.ropeTrail?.stepSnapshotPolicy
         )
         return SceneParticleRootRenderRuntime(
             definition: asset.definition,

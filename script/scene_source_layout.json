@@ -699,7 +699,6 @@
           "SceneParticleSimulator.swift",
           "SceneParticleStepSnapshotRecorder.swift",
           "SceneParticleTextureSource.swift",
-          "SceneParticleTrailPositionHistory.swift",
           "SceneParticleTrailRenderPlan.swift",
           "SceneParticleUnaryOperatorPlans.swift",
           "SceneParticleVortex.swift",
