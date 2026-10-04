@@ -98,7 +98,9 @@
           "SceneResolvedMaterialScriptBindingClassifier.swift",
           "SceneResolvedMaterialShaderSchema+Reachability.swift",
           "SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
+          "SceneResolvedMaterialShaderSchema+StaticModelInterface.swift",
           "SceneResolvedMaterialShaderSchema.swift",
+          "SceneStaticModelMaterialBindingCompiler.swift",
           "SceneResolvedMaterialTemplateCompiler.swift",
           "SceneResolvedMaterialTextureSlotPurpose.swift",
           "SceneResolvedMaterialVisualFailureTopology.swift",
@@ -569,6 +571,7 @@
           "SceneRuntimeModel.swift",
           "SceneRuntimeSourceFacts.swift",
           "SceneScreenTopology.swift",
+          "SceneStaticModelMaterialBindings.swift",
           "SceneSurfacePointerState.swift"
         ],
         "responsibility": "Frame: Scene process/session orchestration and frame handoff; capability algorithms stay with their systems."

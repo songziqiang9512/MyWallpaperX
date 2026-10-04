@@ -349,9 +349,9 @@
       "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ad4dda0b3cf6f4a4b0771aa23af3ff6dd748bdb1d6a4add2d081765daedbd347",
+        "sourceSHA256": "36851a5dfce2c5261ae2c120e1e03172c6ebab6157c0c9966085d31bf8c7bb39",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对RF05父树粒子显隐准备、资源准入与证据路由；本收据仅标记导航维护。",
+        "scope": "核对模型材质精确键、局部拒绝及旧入口保留合同与执行记录指针；仅为导航维护收据。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

@@ -17,6 +17,15 @@ nonisolated enum SceneShaderVariantSchemaSeed {
         return collector.sources
     }
 
+    static func unconditional(
+        rootRelativePath: String,
+        graph: SceneShaderSourceGraph
+    ) -> [SceneShaderVariantSchemaSource] {
+        var collector = Collector(graph: graph)
+        collector.collect(rootRelativePath)
+        return collector.sources
+    }
+
     static func ambiguityProbeSeeds(
         baseSources: [SceneShaderVariantSchemaSource],
         graph: SceneShaderSourceGraph,

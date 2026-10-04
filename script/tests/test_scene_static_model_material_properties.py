@@ -14,6 +14,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = [
     SCENE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
+    SCENE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
@@ -39,8 +40,25 @@ struct SceneDocument {
         let components: [Double]?
         let bindingKeys: [String]
         let scriptSource: String? = nil
+        let scriptProperties: [String: SceneJSONValue]? = nil
         let timeline: Int? = nil
         let timelineDiagnostics: [String] = []
+        let rawValue: String
+        let valueKind: String
+
+        init(
+            userBinding: String?, userValueKind: SceneShaderUserValueKind?,
+            components: [Double]?, bindingKeys: [String],
+            rawValue: String? = nil, valueKind: String? = nil
+        ) {
+            self.userBinding = userBinding
+            self.userValueKind = userValueKind
+            self.components = components
+            self.bindingKeys = bindingKeys
+            self.rawValue = rawValue ?? (components ?? []).map { String($0) }.joined(separator: " ")
+            self.valueKind = valueKind ?? (userBinding == nil
+                ? (components?.count == 1 ? "number" : "vector") : "binding")
+        }
     }
 }
 
@@ -51,6 +69,7 @@ struct SceneRenderDescriptor {
         let staticModelPath: String?
         let isImageRenderable = false
         let imagePath: String? = nil
+        var staticBaseTexturePath: String? = nil
     }
 
     struct ModelMaterialLink {
@@ -61,9 +80,12 @@ struct SceneRenderDescriptor {
     struct MaterialPassDescriptor {
         let materialPath: String
         let passIndex: Int
-        let shaderPath: String? = nil
-        let combos: [String:Int] = [:]
+        var shaderPath: String? = nil
+        var combos: [String:Int] = [:]
         let constantShaderValues: [String: SceneDocument.ShaderValue]
+        var userShaderValues: [String: String] = [:]
+        var texturePaths: [String] = []
+        var staticModelMaterialBindings: SceneStaticModelMaterialBindings? = nil
     }
 
     let layers: [Layer]

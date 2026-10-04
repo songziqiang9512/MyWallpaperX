@@ -25,6 +25,8 @@ GRAPH_EXECUTOR_SOURCE = (
 )
 SWIFT_SOURCES = [
     REPOSITORY_ROOT / "script/tests/fixtures/SceneUserPropertyResolutionStub.swift",
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticModelMaterialBindingUnavailableStub.swift",
+    SOURCE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SOURCE_ROOT / "Diagnostics/ScenePerformanceCounterHub.swift",
     SOURCE_ROOT / "Rendering/Composition/SceneBloomPostProcess.swift",
@@ -289,6 +291,7 @@ struct SceneAssetCatalog {
     let effectDefinitions: [SceneEffectDefinition]
     let effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic]
     let shaderReferences: [String]
+    var shaderContracts: [Never] { [] }
     let textureReferences: [String]
 }
 struct SceneResourceReferenceIndex {

@@ -48,5 +48,6 @@ extension SceneRenderDescriptor {
         let depthWrite: String?
         let cullMode: String?
         let alphaWriting: String?
+        var staticModelMaterialBindings: SceneStaticModelMaterialBindings? = nil
     }
 }

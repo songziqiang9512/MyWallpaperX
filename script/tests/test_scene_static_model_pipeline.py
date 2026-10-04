@@ -16,6 +16,7 @@ METAL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering
 SHADOW_SOURCE = SCENE_ROOT / "Rendering/Metal/SceneStaticModelShadow.swift"
 PIPELINE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift"
 DYNAMIC_SNAPSHOT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift"
+BINDINGS_SOURCE = SCENE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift"
 DYNAMIC_LAYER_VALUES_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicLayerValues.swift"
 MODEL_SOURCE = SCENE_ROOT / "Format/SceneMdlStaticModel.swift"
 SAMPLING_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift"
@@ -161,6 +162,7 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
                     str(DYNAMIC_LAYER_VALUES_SOURCE),
                     str(PERFORMANCE_COUNTER_SOURCE),
                     str(SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"),
+                    str(BINDINGS_SOURCE),
                     str(PIPELINE_SOURCE),
                     str(SHADOW_SOURCE),
                 ],
@@ -260,6 +262,78 @@ enum MaterialHarness {
         precondition(base.resolvingDynamicValues(
             layerID: 8, snapshot: snapshot
         ).color == base.color)
+        var unproven = base
+        unproven.channelBindings = .init(state: .unavailable, bindings: [], rejectionReason: "interface-unproven")
+        let legacy = unproven.resolvingDynamicValues(layerID: 7, snapshot: snapshot)
+        precondition(legacy.color == resolved.color && legacy.opacity == resolved.opacity)
+        precondition(legacy.brightness == resolved.brightness && legacy.emissiveBrightness == resolved.emissiveBrightness)
+        precondition(legacy.emissiveColor == resolved.emissiveColor)
+        let authoredBindings = SceneStaticModelMaterialBindings(
+            state: .authored,
+            bindings: [
+                .init(channel: .alpha, uniformName: "g_TintAlpha", materialKey: "Alpha", components: [0.02]),
+                .init(channel: .color, uniformName: "g_TintColor", materialKey: "Color", components: [0.2, 0.4, 0.6]),
+                .init(channel: .brightness, uniformName: "g_Brightness", materialKey: "Brigtness", components: [1.25]),
+            ],
+            rejectionReason: nil
+        )
+        var authored = base
+        authored.channelBindings = authoredBindings
+        let exactPath = "materials/authored.json"
+        let unrelatedPath = "materials/peer.json"
+        func target(_ name: String, layerID: Int = 7, path: String = "materials/authored.json") -> SceneDynamicTarget {
+            .materialConstant(layerID: layerID, passIndex: 0, name: name, materialPath: path)
+        }
+        let exactDefinitions: [SceneDynamicTargetDefinition] = [
+            .init(target: target("Alpha"), valueType: .scalar, authoredValue: .scalar(0.02)),
+            .init(target: target("Color"), valueType: .vector3, authoredValue: .vector3(0.2, 0.4, 0.6)),
+            .init(target: target("Brigtness"), valueType: .scalar, authoredValue: .scalar(1.25)),
+            .init(target: target("alpha"), valueType: .scalar, authoredValue: .scalar(1)),
+            .init(target: target("color"), valueType: .vector3, authoredValue: .vector3(1, 0, 0)),
+            .init(target: target("brightness"), valueType: .scalar, authoredValue: .scalar(8)),
+            .init(target: target("Alpha", layerID: 8), valueType: .scalar, authoredValue: .scalar(0.9)),
+            .init(target: target("Alpha", path: unrelatedPath), valueType: .scalar, authoredValue: .scalar(0.6)),
+        ]
+        let exactSnapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 2, generation: 2, definitions: exactDefinitions,
+            userValues: [
+                target("Alpha"): .scalar(0.3), target("Color"): .vector3(0.1, 0.5, 0.9),
+                target("Brigtness"): .scalar(2), target("alpha"): .scalar(1),
+                target("color"): .vector3(1, 0, 0), target("brightness"): .scalar(8),
+                target("Alpha", layerID: 8): .scalar(0.9),
+                target("Alpha", path: unrelatedPath): .scalar(0.6),
+            ]
+        ).snapshot
+        let exact = authored.resolvingDynamicValues(layerID: 7, materialPath: exactPath, snapshot: exactSnapshot)
+        precondition(exact.opacity == 0.3)
+        precondition(exact.color == SIMD3<Float>(0.1, 0.5, 0.9))
+        precondition(exact.brightness == 2)
+        precondition(exact.channelBindings == authoredBindings)
+        precondition(authored.resolvingDynamicValues(layerID: 8, materialPath: exactPath, snapshot: exactSnapshot).opacity == 0.9)
+        precondition(authored.resolvingDynamicValues(layerID: 7, materialPath: unrelatedPath, snapshot: exactSnapshot).opacity == 0.6)
+        precondition(authored.resolvingDynamicValues(layerID: 9, materialPath: exactPath, snapshot: exactSnapshot).opacity == base.opacity)
+
+        var defaultsOnly = authored
+        defaultsOnly.channelBindings = SceneStaticModelMaterialBindings(
+            state: .authored,
+            bindings: [
+                .init(channel: .alpha, uniformName: "g_TintAlpha", materialKey: nil, components: [0.02]),
+                .init(channel: .color, uniformName: "g_TintColor", materialKey: nil, components: [0.2, 0.4, 0.6]),
+                .init(channel: .brightness, uniformName: "g_Brightness", materialKey: nil, components: [1.25]),
+            ], rejectionReason: nil
+        )
+        let unchanged = defaultsOnly.resolvingDynamicValues(layerID: 7, materialPath: exactPath, snapshot: exactSnapshot)
+        precondition(unchanged.opacity == defaultsOnly.opacity && unchanged.color == defaultsOnly.color)
+        precondition(unchanged.brightness == defaultsOnly.brightness)
+        precondition(exact.resolvingDynamicViewTintBack(SIMD3(0.8, 0.7, 0.6)).channelBindings == authoredBindings)
+        let overflowSnapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 3, generation: 2, definitions: [
+                .init(target: target("Brigtness"), valueType: .scalar, authoredValue: .scalar(1.25)),
+            ], userValues: [target("Brigtness"): .scalar(1e100)]
+        ).snapshot
+        precondition(authored.resolvingDynamicValues(
+            layerID: 7, materialPath: exactPath, snapshot: overflowSnapshot
+        ).brightness == authored.brightness)
         func transform(_ scale: SIMD3<Float>) -> simd_float4x4 {
             var matrix = matrix_identity_float4x4
             matrix.columns.0.x = scale.x
@@ -319,6 +393,7 @@ enum MaterialHarness {
                     str(DYNAMIC_LAYER_VALUES_SOURCE),
                     str(PERFORMANCE_COUNTER_SOURCE),
                     str(SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"),
+                    str(BINDINGS_SOURCE),
                     str(PIPELINE_SOURCE),
                     str(SHADOW_SOURCE),
                     str(harness),
@@ -738,6 +813,7 @@ enum DepthPlanHarness {
                     str(DYNAMIC_LAYER_VALUES_SOURCE),
                     str(PERFORMANCE_COUNTER_SOURCE),
                     str(SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"),
+                    str(BINDINGS_SOURCE),
                     str(PIPELINE_SOURCE),
                     str(SHADOW_SOURCE),
                     str(harness),

@@ -41,6 +41,7 @@ struct SceneStaticModelMaterial {
     let brightness: Float
     let usesHDRBrightness: Bool
     let viewTint: SceneStaticModelViewTint?
+    var channelBindings: SceneStaticModelMaterialBindings? = nil
 
     func resolvingDynamicViewTintBack(_ color: SIMD3<Float>) -> Self {
         .init(
@@ -53,7 +54,8 @@ struct SceneStaticModelMaterial {
             emissiveBrightness: emissiveBrightness,
             brightness: brightness,
             usesHDRBrightness: usesHDRBrightness,
-            viewTint: viewTint?.resolvingBackColor(color)
+            viewTint: viewTint?.resolvingBackColor(color),
+            channelBindings: channelBindings
         )
     }
 
@@ -62,14 +64,14 @@ struct SceneStaticModelMaterial {
         materialPath: String = "",
         snapshot: SceneDynamicSnapshot
     ) -> Self {
-        let color = vector3("color", layerID: layerID, materialPath: materialPath, snapshot: snapshot)
+        let color = vector3(dynamicKey(for: .color, legacy: "color"), layerID: layerID, materialPath: materialPath, snapshot: snapshot)
             ?? self.color
         let emissiveColor = vector3(
             "emissivecolor", layerID: layerID, materialPath: materialPath, snapshot: snapshot
         ) ?? self.emissiveColor
         return .init(
             color: color,
-            opacity: scalar("alpha", layerID: layerID, materialPath: materialPath, snapshot: snapshot)
+            opacity: scalar(dynamicKey(for: .alpha, legacy: "alpha"), layerID: layerID, materialPath: materialPath, snapshot: snapshot)
                 .map { min(max($0, 0), 1) } ?? opacity,
             receivesLighting: receivesLighting,
             textureAlphaIsOpacity: textureAlphaIsOpacity,
@@ -79,34 +81,50 @@ struct SceneStaticModelMaterial {
                 "emissivebrightness", layerID: layerID, materialPath: materialPath, snapshot: snapshot
             ).map { max($0, 0) } ?? emissiveBrightness,
             brightness: scalar(
-                "brightness", layerID: layerID, materialPath: materialPath, snapshot: snapshot
+                dynamicKey(for: .brightness, legacy: "brightness"), layerID: layerID, materialPath: materialPath, snapshot: snapshot
             ).map { max($0, 0) } ?? brightness,
             usesHDRBrightness: usesHDRBrightness,
-            viewTint: viewTint
+            viewTint: viewTint,
+            channelBindings: channelBindings
         )
     }
 
+    private func dynamicKey(
+        for channel: SceneStaticModelMaterialBindings.Channel,
+        legacy: String
+    ) -> String? {
+        switch channelBindings?.state {
+        case .some(.authored):
+            return channelBindings?.binding(for: channel)?.materialKey
+        case .some(.rejected):
+            return nil
+        default:
+            return legacy
+        }
+    }
+
     private func scalar(
-        _ name: String,
+        _ name: String?,
         layerID: Int,
         materialPath: String,
         snapshot: SceneDynamicSnapshot
     ) -> Float? {
-        guard let resolved = snapshot[.materialConstant(
+        guard let name, let resolved = snapshot[.materialConstant(
             layerID: layerID, passIndex: 0, name: name, materialPath: materialPath
         )], case let .scalar(value) = resolved.value, value.isFinite else {
             return nil
         }
-        return Float(value)
+        let result = Float(value)
+        return result.isFinite ? result : nil
     }
 
     private func vector3(
-        _ name: String,
+        _ name: String?,
         layerID: Int,
         materialPath: String,
         snapshot: SceneDynamicSnapshot
     ) -> SIMD3<Float>? {
-        guard let resolved = snapshot[.materialConstant(
+        guard let name, let resolved = snapshot[.materialConstant(
             layerID: layerID, passIndex: 0, name: name, materialPath: materialPath
         )], case let .vector3(x, y, z) = resolved.value,
               x.isFinite, y.isFinite, z.isFinite else { return nil }

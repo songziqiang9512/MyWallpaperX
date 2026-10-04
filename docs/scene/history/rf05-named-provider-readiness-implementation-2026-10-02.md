@@ -419,3 +419,19 @@ CPU visibility/readable各15项通过，HEAD分别5项/1项失败；后者仅为
 最终Debug构建、26组生产Metal顶点/像素输入及相邻渲染门通过。新门独立计算四角及完整覆盖，含旋转、镜像、零列、极小尺度、Fixed-XZ、world-size、普通Sprite及真实RopePlan控制；原±10测试深度裁剪已修为±1000，未放宽几何容差。真实376原包35秒播放、Metal截图、身份不变及退出排空通过，上发丝斜光仍未恢复，整样本未验收。证据及独立终审绑定本机`rf05-trail-affine-20261004`，不外推完整3D/透视/atlas或全语料。
 
 连续376局部修复已有可见收益，继续追noise/亮度的即时收益尚不明确；下一批先复现3470948192首帧非有限scale，若存在则修最早共享owner并复验真实加载。376保留为未解视觉差异，不删除或判通过。15/16卡（93.75%）仅为有界卡口径，RF05、长期Goal及全样本正确率仍开放；临时App/样本/HOME归档后清理，连续迭代只留一份构建缓存。
+
+
+<a id="rf05-model-material-keys"></a>
+### 静态模型材质声明键（2026-10-04）
+
+**静态模型材质键绑定修复决定（2026-10-04）。** 显隐结果见[原执行记录](#rf05-model-visibility)。347粉紫覆盖随模型186隐藏消失；官方同包仅改Alpha=.02→1产生强粉色，改alpha=0仍暗。同uniform在不同声明映射Alpha/Color/Brigtness或alpha/color/brightness，现模型按小写优先取值错误。direct model唯一pass0在descriptor准备期复用现ShaderSchema证明无条件三通道接口，校验stage/include闭包、全潜在声明的类型/array/key唯一性及宏歧义；不依赖完整shader执行、纹理ready/format，也不枚举资源状态。immutable DTO保存精确key/default供静态、属性和帧消费共用。区分proven、unavailable和已证输入invalid：无法证明接口保留原绘制及属性接线并记录迁移债，不能因未知sampler信息丢模型；已证明具体非法值拒绝当前part。无source的hostBuiltin维持原入口。只修现color/opacity/brightness寻址，不新增custom shader语义、mesh Program或输出owner。自有反例覆盖大小写、条件重复、宏重写、跨stage冲突、属性与peer；冻结App必须保住115/186/14并改善粉色覆盖。满足后收口，星轨named93→115等差异继续按真实首断点选题。
+
+真实3470948192原包SHA256 `7151bf3194a8765ce6183149d80dbb48e8d869c075cc2940f52abbf900d0e818`。旧App背景粉紫；隐藏186后消失。官方2.8.0.42同包单变量：Alpha .02→1出现强粉色，alpha 1→0仍暗；上调Alpha仅留人工屏幕观察，黑色无效截图不计证据。独立实现只消费声明接口和行为结果，未读取私有表达式。
+
+准备期复用严格无条件接口证明，DTO置于Runtime供编译与渲染共享；三通道静态值、property Program及动态consumer使用同一精确键。未知宏/条件/producer保持原绘制及emissive接线；已证明的非法形状、Float范围或被旧decoder丢失的非数值token只拒绝当前part。完整shader准备依赖未知纹理ready/format的早期方案已撤回，不枚举资源状态或猜格式。
+
+最终V8 Debug的1085份产品源码冻结无漂移；同一未改原包播放35秒（进程46.124秒），115/186使用已证绑定，14保留原入口，prepared IDs仍为14/115/186。实际Metal截图确认粉紫覆盖消失、日期/时间/公式及暗模型保留；远离文字/模型的固定背景ROI平均亮度169.925→1.357。首帧、连续截图、退出GPU排空通过；一次既有115 scale badReturn及星轨缺失仍在，整样本、全208样本正确率和性能未验收。最终受限证据存本机`rf05-model-material-keys-20261004`；无效官方黑截图及私有payload/raw日志不入包。
+
+反例覆盖精确大小写/拼写、声明和宏歧义、跨stage冲突、非法原值、属性与动态consumer、旧emissive及未知接口退路。最终10项CPU门通过（67.392秒），相邻绘制/属性/输入26项与source-set登记11项通过。结构普查保留既有shape-derived-analyzer 66/登记65两项失败；本批新增文件的目录登记及归档链接另行修正，不上调该库存基线。
+
+四个既有独立harness补接真实DTO与显式unavailable编译边界，共享一个fixture，不把完整shader依赖带入Timeline/Text/display测试；40项相邻CPU及15项Text Metal门通过。触及的Timeline target测试原超1000行，原214行Swift harness按字节不变移到实际Swift fixture，Python回到890行。

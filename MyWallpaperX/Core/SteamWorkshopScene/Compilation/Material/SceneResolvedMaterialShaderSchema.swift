@@ -493,7 +493,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         )?.first
     }
 
-    private struct Record {
+    struct Record {
         let stage: SceneShaderContract.StageKind?
         let sourcePath: String
         let declaration: SceneShaderContract.Declaration
@@ -603,7 +603,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         return result
     }
 
-    private static func uniformSchema(
+    static func uniformSchema(
         _ field: SceneAuthoredShaderUniformLayout.Field,
         records: [Record]
     ) throws -> Uniform {
@@ -811,7 +811,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         return 0 ... 1
     }
 
-    private static func isSampler2D(_ type: String) -> Bool {
+    static func isSampler2D(_ type: String) -> Bool {
         type.split(whereSeparator: \.isWhitespace).last?
             .caseInsensitiveCompare("sampler2D") == .orderedSame
     }

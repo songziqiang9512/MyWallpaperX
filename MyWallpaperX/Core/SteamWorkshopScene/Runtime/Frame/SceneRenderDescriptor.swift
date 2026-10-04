@@ -212,7 +212,10 @@ struct SceneRenderDescriptorBuilder {
                 from: assetCatalog,
                 directStaticModelMaterialLinks: directStaticModelMaterialLinks
             ),
-            materialPasses: materialPassDescriptors(from: assetCatalog),
+            materialPasses: materialPassDescriptors(
+                from: assetCatalog,
+                directStaticModelMaterialLinks: directStaticModelMaterialLinks
+            ),
             effectDefinitions: assetCatalog.effectDefinitions,
             effectDefinitionDiagnostics: effectDefinitionDiagnostics(
                 from: sceneDocument,
@@ -264,10 +267,19 @@ struct SceneRenderDescriptorBuilder {
         return attachmentsByModelPath[modelPath]?[attachmentName]
     }
 
-    nonisolated private func materialPassDescriptors(from catalog: SceneAssetCatalog) -> [SceneRenderDescriptor.MaterialPassDescriptor] {
-        catalog.materials.flatMap { material in
+    nonisolated private func materialPassDescriptors(
+        from catalog: SceneAssetCatalog,
+        directStaticModelMaterialLinks: [SceneRenderDescriptor.ModelMaterialLink]
+    ) -> [SceneRenderDescriptor.MaterialPassDescriptor] {
+        let directMaterials = Set(directStaticModelMaterialLinks.compactMap {
+            $0.materialPath.map { $0.replacingOccurrences(of: "\\", with: "/").localizedLowercase }
+        })
+        let materialsByPath = Dictionary(grouping: catalog.materials) {
+            $0.relativePath.replacingOccurrences(of: "\\", with: "/").localizedLowercase
+        }
+        return catalog.materials.flatMap { material in
             material.passes.enumerated().map { index, pass in
-                SceneRenderDescriptor.MaterialPassDescriptor(
+                var descriptor = SceneRenderDescriptor.MaterialPassDescriptor(
                     id: "\(material.relativePath)#\(index)",
                     materialPath: material.relativePath,
                     materialRawSHA256: material.rawSHA256,
@@ -286,6 +298,23 @@ struct SceneRenderDescriptorBuilder {
                     cullMode: pass.cullMode,
                     alphaWriting: pass.alphaWriting
                 )
+                let path = material.relativePath.replacingOccurrences(of: "\\", with: "/")
+                    .localizedLowercase
+                if index == 0, directMaterials.contains(path) {
+                    if materialsByPath[path]?.count == 1 {
+                        descriptor.staticModelMaterialBindings =
+                            SceneStaticModelMaterialBindingCompiler.compile(
+                                pass: descriptor,
+                                shaderContracts: catalog.shaderContracts
+                            )
+                    } else {
+                        descriptor.staticModelMaterialBindings = .init(
+                            state: .unavailable, bindings: [],
+                            rejectionReason: "material-pass-ambiguous"
+                        )
+                    }
+                }
+                return descriptor
             }
         }
     }

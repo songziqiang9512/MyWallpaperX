@@ -109,7 +109,16 @@ struct ScenePreparedStaticModelResources {
                       let pass = descriptor.materialPasses.first(where: {
                     SceneVFSAssetPath($0.materialPath) == materialIdentity
                         && $0.passIndex == 0
-                }),
+                }) else { continue }
+#if DEBUG
+                if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
+                   let bindings = pass.staticModelMaterialBindings {
+                    NSLog("MWX Scene model-material layer=%d state=%@ reason=%@",
+                        layer.id, bindings.state.rawValue, bindings.rejectionReason ?? "none")
+                }
+#endif
+                guard pass.staticModelMaterialBindings?.state != .rejected,
+                      let modelMaterial = material(pass, hdrEnabled: descriptor.hdrEnabled),
                       let texturePath = pass.textureSlots.first.flatMap({ $0 }) else {
                     continue
                 }
@@ -127,10 +136,6 @@ struct ScenePreparedStaticModelResources {
                 } else {
                     albedo = nil
                 }
-                let modelMaterial = material(
-                    pass,
-                    hdrEnabled: descriptor.hdrEnabled
-                )
                 let hasDynamicEmissiveBrightness = shaderValue(
                     named: "emissivebrightness",
                     in: pass
@@ -214,24 +219,32 @@ struct ScenePreparedStaticModelResources {
     private static func material(
         _ pass: SceneRenderDescriptor.MaterialPassDescriptor,
         hdrEnabled: Bool
-    ) -> SceneStaticModelMaterial {
-        // Shader symbols are case-sensitive. Stock model materials commonly
-        // carry both the editor's `Color`/`Alpha` defaults and the authored
-        // `color`/`alpha` inputs, so a folded lookup can nondeterministically
-        // replace the authored value with its neutral editor default.
-        let color = components(named: "color", in: pass)
-            ?? components(named: "Color", in: pass)
-            ?? [1, 1, 1]
-        let opacity = components(named: "alpha", in: pass)?.first
-            ?? components(named: "Alpha", in: pass)?.first
-            ?? 1
+    ) -> SceneStaticModelMaterial? {
+        let color: [Double]
+        let opacity: Double
+        let brightness: Double
+        if let bindings = pass.staticModelMaterialBindings, bindings.state == .authored {
+            guard let tint = bindings.binding(for: .color), tint.components.count == 3,
+                  let alpha = bindings.binding(for: .alpha), alpha.components.count == 1,
+                  let intensity = bindings.binding(for: .brightness), intensity.components.count == 1 else {
+                return nil
+            }
+            color = tint.components
+            opacity = alpha.components[0]
+            brightness = intensity.components[0]
+        } else {
+            color = components(named: "color", in: pass)
+                ?? components(named: "Color", in: pass) ?? [1, 1, 1]
+            opacity = components(named: "alpha", in: pass)?.first
+                ?? components(named: "Alpha", in: pass)?.first ?? 1
+            brightness = components(named: "brightness", in: pass)?.first ?? 1
+        }
         let emissiveColor = components(named: "emissivecolor", in: pass)
             ?? [1, 1, 1]
         let emissiveBrightness = components(
             named: "emissivebrightness",
             in: pass
         )?.first ?? 0
-        let brightness = components(named: "brightness", in: pass)?.first ?? 1
         let tintFront = components(named: "tintfront", in: pass)
         let tintBack = components(named: "tintback", in: pass)
         let tintExponent = components(named: "tintwexponent", in: pass)?
@@ -273,7 +286,8 @@ struct ScenePreparedStaticModelResources {
             emissiveBrightness: Float(emissiveBrightness),
             brightness: Float(brightness),
             usesHDRBrightness: hdrEnabled,
-            viewTint: viewTint
+            viewTint: viewTint,
+            channelBindings: pass.staticModelMaterialBindings
         )
     }
 

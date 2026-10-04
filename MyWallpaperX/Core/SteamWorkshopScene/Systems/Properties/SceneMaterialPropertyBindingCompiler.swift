@@ -24,8 +24,28 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
                     guard let materialPath = link.materialPath,
                           let passes = passesByMaterial[normalized(materialPath)],
                           let pass = passes.filter({ $0.passIndex == 0 }).only else { return [] }
-                    return pass.constantShaderValues.keys.sorted().compactMap { name in
-                        binding(layerID: layer.id, pass: pass, name: name)
+                    if let channels = pass.staticModelMaterialBindings {
+                        switch channels.state {
+                        case .rejected: return []
+                        case .authored:
+                            let typed: [SceneUserPropertyBinding] = channels.bindings.compactMap { channel in
+                                guard let key = channel.materialKey else { return nil }
+                                return binding(
+                                    layerID: layer.id, pass: pass, name: key,
+                                    valueType: channel.valueType
+                                )
+                            }
+                            let claimedKeys = Set(channels.bindings.compactMap(\.materialKey))
+                            let emission = ["emissivecolor", "emissivebrightness"]
+                                .filter { !claimedKeys.contains($0) }.compactMap {
+                                    binding(layerID: layer.id, pass: pass, name: $0)
+                                }
+                            return typed + emission
+                        case .hostBuiltin, .unavailable: break
+                        }
+                    }
+                    return pass.constantShaderValues.keys.sorted().compactMap {
+                        binding(layerID: layer.id, pass: pass, name: $0)
                     }
                 }
             }
@@ -103,14 +123,19 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
     private static func binding(
         layerID: Int,
         pass: SceneRenderDescriptor.MaterialPassDescriptor,
-        name: String
+        name: String,
+        valueType: SceneStaticModelMaterialBindings.ValueType? = nil
     ) -> SceneUserPropertyBinding? {
         guard let value = pass.constantShaderValues[name],
               value.bindingKeys.sorted() == ["user", "value"],
               value.userValueKind == .string,
               let propertyKey = value.userBinding,
               SceneScriptUserPropertyInputContract.validName(propertyKey),
-              let fallback = fallback(name: name, components: value.components)
+              value.scriptSource == nil, value.scriptProperties == nil,
+              value.timeline == nil, value.timelineDiagnostics.isEmpty,
+              let fallback = fallback(
+                name: name, components: value.components, valueType: valueType
+              )
         else { return nil }
         return .init(
             reference: .init(key: propertyKey, condition: nil),
@@ -131,10 +156,22 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
 
     private static func fallback(
         name: String,
-        components: [Double]?
+        components: [Double]?,
+        valueType: SceneStaticModelMaterialBindings.ValueType?
     ) -> SceneUserPropertyValue? {
         guard let components, components.allSatisfy(\.isFinite) else {
             return nil
+        }
+        if let valueType {
+            guard components.allSatisfy({ Float($0).isFinite }) else { return nil }
+            switch valueType {
+            case .vector3:
+                guard components.count == 3 else { return nil }
+                return .string(components.map { String($0) }.joined(separator: " "))
+            case .scalar:
+                guard components.count == 1 else { return nil }
+                return .number(components[0])
+            }
         }
         if ["color", "emissivecolor"].contains(name) {
             guard components.count == 3 else { return nil }

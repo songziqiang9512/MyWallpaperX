@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 529,
-      "bytes": 84661
+      "bytes": 85095
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 50132
+      "bytes": 49469
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1178,30 +1178,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "90643afe545a7ed0235ff3f8a3ce7bec2941ac1083f7bc93a3b79acaa6c5a427",
-      "after": "25a0c110ee70f39e204b74cf4c9943144bdc41bce5e6d32feaf01b1b3d7cf5af",
-      "owner": "scene-prepared-model-visibility",
-      "reason": "Wire prepared static model leaf visibility through the existing consumer owner and replace the next-work pointer; retain bounded evidence and unsupported hierarchy limits.",
-      "decision": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "5f735e6562d3242846465adc2e93ee80f9bc6bdf92a4af9d2b0f91af57754324",
-      "after": "7a81159eb3dfc2244dd72ceb8a2ba1d84d788aa844d5f16900c4f9ddab948f25",
-      "owner": "scene-prepared-model-visibility",
-      "reason": "Wire prepared static model leaf visibility through the existing consumer owner and replace the next-work pointer; retain bounded evidence and unsupported hierarchy limits.",
-      "decision": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
       "before": "08dcc9c0c3992d82bf3a4b419513b26dba8273a5732608430965a2d91f7046a3",
       "after": "0298046d41c4dfcc76c231be5a5c2beb6663fa0e00b9fe89756886935222e209",
       "owner": "scene-prepared-model-visibility",
       "reason": "Wire prepared static model leaf visibility through the existing consumer owner and replace the next-work pointer; retain bounded evidence and unsupported hierarchy limits.",
       "decision": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "f55cb126e3c20cdb267fddf6e399913d40feae0ee1a97279378c067d26904e98",
+      "after": "b044c6e08dc75ad00b081ad6e7fe90a1c3868282e42b1c09d4e252bb9ceb6742",
+      "owner": "scene-model-material-binding",
+      "reason": "Record shared exact material keys and preserve unavailable legacy consumers; move implementation decision into the existing RF05 execution record.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-model-material-keys"
     }
   ]
 }
