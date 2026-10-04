@@ -373,3 +373,15 @@ Debug、C接口正反例、真实VM→typed→simulator与邻接回归结果由�
 CPU visibility/readable各15项通过，HEAD分别5项/1项失败；后者仅为实际函数合同反例，Debug截图会强制可读目标，不能充当未改版GPU崩溃复现。138项治理通过；结构库存66/登记65的两项既存失败保留。自有App与真实样本只证固定profile，不证明特殊成员、passthrough、官方画面等价或性能数值；启动隐藏资源准备可能增加。首次将App目录误作可执行路径的试跑未启动、明确排除。
 
 选题复核另确认321当前Central点击换图、Double移动有响应；377视频source首帧等待后第4/5帧完成并被compositor消费。旧记录不足以证明当前故障，不为这些旧标签另改产品；这两项仅是本轮有界复核，并非整样本验收。15/16 Scene卡完成的口径不变，RF05与全样本正确性仍开放。
+
+
+<a id="rf05-parent-particle-visibility"></a>
+### 普通父层的粒子显隐与资源准入（2026-10-04）
+
+真实3396722575的代码雨父层2772控制四个已能绘制的粒子后代，但关闭/恢复均被live拒绝；独立粒子开关正常。现由唯一visibility准备闭包接纳固定普通父树下有path、无effect/子层的粒子叶，删除旧root-only helper。Launch保存目标→所需粒子ID，Session的整键及script owner检查完整surface、generation和实际资源；普通帧不重建层级。独审发现并修复了独立根粒子带inactive effect时的资格回退；保留旧显隐资格不表示其effect已获支持。
+
+同输入冻结App前后，真实四次请求从false/false/true/true变为全部true，同一窗口完成；最终Metal截图关闭时底部代码雨消失，恢复后重现，退出GPU排空、输入及App身份不变。未复现旧particle-load-incomplete标签，本批收益是分组切换进入现有会话，不宣称修复了全部加载、官方reset时序或整个样本。
+
+最终Debug构建及12项实际App显隐门通过（309.171s），旧App在同一嵌套父层双surface正例失败。新门覆盖隐藏启动→显现→隐藏→恢复的实际粒子位置、image、独立false子层与健康peer；缺纹理整键拒绝、setter/纯visible返回失败均撤回同owner的peer透明度与独立有效emitter发射。CPU路由20、Session18及相邻36门通过；HEAD相同CPU输入分别有3个失败测试、14个失败子例。独立审查复核产品、输入身份与像素；结构库存66/登记65的两项既存失败未调整。两surface运行不外推物理多屏，也未测CPU/能耗改善。
+
+本机`rf05-parent-particle-visibility-20261004`保留必要输入、日志、关键原图及身份14天，临时App/HOME/包副本在核验归档后清理，留下一批App与一份构建缓存。下一批回到376上发丝斜光，区分operator运动轨迹与SpriteTrail几何；312旧文字/alias故障已不复现，不重开旧修复。工作卡仍15/16（93.75%），RF05及长期Goal开放，全样本正确率未知。

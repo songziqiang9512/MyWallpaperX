@@ -12,11 +12,22 @@ extension SceneDesktopWallpaperSession {
             }
     }
 
+    func layerVisibilityResourcesPrepared(
+        layerID: Int,
+        context: SceneDesktopWallpaperLaunchContext
+    ) -> Bool {
+        let requirements = context.particleVisibilityRequirements[layerID]
+            ?? (context.particleLayerIDs.contains(layerID) ? [layerID] : [])
+        return requirements.allSatisfy {
+            particleVisibilityResourcesPrepared(layerID: $0, context: context)
+        }
+    }
+
     func unavailableLiveConsumerTargets(
         in context: SceneDesktopWallpaperLaunchContext
     ) -> Set<SceneDynamicTarget> {
-        let particleTargets = context.preparedParticleVisibilityLayerIDs
-            .filter { !particleVisibilityResourcesPrepared(layerID: $0, context: context) }
+        let particleTargets = context.particleVisibilityRequirements.keys
+            .filter { !layerVisibilityResourcesPrepared(layerID: $0, context: context) }
             .map { SceneDynamicTarget.layer(layerID: $0, field: .visibility) }
         return SceneDesktopWallpaperHost.unavailableLiveScriptPropertyTargets(in: context)
             .union(particleTargets)

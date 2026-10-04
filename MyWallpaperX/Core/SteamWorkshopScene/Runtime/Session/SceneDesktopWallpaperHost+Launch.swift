@@ -5,7 +5,10 @@ import Metal
 struct SceneDesktopWallpaperLaunchContext {
     let runtimeInput: SceneRuntimeInput
     let particleLayerIDs: Set<Int>
-    let preparedParticleVisibilityLayerIDs: Set<Int>
+    let particleVisibilityRequirements: [Int: Set<Int>]
+    var preparedParticleVisibilityLayerIDs: Set<Int> {
+        Set(particleVisibilityRequirements.values.joined())
+    }
     let effectAdmissionCatalog: SceneEffectAdmissionCatalog
     let resolvedMaterialCatalog: SceneResolvedMaterialRuntimeCatalog
     let resolvedMaterialExecutionCapabilities:
@@ -421,12 +424,6 @@ extension SceneDesktopWallpaperHost {
             .union(sceneScriptStringTargets)
             .union(runtimeInput.scriptOwnedEffectVisibilityTargets)
         let hasScriptLayerAccess = !model.sceneDocument.scriptBindings.isEmpty
-        let preparedParticleVisibilityLayerIDs = Self.particleVisibilityLayerIDs(
-            in: runtimeInput.renderDescriptor,
-            candidates: propertyVectorScriptTargets
-                .union(propertyLayerVisibilityTargets),
-            hasScriptLayerAccess: hasScriptLayerAccess
-        )
         let dynamicLayerVisibilityOwnerTargets =
             SceneDynamicLayerVisibilityRouteAdmission.targets(
                 in: runtimeInput.renderDescriptor,
@@ -439,6 +436,14 @@ extension SceneDesktopWallpaperHost {
                 in: runtimeInput.renderDescriptor,
                 candidates: dynamicLayerVisibilityOwnerTargets
             )
+        let particleVisibilityRequirements =
+            SceneDynamicLayerVisibilityRouteAdmission.particleRequirements(
+                in: runtimeInput.renderDescriptor,
+                candidates: dynamicLayerVisibilityOwnerTargets
+            )
+        let preparedParticleVisibilityLayerIDs = Set(
+            particleVisibilityRequirements.values.joined()
+        )
         let textScriptProgram = SceneTextScriptCompiler.compile(
             descriptor: runtimeInput.renderDescriptor,
             excludedTargets: sceneScriptStringTargets,
@@ -705,8 +710,7 @@ extension SceneDesktopWallpaperHost {
             runtimeInput: runtimeInput,
             particleLayerIDs: Set(runtimeInput.renderDescriptor.layers
                 .filter { $0.contentKind == "particle" }.map(\.id)),
-            preparedParticleVisibilityLayerIDs:
-                preparedParticleVisibilityLayerIDs,
+            particleVisibilityRequirements: particleVisibilityRequirements,
             effectAdmissionCatalog: effectAdmissionCatalog,
             resolvedMaterialCatalog: resolvedMaterialCatalog,
             resolvedMaterialExecutionCapabilities:

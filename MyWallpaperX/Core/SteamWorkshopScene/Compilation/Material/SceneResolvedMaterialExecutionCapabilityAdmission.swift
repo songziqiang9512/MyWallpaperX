@@ -126,6 +126,28 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
         }
     }
 
+    /// Launch-only resource requirements for each visibility target. Frame
+    /// admission reads this relation instead of rebuilding descendant trees.
+    static func particleRequirements(
+        in descriptor: SceneRenderDescriptor,
+        candidates: Set<SceneDynamicTarget>
+    ) -> [Int: Set<Int>] {
+        let groups = Dictionary(grouping: descriptor.layers, by: \.id)
+        let children = childrenByParent(in: descriptor)
+        let particleIDs = Set(descriptor.layers.filter {
+            $0.contentKind == "particle"
+        }.map(\.id))
+        return Dictionary(uniqueKeysWithValues: candidates.compactMap { target in
+            guard case let .layer(layerID, .visibility) = target,
+                  let subtree = visibilitySubtree(
+                    layerID: layerID, descriptor: descriptor,
+                    groups: groups, children: children
+                  ) else { return nil }
+            let required = subtree.intersection(particleIDs)
+            return required.isEmpty ? nil : (layerID, required)
+        })
+    }
+
     private static func childrenByParent(
         in descriptor: SceneRenderDescriptor
     ) -> [Int: [Int]] {
@@ -156,8 +178,12 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
                         layer: layer, descriptor: descriptor
                       ).get()) != nil else { return nil }
             } else {
+                let particleLeaf = layer.contentKind == "particle"
+                    && layer.particlePath != nil
+                    && (layer.parentID == nil || layer.effects.isEmpty)
+                    && layer.childLayerIDs.isEmpty && children[id, default: []].isEmpty
                 guard ["container", "image", "solid", "text"].contains(layer.contentKind)
-                    || id == preparedModelLeafID else { return nil }
+                    || particleLeaf || id == preparedModelLeafID else { return nil }
             }
             let childIDs = children[id, default: []]
             guard Set(layer.childLayerIDs) == Set(childIDs),

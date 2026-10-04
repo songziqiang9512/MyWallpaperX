@@ -349,9 +349,9 @@
       "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "972cd00151be38babd476aa0a797e19195ef615d13d3c139cccaa67062959158",
+        "sourceSHA256": "ad4dda0b3cf6f4a4b0771aa23af3ff6dd748bdb1d6a4add2d081765daedbd347",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对RF05固定组合层显隐、准备与可读目标职责；本收据仅标记导航维护。",
+        "scope": "核对RF05父树粒子显隐准备、资源准入与证据路由；本收据仅标记导航维护。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -480,7 +480,7 @@
       "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "81371528faf44d0e36702a83486b94b1cdb03fa916bb7e4ba803a257f8c3712f",
+        "sourceSHA256": "f18e068bb5eecee227636da62354daf7e7173466e5fb85be394e42ad685c3ade",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对粒子instance alpha及未闭合样本的证据导航；不含运行验收。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"

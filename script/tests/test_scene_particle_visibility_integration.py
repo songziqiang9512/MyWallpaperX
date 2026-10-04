@@ -31,12 +31,16 @@ def white_png():
             + chunk(b"IDAT", zlib.compress((b"\0" + b"\xff" * 16) * 4)) + chunk(b"IEND", b""))
 
 
-def fixture_entries(*, missing_texture=False, script_mode=None, show_emit=None):
+def fixture_entries(*, missing_texture=False, script_mode=None, show_emit=None, parented=False):
     visibility = {"user": {"name": "mode", "condition": "on"}, "value": True}
     particle = {"id": 42, "name": "Owned experiment", "particle": "particles/owned.json",
                 "origin": "48 128 0", "scale": "1 1 1", "visible": visibility}
     peer = {"id": 1, "name": "Stable green peer", "image": "models/owned_solid.json",
             "origin": "192 128 0", "size": "24 24", "color": "0 1 0"}
+    parent = {"id": 10, "name": "Owned parent", "origin": "32 96 0", "visible": visibility}
+    nested = {"id": 11, "name": "Owned nested parent", "parent": 10, "origin": "16 32 0"}
+    if parented:
+        particle.update(parent=11, origin="0 0 0", visible=True)
     # An authored reference clock travels at the declared velocity. Reading it
     # from the same Metal frame avoids treating PNG export time as capture time.
     marker = {"id": 2, "name": "Owned visible-age clock", "image": "models/owned_solid.json",
@@ -46,17 +50,26 @@ def fixture_entries(*, missing_texture=False, script_mode=None, show_emit=None):
                   "if (!on || !previous) age=0; if (on) age+=engine.frametime; previous=on;"
                   "return new Vec3(48+20*age,96,0); }")}}
     if script_mode == "setter":
-        particle["visible"] = False
+        (parent if parented else particle)["visible"] = False
         # If this owner's unprepared particle write is admitted, its returned
         # alpha also removes the healthy peer. Rejection must retain green.
-        callback = "thisScene.getLayer('Owned experiment').visible=true; return 0;"
+        callback = ("thisScene.getLayer('Owned parent').visible=true;"
+                    "thisScene.getLayer('Safe explicit emitter').emitParticles(3); return 0;" if parented
+                    else "thisScene.getLayer('Owned experiment').visible=true; return 0;")
         peer["alpha"] = {"value": 1, "script": (
             "export function init(value) {" + callback + "}"
             "export function update(value) {" + callback + "}")}
     elif script_mode == "return":
-        particle["visible"] = {"value": False, "script":
-            "export function init(value) { return true; }"
-            "export function update(value) { return true; }"}
+        if parented:
+            callback = ("thisScene.getLayer('Stable green peer').alpha=0;"
+                        "thisScene.getLayer('Safe explicit emitter').emitParticles(3); return true;")
+            parent["visible"] = {"value": False, "script":
+                "export function init(value) {" + callback + "}"
+                "export function update(value) {" + callback + "}"}
+        else:
+            particle["visible"] = {"value": False, "script":
+                "export function init(value) { return true; }"
+                "export function update(value) { return true; }"}
     elif script_mode == "visible-cycle":
         condition = "(engine.runtime >= 2 && engine.runtime < 4) || engine.runtime >= 6"
         particle["visible"] = {"value": False, "script":
@@ -92,6 +105,29 @@ def fixture_entries(*, missing_texture=False, script_mode=None, show_emit=None):
             "depthwrite": "disabled", "cullmode": "nocull"}]})}
     if not missing_texture:
         entries["materials/owned_white.png"] = white_png()
+    if parented:
+        objects = [parent, nested, particle,
+            {"id": 43, "name": "Owned particle stays individually false", "parent": 11,
+             "particle": "particles/owned.json", "origin": "80 0 0", "visible": False},
+            {"id": 44, "name": "Owned nested white image", "parent": 11,
+             "image": "models/owned_solid.json", "origin": "80 -52 0", "size": "48 48", "color": "1 1 1"},
+            peer, marker]
+        if script_mode in ("setter", "return"):
+            # This emitter has good resources and no automatic births. A leaked
+            # same-owner emit therefore becomes a real white sprite, rather
+            # than failing first on the parent's missing texture.
+            safe_definition = json.loads(entries["particles/owned.json"])
+            safe_definition["material"] = "materials/safe_particle.json"
+            safe_definition["emitter"][0].update(rate=0, instantaneous=0)
+            entries.update({"particles/safe.json": encoded(safe_definition),
+                "materials/safe_particle.json": encoded({"passes": [{"shader": "genericparticle",
+                    "textures": ["safe_white.png"], "blending": "translucent", "depthtest": "disabled",
+                    "depthwrite": "disabled", "cullmode": "nocull"}]}),
+                "materials/safe_white.png": white_png()})
+            objects.append({"id": 62, "name": "Safe explicit emitter", "particle": "particles/safe.json",
+                            "origin": "48 128 0", "visible": True})
+        entries["scene.json"] = encoded({"version": 3, "general": {
+            "orthogonalprojection": {"width": 256, "height": 256}, "clearcolor": "0 0 0"}, "objects": objects})
     definition = {"type": "combo", "value": "on", "options": [
         {"label": value, "value": value} for value in ("off", "on")]}
     project = {"type": "scene", "file": "scene.json", "general": {"properties": {"mode": definition}}}
@@ -139,7 +175,7 @@ class SceneParticleVisibilityIntegrationTests(unittest.TestCase):
         cls.app = Path(executable).resolve(strict=True)
         cls.frozen_app_hashes = app_hashes(cls.app)
 
-    def run_case(self, *, screens=1, missing_texture=False, script_mode=None, show_emit=None):
+    def run_case(self, *, screens=1, missing_texture=False, script_mode=None, show_emit=None, parented=False):
         rejected = missing_texture or script_mode in ("setter", "return")
         sequence = [] if script_mode or show_emit else [{"mode": "on"}, {"mode": "off"}, {"mode": "on"}]
         accepted = ["false" if rejected else "true"] * len(sequence)
@@ -166,7 +202,14 @@ class SceneParticleVisibilityIntegrationTests(unittest.TestCase):
                 "birthSpacingTolerance": 2, "showAgeRange": [.2, .9],
                 "afterAgeRange": [3.5, 4.8] if show_emit else [1.5, 2.8],
                 "birthBoundaryCountTolerance": 1, "greenChannelTolerance": 4, "greenCorrectFraction": .99}}
-        project, entries = fixture_entries(missing_texture=missing_texture, script_mode=script_mode, show_emit=show_emit)
+        if parented:
+            protocol.update(parentHierarchy={"10": None, "11": 10, "42": 11, "43": 11, "44": 11},
+                parentWorldOrigins={"10": [32, 96], "11": [48, 128], "42": [48, 128], "44": [128, 76]},
+                individuallyFalseParticle=43, safeExplicitEmitter=62 if script_mode in ("setter", "return") else None,
+                parentImageROI=[116, 168, 140, 192], parentImageShownRGB=[255, 255, 255], parentImageHiddenRGB=[0, 0, 0],
+                evidenceBoundary="owned fixed ordinary parent tree; no child-template or official particle pixel parity")
+        project, entries = fixture_entries(missing_texture=missing_texture, script_mode=script_mode,
+                                           show_emit=show_emit, parented=parented)
         self.assertEqual(app_hashes(self.app), self.frozen_app_hashes)
         with tempfile.TemporaryDirectory(prefix="mwx-particle-visibility-") as temporary:
             root = Path(temporary)
@@ -191,6 +234,10 @@ class SceneParticleVisibilityIntegrationTests(unittest.TestCase):
             env = os.environ.copy()
             for key in ("MWX_SCENE_DEBUG_REJECT_PREPARED_FRAME_ONCE", "MWX_SCENE_DEBUG_DRAWABLE_UNAVAILABLE_FRAMES"):
                 env.pop(key, None)
+            if parented:
+                for key in tuple(env):
+                    if key.startswith(("MWX_SCENE_DEBUG_", "MYWALLPAPERX_SCENE_DEBUG_")):
+                        env.pop(key)
             env.update(HOME=str(home), CFFIXED_USER_HOME=str(home), MWX_SCENE_DEBUG_SURFACE_COUNT=str(screens),
                        MWX_SCENE_GENERIC_SHADER_CACHE=str(root / "shader-cache"))
             log, pixels = "", {}
@@ -201,6 +248,10 @@ class SceneParticleVisibilityIntegrationTests(unittest.TestCase):
                 for name in times:
                     self.assertTrue((evidence / name).is_file(), (name, log[-6000:]))
                     pixels[name] = measure_particles(evidence / name)
+                    if parented:
+                        hidden = name in protocol["oracle"]["hiddenCaptures"]
+                        pixels[name]["parentImage"] = measure_capture(evidence / name, {"channelTolerance": 4, "oracle": {
+                            "white": {"canvasRect": protocol["parentImageROI"], "expectedRGB": (0, 0, 0) if hidden else (255, 255, 255)}}})
                 self.assertEqual(result.returncode, 0, log[-6000:])
                 self.assertEqual(re.findall(r"phase=live-property-sequence-step index=(\d+) accepted=(true|false)", log),
                                  [(str(i), value) for i, value in enumerate(accepted)], log[-6000:])
@@ -220,11 +271,19 @@ class SceneParticleVisibilityIntegrationTests(unittest.TestCase):
                 if script_mode in ("setter", "return"):
                     self.assertNotIn("failure=exception", log)
                     self.assertRegex(log, r"phase=owner-effects-admission frame=0 [^\n]*externallyRejected=[1-9]\d* ")
+                    if parented:
+                        self.assertNotRegex(log, r"phase=particle-transition-consumed [^\n]*layer=62 ")
+                        self.assertNotRegex(log, r"phase=particle-explicit-installed [^\n]*layer=62 ")
                 for name, measured in pixels.items():
                     self.assertEqual(len(measured["markerCentersCanvasX"]), 1, (name, measured))
                     green = measured["peer"]["rois"]["green"]
                     self.assertGreater(green["total"], 0, (name, green))
                     self.assertGreaterEqual(green["correct"] / green["total"], .99, (name, green))
+                    if parented:
+                        white = measured["parentImage"]["rois"]["white"]
+                        self.assertGreater(white["total"], 0, (name, white))
+                        self.assertGreaterEqual(white["correct"] / white["total"], .99, (name, white))
+                        self.assertTrue(all(abs(a-b) <= 4 for a, b in zip(white["centerRGB"], white["expectedRGB"])), (name, white))
                 for name in protocol["oracle"]["hiddenCaptures"]:
                     self.assertEqual(pixels[name]["whitePixels"], 0, (name, pixels[name]))
                 if not rejected:
@@ -235,6 +294,8 @@ class SceneParticleVisibilityIntegrationTests(unittest.TestCase):
                         bounds = ([3.5, 4.8] if show_emit else [1.5, 2.8]) if name == "scene-after-window.png" else [.2, .9]
                         self.assertTrue(bounds[0] <= age <= bounds[1], (name, age))
                         self.assertTrue(centers, (name, pixels[name]))
+                        if parented:
+                            self.assertGreater(pixels[name]["whitePixels"], 100, (name, pixels[name]))
                         self.assertLessEqual(abs(max(centers) - marker_x), 2, (name, centers, marker_x))
                         self.assertTrue(all(46 <= x <= marker_x + 2 for x in centers), (name, centers))
                         if show_emit or name != "scene-after-window.png":
@@ -250,6 +311,9 @@ class SceneParticleVisibilityIntegrationTests(unittest.TestCase):
                     self.assertEqual([int(v) for v in re.findall(r"particle initial live: (\d+)", preview)], [0, 3])
                 self.assertEqual(file_hashes(input_paths), identity["inputSHA256"])
                 self.assertEqual(app_hashes(self.app), self.frozen_app_hashes)
+                if parented:
+                    self.assertNotRegex(log, r"failure=exception|phase=launch-failed|gpu=error")
+                    self.assertEqual(hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), identity["testSHA256"])
                 return log, pixels
             except subprocess.TimeoutExpired as error:
                 log = "".join(v.decode(errors="replace") if isinstance(v, bytes) else v or ""
@@ -258,6 +322,8 @@ class SceneParticleVisibilityIntegrationTests(unittest.TestCase):
                 raise
             finally:
                 identity.update(appSHA256After=app_hashes(self.app), inputSHA256After=file_hashes(input_paths))
+                if parented:
+                    identity["testSHA256After"] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
                 (root / "identity.json").write_bytes(encoded(identity))
                 (root / "pixels.json").write_bytes(encoded(pixels))
                 (root / "app.log").write_text(log)
@@ -294,6 +360,18 @@ class SceneParticleVisibilityIntegrationTests(unittest.TestCase):
 
     def test_same_callback_show_then_emit_preserves_explicit_births(self):
         self.run_case(show_emit="after")
+
+    def test_hidden_nested_parent_shows_hides_and_restores_particle_and_image_on_two_surfaces(self):
+        self.run_case(parented=True, screens=2)
+
+    def test_parent_missing_particle_texture_rejects_the_whole_key_and_preserves_image(self):
+        self.run_case(parented=True, missing_texture=True)
+
+    def test_parent_setter_rejection_rolls_back_peer_alpha_and_safe_explicit_births(self):
+        self.run_case(parented=True, missing_texture=True, script_mode="setter")
+
+    def test_parent_visible_return_rejection_rolls_back_peer_alpha_and_safe_explicit_births(self):
+        self.run_case(parented=True, missing_texture=True, script_mode="return")
 
 
 if __name__ == "__main__":

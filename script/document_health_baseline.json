@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 529,
-      "bytes": 84685
+      "bytes": 84661
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 69,
-      "bytes": 6797
+      "bytes": 6793
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -158,11 +158,11 @@
     },
     "docs/scene/roadmap/batch2/particle-playback-state-design.md": {
       "lines": 89,
-      "bytes": 22870
+      "bytes": 22016
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 50535
+      "bytes": 50186
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -178,7 +178,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 243,
-      "bytes": 32447
+      "bytes": 32443
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,

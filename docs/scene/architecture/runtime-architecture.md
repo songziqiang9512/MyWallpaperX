@@ -452,7 +452,7 @@ Puppet、2D lighting/HDR、3D、RGB、offline bake、color/multi-display/device 
 
 独立 fullscreen 的 typed visibility owner 可在层初始隐藏时沿原 captured-main 路径准备 graph；effect 初始关闭时，原 inactive-stage admission 同样准备可安全 passthrough 的动态 effect，限定无父子、无依赖且 source route 合法。实际 execution 与 capture 就绪才声明 live consumer；唯一例外是完全无 effect、无 named-target 职责的合法 fullscreen，其显隐不产生输出。准备不授予显示权，层隐藏帧不申领 graph transaction，effect 开关由同一 committed snapshot 决定。整键 property cohort 原子检查全部 consumer，不能因 user 条件当前为 false 豁免资源失败；不满足准入的消费者保持现役重建回退。
 
-container/image/solid/text 及无依赖 composition 树沿 visibility 准入区分目标与准备闭包：后代 graph、可切换 effect、文字 Program 与图片提前准备，frame snapshot 仍按 parent 链及每个子层自身值决定显示。身份唯一、父引用完整且无环；composition 逐组复用 SourceRoute，包括无子层背景采集，passthrough/特殊成员不扩张。隐藏已准备组保留 capture，无 effect 组只保序；drawable 启动用途涵盖潜在高级混合层，初始隐藏不能撤销后续读取能力。层级图片保持 eager 准备，不进入仅响应直接根叶条件的 deferred 事务；普通帧不重建树。模型、粒子独立准入：静态模型属性仅在 Host 获得实际 prepared ID 后接纳无 effect/utility/子层、合法普通祖先的叶层，缺 Entry 拒绝；部分多材质成功不冒充 named provider 本帧发布或脚本支持。整键原子校验、模型帧可见集与局部资源失败合同保持。
+container/image/solid/text及无依赖composition树共用visibility准入与准备闭包，提前准备后代graph/effect/text/image；frame snapshot按parent链及子层自身值决定显示。身份唯一、父链完整无环；composition复用SourceRoute，含无子背景采集，不扩张passthrough/特殊成员。隐藏组保留capture，无effect组只保序；drawable用途涵盖潜在高级混合层。父层图片保持eager准备，不走仅识别直接根叶的deferred事务。普通父树可含有path、无effect/子层的粒子叶，独立根粒子保留原资格；不开放composition粒子。Launch从同一闭包保存目标→所需粒子ID，Session对整键及script owner检查全surface/generation/实际prepared资源，失败整体撤回该事务；普通帧不重建树。静态模型仅在Host取得prepared ID后接纳无effect/utility/子层、合法普通祖先的叶层；部分材质成功不冒充named provider或脚本支持。
 
 ### 8.3 一帧的有序工作与可见时间
 

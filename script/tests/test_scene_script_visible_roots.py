@@ -1,4 +1,4 @@
-"""Typed/script visibility prepares ordinary/composition trees without revealing them."""
+"""Typed/script visibility prepares supported trees without revealing them."""
 import json
 import os
 from pathlib import Path
@@ -37,6 +37,7 @@ struct SceneRenderDescriptor {
         var authoredDependencies: [Int] = []
         var effects: [Effect] = []
         var staticModelPath: String? = nil
+        var particlePath: String? = nil
     }
     let layers: [Layer]
     var renderOrderLayerIDs: [Int] { layers.map(\.id) }
@@ -119,6 +120,53 @@ struct SceneDependencyRenderPlan {
         default: fatalError("unknown owned composition fixture")
         }
         return .init(layers: [ancestor, root, inner, image, text, solid, peer])
+    }
+    static func particleTree(_ violation: String? = nil) -> SceneRenderDescriptor {
+        var root = SceneRenderDescriptor.Layer(id: 200, childLayerIDs: [201, 204],
+                                               contentKind: "container")
+        var inner = SceneRenderDescriptor.Layer(id: 201, visible: true, parentID: 200,
+                                                childLayerIDs: [202, 203], contentKind: "container")
+        var first = SceneRenderDescriptor.Layer(id: 202, visible: true, parentID: 201,
+                                                contentKind: "particle", particlePath: "owned.json")
+        let second = SceneRenderDescriptor.Layer(id: 203, parentID: 201,
+                                                 contentKind: "particle", particlePath: "owned.json")
+        let solid = SceneRenderDescriptor.Layer(id: 204, visible: true, parentID: 200,
+                                                contentKind: "solid")
+        let peer = SceneRenderDescriptor.Layer(id: 205, visible: true, contentKind: "solid")
+        var extras: [SceneRenderDescriptor.Layer] = []
+        switch violation {
+        case "missing-path": first.particlePath = nil
+        case "effect": first.effects = [.init(visible: false)]
+        case "particle-child":
+            first.childLayerIDs = [206]; extras = [.init(id: 206, parentID: 202)]
+        case "unlisted-child": extras = [.init(id: 206, parentID: 202)]
+        case "composition":
+            root.contentKind = "composition"
+            root.utilityLayer = .init(kind: .composition, copyBackground: false)
+        case "nested-composition":
+            inner.contentKind = "composition"
+            inner.utilityLayer = .init(kind: .composition, copyBackground: false)
+        case "model-ancestor": root.contentKind = "model"
+        case "missing-parent": first.parentID = 999
+        case "child-index": inner.childLayerIDs = [202]
+        case "cycle": root.parentID = 202; first.childLayerIDs = [200]
+        case "duplicate": extras = [first]
+        case nil: break
+        default: fatalError("unknown owned particle fixture")
+        }
+        return .init(layers: [root, inner, first, second, solid, peer] + extras)
+    }
+    static func particleRequirements(_ descriptor: SceneRenderDescriptor,
+                                     candidates: Set<SceneDynamicTarget>) -> [String: [Int]] {
+#if PARTICLE_REQUIREMENTS_API
+        return Dictionary(uniqueKeysWithValues:
+            SceneDynamicLayerVisibilityRouteAdmission.particleRequirements(
+                in: descriptor, candidates: candidates).map { (String($0.key), $0.value.sorted()) })
+#else
+        // The pre-fix API has no stored relation. Run the same inputs without
+        // inventing a replacement algorithm for that baseline.
+        return [:]
+#endif
     }
     static func main() throws {
         if CommandLine.arguments.count > 1 {
@@ -238,6 +286,55 @@ struct SceneDependencyRenderPlan {
             invalidModels[kind] = modelTargets([parent, leaf] + extras)
         }
         output["invalidModels"] = invalidModels
+        let particles = particleTree()
+        let particleCandidates: Set<SceneDynamicTarget> = [target(200), target(201),
+            target(202), target(203), target(204), target(205)]
+        output["particleTreeTargets"] = ids(particles, candidates: particleCandidates)
+        output["scriptParticleTreeTargets"] = ids(particles, candidates: [], scripts: true)
+        output["particleRequirements"] = particleRequirements(particles, candidates: particleCandidates)
+        output["particleParentOnlyRequirements"] = particleRequirements(particles, candidates: [target(200)])
+        output["particleLeafOnlyRequirements"] = particleRequirements(particles, candidates: [target(202)])
+#if PREPARATION_API
+        output["particleTreePreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+            in: particles, candidates: [target(200)]).sorted()
+        output["particleLeafPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+            in: particles, candidates: [target(202)]).sorted()
+#endif
+        let particleParentDefinition = SceneDynamicTargetDefinition(
+            target: target(200), valueType: .bool, authoredValue: .bool(false))
+        func particleVisible(_ value: Bool) -> [Int] {
+            let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                definitions: [particleParentDefinition], userValues: [target(200): .bool(value)]).snapshot
+            return SceneLayerVisibility.visibleLayerIDs(in: particles, snapshot: snapshot).sorted()
+        }
+        output["particleParentHidden"] = particleVisible(false)
+        output["particleParentShown"] = particleVisible(true)
+        let rootParticleEffect = SceneRenderDescriptor(layers: [
+            .init(id: 210, contentKind: "particle", effects: [.init(visible: false)],
+                  particlePath: "owned-root.json"),
+            .init(id: 211, visible: true, contentKind: "solid")])
+        output["rootParticleEffectTargets"] = ids(rootParticleEffect,
+            candidates: [target(210), target(211)])
+        output["rootParticleEffectRequirements"] = particleRequirements(rootParticleEffect,
+            candidates: [target(210), target(211)])
+#if PREPARATION_API
+        output["rootParticleEffectPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+            in: rootParticleEffect, candidates: [target(210)]).sorted()
+#endif
+        var invalidParticles: [String: [String: Any]] = [:]
+        for violation in ["missing-path", "effect", "particle-child", "unlisted-child", "composition",
+                          "nested-composition", "model-ancestor", "missing-parent", "child-index", "cycle", "duplicate"] {
+            let descriptor = particleTree(violation)
+            let candidates: Set<SceneDynamicTarget> = [target(200), target(202), target(205)]
+            var result: [String: Any] = ["targets": ids(descriptor, candidates: candidates),
+                "requirements": particleRequirements(descriptor, candidates: candidates)]
+#if PREPARATION_API
+            result["preparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+                in: descriptor, candidates: [target(200), target(202)]).sorted()
+#endif
+            invalidParticles[violation] = result
+        }
+        output["invalidParticles"] = invalidParticles
         let groups = composition()
         let groupTargets: Set<SceneDynamicTarget> = [target(90), target(100), target(110),
                                                     target(111), target(112), target(120)]
@@ -342,10 +439,13 @@ class ScriptVisibleRootTests(unittest.TestCase):
             extra_sources = [str(direct)] if flags else []
             if os.environ.get('MWX_SCENE_MODEL_VISIBILITY_API') != '0':
                 flags += ['-D', 'MODEL_VISIBILITY_API']
+            if 'static func particleRequirements(' in source[start:end]:
+                flags += ['-D', 'PARTICLE_REQUIREMENTS_API']
             built = subprocess.run(['swiftc', *flags, str(SCENE / 'Systems/Properties/SceneDynamicSnapshot.swift'),
                 str(SCENE / 'Rendering/Geometry/SceneLayerVisibility.swift'),
                 str(SCENE / 'Rendering/Composition/SceneUtilityLayerSourceRoute.swift'),
-                str(admission), *extra_sources, str(harness), '-o', str(cls.binary)], capture_output=True, text=True)
+                str(admission), *extra_sources, str(harness), '-module-cache-path',
+                str(root / 'module-cache'), '-o', str(cls.binary)], capture_output=True, text=True, timeout=120)
             if built.returncode:
                 raise AssertionError(built.stdout + built.stderr)
             cls.result = json.loads(subprocess.check_output([str(cls.binary)], text=True))
@@ -403,6 +503,34 @@ class ScriptVisibleRootTests(unittest.TestCase):
         for name, targets in self.result['invalidModels'].items():
             with self.subTest(case=name):
                 self.assertEqual(targets, [])
+
+    def test_ordinary_parent_and_particle_leaves_are_typed_and_script_candidates(self):
+        self.assertEqual(self.result['particleTreeTargets'], [200, 201, 202, 203, 204, 205])
+        self.assertEqual(self.result['scriptParticleTreeTargets'], [200, 201, 202, 203, 204, 205])
+        self.assertEqual(self.result['particleTreePreparation'], [200, 201, 202, 203, 204])
+        self.assertEqual(self.result['particleLeafPreparation'], [202])
+
+    def test_particle_requirements_belong_to_each_exact_visibility_target(self):
+        self.assertEqual(self.result['particleRequirements'],
+                         {'200': [202, 203], '201': [202, 203], '202': [202], '203': [203]})
+        self.assertEqual(self.result['particleParentOnlyRequirements'], {'200': [202, 203]})
+        self.assertEqual(self.result['particleLeafOnlyRequirements'], {'202': [202]})
+
+    def test_particle_parent_show_keeps_the_childs_own_false_and_independent_peer(self):
+        self.assertEqual(self.result['particleParentHidden'], [205])
+        self.assertEqual(self.result['particleParentShown'], [200, 201, 202, 204, 205])
+
+    def test_independent_particle_root_keeps_its_existing_inactive_effect_route(self):
+        self.assertEqual(self.result['rootParticleEffectTargets'], [210, 211])
+        self.assertEqual(self.result['rootParticleEffectPreparation'], [210])
+        self.assertEqual(self.result['rootParticleEffectRequirements'], {'210': [210]})
+
+    def test_invalid_particle_leaf_or_composition_rejects_without_blocking_peer(self):
+        for name, result in self.result['invalidParticles'].items():
+            with self.subTest(case=name):
+                self.assertEqual(result['targets'], [205])
+                self.assertEqual(result['preparation'], [])
+                self.assertEqual(result['requirements'], {})
 
     def test_isolated_composition_parents_and_descendants_share_visibility_admission(self):
         self.assertEqual(self.result['compositionTargets'], [90, 100, 110, 111, 112, 120])

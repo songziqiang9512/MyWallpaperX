@@ -7,19 +7,21 @@
 
 ## 目标合同与设计判据
 
-每个粒子系统拥有独立的作者播放意图，宿主暂停不会改写该意图。公开 `pause()` 停止新粒子排放，已存在粒子仍模拟；宿主 pause 才冻结 scene 时间。对象 stop 清空存活粒子。跨脚本命令、模拟事务、子粒子与绘制，触及唯一 clock 和 lifecycle。
+每个粒子系统拥有独立的作者播放意图，宿主暂停不会改写该意图。[官方 IParticleSystem](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystem.html) 的 `pause()` 停止新粒子排放，已存在粒子仍模拟；宿主 pause 才冻结 scene 时间。对象 stop 清空存活粒子。跨脚本命令、模拟事务、子粒子与绘制，触及唯一 clock 和 lifecycle。
 
 五判据：横切多个 owner 或主链节点=是；触碰唯一权威合同=是；用户可见且难逆的 API/数据/发布合同=是；触碰机器冻结结构家族=否；依赖官方或平台外部证据=是。
-
-## 当前事实与证据
-
-- `MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePlaybackState.swift:59` 的 `advance` 已直接消费共享 delta，`:68` 推进现役 runtime，`:120` 限定实时追帧债务；旧 prepare/commit/discard 口径已被 [D10](frame-admission-retry-design.md) 撤权，不能恢复或新增平行 PlaybackState。
-- [官方 IParticleSystem](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystem.html)（2026-10-02 再核对）：play 恢复排放或结束后重启，pause 停排放，stop 清空，isPlaying 同时考虑排放或模拟，emitParticles 可绕过对象 stopped/paused。这优先于交接“对象 pause 冻结模拟”的可能理解。
-- `reset_sequence` / stay-paused 是交接研究方向，本基线未提供可确认公开签名；不把第三方内部控制选项新增为官方 JS API。
 
 ## owner
 
 [D4](script-component-api-design.md) 的桥接产生 owner-scoped typed command。作者 intent 与 transition revision 归现役 `SceneScriptDynamicLayerRuntime` 的 typed layer state，沿现役 candidate plan 准入并发布 immutable committed snapshot；C handle 仅作镜像和 callback journal，不新增 session 意图库。各 surface 的 SceneParticlePlaybackState/Runtime/Simulator 独占实际 emitter schedule、存活、ID、随机流及已消费 revision；session shared evaluation 决定本 cadence 输入消费，各实例消费同一已准入有序 transitions 一次。Host sceneClock 仍提供 delta，render batch 不拥有第二份播放开关；session 查询只是现役实例的只读 projection，不成为共享 simulation。
+
+## 普通父层粒子显隐实施决定（2026-10-04）
+
+真实339的普通父层代码雨开关被live拒绝，四个粒子子层已能GPU编码；独立粒子层开关正常。本批补固定普通container/image/solid/text层级下的粒子叶层，不改变原emitter、child-system及显隐边沿的生命周期。唯一visibility准入与准备闭包负责结构验证；父树粒子叶须有path、无layer effect及子层，独立根粒子保留原显隐资格（不等于支持其layer effect），composition中的粒子继续由现source合同拒绝。初始化隐藏时也沿原ParticleRuntime准备图、纹理和实例；实际资源失败仍保留原局部失败。
+
+Launch保存不可变的显隐目标→所需粒子ID关系，由同一准备闭包产生；逐帧不重建层级。Session沿现全surface/脚本generation与实际preparedIDs检查，属性整键、script纯visible返回及setter/副作用固定点都验证目标所需粒子，不允许父开关绕过缺资源校验。直接particle实例/alpha仍查自身资源；无粒子目标不增加资源要求，不新增模拟、可见状态树或输出owner。非法结构拒绝目标，失败owner仍整体回滚。
+
+验收父层隐藏启动→显示→隐藏→恢复、嵌套及自身false子层、健康邻层、缺粒子纹理整键拒绝、script setter/return失败副作用不泄漏；复验真实代码雨开关及GPU实际输出。准备更多隐藏资源可能增加启动成本，不将同窗口更新等同CPU/能耗下降。静态模型父树、utility粒子、动态改层级及官方显隐reset精确时序另保边界；完成现固定树闭环即收口。
 
 ## 方案设计与选型
 
@@ -36,13 +38,11 @@
 
 前片开放 play/pause/stop/isPlaying；显式数量后继沿同一准入，限定已准备 root、无任何 authored child、恰一 supported 确定性 emitter schedule（periodic disabled 的有限 duration/burst 或默认连续排放，或 supported 且 duration/delay 各自 min=max 的周期窗口）；无 child 必须检查作者定义，不能以 childRuntime 为 nil 冒充通过。多 emitter、随机周期、children/reset 保持 unsupported。显式 count 已接通调用期真实出生与最终事务，验证范围见上述执行记录；省略 count 默认继续未知。现役四方法的准入不等于能够成功出生：必须额外经过真实初始化和容量验证。
 
-连续排放后继（2026-10-02）：[官方 emitter Duration](https://docs.wallpaperengine.io/en/scene/particles/component/emitter.html#duration)明确默认 0 表示持续排放，且可由 SceneScript stop/play 重启。`SceneParticlePeriodicEmission.swift` 的 `durationLimit` 与 `hasFinishedEmission` 已支持无截止 schedule，但 `preparedPlaybackWork` 将非零 rate 且 duration 缺省/0 拒绝，导致这类作者根系统虽正常渲染却无法调用四方法。本片移除这个无依据的有限时长限制：缺省（含现役解析合同的 null）或有限非负 duration 准入，负值/非有限值及显式不可解析值拒绝；Parser 保留 malformed duration 事实，防止 bool/数组/无 value 字典被投影为缺省；单 emitter、无 child、其余既定验证保持。复用同一 emitter 游标、意图和 revision，pause 只停止出生并保留 rate remainder/delay，play 恢复，stop 清空再 play 重新开始 delay；不增加 owner 或预算。备选是继续拒绝连续 schedule，但与公开默认行为不符且现模拟器已具备执行路径，故不选。失败仍走同一局部 unsupported 路由。纠正门须先证明缺省 duration 的 init.stop 在真实 App 抛异常并遗留红色粒子，0 duration 另由真实 Swift 模拟门覆盖，再证明首帧/后续帧消失、pause 存量继续、stop/play 再出生；模拟门覆盖 remainder、delay、重复 play、零容量与非法 duration。该后继证据通过后纳入本合同，退役条件沿本文末节。
+连续排放沿同一播放意图与emitter游标执行：缺省/null/0及有限非负duration可准入，负值、非有限或不可解析值拒绝；单emitter、无child及其它既定限制保持。pause保留remainder/delay，stop清空再play重新开始delay，不新增owner或预算。官方[Duration](https://docs.wallpaperengine.io/en/scene/particles/component/emitter.html#duration)规定默认0持续排放；已实施反例、App输出和模拟验收由[RF03记录](../../history/rf03-particle-playback-implementation-2026-10-02.md)拥有。
 
 ### 显式数量发射后继切片（2026-10-02）
 
 **目标与证据上限。** 官方公开 `IParticleSystem.emitParticles(count)` 规定明确数量即时发射且不受对象 pause/stop 阻止；`IParticleSystemInstance` 将 count/rate 分别描述为排放速率/模拟速率因子。本文批准在现役单 root、无 authored child、单 supported 确定 schedule emitter 上实现显式整数 0…1024，且保留现役更小上限。0 不改变 live、RNG、ID 或 intent，但占命令配额；省略、负数、fraction、非有限、非 Number 和额外参数局部调用失败。严格 exact-n、全屏准入和预算是项目合同，不声称官方满容量也会整笔拒绝。不得只允许固定初值或非零自动 rate；sphere/box/layerImage 的已准备初始化沿原路径执行，实际 unsupported initializer/缺失 map 或无效出生仍拒绝该发射。
-
-**当前首断点。** 代码指针相对 `MyWallpaperX/Core/SteamWorkshopScene/`，基线 `03ba383c`。`Systems/Script/SceneQuickJSLayerHost.c:1963` 仅安装四方法；`SceneScriptLayerHandleBridge.swift:139` 只解码 action 0…2。`Systems/Particles/SceneParticleRuntime.swift:60` 只验证 transition revision；`SceneParticleSimulator.swift:665` 的自动发射截断容量，`:710` 先使用 ID，`:724` 才拒绝无效寿命/数值。直接复用自动计数会假报成功、部分出生或遗留随机状态。`Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift:687` 的命令消费早于 `:697` 的 updateSimulation，而本帧出生输入在 Runtime `:424–449` 才安装；不能直接在旧 apply 点读残留输入。
 
 **调用时点与 owner。** Session 在现 cadence 的 callback 前固定完整同代 surface 集与已发布 preliminary typed snapshot；当前用户属性、timeline、已提交 script 值来自 FrameDriver `:245–310`。每个 emit 在现 domain 同步 native hook 中捕获当时有效出生输入，含当前 callback 已有合法 layer/ancestor transform setter 的前缀、同一次采样的 pointer/audio/camera、现 simulator 的 simulationTime。按现 Runtime/MetalView 的 pure resolver 准备目标所需值，不能重复调用 updateSimulation、推进 smoother、clock 或采样另一次输入。`origin=A; emit; origin=B; emit` 保留两次真实消费的输入，不能在最终 coalesced B 上生成两批。粒子参数脚本返回值在 FrameDriver `:610–637` 后置 overlay：允许它改变本帧后续自动出生/模拟，不回改先前手动出生，也不因新旧值不同拒绝 owner。这是本项目明确的事务线性化合同，官方属性 return 调度尚未黑盒关闭；不得报告相位 parity。`.instance.alpha`按[D4](script-component-api-design.md)复用此前缀；其余未开放。
 

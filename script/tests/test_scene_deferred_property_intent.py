@@ -122,7 +122,11 @@ struct SceneDesktopWallpaperLaunchContext {
     var liveState: ScenePropertyLiveUpdateState
     let runtimeInput: FixtureRuntimeInput
     let preparedDeviceResources: FixtureDeviceResources
-    var preparedParticleVisibilityLayerIDs: Set<Int> = []
+    var particleLayerIDs: Set<Int> = []
+    var particleVisibilityRequirements: [Int: Set<Int>] = [:]
+    var preparedParticleVisibilityLayerIDs: Set<Int> {
+        Set(particleVisibilityRequirements.values.joined())
+    }
     var propertyVectorScriptProgram = FixtureScriptProgram()
     var unavailable: Set<SceneDynamicTarget> = []
 }
@@ -158,14 +162,19 @@ import Foundation
     static let optional = SceneDynamicTarget.scriptInstanceProperty(
         layerID: 44, path: ["optional"])
     static let particle = SceneDynamicTarget.layer(layerID: 42, field: .visibility)
+    static let particleParent = SceneDynamicTarget.layer(layerID: 77, field: .visibility)
 
-    static func make(particleCohort: Bool = false)
+    static func make(particleCohort: Bool = false, parentParticleCohort: Bool = false)
         -> (SceneDesktopWallpaperSession, FixtureResources, FixtureAdoption) {
-        let particleDefinitions: [SceneDynamicTargetDefinition] = particleCohort
-            ? [.init(target: particle, valueType: .bool, authoredValue: .bool(false))] : []
-        let particleInstructions: [ScenePropertyBindingInstruction] = particleCohort
+        let visibilityOwner = parentParticleCohort ? particleParent : particle
+        let hasParticles = particleCohort || parentParticleCohort
+        let preparedParticleIDs: Set<Int> = parentParticleCohort ? [42, 43] : (particleCohort ? [42] : [])
+        let requirements: [Int: Set<Int>] = parentParticleCohort ? [77: [42, 43]] : (particleCohort ? [42: [42]] : [:])
+        let particleDefinitions: [SceneDynamicTargetDefinition] = hasParticles
+            ? [.init(target: visibilityOwner, valueType: .bool, authoredValue: .bool(false))] : []
+        let particleInstructions: [ScenePropertyBindingInstruction] = hasParticles
             ? [.init(propertyKey: "A", path: .init(components: [.key("A")]),
-                     target: particle, valueType: .bool, condition: .string("on"))] : []
+                     target: visibilityOwner, valueType: .bool, condition: .string("on"))] : []
         let program = ScenePropertyBindingProgram(
             definitions: [
                 .init(target: a, valueType: .bool, authoredValue: .bool(false)),
@@ -186,7 +195,7 @@ import Foundation
             program: program,
             effectiveValues: ["A": .string("off"), "B": .string("off"),
                 "level": .number(0.2), "optional": .string("seed")],
-            activeConsumerTargets: Set([a, b, level, optional]).union(particleCohort ? [particle] : []),
+            activeConsumerTargets: Set([a, b, level, optional]).union(hasParticles ? [visibilityOwner] : []),
             scriptUserPropertyConsumerTargetsByKey: ["optional": [optional]]
         )
         let resources = FixtureResources()
@@ -194,11 +203,9 @@ import Foundation
         let session = SceneDesktopWallpaperSession(.init(recordID: "own-input",
             liveState: state, runtimeInput: .init(propertyBindingProgram: program),
             preparedDeviceResources: .init(baseImages: resources),
-            preparedParticleVisibilityLayerIDs: particleCohort ? [42] : []))
+            particleLayerIDs: preparedParticleIDs, particleVisibilityRequirements: requirements))
         installSurfaces(session, adoption)
-        if particleCohort {
-            session.surfaces.values.forEach { $0.metalView.preparedParticleLayerIDs = [42] }
-        }
+        session.surfaces.values.forEach { $0.metalView.preparedParticleLayerIDs = preparedParticleIDs }
         return (session, resources, adoption)
     }
 
@@ -244,6 +251,7 @@ import Foundation
                 "scriptGeneration": session.surfaces[id]!.scriptGeneration]
         }
         return ["visible": [boolean(a), boolean(b)], "particleVisible": boolean(particle),
+            "particleParentVisible": boolean(particleParent),
             "revision": state.revision, "level": levelValue,
             "optional": optionalValue, "pending": pending, "views": views,
             "requests": resources.requests.map { [Int($0.layerID), Int($0.generation)] },
@@ -394,6 +402,59 @@ import Foundation
             resources.statuses[11] = .ready
             session.promotePendingDeferredLayerVisibilityIfReady()
             output["particlePromotion-\(fault)"] = ["accepted": accepted,
+                "waiting": waiting, "final": snapshot(session, resources)]
+        }
+        do {
+            let (session, resources, _) = make(parentParticleCohort: true)
+            let first = apply(session, ["A": .string("on")])
+            let second = apply(session, ["B": .string("on")])
+            let waiting = snapshot(session, resources)
+            resources.statuses[11] = .ready
+            resources.statuses[22] = .ready
+            session.promotePendingDeferredLayerVisibilityIfReady()
+            output["preparedParentParticleCohort"] = ["accepted": [first, second],
+                "waiting": waiting, "final": snapshot(session, resources)]
+        }
+        for fault in ["missing-first-leaf", "missing-second-leaf", "generation", "surface-set", "no-surfaces"] {
+            for incoming in ["off", "on"] {
+                let (session, resources, _) = make(parentParticleCohort: true)
+                switch fault {
+                case "missing-first-leaf": session.surfaces[1]!.metalView.preparedParticleLayerIDs = [43]
+                case "missing-second-leaf": session.surfaces[2]!.metalView.preparedParticleLayerIDs = [42]
+                case "generation": session.surfaces[2]!.scriptGeneration = 2
+                case "surface-set": session.preparedSurfaceIDs = [1, 2, 3]
+                default: session.surfaces = [:]
+                }
+                let before = snapshot(session, resources)
+                let accepted = apply(session, ["A": .string(incoming)])
+                output["parentAdmission-\(fault)-\(incoming)"] = ["accepted": accepted,
+                    "before": before, "final": snapshot(session, resources)]
+            }
+        }
+        for fault in ["missing-second-leaf", "generation"] {
+            let (session, resources, _) = make(parentParticleCohort: true)
+            let accepted = apply(session, ["A": .string("on")])
+            if fault == "generation" { session.surfaces[2]!.scriptGeneration = 2 }
+            else { session.surfaces[2]!.metalView.preparedParticleLayerIDs = [42] }
+            let before = snapshot(session, resources)
+            let merged = apply(session, ["B": .string("on")])
+            let after = snapshot(session, resources)
+            resources.statuses[11] = .ready
+            session.promotePendingDeferredLayerVisibilityIfReady()
+            output["parentMerge-\(fault)"] = ["accepted": [accepted, merged],
+                "before": before, "after": after, "final": snapshot(session, resources)]
+        }
+        for fault in ["missing-second-leaf", "generation"] {
+            let (session, resources, _) = make(parentParticleCohort: true)
+            let first = apply(session, ["A": .string("on")])
+            let second = apply(session, ["B": .string("on")])
+            let waiting = snapshot(session, resources)
+            if fault == "generation" { session.surfaces[2]!.scriptGeneration = 2 }
+            else { session.surfaces[2]!.metalView.preparedParticleLayerIDs = [42] }
+            resources.statuses[11] = .ready
+            resources.statuses[22] = .ready
+            session.promotePendingDeferredLayerVisibilityIfReady()
+            output["parentPromotion-\(fault)"] = ["accepted": [first, second],
                 "waiting": waiting, "final": snapshot(session, resources)]
         }
         print(String(decoding: try JSONSerialization.data(
@@ -571,6 +632,57 @@ class SceneDeferredPropertyIntentTests(unittest.TestCase):
                 self.assertEqual(result["final"]["soundApplies"], 0)
                 for view in result["final"]["views"]:
                     self.assertEqual(view["attempts"], 1)
+                    self.assertEqual(view["discards"], 1)
+
+    def test_parent_and_two_particle_leaves_commit_with_the_merged_image_keys(self) -> None:
+        result = self.result["preparedParentParticleCohort"]
+        self.assertEqual(result["accepted"], [True, True])
+        self.assertEqual(result["waiting"]["pending"]["keys"], ["A", "B"])
+        self.assertEqual(result["waiting"]["pending"]["layers"], [11, 22])
+        self.assertFalse(result["waiting"]["particleParentVisible"])
+        self.assert_committed(result["final"], [True, True], [11, 22])
+        self.assertTrue(result["final"]["particleParentVisible"])
+        self.assertEqual(result["final"]["revision"], 1)
+        self.assertEqual(result["final"]["soundApplies"], 1)
+
+    def test_parent_key_requires_every_particle_on_every_current_surface_even_for_false(self) -> None:
+        for fault in ("missing-first-leaf", "missing-second-leaf", "generation", "surface-set", "no-surfaces"):
+            for incoming in ("off", "on"):
+                with self.subTest(fault=fault, incoming=incoming):
+                    result = self.result[f"parentAdmission-{fault}-{incoming}"]
+                    self.assertFalse(result["accepted"])
+                    self.assertEqual(result["final"], result["before"])
+                    self.assertFalse(result["final"]["particleParentVisible"])
+                    self.assertEqual(result["final"]["visible"], [False, False])
+                    self.assertIsNone(result["final"]["pending"])
+                    self.assertEqual(result["final"]["requests"], [])
+                    self.assertEqual(result["final"]["revision"], 0)
+                    self.assertEqual(result["final"]["soundApplies"], 0)
+
+    def test_pending_parent_key_rechecks_particle_requirements_before_merging_another_key(self) -> None:
+        for fault in ("missing-second-leaf", "generation"):
+            with self.subTest(fault=fault):
+                result = self.result[f"parentMerge-{fault}"]
+                self.assertEqual(result["accepted"], [True, False])
+                self.assertEqual(result["after"], result["before"])
+                self.assertEqual(result["after"]["pending"]["keys"], ["A"])
+                self.assert_committed(result["final"], [False, False], [])
+                self.assertFalse(result["final"]["particleParentVisible"])
+                self.assertEqual(result["final"]["revision"], 0)
+                self.assertEqual(result["final"]["soundApplies"], 0)
+
+    def test_merged_parent_key_rechecks_all_particle_leaves_at_final_promotion(self) -> None:
+        for fault in ("missing-second-leaf", "generation"):
+            with self.subTest(fault=fault):
+                result = self.result[f"parentPromotion-{fault}"]
+                self.assertEqual(result["accepted"], [True, True])
+                self.assertEqual(result["waiting"]["pending"]["keys"], ["A", "B"])
+                self.assert_committed(result["final"], [False, False], [])
+                self.assertFalse(result["final"]["particleParentVisible"])
+                self.assertEqual(result["final"]["revision"], 0)
+                self.assertEqual(result["final"]["soundApplies"], 0)
+                for view in result["final"]["views"]:
+                    self.assertEqual(view["attempts"], 2)
                     self.assertEqual(view["discards"], 1)
 
 

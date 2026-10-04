@@ -1,25 +1,6 @@
 import Foundation
 
 extension SceneDesktopWallpaperHost {
-    static func particleVisibilityLayerIDs(
-        in descriptor: SceneRenderDescriptor,
-        candidates: Set<SceneDynamicTarget>,
-        hasScriptLayerAccess: Bool
-    ) -> Set<Int> {
-        let candidates = Set(candidates.compactMap { target -> Int? in
-            guard case let .layer(layerID, .visibility) = target else { return nil }
-            return layerID
-        })
-        let layersByID = Dictionary(grouping: descriptor.layers, by: \.id)
-        return Set(descriptor.layers.compactMap { layer -> Int? in
-            guard (hasScriptLayerAccess || candidates.contains(layer.id)),
-                  layersByID[layer.id]?.count == 1,
-                  layer.contentKind == "particle", layer.particlePath != nil,
-                  layer.parentID == nil, layer.childLayerIDs.isEmpty else { return nil }
-            return layer.id
-        })
-    }
-
     static func unavailableLiveScriptPropertyTargets(
         in context: SceneDesktopWallpaperLaunchContext
     ) -> Set<SceneDynamicTarget> {

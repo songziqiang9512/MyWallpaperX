@@ -530,9 +530,8 @@ extension SceneDesktopWallpaperSession {
         ].flatMap { values in
             values.compactMap { entry -> SceneDynamicTarget? in
                 guard case let .layer(layerID, .visibility) = entry.key,
-                      launchContext.particleLayerIDs.contains(layerID),
                       case .bool(true) = entry.value,
-                      !self.particleVisibilityResourcesPrepared(
+                      !self.layerVisibilityResourcesPrepared(
                         layerID: layerID, context: launchContext
                       ) else { return nil }
                 return entry.key
@@ -614,11 +613,14 @@ extension SceneDesktopWallpaperSession {
                 let unpreparedParticleOwners = admitted.compactMap {
                     owner -> SceneDynamicTarget? in
                     guard owner.layerMutations.contains(where: { mutation in
-                        !mutation.isDynamic && mutation.kind == .upsert
-                            && launchContext.particleLayerIDs.contains(mutation.layerID)
-                            && (mutation.fields.contains(.particleAlpha)
-                                || (mutation.fields.contains(.visibility) && mutation.visible))
-                            && !self.particleVisibilityResourcesPrepared(
+                        guard !mutation.isDynamic, mutation.kind == .upsert else { return false }
+                        if mutation.fields.contains(.particleAlpha),
+                           launchContext.particleLayerIDs.contains(mutation.layerID),
+                           !self.particleVisibilityResourcesPrepared(
+                                layerID: mutation.layerID, context: launchContext
+                           ) { return true }
+                        return mutation.fields.contains(.visibility) && mutation.visible
+                            && !self.layerVisibilityResourcesPrepared(
                                 layerID: mutation.layerID, context: launchContext
                             )
                     }) else { return nil }
