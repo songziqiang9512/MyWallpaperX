@@ -1,8 +1,8 @@
 # Scene 开发方法
 
-开发scene引擎时先搞清楚我们的最终目的：我们是要开发一个macos上能兼容播放windows端Wallpaper Engine：壁纸引擎所有scene类型壁纸的播放器。我们所有的代码建设都要靠近官方或者采用更优解的方案，贴近官方的架构。最终视觉上必须实现与官方等价结果。
+目标是在原生 macOS Swift/Metal 底座上兼容 Wallpaper Engine 作者的 Scene 行为与可见结果。执行结构遵循仓库架构合同；官方结果一致性按有界同输入对照验证，私有实现研究遵守下述 clean-room 隔离。
 
-本参考保存 Scene 开发中跨批次仍有用的取证、纵向切片、identity、失效域和可见证据方法。它不保存当前 V/R 阶段、compiler/VM 选择快照、能力数字、sample、route 统计或最近 PASS；这些只能从现役入口和当前运行取得。
+本参考保存 Scene 开发中跨批次仍有用的取证、纵向切片、identity、失效域和可见证据方法。它不保存当前路线阶段、compiler/VM 选择快照、能力数字、sample、route 统计或最近 PASS；这些只能从现役入口和当前运行取得。
 
 ## 目录
 
@@ -18,12 +18,15 @@
 
 ## 按问题选择权威
 
-只把 `docs/scene/README.md` 当专题导航，不把其中的阶段摘要当当前路线权威；再按实际问题选择最小入口：
+从 `docs/scene/README.md` 按任务选择现役路线，再按实际问题选择最小入口；导航本身不拥有阶段或能力事实：
 
 | 问题 | 唯一入口 |
 |---|---|
 | 最终执行单元、语言/进程/失败目标 | `docs/scene/architecture/runtime-architecture.md` 与长期技术边界 |
-| 当前优先级、纵向 lane、route 迁移顺序 | `docs/scene/roadmap/scene-compatibility-roadmap.md` |
+| 工程结构、生命周期、性能与成本消融顺序 | `docs/scene/roadmap/engine-refactor-program.md` |
+| 作者能力、可见正确性与兼容验收顺序 | `docs/scene/roadmap/scene-compatibility-roadmap.md` |
+| 实际接线、进程、装载与释放 owner | `docs/scene/architecture/runtime-as-built-map.md`，随后核对 live call sites |
+| 主链、普通帧成本与风险分级验证 | `docs/scene/development/development-workflow.md`；通用工具入口查仓库开发工作流 |
 | 当前能力及明确缺口 | `docs/scene/capabilities/coverage-ledger.md` 与命中专项表 |
 | 当前构建、GPU/compositor、sample、签名事实 | `docs/scene/capabilities/runtime-evidence-current.md` |
 | 来源类别和可用边界 | `docs/scene/development/source-index.md` |
@@ -31,7 +34,7 @@
 | corpus 中作者实际声明了什么 | `docs/scene/capabilities/scene-corpus-capability-inventory.md`；不证明运行支持 |
 | gate 成员、phase、readiness | 当前脚本 `--help`、`script/scene_validation_gates.json`、`script/scene_fast_suite.json` |
 
-不要每次 Scene 任务读取所有入口。当前 lane 和下一门只由唯一 active plan、能力台账与运行证据各自回答；导航页摘要若与它们冲突，登记文档偏差而不沿用摘要。不要把当前 roadmap 阶段、具体 backend 推荐、旧 R/G 计划、sample 数量或 evidence report 复制进 Skill。
+不要每次 Scene 任务读取所有入口。工程任务与作者兼容任务分别由对应现役路线选序；涉及两条路线时选一个主结果与验收，能力台账和运行证据只回答各自事实。不要把当前 roadmap 阶段、具体 backend 推荐、旧计划、sample 数量或 evidence report 复制进 Skill。
 
 ## 来源与上下文隔离
 
@@ -100,11 +103,11 @@ route state 的名称、定义和进入条件只从当前 `AGENTS.md`、runtime 
 
 ## 验证与声明
 
-使用 `AGENTS.md` 指定的统一 Scene 验证入口，但运行前读取当前 `--help` 和 plan，确认 exact selection、owned paths、phase 和 runtime prerequisites。先 inner 确认新代码加载；checkpoint 闭合定向门和未见组合；GPU/VM/resource/lifecycle/visible 变化才进入相称 integration；跨 family、matrix、性能、签名和发布风险才进入 milestone。
+从仓库开发工作流和 Scene 开发工作流选择 `script/verify_scene_change.py` 的适用阶段，运行前读取当前 `--help` 和预览，确认路径选择、phase 和 runtime prerequisites；`--owned-path` 只选择本批已变更文件，`--path` 可预览预期影响面，均不是文件锁或执行沙箱。inner 验证最近正反例；Swift 产品或构建输入变化做 checkpoint Debug build；GPU/VM/resource/lifecycle/visible 变化补相称 integration；共享合同、完整能力或发布结论才升级 milestone。
 
 可见或动态声明沿同一 identity 证明：实际 input -> selected route/Program/VM/component -> execution completion -> resource/target publication -> terminal compositor -> next-frame -> 预登记 ROI/事件方向 -> local-failure counterexample。没有这条链，只报告 structural/compiled/routed/host-stage 的真实等级。
 
-分别处理当前 slice 可见、owner migration、官方 bounded parity 和 release readiness；具体等级定义以当前 `AGENTS.md` 和 gate 为准。recognized、wired、census、compile、route count、non-black、matrix 或单样本不能外推完整兼容。
+分别处理当前 slice 可见、owner migration、官方 bounded parity 和 release readiness；等级定义查技术栈合同、对应路线与验证工作流，当前执行选择查 gate。recognized、wired、census、compile、route count、non-black、matrix 或单样本不能外推完整兼容。
 
 真实 Workshop/Scene 根只读；runtime home、属性注入、cache、output 和样本使用隔离副本。确认启动的是当前 App/build，不复用旧截图/report/terminal observation。
 

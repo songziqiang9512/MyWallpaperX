@@ -1,6 +1,6 @@
 # Video 开发方法
 
-本参考保存本地/在线视频从产品库到每显示器 helper 输出中不容易从单个文件恢复的 owner、identity 和生命周期方法。当前文档角色索引没有独立 Video current-state/stable-contract 入口，因此这里的 owner 标签、事务形状和实现方式只是必须现场复核的发现假设与默认方法，不定义目标架构。目标由用户行为、`AGENTS.md`、长期技术边界和当前任务中明确成立的设计裁决；当前代码只证明现状。Scene 视频纹理与 Web media 不属于本执行链。
+本参考保存本地/在线视频从产品库到每显示器 helper 输出中不容易从单个文件恢复的 owner、identity 和生命周期方法。先从 `docs/README.md` 与仓库职责图查现役 Video 入口；若没有独立 current-state/stable-contract，下面的 owner 标签、事务形状和实现方式只是必须现场复核的发现假设与默认方法。目标由用户要求、`AGENTS.md`、长期技术边界和当前任务中明确成立的设计决定；当前代码只证明现状。Scene 视频纹理与 Web media 不属于本执行链。
 
 ## 目录
 
@@ -34,7 +34,7 @@ AppKit command
 先沿当前调用链验证下列职责是否仍成立；它们用于寻找重复 owner 和 identity 漏洞，不能单独裁决新的迁移目标：
 
 - 产品库 owner 管理规范视频记录、导入/移除、索引、持久化、选择、用户 intent 和派生资产 publication。
-- 主进程播放 owner 管理 Video request、intent epoch、每显示器 helper session、IPC correlation、系统 pause evaluator 和恢复策略。
+- 主进程播放 owner 管理 Video request、intent epoch、每显示器 helper session、IPC correlation 和恢复策略，并消费共享暂停策略；系统状态 evaluator 与跨引擎命令分发分别由其共享 owner 管理。
 - helper 管理真实桌面窗口、AVAsset/item/player/layer、inactive/active slot 与可见提交；它不拥有产品库或全局用户选择。
 - UI 展示投影并发命令，不保存第二套播放真值或绕过产品设置入口直达 helper。
 - 跨 runtime 切换可能横跨 Manager、coordinator/notification、Engine、系统输出 API 和目标 host。每次从当前代码确认所有 runtime kind 与顺序；不要把 Video/Web session owner 外推成 Scene 或系统静态输出 owner。

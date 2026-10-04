@@ -6,13 +6,14 @@
 
 1. [先定义证据问题](#先定义证据问题)
 2. [发现当前工具入口](#发现当前工具入口)
-3. [失败分诊](#失败分诊)
-4. [AppKit 与窗口](#appkit-与窗口)
-5. [日志与 typed diagnostics](#日志与-typed-diagnostics)
-6. [签名、nested code 与发布](#签名nested-code-与发布)
-7. [Runtime 隔离与声明等级](#runtime-隔离与声明等级)
-8. [最终 gate 与证据闭环](#最终-gate-与证据闭环)
-9. [Tracked 与 untracked 交接](#tracked-与-untracked-交接)
+3. [首次隔离运行](#首次隔离运行)
+4. [失败分诊](#失败分诊)
+5. [AppKit 与窗口](#appkit-与窗口)
+6. [日志与 typed diagnostics](#日志与-typed-diagnostics)
+7. [签名、nested code 与发布](#签名nested-code-与发布)
+8. [Runtime 隔离与声明等级](#runtime-隔离与声明等级)
+9. [最终 gate 与证据闭环](#最终-gate-与证据闭环)
+10. [Tracked 与 untracked 交接](#tracked-与-untracked-交接)
 
 ## 先定义证据问题
 
@@ -22,7 +23,7 @@
 
 ## 发现当前工具入口
 
-从当前仓库发现 Xcode project/workspace、scheme、`script/` 入口、测试和 machine manifest。优先使用 `AGENTS.md`、专题 current-state/README 和脚本 `--help` 指定的统一入口；不要把本参考中的命令示例当永久 interface，也不要创建第二 run script 或 ad hoc 环境配置。
+从当前仓库发现 Xcode project/workspace、scheme、`script/` 入口、测试和 machine manifest。实现与验证从 `docs/development/repository-workflow.md` 进入，Scene 方法再查 `docs/scene/development/development-workflow.md`；运行 `script/verify_scene_change.py` 前读取当前 `--help` 和预览，确认实际模块、门与未映射项。`AGENTS.md` 管安全与权限，专题 current-state/README 管事实路由；不要把本参考中的命令示例当永久 interface，也不要创建第二 run script 或 ad hoc 环境配置。
 
 典型选择方法：
 
@@ -33,6 +34,14 @@
 - release：读取 `docs/release/release-signing.md` 和当前 CI/export workflow。
 
 任何工具会终止同名 App、重用共享 DerivedData、写真实目录或启动长期进程时，先核对授权和并行状态。
+
+## 首次隔离运行
+
+只在任务需要运行证据时进入本节。先按用户行为确定要经过的入口，再准备 App、输入和输出；避免先跑容易启动的 runner，随后把结果外推到另一条链。
+
+1. **选入口与最近门。** 从仓库工作流的验证预览和相应 benchmark 的 `--help` 取得参数，沿当前 runner 调用核对覆盖范围。Scene 的内部 Program/GPU 反例可用直接 Host 入口；IPC、崩溃恢复须经过 client → daemon；普通选择、参数和跨引擎切换须经过实际 App 分发 → client → daemon。入口职责与接线查 `docs/scene/architecture/runtime-as-built-map.md`，Web 查 `docs/web/current-state.md`，Video 查仓库地图的 App/helper 两端。直接 Host 或直接 client 的成功只覆盖其经过的链。
+2. **准备本轮候选。** 核对 gate 的构建条件、App 参数形状与签名要求。默认 checkpoint 是禁签名且退出清理的纯构建门；需要运行 App 时，在独立 DerivedData 按当前项目 Debug/签名配置生成并保留本轮候选，从真实构建输出取得可执行文件路径。Scene/Web benchmark 的 App staging 与验签沿现有 `script/web_benchmark_capture.py` 调用复用；不另造安装器，也不以旧已安装 App 代替新候选。DEBUG runner 要确认实际编入；性能优化级别查 Scene 工作流。
+3. **准备输入并闭合结果。** 只复制当前正反例所需内容；Scene 副本/manifest 的创建与核验查 `script/scene_sample_snapshot.py --help`，Scene 运行查 `script/scene_wallpaper_benchmark.py --help`，Web 查 `script/web_wallpaper_benchmark.py --help`。按各工具实际要求设置隔离样本、HOME、Workshop 与全新输出，核对真实启动命令和本轮报告中的 App/input/request 身份、结果及失败反例；再按产物规则保留必要证据、清理已结束的环境。某入口不支持目标场景时，记录该边界并沿真实产品链验证，不虚构通用 flag 或将较低证据阶段升级。
 
 ## 失败分诊
 

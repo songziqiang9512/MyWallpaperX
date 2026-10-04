@@ -22,7 +22,9 @@ Use this Skill as a compact method and routing layer, never as a snapshot of the
 1. Before coding, identify the user's intended outcome, the native macOS product direction, and the current gap; briefly connect the chosen scope to that outcome and its verification. Classify the request as discussion, read-only review, diagnosis, or implementation. Never let Skill activation expand the user's authorization.
 2. Run `git status --short --branch --untracked-files=all` at task start, including read-only review or diagnosis. Assign this batch an explicit owned path set and preserve every unrelated modified, deleted, staged, or untracked path; repeat status before writing when concurrent work may have changed it.
 3. Follow repository-root `AGENTS.md` for implementation, validation, commit, sample, and workspace safety rules.
-4. Read `docs/README.md` when the task involves behavior, architecture, evidence, documentation, or owner selection. Use its current document-role routing instead of searching history broadly. Repository structure, contracts, tests, and navigation are part of product delivery; maintain their existing owner alongside the changed behavior.
+4. Start from `docs/README.md`, `docs/architecture/repository-map.md`, and `docs/architecture/technology-stack-boundaries.md` for document roles, current owner clues, and target boundaries. Use `docs/development/repository-workflow.md` for implementation and validation; `python3.12 -B script/document_registry.py --query <task>` can find current pointers without loading whole documents. Repository structure, contracts, tests, and navigation are part of product delivery; maintain their existing owner alongside the changed behavior.
+
+For a document query, read the matching route's `firstRead` first, then select other `documents` by the first broken responsibility. Once the target, current owner, and nearest counterexample are clear, follow `sourcePaths` into code. Treat `nearestTests` as candidates: check that their inputs and assertions exercise the reported behavior. Queries match indexed titles/keywords; if a full symptom returns no route, shorten it to a responsibility keyword from `--list`. If there is still no suitable route, use the repository map and live callers rather than loading history or every module reference.
 
 Resolve two different questions separately:
 
@@ -48,6 +50,9 @@ All references are one level from this file. Do not load a reference merely beca
 | Local/online video import, library, cache, playback, helper IPC, per-display sessions | [Video method](references/video-engine.md) |
 | Workshop Web model, WKWebView host, navigation, property/resource/media/input/audio lifecycle | [Web method](references/web-engine.md) |
 | Scene format, shader, graph, Metal, VM, particles, inputs, providers, visual evidence | [Scene method](references/scene-engine.md) |
+| Steam login/session, browsing, download, import and library publication | Repository map and `docs/scene/roadmap/scene-steamkit-migration-plan.md`; choose by acquisition/import responsibility, then load an engine reference when playback is affected |
+| AppKit Shell, menus, settings and product UI | Repository map and `docs/architecture/appkit-migration.md`, plus the applicable UI method in [Verification and macOS method](references/verification-and-handoff.md) |
+| Static-image library, desktop apply and dynamic-runtime teardown | Repository map's static-image apply chain; trace the library service and desktop consumer separately, then load affected runtime references |
 | Build, test triage, AppKit/window behavior, logs, signing, runtime evidence, Git handoff | [Verification and macOS method](references/verification-and-handoff.md) |
 | Skill error, rule/document drift, authority routing, Skill publication | [Skill governance](references/skill-governance.md) |
 | Build/runtime output, large reports, residue, writer attribution, cleanup candidates | [Artifact governance](references/artifact-governance.md) |
