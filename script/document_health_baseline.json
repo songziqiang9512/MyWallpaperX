@@ -82,7 +82,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 393,
-      "bytes": 138536
+      "bytes": 138909
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 562,
@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 72,
-      "bytes": 7648
+      "bytes": 7721
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 49756
+      "bytes": 49803
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -221,8 +221,8 @@
       "bytes": 7241
     },
     "docs/scene/roadmap/batch2/particle-vortex-design.md": {
-      "lines": 38,
-      "bytes": 5340
+      "lines": 48,
+      "bytes": 7169
     }
   },
   "archives": [
@@ -1021,28 +1021,37 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "ad238b8ffbce3c5b7a86e6495c2a2ef4ba044f309acb91d998a4e36cde85bc50",
-      "after": "cc0c71be65755e0c23eab72118bda37a1df8b9a76fba6548b8b9d97d515aa707",
+      "before": "cc0c71be65755e0c23eab72118bda37a1df8b9a76fba6548b8b9d97d515aa707",
+      "after": "ea07e590d6e8c018824fa14710f0adb9f7b5569438856e7d77a89dc575926fcf",
       "owner": "scene-particle-vortex",
-      "reason": "普通v2执行范围及真实画面证据同步；保留flags2与跨FPS未验边界。",
+      "reason": "保半径实现与证据边界同步，保留官方长期相位和扩展组合未验。",
       "decision": "docs/scene/roadmap/batch2/particle-vortex-design.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "58fd55da40bf02c83c4db00d59abf75634dd6c064db4821b54b4d1b4a9b4f982",
-      "after": "e75858947dfa614567afa48dcc4a9fb5a830840956503d8c3c8122597fe81eea",
+      "before": "e75858947dfa614567afa48dcc4a9fb5a830840956503d8c3c8122597fe81eea",
+      "after": "2e9ad20412390dd4b76c8474090d1a7ae3a163f7bb8ff8ab8dab96e0a6a98f01",
       "owner": "scene-particle-vortex",
-      "reason": "普通v2执行范围及真实画面证据同步；保留flags2与跨FPS未验边界。",
+      "reason": "保半径实现与证据边界同步，保留官方长期相位和扩展组合未验。",
       "decision": "docs/scene/roadmap/batch2/particle-vortex-design.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/particle-vortex-design.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "4a33e7918466828d12f2da674985c8ef7f895dca31222e982d1396ee4794de12",
+      "before": "4a33e7918466828d12f2da674985c8ef7f895dca31222e982d1396ee4794de12",
+      "after": "b2fac35a03bd81aa01fe53e27fdb6e75381c3fde2d21e09ec2ba75f11e7bee0a",
       "owner": "scene-particle-vortex",
-      "reason": "普通v2执行范围及真实画面证据同步；保留flags2与跨FPS未验边界。",
+      "reason": "保半径实现与证据边界同步，保留官方长期相位和扩展组合未验。",
+      "decision": "docs/scene/roadmap/batch2/particle-vortex-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "before": "6bf7547ce3d5f796d3da7e37f71e250f310ed245047d8f1f48600e204225793e",
+      "after": "8bc63fecaac38bb3d002859552b9927f11de213e442aba76d6cc73cf0caf6d2a",
+      "owner": "scene-particle-vortex",
+      "reason": "保半径实现与证据边界同步，保留官方长期相位和扩展组合未验。",
       "decision": "docs/scene/roadmap/batch2/particle-vortex-design.md"
     }
   ]

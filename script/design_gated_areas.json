@@ -311,7 +311,7 @@
       "owner": "scene-particle",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/particle-vortex-design.md",
-      "design_notes": "普通flags0按已冻结有界项目响应接既有owner；仅v2准备期转换力度，classic/audio不变。flags2长时收缩反例阻止本批准入；官方跨FPS数值仍未验证。",
+      "design_notes": "普通 flags0 已接通；flags2 使用 particle state 半径与唯一 Movement 圆弧积分，限定单 vortex、前置零重力 Movement、无其他位移力。动态失效清除锚点，snapshot 随既有粒子状态。官方全相位/跨 FPS 未验收；设计不代替运行验证。",
       "matchPatterns": [],
       "contentPatterns": [
         "case v2 = \"vortex_v2\""

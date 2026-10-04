@@ -1711,6 +1711,13 @@
 - **可见范围。** 真实作者stock `previewvortex0`仅补Scene transport，particle/material原字节保留；候选18秒播放，layer12 `vortexBounded`与一个child system正常，经GPU及唯一compositor呈现旋臂，385 submitted/385 completed/0 failed，退出GPU排空。自有输入证明绝对旋向，stock证明实际曲线/发光合成继续工作；不是整Workshop样本或Windows全轨迹等价。
 - **后继与保留。** 官方六探针对照确认classic/v2同旋向、v2省略axis/CP与Z/0一致、outer外受力；但speed0.1在24.2秒约21px，而当前积分约29px，非零径向初速flags2仍无有效计时帧。v2候选完整撤回并作为未验候选保存，不启用；禁止拟合常数后声称parity。最小输入、有效PNG、App日志、源码身份及候选patch保留于`.artifacts/scene-evidence/runs/vortex-direction-20261005/final/samples/1/runtime_evidence.zip`，失败受保护。未重跑208全量，不新增整样本通过数。
 
+<a id="e-particle-vortex-v2-radius"></a>
+### E-PARTICLE-VORTEX-V2-RADIUS
+
+- **2026-10-05 保半径接线。** 基线 `41add9df`；单 flags2、唯一前置局部零重力 Movement、纯外观 operator 的组合沿现有粒子链执行。首次有效步后在 particle state 锚定半径，Movement 以切向速度圆弧积分，沿原作者顺序加速；动态非原点/非零角度 CP 清锚，恢复时重新锚定。既有 snapshot/restore/death 接管新增字段，没有第二时钟、轨迹缓存或 compositor。
+- **画面与证据边界。** 真实3792249095的外圈由散开的短粒子恢复为紫色旋转光环；隔离组件仅替换 scene.json 舞台，其余粒子/材质/纹理条目逐字保持，完整样本验证文字、底图与最终合成。官方自有输入只建立长时半径和出生位移约束，本批圆弧算法与0.72项目响应不宣称官方长期相位/全数值等价；其他 force/world-space/CP组合继续局部拒绝。未重跑208全量，不新增整样本通过数。
+- **验收记录。** 真实 parser/prepared/simulator 的444秒逐步半径、径向初速/drag、反向、分帧、CP恢复、frame rollback、出生死亡及Float溢出反例通过；零初速半径120的最大误差小于1e-10。冻结1085份产品源码 Debug 通过且 drift为空；完整样本 layer250 粒子385次提交/385次完成/0失败，退出GPU排空。最终验证与身份记录归入本批证据包，独立审查绑定最终 diff；structure 库存66/65两项失败及旧路线含样本ID的治理测试失败均在未改动HEAD中存在。证据保留于 `.artifacts/scene-evidence/runs/vortex-v2-radius-20261005/final/samples/1/runtime_evidence.zip`，官方长期相位差与跨FPS尚未闭合。
+
 <a id="e-particle-vortex-v2-standard"></a>
 
 - **2026-10-05 普通 v2 接线。** 仅新 v2 flags0 使用独立冻结的项目经验响应0.72，复用 parser→prepared plan→simulator→原粒子几何/child/唯一 compositor；classic/audio幅度不变。有效官方 CUA 保留输入在同一粒子时刻12秒，两组 v2、gravity 与普通 clock 的最终 CPU 结果均在已声明±2 scene units位置盒内；这是有误差的观察，不是官方公式或逐帧 golden。60 FPS控件不可操作，配置未改，跨FPS仍unknown。

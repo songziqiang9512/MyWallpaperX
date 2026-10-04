@@ -23,6 +23,7 @@ nonisolated struct SceneParticleVortexPlan: Equatable, Sendable {
     let distanceOuter: Double
     let speedInner: Double
     let speedOuter: Double
+    let maintainsRadius: Bool
     let usesInfiniteAxis: Bool
     let usesControlPointOrigin: Bool
 }
@@ -33,7 +34,7 @@ nonisolated extension SceneParticleOperator {
               !value.hasMalformedFields, value.unsupportedFieldNames.isEmpty,
               (value.version == .classic
                 ? rawFlags == 0 || rawFlags == 1
-                : rawFlags == 0),
+                : rawFlags == 0 || rawFlags == 2),
               blendInStart == nil, blendInEnd == nil,
               blendOutStart == nil, blendOutEnd == nil,
               controlPoint == nil || (value.version == .v2 && controlPoint == 0),
@@ -62,6 +63,7 @@ nonisolated extension SceneParticleOperator {
             distanceOuter: distanceOuter,
             speedInner: speedInner * accelerationScale,
             speedOuter: speedOuter * accelerationScale,
+            maintainsRadius: value.version == .v2 && rawFlags == 2,
             usesInfiniteAxis: value.version == .classic && rawFlags == 1,
             usesControlPointOrigin: value.version == .v2
         )

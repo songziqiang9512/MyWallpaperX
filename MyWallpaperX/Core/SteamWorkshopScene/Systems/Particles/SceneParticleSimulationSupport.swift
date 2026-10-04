@@ -15,6 +15,8 @@ nonisolated struct SceneParticleState: Equatable, Sendable {
     var initialColor: SIMD3<Double>
     var initialAlpha: Double
     var initialSize: Double
+    /// Anchored after the first valid ring-vortex step; frame snapshots own it.
+    var vortexRadius: Double? = nil
 }
 
 nonisolated struct SceneParticleRandomGenerator: Sendable {

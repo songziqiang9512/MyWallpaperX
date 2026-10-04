@@ -45,6 +45,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     /// frame-varying inputs (audio, overrides, particle age/position) live in
     /// the execution helpers.
     private let operatorExecutionPlans: [SceneParticleOperatorExecutionPlan]
+    private let maintainsVortexRadius: Bool
     /// Launch-stable control-point identity lookup. Dynamic pointer and
     /// SceneScript values still arrive through `dynamicControlPoints`; only
     /// the authored identity metadata is indexed once for the particle hot
@@ -134,6 +135,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                 definition: definition
             )
         }
+        maintainsVortexRadius = operatorExecutionPlans.contains { $0.vortex?.maintainsRadius == true }
         var controlPointsByID: [Int: SceneParticleControlPoint] = [:]
         var controlPointIdentities: Set<Int> = []
         var controlPointSourcesAreValid = true
@@ -751,10 +753,14 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             }
             let gravity = plan.gravity(through: activeWorldSpaceFrame)
                 * effectiveSpeedOverride
+            let radiusIsActive = maintainsVortexRadius && vortexOriginIsActive
             for index in particles.indices {
+                if !radiusIsActive { particles[index].vortexRadius = nil }
                 let acceleration = gravity - particles[index].velocity * plan.drag
-                let velocity = particles[index].velocity + acceleration * duration
-                let position = particles[index].position + velocity * duration
+                let integrated = particles[index].velocity + acceleration * duration
+                let (position, velocity) = vortexMovement(
+                    particle: particles[index], velocity: integrated, duration: duration
+                )
                 guard acceptsMotionResult(velocity, position, component: "movement") else {
                     continue
                 }

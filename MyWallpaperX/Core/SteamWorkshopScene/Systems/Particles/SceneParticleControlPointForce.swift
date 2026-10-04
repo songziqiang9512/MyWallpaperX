@@ -368,6 +368,7 @@ nonisolated extension SceneParticleDefinition {
 nonisolated extension SceneParticleDefinition {
     func vortexPlan(for value: SceneParticleOperator) -> SceneParticleVortexPlan? {
         guard let plan = value.vortexPlan else { return nil }
+        if plan.maintainsRadius && !supportsRadiusVortexSequence { return nil }
         if plan.usesControlPointOrigin {
             guard SceneParticleSimulationMath.supportsControlPointSource(0, in: self)
             else { return nil }
@@ -379,4 +380,32 @@ nonisolated extension SceneParticleDefinition {
         }
         return plan
     }
+
+    /// A radius constraint changes Movement integration, so admit the complete
+    /// authored sequence once rather than guessing force interactions per frame.
+    private var supportsRadiusVortexSequence: Bool {
+        guard !flags.isWorldSpace else { return false }
+        var sawMovement = false
+        var sawVortex = false
+        for value in operators {
+            switch value.kind {
+            case .movement:
+                guard !sawMovement, !sawVortex, value.rawFlags == 0,
+                      value.gravity == nil || value.gravity == .scalar(0)
+                        || value.gravity == .vector([0, 0, 0]),
+                      !value.audioResponse.isEnabled else { return false }
+                sawMovement = true
+            case .vortex:
+                guard sawMovement, !sawVortex else { return false }
+                sawVortex = true
+            case .alphaFade, .alphaChange, .sizeChange, .colorChange,
+                 .angularMovement, .oscillateAlpha, .oscillateSize, .inheritEventColor:
+                break
+            default:
+                return false
+            }
+        }
+        return sawMovement && sawVortex
+    }
+
 }
