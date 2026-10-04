@@ -27,8 +27,13 @@ extension SteamWorkshopService {
         }
 
         let normalizedURL = url.resolvingSymlinksInPath().standardizedFileURL
+        let openedScope = normalizedURL.startAccessingSecurityScopedResource()
+        defer { if openedScope { normalizedURL.stopAccessingSecurityScopedResource() } }
         guard SceneUserPropertyTextureLoader.supports(url: normalizedURL),
-              FileManager.default.fileExists(atPath: normalizedURL.path),
+              (try? normalizedURL.resourceValues(forKeys: [.isRegularFileKey]))?
+                .isRegularFile == true,
+              let data = try? Data(contentsOf: normalizedURL, options: .mappedIfSafe),
+              SceneImageTextureUploader.decodeSourceImage(data) != nil,
               let bookmark = makeSceneTexturePropertyBookmarkData(for: normalizedURL) else {
             downloadError = "Scene 纹理仅支持可读取的 PNG 或 JPEG 图像。"
             return false

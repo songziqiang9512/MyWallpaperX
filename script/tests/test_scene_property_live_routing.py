@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import shutil
+import struct
 import subprocess
 import tempfile
 import unittest
+import zlib
 from pathlib import Path
 
 
@@ -27,6 +29,127 @@ LIVE_CONSUMERS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/
 LAYER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift"
 RUNTIME_MODEL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift"
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+PLAYBACK_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+ScenePlayback.swift"
+
+
+SELECTION_PROBE = r'''
+import Combine
+import CoreGraphics
+import Foundation
+import ImageIO
+import Metal
+import UniformTypeIdentifiers
+enum SceneTextureLoadOutcome {
+    case loaded(MTLTexture), decodeFailed(String), textureAllocationFailed(width: Int, height: Int)
+}
+struct SteamWorkshopDownloadRecord {
+    enum ContentType { case scene, video }
+    let id: String; let contentType: ContentType; let folderURL: URL; let title: String
+}
+struct PlaybackResourceLifetime {}
+extension Notification.Name {
+    static let steamWorkshopSceneReadyToRender = Self("own-selection-probe-request")
+}
+@MainActor final class SteamWorkshopService {
+    let suiteName = "com.songziqiang.MyWallpaperX.Debug.SelectionTest." + UUID().uuidString
+    let defaults: UserDefaults
+    let objectWillChange = ObservableObjectPublisher()
+    var downloadError: String?; var statusMessage = ""
+    var scenePropertyCommandRevision: UInt64 = 0
+    var scenePropertyRenderTask: Task<Void, Never>?
+    init() { defaults = UserDefaults(suiteName: suiteName)! }
+    func cleanup() { defaults.removePersistentDomain(forName: suiteName); defaults.synchronize() }
+    func libraryVersionLifetime(for record: SteamWorkshopDownloadRecord) throws -> PlaybackResourceLifetime? { nil }
+    func clearLaunchPending(matching id: String) {}
+}
+struct PlaybackCommandMultiplexer {
+    static let shared = Self()
+    enum Command { case setProperty([String: SceneUserPropertyValue], revision: UInt64, recordID: String) }
+    enum Destination { case scene }
+    func dispatch(_ command: Command, to destination: Destination) -> Bool { false }
+}
+struct SceneDaemonClient {
+    static let shared = Self()
+    func hasIntent(for id: String) -> Bool { true }
+}
+@MainActor final class RequestSpy {
+    var requests: [SteamWorkshopScenePlaybackRequest] = []
+}
+@main enum SelectionProbe {
+    @MainActor static func main() async throws {
+        let root = URL(fileURLWithPath: CommandLine.arguments[1])
+        let service = SteamWorkshopService()
+        defer { service.cleanup() }
+        let record = SteamWorkshopDownloadRecord(id: "own", contentType: .scene, folderURL: root, title: "own")
+        let definition = SceneUserPropertyDefinition(
+            key: "cover", title: "cover", kind: .sceneTexture, runtimeType: "scenetexture",
+            order: 0, index: nil, minimumValue: nil, maximumValue: nil, stepValue: nil,
+            allowsFractionalValues: false, fractionalPrecision: nil, displayCondition: nil,
+            defaultValue: .string(""), options: []
+        )
+        let bookmarkKey = "SteamWorkshop.scenePropertyBookmarks.own.cover"
+        let spy = RequestSpy()
+        let observer = NotificationCenter.default.addObserver(
+            forName: .steamWorkshopSceneReadyToRender, object: nil, queue: nil
+        ) { note in
+            guard let request = note.userInfo?["request"] as? SteamWorkshopScenePlaybackRequest else { return }
+            MainActor.assumeIsolated { spy.requests.append(request) }
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+        func waitForReload() async throws { try await Task.sleep(nanoseconds: 300_000_000) }
+        func requestPath() -> String {
+            guard let request = spy.requests.last else { return "none" }
+            return DaemonProbe.resolveTextureURLs(request.userPropertyTextures)["cover"]?.lastPathComponent ?? "none"
+        }
+        var rows: [[String: Any]] = []
+        let png = root.appendingPathComponent("good.png")
+        let sourceImage = SceneImageTextureUploader.decodeSourceImage(try Data(contentsOf: png))!
+        let jpeg = root.appendingPathComponent("good.jpeg")
+        let destination = CGImageDestinationCreateWithURL(jpeg as CFURL, UTType.jpeg.identifier as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, sourceImage, nil)
+        guard CGImageDestinationFinalize(destination) else { throw CocoaError(.fileWriteUnknown) }
+
+        for name in ["good.png", "good.jpeg"] {
+            let before = spy.requests.count
+            let accepted = service.updateSceneTexturePropertyURL(root.appendingPathComponent(name), definition: definition, record: record)
+            try await waitForReload()
+            rows.append(["case": name, "accepted": accepted, "reloads": spy.requests.count - before, "path": requestPath()])
+        }
+        for name in ["broken.png", "crc-broken.png", "directory.png", "missing.png", "unsupported.gif"] {
+            _ = service.updateSceneTexturePropertyURL(png, definition: definition, record: record)
+            try await waitForReload()
+            let bookmark = service.defaults.data(forKey: bookmarkKey)
+            let overrides = service.scenePropertyOverrides(for: record)
+            let before = spy.requests.count
+            let url = root.appendingPathComponent(name)
+            let accepted = service.updateSceneTexturePropertyURL(url, definition: definition, record: record)
+            try await waitForReload()
+            let reloads = spy.requests.count - before
+            service.requestSceneRender(record)
+            rows.append([
+                "case": name, "accepted": accepted, "reloads": reloads,
+                "bookmarkUnchanged": service.defaults.data(forKey: bookmarkKey) == bookmark,
+                "overridesUnchanged": service.scenePropertyOverrides(for: record) == overrides,
+                "path": requestPath(), "error": service.downloadError != nil,
+                "contentType": (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType?.identifier ?? "none",
+            ])
+        }
+        let old = service.defaults.data(forKey: bookmarkKey)
+        let recovery = service.updateSceneTexturePropertyURL(jpeg, definition: definition, record: record)
+        try await waitForReload()
+        rows.append(["case": "recovery", "accepted": recovery, "bookmarkChanged": service.defaults.data(forKey: bookmarkKey) != old, "path": requestPath()])
+        let cleared = service.updateSceneTexturePropertyURL(nil, definition: definition, record: record)
+        try await waitForReload()
+        rows.append(["case": "clear", "accepted": cleared, "bookmarkExists": service.defaults.data(forKey: bookmarkKey) != nil, "overrides": service.scenePropertyOverrides(for: record).count, "path": requestPath()])
+        _ = service.updateSceneTexturePropertyURL(png, definition: definition, record: record)
+        try await waitForReload()
+        service.resetScenePropertyValues(for: record, defaultValues: ["cover": .string("")])
+        try await waitForReload()
+        rows.append(["case": "reset", "bookmarkExists": service.defaults.data(forKey: bookmarkKey) != nil, "overrides": service.scenePropertyOverrides(for: record).count, "path": requestPath()])
+        print(String(decoding: try JSONSerialization.data(withJSONObject: rows), as: UTF8.self))
+    }
+}
+'''
 
 
 CONTEXT_LEAF_STUBS = r'''
@@ -494,6 +617,112 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
         result = self.probe([self.image(1)])
         self.assertTrue(result["declared"])
         self.assertFalse(result["contextExists"])
+
+
+class SceneTextureSelectionAdmissionTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        if shutil.which("swiftc") is None:
+            raise unittest.SkipTest("swiftc is unavailable")
+        cls.temp = tempfile.TemporaryDirectory(prefix="mwx-texture-admission-")
+        cls.work = Path(cls.temp.name)
+        service = SERVICE_SOURCE.read_text()
+        properties = "extension SteamWorkshopService {\n" + method_body(
+            service, "private enum ScenePropertyOverrideStore {"
+        ) + "\n" + "\n".join(method_body(service, signature) for signature in [
+            "func scenePropertyOverrides(", "func updateScenePropertyValue(",
+            "func resetScenePropertyValues(", "private func saveScenePropertyOverrides(",
+            "private func scheduleActiveScenePropertyRender(",
+        ]) + "\n}\n"
+        # Use the exact extension policy, without bringing GPU texture storage
+        # into a CPU selection test. Decode uses the entire real uploader source.
+        loader = (SCENE_ROOT / "Systems/Properties/SceneUserPropertyTextureLoader.swift").read_text()
+        start = loader.index("struct SceneUserPropertyTextureLoader {")
+        loader = loader[start:loader.index("    func load(", start)] + "}\n"
+        command = (REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift").read_text()
+        reference = method_body(command, "nonisolated struct ScenePlaybackTextureReference:")
+        runtime = (SCENE_ROOT / "Runtime/IPC/SceneDaemonRuntime.swift").read_text()
+        resolve = method_body(runtime, "private static func resolveTextureURLs(")
+        resolve = resolve.replace("private static func", "static func", 1)
+        harness = cls.work / "Probe.swift"
+        harness.write_text("\n".join([
+            SELECTION_PROBE, reference, loader, properties,
+            "enum DaemonProbe {\n" + resolve + "\n}",
+        ]))
+        sources = [
+            SCENE_ROOT / "Systems/Properties/SceneUserProperty.swift",
+            SCENE_ROOT / "Resources/Textures/SceneImageTextureUploader.swift",
+            SCENE_ROOT / "Resources/Textures/SceneImageTextureUploader+Resample.swift",
+            SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift",
+            TEXTURE_SOURCE, PLAYBACK_SOURCE, harness,
+        ]
+        binary = cls.work / "selection"
+        compiled = subprocess.run(
+            ["swiftc", *map(str, sources), "-module-cache-path", str(cls.work / "cache"), "-o", str(binary)],
+            capture_output=True, text=True,
+        )
+        if compiled.returncode:
+            cls.temp.cleanup()
+            raise AssertionError(compiled.stderr)
+        def chunk(kind, data):
+            return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff)
+        png = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 6, 0, 0, 0))
+               + chunk(b"IDAT", zlib.compress(b"\0\xff\x00\x00\xff")) + chunk(b"IEND", b""))
+        (cls.work / "good.png").write_bytes(png)
+        (cls.work / "broken.png").write_bytes(b"not a PNG")
+        bad_crc = bytearray(png); bad_crc[29] ^= 1
+        (cls.work / "crc-broken.png").write_bytes(bad_crc)
+        (cls.work / "unsupported.gif").write_bytes(png)
+        (cls.work / "directory.png").mkdir()
+        run = subprocess.run([str(binary), str(cls.work)], capture_output=True, text=True)
+        if run.returncode:
+            cls.temp.cleanup()
+            raise AssertionError(run.stderr)
+        cls.rows = {row["case"]: row for row in json.loads(run.stdout)}
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temp.cleanup()
+
+    def test_invalid_png_preserves_bookmark_bytes_overrides_and_no_reload(self) -> None:
+        for name in ["broken.png", "crc-broken.png"]:
+            with self.subTest(input=name):
+                row = self.rows[name]
+                self.assertEqual(row["contentType"], "public.png")
+                self.assertFalse(row["accepted"])
+                self.assertTrue(row["bookmarkUnchanged"])
+                self.assertTrue(row["overridesUnchanged"])
+                self.assertTrue(row["error"])
+                self.assertEqual(row["reloads"], 0)
+                self.assertEqual(row["path"], "good.png")
+
+    def test_directory_missing_and_unsupported_extension_are_rejected_without_commit(self) -> None:
+        for name in ["directory.png", "missing.png", "unsupported.gif"]:
+            with self.subTest(input=name):
+                row = self.rows[name]
+                self.assertFalse(row["accepted"])
+                self.assertTrue(row["bookmarkUnchanged"])
+                self.assertTrue(row["overridesUnchanged"])
+                self.assertEqual(row["reloads"], 0)
+                self.assertEqual(row["path"], "good.png")
+
+    def test_valid_png_jpeg_and_subsequent_recovery_use_actual_load_requests(self) -> None:
+        for name in ["good.png", "good.jpeg"]:
+            self.assertTrue(self.rows[name]["accepted"])
+            self.assertEqual(self.rows[name]["reloads"], 1)
+            self.assertEqual(self.rows[name]["path"], name)
+        recovery = self.rows["recovery"]
+        self.assertTrue(recovery["accepted"])
+        self.assertTrue(recovery["bookmarkChanged"])
+        self.assertEqual(recovery["path"], "good.jpeg")
+
+    def test_nil_and_reset_restore_author_defaults_in_actual_load_requests(self) -> None:
+        self.assertTrue(self.rows["clear"]["accepted"])
+        for name in ["clear", "reset"]:
+            row = self.rows[name]
+            self.assertFalse(row["bookmarkExists"])
+            self.assertEqual(row["overrides"], 0)
+            self.assertEqual(row["path"], "none")
 
 
 if __name__ == "__main__":

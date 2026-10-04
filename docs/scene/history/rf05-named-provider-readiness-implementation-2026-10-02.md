@@ -545,3 +545,13 @@ V2 Debug冻结1085份源码无漂移。实际App自有九对齐同输入padding0
 实际sourceFacts→完整属性服务→actionableDefinitions的4个native方法在旧Service为3失败/1通过，合法effect/base消费者均漏入；候选连同既有门共18通过。纹理加载18项、base与live状态17项通过；13个结构门仍为既有analyzer 66/65的两项失败，其余职责/设计/文档门通过，未放宽结构基线。独立只读审查核对入口、同源码App与红蓝图；最终冻结身份由证据包manifest保存。
 
 证据限量保存于`.artifacts/scene-evidence/runs/texture-picker-20261005/final/samples/1/runtime_evidence.zip`（14日）；仅留必要日志、两张截图、源码/输入身份和自有图片，不复制真实包。208整样本正确率仍未知，RF05未完成。下一批检查普通产品文件选择、reset及失效bookmark后的恢复，或发现更早的真实合成断点后重排，不重复已证红蓝渲染路径。
+
+
+<a id="rf05-texture-selection-failure"></a>
+### 损坏选图保留原选择（2026-10-05）
+
+基线e51f1fe4的文件入口仅检查扩展名、存在性和bookmark。自有9字节broken.png实际是regular/public.png，旧Service仍接受并覆盖健康bookmark/override，180ms后把坏URL传给重载；这不是目录选择器反例。现入口在任何持久化之前打开security scope，确认regular file并调用运行时同一个SceneImageTextureUploader.decodeSourceImage，失败保留旧bookmark字节、属性和场景，不请求重载；nil恢复默认沿原链。此检查不保证之后GPU分配或外部改写后的文件仍有效。
+
+用户本轮已亲自确认普通UI能选择背景与播放器封面，同时指出每次整Scene重建很慢。本修复只防坏图覆盖，不宣称改善换图性能：Debug/Onone自有4096² PNG一次完整选择校验187.355ms，仍在主线程；下一批把校验合入异步纹理资源准备，消除同步重复decode和不必要的全场景重建，保留Scene/script/clock，失败保留旧图。
+
+真实Service、共享decoder、bookmark、180ms debounce、请求通知与daemon引用解析的候选22门通过；旧版同4个新方法暴露3个独立失败（坏PNG、CRC坏PNG、目录误接受），目录仅为service反例，普通面板禁止选择目录。Debug冻结1085份产品源无漂移，deep strict签名通过，dylib `30c8e2df2537e771ba0282b5d4c3c627d66b098f1aeda0e69ac2b7da6763ed51`。本批未重新测GPU画面或复杂/更大文件耗时；用户UI验证的是前批入口，不冒充本候选坏图端到端验收。独立只读终审核对失败原子性与回归链；本机证据`.artifacts/scene-evidence/runs/texture-selection-failure-20261005/final/samples/1/runtime_evidence.zip`限量14日。
