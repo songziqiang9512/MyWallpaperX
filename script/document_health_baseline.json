@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 69,
-      "bytes": 6800
+      "bytes": 6797
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -114,7 +114,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 402,
-      "bytes": 96924
+      "bytes": 96724
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -158,11 +158,11 @@
     },
     "docs/scene/roadmap/batch2/particle-playback-state-design.md": {
       "lines": 89,
-      "bytes": 22962
+      "bytes": 22870
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 50577
+      "bytes": 50536
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -170,7 +170,7 @@
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
       "lines": 68,
-      "bytes": 12623
+      "bytes": 12538
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 439,
@@ -178,7 +178,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 243,
-      "bytes": 32452
+      "bytes": 32447
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,

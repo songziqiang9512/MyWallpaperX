@@ -306,6 +306,9 @@ extension SceneDesktopWallpaperSession {
             context: launchContext,
             committed: layerMutationSnapshot.particlePlayback
         )
+        let particleInstanceLayerIDs = Set(launchContext.particleLayerIDs.filter {
+            particleVisibilityResourcesPrepared(layerID: $0, context: launchContext)
+        })
         let sceneScriptLayerSnapshotFailure: SceneScriptScalarRuntimeFailure?
         do {
             try launchContext.propertyVectorScriptProgram.domain?.publishLayerSnapshot(
@@ -315,6 +318,7 @@ extension SceneDesktopWallpaperSession {
                     textureAnimationSnapshots:
                         sceneScriptTextureAnimationSnapshots,
                     particlePlaybackObservations: particleObservations,
+                    particleInstanceLayerIDs: particleInstanceLayerIDs,
                     puppetAttachmentFrames:
                         sceneScriptPuppetPoseFrame.attachmentFrames,
                     destroyedAuthoredLayerIDs:
@@ -539,15 +543,20 @@ extension SceneDesktopWallpaperSession {
             .union(sceneScriptStringResult.failures.keys)
             .union(sceneScriptResult.failures.keys)
             .union(unpreparedParticleVisibilityOwners)
-        // Visibility and explicit emission consume one admitted frame value.
+        // Visibility, instance alpha and explicit emission consume one admitted frame value.
         // Other authored setters retain their existing next-cadence contract.
         func frameScriptValues(_ admitted: [SceneScriptOwnerEffects],
                                excluding rejected: Set<SceneDynamicTarget>)
             -> [SceneDynamicTarget: SceneDynamicValue] {
             var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
             for mutation in admitted.flatMap(\.layerMutations)
-                where !mutation.isDynamic && mutation.kind == .upsert && mutation.fields.contains(.visibility) {
-                values[.layer(layerID: mutation.layerID, field: .visibility)] = .bool(mutation.visible)
+                where !mutation.isDynamic && mutation.kind == .upsert {
+                if mutation.fields.contains(.visibility) {
+                    values[.layer(layerID: mutation.layerID, field: .visibility)] = .bool(mutation.visible)
+                }
+                if mutation.fields.contains(.particleAlpha) {
+                    values[.particle(layerID: mutation.layerID, field: .alpha)] = .scalar(mutation.particleAlpha)
+                }
             }
             values.merge(sceneScriptStringResult.values.filter { !rejected.contains($0.key) }) { _, current in current }
             values.merge(sceneScriptResult.values.filter { !rejected.contains($0.key) }) { _, current in current }
@@ -606,9 +615,9 @@ extension SceneDesktopWallpaperSession {
                     owner -> SceneDynamicTarget? in
                     guard owner.layerMutations.contains(where: { mutation in
                         !mutation.isDynamic && mutation.kind == .upsert
-                            && mutation.fields.contains(.visibility)
-                            && mutation.visible
                             && launchContext.particleLayerIDs.contains(mutation.layerID)
+                            && (mutation.fields.contains(.particleAlpha)
+                                || (mutation.fields.contains(.visibility) && mutation.visible))
                             && !self.particleVisibilityResourcesPrepared(
                                 layerID: mutation.layerID, context: launchContext
                             )

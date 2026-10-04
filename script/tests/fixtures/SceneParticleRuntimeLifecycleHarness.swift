@@ -190,7 +190,10 @@ extension Harness {
         var result: [String: Bool] = [:]
         result["preparedLive"] = playback.playbackObservation(layerID: 42)?.liveAny == true
             && !playback.batches.filter { $0.layerID == 42 }.flatMap(\.instances).isEmpty
-        result["unavailableIsNotFalse"] = (43...46).allSatisfy { playback.playbackObservation(layerID: $0) == nil }
+        result["unavailableIsNotFalse"] = [43, 44, 46].allSatisfy { playback.playbackObservation(layerID: $0) == nil }
+        let transparent = playback.batches.filter { $0.layerID == 45 }.flatMap(\.instances)
+        result["zeroInstanceAlphaKeepsPreparedTransparentOwner"] = playback.playbackObservation(layerID: 45) != nil
+            && !transparent.isEmpty && transparent.allSatisfy { $0.rotationAndAlpha.w == 0 }
         let stop = SceneParticlePlaybackTransition(layerID: 42, action: .stop, revision: 1)
         result["validatesStop"] = playback.validatePlaybackTransitions([stop])
         result["rejectsRevisionGap"] = !playback.validatePlaybackTransitions([.init(layerID: 42, action: .play, revision: 2)])

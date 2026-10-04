@@ -14,6 +14,7 @@ nonisolated extension SceneScriptQuickJSDomain {
         descriptor: SceneRenderDescriptor,
         videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:],
         particlePlaybackObservations: [Int: SceneParticlePlaybackObservation] = [:],
+        particleInstanceLayerIDs: Set<Int> = [],
         textureAnimationSnapshots: [
             Int: SceneTextureAnimationSnapshot
         ] = [:],
@@ -139,6 +140,20 @@ nonisolated extension SceneScriptQuickJSDomain {
             )
             guard particleResult == MWX_SCENE_QUICKJS_OK else {
                 throw layerSnapshotFailure(particleResult, diagnostic: diagnostic)
+            }
+            let alphaTarget = SceneDynamicTarget.particle(layerID: layer.id, field: .alpha)
+            let instanceAlpha: Double
+            if case let .scalar(value)? = snapshot[alphaTarget]?.value {
+                instanceAlpha = value
+            } else {
+                instanceAlpha = layer.particleInstanceOverride?.alpha?.value?.scalarValue ?? 1
+            }
+            let instanceResult = mwx_scene_quickjs_domain_update_layer_particle_instance_alpha(
+                handle, UInt32(index), particleInstanceLayerIDs.contains(layer.id) ? 1 : 0,
+                instanceAlpha, &diagnostic, diagnostic.count
+            )
+            guard instanceResult == MWX_SCENE_QUICKJS_OK else {
+                throw layerSnapshotFailure(instanceResult, diagnostic: diagnostic)
             }
             if let video = videoSnapshots[layer.id] {
                 let videoResult = mwx_scene_quickjs_domain_update_layer_video_fields(

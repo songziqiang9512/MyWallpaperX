@@ -109,7 +109,8 @@ final class SceneParticleRuntime {
         }
         return .init(controlPoints: points,
             controlPointAngles: dynamicValues.particleControlPointAngles(layerID: layerID),
-            instanceOverride: root.simulator.instanceOverride?.resolving(dynamicValues.particleInstanceValues(layerID: layerID)),
+            instanceOverride: SceneParticleInstanceOverride.resolving(authored: root.simulator.instanceOverride,
+                dynamic: dynamicValues.particleInstanceValues(layerID: layerID)),
             audio: audio, worldFrame: world)
     }
     func clearStoppedPlaybackCaches(_ layerIDs: Set<Int>) {
@@ -201,7 +202,6 @@ final class SceneParticleRuntime {
             (visibleIDs.contains($0.id) || preparedParticleVisibilityLayerIDs.contains($0.id))
                 && $0.contentKind == "particle"
                 && $0.particlePath != nil
-                && $0.particleInstanceOverride?.alpha?.isStaticZeroScalar != true
         }
         let materialPasses = descriptor.materialPasses.map {
             SceneParticleMaterialPass(
@@ -510,9 +510,8 @@ final class SceneParticleRuntime {
                     identities: root.pointerControlPointIdentities
                 )
                 rootControlPoints.merge(pointerValues) { _, pointer in pointer }
-                let instanceOverride = root.simulator.instanceOverride?.resolving(
-                    dynamicOverride
-                )
+                let instanceOverride = SceneParticleInstanceOverride.resolving(
+                    authored: root.simulator.instanceOverride, dynamic: dynamicOverride)
                 root.simulator.advance(
                     by: layerDelta,
                     dynamicControlPoints: rootControlPoints,
@@ -881,9 +880,9 @@ final class SceneParticleRuntime {
             path: path
         ) else { return nil }
 
-        let initialInstanceOverride = layer.particleInstanceOverride?.resolving(
-            initialDynamicValues.particleInstanceValues(layerID: layer.id)
-        )
+        let initialInstanceOverride = SceneParticleInstanceOverride.resolving(
+            authored: layer.particleInstanceOverride,
+            dynamic: initialDynamicValues.particleInstanceValues(layerID: layer.id))
         let simulator = SceneParticleSimulator(
             definition: asset.definition,
             instanceOverride: layer.particleInstanceOverride,

@@ -52,6 +52,16 @@ typedef struct MWXSceneQuickJSMaterialFunctionMutationRecord {
     char function_name[MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_NAME];
 } MWXSceneQuickJSMaterialFunctionMutationRecord;
 
+// Shared identity for ordinary layer access and its particle-instance projection.
+typedef struct MWXSceneQuickJSLayerAccessHandle {
+    MWXSceneQuickJSDomain *domain;
+    uint64_t owner_identity;
+    uint32_t layer_index;
+    uint64_t callback_epoch;
+    bool owner_target;
+    bool persistent;
+} MWXSceneQuickJSLayerAccessHandle;
+
 typedef struct MWXSceneQuickJSLayerRecord {
     int64_t layer_id;
     int64_t parent_id;
@@ -70,6 +80,8 @@ typedef struct MWXSceneQuickJSLayerRecord {
     double angles[3];
     double color[3];
     double alpha;
+    bool particle_instance_available;
+    double particle_alpha;
     double point_size;
     int32_t order_index;
     uint64_t owner_identity;
@@ -114,6 +126,8 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     double angles[3];
     double color[3];
     double alpha;
+    bool particle_instance_available;
+    double particle_alpha;
     double point_size;
     bool visible;
     bool solid;
@@ -148,6 +162,7 @@ typedef struct MWXSceneQuickJSAuthoredLayerMutationRecord {
     double scale[3];
     double angles[3];
     double alpha;
+    double particle_alpha;
     double color[3];
     bool visible;
     bool solid;
@@ -386,6 +401,7 @@ struct MWXSceneQuickJSOwner {
     double authored_layer_baseline_origin[3];
     double authored_layer_baseline_scale[3];
     double authored_layer_baseline_angles[3];
+    bool layer_mutation_overflow;
     size_t authored_layer_mutation_count;
     MWXSceneQuickJSAuthoredLayerMutationRecord authored_layer_mutations[
         MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS
@@ -560,6 +576,9 @@ bool mwx_scene_quickjs_assign_script_properties(
     size_t length
 );
 
+MWXSceneQuickJSLayerRecord *mwx_scene_quickjs_layer_record_for_handle(MWXSceneQuickJSLayerAccessHandle *);
+bool mwx_scene_quickjs_define_particle_instance(MWXSceneQuickJSOwner *, JSValue,
+    uint32_t, bool owner_target, bool persistent);
 MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mutation(MWXSceneQuickJSOwner *, uint32_t);
 MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_authored_mutation_for_layer(MWXSceneQuickJSOwner *, uint32_t);
 MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_authored_mutation_baseline_for_layer(MWXSceneQuickJSOwner *, uint32_t);

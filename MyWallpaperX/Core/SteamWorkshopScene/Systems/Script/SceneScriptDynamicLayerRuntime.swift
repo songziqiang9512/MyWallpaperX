@@ -46,11 +46,16 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         self.dynamicImageTemplates = dynamicImageTemplates
         order = descriptor.renderOrderLayerIDs
         let initialDefinitions = descriptor.layers.flatMap { layer -> [SceneDynamicTargetDefinition] in
-            if authoredMutationLayerIDs.contains(layer.id) { return Self.initialAuthoredDefinitions(for: layer) }
+            var definitions = authoredMutationLayerIDs.contains(layer.id)
+                ? Self.initialAuthoredDefinitions(for: layer)
+                : [Self.definition(for: .layer(layerID: layer.id, field: .visibility), layer: layer)].compactMap { $0 }
             // A prepared authored handle may receive its first visibility write
             // this cadence. Register the typed lane before callbacks, including
             // ancestor containers, so the shared snapshot can consume it now.
-            return [Self.definition(for: .layer(layerID: layer.id, field: .visibility), layer: layer)].compactMap { $0 }
+            if let alpha = Self.definition(for: .particle(layerID: layer.id, field: .alpha), layer: layer) {
+                definitions.append(alpha)
+            }
+            return definitions
         }
         authoredDefinitionOrder = initialDefinitions.map(\.target)
         authoredDefinitionsByTarget = Dictionary(
@@ -218,6 +223,18 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                         return .failure(.invalidArgument("conflicting authored layer mutation target"))
                     }
                     candidateAuthoredValues[target] = .scalar(mutation.alpha)
+                    Self.ensureDefinition(for: target, layer: authoredLayer,
+                        order: &candidateDefinitionOrder, definitions: &candidateDefinitions)
+                }
+                if mutation.fields.contains(.particleAlpha) {
+                    guard authoredLayer.contentKind == "particle", mutation.particleAlpha.isFinite else {
+                        return .failure(.invalidArgument("invalid authored particle instance alpha"))
+                    }
+                    let target = SceneDynamicTarget.particle(layerID: mutation.layerID, field: .alpha)
+                    guard authoredTargets.insert(target).inserted else {
+                        return .failure(.invalidArgument("conflicting authored particle instance alpha"))
+                    }
+                    candidateAuthoredValues[target] = .scalar(mutation.particleAlpha)
                     Self.ensureDefinition(for: target, layer: authoredLayer,
                         order: &candidateDefinitionOrder, definitions: &candidateDefinitions)
                 }
@@ -627,7 +644,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
 
     private static func layerID(for target: SceneDynamicTarget) -> Int? {
         switch target {
-        case let .layer(layerID, _), let .text(layerID, _), let .effectVisibility(layerID, _):
+        case let .layer(layerID, _), let .text(layerID, _), let .effectVisibility(layerID, _), let .particle(layerID, _):
             layerID
         default:
             nil
@@ -646,6 +663,9 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         var values: [(SceneDynamicTarget, SceneDynamicValue)] = []
         if mutation.fields.contains(.alpha) {
             values.append((.layer(layerID: mutation.layerID, field: .alpha), .scalar(mutation.alpha)))
+        }
+        if mutation.fields.contains(.particleAlpha) {
+            values.append((.particle(layerID: mutation.layerID, field: .alpha), .scalar(mutation.particleAlpha)))
         }
         if mutation.fields.contains(.color) {
             values.append((.layer(layerID: mutation.layerID, field: .color),
@@ -754,6 +774,9 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         layer: SceneRenderDescriptor.Layer
     ) -> SceneDynamicTargetDefinition? {
         switch target {
+        case let .particle(layerID, .alpha) where layerID == layer.id && layer.contentKind == "particle":
+            .init(target: target, valueType: .scalar,
+                  authoredValue: .scalar(layer.particleInstanceOverride?.alpha?.value?.scalarValue ?? 1))
         case let .effectVisibility(layerID, effectIndex)
             where layerID == layer.id && layer.effects.indices.contains(effectIndex):
             .init(target: target, valueType: .bool, authoredValue: .bool(layer.effects[effectIndex].visible ?? true))

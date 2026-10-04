@@ -74,7 +74,9 @@ General 层至少包含：
 - sprite sheet animation、frame blending 与 sequence multiplier；
 - author instance overrides。
 
-这些设置决定资源、simulation budget 和 renderer variant。一个粒子层可见不代表它立刻发射；start time、emitter delay/rate、max count 和 parent visibility 都要参与。
+这些设置决定资源、simulation budget和renderer variant；显隐与排放分别受parent visibility、start time、delay/rate及max count控制。
+
+只读`.instance`句柄的alpha读写已通过限定App验收：仅有限Number与当前代实际prepared粒子身份，独立于播放命令资格；没有authored override时默认1。getter读取本callback pending前缀，setter沿现layer journal与typed snapshot原子接纳/回滚；`alpha=A;emit;alpha=B;emit`各自捕获调用前缀。alpha只乘后续出生，旧粒子不重乘，root/child沿原override继承；stale/destroyed、预算或owner拒绝撤回，其他实例字段不可用。当前验收及官方受控边界见[记录](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-instance-alpha)。
 
 ### 2.2 Emitters
 

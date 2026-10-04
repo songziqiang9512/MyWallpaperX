@@ -7,15 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct MWXSceneQuickJSLayerHandle {
-    MWXSceneQuickJSDomain *domain;
-    uint64_t owner_identity;
-    uint32_t layer_index;
-    uint64_t callback_epoch;
-    bool owner_target;
-    bool persistent;
-} MWXSceneQuickJSLayerHandle;
-
 typedef struct MWXSceneQuickJSLayerResourceHandle {
     MWXSceneQuickJSDomain *domain;
     uint64_t owner_identity;
@@ -25,10 +16,6 @@ typedef struct MWXSceneQuickJSLayerResourceHandle {
 typedef struct MWXSceneQuickJSAssetHandle {
     char *path;
 } MWXSceneQuickJSAssetHandle;
-
-static MWXSceneQuickJSLayerRecord *record_for_handle(
-    MWXSceneQuickJSLayerHandle *handle
-);
 
 static JSValue make_layer_handle(
     JSContext *context,
@@ -144,10 +131,10 @@ enum PuppetBoneFunction {
     PUPPET_BONE_GET_LOCAL_ORIGIN, PUPPET_BONE_SET_LOCAL_ORIGIN,
 };
 
-static bool bone_handle_ready(MWXSceneQuickJSLayerHandle *handle,
+static bool bone_handle_ready(MWXSceneQuickJSLayerAccessHandle *handle,
                               MWXSceneQuickJSOwner **owner_out) {
     if (handle == NULL || !handle->owner_target) return false;
-    MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
+    MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(handle);
     if (record == NULL) return false;
     MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
     if (owner->puppet_bone_layer_id != record->layer_id) return false;
@@ -215,7 +202,7 @@ static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
                                 int argc, JSValueConst *argv, int magic,
                                 void *opaque) {
     (void)this_value;
-    MWXSceneQuickJSLayerHandle *handle = opaque;
+    MWXSceneQuickJSLayerAccessHandle *handle = opaque;
     MWXSceneQuickJSOwner *owner = NULL;
     if (!bone_handle_ready(handle, &owner))
         return JS_ThrowTypeError(context, "Puppet bone handle is unavailable");
@@ -303,8 +290,8 @@ static bool callback_owns(MWXSceneQuickJSOwner *owner) {
         owner->domain->callback_active && owner->domain->active_owner == owner;
 }
 
-static MWXSceneQuickJSLayerRecord *record_for_handle(
-    MWXSceneQuickJSLayerHandle *handle
+MWXSceneQuickJSLayerRecord *mwx_scene_quickjs_layer_record_for_handle(
+    MWXSceneQuickJSLayerAccessHandle *handle
 ) {
     if (handle == NULL || handle->domain == NULL ||
         handle->domain->active_owner == NULL ||
@@ -331,6 +318,7 @@ static MWXSceneQuickJSLayerRecord *record_for_handle(
 static bool mark_dirty(MWXSceneQuickJSOwner *owner, MWXSceneQuickJSLayerRecord *record) {
     if (!record->dirty || record->dirty_owner_identity != owner->identity) {
         if (owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS) {
+            owner->layer_mutation_overflow = true;
             return false;
         }
         owner->layer_mutation_count += 1;
@@ -705,6 +693,7 @@ static void clear_layer_mutation_buffers(
     }
     owner->authored_layer_mutation_count = 0;
     owner->layer_mutation_count = 0;
+    owner->layer_mutation_overflow = false;
     for (uint32_t index = 0; index < owner->domain->layer_count; ++index) {
         MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[index];
         if (record->dirty && record->dirty_owner_identity == owner->identity) {
@@ -1003,10 +992,12 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mut
     MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
         mwx_scene_quickjs_authored_mutation_for_layer(owner, layer_index);
     if (mutation != NULL) return mutation;
+    if (layer_index >= owner->domain->authored_layer_count) return NULL;
     if (owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS ||
-        owner->authored_layer_mutation_count >=
-            MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS ||
-        layer_index >= owner->domain->authored_layer_count) return NULL;
+        owner->authored_layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS) {
+        owner->layer_mutation_overflow = true;
+        return NULL;
+    }
     MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[layer_index];
     mutation = &owner->authored_layer_mutations[
         owner->authored_layer_mutation_count++
@@ -1015,6 +1006,7 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mut
         .layer_index = layer_index,
         .visible = record->visible, .solid = record->solid,
         .alpha = record->alpha,
+        .particle_alpha = record->particle_alpha,
     };
     memcpy(mutation->color, record->color, sizeof(mutation->color));
     memcpy(mutation->origin, record->current_origin, sizeof(mutation->origin));
@@ -1037,6 +1029,8 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mut
             mutation->visible = baseline->visible;
         if ((baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SOLID) != 0)
             mutation->solid = baseline->solid;
+        if ((baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA) != 0)
+            mutation->particle_alpha = baseline->particle_alpha;
     } else if (owner->target_layer_configured &&
         layer_index == owner->target_layer_index &&
         owner->authored_layer_baseline_available) {
@@ -1105,8 +1099,8 @@ static JSValue layer_get(
     JSValueConst *argv, int magic, void *opaque
 ) {
     (void)this_value; (void)argc; (void)argv;
-    MWXSceneQuickJSLayerHandle *handle = opaque;
-    MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
+    MWXSceneQuickJSLayerAccessHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(handle);
     if (record == NULL) return JS_ThrowTypeError(context, "layer handle is stale");
     MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
     const uint32_t record_index = (uint32_t)(record - handle->domain->layers);
@@ -1210,8 +1204,8 @@ static JSValue layer_set(
     JSValueConst *argv, int magic, void *opaque
 ) {
     (void)this_value;
-    MWXSceneQuickJSLayerHandle *handle = opaque;
-    MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
+    MWXSceneQuickJSLayerAccessHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(handle);
     if (record == NULL || argc != 1) {
         return JS_ThrowTypeError(context, "layer mutation target is not an owned dynamic layer");
     }
@@ -1547,8 +1541,8 @@ static JSValue get_parent(
     JSValueConst *argv, int magic, void *opaque
 ) {
     (void)this_value; (void)argv; (void)magic;
-    MWXSceneQuickJSLayerHandle *handle = opaque;
-    MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
+    MWXSceneQuickJSLayerAccessHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(handle);
     if (record == NULL || argc != 0)
         return JS_ThrowTypeError(context, "getParent layer handle is stale");
     if (!record->has_parent) return JS_UNDEFINED;
@@ -1572,8 +1566,8 @@ static JSValue get_children(
     JSValueConst *argv, int magic, void *opaque
 ) {
     (void)this_value; (void)argv; (void)magic;
-    MWXSceneQuickJSLayerHandle *handle = opaque;
-    MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
+    MWXSceneQuickJSLayerAccessHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(handle);
     if (record == NULL || argc != 0)
         return JS_ThrowTypeError(context, "getChildren layer handle is stale");
     MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
@@ -1609,9 +1603,9 @@ static bool define_get_children(
     JSContext *context, JSValue layer, MWXSceneQuickJSOwner *owner,
     uint32_t index, bool owner_target, bool persistent
 ) {
-    MWXSceneQuickJSLayerHandle *handle = calloc(1, sizeof(*handle));
+    MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
     if (handle == NULL) return false;
-    *handle = (MWXSceneQuickJSLayerHandle){
+    *handle = (MWXSceneQuickJSLayerAccessHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index,
         .callback_epoch = owner->domain->callback_epoch,
@@ -1630,8 +1624,8 @@ static JSValue get_transform_matrix(
     JSValueConst *argv, int magic, void *opaque
 ) {
     (void)this_value; (void)argv; (void)magic;
-    MWXSceneQuickJSLayerHandle *handle = opaque;
-    MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
+    MWXSceneQuickJSLayerAccessHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(handle);
     if (record == NULL)
         return JS_ThrowTypeError(
             context, "getTransformMatrix layer handle is stale"
@@ -1890,8 +1884,8 @@ static JSValue get_video_texture(
     JSValueConst *argv, int magic, void *opaque
 ) {
     (void)this_value; (void)argv; (void)magic;
-    MWXSceneQuickJSLayerHandle *handle = opaque;
-    MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
+    MWXSceneQuickJSLayerAccessHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(handle);
     if (record == NULL || argc != 0)
         return JS_ThrowTypeError(context, "getVideoTexture unavailable");
     if (!record->video_available) return JS_UNDEFINED;
@@ -1907,9 +1901,9 @@ static bool define_get_video_texture(
     JSContext *context, JSValue layer, MWXSceneQuickJSOwner *owner,
     uint32_t index, bool owner_target, bool persistent
 ) {
-    MWXSceneQuickJSLayerHandle *handle = calloc(1, sizeof(*handle));
+    MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
     if (handle == NULL) return false;
-    *handle = (MWXSceneQuickJSLayerHandle){
+    *handle = (MWXSceneQuickJSLayerAccessHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index, .callback_epoch = owner->domain->callback_epoch,
         .owner_target = owner_target, .persistent = persistent,
@@ -1927,8 +1921,8 @@ static bool define_get_video_texture(
 static JSValue particle_playback_call(JSContext *context, JSValueConst this_value,
     int argc, JSValueConst *argv, int magic, void *opaque) {
     (void)this_value;
-    MWXSceneQuickJSLayerHandle *handle = opaque;
-    MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
+    MWXSceneQuickJSLayerAccessHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(handle);
     if ((magic == 4 ? argc != 1 : argc != 0) || record == NULL || !record->particle_playback.available)
         return JS_ThrowTypeError(context, "particle playback unavailable or unsupported arguments");
     MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
@@ -1990,9 +1984,9 @@ static bool define_particle_playback(JSContext *context, JSValue layer,
     MWXSceneQuickJSOwner *owner, uint32_t index, bool owner_target, bool persistent) {
     const char *names[] = {"play", "pause", "stop", "isPlaying", "emitParticles"};
     for (int action = 0; action < 5; ++action) {
-        MWXSceneQuickJSLayerHandle *handle = calloc(1, sizeof(*handle));
+        MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
         if (handle == NULL) return false;
-        *handle = (MWXSceneQuickJSLayerHandle){ .domain = owner->domain,
+        *handle = (MWXSceneQuickJSLayerAccessHandle){ .domain = owner->domain,
             .owner_identity = owner->identity, .layer_index = index,
             .callback_epoch = owner->domain->callback_epoch,
             .owner_target = owner_target, .persistent = persistent };
@@ -2299,8 +2293,8 @@ static JSValue get_texture_animation(
     JSValueConst *argv, int magic, void *opaque
 ) {
     (void)this_value; (void)argv; (void)magic;
-    MWXSceneQuickJSLayerHandle *handle = opaque;
-    MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
+    MWXSceneQuickJSLayerAccessHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(handle);
     if (record == NULL || argc != 0)
         return JS_ThrowTypeError(context, "getTextureAnimation unavailable");
     if (!record->texture_animation_available) return JS_UNDEFINED;
@@ -2316,9 +2310,9 @@ static bool define_get_texture_animation(
     JSContext *context, JSValue layer, MWXSceneQuickJSOwner *owner,
     uint32_t index, bool owner_target, bool persistent
 ) {
-    MWXSceneQuickJSLayerHandle *handle = calloc(1, sizeof(*handle));
+    MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
     if (handle == NULL) return false;
-    *handle = (MWXSceneQuickJSLayerHandle){
+    *handle = (MWXSceneQuickJSLayerAccessHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index, .callback_epoch = owner->domain->callback_epoch,
         .owner_target = owner_target, .persistent = persistent,
@@ -2337,13 +2331,13 @@ static bool define_property(
     uint32_t index, bool owner_target, bool persistent,
     const char *name, enum LayerProperty property, bool writable
 ) {
-    MWXSceneQuickJSLayerHandle *getter_handle = calloc(1, sizeof(*getter_handle));
-    MWXSceneQuickJSLayerHandle *setter_handle = writable
+    MWXSceneQuickJSLayerAccessHandle *getter_handle = calloc(1, sizeof(*getter_handle));
+    MWXSceneQuickJSLayerAccessHandle *setter_handle = writable
         ? calloc(1, sizeof(*setter_handle)) : NULL;
     if (getter_handle == NULL || (writable && setter_handle == NULL)) {
         free(getter_handle); free(setter_handle); return false;
     }
-    *getter_handle = (MWXSceneQuickJSLayerHandle){
+    *getter_handle = (MWXSceneQuickJSLayerAccessHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index,
         .callback_epoch = owner->domain->callback_epoch,
@@ -2368,9 +2362,9 @@ static bool define_get_parent(
     JSContext *context, JSValue layer, MWXSceneQuickJSOwner *owner,
     uint32_t index, bool owner_target, bool persistent
 ) {
-    MWXSceneQuickJSLayerHandle *handle = calloc(1, sizeof(*handle));
+    MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
     if (handle == NULL) return false;
-    *handle = (MWXSceneQuickJSLayerHandle){
+    *handle = (MWXSceneQuickJSLayerAccessHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index,
         .callback_epoch = owner->domain->callback_epoch,
@@ -2388,9 +2382,9 @@ static bool define_get_transform_matrix(
     JSContext *context, JSValue layer, MWXSceneQuickJSOwner *owner,
     uint32_t index, bool owner_target, bool persistent
 ) {
-    MWXSceneQuickJSLayerHandle *handle = calloc(1, sizeof(*handle));
+    MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
     if (handle == NULL) return false;
-    *handle = (MWXSceneQuickJSLayerHandle){
+    *handle = (MWXSceneQuickJSLayerAccessHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index,
         .callback_epoch = owner->domain->callback_epoch,
@@ -2422,9 +2416,9 @@ static bool define_puppet_bone_functions(
         {"setLocalBoneOrigin", PUPPET_BONE_SET_LOCAL_ORIGIN, 2},
     };
     for (size_t i = 0; i < sizeof(functions) / sizeof(functions[0]); ++i) {
-        MWXSceneQuickJSLayerHandle *handle = calloc(1, sizeof(*handle));
+        MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
         if (handle == NULL) return false;
-        *handle = (MWXSceneQuickJSLayerHandle){
+        *handle = (MWXSceneQuickJSLayerAccessHandle){
             .domain = owner->domain, .owner_identity = owner->identity,
             .layer_index = index, .callback_epoch = owner->domain->callback_epoch,
             .owner_target = owner_target, .persistent = persistent,
@@ -2449,9 +2443,9 @@ static JSValue make_layer_handle(
     }
     const bool owner_target = owner->target_layer_configured &&
         index == owner->target_layer_index;
-    MWXSceneQuickJSLayerHandle *identity = calloc(1, sizeof(*identity));
+    MWXSceneQuickJSLayerAccessHandle *identity = calloc(1, sizeof(*identity));
     if (identity == NULL) return JS_EXCEPTION;
-    *identity = (MWXSceneQuickJSLayerHandle){
+    *identity = (MWXSceneQuickJSLayerAccessHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index,
         .callback_epoch = owner->domain->callback_epoch,
@@ -2500,6 +2494,9 @@ static JSValue make_layer_handle(
         JS_FreeValue(context, layer);
         return JS_EXCEPTION;
     }
+    if (!mwx_scene_quickjs_define_particle_instance(owner, layer, index, owner_target, persistent)) {
+        JS_FreeValue(context, layer); return JS_EXCEPTION;
+    }
     if (!define_particle_playback(context, layer, owner, index, owner_target, persistent)) {
         JS_FreeValue(context, layer); return JS_EXCEPTION;
     }
@@ -2541,19 +2538,19 @@ static MWXSceneQuickJSLayerRecord *resolve_layer_argument(
 ) {
     if (!callback_owns(owner)) return NULL;
     if (JS_IsStrictEqual(context, value, owner->material_function_layer)) {
-        MWXSceneQuickJSLayerHandle target = {
+        MWXSceneQuickJSLayerAccessHandle target = {
             .domain = owner->domain,
             .owner_identity = owner->identity,
             .callback_epoch = owner->domain->callback_epoch,
             .owner_target = true,
             .persistent = true,
         };
-        return record_for_handle(&target);
+        return mwx_scene_quickjs_layer_record_for_handle(&target);
     }
-    MWXSceneQuickJSLayerHandle *handle = JS_GetOpaque(
+    MWXSceneQuickJSLayerAccessHandle *handle = JS_GetOpaque(
         value, owner->domain->layer_handle_class_id
     );
-    return record_for_handle(handle);
+    return mwx_scene_quickjs_layer_record_for_handle(handle);
 }
 
 static int32_t active_count(MWXSceneQuickJSDomain *domain) {
@@ -3101,6 +3098,7 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
     if (!define_get_video_texture(
             context, owner->material_function_layer, owner, 0, true, true
         )) return false;
+    if (!mwx_scene_quickjs_define_particle_instance(owner, owner->material_function_layer, 0, true, true)) return false;
     if (!define_particle_playback(context, owner->material_function_layer, owner, 0, true, true)) return false;
     if (!define_get_texture_animation(
             context, owner->material_function_layer, owner, 0, true, true
@@ -3382,7 +3380,9 @@ bool mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner) 
 }
 
 size_t mwx_scene_quickjs_owner_layer_mutation_count(const MWXSceneQuickJSOwner *owner) {
-    return owner == NULL || owner->disabled ? 0 : owner->layer_mutation_count;
+    if (owner == NULL || owner->disabled) return 0;
+    // A caught JS exception cannot turn an unsafe, truncated journal into success.
+    return owner->layer_mutation_overflow ? SIZE_MAX : owner->layer_mutation_count;
 }
 
 size_t mwx_scene_quickjs_owner_puppet_bone_mutation_count(
@@ -3414,6 +3414,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
     char *diagnostic, size_t diagnostic_capacity
 ) {
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (owner != NULL && owner->layer_mutation_overflow) {
+        mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "layer mutation buffer exceeded");
+        return MWX_SCENE_QUICKJS_MUTATION_OVERFLOW;
+    }
     if (owner == NULL || owner->disabled || mutation == NULL ||
         requested >= owner->layer_mutation_count) {
         mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "invalid layer mutation index");
@@ -3443,6 +3447,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
             .order_index = record->order_index,
             .visible = staged->visible, .solid = staged->solid,
             .alpha = staged->alpha,
+            .particle_alpha = staged->particle_alpha,
             .point_size = record->point_size,
             .text = (staged->fields &
                      MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT) != 0
@@ -3781,6 +3786,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     const char *font,
     size_t font_length,
     double alpha,
+    double particle_alpha,
     const double color[3],
     uint32_t effect_count, const uint8_t *effect_visible,
     char *diagnostic,
@@ -3796,13 +3802,15 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR |
-        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_EFFECT_VISIBILITY;
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_EFFECT_VISIBILITY |
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA;
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
     if (owner == NULL || owner->domain == NULL || owner->disabled ||
         owner->domain->callback_active || owner->generation != expected_generation ||
         fields == 0 || (fields & ~supported_fields) != 0 || visible > 1 || solid > 1 ||
         origin == NULL || scale == NULL || angles == NULL || text == NULL ||
         font == NULL || color == NULL || !isfinite(alpha) || alpha < 0 || alpha > 1 ||
+        !isfinite(particle_alpha) ||
         text_length > MWX_SCENE_QUICKJS_MAX_LAYER_TEXT ||
         font_length > MWX_SCENE_QUICKJS_MAX_LAYER_FONT ||
         memchr(text, '\0', text_length) != NULL ||
@@ -3837,6 +3845,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         }
     }
     if (layer_index == UINT32_MAX ||
+        ((fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA) != 0 &&
+         !owner->domain->layers[layer_index].particle_instance_available) ||
         ((fields & (MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT |
                     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT)) != 0 &&
          !owner->domain->layers[layer_index].text_mutable)) {
@@ -3897,6 +3907,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         .fields = fields,
         .visible = visible != 0, .solid = solid != 0,
         .alpha = alpha,
+        .particle_alpha = particle_alpha,
         .effect_visible = effect_copy,
         .text = text_copy,
         .font = font_copy,

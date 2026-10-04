@@ -578,6 +578,8 @@ extension Harness {
         return [
             "activeLayerIDs": runtime.activeLayerIDs,
             "batchLayerIDs": batches.map(\.layerID),
+            "zeroInstanceAlphaGPUValues": batches.filter { $0.layerID == 10 }
+                .flatMap { $0.instances.map { $0.rotationAndAlpha.w } },
             "activeParticleCount": batches.first?.instances.count ?? 0,
             "childInstanceCount": batches.first {
                 $0.particlePath == "particles/child.json"

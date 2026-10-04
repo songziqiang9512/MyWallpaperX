@@ -42,7 +42,7 @@
 
 prepared root、无 authored child、单个 supported 确定性 schedule 的 play/pause/stop/isPlaying 已完成真实VM事务、模拟/资源、冻结App六项显示/故障门及独立终审。当前能力边界、三项事务审查修复、错误分类反例、未验证GPU错误/RNG边界和冻结身份仅见[执行记录](../../history/rf03-particle-playback-implementation-2026-10-02.md)；目标仍由[D4](script-component-api-design.md)/[D11](particle-playback-state-design.md)约束。默认emit数量、reset、多emitter、children、随机周期未开放，不能据限定方法升级为完整组件API。唯一能力/运行owner接管后删除本移交指针，不在派生卡重复结果计数。
 
-RF03 连续排放后继已独立验收：缺省/0 duration四方法和显式非法duration边界已闭合，修前反例、最终App与证据边界见[独立执行记录](../../history/rf03-particle-playback-implementation-2026-10-02.md#rf03-continuous)。显式burst未随连续排放片开放；其独立后继现已完成调用期真实出生事务与最终App验证，冻结范围、审查修复和HEAD既有失败仅见[显式出生记录](../../history/rf03-particle-playback-implementation-2026-10-02.md#rf03-explicit-emission)，已获独立终审ACCEPT并随该职责批提交。后续选序见[兼容路线](../scene-compatibility-roadmap.md#batch-2-后继选序2026-10-02)；不重复创建粒子模拟或播放owner。
+RF03 连续排放后继已独立验收：缺省/0 duration四方法和显式非法duration边界已闭合，修前反例、最终App与证据边界见[独立执行记录](../../history/rf03-particle-playback-implementation-2026-10-02.md#rf03-continuous)。显式burst未随连续排放片开放；其独立后继现已完成调用期真实出生事务与最终App验证，冻结范围、审查修复和HEAD既有失败仅见[显式出生记录](../../history/rf03-particle-playback-implementation-2026-10-02.md#rf03-explicit-emission)。后续选序见[兼容路线](../scene-compatibility-roadmap.md#batch-2-后继选序2026-10-02)；不重复创建粒子模拟或播放owner。
 
 <a id="rf04--d12-已完成画面的共享-mip-输入"></a>
 
@@ -62,7 +62,7 @@ RF03 连续排放后继已独立验收：缺省/0 duration四方法和显式非�
 
 **正反验收。** 诊断导出片已完成独立终审、真实AppKit反例及完整App退出/呈现门，结果仅见[冻结执行记录](../../history/rf05-debug-capture-lifecycle-implementation-2026-10-02.md)，合同见[诊断截图生命周期设计](debug-frame-capture-lifecycle-design.md)；短HDR对照不宣称性能完成。named provider 准备及显示分离片已完成八项签名App门，范围、原失败、受限optional profile与独立终审见[冻结记录](../../history/rf05-named-provider-readiness-implementation-2026-10-02.md)。途中发现的三候选未支持组合阻断首帧，已由[独立局部失败批](../../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-optional-failure)恢复安全入口和健康邻层；未扩大候选执行profile，RF05全卡仍未完成。资源准备期间连续属性意图已修复并用实际 App 验证，见[有界子批](../../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-deferred-intent)。其余组合门仍待执行： 初值覆盖→首帧hidden剪枝→live变化→script authored fallback不污染；visible bool/value-bool/user string/name-condition及数值wrapper保守分支分别验证。隐藏provider被跨层采样仍执行，隐藏未消费对象不贡献输出；toggle、同帧不同消费者、错purpose/stale generation、resize/reload和provider晚到验证publication闭包。一屏drawable缺失、另一屏真实completion、所有屏失败后恢复，VM heap/timer/input/localStorage与粒子RNG/child births/Puppet physics每cadence一次消费，恢复使用最新typed snapshot。pause首帧、run profile切换、政策重连/继承及旧epoch分别验收。
 
-**当前下一步。** [粒子alpha](../../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-particle-alpha-contract)修复；376缺光未闭；后继instance、321输入、377video。
+**当前下一步。** [instance.alpha](../../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-instance-alpha)有界验收通过；321输入交互→377双video，376上发丝光线仍开放。
 
 **普通父层显隐实施决定（2026-10-04）。** 真实时钟父层的热更新因无子根层限制被拒，现有 snapshot 已能按 parent 传播显隐。沿原准入 owner 区分“属性目标”与“准备闭包”：支持固定、唯一身份、无环且父引用完整的普通 container/image/solid/text 树，将候选父层的后代图及资源提前纳入现有准备；typed 更新只改变作者指定层，子层自身 false 保持有效。普通帧不重建树，不新增 visibility owner；composition/fullscreen/model/particle 的既有边界独立保留。父层间接控制的图片不得沿仅处理直接条件目标的延迟加载路径遗漏。坏层级拒绝对应目标，资源失败沿原局部降级。验收 hidden 父启动→显示→隐藏、嵌套、子 effect、子层 false、健康邻层、重复 ID/环/缺父反例及真实时钟更新，独审后提交；模型背景显隐另批，不把热更新通过当整样本完成。
 

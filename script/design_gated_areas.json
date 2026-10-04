@@ -43,7 +43,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "design_notes": "批准现役句柄/事务扩展及D11显式count后继：调用时出生输入、同步真实预检、最终owner准入，禁止final-context不同即拒绝的无依据限制。默认count/未证API不开放；approved不是产品或运行验收。",
+      "design_notes": "2026-10-04批准D4限定instance.alpha后继：官方旧粒子/新出生相位已分离；现journal→typed particle snapshot→原出生owner，含无authored默认与setter/emit前缀、原子回滚。其他字段/默认count未知不开放；approved不是产品验收。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/**/SceneScript*Component*.swift"
       ],
@@ -161,7 +161,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/particle-playback-state-design.md",
-      "design_notes": "2026-10-02批准显式count后继：现runtime拥有实际出生，全surface真实预检/原子安装，调用期context按journal保留，native工作/临时预算在现domain计量，GPU失败不重放。默认/children/reset未知保持未开放；approved不是实施验收。",
+      "design_notes": "2026-10-04 D4 instance.alpha后继复用D11现调用前缀、全surface预检及owner准入；不倒灌后置return，不新建模拟/参数owner。原显式count预算与GPU失败不重放保留；其余未知不开放。",
       "matchPatterns": [],
       "contentPatterns": []
     },

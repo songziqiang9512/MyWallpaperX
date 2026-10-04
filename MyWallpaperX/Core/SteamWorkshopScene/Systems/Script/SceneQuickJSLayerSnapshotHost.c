@@ -108,6 +108,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
         pending[index].solid = record->solid;
         pending[index].destroyed = record->destroyed;
         pending[index].alpha = record->alpha;
+        pending[index].particle_instance_available = record->particle_instance_available;
+        pending[index].particle_alpha = record->particle_alpha;
         pending[index].point_size = record->point_size;
         pending[index].video_available = record->video_available;
         pending[index].video_duration = record->video_duration;
@@ -276,6 +278,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     staged->video_is_playing = false;
     staged->video_ended_generation = 0;
     staged->particle_playback = (MWXSceneQuickJSParticlePlaybackState){0};
+    staged->particle_instance_available = false;
+    staged->particle_alpha = 1;
     staged->texture_animation_available = false;
     staged->texture_animation_frame_count = 0;
     staged->texture_animation_duration = 0;
@@ -465,6 +469,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         const bool previous_solid = record->solid;
         const bool previous_destroyed = record->destroyed;
         const double previous_alpha = record->alpha;
+        const bool previous_particle_instance_available = record->particle_instance_available;
+        const double previous_particle_alpha = record->particle_alpha;
         const double previous_point_size = record->point_size;
         const bool previous_video_available = record->video_available;
         const double previous_video_duration = record->video_duration;
@@ -518,6 +524,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         record->solid = staged->solid;
         record->destroyed = staged->destroyed;
         record->alpha = staged->alpha;
+        record->particle_instance_available = staged->particle_instance_available;
+        record->particle_alpha = staged->particle_alpha;
         record->point_size = staged->point_size;
         record->video_available = staged->video_available;
         record->video_duration = staged->video_duration;
@@ -557,6 +565,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         staged->solid = previous_solid;
         staged->destroyed = previous_destroyed;
         staged->alpha = previous_alpha;
+        staged->particle_instance_available = previous_particle_instance_available;
+        staged->particle_alpha = previous_particle_alpha;
         staged->point_size = previous_point_size;
         staged->video_available = previous_video_available;
         staged->video_duration = previous_video_duration;
@@ -634,6 +644,8 @@ bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
         record->solid = saved->solid;
         record->destroyed = saved->destroyed;
         record->alpha = saved->alpha;
+        record->particle_instance_available = saved->particle_instance_available;
+        record->particle_alpha = saved->particle_alpha;
         record->point_size = saved->point_size;
         record->video_available = saved->video_available;
         record->video_duration = saved->video_duration;
@@ -697,5 +709,22 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_particle_playback(
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
     domain->pending_layer_snapshot[layer_index].particle_playback = state;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_particle_instance_alpha(
+    MWXSceneQuickJSDomain *domain, uint32_t layer_index, uint32_t available,
+    double alpha, char *diagnostic, size_t diagnostic_capacity
+) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (domain == NULL || domain->callback_active || domain->pending_layer_snapshot == NULL ||
+        layer_index >= domain->authored_layer_count || !domain->layers[layer_index].configured ||
+        available > 1 || !isfinite(alpha)) {
+        mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "invalid particle instance projection");
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    MWXSceneQuickJSStagedLayerSnapshot *staged = &domain->pending_layer_snapshot[layer_index];
+    staged->particle_instance_available = available != 0;
+    staged->particle_alpha = alpha;
     return MWX_SCENE_QUICKJS_OK;
 }

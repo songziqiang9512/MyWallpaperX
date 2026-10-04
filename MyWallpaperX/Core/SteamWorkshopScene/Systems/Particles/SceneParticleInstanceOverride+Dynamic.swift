@@ -1,6 +1,16 @@
 import Foundation
 
 nonisolated extension SceneParticleInstanceOverride {
+    static func resolving(authored: Self?, dynamic: SceneDynamicParticleValues?) -> Self? {
+        guard let authored else {
+            guard dynamic != nil else { return nil }
+            return Self(id: nil, alpha: nil, size: nil, lifetime: nil, rate: nil,
+                speed: nil, count: nil, brightness: nil, color: nil, normalizedColor: nil,
+                controlPoints: [:], controlPointAngles: [:]).resolving(dynamic)
+        }
+        return authored.resolving(dynamic)
+    }
+
     func resolving(_ dynamic: SceneDynamicParticleValues?) -> Self {
         guard let dynamic else { return self }
         func scalar(

@@ -3,7 +3,7 @@
 
 # D11 — 粒子对象播放门与 reset 边界
 
-> 复核基线：2026-10-02（按 D10 现役模拟单次消费合同收敛）；原设计基线为独立工作树 `93b1b85a`。本文是设计裁决，不是当前能力或运行验收；已合入 `codex/engine-refactor-program`；实施时按其最新代码重新核对所列 owner，本轮更新的 PlaybackState 证据行号指向主分支当前代码，其余旧指针须在实施前重核。`approved` 仅表示本设计完成，阶段性 unknown 仍受本文准入门约束。
+> 复核基线：2026-10-02（按 D10 现役模拟单次消费合同收敛）；原设计基线为独立工作树 `93b1b85a`。设计不等于运行验收；实施以 `codex/engine-refactor-program` 最新代码重核 owner，本轮更新的 PlaybackState 证据行号指向主分支当前代码，其余旧指针须在实施前重核。`approved` 仅表示本设计完成，阶段性 unknown 仍受本文准入门约束。
 
 ## 目标合同与设计判据
 
@@ -44,7 +44,7 @@
 
 **当前首断点。** 代码指针相对 `MyWallpaperX/Core/SteamWorkshopScene/`，基线 `03ba383c`。`Systems/Script/SceneQuickJSLayerHost.c:1963` 仅安装四方法；`SceneScriptLayerHandleBridge.swift:139` 只解码 action 0…2。`Systems/Particles/SceneParticleRuntime.swift:60` 只验证 transition revision；`SceneParticleSimulator.swift:665` 的自动发射截断容量，`:710` 先使用 ID，`:724` 才拒绝无效寿命/数值。直接复用自动计数会假报成功、部分出生或遗留随机状态。`Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift:687` 的命令消费早于 `:697` 的 updateSimulation，而本帧出生输入在 Runtime `:424–449` 才安装；不能直接在旧 apply 点读残留输入。
 
-**调用时点与 owner。** Session 在现 cadence 的 callback 前固定完整同代 surface 集与已发布 preliminary typed snapshot；当前用户属性、timeline、已提交 script 值来自 FrameDriver `:245–310`。每个 emit 在现 domain 同步 native hook 中捕获当时有效出生输入，含当前 callback 已有合法 layer/ancestor transform setter 的前缀、同一次采样的 pointer/audio/camera、现 simulator 的 simulationTime。按现 Runtime/MetalView 的 pure resolver 准备目标所需值，不能重复调用 updateSimulation、推进 smoother、clock 或采样另一次输入。`origin=A; emit; origin=B; emit` 保留两次真实消费的输入，不能在最终 coalesced B 上生成两批。粒子参数脚本返回值在 FrameDriver `:610–637` 后置 overlay：允许它改变本帧后续自动出生/模拟，不回改先前手动出生，也不因新旧值不同拒绝 owner。这是本项目明确的事务线性化合同，官方属性 return 调度尚未黑盒关闭；不得报告相位 parity。当前未实现的 `.instance` setter 不借本片假称可用。
+**调用时点与 owner。** Session 在现 cadence 的 callback 前固定完整同代 surface 集与已发布 preliminary typed snapshot；当前用户属性、timeline、已提交 script 值来自 FrameDriver `:245–310`。每个 emit 在现 domain 同步 native hook 中捕获当时有效出生输入，含当前 callback 已有合法 layer/ancestor transform setter 的前缀、同一次采样的 pointer/audio/camera、现 simulator 的 simulationTime。按现 Runtime/MetalView 的 pure resolver 准备目标所需值，不能重复调用 updateSimulation、推进 smoother、clock 或采样另一次输入。`origin=A; emit; origin=B; emit` 保留两次真实消费的输入，不能在最终 coalesced B 上生成两批。粒子参数脚本返回值在 FrameDriver `:610–637` 后置 overlay：允许它改变本帧后续自动出生/模拟，不回改先前手动出生，也不因新旧值不同拒绝 owner。这是本项目明确的事务线性化合同，官方属性 return 调度尚未黑盒关闭；不得报告相位 parity。`.instance.alpha`按[D4](script-component-api-design.md)复用此前缀；其余未开放。
 
 **真实预检与最终消费。** C 负责 handle/参数/命令预算和 callback journal；Swift 同步 hook 借用现 runtime/simulator，针对完整 surface 集真实执行当前 callback 有序命令的短命候选，成功才返回实际 query projection。禁止 C 用 n>0 伪造 live。候选属于现模拟 owner 的事务值，不创建新 Simulator、RNG、时钟或持久出生列表；结束/throw/timeout/discard 释放。checkpoint 必须覆盖所有试生会修改的状态，补入目前 FrameSnapshot 遗漏的 activeWorldSpaceFrame（Simulator `:106,371–425`），如使用会修改 frozen/adopted 状态的现 world resolver也须还原。优先只保留一个 callback 候选，避免每次 query 重跑 prefix或每条命令复制完整存量。
 
@@ -60,7 +60,7 @@
 
 同 callback 基于已提交 query snapshot 按作者顺序折叠本 owner journal：stop 后立即查询 false；pause 保留 liveAny，因此有存量仍为 true；play 恢复尚未完成的发射 schedule，仅对已自然完成或 stopped 的实例重新 arm，不能把方法调用直接等同于有发射活动。是否 arm 后仍有发射工作由现役 emitter plan/state 判定，零工作系统不得假报 true。owner admission 的 candidate plan 保留有序 transitions，stop→play 必须先清空再恢复，不压扁为最终 intent。typed command 携现役 domain.callback_epoch 与 callback 内 ordinal，恢复实际 callback 调用顺序，不按 owner 分组后 flatMap 猜序，也不新增 clock；owner rejection 先移除该 owner 的命令，再重算 candidate intent、transitions 与 revision。宿主暂停不绕过现役 frame gate 执行新模拟，不新增外部控制回调入口或第二 clock。
 
-查询在首次任何作者 callback 前从已准备实例发布，并在每 cadence 的共享 VM evaluation 前刷新。对当前 generation/完整有效 surface 集合，以 `liveAny || emissionActiveAny` 作 OR；emissionActive 来自作者 playing intent 与各实例尚有发射工作的现役 schedule，不能由本帧恰好有没有 births 推断。projection 还须从同一 emitter plan/state 提供“暂停中仍有待续发射”及“重新 arm 后有工作”的只读事实，供 staged play 推导；仅传两个 OR Bool 不足以判定 play，不在 C 复制 schedule 数学。此 OR 是项目跨屏合同，不是已实测官方多屏语义；指针源可能令各屏在 `SceneParticleSimulator.swift:568` 的 emitter frame 准入处产生不同进度。准备与准入均验证该完整同代集合；隐藏、静态 alpha=0、资源失败导致缺 runtime，或 stale generation，使该对象 projection unavailable，调用明确失败，不跳过缺失屏、不从首屏取值，也不以空集合返回 false。C 仅叠加本次 callback 的转移；同 owner 的其他 callback 和其他 owner 均读本 cadence 已提交镜像，不能把多个到期 timer 或 ended handler 合并成一个 callback。
+查询在首次任何作者 callback 前从已准备实例发布，并在每 cadence 的共享 VM evaluation 前刷新。对当前 generation/完整有效 surface 集合，以 `liveAny || emissionActiveAny` 作 OR；emissionActive 来自作者 playing intent 与各实例尚有发射工作的现役 schedule，不能由本帧恰好有没有 births 推断。projection 还须从同一 emitter plan/state 提供“暂停中仍有待续发射”及“重新 arm 后有工作”的只读事实，供 staged play 推导；仅传两个 OR Bool 不足以判定 play，不在 C 复制 schedule 数学。此 OR 是项目跨屏合同，不是已实测官方多屏语义；指针源可能令各屏在 `SceneParticleSimulator.swift:568` 的 emitter frame 准入处产生不同进度。准备与准入均验证该完整同代集合；实际缺 runtime 或 stale generation，使该对象 projection unavailable，调用明确失败，不跳过缺失屏、不从首屏取值，也不以空集合返回 false。C 仅叠加本次 callback 的转移；同 owner 的其他 callback 和其他 owner 均读本 cadence 已提交镜像，不能把多个到期 timer 或 ended handler 合并成一个 callback。
 
 首 launch 保留现役 warm-up 的真实 prepared-live，init 查询观察这些存量；init.pause 只阻止 owner admission 后的自动排放，已有粒子继续模拟，init.stop 在首个 updateSimulation 前清空 live、旧 batch 与历史。官方 warm-up/init 次序仍未知，此为项目初始化边界，不宣称 parity。
 
@@ -80,7 +80,7 @@ unsupported reset/child profile 仅拒绝该 command 并保留原对象状态；
 
 - 两对象 A pause、B play，观察 A 无新排放但已有粒子继续，B 正常；再 host pause/resume，A 仍停排放。真实 QuickJS 以非零 startTime 验证 init.pause 保留 prepared-live 且准入后无新增排放，init.stop 首图清旧 batch/历史；stop/pause/isPlaying、stop→query、pause→query、stop→play 和重复 pause 均经 Swift owner admission 到实际模拟。
 - periodic disabled 的有限 duration/burst 自然完成但仍有存量时 play 重新 arm，存量年龄/ID 不变；delay 重新开始、birth RNG 连续、固定 min=max 周期未完成暂停后继续、stop→pause→play 不恢复旧游标、零工作系统查询分别验证。default count、非法显式 count、随机周期、多 emitter、任意 authored child、reset 均有明确 unsupported 反例；显式 count 按上节真实出生门验收。
-- 两屏 pointer 内/外令发射进度不同，查询证明 OR 且不依赖遍历顺序；隐藏/alpha0/资源失败缺 runtime 或 stale generation 不能 false。rebuild 前 pause/stop、重建期间查询不可用、重建后 intent/revision 生效且无旧转移重放；playing 重建的现役模拟重建边界单独记录，不冒充状态迁移。
+- 两屏 pointer 内/外令发射进度不同，查询证明 OR 且不依赖遍历顺序；实际缺 runtime 或 stale generation 不能 false。rebuild 前 pause/stop、重建期间查询不可用、重建后 intent/revision 生效且无旧转移重放；playing 重建的现役模拟重建边界单独记录，不冒充状态迁移。
 - 分开验证两种失败：跨 owner 交错 callback 按既有 epoch/ordinal 保序，callback/owner admission 拒绝先移除该 owner 命令并重算，不得留下 C overlay、部分对象命令或任一屏状态；模拟成功后的 busy、drawable 缺失、所有屏 encode 拒绝和 GPU failure 不回退 state/event/random 或重复 burst。reload 后迟到 command 按 generation 拒绝，恢复帧只呈现最新状态。
 - reset/stay-paused 只有在默认、随机、warm-up 与 children 行为可区分的官方实验完成后开放；项目自有 reset 不能报告官方 parity。真实 GPU/compositor 多帧观察与对象 count 同时记录。
 

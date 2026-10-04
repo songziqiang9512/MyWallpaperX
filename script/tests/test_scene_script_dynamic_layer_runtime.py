@@ -18,6 +18,7 @@ SCENE_SCRIPT = (
 SOURCES = [
     SCENE_SCRIPT.parent / "Particles/SceneParticlePlaybackModels.swift",
     SCENE_SCRIPT / "SceneScriptDynamicLayerRuntime+ParticlePlayback.swift",
+    SCENE_SCRIPT / "SceneScriptLayerMutation.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerTopologyModels.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime.swift",
 ]
@@ -29,44 +30,6 @@ nonisolated enum SceneScriptScalarRuntimeFailure: Error, Equatable, Sendable {
     case mutationOverflow(String)
     case invalidArgument(String)
     case staleOwner
-}
-
-nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
-    enum Kind: Equatable, Sendable { case upsert, destroy }
-    struct Fields: OptionSet, Equatable, Sendable {
-        let rawValue: UInt32
-        static let origin = Self(rawValue: 1 << 0)
-        static let scale = Self(rawValue: 1 << 1)
-        static let angles = Self(rawValue: 1 << 2)
-        static let visibility = Self(rawValue: 1 << 3)
-        static let text = Self(rawValue: 1 << 4)
-        static let font = Self(rawValue: 1 << 5)
-        static let alpha = Self(rawValue: 1 << 6)
-        static let color = Self(rawValue: 1 << 7)
-        static let effectVisibility = Self(rawValue: 1 << 8)
-        static let solid = Self(rawValue: 1 << 9)
-        static let authoredFields: Self = [
-            .origin, .scale, .angles, .visibility, .text, .font, .alpha, .color, .effectVisibility, .solid,
-        ]
-    }
-    let kind: Kind
-    let isDynamic: Bool
-    let fields: Fields
-    let layerID: Int
-    let orderIndex: Int
-    let visible: Bool
-    let alpha: Double
-    let origin: SIMD3<Double>
-    let scale: SIMD3<Double>
-    let angles: SIMD3<Double>
-    let color: SIMD3<Double>
-    let pointSize: Double
-    let text: String
-    let font: String
-    let assetPath: String?
-    let ownerTarget: SceneDynamicTarget?
-    var effectVisibilities: [Int: Bool] = [:]
-    var solid: Bool = true
 }
 
 nonisolated enum SceneDynamicValueType: Sendable { case bool, string, vector3, scalar }
@@ -90,11 +53,13 @@ nonisolated struct SceneDynamicSnapshot: Sendable {
 nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
     case visibility, solid, origin, scale, angles, color, alpha
 }
+nonisolated enum SceneDynamicParticleField: Hashable, Sendable { case alpha }
 nonisolated enum SceneDynamicTextField: Hashable, Sendable { case content, font, color }
 nonisolated enum SceneDynamicTarget: Hashable, Sendable {
     case layer(layerID: Int, field: SceneDynamicLayerField)
     case text(layerID: Int, field: SceneDynamicTextField)
     case effectVisibility(layerID: Int, effectIndex: Int)
+    case particle(layerID: Int, field: SceneDynamicParticleField)
 }
 nonisolated struct SceneScriptParticlePlaybackCommand: Sendable {
     let layerID: Int
@@ -116,6 +81,14 @@ nonisolated struct SceneDynamicTargetDefinition: Sendable {
     let authoredValue: SceneDynamicValue
 }
 
+nonisolated struct SceneParticleInstanceOverride: Sendable {
+    struct BoundValue: Sendable {
+        struct NumericValue: Sendable { let scalarValue: Double? }
+        let value: NumericValue?
+    }
+    let alpha: BoundValue?
+}
+
 nonisolated struct SceneRenderDescriptor: Sendable {
     struct Effect: Sendable { var visible: Bool? }
     struct Layer: Sendable {
@@ -134,6 +107,7 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         let imagePath: String?
         var colorRGB: [Float]?
         var childLayerIDs: [Int] = []
+        var particleInstanceOverride: SceneParticleInstanceOverride? = nil
 
         static func dynamicText(_ mutation: SceneScriptLayerMutation) -> Self? {
             guard mutation.isDynamic, mutation.kind == .upsert else { return nil }
@@ -290,6 +264,9 @@ enum Harness {
         let styleAfterCommit = styleRuntime.snapshot()
         let invalidStyle = styleRuntime.apply([mutation(10, dynamic: false, alpha: -1, fields: [.alpha])])
         let styleAfterFailure = styleRuntime.snapshot()
+        let beforeInvalidParticleAlpha = runtime.snapshot().authoredLayerValues
+        let invalidParticleAlpha = runtime.apply([mutation(10, dynamic: false, fields: [.particleAlpha])])
+        let invalidParticleAlphaPreservesValues = runtime.snapshot().authoredLayerValues == beforeInvalidParticleAlpha
         let create = runtime.apply([mutation(-1, order: 1)])
         let afterCreate = runtime.snapshot()
         let move = runtime.apply([mutation(-1, order: 2, text: "updated")])
@@ -550,6 +527,7 @@ enum Harness {
         ])
         let mixedBOrder = mixedBRuntime.snapshot().renderOrderLayerIDs
         let payload: [String: Any] = [
+            "nonParticleInstanceAlphaRejected": !succeeded(invalidParticleAlpha) && invalidParticleAlphaPreservesValues,
             "styleBeforeCommit": styleBeforeCommit,
             "styleAlphaPublished": styleAfterCommit.authoredLayerValues[.layer(layerID: 10, field: .alpha)] == .scalar(0.25),
             "styleColorPublished": styleAfterCommit.authoredLayerValues[.layer(layerID: 10, field: .color)] == .vector3(1, 1, 1),
@@ -698,7 +676,8 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         harness.write_text(HARNESS, encoding="utf-8")
         binary = directory / "dynamic-layer-runtime"
         compilation = subprocess.run(
-            ["swiftc", *map(str, SOURCES), str(harness), "-o", str(binary)],
+            ["swiftc", "-import-objc-header", str(SCENE_SCRIPT / "SceneQuickJS.h"),
+             *map(str, SOURCES), str(harness), "-o", str(binary)],
             capture_output=True,
             text=True,
         )
@@ -748,6 +727,9 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["visibilityCandidatePublishedBeforeCommit"])
         self.assertTrue(self.result["visibilityPreflightIsReadOnly"])
         self.assertTrue(self.result["visibilityCommitRetainsLaneWithoutSchemaChange"])
+
+    def test_instance_alpha_cannot_be_admitted_for_an_ordinary_layer(self) -> None:
+        self.assertTrue(self.result["nonParticleInstanceAlphaRejected"])
 
     def test_destroy_removes_only_the_dynamic_layer(self) -> None:
         self.assertTrue(self.result["destroySucceeded"])

@@ -68,7 +68,7 @@ extension SceneDesktopWallpaperSession {
                     let bytes = (preliminary.snapshot.count + layerCount + 16) * 512
                     try domain.chargeParticleWork(UInt64((bytes + 63) / 64), bytes: bytes)
                     defer { domain.releaseParticleStorage(bytes) }
-                    let values = try surface.metalView.particleEmissionTransformValues(
+                    let values = try surface.metalView.particleEmissionInputValues(
                         owner: owner, layerID: instance.layerID)
                     let snapshot = SceneDynamicSnapshotResolver().resolve(
                         frameIndex: timing.frameIndex, generation: 0,

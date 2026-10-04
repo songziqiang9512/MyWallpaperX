@@ -84,6 +84,7 @@ typedef enum MWXSceneQuickJSLayerMutationField {
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR = 1u << 7,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_EFFECT_VISIBILITY = 1u << 8,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SOLID = 1u << 9,
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA = 1u << 10,
 } MWXSceneQuickJSLayerMutationField;
 
 typedef struct MWXSceneQuickJSLayerMutation {
@@ -97,6 +98,7 @@ typedef struct MWXSceneQuickJSLayerMutation {
     uint32_t visible;
     uint32_t solid;
     double alpha;
+    double particle_alpha;
     double origin[3];
     double scale[3];
     double angles[3];
@@ -172,6 +174,12 @@ uint64_t mwx_scene_quickjs_domain_particle_work(const MWXSceneQuickJSDomain *dom
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_particle_playback(
     MWXSceneQuickJSDomain *domain, uint32_t layer_index,
     MWXSceneQuickJSParticlePlaybackState state, char *diagnostic, size_t diagnostic_capacity);
+// The instance projection is independent of playback-command admission.
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_particle_instance_alpha(
+    MWXSceneQuickJSDomain *domain, uint32_t layer_index, uint32_t available,
+    double alpha, char *diagnostic, size_t diagnostic_capacity);
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_particle_instance_alpha(
+    MWXSceneQuickJSOwner *owner, int64_t layer_id, double *alpha);
 size_t mwx_scene_quickjs_owner_particle_playback_command_count(const MWXSceneQuickJSOwner *owner);
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_particle_playback_command_at(
     const MWXSceneQuickJSOwner *owner, size_t requested,
@@ -674,6 +682,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     const char *font,
     size_t font_length,
     double alpha,
+    double particle_alpha,
     const double color[3],
     uint32_t effect_count, const uint8_t *effect_visible,
     char *diagnostic,

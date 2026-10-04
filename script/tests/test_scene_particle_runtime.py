@@ -210,11 +210,11 @@ class SceneParticleRuntimeTests(
     def test_synthetic_rejects_unsupported_roots_and_keeps_diagnostics(self) -> None:
         result = self.run_harness("synthetic")
         self.assertEqual(
-            result["activeLayerIDs"], [2, 3, 4, 6, 7, 9, 11, 13, 14, 16, 17, 18, 19]
+            result["activeLayerIDs"], [2, 3, 4, 6, 7, 9, 10, 11, 13, 14, 16, 17, 18, 19]
         )
         self.assertEqual(
             result["batchLayerIDs"],
-            [2, 3, 4, 4, 4, 6, 7, 9, 9, 9, 9, 9, 11, 13, 14, 16, 17, 17, 18, 19],
+            [2, 3, 4, 4, 4, 6, 7, 9, 9, 9, 9, 9, 10, 11, 13, 14, 16, 17, 17, 18, 19],
         )
         self.assertGreater(result["activeParticleCount"], 0)
         self.assertGreater(result["childInstanceCount"], 0)
@@ -240,7 +240,8 @@ class SceneParticleRuntimeTests(
         self.assertTrue(result["rawControlPointCopyBounded"])
         self.assertEqual(result["rawControlPointCopyLayerIDs"], [17])
         self.assertFalse(result["hiddenMentioned"])
-        self.assertNotIn(10, result["activeLayerIDs"])
+        self.assertTrue(result["zeroInstanceAlphaGPUValues"])
+        self.assertTrue(all(value == 0 for value in result["zeroInstanceAlphaGPUValues"]))
         self.assertIn(11, result["activeLayerIDs"])
         diagnostics = result["diagnostics"]
         kinds = {value["kind"] for value in diagnostics}

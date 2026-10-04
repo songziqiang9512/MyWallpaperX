@@ -480,9 +480,9 @@
       "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8e7747c0fac0bbbfcac20782f02d33d90f3834d84fe3c72ec152efee255e94c5",
+        "sourceSHA256": "81371528faf44d0e36702a83486b94b1cdb03fa916bb7e4ba803a257f8c3712f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对粒子alpha纠正及未闭合样本的证据导航；不含运行验收。",
+        "scope": "核对粒子instance alpha及未闭合样本的证据导航；不含运行验收。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

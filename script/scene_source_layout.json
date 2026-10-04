@@ -770,6 +770,7 @@
           "SceneScriptEffectHandleBridge.swift",
           "SceneScriptFallbackCatalog.swift",
           "SceneScriptLayerHandleBridge.swift",
+          "SceneScriptLayerMutation.swift",
           "SceneScriptLayerRuntimeDescriptorBridge.swift",
           "SceneScriptLayerTopologyModels.swift",
           "SceneScriptLayerTopologyProjection.swift",

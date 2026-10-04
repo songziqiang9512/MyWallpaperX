@@ -485,3 +485,6 @@ curl -x http://127.0.0.1:7897 -L --fail --silent --show-error \
 ```
 
 禁止把这两条刷新扩展成运行 WaifuX renderer/DXC。要验证最终画面时，另开有明确安全边界的 Windows Wallpaper Engine 对照流程。
+
+<a id="particle-instance-alpha-birth-blackbox"></a>
+2026-10-04同2.8.0.42/hash官方自有Sprite黑盒（flags=0、灰128）：脚本在4秒后把instance alpha从1改为.25。蓝色时钟确认阶段越过后，长寿命存量仍128，短寿命新生32；绑定值返回与setter两组相同，静态.25和单位控制分别32/128。公开[IParticleSystemInstance](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystemInstance.html)说明默认单位乘数，但未给时机；此次仅补上述profile的出生观察，不推断精确callback/return/GPU阶段、Rope或全部实例字段。初测低rate的新生间隙不计验收，改为持续补充后重跑。项目实现与像素结果见[instance alpha](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-instance-alpha)。

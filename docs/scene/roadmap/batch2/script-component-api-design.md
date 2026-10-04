@@ -3,7 +3,7 @@
 
 # D4 — SceneScript component、object 与 particle API
 
-> 复核基线：2026-10-01，独立工作树 `93b1b85a`。本文是设计裁决，不是当前能力或运行验收；已合入 `codex/engine-refactor-program`；实施时按其最新代码重新核对所列 owner，以下行号仍指向原设计基线。`approved` 仅表示本设计完成，阶段性 unknown 仍受本文准入门约束。
+> 原设计基线2026-10-01 `93b1b85a`；2026-10-04实例alpha后继以主分支`10e3f889`及官方自有黑盒为准。设计批准不等于实施或运行验收，历史行号开工重核。
 
 ## 目标合同与设计判据
 
@@ -13,10 +13,8 @@
 
 ## 当前事实与证据
 
-- `docs/scene/capabilities/coverage-ledger.md:1219` 的 component/object/particle 综合项仍是 L0，不表示所有 object 基础设施都不存在。
-- `MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerHandleBridge.swift:224` 已有 upsert/destroy，`:404`/`:408` 已有 C mutation commit/discard，`:436` 区分 layer 与 property-object scope。
-- `MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptOwnerLifecycleBridge.swift:60` 已桥接生命周期计数，`:95` 有 mutation overflow 失败。
-- 官方公开 [IScene](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IScene.html)、[IEngine](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html)、[IThisPropertyObject](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IThisPropertyObject.html)、[IParticleSystem](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystem.html) 于 2026-10-01 核对。公开入口未证明存在作者可调用的 `registerSceneScriptComponent`。
+- component/object/particle综合项仍有缺口，不能由综合等级推断各基础设施缺失；现`SceneScriptLayerHandleBridge`已有upsert/destroy、mutation commit/discard与scope隔离，`SceneScriptOwnerLifecycleBridge`已有生命周期及mutation预算。
+- 2026-10-01核对官方[IScene](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IScene.html)、[IEngine](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html)、[IThisPropertyObject](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IThisPropertyObject.html)、[IParticleSystem](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystem.html)。公开入口未证明作者可调用`registerSceneScriptComponent`。
 
 ## owner
 
@@ -44,12 +42,14 @@ handle 包含 scene generation、owner kind、object identity 与生命周期 ep
 
 安装发生在 descriptor/resources/handles 准备后、首次 init 前。update 不得递归触发另一轮更新；callback 产生的命令按作者事件顺序 staged。成功 JS 调用不等于已消费：先通过现役 callback/owner admission 的 Swift 验证，C staged mutation 与 Swift typed command 同时接纳或局部 discard；不能只撤 Swift 结果而留下 C 状态。共享 session 已消费的 VM 回调、对象命令和模拟状态服从 [D10](frame-admission-retry-design.md)，后续任一或全部 surface 的 drawable/encode/GPU 失败都不能重放回调或恢复旧命令；JS heap 本身不作为可回滚快照。
 
-显式数量发射的调用期输入与最终 owner 准入由 [D11 的后继切片](particle-playback-state-design.md#显式数量发射后继切片2026-10-02)统一拥有。native hook 只借用当前 cadence 的实际 runtime；不增加第二模拟器或持久出生队列。当前粒子 instanceoverride 脚本返回值由 Swift 在 callback 后 overlay，C 尚无 `.instance` setter：不得为了新 API 把后置返回值倒灌到先前出生，也不得新增“最终参数不同就拒绝 emit”的限制。
+显式发射调用期输入和最终准入由[D11](particle-playback-state-design.md#显式数量发射后继切片2026-10-02)拥有；native hook只借当前cadence实际runtime。instanceoverride脚本返回值在callback后overlay，不倒灌先前出生，不因最终参数不同拒绝emit。
 
-同一 callback 内查询读取该事务已验证的 staged overlay，因此 stop 后 isPlaying 为 false，pause 后按尚存粒子判断，play 按 D11 的继续或重新 arm 结果判断，不能直接返回 playing Bool；create 后句柄访问能观察自己的操作。其他 callback（包括同 owner 的另一 timer、ended handler 或随后 update）读取本 cadence 的已提交镜像，不读取前 callback 的 journal；宿主 callback 内 drain 的 microtask 仍归该 callback。renderer 在共享模拟消费后观察，不等待任意一屏的 GPU 提交。overlay 不能跨拒绝存活，也不成为第二个持久对象库。现役 layer candidate plan 须保留本 cadence 已准入的有序 particle transitions 与 revision，不能将 stop→play 压成最终 playing。typed command 携现役 domain.callback_epoch 与 callback 内 ordinal，恢复实际 callback 调用顺序，不按 owner 分组后 flatMap 猜序，也不新增 clock；owner rejection 先移除该 owner 的命令，再重算 candidate intent、transitions 与 revision。每个现役 surface 在 updateSimulation 前消费一次，committed snapshot 仅保留当前作者意图及 revision，供 rebuild 初始化，旧 transitions 不重放。
+**实例alpha后继（2026-10-04）。** 自有官方2.8.0.42黑盒已证`thisLayer.instance.alpha=.25`使灰128的新粒子变32；4秒切换后长寿命旧粒子仍128，绑定返回值同相位。沿现layer handle暴露只读instance句柄，首片仅alpha Number getter/setter；getter取当前代镜像及本callback overlay，缺省1，setter须有限Number并复用现因子消费，不借generic layer alpha。其他instance字段不得假成功写入；普通非粒子、已销毁/旧代句柄局部拒绝。粒子类型与实例可用性独立于播放命令的单emitter/无child准入，不因此拒绝已有正常粒子参数路径。
 
-首次任何 init/cursor/update callback 前，必须先完成各 surface 的 particle preparation，并经现役 layer snapshot publication 发布实际 query projection。当前 `SceneDesktopWallpaperSession.swift:140` 先 rebuild，`:553`/`:565` 调用 loadImageLayers，`SceneMetalView.swift:422` 创建 PlaybackState，随后 `SceneScriptScalarProgram.swift:430` 等执行 initializeIfNeeded；接线须保持这个顺序并覆盖 scalar/string/vector/cursor 共用域。prepareLaunch 的模块装载不是作者 init；准备与准入须验证完整同代 surface 集合，隐藏、静态 alpha=0 或资源失败导致缺 runtime 时明确 unavailable，不能跳过该屏或发布假查询。首 launch 保留现役 warm-up 已产生的真实 prepared-live；init.pause 经同帧 owner admission 后只阻止后续自动排放，保留已有粒子继续模拟，init.stop 在首个 updateSimulation 前清空 live、旧 batch 与历史。官方 warm-up 与 init 次序仍未知，此处是项目初始化边界，不宣称 parity。rebuild 已知 committed paused/stopped 意图才要求在新实例构造前注入，抑制 warm-up 发射。
+复用layer mutation journal增加独立particleAlpha字段，原owner effect bundle、预算及fixed-point同时接纳/撤回；Swift启动预注册`.particle(id,.alpha)`定义，以typed snapshot为唯一提交权威，C仅镜像。无authored instanceoverride时沿原resolver使用中性默认，不新增参数库。新值作用后续出生，旧粒子不重乘；root/child沿现override继承。`alpha=A;emit;alpha=B;emit`由既有同步hook捕获各调用前缀，后置属性return不改早先出生。本cadence已准入setter进入现snapshot再自动模拟，跨callback仍读cadence已提交镜像；throw/owner拒绝撤回C/Swift及出生候选，GPU失败不重放。getter写入字段不等于整套instance API已开放。不选择普通可写JS对象（无消费/回滚）或整层GPU乘数（误改旧粒子）。验收真实VM→Swift→Simulator的identity、无authored默认、0/.25/1、非法类型/非有限、旧句柄、samecallback读回、两次setter/emit次序、throw/late-owner拒绝及健康peer；App同输入灰32、无TypeError及Metal/drain成立，旧粒子与绑定控制保留。完成后归现脚本合同；其他实例字段、官方return顺序与完整样本parity继续单独验证。
+同callback查询读取已验证overlay；stop/pause/play的query按D11实际存活及排放工作推导，不能直接返回playing Bool。其他callback含同owner的timer/event/update均读本cadence已提交镜像；本callback drain的microtask归当前journal。共享模拟后renderer观察结果，不等GPU。candidate保留domain.callback_epoch/ordinal顺序、转移及revision，不按owner分组猜序或把stop→play压扁；owner拒绝须移除其命令并重算。每surface模拟前消费一次；committed只留intent/revision供rebuild，旧transitions不重放。
 
+首次init/cursor/update前，完整同代surface必须完成粒子准备并发布真实query projection；prepareLaunch模块装载不算init。各scalar/string/vector/cursor共用该顺序，不能从缺失屏或空集合发布假查询。首launch保留现warm-up的prepared-live：init.pause只阻止后续出生，init.stop在首次模拟前清live/batch/history。rebuild须在构造前注入committed paused/stopped，禁止先warm-up再补开关。官方warm-up/init次序未知，不声称parity。
 预算沿现役 VM time/memory/stack 与 aggregate mutation cap，不另开无限队列。首片项目上限为每 owner/frame 256 条 mutation、每 scene/frame 1024 条新增 API 命令、每 scene 128 个动态渲染对象、单次 emit 1024 个、每 scene 65536 个存活粒子；同 owner 的 cursor、timer、event、update 等 effect bundle 合并计入 owner/frame 上限，不能靠拆 callback 重置预算；每个实际有效上限取此值与现役对应预算的较小者，绝不借本设计提高旧上限。待销毁对象占用对象配额及既有 resident-byte budget，GPU 未释放不能返还配额。数字是保守项目配置，不是官方限制；实施时进入既有机器预算并以临界值/超一值测试冻结，调高必须附压力证据与显式基线变更。回调注册计入既有 VM roots/内存与命令配额，未建立可计量预算的 profile 不准入。
 
 ## fallback / route
@@ -60,7 +60,7 @@ unsupported API/配置是局部脚本调用失败，保留先前有效对象和�
 
 - 公共签名、thisObject scope、返回类型与方法副作用分别用真实 QuickJS+Swift 门验证，不用 Python 模型或符号存在性代验。
 - create→修改→destroy 同事务、throw 后回滚、C 成功/Swift 拒绝、超时、mutation 溢出、销毁回调再次销毁、旧 generation 回调均有反例。
-- 粒子以非零 startTime 验证首 launch init.pause 保留 prepared-live 且不新增排放、init.stop 首图清旧 batch/历史；rebuild 的 committed pause/stop 不先 warm-up。有限非周期 schedule 自然结束后 play、固定周期 pause/continue、跨 owner 交错 callback 顺序及 owner 拒绝重算分别验证；隐藏/alpha0/资源失败缺 runtime 必须 unavailable。动态对象验证 prepare 次数、GPU completion、publication 与唯一 compositor；两帧不能重复提交同一 command。
+- 粒子以非零 startTime 验证首 launch init.pause 保留 prepared-live 且不新增排放、init.stop 首图清旧 batch/历史；rebuild 的 committed pause/stop 不先 warm-up。有限非周期 schedule 自然结束后 play、固定周期 pause/continue、跨 owner 交错 callback 顺序及 owner 拒绝重算分别验证；实际未准备/陈旧 runtime 必须 unavailable。动态对象验证 prepare 次数、GPU completion、publication 与唯一 compositor；两帧不能重复提交同一 command。
 - 公开未说明的默认/相位用固定官方黑盒区分；无环境时该 API profile 保持未开放，设计批准不作完整 API 兼容声明。
 
 ## 退役条件

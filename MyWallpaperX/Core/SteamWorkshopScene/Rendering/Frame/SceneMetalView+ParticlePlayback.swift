@@ -102,7 +102,7 @@ extension SceneMetalView {
 }
 
 extension SceneMetalView {
-    func particleEmissionTransformValues(owner: OpaquePointer, layerID: Int) throws
+    func particleEmissionInputValues(owner: OpaquePointer, layerID: Int) throws
         -> [SceneDynamicTarget: SceneDynamicValue] {
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var visited = Set<Int>()
@@ -124,6 +124,12 @@ extension SceneMetalView {
                 SceneScriptAngleUnits.radians(fromDegrees: angles[2]))
             current = layer.parentID
         }
+        var alpha = 1.0
+        guard mwx_scene_quickjs_owner_particle_instance_alpha(owner, Int64(layerID), &alpha) == MWX_SCENE_QUICKJS_OK,
+              alpha.isFinite else {
+            throw SceneScriptScalarRuntimeFailure.staleOwner
+        }
+        values[.particle(layerID: layerID, field: .alpha)] = .scalar(alpha)
         return values
     }
 }
