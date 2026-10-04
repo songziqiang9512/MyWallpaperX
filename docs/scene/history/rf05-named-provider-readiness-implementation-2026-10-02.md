@@ -239,3 +239,15 @@ Debug构建、18项相邻原生门与修复载体后的截图生命周期门、1
 最终冻结App在同一293输入与八模式顺序下，八次背景属性接受，25次实际Metal截图全成功，目标分配与读回失败均0。采样445次callback均提交、444次已完成/呈现、GPU failed=0，随后安全drain；最大呈现间隔75ms。GPU分配采样峰值1,104,412,672 bytes；修前诊断运行约3.45GB。历史4.14秒间断在本批若干未修诊断中也未复现，故不作普遍FPS或4.14→75ms因果加速声明；本片证明视频退休及该序列输出恢复，不是全画面官方parity、物理多屏或所有样本验收。
 
 最终身份、原生反例和八张原始模式截图分包保留于本机rf05-video-retirement-20261004及rf05-video-retirement-captures-20261004（各低于32MiB、14天）。下一批直接处理两个fullscreen的blur_combine previous-blurred-composite首断点，之后多surface失败隔离；工作卡15/16（93.75%）不变，RF05及全样本Goal继续开放。
+
+
+<a id="rf05-blur-kernel-one"></a>
+### 2026-10-04 Standard Blur KERNEL1实际合成
+
+真实293的两个fullscreen模糊层均为KERNEL1，原whole-stage只接受0；中性探针确认target、binding、state、scale和combine均满足合同。修复仅让原GraphAdmission接受H/V同为0或1，每node仍独立通过现有source/schema/resource proof，没有新shader数学、renderer、缓存或每帧分析。混合0/1、负值、2/未知值及错target继续拒绝；临时探针全部退出。
+
+冻结Debug的原输入false→true→false→true三次均接受，同一窗口9次Metal截图成功；开启后背景细节模糊，关闭恢复，前景音乐卡和文字保持清晰。另以blur=true顺序覆盖八种背景，七次切换接受、18次截图无失败；1021和1054均实际执行downsample、H/V normalized-sample-sum、previous-blurred-composite四个genericCompilerArtifact pass，两轮都完成GPU drain。输入原件/副本与App前后hash一致。
+
+自有静态App的三点归一化滤波验证两处条纹ROI白255→灰128→白255，每ROI79,524像素全部满足原±4容差；后置绿色保持不变，同窗口Metal/完成/drain及hash门通过。初版测试误用了另一个alpha-weighted合同而被colorTransfer拒绝，修正自有shader形状后通过，产品代码和oracle未放宽。GraphAdmission、unowned/owned failure及stock compiler/Metal编译三组15项通过；后者不是GPU数值验收。Debug、依赖、代码健康、防御、设计与产物门通过；结构门保留原有两项66/65库存失败，不抬基线。独立审查确认准入和真实可见结果无P1/P2。
+
+本片收益是原本无效的背景模糊开关进入实际输出；开启时执行作者四pass。带截图的八模式运行采样约21.26 completed FPS、GPU分配峰值1,060,601,856 bytes、286/286完成且failed=0；这不是同条件性能对照，不能声明降低成本或官方kernel权重等价。KERNEL1×mask/Timeline等动态scale组合未单独运行，物理多屏与全样本仍未验收。最小中性日志、身份、回归结果与原始截图保留于本机`rf05-blur-kernel-one-20261004`，单包<32MiB、14天；临时App/样本/缓存清理，沿用一份checkpoint构建缓存。下一批多surface提交失败隔离与恢复；当前卡15/16（93.75%）保持，不能作为全样本正确率。

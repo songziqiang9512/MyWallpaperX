@@ -78,7 +78,7 @@
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 275,
-      "bytes": 179716
+      "bytes": 177326
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 393,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 259,
-      "bytes": 48673
+      "bytes": 48604
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -178,7 +178,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 243,
-      "bytes": 32557
+      "bytes": 32515
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,

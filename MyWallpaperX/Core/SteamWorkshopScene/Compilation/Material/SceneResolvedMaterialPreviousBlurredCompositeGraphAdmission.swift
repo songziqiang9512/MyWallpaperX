@@ -81,6 +81,8 @@ nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission {
               supportedDownsample(materials[0], source: effect.input),
               supportedGaussian(materials[1], source: quarterA, vertical: false),
               supportedGaussian(materials[2], source: quarterB, vertical: true),
+              normalizedCombos(materials[1].combos)?["KERNEL", default: 0]
+                == normalizedCombos(materials[2].combos)?["KERNEL", default: 0],
               supportedCombine(
                   materials[3],
                   blurred: quarterA,
@@ -165,7 +167,7 @@ nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission {
     ) -> Bool {
         guard let combos = normalizedCombos(material.combos),
               combos.keys.allSatisfy({ ["KERNEL", "VERTICAL"].contains($0) }),
-              combos["KERNEL", default: 0] == 0,
+              [0, 1].contains(combos["KERNEL", default: 0]),
               combos["VERTICAL", default: 0] == (vertical ? 1 : 0),
               let constants = normalizedConstants(material.constants),
               Set(constants.keys) == ["scale"] else {

@@ -110,6 +110,13 @@ enum Harness {
         case wrongTargetExtent
         case wrongBinding
         case kernel
+        case kernelZero
+        case kernelOne
+        case kernelMixedVertical
+        case kernelNegative
+        case kernelTwo
+        case kernelUnknown
+        case kernelOneWrongTarget
         case tintedStaticComposite
         case dynamicComposite
         case maskWithoutAsset
@@ -190,7 +197,8 @@ enum Harness {
     }
 
     static func graph(_ fixture: Fixture) -> Graph {
-        let verticalTarget = fixture == .wrongTarget ? quarterB : quarterA
+        let verticalTarget = [Fixture.wrongTarget, .kernelOneWrongTarget]
+            .contains(fixture) ? quarterB : quarterA
         let previousSlot = fixture == .wrongBinding ? 1 : 2
         let nodes = [
             node(
@@ -285,6 +293,16 @@ enum Harness {
             .maskFromMaterial,
         ].contains(fixture)
         let instanceMask = fixture == .maskedStock ? "masks/blur-mask" : nil
+        let kernelPair: (Int, Int)? = switch fixture {
+        case .kernel: (1, 0)
+        case .kernelZero: (0, 0)
+        case .kernelOne, .kernelOneWrongTarget: (1, 1)
+        case .kernelMixedVertical: (0, 1)
+        case .kernelNegative: (-1, -1)
+        case .kernelTwo: (2, 2)
+        case .kernelUnknown: (7, 7)
+        default: nil
+        }
         return [
             .init(
                 passIndex: 0,
@@ -297,14 +315,14 @@ enum Harness {
                 passIndex: 1,
                 textureSlots: [],
                 userTextureInputs: [],
-                combos: fixture == .kernel ? ["KERNEL": 1] : [:],
+                combos: kernelPair.map { ["KERNEL": $0.0] } ?? [:],
                 constantShaderValues: ["scale": scale]
             ),
             .init(
                 passIndex: 2,
                 textureSlots: [],
                 userTextureInputs: [],
-                combos: [:],
+                combos: kernelPair.map { ["KERNEL": $0.1] } ?? [:],
                 constantShaderValues: ["scale": scale]
             ),
             .init(
@@ -488,6 +506,17 @@ class SceneResolvedMaterialPreviousBlurredCompositeGraphAdmissionTests(
         self.assertFalse(self.result["wrongTarget"])
         self.assertFalse(self.result["wrongTargetExtent"])
         self.assertFalse(self.result["wrongBinding"])
+
+    def test_matching_kernel_zero_and_one_preserve_the_whole_graph_contract(self) -> None:
+        self.assertTrue(self.result["stock"])
+        self.assertTrue(self.result["kernelZero"])
+        self.assertTrue(self.result["kernelOne"])
+        self.assertFalse(self.result["kernelOneWrongTarget"])
+
+    def test_mixed_and_unsupported_kernel_pairs_are_rejected(self) -> None:
+        for fixture in ("kernelMixedVertical", "kernelNegative", "kernelTwo", "kernelUnknown"):
+            with self.subTest(fixture=fixture):
+                self.assertFalse(self.result[fixture])
 
     def test_static_tint_is_admitted_but_dynamic_or_malformed_shape_is_not(self) -> None:
         self.assertFalse(self.result["kernel"])
