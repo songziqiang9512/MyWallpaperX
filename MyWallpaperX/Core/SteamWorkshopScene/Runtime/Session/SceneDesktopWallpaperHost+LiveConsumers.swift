@@ -135,7 +135,8 @@ extension SceneDesktopWallpaperHost {
         let layerVisibilityTargets = Set(
             SceneDynamicLayerVisibilityRouteAdmission.targets(
                 in: descriptor,
-                candidates: propertyBindingProgram.liveLayerVisibilityTargets
+                candidates: propertyBindingProgram.liveLayerVisibilityTargets,
+                preparedStaticModelLayerIDs: preparedStaticModelLayerIDs
             ).filter { target in
                 guard case let .layer(layerID, .visibility) = target else {
                     return false

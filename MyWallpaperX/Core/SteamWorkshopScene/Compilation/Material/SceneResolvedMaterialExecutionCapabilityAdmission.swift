@@ -58,7 +58,8 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
     static func targets(
         in descriptor: SceneRenderDescriptor,
         candidates: Set<SceneDynamicTarget>,
-        hasScriptLayerAccess: Bool = false
+        hasScriptLayerAccess: Bool = false,
+        preparedStaticModelLayerIDs: Set<Int> = []
     ) -> Set<SceneDynamicTarget> {
         let descriptorGroups = Dictionary(grouping: descriptor.layers, by: \.id)
         let children = childrenByParent(in: descriptor)
@@ -80,6 +81,18 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
                   layers.count == 1,
                   let layer = layers.first else { continue }
             if ordinarySubtree(layerID: layerID, groups: descriptorGroups, children: children) != nil {
+                admitted.insert(target)
+                continue
+            }
+            // Static meshes are already shared launch resources. Admit only
+            // the actual prepared leaf; this does not prepare model subtrees
+            // or advertise a model's unsupported layer effects.
+            if preparedStaticModelLayerIDs.contains(layerID),
+               layer.contentKind == "model", layer.staticModelPath != nil,
+               layer.utilityLayer == nil, layer.effects.isEmpty,
+               layer.childLayerIDs.isEmpty, children[layerID, default: []].isEmpty,
+               ordinarySubtree(layerID: layerID, groups: descriptorGroups,
+                               children: children, preparedModelLeafID: layerID) != nil {
                 admitted.insert(target)
                 continue
             }
@@ -128,17 +141,22 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
     private static func ordinarySubtree(
         layerID: Int,
         groups: [Int: [SceneRenderDescriptor.Layer]],
-        children: [Int: [Int]]
+        children: [Int: [Int]],
+        preparedModelLeafID: Int? = nil
     ) -> Set<Int>? {
         func ordinaryLayer(_ id: Int) -> SceneRenderDescriptor.Layer? {
             guard let group = groups[id], group.count == 1,
                   let layer = group.first, layer.utilityLayer == nil,
-                  ["container", "image", "solid", "text"].contains(layer.contentKind)
+                  (["container", "image", "solid", "text"].contains(layer.contentKind)
+                    || id == preparedModelLeafID)
             else { return nil }
+            let childIDs = children[id, default: []]
+            guard Set(layer.childLayerIDs) == Set(childIDs),
+                  layer.childLayerIDs.count == childIDs.count else { return nil }
             return layer
         }
-        // Parent identity and cycles must be valid even when only a leaf is
-        // edited. Utility/model/particle hierarchies keep their own admission.
+        // Validate ancestry even for a leaf edit. Only the explicitly prepared
+        // model leaf can join this route; other specialized hierarchies cannot.
         var ancestors: Set<Int> = []
         var current: Int? = layerID
         while let id = current {
@@ -149,11 +167,9 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
         var pending = [layerID]
         var result: Set<Int> = []
         while let id = pending.popLast() {
-            guard result.insert(id).inserted, let layer = ordinaryLayer(id)
+            guard result.insert(id).inserted, ordinaryLayer(id) != nil
             else { return nil }
             let childIDs = children[id, default: []]
-            guard Set(layer.childLayerIDs) == Set(childIDs),
-                  layer.childLayerIDs.count == childIDs.count else { return nil }
             pending.append(contentsOf: childIDs)
         }
         return result

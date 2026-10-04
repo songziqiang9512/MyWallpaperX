@@ -36,6 +36,7 @@ struct SceneRenderDescriptor {
         var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
         var authoredDependencies: [Int] = []
         var effects: [Effect] = []
+        var staticModelPath: String? = nil
     }
     let layers: [Layer]
     var renderOrderLayerIDs: [Int] { layers.map(\.id) }
@@ -162,6 +163,41 @@ struct SceneDependencyRenderPlan {
         output["childProviderEffectRejected"] = !dormant(.init(requiredProviderLayerIDs: [31])).contains(childEffect)
         output["childDependencyEffectRejected"] = !dormant(.init(requiredEffectConsumerLayerIDs: [31])).contains(childEffect)
 #endif
+        func modelTargets(_ layers: [SceneRenderDescriptor.Layer], prepared: Set<Int> = [81],
+                          candidate: Int = 81) -> [Int] {
+            let descriptor = SceneRenderDescriptor(layers: layers)
+#if MODEL_VISIBILITY_API
+            let targets = SceneDynamicLayerVisibilityRouteAdmission.targets(
+                in: descriptor, candidates: [target(candidate)], preparedStaticModelLayerIDs: prepared)
+#else
+            let targets = SceneDynamicLayerVisibilityRouteAdmission.targets(
+                in: descriptor, candidates: [target(candidate)])
+#endif
+            return targets.compactMap { if case let .layer(id, .visibility) = $0 { return id }; return nil }.sorted()
+        }
+        let modelParent = SceneRenderDescriptor.Layer(id: 80, childLayerIDs: [81], contentKind: "container")
+        let modelLeaf = SceneRenderDescriptor.Layer(id: 81, parentID: 80, contentKind: "model", staticModelPath: "owned.mdl")
+        output["modelPrepared"] = modelTargets([modelParent, modelLeaf])
+        output["modelUnprepared"] = modelTargets([modelParent, modelLeaf], prepared: [])
+        output["modelParentNotExpanded"] = modelTargets([modelParent, modelLeaf], candidate: 80)
+        var invalidModels: [String: [Int]] = [:]
+        for kind in ["missing-path", "effect", "utility", "child", "missing-parent", "bad-parent-index", "model-parent", "cycle", "duplicate"] {
+            var leaf = modelLeaf, parent = modelParent
+            var extras: [SceneRenderDescriptor.Layer] = []
+            switch kind {
+            case "missing-path": leaf.staticModelPath = nil
+            case "effect": leaf.effects = [.init(visible: false)]
+            case "utility": leaf.utilityLayer = .init(kind: .composition)
+            case "child": leaf.childLayerIDs = [82]; extras = [.init(id: 82, parentID: 81)]
+            case "missing-parent": leaf.parentID = 999
+            case "bad-parent-index": parent.childLayerIDs = []
+            case "model-parent": parent.contentKind = "model"
+            case "cycle": parent.parentID = 81; leaf.childLayerIDs = [80]
+            default: extras = [leaf]
+            }
+            invalidModels[kind] = modelTargets([parent, leaf] + extras)
+        }
+        output["invalidModels"] = invalidModels
         print(String(data: try JSONSerialization.data(withJSONObject: output), encoding: .utf8)!)
     }
 }
@@ -197,6 +233,8 @@ class ScriptVisibleRootTests(unittest.TestCase):
             # target inputs. Only the added preparation API is excluded.
             flags = [] if os.environ.get('MWX_SCENE_VISIBILITY_PREPARATION_API') == '0' else ['-D', 'PREPARATION_API']
             extra_sources = [str(direct)] if flags else []
+            if os.environ.get('MWX_SCENE_MODEL_VISIBILITY_API') != '0':
+                flags += ['-D', 'MODEL_VISIBILITY_API']
             built = subprocess.run(['swiftc', *flags, str(SCENE / 'Systems/Properties/SceneDynamicSnapshot.swift'),
                 str(SCENE / 'Rendering/Geometry/SceneLayerVisibility.swift'),
                 str(SCENE / 'Rendering/Composition/SceneUtilityLayerSourceRoute.swift'),
@@ -250,3 +288,11 @@ class ScriptVisibleRootTests(unittest.TestCase):
         for key in ('childInactiveEffectAdmitted', 'rootInactiveFullscreenAdmitted',
                     'childInactiveFullscreenRejected', 'childProviderEffectRejected', 'childDependencyEffectRejected'):
             self.assertTrue(self.result[key], key)
+
+    def test_prepared_model_leaf_uses_actual_resources_without_opening_parent_or_effect_routes(self):
+        self.assertEqual(self.result['modelPrepared'], [81])
+        self.assertEqual(self.result['modelUnprepared'], [])
+        self.assertEqual(self.result['modelParentNotExpanded'], [])
+        for name, targets in self.result['invalidModels'].items():
+            with self.subTest(case=name):
+                self.assertEqual(targets, [])

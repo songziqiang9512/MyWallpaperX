@@ -295,11 +295,11 @@
     },
     {
       "id": "scene-ordinary-hierarchy-visibility",
-      "title": "RF05 普通父层显隐与准备闭包",
+      "title": "RF05 层级显隐与实际资源准入",
       "owner": "scene-dynamic-layer-visibility-admission",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "design_notes": "2026-10-04 顶层判据①②④命中：属性准入、图和首surface资源准备联动；同一owner分离target与prepared后代闭包，snapshot保留唯一显隐权威。真实container时钟拒绝已复现。失败、反例、停止条件见RF05决定；批准不代表实施验收，完成后归稳定合同并退役此登记。",
+      "design_notes": "2026-10-04 普通父层闭包已实现；静态模型属性显隐接已有实际prepared IDs，仅叶层、普通祖先、无effect/utility，保持整键原子与现模型帧/资源owner。失败、反例和停止条件见RF05决定；批准不代替运行验收。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift"
       ],

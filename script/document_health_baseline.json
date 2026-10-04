@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 529,
-      "bytes": 84364
+      "bytes": 84690
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -161,8 +161,8 @@
       "bytes": 22962
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
-      "lines": 261,
-      "bytes": 49490
+      "lines": 263,
+      "bytes": 50591
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -178,7 +178,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 243,
-      "bytes": 32422
+      "bytes": 32466
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,
@@ -1179,28 +1179,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "670b4b798c828dc5e0f719999c78c61bb3984d3587357002b45ce153adcfef15",
-      "after": "90643afe545a7ed0235ff3f8a3ce7bec2941ac1083f7bc93a3b79acaa6c5a427",
-      "owner": "scene-ordinary-parent-visibility",
-      "reason": "Define ordinary hierarchy visibility and descendant preparation in the existing owner; record bounded actual output and next model gap.",
+      "before": "90643afe545a7ed0235ff3f8a3ce7bec2941ac1083f7bc93a3b79acaa6c5a427",
+      "after": "25a0c110ee70f39e204b74cf4c9943144bdc41bce5e6d32feaf01b1b3d7cf5af",
+      "owner": "scene-prepared-model-visibility",
+      "reason": "Wire prepared static model leaf visibility through the existing consumer owner and replace the next-work pointer; retain bounded evidence and unsupported hierarchy limits.",
       "decision": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "b58921648de6465ec68a7bbdec10ecaa66ddfc980647e8c0126abbe4e9136407",
-      "after": "5f735e6562d3242846465adc2e93ee80f9bc6bdf92a4af9d2b0f91af57754324",
-      "owner": "scene-ordinary-parent-visibility",
-      "reason": "Define ordinary hierarchy visibility and descendant preparation in the existing owner; record bounded actual output and next model gap.",
+      "before": "5f735e6562d3242846465adc2e93ee80f9bc6bdf92a4af9d2b0f91af57754324",
+      "after": "7a81159eb3dfc2244dd72ceb8a2ba1d84d788aa844d5f16900c4f9ddab948f25",
+      "owner": "scene-prepared-model-visibility",
+      "reason": "Wire prepared static model leaf visibility through the existing consumer owner and replace the next-work pointer; retain bounded evidence and unsupported hierarchy limits.",
       "decision": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "be2129d64b4941d7f998210b8c39b6ddd5d190cce1d59a42cc7b73b7a2f30110",
-      "after": "08dcc9c0c3992d82bf3a4b419513b26dba8273a5732608430965a2d91f7046a3",
-      "owner": "scene-ordinary-parent-visibility",
-      "reason": "Define ordinary hierarchy visibility and descendant preparation in the existing owner; record bounded actual output and next model gap.",
+      "before": "08dcc9c0c3992d82bf3a4b419513b26dba8273a5732608430965a2d91f7046a3",
+      "after": "0298046d41c4dfcc76c231be5a5c2beb6663fa0e00b9fe89756886935222e209",
+      "owner": "scene-prepared-model-visibility",
+      "reason": "Wire prepared static model leaf visibility through the existing consumer owner and replace the next-work pointer; retain bounded evidence and unsupported hierarchy limits.",
       "decision": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
     }
   ]
