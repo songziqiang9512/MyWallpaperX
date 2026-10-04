@@ -123,19 +123,24 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
     static let currentIdentity = "$mediaThumbnail"
     static let previousIdentity = "$mediaPreviousThumbnail"
 
+    typealias SourceMaterialAlpha = SceneMaterialPropertyBindingCompiler.SourceMaterialAlpha
+
     let baseMaterialBindings: [Int: BaseMaterialBinding]
     let rejectedBaseMaterialReasons: [Int: String]
     let orderedSystemProviderDemands: [SceneSystemProviderTextureIdentity]
     let lightingProfileByLayerID: [Int: SceneBaseMaterialLightingProfile]
+    let sourceMaterialAlphaByLayerID: [Int: SourceMaterialAlpha]
 
     nonisolated init(
         baseMaterialBindings: [Int: BaseMaterialBinding],
         rejectedBaseMaterialReasons: [Int: String] = [:],
-        lightingProfileByLayerID: [Int: SceneBaseMaterialLightingProfile] = [:]
+        lightingProfileByLayerID: [Int: SceneBaseMaterialLightingProfile] = [:],
+        sourceMaterialAlphaByLayerID: [Int: SourceMaterialAlpha] = [:]
     ) {
         self.baseMaterialBindings = baseMaterialBindings
         self.rejectedBaseMaterialReasons = rejectedBaseMaterialReasons
         self.lightingProfileByLayerID = lightingProfileByLayerID
+        self.sourceMaterialAlphaByLayerID = sourceMaterialAlphaByLayerID
         self.orderedSystemProviderDemands = Set(
             baseMaterialBindings.values.compactMap {
                 $0.provider.systemProviderIdentity
@@ -169,6 +174,16 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
         })
     }
 
+    var sourceMaterialAlphaPropertyTargets: Set<SceneDynamicTarget> {
+        Set(sourceMaterialAlphaByLayerID.values.compactMap(\.propertyTarget))
+    }
+
+    func sourceMaterialAlpha(
+        layerID: Int, snapshot: SceneDynamicSnapshot
+    ) -> Float {
+        sourceMaterialAlphaByLayerID[layerID]?.resolve(snapshot: snapshot) ?? 1
+    }
+
     func reportLines() -> [String] {
         let previousRejectedCount = rejectedBaseMaterialReasons.values.filter {
             $0.hasPrefix("base-material-previous-")
@@ -187,6 +202,8 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
             return false
         })
         var lines = [
+            "sourceMaterialAlphaBindingCount: \(sourceMaterialAlphaByLayerID.count)",
+            "sourceMaterialAlphaPropertyBindingCount: \(sourceMaterialAlphaPropertyTargets.count)",
             "mediaThumbnailCurrentBindingCount: \(currentLayerIDs.count)",
             "mediaThumbnailCurrentBindingLayerIDs: "
                 + currentLayerIDs.sorted().map(String.init).joined(separator: ","),

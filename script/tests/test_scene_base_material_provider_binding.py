@@ -103,10 +103,12 @@ enum SceneStockTextureSemanticRegistry {
 enum SceneShaderUserValueKind { case null, string, number, object }
 struct SceneDocument {
     struct ShaderValue {
+        var rawValue: String = ""
         let userBinding: String?
         let components: [Double]?
         var userValueKind: SceneShaderUserValueKind? = nil
         var scriptSource: String? = nil
+        var scriptProperties: [String: SceneJSONValue]? = nil
         var timeline: Int? = nil
         var timelineDiagnostics: [String] = []
         var bindingKeys: [String] = []
@@ -131,6 +133,7 @@ struct SceneRenderDescriptor {
     struct MaterialPassDescriptor {
         let materialPath: String
         let passIndex = 0
+        var staticModelMaterialBindings: SceneStaticModelMaterialBindings? = nil
         var shaderPath: String? = nil
         var combos: [String: Int] = [:]
         let textureSlots: [String?]
@@ -867,6 +870,8 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
         self.assertEqual(
             result["report"],
             [
+                "sourceMaterialAlphaBindingCount: 0",
+                "sourceMaterialAlphaPropertyBindingCount: 0",
                 "mediaThumbnailCurrentBindingCount: 3",
                 "mediaThumbnailCurrentBindingLayerIDs: 10,20,110",
                 "mediaThumbnailCurrentBaseMaterialBindingCount: 3",

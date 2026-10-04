@@ -756,7 +756,8 @@ extension SceneDesktopWallpaperHost {
                     preparedDeviceResources.staticModels.preparedLayerIDs
                 ),
                 preparedImageMaterialTargets: Set(baseMaterialProviderBindings.lightingProfileByLayerID.values
-                    .compactMap(\.emissionPropertyTarget)),
+                    .compactMap(\.emissionPropertyTarget))
+                    .union(baseMaterialProviderBindings.sourceMaterialAlphaPropertyTargets),
                 preparedParticleVisibilityLayerIDs:
                     preparedParticleVisibilityLayerIDs,
                 propertyVectorScriptProgram: propertyVectorScriptProgram,

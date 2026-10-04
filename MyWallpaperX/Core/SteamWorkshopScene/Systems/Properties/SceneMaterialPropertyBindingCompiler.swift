@@ -4,6 +4,31 @@ import Foundation
 /// property program. The layer-scoped target preserves one consumer identity
 /// when the same material asset is reused by multiple objects.
 nonisolated enum SceneMaterialPropertyBindingCompiler {
+    /// Material opacity belongs to the source before its effect chain. The
+    /// property Program remains the sole owner of its current frame value.
+    enum SourceMaterialAlpha: Equatable, Sendable {
+        case constant(Float)
+        case property(target: SceneDynamicTarget, fallback: Float)
+
+        var propertyTarget: SceneDynamicTarget? {
+            guard case let .property(target, _) = self else { return nil }
+            return target
+        }
+
+        func resolve(snapshot: SceneDynamicSnapshot) -> Float {
+            switch self {
+            case let .constant(value): return value
+            case let .property(target, fallback):
+                guard let resolved = snapshot[target],
+                      case let .scalar(value) = resolved.value,
+                      value.isFinite, (0 ... 1).contains(value) else {
+                    return fallback
+                }
+                return Float(value)
+            }
+        }
+    }
+
     static func compile(
         descriptor: SceneRenderDescriptor,
         materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance]
@@ -51,6 +76,17 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
             }
             let passes = imagePasses[layer.id] ?? []
             let instance = materialInstancesByLayerID[layer.id]
+            var bindings: [SceneUserPropertyBinding] = []
+            if let declaration = sourceMaterialAlphaDeclaration(
+                layer: layer, instance: instance, passes: passes
+            ), !declaration.isInstance,
+               validAlpha(declaration.value) != nil,
+               let alpha = binding(
+                    layerID: layer.id, pass: declaration.pass,
+                    name: "Alpha", valueType: .scalar
+               ) {
+                bindings.append(alpha)
+            }
             guard layer.puppetMeshPath == nil,
                   supportsBuiltinImage(layer: layer, instance: instance, passes: passes),
                   instance?.scalarShaderValues?["emissivebrightness"] == nil,
@@ -58,8 +94,8 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
                   (instance?.combos["LIGHTING"] ?? pass.combos["LIGHTING"]) == 1,
                   emissionColor(instance: instance, pass: pass) != nil,
                   let value = binding(layerID: layer.id, pass: pass, name: "emissivebrightness")
-            else { return [] }
-            return [value]
+            else { return bindings }
+            return bindings + [value]
         }
     }
 
@@ -89,6 +125,66 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
     ) -> Bool {
         layer.isImageRenderable && instance?.isMalformed != true && passes.count == 1
             && passes.first?.shaderPath.map(SceneBuiltinShaderIdentity.isImage) == true
+    }
+
+    /// The public stock declaration uses the exact material key `Alpha` only
+    /// for these image identities. A present instance override owns the field
+    /// even when it cannot be admitted; it must not expose a material writer.
+    private static func sourceMaterialAlphaDeclaration(
+        layer: SceneRenderDescriptor.Layer,
+        instance: SceneDocument.SceneLayerMaterialInstance?,
+        passes: [SceneRenderDescriptor.MaterialPassDescriptor]
+    ) -> (pass: SceneRenderDescriptor.MaterialPassDescriptor,
+          value: SceneDocument.ShaderValue, isInstance: Bool)? {
+        guard layer.isImageRenderable, instance?.isMalformed != true,
+              passes.count == 1, let pass = passes.first,
+              pass.passIndex == 0, let shader = pass.shaderPath,
+              ["genericimage", "genericimage2"].contains(shader.lowercased())
+        else { return nil }
+        if let override = instance?.scalarShaderValues?["Alpha"] {
+            return (pass, override, true)
+        }
+        guard let value = pass.constantShaderValues["Alpha"] else { return nil }
+        return (pass, value, false)
+    }
+
+    private static func validAlpha(_ value: SceneDocument.ShaderValue) -> Float? {
+        // The shared vector parser preserves numeric components even when a
+        // token is malformed. Alpha needs one complete scalar declaration.
+        let tokens = value.rawValue.split(whereSeparator: \.isWhitespace)
+        guard tokens.count == 1, let scalar = Double(tokens[0]),
+              scalar.isFinite, (0 ... 1).contains(scalar),
+              let components = value.components, components == [scalar]
+        else { return nil }
+        return Float(scalar)
+    }
+
+    static func sourceMaterialAlpha(
+        layer: SceneRenderDescriptor.Layer,
+        instance: SceneDocument.SceneLayerMaterialInstance?,
+        passes: [SceneRenderDescriptor.MaterialPassDescriptor],
+        materialPropertyTargets: Set<SceneDynamicTarget>
+    ) -> SourceMaterialAlpha? {
+        guard let declaration = sourceMaterialAlphaDeclaration(
+            layer: layer, instance: instance, passes: passes
+        ), let fallback = validAlpha(declaration.value) else { return nil }
+        if !declaration.isInstance,
+           binding(
+                layerID: layer.id, pass: declaration.pass,
+                name: "Alpha", valueType: .scalar
+           ) != nil {
+            let target = SceneDynamicTarget.materialConstant(
+                layerID: layer.id, passIndex: declaration.pass.passIndex,
+                name: "Alpha", materialPath: normalized(declaration.pass.materialPath)
+            )
+            guard materialPropertyTargets.contains(target) else { return nil }
+            return .property(target: target, fallback: fallback)
+        }
+        guard staticComponents(
+            "Alpha", instance: instance, pass: declaration.pass,
+            count: 1, fallback: [1]
+        ) != nil else { return nil }
+        return .constant(fallback)
     }
 
     static func staticComponents(

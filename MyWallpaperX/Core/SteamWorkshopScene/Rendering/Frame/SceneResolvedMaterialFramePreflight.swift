@@ -768,6 +768,10 @@ extension SceneMetalRenderer {
                             snapshot: frameContext.dynamicValues
                         )
                     ),
+                    sourceMaterialAlpha: capturesMainTarget ? 1
+                        : baseMaterialProviderBindings.sourceMaterialAlpha(
+                            layerID: layerID, snapshot: frameContext.dynamicValues
+                        ),
                     offscreenTexturePool: nil,
                     effectSourceExtent: effectSourceExtent,
                     requiresSourceCopy: false,

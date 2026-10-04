@@ -509,7 +509,8 @@ struct SceneImageLayerCompositor {
                 sampling: plan.source.sampling
             ),
             routesOffscreen: routesOffscreen,
-            dependencyBlendMode: nil
+            dependencyBlendMode: nil,
+            sourceMaterialAlpha: request.sourceMaterialAlpha
         )
 
         if !routesOffscreen {

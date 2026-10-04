@@ -133,7 +133,17 @@ enum SceneBaseMaterialProviderBindingCompiler {
                     descriptor: descriptor,
                     materialInstancesByLayerID: materialInstancesByLayerID,
                     materialPropertyTargets: materialPropertyTargets
-                )
+                ),
+            sourceMaterialAlphaByLayerID: descriptor.layers.reduce(into: [:]) {
+                result, layer in
+                result[layer.id] = SceneMaterialPropertyBindingCompiler
+                    .sourceMaterialAlpha(
+                        layer: layer,
+                        instance: materialInstancesByLayerID[layer.id],
+                        passes: passesByLayer[layer.id] ?? [],
+                        materialPropertyTargets: materialPropertyTargets
+                    )
+            }
         )
     }
 

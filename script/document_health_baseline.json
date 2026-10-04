@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 534,
-      "bytes": 87262
+      "lines": 536,
+      "bytes": 87991
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -73,8 +73,8 @@
       "bytes": 20680
     },
     "docs/scene/capabilities/coverage-ledger.md": {
-      "lines": 367,
-      "bytes": 168185
+      "lines": 368,
+      "bytes": 168576
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 275,
@@ -89,8 +89,8 @@
       "bytes": 331799
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 72,
-      "bytes": 7858
+      "lines": 73,
+      "bytes": 8116
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 49792
+      "bytes": 49844
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1038,30 +1038,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "6bf7547ce3d5f796d3da7e37f71e250f310ed245047d8f1f48600e204225793e",
-      "after": "8bc63fecaac38bb3d002859552b9927f11de213e442aba76d6cc73cf0caf6d2a",
-      "owner": "scene-particle-vortex",
-      "reason": "保半径实现与证据边界同步，保留官方长期相位和扩展组合未验。",
-      "decision": "docs/scene/roadmap/batch2/particle-vortex-design.md"
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "eacd132ffd8aae3d17ce6924eb3b93052b36ec751b0335e9a8e6d5ceade4dbb7",
+      "after": "879452cd5ebbff6108112b5a90063861a3725a1029d87b70994e39fe51ba050c",
+      "owner": "scene-rf05",
+      "reason": "Record bounded image material Alpha owner and actual acceptance; replace stale next direction.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-image-material-alpha"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "122de5bd12ee576e4b7680dacf250ce6db7123e08d8800685501dad41e07f4c3",
-      "after": "043f7c6b7776ee3e8396a313b620e656accff220ace0b221ce3c3f6f12fa0521",
-      "owner": "scene-text-raster",
-      "reason": "Bounded positive text-shadow runtime correction and exact evidence limits.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-text-shadow-offset"
+      "before": "043f7c6b7776ee3e8396a313b620e656accff220ace0b221ce3c3f6f12fa0521",
+      "after": "4218d68ed3f8f1537cec7c1f8d790ea6c4c2d93ef494dd617b972b3777af4892",
+      "owner": "scene-rf05",
+      "reason": "Record bounded image material Alpha owner and actual acceptance; replace stale next direction.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-image-material-alpha"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2e9ad20412390dd4b76c8474090d1a7ae3a163f7bb8ff8ab8dab96e0a6a98f01",
-      "after": "ad73c1c1da87d730acb3d0686204591216f08232dc7aed0a7778e35cce22d3b4",
-      "owner": "scene-text-raster",
-      "reason": "Bounded positive text-shadow runtime correction and exact evidence limits.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-text-shadow-offset"
+      "before": "ad73c1c1da87d730acb3d0686204591216f08232dc7aed0a7778e35cce22d3b4",
+      "after": "f69b64ac9505d4c6a6d5a2d1e34f2a3b852e396ed1a262a9d102a44807294813",
+      "owner": "scene-rf05",
+      "reason": "Record bounded image material Alpha owner and actual acceptance; replace stale next direction.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-image-material-alpha"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "before": "be2ce418461b641185f66f7ccd1a40743002009eaa59ead05a129d6860d2e1f3",
+      "after": "ac293880f1d5b2443769c3492de1f75b45516f3457a3d5f62a7cae9d8d901a28",
+      "owner": "scene-rf05",
+      "reason": "Record bounded image material Alpha owner and actual acceptance; replace stale next direction.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-image-material-alpha"
     }
   ]
 }

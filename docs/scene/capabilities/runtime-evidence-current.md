@@ -31,6 +31,7 @@
 |---|---|
 | HDR raw/display与计费 | [RF07](../history/rf07-persistent-color-output-implementation-2026-10-02.md)、[RF11](../history/rf11-shared-hdr-target-budget-implementation-2026-10-02.md) |
 | 2D normal/PBR/emission | [MR/emission](../history/d3-pbr-map-emission-implementation-2026-10-02.md)、[live亮度](../history/d3-material-user-emission-implementation-2026-10-02.md)；前序normal/标量证据沿记录内链接 |
+| 图片材质 Alpha | [静态/用户属性接线](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-image-material-alpha)：真实193透明度热切与source-before-effects像素门；限定builtin profile，不计整样本通过 |
 | 默认/作者环境与容量 | [RF04共享历史](../history/rf04-completed-scene-environment-implementation-2026-10-03.md#b-作者环境输入落地)、[RF12共存](../history/rf12-snapshot-shadow-coexistence-implementation-2026-10-02.md) |
 | 模型阴影与材质段 | [RF15 point](../history/rf15-model-point-shadow-implementation-2026-10-03.md)、[RF16材质段](../history/rf16-model-material-segments-implementation-2026-10-03.md)；前序directional/spot/named沿记录内链接，724仅准备恢复 |
 | RT/named/诊断 | [RF01](../history/rf01-shader-default-binding-implementation-2026-10-02.md)、[RF05 named](../history/rf05-named-provider-readiness-implementation-2026-10-02.md)、[诊断生命周期](../history/rf05-debug-capture-lifecycle-implementation-2026-10-02.md) |

@@ -350,9 +350,9 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "04efa1e387fa1c8f6a15f36fdb849feeb2fd903a4cadc438fff364fb53b224c0",
+        "sourceSHA256": "ce85336be8c7475ca9ed42ad132279aa613c9bc146a723edb8a360f8f0a63b73",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Text padding and prepared measurement ownership; bounded evidence navigation only.",
+        "scope": "Bounded image material Alpha source ownership and evidence navigation; not whole-corpus acceptance.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -481,9 +481,9 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c7c15c961591e4deb3d342e172cc9fda5b1542fc5588ab5cd27e1b9f92e458af",
+        "sourceSHA256": "0d354814b7263196cb5f6029cc35ef18b65240d92a0d973698d3338e678a4a44",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Updated bounded text positive-shadow evidence pointer; preserved small-font kernel, negative offset and whole-corpus limits.",
+        "scope": "Bounded image material Alpha source ownership and evidence navigation; not whole-corpus acceptance.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

@@ -247,6 +247,7 @@ struct SceneImageLayerDrawRequest {
     let textureFrame: SceneTextureUVTransform
     let mvp: simd_float4x4
     let uniforms: SceneImageLayerUniformValues
+    var sourceMaterialAlpha: Float = 1
     let offscreenTexturePool: SceneOffscreenTexturePool?
     var resolvedMaterialFrameTargetPlan: SceneResolvedMaterialFrameTargetPlan? = nil
     let effectSourceExtent: SceneLayerEffectSourceExtent?

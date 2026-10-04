@@ -513,3 +513,21 @@ V2 Debug冻结1085份源码无漂移。实际App自有九对齐同输入padding0
 旧owner同fixture的13门有4个失败子例；候选13门通过，包含小字号、低偏移、混合正负轴、动态字号和真实降采样；相邻文字/留白/行数/脚本/pivot/anchor 46门通过。冻结Debug 1085份源码无漂移。实际App四格同输入对照中32磅位移96/48→25.01/25.00，64磅96/96→50.00/50.00；降采样约95.48/95.46→50.17/50.15，glyph通道逐像素未改。1磅放大对照约4→1，仍受低分辨率光栅和模糊量化影响，不记官方0.75的精确等价。一次与native重叠的App试次被终止、排除并单独重跑；不作性能结论。
 
 未改3747492842副本播放18秒、进程33.954秒，原纹理/文字/特效链继续呈现，输入/App身份不变且退出GPU排空；真实画面的微小shadow差异未单独量化，不计整样本修复。59实际使用stock Alcubierre，日志stockSubstituted标签不代表字形已换成其它字体；173 effect speed脚本在scalar value上调用.add，旧/新App均复现一次，属作者类型错误，不伪造Number.add。装饰留白、small-font kernel、动态文字hit语义及208完整正确率均未闭合。最终身份、正反像素与审查材料限量保留在`.artifacts/scene-evidence/runs/text-shadow-offset-20261005/final/samples/1/runtime_evidence.zip`。
+
+
+<a id="rf05-image-material-alpha"></a>
+### 普通图片材质 Alpha 属性接线（2026-10-05）
+
+实施前决定：真实1937925563的一份genericimage2材料被12个可见image层复用，公开stock的g_UserAlpha声明material键Alpha，作者绑定visualizer_transparency；现图片属性编译仅接emissivebrightness，源像素未消费材质Alpha。复用既有base material准备结果和materialConstant身份，限定公开内建genericimage/genericimage2单pass的精确Alpha静态值或{user,value} scalar wrapper；不为其他shader造键别名。instance的同键覆盖优先，冲突动态源、不合法数值、未知wrapper不准入该项，其他图层照常。
+
+现property Program拥有值与事务，prepared base material映射拥有每层consumer，现draw request携带同帧sourceMaterialAlpha；普通直出、graph源采集及局部source passthrough共用source fragment uniforms，在premultiplied源上乘一次材质alpha，保留layer alpha独立作用与唯一final compositor，不另建时钟/纹理/发布owner。main-target capture不重复施加。选择该链而非修改layer.alpha，以保留材质→effects的作者顺序和脚本层alpha职责。普通帧只读prepared映射/typed snapshot。
+
+验收：旧App同输入启动0与热切0→1→0失败反例；新App重复切换、material .5×layer .5、半透明输入及改写alpha的后续特效区分source/final次序；无关绿色peer保持。CPU门覆盖真实磁盘builder→唯一targets→原子事务及instance优先/非法wrapper/其他shader负例。冻结Debug、真实193固定PCM隔离运行、GPU排空与独立审查；不把12层恢复或声明规模记作整样本/官方全像素通过。验收后记录结果并退役窄设计登记。
+
+基线39409e65。旧App同自有输入三次更新全部拒绝，材料Alpha静态.5与instance.25均未消费。最终V2冻结1085份产品源无漂移，Debug及deep strict签名验证通过，dylib `9b935913baaf3ffb44e46fdc85e14aad2ad91c85451100abba850430cc38a89a`。自有App0→1→.5→0全部接受：蓝背景上源ROI分别[0,0,255]/[255,255,255]/[128,128,255]；材料.5×层.5和半透明PNG×材料.5均[64,64,255]。后继dim effect在.5时[64,64,191]，opaque红色effect在材料0时仍[255,0,0]，区分源顺序与错误final乘法；绿色peer不变。两个effect均真实materialNodes=1，无失败路径，GPU排空、App/输入不漂移。首次自有c.a取色shader因现颜色合同拒绝且ROI曾误用fit，该尝试排除；最终fixture改用已准入常量红输出与dim两路，并按实际cover坐标量测。
+
+独立早审发现旧numericComponents会将“0.5 junk”压成单数值；4门中2失败的红例固定后，在Alpha准入重证完整raw token，未改全局parser。4个本批native方法、5个emission、16个live-property、1个provider和32个相邻方法通过；provider旧stub缺两个旧字段和本次rawValue字段已补齐，报告新增两计数同步预期。13个结构门仍仅原analyzer66/65两项失败，未抬基线；其它职责/设计/文档/断言/资源门通过。
+
+真实1937925563原包只读副本、固定PCM、同一0→.25→1序列：基线三次拒绝，V2三次接受且保持同window/session；实际画面两侧音频条在.25透出背景、1恢复不透明。两版各播放18秒，最终V2进程43.057秒且GPU排空，原媒体hash无漂移；不同时间音频/粒子相位不作逐像素parity或性能比较。12层材料声明复用不等于12个样本验收，208整样本正确率仍未知。
+
+最终本机证据包 `.artifacts/scene-evidence/runs/image-material-alpha-20261005/final/samples/1/runtime_evidence.zip`，SHA `2dcc75840a2481fe5a7cf322d2c475772364994314b6863307ded7ad743b2aa1`；限定14日保存。下一批转293文件纹理连续替换的未验操作，不重复已验八背景/模糊；同语料没有BC5或已关联builtin非默认Brightness，不扩无收益分支。

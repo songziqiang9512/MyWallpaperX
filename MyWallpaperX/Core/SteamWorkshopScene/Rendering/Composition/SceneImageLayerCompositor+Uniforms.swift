@@ -45,7 +45,8 @@ extension SceneImageLayerCompositor {
             layer: request.layer,
             sourceSample: sourceSample,
             routesOffscreen: routesOffscreen,
-            dependencyBlendMode: request.dependencyEffects.first?.blendMode
+            dependencyBlendMode: request.dependencyEffects.first?.blendMode,
+            sourceMaterialAlpha: request.sourceMaterialAlpha
         )
     }
 
@@ -54,7 +55,8 @@ extension SceneImageLayerCompositor {
         layer: SceneRenderDescriptor.Layer,
         sourceSample: SceneBaseImageTextureSample,
         routesOffscreen: Bool,
-        dependencyBlendMode: Int?
+        dependencyBlendMode: Int?,
+        sourceMaterialAlpha: Float = 1
     ) -> SceneLayerFragmentUniforms {
         let brightness = layer.contentKind == "text"
             ? 1 : max(0, Float(layer.brightness ?? 1))
@@ -62,7 +64,7 @@ extension SceneImageLayerCompositor {
             || layer.contentKind == "solid"
         let tint = usesAuthoredColor
             ? values.tint : SIMD3<Float>(repeating: 1)
-        return makeFragmentUniforms(
+        var uniforms = makeFragmentUniforms(
             values: values,
             textureFrame: sourceSample.textureFrame,
             tint: tint * brightness,
@@ -70,6 +72,8 @@ extension SceneImageLayerCompositor {
                 ? nil : dependencyBlendMode,
             sourceSampling: sourceSample.sampling
         )
+        uniforms.alpha *= sourceMaterialAlpha
+        return uniforms
     }
 
     func offscreenDimensions(
