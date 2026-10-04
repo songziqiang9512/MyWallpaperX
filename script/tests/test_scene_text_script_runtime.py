@@ -385,7 +385,28 @@ enum Harness {
         }
         """
 
+        let hiddenTarget = SceneDynamicTarget.text(layerID: 302, field: .content)
+        let hiddenDescriptor = SceneRenderDescriptor(layers: [
+            .init(id: 301, contentKind: "container", parentID: nil, visible: false,
+                  text: nil, textScript: nil),
+            .init(id: 302, contentKind: "text", parentID: 301, visible: true,
+                  text: "FALLBACK", textScript: .init(
+                    source: "export function update(value) { return 'PREPARED CHILD'; }",
+                    properties: [:]))
+        ])
+        let unpreparedHidden = SceneTextScriptCompiler.compile(descriptor: hiddenDescriptor)
+        let preparedHidden = SceneTextScriptCompiler.compile(
+            descriptor: hiddenDescriptor, preparationLayerIDs: [301, 302])
+        let preparedValues = SceneTextScriptRuntime.values(
+            program: preparedHidden, wallDate: fixtureDate, timeZone: fixtureTimeZone)
+        let quickJSOwned = SceneTextScriptCompiler.compile(
+            descriptor: hiddenDescriptor, excludedTargets: [hiddenTarget],
+            preparationLayerIDs: [301, 302])
+
         let payload: [String: Any] = [
+            "hiddenUnpreparedCount": unpreparedHidden.bindings.count,
+            "hiddenPreparedValue": string(preparedValues[hiddenTarget]),
+            "hiddenQuickJSOwnedCount": quickJSOwned.bindings.count,
             "bindingCount": validProgram.bindings.count,
             "diagnosticCount": validProgram.diagnostics.count,
             "clock24": string(values[.text(layerID: 101, field: .content)]),
@@ -623,6 +644,11 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_hidden_prepared_child_executes_without_duplicating_quickjs_owner(self) -> None:
+        self.assertEqual(self.payload["hiddenUnpreparedCount"], 0)
+        self.assertEqual(self.payload["hiddenPreparedValue"], "PREPARED CHILD")
+        self.assertEqual(self.payload["hiddenQuickJSOwnedCount"], 0)
 
     def test_project_owned_subset_clock_and_calendar_execute(self) -> None:
         self.assertEqual(self.payload["bindingCount"], 5)

@@ -13,7 +13,11 @@ extension SceneDesktopWallpaperHost {
             $0.contentKind == "particle"
         }) else { return [] }
         let eligibleLayerIDs: Set<Int> = Set(descriptor.layers.compactMap { layer in
+            // A parent visibility edit can reveal this source without changing
+            // its own condition key. Keep hierarchy sources in eager preparation;
+            // the deferred transaction currently addresses direct root leaves.
             guard layer.contentKind == "image",
+                  layer.parentID == nil, layer.childLayerIDs.isEmpty,
                   layer.effects.isEmpty,
                   layer.dependencyLayerIDs.isEmpty,
                   layer.authoredDependencies.isEmpty,

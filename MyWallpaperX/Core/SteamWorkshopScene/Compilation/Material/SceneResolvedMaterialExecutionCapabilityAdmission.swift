@@ -48,8 +48,8 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
     }
 }
 
-/// A dynamic layer-wide visibility owner may prepare an ordinary root as an
-/// execution candidate without making it visible. A composition root may join
+/// A dynamic visibility owner prepares its ordinary subtree without making
+/// it visible or changing child visibility. A composition root may join
 /// only when its lifecycle already exists at launch; activating a previously
 /// hidden fullscreen can prepare its existing main-target route; other hidden
 /// utilities or changing hierarchy still require rebuild. The frame
@@ -61,7 +61,11 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
         hasScriptLayerAccess: Bool = false
     ) -> Set<SceneDynamicTarget> {
         let descriptorGroups = Dictionary(grouping: descriptor.layers, by: \.id)
-        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+        let children = childrenByParent(in: descriptor)
+        // A malformed identity must not reach the visibility owner's unique-ID
+        // map. Ordinary targets still validate their own tree below.
+        let visibleLayerIDs = descriptorGroups.values.allSatisfy { $0.count == 1 }
+            ? SceneLayerVisibility.visibleLayerIDs(in: descriptor) : []
         // SceneScript can resolve a layer by a computed name or index. Prepare
         // supported roots without guessing JavaScript source reachability;
         // their committed visibility still gates actual frame execution.
@@ -74,12 +78,13 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
             guard case let .layer(layerID, .visibility) = target,
                   let layers = descriptorGroups[layerID],
                   layers.count == 1,
-                  let layer = layers.first,
-                  layer.parentID == nil,
-                  layer.childLayerIDs.isEmpty else { continue }
-            guard (["image", "solid", "text"].contains(layer.contentKind)
-                    && layer.utilityLayer == nil)
-                || (layer.contentKind == "composition"
+                  let layer = layers.first else { continue }
+            if ordinarySubtree(layerID: layerID, groups: descriptorGroups, children: children) != nil {
+                admitted.insert(target)
+                continue
+            }
+            guard layer.parentID == nil, layer.childLayerIDs.isEmpty else { continue }
+            guard (layer.contentKind == "composition"
                     && visibleLayerIDs.contains(layerID)
                     && layer.utilityLayer?.kind == .composition)
                 || (layer.contentKind == "fullscreen"
@@ -92,6 +97,66 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
             admitted.insert(target)
         }
         return admitted
+    }
+
+    /// Preparation includes descendants a parent can reveal. This does not
+    /// publish child visibility values or override a child's authored false.
+    static func preparationLayerIDs(
+        in descriptor: SceneRenderDescriptor,
+        candidates: Set<SceneDynamicTarget>
+    ) -> Set<Int> {
+        let groups = Dictionary(grouping: descriptor.layers, by: \.id)
+        let children = childrenByParent(in: descriptor)
+        return layerIDs(in: descriptor, candidates: candidates).reduce(into: Set<Int>()) {
+            result, layerID in
+            result.formUnion(ordinarySubtree(
+                layerID: layerID, groups: groups, children: children
+            ) ?? [layerID])
+        }
+    }
+
+    private static func childrenByParent(
+        in descriptor: SceneRenderDescriptor
+    ) -> [Int: [Int]] {
+        descriptor.layers.reduce(into: [:]) { children, layer in
+            if let parent = layer.parentID {
+                children[parent, default: []].append(layer.id)
+            }
+        }
+    }
+
+    private static func ordinarySubtree(
+        layerID: Int,
+        groups: [Int: [SceneRenderDescriptor.Layer]],
+        children: [Int: [Int]]
+    ) -> Set<Int>? {
+        func ordinaryLayer(_ id: Int) -> SceneRenderDescriptor.Layer? {
+            guard let group = groups[id], group.count == 1,
+                  let layer = group.first, layer.utilityLayer == nil,
+                  ["container", "image", "solid", "text"].contains(layer.contentKind)
+            else { return nil }
+            return layer
+        }
+        // Parent identity and cycles must be valid even when only a leaf is
+        // edited. Utility/model/particle hierarchies keep their own admission.
+        var ancestors: Set<Int> = []
+        var current: Int? = layerID
+        while let id = current {
+            guard ancestors.insert(id).inserted, let layer = ordinaryLayer(id)
+            else { return nil }
+            current = layer.parentID
+        }
+        var pending = [layerID]
+        var result: Set<Int> = []
+        while let id = pending.popLast() {
+            guard result.insert(id).inserted, let layer = ordinaryLayer(id)
+            else { return nil }
+            let childIDs = children[id, default: []]
+            guard Set(layer.childLayerIDs) == Set(childIDs),
+                  layer.childLayerIDs.count == childIDs.count else { return nil }
+            pending.append(contentsOf: childIDs)
+        }
+        return result
     }
 
     static func layerIDs(
@@ -153,7 +218,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         let rawGroups = Dictionary(grouping: authoredPlans, by: \.layerID)
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let dynamicVisibleRootLayerIDs =
-            SceneDynamicLayerVisibilityRouteAdmission.layerIDs(
+            SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
                 in: descriptor,
                 candidates: dynamicLayerVisibilityOwnerTargets
             )

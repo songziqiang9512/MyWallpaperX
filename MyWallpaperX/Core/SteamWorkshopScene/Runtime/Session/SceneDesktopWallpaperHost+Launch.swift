@@ -416,10 +416,6 @@ extension SceneDesktopWallpaperHost {
             throw SceneDesktopWallpaperHostLaunchError
                 .invalidBoundedSceneScriptProgramAt("vector-media-route")
         }
-        let textScriptProgram = SceneTextScriptCompiler.compile(
-            descriptor: runtimeInput.renderDescriptor,
-            excludedTargets: sceneScriptStringTargets
-        )
         let provisionalSceneScriptValueTargets = propertyVectorScriptTargets
             .union(sceneScriptScalarTargets)
             .union(sceneScriptStringTargets)
@@ -438,13 +434,15 @@ extension SceneDesktopWallpaperHost {
                     .union(propertyLayerVisibilityTargets),
                 hasScriptLayerAccess: hasScriptLayerAccess
             )
-        let projectedLayerVisibilityRootLayerIDs = Set(
-            dynamicLayerVisibilityOwnerTargets.compactMap { target -> Int? in
-                guard case let .layer(layerID, .visibility) = target else {
-                    return nil
-                }
-                return layerID
-            }
+        let projectedLayerVisibilityRootLayerIDs =
+            SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+                in: runtimeInput.renderDescriptor,
+                candidates: dynamicLayerVisibilityOwnerTargets
+            )
+        let textScriptProgram = SceneTextScriptCompiler.compile(
+            descriptor: runtimeInput.renderDescriptor,
+            excludedTargets: sceneScriptStringTargets,
+            preparationLayerIDs: projectedLayerVisibilityRootLayerIDs
         )
         let resolvedMaterialVisibleExecutionRootLayerIDs = SceneLayerVisibility
             .visibleLayerIDs(in: runtimeInput.renderDescriptor)

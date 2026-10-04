@@ -292,6 +292,18 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneRenderTargetVocabulary.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-ordinary-hierarchy-visibility",
+      "title": "RF05 普通父层显隐与准备闭包",
+      "owner": "scene-dynamic-layer-visibility-admission",
+      "status": "approved",
+      "designDoc": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "design_notes": "2026-10-04 顶层判据①②④命中：属性准入、图和首surface资源准备联动；同一owner分离target与prepared后代闭包，snapshot保留唯一显隐权威。真实container时钟拒绝已复现。失败、反例、停止条件见RF05决定；批准不代表实施验收，完成后归稳定合同并退役此登记。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

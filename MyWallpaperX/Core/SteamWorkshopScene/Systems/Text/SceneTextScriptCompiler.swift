@@ -8,9 +8,11 @@ import Foundation
 nonisolated enum SceneTextScriptCompiler {
     nonisolated static func compile(
         descriptor: SceneRenderDescriptor,
-        excludedTargets: Set<SceneDynamicTarget> = []
+        excludedTargets: Set<SceneDynamicTarget> = [],
+        preparationLayerIDs: Set<Int> = []
     ) -> SceneTextScriptProgram {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+            .union(preparationLayerIDs)
         var bindings: [SceneTextScriptProgram.Binding] = []
         var diagnostics: [SceneTextScriptProgram.Diagnostic] = []
 

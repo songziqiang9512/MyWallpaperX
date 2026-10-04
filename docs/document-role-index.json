@@ -349,9 +349,9 @@
       "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8a4fbf14e6b418049f0d349f1cc20a1a62f710e961df42e7e41ba05b5858e45c",
+        "sourceSHA256": "4d02887b6fcc2312bd0499c2daa36269e4cf564e1f4bd08499cef5eb3d2387f0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对RF05暂停媒体发布及冻结输入职责；本收据仅标记导航维护。",
+        "scope": "核对RF05普通父层显隐与准备闭包职责；本收据仅标记导航维护。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

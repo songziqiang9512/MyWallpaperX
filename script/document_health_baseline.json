@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 527,
-      "bytes": 83691
+      "lines": 529,
+      "bytes": 84364
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -161,8 +161,8 @@
       "bytes": 22962
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
-      "lines": 259,
-      "bytes": 48535
+      "lines": 261,
+      "bytes": 49490
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -178,7 +178,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 243,
-      "bytes": 32414
+      "bytes": 32422
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,
@@ -1169,15 +1169,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "a5313561d97a90c18e237eb2e1fb98b96dda3618b5e118d526c27ec902801443",
-      "after": "5765aed4a2898c527d33f68b96f6ebc981b656dbc2a6c4d63ecd005d1dcd8ef2",
-      "owner": "scene-rf05-fullscreen",
-      "reason": "Replace stale RF05 direction with implemented fullscreen and direct-bool contract and bounded real-sample output gaps; preserve one current authority.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-inactive-fullscreen-design"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
       "before": "ee32555f746e9f947476b890953a2fa24c82bb9f39fb440b9cca54325c75b415",
       "after": "f0c438db06a1027042354a9394da5ed8cf59183bb185e67b976eff900323f5f4",
@@ -1187,21 +1178,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "670b4b798c828dc5e0f719999c78c61bb3984d3587357002b45ce153adcfef15",
+      "after": "90643afe545a7ed0235ff3f8a3ce7bec2941ac1083f7bc93a3b79acaa6c5a427",
+      "owner": "scene-ordinary-parent-visibility",
+      "reason": "Define ordinary hierarchy visibility and descendant preparation in the existing owner; record bounded actual output and next model gap.",
+      "decision": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "a128292888249169e64748a22de2670264e228869fb8a42e74acdc75ce202939",
-      "after": "b1fe31f922aba94f508003e5ba8d8a53ac4248b661654e5b06a0537945066872",
-      "owner": "scene-video-resource-lifetime",
-      "reason": "Correct existing video binding/backing retirement contract and replace next-work pointers after actual eight-mode capture recovery; retain compatibility limits.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-video-backing-retirement"
+      "before": "b58921648de6465ec68a7bbdec10ecaa66ddfc980647e8c0126abbe4e9136407",
+      "after": "5f735e6562d3242846465adc2e93ee80f9bc6bdf92a4af9d2b0f91af57754324",
+      "owner": "scene-ordinary-parent-visibility",
+      "reason": "Define ordinary hierarchy visibility and descendant preparation in the existing owner; record bounded actual output and next model gap.",
+      "decision": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "d89616e68257eb06c1b9cfde2317187f46fcdc3dfc8094cbe501f22e03b341ba",
-      "after": "442daf6f2c837bbe91480fa50f68524be0ffa6fb3f7e3286d50d37529b65a1c8",
-      "owner": "scene-video-resource-lifetime",
-      "reason": "Correct existing video binding/backing retirement contract and replace next-work pointers after actual eight-mode capture recovery; retain compatibility limits.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-video-backing-retirement"
+      "before": "be2129d64b4941d7f998210b8c39b6ddd5d190cce1d59a42cc7b73b7a2f30110",
+      "after": "08dcc9c0c3992d82bf3a4b419513b26dba8273a5732608430965a2d91f7046a3",
+      "owner": "scene-ordinary-parent-visibility",
+      "reason": "Define ordinary hierarchy visibility and descendant preparation in the existing owner; record bounded actual output and next model gap.",
+      "decision": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
     }
   ]
 }

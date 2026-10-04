@@ -134,7 +134,7 @@ tracked full matrix 扩为全集 identity-only 基线。历史期待先分成有
 | 已验收、按职责提交 | RF05 named provider 准备与显示分离 | 三产品复用现役引用/准入/capture；冻结证据见实施卡。后继 optional 三候选局部失败片亦已验收；继续 D1。 |
 | 已验收、按职责提交 | [optional/named 未支持组合的失败半径](../architecture/runtime-architecture.md#33-保留事务安全不扩大视觉失败半径) | 同一原失败输入已恢复首帧与next-frame，effect保留入口、邻层正常、exact-two仍执行；冻结证据见[执行记录](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-optional-failure)。不扩三候选支持，下一批D1。 |
 | 已验收、按职责提交 | D1 composition 实际采集与效果输出 | 普通 parent 分组、根作者位置与 copybackground 三态已闭合；冻结范围见[D1记录](../history/d1-composition-authored-order-implementation-2026-10-04.md)。未知 passthrough 与特殊变换不外推。 |
-| 当前 | RF05 真实交互与提交 | [PNG加载成本](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-png-filter-cost)已验；下一项见该记录。 |
+| 当前 | RF05 真实交互与提交 | [普通父层显隐](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-parent-visibility)已验；后继模型背景显隐。 |
 | RF02/RF04 有界结果已验收 | 作者采样、公开 companion 与 mip 消费 | 实际范围及未覆盖条件见[工作卡](batch2/reference-evidence-implementation-cards.md)。继续 RF05 交互组合；不重开已闭合的尺寸/动画或资源阶段探针。 |
 | 已验收、按职责提交 | D4/D11 显式 emitParticles | 真实出生、全surface事务、native预算和调用期输入已贯通；最终17项App门通过，范围及既有失败见[执行记录](../history/rf03-particle-playback-implementation-2026-10-02.md#rf03-explicit-emission)。未开放默认数量/children/reset。 |
 | 已验收、按职责提交 | D1 目标准入与prepared/encoded source 一致性 | 真实pool与错源像素反例已修复；终审发现的组内childless composition也已沿同一pass/执行序闭合。冻结App、资源寿命和测试边界见[执行记录](../history/d1-composition-source-implementation-2026-10-02.md)。成员/flag仍由D1设计继续定案，下一批D3。 |

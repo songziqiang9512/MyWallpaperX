@@ -1,6 +1,6 @@
 import Foundation
 
-/// Narrows validated Boolean effect visibility to ordinary, prepared root
+/// Narrows validated Boolean effect visibility to ordinary, prepared hierarchy
 /// layers and standalone fullscreen captures. Cross-layer providers and
 /// hierarchy-owned output keep their existing preparation route.
 nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
@@ -11,7 +11,7 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
         scriptOwnedCandidates: Set<SceneDynamicTarget> = []
     ) -> Set<SceneDynamicTarget> {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
-            .union(SceneDynamicLayerVisibilityRouteAdmission.layerIDs(
+            .union(SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
                 in: descriptor,
                 candidates: dynamicLayerVisibilityOwnerTargets.union(
                     scriptOwnedCandidates.compactMap { target in
@@ -84,9 +84,7 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
                   layer.effects.indices.contains(effectIndex),
                   (layer.effects[effectIndex].visible == false)
                     == requiresInitiallyInactiveEffect,
-                  visibleLayerIDs.contains(layerID),
-                  layer.parentID == nil,
-                  layer.childLayerIDs.isEmpty else { return nil }
+                  visibleLayerIDs.contains(layerID) else { return nil }
             // D2b script lane: the dependency checks are waived for
             // script-owned candidates only - the media toggle family lives
             // on externalPrimary consumers whose dependency closure is
@@ -96,13 +94,18 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
             // stay rejected.
             let scriptOwned = scriptOwnedCandidates.contains(target)
             let standaloneFullscreen = layer.contentKind == "fullscreen"
+                && layer.parentID == nil && layer.childLayerIDs.isEmpty
                 && layer.utilityLayer?.kind == .fullscreen
                 && (try? SceneUtilityLayerSourceRoute.resolve(
                     layer: layer, descriptor: descriptor
                 ).get()) != nil
+            let layerTarget = SceneDynamicTarget.layer(layerID: layerID, field: .visibility)
+            let ordinaryHierarchy = SceneDynamicLayerVisibilityRouteAdmission.targets(
+                in: descriptor, candidates: [layerTarget]
+            ).contains(layerTarget)
             guard standaloneFullscreen
                 || (["image", "solid", "text"].contains(layer.contentKind)
-                    && layer.utilityLayer == nil) else { return nil }
+                    && layer.utilityLayer == nil && ordinaryHierarchy) else { return nil }
             if !scriptOwned || standaloneFullscreen {
                 guard layer.dependencyLayerIDs.isEmpty,
                       layer.authoredDependencies.isEmpty,
