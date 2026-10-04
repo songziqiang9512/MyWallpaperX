@@ -286,3 +286,12 @@ Debug、8项原生provider/事务门及frame-context载体适配通过；文字�
 修前真实QuickJS新增五个别名反例失败，修后同owner别名、双向read-your-writes、事件回滚重试/idle quiet及bad-return恢复通过，跨effect/层/其他字段继续拒绝。自有App复用现役fullscreen fixture，仅以scene time控制同effect：修前3.5秒仍白，修后1/3.5/7秒为白/灰/白，后置绿色邻层不变；同窗口、真实Metal读回与GPU排空成立。Pixels最终25秒运行原拒绝消失、两次截图与排空正常，输入及源码/App身份未变。未做官方像素对照、全部交互或性能测量，不能据此宣称Pixels或全样本完成。
 
 最小自有输入、前后像素、真实中性日志与身份保留于本机`rf05-effect-owner-alias-20261004`（14天）；构建与独审结果由冻结证据记录。临时App/样本在归档后清理，仅复用一份checkpoint缓存。下一批复验真实3470948192（水滴 三体）的pass API/变换/最终合成，以当前实际失败决定修复，不把历史异常当作现状；其次复验3509243656。工作卡15/16（93.75%）不变，RF05与全样本Goal开放；完整样本正确率尚无可报告分母。
+
+<a id="rf05-png-filter-cost"></a>
+### 内嵌PNG加载与同尺寸通道转换成本（2026-10-04）
+
+真实3509243656在Debug App的150秒观察窗口内未到首帧；进程采样定位内嵌PNG滤波循环。只优化循环后，热点推进到原尺寸RGBA仍逐像素box重采样，150秒窗口仅刚到首帧。最终在同一SceneImageTextureUploader中借用行buffer并使用直接字节循环；对已校验、同尺寸、tight-row、非little-endian的RGB8 straight-last源直接复制原字节。真正缩放、padding、其他通道/位深仍走原路径，颜色空间职责、透明RGB、CRC/inflate与APNG合同不变；规则依据[PNG公开标准](https://www.w3.org/TR/png-3/#9Filters)，不增加cache/owner。
+
+最终隔离App从accepted至launched为14.351秒，继续播放25秒、两次Metal截图与GPU排空正常；输入与产品/App身份不变。这是单次Debug启动观察，不是受控Release端到端性能结论。原生基准对同一自有输入每项预热一次、计时三次，分别测decodeSourceImage和预解码后的rgbaData，完整字节与SHA在计时外核验。2048² Paeth中位数：Debug解码1964.478→680.337ms、同尺寸转换3541.335→0.224ms；优化编译分别28.174→25.198ms、29.447→0.164ms。filter0的1024²解码有小幅回退（Debug11.352→11.714ms、优化4.873→5.361ms），不声称所有PNG均加速，也不把两段相加冒充App完整耗时；结果及独审由本机`rf05-png-filter-cost-20261004`冻结证据保存（14天）。原PNG正反例增加真实通道转换字节核验，原通道/上传/预算边界继续回归。
+
+3470948192的一次scale bad-return在24ms后已有有限输出，作者shared输入与官方首帧仍unknown，未改数值fallback或执行顺序。下一批回到真实交互/显示组合，优先检验三体已加载后的属性切换与输出，出现当前公共断点即修；没有实际失败则转其他真实能力缺口。工作卡15/16（93.75%）不变，不代表全样本正确率；RF05与长期Goal继续开放。

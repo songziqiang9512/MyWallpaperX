@@ -1,4 +1,4 @@
-"""Round-trip independently encoded PNG rows through the production source reader."""
+"""Round-trip owned PNG rows through source decode and preserved RGBA conversion."""
 import json
 from pathlib import Path
 import random
@@ -61,11 +61,20 @@ enum SceneTextureLoadOutcome {
     case loaded(MTLTexture), decodeFailed(String)
     case textureAllocationFailed(width: Int, height: Int)
 }
+enum FixtureError: Error { case preservedChannelsMismatch(String) }
 for path in CommandLine.arguments.dropFirst() {
     let data = try Data(contentsOf: URL(fileURLWithPath: path))
     if let image = SceneImageTextureUploader.decodeSourceImage(data),
        let bytes = image.dataProvider?.data {
-        print(String(decoding: try JSONEncoder().encode(Array(bytes as Data)), as: UTF8.self))
+        let source = bytes as Data
+        if image.alphaInfo == .last {
+            guard let preserved = SceneImageTextureUploader.rgbaData(
+                image: image, width: image.width, height: image.height,
+                purpose: .preservedChannels), preserved == source else {
+                throw FixtureError.preservedChannelsMismatch(path)
+            }
+        }
+        print(String(decoding: try JSONEncoder().encode(Array(source)), as: UTF8.self))
     } else { print("null") }
 }
 ''')

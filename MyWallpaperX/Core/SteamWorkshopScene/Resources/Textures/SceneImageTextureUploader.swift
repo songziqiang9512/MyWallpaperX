@@ -376,22 +376,32 @@ enum SceneImageTextureUploader {
                 cursor += 1
                 var row = Array(inflated[cursor..<(cursor + rowBytes)])
                 cursor += rowBytes
-                for index in 0..<(filter == 0 ? 0 : rowBytes) {
-                    let left = index < 4 ? 0 : Int(row[index - 4])
-                    let above = Int(previous[index])
-                    let upperLeft = index < 4 ? 0 : Int(previous[index - 4])
-                    let prediction: Int
-                    switch filter {
-                    case 1: prediction = left
-                    case 2: prediction = above
-                    case 3: prediction = (left + above) / 2
-                    case 4:
-                        let p = left + above - upperLeft
-                        let a = abs(p - left), b = abs(p - above), c = abs(p - upperLeft)
-                        prediction = a <= b && a <= c ? left : (b <= c ? above : upperLeft)
-                    default: prediction = 0
+                if filter != 0 {
+                    // Borrow each row once; byte reconstruction must not pay
+                    // Array uniqueness or generic Range iteration per channel.
+                    previous.withUnsafeBufferPointer { prior in
+                        row.withUnsafeMutableBufferPointer { current in
+                            var index = 0
+                            while index < rowBytes {
+                                let left = index < 4 ? 0 : Int(current[index - 4])
+                                let above = Int(prior[index])
+                                let upperLeft = index < 4 ? 0 : Int(prior[index - 4])
+                                let prediction: Int
+                                switch filter {
+                                case 1: prediction = left
+                                case 2: prediction = above
+                                case 3: prediction = (left + above) / 2
+                                case 4:
+                                    let p = left + above - upperLeft
+                                    let a = abs(p - left), b = abs(p - above), c = abs(p - upperLeft)
+                                    prediction = a <= b && a <= c ? left : (b <= c ? above : upperLeft)
+                                default: prediction = 0
+                                }
+                                current[index] &+= UInt8(prediction)
+                                index += 1
+                            }
+                        }
                     }
-                    row[index] &+= UInt8(prediction)
                 }
                 let y = startY + rowIndex * stepY
                 if stepX == 1 {
@@ -771,7 +781,14 @@ enum SceneImageTextureUploader {
               CFDataGetLength(provider) >= sourceBytes.partialValue,
               let bytes = CFDataGetBytePtr(provider) else { return nil }
         let data = withExtendedLifetime(provider) {
-            premultipliedBoxResampledRGBA(
+            // Canonical, tightly packed straight RGBA at the requested extent
+            // already is the output. Preserve its bytes without identity filtering.
+            if rgb, bits == 8, alpha == .last, !little,
+               outputWidth == image.width, outputHeight == image.height,
+               image.bytesPerRow == rowBytes.partialValue {
+                return Data(bytes: bytes, count: sourceBytes.partialValue)
+            }
+            return premultipliedBoxResampledRGBA(
                 sourceWidth: image.width, sourceHeight: image.height,
                 destinationWidth: outputWidth, destinationHeight: outputHeight
             ) { x, y in
