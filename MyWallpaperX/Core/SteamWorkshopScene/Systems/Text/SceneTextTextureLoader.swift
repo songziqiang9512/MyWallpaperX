@@ -118,7 +118,6 @@ enum SceneTextTextureLoader {
             colorRGB: colorRGB,
             maxWidth: maxWidth
         )
-        let baseRenderSize = layer.renderSizeWH
         let sourceFont = SceneTextFontResolver.resolve(
             path: style.fontPath,
             size: CGFloat(SceneTextGeometry.pointSizeInPixels(style.pointSize)),
@@ -126,20 +125,16 @@ enum SceneTextTextureLoader {
         )
         // Initial and updated content use the same font measurement contract.
         // Saved editor geometry is not an implicit wrapping/clipping limit.
-        let contentRenderSize = autoSizedRenderSize(
+        guard let prepared = prepareTextLayout(
                 text: text,
                 style: style,
-                font: sourceFont.font,
-                baseRenderSize: baseRenderSize
-            )
+                font: sourceFont.font
+            ) else { return nil }
         let inset = style.decorationInset
-        let renderSize = contentRenderSize.flatMap { size -> [Float]? in
-            guard size.count >= 2 else { return nil }
-            return [size[0] + inset * 2, size[1] + inset * 2]
-        }
+        let renderSize = prepared.size.map { $0 + inset * 2 }
         guard let layout = SceneTextGeometry.rasterLayout(
             renderSize: renderSize,
-            padding: style.padding + inset * 2,
+            padding: style.padding + inset,
             maxDimension: maxDimension
         ) else { return nil }
         let font = layout.scale == 1
@@ -168,7 +163,8 @@ enum SceneTextTextureLoader {
                 return false
             }
             draw(
-                text: text,
+                text: prepared.text,
+                wrapWidth: CGFloat(prepared.wrapWidth * layout.scale),
                 style: style,
                 font: font.font,
                 layout: layout,
@@ -198,26 +194,28 @@ enum SceneTextTextureLoader {
         return RenderedTexture(
             texture: texture,
             font: font,
-            renderSizeWH: renderSize ?? [Float(width), Float(height)]
+            renderSizeWH: renderSize
         )
     }
 
-    private static func autoSizedRenderSize(
+    private static func prepareTextLayout(
         text: String,
         style: SceneTextDescriptor,
-        font: CTFont,
-        baseRenderSize: [Float]?
-    ) -> [Float]? {
-        guard !style.limitWidth else {
-            return baseRenderSize
-        }
+        font: CTFont
+    ) -> (text: String, size: [Float], wrapWidth: Float)? {
         let attributes = [kCTFontAttributeName: font] as CFDictionary
+        let wrapWidth = Float(SceneTextRowLimit.wrapWidth(
+            contentWidth: CGFloat(maxAutoSizeDimension), style: style, scale: 1
+        ))
+        let content = SceneTextRowLimit.limitedText(
+            text, style: style, attributes: attributes, wrapWidth: CGFloat(wrapWidth)
+        )
         guard let attributed = CFAttributedStringCreate(
             kCFAllocatorDefault,
-            text as CFString,
+            content as CFString,
             attributes
         ) else {
-            return baseRenderSize
+            return nil
         }
         let framesetter = CTFramesetterCreateWithAttributedString(attributed)
         let measured = CTFramesetterSuggestFrameSizeWithConstraints(
@@ -225,25 +223,28 @@ enum SceneTextTextureLoader {
             CFRange(location: 0, length: 0),
             nil,
             CGSize(
-                width: CGFloat(maxAutoSizeDimension),
+                width: CGFloat(wrapWidth),
                 height: CGFloat(maxAutoSizeDimension)
             ),
             nil
         )
-        let baseWidth = baseRenderSize?.first ?? 1
-        let baseHeight = baseRenderSize.flatMap {
-            $0.indices.contains(1) ? $0[1] : nil
-        } ?? 1
-        // Authored padding is the total outer growth, not a per-edge value.
-        let padding = max(0, style.padding)
-        return [
-            min(maxAutoSizeDimension, max(baseWidth, Float(ceil(measured.width)) + padding)),
-            min(maxAutoSizeDimension, max(baseHeight, Float(ceil(measured.height)) + padding)),
+        // Saved editor size is an observation, not a text layout constraint.
+        // Both initial and dynamic content derive their extent from the font,
+        // width/row limits and full padding on each edge.
+        let padding = max(0, style.padding) * 2
+        let size = [
+            max(1, Float(ceil(measured.width)) + padding),
+            max(1, Float(ceil(measured.height)) + padding),
         ]
+        // Padding is authored input. Reject an unrepresentable extent before
+        // rasterLayout converts scaled dimensions to integer texture sizes.
+        guard size.allSatisfy(\.isFinite) else { return nil }
+        return (content, size, wrapWidth)
     }
 
     private static func draw(
         text: String,
+        wrapWidth: CGFloat,
         style: SceneTextDescriptor,
         font: CTFont,
         layout: SceneTextGeometry.RasterLayout,
@@ -286,25 +287,11 @@ enum SceneTextTextureLoader {
             kCTForegroundColorAttributeName: color(style.colorRGB, brightness: style.brightness),
             kCTParagraphStyleAttributeName: paragraph
         ]
-        // 作者的 Limit width 决定换行宽度，Limit rows / Overflow ellipsis 决定行数与省略号；
-        // 三个开关都关闭时 wrapWidth 就是内容宽、文本原样，排版与之前完全一致。
-        let limitedWrapWidth = SceneTextRowLimit.wrapWidth(
-            contentWidth: contentWidth,
-            style: style,
-            scale: layout.scale
-        )
-        let wrapWidth = style.limitWidth
-            ? limitedWrapWidth
-            : contentWidth + CGFloat(style.padding * layout.scale)
-        let limited = SceneTextRowLimit.limitedText(
-            text,
-            style: style,
-            attributes: attributes as CFDictionary,
-            wrapWidth: wrapWidth
-        )
+        // Consume the prepared text and wrapping constraint. Rounded texture
+        // dimensions must not trigger a second row-limit or wrapping decision.
         guard let attributed = CFAttributedStringCreate(
             kCFAllocatorDefault,
-            limited as CFString,
+            text as CFString,
             attributes as CFDictionary
         ) else { return }
         let framesetter = CTFramesetterCreateWithAttributedString(attributed)

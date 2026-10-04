@@ -171,13 +171,13 @@ class SceneTextGeometryTests(unittest.TestCase):
     def test_wrapped_property_point_size_keeps_we_pixel_scale(self) -> None:
         self.assertEqual(self.result["wrappedPointSize"], 175)
 
-    def test_authored_size_is_the_padded_outer_raster_frame(self) -> None:
+    def test_prepared_extent_reserves_full_padding_on_each_edge(self) -> None:
         self.assertEqual(self.result["rasterLayout"], {
             "width": 100,
             "height": 50,
-            "padding": 5,
-            "contentWidth": 90,
-            "contentHeight": 40,
+            "padding": 10,
+            "contentWidth": 80,
+            "contentHeight": 30,
         })
 
     def test_screen_anchor_defaults_to_none_and_unwraps_property_values(self) -> None:

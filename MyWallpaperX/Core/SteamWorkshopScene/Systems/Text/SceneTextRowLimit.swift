@@ -10,8 +10,8 @@ nonisolated enum SceneTextRowLimit {
     private static let ellipsis = "…"
 
     /// `maxwidth` 的单位是像素（lib.sceneScript.d.ts 的 ITextLayer："Max width in
-    /// pixels"），所以要和 padding 一样乘上栅格降采样比例；上界仍是作者外框的内容宽度，
-    /// 超出外框的部分本来也画不出来。
+    /// pixels"），所以要和 padding 一样乘上栅格降采样比例；上界是准备阶段按同一
+    /// width/row limit 测得的内容宽度，不是保存的作者 size。
     nonisolated static func wrapWidth(
         contentWidth: CGFloat,
         style: SceneTextDescriptor,

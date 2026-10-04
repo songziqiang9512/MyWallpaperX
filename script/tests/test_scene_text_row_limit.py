@@ -184,7 +184,7 @@ SCENE_FIXTURE = {
         },
         {
             "id": 100,
-            "name": "padding is total geometry growth",
+            "name": "padding surrounds the complete line",
             "text": "AAAA BBBB",
             "font": "systemfont_arial",
             "pointsize": 12,
@@ -496,6 +496,8 @@ enum Harness {
                 "auto": autoSized?.renderSizeWH ?? [],
                 "limited": widthLimited?.renderSizeWH ?? [],
             ],
+            "dynamicAutoInk": autoSized.map { inkStatistics($0.texture) } ?? [:],
+            "dynamicLimitedInk": widthLimited.map { inkStatistics($0.texture) } ?? [:],
             "timelineWidthInk": [
                 "narrow": timelineNarrow.map { inkStatistics($0.texture) } ?? [:],
                 "wide": timelineWide.map { inkStatistics($0.texture) } ?? [:],
@@ -709,11 +711,11 @@ class SceneTextRowLimitTests(unittest.TestCase):
         self.assertLess(padded["maxX"], padded["size"][0])
         self.assertEqual(len(padded["rowRanges"]), 1)
 
-    def test_unlimited_width_can_use_the_authored_outer_geometry(self) -> None:
-        # limitwidth=false 时 padding 不能把有效作者外框反向变成换行限制。
+    def test_unlimited_width_keeps_full_padding_around_the_complete_line(self) -> None:
         padded = self.result["ink"]["100"]
-        self.assertEqual(padded["size"], [330, 140])
         self.assertEqual(len(padded["rowRanges"]), 1)
+        self.assertGreaterEqual(padded["minX"], 31)
+        self.assertGreaterEqual(padded["size"][0] - padded["maxX"] - 1, 31)
         self.assertGreater(padded["maxX"], 270)
 
     def test_large_padded_single_line_text_keeps_visible_ink(self) -> None:
@@ -728,9 +730,13 @@ class SceneTextRowLimitTests(unittest.TestCase):
         self.assertGreater(clock["count"], 0)
         self.assertGreater(date["count"], 0)
 
-    def test_dynamic_text_expands_only_when_width_is_not_authored_limited(self) -> None:
+    def test_dynamic_text_measures_wrapped_height_instead_of_clipping_to_saved_size(self) -> None:
         self.assertGreater(self.result["dynamicRenderSizes"]["auto"][0], 400)
-        self.assertEqual(self.result["dynamicRenderSizes"]["limited"], [400, 140])
+        limited = self.result["dynamicLimitedInk"]
+        self.assertGreater(limited["count"], 0)
+        self.assertGreaterEqual(len(limited["rowRanges"]), 4)
+        self.assertLessEqual(limited["size"][0], 100)
+        self.assertGreater(limited["size"][1], self.result["dynamicAutoInk"]["size"][1])
 
     def test_initial_and_updated_text_have_identical_ink_and_geometry(self) -> None:
         self.assertEqual(self.result["ink"], self.result["sameContentDynamicInk"])

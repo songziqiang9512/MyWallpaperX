@@ -2,7 +2,7 @@ import simd
 
 /// WE 的 text layer 用 `horizontalalign`/`verticalalign` 同时决定两件事：文本在栅格框
 /// 内怎么排（已由 SceneTextTextureLoader 交给 CoreText），以及内容框相对 layer origin
-/// 落在哪。作者 `size` 已包含 `padding`，所以边对齐时 origin 落在去掉 padding 后的
+/// 落在哪。已发布的文字纹理包含每边 `padding`，边对齐时 origin 落在去掉 padding 后的
 /// 内容边缘；外框还要越过 origin 延伸一圈 padding，供文字 effect 使用。
 ///
 /// 取值域来自 lib.sceneScript.d.ts 的 ITextLayer：horizontalalign 为 left/center/right，

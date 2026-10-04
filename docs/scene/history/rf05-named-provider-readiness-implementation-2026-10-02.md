@@ -485,3 +485,18 @@ CPU visibility/readable各15项通过，HEAD分别5项/1项失败；后者仅为
 最终自有91输入同fixture/harness对照：旧owner 12门47失败子例，candidate 12门全过（native39.768/42.421秒），证明装饰、tight正负投影、字号/字体更新、alpha、预算与pivot的实际像素。相邻row-limit 15门通过，文字几何/绑定/generation/script四模块及登记四模块通过。实际App九种水平×垂直对齐的同输入开/关对照均有outline/shadow，fill边界漂移≤1输出像素；首试loose夹具缺PKG未准备成功，已排除，正式两次PKG运行8秒左右且身份不变/GPU排空。结构门仍仅旧shape-derived-analyzer 66/65两项失败，未抬库存基线。
 
 相邻pivot/anchor两模块通过；原pivot测试中只接受旧padding源码拼写的regex已退役，保留真实几何门并以本批glyph/published extent及App九对齐对照补足行为证据。设计临时gate随实施闭合退役，稳定owner与能力边界接管。
+
+<a id="rf05-text-padding"></a>
+### 文字留白与内容尺寸（2026-10-05）
+
+局部纠偏卡：官方同输入padding 0→32使背景四边各增长32，left/top与right/bottom字形边界不动；现有raster却取半值，pivot取全值。修复共同文字测量/光栅入口，使每边padding及装饰inset各消费一次；宽度限制与保存size另用同输入对照裁决，不让留白挤成1像素内容框。继续由原texture/extent/generation发布与唯一compositor消费，不改作者hitbox，不新增owner。验收为真实像素位置/边界、动态换字与maxWidth、描边投影/降采样邻门及App代表画面；官方未测部分不记parity。
+
+基线b78735bc。官方2.8.0.42、1024×768自有HO输入确认padding32使四边各增32，left/top、right/bottom及未遮挡center H字形不动；center O被后层遮挡排除。限定宽度size1/264的最终截图失败，不记精确官方结果；大shadow offset未测。本地207份可读scene.json中103份、918处文字有非零padding，这只是声明影响面，不是样本通过数。
+
+共同owner改为一次准备裁行、测量及wrap宽度，初始/更新均不受保存size裁剪；每边padding和装饰inset各计一次。绘制消费同一准备结果，删除第二次裁行与宽度推导。内容测量约束16384，加入留白后logical extent可更大，物理纹理仍≤2048；非有限extent局部拒绝，动态失败保旧texture/extent，作者hitbox语义未改。
+
+同一34输入/harness：旧版6门74失败子例；初版仅超长文本1失败，因绘制用取整内容宽重新换行导致第三行裁切。修订版6门全过，长文本padding0/64均两行，logical16361×303/16489×431降采样到2048宽后字形世界边界差<1。该反例使准备与绘制约束真正闭合，不用放宽像素门掩盖裁切。
+
+V2 Debug冻结1085份源码无漂移。实际App自有九对齐同输入padding0/32对照：旧最大glyph漂移38输出像素，修订后0；背景每边扩75/76输出像素，符合32场景单位。两次候选进程9.468/8.176秒，输入/App身份不变且GPU排空。真实3807151772副本播放18秒、进程35.130秒，无失败token且退出排空；root实看文字与场景，原有时钟横向裁切仍在，时间内容不同不作同glyph黄金对照，整样本/交互/全部特效仍未验收。
+
+相邻描边/投影12门和行数限制15门通过；旧saved-size强制cap夹具改用真实长文本触发2048。scaled O半径对照以额外padding匹配装饰后的实际extent/栅格，保留原1.25物理像素容差、fill/孔洞和错误physical4反例区分；首次不同pixel grid失败已留解释。几何5门、绑定/generation/script/pivot/anchor五模块35门及登记四模块151门通过。结构13门仍只原shape-derived-analyzer 66/65两项失败，未抬基线；构建/上述局部运行不证明208完整正确率，后继转vortex_v2官方最小轨迹与既有模拟器接入。

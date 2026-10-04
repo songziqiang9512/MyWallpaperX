@@ -30,9 +30,9 @@ nonisolated enum SceneTextGeometry {
         let scale = min(1, Float(maxDimension) / max(sourceWidth, sourceHeight))
         let width = max(1, Int((sourceWidth * scale).rounded()))
         let height = max(1, Int((sourceHeight * scale).rounded()))
-        // Authored `size` is the complete geometry. `padding` is its total
-        // growth, split evenly between the two edges of each axis.
-        let scaledPadding = max(0, padding) * scale * 0.5
+        // The prepared extent includes a full padding margin on each edge.
+        // Raster placement and the layer pivot consume the same per-edge value.
+        let scaledPadding = max(0, padding) * scale
         return RasterLayout(
             width: width,
             height: height,

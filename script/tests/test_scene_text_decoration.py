@@ -63,10 +63,10 @@ def fixture_scene() -> dict:
         ("opaque-combined", OUTLINE | SHADOW | {"opaquebackground": True, "backgroundcolor": "0.25 0.25 0.25"}),
         ("tight-baseline", {"size": "320 128", "padding": "0 0"}),
         ("tight-combined", OUTLINE | SHADOW | {"size": "320 128", "padding": "0 0"}),
-        ("cap-baseline", {"size": "2048 512", "pointsize": 12}),
-        ("cap-combined", OUTLINE | SHADOW | {"size": "2048 512", "pointsize": 12}),
-        ("scaled-baseline", {"size": "4096 1024", "padding": "128 128", "pointsize": 24}),
-        ("scaled-combined", OUTLINE | SHADOW | {"size": "4096 1024", "padding": "128 128", "pointsize": 24,
+        ("cap-baseline", {"text": "M" * 48, "pointsize": 12}),
+        ("cap-combined", OUTLINE | SHADOW | {"text": "M" * 48, "pointsize": 12}),
+        ("scaled-baseline", {"text": "M" * 48, "padding": 128, "pointsize": 24}),
+        ("scaled-combined", OUTLINE | SHADOW | {"text": "M" * 48, "padding": 128, "pointsize": 24,
             "outlinethickness": 8, "dropshadowoffset": "32 24", "dropshadowsize": 12}),
         ("radius-baseline", {"text": "O"}),
         ("radius-four", OUTLINE | {"text": "O"}),
@@ -74,14 +74,17 @@ def fixture_scene() -> dict:
         ("radius-large-baseline", {"text": "O", "pointsize": 32}),
         ("radius-large-four", OUTLINE | {"text": "O", "pointsize": 32}),
         ("radius-large-eight", OUTLINE | {"text": "O", "pointsize": 32, "outlinethickness": 8}),
-        ("radius-scaled-baseline", {"text": "O", "size": "4096 1024", "padding": "128 128", "pointsize": 24}),
-        ("radius-scaled-four", OUTLINE | {"text": "O", "size": "4096 1024", "padding": "128 128", "pointsize": 24}),
+        # The unstyled control has an authored margin that produces the same
+        # measured extent as radius-scaled-four. Assert that grid identity in
+        # the probe before using its contour as a physical-radius reference.
+        ("radius-scaled-baseline", {"text": "O" * 49, "padding": 140, "pointsize": 24}),
+        ("radius-scaled-four", OUTLINE | {"text": "O" * 49, "padding": 128, "pointsize": 24}),
         ("corner-baseline", {"text": "MWXMWX"}),
         ("corner-four", OUTLINE | {"text": "MWXMWX"}),
         ("corner-eight", OUTLINE | {"text": "MWXMWX", "outlinethickness": 8}),
         ("axis-baseline", {"text": "I", "pointsize": 32}),
-        ("axis-top", {"text": "I", "pointsize": 32, "verticalalign": "top"}),
-        ("axis-bottom", {"text": "I", "pointsize": 32, "verticalalign": "bottom"}),
+        ("axis-first-line-marker", {"text": "I\n.", "pointsize": 32}),
+        ("axis-last-line-marker", {"text": ".\nI", "pointsize": 32}),
         ("axis-positive", SHADOW | {"text": "I", "pointsize": 32, "dropshadowoffset": "96 48"}),
         ("axis-negative", SHADOW | {"text": "I", "pointsize": 32, "dropshadowoffset": "-96 -48"}),
         ("axis-horizontal", SHADOW | {"text": "I", "pointsize": 32, "dropshadowoffset": "96 0"}),
@@ -115,7 +118,7 @@ def fixture_scene() -> dict:
                 ("positive-combined", OUTLINE | SHADOW),
                 ("negative-combined", OUTLINE | SHADOW | {"outlinethickness": 8, "dropshadowoffset": "-16 -12"})]:
                 cases.append((f"clip-{text_name}-{geometry}-{decoration}", fields
-                    | {"text": text, "size": size, "padding": 0}))
+                    | {"text": text, "size": size, "padding": 128 if geometry == "wide" else 0}))
     for alignment in ["left", "right", "top", "bottom"]:
         fields = {"horizontalalign": alignment if alignment in ("left", "right") else "center",
             "verticalalign": alignment if alignment in ("top", "bottom") else "center"}
@@ -144,6 +147,14 @@ enum DecorationProbe {
             texture.getBytes(&data, bytesPerRow: texture.width * 4,
                 from: MTLRegionMake2D(0, 0, texture.width, texture.height), mipmapLevel: 0)
             bytes = data
+        }
+
+        private init(size: [Int], logicalSize: [Float], bytes: [UInt8]) {
+            self.size = size; self.logicalSize = logicalSize; self.bytes = bytes
+        }
+
+        func physicalCoordinates() -> Image {
+            Image(size: size, logicalSize: size.map(Float.init), bytes: bytes)
         }
 
         var statistics: [String: Any] {
@@ -264,11 +275,28 @@ enum DecorationProbe {
                     }
                 }
             }
+            // An exact X-sorted nearest-boundary query keeps long authored
+            // text bounded without changing the Euclidean distance oracle.
+            boundary.sort { $0.x < $1.x }
             func nearestSquared(_ point: SIMD2<Double>) -> Double {
-                boundary.reduce(Double.greatestFiniteMagnitude) { current, other in
-                    let dx = point[0] - other[0], dy = point[1] - other[1]
-                    return min(current, dx * dx + dy * dy)
+                var lower = 0, upper = boundary.count
+                while lower < upper {
+                    let middle = (lower + upper) / 2
+                    if boundary[middle].x < point.x { lower = middle + 1 } else { upper = middle }
                 }
+                var left = lower - 1, right = lower, nearest = Double.greatestFiniteMagnitude
+                while left >= 0 || right < boundary.count {
+                    let leftDX = left >= 0 ? point.x - boundary[left].x : Double.infinity
+                    let rightDX = right < boundary.count ? boundary[right].x - point.x : Double.infinity
+                    let useLeft = leftDX <= rightDX
+                    let dx = useLeft ? leftDX : rightDX
+                    if dx * dx > nearest { break }
+                    let other = boundary[useLeft ? left : right]
+                    let dy = point.y - other.y
+                    nearest = min(nearest, dx * dx + dy * dy)
+                    if useLeft { left -= 1 } else { right += 1 }
+                }
+                return nearest
             }
             var maximumDistanceSquared = 0.0, mismatchSquared = 0.0, observedRed = 0
             for y in 0..<size[1] {
@@ -301,6 +329,8 @@ enum DecorationProbe {
                 return Double(right - left - 1) / image.scale * reference.scale
             }
             return ["redPixels": observedRed, "baselineFillMaskPixels": baselineFillMaskPixels,
+                "referenceRasterScale": reference.scale,
+                "sameRasterGrid": size == reference.size && logicalSize == reference.logicalSize,
                 "maximumFillMaskMismatchDistance": sqrt(mismatchSquared) * reference.scale,
                 "maximumDistance": sqrt(maximumDistanceSquared) * reference.scale,
                 "baselineHole": holeWidth(reference), "decoratedHole": holeWidth(self)]
@@ -403,7 +433,7 @@ enum DecorationProbe {
             outlineGeometry[name] = images[name]!.outlineGeometry(to: images[control]!)
         }
         var shadowGeometry: [String: Any] = [:]
-        for name in ["axis-baseline", "axis-top", "axis-bottom", "axis-positive", "axis-negative",
+        for name in ["axis-baseline", "axis-first-line-marker", "axis-last-line-marker", "axis-positive", "axis-negative",
             "axis-horizontal", "axis-combined"] {
             shadowGeometry[name] = ["fill": images[name]!.channelMask(1), "shadow": images[name]!.channelMask(0)]
         }
@@ -428,14 +458,24 @@ enum DecorationProbe {
             }
             worldAnchors[alignment] = entries
         }
+        var scaling: [String: Any] = [:]
+        for suffix in ["baseline", "combined"] {
+            let cap = images["cap-" + suffix]!, scaled = images["scaled-" + suffix]!
+            func metrics(_ image: Image) -> [String: Any] {
+                let physical = image.physicalCoordinates()
+                return ["logicalSize": image.logicalSize, "rasterSize": image.size,
+                    "rasterScale": image.scale,
+                    "channels": (0..<3).map { physical.channelMask($0) }]
+            }
+            scaling[suffix] = ["cap": metrics(cap), "scaled": metrics(scaled),
+                "fillGeometry": scaled.physicalCoordinates().outlineGeometry(to: cap.physicalCoordinates()),
+                "identicalRaster": cap.size == scaled.size && cap.bytes == scaled.bytes]
+        }
         let result: [String: Any] = ["cases": cases, "dynamic": dynamic,
             "outlineGeometry": outlineGeometry,
             "shadowGeometry": shadowGeometry, "worldAnchors": worldAnchors,
             "backgroundSourceOverError": backgroundError, "transparentBorderPixels": transparentBorderPixels,
-            "scaledBaseline": images["scaled-baseline"]!.bytes == images["cap-baseline"]!.bytes
-                && images["scaled-baseline"]!.size == images["cap-baseline"]!.size,
-            "scaledDecoration": images["scaled-combined"]!.bytes == images["cap-combined"]!.bytes
-                && images["scaled-combined"]!.size == images["cap-combined"]!.size,
+            "scaling": scaling,
             "wrappedDecoration": images["wrapped-combined"]!.comparison(to: images["combined"]!),
             "loaded": images.count, "messages": loaded.messages]
         print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
@@ -570,12 +610,13 @@ class SceneTextDecorationTests(unittest.TestCase):
 
     def test_shadow_offset_axes_and_outline_caster_follow_authored_geometry(self) -> None:
         geometry = self.result["shadowGeometry"]
-        top = geometry["axis-top"]["fill"]["centroid"][1]
-        bottom = geometry["axis-bottom"]["fill"]["centroid"][1]
-        self.assertGreater(abs(top - bottom), 20)
-        # This same-raster control identifies which memory row direction is
-        # screen-down, avoiding an assumed readback orientation.
-        down = 1 if bottom > top else -1
+        first = geometry["axis-first-line-marker"]["fill"]["centroid"][1]
+        last = geometry["axis-last-line-marker"]["fill"]["centroid"][1]
+        self.assertGreater(abs(first - last), 20)
+        # Two authored lines exchange the heavy I and light dot marker. Their
+        # weighted centroids calibrate screen-down from paragraph line order;
+        # the intrinsic content box has no spare vertical alignment space.
+        down = 1 if last > first else -1
         baseline = geometry["axis-baseline"]["fill"]["centroid"]
         for name, x, y in [("axis-positive", 96, 48), ("axis-negative", -96, -48)]:
             with self.subTest(case=name):
@@ -593,13 +634,20 @@ class SceneTextDecorationTests(unittest.TestCase):
                 self.assertAlmostEqual(sign * (outlined[index] - plain[index]), 8, delta=2)
 
     def test_outline_expands_outward_by_scene_pixels_and_narrows_the_glyph_hole(self) -> None:
-        for name, radius in [("radius-four", 4), ("radius-eight", 8),
-            ("radius-large-four", 4), ("radius-large-eight", 8), ("radius-scaled-four", 2)]:
+        for name, logical_radius in [("radius-four", 4), ("radius-eight", 8),
+            ("radius-large-four", 4), ("radius-large-eight", 8), ("radius-scaled-four", 4)]:
             with self.subTest(case=name):
                 geometry = self.result["outlineGeometry"][name]
                 self.assertGreater(geometry["redPixels"], 0)
+                radius = logical_radius * geometry["referenceRasterScale"]
+                if name == "radius-scaled-four":
+                    self.assertTrue(geometry["sameRasterGrid"])
+                    # This operating scale separates logical radius 4 from a
+                    # wrong radius of 4 physical pixels even with quantization.
+                    self.assertLess(radius + 1.25, logical_radius)
                 # One pixel of contour quantization plus a quarter pixel for
-                # antialiased 8-bit thresholding; the radius is not font-relative.
+                # antialiased 8-bit thresholding. The logical radius remains
+                # font-independent; the readback metric is in physical pixels.
                 self.assertAlmostEqual(geometry["maximumDistance"], radius, delta=1.25)
                 self.assertAlmostEqual(geometry["baselineHole"] - geometry["decoratedHole"], 2 * radius, delta=2)
                 # A thin scaled O need not contain any fully opaque 5x5 core.
@@ -609,12 +657,33 @@ class SceneTextDecorationTests(unittest.TestCase):
                 pixels = self.result["cases"][name]["pixels"]
                 self.assertEqual(pixels["premultipliedViolations"], 0)
                 self.assertEqual(pixels["transparentColor"], 0)
+                if name == "radius-scaled-four":
+                    self.assertGreater(max(pixels["logicalSize"]), 2048)
+                    self.assertEqual(max(pixels["size"]), 2048)
+                    self.assertLess(geometry["referenceRasterScale"], 1)
 
     def test_tight_frame_and_max_texture_scaling_preserve_fill_and_style_geometry(self) -> None:
         self.assert_decoration("tight-combined", self.result["cases"]["tight-combined"])
-        self.assertTrue(self.result["scaledBaseline"])
-        self.assertTrue(self.result["scaledDecoration"])
-        self.assertEqual(max(self.result["cases"]["scaled-combined"]["pixels"]["size"]), 2048)
+        # Real long text reaches the cap. Doubling font, per-edge padding and
+        # decorations keeps physical geometry after downsampling, with measured
+        # extent rounding and one pixel of contour quantization allowed.
+        for suffix, pair in self.result["scaling"].items():
+            with self.subTest(style=suffix):
+                cap, scaled = pair["cap"], pair["scaled"]
+                for item in [cap, scaled]:
+                    self.assertGreater(max(item["logicalSize"]), 2048)
+                    self.assertEqual(max(item["rasterSize"]), 2048)
+                    self.assertLess(item["rasterScale"], 1)
+                for actual, expected in zip(scaled["logicalSize"], cap["logicalSize"]):
+                    self.assertAlmostEqual(actual, expected * 2, delta=2)
+                self.assertLessEqual(pair["fillGeometry"]["maximumFillMaskMismatchDistance"], 1.25)
+                self.assertGreater(pair["fillGeometry"]["baselineFillMaskPixels"], 0)
+                for channel in ([1] if suffix == "baseline" else [0, 1, 2]):
+                    actual, expected = scaled["channels"][channel], cap["channels"][channel]
+                    self.assertGreater(expected["mass"], 0)
+                    self.assertAlmostEqual(actual["mass"], expected["mass"], delta=expected["mass"] * 0.02)
+                    for actual_edge, expected_edge in zip(actual["halfIntensityBounds"], expected["halfIntensityBounds"]):
+                        self.assertAlmostEqual(actual_edge, expected_edge, delta=1.25)
 
     def test_outline_sharp_glyph_corners_have_bounded_extension_and_keep_fill(self) -> None:
         baseline = self.result["cases"]["corner-baseline"]["pixels"]["logicalBounds"]
