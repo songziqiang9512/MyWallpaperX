@@ -1475,6 +1475,23 @@
       ]
     },
     {
+      "id": "particle-vortex",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleControlPointForce.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleOscillationCache.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationDiagnostic.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Vortex.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleVortex.swift",
+        "script/tests/test_scene_particle_vortex.py"
+      ],
+      "modules": [
+        "test_scene_particle_vortex",
+        "test_scene_particle_audio_response",
+        "test_scene_particle_simulator"
+      ]
+    },
+    {
       "id": "particles",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleAssetGraph.swift",

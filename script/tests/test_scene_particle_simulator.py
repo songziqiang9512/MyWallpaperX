@@ -4496,9 +4496,9 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         # 显式有限三分量 exact zero 的轴按 +Z 准备（台账 O16），不再被拒绝。
         self.assertEqual(self.results["zeroAxisVortexVelocity"], [0, -100, 0])
 
-    def test_vortex_v2_remains_distinct_and_fail_closed(self) -> None:
+    def test_vortex_v2_unknown_wire_fields_remain_fail_closed(self) -> None:
         self.assertEqual(self.results["vortexV2Velocity"], [0, 0, 0])
-        self.assertIn("unsupportedOperator", self.results["vortexV2Diagnostics"])
+        self.assertIn("vortexUnsupported", self.results["vortexV2Diagnostics"])
 
     def test_cap_velocity_executes_bounded_direction_preserving_clamp(self) -> None:
         self.assertEqual(self.results["capVelocity"], [60, 80, 0])

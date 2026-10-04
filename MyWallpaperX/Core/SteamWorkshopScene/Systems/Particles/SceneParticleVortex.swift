@@ -1,8 +1,13 @@
 import Foundation
 
-/// Classic `vortex` wire. The newer ring-shaped `vortex_v2` remains a distinct,
-/// unsupported operator because it has different fields and control-point semantics.
+/// The two author versions share geometry, but retain separate field/flag admission.
 nonisolated struct SceneParticleVortex: Equatable, Sendable {
+    enum Version: String, Sendable {
+        case classic = "vortex"
+        case v2 = "vortex_v2"
+    }
+
+    let version: Version
     let axis: SceneParticleNumericValue?
     let distanceInner: Double?
     let distanceOuter: Double?
@@ -19,16 +24,22 @@ nonisolated struct SceneParticleVortexPlan: Equatable, Sendable {
     let speedInner: Double
     let speedOuter: Double
     let usesInfiniteAxis: Bool
+    let usesControlPointOrigin: Bool
 }
 
 nonisolated extension SceneParticleOperator {
     var vortexPlan: SceneParticleVortexPlan? {
         guard case let .vortex(value) = kind,
               !value.hasMalformedFields, value.unsupportedFieldNames.isEmpty,
-              rawFlags == 0 || rawFlags == 1,
+              (value.version == .classic
+                ? rawFlags == 0 || rawFlags == 1
+                : rawFlags == 0),
               blendInStart == nil, blendInEnd == nil,
               blendOutStart == nil, blendOutEnd == nil,
-              controlPoint == nil,
+              controlPoint == nil || (value.version == .v2 && controlPoint == 0),
+              value.version == .classic || value.axis == nil
+                || value.axis == .vector([0, 0, 1]),
+              value.version == .classic || !audioResponse.isEnabled,
               let distanceInner = value.distanceInner,
               let distanceOuter = value.distanceOuter,
               let speedInner = value.speedInner,
@@ -42,13 +53,17 @@ nonisolated extension SceneParticleOperator {
               let axis = Self.vortexAxis(value.axis) else {
             return nil
         }
+        // Bounded clean-room response from paired particle-clock observations.
+        // This is a project approximation, not an official numerical formula.
+        let accelerationScale = value.version == .v2 ? 0.72 : 1
         return .init(
             axis: axis,
             distanceInner: distanceInner,
             distanceOuter: distanceOuter,
-            speedInner: speedInner,
-            speedOuter: speedOuter,
-            usesInfiniteAxis: rawFlags == 1
+            speedInner: speedInner * accelerationScale,
+            speedOuter: speedOuter * accelerationScale,
+            usesInfiniteAxis: value.version == .classic && rawFlags == 1,
+            usesControlPointOrigin: value.version == .v2
         )
     }
 

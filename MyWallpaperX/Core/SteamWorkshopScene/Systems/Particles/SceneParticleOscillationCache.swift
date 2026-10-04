@@ -209,7 +209,7 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
             boids = nil
         }
         if case .vortex = value.kind {
-            vortex = value.vortexPlan
+            vortex = definition.vortexPlan(for: value)
         } else {
             vortex = nil
         }

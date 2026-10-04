@@ -27,6 +27,7 @@
       "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
       "docs/scene/roadmap/batch2/host-render-power-protocol-design.md",
       "docs/scene/roadmap/batch2/particle-playback-state-design.md",
+      "docs/scene/roadmap/batch2/particle-vortex-design.md",
       "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
       "docs/scene/roadmap/batch2/rt-prefix-admission-design.md",
       "docs/scene/roadmap/batch2/script-component-api-design.md",
@@ -480,9 +481,9 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "379d18a1b9dcf4166389451b661d3057d4ea916c6adfe75d093aff1b750dd8b9",
+        "sourceSHA256": "40d897ce44d4b459bc42a23834e488a1d08a0be4c6d211cba0ddf699f5fd1bb1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Added bounded classic vortex direction evidence pointer; checked navigation and source identity.",
+        "scope": "Added bounded standard v2 evidence pointer; checked current capability and history anchor navigation without expanding whole-sample or numerical parity claims.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -1315,6 +1316,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "对象排放控制与宿主暂停的组合合同通过事务和可见门，未知 reset profile 有明确归宿后归档。"
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/particle-vortex-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "currentStateAuthority": "docs/scene/capabilities/particle-component-coverage.md",
+      "retirementCondition": "Vortex运行实现与可见验收接管后归档，剩余范围交回粒子能力台账。"
     },
     {
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",

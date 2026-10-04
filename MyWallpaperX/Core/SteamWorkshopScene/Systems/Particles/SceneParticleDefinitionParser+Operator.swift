@@ -20,7 +20,8 @@ extension SceneParticleDefinitionParser {
         case "controlpointattract": kind = .controlPointAttract
         case "turbulence": kind = .turbulence
         case "boids": kind = .boids(Self.boids(root))
-        case "vortex": kind = .vortex(Self.vortex(root))
+        case "vortex", "vortex_v2": kind = .vortex(Self.vortex(root,
+            version: name == "vortex" ? .classic : .v2))
         case "capvelocity": kind = .capVelocity(Self.capVelocity(root))
         case "remapvalue": kind = .remapValue(.init(root: root))
         case "reducemovementnearcontrolpoint":
@@ -85,16 +86,25 @@ extension SceneParticleDefinitionParser {
         )
     }
 
-    private nonisolated static func vortex(_ root: [String: Any]) -> SceneParticleVortex {
+    private nonisolated static func vortex(
+        _ root: [String: Any], version: SceneParticleVortex.Version
+    ) -> SceneParticleVortex {
         let scalarFields = ["distanceinner", "distanceouter", "speedinner", "speedouter"]
-        let supportedFields = Set([
+        var supportedFields = Set([
             "id", "name", "axis", "distanceinner", "distanceouter", "flags",
-            "speedinner", "speedouter", "blendinstart", "blendinend",
-            "blendoutstart", "blendoutend", "audioprocessingmode",
-            "audioprocessingbounds", "audioprocessingexponent",
-            "audioprocessingfrequencystart", "audioprocessingfrequencyend"
+            "speedinner", "speedouter", "audioprocessingmode"
         ])
+        if version == .classic {
+            supportedFields.formUnion([
+                "blendinstart", "blendinend", "blendoutstart", "blendoutend",
+                "audioprocessingbounds", "audioprocessingexponent",
+                "audioprocessingfrequencystart", "audioprocessingfrequencyend"
+            ])
+        } else {
+            supportedFields.insert("controlpoint")
+        }
         return .init(
+            version: version,
             axis: numericValue(root["axis"]),
             distanceInner: number(root["distanceinner"]),
             distanceOuter: number(root["distanceouter"]),
@@ -105,7 +115,11 @@ extension SceneParticleDefinitionParser {
                 || scalarFields.contains {
                     root[$0] != nil && !(root[$0] is NSNull) && number(root[$0]) == nil
                 }
-                || (root["flags"] != nil && integer(root["flags"]) == nil),
+                || (root["flags"] != nil && integer(root["flags"]) == nil)
+                || (root["controlpoint"] != nil && integer(root["controlpoint"]) == nil)
+                || (version == .v2 && root["audioprocessingmode"] != nil
+                    && !(root["audioprocessingmode"] is NSNull)
+                    && integer(root["audioprocessingmode"]) == nil),
             unsupportedFieldNames: root.keys.filter { !supportedFields.contains($0) }.sorted()
         )
     }

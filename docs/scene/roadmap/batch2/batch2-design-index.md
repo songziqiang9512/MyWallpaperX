@@ -19,6 +19,8 @@
 
 十二项不按编号机械实施：当前选序及每批提交/下一批边界见[后继选序](../scene-compatibility-roadmap.md#batch-2-后继选序2026-10-02)。Scene 缺失能力持续落代码，已有能力按反例收敛；Web/App 项独立排队，私有后端遵守各卡限制。
 
+粒子后继的独立行为裁决见[Vortex 后继设计](particle-vortex-design.md)，沿既有解释器与合成链实施。
+
 后续实施与59项参考证据的去向见[派生实施卡](reference-evidence-implementation-cards.md)，选序仍归上述兼容路线；原设计基线的“仅文档”描述不代表后续产品实施状态。
 
 ## 基线与合并边界

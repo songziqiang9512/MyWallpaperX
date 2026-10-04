@@ -198,9 +198,9 @@ extension SceneParticleSimulationMath {
                 break
             case .boids:
                 add(definition.boidsPlan(for: value) == nil ? .boidsUnsupported : .boidsBounded, "boids")
-            case .vortex:
-                add(value.hasBoundedVortexExecution
-                    ? .vortexBounded : .vortexUnsupported, "vortex")
+            case let .vortex(declaration):
+                add(definition.vortexPlan(for: value) != nil && value.hasBoundedVortexExecution
+                    ? .vortexBounded : .vortexUnsupported, declaration.version.rawValue)
             case .capVelocity:
                 add(value.capVelocityPlan == nil
                     ? .capVelocityUnsupported : .capVelocityBounded, "capvelocity")

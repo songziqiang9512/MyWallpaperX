@@ -1,10 +1,8 @@
 import Foundation
 
 nonisolated extension SceneParticleSimulator {
-    /// Applies a bounded classic vortex as tangential acceleration in particle-local space.
-    /// Positive speed turns clockwise around positive Z in the author XY plane,
-    /// matching the fixed-client direction control; negative speed reverses it.
-    /// Acceleration magnitude and integration remain project-owned, not a Windows golden.
+    /// Both admitted author versions accelerate clockwise around positive Z.
+    /// The prepared plan owns version-specific units; Movement integrates position.
     func applyVortex(
         plan: SceneParticleVortexPlan?,
         duration: Double,
@@ -14,9 +12,20 @@ nonisolated extension SceneParticleSimulator {
         let audioScale = audioScale ?? 1
         let speedScale = effectiveSpeedOverride
         guard speedScale.isFinite else { return }
+        let center: SIMD3<Double>
+        if plan.usesControlPointOrigin {
+            let angle = activeInstanceOverride?.controlPointAngles[0]?.value
+            guard (dynamicControlPointAngles[0] ?? .zero) == .zero,
+                  angle == nil || angle == .vector([0, 0, 0]),
+                  let position = controlPointPosition(0, offset: .zero),
+                  position == .zero else { return }
+            center = position
+        } else {
+            center = .zero
+        }
 
         for index in particles.indices {
-            let relative = particles[index].position
+            let relative = particles[index].position - center
             let axial = plan.axis * dot(relative, plan.axis)
             let radial = relative - axial
             let radialLength = SceneParticleSimulationMath.length(radial)
@@ -34,8 +43,9 @@ nonisolated extension SceneParticleSimulator {
                 : 0
             let speed = plan.speedInner + (plan.speedOuter - plan.speedInner) * amount
             let tangent = cross(radial, plan.axis) / radialLength
+            let acceleration = tangent * speed * speedScale * audioScale
             SceneParticleSimulationMath.addFinite(
-                tangent * speed * speedScale * audioScale * duration,
+                acceleration * duration,
                 to: &particles[index].velocity
             )
         }

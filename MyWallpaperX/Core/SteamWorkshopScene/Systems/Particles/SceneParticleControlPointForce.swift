@@ -364,3 +364,19 @@ nonisolated extension SceneParticleDefinition {
         pointerControlPointValues(at: position, identities: pointerControlPointIdentities)
     }
 }
+
+nonisolated extension SceneParticleDefinition {
+    func vortexPlan(for value: SceneParticleOperator) -> SceneParticleVortexPlan? {
+        guard let plan = value.vortexPlan else { return nil }
+        if plan.usesControlPointOrigin {
+            guard SceneParticleSimulationMath.supportsControlPointSource(0, in: self)
+            else { return nil }
+            if let point = controlPoints.first(where: { $0.id == 0 }),
+               point.hasMalformedFields || !point.hasBoundedStaticInput(identity: 0)
+                || (point.offset != nil && point.offset != .vector([0, 0, 0])) {
+                return nil
+            }
+        }
+        return plan
+    }
+}

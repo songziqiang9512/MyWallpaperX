@@ -304,6 +304,18 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-particle-vortex-v2",
+      "title": "Vortex v2 作者运动与现有粒子执行链接入",
+      "owner": "scene-particle",
+      "status": "approved",
+      "designDoc": "docs/scene/roadmap/batch2/particle-vortex-design.md",
+      "design_notes": "普通flags0按已冻结有界项目响应接既有owner；仅v2准备期转换力度，classic/audio不变。flags2长时收缩反例阻止本批准入；官方跨FPS数值仍未验证。",
+      "matchPatterns": [],
+      "contentPatterns": [
+        "case v2 = \"vortex_v2\""
+      ]
     }
   ]
 }

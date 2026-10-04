@@ -82,7 +82,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 393,
-      "bytes": 138094
+      "bytes": 138536
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 562,
@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 72,
-      "bytes": 7526
+      "bytes": 7648
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -219,6 +219,10 @@
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 7241
+    },
+    "docs/scene/roadmap/batch2/particle-vortex-design.md": {
+      "lines": 38,
+      "bytes": 5340
     }
   },
   "archives": [
@@ -1017,29 +1021,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "d0e6c5c29f8d7541d3ceb3d8a247d25cf8da77988334938eada51cd64bc76264",
-      "after": "ad238b8ffbce3c5b7a86e6495c2a2ef4ba044f309acb91d998a4e36cde85bc50",
-      "owner": "scene-vortex-direction",
-      "reason": "Correct the proven classic rotation direction and record the bounded App result; keep v2 magnitude and radial velocity explicitly open.",
-      "decision": "docs/scene/history/runtime-evidence-index.md#e-particle-vortex-direction"
+      "before": "ad238b8ffbce3c5b7a86e6495c2a2ef4ba044f309acb91d998a4e36cde85bc50",
+      "after": "cc0c71be65755e0c23eab72118bda37a1df8b9a76fba6548b8b9d97d515aa707",
+      "owner": "scene-particle-vortex",
+      "reason": "普通v2执行范围及真实画面证据同步；保留flags2与跨FPS未验边界。",
+      "decision": "docs/scene/roadmap/batch2/particle-vortex-design.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "92e51d593374ff690214ad50e5b95bf319991b45ae5c90fa535a46c49cabf638",
-      "after": "58fd55da40bf02c83c4db00d59abf75634dd6c064db4821b54b4d1b4a9b4f982",
-      "owner": "scene-vortex-direction",
-      "reason": "Correct the proven classic rotation direction and record the bounded App result; keep v2 magnitude and radial velocity explicitly open.",
-      "decision": "docs/scene/history/runtime-evidence-index.md#e-particle-vortex-direction"
+      "before": "58fd55da40bf02c83c4db00d59abf75634dd6c064db4821b54b4d1b4a9b4f982",
+      "after": "e75858947dfa614567afa48dcc4a9fb5a830840956503d8c3c8122597fe81eea",
+      "owner": "scene-particle-vortex",
+      "reason": "普通v2执行范围及真实画面证据同步；保留flags2与跨FPS未验边界。",
+      "decision": "docs/scene/roadmap/batch2/particle-vortex-design.md"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "cbfaba1b881ea5227eb3a483a8083623a80a4b6be6ba5190d7d37f245f0954d3",
-      "after": "6bf7547ce3d5f796d3da7e37f71e250f310ed245047d8f1f48600e204225793e",
-      "owner": "scene-vortex-direction",
-      "reason": "Correct the proven classic rotation direction and record the bounded App result; keep v2 magnitude and radial velocity explicitly open.",
-      "decision": "docs/scene/history/runtime-evidence-index.md#e-particle-vortex-direction"
+      "path": "docs/scene/roadmap/batch2/particle-vortex-design.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "4a33e7918466828d12f2da674985c8ef7f895dca31222e982d1396ee4794de12",
+      "owner": "scene-particle-vortex",
+      "reason": "普通v2执行范围及真实画面证据同步；保留flags2与跨FPS未验边界。",
+      "decision": "docs/scene/roadmap/batch2/particle-vortex-design.md"
     }
   ]
 }
