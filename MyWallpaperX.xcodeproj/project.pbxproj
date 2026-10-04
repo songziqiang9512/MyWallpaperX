@@ -15,8 +15,8 @@
 		A10000062F6B0001005688A8 /* MyWallpaperXHelp in Resources */ = {isa = PBXBuildFile; fileRef = 98E9DA272F786FCC00C96FC7 /* MyWallpaperXHelp */; };
 		A20000012F800001005688A8 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A20000112F800001005688A8 /* Sparkle */; };
 		A20000022F800002005688A8 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000122F800002005688A8 /* AppIntents.framework */; };
-		A30000012F810001005688A8 /* glslang in CopyFiles */ = {isa = PBXBuildFile; fileRef = A30000112F810001005688A8 /* glslang */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		A30000022F810002005688A8 /* spirv-cross in CopyFiles */ = {isa = PBXBuildFile; fileRef = A30000122F810002005688A8 /* spirv-cross */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		A30000012F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang in CopyFiles */ = {isa = PBXBuildFile; fileRef = A30000112F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		A30000022F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross in CopyFiles */ = {isa = PBXBuildFile; fileRef = A30000122F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -27,8 +27,8 @@
 			dstSubfolderSpec = 1;
 			files = (
 				A10000012F6B0001005688A8 /* MyWallpaperXWallpaperDaemon in CopyFiles */,
-				A30000012F810001005688A8 /* glslang in CopyFiles */,
-				A30000022F810002005688A8 /* spirv-cross in CopyFiles */,
+				A30000012F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang in CopyFiles */,
+				A30000022F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -42,23 +42,23 @@
 		A10000142F6B0001005688A8 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		A10000152F6B0001005688A8 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		A20000122F800002005688A8 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
-		A30000112F810001005688A8 /* glslang */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = MyWallpaperX/Resources/SceneShaderCompilerTools/glslang; sourceTree = SOURCE_ROOT; };
-		A30000122F810002005688A8 /* spirv-cross */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross; sourceTree = SOURCE_ROOT; };
+		A30000112F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = MyWallpaperX/Resources/SceneShaderCompilerTools/glslang; sourceTree = SOURCE_ROOT; };
+		A30000122F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = "MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		98CED6592F6AF9E3005688A8 /* Exceptions for "MyWallpaperX" folder in "MyWallpaperX" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Info.plist,
 				Core/SteamWorkshopScene/Systems/Script/QuickJSNG/README.md,
-				Resources/SceneStockAssets.bundle,
-				Resources/SceneShaderCompilerTools/glslang,
-				Resources/SceneShaderCompilerTools/spirv-cross,
+				Info.plist,
 				Modules/OnlineLibrary/AGENTS.md,
 				Modules/StaticImageLibrary/AGENTS.md,
 				Modules/SteamWorkshop/AGENTS.md,
 				Modules/VideoLibrary/AGENTS.md,
+				Resources/SceneShaderCompilerTools/glslang,
+				"Resources/SceneShaderCompilerTools/spirv-cross",
+				Resources/SceneStockAssets.bundle,
 			);
 			target = 98CED6382F6AF877005688A8 /* MyWallpaperX */;
 		};
@@ -126,6 +126,7 @@
 				A10000212F6B0001005688A8 /* WallpaperDaemonSources */,
 				A10000342F6B0001005688A8 /* Frameworks */,
 				98CED63A2F6AF877005688A8 /* Products */,
+				98FCEC7930718F89009B3931 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -136,6 +137,15 @@
 				A10000112F6B0001005688A8 /* MyWallpaperXWallpaperDaemon */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		98FCEC7930718F89009B3931 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				A30000112F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang */,
+				A30000122F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 		A10000342F6B0001005688A8 /* Frameworks */ = {
@@ -151,33 +161,6 @@
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		A40000022F810003005688A8 /* Embed stock runtime assets */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = ();
-			inputPaths = ();
-			name = "Embed stock runtime assets";
-			outputPaths = ("$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Resources/SceneStockAssets.bundle",);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/bash;
-			shellScript = "/bin/bash \"$SRCROOT/script/copy-scene-stock-assets.sh\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/SceneStockAssets.bundle\"\n";
-		};
-		A40000012F810003005688A8 /* Embed SteamService */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = ();
-			inputPaths = ();
-			name = "Embed SteamService";
-			outputPaths = ("$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Resources/SteamService",);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/bash;
-			shellScript = "/bin/bash \"$SRCROOT/script/publish-steam-helper.sh\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/SteamService\" \"$DERIVED_FILE_DIR/SteamService\"\n";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXNativeTarget section */
 		98CED6382F6AF877005688A8 /* MyWallpaperX */ = {
@@ -279,6 +262,41 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A40000012F810003005688A8 /* Embed SteamService */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Embed SteamService";
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Resources/SteamService",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "/bin/bash \"$SRCROOT/script/publish-steam-helper.sh\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/SteamService\" \"$DERIVED_FILE_DIR/SteamService\"\n";
+		};
+		A40000022F810003005688A8 /* Embed stock runtime assets */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Embed stock runtime assets";
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Resources/SceneStockAssets.bundle",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "/bin/bash \"$SRCROOT/script/copy-scene-stock-assets.sh\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/SceneStockAssets.bundle\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		98CED6352F6AF877005688A8 /* Sources */ = {
@@ -440,9 +458,14 @@
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = H9QWU9XN8R;
 				ENABLE_APP_SANDBOX = NO;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
-				EXCLUDED_SOURCE_FILE_NAMES = "$(inherited) .mimosa *.source sess_*.json";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				EXCLUDED_SOURCE_FILE_NAMES = (
+					"$(inherited)",
+					.mimosa,
+					"*.source",
+					"sess_*.json",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MyWallpaperX/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
@@ -487,9 +510,14 @@
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = H9QWU9XN8R;
 				ENABLE_APP_SANDBOX = NO;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
-				EXCLUDED_SOURCE_FILE_NAMES = "$(inherited) .mimosa *.source sess_*.json";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				EXCLUDED_SOURCE_FILE_NAMES = (
+					"$(inherited)",
+					.mimosa,
+					"*.source",
+					"sess_*.json",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MyWallpaperX/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
