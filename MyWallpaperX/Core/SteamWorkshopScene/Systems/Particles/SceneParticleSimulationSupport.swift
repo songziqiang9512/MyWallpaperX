@@ -197,7 +197,10 @@ nonisolated enum SceneParticleSimulationMath {
         guard directionLength.isFinite, directionLength > 1e-9 else { return strict ? SIMD3(repeating: .nan) : .zero }
         let minimumSpeed = max(value.speedMinimum, 0)
         let maximumSpeed = max(value.speedMaximum, minimumSpeed)
-        return direction / directionLength * random.value(minimumSpeed, maximumSpeed)
+        // Forward carries authored velocity magnitude as well as direction.
+        // Normalize only for orientation, then retain its scale in the result.
+        return direction / directionLength
+            * (forwardLength * random.value(minimumSpeed, maximumSpeed))
     }
 
     @inline(__always)

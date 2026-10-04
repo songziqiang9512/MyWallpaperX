@@ -4421,7 +4421,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(self.results["turbulentDifferentTime"])
         self.assertAlmostEqual(self.results["turbulentSpeed"], 25)
         self.assertTrue(self.results["turbulentPlanar"])
-        self.assertEqual(self.results["zeroScaleTurbulentVelocity"], [0, 25, 0])
+        self.assertEqual(self.results["zeroScaleTurbulentVelocity"], [0, 50, 0])
         offset_velocity = self.results["offsetTurbulentVelocity"]
         self.assertAlmostEqual(offset_velocity[0], -25 * math.sin(3), places=10)
         self.assertAlmostEqual(offset_velocity[1], 25 * math.cos(3), places=10)

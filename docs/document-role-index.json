@@ -480,9 +480,9 @@
       "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "45f48e612f914035d26d3904d00e1e0bc662013679e48e3617b3daa8a9f4774a",
+        "sourceSHA256": "83837a5378ee1d6ffddf68283d215f6a928f93c7632392c6c56e150c9218d8d1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对粒子显隐合同、RF05有界证据链接与未关闭的真实组合缺口；本收据只标记导航维护。",
+        "scope": "核对forward幅度、粒子显隐与未闭合真实样本的证据导航；不含运行验收。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

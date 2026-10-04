@@ -171,6 +171,9 @@
 
 2026-09-28 有界研究`legacy-rotation-scalar-20260928`复核同一2.8.42客户端（wallpaper64.exe SHA `40e2ce021e9352324fadb3b8f72b8ba2a7ee95b71cc571d5b9f84be75cd993b0`，Ghidra12.1.2/Java21.0.12）。经独立净化审查的`official-client-static-observation`支持：`rotationrandom`的min/max有限JSON number各自归一化为Z-only；单token有符号十进制字符串为X-only；三token字符串保留XYZ。数值与文本不能先合并再广播。只证明版本有界字段归一化，不涉及Euler、随机或几何公式；`angularvelocityrandom`、数组、wrapper、缺省/畸形、扩展文本语法与Windows像素结果仍未证明。研究与实现隔离、raw已清理；现状见[实际执行](../capabilities/runtime-evidence-current.md#e-2026-09-28-rotation-source-types)。
 
+<a id="particle-turbulent-forward-blackbox"></a>
+2026-10-04 官方2.8.0.42 `wallpaper32.exe`（SHA256 `daac1ea7c991207fdb6098616757e3dae393850f6862845db55d04921b6bda07`）隔离窗口黑盒：自有白色TEX、PKGV0001包及蓝色年龄标尺，在phase/scale/offset=0、speed=10时，forward长度1/2/20对应速度约10.25/19.68/199.82，支持保留作者forward幅度。flags=0、正交轴、forward长度2、speed40、offset±0.5的XY速度约(∓38.45,70.61)，与现有平面旋转相符；局部非均匀scale和Z旋转的位移亦匹配现有层变换。无层变换的size32、速度100、trail length0.05约80×16场景单位，仅支持这一受控几何。v1错误包头产生棋盘纹理，不纳入正式白纹理验收；有效v2/v3共11张原PNG与测量随本机批次证据保存。非正交轴、noise、随机分布、透视及全样本像素仍未知；未读取私有实现。产品结果见[幅度修复](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-turbulent-forward)。
+
 ### 1.6 Timeline
 
 - https://docs.wallpaperengine.io/en/scene/timeline/introduction.html

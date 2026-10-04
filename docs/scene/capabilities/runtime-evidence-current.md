@@ -10,7 +10,7 @@
 
 ## 1. 当前证据快照
 
-本节只提供精确证据的查询入口；结论、身份和未验证边界留在各自证据包。读取单条时先核对其输入与 App/code identity、执行层级和后继记录，再判断它能否回答当前首断点。
+这里只索引证据包；先核对单条输入/App/code identity、执行层级与后继记录，再用于当前首断点。
 
 | 查询主题 | 本页证据入口 |
 |---|---|
@@ -25,7 +25,7 @@
 
 ### Batch2 冻结执行记录
 
-2026-10-03仅同步查询入口，未复跑当前HEAD。各记录拥有独立代码/输入/App身份、实际范围和未验边界；不得拼成共同验收或提升为官方parity、发布/性能完成。
+2026-10-03仅导航，未复跑HEAD。各记录独立绑定代码/输入/App与证据边界，不构成共同验收或官方parity、发布/性能完成。
 
 | 职责 | 精确冻结记录 |
 |---|---|
@@ -38,7 +38,7 @@
 | 连续属性交互 | [RF05 pending intent](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-deferred-intent)：独立开启/部分取消/同键取消/拒绝后保留，四项 App 最终像素；多 surface 仅 CPU 受控回滚，不外推物理多屏 |
 | 隐藏全屏后处理 | [RF05 fullscreen](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-hidden-fullscreen-result)：自有 App 开/关像素、同窗口及未准备整键拒绝；真实293完整属性仍属RF05后继组合 |
 | composition source | [D1普通分组/背景/根顺序](../history/d1-composition-authored-order-implementation-2026-10-04.md)；23项App正反例与资源生命周期，未知模式不外推 |
-| 粒子播放/出生/显隐 | [RF03](../history/rf03-particle-playback-implementation-2026-10-02.md)、[RF05显隐](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-particle-visibility-design)；各自有界验收，默认count/reset未开放 |
+| 粒子播放/出生/显隐 | [RF03](../history/rf03-particle-playback-implementation-2026-10-02.md)、[RF05显隐](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-particle-visibility-design)、[forward幅度](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-turbulent-forward)；各自有界验收，默认count/reset未开放 |
 | 作者采样/companion | [RF02 A](../history/rf02-authored-sampling-implementation-2026-10-03.md)、[atlas named](../history/rf02-atlas-named-output-implementation-2026-10-03.md)、[B官方观察](../history/rf02-companion-uniform-observations-2026-10-03.md)、[B实施与验收状态](../history/rf02-public-companion-implementation-2026-10-03.md)；量化/呈现上限与项目产品合同分别读取 |
 
 <a id="evidence-levels"></a>
