@@ -1440,6 +1440,22 @@
       ]
     },
     {
+      "id": "particle-affine-trail",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleShaderSource.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleRenderSupport.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCameraFrame.swift",
+        "script/tests/test_scene_particle_rendering.py",
+        "script/tests/test_scene_particle_affine_trail.py",
+        "script/tests/fixtures/SceneParticleAffineTrailHarness.swift"
+      ],
+      "modules": [
+        "test_scene_particle_rendering",
+        "test_scene_particle_affine_trail",
+        "test_scene_particle_camera_frame"
+      ]
+    },
+    {
       "id": "particle-turbulent-forward",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationSupport.swift",

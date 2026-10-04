@@ -219,10 +219,9 @@ nonisolated enum SceneParticleOrientation: Equatable, Sendable {
         axis rawAxis: SIMD3<Float>,
         layerModel: simd_float4x4
     ) -> (right: SIMD3<Float>, up: SIMD3<Float>, forward: SIMD3<Float>) {
-        let axisLength = simd_length_squared(rawAxis)
-        let normal = axisLength.isFinite && axisLength > 1e-8
-            ? rawAxis / sqrt(axisLength)
-            : SIMD3<Float>(0, 0, 1)
+        let normal = SceneParticleOrientationBasis.normalized(
+            rawAxis, fallback: SIMD3<Float>(0, 0, 1)
+        )
         let reference = abs(normal.y) < 0.999
             ? SIMD3<Float>(0, 1, 0)
             : SIMD3<Float>(1, 0, 0)
@@ -253,6 +252,7 @@ nonisolated struct SceneParticleOrientationBasis: Equatable, Sendable {
     // Local Sprite geometry keeps the full model linear transform.
     // Direction/refraction axes retain their separate normalized contract.
     var localGeometry: simd_float3x3? = nil
+    var localTrailNormal: SIMD3<Float>? = nil
 
     fileprivate static func orthonormalized(
         right rawRight: SIMD3<Float>,
@@ -270,7 +270,7 @@ nonisolated struct SceneParticleOrientationBasis: Equatable, Sendable {
         return SceneParticleOrientationBasis(right: right, up: up)
     }
 
-    fileprivate static func normalized(
+    static func normalized(
         _ value: SIMD3<Float>,
         fallback: SIMD3<Float>
     ) -> SIMD3<Float> {
@@ -423,6 +423,7 @@ nonisolated struct SceneParticleLayerUniforms: Sendable {
     var spriteRight: SIMD4<Float>
     var spriteUp: SIMD4<Float>
     var spriteForward: SIMD4<Float>
+    var trailLocalNormal: SIMD4<Float>
 
     nonisolated init(
         viewProjection: simd_float4x4,
@@ -436,6 +437,8 @@ nonisolated struct SceneParticleLayerUniforms: Sendable {
     ) {
         self.viewProjection = viewProjection
         self.layerModel = layerModel
+        trailLocalNormal = !sizeIsWorldSpace
+            ? basis.localTrailNormal.map { SIMD4($0, 1) } ?? .zero : .zero
         // Positions/displacements remain in the static layer frame; size has
         // its own coordinate responsibility. General world-space size is
         // already in scene units and must not inherit the node scale again.

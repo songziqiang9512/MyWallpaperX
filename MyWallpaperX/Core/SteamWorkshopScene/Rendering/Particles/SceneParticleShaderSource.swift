@@ -27,6 +27,7 @@ struct LayerUniforms {
     float4 spriteRight;
     float4 spriteUp;
     float4 spriteForward;
+    float4 trailLocalNormal;
 };
 struct Varyings {
     float4 position [[position]];
@@ -138,6 +139,25 @@ vertex Varyings sceneParticleVert(
             uniforms.basisRight.xyz * acrossCoefficients.x
                 + uniforms.basisUp.xyz * acrossCoefficients.y
         ) * (joined ? endpointJoin.w : particle.positionAndSize.w) * layerScale.x;
+        if (!usesDisplacement && uniforms.trailLocalNormal.w > 0.5) {
+            // Orient the width before the layer transform. Reconstructing a
+            // perpendicular after projection erases nonuniform scale/shear.
+            float3x3 linearLayer = float3x3(uniforms.layerModel[0].xyz,
+                uniforms.layerModel[1].xyz, uniforms.layerModel[2].xyz);
+            // The existing orientation owner supplies the pre-transform
+            // plane, including when a layer axis has collapsed to zero.
+            float3 localAcross = cross(uniforms.trailLocalNormal.xyz, localDirection);
+            float acrossLength = length(localAcross);
+            if (acrossLength > 0.00001) {
+                float3 affineAcross = linearLayer * (localAcross / acrossLength)
+                    * particle.positionAndSize.w;
+                float2 affinePixels = particlePixelDirection(projectedStart, affineAcross, uniforms);
+                // Retain the established texture-facing sign, without
+                // straightening the two independently transformed axes.
+                trailAcrossWorld = dot(affinePixels, perpendicular) < 0.0
+                    ? -affineAcross : affineAcross;
+            }
+        }
     } else {
         local = rotateParticle(
             float3(

@@ -364,7 +364,7 @@ enum Harness {
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.viewUp),
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.spriteRight),
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.spriteUp),
-            MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.spriteForward),
+            MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.spriteForward), MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.trailLocalNormal),
         ].compactMap { $0 }
     }
 
@@ -2513,8 +2513,8 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertEqual(self.result["instanceStride"], 160)
         self.assertEqual(self.result["instanceAlignment"], 16)
         self.assertEqual(self.result["instanceOffsets"], [0, 16, 32, 48, 64, 80, 96, 112, 128, 144])
-        self.assertEqual(self.result["uniformStride"], 256)
-        self.assertEqual(self.result["uniformOffsets"], [0, 64, 128, 144, 160, 168, 176, 192, 208, 224, 240])
+        self.assertEqual(self.result["uniformStride"], 272)
+        self.assertEqual(self.result["uniformOffsets"], [0, 64, 128, 144, 160, 168, 176, 192, 208, 224, 240, 256])
 
     def test_lifetime_sprite_selection_and_frame_blending(self) -> None:
         self.assertEqual(self.result["sequence"]["current"], 2)

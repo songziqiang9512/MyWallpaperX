@@ -284,14 +284,21 @@ struct SceneParticleCameraFrame: Sendable {
             let geometry = linear * simd_float3x3(
                 basis.right, basis.up, simd_cross(basis.right, basis.up)
             )
+            let localRight = basis.right * SIMD3<Float>(1, -1, 1)
+            let localUp = basis.up * SIMD3<Float>(1, -1, 1)
+            let localTrailNormal = simd_cross(localRight, localUp)
             basis = SceneParticleOrientation.fixed.basis(
                 cameraRight: cameraRight, cameraUp: visualUp, cameraForward: cameraForward,
                 fixedRight: geometry.columns.0, fixedUp: geometry.columns.1
             )
             basis.localGeometry = geometry
+            basis.localTrailNormal = localTrailNormal
         }
         if orientation == .fixed, layerModel != nil {
             basis.localGeometry = simd_float3x3(fixed.right, fixed.up, fixed.forward)
+            basis.localTrailNormal = SceneParticleOrientationBasis.normalized(
+                orientationAxis, fallback: SIMD3(0, 0, 1)
+            )
         }
         return basis
     }
