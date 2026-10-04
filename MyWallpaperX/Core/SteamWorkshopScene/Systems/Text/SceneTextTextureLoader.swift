@@ -332,10 +332,17 @@ enum SceneTextTextureLoader {
         let scale = CGFloat(layout.scale)
         let shadow = style.dropShadow
         if let shadow {
+            // Empirical positive-axis response from owned official probes:
+            // 32/64 authored points saturate near 25/50 scene units. Use the
+            // live point size before raster scaling, not the scaled CTFont.
+            // Negative offsets retain the existing project behavior; official
+            // large-negative clipping is not a symmetric version of this law.
+            // Keep the conservative authored border shared with the quad pivot.
+            let positiveOffsetLimit = CGFloat(style.pointSize) * 25 / 32
             context.setShadow(
                 offset: CGSize(
-                    width: CGFloat(shadow.offset[0]) * scale,
-                    height: -CGFloat(shadow.offset[1]) * scale
+                    width: min(CGFloat(shadow.offset[0]), positiveOffsetLimit) * scale,
+                    height: -min(CGFloat(shadow.offset[1]), positiveOffsetLimit) * scale
                 ),
                 blur: max(4, CGFloat(shadow.size)) * scale,
                 color: color(shadow.colorRGB, brightness: 1, alpha: CGFloat(shadow.opacity))

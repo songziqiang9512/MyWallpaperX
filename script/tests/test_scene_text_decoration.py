@@ -87,9 +87,18 @@ def fixture_scene() -> dict:
         ("axis-last-line-marker", {"text": ".\nI", "pointsize": 32}),
         ("axis-positive", SHADOW | {"text": "I", "pointsize": 32, "dropshadowoffset": "96 48"}),
         ("axis-negative", SHADOW | {"text": "I", "pointsize": 32, "dropshadowoffset": "-96 -48"}),
-        ("axis-horizontal", SHADOW | {"text": "I", "pointsize": 32, "dropshadowoffset": "96 0"}),
-        ("axis-combined", OUTLINE | SHADOW | {"text": "I", "pointsize": 32,
+        ("axis-horizontal", SHADOW | {"text": "I", "pointsize": 128, "dropshadowoffset": "96 0"}),
+        ("axis-combined", OUTLINE | SHADOW | {"text": "I", "pointsize": 128,
             "dropshadowoffset": "96 0", "outlinethickness": 8}),
+        ("axis-low-positive", SHADOW | {"text": "I", "pointsize": 32}),
+        ("axis-mixed-sign", SHADOW | {"text": "I", "pointsize": 32,
+            "dropshadowoffset": "96 -48"}),
+        ("axis-positive-small-font", SHADOW | {"text": "I", "pointsize": 1,
+            "dropshadowoffset": "4 4"}),
+        ("axis-positive-large-font", SHADOW | {"text": "I", "pointsize": 64,
+            "dropshadowoffset": "96 96"}),
+        ("axis-positive-downsampled", SHADOW | {"text": "I", "pointsize": 64,
+            "padding": 1400, "dropshadowoffset": "96 96"}),
         ("large-finite-outline", OUTLINE | {"outlinethickness": 1e30}),
         ("large-finite-shadow-size", SHADOW | {"dropshadowsize": 1e30}),
         ("large-finite-shadow-offset", SHADOW | {"dropshadowoffset": [1e30, -1e30]}),
@@ -433,10 +442,19 @@ enum DecorationProbe {
             outlineGeometry[name] = images[name]!.outlineGeometry(to: images[control]!)
         }
         var shadowGeometry: [String: Any] = [:]
-        for name in ["axis-baseline", "axis-first-line-marker", "axis-last-line-marker", "axis-positive", "axis-negative",
-            "axis-horizontal", "axis-combined"] {
-            shadowGeometry[name] = ["fill": images[name]!.channelMask(1), "shadow": images[name]!.channelMask(0)]
+        for name in images.keys.filter({ $0.hasPrefix("axis-") }) {
+            shadowGeometry[name] = ["fill": images[name]!.channelMask(1), "shadow": images[name]!.channelMask(0),
+                "rasterScale": images[name]!.scale]
         }
+        let dynamicShadowLayer = layers["axis-positive"]!
+        guard let updatedShadow = SceneTextTextureLoader.makeDynamicTexture(
+            for: dynamicShadowLayer, content: "I", pointSize: 64, colorRGB: [0, 1, 0],
+            cacheDirectory: url.deletingLastPathComponent(), device: device) else {
+            throw ProbeError.texture("axis-dynamic-pointsize")
+        }
+        let updatedImage = Image(updatedShadow.texture, logicalSize: updatedShadow.renderSizeWH)
+        shadowGeometry["axis-dynamic-pointsize"] = ["fill": updatedImage.channelMask(1),
+            "shadow": updatedImage.channelMask(0)]
         var worldAnchors: [String: Any] = [:]
         for alignment in ["left", "right", "top", "bottom"] {
             let baseName = "anchor-" + alignment + "-baseline"
@@ -618,7 +636,7 @@ class SceneTextDecorationTests(unittest.TestCase):
         # the intrinsic content box has no spare vertical alignment space.
         down = 1 if last > first else -1
         baseline = geometry["axis-baseline"]["fill"]["centroid"]
-        for name, x, y in [("axis-positive", 96, 48), ("axis-negative", -96, -48)]:
+        for name, x, y in [("axis-positive", 25, 25), ("axis-negative", -96, -48)]:
             with self.subTest(case=name):
                 shadow = geometry[name]["shadow"]
                 self.assertGreater(shadow["mass"], 0)
@@ -632,6 +650,28 @@ class SceneTextDecorationTests(unittest.TestCase):
         for index, sign in [(0, -1), (1, -1), (2, 1), (3, 1)]:
             with self.subTest(edge=index):
                 self.assertAlmostEqual(sign * (outlined[index] - plain[index]), 8, delta=2)
+
+    def test_positive_shadow_ceiling_tracks_live_font_before_raster_scaling(self) -> None:
+        # Independent official input observations: 32pt saturates near 25 scene
+        # units and 64pt near 50, on each positive axis. Negative large offsets
+        # have different official artifacts; their existing project behavior
+        # is protected separately, not labelled symmetric official parity.
+        geometry = self.result["shadowGeometry"]
+        down = 1 if (geometry["axis-last-line-marker"]["fill"]["centroid"][1]
+            > geometry["axis-first-line-marker"]["fill"]["centroid"][1]) else -1
+        self.assertLess(geometry["axis-positive-downsampled"]["rasterScale"], 1)
+        for name, expected in [("axis-low-positive", (16, 12)),
+            ("axis-mixed-sign", (25, -48)),
+            ("axis-positive-small-font", (0.8, 0.8)),
+            ("axis-positive-large-font", (50, 50)),
+            ("axis-positive-downsampled", (50, 50)),
+            ("axis-dynamic-pointsize", (50, 48))]:
+            with self.subTest(case=name):
+                entry = geometry[name]
+                self.assertGreater(entry["shadow"]["mass"], 0)
+                for axis, sign in [(0, 1), (1, down)]:
+                    observed = entry["shadow"]["centroid"][axis] - entry["fill"]["centroid"][axis]
+                    self.assertAlmostEqual(observed, sign * expected[axis], delta=2)
 
     def test_outline_expands_outward_by_scene_pixels_and_narrows_the_glyph_hole(self) -> None:
         for name, logical_radius in [("radius-four", 4), ("radius-eight", 8),

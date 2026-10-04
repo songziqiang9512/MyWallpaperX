@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 367,
-      "bytes": 168018
+      "bytes": 168185
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 275,
@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 72,
-      "bytes": 7721
+      "bytes": 7858
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 49803
+      "bytes": 49792
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1029,15 +1029,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e75858947dfa614567afa48dcc4a9fb5a830840956503d8c3c8122597fe81eea",
-      "after": "2e9ad20412390dd4b76c8474090d1a7ae3a163f7bb8ff8ab8dab96e0a6a98f01",
-      "owner": "scene-particle-vortex",
-      "reason": "保半径实现与证据边界同步，保留官方长期相位和扩展组合未验。",
-      "decision": "docs/scene/roadmap/batch2/particle-vortex-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/particle-vortex-design.md",
       "before": "4a33e7918466828d12f2da674985c8ef7f895dca31222e982d1396ee4794de12",
       "after": "b2fac35a03bd81aa01fe53e27fdb6e75381c3fde2d21e09ec2ba75f11e7bee0a",
@@ -1053,6 +1044,24 @@
       "owner": "scene-particle-vortex",
       "reason": "保半径实现与证据边界同步，保留官方长期相位和扩展组合未验。",
       "decision": "docs/scene/roadmap/batch2/particle-vortex-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "122de5bd12ee576e4b7680dacf250ce6db7123e08d8800685501dad41e07f4c3",
+      "after": "043f7c6b7776ee3e8396a313b620e656accff220ace0b221ce3c3f6f12fa0521",
+      "owner": "scene-text-raster",
+      "reason": "Bounded positive text-shadow runtime correction and exact evidence limits.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-text-shadow-offset"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "2e9ad20412390dd4b76c8474090d1a7ae3a163f7bb8ff8ab8dab96e0a6a98f01",
+      "after": "ad73c1c1da87d730acb3d0686204591216f08232dc7aed0a7778e35cce22d3b4",
+      "owner": "scene-text-raster",
+      "reason": "Bounded positive text-shadow runtime correction and exact evidence limits.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-text-shadow-offset"
     }
   ]
 }

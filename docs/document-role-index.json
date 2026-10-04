@@ -481,9 +481,9 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a7b86dbb4699b49196db6be73b03cb40fc74fb3e19c43166a318c5fe774800d1",
+        "sourceSHA256": "c7c15c961591e4deb3d342e172cc9fda5b1542fc5588ab5cd27e1b9f92e458af",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Added bounded ring vortex evidence pointer; checked O16 capability and exact history anchor without expanding whole-sample or numerical parity claims.",
+        "scope": "Updated bounded text positive-shadow evidence pointer; preserved small-font kernel, negative offset and whole-corpus limits.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

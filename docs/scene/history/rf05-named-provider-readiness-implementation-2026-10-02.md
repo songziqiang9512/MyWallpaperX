@@ -500,3 +500,16 @@ CPU visibility/readable各15项通过，HEAD分别5项/1项失败；后者仅为
 V2 Debug冻结1085份源码无漂移。实际App自有九对齐同输入padding0/32对照：旧最大glyph漂移38输出像素，修订后0；背景每边扩75/76输出像素，符合32场景单位。两次候选进程9.468/8.176秒，输入/App身份不变且GPU排空。真实3807151772副本播放18秒、进程35.130秒，无失败token且退出排空；root实看文字与场景，原有时钟横向裁切仍在，时间内容不同不作同glyph黄金对照，整样本/交互/全部特效仍未验收。
 
 相邻描边/投影12门和行数限制15门通过；旧saved-size强制cap夹具改用真实长文本触发2048。scaled O半径对照以额外padding匹配装饰后的实际extent/栅格，保留原1.25物理像素容差、fill/孔洞和错误physical4反例区分；首次不同pixel grid失败已留解释。几何5门、绑定/generation/script/pivot/anchor五模块35门及登记四模块151门通过。结构13门仍只原shape-derived-analyzer 66/65两项失败，未抬基线；构建/上述局部运行不证明208完整正确率，后继转vortex_v2官方最小轨迹与既有模拟器接入。
+
+
+<a id="rf05-text-shadow-offset"></a>
+### 文字正向投影偏移纠偏（2026-10-05）
+
+实施前决定：固定官方自有输入已观察32/64磅正向偏移分别在约25/50场景单位饱和，各轴独立，msdf布尔不改变此结果；负大偏移出现不同截片，不能推为对称限幅。独立小字号输入补证1磅放大10倍后正向位移约8像素，8/16磅及Consolas16保持字号相关上限方向；采用本项目经验映射min(rawAxis, pointSize×25/32)，不是官方公式。沿原共同光栅器，在替换后的live字号下规范正向offset，再乘一次raster scale；原raw offset留白预算、published extent、pivot、generation及compositor不变。此保守留白避免引入动态装饰尺寸owner，但不声称消除大留白导致的降采样成本；负偏移保留现项目行为，不仿制未解释的碎片。非法样式和资源失败沿旧局部降级。验收用旧owner同输入反例、实际像素位移、动态字号、降采样、描边与锚点邻门、真实声明样本及冻结App；全部通过后退役窄设计登记，不外推阴影kernel或全样本parity。
+
+
+基线11b2fbe2。208份入口只读解析发现7处shadow声明，均为4,4，其中3747492842:59字号1；临时统计遗漏gifscene.pkg已修正，正式读取器本来支持。官方两份自有矩阵支持上述正向经验响应；msdf布尔不改变16对tile结果。Arial/Consolas字体差异、小字号完整kernel及大负偏移仍不记parity。380时钟横向截断另证为none anchor配合cover的视口裁切，本批未误改文字布局。
+
+旧owner同fixture的13门有4个失败子例；候选13门通过，包含小字号、低偏移、混合正负轴、动态字号和真实降采样；相邻文字/留白/行数/脚本/pivot/anchor 46门通过。冻结Debug 1085份源码无漂移。实际App四格同输入对照中32磅位移96/48→25.01/25.00，64磅96/96→50.00/50.00；降采样约95.48/95.46→50.17/50.15，glyph通道逐像素未改。1磅放大对照约4→1，仍受低分辨率光栅和模糊量化影响，不记官方0.75的精确等价。一次与native重叠的App试次被终止、排除并单独重跑；不作性能结论。
+
+未改3747492842副本播放18秒、进程33.954秒，原纹理/文字/特效链继续呈现，输入/App身份不变且退出GPU排空；真实画面的微小shadow差异未单独量化，不计整样本修复。59实际使用stock Alcubierre，日志stockSubstituted标签不代表字形已换成其它字体；173 effect speed脚本在scalar value上调用.add，旧/新App均复现一次，属作者类型错误，不伪造Number.add。装饰留白、small-font kernel、动态文字hit语义及208完整正确率均未闭合。最终身份、正反像素与审查材料限量保留在`.artifacts/scene-evidence/runs/text-shadow-offset-20261005/final/samples/1/runtime_evidence.zip`。
