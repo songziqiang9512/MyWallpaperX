@@ -385,3 +385,15 @@ CPU visibility/readable各15项通过，HEAD分别5项/1项失败；后者仅为
 最终Debug构建及12项实际App显隐门通过（309.171s），旧App在同一嵌套父层双surface正例失败。新门覆盖隐藏启动→显现→隐藏→恢复的实际粒子位置、image、独立false子层与健康peer；缺纹理整键拒绝、setter/纯visible返回失败均撤回同owner的peer透明度与独立有效emitter发射。CPU路由20、Session18及相邻36门通过；HEAD相同CPU输入分别有3个失败测试、14个失败子例。独立审查复核产品、输入身份与像素；结构库存66/登记65的两项既存失败未调整。两surface运行不外推物理多屏，也未测CPU/能耗改善。
 
 本机`rf05-parent-particle-visibility-20261004`保留必要输入、日志、关键原图及身份14天，临时App/HOME/包副本在核验归档后清理，留下一批App与一份构建缓存。下一批回到376上发丝斜光，区分operator运动轨迹与SpriteTrail几何；312旧文字/alias故障已不复现，不重开旧修复。工作卡仍15/16（93.75%），RF05及长期Goal开放，全样本正确率未知。
+
+
+<a id="rf05-turbulence-mask"></a>
+### 湍流逐轴mask保留幅度（2026-10-04）
+
+376的429真实粒子使用`1 0 0`mask。共享math在逐轴相乘后再次归一化，错误擦除作者幅度并把单轴衰减放大；现删除该次归一化，沿原Simulator的有限Float原子累加消费，不改noise、seed、时钟、renderer或compositor。公开[Mask合同](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html#turbulence)明确逐轴缩放。
+
+官方2.8.0.42/hash `daac1ea7c991207fdb6098616757e3dae393850f6862845db55d04921b6bda07`的自有同输入单粒子黑盒，只改mask：unit/quarter/unit重复的约2秒位移分别为(45.23,36.80)/(3.41,6.08)/(33.28,24.85)，quarter差异超过重复波动加4单位。仅支持幅度有影响；空间noise反馈不支持总位移精确1/4。早期零scale无响应、过强输入裁切及五行精确比值方案均未计通过，不据此推断官方noise公式、seed或3D等价。
+
+同冻结输入在实际MyWallpaperX运行：旧版unit/quarter/double三行均为(81.51,-23.50)；修复后同帧分别为(74.91,-21.72)/(18.79,-5.21)/(149.81,-43.05)，x-only保留unit的X且Y约0，zero保持原位。绿色原点与蓝色时钟确认采样，未跨运行硬比相位。此项目自有零scale门验证消费到最终像素，不充当官方轨迹golden。真实376原包前后各35秒正常播放、Metal捕获及GPU排空；上发丝斜光仍缺，整样本未验收。
+
+新增6项parse→Simulator门在旧math产生7个失败子例，修复后全过；覆盖倍率、各轴/零/负mask、顺序、RNG不变与Float累加溢出只拒绝当前粒子。Debug及相邻CPU门通过，最终审查与归档身份归本机`rf05-turbulence-mask-20261004`。不增加owner，不量化性能收益；下一批核SpriteTrail转向几何。工作卡仍15/16（93.75%），RF05及全样本正确性开放。

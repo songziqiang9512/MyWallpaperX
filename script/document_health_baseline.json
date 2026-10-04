@@ -82,7 +82,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 393,
-      "bytes": 138118
+      "bytes": 138015
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 562,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 50186
+      "bytes": 50157
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,

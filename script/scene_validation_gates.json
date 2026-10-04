@@ -1444,13 +1444,15 @@
       "id": "particle-turbulent-forward",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationSupport.swift",
-        "script/tests/test_scene_particle_turbulent_forward.py"
+        "script/tests/test_scene_particle_turbulent_forward.py",
+        "script/tests/test_scene_particle_turbulence_mask.py"
       ],
       "modules": [
         "test_scene_particle_turbulent_forward",
         "test_scene_particle_simulator",
         "test_scene_particle_audio_response",
-        "test_scene_particle_trail_plan"
+        "test_scene_particle_trail_plan",
+        "test_scene_particle_turbulence_mask"
       ]
     },
     {
