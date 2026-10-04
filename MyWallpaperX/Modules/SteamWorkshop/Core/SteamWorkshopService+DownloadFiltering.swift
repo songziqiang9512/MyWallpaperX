@@ -21,12 +21,6 @@ extension SteamWorkshopService {
                 return record.contentType == .web
             case .scene:
                 return record.contentType == .scene
-            case .missingDependency:
-                // 下载网络失败不等于缺依赖：只认已解析的 dependencyStatus。
-                if case .missing = record.dependencyStatus {
-                    return true
-                }
-                return false
             }
         }
         let visible = modeFiltered.filter { record in

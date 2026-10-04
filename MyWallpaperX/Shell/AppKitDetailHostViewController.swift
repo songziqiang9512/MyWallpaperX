@@ -426,6 +426,10 @@ final class AppKitDetailHostViewController: NSViewController {
         let hostedView = controller.view
         hostedView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(hostedView)
+        // Keep every page full-size under the translucent toolbar: the
+        // system glass needs content behind it, and scroll views place
+        // their first row below the toolbar via automatic content insets.
+        // Fixed (non-scrolling) headers must not pin to the raw top edge.
         NSLayoutConstraint.activate([
             hostedView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             hostedView.trailingAnchor.constraint(equalTo: view.trailingAnchor),

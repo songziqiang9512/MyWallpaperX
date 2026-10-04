@@ -42,20 +42,17 @@ enum SteamWorkshopDownloadsDisplayMode: String, CaseIterable, Equatable {
     case video
     case web
     case scene
-    case missingDependency
 
     var title: String {
         switch self {
         case .all:
-            return "全部下载项"
+            return "全部"
         case .video:
-            return "视频壁纸"
+            return "视频"
         case .web:
-            return "WEB壁纸"
+            return "Web"
         case .scene:
-            return "Scene壁纸"
-        case .missingDependency:
-            return "缺少依赖"
+            return "场景"
         }
     }
 
@@ -69,8 +66,6 @@ enum SteamWorkshopDownloadsDisplayMode: String, CaseIterable, Equatable {
             return "当前 workshop 目录里还没有已下载的WEB壁纸项目"
         case .scene:
             return "当前 workshop 目录里还没有已下载的Scene项目"
-        case .missingDependency:
-            return "当前没有缺少依赖的已下载项目"
         }
     }
 }

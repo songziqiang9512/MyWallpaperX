@@ -153,7 +153,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
             .store(in: &cancellables)
 
         SteamWorkshopService.shared.$statusMessage
-            .map { $0.hasPrefix("需要登录 Steam") }
+            .map { $0.hasPrefix("需要登录") }
             .removeDuplicates()
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
@@ -457,25 +457,25 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         let item = NSToolbarItem(itemIdentifier: .steamZoom)
         item.label = "缩放"
         item.paletteLabel = "缩放"
-        item.toolTip = "调整 Steam 条目卡片大小"
+        item.toolTip = "调整条目卡片大小"
         item.autovalidates = false
         item.view = zoomControl
         return item
     }()
 
     lazy var authorBackButton: NSButton = {
-        let button = NSButton(title: "返回总榜", target: self, action: #selector(handleBackToDiscovery))
+        let button = NSButton(title: "返回", target: self, action: #selector(handleBackToDiscovery))
         button.bezelStyle = .rounded
-        button.image = NSImage(systemSymbolName: "chevron.backward", accessibilityDescription: "返回总榜")
+        button.image = NSImage(systemSymbolName: "chevron.backward", accessibilityDescription: "返回")
         button.imagePosition = .imageLeading
         return button
     }()
 
     lazy var authorBackToolbarItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .steamAuthorBack)
-        item.label = "返回总榜"
-        item.paletteLabel = "返回总榜"
-        item.toolTip = "从作者工坊返回 Steam 创意工坊总榜"
+        item.label = "返回"
+        item.paletteLabel = "返回"
+        item.toolTip = "从作者工坊返回工坊首页"
         item.autovalidates = false
         item.view = authorBackButton
         return item
@@ -490,7 +490,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         let item = NSToolbarItem(itemIdentifier: .steamSort)
         item.label = "浏览来源"
         item.paletteLabel = "浏览来源"
-        item.toolTip = "切换 Steam 创意工坊浏览来源"
+        item.toolTip = "切换创意工坊浏览来源"
         item.autovalidates = false
         item.view = sortButton
         return item
@@ -562,9 +562,9 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
 
     lazy var searchToolbarItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .steamSearch)
-        item.label = "搜索 Steam 视频"
-        item.paletteLabel = "搜索 Steam 视频"
-        item.toolTip = "搜索 Steam 视频"
+        item.label = "搜索创意工坊"
+        item.paletteLabel = "搜索创意工坊"
+        item.toolTip = "搜索创意工坊"
         item.autovalidates = false
         item.view = searchContainerView
         return item

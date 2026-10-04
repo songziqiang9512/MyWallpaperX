@@ -49,7 +49,7 @@ extension SteamWorkshopToolbarController {
     func configureAuthItems() {
         let service = SteamWorkshopService.shared
         let auth = service.steamAuth
-        let requiresLoginAttention = service.statusMessage.hasPrefix("需要登录 Steam")
+        let requiresLoginAttention = service.statusMessage.hasPrefix("需要登录")
 
         // SK2.2：账号按钮状态由新登录路线驱动（§3.1）。
         let symbolName: String
@@ -108,7 +108,7 @@ extension SteamWorkshopToolbarController {
         authorBackButton.isEnabled = isBrowsingAuthorWorkshop
         authorBackButton.alphaValue = isBrowsingAuthorWorkshop ? 1.0 : 0.45
         authorBackButton.toolTip = isBrowsingAuthorWorkshop
-            ? "返回 Steam 创意工坊总榜"
+            ? "返回创意工坊首页"
             : "当前不在作者工坊模式"
         authorBackToolbarItem.toolTip = authorBackButton.toolTip
     }
@@ -236,11 +236,9 @@ extension SteamWorkshopToolbarController {
         case .video:
             title = "视频 \(service.visibleVideoDownloadsCount)"
         case .web:
-            title = "HTML \(service.visibleWebDownloadsCount)"
+            title = "Web \(service.visibleWebDownloadsCount)"
         case .scene:
-            title = "Scene \(service.visibleSceneDownloadsCount)"
-        case .missingDependency:
-            title = "缺依赖 \(service.visibleMissingDependencyDownloadsCount)"
+            title = "场景 \(service.visibleSceneDownloadsCount)"
         }
         downloadsFilterButton.title = title
         downloadsFilterButton.toolTip = "当前筛选：\(mode.title)"

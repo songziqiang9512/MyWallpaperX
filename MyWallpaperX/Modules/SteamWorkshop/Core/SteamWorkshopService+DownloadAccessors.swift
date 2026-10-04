@@ -50,16 +50,6 @@ extension SteamWorkshopService {
         downloads.filter { $0.status == .ready && $0.contentType == .scene }.count
     }
 
-    var visibleMissingDependencyDownloadsCount: Int {
-        downloads.filter {
-            guard $0.status == .ready else { return false }
-            if case .missing = $0.dependencyStatus {
-                return true
-            }
-            return false
-        }.count
-    }
-
     func firstDisplayedDownloadID(in ids: Set<String>) -> String? {
         displayedDownloads.first { ids.contains($0.id) }?.id
     }
