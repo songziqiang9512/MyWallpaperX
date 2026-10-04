@@ -82,15 +82,15 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 393,
-      "bytes": 137957
+      "bytes": 138094
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 562,
       "bytes": 331799
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 71,
-      "bytes": 7304
+      "lines": 72,
+      "bytes": 7526
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 49594
+      "bytes": 49756
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1016,21 +1016,30 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "0cdd7a877e987214bd1c72af2b1179c391dafdad2a4a9e437c0fc30edff5ec0e",
-      "after": "eacd132ffd8aae3d17ce6924eb3b93052b36ec751b0335e9a8e6d5ceade4dbb7",
-      "owner": "scene-text-padding",
-      "reason": "Correct per-edge padding and shared prepared text measurement; replace obsolete saved-size contract and advance next work.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-text-padding"
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "d0e6c5c29f8d7541d3ceb3d8a247d25cf8da77988334938eada51cd64bc76264",
+      "after": "ad238b8ffbce3c5b7a86e6495c2a2ef4ba044f309acb91d998a4e36cde85bc50",
+      "owner": "scene-vortex-direction",
+      "reason": "Correct the proven classic rotation direction and record the bounded App result; keep v2 magnitude and radial velocity explicitly open.",
+      "decision": "docs/scene/history/runtime-evidence-index.md#e-particle-vortex-direction"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7ee3054cba0b5c0d5d714f8a06ef19089eb2e25ff8670eb90c16d7cc84138dbd",
-      "after": "92e51d593374ff690214ad50e5b95bf319991b45ae5c90fa535a46c49cabf638",
-      "owner": "scene-text-padding",
-      "reason": "Correct per-edge padding and shared prepared text measurement; replace obsolete saved-size contract and advance next work.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-text-padding"
+      "before": "92e51d593374ff690214ad50e5b95bf319991b45ae5c90fa535a46c49cabf638",
+      "after": "58fd55da40bf02c83c4db00d59abf75634dd6c064db4821b54b4d1b4a9b4f982",
+      "owner": "scene-vortex-direction",
+      "reason": "Correct the proven classic rotation direction and record the bounded App result; keep v2 magnitude and radial velocity explicitly open.",
+      "decision": "docs/scene/history/runtime-evidence-index.md#e-particle-vortex-direction"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "before": "cbfaba1b881ea5227eb3a483a8083623a80a4b6be6ba5190d7d37f245f0954d3",
+      "after": "6bf7547ce3d5f796d3da7e37f71e250f310ed245047d8f1f48600e204225793e",
+      "owner": "scene-vortex-direction",
+      "reason": "Correct the proven classic rotation direction and record the bounded App result; keep v2 magnitude and radial velocity explicitly open.",
+      "decision": "docs/scene/history/runtime-evidence-index.md#e-particle-vortex-direction"
     }
   ]
 }

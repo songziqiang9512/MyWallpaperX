@@ -323,7 +323,7 @@ class SceneParticleAudioResponseTests(unittest.TestCase):
 
     def test_vortex_speed_tracks_audio_and_stops_on_silence(self) -> None:
         self.assertEqual(self.result["vortexSilent"], [0, 0, 0])
-        self.assertEqual(self.result["vortexActive"], [0, 100, 0])
+        self.assertEqual(self.result["vortexActive"], [0, -100, 0])
         self.assertIn("audioResponseBounded", self.result["vortexDiagnostics"])
         self.assertIn("vortexBounded", self.result["vortexDiagnostics"])
 

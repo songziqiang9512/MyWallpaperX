@@ -4473,28 +4473,28 @@ class SceneParticleSimulatorTests(unittest.TestCase):
                 self.assertTrue(result[key])
 
     def test_classic_vortex_executes_bounded_axis_distance_and_speed(self) -> None:
-        self.assertEqual(self.results["vortexVelocity"], [0, 100, 0])
+        self.assertEqual(self.results["vortexVelocity"], [0, -100, 0])
         self.assertEqual(
             self.results["vortexDiagnostics"],
             ["emitterShapeBounded", "vortexBounded"],
         )
         self.assertTrue(self.results["vortexPartitioned"])
-        self.assertEqual(self.results["reverseVortexVelocity"], [0, -100, 0])
-        self.assertEqual(self.results["yAxisVortexVelocity"], [0, 0, -100])
-        self.assertEqual(self.results["infiniteAxisVortexVelocity"], [0, 10, 0])
+        self.assertEqual(self.results["reverseVortexVelocity"], [0, 100, 0])
+        self.assertEqual(self.results["yAxisVortexVelocity"], [0, 0, 100])
+        self.assertEqual(self.results["infiniteAxisVortexVelocity"], [0, -10, 0])
         finite = self.results["finiteAxisVortexVelocity"]
         self.assertAlmostEqual(finite[0], 0)
-        self.assertAlmostEqual(finite[1], 100)
+        self.assertAlmostEqual(finite[1], -100)
         self.assertAlmostEqual(finite[2], 0)
-        self.assertEqual(self.results["overriddenVortexVelocity"], [0, 200, 0])
-        self.assertEqual(self.results["overrideDeniedVortexVelocity"], [0, 100, 0])
+        self.assertEqual(self.results["overriddenVortexVelocity"], [0, -200, 0])
+        self.assertEqual(self.results["overrideDeniedVortexVelocity"], [0, -100, 0])
 
     def test_classic_vortex_rejects_unknown_malformed_audio_and_unbounded_profiles(self) -> None:
         self.assertEqual(self.results["invalidVortexVelocities"], [[0, 0, 0]] * 8)
         for diagnostics in self.results["invalidVortexDiagnostics"]:
             self.assertIn("vortexUnsupported", diagnostics)
         # 显式有限三分量 exact zero 的轴按 +Z 准备（台账 O16），不再被拒绝。
-        self.assertEqual(self.results["zeroAxisVortexVelocity"], [0, 100, 0])
+        self.assertEqual(self.results["zeroAxisVortexVelocity"], [0, -100, 0])
 
     def test_vortex_v2_remains_distinct_and_fail_closed(self) -> None:
         self.assertEqual(self.results["vortexV2Velocity"], [0, 0, 0])

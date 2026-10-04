@@ -480,9 +480,9 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "77c5d7d1d9a2087ff6ac5364e9e6007777aa345b3a4420f2d5b8b0de7e00c644",
+        "sourceSHA256": "379d18a1b9dcf4166389451b661d3057d4ea916c6adfe75d093aff1b750dd8b9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Text padding and prepared measurement ownership; bounded evidence navigation only.",
+        "scope": "Added bounded classic vortex direction evidence pointer; checked navigation and source identity.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

@@ -2,8 +2,9 @@ import Foundation
 
 nonisolated extension SceneParticleSimulator {
     /// Applies a bounded classic vortex as tangential acceleration in particle-local space.
-    /// Positive speed follows the right-hand rule around the authored axis; negative speed
-    /// reverses it. This is a project-owned clean-room numeric contract, not a Windows golden.
+    /// Positive speed turns clockwise around positive Z in the author XY plane,
+    /// matching the fixed-client direction control; negative speed reverses it.
+    /// Acceleration magnitude and integration remain project-owned, not a Windows golden.
     func applyVortex(
         plan: SceneParticleVortexPlan?,
         duration: Double,
@@ -32,7 +33,7 @@ nonisolated extension SceneParticleSimulator {
                 ), 1)
                 : 0
             let speed = plan.speedInner + (plan.speedOuter - plan.speedInner) * amount
-            let tangent = cross(plan.axis, radial) / radialLength
+            let tangent = cross(radial, plan.axis) / radialLength
             SceneParticleSimulationMath.addFinite(
                 tangent * speed * speedScale * audioScale * duration,
                 to: &particles[index].velocity
