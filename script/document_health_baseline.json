@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 529,
-      "bytes": 85095
+      "bytes": 85276
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 49469
+      "bytes": 49609
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1188,11 +1188,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "f55cb126e3c20cdb267fddf6e399913d40feae0ee1a97279378c067d26904e98",
-      "after": "b044c6e08dc75ad00b081ad6e7fe90a1c3868282e42b1c09d4e252bb9ceb6742",
-      "owner": "scene-model-material-binding",
-      "reason": "Record shared exact material keys and preserve unavailable legacy consumers; move implementation decision into the existing RF05 execution record.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-model-material-keys"
+      "before": "b044c6e08dc75ad00b081ad6e7fe90a1c3868282e42b1c09d4e252bb9ceb6742",
+      "after": "befc6f7611df2456cb98647d056f5680be1b10abfd3b2644a754f18f0e8fa924",
+      "owner": "scene-static-model-culling",
+      "reason": "Record existing authored Cull state reaching both color and shadow draws without replacing lifecycle owners; update the actual next provider breakpoint.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-model-culling"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "before": "a487ce362de2e2d1dfeceee0efe2579777a064364e6fff1d3ae89299357f8578",
+      "after": "11ee502a4583b11cfa9df61d3a3bad23a58bdf8256a56fc62135eac19944925e",
+      "owner": "scene-static-model-culling",
+      "reason": "Record existing authored Cull state reaching both color and shadow draws without replacing lifecycle owners; update the actual next provider breakpoint.",
+      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-model-culling"
     }
   ]
 }

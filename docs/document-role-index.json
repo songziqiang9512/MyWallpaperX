@@ -349,9 +349,9 @@
       "lastReviewed": "2026-10-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "36851a5dfce2c5261ae2c120e1e03172c6ebab6157c0c9966085d31bf8c7bb39",
+        "sourceSHA256": "dee7a4eb4e6c58df2da2e12da66e8ba27f50fc4ed48f214930962ef4cb1f9e9b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对模型材质精确键、局部拒绝及旧入口保留合同与执行记录指针；仅为导航维护收据。",
+        "scope": "核对静态模型颜色及阴影Cull接线、旧缺省策略与有界运行记录指针；只为导航维护收据。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

@@ -42,6 +42,7 @@ struct SceneStaticModelMaterial {
     let usesHDRBrightness: Bool
     let viewTint: SceneStaticModelViewTint?
     var channelBindings: SceneStaticModelMaterialBindings? = nil
+    var cullMode: MTLCullMode = .back
 
     func resolvingDynamicViewTintBack(_ color: SIMD3<Float>) -> Self {
         .init(
@@ -55,7 +56,8 @@ struct SceneStaticModelMaterial {
             brightness: brightness,
             usesHDRBrightness: usesHDRBrightness,
             viewTint: viewTint?.resolvingBackColor(color),
-            channelBindings: channelBindings
+            channelBindings: channelBindings,
+            cullMode: cullMode
         )
     }
 
@@ -85,7 +87,8 @@ struct SceneStaticModelMaterial {
             ).map { max($0, 0) } ?? brightness,
             usesHDRBrightness: usesHDRBrightness,
             viewTint: viewTint,
-            channelBindings: channelBindings
+            channelBindings: channelBindings,
+            cullMode: cullMode
         )
     }
 
@@ -553,7 +556,7 @@ struct SceneStaticModelPipeline {
             writesDepth ? writingDepthState : nonwritingDepthState
         )
         encoder.setFrontFacing(.counterClockwise)
-        encoder.setCullMode(.back)
+        encoder.setCullMode(material.cullMode)
         defer {
             encoder.setCullMode(.none)
             encoder.setDepthStencilState(nil)
@@ -643,7 +646,7 @@ struct SceneStaticModelPipeline {
         encoder.setRenderPipelineState(pipeline)
         encoder.setDepthStencilState(shadowDepthState)
         encoder.setFrontFacing(.counterClockwise)
-        encoder.setCullMode(.back)
+        encoder.setCullMode(material.cullMode)
         encoder.setVertexBuffer(mesh.vertexBuffer, offset: 0, index: 0)
         encoder.setVertexBytes(&uniforms, length: MemoryLayout<SceneStaticModelShadowUniforms>.stride, index: 1)
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<SceneStaticModelShadowUniforms>.stride, index: 1)

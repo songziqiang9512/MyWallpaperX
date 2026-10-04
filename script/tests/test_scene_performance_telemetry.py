@@ -635,10 +635,10 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
             self.assertIn(f'performanceTelemetry?.beginStage("{label}")', source)
             self.assertIn(f'performanceTelemetry?.endStage("{label}")', source)
         # 两个子阶段都必须用 defer 关闭，避免提前 return 留下未配对区间。
-        self.assertIn(
-            "defer {\n                    performanceTelemetry?.endStage("
-            '"admit-install-graph-outputs")\n                }',
+        self.assertRegex(
             preflight,
+            r'defer\s*\{\s*performanceTelemetry\?\.endStage\('
+            r'"admit-install-graph-outputs"\)\s*\}',
         )
         self.assertIn(
             'defer { performanceTelemetry?.endStage("admit-frame-commit") }',
@@ -704,7 +704,8 @@ class ScenePerformanceCounterHubTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='mwx-shadow-telemetry-', dir='/private/tmp') as directory:
             with patch.dict('os.environ', {'MWX_DIRECTIONAL_SHADOW_EVIDENCE': directory,
                                           'MWX_DIRECTIONAL_SHADOW_PRODUCT_SNAPSHOT': ''}):
-                report = spot.shared.run_swift(spot.sources(), support, label='telemetry',
+                sources = list(dict.fromkeys([*spot.sources(), spot.model.BINDINGS_SOURCE]))
+                report = spot.shared.run_swift(sources, support, label='telemetry',
                                               metal_sources=[spot.model.METAL_SOURCE])
         self.assertEqual(report['rows'], [
             {'accepted': False, 'completed': True, 'binds': 0, 'draws': 0, 'geometry': 0},

@@ -287,7 +287,13 @@ struct ScenePreparedStaticModelResources {
             brightness: Float(brightness),
             usesHDRBrightness: hdrEnabled,
             viewTint: viewTint,
-            channelBindings: pass.staticModelMaterialBindings
+            channelBindings: pass.staticModelMaterialBindings,
+            // Missing or unrecognized state retains the existing back-face
+            // policy; only the authored no-cull state opens both mesh sides.
+            cullMode: SceneMaterialRenderState.Cull(rawValue:
+                pass.cullMode?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    .localizedLowercase ?? ""
+            ) == .noCull ? .none : .back
         )
     }
 

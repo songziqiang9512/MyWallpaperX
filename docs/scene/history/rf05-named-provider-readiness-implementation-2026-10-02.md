@@ -435,3 +435,15 @@ CPU visibility/readable各15项通过，HEAD分别5项/1项失败；后者仅为
 反例覆盖精确大小写/拼写、声明和宏歧义、跨stage冲突、非法原值、属性与动态consumer、旧emissive及未知接口退路。最终10项CPU门通过（67.392秒），相邻绘制/属性/输入26项与source-set登记11项通过。结构普查保留既有shape-derived-analyzer 66/登记65两项失败；本批新增文件的目录登记及归档链接另行修正，不上调该库存基线。
 
 四个既有独立harness补接真实DTO与显式unavailable编译边界，共享一个fixture，不把完整shader依赖带入Timeline/Text/display测试；40项相邻CPU及15项Text Metal门通过。触及的Timeline target测试原超1000行，原214行Swift harness按字节不变移到实际Swift fixture，Python回到890行。
+
+
+<a id="rf05-model-culling"></a>
+### 静态模型逐材质段剔除状态（2026-10-04）
+
+基线`51851169`。347模型115材质明确nocull，颜色及阴影encoder却固定back；隐藏图片93的scroll另被现模型named准入拒绝。原包只改115 texture0为同一原始0mxx2的对照仍无星轨，纯白纹理控制同样不可见，而独立平面显示该TEX星图，分离了几何与provider两个断点。
+
+修复复用既有Cull词汇，在逐段准备时将nocull映射为Metal.none，normal/缺省/未知保留旧back；状态随原SceneStaticModelMaterial及两个动态复制方法传递，color/shadow编码共用，CCW及原输出/资源/时钟owner不变。未扩展其它绕序或未知状态语义，也未改shader算法。
+
+冻结候选Debug通过且1085份产品源码无漂移。同一direct-TEX输入35秒回放从无星纹变为可见放射状星轨；只证明cull修复，不冒充作者scroll效果或相位parity。原包35秒回放仍缺星轨、一次scale badReturn保留，14/115/186及文字仍在，两次退出GPU排空。后继必须把effectful provider纳入现graph准备、publication及消费者，不能移除准入guard后以raw capture代替效果输出。
+
+自有八材质段真实App对照覆盖正反绕序、nocull规范化、normal/缺省/未知、同模型混合状态及独立健康邻居。旧App反面颜色与阴影均失败，候选三场景全部通过；两帧像素稳定、输入/App身份不变且GPU排空。真实reader与动态复制CPU门通过；该证据不外推整个样本或官方阴影parity。

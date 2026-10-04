@@ -188,6 +188,7 @@ extension SceneRenderDescriptor {
  struct MaterialPassDescriptor {
   let materialPath:String;let textureSlots:[String?];let combos:[String:Int]
   let constantShaderValues:[String:SceneDocument.ShaderValue];var passIndex:Int=0;var depthWrite:String?=nil
+  var staticModelMaterialBindings:SceneStaticModelMaterialBindings?=nil;var cullMode:String?=nil
  }
 }
 '''
@@ -205,6 +206,8 @@ def resource_support():
 
 
 NATIVE_SOURCES=list(dict.fromkeys([*frame.SOURCES,*reader.SWIFT_SOURCES,RESOURCE_SOURCE,
+    SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift',
+    SCENE/'Compilation/Material/SceneMaterialRenderState.swift',
     SCENE/'Resources/Textures/SceneNamedTextureReference.swift']))
 
 NATIVE_MAIN=r'''

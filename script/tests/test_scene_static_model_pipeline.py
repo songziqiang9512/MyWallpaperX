@@ -172,11 +172,12 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
             )
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
-    def test_material_consumes_layer_scoped_dynamic_values(self) -> None:
+    def test_material_consumes_dynamic_values_and_preserves_cull_mode(self) -> None:
         swiftc = shutil.which("swiftc")
         if swiftc is None:
             self.skipTest("swiftc is unavailable")
         harness_source = r'''
+import Metal
 import simd
 
 @main
@@ -249,8 +250,26 @@ enum MaterialHarness {
             receivesLighting: true, textureAlphaIsOpacity: true,
             textureAlphaIsTintMask: false,
             emissiveColor: SIMD3(1, 1, 1), emissiveBrightness: 1,
-            brightness: 1, usesHDRBrightness: true, viewTint: nil
+            brightness: 1, usesHDRBrightness: true,
+            viewTint: .init(front: SIMD3(1, 0, 0), back: SIMD3(0, 0, 1),
+                exponent: 2, usesDynamicBackColor: true)
         )
+        precondition(base.cullMode == .back)
+        for mode: MTLCullMode in [.none, .back, .front] {
+            var authoredCull = base
+            authoredCull.cullMode = mode
+            let dynamic = authoredCull.resolvingDynamicValues(
+                layerID: 7, snapshot: snapshot
+            )
+            precondition(dynamic.opacity == 0.4 && dynamic.color != base.color)
+            precondition(dynamic.cullMode == mode)
+            let tint = dynamic.resolvingDynamicViewTintBack(SIMD3(0.8, 0.7, 0.6))
+            precondition(tint.viewTint?.back == SIMD3<Float>(0.8, 0.7, 0.6))
+            precondition(tint.cullMode == mode)
+            precondition(authoredCull.resolvingDynamicValues(
+                layerID: 8, snapshot: snapshot
+            ).cullMode == mode)
+        }
         let resolved = base.resolvingDynamicValues(
             layerID: 7, snapshot: snapshot
         )
@@ -833,7 +852,7 @@ enum DepthPlanHarness {
             ) if compiled.returncode == 0 else compiled
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
-    def test_pipeline_uses_fixed_depth_cull_blend_and_slots(self) -> None:
+    def test_pipeline_uses_fixed_depth_blend_and_slots(self) -> None:
         source = PIPELINE_SOURCE.read_text(encoding="utf-8")
         self.assertIn("material.usesHDRBrightness", source)
         self.assertIn("material.color.x * brightness", source)
@@ -846,7 +865,6 @@ enum DepthPlanHarness {
             "attachment.sourceRGBBlendFactor = .one",
             "attachment.destinationRGBBlendFactor = .oneMinusSourceAlpha",
             "encoder.setFrontFacing(.counterClockwise)",
-            "encoder.setCullMode(.back)",
             "encoder.setVertexBuffer(mesh.vertexBuffer, offset: 0, index: 0)",
             "encoder.setFragmentTexture(texture, index: 0)",
             "encoder.setFragmentTexture(emissiveMask ?? texture, index: 1)",
