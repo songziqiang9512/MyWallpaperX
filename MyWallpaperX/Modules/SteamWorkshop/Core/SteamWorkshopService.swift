@@ -301,6 +301,8 @@ final class SteamWorkshopService: ObservableObject {
     var activeWebPropertySecurityScopedURLs: [String: URL] = [:]
     var scenePropertyRenderTask: Task<Void, Never>?
     var scenePropertyCommandRevision: UInt64 = 0
+    var scenePropertyEditRevisions: [String: UInt64] = [:]
+    var pendingSceneTextureProperties: [String: SceneTexturePropertyPending] = [:]
 
     // MARK: - Runtime tasks and processes
 

@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneImageTextureUploader {
+nonisolated extension SceneImageTextureUploader {
     /// Resamples a straight RGBA buffer through the shared premultiplied box
     /// kernel. Core Graphics image rasterization premultiplies translucent
     /// pixels, so it cannot preserve authored RGB where alpha is zero or

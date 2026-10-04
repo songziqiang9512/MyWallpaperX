@@ -1177,6 +1177,64 @@ enum Harness {
             && rollbackRestoredResource.resourceGeneration
                 == rollbackInitialResource.resourceGeneration
 
+        func propertyResetRetirementChecks() -> [String: Bool] {
+            let resetRegistry = SceneFrameTextureRegistry()
+            let property = SceneUserPropertyTextureIdentity(
+                propertyKey: "retired-cover", purpose: .premultipliedColor
+            )!
+            let request = SceneFrameTextureIdentity.materialUserProperty(property)
+            weak var oldTexture: MTLTexture?
+            var oldResourceGeneration: UInt64 = 0
+            autoreleasepool {
+                let initial = texture()
+                oldTexture = initial
+                resetRegistry.beginFrame(layerSources: [:],
+                    userPropertyTextures: [property.propertyKey: initial],
+                    userPropertyStates: [property: .ready(publication(initial,
+                        generation: 30, requestIdentity: request))])
+                oldResourceGeneration = resetRegistry.resource(for: request)!.resourceGeneration
+                resetRegistry.commitFramePublication()
+            }
+            resetRegistry.beginFrame(layerSources: [:], userPropertyStates: [property: .pending])
+            resetRegistry.commitFramePublication()
+            let pendingKeepsCommitted = oldTexture != nil
+            resetRegistry.beginFrame(layerSources: [:], userPropertyStates: [property: .absent])
+            let baselineKeepsOldUntilDecision = oldTexture != nil
+            resetRegistry.discardFramePublication()
+            var discardedResetRestoresOld = false
+            autoreleasepool {
+                let initial = oldTexture!
+                resetRegistry.beginFrame(layerSources: [:],
+                    userPropertyTextures: [property.propertyKey: initial],
+                    userPropertyStates: [property: .ready(publication(initial,
+                        generation: 30, requestIdentity: request))])
+                let restored = resetRegistry.resource(for: request)!
+                discardedResetRestoresOld = restored.publication.texture === initial
+                    && restored.resourceGeneration == oldResourceGeneration
+                resetRegistry.commitFramePublication()
+            }
+            autoreleasepool {
+                resetRegistry.beginFrame(layerSources: [:], userPropertyStates: [property: .absent])
+                resetRegistry.commitFramePublication()
+            }
+            let acceptedResetReleasesOld = oldTexture == nil
+            let replacement = texture()
+            resetRegistry.beginFrame(layerSources: [:],
+                userPropertyTextures: [property.propertyKey: replacement],
+                userPropertyStates: [property: .ready(publication(replacement,
+                    generation: 31, requestIdentity: request))])
+            let newResource = resetRegistry.resource(for: request)!
+            return [
+                "pendingKeepsCommitted": pendingKeepsCommitted,
+                "baselineKeepsOldUntilDecision": baselineKeepsOldUntilDecision,
+                "discardedResetRestoresOld": discardedResetRestoresOld,
+                "acceptedResetReleasesOld": acceptedResetReleasesOld,
+                "sameKeyNewGenerationPublishes": newResource.publication.texture === replacement
+                    && newResource.publication.contentGeneration == 31
+                    && newResource.resourceGeneration > oldResourceGeneration,
+            ]
+        }
+
         let directSampling = SceneTextureSampling.linearClamp
         let programSamplerAdmissionIsBounded =
             directSampling.rawFlags == nil
@@ -1198,6 +1256,7 @@ enum Harness {
             && SceneTextureSampling(texFlags: 8).rawFlags == 8
 
         let result: [String: Any] = [
+            "propertyResetRetirement": propertyResetRetirementChecks(),
             "environmentPublication": environmentPublication(device),
             "frameEpochAdvanced": secondEpoch == firstEpoch + 1,
             "persistentGenerationsStable": secondFallback.generation == firstFallback.generation
@@ -1431,6 +1490,10 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
 
     def test_frame_publication_discard_restores_previous_generation(self) -> None:
         self.assertTrue(self.result["framePublicationDiscardRestoresPrevious"])
+
+    def test_property_reset_retires_resources_only_after_frame_acceptance(self) -> None:
+        for name, passed in self.result["propertyResetRetirement"].items():
+            self.assertTrue(passed, name)
 
     def test_system_provider_lookup_is_purpose_qualified(self) -> None:
         self.assertTrue(self.result["systemPurposesDoNotAlias"])

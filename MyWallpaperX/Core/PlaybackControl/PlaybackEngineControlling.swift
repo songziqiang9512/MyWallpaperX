@@ -16,4 +16,28 @@ protocol PlaybackEngineControlling: AnyObject {
     /// 处理一条命令；返回是否被该引擎真实消费。
     @discardableResult
     func handle(_ command: WallpaperEngineCommand) -> Bool
+
+    @MainActor @discardableResult
+    func applyUserTextureUpdate(
+        _ update: ScenePlaybackTextureUpdate,
+        completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
+    ) -> Bool
+
+    @MainActor @discardableResult
+    func reloadUserTextureUpdate(
+        _ update: ScenePlaybackTextureUpdate,
+        completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
+    ) -> Bool
+}
+
+extension PlaybackEngineControlling {
+    @MainActor func applyUserTextureUpdate(
+        _ update: ScenePlaybackTextureUpdate,
+        completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
+    ) -> Bool { false }
+
+    @MainActor func reloadUserTextureUpdate(
+        _ update: ScenePlaybackTextureUpdate,
+        completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
+    ) -> Bool { false }
 }

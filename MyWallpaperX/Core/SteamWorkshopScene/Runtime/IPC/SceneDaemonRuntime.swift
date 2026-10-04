@@ -245,7 +245,7 @@ final class SceneDaemonRuntime {
     private func handle(_ command: SceneDaemonCommand) {
         switch command {
         case let .loadScene(
-            rootURL, overrides, textureReferences, profile, recordID
+            rootURL, overrides, textureReferences, profile, recordID, requiredTextureKeys
         ):
             lastPropertyRevision = 0
             host.applyPerformanceProfile(profile)
@@ -255,6 +255,7 @@ final class SceneDaemonRuntime {
                 userPropertyTextureURLs: Self.resolveTextureURLs(
                     textureReferences
                 ),
+                requiredUserTextureKeys: requiredTextureKeys,
                 recordID: recordID
             ) { _ in }
         case let .setProperty(values, revision, recordID):
@@ -274,6 +275,28 @@ final class SceneDaemonRuntime {
                 "recordID": recordID,
                 "accepted": accepted
             ])
+        case let .setUserTextures(update):
+            let urls = Self.resolveTextureURLs(update.references)
+            let scopes = urls.values.filter { $0.startAccessingSecurityScopedResource() }
+            host.applyUserTextureUpdate(update, resolvedURLs: urls) { [weak self] outcome in
+                scopes.forEach { $0.stopAccessingSecurityScopedResource() }
+                var response: [String: Any] = [
+                    "v": SceneDaemonProtocol.version, "event": "textureUpdateResult",
+                    "revision": update.revision, "recordID": update.recordID,
+                ]
+                switch outcome {
+                case .applied: response["outcome"] = "applied"
+                case .superseded: response["outcome"] = "superseded"
+                case .unavailable: response["outcome"] = "unavailable"
+                case let .failed(message):
+                    response["outcome"] = "failed"
+                    response["message"] = message
+                }
+                self?.emit(response)
+#if DEBUG
+                self?.capturePresentedFrameIfRequested(reason: "user-texture-\(update.revision)")
+#endif
+            }
         case let .cancelLaunch(recordID):
             host.cancelPendingLaunch(
                 recordID: recordID
@@ -400,14 +423,14 @@ final class SceneDaemonRuntime {
                     "uptimeMs": Double(presentation.uptimeMicros) / 1_000
                 ])
 #if DEBUG
-                self.captureFirstPresentedFrameIfRequested()
+                self.capturePresentedFrameIfRequested(reason: "daemon-\(getpid())-first-present")
 #endif
             }
         })
     }
 
 #if DEBUG
-    private func captureFirstPresentedFrameIfRequested() {
+    private func capturePresentedFrameIfRequested(reason: String) {
         guard let outputPath = Self.argumentValue(
             after: "--mwx-debug-scene-evidence-dir"
         ) else { return }
@@ -420,7 +443,7 @@ final class SceneDaemonRuntime {
         }
         _ = host.requestDebugSnapshot(
             windowNumber: windowNumber,
-            reason: "daemon-\(getpid())-first-present",
+            reason: reason,
             outputDirectory: outputDirectory
         )
     }

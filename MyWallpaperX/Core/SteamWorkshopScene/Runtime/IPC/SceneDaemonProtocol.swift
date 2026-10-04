@@ -8,13 +8,15 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
         propertyOverrides: [String: SceneUserPropertyValue],
         userPropertyTextures: [String: ScenePlaybackTextureReference],
         profile: PlaybackPerformanceProfile,
-        recordID: String?
+        recordID: String?,
+        requiredUserTextureKeys: Set<String> = []
     )
     case setProperty(
         values: [String: SceneUserPropertyValue],
         revision: UInt64,
         recordID: String
     )
+    case setUserTextures(ScenePlaybackTextureUpdate)
     case cancelLaunch(recordID: String)
     case setDisplayConfiguration([SceneScreenTopology])
     case setPerformanceProfile(PlaybackPerformanceProfile)
@@ -81,6 +83,13 @@ nonisolated enum SceneDaemonProtocol {
     static let commandFlag = "--mwx-scene-daemon"
     static let sceneRootFlag = "--mwx-scene-root"
 
+    private static func optionalTextureKeys(_ raw: Any?) -> Set<String>? {
+        guard let raw else { return [] }
+        guard let keys = raw as? [String], keys.allSatisfy({ !$0.isEmpty }),
+              Set(keys).count == keys.count else { return nil }
+        return Set(keys)
+    }
+
     static func decodeCommand(
         _ data: Data
     ) -> Result<SceneDaemonCommand, SceneDaemonProtocolFailure> {
@@ -101,7 +110,7 @@ nonisolated enum SceneDaemonProtocol {
                   let values = propertyValues(payload["propertyOverrides"]),
                   let textures = textureReferences(
                     payload["userPropertyTextures"]
-                  ) else {
+                  ), let requiredKeys = optionalTextureKeys(payload["requiredUserTextureKeys"]) else {
                 return .failure(.invalidPayload(action))
             }
             return .success(.loadScene(
@@ -110,8 +119,24 @@ nonisolated enum SceneDaemonProtocol {
                 propertyOverrides: values,
                 userPropertyTextures: textures,
                 profile: profile,
-                recordID: payload["recordID"] as? String
+                recordID: payload["recordID"] as? String,
+                requiredUserTextureKeys: requiredKeys
             ))
+        case "setUserTextures":
+            guard let values = propertyValues(payload["values"]),
+                  let references = textureReferences(payload["references"]),
+                  let resetKeys = payload["resetKeys"] as? [String],
+                  Set(resetKeys).count == resetKeys.count,
+                  let revision = unsignedInteger(payload["revision"]),
+                  let recordID = payload["recordID"] as? String else {
+                return .failure(.invalidPayload(action))
+            }
+            let update = ScenePlaybackTextureUpdate(
+                references: references, resetKeys: Set(resetKeys), values: values,
+                revision: revision, recordID: recordID
+            )
+            guard update.isValid else { return .failure(.invalidPayload(action)) }
+            return .success(.setUserTextures(update))
         case "setProperty":
             guard let values = propertyValues(payload["values"]),
                   !values.isEmpty,

@@ -77,6 +77,14 @@ final class SceneDesktopWallpaperSession {
     var nextDeferredPropertyGeneration: UInt64 = 0
     var pendingDeferredLayerVisibilityUpdate:
         PendingDeferredLayerVisibilityUpdate?
+    var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult = .empty
+    var pendingUserTextureUpdates: [UInt64: PendingUserTextureUpdate] = [:]
+    var latestUserTextureRevisions: [String: UInt64] = [:]
+    var nextUserTextureGeneration: UInt64 = 1
+    let userTexturePreparationQueue = DispatchQueue(
+        label: "com.mywallpaperx.scene-user-textures",
+        qos: .userInitiated
+    )
     let textureDecodeCacheBudget: SceneTextureDecodeCacheBudget
 #if DEBUG
     var debugRejectPreparedFrameOnce: UInt64? = ProcessInfo.processInfo.environment[
@@ -135,6 +143,7 @@ final class SceneDesktopWallpaperSession {
             capturesLifecycleObservations: context.capturesExecutionObservations
         )
         launchContext = context
+        userPropertyTextureLoad = context.userPropertyTextureLoad
         evaluationTransaction = .init()
         let activateStageStart = CACurrentMediaTime()
 #if DEBUG
@@ -390,11 +399,6 @@ final class SceneDesktopWallpaperSession {
             return false
         }
 
-        let scopedURLs = launchContext.userPropertyTextureURLs.values.filter {
-            $0.startAccessingSecurityScopedResource()
-        }
-        defer { scopedURLs.forEach { $0.stopAccessingSecurityScopedResource() } }
-
         teardownSurfaces(clearContext: false, reason: teardownReason)
 
         let initialParticleDynamicValues = SceneDynamicSnapshotResolver().resolve(
@@ -453,7 +457,7 @@ final class SceneDesktopWallpaperSession {
                     .baseImages.textureLoader.uploadCommandQueue,
                 textureDecodeCacheBudget: launchContext.preparedDeviceResources
                     .baseImages.textureLoader.decodeCacheBudget,
-                userPropertyTextureURLs: launchContext.userPropertyTextureURLs,
+                userPropertyTextureLoad: userPropertyTextureLoad,
                 dynamicTextFieldsByLayerID:
                     launchContext.frameSchema.dynamicTextFieldsByLayerID,
                 presentationStreamID: UInt64(screenID),

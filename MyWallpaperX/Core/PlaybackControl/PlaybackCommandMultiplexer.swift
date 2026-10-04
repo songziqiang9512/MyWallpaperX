@@ -36,6 +36,22 @@ final class PlaybackCommandMultiplexer {
         handlers[kind]
     }
 
+    @MainActor @discardableResult
+    func applyUserTextureUpdate(
+        _ update: ScenePlaybackTextureUpdate,
+        completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
+    ) -> Bool {
+        handler(for: .scene)?.applyUserTextureUpdate(update, completion: completion) ?? false
+    }
+
+    @MainActor @discardableResult
+    func reloadUserTextureUpdate(
+        _ update: ScenePlaybackTextureUpdate,
+        completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
+    ) -> Bool {
+        handler(for: .scene)?.reloadUserTextureUpdate(update, completion: completion) ?? false
+    }
+
     /// 广播到全部已注册引擎；返回各引擎是否真实消费。同一 handler
     /// 实例以多 kind 注册时只执行一次（引擎内部按活跃 kind 路由，
     /// 重复执行会双倍生效）。

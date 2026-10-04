@@ -47,9 +47,9 @@ import Foundation
             ]
         ])
         let loadValid: Bool
-        if case let .success(.loadScene(root, values, textures, profile, recordID)) = load {
+        if case let .success(.loadScene(root, values, textures, profile, recordID, requiredKeys)) = load {
             loadValid = root.path == "/private/tmp/scene"
-                && profile == .efficient && recordID == "fixture"
+                && profile == .efficient && recordID == "fixture" && requiredKeys.isEmpty
                 && values["enabled"] == .bool(true)
                 && values["rate"] == .number(1.5)
                 && values["label"] == .string("ok")

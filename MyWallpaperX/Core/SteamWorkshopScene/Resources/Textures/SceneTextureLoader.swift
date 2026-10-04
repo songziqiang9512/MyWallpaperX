@@ -8,7 +8,7 @@ import ImageIO
 // report exactly *why* a layer's texture didn't show up (file missing, .tex
 // uses a compressed codec we don't decode, oversized texture allocation
 // failed, etc.) — black previews are otherwise impossible to debug.
-enum SceneTextureLoadOutcome {
+nonisolated enum SceneTextureLoadOutcome {
     case loaded(MTLTexture)
     case unsupportedFormat(extension: String)
     case unsupportedTexFormat(code: UInt32)
@@ -104,7 +104,7 @@ nonisolated private final class SceneTextureDecodeCacheLease {
     }
 }
 
-final class SceneTextureLoader {
+nonisolated final class SceneTextureLoader {
     struct SourceKey: Hashable {
         let path: String
         let size: UInt64
@@ -185,6 +185,10 @@ final class SceneTextureLoader {
 
     func load(from url: URL, device: MTLDevice) -> SceneTextureLoadOutcome {
         load(from: url, purpose: .premultipliedColor, device: device)
+    }
+
+    func recordDirectImageDecodeAttempt() {
+        directImageDecodeAttemptCount += 1
     }
 
     /// Loads a texture according to the consumer's channel contract. The

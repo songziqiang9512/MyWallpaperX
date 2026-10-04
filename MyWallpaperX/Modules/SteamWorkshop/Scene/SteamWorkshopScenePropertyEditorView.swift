@@ -30,11 +30,10 @@ struct SteamWorkshopScenePropertyEditorView: View {
             HStack(spacing: 12) {
                 Spacer(minLength: 0)
                 Button("恢复默认", systemImage: "arrow.counterclockwise") {
-                    values = context.catalog.defaultValues
                     service.resetScenePropertyValues(
                         for: record,
                         defaultValues: context.catalog.defaultValues
-                    )
+                    ) { refreshAcceptedValues() }
                 }
                 .help("恢复这个 Scene 壁纸的默认属性")
                 .controlSize(.small)
@@ -113,12 +112,11 @@ struct SteamWorkshopScenePropertyEditorView: View {
                     .foregroundStyle(.secondary)
                 if selectedURL != nil {
                     Button {
-                        values[definition.key] = definition.defaultValue ?? .string("")
                         service.updateSceneTexturePropertyURL(
                             nil,
                             definition: definition,
                             record: record
-                        )
+                        ) { accepted in if accepted { refreshAcceptedValues() } }
                     } label: {
                         Image(systemName: "xmark.circle")
                     }
@@ -141,12 +139,15 @@ struct SteamWorkshopScenePropertyEditorView: View {
         panel.allowedContentTypes = [.png, .jpeg]
         panel.prompt = "选择"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        guard service.updateSceneTexturePropertyURL(
+        service.updateSceneTexturePropertyURL(
             url,
             definition: definition,
             record: record
-        ) else { return }
-        values[definition.key] = .string(url.path)
+        ) { accepted in if accepted { refreshAcceptedValues() } }
+    }
+
+    private func refreshAcceptedValues() {
+        values = context.catalog.effectiveValues(overrides: service.scenePropertyOverrides(for: record))
     }
 
     private func propertyLine<Control: View>(_ definition: SceneUserPropertyDefinition, @ViewBuilder control: () -> Control) -> some View {

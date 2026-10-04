@@ -58,7 +58,8 @@ nonisolated struct ScenePropertyLiveUpdateState {
     nonisolated mutating func apply(
         replacements: [String: SceneUserPropertyValue],
         changedPropertyKeys: Set<String>,
-        unavailableConsumerTargets: Set<SceneDynamicTarget> = []
+        unavailableConsumerTargets: Set<SceneDynamicTarget> = [],
+        preparedTexturePropertyKeys: Set<String> = []
     ) -> Bool {
         guard !changedPropertyKeys.isEmpty else { return true }
 
@@ -73,7 +74,10 @@ nonisolated struct ScenePropertyLiveUpdateState {
                 scriptUserPropertyConsumerTargetsByKey[propertyKey] ?? []
             let consumerTargets = Set(instructions.map(\.target))
                 .union(scriptTargets)
-            guard !consumerTargets.isEmpty,
+            let preparedTexture = preparedTexturePropertyKeys.contains(propertyKey)
+                && replacements[propertyKey]?.stringValue != nil
+                && effectiveValues[propertyKey]?.stringValue != nil
+            guard !consumerTargets.isEmpty || preparedTexture,
                   consumerTargets.allSatisfy({
                       activeConsumerTargets.contains($0)
                           && !unavailableConsumerTargets.contains($0)

@@ -46,7 +46,7 @@ class SceneMetalView: NSView {
     let renderer: SceneMetalRenderer
     let metalLayer: CAMetalLayer
     private let solidLayerTexture: MTLTexture?
-    private let userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
+    private var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
     private var imageTextures = SceneBaseImageTextureStore()
     private var spriteAnimations: [Int: SceneSpriteAnimation] = [:]
     private var specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:]
@@ -99,6 +99,12 @@ class SceneMetalView: NSView {
             + renderer.staticModelDepthTargetPool.residentByteCost
             + (particlePlayback?.pipeline.renderTargetResidentByteCost ?? 0)
     }
+
+    /// Session adopts a complete resource revision between frame callbacks.
+    /// Encoding only reads this immutable value, including every purpose.
+    func adoptUserPropertyTextures(_ snapshot: SceneUserPropertyTextureLoadResult) {
+        userPropertyTextureLoad = snapshot
+    }
     init?(
         renderDescriptor: SceneRenderDescriptor, effectAdmissionCatalog: SceneEffectAdmissionCatalog,
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
@@ -116,7 +122,7 @@ class SceneMetalView: NSView {
         textureDecodeCacheBudget: SceneTextureDecodeCacheBudget = .init(
             maximumBytes: 1_024 * 1_024 * 1_024
         ),
-        userPropertyTextureURLs: [String: URL] = [:],
+        userPropertyTextureLoad: SceneUserPropertyTextureLoadResult = .empty,
         dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:],
         presentationStreamID: UInt64,
         firstFramePresentationRegistration:
@@ -147,15 +153,7 @@ class SceneMetalView: NSView {
             device: renderer.device
         )
         solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
-        userPropertyTextureLoad = SceneUserPropertyTextureLoader().load(
-            urlsByPropertyKey: userPropertyTextureURLs,
-            requestedIdentities: resolvedMaterialRuntime.userPropertyDemands(
-                including: renderDescriptor.texturePropertyKeys
-            ).union(baseMaterialProviderBindings.userPropertyDemands),
-            textureUploadCommandQueue: textureUploadCommandQueue,
-            textureDecodeCacheBudget: textureDecodeCacheBudget,
-            device: renderer.device
-        )
+        self.userPropertyTextureLoad = userPropertyTextureLoad
         let layer = CAMetalLayer()
         layer.device = renderer.device
         layer.pixelFormat = imageLayerPipeline.pixelFormat

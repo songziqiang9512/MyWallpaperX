@@ -256,10 +256,10 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 | `bool` | `L3` | 条件/部分 target；不得按名称自动启用 effect |
 | `combo` | `L3` | option value/条件；补全部 authored target |
 | `textinput` | `L3` | 可编辑/持久化；有效可见 direct text consumer 可无重建更新，其他 target 仍重建 |
-| `texture`/`scenetexture` | `L3 bounded` | PNG/JPEG选图、bookmark及base/effect引用；坏图保留旧选择，仍全Scene重载，见[入口/保护](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-texture-selection-failure)。异步原位更新、effect材料独立声明、mask、particle、video、variant及任意material shape未验 |
+| `texture`/`scenetexture` | `L3 bounded` | PNG/JPEG异步原位更新、bookmark及base/effect引用；失败保旧、reset回作者fallback，见[实施边界](../history/user-texture-live-update-implementation-2026-10-05.md)。不支持live的混合绑定保留候选重建；effect材料独立声明、mask、particle、video、variant及任意material shape未验 |
 | `usershortcut` | `L0` | parser 当前归为 unsupported；需 macOS 授权和安全降级 |
 | group/order/condition | `L3` | 独立窗口已支持；补嵌套/全条件和负向门 |
-| reset/default/override | `L3` | layer alpha reset/override 可原子 live 提交；texture bookmark 或非 live key 仍重建；补跨重启 UI 门 |
+| reset/default/override | `L3` | layer alpha与文件texture reset沿原owner live提交；旧reset保留后来的属性编辑；非live key仍重建，跨重启UI未验 |
 | Texture Variants | `L0` | 补 schema、checkbox/combo 选择和 provider identity；脚本不得切换 |
 | property update event | `L0` | typed snapshot 后再派发给 SceneScript |
 

@@ -2178,6 +2178,28 @@
       ]
     },
     {
+      "id": "scene-user-texture-updates",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+UserTextures.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyLiveUpdateState.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyTextureLoader.swift",
+        "script/tests/fixtures/SceneUserTextureUpdateChecks.swift",
+        "script/tests/test_scene_user_texture_updates.py",
+        "script/tests/test_scene_user_property_textures.py",
+        "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient+UserTextures.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneTextureProperties.swift",
+        "script/tests/test_scene_user_texture_control_plane.py",
+        "script/tests/fixtures/SceneUserTextureControlChecks.swift"
+      ],
+      "modules": [
+        "test_scene_user_texture_updates",
+        "test_scene_user_property_textures",
+        "test_scene_user_texture_control_plane"
+      ]
+    },
+    {
       "id": "ordinary-parent-visibility",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift",

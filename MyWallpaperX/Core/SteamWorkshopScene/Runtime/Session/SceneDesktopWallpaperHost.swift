@@ -89,6 +89,19 @@ final class SceneDesktopWallpaperHost {
         applyUserPropertyValues([key: value], changedPropertyKeys: [key], recordID: recordID)
     }
 
+    func applyUserTextureUpdate(
+        _ update: ScenePlaybackTextureUpdate,
+        resolvedURLs: [String: URL],
+        completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
+    ) {
+        guard launchState?.isInProgress != true || launchState?.recordID != update.recordID,
+              let activeSession, activeSession.activeRecordID == update.recordID else {
+            completion(.unavailable)
+            return
+        }
+        activeSession.applyUserTextureUpdate(update, resolvedURLs: resolvedURLs, completion: completion)
+    }
+
     func refreshPerformanceResourceGauges() {
         // Sample all roles at the daemon's 1 Hz cadence, never per frame.
         let sessions = [activeSession, candidateSession].compactMap { $0 }

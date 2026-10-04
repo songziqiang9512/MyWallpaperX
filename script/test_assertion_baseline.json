@@ -744,27 +744,6 @@
     },
     {
       "path": "script/tests/test_scene_property_live_routing.py",
-      "scope": "ScenePropertyLiveRoutingTests.test_reset_uses_only_old_override_keys_and_texture_changes_force_rebuild",
-      "method": "assertIn",
-      "literal": "if !removedTextureBookmarks,",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_property_live_routing.py",
-      "scope": "ScenePropertyLiveRoutingTests.test_reset_uses_only_old_override_keys_and_texture_changes_force_rebuild",
-      "method": "assertIn",
-      "literal": "let changedDefaults = defaultValues.filter",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_property_live_routing.py",
-      "scope": "ScenePropertyLiveRoutingTests.test_reset_uses_only_old_override_keys_and_texture_changes_force_rebuild",
-      "method": "assertIn",
-      "literal": "let changedPropertyKeys = Set(overrides.keys)",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_property_live_routing.py",
       "scope": "ScenePropertyLiveRoutingTests.test_texture_bookmark_clear_reports_whether_runtime_resources_changed",
       "method": "assertIn",
       "literal": "var removedBookmark = false",

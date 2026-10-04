@@ -2,7 +2,7 @@ import Foundation
 import Metal
 import MetalPerformanceShaders
 
-struct SceneCompressedTextureUploader {
+nonisolated struct SceneCompressedTextureUploader {
     // CPU decode budget: a decoded RGBA copy of one 4096x4096 mip is 64 MiB.
     // Larger payloads and multi-image sprites first keep their compact native
     // upload, then use the GPU to premultiply into the authored image or a

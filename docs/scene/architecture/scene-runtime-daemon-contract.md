@@ -43,8 +43,9 @@
 
 | 命令 | 载荷 | 语义 |
 |---|---|---|
-| `loadScene` | `{rootURL, propertyOverrides, userPropertyTextures:{path,bookmark}, profile, recordID}` | newer-wins 世代接受；外部纹理以安全作用域书签跨进程，在 daemon Host 建表面时打开；后台准备；进度经事件回传 |
+| `loadScene` | `{rootURL, propertyOverrides, userPropertyTextures:{path,bookmark}, profile, recordID, requiredUserTextureKeys?}` | newer-wins 世代接受；外部纹理书签在后台准备范围内持有。仅纹理回退候选携带 requiredUserTextureKeys：指定 key 全用途 ready/reset absent 才准入，失败留旧Scene；该约束接受后清除，不进长期重放 |
 | `setProperty` | `{values, revision, recordID}` | 先尝试活动记录的 typed 热更新；daemon 回传接受结果，拒绝时 client 用合并后的 authored intent 走完整 load 兜底 |
+| `setUserTextures` | `{references, resetKeys, values, revision, recordID}` | 单 key selected/reset 事务；后台准备全部用途，成功回执后保存。坏图不重载；同记录 pending launch 等匹配 requestID 首次呈现后再提交。真正非实时绑定才带 requiredUserTextureKeys 走候选；其 accepted replay 保留旧值直到该候选首次呈现。停止、切记录及 transport 退出结清等待者 |
 | `cancelLaunch` | `{recordID}` | 只取消匹配记录的在途 launch |
 | `setDisplayConfiguration` | `{screens:[{id, frame, scale}]}` | 多屏拓扑重建 |
 | `setPerformanceProfile` | `{maxFPS}` | 60/30 档热切换（下一次排帧生效） |
@@ -59,6 +60,7 @@
 |---|---|---|
 | `launchStateChanged` | `{phase, message, requestID, recordID}` | 五阶段状态机（accepted/preparingModel/preparingPrograms/preparingResources/preparingSurfaces/launched/failed/cancelled） |
 | `firstFramePresented` | `{requestID, recordID, uptimeMs}` | 同请求 drawable 的实际 present 后 |
+| `textureUpdateResult` | `{recordID, revision, outcome, message?}` | outcome 为 applied/failed/superseded/unavailable；按 transport generation、记录和 revision 接纳。applied 为 CPU 资源/属性采用完成，不等于所有屏同时呈现 |
 | `frameStats` | `{rendered,busy,dropped,drawCalls,pipelineStateBinds,geometryDrawCalls,fallbackBranches,gpuAllocatedBytes,renderTargetPoolBytes,cpuFrameMs?}` | 1Hz；前七项为 daemon 进程累计 counter，后两项为当前 gauge。`gpuAllocatedBytes` 是 Metal device 的进程总分配量；`renderTargetPoolBytes` 是已跟踪有界 RT 池预算和，不含 drawable |
 | `propertyUpdateResult` | `{revision, recordID, accepted}` | 热更新尝试完成；client 只消费自己登记的 revision/recordID |
 | `error` | `{code, message, context}` | 引擎内部失败的可上报子集 |
@@ -106,7 +108,7 @@ daemon 化采用"runtime 原样搬迁"策略——**不重写线程模型**，�
 
 **M5.3 双消费者裁决（2026-09-14）：** Video App client、WallpaperDaemon tool 与 Scene endpoint 原先各自拼接 newline 或维护输入 buffer；现统一消费无业务依赖的 `DaemonNewlineFrameBuffer` / `DaemonNewlineJSON`，协议 payload 与事件背压策略仍留在各端。孵化与退避此时只有 video client 一个生产消费者，因此没有提前抽成公共 wrapper；它们随 M5.4 Scene client 首次接线迁移。真实 Video helper 已用拆段命令和空帧回归到 ready/stopped；两个隔离 Scene daemon 均取得实际 present、持续统计和 GPU drain。公共层只运行于 coarse IPC，不进入帧内渲染热路。
 
-**M5.4 控制面迁移记录（2026-09-14）：** 普通产品 Scene 已由 App 内 `SceneDaemonClient` 唯一接收 `WallpaperEngineCommand`，再经同二进制 daemon 管道控制既有 Host；App 侧只保留可重放 authored intent、请求身份、属性 revision 和 1Hz 统计。`loadScene` 携带 typed 属性及外部纹理书签，子进程恢复 URL 后仍由唯一 Host 在同步纹理上传范围内开闭安全作用域；`setProperty` 以 revision+recordID 回执，拒绝时用已经合并的 authored intent 全量重载。所有 launch/first-present 事件按 requestID/recordID 投影，旧终态不能清除新 pending。graph/simple 隔离副本都通过首帧、20 秒播放、SIGKILL 后自动重放与恢复 present；数值属性样本验证热更新在同一进程生效并在崩溃后保留，非 live 属性验证拒绝后完整重载。Video daemon 拆段/空帧回归仍通过。该迁移不增加 visual owner；Metal/registry/graph/compositor 全留在 daemon。
+**M5.4 控制面迁移记录（2026-09-14）：** 普通产品 Scene 已由 App 内 `SceneDaemonClient` 唯一接收 `WallpaperEngineCommand`，再经同二进制 daemon 管道控制既有 Host；App 侧只保留可重放 authored intent、请求身份、属性 revision 和 1Hz 统计。`loadScene` 携带 typed 属性及外部纹理书签，子进程恢复 URL 后由唯一 Host 在后台纹理准备范围内开闭安全作用域；`setProperty` 以 revision+recordID 回执，拒绝时用已经合并的 authored intent 全量重载。所有 launch/first-present 事件按 requestID/recordID 投影，旧终态不能清除新 pending。graph/simple 隔离副本都通过首帧、20 秒播放、SIGKILL 后自动重放与恢复 present；数值属性样本验证热更新在同一进程生效并在崩溃后保留，非 live 属性验证拒绝后完整重载。Video daemon 拆段/空帧回归仍通过。该迁移不增加 visual owner；Metal/registry/graph/compositor 全留在 daemon。
 
 **M5.5 Host 所有权收口（2026-09-14）：** `SceneDesktopWallpaperHost` 不再暴露全局 `shared`；`SceneDaemonRuntime` 的私有实例是唯一产品 Host。普通 App 的 AppDelegate、应用入口、窗口协调器、WallpaperEngine 与 Steam 服务调用面均无 Host 类型引用，Scene client stub 只保存控制意图和投影 daemon 事件。同二进制 daemon 仍必须让完整 runtime 源码属于 app target，因此“主程序无渲染路径”的可执行含义是主进程不装配、不实例化且无法经全局入口取得 Host，而不是复制或搬走数百个 runtime 源文件。显式 DEBUG direct evidence runner 拥有独立 Host，只用于隔离样本，并由同一 owner 停止。graph/simple 均在强杀后由新 daemon 恢复实际 present，截图构图完整；本步不触碰帧算法、prepared 产品或失效域。
 

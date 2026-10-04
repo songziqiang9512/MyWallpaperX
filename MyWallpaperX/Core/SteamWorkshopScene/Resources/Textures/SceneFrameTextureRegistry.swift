@@ -474,6 +474,14 @@ final class SceneFrameTextureRegistry {
         case let .ready(publication):
             publishExplicit(publication, for: identity)
         case .absent:
+            if case let .materialUserProperty(property) = identity {
+                // Reset explicitly retires this provider atom. The frame
+                // baseline keeps the old resource alive until accept/discard,
+                // and restores it if this surface's frame fails.
+                committedPublications.removeValue(forKey: identity)
+                priorFrameEntries.removeValue(forKey: identity)
+                priorFrameEntries.removeValue(forKey: .userProperty(property.propertyKey))
+            }
             set(.absent, for: identity)
         case .pending:
             set(.pending, for: identity)

@@ -328,6 +328,8 @@ Timeline、user property、SceneScript、pointer、audio、media 和 system stat
 
 producer 的优先级、同帧/下一帧可见性和冲突处理由 frame commit 统一决定；consumer 只读取与自身职责匹配的 channel，不得各自建立状态系统，也不得把 resource generation 或 topology change 伪装成普通 value-only 更新。
 
+文件属性替换属于资源通路。Session 复用现 loader 在串行后台准备单 key 的全部实际用途，在帧编码之间一次采用不可变资源快照及对应 live property 值；初始启动与后建 surface 消费同一所有权。不同 key 完成时合并当前快照，同 key 只接纳最新 revision；坏图、任一用途失败或迟到完成均保留旧图。reset 显式发布 absent，删除 bare/typed 旧映射，并由既有 registry 提交/回滚释放旧引用。暂停采用既有静帧刷新，不推进 VM/clock。普通 URL、内容与尺寸变化不重编 graph；真实不可实时更新的混合绑定才走原候选 launch，以 requiredUserTextureKeys 检查全部指定资源后允许激活。界面及 accepted replay 只在对应成功回执后提交；进程命令、启动等待及回退身份见[daemon 合同](scene-runtime-daemon-contract.md)。
+
 异步 provider 的控制命令也必须先成为 owner-scoped typed transaction effect，再由 provider 在同一 command generation 内执行。每次 seek、play、pause、rate、host suspend/resume、rebuild 或 rollback 都使旧 player anchor 失效；AVFoundation notification、decode completion 等不携带 generation 的异步回调，只有同时证明当前 command generation、当前 anchor 与回调对应的可观察终态后，才可修改 typed lifecycle 或发布新资源。迟到回调只能被忽略，不能覆盖更新的作者命令。初始资源尚未 ready 时仍按最小 layer 保留 previous-current；诊断/benchmark 只有在同 layer 后续取得 terminal compositor 和 next-frame success 时，才能把该启动 pending 记为已恢复，不能用等待或静默吞掉失败伪造首帧成功。
 
 作者层的 SceneScript topology mutation 必须保持 owner、identity 和失败域可证明。当前只允许 effectful object-visibility owner 销毁自身且无子层的 authored layer；该操作与当帧 Boolean value 原子求值，只有全部 surface submission 成功后才从 render order、descriptor projection 和下一帧 VM snapshot 同时消失。跨 owner 销毁、带子层销毁、静态 sort/create、stale handle 和回生继续局部拒绝，不能用普通 `visible=false` 冒充 topology 已改变。

@@ -64,6 +64,7 @@ enum SceneDesktopWallpaperHostLaunchError: LocalizedError {
     case conflictingBoundedSceneScriptTargets(String)
     case invalidBoundedSceneScriptProgramAt(String)
     case requiredImagePipelineUnavailable
+    case requiredUserTextureUnavailable
     case noSurface
     case firstFrameFailed
     case firstFrameTimeout
@@ -80,6 +81,8 @@ enum SceneDesktopWallpaperHostLaunchError: LocalizedError {
             "Scene 有界脚本目标在 \(phase) 无法形成，已停止启动。"
         case .requiredImagePipelineUnavailable:
             "Scene 必需的图像合成 pipeline 无法形成，已保留当前壁纸。"
+        case .requiredUserTextureUnavailable:
+            "Scene 所选图像未能完整准备，已保留当前壁纸。"
         case .firstFrameFailed:
             "Scene 候选首帧执行失败，已保留当前壁纸。"
         case .firstFrameTimeout:

@@ -78,6 +78,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var activeRequestID: UUID?
     var pendingRequestID: UUID?
     var pendingPropertyRevisions: [UInt64: String] = [:]
+    var pendingTextureUpdates: [UInt64: PendingTextureUpdate] = [:]
+    var latestTextureRevisions: [String: UInt64] = [:]
     /// Set by `warmSession()` while its silent spawn is in flight; cleared by
     /// any real intent, a handshake timeout, or spawn failure. A completed
     /// handshake leaves it set until the next intent/reuse — harmless, since
@@ -298,6 +300,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     /// plain `stop()` and stay silent — an incoming runtime's commit must
     /// not race a stale recycle.
     func stop(postsLaunchState: Bool) {
+        finishPendingTextureUpdates(.failed("Scene playback stopped"))
         let stoppedRequestID = activeRequestID ?? pendingRequestID
             ?? (activeIntent != nil || pendingIntent != nil ? UUID() : nil)
         let stoppedRecordID = activeRecordID ?? pendingIntent?.recordID
@@ -355,6 +358,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     }
 
     func requestLaunch(_ request: ScenePlaybackLoadRequest) {
+        finishPendingTextureUpdates(.superseded)
+        latestTextureRevisions.removeAll(keepingCapacity: true)
         warmSessionPending = false
         let normalizedRoot = request.rootURL.resolvingSymlinksInPath().standardizedFileURL
         if pendingResourceLifetime?.rootURL != normalizedRoot
@@ -508,6 +513,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
                 \.foundationValue
             ),
             "userPropertyTextures": textures,
+            "requiredUserTextureKeys": request.requiredUserTextureKeys.sorted(),
             "profile": performanceProfile.maxFPS
         ]
         if let recordID = request.recordID {

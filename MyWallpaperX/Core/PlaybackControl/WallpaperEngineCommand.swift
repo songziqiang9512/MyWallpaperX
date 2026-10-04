@@ -8,11 +8,36 @@ nonisolated struct ScenePlaybackTextureReference: Equatable, Sendable {
     let bookmarkData: Data?
 }
 
+nonisolated struct ScenePlaybackTextureUpdate: Equatable, Sendable {
+    let references: [String: ScenePlaybackTextureReference]
+    let resetKeys: Set<String>
+    let values: [String: SceneUserPropertyValue]
+    let revision: UInt64
+    let recordID: String
+
+    var keys: Set<String> { Set(references.keys).union(resetKeys) }
+
+    var isValid: Bool {
+        keys.count == 1 && Set(references.keys).isDisjoint(with: resetKeys)
+            && Set(values.keys) == keys && revision > 0 && !recordID.isEmpty
+            && keys.allSatisfy { !$0.isEmpty }
+            && values.values.allSatisfy { $0.stringValue != nil }
+    }
+}
+
+nonisolated enum ScenePlaybackTextureUpdateOutcome: Equatable, Sendable {
+    case applied
+    case failed(String)
+    case superseded
+    case unavailable
+}
+
 nonisolated struct ScenePlaybackLoadRequest: Equatable, Sendable {
     let rootURL: URL
     var propertyOverrides: [String: SceneUserPropertyValue]
-    let userPropertyTextures: [String: ScenePlaybackTextureReference]
+    var userPropertyTextures: [String: ScenePlaybackTextureReference]
     let recordID: String?
+    var requiredUserTextureKeys: Set<String> = []
 }
 
 /// 粗粒度壁纸引擎命令：UI 与控制面只发命令，不直触引擎内部。

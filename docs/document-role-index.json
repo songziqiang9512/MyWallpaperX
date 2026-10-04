@@ -350,7 +350,7 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ce85336be8c7475ca9ed42ad132279aa613c9bc146a723edb8a360f8f0a63b73",
+        "sourceSHA256": "fcd8868343b28b400a6e651f8dd2d3a3c86e1a864d80ac5361ace8070bf19cf0",
         "method": "document_registry --audit + document_health --check",
         "scope": "Bounded image material Alpha source ownership and evidence navigation; not whole-corpus acceptance.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
@@ -361,10 +361,10 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-03",
+      "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9003d5e16568c185e7d362c250449e4fd3cdd7cdaff911b6284774ceca4cb005",
+        "sourceSHA256": "adf9b434ca4de0b5484b55bdc85a221f27641a975f217c170472e0a578965f70",
         "method": "document_registry --audit + document_health --check",
         "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
         "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
@@ -409,10 +409,10 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-03",
+      "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cb8d387df1fbfc2f87ad4f76cec6ab3a05fa880001fbdde1c30b62d0c1cb478d",
+        "sourceSHA256": "96767dd8317328617217862eb1251173d601e3b69acdc7b981d745f51d18654c",
         "method": "document_registry --audit + document_health --check",
         "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
         "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
@@ -481,7 +481,7 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0d354814b7263196cb5f6029cc35ef18b65240d92a0d973698d3338e678a4a44",
+        "sourceSHA256": "72b9b980e3a8d759a000363b47d766a822cac0fa72f2173ada88df594f664242",
         "method": "document_registry --audit + document_health --check",
         "scope": "Bounded image material Alpha source ownership and evidence navigation; not whole-corpus acceptance.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
@@ -1244,6 +1244,17 @@
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/capabilities/coverage-ledger.md",
         "docs/scene/development/reference/client-runtime-static-forensics.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
     {

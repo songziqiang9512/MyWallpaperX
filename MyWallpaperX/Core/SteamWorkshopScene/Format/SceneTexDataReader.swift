@@ -1,7 +1,7 @@
 import Compression
 import Foundation
 
-extension Data {
+nonisolated extension Data {
     func uint32LE(at offset: Int) -> UInt32 {
         withUnsafeBytes { rawBuffer in
             rawBuffer.loadUnaligned(fromByteOffset: offset, as: UInt32.self).littleEndian
@@ -26,7 +26,7 @@ extension Data {
     }
 }
 
-extension SceneTexContainerReader {
+nonisolated extension SceneTexContainerReader {
     private enum SpriteVersion: String {
         case texs0001 = "TEXS0001"
         case texs0002 = "TEXS0002"

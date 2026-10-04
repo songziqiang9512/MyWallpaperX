@@ -174,6 +174,7 @@ enum DebugSceneDaemonClientRunner {
                     presentation.requestID.uuidString,
                     SceneDaemonClient.shared.debugProcessIdentifier ?? -1
                 )
+                scheduleUserTextureSequence()
                 if let switchRootURL {
                     guard presentedRecordID == recordID,
                           !didRequestSwitch else {
@@ -287,6 +288,7 @@ enum DebugSceneDaemonClientRunner {
     }
 
     private static func finish() {
+        textureSequenceFinished = true
         let client = SceneDaemonClient.shared
         let observedDemand = audioSpectrumDemand ?? client.audioSpectrumDemand
         let observedStats = latestStats ?? client.latestFrameStats
@@ -334,6 +336,7 @@ enum DebugSceneDaemonClientRunner {
             "audioSpectrumPublicationPeaks": audioSpectrumPublications.map(\.peak),
             "failures": failures
         ]
+        result["userTextureUpdates"] = textureSequenceResults
         if let observedStats {
             result["latestStats"] = [
                 "rendered": observedStats.rendered,
@@ -480,6 +483,7 @@ enum DebugSceneDaemonClientRunner {
             dependencyStatus: .none
         )
         let service = SteamWorkshopService.shared
+        guard prepareUserTextureSequence(record: record) else { return false }
         if propertyOverrides.isEmpty {
             service.requestSceneRender(record)
             return true

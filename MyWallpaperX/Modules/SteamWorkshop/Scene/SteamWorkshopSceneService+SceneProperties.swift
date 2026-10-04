@@ -231,6 +231,9 @@ extension SteamWorkshopService {
         definition: SceneUserPropertyDefinition,
         record: SteamWorkshopDownloadRecord
     ) {
+        guard definition.kind != .sceneTexture else { return }
+        scenePropertyCommandRevision &+= 1
+        scenePropertyEditRevisions[record.id + "\u{0}" + definition.key] = scenePropertyCommandRevision
         var overrides = scenePropertyOverrides(for: record)
         if definition.defaultValue == value {
             overrides.removeValue(forKey: definition.key)
@@ -239,11 +242,6 @@ extension SteamWorkshopService {
         }
         saveScenePropertyOverrides(overrides, for: record)
         objectWillChange.send()
-        if definition.kind == .sceneTexture {
-            scheduleActiveScenePropertyRender(for: record)
-            return
-        }
-        scenePropertyCommandRevision &+= 1
         if !PlaybackCommandMultiplexer.shared.dispatch(
             .setProperty(
                 [definition.key: value],
@@ -258,34 +256,38 @@ extension SteamWorkshopService {
 
     func resetScenePropertyValues(
         for record: SteamWorkshopDownloadRecord,
-        defaultValues: [String: SceneUserPropertyValue]
+        defaultValues: [String: SceneUserPropertyValue],
+        completion: @escaping @MainActor () -> Void
     ) {
-        let overrides = scenePropertyOverrides(for: record)
-        let changedPropertyKeys = Set(overrides.keys)
-        let removedTextureBookmarks = clearSceneTexturePropertyBookmarks(for: record)
-        saveScenePropertyOverrides([:], for: record)
-        objectWillChange.send()
-        guard removedTextureBookmarks || !changedPropertyKeys.isEmpty else { return }
-        let changedDefaults = defaultValues.filter {
-            changedPropertyKeys.contains($0.key)
-        }
+        let changedKeys = Set(scenePropertyOverrides(for: record).keys)
         scenePropertyCommandRevision &+= 1
-        if !removedTextureBookmarks,
-           !changedDefaults.isEmpty,
-           PlaybackCommandMultiplexer.shared.dispatch(
-                .setProperty(
-                    changedDefaults,
-                    revision: scenePropertyCommandRevision,
-                    recordID: record.id
-                ),
-                to: .scene
-           ) {
-            return
+        let resetRevision = scenePropertyCommandRevision
+        for key in changedKeys {
+            scenePropertyEditRevisions[record.id + "\u{0}" + key] = resetRevision
         }
-        scheduleActiveScenePropertyRender(for: record)
+        resetSceneTextureProperties(for: record, defaultValues: defaultValues) { [weak self] textureKeys in
+            guard let self else { completion(); return }
+            let changedPropertyKeys = changedKeys.subtracting(textureKeys).filter {
+                self.scenePropertyEditRevisions[record.id + "\u{0}" + $0] == resetRevision
+            }
+            defer { completion() }
+            guard !changedPropertyKeys.isEmpty else { return }
+            var remaining = self.scenePropertyOverrides(for: record)
+            changedPropertyKeys.forEach { remaining.removeValue(forKey: $0) }
+            self.saveScenePropertyOverrides(remaining, for: record)
+            self.objectWillChange.send()
+            let changedDefaults = defaultValues.filter { changedPropertyKeys.contains($0.key) }
+            self.scenePropertyCommandRevision &+= 1
+            if !changedDefaults.isEmpty,
+               PlaybackCommandMultiplexer.shared.dispatch(
+                    .setProperty(changedDefaults, revision: self.scenePropertyCommandRevision,
+                        recordID: record.id), to: .scene
+               ) { return }
+            self.scheduleActiveScenePropertyRender(for: record)
+        }
     }
 
-    private func saveScenePropertyOverrides(
+    func saveScenePropertyOverrides(
         _ overrides: [String: SceneUserPropertyValue],
         for record: SteamWorkshopDownloadRecord
     ) {

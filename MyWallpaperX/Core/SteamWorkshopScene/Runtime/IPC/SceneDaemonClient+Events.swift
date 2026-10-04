@@ -30,6 +30,7 @@ extension SceneDaemonClient {
             case "firstFramePresented": handleFirstFrame(payload)
             case "frameStats": handleFrameStats(payload)
             case "propertyUpdateResult": handlePropertyUpdateResult(payload)
+            case "textureUpdateResult": handleTextureUpdateResult(payload)
             case "audioSpectrumDemandChanged":
                 handleAudioSpectrumDemand(payload, generation: generation)
             case "audioSpectrumPublished":
@@ -81,6 +82,7 @@ extension SceneDaemonClient {
         if phase == .accepted {
             guard pendingIntent?.recordID == recordID else { return }
             pendingRequestID = requestID
+            bindDeferredTextureUpdates(recordID: recordID, requestID: requestID)
         } else {
             guard pendingRequestID == requestID else { return }
         }
@@ -93,7 +95,7 @@ extension SceneDaemonClient {
         )
         launchState = state
         if phase == .launched {
-            activeIntent = pendingIntent
+            activeIntent = fallbackReplayIntent(requestID: requestID) ?? pendingIntent
             activeResourceLifetime = pendingResourceLifetime
             activeRecordID = pendingIntent?.recordID
             activeRequestID = requestID
@@ -104,6 +106,7 @@ extension SceneDaemonClient {
             pendingIntent = nil
             pendingResourceLifetime = nil
             pendingRequestID = nil
+            finishTextureReload(recordID: recordID, outcome: .failed(message))
         }
         NotificationCenter.default.post(
             name: .sceneWallpaperLaunchStateDidChange,
@@ -117,6 +120,7 @@ extension SceneDaemonClient {
               requestID == activeRequestID,
               let uptimeMs = Self.double(payload["uptimeMs"]),
               uptimeMs >= 0 else { return }
+        resumeDeferredTextureUpdates(recordID: activeIntent?.recordID, requestID: requestID)
         restartBackoff.reset()
         let presentation = SceneFramePresentation(
             requestID: requestID,
@@ -284,6 +288,7 @@ extension SceneDaemonClient {
         // 非预期退出：在途自截帧请求的 requestID 对重启后的新 daemon 无效，
         // 且旧代事件会被 admission 拒收——立即以 nil 结清等待方。
         failPendingFrameCaptures()
+        finishPendingTextureUpdates(.failed("Scene daemon disconnected"))
         revokeAudioSpectrumDemand(generation: generation)
 
         let recoveryUsesPendingIntent = pendingIntent != nil
@@ -378,7 +383,7 @@ extension SceneDaemonClient {
         return NSNumber(value: value) == number ? value : nil
     }
 
-    private static func unsignedInteger(_ raw: Any?) -> UInt64? {
+    static func unsignedInteger(_ raw: Any?) -> UInt64? {
         guard let number = raw as? NSNumber,
               CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
         let value = number.uint64Value

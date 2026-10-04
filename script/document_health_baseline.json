@@ -37,12 +37,12 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 536,
-      "bytes": 87991
+      "lines": 538,
+      "bytes": 88891
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
-      "bytes": 28746
+      "bytes": 28838
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -57,8 +57,8 @@
       "bytes": 7226
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
-      "lines": 122,
-      "bytes": 15297
+      "lines": 124,
+      "bytes": 16108
     },
     "docs/scene/architecture/scene-startup-pipeline.md": {
       "lines": 143,
@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 368,
-      "bytes": 168534
+      "bytes": 168554
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 275,
@@ -89,8 +89,8 @@
       "bytes": 331799
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 73,
-      "bytes": 8116
+      "lines": 74,
+      "bytes": 8348
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 49771
+      "bytes": 49540
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1039,38 +1039,47 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "eacd132ffd8aae3d17ce6924eb3b93052b36ec751b0335e9a8e6d5ceade4dbb7",
-      "after": "879452cd5ebbff6108112b5a90063861a3725a1029d87b70994e39fe51ba050c",
-      "owner": "scene-rf05",
-      "reason": "Record bounded image material Alpha owner and actual acceptance; replace stale next direction.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-image-material-alpha"
+      "before": "879452cd5ebbff6108112b5a90063861a3725a1029d87b70994e39fe51ba050c",
+      "after": "0739892cfc98b7b7ee0b40ee2c14f049b1119a93f22ee3c08bbaa31097b4c702",
+      "owner": "scene-runtime",
+      "reason": "原位纹理资源职责及有界产品像素结果接管旧全场景重建状态。",
+      "decision": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-as-built-map.md",
+      "before": "9611ad3846bb6a2178f5e96686ea6dfcea7b5df627883f7248df9c22e354b5e6",
+      "after": "f786526253089a2db2040d33b7a637f797ce793c9574c41ca920249ac047a680",
+      "owner": "scene-runtime",
+      "reason": "原位纹理资源职责及有界产品像素结果接管旧全场景重建状态。",
+      "decision": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
+      "before": "4615dabb6769c5ab90476137c90c47ab869f4bfc4b63afca438b211569e821d4",
+      "after": "b9d613a2daa00959fd6f31cf9a4d1c0c497fbeae0b07987ef67222e9be33e72e",
+      "owner": "scene-runtime",
+      "reason": "原位纹理资源职责及有界产品像素结果接管旧全场景重建状态。",
+      "decision": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "043f7c6b7776ee3e8396a313b620e656accff220ace0b221ce3c3f6f12fa0521",
-      "after": "4218d68ed3f8f1537cec7c1f8d790ea6c4c2d93ef494dd617b972b3777af4892",
-      "owner": "scene-rf05",
-      "reason": "Record bounded image material Alpha owner and actual acceptance; replace stale next direction.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-image-material-alpha"
+      "before": "a982adaefc27b4b8c00005b09c5fd6c6e92c89f860c80882279e91b81d98b0b9",
+      "after": "236b37d18319aa5c77f8edd4b6afc315cbd7a4a192131ba82551587a80d123ca",
+      "owner": "scene-runtime",
+      "reason": "原位纹理资源职责及有界产品像素结果接管旧全场景重建状态。",
+      "decision": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ad73c1c1da87d730acb3d0686204591216f08232dc7aed0a7778e35cce22d3b4",
-      "after": "f69b64ac9505d4c6a6d5a2d1e34f2a3b852e396ed1a262a9d102a44807294813",
-      "owner": "scene-rf05",
-      "reason": "Record bounded image material Alpha owner and actual acceptance; replace stale next direction.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-image-material-alpha"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "be2ce418461b641185f66f7ccd1a40743002009eaa59ead05a129d6860d2e1f3",
-      "after": "ac293880f1d5b2443769c3492de1f75b45516f3457a3d5f62a7cae9d8d901a28",
-      "owner": "scene-rf05",
-      "reason": "Record bounded image material Alpha owner and actual acceptance; replace stale next direction.",
-      "decision": "docs/scene/history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-image-material-alpha"
+      "before": "f69b64ac9505d4c6a6d5a2d1e34f2a3b852e396ed1a262a9d102a44807294813",
+      "after": "eb5ddb5ac751862f41a2ca4c4adbb47b4dd84292553c01c492d6113d64ed59ff",
+      "owner": "scene-runtime",
+      "reason": "原位纹理资源职责及有界产品像素结果接管旧全场景重建状态。",
+      "decision": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md"
     }
   ]
 }

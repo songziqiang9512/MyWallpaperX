@@ -78,12 +78,11 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonRuntime.swift"
         ).read_text(encoding="utf-8")
         host = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("resolvingBookmarkData: bookmarkData", runtime)
         self.assertIn("options: [.withSecurityScope]", runtime)
         self.assertIn("options: []", runtime)
-        self.assertIn("launchContext.userPropertyTextureURLs.values.filter", host)
         self.assertIn("startAccessingSecurityScopedResource()", host)
         self.assertIn("stopAccessingSecurityScopedResource()", host)
 

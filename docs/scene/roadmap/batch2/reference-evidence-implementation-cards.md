@@ -16,7 +16,7 @@
 
 ## 2. 派生工作卡
 
-进度口径（2026-10-04）：RF00–RF16中RF06另属Web/Daemon，16张Scene卡已有15张完成各自有界验收（93.75%）；剩RF05组合闭环。此为当前队列进度，不是Scene全兼容率或长期Goal完成率；新增真实缺口仍由现役路线选序。
+进度口径（2026-10-05）：按目标样本分别报告执行/合成数量、可见正确性、未知项、本批收益及下一首断点；不把卡数或接线比例当整体正确率。当前优先RF05组合闭环，新缺口由现役路线选序。
 
 以下排列细化 P1/P2 已选责任，不另立总路线。RF00/RF01 与 RF05 诊断导出片已转证据移交；RF03 限定粒子四方法与 RF07 raw/display 分离也已转证据移交。RF05 其余既有能力组合仍待补证，条件卡在前置合同和证据满足后才进入产品写入。
 
@@ -62,7 +62,7 @@ RF03 连续排放后继已独立验收：缺省/0 duration四方法和显式非�
 
 **正反验收。** 诊断导出片已完成独立终审、真实AppKit反例及完整App退出/呈现门，结果仅见[冻结执行记录](../../history/rf05-debug-capture-lifecycle-implementation-2026-10-02.md)，合同见[诊断截图生命周期设计](debug-frame-capture-lifecycle-design.md)；短HDR对照不宣称性能完成。named provider 准备及显示分离片已完成八项签名App门，范围、原失败、受限optional profile与独立终审见[冻结记录](../../history/rf05-named-provider-readiness-implementation-2026-10-02.md)。途中发现的三候选未支持组合阻断首帧，已由[独立局部失败批](../../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-optional-failure)恢复安全入口和健康邻层；未扩大候选执行profile，RF05全卡仍未完成。资源准备期间连续属性意图已修复并用实际 App 验证，见[有界子批](../../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-deferred-intent)。其余组合门仍待执行： 初值覆盖→首帧hidden剪枝→live变化→script authored fallback不污染；visible bool/value-bool/user string/name-condition及数值wrapper保守分支分别验证。隐藏provider被跨层采样仍执行，隐藏未消费对象不贡献输出；toggle、同帧不同消费者、错purpose/stale generation、resize/reload和provider晚到验证publication闭包。一屏drawable缺失、另一屏真实completion、所有屏失败后恢复，VM heap/timer/input/localStorage与粒子RNG/child births/Puppet physics每cadence一次消费，恢复使用最新typed snapshot。pause首帧、run profile切换、政策重连/继承及旧epoch分别验收。
 
-**当前下一步。** 用户已实测确认背景/封面选图可用，但整Scene重建耗时；[坏图保护](../../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-texture-selection-failure)先保留健康选择。下一批异步准备受影响的文件纹理，通过既有typed registry/graph发布，保留Scene、脚本与时钟；reset恢复作者fallback，失败保旧，快速连续选择只提交最新意图。校验合入同一准备链，避免重复decode。八背景/模糊/Alpha不重复；RF05仍开放，15/16卡不是208整样本正确率。
+**当前下一步。** 文件纹理原位更新已完成本批限定闭环，见[实施边界](../../history/user-texture-live-update-implementation-2026-10-05.md)。继续293媒体封面与音频/点击事件组合，先触发并修真实未消费分支；不重复已验八背景/模糊/Alpha。按样本执行数量、可见结果及未知项报告，RF05保持开放。
 
 **普通父层显隐已实施。** [固定普通树结果](../../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-parent-visibility)与[组合树后继](../../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-composition-visibility)分别保存设计及验证身份；准备闭包、子层自身false、整键准入和局部失败由[架构§8.2](../../architecture/runtime-architecture.md)接管。粒子后继按[D11](particle-playback-state-design.md)复用同一owner，不将热更新通过视为整样本完成。
 

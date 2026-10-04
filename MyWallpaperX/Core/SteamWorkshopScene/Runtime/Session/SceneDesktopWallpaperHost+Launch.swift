@@ -46,7 +46,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram
     let soundPlaybackProgram: SceneSoundPlaybackProgram
     var liveState: ScenePropertyLiveUpdateState
-    let userPropertyTextureURLs: [String: URL]
+    var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
     let cacheDirectory: URL
     let resourceView: SceneResourceView
     let logURL: URL?
@@ -74,6 +74,7 @@ extension SceneDesktopWallpaperHost {
         rootURL: URL,
         propertyOverrides: [String: SceneUserPropertyValue] = [:],
         userPropertyTextureURLs: [String: URL] = [:],
+        requiredUserTextureKeys: Set<String> = [],
         logURL: URL? = nil,
         recordID: String? = nil,
         completion: @escaping @MainActor (Result<SceneRuntimeModel, Error>) -> Void
@@ -106,6 +107,7 @@ extension SceneDesktopWallpaperHost {
                     rootURL: rootURL,
                     propertyOverrides: propertyOverrides,
                     userPropertyTextureURLs: userPropertyTextureURLs,
+                    requiredUserTextureKeys: requiredUserTextureKeys,
                     logURL: logURL,
                     recordID: recordID,
                     sceneScriptGeneration: scriptGeneration,
@@ -218,12 +220,14 @@ extension SceneDesktopWallpaperHost {
         rootURL: URL,
         propertyOverrides: [String: SceneUserPropertyValue] = [:],
         userPropertyTextureURLs: [String: URL] = [:],
+        requiredUserTextureKeys: Set<String> = [],
         logURL: URL? = nil,
         recordID: String? = nil
     ) async throws -> SceneRuntimeModel {
         try await withCheckedThrowingContinuation { continuation in
             requestLaunch(rootURL: rootURL, propertyOverrides: propertyOverrides,
-                userPropertyTextureURLs: userPropertyTextureURLs, logURL: logURL,
+                userPropertyTextureURLs: userPropertyTextureURLs,
+                requiredUserTextureKeys: requiredUserTextureKeys, logURL: logURL,
                 recordID: recordID) { continuation.resume(with: $0) }
         }
     }
@@ -233,6 +237,7 @@ extension SceneDesktopWallpaperHost {
         rootURL: URL,
         propertyOverrides: [String: SceneUserPropertyValue],
         userPropertyTextureURLs: [String: URL],
+        requiredUserTextureKeys: Set<String>,
         logURL: URL?,
         recordID: String?,
         sceneScriptGeneration: UInt64,
@@ -686,6 +691,35 @@ extension SceneDesktopWallpaperHost {
             resourceView: model.resourceView
         )
         let preparedDeviceResources = try deviceResourcesPreparation.value()
+        let userTextureDemands = resolvedMaterialCatalog.userPropertyDemands
+            .union(baseMaterialProviderBindings.userPropertyDemands)
+            .union(runtimeInput.renderDescriptor.texturePropertyKeys.compactMap {
+                SceneUserPropertyTextureIdentity(propertyKey: $0, purpose: .premultipliedColor)
+            })
+        let userPropertyTextureLoad: SceneUserPropertyTextureLoadResult = {
+            let scopedURLs = userPropertyTextureURLs.values.filter {
+                $0.startAccessingSecurityScopedResource()
+            }
+            defer { scopedURLs.forEach { $0.stopAccessingSecurityScopedResource() } }
+            return SceneUserPropertyTextureLoader().load(
+                urlsByPropertyKey: userPropertyTextureURLs,
+                requestedIdentities: userTextureDemands.union(requiredUserTextureKeys.compactMap {
+                    SceneUserPropertyTextureIdentity(propertyKey: $0, purpose: .premultipliedColor)
+                }),
+                textureUploadCommandQueue: textureUploadCommandQueue,
+                textureDecodeCacheBudget: textureDecodeCacheBudget,
+                device: device,
+                isCancelled: {
+                    do { try cancellation?.check(); return false }
+                    catch { return true }
+                }
+            )
+        }()
+        try cancellation?.check()
+        guard userPropertyTextureLoad.satisfiesRequiredProperties(
+            requiredUserTextureKeys, selectedKeys: Set(userPropertyTextureURLs.keys),
+            demands: userTextureDemands
+        ) else { throw SceneDesktopWallpaperHostLaunchError.requiredUserTextureUnavailable }
         NSLog("MWX LAUNCH-STAGE: stage=device-join elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
         let preparedFirstSurfaceRuntime = ScenePreparedFirstSurfaceRuntime(
             try firstSurfaceRuntimePreparation.value()
@@ -764,7 +798,7 @@ extension SceneDesktopWallpaperHost {
                 sceneScriptScalarProgram: sceneScriptScalarProgram,
                 sceneScriptStringProgram: sceneScriptStringProgram
             ),
-            userPropertyTextureURLs: userPropertyTextureURLs,
+            userPropertyTextureLoad: userPropertyTextureLoad,
             cacheDirectory: cacheDirectory,
             resourceView: model.resourceView,
             logURL: logURL,

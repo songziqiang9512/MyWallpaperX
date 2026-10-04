@@ -580,6 +580,7 @@
         "file_globs": [
           "SceneDaemonClient+DisplayConfiguration.swift",
           "SceneDaemonClient+Events.swift",
+          "SceneDaemonClient+UserTextures.swift",
           "SceneDaemonClient.swift",
           "SceneDaemonProtocol.swift",
           "SceneDaemonRuntime.swift"
@@ -605,6 +606,7 @@
           "SceneDesktopWallpaperHost+Activation.swift",
           "SceneDesktopWallpaperSession.swift",
           "SceneDesktopWallpaperSession+LiveConsumers.swift",
+          "SceneDesktopWallpaperSession+UserTextures.swift",
           "SceneDesktopWallpaperLaunchModels.swift",
           "SceneDesktopWallpaperLaunchContext+PuppetBones.swift",
           "SceneDesktopWallpaperLaunchContext+StartupReport.swift",

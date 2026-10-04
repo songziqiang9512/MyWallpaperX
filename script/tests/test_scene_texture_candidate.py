@@ -116,6 +116,7 @@ struct SceneImageLayerDrawRequest {
     let dependencyEffects: [SceneDependencyEffectInput]
     let effectSourceExtent: SceneLayerEffectSourceExtent?
     let sourceSample: SceneBaseImageTextureSample?
+    var sourceMaterialAlpha: Float = 1
 
     func resolvedBaseTextureSample() -> SceneBaseImageTextureSample? {
         sourceSample

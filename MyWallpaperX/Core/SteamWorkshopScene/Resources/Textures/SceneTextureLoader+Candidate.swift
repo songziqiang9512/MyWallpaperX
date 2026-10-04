@@ -4,28 +4,65 @@ import ImageIO
 import Metal
 import simd
 
-enum SceneTextureCandidateLoadOutcome {
+nonisolated enum SceneTextureCandidateLoadOutcome {
     case loaded(SceneTextureCandidate)
     case failed(SceneTextureLoadOutcome)
 }
 
-struct SceneAnimatedTextureCandidate {
+nonisolated struct SceneAnimatedTextureCandidate {
     let candidate: SceneTextureCandidate
     let frames: [SceneTexContainer.SpriteFrame]
 }
 
-enum SceneAnimatedTextureCandidateLoadOutcome {
+nonisolated enum SceneAnimatedTextureCandidateLoadOutcome {
     case loaded(SceneAnimatedTextureCandidate)
     case failed(SceneTextureLoadOutcome)
 }
 
-enum SceneAnimatedMaterialAtlasAdmission {
+nonisolated enum SceneAnimatedMaterialAtlasAdmission {
     case valid
     case invalidFrameMetadata
     case unsupportedStructure
 }
 
-extension SceneTextureLoader {
+nonisolated extension SceneTextureLoader {
+    /// One request-local decoded image serves every representation even when
+    /// the persistent decode budget declines admission. Nothing is published
+    /// until all requested candidates and the source revision are complete.
+    func loadDirectImageCandidates(
+        from url: URL,
+        purposes: Set<SceneTextureLoadPurpose>,
+        device: MTLDevice,
+        isCancelled: () -> Bool = { false }
+    ) -> [SceneTextureLoadPurpose: SceneTextureCandidateLoadOutcome] {
+        guard !isCancelled(), let source = sourceKey(for: url),
+              let data = try? Data(contentsOf: url, options: .mappedIfSafe),
+              let image = SceneImageTextureUploader.decodeSourceImage(data) else {
+            return Dictionary(uniqueKeysWithValues: purposes.map {
+                ($0, .failed(.decodeFailed("image source unavailable")))
+            })
+        }
+        recordDirectImageDecodeAttempt()
+        var results: [SceneTextureLoadPurpose: SceneTextureCandidateLoadOutcome] = [:]
+        for purpose in purposes.sorted(by: { $0.reportToken < $1.reportToken }) {
+            guard !isCancelled() else { break }
+            let outcome = SceneImageTextureUploader.upload(
+                image: image, purpose: purpose,
+                maxDimension: Self.maxTextureDimension,
+                uploadCommandQueue: uploadCommandQueue, device: device
+            )
+            if case let .loaded(texture) = outcome {
+                results[purpose] = makeCandidate(
+                    texture: texture, container: nil, source: source,
+                    url: url, purpose: purpose, decodedSourceImage: image
+                )
+            } else {
+                results[purpose] = .failed(outcome)
+            }
+        }
+        return results
+    }
+
     func loadCandidate(
         from url: URL,
         purpose: SceneTextureLoadPurpose,
@@ -118,7 +155,8 @@ extension SceneTextureLoader {
         container: SceneTexContainer?,
         source: SourceKey,
         url: URL,
-        purpose: SceneTextureLoadPurpose
+        purpose: SceneTextureLoadPurpose,
+        decodedSourceImage: CGImage? = nil
     ) -> SceneTextureCandidateLoadOutcome {
         guard texture.textureType == .type2D else {
             return .failed(.decodeFailed(
@@ -173,7 +211,8 @@ extension SceneTextureLoader {
                     url: url,
                     container: container,
                     physicalSize: physicalSize,
-                    mappedSize: mappedSize
+                    mappedSize: mappedSize,
+                    decodedSourceImage: decodedSourceImage
                 ) ? .opaque : .premultipliedAlpha
             ))
         case .straightAlbedo:
@@ -216,9 +255,13 @@ extension SceneTextureLoader {
         url: URL,
         container: SceneTexContainer?,
         physicalSize: CGSize,
-        mappedSize: CGSize
+        mappedSize: CGSize,
+        decodedSourceImage: CGImage? = nil
     ) -> Bool {
         if container == nil {
+            if let decodedSourceImage {
+                return SceneImageTextureUploader.imageHasNoAlpha(decodedSourceImage)
+            }
             guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
                   let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
             else { return false }

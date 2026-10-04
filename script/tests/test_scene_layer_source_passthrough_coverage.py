@@ -167,6 +167,46 @@ class SceneLayerSourcePassthroughCoverageTests(unittest.TestCase):
         self.assertTrue(result["relocatedDefinition"])
         self.assertTrue(result["multiplePasses"])
 
+    def test_solid_user_file_reaches_draw_without_losing_candidate_safety(self) -> None:
+        scene = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+        source_paths = [
+            scene / "Resources/Textures/SceneTextureSampling.swift",
+            scene / "Resources/Textures/SceneTextureUVTransform.swift",
+            scene / "Resources/Textures/SceneTextureCandidate.swift",
+            scene / "Resources/Textures/SceneBaseImageTextureCandidateSupport.swift",
+            scene / "Compilation/Material/SceneBaseMaterialProviderBindingProgram.swift",
+            scene / "Resources/Textures/SceneBaseMaterialTextureResolver.swift",
+            scene / "Rendering/Frame/SceneMetalRenderer+BaseMaterialColor.swift",
+            SOURCE,
+            scene / "Rendering/Composition/SceneImageLayerCompositor+Uniforms.swift",
+        ]
+        with tempfile.TemporaryDirectory(prefix="mwx-solid-user-file-draw-") as raw:
+            directory = Path(raw)
+            # The CPU harness provides Metal member stubs, without creating a
+            # device or submitting GPU work. All product function bodies remain
+            # verbatim, including the candidate resolver's fail-closed checks.
+            copied = []
+            for source in source_paths:
+                target = directory / source.name
+                target.write_text(source.read_text().replace("import Metal\n", ""))
+                copied.append(str(target))
+            binary = directory / "checks"
+            compilation = subprocess.run(
+                [shutil.which("swiftc"), *copied,
+                 str(REPOSITORY_ROOT / "script/tests/fixtures/SceneUserTextureSolidDrawChecks.swift"),
+                 "-module-cache-path", str(directory / "module-cache"), "-o", str(binary)],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(compilation.returncode, 0, compilation.stderr)
+            completed = subprocess.run(
+                [str(binary)], check=True, capture_output=True, text=True,
+            )
+            checks = json.loads(completed.stdout)
+            self.assertTrue(checks)
+            for name, passed in checks.items():
+                with self.subTest(name=name):
+                    self.assertTrue(passed)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,6 +12,7 @@ extension SceneDesktopWallpaperSession {
         let timerWasActive = frameTimer?.isValid == true
 #endif
         if clearContext {
+            cancelPendingUserTextureUpdates()
             screenReconciliationWorkItem?.cancel()
             screenReconciliationWorkItem = nil
             screenTopology = []
@@ -70,6 +71,7 @@ extension SceneDesktopWallpaperSession {
             soundPlaybackRegistry?.stop()
             soundPlaybackRegistry = nil
             firstFramePresentationRegistration = nil
+            userPropertyTextureLoad = .empty
             launchContext = nil
 #if DEBUG
             debugPointerOverride = nil

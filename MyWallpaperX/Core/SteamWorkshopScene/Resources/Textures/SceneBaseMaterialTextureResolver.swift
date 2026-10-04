@@ -109,8 +109,11 @@ extension SceneMetalRenderer {
                 usesSystemProvider: binding.provider.isSystemProvider,
                 usesUserPropertyProvider:
                     binding.provider.userPropertyIdentity != nil,
+                // A solid's static color belongs to its authored placeholder.
+                // Ready file and system providers share the existing dynamic
+                // color policy; reset still selects the authored color below.
                 usesAuthoredLayerColor:
-                    binding.provider.isSystemProvider
+                    layer.contentKind == "solid" || binding.provider.isSystemProvider
                         ? readyProviderUsesAuthoredLayerColor : true,
                 rejectedProviderReason: nil
             ))

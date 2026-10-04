@@ -256,7 +256,7 @@ nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
     }
 }
 
-enum SceneImageTextureUploader {
+nonisolated enum SceneImageTextureUploader {
     /// ImageIO may erase RGB at zero alpha even when it reports straight RGBA.
     /// Keep the PNG source bytes for data consumers and the original color space
     /// for color consumers; both continue through the existing uploader/cache.

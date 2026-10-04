@@ -21,6 +21,8 @@
 
 粒子后继的独立行为裁决见[Vortex 后继设计](particle-vortex-design.md)，沿既有解释器与合成链实施。
 
+文件纹理原位事务由[运行架构](../../architecture/runtime-architecture.md)接管；[实施记录](../../history/user-texture-live-update-implementation-2026-10-05.md)保存原设计与有界验证。
+
 后续实施与59项参考证据的去向见[派生实施卡](reference-evidence-implementation-cards.md)，选序仍归上述兼容路线；原设计基线的“仅文档”描述不代表后续产品实施状态。
 
 ## 基线与合并边界

@@ -3,7 +3,7 @@ import Foundation
 import ImageIO
 import Metal
 
-enum SceneTextureMipUploader {
+nonisolated enum SceneTextureMipUploader {
     static func uploadVolume(
         container: SceneTexContainer,
         purpose: SceneTextureLoadPurpose,

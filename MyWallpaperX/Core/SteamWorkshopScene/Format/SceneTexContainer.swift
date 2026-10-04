@@ -1,7 +1,7 @@
 import Foundation
 import Metal
 
-extension SceneTexContainer {
+nonisolated extension SceneTexContainer {
     /// Payload magic sniffers shared by the tex reader, the texture loader and
     /// the mip uploader; the Format layer is already compiled by every harness
     /// source subset that contains a caller.
@@ -16,7 +16,7 @@ extension SceneTexContainer {
     }
 }
 
-struct SceneTexContainer {
+nonisolated struct SceneTexContainer {
     enum ContainerVersion: String {
         case texb0001 = "TEXB0001"
         case texb0002 = "TEXB0002"
@@ -162,7 +162,7 @@ struct SceneTexContainer {
     }
 }
 
-struct SceneTexContainerReader {
+nonisolated struct SceneTexContainerReader {
     enum ReadError: LocalizedError {
         case invalidHeader
         case invalidMipTable
