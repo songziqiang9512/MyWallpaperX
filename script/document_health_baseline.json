@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 527,
-      "bytes": 83742
+      "bytes": 83716
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 259,
-      "bytes": 48604
+      "bytes": 48600
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -178,7 +178,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 243,
-      "bytes": 32515
+      "bytes": 32484
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,

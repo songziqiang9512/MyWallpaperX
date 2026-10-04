@@ -420,7 +420,13 @@ class SceneMetalView: NSView {
             device: metalDevice,
             initialTextures: textLoad.textures,
             initialRenderSizes: textLoad.renderSizes,
-            dynamicTextFieldsByLayerID: preparedDynamicTextFieldsByLayerID
+            dynamicTextFieldsByLayerID: preparedDynamicTextFieldsByLayerID,
+            onPublication: { [weak self] store in
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, self.dynamicTextTextures === store else { return }
+                    self.onRenderInvalidated?()
+                }
+            }
         )
         dynamicImageTextures = SceneDynamicImageTextureProvider(
             resources: preparedBaseImages.dynamicImageResources

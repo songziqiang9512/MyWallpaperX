@@ -251,3 +251,15 @@ Debug构建、18项相邻原生门与修复载体后的截图生命周期门、1
 自有静态App的三点归一化滤波验证两处条纹ROI白255→灰128→白255，每ROI79,524像素全部满足原±4容差；后置绿色保持不变，同窗口Metal/完成/drain及hash门通过。初版测试误用了另一个alpha-weighted合同而被colorTransfer拒绝，修正自有shader形状后通过，产品代码和oracle未放宽。GraphAdmission、unowned/owned failure及stock compiler/Metal编译三组15项通过；后者不是GPU数值验收。Debug、依赖、代码健康、防御、设计与产物门通过；结构门保留原有两项66/65库存失败，不抬基线。独立审查确认准入和真实可见结果无P1/P2。
 
 本片收益是原本无效的背景模糊开关进入实际输出；开启时执行作者四pass。带截图的八模式运行采样约21.26 completed FPS、GPU分配峰值1,060,601,856 bytes、286/286完成且failed=0；这不是同条件性能对照，不能声明降低成本或官方kernel权重等价。KERNEL1×mask/Timeline等动态scale组合未单独运行，物理多屏与全样本仍未验收。最小中性日志、身份、回归结果与原始截图保留于本机`rf05-blur-kernel-one-20261004`，单包<32MiB、14天；临时App/样本/缓存清理，沿用一份checkpoint构建缓存。下一批多surface提交失败隔离与恢复；当前卡15/16（93.75%）保持，不能作为全样本正确率。
+
+
+<a id="rf05-paused-text-publication"></a>
+### 2026-10-04 暂停后的异步文字发布
+
+双surface的单方提交失败及双方frame0 seal拒绝均能恢复；VM与粒子事务不重复消费，未因此新增产品分支。沿暂停首帧继续验证时发现真实断点：文字在首帧提交后才异步光栅化，成功发布没有通知原surface，暂停驱动已停止，因而持续显示旧字。修前隔离App的两个surface均完成frame0，随后文字发布却没有重画。
+
+原TextStore仅在generation接受且光栅成功、释放锁后通知；原MetalView核对store身份后转既有surface invalidation。Session继续核对surface身份，暂停时重画冻结frame，不推进VM、时钟或模拟。失败与stale不通知；没有新增timer、资源owner或普通帧轮询。Debug增加显式start-paused和证据模式下有界文字延迟，固定反例时序。
+
+最终Debug与17项相邻原生门通过；六项实际双surface故障/恢复门通过。延迟两秒、暂停双surface的实际App与同App静态NEW TEXT对照一致：3024×1964读回中128,190个白色文字核心像素的mask、边界和数量完全相同，绿色邻层35,721像素保持正确；两个surface均在frame0重画并完成，脚本没有重放。像素仅代表选中的一个surface，不能外推物理多屏逐屏像素；暂停后没有新invalidation的晚期after截图在退出时失败属预期，不算成功截图。依赖、代码健康、防御、设计与产物门通过；结构门原两项66/65库存失败保留。
+
+此修复让已暂停场景的晚到文字真正出现在最终画面，不需要恢复播放或resize；未做性能对照，也未证明全部真实文字内容及官方排版。最小自有输入、前后反例、PNG和身份保留于本机`rf05-paused-text-20261004`（<32MiB、14天）；临时App退出后清理，复用一份checkpoint缓存。下一批优先核异步媒体首帧/重建后的发布与暂停重画，若无实际断点则回到真实样本失败队列；不扩充纯证据批。工作卡15/16（93.75%）不变，RF05与全样本Goal继续开放。

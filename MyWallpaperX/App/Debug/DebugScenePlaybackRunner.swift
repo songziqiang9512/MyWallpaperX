@@ -215,6 +215,8 @@ enum DebugScenePlaybackRunner {
             let previewLogURL = evidenceDirectory?.appendingPathComponent("scene-preview.log")
             let userPropertyTextureURLs = requestedUserPropertyTextureURLs(rootURL: rootURL)
             publishRequestedMediaThumbnail(rootURL: rootURL)
+            let startsPaused = ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-start-paused")
+            if startsPaused { runtimeHost.setPlaybackPaused(true) }
             if ProcessInfo.processInfo.arguments.contains(
                 "--mwx-debug-scene-async-launch-smoke"
             ) {
@@ -228,7 +230,7 @@ enum DebugScenePlaybackRunner {
                     guard !isClosing else { return }
                     switch result {
                     case let .success(model):
-                        runtimeHost.setPlaybackPaused(false)
+                        runtimeHost.setPlaybackPaused(startsPaused)
                         let snapshot = runtimeHost.debugSnapshot()
                         NSLog(
                             "MWX DEBUG SCENE: phase=async-launch-ready root=%@ layers=%d surfaces=%d",
@@ -266,7 +268,7 @@ enum DebugScenePlaybackRunner {
             )
             scheduleRequestedMediaThumbnailSequence(rootURL: rootURL)
             // 隔离证据进程必须显式解除宿主在首个窗口出现前捕获的 focus pause。
-            runtimeHost.setPlaybackPaused(false)
+            runtimeHost.setPlaybackPaused(startsPaused)
             NSLog(
                 "MWX LAUNCH-STAGE: stage=launch-return elapsedMs=%.0f",
                 (ProcessInfo.processInfo.systemUptime - requestUptime) * 1_000

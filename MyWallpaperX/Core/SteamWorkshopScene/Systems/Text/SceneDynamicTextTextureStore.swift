@@ -9,6 +9,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
 
     private let cacheDirectory: URL
     private let device: MTLDevice
+    private let onPublication: (@Sendable (SceneDynamicTextTextureStore) -> Void)?
     private let authoredLayerIDs: Set<Int>
     private var dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>]
     private var layersByID: [Int: SceneRenderDescriptor.Layer]
@@ -30,7 +31,8 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         device: MTLDevice,
         initialTextures: [Int: MTLTexture],
         initialRenderSizes: [Int: [Float]] = [:],
-        dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:]
+        dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:],
+        onPublication: (@Sendable (SceneDynamicTextTextureStore) -> Void)? = nil
     ) {
         // Authored hidden text can be shown by a later script/property event.
         // Prepare its source once; frame visibility owns actual composition.
@@ -41,6 +43,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         }
         self.cacheDirectory = cacheDirectory
         self.device = device
+        self.onPublication = onPublication
         self.layersByID = Dictionary(uniqueKeysWithValues: layers.map { ($0.id, $0) })
         authoredLayerIDs = Set(layers.map(\.id))
         self.dynamicTextFieldsByLayerID = dynamicTextFieldsByLayerID
@@ -231,6 +234,13 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         let layer = layersByID[request.layerID]
         lock.unlock()
         guard let layer else { return }
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-evidence-dir"),
+           let rawDelay = ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_TEXT_RASTER_DELAY"],
+           let delay = Double(rawDelay), delay.isFinite, delay > 0, delay <= 5 {
+            Thread.sleep(forTimeInterval: delay)
+        }
+#endif
         let rendered = SceneTextTextureLoader.makeDynamicTexture(
             for: layer,
             content: request.signature.content,
@@ -290,6 +300,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
             )
         }
 #endif
+        if completion.accepted, rendered != nil { onPublication?(self) }
         if let next = completion.next { schedule(next) }
     }
 

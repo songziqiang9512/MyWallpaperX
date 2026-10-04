@@ -63,7 +63,8 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
             home = root / "home"
             home.mkdir()
             env = os.environ.copy()
-            for key in ("MWX_SCENE_DEBUG_REJECT_PREPARED_FRAME_ONCE", "MWX_SCENE_DEBUG_DRAWABLE_UNAVAILABLE_FRAMES"):
+            for key in ("MWX_SCENE_DEBUG_REJECT_PREPARED_FRAME_ONCE", "MWX_SCENE_DEBUG_DRAWABLE_UNAVAILABLE_FRAMES",
+                        "MWX_SCENE_DEBUG_REJECT_FRAME_ONCE"):
                 env.pop(key, None)
             env.update(HOME=str(home), CFFIXED_USER_HOME=str(home), MWX_SCENE_DEBUG_SURFACE_COUNT=str(screens))
             env.update(fault or {})
@@ -299,3 +300,11 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
         self.assertNotIn((0, absent), completed)
         self.assertIn((1, absent), completed)
         self.assertTrue(any(frame == 0 and surface != absent for frame, surface in completed))
+
+    def test_both_surface_seal_rejections_do_not_replay_particle_transitions(self):
+        log, completed = self.assert_fault_consumes_once(2, {"MWX_SCENE_DEBUG_REJECT_FRAME_ONCE": "0"})
+        self.assertEqual(len(re.findall(r"phase=frame-seal-fault state=rejected frame=0 submitted=false", log)), 2)
+        self.assertFalse(any(frame == 0 for frame, _ in completed), log[-6000:])
+        recovered = {surface for frame, surface in completed if frame == 1}
+        self.assertEqual(len(recovered), 2, log[-6000:])
+        self.assertEqual({surface for frame, surface in completed if frame == 2}, recovered)

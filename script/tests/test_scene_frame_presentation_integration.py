@@ -87,40 +87,56 @@ print(Double(green) / Double(image.width * image.height))
                        MWX_SCENE_DEBUG_SURFACE_COUNT=str(screens))
             env.pop("MWX_SCENE_DEBUG_REJECT_PREPARED_FRAME_ONCE", None)
             env.pop("MWX_SCENE_DEBUG_DRAWABLE_UNAVAILABLE_FRAMES", None)
+            env.pop("MWX_SCENE_DEBUG_REJECT_FRAME_ONCE", None)
             env.update(fault)
-            result = subprocess.run([str(self.app), "--mwx-debug-scene-root", str(scene),
-                "--mwx-debug-scene-duration", "7", "--mwx-debug-scene-evidence-dir", str(root / "evidence")],
-                env=env, capture_output=True, text=True, timeout=60)
-            log = result.stdout + result.stderr
-            self.assertEqual(result.returncode, 0, log[-5000:])
-            self.assertNotIn("duplicate-init", log)
-            self.assertNotIn("phase=launch-failed", log)
-            self.assertRegex(log, rf"phase=ready .*surfaces={screens} ")
-            self.assertIn(f"phase=stopped surfacesBefore={screens} surfacesAfter=0", log)
-            values = re.findall(r"dynamic-layer-visibility-v1 frame=(\d+) generation=(\d+) layer=1 source=sceneScript value=(true|false)", log)
-            self.assertGreater(len(values), 20, log[-5000:])
-            frames = [int(row[0]) for row in values]
-            if not switching:
-                self.assertEqual(frames, sorted(set(frames)), "executed state was replayed for one frame")
-            for frame, generation, value in values:
-                self.assertEqual(int(generation), int(frame) + 1)
-                self.assertEqual(value, "true" if int(frame) % 2 == 0 else "false")
-            completed = {(int(frame), int(surface)) for frame, surface in re.findall(
-                r"state=completed frame=(\d+) surface=(\d+) gpu=completed", log)}
-            self.assertTrue(any(frame == 2 for frame, _ in completed), log[-5000:])
-            # Real final compositor capture, in addition to command completion.
-            captures = list((root / "evidence").glob("*-window.png"))
-            self.assertTrue(captures)
-            for capture in captures:
-                green_fraction = float(subprocess.check_output([str(self.pixel_probe), str(capture)], text=True))
-                self.assertGreater(green_fraction, 0.005, f"stable green layer missing from terminal compositor: {capture.name}")
-            if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
-                saved = Path(destination) / self._testMethodName
-                saved.mkdir(parents=True, exist_ok=True)
-                (saved / "app.log").write_text(log)
+            command = [str(self.app), "--mwx-debug-scene-root", str(scene),
+                "--mwx-debug-scene-duration", "7", "--mwx-debug-scene-evidence-dir", str(root / "evidence")]
+            log, result = "", None
+            try:
+                result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=60)
+                log = result.stdout + result.stderr
+                self.assertEqual(result.returncode, 0, log[-5000:])
+                self.assertNotIn("duplicate-init", log)
+                self.assertNotIn("phase=launch-failed", log)
+                self.assertRegex(log, rf"phase=ready .*surfaces={screens} ")
+                self.assertIn(f"phase=stopped surfacesBefore={screens} surfacesAfter=0", log)
+                values = re.findall(r"dynamic-layer-visibility-v1 frame=(\d+) generation=(\d+) layer=1 source=sceneScript value=(true|false)", log)
+                self.assertGreater(len(values), 20, log[-5000:])
+                frames = [int(row[0]) for row in values]
+                if not switching:
+                    self.assertEqual(frames, sorted(set(frames)), "executed state was replayed for one frame")
+                for frame, generation, value in values:
+                    self.assertEqual(int(generation), int(frame) + 1)
+                    self.assertEqual(value, "true" if int(frame) % 2 == 0 else "false")
+                completed = {(int(frame), int(surface)) for frame, surface in re.findall(
+                    r"state=completed frame=(\d+) surface=(\d+) gpu=completed", log)}
+                self.assertTrue(any(frame == 2 for frame, _ in completed), log[-5000:])
+                # Real final compositor capture, in addition to command completion.
+                captures = list((root / "evidence").glob("*-window.png"))
+                self.assertTrue(captures)
                 for capture in captures:
-                    shutil.copy2(capture, saved / capture.name)
-            return log, completed
+                    green_fraction = float(subprocess.check_output([str(self.pixel_probe), str(capture)], text=True))
+                    self.assertGreater(green_fraction, 0.005, f"stable green layer missing from terminal compositor: {capture.name}")
+                return log, completed
+            except subprocess.TimeoutExpired as error:
+                log = "".join(value.decode(errors="replace") if isinstance(value, bytes) else value or ""
+                              for value in (error.stdout, error.stderr))
+                raise
+            finally:
+                if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
+                    saved = Path(destination) / self._testMethodName
+                    saved.mkdir(parents=True, exist_ok=True)
+                    (saved / "app.log").write_text(log)
+                    (saved / "run.json").write_text(json.dumps({"command": command,
+                        "returncode": result.returncode if result is not None else None,
+                        "screens": screens, "fault": fault}, indent=2) + "\n")
+                    for source in (root / "evidence").rglob("*"):
+                        if source.is_file():
+                            target = saved / source.relative_to(root / "evidence")
+                            target.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(source, target)
+                    for name in ("project.json", "scene.pkg"):
+                        shutil.copy2(scene / name, saved / name)
 
     def test_missing_drawable_keeps_peer_playing_and_recovers_latest(self):
         log, completed = self.run_scene(2, {"MWX_SCENE_DEBUG_DRAWABLE_UNAVAILABLE_FRAMES": "2"})
@@ -145,6 +161,14 @@ print(Double(green) / Double(image.width * image.height))
         self.assertFalse(any(frame < 2 for frame, _ in completed))
         self.assertRegex(log, r"phase=drawable-unavailable frame=0")
         self.assertRegex(log, r"phase=drawable-unavailable frame=1")
+
+    def test_both_surface_seal_rejections_consume_once_and_recover(self):
+        log, completed = self.run_scene(2, {"MWX_SCENE_DEBUG_REJECT_FRAME_ONCE": "0"})
+        self.assertEqual(len(re.findall(r"phase=frame-seal-fault state=rejected frame=0 submitted=false", log)), 2)
+        self.assertFalse(any(frame == 0 for frame, _ in completed), log[-5000:])
+        recovered = {surface for frame, surface in completed if frame == 1}
+        self.assertEqual(len(recovered), 2, log[-5000:])
+        self.assertEqual({surface for frame, surface in completed if frame == 2}, recovered)
 
     def test_switch_promotes_only_after_candidate_gpu_completion(self):
         log, _ = self.run_scene(1, {"MWX_SCENE_DEBUG_SCENE_SWITCH_AFTER": "2"}, switching=True)
