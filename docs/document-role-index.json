@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-06",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "358c787e182f2644e4a1e58022bb39e001174047d98bca21bb50bd93ee82383e",
+        "sourceSHA256": "4c236eb8fac2c9f76b548760a1704e536c50ac023c072cfb22a86de1cf2ea0f6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "External static-model material value producer, existing typed consumer ownership, and bounded solar runtime evidence links.",
+        "scope": "Static-model metadata and upload geometry share complete validation; only the upload path retains vertex/index arrays.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

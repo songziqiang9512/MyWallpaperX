@@ -38,6 +38,11 @@ enum Harness {
                     ? (Data([0xA5]) + loaded).dropFirst() : loaded
                 entry["metadataMaterialPath"] = try? SceneMdlStaticModelReader
                     .readMaterialPathMetadata(data: data)
+                do {
+                    entry["fullMetadataPaths"] = try SceneMdlStaticModelReader.readMaterialPathsMetadata(data: data)
+                } catch let error as SceneMdlStaticModelReadError {
+                    entry["fullMetadataError"] = error.description
+                }
                 let parts = try SceneMdlStaticModelReader.readParts(data: data)
                 let model = parts[0]
                 entry["parts"] = parts.map { part in
@@ -370,6 +375,14 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
         cls.sliced_results = {
             result["file"]: result for result in json.loads(sliced.stdout)
         }
+
+    def test_metadata_preserves_full_decode_acceptance_and_error_identity(self):
+        for row in self.results.values():
+            with self.subTest(file=row["file"]):
+                if row["ok"]:
+                    self.assertEqual(row["fullMetadataPaths"], [p["material"] for p in row["parts"]])
+                else:
+                    self.assertEqual(row["fullMetadataError"], row["error"])
 
     def test_nonzero_data_slice_preserves_every_value_and_rejection(self):
         self.assertEqual(self.sliced_results, self.results)

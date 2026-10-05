@@ -105,7 +105,10 @@ nonisolated enum SceneMdlStaticModelReader {
     }
 
     static func readMaterialPathsMetadata(data: Data) throws -> [String] {
-        try readParts(data: data).map(\.materialPath)
+        try data.withUnsafeBytes { bytes in
+            var cursor = Cursor(data: bytes)
+            return try readParts(cursor: &cursor, retainGeometry: false).materials
+        }
     }
 
     /// Each authored material segment retains its own geometry and local indices.
@@ -113,12 +116,17 @@ nonisolated enum SceneMdlStaticModelReader {
     static func readParts(data rawData: Data) throws -> [SceneMdlStaticModel] {
         try rawData.withUnsafeBytes { bytes in
             var cursor = Cursor(data: bytes)
-            return try readParts(cursor: &cursor)
+            return try readParts(cursor: &cursor, retainGeometry: true).models
         }
     }
 
-    private static func readParts(cursor: inout Cursor) throws -> [SceneMdlStaticModel] {
+    // Both public paths validate every vertex, local index, segment and trailer.
+    // Dependency discovery only retains material identities, not upload geometry.
+    private static func readParts(
+        cursor: inout Cursor, retainGeometry: Bool
+    ) throws -> (materials: [String], models: [SceneMdlStaticModel]) {
         let header = try readHeader(cursor: &cursor)
+        var materials: [String] = []
         var parts: [SceneMdlStaticModel] = []
         var totalVertexBytes: UInt32 = 0
         var totalIndexBytes: UInt32 = 0
@@ -155,7 +163,8 @@ nonisolated enum SceneMdlStaticModelReader {
             }
             totalVertexBytes += vertexBytes
             let vertices = try readVertices(
-                cursor: &cursor, byteCount: vertexBytes, authoredBounds: bounds
+                cursor: &cursor, byteCount: vertexBytes, authoredBounds: bounds,
+                retainGeometry: retainGeometry
             )
             let indexBytes = try cursor.readUInt32(section: "index byte count")
             let elementSize = flag == 0 ? 2 : 4
@@ -168,15 +177,20 @@ nonisolated enum SceneMdlStaticModelReader {
             totalIndexBytes += indexBytes
             let indices = try readIndices(
                 cursor: &cursor, byteCount: indexBytes,
-                vertexCount: vertices.count, elementSize: elementSize
+                vertexCount: Int(vertexBytes) / vertexStride, elementSize: elementSize,
+                retainGeometry: retainGeometry
             )
-            parts.append(.init(
-                version: header.version, headerFormat: Int(header.headerFormat),
-                vertexFormat: Int(format), vertexStride: vertexStride,
-                indexElementSize: elementSize, materialPath: materialPath,
-                bounds: bounds ?? derivedBounds(vertices: vertices),
-                vertices: vertices, indices: indices
-            ))
+            if retainGeometry {
+                parts.append(.init(
+                    version: header.version, headerFormat: Int(header.headerFormat),
+                    vertexFormat: Int(format), vertexStride: vertexStride,
+                    indexElementSize: elementSize, materialPath: materialPath,
+                    bounds: bounds ?? derivedBounds(vertices: vertices),
+                    vertices: vertices, indices: indices
+                ))
+            } else {
+                materials.append(materialPath)
+            }
         }
         let trailer = try cursor.readBytes(
             count: header.version == boundsHeaderVersion
@@ -186,7 +200,7 @@ nonisolated enum SceneMdlStaticModelReader {
         guard trailer.allSatisfy({ $0 == 0 }), cursor.isAtEnd else {
             throw SceneMdlStaticModelReadError.invalidTrailer
         }
-        return parts
+        return (materials, parts)
     }
 
     private static func readHeader(
@@ -267,12 +281,13 @@ nonisolated enum SceneMdlStaticModelReader {
     private static func readVertices(
         cursor: inout Cursor,
         byteCount: UInt32,
-        authoredBounds: SceneMdlStaticModel.Bounds?
+        authoredBounds: SceneMdlStaticModel.Bounds?,
+        retainGeometry: Bool
     ) throws -> [SceneMdlStaticModel.Vertex] {
         let count = Int(byteCount) / vertexStride
         let bytes = try cursor.readBuffer(count: Int(byteCount), section: "vertex data")
         var vertices: [SceneMdlStaticModel.Vertex] = []
-        vertices.reserveCapacity(count)
+        if retainGeometry { vertices.reserveCapacity(count) }
         var values = [Float](repeating: 0, count: 12)
         for index in 0..<count {
             for component in values.indices {
@@ -304,14 +319,16 @@ nonisolated enum SceneMdlStaticModelReader {
                     vertexIndex: index
                 )
             }
-            vertices.append(.init(
-                position: position,
-                normal: SIMD3<Float>(values[3], values[4], values[5]),
-                tangent: SIMD4<Float>(
-                    values[6], values[7], values[8], values[9]
-                ),
-                uv: SIMD2<Float>(values[10], values[11])
-            ))
+            if retainGeometry {
+                vertices.append(.init(
+                    position: position,
+                    normal: SIMD3<Float>(values[3], values[4], values[5]),
+                    tangent: SIMD4<Float>(
+                        values[6], values[7], values[8], values[9]
+                    ),
+                    uv: SIMD2<Float>(values[10], values[11])
+                ))
+            }
         }
         return vertices
     }
@@ -335,12 +352,13 @@ nonisolated enum SceneMdlStaticModelReader {
         cursor: inout Cursor,
         byteCount: UInt32,
         vertexCount: Int,
-        elementSize: Int
+        elementSize: Int,
+        retainGeometry: Bool
     ) throws -> [UInt32] {
         let bytes = try cursor.readBuffer(count: Int(byteCount), section: "index data")
         let count = Int(byteCount) / elementSize
         var indices: [UInt32] = []
-        indices.reserveCapacity(count)
+        if retainGeometry { indices.reserveCapacity(count) }
         for position in 0..<count {
             let value = elementSize == 2
                 ? UInt32(UInt16(littleEndian: bytes.loadUnaligned(
@@ -354,7 +372,7 @@ nonisolated enum SceneMdlStaticModelReader {
                     vertexCount: vertexCount
                 )
             }
-            indices.append(value)
+            if retainGeometry { indices.append(value) }
         }
         return indices
     }
