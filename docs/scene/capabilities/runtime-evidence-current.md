@@ -39,7 +39,7 @@
 | 文字描边/投影 | [文字批](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-text-outline-shadow)：官方自有输入裁决单位、caster和tight extent，真实380/376画面恢复；[正向偏移纠偏](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-text-shadow-offset)补字号响应；MSDF/kernel、大负offset、整样本与208兼容率未验 |
 | 文字留白/测量 | [留白纠偏](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-text-padding)：官方每边留白与锚点、native换行/降采样及App对照；保存size官方精确像素未验 |
 | 文件与媒体封面 | [文件热更新](../history/user-texture-live-update-implementation-2026-10-05.md)、[隐藏媒体依赖](../history/media-inactive-dependency-implementation-2026-10-05.md)：系统来源未验 |
-| 连续属性交互 | [RF05 pending intent](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-deferred-intent)及[初始隐藏文字/颜色](../history/hidden-property-consumers-implementation-2026-10-05.md)：真实293同窗口内容/共享色及自有图片/字号/坏值保留；多surface未实机验收 |
+| 连续属性交互 | [RF05 pending intent](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-deferred-intent)及[初始隐藏文字/颜色](../history/hidden-property-consumers-implementation-2026-10-05.md)：293隐藏属性及布局/媒体后继；实际执行与透传分计，系统来源未验 |
 | 隐藏全屏后处理 | [RF05 fullscreen](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-hidden-fullscreen-result)：自有 App 开/关像素、同窗口及未准备整键拒绝；真实293完整属性仍属RF05后继组合 |
 | composition source | [D1普通分组/背景/根顺序](../history/d1-composition-authored-order-implementation-2026-10-04.md)；23项App正反例与资源生命周期，未知模式不外推 |
 | Classic涡旋旋向 | [旋向纠错](../history/runtime-evidence-index.md#e-particle-vortex-direction)：自有App五相位、实际stock旋臂合成；classic幅度差仍待解；[普通v2](../history/runtime-evidence-index.md#e-particle-vortex-v2-standard)已恢复361的旋弯光丝，[保半径v2](../history/runtime-evidence-index.md#e-particle-vortex-v2-radius)恢复379的紫色环，不计整样本通过 |

@@ -483,7 +483,7 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "59e0dc18e3f3ab190686f743d84addf0ceffcf10ed2961872fe79eed6348dc12",
+        "sourceSHA256": "3c1b07541950c7857a3ffd24c1a65f22b1ec6fbf4473a365973b65e738b1da2d",
         "method": "document_registry --audit + document_health --check",
         "scope": "Bounded hidden-property evidence navigation; no whole-sample, system-media or official parity acceptance.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
