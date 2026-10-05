@@ -385,6 +385,40 @@ struct SceneDependencyRenderPlan {
             layer: clockShape.layers[2], descriptor: clockShape).get()
         output["clockChildSourceUsesEnclosingBackground"] = !clockSource.usesIsolatedGroupTarget
             && !clockSource.capturesCompositionSubtree && clockSource.triggerLayerID == 162
+        func dependencyComposition(_ violation: String? = nil) -> SceneRenderDescriptor {
+            var owner = SceneRenderDescriptor.Layer(
+                id: 420, dependencyLayerIDs: [410], contentKind: "composition",
+                utilityLayer: .init(kind: .composition), effects: [.init(visible: true)])
+            var extras: [SceneRenderDescriptor.Layer] = []
+            switch violation {
+            case "source": owner.contentKind = "fullscreen"
+            case "utility": owner.utilityLayer = .init(kind: .fullscreen)
+            case "parent": owner.parentID = 410
+            case "child":
+                owner.childLayerIDs = [421]
+                extras = [.init(id: 421, parentID: 420)]
+            case "unlisted-child": extras = [.init(id: 421, parentID: 420)]
+            case "duplicate": extras = [owner]
+            case nil: break
+            default: fatalError("unknown dependency composition fixture")
+            }
+            return .init(layers: [
+                .init(id: 410, contentKind: "solid", effects: [.init(visible: true)]),
+                owner, .init(id: 430, visible: true, contentKind: "text")
+            ] + extras)
+        }
+        let dependencyGroup = dependencyComposition()
+        output["dependencyCompositionTargets"] = ids(dependencyGroup, candidates: [target(420)])
+        output["dependencyCompositionNoOwner"] = ids(dependencyGroup, candidates: [])
+        let dependencySource = try SceneUtilityLayerSourceRoute.resolve(
+            layer: dependencyGroup.layers[1], descriptor: dependencyGroup).get()
+        output["dependencyCompositionSourceCapturesSubtree"] = dependencySource.capturesCompositionSubtree
+        var invalidDependencyGroups: [String: [Int]] = [:]
+        for violation in ["source", "utility", "parent", "child", "unlisted-child", "duplicate"] {
+            invalidDependencyGroups[violation] = ids(
+                dependencyComposition(violation), candidates: [target(420)])
+        }
+        output["invalidDependencyCompositionTargets"] = invalidDependencyGroups
         func backgroundVisible(_ descriptor: SceneRenderDescriptor, owner: Int, value: Bool) -> [Int] {
             let definition = SceneDynamicTargetDefinition(target: target(owner),
                 valueType: .bool, authoredValue: .bool(false))
@@ -396,11 +430,16 @@ struct SceneDependencyRenderPlan {
         output["hiddenBackgroundTrue"] = backgroundVisible(hiddenBackground, owner: 150, value: true)
         output["clockBackgroundFalse"] = backgroundVisible(clockShape, owner: 160, value: false)
         output["clockBackgroundTrue"] = backgroundVisible(clockShape, owner: 160, value: true)
+        output["dependencyCompositionFalse"] = backgroundVisible(dependencyGroup, owner: 420, value: false)
+        output["dependencyCompositionTrue"] = backgroundVisible(dependencyGroup, owner: 420, value: true)
+        output["dependencyCompositionFalseAgain"] = backgroundVisible(dependencyGroup, owner: 420, value: false)
 #if PREPARATION_API
         output["hiddenBackgroundPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
             in: hiddenBackground, candidates: [target(150)]).sorted()
         output["clockBackgroundPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
             in: clockShape, candidates: [target(160)]).sorted()
+        output["dependencyCompositionPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+            in: dependencyGroup, candidates: [target(420)]).sorted()
 #endif
         print(String(data: try JSONSerialization.data(withJSONObject: output), encoding: .utf8)!)
     }
@@ -560,6 +599,20 @@ class ScriptVisibleRootTests(unittest.TestCase):
         self.assertTrue(self.result['clockChildSourceUsesEnclosingBackground'])
         self.assertEqual(self.result['clockBackgroundFalse'], [])
         self.assertEqual(self.result['clockBackgroundTrue'], [160, 161, 162])
+
+    def test_hidden_dependency_composition_prepares_its_future_visibility_owner(self):
+        self.assertEqual(self.result['dependencyCompositionTargets'], [420])
+        self.assertEqual(self.result['dependencyCompositionPreparation'], [420])
+        self.assertEqual(self.result['dependencyCompositionNoOwner'], [])
+        self.assertFalse(self.result['dependencyCompositionSourceCapturesSubtree'])
+        self.assertEqual(self.result['dependencyCompositionFalse'], [430])
+        self.assertEqual(self.result['dependencyCompositionTrue'], [420, 430])
+        self.assertEqual(self.result['dependencyCompositionFalseAgain'], [430])
+
+    def test_dependency_composition_keeps_source_and_hierarchy_boundaries(self):
+        for name, targets in self.result['invalidDependencyCompositionTargets'].items():
+            with self.subTest(case=name):
+                self.assertEqual(targets, [])
 
     def test_unsupported_composition_subtrees_reject_locally(self):
         for name in ('passthrough', 'dependency', 'authored-dependency', 'inner-dependency',

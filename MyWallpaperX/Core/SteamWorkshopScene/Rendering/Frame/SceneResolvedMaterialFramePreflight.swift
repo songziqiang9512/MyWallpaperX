@@ -295,7 +295,24 @@ extension SceneMetalRenderer {
                         reasonCode: "solid-offscreen-size-unavailable"
                     )
                 }
-                desiredSize = projectedSize
+                if let authoredSize = layer.renderSizeWH {
+                    guard let extent = SceneLayerEffectSourceExtent.resolveSolid(
+                        authoredRenderSizeWH: authoredSize
+                    ) else {
+                        graphTargetFallbacks[layer.id] =
+                            "frame-target-plan-unsupported-target-descriptor"
+                        continue
+                    }
+                    // Hidden graph providers can carry data even when their
+                    // displayed quad collapses. Preserve the authored source
+                    // independently of placement, retaining larger sampling.
+                    desiredSize = CGSize(
+                        width: max(projectedSize.width, extent.pixelSize.width),
+                        height: max(projectedSize.height, extent.pixelSize.height)
+                    )
+                } else {
+                    desiredSize = projectedSize
+                }
             case .capturedMainTargetTexture:
                 guard let utility = layer.utilityLayer,
                       layer.contentKind == utility.kind.rawValue else {
@@ -674,9 +691,8 @@ extension SceneMetalRenderer {
                 } ?? .identity
                 capturesMainTarget = false
                 if layer.contentKind == "solid" {
-                    // Solid sources are sized by projected coverage in
-                    // preflight, not by an imported image's authored extent.
-                    // Use that accepted target, including zero-area helpers.
+                    // Use the accepted solid target, including the authored
+                    // source floor retained for zero-area data helpers.
                     let size = frameTargetPlan.allocation.graphPlan.fullFramePair
                         .descriptor.extent
                     effectSourceExtent = SceneLayerEffectSourceExtent(pixelSize: CGSize(

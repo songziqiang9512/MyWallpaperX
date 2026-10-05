@@ -37,6 +37,26 @@ nonisolated struct SceneLayerEffectSourceExtent: Equatable {
         return SceneLayerEffectSourceExtent(pixelSize: candidateMappedSize)
     }
 
+    /// A solid's authored local size supplies the minimum source allocation,
+    /// independently of its display transform. Callers may use a projected
+    /// fallback only when the authored size is absent; an explicit invalid
+    /// size returning nil must remain rejected.
+    static func resolveSolid(
+        authoredRenderSizeWH: [Float]?
+    ) -> SceneLayerEffectSourceExtent? {
+        guard let authoredRenderSizeWH, authoredRenderSizeWH.count == 2,
+              authoredRenderSizeWH[0].isFinite, authoredRenderSizeWH[0] >= 0,
+              authoredRenderSizeWH[1].isFinite, authoredRenderSizeWH[1] >= 0 else {
+            return nil
+        }
+        let width = max(1, ceil(CGFloat(authoredRenderSizeWH[0])))
+        let height = max(1, ceil(CGFloat(authoredRenderSizeWH[1])))
+        guard Int(exactly: width) != nil, Int(exactly: height) != nil else {
+            return nil
+        }
+        return SceneLayerEffectSourceExtent(pixelSize: CGSize(width: width, height: height))
+    }
+
     private static func extent(
         renderSizeWH: [Float]
     ) -> SceneLayerEffectSourceExtent? {

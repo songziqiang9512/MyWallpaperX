@@ -395,7 +395,6 @@ extension SceneDependencyRenderPlan {
               provider.childLayerIDs.isEmpty,
               provider.authoredDependencies.isEmpty,
               provider.dependencyLayerIDs.isEmpty,
-              provider.visible != false,
               provider.effects.contains(where: { $0.visible != false }) else {
             return nil
         }

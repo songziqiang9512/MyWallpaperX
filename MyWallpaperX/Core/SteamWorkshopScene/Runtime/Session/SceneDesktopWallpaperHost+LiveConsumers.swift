@@ -121,6 +121,14 @@ extension SceneDesktopWallpaperHost {
                 guard case let .layer(layerID, .visibility) = target else {
                     return false
                 }
+                if let layer = descriptor.layers.first(where: { $0.id == layerID }),
+                   layer.contentKind == "composition",
+                   !layer.dependencyLayerIDs.isEmpty {
+                    // A future-visible source needs an actually prepared
+                    // dependency closure, even while capture is skipped hidden.
+                    return resolvedMaterialExecutionCapabilities.executionLayerIDs
+                        .contains(layerID)
+                }
                 guard utilityPlans[layerID]?.kind == .fullscreen else {
                     return true
                 }

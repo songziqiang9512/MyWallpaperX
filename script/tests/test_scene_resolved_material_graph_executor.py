@@ -151,6 +151,7 @@ struct SceneEffectDefinition {
 struct SceneUtilityLayer {
     enum Kind { case composition, project, fullscreen }
     let kind: Kind
+    var passthrough = false
 }
 
 struct SceneRenderDescriptor {
@@ -170,6 +171,8 @@ struct SceneRenderDescriptor {
         let id: Int
         let effects: [EffectDescriptor]
         var contentKind: String = "image"
+        var staticModelPath: String? = nil
+        var particlePath: String? = nil
         var utilityLayer: SceneUtilityLayer? = nil
         var parentID: Int? = nil
         var childLayerIDs: [Int] = []
@@ -307,7 +310,7 @@ struct SceneDependencyRenderPlan {
     /// it honours a missing binding; this harness never binds one, so the map
     /// stays empty. The element type is local because the production
     /// static-model binding does not compile in this source set.
-    struct StaticModelBinding: Hashable {}
+    struct StaticModelBinding: Hashable { var providerLayerID: Int = 0 }
     let staticModelBindingsByConsumerLayerID: [Int: StaticModelBinding] = [:]
     let requiredProviderLayerIDs: Set<Int>
     let requiredGraphOutputProviderLayerIDs: Set<Int>

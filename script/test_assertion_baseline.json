@@ -113,13 +113,6 @@
       "count": 1
     },
     {
-      "path": "script/tests/test_scene_capture_geometry.py",
-      "scope": "SceneCaptureGeometryTests.test_collapsed_solid_uses_admitted_projected_extent",
-      "method": "assertIn",
-      "literal": "if layer.contentKind == \"solid\"",
-      "count": 1
-    },
-    {
       "path": "script/tests/test_scene_captured_main_preflight_fallback.py",
       "scope": "SceneCapturedMainPreflightFallbackTests.test_product_contract_is_typed_bounded_and_compositor_visible",
       "method": "assertIn",

@@ -104,8 +104,23 @@ enum Harness {
             authoredRenderSizeWH: [0, 1080],
             candidateMappedSize: CGSize(width: 2048, height: 2048)
         )
+        let solidSizes: [[Float]] = [
+            [64, 0], [0, 64], [0, 0], [64, 1], [64, 4],
+            [32.25, 4.01], [0.001, 0.5],
+        ]
+        let invalidSolidSizes: [String: [Float]] = [
+            "empty": [], "oneAxis": [64], "threeAxes": [64, 1, 2],
+            "negativeWidth": [-1, 64], "negativeHeight": [64, -1],
+            "nanWidth": [.nan, 64], "nanHeight": [64, .nan],
+            "infiniteWidth": [.infinity, 64], "infiniteHeight": [64, .infinity],
+            "negativeInfiniteWidth": [-.infinity, 64],
+            "negativeInfiniteHeight": [64, -.infinity],
+            "overflowWidth": [.greatestFiniteMagnitude, 1],
+            "overflowHeight": [1, .greatestFiniteMagnitude],
+            "roundedIntOverflow": [Float(Int.max), 1],
+        ]
         let result: [String: Any] = [
-            "collapsedSolidSize": {
+            "collapsedProjectedSize": {
                 let size = SceneCaptureGeometryResolver.projectedPixelSize(
                     layerMVP: SceneMatrix.scale(SIMD3<Float>(0, 0, 0)),
                     viewportSize: viewport)!
@@ -154,6 +169,16 @@ enum Harness {
                 [$0.pixelSize.width, $0.pixelSize.height]
             } ?? [],
             "invalidAuthoredExtentIsNil": invalidAuthoredExtent == nil,
+            "solidAuthoredExtents": solidSizes.map { size in
+                SceneLayerEffectSourceExtent.resolveSolid(authoredRenderSizeWH: size)
+                    .map { [$0.pixelSize.width, $0.pixelSize.height] } ?? []
+            },
+            "invalidSolidSizesRejected": invalidSolidSizes.mapValues {
+                SceneLayerEffectSourceExtent.resolveSolid(authoredRenderSizeWH: $0) == nil
+            },
+            "absentSolidSizeIsNil": SceneLayerEffectSourceExtent.resolveSolid(
+                authoredRenderSizeWH: nil
+            ) == nil,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -170,11 +195,28 @@ enum Harness {
 
 
 class SceneCaptureGeometryTests(unittest.TestCase):
-    def test_collapsed_solid_uses_admitted_projected_extent(self) -> None:
-        self.assertEqual(self.result["collapsedSolidSize"], [1, 1])
-        source = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift").read_text()
-        self.assertIn('if layer.contentKind == "solid"', source)
-        self.assertIn("frameTargetPlan.allocation.graphPlan.fullFramePair", source)
+    def test_collapsed_quad_projection_keeps_minimum_pixel_allocation(self) -> None:
+        self.assertEqual(self.result["collapsedProjectedSize"], [1, 1])
+
+    def test_solid_authored_local_extent_rounds_up_with_one_pixel_zero_axes(self) -> None:
+        self.assertEqual(
+            self.result["solidAuthoredExtents"],
+            [[64, 1], [1, 64], [1, 1], [64, 1], [64, 4], [33, 5], [1, 1]],
+        )
+
+    def test_solid_invalid_explicit_dimensions_are_rejected(self) -> None:
+        self.assertEqual(
+            self.result["invalidSolidSizesRejected"],
+            dict.fromkeys([
+                "empty", "oneAxis", "threeAxes", "negativeWidth", "negativeHeight",
+                "nanWidth", "nanHeight", "infiniteWidth", "infiniteHeight",
+                "negativeInfiniteWidth", "negativeInfiniteHeight",
+                "overflowWidth", "overflowHeight", "roundedIntOverflow",
+            ], True),
+        )
+
+    def test_solid_absent_authored_dimensions_leave_fallback_to_caller(self) -> None:
+        self.assertTrue(self.result["absentSolidSizeIsNil"])
 
     @classmethod
     def setUpClass(cls) -> None:

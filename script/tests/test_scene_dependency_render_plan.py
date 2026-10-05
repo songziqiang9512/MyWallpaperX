@@ -1447,9 +1447,6 @@ enum Harness {
                 "unadmitted": materialProgramSolidCarrierBinding(
                     admitProgram: false
                 ) == nil,
-                "hiddenProvider": materialProgramSolidCarrierBinding(
-                    providerVisible: false
-                ) == nil,
                 "plainProvider": materialProgramSolidCarrierBinding(
                     providerEffectful: false
                 ) == nil,
@@ -1730,7 +1727,7 @@ enum Harness {
             "capture": disposition(input, prepared),
             "missingBinding": disposition(input, emptyPlan),
             "unadmitted": disposition(input, prepared, resolved: []),
-            // A dependency-prepared hidden layer remains absent from direct capture.
+            // Retain the capture route; the frame's active closure gates encoding.
             "hidden": disposition(descriptor(hidden: true), prepared),
             "convenience": SceneUtilityLayerRuntimePlanner.plans(in: input,
                 resolvedMaterialLayerIDs: [950])[950]!.disposition.rawValue,
@@ -2979,17 +2976,17 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
 
-    def test_utility_capture_consumes_prepared_binding_and_keeps_visibility_gate(self) -> None:
+    def test_utility_capture_retains_prepared_binding_for_future_visibility(self) -> None:
         result = self.result["preparedUtility"]
         self.assertEqual(result["capture"], "capture")
         self.assertEqual(result["convenience"], "capture")
         self.assertEqual(result["missingBinding"], "unsupportedDependencies")
         self.assertEqual(result["unadmitted"], "unsupportedDependencies")
-        self.assertEqual(result["hidden"], "skippedHidden")
+        self.assertEqual(result["hidden"], "capture")
         self.assertEqual(result["captures"], [950])
         self.assertEqual(result["restrictedRoots"], "unsupportedDependencies")
         self.assertEqual(result["expandedRoots"], "capture")
-        self.assertEqual(result["hiddenExpandedRoots"], "skippedHidden")
+        self.assertEqual(result["hiddenExpandedRoots"], "capture")
         self.assertFalse(result["restrictedFramebuffer"])
         self.assertTrue(result["expandedFramebuffer"])
 
@@ -3004,7 +3001,8 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
     def test_utility_selection_preserves_single_and_multiple_dependencies(self) -> None:
         # Hidden, unadmitted, child-owning, non-composition and inactive-effect
         # consumers must not gain a route while sharing the reference index.
-        self.assertEqual(self.result["utilitySelection"], [901, 902])
+        # Prepared hidden consumer 903 stays eligible for future activation.
+        self.assertEqual(self.result["utilitySelection"], [901, 902, 903])
 
     def test_named_reference_variants_are_typed(self) -> None:
         self.assertEqual(self.result["parsedVariants"], ["unspecified", "a", "b"])

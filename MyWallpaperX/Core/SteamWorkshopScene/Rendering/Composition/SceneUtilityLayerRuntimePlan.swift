@@ -128,27 +128,29 @@ enum SceneUtilityLayerRuntimePlanner {
                 && !utility.passthrough && sourceRoute != nil
                 && layer.dependencyLayerIDs.isEmpty && layer.authoredDependencies.isEmpty
                 && resolvedMaterialLayerIDs.contains(layer.id)
+            let binding = dependencyPlan.bindingsByConsumerLayerID[layer.id]
+            let isAggregate = dependencyPlan
+                .multiProviderAggregatesByConsumerLayerID[layer.id] != nil
+            let isLegacyExecutable = binding != nil
+                && dependencyPlan.executableUtilityConsumerLayerIDs.contains(layer.id)
+            let preparedDependencyComposition = utility.kind == .composition
+                && sourceRoute?.capturesCompositionSubtree == false
+                && resolvedMaterialLayerIDs.contains(layer.id)
+                && (isAggregate || isLegacyExecutable)
             let preparedUtility = preparedFullscreen || preparedComposition
+                || preparedDependencyComposition
             // Hidden prepared groups retain their source plan. No-effect
             // groups retain only ordering and allocate no capture target.
             if !visibleLayerIDs.contains(layer.id) && !preparedUtility
                 && !(isolatedComposition && !hasVisibleEffects) {
                 disposition = .skippedHidden
             } else if !layer.dependencyLayerIDs.isEmpty {
-                let binding = dependencyPlan.bindingsByConsumerLayerID[layer.id]
-                let isAggregate = dependencyPlan
-                    .multiProviderAggregatesByConsumerLayerID[layer.id] != nil
-                let isLegacyExecutable = binding != nil
-                    && dependencyPlan.executableUtilityConsumerLayerIDs.contains(layer.id)
                 // A dependency-bearing utility captures only with an exact
                 // aggregate owner or the legacy single-provider binding. A
                 // missing binding is not evidence that an effect was safely
                 // replaced; treating it as capture would publish a base image
                 // under an unowned named target.
-                if utility.kind == .composition,
-                   sourceRoute?.capturesCompositionSubtree == false,
-                   resolvedMaterialLayerIDs.contains(layer.id),
-                   (isAggregate || isLegacyExecutable) {
+                if preparedDependencyComposition {
                     disposition = .capture
                 } else {
                     disposition = .unsupportedDependencies
@@ -183,7 +185,6 @@ enum SceneUtilityLayerRuntimePlanner {
         in descriptor: SceneRenderDescriptor,
         resolvedMaterialLayerIDs: Set<Int> = []
     ) -> Set<Int> {
-        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let referencesByConsumer = Dictionary(
             grouping: SceneDependencyGraphAnalysis.references(in: descriptor.layers),
             by: \.consumerLayerID
@@ -194,8 +195,9 @@ enum SceneUtilityLayerRuntimePlanner {
                     layer: layer,
                     references: referencesByConsumer[layer.id] ?? []
                 )
-            guard visibleLayerIDs.contains(layer.id),
-                  resolvedMaterialLayerIDs.contains(layer.id),
+            // Preparation retains future-visible consumers. The frame's
+            // visibility closure still decides whether they execute.
+            guard resolvedMaterialLayerIDs.contains(layer.id),
                   layer.utilityLayer?.kind == .composition,
                   layer.contentKind == "composition",
                   layer.childLayerIDs.isEmpty,

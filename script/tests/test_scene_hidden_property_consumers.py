@@ -49,6 +49,7 @@ struct SceneRenderDescriptor {
         var staticModelPath: String? = nil
         var effects: [Int] = []
         var authoredDependencies: [Int] = []
+        var dependencyLayerIDs: [Int] = []
         var puppetAnimationLayers: [AnimationLayer] = []
         __COLOR_ELIGIBILITY__
     }
@@ -82,11 +83,11 @@ enum SceneDependencyGraphAnalysis {
         -> [Reference] { [] }
 }
 enum SceneDynamicLayerVisibilityRouteAdmission {
-    // No test Program declares a layer-visibility route. All visibility still
-    // comes from the real SceneLayerVisibility implementation below.
+    // Route shape is exercised by the visibility admission gate. Here a legal
+    // candidate lets the real Host prove actual preparation is still required.
     static func targets(in descriptor: SceneRenderDescriptor,
         candidates: Set<SceneDynamicTarget>, preparedStaticModelLayerIDs: Set<Int>)
-        -> Set<SceneDynamicTarget> { [] }
+        -> Set<SceneDynamicTarget> { candidates }
 }
 struct SceneSoundPlaybackProgram {
     var liveConsumerTargets: Set<SceneDynamicTarget> = []
@@ -127,11 +128,12 @@ HARNESS = r'''
     }
 
     static func state(_ layers: [SceneRenderDescriptor.Layer], _ bindings: [Binding],
-        values: [String: SceneUserPropertyValue]) -> ScenePropertyLiveUpdateState {
+        values: [String: SceneUserPropertyValue], prepared: Set<Int> = [])
+        -> ScenePropertyLiveUpdateState {
         let p = program(bindings)
         let targets = SceneDesktopWallpaperHost.activeLiveConsumerTargets(
             in: .init(layers: layers), propertyBindingProgram: p,
-            resolvedMaterialExecutionCapabilities: .init(),
+            resolvedMaterialExecutionCapabilities: .init(executionLayerIDs: prepared),
             soundPlaybackProgram: .init(), preparedStaticModelLayerIDs: [],
             preparedImageMaterialTargets: [], propertyVectorScriptProgram: .init(),
             sceneScriptScalarProgram: .init(), sceneScriptStringProgram: .init()
@@ -162,6 +164,21 @@ HARNESS = r'''
         let allLayers = [hiddenText, visibleText, hiddenImage, effectedImage,
             noStyleText, noContentText, unlimitedText, unknown]
         var rows: [String: [String: Bool]] = [:]
+        let composition = SceneRenderDescriptor.Layer(id: 9, contentKind: "composition",
+            effects: [1], authoredDependencies: [10], dependencyLayerIDs: [10])
+        let visibilityTarget = SceneDynamicTarget.layer(layerID: 9, field: .visibility)
+        let visibilityBinding = Binding(key: "show", target: visibilityTarget,
+            type: .bool, seed: .bool(false))
+        for prepared in [false, true] {
+            var s = state([composition], [visibilityBinding], values: ["show": .bool(false)],
+                prepared: prepared ? [9, 10] : [])
+            let before = s
+            let accepted = s.apply(.bool(true), forPropertyKey: "show")
+            rows[prepared ? "preparedComposition" : "unpreparedComposition"] = [
+                "admitted": s.activeConsumerTargets.contains(visibilityTarget),
+                "accepted": accepted, "unchanged": unchanged(s, before),
+            ]
+        }
         let cases: [(String, SceneDynamicTarget, SceneDynamicValueType,
             SceneDynamicValue, SceneUserPropertyValue, SceneUserPropertyValue,
             SceneDynamicValue)] = [
@@ -290,6 +307,14 @@ class SceneHiddenPropertyConsumerTests(unittest.TestCase):
         self.assertEqual(self.rows["imageColor"], {
             "admitted": True, "accepted": True, "published": True,
             "revision": True, "hidden": True,
+        })
+
+    def test_hidden_dependency_composition_requires_actual_preparation(self) -> None:
+        self.assertEqual(self.rows["preparedComposition"], {
+            "admitted": True, "accepted": True, "unchanged": False,
+        })
+        self.assertEqual(self.rows["unpreparedComposition"], {
+            "admitted": False, "accepted": False, "unchanged": True,
         })
 
     def test_visible_and_hidden_shared_key_updates_every_consumer(self) -> None:

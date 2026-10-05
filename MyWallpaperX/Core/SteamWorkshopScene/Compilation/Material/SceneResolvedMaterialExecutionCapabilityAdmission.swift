@@ -69,8 +69,7 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
         let children = childrenByParent(in: descriptor)
         // A malformed identity must not reach the visibility owner's unique-ID
         // map. Ordinary targets still validate their own tree below.
-        let visibleLayerIDs = descriptorGroups.values.allSatisfy { $0.count == 1 }
-            ? SceneLayerVisibility.visibleLayerIDs(in: descriptor) : []
+        let hasUniqueLayerIDs = descriptorGroups.values.allSatisfy { $0.count == 1 }
         // SceneScript can resolve a layer by a computed name or index. Prepare
         // supported roots without guessing JavaScript source reachability;
         // their committed visibility still gates actual frame execution.
@@ -100,16 +99,21 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
                 admitted.insert(target)
                 continue
             }
-            guard layer.parentID == nil, layer.childLayerIDs.isEmpty else { continue }
+            guard layer.parentID == nil, layer.childLayerIDs.isEmpty,
+                  children[layerID, default: []].isEmpty else { continue }
+            // A childless dependency composition can become visible later.
+            // This retains only its preparation identity; the dependency plan
+            // and MaterialProgram still prove its complete provider contract.
             guard (layer.contentKind == "composition"
-                    && visibleLayerIDs.contains(layerID)
+                    && hasUniqueLayerIDs
                     && layer.utilityLayer?.kind == .composition)
                 || (layer.contentKind == "fullscreen"
                     && layer.utilityLayer?.kind == .fullscreen
-                    && layer.dependencyLayerIDs.isEmpty
-                    && (try? SceneUtilityLayerSourceRoute.resolve(
-                        layer: layer, descriptor: descriptor
-                    ).get()) != nil)
+                    && layer.dependencyLayerIDs.isEmpty)
+            else { continue }
+            guard (try? SceneUtilityLayerSourceRoute.resolve(
+                layer: layer, descriptor: descriptor
+            ).get()) != nil
             else { continue }
             admitted.insert(target)
         }
