@@ -4,7 +4,7 @@ import os.lock
 /// Producer-agnostic media ingress. Artwork and its event-derived color share
 /// one generation; playback, seven-field properties, and timeline each advance
 /// their own generation because any channel can change without replacing art.
-final class SceneMediaThumbnailInbox: @unchecked Sendable {
+nonisolated final class SceneMediaThumbnailInbox: @unchecked Sendable {
     struct Snapshot: Equatable, Sendable {
         struct Timeline: Equatable, Sendable {
             let position: Double
@@ -240,6 +240,65 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
             timelineGeneration: snapshot.timelineGeneration + 1
         )
         return true
+    }
+
+    /// Replaces one producer session under the same lock used by frame readers.
+    /// Nil means an explicit empty field, including a missing artwork; callers
+    /// must reject stale asynchronous responses before invoking this method.
+    @discardableResult
+    func publishMediaSession(
+        artwork: Data?,
+        properties: Snapshot.Properties,
+        playbackState: Int,
+        timeline: Snapshot.Timeline
+    ) -> Bool {
+        guard artwork.map({ !$0.isEmpty && $0.count <= Self.maximumEncodedByteCount }) != false,
+              [properties.title, properties.artist, properties.subTitle,
+               properties.albumTitle, properties.albumArtist, properties.genres,
+               properties.contentType].allSatisfy(Self.isValidMediaProperty),
+              (0...2).contains(playbackState),
+              timeline.position.isFinite, timeline.position >= 0,
+              timeline.duration.isFinite, timeline.duration >= 0 else { return false }
+        os_unfair_lock_lock(&lock)
+        defer { os_unfair_lock_unlock(&lock) }
+        let emptyColor: SIMD3<Double>? = artwork == nil ? .zero : nil
+        let artChanged = snapshot.current != artwork
+            || snapshot.primaryColor != emptyColor
+            || snapshot.secondaryColor != emptyColor
+            || snapshot.tertiaryColor != emptyColor
+            || snapshot.textColor != emptyColor
+            || snapshot.highContrastColor != emptyColor
+        let propertiesChanged = snapshot.properties != properties
+        let playbackChanged = snapshot.playbackState != playbackState
+        let timelineChanged = snapshot.timeline != timeline
+        guard (!artChanged || snapshot.generation < .max),
+              (!propertiesChanged || snapshot.propertiesGeneration < .max),
+              (!playbackChanged || snapshot.playbackGeneration < .max),
+              (!timelineChanged || snapshot.timelineGeneration < .max) else { return false }
+        snapshot = Snapshot(
+            current: artwork,
+            primaryColor: emptyColor, secondaryColor: emptyColor,
+            tertiaryColor: emptyColor, textColor: emptyColor,
+            highContrastColor: emptyColor,
+            generation: snapshot.generation + (artChanged ? 1 : 0),
+            playbackState: playbackState,
+            playbackGeneration: snapshot.playbackGeneration + (playbackChanged ? 1 : 0),
+            properties: properties,
+            propertiesGeneration: snapshot.propertiesGeneration + (propertiesChanged ? 1 : 0),
+            timeline: timeline,
+            timelineGeneration: snapshot.timelineGeneration + (timelineChanged ? 1 : 0)
+        )
+        return true
+    }
+
+    @discardableResult
+    func clearMediaSession() -> Bool {
+        publishMediaSession(
+            artwork: nil,
+            properties: .init(title: "", artist: "", subTitle: "", albumTitle: "",
+                              albumArtist: "", genres: "", contentType: ""),
+            playbackState: 0, timeline: .init(position: 0, duration: 0)
+        )
     }
 
     func clear() {

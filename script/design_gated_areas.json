@@ -342,6 +342,25 @@
         "SceneParticleCollisionBounds",
         "case collisionBounds"
       ]
+    },
+    {
+      "id": "scene-player-media-input",
+      "title": "Scene播放器曲目信息输入",
+      "owner": "scene-media-input",
+      "status": "approved",
+      "designDoc": "docs/scene/roadmap/batch2/system-media-input-design.md",
+      "design_notes": "按需求单producer与原Inbox原子提交；公开Music来源和Debug显式系统实验来源。D6发行边界不变；批准实施不代表播放器兼容性或真实画面验收。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMusicPlayerSource.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSystemMediaProvider.swift",
+        "MyWallpaperX/Shared/Settings/SceneMediaSourcePreference.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSystemMediaSource.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/Observer/SceneMediaObserver.m",
+        "script/build-scene-media-observer.sh"
+      ],
+      "contentPatterns": [
+        "publishMediaSession"
+      ]
     }
   ]
 }

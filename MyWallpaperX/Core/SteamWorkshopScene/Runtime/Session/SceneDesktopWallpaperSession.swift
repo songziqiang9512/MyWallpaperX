@@ -191,6 +191,15 @@ final class SceneDesktopWallpaperSession {
 
     func promote(firstPresentation: SceneFirstFramePresentationRegistration?) {
         isVisible = true
+        var usesSystemMedia = launchContext?.requiresSystemMedia == true
+#if DEBUG
+        if (SceneDesktopWallpaperHost.usesDebugEvidenceWindow
+            || ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-root")),
+           ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_SYSTEM_MEDIA"] != "1" {
+            usesSystemMedia = false
+        }
+#endif
+        if usesSystemMedia { SceneSystemMediaProvider.shared.acquire(lifecycleID) }
         firstFramePresentationRegistration = firstPresentation
         for surface in surfaces.values {
             surface.metalView.registerFirstPresentation { [weak firstPresentation] drawable in

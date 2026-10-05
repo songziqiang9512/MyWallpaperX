@@ -53,6 +53,18 @@ struct SceneDesktopWallpaperLaunchContext {
     let recordID: String?
     let capturesExecutionObservations: Bool
 
+    var requiresSystemMedia: Bool {
+        !propertyVectorScriptProgram.mediaOwnerRegistrations.isEmpty
+            || !sceneScriptScalarProgram.mediaOwnerRegistrations.isEmpty
+            || !sceneScriptStringProgram.mediaOwnerRegistrations.isEmpty
+            || textScriptProgram.bindings.contains { $0.profile == .ecmaMediaPropertiesChangedSubset }
+            || !baseMaterialProviderBindings.systemProviderDemands.isEmpty
+            || resolvedMaterialCatalog.systemProviderDemands.contains {
+                $0.name == SceneBaseMaterialProviderBindingProgram.currentIdentity
+                    || $0.name == SceneBaseMaterialProviderBindingProgram.previousIdentity
+            }
+    }
+
     func makeResolvedMaterialRuntime() -> SceneResolvedMaterialRuntimeBridge {
         preparedFirstSurfaceRuntime.take() ?? .init(
             catalog: resolvedMaterialCatalog,

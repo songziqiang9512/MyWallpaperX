@@ -2,7 +2,7 @@ import Foundation
 
 /// Incrementally splits a pipe byte stream into non-empty newline-delimited
 /// frames. An incomplete final frame remains buffered for the next append.
-struct DaemonNewlineFrameBuffer {
+nonisolated struct DaemonNewlineFrameBuffer {
     private var storage = Data()
 
     var pendingByteCount: Int { storage.count }

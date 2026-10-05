@@ -33,6 +33,7 @@
       "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
       "docs/scene/roadmap/batch2/rt-prefix-admission-design.md",
       "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "docs/scene/roadmap/batch2/system-media-input-design.md",
       "docs/scene/roadmap/engine-refactor-program.md",
       "docs/scene/roadmap/scene-compatibility-roadmap.md",
       "docs/scene/roadmap/scene-open-breakpoint-queue.md",
@@ -483,9 +484,9 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d231943846a54cda4bfb2596d76ddc18e72fc7e87c917cd2c66190728457fb0a",
+        "sourceSHA256": "b091a9ab80b043360d35e7d37fdb23129c2a8dba8b6642517d931d63c95607fa",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded sample339 controlled media sequence and text-speed evidence navigation; real system media ingress and full visual acceptance remain open.",
+        "scope": "Navigation audit of bounded runtime evidence. Real metadata/artwork ingress is established for the recorded Debug experiment; full source, visual, and release acceptance remain open.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -1306,6 +1307,16 @@
       ]
     },
     {
+      "path": "docs/scene/history/scene-system-media-input-implementation-2026-10-05.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/scene-visual-quality-audit-2026-10-01.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -1446,6 +1457,20 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。"
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "retirementCondition": "播放器来源进入现役合同并完成真实换曲、权限、来源切换及退出验收后归档；未覆盖播放器仍保留能力缺口。",
+      "lastReviewed": "2026-10-05",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "29b899abbbf7f35ea607298b71072f05bbcddd93768c0ce5be2871ea65a936e2",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Source ownership and experimental distribution boundary; runtime evidence lives in the linked implementation record.",
+        "limitations": "登记与职责导航不证明已读取真实播放器、运行成功、全部来源兼容或发布验收。"
+      }
     },
     {
       "path": "docs/scene/roadmap/engine-refactor-program.md",

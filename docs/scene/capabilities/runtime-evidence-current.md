@@ -29,6 +29,7 @@
 
 | 职责 | 精确冻结记录 |
 |---|---|
+| Scene真实媒体输入 | [系统来源实验与公开Music补充](../history/scene-system-media-input-implementation-2026-10-05.md)：339实际标题/封面、会话变化与reader退出恢复；未证明所有播放器或发行 |
 | HDR raw/display与计费 | [RF07](../history/rf07-persistent-color-output-implementation-2026-10-02.md)、[RF11](../history/rf11-shared-hdr-target-budget-implementation-2026-10-02.md) |
 | 2D normal/PBR/emission | [MR/emission](../history/d3-pbr-map-emission-implementation-2026-10-02.md)、[live亮度](../history/d3-material-user-emission-implementation-2026-10-02.md)；前序normal/标量证据沿记录内链接 |
 | 图片材质 Alpha | [静态/用户属性接线](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-image-material-alpha)：真实193透明度热切与source-before-effects像素门；限定builtin profile，不计整样本通过 |

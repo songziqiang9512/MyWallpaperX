@@ -51,6 +51,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Core/SteamWorkshopScene/Systems/Script/QuickJSNG/README.md,
+				Core/SteamWorkshopScene/Systems/Media/Observer/SceneMediaObserver.m,
 				Info.plist,
 				Modules/OnlineLibrary/AGENTS.md,
 				Modules/StaticImageLibrary/AGENTS.md,
@@ -173,6 +174,7 @@
 				A10000322F6B0001005688A8 /* CopyFiles */,
 				A40000012F810003005688A8 /* Embed SteamService */,
 				A40000022F810003005688A8 /* Embed stock runtime assets */,
+				A40000032F810003005688A8 /* Build Scene media observer */,
 			);
 			buildRules = (
 			);
@@ -295,6 +297,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
 			shellScript = "/bin/bash \"$SRCROOT/script/copy-scene-stock-assets.sh\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/SceneStockAssets.bundle\"\n";
+		};
+		A40000032F810003005688A8 /* Build Scene media observer */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = (
+				"$(SRCROOT)/script/build-scene-media-observer.sh",
+				"$(SRCROOT)/MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/Observer/SceneMediaObserver.m",
+			);
+			name = "Build Scene media observer";
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Resources/SceneMediaObserver/SceneMediaObserver.dylib",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "/bin/bash \"$SRCROOT/script/build-scene-media-observer.sh\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/SceneMediaObserver\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -449,6 +467,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = MyWallpaperX/HardenedRuntime.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
@@ -470,7 +489,7 @@
 				INFOPLIST_FILE = MyWallpaperX/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = NO;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "需要控制桌面窗口层级";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "用于桌面集成，并读取你选择的播放器的歌曲和封面";
 				INFOPLIST_KEY_NSDesktopFolderUsageDescription = "需要访问桌面以设置动态壁纸";
 				INFOPLIST_KEY_NSDocumentsFolderUsageDescription = "需要访问文档以保存动态壁纸";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -501,6 +520,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = MyWallpaperX/HardenedRuntime.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
@@ -522,7 +542,7 @@
 				INFOPLIST_FILE = MyWallpaperX/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = NO;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "需要控制桌面窗口层级";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "用于桌面集成，并读取你选择的播放器的歌曲和封面";
 				INFOPLIST_KEY_NSDesktopFolderUsageDescription = "需要访问桌面以设置动态壁纸";
 				INFOPLIST_KEY_NSDocumentsFolderUsageDescription = "需要访问文档以保存动态壁纸";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";

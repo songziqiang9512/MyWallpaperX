@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-05 | Scene | 实施证据 | [系统媒体输入](scene-system-media-input-implementation-2026-10-05.md) | 真实标题/封面进入339、同曲图更新CPU反例与reader恢复 | [媒体输入设计](../roadmap/batch2/system-media-input-design.md)、[RF05卡](../roadmap/batch2/reference-evidence-implementation-cards.md) |
 | 2026-10-05 | Scene | 运行证据 | [339受控媒体序列](sample339-media-sequence-implementation-2026-10-05.md) | 换曲/无曲目及文字速度对照；系统来源与完整视觉开放 | [当前证据](../capabilities/runtime-evidence-current.md)、[RF05卡](../roadmap/batch2/reference-evidence-implementation-cards.md) |
 | 2026-10-05 | Scene | 实施证据 | [Composition效果激活](composition-effect-activation-implementation-2026-10-05.md) | 初始关闭utility effect准备遗漏、整键拒绝与自有白灰白像素 | [D1设计](../roadmap/batch2/composition-render-target-design.md)、[运行架构](../architecture/runtime-architecture.md)、[当前证据](../capabilities/runtime-evidence-current.md) |
 | 2026-10-05 | Scene | 实施证据 | [底部音频隐藏源](bottom-audio-provider-implementation-2026-10-05.md) | 隐藏solid准备、live composition、源尺寸及runtime计划的四断点与色带边界 | [运行架构](../architecture/runtime-architecture.md)、[当前证据](../capabilities/runtime-evidence-current.md) |

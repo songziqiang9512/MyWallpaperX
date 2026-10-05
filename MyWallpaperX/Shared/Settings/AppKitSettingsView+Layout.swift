@@ -135,6 +135,18 @@ extension AppKitSettingsContainerView {
         systemAudioSpectrumSwitch.toolTip = "实验功能：采集系统音频并在桌面底部显示频谱条"
         systemHotkeysSwitch.toolTip = "允许使用全局 F1-F12 快捷键控制壁纸"
 
+        sceneMediaSourcePopup.addItems(withTitles: ["关闭", "Apple Music"])
+        #if DEBUG
+        sceneMediaSourcePopup.addItem(withTitle: "系统正在播放（实验）")
+        #endif
+        sceneMediaSourcePopup.item(at: 0)?.tag = 0
+        sceneMediaSourcePopup.item(at: 1)?.tag = 1
+        sceneMediaSourcePopup.item(at: 2)?.tag = 2
+        let mediaControls = NSStackView(views: [sceneMediaSourcePopup, sceneMediaAuthorizationButton])
+        mediaControls.spacing = 8
+        systemSection.addRow(makeSettingRow(title: "壁纸歌曲信息", iconSystemName: "music.note",
+            subtitle: "读取所选播放器的歌曲和封面，用于场景壁纸", trailing: mediaControls))
+
         systemSection.addRow(makeSettingRow(title: "开机自启动", iconSystemName: "power", trailing: startOnBootSwitch))
         systemSection.addRow(makeSettingRow(title: "启动恢复播放", iconSystemName: "arrow.counterclockwise.circle", trailing: restorePlaybackOnLaunchSwitch))
         systemSection.addRow(makeSettingRow(title: "同步系统壁纸", iconSystemName: "photo.on.rectangle", trailing: syncSystemWallpaperSwitch))

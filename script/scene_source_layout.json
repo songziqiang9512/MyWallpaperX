@@ -640,8 +640,11 @@
           "SceneAudioSpectrum.swift",
           "SceneMediaThumbnailCoordinator.swift",
           "SceneMediaThumbnailInbox.swift",
+          "SceneMusicPlayerSource.swift",
           "SceneSoundPlaybackProgram.swift",
-          "SceneSoundPlaybackRegistry.swift"
+          "SceneSoundPlaybackRegistry.swift",
+          "SceneSystemMediaProvider.swift",
+          "SceneSystemMediaSource.swift"
         ],
         "responsibility": "Media: Capability-owned state, evaluation and preparation; uses the existing clock, resource registry and compositor."
       },
