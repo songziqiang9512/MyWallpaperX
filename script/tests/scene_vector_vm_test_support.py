@@ -17,6 +17,7 @@ QUICKJS = VM / "QuickJSNG"
 SWIFT_SOURCES = [
     SCENE / "Systems/Particles/SceneParticlePlaybackModels.swift",
     VM / "SceneScriptDynamicLayerRuntime+ParticlePlayback.swift",
+    SCENE / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
     SCENE / "Format/SceneJSONValue.swift",
     SCENE / "Format/SceneScriptBindingDefinition.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
@@ -202,7 +203,7 @@ struct SceneRenderDescriptor {
     var camera = Camera()
     struct ModelMaterialLink {
         let modelPath: String
-        let materialPath: String? = nil
+        var materialPath: String? = nil
     }
     enum SceneShaderUserValueKind {
         case null
@@ -218,6 +219,7 @@ struct SceneRenderDescriptor {
     struct ShaderValue {
         let scriptSource: String?
         let components: [Double]?
+        var rawValue: String { (components ?? []).map(String.init(describing:)).joined(separator: " ") }
         let userValueKind: SceneShaderUserValueKind?
         var userBinding: String? = nil
         let bindingKeys: [String]
@@ -248,6 +250,7 @@ struct SceneRenderDescriptor {
         let materialPath: String
         let passIndex: Int
         let constantShaderValues: [String: ShaderValue]
+        var staticModelMaterialBindings: SceneStaticModelMaterialBindings? = nil
     }
 
     struct SceneEffectTextureInput: ExpressibleByBooleanLiteral {

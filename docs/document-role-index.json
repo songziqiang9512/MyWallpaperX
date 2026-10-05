@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-06",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c9ba70a960787f92f0ec710e3a62ec9325fe013a2bf03cf21534597e9dd6689b",
+        "sourceSHA256": "358c787e182f2644e4a1e58022bb39e001174047d98bca21bb50bd93ee82383e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Exact resource revalidation for successful mixed/shared allocation; strict revision remains on failed-allocation recovery.",
+        "scope": "External static-model material value producer, existing typed consumer ownership, and bounded solar runtime evidence links.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -898,7 +898,7 @@
       "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
-        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/batch2/system-media-input-design.md",
         "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
       ]
     },
@@ -921,6 +921,16 @@
         "docs/scene/development/source-index.md",
         "docs/scene/development/reference/miragewallpaper-rendering-reference.md",
         "docs/scene/capabilities/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/model-material-value-scripts-implementation-2026-10-06.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
     {
@@ -1257,8 +1267,7 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/architecture/runtime-architecture.md",
-        "docs/scene/capabilities/coverage-ledger.md",
-        "docs/scene/capabilities/runtime-evidence-current.md"
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
       ]
     },
     {
@@ -1268,8 +1277,7 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/architecture/runtime-architecture.md",
-        "docs/scene/capabilities/coverage-ledger.md",
-        "docs/scene/capabilities/runtime-evidence-current.md"
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
       ]
     },
     {
@@ -1344,7 +1352,7 @@
       "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
-        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/batch2/system-media-input-design.md",
         "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
       ]
     },

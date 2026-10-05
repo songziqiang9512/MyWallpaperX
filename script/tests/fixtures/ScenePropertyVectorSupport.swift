@@ -131,6 +131,7 @@ struct SceneRenderDescriptor {
     struct ShaderValue {
         let scriptSource: String?
         let components: [Double]?
+        var rawValue: String { (components ?? []).map(String.init(describing:)).joined(separator: " ") }
         let userValueKind: SceneShaderUserValueKind?
         var userBinding: String? = nil
         let bindingKeys: [String]
@@ -165,6 +166,7 @@ struct SceneRenderDescriptor {
         let materialPath: String
         let passIndex: Int
         let constantShaderValues: [String: ShaderValue]
+        var staticModelMaterialBindings: SceneStaticModelMaterialBindings? = nil
     }
     struct EffectDescriptor {
         struct PassDescriptor {

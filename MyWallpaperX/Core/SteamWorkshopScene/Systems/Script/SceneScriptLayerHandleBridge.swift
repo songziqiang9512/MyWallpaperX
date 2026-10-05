@@ -287,6 +287,7 @@ nonisolated enum SceneScriptLayerMutationBridge {
         switch target {
         case let .layer(id, _), let .text(id, _), let .particle(id, _),
              let .effectConstant(id, _, _, _), let .effectVisibility(id, _),
+             let .materialConstant(id, _, _, _),
              let .scriptInstanceProperty(id, _):
             id
         default:

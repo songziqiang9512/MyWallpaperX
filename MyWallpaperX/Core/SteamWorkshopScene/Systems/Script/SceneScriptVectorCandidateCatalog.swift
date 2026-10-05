@@ -54,12 +54,92 @@ nonisolated extension SceneScriptVectorProgram {
             authoredOrdinalOffset:
                 scriptBindings.count + materialCandidates.count
         )
+        let modelValueCandidates = staticModelMaterialValueProjections(
+            descriptor: descriptor,
+            authoredOrdinalOffset: scriptBindings.count + materialCandidates.count
+                + staticModelMaterialCandidates.count
+        )
         return .init(candidates: (
             authoredCandidates + materialCandidates
-                + staticModelMaterialCandidates
+                + staticModelMaterialCandidates + modelValueCandidates
         ).filter {
             !excludedTargets.contains($0.definition.target)
         })
+    }
+
+    /// External model materials already retain their authored value wrappers.
+    /// Give each consumed field an ordinary per-layer VM owner and publish to
+    /// the same material target used by properties and the model renderer.
+    private static func staticModelMaterialValueProjections(
+        descriptor: SceneRenderDescriptor,
+        authoredOrdinalOffset: Int
+    ) -> [SceneScriptVectorCandidate] {
+        let links = Dictionary(grouping: descriptor.modelMaterialLinks) {
+            normalizedMaterialPath($0.modelPath)
+        }
+        let passes = Dictionary(grouping: descriptor.materialPasses) {
+            normalizedMaterialPath($0.materialPath)
+        }
+        var candidates: [SceneScriptVectorCandidate] = []
+        // Static model resources include initially hidden layers. A peer can
+        // reveal one later; its material owner must already exist at launch.
+        for layer in descriptor.layers {
+            guard let model = layer.staticModelPath else { continue }
+            let materials = Set((links[normalizedMaterialPath(model)] ?? [])
+                .compactMap(\.materialPath).map(normalizedMaterialPath))
+            for material in materials.sorted() {
+                let firstPasses = (passes[material] ?? []).filter { $0.passIndex == 0 }
+                guard firstPasses.count == 1, let pass = firstPasses.first,
+                      pass.staticModelMaterialBindings?.state != .rejected else { continue }
+                for channel in [SceneStaticModelMaterialBindings.Channel.alpha, .color, .brightness] {
+                    let name: String
+                    if let bindings = pass.staticModelMaterialBindings, bindings.state == .authored {
+                        guard let key = bindings.binding(for: channel)?.materialKey else { continue }
+                        name = key
+                    } else {
+                        name = channel.rawValue
+                    }
+                    guard let value = pass.constantShaderValues[name],
+                          let source = value.scriptSource,
+                          value.userBinding == nil,
+                          value.userValueKind == nil || value.userValueKind == .null,
+                          value.timeline == nil, value.timelineDiagnostics.isEmpty,
+                          Set(value.bindingKeys).isSubset(of: ["script", "scriptproperties", "user", "value"]),
+                          value.bindingKeys.contains("value"),
+                          !value.bindingKeys.contains("scriptproperties") || value.scriptProperties != nil,
+                          let inputs = SceneScriptPropertyInputCodec.inputs(value.scriptProperties ?? [:]),
+                          inputs.values.allSatisfy({ $0.userPropertyKey == nil }),
+                          let components = value.components,
+                          components.count == (channel == .color ? 3 : 1),
+                          components.allSatisfy({ $0.isFinite && Float($0).isFinite }) else { continue }
+                    // The legacy numeric projection can drop malformed tokens.
+                    // A new executable owner must account for the entire seed.
+                    let tokens = value.rawValue.split(whereSeparator: { $0.isWhitespace || $0 == "," })
+                    guard tokens.count == components.count,
+                          zip(tokens, components).allSatisfy({ Double($0.0) == $0.1 }) else { continue }
+                    let seed: SceneDynamicValue = channel == .color
+                        ? .vector3(components[0], components[1], components[2]) : .scalar(components[0])
+                    candidates.append(.init(
+                        authoredOrdinal: authoredOrdinalOffset + candidates.count,
+                        source: source,
+                        definition: .init(
+                            target: .materialConstant(layerID: layer.id, passIndex: 0,
+                                name: name, materialPath: material),
+                            valueType: channel == .color ? .vector3 : .scalar,
+                            authoredValue: seed
+                        ),
+                        properties: inputs,
+                        livePropertyInputTargets: [],
+                        hasCurrentAnimation: false,
+                        dynamicImageReferences: [],
+                        requiresStatefulOwner: false,
+                        evaluatesAfterSharedProviders: true,
+                        dynamicMaterialModelPath: nil
+                    ))
+                }
+            }
+        }
+        return candidates
     }
 
     /// A direct model's scripted back-facing tint is lowered into the existing

@@ -19,6 +19,7 @@ REMOVED_SUPPRESSION_SOURCE = (
     SCENE / "Properties/SceneScriptedLayerTransformProjection.swift"
 )
 SOURCES = [
+    SCENE / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
     SCENE / "Format/SceneJSONValue.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
@@ -35,10 +36,11 @@ nonisolated enum SceneScriptScalarRuntimeFailure: Error, Sendable {
 }
 
 nonisolated enum SceneDynamicValueType: String, Sendable {
-    case bool, vector2, vector3
+    case bool, scalar, vector2, vector3
 }
 
 nonisolated enum SceneDynamicValue: Equatable, Sendable {
+    case scalar(Double)
     case bool(Bool)
     case vector2(Double, Double)
     case vector3(Double, Double, Double)
@@ -89,6 +91,7 @@ nonisolated enum SceneDynamicTarget: Hashable, Sendable {
     case particle(layerID: Int, field: SceneDynamicParticleField)
     case text(layerID: Int, field: SceneDynamicTextField)
     case effectVisibility(layerID: Int, effectIndex: Int)
+    case materialConstant(layerID: Int, passIndex: Int, name: String, materialPath: String)
     case effectConstant(layerID: Int, effectIndex: Int, passIndex: Int, name: String)
 }
 
@@ -134,7 +137,7 @@ nonisolated struct SceneScriptBindingIR: Sendable {
     }
 }
 
-nonisolated struct SceneScriptPropertyInput: Sendable {}
+nonisolated struct SceneScriptPropertyInput: Sendable { let userPropertyKey: String? = nil }
 
 nonisolated enum SceneScriptPropertyInputCodec {
     static func inputs(
@@ -240,6 +243,7 @@ nonisolated struct SceneRenderDescriptor: Sendable {
     struct ShaderValue: Sendable {
         let scriptSource: String?
         let components: [Double]?
+        var rawValue: String { (components ?? []).map(String.init(describing:)).joined(separator: " ") }
         let userValueKind: SceneShaderUserValueKind?
         var userBinding: String? = nil
         var bindingKeys: [String] = []
@@ -313,6 +317,7 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         let materialPath: String
         let passIndex: Int
         let constantShaderValues: [String: ShaderValue]
+        var staticModelMaterialBindings: SceneStaticModelMaterialBindings? = nil
     }
 
     var layers: [Layer]
