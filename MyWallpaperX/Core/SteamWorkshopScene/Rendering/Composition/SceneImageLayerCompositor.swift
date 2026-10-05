@@ -352,6 +352,31 @@ struct SceneImageLayerCompositor {
                 return .failed
             }
             var graphOutputPublished = false
+            if let ticket = graphExecutionTicket,
+               ticket.hasTerminalMaterialReplay {
+                guard resolvedMaterialGraphOutputPublisher == nil,
+                      request.layer.contentKind == "solid",
+                      request.geometryProduct == nil,
+                      request.dependencyEffects.isEmpty,
+                      !request.requiresDependencyEffect,
+                      (request.layer.colorBlendMode ?? 0) == 0,
+                      (request.finalCompositeAlpha ?? 1) == 1,
+                      (ticket.finalContent == .color(.resolved(.opaque))
+                        || ticket.finalContent == .color(.resolved(.premultipliedAlpha))) else {
+                    resolvedMaterialRuntime?.recordClaimedFailure(
+                        reasonCode: "terminal-material-replay-compositor-rejected"
+                    )
+                    return .failed
+                }
+                guard consumeResolvedMaterialTerminalReplay(
+                    ticket,
+                    mainPass: mainPass,
+                    layerID: request.layer.id,
+                    executionTrace: executionTrace,
+                    executionOrigin: executionOrigin
+                ) else { return .failed }
+                return .normal(consumedDependency: false)
+            }
             if let resolvedMaterialGraphOutputPublisher {
                 guard let graphExecutionTicket else { return .failed }
                 let publicationResult = resolvedMaterialGraphOutputPublisher(

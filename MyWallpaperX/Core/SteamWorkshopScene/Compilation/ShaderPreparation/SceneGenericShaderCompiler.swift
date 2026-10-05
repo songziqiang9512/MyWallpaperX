@@ -153,6 +153,7 @@ nonisolated enum SceneGenericShaderCompiler {
                           authoredSource: $0.authoredSource, msl: $0.msl,
                           reflection: $0.reflection)
                 },
+                vertexPositionInput: normalized.vertexPositionInput,
                 loopGuardCap: loopGuardCap,
                 maximumArtifactBytes: configuration.limits.maximumArtifactBytes
             )

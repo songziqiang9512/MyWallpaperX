@@ -17,7 +17,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
             provenColorTransfer: SceneShaderColorTransfer?,
             premultipliedColorInputSlots: Set<Int>
         ) {
-            cacheSchemaVersion = 10
+            // v11 retires cached Programs without a vertex coordinate-domain fact.
+            cacheSchemaVersion = 11
             vertexSourceSHA256 = ProgramCacheDigest.hash(Data(vertexSource.utf8))
             fragmentSourceSHA256 = ProgramCacheDigest.hash(Data(fragmentSource.utf8))
             self.runtimeLoopBounds = runtimeLoopBounds
@@ -258,7 +259,10 @@ nonisolated enum SceneAuthoredShaderFrontend {
                 textureBindings: validation.textures,
                 staticLoopWork: max(vertexUnit.staticLoopWork, fragmentUnit.staticLoopWork),
                 colorTransfer: colorTransfer,
-                fragmentOutputChannelUse: fragmentOutputChannelUse
+                fragmentOutputChannelUse: fragmentOutputChannelUse,
+                vertexPositionInput: SceneAuthoredShaderGlobalReferenceAnalyzer
+                    .isReferenced("g_ModelViewProjectionMatrix", in: vertexUnit)
+                    ? .targetPixels : .clipSpace
         )
         programCache.store(program, for: cacheKey)
         return .init(program: program, diagnostics: [])

@@ -90,6 +90,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         let premultipliedColorInputSlots: [Int]
         let colorTransfer: ColorTransfer
         let fragmentOutputChannelUse: String
+        var vertexPositionInput: String? = nil
     }
 
     let schemaVersion: Int
@@ -312,7 +313,10 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
             staticLoopWork: raw.staticLoopWork,
             colorTransfer: colorTransfer,
             fragmentOutputChannelUse: expectedFragmentOutputChannelUse,
-            backend: .genericCompilerArtifact
+            backend: .genericCompilerArtifact,
+            vertexPositionInput: raw.vertexPositionInput.flatMap {
+                SceneAuthoredShaderProgram.VertexPositionInput(rawValue: $0)
+            }
         )
     }
 

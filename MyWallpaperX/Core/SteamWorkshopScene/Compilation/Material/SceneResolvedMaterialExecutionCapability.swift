@@ -216,6 +216,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let isVisibleExecutionRoot: Bool
         let isGraphOutputProvider: Bool
         let requiresGraphOutputProvider: Bool
+        let supportsTerminalMaterialReplay: Bool
 
         fileprivate let capabilityID = UUID()
 
@@ -281,6 +282,13 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             isVisibleExecutionRoot = admitted.isVisibleExecutionRoot
             isGraphOutputProvider = admitted.isGraphOutputProvider
             requiresGraphOutputProvider = admitted.requiresGraphOutputProvider
+            supportsTerminalMaterialReplay = Self.supportsTerminalReplay(
+                admitted: admitted,
+                stages: stages,
+                materials: materials,
+                dependencyOwnership: dependencyOwnership,
+                sceneBackgroundRequirement: sceneBackgroundRequirement
+            )
         }
 
         func material(for node: Graph.Node) -> MaterialCapability? {

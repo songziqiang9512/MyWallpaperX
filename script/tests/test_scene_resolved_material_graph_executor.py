@@ -128,6 +128,9 @@ def compile_lit_harness(support_text: str, harness_text: str):
 
 
 SUPPORT = PUBLICATION_FIXTURE["SUPPORT"] + r'''
+final class SceneGraphRenderTargetResidencyPin {
+    func release() {}
+}
 
 import simd
 

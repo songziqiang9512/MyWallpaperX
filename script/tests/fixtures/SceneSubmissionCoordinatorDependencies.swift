@@ -235,7 +235,7 @@ enum SceneShaderStableDigest {
         "graph-\(graph.layerID)-\(graph.nodes.count)"
     }
 }
-enum StubAlpha: Hashable { case premultipliedAlpha }
+enum StubAlpha: Hashable { case opaque, premultipliedAlpha, straightAlpha }
 enum StubColor: Hashable { case resolved(StubAlpha) }
 enum SceneTextureContent: Hashable {
     case data
@@ -247,18 +247,20 @@ struct SceneTextureCandidate {
     let identity: SceneTextureCandidateIdentity
     let purpose: SceneTextureLoadPurpose
     let sampling: SceneTextureSampling
-    let content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
+    let content: SceneTextureContent
 
     init(
         texture: MTLTexture,
         identity: SceneTextureCandidateIdentity,
         purpose: SceneTextureLoadPurpose,
-        sampling: SceneTextureSampling = .linearClamp
+        sampling: SceneTextureSampling = .linearClamp,
+        content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
     ) {
         self.texture = texture
         self.identity = identity
         self.purpose = purpose
         self.sampling = sampling
+        self.content = content
     }
 }
 struct SceneTextureProviderPublication {
@@ -559,6 +561,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let stages: [StageCapability]
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
+        var supportsTerminalMaterialReplay = false
         let sceneBackgroundRequirement: SceneBackgroundRequirement? = nil
         let frameInputContract = FrameInputContract(
             effectTextureProjectionSource: .emittedOutputGeometry,
@@ -922,6 +925,7 @@ final class SceneResolvedMaterialGraphExecutor {
         let finalTexture: MTLTexture
         let historyTokensByEffect: [Graph.EffectKey: Set<State.PhysicalToken>]
         let sceneBackgroundResource: SceneFrameTextureResource? = nil
+        var terminalMaterialReplay: Bool? = nil
     }
     static var prepareCallCount = 0
     static var prepareTokens: [Int] = []
@@ -947,6 +951,7 @@ final class SceneResolvedMaterialGraphExecutor {
         sourceUniforms: SceneLayerFragmentUniforms?,
         sourcePipeline: SceneImageLayerPipeline,
         sourceLighting: SceneBaseMaterialLitCapturePayload? = nil,
+        terminalReplayTarget: MTLTexture? = nil,
         frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
         commandBuffer: MTLCommandBuffer,
         previousStates: [Graph.EffectKey: State],

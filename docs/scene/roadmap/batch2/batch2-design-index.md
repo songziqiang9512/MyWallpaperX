@@ -27,6 +27,8 @@
 
 后续实施与59项参考证据的去向见[派生实施卡](reference-evidence-implementation-cards.md)，选序仍归上述兼容路线；原设计基线的“仅文档”描述不代表后续产品实施状态。
 
+终端细线绘制见[源纹理与显示光栅分离](terminal-material-raster-design.md)，按原 graph 事务与唯一 compositor 实施。
+
 ## 基线与合并边界
 
 最初设计批次仅编写文档。原证据行号固定于独立工作树 `93b1b85a`；本批现已合入主开发分支 `codex/engine-refactor-program`；该分支有更晚产品改动，实施时须重核 owner 与现有实现，原基线观察不能当作最新能力结论。主分支的七项登记仅用于对齐 ID/模式/schema，不把其余产品改动复制到此工作树。

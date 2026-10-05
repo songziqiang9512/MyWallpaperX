@@ -362,6 +362,19 @@
       "contentPatterns": [
         "publishMediaSession"
       ]
+    },
+    {
+      "id": "scene-terminal-material-raster",
+      "title": "终端材质源纹理与显示光栅分离",
+      "owner": "scene-p-route",
+      "status": "approved",
+      "designDoc": "docs/scene/roadmap/batch2/terminal-material-raster-design.md",
+      "design_notes": "2026-10-06 自有官方输入尺寸和终端导数观察支持分域；单pass native solid有界Program replay复用原提交与唯一compositor，typed receipt区别纹理消费；approved不代表运行验收。",
+      "matchPatterns": [],
+      "contentPatterns": [
+        "terminalMaterialReplay",
+        "terminalSourceOver"
+      ]
     }
   ]
 }

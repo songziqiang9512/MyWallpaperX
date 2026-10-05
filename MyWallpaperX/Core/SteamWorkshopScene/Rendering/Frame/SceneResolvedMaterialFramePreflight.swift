@@ -183,6 +183,15 @@ extension SceneMetalRenderer {
                 selectedMainSource = mainTarget
             }
             let desiredSize: CGSize
+            let terminalReplayTarget: MTLTexture? =
+                claim.supportsTerminalMaterialReplay
+                    && layer.contentKind == "solid"
+                    && cameraFrame.defaultsToPerspective
+                    && cameraFrame.resolvesPerspective(for: layer)
+                    && (layer.colorBlendMode ?? 0) == 0
+                    && imageTextures.geometryProducts[layerID] == nil
+                    && !dependencyRuntime.requiresGraphOutputCapture(for: layerID)
+                    ? selectedMainSource : nil
             let effectSourceExtentContract = imageTextures.geometryProducts[
                 layerID
             ]?.effectSourceExtentContract ?? .scalableStandard
@@ -273,6 +282,16 @@ extension SceneMetalRenderer {
                             quantizedUp(CGFloat(onCanvasHeight))
                         )
                     )
+                    break
+                }
+                if terminalReplayTarget != nil,
+                   let authoredSize = layer.renderSizeWH,
+                   let extent = SceneLayerEffectSourceExtent.resolveSolid(
+                       authoredRenderSizeWH: authoredSize
+                   ) {
+                    // Source sampling and terminal raster density are distinct:
+                    // the final material draws in the main compositor below.
+                    desiredSize = extent.pixelSize
                     break
                 }
                 let model = imageModelMatrix(
@@ -888,6 +907,7 @@ extension SceneMetalRenderer {
                 sourceUniforms: sourceUniforms,
                 sourcePipeline: imagePipeline,
                 sourceLighting: sourceLighting,
+                terminalReplayTarget: terminalReplayTarget,
                 frameInputs: frameInputs
             ))
         }

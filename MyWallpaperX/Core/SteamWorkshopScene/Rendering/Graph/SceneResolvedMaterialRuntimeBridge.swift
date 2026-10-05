@@ -23,6 +23,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement?
         let frameInputContract:
             SceneResolvedMaterialExecutionCapabilityCatalog.FrameInputContract
+        let supportsTerminalMaterialReplay: Bool
         let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
 
         fileprivate init(
@@ -36,6 +37,7 @@ final class SceneResolvedMaterialRuntimeBridge {
                 SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement? = nil,
             frameInputContract:
                 SceneResolvedMaterialExecutionCapabilityCatalog.FrameInputContract,
+            supportsTerminalMaterialReplay: Bool = false,
             token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
         ) {
             self.layerID = layerID
@@ -46,6 +48,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.sourceRoute = sourceRoute
             self.sceneBackgroundRequirement = sceneBackgroundRequirement
             self.frameInputContract = frameInputContract
+            self.supportsTerminalMaterialReplay = supportsTerminalMaterialReplay
             self.token = token
         }
     }
@@ -69,6 +72,22 @@ final class SceneResolvedMaterialRuntimeBridge {
         let finalContent: SceneTextureContent
         let consumesExternalPrimaryDependency: Bool
         let effectFailures: [EffectFailure]
+        let hasTerminalMaterialReplay: Bool
+
+        init(identity: UInt64, epoch: UInt64,
+             finalTextureIdentity: ObjectIdentifier,
+             finalContent: SceneTextureContent,
+             consumesExternalPrimaryDependency: Bool,
+             effectFailures: [EffectFailure],
+             hasTerminalMaterialReplay: Bool = false) {
+            self.identity = identity
+            self.epoch = epoch
+            self.finalTextureIdentity = finalTextureIdentity
+            self.finalContent = finalContent
+            self.consumesExternalPrimaryDependency = consumesExternalPrimaryDependency
+            self.effectFailures = effectFailures
+            self.hasTerminalMaterialReplay = hasTerminalMaterialReplay
+        }
     }
 
     enum ExecutionResult {
@@ -77,6 +96,12 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
 
     enum CompositeOutcome {
+        case consumed
+        case failed(reasonCode: String)
+    }
+
+    enum TerminalMaterialReplayOutcome {
+        case notApplicable
         case consumed
         case failed(reasonCode: String)
     }
@@ -95,6 +120,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         /// executor on the unlit `sourcePipeline` capture — including every
         /// failure path that resolved no lit payload this frame.
         let sourceLighting: SceneBaseMaterialLitCapturePayload?
+        let terminalReplayTarget: MTLTexture?
         let frameInputs: FrameInputs
 
         init(
@@ -107,6 +133,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             sourceUniforms: SceneLayerFragmentUniforms?,
             sourcePipeline: SceneImageLayerPipeline,
             sourceLighting: SceneBaseMaterialLitCapturePayload? = nil,
+            terminalReplayTarget: MTLTexture? = nil,
             frameInputs: FrameInputs
         ) {
             self.claim = claim
@@ -117,6 +144,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.sourceUniforms = sourceUniforms
             self.sourcePipeline = sourcePipeline
             self.sourceLighting = sourceLighting
+            self.terminalReplayTarget = terminalReplayTarget
             self.frameInputs = frameInputs
         }
     }
@@ -559,6 +587,13 @@ final class SceneResolvedMaterialRuntimeBridge {
         )
     }
 
+    func drawTerminalMaterialReplay(
+        _ ticket: ExecutionTicket,
+        mainPass: SceneMainPassEncoder
+    ) -> TerminalMaterialReplayOutcome {
+        submissions.drawTerminalMaterialReplay(ticket, mainPass: mainPass)
+    }
+
     func markNamedPublication(
         _ ticket: ExecutionTicket,
         texture: MTLTexture,
@@ -628,6 +663,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             sourceRoute: capability.sourceRoute,
             sceneBackgroundRequirement: capability.sceneBackgroundRequirement,
             frameInputContract: capability.frameInputContract,
+            supportsTerminalMaterialReplay: capability.supportsTerminalMaterialReplay,
             token: token
         )
         claimExecutionByToken[token] = execution

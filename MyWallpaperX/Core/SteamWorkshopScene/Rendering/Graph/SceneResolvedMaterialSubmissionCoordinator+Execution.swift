@@ -216,7 +216,9 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                             descriptorID: stage.effect.descriptorID,
                             reasonCode: reasonCode
                         )
-                    }
+                    },
+                    hasTerminalMaterialReplay:
+                        ledger.prepared.terminalMaterialReplay != nil
                 )
             )
             lock.unlock()

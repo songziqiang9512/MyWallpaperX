@@ -51,6 +51,7 @@ extension SceneResolvedMaterialProgram {
         let textureSlots: [Int]
         let textureChannelUses: [SceneAuthoredShaderProgram.TextureBinding.ChannelUse]
         let colorTransfer: ColorTransfer
+        let vertexPositionInput: SceneAuthoredShaderProgram.VertexPositionInput?
         let fragmentOutputChannelUse:
             SceneAuthoredShaderProgram.FragmentOutputChannelUse
     }
@@ -176,7 +177,13 @@ extension SceneResolvedMaterialProgram {
         let dynamicUniforms: [ExactDynamicUniformIdentity]
     }
 
+    enum PassRole: String, Hashable {
+        case offscreenOverwrite
+        case terminalSourceOver
+    }
+
     struct MetalCompileStateKey: Hashable {
+        let passRole: PassRole
         let shader: ShaderSemanticIdentity
         let renderState: RenderStateIdentity
         let attachmentPixelFormatRawValue: UInt
@@ -291,6 +298,7 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
             textureSlots: frontend.textureBindings.map(\.slot),
             textureChannelUses: frontend.textureBindings.map(\.channelUse),
             colorTransfer: transfer,
+            vertexPositionInput: frontend.vertexPositionInput,
             fragmentOutputChannelUse: frontend.fragmentOutputChannelUse
         )
     }
@@ -446,6 +454,7 @@ extension SceneResolvedMaterialProgram {
         attachmentPixelFormat: MTLPixelFormat,
         sampleCount: Int,
         colorWriteMask: MTLColorWriteMask = .all,
+        passRole: PassRole = .offscreenOverwrite,
         device: MTLDevice
     ) -> MetalCompileStateKey? {
         guard attachmentPixelFormat != .invalid,
@@ -463,6 +472,7 @@ extension SceneResolvedMaterialProgram {
             attachmentPixelFormatRawValue: attachmentPixelFormat.rawValue,
             sampleCount: sampleCount,
             colorWriteMaskRawValue: colorWriteMask.rawValue,
+            passRole: passRole,
             deviceRegistryID: device.registryID
         )
     }
@@ -476,6 +486,7 @@ extension SceneResolvedMaterialProgramIdentity {
         attachmentPixelFormatRawValue: UInt,
         sampleCount: Int,
         colorWriteMaskRawValue: UInt,
+        passRole: Program.PassRole = .offscreenOverwrite,
         deviceRegistryID: UInt64
     ) -> Program.MetalCompileStateKey? {
         guard frontendSchemaVersion == SceneShaderVariantEnvironment.frontendSchemaVersion,
@@ -488,6 +499,7 @@ extension SceneResolvedMaterialProgramIdentity {
                   frontend.uniformLayout
               ) else { return nil }
         return .init(
+            passRole: passRole,
             shader: shader(frontend, schemaVersion: frontendSchemaVersion),
             renderState: self.renderState(renderState),
             attachmentPixelFormatRawValue: attachmentPixelFormatRawValue,

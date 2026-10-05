@@ -42,12 +42,15 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Failure.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift",
+    SCENE_ROOT / "Rendering/Composition/SceneMainPassEncoder.swift",
 ]
 
 
 SUPPORT = r'''
 import Foundation
 import Metal
+
+final class SceneGraphRenderTargetResidencyPin { func release() {} }
 
 nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
     case premultipliedColor, straightAlbedo, preservedChannels, mask, noise
@@ -445,7 +448,8 @@ void main() {
 
 private func prepared(
     marker: String,
-    fragmentSource: String
+    fragmentSource: String,
+    replayVertexSource: String? = nil
 ) -> SceneShaderPreparedProgram {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -468,7 +472,7 @@ private func prepared(
         )
     }
     return .init(
-        vertex: stage(.vertex, source: vertexSource),
+        vertex: stage(.vertex, source: replayVertexSource ?? vertexSource),
         fragment: stage(.fragment, source: fragmentSource),
         colorContract: .unresolvedAuthoredPass,
         cacheKey: "cache-\(marker)"
@@ -670,7 +674,8 @@ private func program(
     uniformValues: [String: Data] = [:],
     slot0Sampling: SceneTextureSampling = .directImageFallback,
     slot0GraphKind: Graph.TextureKind = .framebuffer,
-    outputStorage: Program.OutputStorage = .color
+    outputStorage: Program.OutputStorage = .color,
+    replayVertexSource: String? = nil
 ) -> Program? {
     let shader = prepared(
         marker: "program-\(marker)",
@@ -678,7 +683,8 @@ private func program(
             outputSlot: outputSlot,
             uniformName: uniformName,
             unresolved: unresolved
-        )
+        ),
+        replayVertexSource: replayVertexSource
     )
     let first = slot(
         device: device,
@@ -1060,6 +1066,8 @@ private func positiveDeltaCentroid(
     }
     return total > 0 ? weighted / total : nil
 }
+
+// TERMINAL_REPLAY_PROBE
 
 @main
 private enum Harness {
@@ -2573,7 +2581,7 @@ private enum Harness {
             ) == nil
         }
 
-        let results: [String: Bool] = [
+        var results: [String: Bool] = [
             "metalAvailable": true,
             "prepared": first != nil,
             "pipelineCompiledOnce": attemptsAfterFirst == 1,
@@ -2747,6 +2755,7 @@ private enum Harness {
             "binaryArchiveIdentitySeparatesFormats": binaryArchiveIdentitySeparatesFormats,
             "framePreparationSkipsArchiveTier": framePreparationSkipsArchiveTier,
         ]
+        results.merge(terminalReplayProbe(device: device, queue: queue)) { _, new in new }
         let payload: [String: Any] = [
             "results": results,
             "crossDeviceExercised": crossDeviceExercised,
@@ -2767,6 +2776,11 @@ private enum Harness {
 }
 '''
 
+
+HARNESS = HARNESS.replace(
+    "// TERMINAL_REPLAY_PROBE",
+    (Path(__file__).parent / "fixtures/SceneTerminalMaterialReplayProbe.swift").read_text(),
+)
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneResolvedMaterialPassEncoderTests(unittest.TestCase):

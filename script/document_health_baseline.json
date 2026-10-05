@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 540,
-      "bytes": 90662
+      "bytes": 90644
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -156,6 +156,10 @@
       "lines": 54,
       "bytes": 5161
     },
+    "docs/scene/roadmap/batch2/particle-collision-bounds-design.md": {
+      "lines": 34,
+      "bytes": 4455
+    },
     "docs/scene/roadmap/batch2/particle-playback-state-design.md": {
       "lines": 89,
       "bytes": 22016
@@ -184,6 +188,10 @@
       "lines": 41,
       "bytes": 7717
     },
+    "docs/scene/roadmap/batch2/terminal-material-raster-design.md": {
+      "lines": 25,
+      "bytes": 3286
+    },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 439,
       "bytes": 135310
@@ -194,7 +202,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 129,
-      "bytes": 49130
+      "bytes": 49108
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -231,10 +239,6 @@
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 7241
-    },
-    "docs/scene/roadmap/batch2/particle-collision-bounds-design.md": {
-      "lines": 34,
-      "bytes": 4455
     }
   },
   "archives": [
@@ -1164,6 +1168,15 @@
       "owner": "Scene terminal output",
       "reason": "Replace EDR pending pointer with bounded implementation and next heavy startup work; shorten route body.",
       "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/terminal-material-raster-design.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "c26f1e9fca836f099b48d58eaac3f3c9eca3cf46f0da685330011513a70de36e",
+      "owner": "scene-terminal-material",
+      "reason": "按实证分离输入纹理与终端显示光栅，新增有界能力设计；不提高既有权威预算。",
+      "decision": "docs/scene/roadmap/batch2/terminal-material-raster-design.md"
     }
   ]
 }

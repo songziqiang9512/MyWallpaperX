@@ -34,6 +34,7 @@
       "docs/scene/roadmap/batch2/rt-prefix-admission-design.md",
       "docs/scene/roadmap/batch2/script-component-api-design.md",
       "docs/scene/roadmap/batch2/system-media-input-design.md",
+      "docs/scene/roadmap/batch2/terminal-material-raster-design.md",
       "docs/scene/roadmap/engine-refactor-program.md",
       "docs/scene/roadmap/scene-compatibility-roadmap.md",
       "docs/scene/roadmap/scene-open-breakpoint-queue.md",
@@ -353,9 +354,9 @@
       "lastReviewed": "2026-10-06",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4c236eb8fac2c9f76b548760a1704e536c50ac023c072cfb22a86de1cf2ea0f6",
+        "sourceSHA256": "dbc7bad09184923ba17a3d7cf58b3ab805470b7ff542ba51bad7a8e982cdf1e5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Static-model metadata and upload geometry share complete validation; only the upload path retains vertex/index arrays.",
+        "scope": "核对终端材质源尺寸与显示光栅分域、唯一MainPass消费回执，以及现役设计和固定运行证据的导航。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -1388,6 +1389,16 @@
       ]
     },
     {
+      "path": "docs/scene/history/terminal-material-raster-implementation-2026-10-06.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/text-width-property-implementation-2026-10-05.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -1531,6 +1542,12 @@
         "scope": "Source ownership and experimental distribution boundary; runtime evidence lives in the linked implementation record.",
         "limitations": "登记与职责导航不证明已读取真实播放器、运行成功、全部来源兼容或发布验收。"
       }
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/terminal-material-raster-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "retirementCondition": "终端光栅分域通过真实运行和事务反例，职责并入稳定架构后归档。"
     },
     {
       "path": "docs/scene/roadmap/engine-refactor-program.md",

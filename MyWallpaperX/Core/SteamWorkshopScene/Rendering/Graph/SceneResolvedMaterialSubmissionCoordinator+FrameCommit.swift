@@ -282,6 +282,76 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         return emission
     }
 
+    /// Consumes the prepared terminal Program rather than claiming that its
+    /// internal graph texture was sampled by the main compositor.
+    func drawTerminalMaterialReplay(
+        _ ticket: Bridge.ExecutionTicket,
+        mainPass: SceneMainPassEncoder
+    ) -> Bridge.TerminalMaterialReplayOutcome {
+        lock.lock()
+        func fail(_ reason: String) -> Bridge.TerminalMaterialReplayOutcome {
+            var emission = Emission()
+            if frameIsActive {
+                frameFailures += 1
+                emission = failActiveFrameLocked(reason: reason)
+            }
+            lock.unlock()
+            emit(emission)
+            return .failed(reasonCode: reason)
+        }
+        guard terminalFailureReason == nil, frameIsActive,
+              framePreparationComplete, !frameSealed, !frameRequiresDrop,
+              frameFailure == nil, ticket.epoch == executionEpoch,
+              var ledger = activeByID[ticket.identity],
+              ledger.epoch == ticket.epoch,
+              activeTransactions.contains(ticket.identity) else {
+            return fail("terminal-material-replay-ticket-missing")
+        }
+        guard !ledger.ticketConsumed else {
+            return fail("terminal-material-replay-ticket-reused")
+        }
+        guard ledger.claimConsumed, ledger.phase == .encoded,
+              ledger.candidateTails != nil,
+              ticket.finalTextureIdentity == ObjectIdentifier(ledger.prepared.finalTexture),
+              ticket.finalContent == ledger.prepared.finalResource.publication.candidate.content,
+              ticket.hasTerminalMaterialReplay == (ledger.prepared.terminalMaterialReplay != nil) else {
+            return fail("terminal-material-replay-ticket-mismatch")
+        }
+        guard ticket.hasTerminalMaterialReplay else {
+            lock.unlock()
+            return .notApplicable
+        }
+        guard let executor,
+              capabilities.resolve(ledger.capabilityToken)?.supportsTerminalMaterialReplay == true,
+              (ticket.finalContent == .color(.resolved(.opaque))
+                || ticket.finalContent == .color(.resolved(.premultipliedAlpha))),
+              ticket.effectFailures.isEmpty,
+              !ticket.consumesExternalPrimaryDependency,
+              ledger.commandBuffer.status == .notEnqueued,
+              mainPass.belongs(to: ledger.commandBuffer) else {
+            return fail("terminal-material-replay-target-rejected")
+        }
+        // Claim the one-shot receipt before appending commands. Encoding
+        // failure drops this frame; the compositor must not paint a fallback
+        // over a potentially partial main-target write.
+        ledger.ticketConsumed = true
+        activeByID[ticket.identity] = ledger
+        guard executor.encodeTerminalReplay(
+            ledger.prepared,
+            mainPass: mainPass,
+            commandBuffer: ledger.commandBuffer
+        ) else {
+            return fail("terminal-material-replay-encode-failed")
+        }
+        ledger.outputConsumed = true
+        ledger.compositorConsumed = true
+        ledger.phase = .outputConsumed
+        activeByID[ticket.identity] = ledger
+        scheduledTails = ledger.candidateTails ?? scheduledTails
+        lock.unlock()
+        return .consumed
+    }
+
     func markComposite(
         _ ticket: Bridge.ExecutionTicket,
         texture: MTLTexture,
@@ -337,6 +407,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               ledger.epoch == ticket.epoch,
               ledger.phase == .encoded,
               !ledger.ticketConsumed,
+              !ticket.hasTerminalMaterialReplay,
+              ledger.prepared.terminalMaterialReplay == nil,
               ticket.finalTextureIdentity == ObjectIdentifier(texture),
               texture === ledger.prepared.finalTexture,
               ledger.candidateTails != nil,
@@ -430,6 +502,15 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         }
         guard !ledger.ticketConsumed else {
             let reason = "\(reasonPrefix)-ticket-reused"
+            frameFailures += 1
+            emission = failActiveFrameLocked(reason: reason)
+            lock.unlock()
+            emit(emission)
+            return .failed(reasonCode: reason)
+        }
+        guard !ticket.hasTerminalMaterialReplay,
+              ledger.prepared.terminalMaterialReplay == nil else {
+            let reason = "\(reasonPrefix)-terminal-replay-receipt-required"
             frameFailures += 1
             emission = failActiveFrameLocked(reason: reason)
             lock.unlock()

@@ -37,6 +37,7 @@ SWIFT_SOURCES = list(dict.fromkeys([
 ]))
 SUPPORT = (
     EXECUTOR_FIXTURE["SUPPORT"]
+    .replace("final class SceneGraphRenderTargetResidencyPin {\n    func release() {}\n}\n", "")
     .replace(
         """struct SceneGraphCommandRuntime {
     init?(
@@ -145,6 +146,7 @@ SUPPORT = (
         let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
         let sceneBackgroundRequirement:
             SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement? = nil
+        let supportsTerminalMaterialReplay: Bool = false
     }
     enum Claim {
         case notMigrated
@@ -201,6 +203,7 @@ SUPPORT = (
         // Mechanical sync: the production request gained the lit
         // base-capture payload (D3 first slice).
         let sourceLighting: SceneBaseMaterialLitCapturePayload? = nil
+        let terminalReplayTarget: MTLTexture? = nil
         let frameInputs: FrameInputs
     }
     enum FramePreparationResult {
@@ -219,12 +222,30 @@ SUPPORT = (
         let finalContent: SceneTextureContent
         let consumesExternalPrimaryDependency: Bool
         let effectFailures: [EffectFailure]
+        let hasTerminalMaterialReplay: Bool
+
+        init(identity: UInt64, epoch: UInt64, finalTextureIdentity: ObjectIdentifier,
+             finalContent: SceneTextureContent, consumesExternalPrimaryDependency: Bool,
+             effectFailures: [EffectFailure], hasTerminalMaterialReplay: Bool = false) {
+            self.identity = identity
+            self.epoch = epoch
+            self.finalTextureIdentity = finalTextureIdentity
+            self.finalContent = finalContent
+            self.consumesExternalPrimaryDependency = consumesExternalPrimaryDependency
+            self.effectFailures = effectFailures
+            self.hasTerminalMaterialReplay = hasTerminalMaterialReplay
+        }
     }
     enum ExecutionResult {
         case encoded(texture: MTLTexture, ticket: ExecutionTicket)
         case failed(reasonCode: String)
     }
     enum CompositeOutcome {
+        case consumed
+        case failed(reasonCode: String)
+    }
+    enum TerminalMaterialReplayOutcome {
+        case notApplicable
         case consumed
         case failed(reasonCode: String)
     }

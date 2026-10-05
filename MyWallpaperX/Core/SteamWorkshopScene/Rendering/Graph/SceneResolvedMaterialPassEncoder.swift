@@ -1,5 +1,6 @@
 import Foundation
 import Metal
+import simd
 
 /// Prepares one already-finalized material Program before any commands are
 /// encoded. A graph executor can therefore prepare every pass first and only
@@ -11,6 +12,7 @@ final class SceneResolvedMaterialPassEncoder {
         let bindingSlots: [Int]
         let bindingSamplings: [SceneTextureSampling]
         let uniformByteCount: Int
+        let role: SceneResolvedMaterialProgram.PassRole
 
         fileprivate let ownerToken: UUID
         fileprivate let resetGeneration: UInt64
@@ -120,12 +122,18 @@ final class SceneResolvedMaterialPassEncoder {
     private func prepareAuthorizedResult(
         program: SceneResolvedMaterialProgram,
         target: MTLTexture,
-        attachmentStorage: SceneResolvedMaterialAttachmentKind
+        attachmentStorage: SceneResolvedMaterialAttachmentKind,
+        role: SceneResolvedMaterialProgram.PassRole = .offscreenOverwrite
     ) -> Result<PreparedPass, PreparationFailure> {
         guard let output = SceneResolvedMaterialAttachmentStorage.storedOutput(
             program.outputContract,
             attachmentStorage: attachmentStorage
         ) else { return .failure(.fragmentOutputRejected) }
+        if role == .terminalSourceOver,
+           output.colorRepresentation != .premultipliedAlpha,
+           output.colorRepresentation != .opaque {
+            return .failure(.fragmentOutputRejected)
+        }
         let storedContent = output.content
         guard SceneResolvedMaterialAttachmentStorage.target(
             target,
@@ -152,6 +160,7 @@ final class SceneResolvedMaterialPassEncoder {
             attachmentPixelFormat: target.pixelFormat,
             sampleCount: target.sampleCount,
             colorWriteMask: writeMask,
+            passRole: role,
             device: device
         ) else { return .failure(.compileStateKeyRejected) }
         let cached: (
@@ -182,6 +191,7 @@ final class SceneResolvedMaterialPassEncoder {
             bindingSlots: bindings.map(\.slot),
             bindingSamplings: bindings.map(\.sampling),
             uniformByteCount: program.uniformBytes.count,
+            role: role,
             ownerToken: ownerToken,
             resetGeneration: cached.generation,
             pipeline: cached.pipeline,
@@ -190,6 +200,30 @@ final class SceneResolvedMaterialPassEncoder {
             uniformBytes: program.uniformBytes,
             uniformBufferIndex: program.frontendProgram.uniformBufferIndex
         ))
+    }
+
+    func prepareTerminalReplay(
+        program: SceneResolvedMaterialProgram,
+        target: MTLTexture,
+        unitModelViewProjection: simd_float4x4
+    ) -> Result<PreparedPass, PreparationFailure> {
+        guard validUniforms(program),
+              let replay = program.terminalReplay(
+                unitModelViewProjection: unitModelViewProjection)
+        else { return .failure(.uniformsRejected) }
+        return prepareAuthorizedResult(program: replay, target: target,
+            attachmentStorage: .color, role: .terminalSourceOver)
+    }
+
+    func terminalDraw(
+        _ pass: PreparedPass,
+        target: MTLTexture,
+        commandBuffer: MTLCommandBuffer
+    ) -> ((MTLRenderCommandEncoder) -> Void)? {
+        guard pass.role == .terminalSourceOver,
+              target === pass.target,
+              isValid(pass, commandBuffer: commandBuffer) else { return nil }
+        return { [self] encoder in encodeDraw(pass, encoder: encoder) }
     }
 
     #if SCENE_GRAPH_TESTING
@@ -210,18 +244,8 @@ final class SceneResolvedMaterialPassEncoder {
         _ pass: PreparedPass,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
-        guard pass.ownerToken == ownerToken,
-              withLock({ pass.resetGeneration == resetGeneration }),
-              commandBuffer.status == .notEnqueued,
-              commandBuffer.commandQueue.device.registryID == device.registryID,
-              SceneResolvedMaterialAttachmentStorage.target(
-                  pass.target,
-                  belongsTo: device,
-                  stores: pass.storedContent
-              ),
-              pass.bindings.allSatisfy({ valid($0, target: pass.target) }) else {
-            return false
-        }
+        guard pass.role == .offscreenOverwrite,
+              isValid(pass, commandBuffer: commandBuffer) else { return false }
 
         let descriptor = MTLRenderPassDescriptor()
         descriptor.colorAttachments[0].texture = pass.target
@@ -249,6 +273,22 @@ final class SceneResolvedMaterialPassEncoder {
         }
         encoder.label = "Scene resolved material pass"
         SceneGPUCensus.recordOffscreenRender(.resolvedMaterial)
+        encodeDraw(pass, encoder: encoder)
+        encoder.endEncoding()
+        return true
+    }
+
+    private func isValid(_ pass: PreparedPass, commandBuffer: MTLCommandBuffer) -> Bool {
+        pass.ownerToken == ownerToken
+            && withLock { pass.resetGeneration == resetGeneration }
+            && commandBuffer.status == .notEnqueued
+            && commandBuffer.commandQueue.device.registryID == device.registryID
+            && SceneResolvedMaterialAttachmentStorage.target(
+                pass.target, belongsTo: device, stores: pass.storedContent)
+            && pass.bindings.allSatisfy { valid($0, target: pass.target) }
+    }
+
+    private func encodeDraw(_ pass: PreparedPass, encoder: MTLRenderCommandEncoder) {
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
         encoder.setRenderPipelineState(pass.pipeline)
         encoder.setCullMode(.none)
@@ -275,8 +315,6 @@ final class SceneResolvedMaterialPassEncoder {
         }
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
-        encoder.endEncoding()
-        return true
     }
 
     func reset() {
@@ -437,13 +475,19 @@ final class SceneResolvedMaterialPassEncoder {
                 return .failure(failure)
             }
         }
+        // Terminal replay must consume launch-prepared state; a missing key
+        // cannot introduce shader/PSO compilation into an ordinary frame.
+        guard key.passRole == .offscreenOverwrite else {
+            return .failure(.compileStateKeyRejected)
+        }
         compilationAttempts += 1
         switch compileUncachedPipeline(
             frontend: frontend,
             renderState: renderState,
             pixelFormat: pixelFormat,
             sampleCount: sampleCount,
-            writeMask: writeMask
+            writeMask: writeMask,
+            passRole: key.passRole
         ) {
         case let .success(pipeline):
             entries[key] = .ready(pipeline, origin: origin)
@@ -465,6 +509,7 @@ final class SceneResolvedMaterialPassEncoder {
         pixelFormat: MTLPixelFormat,
         sampleCount: Int,
         writeMask: MTLColorWriteMask,
+        passRole: SceneResolvedMaterialProgram.PassRole = .offscreenOverwrite,
         binaryArchiveSession: SceneResolvedMaterialPipelineBinaryArchive.Session? = nil
     ) -> Result<MTLRenderPipelineState, PreparationFailure> {
         guard renderState.supportsResolvedMaterialFullscreenOverwrite else {
@@ -491,7 +536,15 @@ final class SceneResolvedMaterialPassEncoder {
         descriptor.fragmentFunction = fragment
         descriptor.rasterSampleCount = sampleCount
         descriptor.colorAttachments[0].pixelFormat = pixelFormat
-        descriptor.colorAttachments[0].isBlendingEnabled = false
+        descriptor.colorAttachments[0].isBlendingEnabled = passRole == .terminalSourceOver
+        if passRole == .terminalSourceOver {
+            descriptor.colorAttachments[0].rgbBlendOperation = .add
+            descriptor.colorAttachments[0].sourceRGBBlendFactor = .one
+            descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+            descriptor.colorAttachments[0].alphaBlendOperation = .add
+            descriptor.colorAttachments[0].sourceAlphaBlendFactor = .one
+            descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+        }
         descriptor.colorAttachments[0].writeMask = writeMask
         if let binaryArchiveSession {
             binaryArchiveSession.attach(to: descriptor)

@@ -9,6 +9,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         let fragment: String
         let localizedMutableFragmentVaryings: Set<String>
         let activeAudioSpectrumArrays: Set<String>
+        let vertexPositionInput: SceneAuthoredShaderProgram.VertexPositionInput
     }
 
     enum Failure: Error, Equatable {
@@ -391,7 +392,8 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 fragment: source(stage: "fragment", value: fragment),
                 localizedMutableFragmentVaryings:
                     mutableVaryings.localizedNames,
-                activeAudioSpectrumArrays: activeAudioSpectrumArrays
+                activeAudioSpectrumArrays: activeAudioSpectrumArrays,
+                vertexPositionInput: usesTargetPixelPosition ? .targetPixels : .clipSpace
             ))
         } catch let failure as Failure {
             return .failure(failure)

@@ -19,6 +19,22 @@ final class SceneMainPassEncoder {
 
     var targetPixelFormat: MTLPixelFormat { target.pixelFormat }
 
+    func belongs(to commandBuffer: MTLCommandBuffer) -> Bool {
+        self.commandBuffer === commandBuffer
+    }
+
+    /// Validate a prepared draw against the actual attachment and submission
+    /// before beginning a render encoder or clearing any main-pass pixels.
+    func encodePreparedDraw(
+        _ prepare: (MTLTexture, MTLCommandBuffer) -> ((MTLRenderCommandEncoder) -> Void)?
+    ) -> Bool {
+        guard !isFinished,
+              let draw = prepare(target, commandBuffer),
+              let encoder = encoder() else { return false }
+        draw(encoder)
+        return true
+    }
+
     init(
         commandBuffer: MTLCommandBuffer,
         target: MTLTexture,

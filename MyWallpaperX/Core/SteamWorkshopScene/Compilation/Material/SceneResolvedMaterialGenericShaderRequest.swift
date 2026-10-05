@@ -33,9 +33,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
     ) -> String {
         var data = Data()
         for value in [
-            // v15 retires implicit sampling transforms and their uniform layout
-            // in default and MWX_SCENE_GENERIC_SHADER_CACHE override roots.
-            "mwx-generic-shader-request-v15",
+            // v16 requires a producer-proven vertex coordinate-domain fact
+            // in both default and override cache roots.
+            "mwx-generic-shader-request-v16",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,

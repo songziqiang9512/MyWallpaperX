@@ -14,6 +14,8 @@ extension SceneResolvedMaterialGraphExecutor {
         lease: SceneGraphRenderTargetLease,
         frame: SceneResolvedMaterialFrameSnapshot,
         frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
+        terminalReplayTarget: MTLTexture?,
+        terminalMaterialReplay: inout SceneResolvedMaterialPassEncoder.PreparedPass?,
         pair: inout PairAtom,
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command],
@@ -360,6 +362,25 @@ extension SceneResolvedMaterialGraphExecutor {
                     )
                 }
                 commands.append(.material(prepared))
+                if let terminalReplayTarget {
+                    switch materialEncoder.prepareTerminalReplay(
+                        program: program,
+                        target: terminalReplayTarget,
+                        unitModelViewProjection:
+                            frameInputs.effectOutputModelViewProjection
+                    ) {
+                    case let .success(replay):
+                        terminalMaterialReplay = replay
+                    case let .failure(failure):
+                        return .materialPassPreparationRejected(
+                            stageIndex: stageIndex,
+                            nodeIndex: nodeIndex,
+                            materialOrdinal: ordinal,
+                            programKey: program.preparedShader.cacheKey,
+                            failure: failure
+                        )
+                    }
+                }
                 programKeys.append(program.preparedShader.cacheKey)
                 recordTypedUserPropertyUniformPublications(
                     program: program,

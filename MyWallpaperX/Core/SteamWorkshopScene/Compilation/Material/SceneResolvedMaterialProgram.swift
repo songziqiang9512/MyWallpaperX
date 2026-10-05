@@ -1,4 +1,5 @@
 import Foundation
+import simd
 
 nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
     enum GenericOwnerFailure: String, Equatable {
@@ -594,6 +595,88 @@ nonisolated struct SceneResolvedMaterialProgram {
             derived: derived,
             routeDecision: routeDecision
         )
+    }
+
+    /// Replays the same finalized values at terminal raster density. Logical
+    /// render size, texture identities, selected variant and source bindings
+    /// remain frozen; only placement matrices and their exact bytes change.
+    func terminalReplay(unitModelViewProjection: simd_float4x4) -> Self? {
+        guard frontendProgram.supportsTerminalMaterialReplay,
+              let sizeUniform = resolvedUniforms.first(where: {
+            if case .host(.renderSize) = $0.source { return true }
+            return false
+        }), sizeUniform.field.type == .float2,
+              sizeUniform.encodedValue.count == MemoryLayout<SIMD2<Float>>.size,
+              resolvedUniforms.contains(where: {
+                  if case .host(.modelViewProjection) = $0.source { return true }
+                  return false
+              }) else { return nil }
+        let size = sizeUniform.encodedValue.withUnsafeBytes {
+            $0.loadUnaligned(as: SIMD2<Float>.self)
+        }
+        guard size.x.isFinite, size.y.isFinite, size.x > 0, size.y > 0 else {
+            return nil
+        }
+        let matrix = unitModelViewProjection * simd_float4x4(diagonal:
+            SIMD4<Float>(1 / size.x, 1 / size.y, 1, 1))
+        func finite(_ value: simd_float4x4) -> Bool {
+            (0..<4).allSatisfy { column in
+                (0..<4).allSatisfy { value[column][$0].isFinite }
+            }
+        }
+        guard finite(matrix) else { return nil }
+        var inverse = matrix_identity_float4x4
+        if resolvedUniforms.contains(where: {
+            if case .host(.modelViewProjectionInverse) = $0.source { return true }
+            return false
+        }) {
+            inverse = simd_inverse(matrix)
+            guard finite(inverse) else { return nil }
+        }
+        var replacementBytes = uniformBytes
+        var replacementUniforms: [ResolvedUniform] = []
+        for uniform in resolvedUniforms {
+            var replacement: simd_float4x4
+            switch uniform.source {
+            case .host(.modelViewProjection): replacement = matrix
+            case .host(.modelViewProjectionInverse): replacement = inverse
+            default:
+                replacementUniforms.append(uniform)
+                continue
+            }
+            let field = uniform.field
+            guard field.type == .float4x4, field.arrayCount == nil,
+                  field.offset >= 0, field.offset <= replacementBytes.count,
+                  field.storageByteSize == MemoryLayout<simd_float4x4>.size,
+                  field.storageByteSize <= replacementBytes.count - field.offset
+            else { return nil }
+            let encoded = withUnsafeBytes(of: &replacement) { Data($0) }
+            replacementBytes.replaceSubrange(
+                field.offset ..< field.offset + field.storageByteSize, with: encoded)
+            replacementUniforms.append(.init(
+                field: field, source: uniform.source, encodedValue: encoded))
+        }
+        return Self(replaying: self, uniforms: replacementUniforms,
+                    bytes: replacementBytes)
+    }
+
+    private init(replaying program: Self, uniforms: [ResolvedUniform], bytes: Data) {
+        preparedShader = program.preparedShader
+        routeDecision = program.routeDecision
+        frontendProgram = program.frontendProgram
+        textureSlots = program.textureSlots
+        resolvedUniforms = uniforms
+        uniformBytes = bytes
+        renderState = program.renderState
+        outputContract = program.outputContract
+        semanticIdentity = program.semanticIdentity
+        runtimeLoopBounds = program.runtimeLoopBounds
+        exactIdentity = .init(
+            semanticIdentity: semanticIdentity,
+            prepared: program.exactIdentity.prepared,
+            textureSlots: program.exactIdentity.textureSlots,
+            uniformBytes: bytes,
+            dynamicUniforms: program.exactIdentity.dynamicUniforms)
     }
 
     private init(input: AssemblyInput, derived: Derived) {

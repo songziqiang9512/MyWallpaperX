@@ -77,6 +77,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         premultipliedColorInputSlots: Set<Int> = [],
         defaultBoundaryColorSlots: Set<Int> = [],
         stages: [Stage],
+        vertexPositionInput: SceneAuthoredShaderProgram.VertexPositionInput? = nil,
         loopGuardCap: Int? = nil,
         maximumArtifactBytes: Int
     ) -> Result<SceneGenericShaderProgramArtifact, Failure> {
@@ -299,7 +300,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 premultipliedColorInputSlots:
                     premultipliedColorInputSlots.sorted(),
                 colorTransfer: color.transfer,
-                fragmentOutputChannelUse: outputChannelUse.rawValue
+                fragmentOutputChannelUse: outputChannelUse.rawValue,
+                vertexPositionInput: vertexPositionInput?.rawValue
             )
             return .success(.init(
                 backendID: backendID,

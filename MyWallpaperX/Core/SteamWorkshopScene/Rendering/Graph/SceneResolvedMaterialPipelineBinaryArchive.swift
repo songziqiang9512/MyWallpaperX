@@ -161,6 +161,7 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
         pixelFormat: MTLPixelFormat,
         sampleCount: Int,
         writeMask: MTLColorWriteMask,
+        passRole: SceneResolvedMaterialProgram.PassRole = .offscreenOverwrite,
         device: MTLDevice
     ) -> Session? {
         guard let digest = keyDigest(
@@ -169,6 +170,7 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
             pixelFormat: pixelFormat,
             sampleCount: sampleCount,
             writeMask: writeMask,
+            passRole: passRole,
             device: device
         ) else { return nil }
         var loadedArchive: MTLBinaryArchive?
@@ -233,6 +235,7 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
         pixelFormat: MTLPixelFormat,
         sampleCount: Int,
         writeMask: MTLColorWriteMask,
+        passRole: SceneResolvedMaterialProgram.PassRole = .offscreenOverwrite,
         device: MTLDevice
     ) -> String? {
         guard device.registryID != 0,
@@ -254,6 +257,7 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
         digest.append(String(pixelFormat.rawValue))
         digest.append(String(sampleCount))
         digest.append(String(writeMask.rawValue))
+        digest.append(passRole.rawValue)
         digest.append(frontend.vertexFunctionName)
         digest.append(frontend.fragmentFunctionName)
         digest.append(String(frontend.uniformBufferIndex))

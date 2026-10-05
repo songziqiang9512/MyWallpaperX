@@ -78,6 +78,7 @@ final class SceneResolvedMaterialGraphExecutor {
         let finalResource: SceneFrameTextureResource
         let historyTokensByEffect: [Graph.EffectKey: Set<State.PhysicalToken>]
         let sceneBackgroundResource: SceneFrameTextureResource?
+        var terminalMaterialReplay: SceneResolvedMaterialPassEncoder.PreparedPass? = nil
 
         fileprivate let ownerToken: UUID
         fileprivate let resetGeneration: UInt64
@@ -164,6 +165,7 @@ final class SceneResolvedMaterialGraphExecutor {
         sourceUniforms: SceneLayerFragmentUniforms?,
         sourcePipeline: SceneImageLayerPipeline,
         sourceLighting: SceneBaseMaterialLitCapturePayload? = nil,
+        terminalReplayTarget: MTLTexture? = nil,
         frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
         commandBuffer: MTLCommandBuffer,
         previousStates: [Graph.EffectKey: State],
@@ -310,6 +312,7 @@ final class SceneResolvedMaterialGraphExecutor {
             capability.pairPlan.baseCaptureIdentity: base,
         ]
         var stages: [PreparedStage] = []
+        var terminalMaterialReplay: SceneResolvedMaterialPassEncoder.PreparedPass?
 
         for index in capability.stages.indices {
             var stageCommands: [Command] = []
@@ -382,6 +385,9 @@ final class SceneResolvedMaterialGraphExecutor {
                 lease: lease,
                 frame: executionFrame,
                 frameInputs: frameInputs,
+                terminalReplayTarget: capability.supportsTerminalMaterialReplay
+                    ? terminalReplayTarget : nil,
+                terminalMaterialReplay: &terminalMaterialReplay,
                 pair: &pair,
                 publications: &publications,
                 commands: &stageCommands,
@@ -464,6 +470,7 @@ final class SceneResolvedMaterialGraphExecutor {
             finalResource: terminal,
             historyTokensByEffect: historyTokens,
             sceneBackgroundResource: sceneBackgroundResource,
+            terminalMaterialReplay: terminalMaterialReplay,
             ownerToken: ownerToken,
             resetGeneration: self.resetGeneration,
             queueIdentity: queueIdentity,
@@ -479,6 +486,23 @@ final class SceneResolvedMaterialGraphExecutor {
             commandBuffer: commandBuffer
         ) { return true }
         return false
+    }
+
+    /// The submission owner consumes this distinct terminal draw receipt;
+    /// the small graph output remains a real, independently encoded texture.
+    func encodeTerminalReplay(
+        _ preparedGraph: PreparedGraph,
+        mainPass: SceneMainPassEncoder,
+        commandBuffer: MTLCommandBuffer
+    ) -> Bool {
+        guard preparedGraph.ownerToken == ownerToken,
+              preparedGraph.resetGeneration == resetGeneration,
+              preparedGraph.queueIdentity == ObjectIdentifier(commandBuffer.commandQueue),
+              mainPass.belongs(to: commandBuffer),
+              let replay = preparedGraph.terminalMaterialReplay else { return false }
+        return mainPass.encodePreparedDraw { target, buffer in
+            materialEncoder.terminalDraw(replay, target: target, commandBuffer: buffer)
+        }
     }
 
     func encodeResult(

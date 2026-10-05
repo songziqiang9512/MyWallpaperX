@@ -333,6 +333,10 @@ nonisolated enum SceneShaderColorTransfer: Codable, Equatable, Hashable, Sendabl
 }
 
 nonisolated struct SceneAuthoredShaderProgram: Codable {
+    enum VertexPositionInput: String, Codable, Hashable, Sendable {
+        case clipSpace, targetPixels
+    }
+
     enum Backend: String, Codable, Equatable, Hashable, Sendable {
         case boundedSwift
         case genericCompilerArtifact
@@ -378,6 +382,10 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
     let colorTransfer: SceneShaderColorTransfer
     let fragmentOutputChannelUse: FragmentOutputChannelUse
     let backend: Backend
+    /// Missing in older artifacts: absence never authorizes terminal replay.
+    let vertexPositionInput: VertexPositionInput?
+
+    var supportsTerminalMaterialReplay: Bool { vertexPositionInput == .targetPixels }
 
     func channelUse(forTextureSlot slot: Int) -> TextureBinding.ChannelUse? {
         textureBindings.first(where: { $0.slot == slot })?.channelUse
@@ -393,7 +401,8 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
         staticLoopWork: Int,
         colorTransfer: SceneShaderColorTransfer,
         fragmentOutputChannelUse: FragmentOutputChannelUse = .unproven,
-        backend: Backend = .boundedSwift
+        backend: Backend = .boundedSwift,
+        vertexPositionInput: VertexPositionInput? = nil
     ) {
         self.metalSource = metalSource
         self.vertexFunctionName = vertexFunctionName
@@ -405,6 +414,7 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
         self.colorTransfer = colorTransfer
         self.fragmentOutputChannelUse = fragmentOutputChannelUse
         self.backend = backend
+        self.vertexPositionInput = vertexPositionInput
     }
 
     func offscreenSize(viewportSize: CGSize) -> CGSize? {

@@ -534,7 +534,8 @@
         "test_scene_resolved_material_runtime_bridge",
         "test_scene_frame_rejection_fault",
         "test_scene_surface_submission",
-        "test_scene_utility_layers"
+        "test_scene_utility_layers",
+        "test_scene_terminal_material_receipt"
       ]
     },
     {
@@ -1039,7 +1040,8 @@
         "test_scene_persistent_history_visual_failure_rollback",
         "test_scene_persistent_history_visual_failure_gpu",
         "test_scene_material_texture_transform",
-        "test_scene_resolved_material_pass_encoder"
+        "test_scene_resolved_material_pass_encoder",
+        "test_scene_terminal_material_graph"
       ]
     },
     {
@@ -2149,7 +2151,8 @@
         "test_scene_frame_rejection_fault",
         "test_scene_surface_submission",
         "test_scene_captured_main_preflight_fallback",
-        "test_scene_material_copy_history_rendering"
+        "test_scene_material_copy_history_rendering",
+        "test_scene_terminal_material_receipt"
       ]
     },
     {

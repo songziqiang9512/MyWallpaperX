@@ -281,6 +281,7 @@ private struct PositionInputOutput: Codable {
     let directUsesClipSpace: Bool
     let directAvoidsTargetPixels: Bool
     let projectedUsesTargetPixels: Bool
+    let typedPositionFacts: Bool
 }
 
 private struct VaryingLinkOutput: Codable {
@@ -2076,13 +2077,13 @@ private struct GenericShaderArtifactHarness {
                 "    gl_FragColor = texture(g_Texture0, v_TexCoord);",
                 "}",
             ].joined(separator: "\n")
-            func normalized(_ vertex: String) throws -> String {
+            func normalized(_ vertex: String) throws -> SceneGenericShaderSourceNormalizer.Pair {
                 switch SceneGenericShaderSourceNormalizer.normalize(
                     vertexSource: vertex,
                     fragmentSource: fragment,
                     maximumStageSourceBytes: 64 * 1_024
                 ) {
-                case let .success(pair): return pair.vertex
+                case let .success(pair): return pair
                 case let .failure(failure): throw failure
                 }
             }
@@ -2108,15 +2109,17 @@ private struct GenericShaderArtifactHarness {
                 "}",
             ].joined(separator: "\n"))
             let output = PositionInputOutput(
-                directUsesClipSpace: direct.contains(
+                directUsesClipSpace: direct.vertex.contains(
                     "mwxPosition * 2.0 - vec2(1.0)"
                 ),
-                directAvoidsTargetPixels: !direct.contains(
+                directAvoidsTargetPixels: !direct.vertex.contains(
                     "(mwxPosition - vec2(0.5)) * mwxRenderSize"
                 ),
-                projectedUsesTargetPixels: projected.contains(
+                projectedUsesTargetPixels: projected.vertex.contains(
                     "(mwxPosition - vec2(0.5)) * mwxRenderSize"
-                )
+                ),
+                typedPositionFacts: direct.vertexPositionInput == .clipSpace
+                    && projected.vertexPositionInput == .targetPixels
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -6005,6 +6008,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "directUsesClipSpace": True,
             "directAvoidsTargetPixels": True,
             "projectedUsesTargetPixels": True,
+            "typedPositionFacts": True,
         })
 
     def test_request_export_and_source_keyed_artifact_acceptance(self):

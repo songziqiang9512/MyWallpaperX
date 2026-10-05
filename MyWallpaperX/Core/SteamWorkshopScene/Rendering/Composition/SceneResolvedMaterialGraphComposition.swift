@@ -371,6 +371,40 @@ extension SceneImageLayerCompositor {
         return false
     }
 
+    func consumeResolvedMaterialTerminalReplay(
+        _ ticket: SceneResolvedMaterialRuntimeBridge.ExecutionTicket,
+        mainPass: SceneMainPassEncoder,
+        layerID: Int,
+        executionTrace: SceneEffectExecutionFrameTrace?,
+        executionOrigin: SceneEffectExecutionOrigin
+    ) -> Bool {
+        guard let resolvedMaterialRuntime else { return false }
+        let reason: String
+        switch resolvedMaterialRuntime.drawTerminalMaterialReplay(
+            ticket, mainPass: mainPass
+        ) {
+        case .consumed:
+            executionTrace?.recordRouteOperation(
+                layerID: layerID,
+                origin: executionOrigin,
+                operation: "terminal-material-replay",
+                outcome: .encoded
+            )
+            return true
+        case .notApplicable:
+            reason = "terminal-material-replay-unprepared"
+        case let .failed(reasonCode):
+            reason = reasonCode
+        }
+        executionTrace?.recordRouteOperation(
+            layerID: layerID,
+            origin: executionOrigin,
+            operation: "terminal-material-replay",
+            outcome: .failed(reasonCode: reason)
+        )
+        return false
+    }
+
     func consumeResolvedMaterialComposite(
         _ ticket: SceneResolvedMaterialRuntimeBridge.ExecutionTicket,
         texture: MTLTexture,

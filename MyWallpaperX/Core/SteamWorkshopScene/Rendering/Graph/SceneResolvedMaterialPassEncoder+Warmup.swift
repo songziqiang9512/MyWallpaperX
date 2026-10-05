@@ -22,6 +22,7 @@ extension SceneResolvedMaterialPassEncoder {
             pixelFormat: MTLPixelFormat,
             sampleCount: Int = 1,
             writeMask: MTLColorWriteMask,
+            passRole: SceneResolvedMaterialProgram.PassRole = .offscreenOverwrite,
             device: MTLDevice
         ) {
             guard !identity.isEmpty, !preparedKey.isEmpty,
@@ -32,6 +33,7 @@ extension SceneResolvedMaterialPassEncoder {
                       attachmentPixelFormatRawValue: pixelFormat.rawValue,
                       sampleCount: sampleCount,
                       colorWriteMaskRawValue: writeMask.rawValue,
+                      passRole: passRole,
                       deviceRegistryID: device.registryID
                   ) else { return nil }
             self.identity = identity
@@ -148,6 +150,7 @@ extension SceneResolvedMaterialPassEncoder {
                 pixelFormat: plan.pixelFormat,
                 sampleCount: plan.sampleCount,
                 writeMask: plan.writeMask,
+                passRole: plan.key.passRole,
                 device: device
             )
         let result = compileUncachedPipeline(
@@ -156,6 +159,7 @@ extension SceneResolvedMaterialPassEncoder {
             pixelFormat: plan.pixelFormat,
             sampleCount: plan.sampleCount,
             writeMask: plan.writeMask,
+            passRole: plan.key.passRole,
             binaryArchiveSession: binaryArchiveSession
         )
         lock.lock()

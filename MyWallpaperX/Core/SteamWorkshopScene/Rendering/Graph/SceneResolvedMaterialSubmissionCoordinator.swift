@@ -472,6 +472,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 sourceUniforms: request.sourceUniforms,
                 sourcePipeline: request.sourcePipeline,
                 sourceLighting: request.sourceLighting,
+                terminalReplayTarget: request.terminalReplayTarget,
                 frameInputs: frameInputs,
                 commandBuffer: commandBuffer,
                 previousStates: provisionalTails.mapValues(\.state),

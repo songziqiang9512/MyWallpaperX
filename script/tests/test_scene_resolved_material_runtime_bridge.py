@@ -146,6 +146,7 @@ SUBMISSION_SWIFT_SOURCES = [
     SUBMISSION_COMPLETION,
     SUBMISSION_FRAME_COMMIT,
     SUBMISSION_EXECUTION,
+    SCENE_ROOT / "Rendering/Composition/SceneMainPassEncoder.swift",
 ]
 COMPOSITOR_UNIFORMS = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor+Uniforms.swift"
@@ -193,6 +194,7 @@ SUBMISSION_COORDINATOR_FIXTURE = "\n".join(
     (Path(__file__).with_name("fixtures") / name).read_text(encoding="utf-8")
     for name in (
         "SceneSubmissionCoordinatorDependencies.swift",
+        "SceneSubmissionTerminalReplayChecks.swift",
         "SceneSubmissionScenarioInputs.swift",
         "SceneSubmissionAdmissionChecks.swift",
         "SceneSubmissionPublicationChecks.swift",

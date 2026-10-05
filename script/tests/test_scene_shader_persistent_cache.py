@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+import re
 from pathlib import Path
 
 
@@ -51,6 +52,12 @@ class SceneShaderPersistentCacheTests(unittest.TestCase):
         self.assertIn("ProgramCacheDigest.hash(Data(vertexSource.utf8))", key)
         self.assertIn("ProgramCacheDigest.hash(Data(fragmentSource.utf8))", key)
         self.assertNotIn("SceneShaderVariantEnvironment", key)
+
+    def test_terminal_coordinate_fact_retires_older_frontend_cache(self) -> None:
+        key = declaration_body(self.frontend, "private struct ProgramCacheKey")
+        version = re.search(r"cacheSchemaVersion = (\d+)", key)
+        self.assertIsNotNone(version)
+        self.assertGreaterEqual(int(version.group(1)), 11)
 
     def test_preparation_key_covers_graph_variant_and_resource_facts(self) -> None:
         key = declaration_body(self.preparation, "private struct PreparationCacheKey")
