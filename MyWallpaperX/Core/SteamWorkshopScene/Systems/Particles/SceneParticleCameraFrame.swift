@@ -61,6 +61,9 @@ struct SceneParticleCameraFrame: Sendable {
     let cameraOrigin: SIMD3<Float>
     let perspectiveEyePosition: SIMD3<Float>
     let defaultsToPerspective: Bool
+    /// Native SceneScript polling uses the far-plane point, not a layer hit.
+    /// Keep its extent with the camera that owns the render projection.
+    private let nativeFarPlane: SIMD3<Float>?
 
     init(
         camera: SceneRenderDescriptor.CameraDescriptor,
@@ -95,6 +98,11 @@ struct SceneParticleCameraFrame: Sendable {
                 ? cameraZoom : 1
             let fovY = 2 * atan(tan(native.fovY * 0.5) / safeZoom)
             let aspect = Float(viewportSize.width / viewportSize.height)
+            let farHalfHeight = camera.farZ * tan(fovY * 0.5)
+            nativeFarPlane = camera.nearZ.isFinite && camera.nearZ > 0
+                && camera.farZ.isFinite && camera.farZ > camera.nearZ
+                ? SIMD3(farHalfHeight * aspect, farHalfHeight, camera.farZ)
+                : nil
             let view = SceneMatrix.lookAt(
                 eye: eye,
                 center: center,
@@ -125,6 +133,7 @@ struct SceneParticleCameraFrame: Sendable {
             return
         }
 
+        nativeFarPlane = nil
         let orthoWidth = camera.orthoWidth ?? Float(viewportSize.width)
         let orthoHeight = camera.orthoHeight ?? Float(viewportSize.height)
         let hasValidScene = orthoWidth.isFinite && orthoHeight.isFinite
@@ -207,6 +216,19 @@ struct SceneParticleCameraFrame: Sendable {
             perspectiveViewProjection
         )
         defaultsToPerspective = false
+    }
+
+    /// Evaluate the same native camera frustum analytically: inverting its
+    /// Float depth matrix loses far-plane precision for large far/near ratios.
+    /// Preserve outside positions so captured drags remain continuous.
+    func nativeCursorWorldPosition(_ normalized: SIMD2<Float>) -> SIMD3<Float>? {
+        guard let plane = nativeFarPlane,
+              normalized.x.isFinite, normalized.y.isFinite else { return nil }
+        let point = perspectiveEyePosition + cameraForward * plane.z
+            + cameraRight * (normalized.x * plane.x)
+            + cameraUp * (normalized.y * plane.y)
+        guard point.x.isFinite, point.y.isFinite, point.z.isFinite else { return nil }
+        return point
     }
 
     /// xyz is an eye (w=1) or the parallel toward-viewer direction (w=0).

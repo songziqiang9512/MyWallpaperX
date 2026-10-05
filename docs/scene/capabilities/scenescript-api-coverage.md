@@ -274,7 +274,7 @@ existing inline source/binding IR
 
 | API | 官方含义 | 等级 | 当前证据 | 缺口与验收门 |
 |---|---|---:|---|---|
-| `input.cursorWorldPosition` | 当前cursor世界坐标，当前主要X/Y | `L3 bounded single-surface / S4 representative visible` | 同帧未裁剪AppKit位置经现有orthographic camera inverse成为冻结Vec3；合法大canvas/depth矩阵使用finite inverse/residual门。C门覆盖逐callback刷新/global拒绝/非法ABI；代表text consumer完成，stock clock已越过本getter | parent/perspective、resize、屏外/event同帧golden、multi-surface与官方数值对照 |
+| `input.cursorWorldPosition` | 当前cursor世界坐标 | `L3 single-surface / S4 representative` | 同帧冻结Vec3：2D按正交camera inverse及author Y转换；native 3D取同一camera远平面，复用basis/FOV/zoom/farZ，保留越界。polling与event命中点独立，坏值局部拒绝；[实现/边界](../history/native-perspective-cursor-implementation-2026-10-06.md) | 官方已验固定camera两种farZ；动态camera/多surface与事件组合未全面对照 |
 | `input.cursorScreenPosition` | 屏幕像素坐标 | `L3 bounded single-surface / S4 representative visible` | 与world getter共用surface snapshot，以drawable物理像素和top-down Y发布冻结`{x,y}`；无精确surface局部拒绝 | Retina缩放、跨屏origin、resize、坐标取整与官方golden |
 | `input.cursorLeftDown` | 左键当前状态 | `L3 bounded single-surface / S3 executed` | 同一surface snapshot读取当前AppKit primary-button identity；getter只在callback开放，代表consumer同轮执行。ordered event batch另向cursor callback保留同帧down/up，不把polling getter伪装成事件流 | polling仍只表示callback时current状态；失焦、multi-button/multi-surface与官方时序对照仍缺 |
 | `CursorEvent.worldPosition/localPosition/hitBox?` | 事件时 world/local 坐标与 puppet hit box；声明明确 screenPosition/button 未使用 | `L3 bounded world/local` | generic enter/leave/down/up/click均在dispatch前复制immutable world/local Vec3；命中与投影复用renderer canonical world frame，真实`3768229922:202`证明省略local transform的parented child可正确click。C/Swift门锁定DTO不可写，当前不伪造`hitBox` | rotated/perspective/puppet数值、复杂parent mutation、detail identity、event时序/坐标官方对照；未使用字段不得伪造 |

@@ -40,10 +40,16 @@ extension SceneMetalView {
             audioSpectrum: .silent
         )
         let cameraFrame = renderer.makeCameraFrame(frameContext: frameContext)
-        guard let world = SceneLayerCursorGeometry.layerPoint(
-            mouseNormalized: pointer.normalizedPosition,
-            modelViewProjection: cameraFrame.orthographicViewProjection
-        ) else { return nil }
+        let world: SIMD3<Float>?
+        if cameraFrame.defaultsToPerspective {
+            world = cameraFrame.nativeCursorWorldPosition(pointer.normalizedPosition)
+        } else {
+            world = SceneLayerCursorGeometry.layerPoint(
+                mouseNormalized: pointer.normalizedPosition,
+                modelViewProjection: cameraFrame.orthographicViewProjection
+            )
+        }
+        guard let world else { return nil }
         let authoredWorld = SceneLayerCursorGeometry.authoredWorldPosition(
             world,
             sceneOrthoHeight: renderer.renderDescriptor.camera.orthoHeight

@@ -225,7 +225,36 @@ enum Harness {
             cameraOrigin: SIMD3(.nan, 4, 5)
         )
 
+        func pollingFrame(far: Float, eye: [Float] = [0, 0, 10],
+                          center: [Float] = [0, 0, 0], zoom: Float = 1,
+                          viewport: CGSize = CGSize(width: 2268, height: 1473)) -> SceneParticleCameraFrame {
+            SceneParticleCameraFrame(camera: .init(
+                eye: eye, center: center, up: [0, 1, 0],
+                orthoWidth: nil, orthoHeight: nil, fovDegrees: 50,
+                perspectiveOverrideFOVDegrees: nil, nearZ: 0.01, farZ: far
+            ), viewportSize: viewport, cameraZoom: zoom)
+        }
+        let polling = pollingFrame(far: 10_000)
+        let cursorSamples = [SIMD2<Float>(0, 1 / 1473), SIMD2(0.5, 1 / 1473)]
+        let pollingValues = cursorSamples.map { vector3(polling.nativeCursorWorldPosition($0)!) }
+        let pollingHalfFar = cursorSamples.map { vector3(pollingFrame(far: 5000).nativeCursorWorldPosition($0)!) }
+        let rotatedPolling = pollingFrame(far: 5000, eye: [10, 2, 0], center: [0, 2, 0])
+
         let result: [String: Any] = [
+            "pollingValues": pollingValues,
+            "pollingHalfFar": pollingHalfFar,
+            "pollingRotated": vector3(rotatedPolling.nativeCursorWorldPosition(.init(0.5, 0))!),
+            "pollingZoom": vector3(pollingFrame(far: 10_000, zoom: 2).nativeCursorWorldPosition(.init(0.5, 0))!),
+            "pollingResize": vector3(pollingFrame(far: 10_000, viewport: CGSize(width: 1473, height: 1473)).nativeCursorWorldPosition(.init(0.5, 0))!),
+            "pollingOutside": vector3(polling.nativeCursorWorldPosition(.init(2, -2))!),
+            "pollingActiveCamera": vector3(activeCameraFrame.nativeCursorWorldPosition(.zero)!),
+            "pollingInvalidRejected": [
+                polling.nativeCursorWorldPosition(.init(.nan, 0)) == nil,
+                polling.nativeCursorWorldPosition(.init(0, .infinity)) == nil,
+                pollingFrame(far: 0).nativeCursorWorldPosition(.zero) == nil,
+                pollingFrame(far: .infinity).nativeCursorWorldPosition(.zero) == nil,
+                frame.nativeCursorWorldPosition(.zero) == nil,
+            ],
             "canvasPerspectiveCardTop": ndc(frame.perspectiveViewProjection,
                 center + SIMD4(0, 10 * SceneCameraProjection.imageCardYDirection(
                     usesPerspective: true, sceneOrthoHeight: camera.orthoHeight), 0, 0)),
@@ -451,6 +480,29 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_native_polling_matches_official_far_plane_points(self):
+        # Official own probe: FOV50, eye(0,0,10), 2268x1473, cursor y=736.
+        for actual, expected in zip(self.result["pollingValues"],
+                                    [[0, 3.165749073, -9990.00097656],
+                                     [3589.904785156, 3.165749073, -9990.00097656]]):
+            for value, reference in zip(actual, expected):
+                self.assertAlmostEqual(value, reference, delta=0.01)
+        for actual, full in zip(self.result["pollingHalfFar"], self.result["pollingValues"]):
+            self.assertAlmostEqual(actual[0], full[0] / 2, delta=0.001)
+            self.assertAlmostEqual(actual[1], full[1] / 2, delta=0.001)
+            self.assertAlmostEqual(actual[2], -4990, delta=0.001)
+
+    def test_native_polling_tracks_camera_zoom_resize_and_outside_drag(self):
+        import math
+        half = 5000 * math.tan(math.radians(25))
+        for actual, expected in zip(self.result["pollingRotated"], [-4990, 2, -half * 2268 / 1473 * 0.5]):
+            self.assertAlmostEqual(actual, expected, delta=0.001)
+        self.assertAlmostEqual(self.result["pollingZoom"][0], self.result["pollingValues"][1][0] / 2, delta=0.001)
+        self.assertAlmostEqual(self.result["pollingResize"][0], half, delta=0.001)
+        self.assertAlmostEqual(self.result["pollingOutside"][0], self.result["pollingValues"][1][0] * 4, delta=0.01)
+        self.assertEqual(self.result["pollingActiveCamera"], [0, 0, -9994])
+        self.assertTrue(all(self.result["pollingInvalidRejected"]))
 
     def test_material_view_uses_projection_owner(self):
         self.assertEqual(self.result['materialViewOrtho'],[0,0,1])

@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-06 | Scene | 实施证据 | [3D鼠标世界坐标](native-perspective-cursor-implementation-2026-10-06.md) | 官方far-plane反例、唯一camera出口与真实拖动 | [SceneScript API](../capabilities/scenescript-api-coverage.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-06 | Scene | 实施证据 | [模型材质值脚本](model-material-value-scripts-implementation-2026-10-06.md) | 共享 VM 到原材料 consumer、隐藏模型准入与太阳近景格线/颜色修复 | [架构](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-06 | Scene | 实施证据 | [SDR正常颜色恢复](sdr-white-preservation-implementation-2026-10-06.md) | 取消无条件白点压暗，保留超白Bloom和raw历史 | [D2设计](../roadmap/batch2/hdr-tonemap-edr-design.md)、[执行卡](../roadmap/batch2/reference-evidence-implementation-cards.md) |
 | 2026-10-06 | Scene | 实施证据 | [新分配completion交错](scene-allocating-targets-implementation-2026-10-06.md) | mixed/shared成功分配的身份复验与339启动后继 | [架构](../architecture/runtime-architecture.md)、[RF05卡](../roadmap/batch2/reference-evidence-implementation-cards.md) |

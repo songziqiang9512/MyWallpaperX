@@ -25,11 +25,11 @@ HARNESS = r'''
         }
         return (.init(bindings:bindings,generation:1),owners)
     }
-    static func sample(_ x: Double, _ down: Bool, hit: Bool = true) -> SceneScriptCursorFrameSample {
+    static func sample(_ x: Double, _ down: Bool, hit: Bool = true, pollingScale: Double = 10) -> SceneScriptCursorFrameSample {
         let h = SceneScriptCursorHit(layerID:1,worldPosition:.init(x*10,0,0),localPosition:.init(x,0,0))
         return .init(hits:hit ? [1:h] : [:],ownerProjections:[1:h],pointerPosition:.init(Float(x),0),
             primaryButtonIsDown:down,surface:.init(canvasSize:.init(100,100),screenSize:.init(100,100),
-                cursorWorldPosition:.init(x*10,0,0),cursorScreenPosition:.init(x,0),cursorLeftDown:down))
+                cursorWorldPosition:.init(x*pollingScale,0,-9000),cursorScreenPosition:.init(x,0),cursorLeftDown:down))
     }
     static func click(_ x: Double) -> [SceneScriptCursorFrameSample] { [sample(x,false),sample(x,true),sample(x,false)] }
     static func dispatch(_ p: SceneScriptCursorProgram, _ samples:[SceneScriptCursorFrameSample], overflow:Bool = false) -> SceneScriptCursorFrameResult {
@@ -76,13 +76,13 @@ HARNESS = r'''
         let (surface,_) = try make([(.origin,"""
             let n=0;
             function check(e,down){
-                if(e.localPosition.x!==10 || e.worldPosition.x!==100 || input.cursorWorldPosition.x!==100 ||
+                if(e.localPosition.x!==10 || e.worldPosition.x!==100 || input.cursorWorldPosition.x!==10000 || input.cursorWorldPosition.z!==-9000 ||
                    input.cursorScreenPosition.x!==10 || input.cursorLeftDown!==down)throw new Error('input changed');
                 thisLayer.origin=new Vec3(++n,engine.runtime,0);
             }
             export function cursorDown(e){check(e,true);} export function cursorUp(e){check(e,false);}
             """)])
-        _ = dispatch(surface,click(10));surface.finalizeLayerMutations(committing:true,rejectedOwnerTargets:[target()])
+        _ = dispatch(surface,[sample(10,false,pollingScale:1000),sample(10,true,pollingScale:1000),sample(10,false,pollingScale:1000)]);surface.finalizeLayerMutations(committing:true,rejectedOwnerTargets:[target()])
         let laterFrame = SceneScriptFrameInput(timing:.init(wallDate:Date(timeIntervalSince1970:3),simulationFrameTime:0.016,sceneTime:3))
         let exact = surface.dispatch(batch:.init(samples:[sample(99,false)],overflowed:false),frame:laterFrame,userPropertiesJSON:"{}")
         out["savedSurfaceFailures"] = exact.failures.count;out["savedSurfaceRetry"] = values(exact)
