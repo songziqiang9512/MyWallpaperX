@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-05 | Scene | 运行修复 | [初始隐藏媒体封面](media-inactive-dependency-implementation-2026-10-05.md) | potential依赖到最终计划的同一引用守恒及293受控媒体画面 | [能力台账](../capabilities/coverage-ledger.md)、[当前证据](../capabilities/runtime-evidence-current.md) |
 | 2026-10-05 | Scene | 实施证据 | [文件纹理原位更新](user-texture-live-update-implementation-2026-10-05.md) | 异步单key事务、solid绘制修复及293四文件键实际像素；失败/reset/重放边界 | [架构](../architecture/runtime-architecture.md)、[能力台账](../capabilities/coverage-ledger.md)、[运行证据](../capabilities/runtime-evidence-current.md) |
 | 2026-09-30 | Scene | 样本诊断 | [新样本缺口分析](new-sample-gap-analysis-2026-09-30.md) | 当时12个问题样本与后续8个代表运行、失败解释及证据边界；旧composition解释已在页首更正 | [能力台账](../capabilities/coverage-ledger.md)、[兼容路线](../roadmap/scene-compatibility-roadmap.md) |
 | 2026-10-03 | Scene | 实施证据 | [RF04 A 完成画面反射源](rf04-completed-scene-environment-implementation-2026-10-03.md) | 原history owner、可选预算让位、真实mip/receipt与后置层App差分；B仍未准入 | [架构](../architecture/runtime-architecture.md)、[RF04卡](../roadmap/batch2/reference-evidence-implementation-cards.md)、[D12](../roadmap/batch2/copy-pass-unification-design.md) |

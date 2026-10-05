@@ -174,14 +174,16 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                    compiled.stages[0].activationPolicy?
                        .effectVisibilityPropertyKey == nil {
                     // D2b script lane: pre-proof the resolved dependencies
-                    // against the layer's externalPrimary binding before
-                    // finalization runs. A stage outside the binding would
+                    // against the admitted direct and potential bindings before
+                    // finalization runs. A stage outside those proofs would
                     // fail finalization for the whole layer; it downgrades
                     // to the passthrough instead, keeping active siblings'
                     // dependency satisfaction intact.
                     if !dependencyPreproofMayStayResolved(
                         stage: compiled.stages[0],
-                        ownership: admitted.dependencyOwnership
+                        ownership: admitted.dependencyOwnership,
+                        potentialBindings: admitted.potentialExternalPrimaryBindings,
+                        layerID: admitted.layerID
                     ) {
                         guard initiallyInactiveStageMayPassthrough(
                             product,
@@ -276,8 +278,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     }
 
     /// D2b script-lane pre-proof: a script-gated initially-inactive stage
-    /// whose resolved external dependencies sit outside the layer's
-    /// dependency ownership would fail finalization for the whole layer.
+    /// whose resolved external dependencies sit outside the layer's direct
+    /// ownership and exact potential bindings would fail finalization.
     /// Those stages downgrade to the passthrough instead. Stages without
     /// external dependencies stay resolved - the active siblings keep the
     /// ownership satisfied, and the union over resolved stages is
@@ -293,12 +295,16 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     /// layers keep the finalize-level fail-closed (registered narrowing).
     private static func dependencyPreproofMayStayResolved(
         stage: StageCapability,
-        ownership: SceneResolvedMaterialDependencyOwnership
+        ownership: SceneResolvedMaterialDependencyOwnership,
+        potentialBindings: [SceneDependencyRenderPlan.Binding],
+        layerID: Int
     ) -> Bool {
         guard case let .resolved(product, _, _) = stage else { return true }
+        guard product.graph.layerID == layerID else { return false }
         switch ownership {
         case let .externalPrimary(binding):
-            guard product.graph.renderTargets.isEmpty else { return false }
+            guard binding.consumerLayerID == layerID,
+                  product.graph.renderTargets.isEmpty else { return false }
             switch resolvedExternalDependencies(in: stage) {
             case .none:
                 return true
@@ -313,13 +319,25 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     )
                 })
                 return dependencies.allSatisfy { dependency in
-                    dependency.origin == .terminalNamed
-                        && expected.contains(dependency.bindingDependency)
+                    guard dependency.consumerLayerID == layerID else {
+                        return false
+                    }
+                    switch dependency.origin {
+                    case .terminalNamed:
+                        return expected.contains(dependency.bindingDependency)
+                    case .exactMixedOptionalFallback:
+                        guard let candidate = exactPotentialBinding(
+                            for: dependency,
+                            in: potentialBindings,
+                            layerID: layerID
+                        ) else { return false }
+                        return compatible(candidate, with: binding)
+                    }
                 }
             }
         case .none:
-            // External dependencies under .none ownership break
-            // finalization; only dependency-free stages stay resolved.
+            // Finalization can promote an all-optional exact potential vector.
+            // Its script activation still requires the same no-FBO safety shape.
             switch resolvedExternalDependencies(in: stage) {
             case .none:
                 return true
@@ -327,6 +345,15 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 return false
             case let .exact(dependencies):
                 return dependencies.isEmpty
+                    || (product.graph.renderTargets.isEmpty
+                        && dependencies.allSatisfy {
+                            $0.consumerLayerID == layerID
+                        }
+                        && expandedPotentialBinding(
+                            dependencies: dependencies,
+                            potentialBindings: potentialBindings,
+                            layerID: layerID
+                        ) != nil)
             }
         case .graphInternal:
             // Same-layer composite references are the owned shape; any
@@ -590,12 +617,15 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
               dependencies.allSatisfy({
                   $0.origin == .exactMixedOptionalFallback
               }) else { return nil }
+        var requiresResolvedMaterialProgram = base.requiresResolvedMaterialProgram
         for dependency in dependencies {
             guard let candidate = exactPotentialBinding(
                       for: dependency,
                       in: potentialBindings,
                       layerID: layerID
                   ), compatible(candidate, with: base) else { return nil }
+            requiresResolvedMaterialProgram = requiresResolvedMaterialProgram
+                || candidate.requiresResolvedMaterialProgram
         }
         let referenceSlots = orderedDependencies.map(\.slot)
         guard referenceSlots.contains(base.slot),
@@ -611,7 +641,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             kind: base.kind,
             requiresForwardCapture: base.requiresForwardCapture,
             requiresResolvedMaterialProgram:
-                base.requiresResolvedMaterialProgram
+                requiresResolvedMaterialProgram
         )
     }
 
@@ -640,8 +670,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             && candidate.blendMode == base.blendMode
             && candidate.kind == base.kind
             && candidate.requiresForwardCapture == base.requiresForwardCapture
-            && candidate.requiresResolvedMaterialProgram
-                == base.requiresResolvedMaterialProgram
+            && (!base.requiresResolvedMaterialProgram
+                || candidate.requiresResolvedMaterialProgram)
     }
 
     private static func orderedStageDependencies(

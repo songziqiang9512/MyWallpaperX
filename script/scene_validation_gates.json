@@ -1081,6 +1081,22 @@
       ]
     },
     {
+      "id": "script-optional-dependency",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+Aggregate.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+BindingCompilation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+ImageProgramReference.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
+        "script/tests/test_scene_script_dependency_preproof.py",
+        "script/tests/test_scene_inactive_optional_named_dependency.py"
+      ],
+      "modules": [
+        "test_scene_script_dependency_preproof",
+        "test_scene_inactive_optional_named_dependency"
+      ]
+    },
+    {
       "id": "optional-named-failure",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift",

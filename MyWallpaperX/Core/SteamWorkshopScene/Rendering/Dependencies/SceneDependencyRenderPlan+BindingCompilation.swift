@@ -118,7 +118,12 @@ extension SceneDependencyRenderPlan {
                 }
                 return Self.visibleImageGraphOutputReference(
                     layer: layer,
-                    visibleEffects: layer.effects.filter { $0.visible != false },
+                    visibleEffects: Self.admittedConsumerEffects(
+                        layer,
+                        references: referencesByConsumer[layer.id] ?? [],
+                        admittedResolvedMaterialReferences:
+                            admittedResolvedMaterialReferences
+                    ),
                     references: referencesByConsumer[layer.id] ?? [],
                     layersByID: layersByID,
                     visibleLayerIDs: visibleLayerIDs
@@ -290,16 +295,21 @@ extension SceneDependencyRenderPlan {
         self.multiProviderAggregatesByConsumerLayerID = multiProviderAggregates
         self.requiredEffectConsumerLayerIDs = Set(descriptor.layers.compactMap { layer in
             let layerReferences = referencesByConsumer[layer.id] ?? []
+            let consumerEffects = Self.admittedConsumerEffects(
+                layer,
+                references: layerReferences,
+                admittedResolvedMaterialReferences: admittedResolvedMaterialReferences
+            )
             let routeDisabledStructuralUtility = namedProviderRouteDisabled
                 && Self.supportsStructuralUtilityConsumer(layer)
                 && (
                     Self.resolvedMaterialReference(
-                        in: layer.effects.filter { $0.visible != false },
+                        in: consumerEffects,
                         references: layerReferences
                     ) != nil
                     || Self.singleSlot3SolidLayerReference(
                         layer: layer,
-                        visibleEffects: layer.effects.filter { $0.visible != false },
+                        visibleEffects: consumerEffects,
                         references: layerReferences
                     ) != nil
                 )
@@ -313,7 +323,9 @@ extension SceneDependencyRenderPlan {
                       layer,
                       references: layerReferences,
                       layersByID: layersByID,
-                      visibleLayerIDs: visibleLayerIDs
+                      visibleLayerIDs: visibleLayerIDs,
+                      admittedResolvedMaterialReferences:
+                          admittedResolvedMaterialReferences
                   ) else {
                 return nil
             }
@@ -357,10 +369,20 @@ extension SceneDependencyRenderPlan {
         cyclicLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int>,
         admittedResolvedMaterialReferences: Set<Reference>,
+        potentialEffectID: String? = nil,
         namedProviderRouteDisabled: Bool,
         issues: inout [Issue]
     ) -> Binding? {
-        let visibleEffects = layer.effects.filter { $0.visible != false }
+        // Potential inspection is limited to one exact effect. The product
+        // path retains inactive slots only after Program admission grants them.
+        let visibleEffects = potentialEffectID.map { candidateID in
+            layer.effects.filter { $0.id == candidateID }
+        } ?? admittedConsumerEffects(
+            layer,
+            references: references,
+            admittedResolvedMaterialReferences: admittedResolvedMaterialReferences
+        )
+        let hasAdmittedInactiveEffect = visibleEffects.contains { $0.visible == false }
         // The current Binding contract has one provider owner. Keep a mixed
         // provider composition out of every legacy recognizer; otherwise a
         // first-provider projection would silently drop authored references.
@@ -389,7 +411,8 @@ extension SceneDependencyRenderPlan {
             references: references
         ) {
             contract = (reference, 0, .solidLayer, false)
-        } else if let declaration = supportedImageLayerBlendDeclaration(
+        } else if !hasAdmittedInactiveEffect,
+                  let declaration = supportedImageLayerBlendDeclaration(
             in: visibleEffects
         ), let declaredProvider = layersByID[declaration.providerLayerID],
            declaredProvider.contentKind == "image",
@@ -701,13 +724,34 @@ extension SceneDependencyRenderPlan {
             && !layer.dependencyLayerIDs.isEmpty
     }
 
+    /// The Program-authorized reference set is the only source of inactive
+    /// consumer carriers. Merely declaring an inactive effect grants no route.
+    private nonisolated static func admittedConsumerEffects(
+        _ layer: SceneRenderDescriptor.Layer,
+        references: [Reference],
+        admittedResolvedMaterialReferences: Set<Reference>
+    ) -> [SceneRenderDescriptor.EffectDescriptor] {
+        let admittedEffectIDs = Set(references.filter {
+            $0.consumerLayerID == layer.id
+                && admittedResolvedMaterialReferences.contains($0)
+        }.map { $0.slot.effectID })
+        return layer.effects.filter {
+            $0.visible != false || admittedEffectIDs.contains($0.id)
+        }
+    }
+
     private nonisolated static func requiresNamedEffect(
         _ layer: SceneRenderDescriptor.Layer,
         references: [Reference],
         layersByID: [Int: SceneRenderDescriptor.Layer],
-        visibleLayerIDs: Set<Int>
+        visibleLayerIDs: Set<Int>,
+        admittedResolvedMaterialReferences: Set<Reference>
     ) -> Bool {
-        let visibleEffects = layer.effects.filter { $0.visible != false }
+        let visibleEffects = admittedConsumerEffects(
+            layer,
+            references: references,
+            admittedResolvedMaterialReferences: admittedResolvedMaterialReferences
+        )
         if resolvedMaterialReference(
             in: visibleEffects,
             references: references

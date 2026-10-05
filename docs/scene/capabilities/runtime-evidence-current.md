@@ -38,7 +38,7 @@
 | PNG 准备成本 | [行复制优化与隐藏消费者组合](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-png-decode-cost)：同输入 Debug App 两张4096²资源准备/提交15.509→0.376秒；native `-O` 有界测量，不外推整款App或所有PNG |
 | 文字描边/投影 | [文字批](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-text-outline-shadow)：官方自有输入裁决单位、caster和tight extent，真实380/376画面恢复；[正向偏移纠偏](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-text-shadow-offset)补字号响应；MSDF/kernel、大负offset、整样本与208兼容率未验 |
 | 文字留白/测量 | [留白纠偏](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-text-padding)：官方每边留白与锚点、native换行/降采样及App对照；保存size官方精确像素未验 |
-| 文件纹理原位更新 | [实施记录](../history/user-texture-live-update-implementation-2026-10-05.md)：293四文件键、失败保旧与reset，实际单屏像素；CPU乱序/重放边界另列，不计整样本正确率 |
+| 文件与媒体封面 | [文件热更新](../history/user-texture-live-update-implementation-2026-10-05.md)、[隐藏媒体依赖](../history/media-inactive-dependency-implementation-2026-10-05.md)：系统来源未验 |
 | 连续属性交互 | [RF05 pending intent](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-deferred-intent)：独立开启/部分取消/同键取消/拒绝后保留，四项 App 最终像素；多 surface 仅 CPU 受控回滚，不外推物理多屏 |
 | 隐藏全屏后处理 | [RF05 fullscreen](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-hidden-fullscreen-result)：自有 App 开/关像素、同窗口及未准备整键拒绝；真实293完整属性仍属RF05后继组合 |
 | composition source | [D1普通分组/背景/根顺序](../history/d1-composition-authored-order-implementation-2026-10-04.md)；23项App正反例与资源生命周期，未知模式不外推 |

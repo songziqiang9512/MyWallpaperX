@@ -82,6 +82,7 @@ extension SceneDependencyRenderPlan {
                 executableUtilityConsumerLayerIDs:
                     executableUtilityConsumerLayerIDs,
                 admittedResolvedMaterialReferences: [reference],
+                potentialEffectID: reference.slot.effectID,
                 namedProviderRouteDisabled: routeDisabled,
                 issues: &ignoredIssues
             ), binding.requiresResolvedMaterialProgram else { continue }

@@ -481,9 +481,9 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "72b9b980e3a8d759a000363b47d766a822cac0fa72f2173ada88df594f664242",
+        "sourceSHA256": "1bcac707dff54425278014c977ee0c6519d8816ece5c96237463b7cb4cc6ed71",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded image material Alpha source ownership and evidence navigation; not whole-corpus acceptance.",
+        "scope": "Bounded user-file and media-thumbnail evidence navigation; no system-media or whole-sample acceptance.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -857,6 +857,16 @@
       "currentAuthorities": [
         "docs/scene/roadmap/engine-refactor-program.md",
         "docs/scene/capabilities/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/media-inactive-dependency-implementation-2026-10-05.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
     {

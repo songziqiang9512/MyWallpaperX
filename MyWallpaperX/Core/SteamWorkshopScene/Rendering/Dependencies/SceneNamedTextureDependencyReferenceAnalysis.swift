@@ -27,20 +27,23 @@ nonisolated enum SceneNamedTextureDependencyReferenceAnalysis {
     nonisolated static func potentialOptionalNamedFallbackReferences(
         in layers: [SceneRenderDescriptor.Layer]
     ) -> [Reference] {
-        references(in: layers) { slotIndex, pass in
+        references(in: layers, includingInactiveEffects: true) { slotIndex, pass in
             hasOptionalUserTexture(slotIndex: slotIndex, pass: pass)
         }
     }
 
     private nonisolated static func references(
         in layers: [SceneRenderDescriptor.Layer],
+        includingInactiveEffects: Bool = false,
         acceptsSlot: (
             Int,
             SceneRenderDescriptor.EffectDescriptor.PassDescriptor
         ) -> Bool
     ) -> [Reference] {
         layers.flatMap { layer in
-            layer.effects.filter { $0.visible != false }.flatMap { effect in
+            layer.effects.filter {
+                $0.visible != false || includingInactiveEffects
+            }.flatMap { effect in
                 effect.passes.flatMap { pass in
                     pass.textureSlots.enumerated().compactMap { slotIndex, path in
                         guard acceptsSlot(slotIndex, pass),

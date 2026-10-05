@@ -205,7 +205,9 @@ extension SceneDependencyRenderPlan {
     ) -> [Reference]? {
         var remaining = references
         var ordered: [Reference] = []
-        for effect in layer.effects where effect.visible != false {
+        // Admission already selected these exact atoms. Ordering must retain
+        // a proven inactive slot without granting any unrequested reference.
+        for effect in layer.effects {
             for pass in effect.passes {
                 for slotIndex in pass.textureSlots.indices {
                     let slot = SceneEffectPassSlot(
