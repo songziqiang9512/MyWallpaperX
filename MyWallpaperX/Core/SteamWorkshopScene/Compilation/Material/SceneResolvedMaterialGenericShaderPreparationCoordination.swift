@@ -28,9 +28,9 @@ nonisolated enum SceneGenericShaderAnalysisCache {
     /// The only invalidation lever for this tier: bump when any analyzer,
     /// normalizer or profile-classification semantic change lands (the shared
     /// frontendSchemaVersion constant has no mechanical bump guarantee).
-    /// v4: normalized sampling preserves authored coordinates and no longer
-    /// carries the synthetic texture-transform ABI.
-    private static let schemaVersion = 4
+    /// v5: ordinary color passes preserve the proven provider input ABI,
+    /// independently of their output-transfer profile.
+    private static let schemaVersion = 5
     private static let maximumEntryBytes = 64 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()
@@ -671,6 +671,8 @@ extension SceneResolvedMaterialGenericShaderArtifactCache {
         let premultipliedColorInputSlots: Set<Int> = switch profile {
         case .providerBackedGraphInputSpatialWeightedColorBlend:
             spatialWeightedColorBlendExternalColorSlot.map { [$0] } ?? []
+        case .ordinaryShader:
+            outputSemantics == .color ? premultipliedColorAuxiliarySlots : []
         case .sourceProvenGraphInputOverlayAlphaBlend,
              .sourceProvenGraphInputOverlayColorBlendAlphaPreserving,
              .sourceProvenGraphInputAssociatedOverBlend,

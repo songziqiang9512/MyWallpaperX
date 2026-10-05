@@ -7,6 +7,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         sourceActiveSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         spatialWeightedColorBlendExternalColorSlot: Int?,
         premultipliedColorAuxiliarySlots: Set<Int>,
+        outputSemantics: SceneGenericShaderOutputSemantics,
         artifactStart: Double,
         artifactResolution: SceneResolvedMaterialGenericShaderArtifactCache.Resolution,
         compatibilityTargetAdmissionPending: Bool,
@@ -48,6 +49,12 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             case SceneGenericShaderCapabilityProfile
                 .providerBackedGraphInputSpatialWeightedColorBlend.rawValue:
                 spatialWeightedColorBlendExternalColorSlot.map { [$0] } ?? []
+            case SceneGenericShaderCapabilityProfile.ordinaryShader.rawValue:
+                // Resource representation is independent of the output
+                // profile; keep the existing background boundary as well.
+                outputSemantics == .color
+                    ? premultipliedColorAuxiliarySlots.union(sceneBackgroundDefaultSlots)
+                    : sceneBackgroundDefaultSlots
             case SceneGenericShaderCapabilityProfile
                 .sourceProvenGraphInputOverlayAlphaBlend.rawValue,
                  SceneGenericShaderCapabilityProfile

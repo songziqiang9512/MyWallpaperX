@@ -24,11 +24,65 @@ SWIFT_SOURCES = [
     *scene_swift_sources("authored_shader_frontend_core"),
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
     *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
+    *(SCENE_ROOT / "Compilation/Material" / name for name in [
+        "SceneResolvedMaterialGenericShaderRouteProfile.swift",
+        "SceneResolvedMaterialGenericShaderRouteAuthority.swift",
+        "ScenePersistentCacheSupport.swift",
+        "SceneResolvedMaterialGenericShaderArtifactCache.swift",
+        "SceneResolvedMaterialGenericShaderArtifactCache+Diagnostics.swift",
+        "SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
+        "SceneResolvedMaterialGenericShaderRequest.swift",
+        "SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
+        "SceneResolvedMaterialExecutionCapabilityVariant+Frontend.swift",
+    ]),
 ]
 
 
 HARNESS = r'''
 import Foundation
+
+// Only the surrounding resource/diagnostic types are fixtures. The complete
+// product analysis, frontend selection and lowering implementations compile
+// below; these stubs neither classify profiles nor select the input ABI.
+struct TemplateFixture { let backgroundSlots: Set<Int> }
+enum SceneResolvedMaterialShaderSchema {
+    enum DefaultTexture { case internalTarget }
+    struct Sampler { let defaultTexture: DefaultTexture? }
+}
+enum SceneResolvedMaterialTextureResolver {
+    static func sceneBackgroundDefault(
+        template: TemplateFixture,
+        sampler: SceneResolvedMaterialShaderSchema.Sampler,
+        slot: Int
+    ) -> Int? { template.backgroundSlots.contains(slot) ? slot : nil }
+    static func sceneEnvironmentReference(
+        template: TemplateFixture,
+        sampler: SceneResolvedMaterialShaderSchema.Sampler,
+        slot: Int
+    ) -> Int? { nil }
+}
+enum SceneResolvedMaterialVariantCompileProfile {
+    static func add(artifact: Double) {}
+}
+enum SceneResolvedMaterialExecutionCapabilityDiagnostics {
+    static func frontendFailure(
+        template: TemplateFixture, output: SceneAuthoredShaderFrontendOutput
+    ) -> [String] { [] }
+}
+enum SceneResolvedMaterialVariantCache {
+    typealias Template = TemplateFixture
+    enum Failure: Error { case fixture }
+    enum Code { case shaderFrontendFailed, genericProductOwnerDeferred }
+    enum Phase { case frontend }
+    enum OwnerFailure { case productOwnerRevoked }
+    static func failure(
+        _ code: Code, phase: Phase,
+        genericOwnerFailure: OwnerFailure? = nil, details: [String] = []
+    ) -> Failure { .fixture }
+    static func genericOwnerFailure(
+        _ decision: SceneGenericShaderRouteDecision
+    ) -> OwnerFailure? { nil }
+}
 
 private struct Result: Codable {
     let boundedAccepted: Bool
@@ -39,6 +93,18 @@ private struct Result: Codable {
     let genericMissingSlotRejected: Bool
     let boundaryThenPremultipliedSubsetAccepted: Bool
     let boundaryThenPremultipliedNoDoubleWrap: Bool
+    let ordinaryProfiles: [String]
+    let ordinaryAnalysisABI: [[Int]]
+    let preservedAnalysisABI: [[Int]]
+    let ordinaryFrontendABI: [Int]
+    let preservedFrontendABI: [Int]
+    let ordinaryBackgroundUnionABI: [Int]
+    let preservedOutputAnalysisABI: [Int]
+    let redGreenOutputAnalysisABI: [Int]
+    let preservedOutputBuilt: Bool
+    let preservedOutputUnchanged: Bool
+    let nonColorFrontendABI: [[Int]]
+    let nonColorBackgroundFrontendABI: [Int]
 }
 
 @main
@@ -134,6 +200,134 @@ private enum Harness {
         let missingGeneric = SceneGenericShaderArtifactBuilder
             .lowerPremultipliedColorInputs(genericMSL, slots: [3])
 
+        func analysis(
+            premultiplied: Bool, transfer: SceneShaderColorTransfer,
+            output: SceneGenericShaderOutputSemantics = .color
+        ) -> SceneGenericShaderAnalysis {
+            SceneResolvedMaterialGenericShaderArtifactCache.computeAnalysis(
+                input: .init(
+                    vertexSource: vertex, fragmentSource: fragment,
+                    alphaAttenuationSourceSlot: nil, colorBlendSourceSlot: nil,
+                    previousBlurredCompositeBlurredSlot: nil,
+                    previousBlurredCompositePreviousSlot: nil,
+                    previousBlurredCompositeMaskSlot: nil,
+                    hasExternalProviderTexture: true,
+                    producesScalarRedOutput: false,
+                    producesRedGreenUnormOutput: output == .redGreenUnorm,
+                    hasOnlyScalarDataInputs: false,
+                    isSourceIndependentPremultipliedOutput: false,
+                    graphTextureSlots: [], graphInputTextureSlots: [0],
+                    activeTextureSlots: [0, 1, 2], activeOpacityMaskSlots: [2],
+                    typedStaticDataAuxiliarySlots: [2],
+                    preservedChannelsExternalProviderTextureSlots:
+                        premultiplied ? [] : [1],
+                    premultipliedColorAuxiliarySlots:
+                        premultiplied ? [1] : [],
+                    spatialWeightedColorBlendSourceSlot: nil,
+                    spatialWeightedColorBlendActiveSlots: [],
+                    spatialWeightedColorBlendTypedAuxiliarySlots: [],
+                    spatialWeightedColorBlendExternalColorSlot: nil,
+                    r8TextureSlots: [], hasDefaultedOpacityMaskSampler: false,
+                    hasOnlyTypedOpacityMaskAuxiliary: false,
+                    hasOnlyGraphInputSampler: false, outputIsRGBA8Unorm: true,
+                    sourceColorTransfer: transfer, outputSemantics: output,
+                    runtimeLoopBounds: .none
+                )
+            )
+        }
+        let namedAnalyses = [
+            analysis(premultiplied: true, transfer: .unresolved),
+            analysis(premultiplied: true,
+                     transfer: .straightAlphaPreserving(textureSlot: 0)),
+        ]
+        let preservedAnalyses = [
+            analysis(premultiplied: false, transfer: .unresolved),
+            analysis(premultiplied: false,
+                     transfer: .straightAlphaPreserving(textureSlot: 0)),
+        ]
+        let preservedOutputAnalysis = analysis(
+            premultiplied: true, transfer: .unresolved,
+            output: .preservedRGBAUnorm
+        )
+        let redGreenOutputAnalysis = analysis(
+            premultiplied: true, transfer: .unresolved,
+            output: .redGreenUnorm
+        )
+        let dataSource = """
+        uniform sampler2D g_Texture1;
+        void main() {
+            gl_FragColor = texSample2D(g_Texture1, vec2(0.5));
+        }
+        """
+        let dataMSL = """
+        #include <metal_stdlib>
+        using namespace metal;
+        struct MWXUniforms {};
+        struct Output { float4 mwxFragColor [[color(0)]]; };
+        fragment Output mwxGenericFragment(
+            texture2d<float> g_Texture1 [[texture(1)]],
+            sampler linearSampler [[sampler(0)]]
+        ) {
+            Output out = {};
+            out.mwxFragColor = g_Texture1.sample(linearSampler, float2(0.5));
+            return out;
+        }
+        """
+        let dataReflection = Data(#"{"types":{"_1":{"members":[]}},"ubos":[{"type":"_1","block_size":0,"set":0,"binding":8}],"textures":[{"name":"g_Texture1","binding":1}]}"#.utf8)
+        let dataArtifact = SceneGenericShaderArtifactBuilder.build(
+            requestKey: "fixture", backendID: "fixture",
+            outputSemantics: .preservedRGBAUnorm,
+            premultipliedColorInputSlots:
+                preservedOutputAnalysis.premultipliedColorInputSlots,
+            stages: [
+                .init(name: "vertex", source: "void main() {}",
+                      authoredSource: "void main() {}",
+                      msl: "struct MWXUniforms {};", reflection: dataReflection),
+                .init(name: "fragment", source: dataSource,
+                      authoredSource: dataSource, msl: dataMSL,
+                      reflection: dataReflection),
+            ],
+            maximumArtifactBytes: 1_024_000
+        )
+        let dataProgram: SceneGenericShaderProgramArtifact.Program?
+        switch dataArtifact {
+        case let .success(artifact): dataProgram = artifact.program
+        case .failure: dataProgram = nil
+        }
+        func frontendABI(
+            auxiliary: Set<Int>, background: Set<Int> = [],
+            output: SceneGenericShaderOutputSemantics = .color
+        ) throws -> [Int] {
+            guard let program = bounded.program else {
+                throw SceneResolvedMaterialVariantCache.Failure.fixture
+            }
+            let selected = try SceneResolvedMaterialVariantCache
+                .resolveVariantFrontend(
+                    template: .init(backgroundSlots: background),
+                    sourceActiveSamplers: background.isEmpty ? [:]
+                        : [0: .init(defaultTexture: .internalTarget)],
+                    spatialWeightedColorBlendExternalColorSlot: nil,
+                    premultipliedColorAuxiliarySlots: auxiliary,
+                    outputSemantics: output,
+                    artifactStart: 0,
+                    artifactResolution: .accepted(
+                        program: program, requestKey: "fixture",
+                        routeDecision: .init(
+                            profile: "ordinary-shader", state: "generic-only",
+                            fallbackOwner: "bounded-frontend"
+                        )
+                    ),
+                    compatibilityTargetAdmissionPending: false,
+                    onBoundedFrontendCompilation: {},
+                    compilerSources: .init(vertex: vertex, fragment: fragment),
+                    runtimeLoopBounds: .none,
+                    sourceColorTransfer: .straightAlphaPreserving(textureSlot: 0)
+                )
+            return selected.premultipliedInputSlotsForProfile(
+                selected.routeDecision.profile
+            ).sorted()
+        }
+
         let result = Result(
             boundedAccepted:
                 bounded.diagnostics.isEmpty && bounded.program != nil,
@@ -182,7 +376,39 @@ private enum Harness {
                         && !lowered.contains(
                             "mwxGenericUnpremultiply(mwxGenericUnpremultiply("
                         )
-                } ?? false
+                } ?? false,
+            ordinaryProfiles: namedAnalyses.map { $0.profile.rawValue },
+            ordinaryAnalysisABI: namedAnalyses.map {
+                $0.premultipliedColorInputSlots.sorted()
+            },
+            preservedAnalysisABI: preservedAnalyses.map {
+                $0.premultipliedColorInputSlots.sorted()
+            },
+            ordinaryFrontendABI: try frontendABI(auxiliary: [1]),
+            preservedFrontendABI: try frontendABI(auxiliary: []),
+            ordinaryBackgroundUnionABI:
+                try frontendABI(auxiliary: [1], background: [0]),
+            preservedOutputAnalysisABI:
+                preservedOutputAnalysis.premultipliedColorInputSlots.sorted(),
+            redGreenOutputAnalysisABI:
+                redGreenOutputAnalysis.premultipliedColorInputSlots.sorted(),
+            preservedOutputBuilt: dataProgram != nil,
+            preservedOutputUnchanged:
+                dataProgram?.colorTransfer.kind == "preserved-rgba-data"
+                    && dataProgram?.premultipliedColorInputSlots == []
+                    && dataProgram?.metalSource.contains(
+                        "out.mwxFragColor = g_Texture1.sample("
+                    ) == true
+                    && dataProgram?.metalSource.contains(
+                        "mwxGenericUnpremultiply"
+                    ) == false,
+            nonColorFrontendABI: try [
+                frontendABI(auxiliary: [1], output: .preservedRGBAUnorm),
+                frontendABI(auxiliary: [1], output: .redGreenUnorm),
+            ],
+            nonColorBackgroundFrontendABI: try frontendABI(
+                auxiliary: [1], background: [0], output: .preservedRGBAUnorm
+            )
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(result))
     }
@@ -216,6 +442,7 @@ class SceneGenericShaderTypedInputLoweringTests(unittest.TestCase):
                 "-parse-as-library",
                 *(str(path) for path in SWIFT_SOURCES),
                 str(harness),
+                "-framework", "Security",
                 "-o",
                 str(cls.binary),
             ],
@@ -239,8 +466,10 @@ class SceneGenericShaderTypedInputLoweringTests(unittest.TestCase):
             capture_output=True,
             text=True,
         )
+        result = json.loads(completed.stdout)
         self.assertEqual(
-            json.loads(completed.stdout),
+            {key: value for key, value in result.items()
+             if isinstance(value, bool) and not key.startswith("preservedOutput")},
             {
                 "boundedAccepted": True,
                 "boundedWrapsOnlySlotOne": True,
@@ -252,6 +481,33 @@ class SceneGenericShaderTypedInputLoweringTests(unittest.TestCase):
                 "boundaryThenPremultipliedNoDoubleWrap": True,
             },
         )
+
+    def test_ordinary_profile_conserves_both_typed_provider_abis(self) -> None:
+        result = json.loads(subprocess.check_output(
+            [str(self.binary)], cwd=REPOSITORY_ROOT, text=True
+        ))
+        self.assertEqual(result["ordinaryProfiles"], ["ordinary-shader"] * 2)
+        self.assertEqual(result["ordinaryAnalysisABI"], [[1], [1]], result)
+        self.assertEqual(result["preservedAnalysisABI"], [[], []], result)
+        self.assertEqual(result["ordinaryFrontendABI"], [1], result)
+        self.assertEqual(result["preservedFrontendABI"], [], result)
+
+    def test_ordinary_profile_keeps_existing_background_boundary(self) -> None:
+        result = json.loads(subprocess.check_output(
+            [str(self.binary)], cwd=REPOSITORY_ROOT, text=True
+        ))
+        self.assertEqual(result["ordinaryBackgroundUnionABI"], [0, 1], result)
+
+    def test_non_color_output_keeps_data_channels_and_no_color_input_abi(self) -> None:
+        result = json.loads(subprocess.check_output(
+            [str(self.binary)], cwd=REPOSITORY_ROOT, text=True
+        ))
+        self.assertEqual(result["preservedOutputAnalysisABI"], [], result)
+        self.assertEqual(result["redGreenOutputAnalysisABI"], [], result)
+        self.assertTrue(result["preservedOutputBuilt"], result)
+        self.assertTrue(result["preservedOutputUnchanged"], result)
+        self.assertEqual(result["nonColorFrontendABI"], [[], []], result)
+        self.assertEqual(result["nonColorBackgroundFrontendABI"], [0], result)
 
 
 if __name__ == "__main__":
