@@ -483,7 +483,7 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3c1b07541950c7857a3ffd24c1a65f22b1ec6fbf4473a365973b65e738b1da2d",
+        "sourceSHA256": "3179a2142010ffaf75187e83e32bd21ba9f30d0f027752720a236eec8bffd39d",
         "method": "document_registry --audit + document_health --check",
         "scope": "Bounded hidden-property evidence navigation; no whole-sample, system-media or official parity acceptance.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
@@ -1283,6 +1283,15 @@
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/capabilities/coverage-ledger.md",
         "docs/scene/development/reference/client-runtime-static-forensics.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/text-width-property-implementation-2026-10-05.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/runtime-input-property-coverage.md"
       ]
     },
     {

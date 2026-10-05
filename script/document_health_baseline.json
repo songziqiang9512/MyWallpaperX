@@ -90,11 +90,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 74,
-      "bytes": 8385
+      "bytes": 8445
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
-      "bytes": 173917
+      "bytes": 173984
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -170,7 +170,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 49783
+      "bytes": 49893
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1101,29 +1101,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "07375cf8d67310c05c4e269275ea8fc8316f422295efb54778fbfdbcc8a853c3",
-      "after": "c403734c10c91565d3794c9a04ecb2c7d80c5f5f285cbc055629d9f542dddc7d",
+      "before": "c403734c10c91565d3794c9a04ecb2c7d80c5f5f285cbc055629d9f542dddc7d",
+      "after": "6c9953484a1fe61047da26071ccacc01d402a2364b1ed8421ad52ef65c2a0854",
       "owner": "scene-property",
-      "reason": "以prepared consumer生命周期替换旧启动可见性限制，记录实际热更新与未验边界，替换下一首断点。",
-      "decision": "docs/scene/history/hidden-property-consumers-implementation-2026-10-05.md"
+      "reason": "替换宽度wrapper重建限制，记录复用既有raster的真实修复及证据入口。",
+      "decision": "docs/scene/history/text-width-property-implementation-2026-10-05.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "dd46c8ad126f640ad84f3195a909a1d4be208e3fb80fb58ca1da8984518d56a2",
-      "after": "7928543cb3622c77241efcf6983e88cc80bf863e69c9e3f2daefc6503131be4f",
+      "before": "abaca8c71998f63a58b701d8a408c5c7f8d4e5ab4fb9c0227fac3924c98b4e95",
+      "after": "82c8d50775994ef01b37dcaa8102d9b0f63547a2fed0f661c89ed6f5038fbb49",
       "owner": "scene-property",
-      "reason": "以prepared consumer生命周期替换旧启动可见性限制，记录实际热更新与未验边界，替换下一首断点。",
-      "decision": "docs/scene/history/hidden-property-consumers-implementation-2026-10-05.md"
+      "reason": "替换宽度wrapper重建限制，记录复用既有raster的真实修复及证据入口。",
+      "decision": "docs/scene/history/text-width-property-implementation-2026-10-05.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "d016f9e8c77eed2af5e88cfa03695b90d1c979e0c9f8ccedd0917940028cd522",
-      "after": "e951d89a67abc791fbcc8fada51b35ca2caae187e9288ea385b6ada96650a132",
+      "before": "e951d89a67abc791fbcc8fada51b35ca2caae187e9288ea385b6ada96650a132",
+      "after": "f597118939d0c172c3488c68b88f0c18c27a6b7e25662175fb8146aab3f75e74",
       "owner": "scene-property",
-      "reason": "以prepared consumer生命周期替换旧启动可见性限制，记录实际热更新与未验边界，替换下一首断点。",
-      "decision": "docs/scene/history/hidden-property-consumers-implementation-2026-10-05.md"
+      "reason": "归档宽度绑定修复，现役卡转向同样本底部音频真实依赖候选。",
+      "decision": "docs/scene/history/text-width-property-implementation-2026-10-05.md"
     }
   ]
 }

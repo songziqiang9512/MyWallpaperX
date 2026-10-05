@@ -22,6 +22,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
     enum TextField: String, Codable {
         case content
         case pointSize
+        case maxWidth
         case color
     }
 
@@ -365,6 +366,15 @@ nonisolated struct SceneUserPropertyBindingParser {
             switch Self.key(components[2]) {
             case "text": return .text(layerID: layerID, field: .content)
             case "pointsize": return .text(layerID: layerID, field: .pointSize)
+            case "maxwidth":
+                guard object["text"] is String || object["text"] is [String: Any],
+                      object["limitwidth"] as? Bool == true,
+                      let wrapper = object["maxwidth"] as? [String: Any],
+                      wrapper["script"] == nil || wrapper["script"] is NSNull,
+                      wrapper["animation"] == nil || wrapper["animation"] is NSNull else {
+                    return .unsupported(reason: "文字宽度未固定启用或存在冲突动态来源")
+                }
+                return .text(layerID: layerID, field: .maxWidth)
             case "color": return .text(layerID: layerID, field: .color)
             default: break
             }

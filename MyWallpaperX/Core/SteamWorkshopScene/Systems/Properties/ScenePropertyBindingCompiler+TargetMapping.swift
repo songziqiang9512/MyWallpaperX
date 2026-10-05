@@ -113,6 +113,8 @@ extension ScenePropertyBindingCompiler {
                 (.text(layerID: layerID, field: .content), .string, .textInput)
             case .pointSize:
                 (.text(layerID: layerID, field: .pointSize), .scalar, .slider)
+            case .maxWidth:
+                (.text(layerID: layerID, field: .maxWidth), .scalar, .slider)
             case .color:
                 (.text(layerID: layerID, field: .color), .vector3, .color)
             }

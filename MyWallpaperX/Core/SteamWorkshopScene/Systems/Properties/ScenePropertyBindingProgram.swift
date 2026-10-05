@@ -538,6 +538,26 @@ nonisolated struct ScenePropertyBindingCompiler {
                 rebuildRequiredKeys.insert(binding.reference.key)
                 continue
             }
+            if case .text(_, .maxWidth) = mapped.target {
+                // Match the existing dynamic raster width contract. A zero
+                // width means unlimited in static text; do not turn it into
+                // the dynamic consumer's minimum-width clamp during migration.
+                guard let range = Self.userPropertyNumericRange(
+                    propertyDefinitions.first, propertyKind: mapped.propertyKind,
+                    valueType: mapped.valueType
+                ), range.lowerBound >= 1, range.upperBound <= 16_384,
+                      case let .scalar(width) = authoredValue,
+                      (1...16_384).contains(width),
+                      case let .number(defaultWidth)? = propertyDefinitions.first?.defaultValue,
+                      range.contains(defaultWidth) else {
+                    rebuildRequiredKeys.insert(binding.reference.key)
+                    diagnostics.append(Self.compileDiagnostic(
+                        code: .unsupportedTarget, binding: binding, target: mapped.target,
+                        message: "动态文字宽度需有限的 1…16384 slider 域及 authored fallback。"
+                    ))
+                    continue
+                }
+            }
             definitions.append(.init(
                 target: mapped.target,
                 valueType: mapped.valueType,

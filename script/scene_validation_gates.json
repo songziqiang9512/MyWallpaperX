@@ -546,7 +546,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelinePlaybackRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler+Camera.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler.swift",
+        "script/tests/test_scene_text_width_property.py"
       ],
       "keywords": [
         "property",
@@ -555,6 +556,7 @@
       "modules": [
         "test_scene_shared_layer_alpha_transition",
         "test_scene_property_binding_program",
+        "test_scene_text_width_property",
         "test_scene_property_vector_script",
         "test_scene_vector_media_events",
         "test_scene_vector_owner_admission"
