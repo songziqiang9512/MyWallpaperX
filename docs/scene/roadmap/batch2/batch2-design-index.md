@@ -19,7 +19,7 @@
 
 十二项不按编号机械实施：当前选序及每批提交/下一批边界见[后继选序](../scene-compatibility-roadmap.md#batch-2-后继选序2026-10-02)。Scene 缺失能力持续落代码，已有能力按反例收敛；Web/App 项独立排队，私有后端遵守各卡限制。
 
-粒子后继的独立行为裁决见[Vortex 后继设计](particle-vortex-design.md)与[Remap 后继设计](particle-remap-design.md)，沿既有解释器与合成链实施。
+粒子后继的独立行为裁决见[Vortex 后继设计](particle-vortex-design.md)、[Remap 后继设计](particle-remap-design.md)与[壁纸边界碰撞设计](particle-collision-bounds-design.md)，沿既有解释器与合成链实施。
 
 文件纹理原位事务由[运行架构](../../architecture/runtime-architecture.md)接管；[实施记录](../../history/user-texture-live-update-implementation-2026-10-05.md)保存原设计与有界验证。
 

@@ -26,6 +26,7 @@
       "docs/scene/roadmap/batch2/frame-admission-retry-design.md",
       "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
       "docs/scene/roadmap/batch2/host-render-power-protocol-design.md",
+      "docs/scene/roadmap/batch2/particle-collision-bounds-design.md",
       "docs/scene/roadmap/batch2/particle-playback-state-design.md",
       "docs/scene/roadmap/batch2/particle-remap-design.md",
       "docs/scene/roadmap/batch2/particle-vortex-design.md",
@@ -1350,6 +1351,14 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "App 唯一 power 裁决与版本化三态 IPC 验收，旧重复观察和布尔适配撤权后归档。"
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/particle-collision-bounds-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "currentStateAuthority": "docs/scene/capabilities/particle-component-coverage.md",
+      "retirementCondition": "Collision Bounds执行与可见验收接管后归档，未决profile归回粒子能力台账。",
+      "purpose": "壁纸边界碰撞的行为裁决、现有模拟链职责与有界验收。"
     },
     {
       "path": "docs/scene/roadmap/batch2/particle-playback-state-design.md",

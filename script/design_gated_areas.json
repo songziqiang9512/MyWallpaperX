@@ -329,6 +329,19 @@
         "SceneParticleScalarSpeedRemapPlan",
         "boundedScalarSpeedRemapPlan"
       ]
+    },
+    {
+      "id": "scene-particle-collision-bounds",
+      "title": "粒子壁纸边界碰撞",
+      "owner": "scene-particle",
+      "status": "blocked-pending-design",
+      "designDoc": "docs/scene/roadmap/batch2/particle-collision-bounds-design.md",
+      "design_notes": "unit默认Bounce已有固定官方自有观察；scale/坐标及外生反例仍未裁决，暂不批准产品实现，不猜公式。",
+      "matchPatterns": [],
+      "contentPatterns": [
+        "SceneParticleCollisionBounds",
+        "case collisionBounds"
+      ]
     }
   ]
 }

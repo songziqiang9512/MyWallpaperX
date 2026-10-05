@@ -170,7 +170,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 49746
+      "bytes": 49644
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -227,6 +227,10 @@
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 7241
+    },
+    "docs/scene/roadmap/batch2/particle-collision-bounds-design.md": {
+      "lines": 34,
+      "bytes": 4455
     }
   },
   "archives": [
@@ -1096,12 +1100,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/particle-collision-bounds-design.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "25ff3e48b58f20f28d9bb90ba582747b00f713a2da8f3823a5e1732e7f98e275",
+      "owner": "scene-particle",
+      "reason": "冻结未解决的缩放反例、最小设计和重开条件，避免以单位缩放控制冒充真实样本修复。",
+      "decision": "docs/scene/roadmap/batch2/particle-collision-bounds-design.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "f1deacd6c085b70a1fdbc6d0610de6ccfdfe4577c0059bf0975fe33a2e09f068",
-      "after": "6c453b783b15fac04137c8334b19df0e58df820f48c7594a73f74c27b5d66846",
-      "owner": "scene-particle-world-space",
-      "reason": "替换误拒静态视差的能力边界并收束下一断点，行为及验证归入同批历史。",
-      "decision": "docs/scene/history/particle-world-parallax-implementation-2026-10-05.md"
+      "before": "6c453b783b15fac04137c8334b19df0e58df820f48c7594a73f74c27b5d66846",
+      "after": "d016f9e8c77eed2af5e88cfa03695b90d1c979e0c9f8ccedd0917940028cd522",
+      "owner": "scene-particle",
+      "reason": "冻结未解决的缩放反例、最小设计和重开条件，避免以单位缩放控制冒充真实样本修复。",
+      "decision": "docs/scene/roadmap/batch2/particle-collision-bounds-design.md"
     }
   ]
 }
