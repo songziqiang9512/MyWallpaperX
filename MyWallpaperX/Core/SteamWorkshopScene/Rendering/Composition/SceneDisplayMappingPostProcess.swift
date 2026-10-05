@@ -1,27 +1,5 @@
 import Foundation
 import Metal
-import simd
-
-/// Project-owned SDR shoulder for the opaque, already-composited HDR route.
-/// Values remain display-referred sRGB; this is not a transfer conversion.
-/// The knee at 0.5 leaves dark values unchanged and reserves SDR headroom:
-/// f(x) = x below the knee, otherwise 1 - 0.25 / x. The join is C1 continuous.
-/// Finite precision may round extreme highlights to 1. Non-HDR scenes skip
-/// this owner entirely; identity over their full range is a route contract.
-nonisolated struct SceneDisplayMappingCurve: Sendable {
-    nonisolated static let frozenDefault = SceneDisplayMappingCurve()
-
-    nonisolated func evaluate(_ x: Float) -> Float {
-        guard x.isFinite else { return 0 }
-        if x <= 0 { return 0 }
-        if x <= 0.5 { return x }
-        return 1 - 0.25 / x
-    }
-
-    nonisolated func evaluate(_ rgb: SIMD3<Float>) -> SIMD3<Float> {
-        SIMD3(evaluate(rgb.x), evaluate(rgb.y), evaluate(rgb.z))
-    }
-}
 
 /// Encodes the terminal display transform from a completed, distinct color
 /// source to the drawable. The existing target pool owns scratch residency;

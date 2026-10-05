@@ -1360,6 +1360,16 @@
       ]
     },
     {
+      "path": "docs/scene/history/sdr-white-preservation-implementation-2026-10-06.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/text-width-property-implementation-2026-10-05.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",

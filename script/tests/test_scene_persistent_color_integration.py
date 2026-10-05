@@ -20,7 +20,7 @@ class ScenePersistentColorIntegrationTests(unittest.TestCase):
             raise unittest.SkipTest("requires an explicitly frozen Debug executable")
         cls.app = Path(app).resolve(strict=True)
 
-    def run_color(self, once=False, resize=False, clear=False, app=None, expected_color=(191, 64, 128)):
+    def run_color(self, once=False, resize=False, clear=False, app=None, expected_color=(255, 64, 128)):
         visibility = {"value": True, "script": "export function update(value){shared.ticks=(shared.ticks||0)+1; return shared.ticks===1;}"} if once else True
         scene = {"version": 3, "general": {"orthogonalprojection": {"width": 128, "height": 128}, "clearcolor": "0 0 0", "clearenabled": clear, "hdr": True},
                  "objects": [{"id": 1, "name": "HDR source", "image": "models/util/solidlayer.json", "origin": "64 64 0", "size": "64 64", "color": "1 0.25 0.5", "visible": visibility},
@@ -65,7 +65,7 @@ class ScenePersistentColorIntegrationTests(unittest.TestCase):
                 decoded = png_rgb_pixels(capture)
                 self.assertIsNotNone(decoded)
                 width, height, rows = decoded
-                # Author layer tint is normalized to [0, 1]; M(1)=0.75.
+                # HDR storage must not darken ordinary SDR color or white.
                 # The float owner gate separately exercises superwhite inputs.
                 # The preserved 16-bit PNG is reduced only for this broad
                 # display oracle; the owner GPU gate checks float precision.

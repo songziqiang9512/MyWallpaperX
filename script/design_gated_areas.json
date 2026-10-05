@@ -13,7 +13,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
-      "design_notes": "端到端输出管线：HDR target 格式链→高亮滚降/knee→EDR 元数据与 CAMetalLayer 呈现。已有地基证据 E-2026-09-27-SCENE-COLOR-PRECISION（RGBA16F 贯通≠真 HDR）。 设计裁决、限定准入、owner 与退役条件见 designDoc；approved 不表示运行能力或发布验收。",
+      "design_notes": "2026-10-06 修订阶段B：撤销无条件压暗普通白点的shoulder，SDR正常范围恒等、超白仅在最终显示裁剪；保留16F原始历史和Bloom。EDR与显示能力按阶段C另验，approved不是运行或发布验收。",
       "matchPatterns": [],
       "contentPatterns": [
         "wantsExtendedDynamicRange",

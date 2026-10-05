@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-06 | Scene | 实施证据 | [SDR正常颜色恢复](sdr-white-preservation-implementation-2026-10-06.md) | 取消无条件白点压暗，保留超白Bloom和raw历史 | [D2设计](../roadmap/batch2/hdr-tonemap-edr-design.md)、[执行卡](../roadmap/batch2/reference-evidence-implementation-cards.md) |
 | 2026-10-06 | Scene | 实施证据 | [新分配completion交错](scene-allocating-targets-implementation-2026-10-06.md) | mixed/shared成功分配的身份复验与339启动后继 | [架构](../architecture/runtime-architecture.md)、[RF05卡](../roadmap/batch2/reference-evidence-implementation-cards.md) |
 | 2026-10-05 | Scene | 实施证据 | [缓存目标completion交错](scene-cached-targets-implementation-2026-10-05.md) | 全cached误拒绝52→1、活动文件reset与来源切换的有界结果 | [架构](../architecture/runtime-architecture.md)、[RF05卡](../roadmap/batch2/reference-evidence-implementation-cards.md) |
 | 2026-10-05 | Scene | 实施证据 | [媒体封面五色](media-artwork-palette-implementation-2026-10-05.md) | 同封面灰白→红棕背景、原子颜色与缓存反例 | [媒体输入设计](../roadmap/batch2/system-media-input-design.md)、[RF05卡](../roadmap/batch2/reference-evidence-implementation-cards.md) |

@@ -22,7 +22,7 @@
 
 ### RF00 — D2/D3 有界首片已移交证据
 
-首片已完成独立终审、Debug 构建、受控作者输入像素门及两个原样本隔离回归；范围、反例和未验证边界仅由[本批执行记录](../../history/d2-d3-bounded-output-implementation-2026-10-02.md)保存。本卡不继续维护结果计数。设计仍见[D2](hdr-tonemap-edr-design.md)/[D3](2d-lighting-material-design.md)；EDR/PBR/阴影等后继未自动开放，clear=false 单列下卡。受保护能力/运行总表由其唯一 owner 引用执行记录后撤销本移交指针。
+首片范围与验收见[执行记录](../../history/d2-d3-bounded-output-implementation-2026-10-02.md)。[SDR白点纠正](../../history/sdr-white-preservation-implementation-2026-10-06.md)撤销默认shoulder压暗；下一批接通作者HDR Bloom字段，再验显示EDR。设计见[D2](hdr-tonemap-edr-design.md)/[D3](2d-lighting-material-design.md)，未验范围不随首片扩大。
 
 ### RF01 — 现役 RT default 消费首片已移交证据
 

@@ -150,7 +150,7 @@
     },
     "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md": {
       "lines": 76,
-      "bytes": 13597
+      "bytes": 13507
     },
     "docs/scene/roadmap/batch2/host-render-power-protocol-design.md": {
       "lines": 54,
@@ -170,7 +170,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 51874
+      "bytes": 51746
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,

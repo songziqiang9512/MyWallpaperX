@@ -1,20 +1,19 @@
 #include <metal_stdlib>
 using namespace metal;
 
-// D2 stage B — fixed product shaders for the terminal SDR knee/shoulder
-// display mapping. Applied once at the unique compositor output over
-// display-referred sRGB values (no transfer or primaries transform).
+// SDR export of the already-composited display-referred sRGB scene.
+// Preserve ordinary colors and white; HDR overbrightening has already
+// contributed to Bloom. This pass does not enable display EDR.
 
 struct SceneDisplayMappingVaryings {
     float4 position [[position]];
     float2 texcoord;
 };
 
-// Same finite-input contract as SceneDisplayMappingCurve. Author shaders can
-// produce non-finite channels; keep those local to the affected channel.
+// Author shaders can produce non-finite channels; keep the failure local.
 float sceneDisplayMapChannel(float c) {
     if (!isfinite(c) || c <= 0.0) return 0.0;
-    return c <= 0.5 ? c : 1.0 - 0.25 / c;
+    return min(c, 1.0);
 }
 
 vertex SceneDisplayMappingVaryings sceneDisplayMappingVertex(
@@ -48,6 +47,6 @@ fragment float4 sceneDisplayMappingFragment(
         sceneDisplayMapChannel(sampleValue.g),
         sceneDisplayMapChannel(sampleValue.b));
     // Product input is the opaque composite cleared with alpha=1. Copy alpha;
-    // nonlinear RGB mapping does not preserve arbitrary premultiplied edges.
+    // saturation does not establish arbitrary transparent-output semantics.
     return float4(mapped, sampleValue.a);
 }

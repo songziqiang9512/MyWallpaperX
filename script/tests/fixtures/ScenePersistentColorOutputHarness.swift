@@ -182,7 +182,7 @@ import Metal
             && resized.raw.width == 8
         complete(resizeBuffer)
         checks["resizeSeedOpaque"] = read(resized.raw) == [3, 0.25, 0.5, 1]
-            && abs(read(resizeDisplay)[0] - 11.0 / 12.0) < 1.0 / 1024.0
+            && abs(read(resizeDisplay)[0] - 1.0) < 1.0 / 1024.0
         let (export, exportBuffer, _) = prepare(2, size: 8)
         checks["sameEpochPausedExportPins"] = !export.requiresDraw && owner.shouldDeferFrame
         complete(exportBuffer)
@@ -513,7 +513,7 @@ import Metal
                                          status: .completed)
         checks["clearedScratchCompletionReleasesResetResidency"] = largePool.residentByteCost == 0
         checks["clearTrueLargeExtentConservation"] = exact && largeCB.status == .completed
-            && abs(read(largeSource)[0] - 11.0 / 12.0) < 1.0 / 1024.0
+            && abs(read(largeSource)[0] - 1.0) < 1.0 / 1024.0
         let source = texture(), target = texture(), cb = queue.makeCommandBuffer()!
         let pass = SceneMainPassEncoder(commandBuffer: cb, target: source,
             clearColor: MTLClearColorMake(3, 0.25, 0.5, 1), clearEnabled: true)

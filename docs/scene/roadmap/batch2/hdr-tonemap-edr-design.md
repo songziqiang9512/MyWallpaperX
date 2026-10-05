@@ -7,7 +7,7 @@
 
 ## 目标合同与设计判据
 
-保留作者高亮的中间精度，在唯一 terminal compositor 的输出阶段做一次有明确颜色语义的显示映射：先完成 SDR 高亮滚降，再开放可选 EDR。跨 target、Bloom、surface 和显示状态 owner，触及唯一输出与外部平台合同。
+保留作者高亮的中间精度，在唯一 terminal compositor 的输出阶段做一次有明确颜色语义的显示映射：先保持 SDR 正常颜色与 HDR Bloom，再开放可选 EDR。跨 target、Bloom、surface 和显示状态 owner，触及唯一输出与外部平台合同。
 
 五判据：横切多个 owner 或主链节点=是；触碰唯一权威合同=是；用户可见且难逆的 API/数据/发布合同=否；触碰机器冻结结构家族=否；依赖官方或平台外部证据=是。
 
@@ -25,20 +25,20 @@
 
 ## 方案设计与选型
 
-选择**自有显式输出映射**；直接 clamp 会丢失高亮层次，只换 16F 不能解决显示范围，未经确认的系统 metadata 可能重复映射。
+选择**显式区分 authored HDR 合成与显示 EDR**。HDR 的超白先参与 Bloom，SDR 终端保持正常颜色并裁剪显示范围；不为了压入全部超白层次而默认降低普通白点。只换 16F 不是 EDR，未经确认的系统 metadata 可能重复映射。
 
 | 阶段 | 输入及输出合同 | 开放边界 |
 |---|---|---|
 | A：颜色语义确认 | 明确纹理 decode、shader 输出、blend、Bloom 的 transfer/primaries/alpha；沿当前 content/publication 表达 | 不得仅因 target=16F 就 reinterpret 为 linear |
-| B：SDR | HDR scene color → 公共 knee/shoulder 映射 → SDR transfer/terminal attachment | 非 HDR 既有 SDR 路径数值守恒；默认先交付此阶段 |
+| B：SDR | HDR scene color/Bloom → 正常 SDR 范围恒等、超白裁剪 → SDR terminal attachment | 非 HDR 既有 SDR 路径数值守恒；默认先交付此阶段 |
 | C：EDR | 相同 HDR scene color → 当前 headroom 的扩展线性显示值 → RGBA16F extended-linear surface | 逐显示器能力、系统开关和用户选择共同允许时开放 |
 | D：可选 metadata | 仅存在真实且格式匹配的内容元数据时评估系统映射 | 当前选择自有映射时不叠加系统 tone map；不可从截图猜 metadata |
 
-颜色转换的位置先由 A 的合成 fixture 固定，不能简单给现有 display-referred 输出再套 gamma。HDR Bloom 在输出映射前完成；normal/roughness 等 data 不进入颜色变换。toneMappingKnee 为项目参数概念；设计规定连续、单调、有限、保留中性灰与高亮顺序，不规定或声称官方私有曲线。
+颜色转换的位置先由 A 的合成 fixture 固定，不能简单给现有 display-referred 输出再套 gamma。HDR Bloom 在输出映射前完成；normal/roughness 等 data 不进入颜色变换。SDR 导出规定连续、单调不减、有限、保留正常范围内的颜色；超白可同白，不声称官方私有曲线或 EDR 高光验收。
 
-阶段 B 第一片冻结项目自有 rational shoulder，作用域为 `general.hdr=true` 且 `camera.clearEnabled=true` 的已合成 display-referred sRGB 数值；不把浮点格式解释为 scene-linear，也不添加 gamma。非 HDR 场景整条映射 route 不创建、不编码，不要求 HDR 场景中的整个 `[0,1]` 区间恒等。冻结 knee 为 0.5：非正有限值归零，暗部不变，高于 knee 后连续、单调地压缩进入 SDR 范围，且连接处斜率连续；浮点舍入允许端点 1。中性灰仍中性，逐通道处理不串色，但不声明保持高亮色相/饱和度。NaN、正负 infinity 全部输出 0，CPU/MSL 一致。输入 1、1.5、3、5、12 的输出分别约 0.75、0.8333、0.9167、0.95、0.9792，必须在 SDR 区间内仍可分辨；此前“`[0,1]` 恒等、超白仍大于 1”的候选会在 SDR 裁成同白，不满足阶段 B。此处参数与映射行为是项目策略，不来自或声称等于官方曲线。
+**2026-10-06 阶段 B 纠正裁决。** 用户报告默认颜色变暗；无曝光输入、无 EDR surface/headroom 路由却仅因 `general.hdr=true` 自动使用 knee=0.5 的 shoulder，使普通白点 1 变为 0.75。该曲线是本项目旧策略，并非官方合同，本次撤销该默认压暗策略。官方公开 Bloom 文档说明 HDR 超白参与发光，不足以支持对全部普通图像强制降白点；本次是按用户目标纠正产品策略，不宣称官方数值 parity。 阶段 B 的唯一终端输出在 Bloom 之后对有限 RGB 饱和到 `[0,1]`，区间内逐通道恒等；非有限 RGB 归零，alpha 原样保留。非 HDR 路线不创建该 owner。中间 HDR target、raw history、反射及 Bloom 继续保留超白，不提前裁剪；只有最终 SDR 显示丢失超白强度区分，超白的空间发光贡献仍由 Bloom 保留。不要以可选 EDR 尚未完成为由维持默认普通颜色错误，也不能把 SDR 裁剪称为 HDR 显示完成。以后若需要曝光或保高光映射，应有显式输入/显示合同与独立对照，不恢复无条件的压暗曲线。
 
-alpha 不作 tone map。仅在作者启用每帧清底时，terminal 合成从 `SceneMetalRenderer+ClearColor.sceneClearColor` 的 alpha=1 清底；阶段 B 的可见颜色合同限定该不透明终端，按已合成 RGB 映射并原样写回 alpha。`f(0)=0` 不能证明非线性映射保持预乘 RGB/alpha 关系，作者关闭清底时，主 pass 使用 load，保留像素可能已被上一帧映射；RF00 首片因此不创建该profile的映射 owner。后继 RF07 按下节分离未映射 scene color 历史与显示输出，并以多帧反例验收；本段仍限定首片，不与后继合同混用。本片不开放透明终端或逐 layer 映射；透明输出需先确定 straight/premultiplied 边界并另行验证。作者/用户未提供曝光时不做自动逐帧曝光，避免亮度泵动。参数变更需重跑同一自有阶梯、灰/彩色、非有限、失败源保持及后续帧恢复 fixture；GPU 容差冻结为 `1/1024`，SDR 高亮相邻差至少 `1/64`，不以实现公式镜像作为唯一 oracle。
+沿 RF07 的 distinct raw/display 导出与完成权威实施，不新增 renderer、历史、资源池或逐帧分析。清底与累积场景同样保持正常白点；raw 永不接收 Bloom/显示结果，暂停导出不重复合成。现有不透明 surface 边界不变，透明输出另验。GPU 纠正门使用独立已知 SDR 色块（含 0.625、0.75、0.875、1）的逐位保持、超白有限裁剪、非有限局部处理、Bloom 超白产生邻域增亮、source/alpha 保持、失败恢复和 raw 多帧累计；SDR 正常色不以旧曲线公式为 oracle。实际 App 验证 clear true/false 与暂停 resize。EDR 仍按 C 的平台门另行实施。
 
 surface generation 绑定屏幕、颜色空间、format 与 headroom 状态；屏幕迁移或动态 headroom 变化更新 typed display state，不重编译整图。切换 SDR/EDR 使用已准备输出管线，候选失败前保留旧 surface/output。metadata 不是第一阶段的必需品。
 
@@ -62,7 +62,7 @@ surface generation 绑定屏幕、颜色空间、format 与 headroom 状态；�
 
 ## fallback / route
 
-平台不支持、headroom 回到 SDR、可选 metadata 不可用时走已验证 SDR 映射。颜色语义不明的输入保留现役 SDR route 并标记未兼容；不得默默 reinterpret。非法 format/range/generation 拒绝候选输出，保留安全旧帧。普通映射管线失败不破坏前序 graph current。
+平台不支持、headroom 回到 SDR、可选 metadata 不可用时走已验证 SDR 导出。颜色语义不明的输入保留现役 SDR route 并标记未兼容；不得默默 reinterpret。非法 format/range/generation 拒绝候选输出，保留安全旧帧。普通映射管线失败不破坏前序 graph current。
 
 ## 纠正门
 

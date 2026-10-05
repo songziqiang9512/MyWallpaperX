@@ -164,11 +164,11 @@ class ScenePersistentColorOutputTests(unittest.TestCase):
         cls.result = _compile_and_run("ScenePersistentColorOutputHarness.swift")
 
     def test_accumulating_hdr_is_bounded_on_every_terminal_export(self):
-        # Hardcoded independent shoulder golden; this fails before RF07.
+        # Display saturation must not alter the retained HDR source.
         self.assertEqual(len(self.result["accumulatingFrames"]), 8)
         for frame in self.result["accumulatingFrames"]:
             self.assertTrue(frame["gpuCompleted"])
-            self.assertAlmostEqual(frame["rgb"][0], 11 / 12, delta=1 / 1024)
+            self.assertAlmostEqual(frame["rgb"][0], 1, delta=1 / 1024)
             self.assertAlmostEqual(frame["rgb"][1], 0.25, delta=1 / 1024)
             self.assertAlmostEqual(frame["rgb"][2], 0.5, delta=1 / 1024)
             self.assertEqual(frame["alpha"], 1)
@@ -179,15 +179,15 @@ class ScenePersistentColorOutputTests(unittest.TestCase):
                 self.assertTrue(passed, name)
 
     def test_half_alpha_authored_draw_accumulates_only_in_raw(self):
-        expected = [[1.5, .625, .25, 1, 5/6, .6, .25, 1],
-                    [.75, .8125, .125, 1, 2/3, 9/13, .125, 1]]
+        expected = [[1.5, .625, .25, 1, 1, .625, .25, 1],
+                    [.75, .8125, .125, 1, .75, .8125, .125, 1]]
         for actual, golden in zip(self.result["alphaFrames"], expected, strict=True):
             for value, target in zip(actual, golden, strict=True):
                 self.assertAlmostEqual(value, target, delta=1/1024)
 
     def test_existing_clear_true_and_non_hdr_routes_are_unchanged(self):
         self.assertTrue(self.result["clearedHDR"]["gpuCompleted"])
-        self.assertAlmostEqual(self.result["clearedHDR"]["rgb"][0], 11 / 12, delta=1 / 1024)
+        self.assertAlmostEqual(self.result["clearedHDR"]["rgb"][0], 1, delta=1 / 1024)
         self.assertEqual(self.result["nonHDR"]["rgb"], [3, 0.25, 0.5])
         self.assertEqual(self.result["nonHDR"]["alpha"], 1)
 

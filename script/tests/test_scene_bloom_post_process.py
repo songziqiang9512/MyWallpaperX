@@ -65,6 +65,11 @@ HARNESS = r'''
 import Foundation
 import Metal
 
+// This fixture never reserves composition groups; history tests use real pins.
+final class SceneGraphRenderTargetResidencyPin {
+  func release() { fatalError("unexpected composition pin in Bloom fixture") }
+}
+
 enum SceneGPUCensus {
   static func recordMainPassRender(usesDepth: Bool) {}
 }
@@ -244,19 +249,6 @@ enum SceneGPUCensus {
       && fr[0] > fp[0] && fr[3] == 1 && fr.allSatisfy { $0.isFinite }
 
     // ===== D2 display mapping (stage B first slice) =====
-    let curve = SceneDisplayMappingCurve.frozenDefault
-    let darkLadder: [Float] = [0, 0.0625, 0.125, 0.25, 0.375, 0.5]
-    results["dmCurveDarkIdentity"] = darkLadder.allSatisfy { curve.evaluate($0) == $0 }
-    let hdrLadder: [Float] = [0.5, 0.75, 1, 1.5, 3, 5, 12, 100, 10000, .greatestFiniteMagnitude]
-    let cpuOutputs = hdrLadder.map { curve.evaluate($0) }
-    results["dmCurveSDRBounded"] = cpuOutputs.allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1 }
-      && zip(cpuOutputs, cpuOutputs.dropFirst()).allSatisfy { $0 <= $1 }
-    results["dmCurveNonFinite"] = [Float.nan, .infinity, -.infinity, -0.5].allSatisfy {
-      curve.evaluate($0) == 0
-    }
-    // Independent, frozen behavior anchors rather than a second curve formula.
-    results["dmCurveAnchors"] = [Float(1), 1.5, 3, 5, 12].map { curve.evaluate($0) }
-
     let mapping = SceneDisplayMappingPostProcess(device: device, pixelFormat: .rgba16Float, hdrEnabled: true)!
     func float16Texture(
       _ width: Int, _ height: Int, _ texels: [[Float16]]
@@ -307,6 +299,39 @@ enum SceneGPUCensus {
       return encoded
     }
 
+    // Overbright source contributes a halo BEFORE terminal SDR saturation.
+    // A premature clamp would leave the threshold=1 input without a glow.
+    var glowTexels = [[Float16]](repeating: [0.125, 0.125, 0.125, 1], count: 32 * 16)
+    for y in 4..<12 { for x in 8..<24 { glowTexels[y * 32 + x] = [3, 3, 3, 1] } }
+    let glow = float16Texture(32, 16, glowTexels)
+    let glowBuffer = queue.makeCommandBuffer()!
+    MWXArmEncoderFault(glowBuffer, 0)
+    let glowEncoded = floatBloom.encode(configuration: .init(enabled: true,
+      strength: 0.1, threshold: 1, tint: SIMD3(1, 1, 1)), source: glow.texture,
+      commandBuffer: glowBuffer)
+    glowBuffer.commit(); glowBuffer.waitUntilCompleted()
+    let beforeDisplay = readFloat16(glow.texture, 32, 16)
+    let glowTarget = float16Texture(32, 16,
+      [[Float16]](repeating: [0, 0, 0, 1], count: 32 * 16))
+    let displayBuffer = queue.makeCommandBuffer()!
+    MWXArmEncoderFault(displayBuffer, 0)
+    let glowDisplayed = mapping.encode(source: glow.texture, target: glowTarget.texture,
+      commandBuffer: displayBuffer)
+    displayBuffer.commit(); displayBuffer.waitUntilCompleted()
+    let afterDisplay = readFloat16(glowTarget.texture, 32, 16)
+    let haloIndices = stride(from: 0, to: glow.bytes.count, by: 4).filter {
+      glow.bytes[$0] == 0.125 && beforeDisplay[$0] > 0.125 && beforeDisplay[$0] < 1
+    }
+    results["dmSuperwhiteBloom"] = [
+      "completed": glowEncoded && glowDisplayed && glowBuffer.status == .completed
+        && displayBuffer.status == .completed,
+      "haloSurvived": !haloIndices.isEmpty
+        && haloIndices.allSatisfy { beforeDisplay[$0] == afterDisplay[$0] },
+      "superwhiteClippedOnlyAtDisplay": beforeDisplay[(8 * 32 + 16) * 4] > 1
+        && afterDisplay[(8 * 32 + 16) * 4] == 1,
+      "sourceUnchanged": readFloat16(glow.texture, 32, 16) == beforeDisplay,
+    ]
+
     // Non-HDR (bgra8Unorm) source must be refused with zero GPU work.
     var gatedBytes = [UInt8](repeating: 0, count: 8 * 2 * 4)
     for i in gatedBytes.indices { gatedBytes[i] = UInt8((i * 31) % 256) }
@@ -332,8 +357,8 @@ enum SceneGPUCensus {
       "encoderAttempts": MWXEncoderAttempts(),
     ]
 
-    // HDR route: opaque terminal RGB. White is compressed to reserve SDR
-    // highlight range; dark identity applies only below the frozen knee.
+    // HDR composition exported to SDR: all ordinary colors retain their
+    // exact values; only superwhite channels saturate at the terminal.
     let ladderTexels: [[Float16]] = [
       [0, 0.5, 1, 1], [0.125, 0.75, 0.875, 1], [1, 0, 0.625, 1],
       [0.375, 1, 0.25, 1], [1.5, 3, 4, 1], [5, 8, 12, 1],
@@ -343,7 +368,7 @@ enum SceneGPUCensus {
     let ladder = float16Texture(6, 2, ladderTexels)
     let ladderEncoded = runMapping(mapping, ladder.texture)
     let mapped = readFloat16(ladder.texture, 6, 2)
-    var darkBitExact = true
+    var sdrBitExact = true
     var alphaBitExact = true
     var sdrBounded = true
     for texel in 0..<12 {
@@ -355,15 +380,15 @@ enum SceneGPUCensus {
           if output != original { alphaBitExact = false }
         } else {
           if !(output.isFinite && output >= 0 && output <= 1) { sdrBounded = false }
-          if original <= 0.5 && output != original { darkBitExact = false }
+          if original <= 1 && output != original { sdrBitExact = false }
         }
       }
     }
-    let shoulderProbeIndices = [2, 16, 17, 20, 22]
+    let whiteProbeIndices = [2, 16, 17, 20, 22]
     let grayIndex = 6 * 4
-    results["dmShoulderProbes"] = shoulderProbeIndices.map { Float(mapped[$0]) }
+    results["dmWhiteProbes"] = whiteProbeIndices.map { Float(mapped[$0]) }
     results["dmLadderGPU"] = [
-      "encoded": ladderEncoded, "darkBitExact": darkBitExact,
+      "encoded": ladderEncoded, "sdrBitExact": sdrBitExact,
       "alphaBitExact": alphaBitExact, "sdrBounded": sdrBounded,
       "grayPreserved": mapped[grayIndex] == mapped[grayIndex + 1]
         && mapped[grayIndex + 1] == mapped[grayIndex + 2],
@@ -372,8 +397,7 @@ enum SceneGPUCensus {
     results["dmColorHighlight"] = [
       "greenBlueBitExact": mapped[colorIndex + 1] == ladder.bytes[colorIndex + 1]
         && mapped[colorIndex + 2] == ladder.bytes[colorIndex + 2],
-      "redCompressed": mapped[colorIndex] > mapped[colorIndex + 1]
-        && mapped[colorIndex] < 1,
+      "redSaturated": mapped[colorIndex] == 1,
     ]
     let nonfiniteFixture = float16Texture(2, 1, [
       [.nan, .infinity, -.infinity, 1], [-1, .greatestFiniteMagnitude, 0.25, 1],
@@ -381,8 +405,7 @@ enum SceneGPUCensus {
     _ = runMapping(mapping, nonfiniteFixture.texture)
     let invalidMapped = readFloat16(nonfiniteFixture.texture, 2, 1)
     results["dmNonFiniteGPU"] = invalidMapped.enumerated().allSatisfy { index, value in
-      let expected = index % 4 == 3 ? Float(nonfiniteFixture.bytes[index])
-        : curve.evaluate(Float(nonfiniteFixture.bytes[index]))
+      let expected: Float = [0, 0, 0, 1, 0, 1, 0.25, 1][index]
       return value.isFinite && abs(Float(value) - expected) <= 1.0 / 1024.0
     }
     // Non-HDR route is nil even if a target uses floating-point storage.
@@ -411,7 +434,7 @@ enum SceneGPUCensus {
     }
     results["dmAccumulatingPassUnchanged"] =
       readFloat16(retained.texture, 1, 1) == retained.bytes
-      && abs(Float(readFloat16(display.texture, 1, 1)[0]) - 2.0 / 3.0) <= 1.0 / 1024.0
+      && abs(Float(readFloat16(display.texture, 1, 1)[0]) - 0.75) <= 1.0 / 1024.0
 
     // Encoder failure mid-chain must preserve the source (blit is read-only).
     let faultTexels: [[Float16]] = [
@@ -427,7 +450,7 @@ enum SceneGPUCensus {
     ]
     results["dmEncoderRecovery"] = [
       "encoded": recoveredEncoded,
-      "mapped": afterRecovery[0] < faultCase.bytes[0] && afterRecovery[0] > 0.9 && afterRecovery[0] < 1,
+      "mapped": afterRecovery[0] < faultCase.bytes[0] && afterRecovery[0] == 1,
     ]
 
     // Launch-time pipeline failure: nil instance, no-op encode, then recovery.
@@ -449,7 +472,7 @@ enum SceneGPUCensus {
     let recoveryEncoded = runMapping(recoveredMapping, noopCase.texture)
     let recoveryReadback = readFloat16(noopCase.texture, 1, 1)
     results["dmPipelineRecovery1"] = recoveredMapping != nil && recoveryEncoded
-      && recoveryReadback[0] > 0.9 && recoveryReadback[0] < 1
+      && recoveryReadback[0] == 1
 
     print(String(data: try JSONSerialization.data(withJSONObject: results), encoding: .utf8)!)
   }
@@ -539,13 +562,6 @@ class SceneBloomPostProcessTests(unittest.TestCase):
             self.assertEqual(self.result[name]["darkened"], 0)
             self.assertEqual(self.result[name]["changedAlpha"], 0)
 
-    def test_display_mapping_curve_reserves_sdr_highlight_range(self):
-        self.assertTrue(self.result["dmCurveDarkIdentity"])
-        self.assertTrue(self.result["dmCurveSDRBounded"])
-        self.assertTrue(self.result["dmCurveNonFinite"])
-        for actual, expected in zip(self.result["dmCurveAnchors"], [0.75, 0.8333333, 0.9166667, 0.95, 0.9791667]):
-            self.assertAlmostEqual(actual, expected, delta=1 / 1024)
-
     def test_display_mapping_refuses_mismatched_source_and_bypasses_non_hdr_route(self):
         gated = self.result["dmGatedZeroWork"]
         self.assertFalse(gated["encoded"])
@@ -553,25 +569,20 @@ class SceneBloomPostProcessTests(unittest.TestCase):
         self.assertEqual(gated["encoderAttempts"], 0)
         self.assertTrue(self.result["dmNilRouteZeroWork"])
 
-    def test_display_mapping_gpu_preserves_distinct_highlights_inside_sdr_range(self):
+    def test_hdr_sdr_export_preserves_ordinary_colors_and_clips_only_superwhite(self):
         ladder = self.result["dmLadderGPU"]
-        for field in ("encoded", "darkBitExact", "alphaBitExact", "sdrBounded", "grayPreserved"):
+        for field in ("encoded", "sdrBitExact", "alphaBitExact", "sdrBounded", "grayPreserved"):
             self.assertTrue(ladder[field], field)
-        probes = self.result["dmShoulderProbes"]
-        for actual, expected in zip(probes, [0.75, 0.8333333, 0.9166667, 0.95, 0.9791667]):
-            self.assertAlmostEqual(actual, expected, delta=1 / 1024)
-        # All five remain distinct after SDR clamp and 8-bit quantization.
-        sdr_codes = [round(min(1, max(0, x)) * 255) for x in probes]
-        for lower, upper in zip(probes, probes[1:]):
-            self.assertGreater(upper - lower, 1 / 64)
-        self.assertEqual(len(set(sdr_codes)), 5, sdr_codes)
-
-    def test_display_mapping_compresses_colorful_highlights_without_crosstalk(self):
+        self.assertEqual(self.result["dmWhiteProbes"], [1, 1, 1, 1, 1])
         color = self.result["dmColorHighlight"]
         self.assertTrue(color["greenBlueBitExact"])
-        self.assertTrue(color["redCompressed"])
+        self.assertTrue(color["redSaturated"])
 
-    def test_display_mapping_gpu_and_cpu_agree_on_nonfinite_input(self):
+    def test_superwhite_contributes_bloom_before_sdr_export_without_source_writeback(self):
+        for field, passed in self.result["dmSuperwhiteBloom"].items():
+            self.assertTrue(passed, field)
+
+    def test_display_mapping_gpu_sanitizes_only_nonfinite_or_out_of_range_channels(self):
         self.assertTrue(self.result["dmNonFiniteGPU"])
 
     def test_accumulating_main_pass_does_not_remap_retained_display_color(self):
