@@ -103,6 +103,11 @@ nonisolated enum SceneDynamicSceneField: String, Codable, Equatable, Hashable, S
     case bloomStrength
     case bloomThreshold
     case bloomTint
+    case bloomHDRStrength
+    case bloomHDRThreshold
+    case bloomHDRScatter
+    case bloomHDRFeather
+    case bloomHDRIterations
 }
 
 nonisolated enum SceneDynamicLayerField: String, Codable, Equatable, Hashable, Sendable {

@@ -257,7 +257,9 @@ nonisolated struct SceneUserPropertyBindingParser {
         if components.count == 2,
            Self.key(components[0]) == "general",
            let field = Self.key(components[1]),
-           ["bloom", "bloomstrength", "bloomthreshold", "bloomtint"].contains(field) {
+           ["bloom", "bloomstrength", "bloomthreshold", "bloomtint",
+            "bloomhdrstrength", "bloomhdrthreshold", "bloomhdrscatter",
+            "bloomhdrfeather", "bloomhdriterations"].contains(field) {
             return .scene(field: field)
         }
         if components.count == 2,

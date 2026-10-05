@@ -13,7 +13,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
-      "design_notes": "2026-10-06 修订阶段B：撤销无条件压暗普通白点的shoulder，SDR正常范围恒等、超白仅在最终显示裁剪；保留16F原始历史和Bloom。EDR与显示能力按阶段C另验，approved不是运行或发布验收。",
+      "design_notes": "2026-10-06阶段B已纠正SDR白点；后继在唯一Bloom owner接通HDR五字段和typed更新，标准分支保留。默认/扩散/平滑边界须公开或官方自有输入差分，未定不得猜测上线；EDR仍另验，approved不是产品验收。",
       "matchPatterns": [],
       "contentPatterns": [
         "wantsExtendedDynamicRange",

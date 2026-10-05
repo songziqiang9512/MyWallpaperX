@@ -42,23 +42,23 @@
 
 surface generation 绑定屏幕、颜色空间、format 与 headroom 状态；屏幕迁移或动态 headroom 变化更新 typed display state，不重编译整图。切换 SDR/EDR 使用已准备输出管线，候选失败前保留旧 surface/output。metadata 不是第一阶段的必需品。
 
-## RF07-HISTORY：原始颜色与显示导出分离（设计裁决）
+## HDR Bloom 参数与运行分支（2026-10-06）
 
-本后继独立于已验收的阶段 B 首片。以下为 RF07 开工基线的首断点，实施结果仅见[冻结执行记录](../../history/rf07-persistent-color-output-implementation-2026-10-02.md)：当时 `SceneMetalRenderer.swift:189/:251` 同时将 drawable 用作 admission mainTarget 和真实 attachment，`:925` 后 Bloom/映射又覆写它；`SceneDisplayMappingPostProcess.swift:43` 因此保留 clear=false guard。`SceneOffscreenTextureAllocationCache.swift:160` 与 `SceneOffscreenTextureResidency.swift:90` 已拥有 reset epoch、驻留及 pin；`SceneResolvedMaterialSubmissionCoordinator+Completion.swift:157` 是完成后提升的权威，但其 `+FrameCommit.swift:516` 的空 graph 分支尚不登记提交。`compositionTarget` 不具有跨帧内容保留权，不能冒充 history，也不能假造 layer/effect identity。
+**首断点与目标。** Earth 作者 `general.bloomhdrstrength` 绑定 HDR slider；实际 App 三次修改均被 live consumer 拒绝。本批基线仅解析标准 Bloom，不能把 HDR slider 改绑标准强度当作兼容。保留 `bloomhdrstrength/threshold/scatter/feather/iterations` 的作者数值，沿现有 Document → CameraDescriptor/BloomConfiguration → property Program → typed snapshot → 唯一 Bloom owner 进入实际 GPU。标准 Bloom 和 HDR Bloom 各自使用其参数；显示 SDR/EDR 仍由终端 owner 决定。
 
-**目标与选型。** HDR、clear=false 的 authored composition 写入未映射的 raw sceneColor，终端从它导出 Bloom 和现有 SDR 映射。选择复用现役 allocation cache/pin 与 SubmissionCoordinator：每 surface 保留一个 completed raw、一个 candidate raw，显示 scratch 复用并收敛现有 D2 intermediate 职责。拒绝原地反复映射、renderer 私有 history 字典和第二资源池。它仍只有一次 layer traversal、一个 terminal compositor/present；普通帧不新增 reflection、建图或哈希。非 HDR 和 clear=true 路径数值守恒。
+**实施约束。** 扩展现有 Bloom owner，不建立新 renderer、资源池或逐帧参数解析。HDR 明亮提取、扩散与合成使用自有实现；标准分支保留。有限 strength/threshold 不按猜测的编辑器 UI 范围截断；scatter/feather/iterations 的边界与缺省依公开合同及有界官方自有输入实验裁决，不从两个样本反推默认。强度为零不分配/编码，值变化消费下一帧快照，不重启场景；浮点颜色先参与 Bloom 再进入 SDR 裁剪。中间资源在现有预算内准备，编码失败不把半成品加回原图，下一帧可恢复；超预算局部保留安全原图。
 
-**颜色和首次初始化。** 新 surface/generation 无 completed raw 时，用现役 sceneClearColor（alpha=1）初始化一次；关闭逐帧清底不授权 load 未初始化纹理。此 bootstrap 是项目保守策略，不宣称官方初帧一致。raw 保存作者有序合成且尚未 Bloom/显示映射的 display-referred sRGB 数值；不 reinterpret 为 linear。Bloom 仅作用显示 scratch，不能累积回 raw。终端仍限定现有不透明 surface；透明导出、逐层 tone mapping、EDR 不开放。RGB 及 alpha 的存储/混合遵循现有合成合同，映射原样保留 alpha；不得因此声称任意透明终端预乘关系成立。
+**自有 GPU 方案。** 根据官方自有色块对照选择多尺度明亮提取、下采样和上采样重建，不消费第三方或私有 shader。超白提取保留浮点能量，feather 控制阈值下方的连续贡献，scatter 控制多尺度贡献，权重经有界均匀场和未参与推导的输入验证；中间凸组合、末端与强度/染色一起恢复公共权重，避免大扩散/小强度提前半精度截断，tint 与 strength 在加回原图时应用；不将定性行为相同表述为数值 parity。物理层数受源图可用 mip 尺寸约束，缓存以尺寸及实际层数匹配，prepare/encode 共用计划。所有中间 pass 成功后才进行一次 RGB additive combine，alpha 不变；非法非有限参数或工作量不成立时只跳过 Bloom。
 
-**版本、暂停和失效。** identity 使用现役 surface lifetime、pool reset epoch、exact extent/format、allocation generation/physical token 和 simulation frame identity；不新增时钟。首次 reserve 将 completed raw 拷入 candidate，无历史则 bootstrap。同一 raw epoch 已存在 completed frame 时，只有新的 simulation frame 才执行 authored draw；同 epoch/已完成 frame 的 paused 重绘只重新导出 raw，不能重复追加半透明层。resize/format/reset 后没有当前 epoch 的 completed raw，即使 simulation frameIndex 未变也必须 bootstrap 并合成当前 snapshot 一次；沿既有 render invalidation 解除 Surface.didSubmitSimulationFrame 的跳过，并用同一已存 snapshot 更新 render-only viewport/context/camera，不调用 updateSimulation、不推进 VM 或模拟；View.renderFrame 的旧 screenSize/camera 不能跨新 drawable extent 直接复用。尚未完成的同 frame 不另造候选。尺寸、format、颜色合同或 scene generation 改变开启新 raw epoch，不重采样旧历史；clear=true→false 也重新 bootstrap，不读取已映射 drawable 作为 seed。旧 epoch 的 completion 只释放原资源，不提升新版本。
+**缺省判定。** 官方 2.8.0.42、640×256 自有灰阶块对照中，逐个省略 HDR 五字段与显式 strength=2、threshold=1、scatter=1.619、feather=0.1、iterations=8 逐像素相等；每项另有可区分替代输入。运行配置使用这组缺字段等价值，不宣称所有输入或未来版本的默认 parity。
 
-**提交与失败。** 原 coordinator 同时登记 graph 与 terminal sceneColor（包括零 resolved-effect 的场景），GPU completed 且身份匹配才提升 raw。首片最多一个 pending raw candidate；busy 只 deferred 该 surface 的 render，现役 Session 仍每 cadence 消费并提交 VM/simulation/control revision，不回退或补播。cancel、raw/main encoder失败或GPU失败不提升 raw；SceneMainPassEncoder.finishEnsuringClear 必须交付真实编码结果，不能将吞掉的清底 encoder 创建失败当作已初始化候选。可选 Bloom/map encoder 失败时，若安全 raw→drawable 导出成立则局部降级并明确未映射，此整 buffer 正常 completed 后仍提升有效 raw；若无有效输出则取消该 surface 候选。display-only paused 导出也必须由原 coordinator 登记 submission pin/terminal，不得因没有 candidate/graph 而空分支早退。GPU 错误时保证逻辑 raw/display 版本不提升，恢复帧从最近 completed raw 导出；现有预排队 present 不保证屏幕瞬时物理回滚，不新增完成后呈现器来暗中扩大合同。
+**验收。** HDR 开关/profile隔离、五字段实际消费、strength/threshold方向、scatter半径、feather边界与iterations差分均需GPU输出和有界官方对照；原标准Bloom、raw history、零贡献、失败恢复与SDR白点回归。真实Earth验证slider多次更新同PID/窗口、实际合成及退出；未闭合的官方数值差异保留明确边界，不以属性接线冒称HDR完成。官方自有输入的 iterations=0/1 出现独立于 Bloom strength 的全图 transfer，当前未解释；作者值低于2只跳过可选 Bloom、保留原图，不猜 gamma。该边界及精确空间核继续研究，不随本批开放。当前实施/运行证据见[冻结记录](../../history/sdr-white-preservation-implementation-2026-10-06.md#hdr-bloom-参数与重建后继)。
 
-**预算与生命周期。** 使用现役实际分配预算及 pool logical budget，两者均准入；全分辨率 RGBA16F，不做 silent dimension clamp。4K raw pair 与 display scratch 约189.84 MiB，resize 时旧 in-flight pin 同时计入，分配不足保留安全旧结果。新用途直接扩现有 residency pin，独立的 D2 intermediate 缓存随职责迁入退役，不额外常驻第四张全幅纹理；释放等待 GPU terminal，reset/stop 不提前重用。
+## RF07-HISTORY：已实施的原始颜色与显示导出边界
 
-**纠正门。** 实施前建立真实 owner 的修前反例，不能仅断言 guard/符号。实际 GPU 依次验证：一次 HDR 色块加多个无新绘制导出，raw 不变且显示不反复变暗；半透明新增内容按独立合成 oracle 追加；Bloom 切换不改 raw；空 graph completion/promotion；每个分配失败点、cancel、提交拒绝、GPU失败与 stale completion；resize/reload、paused同帧重绘、跨 surface busy/恢复、诊断关闭与导出失败。沿同一 token/version 记录 completion、publication、terminal present 与 next-frame；保留 clear=true/非HDR回归，不将受控多surface冒称物理多屏或官方 parity。
+原始颜色与显示导出的隔离已实施，过程、失败门和验收边界统一见[冻结执行记录](../../history/rf07-persistent-color-output-implementation-2026-10-02.md)，不在本待实施设计复写。本次 HDR Bloom 必须保留其约束：作者有序合成写入未映射 raw；Bloom 只写 display scratch，终端显示结果不累积回 raw；每帧仍只有一次 layer traversal 和一个 compositor/present。
 
-**owner / 退役。** target cache/residency owns物理存储和pin；现役SubmissionCoordinator owns候选、terminal与completed版本；Renderer仅编排唯一输出。2026-10-02 独立只读设计复核已确认现 owner 可承载；本段按复核收紧 paused 新 epoch、显示降级提升和 display-only pin 三项后作为实施合同，设计登记同步批准，不代表产品验收；上述多帧和失败门全部闭合后由稳定target/output合同接管，删除派生卡及过渡设计入口。
+资源沿现役 allocation cache/residency pin 与 SubmissionCoordinator 管理，只有身份匹配且 GPU completed 才提升 raw。暂停导出不重跑 VM/模拟；resize/reset 后的新 raw epoch 先安全初始化。Bloom 或显示映射失败保留安全原图，资源/代际错误拒绝对应候选；不新增历史、完成回调或资源 owner。后续 HDR 改动继续通过 raw 多帧累积、paused resize、失败恢复和预算门。
 
 ## fallback / route
 

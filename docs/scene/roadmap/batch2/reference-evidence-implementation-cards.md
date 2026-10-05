@@ -22,7 +22,7 @@
 
 ### RF00 — D2/D3 有界首片已移交证据
 
-首片范围与验收见[执行记录](../../history/d2-d3-bounded-output-implementation-2026-10-02.md)。[SDR白点纠正](../../history/sdr-white-preservation-implementation-2026-10-06.md)撤销默认shoulder压暗；下一批接通作者HDR Bloom字段，再验显示EDR。设计见[D2](hdr-tonemap-edr-design.md)/[D3](2d-lighting-material-design.md)，未验范围不随首片扩大。
+首片范围与验收见[执行记录](../../history/d2-d3-bounded-output-implementation-2026-10-02.md)。[SDR/HDR纠正](../../history/sdr-white-preservation-implementation-2026-10-06.md)恢复白点与HDR Bloom热更新；后继验显示EDR及重型启动。设计见[D2](hdr-tonemap-edr-design.md)/[D3](2d-lighting-material-design.md)，未验范围不随首片扩大。
 
 ### RF01 — 现役 RT default 消费首片已移交证据
 

@@ -39,6 +39,11 @@ extension SceneDocument {
         let bloomStrength: Float
         let bloomThreshold: Float
         let bloomTint: [Float]
+        var bloomHDRStrength: Float? = nil
+        var bloomHDRThreshold: Float? = nil
+        var bloomHDRScatter: Float? = nil
+        var bloomHDRFeather: Float? = nil
+        var bloomHDRIterations: Float? = nil
     }
 }
 
@@ -102,7 +107,12 @@ extension SceneDocumentLoader {
             bloomEnabled: visibleValue(root?["bloom"]) ?? false,
             bloomStrength: root?["bloomstrength"].flatMap(Self.floatValue) ?? 1,
             bloomThreshold: root?["bloomthreshold"].flatMap(Self.floatValue) ?? 0.65,
-            bloomTint: floatVector(root?["bloomtint"]) ?? [1, 1, 1]
+            bloomTint: floatVector(root?["bloomtint"]) ?? [1, 1, 1],
+            bloomHDRStrength: root?["bloomhdrstrength"].flatMap(Self.floatValue),
+            bloomHDRThreshold: root?["bloomhdrthreshold"].flatMap(Self.floatValue),
+            bloomHDRScatter: root?["bloomhdrscatter"].flatMap(Self.floatValue),
+            bloomHDRFeather: root?["bloomhdrfeather"].flatMap(Self.floatValue),
+            bloomHDRIterations: root?["bloomhdriterations"].flatMap(Self.floatValue)
         )
     }
 

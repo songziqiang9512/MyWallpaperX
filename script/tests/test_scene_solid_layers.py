@@ -466,6 +466,29 @@ enum Harness {
             throw HarnessError.descriptorRejected
         }
 
+        func bloomDescriptor(_ general: [String: Any]) throws -> SceneBloomConfiguration {
+            let url = sceneURL.deletingLastPathComponent().appendingPathComponent("bloom.json")
+            try JSONSerialization.data(withJSONObject: ["general": general, "objects": []]).write(to: url)
+            let parsed = try SceneDocumentLoader().load(from: url)
+            let result = SceneRenderDescriptorBuilder().build(project: project, sceneDocument: parsed,
+                assetCatalog: assetCatalog, resourceReferences: resourceReferences,
+                capabilityProfile: capabilityProfile)!.camera.bloom
+            let decoded = try JSONDecoder().decode(SceneBloomConfiguration.self,
+                from: JSONEncoder().encode(result))
+            precondition(decoded == result)
+            return decoded
+        }
+        let defaultHDR = try bloomDescriptor(["hdr": true, "bloom": true])
+        let explicitHDR = try bloomDescriptor(["hdr": true, "bloom": true, "bloomstrength": 7,
+            "bloomhdrstrength": ["user": "power", "value": 0.5], "bloomhdrthreshold": 0.75,
+            "bloomhdrscatter": 2, "bloomhdrfeather": 0.9, "bloomhdriterations": 3])
+        let standardBloom = try bloomDescriptor(["hdr": false, "bloom": true, "bloomhdrstrength": 9])
+        let bloomProfiles = defaultHDR.hdr == .init(strength: 2, threshold: 1, scatter: 1.619,
+                feather: 0.1, iterations: 8)
+            && explicitHDR.hdr == .init(strength: 0.5, threshold: 0.75, scatter: 2,
+                feather: 0.9, iterations: 3)
+            && explicitHDR.strength == 7 && standardBloom.hdr == nil
+
         guard let device = MTLCreateSystemDefaultDevice(),
               let solidTexture = SceneSolidLayerTexture.make(device: device) else {
             throw HarnessError.noMetal
@@ -535,6 +558,7 @@ enum Harness {
             return (String(id), result)
         })
         let result: [String: Any] = [
+            "bloomProfiles": bloomProfiles,
             "staticWorldSpaceTRS": staticWorldSpaceTRS,
             "cameraParallaxEnabled": descriptor.camera.parallaxEnabled,
             "worldSpaceFrameLayerIDs": descriptor.staticParticleWorldSpaceFrames.keys.sorted(),
@@ -677,6 +701,9 @@ class SceneSolidLayerTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         if hasattr(cls, "temporary_directory"):
             cls.temporary_directory.cleanup()
+
+    def test_hdr_bloom_document_descriptor_and_codable_preserve_profile(self):
+        self.assertTrue(self.result["bloomProfiles"])
 
     def test_world_space_gate_admits_value_scripts_and_rejects_transform_writers(self) -> None:
         eligible = self.result["worldSpaceFrameLayerIDs"]

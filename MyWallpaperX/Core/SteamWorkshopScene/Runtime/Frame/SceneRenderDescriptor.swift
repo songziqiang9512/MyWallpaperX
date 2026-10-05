@@ -378,7 +378,16 @@ struct SceneRenderDescriptorBuilder {
                     gen.bloomTint.count == 3 ? gen.bloomTint[0] : 1,
                     gen.bloomTint.count == 3 ? gen.bloomTint[1] : 1,
                     gen.bloomTint.count == 3 ? gen.bloomTint[2] : 1
-                )
+                ),
+                // Missing-field equivalence verified with own inputs against
+                // official client 2.8.0.42; this is not display EDR selection.
+                hdr: gen.hdrEnabled ? .init(
+                    strength: gen.bloomHDRStrength ?? 2,
+                    threshold: gen.bloomHDRThreshold ?? 1,
+                    scatter: gen.bloomHDRScatter ?? 1.619,
+                    feather: gen.bloomHDRFeather ?? 0.1,
+                    iterations: gen.bloomHDRIterations ?? 8
+                ) : nil
             ),
             fovDegrees: gen.fovDegrees,
             perspectiveOverrideFOVDegrees:

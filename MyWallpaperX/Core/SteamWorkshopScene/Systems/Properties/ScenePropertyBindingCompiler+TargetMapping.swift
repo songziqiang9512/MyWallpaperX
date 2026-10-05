@@ -137,6 +137,11 @@ extension ScenePropertyBindingCompiler {
             case "bloomstrength": (.scene(.bloomStrength), .scalar, .slider)
             case "bloomthreshold": (.scene(.bloomThreshold), .scalar, .slider)
             case "bloomtint": (.scene(.bloomTint), .vector3, .color)
+            case "bloomhdrstrength": (.scene(.bloomHDRStrength), .scalar, .slider)
+            case "bloomhdrthreshold": (.scene(.bloomHDRThreshold), .scalar, .slider)
+            case "bloomhdrscatter": (.scene(.bloomHDRScatter), .scalar, .slider)
+            case "bloomhdrfeather": (.scene(.bloomHDRFeather), .scalar, .slider)
+            case "bloomhdriterations": (.scene(.bloomHDRIterations), .scalar, .slider)
             default: nil
             }
         case let .camera(field):

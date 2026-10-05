@@ -219,6 +219,38 @@ enum SceneGPUCensus {
         tint: SIMD3(1, 1, 1)).resolving(snapshot)
       results["combo" + mode] = render(400, 240, strength: 0, threshold: 1, configuration: config)
     }
+    let hdrKeys = ["bloomhdrstrength", "bloomhdrthreshold", "bloomhdrscatter",
+                   "bloomhdrfeather", "bloomhdriterations"]
+    let hdrGeneral = Dictionary(uniqueKeysWithValues: hdrKeys.map {
+      ($0, ["user": $0, "value": $0 == "bloomhdriterations" ? 3.0 : 0.5] as [String: Any])
+    })
+    let hdrCatalog = SceneUserPropertyDefinitionParser().parse(projectRoot: ["general": [
+      "properties": Dictionary(uniqueKeysWithValues: hdrKeys.map {
+        ($0, ["type": "slider", "value": $0 == "bloomhdriterations" ? 3.0 : 0.5,
+              "min": 0.0, "max": 8.0] as [String: Any])
+      })]])
+    let hdrBindings = ScenePropertyBindingCompiler().compile(
+      report: SceneUserPropertyBindingParser().parse(root: ["general": hdrGeneral]),
+      catalog: hdrCatalog)
+    results["hdrFieldsAdmitted"] = hdrBindings.diagnostics.isEmpty
+      && hdrBindings.program.instructions.count == hdrKeys.count
+    let authoredHDR = SceneBloomConfiguration(enabled: true, strength: 7, threshold: 0.1,
+      tint: SIMD3(1, 1, 1), hdr: .init(strength: 0.25, threshold: 0.75,
+        scatter: 1, feather: 0.5, iterations: 3))
+    let hdrEvaluation = hdrBindings.program.evaluate(effectiveValues: [
+      "bloomhdrstrength": .number(2), "bloomhdrthreshold": .number(1.5),
+      "bloomhdrscatter": .number(2), "bloomhdrfeather": .number(0.25),
+      "bloomhdriterations": .number(8)])
+    let hdrSnapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 4, generation: 2,
+      definitions: hdrBindings.program.definitions, userValues: hdrEvaluation.userValues).snapshot
+    let resolvedHDR = authoredHDR.resolving(hdrSnapshot)
+    results["hdrTypedConfiguration"] = resolvedHDR.strength == 7 && resolvedHDR.threshold == 0.1
+      && resolvedHDR.hdr == .init(strength: 2, threshold: 1.5, scatter: 2,
+        feather: 0.25, iterations: 8)
+    let standardOnly = SceneBloomConfiguration(enabled: true, strength: 7, threshold: 0.1,
+      tint: SIMD3(1, 1, 1)).resolving(hdrSnapshot)
+    results["hdrDoesNotActivateStandardProfile"] = standardOnly.hdr == nil
+      && standardOnly.strength == 7 && standardOnly.threshold == 0.1
     results["prepareOnce"] = preparedCount == 3 && MWXPipelineAttempts() == 3
     for index in 1...3 {
       MWXArmPipelineFault(device, UInt(index))
@@ -331,6 +363,133 @@ enum SceneGPUCensus {
         && afterDisplay[(8 * 32 + 16) * 4] == 1,
       "sourceUnchanged": readFloat16(glow.texture, 32, 16) == beforeDisplay,
     ]
+
+
+    // Five neutral blocks match the official black-box input. Read actual 16F
+    // GPU output before display clipping; this is behavior, not a CPU oracle.
+    let hdrBloom = SceneBloomPostProcess(device: device, pixelFormat: .rgba16Float, hdrEnabled: true)!
+    func renderHDR(_ config: SceneBloomConfiguration.HDR, tint: SIMD3<Float> = SIMD3(1, 1, 1),
+                   failEncoder: Int = 0) -> [String: Any] {
+      let w = 640, h = 256
+      let brightness: [Float16] = [0.25, 0.5, 1, 2, 4]
+      var input = [[Float16]](repeating: [0, 0, 0, 0.375], count: w * h)
+      for block in 0..<5 {
+        for y in 116..<140 { for x in (64 + block * 128 - 12)..<(64 + block * 128 + 12) {
+          input[y * w + x] = [brightness[block], brightness[block], brightness[block], 0.75]
+        } }
+      }
+      let source = float16Texture(w, h, input)
+      let configuration = SceneBloomConfiguration(enabled: true, strength: 0, threshold: 9, tint: tint, hdr: config)
+      let prepared = hdrBloom.prepareCapacity(configuration: configuration, source: source.texture)
+      let buffer = queue.makeCommandBuffer()!
+      MWXArmEncoderFault(buffer, UInt(failEncoder))
+      let encoded = hdrBloom.encode(configuration: configuration, source: source.texture, commandBuffer: buffer)
+      buffer.commit(); buffer.waitUntilCompleted()
+      let output = readFloat16(source.texture, w, h)
+      func roi(_ block: Int, _ rows: Range<Int>, _ channel: Int = 0) -> Double {
+        var sum = 0.0, count = 0
+        for y in rows { for x in (64 + block * 128 - 8)..<(64 + block * 128 + 8) {
+          sum += Double(output[(y * w + x) * 4 + channel]); count += 1
+        } }
+        return sum / Double(count)
+      }
+      return ["prepared": prepared, "encoded": encoded, "completed": buffer.status == .completed,
+        "unchanged": output == source.bytes, "attempts": MWXEncoderAttempts(),
+        "alpha": stride(from: 3, to: output.count, by: 4).allSatisfy { output[$0] == source.bytes[$0] },
+        "finite": output.allSatisfy { $0.isFinite },
+        "near": (0..<5).map { roi($0, 104..<112) },
+        "far": (0..<5).map { roi($0, 64..<80) },
+        "green": (0..<5).map { roi($0, 104..<112, 1) }]
+    }
+    func hdrConfig(_ strength: Float = 1, _ threshold: Float = 1, _ scatter: Float = 1,
+                   _ feather: Float = 0, _ iterations: Float = 3) -> SceneBloomConfiguration.HDR {
+      .init(strength: strength, threshold: threshold, scatter: scatter, feather: feather, iterations: iterations)
+    }
+    for (key, config) in [("base", hdrConfig()), ("zero", hdrConfig(0)),
+                          ("strong", hdrConfig(2)), ("threshold", hdrConfig(1, 0)),
+                          ("feather", hdrConfig(1, 1, 1, 1)), ("scatter", hdrConfig(1, 1, 2)),
+                          ("wide", hdrConfig(1, 1, 1, 0, 8)),
+                          ("hugeIterations", hdrConfig(1, 1, 1, 0, .greatestFiniteMagnitude)),
+                          ("unsupportedZeroLevels", hdrConfig(1, 1, 1, 0, 0)),
+                          ("unsupportedOneLevel", hdrConfig(1, 1, 1, 0, 1)),
+                          ("invalid", hdrConfig(1, 1, .nan)), ("baseAgain", hdrConfig())] {
+      results["hdrGPU" + key] = renderHDR(config)
+    }
+    results["hdrGPUtint"] = renderHDR(hdrConfig(), tint: SIMD3(1, 0, 0))
+    // Three down levels + two reconstruction levels + the sole combine.
+    for index in 1...6 {
+      results["hdrGPUfault\(index)"] = renderHDR(hdrConfig(), failEncoder: index)
+      results["hdrGPUrecover\(index)"] = renderHDR(hdrConfig())
+    }
+
+
+
+
+    func uniformHDR(_ value: Float16, _ scatter: Float, _ levels: Float,
+                    _ strength: Float = 1, _ threshold: Float = 0) -> Int {
+      let source = float16Texture(640, 256,
+        [[Float16]](repeating: [value, value, value, 1], count: 640 * 256))
+      let buffer = queue.makeCommandBuffer()!
+      MWXArmEncoderFault(buffer, 0)
+      _ = hdrBloom.encode(configuration: .init(enabled: true, strength: 0, threshold: 9,
+        tint: SIMD3(1, 1, 1), hdr: hdrConfig(strength, threshold, scatter, 0, levels)),
+        source: source.texture, commandBuffer: buffer)
+      buffer.commit(); buffer.waitUntilCompleted()
+      precondition(buffer.status == .completed)
+      let output = readFloat16(source.texture, 640, 256)
+      return Int((min(1, max(0, Float(output[(128 * 640 + 320) * 4]))) * 255).rounded())
+    }
+    // Fixed-client black-box observations, frozen from independent uniform
+    // fields: no halo ROI or CPU copy of the shader serves as the oracle.
+    results["hdrUniformOfficial"] = [
+      uniformHDR(0.1, 1, 3, 0), uniformHDR(0.1, 1, 2), uniformHDR(0.1, 1, 3),
+      uniformHDR(0.1, 1, 8), uniformHDR(0.1, 2, 3), uniformHDR(0.01, 2, 2),
+      uniformHDR(0.01, 2, 8), uniformHDR(0.01, 0, 3), uniformHDR(0.01, 1.619, 8),
+      uniformHDR(0.25, 1, 3), uniformHDR(0.25, 1, 3, 1, 0.1),
+      uniformHDR(0.05, 2, 4), uniformHDR(0.05, 0.5, 3)]
+
+    results["hdrLargeScatterSmallStrength"] = uniformHDR(0.01, 100000000, 2, 0.000001)
+
+    func largeParameter(_ strength: Float, _ tint: Float, _ scatter: Float = 0) -> [Float16] {
+      let source = float16Texture(16, 16,
+        [[Float16]](repeating: [0.0009765625, 0.0009765625, 0.0009765625, 0.5], count: 256))
+      let buffer = queue.makeCommandBuffer()!
+      MWXArmEncoderFault(buffer, 0)
+      precondition(hdrBloom.encode(configuration: .init(enabled: true, strength: 0, threshold: 1,
+        tint: SIMD3(repeating: tint), hdr: hdrConfig(strength, 0, scatter, 0, 2)), source: source.texture,
+        commandBuffer: buffer))
+      buffer.commit(); buffer.waitUntilCompleted()
+      precondition(buffer.status == .completed)
+      return readFloat16(source.texture, 16, 16)
+    }
+    let largeStrength = largeParameter(100000, 0.01)
+    let equivalentScale = largeParameter(1000, 1)
+    results["hdrLargeFiniteParameters"] = zip(largeStrength, equivalentScale).allSatisfy {
+      abs(Float($0) - Float($1)) <= 0.0005
+    } && largeStrength[0] > 0.45 && largeStrength[0] < 1
+      && largeParameter(100000, 0)[0] == 0.0009765625
+      && largeParameter(.greatestFiniteMagnitude, 0, .greatestFiniteMagnitude)[0] == 0.0009765625
+
+    let intense = float16Texture(16, 16, [[Float16]](repeating: [40000, 40000, 40000, 0.5], count: 256))
+    let intenseBuffer = queue.makeCommandBuffer()!
+    MWXArmEncoderFault(intenseBuffer, 0)
+    let intenseEncoded = hdrBloom.encode(configuration: .init(enabled: true, strength: 0, threshold: 1,
+      tint: SIMD3(1, 1, 1), hdr: hdrConfig(2, 1, 1, 0, 2)), source: intense.texture,
+      commandBuffer: intenseBuffer)
+    intenseBuffer.commit(); intenseBuffer.waitUntilCompleted()
+    let intenseOutput = readFloat16(intense.texture, 16, 16)
+    results["hdrFiniteSuperwhite"] = intenseEncoded && intenseBuffer.status == .completed
+      && stride(from: 0, to: intenseOutput.count, by: 4).allSatisfy {
+        intenseOutput[$0].isFinite && intenseOutput[$0] >= 40000 && intenseOutput[$0 + 3] == 0.5
+      }
+    _ = autoreleasepool { renderHDR(hdrConfig(1, 1, 1, 0, 8)) }
+    let budget = SceneResourceBudget.shared
+    let held = budget.maximumBytes - budget.snapshot.residentBytes
+    precondition(budget.reserve(held, kind: .gpu))
+    // Old 8-level chain alone can pay for the smaller replacement. With the
+    // retired cache still pinned, neither its prepare nor next-frame retry fits.
+    results["hdrBudgetReplacement"] = autoreleasepool { renderHDR(hdrConfig()) }
+    budget.release(held, kind: .gpu)
 
     // Non-HDR (bgra8Unorm) source must be refused with zero GPU work.
     var gatedBytes = [UInt8](repeating: 0, count: 8 * 2 * 4)
@@ -518,6 +677,57 @@ class SceneBloomPostProcessTests(unittest.TestCase):
             self.assertEqual(self.result["dynamic" + suffix]["changedRGB"], 0)
         for suffix in ("On", "Off", "Zero", "Threshold", "Tint", "OnAgain"):
             self.assertEqual(self.result["dynamic" + suffix]["changedAlpha"], 0)
+
+    def test_hdr_authored_fields_compile_to_typed_scene_targets(self):
+        self.assertTrue(self.result["hdrFieldsAdmitted"])
+
+    def test_hdr_typed_values_remain_separate_from_standard_bloom(self):
+        self.assertTrue(self.result["hdrTypedConfiguration"])
+        self.assertTrue(self.result["hdrDoesNotActivateStandardProfile"])
+
+    def test_hdr_gpu_parameters_change_energy_spread_threshold_and_tint(self):
+        base = self.result["hdrGPUbase"]
+        for name in ("base", "strong", "threshold", "feather", "scatter", "wide", "hugeIterations", "baseAgain", "tint"):
+            value = self.result["hdrGPU" + name]
+            for key in ("prepared", "encoded", "completed", "alpha", "finite"):
+                self.assertTrue(value[key], (name, key))
+        self.assertEqual(base["near"][:3], [0, 0, 0])
+        self.assertGreater(base["near"][3], 0)
+        self.assertGreater(base["near"][4], base["near"][3])
+        self.assertGreater(self.result["hdrGPUstrong"]["near"][3], base["near"][3])
+        self.assertGreater(self.result["hdrGPUthreshold"]["near"][1], 0)
+        self.assertGreater(self.result["hdrGPUfeather"]["near"][2], 0)
+        self.assertGreater(self.result["hdrGPUscatter"]["near"][3], base["near"][3])
+        self.assertGreater(self.result["hdrGPUwide"]["far"][3], base["far"][3])
+        self.assertEqual(self.result["hdrGPUtint"]["green"], [0] * 5)
+        self.assertEqual(self.result["hdrGPUtint"]["near"], base["near"])
+        self.assertEqual(self.result["hdrGPUbaseAgain"]["near"], base["near"])
+
+    def test_hdr_gpu_failure_is_local_and_next_frame_recovers(self):
+        for key in ("zero", "invalid", "unsupportedZeroLevels", "unsupportedOneLevel"):
+            value = self.result["hdrGPU" + key]
+            self.assertTrue(value["unchanged"])
+            self.assertEqual(value["attempts"], 0)
+        for index in range(1, 7):
+            value = self.result[f"hdrGPUfault{index}"]
+            self.assertFalse(value["encoded"])
+            self.assertTrue(value["unchanged"])
+            self.assertEqual(value["attempts"], index)
+            self.assertTrue(self.result[f"hdrGPUrecover{index}"]["encoded"])
+
+    def test_hdr_uniform_field_matches_fixed_official_behavior(self):
+        expected = [25, 51, 64, 127, 85, 6, 13, 5, 13, 159, 121, 51, 28]
+        for index, (actual, target) in enumerate(zip(self.result["hdrUniformOfficial"], expected, strict=True)):
+            self.assertLessEqual(abs(actual - target), 1, (index, actual, target))
+
+    def test_hdr_superwhite_stays_finite_and_retired_capacity_can_be_replaced(self):
+        self.assertTrue(self.result["hdrFiniteSuperwhite"])
+        self.assertTrue(self.result["hdrLargeFiniteParameters"])
+        self.assertLessEqual(abs(self.result["hdrLargeScatterSmallStrength"] - 130), 1)
+        replacement = self.result["hdrBudgetReplacement"]
+        self.assertTrue(replacement["prepared"])
+        self.assertTrue(replacement["encoded"])
+        self.assertTrue(replacement["alpha"])
 
     def test_pipeline_preparation_is_complete_or_unavailable_and_never_repeated_per_frame(self):
         self.assertTrue(self.result["prepareOnce"])
