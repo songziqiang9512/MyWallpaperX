@@ -310,6 +310,74 @@ enum SceneGraphAllocationRecoveryHarness {
                 "cachedCompletionRejectsReset": staleRejected]
     }
 
+    static func allocatingCompletion(_ device: MTLDevice, _ queue: MTLCommandQueue,
+                                     shared: Bool, beforePrepare: Bool, reset: Bool)
+        throws -> [String: Bool] {
+        let pool = makePool(device), cache = pool.allocationCache
+        let cached = try framePlan(pool, layer: 746, shared: shared)
+        let fresh = try framePlan(pool, layer: 747, shared: shared)
+        let initial = try need(pool.preparePersistentGraphTargets(framePlans: [cached]), "mixed seed")
+        let commits = try need(cache.commitAndPin(try requests(initial)), "mixed seed commit")
+        commits.forEach { $0.releaseAll() }
+        let original = try need(currentGraph(cache, cached.graphPlan), "mixed cached graph")
+        let external = try need(pool.reserveEnvironment(width: 19, height: 19,
+            commandBuffer: need(queue.makeCommandBuffer(), "mixed completion buffer")), "mixed pin")
+        defer { external.pin.release() }
+        let plans = [cached.graphPlan, fresh.graphPlan]
+        let batch = SceneGraphAllocationRecoveryBatch(cache: cache,
+            protectedKeys: Set(plans.map { .layerGraph($0.key) }))
+        let buffer = try need(queue.makeCommandBuffer(), "mixed target buffer")
+        let reservations = try need(cache.reserveGraphs(plans: plans,
+            orderingContext: .init(commandBuffer: buffer)), "mixed reservations")
+        if beforePrepare { external.pin.release() }
+        var factories = 0
+        let allocator = ScenePersistentGraphTargetAllocator(device: device, cache: cache,
+            textureFactory: { descriptor, label in
+                factories += 1
+                if reset { pool.reset() } else { external.pin.release() }
+                return native(device, descriptor, label)
+            })
+        let targets = allocator.prepare(plans: plans, reservations: reservations, recoveryBatch: batch)
+        let unpublished = currentGraph(cache, fresh.graphPlan) == nil
+        let final = targets.flatMap { cache.admitPreparedTargets($0) }?
+            .finalize(historyTokensByTarget: [[:], [:]], commandBuffer: buffer)
+        defer { final?.forEach { $0.releaseAll() } }
+        if reset { return ["resetRejected": targets == nil && final == nil && unpublished] }
+        let expectedFactories = fresh.graphPlan.slots.count - (shared ? 2 : 0)
+        return ["mixedCompletionAccepted": final?.count == 2,
+                "allocatedOnce": factories == expectedFactories,
+                "prepareUnpublished": unpublished,
+                "cachedTexturePreserved": currentGraph(cache, cached.graphPlan).map {
+                    $0.generation == original.generation && objects($0) == objects(original)
+                } ?? false]
+    }
+
+    static func sharedPairCompletion(_ device: MTLDevice, _ queue: MTLCommandQueue,
+                                     mutation: String) throws -> [String: Bool] {
+        let pool = makePool(device), cache = pool.allocationCache
+        let key = Cache.Key.sharedGraphPair(width: 32, height: 32)
+        let external = try need(pool.reserveEnvironment(width: 19, height: 19,
+            commandBuffer: need(queue.makeCommandBuffer(), "pair completion buffer")), "pair pin")
+        defer { external.pin.release() }
+        let batch = SceneGraphAllocationRecoveryBatch(cache: cache, protectedKeys: [key])
+        let candidate = try need(pool.sharedPairCandidate(width: 32, height: 32,
+            recoveryBatch: batch), "pending pair")
+        var competingGeneration: UInt64?
+        if mutation == "reset" { pool.reset() }
+        else if mutation == "replacement" {
+            guard pool.ensureSharedPairs([key]) else { throw Failure.setup("competing pair") }
+            competingGeneration = cache.allocation(for: key)?.generation
+        } else { external.pin.release() }
+        let accepted = batch.commitSharedPairs([candidate], requiredKeys: [key])
+        if mutation == "reset" { return ["pairResetRejected": !accepted && cache.allocation(for: key) == nil] }
+        if mutation == "replacement" {
+            return ["pairReplacementRejected": !accepted
+                && cache.allocation(for: key)?.generation == competingGeneration]
+        }
+        return ["pairCompletionAccepted": accepted
+            && cache.allocation(for: key)?.generation == candidate.allocation.generation]
+    }
+
     /// Exercises the pool's complete entry point without a factory seam. The
     /// artificial reservation limits the real shared quota; it is not a claim
     /// of physical device OOM. Descriptor charges come from cold native leases.
@@ -439,6 +507,14 @@ enum SceneGraphAllocationRecoveryHarness {
         }
         result["cachedCompletion"] = try [false, true].map {
             try cachedCompletion(device, queue, shared: $0)
+        }
+        result["allocatingCompletion"] = try [false, true].flatMap { shared in
+            try [false, true].map {
+                try allocatingCompletion(device, queue, shared: shared, beforePrepare: $0, reset: false)
+            } + [try allocatingCompletion(device, queue, shared: shared, beforePrepare: false, reset: true)]
+        }
+        result["sharedPairCompletion"] = try ["completion", "replacement", "reset"].map {
+            try sharedPairCompletion(device, queue, mutation: $0)
         }
         result["poolEntryPressure"] = try [false, true].map {
             try poolEntryPressure(device, queue, shared: $0)

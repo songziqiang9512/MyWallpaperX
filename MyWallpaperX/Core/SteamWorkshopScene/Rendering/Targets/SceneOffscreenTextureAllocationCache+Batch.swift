@@ -9,13 +9,14 @@ final class SceneGraphAllocationRecoveryBatch {
     private let resetEpoch: UUID
     private let protectedKeys: Set<SceneOffscreenTextureAllocationCache.Key>
     private var protectedGenerations: Set<UInt64>
+    private let sharedPairGenerations: [SceneOffscreenTextureAllocationCache.Key: UInt64]
     private var attemptedRecovery = false
 
     init(cache: SceneOffscreenTextureAllocationCache,
          protectedKeys: Set<SceneOffscreenTextureAllocationCache.Key>) {
         self.cache = cache
         self.protectedKeys = protectedKeys
-        let state = cache.locked { () -> (UUID, UUID, Set<UInt64>) in
+        let state = cache.locked { () -> (UUID, UUID, Set<UInt64>, [SceneOffscreenTextureAllocationCache.Key: UInt64]) in
             // Shared pairs are allocated before graph reservations exist.
             // Preserve all generations of requested graphs until reserveGraphs
             // selects their exact cached/reusable/history sources.
@@ -29,21 +30,28 @@ final class SceneGraphAllocationRecoveryBatch {
                 }
                 return nil
             }
-            return (cache.revision, cache.resetEpoch, Set(generations))
+            var pairs: [SceneOffscreenTextureAllocationCache.Key: UInt64] = [:]
+            for (residentKey, entry) in cache.residents {
+                if case let .current(key) = residentKey, case .sharedGraphPair = key {
+                    pairs[key] = entry.allocation.generation
+                }
+            }
+            return (cache.revision, cache.resetEpoch, Set(generations), pairs)
         }
         expectedRevision = state.0
         resetEpoch = state.1
         protectedGenerations = state.2
+        sharedPairGenerations = state.3
     }
 
-    var isCurrent: Bool {
-        cache.locked { cache.revision == expectedRevision && cache.resetEpoch == resetEpoch }
+    var hasCurrentEpoch: Bool {
+        cache.locked { cache.resetEpoch == resetEpoch }
     }
 
     func protect(_ reservations: [SceneOffscreenTextureAllocationCache.GraphReservation]) -> Bool {
         guard reservations.allSatisfy({
-            $0.revision == expectedRevision && $0.resetEpoch == resetEpoch
-        }), isCurrent else { return false }
+            $0.resetEpoch == resetEpoch
+        }), hasCurrentEpoch else { return false }
         for value in reservations {
             protectedGenerations.formUnion([
                 value.cachedAllocation?.generation, value.reusableAllocation?.generation,
@@ -55,8 +63,8 @@ final class SceneGraphAllocationRecoveryBatch {
     }
 
     func makeTexture(_ factory: () -> MTLTexture?) -> MTLTexture? {
-        guard isCurrent else { return nil }
-        if let texture = factory() { return isCurrent ? texture : nil }
+        guard hasCurrentEpoch else { return nil }
+        if let texture = factory() { return hasCurrentEpoch ? texture : nil }
         guard !attemptedRecovery else { return nil }
         attemptedRecovery = true
         guard let revision = cache.reclaimIdleAllocations(
@@ -66,7 +74,7 @@ final class SceneGraphAllocationRecoveryBatch {
         // The cache returns only a revision after releasing victim references.
         // Never sample a later revision and mistake another mutation for ours.
         expectedRevision = revision
-        guard let texture = factory(), isCurrent else { return nil }
+        guard let texture = factory(), hasCurrentEpoch else { return nil }
         return texture
     }
 
@@ -75,7 +83,8 @@ final class SceneGraphAllocationRecoveryBatch {
         requiredKeys: Set<SceneOffscreenTextureAllocationCache.Key>
     ) -> Bool {
         guard let revision = cache.commitSharedGraphPairs(candidates,
-            requiredKeys: requiredKeys, expectedRevision: expectedRevision) else { return false }
+                requiredKeys: requiredKeys, expectedResetEpoch: resetEpoch,
+                expectedGenerations: sharedPairGenerations) else { return false }
         expectedRevision = revision
         return true
     }

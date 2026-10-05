@@ -181,7 +181,7 @@ extension SceneOffscreenTexturePool {
         recoveryBatch: SceneGraphAllocationRecoveryBatch? = nil
     ) -> Bool {
         let recoveryBatch = recoveryBatch ?? .init(cache: allocationCache, protectedKeys: keys)
-        guard !keys.isEmpty else { return recoveryBatch.isCurrent }
+        guard !keys.isEmpty else { return recoveryBatch.hasCurrentEpoch }
         let sortedKeys = keys.sorted(by: { lhs, rhs in
             switch (lhs, rhs) {
             case let (.sharedGraphPair(lw, lh), .sharedGraphPair(rw, rh)):

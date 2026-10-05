@@ -63,14 +63,7 @@ struct ScenePersistentGraphTargetAllocator {
             // change cache revision without changing these exact resources.
             // Revalidate identities here and keep the original admission/commit
             // checks, rather than applying allocation-recovery's revision fence.
-            guard cache.locked({ zip(plans, reservations).allSatisfy { plan, original in
-                guard original.orderingContext?.isPending != false,
-                      original.cachedAllocation?.plan == plan,
-                      let refreshed = cache.reserveGraphLocked(plan: plan,
-                        orderingContext: original.orderingContext, values: cache.residents)
-                else { return false }
-                return cache.reservationStillMatches(original, refreshed)
-            } }) else { return nil }
+            guard reservationsAreCurrent(plans: plans, reservations: reservations) else { return nil }
             return reservations.map { reservation in
                 let cached = reservation.cachedAllocation!
                 return prepared(allocation: cached,
@@ -80,7 +73,8 @@ struct ScenePersistentGraphTargetAllocator {
             }
         }
         let recoveryBatch = recoveryBatch ?? makeRecoveryBatch(plans: plans)
-        guard recoveryBatch.protect(reservations) else { return nil }
+        guard reservationsAreCurrent(plans: plans, reservations: reservations),
+              recoveryBatch.protect(reservations) else { return nil }
         var result: [ScenePreparedPersistentGraphTargets] = []
         for (plan, reservation) in zip(plans, reservations) {
             guard valid(seed: reservation.historySeed, for: plan),
@@ -91,7 +85,19 @@ struct ScenePersistentGraphTargetAllocator {
         }
         // Reservations retain their original identities. The existing final
         // commit refresh must still prove reservationStillMatches after reclaim.
-        return recoveryBatch.isCurrent ? result : nil
+        return reservationsAreCurrent(plans: plans, reservations: reservations) ? result : nil
+    }
+
+    private func reservationsAreCurrent(
+        plans: [GraphPlan], reservations: [SceneOffscreenTextureAllocationCache.GraphReservation]
+    ) -> Bool {
+        cache.locked { zip(plans, reservations).allSatisfy { plan, original in
+            guard original.orderingContext?.isPending != false,
+                  let refreshed = cache.reserveGraphLocked(plan: plan,
+                    orderingContext: original.orderingContext, values: cache.residents)
+            else { return false }
+            return cache.reservationStillMatches(original, refreshed)
+        } }
     }
 
     private func makeRecoveryBatch(plans: [GraphPlan]) -> SceneGraphAllocationRecoveryBatch {

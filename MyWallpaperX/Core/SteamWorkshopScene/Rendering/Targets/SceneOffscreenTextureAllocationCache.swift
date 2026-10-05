@@ -42,10 +42,23 @@ final class SceneOffscreenTextureAllocationCache {
     func commitSharedGraphPairs(
         _ candidates: [Candidate],
         requiredKeys: Set<Key>,
-        expectedRevision: UUID
+        expectedResetEpoch: UUID,
+        expectedGenerations: [Key: UInt64]
     ) -> UUID? {
         locked {
-            guard revision == expectedRevision,
+            // Successful allocation can overlap GPU completion. Verify the exact
+            // pair state instead of a revision that also changes on pin release.
+            // Never replace a pair published since the batch's snapshot.
+            guard resetEpoch == expectedResetEpoch,
+                  requiredKeys.allSatisfy({ key in
+                      let entry = residents[.current(key)]
+                      guard let generation = expectedGenerations[key] else {
+                          return entry == nil
+                      }
+                      guard let entry, !entry.isResetInvalidated,
+                            case .sharedGraphPair = entry.allocation else { return false }
+                      return entry.allocation.generation == generation
+                  }), candidates.allSatisfy({ expectedGenerations[$0.key] == nil }),
                   commitSharedGraphPairsLocked(candidates, requiredKeys: requiredKeys)
             else { return nil }
             return revision

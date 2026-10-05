@@ -350,12 +350,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-05",
+      "lastReviewed": "2026-10-06",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "af99eea2aebc6df2d17a92a949c8728e102a3e938d35c657aa96fae4268e5b92",
+        "sourceSHA256": "c9ba70a960787f92f0ec710e3a62ec9325fe013a2bf03cf21534597e9dd6689b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Cached graph target identity revalidation across normal completion; no broad allocation failure or performance acceptance.",
+        "scope": "Exact resource revalidation for successful mixed/shared allocation; strict revision remains on failed-allocation recovery.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -1248,6 +1248,17 @@
       "currentAuthorities": [
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/scene-allocating-targets-implementation-2026-10-06.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
     {

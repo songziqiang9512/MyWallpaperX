@@ -107,7 +107,7 @@ enum SceneLayerColorBlendRenderer {
 
 struct SceneLayerFragmentUniforms {
     let time: Float
-    let alpha: Float
+    var alpha: Float
     let dependencyBlendMode: UInt32
     let usesDependencyBlend: UInt32
     let cursorUV: SIMD2<Float>

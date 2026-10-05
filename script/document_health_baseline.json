@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 540,
-      "bytes": 90520
+      "bytes": 90701
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -170,7 +170,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 51548
+      "bytes": 51682
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1141,20 +1141,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "f91b1779f28830e5760de643ee15f61ebac742f9b3b653adcf63d5d77b9fe1ab",
-      "after": "76ef0304df13b7a0c74e6db1b88c12f34fdcafb9af9afa37b8f738549bd26fb6",
+      "before": "76ef0304df13b7a0c74e6db1b88c12f34fdcafb9af9afa37b8f738549bd26fb6",
+      "after": "635cd41d06b5148b46e86dc86a0c52b5a7116992b38b4a7635cf240948c27ffe",
       "owner": "scene-targets",
-      "reason": "记录全缓存帧复验与真实339后继边界，不扩大allocation recovery或平台验收。",
-      "decision": "docs/scene/history/scene-cached-targets-implementation-2026-10-05.md"
+      "reason": "将成功物化与失败回收的校验边界分开，收口mixed/shared正常completion误拒。",
+      "decision": "docs/scene/history/scene-allocating-targets-implementation-2026-10-06.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "8161d328fe90e50b44bf963ccb345f96cd350fa4215e9accd363894a22aa6742",
-      "after": "5ab51953c19c59ae0733ce29c64759e79313395c8a84d415e8f1cc16293d8ef5",
+      "before": "5ab51953c19c59ae0733ce29c64759e79313395c8a84d415e8f1cc16293d8ef5",
+      "after": "23dd9521a8646c868427ae37c8512429f5643477e5953ccf6b3fe26a3813d95c",
       "owner": "scene-targets",
-      "reason": "记录全缓存帧复验与真实339后继边界，不扩大allocation recovery或平台验收。",
-      "decision": "docs/scene/history/scene-cached-targets-implementation-2026-10-05.md"
+      "reason": "将成功物化与失败回收的校验边界分开，收口mixed/shared正常completion误拒。",
+      "decision": "docs/scene/history/scene-allocating-targets-implementation-2026-10-06.md"
     }
   ]
 }

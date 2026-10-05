@@ -63,6 +63,13 @@ class SceneGraphAllocationRecoveryTests(unittest.TestCase):
                 with self.subTest(key=key, row=row):
                     self.assertTrue(value)
 
+    def test_successful_allocations_survive_completion_but_reject_stale_resources(self) -> None:
+        for group in ["allocatingCompletion", "sharedPairCompletion"]:
+            for row in self.result[group]:
+                for key, value in row.items():
+                    with self.subTest(group=group, key=key, row=row):
+                        self.assertTrue(value)
+
     def test_pool_entry_recovers_under_measured_native_quota_pressure(self) -> None:
         rows = self.result["poolEntryPressure"]
         self.assertEqual([row["shared"] for row in rows], [False, True])
