@@ -484,7 +484,7 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1408d852eba511f76dbdcca9fd6a2104eddf676cbb98231b677a8405d4d11555",
+        "sourceSHA256": "e9b6d6d087d8b372d463a74fd514a77dc4023780473cf0fe4d9d7eb5b4bbd978",
         "method": "document_registry --audit + document_health --check",
         "scope": "Navigation audit of bounded runtime evidence. Real metadata/artwork ingress is established for the recorded Debug experiment; full source, visual, and release acceptance remain open.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"

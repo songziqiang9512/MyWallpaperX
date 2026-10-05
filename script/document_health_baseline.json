@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 75,
-      "bytes": 9284
+      "bytes": 9407
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -114,7 +114,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 402,
-      "bytes": 96724
+      "bytes": 96900
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -170,7 +170,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 50988
+      "bytes": 51187
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1122,30 +1122,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "90d0ab7b8416d44545f8077e601cb1df5c0f293afa2234b255a35cec21ebbf2f",
-      "after": "9d0455d8389cae493194fcbd0415c3c0ab1b6525aaa0861c7d6b9510663e925b",
-      "owner": "scene-generic-media-input",
-      "reason": "接通公开Music专辑歌手，并将已验证真实音频及跨样本事件缺口回到唯一媒体路线；不扩大播放器/歌词验收。",
-      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "c8515bcfb4b4cc74c9e2e1296ae4149ec5e24bd963e0e76501391ad75933062b",
-      "after": "e5993bfed23f5156a1110096670077ede1e5f5fbc6805719d60f7e1172400745",
-      "owner": "scene-generic-media-input",
-      "reason": "接通公开Music专辑歌手，并将已验证真实音频及跨样本事件缺口回到唯一媒体路线；不扩大播放器/歌词验收。",
-      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
       "before": "dacb8444b04109aa3a01c97f29fc3fc3791b8bcd2f73076a82ccc0c109a15677",
       "after": "d3f22eea89504018746a8442678f5c51c274950a23597cfad9a2f8999e3d6be9",
       "owner": "scene-generic-media-input",
       "reason": "接通公开Music专辑歌手，并将已验证真实音频及跨样本事件缺口回到唯一媒体路线；不扩大播放器/歌词验收。",
       "decision": "docs/scene/roadmap/batch2/system-media-input-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "9d0455d8389cae493194fcbd0415c3c0ab1b6525aaa0861c7d6b9510663e925b",
+      "after": "b17884019cab574e15c3a95dff30b3d21abc6e8eb3a089d4e4abcd1ed2cf388c",
+      "owner": "scene-playback-event-host",
+      "reason": "按官方黑盒纠正播放事件state可写副本合同并移交真实封面恢复证据，不扩大播放器或整样本验收。",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "before": "e5993bfed23f5156a1110096670077ede1e5f5fbc6805719d60f7e1172400745",
+      "after": "a910c05139361edb293d6b8a18d3278a5ceb79456edbbf3de5b7cc23b037a029",
+      "owner": "scene-playback-event-host",
+      "reason": "按官方黑盒纠正播放事件state可写副本合同并移交真实封面恢复证据，不扩大播放器或整样本验收。",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "bede5feacb6f9c58b81f100df0ddd6b69f291e0a9e318ca99073a95d42f4f032",
+      "after": "3d709ef31b00e8d7336a2154dc9ef6c578fc070a96656ee56bc7ffd88fc21ac2",
+      "owner": "scene-playback-event-host",
+      "reason": "按官方黑盒纠正播放事件state可写副本合同并移交真实封面恢复证据，不扩大播放器或整样本验收。",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md"
     }
   ]
 }

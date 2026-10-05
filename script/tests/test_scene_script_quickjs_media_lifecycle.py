@@ -179,6 +179,82 @@ static int teardown_owner(
     );
 }
 
+
+static int check_playback_local_values(MWXSceneQuickJSDomain *domain) {
+    char diagnostic[512] = {0};
+    int failures = 0;
+    MWXSceneQuickJSFrameInput frame = {
+        .time_of_day = 0.25, .frame_time = 1.0 / 60.0, .runtime = 2.0,
+    };
+    const char *sources[] = {
+        "'use strict';let held=null,input=-1;"
+        "export function mediaPlaybackChanged(event){"
+        "if(held&&held.state!==123)throw new Error('old event overwritten');"
+        "input=event.state;"
+        "if((event.state=1)!==1||!event.state)throw new Error('playing assignment');"
+        "if((event.state=2)!==2||!event.state)throw new Error('paused assignment');"
+        "if((event.state=0)!==0||event.state)throw new Error('stopped assignment');"
+        "event.state=123;held=event;"
+        "let rejected=false;try{MediaPlaybackEvent.PLAYBACK_PLAYING=9;}"
+        "catch(e){rejected=true;}"
+        "if(!rejected||MediaPlaybackEvent.PLAYBACK_PLAYING!==1)throw new Error('constant');"
+        "}export function update(){return input*1000+held.state;}",
+        "'use strict';let held=null,input=-1;"
+        "export function mediaPlaybackChanged(event){"
+        "if(held&&held.state!==124)throw new Error('second old event overwritten');"
+        "input=event.state;event.state=124;held=event;"
+        "}export function update(){return input*1000+held.state;}",
+        "'use strict';let held=null,input=-1;"
+        "export function mediaPlaybackChanged(event){"
+        "if(held&&held.state!==input)throw new Error('observer event overwritten');"
+        "input=event.state;held=event;"
+        "}export function update(){return input*1000+held.state;}",
+    };
+    MWXSceneQuickJSOwner *owners[3] = {0};
+    for (size_t i = 0; i < 3; ++i) {
+        owners[i] = mwx_scene_quickjs_owner_create(
+            domain, sources[i], strlen(sources[i]), 900 + i,
+            diagnostic, sizeof(diagnostic)
+        );
+        failures += check(owners[i] != NULL, "local playback owner", diagnostic);
+        if (owners[i] == NULL) goto cleanup;
+    }
+    const uint32_t states[] = {1, 2, 0, 1};
+    for (size_t step = 0; step < 4; ++step) {
+        MWXSceneQuickJSMediaPlaybackEvent event = {.state = states[step]};
+        for (size_t i = 0; i < 3; ++i) {
+            MWXSceneQuickJSResult result = mwx_scene_quickjs_owner_dispatch_media_playback(
+                owners[i], 900 + i, &event, &frame, "{}", 2,
+                diagnostic, sizeof(diagnostic)
+            );
+            failures += check(result == MWX_SCENE_QUICKJS_OK,
+                "writable callback-local playback state", diagnostic);
+            failures += check(event.state == states[step], "native payload unchanged", "");
+        }
+        for (size_t i = 0; i < 3; ++i) {
+            double local = i == 0 ? 123 : (i == 1 ? 124 : states[step]);
+            failures += update_owner(owners[i], 900 + i, 0,
+                MWX_SCENE_QUICKJS_OK, states[step] * 1000 + local,
+                "other callbacks and later events preserve local state");
+        }
+    }
+    MWXSceneQuickJSMediaPlaybackEvent invalid = {.state = 3};
+    failures += check(mwx_scene_quickjs_owner_dispatch_media_playback(
+        owners[0], 900, &invalid, &frame, "{}", 2, diagnostic, sizeof(diagnostic)
+    ) == MWX_SCENE_QUICKJS_INVALID_ARGUMENT, "native state remains bounded", diagnostic);
+    MWXSceneQuickJSMediaPlaybackEvent valid = {.state = 2};
+    failures += check(mwx_scene_quickjs_owner_dispatch_media_playback(
+        owners[0], 901, &valid, &frame, "{}", 2, diagnostic, sizeof(diagnostic)
+    ) == MWX_SCENE_QUICKJS_STALE_OWNER, "stale event rejected", diagnostic);
+    failures += update_owner(owners[0], 900, 0, MWX_SCENE_QUICKJS_OK, 1123,
+        "rejected events cannot change local state");
+cleanup:
+    for (size_t i = 0; i < 3; ++i) {
+        if (owners[i] != NULL) mwx_scene_quickjs_owner_destroy(owners[i]);
+    }
+    return failures;
+}
+
 int main(void) {
     char diagnostic[512] = {0};
     MWXSceneQuickJSDomain *domain = mwx_scene_quickjs_domain_create(
@@ -189,6 +265,7 @@ int main(void) {
 
     int failures = 0;
     failures += configure_layers(domain);
+    failures += check_playback_local_values(domain);
     const char *media_source =
         "'use strict';let score=0;"
         "export function mediaThumbnailChanged(event){"

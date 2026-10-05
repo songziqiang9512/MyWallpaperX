@@ -28,3 +28,13 @@ Debug build、provider五方法及Music/transport/Inbox十方法通过；Observe
 基线签名App另在339移除PCM fixture，实际系统声音以generation2进入16/64频段uniform及脚本；series0005/0012底部音频与音频线区域有动态差异。297也在相同系统来源链取得真实文字、封面；312取得文字/状态/频谱，但94/101作者回调赋值`event.state`被只读接口抛错，须裁决官方语义后修公共owner，不能算完整通过。三次原样本运行均退出0且GPU drained。339估计仍约70–75%/低置信，不按新增证据抬高完整正确率。
 
 四路径冻结、App/样本身份、测试/原始运行日志与必要截图保存在`/private/tmp/mwx-media-common-20261005/package/runtime_evidence.zip`，10,196,273 bytes，SHA256 `0077737d8332a02a658d77ccb356f0673962def44d38bf8e93b4f69267c7623a`。证据区1GiB预算已满，工具拒绝提取；暂留该任务包，不调高预算或删除未知/唯一证据。后继追312官方事件可写性与原339剩余交互，之后仍优先HDR/SDR和重型启动。
+
+## 播放事件值语义
+
+后继基线`febce53e`。官方2.8.42/build23967692的自有黑盒fixture证明严格模式可赋值`MediaPlaybackEvent.state`：返回值与truthiness为1/true、2/true、0/false；A/B分别保留123/124，独立观察者及后续真实事件仍收到来源0/1/2。仅消费公开声明和自有黑盒输出，不读取私有实现。客户端SHA256 `daac1ea7c991207fdb6098616757e3dae393850f6862845db55d04921b6bda07`，自有package `780993cc99aa722b33cdc1faca35bdcc959c72ace8d10927a02c5cf62e5b9eb7`。
+
+原QuickJS owner仅为每次新建的state属性加writable；native payload、常量、generation和其他事件字段不变。实际QuickJS修前抛错/修后通过，覆盖三个owner隔离、旧对象保留、连续状态、非法native3及stale拒绝；既有生命周期回归和Debug build通过。312原脚本94/101不改动：相同自有标题/歌手/封面/state1，修前两个回调只读异常、无封面，修后回调完成并显示作者着色后的方形封面。作者使用赋值条件，任何输入最后都会写visible=true；本修复不替作者改为比较，也不证明暂停隐藏正确。
+
+最终签名dylib SHA256 `b8cba76ff05fdf7c79f21cd8b5b1455c4f0c4a512d8eec6d99399edebb1c954a`。两轮同属性/descriptor、22秒、退出0且GPU drained；真实系统音频未固定，不作整帧像素一致性或真实播放器验收。独立审查绑定产品/证据冻结；未做312完整评估，原339仍约70–75%/低置信，27个GPU material效果与12个direct消费者不因本片增加。后继回339封面选择/清除及设置来源切换，再按用户顺序处理HDR/SDR、重型启动。
+
+必要黑盒截图/自有fixture、修前后App日志与截图、身份和门日志保存在`/private/tmp/mwx-playback-event-20261005/package/runtime_evidence.zip`，16,091,423 bytes，SHA256 `1dc9ed67b3601e898b826b186a43e013efc3e384f62e777b5976ea0877827674`。提取再次被1GiB总预算拒绝；暂留任务包，不增加上限。官方测试进程/临时目录已清并恢复VM初始挂起；本机保留最终候选和单份checkpoint缓存供339后继。

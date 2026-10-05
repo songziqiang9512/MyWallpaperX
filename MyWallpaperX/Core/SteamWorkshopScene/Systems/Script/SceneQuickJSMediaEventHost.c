@@ -205,13 +205,15 @@ static bool normalized_color(double red, double green, double blue) {
 
 static JSValue playback_argument(JSContext *context, const void *payload) {
     const MWXSceneQuickJSMediaPlaybackEvent *event = payload;
+    // Each callback receives a fresh value object. Authored writes stay local;
+    // the native session payload and the static playback constants stay protected.
     JSValue argument = JS_NewObject(context);
     if (JS_IsException(argument) || JS_DefinePropertyValueStr(
             context,
             argument,
             "state",
             JS_NewUint32(context, event->state),
-            JS_PROP_ENUMERABLE
+            JS_PROP_ENUMERABLE | JS_PROP_WRITABLE
         ) < 0) {
         JS_FreeValue(context, argument);
         return JS_EXCEPTION;
