@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 540,
-      "bytes": 90204
+      "bytes": 90355
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
-      "bytes": 173984
+      "bytes": 174194
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -170,7 +170,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 51187
+      "bytes": 51420
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1095,24 +1095,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "c403734c10c91565d3794c9a04ecb2c7d80c5f5f285cbc055629d9f542dddc7d",
-      "after": "6c9953484a1fe61047da26071ccacc01d402a2364b1ed8421ad52ef65c2a0854",
-      "owner": "scene-property",
-      "reason": "替换宽度wrapper重建限制，记录复用既有raster的真实修复及证据入口。",
-      "decision": "docs/scene/history/text-width-property-implementation-2026-10-05.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "e384e233298548053871e97c5c77477d0f56c4ad15875be7fa223d6800435fba",
-      "after": "adcd699753da4a78d9593a716f340bf8608059d99383bac04ef1349367b2cbe2",
-      "owner": "scene-effect-activation",
-      "reason": "复用现inactive-stage准备及activation，限定合法独立composition与真实consumer职责。",
-      "decision": "docs/scene/history/composition-effect-activation-implementation-2026-10-05.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
       "before": "7e5ff9cd6e3ead5eb4fc8935a35fd12a6569d1c1b4b7a496b2af83c0e99d8848",
       "after": "756dadf4107ee5b3a349d3d172108c242ab7d01ac2482a62959de69dcbd57358",
@@ -1140,21 +1122,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "e5993bfed23f5156a1110096670077ede1e5f5fbc6805719d60f7e1172400745",
-      "after": "a910c05139361edb293d6b8a18d3278a5ceb79456edbbf3de5b7cc23b037a029",
-      "owner": "scene-playback-event-host",
-      "reason": "按官方黑盒纠正播放事件state可写副本合同并移交真实封面恢复证据，不扩大播放器或整样本验收。",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "bede5feacb6f9c58b81f100df0ddd6b69f291e0a9e318ca99073a95d42f4f032",
       "after": "3d709ef31b00e8d7336a2154dc9ef6c578fc070a96656ee56bc7ffd88fc21ac2",
       "owner": "scene-playback-event-host",
       "reason": "按官方黑盒纠正播放事件state可写副本合同并移交真实封面恢复证据，不扩大播放器或整样本验收。",
       "decision": "docs/scene/capabilities/scenescript-api-coverage.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "adcd699753da4a78d9593a716f340bf8608059d99383bac04ef1349367b2cbe2",
+      "after": "f91b1779f28830e5760de643ee15f61ebac742f9b3b653adcf63d5d77b9fe1ab",
+      "owner": "scene-user-texture",
+      "reason": "同步失效选择的现有事务合同、纠正旧重建状态并收敛339后继验收范围。",
+      "decision": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md#失效文件选择后继"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "6c9953484a1fe61047da26071ccacc01d402a2364b1ed8421ad52ef65c2a0854",
+      "after": "207203425c8b5dcd3e5272b346032ed1937d48aab70ec149b5d0b8583d202510",
+      "owner": "scene-user-texture",
+      "reason": "同步失效选择的现有事务合同、纠正旧重建状态并收敛339后继验收范围。",
+      "decision": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md#失效文件选择后继"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "before": "a910c05139361edb293d6b8a18d3278a5ceb79456edbbf3de5b7cc23b037a029",
+      "after": "8161d328fe90e50b44bf963ccb345f96cd350fa4215e9accd363894a22aa6742",
+      "owner": "scene-user-texture",
+      "reason": "同步失效选择的现有事务合同、纠正旧重建状态并收敛339后继验收范围。",
+      "decision": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md#失效文件选择后继"
     }
   ]
 }

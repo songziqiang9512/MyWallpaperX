@@ -46,3 +46,16 @@ App重放仅保存已接受资源。daemon重启中断未完成选择并通知�
 实际产品输入为隔离293包（原 scene.pkg SHA `1f3a74c0241bb8f57c0abdbcded05562e329ebfc6ff47bf762e8b71f4e0326fc`）及自有512²红PNG、640×360蓝PNG、360×640绿JPEG。最终 `product-final` / `product-48-final` 两次运行分别覆盖7/25/26与48，四键均确认实际像素，25/26沿base及effect消费者合成。普通背景红→蓝→坏图保蓝→reset黑，cover红→蓝→缺图保蓝→reset默认，唱片绿图，流动背景红→蓝→坏图保蓝→reset默认均成立。各运行只有一个daemon PID和一次firstPresent，13项操作没有重建Scene；合法换图回执64–275ms，操作至Metal截图落盘156–360ms（含捕获开销，只限本机Debug与这些输入）。原件逐文件SHA核验未变。
 
 两运行实际shader stage并集39/73，终端被compositor消费的effect owner为23/37；这是此操作覆盖下限，未触发的分支不记失败，也不是整体正确率。85个顶层对象中51image/29text/5particle；当前未逐对象声明全正确。下一批处理该样本媒体封面及音频/点击触发后的实际首断点，不以静音或未触发pass-through冒充响应。本机证据包 `.artifacts/scene-evidence/runs/user-texture-live-20261005/final/samples/1/runtime_evidence.zip`，SHA256 `cd42e343fda94614902bcf44510903e9e17b42fcaf3ad8ffe605f04407269f32`，限14日保留且不含原包。产品/测试独立审查冻结manifest为 `535dfbf6e5f56ef89e60f6a8a8be2487248deb95246d9b640e33660d27c81c99`，其后仅文档归档与状态同步。
+
+
+## 失效文件选择后继
+
+基线 `9f1c5890`。三个 bookmark 读取分支原先遇到缺文件或无效数据即删除已接受的选择键，override/runtime 仍保留旧资源；面板全 reset 因此可能漏掉纹理键并走普通属性拒绝/重建。现有 Service 只把资源报告为不可用，保留选择身份，明确替换/清除收到成功回执后才更新持久化。面板显示“已选图像暂不可用”并保留清除入口；不增加 registry、样本分支或每帧工作。
+
+真实 Service 的缺文件/无效 bookmark 两项反例先红后绿，覆盖两个读取入口、全 reset 的 typed 路由、失败保留及重试成功；所属9项与相邻5项回归通过，最终 Debug build 通过。产品冻结 `9bca79c13357d25a673e5fae04c9ceb6c4843d7511843602264b4fd45099ce68`，候选 dylib `98fcf253d078a9f93b0d6cd50f15ceeecf63bdc65ce4137521b76c9037030bf6`，deep/strict签名检查通过。
+
+最终候选隔离原339包：App → Service → daemon的蓝图选择/清除/红图重选全部接受，只有一个daemon PID、一次firstPresent及一个request；回执17.243/1.312/4.905ms，仅为本机Debug回执耗时。该运行媒体面板按作者状态隐藏，不声明三步可见封面验收。另一次direct Host运行实际显示红色媒体封面，清除媒体封面后显示蓝色用户选图（series0005/0012），确认作者的媒体优先及文件回退；这不是新算法，也不替代产品来源切换门。
+
+隔离AppKit面板实测失效提示、保留清除按钮及全reset后的默认提示。此组操作发生于未播放状态；随后活动Scene选图成功，但900秒watchdog在失效文件reset之前结束运行，不能把两段activation拼成同会话GPU验收。完整“活动Scene选图→文件失效→面板全reset→实际默认画面”仍待验；CPU路由与离线UI结果独立成立。原339完整正确性估计仍70–75%（低置信），既有执行数量不因本轮回执增加。
+
+必要日志、身份及三张截图压缩于 `/private/tmp/mwx-cover-roundtrip-20261005/package/runtime_evidence.zip`，3,993,241 bytes，SHA256 `44b4e5de4df938497933feaba60ca3a711dab6791641921c74c01586f5858058`；现有证据根达到1GiB限额，暂保14日，不扩预算、不清未知材料。候选App与一份checkpoint缓存供紧接的339后继复用；其余本轮临时运行目录提取后清理。下一步完成339来源切换/音频与上述失效交互门，之后依用户顺序处理HDR/SDR及重型样本启动。

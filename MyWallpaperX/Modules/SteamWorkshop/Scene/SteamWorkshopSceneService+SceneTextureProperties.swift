@@ -173,7 +173,6 @@ extension SteamWorkshopService {
         let openedScope = resolvedURL.startAccessingSecurityScopedResource()
         defer { if openedScope { resolvedURL.stopAccessingSecurityScopedResource() } }
         guard FileManager.default.fileExists(atPath: resolvedURL.path) else {
-            defaults.removeObject(forKey: bookmarkKey)
             return nil
         }
         return resolvedURL
@@ -201,7 +200,6 @@ extension SteamWorkshopService {
                 openedScopes.append(url)
             }
             guard FileManager.default.fileExists(atPath: url.path) else {
-                defaults.removeObject(forKey: bookmarkKey)
                 return
             }
             references[key] = ScenePlaybackTextureReference(
@@ -266,6 +264,9 @@ extension SteamWorkshopService {
         ).resolvingSymlinksInPath().standardizedFileURL
     }
 
+    // A read failure makes the resource unavailable, not the accepted choice
+    // forgotten. Keep its key so reset still uses the typed texture transaction;
+    // only an acknowledged clear/replacement retires the stored intent.
     private func resolvedSceneTextureBookmarkURL(forBookmarkKey key: String) -> URL? {
         guard let bookmarkData = defaults.data(forKey: key) else { return nil }
         var isStale = false
@@ -273,7 +274,6 @@ extension SteamWorkshopService {
             bookmarkData,
             bookmarkDataIsStale: &isStale
         ), SceneUserPropertyTextureLoader.supports(url: url) else {
-            defaults.removeObject(forKey: key)
             return nil
         }
         if isStale {

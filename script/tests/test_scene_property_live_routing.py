@@ -217,6 +217,46 @@ extension Notification.Name {
         rows.append(["case": "live-reset", "olderAccepted": oldSelectionAccepted,
             "accepted": resetAccepted, "bookmarkExists": service.defaults.data(forKey: bookmarkKey) != nil,
             "overrides": service.scenePropertyOverrides(for: record).count])
+        for failure in ["missing-file", "invalid-bookmark"] {
+            let lost = root.appendingPathComponent("selected-then-unavailable.png")
+            try? FileManager.default.removeItem(at: lost)
+            try FileManager.default.copyItem(at: png, to: lost)
+            let selection = Task { @MainActor in await select(lost) }
+            try await waitForPending(); mux.finish(.applied); _ = await selection.value
+            if failure == "missing-file" { try FileManager.default.removeItem(at: lost) }
+            else { service.defaults.set(Data([0, 1, 2]), forKey: bookmarkKey) }
+            let displayedURL = service.resolvedSceneTexturePropertyURL(forKey: "cover", record: record)
+            var referencesEmpty = false
+            service.withResolvedSceneTexturePropertyReferences(for: record) { referencesEmpty = $0.isEmpty }
+            let intentRetained = service.defaults.data(forKey: bookmarkKey) != nil
+            mux.scalarDispatches = 0
+            var completed = false
+            service.resetScenePropertyValues(for: record, defaultValues: ["cover": .string("")]) {
+                completed = true
+            }
+            let typedReset = mux.pending.count == 1
+                && mux.pending.first?.0.resetKeys == ["cover"]
+                && mux.pending.first?.0.references.isEmpty == true
+            let waitsForAck = !completed && service.scenePropertyOverrides(for: record)["cover"] != nil
+            var failurePreserved = false
+            if !mux.pending.isEmpty {
+                mux.finish(.failed("own-reset-rejected"))
+                failurePreserved = completed && service.defaults.data(forKey: bookmarkKey) != nil
+                    && service.scenePropertyOverrides(for: record)["cover"] != nil
+                    && mux.scalarDispatches == 0
+                completed = false
+                service.resetScenePropertyValues(for: record, defaultValues: ["cover": .string("")]) {
+                    completed = true
+                }
+                if !mux.pending.isEmpty { mux.finish(.applied) }
+            }
+            rows.append(["case": failure, "unavailable": displayedURL == nil && referencesEmpty,
+                "failurePreserved": failurePreserved,
+                "intentRetained": intentRetained, "typedReset": typedReset, "waitsForAck": waitsForAck,
+                "scalarDispatches": mux.scalarDispatches, "completed": completed,
+                "cleared": service.defaults.data(forKey: bookmarkKey) == nil
+                    && service.scenePropertyOverrides(for: record)["cover"] == nil])
+        }
         let second = SceneUserPropertyDefinition(
             key: "background", title: "background", kind: .sceneTexture, runtimeType: "scenetexture",
             order: 0, index: nil, minimumValue: nil, maximumValue: nil, stepValue: nil,
@@ -882,6 +922,14 @@ class SceneTextureSelectionAdmissionTests(unittest.TestCase):
         self.assertTrue(reset["accepted"])
         self.assertFalse(reset["bookmarkExists"])
         self.assertEqual(reset["overrides"], 0)
+
+    def test_unavailable_selected_source_keeps_typed_reset_until_acknowledged(self) -> None:
+        for failure in ["missing-file", "invalid-bookmark"]:
+            with self.subTest(failure=failure):
+                row = self.rows[failure]
+                for field in ["unavailable", "intentRetained", "typedReset", "waitsForAck", "failurePreserved", "completed", "cleared"]:
+                    self.assertTrue(row[field], field)
+                self.assertEqual(row["scalarDispatches"], 0)
 
     def test_all_reset_is_serial_and_newer_queued_choice_wins(self) -> None:
         row = self.rows["panel-reset"]

@@ -104,13 +104,16 @@ struct SteamWorkshopScenePropertyEditorView: View {
             forKey: definition.key,
             record: record
         )
+        let hasSelection = selectedURL != nil
+            || service.scenePropertyOverrides(for: record)[definition.key] != nil
         return propertyLine(definition) {
             VStack(alignment: .trailing, spacing: 8) {
-                Text(selectedURL?.lastPathComponent ?? "使用作者默认纹理")
+                Text(selectedURL?.lastPathComponent
+                    ?? (hasSelection ? "已选图像暂不可用" : "使用作者默认纹理"))
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .foregroundStyle(.secondary)
-                if selectedURL != nil {
+                if hasSelection {
                     Button {
                         service.updateSceneTexturePropertyURL(
                             nil,

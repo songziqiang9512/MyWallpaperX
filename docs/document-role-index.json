@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "579aa35d2580c200e9ded71e7222cff87300820b5410e3ad57ff5b3cbf9de7b0",
+        "sourceSHA256": "a448967be36cd23a661d8a1524c1ef3f68e76d29cf64a22f20da7dc491561b31",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Childless composition inactive-effect preparation and bounded evidence navigation; no nested/dependency activation or official parity acceptance.",
+        "scope": "Accepted file selection persists across resource read failure; typed reset ownership and bounded evidence navigation, not full live missing-source or platform acceptance.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
