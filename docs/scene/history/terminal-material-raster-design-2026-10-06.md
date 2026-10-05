@@ -1,6 +1,10 @@
-<!-- document-role: active-plan -->
+<!-- document-role: historical-evidence -->
 
-# 终端材质的源纹理与显示光栅分离
+> **历史证据 — 非现役入口**。现役职责见[运行架构](../architecture/runtime-architecture.md)，后继顺序见[暂停交接](../roadmap/scene-maintainer-handoff-2026-10-06.md)。
+
+# 终端材质的源纹理与显示光栅分离（已完成设计）
+
+本设计的有界实现已在 `fa02f6bf` 验收，现归档，不是待实施任务。稳定职责见[运行架构](../architecture/runtime-architecture.md#terminal-material-raster)，固定运行证据见[实施记录](terminal-material-raster-implementation-2026-10-06.md)。下文保留当时设计；扩大profile或取消重复小光栅属于未来独立工作。
 
 目标是让很小的作者输入纹理仍能产生连续细线。2026-10-06 自有官方黑盒确认：native 3D solid 的输入保持作者 10×10，固定单遍、无 sampler 的 E1152 探针在选定码格读出 reciprocal UV derivative 1235×1235，与投影约 1235.24 相符；高频条纹也排除先在 10×10 执行再放大。768 导数探针低位混合，严格无效，不用于推断。真实材质的独立 Metal 实验只证明采样密度影响断线，不是完整画面对齐。
 

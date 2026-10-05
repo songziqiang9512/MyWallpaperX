@@ -442,7 +442,7 @@ Puppet、2D lighting/HDR、3D、RGB、offline bake、color/multi-display/device 
 | 材质／shader／sampler | generation/variant 边界准备 Program、PSO、render state、slot 与 uniform 来源；sampler 由共享语义按[显式声明与缺省输入优先级](../capabilities/sampler-alias-precedence.md)解析 | 只填 live uniform／资源；sampler 含义不由当帧碰巧存在的纹理猜 | graph material pass 或对象现有 draw primitive | variant/schema/device 失效重编对应项；坏 ABI／range 拒绝最小 unsafe pass |
 | 纯色／无源程序化图像 | 准备颜色／生成 Program 与输出几何；无采样源是显式合同 | 动态颜色／生成参数只填值 | 以 prepared output geometry 直接 draw，或经已声明 graph；不能为凑纹理产品伪造 source | 输出覆盖、extent 与颜色含义固定；生成 pass 失败局部处理，不默认套任意全屏 quad |
 | mask／噪声／深度等数据纹理 | 装载声明用途，准备 slot、采样与通道语义；不能把所有纹理视作颜色 | 只更新合法动态来源／绑定 | material 的数据输入，不自动作为可见 layer；mask 依作者通道解释 | 不自动 premultiply／sRGB 转换；purpose 错误拒绝该输入，缺省只用明确的作者／公共语义 |
-| effect 链 | 准备作者顺序、Program、激活与 previous/current | 只填动态值；停用局部 passthrough | GraphProduct→唯一 compositor；[终端分域](../roadmap/batch2/terminal-material-raster-design.md)以源尺寸采样、按投影绘制并独立回执 | 值变化不重编；visual 失败保 previous-current；history 沿原提交 owner |
+| effect 链 | 准备作者顺序、Program、激活与 previous/current | 只填动态值；停用局部 passthrough | GraphProduct→唯一 compositor；[终端分域](#terminal-material-raster)以源尺寸采样、按投影绘制并独立回执 | 值变化不重编；visual 失败保 previous-current；history 沿原提交 owner |
 | 临时 target／working pair | 准备阶段固定逻辑尺寸公式与读写寿命；帧准入由既有 pool materialize／租赁 | live extent／allocation／generation 校验；重用不重叠寿命的物理资源 | pass 输出／中间采样；不是永久层状态 | same-frame 必需集合原子驻留；未提交可撤租，已提交等 completion；不得 LRU 驱逐仍需资源 |
 | FBO／copy／swap／history | 准备逻辑命令与引用关系；需要时分配持久存储 | 按本帧命令推进 logical pair、内容版本和读取关系 | 明确 producer→consumer 边；跨帧 history 只读已许可版本 | history pin/COW/epoch 由现有提交 owner 管；尺寸改变保留还是清空按已验证合同，不靠缓存猜 |
 | named layer／scene-background | 准备阶段解析被引用对象、variant、所需捕获时点与依赖闭包 | producer 到达约定顺序后发布；consumer 消费同帧合法版本 | 作为明确 typed input；背景是“该点之前已合成内容”，不是任意最终截图 | 缺失／循环／stale 只拒绝受影响依赖；不能拿未完成纹理占位宣称成功 |
@@ -538,3 +538,21 @@ identity、generation、phase、线程与寿命：
 2026-10-01 的生命周期修复把请求权威保留在 `SceneDesktopWallpaperHost`，把每个场景的 VM、时钟、surface/provider 生命周期移到 `SceneDesktopWallpaperSession`。Host 只有一个 active 决策，候选各屏首帧 GPU 完成后才提升并退役旧会话；候选失败保持旧输出。共享模拟每拍提交一次，每屏独立呈现，缺 drawable 或准备失败不重放已执行回调，恢复读取最新模拟状态。离屏 history 仍是各屏独立的 previous-current，异步 GPU 失败不具备跨屏视觉回滚能力。真实多台物理显示器与长期播放仍需独立验收。
 
 GPU 分配和保留的 decoded cache 进入唯一 `SceneResourceBudget` 父额度；原有 pool/cache 上限是子约束。候选、active 与 GPU 持有的退役资源一起计费，租约随实际资源释放；预算范围与未计入的系统/瞬态内存见[资源准入设计](scene-resource-admission.md)。帧请求封装、统一命令携带 Scene 类型及其他复杂对象缺口仍沿 E1/E2/E4/E5 分工推进；本批不据此声明整体兼容或性能完成。
+
+<a id="terminal-material-raster"></a>
+
+### 终端材质光栅的有界合同
+
+已完成 native 3D solid、普通source-over、单material pass、无FBO/history/function/copy/swap及外部graph-final消费者、无geometry mesh、额外terminal alpha=1的分域。输入Candidate/sampler/resolution仍为作者尺寸；同一冻结Program只派生placement uniforms与attachment/blend角色，在作者层序位置由唯一MainPass编码。只接受associated color；inactive/不支持组合保留原graph输出，不能拿straight/data直接做premultiplied混合。
+
+原GraphExecutor仍执行小尺寸捕获/输出以守住transaction、publication、state与completion；terminal typed receipt绑定ticket/epoch/pass/同command buffer，区别于纹理被采样的回执。PSO角色参与原cache身份且launch预热；普通帧不解析/compile/VM重放。preflight先验证，部分main写入后失败仍拒帧，不能补画旧纹理。此过渡确有重复小光栅成本；未来删除它必须同时迁移这些守恒，不把main target冒充graph texture。[归档设计](../history/terminal-material-raster-design-2026-10-06.md)与[实施证据](../history/terminal-material-raster-implementation-2026-10-06.md)不授予更宽profile准入。
+
+<a id="debug-capture-lifecycle"></a>
+
+### 诊断截图生命周期
+
+DEBUG截图沿现役Capture与Session停止链管理：每capture最多2个待编码required、1个仅保留最新的periodic；替换/拒绝/关闭有明确结果，每个accepted request恰好一次persisted或failed。全进程GPU/queued/export合计最多2个buffer，字节不超过resident总额四分之一；实际buffer只收一份原生allocation租约，可控CPU副本计入既有decoded子额。此项目诊断策略不等于RSS或OS内存保证。
+
+readback只在PreparedFrame.submit内、present/commit前消费；cancel/seal失败不消费。注册completion与commit前登记outstanding；回调仅交独立buffer和值元数据给串行utility导出，不携带drawable/source texture/CB。PNG实际写成才成功；所有出口一次释放额度。close拒绝新请求并终结pending，closed且outstanding为0才完成export drain，GPU barrier不能代替CPU导出等待。
+
+Session在stop清surface前冻结active/retiring capture；retireSurface保留capture至GPU与export终结，失败也不漏集合。Runner先closing并禁止迟到launch/请求，再由唯一Host停止链drain；隔离Scene沿AppDelegate原terminationReplyPending等待并恰好一次reply。GPU失败与诊断失败分开；Web/普通产品出口不扩权。外部TERM/KILL或框架强退不保证graceful drain，不增加假成功超时。合同与行为门来源见[归档设计](../history/debug-frame-capture-lifecycle-design-2026-10-06.md)和[冻结验收](../history/rf05-debug-capture-lifecycle-implementation-2026-10-02.md)；该片完成不关闭RF05其他组合验收。

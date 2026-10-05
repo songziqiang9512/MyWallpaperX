@@ -20,6 +20,7 @@ private func shader(
     vertexExtra: String = "",
     customAlphaAnnotation: String? = nil,
     conditionalAlpha: Bool = false,
+    includedSources: [String: String] = [:],
     identity: String = "fixture/static-material-keys"
 ) -> SceneShaderContract {
     let alphaAnnotation = customAlphaAnnotation
@@ -57,19 +58,32 @@ private func shader(
         )
     }
     let stages = [stage(.vertex, vertex), stage(.fragment, fragment)]
-    let nodes: [SceneShaderSourceGraph.Node] = stages.map {
+    var nodes: [SceneShaderSourceGraph.Node] = stages.map {
         .init(
             virtualPath: $0.relativePath, provenance: .package,
             source: $0.source, rawSHA256: $0.rawSHA256, byteCount: $0.source.utf8.count
         )
     }
-    let dependency = SceneShaderSourceGraph.dependencySHA256(nodes: nodes, edges: [])
+    nodes += includedSources.sorted { $0.key < $1.key }.map { path, source in
+        .init(virtualPath: path, provenance: .package, source: source,
+              rawSHA256: SceneShaderStableDigest.hash(Data(source.utf8)), byteCount: source.utf8.count)
+    }
+    let edges: [SceneShaderSourceGraph.Edge] = nodes.flatMap { node in
+        SceneShaderContractSourceParser().parse(node.source, stageRelativePath: node.virtualPath)
+            .includes.map { include in
+                .init(parentVirtualPath: node.virtualPath, line: include.line,
+                      request: include.relativePath, candidates: [],
+                      outcome: includedSources[include.relativePath] == nil
+                        ? .missing : .resolved(virtualPath: include.relativePath))
+            }
+    }
+    let dependency = SceneShaderSourceGraph.dependencySHA256(nodes: nodes, edges: edges)
     return .init(
         identity: identity, sourceKind: .authoredSource,
         stages: stages, diagnostics: [], canonicalSHA256: dependency,
         sourceGraph: .init(
             roots: stages.map { .init(label: $0.kind.rawValue, virtualPath: $0.relativePath) },
-            nodes: nodes, edges: [], diagnostics: [], dependencySHA256: dependency
+            nodes: nodes, edges: edges, diagnostics: [], dependencySHA256: dependency
         )
     )
 }
@@ -440,6 +454,147 @@ private func sources() -> [String: Any] {
     ]
 }
 
+private func albedoDefaults() -> [String: Any] {
+    let ordinary = #"uniform sampler2D g_Texture0; // {"default":"util/white","material":"albedo"}"#
+    let white = shader(fragmentExtra: ordinary)
+    func path(_ pass: Pass = pass(), _ contract: SceneShaderContract = white,
+              contracts: [SceneShaderContract]? = nil) -> Any {
+        SceneStaticModelMaterialBindingCompiler.defaultAlbedoAssetPath(
+            pass: pass, shaderContracts: contracts ?? [contract]) as Any? ?? NSNull()
+    }
+    var null = pass(); null.textureSlots = [nil]
+    var normalOnly = pass(); normalOnly.textureSlots = [nil, "fixtures/normal"]
+    var tailAbsent = pass(); tailAbsent.textureSlots = [nil, nil]
+    var explicit = pass(); explicit.textureSlots = ["fixtures/authored-blue"]
+    var badPath = pass(); badPath.textureSlots = ["fixtures/missing-explicit"]
+    var user = pass(); user.userTextureInputs = [.init(kind: .property, value: "chosen")]
+    var userPath = pass(); userPath.userTextureInputs = [.init(kind: .path, value: "fixtures/user")]
+    let unavailable = shader(fragmentExtra: ordinary, conditionalAlpha: true)
+    let ambiguousSampler = """
+        \(ordinary)
+        #if defined(OPTIONAL)
+        uniform sampler2D g_Texture0; // {"default":"fixtures/other"}
+        #endif
+        """
+    let conditionalInclude = shader(fragmentExtra: """
+        \(ordinary)
+        #if defined(OPTIONAL)
+        #include "fixture/conditional.glsl"
+        #endif
+        """, includedSources: ["fixture/conditional.glsl":
+            #"uniform sampler2D g_Texture0; // {"default":"fixtures/other"}"#])
+    let unconditionalInclude = shader(fragmentExtra: #"#include "fixture/default.glsl""#,
+        includedSources: ["fixture/default.glsl": ordinary])
+    func tamperedGraph(_ contract: SceneShaderContract, rawMismatch: Bool) -> SceneShaderContract {
+        guard let graph = contract.sourceGraph else { preconditionFailure("fixture graph missing") }
+        var nodes = graph.nodes
+        if rawMismatch {
+            guard let index = nodes.firstIndex(where: { $0.virtualPath == "fixture/default.glsl" })
+            else { preconditionFailure("fixture include missing") }
+            let node = nodes[index]
+            nodes[index] = .init(virtualPath: node.virtualPath, provenance: node.provenance,
+                source: node.source, rawSHA256: String(repeating: "0", count: 64), byteCount: node.byteCount)
+        }
+        let digest = rawMismatch
+            ? SceneShaderSourceGraph.dependencySHA256(nodes: nodes, edges: graph.edges)
+            : String(repeating: "0", count: 64)
+        return .init(identity: contract.identity, sourceKind: contract.sourceKind,
+            stages: contract.stages, diagnostics: contract.diagnostics,
+            canonicalSHA256: contract.canonicalSHA256,
+            sourceGraph: .init(roots: graph.roots, nodes: nodes, edges: graph.edges,
+                diagnostics: graph.diagnostics, dependencySHA256: digest))
+    }
+    let unrelatedFormat = shader(fragmentExtra: """
+        \(ordinary)
+        uniform sampler2D g_Texture7; // {"combo":"HAS_OTHER","formatcombo":true}
+        """)
+    let variant = SceneAuthoredShaderPreparation.prepareShaderStages(
+        contract: unrelatedFormat, compatibilityTarget: .windowsDX11ShaderModel4,
+        combos: [:], textureReadiness: Dictionary(uniqueKeysWithValues: (0..<8).map { ($0, $0 == 7) }))
+    let variantFailure: String
+    if case let .rejected(failure) = variant {
+        variantFailure = failure.details.first ?? "unclassified"
+    } else { variantFailure = "not-rejected" }
+    var result: [String: Any] = [
+        "omitted": path(), "null": path(null), "normalOnly": path(normalOnly),
+        "tailReadiness": path(tailAbsent, shader(fragmentExtra: """
+            \(ordinary)
+            uniform sampler2D g_Texture7; // {"combo":"HAS_TAIL"}
+            """)),
+        "colored": path(pass(), shader(fragmentExtra:
+            #"uniform sampler2D g_Texture0; // {"default":"fixtures/colored","material":"albedo"}"#)),
+        "explicit": path(explicit), "explicitStillAuthored": explicit.textureSlots[0] as Any,
+        "badPath": path(badPath), "badPathStillAuthored": badPath.textureSlots[0] as Any,
+        "user": path(user), "userPath": path(userPath),
+        "passOne": path(pass(passIndex: 1)),
+        "unavailableUniformState": compile(pass(), unavailable).state.rawValue,
+        "unavailableUniformDefault": path(pass(), unavailable),
+        "unconditionalInclude": path(pass(), unconditionalInclude),
+        "conditionalInclude": path(pass(), conditionalInclude),
+        "conditionalSameName": path(pass(), shader(fragmentExtra: ambiguousSampler)),
+        "missingContract": path(contracts: []),
+        "duplicateContract": path(contracts: [white, white]),
+        "graphDigestMismatch": path(pass(), tamperedGraph(white, rawMismatch: false)),
+        "graphRawMismatch": path(pass(), tamperedGraph(unconditionalInclude, rawMismatch: true)),
+        "unrelatedFormatDefault": path(tailAbsent, unrelatedFormat),
+        "unrelatedFormatVariantFailure": variantFailure,
+    ]
+    let rejected: [String: SceneShaderContract] = [
+        "conditionalOnly": shader(fragmentExtra: "#if defined(OPTIONAL)\n\(ordinary)\n#endif"),
+        "readiness": shader(fragmentExtra:
+            #"uniform sampler2D g_Texture0; // {"default":"util/white","combo":"HAS_BASE"}"#),
+        "macroRename": shader(fragmentPrefix: "#define g_Texture0 g_Texture1", fragmentExtra: ordinary),
+        "conditionalMacroAlias": shader(fragmentPrefix: "#define SLOT g_Texture0", fragmentExtra: """
+            \(ordinary)
+            #if defined(OPTIONAL)
+            uniform sampler2D SLOT; // {"default":"util/white"}
+            #endif
+            """),
+        "noDefault": shader(fragmentExtra: #"uniform sampler2D g_Texture0; // {"material":"albedo"}"#),
+        "opacityMode": shader(fragmentExtra:
+            #"uniform sampler2D g_Texture0; // {"default":"util/white","mode":"opacitymask"}"#),
+        "format": shader(fragmentExtra:
+            #"uniform sampler2D g_Texture0; // {"default":"util/white","format":"rgba8"}"#),
+        "internal": shader(fragmentExtra:
+            #"uniform sampler2D g_Texture0; // {"default":"_rt_FullFrameBuffer"}"#),
+        "conflict": shader(fragmentExtra: ordinary, vertexExtra:
+            #"uniform sampler2D g_Texture0; // {"default":"fixtures/other"}"#),
+        "malformedDefault": shader(fragmentExtra:
+            #"uniform sampler2D g_Texture0; // {"default":false}"#),
+        "invalidAssetPath": shader(fragmentExtra:
+            #"uniform sampler2D g_Texture0; // {"default":"../escape"}"#),
+        "samplerArray": shader(fragmentExtra:
+            #"uniform sampler2D g_Texture0[2]; // {"default":"util/white"}"#),
+        "annotationComboSampler": shader(fragmentPrefix:
+            #"// [COMBO] {"combo":"g_Texture0","default":0,"options":[0,1]}"#,
+            fragmentExtra: ordinary),
+        "annotationComboType": shader(fragmentPrefix:
+            #"// [COMBO] {"combo":"sampler2D","default":0,"options":[0,1]}"#,
+            fragmentExtra: ordinary),
+        "tokenPasteOtherVertex": shader(fragmentExtra: ordinary,
+            vertexExtra: "#define CONCAT(a,b) a##b"),
+        "tokenPasteOtherFragment": shader(fragmentExtra: "#define CONCAT(a,b) a##b",
+            vertexExtra: ordinary),
+        "emptyPrefixHiddenConditional": shader(fragmentPrefix: "#define EMPTY", fragmentExtra: """
+            #if defined(OPTIONAL)
+            EMPTY uniform sampler2D g_Texture0; // {"default":"fixtures/other"}
+            #endif
+            """, vertexExtra: ordinary),
+        "materialNormal": shader(fragmentExtra:
+            #"uniform sampler2D g_Texture0; // {"default":"util/white","material":"normal"}"#),
+        "materialNoise": shader(fragmentExtra:
+            #"uniform sampler2D g_Texture0; // {"default":"util/white","material":"noise"}"#),
+        "graphMaterialAlias": shader(fragmentExtra:
+            #"uniform sampler2D g_Texture0; // {"default":"util/white","material":"framebuffer"}"#),
+        "registeredDataDefault": shader(fragmentExtra:
+            #"uniform sampler2D g_Texture0; // {"default":"gradient/gradient_fire","material":"albedo"}"#),
+        "registeredNoiseDefault": shader(fragmentExtra:
+            #"uniform sampler2D g_Texture0; // {"default":"util/noise","material":"albedo"}"#),
+    ]
+    for (name, contract) in rejected { result[name] = path(pass(), contract) }
+    return result
+}
+
 @main
 private enum SceneStaticModelMaterialBindingsHarness {
     static func main() throws {
@@ -452,6 +607,7 @@ private enum SceneStaticModelMaterialBindingsHarness {
         case "sources": result = sources()
         case "proofBoundaries": result = proofBoundaries()
         case "numericInput": result = numericInput()
+        case "albedoDefaults": result = albedoDefaults()
         default: throw NSError(domain: "material-bindings-fixture", code: 1)
         }
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]))

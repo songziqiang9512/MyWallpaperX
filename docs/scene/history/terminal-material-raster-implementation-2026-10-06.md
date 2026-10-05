@@ -3,7 +3,7 @@
 
 # 终端材质光栅与太阳系连续轨道（2026-10-06）
 
-> **历史证据 — 非现役入口**。当前合同见[运行架构](../architecture/runtime-architecture.md)和[终端材质设计](../roadmap/batch2/terminal-material-raster-design.md)，后继见[断点队列](../roadmap/scene-open-breakpoint-queue.md)。
+> **历史证据 — 非现役入口**。当前合同见[运行架构](../architecture/runtime-architecture.md)和[终端材质设计](terminal-material-raster-design-2026-10-06.md)，后继见[断点队列](../roadmap/scene-open-breakpoint-queue.md)。
 
 首断点：程序化细线先在小工作纹理上光栅化，再放大合成，导致真实太阳系轨道断成散点。提高全部输入纹理尺寸会改变作者采样语义并增加内存，因此分开输入纹理尺寸与最终显示光栅。
 

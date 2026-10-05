@@ -84,6 +84,32 @@ def native_fixture(count, *, bad=False, overlap=False):
     return entries, expected
 
 
+def default_albedo_fixture():
+    entries, expected = native_fixture(8)
+    for i in range(8):
+        path = f'materials/part{i:03}.json'
+        material = json.loads(entries[path]); p = material['passes'][0]
+        p['textures'] = [None]
+        p['defaultAlbedo'] = 'materials/peer.png'
+        if i == 0:
+            p['constantshadervalues']['color'] = [.25, .5, .75]
+        elif i == 1:
+            del p['textures']
+            p['defaultAlbedo'] = 'materials/part001.png'
+        elif i == 2:
+            p['textures'] = ['materials/part002.png']
+        elif i == 3:
+            p['textures'] = ['materials/missing-explicit.png']
+        elif i == 4:
+            del p['defaultAlbedo']
+        elif i == 5:
+            p['rejectedMaterial'] = True
+        elif i == 6:
+            p['defaultAlbedo'] = 'materials/missing-default.png'
+        entries[path] = json.dumps(material).encode()
+    return entries, expected
+
+
 def freeze_inputs(label, variants):
     parent=os.environ.get('MWX_MODEL_PARTS_EVIDENCE')
     if parent: Path(parent).mkdir(parents=True,exist_ok=True)
@@ -190,6 +216,7 @@ extension SceneRenderDescriptor {
   let materialPath:String;let textureSlots:[String?];let combos:[String:Int]
   let constantShaderValues:[String:SceneDocument.ShaderValue];var passIndex:Int=0;var depthWrite:String?=nil
   var staticModelMaterialBindings:SceneStaticModelMaterialBindings?=nil;var cullMode:String?=nil
+  var staticModelDefaultAlbedoAssetPath:String?=nil
  }
 }
 '''
@@ -219,7 +246,8 @@ NATIVE_MAIN=r'''
   let root=URL(fileURLWithPath:input["root"]!)
   var rows:[[String:Any]]=[]
   for (name,fixture) in [("parts5","parts5"),("parts8","parts8"),("parts64","parts64"),
-                          ("bad8","bad8"),("quota","parts8"),("recovery","parts8"),("overlap","overlap") ] {
+                          ("bad8","bad8"),("quota","parts8"),("recovery","parts8"),("overlap","overlap"),
+                          ("defaults","defaults") ] {
    let before=SceneResourceBudget.shared.snapshot.residentBytes
    var row=try autoreleasepool {try run(name,root.appendingPathComponent(fixture),device,queue)}
    row["budgetBefore"]=before;row["budgetAfter"]=SceneResourceBudget.shared.snapshot.residentBytes
@@ -232,9 +260,17 @@ NATIVE_MAIN=r'''
   let passes=try files.map {url -> SceneRenderDescriptor.MaterialPassDescriptor in
    let object=try JSONSerialization.jsonObject(with:Data(contentsOf:url)) as! [String:Any]
    let pass=(object["passes"] as! [[String:Any]])[0]
-   let constants=(pass["constantshadervalues"] as? [String:Double] ?? [:]).mapValues{SceneDocument.ShaderValue(components:[$0])}
-   return .init(materialPath:"materials/"+url.lastPathComponent,textureSlots:(pass["textures"] as! [String]).map{Optional($0)},
+   let constants=(pass["constantshadervalues"] as? [String:Any] ?? [:]).mapValues {
+       SceneDocument.ShaderValue(components:($0 as? [Double]) ?? [($0 as! NSNumber).doubleValue])
+   }
+   var result = SceneRenderDescriptor.MaterialPassDescriptor(materialPath:"materials/"+url.lastPathComponent,
+       textureSlots:(pass["textures"] as? [Any] ?? []).map{$0 as? String},
        combos:pass["combos"] as! [String:Int],constantShaderValues:constants,depthWrite:pass["depthwrite"] as? String)
+   result.staticModelDefaultAlbedoAssetPath = pass["defaultAlbedo"] as? String
+   if pass["rejectedMaterial"] as? Bool == true {
+       result.staticModelMaterialBindings = .init(state:.rejected,bindings:[],rejectionReason:"fixture-rejected-value")
+   }
+   return result
   }
   let layers=[SceneRenderDescriptor.Layer(id:1,staticModelPath:"models/peer.mdl"),.init(id:2,staticModelPath:"models/parts.mdl")]
   let descriptor=SceneRenderDescriptor(lighting:nil,layers:layers,renderOrderLayerIDs:[1,2],materialPasses:passes)
@@ -295,7 +331,8 @@ class SceneModelPartsNativeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.root=freeze_inputs('native',{**{f'parts{n}':native_fixture(n) for n in [5,8,64]},
-            'bad8':native_fixture(8,bad=True),'overlap':native_fixture(2,overlap=True)})
+            'bad8':native_fixture(8,bad=True),'overlap':native_fixture(2,overlap=True),
+            'defaults':default_albedo_fixture()})
         cls.report=native.run_swift(NATIVE_SOURCES,resource_support()+NATIVE_MAIN,label='parts-native',
             metal_sources=[MODEL_METAL],input_value={'root':str(cls.root)})
         cls.rows={r['mode']:r for r in cls.report['rows']}
@@ -336,6 +373,18 @@ class SceneModelPartsNativeTests(unittest.TestCase):
         # Authored red then green, each coverage .5, over black: .25 red + .5 green.
         for actual,want in zip(row['frames'][0][65],[64,128,0,255]):self.assertLessEqual(abs(actual-want),1)
         self.assertEqual(row['frames'][0],row['frames'][1])
+
+    def test_default_albedo_reaches_model_pixels_without_hiding_explicit_failure(self):
+        row = self.rows['defaults']
+        self.assertEqual(row['parts'], [f'materials/part{i:03}.json' for i in [0,1,2,7]])
+        expected = default_albedo_fixture()[1]
+        pixels = [[64,128,191,255], expected[1]['rgba'], expected[2]['rgba'],
+                  *([[0,0,0,255]]*4), [255,255,255,255]]
+        for actual, wanted in zip(row['frames'][0], pixels):
+            for a, b in zip(actual, wanted): self.assertLessEqual(abs(a-b), 1)
+        self.assertEqual(row['frames'][0], row['frames'][1])
+        self.assertEqual(row['textureIDs'][0], row['textureIDs'][3])
+        self.assertEqual(row['budgetBefore'], row['budgetAfter'])
 
 
 def app_fixture(count, cast=True):

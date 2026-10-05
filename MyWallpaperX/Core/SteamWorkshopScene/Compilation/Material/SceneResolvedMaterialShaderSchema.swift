@@ -244,6 +244,102 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         return result
     }
 
+    /// Fixed model draws can consume an explicitly declared ordinary color
+    /// asset without admitting the shader's executable material interface.
+    /// Readiness-gated or conditionally competing declarations are not defaults.
+    static func unconditionalColorAssetDefault(
+        slot: Int, contract: SceneShaderContract, combos: [String: Int]
+    ) -> SceneVFSAssetPath? {
+        guard contract.sourceKind == .authoredSource, contract.diagnostics.isEmpty,
+              contract.stages.count == 2, Set(contract.stages.map(\.kind)).count == 2,
+              let graph = contract.sourceGraph,
+              graph.dependencySHA256 == graph.recomputedDependencySHA256,
+              graph.diagnostics.allSatisfy({ $0.code == .shadowedRootContentConflict }),
+              Set(graph.nodes.map { $0.virtualPath.lowercased() }).count == graph.nodes.count,
+              graph.edges.allSatisfy({
+                  if case let .resolved(path) = $0.outcome { return graph.node(at: path) != nil }
+                  return false
+              }), contract.stages.allSatisfy({ stage in
+                  guard let root = graph.node(at: stage.relativePath) else { return false }
+                  return root.source == stage.source && root.rawSHA256 == stage.rawSHA256
+              }) else { return nil }
+        let sources = SceneShaderVariantSchemaSeed.unconditional(contract: contract, graph: graph)
+        let declarations = records(sources)
+        guard let samplers = try? samplerSchemas(declarations),
+              let sampler = samplers[slot], sampler.mode == .regular,
+              sampler.formatKey == nil, sampler.readinessCombo == nil,
+              !sampler.hasExplicitNonColorPurpose, !sampler.usesGraphInputMaterialAlias,
+              case let .asset(path) = sampler.defaultTexture else { return nil }
+        if let purpose = SceneStockTextureSemanticRegistry.purpose(for: path),
+           purpose != .straightAlbedo { return nil }
+        let protected = Set(["uniform", "sampler2D", sampler.name])
+            .union(declarations.filter { $0.declaration.name == sampler.name }
+                .flatMap { $0.declaration.type.split(whereSeparator: \.isWhitespace).map(String.init) })
+        guard Set(combos.keys).isDisjoint(with: protected) else { return nil }
+        // The seed intentionally excludes conditionals. A second potential
+        // declaration of this same sampler would make the default ambiguous.
+        for node in graph.nodes {
+            guard node.byteCount == node.source.utf8.count,
+                  node.rawSHA256 == SceneShaderStableDigest.hash(Data(node.source.utf8)) else { return nil }
+            let parsed = SceneShaderContractSourceParser().parse(
+                node.source, stageRelativePath: node.virtualPath
+            )
+            guard parsed.diagnostics.isEmpty else { return nil }
+            for annotation in parsed.annotations {
+                if case let .object(object) = annotation.variantValue,
+                   let combo = object["combo"]?.stringValue, protected.contains(combo) { return nil }
+            }
+            for declaration in parsed.declarations where declaration.name == sampler.name {
+                guard declaration.arraySuffix == nil, declaration.arraySize == nil,
+                      declarations.contains(where: {
+                    $0.sourcePath == node.virtualPath && $0.declaration == declaration
+                }) else { return nil }
+            }
+            // Prepared declaration reflection retains authored names. Reject
+            // macros that could rename or manufacture this metadata interface.
+            var inBlockComment = false
+            for (index, line) in node.source.split(
+                omittingEmptySubsequences: false, whereSeparator: \.isNewline
+            ).enumerated() {
+                let code = SceneShaderLexicalScanner.scan(String(line), inBlockComment: &inBlockComment).code
+                guard let directive = SceneShaderDirective.parse(code) else {
+                    let storage = code.split { !$0.isLetter && !$0.isNumber && $0 != "_" }
+                        .filter { $0.lowercased() == "uniform" }
+                    if !storage.isEmpty {
+                        let lineDeclarations = parsed.declarations.filter { $0.line == index + 1 }
+                        guard storage.count == 1, storage[0] == "uniform",
+                              lineDeclarations.count == 1, lineDeclarations[0].kind == .uniform,
+                              code.filter({ $0 == ";" }).count == 1,
+                              code.trimmingCharacters(in: .whitespaces).last == ";" else { return nil }
+                    }
+                    continue
+                }
+                switch directive {
+                case let .define(name, _), let .undef(name):
+                    guard !protected.contains(name) else { return nil }
+                case let .defineFunction(macro):
+                    guard !protected.contains(macro.name) else { return nil }
+                case let .include(request):
+                    guard let edge = graph.edge(parentVirtualPath: node.virtualPath, line: index + 1),
+                          edge.request == request, case .resolved = edge.outcome else { return nil }
+                case .unsupportedFunctionMacro, .malformed, .malformedRequire, .unknown, .unsupported:
+                    return nil
+                default: break
+                }
+                switch directive {
+                case .define, .defineFunction:
+                    let identifiers = code.split { !$0.isLetter && !$0.isNumber && $0 != "_" }
+                    guard !identifiers.contains(where: {
+                        $0.lowercased() == "uniform" || $0.lowercased() == "sampler2d"
+                            || $0 == sampler.name
+                    }) else { return nil }
+                default: break
+                }
+            }
+        }
+        return path
+    }
+
     static func activeSamplers(
         _ prepared: SceneShaderPreparedProgram,
         runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none

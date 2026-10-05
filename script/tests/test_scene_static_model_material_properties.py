@@ -16,6 +16,7 @@ SOURCES = [
     SCENE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
     SCENE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
     SCENE_ROOT / "Format/SceneJSONValue.swift",
+    SCENE_ROOT / "Compilation/Material/SceneEffectTextureInput.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyBindings.swift",
@@ -85,6 +86,8 @@ struct SceneRenderDescriptor {
         let constantShaderValues: [String: SceneDocument.ShaderValue]
         var userShaderValues: [String: String] = [:]
         var texturePaths: [String] = []
+        var textureSlots: [String?] = []
+        var userTextureInputs: [SceneEffectTextureInput?] = []
         var staticModelMaterialBindings: SceneStaticModelMaterialBindings? = nil
     }
 

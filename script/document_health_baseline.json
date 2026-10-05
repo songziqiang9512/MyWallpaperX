@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 540,
-      "bytes": 90644
+      "lines": 558,
+      "bytes": 93525
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -94,11 +94,11 @@
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
-      "bytes": 174194
+      "bytes": 174395
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
-      "bytes": 2217
+      "bytes": 2189
     },
     "docs/scene/capabilities/scene-corpus-capability-inventory.md": {
       "lines": 455,
@@ -140,10 +140,6 @@
       "lines": 111,
       "bytes": 20704
     },
-    "docs/scene/roadmap/batch2/debug-frame-capture-lifecycle-design.md": {
-      "lines": 88,
-      "bytes": 18460
-    },
     "docs/scene/roadmap/batch2/frame-admission-retry-design.md": {
       "lines": 41,
       "bytes": 7059
@@ -174,7 +170,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 51726
+      "bytes": 51753
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -188,21 +184,17 @@
       "lines": 41,
       "bytes": 7717
     },
-    "docs/scene/roadmap/batch2/terminal-material-raster-design.md": {
-      "lines": 25,
-      "bytes": 3286
-    },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 439,
       "bytes": 135310
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 243,
-      "bytes": 32445
+      "bytes": 32494
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 129,
-      "bytes": 49108
+      "lines": 131,
+      "bytes": 49537
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -239,6 +231,10 @@
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 7241
+    },
+    "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md": {
+      "lines": 97,
+      "bytes": 14502
     }
   },
   "archives": [
@@ -1135,24 +1131,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "6c9953484a1fe61047da26071ccacc01d402a2364b1ed8421ad52ef65c2a0854",
-      "after": "207203425c8b5dcd3e5272b346032ed1937d48aab70ec149b5d0b8583d202510",
-      "owner": "scene-user-texture",
-      "reason": "同步失效选择的现有事务合同、纠正旧重建状态并收敛339后继验收范围。",
-      "decision": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md#失效文件选择后继"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "76ef0304df13b7a0c74e6db1b88c12f34fdcafb9af9afa37b8f738549bd26fb6",
-      "after": "635cd41d06b5148b46e86dc86a0c52b5a7116992b38b4a7635cf240948c27ffe",
-      "owner": "scene-targets",
-      "reason": "将成功物化与失败回收的校验边界分开，收口mixed/shared正常completion误拒。",
-      "decision": "docs/scene/history/scene-allocating-targets-implementation-2026-10-06.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
       "before": "cd7a793d3e21341e025e4990674c78ff2e5f862b8e0552b093795f10fd2d1093",
       "after": "f495356b8d239e35e5b32f1c8e179fbe3b36a11c4cc3e16cedcce511c830e016",
@@ -1162,21 +1140,75 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "296d75e2903e97c0d996c9d93476ecedea81c3f75a1abc3d0695ba99e0aff05a",
+      "after": "801bcbab8fe355916dfae6383a77998ec777768b5774dc843b9cd4a73d82cc1d",
+      "owner": "scene-pause-handoff",
+      "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
+      "decision": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "207203425c8b5dcd3e5272b346032ed1937d48aab70ec149b5d0b8583d202510",
+      "after": "768f1412eac4583c0d84cd54309899dfc5c750fff82d955ed8eaa49b76447c49",
+      "owner": "scene-pause-handoff",
+      "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
+      "decision": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/debug-frame-capture-lifecycle-design.md",
+      "before": "8f89262e6235c53a83ee10f200c5375c7abe7d0d8046543c1dbceb4739783032",
+      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "owner": "scene-pause-handoff",
+      "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
+      "decision": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "8a940fce480b480f1a61cc7119db7a0a346546739adedd638831968b1a44a301",
-      "after": "5ac6326629edb97a17b5f4dc49fff4ba33fb34bf60dcf26eaaaeba920bc93b10",
-      "owner": "Scene terminal output",
-      "reason": "Replace EDR pending pointer with bounded implementation and next heavy startup work; shorten route body.",
-      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md"
+      "before": "5ac6326629edb97a17b5f4dc49fff4ba33fb34bf60dcf26eaaaeba920bc93b10",
+      "after": "2d18cfdd755132a8a6d7d33861f368d3c93b84c89b89e36c7e35ed988f340379",
+      "owner": "scene-pause-handoff",
+      "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
+      "decision": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/terminal-material-raster-design.md",
+      "before": "c26f1e9fca836f099b48d58eaac3f3c9eca3cf46f0da685330011513a70de36e",
+      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "owner": "scene-pause-handoff",
+      "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
+      "decision": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
+      "before": "6d123d943aec2398150277fc2375c8edd78dbc691c304b5ed501c9f09d3d985f",
+      "after": "24fcb64c6637c341bcc8453d161a7f6393b3bea1d1ef815227ef7f331a08d823",
+      "owner": "scene-pause-handoff",
+      "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
+      "decision": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "c26f1e9fca836f099b48d58eaac3f3c9eca3cf46f0da685330011513a70de36e",
-      "owner": "scene-terminal-material",
-      "reason": "按实证分离输入纹理与终端显示光栅，新增有界能力设计；不提高既有权威预算。",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-raster-design.md"
+      "after": "e0a9aff5374f1d6f5b37f66e1540fe4071c33f282cd04d083e616e91ccffb067",
+      "owner": "scene-pause-handoff",
+      "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
+      "decision": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "362fa16b4f68db91f63f11c4ef9ce347bea3e289f966b2233330ab7ebfa97de7",
+      "after": "34172c16c6ac68b3fce0037151e826c804ef8495e546ef1a7ce55f81697aa1ca",
+      "owner": "scene-pause-handoff",
+      "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
+      "decision": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md"
     }
   ]
 }

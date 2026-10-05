@@ -2,12 +2,12 @@
 
 # Sampler 缺省输入与显式声明的优先级
 
-Owner：`SceneResolvedMaterialShaderSchema`。本文限定既有输入语义的优先级，不扩展作者能力；当前支持范围以[能力台账](coverage-ledger.md)为准。触发设计前置的原因是修改已冻结的结构推断家族。
+Owner：`SceneResolvedMaterialShaderSchema`；支持范围见[能力台账](coverage-ledger.md)。
 
-`implicitFramebufferSlots` 只补齐未声明 material 角色的 slot 0。显式 material 声明必须由现有 alias、authored candidate 或有完整 effect-input/color-carrier 证明的 dormant 路径裁决；未知 material 不能因位于 slot 0 自动变成 framebuffer。label 本身不提供来源身份，仍走已有 alias 规则。不存在新 registry、第二套绑定逻辑或 sample 分派。
+`implicitFramebufferSlots` 只补齐未声明 material 角色的 slot 0。显式 material 必须经现有 alias、authored candidate 或完整 effect-input/color-carrier 证明的 dormant 路径裁决；未知 material 不因 slot 0 自动成为 framebuffer，label 不提供来源身份。有证明的 hidden 任意 key 保留 dormant provenance；未知角色局部失败。不按样本分派，不另建绑定 owner。
 
-当前偏差是 implicit 推断早于 dormant 事实生成，且忽略 material 声明：`source`、未满足 hidden 条件的历史 key、未知编辑器 key 被错误注入 graph input；有证明的 hidden 任意 key 也丢失 dormant provenance。新增条件的具体产生者是 sampler 注解解析后的 `Sampler.materialKey`，反例位于 finalizer harness 的 `nonFramebufferDoesNotInject`、`historicalFramebufferWithoutHidden`、`historicalFramebufferLabelOnly`、`unknownEditorMaterialAlias`。纠正后失败局限于该材质绑定，保留现有局部视觉失败策略。
+Direct static model：原资源准备将 nil slot 0 部件直接跳过；现在仅在 authored texture 与 user 请求皆空时，schema 提供普通颜色 sampler 的默认资产事实，descriptor 保存 `staticModelDefaultAlbedoAssetPath`，既有 VFS/loader 加载 straight albedo，沿原 frame draw、深度、阴影和 compositor 消费。默认事实独立于 uniform `.unavailable`；`.rejected` 仍拒绝部件。普通帧不解析或分配默认输入，不改变 authored slots/readiness combo。
 
-同批测试身份纠偏：shader fixture 修改源码必须同时改变内容摘要，持久化分析缓存必须位于测试临时目录；同一份输入冷/热缓存结果必须一致。不得以关闭缓存掩盖错误身份。旧 preflight helper 调用数断言退役，依赖准备顺序、隐藏 provider 与动态 topology 的执行测试承担行为覆盖。
+显式坏路径、加载失败和 named provider 未就绪不回落默认。无 default、条件同名/条件 include、宏改写/别名/生成声明、数组、冲突、非颜色用途和 internal target 不扩大准入。只在已证明默认资产范围退出 nil 即跳过；不采用所有空输入补白或 shader 名特判。元数据核 source graph 身份、完整潜在声明、combo 名和宏；固定模型不执行 custom shader，不因无关 variant 准备失败丢弃无条件默认。其 declaration reflection 保留原名，不能替代宏检查。
 
-验证要求：无 material 的隐式 slot 0 仍成功；显式合法别名仍成功；未知角色无证据拒绝；有 effect-input 证明的 hidden 任意 slot 保留 dormant provenance；neutral resolution 的错误分量/额外读取必须拒绝。执行 finalizer 的冷/热缓存、相关依赖与拓扑模块，以及 Debug build、code-health、scene-defense、design-gate。门通过后删除临时设计登记；本文保留优先级合同。运行结论不外推至 corpus 或官方 parity。
+验收：自有默认白/彩色、null/省略、显式/user 优先及上述拒绝反例，经 reader→prepare→frame→Metal 验像素和释放，再做 Debug build 与隔离真实模型。官方自有 generic4 plane 黑盒仅证明固定条件下 null/省略仍绘制且等价白输入、坏资源不同；不推出内部机制、MDL/normal/reflection 或全样本 parity。shader fixture 改源码同步摘要，缓存隔离且冷/热结果一致；测试与运行范围不能互相替代。

@@ -4,7 +4,9 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
-| 2026-10-06 | Scene | 实施证据 | [终端材质光栅](terminal-material-raster-implementation-2026-10-06.md) | 输入尺寸与显示分域、太阳系连续轨道和独立消费回执 | [架构](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
+| 2026-10-06 | Scene | 实施证据 | [模型默认albedo](static-model-default-albedo-implementation-2026-10-06.md) | JUNO缺失主体恢复、独立sampler默认与太阳系交互边界 | [Sampler合同](../capabilities/sampler-alias-precedence.md)、[暂停交接](../roadmap/scene-maintainer-handoff-2026-10-06.md) |
+| 2026-10-06 | Scene | 已完成设计 | [诊断截图生命周期](debug-frame-capture-lifecycle-design-2026-10-06.md) | 有界请求、独立导出与停止drain已完成 | [运行架构](../architecture/runtime-architecture.md#debug-capture-lifecycle) |
+| 2026-10-06 | Scene | 实施证据 | [终端材质光栅](terminal-material-raster-implementation-2026-10-06.md)、[已完成设计](terminal-material-raster-design-2026-10-06.md) | 输入尺寸与显示分域、太阳系连续轨道和独立消费回执 | [架构](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-06 | Scene | 实施证据 | [3D鼠标世界坐标](native-perspective-cursor-implementation-2026-10-06.md) | 官方far-plane反例、唯一camera出口与真实拖动 | [SceneScript API](../capabilities/scenescript-api-coverage.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-06 | Scene | 实施证据 | [模型材质值脚本](model-material-value-scripts-implementation-2026-10-06.md) | 共享 VM 到原材料 consumer、隐藏模型准入与太阳近景格线/颜色修复 | [架构](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-06 | Scene | 实施证据 | [SDR正常颜色恢复](sdr-white-preservation-implementation-2026-10-06.md) | 取消无条件白点压暗，保留超白Bloom和raw历史 | [D2设计](../roadmap/batch2/hdr-tonemap-edr-design.md)、[执行卡](../roadmap/batch2/reference-evidence-implementation-cards.md) |

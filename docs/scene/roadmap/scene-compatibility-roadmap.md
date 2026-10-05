@@ -139,7 +139,7 @@ tracked full matrix 扩为全集 identity-only 基线。历史期待先分成有
 | 已验收、按职责提交 | D4/D11 显式 emitParticles | 真实出生、全surface事务、native预算和调用期输入已贯通；最终17项App门通过，范围及既有失败见[执行记录](../history/rf03-particle-playback-implementation-2026-10-02.md#rf03-explicit-emission)。未开放默认数量/children/reset。 |
 | 已验收、按职责提交 | D1 目标准入与prepared/encoded source 一致性 | 真实pool与错源像素反例已修复；终审发现的组内childless composition也已沿同一pass/执行序闭合。冻结App、资源寿命和测试边界见[执行记录](../history/d1-composition-source-implementation-2026-10-02.md)。成员/flag仍由D1设计继续定案，下一批D3。 |
 | normal/PBR/材料属性、reflection、三光型阴影及有界多材质已验收 | D3 材质与模型光照 | 实际准入与验收由[RF10及D3实施卡](batch2/reference-evidence-implementation-cards.md#rf10-pbr-direct)、[RF12](batch2/reference-evidence-implementation-cards.md#rf12-late-snapshot-capacity)、[RF13](batch2/reference-evidence-implementation-cards.md#rf13-named-model-shadow)、[RF14](batch2/reference-evidence-implementation-cards.md#rf14-model-spot-shadow)、[RF15](batch2/reference-evidence-implementation-cards.md#rf15-model-point-shadow)链接的执行记录固定。[RF16](batch2/reference-evidence-implementation-cards.md#rf16-visible-model-admission)的通用多材质可见片与原包准备恢复已移交；原包像素收益、较大模型资源成本仍按其证据上限保留，不按历史差额扩大准入。不把有界验收扩大为官方PBR/atlas兼容。 |
-| 输出扩展 | D2 可选 EDR | SDR 与 raw-history 已有基础；核屏幕 headroom、窗口迁移、系统能力和可测亮度后开放 EDR。无测量条件保留正确 SDR，证据不足不优先扩大输出风险。 |
+| 有界实现、显示验收开放 | D2 HDR/SDR与可选EDR | 白点、五字段Bloom与可选EDR已有实施，见[D2现役裁决](batch2/hdr-tonemap-edr-design.md)；补用户样本、物理亮度、多屏/移屏/暂停重绘及失败保旧帧，不重建输出owner。 |
 
 D8 的单点准入随 RF02/RF04 和 D1 的真实名字/用途需求收敛；D12 的已有 authored copy/link/postprocess 路径做版本与生命周期验收，仅缺失 mip profile另实施。D9 的 App 唯一 policy 与 D10 的 frame gate 已存在，按实际反例修复，不为追随第三方创建额外 throttle 状态、时钟或重试算法。D5 跨源回包、D7 下载失败可见性属于 Web/App 队列，保留设计并在 Scene 上述高收益能力后单独复核实施；D6 私有 MediaRemote 默认不启用，先产品分发/合规裁决，不能以“全部做完”为由绕过设计限制。
 

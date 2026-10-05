@@ -22,7 +22,6 @@
       "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
       "docs/scene/roadmap/batch2/composition-render-target-design.md",
       "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
-      "docs/scene/roadmap/batch2/debug-frame-capture-lifecycle-design.md",
       "docs/scene/roadmap/batch2/frame-admission-retry-design.md",
       "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
       "docs/scene/roadmap/batch2/host-render-power-protocol-design.md",
@@ -34,7 +33,6 @@
       "docs/scene/roadmap/batch2/rt-prefix-admission-design.md",
       "docs/scene/roadmap/batch2/script-component-api-design.md",
       "docs/scene/roadmap/batch2/system-media-input-design.md",
-      "docs/scene/roadmap/batch2/terminal-material-raster-design.md",
       "docs/scene/roadmap/engine-refactor-program.md",
       "docs/scene/roadmap/scene-compatibility-roadmap.md",
       "docs/scene/roadmap/scene-open-breakpoint-queue.md",
@@ -354,10 +352,10 @@
       "lastReviewed": "2026-10-06",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dbc7bad09184923ba17a3d7cf58b3ab805470b7ff542ba51bad7a8e982cdf1e5",
+        "sourceSHA256": "c327a83b388563041664cfe940e4c1fda11f6414f1f88a1400e508839218ccfb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对终端材质源尺寸与显示光栅分域、唯一MainPass消费回执，以及现役设计和固定运行证据的导航。",
-        "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
+        "scope": "核对本批默认模型颜色输入、已完成设计的稳定合同移交和暂停交接导航。",
+        "limitations": "仅对应本批职责与冻结证据，不表示全样本兼容、官方parity或发布验收。"
       }
     },
     {
@@ -509,13 +507,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-03",
+      "lastReviewed": "2026-10-06",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b45ffd04bdf5c7b2388149ae01c705a0907d65599b73650fc801f2806e4fb9e3",
+        "sourceSHA256": "faaac1b7ae362a9a81c195797a12609183275a5de33bdccfa32c540e6930b65b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
-        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+        "scope": "核对本批默认模型颜色输入、已完成设计的稳定合同移交和暂停交接导航。",
+        "limitations": "仅对应本批职责与冻结证据，不表示全样本兼容、官方parity或发布验收。"
       }
     },
     {
@@ -872,6 +870,16 @@
       "currentAuthorities": [
         "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
         "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/debug-frame-capture-lifecycle-design-2026-10-06.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/sampler-alias-precedence.md"
       ]
     },
     {
@@ -1389,6 +1397,26 @@
       ]
     },
     {
+      "path": "docs/scene/history/static-model-default-albedo-implementation-2026-10-06.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/sampler-alias-precedence.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/terminal-material-raster-design-2026-10-06.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/sampler-alias-precedence.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/terminal-material-raster-implementation-2026-10-06.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -1458,12 +1486,6 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "四类触发点均使用唯一 typed graph transfer 合同，重复路径撤权且 publication 门通过后归档。"
-    },
-    {
-      "path": "docs/scene/roadmap/batch2/debug-frame-capture-lifecycle-design.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "retirementCondition": "诊断请求有界、单次终结、独立 readback 导出及 surface/session/隔离退出 drain 通过行为门，稳定诊断合同接管后归档本文并删除对应设计登记。"
     },
     {
       "path": "docs/scene/roadmap/batch2/frame-admission-retry-design.md",
@@ -1544,12 +1566,6 @@
       }
     },
     {
-      "path": "docs/scene/roadmap/batch2/terminal-material-raster-design.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
-      "retirementCondition": "终端光栅分域通过真实运行和事务反例，职责并入稳定架构后归档。"
-    },
-    {
       "path": "docs/scene/roadmap/engine-refactor-program.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
@@ -1560,6 +1576,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "冻结全集每个样本完成声明与条件场景覆盖、真实显示/动态/参数人工验收和固定官方一致性对照，P5 通过，旧 owner 撤权，unknown/unsupported 未被计作完成，稳定架构、能力与证据权威接管终态后转 historical-evidence；范围缩减须另有明确裁决。"
+    },
+    {
+      "path": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md",
+      "role": "current-state",
+      "entrypoint": "docs/scene/README.md",
+      "purpose": "用户暂停后的范围、已证能力、未执行工作与恢复操作说明。"
     },
     {
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",

@@ -166,30 +166,6 @@
       "contentPatterns": []
     },
     {
-      "id": "scene-debug-frame-capture-lifecycle",
-      "title": "Scene DEBUG 独立 readback 导出与隔离退出 drain",
-      "owner": "SceneDebugFrameCapture / SceneDesktopWallpaperSession / DebugScenePlaybackRunner",
-      "status": "approved",
-      "designDoc": "docs/scene/roadmap/batch2/debug-frame-capture-lifecycle-design.md",
-      "design_notes": "2026-10-02 RF05 前置设计；五判据①②④⑤命中：横切提交/诊断/退役/隔离退出，资源与completion生命周期、现役冻结Frame/Session及公开Metal等待合同。③否，不改变用户数据。已证产生者是80ms periodic与ready/after；最多2 required+1 periodic pending、2个GPU/queued/running readback，局部字节backpressure派生自唯一resident预算四分之一，CPU可控scratch沿现有decoded子额。prepare cancel不consume；提交前登记outstanding，closed且outstanding归零才drain；Session先保存capture，retireSurface在GPU与export都终结后释放。非隔离产品/Web退出owner不变。行为门及稳定合同接管后整条删除；approved不表示产品或性能验收。 2026-10-03批准同一Runner内证据启动/调度职责提取：保留await前后closing、pointer预置、capture分支及既有DispatchQueue，不新增clock/registry；真实扩展行为harness与Debug build后归入原诊断owner。",
-      "matchPatterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneDebugFrameCapture.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+Debug.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+Shutdown.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift",
-        "MyWallpaperX/App/Debug/DebugScenePlaybackRunner.swift",
-        "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+HostOwnership.swift",
-        "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+SceneSwitch.swift",
-        "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+SurfaceStopRelaunch.swift",
-        "MyWallpaperX/App/AppDelegate.swift",
-        "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+EvidenceSchedule.swift"
-      ],
-      "contentPatterns": []
-    },
-    {
       "id": "scene-copy-pass-unification",
       "title": "D12 — 四类 copy 触发点的 graph 语义收敛",
       "owner": "scene-e-route",
@@ -361,19 +337,6 @@
       ],
       "contentPatterns": [
         "publishMediaSession"
-      ]
-    },
-    {
-      "id": "scene-terminal-material-raster",
-      "title": "终端材质源纹理与显示光栅分离",
-      "owner": "scene-p-route",
-      "status": "approved",
-      "designDoc": "docs/scene/roadmap/batch2/terminal-material-raster-design.md",
-      "design_notes": "2026-10-06 自有官方输入尺寸和终端导数观察支持分域；单pass native solid有界Program replay复用原提交与唯一compositor，typed receipt区别纹理消费；approved不代表运行验收。",
-      "matchPatterns": [],
-      "contentPatterns": [
-        "terminalMaterialReplay",
-        "terminalSourceOver"
       ]
     }
   ]

@@ -119,7 +119,8 @@ struct ScenePreparedStaticModelResources {
 #endif
                 guard pass.staticModelMaterialBindings?.state != .rejected,
                       let modelMaterial = material(pass, hdrEnabled: descriptor.hdrEnabled),
-                      let texturePath = pass.textureSlots.first.flatMap({ $0 }) else {
+                      let texturePath = pass.textureSlots.first.flatMap({ $0 })
+                        ?? pass.staticModelDefaultAlbedoAssetPath else {
                     continue
                 }
                 let namedAlbedo = SceneNamedTextureReference.parse(texturePath)

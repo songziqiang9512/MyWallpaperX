@@ -302,6 +302,10 @@ struct SceneRenderDescriptorBuilder {
                     .localizedLowercase
                 if index == 0, directMaterials.contains(path) {
                     if materialsByPath[path]?.count == 1 {
+                        descriptor.staticModelDefaultAlbedoAssetPath =
+                            SceneStaticModelMaterialBindingCompiler.defaultAlbedoAssetPath(
+                                pass: descriptor, shaderContracts: catalog.shaderContracts
+                            )
                         descriptor.staticModelMaterialBindings =
                             SceneStaticModelMaterialBindingCompiler.compile(
                                 pass: descriptor,

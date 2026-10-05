@@ -49,5 +49,7 @@ extension SceneRenderDescriptor {
         let cullMode: String?
         let alphaWriting: String?
         var staticModelMaterialBindings: SceneStaticModelMaterialBindings? = nil
+        /// Prepared sampler default; never substitutes a failed explicit input.
+        var staticModelDefaultAlbedoAssetPath: String? = nil
     }
 }

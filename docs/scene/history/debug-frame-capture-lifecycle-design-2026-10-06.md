@@ -1,9 +1,13 @@
-<!-- document-role: active-plan -->
+<!-- document-role: historical-evidence -->
 <!-- retirementCondition: 诊断请求有界、单次终结、独立 readback 导出及 surface/session/隔离退出 drain 通过行为门，稳定诊断合同接管后归档本文并删除对应设计登记。 -->
 
-# Scene 调试截图导出生命周期
+> **历史证据 — 非现役入口**。现役职责见[运行架构](../architecture/runtime-architecture.md)，后继顺序见[暂停交接](../roadmap/scene-maintainer-handoff-2026-10-06.md)。
 
-2026-10-02，设计边界 approved；属于 [P 路线](../scene-compatibility-roadmap.md) 的 [RF05](reference-evidence-implementation-cards.md) 派生片，排在 RF01 后、RF02/RF03 前。批准不表示实施、GPU、性能或发布验收。本文只使用我方代码及已定位诊断现场，不依赖第三方实现、私有 shader 或新的作者语义。
+# Scene 调试截图导出生命周期（已完成设计）
+
+2026-10-02，设计边界 approved；属于 [P 路线](../roadmap/scene-compatibility-roadmap.md) 的 [RF05](../roadmap/batch2/reference-evidence-implementation-cards.md) 派生片，排在 RF01 后、RF02/RF03 前。批准不表示实施、GPU、性能或发布验收。本文只使用我方代码及已定位诊断现场，不依赖第三方实现、私有 shader 或新的作者语义。
+
+> 本有界设计已完成；冻结验收见[实施记录](rf05-debug-capture-lifecycle-implementation-2026-10-02.md)，稳定约束由[运行架构](../architecture/runtime-architecture.md#debug-capture-lifecycle)接管。本文后续的实施语气保留历史背景，不是现役待办；RF05整卡仍有其他余项。
 
 ## 1. 已证偏差、产生者与准入判定
 

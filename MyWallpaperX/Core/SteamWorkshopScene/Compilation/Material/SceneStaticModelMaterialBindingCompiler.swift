@@ -16,6 +16,23 @@ nonisolated enum SceneStaticModelMaterialBindingCompiler {
         .init(channel: .brightness, name: "g_Brightness", type: .float, componentCount: 1),
     ]
 
+    static func defaultAlbedoAssetPath(
+        pass: SceneRenderDescriptor.MaterialPassDescriptor,
+        shaderContracts: [SceneShaderContract]
+    ) -> String? {
+        guard pass.passIndex == 0,
+              pass.textureSlots.first.flatMap({ $0 }) == nil,
+              pass.userTextureInputs.first.flatMap({ $0 }) == nil,
+              let shaderPath = pass.shaderPath else { return nil }
+        let contracts = shaderContracts.filter {
+            normalizedShader($0.identity) == normalizedShader(shaderPath)
+        }
+        guard contracts.count == 1, let contract = contracts.first else { return nil }
+        return SceneResolvedMaterialShaderSchema.unconditionalColorAssetDefault(
+            slot: 0, contract: contract, combos: pass.combos
+        )?.value
+    }
+
     static func compile(
         pass: SceneRenderDescriptor.MaterialPassDescriptor,
         shaderContracts: [SceneShaderContract]

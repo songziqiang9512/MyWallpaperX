@@ -204,6 +204,34 @@ class SceneStaticModelMaterialBindingTests(unittest.TestCase):
                 self.assertEqual(result[name]["keys"], [None, "Color", None])
                 self.assertEqual(result[name]["components"][1], [0.2, 0.4, 0.6])
 
+    def test_prepared_default_albedo_preserves_presence_and_independent_uniform_failure(self) -> None:
+        result = self.result("albedoDefaults")
+        for name in ["omitted", "null", "normalOnly", "unconditionalInclude", "tailReadiness"]:
+            with self.subTest(name=name):
+                self.assertEqual(result[name], "util/white")
+        self.assertEqual(result["colored"], "fixtures/colored")
+        self.assertEqual(result["unavailableUniformState"], "unavailable")
+        self.assertEqual(result["unavailableUniformDefault"], "util/white")
+        self.assertEqual(result["unrelatedFormatVariantFailure"], "texture-format-unavailable")
+        self.assertEqual(result["unrelatedFormatDefault"], "util/white")
+        self.assertEqual(result["explicitStillAuthored"], "fixtures/authored-blue")
+        self.assertEqual(result["badPathStillAuthored"], "fixtures/missing-explicit")
+        for name in ["explicit", "badPath", "user", "userPath", "passOne", "missingContract", "duplicateContract"]:
+            with self.subTest(name=name):
+                self.assertIsNone(result[name])
+
+    def test_default_albedo_rejects_ambiguous_conditional_or_noncolor_metadata(self) -> None:
+        result = self.result("albedoDefaults")
+        for name in ["conditionalSameName", "conditionalOnly", "conditionalInclude", "readiness",
+                     "macroRename", "conditionalMacroAlias", "noDefault", "opacityMode", "format", "internal", "conflict",
+                     "malformedDefault", "invalidAssetPath", "samplerArray", "graphDigestMismatch",
+                     "graphRawMismatch", "annotationComboSampler", "annotationComboType",
+                     "tokenPasteOtherVertex", "tokenPasteOtherFragment", "emptyPrefixHiddenConditional",
+                     "materialNormal", "materialNoise", "graphMaterialAlias", "registeredDataDefault",
+                     "registeredNoiseDefault"]:
+            with self.subTest(name=name):
+                self.assertIsNone(result[name])
+
 
 if __name__ == "__main__":
     unittest.main()

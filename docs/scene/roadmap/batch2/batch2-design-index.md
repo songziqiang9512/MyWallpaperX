@@ -27,7 +27,7 @@
 
 后续实施与59项参考证据的去向见[派生实施卡](reference-evidence-implementation-cards.md)，选序仍归上述兼容路线；原设计基线的“仅文档”描述不代表后续产品实施状态。
 
-终端细线绘制见[源纹理与显示光栅分离](terminal-material-raster-design.md)，按原 graph 事务与唯一 compositor 实施。
+终端细线的有界实现已完成，设计[归档](../../history/terminal-material-raster-design-2026-10-06.md)，现役职责由[运行架构](../../architecture/runtime-architecture.md#terminal-material-raster)接管；不再作为待实施卡。
 
 ## 基线与合并边界
 

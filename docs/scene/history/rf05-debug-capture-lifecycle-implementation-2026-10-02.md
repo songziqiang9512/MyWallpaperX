@@ -7,7 +7,7 @@
 
 ## 职责与边界
 
-基线为主目录 `codex/engine-refactor-program`、HEAD `85415320` 和 D2/D3、RF01 已冻结实现。依据[诊断生命周期设计](../roadmap/batch2/debug-frame-capture-lifecycle-design.md)，仅改变 DEBUG 截图请求、readback 提交时点、导出及现役 Session/隔离 Scene 退出等待。没有第二 allocator、registry、clock、compositor；不改变作者视觉算法。
+基线为主目录 `codex/engine-refactor-program`、HEAD `85415320` 和 D2/D3、RF01 已冻结实现。依据[诊断生命周期设计](debug-frame-capture-lifecycle-design-2026-10-06.md)，仅改变 DEBUG 截图请求、readback 提交时点、导出及现役 Session/隔离 Scene 退出等待。没有第二 allocator、registry、clock、compositor；不改变作者视觉算法。
 
 请求按每 capture 两个 required 和一个 latest periodic 有界；全进程一条串行 utility 导出队列，两个工作槽覆盖 GPU、排队及 CPU 导出，总 buffer 字节受现役 resident 总额四分之一约束。真实资源仍由 makeSceneBuffer 的原 lease 记账。16F 转换在独占 readback buffer 原地进行，CGDataProvider 在 buffer 有效期及 autoreleasepool 内同步完成 PNG，未引入可控全帧 CPU 副本；库内部临时内存不冒称全部计账。
 
