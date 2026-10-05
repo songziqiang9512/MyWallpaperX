@@ -32,6 +32,7 @@ nonisolated enum SceneMusicPlayerSource {
     struct Snapshot: Sendable {
         var artworkPalette: SceneMediaArtworkPalette? = testPalette(1)
         let identity: String; let title: String; let artist = "Artist"; let album = "Album"
+        var albumArtist = "Album Artist"
         let state = State.playing; let position = 5.0; let duration = 100.0
         let artworkData: Data? = Data([1, 2, 3])
     }
@@ -103,11 +104,18 @@ nonisolated func testPalette(_ red: Double) -> SceneMediaArtworkPalette {
             provider.acquire(second)
             precondition(control.counts().0 == 1)
             precondition(inbox.latest().primaryColor == testPalette(1).primaryColor)
+            precondition(inbox.latest().properties?.albumArtist == "Album Artist")
+            control.update {
+                $0.result = .snapshot(.init(identity: "A", title: "Track A", albumArtist: ""))
+            }
+            wait { inbox.latest().properties?.albumArtist == "" }
+            precondition(inbox.latest().properties?.artist == "Artist",
+                         "missing album artist must preserve the independently supplied artist")
             provider.release(first)
             precondition(inbox.latest().properties?.title == "Track A")
             provider.release(second)
             let empty = inbox.latest()
-            precondition(empty.current == nil && empty.properties?.title == "" && empty.playbackState == 0)
+            precondition(empty.current == nil && empty.properties?.title == "" && empty.properties?.albumArtist == "" && empty.playbackState == 0)
             precondition(empty.timeline?.position == 0 && empty.timeline?.duration == 0)
             let count = control.counts().0
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 2.2))

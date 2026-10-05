@@ -21,6 +21,7 @@ nonisolated enum SceneMusicPlayerSource {
         let title: String
         let artist: String
         let album: String
+        let albumArtist: String
         let state: PlaybackState
         let position: Double
         let duration: Double
@@ -161,6 +162,7 @@ nonisolated enum SceneMusicPlayerSource {
         static let title = code("pnam")
         static let artist = code("pArt")
         static let album = code("pAlb")
+        static let albumArtist = code("pAlA")
         static let duration = code("pDur")
         static let playerState = code("pPlS")
         static let position = code("pPos")
@@ -346,6 +348,16 @@ nonisolated enum SceneMusicPlayerSource {
             let title = try Codec.text(trackProperty(Codec.title, "title"), phase: "title")
             let artist = try Codec.text(trackProperty(Codec.artist, "artist"), phase: "artist")
             let album = try Codec.text(trackProperty(Codec.album, "album"), phase: "album")
+            let albumArtist: String
+            do {
+                let value = try trackProperty(Codec.albumArtist, "albumArtist")
+                albumArtist = try Codec.isMissing(value) ? "" : Codec.text(value, phase: "albumArtist")
+            } catch Failure.appleEvent(let status, let phase) where phase == "albumArtist"
+                && (status == Int32(errAENoSuchObject) || status == Int32(errAEEventNotHandled)) {
+                // Only this optional property may be absent or unsupported.
+                // The final track check still validates the complete snapshot.
+                albumArtist = ""
+            }
             let duration = try Codec.nonnegativeReal(trackProperty(Codec.duration, "duration"), phase: "duration")
             let state = try Codec.playback(get(
                 Codec.property(Codec.playerState), "playerState"
@@ -383,7 +395,7 @@ nonisolated enum SceneMusicPlayerSource {
             ), phase: "persistentID.after")
             try Codec.requireSameTrack(id, afterID)
             return .snapshot(Snapshot(
-                identity: identity, title: title, artist: artist, album: album,
+                identity: identity, title: title, artist: artist, album: album, albumArtist: albumArtist,
                 state: state, position: position, duration: duration,
                 artworkData: art, artworkFailure: artworkFailure,
                 artworkPalette: reusesArtwork ? cachedArtworkPalette

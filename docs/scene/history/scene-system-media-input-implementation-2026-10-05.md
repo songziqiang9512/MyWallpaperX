@@ -18,3 +18,13 @@ live-recovery仅终止该App的直接子reader4334，记录processExited(15)，�
 Debug build、provider五方法及Music/transport/Inbox十方法通过；Observer实际snapshot与Release排除五方法通过，布局登记门通过；广域结构13方法中的两项旧analyzer计数/清单差异仍失败，不作全门通过声明。独立审查未发现新的P1/P2，范围与身份由最终证据包保存。未证明所有播放器、Apple Music真实授权/曲目、所有系统版本、物理多屏或发布。样本主观约70%/低置信；不是像素正确率，既有36/39触达仍不是完整正确性。
 
 本机证据 `.artifacts/scene-evidence/runs/scene-system-media-input-20261005/final/samples/3395777145/runtime_evidence.zip`，SHA256 `55499d2032048a1a0d69c3d9fa674f50351ea31340a19c32cc3b223e7eca3686`，5534260 bytes。保留一份checkpoint缓存与本轮签名候选供连续迭代，其余已停止实验产物按精确清单清理；原用户媒体只读。
+
+## 通用专辑歌手与跨样本后继
+
+后继基线`a63b4112`。Music公开`pAlA`以前未读取，293/297作者的`albumArtist → artist`消费只能回退；现由原Transaction读取并沿原producer原子发布，明确缺失发布空，不保留前曲数据。当前网易云只读探针连续三次没有专辑歌手字段，不为系统来源猜值；歌词仍无已确认consumer。
+
+实际Source/Palette两方法及Provider/Inbox五方法通过，覆盖可选字段缺失、失败传播、换曲拒绝、同曲封面缓存下metadata刷新和字段清除。Debug build与独立产品审查通过。签名candidate dylib SHA256 `1e3f0ff61b681f98aff2a80ac32349f335e9289bdb758208fc5aa79c5fd9862a`；297的`album-artist-visible`使用自有红封面、state1和不同artist/albumArtist，最终显示`Owned Album Track / Album Ensemble`。最初未提供播放状态的`album-artist-controlled`仅证VM输出，不计可见。两段证据不等于真实Music权限/曲目已验收。
+
+基线签名App另在339移除PCM fixture，实际系统声音以generation2进入16/64频段uniform及脚本；series0005/0012底部音频与音频线区域有动态差异。297也在相同系统来源链取得真实文字、封面；312取得文字/状态/频谱，但94/101作者回调赋值`event.state`被只读接口抛错，须裁决官方语义后修公共owner，不能算完整通过。三次原样本运行均退出0且GPU drained。339估计仍约70–75%/低置信，不按新增证据抬高完整正确率。
+
+四路径冻结、App/样本身份、测试/原始运行日志与必要截图保存在`/private/tmp/mwx-media-common-20261005/package/runtime_evidence.zip`，10,196,273 bytes，SHA256 `0077737d8332a02a658d77ccb356f0673962def44d38bf8e93b4f69267c7623a`。证据区1GiB预算已满，工具拒绝提取；暂留该任务包，不调高预算或删除未知/唯一证据。后继追312官方事件可写性与原339剩余交互，之后仍优先HDR/SDR和重型启动。

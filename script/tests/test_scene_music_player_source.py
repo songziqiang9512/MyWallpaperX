@@ -131,22 +131,89 @@ nonisolated struct MusicSourceHarness {
         let good: [String: NSAppleEventDescriptor] = [
             "currentTrack.before": track, "persistentID.before": NSAppleEventDescriptor(string: "AA11"),
             "title": NSAppleEventDescriptor(string: "Owned Track"), "artist": NSAppleEventDescriptor(string: "Owned Artist"),
-            "album": NSAppleEventDescriptor(string: "Owned Album"), "duration": NSAppleEventDescriptor(double: 120),
+            "album": NSAppleEventDescriptor(string: "Owned Album"), "albumArtist": NSAppleEventDescriptor(string: "Owned Album Artist"),
+            "duration": NSAppleEventDescriptor(double: 120),
             "playerState": NSAppleEventDescriptor(enumCode: codec.code("kPSP")), "position": NSAppleEventDescriptor(double: 130),
             "artwork": .null(), "currentTrack.after": track, "persistentID.after": NSAppleEventDescriptor(string: "AA11"),
         ]
         var order: [String] = []
         let result = try SceneMusicPlayerSource.Transaction.read(pid: 123) { object, phase in
             check(object.descriptorType == typeObjectSpecifier)
+            if phase == "albumArtist" {
+                check(object.forKeyword(AEKeyword(keyAEKeyData))?.typeCodeValue == codec.albumArtist)
+                check(object.forKeyword(AEKeyword(keyAEContainer))?.descriptorType == typeObjectSpecifier)
+            }
             order.append(phase)
             return good[phase]!
         }
         if case .snapshot(let value) = result {
             check(value.title == "Owned Track" && value.artist == "Owned Artist" && value.album == "Owned Album")
+            check(value.albumArtist == "Owned Album Artist")
             check(value.identity == "com.apple.Music:123:AA11" && value.artworkData == nil && value.state == .playing)
             check(value.position == 130 && value.duration == 120)
         } else { preconditionFailure("expected track") }
-        check(order.first == "currentTrack.before" && order.last == "persistentID.after" && order.count == 11)
+        precondition(order.contains("albumArtist"), "album artist property was not queried")
+        check(order.first == "currentTrack.before" && order.last == "persistentID.after" && order.count == 12)
+        check(order[5] == "albumArtist")
+        for missing in [NSAppleEventDescriptor(string: ""), .null(),
+                        NSAppleEventDescriptor(typeCode: codec.code("msng"))] {
+            let optional = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+                phase == "albumArtist" ? missing : good[phase]!
+            }
+            if case .snapshot(let value) = optional {
+                check(value.albumArtist.isEmpty && value.title == "Owned Track" && value.identity == "com.apple.Music:123:AA11")
+            } else { preconditionFailure("optional absence must preserve the track") }
+        }
+        for status in [Int32(errAENoSuchObject), Int32(errAEEventNotHandled)] {
+            var finalIdentityChecked = false
+            let unsupported = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+                if phase == "albumArtist" { throw Failure.appleEvent(status: status, phase: phase) }
+                if phase == "persistentID.after" { finalIdentityChecked = true }
+                return good[phase]!
+            }
+            if case .snapshot(let value) = unsupported {
+                check(value.albumArtist.isEmpty && value.artist == "Owned Artist" && finalIdentityChecked)
+            } else { preconditionFailure("unsupported optional property must preserve metadata") }
+        }
+        for invalid in [NSAppleEventDescriptor(int32: 1), .record(),
+                        NSAppleEventDescriptor(string: "bad\nartist"),
+                        NSAppleEventDescriptor(string: String(repeating: "a", count: 4097))] {
+            reject(.malformed(phase: "albumArtist")) {
+                _ = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+                    phase == "albumArtist" ? invalid : good[phase]!
+                }
+            }
+        }
+        let optionalFailures: [Failure] = [
+            .permissionBlocked(status: Int32(errAEEventNotPermitted), phase: "albumArtist"),
+            .permissionBlocked(status: Int32(errAEEventWouldRequireUserConsent), phase: "albumArtist"),
+            .timeout(phase: "albumArtist"), .timeout(phase: "overall"),
+            .targetNotRunning, .wrongTarget, .changedTrack,
+            .appleEvent(status: Int32(procNotFound), phase: "albumArtist"),
+            .appleEvent(status: Int32(errAENoSuchObject), phase: "artist")
+        ]
+        for failure in optionalFailures {
+            reject(failure) {
+                _ = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+                    if phase == "albumArtist" { throw failure }
+                    return good[phase]!
+                }
+            }
+        }
+        for optionalMissing in [false, true] {
+            var changedDuringOptionalRead = false
+            reject(.changedTrack) {
+                _ = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+                    if phase == "albumArtist" {
+                        changedDuringOptionalRead = true
+                        if optionalMissing { throw Failure.appleEvent(status: Int32(errAENoSuchObject), phase: phase) }
+                    }
+                    if phase == "persistentID.after" && changedDuringOptionalRead { return NSAppleEventDescriptor(string: "BB22") }
+                    return good[phase]!
+                }
+            }
+            check(changedDuringOptionalRead)
+        }
         reject(.changedTrack) {
             _ = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
                 phase == "persistentID.after" ? NSAppleEventDescriptor(string: "BB22") : good[phase]!
@@ -221,14 +288,18 @@ nonisolated struct MusicSourceHarness {
         } else { preconditionFailure("fresh image must carry five colors") }
         // Deliberately pass a differently colored cached palette. Returning it
         // proves a same-track cache hit does not extract from the bytes again.
+        var albumArtistReads = 0
         let cachedPNG = try SceneMusicPlayerSource.Transaction.read(pid: 123,
             cachedArtworkIdentity: "com.apple.Music:123:AA11", cachedArtworkData: redPNG,
             cachedArtworkPalette: bluePalette) { _, phase in
             if phase == "artwork" { artCalls += 1 }
+            if phase == "albumArtist" { albumArtistReads += 1; return NSAppleEventDescriptor(string: "Updated Album Artist") }
             return good[phase]!
         }
         if case .snapshot(let value) = cachedPNG {
             check(value.artworkData == redPNG && value.artworkPalette == bluePalette && artCalls == 0)
+            check(value.albumArtist == "Updated Album Artist" && albumArtistReads == 1
+                && value.identity == "com.apple.Music:123:AA11")
         } else { preconditionFailure("expected cached image palette") }
         for identity in ["com.apple.Music:999:AA11", "com.apple.Music:123:BB22"] {
             artCalls = 0
@@ -240,6 +311,7 @@ nonisolated struct MusicSourceHarness {
             }
             if case .snapshot(let value) = newTrack {
                 check(value.artworkData == bluePNG && value.artworkPalette == bluePalette && artCalls == 1)
+                check(value.albumArtist == "Owned Album Artist")
             } else { preconditionFailure("new identity must extract the new image") }
         }
         artCalls = 0
@@ -310,7 +382,7 @@ nonisolated struct MusicSourceHarness {
             }
         }
         let selectors = ["currentTrack": codec.currentTrack, "persistentID": codec.persistentID,
-            "title": codec.title, "artist": codec.artist, "album": codec.album,
+            "title": codec.title, "artist": codec.artist, "album": codec.album, "albumArtist": codec.albumArtist,
             "duration": codec.duration, "playerState": codec.playerState,
             "position": codec.position, "rawData": codec.rawData, "artworkClass": codec.artworkClass]
         printJSON(["result": "PASS", "checks": checks, "nativeQueries": 0, "workerThread": !Thread.isMainThread,
@@ -342,7 +414,9 @@ class SceneMusicPlayerSourceTests(unittest.TestCase):
         ], capture_output=True, text=True, env=environment, cwd=ROOT)
         if compiled.returncode:
             raise RuntimeError(compiled.stderr)
-        executed = subprocess.run([str(binary)], capture_output=True, text=True, check=True, timeout=15)
+        executed = subprocess.run([str(binary)], capture_output=True, text=True, timeout=15)
+        if executed.returncode:
+            raise RuntimeError(executed.stderr)
         cls.result = json.loads(executed.stdout)
 
     def test_real_event_specifiers_decoders_and_consistent_transaction(self):
@@ -362,6 +436,7 @@ class SceneMusicPlayerSourceTests(unittest.TestCase):
             "persistentID": ("item", "persistent ID"),
             "title": ("item", "name"), "artist": ("track", "artist"),
             "album": ("track", "album"), "duration": ("track", "duration"),
+            "albumArtist": ("track", "album artist"),
             "playerState": ("application", "player state"),
             "position": ("application", "player position"),
             "rawData": ("artwork", "raw data"),
@@ -370,6 +445,8 @@ class SceneMusicPlayerSourceTests(unittest.TestCase):
             with self.subTest(selector=key):
                 declaration = tree.find(f".//class[@name='{owner}']/property[@name='{name}']")
                 self.assertIsNotNone(declaration)
+                if key == "albumArtist":
+                    self.assertEqual(declaration.attrib["type"], "text")
                 expected = int.from_bytes(declaration.attrib["code"].encode("ascii"), "big")
                 self.assertEqual(self.result["selectors"][key], expected)
         artwork = tree.find(".//class[@name='artwork']")

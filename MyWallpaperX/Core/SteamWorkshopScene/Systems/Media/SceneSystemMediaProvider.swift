@@ -176,7 +176,7 @@ final class SceneSystemMediaProvider {
             let accepted = inbox.publishMediaSession(
                 artwork: value.artworkData,
                 properties: .init(title: value.title, artist: value.artist, subTitle: "",
-                                  albumTitle: value.album, albumArtist: "", genres: "", contentType: "music"),
+                                  albumTitle: value.album, albumArtist: value.albumArtist, genres: "", contentType: "music"),
                 playbackState: value.state.inboxValue,
                 timeline: .init(position: value.position, duration: value.duration),
                 primaryColor: value.artworkPalette?.primaryColor, secondaryColor: value.artworkPalette?.secondaryColor,

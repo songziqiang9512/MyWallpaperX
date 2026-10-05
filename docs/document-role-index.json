@@ -484,7 +484,7 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ca4eb6c8336becef8a34f29adfb50ba48017b64f3b10a463ff849c92d62d480e",
+        "sourceSHA256": "1408d852eba511f76dbdcca9fd6a2104eddf676cbb98231b677a8405d4d11555",
         "method": "document_registry --audit + document_health --check",
         "scope": "Navigation audit of bounded runtime evidence. Real metadata/artwork ingress is established for the recorded Debug experiment; full source, visual, and release acceptance remain open.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
@@ -1476,7 +1476,7 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4ed4862c02e926675b433384ca8fcc86fc26448f7441faddffcb0087e021d5a9",
+        "sourceSHA256": "c17db9b1696f0b22b7d29b7f64f17c572adf5c4e2e1072a7fb4a0425c3ab6328",
         "method": "document_registry --audit + document_health --check",
         "scope": "Source ownership and experimental distribution boundary; runtime evidence lives in the linked implementation record.",
         "limitations": "登记与职责导航不证明已读取真实播放器、运行成功、全部来源兼容或发布验收。"
