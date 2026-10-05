@@ -59,3 +59,5 @@ App重放仅保存已接受资源。daemon重启中断未完成选择并通知�
 隔离AppKit面板实测失效提示、保留清除按钮及全reset后的默认提示。此组操作发生于未播放状态；随后活动Scene选图成功，但900秒watchdog在失效文件reset之前结束运行，不能把两段activation拼成同会话GPU验收。完整“活动Scene选图→文件失效→面板全reset→实际默认画面”仍待验；CPU路由与离线UI结果独立成立。原339完整正确性估计仍70–75%（低置信），既有执行数量不因本轮回执增加。
 
 必要日志、身份及三张截图压缩于 `/private/tmp/mwx-cover-roundtrip-20261005/package/runtime_evidence.zip`，3,993,241 bytes，SHA256 `44b4e5de4df938497933feaba60ca3a711dab6791641921c74c01586f5858058`；现有证据根达到1GiB限额，暂保14日，不扩预算、不清未知材料。候选App与一份checkpoint缓存供紧接的339后继复用；其余本轮临时运行目录提取后清理。下一步完成339来源切换/音频与上述失效交互门，之后依用户顺序处理HDR/SDR及重型样本启动。
+
+活动Scene失效选图reset与设置来源切换的后继边界见[同轮交互收口](scene-cached-targets-implementation-2026-10-05.md#同轮交互收口)；不回写以上冻结结果。

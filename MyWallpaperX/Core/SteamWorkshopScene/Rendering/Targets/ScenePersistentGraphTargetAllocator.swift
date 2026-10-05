@@ -57,9 +57,30 @@ struct ScenePersistentGraphTargetAllocator {
         reservations: [SceneOffscreenTextureAllocationCache.GraphReservation],
         recoveryBatch: SceneGraphAllocationRecoveryBatch? = nil
     ) -> [ScenePreparedPersistentGraphTargets]? {
+        guard !plans.isEmpty, plans.count == reservations.count else { return nil }
+        if reservations.allSatisfy({ $0.cachedAllocation != nil }) {
+            // No allocation or reclaim takes place. A prior GPU completion may
+            // change cache revision without changing these exact resources.
+            // Revalidate identities here and keep the original admission/commit
+            // checks, rather than applying allocation-recovery's revision fence.
+            guard cache.locked({ zip(plans, reservations).allSatisfy { plan, original in
+                guard original.orderingContext?.isPending != false,
+                      original.cachedAllocation?.plan == plan,
+                      let refreshed = cache.reserveGraphLocked(plan: plan,
+                        orderingContext: original.orderingContext, values: cache.residents)
+                else { return false }
+                return cache.reservationStillMatches(original, refreshed)
+            } }) else { return nil }
+            return reservations.map { reservation in
+                let cached = reservation.cachedAllocation!
+                return prepared(allocation: cached,
+                    candidate: .init(key: .layerGraph(cached.plan.key),
+                        allocation: .layerGraph(cached), byteCost: cached.plan.residentByteCost),
+                    reservation: reservation, historyRehydrateCopiesByEffect: [:])
+            }
+        }
         let recoveryBatch = recoveryBatch ?? makeRecoveryBatch(plans: plans)
-        guard !plans.isEmpty, plans.count == reservations.count,
-              recoveryBatch.protect(reservations) else { return nil }
+        guard recoveryBatch.protect(reservations) else { return nil }
         var result: [ScenePreparedPersistentGraphTargets] = []
         for (plan, reservation) in zip(plans, reservations) {
             guard valid(seed: reservation.historySeed, for: plan),

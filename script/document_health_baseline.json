@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 540,
-      "bytes": 90355
+      "bytes": 90520
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -170,7 +170,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 51420
+      "bytes": 51548
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1131,15 +1131,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "adcd699753da4a78d9593a716f340bf8608059d99383bac04ef1349367b2cbe2",
-      "after": "f91b1779f28830e5760de643ee15f61ebac742f9b3b653adcf63d5d77b9fe1ab",
-      "owner": "scene-user-texture",
-      "reason": "同步失效选择的现有事务合同、纠正旧重建状态并收敛339后继验收范围。",
-      "decision": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md#失效文件选择后继"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "6c9953484a1fe61047da26071ccacc01d402a2364b1ed8421ad52ef65c2a0854",
       "after": "207203425c8b5dcd3e5272b346032ed1937d48aab70ec149b5d0b8583d202510",
@@ -1149,12 +1140,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "f91b1779f28830e5760de643ee15f61ebac742f9b3b653adcf63d5d77b9fe1ab",
+      "after": "76ef0304df13b7a0c74e6db1b88c12f34fdcafb9af9afa37b8f738549bd26fb6",
+      "owner": "scene-targets",
+      "reason": "记录全缓存帧复验与真实339后继边界，不扩大allocation recovery或平台验收。",
+      "decision": "docs/scene/history/scene-cached-targets-implementation-2026-10-05.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "a910c05139361edb293d6b8a18d3278a5ceb79456edbbf3de5b7cc23b037a029",
-      "after": "8161d328fe90e50b44bf963ccb345f96cd350fa4215e9accd363894a22aa6742",
-      "owner": "scene-user-texture",
-      "reason": "同步失效选择的现有事务合同、纠正旧重建状态并收敛339后继验收范围。",
-      "decision": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md#失效文件选择后继"
+      "before": "8161d328fe90e50b44bf963ccb345f96cd350fa4215e9accd363894a22aa6742",
+      "after": "5ab51953c19c59ae0733ce29c64759e79313395c8a84d415e8f1cc16293d8ef5",
+      "owner": "scene-targets",
+      "reason": "记录全缓存帧复验与真实339后继边界，不扩大allocation recovery或平台验收。",
+      "decision": "docs/scene/history/scene-cached-targets-implementation-2026-10-05.md"
     }
   ]
 }

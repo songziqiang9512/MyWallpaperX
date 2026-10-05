@@ -277,6 +277,39 @@ enum SceneGraphAllocationRecoveryHarness {
         ]
     }
 
+    static func cachedCompletion(_ device: MTLDevice, _ queue: MTLCommandQueue,
+                                 shared: Bool) throws -> [String: Bool] {
+        let pool = makePool(device), cache = pool.allocationCache
+        let frame = try framePlan(pool, layer: 745, shared: shared)
+        let initial = try need(pool.preparePersistentGraphTargets(framePlans: [frame]), "cached seed")
+        let commits = try need(cache.commitAndPin(try requests(initial)), "cached seed commit")
+        commits.forEach { $0.releaseAll() }
+        let original = try need(currentGraph(cache, frame.graphPlan), "cached graph")
+        let external = try need(pool.reserveEnvironment(width: 19, height: 19,
+            commandBuffer: need(queue.makeCommandBuffer(), "completion buffer")), "completion pin")
+        let batch = SceneGraphAllocationRecoveryBatch(cache: cache,
+            protectedKeys: [.layerGraph(frame.graphPlan.key)])
+        let reservations = try need(cache.reserveGraphs(plans: [frame.graphPlan]), "cached reservation")
+        external.pin.release() // GPU completion's actual cache mutation, between reservation and preparation.
+        var factories = 0
+        let allocator = ScenePersistentGraphTargetAllocator(device: device, cache: cache,
+            textureFactory: { _, _ in factories += 1; return nil })
+        let targets = allocator.prepare(plans: [frame.graphPlan], reservations: reservations,
+            recoveryBatch: batch)
+        let admitted = targets.flatMap { cache.admitPreparedTargets($0) }
+        let final = admitted?.finalize(historyTokensByTarget: [[:]])
+        final?.forEach { $0.releaseAll() }
+        let preserved = currentGraph(cache, frame.graphPlan).map {
+            $0.generation == original.generation && objects($0) == objects(original)
+        } ?? false
+        let beforeReset = try need(cache.reserveGraphs(plans: [frame.graphPlan]), "reset reservation")
+        pool.reset()
+        let staleRejected = allocator.prepare(plans: [frame.graphPlan], reservations: beforeReset) == nil
+        return ["cachedCompletionAccepted": final?.count == 1,
+                "cachedCompletionPreservedTextures": preserved && factories == 0,
+                "cachedCompletionRejectsReset": staleRejected]
+    }
+
     /// Exercises the pool's complete entry point without a factory seam. The
     /// artificial reservation limits the real shared quota; it is not a claim
     /// of physical device OOM. Descriptor charges come from cold native leases.
@@ -403,6 +436,9 @@ enum SceneGraphAllocationRecoveryHarness {
                 precondition(result[key] == nil, "duplicate result key")
                 result[key] = value
             }
+        }
+        result["cachedCompletion"] = try [false, true].map {
+            try cachedCompletion(device, queue, shared: $0)
         }
         result["poolEntryPressure"] = try [false, true].map {
             try poolEntryPressure(device, queue, shared: $0)

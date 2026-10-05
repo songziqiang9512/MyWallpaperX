@@ -366,6 +366,14 @@ extension SceneOffscreenTexturePool {
         framePlans: [ScenePersistentGraphTargetFramePlan]
     ) -> [ScenePreparedPersistentGraphTargets]? {
         guard let requiredSharedPairKeys = requiredSharedPairKeys(for: framePlans) else { return nil }
+        let plans = framePlans.map(\.graphPlan)
+        let orderingContext = framePlans.first?.orderingContext
+        if let reservations = allocationCache.reserveGraphs(plans: plans,
+                orderingContext: orderingContext),
+           reservations.allSatisfy({ $0.cachedAllocation != nil }) {
+            return ScenePersistentGraphTargetAllocator(device: device, cache: allocationCache)
+                .prepare(plans: plans, reservations: reservations)
+        }
         let recoveryBatch = graphRecoveryBatch(framePlans: framePlans, sharedKeys: requiredSharedPairKeys)
         guard ensureSharedPairs(requiredSharedPairKeys, recoveryBatch: recoveryBatch) else {
             return nil

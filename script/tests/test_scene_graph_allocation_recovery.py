@@ -57,6 +57,12 @@ class SceneGraphAllocationRecoveryTests(unittest.TestCase):
         self.assertTrue(self.result["externalRevisionKeptIdleVictim"])
         self.assertTrue(self.result["externalRevisionNoGraphPublication"])
 
+    def test_cached_targets_survive_completion_without_allocation_or_identity_drift(self) -> None:
+        for row in self.result["cachedCompletion"]:
+            for key, value in row.items():
+                with self.subTest(key=key, row=row):
+                    self.assertTrue(value)
+
     def test_pool_entry_recovers_under_measured_native_quota_pressure(self) -> None:
         rows = self.result["poolEntryPressure"]
         self.assertEqual([row["shared"] for row in rows], [False, True])
