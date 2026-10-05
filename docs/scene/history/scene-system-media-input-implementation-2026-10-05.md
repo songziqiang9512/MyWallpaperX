@@ -38,3 +38,14 @@ Debug build、provider五方法及Music/transport/Inbox十方法通过；Observe
 最终签名dylib SHA256 `b8cba76ff05fdf7c79f21cd8b5b1455c4f0c4a512d8eec6d99399edebb1c954a`。两轮同属性/descriptor、22秒、退出0且GPU drained；真实系统音频未固定，不作整帧像素一致性或真实播放器验收。独立审查绑定产品/证据冻结；未做312完整评估，原339仍约70–75%/低置信，27个GPU material效果与12个direct消费者不因本片增加。后继回339封面选择/清除及设置来源切换，再按用户顺序处理HDR/SDR、重型启动。
 
 必要黑盒截图/自有fixture、修前后App日志与截图、身份和门日志保存在`/private/tmp/mwx-playback-event-20261005/package/runtime_evidence.zip`，16,091,423 bytes，SHA256 `1dc9ed67b3601e898b826b186a43e013efc3e384f62e777b5976ea0877827674`。提取再次被1GiB总预算拒绝；暂留任务包，不增加上限。官方测试进程/临时目录已清并恢复VM初始挂起；本机保留最终候选和单份checkpoint缓存供339后继。
+
+
+## 339音频模式与静音恢复收口（2026-10-06）
+
+基线 `3f48f4a1`，未新增产品能力。最终产品候选 `0e42e723…b419d` 的三轮24秒隔离运行：真实系统音频的8步开关/封面模式、严格零PCM的5步、真实音频的滚动/静态与独立颜色5步均接受，同PID/窗口内生效，无allocation failure，exit0且GPU drained。main audio关闭后两条线消失而底条继续；恢复后重新出图。392/338的静态stage1实际完成GPU，蓝/绿独立线与红底条可见。三轮分别30/13、29/13、29/13个实际material/末端consumer，不能相加或当整样本正确率。该轮alpha0发生在未激活的tint模式，只证明存值，不声称活跃零边界；此前mode2非零范围证据仍独立有效。
+
+补同会话过渡只临时改Debug PCM输入：0–5秒有声、5–13秒严格零、13–24秒恢复；沿真实capture-service小块回调/FFT/Inbox到脚本及395历史/371合成，未直接注入频谱或alpha。实验候选 `d10fce7f…92f293` 的series0001/0004/0008分别显示有声、线消退且底条归点、恢复形态；日志频谱归零再恢复，两个末端alpha对应消退/恢复，exit0/drained且零allocation failure。该临时源码已逐字节还原HEAD，不保留额外fixture接口。它不是用户播放器暂停/恢复验收。
+
+只读复核确认其余392:3、338:2/4是作者字面false，无公开设置或脚本激活；radial blur的varyingUnsupported保留为潜在通用能力缺口，不强改作者内容凑39/39。结合既有媒体、文件reset、字体/时钟/日期/显隐证据，本轮未发现剩余已证可见阻断；完整官方视觉/全播放器字段仍未证明，339粗估仍70–75%/低置信。按用户优先级转HDR/SDR，再重型样本启动；339继续作回归，不称全样本或整体Goal完成。
+
+必要日志/六图/命令与临时输入身份在 `/private/tmp/mwx-audio-modes-20261006/runtime_evidence.zip`，11,498,811 bytes，SHA256 `9d0cba38373ce65e42a2aad15045e864f15c1c16205983103af02cdcfbeb13a4`。证据根总预算已满，临时保留14天；取证后清理四轮HOME/截图重试及实验App，继续复用同任务构建缓存。

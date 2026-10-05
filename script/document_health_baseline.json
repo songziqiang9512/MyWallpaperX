@@ -170,7 +170,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 51682
+      "bytes": 51874
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1150,11 +1150,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "5ab51953c19c59ae0733ce29c64759e79313395c8a84d415e8f1cc16293d8ef5",
-      "after": "23dd9521a8646c868427ae37c8512429f5643477e5953ccf6b3fe26a3813d95c",
-      "owner": "scene-targets",
-      "reason": "将成功物化与失败回收的校验边界分开，收口mixed/shared正常completion误拒。",
-      "decision": "docs/scene/history/scene-allocating-targets-implementation-2026-10-06.md"
+      "before": "23dd9521a8646c868427ae37c8512429f5643477e5953ccf6b3fe26a3813d95c",
+      "after": "c88163b5a1078f078b09568d86675052c717c675538c5540c0ab2b651a3d50b4",
+      "owner": "scene-media",
+      "reason": "闭合339音频模式与同会话静音恢复验收，按用户优先级切换HDR/SDR；不扩大兼容完成声明。",
+      "decision": "docs/scene/history/scene-system-media-input-implementation-2026-10-05.md#339音频模式与静音恢复收口2026-10-06"
     }
   ]
 }
