@@ -142,7 +142,57 @@ fragment FragmentOut mwxGenericFragment(
 }
 """
 
+private let directSampleMSL = """
+#include <metal_stdlib>
+using namespace metal;
+struct FragmentOut { float4 mwxFragColor [[color(0)]]; };
+struct FragmentIn { float2 v_TexCoord [[user(locn0)]]; };
+fragment FragmentOut mwxGenericFragment(
+    FragmentIn in [[stage_in]],
+    texture2d<float> g_Texture0 [[texture(0)]],
+    sampler g_Texture0Smplr [[sampler(0)]]
+) {
+    FragmentOut out = {};
+    float4 origColor = g_Texture0.sample(g_Texture0Smplr, in.v_TexCoord);
+    float3 col = mix(float3(1.0), float3(0.0), 0.5);
+    out.mwxFragColor = float4(col, 0.75);
+    return out;
+}
+"""
+
+private func directSampleChecks() -> [String: Bool] {
+    func accepts(_ source: String) -> Bool {
+        let prepared = try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+            msl: source, authoredSource: mutableGenerated)
+        return prepared?.transfer.kind == "generated-straight-alpha"
+            && prepared?.msl.contains("out.mwxFragColor = mwxGenericPremultiply(float4(col, 0.75));") == true
+    }
+    func rejects(_ source: String) -> Bool {
+        (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+            msl: source, authoredSource: mutableGenerated)) == nil
+    }
+    return [
+        "accepted": accepts(directSampleMSL),
+        "renamed": accepts(directSampleMSL.replacingOccurrences(of: "v_TexCoord", with: "uvInput")),
+        "reuseRejected": rejects(directSampleMSL.replacingOccurrences(
+            of: "float3 col =", with: "float readBack = origColor.x;\n    float3 col =")),
+        "sideEffectRejected": rejects(directSampleMSL.replacingOccurrences(
+            of: "g_Texture0Smplr, in.v_TexCoord", with: "g_Texture0Smplr, mutate(in.v_TexCoord)")),
+        "wrongTextureBindingRejected": rejects(directSampleMSL.replacingOccurrences(
+            of: "[[texture(0)]]", with: "[[texture(1)]]")),
+        "wrongSamplerBindingRejected": rejects(directSampleMSL.replacingOccurrences(
+            of: "[[sampler(0)]]", with: "[[sampler(1)]]")),
+        "missingStageInputRejected": rejects(directSampleMSL.replacingOccurrences(
+            of: "[[stage_in]]", with: "")),
+        "wrongMemberTypeRejected": rejects(directSampleMSL.replacingOccurrences(
+            of: "float2 v_TexCoord", with: "float3 v_TexCoord")),
+        "missingMemberRejected": rejects(directSampleMSL.replacingOccurrences(
+            of: "float2 v_TexCoord [[user(locn0)]];", with: "")),
+    ]
+}
+
 private struct Output: Codable {
+    let directSampleChecks: [String: Bool]
     let transfer: String
     let factRGB: String?
     let factAlpha: String?
@@ -360,12 +410,8 @@ private enum GeneratedStraightRGBAHarness {
                 layout: resolutionLayout,
                 authoredSources: [authored]
             )
-        let augmentedResolutionLayout = SceneGenericShaderArtifactBuilder
-            .addingTextureTransformFields(
-                to: resolutionLayout,
-                activeSlots: resolutionDependencies
-            )
         let output = Output(
+            directSampleChecks: directSampleChecks(),
             transfer: transferName,
             factRGB: proven?.rgbName,
             factAlpha: proven?.alphaName,
@@ -404,13 +450,7 @@ private enum GeneratedStraightRGBAHarness {
                 isBoundBy: []
             ),
             resolutionDependencyAccepted:
-                resolutionDependencies == [0]
-                && augmentedResolutionLayout.map {
-                    SceneGenericShaderArtifactBuilder.validTextureTransformLayout(
-                        $0,
-                        activeSlots: [0]
-                    )
-                } == true,
+                resolutionDependencies == [0],
             missingResolutionSamplerRejected: SceneGenericShaderArtifactBuilder
                 .resolutionTextureDependencySlots(
                     layout: resolutionLayout,
@@ -705,6 +745,11 @@ class SceneGeneratedStraightRGBATests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary.cleanup()
+
+    def test_unused_direct_stage_input_sample_preserves_color_boundary(self) -> None:
+        for name, passed in self.result["directSampleChecks"].items():
+            with self.subTest(name=name):
+                self.assertTrue(passed)
 
     def test_source_and_both_backends_conserve_generated_straight_rgba(self) -> None:
         self.assertEqual(self.result["transfer"], "generated-straight-alpha")

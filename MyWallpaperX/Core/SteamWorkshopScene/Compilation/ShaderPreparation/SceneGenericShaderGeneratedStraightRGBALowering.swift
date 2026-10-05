@@ -148,7 +148,8 @@ nonisolated enum SceneGenericShaderGeneratedStraightRGBALowering {
 
     /// Accepts only the fixed compiler representation observed for a direct
     /// authored sample: a full `float4` local, the matching texture/sampler/
-    /// coordinate helper, and a single-use coordinate temporary. Texture
+    /// coordinate helper and single-use temporary, or a direct stage input.
+    /// The normalizer omits the helper for identity texture coordinates. Texture
     /// sampling itself has no side effects; constraining both arguments to
     /// compiler-owned reads keeps arbitrary calls and mutations out.
     private static func compilerDeadSamplesMatch(
@@ -181,7 +182,13 @@ nonisolated enum SceneGenericShaderGeneratedStraightRGBALowering {
                   let slotText = SceneShaderSourceTextFacts.capture(declaration, 4, in: source),
                   let slot = Int(slotText),
                   SceneShaderSourceTextFacts.countWord(local, in: source) == 1,
-                  let arguments = SceneShaderSourceTextFacts.matches(
+                  compilerDeadSampleTextureBindingsMatch(slot: slot, in: source)
+            else { return false }
+            if compilerDirectInputSampleMatches(call, slot: slot, in: source) {
+                observedSlots.append(slot)
+                continue
+            }
+            guard let arguments = SceneShaderSourceTextFacts.matches(
                       #"^g_Texture"# + String(slot)
                         + #"\.sample\(\s*g_Texture"# + String(slot)
                         + #"Smplr\s*,\s*mwxTexture"# + String(slot)
@@ -227,22 +234,49 @@ nonisolated enum SceneGenericShaderGeneratedStraightRGBALowering {
     ) -> Bool {
         let slotText = String(slot)
         let escapedUniforms = NSRegularExpression.escapedPattern(for: uniforms)
-        let texture = #"\btexture2d\s*<\s*float\s*>\s+g_Texture"#
-            + slotText + #"\s*\[\[\s*texture\s*\(\s*"#
-            + slotText + #"\s*\)\s*\]\]"#
-        let sampler = #"\bsampler\s+g_Texture"# + slotText
-            + #"Smplr\s*\[\[\s*sampler\s*\(\s*"#
-            + slotText + #"\s*\)\s*\]\]"#
         let uniform = #"\bconstant\s+[A-Za-z_]\w*\s*&\s*"#
             + escapedUniforms + #"\s*\[\[\s*buffer\s*\(\s*8\s*\)\s*\]\]"#
         let helper = #"\bfloat2\s+mwxTexture"# + slotText
             + #"Coordinate\s*\(\s*thread\s+const\s+float2\s*&\s*[A-Za-z_]\w*\s*,"#
             + #"\s*constant\s+[A-Za-z_]\w*\s*&\s*"#
             + escapedUniforms + #"\s*\)"#
+        return SceneShaderSourceTextFacts.matches(uniform, in: source).count == 1
+            && SceneShaderSourceTextFacts.matches(helper, in: source).count == 1
+    }
+
+    private static func compilerDeadSampleTextureBindingsMatch(slot: Int, in source: String) -> Bool {
+        let texture = #"\btexture2d\s*<\s*float\s*>\s+g_Texture"#
+            + String(slot) + #"\s*\[\[\s*texture\s*\(\s*"#
+            + String(slot) + #"\s*\)\s*\]\]"#
+        let sampler = #"\bsampler\s+g_Texture"# + String(slot)
+            + #"Smplr\s*\[\[\s*sampler\s*\(\s*"#
+            + String(slot) + #"\s*\)\s*\]\]"#
         return SceneShaderSourceTextFacts.matches(texture, in: source).count == 1
             && SceneShaderSourceTextFacts.matches(sampler, in: source).count == 1
-            && SceneShaderSourceTextFacts.matches(uniform, in: source).count == 1
-            && SceneShaderSourceTextFacts.matches(helper, in: source).count == 1
+    }
+
+    /// Only a float2 varying read is admitted here. Calls, indexing, mutations,
+    /// arbitrary locals and sampled-value reuse keep their existing rejection.
+    private static func compilerDirectInputSampleMatches(_ call: String, slot: Int, in source: String) -> Bool {
+        let pattern = #"^g_Texture"# + String(slot) + #"\.sample\(\s*g_Texture"#
+            + String(slot) + #"Smplr\s*,\s*([A-Za-z_]\w*)\.([A-Za-z_]\w*)\s*\)$"#
+        guard let arguments = SceneShaderSourceTextFacts.matches(pattern, in: call).first,
+              let input = SceneShaderSourceTextFacts.capture(arguments, 1, in: call),
+              let field = SceneShaderSourceTextFacts.capture(arguments, 2, in: call) else { return false }
+        let inputs = SceneShaderSourceTextFacts.matches(
+            #"\b([A-Za-z_]\w*)\s+"# + NSRegularExpression.escapedPattern(for: input)
+                + #"\s*\[\[\s*stage_in\s*\]\]"#, in: source)
+        guard inputs.count == 1, let declaration = inputs.first,
+              let type = SceneShaderSourceTextFacts.capture(declaration, 1, in: source) else { return false }
+        let structures = SceneShaderSourceTextFacts.matches(
+            #"\bstruct\s+"# + NSRegularExpression.escapedPattern(for: type)
+                + #"\s*\{([^{}]*)\}\s*;"#, in: source)
+        guard structures.count == 1, let structure = structures.first,
+              let members = SceneShaderSourceTextFacts.capture(structure, 1, in: source) else { return false }
+        return SceneShaderSourceTextFacts.matches(
+            #"\bfloat2\s+"# + NSRegularExpression.escapedPattern(for: field)
+                + #"\s*\[\[\s*user\s*\(\s*locn[0-9]+\s*\)\s*\]\]\s*;"#,
+            in: members).count == 1
     }
 
     private static func simpleCoordinateRead(
