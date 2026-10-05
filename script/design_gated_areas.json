@@ -316,6 +316,19 @@
       "contentPatterns": [
         "case v2 = \"vortex_v2\""
       ]
+    },
+    {
+      "id": "scene-particle-scalar-remap",
+      "title": "Rain scalar speed Remap 作者运动",
+      "owner": "scene-particle",
+      "status": "approved",
+      "designDoc": "docs/scene/roadmap/batch2/particle-remap-design.md",
+      "design_notes": "官方自有对照确认缺省Multiply、归一化寿命输入及flags3输出饱和；FBM采用明确项目近似并保留未知相位/公式边界，按现有解释器与唯一合成链验收。",
+      "matchPatterns": [],
+      "contentPatterns": [
+        "SceneParticleScalarSpeedRemapPlan",
+        "boundedScalarSpeedRemapPlan"
+      ]
     }
   ]
 }

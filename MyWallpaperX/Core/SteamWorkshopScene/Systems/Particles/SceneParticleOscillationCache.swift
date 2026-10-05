@@ -148,6 +148,7 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
     let vortex: SceneParticleVortexPlan?
     let capVelocity: SceneParticleCapVelocityPlan?
     let velocityRemap: SceneParticleVelocityRemapPlan?
+    let scalarSpeedRemap: SceneParticleScalarSpeedRemapPlan?
     let collisionPlane: SceneParticleCollisionPlanePlan?
     let controlPointForce: SceneParticleControlPointForcePlan?
     let reduceMovement: SceneParticleReduceMovementPlan?
@@ -220,8 +221,10 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
         }
         if case .remapValue = value.kind {
             velocityRemap = value.boundedVelocityRemapPlan
+            scalarSpeedRemap = value.boundedScalarSpeedRemapPlan
         } else {
             velocityRemap = nil
+            scalarSpeedRemap = nil
         }
         if case .collisionPlane = value.kind {
             collisionPlane = value.collisionPlanePlan

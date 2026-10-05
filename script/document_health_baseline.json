@@ -82,7 +82,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 393,
-      "bytes": 138909
+      "bytes": 139053
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 562,
@@ -160,9 +160,17 @@
       "lines": 89,
       "bytes": 22016
     },
+    "docs/scene/roadmap/batch2/particle-remap-design.md": {
+      "lines": 40,
+      "bytes": 5793
+    },
+    "docs/scene/roadmap/batch2/particle-vortex-design.md": {
+      "lines": 48,
+      "bytes": 7169
+    },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 49432
+      "bytes": 49711
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -219,10 +227,6 @@
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 7241
-    },
-    "docs/scene/roadmap/batch2/particle-vortex-design.md": {
-      "lines": 48,
-      "bytes": 7169
     }
   },
   "archives": [
@@ -1020,15 +1024,6 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "cc0c71be65755e0c23eab72118bda37a1df8b9a76fba6548b8b9d97d515aa707",
-      "after": "ea07e590d6e8c018824fa14710f0adb9f7b5569438856e7d77a89dc575926fcf",
-      "owner": "scene-particle-vortex",
-      "reason": "保半径实现与证据边界同步，保留官方长期相位和扩展组合未验。",
-      "decision": "docs/scene/roadmap/batch2/particle-vortex-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/particle-vortex-design.md",
       "before": "4a33e7918466828d12f2da674985c8ef7f895dca31222e982d1396ee4794de12",
       "after": "b2fac35a03bd81aa01fe53e27fdb6e75381c3fde2d21e09ec2ba75f11e7bee0a",
@@ -1080,6 +1075,33 @@
       "owner": "scene-runtime",
       "reason": "原位纹理资源职责及有界产品像素结果接管旧全场景重建状态。",
       "decision": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/particle-remap-design.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "a4511f8b602898ca71e35668b02b83fb10bd7669d2dc28c2e376f7b13c21f87b",
+      "owner": "scene-particle-remap",
+      "reason": "有界标量速度接入现有owner，更新唯一能力边界和下一首断点，不扩展验收声明。",
+      "decision": "docs/scene/roadmap/batch2/particle-remap-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "before": "8a0bb938b21e355b9e4e3db4a09f83f2eddc4255d343037c083836ccc7f4c80e",
+      "after": "f1deacd6c085b70a1fdbc6d0610de6ccfdfe4577c0059bf0975fe33a2e09f068",
+      "owner": "scene-particle-remap",
+      "reason": "有界标量速度接入现有owner，更新唯一能力边界和下一首断点，不扩展验收声明。",
+      "decision": "docs/scene/roadmap/batch2/particle-remap-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "ea07e590d6e8c018824fa14710f0adb9f7b5569438856e7d77a89dc575926fcf",
+      "after": "ce125be5eb3a05a533bc092d93cf5b41f966346e5889951e6371cc2f422206c4",
+      "owner": "scene-particle-remap",
+      "reason": "有界标量速度接入现有owner，更新唯一能力边界和下一首断点，不扩展验收声明。",
+      "decision": "docs/scene/roadmap/batch2/particle-remap-design.md"
     }
   ]
 }

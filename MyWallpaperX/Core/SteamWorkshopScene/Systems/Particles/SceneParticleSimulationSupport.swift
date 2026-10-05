@@ -309,6 +309,17 @@ nonisolated enum SceneParticleSimulationMath {
         first + (second - first) * amount
     }
 
+    private static func particleNoisePhase(particleID: UInt64, simulationSeed: UInt64) -> SIMD3<Double> {
+        var phaseRandom = SceneParticleRandomGenerator(
+            state: simulationSeed ^ (particleID &* 0x9E3779B97F4A7C15)
+        )
+        return SIMD3(
+            phaseRandom.value(-4096, 4096),
+            phaseRandom.value(-4096, 4096),
+            phaseRandom.value(-4096, 4096)
+        )
+    }
+
     /// Project-owned coherent approximation for the bounded Rain Remap Value
     /// cohort. This is deliberately not described as official simplex parity.
     static func remapNoiseAmount(
@@ -320,14 +331,7 @@ nonisolated enum SceneParticleSimulationMath {
     ) -> Double? {
         guard position.x.isFinite, position.y.isFinite, position.z.isFinite,
               time.isFinite, inputScale.isFinite, inputScale > 0 else { return nil }
-        var phaseRandom = SceneParticleRandomGenerator(
-            state: simulationSeed ^ (particleID &* 0x9E3779B97F4A7C15)
-        )
-        let phase = SIMD3(
-            phaseRandom.value(-4096, 4096),
-            phaseRandom.value(-4096, 4096),
-            phaseRandom.value(-4096, 4096)
-        )
+        let phase = particleNoisePhase(particleID: particleID, simulationSeed: simulationSeed)
         let temporal = time * inputScale * 0.1
         let point = position * 0.001 + phase + SIMD3(
             temporal, temporal * 0.754_877_666, temporal * 1.324_717_957
@@ -341,6 +345,34 @@ nonisolated enum SceneParticleSimulationMath {
         return min(max(noise * 0.5 + 0.5, 0), 1)
     }
 
+    /// Bounded project FBM approximation, not an official phase/scale formula.
+    /// The local phase generator never consumes the simulator's emission RNG.
+    static func scalarSpeedRemapMultiplier(
+        _ plan: SceneParticleScalarSpeedRemapPlan,
+        normalizedLife: Double, particleID: UInt64, simulationSeed: UInt64
+    ) -> Double? {
+        guard normalizedLife.isFinite, (0 ... 1).contains(normalizedLife),
+              plan.inputScale.isFinite, plan.inputScale > 0,
+              plan.minimum.isFinite, plan.maximum.isFinite else { return nil }
+        let temporal = normalizedLife * plan.inputScale
+        var point = particleNoisePhase(particleID: particleID, simulationSeed: simulationSeed)
+            + SIMD3(temporal, temporal * 0.754_877_666, temporal * 1.324_717_957)
+        var amplitude = 1.0, amplitudeSum = 0.0, noise = 0.0
+        for _ in 0..<4 {
+            // gradientNoise narrows floor(point) to Int; reject before that ABI.
+            guard point.x.isFinite, point.y.isFinite, point.z.isFinite,
+                  abs(point.x) < 1e12, abs(point.y) < 1e12, abs(point.z) < 1e12 else { return nil }
+            noise += gradientNoise(point, seed: 0xA0761D6478BD642F) * amplitude
+            amplitudeSum += amplitude
+            amplitude *= 0.5
+            point *= 2
+        }
+        let amount = min(max(noise / amplitudeSum * 0.5 + 0.5, 0), 1)
+        let mapped = plan.minimum + (plan.maximum - plan.minimum) * amount
+        guard mapped.isFinite else { return nil }
+        return min(max(mapped, 0), 1)
+    }
+
     static func positionOffset(
         _ plan: SceneParticlePositionOffsetPlan,
         position: SIMD3<Double>,
@@ -350,14 +382,7 @@ nonisolated enum SceneParticleSimulationMath {
     ) -> SIMD3<Double> {
         guard position.x.isFinite, position.y.isFinite, position.z.isFinite,
               time.isFinite else { return strict ? SIMD3(repeating: .nan) : .zero }
-        var phaseRandom = SceneParticleRandomGenerator(
-            state: simulationSeed ^ (particleID &* 0x9E3779B97F4A7C15)
-        )
-        let phase = SIMD3(
-            phaseRandom.value(-4096, 4096),
-            phaseRandom.value(-4096, 4096),
-            phaseRandom.value(-4096, 4096)
-        )
+        let phase = particleNoisePhase(particleID: particleID, simulationSeed: simulationSeed)
         let spatialScale = plan.scale * 0.001
         let timePoint = time * plan.timeScale
         var point = position * spatialScale + phase + SIMD3(

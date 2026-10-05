@@ -933,6 +933,19 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                 blendPlan: operatorExecutionPlans[operatorIndex].blend
             )
         case .remapValue:
+            if let plan = operatorExecutionPlans[operatorIndex].scalarSpeedRemap {
+                for index in particles.indices {
+                    guard let multiplier = SceneParticleSimulationMath.scalarSpeedRemapMultiplier(
+                        plan, normalizedLife: normalizedLives[index],
+                        particleID: particles[index].id, simulationSeed: simulationSeed
+                    ) else { continue }
+                    let velocity = particles[index].velocity * multiplier
+                    guard acceptsMotionResult(velocity, particles[index].position,
+                        component: "remapvalue-speed") else { continue }
+                    particles[index].velocity = velocity
+                }
+                break
+            }
             guard let plan = operatorExecutionPlans[operatorIndex].velocityRemap else {
                 break
             }

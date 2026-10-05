@@ -27,6 +27,7 @@
       "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
       "docs/scene/roadmap/batch2/host-render-power-protocol-design.md",
       "docs/scene/roadmap/batch2/particle-playback-state-design.md",
+      "docs/scene/roadmap/batch2/particle-remap-design.md",
       "docs/scene/roadmap/batch2/particle-vortex-design.md",
       "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
       "docs/scene/roadmap/batch2/rt-prefix-admission-design.md",
@@ -893,6 +894,15 @@
       "uniqueValue": "固定新样本诊断、实测输入与失败解释，页首明确旧composition解释已经失效而原样本尚未重新验收。"
     },
     {
+      "path": "docs/scene/history/particle-scalar-remap-implementation-2026-10-05.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/particle-component-coverage.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/reference/client-binary-dependency-forensics.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -1337,6 +1347,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "对象排放控制与宿主暂停的组合合同通过事务和可见门，未知 reset profile 有明确归宿后归档。"
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/particle-remap-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "currentStateAuthority": "docs/scene/capabilities/particle-component-coverage.md",
+      "retirementCondition": "Rain scalar speed Remap执行与可见验收接管后归档，未决profile归回粒子能力台账。"
     },
     {
       "path": "docs/scene/roadmap/batch2/particle-vortex-design.md",
