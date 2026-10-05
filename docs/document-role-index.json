@@ -352,9 +352,9 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6a65484feaa296d8cfefb6ca5fb2cef4e1d38818a42c07e7f33942379ef299e4",
+        "sourceSHA256": "579aa35d2580c200e9ded71e7222cff87300820b5410e3ad57ff5b3cbf9de7b0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Hidden solid source extent, validated dependency capture and bounded evidence navigation; no exact official allocation or whole-corpus acceptance.",
+        "scope": "Childless composition inactive-effect preparation and bounded evidence navigation; no nested/dependency activation or official parity acceptance.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -483,9 +483,9 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "75bf220eca12c28ed3e1ffaa76336758e665eae7a7ffed3f2bbd17502316d2a5",
+        "sourceSHA256": "c9c3c0be76ed2ca2cbb34307ee2e20c5a0491498d0c65c0693e6c8e67e010929",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded hidden solid/named and same-window audio composition evidence navigation; no whole-sample or official audio parity acceptance.",
+        "scope": "Bounded childless composition effect activation evidence navigation; no whole-sample or official parity acceptance.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -675,6 +675,17 @@
       "currentAuthorities": [
         "docs/scene/roadmap/scene-compatibility-roadmap.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/composition-effect-activation-implementation-2026-10-05.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/batch2/composition-render-target-design.md"
       ]
     },
     {

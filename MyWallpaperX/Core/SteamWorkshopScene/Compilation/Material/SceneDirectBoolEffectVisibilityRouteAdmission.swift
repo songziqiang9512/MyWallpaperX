@@ -1,7 +1,7 @@
 import Foundation
 
 /// Narrows validated Boolean effect visibility to ordinary, prepared hierarchy
-/// layers and standalone fullscreen captures. Cross-layer providers and
+/// layers and standalone utility captures. Cross-layer providers and
 /// hierarchy-owned output keep their existing preparation route.
 nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
     static func startupInactiveTargets(
@@ -103,10 +103,19 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
             let ordinaryHierarchy = SceneDynamicLayerVisibilityRouteAdmission.targets(
                 in: descriptor, candidates: [layerTarget]
             ).contains(layerTarget)
-            guard standaloneFullscreen
+            // These compositions already capture through the same prepared
+            // source route when enabled at launch. Retain their inactive
+            // stages so a typed toggle can activate the existing graph later.
+            let standaloneComposition = layer.contentKind == "composition"
+                && layer.utilityLayer?.kind == .composition
+                && layer.utilityLayer?.passthrough == false
+                && layer.parentID == nil && layer.childLayerIDs.isEmpty
+                && ordinaryHierarchy
+            let standaloneUtility = standaloneFullscreen || standaloneComposition
+            guard standaloneUtility
                 || (["image", "solid", "text"].contains(layer.contentKind)
                     && layer.utilityLayer == nil && ordinaryHierarchy) else { return nil }
-            if !scriptOwned || standaloneFullscreen {
+            if !scriptOwned || standaloneUtility {
                 guard layer.dependencyLayerIDs.isEmpty,
                       layer.authoredDependencies.isEmpty,
                       !dependencyConsumerLayerIDs.contains(layerID),

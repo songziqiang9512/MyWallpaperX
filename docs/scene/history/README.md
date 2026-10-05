@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-05 | Scene | 实施证据 | [Composition效果激活](composition-effect-activation-implementation-2026-10-05.md) | 初始关闭utility effect准备遗漏、整键拒绝与自有白灰白像素 | [D1设计](../roadmap/batch2/composition-render-target-design.md)、[运行架构](../architecture/runtime-architecture.md)、[当前证据](../capabilities/runtime-evidence-current.md) |
 | 2026-10-05 | Scene | 实施证据 | [底部音频隐藏源](bottom-audio-provider-implementation-2026-10-05.md) | 隐藏solid准备、live composition、源尺寸及runtime计划的四断点与色带边界 | [运行架构](../architecture/runtime-architecture.md)、[当前证据](../capabilities/runtime-evidence-current.md) |
 | 2026-10-05 | Scene | 实施证据 | [文字宽度属性](text-width-property-implementation-2026-10-05.md) | raw绑定补齐四文字consumer、真实宽度变化及坏值保留 | [运行输入属性](../capabilities/runtime-input-property-coverage.md) |
 | 2026-10-05 | Scene | 实施证据 | [隐藏属性热更新](hidden-property-consumers-implementation-2026-10-05.md) | 启动visible与prepared consumer分离、293四步更新及自有像素反例 | [运行输入属性](../capabilities/runtime-input-property-coverage.md) |

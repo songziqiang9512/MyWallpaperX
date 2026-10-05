@@ -21,6 +21,12 @@
 
 验收包含初始隐藏→显示→隐藏→恢复、嵌套组、子层自身 false、子 effect/文字、健康邻层与静态显隐像素对照，以及畸形层级反例、Debug build 和真实326同输入开关。普通视觉资源失败继续局部降级；非法结构拒绝目标，整键原子准入不拆分。完成此固定分组闭环即收口，不借机扩大 passthrough、变换裁切或官方 parity；启动准备可能增加，实际热更新是否避免重载及画面是否恢复分别验证。
 
+## 初始关闭效果的实时激活决定（2026-10-05）
+
+真实339的独立composition可在启动前开启CRT、色差和示波器模式，但运行中同键被拒绝。首断点是inactive effect准备准入漏掉composition，不是shader能力缺失。把现有standalone fullscreen准备规则推广到SourceRoute已支持的无父子、无依赖composition；保留原effect Program、activation passthrough、capture计划和唯一compositor。普通值更新只发布typed snapshot，不重编或重建场景。provider、named消费、passthrough、父子及未知source形态不借此开放；脚本候选也不能绕过utility依赖限制。
+
+完整图与真实资源准备成功才声明live consumer，缺shader或同键任一目标缺能力时原子拒绝且保留旧画面。先用原产品同输入红例，再验自有composition效果开关/健康后方层像素、缺shader负门、真实339三个开关的graph/GPU/合成及同窗口恢复。与启动时同选项对照，完成这条现有链的准备遗漏即收口；不新增运行owner，不据执行计数声明官方全图一致。
+
 ## 现有资源合同与历史依据
 
 资源/source 窄片已经独立实施：compositionGroup key/分配一致，exact extent，source 在 graph preparation 前预留并 pin，准备、写入、采样是同一有效 generation 的纹理。GPU completion/cancel 释放、resize 在飞占用、无历史的透明初始化和同帧保留由[架构§3.3](../../architecture/runtime-architecture.md#33-保留事务安全不扩大视觉失败半径)接管。本次改变输入内容与顺序，不重建资源系统。旧反例、首次错源与实际 App 修复见[执行记录](../../history/d1-composition-source-implementation-2026-10-02.md)。

@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 540,
-      "bytes": 89954
+      "bytes": 90204
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 74,
-      "bytes": 8623
+      "bytes": 8722
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -133,8 +133,8 @@
       "bytes": 100603
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
-      "lines": 34,
-      "bytes": 5686
+      "lines": 40,
+      "bytes": 6799
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
       "lines": 111,
@@ -170,7 +170,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 50050
+      "bytes": 50108
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1101,29 +1101,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "0739892cfc98b7b7ee0b40ee2c14f049b1119a93f22ee3c08bbaa31097b4c702",
-      "after": "e384e233298548053871e97c5c77477d0f56c4ad15875be7fa223d6800435fba",
-      "owner": "scene-runtime",
-      "reason": "现有solid源尺寸与有效依赖捕获职责保留作者数据，区分项目分配policy与官方色带观察。",
-      "decision": "docs/scene/history/bottom-audio-provider-implementation-2026-10-05.md"
+      "before": "e384e233298548053871e97c5c77477d0f56c4ad15875be7fa223d6800435fba",
+      "after": "adcd699753da4a78d9593a716f340bf8608059d99383bac04ef1349367b2cbe2",
+      "owner": "scene-effect-activation",
+      "reason": "复用现inactive-stage准备及activation，限定合法独立composition与真实consumer职责。",
+      "decision": "docs/scene/history/composition-effect-activation-implementation-2026-10-05.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
+      "before": "7e5ff9cd6e3ead5eb4fc8935a35fd12a6569d1c1b4b7a496b2af83c0e99d8848",
+      "after": "756dadf4107ee5b3a349d3d172108c242ab7d01ac2482a62959de69dcbd57358",
+      "owner": "scene-effect-activation",
+      "reason": "真实普通开关的准备遗漏沿D1现owner纠偏，保留资源及utility准入反例。",
+      "decision": "docs/scene/history/composition-effect-activation-implementation-2026-10-05.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "82c8d50775994ef01b37dcaa8102d9b0f63547a2fed0f661c89ed6f5038fbb49",
-      "after": "7b44c242b95f3658e77a39f2abfa8b71ed15b9d01628169f5f69bf5c5817b65c",
-      "owner": "scene-runtime",
-      "reason": "索引隐藏solid、同窗口音频开关实际执行及官方色带证据边界。",
-      "decision": "docs/scene/history/bottom-audio-provider-implementation-2026-10-05.md"
+      "before": "7b44c242b95f3658e77a39f2abfa8b71ed15b9d01628169f5f69bf5c5817b65c",
+      "after": "9bc3efd65011aa548e7e1d93a227d6162dd925ab0ce396f9b68067c2ecfbe9c6",
+      "owner": "scene-effect-activation",
+      "reason": "短指针接管childless composition效果激活与失败保留证据。",
+      "decision": "docs/scene/history/composition-effect-activation-implementation-2026-10-05.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "f597118939d0c172c3488c68b88f0c18c27a6b7e25662175fb8146aab3f75e74",
-      "after": "79ec20523dd30d582432e7ab562f18dc4c9b221765f44db5d5b645d1f36a71b2",
-      "owner": "scene-runtime",
-      "reason": "归档底部音频四断点，后继转向同样本未触发effect和交互实际验证。",
-      "decision": "docs/scene/history/bottom-audio-provider-implementation-2026-10-05.md"
+      "before": "79ec20523dd30d582432e7ab562f18dc4c9b221765f44db5d5b645d1f36a71b2",
+      "after": "2b0856f42dc789b46d44c5567c6b410505da798711134e244438e96a50a15a65",
+      "owner": "scene-effect-activation",
+      "reason": "归档composition准备遗漏，后继转同样本媒体输入及剩余交互。",
+      "decision": "docs/scene/history/composition-effect-activation-implementation-2026-10-05.md"
     }
   ]
 }
