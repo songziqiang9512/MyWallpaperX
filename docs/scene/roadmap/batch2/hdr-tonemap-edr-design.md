@@ -11,7 +11,7 @@
 
 五判据：横切多个 owner 或主链节点=是；触碰唯一权威合同=是；用户可见且难逆的 API/数据/发布合同=否；触碰机器冻结结构家族=否；依赖官方或平台外部证据=是。
 
-## 当前事实与证据
+## 设计基线事实与证据（2026-10-01）
 
 - [E-2026-09-27-SCENE-COLOR-PRECISION](../../capabilities/runtime-evidence-current.md#e-2026-09-27-scene-color-precision)（该文件 `:477`）：RGBA16F 已贯穿 graph 到 CAMetalLayer；仍是 display-referred sRGB，没有完整 HDR Bloom/tone mapping 或 EDR。
 - `MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift:156` 设置 pixelFormat，`:159` 设置 sRGB。格式精度不是 scene-linear 语义证据。
@@ -40,7 +40,9 @@
 
 沿 RF07 的 distinct raw/display 导出与完成权威实施，不新增 renderer、历史、资源池或逐帧分析。清底与累积场景同样保持正常白点；raw 永不接收 Bloom/显示结果，暂停导出不重复合成。现有不透明 surface 边界不变，透明输出另验。GPU 纠正门使用独立已知 SDR 色块（含 0.625、0.75、0.875、1）的逐位保持、超白有限裁剪、非有限局部处理、Bloom 超白产生邻域增亮、source/alpha 保持、失败恢复和 raw 多帧累计；SDR 正常色不以旧曲线公式为 oracle。实际 App 验证 clear true/false 与暂停 resize。EDR 仍按 C 的平台门另行实施。
 
-surface generation 绑定屏幕、颜色空间、format 与 headroom 状态；屏幕迁移或动态 headroom 变化更新 typed display state，不重编译整图。切换 SDR/EDR 使用已准备输出管线，候选失败前保留旧 surface/output。metadata 不是第一阶段的必需品。
+**2026-10-06 阶段 C 实施裁决。** 现役最终输入是 display-referred sRGB，不把 raw/纹理重新解释为线性。具备映射管线的 authored HDR surface 固定使用 RGBA16F/extended-linear-sRGB；唯一终端将非负有限 RGB 按扩展 sRGB 传递函数解码一次，普通0..1保持显示亮度，超白限制到本屏当前EDR headroom。SDR回退上限1；未准备映射的surface继续原sRGB，不能带错误颜色空间导出raw。线性surface映射失败拒绝本次提交、保留旧帧，不将未解码颜色呈现。透明输出仍不开放。
+
+用户设置“Scene HDR显示”独立于作者Bloom，默认允许在支持的屏幕自动使用，关闭后同会话回到SDR。现役共享设置传递意图，SceneMetalView按所在屏幕的potential能力请求EDR，以current headroom控制typed帧输出；不以current=1拒绝初次opt-in。颜色空间在surface生命周期内固定，避免在途drawable因开关变义；屏幕/设置变化只更新显示状态与重绘，不改Program/图/raw历史。每帧只读取本屏标量headroom，暂停通过现有surface失效入口重绘；不增加计时器或输出owner。验证真实CAMetalLayer配置、GPU普通色/超白/源alpha、设置热切与SDR设备回退、映射失败不发布及raw隔离。截图按其线性输入转换为普通sRGB预览，不把PNG亮度当物理EDR验收；硬件亮度与多屏实测边界分别报告。metadata不叠加。
 
 ## HDR Bloom 参数与运行分支（2026-10-06）
 
@@ -58,7 +60,7 @@ surface generation 绑定屏幕、颜色空间、format 与 headroom 状态；�
 
 原始颜色与显示导出的隔离已实施，过程、失败门和验收边界统一见[冻结执行记录](../../history/rf07-persistent-color-output-implementation-2026-10-02.md)，不在本待实施设计复写。本次 HDR Bloom 必须保留其约束：作者有序合成写入未映射 raw；Bloom 只写 display scratch，终端显示结果不累积回 raw；每帧仍只有一次 layer traversal 和一个 compositor/present。
 
-资源沿现役 allocation cache/residency pin 与 SubmissionCoordinator 管理，只有身份匹配且 GPU completed 才提升 raw。暂停导出不重跑 VM/模拟；resize/reset 后的新 raw epoch 先安全初始化。Bloom 或显示映射失败保留安全原图，资源/代际错误拒绝对应候选；不新增历史、完成回调或资源 owner。后续 HDR 改动继续通过 raw 多帧累积、paused resize、失败恢复和预算门。
+资源沿现役 allocation cache/residency pin 与 SubmissionCoordinator 管理，只有身份匹配且 GPU completed 才提升 raw。暂停导出不重跑 VM/模拟；resize/reset 后的新 raw epoch 先安全初始化。Bloom失败保留安全原图；线性surface显示映射失败保留旧帧，禁止导出未解码raw；资源/代际错误拒绝对应候选；不新增历史、完成回调或资源 owner。后续 HDR 改动继续通过 raw 多帧累积、paused resize、失败恢复和预算门。
 
 ## fallback / route
 
@@ -68,7 +70,7 @@ surface generation 绑定屏幕、颜色空间、format 与 headroom 状态；�
 
 - GPU 自有阶梯覆盖暗部、中灰、白点、超白和多彩高亮；检查有限、单调、颜色/alpha 边界与未开启 HDR 的输出守恒。容差在执行前冻结，不以 8 位截图判断浮点精度。
 - 同一输入分别经过 SDR 与 EDR；检查实际 colorspace、format、屏幕 headroom、submission completion、terminal present 和 next-frame；EDR 设备不可用则 C/D 标为 not-run。
-- 移屏、headroom 改变、暂停恢复、allocation/encoder 失败必须回到有效 SDR，而不是黑屏或双重映射。
+- 移屏、headroom改变、暂停恢复必须获得有效显示输出；allocation/encoder失败保留安全旧帧并能恢复，不导出错误颜色空间。
 - 2684431262 只作为后续隔离回归输入；官方高亮对照与平台 EDR 验收分别记录，不能用一项代替另一项。
 
 ## 退役条件

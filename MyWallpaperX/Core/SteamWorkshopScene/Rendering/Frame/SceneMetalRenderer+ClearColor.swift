@@ -152,7 +152,8 @@ extension SceneMetalRenderer {
 
     func encodeTerminalColor(sceneColor: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?,
                              target: MTLTexture, offscreenTexturePool: SceneOffscreenTexturePool?,
-                             dynamicValues: SceneDynamicSnapshot, commandBuffer: MTLCommandBuffer) -> FrameOutcome? {
+                             dynamicValues: SceneDynamicSnapshot, commandBuffer: MTLCommandBuffer,
+                             output: SceneDisplayMappingPostProcess.Output = .sRGB) -> FrameOutcome? {
         if let sceneColor {
             guard let display = sceneColor.display else {
                 return .dropped(reasonCode: "scene-color-display-reservation-invalid")
@@ -167,7 +168,10 @@ extension SceneMetalRenderer {
             }
             let mapped = copied && displayMappingPostProcess?.encode(
                 source: display, target: target,
-                commandBuffer: commandBuffer) == true
+                commandBuffer: commandBuffer, output: output) == true
+            if !mapped && output.isLinear {
+                return .dropped(reasonCode: "scene-linear-display-export-unavailable")
+            }
             if !mapped && !copySceneColor(sceneColor.raw, to: target, commandBuffer: commandBuffer) {
                 return .dropped(reasonCode: "scene-color-display-export-unavailable")
             }
@@ -179,14 +183,18 @@ extension SceneMetalRenderer {
             bloomPostProcess?.encode(configuration: renderDescriptor.camera.bloom.resolving(
                 dynamicValues), source: target,
                 commandBuffer: commandBuffer)
+            var mapped = false
             if let displayMappingPostProcess,
                let offscreenTexturePool,
                let scratch = imageCompositor.resolvedMaterialRuntime?.reserveDisplayScratch(
                 pool: offscreenTexturePool, width: target.width,
                 height: target.height, commandBuffer: commandBuffer),
                copySceneColor(target, to: scratch, commandBuffer: commandBuffer) {
-                displayMappingPostProcess.encode(source: scratch, target: target,
-                                                 commandBuffer: commandBuffer)
+                mapped = displayMappingPostProcess.encode(source: scratch, target: target,
+                    commandBuffer: commandBuffer, output: output)
+            }
+            if !mapped && output.isLinear {
+                return .dropped(reasonCode: "scene-linear-display-export-unavailable")
             }
         }
         guard imageCompositor.endResolvedMaterialFrame(on: commandBuffer) else {

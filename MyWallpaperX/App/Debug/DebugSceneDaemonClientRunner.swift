@@ -216,6 +216,7 @@ enum DebugSceneDaemonClientRunner {
                 // Ordinary UI/Steam entry and daemon recovery remain separate
                 // probes with distinct evidence ceilings.
                 if runsStableDaemonClient {
+                    scheduleStablePauseResume()
                     return
                 }
                 guard !didForceTerminate else {
@@ -492,6 +493,24 @@ enum DebugSceneDaemonClientRunner {
             record,
             temporaryPropertyOverrides: propertyOverrides
         )
+    }
+
+    /// Reuse the isolated host probe's bounded pause request through the
+    /// actual product multiplexer/client, leaving stable mode unchanged by default.
+    private static func scheduleStablePauseResume() {
+        guard firstPresentRequestIDs.count == 1,
+              let request = DebugScenePlaybackRunner.requestedPauseResumeRequest(duration: duration)
+        else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + request.delay) {
+            guard !observers.isEmpty else { return }
+            let accepted = PlaybackCommandMultiplexer.shared.dispatch(.pause, to: .scene)
+            NSLog("MWX SCENE CLIENT: phase=bounded-pause accepted=%@", accepted ? "true" : "false")
+            DispatchQueue.main.asyncAfter(deadline: .now() + request.dwell) {
+                guard !observers.isEmpty else { return }
+                let resumed = PlaybackCommandMultiplexer.shared.dispatch(.resume, to: .scene)
+                NSLog("MWX SCENE CLIENT: phase=bounded-resume accepted=%@", resumed ? "true" : "false")
+            }
+        }
     }
 
     private static func exerciseControlCommands(

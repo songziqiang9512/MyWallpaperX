@@ -135,6 +135,9 @@ extension AppKitSettingsContainerView {
         systemAudioSpectrumSwitch.toolTip = "实验功能：采集系统音频并在桌面底部显示频谱条"
         systemHotkeysSwitch.toolTip = "允许使用全局 F1-F12 快捷键控制壁纸"
 
+        systemSection.addRow(makeSettingRow(title: "Scene HDR 显示", iconSystemName: "sun.max",
+            subtitle: "在支持的屏幕上呈现更亮的高光；关闭后使用普通亮度", trailing: sceneHDRDisplaySwitch))
+
         sceneMediaSourcePopup.addItems(withTitles: ["关闭", "Apple Music"])
         #if DEBUG
         sceneMediaSourcePopup.addItem(withTitle: "系统正在播放（实验）")

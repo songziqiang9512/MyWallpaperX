@@ -77,10 +77,10 @@ final class SceneMetalRenderer {}
         texture.replace(region: MTLRegionMake2D(0,0,texture.width,texture.height), mipmapLevel: 0,
                         withBytes: bytes, bytesPerRow: texture.width * 4)
     }
-    static func encode(_ capture: SceneDebugFrameCapture, _ texture: MTLTexture, _ queue: MTLCommandQueue) {
+    static func encode(_ capture: SceneDebugFrameCapture, _ texture: MTLTexture, _ queue: MTLCommandQueue, linear: Bool = false) {
         autoreleasepool {
             let command = queue.makeCommandBuffer()!
-            capture.encodeIfRequested(texture: texture, commandBuffer: command)
+            capture.encodeIfRequested(texture: texture, commandBuffer: command, linearSRGB: linear)
             command.commit(); command.waitUntilCompleted()
             check(command.status == .completed && command.error == nil, "GPU failed")
         }
@@ -126,6 +126,20 @@ final class SceneMetalRenderer {}
                 distinct.insert(pixel[0]); check(pixel[3] == 65535, "float alpha")
             }
             check(distinct.count == 1024, "gradient precision")
+        }
+        try autoreleasepool {
+            let capture = SceneDebugFrameCapture()
+            let source = texture(device, format: .rgba16Float)
+            var values = [Float16](repeating: 0.21404114, count: 4 * 4 * 4)
+            for index in stride(from: 3, to: values.count, by: 4) { values[index] = 1 }
+            values.withUnsafeBytes { source.replace(region: MTLRegionMake2D(0,0,4,4),
+                mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 32) }
+            capture.request(reason: "linear", outputDirectory: dir)
+            encode(capture, source, queue, linear: true); drain(capture)
+            let rep = try image(dir, "linear")
+            var pixel = [Int](repeating: 0, count: 4); rep.getPixel(&pixel, atX: 0, y: 0)
+            check(abs(pixel[0] - 32768) < 40, "linear preview must preserve ordinary sRGB midpoint")
+            check(pixel[3] == 65535, "opaque linear preview alpha")
         }
         try autoreleasepool {
             // Two global work slots across three independent surfaces. Blocking

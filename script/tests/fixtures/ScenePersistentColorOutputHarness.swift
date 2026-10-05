@@ -244,6 +244,47 @@ import Metal
         checks["actualHelperNilMappingRawOutput"] = read(nilMappingTarget) == [3, 0.25, 0.5, 1]
             && owner.completedSceneColor?.displayMapped == false
 
+        // A fixed linear surface may never publish unconverted raw fallback.
+        // Use the real terminal helper and cancellation owner for both routes.
+        for accumulating in [false, true] {
+            for fault in ["blit", "encoder", "pipeline"] {
+                begin(owner, 5, 8)
+                let cb = queue.makeCommandBuffer()!, display = texture(8)
+                let previousCompleted = owner.completedSceneColor!.persistenceReservation!.raw
+                let reservation = accumulating ? owner.reserveSceneColor(pool: storage,
+                    width: 8, height: 8, frameIndex: 5, commandBuffer: cb) : nil
+                if let reservation { copy(reservation.previous!, reservation.raw, cb) }
+                MWXArmBlitFault(cb, fault == "blit" ? 1 : 0)
+                MWXArmEncoderFault(cb, fault == "encoder" ? 1 : 0)
+                let outcome = terminalRenderer(fault == "pipeline" ? nil : mapping).encodeTerminalColor(
+                    sceneColor: reservation, target: display, offscreenTexturePool: storage,
+                    dynamicValues: nilSnapshot, commandBuffer: cb,
+                    output: .extendedLinearSRGB(headroom: 4))
+                MWXArmBlitFault(cb, 0); MWXArmEncoderFault(cb, 0)
+                checks["linear-\(accumulating)-\(fault)-dropsUnconvertedOutput"] = outcome == .dropped(
+                    reasonCode: "scene-linear-display-export-unavailable")
+                owner.cancelUnsubmittedFrame(on: cb); _ = owner.endFrame()
+                checks["linear-\(accumulating)-\(fault)-keepsCompleted"] =
+                    owner.completedSceneColor?.persistenceReservation?.raw === previousCompleted
+                    && owner.pendingSubmissions.isEmpty && !owner.shouldDeferFrame
+            }
+        }
+        begin(owner, 6, 8)
+        let linearCB = queue.makeCommandBuffer()!, linearTarget = texture(8)
+        let linearReservation = owner.reserveSceneColor(pool: storage, width: 8, height: 8,
+            frameIndex: 6, commandBuffer: linearCB)!
+        copy(linearReservation.previous!, linearReservation.raw, linearCB)
+        let linearOutcome = terminalRenderer(mapping).encodeTerminalColor(sceneColor: linearReservation,
+            target: linearTarget, offscreenTexturePool: storage, dynamicValues: nilSnapshot,
+            commandBuffer: linearCB, output: .extendedLinearSRGB(headroom: 4))
+        checks["linearRecoveryEncodes"] = linearOutcome == nil
+        complete(linearCB)
+        let linearPixels = read(linearTarget)
+        checks["linearRecoveryPreservesRawAndDecodesTerminal"] =
+            read(linearReservation.raw) == [3, 0.25, 0.5, 1]
+            && abs(linearPixels[0] - 4) < 0.002 && abs(linearPixels[1] - 0.050876) < 0.001
+            && abs(linearPixels[2] - 0.214041) < 0.001 && linearPixels[3] == 1
+
         for index in 1...3 {
             let failurePool = pool(); var allocations = 0
             let rejected = failurePool.reserveSceneColor(width: 4, height: 4) { descriptor in

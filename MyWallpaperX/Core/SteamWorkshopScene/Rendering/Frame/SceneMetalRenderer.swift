@@ -64,6 +64,7 @@ struct SceneMetalRenderer {
         encodeFrameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         onDrawableWillPresent: ((CAMetalDrawable) -> Void)? = nil,
+        displayOutput: SceneDisplayMappingPostProcess.Output = .sRGB,
         to drawable: CAMetalDrawable
     ) -> FrameOutcome {
         // Always-on renderer CPU time. Start is unconditional (the existing
@@ -188,7 +189,7 @@ struct SceneMetalRenderer {
             commandBuffer: commandBuffer) { return failure }
         if let failure = encodeTerminalColor(sceneColor: sceneColor, target: drawable.texture,
             offscreenTexturePool: offscreenTexturePool, dynamicValues: frameContext.dynamicValues,
-            commandBuffer: commandBuffer) { return failure }
+            commandBuffer: commandBuffer, output: displayOutput) { return failure }
         let preparedFrame = makePreparedFrame(
             commandBuffer: commandBuffer,
             drawable: drawable,

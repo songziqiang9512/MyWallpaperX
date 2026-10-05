@@ -56,3 +56,20 @@
 下一批沿同一输出合同验证真正的显示 EDR：屏幕headroom、颜色空间、开关及SDR回退，再从普通产品入口复现星球/三体启动。当前HDR/SDR专项粗估约60%（工程里程碑判断，非样本正确率）；正常SDR白点和通用HDR Bloom已落地，EDR与剩余空间/边界未闭合。339完整视觉估计不因本批上调。
 
 官方VM完整配置已恢复，哈希 `17B5CDBA85037555465F2330C90EF00B6346E5FCB5793823D2D63370E64DC7C1`，恢复最初suspended状态。最终日志、身份、必要图与反例整理为本地有界证据包，保留至2026-10-20；真实用户包不改。已停止的本轮App、样本副本、HOME和重试构建删除，只续用 `/private/tmp/mwx-scene-next-build/cache/14d60a183f08e048bc3d072d` 一份构建缓存。
+
+
+## 可选 EDR 实际显示后继（2026-10-06）
+
+基线 `8490d789`。沿现役唯一 terminal mapper，将 display-referred sRGB 解码到固定的 extended-linear-sRGB/16F surface，普通颜色保持显示亮度，超白按所在屏幕当前 headroom 限制。设置新增“Scene HDR 显示”，默认允许支持的屏幕使用；作者 HDR/Bloom 与用户显示意图独立，关闭只回到普通亮度，不重建场景。potential 决定是否请求 EDR，current 决定帧上限，避免 current=1 阻止首次启用。屏幕通知和暂停重绘复用原失效入口，没有新增计时器、历史或输出 owner；线性导出失败拒绝提交，不呈现未解码 raw，不提升历史。诊断 PNG 转回普通 sRGB 预览。
+
+### 验证与边界
+
+- Metal 对照 ColorSync 的独立 sRGB/extended-linear 转换，普通色、超白、多档 headroom、非法 headroom、源及 alpha 保留均通过；连同既有 Bloom 共20项。真实 terminal helper/coordinator 的清底与累积模式分别注入 blit、encoder、pipeline 失败，确认拒绝发布且下一帧恢复，5项通过。capture 最初使用非法预乘夹具失败，改为产品不透明边界后1项通过，原失败日志保留。
+- 签名 App 清底、持续累积、绘制后隐藏保留、暂停缩放且 VM 不前进，4项通过；普通色仍为 `(255,64,128)`。派生缺 mapping App 测试1项未运行；不替代真实 GPU 故障门。此轮集成构建早于后继调试菜单/暂停入口，渲染产品路径未变。
+- 最终 Debug 构建 dylib SHA256 `32a83226e3c99627cc97eba17c43de94e49415fb297ceaf25794896323ce5770`。真实 App → coordinator → client → daemon 路径点击实际设置，前置构建（dylib `8992fb` 前缀）运行中 OFF/ON 同 PID62486；最终暂停测试 parent63915/daemon63918 两轮 OFF/ON 同帧313、同 raw allocation/member/sourceSubmission，`authoredDraw=false`、timer inactive，最终恢复 ON。全程仅一次 first-present，resume 成功、exit0，没有重载场景。测试入口补装现有主菜单并复用有界暂停参数，仅 DEBUG 产品入口生效。
+- 本机支持 EDR 的内屏实际 surface 为 extended-linear-sRGB、rgba16Float，开关控制 `wantsExtendedDynamicRangeContent`，current headroom 随平台由1.2变化到约9.82。关闭为1。自有输入实际GPU读回峰值超过1；这确认扩展值进入真实呈现链，不是物理亮度测量。
+- 真实 Earth `3437487219` 最终候选保留地球轮廓、云层、银河与时钟，实际显示纹理读回峰值1.708008；3个material effect完成、2个终端consumer继续执行。PNG仅SDR预览，不能展示或证明屏幕EDR峰值。单次隔离Debug Host入口启动约10.3秒，不能外推普通入口或重型样本问题已解决。
+
+当前 HDR/SDR 专项工程进度粗估约80%，不是全样本正确率。已落地普通SDR颜色恢复、通用作者HDR Bloom与可选EDR实际输出；剩余精确空间核、iterations=0/1官方行为、多屏/SDR设备与物理亮度验收继续开放。下一批按用户优先级从普通产品入口复现星球/三体启动失败，定位最早阻断并修共享责任。339估计不随此批上调。
+
+产品/测试15路径冻结SHA逐项通过独立只读终审，无阻断P1/P2；代码健康、依赖、防御、设计、文档和测试断言门通过。证据根 `/private/tmp/mwx-edr-output-20261006`，最终日志、必要图、身份、失败夹具记录及复验输入整理为 `runtime-evidence.zip`，保留至2026-10-20；既有集中证据预算不扩大。已结束的候选App、真实样本副本、临时HOME和重复截图清理；连续迭代只续用此前登记的构建缓存。真实用户样本未修改，未推送。

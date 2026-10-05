@@ -149,8 +149,8 @@
       "bytes": 7059
     },
     "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md": {
-      "lines": 76,
-      "bytes": 11448
+      "lines": 78,
+      "bytes": 12721
     },
     "docs/scene/roadmap/batch2/host-render-power-protocol-design.md": {
       "lines": 54,
@@ -170,7 +170,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 51730
+      "bytes": 51726
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1149,12 +1149,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
+      "before": "cd7a793d3e21341e025e4990674c78ff2e5f862b8e0552b093795f10fd2d1093",
+      "after": "f495356b8d239e35e5b32f1c8e179fbe3b36a11c4cc3e16cedcce511c830e016",
+      "owner": "Scene terminal output / SceneMetalView",
+      "reason": "Stage C now specifies fixed linear transfer, live per-screen EDR intent and failure publication semantics before implementation.",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "23dd9521a8646c868427ae37c8512429f5643477e5953ccf6b3fe26a3813d95c",
-      "after": "c88163b5a1078f078b09568d86675052c717c675538c5540c0ab2b651a3d50b4",
-      "owner": "scene-media",
-      "reason": "闭合339音频模式与同会话静音恢复验收，按用户优先级切换HDR/SDR；不扩大兼容完成声明。",
-      "decision": "docs/scene/history/scene-system-media-input-implementation-2026-10-05.md#339音频模式与静音恢复收口2026-10-06"
+      "before": "8a940fce480b480f1a61cc7119db7a0a346546739adedd638831968b1a44a301",
+      "after": "5ac6326629edb97a17b5f4dc49fff4ba33fb34bf60dcf26eaaaeba920bc93b10",
+      "owner": "Scene terminal output",
+      "reason": "Replace EDR pending pointer with bounded implementation and next heavy startup work; shorten route body.",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md"
     }
   ]
 }

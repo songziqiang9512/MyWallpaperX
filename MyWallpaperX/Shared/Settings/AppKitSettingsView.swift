@@ -97,6 +97,7 @@ final class AppKitSettingsContainerView: NSView {
     let startOnBootSwitch = NSSwitch()
     let restorePlaybackOnLaunchSwitch = NSSwitch()
     let syncSystemWallpaperSwitch = NSSwitch()
+    let sceneHDRDisplaySwitch = NSSwitch()
     let sceneMediaSourcePopup = NSPopUpButton()
     let sceneMediaAuthorizationButton = NSButton(title: "授权读取", target: nil, action: nil)
     let systemAudioSpectrumSwitch = NSSwitch()
@@ -185,6 +186,7 @@ final class AppKitSettingsContainerView: NSView {
         isUpdatingUI = true
         defer { isUpdatingUI = false }
 
+        sceneHDRDisplaySwitch.state = SceneHDRDisplayPreference.isEnabled ? .on : .off
         let mediaSource = SceneMediaSourcePreference.current
         sceneMediaSourcePopup.selectItem(withTag: mediaSource == .systemNowPlaying ? 2 : (mediaSource == .appleMusic ? 1 : 0))
         sceneMediaAuthorizationButton.isEnabled = mediaSource == .appleMusic
@@ -411,6 +413,8 @@ final class AppKitSettingsContainerView: NSView {
         restorePlaybackOnLaunchSwitch.action = #selector(handleRestorePlaybackOnLaunchToggle)
         syncSystemWallpaperSwitch.target = self
         syncSystemWallpaperSwitch.action = #selector(handleSyncSystemWallpaperToggle)
+        sceneHDRDisplaySwitch.target = self
+        sceneHDRDisplaySwitch.action = #selector(handleSceneHDRDisplayChange)
         sceneMediaSourcePopup.target = self
         sceneMediaSourcePopup.action = #selector(handleSceneMediaSourceChange)
         sceneMediaAuthorizationButton.target = self
@@ -614,6 +618,10 @@ final class AppKitSettingsContainerView: NSView {
         if !enabled {
             dependency.settings.playbackRate = 1.0
         }
+    }
+
+    @objc private func handleSceneHDRDisplayChange() {
+        SceneHDRDisplayPreference.setEnabled(sceneHDRDisplaySwitch.state == .on)
     }
 
     @objc private func handleSceneMediaSourceChange() {

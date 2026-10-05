@@ -45,6 +45,9 @@ class SceneMetalView: NSView {
         SceneTextureAnimationPlaybackRuntime
     let renderer: SceneMetalRenderer
     let metalLayer: CAMetalLayer
+    let usesLinearDisplayOutput: Bool
+    var hdrDisplayRequested = SceneHDRDisplayPreference.isEnabled
+    var displayOutput: SceneDisplayMappingPostProcess.Output = .sRGB
     private let solidLayerTexture: MTLTexture?
     private var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
     private var imageTextures = SceneBaseImageTextureStore()
@@ -157,9 +160,12 @@ class SceneMetalView: NSView {
         let layer = CAMetalLayer()
         layer.device = renderer.device
         layer.pixelFormat = imageLayerPipeline.pixelFormat
-        // Keep authored display-referred values and SDR presentation. Float
-        // storage preserves precision; it does not opt the display into EDR.
-        layer.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
+        // Fix transfer for this surface's entire lifetime, including SDR
+        // fallback. In-flight drawables must not change meaning on a toggle.
+        usesLinearDisplayOutput = renderDescriptor.hdrEnabled
+            && renderer.displayMappingPostProcess != nil && layer.pixelFormat == .rgba16Float
+        layer.colorspace = CGColorSpace(name: usesLinearDisplayOutput
+            ? CGColorSpace.extendedLinearSRGB : CGColorSpace.sRGB)
         // HDR terminal export needs blits even when optional mapping pipeline
         // preparation fails: accumulating scenes safely export retained raw.
         layer.framebufferOnly = !renderDescriptor.hdrEnabled
@@ -192,6 +198,23 @@ class SceneMetalView: NSView {
         self.layer = layer
         wantsLayer = true
         imagePipeline = imageLayerPipeline
+        if usesLinearDisplayOutput {
+            NotificationCenter.default.addObserver(self, selector: #selector(displayEnvironmentChanged(_:)),
+                name: NSApplication.didChangeScreenParametersNotification, object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(displayEnvironmentChanged(_:)),
+                name: NSWindow.didChangeScreenNotification, object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(displayEnvironmentChanged(_:)),
+                name: NSWindow.didChangeScreenProfileNotification, object: nil)
+            DistributedNotificationCenter.default().addObserver(self,
+                selector: #selector(displayPreferenceChanged), name: SceneHDRDisplayPreference.changed,
+                object: nil)
+        }
+        refreshDisplayOutput()
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        DistributedNotificationCenter.default().removeObserver(self)
     }
 
     @available(*, unavailable)
@@ -676,6 +699,7 @@ class SceneMetalView: NSView {
         // Unconditional always-on drawable wait measurement; independent of
         // the telemetry-gated frameStart/drawableAcquired constants above.
         let hubDrawableWaitStart = ProcessInfo.processInfo.systemUptime
+        refreshDisplayOutput()
         guard let drawable = metalLayer.nextDrawable() else {
             ScenePerformanceCounterHub.shared.add(
                 .drawableWaitMicros,
@@ -701,7 +725,11 @@ class SceneMetalView: NSView {
             videoSources: videoTextureSources, timing: timing
         )
         #if DEBUG
-            let frameReadback = debugFrameCapture.encodeIfRequested
+            let linearCapture = usesLinearDisplayOutput
+            let frameReadback: (MTLTexture, MTLCommandBuffer) -> Void = { [debugFrameCapture] texture, buffer in
+                debugFrameCapture.encodeIfRequested(texture: texture, commandBuffer: buffer,
+                    linearSRGB: linearCapture)
+            }
         #else
             let frameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil
         #endif
@@ -762,6 +790,7 @@ class SceneMetalView: NSView {
             encodeFrameReadback: frameReadback,
             performanceTelemetry: performanceTelemetry,
             onDrawableWillPresent: onDrawableWillPresent,
+            displayOutput: displayOutput,
             to: drawable
         )
         if outcome.isPrepared {

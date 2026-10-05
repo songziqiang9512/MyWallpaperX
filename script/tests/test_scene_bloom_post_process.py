@@ -64,6 +64,7 @@ NSUInteger MWXPipelineAttempts(void) { return pipelineAttempts; }
 HARNESS = r'''
 import Foundation
 import Metal
+import CoreGraphics
 
 // This fixture never reserves composition groups; history tests use real pins.
 final class SceneGraphRenderTargetResidencyPin {
@@ -330,6 +331,35 @@ enum SceneGPUCensus {
       precondition(buffer.status == .completed && buffer.error == nil)
       return encoded
     }
+
+    // Public ColorSync conversion is an independent transfer oracle. Read
+    // actual half-float Metal output; the source/alpha must stay untouched.
+    let authored: [Float16] = [0, 0.01, 0.25, 0.5, 1, 1.25, 2, 4]
+    let encodedSpace = CGColorSpace(name: CGColorSpace.extendedSRGB)!
+    let linearSpace = CGColorSpace(name: CGColorSpace.extendedLinearSRGB)!
+    var edrValid = true
+    for requested: Float in [1, 1.2, 4, 16, 0, .nan, .infinity] {
+      let source = float16Texture(8, 1, authored.map { [$0, $0, $0, 0.5] })
+      let target = float16Texture(8, 1, Array(repeating: [0, 0, 0, 0], count: 8))
+      let buffer = queue.makeCommandBuffer()!
+      MWXArmEncoderFault(buffer, 0)
+      let output = SceneDisplayMappingPostProcess.Output.extendedLinearSRGB(headroom: requested)
+      edrValid = edrValid && mapping.encode(source: source.texture, target: target.texture,
+        commandBuffer: buffer, output: output)
+      buffer.commit(); buffer.waitUntilCompleted()
+      edrValid = edrValid && buffer.status == .completed
+      let pixels = readFloat16(target.texture, 8, 1)
+      for (index, value) in authored.enumerated() {
+        let color = CGColor(colorSpace: encodedSpace,
+          components: [CGFloat(value), CGFloat(value), CGFloat(value), 1])!
+        let expected = min(output.uniform, Float(color.converted(to: linearSpace,
+          intent: .relativeColorimetric, options: nil)!.components![0]))
+        edrValid = edrValid && abs(Float(pixels[index * 4]) - expected) < 0.002 * max(1, expected)
+          && pixels[index * 4 + 3] == 0.5
+      }
+      edrValid = edrValid && readFloat16(source.texture, 8, 1) == source.bytes
+    }
+    results["edrColorSyncTransferAndHeadroom"] = edrValid
 
     // Overbright source contributes a halo BEFORE terminal SDR saturation.
     // A premature clamp would leave the threshold=1 input without a glow.
@@ -714,6 +744,9 @@ class SceneBloomPostProcessTests(unittest.TestCase):
             self.assertTrue(value["unchanged"])
             self.assertEqual(value["attempts"], index)
             self.assertTrue(self.result[f"hdrGPUrecover{index}"]["encoded"])
+
+    def test_edr_output_matches_public_colorsync_transfer_and_current_headroom(self):
+        self.assertTrue(self.result["edrColorSyncTransferAndHeadroom"])
 
     def test_hdr_uniform_field_matches_fixed_official_behavior(self):
         expected = [25, 51, 64, 127, 85, 6, 13, 5, 13, 159, 121, 51, 28]

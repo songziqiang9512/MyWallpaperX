@@ -102,7 +102,7 @@ nonisolated final class SceneDebugFrameCapture: @unchecked Sendable {
         finishIfDrained()
     }
 
-    func encodeIfRequested(texture: MTLTexture, commandBuffer: MTLCommandBuffer) {
+    func encodeIfRequested(texture: MTLTexture, commandBuffer: MTLCommandBuffer, linearSRGB: Bool = false) {
         lock.lock()
         guard !closed, !pendingRequests.isEmpty else { lock.unlock(); return }
         let width = texture.width, height = texture.height
@@ -152,7 +152,7 @@ nonisolated final class SceneDebugFrameCapture: @unchecked Sendable {
                 let failure = withExtendedLifetime(buffer) {
                     autoreleasepool {
                         Self.persist(buffer: buffer, width: width, height: height,
-                                     rowBytes: rowBytes, isFloat: isFloat, request: request)
+                                     rowBytes: rowBytes, isFloat: isFloat, linearSRGB: linearSRGB, request: request)
                     }
                 }
                 finish(request, bytes: size, failure: failure)
@@ -187,7 +187,8 @@ nonisolated final class SceneDebugFrameCapture: @unchecked Sendable {
     }
 
     private static func persist(buffer: MTLBuffer, width: Int, height: Int,
-                                rowBytes: Int, isFloat: Bool, request: Request) -> String? {
+                                rowBytes: Int, isFloat: Bool, linearSRGB: Bool, request: Request) -> String? {
+        var peak: Float = 0
         if isFloat {
             // GPU is terminal; this independent buffer now belongs only to this
             // CPU export. Convert in place, without full-frame CPU copies.
@@ -195,7 +196,12 @@ nonisolated final class SceneDebugFrameCapture: @unchecked Sendable {
             let words = buffer.contents().bindMemory(to: UInt16.self, capacity: count)
             for index in 0..<count {
                 let value = Float(Float16(bitPattern: words[index]))
-                let normalized = value.isFinite ? min(1, max(0, value)) : 0
+                if index % 4 != 3 && value.isFinite { peak = max(peak, value) }
+                var normalized = value.isFinite ? min(1, max(0, value)) : 0
+                if linearSRGB && index % 4 != 3 {
+                    normalized = normalized <= 0.0031308 ? normalized * 12.92
+                        : 1.055 * pow(normalized, 1 / 2.4) - 0.055
+                }
                 words[index] = UInt16((normalized * 65_535).rounded())
             }
         }
@@ -215,6 +221,9 @@ nonisolated final class SceneDebugFrameCapture: @unchecked Sendable {
         let outputURL = request.outputDirectory.appendingPathComponent("scene-\(request.reason)-window.png")
         do {
             try png.write(to: outputURL, options: [.atomic])
+            if linearSRGB {
+                NSLog("MWX DEBUG SCENE: phase=snapshot-color request=%llu transfer=linear-srgb peak=%.6f", request.id, peak)
+            }
             NSLog("MWX DEBUG SCENE: phase=snapshot reason=%@ request=%llu source=metal path=%@", request.reason, request.id, outputURL.path)
             return nil
         } catch { return "write" }
