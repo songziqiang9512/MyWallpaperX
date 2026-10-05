@@ -548,7 +548,7 @@ extension SceneDesktopWallpaperSession {
                                excluding rejected: Set<SceneDynamicTarget>)
             -> [SceneDynamicTarget: SceneDynamicValue] {
             var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
-            for mutation in admitted.flatMap(\.layerMutations)
+            for mutation in admitted.filter({ !rejected.contains($0.ownerTarget) }).flatMap(\.layerMutations)
                 where !mutation.isDynamic && mutation.kind == .upsert {
                 if mutation.fields.contains(.visibility) {
                     values[.layer(layerID: mutation.layerID, field: .visibility)] = .bool(mutation.visible)
@@ -562,11 +562,31 @@ extension SceneDesktopWallpaperSession {
             values.merge(sceneScriptVectorResult.values.filter { !rejected.contains($0.key) }) { _, current in current }
             return values
         }
-        func frameResolution(_ admitted: [SceneScriptOwnerEffects],
-                             excluding rejected: Set<SceneDynamicTarget>) -> SceneDynamicSnapshotResolution {
-            SceneDynamicSnapshotResolver().resolve(frameIndex: timing.frameIndex, generation: 0,
-                index: definitionIndex, base: preliminarySceneScriptResolution,
-                sceneScriptValues: frameScriptValues(admitted, excluding: rejected))
+        var settledTimelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
+        func timelineProjection(_ admitted: [SceneScriptOwnerEffects],
+                             excluding rejected: Set<SceneDynamicTarget>)
+            -> Result<[SceneDynamicTarget: SceneDynamicValue], SceneTimelinePlaybackFailure> {
+            let eligible = admitted.filter { !rejected.contains($0.ownerTarget) }
+            return launchContext.timelinePlaybackRuntime.preview(
+                eligible.flatMap(\.animationMutations), sceneTime: timing.sceneTime
+            ).map { timeline in
+                settledTimelineValues = timeline
+                return timeline
+            }
+        }
+        func rejectTimelineProjection(_ failure: SceneTimelinePlaybackFailure,
+                                      from admitted: [SceneScriptOwnerEffects]) -> Set<SceneDynamicTarget> {
+            let failed = admitted.filter { owner in
+                guard !owner.animationMutations.isEmpty else { return false }
+                if case let .unknownTarget(target) = failure {
+                    return owner.animationMutations.contains { $0.target == target }
+                }
+                return true
+            }
+            runtimeValidationFailures += failed.map { .init(ownerTarget: $0.ownerTarget,
+                subsystem: .animation, commandCount: $0.animationMutations.count,
+                reason: String(describing: failure)) }
+            return Set(failed.map(\.ownerTarget))
         }
         let fixedPoint = launchContext.sceneScriptDynamicLayerRuntime
             .preflightOwnerEffectsToFixedPoint(
@@ -585,7 +605,16 @@ extension SceneDesktopWallpaperSession {
                     guard let particleEmission else {
                         return Set(admitted.filter { !$0.particlePlaybackCommands.isEmpty }.map(\.ownerTarget))
                     }
-                    let resolution = frameResolution(admitted, excluding: rejected)
+                    let timeline: [SceneDynamicTarget: SceneDynamicValue]
+                    switch timelineProjection(admitted, excluding: rejected) {
+                    case let .success(projected): timeline = projected
+                    case let .failure(failure):
+                        return rejectTimelineProjection(failure, from: admitted)
+                    }
+                    let resolution = SceneDynamicSnapshotResolver().resolve(
+                        frameIndex: timing.frameIndex, generation: 0, index: definitionIndex,
+                        base: preliminarySceneScriptResolution, timelineValues: timeline,
+                        sceneScriptValues: frameScriptValues(admitted, excluding: rejected))
                     guard let failed = particleEmission.prepare(transitions, visibility: { instance in
                         self.surfaces[instance.surfaceID]?.metalView.particlePlaybackVisibility(
                             layerID: instance.layerID, dynamicValues: resolution.snapshot)
@@ -626,8 +655,13 @@ extension SceneDesktopWallpaperSession {
                     }) else { return nil }
                     return owner.ownerTarget
                 }
-                return Set(failures.map(\.ownerTarget))
-                    .union(unpreparedParticleOwners)
+                let rejected = Set(failures.map(\.ownerTarget)).union(unpreparedParticleOwners)
+                switch timelineProjection(admitted, excluding: rejected) {
+                case .success: break
+                case let .failure(failure):
+                    return rejected.union(rejectTimelineProjection(failure, from: admitted))
+                }
+                return rejected
             }
         let admission = fixedPoint.admission
         let admittedOwnerEffects = admission.admittedEffects
@@ -698,7 +732,10 @@ extension SceneDesktopWallpaperSession {
         // timeline, and stateful SceneScript lanes. Overlay only the current
         // admitted results so surface preparation does not walk every
         // definition a second time on the same frame.
-        let sharedSurfaceResolution = frameResolution(admittedOwnerEffects, excluding: rejectedOwnerTargets)
+        let sharedSurfaceResolution = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: timing.frameIndex, generation: 0, index: definitionIndex,
+            base: preliminarySceneScriptResolution, timelineValues: settledTimelineValues,
+            sceneScriptValues: frameScriptValues(admittedOwnerEffects, excluding: rejectedOwnerTargets))
         let materialFunctionMutations = admittedOwnerEffects.flatMap(\.materialFunctionMutations)
         let pendingEvaluation = evaluationTransaction.prepare(
             frameIndex: timing.frameIndex, resolution: sharedSurfaceResolution

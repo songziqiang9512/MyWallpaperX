@@ -523,7 +523,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             }
             newlyRejected.formUnion(rejectingParticleTransitions(
                 admission.layerPlan.particleTransitions, admission.admittedEffects,
-                externallyRejected.union(admission.rejectedOwners.compactMap(\.ownerTarget))))
+                externallyRejected.union(admission.rejectedOwners.compactMap(\.ownerTarget)).union(newlyRejected)))
             newlyRejected.subtract(externallyRejected)
             if !newlyRejected.isEmpty {
                 externallyRejected.formUnion(newlyRejected)

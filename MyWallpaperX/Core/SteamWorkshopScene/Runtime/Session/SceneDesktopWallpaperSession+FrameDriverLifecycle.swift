@@ -113,8 +113,9 @@ extension SceneDesktopWallpaperSession {
                animationMutations, sceneTime: timing.sceneTime
            ) {
             NSLog(
-                "MWX SceneScript VM: animationCommands=%d callback=committed nextFrame=true route=generic-only",
-                animationMutations.count
+                "MWX SceneScript VM: animationCommands=%d callback=committed frame=%llu projection=same-frame route=generic-only",
+                animationMutations.count,
+                timing.frameIndex
             )
         }
         if !videoCommands.isEmpty,

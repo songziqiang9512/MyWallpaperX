@@ -675,7 +675,7 @@ nonisolated struct SceneDynamicSnapshotResolver {
         )
     }
 
-    /// Applies a same-frame SceneScript result to an already resolved
+    /// Applies same-frame Timeline commands and SceneScript results to a resolved
     /// authored/user/timeline snapshot.  This keeps the typed producer lane
     /// shared with VM input while avoiding a second pass over every authored
     /// definition on the ordinary frame path.  Validation and diagnostics for
@@ -685,10 +685,21 @@ nonisolated struct SceneDynamicSnapshotResolver {
         generation: UInt64,
         index: SceneDynamicSnapshotDefinitionIndex,
         base: SceneDynamicSnapshotResolution,
+        timelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
         sceneScriptValues: [SceneDynamicTarget: SceneDynamicValue]
     ) -> SceneDynamicSnapshotResolution {
         var diagnostics = base.diagnostics
         var resolved = base.snapshot.resolvedValuesForPreparation()
+        apply(
+            timelineValues.filter {
+                (resolved[$0.key]?.source.priority ?? SceneDynamicSource.authored.priority)
+                    <= SceneDynamicSource.timeline.priority
+            },
+            source: .timeline,
+            definitions: index.definitionsByTarget,
+            resolved: &resolved,
+            diagnostics: &diagnostics
+        )
         apply(
             sceneScriptValues,
             source: .sceneScript,

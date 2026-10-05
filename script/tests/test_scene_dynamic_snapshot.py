@@ -363,6 +363,39 @@ enum Harness {
                 incrementalUnknown: .scalar(1),
             ]
         )
+        let multiply = SceneDynamicTarget.effectConstant(
+            layerID: 30, effectIndex: 0, passIndex: 0, name: "multiply"
+        )
+        let effectVisible = SceneDynamicTarget.effectVisibility(layerID: 30, effectIndex: 0)
+        let sameFrameIndex = SceneDynamicSnapshotResolver.prepare(definitions:
+            incrementalDefinitions + [
+                .init(target: multiply, valueType: .scalar, authoredValue: .scalar(1)),
+                .init(target: effectVisible, valueType: .bool, authoredValue: .bool(false)),
+            ])
+        let sameFrameBase = resolver.resolve(
+            frameIndex: 78, generation: 8, index: sameFrameIndex,
+            timelineValues: [multiply: .scalar(0)],
+            sceneScriptValues: [incrementalAlpha: .scalar(0.25)]
+        )
+        let sameFrame = resolver.resolve(
+            frameIndex: 78, generation: 8, index: sameFrameIndex, base: sameFrameBase,
+            timelineValues: [multiply: .scalar(1), incrementalAlpha: .scalar(1)],
+            sceneScriptValues: [effectVisible: .bool(true)]
+        )
+        let returnedScript = resolver.resolve(
+            frameIndex: 78, generation: 8, index: sameFrameIndex, base: sameFrameBase,
+            timelineValues: [multiply: .scalar(1), incrementalAlpha: .scalar(1)],
+            sceneScriptValues: [incrementalAlpha: .scalar(0.75)]
+        )
+        let invalidTimeline = resolver.resolve(
+            frameIndex: 78, generation: 8, index: sameFrameIndex, base: sameFrameBase,
+            timelineValues: [multiply: .scalar(.nan), incrementalUnknown: .scalar(1)],
+            sceneScriptValues: [:]
+        )
+        let emptyOverlay = resolver.resolve(
+            frameIndex: 78, generation: 8, index: sameFrameIndex, base: sameFrameBase,
+            sceneScriptValues: [:]
+        )
         let empty = SceneDynamicSnapshot.empty(frameIndex: 9, generation: 4)
         let payload: [String: Any] = [
             "coderRoundTrip": coderRoundTrip,
@@ -386,6 +419,13 @@ enum Harness {
             "incrementalEquivalent": incremental == full,
             "incrementalValue": String(describing: incremental.snapshot[incrementalAlpha]!.value),
             "incrementalDiagnostics": incremental.diagnostics.map { diagnostic($0) },
+            "sameFrameMultiply": resolved(sameFrame.snapshot[multiply]),
+            "sameFrameVisible": resolved(sameFrame.snapshot[effectVisible]),
+            "sameFrameExistingScript": resolved(sameFrame.snapshot[incrementalAlpha]),
+            "sameFrameReturnedScript": resolved(returnedScript.snapshot[incrementalAlpha]),
+            "invalidTimelineKeptValue": resolved(invalidTimeline.snapshot[multiply]),
+            "invalidTimelineDiagnostics": invalidTimeline.diagnostics.map { diagnostic($0) },
+            "emptyOverlayEquivalent": emptyOverlay == sameFrameBase,
             "duplicateMissing": first.snapshot[duplicate] == nil,
             "mismatchMissing": first.snapshot[authoredMismatch] == nil,
             "nonFiniteMissing": first.snapshot[authoredNonFinite] == nil,
@@ -528,6 +568,18 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
         self.assertTrue(self.result["mismatchMissing"])
         self.assertTrue(self.result["nonFiniteMissing"])
         self.assertEqual(self.result["count"], 3)
+
+    def test_same_frame_timeline_and_visibility_keep_both_script_priority_lanes(self) -> None:
+        self.assertEqual(self.result["sameFrameMultiply"], ["scalar(1.0)", "timeline"])
+        self.assertEqual(self.result["sameFrameVisible"], ["bool(true)", "sceneScript"])
+        self.assertEqual(self.result["sameFrameExistingScript"], ["scalar(0.25)", "sceneScript"])
+        self.assertEqual(self.result["sameFrameReturnedScript"], ["scalar(0.75)", "sceneScript"])
+        self.assertTrue(self.result["emptyOverlayEquivalent"])
+
+    def test_invalid_timeline_overlay_uses_existing_typed_validation(self) -> None:
+        self.assertEqual(self.result["invalidTimelineKeptValue"], ["scalar(0.0)", "timeline"])
+        self.assertEqual(self.result["invalidTimelineDiagnostics"],
+                         [["timeline", "nonFiniteValue"], ["timeline", "unknownTarget"]])
 
     def test_diagnostics_are_complete_and_deterministic(self) -> None:
         self.assertTrue(self.result["deterministic"])

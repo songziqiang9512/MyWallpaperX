@@ -462,6 +462,49 @@ enum Harness {
         }
         playbackPayload["afterRejected"] = playbackScalar(11, pausedTarget) ?? -1
         payload["playback"] = playbackPayload
+        let constantTarget = SceneDynamicTarget.effectConstant(
+            layerID: 20, effectIndex: 0, passIndex: 0, name: "multiply"
+        )
+        let previewRuntime = SceneTimelinePlaybackRuntime(program: program)
+        let beforePreview = previewRuntime.values(sceneTime: 2)
+        let beforeObservation = previewRuntime.observationSnapshot()
+        let restart: [SceneTimelinePlaybackMutation] = [
+            .init(target: constantTarget, command: .stop),
+            .init(target: constantTarget, command: .play),
+        ]
+        let projected = try previewRuntime.preview(restart, sceneTime: 2).get()
+        let repeated = try previewRuntime.preview(restart, sceneTime: 2).get()
+        let failedPreview = previewRuntime.preview(restart + [
+            .init(target: invalidTarget, command: .pause),
+        ], sceneTime: 2)
+        let invalidTime = previewRuntime.preview(restart, sceneTime: .nan)
+        let emptyPreview = try previewRuntime.preview([], sceneTime: 2).get()
+        let afterPreviewObservation = previewRuntime.observationSnapshot()
+        let afterPreview = previewRuntime.values(sceneTime: 2)
+        let stoppedRuntime = SceneTimelinePlaybackRuntime(program: program)
+        _ = stoppedRuntime.apply(Array(restart.reversed()), sceneTime: 2)
+        _ = previewRuntime.apply(restart, sceneTime: 2)
+        let committedObservation = previewRuntime.observationSnapshot()
+        _ = try previewRuntime.preview([
+            .init(target: constantTarget, command: .pause),
+        ], sceneTime: 2.5).get()
+        let observationsPreserved = committedObservation == previewRuntime.observationSnapshot()
+        let continued = previewRuntime.values(sceneTime: 2.5)
+        let stopped = stoppedRuntime.values(sceneTime: 2.5)
+        payload["preview"] = [
+            "oldValue": String(describing: beforePreview[constantTarget]!),
+            "eventValue": String(describing: projected[constantTarget]!),
+            "changedTargetsOnly": Set(projected.keys) == [constantTarget],
+            "repeatedStable": projected == repeated,
+            "playbackUnchanged": beforePreview == afterPreview,
+            "observationsUnchanged": beforeObservation == afterPreviewObservation,
+            "failedBatch": failedPreview == .failure(.unknownTarget(invalidTarget)),
+            "invalidTime": invalidTime == .failure(.invalidSceneTime),
+            "empty": emptyPreview.isEmpty,
+            "pendingObservationsPreserved": observationsPreserved,
+            "stopPlayContinues": String(describing: continued[constantTarget]!),
+            "playStopHolds": String(describing: stopped[constantTarget]!),
+        ]
         print(String(decoding: try JSONSerialization.data(
             withJSONObject: payload, options: [.sortedKeys]
         ), as: UTF8.self))
@@ -591,6 +634,21 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
             "MWX typed input consumption: channel=%@",
             source,
         )
+
+    def test_admitted_restart_projects_first_value_without_committing_or_observing(self) -> None:
+        preview = self.result["preview"]
+        self.assertEqual(preview["oldValue"], "scalar(0.0)")
+        self.assertEqual(preview["eventValue"], "scalar(1.0)")
+        for key in ("changedTargetsOnly", "repeatedStable", "playbackUnchanged",
+                    "observationsUnchanged", "pendingObservationsPreserved", "empty"):
+            self.assertTrue(preview[key], key)
+
+    def test_preview_rejects_whole_batch_and_preserves_stop_play_order(self) -> None:
+        preview = self.result["preview"]
+        self.assertTrue(preview["failedBatch"])
+        self.assertTrue(preview["invalidTime"])
+        self.assertEqual(preview["stopPlayContinues"], "scalar(0.5)")
+        self.assertEqual(preview["playStopHolds"], "scalar(1.0)")
 
     def test_relative_transform_adds_lane_values_to_authored_base(self) -> None:
         self.assertEqual(

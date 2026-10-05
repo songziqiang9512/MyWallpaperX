@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 368,
-      "bytes": 168552
+      "bytes": 168540
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 275,
@@ -146,7 +146,7 @@
     },
     "docs/scene/roadmap/batch2/frame-admission-retry-design.md": {
       "lines": 41,
-      "bytes": 7061
+      "bytes": 7059
     },
     "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md": {
       "lines": 76,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 49539
+      "bytes": 49497
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,

@@ -116,6 +116,37 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
         }
     }
 
+    /// Projects this frame's admitted commands without consuming playback or
+    /// observation state. Only changed targets are evaluated; the ordinary
+    /// frame's complete Timeline projection remains the caller's base.
+    func preview(
+        _ mutations: [SceneTimelinePlaybackMutation],
+        sceneTime: Double
+    ) -> Result<[SceneDynamicTarget: SceneDynamicValue], SceneTimelinePlaybackFailure> {
+        guard !mutations.isEmpty else { return .success([:]) }
+        let candidate: [State]
+        switch candidateStates(for: mutations, sceneTime: sceneTime) {
+        case let .success(states): candidate = states
+        case let .failure(failure): return .failure(failure)
+        }
+        var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
+        for target in Set(mutations.map(\.target)) {
+            guard let binding = bindings[target],
+                  let index = stateIndices[target],
+                  candidate.indices.contains(index) else {
+                return .failure(.unknownTarget(target))
+            }
+            let elapsed = elapsedFrames(
+                state: candidate[index], animation: binding.animation,
+                sceneTime: sceneTime
+            )
+            values[target] = SceneTimelineRuntime.value(
+                of: binding, elapsedFrames: elapsed
+            )
+        }
+        return .success(values)
+    }
+
     func apply(
         _ mutations: [SceneTimelinePlaybackMutation],
         sceneTime: Double

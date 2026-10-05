@@ -419,6 +419,40 @@ enum Harness {
         }
         budgetRuntime.commit(fixedPoint.admission.layerPlan)
         let afterFixedPoint = budgetRuntime.snapshot()
+        let projectionRuntime = SceneScriptDynamicLayerRuntime(
+            descriptor: descriptor, authoredMutationLayerIDs: []
+        )
+        let projectionOwnerA = budgetOwnerA, projectionOwnerB = budgetOwnerB
+        let projectionEffects = [
+            SceneScriptOwnerEffects(ownerTarget: projectionOwnerA, layerMutations: [], animationMutations: [-1]),
+            SceneScriptOwnerEffects(ownerTarget: projectionOwnerB, layerMutations: [], animationMutations: [2]),
+        ]
+        var particleRejectedSets: [Set<SceneDynamicTarget>] = []
+        var particleEligibleCommands: [[Int]] = []
+        let projectionAdmission = projectionRuntime.preflightOwnerEffectsToFixedPoint(
+            projectionEffects,
+            rejectingParticleTransitions: { _, admitted, rejected in
+                particleRejectedSets.append(rejected)
+                let commands = admitted.filter { !rejected.contains($0.ownerTarget) }.flatMap(\.animationMutations)
+                particleEligibleCommands.append(commands)
+                return commands.contains(-1) ? [projectionOwnerB] : []
+            }
+        ) { admitted in
+            Set(admitted.filter { $0.animationMutations.contains(-1) }.map(\.ownerTarget))
+        }
+        var projectedCommandRounds: [[Int]] = []
+        let laterRejection = projectionRuntime.preflightOwnerEffectsToFixedPoint(
+            projectionEffects.map { owner in
+                .init(ownerTarget: owner.ownerTarget, layerMutations: [],
+                      animationMutations: owner.animationMutations.map(abs))
+            },
+            rejectingDependents: { rejected in
+                rejected.union([projectionOwnerA, budgetOwnerC])
+            }
+        ) { admitted in
+            projectedCommandRounds.append(admitted.flatMap(\.animationMutations))
+            return []
+        }
         let destroy = runtime.apply([mutation(-1, kind: .destroy, order: 2)])
         let afterDestroy = runtime.snapshot()
         let authoredDestroyRuntime = SceneScriptDynamicLayerRuntime(
@@ -609,6 +643,12 @@ enum Harness {
                     && conflictingAdmission.rejectedOwners.map(\.ownerTarget)
                     == [duplicateOwnerB],
             "fixedPointSeeded": seededFirstHalf && seededSecondHalf,
+            "particleSeesCurrentExternalReject": particleRejectedSets.first?.contains(projectionOwnerA) == true,
+            "particleFiltersWholeRejectedBundle": particleEligibleCommands == [[2], [2]],
+            "particleKeepsValidPeer": projectionAdmission.admission.admittedEffects.map(\.ownerTarget) == [projectionOwnerB],
+            "laterRejectionReplacesProjection": projectedCommandRounds == [[1, 2], [2]],
+            "laterRejectionKeepsValidPeer": laterRejection.admission.admittedEffects.map(\.ownerTarget) == [projectionOwnerB],
+            "typedOnlyReaderRejected": laterRejection.externallyRejectedOwners.contains(budgetOwnerC),
             "fixedPointExternalRejectsA":
                 fixedPoint.externallyRejectedOwners == [budgetOwnerA],
             "fixedPointLayerRejectsB":
@@ -766,6 +806,16 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["fixedPointAdmitsOnlyC"])
         self.assertTrue(self.result["fixedPointPreservesFullTopology"])
         self.assertTrue(self.result["fixedPointCommitsDisjointC"])
+
+    def test_particle_preflight_sees_this_round_rejected_owner_and_preserves_peer(self) -> None:
+        self.assertTrue(self.result["particleSeesCurrentExternalReject"])
+        self.assertTrue(self.result["particleFiltersWholeRejectedBundle"])
+        self.assertTrue(self.result["particleKeepsValidPeer"])
+
+    def test_dependency_rejection_replaces_previous_projection_candidate(self) -> None:
+        self.assertTrue(self.result["laterRejectionReplacesProjection"])
+        self.assertTrue(self.result["laterRejectionKeepsValidPeer"])
+        self.assertTrue(self.result["typedOnlyReaderRejected"])
 
     def test_dynamic_image_inherits_typed_material_color(self) -> None:
         self.assertTrue(self.result["dynamicImageSucceeded"])

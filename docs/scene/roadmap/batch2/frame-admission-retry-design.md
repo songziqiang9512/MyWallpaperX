@@ -13,7 +13,7 @@ SceneDesktopWallpaperHost 的唯一时钟和 typed evaluation 拥有模拟帧。
 
 ## 决策
 
-1. 每个 cadence 只执行一次共享模拟：冻结输入、执行回调、owner admission、发布 typed snapshot、消费事件/timer/localStorage。surface 的 drawable、target 或 command buffer 不决定已执行 VM 是否重放。局部 callback 失败仍采用现有 owner admission；JS heap 从来不作事务回滚。
+1. 每 cadence 执行一次 VM。准入后的 Timeline 命令无副作用投影当帧值，与显隐合入 typed snapshot；保留 SceneScript 优先级，空命令不额外求值，不重跑 VM/定义表。帧末提交一次命令；呈现失败不回退模拟或重放事件，callback 失败沿原准入，JS heap 不回滚。
 2. evaluation authority 从 Surface 移到 scene session；所有屏幕使用同一 frameIndex/generation 和 typed payload。输入的屏幕坐标仍按现有 surface 合同投影，不从任意屏幕猜测共享坐标。
 3. 粒子 CPU 状态与 Puppet bone/physics 在模拟阶段更新，与 GPU 上传分离。每屏投影相关的粒子实例仍归本屏，但即使该屏不能呈现也执行相同 cadence，恢复只上传当前结果。模拟不占用 GPU ring slot；上传失败不回退模拟。
 4. 每屏 encode/seal/submit 独立完成；未提交候选只取消自身资源。persistent history 保持本屏上次 GPU 完成版本，缺失期间不生成虚构 history。恢复使用最新模拟输入接续该 history，不补播过期 tick 或脚本事件；仅当实际绘制该帧时执行 frame-scoped material function。
