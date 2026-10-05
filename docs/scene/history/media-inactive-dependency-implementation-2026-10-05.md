@@ -43,3 +43,13 @@ CPU 门实际编译 analysis 与 frontend，区分 named/preserved、已有背�
 本批四个 previous stage 全部恢复，两模式实际 GPU 执行并集44/73→48/73（约65.8%），终端 compositor 消费25/37层；这是操作覆盖下限，不是样本完整正确率。最近 Timeline/Snapshot/owner-admission CPU门48/48、shader输入ABI门4/4及相邻三个模块通过；旧 owner 的有效行为红例、Debug build与独立只读审查用于闭环。
 
 最终证据包 `.artifacts/scene-evidence/runs/media-transition-20261005/final/samples/2938612768/runtime_evidence.zip`，12,494,012字节，SHA256 `86ec7dbffc57bb6e94e8509b657c13550f99c58b0f4353253a945d6642bd4d16`。81个payload逐文件哈希与ZIP CRC通过，保留14日，包含基线跳变、过渡恢复后的首帧反例及最终三轮日志和有限PNG，不含真实样本包或App。清理本轮旧App、隔离HOME/样本与重试缓存，复用一份构建缓存及最新已验App。
+
+## 后继：293 点击、音频与选项运行验收（fa375195）
+
+本轮无产品修改。复用上一节dylib，真实包的隔离副本运行五轮：点击、静音、确定PCM、背景1→2…7→1、可选blur/gradient/waterwaves/custom-disc/pulse。全部退出0。点击日志命中239/775并完成cursorClick，PNG显示封面右移及唱片展开；187/1095/449文字移动来自各自脚本读取shared.a，不能误修为跨层origin污染。作者左对齐与当前视口也允许文字裁切，不据本轮判定官方版式一致。
+
+静音/频谱使用真实采集服务的PCM入口，经FFT/inbox消费，非手写频谱数组；563阶段真实GPU完成。原尺寸条形ROI静音暗像素0，非零输入出现柱条且跨帧改变。背景scale默认上下限同为1；调最大值1.3后继续验证，不把作者关闭跳动误判缺失。背景七次热切及可选项四次变更均accept，同window/session继续运行。媒体系统来源、真实音乐、二次点击复位与全部选项组合未在本轮验收。
+
+本轮五次执行并集63/73；与上一节同产品身份的媒体两模式合并，实际materialNodes>0且GPU completed阶段为71/73（约97.3%），终端compositor消费层并集36/37。剩余322:0为作者固定关闭effect，250:0为作者固定隐藏且本轮未被消费的层，保持原值；这些计数不是完整视觉正确率。
+
+证据包 `.artifacts/scene-evidence/runs/sample293-interaction-20261005/final/samples/2938612768/runtime_evidence.zip`，28,296,365字节，SHA256 `162ecb0f1d5ce829063e3ce48ec7996254609a8cf3816d83ae26a6e8e723e09d`；28个payload与ZIP CRC通过。保留五轮命令/日志、作者开关摘要、联合统计和点击/音频四张原尺寸PNG；背景/选项其它PNG经本轮查看后不长期保留。独立只读验收不扩成官方parity、性能或所有组合通过。
