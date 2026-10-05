@@ -92,6 +92,8 @@ extension DebugScenePlaybackRunner {
     static var requestedPrimaryClick: Bool {
         ProcessInfo.processInfo.arguments.contains(
             "--mwx-debug-scene-primary-click"
+        ) || ProcessInfo.processInfo.arguments.contains(
+            "--mwx-debug-scene-primary-double-click"
         )
     }
 

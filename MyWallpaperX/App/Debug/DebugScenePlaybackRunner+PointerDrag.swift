@@ -287,23 +287,32 @@ extension DebugScenePlaybackRunner {
                     to: dragPointer
                 )
             } else if primaryClick {
-                setPointer(at: pointer, primaryButtonIsDown: true, state: "press")
-                if requestedPrimaryClickSubframe {
-                    setPointer(at: pointer, primaryButtonIsDown: false, state: "release")
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
-                        capturePointerResult(outputDirectory: outputDirectory)
-                    }
-                } else {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
-                        setPointer(at: pointer, primaryButtonIsDown: false, state: "release")
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
-                            capturePointerResult(outputDirectory: outputDirectory)
-                        }
-                    }
-                }
+                let count = ProcessInfo.processInfo.arguments.contains(
+                    "--mwx-debug-scene-primary-double-click") ? 2 : 1
+                schedulePrimaryClicks(outputDirectory: outputDirectory, pointer: pointer, remaining: count)
             } else {
                 capturePointerResult(outputDirectory: outputDirectory)
             }
+        }
+    }
+
+    private static func schedulePrimaryClicks(
+        outputDirectory: URL, pointer: SIMD2<Float>, remaining: Int
+    ) {
+        setPointer(at: pointer, primaryButtonIsDown: true, state: "press")
+        let release = {
+            setPointer(at: pointer, primaryButtonIsDown: false, state: "release")
+            DispatchQueue.main.asyncAfter(deadline: .now() + (remaining > 1 ? 0.07 : 0.28)) {
+                if remaining > 1 {
+                    schedulePrimaryClicks(outputDirectory: outputDirectory, pointer: pointer, remaining: remaining - 1)
+                } else {
+                    capturePointerResult(outputDirectory: outputDirectory)
+                }
+            }
+        }
+        if requestedPrimaryClickSubframe { release() }
+        else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + (remaining > 1 ? 0.07 : 0.28), execute: release)
         }
     }
 
