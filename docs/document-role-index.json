@@ -483,9 +483,9 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c9c3c0be76ed2ca2cbb34307ee2e20c5a0491498d0c65c0693e6c8e67e010929",
+        "sourceSHA256": "d231943846a54cda4bfb2596d76ddc18e72fc7e87c917cd2c66190728457fb0a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded childless composition effect activation evidence navigation; no whole-sample or official parity acceptance.",
+        "scope": "Bounded sample339 controlled media sequence and text-speed evidence navigation; real system media ingress and full visual acceptance remain open.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -1227,6 +1227,16 @@
       "currentAuthorities": [
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/capabilities/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/sample339-media-sequence-implementation-2026-10-05.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
       ]
     },
     {

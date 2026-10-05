@@ -153,50 +153,201 @@ extension DebugScenePlaybackRunner {
     static func scheduleRequestedMediaThumbnailSequence(rootURL: URL) {
         guard let raw = argumentValue(
             after: "--mwx-debug-scene-media-thumbnail-sequence-json"
-        ), let data = raw.data(using: .utf8),
+        ) else { return }
+        guard raw.utf8.count <= 2 * 1_024 * 1_024,
+           let data = raw.data(using: .utf8),
            let entries = try? JSONDecoder().decode([MediaSequenceEntry].self, from: data),
-           (1...8).contains(entries.count),
-           entries.allSatisfy({
-               $0.delay.isFinite && (0.1...60).contains($0.delay)
-           }) else {
+           (1...8).contains(entries.count) else {
+            NSLog("MWX DEBUG SCENE: phase=media-sequence-rejected reason=invalid")
             return
         }
-        for entry in entries {
-            DispatchQueue.main.asyncAfter(deadline: .now() + entry.delay) {
-                if let path = entry.path {
-                    publishMediaThumbnail(relativePath: path, rootURL: rootURL)
-                } else {
-                    SceneMediaThumbnailInbox.shared.clear()
-                    NSLog("MWX DEBUG SCENE: phase=media-thumbnail-cleared")
+        let start = DispatchTime.now()
+        let groups = Dictionary(grouping: Array(entries.enumerated()), by: { $0.element.delay })
+        for delay in groups.keys.sorted() {
+            guard let group = groups[delay] else { continue }
+            // One callback preserves array order for equal timestamps. These
+            // remain independent inbox channels, not an atomic media session.
+            DispatchQueue.main.asyncAfter(deadline: start + delay) {
+                for (index, entry) in group {
+                    publishMediaSequenceEntry(entry, index: index, rootURL: rootURL)
                 }
             }
         }
     }
 
+    private static func publishMediaSequenceEntry(
+        _ entry: MediaSequenceEntry,
+        index: Int,
+        rootURL: URL
+    ) {
+        let inbox = SceneMediaThumbnailInbox.shared
+        let accepted: Bool
+        let action: String
+        switch entry.action {
+        case .path(let path):
+            action = "path"
+            accepted = publishMediaThumbnail(relativePath: path, rootURL: rootURL)
+        case .clear:
+            action = "clear"
+            inbox.clear()
+            accepted = inbox.latest().current == nil
+            if accepted {
+                NSLog("MWX DEBUG SCENE: phase=media-thumbnail-cleared")
+            }
+        case .properties(let properties):
+            action = "properties"
+            accepted = inbox.publishMediaProperties(
+                title: properties.title, artist: properties.artist,
+                subTitle: properties.subTitle, albumTitle: properties.albumTitle,
+                albumArtist: properties.albumArtist, genres: properties.genres,
+                contentType: properties.contentType
+            )
+        case .playbackState(let state):
+            action = "playbackState"
+            accepted = inbox.publishPlaybackState(state)
+        case .timeline(let timeline):
+            action = "timeline"
+            accepted = inbox.publishMediaTimeline(
+                position: timeline.position, duration: timeline.duration
+            )
+        }
+        let snapshot = inbox.latest()
+        NSLog(
+            "MWX DEBUG SCENE: phase=media-sequence-step index=%d action=%@ accepted=%@ artGeneration=%llu playbackGeneration=%llu propertiesGeneration=%llu timelineGeneration=%llu",
+            index, action, accepted ? "true" : "false", snapshot.generation,
+            snapshot.playbackGeneration, snapshot.propertiesGeneration,
+            snapshot.timelineGeneration
+        )
+    }
+
     private struct MediaSequenceEntry: Decodable {
-        let path: String?
+        enum Action {
+            case path(String)
+            case clear
+            case properties(MediaSequenceProperties)
+            case playbackState(Int)
+            case timeline(MediaSequenceTimeline)
+        }
+
+        let action: Action
         let delay: TimeInterval
 
-        private enum CodingKeys: String, CodingKey {
-            case path
-            case clear
-            case delay
+        private enum CodingKeys: String, CodingKey, CaseIterable {
+            case path, clear, delay, properties, playbackState, timeline
         }
 
         init(from decoder: Decoder) throws {
+            try validateMediaSequenceKeys(decoder, allowed: CodingKeys.allCases.map(\.rawValue))
             let values = try decoder.container(keyedBy: CodingKeys.self)
             let path = try values.decodeIfPresent(String.self, forKey: .path)
             let clear = try values.decodeIfPresent(Bool.self, forKey: .clear) ?? false
-            guard (path != nil) != clear else {
+            let properties = try values.contains(.properties)
+                ? values.decode(MediaSequenceProperties.self, forKey: .properties) : nil
+            let state = try values.contains(.playbackState)
+                ? values.decode(Int.self, forKey: .playbackState) : nil
+            let timeline = try values.contains(.timeline)
+                ? values.decode(MediaSequenceTimeline.self, forKey: .timeline) : nil
+            let delay = try values.decode(TimeInterval.self, forKey: .delay)
+            guard [path != nil, clear, properties != nil, state != nil, timeline != nil]
+                .filter({ $0 }).count == 1,
+                delay.isFinite, (0.1...60).contains(delay),
+                path.map({ !$0.isEmpty && isValidMediaSequenceString($0) }) != false,
+                state.map({ (0...2).contains($0) }) != false else {
                 throw DecodingError.dataCorruptedError(
-                    forKey: .path,
+                    forKey: .delay,
                     in: values,
-                    debugDescription: "exactly one media sequence action is required"
+                    debugDescription: "one bounded media sequence action is required"
                 )
             }
-            self.path = path
-            self.delay = try values.decode(TimeInterval.self, forKey: .delay)
+            if let path { action = .path(path) }
+            else if let properties { action = .properties(properties) }
+            else if let state { action = .playbackState(state) }
+            else if let timeline { action = .timeline(timeline) }
+            else { action = .clear }
+            self.delay = delay
         }
+    }
+
+    private struct MediaSequenceProperties: Decodable {
+        let title: String
+        let artist: String
+        let subTitle: String
+        let albumTitle: String
+        let albumArtist: String
+        let genres: String
+        let contentType: String
+
+        private enum CodingKeys: String, CodingKey, CaseIterable {
+            case title, artist, subTitle, albumTitle, albumArtist, genres, contentType
+        }
+
+        init(from decoder: Decoder) throws {
+            try validateMediaSequenceKeys(decoder, allowed: CodingKeys.allCases.map(\.rawValue))
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            title = try values.decode(String.self, forKey: .title)
+            artist = try values.decode(String.self, forKey: .artist)
+            func optional(_ key: CodingKeys) throws -> String {
+                try values.contains(key) ? values.decode(String.self, forKey: key) : ""
+            }
+            subTitle = try optional(.subTitle)
+            albumTitle = try optional(.albumTitle)
+            albumArtist = try optional(.albumArtist)
+            genres = try optional(.genres)
+            contentType = try optional(.contentType)
+            guard [title, artist, subTitle, albumTitle, albumArtist, genres, contentType]
+                .allSatisfy(isValidMediaSequenceString) else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .title, in: values, debugDescription: "invalid media property"
+                )
+            }
+        }
+    }
+
+    private struct MediaSequenceTimeline: Decodable {
+        let position: Double
+        let duration: Double
+
+        private enum CodingKeys: String, CodingKey, CaseIterable {
+            case position, duration
+        }
+
+        init(from decoder: Decoder) throws {
+            try validateMediaSequenceKeys(decoder, allowed: CodingKeys.allCases.map(\.rawValue))
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            position = try values.decode(Double.self, forKey: .position)
+            duration = try values.decode(Double.self, forKey: .duration)
+            guard position.isFinite, position >= 0, duration.isFinite, duration >= 0 else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .position, in: values, debugDescription: "invalid media timeline"
+                )
+            }
+        }
+    }
+
+    private struct MediaSequenceKey: CodingKey {
+        let stringValue: String
+        var intValue: Int? { nil }
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { return nil }
+    }
+
+    nonisolated private static func validateMediaSequenceKeys(
+        _ decoder: Decoder,
+        allowed: [String]
+    ) throws {
+        let values = try decoder.container(keyedBy: MediaSequenceKey.self)
+        guard values.allKeys.allSatisfy({ allowed.contains($0.stringValue) }) else {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: decoder.codingPath, debugDescription: "unknown media sequence field"
+            ))
+        }
+    }
+
+    nonisolated private static func isValidMediaSequenceString(_ value: String) -> Bool {
+        value.utf8.count <= SceneMediaThumbnailInbox.maximumMediaPropertyUTF8ByteCount
+            && !value.unicodeScalars.contains(where: {
+                CharacterSet.controlCharacters.contains($0)
+            })
     }
 
     @discardableResult

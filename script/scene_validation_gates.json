@@ -2164,6 +2164,17 @@
       ]
     },
     {
+      "id": "debug-media-sequence",
+      "patterns": [
+        "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+MediaThumbnail.swift",
+        "script/tests/test_scene_debug_media_sequence.py"
+      ],
+      "modules": [
+        "test_scene_debug_media_sequence",
+        "test_scene_media_thumbnail_provider"
+      ]
+    },
+    {
       "id": "app-debug-layout",
       "patterns": [
         "MyWallpaperX/App/*Debug*.swift",
