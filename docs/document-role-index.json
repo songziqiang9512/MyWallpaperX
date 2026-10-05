@@ -483,9 +483,9 @@
       "lastReviewed": "2026-10-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1bcac707dff54425278014c977ee0c6519d8816ece5c96237463b7cb4cc6ed71",
+        "sourceSHA256": "59e0dc18e3f3ab190686f743d84addf0ceffcf10ed2961872fe79eed6348dc12",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded user-file and media-thumbnail evidence navigation; no system-media or whole-sample acceptance.",
+        "scope": "Bounded hidden-property evidence navigation; no whole-sample, system-media or official parity acceptance.",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -859,6 +859,15 @@
       "currentAuthorities": [
         "docs/scene/roadmap/engine-refactor-program.md",
         "docs/scene/capabilities/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/hidden-property-consumers-implementation-2026-10-05.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/runtime-input-property-coverage.md"
       ]
     },
     {

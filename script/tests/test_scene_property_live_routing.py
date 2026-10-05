@@ -480,7 +480,6 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
             consumers.index('case "image":') : consumers.index('case "text":')
         ]
         self.assertIn("if layer.supportsDirectLayerColorConsumer", image_case)
-        self.assertIn("visibleLayerIDs.contains(layer.id)", image_case)
         self.assertIn(
             ".layer(layerID: layer.id, field: .color)", image_case
         )

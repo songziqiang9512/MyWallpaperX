@@ -1625,11 +1625,14 @@
       "id": "scene-workshop-bridge",
       "patterns": [
         "MyWallpaperX/Modules/SteamWorkshop/Scene/**",
-        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopSceneInspectionController.swift"
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopSceneInspectionController.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift",
+        "script/tests/test_scene_hidden_property_consumers.py"
       ],
       "modules": [
         "test_scene_detail_diagnostics_on_demand",
         "test_scene_property_live_routing",
+        "test_scene_hidden_property_consumers",
         "test_scene_property_live_update_state",
         "test_scene_runtime_input"
       ]

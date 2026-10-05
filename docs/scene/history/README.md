@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-05 | Scene | 实施证据 | [隐藏属性热更新](hidden-property-consumers-implementation-2026-10-05.md) | 启动visible与prepared consumer分离、293四步更新及自有像素反例 | [运行输入属性](../capabilities/runtime-input-property-coverage.md) |
 | 2026-10-05 | Scene | 实施证据 | [世界空间视差准入](particle-world-parallax-implementation-2026-10-05.md) | 静态方向基底与绘制平移分离、真实水滴及Rain child恢复 | [粒子能力](../capabilities/particle-component-coverage.md) |
 | 2026-10-05 | Scene | 实施证据 | [Rain标量速度Remap](particle-scalar-remap-implementation-2026-10-05.md) | 缺省乘法/饱和行为、项目FBM近似与真实粒子链路 | [粒子能力](../capabilities/particle-component-coverage.md) |
 | 2026-10-05 | Scene | 运行修复 | [初始隐藏媒体封面](media-inactive-dependency-implementation-2026-10-05.md) | potential依赖到最终计划的同一引用守恒及293受控媒体画面 | [能力台账](../capabilities/coverage-ledger.md)、[当前证据](../capabilities/runtime-evidence-current.md) |

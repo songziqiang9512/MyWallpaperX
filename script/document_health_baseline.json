@@ -90,11 +90,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 74,
-      "bytes": 8339
+      "bytes": 8394
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
-      "bytes": 173590
+      "bytes": 173917
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -170,7 +170,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 49644
+      "bytes": 49783
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1073,15 +1073,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f69b64ac9505d4c6a6d5a2d1e34f2a3b852e396ed1a262a9d102a44807294813",
-      "after": "eb5ddb5ac751862f41a2ca4c4adbb47b4dd84292553c01c492d6113d64ed59ff",
-      "owner": "scene-runtime",
-      "reason": "原位纹理资源职责及有界产品像素结果接管旧全场景重建状态。",
-      "decision": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/particle-remap-design.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
       "after": "a4511f8b602898ca71e35668b02b83fb10bd7669d2dc28c2e376f7b13c21f87b",
@@ -1109,12 +1100,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "07375cf8d67310c05c4e269275ea8fc8316f422295efb54778fbfdbcc8a853c3",
+      "after": "c403734c10c91565d3794c9a04ecb2c7d80c5f5f285cbc055629d9f542dddc7d",
+      "owner": "scene-property",
+      "reason": "以prepared consumer生命周期替换旧启动可见性限制，记录实际热更新与未验边界，替换下一首断点。",
+      "decision": "docs/scene/history/hidden-property-consumers-implementation-2026-10-05.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "dd46c8ad126f640ad84f3195a909a1d4be208e3fb80fb58ca1da8984518d56a2",
+      "after": "7928543cb3622c77241efcf6983e88cc80bf863e69c9e3f2daefc6503131be4f",
+      "owner": "scene-property",
+      "reason": "以prepared consumer生命周期替换旧启动可见性限制，记录实际热更新与未验边界，替换下一首断点。",
+      "decision": "docs/scene/history/hidden-property-consumers-implementation-2026-10-05.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "6c453b783b15fac04137c8334b19df0e58df820f48c7594a73f74c27b5d66846",
-      "after": "d016f9e8c77eed2af5e88cfa03695b90d1c979e0c9f8ccedd0917940028cd522",
-      "owner": "scene-particle",
-      "reason": "冻结未解决的缩放反例、最小设计和重开条件，避免以单位缩放控制冒充真实样本修复。",
-      "decision": "docs/scene/roadmap/batch2/particle-collision-bounds-design.md"
+      "before": "d016f9e8c77eed2af5e88cfa03695b90d1c979e0c9f8ccedd0917940028cd522",
+      "after": "e951d89a67abc791fbcc8fada51b35ca2caae187e9288ea385b6ada96650a132",
+      "owner": "scene-property",
+      "reason": "以prepared consumer生命周期替换旧启动可见性限制，记录实际热更新与未验边界，替换下一首断点。",
+      "decision": "docs/scene/history/hidden-property-consumers-implementation-2026-10-05.md"
     }
   ]
 }

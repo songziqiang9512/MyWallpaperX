@@ -823,7 +823,6 @@ class SceneFrameContextTests(unittest.TestCase):
             derivation.index('case "image":') : derivation.index('case "text":')
         ]
         self.assertIn("if layer.supportsDirectLayerColorConsumer", image_case)
-        self.assertIn("visibleLayerIDs.contains(layer.id)", image_case)
         self.assertIn(layer_color, image_case)
         solid_case = derivation[
             derivation.index('case "solid":') : derivation.index(
@@ -833,7 +832,6 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn(layer_color, solid_case)
         self.assertIn('case "particle"', derivation)
         self.assertIn(".particle(layerID: layer.id, field: $0)", derivation)
-        self.assertIn("visibleLayerIDs.contains(layer.id)", derivation)
         self.assertIn(".text(layerID: layer.id, field: .content)", derivation)
         self.assertIn(".text(layerID: layer.id, field: .pointSize)", derivation)
         self.assertIn(".text(layerID: layer.id, field: .color)", derivation)

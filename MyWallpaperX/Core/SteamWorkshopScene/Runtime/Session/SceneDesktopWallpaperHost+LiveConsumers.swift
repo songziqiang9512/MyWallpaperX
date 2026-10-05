@@ -81,7 +81,6 @@ extension SceneDesktopWallpaperHost {
                 resolvedMaterialExecutionCapabilities
                     .admittedResolvedMaterialReferences
         )
-        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let effectTargets = resolvedMaterialExecutionCapabilities.liveConsumerTargets
         let lightTargets = SceneLightSnapshot.liveConsumerTargets(
             descriptor: descriptor
@@ -172,8 +171,9 @@ extension SceneDesktopWallpaperHost {
             switch layer.contentKind {
             case "image":
                 targets.insert(.layer(layerID: layer.id, field: .alpha))
-                if layer.supportsDirectLayerColorConsumer,
-                   visibleLayerIDs.contains(layer.id) {
+                // Visibility changes composition, not the prepared consumer's
+                // lifetime. Hidden sources must retain the latest property value.
+                if layer.supportsDirectLayerColorConsumer {
                     targets.insert(.layer(layerID: layer.id, field: .color))
                 }
                 for animationLayer in layer.puppetAnimationLayers
@@ -187,8 +187,7 @@ extension SceneDesktopWallpaperHost {
             case "text":
                 targets.insert(.layer(layerID: layer.id, field: .alpha))
                 guard layer.text != nil,
-                      layer.textStyle != nil,
-                      visibleLayerIDs.contains(layer.id) else { return }
+                      layer.textStyle != nil else { return }
                 targets.insert(.text(layerID: layer.id, field: .content))
                 targets.insert(.text(layerID: layer.id, field: .pointSize))
                 targets.insert(.text(layerID: layer.id, field: .color))
