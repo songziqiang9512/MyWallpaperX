@@ -22,6 +22,7 @@ final class SceneSystemMediaSource {
         let artworkChanged: Bool
         let artworkData: Data?
         let artworkFailure: Failure?
+        let artworkPalette: SceneMediaArtworkPalette?
     }
 
     nonisolated enum Result: Sendable {
@@ -47,7 +48,8 @@ final class SceneSystemMediaSource {
         case helperUnavailable
     }
 
-    /// Stateful wire validation only; no artwork cache or media publication.
+    /// Stateful wire validation and bounded artwork preparation on the reader
+    /// queue; no artwork cache or media publication.
     nonisolated struct Decoder {
         private var previousSource: String?
         private var previousIdentity: String?
@@ -127,7 +129,8 @@ final class SceneSystemMediaSource {
                 album: wire.album, playbackState: wire.playbackState,
                 position: wire.position, duration: wire.duration,
                 artworkIdentifier: wire.artworkIdentifier, artworkChanged: changed,
-                artworkData: artwork, artworkFailure: artworkFailure
+                artworkData: artwork, artworkFailure: artworkFailure,
+                artworkPalette: artwork.flatMap { SceneMediaArtworkPalette.extract(from: $0) }
             ))
         }
     }

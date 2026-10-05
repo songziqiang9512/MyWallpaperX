@@ -30,6 +30,7 @@ import Foundation
 nonisolated enum SceneMusicPlayerSource {
     enum State: Sendable { case playing; var inboxValue: Int { 1 } }
     struct Snapshot: Sendable {
+        var artworkPalette: SceneMediaArtworkPalette? = testPalette(1)
         let identity: String; let title: String; let artist = "Artist"; let album = "Album"
         let state = State.playing; let position = 5.0; let duration = 100.0
         let artworkData: Data? = Data([1, 2, 3])
@@ -41,7 +42,8 @@ nonisolated enum SceneMusicPlayerSource {
         control.lock.lock(); defer { control.lock.unlock() }
         control.authorizations += 1; return control.authorization
     }
-    static func read(pid: pid_t, cachedArtworkIdentity: String?, cachedArtworkData: Data?) -> ReadResult {
+    static func read(pid: pid_t, cachedArtworkIdentity: String?, cachedArtworkData: Data?,
+                     cachedArtworkPalette: SceneMediaArtworkPalette?) -> ReadResult {
         control.lock.lock()
         control.reads += 1
         let value = control.result, blocker = control.blocker
@@ -70,6 +72,7 @@ nonisolated enum SceneMusicPlayerSource {
         var artworkIdentifier: String? = "art"
         let artworkChanged: Bool, artworkData: Data?
         var artworkFailure: String? = nil
+        var artworkPalette: SceneMediaArtworkPalette? = nil
     }
     nonisolated enum Failure: Equatable, Sendable { case heartbeatTimeout, helperUnavailable }
     nonisolated enum Result: Sendable { case snapshot(Snapshot), noSession, unavailable(Failure) }
@@ -78,6 +81,10 @@ nonisolated enum SceneMusicPlayerSource {
     var callback: (@MainActor @Sendable (Result) -> Void)?
     func start(_ receive: @escaping @MainActor @Sendable (Result) -> Void) { callback = receive; Self.latest = self; Self.starts += 1 }
     func stop() { callback = nil }
+}
+nonisolated func testPalette(_ red: Double) -> SceneMediaArtworkPalette {
+    .init(primaryColor: .init(red, 0, 1 - red), secondaryColor: .init(0, 1, 0),
+          tertiaryColor: .init(1, 1, 0), textColor: .init(1, 1, 1), highContrastColor: .init(0, 0, 0))
 }
 @main struct Main {
     @MainActor static func wait(_ seconds: Double = 3, until condition: () -> Bool) {
@@ -95,6 +102,7 @@ nonisolated enum SceneMusicPlayerSource {
             wait { inbox.latest().properties?.title == "Track A" }
             provider.acquire(second)
             precondition(control.counts().0 == 1)
+            precondition(inbox.latest().primaryColor == testPalette(1).primaryColor)
             provider.release(first)
             precondition(inbox.latest().properties?.title == "Track A")
             provider.release(second)
@@ -136,16 +144,23 @@ nonisolated enum SceneMusicPlayerSource {
             let source = SceneSystemMediaSource.latest!
             let oldCallback = source.callback!
             let red = Data([1]), blue = Data([2])
-            source.callback?(.snapshot(.init(source: "Player A", identity: "one", title: "First", artworkChanged: true, artworkData: red)))
+            source.callback?(.snapshot(.init(source: "Player A", identity: "one", title: "First", artworkChanged: true, artworkData: red, artworkPalette: testPalette(1))))
             precondition(inbox.latest().current == red && inbox.latest().properties?.title == "First")
             source.callback?(.snapshot(.init(source: "Player A", identity: "one", title: "First", artworkChanged: false, artworkData: nil)))
             precondition(inbox.latest().current == red, "same-track update lost cached cover")
+            precondition(inbox.latest().primaryColor == testPalette(1).primaryColor, "same-track update lost palette")
             source.callback?(.snapshot(.init(source: "Player B", identity: "one", title: "Second", artworkChanged: true, artworkData: nil)))
             precondition(inbox.latest().current == nil && inbox.latest().properties?.title == "Second")
-            source.callback?(.snapshot(.init(source: "Player B", identity: "one", title: "Second", artworkChanged: true, artworkData: blue)))
+            precondition(inbox.latest().primaryColor == .zero, "new source inherited old palette")
+            source.callback?(.snapshot(.init(source: "Player B", identity: "one", title: "Second", artworkChanged: true, artworkData: blue, artworkPalette: testPalette(0))))
             precondition(inbox.latest().current == blue, "late current-track cover failed")
+            precondition(inbox.latest().primaryColor == testPalette(0).primaryColor)
+            let paletteGeneration = inbox.latest().generation
+            source.callback?(.snapshot(.init(source: "Player B", identity: "one", title: "Second", artworkChanged: false, artworkData: nil)))
+            precondition(inbox.latest().generation == paletteGeneration, "metadata-only poll retriggered cover")
             source.callback?(.unavailable(.heartbeatTimeout))
             precondition(inbox.latest().current == nil && inbox.latest().properties?.title == "")
+            precondition(inbox.latest().primaryColor == .zero && inbox.latest().textColor == .zero)
             wait(4) { SceneSystemMediaSource.starts == 2 }
             oldCallback(.snapshot(.init(source: "Player A", identity: "one", title: "Stale retry", artworkChanged: true, artworkData: red)))
             precondition(inbox.latest().properties?.title == "", "retired transport published after retry")
@@ -166,13 +181,24 @@ nonisolated enum SceneMusicPlayerSource {
             DispatchQueue.concurrentPerform(iterations: 2000) { index in
                 let first = index % 2 == 0
                 precondition(inbox.publishMediaSession(artwork: Data([first ? 1 : 2]), properties: first ? a : b,
-                    playbackState: first ? 1 : 2, timeline: .init(position: first ? 1 : 2, duration: 10)))
+                    playbackState: first ? 1 : 2, timeline: .init(position: first ? 1 : 2, duration: 10),
+                    primaryColor: .init(first ? 1 : 0, 0, 0), secondaryColor: .init(0, first ? 1 : 0, 0),
+                    tertiaryColor: .init(0, 0, first ? 1 : 0), textColor: .init(repeating: first ? 1 : 0),
+                    highContrastColor: .init(repeating: first ? 0 : 1)))
                 let value = inbox.latest(), expected = value.properties?.title == "A" ? 1 : 2
                 precondition(value.current == Data([UInt8(expected)]) && value.playbackState == expected && value.timeline?.position == Double(expected))
+                precondition(value.primaryColor == .init(expected == 1 ? 1 : 0, 0, 0))
+                precondition(value.secondaryColor == .init(0, expected == 1 ? 1 : 0, 0))
+                precondition(value.tertiaryColor == .init(0, 0, expected == 1 ? 1 : 0))
+                precondition(value.textColor == .init(repeating: expected == 1 ? 1 : 0))
+                precondition(value.highContrastColor == .init(repeating: expected == 1 ? 0 : 1))
             }
             let before = inbox.latest()
             precondition(!inbox.publishMediaSession(artwork: Data(), properties: a, playbackState: 1, timeline: .init(position: 1, duration: 10)))
             precondition(inbox.latest() == before)
+            precondition(!inbox.publishMediaSession(artwork: Data([1]), properties: a, playbackState: 1,
+                timeline: .init(position: 1, duration: 10), primaryColor: .init(.nan, 0, 0)))
+            precondition(inbox.latest() == before, "invalid palette partially published")
             precondition(inbox.clearMediaSession())
             let cleared = inbox.latest()
             precondition(cleared.current == nil && cleared.properties?.title == "" && cleared.playbackState == 0 && cleared.timeline?.duration == 0)
@@ -198,7 +224,7 @@ class SceneSystemMediaProviderTests(unittest.TestCase):
         env = os.environ.copy()
         env['CLANG_MODULE_CACHE_PATH'] = str(root / 'clang-cache')
         result = subprocess.run(['swiftc', '-swift-version', '6', '-default-isolation', 'MainActor',
-            str(MEDIA / 'SceneMediaThumbnailInbox.swift'), str(MEDIA / 'SceneSystemMediaProvider.swift'),
+            str(MEDIA / 'SceneMediaArtworkPalette.swift'), str(MEDIA / 'SceneMediaThumbnailInbox.swift'), str(MEDIA / 'SceneSystemMediaProvider.swift'),
             str(harness), '-o', str(cls.binary)], env=env, capture_output=True, text=True, timeout=60)
         if result.returncode:
             raise AssertionError(result.stderr)

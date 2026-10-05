@@ -638,6 +638,7 @@
       "Media": {
         "file_globs": [
           "SceneAudioSpectrum.swift",
+          "SceneMediaArtworkPalette.swift",
           "SceneMediaThumbnailCoordinator.swift",
           "SceneMediaThumbnailInbox.swift",
           "SceneMusicPlayerSource.swift",

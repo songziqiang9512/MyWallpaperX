@@ -13,11 +13,14 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMusicPlayerSource.swift"
+PALETTE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaArtworkPalette.swift"
 SDEF = Path("/System/Applications/Music.app/Contents/Resources/com.apple.Music.sdef")
 
 HARNESS = r'''
 import Carbon
+import CoreGraphics
 import Foundation
+import ImageIO
 
 typealias Failure = SceneMusicPlayerSource.Failure
 
@@ -36,6 +39,22 @@ nonisolated struct MusicSourceHarness {
     static func printJSON(_ value: [String: Any]) {
         let data = try! JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    static func ownedPNG(_ color: [UInt8]) -> Data {
+        precondition(color.count == 3)
+        let pixels = Data((0..<16).flatMap { _ in color + [255] })
+        let image = CGImage(width: 4, height: 4, bitsPerComponent: 8, bitsPerPixel: 32,
+            bytesPerRow: 16, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Big.rawValue
+                | CGImageAlphaInfo.premultipliedLast.rawValue),
+            provider: CGDataProvider(data: pixels as CFData)!, decode: nil,
+            shouldInterpolate: false, intent: .defaultIntent)!
+        let bytes = NSMutableData()
+        let destination = CGImageDestinationCreateWithData(bytes, "public.png" as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, image, nil)
+        precondition(CGImageDestinationFinalize(destination))
+        return bytes as Data
     }
 
     static func cpu() throws {
@@ -177,6 +196,53 @@ nonisolated struct MusicSourceHarness {
         invalidReply.setParam(NSAppleEventDescriptor(string: "0"), forKeyword: keyErrorNumber)
         reject(.malformed(phase: "title.errorNumber")) { _ = try codec.replyValue(invalidReply, phase: "title") }
         var artCalls = 0
+        let redPNG = ownedPNG([255, 0, 0]), bluePNG = ownedPNG([0, 0, 255])
+        let redPalette = SceneMediaArtworkPalette.extract(from: redPNG)!
+        let bluePalette = SceneMediaArtworkPalette.extract(from: bluePNG)!
+        func checkFiveColors(_ palette: SceneMediaArtworkPalette) {
+            for color in [palette.primaryColor, palette.secondaryColor, palette.tertiaryColor,
+                          palette.textColor, palette.highContrastColor] {
+                check((0..<3).allSatisfy { color[$0].isFinite && (0...1).contains(color[$0]) })
+            }
+        }
+        checkFiveColors(redPalette)
+        checkFiveColors(bluePalette)
+        check(redPalette.primaryColor == SIMD3<Double>(1, 0, 0))
+        check(redPalette.textColor == .zero && redPalette.highContrastColor == .zero)
+        check(bluePalette.primaryColor == SIMD3<Double>(0, 0, 1))
+        check(bluePalette.textColor == SIMD3<Double>(repeating: 1)
+            && bluePalette.highContrastColor == SIMD3<Double>(repeating: 1))
+        let freshPNG = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+            phase == "artwork" ? NSAppleEventDescriptor(descriptorType: typeData, data: redPNG)! : good[phase]!
+        }
+        if case .snapshot(let value) = freshPNG {
+            check(value.artworkData == redPNG && value.artworkPalette == redPalette)
+            check(value.title == "Owned Track" && value.artworkFailure == nil)
+        } else { preconditionFailure("fresh image must carry five colors") }
+        // Deliberately pass a differently colored cached palette. Returning it
+        // proves a same-track cache hit does not extract from the bytes again.
+        let cachedPNG = try SceneMusicPlayerSource.Transaction.read(pid: 123,
+            cachedArtworkIdentity: "com.apple.Music:123:AA11", cachedArtworkData: redPNG,
+            cachedArtworkPalette: bluePalette) { _, phase in
+            if phase == "artwork" { artCalls += 1 }
+            return good[phase]!
+        }
+        if case .snapshot(let value) = cachedPNG {
+            check(value.artworkData == redPNG && value.artworkPalette == bluePalette && artCalls == 0)
+        } else { preconditionFailure("expected cached image palette") }
+        for identity in ["com.apple.Music:999:AA11", "com.apple.Music:123:BB22"] {
+            artCalls = 0
+            let newTrack = try SceneMusicPlayerSource.Transaction.read(pid: 123,
+                cachedArtworkIdentity: identity, cachedArtworkData: redPNG,
+                cachedArtworkPalette: redPalette) { _, phase in
+                if phase == "artwork" { artCalls += 1; return NSAppleEventDescriptor(descriptorType: typeData, data: bluePNG)! }
+                return good[phase]!
+            }
+            if case .snapshot(let value) = newTrack {
+                check(value.artworkData == bluePNG && value.artworkPalette == bluePalette && artCalls == 1)
+            } else { preconditionFailure("new identity must extract the new image") }
+        }
+        artCalls = 0
         let cacheBytes = Data([7, 8, 9])
         let cacheHit = try SceneMusicPlayerSource.Transaction.read(pid: 123,
             cachedArtworkIdentity: "com.apple.Music:123:AA11", cachedArtworkData: cacheBytes) { _, phase in
@@ -185,6 +251,7 @@ nonisolated struct MusicSourceHarness {
         }
         if case .snapshot(let value) = cacheHit {
             check(value.artworkData == cacheBytes && value.artworkFailure == nil && artCalls == 0)
+            check(value.artworkPalette == nil)
         } else { preconditionFailure("expected cached track") }
         for (identity, bytes) in [("com.apple.Music:999:AA11", Optional(cacheBytes)),
                                   ("com.apple.Music:123:BB22", Optional(cacheBytes)),
@@ -214,8 +281,18 @@ nonisolated struct MusicSourceHarness {
             }
             if case .snapshot(let value) = result {
                 check(value.artworkData == nil && value.artworkFailure == issue && value.title == "Owned Track")
+                check(value.artworkPalette == nil)
             } else { preconditionFailure("art failure must stay local") }
         }
+        let badImage = try SceneMusicPlayerSource.Transaction.read(pid: 123,
+            cachedArtworkIdentity: "com.apple.Music:123:BB22", cachedArtworkData: redPNG,
+            cachedArtworkPalette: redPalette) { _, phase in
+            phase == "artwork" ? NSAppleEventDescriptor(descriptorType: typeData, data: cacheBytes)! : good[phase]!
+        }
+        if case .snapshot(let value) = badImage {
+            check(value.title == "Owned Track" && value.artist == "Owned Artist")
+            check(value.artworkData == cacheBytes && value.artworkPalette == nil)
+        } else { preconditionFailure("bad image must not discard metadata or inherit old colors") }
         reject(.malformed(phase: "title")) {
             _ = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
                 phase == "title" ? NSAppleEventDescriptor(string: String(repeating: "x", count: 4097)) : good[phase]!
@@ -260,7 +337,7 @@ class SceneMusicPlayerSourceTests(unittest.TestCase):
         environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
         compiled = subprocess.run([
             "swiftc", "-swift-version", "6", "-default-isolation", "MainActor",
-            "-module-cache-path", str(root / "swift-cache"), str(SOURCE), str(harness),
+            "-module-cache-path", str(root / "swift-cache"), str(PALETTE), str(SOURCE), str(harness),
             "-o", str(binary),
         ], capture_output=True, text=True, env=environment, cwd=ROOT)
         if compiled.returncode:

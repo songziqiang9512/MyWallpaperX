@@ -13,6 +13,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSystemMediaSource.swift"
+PALETTE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaArtworkPalette.swift"
 FRAMING = ROOT / "MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift"
 
 FIXTURE = r'''
@@ -47,7 +48,9 @@ XS(mwx_scene_media_run) {
 
 HARNESS = r'''
 import Darwin
+import CoreGraphics
 import Foundation
+import ImageIO
 
 typealias Endpoint = SceneSystemMediaSource
 typealias Failure = Endpoint.Failure
@@ -57,6 +60,22 @@ typealias Failure = Endpoint.Failure
 struct SystemMediaHarness {
     nonisolated static func json(_ object: [String: Any]) throws -> Data {
         try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+    }
+
+    nonisolated static func ownedPNG(_ color: [UInt8]) -> Data {
+        precondition(color.count == 3)
+        let pixels = Data((0..<16).flatMap { _ in color + [255] })
+        let image = CGImage(width: 4, height: 4, bitsPerComponent: 8, bitsPerPixel: 32,
+            bytesPerRow: 16, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Big.rawValue
+                | CGImageAlphaInfo.premultipliedLast.rawValue),
+            provider: CGDataProvider(data: pixels as CFData)!, decode: nil,
+            shouldInterpolate: false, intent: .defaultIntent)!
+        let bytes = NSMutableData()
+        let destination = CGImageDestinationCreateWithData(bytes, "public.png" as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, image, nil)
+        precondition(CGImageDestinationFinalize(destination))
+        return bytes as Data
     }
 
     nonisolated static func decoderCases() throws -> String {
@@ -78,12 +97,13 @@ struct SystemMediaHarness {
             check(value.playbackState == 1 && value.position == 3.5 && value.duration == 180)
             check(value.artworkChanged && value.artworkIdentifier == "artA")
             check(value.artworkData == Data([1, 2, 3]) && value.artworkFailure == nil)
+            check(value.artworkPalette == nil)
         } else { preconditionFailure("expected snapshot") }
         var inherited = good
         inherited.removeValue(forKey: "artworkData")
         inherited["artworkChanged"] = false
         if case .snapshot(let value) = try decoder.decode(json(inherited)) {
-            check(!value.artworkChanged && value.artworkData == nil)
+            check(!value.artworkChanged && value.artworkData == nil && value.artworkPalette == nil)
         } else { preconditionFailure("expected unchanged art") }
         for (key, value) in [("identity", "B"), ("source", "other"), ("artworkIdentifier", "artB")] {
             var changed = inherited; changed[key] = value
@@ -93,6 +113,37 @@ struct SystemMediaHarness {
         reject(.inheritedArtworkWithoutMatchingTrack) { _ = try decoder.decode(json(falseWithData)) }
         var fresh = Endpoint.Decoder()
         reject(.inheritedArtworkWithoutMatchingTrack) { _ = try fresh.decode(json(inherited)) }
+        let redPNG = ownedPNG([255, 0, 0]), bluePNG = ownedPNG([0, 0, 255])
+        let redPalette = SceneMediaArtworkPalette.extract(from: redPNG)!
+        let bluePalette = SceneMediaArtworkPalette.extract(from: bluePNG)!
+        var imageWire = good; imageWire["artworkData"] = redPNG.base64EncodedString()
+        if case .snapshot(let value) = try decoder.decode(json(imageWire)) {
+            check(value.artworkData == redPNG && value.artworkPalette == redPalette)
+            for color in [value.artworkPalette!.primaryColor, value.artworkPalette!.secondaryColor,
+                          value.artworkPalette!.tertiaryColor, value.artworkPalette!.textColor,
+                          value.artworkPalette!.highContrastColor] {
+                check((0..<3).allSatisfy { color[$0].isFinite && (0...1).contains(color[$0]) })
+            }
+            check(value.artworkPalette!.primaryColor == SIMD3<Double>(1, 0, 0))
+            check(value.artworkPalette!.textColor == .zero && value.artworkPalette!.highContrastColor == .zero)
+        } else { preconditionFailure("new image must carry five colors") }
+        // Decoder does not duplicate the producer's cache. Same-track false
+        // carries neither bytes nor palette; producer may reuse its own cache.
+        if case .snapshot(let value) = try decoder.decode(json(inherited)) {
+            check(!value.artworkChanged && value.artworkData == nil && value.artworkPalette == nil)
+        } else { preconditionFailure("expected producer-owned reuse") }
+        imageWire["identity"] = "B"
+        imageWire["artworkIdentifier"] = "artB"
+        imageWire["artworkData"] = bluePNG.base64EncodedString()
+        if case .snapshot(let value) = try decoder.decode(json(imageWire)) {
+            check(value.identity == "B" && value.artworkPalette == bluePalette && value.artworkData == bluePNG)
+            check(value.artworkPalette != redPalette)
+        } else { preconditionFailure("new track must not retain old colors") }
+        imageWire["artworkData"] = Data([1, 2, 3]).base64EncodedString()
+        if case .snapshot(let value) = try decoder.decode(json(imageWire)) {
+            check(value.title == "Owned" && value.artist == "Artist" && value.artworkChanged)
+            check(value.artworkData == Data([1, 2, 3]) && value.artworkPalette == nil)
+        } else { preconditionFailure("bad image must clear palette and keep metadata") }
         for status in ["noSession", "unavailable"] {
             _ = try decoder.decode(json(good))
             let value = try decoder.decode(json(["version": 1, "status": status]))
@@ -131,13 +182,14 @@ struct SystemMediaHarness {
             check(value.title == nil && value.artist == nil && value.album == nil)
             check(value.playbackState == nil && value.position == nil && value.duration == nil)
             check(value.artworkChanged && value.artworkData == nil && value.artworkFailure == nil)
+            check(value.artworkPalette == nil)
         } else { preconditionFailure("nullable fields must clear") }
         for (encoded, expected) in [("!!bad!!", Failure.invalidArtwork),
                                    (Data(count: Endpoint.maximumArtworkByteCount + 1).base64EncodedString(), .artworkByteLimit)] {
             var badArt = good; badArt["artworkData"] = encoded
             if case .snapshot(let value) = try decoder.decode(json(badArt)) {
                 check(value.title == "Owned" && value.artworkChanged)
-                check(value.artworkData == nil && value.artworkFailure == expected)
+                check(value.artworkData == nil && value.artworkFailure == expected && value.artworkPalette == nil)
             } else { preconditionFailure("optional art failure must stay local") }
         }
         var boundary = good
@@ -257,7 +309,7 @@ class SceneSystemMediaSourceTests(unittest.TestCase):
         environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
         environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
         subprocess.run(["swiftc", "-swift-version", "6", "-default-isolation", "MainActor",
-                        "-module-cache-path", str(root / "swift-cache"), str(FRAMING), str(SOURCE),
+                        "-module-cache-path", str(root / "swift-cache"), str(FRAMING), str(PALETTE), str(SOURCE),
                         str(harness), "-o", str(cls.binary)], capture_output=True, text=True,
                        env=environment, check=True, cwd=ROOT)
 

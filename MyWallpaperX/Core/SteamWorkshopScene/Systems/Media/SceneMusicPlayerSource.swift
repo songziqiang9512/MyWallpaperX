@@ -26,6 +26,7 @@ nonisolated enum SceneMusicPlayerSource {
         let duration: Double
         let artworkData: Data?
         let artworkFailure: Failure?
+        let artworkPalette: SceneMediaArtworkPalette?
     }
 
     nonisolated enum ReadResult: Sendable {
@@ -112,7 +113,8 @@ nonisolated enum SceneMusicPlayerSource {
     static func read(
         pid: pid_t,
         cachedArtworkIdentity: String? = nil,
-        cachedArtworkData: Data? = nil
+        cachedArtworkData: Data? = nil,
+        cachedArtworkPalette: SceneMediaArtworkPalette? = nil
     ) -> ReadResult {
         do {
             let deadline = ProcessInfo.processInfo.systemUptime + overallTimeout
@@ -127,7 +129,7 @@ nonisolated enum SceneMusicPlayerSource {
             }
             return try Transaction.read(
                 pid: pid, cachedArtworkIdentity: cachedArtworkIdentity,
-                cachedArtworkData: cachedArtworkData
+                cachedArtworkData: cachedArtworkData, cachedArtworkPalette: cachedArtworkPalette
             ) { object, phase in
                 guard !app.isTerminated else { throw Failure.targetNotRunning }
                 let remaining = deadline - ProcessInfo.processInfo.systemUptime
@@ -323,6 +325,7 @@ nonisolated enum SceneMusicPlayerSource {
             pid: pid_t,
             cachedArtworkIdentity: String? = nil,
             cachedArtworkData: Data? = nil,
+            cachedArtworkPalette: SceneMediaArtworkPalette? = nil,
             get: (NSAppleEventDescriptor, String) throws -> NSAppleEventDescriptor
         ) throws -> ReadResult {
             let initial = try get(Codec.property(Codec.currentTrack), "currentTrack.before")
@@ -351,11 +354,14 @@ nonisolated enum SceneMusicPlayerSource {
                 Codec.property(Codec.position), "position"
             ), phase: "position")
             let art: Data?
+            let reusesArtwork: Bool
             var artworkFailure: Failure?
             if cachedArtworkIdentity == identity, let cachedArtworkData,
                !cachedArtworkData.isEmpty, cachedArtworkData.count <= Codec.maximumArtworkBytes {
                 art = cachedArtworkData
+                reusesArtwork = true
             } else {
+                reusesArtwork = false
                 do {
                     let artwork = try Codec.firstArtwork(in: initial)
                     let raw = try get(Codec.property(Codec.rawData, container: artwork), "artwork")
@@ -379,7 +385,9 @@ nonisolated enum SceneMusicPlayerSource {
             return .snapshot(Snapshot(
                 identity: identity, title: title, artist: artist, album: album,
                 state: state, position: position, duration: duration,
-                artworkData: art, artworkFailure: artworkFailure
+                artworkData: art, artworkFailure: artworkFailure,
+                artworkPalette: reusesArtwork ? cachedArtworkPalette
+                    : art.flatMap { SceneMediaArtworkPalette.extract(from: $0) }
             ))
         }
     }

@@ -2305,14 +2305,17 @@
         "MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift",
         "script/build-scene-media-observer.sh",
         "script/tests/test_scene_system_media_source.py",
-        "script/tests/test_scene_media_observer.py"
+        "script/tests/test_scene_media_observer.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaArtworkPalette.swift",
+        "script/tests/test_scene_media_artwork_palette.py"
       ],
       "modules": [
         "test_scene_music_player_source",
         "test_scene_system_media_provider",
         "test_scene_media_thumbnail_provider",
         "test_scene_system_media_source",
-        "test_scene_media_observer"
+        "test_scene_media_observer",
+        "test_scene_media_artwork_palette"
       ]
     }
   ],

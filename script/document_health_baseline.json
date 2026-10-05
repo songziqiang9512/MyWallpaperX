@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 75,
-      "bytes": 9079
+      "bytes": 9136
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -170,7 +170,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 50601
+      "bytes": 50821
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -181,8 +181,8 @@
       "bytes": 12538
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
-      "lines": 32,
-      "bytes": 5407
+      "lines": 40,
+      "bytes": 7378
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 439,
@@ -1123,8 +1123,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d8fc5a6feaaba8327f41a71037b1bd9bbaba26ad983d53a6aa02538c468d264f",
-      "after": "7788a667076c8f487b0af759c6d49fa3731f75e359cadb787a84d6aca27f804e",
+      "before": "7788a667076c8f487b0af759c6d49fa3731f75e359cadb787a84d6aca27f804e",
+      "after": "90d0ab7b8416d44545f8077e601cb1df5c0f293afa2234b255a35cec21ebbf2f",
       "owner": "scene-sample339-media-sequence",
       "reason": "短指针连接339受控媒体序列与文字速度证据，保留真实系统来源及完整视觉开放边界。",
       "decision": "docs/scene/history/sample339-media-sequence-implementation-2026-10-05.md"
@@ -1132,8 +1132,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "44725fb58532f05db7826f065b550db19a2a058328df015e9cc28244d28273d2",
-      "after": "33bde73dafe5367f860adbb482d941940f405d77846b5419541ecae7385eef30",
+      "before": "33bde73dafe5367f860adbb482d941940f405d77846b5419541ecae7385eef30",
+      "after": "c8515bcfb4b4cc74c9e2e1296ae4149ec5e24bd963e0e76501391ad75933062b",
       "owner": "scene-sample339-media-sequence",
       "reason": "RF05下一步依用户要求优先完整收口339，再处理HDR/SDR及重型样本启动；不改变完成口径。",
       "decision": "docs/scene/history/sample339-media-sequence-implementation-2026-10-05.md"
@@ -1141,8 +1141,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "5de7b9dc06d080d43570643d6f486688614fca5367ce1e46ab2e7016c92244b9",
+      "before": "5de7b9dc06d080d43570643d6f486688614fca5367ce1e46ab2e7016c92244b9",
+      "after": "dacb8444b04109aa3a01c97f29fc3fc3791b8bcd2f73076a82ccc0c109a15677",
       "owner": "scene-system-media-input",
       "reason": "媒体来源设计补入已实测的统一入口宿主差异、单producer与实验进程退出边界；登记不代表产品运行或发布验收。",
       "decision": "docs/scene/roadmap/batch2/system-media-input-design.md"

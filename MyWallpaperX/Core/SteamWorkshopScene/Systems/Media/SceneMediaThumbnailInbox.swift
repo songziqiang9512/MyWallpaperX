@@ -250,7 +250,12 @@ nonisolated final class SceneMediaThumbnailInbox: @unchecked Sendable {
         artwork: Data?,
         properties: Snapshot.Properties,
         playbackState: Int,
-        timeline: Snapshot.Timeline
+        timeline: Snapshot.Timeline,
+        primaryColor: SIMD3<Double>? = nil,
+        secondaryColor: SIMD3<Double>? = nil,
+        tertiaryColor: SIMD3<Double>? = nil,
+        textColor: SIMD3<Double>? = nil,
+        highContrastColor: SIMD3<Double>? = nil
     ) -> Bool {
         guard artwork.map({ !$0.isEmpty && $0.count <= Self.maximumEncodedByteCount }) != false,
               [properties.title, properties.artist, properties.subTitle,
@@ -258,16 +263,22 @@ nonisolated final class SceneMediaThumbnailInbox: @unchecked Sendable {
                properties.contentType].allSatisfy(Self.isValidMediaProperty),
               (0...2).contains(playbackState),
               timeline.position.isFinite, timeline.position >= 0,
-              timeline.duration.isFinite, timeline.duration >= 0 else { return false }
+              timeline.duration.isFinite, timeline.duration >= 0,
+              [primaryColor, secondaryColor, tertiaryColor, textColor, highContrastColor]
+                .allSatisfy({ $0.map(Self.isNormalizedColor) != false }) else { return false }
         os_unfair_lock_lock(&lock)
         defer { os_unfair_lock_unlock(&lock) }
-        let emptyColor: SIMD3<Double>? = artwork == nil ? .zero : nil
+        let primary = artwork == nil ? .zero : primaryColor
+        let secondary = artwork == nil ? .zero : secondaryColor
+        let tertiary = artwork == nil ? .zero : tertiaryColor
+        let text = artwork == nil ? .zero : textColor
+        let contrast = artwork == nil ? .zero : highContrastColor
         let artChanged = snapshot.current != artwork
-            || snapshot.primaryColor != emptyColor
-            || snapshot.secondaryColor != emptyColor
-            || snapshot.tertiaryColor != emptyColor
-            || snapshot.textColor != emptyColor
-            || snapshot.highContrastColor != emptyColor
+            || snapshot.primaryColor != primary
+            || snapshot.secondaryColor != secondary
+            || snapshot.tertiaryColor != tertiary
+            || snapshot.textColor != text
+            || snapshot.highContrastColor != contrast
         let propertiesChanged = snapshot.properties != properties
         let playbackChanged = snapshot.playbackState != playbackState
         let timelineChanged = snapshot.timeline != timeline
@@ -277,9 +288,9 @@ nonisolated final class SceneMediaThumbnailInbox: @unchecked Sendable {
               (!timelineChanged || snapshot.timelineGeneration < .max) else { return false }
         snapshot = Snapshot(
             current: artwork,
-            primaryColor: emptyColor, secondaryColor: emptyColor,
-            tertiaryColor: emptyColor, textColor: emptyColor,
-            highContrastColor: emptyColor,
+            primaryColor: primary, secondaryColor: secondary,
+            tertiaryColor: tertiary, textColor: text,
+            highContrastColor: contrast,
             generation: snapshot.generation + (artChanged ? 1 : 0),
             playbackState: playbackState,
             playbackGeneration: snapshot.playbackGeneration + (playbackChanged ? 1 : 0),

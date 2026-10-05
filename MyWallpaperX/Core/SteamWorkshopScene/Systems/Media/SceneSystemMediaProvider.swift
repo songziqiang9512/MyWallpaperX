@@ -20,6 +20,7 @@ final class SceneSystemMediaProvider {
     private var authorized = false
     private var cachedArtworkIdentity: String?
     private var cachedArtworkData: Data?
+    private var cachedArtworkPalette: SceneMediaArtworkPalette?
     private var lastStatus: String?
     private var hasPublished = false
     private let systemSource = SceneSystemMediaSource()
@@ -78,6 +79,7 @@ final class SceneSystemMediaProvider {
         authorized = false
         cachedArtworkIdentity = nil
         cachedArtworkData = nil
+        cachedArtworkPalette = nil
         cachedSystemSource = nil
         systemRetryDelay = 2
         clearPublishedSession()
@@ -135,13 +137,15 @@ final class SceneSystemMediaProvider {
         guard checkAuthorization || authorized else { return }
         let artworkIdentity = cachedArtworkData == nil ? nil : cachedArtworkIdentity
         let artwork = cachedArtworkData
+        let artworkPalette = cachedArtworkPalette
         inFlight = true
         queue.async { [weak self] in
             let authorization = SceneMusicPlayerSource.silentAuthorization(pid: pid)
             let result: SceneMusicPlayerSource.ReadResult?
             if case .authorized = authorization {
                 result = SceneMusicPlayerSource.read(
-                    pid: pid, cachedArtworkIdentity: artworkIdentity, cachedArtworkData: artwork
+                    pid: pid, cachedArtworkIdentity: artworkIdentity, cachedArtworkData: artwork,
+                    cachedArtworkPalette: artworkPalette
                 )
             } else {
                 result = nil
@@ -174,12 +178,16 @@ final class SceneSystemMediaProvider {
                 properties: .init(title: value.title, artist: value.artist, subTitle: "",
                                   albumTitle: value.album, albumArtist: "", genres: "", contentType: "music"),
                 playbackState: value.state.inboxValue,
-                timeline: .init(position: value.position, duration: value.duration)
+                timeline: .init(position: value.position, duration: value.duration),
+                primaryColor: value.artworkPalette?.primaryColor, secondaryColor: value.artworkPalette?.secondaryColor,
+                tertiaryColor: value.artworkPalette?.tertiaryColor, textColor: value.artworkPalette?.textColor,
+                highContrastColor: value.artworkPalette?.highContrastColor
             )
             if accepted {
                 hasPublished = true
                 cachedArtworkIdentity = value.identity
                 cachedArtworkData = value.artworkData
+                cachedArtworkPalette = value.artworkPalette
                 report("published")
             } else {
                 clearPublishedSession()
@@ -189,11 +197,13 @@ final class SceneSystemMediaProvider {
             clearPublishedSession()
             cachedArtworkIdentity = nil
             cachedArtworkData = nil
+            cachedArtworkPalette = nil
             report("no-session")
         case let .failure(failure):
             clearPublishedSession()
             cachedArtworkIdentity = nil
             cachedArtworkData = nil
+            cachedArtworkPalette = nil
             report("unavailable-\(failure)")
         }
     }
@@ -211,12 +221,16 @@ final class SceneSystemMediaProvider {
             // The cache belongs to this exact selected source and track. The
             // wire decoder also checks identity, but it does not own this data.
             let artwork = value.artworkChanged ? value.artworkData : (sameTrack ? cachedArtworkData : nil)
+            let palette = value.artworkChanged ? value.artworkPalette : (sameTrack ? cachedArtworkPalette : nil)
             let accepted = inbox.publishMediaSession(
                 artwork: artwork,
                 properties: .init(title: value.title ?? "", artist: value.artist ?? "", subTitle: "",
                                   albumTitle: value.album ?? "", albumArtist: "", genres: "", contentType: ""),
                 playbackState: value.playbackState ?? 0,
-                timeline: .init(position: value.position ?? 0, duration: value.duration ?? 0)
+                timeline: .init(position: value.position ?? 0, duration: value.duration ?? 0),
+                primaryColor: palette?.primaryColor, secondaryColor: palette?.secondaryColor,
+                tertiaryColor: palette?.tertiaryColor, textColor: palette?.textColor,
+                highContrastColor: palette?.highContrastColor
             )
             if accepted {
                 hasPublished = true
@@ -224,10 +238,12 @@ final class SceneSystemMediaProvider {
                 cachedSystemSource = value.source
                 cachedArtworkIdentity = value.identity
                 cachedArtworkData = artwork
+                cachedArtworkPalette = palette
                 report(value.artworkFailure == nil ? "published" : "published-without-artwork")
             } else {
                 clearPublishedSession()
                 cachedArtworkData = nil
+                cachedArtworkPalette = nil
                 report("invalid-session")
             }
         case .noSession:
@@ -235,12 +251,14 @@ final class SceneSystemMediaProvider {
             clearPublishedSession()
             cachedArtworkIdentity = nil
             cachedArtworkData = nil
+            cachedArtworkPalette = nil
             cachedSystemSource = nil
             report("no-session")
         case let .unavailable(failure):
             clearPublishedSession()
             cachedArtworkIdentity = nil
             cachedArtworkData = nil
+            cachedArtworkPalette = nil
             cachedSystemSource = nil
             report("unavailable-\(failure)")
             retrySystemSource(after: failure)

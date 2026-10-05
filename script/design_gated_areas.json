@@ -356,7 +356,8 @@
         "MyWallpaperX/Shared/Settings/SceneMediaSourcePreference.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSystemMediaSource.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/Observer/SceneMediaObserver.m",
-        "script/build-scene-media-observer.sh"
+        "script/build-scene-media-observer.sh",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaArtworkPalette.swift"
       ],
       "contentPatterns": [
         "publishMediaSession"
