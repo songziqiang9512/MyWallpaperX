@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import struct
 import subprocess
@@ -30,7 +31,11 @@ enum Harness {
             let url = URL(fileURLWithPath: path)
             var entry: [String: Any] = ["file": url.lastPathComponent]
             do {
-                let data = try Data(contentsOf: url)
+                let loaded = try Data(contentsOf: url)
+                // A non-zero Data startIndex and unaligned backing must retain
+                // the same checked reader behavior as an ordinary file buffer.
+                let data = ProcessInfo.processInfo.environment["MWX_READER_SLICE"] == "1"
+                    ? (Data([0xA5]) + loaded).dropFirst() : loaded
                 entry["metadataMaterialPath"] = try? SceneMdlStaticModelReader
                     .readMaterialPathMetadata(data: data)
                 let parts = try SceneMdlStaticModelReader.readParts(data: data)
@@ -246,6 +251,7 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
         second = build_model(index_flag=1, material=b"materials/second.json")[21:]
         multipart = first + b"\0" * 6 + second
         fixtures = {
+            "empty.mdl": b"",
             "parts.mdl": multipart,
             "bad-separator.mdl": first + b"\0" * 5 + b"\1" + second,
             "short-second.mdl": multipart[:-12],
@@ -354,6 +360,20 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
         cls.results = {
             result["file"]: result for result in json.loads(completed.stdout)
         }
+        sliced = subprocess.run(
+            [str(cls.binary), *(str(root / name) for name in fixtures)],
+            cwd=REPOSITORY_ROOT, capture_output=True, text=True,
+            env={**os.environ, "MWX_READER_SLICE": "1"},
+        )
+        if sliced.returncode != 0:
+            raise AssertionError(f"sliced harness run failed:\n{sliced.stderr}")
+        cls.sliced_results = {
+            result["file"]: result for result in json.loads(sliced.stdout)
+        }
+
+    def test_nonzero_data_slice_preserves_every_value_and_rejection(self):
+        self.assertEqual(self.sliced_results, self.results)
+        self.assertFalse(self.results["empty.mdl"]["ok"])
 
     @classmethod
     def tearDownClass(cls) -> None:

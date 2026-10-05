@@ -90,9 +90,10 @@ nonisolated enum SceneMdlStaticModelReader {
     /// static model's material dependency before GPU resource preparation.
     /// Full geometry validation remains the responsibility of `read(data:)`.
     static func readMaterialPathMetadata(data rawData: Data) throws -> String {
-        let data = rawData.startIndex == 0 ? rawData : Data(rawData)
-        var cursor = Cursor(data: data)
-        return try readHeader(cursor: &cursor).materialPath
+        try rawData.withUnsafeBytes { bytes in
+            var cursor = Cursor(data: bytes)
+            return try readHeader(cursor: &cursor).materialPath
+        }
     }
 
     static func read(data rawData: Data) throws -> SceneMdlStaticModel {
@@ -110,8 +111,13 @@ nonisolated enum SceneMdlStaticModelReader {
     /// Each authored material segment retains its own geometry and local indices.
     /// Validate the complete model before publishing any segment.
     static func readParts(data rawData: Data) throws -> [SceneMdlStaticModel] {
-        let data = rawData.startIndex == 0 ? rawData : Data(rawData)
-        var cursor = Cursor(data: data)
+        try rawData.withUnsafeBytes { bytes in
+            var cursor = Cursor(data: bytes)
+            return try readParts(cursor: &cursor)
+        }
+    }
+
+    private static func readParts(cursor: inout Cursor) throws -> [SceneMdlStaticModel] {
         let header = try readHeader(cursor: &cursor)
         var parts: [SceneMdlStaticModel] = []
         var totalVertexBytes: UInt32 = 0
@@ -264,12 +270,17 @@ nonisolated enum SceneMdlStaticModelReader {
         authoredBounds: SceneMdlStaticModel.Bounds?
     ) throws -> [SceneMdlStaticModel.Vertex] {
         let count = Int(byteCount) / vertexStride
-        try cursor.require(count: Int(byteCount), section: "vertex data")
+        let bytes = try cursor.readBuffer(count: Int(byteCount), section: "vertex data")
         var vertices: [SceneMdlStaticModel.Vertex] = []
         vertices.reserveCapacity(count)
+        var values = [Float](repeating: 0, count: 12)
         for index in 0..<count {
-            let values = try (0..<12).map { _ in
-                try cursor.readFloat(section: "vertex data")
+            for component in values.indices {
+                let word = bytes.loadUnaligned(
+                    fromByteOffset: index * vertexStride + component * 4,
+                    as: UInt32.self
+                )
+                values[component] = Float(bitPattern: UInt32(littleEndian: word))
             }
             guard values.allSatisfy({ $0.isFinite }) else {
                 throw SceneMdlStaticModelReadError.nonFiniteVertexData(
@@ -326,14 +337,16 @@ nonisolated enum SceneMdlStaticModelReader {
         vertexCount: Int,
         elementSize: Int
     ) throws -> [UInt32] {
-        try cursor.require(count: Int(byteCount), section: "index data")
+        let bytes = try cursor.readBuffer(count: Int(byteCount), section: "index data")
         let count = Int(byteCount) / elementSize
         var indices: [UInt32] = []
         indices.reserveCapacity(count)
         for position in 0..<count {
             let value = elementSize == 2
-                ? UInt32(try cursor.readUInt16(section: "index data"))
-                : try cursor.readUInt32(section: "index data")
+                ? UInt32(UInt16(littleEndian: bytes.loadUnaligned(
+                    fromByteOffset: position * elementSize, as: UInt16.self)))
+                : UInt32(littleEndian: bytes.loadUnaligned(
+                    fromByteOffset: position * elementSize, as: UInt32.self))
             guard Int(value) < vertexCount else {
                 throw SceneMdlStaticModelReadError.indexOutOfRange(
                     indexPosition: position,
@@ -350,8 +363,10 @@ nonisolated enum SceneMdlStaticModelReader {
         value.isFinite && abs(value) <= maximumAbsoluteValue
     }
 
+    /// Borrowed only inside a public reader's withUnsafeBytes scope. Decoded
+    /// values own their storage; no pointer is retained by the returned model.
     private struct Cursor {
-        let data: Data
+        let data: UnsafeRawBufferPointer
         private(set) var offset = 0
 
         var isAtEnd: Bool { offset == data.count }
@@ -367,7 +382,7 @@ nonisolated enum SceneMdlStaticModelReader {
         mutating func readBytes(count: Int, section: String) throws -> Data {
             try require(count: count, section: section)
             defer { offset += count }
-            return data.subdata(in: offset..<(offset + count))
+            return Data(data[offset..<(offset + count)])
         }
 
         mutating func readNullTerminatedBytes(
@@ -380,25 +395,22 @@ nonisolated enum SceneMdlStaticModelReader {
                     .firstIndex(of: 0) else {
                 throw SceneMdlStaticModelReadError.truncated(section: section)
             }
-            let value = data.subdata(in: offset..<end)
+            let value = Data(data[offset..<end])
             offset = end + 1
             return value
         }
 
-        mutating func readUInt16(section: String) throws -> UInt16 {
-            try require(count: 2, section: section)
-            let value = data.withUnsafeBytes {
-                $0.loadUnaligned(fromByteOffset: offset, as: UInt16.self)
-            }
-            offset += 2
-            return UInt16(littleEndian: value)
+        /// Validate the entire fixed-stride block before any indexed load.
+        /// The caller consumes this borrow synchronously inside the reader scope.
+        mutating func readBuffer(count: Int, section: String) throws -> UnsafeRawBufferPointer {
+            try require(count: count, section: section)
+            defer { offset += count }
+            return UnsafeRawBufferPointer(rebasing: data[offset..<(offset + count)])
         }
 
         mutating func readUInt32(section: String) throws -> UInt32 {
             try require(count: 4, section: section)
-            let value = data.withUnsafeBytes {
-                $0.loadUnaligned(fromByteOffset: offset, as: UInt32.self)
-            }
+            let value = data.loadUnaligned(fromByteOffset: offset, as: UInt32.self)
             offset += 4
             return UInt32(littleEndian: value)
         }

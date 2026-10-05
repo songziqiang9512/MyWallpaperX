@@ -174,13 +174,14 @@ final class SceneTextureLoader {
    let data=try Data(contentsOf:path)
    data.withUnsafeBytes{texture.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:4)}
    let png=path.deletingPathExtension().appendingPathExtension("png")
-   candidates[png.path] = .init(texture:texture,identity:.file(path:png.path),generation:.immutable(revision:1),purpose:.straightAlbedo,
+   // Match the product's canonical file identity across /var and /tmp aliases.
+   candidates[png.resolvingSymlinksInPath().path] = .init(texture:texture,identity:.file(path:png.path),generation:.immutable(revision:1),purpose:.straightAlbedo,
       content:.data,physicalSize:CGSize(width:1,height:1),mappedSize:CGSize(width:1,height:1),uvTransform:.identity,sampling:.directImageFallback)
   }
  }
  func loadCandidate(from url:URL,purpose:SceneTextureLoadPurpose,device:MTLDevice)->Result {
   precondition(purpose == .straightAlbedo)
-  return candidates[url.path].map{.loaded($0)} ?? .missing
+  return candidates[url.resolvingSymlinksInPath().path].map{.loaded($0)} ?? .missing
  }
 }
 extension SceneRenderDescriptor {
