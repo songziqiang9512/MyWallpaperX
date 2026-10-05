@@ -903,6 +903,15 @@
       ]
     },
     {
+      "path": "docs/scene/history/particle-world-parallax-implementation-2026-10-05.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/particle-component-coverage.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/reference/client-binary-dependency-forensics.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",

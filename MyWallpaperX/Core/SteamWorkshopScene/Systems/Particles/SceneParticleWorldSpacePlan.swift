@@ -49,7 +49,6 @@ nonisolated enum SceneParticleStaticWorldSpacePlan {
         let id: Int
         let parentID: Int?
         let hasAuthoredTransformMotion: Bool
-        let hasEffectiveParallaxMotion: Bool
     }
 
     nonisolated static func eligibleLayerIDs(nodes: [Node]) -> Set<Int> {
@@ -69,8 +68,7 @@ nonisolated enum SceneParticleStaticWorldSpacePlan {
             var eligible = true
             while let value = current, visited.insert(value.id).inserted {
                 chain.insert(value.id)
-                if value.hasAuthoredTransformMotion
-                    || value.hasEffectiveParallaxMotion {
+                if value.hasAuthoredTransformMotion {
                     eligible = false
                     break
                 }

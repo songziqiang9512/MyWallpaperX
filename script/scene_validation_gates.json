@@ -1508,6 +1508,20 @@
       ]
     },
     {
+      "id": "particle-world-space",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan+Descriptor.swift",
+        "script/tests/test_scene_particle_camera_frame.py",
+        "script/tests/scene_particle_runtime_world_space_cases.py"
+      ],
+      "modules": [
+        "test_scene_particle_camera_frame",
+        "test_scene_solid_layers",
+        "test_scene_particle_runtime"
+      ]
+    },
+    {
       "id": "particle-remap",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift",

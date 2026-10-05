@@ -30,26 +30,13 @@ extension SceneRenderDescriptor {
     }
 
     private var worldSpacePlanNodes: [SceneParticleStaticWorldSpacePlan.Node] {
-        let layersByID = Dictionary(uniqueKeysWithValues: layers.map { ($0.id, $0) })
-        let parallaxNodes = layersByID.mapValues { layer in
-            SceneLayerParallax.Node(
+        // Camera parallax is the renderer's view translation. It moves already
+        // born particles with their layer without changing this direction basis.
+        layers.map { layer in
+            SceneParticleStaticWorldSpacePlan.Node(
                 id: layer.id,
                 parentID: layer.parentID,
-                depth: SIMD2(layer.parallaxDepthXY ?? [], fill: 0),
-                propagatesToChildren: !layer.disablesParallaxPropagation
-            )
-        }
-        return layers.map { layer in
-            let parallax = SceneLayerParallax.resolve(
-                layerID: layer.id,
-                nodesByID: parallaxNodes
-            )
-            return SceneParticleStaticWorldSpacePlan.Node(
-                id: layer.id,
-                parentID: layer.parentID,
-                hasAuthoredTransformMotion: layer.hasAuthoredTransformMotion,
-                hasEffectiveParallaxMotion: camera.parallaxEnabled
-                    && parallax?.depth != .zero
+                hasAuthoredTransformMotion: layer.hasAuthoredTransformMotion
             )
         }
     }

@@ -103,42 +103,45 @@ enum Harness {
         let reprojectedDirection = scaledWorld * SIMD4<Float>(
             Float(localDirection.x), Float(localDirection.y), Float(localDirection.z), 0
         )
+        // Camera parallax is a draw translation, including for a mirrored,
+        // rotated, non-uniform parent frame. It must not change force basis.
+        let authoredWorld = SceneMatrix.translation(SIMD3(120, 80, 0))
+            * SceneMatrix.rotationZ(0.7) * SceneMatrix.scale(SIMD3(-2, 3, 1))
+        let drawLeft = SceneParticleCameraFrame.particleLayerModel(
+            worldFrame: authoredWorld, parallaxOffset: SIMD2(-35, 12))
+        let drawRight = SceneParticleCameraFrame.particleLayerModel(
+            worldFrame: authoredWorld, parallaxOffset: SIMD2(25, -8))
+        let directionLeft = SceneParticleWorldSpaceFrame(worldFrame: drawLeft)!
+            .localDirection(SIMD3(12, -7, 0))
+        let directionRight = SceneParticleWorldSpaceFrame(worldFrame: drawRight)!
+            .localDirection(SIMD3(12, -7, 0))
+        let existingParticle = SIMD4<Float>(11, -9, 0, 1)
+        let drawDelta = drawRight * existingParticle - drawLeft * existingParticle
         let eligibleWorldSpaceLayers = SceneParticleStaticWorldSpacePlan.eligibleLayerIDs(
             nodes: [
                 .init(
                     id: 1, parentID: nil,
-                    hasAuthoredTransformMotion: false,
-                    hasEffectiveParallaxMotion: false
+                    hasAuthoredTransformMotion: false
                 ),
                 .init(
                     id: 2, parentID: 1,
-                    hasAuthoredTransformMotion: false,
-                    hasEffectiveParallaxMotion: false
+                    hasAuthoredTransformMotion: false
                 ),
                 .init(
                     id: 3, parentID: nil,
-                    hasAuthoredTransformMotion: true,
-                    hasEffectiveParallaxMotion: false
+                    hasAuthoredTransformMotion: true
                 ),
                 .init(
                     id: 4, parentID: 3,
-                    hasAuthoredTransformMotion: false,
-                    hasEffectiveParallaxMotion: false
-                ),
-                .init(
-                    id: 5, parentID: nil,
-                    hasAuthoredTransformMotion: false,
-                    hasEffectiveParallaxMotion: true
+                    hasAuthoredTransformMotion: false
                 ),
                 .init(
                     id: 6, parentID: 7,
-                    hasAuthoredTransformMotion: false,
-                    hasEffectiveParallaxMotion: false
+                    hasAuthoredTransformMotion: false
                 ),
                 .init(
                     id: 7, parentID: 6,
-                    hasAuthoredTransformMotion: false,
-                    hasEffectiveParallaxMotion: false
+                    hasAuthoredTransformMotion: false
                 ),
             ]
         ).sorted()
@@ -364,6 +367,10 @@ enum Harness {
                 reprojectedDirection.z
             )),
             "eligibleWorldSpaceLayers": eligibleWorldSpaceLayers,
+            "parallaxDirectionUnchanged": directionLeft == directionRight,
+            "parallaxExistingParticleDelta": vector3(SIMD3(drawDelta.x, drawDelta.y, drawDelta.z)),
+            "parallaxScaleUnchanged": SceneParticleCameraFrame.billboardScale(inheritedFrom: drawLeft)
+                == SceneParticleCameraFrame.billboardScale(inheritedFrom: drawRight),
             "stationaryNDCY": stationaryNDC[1],
             "fallingNDCY": fallingNDC[1],
             "invalidPerspectiveIsIdentity": invalidFrame.perspectiveViewProjection
@@ -569,6 +576,12 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
             self.result["worldSpaceDirectionRoundTrip"],
             [12, -7, 0],
         ):
+            self.assertAlmostEqual(actual, expected, places=4)
+
+    def test_parallax_changes_draw_translation_without_force_basis_or_size(self) -> None:
+        self.assertTrue(self.result["parallaxDirectionUnchanged"])
+        self.assertTrue(self.result["parallaxScaleUnchanged"])
+        for actual, expected in zip(self.result["parallaxExistingParticleDelta"], [60, -20, 0]):
             self.assertAlmostEqual(actual, expected, places=4)
 
     def test_invalid_dimensions_fail_closed(self) -> None:

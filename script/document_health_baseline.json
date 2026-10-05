@@ -82,7 +82,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 393,
-      "bytes": 139053
+      "bytes": 139300
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 562,
@@ -170,7 +170,7 @@
     },
     "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
       "lines": 263,
-      "bytes": 49711
+      "bytes": 49746
     },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
@@ -1087,21 +1087,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "8a0bb938b21e355b9e4e3db4a09f83f2eddc4255d343037c083836ccc7f4c80e",
-      "after": "f1deacd6c085b70a1fdbc6d0610de6ccfdfe4577c0059bf0975fe33a2e09f068",
-      "owner": "scene-particle-remap",
-      "reason": "有界标量速度接入现有owner，更新唯一能力边界和下一首断点，不扩展验收声明。",
-      "decision": "docs/scene/roadmap/batch2/particle-remap-design.md"
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "ce125be5eb3a05a533bc092d93cf5b41f966346e5889951e6371cc2f422206c4",
+      "after": "65fa2853afe8879b5554dc31e3421dc8daa0d3d2065834946f75e43765aa5be7",
+      "owner": "scene-particle-world-space",
+      "reason": "替换误拒静态视差的能力边界并收束下一断点，行为及验证归入同批历史。",
+      "decision": "docs/scene/history/particle-world-parallax-implementation-2026-10-05.md"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "ea07e590d6e8c018824fa14710f0adb9f7b5569438856e7d77a89dc575926fcf",
-      "after": "ce125be5eb3a05a533bc092d93cf5b41f966346e5889951e6371cc2f422206c4",
-      "owner": "scene-particle-remap",
-      "reason": "有界标量速度接入现有owner，更新唯一能力边界和下一首断点，不扩展验收声明。",
-      "decision": "docs/scene/roadmap/batch2/particle-remap-design.md"
+      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "before": "f1deacd6c085b70a1fdbc6d0610de6ccfdfe4577c0059bf0975fe33a2e09f068",
+      "after": "6c453b783b15fac04137c8334b19df0e58df820f48c7594a73f74c27b5d66846",
+      "owner": "scene-particle-world-space",
+      "reason": "替换误拒静态视差的能力边界并收束下一断点，行为及验证归入同批历史。",
+      "decision": "docs/scene/history/particle-world-parallax-implementation-2026-10-05.md"
     }
   ]
 }

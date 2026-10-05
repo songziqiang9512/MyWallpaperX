@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-05 | Scene | 实施证据 | [世界空间视差准入](particle-world-parallax-implementation-2026-10-05.md) | 静态方向基底与绘制平移分离、真实水滴及Rain child恢复 | [粒子能力](../capabilities/particle-component-coverage.md) |
 | 2026-10-05 | Scene | 实施证据 | [Rain标量速度Remap](particle-scalar-remap-implementation-2026-10-05.md) | 缺省乘法/饱和行为、项目FBM近似与真实粒子链路 | [粒子能力](../capabilities/particle-component-coverage.md) |
 | 2026-10-05 | Scene | 运行修复 | [初始隐藏媒体封面](media-inactive-dependency-implementation-2026-10-05.md) | potential依赖到最终计划的同一引用守恒及293受控媒体画面 | [能力台账](../capabilities/coverage-ledger.md)、[当前证据](../capabilities/runtime-evidence-current.md) |
 | 2026-10-05 | Scene | 实施证据 | [文件纹理原位更新](user-texture-live-update-implementation-2026-10-05.md) | 异步单key事务、solid绘制修复及293四文件键实际像素；失败/reset/重放边界 | [架构](../architecture/runtime-architecture.md)、[能力台账](../capabilities/coverage-ledger.md)、[运行证据](../capabilities/runtime-evidence-current.md) |

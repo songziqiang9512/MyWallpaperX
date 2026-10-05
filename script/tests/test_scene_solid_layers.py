@@ -16,6 +16,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     REPOSITORY_ROOT / "script/tests/fixtures/SceneUserPropertyResolutionStub.swift",
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticModelMaterialBindingUnavailableStub.swift",
+    SOURCE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
@@ -57,6 +59,12 @@ SWIFT_SOURCES = [
 
 SCENE_FIXTURE = {
     "version": 3,
+    "general": {
+        "orthogonalprojection": {"width": 1920, "height": 1080},
+        "cameraparallax": True,
+        "cameraparallaxamount": 0.125,
+        "cameraparallaxmouseinfluence": 1,
+    },
     "objects": [
         {
             "id": 10,
@@ -108,6 +116,46 @@ SCENE_FIXTURE = {
             "size": "100 100",
             "parent": 164,
         },
+        {
+            "id": 170,
+            "image": "models/util/solidlayer.json",
+            "size": "100 100",
+            "origin": "120 240 3",
+            "angles": "0 0 1.5707963267948966",
+            "scale": "2 4 -1",
+            "parallaxDepth": "0.25 -0.5",
+        },
+        {
+            "id": 171,
+            "particle": "particles/owned.json",
+            "parent": 170,
+            "origin": "10 20 7",
+            "scale": "0.5 2 1",
+        },
+        {
+            "id": 180,
+            "image": "models/util/solidlayer.json",
+            "size": "100 100",
+            "origin": "120 240 3",
+            "angles": "0 0 1.5707963267948966",
+            "scale": "2 4 -1",
+            "parallaxDepth": "0 0",
+        },
+        {
+            "id": 181,
+            "particle": "particles/owned.json",
+            "parent": 180,
+            "origin": "10 20 7",
+            "scale": "0.5 2 1",
+        },
+        {
+            "id": 190,
+            "image": "models/util/solidlayer.json",
+            "size": "100 100",
+            "origin": {"value": "120 240 3", "script": "export function update(v) { return v; }"},
+            "parallaxDepth": "0.25 -0.5",
+        },
+        {"id": 191, "particle": "particles/owned.json", "parent": 190},
         {
             "id": 20,
             "name": "Wrapped solid",
@@ -326,6 +374,7 @@ struct SceneAssetCatalog {
     let effectDefinitions: [SceneEffectDefinition]
     let effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic]
     let shaderReferences: [String]
+    var shaderContracts: [Never] { [] }
     let textureReferences: [String]
 }
 
@@ -462,7 +511,32 @@ enum Harness {
         } else {
             authoredRawTexture = nil
         }
+        let frames = descriptor.staticParticleWorldSpaceFrames
+        let chains = descriptor.staticParticleWorldSpaceChains
+        let worldFrames = SceneLayerWorldFrameResolver.compute(descriptor: descriptor, byID: layers)
+        let parallax = SceneLayerParallax.resolveAll(layersByID: layers)
+        let staticWorldSpaceTRS = Dictionary(uniqueKeysWithValues: [170, 171, 180, 181, 190, 191].map { id in
+            var result: [String: Any] = [
+                "chain": chains[id]?.sorted() ?? [], "admitted": frames[id] != nil,
+                "parallaxSource": parallax[id]?.sourceLayerID ?? -1,
+                "parallaxDepth": parallax[id].map { [$0.depth.x, $0.depth.y] } ?? [],
+            ]
+            if let frame = frames[id] {
+                let direction = frame.localParticleDirection(SIMD3(8, 1, -2))
+                result["localParticleDirection"] = [direction.x, direction.y, direction.z]
+                let basis = frame.worldToLocalDirection
+                result["worldToLocalDirection"] = [basis.columns.0.x, basis.columns.0.y, basis.columns.0.z,
+                    basis.columns.1.x, basis.columns.1.y, basis.columns.1.z,
+                    basis.columns.2.x, basis.columns.2.y, basis.columns.2.z]
+            }
+            if let world = worldFrames[id] {
+                result["worldTranslation"] = [world.columns.3.x, world.columns.3.y, world.columns.3.z]
+            }
+            return (String(id), result)
+        })
         let result: [String: Any] = [
+            "staticWorldSpaceTRS": staticWorldSpaceTRS,
+            "cameraParallaxEnabled": descriptor.camera.parallaxEnabled,
             "worldSpaceFrameLayerIDs": descriptor.staticParticleWorldSpaceFrames.keys.sorted(),
             "documentColors": [10, 20, 30].map { objects[$0]?.colorRGB ?? [] },
             "contentKinds": [10, 20, 30, 40].map { layers[$0]?.contentKind ?? "" },
@@ -620,6 +694,29 @@ class SceneSolidLayerTests(unittest.TestCase):
     def test_solid_layer_classification_and_renderability(self) -> None:
         self.assertEqual(self.result["contentKinds"], ["solid", "solid", "solid", "image"])
         self.assertEqual(self.result["imageRenderable"], [True, True, True, True])
+
+    def test_static_world_space_trs_inherits_parallax_without_changing_direction(self) -> None:
+        self.assertTrue(self.result["cameraParallaxEnabled"])
+        facts = self.result["staticWorldSpaceTRS"]
+        for layer_id in [170, 171, 180, 181]:
+            with self.subTest(layer=layer_id):
+                self.assertTrue(facts[str(layer_id)]["admitted"])
+        self.assertEqual(facts["171"]["chain"], [170, 171])
+        self.assertEqual(facts["181"]["chain"], [180, 181])
+        self.assertEqual(facts["171"]["parallaxSource"], 170)
+        self.assertEqual(facts["171"]["parallaxDepth"], [0.25, -0.5])
+        self.assertEqual(facts["181"]["parallaxDepth"], [0, 0])
+        self.assertEqual(facts["171"]["worldToLocalDirection"], facts["181"]["worldToLocalDirection"])
+        # Parent rotation and nonuniform/mirrored scale, then child scale:
+        # scene basis columns are (0,-1,0), (8,0,0), (0,0,-1).
+        for actual, expected in zip(facts["171"]["localParticleDirection"], [1, -1, 2]):
+            self.assertAlmostEqual(actual, expected, places=6)
+        for actual, expected in zip(facts["171"]["worldTranslation"], [40, 820, -4]):
+            self.assertAlmostEqual(actual, expected, places=5)
+        for layer_id in [190, 191]:
+            with self.subTest(transform_writer_chain=layer_id):
+                self.assertFalse(facts[str(layer_id)]["admitted"])
+                self.assertEqual(facts[str(layer_id)]["chain"], [])
 
     def test_model_declared_size_inherits_only_without_explicit_size(self) -> None:
         # 缺口 1：model 引用层无显式 size 时继承模型声明的 width/height；
