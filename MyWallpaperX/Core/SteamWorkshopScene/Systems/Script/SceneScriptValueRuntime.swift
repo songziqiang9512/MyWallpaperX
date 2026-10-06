@@ -206,7 +206,10 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
                 let hasEventHook = hasMediaHook || handlesUserProperties
                     || hasCursorHook
                 if handlesInit || handlesUpdate {
-                    guard !handlesDestroy,
+                    // A stateful owner's destroy hook joins the existing
+                    // exactly-once teardown dispatch (fail-soft, journal
+                    // discarded); value-less lanes keep the stricter shape.
+                    guard allowsStatefulLayerSideEffects || !handlesDestroy,
                           (allowsStatefulLayerSideEffects || !hasMediaHook),
                           (allowsStatefulLayerSideEffects
                             || exportedCursorEvents.isEmpty),

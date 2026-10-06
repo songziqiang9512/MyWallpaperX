@@ -394,6 +394,11 @@ enum Harness {
             userPropertyDefinitions: [],
             generation: 8
         )
+        let destroyTeardown = destroyProgram.teardown(
+            frame: frame(runtime: 3),
+            effectivePropertyValues: [:],
+            userPropertiesJSON: "{}"
+        ).first
 
         let parented = SceneScriptVectorProgram.project(
             descriptor: descriptor(parentID: 99),
@@ -745,6 +750,9 @@ enum Harness {
             "eventAudioFailures": eventAudio.failures.count + eventSilent.failures.count + eventQuiet.failures.count,
             "eventQuiet": eventQuiet.values.isEmpty && eventQuiet.layerMutations.isEmpty,
             "destroyDefinitions": destroyProgram.definitions.count,
+            "destroyTeardownInvoked": destroyTeardown?.destroyCallbackInvoked as Any,
+            "destroyTeardownQuiescent": destroyTeardown?.snapshot.isQuiescent as Any,
+            "destroyTeardownFailed": destroyTeardown?.failure != nil,
             "parentedProjected": parented.targets.count,
             "userWrappedProjected": userWrapped.targets.count,
             "textLeafProjected": textLeaf.targets.count,
@@ -962,7 +970,12 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
         self.assertIsNone(self.value["hiddenHandleCode"])
         self.assertEqual(self.value["timerCode"], "exception")
         self.assertEqual(self.value["audioDefinitions"], 1)
-        self.assertEqual(self.value["destroyDefinitions"], 0)
+
+    def test_stateful_visibility_owner_admits_destroy_and_teardown_dispatches_once(self) -> None:
+        self.assertEqual(self.value["destroyDefinitions"], 1)
+        self.assertTrue(self.value["destroyTeardownInvoked"])
+        self.assertTrue(self.value["destroyTeardownQuiescent"])
+        self.assertFalse(self.value["destroyTeardownFailed"])
         self.assertFalse(self.value["teardownDestroyInvoked"])
         self.assertTrue(self.value["teardownQuiescent"])
         self.assertFalse(self.value["teardownFailed"])

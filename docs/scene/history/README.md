@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-07 | Scene | 实施证据 | [土星灯光送达修复](saturn-light-delivery-2026-10-07.md) | destroy 导出准入（stateful 放行+teardown exactly-once）；盘面 0→受光暖棕云带；残余=界线镜像+能量偏暗已登记 | [断点队列](../roadmap/scene-open-breakpoint-queue.md)、[SceneScript API 覆盖](../capabilities/scenescript-api-coverage.md) |
 | 2026-10-07 | Scene | 复测+对比证据 | [L1 重型入口复测与土星官方对比](l1-heavy-retest-2026-10-07.md) | 启动无回归（三体/土星~14s exit0）、三体渲染正常用户确认；土星盘面黑剪影 vs 官方照亮，新断点=静态模型灯光送达链 | [断点队列](../roadmap/scene-open-breakpoint-queue.md)、[调试台账](../capabilities/scene-sample-debug-ledger.md) |
 | 2026-10-07 | Scene | 运行验证证据 | [HDR 显示开关运行中热切验证](hdr-live-toggle-verification-2026-10-07.md) | 就绪门控 OFF→ON→OFF：headroom 随内容爬升后回 1.0、colorspace/format 同 surface 不变、零掉帧；暂停重绘/多屏/SDR 设备边界登记 | [D2 设计](../roadmap/batch2/hdr-tonemap-edr-design.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-07 | Scene | 实施证据 | [HEAD 预存红偿清](head-preexisting-red-clearance-2026-10-07.md) | lit oracle 迁移（平面衰减+1.85）、utility 断言迁移 launch owner、0781cc73 ABI 拓宽误触发 mixed 证明的产品收口 | [2D lit 合同](2d-lit-image-light-contract-2026-10-06.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |

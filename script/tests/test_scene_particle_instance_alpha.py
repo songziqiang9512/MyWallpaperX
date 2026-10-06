@@ -210,7 +210,7 @@ class ParticleInstanceAlphaTests(unittest.TestCase):
         preamble = SWIFT_PREAMBLE[:start] + SWIFT_PREAMBLE[end:]
         source = (SCENE / "Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift").read_text()
         start = source.index("        func frameScriptValues(")
-        end = source.index("        func frameResolution(", start)
+        end = source.index("        func timelineProjection(", start)
         harness = HARNESS.replace("        // PRODUCTION_FRAME_SCRIPT_VALUES", source[start:end])
         with tempfile.TemporaryDirectory(prefix="mwx-particle-instance-alpha-") as raw:
             binary = compile_vector_harness(Path(raw), harness, "particle-instance-alpha", preamble=preamble,
