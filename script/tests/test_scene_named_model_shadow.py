@@ -1134,7 +1134,11 @@ def assert_named_receiver_rows(test, rows):
     test.assertTrue(by_mode['shadow']['shadow'])
     test.assertFalse(by_mode['no-caster']['shadow'])
     for on,off in zip(by_mode['shadow']['shadowPixels'],by_mode['no-caster']['shadowPixels']):
-        test.assertLess(on[1],off[1]-20)
+        # Shadow-to-lit contrast = the spot's direct term, which the official
+        # energy contract scales by k=0.30 (2026-10-06): measured 25→41 green
+        # (16 levels of direct over the ramped ambient), so the positivity
+        # margin tracks the contracted magnitude rather than the pre-k era.
+        test.assertLess(on[1],off[1]-10)
         test.assertEqual(on[3],off[3])
     test.assertEqual(by_mode['shadow']['healthyPixels'],by_mode['no-caster']['healthyPixels'])
     flight=by_mode['flight']; test.assertTrue(flight['shadow'])
