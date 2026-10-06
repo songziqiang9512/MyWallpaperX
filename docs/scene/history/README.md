@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-06 | Scene | 复验+量化证据 | [重型入口复验与土星过曝](heavy-entry-verify-and-saturn-exposure-2026-10-06.md) | 当前HEAD三体/土星普通入口无可复现启动失败；土星稳态球体89%顶格白同族过曝（用户实机确认） | [断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-06 | Scene | 诊断证据 | [水星近景过白诊断](mercury-closeup-brightness-diagnosis-2026-10-06.md) | 三变体隔离首断点归因（光强×显示域×终端裁剪）与官方探针问题定义 | [断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-06 | Scene | 实施证据 | [模型默认albedo](static-model-default-albedo-implementation-2026-10-06.md) | JUNO缺失主体恢复、独立sampler默认与太阳系交互边界 | [Sampler合同](../capabilities/sampler-alias-precedence.md)、[暂停交接](../roadmap/scene-maintainer-handoff-2026-10-06.md) |
 | 2026-10-06 | Scene | 已完成设计 | [诊断截图生命周期](debug-frame-capture-lifecycle-design-2026-10-06.md) | 有界请求、独立导出与停止drain已完成 | [运行架构](../architecture/runtime-architecture.md#debug-capture-lifecycle) |

@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 131,
-      "bytes": 50070
+      "bytes": 50390
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1204,10 +1204,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "24cf7ce2bc9840688ec6052e93699a2725da9c3e7fef828bf861ef4a30e9b382",
-      "after": "2a9ef8bfef41c6ab691edaa891bcb0a521e11d1fed1613bffbc30b4c6f958bdf",
+      "before": "2a9ef8bfef41c6ab691edaa891bcb0a521e11d1fed1613bffbc30b4c6f958bdf",
+      "after": "54f3ec91129d047512f9923fe0deb293c3b2bab108df8a60acbf641419cc3f69",
       "owner": "scene-maintainer-succession",
-      "reason": "太阳系条目补官方探针执行阻塞条件（VM PIN 登录、SYSTEM 会话无桌面）与夹具位置；只登记本次精确文档变化。",
+      "reason": "太阳系条目并入土星同族过曝（用户实机确认）与重型入口当前HEAD无可复现失败的复验结论；只登记本次精确文档变化。",
       "decision": "docs/scene/history/mercury-closeup-brightness-diagnosis-2026-10-06.md"
     }
   ]
