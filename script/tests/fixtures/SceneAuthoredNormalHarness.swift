@@ -70,9 +70,13 @@ import simd
         func check(_ pixels:[Float],_ normal:SIMD3<Float>) {
             for y in 0..<Harness.height { for x in 0..<Harness.width {
                 let world=SIMD3<Float>((Float(x)+0.5)/Float(Harness.width)-0.5,0.5-(Float(y)+0.5)/Float(Harness.height),0)
-                let delta=position-world,distance=simd_length(delta)
-                let attenuation=pow(max(0,1-distance/100),2)
-                let response=Harness.materialResponse(normal:normal,light:delta/distance)
+                let delta=position-world
+                // Official 2D lit images: planar falloff (Z excluded) and
+                // point energy scale 1.85 (own-fixture, 2026-10-06); the
+                // NdotL direction stays the full 3D vector.
+                let distance=simd_length(SIMD2(delta.x,delta.y))
+                let attenuation=pow(max(0,1-distance/100),2)*1.85
+                let response=Harness.materialResponse(normal:normal,light:delta/simd_length(delta))
                 for channel in 0..<3 { maxError=max(maxError,abs(pixels[(y*Harness.width+x)*4+channel]-response[channel]*attenuation)) }
             }}
             cases += 1
@@ -222,9 +226,10 @@ import simd
                 let r=nearest ? red(Int(floor(texel+0.5))) : red(index)*(1-fraction)+red(index+1)*fraction
                 let n=simd_normalize(SIMD3<Float>(r*2-1,128.0/255*2-1,204.0/255*2-1))
                 let world=SIMD3<Float>(u-0.5,0.5-(Float(y)+0.5)/Float(Harness.height),0)
-                let delta=position-world,distance=simd_length(delta)
-                let attenuation=pow(1-distance/100,2)
-                let response=Harness.materialResponse(normal:n,light:delta/distance)
+                let delta=position-world
+                let distance=simd_length(SIMD2(delta.x,delta.y))
+                let attenuation=pow(1-distance/100,2)*1.85
+                let response=Harness.materialResponse(normal:n,light:delta/simd_length(delta))
                 for channel in 0..<3 { error=max(error,abs(pixels[(y*Harness.width+x)*4+channel]-response[channel]*attenuation)) }
             }}
             return error
