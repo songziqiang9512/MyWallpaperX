@@ -239,6 +239,7 @@ struct SceneStaticModelPipeline {
     private let device: MTLDevice
     private let writingDepthState: MTLDepthStencilState
     private let nonwritingDepthState: MTLDepthStencilState
+    private let disabledDepthState: MTLDepthStencilState
     private let samplerStates: SceneTextureSamplerStateSet
     private let shadowState: MTLRenderPipelineState?
     private let spotShadowState: MTLRenderPipelineState?
@@ -281,12 +282,23 @@ struct SceneStaticModelPipeline {
         nonwritingDepthDescriptor.depthCompareFunction = .greaterEqual
         nonwritingDepthDescriptor.isDepthWriteEnabled = false
 
+        // Metal validation (Xcode Debug runs) rejects `setDepthStencilState(nil)`
+        // with "depthStencilState must not be nil"; a no-test, no-write state is
+        // the supported way to leave the encoder without depth configuration.
+        let disabledDepthDescriptor = MTLDepthStencilDescriptor()
+        disabledDepthDescriptor.label = "Scene static model disabled depth"
+        disabledDepthDescriptor.depthCompareFunction = .always
+        disabledDepthDescriptor.isDepthWriteEnabled = false
+
         guard let state = try? device.makeRenderPipelineState(descriptor: descriptor),
               let writingDepthState = device.makeDepthStencilState(
                   descriptor: writingDepthDescriptor
               ),
               let nonwritingDepthState = device.makeDepthStencilState(
                   descriptor: nonwritingDepthDescriptor
+              ),
+              let disabledDepthState = device.makeDepthStencilState(
+                  descriptor: disabledDepthDescriptor
               ),
               let samplerStates = SceneTextureSamplerStateSet(device: device) else {
             return nil
@@ -295,6 +307,7 @@ struct SceneStaticModelPipeline {
         self.state = state
         self.writingDepthState = writingDepthState
         self.nonwritingDepthState = nonwritingDepthState
+        self.disabledDepthState = disabledDepthState
         self.samplerStates = samplerStates
         let shadowDescriptor = MTLRenderPipelineDescriptor()
         shadowDescriptor.label = "Scene directional model shadow"
@@ -563,7 +576,7 @@ struct SceneStaticModelPipeline {
         encoder.setCullMode(material.cullMode)
         defer {
             encoder.setCullMode(.none)
-            encoder.setDepthStencilState(nil)
+            encoder.setDepthStencilState(disabledDepthState)
         }
         encoder.setVertexBuffer(mesh.vertexBuffer, offset: 0, index: 0)
         encoder.setVertexBytes(
