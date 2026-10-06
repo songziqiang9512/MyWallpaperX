@@ -25,12 +25,16 @@
 ## 验证
 
 - 单元：`test_scene_lit_image_layer`（迁移后 oracle 全绿）、emission/pbr/authored_normal/pipeline/snapshot/point-shadow 等本批映射模块全绿。
-- 实机：P3DG/P3DN（point 类灯+静态球）在我方引擎渲染全黑=3D 分流生效（此前两类都会点亮球）；IMG5L/IMG5U（point 类灯+lit image）在我方引擎 image 区域仍全黑——**2D lit 接合预存缺口**：lit capture 未对夹具/语料形态启动（img5l 与 2815826216 运行日志均无 lit 线索），先于本批存在，登记为独立后继批（2D lit profile/管线准入排查）；合同数值部分（k/衰减/分流）已经 harness oracle 与编译验证。
+- 实机：P3DG/P3DN（point 类灯+静态球）在我方引擎渲染全黑=3D 分流生效（此前两类都会点亮球）。
 - 预存红（非本批）：`test_scene_frame_rejection_fault`、`test_scene_resolved_material_runtime_bridge`、`test_scene_utility_layers`（源形状/源清单漂移，均未涉本批文件）。
+
+## 接合缺口收口（同日后继批）
+
+前段记录的"IMG5L lit image 我方全黑"经追踪排查为**双因**：①夹具笔误——IMG5 系列误用 `lpoint`（IMG6 才是 point 类），我方按分流渲染黑是正确行为；②**真产品缺陷**——`SceneLightSnapshot.make` 的 lightconfig 门控把无 `lightconfig` 场景（语料 2815826216 实况）的 point 灯整灯丢弃（LITPACK counts=(0,0) 逐帧证据）。官方证据矩阵：lightconfig 只门控静态模型消费（N 系列=静态模型探针）；2D 图像路径不问 lightconfig（IMG6 无 config 亮、语料无 config 亮）。修复：`point` 类灯绕过模型预算直接入快照（模型四槽预算仍归模型灯；2D 打包器对自身 point+spot 合计守卫是**整包拒绝**而非截断——无界准入使 >4 合计首次可达，该层回落 unlit，登记开放；dir 应回归抓出的预算挤占问题当批修正）；`LightClassesDescriptor` 注释同步改述。终验：IMG6 我方渲染点亮且自渲染比值场拟合 k=1.907（应用 1.85 容差内、峰值比值 1.63≈官方 1.6）；**语料 2815826216 图像区从无光照变为 (116,0,0) 音频律动光晕**（两盏 point 灯+脚本强度 0.6 实际流入 LITPACK）。顺带偿清 directional_shadow 的 `SceneStaticModelMaterialBindings` 源清单漂移。
 
 ## 开放
 
-2D lit 接合缺口（我方 lit image 对 point 灯全黑的产品排查）；spot/directional 对 2D 图的官方合同未探（当前保持既有消费）；2D 路径 ambient 律（平坦/斜坡）未探；k_2D 精确值 ±5%（1.85±0.1）；光 z 对 NdotL 之外可能的第二作用未分离。
+spot/directional 对 2D 图的官方合同未探（当前保持既有消费）；2D 路径 ambient 律（平坦/斜坡）未探；k_2D 精确值 ±5%（1.85±0.1）；光 z 对 NdotL 之外可能的第二作用未分离；lightconfig 在场且 point=false 时 point 类灯是否仍照 2D 图（本批无界准入对该象限同样生效，官方证据只覆盖无 config 象限，未探）；单层 point+spot 合计 >4 的整包拒绝回退（见收口章节）。
 
 ## 证据
 

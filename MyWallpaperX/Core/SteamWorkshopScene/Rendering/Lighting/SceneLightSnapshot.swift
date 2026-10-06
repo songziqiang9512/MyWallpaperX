@@ -107,12 +107,22 @@ struct SceneLightSnapshot {
             guard visibleLayerIDs?.contains(layer.id)
                     ?? (layer.visible != false) else { continue }
             guard let frame = worldFramesByLayerID[layer.id] else { continue }
-            // general.lightconfig gates the light class per scene. An absent
-            // author field leaves directional/point/spot inert in the official
-            // client (own-fixture black-box observation, 2026-10-06; the spot
-            // key name was confirmed by the SP1/SP2 own-fixture pair).
+            // general.lightconfig gates the STATIC-MODEL light classes per
+            // scene: an absent author field leaves directional/lpoint/spot
+            // inert for models in the official client (own-fixture N-series
+            // and SP1/SP2 black-box, 2026-10-06). The 2D lit-image consumer
+            // is NOT config-gated — `point` lights illuminate images with no
+            // lightconfig at all (corpus 2815826216 and the IMG6 own-fixture
+            // pair) — so 2D-only `point` lights always enter the snapshot.
+            // They bypass the static-model budget: the four-slot model budget
+            // stays owned by model lights. The 2D packer guards its own
+            // point+spot ABI capacity and rejects the whole layer payload when
+            // exceeded (registered open: >4 combined image lights).
+            let isImageOnlyPointLight = layer.pointLight?.kind == "point"
             let admitted: Bool
-            if layer.pointLight != nil {
+            if isImageOnlyPointLight {
+                admitted = true
+            } else if layer.pointLight != nil {
                 admitted = descriptor.lighting?.lightClasses.point ?? false
             } else if layer.directionalLight != nil {
                 admitted = descriptor.lighting?.lightClasses.directional ?? false
@@ -130,6 +140,13 @@ struct SceneLightSnapshot {
                     snapshot: $0
                 )
             } ?? authoredIntensity(layer)
+            if isImageOnlyPointLight, let light = point(
+                layer: layer, frame: frame, dynamicColor: dynamicColor,
+                intensity: intensity
+            ) {
+                pointLights.append(light)
+                continue
+            }
             if let light = directional(
                 layer: layer, dynamicSnapshot: dynamicSnapshot,
                 reflectY: (descriptor.camera.orthoHeight ?? 0) > 0,

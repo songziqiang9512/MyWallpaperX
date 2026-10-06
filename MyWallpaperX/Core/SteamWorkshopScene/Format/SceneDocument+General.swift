@@ -18,12 +18,13 @@ extension SceneDocument {
             let speed: Float?
         }
 
-        /// `general.lightconfig` gates which light classes the scene admits.
-        /// A nil descriptor means the author field is absent: official clients
-        /// leave directional, point and spot lights inert in that state
-        /// (bounded own-fixture black-box observation, WE 2.8.0.42,
-        /// 2026-10-06; spot key confirmed by the SP1/SP2 pair), so the
-        /// parsed form defaults all classes to disabled.
+        /// `general.lightconfig` gates the STATIC-MODEL light classes per
+        /// scene: an absent field leaves directional/lpoint/spot inert for
+        /// models in the official client (own-fixture black-box, 2026-10-06;
+        /// spot key confirmed by the SP1/SP2 pair), so the parsed form
+        /// defaults those classes to disabled. The 2D lit-image consumer is
+        /// not config-gated — `point` lights illuminate images with no
+        /// lightconfig at all (corpus 2815826216, IMG6 pair).
         struct LightClassesDescriptor: Codable {
             var directional: Bool = false
             var point: Bool = false
