@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-06 | Scene | 验收证据 | [JUNO完整场景导航验收](juno-full-scene-navigation-acceptance-2026-10-06.md) | 作者过渡链两跳进入，主体完整（三翼/天线盘），导航机制诊断 | [断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-06 | Scene | 实施证据 | [模型光照能量合同](model-light-energy-contract-implementation-2026-10-06.md) | 官方黑盒合同（显示域×k≈0.30+lightconfig门控）与水星/土星过曝修复 | [断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-06 | Scene | 复验+量化证据 | [重型入口复验与土星过曝](heavy-entry-verify-and-saturn-exposure-2026-10-06.md) | 当前HEAD三体/土星普通入口无可复现启动失败；土星稳态球体89%顶格白同族过曝（用户实机确认） | [断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-06 | Scene | 诊断证据 | [水星近景过白诊断](mercury-closeup-brightness-diagnosis-2026-10-06.md) | 三变体隔离首断点归因（光强×显示域×终端裁剪）与官方探针问题定义 | [断点队列](../roadmap/scene-open-breakpoint-queue.md) |
