@@ -111,7 +111,7 @@
 
 | 尚未关闭的问题 | 下一步与关闭条件 |
 |---|---|
-| Scene Bloom 完整HDR链与视觉对照 | 静态及direct属性热调已沿唯一compositor执行；[热调批](../capabilities/runtime-evidence-current.md#e-2026-09-28-bloom-live-properties)闭合binding→snapshot→post、初始禁用后开启及drawable可读用途，保留上一批失败保源。Combo条件开关已接入共享Boolean求值并经真实Metal验证；五字段HDR Bloom/scatter/上采样已实施，范围见[D2](batch2/hdr-tonemap-edr-design.md)；剩余物理亮度、多屏及用户样本对照，不能因RGBA16F或局部门通过关闭条纹/光束问题。 |
+| Scene Bloom 完整HDR链与视觉对照 | 静态及direct属性热调已沿唯一compositor执行；[热调批](../capabilities/runtime-evidence-current.md#e-2026-09-28-bloom-live-properties)闭合binding→snapshot→post、初始禁用后开启及drawable可读用途，保留上一批失败保源。Combo条件开关已接入共享Boolean求值并经真实Metal验证；五字段HDR Bloom/scatter/上采样已实施，范围见[D2](batch2/hdr-tonemap-edr-design.md)。2026-10-06 用户"HDR开关不生效"在当前HEAD复验：真实域偏好 off 后 `requested=false/enabled=false/headroom=1.0` 全程无EDR爬升，on 时 headroom 1.2→随内容爬升（同dylib A/B，土星样本，偏好已复原；日志与末帧保留于 `/private/tmp/mwx-solar-layout-20261006/hdr-off3`）；设置UI→DistributedNotification→SceneMetalView刷新链代码核验完整，运行中热切与多屏/SDR设备仍待用户实机验收。剩余物理亮度、多屏及用户样本对照，不能因RGBA16F或局部门通过关闭条纹/光束问题。 |
 | 全 corpus identity-only matrix 与人工视觉复核 | **fixed13 已于 2026-09-25 全绿（13/13，观察模式）**：存量 8 样本漂移完成对账（succeeded/utility/text/sha/puppet 数值随能力演进更新；2902406982 层 410/414 处置从 unsupportedEffects 迁移为 capture=能力成长；puppet checker 正则跟上 cbd126d3 的 "puppet world geometry OK" 改名，数据与原期望完全吻合零矩阵改动；8 样本计数器按 retire 全有或全无合同全量退役）。矩阵期望漂移仍用 `generate_scene_full_matrix.py` 正规流程（fixed13 sha pin 已同步）；人工重看后才改 verdict |
 
 ### Q2 — 稳定帧性能
