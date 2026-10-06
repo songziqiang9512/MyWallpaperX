@@ -1,4 +1,9 @@
 import Foundation
+// 65a13231 给 +Downloads.swift 加了下载完成预热投影（通知名声明在 Shell 层），
+// 该 fixture 的编译集不含 Shell，需要同名扩展才能编译整个文件。
+extension Notification.Name {
+    static let steamWorkshopSceneDownloadCompleted = Notification.Name("SteamWorkshopSceneDownloadCompleted")
+}
 struct SteamWorkshopBrowserItem: Codable { let id: String; let title: String; var fileSizeText: String? { nil } }
 struct SteamWorkshopPendingDownloadRequest { let id: String; let pageTitle: String?; let item: SteamWorkshopBrowserItem? }
 struct SteamWorkshopDownloadRecord {
@@ -233,6 +238,9 @@ final class Transport: SteamServiceTransporting {
 @MainActor final class WallpaperManager { static let shared = WallpaperManager(); func stopCurrentPlayback() {} }
 @MainActor final class SteamWorkshopService {
     var removingDownloadIDs: Set<String> = []
+    // 2305fea3 把暂停集合的用法加进了 +Downloads.swift（属性在主类上）；
+    // 该 fixture 的最小服务类需要同名属性才能编译整个文件。
+    var pausedDownloadItemIDs: Set<String> = []
     let steamLibraryVersionLeaseRegistry = SteamWorkshopLibraryVersionLeaseRegistry()
     func referencedLibraryStorageIdentities() -> Set<String> { steamLibraryVersionLeaseRegistry.protectedStorageIdentities() }
     func isRecordCurrentlyPlaying(_ record: SteamWorkshopDownloadRecord) -> Bool { false }

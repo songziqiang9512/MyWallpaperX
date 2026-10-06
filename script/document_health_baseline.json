@@ -50,7 +50,7 @@
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
       "lines": 177,
-      "bytes": 14202
+      "bytes": 14336
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 37,
@@ -1223,6 +1223,15 @@
       "owner": "scene-media-input",
       "reason": "系统观察辅助库随 Developer ID Release 分发（发布负责人实测决定），bundle 内容合同登记该 dylib 与 MAS 排除边界；只登记本次精确文档变化。",
       "decision": "docs/scene/roadmap/batch2/system-media-input-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "before": "f40a903009e180fe67b68769fcbf4a50e9f7b2c7ba7f28cda1605703ea541a8a",
+      "after": "9bb156153aff0ee7301c68cdc074b6dbeebf529ff53c9ff6b7e9ccf67d4beab2",
+      "owner": "steam-detail-sheet",
+      "reason": "播放诊断菜单入口改为仅 Debug 提供（Release 详情面板移除入口），responsiveness 合同 3.1 同步该产品事实并刷新导航审查回执；只登记本次精确文档变化。",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md"
     }
   ]
 }

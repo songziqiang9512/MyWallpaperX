@@ -171,8 +171,10 @@ extension SteamWorkshopService {
         currentWorkshopItemID = item.id
         currentPageTitle = item.title
         statusMessage = "已加载 \(item.title)"
+        let metadataSnapshot = managedDownloadSnapshots(matchingItemID: item.id)[item.id]
         refreshSelectedDownloadInspectorDetailIfNeeded(
             forceRefresh: SteamWorkshopDetailRefreshSupport.needsDownloadedMetadataRefresh(item)
+                || SteamWorkshopDetailRefreshSupport.isDownloadedMetadataStale(fetchedAt: metadataSnapshot?.fetchedAt)
         )
     }
 

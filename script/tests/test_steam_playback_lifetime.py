@@ -18,6 +18,9 @@ class SteamPlaybackLifetimeTests(unittest.TestCase):
 import AppKit
 struct SceneUserPropertyValue {}
 struct ScenePlaybackTextureReference {}
+// 真实形状见 WallpaperEngineCommand.swift；抽取的 stop/shutdown 路径会构造
+// .failed(String) 等分支，stub 枚举必须承接这些调用点。
+enum ScenePlaybackTextureUpdateOutcome { case applied, failed(String), superseded, unavailable }
 struct ScenePlaybackLoadRequest {
     let rootURL: URL
     let recordID: String?
@@ -70,6 +73,13 @@ extension Notification.Name {
     var retiringResourceLifetimes: [UInt64: [PlaybackResourceLifetime]] = [:]
     var shutdownCompletions: [(generations: Set<UInt64>, completion: () -> Void)] = []
     func revokeAudioSpectrumDemand(generation: UInt64) {}
+    // 用户纹理重载管线（真实方法体在 +UserTextures.swift）；抽取的
+    // handleTermination/finishShutdownIfPossible 路径引用这些入口，保持
+    // 无操作即可——本 harness 的断言不依赖纹理完成回调副作用。
+    func bindDeferredTextureUpdates(recordID: String?, requestID: UUID) {}
+    func fallbackReplayIntent(requestID: UUID) -> ScenePlaybackLoadRequest? { nil }
+    func finishTextureReload(recordID: String?, outcome: ScenePlaybackTextureUpdateOutcome) {}
+    func finishPendingTextureUpdates(_ outcome: ScenePlaybackTextureUpdateOutcome) {}
     func scheduleRestart(reason: String) { fatalError("unexpected restart: " + reason) }
     func publishFailure(code: String, message: String) { fatalError(code + message) }
 ''' + '\n'.join(method(client, signature) for signature in (

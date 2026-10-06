@@ -29,11 +29,15 @@ final class SteamWorkshopGlassBarView: NSView {
 @MainActor final class LayoutController: NSViewController {
     let countLabel = NSTextField(labelWithString: "3 项")
     let clearAllButton = NSButton(title: "全部清除", target: nil, action: nil)
+    // 2305fea3 的批量重试给弹窗布局加了该按钮（真实声明在 TasksPopover:57），
+    // 本桩类需同名成员才能编译抽取的 loadView。
+    let retryAllFailedButton = NSButton(title: "重试全部失败", target: nil, action: nil)
     let emptyLabel = NSTextField(labelWithString: "")
     let scrollView = NSScrollView()
     let documentView = FlippedView()
     let rowsStack = NSStackView()
     @objc func handleClearAll() {}
+    @objc func handleRetryAllFailed() {}
 ''' + layout + r'''
 }
 @MainActor final class Row: NSView {
@@ -46,6 +50,14 @@ final class SteamWorkshopGlassBarView: NSView {
     let retryButton = NSButton(title: "重试", target: nil, action: nil)
     let actionsStack = NSStackView()
     @objc func handleRetry() {}
+    // 2305fea3 的暂停/继续与插队（优先下载）键：抽取的行初始化与状态刷新
+    // 引用这些成员与动作，桩保持无操作。
+    let pauseButton = NSButton(title: "暂停", target: nil, action: nil)
+    @objc func handlePauseToggle() {}
+    var pauseHandler: (() -> Void)?
+    let promoteButton = NSButton(title: "优先", target: nil, action: nil)
+    @objc func handlePromote() {}
+    var promoteHandler: (() -> Void)?
     let clearButton = NSButton(title: "", target: nil, action: nil)
     @objc func handleClear() {}
     required init?(coder: NSCoder) { nil }

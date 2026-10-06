@@ -70,7 +70,9 @@ import Foundation
         self.assertIn("SteamWorkshopGridKeyboardNavigation.destinationIndex", downloads)
         self.assertIn("SteamWorkshopGridKeyboardNavigation.isPrimaryActionKey", downloads)
         self.assertEqual(browser.count("guard !event.isARepeat else { return true }"), 1)
-        self.assertEqual(downloads.count("guard !event.isARepeat else { return true }"), 1)
+        # a05c21ab 给下载网格的多选分支加了独立的 Return 键处理：多选与普通
+        # 分支各护一次 isARepeat，合法并存。
+        self.assertEqual(downloads.count("guard !event.isARepeat else { return true }"), 2)
 
         focus_setter = item.split("func setKeyboardFocus(_ focused: Bool)", 1)[1].split("\n    }", 1)[0]
         self.assertIn("currentIsKeyboardFocused = focused", focus_setter)

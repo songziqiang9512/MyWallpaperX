@@ -58,6 +58,9 @@ final class SteamWorkshopService {
     func presentSteamLoginForUserAction(context: String) {}
     func latestDownloadRecord(for id: String) -> SteamWorkshopDownloadRecord? { nil }
     func isDownloading(itemID: String) -> Bool { false }
+    // f140ee42 让卡片解析"下载失败意图"文案（真实实现 +DownloadFiltering.swift），
+    // 本 fixture 编译整份 BrowserItem，需要同名入口保持无操作。
+    func failedDownloadIntentMessage(for id: String) -> String? { nil }
     func isDownloaded(itemID: String) -> Bool { false }
     func isRecordCurrentlyPlaying(_ record: SteamWorkshopDownloadRecord) -> Bool { false }
     func isLaunchPending(_ id: String) -> Bool { false }

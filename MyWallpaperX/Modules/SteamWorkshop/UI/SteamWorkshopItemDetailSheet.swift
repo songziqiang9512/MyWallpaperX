@@ -440,18 +440,14 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         let properties = footerIconButton(symbolName: "gearshape", help: "属性调节", action: #selector(openProperties))
         properties.isEnabled = latestDownloadRecord?.status == .ready && latestDownloadRecord?.contentType != .unknown
         if latestDownloadRecord?.status != .ready { properties.toolTip = "下载完成后可查看属性" }
-        // 常驻刷新入口：下载页的自动刷新判定只查作者字段，作者齐全时
-        // Steam 侧的标题/描述变更永远不会传播到本地——此前重试按钮只在
-        // 出错时出现，平时没有任何手动刷新途径。
-        let refresh = footerIconButton(symbolName: "arrow.clockwise", help: "刷新作品信息", action: #selector(refreshDetailInfo))
+        // 诊断菜单是开发调试入口，只在 Debug 构建挂在属性按钮上；Release
+        // 的详情面板不提供该入口。元数据时效由打开面板时的 72h 陈旧判定兜底。
+        #if DEBUG
         let diagnosticsMenu = NSMenu()
         diagnosticsMenu.addItem(SteamWorkshopMenuItem(title: "播放诊断", symbol: "stethoscope") { [weak self] in self?.openDiagnostics() })
         properties.menu = diagnosticsMenu
-        footerView.configure(primary: primary, webpage: webpage, properties: properties, refresh: refresh)
-    }
-
-    @objc private func refreshDetailInfo() {
-        service.retryInspectorDetailRefresh(for: currentItem.id)
+        #endif
+        footerView.configure(primary: primary, webpage: webpage, properties: properties)
     }
 
 

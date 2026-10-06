@@ -391,10 +391,10 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-04",
+      "lastReviewed": "2026-10-07",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9032825ff7ada4f96aeb1c79c78af6967b86669b144057d73754796989780d76",
+        "sourceSHA256": "d0c510a7c6f9f37ccadfdb811a9009ad852bbf3382f1f38802782bd918f55e93",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对RF05连续属性、PNG与隐藏fullscreen有界实现的合同/证据链接，修正随正文变化的导航身份；不扩大运行结论。",
         "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"

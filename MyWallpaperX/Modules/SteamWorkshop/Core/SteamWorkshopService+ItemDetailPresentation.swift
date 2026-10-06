@@ -77,11 +77,6 @@ extension SteamWorkshopService {
         refreshSelectedBrowserItemDetailIfNeeded(forceRefresh: true)
     }
 
-    func retrySelectedBrowserItemDetailRefresh() {
-        guard let selectedBrowserItem else { return }
-        retryInspectorDetailRefresh(for: selectedBrowserItem.id)
-    }
-
     func refreshSelectedDownloadInspectorDetailIfNeeded(forceRefresh: Bool) {
         guard let item = selectedDownloadInspectorItem else { return }
         if !forceRefresh && !SteamWorkshopDetailRefreshSupport.needsDownloadedMetadataRefresh(item) {

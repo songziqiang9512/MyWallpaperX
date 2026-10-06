@@ -29,13 +29,12 @@ import AppKit
                 let primary = button(title, target: target)
                 let more = button("", target: target)
                 let subscription = button("", target: target)
-                let refresh = button("", target: target)
-                footer.configure(primary: primary, webpage: subscription, properties: more, refresh: refresh)
+                footer.configure(primary: primary, webpage: subscription, properties: more)
                 fixedWidth.constant = width
                 window.setContentSize(NSSize(width: width, height: SteamWorkshopDetailFooterView.height))
                 RunLoop.main.run(until: Date().addingTimeInterval(0.05))
                 host.layoutSubtreeIfNeeded()
-                let controls = [primary, subscription, more, refresh]
+                let controls = [primary, subscription, more]
                 for control in controls {
                     precondition(footer.bounds.contains(control.frame), "footer action escaped")
                     precondition(control.frame.height == InspectorFooterMetrics.height)
@@ -43,7 +42,7 @@ import AppKit
                         precondition(!control.frame.intersects(peer.frame), "footer actions overlap")
                     }
                 }
-                precondition(primary.frame.width == width - 3 * InspectorFooterMetrics.height - 24, "primary \(primary.frame) expected \(width) window \(window.frame)")
+                precondition(primary.frame.width == width - 2 * InspectorFooterMetrics.height - 16, "primary \(primary.frame) expected \(width) window \(window.frame)")
                 let originalFrame = primary.frame
                 primary.setProgressFill(0.5)
                 primary.layoutSubtreeIfNeeded()

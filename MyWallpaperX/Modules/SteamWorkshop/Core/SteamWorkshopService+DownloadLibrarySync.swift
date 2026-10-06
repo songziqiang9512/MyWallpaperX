@@ -285,6 +285,12 @@ extension SteamWorkshopService {
         (try? loadManagedDownloadSnapshots(requireComplete: false)) ?? [:]
     }
 
+    /// One-item variant for open-time freshness decisions: reads a single
+    /// metadata file instead of the whole index.
+    func managedDownloadSnapshots(matchingItemID: String) -> [String: SteamWorkshopDownloadMetadataSnapshot] {
+        (try? loadManagedDownloadSnapshots(requireComplete: false, matchingItemID: matchingItemID)) ?? [:]
+    }
+
     func loadManagedDownloadSnapshots(
         requireComplete: Bool,
         matchingItemID: String? = nil,

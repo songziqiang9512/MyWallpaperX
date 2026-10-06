@@ -42,6 +42,9 @@ struct SteamWorkshopPendingDownloadRequest {
 }
 @MainActor final class SteamWorkshopService {
     var removingDownloadIDs: Set<String> = []
+    // 2305fea3 的暂停集合被 +Downloads.swift 等全文件引用（属性在主类上），
+    // 本 fixture 的最小服务类需要同名属性才能编译。
+    var pausedDownloadItemIDs: Set<String> = []
     let steamAuth = Auth()
     let downloadJobStore: SteamDownloadJobStore
     var statusMessage = ""
