@@ -65,7 +65,12 @@ func steamWorkshopPreviewImageLooksSuspicious(_ image: NSImage) -> Bool {
     guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
         return false
     }
+    return steamWorkshopSampledLumaIsSuspicious(cgImage)
+}
 
+/// 8×8 亮度采样：近全黑（均值 <0.03 且极差 <0.025，即几乎无内容起伏）
+/// 判为可疑。这是"首帧黑底"GIF 的判定核心，静态解码与可疑检测共用。
+func steamWorkshopSampledLumaIsSuspicious(_ cgImage: CGImage) -> Bool {
     let sampleWidth = 8
     let sampleHeight = 8
     var pixels = [UInt8](repeating: 0, count: sampleWidth * sampleHeight * 4)
@@ -175,7 +180,13 @@ private func steamWorkshopPreviewImageIsAnimated(_ image: NSImage) -> Bool {
 
 /// 共享解码上限取网格卡片实际显示所需尺寸；详情预览区高度仅 156pt（2x 下 312px），
 /// 800px 源图已覆盖，不再为共享缓存解码 1600px 大图。
+///
+/// 动画 GIF 常见"首帧黑底"（作者首帧占位/录制工具从黑场起始）。静态缩略图
+/// 默认取第 0 帧，会整卡显示黑色。这里复用视频缩略图管线的多候选模式：
+/// 首帧采样为近全黑时顺序前进（8 帧封顶）取第一个非黑帧；全部可疑时保留
+/// 首帧（忠实于源）。悬停动画路径不受影响，仍从原始数据完整重放。
 private func steamWorkshopStaticPreviewImage(from source: CGImageSource, maxPixelSize: Int = 800) -> NSImage? {
+    let frameCount = CGImageSourceGetCount(source)
     let options: [CFString: Any] = [
         kCGImageSourceCreateThumbnailFromImageAlways: true,
         kCGImageSourceCreateThumbnailWithTransform: true,
@@ -183,10 +194,22 @@ private func steamWorkshopStaticPreviewImage(from source: CGImageSource, maxPixe
         kCGImageSourceShouldCache: false,
         kCGImageSourceShouldCacheImmediately: false
     ]
-    guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+    guard let first = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
         return nil
     }
-    return steamWorkshopRGBAImage(from: cgImage)
+    guard frameCount > 1, steamWorkshopSampledLumaIsSuspicious(first) else {
+        return steamWorkshopRGBAImage(from: first)
+    }
+    // 顺序前进的帧扫描成本有界：缩略图解码 ×8 封顶，且只在后台解码队列执行。
+    for index in 1..<min(frameCount, 8) {
+        guard let candidate = CGImageSourceCreateThumbnailAtIndex(source, index, options as CFDictionary) else {
+            continue
+        }
+        if !steamWorkshopSampledLumaIsSuspicious(candidate) {
+            return steamWorkshopRGBAImage(from: candidate)
+        }
+    }
+    return steamWorkshopRGBAImage(from: first)
 }
 
 private func steamWorkshopRGBAImage(from cgImage: CGImage) -> NSImage? {
