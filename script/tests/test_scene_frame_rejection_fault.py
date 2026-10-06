@@ -8,6 +8,7 @@ import unittest
 
 from .test_scene_resolved_material_runtime_bridge import (
     SUBMISSION_COORDINATOR_FIXTURE, SUBMISSION_SWIFT_SOURCES, SCENE_DEPENDENCY_BINDING_SUPPORT,
+    RESOURCE_PHASE_UNAVAILABLE_SUPPORT,
 )
 
 MAIN = r'''
@@ -51,7 +52,7 @@ class SceneFrameRejectionFaultTests(unittest.TestCase):
         cls.temp = tempfile.TemporaryDirectory(prefix="scene-frame-rejection-")
         root=Path(cls.temp.name)
         source=root/"Harness.swift"
-        source.write_text(SUBMISSION_COORDINATOR_FIXTURE.split("@main",1)[0]+SCENE_DEPENDENCY_BINDING_SUPPORT+MAIN)
+        source.write_text(SUBMISSION_COORDINATOR_FIXTURE.split("@main",1)[0]+SCENE_DEPENDENCY_BINDING_SUPPORT+RESOURCE_PHASE_UNAVAILABLE_SUPPORT+MAIN)
         cls.binaries={}
         for mode in ("debug","release"):
             binary=root/mode

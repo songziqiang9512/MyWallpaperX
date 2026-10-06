@@ -343,6 +343,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     struct ExecutionTicket {
         let finalContent: SceneTextureContent
         let consumesExternalPrimaryDependency: Bool
+        var hasTerminalMaterialReplay: Bool { false }
     }
     enum ExecutionResult {
         case encoded(texture: MTLTexture, ticket: ExecutionTicket)
@@ -366,6 +367,15 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
 
     var shouldDeferFrame: Bool { false }
+    enum TerminalMaterialReplayOutcome {
+        case notApplicable
+        case consumed
+        case failed(reasonCode: String)
+    }
+    func drawTerminalMaterialReplay(
+        _ ticket: ExecutionTicket,
+        mainPass: SceneMainPassEncoder
+    ) -> TerminalMaterialReplayOutcome { .notApplicable }
     func invalidate(reason: SceneGraphExecutionResetReason) {}
     func claim(layerID: Int) -> ClaimOutcome { .notMigrated }
     func preflightClaim(layerID: Int) -> ClaimOutcome { .notMigrated }
