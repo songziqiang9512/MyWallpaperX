@@ -4,6 +4,7 @@ struct SceneRenderDescriptor: Codable {
     struct LightingDescriptor: Codable {
         let ambientColorRGB: [Float]?
         let skylightColorRGB: [Float]?
+        var lightClasses: SceneDocument.GeneralDescriptor.LightClassesDescriptor = .init()
         var distanceFog: SceneDocument.GeneralDescriptor.DistanceFog? = nil
     }
 
@@ -123,6 +124,7 @@ struct SceneRenderDescriptorBuilder {
             lighting: .init(
                 ambientColorRGB: sceneDocument.general.ambientColorRGB,
                 skylightColorRGB: sceneDocument.general.skylightColorRGB,
+                lightClasses: sceneDocument.general.lightClasses,
                 distanceFog: sceneDocument.general.distanceFog
             ),
             hdrEnabled: sceneDocument.general.hdrEnabled,

@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 131,
-      "bytes": 50849
+      "bytes": 50869
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1204,10 +1204,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "54f3ec91129d047512f9923fe0deb293c3b2bab108df8a60acbf641419cc3f69",
-      "after": "e40bb505ca2d2f00b07a28a3c9fc77db708de52b69e468ea9d684a7f1ce980f3",
+      "before": "e40bb505ca2d2f00b07a28a3c9fc77db708de52b69e468ea9d684a7f1ce980f3",
+      "after": "4675110c7142bd7b0b33d3563f9b149d7ea625e29cf106a07c335dad21b42744",
       "owner": "scene-maintainer-succession",
-      "reason": "Q1T HDR行并入开关A/B复验结论（真实域偏好on/off行为与代码链核验）；只登记本次精确文档变化。",
+      "reason": "太阳系条目登记官方光照合同批修复水星/土星过曝；只登记本次精确文档变化。",
       "decision": "docs/scene/history/mercury-closeup-brightness-diagnosis-2026-10-06.md"
     }
   ]

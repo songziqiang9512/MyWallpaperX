@@ -744,6 +744,15 @@ struct SceneStaticModelPipeline {
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotColorIntensity3) == 832
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotOuterCosines) == 848
 
+    /// Bounded official black-box contract (2026-10-06, fixed WE 2.8.0.42,
+    /// own gray-0.5 sphere fixtures): the lit model output scales the
+    /// display-referred albedo by intensity × NdotL × (1-d/r)² × ~0.30.
+    /// Measured center values 38/76/153 (8-bit) at intensity 1/2/4 on a 128
+    /// albedo, giving k ∈ [0.30, 0.305]. Point-light evidence; directional
+    /// reproduced the exact linear scaling and shares the factor. Spot has no
+    /// separate observation and is applied the same family factor.
+    static let staticModelLightEnergyScale: Float = 0.30
+
     private static func encodedLights(
         _ lights: [SceneLightSnapshot.Directional]
     ) -> [(directionIntensity: SIMD4<Float>, color: SIMD4<Float>)] {
@@ -757,7 +766,7 @@ struct SceneStaticModelPipeline {
                     light.directionTowardLight.x,
                     light.directionTowardLight.y,
                     light.directionTowardLight.z,
-                    max(light.intensity, 0)
+                    max(light.intensity, 0) * staticModelLightEnergyScale
                 ),
                 SIMD4(light.color.x, light.color.y, light.color.z, 0)
             )
@@ -790,7 +799,7 @@ struct SceneStaticModelPipeline {
                 ),
                 SIMD4(
                     light.color.x, light.color.y, light.color.z,
-                    light.intensity
+                    light.intensity * staticModelLightEnergyScale
                 ),
                 light.outerConeCosine
             )
@@ -815,7 +824,7 @@ struct SceneStaticModelPipeline {
                 ),
                 SIMD4(
                     light.color.x, light.color.y, light.color.z,
-                    light.intensity
+                    light.intensity * staticModelLightEnergyScale
                 )
             )
         }

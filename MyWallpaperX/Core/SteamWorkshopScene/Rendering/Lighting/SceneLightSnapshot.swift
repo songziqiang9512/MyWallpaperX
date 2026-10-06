@@ -97,6 +97,19 @@ struct SceneLightSnapshot {
             guard visibleLayerIDs?.contains(layer.id)
                     ?? (layer.visible != false) else { continue }
             guard let frame = worldFramesByLayerID[layer.id] else { continue }
+            // general.lightconfig gates the light class per scene. An absent
+            // author field leaves directional/point inert in the official
+            // client (own-fixture black-box observation, 2026-10-06); the spot
+            // flag name has no bounded observation yet and stays ungated.
+            let admitted: Bool
+            if layer.pointLight != nil {
+                admitted = descriptor.lighting?.lightClasses.point ?? false
+            } else if layer.directionalLight != nil {
+                admitted = descriptor.lighting?.lightClasses.directional ?? false
+            } else {
+                admitted = true
+            }
+            guard admitted else { continue }
             let dynamicColor = dynamicLayerColors[layer.id]
             let intensity = dynamicSnapshot.flatMap {
                 SceneDynamicLayerValues.lightIntensity(

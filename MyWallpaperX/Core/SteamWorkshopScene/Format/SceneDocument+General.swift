@@ -18,12 +18,23 @@ extension SceneDocument {
             let speed: Float?
         }
 
+        /// `general.lightconfig` gates which light classes the scene admits.
+        /// A nil descriptor means the author field is absent: official clients
+        /// leave directional and point lights inert in that state (bounded
+        /// own-fixture black-box observation, WE 2.8.0.42, 2026-10-06), so the
+        /// parsed form defaults both classes to disabled.
+        struct LightClassesDescriptor: Codable {
+            var directional: Bool = false
+            var point: Bool = false
+        }
+
         let orthoWidth: Float?     // general.orthogonalprojection.width
         let orthoHeight: Float?    // general.orthogonalprojection.height
         var fovDegrees: Float? = nil
         var perspectiveOverrideFOVDegrees: Float? = nil
         var ambientColorRGB: [Float]? = nil
         var skylightColorRGB: [Float]? = nil
+        var lightClasses: LightClassesDescriptor = .init()
         var distanceFog: DistanceFog? = nil
         var hdrEnabled: Bool = false
         let clearColor: [Float]?   // [r, g, b] in 0..1, from general.clearcolor
@@ -67,6 +78,18 @@ extension SceneDocumentLoader {
                      startDensity: startDensity, endDensity: endDensity)
     }
 
+    nonisolated private static func lightClasses(
+        _ value: Any?
+    ) -> SceneDocument.GeneralDescriptor.LightClassesDescriptor {
+        guard let config = value as? [String: Any] else {
+            return .init()
+        }
+        return .init(
+            directional: (config["directional"] as? NSNumber)?.intValue == 1,
+            point: (config["point"] as? NSNumber)?.intValue == 1
+        )
+    }
+
     nonisolated static func parseGeneral(
         _ root: [String: Any]?
     ) -> SceneDocument.GeneralDescriptor {
@@ -81,6 +104,7 @@ extension SceneDocumentLoader {
                 .flatMap(Self.floatValue),
             ambientColorRGB: floatVector(root?["ambientcolor"]),
             skylightColorRGB: floatVector(root?["skylightcolor"]),
+            lightClasses: lightClasses(root?["lightconfig"]),
             distanceFog: distanceFog(root),
             hdrEnabled: visibleValue(root?["hdr"]) ?? false,
             clearColor: floatVector(root?["clearcolor"]),
