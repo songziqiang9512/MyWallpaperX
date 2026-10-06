@@ -23,7 +23,7 @@
 
 文件纹理原位事务由[运行架构](../../architecture/runtime-architecture.md)接管；[实施记录](../../history/user-texture-live-update-implementation-2026-10-05.md)保存原设计与有界验证。
 
-播放器输入见[Scene真实媒体来源设计](system-media-input-design.md)：优先闭合已取得网易云metadata的统一系统实验入口，Music公开只读接口保留为显式补充；单producer与退出沿现有媒体收件箱，私有后端仍受D6限制；真实Scene验收边界以设计链接的实施记录为准。
+播放器输入见[Scene真实媒体来源设计](system-media-input-design.md)：优先闭合已取得网易云metadata的统一系统实验入口，Music公开只读接口保留为显式补充；单producer与退出沿现有媒体收件箱，私有后端仍受D6限制；真实Scene验收边界以设计链接的[实施记录](../../history/scene-system-media-input-implementation-2026-10-05.md)与[平台供应/实时切歌验证](../../history/system-media-live-supply-verification-2026-10-06.md)为准。
 
 后续实施与59项参考证据的去向见[派生实施卡](reference-evidence-implementation-cards.md)，选序仍归上述兼容路线；原设计基线的“仅文档”描述不代表后续产品实施状态。
 

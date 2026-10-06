@@ -67,6 +67,8 @@ HDR Bloom的五字段与scatter/上采样已存在。`iterations=0/1`的精确�
 
 恢复时按[系统媒体设计](batch2/system-media-input-design.md)确认已启用的Debug实验入口和Release边界；D6仍约束私有backend分发。单producer、单inbox、source epoch与迟到回包拒绝必须保留。系统来源未知时不要用Apple Music旧曲目冒充当前来源；不能为QQ/汽水另造状态树。先确认平台实际供应哪些metadata，再补适配、切歌/暂停/退出/无封面和多播放器仲裁；歌词是独立能力，歌曲名/专辑图出现不代表歌词支持。本文没有宣称上述播放器全部已验证。
 
+2026-10-06 第一片已完成：平台供应表与实时链验证见[系统媒体供应与实时链](../history/system-media-live-supply-verification-2026-10-06.md)（WebKit非音乐源活链+自然切歌实时跟随；适配/切歌路径确认无需按播放器新代码，仲裁权在系统localNowPlaying）。剩余：暂停/恢复真实观察、多播放器并发仲裁显式观察、QQ/网易云/汽水账号内实测、歌词独立批。
+
 ### 其余已规划、不要误认为完成
 
 [Batch2索引](batch2/batch2-design-index.md)与[派生卡](batch2/reference-evidence-implementation-cards.md)保留完整范围。D1未知passthrough/特殊变换、D4/D11未确认API/reset、Vortex/Remap/collision-bounds剩余profile、D12缺失mip profile仍按各设计执行；D5 Web跨源回包、D7下载失败可见性是独立队列。D9/D10已有policy/frame gate，不再造第二clock/throttle。设计approved、参考报告条目、语料统计都不等于已执行或用户验收。
