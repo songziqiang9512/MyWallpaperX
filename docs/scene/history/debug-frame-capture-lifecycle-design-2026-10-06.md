@@ -1,7 +1,7 @@
 <!-- document-role: historical-evidence -->
 <!-- retirementCondition: 诊断请求有界、单次终结、独立 readback 导出及 surface/session/隔离退出 drain 通过行为门，稳定诊断合同接管后归档本文并删除对应设计登记。 -->
 
-> **历史证据 — 非现役入口**。现役职责见[运行架构](../architecture/runtime-architecture.md)，后继顺序见[暂停交接](../roadmap/scene-maintainer-handoff-2026-10-06.md)。
+> **历史证据 — 非现役入口**。现役职责见[运行架构](../architecture/runtime-architecture.md)，后继顺序见[暂停交接](scene-maintainer-handoff-2026-10-06.md)。
 
 # Scene 调试截图导出生命周期（已完成设计）
 

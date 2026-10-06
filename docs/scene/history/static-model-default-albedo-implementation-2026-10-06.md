@@ -1,10 +1,10 @@
 <!-- document-role: historical-evidence -->
 
-> **历史证据 — 非现役入口**。现役职责见[运行架构](../architecture/runtime-architecture.md)，后继顺序见[暂停交接](../roadmap/scene-maintainer-handoff-2026-10-06.md)。
+> **历史证据 — 非现役入口**。现役职责见[运行架构](../architecture/runtime-architecture.md)，后继顺序见[暂停交接](scene-maintainer-handoff-2026-10-06.md)。
 
 # Static model 默认 albedo 与太阳系交互收尾
 
-起点 `fa02f6bf3c21c7454aa7134dadcf4e5157e25cc4`。用户要求本批提交后暂停Goal；后继执行说明见[暂停交接](../roadmap/scene-maintainer-handoff-2026-10-06.md)。稳定输入优先级由[Sampler合同](../capabilities/sampler-alias-precedence.md)拥有。
+起点 `fa02f6bf3c21c7454aa7134dadcf4e5157e25cc4`。用户要求本批提交后暂停Goal；后继执行说明见[暂停交接](scene-maintainer-handoff-2026-10-06.md)。稳定输入优先级由[Sampler合同](../capabilities/sampler-alias-precedence.md)拥有。
 
 ## 实际修复
 

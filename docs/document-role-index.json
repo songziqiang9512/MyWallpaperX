@@ -903,6 +903,26 @@
       ]
     },
     {
+      "path": "docs/scene/history/hdr-live-toggle-verification-2026-10-07.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/head-preexisting-red-clearance-2026-10-07.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/history/2d-lit-image-light-contract-2026-10-06.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/heavy-entry-verify-and-saturn-exposure-2026-10-06.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -1368,6 +1388,16 @@
       ]
     },
     {
+      "path": "docs/scene/history/scene-maintainer-handoff-2026-10-06.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/scene-reference-audit-effects-runtime-2026-07-24.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -1469,7 +1499,7 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/roadmap/batch2/system-media-input-design.md",
-        "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md"
+        "docs/scene/history/scene-maintainer-handoff-2026-10-06.md"
       ]
     },
     {
@@ -1642,12 +1672,6 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "冻结全集每个样本完成声明与条件场景覆盖、真实显示/动态/参数人工验收和固定官方一致性对照，P5 通过，旧 owner 撤权，unknown/unsupported 未被计作完成，稳定架构、能力与证据权威接管终态后转 historical-evidence；范围缩减须另有明确裁决。"
-    },
-    {
-      "path": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md",
-      "role": "current-state",
-      "entrypoint": "docs/scene/README.md",
-      "purpose": "已接手的暂停交接快照（2026-10-06）：范围、已证能力、未执行工作与恢复操作说明；现役进度归各权威文档。"
     },
     {
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",

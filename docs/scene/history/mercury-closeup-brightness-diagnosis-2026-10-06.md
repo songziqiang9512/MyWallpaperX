@@ -1,10 +1,10 @@
 <!-- document-role: historical-evidence -->
 
-> **历史证据 — 非现役入口**。现役顺序见[断点队列](../roadmap/scene-open-breakpoint-queue.md)太阳系条目；接手快照见[暂停交接](../roadmap/scene-maintainer-handoff-2026-10-06.md)。本页只记录诊断事实，不含产品修改。
+> **历史证据 — 非现役入口**。现役顺序见[断点队列](../roadmap/scene-open-breakpoint-queue.md)太阳系条目；接手快照见[暂停交接](scene-maintainer-handoff-2026-10-06.md)。本页只记录诊断事实，不含产品修改。
 
 # 水星近景过白：隔离诊断（2026-10-06）
 
-起点 `dead0a10`（暂停交接后接手）。用户报告的太阳系 `3662790108` 水星近景大片发白，本批在隔离副本复现并按[暂停交接 S1 卡](../roadmap/scene-maintainer-handoff-2026-10-06.md)的顺序隔离各阶段，未改产品代码。
+起点 `dead0a10`（暂停交接后接手）。用户报告的太阳系 `3662790108` 水星近景大片发白，本批在隔离副本复现并按[暂停交接 S1 卡](scene-maintainer-handoff-2026-10-06.md)的顺序隔离各阶段，未改产品代码。
 
 ## 复现与量化
 

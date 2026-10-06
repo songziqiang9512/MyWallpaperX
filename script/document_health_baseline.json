@@ -1182,11 +1182,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md",
-      "before": "d8ef727c11cff9c6a3d85bd35f485b2cfbc1556bf13c4b3f94e671d48df9d18e",
-      "after": "2c6b0ad6fdd81ab2c9dfea6dfc5628b3acee2daf1b52cb0cb9774aa20c0b5f4d",
+      "before": "2c6b0ad6fdd81ab2c9dfea6dfc5628b3acee2daf1b52cb0cb9774aa20c0b5f4d",
+      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
       "owner": "scene-maintainer-succession",
-      "reason": "接手标注与M1第一片完成登记（链：e0a9→d8ef→本次）；暂停解除、M1卡登记2026-10-06平台供应与实时切歌验证；只登记精确文档变化。",
-      "decision": "docs/scene/history/system-media-live-supply-verification-2026-10-06.md"
+      "reason": "冻结交接快照按其自身冻结状态移入 history（roadmap 下带日期快照无法同时满足 dated 声明与 current 声明两机器合同），预算条目随迁移退役；本记录接替同键前次预算转移记录（d8ef→2c6b，接手标注与M1登记），新路径不设预算（同 history 同类文档）。",
+      "decision": "docs/scene/history/scene-maintainer-handoff-2026-10-06.md"
     },
     {
       "section": "bodies",

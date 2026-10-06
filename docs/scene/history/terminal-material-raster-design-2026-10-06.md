@@ -1,6 +1,6 @@
 <!-- document-role: historical-evidence -->
 
-> **历史证据 — 非现役入口**。现役职责见[运行架构](../architecture/runtime-architecture.md)，后继顺序见[暂停交接](../roadmap/scene-maintainer-handoff-2026-10-06.md)。
+> **历史证据 — 非现役入口**。现役职责见[运行架构](../architecture/runtime-architecture.md)，后继顺序见[暂停交接](scene-maintainer-handoff-2026-10-06.md)。
 
 # 终端材质的源纹理与显示光栅分离（已完成设计）
 
