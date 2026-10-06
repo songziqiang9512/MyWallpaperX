@@ -154,6 +154,12 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             sourceActiveSamplers: sourceActiveSamplers,
             spatialWeightedColorBlendExternalColorSlot: spatialWeightedColorBlendExternalColorSlot,
             premultipliedColorAuxiliarySlots: premultipliedColorAuxiliarySlots,
+            mixedProviderSlots: Set(
+                mixedProviderSlotFacts(
+                    in: template,
+                    samplers: sourceActiveSamplers
+                ).keys
+            ),
             outputSemantics: outputSemantics,
             artifactStart: artifactStart,
             artifactResolution: artifactResolution,

@@ -7,6 +7,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         sourceActiveSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         spatialWeightedColorBlendExternalColorSlot: Int?,
         premultipliedColorAuxiliarySlots: Set<Int>,
+        mixedProviderSlots: Set<Int> = [],
         outputSemantics: SceneGenericShaderOutputSemantics,
         artifactStart: Double,
         artifactResolution: SceneResolvedMaterialGenericShaderArtifactCache.Resolution,
@@ -52,8 +53,14 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             case SceneGenericShaderCapabilityProfile.ordinaryShader.rawValue:
                 // Resource representation is independent of the output
                 // profile; keep the existing background boundary as well.
+                // Mixed-provider slots select their ABI through the frame-owned
+                // mixed contract, so the ordinary aux widening must not claim
+                // them: claiming them turned an unproved potential fallback
+                // into exact mixed evidence and revoked system-only programs.
                 outputSemantics == .color
-                    ? premultipliedColorAuxiliarySlots.union(sceneBackgroundDefaultSlots)
+                    ? premultipliedColorAuxiliarySlots
+                        .subtracting(mixedProviderSlots)
+                        .union(sceneBackgroundDefaultSlots)
                     : sceneBackgroundDefaultSlots
             case SceneGenericShaderCapabilityProfile
                 .sourceProvenGraphInputOverlayAlphaBlend.rawValue,
