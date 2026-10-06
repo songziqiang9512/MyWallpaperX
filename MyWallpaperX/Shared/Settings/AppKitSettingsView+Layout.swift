@@ -139,12 +139,16 @@ extension AppKitSettingsContainerView {
             subtitle: "在支持的屏幕上呈现更亮的高光；关闭后使用普通亮度", trailing: sceneHDRDisplaySwitch))
 
         sceneMediaSourcePopup.addItems(withTitles: ["关闭", "Apple Music"])
-        #if DEBUG
-        sceneMediaSourcePopup.addItem(withTitle: "系统正在播放（实验）")
-        #endif
+        // The experimental system source exists only in Debug builds (Release
+        // rejects the preference by design); NSMenu.item(at:) raises an
+        // ObjC inconsistency exception for out-of-range indexes, so the
+        // third slot is tagged only when that item was actually added.
         sceneMediaSourcePopup.item(at: 0)?.tag = 0
         sceneMediaSourcePopup.item(at: 1)?.tag = 1
+#if DEBUG
+        sceneMediaSourcePopup.addItem(withTitle: "系统正在播放（实验）")
         sceneMediaSourcePopup.item(at: 2)?.tag = 2
+#endif
         let mediaControls = NSStackView(views: [sceneMediaSourcePopup, sceneMediaAuthorizationButton])
         mediaControls.spacing = 8
         systemSection.addRow(makeSettingRow(title: "壁纸歌曲信息", iconSystemName: "music.note",
