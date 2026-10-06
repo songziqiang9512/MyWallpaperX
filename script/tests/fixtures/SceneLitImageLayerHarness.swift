@@ -151,8 +151,10 @@ enum Harness {
                         let local = SIMD4<Float>((Float(x)+0.5)/Float(width)-0.5, 0.5-(Float(y)+0.5)/Float(height), 0, 1)
                         let w = model * local
                         let delta = position - SIMD3(w.x,w.y,w.z)
-                        let distance = simd_length(delta)
-                        let amount = pow(max(0, 1-distance/point.radius), 2) * point.intensity
+                        // Official 2D lit images: planar falloff (Z excluded)
+                        // and point energy scale 1.85 (own-fixture, 2026-10-06).
+                        let distance = simd_length(SIMD2(delta.x, delta.y))
+                        let amount = pow(max(0, 1-distance/point.radius), 2) * point.intensity * 1.85
                         let response = materialResponse(normal: normal, light: delta/distance)
                         for channel in 0..<3 {
                             maxError = max(maxError, abs(pixels[(y*width+x)*4+channel] - (albedo[channel]*ambient[channel] + point.color[channel]*amount*response[channel])))

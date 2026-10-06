@@ -16,6 +16,10 @@ struct SceneLightSnapshot {
     struct Point {
         var layerID: Int? = nil
         var castsShadow: Bool = false
+        /// Official splits point-light kinds by consumer (own-fixture
+        /// black-box, 2026-10-06): `lpoint` illuminates static models only,
+        /// `point` illuminates 2D lit images only.
+        var illuminatesStaticModels: Bool = true
         let position: SIMD3<Float>
         let color: SIMD3<Float>
         let intensity: Float
@@ -57,7 +61,9 @@ struct SceneLightSnapshot {
             result.append(.directional(light))
         }
         result.append(contentsOf: spot.filter { $0.castsShadow }.map { .spot($0) })
-        result.append(contentsOf: point.filter { $0.castsShadow }.map { .point($0) })
+        result.append(contentsOf: point.filter {
+            $0.castsShadow && $0.illuminatesStaticModels
+        }.map { .point($0) })
         return result
     }
 
@@ -302,6 +308,7 @@ struct SceneLightSnapshot {
               let position = position(of: frame) else { return nil }
         return Point(
             layerID: layer.id, castsShadow: definition.castsShadow == true,
+            illuminatesStaticModels: definition.kind != "point",
             position: position,
             color: dynamicColor
                 ?? color(definition.colorRGB, fallback: SIMD3(1, 1, 1)),

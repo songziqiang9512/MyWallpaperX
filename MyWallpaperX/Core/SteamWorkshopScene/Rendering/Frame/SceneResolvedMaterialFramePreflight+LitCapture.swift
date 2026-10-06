@@ -100,7 +100,11 @@ extension SceneMetalRenderer {
         case .invalid: materialMap = .invalid
         }
         let lights = SceneBaseMaterialLitCapturePayload.packLights(
-            pointLights: (profile.lightingEnabled ? snapshot.point : []).map { light in
+            pointLights: (profile.lightingEnabled ? snapshot.point : []).filter { light in
+                // Official `point` lights 2D lit images; `lpoint` is a static-
+                // model light (own-fixture black-box, 2026-10-06).
+                !light.illuminatesStaticModels
+            }.map { light in
                 SceneBaseMaterialLitCapturePayload.PointLight(
                     position: light.position,
                     color: light.color,

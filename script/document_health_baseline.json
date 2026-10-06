@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 131,
-      "bytes": 51286
+      "bytes": 51489
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1204,11 +1204,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "ae01e7a5edbec53dc17553d18451209fc3ab2307b1bdecacab11e6c224371782",
-      "after": "108fde24ccc52bd56164bcc2d72cdb3c4f226b6e341d4c456875b06a997250b8",
+      "before": "108fde24ccc52bd56164bcc2d72cdb3c4f226b6e341d4c456875b06a997250b8",
+      "after": "b7c06be755d99d8fdce371856467987a905e4244f74703612dad3b9b3bd1e766",
       "owner": "scene-maintainer-succession",
-      "reason": "太阳系条目登记静态模型光照输入语义批闭合（弧度角度/ambient斜坡/缺省黑/spot门控）与剩余开放边界；只登记本次精确文档变化。",
-      "decision": "docs/scene/history/static-model-light-input-semantics-2026-10-06.md"
+      "reason": "太阳系条目补记 2D lit image 光照合同批（分流/k_2D/平面衰减）与接合缺口开放项；只登记本次精确文档变化。",
+      "decision": "docs/scene/history/2d-lit-image-light-contract-2026-10-06.md"
     }
   ]
 }

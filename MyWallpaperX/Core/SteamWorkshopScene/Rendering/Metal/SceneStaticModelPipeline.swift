@@ -428,6 +428,10 @@ struct SceneStaticModelPipeline {
               let normalMatrix = Self.normalMatrix(for: modelMatrix) else {
             return false
         }
+        // Official `lpoint` lights static models; `point` lights only 2D lit
+        // images (own-fixture black-box, 2026-10-06). Shadow slots and the
+        // encoded uniforms must index the same filtered array.
+        let staticModelPoints = lighting.point.filter(\.illuminatesStaticModels)
         let acceptedShadows = shadows.compactMap { value -> (SceneStaticModelShadow, Int)? in
             guard value.frameEpoch == frameEpoch, value.commandBuffer === commandBuffer else { return nil }
             let index: Int?
@@ -437,7 +441,7 @@ struct SceneStaticModelPipeline {
             case .spot:
                 index = lighting.spot.firstIndex { $0.layerID == value.lightLayerID && $0.castsShadow }
             case .point:
-                index = lighting.point.firstIndex { $0.layerID == value.lightLayerID && $0.castsShadow }
+                index = staticModelPoints.firstIndex { $0.layerID == value.lightLayerID && $0.castsShadow }
             }
             return index.map { (value, $0) }
         }
@@ -447,7 +451,7 @@ struct SceneStaticModelPipeline {
                 : SceneModelShadowUniforms()
         }
         let lights = Self.encodedLights(lighting.directional)
-        let points = Self.encodedPoints(lighting.point)
+        let points = Self.encodedPoints(staticModelPoints)
         let spots = Self.encodedSpots(lighting.spot)
         let brightness = material.usesHDRBrightness
             ? max(material.brightness, 0)
@@ -501,7 +505,7 @@ struct SceneStaticModelPipeline {
             ),
             lightCounts: SIMD4(
                 UInt32(lighting.directional.count),
-                UInt32(lighting.point.count),
+                UInt32(points.count),
                 UInt32(lighting.spot.count),
                 0
             ),

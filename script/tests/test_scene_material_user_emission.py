@@ -34,7 +34,7 @@ struct SceneImageLayerDrawRequest {
 struct ProviderBindings { var lightingProfileByLayerID:[Int:SceneBaseMaterialLightingProfile]=[:] }
 struct PackedLights { var sceneViewProjection=matrix_identity_float4x4; var reflection=SIMD4<Float>.zero }
 struct SceneLightSnapshot {
-    struct Light { let position:SIMD3<Float>;let directionFromLight:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float;let innerConeCosine:Float;let outerConeCosine:Float }
+    struct Light { let position:SIMD3<Float>;let directionFromLight:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float;let innerConeCosine:Float;let outerConeCosine:Float;var illuminatesStaticModels:Bool = true }
     let point:[Light]=[];let spot:[Light]=[];let ambient=SIMD3<Float>.zero
 }
 struct SceneParticleCameraFrame { func materialView(usesPerspective:Bool)->Bool { false }; func viewProjection(for layer:SceneRenderDescriptor.Layer)->simd_float4x4 { matrix_identity_float4x4 } }

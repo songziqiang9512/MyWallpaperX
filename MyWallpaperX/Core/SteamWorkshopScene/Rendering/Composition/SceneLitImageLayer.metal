@@ -314,13 +314,18 @@ fragment float4 sceneLitImageLayerFrag(
                 color[channel], uniforms.tint[channel], uniforms.alpha);
         }
     }
+    // Official 2D lit images amplify authored point intensity by ~1.85 and
+    // attenuate with the planar (X/Y) distance only — the light's Z height
+    // never enters the falloff (own-fixture ratio fit over two radii,
+    // 2026-10-06; k in [1.75, 1.92] with planar (1-d/R)^2).
+    const float sceneLitImagePointEnergyScale = 1.85;
     for (int index = 0; index < 4; index++) {
         if (float(index) >= payload.lightCounts.x) {
             break;
         }
         const float3 delta = pointPositionRadius[index].xyz - world;
         const float falloff = sceneLitFalloff(
-            delta,
+            float3(delta.xy, 0.0),
             pointPositionRadius[index].w
         );
         if (falloff <= 0.0) {
@@ -329,7 +334,8 @@ fragment float4 sceneLitImageLayerFrag(
         const float3 towardLight = sceneLitDirection(delta);
         radiance = min(float3(65504.0), radiance + sceneLitDirect(normal, view,
             towardLight, color, material, pointColor[index].rgb,
-            pointColor[index].w, falloff, uniforms.tint.rgb, uniforms.alpha));
+            pointColor[index].w * sceneLitImagePointEnergyScale, falloff,
+            uniforms.tint.rgb, uniforms.alpha));
     }
     for (int index = 0; index < 4; index++) {
         if (float(index) >= payload.lightCounts.y) {

@@ -652,6 +652,16 @@
       "commandPolicy": "reference-only"
     },
     {
+      "path": "docs/scene/history/2d-lit-image-light-contract-2026-10-06.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+        "docs/scene/history/static-model-light-input-semantics-2026-10-06.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/README.md",
       "role": "navigation",
       "entrypoint": "docs/scene/README.md",

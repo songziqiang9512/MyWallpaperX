@@ -2,8 +2,9 @@ import CoreFoundation
 import Foundation
 
 /// Loss-preserving point-light inputs consumed by the shared frame lighting
-/// snapshot. Both current Workshop `lpoint` and shipping default-project
-/// `point` declarations name the same authored light kind.
+/// snapshot. `lpoint` and `point` parse identically here; consumers split by
+/// kind (official: `lpoint` lights static models, `point` lights 2D lit
+/// images only — own-fixture black-box, 2026-10-06).
 struct ScenePointLightDefinition: Codable, Equatable {
     let kind: String
     let colorRGB: [Float]?
