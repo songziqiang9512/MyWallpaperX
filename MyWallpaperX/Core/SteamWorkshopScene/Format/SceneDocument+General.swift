@@ -85,8 +85,8 @@ extension SceneDocumentLoader {
             return .init()
         }
         return .init(
-            directional: (config["directional"] as? NSNumber)?.intValue == 1,
-            point: (config["point"] as? NSNumber)?.intValue == 1
+            directional: (config["directional"] as? NSNumber)?.intValue != 0,
+            point: (config["point"] as? NSNumber)?.intValue != 0
         )
     }
 

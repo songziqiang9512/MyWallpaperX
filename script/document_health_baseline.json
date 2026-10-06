@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 131,
-      "bytes": 50869
+      "bytes": 50539
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1204,10 +1204,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e40bb505ca2d2f00b07a28a3c9fc77db708de52b69e468ea9d684a7f1ce980f3",
-      "after": "4675110c7142bd7b0b33d3563f9b149d7ea625e29cf106a07c335dad21b42744",
+      "before": "4675110c7142bd7b0b33d3563f9b149d7ea625e29cf106a07c335dad21b42744",
+      "after": "21b2ded0d5c6ce485e0dbbd639940d67941906e80b8c866331adf5e3e13c113a",
       "owner": "scene-maintainer-succession",
-      "reason": "太阳系条目登记官方光照合同批修复水星/土星过曝；只登记本次精确文档变化。",
+      "reason": "终审P3清理队列已完成探针阻塞文案并棘轮瘦身；只登记本次精确文档变化。",
       "decision": "docs/scene/history/mercury-closeup-brightness-diagnosis-2026-10-06.md"
     }
   ]

@@ -36,7 +36,7 @@
 
 ## 边界与未覆盖
 
-k 的精确值在 8-bit 舍入内未进一步分离（球体实际半径致 d 有 ±0.5 不确定）；方向光 k 为同族外推（线性已证）；聚光 k 无独立观测；lightconfig 的 spot 键名、`directionalshadow/pointshadow` 子键语义未探；2D 图层光照（lit image materials）的 k 未测故未改动；官方 HDR/Bloom 与本合同正交。JUNO 原完整场景导航验收与布局对照仍开放。官方探针夹具与全部原始截屏保留于 `/private/tmp/mwx-mercury-20261006/official-probe/`（研究卡、deploy/capture 协议、逐帧 JSON+PNG+SHA）。
+k 的精确值在 8-bit 舍入内未进一步分离（球体实际半径致 d 有 ±0.5 不确定）；方向光 k 为同族外推（线性已证）；聚光 k 无独立观测；lightconfig 的 spot 键名、`directionalshadow/pointshadow` 子键语义未探。lightconfig 非零值语义按"非零=启用"处理（自有 stock 语料 `modeleditor` 带 `point: 2`，官方对非 1 值无直接观测；终审 P3-1 修正原 `==1` 严格相等）。另一个待探交互：门控清空光类且作者缺 ambient/skylight 时，我方既有回退把 ambient 置 (1,1,1)（历史 unlit 默认），官方 N 系列缺省为黑——该回退早于本批存在，需下一次探针裁决缺 ambient 官方缺省。2D 图层光照（lit image materials）的 k 未测故未改动；官方 HDR/Bloom 与本合同正交。JUNO 原完整场景导航验收与布局对照仍开放。官方探针夹具与全部原始截屏保留于 `/private/tmp/mwx-mercury-20261006/official-probe/`（研究卡、deploy/capture 协议、逐帧 JSON+PNG+SHA）。
 
 ## 证据与保留
 
