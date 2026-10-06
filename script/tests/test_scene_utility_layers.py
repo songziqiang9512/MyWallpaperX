@@ -34,7 +34,10 @@ DEPENDENCY_GEOMETRY_SOURCE = DEPENDENCY_RUNTIME_SOURCE.with_name(
 AUTHORED_CATALOG_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectAdmissionCatalog.swift"
 )
-METAL_VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
+HOST_LAUNCH_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
+)
 IMAGE_COMPOSITOR_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift"
 )
@@ -217,13 +220,23 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertNotIn("SceneEffectStageExecutionPlan", capability)
 
     def test_planned_utility_chain_loads_and_receives_effect_resources(self) -> None:
-        metal_view = METAL_VIEW_SOURCE.read_text(encoding="utf-8")
+        launch = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
         metal_renderer = read_source_family(METAL_RENDERER_SOURCE) \
             + UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
-            "resolvedMaterialRuntime.userPropertyDemands",
-            metal_view,
+            "resolvedMaterialCatalog.userPropertyDemands",
+            launch,
             "shared MaterialProgram demands must drive resource loading",
+        )
+        self.assertIn(
+            ".union(baseMaterialProviderBindings.userPropertyDemands)",
+            launch,
+            "both MaterialProgram demand owners must feed resource loading",
+        )
+        self.assertIn(
+            "requestedIdentities: userTextureDemands",
+            launch,
+            "aggregated demands must reach the user texture loader request",
         )
         self.assertIn(
             "masks: .empty",
