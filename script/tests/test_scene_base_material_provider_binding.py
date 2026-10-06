@@ -25,11 +25,7 @@ VISIBILITY_SOURCE = (
 HARNESS = r'''
 import Foundation
 
-struct SceneEffectTextureInput: Equatable {
-    enum Kind { case path, system, property, unknown }
-    let kind: Kind
-    let value: String
-}
+// SceneEffectTextureInput comes from the shared SOURCES (real product type).
 
 enum SceneTextureLoadPurpose: Hashable {
     case premultipliedColor

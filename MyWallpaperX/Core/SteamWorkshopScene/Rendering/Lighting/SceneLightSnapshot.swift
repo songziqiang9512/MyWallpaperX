@@ -115,9 +115,8 @@ struct SceneLightSnapshot {
             // lightconfig at all (corpus 2815826216 and the IMG6 own-fixture
             // pair) — so 2D-only `point` lights always enter the snapshot.
             // They bypass the static-model budget: the four-slot model budget
-            // stays owned by model lights. The 2D packer guards its own
-            // point+spot ABI capacity and rejects the whole layer payload when
-            // exceeded (registered open: >4 combined image lights).
+            // stays owned by model lights. The 2D packer truncates its own
+            // point+spot payload to the four ABI slots in authored order.
             let isImageOnlyPointLight = layer.pointLight?.kind == "point"
             let admitted: Bool
             if isImageOnlyPointLight {

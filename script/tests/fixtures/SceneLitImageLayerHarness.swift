@@ -198,10 +198,32 @@ enum Harness {
         precondition(zeroPixels[0] < restored.max()! && abs(unlit[0]-albedo.x) < 0.001)
         precondition(Capture.packLights(pointLights: [], spotLights: [], ambient: ambient, material: SIMD2(0.5,0.5), view: SIMD4(0,0,1,0),
             layerModelMatrix: simd_float4x4(), normalModelMatrix: matrix_identity_float4x4) == nil)
+        // Mixed-count overflow truncates in authored order (points first),
+        // keeping the layer lit instead of the previous whole-payload reject.
+        func overflowPoint(_ index: Int) -> Capture.PointLight {
+            .init(position: SIMD3(Float(index), 0, 50), color: SIMD3(repeating: 1),
+                  intensity: 1, radius: Float(100 + index))
+        }
+        let mixed = Capture.packLights(pointLights: (0..<3).map(overflowPoint),
+            spotLights: [spot, spot, spot], ambient: ambient, material: SIMD2(0.5,0.5), view: SIMD4(0,0,1,0),
+            layerModelMatrix: model, normalModelMatrix: matrix_identity_float4x4)!
+        let pointsOnly = Capture.packLights(pointLights: (0..<5).map(overflowPoint),
+            spotLights: [], ambient: ambient, material: SIMD2(0.5,0.5), view: SIMD4(0,0,1,0),
+            layerModelMatrix: model, normalModelMatrix: matrix_identity_float4x4)!
+        var mixedTruncates = mixed.lightCounts.x == 3 && mixed.lightCounts.y == 1
+        mixedTruncates = mixedTruncates && mixed.spotColorIntensity1.w == 0
+        var pointsTruncate = pointsOnly.lightCounts == SIMD4<Float>(4, 0, 0, 0)
+        // Authored order survives: radii 100..103 occupy the four slots.
+        pointsTruncate = pointsTruncate && pointsOnly.pointPositionRadius0.w == 100
+            && pointsOnly.pointPositionRadius1.w == 101
+            && pointsOnly.pointPositionRadius2.w == 102
+            && pointsOnly.pointPositionRadius3.w == 103
+        precondition(mixedTruncates && pointsTruncate)
         let result: [String: Any] = ["rectangleRotationNormalCases": caseCount, "maxOracleError": maxError,
             "flatNormalError": flatError, "verticalMoveDelta": moveDelta, "nextFrameRestoreError": restorationError,
             "spotAlongNegativeZ": true, "plainUnlitUnchanged": true,
-            "gpuCompletion": true, "terminalSourceOver": true]
+            "gpuCompletion": true, "terminalSourceOver": true,
+            "mixedOverflowTruncates": mixedTruncates, "pointsOverflowKeepsAuthoredOrder": pointsTruncate]
         print(String(data: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

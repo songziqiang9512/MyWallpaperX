@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 131,
-      "bytes": 51723
+      "bytes": 52006
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1204,11 +1204,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b7c06be755d99d8fdce371856467987a905e4244f74703612dad3b9b3bd1e766",
-      "after": "77009019186cf73ee5986af7570a9de4d834096e5b33ea8ffee4f6243387383a",
+      "before": "77009019186cf73ee5986af7570a9de4d834096e5b33ea8ffee4f6243387383a",
+      "after": "224937f6ecb1f3b20a8bd5f9d230036729d3abbac24773b20f351a92302c2462",
       "owner": "scene-maintainer-succession",
-      "reason": "太阳系条目 S 响应曲线开放项改判归档（SFR 精确探针：地板+亚线性凸增，GY90 陡曲线作废）；只登记本次精确文档变化。",
-      "decision": "docs/scene/history/static-model-light-input-semantics-2026-10-06.md"
+      "reason": "太阳系条目 2D lit >4 灯象限与零点哨兵收口、lit 族测试债偿清及两预存红登记；只登记本次精确文档变化。",
+      "decision": "docs/scene/history/2d-lit-image-light-contract-2026-10-06.md"
     }
   ]
 }

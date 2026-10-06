@@ -30,6 +30,9 @@ struct SceneRenderDescriptor {
         let combos=["LIGHTING":1]; let textureSlots:[String?]=[]
         let userTextureInputs:[SceneEffectTextureInput?]=[]
         var constantShaderValues:[String:SceneDocument.ShaderValue]=[:]
+        // Product added authored static-model channel bindings; the scalar
+        // probe never authors them, so the member stays nil here.
+        var staticModelMaterialBindings: SceneStaticModelMaterialBindings? = nil
     }
     let modelMaterialLinks:[Link]=[];let materialPasses:[MaterialPassDescriptor]=[];let layers:[Layer]=[]
 }
@@ -88,7 +91,7 @@ struct SceneRenderDescriptor {
         let decoded = try JSONDecoder().decode(SceneDocument.SceneLayerMaterialInstance.self,from:encoded)
         precondition(decoded == a)
         let malformed=SceneDocument.SceneLayerMaterialInstance.parse(["constantshadervalues":NSNull()])!
-        precondition(malformed.scalarShaderValues?.keys.sorted() == ["emissivebrightness","emissivecolor","metallic","reflectivity","reflectivitydistance","roughness"])
+        precondition(malformed.scalarShaderValues?.keys.sorted() == ["Alpha","emissivebrightness","emissivecolor","metallic","reflectivity","reflectivitydistance","roughness"])
         precondition(malformed.scalarShaderValues!.values.allSatisfy { $0.components == nil })
         let dynamic=SceneDocument.SceneLayerMaterialInstance.parse(["constantshadervalues":["roughness":["value":0.2,"script":"export function update(v){return v;}"]]])!
         precondition(dynamic.scalarShaderValues?["roughness"]?.scriptSource != nil)

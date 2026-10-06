@@ -37,7 +37,9 @@ def map_oracle(v):
     m=sample[0] if bits&1 else f(v['material'][0]);r=sample[1] if bits&2 else f(v['material'][1])
     source=[struct.unpack('e',struct.pack('e',x))[0] for x in v['source']]
     nl=max(0,min(1,dot(n,l)));nv=max(0,min(1,dot(n,view)))
-    falloff=max(0,1-math.sqrt(sum(f(x)**2 for x in v['light']))/1000)**2
+    # Official 2D lit-image point contract (own-fixture, 2026-10-06): planar
+    # (X/Y) falloff only and intensity amplified by k_2D=1.85.
+    falloff=max(0,1-math.sqrt(sum(f(x)**2 for x in v['light'][:2]))/1000)**2
     result=[]
     for c in range(3):
         albedo=source[c]/source[3] if source[3]>0 else 0
@@ -48,7 +50,7 @@ def map_oracle(v):
             lam=lambda x:(math.sqrt(1+a*a*(1-x*x)/(x*x))-1)/2
             G=1/(1+lam(nl)+lam(nv));fresnel+=(1-fresnel)*(1-max(0,min(1,dot(view,h))))**5
             spec=math.pi*D*G*fresnel/(4*nl*nv)*nl
-        direct=((1-m)*(1-fresnel)*albedo*nl+spec)*source[3]*f(v['intensity'])*falloff
+        direct=((1-m)*(1-fresnel)*albedo*nl+spec)*source[3]*f(v['intensity'])*1.85*falloff
         emission=sample[3]*f(v['emission'][c])*f(v['emission'][3])*source[3] if bits&8 and v['emission'] else 0
         result.append(min(65504,max(0,(direct+emission)*f(v['tint'][c])*f(v['opacity']))))
     return result+[source[3]*f(v['opacity'])]

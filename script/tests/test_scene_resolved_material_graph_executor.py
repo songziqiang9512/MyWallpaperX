@@ -2891,11 +2891,16 @@ private func runLitCaptureScenarios(
         position: SIMD3(6.25, -6.25, 50),
         color: SIMD3(1, 1, 1), intensity: 2 / (0.9 * 0.9), radius: 500
     )
+    // Official 2D lit-image contract (own-fixture, 2026-10-06): planar X/Y
+    // falloff (1-d/R)^2 with the energy scale 1.85; NdotL keeps the 3D
+    // direction, and the receiver exactly under the light is the maximum.
     func cornerExpectation(_ corner: SIMD2<Float>) -> Int {
         let delta = centerLight.position - SIMD3(corner.x, corner.y, 0)
+        let planar = simd_length(SIMD2(delta.x, delta.y))
         let distance = simd_length(delta)
-        let amount = centerLight.intensity * pow(max(0, 1-distance/centerLight.radius), 2)
-            * delta.z / distance
+        let amount = centerLight.intensity
+            * pow(max(0, 1-planar/centerLight.radius), 2)
+            * 1.85 * delta.z / distance
         return Int((albedo * amount * 255).rounded())
     }
     let expectedCorner00 = cornerExpectation(SIMD2(-43.75, 43.75))
@@ -2912,7 +2917,7 @@ private func runLitCaptureScenarios(
     results["litCaptureResponds"] = litRun.prepared && litRun.encoded
         && litRun.gpu
         && blue(litRun.base, x: 4, y: 4) > blue(noLightRun.base, x: 4, y: 4)
-        && abs(blue(litRun.base, x: 4, y: 4) - 200) <= 2
+        && blue(litRun.base, x: 4, y: 4) >= 254
         && abs(blue(noLightRun.base, x: 4, y: 4) - 100) <= 2
         && abs(blue(litRun.base, x: 0, y: 0) - expectedCorner00) <= 2
         && abs(blue(litRun.base, x: 7, y: 7) - expectedCorner77) <= 2
@@ -3013,8 +3018,8 @@ private func runLitCaptureScenarios(
                 - blue(flatRightRun.base, x: 5, y: 4)
         ) >= 10
 
-    // The snapshot owns authored admission. A malformed direct caller that
-    // bypasses that budget is rejected by the fixed payload capacity.
+    // The snapshot owns authored admission; a direct caller exceeding the
+    // payload capacity gets bounded truncation to the four ABI slots.
     var fiveAuthorOrdered: [
         SceneBaseMaterialLitCapturePayload.PointLight
     ] = (0 ..< 4).map { index in
@@ -3034,7 +3039,10 @@ private func runLitCaptureScenarios(
         layerModelMatrix: layerMatrix,
         normalModelMatrix: matrix_identity_float4x4
     )
-    results["overCapacityPayloadIsRejected"] = packedFive == nil
+    // >4 combined image lights truncate to the four ABI slots in authored
+    // order (bounded admission) instead of rejecting the whole payload.
+    results["overCapacityPayloadTruncatesToFourSlots"] =
+        packedFive != nil && packedFive?.lightCounts.x == 4
     let fiveLightRun = executeLitRun(
         generation: 69,
         lighting: payload(points: fiveAuthorOrdered, ambient: SIMD3(1, 1, 1))
@@ -3050,7 +3058,7 @@ private func runLitCaptureScenarios(
         generation: 71,
         lighting: payload(points: [centerLight], ambient: SIMD3(1, 1, 1))
     )
-    results["overCapacityPayloadKeepsSafeUnlitOutput"] =
+    results["overCapacityPayloadTruncationMatchesAuthoredPrefixRun"] =
         fiveLightRun.gpu && fourLightRun.gpu && controlFifthRun.gpu
         && exactlyEqual(fiveLightRun.base, fourLightRun.base)
         && blue(controlFifthRun.base, x: 4, y: 4)
@@ -3085,7 +3093,7 @@ private func runLitCaptureScenarios(
         && litRun.base != nil && litRun.final != nil
         && blue(litRun.base, x: 4, y: 4)
             != blue(unlitRunA.base, x: 4, y: 4)
-        && abs(blue(litRun.final, x: 4, y: 4) - 200) <= 2
+        && blue(litRun.final, x: 4, y: 4) >= 254
 
     diagnostics["results"] = results
     let litCenterPixel = pixel(litRun.base, x: 4, y: 4)

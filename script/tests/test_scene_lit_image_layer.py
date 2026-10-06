@@ -330,6 +330,8 @@ class SceneLitImageLayerTests(unittest.TestCase):
             self.assertEqual(report['rectangleRotationNormalCases'],12)
             self.assertLess(report['maxOracleError'],0.002)
             self.assertEqual(report['flatNormalError'],0)
+            self.assertTrue(report['mixedOverflowTruncates'])
+            self.assertTrue(report['pointsOverflowKeepsAuthoredOrder'])
             print(json.dumps(report,sort_keys=True))
 
 if __name__ == '__main__': unittest.main()

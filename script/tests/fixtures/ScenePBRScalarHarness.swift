@@ -39,7 +39,9 @@ import simd
             let represented=SIMD4<Float>((0..<4).map { Float(Float16(source[$0])) })
             let response=Harness.materialResponse(normal:n,light:light,view:SIMD3(view.x,view.y,view.z),
                 source:represented,metallic:Double(metal),roughness:Double(rough))
-            let falloff=pow(max(0,1-Double(simd_length(light))/1000),2)
+            // Official 2D lit-image point contract: planar (X/Y) falloff with
+            // k_2D=1.85 intensity scale; receiver under the light is maximum.
+            let falloff=pow(max(0,1-Double(simd_length(SIMD2(light.x,light.y)))/1000),2)*1.85
             var expected=[Float]()
             for channel in 0..<3 {
                 let value=(Double(response[channel])*falloff*Double(intensity)*Double(count)

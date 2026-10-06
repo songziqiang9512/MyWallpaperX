@@ -324,10 +324,13 @@ fragment float4 sceneLitImageLayerFrag(
             break;
         }
         const float3 delta = pointPositionRadius[index].xyz - world;
-        const float falloff = sceneLitFalloff(
-            float3(delta.xy, 0.0),
-            pointPositionRadius[index].w
+        // Planar distance carries no zero-direction sentinel: the receiver
+        // exactly under the light is the falloff maximum, not a skip case.
+        const float planarRatio = saturate(
+            length(delta.xy) / max(pointPositionRadius[index].w, 1e-4)
         );
+        const float remaining = max(0.0, 1.0 - planarRatio);
+        const float falloff = remaining * remaining;
         if (falloff <= 0.0) {
             continue;
         }

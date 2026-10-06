@@ -238,9 +238,13 @@ struct SceneBaseMaterialLitCapturePayload {
         normalModelMatrix: simd_float4x4
     ) -> SceneLitImageLayerLightPayload? {
         // Four is the physical shader ABI capacity, not another admission budget.
-        // SceneLightSnapshot selects lights in authored order before this call.
-        guard pointLights.count + spotLights.count <= 4,
-              simd_determinant(layerModelMatrix).isFinite,
+        // Overflow beyond the four combined slots truncates in the caller's
+        // authored order (points first, then spots in the remaining slots),
+        // mirroring the static-model budget's bounded admission instead of
+        // rejecting the whole layer payload back to unlit.
+        let boundedPoints = Array(pointLights.prefix(4))
+        let boundedSpots = Array(spotLights.prefix(4 - boundedPoints.count))
+        guard simd_determinant(layerModelMatrix).isFinite,
               abs(simd_determinant(layerModelMatrix)) > 1e-9,
               ambient.x >= 0, ambient.y >= 0, ambient.z >= 0 else { return nil }
         var payload = SceneLitImageLayerLightPayload()
@@ -249,10 +253,10 @@ struct SceneBaseMaterialLitCapturePayload {
         payload.modelMatrix = layerModelMatrix
         payload.normalBasis = simd_transpose(simd_inverse(normalModelMatrix))
         payload.ambientHasNormal = SIMD4(ambient, 0)
-        payload.lightCounts = SIMD4(Float(pointLights.count), Float(spotLights.count), 0, 0)
+        payload.lightCounts = SIMD4(Float(boundedPoints.count), Float(boundedSpots.count), 0, 0)
         var positions = [SIMD4<Float>](repeating: .zero, count: 4)
         var colors = positions
-        for (index, light) in pointLights.enumerated() {
+        for (index, light) in boundedPoints.enumerated() {
             guard light.intensity >= 0, light.radius > 0 else { return nil }
             positions[index] = SIMD4(light.position, light.radius)
             colors[index] = SIMD4(simd_max(light.color, .zero), light.intensity)
@@ -266,7 +270,7 @@ struct SceneBaseMaterialLitCapturePayload {
         positions = [SIMD4<Float>](repeating: .zero, count: 4)
         colors = positions
         var directions = positions
-        for (index, light) in spotLights.enumerated() {
+        for (index, light) in boundedSpots.enumerated() {
             let length = simd_length(light.direction)
             guard light.intensity >= 0, light.radius > 0,
                   length.isFinite, length > 1e-6,
