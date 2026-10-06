@@ -1,13 +1,10 @@
 #!/bin/bash
 # Experimental system-media transport. Build project-authored code against the
 # SDK's public Perl XS headers; no reference binaries or private entitlements.
+# Ships in Developer ID releases by release-owner decision (2026-10-07, user-
+# verified); Mac App Store builds must not include this backend (D6).
 set -euo pipefail
 mwx_destination="$1"
-# D6 permits development experiments, not distribution of the private backend.
-if [[ "${CONFIGURATION:-}" != Debug ]]; then
-  rm -f "$mwx_destination/SceneMediaObserver.dylib"
-  exit 0
-fi
 mwx_source="$SRCROOT/MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/Observer/SceneMediaObserver.m"
 mwx_sdk="$(xcrun --sdk macosx --show-sdk-path)"
 mwx_perl_core="$(/usr/bin/perl -MConfig -e 'print "$Config{archlib}/CORE"')"

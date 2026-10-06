@@ -138,21 +138,12 @@ extension AppKitSettingsContainerView {
         systemSection.addRow(makeSettingRow(title: "Scene HDR 显示", iconSystemName: "sun.max",
             subtitle: "在支持的屏幕上呈现更亮的高光；关闭后使用普通亮度", trailing: sceneHDRDisplaySwitch))
 
-        sceneMediaSourcePopup.addItems(withTitles: ["关闭", "Apple Music"])
-        // The experimental system source exists only in Debug builds (Release
-        // rejects the preference by design); NSMenu.item(at:) raises an
-        // ObjC inconsistency exception for out-of-range indexes, so the
-        // third slot is tagged only when that item was actually added.
-        sceneMediaSourcePopup.item(at: 0)?.tag = 0
-        sceneMediaSourcePopup.item(at: 1)?.tag = 1
-#if DEBUG
-        sceneMediaSourcePopup.addItem(withTitle: "系统正在播放（实验）")
-        sceneMediaSourcePopup.item(at: 2)?.tag = 2
-#endif
-        let mediaControls = NSStackView(views: [sceneMediaSourcePopup, sceneMediaAuthorizationButton])
+        sceneMediaInfoSwitch.toolTip = "开启后场景壁纸显示正在播放的歌曲与封面；读取 Apple Music 需先点击「授权读取」"
+        sceneMediaAuthorizationButton.toolTip = "允许读取 Apple Music 的歌曲信息（系统自动化授权）"
+        let mediaControls = NSStackView(views: [sceneMediaInfoSwitch, sceneMediaAuthorizationButton])
         mediaControls.spacing = 8
         systemSection.addRow(makeSettingRow(title: "壁纸歌曲信息", iconSystemName: "music.note",
-            subtitle: "读取所选播放器的歌曲和封面，用于场景壁纸", trailing: mediaControls))
+            subtitle: "开启后场景壁纸读取正在播放的歌曲和封面", trailing: mediaControls))
 
         systemSection.addRow(makeSettingRow(title: "开机自启动", iconSystemName: "power", trailing: startOnBootSwitch))
         systemSection.addRow(makeSettingRow(title: "启动恢复播放", iconSystemName: "arrow.counterclockwise.circle", trailing: restorePlaybackOnLaunchSwitch))

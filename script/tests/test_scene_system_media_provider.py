@@ -12,9 +12,8 @@ HARNESS = r'''
 import AppKit
 import Foundation
 
-@MainActor enum SceneMediaSourcePreference: String {
-    case disabled, appleMusic, systemNowPlaying
-    static var current = Self.appleMusic
+@MainActor enum SceneMediaSourcePreference {
+    static var isEnabled = true
     static let changed = Notification.Name("mwx-test-media-source-" + UUID().uuidString)
     static func refresh() {}
 }
@@ -36,7 +35,10 @@ nonisolated enum SceneMusicPlayerSource {
         let state = State.playing; let position = 5.0; let duration = 100.0
         let artworkData: Data? = Data([1, 2, 3])
     }
-    enum AuthorizationStatus: Sendable { case authorized, denied }
+    enum AuthorizationStatus: Sendable {
+        case authorized, denied, consentRequired
+        case unavailable(SceneSystemMediaSource.Failure)
+    }
     enum ReadResult: Sendable { case snapshot(Snapshot), noSession, failure(String) }
     static let control = Control()
     static func silentAuthorization(pid: pid_t) -> AuthorizationStatus {
@@ -75,13 +77,23 @@ nonisolated enum SceneMusicPlayerSource {
         var artworkFailure: String? = nil
         var artworkPalette: SceneMediaArtworkPalette? = nil
     }
-    nonisolated enum Failure: Equatable, Sendable { case heartbeatTimeout, helperUnavailable }
+    nonisolated enum Failure: Equatable, Sendable { case missingResource, heartbeatTimeout, helperUnavailable }
     nonisolated enum Result: Sendable { case snapshot(Snapshot), noSession, unavailable(Failure) }
     static var latest: SceneSystemMediaSource?
     static var starts = 0
     var callback: (@MainActor @Sendable (Result) -> Void)?
-    func start(_ receive: @escaping @MainActor @Sendable (Result) -> Void) { callback = receive; Self.latest = self; Self.starts += 1 }
+    func start(_ receive: @escaping @MainActor @Sendable (Result) -> Void) {
+        guard callback == nil else { return }
+        callback = receive; Self.latest = self; Self.starts += 1
+    }
     func stop() { callback = nil }
+    /// A terminal unavailable result retires the transport, mirroring the
+    /// production session teardown that lets a later start succeed.
+    func deliver(_ result: Result) {
+        guard let current = callback else { return }
+        if case .unavailable = result { callback = nil }
+        current(result)
+    }
 }
 nonisolated func testPalette(_ red: Double) -> SceneMediaArtworkPalette {
     .init(primaryColor: .init(red, 0, 1 - red), secondaryColor: .init(0, 1, 0),
@@ -139,6 +151,8 @@ nonisolated func testPalette(_ red: Double) -> SceneMediaArtworkPalette {
             wait { control.counts().1 == 1 }
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 2.2))
             precondition(control.counts().0 == 0 && control.counts().1 == 1)
+            precondition(SceneSystemMediaSource.starts == 1,
+                         "denied latch must not respawn the system transport per poll")
             provider.release(first)
             control.update { $0.authorization = .authorized }
             provider.acquire(second)
@@ -147,41 +161,72 @@ nonisolated func testPalette(_ red: Double) -> SceneMediaArtworkPalette {
             wait { inbox.latest().properties?.title == "" }
             provider.release(second)
         case "system":
-            SceneMediaSourcePreference.current = .systemNowPlaying
+            // Apple Music unavailable is what hands the session to the
+            // system observer under the single-switch arbitration.
+            NSRunningApplication.pid = nil
             provider.acquire(first)
             let source = SceneSystemMediaSource.latest!
             let oldCallback = source.callback!
             let red = Data([1]), blue = Data([2])
-            source.callback?(.snapshot(.init(source: "Player A", identity: "one", title: "First", artworkChanged: true, artworkData: red, artworkPalette: testPalette(1))))
+            source.deliver(.snapshot(.init(source: "Player A", identity: "one", title: "First", artworkChanged: true, artworkData: red, artworkPalette: testPalette(1))))
             precondition(inbox.latest().current == red && inbox.latest().properties?.title == "First")
-            source.callback?(.snapshot(.init(source: "Player A", identity: "one", title: "First", artworkChanged: false, artworkData: nil)))
+            source.deliver(.snapshot(.init(source: "Player A", identity: "one", title: "First", artworkChanged: false, artworkData: nil)))
             precondition(inbox.latest().current == red, "same-track update lost cached cover")
             precondition(inbox.latest().primaryColor == testPalette(1).primaryColor, "same-track update lost palette")
-            source.callback?(.snapshot(.init(source: "Player B", identity: "one", title: "Second", artworkChanged: true, artworkData: nil)))
+            source.deliver(.snapshot(.init(source: "Player B", identity: "one", title: "Second", artworkChanged: true, artworkData: nil)))
             precondition(inbox.latest().current == nil && inbox.latest().properties?.title == "Second")
             precondition(inbox.latest().primaryColor == .zero, "new source inherited old palette")
-            source.callback?(.snapshot(.init(source: "Player B", identity: "one", title: "Second", artworkChanged: true, artworkData: blue, artworkPalette: testPalette(0))))
+            source.deliver(.snapshot(.init(source: "Player B", identity: "one", title: "Second", artworkChanged: true, artworkData: blue, artworkPalette: testPalette(0))))
             precondition(inbox.latest().current == blue, "late current-track cover failed")
             precondition(inbox.latest().primaryColor == testPalette(0).primaryColor)
             let paletteGeneration = inbox.latest().generation
-            source.callback?(.snapshot(.init(source: "Player B", identity: "one", title: "Second", artworkChanged: false, artworkData: nil)))
+            source.deliver(.snapshot(.init(source: "Player B", identity: "one", title: "Second", artworkChanged: false, artworkData: nil)))
             precondition(inbox.latest().generation == paletteGeneration, "metadata-only poll retriggered cover")
-            source.callback?(.unavailable(.heartbeatTimeout))
+            source.deliver(.unavailable(.heartbeatTimeout))
             precondition(inbox.latest().current == nil && inbox.latest().properties?.title == "")
             precondition(inbox.latest().primaryColor == .zero && inbox.latest().textColor == .zero)
-            wait(4) { SceneSystemMediaSource.starts == 2 }
+            // The restart deadline is consumed by the 2s poll cadence, so the
+            // retry lands on the second poll tick at the earliest.
+            wait(6) { SceneSystemMediaSource.starts == 2 }
             oldCallback(.snapshot(.init(source: "Player A", identity: "one", title: "Stale retry", artworkChanged: true, artworkData: red)))
             precondition(inbox.latest().properties?.title == "", "retired transport published after retry")
-            source.callback?(.snapshot(.init(source: "Player B", identity: "one", title: "Recovered", artworkChanged: true, artworkData: blue)))
+            source.deliver(.snapshot(.init(source: "Player B", identity: "one", title: "Recovered", artworkChanged: true, artworkData: blue)))
             precondition(inbox.latest().properties?.title == "Recovered")
             provider.release(first)
             precondition(source.callback == nil)
             provider.acquire(second)
             oldCallback(.snapshot(.init(source: "Player A", identity: "one", title: "Stale", artworkChanged: true, artworkData: red)))
             precondition(inbox.latest().properties?.title == "", "retired source published into replacement")
-            source.callback?(.snapshot(.init(source: "Player B", identity: "two", title: "New", artworkChanged: true, artworkData: blue)))
+            source.deliver(.snapshot(.init(source: "Player B", identity: "two", title: "New", artworkChanged: true, artworkData: blue)))
             provider.release(second)
             precondition(inbox.latest().current == nil && inbox.latest().properties?.title == "")
+        case "handover":
+            // Music running but unauthorized must settle on the system
+            // observer without per-poll respawns, keep its session across the
+            // Music exit transition, and yield to a confirmed Apple session.
+            control.update { $0.authorization = .denied }
+            provider.acquire(first)
+            wait { SceneSystemMediaSource.latest?.callback != nil }
+            let source = SceneSystemMediaSource.latest!
+            let red = Data([1])
+            source.deliver(.snapshot(.init(source: "Player A", identity: "one", title: "System Track", artworkChanged: true, artworkData: red)))
+            precondition(inbox.latest().properties?.title == "System Track")
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 2.4))
+            precondition(SceneSystemMediaSource.starts == 1,
+                         "denied latch must not respawn the system transport per poll")
+            NSRunningApplication.pid = nil
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 2.4))
+            precondition(SceneSystemMediaSource.starts == 1,
+                         "Music exit must not tear down or respawn the engaged observer")
+            precondition(inbox.latest().properties?.title == "System Track",
+                         "Music exit must not clear the engaged system session")
+            control.update { $0.authorization = .authorized }
+            NSRunningApplication.pid = 42
+            wait { inbox.latest().properties?.title == "Track A" }
+            precondition(source.callback == nil, "confirmed Apple takeover must stop the system transport")
+            precondition(SceneSystemMediaSource.starts == 1, "takeover must not spawn a replacement transport")
+            provider.release(first)
+            precondition(inbox.latest().properties?.title == "")
         case "atomic":
             let a = SceneMediaThumbnailInbox.Snapshot.Properties(title: "A", artist: "A", subTitle: "", albumTitle: "", albumArtist: "", genres: "", contentType: "")
             let b = SceneMediaThumbnailInbox.Snapshot.Properties(title: "B", artist: "B", subTitle: "", albumTitle: "", albumArtist: "", genres: "", contentType: "")
@@ -250,6 +295,9 @@ class SceneSystemMediaProviderTests(unittest.TestCase):
 
     def test_denied_permission_is_latched_and_player_exit_clears(self):
         self.check_case('permission')
+
+    def test_unauthorized_settles_on_system_and_yields_to_confirmed_apple(self):
+        self.check_case('handover')
 
     def test_session_publication_has_no_mixed_channels_and_rejects_atomically(self):
         self.check_case('atomic')

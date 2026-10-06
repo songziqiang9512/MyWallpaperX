@@ -325,7 +325,7 @@
       "owner": "scene-media-input",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/system-media-input-design.md",
-      "design_notes": "按需求单producer与原Inbox原子提交；公开Music来源和Debug显式系统实验来源。D6发行边界不变；批准实施不代表播放器兼容性或真实画面验收。",
+      "design_notes": "按需求单producer与原Inbox原子提交；公开Music来源和Debug显式系统实验来源。D6发行边界不变；批准实施不代表播放器兼容性或真实画面验收。2026-10-07 修订：设置改单一开关（producer 自动仲裁，Music 优先、系统回落），辅助库经发布负责人实测决定随 Developer ID Release 分发，Mac App Store 仍排除（见 D6 渠道修订）。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMusicPlayerSource.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSystemMediaProvider.swift",

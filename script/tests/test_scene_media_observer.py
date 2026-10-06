@@ -349,22 +349,10 @@ class SceneMediaObserverTests(unittest.TestCase):
         self.run_mode("bounds", 32)
 
 
-class SceneMediaObserverBuildTests(unittest.TestCase):
-    def test_release_removes_only_experimental_helper_before_compiler_inputs(self):
-        with tempfile.TemporaryDirectory(prefix="mwx-media-release-") as temporary:
-            destination = Path(temporary)
-            helper = destination / "SceneMediaObserver.dylib"
-            keep = destination / "keep.txt"
-            helper.write_bytes(b"owned stale helper")
-            keep.write_bytes(b"owned neighbour must survive")
-            executed = subprocess.run([
-                "/bin/bash", str(ROOT / "script/build-scene-media-observer.sh"), str(destination),
-            ], env={"CONFIGURATION": "Release", "PATH": "/usr/bin:/bin"},
-                capture_output=True, text=True, timeout=10)
-            self.assertEqual(executed.returncode, 0, executed.stderr)
-            self.assertFalse(helper.exists())
-            self.assertEqual(keep.read_bytes(), b"owned neighbour must survive")
-            self.assertEqual(set(destination.iterdir()), {keep})
+# The former "Release removes the experimental helper" build-script contract
+# was reversed on 2026-10-07: the helper ships in Developer ID releases by
+# release-owner decision (see D6 channel revision), so there is no
+# configuration-gated early exit left to assert.
 
 
 if __name__ == "__main__":

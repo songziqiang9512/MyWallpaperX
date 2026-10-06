@@ -21,8 +21,8 @@
       "bytes": 13268
     },
     "docs/release/bundle-content.md": {
-      "lines": 57,
-      "bytes": 3726
+      "lines": 61,
+      "bytes": 4128
     },
     "docs/release/release-signing.md": {
       "lines": 152,
@@ -182,7 +182,7 @@
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 41,
-      "bytes": 7717
+      "bytes": 8029
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 439,
@@ -209,8 +209,8 @@
       "bytes": 18728
     },
     "docs/web/mediaremote-nowplaying-design.md": {
-      "lines": 56,
-      "bytes": 5821
+      "lines": 58,
+      "bytes": 6187
     },
     "docs/web/steam-downloads-failed-items-visibility-design.md": {
       "lines": 60,
@@ -231,10 +231,6 @@
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 7241
-    },
-    "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md": {
-      "lines": 101,
-      "bytes": 15364
     }
   },
   "archives": [
@@ -1104,15 +1100,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
-      "before": "dacb8444b04109aa3a01c97f29fc3fc3791b8bcd2f73076a82ccc0c109a15677",
-      "after": "d3f22eea89504018746a8442678f5c51c274950a23597cfad9a2f8999e3d6be9",
-      "owner": "scene-generic-media-input",
-      "reason": "接通公开Music专辑歌手，并将已验证真实音频及跨样本事件缺口回到唯一媒体路线；不扩大播放器/歌词验收。",
-      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "before": "9d0455d8389cae493194fcbd0415c3c0ab1b6525aaa0861c7d6b9510663e925b",
       "after": "b17884019cab574e15c3a95dff30b3d21abc6e8eb3a089d4e4abcd1ed2cf388c",
@@ -1145,7 +1132,7 @@
       "after": "801bcbab8fe355916dfae6383a77998ec777768b5774dc843b9cd4a73d82cc1d",
       "owner": "scene-pause-handoff",
       "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
-      "decision": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md"
+      "decision": "docs/scene/history/scene-maintainer-handoff-2026-10-06.md"
     },
     {
       "section": "bodies",
@@ -1154,7 +1141,7 @@
       "after": "768f1412eac4583c0d84cd54309899dfc5c750fff82d955ed8eaa49b76447c49",
       "owner": "scene-pause-handoff",
       "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
-      "decision": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md"
+      "decision": "docs/scene/history/scene-maintainer-handoff-2026-10-06.md"
     },
     {
       "section": "bodies",
@@ -1163,7 +1150,7 @@
       "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
       "owner": "scene-pause-handoff",
       "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
-      "decision": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md"
+      "decision": "docs/scene/history/scene-maintainer-handoff-2026-10-06.md"
     },
     {
       "section": "bodies",
@@ -1172,7 +1159,7 @@
       "after": "2d18cfdd755132a8a6d7d33861f368d3c93b84c89b89e36c7e35ed988f340379",
       "owner": "scene-pause-handoff",
       "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
-      "decision": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md"
+      "decision": "docs/scene/history/scene-maintainer-handoff-2026-10-06.md"
     },
     {
       "section": "bodies",
@@ -1181,7 +1168,7 @@
       "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
       "owner": "scene-pause-handoff",
       "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
-      "decision": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md"
+      "decision": "docs/scene/history/scene-maintainer-handoff-2026-10-06.md"
     },
     {
       "section": "bodies",
@@ -1190,7 +1177,7 @@
       "after": "24fcb64c6637c341bcc8453d161a7f6393b3bea1d1ef815227ef7f331a08d823",
       "owner": "scene-pause-handoff",
       "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
-      "decision": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md"
+      "decision": "docs/scene/history/scene-maintainer-handoff-2026-10-06.md"
     },
     {
       "section": "bodies",
@@ -1209,6 +1196,33 @@
       "owner": "scene-maintainer-succession",
       "reason": "太阳系条目 2D lit >4 灯象限与零点哨兵收口、lit 族测试债偿清及两预存红登记；只登记本次精确文档变化。",
       "decision": "docs/scene/history/2d-lit-image-light-contract-2026-10-06.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
+      "before": "d3f22eea89504018746a8442678f5c51c274950a23597cfad9a2f8999e3d6be9",
+      "after": "07f0baba03e78a9826b928d3c25e3a78e813ca9a84618ea3e0bd0cf066c2e3d0",
+      "owner": "scene-media-input",
+      "reason": "设置改单一开关（producer 自动仲裁来源）且系统观察辅助库经发布负责人实测决定随 Developer ID Release 分发；两设计文档同步改判，只登记本次精确文档变化。",
+      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/mediaremote-nowplaying-design.md",
+      "before": "9653cb47722274972a46ff5a76e3af0da0366a7606848bbb816b2cc92170c0c7",
+      "after": "13555099683fe6d2336f49c33e7922fd2b680ff85ce02bf9ca6f3094c006a722",
+      "owner": "scene-media-input",
+      "reason": "设置改单一开关（producer 自动仲裁来源）且系统观察辅助库经发布负责人实测决定随 Developer ID Release 分发；两设计文档同步改判，只登记本次精确文档变化。",
+      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/release/bundle-content.md",
+      "before": "1bd503cf2a0760fb475ec099bec28f3786333fd3ea0a14f1cb1e0c8d045689e0",
+      "after": "32d29656bce1496c3311e37f63e718199c3ad8fe9c7a86f8415d7eff2f1acb42",
+      "owner": "scene-media-input",
+      "reason": "系统观察辅助库随 Developer ID Release 分发（发布负责人实测决定），bundle 内容合同登记该 dylib 与 MAS 排除边界；只登记本次精确文档变化。",
+      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md"
     }
   ]
 }

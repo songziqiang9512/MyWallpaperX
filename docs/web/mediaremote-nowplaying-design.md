@@ -40,6 +40,8 @@ snapshot 至少含 source、provider generation、session identity、sequence、
 
 产品裁决：本设计批准仲裁及实验接口边界；**默认产品保持公开/页面 route**，Mac App Store 构建不得包含私有 backend。Developer ID 实验启用必须先完成目标 OS、sandbox/entitlement、hardened runtime 与签名/notarization 实测并由发布负责人明确接受该渠道风险；本批不猜 entitlement、不要求解除安全策略、不批准自动发布。若无法建立可靠权限与生命周期，删除私有候选，保留不可用结果。
 
+2026-10-07 渠道修订：Scene 系统观察辅助库（`SceneMediaObserver.dylib`，经公共 Perl XS 入口装载）由发布负责人实测验收后决定随 Developer ID Release 分发，构建脚本不再限 Debug；Mac App Store 构建仍不得包含该私有 backend，notarization 与分发前检查按[发布流程](../release/release-signing.md)执行。
+
 ## fallback / route
 
 provider 故障仅降级媒体元数据到页面，不改变系统音频采集或壁纸暂停策略。切换来源原子清空不再适用字段，先撤旧 epoch 后发布新快照；错误不能让两个 writer 同时生效。迁移 route 从仅观察 candidate 到 arbiter 唯一发布，旧 JS direct writers 随后全部收敛到 reducer。

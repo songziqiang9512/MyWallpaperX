@@ -1,25 +1,27 @@
 import Foundation
 
-/// Explicit source intent, shared by the settings UI and the Scene process.
-/// A supported player's metadata must not masquerade as a global system session.
-enum SceneMediaSourcePreference: String, CaseIterable, Sendable {
-    case disabled
-    case appleMusic
-    case systemNowPlaying
-
-    static let key = "sceneMediaPlayerSource"
+/// User intent for wallpaper song info, shared by the settings UI and the
+/// Scene process. One switch covers every supported source; the media
+/// producer owns which concrete source actually serves a session, so this
+/// preference never names a source.
+enum SceneMediaSourcePreference {
+    static let key = "sceneMediaInfoEnabled"
+    /// Pre-switch storage that named the source; read once for migration.
+    static let legacyKey = "sceneMediaPlayerSource"
     static let changed = Notification.Name("com.mywallpaperx.sceneMediaPlayerSourceChanged")
 
-    static var current: Self {
-        let source = UserDefaults.standard.string(forKey: key).flatMap(Self.init(rawValue:)) ?? .disabled
-        #if !DEBUG
-        if source == .systemNowPlaying { return .disabled }
-        #endif
-        return source
+    static var isEnabled: Bool {
+        if UserDefaults.standard.object(forKey: key) != nil {
+            return UserDefaults.standard.bool(forKey: key)
+        }
+        // A legacy selection only existed when the user explicitly opted in;
+        // "disabled" and an absent key both mean off.
+        let legacy = UserDefaults.standard.string(forKey: legacyKey)
+        return legacy.map { $0 != "disabled" } ?? false
     }
 
-    static func set(_ source: Self) {
-        UserDefaults.standard.set(source.rawValue, forKey: key)
+    static func setEnabled(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: key)
         UserDefaults.standard.synchronize()
         notifyChange()
     }

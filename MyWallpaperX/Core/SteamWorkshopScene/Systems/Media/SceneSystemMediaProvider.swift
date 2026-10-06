@@ -7,12 +7,21 @@ import Foundation
 final class SceneSystemMediaProvider {
     static let shared = SceneSystemMediaProvider()
 
+    /// The concrete transport engaged for an enabled preference. Apple Music
+    /// serves while its target runs and is authorized; the system observer
+    /// covers every other moment (and player) while its helper ships.
+    private enum ActiveSource {
+        case none
+        case appleMusic
+        case system
+    }
+
     private let inbox: SceneMediaThumbnailInbox
     private let queue = DispatchQueue(label: "com.mywallpaperx.scene-player-media", qos: .utility)
     private var consumers = Set<UUID>()
     private var timer: Timer?
     private var preferenceObserver: NSObjectProtocol?
-    private var selectedSource = SceneMediaSourcePreference.disabled
+    private var activeSource = ActiveSource.none
     private var epoch: UInt64 = 0
     private var inFlight = false
     private var targetPID: pid_t?
@@ -26,6 +35,7 @@ final class SceneSystemMediaProvider {
     private let systemSource = SceneSystemMediaSource()
     private var cachedSystemSource: String?
     private var systemRetryDelay: TimeInterval = 2
+    private var systemRestartDeadline: Date?
 
     init(inbox: SceneMediaThumbnailInbox = .shared) {
         self.inbox = inbox
@@ -50,20 +60,16 @@ final class SceneSystemMediaProvider {
         }
         preferenceObserver = nil
         invalidateSource()
-        selectedSource = .disabled
+        activeSource = .none
     }
 
     private func reloadSource() {
         SceneMediaSourcePreference.refresh()
         invalidateSource()
-        selectedSource = SceneMediaSourcePreference.current
+        activeSource = .none
         timer?.invalidate()
         timer = nil
-        guard !consumers.isEmpty, selectedSource != .disabled else { return }
-        if selectedSource == .systemNowPlaying {
-            startSystemSource()
-            return
-        }
+        guard !consumers.isEmpty, SceneMediaSourcePreference.isEnabled else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.poll() }
         }
@@ -82,6 +88,7 @@ final class SceneSystemMediaProvider {
         cachedArtworkPalette = nil
         cachedSystemSource = nil
         systemRetryDelay = 2
+        systemRestartDeadline = nil
         clearPublishedSession()
     }
 
@@ -90,27 +97,43 @@ final class SceneSystemMediaProvider {
         let requestEpoch = epoch
         systemSource.start { [weak self] result in
             guard let self, self.epoch == requestEpoch, !self.consumers.isEmpty,
-                  self.selectedSource == .systemNowPlaying else { return }
+                  self.activeSource == .system else { return }
             self.consumeSystem(result)
         }
     }
 
-    private func retrySystemSource(after failure: SceneSystemMediaSource.Failure) {
-        // A live helper can report a temporary unavailable snapshot during a
-        // track transition. Only terminal transport failures need a new process.
-        guard failure != .helperUnavailable, timer == nil else { return }
-        let requestEpoch = epoch
-        let delay = systemRetryDelay
-        systemRetryDelay = min(30, delay * 2)
-        timer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self, self.epoch == requestEpoch, !self.consumers.isEmpty,
-                      self.selectedSource == .systemNowPlaying else { return }
-                self.timer = nil
-                self.startSystemSource()
+    private func scheduleSystemRestart(after failure: SceneSystemMediaSource.Failure) {
+        // A live helper reports temporary unavailable snapshots during track
+        // transitions and a missing helper library cannot come back mid-run;
+        // only a transport that plausibly returns is retried. The next poll
+        // consumes the deadline, so restarts stay on the low polling cadence
+        // with a 2 to 30 second capped backoff.
+        guard failure != .helperUnavailable, failure != .missingResource else { return }
+        systemRestartDeadline = Date().addingTimeInterval(systemRetryDelay)
+        systemRetryDelay = min(30, systemRetryDelay * 2)
+    }
+
+    /// Apple Music cannot serve the session right now (target not running or
+    /// not authorized); the system observer takes over while enabled. The
+    /// Apple authorization latch survives this transition so a denied read
+    /// does not restart its authorization check on every poll.
+    private func engageSystemFallback() {
+        if activeSource == .system {
+            if let deadline = systemRestartDeadline, Date() >= deadline {
+                systemRestartDeadline = nil
+                startSystemSource()
             }
+            return
         }
-        timer?.tolerance = min(1, delay / 4)
+        epoch &+= 1
+        cachedSystemSource = nil
+        cachedArtworkIdentity = nil
+        cachedArtworkData = nil
+        cachedArtworkPalette = nil
+        systemRestartDeadline = nil
+        clearPublishedSession()
+        activeSource = .system
+        startSystemSource()
     }
 
     private func clearPublishedSession() {
@@ -124,20 +147,32 @@ final class SceneSystemMediaProvider {
     }
 
     private func poll() {
-        guard !consumers.isEmpty, selectedSource == .appleMusic else { return }
+        guard !consumers.isEmpty, SceneMediaSourcePreference.isEnabled else { return }
         let pid = Self.runningMusicPID()
         if pid != targetPID {
-            invalidateSource()
+            // The Apple target changed or vanished. Retire Apple-side state
+            // only: an engaged system transport and its published session
+            // are not the Apple path's to tear down, and its live callbacks
+            // stay fenced by the untouched epoch.
+            if activeSource != .system {
+                epoch &+= 1
+                clearPublishedSession()
+                cachedArtworkIdentity = nil
+                cachedArtworkData = nil
+                cachedArtworkPalette = nil
+            }
             targetPID = pid
+            authorizationChecked = false
+            authorized = false
         }
-        guard let pid else { report("not-running"); return }
+        guard let pid else { engageSystemFallback(); return }
         guard !inFlight else { return }
-        let requestEpoch = epoch
         let checkAuthorization = !authorizationChecked
-        guard checkAuthorization || authorized else { return }
+        guard checkAuthorization || authorized else { engageSystemFallback(); return }
         let artworkIdentity = cachedArtworkData == nil ? nil : cachedArtworkIdentity
         let artwork = cachedArtworkData
         let artworkPalette = cachedArtworkPalette
+        let requestEpoch = epoch
         inFlight = true
         queue.async { [weak self] in
             let authorization = SceneMusicPlayerSource.silentAuthorization(pid: pid)
@@ -155,13 +190,32 @@ final class SceneSystemMediaProvider {
                 self.inFlight = false
                 guard self.epoch == requestEpoch, !self.consumers.isEmpty,
                       self.targetPID == pid, Self.runningMusicPID() == pid else { return }
-                self.authorizationChecked = true
-                if case .authorized = authorization {
-                    self.authorized = true
-                } else {
+                switch authorization {
+                case .authorized:
+                    if self.activeSource != .appleMusic {
+                        // A confirmed Apple session takes over: stop the
+                        // system transport, retire its publication and fence
+                        // its callbacks before Apple publishes.
+                        self.invalidateSource()
+                        self.activeSource = .appleMusic
+                        self.targetPID = pid
+                        self.authorizationChecked = true
+                        self.authorized = true
+                    }
+                case .denied, .consentRequired:
+                    self.authorizationChecked = true
                     self.authorized = false
-                    self.clearPublishedSession()
+                    if self.activeSource != .system { self.clearPublishedSession() }
                     self.report("authorization-\(authorization)")
+                    self.engageSystemFallback()
+                    return
+                case .unavailable:
+                    // Transient (for example the target still launching): do
+                    // not latch, so the next poll re-probes while the system
+                    // observer covers the session.
+                    if self.activeSource != .system { self.clearPublishedSession() }
+                    self.report("authorization-\(authorization)")
+                    self.engageSystemFallback()
                     return
                 }
                 guard let result else { return }
@@ -211,7 +265,13 @@ final class SceneSystemMediaProvider {
     private func report(_ status: String) {
         guard lastStatus != status else { return }
         lastStatus = status
-        NSLog("MWX Scene media source: source=%@ status=%@", selectedSource.rawValue, status)
+        let source: String
+        switch activeSource {
+        case .appleMusic: source = "apple-music"
+        case .system: source = "system"
+        case .none: source = "none"
+        }
+        NSLog("MWX Scene media source: source=%@ status=%@", source, status)
     }
 
     private func consumeSystem(_ result: SceneSystemMediaSource.Result) {
@@ -261,7 +321,7 @@ final class SceneSystemMediaProvider {
             cachedArtworkPalette = nil
             cachedSystemSource = nil
             report("unavailable-\(failure)")
-            retrySystemSource(after: failure)
+            scheduleSystemRestart(after: failure)
         }
     }
 }
