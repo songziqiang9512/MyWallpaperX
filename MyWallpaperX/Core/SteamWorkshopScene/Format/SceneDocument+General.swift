@@ -20,12 +20,14 @@ extension SceneDocument {
 
         /// `general.lightconfig` gates which light classes the scene admits.
         /// A nil descriptor means the author field is absent: official clients
-        /// leave directional and point lights inert in that state (bounded
-        /// own-fixture black-box observation, WE 2.8.0.42, 2026-10-06), so the
-        /// parsed form defaults both classes to disabled.
+        /// leave directional, point and spot lights inert in that state
+        /// (bounded own-fixture black-box observation, WE 2.8.0.42,
+        /// 2026-10-06; spot key confirmed by the SP1/SP2 pair), so the
+        /// parsed form defaults all classes to disabled.
         struct LightClassesDescriptor: Codable {
             var directional: Bool = false
             var point: Bool = false
+            var spot: Bool = false
         }
 
         let orthoWidth: Float?     // general.orthogonalprojection.width
@@ -86,7 +88,8 @@ extension SceneDocumentLoader {
         }
         return .init(
             directional: (config["directional"] as? NSNumber)?.intValue != 0,
-            point: (config["point"] as? NSNumber)?.intValue != 0
+            point: (config["point"] as? NSNumber)?.intValue != 0,
+            spot: (config["spot"] as? NSNumber)?.intValue != 0
         )
     }
 

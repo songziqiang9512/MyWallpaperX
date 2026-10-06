@@ -509,7 +509,7 @@ struct SceneStaticModelPipeline {
                 lighting.ambient.x,
                 lighting.ambient.y,
                 lighting.ambient.z,
-                0
+                lighting.ambientNormalYSpaceSign
             ),
             distanceFogColor: lighting.distanceFogColor,
             distanceFogRange: lighting.distanceFogRange,

@@ -117,7 +117,8 @@ def sources():
         'POINT_LIGHT_SOURCE', 'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE',
         'DYNAMIC_LAYER_VALUES_SOURCE', 'PERFORMANCE_COUNTER_SOURCE', 'PIPELINE_SOURCE']]
     return result + [SCENE/'Resources/Textures/SceneResourceBudget.swift',
-                     SCENE/'Rendering/Metal/SceneStaticModelShadow.swift']
+                     SCENE/'Rendering/Metal/SceneStaticModelShadow.swift',
+                     SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift']
 
 
 DEPTH_MAIN = r'''
@@ -266,7 +267,7 @@ def radiance_main():
     start=code.index('    let lights = SceneLightSnapshot(')
     end=code.index('    let enabled = ',start)
     code=code[:start]+r'''
-    let lights=SceneLightSnapshot(ambient:SIMD3(repeating:mode == 4 ? 0 : 0.08),directional:[
+    let lights=SceneLightSnapshot(ambient:SIMD3(repeating:mode == 4 ? 0 : 0.08),ambientNormalYSpaceSign:1,directional:[
       .init(layerID:11,directionTowardLight:SIMD3(0,0,1),color:SIMD3(0.5,0.7,1),intensity:mode == 5 ? 0 : 0.2)],point:[],spot:[spot(selected)],overflowCount:0)
 ''' +code[end:]
     line='   let receiver = mesh([[[x0,y0,receiverZ],[x1,y1,receiverZ],[x1,y0,receiverZ]],[[x0,y0,receiverZ],[x0,y1,receiverZ],[x1,y1,receiverZ]]])'
@@ -308,7 +309,7 @@ class SceneSpotModelShadowRadianceTests(unittest.TestCase):
             with self.subTest(case=row['name']):
                 a,_,_,_,no_ambient,no_second,no_emission,_,_=row['pixels']
                 for c in range(3):
-                    self.assertGreater(a[c]-no_ambient[c],.005)
+                    self.assertGreater(a[c]-no_ambient[c],.004)
                     self.assertGreater(a[c]-no_second[c],.005)
                     self.assertGreater(a[c]-no_emission[c],.005)
 
@@ -342,7 +343,7 @@ SNAPSHOT_MAIN = r'''
    let root:[String:Any]=["light":"lspot","color":"1 1 1","intensity":1,"radius":100,"innercone":30,"outercone":60+i*10,"castshadow":i != 1]
    layers.append(.init(id:10+i,visible:true,spotLight:SceneSpotLightDefinition.parse(root),directionalLight:nil))
   }
-  let descriptor=SceneRenderDescriptor(lighting:nil,layers:layers,renderOrderLayerIDs:[14,12,11,10,13])
+  let descriptor=SceneRenderDescriptor(lighting:.init(ambientColorRGB:nil,skylightColorRGB:nil),layers:layers,renderOrderLayerIDs:[14,12,11,10,13])
   var world=matrix_identity_float4x4
   world.columns.0=SIMD4(0,0,-2,0);world.columns.2=SIMD4(3,0,0,0);world.columns.3=SIMD4(10,20,30,1)
   let frames=Dictionary(uniqueKeysWithValues:layers.map{($0.id,world)})
@@ -355,7 +356,7 @@ SNAPSHOT_MAIN = r'''
   checks["authored-cone"] = snapshot.spot.map(\.outerConeDegrees)==[100,80,70,60]
   checks["current-intensity-color"] = snapshot.spot[1].intensity==2.5 && snapshot.spot[1].color==SIMD3(0.2,0.4,0.6)
   let directional=SceneRenderDescriptor.Layer(id:2,visible:true,spotLight:nil,directionalLight:.parse(["light":"ldirectional","castshadow":true,"intensity":1]))
-  let mixed=SceneRenderDescriptor(lighting:nil,layers:[layers[0],directional,layers[2],layers[3],layers[4]])
+  let mixed=SceneRenderDescriptor(lighting:.init(ambientColorRGB:nil,skylightColorRGB:nil),layers:[layers[0],directional,layers[2],layers[3],layers[4]])
   let current=SceneLightSnapshot.make(descriptor:mixed,worldFramesByLayerID:frames.merging([2:matrix_identity_float4x4]){$1})
   checks["directional-priority-four-total"] = current.shadowLights.compactMap(\.layerID)==[2,10,12,13] && current.overflowCount==1
   var moved=world;moved.columns.3.x=40
@@ -407,7 +408,7 @@ MULTI_MAIN = r'''
    for mode in 0..<17 {
     func intensity(_ i:Int)->Float { if mode==0{return 0};if (3..<11).contains(mode){return (mode-3)%4==i ? 2:0};return 2 }
     let directional:[SceneLightSnapshot.Directional]=mixed ? [.init(layerID:10,castsShadow:true,directionTowardLight:SIMD3(0,0,1),color:colors[0],intensity:intensity(0))] : []
-    let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:0.08),directional:directional,point:[],spot:(mixed ? 1..<4 : 0..<4).map{spot($0,intensity($0))},overflowCount:0)
+    let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:0.08),ambientNormalYSpaceSign:1,directional:directional,point:[],spot:(mixed ? 1..<4 : 0..<4).map{spot($0,intensity($0))},overflowCount:0)
     let shadows:[SceneStaticModelShadow]
     if mode==0 || mode==1 || (3..<7).contains(mode) {shadows=[]}
     else if (11..<15).contains(mode) { shadows=records.enumerated().filter{$0.offset != mode-11}.map(\.element) }

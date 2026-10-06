@@ -487,7 +487,7 @@ ORDERED_MAIN=r'''
   let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:pipeline,entries:entries),descriptor:descriptor)
   let pool=SceneOffscreenTexturePool(device:d,pixelFormat:.bgra8Unorm,residentByteBudget:16*1024*1024)
   let light=SceneLightSnapshot.Directional(layerID:3,castsShadow:true,directionTowardLight:SIMD3(0,0,1),color:SIMD3(repeating:1),intensity:0)
-  let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:1),directional:[light],point:[],spot:[],overflowCount:0)
+  let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:1),ambientNormalYSpaceSign:1,directional:[light],point:[],spot:[],overflowCount:0)
   let camera=SceneParticleCameraFrame(camera:.init(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:64,orthoHeight:64,
    fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000),viewportSize:CGSize(width:256,height:256))
   let world=Dictionary(uniqueKeysWithValues:layers.map{($0.id,matrix_identity_float4x4)})
@@ -587,7 +587,7 @@ class SceneNamedModelShadowOrderedOwnerTests(unittest.TestCase):
                 self.assertEqual(row['depthStates'],['ready']);self.assertEqual(row['prefixLeases'],1)
                 self.assertEqual(row['physicalRejections'],1);self.assertFalse(row['shadow'])
                 self.assertEqual(row['capturesPrepared'],0);self.assertEqual(row['capturesTotal'],1)
-                self.assertEqual(row['pixels'],[[255,0,0,255],[0,255,0,255]])
+                self.assertEqual(row['pixels'],[[128,0,0,255],[0,128,0,255]])
                 self.assertTrue(row['currentIdentity'] and row['completed']);self.assertIsNone(row['typedInvalid'])
                 self.assertEqual((row['beforeDrawLeases'],row['afterDrawLeases']),(1,1))
 
@@ -597,20 +597,21 @@ class SceneNamedModelShadowOrderedOwnerTests(unittest.TestCase):
         self.assertEqual((row['capturesPrepared'],row['capturesTotal']),(1,1))
         self.assertEqual((row['beforeDrawLeases'],row['afterDrawLeases']),(1,1))
         self.assertTrue(row['currentIdentity'] and row['completed'])
-        self.assertEqual(row['pixels'],[[255,0,0,255],[0,255,0,255]])
+        self.assertEqual(row['pixels'],[[128,0,0,255],[0,128,0,255]])
 
     def test_partial_model_distinguishes_failed_attempt_from_unvisited_mesh(self):
         row=self.rows['partial-mesh']
         self.assertEqual(row['depthStates'],['ready','failed','unvisited'])
         self.assertEqual(row['physicalRejections'],1);self.assertFalse(row['shadow'])
         self.assertEqual((row['prefixLeases'],row['beforeDrawLeases'],row['afterDrawLeases']),(1,1,1))
-        self.assertEqual(row['pixels'],[[255,0,0,255],[0,0,255,255]])
+        self.assertEqual(row['pixels'],[[128,0,0,255],[0,0,128,255]])
         self.assertTrue(row['completed']);self.assertIsNone(row['typedInvalid'])
 
 ADMISSION_SOURCES=list(dict.fromkeys([*ORDERED_SOURCES,
  SCENE/'Rendering/Frame/SceneResolvedMaterialFramePreflight+Admission.swift',
  SCENE/'Rendering/Frame/SceneResolvedMaterialFramePreflight+LitCapture.swift',
  SCENE/'Rendering/Metal/SceneLitImageLayerPipeline.swift',
+ SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift',
  SCENE/'Compilation/Material/SceneBaseMaterialLightingProfile.swift',
  SCENE/'Rendering/Geometry/SceneCaptureGeometry.swift',
  SCENE/'Rendering/Composition/SceneLayerColorBlendPipeline.swift',
@@ -640,7 +641,7 @@ def admission_support():
     s=s.replace('self.device=device;staticModelResources=resources',
         'self.device=device;staticModelResources=resources;renderDescriptor=descriptor\n  pipelineRepository=FixturePipelines(litImageLayer:SceneLitImageLayerPipeline(device:device))')
     s=s.replace('struct ColorTargetFormat {let metalPixelFormat:',
-        'var camera:CameraDescriptor {.init(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:64,orthoHeight:64,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000)}\n struct ColorTargetFormat {let metalPixelFormat:')
+        ' struct ColorTargetFormat {let metalPixelFormat:')
     s=s.replace('struct SceneResolvedMaterialFrameTargetPlan {}',
         'struct SceneResolvedMaterialFrameTargetPlan {let token:SceneResolvedMaterialExecutionCapabilityCatalog.Token;let allocation:ScenePersistentGraphTargetFramePlan}')
     return s+RESOURCE_PHASE_UNAVAILABLE_HANDLE_SUPPORT+ADMISSION_EXTRA
@@ -707,7 +708,7 @@ class SceneNamedModelShadowLightingAdmissionTests(unittest.TestCase):
                 self.assertEqual(row['environmentCalls'],0)
                 self.assertEqual(row['plainDrawn'],name!='unsupported-blend')
                 self.assertEqual(row['depthStates'],['ready'])
-                self.assertEqual(row['pixels'],[[255,0,0,255],[0,255,0,255]])
+                self.assertEqual(row['pixels'],[[128,0,0,255],[0,128,0,255]])
                 self.assertEqual((row['capturesPrepared'],row['capturesTotal']),(0,1))
                 self.assertEqual((row['beforeDrawLeases'],row['afterDrawLeases']),(1,1))
 
@@ -725,7 +726,7 @@ PUBLICATION_FUNCTIONS=r'''
   let entry=ScenePreparedStaticModelResources.Entry(materialPath:"materials/unseen/runtime.json",dynamicMaterialPath:"",geometryIdentity:"quad",mesh:mesh,albedo:nil,namedAlbedo:named,material:material(SIMD3(repeating:1)))
   let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:model,entries:[2:[entry]]),descriptor:descriptor)
   let camera=SceneParticleCameraFrame(camera:descriptor.camera,viewportSize:CGSize(width:64,height:64))
-  let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:1),directional:[],point:[],spot:[],overflowCount:0)
+  let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:1),ambientNormalYSpaceSign:1,directional:[],point:[],spot:[],overflowCount:0)
   let green=texture(d,64,[0,255,0,255]),blue=texture(d,64,[0,0,255,255])
   var rows:[[String:Any]]=[]
   for (index,alpha) in [0.5,1.0,0.0,1.0].enumerated() {
@@ -773,7 +774,7 @@ PUBLICATION_FUNCTIONS=r'''
   let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:model,entries:[:]),descriptor:descriptor)
   let camera=SceneParticleCameraFrame(camera:descriptor.camera,viewportSize:CGSize(width:64,height:64))
   let light=SceneLightSnapshot.Directional(layerID:3,castsShadow:true,directionTowardLight:SIMD3(0,0,1),color:SIMD3(repeating:1),intensity:1)
-  let lighting=SceneLightSnapshot(ambient:.zero,directional:[light],point:[],spot:[],overflowCount:0)
+  let lighting=SceneLightSnapshot(ambient:.zero,ambientNormalYSpaceSign:1,directional:[light],point:[],spot:[],overflowCount:0)
   let red=texture(d,64,[255,0,0,255]),blue=texture(d,64,[0,0,255,255]),green=texture(d,64,[0,255,0,255])
   let output=texture(d,64,[0,0,0,255]),cb=q.makeCommandBuffer()!
   let pass=SceneMainPassEncoder(commandBuffer:cb,target:output,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
@@ -839,7 +840,7 @@ class SceneNamedModelShadowPublicationTests(unittest.TestCase):
                 self.assertTrue(row['completed'] and row['sameCurrent'])
                 self.assertEqual(row['copies'],1)
                 self.assertEqual(row['captureRGBA'],rgba)
-                self.assertEqual(row['modelRGBA'],rgba[:3]+[255])
+                self.assertEqual(row['modelRGBA'],[round(c*0.5) for c in rgba[:3]]+[255])
         self.assertEqual([r['cancelled'] for r in rows],[False,True,False,False])
 
     def test_normal_provider_prepares_capacity_but_copies_original_authored_background(self):
@@ -948,7 +949,7 @@ class SceneNamedModelShadowMixedOwnerTests(unittest.TestCase):
             self.assertEqual(row['refractionDraws'],1);self.assertEqual(row['copies'],2)
         self.assertTrue(normal['shadow']);self.assertFalse(limited['shadow'])
         self.assertEqual(limited['pixels'],normal['pixels'])
-        self.assertEqual(normal['pixels'][0],[255,0,0,255]);self.assertEqual(normal['pixels'][1],[0,64,0,255])
+        self.assertEqual(normal['pixels'][0],[102,0,0,255]);self.assertEqual(normal['pixels'][1],[0,64,0,255])
 
     def test_ordered_utility_trigger_and_hidden_consumer_keep_original_snapshot_owner(self):
         row=self.rows['utility-trigger'];self.assertTrue(row['capacity']);self.assertTrue(row['shadow'])
@@ -963,7 +964,7 @@ class SceneNamedModelShadowMixedOwnerTests(unittest.TestCase):
             self.assertFalse(row['capacity']);self.assertFalse(row['shadow'])
             self.assertTrue(row['noEarlyCopy'] and row['modelDraw'])
             self.assertEqual(row['prefixLeases'],1)
-            self.assertEqual(row['pixels'][0],[255,0,0,255])
+            self.assertEqual(row['pixels'][0],[102,0,0,255])
             self.assertEqual(row['pixels'][1],[0,64,0,255])
         self.assertEqual(self.rows['color-prefix-failure']['colorBytes'],0)
         self.assertEqual(self.rows['utility-prefix-failure']['colorBytes'],0)
@@ -1005,7 +1006,7 @@ NAMED_RECEIVER_FUNCTIONS=r'''
   let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:model,entries:entries),descriptor:descriptor)
   let pool=SceneOffscreenTexturePool(device:d,pixelFormat:.bgra8Unorm,residentByteBudget:16*1024*1024)
   let light=SceneLightSnapshot.Directional(layerID:7,castsShadow:true,directionTowardLight:SIMD3(1,0,1),color:SIMD3(repeating:1),intensity:0.5)
-  let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:0.2),directional:[light],point:[],spot:[],overflowCount:0)
+  let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:0.2),ambientNormalYSpaceSign:1,directional:[light],point:[],spot:[],overflowCount:0)
   let camera=SceneParticleCameraFrame(camera:descriptor.camera,viewportSize:CGSize(width:64,height:64))
   let frame=SceneFrameContext(dynamicValues:.empty(frameIndex:1,generation:1))
   let green=texture(d,64,[0,255,0,255]),output=texture(d,64,[0,0,0,255])

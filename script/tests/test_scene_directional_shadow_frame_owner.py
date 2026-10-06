@@ -27,6 +27,7 @@ SOURCES = list(dict.fromkeys([
         'MODEL_SOURCE', 'DIRECTIONAL_LIGHT_SOURCE', 'POINT_LIGHT_SOURCE',
         'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE',
         'DYNAMIC_LAYER_VALUES_SOURCE', 'PIPELINE_SOURCE', 'SHADOW_SOURCE']),
+    SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift',
     SCENE/'Rendering/Frame/SceneMetalRenderer+StaticModels.swift',
     SCENE/'Rendering/Frame/SceneMetalRenderer+Particles.swift',
 ]))
@@ -44,7 +45,8 @@ struct SceneLayerDisplayScriptOwnership {
 struct SceneRenderDescriptor {
  struct LightingDescriptor {
   struct DistanceFog { let color:[Float]; let start:Float; let end:Float; let startDensity:Float; let endDensity:Float }
-  let ambientColorRGB:[Float]?;let skylightColorRGB:[Float]?;var distanceFog:DistanceFog? = nil
+  struct LightClassesDescriptor { var directional:Bool = true; var point:Bool = true; var spot:Bool = true }
+  let ambientColorRGB:[Float]?;let skylightColorRGB:[Float]?;var lightClasses:LightClassesDescriptor = .init();var distanceFog:DistanceFog? = nil
  }
  struct Layer {
   let id:Int;var visible:Bool? = true;var pointLight:ScenePointLightDefinition? = nil
@@ -53,12 +55,14 @@ struct SceneRenderDescriptor {
   var utilityLayer:Bool? = false;var usesPerspective:Bool? = false
   var alpha:Double? = 1;var contentKind:String = "model"
   var modelShadowCastIntent:SceneShadowCastIntent? = nil;var colorBlendMode:Int? = nil
+  var anglesXYZ:[Float]? = nil
  }
  struct CameraDescriptor {
   let eye:[Float];let center:[Float];let up:[Float];let orthoWidth:Float?;let orthoHeight:Float?
   let fovDegrees:Float?;let perspectiveOverrideFOVDegrees:Float?;let nearZ:Float;let farZ:Float
  }
  let lighting:LightingDescriptor?;let layers:[Layer];let renderOrderLayerIDs:[Int]
+ var camera:CameraDescriptor = CameraDescriptor(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:64,orthoHeight:64,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000)
 }
 struct SceneFrameContext { let dynamicValues:SceneDynamicSnapshot }
 struct SceneParticlePerformanceObservation { let layerID:Int;let instanceCount:Int;let isRefraction:Bool }
@@ -253,7 +257,7 @@ MAIN = r'''
   let camera=SceneParticleCameraFrame(camera:.init(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:64,
       orthoHeight:64,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000),viewportSize:CGSize(width:64,height:64))
   let light=SceneLightSnapshot.Directional(layerID:7,castsShadow:true,directionTowardLight:SIMD3(0,0,1),color:SIMD3(repeating:1),intensity:0.5)
-  let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:0.5),directional:[light],point:[],spot:[],overflowCount:0)
+  let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:0.5),ambientNormalYSpaceSign:1,directional:[light],point:[],spot:[],overflowCount:0)
   let instances=SceneParticleMetalInstanceBuffer()
   precondition(instances.update(device:device,instances:[.init(position:SIMD3(48,48,0),size:12,rotation:.zero,color:SIMD3(1,0,1),alpha:1)]))
   let batch=SceneParticleDrawBatch(layerID:4,texture:white,colorUVScale:SIMD2(repeating:1),colorSampling:.directImageFallback,

@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 131,
-      "bytes": 50738
+      "bytes": 51286
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1194,21 +1194,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "21b2ded0d5c6ce485e0dbbd639940d67941906e80b8c866331adf5e3e13c113a",
-      "after": "ae01e7a5edbec53dc17553d18451209fc3ab2307b1bdecacab11e6c224371782",
-      "owner": "scene-maintainer-succession",
-      "reason": "太阳系条目登记JUNO完整场景导航验收通过；只登记本次精确文档变化。",
-      "decision": "docs/scene/history/mercury-closeup-brightness-diagnosis-2026-10-06.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md",
       "before": "d8ef727c11cff9c6a3d85bd35f485b2cfbc1556bf13c4b3f94e671d48df9d18e",
       "after": "2c6b0ad6fdd81ab2c9dfea6dfc5628b3acee2daf1b52cb0cb9774aa20c0b5f4d",
       "owner": "scene-maintainer-succession",
       "reason": "接手标注与M1第一片完成登记（链：e0a9→d8ef→本次）；暂停解除、M1卡登记2026-10-06平台供应与实时切歌验证；只登记精确文档变化。",
       "decision": "docs/scene/history/system-media-live-supply-verification-2026-10-06.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "ae01e7a5edbec53dc17553d18451209fc3ab2307b1bdecacab11e6c224371782",
+      "after": "108fde24ccc52bd56164bcc2d72cdb3c4f226b6e341d4c456875b06a997250b8",
+      "owner": "scene-maintainer-succession",
+      "reason": "太阳系条目登记静态模型光照输入语义批闭合（弧度角度/ambient斜坡/缺省黑/spot门控）与剩余开放边界；只登记本次精确文档变化。",
+      "decision": "docs/scene/history/static-model-light-input-semantics-2026-10-06.md"
     }
   ]
 }

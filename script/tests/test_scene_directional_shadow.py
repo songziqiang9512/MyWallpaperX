@@ -350,7 +350,7 @@ PIXEL_MAIN = r'''
     render.depthAttachment.texture = z; render.depthAttachment.loadAction = .clear; render.depthAttachment.storeAction = .dontCare; render.depthAttachment.clearDepth = 0
     let e = cb.makeRenderCommandEncoder(descriptor:render)!
     let selected:Float = mode == 0 || (4...6).contains(mode) ? 0 : Float(v["light_intensity"] as? Double ?? 0.6)
-    let lights = SceneLightSnapshot(ambient: SIMD3(repeating: mode == 4 ? 0 : 0.08),directional:[
+    let lights = SceneLightSnapshot(ambient: SIMD3(repeating: mode == 4 ? 0 : 0.08),ambientNormalYSpaceSign:1,directional:[
      .init(layerID:10,castsShadow:true,directionTowardLight:toward,color:SIMD3(repeating:1),intensity:selected),
      .init(layerID:11,directionTowardLight:SIMD3(0,0,1),color:SIMD3(0.5,0.7,1),intensity:mode == 5 ? 0 : 0.2)],point:[],spot:[],overflowCount:0)
     let enabled = v["shadow_enabled"] as? Bool ?? true

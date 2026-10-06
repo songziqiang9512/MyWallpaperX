@@ -62,6 +62,10 @@ struct SceneLightSnapshot {
     }
 
     let ambient: SIMD3<Float>
+    /// Sign that maps this renderer's world-normal Y onto the author-space Y
+    /// the official ambient ramp is measured in (+1 perspective, -1 ortho
+    /// because the frame resolver reflects authored Y-down scenes through Y).
+    let ambientNormalYSpaceSign: Float
     let directional: [Directional]
     let point: [Point]
     let spot: [Spot]
@@ -98,14 +102,16 @@ struct SceneLightSnapshot {
                     ?? (layer.visible != false) else { continue }
             guard let frame = worldFramesByLayerID[layer.id] else { continue }
             // general.lightconfig gates the light class per scene. An absent
-            // author field leaves directional/point inert in the official
-            // client (own-fixture black-box observation, 2026-10-06); the spot
-            // flag name has no bounded observation yet and stays ungated.
+            // author field leaves directional/point/spot inert in the official
+            // client (own-fixture black-box observation, 2026-10-06; the spot
+            // key name was confirmed by the SP1/SP2 own-fixture pair).
             let admitted: Bool
             if layer.pointLight != nil {
                 admitted = descriptor.lighting?.lightClasses.point ?? false
             } else if layer.directionalLight != nil {
                 admitted = descriptor.lighting?.lightClasses.directional ?? false
+            } else if layer.spotLight != nil {
+                admitted = descriptor.lighting?.lightClasses.spot ?? false
             } else {
                 admitted = true
             }
@@ -119,7 +125,9 @@ struct SceneLightSnapshot {
                 )
             } ?? authoredIntensity(layer)
             if let light = directional(
-                layer: layer, frame: frame, dynamicColor: dynamicColor,
+                layer: layer, dynamicSnapshot: dynamicSnapshot,
+                reflectY: (descriptor.camera.orthoHeight ?? 0) > 0,
+                dynamicColor: dynamicColor,
                 intensity: intensity
             ) {
                 if acceptedCount < maximumLightCount {
@@ -151,15 +159,15 @@ struct SceneLightSnapshot {
             }
         }
         let fog = descriptor.lighting?.distanceFog
-        // A published authored black ambient is an intentional dark receiver.
-        // Preserve the historical unlit default only when author ambient inputs
-        // are absent; do not turn an explicit zero into white for 2D or 3D.
-        let hasAuthoredAmbient = descriptor.lighting?.ambientColorRGB != nil
-            || descriptor.lighting?.skylightColorRGB != nil
+        // An unauthored ambient stays black: official renders gated-away or
+        // lightless scenes black for lit static models (own-fixture N-series
+        // and ambient-omitted ADEF probes, 2026-10-06), and every corpus
+        // sample that lights models authors ambient or skylight, so the
+        // historical white unlit default is retired.
         return SceneLightSnapshot(
-            ambient: !hasAuthoredAmbient && ambient == .zero && directionalLights.isEmpty
-                && pointLights.isEmpty && spotLights.isEmpty
-                ? SIMD3(1, 1, 1) : ambient,
+            ambient: ambient,
+            ambientNormalYSpaceSign:
+                (descriptor.camera.orthoHeight ?? 0) > 0 ? -1 : 1,
             directional: directionalLights,
             point: pointLights,
             spot: spotLights,
@@ -208,16 +216,15 @@ struct SceneLightSnapshot {
 
     private static func directional(
         layer: SceneRenderDescriptor.Layer,
-        frame: simd_float4x4,
+        dynamicSnapshot: SceneDynamicSnapshot?,
+        reflectY: Bool,
         dynamicColor: SIMD3<Float>?,
         intensity: Float?
     ) -> Directional? {
         guard let definition = layer.directionalLight,
-              let direction = normalized(SIMD3(
-                  frame.columns.2.x,
-                  frame.columns.2.y,
-                  frame.columns.2.z
-              )),
+              let direction = directionalTowardLight(
+                  layer: layer, dynamicSnapshot: dynamicSnapshot, reflectY: reflectY
+              ),
               let intensity,
               intensity.isFinite, intensity >= 0 else { return nil }
         return Directional(
@@ -227,6 +234,50 @@ struct SceneLightSnapshot {
                 ?? color(definition.colorRGB, fallback: SIMD3(1, 1, 1)),
             intensity: intensity
         )
+    }
+
+    /// Official directional lights read the authored angle values verbatim as
+    /// radians (own-fixture black-box, WE 2.8.0.42, 2026-10-06): the second
+    /// value sweeps the world XZ plane toward +Z, the third raises elevation
+    /// toward +Y, the first has no observed direction effect, and exactly zero
+    /// rotation keeps the official default aim (0, 0, -1). Raw values are used
+    /// directly because a matrix round trip loses the sign of cos for wrapped
+    /// angles; orthographic scenes reflect the result through Y exactly like
+    /// the frame resolver reflects every other layer transform.
+    private static func directionalTowardLight(
+        layer: SceneRenderDescriptor.Layer,
+        dynamicSnapshot: SceneDynamicSnapshot?,
+        reflectY: Bool
+    ) -> SIMD3<Float>? {
+        let authoredValues = layer.anglesXYZ ?? []
+        let authored = SIMD3(
+            authoredValues.count > 0 ? authoredValues[0] : 0,
+            authoredValues.count > 1 ? authoredValues[1] : 0,
+            authoredValues.count > 2 ? authoredValues[2] : 0
+        )
+        guard authored.x.isFinite, authored.y.isFinite, authored.z.isFinite else {
+            return nil
+        }
+        let angles = dynamicSnapshot.map {
+            SceneDynamicLayerValues.lightAngles(
+                layerID: layer.id, authoredValue: authored, snapshot: $0
+            )
+        } ?? authored
+        guard angles.x.isFinite, angles.y.isFinite, angles.z.isFinite else {
+            return nil
+        }
+        let direction: SIMD3<Float>
+        if angles == SIMD3<Float>.zero {
+            direction = SIMD3(0, 0, -1)
+        } else {
+            let yawCosine = cos(angles.z) * cos(angles.y)
+            let elevation = sin(angles.z)
+            let yawSine = cos(angles.z) * sin(angles.y)
+            direction = simd_normalize(SIMD3(yawCosine, elevation, yawSine))
+        }
+        return reflectY
+            ? SIMD3(direction.x, -direction.y, direction.z)
+            : direction
     }
 
     private static func authoredIntensity(

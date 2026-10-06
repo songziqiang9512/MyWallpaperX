@@ -261,7 +261,7 @@ RADIANCE_MAIN=r'''
     let output=device.makeTexture(descriptor:color)!,zdesc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:1,height:1,mipmapped:false);zdesc.storageMode = .private;zdesc.usage = .renderTarget
     let z=device.makeTexture(descriptor:zdesc)!,rp=MTLRenderPassDescriptor();rp.colorAttachments[0].texture=output;rp.colorAttachments[0].loadAction = .clear;rp.colorAttachments[0].storeAction = .store;rp.colorAttachments[0].clearColor=MTLClearColorMake(0,0,0,0);rp.depthAttachment.texture=z;rp.depthAttachment.loadAction = .clear;rp.depthAttachment.storeAction = .dontCare;rp.depthAttachment.clearDepth=0
     let enc=cb.makeRenderCommandEncoder(descriptor:rp)!
-    let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:mode==4 ? 0:0.08),directional:[.init(layerID:11,directionTowardLight:n,color:SIMD3(0.5,0.7,1),intensity:mode==5 ? 0:0.2)],point:[light(mode==0 || (4...6).contains(mode) ? 0:2)],spot:[],overflowCount:0)
+    let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:mode==4 ? 0:0.08),ambientNormalYSpaceSign:1,directional:[.init(layerID:11,directionTowardLight:n,color:SIMD3(0.5,0.7,1),intensity:mode==5 ? 0:0.2)],point:[light(mode==0 || (4...6).contains(mode) ? 0:2)],spot:[],overflowCount:0)
     let wrong=SceneStaticModelShadow(texture:map,frameEpoch:7,generation:1,lightLayerID:999,projection:.point(projection),commandBuffer:cb)
     precondition(pipeline.draw(mesh:receiver,texture:albedo,colorTextureIsPremultiplied:false,emissiveMask:emissionMask,emissiveMaskTextureFrame:.identity,emissiveMaskSampling:.linearClamp,modelMatrix:matrix_identity_float4x4,viewProjection:view,cameraPosition:p+n*10,textureFrame:.identity,sampling:.linearClamp,layerAlpha:0.75,material:material(mode==6 ? 0:0.8),lighting:lighting,writesDepth:true,shadows:mode==2 || mode==3 || mode>=7 ? [mode==7 ? wrong:record]:[],frameEpoch:mode==3 ? 8:7,commandBuffer:mode==8 ? queue.makeCommandBuffer()!:cb,encoder:enc))
     enc.endEncoding();let b=device.makeBuffer(length:256,options:.storageModeShared)!,blit=cb.makeBlitCommandEncoder()!;blit.copy(from:output,sourceSlice:0,sourceLevel:0,sourceOrigin:.init(x:0,y:0,z:0),sourceSize:.init(width:1,height:1,depth:1),to:b,destinationOffset:0,destinationBytesPerRow:256,destinationBytesPerImage:256);blit.endEncoding();buffers.append(b)
@@ -601,7 +601,7 @@ def prepare_point_authored_inputs(root):
     for name,objects in scenes.items():
         target=root/name;target.mkdir(parents=True,exist_ok=True)
         (target/'project.json').write_text(json.dumps({'type':'scene','file':'scene.json'}))
-        (target/'scene.json').write_text(json.dumps({'version':3,'general':{'orthogonalprojection':{'width':160,'height':96}},'objects':objects}))
+        (target/'scene.json').write_text(json.dumps({'version':3,'general':{'orthogonalprojection':{'width':160,'height':96},'lightconfig':{'directional':1,'point':1,'spot':1}},'objects':objects}))
     return root
 
 def assert_point_authored_report(test,report):

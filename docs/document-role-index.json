@@ -1443,6 +1443,16 @@
       ]
     },
     {
+      "path": "docs/scene/history/static-model-light-input-semantics-2026-10-06.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+        "docs/scene/history/model-light-energy-contract-implementation-2026-10-06.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/system-media-live-supply-verification-2026-10-06.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",

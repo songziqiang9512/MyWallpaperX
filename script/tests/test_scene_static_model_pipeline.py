@@ -49,14 +49,25 @@ struct SceneRenderDescriptor {
             let startDensity: Float
             let endDensity: Float
         }
+        struct LightClassesDescriptor {
+            var directional: Bool = true
+            var point: Bool = true
+            var spot: Bool = true
+        }
         let ambientColorRGB: [Float]?
         let skylightColorRGB: [Float]?
+        var lightClasses: LightClassesDescriptor = .init()
         var distanceFog: DistanceFog? = nil
+    }
+
+    struct CameraDescriptor {
+        let orthoHeight: Float?
     }
 
     struct Layer {
         let id: Int
         let visible: Bool?
+        var anglesXYZ: [Float]? = nil
         var pointLight: ScenePointLightDefinition? = nil
         let spotLight: SceneSpotLightDefinition?
         let directionalLight: SceneDirectionalLightDefinition?
@@ -65,6 +76,7 @@ struct SceneRenderDescriptor {
     }
 
     let lighting: LightingDescriptor?
+    let camera: CameraDescriptor
     let layers: [Layer]
     let renderOrderLayerIDs: [Int]
 
@@ -74,6 +86,7 @@ struct SceneRenderDescriptor {
         renderOrderLayerIDs: [Int]? = nil
     ) {
         self.lighting = lighting
+        self.camera = CameraDescriptor(orthoHeight: nil)
         self.layers = layers
         self.renderOrderLayerIDs = renderOrderLayerIDs ?? layers.map(\.id)
     }
@@ -454,6 +467,7 @@ enum LightSnapshotHarness {
             lighting: .init(
                 ambientColorRGB: [0.1, 0.2, 0.3],
                 skylightColorRGB: [0.2, 0.1, 0],
+                lightClasses: .init(directional: false, point: true, spot: true),
                 distanceFog: .init(color: [0.1, 0.2, 0.3], start: 10, end: 100,
                                    startDensity: 0.2, endDensity: 0.8)
             ),
@@ -513,7 +527,61 @@ enum LightSnapshotHarness {
         let omittedAmbient = SceneRenderDescriptor(lighting: nil, layers: [])
         precondition(SceneLightSnapshot.make(
             descriptor: omittedAmbient, worldFramesByLayerID: [:]
-        ).ambient == SIMD3(repeating: 1))
+        ).ambient == .zero)
+        // An unadmitted spot class (lightconfig.spot absent) must stay inert.
+        let ungatedSpotDescriptor = SceneRenderDescriptor(
+            lighting: .init(
+                ambientColorRGB: [0, 0, 0], skylightColorRGB: [0, 0, 0],
+                lightClasses: .init(directional: false, point: false, spot: false)
+            ),
+            layers: [
+                .init(
+                    id: 12, visible: true, pointLight: nil,
+                    spotLight: spot, directionalLight: nil
+                ),
+            ]
+        )
+        precondition(SceneLightSnapshot.make(
+            descriptor: ungatedSpotDescriptor,
+            worldFramesByLayerID: [12: frame]
+        ).spot.isEmpty)
+        // Official directional semantics (own-fixture black-box, 2026-10-06):
+        // angle values are radians; an exactly identity rotation keeps the
+        // official default aim (0, 0, -1) and yaw sweeps XZ toward +Z.
+        let directionalFrame = simd_float4x4(columns: (
+            SIMD4<Float>(0.5403023, 0, -0.84147096, 0),
+            SIMD4<Float>(0, 1, 0, 0),
+            SIMD4<Float>(0.84147096, 0, 0.5403023, 0),
+            SIMD4<Float>(10, 20, 30, 1)
+        ))
+        let directionalDescriptor = SceneRenderDescriptor(
+            lighting: .init(
+                ambientColorRGB: [0, 0, 0], skylightColorRGB: [0, 0, 0],
+                lightClasses: .init(directional: true, point: false, spot: false)
+            ),
+            layers: [
+                .init(
+                    id: 13, visible: true, pointLight: nil, spotLight: nil,
+                    directionalLight: .init(colorRGB: [1, 1, 1], intensity: 4)
+                ),
+                .init(
+                    id: 14, visible: true, anglesXYZ: [0, 1, 0],
+                    pointLight: nil, spotLight: nil,
+                    directionalLight: .init(colorRGB: [1, 1, 1], intensity: 4)
+                ),
+            ]
+        )
+        let directionalSnapshot = SceneLightSnapshot.make(
+            descriptor: directionalDescriptor,
+            worldFramesByLayerID: [13: frame, 14: directionalFrame]
+        )
+        precondition(directionalSnapshot.directional.count == 2)
+        precondition(directionalSnapshot.directional[0].directionTowardLight
+            == SIMD3(0, 0, -1))
+        let yawed = directionalSnapshot.directional[1].directionTowardLight
+        precondition(abs(yawed.x - 0.5403023) < 1e-4
+            && abs(yawed.y) < 1e-4
+            && abs(yawed.z - 0.84147096) < 1e-4)
         precondition(snapshot.ambient == SIMD3(0.3, 0.3, 0.3))
         precondition(snapshot.distanceFogColor == SIMD4(0.1, 0.2, 0.3, 1))
         precondition(snapshot.distanceFogRange == SIMD4(10, 100, 0.2, 0.8))
@@ -542,7 +610,10 @@ enum LightSnapshotHarness {
             .layer(layerID: 7, field: .intensity),
         ])
         let hiddenParentDescriptor = SceneRenderDescriptor(
-            lighting: nil,
+            lighting: .init(
+                ambientColorRGB: [0, 0, 0], skylightColorRGB: [0, 0, 0],
+                lightClasses: .init(directional: true, point: true, spot: true)
+            ),
             layers: [
                 .init(
                     id: 8, visible: false, pointLight: nil,
@@ -624,7 +695,10 @@ enum LightSnapshotHarness {
             )
         }
         let orderedDescriptor = SceneRenderDescriptor(
-            lighting: nil,
+            lighting: .init(
+                ambientColorRGB: [0, 0, 0], skylightColorRGB: [0, 0, 0],
+                lightClasses: .init(directional: true, point: true, spot: true)
+            ),
             layers: [
                 .init(id: 1, visible: true, pointLight: nil,
                       spotLight: nil, directionalLight: direction(11)),
@@ -705,7 +779,7 @@ enum LightSnapshotHarness {
             worldFramesByLayerID: [8: frame, 9: frame]
         )
         precondition(invalidRadius.point.isEmpty)
-        precondition(invalidRadius.ambient == SIMD3(1, 1, 1))
+        precondition(invalidRadius.ambient == .zero)
     }
 }
 '''

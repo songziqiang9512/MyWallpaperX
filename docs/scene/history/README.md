@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-06 | Scene | 实施证据 | [静态模型光照输入语义](static-model-light-input-semantics-2026-10-06.md) | 官方黑盒钉定光角度=弧度/ambient 斜坡/缺省黑/spot 门控并落地 | [光照能量合同](model-light-energy-contract-implementation-2026-10-06.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-06 | Scene | 运行证据 | [系统媒体供应与实时链](system-media-live-supply-verification-2026-10-06.md) | 平台metadata供应表、WebKit非音乐源活链与自然切歌实时跟随 | [媒体输入设计](../roadmap/batch2/system-media-input-design.md) |
 | 2026-10-06 | Scene | 验收证据 | [JUNO完整场景导航验收](juno-full-scene-navigation-acceptance-2026-10-06.md) | 作者过渡链两跳进入，主体完整（三翼/天线盘），导航机制诊断 | [断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-06 | Scene | 实施证据 | [模型光照能量合同](model-light-energy-contract-implementation-2026-10-06.md) | 官方黑盒合同（显示域×k≈0.30+lightconfig门控）与水星/土星过曝修复 | [断点队列](../roadmap/scene-open-breakpoint-queue.md) |
