@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 131,
-      "bytes": 49537
+      "bytes": 49813
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -233,8 +233,8 @@
       "bytes": 7241
     },
     "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md": {
-      "lines": 97,
-      "bytes": 14502
+      "lines": 99,
+      "bytes": 14918
     }
   },
   "archives": [
@@ -1195,20 +1195,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "e0a9aff5374f1d6f5b37f66e1540fe4071c33f282cd04d083e616e91ccffb067",
+      "before": "e0a9aff5374f1d6f5b37f66e1540fe4071c33f282cd04d083e616e91ccffb067",
+      "after": "d8ef727c11cff9c6a3d85bd35f485b2cfbc1556bf13c4b3f94e671d48df9d18e",
       "owner": "scene-pause-handoff",
-      "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
+      "reason": "后继Agent接手标注：暂停状态解除、接手核对结果入页眉与结尾，冻结为接手时点快照；只登记本次精确文档变化。",
       "decision": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "362fa16b4f68db91f63f11c4ef9ce347bea3e289f966b2233330ab7ebfa97de7",
-      "after": "34172c16c6ac68b3fce0037151e826c804ef8495e546ef1a7ce55f81697aa1ca",
-      "owner": "scene-pause-handoff",
-      "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
-      "decision": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md"
+      "before": "34172c16c6ac68b3fce0037151e826c804ef8495e546ef1a7ce55f81697aa1ca",
+      "after": "24cf7ce2bc9840688ec6052e93699a2725da9c3e7fef828bf861ef4a30e9b382",
+      "owner": "scene-maintainer-succession",
+      "reason": "太阳系条目登记水星近景过白隔离诊断首断点与下一门（官方模型点光应用域探针）；只登记本次精确文档变化。",
+      "decision": "docs/scene/history/mercury-closeup-brightness-diagnosis-2026-10-06.md"
     }
   ]
 }

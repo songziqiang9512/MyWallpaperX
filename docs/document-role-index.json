@@ -922,6 +922,15 @@
       ]
     },
     {
+      "path": "docs/scene/history/mercury-closeup-brightness-diagnosis-2026-10-06.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/mirage-da4fa7b3-six-domain-forensics-verdict-2026-10-01.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -1581,7 +1590,7 @@
       "path": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md",
       "role": "current-state",
       "entrypoint": "docs/scene/README.md",
-      "purpose": "用户暂停后的范围、已证能力、未执行工作与恢复操作说明。"
+      "purpose": "已接手的暂停交接快照（2026-10-06）：范围、已证能力、未执行工作与恢复操作说明；现役进度归各权威文档。"
     },
     {
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
