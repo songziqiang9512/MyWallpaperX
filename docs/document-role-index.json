@@ -950,6 +950,16 @@
       ]
     },
     {
+      "path": "docs/scene/history/l1-heavy-retest-2026-10-07.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+        "docs/scene/capabilities/scene-sample-debug-ledger.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/media-artwork-palette-implementation-2026-10-05.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",

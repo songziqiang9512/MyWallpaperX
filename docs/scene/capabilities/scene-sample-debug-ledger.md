@@ -190,7 +190,7 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 | 2775915974 | 鼠标纵向响应反向；顶部边缘失去识别并回中 | 两个公共输入错误已修并有实际鼠标事件/截图；当前 identity-only 复跑仍未取得 required graph execution，顶部极限露灰边仍未解决，见下方 anchor | 输入修复，整样本未通过 |
 | 3747492842 | 历史无法播放；文字错位、额外闪烁和光束位置异常 | prepared projection 已恢复播放；direct-draw 保持 half-canvas 比例，并按 source-proven 静态有效区顶部对齐，定向 matrix PASS 且 7/7 required graph layer完成 | 播放与光束位置断点关闭；文字裁切、额外闪烁和人工整体验收保留 |
 | 3470948192 | 开场/文字错位、后续 NaN 与异常背景 | 日期和初始字形已部分修复；共享坐标 producer→consumer | 未通过 |
-| 3509243656 | 开场/模拟画面不正常、坐标文字异常 | 延长播放及 MAIN producer→共享状态→文字 | 未通过 |
+| 3509243656 | 开场/模拟画面不正常、坐标文字异常 | 当前HEAD渲染正常、实机确认；旧记录过期 | 运行正常；整体验收保留 |
 | 3788734811 | 画面上下反转 | 正交画布的perspective image保留Y-down卡片方向；新截图恢复正向，见E-V4-CANVAS-PERSPECTIVE-CARD | 倒置修复，整体视觉等价未验收 |
 | 3238423642 | 人物头部错位 | 2026-09-13 旧重组预算与 atlas fallback 已删除；三个 mesh layer 世界空间直绘，稳定帧确认主角色与红/绿偏移层正确合成 | 本断点通过；整样本未做逐像素 parity |
 | 3448845950 | 无法运行 | PNG/TEX media identity 与 solid extent 已修；2026-09-13 定向回放为 strict PASS，layer 1475 保持 typed `.data` publication，下游 utility capture 完成，蓝色动态卡片/媒体布局显示并变化，见本页最新 feedback 闭环 | 结构/执行与本断点通过；人工整体验收未更新 |
@@ -295,7 +295,7 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 | 3766387484 | 日期、星期、时钟恢复完整；不代表所有 effect parity |
 | 3712499998 | 日期/时钟与WEVector环形频谱执行首断点已恢复；受控原帧可见环形输出，但频谱幅度/方向/位置/样式、重复文字与装饰仍未全面裁决 |
 | 3437487219 | 日期和时间单行完整；cursor owner collision 未闭合 |
-| 3509243656 | 22 秒能离开开场；模拟 MAIN visibility producer 未执行，坐标 text 仍 undefined，不通过 |
+| 3509243656 | MAIN 已执行、文字已发布渲染；旧 undefined 记录过期，见主表 |
 | 3470948192 | 22 秒能离开开场；仍有 NaN、文字碎片和异常背景，不通过 |
 | 3747492842 | 用户报告文字、额外闪烁与顶部光照错位；进入定向复验，未通过 |
 
