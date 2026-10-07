@@ -775,6 +775,7 @@ struct SceneImageLayerPipeline {
     private struct Vertex {
         let position: SIMD2<Float>
         let texcoord: SIMD2<Float>
+        let vertexCoverage: Float = 1
     }
 
     private static let vertices = [
@@ -2270,7 +2271,7 @@ private func makeSourcePipeline(_ device: MTLDevice) -> SceneImageLayerPipeline 
     let source = """
     #include <metal_stdlib>
     using namespace metal;
-    struct Vertex { float2 position; float2 texcoord; };
+    struct Vertex { float2 position; float2 texcoord; float vertexCoverage; };
     struct Varying { float4 position [[position]]; float2 texcoord; };
     struct Uniforms {
         float time;
