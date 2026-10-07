@@ -371,7 +371,7 @@ struct SceneScriptMediaEventMutations: Equatable, Sendable {
 
 enum SceneBaseMaterialColorModulationCompiler {
     struct Binding {
-        let scriptSource: String
+        let scriptSource: String?
         let scriptProperties: [String: SceneJSONValue]
         let sourceLayerID: Int
         let authoredColor: SIMD3<Double>

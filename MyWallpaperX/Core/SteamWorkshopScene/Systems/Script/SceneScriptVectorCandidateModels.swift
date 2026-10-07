@@ -76,10 +76,13 @@ nonisolated struct SceneScriptVectorCandidate: Sendable {
 nonisolated struct SceneScriptVectorCandidateCatalog: Sendable {
     let candidates: [SceneScriptVectorCandidate]
     let duplicateTargets: Set<SceneDynamicTarget>
+    /// Proven constant material colors; no VM owner is required.
+    let staticMaterialColors: [String: SIMD3<Float>]
 
     static let empty = Self(candidates: [])
 
-    init(candidates: [SceneScriptVectorCandidate]) {
+    init(candidates: [SceneScriptVectorCandidate], staticMaterialColors: [String: SIMD3<Float>] = [:]) {
+        self.staticMaterialColors = staticMaterialColors
         self.candidates = candidates
         let counts = Dictionary(grouping: candidates, by: { $0.definition.target })
             .mapValues(\.count)
@@ -134,7 +137,7 @@ nonisolated struct SceneScriptVectorCandidateCatalog: Sendable {
         guard !targets.isEmpty else { return self }
         return .init(candidates: candidates.filter {
             !targets.contains($0.definition.target)
-        })
+        }, staticMaterialColors: staticMaterialColors)
     }
 
     var admittedScaleLayerIDs: Set<Int> {

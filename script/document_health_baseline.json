@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 571,
-      "bytes": 97591
+      "lines": 573,
+      "bytes": 98648
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 169575
+      "bytes": 169688
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 79,
-      "bytes": 11028
+      "bytes": 11131
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -197,8 +197,8 @@
       "bytes": 32798
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 156,
-      "bytes": 34407
+      "lines": 157,
+      "bytes": 34989
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1033,37 +1033,37 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "ee385693d7b8a4267d45ba8de316f270ce42f28f77ef4d2daceedd2f9b7e5fe6",
-      "after": "68845ccb8d7928d63eccb086152e35fdd4b204d43fa75117cd4680c194567f9f",
+      "before": "68845ccb8d7928d63eccb086152e35fdd4b204d43fa75117cd4680c194567f9f",
+      "after": "43cae68a16b962bdefa55dbb3e12d19d2eed29dcb0e31b8e640c7c06e5d1fe8b",
       "owner": "scene-material",
-      "reason": "补齐共享源材质的有界架构合同、真实输出证据和尚未准入的公共缺口；只扩对应权威摘要，不重复全过程。",
+      "reason": "复用中性材质既有合成链补静态颜色并修正源入口拒绝被误记为全部消费者缺失；保留有界验收与未执行组合。",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "033f1d6deb2dfafa15a6056101b2ad88e5f3f614cba838a08ac9ba59bb7f5206",
-      "after": "79f7471cba71a32a7c4efd2d73d5a720a890f533b9cea0a295469ed7cd5a8c05",
+      "before": "79f7471cba71a32a7c4efd2d73d5a720a890f533b9cea0a295469ed7cd5a8c05",
+      "after": "c529da83ad62d74b729c4baaf101a8c3149fd5b9eee318a83ebe1106d036e912",
       "owner": "scene-material",
-      "reason": "补齐共享源材质的有界架构合同、真实输出证据和尚未准入的公共缺口；只扩对应权威摘要，不重复全过程。",
+      "reason": "复用中性材质既有合成链补静态颜色并修正源入口拒绝被误记为全部消费者缺失；保留有界验收与未执行组合。",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2609403dac169928fe844f52398753cf1ba4778c78a489c8e232ddee8f8bdd12",
-      "after": "25b1631681c76301b8f69c0956f0f0952cb3639dace0abfa8571c905c67a90c9",
+      "before": "25b1631681c76301b8f69c0956f0f0952cb3639dace0abfa8571c905c67a90c9",
+      "after": "d11e0b50d495512a711ad9dc12d085150b4a6f91350c03cad1aa583cb8d549bf",
       "owner": "scene-material",
-      "reason": "补齐共享源材质的有界架构合同、真实输出证据和尚未准入的公共缺口；只扩对应权威摘要，不重复全过程。",
+      "reason": "复用中性材质既有合成链补静态颜色并修正源入口拒绝被误记为全部消费者缺失；保留有界验收与未执行组合。",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "118da0415615a8cc755d6c308ece1ca0cf5f14ada5b6a25dbd0477bc49066c88",
-      "after": "7cf1f14ca6d62c3e6957f0a1c57b57d09739018485df17cb7cc4f44b22eb41c9",
+      "before": "7cf1f14ca6d62c3e6957f0a1c57b57d09739018485df17cb7cc4f44b22eb41c9",
+      "after": "eb29b6fcca91b2db572fb011fe150c86dc7217a83ba9fb4bd2823e022c272b72",
       "owner": "scene-material",
-      "reason": "补齐共享源材质的有界架构合同、真实输出证据和尚未准入的公共缺口；只扩对应权威摘要，不重复全过程。",
+      "reason": "复用中性材质既有合成链补静态颜色并修正源入口拒绝被误记为全部消费者缺失；保留有界验收与未执行组合。",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     }
   ]

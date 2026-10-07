@@ -130,13 +130,16 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
     let orderedSystemProviderDemands: [SceneSystemProviderTextureIdentity]
     let lightingProfileByLayerID: [Int: SceneBaseMaterialLightingProfile]
     let sourceMaterialAlphaByLayerID: [Int: SourceMaterialAlpha]
+    let staticMaterialColors: [String: SIMD3<Float>]
 
     nonisolated init(
         baseMaterialBindings: [Int: BaseMaterialBinding],
         rejectedBaseMaterialReasons: [Int: String] = [:],
         lightingProfileByLayerID: [Int: SceneBaseMaterialLightingProfile] = [:],
-        sourceMaterialAlphaByLayerID: [Int: SourceMaterialAlpha] = [:]
+        sourceMaterialAlphaByLayerID: [Int: SourceMaterialAlpha] = [:],
+        staticMaterialColors: [String: SIMD3<Float>] = [:]
     ) {
+        self.staticMaterialColors = staticMaterialColors
         self.baseMaterialBindings = baseMaterialBindings
         self.rejectedBaseMaterialReasons = rejectedBaseMaterialReasons
         self.lightingProfileByLayerID = lightingProfileByLayerID
@@ -184,6 +187,13 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
         sourceMaterialAlphaByLayerID[layerID]?.resolve(snapshot: snapshot) ?? 1
     }
 
+    func sourceMaterialColor(layer: SceneRenderDescriptor.Layer) -> SIMD3<Float> {
+        guard let path = layer.imagePath else { return .init(repeating: 1) }
+        let key = path.replacingOccurrences(of: "\\", with: "/")
+            .trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
+        return staticMaterialColors[key] ?? .init(repeating: 1)
+    }
+
     func reportLines() -> [String] {
         let previousRejectedCount = rejectedBaseMaterialReasons.values.filter {
             $0.hasPrefix("base-material-previous-")
@@ -202,6 +212,7 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
             return false
         })
         var lines = [
+            "staticMaterialColorCount: \(staticMaterialColors.count)",
             "sourceMaterialAlphaBindingCount: \(sourceMaterialAlphaByLayerID.count)",
             "sourceMaterialAlphaPropertyBindingCount: \(sourceMaterialAlphaPropertyTargets.count)",
             "mediaThumbnailCurrentBindingCount: \(currentLayerIDs.count)",

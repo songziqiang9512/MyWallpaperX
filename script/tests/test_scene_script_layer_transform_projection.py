@@ -225,7 +225,7 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
     struct Binding {
         let modelPath: String
         let sourceLayerID: Int
-        let scriptSource: String
+        let scriptSource: String?
         let scriptProperties: [String: SceneJSONValue]
         let authoredColor: SIMD3<Double>
     }
@@ -480,6 +480,9 @@ enum Harness {
             .layer(layerID: 101, field: .angles),
         ]
         let payload: [String: Any] = [
+            "staticMaterialMetadataSurvivesTargetExclusion": SceneScriptVectorCandidateCatalog(
+                candidates: family.candidates, staticMaterialColors: ["models/unseen.json": SIMD3(0.5, 0.25, 1)]
+            ).excludingTargets(Set(family.definitions.map(\.target))).staticMaterialColors["models/unseen.json"] == SIMD3(0.5, 0.25, 1),
             "visibilityOverridesKeepOwners": overriddenHidden.candidates.first?.definition.authoredValue == .bool(true)
                 && overriddenVisible.candidates.first?.definition.authoredValue == .bool(false),
             "wrongVisibilityOwnerRejected": wrongVisibilityOwner.candidates.isEmpty,
@@ -564,6 +567,7 @@ class SceneScriptLayerTransformProjectionTests(unittest.TestCase):
         self.assertTrue(self.result["angleDefinition"])
 
     def test_identity_and_duplicate_fail_closed(self) -> None:
+        self.assertTrue(self.result["staticMaterialMetadataSurvivesTargetExclusion"])
         self.assertTrue(self.result["duplicateRejected"])
         self.assertTrue(self.result["mismatchRejected"])
         self.assertTrue(self.result["wrongPathRejected"])

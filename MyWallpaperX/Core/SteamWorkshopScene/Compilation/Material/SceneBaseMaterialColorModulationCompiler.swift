@@ -8,7 +8,7 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
     struct Binding: Sendable {
         let modelPath: String
         let sourceLayerID: Int
-        let scriptSource: String
+        let scriptSource: String?
         let scriptProperties: [String: SceneJSONValue]
         let authoredColor: SIMD3<Double>
     }
@@ -21,14 +21,17 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
     ) -> [Binding] {
         guard !shaderContracts.isEmpty,
               !admittedLayerColorConsumerIDs.isEmpty else { return [] }
-        return dynamicImageModelPaths.sorted().compactMap { modelPath in
-            binding(
+        let dynamicPaths = Set(dynamicImageModelPaths.map(normalized))
+        let modelPaths = dynamicPaths.union(descriptor.layers.compactMap(\.imagePath).map(normalized))
+        return modelPaths.sorted().compactMap { modelPath in
+            guard let result = binding(
                 modelPath: modelPath,
                 descriptor: descriptor,
                 shaderContracts: shaderContracts,
                 admittedLayerColorConsumerIDs:
                     admittedLayerColorConsumerIDs
-            )
+            ), result.scriptSource == nil || dynamicPaths.contains(modelPath) else { return nil }
+            return result
         }
     }
 
@@ -53,6 +56,7 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         }
         guard
               pass.passIndex == 0,
+              pass.userShaderValues.isEmpty,
               pass.textureSlots.count == 1,
               pass.textureSlots[0] != nil,
               pass.userTextureInputs.count <= 1,
@@ -70,6 +74,10 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
             if case .some = layer.utilityLayer { return false }
             return layer.contentKind == "image"
                 && layer.visible != false
+                && layer.puppetMeshPath == nil
+                && layer.staticModelPath == nil
+                && layer.staticBaseTexturePath == nil
+                && layer.usesPerspective != true
                 && layer.effects.isEmpty
                 && layer.dependencyLayerIDs.isEmpty
                 && layer.authoredDependencies.isEmpty
@@ -121,6 +129,29 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         ), fact.textureSlot == 0 else {
             return reject(modelPath, "neutral-texture-tint-proof")
         }
+        guard let samplers = try? SceneResolvedMaterialShaderSchema.activeSamplers(prepared),
+              samplers.count == 1, let sampler = samplers[0], sampler.mode == .regular,
+              !sampler.hasExplicitNonColorPurpose, !sampler.usesGraphInputMaterialAlias else {
+            return reject(modelPath, "sampler-color-contract")
+        }
+        let colorSampler = sampler.permitsSourceStraightColorProjection
+            ? sampler.withSourceProvenPurpose(.straightAlbedo) : sampler
+        guard let asset = pass.textureSlots[0].flatMap(SceneVFSAssetPath.init),
+              colorSampler.purpose(for: .asset(asset)) == .straightAlbedo else {
+            return reject(modelPath, "sampler-asset-purpose")
+        }
+        // Shape alone cannot prove an arbitrary mat4 is the quad's host MVP.
+        // Keep matrix binding semantics in the shared schema authority.
+        guard SceneResolvedMaterialHostUniformSchema.resolve(
+            .init(name: fact.positionMatrixUniformName, stage: .vertex, type: .float4x4, offset: 0),
+            activeTextureSlots: [0]
+        ) == .modelViewProjection,
+        let matrixSchema = SceneResolvedMaterialShaderSchema.uniqueActiveUniform(
+            named: fact.positionMatrixUniformName, type: .float4x4, stage: .vertex, prepared: prepared
+        ), matrixSchema.defaultValue == nil,
+        matrixSchema.materialKeys.allSatisfy({ pass.constantShaderValues[$0] == nil }) else {
+            return reject(modelPath, "position-matrix-binding")
+        }
         guard neutralScalar(
                 uniformName: fact.brightnessUniformName,
                 stage: .fragment,
@@ -167,21 +198,26 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
             colorUniform.materialKeys.contains($0.key)
         }
         guard colorValues.count == 1, let colorValue = colorValues.first?.value,
-              colorValue.bindingKeys == ["script", "scriptproperties", "value"],
+              (colorValue.bindingKeys.isEmpty
+                  || colorValue.bindingKeys == ["script", "scriptproperties", "value"]),
               colorValue.userValueKind == nil,
               colorValue.timeline == nil,
               colorValue.timelineDiagnostics.isEmpty,
-              let source = colorValue.scriptSource,
-              let properties = colorValue.scriptProperties,
+              (colorValue.bindingKeys.isEmpty
+                  ? colorValue.scriptSource == nil && colorValue.scriptProperties == nil
+                  : colorValue.scriptSource != nil && colorValue.scriptProperties != nil),
               let components = colorValue.components,
               components.count == 3,
               components.allSatisfy({ $0.isFinite && (0 ... 1).contains($0) })
-        else { return reject(modelPath, "color-script-wrapper") }
+        else { return reject(modelPath, "color-binding") }
+        let tokens = colorValue.rawValue.split(whereSeparator: { $0.isWhitespace || $0 == "," })
+        guard tokens.count == 3, zip(tokens, components).allSatisfy({ Double($0.0) == $0.1 })
+        else { return reject(modelPath, "color-value") }
         return .init(
             modelPath: modelPath,
             sourceLayerID: sourceLayer.id,
-            scriptSource: source,
-            scriptProperties: properties,
+            scriptSource: colorValue.scriptSource,
+            scriptProperties: colorValue.scriptProperties ?? [:],
             authoredColor: .init(components[0], components[1], components[2])
         )
     }
@@ -229,7 +265,9 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
                   value.timelineDiagnostics.isEmpty,
                   value.components?.count == 1,
                   let scalar = value.components?.first else { return false }
-            return scalar.isFinite && scalar.bitPattern == expected.bitPattern
+            let tokens = value.rawValue.split(whereSeparator: { $0.isWhitespace || $0 == "," })
+            return tokens.count == 1 && Double(tokens[0]) == scalar
+                && scalar.isFinite && scalar.bitPattern == expected.bitPattern
         }
         guard let fallback = schema.defaultValue,
               fallback.componentBitPatterns.count == 1,

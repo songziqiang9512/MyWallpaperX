@@ -12,9 +12,10 @@ nonisolated enum SceneNamedTextureDependencyReferenceAnalysis {
     }
 
     nonisolated static func references(
-        in layers: [SceneRenderDescriptor.Layer]
+        in layers: [SceneRenderDescriptor.Layer],
+        includingInactiveEffects: Bool = false
     ) -> [Reference] {
-        references(in: layers) { slotIndex, pass in
+        references(in: layers, includingInactiveEffects: includingInactiveEffects) { slotIndex, pass in
             !hasUserTexture(slotIndex: slotIndex, pass: pass)
         }
     }

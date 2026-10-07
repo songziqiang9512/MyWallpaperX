@@ -134,6 +134,8 @@ enum Harness {
             admittedPotentialReferences: []
         )
         return [
+            "allDirect": SceneNamedTextureDependencyReferenceAnalysis.references(
+                in: descriptor.layers, includingInactiveEffects: true).map { ["provider": $0.providerLayerID] },
             "direct": direct.map(referenceRow),
             "potential": potential.map(referenceRow),
             "carriers": carriers.map { binding -> [String: Any] in
@@ -323,6 +325,13 @@ class SceneInactiveOptionalNamedDependencyTests(unittest.TestCase):
         )
         for field in ("direct", "potential", "carriers", "runtimeBindings", "productEdges"):
             self.assertEqual(self.results["inactiveDirect"][field], [])
+
+    def test_inactive_direct_reference_can_reserve_material_source_ownership(self) -> None:
+        self.assertEqual(self.results["inactiveDirect"]["direct"], [])
+        self.assertEqual(len(self.results["inactiveDirect"]["allDirect"]), 1)
+        self.assertEqual(self.results["inactiveDirect"]["allDirect"][0]["provider"], 101)
+        self.assertEqual(self.results["inactiveSystem"]["allDirect"], [])
+        self.assertEqual(len(self.results["inactiveSystem"]["potential"]), 1)
 
     def test_invalid_candidates_and_disabled_route_keep_rejecting(self) -> None:
         for name in (

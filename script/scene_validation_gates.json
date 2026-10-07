@@ -2389,6 +2389,25 @@
         "test_scene_puppet_clipping_render",
         "test_scene_geometry_auxiliary_lifetime"
       ]
+    },
+    {
+      "id": "base-material-color-lowering",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialColorModulationCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderNeutralTextureTintAnalyzer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialProviderBindingProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorCandidateCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorCandidateModels.swift",
+        "script/tests/test_scene_base_material_static_tint.py",
+        "script/tests/fixtures/SceneBaseMaterialStaticTintHarness.swift"
+      ],
+      "modules": [
+        "test_scene_base_material_static_tint",
+        "test_scene_authored_shader_neutral_texture_tint",
+        "test_scene_layer_source_passthrough_coverage",
+        "test_scene_script_layer_transform_projection",
+        "test_scene_inactive_optional_named_dependency"
+      ]
     }
   ],
   "method_gates": {

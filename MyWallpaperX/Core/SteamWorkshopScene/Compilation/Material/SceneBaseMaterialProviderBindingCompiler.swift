@@ -7,7 +7,8 @@ enum SceneBaseMaterialProviderBindingCompiler {
             Int: SceneDocument.SceneLayerMaterialInstance
         ],
         scriptBindings: [SceneScriptBindingIR],
-        materialPropertyTargets: Set<SceneDynamicTarget>
+        materialPropertyTargets: Set<SceneDynamicTarget>,
+        staticMaterialColors: [String: SIMD3<Float>] = [:]
     ) -> SceneBaseMaterialProviderBindingProgram {
         _ = scriptBindings
         let texturePropertyKeys = Set(descriptor.texturePropertyKeys)
@@ -143,7 +144,8 @@ enum SceneBaseMaterialProviderBindingCompiler {
                         passes: passesByLayer[layer.id] ?? [],
                         materialPropertyTargets: materialPropertyTargets
                     )
-            }
+            },
+            staticMaterialColors: staticMaterialColors
         )
     }
 

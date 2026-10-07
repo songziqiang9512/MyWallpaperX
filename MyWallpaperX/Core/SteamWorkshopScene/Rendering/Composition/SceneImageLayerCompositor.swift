@@ -535,7 +535,8 @@ struct SceneImageLayerCompositor {
             ),
             routesOffscreen: routesOffscreen,
             dependencyBlendMode: nil,
-            sourceMaterialAlpha: request.sourceMaterialAlpha
+            sourceMaterialAlpha: request.sourceMaterialAlpha,
+            sourceMaterialColor: request.sourceMaterialColor
         )
 
         if !routesOffscreen {

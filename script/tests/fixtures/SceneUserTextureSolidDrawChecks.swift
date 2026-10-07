@@ -4,7 +4,7 @@ import simd
 
 // CPU-only member stubs. The draw request, candidate validation, provider
 // selection, color policy, and fragment-uniform producers compile unchanged.
-enum MTLPixelFormat: UInt { case rgba8Unorm, bgra8Unorm, r8Unorm }
+enum MTLPixelFormat: UInt { case rgba8Unorm, bgra8Unorm, rgba16Float, r8Unorm }
 enum MTLTextureType { case type2D, type3D }
 struct MTLTextureUsage: OptionSet {
     let rawValue: Int
@@ -71,6 +71,7 @@ struct SceneRenderDescriptor {
     struct Layer {
         let id: Int
         let contentKind: String
+        var imagePath: String? = nil
         var colorRGB: SIMD3<Float> = .zero
         var clampUVs: Bool? = nil
         var noInterpolation: Bool? = nil
@@ -240,6 +241,21 @@ enum Checks {
             "resetReturnsToAuthoredBlack": reset.texture === fallbackTexture && reset.candidate == nil
                 && compositor.sourceFragmentUniforms(for: request(reset), routesOffscreen: false)?.tint == SIMD4(0, 0, 0, 1),
         ]
+        let materialColors = SceneBaseMaterialProviderBindingProgram(
+            baseMaterialBindings: [:], staticMaterialColors: ["models/tint.json": SIMD3(0.5, 0.25, 1)])
+        let originalLayer = SceneRenderDescriptor.Layer(id: 7, contentKind: "image", imagePath: "models/tint.json")
+        let dynamicLayer = SceneRenderDescriptor.Layer(id: 99, contentKind: "image", imagePath: "models/tint.json")
+        checks["dynamicInstanceSharesPreparedMaterialColor"] =
+            materialColors.sourceMaterialColor(layer: originalLayer) == materialColors.sourceMaterialColor(layer: dynamicLayer)
+        checks["unrelatedMaterialRemainsNeutral"] = materialColors.sourceMaterialColor(layer: layer) == SIMD3(repeating: 1)
+        var materialRequest = request(tinted, snapshot: dynamic)
+        materialRequest.sourceMaterialColor = materialColors.sourceMaterialColor(layer: originalLayer)
+        materialRequest.sourceMaterialAlpha = 0.5
+        for offscreen in [false, true] {
+            let uniforms = compositor.sourceFragmentUniforms(for: materialRequest, routesOffscreen: offscreen)
+            checks["materialMultipliesLayerColorOnce_\(offscreen)"] = uniforms?.tint == SIMD4(0.125, 0.125, 0.75, 1)
+            checks["materialAlphaPreserved_\(offscreen)"] = uniforms?.alpha == 0.5
+        }
         for (name, bad) in [
             ("wrongPurpose", replacing(candidate, purpose: .mask)),
             ("straightAlpha", replacing(candidate, content: .color(.resolved(.straightAlpha)))),

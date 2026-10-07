@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b934df434b646a8b59193edadc2d5f5d9df07dd591af90de8878b8b0bc993e9f",
+        "sourceSHA256": "258e8e432b5509be0a721f1149955c7d6897fa25d3c2439e2e5a1c2bc7bee52a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批源材质入口的准备/帧绑定职责、域/UV与有界输出证据导航；不重验其他旧合同。",
+        "scope": "静态中性材质颜色共享合成、证明边界和本批有界证据导航；不重验其他旧合同。",
         "limitations": "仅对应本批职责与冻结证据，不表示全样本兼容、官方parity或发布验收。"
       }
     },
@@ -498,9 +498,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "07649b450340f751df19e9ee529a3cf47c34654baff9dc2babf34e6bcc7a2fd8",
+        "sourceSHA256": "6b6cf8cba6808252043a18c87295372d1982c8d4ff46c412270fabb62fc4dfb3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批源材质入口的准备/帧绑定职责、域/UV与有界输出证据导航；不重验其他旧合同。",
+        "scope": "静态中性材质颜色共享合成、证明边界和本批有界证据导航；不重验其他旧合同。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

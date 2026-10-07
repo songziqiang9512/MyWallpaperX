@@ -13,6 +13,7 @@ nonisolated enum SceneAuthoredShaderNeutralTextureTintAnalyzer {
 
     struct Fact: Equatable {
         let textureSlot: Int
+        let positionMatrixUniformName: String
         let tintUniformName: String
         let brightnessUniformName: String
         let alphaUniformName: String
@@ -27,14 +28,16 @@ nonisolated enum SceneAuthoredShaderNeutralTextureTintAnalyzer {
         guard let vertex = unit(vertexSource, stage: .vertex),
               let fragment = unit(fragmentSource, stage: .fragment),
               let vertexFact = neutralVertex(vertex),
-              let fragmentFact = neutralFragment(fragment) else { return nil }
+              let fragmentFact = neutralFragment(fragment),
+              vertexFact.varying == fragmentFact.varying else { return nil }
         return .init(
             textureSlot: fragmentFact.textureSlot,
+            positionMatrixUniformName: vertexFact.matrix,
             tintUniformName: fragmentFact.tint,
             brightnessUniformName: fragmentFact.brightness,
             alphaUniformName: fragmentFact.alpha,
             powerUniformName: fragmentFact.power,
-            scrollUniformNames: vertexFact
+            scrollUniformNames: vertexFact.scrolls
         )
     }
 
@@ -55,7 +58,7 @@ nonisolated enum SceneAuthoredShaderNeutralTextureTintAnalyzer {
 
     private static func neutralVertex(
         _ vertex: Unit
-    ) -> [String]? {
+    ) -> (matrix: String, varying: String, scrolls: [String])? {
         guard vertex.stage == .vertex,
               vertex.functions.filter({ $0.name == "main" }).count == 1,
               let main = vertex.functions.first(where: { $0.name == "main" }),
@@ -75,6 +78,8 @@ nonisolated enum SceneAuthoredShaderNeutralTextureTintAnalyzer {
                 statements[3],
                 scrollName: scroll.name
               ),
+              // The existing image-quad vertex ABI supplies these attributes.
+              position.attribute == "a_Position", uv.attribute == "a_TexCoord",
               declaration(
                 position.attribute,
                 storage: .attribute,
@@ -113,6 +118,10 @@ nonisolated enum SceneAuthoredShaderNeutralTextureTintAnalyzer {
                     in: vertex
                 )
               }),
+              // Author-controlled role aliases must not create duplicate keys
+              // below or silently change the neutral expression's meaning.
+              Set([position.attribute, position.matrix, uv.attribute, uv.varying,
+                   uv.time, scroll.name, "gl_Position"] + scroll.uniforms).count == 9,
               exactIdentifierUses(
                 expected: [
                     position.attribute: 1,
@@ -128,13 +137,14 @@ nonisolated enum SceneAuthoredShaderNeutralTextureTintAnalyzer {
                 body: main.bodyRange,
                 tokens: vertex.tokens
               ) else { return nil }
-        return scroll.uniforms
+        return (position.matrix, uv.varying, scroll.uniforms)
     }
 
     private static func neutralFragment(
         _ fragment: Unit
     ) -> (
         textureSlot: Int,
+        varying: String,
         tint: String,
         brightness: String,
         alpha: String,
@@ -148,6 +158,7 @@ nonisolated enum SceneAuthoredShaderNeutralTextureTintAnalyzer {
               ranges.count == 5 else { return nil }
         let statements = ranges.map { Array(fragment.tokens[$0]) }
         guard let source = sampledColorDeclaration(statements[0]),
+              declaration(source.varying, storage: .varying, type: "vec2", in: fragment),
               let tint = rgbTintStatement(
                 statements[1], sourceName: source.name
               ),
@@ -180,6 +191,8 @@ nonisolated enum SceneAuthoredShaderNeutralTextureTintAnalyzer {
                     in: fragment
                 )
               }),
+              Set([source.name, "g_Texture\(source.slot)", tint.tint,
+                   tint.brightness, alpha, power, "gl_FragColor"]).count == 7,
               exactIdentifierUses(
                 expected: [
                     source.name: 6,
@@ -194,7 +207,7 @@ nonisolated enum SceneAuthoredShaderNeutralTextureTintAnalyzer {
                 tokens: fragment.tokens
               ) else { return nil }
         return (
-            source.slot, tint.tint, tint.brightness, alpha, power
+            source.slot, source.varying, tint.tint, tint.brightness, alpha, power
         )
     }
 
@@ -254,14 +267,21 @@ nonisolated enum SceneAuthoredShaderNeutralTextureTintAnalyzer {
 
     private static func sampledColorDeclaration(
         _ tokens: [Token]
-    ) -> (name: String, slot: Int)? {
+    ) -> (name: String, slot: Int, varying: String)? {
         guard tokens.count >= 6,
               ["vec4", "float4"].contains(tokens[0].text),
               tokens[1].kind == .identifier,
               tokens[2].text == "=",
               let slot = SceneAuthoredShaderColorTransferAnalyzer
                 .directTextureSampleSlot(tokens[3...]) else { return nil }
-        return (tokens[1].text, slot)
+        // Color-transfer analysis only needs a direct sampler call. Lowering
+        // also requires the original quad coordinates, with no offset/swizzle.
+        let call = Array(tokens.dropFirst(3)).map(\.text)
+        guard call.count == 6 || call.count == 8 else { return nil }
+        let varying = call[4]
+        guard Array(call.dropFirst(4)) == [varying, ")"]
+            || Array(call.dropFirst(4)) == [varying, ".", "xy", ")"] else { return nil }
+        return (tokens[1].text, slot, varying)
     }
 
     private static func rgbTintStatement(

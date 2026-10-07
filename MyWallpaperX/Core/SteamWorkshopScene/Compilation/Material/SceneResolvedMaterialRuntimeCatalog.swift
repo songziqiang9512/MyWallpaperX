@@ -165,7 +165,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         propertyDefinitions: [SceneDynamicTargetDefinition] = [],
         timelineDefinitions: Set<SceneDynamicTargetDefinition> = [],
         provenSceneScriptValueTargets: Set<SceneDynamicTarget> = [],
-        materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance] = [:]
+        materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance] = [:],
+        loweredSourceMaterialModelPaths: Set<String> = []
     ) {
         var records: [Key: [(graph: Graph, node: Graph.Node)]] = [:]
         for candidate in admissionCandidates {
@@ -333,6 +334,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         sourceMaterialEntries = Self.compileSourceMaterials(
             descriptor: descriptor, shaderContracts: shaderContracts,
             instances: materialInstancesByLayerID,
+            loweredModelPaths: loweredSourceMaterialModelPaths,
             demands: &demands, userDemands: &userDemands,
             systemDemands: &systemDemands, issues: &demandIssues,
             analyses: resourceDemandAnalyses
@@ -352,6 +354,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract],
         instances: [Int: SceneDocument.SceneLayerMaterialInstance],
+        loweredModelPaths: Set<String>,
         demands: inout Set<SceneAssetTextureIdentity>,
         userDemands: inout Set<SceneUserPropertyTextureIdentity>,
         systemDemands: inout Set<SystemProviderDemand>,
@@ -363,6 +366,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         var result: [Int: SourceMaterialEntry] = [:]
         for layer in descriptor.layers where layer.contentKind == "image" {
             guard let modelPath = layer.imagePath,
+                  !loweredModelPaths.contains(normalized(modelPath)),
                   let matchingLinks = links[normalized(modelPath)],
                   matchingLinks.count == 1,
                   let materialPath = matchingLinks.first?.materialPath,

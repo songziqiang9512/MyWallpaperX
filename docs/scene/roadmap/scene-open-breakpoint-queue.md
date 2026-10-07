@@ -14,7 +14,7 @@
 
 | 卡 | 目标与共享职责 | 最小交付与停止条件 |
 |---|---|---|
-| T1 材质与纹理合成 | 单pass静态源入口已接通；优先补其余10样本11层的公共边界：3层透明state、7层动态材质常量、1层perspective；仍按全243声明选同形态 | 复用现有source Program及typed constant通道。透明state先用官方受控输入裁决，动态常量从现有materialConstant接入，不能按样本开白名单；每个新增profile均需真实输出及健康反例 |
+| T1 材质与纹理合成 | 单pass静态源与中性材质常量乘色已接通；继续核动态材质的user Alpha/color、非中性Power、多同model图层及perspective；按全243声明选共同首断点 | 优先扩现有neutral-tint与materialConstant消费者；先区分已有链路和真实缺口，避免新Program重复求值。每个新增profile均需真实输出、style叠加及健康反例；透明state研究仍只按已证边界准入 |
 | T2 颜色与HDR输出 | 旧SDR shoulder压暗已修；对剩余条纹、HDR物理显示及用户样本复验，按采样purpose/alpha/颜色域→中间target→最终输出定位 | 保留作者HDR/SDR意图；同内容默认/关闭/开启和实际呈现对照。已有16F与热切执行不等于物理亮度正确；找到首错owner再修改 |
 | E1 特效与频谱 | 将运行拒绝按共享shader/slot/graph/动态输入首断点归并；频谱用同声源对照形状和活跃度 | 复用现compiler/graph/audio producer，选覆盖面明确的族恢复动态结果；不抬gain、改作者参数或放宽测试制造通过 |
 
@@ -24,7 +24,8 @@
 
 | 待办 | 状态、证据与下一关闭门 |
 |---|---|
-| 自定义源材质未准入组合 | **首入口已修，公共边界待补**：[833静态双纹理源](../history/source-material-entry-2026-10-08.md)已实际执行并消费后effect；剩余3层透明state、7层动态常量、1层perspective按T1推进，更多multi-pass/provider待证。不能把已修380照片归入同根因 |
+| 自定义源材质未准入组合 | **首入口已修，公共边界待补**：[833静态双纹理源](../history/source-material-entry-2026-10-08.md)已实际执行并消费后effect；3层中性静态乘色改由既有compositor消费，已跑通3原样本；原“7层动态常量”中1层已有S4，不再列为缺能力，其余6层的user Alpha/color、Power=.99或多source消费者仍待接线/运行。1层perspective、更多multi-pass/provider待证。细分见该记录的后继更正；不能把已修380照片归入同根因 |
+| 材质颜色的组合缺口 | **待修/待受控复现**：静态中性RGB已进入原/动态图层；旧脚本tint占用layer color会覆盖非白style，named raw capture尚不消费材质颜色而被保守排除。沿现material typed值及capture职责补齐，不另造渲染器；不得将本批3个静态样本通过外推到这两类 |
 | 普通unlit中间乘法溢出 | **已证缺陷**：source RGBA=(4,4,4,1)、tint=1e38、alpha=1e-37，HEAD/候选真实GPU同为RGB Inf，`SceneImageLayer.metal`普通路径。证据`/private/tmp/mwx-puppet-inner-harness-20261008/unlit-overflow-diagnosis.json`；修共享数值运算，验有限预乘结果、HDR/普通/lit反例，不加全图压暗或任意clamp |
 | 默认变暗、HDR/SDR最终显示 | **旧压暗首断点已修，视觉余项待复验**：旧SDR shoulder把白点1压到0.75；[白点修复](../history/sdr-white-preservation-implementation-2026-10-06.md)实测RGB(191,64,128)恢复(255,64,128)。EDR及OFF→ON→OFF已有同surface headroom执行证据；用户样本、多屏SDR、暂停重绘及物理亮度未据此关闭。沿唯一颜色/output owner定位，见[热切证据](../history/hdr-live-toggle-verification-2026-10-07.md)；Bloom iterations0/1空间语义另作官方控制 |
 | shader compound边界 | **能力缺口**：已有int四则复合赋值恢复，qualified LHS、`%=`与vertex剩余见[原合同](../history/int-compound-assignment-normalizer-2026-10-07.md)。先核真实引用和类型，扩同一normalizer，保留scope/优先级/非法输入反例 |

@@ -491,6 +491,22 @@ extension SceneDesktopWallpaperHost {
                     )
             )
         logPrepareStage("prepare-admission")
+        // Raw named captures do not yet consume this material-color lowering.
+        // Reserve potential consumers too: effect visibility may change later.
+        let namedMaterialLayerIDs = Set((SceneNamedTextureDependencyReferenceAnalysis.references(
+            in: runtimeInput.renderDescriptor.layers, includingInactiveEffects: true
+        ) + SceneNamedTextureDependencyReferenceAnalysis.potentialOptionalNamedFallbackReferences(
+            in: runtimeInput.renderDescriptor.layers
+        )).flatMap { [$0.consumerLayerID, $0.providerLayerID] })
+        let staticMaterialColors = model.propertyVectorProjection.staticMaterialColors.filter { path, _ in
+            runtimeInput.renderDescriptor.layers.filter {
+                $0.imagePath?.replacingOccurrences(of: "\\", with: "/")
+                    .trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase == path
+            }.allSatisfy {
+                model.sceneDocument.materialInstancesByLayerID[$0.id] == nil
+                    && !namedMaterialLayerIDs.contains($0.id)
+            }
+        }
         let resolvedMaterialCatalog = SceneResolvedMaterialRuntimeCatalog(
             descriptor: runtimeInput.renderDescriptor,
             admissionCandidates: resolvedMaterialAdmissionCandidates,
@@ -499,7 +515,8 @@ extension SceneDesktopWallpaperHost {
             propertyDefinitions: propertyBindingDefinitions,
             timelineDefinitions: timelineDefinitions,
             provenSceneScriptValueTargets: provisionalSceneScriptValueTargets,
-            materialInstancesByLayerID: model.sceneDocument.materialInstancesByLayerID
+            materialInstancesByLayerID: model.sceneDocument.materialInstancesByLayerID,
+            loweredSourceMaterialModelPaths: Set(staticMaterialColors.keys)
         )
         logPrepareStage("prepare-catalog")
         try cancellation?.check()
@@ -515,7 +532,8 @@ extension SceneDesktopWallpaperHost {
                 materialInstancesByLayerID:
                     model.sceneDocument.materialInstancesByLayerID,
                 scriptBindings: model.sceneDocument.scriptBindings,
-                materialPropertyTargets: Set(runtimeInput.propertyBindingProgram.instructions.map(\.target))
+                materialPropertyTargets: Set(runtimeInput.propertyBindingProgram.instructions.map(\.target)),
+                staticMaterialColors: staticMaterialColors
             )
         let lightingDemands = Set(baseMaterialProviderBindings.lightingProfileByLayerID.values
             .flatMap { [$0.normalAsset, $0.mapAsset].compactMap { $0 } })

@@ -42,3 +42,26 @@ Resolver/TemplateCompiler共用槽覆盖、uniform投影和ShaderSchema；source
 ## 产物
 
 只保留最终报告、日志、identity、受控输入生成脚本/manifest、必要截图与GPU小probe。证据推广工具因现有cache总预算已满拒绝，`--prune-expired`没有可清已登记包；因此本批精简结果暂留上述任务根，未删除未知归属证据。停止的staged App、样本副本、临时HOME与重试截图清理；连续迭代仅保留 `/private/tmp/mwx-scene-next-build/cache/14d60a183f08e048bc3d072d` 构建缓存。真实媒体只读。
+
+## 后继更正：中性材质静态颜色入口
+
+本片起点`8365a107`。上文“另外10样本11层未准入”仅描述新增source Program入口，不能据此断言旧消费者缺失：3792817546:20此前已有neutral-tint脚本→动态bar→compositor的S4证据；其余6个动态层涉及user Alpha/color、Power=.99或同model多source，静态归因仍须运行复现。3个静态tint层与此前运行shader字节相同，只缺常量颜色入口，增加Program pass会重复职责。
+
+扩现`SceneBaseMaterialColorModulationCompiler`，共享prepared shader与neutral proof。静态RGB随既有catalog交给base-material Program，在原source uniforms乘material×layer color一次；动态创建图层按同model消费同prepared颜色，无新增VM、GPU pass或纹理缓存。`excludingTargets`保留静态metadata，launch拒绝instance覆盖并将已lowered model从generic source Program排除。named raw capture尚不消费材质颜色，因此用现reference分析排除所有同model的显式、隐藏和可选named参与层，未另建capture路径。
+
+同步修复旧proof越界：完整raw-token检查拒绝`1 junk`等数字投影残缺；位置要求共享HostUniformSchema的无作者覆盖/default MVP及既有quad attributes；fragment只采样同vertex varying或`.xy`，拒绝offset/swizzle/未连接varying。角色重名在字典literal前局部拒绝，避免duplicate key启动trap。sampler经过共享schema，只有`permitsSourceStraightColorProjection`允许的无类型子集可补颜色事实，最终`purpose(for: actual slot0 asset)`必须为straightAlbedo；normalmap、typed auxiliary default、真实资产data用途及nil冲突均拒绝。不新增解析器，prepared源码缓存不保存此proof，无需变更缓存版本。
+
+证据根`/private/tmp/mwx-source-state-20261008`，真实输入副本前后SHA一致。最终正常签名Debug App executable SHA`8e34583f82df27407f06fff5015ba0443b0062aedb5c16a67f0c836ac80abd49`，CDHash`7b0f7f93f9e698aceb39636fd02ac7d8a53062e2`，`build-accepted.log`成功。
+
+| 运行 | 实际结果与上限 |
+|---|---|
+| `runtime-accepted-real` 原3800075350、3788734811、3002649614 | 全部PASS，各1个静态颜色、原层+63动态bar进入实际绘制；前两者按作者变黑，白色材质样本保持正常。测试PCM经捕获服务/分析/inbox驱动条形，不代表全部真实音源或整个样本官方一致 |
+| `runtime-accepted-alpha`，自有scene复用原中性shader/slot0 | 原层+1个createLayer，layer RGB=(.5,.25,.75)、material=(.4,.8,.2)、layer alpha=.5，两块均RGB(26,26,19)，合计596232像素；`accepted-color-pixels.json`绑定图像SHA |
+| `runtime-probe2-white/tint`，早期App SHA`3ac3471dd6647177b55770212cfee6159254a19248dd93ed58bd3c81ff98f41c` | 相同非白layer、alpha=1，白material输出(128,64,191)，tint输出(51,51,38)，原/动态层相同。早期身份用于颜色比例；最终App半透明组合另已验证 |
+| `runtime-reviewed-named`，App SHA`269c5e5c9d654c1225aefb570833911ef1824f9b2d3666b8a6aa062573acdf9a` | 隐藏consumer及effect仍使静态颜色数为0，安全保留原源；该launch过滤此后未改。仅拒绝边界，不是named染色已支持 |
+
+真实compiler 54输入与原neutral proof共14tests通过，收据`compiler-final-purpose-receipt.json` SHA`90aa599dfb8810ecbf2800b5c98a173c68a9378534aa5d6fcf353f51948e6292`。scalar与matrix/UV反例先红后绿；旧角色崩溃仅静态发现，新guard反例已执行安全拒绝。source uniforms/候选安全、provider、target projection、inactive named、动态layer、属性脚本、alpha、bridge及gate选择最近门通过；旧solid fixture漏rgba16Float导致一次编译失败，补齐link-only类型后通过，不冒充GPU。原始controlled probe的相对model路径未准备也已拒绝，改完整路径后重跑，失败不算验收。独立只读复核最终无剩余明确阻断。
+
+官方黑盒另验证自有literal RGBA(.8,.2,.1,.5)：normal覆盖背景，translucent表现为一次.5覆盖，后identity不重复衰减；alphaWriting absent/default/enabled此矩阵屏幕RGB相同，不能推广为通用state等价或内部alpha mask结论。最终控制未采样slot0，不宣称白纹理已载入。本片未据此放开generic透明state。`official/behavior-contract.json` SHA`024d083b9343df5be1169515d6475e57c97b30d04e68b7a39282b0613a928391`；固定客户端2.8.0.42、自有输入、官方身份、24组重复ROI及失败原因俱存。本批窗口已关，VM恢复suspended。
+
+本专项仅中性静态颜色3/3代表路径已实际接通。named实际染色、脚本tint与非白layer叠加、user Alpha/color、非中性Power、全部真实音源和完整官方parity仍未关闭；现役队列负责后续顺序。停止的样本副本、临时HOME/staged App、重复截图与临时编辑脚本清理；保留最小报告/日志/身份、输入生成脚本、必要图和官方自有输入，连续迭代仅沿用上节同一build缓存。`artifact-retention.json`登记保留与移除，不删除未知归属产物。
