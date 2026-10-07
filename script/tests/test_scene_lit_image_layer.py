@@ -158,8 +158,8 @@ import simd
             cb.commit();cb.waitUntilCompleted()
             let actual=pixels(target)
             // Only fallback profiles compare an ordinary unlit capture.
-            // Extreme lit arithmetic has its independent oracle below; the
-            // unrelated unlit multiply currently overflows for that input.
+            // Extreme lit arithmetic has its independent oracle below;
+            // unlit multiplication has its own numerical regression gate.
             let comparesOriginal = ["strength-zero", "B-zero", "disabled-original", "unavailable-original"]
                 .contains(v["name"] as! String)
             var original: [Float]?

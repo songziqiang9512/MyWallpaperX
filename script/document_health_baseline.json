@@ -93,8 +93,8 @@
       "bytes": 334149
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 80,
-      "bytes": 11747
+      "lines": 81,
+      "bytes": 12023
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 160,
-      "bytes": 37669
+      "bytes": 37825
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1051,20 +1051,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "8f870425ea3b86a1184e969c5c4251794a1d38e02d84fc995fa041c612077af1",
-      "after": "49390eebf995cf2cba3ff4b562a3b402ed5c14ab0d6a1be94253dd91bdbce307",
-      "owner": "scene-material",
-      "reason": "Record verified compiler ABI propagation, real composition recovery and unchanged baseline failures.",
-      "decision": "docs/scene/history/mixed-provider-color-abi-2026-10-08.md"
+      "before": "49390eebf995cf2cba3ff4b562a3b402ed5c14ab0d6a1be94253dd91bdbce307",
+      "after": "40fc5573460d1fef5fa90a95f8546710f1d572902c8e13eb21c1073310e7426e",
+      "owner": "scene-composition",
+      "reason": "Record bounded GPU overflow recovery and retain diagnosed underflow; correct false named-consumer inference.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#e-2026-10-08-unlit-product"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "eec1d861359a1564c95bf0142e4396c5b63b4c9de6b8c0cae9a06944f33322ea",
-      "after": "72aa826a352b3441ae71c9ae3fcadd953b235afdfa55371008693f17d9d0b6c4",
-      "owner": "scene-material",
-      "reason": "Record verified compiler ABI propagation, real composition recovery and unchanged baseline failures.",
-      "decision": "docs/scene/history/mixed-provider-color-abi-2026-10-08.md"
+      "before": "72aa826a352b3441ae71c9ae3fcadd953b235afdfa55371008693f17d9d0b6c4",
+      "after": "4cce60e8ea86d5e7fe26abeda7b1c9899092d96b1fbdfc29e3b4540cdc409655",
+      "owner": "scene-composition",
+      "reason": "Record bounded GPU overflow recovery and retain diagnosed underflow; correct false named-consumer inference.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#e-2026-10-08-unlit-product"
     }
   ]
 }

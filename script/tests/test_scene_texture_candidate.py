@@ -117,6 +117,7 @@ struct SceneImageLayerDrawRequest {
     let effectSourceExtent: SceneLayerEffectSourceExtent?
     let sourceSample: SceneBaseImageTextureSample?
     var sourceMaterialAlpha: Float = 1
+    var sourceMaterialColor: SIMD3<Float> = SIMD3(repeating: 1)
 
     func resolvedBaseTextureSample() -> SceneBaseImageTextureSample? {
         sourceSample

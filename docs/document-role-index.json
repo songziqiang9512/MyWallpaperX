@@ -498,9 +498,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ab07c22130e6779e240be8b913f138636044b3685cc90dab49a0ea10efb06de6",
+        "sourceSHA256": "030bed9a0a292089e71636a4147a8e483e10bc9f00fa135d97e0fc25550970fc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核generic工件ABI直传合同、原307与半透明App证据及既有graph红门边界；不重验其他合同。",
+        "scope": "复核普通图片乘法溢出修复的GPU证据及保留的下溢边界；不重验其他合同。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
