@@ -130,16 +130,20 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
     let orderedSystemProviderDemands: [SceneSystemProviderTextureIdentity]
     let lightingProfileByLayerID: [Int: SceneBaseMaterialLightingProfile]
     let sourceMaterialAlphaByLayerID: [Int: SourceMaterialAlpha]
-    let staticMaterialColors: [String: SIMD3<Float>]
+    /// Immutable authored fallback; current script values live only in the frame snapshot.
+    let authoredMaterialColors: [String: SIMD3<Float>]
+    let materialColorTargets: [String: SceneDynamicTarget]
 
     nonisolated init(
         baseMaterialBindings: [Int: BaseMaterialBinding],
         rejectedBaseMaterialReasons: [Int: String] = [:],
         lightingProfileByLayerID: [Int: SceneBaseMaterialLightingProfile] = [:],
         sourceMaterialAlphaByLayerID: [Int: SourceMaterialAlpha] = [:],
-        staticMaterialColors: [String: SIMD3<Float>] = [:]
+        authoredMaterialColors: [String: SIMD3<Float>] = [:],
+        materialColorTargets: [String: SceneDynamicTarget] = [:]
     ) {
-        self.staticMaterialColors = staticMaterialColors
+        self.authoredMaterialColors = authoredMaterialColors
+        self.materialColorTargets = materialColorTargets
         self.baseMaterialBindings = baseMaterialBindings
         self.rejectedBaseMaterialReasons = rejectedBaseMaterialReasons
         self.lightingProfileByLayerID = lightingProfileByLayerID
@@ -187,11 +191,18 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
         sourceMaterialAlphaByLayerID[layerID]?.resolve(snapshot: snapshot) ?? 1
     }
 
-    func sourceMaterialColor(layer: SceneRenderDescriptor.Layer) -> SIMD3<Float> {
+    func sourceMaterialColor(
+        layer: SceneRenderDescriptor.Layer, snapshot: SceneDynamicSnapshot
+    ) -> SIMD3<Float> {
         guard let path = layer.imagePath else { return .init(repeating: 1) }
         let key = path.replacingOccurrences(of: "\\", with: "/")
             .trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
-        return staticMaterialColors[key] ?? .init(repeating: 1)
+        guard let fallback = authoredMaterialColors[key] else { return .init(repeating: 1) }
+        guard let target = materialColorTargets[key],
+              case let .vector3(red, green, blue)? = snapshot[target]?.value,
+              red.isFinite, green.isFinite, blue.isFinite else { return fallback }
+        return .init(Float(max(0, min(red, 1))), Float(max(0, min(green, 1))),
+                     Float(max(0, min(blue, 1))))
     }
 
     func reportLines() -> [String] {
@@ -212,7 +223,7 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
             return false
         })
         var lines = [
-            "staticMaterialColorCount: \(staticMaterialColors.count)",
+            "authoredMaterialColorCount: \(authoredMaterialColors.count)",
             "sourceMaterialAlphaBindingCount: \(sourceMaterialAlphaByLayerID.count)",
             "sourceMaterialAlphaPropertyBindingCount: \(sourceMaterialAlphaPropertyTargets.count)",
             "mediaThumbnailCurrentBindingCount: \(currentLayerIDs.count)",

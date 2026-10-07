@@ -498,7 +498,7 @@ extension SceneDesktopWallpaperHost {
         ) + SceneNamedTextureDependencyReferenceAnalysis.potentialOptionalNamedFallbackReferences(
             in: runtimeInput.renderDescriptor.layers
         )).flatMap { [$0.consumerLayerID, $0.providerLayerID] })
-        let staticMaterialColors = model.propertyVectorProjection.staticMaterialColors.filter { path, _ in
+        let authoredMaterialColors = model.propertyVectorProjection.authoredMaterialColors.filter { path, _ in
             runtimeInput.renderDescriptor.layers.filter {
                 $0.imagePath?.replacingOccurrences(of: "\\", with: "/")
                     .trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase == path
@@ -516,7 +516,7 @@ extension SceneDesktopWallpaperHost {
             timelineDefinitions: timelineDefinitions,
             provenSceneScriptValueTargets: provisionalSceneScriptValueTargets,
             materialInstancesByLayerID: model.sceneDocument.materialInstancesByLayerID,
-            loweredSourceMaterialModelPaths: Set(staticMaterialColors.keys)
+            loweredSourceMaterialModelPaths: Set(authoredMaterialColors.keys)
         )
         logPrepareStage("prepare-catalog")
         try cancellation?.check()
@@ -533,7 +533,9 @@ extension SceneDesktopWallpaperHost {
                     model.sceneDocument.materialInstancesByLayerID,
                 scriptBindings: model.sceneDocument.scriptBindings,
                 materialPropertyTargets: Set(runtimeInput.propertyBindingProgram.instructions.map(\.target)),
-                staticMaterialColors: staticMaterialColors
+                authoredMaterialColors: authoredMaterialColors,
+                materialColorTargets: model.propertyVectorProjection.dynamicImageMaterialColorTargets
+                    .filter { authoredMaterialColors[$0.key] != nil }
             )
         let lightingDemands = Set(baseMaterialProviderBindings.lightingProfileByLayerID.values
             .flatMap { [$0.normalAsset, $0.mapAsset].compactMap { $0 } })
@@ -766,8 +768,6 @@ extension SceneDesktopWallpaperHost {
             sceneScriptStringProgram: sceneScriptStringProgram,
             sceneScriptOwnerLayerIDs: sceneScriptOwnerLayerIDs,
             preparedDeviceResources: preparedDeviceResources,
-            dynamicImageMaterialColorTargets: model.propertyVectorProjection
-                .dynamicImageMaterialColorTargets,
             timelineProgram: timelineProgram,
             textScriptProgram: textScriptProgram
         )

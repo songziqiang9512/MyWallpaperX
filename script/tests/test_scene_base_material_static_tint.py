@@ -137,6 +137,12 @@ class SceneBaseMaterialStaticTintTests(unittest.TestCase):
         self.assertEqual(self.result["scriptDynamic"]["properties"], 1)
         self.assertEqual(self.result["scriptWithoutDynamicResource"]["count"], 0)
 
+    def test_static_and_script_bindings_preserve_the_real_material_key(self) -> None:
+        for name in ["staticBlack", "scriptDynamic"]:
+            with self.subTest(name=name):
+                self.assertEqual(self.result[name]["material"], "materials/unseen/tint.json")
+                self.assertEqual(self.result[name]["key"], "surface-key")
+
     def test_normalized_duplicate_model_requests_have_one_binding(self) -> None:
         self.assertEqual(self.result["normalizedDuplicate"]["count"], 1)
         self.assertEqual(self.result["normalizedDuplicate"]["model"], "models/unseen/tint.json")

@@ -8,6 +8,8 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
     struct Binding: Sendable {
         let modelPath: String
         let sourceLayerID: Int
+        let materialPath: String
+        let colorKey: String
         let scriptSource: String?
         let scriptProperties: [String: SceneJSONValue]
         let authoredColor: SIMD3<Double>
@@ -197,7 +199,11 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         let colorValues = pass.constantShaderValues.filter {
             colorUniform.materialKeys.contains($0.key)
         }
-        guard colorValues.count == 1, let colorValue = colorValues.first?.value,
+        guard colorValues.count == 1, let colorEntry = colorValues.first else {
+            return reject(modelPath, "color-binding-count")
+        }
+        let colorValue = colorEntry.value
+        guard
               (colorValue.bindingKeys.isEmpty
                   || colorValue.bindingKeys == ["script", "scriptproperties", "value"]),
               colorValue.userValueKind == nil,
@@ -216,6 +222,8 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         return .init(
             modelPath: modelPath,
             sourceLayerID: sourceLayer.id,
+            materialPath: normalized(pass.materialPath),
+            colorKey: colorEntry.key,
             scriptSource: colorValue.scriptSource,
             scriptProperties: colorValue.scriptProperties ?? [:],
             authoredColor: .init(components[0], components[1], components[2])

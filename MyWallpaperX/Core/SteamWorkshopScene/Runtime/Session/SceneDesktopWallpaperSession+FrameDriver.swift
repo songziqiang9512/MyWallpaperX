@@ -806,7 +806,7 @@ extension SceneDesktopWallpaperSession {
             surface.metalView.updateSimulation(
                 timing: timing, dynamicValues: dynamicValues,
                 puppetAnimationFrame: puppetAnimationFrame,
-                layerTopology: layerTopology.resolvingDynamicMaterialColors(from: dynamicValues),
+                layerTopology: layerTopology,
                 dynamicTextFieldsByLayerID:
                     launchContext.frameSchema.dynamicTextFieldsByLayerID,
                 materialFunctionMutations: materialFunctionMutations,

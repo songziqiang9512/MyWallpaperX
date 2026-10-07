@@ -374,6 +374,8 @@ enum SceneBaseMaterialColorModulationCompiler {
         let scriptSource: String?
         let scriptProperties: [String: SceneJSONValue]
         let sourceLayerID: Int
+        let materialPath: String
+        let colorKey: String
         let authoredColor: SIMD3<Double>
         let modelPath: String
     }

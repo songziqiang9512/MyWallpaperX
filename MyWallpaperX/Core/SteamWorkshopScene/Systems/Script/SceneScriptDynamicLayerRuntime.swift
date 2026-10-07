@@ -29,8 +29,6 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     private var cachedSnapshotTopologyRevision: UInt64?
     private var cachedSnapshotDynamicLayerValueRevision: UInt64?
     private var cachedDynamicLayers: [SceneRenderDescriptor.Layer] = []
-    private var cachedDynamicMaterialColorTargetsByLayerID:
-        [Int: SceneDynamicTarget] = [:]
     private let dynamicImageTemplates:
         [String: SceneScriptDynamicImageLayerTemplate]
 
@@ -66,17 +64,6 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
 
     func snapshot() -> SceneScriptLayerTopologySnapshot {
         if cachedSnapshotTopologyRevision != topologyRevision {
-            let colorTargets: [(Int, SceneDynamicTarget)] = dynamicLayersByID
-                .compactMap { layerID, layer in
-                    guard let modelPath = layer.imagePath,
-                          let target = dynamicImageTemplates[
-                            modelPath.lowercased()
-                          ]?.materialColorTarget else { return nil }
-                    return (layerID, target)
-                }
-            cachedDynamicMaterialColorTargetsByLayerID = Dictionary(
-                uniqueKeysWithValues: colorTargets
-            )
             cachedSnapshotTopologyRevision = topologyRevision
             cachedSnapshotDynamicLayerValueRevision = nil
         }
@@ -93,9 +80,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             dynamicLayers: cachedDynamicLayers,
             renderOrderLayerIDs: order,
             destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs,
-            authoredLayerValues: authoredLayerValues,
-            dynamicMaterialColorTargetsByLayerID:
-                cachedDynamicMaterialColorTargetsByLayerID
+            authoredLayerValues: authoredLayerValues
         )
     }
 

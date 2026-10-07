@@ -39,17 +39,6 @@ nonisolated enum SceneDynamicValue: Equatable, Sendable {
     case string(String)
     case vector3(Double, Double, Double)
 }
-nonisolated enum SceneDynamicSource: Sendable { case sceneScript }
-nonisolated struct SceneDynamicResolvedValue: Sendable {
-    let value: SceneDynamicValue
-    let source: SceneDynamicSource
-}
-nonisolated struct SceneDynamicSnapshot: Sendable {
-    let values: [SceneDynamicTarget: SceneDynamicResolvedValue]
-    subscript(target: SceneDynamicTarget) -> SceneDynamicResolvedValue? {
-        values[target]
-    }
-}
 nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
     case visibility, solid, origin, scale, angles, color, alpha
 }
@@ -213,6 +202,7 @@ func mutation(
     angles: SIMD3<Double> = .zero,
     visible: Bool = true,
     assetPath: String? = nil,
+    color: SIMD3<Double> = .init(repeating: 1),
     ownerTarget: SceneDynamicTarget? = nil
 ) -> SceneScriptLayerMutation {
     .init(
@@ -220,7 +210,7 @@ func mutation(
         layerID: id, orderIndex: order,
         visible: visible, alpha: alpha, origin: origin,
         scale: scale, angles: angles,
-        color: .init(repeating: 1), pointSize: 32, text: text, font: font,
+        color: color, pointSize: 32, text: text, font: font,
         assetPath: assetPath, ownerTarget: ownerTarget
     )
 }
@@ -477,33 +467,24 @@ enum Harness {
                 10, dynamic: false, fields: [.visibility], visible: true
             )
         ])
-        let colorTarget = SceneDynamicTarget.layer(layerID: 20, field: .color)
         let imageRuntime = SceneScriptDynamicLayerRuntime(
             descriptor: descriptor,
             authoredMutationLayerIDs: [],
             dynamicImageTemplates: [
                 "models/bar.json": .init(
                     modelPath: "models/bar.json",
-                    renderSizeWH: [4, 4],
-                    materialColorTarget: colorTarget
+                    renderSizeWH: [4, 4]
                 ),
             ]
         )
         let imageCreate = imageRuntime.apply([
-            mutation(-2, order: 1, assetPath: "models/bar.json"),
+            mutation(-2, order: 1, assetPath: "models/bar.json", color: .init(0.25, 0.5, 0.75)),
         ])
         let imageSnapshot = imageRuntime.snapshot()
-        let resolvedImage = imageSnapshot.resolvingDynamicMaterialColors(
-            from: .init(values: [
-                colorTarget: .init(
-                    value: .vector3(0.25, 0.5, 0.75),
-                    source: .sceneScript
-                ),
-            ])
-        )
-        let unresolvedImage = imageSnapshot.resolvingDynamicMaterialColors(
-            from: .init(values: [:])
-        )
+        let imageUpdate = imageRuntime.apply([
+            mutation(-2, order: 1, assetPath: "models/bar.json", color: .init(0.8, 0.4, 0.2)),
+        ])
+        let updatedImage = imageRuntime.snapshot()
         let revisionRuntime = SceneScriptDynamicLayerRuntime(
             descriptor: descriptor,
             authoredMutationLayerIDs: []
@@ -684,12 +665,10 @@ enum Harness {
                 afterAuthoredDestroy.topologyRevision > 0,
             "authoredResurrectionRejected": !succeeded(authoredResurrection),
             "dynamicImageSucceeded": succeeded(imageCreate),
-            "dynamicImageColorTarget":
-                imageSnapshot.dynamicMaterialColorTargetsByLayerID[-2]
-                    == colorTarget,
-            "dynamicImageColor": resolvedImage.dynamicLayers.first?
+            "dynamicImageColor": imageSnapshot.dynamicLayers.first?
                 .colorRGB?.map(Double.init) ?? [],
-            "dynamicImageWithoutTypedColor": unresolvedImage.dynamicLayers.first?
+            "dynamicImageUpdateSucceeded": succeeded(imageUpdate),
+            "dynamicImageUpdatedColor": updatedImage.dynamicLayers.first?
                 .colorRGB?.map(Double.init) ?? [],
             "definitionRevisionBumped": afterDefinitionRevision > initialDefinitionRevision,
             "valueOnlyRevisionStable": revisionRuntime.authoredDefinitionRevision == afterDefinitionRevision,
@@ -823,28 +802,12 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["laterRejectionKeepsValidPeer"])
         self.assertTrue(self.result["typedOnlyReaderRejected"])
 
-    def test_dynamic_image_inherits_typed_material_color(self) -> None:
+    def test_dynamic_image_preserves_its_own_color_in_stable_snapshots(self) -> None:
         self.assertTrue(self.result["dynamicImageSucceeded"])
-        self.assertTrue(self.result["dynamicImageColorTarget"])
         self.assertEqual(self.result["dynamicImageColor"], [0.25, 0.5, 0.75])
-        self.assertEqual(self.result["dynamicImageWithoutTypedColor"], [1.0, 1.0, 1.0])
-
-    def test_material_color_projection_has_quiescent_and_lazy_copy_gates(self) -> None:
-        source = "\n".join(path.read_text(encoding="utf-8") for path in SOURCES)
-        projection = source.split(
-            "func resolvingDynamicMaterialColors(", 1
-        )[1].split(
-            "nonisolated struct SceneScriptDynamicImageLayerTemplate", 1
-        )[0]
-        self.assertRegex(
-            projection,
-            r"guard !dynamicLayers\.isEmpty,\s*!dynamicMaterialColorTargetsByLayerID\.isEmpty else \{\s*return self",
-        )
-        self.assertIn(
-            "var resolvedLayers: [SceneRenderDescriptor.Layer]?", projection
-        )
-        self.assertIn("if resolvedLayers == nil", projection)
-        self.assertIn("guard let resolvedLayers else { return self }", projection)
+        self.assertTrue(self.result["dynamicImageUpdateSucceeded"])
+        for actual, expected in zip(self.result["dynamicImageUpdatedColor"], [0.8, 0.4, 0.2]):
+            self.assertAlmostEqual(actual, expected, places=6)
 
     def test_definition_revision_tracks_schema_changes_only(self) -> None:
         self.assertTrue(self.result["definitionRevisionBumped"])

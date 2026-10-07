@@ -67,6 +67,7 @@ private typealias Descriptor = SceneRenderDescriptor
             dynamicImageModelPaths: dynamic, admittedLayerColorConsumerIDs: [57, 58])
         guard let first = bindings.first else { return ["count": 0] }
         return ["count": bindings.count, "model": first.modelPath,
+            "material": first.materialPath, "key": first.colorKey,
             "color": [first.authoredColor.x, first.authoredColor.y, first.authoredColor.z],
             "hasScript": first.scriptSource != nil, "properties": first.scriptProperties.count]
     }

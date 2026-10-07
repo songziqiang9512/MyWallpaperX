@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 573,
-      "bytes": 98648
+      "bytes": 99076
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 169688
+      "bytes": 169792
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 79,
-      "bytes": 11131
+      "bytes": 11223
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 157,
-      "bytes": 34989
+      "bytes": 35177
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1033,37 +1033,37 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "68845ccb8d7928d63eccb086152e35fdd4b204d43fa75117cd4680c194567f9f",
-      "after": "43cae68a16b962bdefa55dbb3e12d19d2eed29dcb0e31b8e640c7c06e5d1fe8b",
+      "before": "43cae68a16b962bdefa55dbb3e12d19d2eed29dcb0e31b8e640c7c06e5d1fe8b",
+      "after": "0dc17ea10013c19b3b9267349ee0e323a3fbab38918f141b06a982c5c8deebd3",
       "owner": "scene-material",
-      "reason": "复用中性材质既有合成链补静态颜色并修正源入口拒绝被误记为全部消费者缺失；保留有界验收与未执行组合。",
+      "reason": "脚本材质颜色迁至既有materialConstant，退出topology样式覆盖并记录同输入实际GPU结果与剩余组合边界。",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "79f7471cba71a32a7c4efd2d73d5a720a890f533b9cea0a295469ed7cd5a8c05",
-      "after": "c529da83ad62d74b729c4baaf101a8c3149fd5b9eee318a83ebe1106d036e912",
+      "before": "c529da83ad62d74b729c4baaf101a8c3149fd5b9eee318a83ebe1106d036e912",
+      "after": "86eb62d6d6df646a984c788676389580dfedc678972e1d49fc872725a0be1cce",
       "owner": "scene-material",
-      "reason": "复用中性材质既有合成链补静态颜色并修正源入口拒绝被误记为全部消费者缺失；保留有界验收与未执行组合。",
+      "reason": "脚本材质颜色迁至既有materialConstant，退出topology样式覆盖并记录同输入实际GPU结果与剩余组合边界。",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "25b1631681c76301b8f69c0956f0f0952cb3639dace0abfa8571c905c67a90c9",
-      "after": "d11e0b50d495512a711ad9dc12d085150b4a6f91350c03cad1aa583cb8d549bf",
+      "before": "d11e0b50d495512a711ad9dc12d085150b4a6f91350c03cad1aa583cb8d549bf",
+      "after": "d0d6f7491ea95429c691821100f821d056930f51df0f9c3a496fefa1f8e50117",
       "owner": "scene-material",
-      "reason": "复用中性材质既有合成链补静态颜色并修正源入口拒绝被误记为全部消费者缺失；保留有界验收与未执行组合。",
+      "reason": "脚本材质颜色迁至既有materialConstant，退出topology样式覆盖并记录同输入实际GPU结果与剩余组合边界。",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7cf1f14ca6d62c3e6957f0a1c57b57d09739018485df17cb7cc4f44b22eb41c9",
-      "after": "eb29b6fcca91b2db572fb011fe150c86dc7217a83ba9fb4bd2823e022c272b72",
+      "before": "eb29b6fcca91b2db572fb011fe150c86dc7217a83ba9fb4bd2823e022c272b72",
+      "after": "f5f6c764f2349b34266db62cf942a4aacd88b7d53b4293d8e83f15c52498c058",
       "owner": "scene-material",
-      "reason": "复用中性材质既有合成链补静态颜色并修正源入口拒绝被误记为全部消费者缺失；保留有界验收与未执行组合。",
+      "reason": "脚本材质颜色迁至既有materialConstant，退出topology样式覆盖并记录同输入实际GPU结果与剩余组合边界。",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     }
   ]

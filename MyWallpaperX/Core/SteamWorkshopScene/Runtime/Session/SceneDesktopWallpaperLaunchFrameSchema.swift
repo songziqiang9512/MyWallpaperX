@@ -119,7 +119,6 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
         sceneScriptStringProgram: SceneScriptStringProgram,
         sceneScriptOwnerLayerIDs: Set<Int>,
         preparedDeviceResources: ScenePreparedDeviceResources,
-        dynamicImageMaterialColorTargets: [String: SceneDynamicTarget],
         timelineProgram: SceneTimelineProgram,
         textScriptProgram: SceneTextScriptProgram
     ) {
@@ -145,8 +144,7 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
                     .dynamicImageResources.map { key, resource in
                         (key, SceneScriptDynamicImageLayerTemplate(
                             modelPath: resource.modelPath,
-                            renderSizeWH: resource.renderSizeWH,
-                            materialColorTarget: dynamicImageMaterialColorTargets[key]
+                            renderSizeWH: resource.renderSizeWH
                         ))
                     }
             )

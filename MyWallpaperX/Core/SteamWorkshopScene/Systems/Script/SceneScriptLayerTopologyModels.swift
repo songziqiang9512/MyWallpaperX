@@ -10,44 +10,11 @@ nonisolated struct SceneScriptLayerTopologySnapshot: Sendable {
     let renderOrderLayerIDs: [Int]
     let destroyedAuthoredLayerIDs: Set<Int>
     let authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue]
-    let dynamicMaterialColorTargetsByLayerID: [Int: SceneDynamicTarget]
-
-    func resolvingDynamicMaterialColors(
-        from values: SceneDynamicSnapshot
-    ) -> Self {
-        guard !dynamicLayers.isEmpty,
-              !dynamicMaterialColorTargetsByLayerID.isEmpty else {
-            return self
-        }
-        var resolvedLayers: [SceneRenderDescriptor.Layer]?
-        for index in dynamicLayers.indices {
-            let layerID = dynamicLayers[index].id
-            guard let target = dynamicMaterialColorTargetsByLayerID[layerID],
-                  case let .vector3(red, green, blue)? = values[target]?.value,
-                  red.isFinite, green.isFinite, blue.isFinite else { continue }
-            if resolvedLayers == nil { resolvedLayers = dynamicLayers }
-            resolvedLayers![index].colorRGB = [red, green, blue].map {
-                Float(max(0, min($0, 1)))
-            }
-        }
-        guard let resolvedLayers else { return self }
-        return .init(
-            particlePlayback: particlePlayback,
-            topologyRevision: topologyRevision,
-            dynamicLayers: resolvedLayers,
-            renderOrderLayerIDs: renderOrderLayerIDs,
-            destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs,
-            authoredLayerValues: authoredLayerValues,
-            dynamicMaterialColorTargetsByLayerID:
-                dynamicMaterialColorTargetsByLayerID
-        )
-    }
 }
 
 nonisolated struct SceneScriptDynamicImageLayerTemplate: Sendable {
     let modelPath: String
     let renderSizeWH: [Float]
-    let materialColorTarget: SceneDynamicTarget?
 }
 
 nonisolated struct SceneScriptLayerMutationOwnerFailure: Sendable {

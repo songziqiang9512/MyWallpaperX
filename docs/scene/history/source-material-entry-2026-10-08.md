@@ -65,3 +65,19 @@ Resolver/TemplateCompiler共用槽覆盖、uniform投影和ShaderSchema；source
 官方黑盒另验证自有literal RGBA(.8,.2,.1,.5)：normal覆盖背景，translucent表现为一次.5覆盖，后identity不重复衰减；alphaWriting absent/default/enabled此矩阵屏幕RGB相同，不能推广为通用state等价或内部alpha mask结论。最终控制未采样slot0，不宣称白纹理已载入。本片未据此放开generic透明state。`official/behavior-contract.json` SHA`024d083b9343df5be1169515d6475e57c97b30d04e68b7a39282b0613a928391`；固定客户端2.8.0.42、自有输入、官方身份、24组重复ROI及失败原因俱存。本批窗口已关，VM恢复suspended。
 
 本专项仅中性静态颜色3/3代表路径已实际接通。named实际染色、脚本tint与非白layer叠加、user Alpha/color、非中性Power、全部真实音源和完整官方parity仍未关闭；现役队列负责后续顺序。停止的样本副本、临时HOME/staged App、重复截图与临时编辑脚本清理；保留最小报告/日志/身份、输入生成脚本、必要图和官方自有输入，连续迭代仅沿用上节同一build缓存。`artifact-retention.json`登记保留与移除，不删除未知归属产物。
+
+
+## 后继修正：脚本材质颜色与图层样式分离
+
+本片基线`3290ad26`。旧neutral-tint脚本把材质值写到`.layer.color`，随后又在topology复制动态层并覆盖clone颜色；有非白图层样式时丢失应有乘色。改为实际material/pass/key的`materialConstant`，既有base-material Program保留作者fallback及target，原compositor消费同帧snapshot；原层与clone各自图层颜色独立。旧topology颜色复制、mapping及template字段退出，没有新VM家族、pass或当前值缓存。准备期仍按原instance/named边界排除；被排除的旧脚本候选尚可能无消费者执行，不宣称其VM退役。
+
+隔离证据根`/private/tmp/mwx-material-dynamic-20261008`，最终正常签名Debug App SHA`7cff584259dd427f093b02a795640dd3bbdf07fed2104a19d04f71145895306c`；`built-product.json`冻结12产品文件。
+
+| 输入与报告 | 实际结果和边界 |
+|---|---|
+| `runtime-baseline-controlled` / `runtime-final-controlled`，同受控PKG SHA`79f3d852189a7ea9a2961bc8dcfe3e118658dc31b2b9fd56c9020cde1a042f82` | 保留379作者材质脚本原bytes、关闭彩虹；material(.4,.8,.2)、layer(.5,.25,.75)、alpha.5，原层+1clone。旧App`8e34583f…abd49`输出(51,102,26)，新App(26,26,19)，两矩形共596232像素，符合逐分量乘色及一次alpha；两者benchmark均PASS，说明PASS本身不能裁决该视觉错误。颜色收据`color-comparison.json` |
+| `runtime-final-original`，3792817546完整原包SHA`4776fca2d1e5804759a8cc41ec2916f2e64e62d5d06019083c9d744dbe3e023e` | PASS；实际materialConstant VM消费PCM，63clone encoded且passthrough0、GPU完成。频谱ROI的ready蓝(0,39,255)→after黄(255,216,0)，原彩虹仍动态。该ROI为运行后观察，不能当预注册parity；完整构图/交互/官方同声源未据此关闭 |
+
+`3609108600`及`3610154602`仅准备输入，用户Alpha尚未准入，本片不记运行或受益。最近6模块46项CPU行为测试通过（`cpu-final.log`，91.761秒），覆盖真实编译器、target独立/冲突、原/动态图层样式、typed fallback及共享uniforms；三条退役源码形状断言已从棘轮删除。两份VM链接fixture已适配但未单独执行其VM门，实际脚本由上述App运行验证；未测性能量化。独立审查覆盖target/fallback/launch/schema与唯一消费者，提交前冻结证据复核。下一项仍为user Alpha/color公共入口，named实际乘色和非中性Power保持开放，顺序以现役队列为准。
+
+停止使用的输入副本、baseline App及重复截图已清理；本片保留约11MiB报告/日志、输入生成脚本/逐条hash和4张必要PNG，`artifact-retention.json`登记范围。连续迭代仍仅沿用既有build缓存；结构、依赖、文档及代码门通过。一次误选冷构建已主动取消并由工具清理，正常签名增量build成功单独见`build.log`。

@@ -135,7 +135,9 @@ extension SceneMetalRenderer {
             sourceMaterialAlpha: baseMaterialProviderBindings.sourceMaterialAlpha(
                 layerID: layer.id, snapshot: frameContext.dynamicValues
             ),
-            sourceMaterialColor: baseMaterialProviderBindings.sourceMaterialColor(layer: layer),
+            sourceMaterialColor: baseMaterialProviderBindings.sourceMaterialColor(
+                        layer: layer, snapshot: frameContext.dynamicValues
+                    ),
             offscreenTexturePool: offscreenTexturePool,
             resolvedMaterialFrameTargetPlan:
                 resolvedFramePlan,

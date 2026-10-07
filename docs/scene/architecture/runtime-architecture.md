@@ -288,7 +288,7 @@ JavaScriptCore 是系统自带对照，但当前 Xcode SDK 没有公开的执行
 
 ### 源材质入口（T1，有界合同）
 
-已能证明等价于单纹理乘色的材质，优先复用 `SceneBaseMaterialColorModulationCompiler` 的 neutral-tint 证明：位置必须是无作者覆盖的 host MVP 和既有 quad attribute，fragment 只消费同一 vertex varying 或其 `.xy`，偏移/重排不得降级为普通采样。静态 RGB 进入既有 base-material prepared 值，在 source uniforms 与图层颜色相乘一次；动态创建的同 model 图层消费同一 prepared 值，不为常量建立 VM、Program pass 或纹理缓存。脚本颜色保留现有 typed target 路径。sampler 必须通过共享普通颜色 schema，角色重名局部拒绝；非中性 Alpha/Bright/Power/scroll、未知绑定、实例覆盖或无法证明的 shader 不得落入此优化。当前 named raw capture 尚不消费此颜色，任一同 model 的显式、隐藏或可选 named 参与层均不准入；也不能把某个 Program 入口拒绝误记为所有既有消费者都缺失。验收包含原始图层与动态实例、非白图层颜色、透明纹理以及未准入反例。
+已能证明等价于单纹理乘色的材质，优先复用 `SceneBaseMaterialColorModulationCompiler` 的 neutral-tint 证明：位置必须是无作者覆盖的 host MVP 和既有 quad attribute，fragment 只消费同一 vertex varying 或其 `.xy`，偏移/重排不得降级为普通采样。静态 RGB 进入既有 base-material prepared 值，在 source uniforms 与图层颜色相乘一次；动态创建的同 model 图层消费同一 prepared 值，不为常量建立 VM、Program pass 或纹理缓存。材质脚本颜色使用实际 material/pass/key 的 `materialConstant` typed target，与图层 `.color` 独立；prepared 材质颜色保留作者 fallback 和动态 target，原始与动态创建图层按同 model 从同帧 snapshot 解析，再与各自图层颜色相乘。退出把材质颜色写回动态 topology 的旧路径，避免覆盖作者样式、逐帧复制图层和重复消费者；脚本失败沿原 snapshot 保旧值，未发布时用作者 fallback。sampler 必须通过共享普通颜色 schema，角色重名局部拒绝；非中性 Alpha/Bright/Power/scroll、未知绑定、实例覆盖或无法证明的 shader 不得落入此优化。当前 named raw capture 尚不消费此颜色，任一同 model 的显式、隐藏或可选 named 参与层均不准入；也不能把某个 Program 入口拒绝误记为所有既有消费者都缺失。验收包含原始图层与动态实例、非白图层颜色、透明纹理以及未准入反例。
 
 问题：image 的 model→material 引用和纹理槽已进入 descriptor，但普通 Program 准备只枚举 `effects`；自定义源材质因此可能只显示 slot 0 原图。补齐入口的目标是让作者材质先生成图层源，再由同一后置 effect、named capture 和 compositor 消费；样本编号和 shader 文件名不参与算法选择。
 

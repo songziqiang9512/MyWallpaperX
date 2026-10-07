@@ -59,9 +59,7 @@ nonisolated extension SceneScriptVectorProgram {
             authoredOrdinalOffset: scriptBindings.count + materialCandidates.count
                 + staticModelMaterialCandidates.count
         )
-        let staticMaterialColors = Dictionary(uniqueKeysWithValues: materialBindings.compactMap {
-            binding -> (String, SIMD3<Float>)? in
-            guard binding.scriptSource == nil else { return nil }
+        let authoredMaterialColors = Dictionary(uniqueKeysWithValues: materialBindings.map { binding in
             return (normalizedMaterialPath(binding.modelPath), SIMD3<Float>(binding.authoredColor))
         })
         return .init(candidates: (
@@ -69,7 +67,7 @@ nonisolated extension SceneScriptVectorProgram {
                 + staticModelMaterialCandidates + modelValueCandidates
         ).filter {
             !excludedTargets.contains($0.definition.target)
-        }, staticMaterialColors: staticMaterialColors)
+        }, authoredMaterialColors: authoredMaterialColors)
     }
 
     /// External model materials already retain their authored value wrappers.
@@ -245,9 +243,9 @@ nonisolated extension SceneScriptVectorProgram {
             authoredOrdinal: authoredOrdinal,
             source: source,
             definition: .init(
-                target: .layer(
-                    layerID: binding.sourceLayerID,
-                    field: .color
+                target: .materialConstant(
+                    layerID: binding.sourceLayerID, passIndex: 0,
+                    name: binding.colorKey, materialPath: binding.materialPath
                 ),
                 valueType: .vector3,
                 authoredValue: .vector3(

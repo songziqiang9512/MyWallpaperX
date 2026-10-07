@@ -93,10 +93,26 @@ struct SceneRenderDescriptor {
 enum SceneDynamicTarget: Hashable {
     enum Field { case color }
     case layer(layerID: Int, field: Field)
+    case materialConstant(layerID: Int, passIndex: Int, name: String, materialPath: String)
+}
+enum SceneDynamicValue {
+    case vector3(Double, Double, Double)
+    case scalar(Double)
+}
+struct SceneDynamicResolvedValue {
+    let value: SceneDynamicValue
 }
 struct SceneDynamicSnapshot {
-    var colors: [SceneDynamicTarget: SIMD3<Float>] = [:]
-    subscript(_ target: SceneDynamicTarget) -> SIMD3<Float>? { colors[target] }
+    var values: [SceneDynamicTarget: SceneDynamicResolvedValue]
+    init(values: [SceneDynamicTarget: SceneDynamicResolvedValue] = [:]) { self.values = values }
+    init(colors: [SceneDynamicTarget: SIMD3<Float>]) {
+        values = colors.mapValues { .init(value: .vector3(Double($0.x), Double($0.y), Double($0.z))) }
+    }
+    subscript(_ target: SceneDynamicTarget) -> SceneDynamicResolvedValue? { values[target] }
+    func color(_ target: SceneDynamicTarget) -> SIMD3<Float>? {
+        guard case let .vector3(red, green, blue)? = values[target]?.value else { return nil }
+        return .init(Float(red), Float(green), Float(blue))
+    }
     static func empty(frameIndex: Int) -> Self { .init() }
 }
 struct SceneBaseImageTextureSnapshot {
@@ -204,7 +220,7 @@ enum Checks {
                   masks: .empty, textureFrame: .identity, mvp: matrix_identity_float4x4,
                   uniforms: .init(time: 0, alpha: 1, cursorUV: .zero,
                                   tint: source.usesAuthoredLayerColor
-                                    ? snapshot[.layer(layerID: layer.id, field: .color)] ?? layer.colorRGB
+                                    ? snapshot.color(.layer(layerID: layer.id, field: .color)) ?? layer.colorRGB
                                     : SIMD3(repeating: 1)),
                   offscreenTexturePool: nil, effectSourceExtent: nil,
                   requiresSourceCopy: false, finalCompositeAlpha: nil)
@@ -242,20 +258,68 @@ enum Checks {
                 && compositor.sourceFragmentUniforms(for: request(reset), routesOffscreen: false)?.tint == SIMD4(0, 0, 0, 1),
         ]
         let materialColors = SceneBaseMaterialProviderBindingProgram(
-            baseMaterialBindings: [:], staticMaterialColors: ["models/tint.json": SIMD3(0.5, 0.25, 1)])
+            baseMaterialBindings: [:], authoredMaterialColors: ["models/tint.json": SIMD3(0.5, 0.25, 1)])
         let originalLayer = SceneRenderDescriptor.Layer(id: 7, contentKind: "image", imagePath: "models/tint.json")
         let dynamicLayer = SceneRenderDescriptor.Layer(id: 99, contentKind: "image", imagePath: "models/tint.json")
         checks["dynamicInstanceSharesPreparedMaterialColor"] =
-            materialColors.sourceMaterialColor(layer: originalLayer) == materialColors.sourceMaterialColor(layer: dynamicLayer)
-        checks["unrelatedMaterialRemainsNeutral"] = materialColors.sourceMaterialColor(layer: layer) == SIMD3(repeating: 1)
+            materialColors.sourceMaterialColor(layer: originalLayer, snapshot: dynamic)
+                == materialColors.sourceMaterialColor(layer: dynamicLayer, snapshot: dynamic)
+        checks["unrelatedMaterialRemainsNeutral"] = materialColors.sourceMaterialColor(layer: layer, snapshot: dynamic) == SIMD3(repeating: 1)
         var materialRequest = request(tinted, snapshot: dynamic)
-        materialRequest.sourceMaterialColor = materialColors.sourceMaterialColor(layer: originalLayer)
+        materialRequest.sourceMaterialColor = materialColors.sourceMaterialColor(layer: originalLayer, snapshot: dynamic)
         materialRequest.sourceMaterialAlpha = 0.5
         for offscreen in [false, true] {
             let uniforms = compositor.sourceFragmentUniforms(for: materialRequest, routesOffscreen: offscreen)
             checks["materialMultipliesLayerColorOnce_\(offscreen)"] = uniforms?.tint == SIMD4(0.125, 0.125, 0.75, 1)
             checks["materialAlphaPreserved_\(offscreen)"] = uniforms?.alpha == 0.5
         }
+        let materialTarget = SceneDynamicTarget.materialConstant(layerID: originalLayer.id,
+            passIndex: 0, name: "surface-key", materialPath: "materials/unseen/tint.json")
+        let dynamicMaterial = SceneBaseMaterialProviderBindingProgram(baseMaterialBindings: [:],
+            authoredMaterialColors: ["models/tint.json": SIMD3(0.5, 0.25, 1)],
+            materialColorTargets: ["models/tint.json": materialTarget])
+        let frame = SceneDynamicSnapshot(values: [
+            materialTarget: .init(value: .vector3(0.5, 0.25, 0.75)),
+            .layer(layerID: originalLayer.id, field: .color): .init(value: .vector3(0.4, 0.8, 0.2)),
+            .layer(layerID: dynamicLayer.id, field: .color): .init(value: .vector3(0.2, 0.1, 0.6)),
+        ])
+        let originalColor = dynamicMaterial.sourceMaterialColor(layer: originalLayer, snapshot: frame)
+        let cloneColor = dynamicMaterial.sourceMaterialColor(layer: dynamicLayer, snapshot: frame)
+        checks["originalAndCloneReadOneMaterialTarget"] = originalColor == SIMD3(0.5, 0.25, 0.75)
+            && originalColor == cloneColor
+        func near(_ value: SIMD4<Float>, _ expected: SIMD4<Float>) -> Bool {
+            (0 ..< 4).allSatisfy { abs(value[$0] - expected[$0]) < 0.000_001 }
+        }
+        for (sourceLayer, expected) in [(originalLayer, SIMD4<Float>(0.2, 0.2, 0.15, 1)),
+                                      (dynamicLayer, SIMD4<Float>(0.1, 0.025, 0.45, 1))] {
+            for offscreen in [false, true] {
+                let values = SceneImageLayerUniformValues(time: 0, alpha: 0.5, cursorUV: .zero,
+                    tint: frame.color(.layer(layerID: sourceLayer.id, field: .color))!)
+                let uniforms = compositor.sourceFragmentUniforms(values: values, layer: sourceLayer,
+                    sourceSample: selectedRequest.resolvedBaseTextureSample()!, routesOffscreen: offscreen,
+                    dependencyBlendMode: nil, sourceMaterialAlpha: 0.5,
+                    sourceMaterialColor: dynamicMaterial.sourceMaterialColor(layer: sourceLayer, snapshot: frame))
+                checks["materialAndOwnStyleMultiplyOnce_\(sourceLayer.id)_\(offscreen)"] = near(uniforms.tint, expected)
+                    && uniforms.alpha == 0.25
+            }
+        }
+        for (name, bad) in [("wrongType", SceneDynamicValue.scalar(0.2)),
+                            ("nonfinite", .vector3(.nan, 0.2, 0.3))] {
+            checks["invalidMaterialValueFallsBack_\(name)"] = dynamicMaterial.sourceMaterialColor(
+                layer: originalLayer, snapshot: .init(values: [materialTarget: .init(value: bad)])) == SIMD3(0.5, 0.25, 1)
+        }
+        checks["absentMaterialValueFallsBack"] = dynamicMaterial.sourceMaterialColor(
+            layer: dynamicLayer, snapshot: .empty(frameIndex: 0)) == SIMD3(0.5, 0.25, 1)
+        checks["materialValueClampsAsBefore"] = dynamicMaterial.sourceMaterialColor(
+            layer: originalLayer, snapshot: .init(values: [materialTarget: .init(value: .vector3(-2, 0.4, 3))])) == SIMD3(0, 0.4, 1)
+        let unlowered = SceneBaseMaterialProviderBindingProgram(baseMaterialBindings: [:],
+            materialColorTargets: ["models/tint.json": materialTarget])
+        checks["targetCannotBypassUnloweredModel"] = unlowered.sourceMaterialColor(
+            layer: originalLayer, snapshot: frame) == SIMD3(repeating: 1)
+        let wrongKey = SceneDynamicTarget.materialConstant(layerID: originalLayer.id,
+            passIndex: 0, name: "other-key", materialPath: "materials/unseen/tint.json")
+        checks["wrongMaterialIdentityCannotSupplyValue"] = dynamicMaterial.sourceMaterialColor(
+            layer: originalLayer, snapshot: .init(values: [wrongKey: .init(value: .vector3(0.9, 0.9, 0.9))])) == SIMD3(0.5, 0.25, 1)
         for (name, bad) in [
             ("wrongPurpose", replacing(candidate, purpose: .mask)),
             ("straightAlpha", replacing(candidate, content: .color(.resolved(.straightAlpha)))),

@@ -815,7 +815,9 @@ extension SceneMetalRenderer {
                             layerID: layerID, snapshot: frameContext.dynamicValues
                         ),
                     sourceMaterialColor: capturesMainTarget ? .init(repeating: 1)
-                        : baseMaterialProviderBindings.sourceMaterialColor(layer: layer),
+                        : baseMaterialProviderBindings.sourceMaterialColor(
+                            layer: layer, snapshot: frameContext.dynamicValues
+                        ),
                     offscreenTexturePool: nil,
                     effectSourceExtent: effectSourceExtent,
                     requiresSourceCopy: false,

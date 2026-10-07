@@ -25,7 +25,7 @@
 | 待办 | 状态、证据与下一关闭门 |
 |---|---|
 | 自定义源材质未准入组合 | **首入口已修，公共边界待补**：[833静态双纹理源](../history/source-material-entry-2026-10-08.md)已实际执行并消费后effect；3层中性静态乘色改由既有compositor消费，已跑通3原样本；原“7层动态常量”中1层已有S4，不再列为缺能力，其余6层的user Alpha/color、Power=.99或多source消费者仍待接线/运行。1层perspective、更多multi-pass/provider待证。细分见该记录的后继更正；不能把已修380照片归入同根因 |
-| 材质颜色的组合缺口 | **待修/待受控复现**：静态中性RGB已进入原/动态图层；旧脚本tint占用layer color会覆盖非白style，named raw capture尚不消费材质颜色而被保守排除。沿现material typed值及capture职责补齐，不另造渲染器；不得将本批3个静态样本通过外推到这两类 |
+| 材质颜色的组合缺口 | **部分已修，组合余项待补**：静态中性RGB已进入原/动态图层；脚本tint占用layer color的覆盖已修，迁至materialConstant并退出clone颜色覆写；受控前后GPU及原379彩虹通过。named raw capture尚不消费材质颜色而被保守排除；被排除的旧脚本候选可能无消费者执行，待沿原route exclusion退出。沿现material typed值及capture职责补齐，不另造渲染器；不得将静态/脚本乘色的有界通过外推到named组合 |
 | 普通unlit中间乘法溢出 | **已证缺陷**：source RGBA=(4,4,4,1)、tint=1e38、alpha=1e-37，HEAD/候选真实GPU同为RGB Inf，`SceneImageLayer.metal`普通路径。证据`/private/tmp/mwx-puppet-inner-harness-20261008/unlit-overflow-diagnosis.json`；修共享数值运算，验有限预乘结果、HDR/普通/lit反例，不加全图压暗或任意clamp |
 | 默认变暗、HDR/SDR最终显示 | **旧压暗首断点已修，视觉余项待复验**：旧SDR shoulder把白点1压到0.75；[白点修复](../history/sdr-white-preservation-implementation-2026-10-06.md)实测RGB(191,64,128)恢复(255,64,128)。EDR及OFF→ON→OFF已有同surface headroom执行证据；用户样本、多屏SDR、暂停重绘及物理亮度未据此关闭。沿唯一颜色/output owner定位，见[热切证据](../history/hdr-live-toggle-verification-2026-10-07.md)；Bloom iterations0/1空间语义另作官方控制 |
 | shader compound边界 | **能力缺口**：已有int四则复合赋值恢复，qualified LHS、`%=`与vertex剩余见[原合同](../history/int-compound-assignment-normalizer-2026-10-07.md)。先核真实引用和类型，扩同一normalizer，保留scope/优先级/非法输入反例 |

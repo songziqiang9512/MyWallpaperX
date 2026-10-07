@@ -866,7 +866,7 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
         self.assertEqual(
             result["report"],
             [
-                "staticMaterialColorCount: 0",
+                "authoredMaterialColorCount: 0",
                 "sourceMaterialAlphaBindingCount: 0",
                 "sourceMaterialAlphaPropertyBindingCount: 0",
                 "mediaThumbnailCurrentBindingCount: 3",

@@ -212,7 +212,11 @@ nonisolated enum SceneScriptDynamicImageReferenceAnalysis {
     ) -> [SceneScriptDynamicImageReference]? { nil }
 }
 
-nonisolated struct SceneShaderContract {}
+// Projection receives already-proven material bindings. Shader admission is
+// exercised separately by the real compiler harness.
+nonisolated struct SceneShaderContract {
+    var materialBindings: [SceneBaseMaterialColorModulationCompiler.Binding] = []
+}
 
 nonisolated struct SceneEffectTextureInput: Sendable {
     enum Kind: Sendable { case system, property }
@@ -225,6 +229,8 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
     struct Binding {
         let modelPath: String
         let sourceLayerID: Int
+        let materialPath: String
+        let colorKey: String
         let scriptSource: String?
         let scriptProperties: [String: SceneJSONValue]
         let authoredColor: SIMD3<Double>
@@ -235,7 +241,7 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         shaderContracts: [SceneShaderContract],
         dynamicImageModelPaths: Set<String>,
         admittedLayerColorConsumerIDs: Set<Int>
-    ) -> [Binding] { [] }
+    ) -> [Binding] { shaderContracts.flatMap(\.materialBindings) }
 }
 
 nonisolated struct SceneUtilityLayer: Sendable {
@@ -479,10 +485,36 @@ enum Harness {
             .layer(layerID: 101, field: .scale),
             .layer(layerID: 101, field: .angles),
         ]
+        let materialTarget = SceneDynamicTarget.materialConstant(layerID: 101,
+            passIndex: 0, name: "surface-key", materialPath: "materials/unseen/tint.json")
+        let materialProjection = SceneScriptVectorProgram.project(
+            descriptor: colorDescriptor,
+            scriptBindings: [binding(key: "color", value: "0.25 0.5 0.75")],
+            admittedLayerColorConsumerIDs: [101],
+            shaderContracts: [.init(materialBindings: [.init(
+                modelPath: "models/unseen/tint.json", sourceLayerID: 101,
+                materialPath: "materials/unseen/tint.json", colorKey: "surface-key",
+                scriptSource: "export function update(value) { return value; }",
+                scriptProperties: [:], authoredColor: SIMD3(0.5, 0.25, 1)
+            )])]
+        )
         let payload: [String: Any] = [
-            "staticMaterialMetadataSurvivesTargetExclusion": SceneScriptVectorCandidateCatalog(
-                candidates: family.candidates, staticMaterialColors: ["models/unseen.json": SIMD3(0.5, 0.25, 1)]
-            ).excludingTargets(Set(family.definitions.map(\.target))).staticMaterialColors["models/unseen.json"] == SIMD3(0.5, 0.25, 1),
+            "authoredMaterialMetadataSurvivesTargetExclusion": SceneScriptVectorCandidateCatalog(
+                candidates: family.candidates, authoredMaterialColors: ["models/unseen.json": SIMD3(0.5, 0.25, 1)]
+            ).excludingTargets(Set(family.definitions.map(\.target))).authoredMaterialColors["models/unseen.json"] == SIMD3(0.5, 0.25, 1),
+            "materialTargetKeepsExactIdentity": materialProjection.definitions.contains {
+                $0.target == materialTarget && $0.valueType == .vector3
+                    && $0.authoredValue == .vector3(0.5, 0.25, 1)
+            },
+            "materialAndLayerColorsHaveIndependentOwners": materialProjection.targets == [
+                materialTarget, .layer(layerID: 101, field: .color)
+            ] && materialProjection.duplicateTargets.isEmpty,
+            "materialTargetIsAnOrdinaryNonPassValue": materialProjection.nonPassTargets.contains(materialTarget)
+                && !materialProjection.passTargets.contains(materialTarget),
+            "scriptMaterialSeedSurvivesProducerExclusion": materialProjection.excludingTargets([materialTarget])
+                .authoredMaterialColors["models/unseen/tint.json"] == SIMD3(0.5, 0.25, 1),
+            "dynamicModelSelectsTheMaterialTarget": materialProjection.dynamicImageMaterialColorTargets[
+                "models/unseen/tint.json"] == materialTarget,
             "visibilityOverridesKeepOwners": overriddenHidden.candidates.first?.definition.authoredValue == .bool(true)
                 && overriddenVisible.candidates.first?.definition.authoredValue == .bool(false),
             "wrongVisibilityOwnerRejected": wrongVisibilityOwner.candidates.isEmpty,
@@ -567,7 +599,7 @@ class SceneScriptLayerTransformProjectionTests(unittest.TestCase):
         self.assertTrue(self.result["angleDefinition"])
 
     def test_identity_and_duplicate_fail_closed(self) -> None:
-        self.assertTrue(self.result["staticMaterialMetadataSurvivesTargetExclusion"])
+        self.assertTrue(self.result["authoredMaterialMetadataSurvivesTargetExclusion"])
         self.assertTrue(self.result["duplicateRejected"])
         self.assertTrue(self.result["mismatchRejected"])
         self.assertTrue(self.result["wrongPathRejected"])
@@ -579,6 +611,13 @@ class SceneScriptLayerTransformProjectionTests(unittest.TestCase):
         self.assertTrue(self.result["hiddenColorRejected"])
         self.assertTrue(self.result["effectColorRejected"])
         self.assertTrue(self.result["duplicateColorRejected"])
+
+    def test_material_color_has_an_exact_target_and_independent_layer_style(self) -> None:
+        for key in ["materialTargetKeepsExactIdentity", "materialAndLayerColorsHaveIndependentOwners",
+                    "materialTargetIsAnOrdinaryNonPassValue", "scriptMaterialSeedSurvivesProducerExclusion",
+                    "dynamicModelSelectsTheMaterialTarget"]:
+            with self.subTest(key=key):
+                self.assertTrue(self.result[key])
 
     def test_effectful_text_color_uses_the_dynamic_text_consumer(self) -> None:
         self.assertTrue(self.result["effectfulTextColorDefinition"])

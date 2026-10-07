@@ -8,7 +8,8 @@ enum SceneBaseMaterialProviderBindingCompiler {
         ],
         scriptBindings: [SceneScriptBindingIR],
         materialPropertyTargets: Set<SceneDynamicTarget>,
-        staticMaterialColors: [String: SIMD3<Float>] = [:]
+        authoredMaterialColors: [String: SIMD3<Float>] = [:],
+        materialColorTargets: [String: SceneDynamicTarget] = [:]
     ) -> SceneBaseMaterialProviderBindingProgram {
         _ = scriptBindings
         let texturePropertyKeys = Set(descriptor.texturePropertyKeys)
@@ -145,7 +146,8 @@ enum SceneBaseMaterialProviderBindingCompiler {
                         materialPropertyTargets: materialPropertyTargets
                     )
             },
-            staticMaterialColors: staticMaterialColors
+            authoredMaterialColors: authoredMaterialColors,
+            materialColorTargets: materialColorTargets
         )
     }
 
