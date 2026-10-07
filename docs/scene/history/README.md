@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-07 | Scene | 实施证据 | [int 复合赋值 normalizer](int-compound-assignment-normalizer-2026-10-07.md) | `bar *= step(...)` 拒编译修复（截断重建）；3809618616 从全屏渐变转 150 柱可见 PASS；%= / vertex / qualified LHS 残余登记 | [断点队列](../roadmap/scene-open-breakpoint-queue.md)、[shader 准备 census](../../../script/scene_shader_preparation_census.py) |
 | 2026-10-07 | Scene | 实施证据 | [组合成员闭包扩展](composition-member-closure-2026-10-07.md) | 成员闭包=完整 parent 级联（组员带 transform 链准入）；3226487183 两组从整组拒绝转捕获执行；残余错位指向 puppet 附件域已登记 | [D1 设计](../roadmap/batch2/composition-render-target-design.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-07 | Scene | 实施证据 | [土星灯光送达修复](saturn-light-delivery-2026-10-07.md) | destroy 导出准入（stateful 放行+teardown exactly-once）；盘面 0→受光暖棕云带；残余=界线镜像+能量偏暗已登记 | [断点队列](../roadmap/scene-open-breakpoint-queue.md)、[SceneScript API 覆盖](../capabilities/scenescript-api-coverage.md) |
 | 2026-10-07 | Scene | 复测+对比证据 | [L1 重型入口复测与土星官方对比](l1-heavy-retest-2026-10-07.md) | 启动无回归（三体/土星~14s exit0）、三体渲染正常用户确认；土星盘面黑剪影 vs 官方照亮，新断点=静态模型灯光送达链 | [断点队列](../roadmap/scene-open-breakpoint-queue.md)、[调试台账](../capabilities/scene-sample-debug-ledger.md) |

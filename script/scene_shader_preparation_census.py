@@ -94,6 +94,7 @@ CURRENT_SOURCE_PATHS = (
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneShaderSourceResolver.swift"],
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneResourceView.swift"],
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneResourceIndex.swift"],
+    AUTHORED_EFFECT_PLANNING_SOURCES["SceneBuiltinShaderIdentity.swift"],
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneShaderContractLoader.swift"],
     AUTHORED_EFFECT_PLANNING_SOURCES[
         "SceneShaderContractLoader+SourceGraph.swift"

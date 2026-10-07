@@ -741,8 +741,11 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
         # conversion. The normalizer spells the truncation through int(...)
         # for declarations and plain assignments; comparison operands have
         # separate promotion and pixel-result tests.
-        # compound assignments keep their ambiguous promotion semantics and
-        # stay fail-closed.
+        # Compound assignments rebuild as `k = int(k op (rhs))` — the same
+        # truncation the official D3D pipeline applies implicitly; the
+        # sample-real `*=` form, uint targets, pure-integer RHS and explicit
+        # conversions each keep their exact contract below. Qualified member
+        # LHS and `%=` remain fail-closed residuals.
         if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
             self.skipTest("bundled glslang is unavailable")
         cases = [
@@ -758,20 +761,39 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
             ("int k = g_Ratio.y;"
              " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
              "int k = int(g_Ratio.y)"),
+            # The workshop-real compound form (Simple_Audio_Bars) rebuilds
+            # with the accumulated LHS and a parenthesized whole RHS.
+            ("int bar = 0; bar *= step(1.0 - g_Ratio.x, g_Ratio.y);"
+             " gl_FragColor = vec4(float(bar), 0.0, 1.0, 1.0);",
+             "bar = int(bar * (step(1.0 - g_Ratio.x, g_Ratio.y)))"),
+            ("int k = 0; k += g_Ratio.y;"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "k = int(k + (g_Ratio.y))"),
+            # A uint target takes the same explicit truncation.
+            ("uint k = 0u; k -= g_Ratio.y;"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "k = int(k - (g_Ratio.y))"),
             # An already-integer pair keeps its own statement untouched.
             ("int k = 2; int n = k;"
              " gl_FragColor = vec4(float(n), 0.0, 1.0, 1.0);",
              "int n = k"),
-            # The lenient compound form stays fail-closed (registered
-            # residual: its promotion semantics are ambiguous).
-            ("int k = 0; k += g_Ratio.y;"
+            # A pure-integer compound statement stays untouched.
+            ("int k = 2; int n = 3; k *= n;"
              " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
-             "k += g_Ratio.y"),
+             "k *= n"),
+            # A float-declared target is not an int truncation site; the
+            # statement keeps its authored form.
+            ("float k = 1.0; k *= g_Ratio.y;"
+             " gl_FragColor = vec4(k, 0.0, 1.0, 1.0);",
+             "k *= g_Ratio.y"),
             # An explicit conversion is already the truncation; it must not
-            # be wrapped twice.
+            # be wrapped twice (plain and compound forms).
             ("int k = 0; k = int(g_Ratio.y);"
              " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
              "k = int(g_Ratio.y)"),
+            ("int k = 0; k += int(g_Ratio.y);"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "k += int(g_Ratio.y)"),
         ]
         for statement, expected in cases:
             with self.subTest(statement=statement), tempfile.TemporaryDirectory() as directory:
@@ -780,11 +802,7 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
                 ))
                 fragment = output["normalizedFragment"]
                 self.assertIn(expected, fragment)
-                if expected in ("k += g_Ratio.y", "k = int(g_Ratio.y)"):
-                    if expected == "k += g_Ratio.y":
-                        # fail-closed: the ambiguous compound form is not
-                        # rewritten and cannot link under strict glslang
-                        continue
+                if "int(" in expected:
                     self.assertNotIn("int(int(", fragment)
                 root = Path(directory)
                 vertex = root / "author.vert"

@@ -362,6 +362,12 @@ extension SceneGenericShaderSourceNormalizer {
         "not_eq", "or", "or_eq", "xor", "xor_eq",
     ]
 
+    /// Compound assignments with a declared int/uint target rebuild as
+    /// `lhs = int(lhs op (rhs))` under the shared float-bearing guards.
+    private static let compoundAssignmentOperators: Set<String> = [
+        "*=", "+=", "-=", "/=",
+    ]
+
     static func renameMetalReservedAlternativeTokens(_ source: String) -> String {
         let present = metalReservedAlternativeTokens.filter {
             source.range(of: "\\b\($0)\\b", options: .regularExpression) != nil
@@ -391,9 +397,15 @@ extension SceneGenericShaderSourceNormalizer {
     /// plain assignment) truncates through `int(...)`. Comparisons are not
     /// assignments: GLSL 4.50 sections 4.1.10 and 5.9 promote integer/float
     /// operands to a common type, preserving fractional bounds.
-    /// Compound assignments keep their ambiguous promotion semantics and
-    /// stay fail-closed; the type facts come from the shared declared-type
-    /// table so local declarations and shapes are treated alike.
+    /// Compound assignments (`*=`, `+=`, `-=`, `/=`) rebuild as
+    /// `lhs = int(lhs op (rhs))` — the truncation the official D3D pipeline
+    /// applies implicitly — under the same float-bearing RHS guards; `%=` and
+    /// vertex-stage occurrences stay fail-closed (GLSL `%` is integer-only,
+    /// so `%=` has no mechanical truncation form). Qualified member LHS
+    /// (`foo.bar`) stays fail-closed: the declared-type table is keyed by
+    /// bare identifier, so rewriting could silently drop the qualifier. The
+    /// type facts come from the shared declared-type table so local
+    /// declarations and shapes are treated alike.
     static func rewriteFloatToIntAssignments(
         _ source: String,
         shapes: [String: Shape]
@@ -444,8 +456,18 @@ extension SceneGenericShaderSourceNormalizer {
         }
 
         for index in tokens.indices where index > 1 && index + 1 < tokens.count {
-            guard tokens[index].text == "=",
+            // Compound assignments take the RHS as a whole expression, so an
+            // int-typed accumulator over float terms (`bar *= step(...)`)
+            // rebuilds as `bar = int(bar op (RHS))` — the same truncation the
+            // official D3D pipeline applies implicitly.
+            let compoundOperator = Self.compoundAssignmentOperators
+                .contains(tokens[index].text) ? tokens[index].text : nil
+            // A qualified member LHS (`foo.bar`) shares its bare name with
+            // the declared-type table; rewriting from the bare identifier
+            // would silently drop the qualifier, so it stays fail-closed.
+            guard compoundOperator != nil || tokens[index].text == "=",
                   tokens[index - 1].kind == .identifier,
+                  tokens[index - 2].text != ".",
                   let lhsType = types[tokens[index - 1].text],
                   !conflicted.contains(tokens[index - 1].text),
                   ["int", "uint"].contains(lhsType) else { continue }
@@ -487,14 +509,18 @@ extension SceneGenericShaderSourceNormalizer {
                     }
                     return false
                 }()
-            // A top-level comma (multi-declarator) or a nested assignment
-            // would corrupt the span rewrite; both stay fail-closed.
+            // A top-level comma (multi-declarator), a nested assignment, or a
+            // chained compound assignment would corrupt the span rewrite
+            // (descending application rebuilds inner spans from the original
+            // source); all stay fail-closed.
             let rhsTopLevelCorrupts = {
                 var depth = 0
                 for position in rhs {
                     if tokens[position].text == "(" { depth += 1 }
                     if tokens[position].text == ")" { depth -= 1 }
-                    if depth == 0, [",", "="].contains(tokens[position].text) {
+                    if depth == 0,
+                       [",", "=", "*=", "+=", "-=", "/="]
+                           .contains(tokens[position].text) {
                         return true
                     }
                 }
@@ -502,6 +528,32 @@ extension SceneGenericShaderSourceNormalizer {
             }()
             guard rhsHasFloatAtom, !provablyInteger, !explicitConversion,
                   !rhsTopLevelCorrupts else { continue }
+            if let compoundOperator {
+                guard let lhsOffset = sourceOffset(tokens[index - 1], after: false),
+                      let lhsEndOffset = sourceOffset(tokens[index - 1], after: true) else {
+                    continue
+                }
+                let lhsLower = source.unicodeScalars.index(
+                    source.unicodeScalars.startIndex, offsetBy: lhsOffset
+                )
+                let lhsUpper = source.unicodeScalars.index(
+                    source.unicodeScalars.startIndex, offsetBy: lhsEndOffset
+                )
+                let rhsLower = source.unicodeScalars.index(
+                    source.unicodeScalars.startIndex, offsetBy: startOffset
+                )
+                let rhsUpper = source.unicodeScalars.index(
+                    source.unicodeScalars.startIndex, offsetBy: endOffset
+                )
+                let lhsText = source[lhsLower..<lhsUpper]
+                let rhsText = source[rhsLower..<rhsUpper]
+                edits.append((
+                    offset: lhsOffset,
+                    length: endOffset - lhsOffset,
+                    text: "\(lhsText) = int(\(lhsText) \(compoundOperator.prefix(1)) (\(rhsText)))"
+                ))
+                continue
+            }
             let lowerIndex = source.unicodeScalars.index(
                 source.unicodeScalars.startIndex, offsetBy: startOffset
             )
