@@ -476,15 +476,17 @@ nonisolated final class SceneTextureLoader {
             if let uploaded {
                 return uploaded
             }
-            guard container.mips.count == 1 else {
+            guard container.mips.count == 1, let image = images.first else {
                 return .decodeFailed(
                     "compiled TEX embedded mip chain could not be preserved"
                 )
             }
-            return decodeEmbeddedImagePayload(
-                firstMip.data,
+            return SceneImageTextureUploader.upload(
+                image: image,
                 purpose: purpose,
+                maxDimension: Self.maxTextureDimension,
                 mipmapGeneration: .baseLevelOnly,
+                uploadCommandQueue: uploadCommandQueue,
                 device: device
             )
         }
@@ -533,14 +535,7 @@ nonisolated final class SceneTextureLoader {
     }
 
     func embeddedImagePixelSize(_ data: Data) -> CGSize? {
-        guard SceneTexContainer.isEmbeddedImagePayload(data),
-              let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
-                as? [CFString: Any],
-              let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue,
-              let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue,
-              width > 0, height > 0 else { return nil }
-        return CGSize(width: width, height: height)
+        SceneTextureMipUploader.embeddedImagePixelSize(data)
     }
 
     private func cachedTexEmbeddedImages(
@@ -573,25 +568,6 @@ nonisolated final class SceneTextureLoader {
             by: image.height
         )
         return overflow ? Int.max : cost
-    }
-
-    private func decodeEmbeddedImagePayload(
-        _ data: Data,
-        purpose: SceneTextureLoadPurpose,
-        mipmapGeneration: SceneImageTextureUploader.MipmapGeneration,
-        device: MTLDevice
-    ) -> SceneTextureLoadOutcome {
-        guard let cgImage = SceneImageTextureUploader.decodeSourceImage(data) else {
-            return .decodeFailed("embedded image decode failed")
-        }
-        return SceneImageTextureUploader.upload(
-            image: cgImage,
-            purpose: purpose,
-            maxDimension: Self.maxTextureDimension,
-            mipmapGeneration: mipmapGeneration,
-            uploadCommandQueue: uploadCommandQueue,
-            device: device
-        )
     }
 
     private func makeDirectUploadTexture(

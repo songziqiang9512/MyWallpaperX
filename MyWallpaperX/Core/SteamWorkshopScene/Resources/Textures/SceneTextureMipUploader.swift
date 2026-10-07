@@ -190,10 +190,49 @@ nonisolated enum SceneTextureMipUploader {
         decodeEmbeddedImages(mips.map(\.data))
     }
 
+    // TEX dimensions describe display pixels. ImageIO owns JPEG metadata and
+    // its eight orientation transforms; PNG keeps the source-channel decoder.
+    private static func embeddedImageLayout(_ data: Data) -> (
+        source: CGImageSource, width: Int, height: Int, orientation: Int
+    )? {
+        guard SceneTexContainer.isEmbeddedImagePayload(data),
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
+                as? [CFString: Any],
+              let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue,
+              let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue,
+              SceneImageTextureUploader.supports2DExtent(width: width, height: height)
+        else { return nil }
+        let orientation = data.starts(with: [0xFF, 0xD8, 0xFF])
+            ? (properties[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1 : 1
+        guard (1...8).contains(orientation) else { return nil }
+        return (source, width, height, orientation)
+    }
+
+    static func embeddedImagePixelSize(_ data: Data) -> CGSize? {
+        guard let layout = embeddedImageLayout(data) else { return nil }
+        return layout.orientation >= 5
+            ? CGSize(width: layout.height, height: layout.width)
+            : CGSize(width: layout.width, height: layout.height)
+    }
+
     static func decodeEmbeddedImages(_ payloads: [Data]) -> [CGImage]? {
         let images = payloads.compactMap { data -> CGImage? in
-            guard SceneTexContainer.isEmbeddedImagePayload(data) else { return nil }
-            return SceneImageTextureUploader.decodeSourceImage(data)
+            guard let layout = embeddedImageLayout(data) else { return nil }
+            guard layout.orientation != 1 else {
+                return SceneImageTextureUploader.decodeSourceImage(data)
+            }
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: max(layout.width, layout.height),
+            ]
+            guard let image = CGImageSourceCreateThumbnailAtIndex(
+                layout.source, 0, options as CFDictionary
+            ), image.width == (layout.orientation >= 5 ? layout.height : layout.width),
+               image.height == (layout.orientation >= 5 ? layout.width : layout.height)
+            else { return nil }
+            return image
         }
         return images.count == payloads.count ? images : nil
     }
