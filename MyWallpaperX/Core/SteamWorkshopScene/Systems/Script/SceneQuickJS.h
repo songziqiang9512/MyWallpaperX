@@ -9,6 +9,30 @@ typedef struct MWXSceneQuickJSDomain MWXSceneQuickJSDomain;
 typedef struct MWXSceneQuickJSOwner MWXSceneQuickJSOwner;
 typedef struct MWXSceneQuickJSTimerFrameSnapshot
     MWXSceneQuickJSTimerFrameSnapshot;
+
+typedef struct MWXSceneQuickJSPuppetAnimationSnapshot {
+    int64_t layer_id;
+    uint32_t animation_layer_index;
+    int64_t animation_layer_id;
+    uint32_t has_animation_layer_id;
+    int64_t animation_id;
+    const char *name;
+    double fps, frame_count, duration, current_frame, rate, blend;
+    uint32_t is_playing, visible, supports_ended_callbacks, ended_failure;
+    uint64_t ended_sequence;
+} MWXSceneQuickJSPuppetAnimationSnapshot;
+
+typedef struct MWXSceneQuickJSPuppetAnimationCommand {
+    int64_t layer_id;
+    uint32_t animation_layer_index;
+    int64_t animation_layer_id;
+    uint32_t has_animation_layer_id;
+    uint32_t action; // play/pause/stop/frame/rate/blend/visible = 0...6
+    double value;
+    uint64_t callback_epoch;
+    uint32_t ordinal;
+} MWXSceneQuickJSPuppetAnimationCommand;
+
 typedef int (*MWXSceneQuickJSCancellationCheck)(void *opaque);
 typedef enum MWXSceneQuickJSStorageReadResult {
     MWX_SCENE_QUICKJS_STORAGE_READ_ERROR = -1,
@@ -43,6 +67,24 @@ typedef enum MWXSceneQuickJSResult {
     MWX_SCENE_QUICKJS_STALE_OWNER = 8,
     MWX_SCENE_QUICKJS_MUTATION_OVERFLOW = 9
 } MWXSceneQuickJSResult;
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_animation(
+    MWXSceneQuickJSOwner *owner, int64_t layer_id, uint32_t authored_index,
+    int64_t animation_layer_id, uint32_t has_animation_layer_id,
+    char *diagnostic, size_t diagnostic_capacity);
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_publish_puppet_animations(
+    MWXSceneQuickJSDomain *domain,
+    const MWXSceneQuickJSPuppetAnimationSnapshot *snapshots, size_t count,
+    char *diagnostic, size_t diagnostic_capacity);
+size_t mwx_scene_quickjs_owner_puppet_animation_registration_count(const MWXSceneQuickJSOwner *owner);
+size_t mwx_scene_quickjs_domain_puppet_animation_owner_count(const MWXSceneQuickJSDomain *domain);
+size_t mwx_scene_quickjs_owner_puppet_animation_command_count(const MWXSceneQuickJSOwner *owner);
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_puppet_animation_command_at(
+    const MWXSceneQuickJSOwner *owner, size_t index,
+    MWXSceneQuickJSPuppetAnimationCommand *command,
+    char *diagnostic, size_t diagnostic_capacity);
+bool mwx_scene_quickjs_owner_has_pending_puppet_animation_end(const MWXSceneQuickJSOwner *owner);
+
 
 typedef struct MWXSceneQuickJSMaterialFunctionMutation {
     uint32_t effect_index;

@@ -8,18 +8,21 @@ final class ScenePuppetPlaybackState {
         let fractionBits: UInt32
         let visible: Bool
         let boneRevision: UInt64
+        let blend: Double
 
         init(
             sample: ScenePuppetAnimationEvaluator.FrameSample?,
             visible: Bool,
             timeInvariant: Bool = false,
-            boneRevision: UInt64 = 0
+            boneRevision: UInt64 = 0,
+            blend: Double = 1
         ) {
             frameA = timeInvariant ? 0 : (sample?.frameA ?? 0)
             frameB = timeInvariant ? 0 : (sample?.frameB ?? 0)
             fractionBits = timeInvariant ? 0 : (sample?.fraction.bitPattern ?? 0)
             self.visible = visible
             self.boneRevision = boneRevision
+            self.blend = blend
         }
     }
 
@@ -183,7 +186,8 @@ final class ScenePuppetPlaybackState {
                 timeInvariant: evaluator.isTimeInvariant(
                     animationID: clip.animation.id
                 ),
-                boneRevision: boneRevision
+                boneRevision: boneRevision,
+                blend: animationFrame.blends?[index] ?? clip.layer.blend ?? 1
             )
         }
         let signature = signatureScratch
@@ -203,7 +207,8 @@ final class ScenePuppetPlaybackState {
                 localMatricesScratch: &localMatrixScratch,
                 skinMatricesScratch: &skinMatrixScratch,
                 worldMatricesScratch: &worldMatrixScratch,
-                boneOverrides: scriptBoneOverrides
+                boneOverrides: scriptBoneOverrides,
+                blends: animationFrame.blends
             )) != nil
         }
         guard evaluated else { return preparedAttachmentFrames }
@@ -211,6 +216,7 @@ final class ScenePuppetPlaybackState {
             do {
                 try evaluator.writeVertexCoverages(
                     selection: selection, frameSamples: frameSamples,
+                    blends: animationFrame.blends,
                     into: &coverageScratch, boneScratch: &boneAlphaScratch
                 )
             } catch { return preparedAttachmentFrames }
@@ -377,7 +383,8 @@ final class ScenePuppetPlaybackState {
         guard let transforms = try? evaluator.boneTransforms(
             selection: selection,
             frameSamples: animationFrame.samples,
-            boneOverrides: scriptBoneOverrides
+            boneOverrides: scriptBoneOverrides,
+            blends: animationFrame.blends
         ) else { return nil }
         func flatten(_ matrix: simd_float4x4) -> [Double] {
             [matrix.columns.0, matrix.columns.1, matrix.columns.2, matrix.columns.3]
@@ -407,7 +414,7 @@ final class ScenePuppetPlaybackState {
 #endif
         guard evaluator.rig.bones.contains(where: { $0.translationPhysics != nil }) else { return }
         guard let base = try? evaluator.boneTransforms(selection: selection,
-            frameSamples: animationFrame.samples)
+            frameSamples: animationFrame.samples, blends: animationFrame.blends)
         else { return }
         for (index, bone) in evaluator.rig.bones.enumerated() {
             guard let configuration = bone.translationPhysics else { continue }

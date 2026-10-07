@@ -1615,6 +1615,7 @@ void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
     mwx_scene_quickjs_owner_clear_authored_layer_mutation_baselines(owner);
     mwx_scene_quickjs_destroy_job_host(owner);
     mwx_scene_quickjs_destroy_timer_host(owner);
+    mwx_scene_quickjs_destroy_puppet_animation_host(owner);
     if (owner->domain != NULL && owner->domain->context != NULL) {
         JS_FreeValue(owner->domain->context, owner->module);
     }
@@ -1640,6 +1641,7 @@ static bool prepare_initialization_timers(MWXSceneQuickJSOwner *owner) {
 static void prepare_effect_visibility_output(
     MWXSceneQuickJSOwner *owner, double *output
 ) {
+    mwx_scene_quickjs_prepare_puppet_animation_visibility(owner, output);
     if (!owner->effect_visibility_configured) return;
     if (owner->effect_visibility_staged) {
         *output = owner->effect_visibility_staged_visible ? 1 : 0;
@@ -1942,6 +1944,14 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
             return result;
         }
         input = *output;
+    }
+    MWXSceneQuickJSResult puppet_ended_result = mwx_scene_quickjs_dispatch_puppet_animation_end(
+        owner, frame, script_properties_json, script_properties_length,
+        user_properties_json, user_properties_length, diagnostic, diagnostic_capacity);
+    if (puppet_ended_result != MWX_SCENE_QUICKJS_OK) {
+        mwx_scene_quickjs_owner_discard_layer_mutations(owner);
+        if (failure_permanently_disables(puppet_ended_result)) owner->disabled = true;
+        return puppet_ended_result;
     }
     JSValue update = JS_UNDEFINED;
     if (!get_function(owner, "update", &update, diagnostic, diagnostic_capacity)) {

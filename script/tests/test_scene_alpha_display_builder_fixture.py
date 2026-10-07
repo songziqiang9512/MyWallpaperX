@@ -101,6 +101,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Script/SceneScriptScalarDisplayProjection.swift",
     SOURCE_ROOT / "Systems/Script/SceneScriptPropertyInput.swift",
     SOURCE_ROOT / "Systems/Script/SceneScriptVectorCandidateModels.swift",
+    SOURCE_ROOT / "Systems/Puppet/ScenePuppetAnimationControl.swift",
     SOURCE_ROOT / "Systems/Script/SceneScriptParticleProjection.swift",
     SOURCE_ROOT / "Systems/Script/SceneScriptLayerTopologyProjection.swift",
     SOURCE_ROOT / "Systems/Timeline/SceneTimelineTargetCompiler.swift",
@@ -352,6 +353,8 @@ struct SceneScriptOwnerEffects: Equatable, Sendable {
     var videoCommands: [SceneScriptVideoCommand] = []
     var textureAnimationCommands: [SceneTextureAnimationCommand] = []
     var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
+    var puppetAnimationCommands: [ScenePuppetAnimationCommand] = []
+    var puppetAnimationCallbackRegistrations = 0
 }
 
 struct SceneScriptMediaEventMutations: Equatable, Sendable {
@@ -362,6 +365,8 @@ struct SceneScriptMediaEventMutations: Equatable, Sendable {
     var videoCommands: [SceneScriptVideoCommand] = []
     var textureAnimationCommands: [SceneTextureAnimationCommand] = []
     var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
+    var puppetAnimationCommands: [ScenePuppetAnimationCommand] = []
+    var puppetAnimationCallbackRegistrations = 0
 }
 
 enum SceneBaseMaterialColorModulationCompiler {

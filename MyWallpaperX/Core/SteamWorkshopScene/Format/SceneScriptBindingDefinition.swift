@@ -174,6 +174,7 @@ nonisolated struct SceneScriptBindingOwner: Codable, Equatable, Sendable {
         case scene
         case object
         case effect
+        case animationLayer
         case pass
     }
 
@@ -184,6 +185,8 @@ nonisolated struct SceneScriptBindingOwner: Codable, Equatable, Sendable {
     let effectID: Int?
     let passIndex: Int?
     let passID: Int?
+    var animationLayerIndex: Int? = nil
+    var animationLayerID: Int? = nil
 }
 
 nonisolated enum SceneScriptBindingPathComponent: Codable, Equatable, Sendable {
@@ -240,7 +243,7 @@ nonisolated struct SceneScriptBindingParseResult: Equatable, Sendable {
 nonisolated enum SceneScriptBindingIRParser {
     /// 只遍历正式静态取证已确认的 owner/target 形态：
     /// scene `general.*`、object 顶层 property、已确认的
-    /// `instanceoverride` 标量、effect `visible` 与 pass constants。
+    /// `instanceoverride` 标量、动画层/effect `visible` 与 pass constants。
     /// 其他 nested wrapper 不会因递归 presence 被误挂到 object owner。
     nonisolated static func parse(
         document root: [String: Any]
@@ -304,6 +307,22 @@ nonisolated enum SceneScriptBindingIRParser {
                         diagnostics: &diagnostics
                     )
                 }
+            }
+
+            for (animationIndex, animation) in (
+                object["animationlayers"] as? [[String: Any]] ?? []
+            ).enumerated() {
+                let owner = SceneScriptBindingOwner(
+                    kind: .animationLayer, objectIndex: objectIndex,
+                    objectID: object["id"] as? Int, effectIndex: nil,
+                    effectID: nil, passIndex: nil, passID: nil,
+                    animationLayerIndex: animationIndex,
+                    animationLayerID: animation["id"] as? Int
+                )
+                append(animation["visible"], owner: owner,
+                    path: [.key("objects"), .index(objectIndex),
+                        .key("animationlayers"), .index(animationIndex), .key("visible")],
+                    bindings: &bindings, diagnostics: &diagnostics)
             }
 
             let effects = object["effects"] as? [[String: Any]] ?? []

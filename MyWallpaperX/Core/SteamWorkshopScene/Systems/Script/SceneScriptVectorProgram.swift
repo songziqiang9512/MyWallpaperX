@@ -240,6 +240,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                       valueType: candidate.definition.valueType,
                       effectNames: layer.effects.map(\.name),
                       hasCurrentAnimation: candidate.hasCurrentAnimation,
+                      puppetAnimationIdentity: candidate.puppetAnimationIdentity,
                       dynamicImagePathsByAuthoredIdentity: Dictionary(
                         uniqueKeysWithValues: candidate.dynamicImageReferences.map {
                             ($0.authoredPath.lowercased(), $0.modelPath)
@@ -321,6 +322,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         var animationMutations: [SceneTimelinePlaybackMutation] = []
         var layerMutations: [SceneScriptLayerMutation] = []
         var puppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
+        var puppetAnimationCommands: [ScenePuppetAnimationCommand] = []
         var videoCommands: [SceneScriptVideoCommand] = []
         var videoCommandTargets: Set<SceneDynamicTarget> = []
         var ownerEffects: [SceneScriptOwnerEffects] = []
@@ -420,6 +422,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             var callbackTextureAnimationCommands:
                 [SceneTextureAnimationCommand] = []
             var callbackPuppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
+            var callbackPuppetAnimationCommands: [ScenePuppetAnimationCommand] = []
+            var callbackPuppetAnimationCallbackRegistrations = 0
             var playbackMutationCount = 0
             var propertiesLayerMutationCount = 0
             var thumbnailMutationCount = 0
@@ -454,6 +458,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                             contentsOf: initialization.textureAnimationCommands
                         )
                         callbackParticlePlaybackCommands.append(contentsOf: initialization.particlePlaybackCommands)
+                        callbackPuppetAnimationCommands.append(contentsOf: initialization.puppetAnimationCommands)
+                        callbackPuppetAnimationCallbackRegistrations += initialization.puppetAnimationCallbackRegistrations
                     }
                 case let .failure(failure):
                     failures[target] = failure
@@ -487,6 +493,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         contentsOf: eventMutations.textureAnimationCommands
                     )
                     callbackParticlePlaybackCommands.append(contentsOf: eventMutations.particlePlaybackCommands)
+                    callbackPuppetAnimationCommands.append(contentsOf: eventMutations.puppetAnimationCommands)
+                    callbackPuppetAnimationCallbackRegistrations += eventMutations.puppetAnimationCallbackRegistrations
                 case let .failure(failure):
                     failures[target] = failure
                     if failure.permanentlyDisablesOwner {
@@ -530,6 +538,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         contentsOf: eventMutations.textureAnimationCommands
                     )
                     callbackParticlePlaybackCommands.append(contentsOf: eventMutations.particlePlaybackCommands)
+                    callbackPuppetAnimationCommands.append(contentsOf: eventMutations.puppetAnimationCommands)
+                    callbackPuppetAnimationCallbackRegistrations += eventMutations.puppetAnimationCallbackRegistrations
                 case let .failure(failure):
                     failures[target] = failure
                     if failure.permanentlyDisablesOwner {
@@ -562,6 +572,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         contentsOf: eventMutations.textureAnimationCommands
                     )
                     callbackParticlePlaybackCommands.append(contentsOf: eventMutations.particlePlaybackCommands)
+                    callbackPuppetAnimationCommands.append(contentsOf: eventMutations.puppetAnimationCommands)
+                    callbackPuppetAnimationCallbackRegistrations += eventMutations.puppetAnimationCallbackRegistrations
                 case let .failure(failure):
                     failures[target] = failure
                     if failure.permanentlyDisablesOwner {
@@ -595,6 +607,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         contentsOf: eventMutations.textureAnimationCommands
                     )
                     callbackParticlePlaybackCommands.append(contentsOf: eventMutations.particlePlaybackCommands)
+                    callbackPuppetAnimationCommands.append(contentsOf: eventMutations.puppetAnimationCommands)
+                    callbackPuppetAnimationCallbackRegistrations += eventMutations.puppetAnimationCallbackRegistrations
                 case let .failure(failure):
                     failures[target] = failure
                     if failure.permanentlyDisablesOwner {
@@ -626,6 +640,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         contentsOf: eventMutations.textureAnimationCommands
                     )
                     callbackParticlePlaybackCommands.append(contentsOf: eventMutations.particlePlaybackCommands)
+                    callbackPuppetAnimationCommands.append(contentsOf: eventMutations.puppetAnimationCommands)
+                    callbackPuppetAnimationCallbackRegistrations += eventMutations.puppetAnimationCallbackRegistrations
                 case let .failure(failure):
                     failures[target] = failure
                     if failure.permanentlyDisablesOwner {
@@ -712,6 +728,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     contentsOf: evaluation.textureAnimationCommands
                 )
                 callbackParticlePlaybackCommands.append(contentsOf: evaluation.particlePlaybackCommands)
+                callbackPuppetAnimationCommands.append(contentsOf: evaluation.puppetAnimationCommands)
+                callbackPuppetAnimationCallbackRegistrations += evaluation.puppetAnimationCallbackRegistrations
                 let effects = SceneScriptOwnerEffects(
                     ownerTarget: target,
                     materialFunctionMutations: callbackMaterialMutations,
@@ -721,7 +739,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     textureAnimationCommands:
                         callbackTextureAnimationCommands,
                     puppetBoneMutations: callbackPuppetBoneMutations,
-                    particlePlaybackCommands: callbackParticlePlaybackCommands
+                    particlePlaybackCommands: callbackParticlePlaybackCommands,
+                    puppetAnimationCommands: callbackPuppetAnimationCommands,
+                    puppetAnimationCallbackRegistrations: callbackPuppetAnimationCallbackRegistrations
                 )
                 if !effects.isEmpty { ownerEffects.append(effects) }
                 values[target] = value
@@ -731,6 +751,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 animationMutations.append(contentsOf: callbackAnimationMutations)
                 layerMutations.append(contentsOf: callbackLayerMutations)
                 puppetBoneMutations.append(contentsOf: callbackPuppetBoneMutations)
+                puppetAnimationCommands.append(contentsOf: callbackPuppetAnimationCommands)
                 videoCommands.append(contentsOf: callbackVideoCommands)
                 if !callbackVideoCommands.isEmpty {
                     videoCommandTargets.insert(target)
@@ -825,7 +846,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             videoCommands: videoCommands,
             videoCommandTargets: videoCommandTargets,
             ownerEffects: ownerEffects,
-            puppetBoneMutations: puppetBoneMutations
+            puppetBoneMutations: puppetBoneMutations,
+            puppetAnimationCommands: puppetAnimationCommands
         )
     }
 

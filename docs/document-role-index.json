@@ -483,7 +483,7 @@
       "lastReviewed": "2026-10-07",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e349965c43a875c4aa883e40a6b4b86d6a93caadec6e024f8187f05f3f1186f3",
+        "sourceSHA256": "d0a62181ac27136a4e5eec48e4ff92ba08f2b87eeca3485f379eb7bff896bf13",
         "method": "document_registry --audit + document_health --check",
         "scope": "Puppet共享播放位置与隐藏恢复记录的导航核对，脚本seek和样本完整画面仍开放。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
@@ -1096,6 +1096,17 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/capabilities/particle-component-coverage.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/puppet-animation-control-2026-10-07.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/advanced-object-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/batch2/script-component-api-design.md"
       ]
     },
     {

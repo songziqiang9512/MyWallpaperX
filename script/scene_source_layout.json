@@ -747,6 +747,7 @@
       },
       "Puppet": {
         "file_globs": [
+          "ScenePuppetAnimationControl.swift",
           "ScenePuppetAnimationEvaluator+FrameSampling.swift",
           "ScenePuppetAnimationEvaluator+Transforms.swift",
           "ScenePuppetAnimationEvaluator.swift",
@@ -767,6 +768,7 @@
         "file_globs": [
           "ScenePuppetBoneTransformBridge.swift",
           "SceneScriptAnimationHandleBridge.swift",
+          "SceneScriptPuppetAnimationBridge.swift",
           "SceneScriptAudioHost.swift",
           "SceneScriptBooleanVisibilityValidation.swift",
           "SceneScriptCursorHitAdmission.swift",

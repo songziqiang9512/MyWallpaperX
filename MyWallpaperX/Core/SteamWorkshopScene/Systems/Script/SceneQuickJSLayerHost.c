@@ -3143,6 +3143,7 @@ void mwx_scene_quickjs_owner_discard_layer_mutations(
     if (owner == NULL || owner->domain == NULL) return;
     if (owner->domain->particle_boundary != NULL)
         owner->domain->particle_boundary(owner->domain->particle_emission_opaque, owner, 1);
+    mwx_scene_quickjs_puppet_animation_finish_transaction(owner, false);
     owner->initialization_pending = false;
     if (owner->initialization_timers != NULL) {
         mwx_scene_quickjs_owner_timer_restore(owner, owner->initialization_timers);
@@ -3168,6 +3169,7 @@ void mwx_scene_quickjs_owner_commit_layer_mutations(
     MWXSceneQuickJSOwner *owner
 ) {
     if (owner == NULL || owner->domain == NULL) return;
+    mwx_scene_quickjs_puppet_animation_finish_transaction(owner, true);
     if (owner->initialization_pending) owner->initialized = true;
     owner->initialization_pending = false;
     if (owner->initialization_timers != NULL) {
@@ -3190,6 +3192,9 @@ void mwx_scene_quickjs_owner_commit_layer_mutations(
 
 void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner) {
     if (owner == NULL || owner->domain == NULL) return;
+    owner->puppet_animation_command_count = 0;
+    owner->puppet_animation_registration_count = 0;
+    owner->puppet_animation_command_overflow = false;
     ensure_dynamic_layer_transaction(owner);
     clear_layer_mutation_buffers(owner);
     owner->particle_playback_command_count = 0;

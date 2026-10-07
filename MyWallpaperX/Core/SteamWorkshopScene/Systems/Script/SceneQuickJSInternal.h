@@ -8,6 +8,8 @@
 
 #define MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_MUTATIONS 16
 #define MWX_SCENE_QUICKJS_MAX_ANIMATION_COMMANDS 16
+#define MWX_SCENE_QUICKJS_MAX_PUPPET_ANIMATION_COMMANDS 64
+#define MWX_SCENE_QUICKJS_MAX_PUPPET_ANIMATION_CALLBACKS 16
 #define MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_NAME 128
 #define MWX_SCENE_QUICKJS_MAX_EFFECTS 1024
 #define MWX_SCENE_QUICKJS_MAX_EFFECT_NAME 256
@@ -198,6 +200,11 @@ struct MWXSceneQuickJSTimerFrameSnapshot {
     double timer_runtime;
     bool timer_runtime_initialized;
     MWXSceneQuickJSTimerRecord timers[MWX_SCENE_QUICKJS_MAX_TIMERS];
+    JSValue puppet_animation_callbacks[MWX_SCENE_QUICKJS_MAX_PUPPET_ANIMATION_CALLBACKS];
+    size_t puppet_animation_callback_count;
+    uint64_t puppet_animation_delivered_sequence;
+    MWXSceneQuickJSPuppetAnimationSnapshot puppet_animation_overlay;
+    bool puppet_animation_visibility_staged;
 };
 
 typedef struct MWXSceneQuickJSRejectionRecord {
@@ -298,6 +305,7 @@ struct MWXSceneQuickJSDomain {
     uint64_t pending_layer_snapshot_generation;
     MWXSceneQuickJSStagedLayerSnapshot *rollback_layer_snapshot;
     uint64_t rollback_layer_snapshot_generation;
+    MWXSceneQuickJSOwner *puppet_animation_owners;
     uint64_t next_owner_identity;
     uint64_t callback_epoch;
     bool callback_active;
@@ -346,6 +354,18 @@ struct MWXSceneQuickJSOwner {
     bool texture_animation_command_overflow;
     size_t video_ended_callback_count;
     bool current_animation_available;
+    bool puppet_animation_configured, puppet_animation_available;
+    bool puppet_animation_command_overflow, puppet_animation_visibility_staged;
+    MWXSceneQuickJSOwner *puppet_animation_next;
+    char *puppet_animation_name;
+    MWXSceneQuickJSPuppetAnimationSnapshot puppet_animation_committed;
+    MWXSceneQuickJSPuppetAnimationSnapshot puppet_animation_overlay;
+    size_t puppet_animation_command_count, puppet_animation_callback_count;
+    size_t puppet_animation_registration_count;
+    uint64_t puppet_animation_delivered_sequence;
+    MWXSceneQuickJSPuppetAnimationCommand puppet_animation_commands[MWX_SCENE_QUICKJS_MAX_PUPPET_ANIMATION_COMMANDS];
+    JSValue puppet_animation_callbacks[MWX_SCENE_QUICKJS_MAX_PUPPET_ANIMATION_CALLBACKS];
+    MWXSceneQuickJSTimerFrameSnapshot *puppet_animation_baseline;
     uint32_t target_layer_index;
     bool target_layer_configured;
     /// Set for owners whose property is an effect's visibility. The object
@@ -583,5 +603,16 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mut
 MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_authored_mutation_for_layer(MWXSceneQuickJSOwner *, uint32_t);
 MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_authored_mutation_baseline_for_layer(MWXSceneQuickJSOwner *, uint32_t);
 bool mwx_scene_quickjs_define_layer_effect_access(MWXSceneQuickJSOwner *, JSValue, uint32_t);
+
+JSValue mwx_scene_quickjs_puppet_animation_handle(MWXSceneQuickJSOwner *owner);
+void mwx_scene_quickjs_puppet_animation_finish_transaction(MWXSceneQuickJSOwner *owner, bool commit);
+void mwx_scene_quickjs_destroy_puppet_animation_host(MWXSceneQuickJSOwner *owner);
+void mwx_scene_quickjs_prepare_puppet_animation_visibility(MWXSceneQuickJSOwner *owner, double *output);
+MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_puppet_animation_end(
+    MWXSceneQuickJSOwner *owner, const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json, size_t script_properties_length,
+    const char *user_properties_json, size_t user_properties_length,
+    char *diagnostic, size_t diagnostic_capacity);
+bool mwx_scene_quickjs_assign_script_properties(MWXSceneQuickJSOwner *owner, const char *json, size_t length);
 
 #endif

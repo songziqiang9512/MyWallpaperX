@@ -289,6 +289,9 @@ nonisolated extension SceneScriptVectorProgram {
         namedTextureDependencyLayerIDs: Set<Int>,
         preparedDescriptor: SceneRenderDescriptor? = nil
     ) -> SceneScriptVectorCandidate? {
+        if let candidate = puppetAnimationVisibilityProjection(
+            binding, authoredOrdinal: authoredOrdinal, descriptor: descriptor
+        ) { return candidate }
         if let candidate = visibilityProjection(
             binding,
             authoredOrdinal: authoredOrdinal,
@@ -572,6 +575,51 @@ nonisolated extension SceneScriptVectorProgram {
             evaluatesAfterSharedProviders: false,
             dynamicMaterialModelPath: nil,
             effectVisibilityGetterSeed: authored
+        )
+    }
+
+    /// A nested animation owner must never inherit the parent image's visible
+    /// target or layer property object. Both ordinal and ID bind its metadata.
+    private static func puppetAnimationVisibilityProjection(
+        _ binding: SceneScriptBindingIR,
+        authoredOrdinal: Int,
+        descriptor: SceneRenderDescriptor
+    ) -> SceneScriptVectorCandidate? {
+        guard binding.owner.kind == .animationLayer,
+              binding.targetKey == "visible", binding.valueType == .boolean,
+              let authored = binding.authoredValue?.boolValue,
+              let objectIndex = binding.owner.objectIndex,
+              let layerID = binding.owner.objectID,
+              let animationIndex = binding.owner.animationLayerIndex,
+              let animationID = binding.owner.animationLayerID,
+              binding.targetPath == [.key("objects"), .index(objectIndex),
+                  .key("animationlayers"), .index(animationIndex), .key("visible")],
+              descriptor.layers.indices.contains(objectIndex),
+              binding.userPropertyKey == nil,
+              let keys = binding.wrapperKeys,
+              Set(keys).isSubset(of: ["script", "scriptproperties", "value"]),
+              let properties = SceneScriptPropertyInputCodec.inputs(binding.properties)
+        else { return nil }
+        let layer = descriptor.layers[objectIndex]
+        guard layer.id == layerID, layer.layerIndex == objectIndex,
+              layer.puppetAnimationLayers.indices.contains(animationIndex),
+              layer.puppetAnimationLayers[animationIndex].id == animationID,
+              layer.puppetAnimationLayers[animationIndex].visible == authored,
+              layer.puppetAnimationLayers.filter({ $0.id == animationID }).count == 1
+        else { return nil }
+        return .init(
+            authoredOrdinal: authoredOrdinal, source: binding.source,
+            definition: .init(target: ScenePuppetAnimationPropertyTarget.visibility(
+                layerID: layerID, animationLayerID: animationID),
+                valueType: .bool, authoredValue: .bool(authored)),
+            properties: properties,
+            livePropertyInputTargets: SceneScriptPropertyInputCodec.liveConsumerTargets(
+                binding: binding, inputs: properties),
+            hasCurrentAnimation: false, dynamicImageReferences: [],
+            requiresStatefulOwner: true, evaluatesAfterSharedProviders: false,
+            dynamicMaterialModelPath: nil,
+            puppetAnimationIdentity: .init(layerID: layerID,
+                animationLayerIndex: animationIndex, animationLayerID: animationID)
         )
     }
 

@@ -296,6 +296,12 @@ MWXSceneQuickJSTimerFrameSnapshot *mwx_scene_quickjs_owner_timer_snapshot(
             snapshot->timers[index].callback = JS_UNDEFINED;
         }
     }
+    snapshot->puppet_animation_callback_count = owner->puppet_animation_callback_count;
+    snapshot->puppet_animation_delivered_sequence = owner->puppet_animation_delivered_sequence;
+    snapshot->puppet_animation_overlay = owner->puppet_animation_overlay;
+    snapshot->puppet_animation_visibility_staged = owner->puppet_animation_visibility_staged;
+    for (size_t i = 0; i < owner->puppet_animation_callback_count; i++)
+        snapshot->puppet_animation_callbacks[i] = JS_DupValue(owner->domain->context, owner->puppet_animation_callbacks[i]);
     return snapshot;
 }
 
@@ -316,6 +322,17 @@ bool mwx_scene_quickjs_owner_timer_restore(
             owner->timers[index].callback = JS_UNDEFINED;
         }
     }
+    for (size_t i = 0; i < owner->puppet_animation_callback_count; i++)
+        JS_FreeValue(owner->domain->context, owner->puppet_animation_callbacks[i]);
+    owner->puppet_animation_callback_count = snapshot->puppet_animation_callback_count;
+    for (size_t i = 0; i < snapshot->puppet_animation_callback_count; i++)
+        owner->puppet_animation_callbacks[i] = JS_DupValue(owner->domain->context, snapshot->puppet_animation_callbacks[i]);
+    // Natural-end input belongs to the consumed cadence. Roots, controls and
+    // scheduled work roll back, but an already invoked event never replays.
+    if (owner->puppet_animation_delivered_sequence < snapshot->puppet_animation_delivered_sequence)
+        owner->puppet_animation_delivered_sequence = snapshot->puppet_animation_delivered_sequence;
+    owner->puppet_animation_overlay = snapshot->puppet_animation_overlay;
+    owner->puppet_animation_visibility_staged = snapshot->puppet_animation_visibility_staged;
     // Restore scheduled work, but retain the owner's lifetime issuance counter:
     // closures from discarded work must not cancel a subsequently issued timer.
     owner->timer_runtime = snapshot->timer_runtime;
@@ -329,6 +346,8 @@ void mwx_scene_quickjs_owner_timer_snapshot_destroy(
 ) {
     if (snapshot == NULL) return;
     if (owner != NULL && owner->domain != NULL && owner->domain->context != NULL) {
+        for (size_t i = 0; i < snapshot->puppet_animation_callback_count; i++)
+            JS_FreeValue(owner->domain->context, snapshot->puppet_animation_callbacks[i]);
         for (size_t index = 0; index < MWX_SCENE_QUICKJS_MAX_TIMERS; ++index) {
             if (snapshot->timers[index].active) {
                 JS_FreeValue(

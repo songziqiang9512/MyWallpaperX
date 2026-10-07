@@ -21,6 +21,9 @@ REMOVED_SUPPRESSION_SOURCE = (
 SOURCES = [
     SCENE / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
     SCENE / "Format/SceneJSONValue.swift",
+    SCENE / "Format/ScenePuppetAnimationLayer.swift",
+    SCENE / "Systems/Puppet/ScenePuppetAnimationControl.swift",
+    SCENE / "Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
@@ -65,6 +68,8 @@ nonisolated struct SceneScriptOwnerEffects {
     var textureAnimationCommands: [SceneTextureAnimationCommand] = []
     var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
     var puppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
+    var puppetAnimationCommands: [ScenePuppetAnimationCommand] = []
+    var puppetAnimationCallbackRegistrations = 0
 }
 nonisolated struct SceneScriptMediaEventMutations {
     let materialFunctions: [SceneScriptMaterialFunctionMutation]
@@ -73,6 +78,8 @@ nonisolated struct SceneScriptMediaEventMutations {
     let videoCommands: [SceneScriptVideoCommand]
     let particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
     let textureAnimationCommands: [SceneTextureAnimationCommand]
+    let puppetAnimationCommands: [ScenePuppetAnimationCommand] = []
+    let puppetAnimationCallbackRegistrations = 0
     let puppetBones: [SceneScriptPuppetBoneMutation]
 }
 
@@ -89,6 +96,7 @@ nonisolated enum SceneDynamicTextField: Hashable, Sendable {
 nonisolated enum SceneDynamicTarget: Hashable, Sendable {
     case layer(layerID: Int, field: SceneDynamicLayerField)
     case particle(layerID: Int, field: SceneDynamicParticleField)
+    case scriptInstanceProperty(layerID: Int, path: [String])
     case text(layerID: Int, field: SceneDynamicTextField)
     case effectVisibility(layerID: Int, effectIndex: Int)
     case materialConstant(layerID: Int, passIndex: Int, name: String, materialPath: String)
@@ -111,7 +119,7 @@ nonisolated enum SceneScriptBindingPathComponent: Equatable, Sendable {
 }
 
 nonisolated struct SceneScriptBindingOwner: Sendable {
-    enum Kind: Sendable { case object, effect, pass }
+    enum Kind: Sendable { case object, animationLayer, effect, pass }
     let kind: Kind
     let objectIndex: Int?
     let objectID: Int?
@@ -119,6 +127,8 @@ nonisolated struct SceneScriptBindingOwner: Sendable {
     let effectID: Int?
     let passIndex: Int?
     let passID: Int?
+    var animationLayerIndex: Int? = nil
+    var animationLayerID: Int? = nil
 }
 
 nonisolated struct SceneScriptBindingIR: Sendable {
@@ -301,6 +311,7 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         var utilityLayer: SceneUtilityLayer? = nil
         var text: String? = nil
         var textStyle: TextStyle? = nil
+        var puppetAnimationLayers: [ScenePuppetAnimationLayer] = []
 
         var supportsDirectLayerColorConsumer: Bool {
             contentKind == "solid"

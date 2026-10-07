@@ -38,6 +38,10 @@ SWIFT_SOURCES = [
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLocalStorage.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptOwnerLifecycleBridge.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptAnimationHandleBridge.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptPuppetAnimationBridge.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationControl.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePuppetAnimationLayer.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptAudioHost.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptEffectHandleBridge.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptFallbackCatalog.swift",
@@ -351,6 +355,7 @@ struct SceneRenderDescriptor {
         var parallaxDepthXY: [Float]? = nil
         var attachmentName: String? = nil
         var parentAttachmentBindFrame: [Float]? = nil
+        var puppetAnimationLayers: [ScenePuppetAnimationLayer] = []
     }
 
     var layers: [Layer]

@@ -1,11 +1,12 @@
 import Foundation
 
 nonisolated struct SceneScriptOwnerEffectsRuntimeFailure: Sendable {
-    enum Subsystem: Sendable {
-        case animation
-        case video
-        case textureAnimation
-        case puppetBone
+    enum Subsystem: String, Sendable {
+        case animation = "animationCommands"
+        case video = "videoCommands"
+        case textureAnimation = "textureAnimationCommands"
+        case puppetBone = "puppetBoneMutations"
+        case puppetAnimation = "puppetAnimationCommands"
     }
 
     let ownerTarget: SceneDynamicTarget
@@ -23,9 +24,41 @@ nonisolated enum SceneScriptOwnerEffectsRuntimeValidation {
         timelineRuntime: SceneTimelinePlaybackRuntime,
         textureAnimationRuntime: SceneTextureAnimationPlaybackRuntime,
         videoRegistry: SceneVideoTextureSourceRegistry?,
-        timing: SceneFrameTiming
+        timing: SceneFrameTiming,
+        puppetAnimationRuntime: ScenePuppetAnimationPlaybackRuntime? = nil
     ) -> [SceneScriptOwnerEffectsRuntimeFailure] {
         var failures: [SceneScriptOwnerEffectsRuntimeFailure] = []
+        let puppetOwners = effects.filter {
+            !$0.puppetAnimationCommands.isEmpty || $0.puppetAnimationCallbackRegistrations != 0
+        }
+        let puppetCommandCount = puppetOwners.reduce(0) {
+            $0 + $1.puppetAnimationCommands.count + $1.puppetAnimationCallbackRegistrations
+        }
+        for owner in puppetOwners {
+            let reason: String?
+            if owner.puppetAnimationCallbackRegistrations < 0 {
+                reason = "invalid Puppet animation callback registration count"
+            } else if !owner.puppetAnimationCommands.allSatisfy({ command in
+                guard let id = command.identity.animationLayerID else { return false }
+                return owner.ownerTarget == ScenePuppetAnimationPropertyTarget.visibility(
+                    layerID: command.identity.layerID, animationLayerID: id)
+            }) {
+                reason = "Puppet animation command does not belong to its nested owner"
+            } else if puppetCommandCount > 64 {
+                reason = "frame Puppet animation command budget exceeded"
+            } else if let puppetAnimationRuntime {
+                switch puppetAnimationRuntime.validate(owner.puppetAnimationCommands,
+                    frameIndex: timing.frameIndex) {
+                case .success: reason = nil
+                case let .failure(failure): reason = String(describing: failure)
+                }
+            } else { reason = "Puppet animation runtime unavailable" }
+            if let reason {
+                failures.append(.init(ownerTarget: owner.ownerTarget, subsystem: .puppetAnimation,
+                    commandCount: owner.puppetAnimationCommands.count
+                        + owner.puppetAnimationCallbackRegistrations, reason: reason))
+            }
+        }
         for owner in effects where !owner.puppetBoneMutations.isEmpty {
             let ownerLayerID: Int? = {
                 switch owner.ownerTarget {

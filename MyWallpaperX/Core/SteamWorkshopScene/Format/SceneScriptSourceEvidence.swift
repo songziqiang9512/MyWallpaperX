@@ -72,6 +72,20 @@ nonisolated enum SceneScriptSourceEvidenceCollector {
                 result: &result
             )
             for key in object.keys.sorted() where key != "effects" {
+                if key == "animationlayers", let animations = object[key] as? [Any] {
+                    for (index, rawAnimation) in animations.enumerated() {
+                        var animationOwner = objectOwner
+                        if let animation = rawAnimation as? [String: Any] {
+                            animationOwner = .init(kind: .animationLayer,
+                                objectIndex: objectIndex, objectID: objectOwner.objectID,
+                                effectIndex: nil, effectID: nil, passIndex: nil, passID: nil,
+                                animationLayerIndex: index, animationLayerID: animation["id"] as? Int)
+                        }
+                        collect(rawAnimation, owner: animationOwner,
+                            path: objectPath + [.key(key), .index(index)], result: &result)
+                    }
+                    continue
+                }
                 collect(
                     object[key],
                     owner: objectOwner,

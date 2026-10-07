@@ -369,6 +369,8 @@ nonisolated struct SceneScriptMediaEventMutations: Equatable, Sendable {
         [SceneTextureAnimationCommand]
     var puppetBones: [SceneScriptPuppetBoneMutation] = []
     var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
+    var puppetAnimationCommands: [ScenePuppetAnimationCommand] = []
+    var puppetAnimationCallbackRegistrations: Int = 0
 }
 
 nonisolated enum SceneScriptCursorEventKind:
@@ -716,6 +718,11 @@ nonisolated enum SceneScriptMediaEventBridge {
         case let .success(value): animations = value
         case let .failure(failure): return .failure(failure)
         }
+        let puppetAnimationCommands: [ScenePuppetAnimationCommand]
+        switch SceneScriptPuppetAnimationBridge.commands(owner: owner) {
+        case let .success(value): puppetAnimationCommands = value
+        case let .failure(failure): return .failure(failure)
+        }
         let layers: [SceneScriptLayerMutation]
         switch SceneScriptLayerMutationBridge.mutations(
             owner: owner, ownerTarget: target
@@ -751,7 +758,9 @@ nonisolated enum SceneScriptMediaEventBridge {
             videoCommands: videoCommands,
             textureAnimationCommands: textureAnimationCommands,
             puppetBones: puppetBones,
-            particlePlaybackCommands: particlePlaybackCommands
+            particlePlaybackCommands: particlePlaybackCommands,
+            puppetAnimationCommands: puppetAnimationCommands,
+            puppetAnimationCallbackRegistrations: Int(mwx_scene_quickjs_owner_puppet_animation_registration_count(owner))
         ))
     }
 

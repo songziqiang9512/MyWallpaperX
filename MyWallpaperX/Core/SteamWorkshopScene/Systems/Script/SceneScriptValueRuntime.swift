@@ -5,6 +5,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     /// Pure projection of the immutable target, resolved once at construction.
     let layerID: Int
     let generation: UInt64
+    let puppetAnimationIdentity: ScenePuppetAnimationIdentity?
     let hasAudioRegistration: Bool
     let handlesMediaThumbnail: Bool
     let handlesMediaPlayback: Bool
@@ -38,6 +39,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             || (pendingInitializationValue != nil && !initializationValueConsumed)
             || mwx_scene_quickjs_owner_has_staged_effect_visibility(handle)
             || mwx_scene_quickjs_owner_active_timer_count(handle) > 0
+            || mwx_scene_quickjs_owner_has_pending_puppet_animation_end(handle)
     }
 
     /// Authored `init` runs once, before any other authored callback. A route
@@ -59,6 +61,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         valueType: SceneDynamicValueType = .vector3,
         effectNames: [String?],
         hasCurrentAnimation: Bool = false,
+        puppetAnimationIdentity: ScenePuppetAnimationIdentity? = nil,
         dynamicImagePathsByAuthoredIdentity: [String: String] = [:],
         allowsStatefulLayerSideEffects: Bool = false,
         effectVisibilityGetterSeed: Bool? = nil,
@@ -72,6 +75,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         if valueType == .scalar, case let .text(_, field) = target, field != .pointSize {
             throw SceneScriptScalarRuntimeFailure.invalidArgument("invalid scalar text target")
         }
+        self.puppetAnimationIdentity = puppetAnimationIdentity
         self.domain = domain
         self.target = target
         self.generation = generation
@@ -165,6 +169,15 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
                 owner: created,
                 hasCurrentAnimation: hasCurrentAnimation
             )
+            if let puppetAnimationIdentity {
+                guard valueType == .bool, allowsStatefulLayerSideEffects,
+                      !hasCurrentAnimation, puppetAnimationIdentity.layerID == layerID,
+                      let id = puppetAnimationIdentity.animationLayerID,
+                      target == ScenePuppetAnimationPropertyTarget.visibility(layerID: layerID, animationLayerID: id) else {
+                    throw SceneScriptScalarRuntimeFailure.invalidArgument("Puppet animation target identity mismatch")
+                }
+                try SceneScriptPuppetAnimationBridge.configure(owner: created, identity: puppetAnimationIdentity)
+            }
             handlesMediaThumbnail = try SceneScriptOwnerExportBridge.contains(
                 "mediaThumbnailChanged", owner: created
             )
@@ -528,6 +541,12 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             discardLayerMutations()
             return .failure(.badReturn("invalid scalar output"))
         }
+        if puppetAnimationIdentity != nil,
+           !mutations.videoCommands.isEmpty || !mutations.textureAnimationCommands.isEmpty
+            || !mutations.puppetBones.isEmpty || !mutations.particlePlaybackCommands.isEmpty {
+            discardLayerMutations()
+            return .failure(.invalidArgument("Puppet animation owner produced out-of-cohort mutations"))
+        }
         let publishedLayerMutations: [SceneScriptLayerMutation]
         let resolvedValue: SceneDynamicValue
         if valueType == .bool {
@@ -561,7 +580,9 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             puppetBoneMutations: mutations.puppetBones,
             videoCommands: mutations.videoCommands,
             textureAnimationCommands: mutations.textureAnimationCommands,
-            particlePlaybackCommands: mutations.particlePlaybackCommands
+            particlePlaybackCommands: mutations.particlePlaybackCommands,
+            puppetAnimationCommands: mutations.puppetAnimationCommands,
+            puppetAnimationCallbackRegistrations: mutations.puppetAnimationCallbackRegistrations
         ))
     }
 
@@ -572,6 +593,12 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         (value: SceneDynamicValue, mutations: [SceneScriptLayerMutation]),
         SceneScriptScalarRuntimeFailure
     > {
+        if puppetAnimationIdentity != nil {
+            guard mutations.isEmpty, case .bool = publishedValue else {
+                return .failure(.invalidArgument("Puppet visibility owner produced out-of-cohort layer mutations"))
+            }
+            return .success((publishedValue, []))
+        }
         if case .effectVisibility = target {
             // The staged effect-visibility write publishes straight into the
             // typed effect-activation channel; layer mutations have no cohort

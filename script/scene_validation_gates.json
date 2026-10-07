@@ -199,9 +199,11 @@
     {
       "id": "puppet-animation-weight",
       "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePuppetAnimationLayer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationSelection.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationControl.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimationReader.swift",
@@ -212,6 +214,7 @@
       "modules": [
         "test_scene_puppet_playback",
         "test_scene_puppet_animation_playback_runtime",
+        "test_scene_puppet_script_projection",
         "test_scene_puppet_weights",
         "test_scene_puppet_pose_publication",
         "test_scene_puppet_bone_origin",
@@ -292,6 +295,7 @@
         "test_scene_dynamic_snapshot",
         "test_scene_frame_vm_routing",
         "test_scene_property_vector_script",
+        "test_scene_quickjs_puppet_animation",
         "test_scene_quickjs_layer_snapshot_atomicity",
         "test_scene_resolved_material_execution_capability",
         "test_scene_script_binding_parser",

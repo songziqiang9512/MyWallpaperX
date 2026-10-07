@@ -42,11 +42,16 @@ enum ScenePuppetAnimationSelector {
         animationSet: SceneMdlPuppetAnimationSet
     ) -> Result<ScenePuppetAnimationSelection?, ScenePuppetAnimationSelectionFailure> {
         var clips: [ScenePuppetAnimationSelection.Clip] = []
+        let requiredAnimationIDs = Set(layers.filter {
+            $0.visible != false || $0.visibilityBinding != nil
+        }.compactMap(\.animationID))
         for layer in layers {
             guard let visible = layer.visible else {
                 return .failure(.malformedVisibility(layer.id))
             }
-            guard visible || layer.visibilityBinding != nil else { continue }
+            guard visible || layer.visibilityBinding != nil || layer.hasVisibilityScript == true else { continue }
+            let optionalScriptClip = layer.visible == false
+                && layer.visibilityBinding == nil && layer.hasVisibilityScript == true
             guard let animationID = layer.animationID,
                   layer.additive != nil,
                   let blend = layer.blend,
@@ -60,15 +65,30 @@ enum ScenePuppetAnimationSelector {
                   let rate = layer.rate,
                   rate.isFinite,
                   rate > 0 else {
+                // An optional, initially hidden script resource cannot revoke
+                // a healthy parent. Its script receives unavailable metadata.
+                if optionalScriptClip { continue }
                 return .failure(.unsupportedLayer(layer.id))
             }
             guard layer.visibilityBinding == nil || layer.id != nil else {
                 return .failure(.unresolvedVisibility(layer.id))
             }
+            if optionalScriptClip && (requiredAnimationIDs.contains(animationID)
+                || clips.contains(where: { $0.animation.id == animationID })) { continue }
             guard let animation = animationSet.animations.first(where: { $0.id == animationID }) else {
+                if optionalScriptClip { continue }
                 return .failure(.unknownAnimation(animationID))
             }
             clips.append(.init(layer: layer, animation: animation))
+        }
+        // Consequential multi-clip alpha is outside the established profile.
+        // Extra preparation for hidden scripts must not break a previously
+        // valid visible selection. Drop only those optional resources first.
+        if clips.count > 1, clips.contains(where: {
+            $0.animation.alphaByBone?.contains { $0.contains { $0 != 1 } } == true
+        }) {
+            clips.removeAll { $0.layer.visible == false
+                && $0.layer.visibilityBinding == nil && $0.layer.hasVisibilityScript == true }
         }
         guard clips.isEmpty == false else { return .success(nil) }
         if clips.count > 1, let alphaClip = clips.first(where: {

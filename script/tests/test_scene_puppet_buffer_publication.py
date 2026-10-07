@@ -18,6 +18,7 @@ PLAYBACK_SOURCES = [
     "Systems/Puppet/ScenePuppetAttachmentPoseProjection.swift",
     "Systems/Puppet/ScenePuppetTranslationMotion.swift",
     "Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift",
+    "Systems/Puppet/ScenePuppetAnimationControl.swift",
     "Systems/Puppet/ScenePuppetPlaybackState.swift",
     "Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
     "Rendering/Geometry/SceneGeometryProduct.swift",
@@ -486,8 +487,38 @@ func render(_ output: ScenePuppetPlaybackState.Output? = nil, sceneTime: Double,
         let duplicateSamples = sharedFrame(4, 200, false)
         let resumedB = render(surfaceB, sceneTime: 2.25, device: device, queue: queue,
             atlas: coloredAtlas, animationFrame: duplicateSamples, layerAlpha: 0.5)
+        // Pause keeps identical sample indices; blend must still invalidate the
+        // prepared geometry and update alpha in the actual Metal draw.
+        let controlledFixture = fixture(poses: [pose(), pose()], weight: 1, alpha: [0.5, 0.5])
+        let controlled = try makePlayback(controlledFixture, device: device,
+            pipeline: pipeline, atlas: coloredAtlas)
+        let controls = ScenePuppetAnimationPlaybackRuntime()
+        try controls.register(layerID: 42, selection: controlledFixture.2,
+            authoredLayers: controlledFixture.2.clips.map(\.layer)).get()
+        let identity = ScenePuppetAnimationIdentity(layerID: 42,
+            animationLayerIndex: 0, animationLayerID: 1)
+        _ = controls.advance(frameIndex: 0, sceneTime: 0,
+            dynamicValues: .init(frameIndex: 0, values: [:]))
+        try controls.apply([
+            .init(identity: identity, action: .pause, callbackEpoch: 1, ordinal: 0),
+            .init(identity: identity, action: .setFrame(0), callbackEpoch: 1, ordinal: 1),
+            .init(identity: identity, action: .setBlend(0.5), callbackEpoch: 1, ordinal: 2)
+        ], frameIndex: 0).get()
+        let halfBlend = controls.advance(frameIndex: 1, sceneTime: 1,
+            dynamicValues: .init(frameIndex: 1, values: [:]))[42]!
+        let dynamicHalfBlend = render(controlled, sceneTime: 1, device: device,
+            queue: queue, atlas: coloredAtlas, animationFrame: halfBlend, layerAlpha: 0.5)
+        try controls.apply([.init(identity: identity, action: .setBlend(1),
+            callbackEpoch: 2, ordinal: 0)], frameIndex: 1).get()
+        let fullBlend = controls.advance(frameIndex: 2, sceneTime: 2,
+            dynamicValues: .init(frameIndex: 2, values: [:]))[42]!
+        let dynamicFullBlend = render(controlled, sceneTime: 2, device: device,
+            queue: queue, atlas: coloredAtlas, animationFrame: fullBlend, layerAlpha: 0.5)
         let result: [String: Any] = [
             "metalDevice": device.name,
+            "dynamicHalfBlend": dynamicHalfBlend.report,
+            "dynamicFullBlend": dynamicFullBlend.report,
+            "dynamicBlendSamplesEqual": halfBlend.samples == fullBlend.samples,
             "firstFailure": firstFailure.report, "firstRecovery": firstRecovery.report,
             "firstFailureBuffersUntouched": rejectedBuffers,
             "firstFailureHasNoEvidence": rejectedEvidence,
@@ -540,6 +571,16 @@ func render(_ output: ScenePuppetPlaybackState.Output? = nil, sceneTime: Double,
 
 
 class PuppetBufferPublicationTests(unittest.TestCase):
+    def test_paused_control_blend_reaches_actual_gpu_coverage(self):
+        self.assertTrue(self.result["dynamicBlendSamplesEqual"])
+        half = self.result["dynamicHalfBlend"]
+        full = self.result["dynamicFullBlend"]
+        self.assertTrue(half["drew"] and full["drew"])
+        self.assertNotEqual(half["imageSHA256"], full["imageSHA256"])
+        # Atlas alpha .5 × layer .5 × coverage (.75 versus .5).
+        self.assertAlmostEqual(half["centerBGRA"][3], 48, delta=1)
+        self.assertAlmostEqual(full["centerBGRA"][3], 32, delta=1)
+
     @classmethod
     def setUpClass(cls) -> None:
         if not shutil.which("swiftc") or not shutil.which("xcrun"):

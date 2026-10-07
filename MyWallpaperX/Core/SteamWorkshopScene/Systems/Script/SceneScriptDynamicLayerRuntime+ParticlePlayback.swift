@@ -21,7 +21,8 @@ extension SceneScriptDynamicLayerRuntime {
                 total + bundle.particlePlaybackCommands.count + bundle.layerMutations.count
                     + bundle.animationMutations.count + bundle.materialFunctionMutations.count
                     + bundle.videoCommands.count + bundle.textureAnimationCommands.count
-                    + bundle.puppetBoneMutations.count
+                    + bundle.puppetBoneMutations.count + bundle.puppetAnimationCommands.count
+                    + bundle.puppetAnimationCallbackRegistrations
             }
             guard count <= 64, commands.count <= 64, aggregateCount <= 256 else {
                 failures.append(.init(ownerTarget: owner.ownerTarget,

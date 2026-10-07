@@ -242,6 +242,7 @@ struct SceneRenderDescriptor {
         var staticModelPath: String? = nil
         var attachmentName: String? = nil
         var parentAttachmentBindFrame: [Float]? = nil
+        var puppetAnimationLayers: [ScenePuppetAnimationLayer] = []
     }
     var layers: [Layer]
     var modelMaterialLinks: [ModelMaterialLink] = []

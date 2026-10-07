@@ -93,6 +93,8 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
     var textureAnimationCommands:
         [SceneTextureAnimationCommand]
     var puppetBoneMutations: [SceneScriptPuppetBoneMutation]
+    var puppetAnimationCommands: [ScenePuppetAnimationCommand]
+    var puppetAnimationCallbackRegistrations: Int
     var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand]
 
     init(
@@ -104,8 +106,12 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
         textureAnimationCommands:
             [SceneTextureAnimationCommand] = [],
         puppetBoneMutations: [SceneScriptPuppetBoneMutation] = [],
-        particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
+        particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = [],
+        puppetAnimationCommands: [ScenePuppetAnimationCommand] = [],
+        puppetAnimationCallbackRegistrations: Int = 0
     ) {
+        self.puppetAnimationCommands = puppetAnimationCommands
+        self.puppetAnimationCallbackRegistrations = puppetAnimationCallbackRegistrations
         self.ownerTarget = ownerTarget
         self.materialFunctionMutations = materialFunctionMutations
         self.animationMutations = animationMutations
@@ -121,6 +127,7 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
             && layerMutations.isEmpty && videoCommands.isEmpty
             && textureAnimationCommands.isEmpty
             && puppetBoneMutations.isEmpty && particlePlaybackCommands.isEmpty
+            && puppetAnimationCommands.isEmpty && puppetAnimationCallbackRegistrations == 0
     }
 }
 

@@ -149,12 +149,14 @@ struct ScenePuppetAnimationEvaluator {
     func writeVertexCoverages(
         selection: ScenePuppetAnimationSelection,
         frameSamples: [FrameSample?],
+        blends: [Double]? = nil,
         into output: inout [Float],
         boneScratch: inout [Float]
     ) throws {
         guard output.count == preparedVertices.count,
               boneScratch.count == boneCount,
-              frameSamples.count == selection.clips.count else {
+              frameSamples.count == selection.clips.count,
+              blends == nil || blends?.count == selection.clips.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
         }
         for bone in boneScratch.indices { boneScratch[bone] = 1 }
@@ -167,7 +169,7 @@ struct ScenePuppetAnimationEvaluator {
                   frame.fraction.isFinite, (0...1).contains(frame.fraction) else {
                 throw ScenePuppetAnimationEvaluationFailure.invalidFrame(frame.frameA)
             }
-            let weight = selection.clips[clipIndex].layer.blend ?? 1
+            let weight = blends?[clipIndex] ?? selection.clips[clipIndex].layer.blend ?? 1
             guard weight.isFinite, weight >= 0 else {
                 throw ScenePuppetAnimationEvaluationFailure.invalidBlend
             }
@@ -304,7 +306,8 @@ struct ScenePuppetAnimationEvaluator {
         localMatricesScratch: inout [simd_float4x4],
         skinMatricesScratch: inout [simd_float4x4],
         worldMatricesScratch: inout [simd_float4x4],
-        boneOverrides: [Int: simd_float4x4] = [:]
+        boneOverrides: [Int: simd_float4x4] = [:],
+        blends: [Double]? = nil
     ) throws {
         guard output.count >= preparedVertices.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
@@ -319,6 +322,7 @@ struct ScenePuppetAnimationEvaluator {
         try writeLocalMatrices(
             selection: selection,
             frameSamples: frameSamples,
+            blends: blends,
             into: &localMatricesScratch
         )
         try applyOverrides(
@@ -480,9 +484,11 @@ struct ScenePuppetAnimationEvaluator {
     func writeLocalMatrices(
         selection: ScenePuppetAnimationSelection,
         frameSamples: [FrameSample?],
+        blends: [Double]? = nil,
         into output: inout [simd_float4x4]
     ) throws {
         guard selection.clips.count == frameSamples.count,
+              blends == nil || blends?.count == selection.clips.count,
               output.count >= rig.bones.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
         }
@@ -505,7 +511,7 @@ struct ScenePuppetAnimationEvaluator {
                 )) else { throw ScenePuppetAnimationEvaluationFailure.invalidFrame(frameSample.frameA) }
                 output[boneIndex] = Self.matrix(from: try Self.applying(
                     sampled, relativeTo: bindPoses[boneIndex], to: bindPoses[boneIndex],
-                    weight: selection.clips[0].layer.blend ?? 1
+                    weight: blends?[0] ?? selection.clips[0].layer.blend ?? 1
                 ))
             }
 
@@ -528,7 +534,7 @@ struct ScenePuppetAnimationEvaluator {
                     pose = try Self.applying(
                         Self.sample(prepared.posesByBone[boneIndex], frameSample: baseSample),
                         relativeTo: bindPoses[boneIndex], to: pose,
-                        weight: selection.clips[baseClipIndex].layer.blend ?? 1
+                        weight: blends?[baseClipIndex] ?? selection.clips[baseClipIndex].layer.blend ?? 1
                     )
                 }
                 for (clipIndex, clip) in selection.clips.enumerated() {
@@ -542,7 +548,7 @@ struct ScenePuppetAnimationEvaluator {
                         pose = try Self.applying(
                             Self.sample(prepared.posesByBone[boneIndex], frameSample: frameSample),
                             relativeTo: bindPoses[boneIndex], to: pose,
-                            weight: clip.layer.blend ?? 1
+                            weight: blends?[clipIndex] ?? clip.layer.blend ?? 1
                         )
                     }
                 }

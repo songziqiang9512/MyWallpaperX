@@ -7,6 +7,8 @@ nonisolated struct SceneScriptValueEvaluation: Equatable, Sendable {
     let layerMutations: [SceneScriptLayerMutation]
     let puppetBoneMutations: [SceneScriptPuppetBoneMutation]
     let particlePlaybackCommands: [SceneScriptParticlePlaybackCommand]
+    let puppetAnimationCommands: [ScenePuppetAnimationCommand]
+    let puppetAnimationCallbackRegistrations: Int
     let videoCommands: [SceneScriptVideoCommand]
     let textureAnimationCommands:
         [SceneTextureAnimationCommand]
@@ -20,8 +22,12 @@ nonisolated struct SceneScriptValueEvaluation: Equatable, Sendable {
         videoCommands: [SceneScriptVideoCommand],
         textureAnimationCommands:
             [SceneTextureAnimationCommand],
-        particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
+        particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = [],
+        puppetAnimationCommands: [ScenePuppetAnimationCommand] = [],
+        puppetAnimationCallbackRegistrations: Int = 0
     ) {
+        self.puppetAnimationCommands = puppetAnimationCommands
+        self.puppetAnimationCallbackRegistrations = puppetAnimationCallbackRegistrations
         self.particlePlaybackCommands = particlePlaybackCommands
         self.value = value
         self.materialFunctionMutations = materialFunctionMutations
@@ -57,6 +63,7 @@ nonisolated struct SceneScriptVectorCandidate: Sendable {
     /// binding seed, NOT the definition's prepared `authoredValue` (which
     /// carries the load-prepared state); nil on every other candidate kind.
     var effectVisibilityGetterSeed: Bool? = nil
+    var puppetAnimationIdentity: ScenePuppetAnimationIdentity? = nil
 
     var allowsDynamicLayerSideEffects: Bool {
         requiresStatefulOwner || !dynamicImageReferences.isEmpty
@@ -198,6 +205,8 @@ extension SceneScriptOwnerEffects {
         textureAnimationCommands.append(contentsOf: evaluation.textureAnimationCommands)
         particlePlaybackCommands.append(contentsOf: evaluation.particlePlaybackCommands)
         puppetBoneMutations.append(contentsOf: evaluation.puppetBoneMutations)
+        puppetAnimationCommands.append(contentsOf: evaluation.puppetAnimationCommands)
+        puppetAnimationCallbackRegistrations += evaluation.puppetAnimationCallbackRegistrations
     }
 
     mutating func append(_ mutations: SceneScriptMediaEventMutations) {
@@ -208,6 +217,8 @@ extension SceneScriptOwnerEffects {
         textureAnimationCommands.append(contentsOf: mutations.textureAnimationCommands)
         particlePlaybackCommands.append(contentsOf: mutations.particlePlaybackCommands)
         puppetBoneMutations.append(contentsOf: mutations.puppetBones)
+        puppetAnimationCommands.append(contentsOf: mutations.puppetAnimationCommands)
+        puppetAnimationCallbackRegistrations += mutations.puppetAnimationCallbackRegistrations
     }
 
 }

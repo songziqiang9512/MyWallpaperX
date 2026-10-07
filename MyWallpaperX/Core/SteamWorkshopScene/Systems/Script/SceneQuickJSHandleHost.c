@@ -41,6 +41,9 @@ static JSValue active_owner_handle_getter(
     case ACTIVE_OWNER_HANDLE_SCENE:
         return JS_DupValue(context, domain->active_scene);
     case ACTIVE_OWNER_HANDLE_OBJECT:
+        if (domain->callback_active && domain->active_owner != NULL &&
+            domain->active_owner->puppet_animation_configured)
+            return mwx_scene_quickjs_puppet_animation_handle(domain->active_owner);
         return JS_DupValue(context, domain->active_object);
     }
     return JS_UNDEFINED;
@@ -810,6 +813,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown_with_provenance(
     }
     owner->material_function_count = 0;
     owner->animation_command_count = 0;
+    mwx_scene_quickjs_destroy_puppet_animation_host(owner);
     owner->generation += 1;
     owner->disabled = true;
     domain->value_only_guard_active = previous_value_only_guard;

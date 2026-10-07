@@ -7,12 +7,13 @@ extension ScenePuppetAnimationEvaluator {
     func boneTransforms(
         selection: ScenePuppetAnimationSelection,
         frameSamples: [FrameSample?],
-        boneOverrides: [Int: simd_float4x4] = [:]
+        boneOverrides: [Int: simd_float4x4] = [:],
+        blends: [Double]? = nil
     ) throws -> (local: [simd_float4x4], world: [simd_float4x4]) {
         var local = Array(repeating: matrix_identity_float4x4, count: rig.bones.count)
         var world = local
         try writeLocalMatrices(
-            selection: selection, frameSamples: frameSamples, into: &local
+            selection: selection, frameSamples: frameSamples, blends: blends, into: &local
         )
         try applyOverrides(boneOverrides, to: &local, worlds: &world)
         return (local, world)

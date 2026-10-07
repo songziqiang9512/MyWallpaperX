@@ -102,6 +102,7 @@ extension SceneDesktopWallpaperSession {
         videoCommands: [SceneScriptVideoCommand],
         textureAnimationCommands:
             [SceneTextureAnimationCommand],
+        puppetAnimationCommands: [ScenePuppetAnimationCommand],
         timing: SceneFrameTiming,
         layerPlan: SceneScriptLayerMutationPlan,
         rejectedOwnerTargets: Set<SceneDynamicTarget>
@@ -139,6 +140,16 @@ extension SceneDesktopWallpaperSession {
                     "MWX SceneScript VM: textureAnimationCommands=%d callback=committed nextFrame=true route=generic-only",
                     textureAnimationCommands.count
                 )
+            }
+#endif
+        }
+        if !puppetAnimationCommands.isEmpty,
+           case .success = context.puppetAnimationPlaybackRuntime.apply(
+               puppetAnimationCommands, frameIndex: timing.frameIndex) {
+#if DEBUG
+            if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
+                NSLog("MWX DEBUG SCENE: puppetAnimationCommands=%d callback=committed frame=%llu nextFrame=true",
+                    puppetAnimationCommands.count, timing.frameIndex)
             }
 #endif
         }

@@ -312,6 +312,8 @@ extension SceneDesktopWallpaperSession {
         })
         let sceneScriptLayerSnapshotFailure: SceneScriptScalarRuntimeFailure?
         do {
+            try launchContext.propertyVectorScriptProgram.domain?.publishPuppetAnimationSnapshot(
+                puppetAnimationFrame.animationSnapshots)
             try launchContext.propertyVectorScriptProgram.domain?.publishLayerSnapshot(
                     preliminaryForSceneScript,
                     descriptor: launchContext.runtimeInput.renderDescriptor,
@@ -637,7 +639,8 @@ extension SceneDesktopWallpaperSession {
                         textureAnimationRuntime:
                             launchContext.textureAnimationPlaybackRuntime,
                         videoRegistry: videoTextureSourceRegistry,
-                        timing: timing
+                        timing: timing,
+                        puppetAnimationRuntime: launchContext.puppetAnimationPlaybackRuntime
                     )
                 runtimeValidationFailures.append(contentsOf: failures)
                 let unpreparedParticleOwners = admitted.compactMap {
@@ -700,20 +703,9 @@ extension SceneDesktopWallpaperSession {
             )
         }
         for failure in runtimeValidationFailures {
-            let subsystem: String
-            switch failure.subsystem {
-            case .animation:
-                subsystem = "animationCommands"
-            case .video:
-                subsystem = "videoCommands"
-            case .textureAnimation:
-                subsystem = "textureAnimationCommands"
-            case .puppetBone:
-                subsystem = "puppetBoneMutations"
-            }
             NSLog(
                 "MWX SceneScript VM: %@=%d owner=%@ callback=rejected failure=%@ fallback=previous-current",
-                subsystem,
+                failure.subsystem.rawValue,
                 failure.commandCount,
                 String(describing: failure.ownerTarget),
                 failure.reason
@@ -838,6 +830,7 @@ extension SceneDesktopWallpaperSession {
             animationMutations: animationMutations,
             videoCommands: videoCommands,
             textureAnimationCommands: textureAnimationCommands,
+            puppetAnimationCommands: admittedOwnerEffects.flatMap(\.puppetAnimationCommands),
             timing: timing,
             layerPlan: admission.layerPlan,
             rejectedOwnerTargets: rejectedOwnerTargets
