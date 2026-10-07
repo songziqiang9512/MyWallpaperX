@@ -73,8 +73,8 @@
       "bytes": 20680
     },
     "docs/scene/capabilities/coverage-ledger.md": {
-      "lines": 368,
-      "bytes": 168540
+      "lines": 369,
+      "bytes": 169004
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -93,8 +93,8 @@
       "bytes": 334149
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 77,
-      "bytes": 10444
+      "lines": 78,
+      "bytes": 10753
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -105,12 +105,12 @@
       "bytes": 2184
     },
     "docs/scene/capabilities/scene-corpus-capability-inventory.md": {
-      "lines": 455,
-      "bytes": 70015
+      "lines": 488,
+      "bytes": 74762
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
-      "lines": 230,
-      "bytes": 35686
+      "lines": 303,
+      "bytes": 45288
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -193,12 +193,12 @@
       "bytes": 135310
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
-      "lines": 243,
-      "bytes": 32494
+      "lines": 245,
+      "bytes": 32798
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 155,
-      "bytes": 57333
+      "lines": 156,
+      "bytes": 34209
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1050,21 +1050,57 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "585fc6bec68d600a07741d7f091569deee8d63d5665a72fbc65b5b05851e9384",
+      "after": "033f1d6deb2dfafa15a6056101b2ad88e5f3f614cba838a08ac9ba59bb7f5206",
+      "owner": "scene-compatibility",
+      "reason": "用户要求243全样本统计与公共缺口对账；复用生成台账，显式区分旧运行/人工裁决，保留已闭证据并压缩开放队列。扩展仅绑定当前生成成员及导航/优先序，不代表新运行验收。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6e39707ea8188857a51fb4469203b3c51112b30994f940012b771b20324fdebc",
-      "after": "45793a57bca72856a600c931909c1d12264da39f4920873fe817902332842c80",
-      "owner": "scene-puppet-clipping",
-      "reason": "新增唯一裁剪E入口，连接分身份运行、reader非回退及保留失败；不扩张证据声明。",
-      "decision": "docs/scene/capabilities/puppet-clipping-design.md#验证与维护"
+      "before": "45793a57bca72856a600c931909c1d12264da39f4920873fe817902332842c80",
+      "after": "2609403dac169928fe844f52398753cf1ba4778c78a489c8e232ddee8f8bdd12",
+      "owner": "scene-compatibility",
+      "reason": "用户要求243全样本统计与公共缺口对账；复用生成台账，显式区分旧运行/人工裁决，保留已闭证据并压缩开放队列。扩展仅绑定当前生成成员及导航/优先序，不代表新运行验收。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
+      "before": "f70a7f562199939f8f54a2e5c2a867bed7933b3729de39627c04ac1866037419",
+      "after": "8d206b405b5a60549218046c071742614b16dc664278b04aace1570098d75929",
+      "owner": "scene-compatibility",
+      "reason": "用户要求243全样本统计与公共缺口对账；复用生成台账，显式区分旧运行/人工裁决，保留已闭证据并压缩开放队列。扩展仅绑定当前生成成员及导航/优先序，不代表新运行验收。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "ebc9c8263c1d548734ebc1bf0439f492b8baaa45b1314632c74e2b22622b3c68",
+      "after": "bc7743a8000737cd98a9dee118aa90cc5ded59eea629bfcfdf5319f6ffa8fb54",
+      "owner": "scene-compatibility",
+      "reason": "用户要求243全样本统计与公共缺口对账；复用生成台账，显式区分旧运行/人工裁决，保留已闭证据并压缩开放队列。扩展仅绑定当前生成成员及导航/优先序，不代表新运行验收。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
+      "before": "24fcb64c6637c341bcc8453d161a7f6393b3bea1d1ef815227ef7f331a08d823",
+      "after": "c4cc6bee67832a7a8b57422de2aa64d1f2f9d977046c0b0eb8b1af527f2ec6cc",
+      "owner": "scene-compatibility",
+      "reason": "用户要求243全样本统计与公共缺口对账；复用生成台账，显式区分旧运行/人工裁决，保留已闭证据并压缩开放队列。扩展仅绑定当前生成成员及导航/优先序，不代表新运行验收。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "212d8905c2f76478d7419af0cf6b72151e718b78a55c06668a9b8084d1f46ae4",
-      "after": "8fe4445b1e40ea8288efb795b735ab545e9e6c2eb0f8290eb061de96d04427f4",
-      "owner": "scene-puppet-clipping",
-      "reason": "按授权共同缺口更新选序，保留独立有限输入溢出和慢启动故障，不抹去运行失败。",
-      "decision": "docs/scene/capabilities/puppet-clipping-design.md#验证与维护"
+      "before": "8fe4445b1e40ea8288efb795b735ab545e9e6c2eb0f8290eb061de96d04427f4",
+      "after": "118da0415615a8cc755d6c308ece1ca0cf5f14ada5b6a25dbd0477bc49066c88",
+      "owner": "scene-compatibility",
+      "reason": "用户要求243全样本统计与公共缺口对账；复用生成台账，显式区分旧运行/人工裁决，保留已闭证据并压缩开放队列。扩展仅绑定当前生成成员及导航/优先序，不代表新运行验收。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
     }
   ]
 }

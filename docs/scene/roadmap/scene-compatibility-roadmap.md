@@ -4,7 +4,7 @@
 
 > 当前主线：**全样本验收收口**。以完整作者内容盘点、公共能力修复和真实播放对照，逐步让样本根中的每一个 Scene 正确运行。
 >
-> 执行方案复核：2026-09-16。从 **P0 补齐全量关联与验收基线** 开始，再按公共首断点推进 P1–P4；已有实现和历史验收证据保留，不能因重新规划而归零或冒充当前复测。
+> 执行顺序更新：2026-10-08。以当前243样本的全量关联和用户断点为依据，优先 **纹理与最终合成 → 特效 → 频谱等直观显示能力**，按公共首断点推进 P1–P4。P0补齐关联与修复并行；旧实现和历史验收保留，不冒充当前复测。
 >
 > 本文只拥有阶段顺序和完成门。能力、owner、route、样本和运行结果分别由[能力台账](../capabilities/coverage-ledger.md)、专项表、[代码地图](../architecture/runtime-as-built-map.md)、[运行证据索引](../capabilities/runtime-evidence-current.md)、[样本调试台账](../capabilities/scene-sample-debug-ledger.md)和[样本验收台账](../capabilities/scene-sample-acceptance-ledger.md)拥有。本文中的新增字段和工具扩展是待实现交付要求，不表示工具已经支持。
 
@@ -122,22 +122,24 @@ tracked full matrix 扩为全集 identity-only 基线。历史期待先分成有
 
 参考证据的责任分解与59项去向见[实施卡](batch2/reference-evidence-implementation-cards.md)，各已验收批次的冻结事实只由其执行记录保存。当前D3已沿同一主链接通normal、PBR标量/贴图、自发光属性、默认环境反射和有界模型方向光阴影；[RF13](batch2/reference-evidence-implementation-cards.md#rf13-named-model-shadow)进一步闭合source-only named模型的当前纹理投影、mandatory原序和背景内容相位，[执行记录](../history/rf13-named-model-shadow-implementation-2026-10-02.md)限定验收范围。
 
-[RF14](batch2/reference-evidence-implementation-cards.md#rf14-model-spot-shadow)、[RF15](batch2/reference-evidence-implementation-cards.md#rf15-model-point-shadow)与[RF16](batch2/reference-evidence-implementation-cards.md#rf16-visible-model-admission)的有界模型能力已按职责验收。RF02 A、atlas named 失败半径和 B 公开 companion 已沿现有主链实施；B 的官方尺寸/默认值/所采动画呈现已独审，产品最终冻结与验收状态见[B记录](../history/rf02-public-companion-implementation-2026-10-03.md)，稳定合同由[架构](../architecture/runtime-architecture.md#authored-texture-companion)接管。RF04已将默认F5和精确作者mip输入接入共享完成历史，有界结果见[工作卡](batch2/reference-evidence-implementation-cards.md#rf04--d12-已完成画面的共享-mip-输入)。RF08/D1普通composition已闭合parent分组、根作者位置与copybackground三态，23项实际App正反例及独立像素复核见[实施记录](../history/d1-composition-authored-order-implementation-2026-10-04.md)。当前转RF05首帧override、hidden provider与live visibility/script fallback组合，继而验证多surface提交失败隔离；其它hidden/default target和D1未知passthrough/特殊变换仍需独立输入合同。原724有限采样没有屏内ROI，479的安全预算拒绝不构成直接抬预算理由；后继模型资源工作先证明成本与可见受益。参考项目与公开资料提供中性行为和职责，我们独立设计算法并做真实输出正反例；缺少私有公式不能冻结整项能力。
+[RF14](batch2/reference-evidence-implementation-cards.md#rf14-model-spot-shadow)、[RF15](batch2/reference-evidence-implementation-cards.md#rf15-model-point-shadow)与[RF16](batch2/reference-evidence-implementation-cards.md#rf16-visible-model-admission)的有界模型能力已按职责验收。RF02 A、atlas named 失败半径和 B 公开 companion 已沿现有主链实施；B 的官方尺寸/默认值/所采动画呈现已独审，产品最终冻结与验收状态见[B记录](../history/rf02-public-companion-implementation-2026-10-03.md)，稳定合同由[架构](../architecture/runtime-architecture.md#authored-texture-companion)接管。RF04已将默认F5和精确作者mip输入接入共享完成历史，有界结果见[工作卡](batch2/reference-evidence-implementation-cards.md#rf04--d12-已完成画面的共享-mip-输入)。RF08/D1普通composition已闭合parent分组、根作者位置与copybackground三态，23项实际App正反例及独立像素复核见[实施记录](../history/d1-composition-authored-order-implementation-2026-10-04.md)。RF05首帧override、hidden provider与live visibility/script fallback组合、多surface提交失败隔离，以及其它hidden/default target和D1未知passthrough/特殊变换的未闭合项，归入[公共断点队列](scene-open-breakpoint-queue.md)，不再固定占据下一批。原724有限采样没有屏内ROI，479的安全预算拒绝不构成直接抬预算理由；后继模型资源工作先证明成本与可见受益。参考项目与公开资料提供中性行为和职责，我们独立设计算法并做真实输出正反例；缺少私有公式不能冻结整项能力。
 
-#### Batch 2 后继选序（2026-10-02）
+<a id="batch-2-后继选序2026-10-02"></a>
 
-用户目标是把证据转成真实能力，不以完成设计文档或第三方条目数量收尾。十二项设计是候选责任边界，不是必须照单复制的功能清单。后续按下列队列逐批推进；新出现的可见回归仍按本节第一判据插队。每批先冻结 owned paths，执行反例→修复→真实消费/输出→独立终审，再按职责窄提交到 `codex/engine-refactor-program`，不推送；批记录必须给出下一批入口及未满足条件。不能把并行他人的改动整文件搭入提交。
+#### Batch 2 既有结果与未关闭边界
+
+用户目标是把证据转成真实能力，不以完成设计文档或第三方条目数量收尾。十二项设计是候选责任边界，不是必须照单复制的功能清单。下表保留既有结果的导航；现役待修项统一进入[公共断点队列](scene-open-breakpoint-queue.md)，按纹理/最终合成、特效、频谱的用户顺序选题，安全与可见回归仍优先。每批先冻结 owned paths，执行反例→修复→真实消费/输出→独立终审，再按职责窄提交到 `codex/engine-refactor-program`，不推送；批记录必须给出下一批入口及未满足条件。不能把并行他人的改动整文件搭入提交。
 
 | 顺序 | 批次与用户结果 | 开始/完成边界及下一方向 |
 |---|---|---|
-| 已验收、按职责提交 | RF03 连续排放播放控制 | 缺省/0 duration 系统能 pause/stop/play/query；反例、真实App与终审见实施卡执行记录。下一批 RF05 隐藏 provider。 |
-| 已验收、按职责提交 | RF05 named provider 准备与显示分离 | 三产品复用现役引用/准入/capture；冻结证据见实施卡。后继 optional 三候选局部失败片亦已验收；继续 D1。 |
-| 已验收、按职责提交 | [optional/named 未支持组合的失败半径](../architecture/runtime-architecture.md#33-保留事务安全不扩大视觉失败半径) | 同一原失败输入已恢复首帧与next-frame，effect保留入口、邻层正常、exact-two仍执行；冻结证据见[执行记录](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-optional-failure)。不扩三候选支持，下一批D1。 |
+| 已验收、按职责提交 | RF03 连续排放播放控制 | 缺省/0 duration 系统能 pause/stop/play/query；反例、真实App与终审见实施卡执行记录。未闭合组合由公共断点队列选序。 |
+| 已验收、按职责提交 | RF05 named provider 准备与显示分离 | 三产品复用现役引用/准入/capture；冻结证据见实施卡。后继 optional 三候选局部失败片亦已验收。 |
+| 已验收、按职责提交 | [optional/named 未支持组合的失败半径](../architecture/runtime-architecture.md#33-保留事务安全不扩大视觉失败半径) | 同一原失败输入已恢复首帧与next-frame，effect保留入口、邻层正常、exact-two仍执行；冻结证据见[执行记录](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-optional-failure)。不扩三候选支持。 |
 | 已验收、按职责提交 | D1 composition 实际采集与效果输出 | 普通 parent 分组、根作者位置与 copybackground 三态已闭合；冻结范围见[D1记录](../history/d1-composition-authored-order-implementation-2026-10-04.md)。未知 passthrough 与特殊变换不外推。 |
-| 当前 | RF05 真实交互与合成 | [模型特效纹理](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-model-graph-albedo)接通； 接三体样本连续播放、文字及交互。 |
-| RF02/RF04 有界结果已验收 | 作者采样、公开 companion 与 mip 消费 | 实际范围及未覆盖条件见[工作卡](batch2/reference-evidence-implementation-cards.md)。继续 RF05 交互组合；不重开已闭合的尺寸/动画或资源阶段探针。 |
+| 未关闭，按公共缺口选序 | RF05 真实交互与合成 | [模型特效纹理](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-model-graph-albedo)接通； 接三体样本连续播放、文字及交互。 |
+| RF02/RF04 有界结果已验收 | 作者采样、公开 companion 与 mip 消费 | 实际范围及未覆盖条件见[工作卡](batch2/reference-evidence-implementation-cards.md)。不固定续排RF05；不重开已闭合的尺寸/动画或资源阶段探针。 |
 | 已验收、按职责提交 | D4/D11 显式 emitParticles | 真实出生、全surface事务、native预算和调用期输入已贯通；最终17项App门通过，范围及既有失败见[执行记录](../history/rf03-particle-playback-implementation-2026-10-02.md#rf03-explicit-emission)。未开放默认数量/children/reset。 |
-| 已验收、按职责提交 | D1 目标准入与prepared/encoded source 一致性 | 真实pool与错源像素反例已修复；终审发现的组内childless composition也已沿同一pass/执行序闭合。冻结App、资源寿命和测试边界见[执行记录](../history/d1-composition-source-implementation-2026-10-02.md)。成员/flag仍由D1设计继续定案，下一批D3。 |
+| 已验收、按职责提交 | D1 目标准入与prepared/encoded source 一致性 | 真实pool与错源像素反例已修复；终审发现的组内childless composition也已沿同一pass/执行序闭合。冻结App、资源寿命和测试边界见[执行记录](../history/d1-composition-source-implementation-2026-10-02.md)。未证成员/flag仍由D1合同约束。 |
 | normal/PBR/材料属性、reflection、三光型阴影及有界多材质已验收 | D3 材质与模型光照 | 实际准入与验收由[RF10及D3实施卡](batch2/reference-evidence-implementation-cards.md#rf10-pbr-direct)、[RF12](batch2/reference-evidence-implementation-cards.md#rf12-late-snapshot-capacity)、[RF13](batch2/reference-evidence-implementation-cards.md#rf13-named-model-shadow)、[RF14](batch2/reference-evidence-implementation-cards.md#rf14-model-spot-shadow)、[RF15](batch2/reference-evidence-implementation-cards.md#rf15-model-point-shadow)链接的执行记录固定。[RF16](batch2/reference-evidence-implementation-cards.md#rf16-visible-model-admission)的通用多材质可见片与原包准备恢复已移交；原包像素收益、较大模型资源成本仍按其证据上限保留，不按历史差额扩大准入。不把有界验收扩大为官方PBR/atlas兼容。 |
 | 有界实现、显示验收开放 | D2 HDR/SDR与可选EDR | 白点、五字段Bloom、可选EDR与运行中热切已验证，见[D2现役裁决](batch2/hdr-tonemap-edr-design.md)；余项:用户样本/物理亮度/移屏/SDR设备/暂停重绘，不重建输出owner。 |
 

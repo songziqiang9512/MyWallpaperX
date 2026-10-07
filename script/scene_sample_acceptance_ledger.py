@@ -78,7 +78,7 @@ CLUSTER_LABELS = {
     "scenescript": "SceneScript 异常",
     "terminal-output": "terminal compositor / 输出链",
     "visual-review": "结构链完整，待视觉验收",
-    "not-run": "尚无隔离运行证据",
+    "not-run": "未关联本归档运行证据",
 }
 
 
@@ -648,7 +648,7 @@ def render_markdown(ledger: Mapping[str, Any]) -> str:
         ">",
         f"> 最终验收门：{ledger['finalGate']}。",
         ">",
-        "> 运行状态和首断点只描述隔离运行的安全/结构事实，不是视觉正确性；"
+        "> 归档运行状态和首断点只描述对应执行身份的安全/结构事实，不是视觉正确性；"
         "`structural-chain-complete-visual-review` 仍需人工验收。集群只用于排序公共首断点，"
         "样本身份不得进入产品代码或现役路线正文。",
         "",
@@ -679,9 +679,16 @@ def render_markdown(ledger: Mapping[str, Any]) -> str:
         f"- 裁决覆盖层：`{Path(source['verdicts']['path']).name}` SHA-256 `{source['verdicts']['sha256']}`。",
         f"- 本页生成于 {ledger['generatedAtUtc']}。",
         "",
+        "本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。"
+        "旧归档首断点可能已在后续开发中修复；最新技术状态以"
+        "[断点队列](../roadmap/scene-open-breakpoint-queue.md)和"
+        "[运行证据](runtime-evidence-current.md)为准。"
+        "`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；"
+        "归档中的失败状态也不等于当前 HEAD 的失败。",
+        "",
         "## 2. 汇总",
         "",
-        "| 视觉裁决 | 样本数 |",
+        "| 原人工裁决 | 样本数 |",
         "|---|---:|",
     ]
     for key in ALLOWED_VERDICTS:
@@ -703,10 +710,10 @@ def render_markdown(ledger: Mapping[str, Any]) -> str:
         "（样本目录自带的用户截图 `截屏*.png` 与 `用户观察说明.md`）不是同一事实，"
         "两页不可互相替代。",
     ]
-    lines += ["", "| 首断点集群 | 含义 | 样本数 |", "|---|---|---:|"]
+    lines += ["", "| 归档首断点集群 | 含义 | 样本数 |", "|---|---|---:|"]
     for key in CLUSTER_ORDER:
         lines.append(f"| `{key}` | {CLUSTER_LABELS[key]} | {summary['clusterCounts'][key]} |")
-    lines += ["", "| 运行状态 | 样本数 |", "|---|---:|"]
+    lines += ["", "| 归档运行状态 | 样本数 |", "|---|---:|"]
     for key, value in summary["runtimeStatusCounts"].items():
         lines.append(f"| `{key}` | {value} |")
     lines += [
@@ -717,9 +724,9 @@ def render_markdown(ledger: Mapping[str, Any]) -> str:
         "",
         "## 3. 逐样本",
         "",
-        "首断点格式为 `stage / owner / reasonCode / profile`。作者参数列为 `总数(condition 数) 类型分布`。",
+        "归档首断点格式为 `stage / owner / reasonCode / profile`。作者参数列为 `总数(condition 数) 类型分布`。",
         "",
-        "| 样本 | 标题 | 作者参数 | 运行状态 | 首断点 | 集群 | 视觉裁决 | 备注 |",
+        "| 样本 | 标题 | 作者参数 | 归档运行状态 | 归档首断点 | 归档集群 | 原人工裁决（日期） | 备注 |",
         "|---|---|---|---|---|---|---|---|",
     ]
     for row in ledger["samples"]:

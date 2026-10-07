@@ -14,6 +14,7 @@
 
 | 查询主题 | 本页证据入口 |
 |---|---|
+| 全样本声明与旧运行关联 | [当前声明全集](scene-corpus-capability-inventory.md)、[样本验收来源](scene-sample-acceptance-ledger.md)；2026-10-08只刷新成员与声明，旧归档/人工裁决保留原身份，后继已修断点查[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | Sampler 声明、绑定与缓存身份 | [声明/缓存修复记录](#e-2026-10-01-sampler-baseline-repair) |
 | 生命周期与发布完整性 | [生命周期完整性记录](#e-2026-10-01-lifecycle-integrity) |
 | SceneScript 显隐准备与交互 | [统一显隐记录](#e-2026-09-27-unified-effect-visibility) |
