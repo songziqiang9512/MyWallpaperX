@@ -8,6 +8,7 @@ nonisolated struct SceneAuthoredShaderAuxiliaryTexturePurposeFact:
     enum Role: Equatable, Sendable {
         case phase
         case normal
+        case dataChannels
     }
 
     let slot: Int
@@ -40,6 +41,11 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
             vertex: vertex,
             fragment: fragment
         ) + normalFacts(
+            statements: statements,
+            main: main,
+            vertex: vertex,
+            fragment: fragment
+        ) + dataChannelFacts(
             statements: statements,
             main: main,
             vertex: vertex,
@@ -281,6 +287,247 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
             unit.tokens[index].text == name
                 && !declarations.contains(where: { $0.contains(index) })
         }.count
+    }
+
+    // MARK: Data-channel weight facts (`texSample2D(s, uv).ra` -> mix weight)
+
+    /// Proves a channel-subset sample is data, not color: the sampled variable
+    /// is only read per-component, feeds scalar arithmetic and the scalar
+    /// call whitelist, and at least one chain terminates in a `mix`
+    /// weight position (`mix(a, b, t)` with t derived from the sample).
+    /// Producer: workshop 3718261802's juguangdeng samples the spotlight
+    /// shape `.ra` and multiplies the channels into the blend factor.
+    private static func dataChannelFacts(
+        statements: [[Token]],
+        main: Unit.Function,
+        vertex: Unit,
+        fragment: Unit
+    ) -> [Fact] {
+        let declaredTypes = Dictionary(fragment.declarations.map {
+            ($0.name, $0.typeName)
+        }, uniquingKeysWith: { first, _ in first })
+        var claimedSlots = Set<Int>()
+        var facts: [Fact] = []
+        for tokens in statements {
+            guard let declaration = dataChannelDeclaration(tokens)
+            else { continue }
+            let name = declaration.name
+            guard referenceCount(declaration.sample.sampler, in: vertex) == 0,
+                  referenceCount(declaration.sample.sampler, in: fragment) == 1,
+                  usesAreClosedComponentReads(
+                    name,
+                    main: main,
+                    fragment: fragment
+                  ),
+                  let _ = dataChannelWeightClosure(
+                    name,
+                    statements: statements,
+                    declaredTypes: declaredTypes
+                  ) else { continue }
+            // Two independent channel-data samples of one slot would make the
+            // proven purpose ambiguous; stay fail-closed.
+            guard claimedSlots.insert(declaration.sample.slot).inserted
+            else { return [] }
+            facts.append(Fact(slot: declaration.sample.slot, role: .dataChannels))
+        }
+        return facts
+    }
+
+    private static func dataChannelDeclaration(
+        _ tokens: [Token]
+    ) -> (name: String, sample: Sample)? {
+        guard tokens.count >= 9,
+              let width = vectorWidth(tokens[0].text),
+              tokens[1].kind == .identifier,
+              tokens[2].text == "=",
+              let sample = sample(at: 3, tokens: tokens),
+              // The projection tail `.` + swizzle is already included in
+              // the sample's exclusive upper bound.
+              sample.upperBound == tokens.count,
+              tokens[sample.upperBound - 2].text == ".",
+              let _ = dataChannelProjection(
+                tokens[sample.upperBound - 1].text,
+                expectedWidth: width
+              ) else { return nil }
+        return (tokens[1].text, sample)
+    }
+
+    private static func vectorWidth(_ typeName: String) -> Int? {
+        switch typeName {
+        case "float": return 1
+        case "vec2", "float2": return 2
+        case "vec3", "float3": return 3
+        case "vec4", "float4": return 4
+        default: return nil
+        }
+    }
+
+    /// Accepts homogeneous rgba/xyzw projections that select a strict subset
+    /// of the sampled channels; a whole-vector projection carries color
+    /// semantics and stays unproven.
+    private static func dataChannelProjection(
+        _ text: String,
+        expectedWidth: Int
+    ) -> String? {
+        let rgba = "rgba", xyzw = "xyzw"
+        guard !text.isEmpty, text.count < 4,
+              text.allSatisfy({ rgba.contains($0) })
+                  || text.allSatisfy({ xyzw.contains($0) }) else { return nil }
+        return text.count == expectedWidth ? text : nil
+    }
+
+    /// Every use of the sampled variable outside its declaration must be a
+    /// single-component read; a bare identifier use is a vector context.
+    private static func usesAreClosedComponentReads(
+        _ name: String,
+        main: Unit.Function,
+        fragment: Unit
+    ) -> Bool {
+        let uses = main.bodyRange.filter { index in
+            fragment.tokens[index].text == name
+        }
+        guard !uses.isEmpty else { return false }
+        return uses.allSatisfy { index in
+            // The declaration is the one use followed by `=`; every other
+            // use must read a single component.
+            fragment.tokens[index + 1].text == "="
+                || (index + 2 < main.bodyRange.upperBound
+                    && fragment.tokens[index + 1].text == "."
+                    && isComponentLetter(fragment.tokens[index + 2].text))
+        }
+    }
+
+    private static func isComponentLetter(_ text: String) -> Bool {
+        text.count == 1 && "xyzwrgba".contains(text)
+    }
+
+    /// Walks main's statements and returns the set of float locals transitively
+    /// derived from the sampled variable when every use stays inside the
+    /// scalar weight vocabulary; nil means any use escaped the shape.
+    private static func dataChannelWeightClosure(
+        _ name: String,
+        statements: [[Token]],
+        declaredTypes: [String: String]
+    ) -> Set<String>? {
+        var derived = Set<String>()
+        func touches(_ tokens: [Token]) -> Bool {
+            tokens.contains { $0.text == name || derived.contains($0.text) }
+        }
+        // Fixpoint: float locals whose initializer expression touches the
+        // sample or an existing derived local join the weight closure.
+        var changed = true
+        while changed {
+            changed = false
+            for tokens in statements where !tokens.isEmpty {
+                // Statement ranges exclude the trailing `;`, so the whole
+                // suffix after `=` is the initializer expression.
+                guard tokens[0].text == "float", tokens[1].kind == .identifier,
+                      tokens[2].text == "=", tokens.count > 4 else { continue }
+                let local = tokens[1].text
+                guard !derived.contains(local),
+                      touches(Array(tokens[3...])) else { continue }
+                guard isScalarWeightExpression(
+                    Array(tokens[3...]),
+                    channelRoots: [name] + derived,
+                    declaredTypes: declaredTypes
+                ) else { return nil }
+                derived.insert(local)
+                changed = true
+            }
+        }
+        var weightUseCount = 0
+        for tokens in statements where !tokens.isEmpty {
+            guard touches(tokens) else { continue }
+            if tokens.count > 4, tokens[2].text == "=",
+               tokens[1].kind == .identifier,
+               // Scalar declarations joined the closure above; the channel
+               // declaration itself carries the only vector occurrence.
+               tokens[1].text == name || tokens[0].text == "float" {
+                continue
+            }
+            var index = 0
+            while index < tokens.count {
+                let token = tokens[index]
+                guard token.kind == .identifier, index + 1 < tokens.count,
+                      tokens[index + 1].text == "(",
+                      let close = matchingClose(index + 1, tokens: tokens) else {
+                    if token.text == name || derived.contains(token.text) {
+                        // Bare occurrence outside the whitelisted call shapes
+                        // has no proven scalar position.
+                        return nil
+                    }
+                    index += 1
+                    continue
+                }
+                let arguments = SceneAuthoredShaderTokenScanner.argumentRanges(
+                    in: (index + 2)..<close, tokens: tokens
+                )
+                guard let arguments else { return nil }
+                if token.text == "mix" {
+                    guard arguments.count == 3 else { return nil }
+                    if touches(Array(tokens[arguments[0]]))
+                        || touches(Array(tokens[arguments[1]])) {
+                        // The sampled channels may only weight the blend, not
+                        // feed either mixed color operand.
+                        return nil
+                    }
+                    if touches(Array(tokens[arguments[2]])) {
+                        weightUseCount += 1
+                    }
+                } else if weightCallAllowlist.contains(token.text) {
+                    if arguments.contains(where: { touches(Array(tokens[$0])) }) {
+                        weightUseCount += 1
+                    }
+                } else {
+                    return nil
+                }
+                index = close + 1
+            }
+        }
+        guard weightUseCount > 0 else { return nil }
+        return derived
+    }
+
+    private static let weightCallAllowlist: Set<String> = [
+        "saturate", "abs", "min", "max", "clamp", "smoothstep",
+        "floor", "ceil", "fract", "mod",
+    ]
+
+    private static func isScalarWeightExpression(
+        _ tokens: [Token],
+        channelRoots: [String],
+        declaredTypes: [String: String]
+    ) -> Bool {
+        var index = 0
+        while index < tokens.count {
+            let token = tokens[index]
+            if token.kind == .number
+                || ["+", "-", "*", "/", "(", ")", ","].contains(token.text) {
+                index += 1
+                continue
+            }
+            guard token.kind == .identifier else { return false }
+            if index + 2 < tokens.count,
+               tokens[index + 1].text == ".",
+               isComponentLetter(tokens[index + 2].text) {
+                index += 3
+                continue
+            }
+            if channelRoots.contains(token.text)
+                || declaredTypes[token.text] == "float"
+                || declaredTypes[token.text] == "int" {
+                index += 1
+                continue
+            }
+            if weightCallAllowlist.contains(token.text),
+               index + 1 < tokens.count, tokens[index + 1].text == "(",
+               let close = matchingClose(index + 1, tokens: tokens) {
+                index = close + 1
+                continue
+            }
+            return false
+        }
+        return true
     }
 
     private static func identifierCount(

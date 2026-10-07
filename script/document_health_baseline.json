@@ -85,8 +85,8 @@
       "bytes": 139300
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 562,
-      "bytes": 331629
+      "lines": 564,
+      "bytes": 334149
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 75,
@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 148,
-      "bytes": 56721
+      "bytes": 57360
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1226,12 +1226,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "8c16e3b6eb76347d99c2fc6e5fcc7ead6f44c6c4a1b2eb0a218061f3abfc63a5",
+      "after": "deec6068147ed71356f7604e28da8d5b0643c3cb97c56678d2296039b98f5cfb",
+      "owner": "scene-render-graph-shader-coverage",
+      "reason": "批C 收口：数据通道用途证明条目+QF 卡批C 行（含批A2 取证行）。",
+      "decision": "docs/scene/history/data-channel-texture-purpose-2026-10-07.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "d2c7b1358ff73d39357b8f7beea5a8b42de5705aeefb97a1cc064d222023720a",
-      "after": "407998dda1bddd01a38c44da6c3cde5d2a288869f454595a01b3dbac3207e4e9",
+      "before": "407998dda1bddd01a38c44da6c3cde5d2a288869f454595a01b3dbac3207e4e9",
+      "after": "403da88901ab4cfb3a9dbf8cf8796e3c14d620649aed4b9afbfb5dc4ab6e9d09",
       "owner": "scene-open-breakpoint-queue",
-      "reason": "批B 收口行更新（3809618616 修复落地与门禁结果）；Q1T 覆盖扩张指令登记。",
-      "decision": "docs/scene/history/int-compound-assignment-normalizer-2026-10-07.md"
+      "reason": "批C 收口：数据通道用途证明条目+QF 卡批C 行（含批A2 取证行）。",
+      "decision": "docs/scene/history/data-channel-texture-purpose-2026-10-07.md"
     }
   ]
 }

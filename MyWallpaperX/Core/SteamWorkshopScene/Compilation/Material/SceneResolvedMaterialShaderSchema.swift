@@ -411,7 +411,6 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                   sampler.mode == .regular,
                   sampler.materialKey == nil,
                   !sampler.isHidden,
-                  sampler.defaultTexture == nil,
                   sampler.sourceProvenPurpose == nil else { return false }
             if fact.role == .phase { return sampler.channelUse == .redOnly }
             return true
@@ -419,8 +418,23 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
 
         var result = samplers
         for fact in facts {
-            let purpose: SceneTextureLoadPurpose = fact.role == .phase
-                ? .phase : .normal
+            let purpose: SceneTextureLoadPurpose
+            switch fact.role {
+            case .phase: purpose = .phase
+            case .normal: purpose = .normal
+            // Channel-subset data weights stay channel data; no color
+            // transfer or mask semantics attach to this proof.
+            case .dataChannels: purpose = .preservedChannels
+            }
+            // A typed stock default keeps its authority: the purpose(for:)
+            // arbitration rejects the proof when the default's registry role
+            // conflicts, so the fact never overrides registry semantics.
+            if case let .asset(defaultPath)? = samplers[fact.slot]?.defaultTexture,
+               let registered = SceneStockTextureSemanticRegistry.purpose(
+                   for: defaultPath
+               ), registered != purpose {
+                continue
+            }
             result[fact.slot] = result[fact.slot]?
                 .withSourceProvenPurpose(purpose)
         }

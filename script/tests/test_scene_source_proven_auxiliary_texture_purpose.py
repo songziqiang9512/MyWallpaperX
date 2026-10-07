@@ -162,6 +162,48 @@ private func normalFragment(
     """
 }
 
+private func dataChannelFragment(
+    slot: Int = 2,
+    metadata: String = "",
+    projection: String = "ra",
+    extraUse: String = "",
+    weightSite: String = "mixWeight"
+) -> String {
+    let terminal: String
+    switch weightSite {
+    case "mixWeight":
+        terminal = """
+        vec4 base = texSample2D(g_Texture0, v_TexCoord.xy);
+        gl_FragColor = mix(base, vec4(1.0), blend);
+        """
+    case "colorOperand":
+        terminal = """
+        vec4 base = texSample2D(g_Texture0, v_TexCoord.xy);
+        gl_FragColor = mix(vec4(blendSample.x), base, blend);
+        """
+    case "outputAlpha":
+        terminal = """
+        vec4 base = texSample2D(g_Texture0, v_TexCoord.xy);
+        gl_FragColor = vec4(base.rgb, blendSample.g);
+        """
+    default:
+        terminal = weightSite
+    }
+    return """
+    varying vec4 v_TexCoord;
+    uniform sampler2D g_Texture0; // {"hidden":true}
+    uniform sampler2D g_Texture\(slot); \(metadata)
+    void main() {
+        vec2 blendSample = texSample2D(
+            g_Texture\(slot), v_TexCoord.xy
+        ).\(projection);
+        float blend = saturate(blendSample.x * blendSample.y);
+        \(extraUse)
+        \(terminal)
+    }
+    """
+}
+
 @main
 private enum Main {
     static func main() throws {
@@ -176,6 +218,18 @@ private enum Main {
                 "renamedPhase": token(renamedPhase[5]),
                 "normal": token(normal[3]),
                 "renamedNormal": token(renamedNormal[6]),
+                "dataChannel": token(activeSamplers(dataChannelFragment())[2]),
+                "renamedDataChannel": token(activeSamplers(
+                    dataChannelFragment(slot: 7)
+                )[7]),
+                "dataChannelWithDefault": token(activeSamplers(dataChannelFragment(
+                    metadata: #"// {"default":"particle/halo_6"}"#
+                ))[2]),
+                "dataChannelWithUnregisteredDefault": token(activeSamplers(
+                    dataChannelFragment(
+                        metadata: #"// {"default":"pattern/unknown_art"}"#
+                    )
+                )[2]),
             ],
             "negative": [
                 "phaseGreen": token(activeSamplers(
@@ -208,6 +262,23 @@ private enum Main {
                 "normalOtherUse": token(activeSamplers(normalFragment(
                     normalUse: "normal.z"
                 ))[3]),
+                "dataChannelWholeVector": token(activeSamplers(
+                    dataChannelFragment(projection: "r")
+                )[2]),
+                "dataChannelColorOperand": token(activeSamplers(
+                    dataChannelFragment(weightSite: "colorOperand")
+                )[2]),
+                "dataChannelOutputAlpha": token(activeSamplers(
+                    dataChannelFragment(weightSite: "outputAlpha")
+                )[2]),
+                "dataChannelBareUse": token(activeSamplers(dataChannelFragment(
+                    extraUse: "vec2 vecUse = blendSample;"
+                ))[2]),
+                "dataChannelConflictDefault": token(activeSamplers(
+                    dataChannelFragment(
+                        metadata: #"// {"default":"util/noise"}"#
+                    )
+                )[2]),
             ],
         ]
         let data = try JSONSerialization.data(
@@ -273,6 +344,17 @@ class SceneSourceProvenAuxiliaryTexturePurposeTests(unittest.TestCase):
                 "renamedPhase": "redOnly/phase/phase",
                 "normal": "unproven/normal/normal",
                 "renamedNormal": "unproven/normal/normal",
+                # The juguangdeng dataflow: `.ra` channels become scalar
+                # weights and only weight the terminal mix.
+                "dataChannel": "unproven/preserved-channels/preserved-channels",
+                "renamedDataChannel":
+                    "unproven/preserved-channels/preserved-channels",
+                # A typed stock default keeps registry authority only when it
+                # conflicts; unregistered and halo defaults accept the proof.
+                "dataChannelWithDefault":
+                    "unproven/preserved-channels/preserved-channels",
+                "dataChannelWithUnregisteredDefault":
+                    "unproven/preserved-channels/preserved-channels",
             },
             self.result,
         )
@@ -291,6 +373,18 @@ class SceneSourceProvenAuxiliaryTexturePurposeTests(unittest.TestCase):
                 "normalDecode": "unproven/nil/nil",
                 "normalThirdSample": "unproven/nil/nil",
                 "normalOtherUse": "unproven/nil/nil",
+                # A single-channel projection is a plain scalar read, not a
+                # strict channel subset; the data proof does not fire.
+                "dataChannelWholeVector": "redOnly/nil/nil",
+                # The sampled channels feeding either mixed color operand, or
+                # the output alpha, escape the weight-only shape.
+                "dataChannelColorOperand": "unproven/nil/nil",
+                "dataChannelOutputAlpha": "unproven/nil/nil",
+                # A second float initializer joined the closure but the bare
+                # vector use of the sample variable escapes component reads.
+                "dataChannelBareUse": "unproven/nil/nil",
+                # The stock registry's noise semantics win over the proof.
+                "dataChannelConflictDefault": "unproven/nil/noise",
             },
             self.result,
         )
