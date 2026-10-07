@@ -159,18 +159,37 @@ final class SceneOffscreenTexturePool {
             commandBuffer: commandBuffer, textureFactory: textureFactory)?.first
     }
 
-    private enum FrameTextureKind { case composition, environment, shadow(Int) }
+    /// Coverage storage remains isolated across parts and sampling domains.
+    /// Reusing storage does not preserve a prepared mask's content.
+    /// The draw consumer owns completion/cancellation of the returned pin.
+    func reservePuppetClipping(
+        layerID: Int, clipID: Int, domain: UUID, width: Int, height: Int,
+        commandBuffer: MTLCommandBuffer,
+        textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil
+    ) -> PinnedTexture? {
+        reserveFrameTextures(dimensions: [(width, height)],
+            kind: .puppetClipping(layerID: layerID, clipID: clipID, domain: domain),
+            commandBuffer: commandBuffer, textureFactory: textureFactory)?.first
+    }
+
+    private enum FrameTextureKind {
+        case composition, environment, shadow(Int)
+        case puppetClipping(layerID: Int, clipID: Int, domain: UUID)
+    }
 
     private func reserveFrameTextures(
         dimensions: [(width: Int, height: Int)], kind: FrameTextureKind,
         commandBuffer: MTLCommandBuffer, textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)?
     ) -> [PinnedTexture]? {
         if dimensions.isEmpty { return [] }
-        let isShadow: Bool, mipmapped: Bool
+        let format: MTLPixelFormat, bytesPerPixel: Int, mipmapped: Bool
         switch kind {
-        case .shadow: isShadow = true; mipmapped = false
-        case .environment: isShadow = false; mipmapped = true
-        case .composition: isShadow = false; mipmapped = false
+        case .shadow: format = .depth32Float; bytesPerPixel = 4; mipmapped = false
+        case .environment:
+            format = pixelFormat; bytesPerPixel = backbufferFormat.logicalBytesPerPixel; mipmapped = true
+        case .composition:
+            format = pixelFormat; bytesPerPixel = backbufferFormat.logicalBytesPerPixel; mipmapped = false
+        case .puppetClipping: format = .r8Unorm; bytesPerPixel = 1; mipmapped = false
         }
         var keys: Set<CacheKey> = []
         var descriptors: [CacheKey: MTLTextureDescriptor] = [:]
@@ -180,18 +199,20 @@ final class SceneOffscreenTexturePool {
             case .composition: .composition(width: width, height: height)
             case .environment: .environment(width: width, height: height)
             case .shadow(let slot): .modelShadow(slot: slot, width: width, height: height)
+            case let .puppetClipping(layerID, clipID, domain):
+                .puppetClipping(layerID: layerID, clipID: clipID, domain: domain,
+                    width: width, height: height)
             }
             if !keys.insert(key).inserted { continue }
             guard width > 0, height > 0, width <= maxDimension, height <= maxDimension else { return nil }
-            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: isShadow ? .depth32Float : pixelFormat,
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format,
                 width: width, height: height, mipmapped: mipmapped)
             descriptor.storageMode = .private
             descriptor.usage = [.shaderRead, .renderTarget]
             var cost = 0, w = width, h = height
             for _ in 0..<descriptor.mipmapLevelCount {
                 let (pixels, pixelOverflow) = w.multipliedReportingOverflow(by: h)
-                let (level, byteOverflow) = pixels.multipliedReportingOverflow(
-                    by: isShadow ? 4 : backbufferFormat.logicalBytesPerPixel)
+                let (level, byteOverflow) = pixels.multipliedReportingOverflow(by: bytesPerPixel)
                 guard !pixelOverflow, !byteOverflow else { return nil }
                 let (next, overflow) = cost.addingReportingOverflow(level)
                 guard !overflow else { return nil }

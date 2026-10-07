@@ -14,6 +14,7 @@
       "docs/scene/architecture/scene-resource-admission.md",
       "docs/scene/architecture/scene-runtime-daemon-contract.md",
       "docs/scene/capabilities/alpha-display-fallback-design.md",
+      "docs/scene/capabilities/puppet-clipping-design.md",
       "docs/scene/capabilities/runtime-evidence-current.md",
       "docs/scene/capabilities/sampler-alias-precedence.md",
       "docs/scene/capabilities/static-source-draw-only-degradation.md",
@@ -470,6 +471,20 @@
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
     },
     {
+      "path": "docs/scene/capabilities/puppet-clipping-design.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/capabilities/advanced-object-coverage.md",
+      "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
+      "lastReviewed": "2026-10-08",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "227140ef85dcd4a28a1259d8c4b3c9c02f3418a97b53d981dfb96fa184753dea",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "维护单一裁剪职责合同，核对合法空part、精确空后缀与准备期source去重/排self/empty；运行身份及验收边界只链接证据权威。",
+        "limitations": "导航和合同维护；不声明官方nested/软边、非一source alpha、完整样本或性能验收。"
+      }
+    },
+    {
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
@@ -480,12 +495,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-07",
+      "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8a9c47d5f8ee9531cfc77ecc94ca045d5494da373537b6981ac4f8a87b1cfd81",
+        "sourceSHA256": "ec3e355d2de7da6fa60404d95a3bbba308d2985a61942df6641a2143a784d6d7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对作者leaf删除、脚本退休、named provider局部失败的已实现边界及冻结证据；不作全样本验收。",
+        "scope": "核对裁剪合同、分阶段App身份、reader非回退与保留运行失败的证据导航；不作全样本验收。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -1137,6 +1152,18 @@
       "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
+        "docs/scene/capabilities/advanced-object-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/puppet-clipping-2026-10-08.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/puppet-clipping-design.md",
         "docs/scene/capabilities/advanced-object-coverage.md",
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
@@ -1965,7 +1992,10 @@
         "材质",
         "作者采样",
         "UV",
-        "atlas"
+        "atlas",
+        "Puppet",
+        "clipping",
+        "裁剪"
       ],
       "documents": [
         "docs/scene/capabilities/coverage-ledger.md",
@@ -1977,7 +2007,8 @@
         "docs/scene/architecture/scene-launch-responsiveness-contract.md",
         "docs/scene/architecture/scene-runtime-daemon-contract.md",
         "docs/scene/development/development-workflow.md",
-        "docs/scene/development/official-client-behavior-research-workflow.md"
+        "docs/scene/development/official-client-behavior-research-workflow.md",
+        "docs/scene/capabilities/puppet-clipping-design.md"
       ],
       "sourcePaths": [
         "MyWallpaperX/Core/SteamWorkshopScene"

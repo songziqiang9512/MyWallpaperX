@@ -3,8 +3,9 @@ import simd
 
 /// Prepared geometry whose vertex positions remain in authored model space.
 /// The encoder consumes the caller's live model-to-clip transform directly;
-/// no layer-sized or coverage-sized texture is part of this product.
+/// auxiliary coverage never replaces its atlas or color output.
 struct SceneGeometryProduct {
+    typealias AuxiliaryRetainer = (@escaping () -> Void) -> Void
     typealias ColorBlendBinder = (
         MTLRenderCommandEncoder,
         MTLTexture,
@@ -19,6 +20,10 @@ struct SceneGeometryProduct {
         SceneLayerFragmentUniforms,
         ColorBlendBinder?
     ) -> Bool
+    /// Optional geometry auxiliaries, encoded before the consuming color pass.
+    /// Uses the same pose as encode; no color output or source identity changes.
+    /// Their release callbacks belong to the caller's submission/cancel owner.
+    let prepare: ((MTLCommandBuffer, SIMD2<Int>, simd_float4x4, AuxiliaryRetainer) -> Void)?
     /// Exact authored owner and atlas identity. `resourceGeneration` is
     /// assigned only when the base-image store installs the atlas and mesh as
     /// one resource atom; an uninstalled product cannot publish cross-layer.
@@ -35,6 +40,7 @@ struct SceneGeometryProduct {
         ownerLayerID: Int,
         samplingTexture: MTLTexture,
         resourceGeneration: UInt64 = 0,
+        prepare: ((MTLCommandBuffer, SIMD2<Int>, simd_float4x4, AuxiliaryRetainer) -> Void)? = nil,
         isPreparedForPublication: @escaping (MTLCommandBuffer) -> Bool = { _ in true },
         encode: @escaping (
             MTLRenderCommandEncoder,
@@ -47,6 +53,7 @@ struct SceneGeometryProduct {
         authoredSize: SIMD2<Float>,
         effectSourceExtentContract: SceneEffectSourceExtentContract
     ) {
+        self.prepare = prepare
         self.ownerLayerID = ownerLayerID
         self.samplingTexture = samplingTexture
         self.resourceGeneration = resourceGeneration
@@ -61,6 +68,7 @@ struct SceneGeometryProduct {
             ownerLayerID: ownerLayerID,
             samplingTexture: samplingTexture,
             resourceGeneration: resourceGeneration,
+            prepare: prepare,
             isPreparedForPublication: isPreparedForPublication,
             encode: encode,
             authoredSize: authoredSize,

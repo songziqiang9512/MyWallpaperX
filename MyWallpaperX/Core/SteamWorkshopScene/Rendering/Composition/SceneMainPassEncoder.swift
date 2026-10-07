@@ -9,7 +9,7 @@ final class SceneMainPassEncoder {
     private var activeEncoder: MTLRenderCommandEncoder?
     private var activeDepthTexture: MTLTexture?
     private let submissionOwner: SceneMainPassEncoder?
-    private var compositionPins: [SceneGraphRenderTargetResidencyPin] = []
+    private var auxiliaryReleases: [() -> Void] = []
     private var isFinished = false
     private var encodingFailed = false
 
@@ -54,20 +54,29 @@ final class SceneMainPassEncoder {
     /// can fail after encoding, so its allocation still lives until completion.
     func retainCompositionPin(_ pin: SceneGraphRenderTargetResidencyPin?) {
         guard let pin else { return }
-        if let submissionOwner { submissionOwner.retainCompositionPin(pin) }
-        else { compositionPins.append(pin) }
+        retainAuxiliaryRelease { pin.release() }
+    }
+
+    /// Geometry auxiliaries and composition targets share this submission's
+    /// completion/cancellation boundary, including captures that later fail.
+    func retainAuxiliaryRelease(_ release: @escaping () -> Void) {
+        if let submissionOwner { submissionOwner.retainAuxiliaryRelease(release) }
+        else { auxiliaryReleases.append(release) }
     }
 
     func armCompositionPins() {
-        let pins = compositionPins
-        compositionPins.removeAll()
-        commandBuffer.addCompletedHandler { _ in pins.forEach { $0.release() } }
+        let releases = auxiliaryReleases
+        auxiliaryReleases.removeAll()
+        commandBuffer.addCompletedHandler { _ in releases.forEach { $0() } }
     }
 
     func cancelCompositionPins() {
-        compositionPins.forEach { $0.release() }
-        compositionPins.removeAll()
+        let releases = auxiliaryReleases
+        auxiliaryReleases.removeAll()
+        releases.forEach { $0() }
     }
+
+    deinit { cancelCompositionPins() }
 
     func encoder() -> MTLRenderCommandEncoder? {
         encoder(depthTexture: nil, clearsDepth: false, clearDepth: 1)

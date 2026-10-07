@@ -19,6 +19,7 @@ PLAYBACK_SOURCES = [
     "Systems/Puppet/ScenePuppetTranslationMotion.swift",
     "Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift",
     "Systems/Puppet/ScenePuppetAnimationControl.swift",
+    "Systems/Puppet/ScenePuppetClipping.swift",
     "Systems/Puppet/ScenePuppetPlaybackState.swift",
     "Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
     "Rendering/Geometry/SceneGeometryProduct.swift",
@@ -263,6 +264,7 @@ func render(_ output: ScenePuppetPlaybackState.Output? = nil, sceneTime: Double,
                 encoder.setFragmentBytes(&mode, length: MemoryLayout<Int32>.size, index: 0)
                 encoder.setFragmentTexture(source, index: 0)
                 encoder.setFragmentTexture(background, index: 1)
+                SceneImageLayerPipeline.bindClipMask(encoder: encoder, texture: source)
             }
             if let output {
                 drew = output.product.encode(encoder, atlas, nil, mvp, uniforms, bind)

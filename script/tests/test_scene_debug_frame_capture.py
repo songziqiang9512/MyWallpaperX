@@ -227,6 +227,9 @@ final class SceneMetalRenderer {}
             drain(capture)
             check(events.snapshot.count == 1 && events.snapshot[0].failure == "metal-readback-setup", "failed budget cleanup")
         }
+        // Previous closeAndDrain notifications precede closure destruction.
+        // Isolate cancel accounting from those unrelated completed captures.
+        waitForLeaseReturn(to: baseline)
         autoreleasepool {
             let events = Events()
             let exportEntered = DispatchSemaphore(value: 0), allowExport = DispatchSemaphore(value: 0)

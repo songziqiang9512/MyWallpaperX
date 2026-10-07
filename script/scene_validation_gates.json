@@ -2363,6 +2363,30 @@
         "test_scene_media_observer",
         "test_scene_media_artwork_palette"
       ]
+    },
+    {
+      "id": "puppet-clipping",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetMeshReader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetClipping.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetMeshGeometry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneGeometryProduct.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLayerColorBlendPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache*.swift"
+      ],
+      "modules": [
+        "test_scene_puppet_clipping",
+        "test_scene_puppet_clipping_pool",
+        "test_scene_puppet_clipping_shader",
+        "test_scene_puppet_clipping_render",
+        "test_scene_geometry_auxiliary_lifetime"
+      ]
     }
   ],
   "method_gates": {

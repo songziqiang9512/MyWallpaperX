@@ -157,9 +157,19 @@ import simd
                 pipeline:base,commandBuffer:cb,sourceLighting:v["enabled"] as! Bool ? payload : nil)
             cb.commit();cb.waitUntilCompleted()
             let actual=pixels(target)
-            let baselineTarget=texture(device),baselineCB=queue.makeCommandBuffer()!
-            precondition(SceneOffscreenEffectRenderer.captureSource(sourceTexture:source,target:baselineTarget,sourceUniforms:uniform,pipeline:base,commandBuffer:baselineCB))
-            baselineCB.commit();baselineCB.waitUntilCompleted()
+            // Only fallback profiles compare an ordinary unlit capture.
+            // Extreme lit arithmetic has its independent oracle below; the
+            // unrelated unlit multiply currently overflows for that input.
+            let comparesOriginal = ["strength-zero", "B-zero", "disabled-original", "unavailable-original"]
+                .contains(v["name"] as! String)
+            var original: [Float]?
+            if comparesOriginal {
+                let baselineTarget=texture(device),baselineCB=queue.makeCommandBuffer()!
+                precondition(SceneOffscreenEffectRenderer.captureSource(sourceTexture:source,target:baselineTarget,sourceUniforms:uniform,pipeline:base,commandBuffer:baselineCB))
+                baselineCB.commit();baselineCB.waitUntilCompleted()
+                precondition(baselineCB.status == .completed && baselineCB.error == nil)
+                original=pixels(baselineTarget)
+            }
             let graphTarget=texture(device),graphCB=queue.makeCommandBuffer()!
             let graphEncoder=SceneGraphResourcePassEncoder(commandQueue:queue)
             let beforePrepare=attempts
@@ -176,7 +186,7 @@ import simd
             graphCB.commit();graphCB.waitUntilCompleted()
             rows.append(["graphActual":pixels(graphTarget),"graphCompleted":graphCB.status == .completed && graphCB.error == nil,
                          "graphAccepted":graphAccepted,"prepareIsLazy":prepareIsLazy,"aliasRejected":aliasRejected,"commonAliasSkipped":commonAlias,
-                         "name":v["name"]!,"actual":actual,"original":pixels(baselineTarget),"accepted":accepted,
+                         "name":v["name"]!,"actual":actual,"original":original.map { $0 as Any } ?? NSNull(),"accepted":accepted,
                          "normalReady":payload.normal.status == "ready","mapReady":payload.materialMap.status == "ready",
                          "attempts":attempts,"completed":cb.status == .completed && cb.error == nil])
         }
@@ -242,6 +252,13 @@ import simd
             spatial.append(["name":v["name"]!,"actual":pixels(target),"independentFilteredOracle":filtered,
                             "completed":cb.status == .completed && cb.error == nil])
         }
+        for row in rows {
+            for field in ["actual", "original", "graphActual"] {
+                if let values = row[field] as? [Float], !values.allSatisfy({ $0.isFinite }) {
+                    fputs("non-finite fixture output: \(row["name"]!) \(field)=\(values)\n", stderr)
+                }
+            }
+        }
         print(String(data:try JSONSerialization.data(withJSONObject:["numeric":rows,"spatial":spatial,"roughnessLOD":lodRows],options:.sortedKeys),encoding:.utf8)!)
     }
 }
@@ -277,6 +294,10 @@ class SceneLitImageLayerTests(unittest.TestCase):
             for actual,vector in zip(report['numeric'],vectors['gpu_numerical']):
                 v,e=vector['input'],vector['expected'];name=v['name']
                 self.assertTrue(actual['accepted'] and actual['completed'] and actual['normalReady'] and actual['mapReady'],actual)
+                if name in {'strength-zero','B-zero','disabled-original','unavailable-original'}:
+                    self.assertIsNotNone(actual['original'],actual)
+                else:
+                    self.assertIsNone(actual['original'],actual)
                 self.assertEqual(actual['actual'][3],e['half_rgba'][3],actual)
                 self.assertEqual(actual['graphActual'],actual['actual'],actual)
                 for key in ['graphCompleted','graphAccepted','prepareIsLazy','aliasRejected','commonAliasSkipped']:self.assertTrue(actual[key],actual)

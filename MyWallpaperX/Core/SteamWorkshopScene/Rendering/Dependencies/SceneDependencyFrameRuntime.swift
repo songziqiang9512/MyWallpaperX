@@ -550,7 +550,8 @@ final class SceneDependencyFrameRuntime {
                     geometryProduct: geometryProduct,
                     textureRegistry: textureRegistry,
                     commandBuffer: commandBuffer,
-                    telemetry: captureTelemetry
+                    telemetry: captureTelemetry,
+                    retainAuxiliary: mainPass.retainAuxiliaryRelease
                 ) ?? .invalid(
                     reasonCode: "geometry-provider-publication-route-missing"
                 )
@@ -734,7 +735,8 @@ final class SceneDependencyFrameRuntime {
         commandBuffer: MTLCommandBuffer,
         geometryProduct: SceneGeometryProduct? = nil,
         content: SceneTextureContent = .color(.resolved(.premultipliedAlpha)),
-        imagePipeline: SceneImageLayerPipeline? = nil
+        imagePipeline: SceneImageLayerPipeline? = nil,
+        retainAuxiliary: SceneGeometryProduct.AuxiliaryRetainer? = nil
     ) -> SceneGraphOutputPublicationResult? {
         guard plan.requiredGraphOutputProviderLayerIDs.contains(layerID) else {
             return nil
@@ -802,7 +804,8 @@ final class SceneDependencyFrameRuntime {
                 textureRegistry: textureRegistry,
                 commandBuffer: commandBuffer,
                 telemetry: publicationTelemetry,
-                content: content
+                content: content,
+                retainAuxiliary: retainAuxiliary
             )
         }
         // Within-cap extents keep the exact one-full-region-blit contract.

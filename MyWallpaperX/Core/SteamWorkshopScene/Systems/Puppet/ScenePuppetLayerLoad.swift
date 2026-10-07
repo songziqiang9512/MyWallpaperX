@@ -80,7 +80,10 @@ enum ScenePuppetLayerLoad {
         atlasTexture: MTLTexture,
         cacheDirectory: URL,
         device: MTLDevice,
-        pipeline: SceneImageLayerPipeline
+        pipeline: SceneImageLayerPipeline,
+        clippingPipeline: () -> MTLRenderPipelineState? = { nil },
+        loadClippingMask: (String) -> MTLTexture? = { _ in nil },
+        allocateClippingMask: @escaping ScenePuppetClipping.Allocator = { _, _, _, _ in nil }
     ) -> Outcome? {
         guard let puppetMeshPath = layer.puppetMeshPath else { return nil }
         let meshURL: URL
@@ -134,6 +137,22 @@ enum ScenePuppetLayerLoad {
                 message: "puppet mesh rejected: unknown parse failure (\(puppetMeshPath))"
             )
         }
+        let clipping: ScenePuppetClipping?
+        if mesh.clipRecords.isEmpty {
+            clipping = nil
+        } else {
+            var paintTextures: [Int: MTLTexture] = [:]
+            for (index, record) in mesh.clipRecords.enumerated() {
+                if let texture = loadClippingMask(record.maskTexturePath),
+                   texture.pixelFormat == .r8Unorm {
+                    paintTextures[index] = texture
+                } else {
+                    NSLog("MWX Puppet: layer=%d clip=%d mask unavailable; target part hidden", layer.id, index)
+                }
+            }
+            clipping = ScenePuppetClipping(mesh: mesh, pipeline: clippingPipeline(),
+                paintTextures: paintTextures, allocate: allocateClippingMask)
+        }
         let renderSize = layer.renderSizeWH ?? []
         let layerWidth = renderSize.count > 0 ? renderSize[0] : 0
         let layerHeight = renderSize.count > 1 ? renderSize[1] : 0
@@ -152,6 +171,7 @@ enum ScenePuppetLayerLoad {
                         layerHeight: layerHeight,
                         device: device,
                         pipeline: pipeline,
+                        clipping: clipping,
                         animationFallbackMessage: animationFallbackMessage
                     )
                 }
@@ -170,7 +190,8 @@ enum ScenePuppetLayerLoad {
                         layerWidth: layerWidth,
                         layerHeight: layerHeight,
                         device: device,
-                        pipeline: pipeline
+                        pipeline: pipeline,
+                        clipping: clipping
                     ) {
                     case let .success(output):
                         return Outcome(
@@ -213,7 +234,7 @@ enum ScenePuppetLayerLoad {
                 attachments: attachments,
                 atlasTexture: atlasTexture, layerWidth: layerWidth,
                 layerHeight: layerHeight,
-                device: device, pipeline: pipeline
+                device: device, pipeline: pipeline, clipping: clipping
             ) {
             case let .success(output):
                 return Outcome(geometryProduct: output.product, playback: output.state,
@@ -231,6 +252,7 @@ enum ScenePuppetLayerLoad {
             layerHeight: layerHeight,
             device: device,
             pipeline: pipeline,
+            clipping: clipping,
             animationFallbackMessage: animationFallbackMessage
         )
     }
@@ -243,6 +265,7 @@ enum ScenePuppetLayerLoad {
         layerHeight: Float,
         device: MTLDevice,
         pipeline: SceneImageLayerPipeline,
+        clipping: ScenePuppetClipping?,
         animationFallbackMessage: String?
     ) -> Outcome {
         switch ScenePuppetMeshGeometry.prepare(
@@ -252,7 +275,8 @@ enum ScenePuppetLayerLoad {
             layerWidth: layerWidth,
             layerHeight: layerHeight,
             device: device,
-            pipeline: pipeline
+            pipeline: pipeline,
+            clipping: clipping
         ) {
         case let .success(output):
             return Outcome(

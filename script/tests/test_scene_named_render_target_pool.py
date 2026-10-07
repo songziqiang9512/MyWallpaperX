@@ -114,6 +114,7 @@ class SceneNamedRenderTargetPoolTests(unittest.TestCase):
         cls.temporary_directory = tempfile.TemporaryDirectory(
             prefix="mwx-scene-named-target-pool-"
         )
+        cls.addClassCleanup(cls.temporary_directory.cleanup)
         directory = Path(cls.temporary_directory.name)
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
@@ -125,6 +126,7 @@ class SceneNamedRenderTargetPoolTests(unittest.TestCase):
                 "macosx",
                 "swiftc",
                 str(SOURCE),
+                str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift"),
                 str(harness),
                 "-framework",
                 "Metal",
@@ -140,10 +142,6 @@ class SceneNamedRenderTargetPoolTests(unittest.TestCase):
             [str(cls.binary)], check=True, capture_output=True, text=True
         )
         cls.result = json.loads(completed.stdout)
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.temporary_directory.cleanup()
 
     def test_defaults_and_metal_contract_are_bounded(self) -> None:
         self.assertTrue(self.result["floatFormatAndBudget"])

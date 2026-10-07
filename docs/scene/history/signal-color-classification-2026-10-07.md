@@ -1,6 +1,6 @@
 <!-- document-role: historical-evidence -->
 
-> **历史证据 — 非现役入口**。合同见[效果执行边界](../capabilities/effect-execution-coverage.md)，余项见[断点队列](../roadmap/scene-open-breakpoint-queue.md#qf--2026-10-07-用户点名四样本公共主链修复)。
+> **历史证据 — 非现役入口**。合同见[效果执行边界](../capabilities/effect-execution-coverage.md)，余项见[断点队列](../roadmap/scene-open-breakpoint-queue.md#qf-2026-10-07-用户点名四样本公共主链修复)。
 
 # 普通颜色误判为独立信号的修复（2026-10-07）
 

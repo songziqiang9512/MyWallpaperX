@@ -39,7 +39,8 @@ enum ScenePuppetMeshGeometry {
         layerWidth: Float,
         layerHeight: Float,
         device: MTLDevice,
-        pipeline: SceneImageLayerPipeline
+        pipeline: SceneImageLayerPipeline,
+        clipping: ScenePuppetClipping? = nil
     ) -> Result<Output, Failure> {
         guard validAuthoredSize(width: layerWidth, height: layerHeight) else {
             return .failure(.degenerateLayerSize)
@@ -67,6 +68,13 @@ enum ScenePuppetMeshGeometry {
         let product = SceneGeometryProduct(
             ownerLayerID: layerID,
             samplingTexture: atlasTexture,
+            prepare: clipping.map { clipping in
+                { commandBuffer, extent, mvp, retainAuxiliary in
+                    clipping.prepare(commandBuffer: commandBuffer, extent: extent, mvp: mvp,
+                        retainAuxiliary: retainAuxiliary,
+                        vertices: vertices, vertexBuffer: vertexBuffer, indexBuffer: indexBuffer)
+                }
+            },
             encode: {
                 encoder, sourceTexture, dependencyTexture, mvp, uniforms,
                 bindColorBlend in
@@ -94,14 +102,14 @@ enum ScenePuppetMeshGeometry {
                     )
                 }
                 encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
-                encoder.drawIndexedPrimitives(
-                    type: .triangle,
-                    indexCount: indexCount,
-                    indexType: .uint16,
-                    indexBuffer: indexBuffer,
-                    indexBufferOffset: 0
-                )
-                ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+                if let clipping {
+                    clipping.draw(encoder: encoder, sourceTexture: sourceTexture, indexBuffer: indexBuffer)
+                } else {
+                    SceneImageLayerPipeline.bindClipMask(encoder: encoder, texture: sourceTexture)
+                    encoder.drawIndexedPrimitives(type: .triangle, indexCount: indexCount,
+                        indexType: .uint16, indexBuffer: indexBuffer, indexBufferOffset: 0)
+                    ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+                }
                 return true
             },
             authoredSize: SIMD2(layerWidth, layerHeight),

@@ -462,7 +462,8 @@ extension SceneDependencyFrameRuntime {
         textureRegistry: SceneFrameTextureRegistry,
         commandBuffer: MTLCommandBuffer,
         telemetry: SceneGPUCompletionTelemetry,
-        content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
+        content: SceneTextureContent = .color(.resolved(.premultipliedAlpha)),
+        retainAuxiliary: SceneGeometryProduct.AuxiliaryRetainer? = nil
     ) -> SceneGraphOutputPublicationResult? {
         guard plan.requiredProviderLayerIDs.contains(layerID) else { return nil }
         let frameEpoch = textureRegistry.frameEpoch
@@ -495,6 +496,14 @@ extension SceneDependencyFrameRuntime {
         guard geometryProduct.isPreparedForPublication(commandBuffer) else {
             telemetry.recordFailure(layerID: layerID)
             return .unavailable(reasonCode: "geometry-provider-pose-unavailable")
+        }
+        if let prepare = geometryProduct.prepare {
+            guard let retainAuxiliary else {
+                telemetry.recordFailure(layerID: layerID)
+                return .unavailable(reasonCode: "geometry-provider-auxiliary-owner-unavailable")
+            }
+            prepare(commandBuffer, SIMD2(reservation.texture.width, reservation.texture.height),
+                    mvp, retainAuxiliary)
         }
         let descriptor = MTLRenderPassDescriptor()
         descriptor.colorAttachments[0].texture = reservation.texture

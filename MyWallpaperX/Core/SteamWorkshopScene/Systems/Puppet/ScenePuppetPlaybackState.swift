@@ -62,6 +62,7 @@ final class ScenePuppetPlaybackState {
 
     let layerID: Int
     let animationIDs: [Int]
+    private let clipping: ScenePuppetClipping?
     private let mesh: SceneMdlPuppetMesh
     let selection: ScenePuppetAnimationSelection
     private let evaluator: ScenePuppetAnimationEvaluator
@@ -116,7 +117,8 @@ final class ScenePuppetPlaybackState {
         layerWidth: Float,
         layerHeight: Float,
         device: MTLDevice,
-        pipeline: SceneImageLayerPipeline
+        pipeline: SceneImageLayerPipeline,
+        clipping: ScenePuppetClipping? = nil
     ) -> Result<Output, Failure> {
         let evaluator: ScenePuppetAnimationEvaluator
         do {
@@ -162,7 +164,8 @@ final class ScenePuppetPlaybackState {
             vertexBuffers: vertexBuffers,
             indexBuffer: indexBuffer,
             renderPipelineState: pipeline.state,
-            authoredSize: SIMD2(layerWidth, layerHeight)
+            authoredSize: SIMD2(layerWidth, layerHeight),
+            clipping: clipping
         )
         return .success(Output(
             state: state,
@@ -304,6 +307,14 @@ final class ScenePuppetPlaybackState {
         SceneGeometryProduct(
             ownerLayerID: layerID,
             samplingTexture: atlasTexture,
+            prepare: clipping.map { clipping in
+                { [self] commandBuffer, extent, mvp, retainAuxiliary in
+                    guard let index = lastPreparedVertexBufferIndex else { return }
+                    clipping.prepare(commandBuffer: commandBuffer, extent: extent, mvp: mvp,
+                        retainAuxiliary: retainAuxiliary,
+                        vertices: vertexScratch, vertexBuffer: vertexBuffers[index], indexBuffer: indexBuffer)
+                }
+            },
             isPreparedForPublication: { [self] commandBuffer in
                 preparedPublicationCommandBuffer === commandBuffer
             },
@@ -355,9 +366,14 @@ final class ScenePuppetPlaybackState {
                 encoder.setFragmentTexture(dependencyTexture ?? sourceTexture, index: 1)
             }
             encoder.setVertexBuffer(vertexBuffers[lastPreparedVertexBufferIndex], offset: 0, index: 0)
-            encoder.drawIndexedPrimitives(type: .triangle, indexCount: mesh.indices.count,
-                indexType: .uint16, indexBuffer: indexBuffer, indexBufferOffset: 0)
-            ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+            if let clipping {
+                clipping.draw(encoder: encoder, sourceTexture: sourceTexture, indexBuffer: indexBuffer)
+            } else {
+                SceneImageLayerPipeline.bindClipMask(encoder: encoder, texture: sourceTexture)
+                encoder.drawIndexedPrimitives(type: .triangle, indexCount: mesh.indices.count,
+                    indexType: .uint16, indexBuffer: indexBuffer, indexBufferOffset: 0)
+                ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+            }
             return true
             },
             authoredSize: authoredSize,
@@ -472,8 +488,10 @@ final class ScenePuppetPlaybackState {
         vertexBuffers: [MTLBuffer],
         indexBuffer: MTLBuffer,
         renderPipelineState: MTLRenderPipelineState,
-        authoredSize: SIMD2<Float>
+        authoredSize: SIMD2<Float>,
+        clipping: ScenePuppetClipping?
     ) {
+        self.clipping = clipping
         self.layerID = layerID
         self.animationIDs = animationIDs
         self.mesh = mesh

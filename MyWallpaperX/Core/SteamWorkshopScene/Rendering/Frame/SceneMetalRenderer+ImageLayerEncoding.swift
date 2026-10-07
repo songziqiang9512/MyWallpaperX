@@ -200,7 +200,8 @@ extension SceneMetalRenderer {
                     commandBuffer: commandBuffer,
                     geometryProduct: geometryProduct,
                     content: content,
-                    imagePipeline: imagePipeline
+                    imagePipeline: imagePipeline,
+                    retainAuxiliary: layerMainPass.retainAuxiliaryRelease
                 ) ?? .invalid(
                     reasonCode: "named-provider-publication-route-missing"
                 )

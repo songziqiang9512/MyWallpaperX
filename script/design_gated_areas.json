@@ -339,6 +339,22 @@
       "contentPatterns": [
         "publishMediaSession"
       ]
+    },
+    {
+      "id": "scene-puppet-clipping",
+      "title": "Puppet部件动态裁剪",
+      "owner": "scene-p-route",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/puppet-clipping-design.md",
+      "design_notes": "有界实施由同路径stable-contract维护：MDLV0023 part/paint、合法空part保ordinal、精确空后缀、opaque max、nested交集、同pose main/named直绘和pool/submission生命周期。执行source在准备期去重并排self/empty，保留原DTO。固定官方端点支持opaque重叠不累积paint；nested仅本地GPU验证。非一source alpha、更多格式与官方nested/软边parity仍关闭；approved不代表完整样本或性能验收。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/**/ScenePuppetClipping*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/**/SceneMdlPuppetClipping*.swift"
+      ],
+      "contentPatterns": [
+        "puppetClipping",
+        "PuppetClipping"
+      ]
     }
   ]
 }

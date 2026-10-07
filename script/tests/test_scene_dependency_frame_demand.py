@@ -11,7 +11,7 @@ from . import test_scene_dependency_graph_output_runtime as support
 
 # Reuse the existing runtime scaffold. Only the plan projection is instrumented;
 # the production owner and its memo are compiled unchanged, without telemetry.
-SCAFFOLD = support.HARNESS_SOURCE.split("@main", 1)[0].replace(
+SCAFFOLD = support.GEOMETRY_HARNESS_SOURCE.split("@main", 1)[0].replace(
     "struct SceneDependencyRenderPlan {",
     "struct SceneDependencyRenderPlan {\n    static var demandProjectionCount = 0;", 1
 ).replace(
@@ -107,6 +107,7 @@ class SceneDependencyFrameDemandTests(unittest.TestCase):
             "xcrun", "--sdk", "macosx", "swiftc", str(support.RUNTIME_SOURCE),
             str(support.AGGREGATE_VALIDATION_RUNTIME_SOURCE), str(support.GEOMETRY_RUNTIME_SOURCE),
             str(support.EFFECT_INPUT_RESOLUTION_RUNTIME_SOURCE), str(support.STATIC_MODEL_RUNTIME_SOURCE),
+            str(support.GEOMETRY_PRODUCT_SOURCE),
             str(support.REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift"),
             str(support.REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift"),
             str(source), "-framework", "Metal", "-o", str(binary)

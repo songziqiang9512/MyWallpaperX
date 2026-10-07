@@ -13,6 +13,7 @@ struct SceneLayerBlendVaryings {
     float4 position [[position]];
     float2 texcoord;
     float vertexCoverage;
+    float2 modelPosition;
 };
 
 vertex SceneLayerBlendVaryings sceneLayerColorBlendVert(
@@ -24,6 +25,7 @@ vertex SceneLayerBlendVaryings sceneLayerColorBlendVert(
     out.position = mvp * float4(vertices[vertexID].position, 0.0, 1.0);
     out.texcoord = vertices[vertexID].texcoord;
     out.vertexCoverage = vertices[vertexID].vertexCoverage;
+    out.modelPosition = vertices[vertexID].position;
     return out;
 }
 
@@ -31,10 +33,17 @@ fragment float4 sceneLayerColorBlendFrag(
     SceneLayerBlendVaryings input [[stage_in]],
     texture2d<float> layerTexture [[texture(0)]],
     texture2d<float> backgroundTexture [[texture(1)]],
-    constant int &blendMode [[buffer(0)]]
+    texture2d<float> clipMask [[texture(2)]],
+    constant int &blendMode [[buffer(0)]],
+    constant float4 &clipTransform [[buffer(1)]]
 ) {
     constexpr sampler sampler2d(filter::linear, address::clamp_to_edge);
-    float4 layer = layerTexture.sample(sampler2d, input.texcoord) * input.vertexCoverage;
+    constexpr sampler linearClipSampler(filter::linear, address::clamp_to_zero);
+    const float clipCoverage = clipTransform.z == 0.0 ? 1.0
+        : clipMask.sample(linearClipSampler,
+            input.modelPosition * clipTransform.zw + clipTransform.xy).r;
+    float4 layer = layerTexture.sample(sampler2d, input.texcoord)
+        * input.vertexCoverage * clipCoverage;
     float4 background = backgroundTexture.read(uint2(input.position.xy));
     float3 straightLayer = layer.a > 0.0 ? layer.rgb / layer.a : float3(0.0);
     return float4(
@@ -153,6 +162,7 @@ final class SceneLayerColorBlendPipeline {
         encoder.setFragmentBytes(&mode, length: MemoryLayout<Int32>.size, index: 0)
         encoder.setFragmentTexture(layerTexture, index: 0)
         encoder.setFragmentTexture(backgroundTexture, index: 1)
+        SceneImageLayerPipeline.bindClipMask(encoder: encoder, texture: layerTexture)
     }
 
     private static let unitQuadVertices: [SceneQuadVertex] = [
@@ -181,6 +191,13 @@ enum SceneLayerColorBlendRenderer {
     ) -> Bool {
         let blendMode = layer.colorBlendMode ?? 0
         guard supports(blendMode) else { return false }
+        if let prepare = geometryProduct?.prepare {
+            let extent = mainPass.targetExtent
+            mainPass.encodeOffscreen {
+                prepare($0, SIMD2(extent.width, extent.height), mvp,
+                        mainPass.retainAuxiliaryRelease)
+            }
+        }
         if blendMode == 0 {
             guard let encoder = mainPass.encoder() else { return false }
             if let geometryProduct {

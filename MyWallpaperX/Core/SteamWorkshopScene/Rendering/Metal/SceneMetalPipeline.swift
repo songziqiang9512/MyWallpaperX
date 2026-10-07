@@ -97,6 +97,18 @@ struct SceneImageLayerPipeline {
         )
     }
 
+    /// Zero scale disables clipping. Ordinary draws bind a source placeholder
+    /// so a previous mesh part cannot leave its mask state on this encoder.
+    static func bindClipMask(
+        encoder: MTLRenderCommandEncoder,
+        texture: MTLTexture,
+        transform: SIMD4<Float> = .zero
+    ) {
+        var transformCopy = transform
+        encoder.setFragmentTexture(texture, index: 2)
+        encoder.setFragmentBytes(&transformCopy, length: MemoryLayout<SIMD4<Float>>.size, index: 1)
+    }
+
     func drawLayer(
         texture: MTLTexture,
         dependencyTexture: MTLTexture? = nil,
@@ -110,6 +122,7 @@ struct SceneImageLayerPipeline {
         encoder.setFragmentBytes(&uniformsCopy, length: MemoryLayout<SceneLayerFragmentUniforms>.size, index: 0)
         encoder.setFragmentTexture(texture, index: 0)
         encoder.setFragmentTexture(dependencyTexture ?? texture, index: 1)
+        Self.bindClipMask(encoder: encoder, texture: texture)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
     }

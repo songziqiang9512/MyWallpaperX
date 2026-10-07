@@ -756,6 +756,7 @@
           "ScenePuppetAttachmentFrameSnapshot.swift",
           "ScenePuppetAttachmentPoseProjection.swift",
           "ScenePuppetBoneEvidence.swift",
+          "ScenePuppetClipping.swift",
           "ScenePuppetLayerLoad.swift",
           "ScenePuppetMeshGeometry.swift",
           "ScenePuppetPlaybackState.swift",

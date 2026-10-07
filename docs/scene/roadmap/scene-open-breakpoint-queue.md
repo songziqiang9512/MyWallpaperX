@@ -4,23 +4,30 @@
 
 > 2026-09-25 精简重排（用户授权）：只保留开放项与其参考事实；已关闭项的过程流水一律退役，历史证据查 [运行证据](../capabilities/runtime-evidence-current.md) 与 git log。本页使用稳定路径；上述日期仅为历史复核时点。
 > 本文是[兼容路线](scene-compatibility-roadmap.md)的短队列，不建立第二套阶段；工程性能工作按[重构计划](engine-refactor-program.md)执行。
-> 工作方向（2026-09-28用户更新）：本批旋转修正收口后，保持长期Scene goal，自主按跨样本收益、正确性、稳定性与结构减重选择下一事项，不限样本修复。短期缺乏决定性证据的问题记录成果与重启条件后允许暂挂；QV保留用户反馈和未完成验收，不再构成逐项阻塞后续工作的唯一顺序。3088601835及未重新点名的旧问题仍可搁置，不推定修复。反馈见[实测登记](../capabilities/runtime-evidence-current.md#e-2026-09-27-user-retest-priorities)。
+> 当前选题（2026-10-08用户更新）：裁剪有界验证完成，转243全样本共同能力缺口，优先纹理/最终合成→特效→频谱直观显示。先核实际引用和producer→consumer公共首断点，再比较用户价值、依赖解锁、风险与可验证性。样本是反例和验收输入，不以逐样本打补丁替代通用能力；短期无决定性证据的项保留结果与重启条件，QV继续保存用户反馈。
 
-2026-10-06：用户要求本批提交后暂停 Goal；恢复后优先太阳系余项→HDR/SDR→重型普通入口，详见[接手工作卡](../history/scene-maintainer-handoff-2026-10-06.md)。此顺序覆盖旧的自主选题时点。
+2026-10-06暂停交接与10-07四样本批次保留为历史输入；当前选序以上述共同缺口要求为准，旧顺序不再自动决定下一批。
 
 ## 1. 当前证据边界
 
-样本身份只用于复现，不能进入产品分派。旧 corpus 计数和人工 verdict 不代表当前 HEAD 已重新验证；技术修复不能自动改写人工验收。当前能力查[能力台账](../capabilities/coverage-ledger.md)，运行身份查[运行证据](../capabilities/runtime-evidence-current.md)。语料分母 **172**（159 bare-id + 13 v2 布局；后者无身份/归档/矩阵条目，合并条件=全样本当前身份重跑）。**2026-09-28 漂移观察**：真实根现存 189 目录 = 188 bare-id + 1 v2（`3777731106-7ed566e7…`）——原 13 个 v2 中 12 个已被 App 安装布局重组吸收，另有新增 bare-id；下文 Q0 的"13 v2 布局 11/2"随之失效（两个点名 FAIL 的修复仍各自成立），分母合并仍按原条件等全语料当前身份重跑，重跑时以现场目录为准重建基线。
+样本身份只用于复现，不能进入产品分派。2026-10-08刷新census发现243样本、parsed243、failed0（摘要 `/private/tmp/mwx-clipping-corpus-20261008/census-summary.json`），只证明作者声明解析；粗分类 `cap.model3d.runtime=242` 不能当真实3D数量或覆盖实数。旧172/189等分母和人工verdict仍属各自历史输入，不代表当前HEAD运行正确率；技术修复不自动改写人工验收。当前能力查[能力台账](../capabilities/coverage-ledger.md)，运行身份查[运行证据](../capabilities/runtime-evidence-current.md)。
 
 ## 2. 现役执行顺序
 
-2026-10-07：用户点名四样本公共主链修复（见 QF），该顺序临时优先于 2026-10-06 交接顺序（太阳系余项→HDR/SDR→重型普通入口在其后恢复）。
+当前先刷新既有全样本统计与已证断点，再按上述共同缺口选序。QF四样本是代表反例，其他开放项按新证据重新比较，不固定延续旧批次顺序。
+
+### 已证公共缺口（独立后继）
+
+| 公共断点 | 当前证据与最小关闭门 |
+|---|---|
+| 普通unlit image有限输入仍产Inf | 自有真实GPU输入source RGBA=(4,4,4,1)、tint=1e38、alpha=1e-37，HEAD与裁剪候选均输出RGB Inf；生产位置 `SceneImageLayer.metal:130`，证据 `/private/tmp/mwx-puppet-inner-harness-20261008/unlit-overflow-diagnosis.json`。这是已存共享乘法问题，本裁剪批未修；后继沿唯一unlit路径消除中间溢出，门为有限预乘结果、HDR/普通输入和lit合同不回退，不按样本补偿。 |
+| 慢启动超出运行预算 | 裁剪reader修正后的代表输入已ready并取得首图，仍被duration+60预算终止；[运行身份与完整失败](../history/puppet-clipping-2026-10-08.md#跨样本app与最终冻结)保留。因果未定，不归给Puppet或记PASS；后继定位launch关键路径，保留超时/退出和后继输出门，不用抬timeout掩盖。 |
 
 <a id="qv-visual-repairs"></a>
 
 ### QV — 最新实测驱动的可见修复（2026-09-27）
 
-下表区分用户观察、已核实局部修复和待验证原因。按公共首断点推进：先查音频条/音频环的加载与脚本执行，再查共享频谱分布；随后处理漩涡、光束/合成、粒子锚点、细条纹及交互剩余断点。样本只用于取证，不进入产品算法分派。用户正在测试的 App 保持运行，自动诊断使用隔离内容。
+下表保留该批用户观察、已核实局部修复和待验证原因；当前选题以跨样本共同缺口为准，不沿旧音频→光束顺序惯性推进。样本只用于取证，不进入产品算法分派。用户正在测试的 App 保持运行，自动诊断使用隔离内容。
 
 | 当前问题 | 首查职责与下一验收门 |
 |---|---|
@@ -51,10 +58,10 @@
 | 批A ✅2026-10-07 | 3226487183 纹理合成错误 | 层 2522/115975 composition 被 `execution-route-utility-composition-subtree-shape` 拒绝：组员是带 transform 父子链的 image/text（隔代嵌套、成员自带效果），`SceneUtilityLayerSourceRoute` 现行守卫要求 image/solid/text 成员 `childLayerIDs` 为空。组捕获与组级色差/透明度整体缺失。 | 已落地：成员闭包扩到完整 parent 闭包（模型/粒子/灯与非组合 utility 仍排除），D1 设计已修订；两层转捕获执行（组级 chromatic_aberration/opacity 进入 effect-cpu-invocation）、14/14 组合域模块全绿、结构门全绿、独审 APPROVE。记录=[组合成员闭包](../history/composition-member-closure-2026-10-07.md)。fixed13 对账与残余见批A2 |
 | 批A2 | 3226487183 错位残余（批A 后画面基本不变） | 2026-10-07 取证推进：碎片=puppet 件变换错位。层 1028（左侧手，3 骨）authored origin (-70,-606) 应整体画外（官方无此手），我方 `puppet-owner-pose` rootWorld=(-154.9,414.9) 且 117 顶点仅 4 个入视锥（`puppet-world-draw` visible=4/total=117）→ 游离手臂；侧脸拆分件（934/876，`*_puppet.mdl`）同理散射成下巴碎片。origin 脚本求值本身正确（newproperty=246/x=2162 fallback 生效），`jiaose` 条件变体已证正确（="1"）。 | 定位 puppet 骨架/附件变换与 authored origin 的合成断点（rootWorld y 与 authored y -606→+415 的差异形态；对照 1095 的 132/141 正常绘制），先归因 attachment bind frame 或 bone pose 链再修公共链。门：1028 整体画外、侧脸构图与官方一致、碎片消失、批A 证据不回退 |
 | 批B ✅2026-10-07 | 3809618616 全屏渐变色 | `Simple_Audio_Bars` 作者 shader 在 `int bar` 上 `bar *= step(...)`（int 复合赋值 float 右值，author.frag:273/274）被 stage-link 拒编译；两个全屏 composelayer 上 bars passthrough 后 gradient_color（Hue Speed 0.3）独自全屏执行=整屏旋转渐变。 | 已落地：`rewriteFloatToIntAssignments` 扩展复合赋值（`*=/+=/-=/=`，截断语义，qualified LHS/`%=`/vertex 残余登记 fail-closed）；实测零 stage-link 拒绝、benchmark PASS、150 柱可见；22/22 门禁模块全绿（含按新合同重写的 canonicalization 测试、顺带偿清 census HEAD 预存红）。记录=[int 复合赋值 normalizer](../history/int-compound-assignment-normalizer-2026-10-07.md)。底图照片层缺失归批D |
-| 批C（用途、身体网格/权重/骨骼alpha已修，视觉未收口） | 3791967416 合成不全、特效不全 | 用途拒绝归零，层23五效果进入输出；身体层962因尾顶点未引用被mesh误拒，现已恢复身体、纹身和服饰。身体三clip已载入，1.3静态权重进入实际pose；首帧/部分几何失败发布已修。小眼睛6542已从auxiliary拒绝转为3396顶点实际动画绘制；三条barcode与audio_caps颜色边界已修，实际Program/GPU/合成恢复；共享播放位置及property隐藏恢复已修（含暂停重建补入），动画层visible脚本及本层播放/定位控制已接通共同pose与GPU；intro控制器跨层删除被拒导致暗幕/Logo残留，现已沿通用leaf删除与脚本退休恢复，原样本25秒实际画面变亮；眼部组装仍待同输入对照。 | 下一门：固定viewport/鼠标/动画时刻联验眼部挂点与作者半透明副本；不凭不同输入截图擅加挂点或去重。亮度首断点已关闭，见[作者层删除与退休](../history/authored-layer-retirement-2026-10-07.md)。缺源aggregate需求已合并缓存；累计tombstone扫描为待测非阻断成本，debug运行非性能验收。既有用途门保持，过程见[用途批](../history/data-channel-texture-purpose-2026-10-07.md)、[复审](../history/committed-range-review-repairs-2026-10-07.md)、[身体网格](../history/puppet-unused-vertices-2026-10-07.md)、[静态权重/发布](../history/puppet-static-weight-2026-10-07.md)、[骨骼alpha](../history/puppet-bone-alpha-2026-10-07.md)、[颜色误标](../history/signal-color-classification-2026-10-07.md)、[动画层控制](../history/puppet-animation-control-2026-10-07.md)。 |
+| 批C（有界片已验证） | 3791967416 裁剪恢复与Puppet非回退 | [裁剪合同](../capabilities/puppet-clipping-design.md)在固定0/105帧恢复，原包无残留intro；共同reader退化已修，CPU与各App身份分别见[实施记录](../history/puppet-clipping-2026-10-08.md#跨样本复审与cpu修正)。慢启动失败独立保留，不将reader非回退计作其他样本裁剪受益。 | 后继转243样本共同缺口，优先纹理/最终合成→特效→频谱。官方nested/软边、非一source alpha、更多格式、局部图案与完整视觉仍按原边界待证。 |
 | 批D | 833227004 特效不加载 | model→material（flowimage 双纹理流动）材质管线 `planned=0`：零场景效果、模型引用自定义材质的层不在候选集（2026-09-30 缺口1 ②既有登记：raw-graph-count/validateOuterGraph 以 layer.effects 为锚，合成 stage 无从对位）。 | material-only 执行路由（合成单 pass graph 或独立路由）设计先行；与批C typing 修复可能同源合并，先做 C 后按剩余定性。门：材质管线 planned≥1、flow 流动可见、星云底图不回退 |
 
-顺序 A→B→C→D（按证据清楚度与风险）；每批完成后四样本隔离回归+fixed13 对账，全部完成后用户实机验收。进度与每批结果见[运行证据](../capabilities/runtime-evidence-current.md)当日段。
+A/B/C/D保留各自复现关系；当前由跨样本共同缺口和候选回归决定顺序。每批冻结实际输入与代码、复核代表运行和长期回归，四样本与fixed13不能冒充完整语料；提交仍按当前授权与完整门。
 
 
 ### Q1 — 鼠标/指针交互簇（保留既有闭合与挂起边界）

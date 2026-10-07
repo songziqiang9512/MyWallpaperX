@@ -28,6 +28,9 @@ GEOMETRY_RUNTIME_SOURCE = RUNTIME_SOURCE.with_name(
 EFFECT_INPUT_RESOLUTION_RUNTIME_SOURCE = RUNTIME_SOURCE.with_name(
     "SceneDependencyFrameRuntime+EffectInputResolution.swift"
 )
+GEOMETRY_PRODUCT_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneGeometryProduct.swift"
+)
 
 
 HARNESS_SOURCE = r'''
@@ -561,6 +564,8 @@ enum SceneMatrix {
 }
 
 struct SceneGeometryProduct {
+    typealias AuxiliaryRetainer = (@escaping () -> Void) -> Void
+    var prepare: ((MTLCommandBuffer, SIMD2<Int>, simd_float4x4, AuxiliaryRetainer) -> Void)? = nil
     let ownerLayerID: Int
     let samplingTexture: MTLTexture
     let resourceGeneration: UInt64
@@ -667,6 +672,10 @@ final class SceneMainPassEncoder {
     init(texture: MTLTexture, commandBuffer: MTLCommandBuffer) {
         self.texture = texture
         self.commandBuffer = commandBuffer
+    }
+
+    func retainAuxiliaryRelease(_ release: @escaping () -> Void) {
+        commandBuffer.addCompletedHandler { _ in release() }
     }
 
     func encodeOffscreen<Result>(
@@ -1490,6 +1499,52 @@ enum Harness {
             encodeResult: false,
             frameEpoch: 24
         )
+        // The production GeometryProduct requires its caller to own auxiliary
+        // releases. A missing retainer must reject before prepare or color
+        // encode, leave the reservation unpublished, and permit a later retry.
+        var auxiliaryOrder: [String] = [], auxiliaryExtent = SIMD2<Int>.zero
+        var auxiliaryReleases: [() -> Void] = []
+        defer { auxiliaryReleases.forEach { $0() } }
+        let auxiliaryProduct = SceneGeometryProduct(
+            ownerLayerID: 800, samplingTexture: geometryAtlas, resourceGeneration: 8,
+            prepare: { submitted, extent, _, retain in
+                precondition(submitted === commandBuffer)
+                let blit = submitted.makeBlitCommandEncoder()!
+                blit.endEncoding()
+                auxiliaryOrder.append("prepare"); auxiliaryExtent = extent
+                retain({})
+            },
+            isPreparedForPublication: { _ in true },
+            encode: { _, _, _, _, _, _ in auxiliaryOrder.append("encode"); return true },
+            authoredSize: SIMD2(4, 3), effectSourceExtentContract: .exactSamplingTexture
+        )
+        let auxiliaryRuntime = geometryRuntime()
+        var auxiliaryFailure: String?
+        let auxiliaryInput = auxiliaryRuntime.reserveEffectInput(
+            for: geometryBinding, providerLayer: geometryProvider,
+            providerTexture: geometryAtlas, providerCandidate: nil,
+            layerMVP: matrix_identity_float4x4, viewportSize: CGSize(width: 16, height: 9),
+            preparedOutputExtent: (width: 3, height: 2), geometryProduct: auxiliaryProduct,
+            providerOutputMVP: matrix_identity_float4x4, consumerOutputMVP: matrix_identity_float4x4,
+            frameEpoch: 25, failureReason: &auxiliaryFailure
+        )
+        let auxiliaryRegistry = SceneFrameTextureRegistry(frameEpoch: 25)
+        let missingAuxiliaryOwnerRejected = auxiliaryInput != nil && auxiliaryFailure == nil
+            && auxiliaryRuntime.publishGraphOutputIfRequired(
+                layerID: 800, texture: geometryGraphOutput, publicationRole: .visibleMainLoop,
+                textureRegistry: auxiliaryRegistry, commandBuffer: commandBuffer,
+                geometryProduct: auxiliaryProduct
+            ) == .unavailable(reasonCode: "geometry-provider-auxiliary-owner-unavailable")
+            && auxiliaryOrder.isEmpty && auxiliaryRegistry.readyPublicationCount == 0
+        let ownedAuxiliaryPreparedBeforeColor = auxiliaryRuntime.publishGraphOutputIfRequired(
+            layerID: 800, texture: geometryGraphOutput, publicationRole: .visibleMainLoop,
+            textureRegistry: auxiliaryRegistry, commandBuffer: commandBuffer,
+            geometryProduct: auxiliaryProduct, retainAuxiliary: { auxiliaryReleases.append($0) }
+        ) == .published && auxiliaryOrder == ["prepare", "encode"]
+            && auxiliaryExtent == SIMD2(4, 3) && auxiliaryReleases.count == 1
+            && auxiliaryRegistry.completeNamedLayerTargetTexture(
+                reference: .init(providerLayerID: 800, variant: .primary), frameEpoch: 25
+            ) === auxiliaryInput?.texture
         var reservationFailure: String?
         let provisionalInput = runtime.reserveEffectInput(
             for: binding,
@@ -1894,6 +1949,8 @@ enum Harness {
             "staleGeometryRejected": staleGeometryRejected,
             "geometryPoseNotReadyRejected": geometryPoseNotReadyRejected,
             "geometryEncodeFailureRejected": geometryEncodeFailureRejected,
+            "missingAuxiliaryOwnerRejected": missingAuxiliaryOwnerRejected,
+            "ownedAuxiliaryPreparedBeforeColor": ownedAuxiliaryPreparedBeforeColor,
             "resolvedMaterialReservesFromGeometryWithoutBaseSource":
                 resolvedMaterialReservesFromGeometryWithoutBaseSource,
             "imageProviderStillRequiresExactSource":
@@ -1942,6 +1999,13 @@ enum Harness {
 }
 '''
 
+# Legacy named-model scaffolds still extract the prepared peripheral leaves
+# above. These two runtime gates compile the real GeometryProduct instead.
+GEOMETRY_HARNESS_SOURCE = (
+    HARNESS_SOURCE[:HARNESS_SOURCE.index("struct SceneGeometryProduct {")]
+    + HARNESS_SOURCE[HARNESS_SOURCE.index("extension SIMD3 where Scalar == Float {"):]
+)
+
 
 class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
@@ -1955,7 +2019,7 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
             root = Path(directory)
             harness = root / "Harness.swift"
             binary = root / "dependency-graph-output"
-            harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+            harness.write_text(GEOMETRY_HARNESS_SOURCE, encoding="utf-8")
             compilation = subprocess.run(
                 [
                     "xcrun",
@@ -1967,6 +2031,7 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     str(GEOMETRY_RUNTIME_SOURCE),
                     str(EFFECT_INPUT_RESOLUTION_RUNTIME_SOURCE),
                     str(STATIC_MODEL_RUNTIME_SOURCE),
+                    str(GEOMETRY_PRODUCT_SOURCE),
                     str(
                         REPOSITORY_ROOT
                         / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift"
@@ -2030,6 +2095,8 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "staleGeometryRejected": True,
                     "geometryPoseNotReadyRejected": True,
                     "geometryEncodeFailureRejected": True,
+                    "missingAuxiliaryOwnerRejected": True,
+                    "ownedAuxiliaryPreparedBeforeColor": True,
                     "resolvedMaterialReservesFromGeometryWithoutBaseSource": True,
                     "imageProviderStillRequiresExactSource": True,
                     "graphCaptureRequired": True,

@@ -65,8 +65,8 @@
       "bytes": 11331
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 306,
-      "bytes": 59626
+      "lines": 312,
+      "bytes": 60695
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -84,13 +84,17 @@
       "lines": 393,
       "bytes": 139300
     },
+    "docs/scene/capabilities/puppet-clipping-design.md": {
+      "lines": 33,
+      "bytes": 5005
+    },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 564,
       "bytes": 334149
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 76,
-      "bytes": 10148
+      "lines": 77,
+      "bytes": 10444
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -193,8 +197,8 @@
       "bytes": 32494
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 148,
-      "bytes": 58031
+      "lines": 155,
+      "bytes": 57333
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1028,246 +1032,39 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/particle-vortex-design.md",
-      "before": "4a33e7918466828d12f2da674985c8ef7f895dca31222e982d1396ee4794de12",
-      "after": "b2fac35a03bd81aa01fe53e27fdb6e75381c3fde2d21e09ec2ba75f11e7bee0a",
-      "owner": "scene-particle-vortex",
-      "reason": "保半径实现与证据边界同步，保留官方长期相位和扩展组合未验。",
-      "decision": "docs/scene/roadmap/batch2/particle-vortex-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "9611ad3846bb6a2178f5e96686ea6dfcea7b5df627883f7248df9c22e354b5e6",
-      "after": "f786526253089a2db2040d33b7a637f797ce793c9574c41ca920249ac047a680",
-      "owner": "scene-runtime",
-      "reason": "原位纹理资源职责及有界产品像素结果接管旧全场景重建状态。",
-      "decision": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
-      "before": "4615dabb6769c5ab90476137c90c47ab869f4bfc4b63afca438b211569e821d4",
-      "after": "b9d613a2daa00959fd6f31cf9a4d1c0c497fbeae0b07987ef67222e9be33e72e",
-      "owner": "scene-runtime",
-      "reason": "原位纹理资源职责及有界产品像素结果接管旧全场景重建状态。",
-      "decision": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "a982adaefc27b4b8c00005b09c5fd6c6e92c89f860c80882279e91b81d98b0b9",
-      "after": "236b37d18319aa5c77f8edd4b6afc315cbd7a4a192131ba82551587a80d123ca",
-      "owner": "scene-runtime",
-      "reason": "原位纹理资源职责及有界产品像素结果接管旧全场景重建状态。",
-      "decision": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/particle-remap-design.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "a4511f8b602898ca71e35668b02b83fb10bd7669d2dc28c2e376f7b13c21f87b",
-      "owner": "scene-particle-remap",
-      "reason": "有界标量速度接入现有owner，更新唯一能力边界和下一首断点，不扩展验收声明。",
-      "decision": "docs/scene/roadmap/batch2/particle-remap-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "ce125be5eb3a05a533bc092d93cf5b41f966346e5889951e6371cc2f422206c4",
-      "after": "65fa2853afe8879b5554dc31e3421dc8daa0d3d2065834946f75e43765aa5be7",
-      "owner": "scene-particle-world-space",
-      "reason": "替换误拒静态视差的能力边界并收束下一断点，行为及验证归入同批历史。",
-      "decision": "docs/scene/history/particle-world-parallax-implementation-2026-10-05.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/particle-collision-bounds-design.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "25ff3e48b58f20f28d9bb90ba582747b00f713a2da8f3823a5e1732e7f98e275",
-      "owner": "scene-particle",
-      "reason": "冻结未解决的缩放反例、最小设计和重开条件，避免以单位缩放控制冒充真实样本修复。",
-      "decision": "docs/scene/roadmap/batch2/particle-collision-bounds-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "bede5feacb6f9c58b81f100df0ddd6b69f291e0a9e318ca99073a95d42f4f032",
-      "after": "3d709ef31b00e8d7336a2154dc9ef6c578fc070a96656ee56bc7ffd88fc21ac2",
-      "owner": "scene-playback-event-host",
-      "reason": "按官方黑盒纠正播放事件state可写副本合同并移交真实封面恢复证据，不扩大播放器或整样本验收。",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
-      "before": "cd7a793d3e21341e025e4990674c78ff2e5f862b8e0552b093795f10fd2d1093",
-      "after": "f495356b8d239e35e5b32f1c8e179fbe3b36a11c4cc3e16cedcce511c830e016",
-      "owner": "Scene terminal output / SceneMetalView",
-      "reason": "Stage C now specifies fixed linear transfer, live per-screen EDR intent and failure publication semantics before implementation.",
-      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "207203425c8b5dcd3e5272b346032ed1937d48aab70ec149b5d0b8583d202510",
-      "after": "768f1412eac4583c0d84cd54309899dfc5c750fff82d955ed8eaa49b76447c49",
-      "owner": "scene-pause-handoff",
-      "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
-      "decision": "docs/scene/history/scene-maintainer-handoff-2026-10-06.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/debug-frame-capture-lifecycle-design.md",
-      "before": "8f89262e6235c53a83ee10f200c5375c7abe7d0d8046543c1dbceb4739783032",
-      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "owner": "scene-pause-handoff",
-      "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
-      "decision": "docs/scene/history/scene-maintainer-handoff-2026-10-06.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "5ac6326629edb97a17b5f4dc49fff4ba33fb34bf60dcf26eaaaeba920bc93b10",
-      "after": "2d18cfdd755132a8a6d7d33861f368d3c93b84c89b89e36c7e35ed988f340379",
-      "owner": "scene-pause-handoff",
-      "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
-      "decision": "docs/scene/history/scene-maintainer-handoff-2026-10-06.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/terminal-material-raster-design.md",
-      "before": "c26f1e9fca836f099b48d58eaac3f3c9eca3cf46f0da685330011513a70de36e",
-      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "owner": "scene-pause-handoff",
-      "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
-      "decision": "docs/scene/history/scene-maintainer-handoff-2026-10-06.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "6d123d943aec2398150277fc2375c8edd78dbc691c304b5ed501c9f09d3d985f",
-      "after": "24fcb64c6637c341bcc8453d161a7f6393b3bea1d1ef815227ef7f331a08d823",
-      "owner": "scene-pause-handoff",
-      "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
-      "decision": "docs/scene/history/scene-maintainer-handoff-2026-10-06.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-maintainer-handoff-2026-10-06.md",
-      "before": "2c6b0ad6fdd81ab2c9dfea6dfc5628b3acee2daf1b52cb0cb9774aa20c0b5f4d",
-      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "owner": "scene-maintainer-succession",
-      "reason": "冻结交接快照按其自身冻结状态移入 history（roadmap 下带日期快照无法同时满足 dated 声明与 current 声明两机器合同），预算条目随迁移退役；本记录接替同键前次预算转移记录（d8ef→2c6b，接手标注与M1登记），新路径不设预算（同 history 同类文档）。",
-      "decision": "docs/scene/history/scene-maintainer-handoff-2026-10-06.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
-      "before": "d3f22eea89504018746a8442678f5c51c274950a23597cfad9a2f8999e3d6be9",
-      "after": "07f0baba03e78a9826b928d3c25e3a78e813ca9a84618ea3e0bd0cf066c2e3d0",
-      "owner": "scene-media-input",
-      "reason": "设置改单一开关（producer 自动仲裁来源）且系统观察辅助库经发布负责人实测决定随 Developer ID Release 分发；两设计文档同步改判，只登记本次精确文档变化。",
-      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/mediaremote-nowplaying-design.md",
-      "before": "9653cb47722274972a46ff5a76e3af0da0366a7606848bbb816b2cc92170c0c7",
-      "after": "13555099683fe6d2336f49c33e7922fd2b680ff85ce02bf9ca6f3094c006a722",
-      "owner": "scene-media-input",
-      "reason": "设置改单一开关（producer 自动仲裁来源）且系统观察辅助库经发布负责人实测决定随 Developer ID Release 分发；两设计文档同步改判，只登记本次精确文档变化。",
-      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/release/bundle-content.md",
-      "before": "1bd503cf2a0760fb475ec099bec28f3786333fd3ea0a14f1cb1e0c8d045689e0",
-      "after": "32d29656bce1496c3311e37f63e718199c3ad8fe9c7a86f8415d7eff2f1acb42",
-      "owner": "scene-media-input",
-      "reason": "系统观察辅助库随 Developer ID Release 分发（发布负责人实测决定），bundle 内容合同登记该 dylib 与 MAS 排除边界；只登记本次精确文档变化。",
-      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-      "before": "f40a903009e180fe67b68769fcbf4a50e9f7b2c7ba7f28cda1605703ea541a8a",
-      "after": "9bb156153aff0ee7301c68cdc074b6dbeebf529ff53c9ff6b7e9ccf67d4beab2",
-      "owner": "steam-detail-sheet",
-      "reason": "播放诊断菜单入口改为仅 Debug 提供（Release 详情面板移除入口），responsiveness 合同 3.1 同步该产品事实并刷新导航审查回执；只登记本次精确文档变化。",
-      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
-      "before": "756dadf4107ee5b3a349d3d172108c242ab7d01ac2482a62959de69dcbd57358",
-      "after": "8ea2dd521db4c749956d8813be6cc460577cdc5063da04b0e9165e763c538768",
-      "owner": "scene-composition-render-target",
-      "reason": "成员闭包扩展到完整 parent 级联：组员带 transform 链准入，模型/粒子/灯与依赖型组排除不变。",
-      "decision": "docs/scene/history/composition-member-closure-2026-10-07.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "8c16e3b6eb76347d99c2fc6e5fcc7ead6f44c6c4a1b2eb0a218061f3abfc63a5",
-      "after": "deec6068147ed71356f7604e28da8d5b0643c3cb97c56678d2296039b98f5cfb",
-      "owner": "scene-render-graph-shader-coverage",
-      "reason": "批C 收口：数据通道用途证明条目+QF 卡批C 行（含批A2 取证行）。",
-      "decision": "docs/scene/history/data-channel-texture-purpose-2026-10-07.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/effect-execution-coverage.md",
-      "before": "6e8f80d2c6d09639c14d5cc331dc7e828582cbc5fa0e1ed2b51ea1980eecd7fe",
-      "after": "2eb2bdf0c2ef9fa640bc25bf86093af1cb46a71b23ba3bb14eaa5f8701e1fb51",
-      "owner": "scene-shader-color",
-      "reason": "明确图内数据排除颜色转换的既有准备职责，关闭audio_caps断点，现役队列仅保留未完成项。",
-      "decision": "docs/scene/history/signal-color-classification-2026-10-07.md#图内数据输入后继修复"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "baa3cf3f441af6e57c27700bc0eece4e3ddcc6b30feb3f5c1a5bcf38d8d0a4ac",
-      "after": "f047a6d35407552c6451f40229fe2b458d2420b12977ed1f91c7911b1082d7a1",
-      "owner": "scene-puppet-animation",
-      "reason": "动画层脚本控制接通共享播放与GPU，精确登记已实现范围和剩余边界。",
-      "decision": "docs/scene/history/puppet-animation-control-2026-10-07.md"
+      "before": "f047a6d35407552c6451f40229fe2b458d2420b12977ed1f91c7911b1082d7a1",
+      "after": "b63c547f1e78653bd39e44c05140a279bab4452fdfef455231f4658da603e0f2",
+      "owner": "scene-puppet-clipping",
+      "reason": "以实际MDLV0023/GPU/固定帧证据替换L0，新增第3.4节为能力状态入口；详细规则仅链接裁剪合同。",
+      "decision": "docs/scene/capabilities/puppet-clipping-design.md#验证与维护"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "801bcbab8fe355916dfae6383a77998ec777768b5774dc843b9cd4a73d82cc1d",
-      "after": "571d344c14252e2fc2ee4c37eed2fb1bdb18386abed6499a14e9d8131c98ba04",
-      "owner": "scene-authored-retirement",
-      "reason": "替换自层删除和surface barrier旧结论，登记跨层leaf退休及真实画面证据与剩余边界。",
-      "decision": "docs/scene/history/authored-layer-retirement-2026-10-07.md"
+      "path": "docs/scene/capabilities/puppet-clipping-design.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "c08edfb3b207de57009cbfb4a64463b1465ce6968aaa2b40479e86b89f7a9d63",
+      "owner": "scene-puppet-clipping",
+      "reason": "新增有界裁剪职责合同，明确空part保ordinal、精确空后缀及准备期source去重/排self/empty，未证语义保持关闭。",
+      "decision": "docs/scene/capabilities/puppet-clipping-design.md#验证与维护"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a2a4c15d2efe274cbbf7cc0688ff70c09b092b786f5167c7df267a2aeb43ea18",
-      "after": "6e39707ea8188857a51fb4469203b3c51112b30994f940012b771b20324fdebc",
-      "owner": "scene-authored-retirement",
-      "reason": "替换自层删除和surface barrier旧结论，登记跨层leaf退休及真实画面证据与剩余边界。",
-      "decision": "docs/scene/history/authored-layer-retirement-2026-10-07.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "b7c758a19791c93193f3d99fec6fdbe57c0fd20b561a6c77c6d2bc7e57d2a8f4",
-      "after": "d3e6b9d67c1507c51e95f5eecf04c52a089b3b42aab0c0bd1e943530ef848bbb",
-      "owner": "scene-authored-retirement",
-      "reason": "替换自层删除和surface barrier旧结论，登记跨层leaf退休及真实画面证据与剩余边界。",
-      "decision": "docs/scene/history/authored-layer-retirement-2026-10-07.md"
+      "before": "6e39707ea8188857a51fb4469203b3c51112b30994f940012b771b20324fdebc",
+      "after": "45793a57bca72856a600c931909c1d12264da39f4920873fe817902332842c80",
+      "owner": "scene-puppet-clipping",
+      "reason": "新增唯一裁剪E入口，连接分身份运行、reader非回退及保留失败；不扩张证据声明。",
+      "decision": "docs/scene/capabilities/puppet-clipping-design.md#验证与维护"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "01eebaa3c29d31c0d28ca3363a409db0ef7f64ce1118d5cac51398f10184ec4a",
-      "after": "bff467e415fd2bc13ee3d5916a999e48a7c16f305e6f1213a7c7e76fcf2f6cb3",
-      "owner": "scene-authored-retirement",
-      "reason": "替换自层删除和surface barrier旧结论，登记跨层leaf退休及真实画面证据与剩余边界。",
-      "decision": "docs/scene/history/authored-layer-retirement-2026-10-07.md"
+      "before": "212d8905c2f76478d7419af0cf6b72151e718b78a55c06668a9b8084d1f46ae4",
+      "after": "8fe4445b1e40ea8288efb795b735ab545e9e6c2eb0f8290eb061de96d04427f4",
+      "owner": "scene-puppet-clipping",
+      "reason": "按授权共同缺口更新选序，保留独立有限输入溢出和慢启动故障，不抹去运行失败。",
+      "decision": "docs/scene/capabilities/puppet-clipping-design.md#验证与维护"
     }
   ]
 }

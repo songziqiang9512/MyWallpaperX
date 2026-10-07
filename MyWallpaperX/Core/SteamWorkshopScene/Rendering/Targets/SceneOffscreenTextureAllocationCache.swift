@@ -260,7 +260,9 @@ extension SceneOffscreenTextureAllocationCache {
                               into values: inout [ResidentKey: Entry]) {
         if !entry.preparationPins.isEmpty { values[key] = entry; return }
         switch key {
-            case .current(.layerGraph), .current(.sharedGraphPair), .current(.sceneColor), .current(.composition), .current(.compositionGroup), .current(.environment), .current(.modelShadow):
+            case .current(.layerGraph), .current(.sharedGraphPair), .current(.sceneColor),
+                 .current(.composition), .current(.compositionGroup), .current(.environment),
+                 .current(.modelShadow), .current(.puppetClipping):
                 values[key] = entry
             case .history(let graphKey, _):
                 if let history = entry.historyOnlyEntry() {
@@ -311,10 +313,11 @@ extension SceneOffscreenTextureAllocationCache {
         case composition(width: Int, height: Int)
         case environment(width: Int, height: Int)
         case modelShadow(slot: Int, width: Int, height: Int)
+        case puppetClipping(layerID: Int, clipID: Int, domain: UUID, width: Int, height: Int)
 
         var retainsReplacedSubmission: Bool {
             switch self {
-            case .composition, .compositionGroup, .environment, .modelShadow: true
+            case .composition, .compositionGroup, .environment, .modelShadow, .puppetClipping: true
             default: false
             }
         }

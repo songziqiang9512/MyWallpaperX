@@ -26,6 +26,12 @@ struct SceneOffscreenTextureAllocationCandidate {
             texture.width == width && texture.height == height
                 && texture.pixelFormat == .depth32Float && texture.mipmapLevelCount == 1
                 && texture.usage.contains([.shaderRead, .renderTarget])
+        case let (.puppetClipping(_, _, _, width, height), .composition(texture, _)):
+            texture.width == width && texture.height == height
+                && texture.pixelFormat == .r8Unorm && texture.mipmapLevelCount == 1
+                && texture.textureType == .type2D && texture.sampleCount == 1
+                && texture.storageMode == .private
+                && texture.usage.contains([.shaderRead, .renderTarget])
         case let (.environment(width, height), .composition(texture, _)):
             texture.width == width && texture.height == height
         case let (.compositionGroup(_, width, height), .composition(texture, _)):

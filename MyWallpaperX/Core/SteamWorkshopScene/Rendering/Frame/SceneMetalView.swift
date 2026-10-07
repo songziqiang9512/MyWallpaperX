@@ -242,6 +242,9 @@ class SceneMetalView: NSView {
             resourceView: resourceView,
             descriptor: renderer.renderDescriptor
         )
+        let clippingPipeline = ScenePipelineSlot<MTLRenderPipelineState> { [metalDevice] in
+            ScenePuppetClipping.makePipeline(device: metalDevice)
+        }
         var report = SceneStartupReportBuffer(enabled: logURL != nil)
         var loaded = SceneBaseImageTextureStore()
         var loadedSpriteAnimations: [Int: SceneSpriteAnimation] = [:]
@@ -340,6 +343,7 @@ class SceneMetalView: NSView {
             case let .loaded(baseLoad):
                 let texture = baseLoad.texture
                 var puppetMessage: String?
+                let clippingDomain = UUID()
                 if layer.puppetMeshPath != nil,
                    let imagePipeline,
                    let puppetOutcome = ScenePuppetLayerLoad.preparedGeometry(
@@ -347,7 +351,21 @@ class SceneMetalView: NSView {
                        atlasTexture: texture,
                        cacheDirectory: cacheDirectory,
                        device: metalDevice,
-                       pipeline: imagePipeline
+                       pipeline: imagePipeline,
+                       clippingPipeline: { clippingPipeline.resolve() },
+                       loadClippingMask: { name in
+                           guard let url = resolver.resolveTextureFile(named: name),
+                                 case let .loaded(texture) = loader.loadDataTexture(from: url, device: metalDevice)
+                           else { return nil }
+                           return texture
+                       },
+                       allocateClippingMask: { [offscreenTexturePool] clip, width, height, commandBuffer in
+                           guard let target = offscreenTexturePool.reservePuppetClipping(
+                               layerID: layer.id, clipID: clip, domain: clippingDomain,
+                               width: width, height: height, commandBuffer: commandBuffer) else { return nil }
+                           let pin = target.pin
+                           return .init(texture: target.texture, release: { pin.release() })
+                       }
                    ) {
                     let registration = puppetOutcome.playback.map {
                         puppetAnimationPlaybackRuntime.register(layerID: layer.id,

@@ -15,6 +15,7 @@ struct SceneImageLayerVaryings {
     float4 position [[position]];
     float2 texcoord;
     float vertexCoverage;
+    float2 modelPosition;
 };
 
 struct SceneImageLayerFragmentUniforms {
@@ -48,6 +49,7 @@ vertex SceneImageLayerVaryings sceneImageLayerVert(
         * float4(vertices[vertexID].position, 0.0, 1.0);
     result.texcoord = vertices[vertexID].texcoord;
     result.vertexCoverage = vertices[vertexID].vertexCoverage;
+    result.modelPosition = vertices[vertexID].position;
     return result;
 }
 
@@ -55,7 +57,9 @@ fragment float4 sceneImageLayerFrag(
     SceneImageLayerVaryings input [[stage_in]],
     texture2d<float> sourceTexture [[texture(0)]],
     texture2d<float> dependencyTexture [[texture(1)]],
-    constant SceneImageLayerFragmentUniforms &uniforms [[buffer(0)]]
+    texture2d<float> clipMask [[texture(2)]],
+    constant SceneImageLayerFragmentUniforms &uniforms [[buffer(0)]],
+    constant float4 &clipTransform [[buffer(1)]]
 ) {
     constexpr sampler linearClampSampler(
         min_filter::linear,
@@ -81,6 +85,10 @@ fragment float4 sceneImageLayerFrag(
         mip_filter::nearest,
         address::repeat
     );
+    constexpr sampler linearClipSampler(filter::linear, address::clamp_to_zero);
+    const float clipCoverage = clipTransform.z == 0.0 ? 1.0
+        : clipMask.sample(linearClipSampler,
+            input.modelPosition * clipTransform.zw + clipTransform.xy).r;
 
     const float2 sourceUV = sceneImageLayerTextureFrameUV(
         clamp(input.texcoord, 0.0, 1.0),
@@ -119,5 +127,5 @@ fragment float4 sceneImageLayerFrag(
     if (is_function_constant_defined(weightsSourceAlpha) && weightsSourceAlpha) {
         color.rgb *= color.a;
     }
-    return color * uniforms.tint * uniforms.alpha * input.vertexCoverage;
+    return color * uniforms.tint * uniforms.alpha * input.vertexCoverage * clipCoverage;
 }
