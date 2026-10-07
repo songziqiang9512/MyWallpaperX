@@ -55,6 +55,9 @@ enum Harness {
                         "duration": Double(animation.durationSeconds),
                         "trackCount": animation.transformsByBone.count,
                         "sampleCounts": animation.transformsByBone.map(\.count),
+                        "alphaByBone": animation.alphaByBone.map {
+                            $0.map { $0.map { Double($0) } } as Any
+                        } ?? NSNull(),
                         "firstTransform": animation.transformsByBone.first?.first.map {
                             [
                                 Double($0.translation.x), Double($0.translation.y),
@@ -117,6 +120,10 @@ def animation_record(
     auxiliary: bool = False,
     bad_auxiliary_key: bool = False,
     per_bone_auxiliary_trailer: bool = False,
+    alpha_by_bone: list[list[float]] | None = None,
+    alpha_track_state: int = 0,
+    alpha_track_bytes_delta: int = 0,
+    alpha_presence: int | None = None,
     legacy_trailer: bool = False,
     legacy_trailer34: bool = False,
 ) -> bytes:
@@ -148,22 +155,24 @@ def animation_record(
     if legacy_trailer34:
         body += b"\0" * 34
         return bytes(body)
+    body += b"\0" * 4
+    if per_bone_auxiliary_trailer and auxiliary and alpha_by_bone is None:
+        values = [index / frame_count for index in range(sample_count)]
+        alpha_by_bone = [values] * bone_count
+    present = int(alpha_by_bone is not None) if alpha_presence is None else alpha_presence
+    body += bytes([present])
+    if alpha_by_bone is not None:
+        for bone, values in enumerate(alpha_by_bone):
+            byte_count = len(values) * 4
+            if bone == 0:
+                byte_count += alpha_track_bytes_delta
+                if per_bone_auxiliary_trailer and bad_auxiliary_key:
+                    byte_count -= 4
+            body += struct.pack("<II", alpha_track_state, byte_count)
+            body += struct.pack(f"<{len(values)}f", *values)
     if per_bone_auxiliary_trailer:
         body += b"\0" * 4
-        if auxiliary:
-            body += b"\1"
-            values = [index / frame_count for index in range(sample_count)]
-            for bone in range(bone_count):
-                byte_count = sample_count * 4
-                if bad_auxiliary_key and bone == 0:
-                    byte_count -= 4
-                body += struct.pack("<II", 0, byte_count)
-                body += struct.pack(f"<{sample_count}f", *values)
-        else:
-            body += b"\0"
-        body += b"\0" * 4
         return bytes(body)
-    body += b"\0" * 5
     if auxiliary:
         values = [index / frame_count for index in range(sample_count)]
         key = 0xDEADBEEF if bad_auxiliary_key else 0x418A55D5
@@ -235,8 +244,32 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
             animation_record(101, "Idle", 2, 2),
             animation_record(202, "Blink", 3, 2, fps=60, auxiliary=True),
         ]
+        bone_alpha = [[1.0, 0.5, 0.0], [0.0, 0.25, 1.0]]
         cls.fixtures = {
             "valid.mdl": build_mdl(valid_animations, include_attachment_boundary=True),
+            "valid-modern-alpha.mdl": build_mdl(
+                [animation_record(401, "Bone Alpha", 2, 2, alpha_by_bone=bone_alpha)]
+            ),
+            "valid-modern-both-blocks.mdl": build_mdl([
+                animation_record(402, "Alpha And Keyed", 2, 2,
+                                 alpha_by_bone=bone_alpha, auxiliary=True),
+                animation_record(403, "Next Clip", 2, 2),
+            ]),
+            "bad-alpha-state.mdl": build_mdl([
+                animation_record(401, "Bone Alpha", 2, 2,
+                                 alpha_by_bone=bone_alpha, alpha_track_state=1)
+            ]),
+            "bad-alpha-bytes.mdl": build_mdl([
+                animation_record(401, "Bone Alpha", 2, 2,
+                                 alpha_by_bone=bone_alpha, alpha_track_bytes_delta=-4)
+            ]),
+            "bad-alpha-presence.mdl": build_mdl([
+                animation_record(401, "Bone Alpha", 2, 2, alpha_presence=2)
+            ]),
+            "truncated-alpha.mdl": build_mdl([
+                animation_record(401, "Bone Alpha", 2, 2,
+                                 alpha_by_bone=bone_alpha)[:-35]
+            ]),
             "valid-mdlv0016.mdl": build_mdl(
                 [animation_record(
                     96,
@@ -339,6 +372,14 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
                 [animation_record(103, "Unknown", 2, 2, mode="pingpong")]
             ),
         }
+        for label, value in (
+            ("negative", -0.01), ("above-one", 1.01),
+            ("nan", float("nan")), ("infinity", float("inf")),
+        ):
+            cls.fixtures[f"bad-alpha-{label}.mdl"] = build_mdl([
+                animation_record(401, "Bone Alpha", 2, 2,
+                                 alpha_by_bone=[[1.0, value, 0.0], bone_alpha[1]])
+            ])
         for name, blob in cls.fixtures.items():
             (tmp / name).write_bytes(blob)
 
@@ -395,6 +436,45 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
         self.assertTrue(entry["ok"], entry)
         self.assertEqual((entry["boneCount"], entry["animations"][0]["id"]), (2, 96))
         self.assertEqual(entry["animations"][0]["sampleCounts"], [3, 3])
+        self.assertEqual(entry["animations"][0]["alphaByBone"], [[0, 0.5, 1]] * 2)
+
+    def test_modern_per_bone_alpha_preserves_order_and_every_sample(self):
+        entry = self.results["valid-modern-alpha.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertEqual(entry["animations"][0]["alphaByBone"],
+                         [[1, 0.5, 0], [0, 0.25, 1]])
+
+    def test_modern_alpha_and_keyed_blocks_keep_next_clip_boundary(self):
+        entry = self.results["valid-modern-both-blocks.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertEqual([animation["id"] for animation in entry["animations"]], [402, 403])
+        self.assertEqual(entry["animations"][0]["alphaByBone"],
+                         [[1, 0.5, 0], [0, 0.25, 1]])
+        self.assertIsNone(entry["animations"][1]["alphaByBone"])
+
+    def test_absent_alpha_remains_nil_across_versions_and_keyed_only_clip(self):
+        for name in ("valid.mdl", "valid-mdlv0016-no-auxiliary.mdl",
+                     "valid-legacy.mdl", "valid-mdlv0019.mdl"):
+            with self.subTest(name=name):
+                entry = self.results[name]
+                self.assertTrue(entry["ok"], entry)
+                self.assertTrue(all(animation["alphaByBone"] is None
+                                    for animation in entry["animations"]))
+
+    def test_malformed_or_truncated_alpha_tracks_fail_closed(self):
+        for name in ("bad-alpha-state.mdl", "bad-alpha-bytes.mdl",
+                     "bad-alpha-presence.mdl", "truncated-alpha.mdl"):
+            with self.subTest(name=name):
+                entry = self.results[name]
+                self.assertFalse(entry["ok"], entry)
+                self.assertIn("invalid verified auxiliary track", entry["error"])
+
+    def test_alpha_samples_must_be_finite_and_in_coverage_range(self):
+        for label in ("negative", "above-one", "nan", "infinity"):
+            with self.subTest(label=label):
+                entry = self.results[f"bad-alpha-{label}.mdl"]
+                self.assertFalse(entry["ok"], entry)
+                self.assertIn("invalid verified auxiliary track", entry["error"])
 
     def test_mdlv0016_rejects_malformed_per_bone_auxiliary_track(self):
         self.assertIn(

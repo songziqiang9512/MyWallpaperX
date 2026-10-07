@@ -8,11 +8,13 @@ constant bool weightsSourceAlpha [[function_constant(0)]];
 struct SceneImageLayerQuadVertex {
     float2 position;
     float2 texcoord;
+    float vertexCoverage;
 };
 
 struct SceneImageLayerVaryings {
     float4 position [[position]];
     float2 texcoord;
+    float vertexCoverage;
 };
 
 struct SceneImageLayerFragmentUniforms {
@@ -45,6 +47,7 @@ vertex SceneImageLayerVaryings sceneImageLayerVert(
     result.position = modelViewProjection
         * float4(vertices[vertexID].position, 0.0, 1.0);
     result.texcoord = vertices[vertexID].texcoord;
+    result.vertexCoverage = vertices[vertexID].vertexCoverage;
     return result;
 }
 
@@ -116,5 +119,5 @@ fragment float4 sceneImageLayerFrag(
     if (is_function_constant_defined(weightsSourceAlpha) && weightsSourceAlpha) {
         color.rgb *= color.a;
     }
-    return color * uniforms.tint * uniforms.alpha;
+    return color * uniforms.tint * uniforms.alpha * input.vertexCoverage;
 }

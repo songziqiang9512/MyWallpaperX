@@ -483,9 +483,9 @@
       "lastReviewed": "2026-10-07",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7698b71f40dc7d1bc080e1f783d430d54535fdc67cbdb5a0a98a4c7f29507fc4",
+        "sourceSHA256": "c8f15c9365d69dd5f9afa8d20b3b06d13d1ae63439909491a8ccee50a802b20a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批Puppet权重/失败发布历史记录、现役合同及未完成队列导航核对；实际身份和限制见记录。",
+        "scope": "本批骨骼alpha历史记录、現役合同与未完成队列导航核对；实际身份和限制见记录。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -1096,6 +1096,17 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/capabilities/particle-component-coverage.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/puppet-bone-alpha-2026-10-07.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/advanced-object-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
     {

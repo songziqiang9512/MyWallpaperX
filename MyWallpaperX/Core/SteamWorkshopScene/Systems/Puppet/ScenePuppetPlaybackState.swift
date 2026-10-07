@@ -62,6 +62,7 @@ final class ScenePuppetPlaybackState {
     private let mesh: SceneMdlPuppetMesh
     private let selection: ScenePuppetAnimationSelection
     private let evaluator: ScenePuppetAnimationEvaluator
+    private let hasBoneAlpha: Bool
     private let attachments: [SceneMdlPuppetAttachment]
     private let atlasTexture: MTLTexture
     private let vertexBuffers: [MTLBuffer]
@@ -73,6 +74,8 @@ final class ScenePuppetPlaybackState {
     /// source update was a measurable part of the frame callback cost.
     private var positionScratch: [SIMD2<Float>]
     private var vertexScratch: [SceneQuadVertex]
+    private var coverageScratch: [Float]
+    private var boneAlphaScratch: [Float]
     /// Matrix storage is also retained across source updates.  Position and
     /// vertex reuse alone still left two bone-count-sized arrays allocated for
     /// every changed frame on large rigs.
@@ -212,6 +215,14 @@ final class ScenePuppetPlaybackState {
             )) != nil
         }
         guard evaluated else { return preparedAttachmentFrames }
+        if hasBoneAlpha {
+            do {
+                try evaluator.writeVertexCoverages(
+                    selection: selection, frameSamples: frameSamples,
+                    into: &coverageScratch, boneScratch: &boneAlphaScratch
+                )
+            } catch { return preparedAttachmentFrames }
+        }
         if let frames = ScenePuppetAttachmentPoseProjection.frames(
             attachments: attachments,
             boneWorldMatrices: worldMatrixScratch
@@ -233,7 +244,8 @@ final class ScenePuppetPlaybackState {
             let position = positionScratch[index]
             vertexScratch[index] = SceneQuadVertex(
                 position: position,
-                texcoord: SIMD2(mesh.vertices[index].u, mesh.vertices[index].v)
+                texcoord: SIMD2(mesh.vertices[index].u, mesh.vertices[index].v),
+                vertexCoverage: coverageScratch[index]
             )
         }
         preparedFrameSignature = signature
@@ -499,6 +511,7 @@ final class ScenePuppetPlaybackState {
         self.mesh = mesh
         self.selection = selection
         self.evaluator = evaluator
+        self.hasBoneAlpha = selection.clips.contains { evaluator.hasAlphaContribution(animationID: $0.animation.id) }
         self.attachments = attachments
         self.atlasTexture = atlasTexture
         self.vertexBuffers = vertexBuffers
@@ -509,6 +522,8 @@ final class ScenePuppetPlaybackState {
             repeating: SIMD2<Float>.zero,
             count: mesh.vertices.count
         )
+        self.coverageScratch = Array(repeating: 1, count: mesh.vertices.count)
+        self.boneAlphaScratch = Array(repeating: 1, count: evaluator.boneCount)
         self.vertexScratch = mesh.vertices.map { vertex in
             SceneQuadVertex(
                 position: .zero,

@@ -65,8 +65,8 @@
       "bytes": 11331
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 296,
-      "bytes": 56756
+      "lines": 306,
+      "bytes": 58565
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 75,
-      "bytes": 9498
+      "bytes": 9602
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 148,
-      "bytes": 57231
+      "bytes": 57362
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1226,21 +1226,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "1d2f0eb25dcda100c915df6a2437079b90ff6c6ee752fe3b39972e68888abe3d",
-      "after": "004f70be517525f601e043d3e6a29c8dfedbb459981545225e94734cd768dc96",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "a8f0cf37fa5a537fe56ddf74fee6b1dddc06f3098319a0728f05cde03ff67f45",
+      "after": "a8027dbad222f9f3e8fb0012e584cc4e9762d99f22a677fa60eb95b080fd1e49",
       "owner": "scene-puppet",
-      "reason": "Puppet静态权重和GPU失败发布已执行，替换旧拒绝状态并接入有界证据与下一断点；清理重复旧混合合同。",
-      "decision": "docs/scene/history/puppet-static-weight-2026-10-07.md"
+      "reason": "骨骼alpha先行设计转已执行合同，替换小眼睛拒绝状态、更新独立合成反例与剩余任务；历史实验只索引不复制。",
+      "decision": "docs/scene/history/puppet-bone-alpha-2026-10-07.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "0d7c2327c8d88d09e2d7b26c3c5e19038d1bf47cdabaef213fc3f713e1ea015e",
-      "after": "7a729896a2de1a70051c557a11b51b87b89950e48c67e19c3b0f2606dd482f20",
+      "before": "7a729896a2de1a70051c557a11b51b87b89950e48c67e19c3b0f2606dd482f20",
+      "after": "6d589a5639a8676f7291974a9a0d0629b416bd8f7de038d1f6400e3dadab3d71",
       "owner": "scene-puppet",
-      "reason": "Puppet静态权重和GPU失败发布已执行，替换旧拒绝状态并接入有界证据与下一断点；清理重复旧混合合同。",
-      "decision": "docs/scene/history/puppet-static-weight-2026-10-07.md"
+      "reason": "骨骼alpha先行设计转已执行合同，替换小眼睛拒绝状态、更新独立合成反例与剩余任务；历史实验只索引不复制。",
+      "decision": "docs/scene/history/puppet-bone-alpha-2026-10-07.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "004f70be517525f601e043d3e6a29c8dfedbb459981545225e94734cd768dc96",
+      "after": "f287779888eed38672f4b5ee4046c6c36a97305a0f74f904aa104995bdf3f02e",
+      "owner": "scene-puppet",
+      "reason": "骨骼alpha先行设计转已执行合同，替换小眼睛拒绝状态、更新独立合成反例与剩余任务；历史实验只索引不复制。",
+      "decision": "docs/scene/history/puppet-bone-alpha-2026-10-07.md"
     }
   ]
 }

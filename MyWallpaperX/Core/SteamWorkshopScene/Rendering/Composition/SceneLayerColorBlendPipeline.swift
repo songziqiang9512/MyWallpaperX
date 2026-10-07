@@ -6,11 +6,13 @@ private let sceneLayerColorBlendShaderSource = SceneBlendModeShaderSource.blendF
 struct SceneLayerBlendVertex {
     float2 position;
     float2 texcoord;
+    float vertexCoverage;
 };
 
 struct SceneLayerBlendVaryings {
     float4 position [[position]];
     float2 texcoord;
+    float vertexCoverage;
 };
 
 vertex SceneLayerBlendVaryings sceneLayerColorBlendVert(
@@ -21,6 +23,7 @@ vertex SceneLayerBlendVaryings sceneLayerColorBlendVert(
     SceneLayerBlendVaryings out;
     out.position = mvp * float4(vertices[vertexID].position, 0.0, 1.0);
     out.texcoord = vertices[vertexID].texcoord;
+    out.vertexCoverage = vertices[vertexID].vertexCoverage;
     return out;
 }
 
@@ -31,7 +34,7 @@ fragment float4 sceneLayerColorBlendFrag(
     constant int &blendMode [[buffer(0)]]
 ) {
     constexpr sampler sampler2d(filter::linear, address::clamp_to_edge);
-    float4 layer = layerTexture.sample(sampler2d, input.texcoord);
+    float4 layer = layerTexture.sample(sampler2d, input.texcoord) * input.vertexCoverage;
     float4 background = backgroundTexture.read(uint2(input.position.xy));
     float3 straightLayer = layer.a > 0.0 ? layer.rgb / layer.a : float3(0.0);
     return float4(

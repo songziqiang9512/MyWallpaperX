@@ -268,7 +268,7 @@ enum SceneMdlPuppetAnimationReader {
                 boneCount: boneCount,
                 sampleCount: sampleCount
             )
-            try readTrailer(
+            let alphaByBone = try readTrailer(
                 data: data,
                 cursor: &cursor,
                 bound: endOffset,
@@ -283,7 +283,8 @@ enum SceneMdlPuppetAnimationReader {
                 mode: mode,
                 framesPerSecond: framesPerSecond,
                 frameCount: frameCount,
-                transformsByBone: transforms
+                transformsByBone: transforms,
+                alphaByBone: alphaByBone
             ))
         }
         guard cursor == endOffset else {
@@ -352,33 +353,34 @@ enum SceneMdlPuppetAnimationReader {
         boneCount: Int,
         sampleCount: Int,
         contract: TrailerContract
-    ) throws {
-        if contract == .perBoneAuxiliary {
-            try readPerBoneAuxiliaryTrailer(
-                data: data,
-                cursor: &cursor,
-                bound: bound,
-                animationID: animationID,
-                boneCount: boneCount,
-                sampleCount: sampleCount
-            )
-            return
-        }
+    ) throws -> [[Float]]? {
         if contract == .legacyZeros10 {
             guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 10) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
-            return
+            return nil
         }
         if contract == .legacyZeros34 {
             guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 34) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
-            return
+            return nil
         }
-        guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 5),
-              cursor < bound
-        else {
+        let alphaByBone = try readPerBoneAlphaTracks(
+            data: data,
+            cursor: &cursor,
+            bound: bound,
+            animationID: animationID,
+            boneCount: boneCount,
+            sampleCount: sampleCount
+        )
+        if contract == .perBoneAuxiliary {
+            guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 4) else {
+                throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+            }
+            return alphaByBone
+        }
+        guard cursor < bound else {
             throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
         }
         let hasAuxiliaryTrack = data[cursor]
@@ -407,16 +409,17 @@ enum SceneMdlPuppetAnimationReader {
         guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 29) else {
             throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
         }
+        return alphaByBone
     }
 
-    private static func readPerBoneAuxiliaryTrailer(
+    private static func readPerBoneAlphaTracks(
         data: Data,
         cursor: inout Int,
         bound: Int,
         animationID: Int,
         boneCount: Int,
         sampleCount: Int
-    ) throws {
+    ) throws -> [[Float]]? {
         guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 4),
               cursor < bound
         else {
@@ -424,30 +427,34 @@ enum SceneMdlPuppetAnimationReader {
         }
         let hasAuxiliaryTracks = data[cursor]
         cursor += 1
-        if hasAuxiliaryTracks == 1 {
-            let expectedBytes = sampleCount * 4
-            for _ in 0 ..< boneCount {
-                guard cursor + 8 + expectedBytes <= bound,
-                      readUInt32(data, at: cursor) == 0,
-                      Int(readUInt32(data, at: cursor + 4)) == expectedBytes
-                else {
+        if hasAuxiliaryTracks == 0 { return nil }
+        guard hasAuxiliaryTracks == 1 else {
+            throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+        }
+        let expectedBytes = sampleCount * 4
+        var tracks: [[Float]] = []
+        tracks.reserveCapacity(boneCount)
+        for _ in 0 ..< boneCount {
+            guard cursor + 8 + expectedBytes <= bound,
+                  readUInt32(data, at: cursor) == 0,
+                  Int(readUInt32(data, at: cursor + 4)) == expectedBytes
+            else {
+                throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+            }
+            cursor += 8
+            var values: [Float] = []
+            values.reserveCapacity(sampleCount)
+            for frameIndex in 0 ..< sampleCount {
+                let value = readFloat(data, at: cursor + frameIndex * 4)
+                guard value.isFinite, value >= 0, value <= 1.0001 else {
                     throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
                 }
-                cursor += 8
-                for frameIndex in 0 ..< sampleCount {
-                    let value = readFloat(data, at: cursor + frameIndex * 4)
-                    guard value.isFinite, value >= 0, value <= 1.0001 else {
-                        throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
-                    }
-                }
-                cursor += expectedBytes
+                values.append(value)
             }
-        } else if hasAuxiliaryTracks != 0 {
-            throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+            cursor += expectedBytes
+            tracks.append(values)
         }
-        guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 4) else {
-            throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
-        }
+        return tracks
     }
 
     private static func readString(

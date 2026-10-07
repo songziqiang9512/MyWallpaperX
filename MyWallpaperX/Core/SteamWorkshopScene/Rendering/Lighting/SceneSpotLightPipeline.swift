@@ -8,6 +8,7 @@ using namespace metal;
 struct SpotLightVertex {
     float2 position;
     float2 texcoord;
+    float vertexCoverage;
 };
 
 struct SpotLightVaryings {

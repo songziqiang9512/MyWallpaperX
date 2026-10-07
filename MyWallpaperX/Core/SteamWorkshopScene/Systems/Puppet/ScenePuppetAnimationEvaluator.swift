@@ -26,6 +26,8 @@ struct ScenePuppetAnimationEvaluator {
         let posesByBone: [[Pose]]
         let drivenBones: Set<Int>
         let authoredBones: Set<Int>
+        let alphaVaries: Bool
+        let hasAlphaContribution: Bool
     }
 
     /// Vertex data that is invariant for the lifetime of a playback state.
@@ -135,7 +137,61 @@ struct ScenePuppetAnimationEvaluator {
         guard let prepared = preparedAnimationsByID[animationID] else {
             return false
         }
-        return prepared.drivenBones.isEmpty
+        return prepared.drivenBones.isEmpty && !prepared.alphaVaries
+    }
+
+    func hasAlphaContribution(animationID: Int) -> Bool {
+        preparedAnimationsByID[animationID]?.hasAlphaContribution == true
+    }
+
+    /// MDLA alpha is already expressed per bone; applying parent opacity again
+    /// would darken descendants. Reuse prepared skin weights for vertex coverage.
+    func writeVertexCoverages(
+        selection: ScenePuppetAnimationSelection,
+        frameSamples: [FrameSample?],
+        into output: inout [Float],
+        boneScratch: inout [Float]
+    ) throws {
+        guard output.count == preparedVertices.count,
+              boneScratch.count == boneCount,
+              frameSamples.count == selection.clips.count else {
+            throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
+        }
+        for bone in boneScratch.indices { boneScratch[bone] = 1 }
+        if let clipIndex = selection.clips.indices.first(where: {
+            hasAlphaContribution(animationID: selection.clips[$0].animation.id) && frameSamples[$0] != nil
+        }), let frame = frameSamples[clipIndex],
+           let tracks = selection.clips[clipIndex].animation.alphaByBone {
+            // The selector admits a single clip when consequential alpha is present.
+            guard selection.clips.count == 1, tracks.count == boneCount,
+                  frame.fraction.isFinite, (0...1).contains(frame.fraction) else {
+                throw ScenePuppetAnimationEvaluationFailure.invalidFrame(frame.frameA)
+            }
+            let weight = selection.clips[clipIndex].layer.blend ?? 1
+            guard weight.isFinite, weight >= 0 else {
+                throw ScenePuppetAnimationEvaluationFailure.invalidBlend
+            }
+            for bone in tracks.indices {
+                let track = tracks[bone]
+                guard track.indices.contains(frame.frameA), track.indices.contains(frame.frameB) else {
+                    throw ScenePuppetAnimationEvaluationFailure.invalidFrame(frame.frameA)
+                }
+                let sample = track[frame.frameA]
+                    + (track[frame.frameB] - track[frame.frameA]) * frame.fraction
+                guard sample.isFinite else {
+                    throw ScenePuppetAnimationEvaluationFailure.invalidFrame(frame.frameA)
+                }
+                boneScratch[bone] = Float(min(1, max(0, 1 + (Double(sample) - 1) * weight)))
+            }
+        }
+        for (index, vertex) in preparedVertices.enumerated() {
+            var coverage: Float = 0
+            for influence in 0..<4 where vertex.normalizedWeights[influence] > 0 {
+                coverage += vertex.normalizedWeights[influence]
+                    * boneScratch[Int(vertex.boneIndices[influence])]
+            }
+            output[index] = min(1, max(0, coverage))
+        }
     }
 
     func deformedPositions(
@@ -528,10 +584,27 @@ struct ScenePuppetAnimationEvaluator {
             }
             posesByBone.append(unwrapped)
         }
+        var alphaVaries = false
+        var hasAlphaContribution = false
+        if let tracks = animation.alphaByBone {
+            guard tracks.count == boneCount,
+                  tracks.allSatisfy({ track in
+                      track.count == animation.frameCount + 1
+                          && track.allSatisfy { $0.isFinite && (0...1.0001).contains($0) }
+                  }) else {
+                throw ScenePuppetAnimationEvaluationFailure.invalidFrame(0)
+            }
+            hasAlphaContribution = tracks.contains { $0.contains { $0 != 1 } }
+            alphaVaries = tracks.contains { track in
+                track.dropFirst().contains { $0 != track[0] }
+            }
+        }
         return PreparedAnimation(
             posesByBone: posesByBone,
             drivenBones: drivenBones,
-            authoredBones: authoredBones
+            authoredBones: authoredBones,
+            alphaVaries: alphaVaries,
+            hasAlphaContribution: hasAlphaContribution
         )
     }
 

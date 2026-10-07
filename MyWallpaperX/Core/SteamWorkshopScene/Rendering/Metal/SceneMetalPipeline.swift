@@ -7,6 +7,7 @@ import simd
 struct SceneQuadVertex {
     var position: SIMD2<Float>
     var texcoord: SIMD2<Float>
+    var vertexCoverage: Float = 1
 }
 
 enum SceneLayerBlendMode {

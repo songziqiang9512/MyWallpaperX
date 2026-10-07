@@ -71,6 +71,13 @@ enum ScenePuppetAnimationSelector {
             clips.append(.init(layer: layer, animation: animation))
         }
         guard clips.isEmpty == false else { return .success(nil) }
+        if clips.count > 1, let alphaClip = clips.first(where: {
+            $0.animation.alphaByBone?.contains { $0.contains { $0 != 1 } } == true
+        }) {
+            // Multi-clip alpha conflict order is not yet established. Do not
+            // silently discard an authored coverage track while animating TRS.
+            return .failure(.unsupportedLayer(alphaClip.layer.id))
+        }
         if clips.count == 1, clips[0].layer.additive == false {
             return .success(.init(clips: clips, composition: .singleAbsolute))
         }

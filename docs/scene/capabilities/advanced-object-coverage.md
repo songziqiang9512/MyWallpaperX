@@ -81,7 +81,7 @@ Puppet Warp 的核心是骨骼驱动网格变形。官方页面说明 bone hiera
 | <a id="op-puppet-perspective"></a>[Perspective](https://docs.wallpaperengine.io/en/scene/puppet-warp/perspective.html) | `runtime-required` | 2D Puppet mesh 可带 painted depth/extrusion scale；X/Y bone angles 或 layer Perspective 显示 extrusion。`Normal` culling 隐藏背面，`No cull` 镜像 texture 到背面；这不是 3D Model runtime。 | `L0`：无 depth/extruded mesh；需 depth attribute、X/Y rotation、cull/no-cull、clip/effect bounds 与 perspective pixel 门。 |
 | <a id="op-puppet-blend-shapes"></a>[Blend Shapes](https://docs.wallpaperengine.io/en/scene/puppet-warp/blendshapes.html) | `runtime-required` | blend shape 是锁定 topology 上的 alternate vertex arrangement；Expression 是多个 shape weight 的组合，Timeline 动画 expression。官方未公开 shape 混合、bone deformation 与 clipping 的内部顺序。 | `L0`：无 morph target；需 topology identity、shape/expression weights、mix-order fixture、bounds 和 Timeline consumer。 |
 | <a id="op-puppet-blend-rules"></a>[Blend Rules](https://docs.wallpaperengine.io/en/scene/puppet-warp/blendrules.html) | `runtime-required` + `research-boundary` | bone 可通过 `0...1` 动画权重在原 parent 与 alternate bone 间切换；多个 blend rule 可把对象置于多个 bones 之间。确切 transform interpolation/conflict order 未公开。 | `L0`：无 rule evaluator；需 stable bone identity、0/1/intermediate/multiple rule、parent cycle、animation order 和 Windows transform golden。 |
-| <a id="op-puppet-animation-mixing"></a>[Animation Mixing](https://docs.wallpaperengine.io/en/scene/puppet-warp/animationmixing.html) | `runtime-required` + `research-boundary` | 同一 Puppet 可同时启用多个 animation，并分别设置 duration/rate；官方运行时把它们合并。相同 bone/property 的冲突、blend weight 与 merge algorithm 未公开。 | `L3 bounded`：v25 保存 layers；`0892e74b` 执行 bind-referenced 且驱动 bone 集不相交的 additive clips，并实时消费 typed visibility。重叠 bone、权重/插值、independent rates、非 1 blend/rate、pause/seek 仍需合法 golden；script override 的有界后继见 Interactive。 |
+| <a id="op-puppet-animation-mixing"></a>[Animation Mixing](https://docs.wallpaperengine.io/en/scene/puppet-warp/animationmixing.html) | `runtime-required` + `research-boundary` | 同一 Puppet 可同时启用多个 animation，并分别设置 duration/rate；官方运行时把它们合并。相同 bone/property 的冲突、blend weight 与 merge algorithm 未公开。 | `L3 bounded`：v25 保存 layers，typed visibility与静态权重按第3.2节执行；第3.3节执行单clip骨骼alpha。多clip alpha、动态blend/pause/seek及更广冲突parity未闭合；script override见Interactive。 |
 
 Puppet runtime 必须把 authored pose、animations/mixing/rules、constraints/IK/physics、SceneScript bone override、deformation/channels/clipping 和 layer effects 建成可区分的阶段。只有 "animations before scripts" 是官方公开顺序；physics、IK、blend、deformation、clipping 与 effect 的相对次序在获得合法样本或官方证据前均保持 `order unknown`，不得先用箭头固化。
 
@@ -112,6 +112,16 @@ Puppet runtime 必须把 authored pose、animations/mixing/rules、constraints/I
 - 固定官方 2.8.0.42 黑盒暂停帧控制证明 0/.5/1/1.3/2 的 base/extra/单 opaque T/S 外推，并排除球面旋转外推。非 bind 的 frame0 控制区分了参考基准；项目 nlerp 与控制的预设旋转容差为 0.002 rad，不声称恢复官方内部公式。完整输入与身份见[运行证据](runtime-evidence-current.md#e-2026-10-07-puppet-static-weight)。更广权重是本实现安全范围，不等于官方全域 parity。
 - 非有限加权 pose、奇异 world 或最终 skinned vertex 失败时不上传部分几何。PlaybackState 首次未取得完整顶点时 named publication 与直接 draw 都拒绝；后续失败保留上一完整 vertex/attachment，DEBUG 只报告成功顶点。现有 VM getter 仅验证完整有限骨骼矩阵，最终顶点溢出的帧仍可能给脚本提供新骨骼 snapshot；本合同不宣称 VM/geometry 全链原子回滚。
 - 最近门是 `test_scene_puppet_weights`、真实 Metal 的 `test_scene_puppet_buffer_publication`及原播放/骨骼发布门；覆盖非 bind reference、零/外推权重、非共轴 unit-weight 恒等、最短半球、scale、非法数值与首次失败/旧几何保留/恢复。眼部 auxiliary、脚本 seek 和最终合成差异归现役断点队列。
+
+
+### 3.3 骨骼透明度动画
+
+目标是让含逐骨骼 alpha 轨道的 Puppet 动画进入真实合成，修复新版 MDLA reader 将 present flag 当全零字段的问题。官方 2.2 更新日志公开了 bone alpha animation；固定 2.8.0.42 客户端同帧原始/全零/全一控制的骨骼矩阵相同，全零隐藏、全一显示，全骨骼 0.5 显示半透明，排除运行时重复累乘 parent alpha。先行设计已实施；固定输入、官方观察与产品验证见[运行证据](runtime-evidence-current.md#e-2026-10-07-puppet-bone-alpha)。
+
+- reader 按版本边界读取并保留 `boneCount × (frameCount+1)` alpha，缺省为 1；保留 exact length、有限范围和 block end 验证。现代逐骨骼块与后续 keyed auxiliary 分开，不按样本或字段值猜块边界。
+- 沿现有 FrameSample 与 prepared clip 采样 alpha；静态判断包含 alpha 变化。先闭合单 clip，按 `1+(sampleAlpha-1)*blend` 加权并限于合法 coverage，再用已准备的四骨骼归一化权重求顶点覆盖率，不再乘 parent。全一轨道无贡献，多 clip 非一 alpha 冲突在未有区分证据前明确拒绝该组合，不吞掉 consequential data。
+- PlaybackState 在成功姿态与 alpha 都完成后发布同一顶点帧；首帧失败不绘制、后续失败保留旧完整几何。共享 image vertex 增加默认 1 的 coverage，所有同 ABI 消费者同步；普通和颜色混合两条既有 compositor 路径均对 premultiplied RGBA 同乘 coverage，不改变 effect graph、clock、layer alpha 或输出 owner。
+- 验收包括现代/旧版格式、截断/畸形反例、纯 alpha 动画、混合骨骼权重、隐藏/恢复和真实 Metal RGBA；Debug build 与原始聚光灯隔离运行确认动画进入实际绘制。眼睛挂点重叠、遮罩和脚本 seek 独立核验，不将 parser 成功算作整样本正确。
 
 ## 4. 3D Models 官方页面覆盖（8）
 
