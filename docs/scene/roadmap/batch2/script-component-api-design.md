@@ -52,6 +52,14 @@ handle 包含 scene generation、owner kind、object identity 与生命周期 ep
 首次init/cursor/update前，完整同代surface必须完成粒子准备并发布真实query projection；prepareLaunch模块装载不算init。各scalar/string/vector/cursor共用该顺序，不能从缺失屏或空集合发布假查询。首launch保留现warm-up的prepared-live：init.pause只阻止后续出生，init.stop在首次模拟前清live/batch/history。rebuild须在构造前注入committed paused/stopped，禁止先warm-up再补开关。官方warm-up/init次序未知，不声称parity。
 预算沿现役 VM time/memory/stack 与 aggregate mutation cap，不另开无限队列。首片项目上限为每 owner/frame 256 条 mutation、每 scene/frame 1024 条新增 API 命令、每 scene 128 个动态渲染对象、单次 emit 1024 个、每 scene 65536 个存活粒子；同 owner 的 cursor、timer、event、update 等 effect bundle 合并计入 owner/frame 上限，不能靠拆 callback 重置预算；每个实际有效上限取此值与现役对应预算的较小者，绝不借本设计提高旧上限。待销毁对象占用对象配额及既有 resident-byte budget，GPU 未释放不能返还配额。数字是保守项目配置，不是官方限制；实施时进入既有机器预算并以临界值/超一值测试冻结，调高必须附压力证据与显式基线变更。回调注册计入既有 VM roots/内存与命令配额，未建立可计量预算的 profile 不准入。
 
+## Puppet 动画层后继（2026-10-07）
+
+目标是让作者 `animationlayers[].visible` 及其 `IAnimationLayer` 控制进入真实骨骼、alpha、挂点和合成。它不同于属性 Timeline，不能借 `getAnimation()` 冒充。固定官方 2.8.0.42 自有黑盒确认：隐藏层冻结帧位置而 `isPlaying` 仍为 true；恢复后继续。`play(); setFrame(frameCount*.93)` 同 callback 保留小数位置且继续播放；getter 即时变化、公开骨骼姿态下一 update 才变化。暂停定位的 raw getter 保留负值和超尾值，姿态采样钳位到首尾；自然循环仍取余。现有自然播放 TRS 小数插值已由 controlled 轨道 0/.5/1 验证，不替换数学。研究原件暂存 `/private/tmp/mwx-puppet-seek-20261007/official`，不将单版本实验外推完整 API。
+
+**第一片已实施：共享播放位置与隐藏恢复。** LaunchContext唯一播放owner与所有surface共用采样已接通，旧三处独立取帧退出；相同定义重建保留位置，暂停重建新恢复层补入当前冻结快照。稳定合同归[高级对象覆盖](../../capabilities/advanced-object-coverage.md)，验证与限制归[完成记录](../../history/puppet-animation-visibility-2026-10-07.md)。不再作为待开发项；下一片沿现owner扩展，不重新建立播放状态或clock。
+
+**第二片：作者脚本入口与控制事务（待实施）。** 精确解析 animation-layer wrapper 和稳定身份，Boolean 返回值只写该动画层，绝不能写父图层 visibility。首次 init 前安装由已准备 MDLA 提供的 metadata 与真正 IAnimationLayer handle；先闭合本层控制，再另验跨层 lookup/create/destroy。命令沿现 owner effect bundle 的有序 journal、预算、Swift fixed-point 验证和共同 commit/discard 接纳，应用于同一 session 播放 owner；C 只保存 committed mirror 与当前 callback overlay。phase seek 和自然推进分开，所有消费者仍使用一个快照。不得为了 `'addEndedCallback' in thisObject` 分支提供空方法；ended 注册必须有真实有界 roots、实际结束事件、teardown、失败原子性和不重放的 cadence 消费。自然loop ended已证在帧推进后、普通update前且读到wrap位置；最终GPU相位、mirror及跨多圈等未定行为先用有界实验裁决，不能凭方法名称猜测。验收真实 authored init→VM→typed command→次帧 pose→GPU/compositor，并覆盖 throw、Swift 拒绝、stale handle、两 surface 和恢复。
+
 ## fallback / route
 
 unsupported API/配置是局部脚本调用失败，保留先前有效对象和画面；stale handle/跨 generation、越界、OOM/timeout/预算超限硬拒绝该不安全事务。禁止将失败返回伪装成有效 native handle。迁移沿现役 bridge `prefer-generic`→`generic-only`，旧 setter 同批撤权。

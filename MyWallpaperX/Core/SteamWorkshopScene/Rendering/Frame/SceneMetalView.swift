@@ -43,6 +43,7 @@ class SceneMetalView: NSView {
     private let presentationStreamID: UInt64
     private let textureAnimationPlaybackRuntime:
         SceneTextureAnimationPlaybackRuntime
+    private let puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime
     let renderer: SceneMetalRenderer
     let metalLayer: CAMetalLayer
     let usesLinearDisplayOutput: Bool
@@ -121,6 +122,7 @@ class SceneMetalView: NSView {
         resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge,
         textureAnimationPlaybackRuntime:
             SceneTextureAnimationPlaybackRuntime,
+        puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime,
         textureUploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
         textureDecodeCacheBudget: SceneTextureDecodeCacheBudget = .init(
             maximumBytes: 1_024 * 1_024 * 1_024
@@ -149,6 +151,7 @@ class SceneMetalView: NSView {
         self.firstFramePresentationRegistration =
             firstFramePresentationRegistration
         self.textureAnimationPlaybackRuntime = textureAnimationPlaybackRuntime
+        self.puppetAnimationPlaybackRuntime = puppetAnimationPlaybackRuntime
         self.renderer = renderer
         mediaThumbnailCoordinator = .init(
             program: baseMaterialProviderBindings,
@@ -346,21 +349,31 @@ class SceneMetalView: NSView {
                        device: metalDevice,
                        pipeline: imagePipeline
                    ) {
-                    if let product = puppetOutcome.geometryProduct {
-                        loaded.setPuppetGeometry(
-                            product,
-                            samplingAtlas: texture,
-                            samplingCandidate: baseLoad.candidate,
-                            layerID: layer.id
-                        )
-                    } else if puppetOutcome.allowsMissingMeshTextureProduct {
-                        loaded.set(texture, candidate: nil, layerID: layer.id)
+                    let registration = puppetOutcome.playback.map {
+                        puppetAnimationPlaybackRuntime.register(layerID: layer.id,
+                            selection: $0.selection, authoredLayers: layer.puppetAnimationLayers)
                     }
-                    if let playback = puppetOutcome.playback {
-                        loadedPuppetPlaybackStates[layer.id] = playback
-                    }
-                    if report.isEnabled {
-                        puppetMessage = "; \(puppetOutcome.message)"
+                    if case let .failure(failure)? = registration {
+                        NSLog("MWX Puppet: layer=%d animation definition rejected: %@",
+                            layer.id, String(describing: failure))
+                        puppetMessage = "; puppet animation definition rejected"
+                    } else {
+                        if let product = puppetOutcome.geometryProduct {
+                            loaded.setPuppetGeometry(
+                                product,
+                                samplingAtlas: texture,
+                                samplingCandidate: baseLoad.candidate,
+                                layerID: layer.id
+                            )
+                        } else if puppetOutcome.allowsMissingMeshTextureProduct {
+                            loaded.set(texture, candidate: nil, layerID: layer.id)
+                        }
+                        if let playback = puppetOutcome.playback {
+                            loadedPuppetPlaybackStates[layer.id] = playback
+                        }
+                        if report.isEnabled {
+                            puppetMessage = "; \(puppetOutcome.message)"
+                        }
                     }
                 } else if layer.puppetMeshPath == nil {
                     loaded.set(
@@ -580,6 +593,7 @@ class SceneMetalView: NSView {
         var mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot
         let mediaInput: SceneMediaThumbnailInbox.Snapshot
         let spriteTimes: [Int: Float]
+        let puppetAnimationFrame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot
     }
     enum RenderInvalidation {
         case surface
@@ -592,6 +606,7 @@ class SceneMetalView: NSView {
 
     func updateSimulation(
         timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot,
+        puppetAnimationFrame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot,
         layerTopology: SceneScriptLayerTopologySnapshot,
         dynamicTextFieldsByLayerID:
             [Int: Set<SceneDynamicTextField>] = [:],
@@ -632,8 +647,9 @@ class SceneMetalView: NSView {
         let cameraFrame = renderer.makeCameraFrame(frameContext: frameContext)
         pointerState.previous = pointerState.current
         let attachmentFrames = ScenePuppetAttachmentFrameSnapshot(
-            framesByParentLayerID: puppetPlaybackStates.mapValues {
-                $0.prepareFrame(sceneTime: timing.sceneTime, dynamicValues: dynamicValues)
+            framesByParentLayerID: puppetPlaybackStates.reduce(into: [:]) { result, entry in
+                guard let samples = puppetAnimationFrame[entry.key] else { return }
+                result[entry.key] = entry.value.prepareFrame(animationFrame: samples)
             }
         )
         let frameProjection = renderer.resolveFrameWorldProjection(
@@ -650,7 +666,7 @@ class SceneMetalView: NSView {
             projection: frameProjection, particles: particleBatches,
             topology: layerTopology, textFields: dynamicTextFieldsByLayerID,
             mediaThumbnail: mediaThumbnail, mediaInput: mediaInput,
-            spriteTimes: spriteAnimationPlaybackTimes
+            spriteTimes: spriteAnimationPlaybackTimes, puppetAnimationFrame: puppetAnimationFrame
         )
     }
 
@@ -683,6 +699,7 @@ class SceneMetalView: NSView {
         let dynamicTextFieldsByLayerID = simulationFrame.textFields
         let mediaThumbnail = simulationFrame.mediaThumbnail
         let spriteAnimationPlaybackTimes = simulationFrame.spriteTimes
+        let puppetAnimationFrame = simulationFrame.puppetAnimationFrame
         // Paused retries reuse this prepared frame without executing VM,
         // physics or pointer smoothing a second time.
         guard !shouldDeferResolvedMaterialFrame else {
@@ -769,7 +786,7 @@ class SceneMetalView: NSView {
             offscreenTexturePool: offscreenTexturePool,
             frameContext: frameContext,
             cameraFrame: cameraFrame,
-            encodeSourceUpdates: { [puppetPlaybackStates, spriteAnimations, spriteAnimationPlaybackTimes] commandBuffer, transaction in
+            encodeSourceUpdates: { [puppetPlaybackStates, puppetAnimationFrame, spriteAnimations, spriteAnimationPlaybackTimes] commandBuffer, transaction in
                 for (layerID, animation) in spriteAnimations {
                     guard let playbackTime =
                         spriteAnimationPlaybackTimes[layerID] else { continue }
@@ -778,8 +795,10 @@ class SceneMetalView: NSView {
                         commandBuffer: commandBuffer, transaction: transaction
                     )
                 }
-                for playback in puppetPlaybackStates.values {
+                for (layerID, playback) in puppetPlaybackStates {
+                    guard let samples = puppetAnimationFrame[layerID] else { continue }
                     _ = playback.encode(
+                        animationFrame: samples,
                         sceneTime: frameContext.sceneTime,
                         dynamicValues: frameContext.dynamicValues,
                         commandBuffer: commandBuffer,

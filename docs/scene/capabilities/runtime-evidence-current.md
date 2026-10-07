@@ -19,7 +19,7 @@
 | SceneScript 显隐准备与交互 | [统一显隐记录](#e-2026-09-27-unified-effect-visibility) |
 | 音频共享 producer 与产品入口 | [共享 producer 记录](#e-2026-09-22-audio-shared-canonical-producer)、[普通产品入口记录](#e-2026-09-22-audio-ordinary-scene-web) |
 | Batch2 已实施职责与仍待证输入 | [冻结执行记录](#batch2-frozen-records)；按职责查询有界输出、失败与未验profile |
-| Puppet、颜色与复审 | <a id="e-2026-10-07-signal-color"></a>[颜色与数据边界](../history/signal-color-classification-2026-10-07.md)、 <a id="e-2026-10-07-puppet-bone-alpha"></a>[骨骼alpha](../history/puppet-bone-alpha-2026-10-07.md)、 <a id="e-2026-10-07-puppet-static-weight"></a>[权重/失败发布](../history/puppet-static-weight-2026-10-07.md)、 [身体网格](../history/puppet-unused-vertices-2026-10-07.md)、[提交复审](../history/committed-range-review-repairs-2026-10-07.md) |
+| Puppet、颜色与复审 | <a id="e-2026-10-07-puppet-animation-visibility"></a>[隐藏恢复与共享位置](../history/puppet-animation-visibility-2026-10-07.md)、<a id="e-2026-10-07-signal-color"></a>[颜色与数据边界](../history/signal-color-classification-2026-10-07.md)、 <a id="e-2026-10-07-puppet-bone-alpha"></a>[骨骼alpha](../history/puppet-bone-alpha-2026-10-07.md)、 <a id="e-2026-10-07-puppet-static-weight"></a>[权重/失败发布](../history/puppet-static-weight-2026-10-07.md)、 [身体网格](../history/puppet-unused-vertices-2026-10-07.md)、[提交复审](../history/committed-range-review-repairs-2026-10-07.md) |
 
 <a id="batch2-frozen-records"></a>
 

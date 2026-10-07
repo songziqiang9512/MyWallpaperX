@@ -201,6 +201,7 @@
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationSelection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimationReader.swift",
@@ -210,6 +211,7 @@
       ],
       "modules": [
         "test_scene_puppet_playback",
+        "test_scene_puppet_animation_playback_runtime",
         "test_scene_puppet_weights",
         "test_scene_puppet_pose_publication",
         "test_scene_puppet_bone_origin",

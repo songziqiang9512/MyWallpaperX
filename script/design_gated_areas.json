@@ -43,14 +43,15 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "design_notes": "2026-10-04批准D4限定instance.alpha后继：官方旧粒子/新出生相位已分离；现journal→typed particle snapshot→原出生owner，含无authored默认与setter/emit前缀、原子回滚。其他字段/默认count未知不开放；approved不是产品验收。",
+      "design_notes": "2026-10-04批准D4限定instance.alpha后继：官方旧粒子/新出生相位已分离；现journal→typed particle snapshot→原出生owner，含无authored默认与setter/emit前缀、原子回滚。其他字段/默认count未知不开放；approved不是产品验收。 2026-10-07追加Puppet动画层两片设计：先共享播放位置修正隐藏恢复，再接独立IAnimationLayer事务；禁止假ended方法和逐surface控制owner，未实施不得记支持。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/**/SceneScript*Component*.swift"
       ],
       "contentPatterns": [
         "registerSceneScriptComponent",
         "sceneScriptComponentAPI",
-        "emitParticles"
+        "emitParticles",
+        "ScenePuppetAnimationPlaybackRuntime"
       ]
     },
     {

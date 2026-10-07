@@ -750,6 +750,7 @@
           "ScenePuppetAnimationEvaluator+FrameSampling.swift",
           "ScenePuppetAnimationEvaluator+Transforms.swift",
           "ScenePuppetAnimationEvaluator.swift",
+          "ScenePuppetAnimationPlaybackRuntime.swift",
           "ScenePuppetAnimationSelection.swift",
           "ScenePuppetAttachmentFrameSnapshot.swift",
           "ScenePuppetAttachmentPoseProjection.swift",

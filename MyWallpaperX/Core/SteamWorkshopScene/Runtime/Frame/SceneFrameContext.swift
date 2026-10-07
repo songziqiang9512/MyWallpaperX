@@ -70,9 +70,9 @@ nonisolated struct SceneFrameContext: Equatable, Sendable {
 nonisolated struct SceneClock {
     nonisolated static let maximumSimulationFrameTime: TimeInterval = 0.25
 
-    /// Launch-owned mutable state captured before a frame attempt. The host
-    /// restores this state when no surface reaches the submission barrier so
-    /// a failed attempt cannot consume the shared frame index or time anchor.
+    /// Explicit clock snapshot for restoring an unconsumed timing operation.
+    /// Once the host consumes a simulation cadence, surface/GPU failures do
+    /// not restore this state or replay that cadence's callbacks and animation.
     nonisolated struct State: Equatable, Sendable {
         fileprivate let startHostTime: TimeInterval
         fileprivate let lastHostTime: TimeInterval

@@ -66,7 +66,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 306,
-      "bytes": 58565
+      "bytes": 59071
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 75,
-      "bytes": 9730
+      "bytes": 9869
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -177,8 +177,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 68,
-      "bytes": 12538
+      "lines": 76,
+      "bytes": 15049
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 41,
@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 148,
-      "bytes": 57533
+      "bytes": 57640
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1226,15 +1226,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "a8f0cf37fa5a537fe56ddf74fee6b1dddc06f3098319a0728f05cde03ff67f45",
-      "after": "a8027dbad222f9f3e8fb0012e584cc4e9762d99f22a677fa60eb95b080fd1e49",
-      "owner": "scene-puppet",
-      "reason": "骨骼alpha先行设计转已执行合同，替换小眼睛拒绝状态、更新独立合成反例与剩余任务；历史实验只索引不复制。",
-      "decision": "docs/scene/history/puppet-bone-alpha-2026-10-07.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/effect-execution-coverage.md",
       "before": "6e8f80d2c6d09639c14d5cc331dc7e828582cbc5fa0e1ed2b51ea1980eecd7fe",
       "after": "2eb2bdf0c2ef9fa640bc25bf86093af1cb46a71b23ba3bb14eaa5f8701e1fb51",
@@ -1244,12 +1235,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "a8027dbad222f9f3e8fb0012e584cc4e9762d99f22a677fa60eb95b080fd1e49",
+      "after": "baa3cf3f441af6e57c27700bc0eece4e3ddcc6b30feb3f5c1a5bcf38d8d0a4ac",
+      "owner": "scene-puppet-animation",
+      "reason": "共享位置和隐藏恢复合同接管已完成第一片，保留脚本控制未执行边界；原位同步状态及导航。",
+      "decision": "docs/scene/history/puppet-animation-visibility-2026-10-07.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "8ed1fd42acb554aa450ebeaa3a327c88112ce3c99c599bf81c15aba8f88c727f",
-      "after": "21237f1c534131dc3c9cc588bff156249a50d33c9e96e231fdadabcefd758524",
-      "owner": "scene-shader-color",
-      "reason": "明确图内数据排除颜色转换的既有准备职责，关闭audio_caps断点，现役队列仅保留未完成项。",
-      "decision": "docs/scene/history/signal-color-classification-2026-10-07.md#图内数据输入后继修复"
+      "before": "21237f1c534131dc3c9cc588bff156249a50d33c9e96e231fdadabcefd758524",
+      "after": "7d13d7973d18dcc5c0ba0fb6fd37a759e0470516ed1086bdb4e3d6cb92244ab7",
+      "owner": "scene-puppet-animation",
+      "reason": "共享位置和隐藏恢复合同接管已完成第一片，保留脚本控制未执行边界；原位同步状态及导航。",
+      "decision": "docs/scene/history/puppet-animation-visibility-2026-10-07.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "04aed36778d1ecf867c0fe55b844c04bb6f0717d4c9337b2562efa997cbb1c50",
+      "after": "c00ffddb19685ecccaa65d58fcdf494c2f91d5a1c7abeb1f94c3527c49ecc7c7",
+      "owner": "scene-puppet-animation",
+      "reason": "共享位置和隐藏恢复合同接管已完成第一片，保留脚本控制未执行边界；原位同步状态及导航。",
+      "decision": "docs/scene/history/puppet-animation-visibility-2026-10-07.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "5762adda0d8b2ad99955e30970ea4c93041fcbc361bcbd25607efa1364a8af73",
+      "after": "310e2ae2a19af53321d58eba475238e2308fc60f10e75126576e904826219dd3",
+      "owner": "scene-puppet-animation",
+      "reason": "共享位置和隐藏恢复合同接管已完成第一片，保留脚本控制未执行边界；原位同步状态及导航。",
+      "decision": "docs/scene/history/puppet-animation-visibility-2026-10-07.md"
     }
   ]
 }

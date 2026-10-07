@@ -273,6 +273,9 @@ extension SceneDesktopWallpaperSession {
             sceneScriptValues: boundedSceneScriptValues
         )
         let preliminaryForSceneScript = preliminarySceneScriptResolution.snapshot
+        let puppetAnimationFrame = launchContext.puppetAnimationPlaybackRuntime.advance(
+            frameIndex: timing.frameIndex, sceneTime: timing.sceneTime,
+            dynamicValues: preliminaryForSceneScript)
         let userPropertiesJSON = launchContext.propertyVectorScriptProgram
             .userPropertiesJSON(
                 effectiveValues: launchContext.liveState.effectiveValues,
@@ -291,13 +294,11 @@ extension SceneDesktopWallpaperSession {
         launchContext.sceneScriptStorageSession?.beginFrameTransaction()
         let sceneScriptVideoSnapshots = videoTextureSourceRegistry?
             .sceneScriptSnapshots(sceneTime: timing.sceneTime) ?? [:]
-        let sceneScriptTextureAnimationSnapshots =
-            launchContext.textureAnimationPlaybackRuntime.snapshots(
-                sceneTime: timing.sceneTime
-            )
+        let sceneScriptTextureAnimationSnapshots = launchContext.textureAnimationPlaybackRuntime.snapshots(
+            sceneTime: timing.sceneTime)
         let puppetPoseFrames = surfaces.mapValues {
             $0.metalView.prepareSceneScriptPuppetPoseFrame(
-                timing: timing, dynamicValues: preliminaryForSceneScript
+                timing: timing, puppetAnimationFrame: puppetAnimationFrame
             )
         }
         let sceneScriptPuppetPoseFrame = surfaces.count == 1
@@ -812,6 +813,7 @@ extension SceneDesktopWallpaperSession {
             surface.didSubmitSimulationFrame = false
             surface.metalView.updateSimulation(
                 timing: timing, dynamicValues: dynamicValues,
+                puppetAnimationFrame: puppetAnimationFrame,
                 layerTopology: layerTopology.resolvingDynamicMaterialColors(from: dynamicValues),
                 dynamicTextFieldsByLayerID:
                     launchContext.frameSchema.dynamicTextFieldsByLayerID,

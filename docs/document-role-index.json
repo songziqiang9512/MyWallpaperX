@@ -483,9 +483,9 @@
       "lastReviewed": "2026-10-07",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "55af9165ff4f730ef21d77bac9fdc4353195c043f30d58c5d1e7d8da50ab618a",
+        "sourceSHA256": "e349965c43a875c4aa883e40a6b4b86d6a93caadec6e024f8187f05f3f1186f3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "颜色与图内数据边界记录及未完成队列的导航核对；运行身份和限制见记录。",
+        "scope": "Puppet共享播放位置与隐藏恢复记录的导航核对，脚本seek和样本完整画面仍开放。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -1096,6 +1096,17 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/capabilities/particle-component-coverage.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/puppet-animation-visibility-2026-10-07.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/advanced-object-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/batch2/script-component-api-design.md"
       ]
     },
     {

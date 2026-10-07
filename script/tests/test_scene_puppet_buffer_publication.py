@@ -17,6 +17,7 @@ PLAYBACK_SOURCES = [
     "Format/SceneMdlPuppetAttachmentReader.swift",
     "Systems/Puppet/ScenePuppetAttachmentPoseProjection.swift",
     "Systems/Puppet/ScenePuppetTranslationMotion.swift",
+    "Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift",
     "Systems/Puppet/ScenePuppetPlaybackState.swift",
     "Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
     "Rendering/Geometry/SceneGeometryProduct.swift",
@@ -202,6 +203,7 @@ struct Frame {
 }
 func render(_ output: ScenePuppetPlaybackState.Output? = nil, sceneTime: Double,
             device: MTLDevice, queue: MTLCommandQueue, atlas: MTLTexture,
+            animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame? = nil,
             mvp: simd_float4x4 = matrix_identity_float4x4,
             layerAlpha: Float = 1, clipVisible: Bool? = nil,
             ordinaryPipeline: SceneImageLayerPipeline? = nil,
@@ -216,7 +218,14 @@ func render(_ output: ScenePuppetPlaybackState.Output? = nil, sceneTime: Double,
             [ScenePuppetAnimationPropertyTarget.visibility(layerID: 42, animationLayerID: 1):
                 .init(value: .bool($0))]
         } ?? [:]
-        let attachments = output?.state.encode(sceneTime: sceneTime,
+        // Legacy publication fixtures supply a requested pose directly; the
+        // shared-runtime integration case below supplies the launch's snapshot.
+        let samples = animationFrame ?? .init(samples: output?.state.selection.clips.map { clip in
+            let visible = clip.layer.visibilityBinding == nil ? clip.layer.visible == true : clipVisible == true
+            return visible ? ScenePuppetAnimationEvaluator.frameSample(sceneTime: sceneTime,
+                rate: clip.layer.rate ?? 1, animation: clip.animation) : nil
+        } ?? [])
+        let attachments = output?.state.encode(animationFrame: samples, sceneTime: sceneTime,
             dynamicValues: .init(frameIndex: UInt64(sceneTime * 10), values: values),
             commandBuffer: command, transaction: transaction) ?? [:]
         let readyAfter = output?.product.isPreparedForPublication(command) ?? false
@@ -440,6 +449,43 @@ func render(_ output: ScenePuppetPlaybackState.Output? = nil, sceneTime: Double,
             opaqueMultiClipFrame = render(output, sceneTime: 0.5, device: device,
                 queue: queue, atlas: coloredAtlas, layerAlpha: 0.5).report
         }
+
+        let sharedFixture = fixture(poses: [pose(), pose(translationX: 0.25)],
+            weight: 1, alpha: [1, 0], visibilityBinding: "enabled")
+        let sharedRuntime = ScenePuppetAnimationPlaybackRuntime()
+        try sharedRuntime.register(layerID: 42, selection: sharedFixture.2,
+            authoredLayers: sharedFixture.2.clips.map(\.layer)).get()
+        func sharedFrame(_ index: UInt64, _ time: Double, _ visible: Bool)
+            -> ScenePuppetAnimationPlaybackRuntime.LayerFrame {
+            sharedRuntime.advance(frameIndex: index, sceneTime: time,
+                dynamicValues: .init(frameIndex: index, values: [
+                    ScenePuppetAnimationPropertyTarget.visibility(layerID: 42, animationLayerID: 1):
+                        .init(value: .bool(visible))]))[42]!
+        }
+        let surfaceA = try makePlayback(sharedFixture, device: device, pipeline: pipeline, atlas: coloredAtlas)
+        let startSamples = sharedFrame(0, 0, true)
+        _ = render(surfaceA, sceneTime: 0, device: device, queue: queue, atlas: coloredAtlas,
+            animationFrame: startSamples, layerAlpha: 0.5)
+        _ = sharedFrame(1, 0.25, true)
+        // No drawable or encode consumes these simulated cadences. Visibility
+        // and position still progress at the shared simulation boundary.
+        _ = sharedFrame(2, 0.5, false)
+        let hiddenSamples = sharedFrame(3, 2, false)
+        let hiddenShared = render(surfaceA, sceneTime: 2, device: device, queue: queue,
+            atlas: coloredAtlas, animationFrame: hiddenSamples, layerAlpha: 0.5)
+        let resumeSamples = sharedFrame(4, 2.25, true)
+        surfaceA.state.advanceBonePhysics(animationFrame: resumeSamples, deltaTime: 0.25)
+        let resumedPose = surfaceA.state.poseConfiguration(animationFrame: resumeSamples)!
+        let resumedAttachments = surfaceA.state.prepareFrame(animationFrame: resumeSamples)
+        let resumedA = render(surfaceA, sceneTime: 2.25, device: device, queue: queue,
+            atlas: coloredAtlas, animationFrame: resumeSamples, layerAlpha: 0.5)
+        // A second surface/rebuild registers the same definition without resetting.
+        try sharedRuntime.register(layerID: 42, selection: sharedFixture.2,
+            authoredLayers: sharedFixture.2.clips.map(\.layer)).get()
+        let surfaceB = try makePlayback(sharedFixture, device: device, pipeline: pipeline, atlas: coloredAtlas)
+        let duplicateSamples = sharedFrame(4, 200, false)
+        let resumedB = render(surfaceB, sceneTime: 2.25, device: device, queue: queue,
+            atlas: coloredAtlas, animationFrame: duplicateSamples, layerAlpha: 0.5)
         let result: [String: Any] = [
             "metalDevice": device.name,
             "firstFailure": firstFailure.report, "firstRecovery": firstRecovery.report,
@@ -479,6 +525,12 @@ func render(_ output: ScenePuppetPlaybackState.Output? = nil, sceneTime: Double,
             "opaqueMultiClipFrame": opaqueMultiClipFrame,
             "contributingAlphaMultiClipSelection": selectionReport(
                 pairedSelection(alpha: [1, 0.5], bothTracks: false)),
+            "sharedHidden": hiddenShared.report, "sharedResumedA": resumedA.report,
+            "sharedResumedB": resumedB.report,
+            "sharedResumedPoseX": resumedPose.bones.localMatrices[12],
+            "sharedResumedAttachmentX": resumedAttachments["tip"]!.columns.3.x,
+            "sharedSurfacePixelsMatch": resumedA.pixels == resumedB.pixels,
+            "sharedSurfaceAttachmentsMatch": resumedA.attachments == resumedB.attachments,
         ]
         print(String(decoding: try JSONSerialization.data(withJSONObject: result,
             options: [.sortedKeys]), as: UTF8.self))
@@ -653,6 +705,16 @@ class PuppetBufferPublicationTests(unittest.TestCase):
         self.assert_center_bgra(self.result["opaqueMultiClipFrame"], [16, 32, 48, 64])
         self.assertEqual(self.result["contributingAlphaMultiClipSelection"],
                          {"state": "unsupported"})
+
+    def test_shared_hidden_resume_keeps_pose_alpha_and_two_surfaces_on_one_sample(self) -> None:
+        self.assert_center_bgra(self.result["sharedHidden"], [16, 32, 48, 64])
+        for name in ("sharedResumedA", "sharedResumedB"):
+            with self.subTest(surface=name):
+                self.assert_center_bgra(self.result[name], [8, 16, 24, 32])
+        self.assertAlmostEqual(self.result["sharedResumedPoseX"], 0.125)
+        self.assertAlmostEqual(self.result["sharedResumedAttachmentX"], 0.125)
+        self.assertTrue(self.result["sharedSurfacePixelsMatch"])
+        self.assertTrue(self.result["sharedSurfaceAttachmentsMatch"])
 
 
 if __name__ == "__main__":

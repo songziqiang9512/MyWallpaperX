@@ -60,7 +60,7 @@ final class ScenePuppetPlaybackState {
     let layerID: Int
     let animationIDs: [Int]
     private let mesh: SceneMdlPuppetMesh
-    private let selection: ScenePuppetAnimationSelection
+    let selection: ScenePuppetAnimationSelection
     private let evaluator: ScenePuppetAnimationEvaluator
     private let hasBoneAlpha: Bool
     private let attachments: [SceneMdlPuppetAttachment]
@@ -82,9 +82,8 @@ final class ScenePuppetPlaybackState {
     private var localMatrixScratch: [simd_float4x4]
     private var skinMatrixScratch: [simd_float4x4]
     private var worldMatrixScratch: [simd_float4x4]
-    /// Clip topology is launch-stable; reuse the per-frame sample/signature
-    /// containers so source updates do not allocate before the change guard.
-    private var frameSamplesScratch: [ScenePuppetAnimationEvaluator.FrameSample?]
+    /// Clip topology is launch-stable; reuse signatures while the launch-owned
+    /// playback runtime supplies the shared frame samples.
     private var signatureScratch: [FrameSignature]
     private var preparedFrameSignature: [FrameSignature]?
     private var preparedBoneRevision: UInt64?
@@ -172,28 +171,21 @@ final class ScenePuppetPlaybackState {
     /// never stop bone physics or leave child world transforms on an old pose.
     @discardableResult
     func prepareFrame(
-        sceneTime: Double,
-        dynamicValues: SceneDynamicSnapshot
+        animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame
     ) -> [String: simd_float4x4] {
+        let frameSamples = animationFrame.samples
+        guard frameSamples.count == selection.clips.count else { return preparedAttachmentFrames }
         for index in selection.clips.indices {
             let clip = selection.clips[index]
-            frameSamplesScratch[index] = isVisible(
-                clip.layer, dynamicValues: dynamicValues
-            ) ? ScenePuppetAnimationEvaluator.frameSample(
-                sceneTime: sceneTime,
-                rate: clip.layer.rate ?? 1,
-                animation: clip.animation
-            ) : nil
             signatureScratch[index] = FrameSignature(
-                sample: frameSamplesScratch[index],
-                visible: frameSamplesScratch[index] != nil,
+                sample: frameSamples[index],
+                visible: frameSamples[index] != nil,
                 timeInvariant: evaluator.isTimeInvariant(
                     animationID: clip.animation.id
                 ),
                 boneRevision: boneRevision
             )
         }
-        let frameSamples = frameSamplesScratch
         let signature = signatureScratch
         guard signature != preparedFrameSignature || boneRevision != preparedBoneRevision else {
             return preparedAttachmentFrames
@@ -253,13 +245,16 @@ final class ScenePuppetPlaybackState {
         return preparedAttachmentFrames
     }
 
+    /// Sampling is fixed by animationFrame; sceneTime and dynamicValues only
+    /// identify the DEBUG evidence attached to this GPU publication.
     func encode(
+        animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame,
         sceneTime: Double,
         dynamicValues: SceneDynamicSnapshot,
         commandBuffer: MTLCommandBuffer,
         transaction: SceneSourceUpdateTransaction
     ) -> [String: simd_float4x4] {
-        let frames = prepareFrame(sceneTime: sceneTime, dynamicValues: dynamicValues)
+        let frames = prepareFrame(animationFrame: animationFrame)
         preparedPublicationCommandBuffer = nil
         guard let preparedFrameSignature, let preparedBoneRevision else { return frames }
         let attachmentFrames = submissions.update(transaction: transaction) { submission in
@@ -368,36 +363,20 @@ final class ScenePuppetPlaybackState {
     /// the same launch-selected clips and persistent override map as encode,
     /// so getters observe animation pose rather than a stale bind snapshot.
     func boneConfiguration(
-        sceneTime: Double,
-        dynamicValues: SceneDynamicSnapshot
+        animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame
     ) -> ScenePuppetLayerLoad.BoneConfiguration? {
-        poseConfiguration(
-            sceneTime: sceneTime,
-            dynamicValues: dynamicValues
-        )?.bones
+        poseConfiguration(animationFrame: animationFrame)?.bones
     }
 
     /// Evaluates one typed current pose for the pre-script frame snapshot.
     /// Bone handles, animated attachments and cursor/world projections all
     /// consume this result instead of evaluating independent hierarchies.
     func poseConfiguration(
-        sceneTime: Double,
-        dynamicValues: SceneDynamicSnapshot
+        animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame
     ) -> PoseConfiguration? {
-        let frameSamples: [ScenePuppetAnimationEvaluator.FrameSample?] =
-            selection.clips.map { clip in
-                guard isVisible(clip.layer, dynamicValues: dynamicValues) else {
-                    return nil
-                }
-                return ScenePuppetAnimationEvaluator.frameSample(
-                    sceneTime: sceneTime,
-                    rate: clip.layer.rate ?? 1,
-                    animation: clip.animation
-                )
-            }
         guard let transforms = try? evaluator.boneTransforms(
             selection: selection,
-            frameSamples: frameSamples,
+            frameSamples: animationFrame.samples,
             boneOverrides: scriptBoneOverrides
         ) else { return nil }
         func flatten(_ matrix: simd_float4x4) -> [Double] {
@@ -421,18 +400,14 @@ final class ScenePuppetPlaybackState {
 
     /// The authored pose/physics is evaluated before callbacks each frame;
     /// scripts may replace that result only for the frame they write.
-    func advanceBonePhysics(sceneTime: Double, deltaTime: Double,
-                            dynamicValues: SceneDynamicSnapshot) {
+    func advanceBonePhysics(animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame,
+                            deltaTime: Double) {
 #if DEBUG
         boneWrittenInFrame = false
 #endif
         guard evaluator.rig.bones.contains(where: { $0.translationPhysics != nil }) else { return }
-        let samples = selection.clips.map { clip in
-            isVisible(clip.layer, dynamicValues: dynamicValues)
-                ? ScenePuppetAnimationEvaluator.frameSample(sceneTime: sceneTime,
-                    rate: clip.layer.rate ?? 1, animation: clip.animation) : nil
-        }
-        guard let base = try? evaluator.boneTransforms(selection: selection, frameSamples: samples)
+        guard let base = try? evaluator.boneTransforms(selection: selection,
+            frameSamples: animationFrame.samples)
         else { return }
         for (index, bone) in evaluator.rig.bones.enumerated() {
             guard let configuration = bone.translationPhysics else { continue }
@@ -477,20 +452,6 @@ final class ScenePuppetPlaybackState {
         }
         scriptBoneOverrides = next
         if accepted { boneRevision &+= 1 }
-    }
-
-    private func isVisible(
-        _ layer: ScenePuppetAnimationLayer,
-        dynamicValues: SceneDynamicSnapshot
-    ) -> Bool {
-        guard layer.visibilityBinding != nil else { return layer.visible == true }
-        guard let animationLayerID = layer.id,
-              let resolved = dynamicValues[ScenePuppetAnimationPropertyTarget.visibility(
-                  layerID: layerID,
-                  animationLayerID: animationLayerID
-              )],
-              case let .bool(visible) = resolved.value else { return false }
-        return visible
     }
 
     private init(
@@ -542,9 +503,6 @@ final class ScenePuppetPlaybackState {
         self.worldMatrixScratch = Array(
             repeating: matrix_identity_float4x4,
             count: matrixScratchCount
-        )
-        self.frameSamplesScratch = Array(
-            repeating: nil, count: selection.clips.count
         )
         self.signatureScratch = Array(
             repeating: FrameSignature(sample: nil, visible: false),

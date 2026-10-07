@@ -462,6 +462,7 @@ final class SceneDesktopWallpaperSession {
                 resolvedMaterialRuntime: launchContext.makeResolvedMaterialRuntime(),
                 textureAnimationPlaybackRuntime:
                     launchContext.textureAnimationPlaybackRuntime,
+                puppetAnimationPlaybackRuntime: launchContext.puppetAnimationPlaybackRuntime,
                 textureUploadCommandQueue: launchContext.preparedDeviceResources
                     .baseImages.textureLoader.uploadCommandQueue,
                 textureDecodeCacheBudget: launchContext.preparedDeviceResources

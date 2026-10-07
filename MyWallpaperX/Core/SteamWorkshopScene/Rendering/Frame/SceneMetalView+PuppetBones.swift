@@ -17,7 +17,7 @@ extension SceneMetalView {
     /// matrices and cursor collision in this callback snapshot.
     func prepareSceneScriptPuppetPoseFrame(
         timing: SceneFrameTiming,
-        dynamicValues: SceneDynamicSnapshot
+        puppetAnimationFrame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot
     ) -> ScenePuppetScriptPoseFrame {
         guard !puppetPlaybackStates.isEmpty else { return .empty }
         var posesByLayerID: [Int: ScenePuppetPlaybackState.PoseConfiguration] = [:]
@@ -25,14 +25,12 @@ extension SceneMetalView {
         posesByLayerID.reserveCapacity(puppetPlaybackStates.count)
         framesByParentLayerID.reserveCapacity(puppetPlaybackStates.count)
         for (layerID, playback) in puppetPlaybackStates {
+            guard let samples = puppetAnimationFrame[layerID] else { continue }
             playback.advanceBonePhysics(
-                sceneTime: timing.sceneTime,
-                deltaTime: timing.simulationFrameTime,
-                dynamicValues: dynamicValues
+                animationFrame: samples, deltaTime: timing.simulationFrameTime
             )
             guard let pose = playback.poseConfiguration(
-                sceneTime: timing.sceneTime,
-                dynamicValues: dynamicValues
+                animationFrame: samples
             ) else { continue }
             posesByLayerID[layerID] = pose
             if !pose.attachmentFrames.isEmpty {
