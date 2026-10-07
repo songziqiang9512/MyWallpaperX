@@ -16,7 +16,7 @@ final class SceneResolvedMaterialFrameResourceBundle {
         let pool: SceneOffscreenTexturePool
         let commandBuffer: MTLCommandBuffer
         let targets: [ScenePreparedPersistentGraphTargets]
-        let admission: SceneGraphPreparationAdmission
+        let admission: SceneGraphPreparationHandle
 
         func isValidForFramePreparation(coordinator: SceneResolvedMaterialSubmissionCoordinator,
                      frame: SceneResolvedMaterialFrameSnapshot,

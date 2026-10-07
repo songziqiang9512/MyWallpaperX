@@ -1,10 +1,10 @@
 import Foundation
 import Metal
 
-/// A one-use resource admission. Selection contains original input indices;
+/// A one-use cache-managed preparation handle. Selection contains original input indices;
 /// history/discard arrays align with the selected inputs, in original order.
 /// The cache lock is the sole authority for inputs/consume/cancel/deinit.
-final class SceneGraphPreparationAdmission {
+final class SceneGraphPreparationHandle {
     typealias Prepared = ScenePreparedPersistentGraphTargets
     fileprivate let cache: SceneOffscreenTextureAllocationCache
     fileprivate let identity: UUID
@@ -40,7 +40,7 @@ extension SceneOffscreenTextureAllocationCache {
     /// terminates already-taken inputs, exactly as a failed one-shot commit does.
     func admitPreparedTargets(
         _ targets: [ScenePreparedPersistentGraphTargets]
-    ) -> SceneGraphPreparationAdmission? {
+    ) -> SceneGraphPreparationHandle? {
         var inputs: [ScenePreparedPersistentGraphTargets.AdmissionInput] = []
         for target in targets {
             guard let input = target.takeAdmissionInput() else { return nil }
@@ -206,7 +206,7 @@ extension SceneOffscreenTextureAllocationCache {
     }
 
     fileprivate func finalizePreparation(
-        _ handle: SceneGraphPreparationAdmission,
+        _ handle: SceneGraphPreparationHandle,
         selectedInputIndices: [Int]?,
         historyTokensByTarget: [[EffectKey: Set<Token>]],
         discardedHistoryEffectsByTarget: [Set<EffectKey>]?,
@@ -252,7 +252,7 @@ extension SceneOffscreenTextureAllocationCache {
     }
 
     private func preparationWorkingViewLocked(
-        _ handle: SceneGraphPreparationAdmission,
+        _ handle: SceneGraphPreparationHandle,
         inputs: [ScenePreparedPersistentGraphTargets.AdmissionInput],
         selected: Set<Int>
     ) -> [ResidentKey: Entry]? {
@@ -302,11 +302,11 @@ extension SceneOffscreenTextureAllocationCache {
         return view
     }
 
-    fileprivate func cancelPreparation(_ handle: SceneGraphPreparationAdmission) {
+    fileprivate func cancelPreparation(_ handle: SceneGraphPreparationHandle) {
         locked { cancelPreparationLocked(handle) }
     }
 
-    private func cancelPreparationLocked(_ handle: SceneGraphPreparationAdmission) {
+    private func cancelPreparationLocked(_ handle: SceneGraphPreparationHandle) {
         guard handle.cache === self, handle.inputs != nil else { return }
         for key in Array(residents.keys) {
             guard var entry = residents[key], entry.preparationPins.remove(handle.identity) != nil
