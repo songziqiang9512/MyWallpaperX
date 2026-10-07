@@ -19,7 +19,7 @@
 | SceneScript 显隐准备与交互 | [统一显隐记录](#e-2026-09-27-unified-effect-visibility) |
 | 音频共享 producer 与产品入口 | [共享 producer 记录](#e-2026-09-22-audio-shared-canonical-producer)、[普通产品入口记录](#e-2026-09-22-audio-ordinary-scene-web) |
 | Batch2 已实施职责与仍待证输入 | [冻结执行记录](#batch2-frozen-records)；按职责查询有界输出、失败与未验profile |
-| 复审与旧批次 | [提交复审修复](../history/committed-range-review-repairs-2026-10-07.md)；其余按[证据包](#evidence-packages)的 `E-*` 查询 |
+| Puppet与复审 | [身体网格](../history/puppet-unused-vertices-2026-10-07.md)、[提交复审](../history/committed-range-review-repairs-2026-10-07.md) |
 
 <a id="batch2-frozen-records"></a>
 

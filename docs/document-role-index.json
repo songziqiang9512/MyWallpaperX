@@ -483,7 +483,7 @@
       "lastReviewed": "2026-10-07",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5ed0336e3261ae234c1c22473b1996b8d5257ee4f7c9ff6bc3b74eb460da7926",
+        "sourceSHA256": "7ceb605ab235fbf86da430f1157f1a7f102a748b60eb44ae030fdc559f9e60bc",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对本次审查修复对应的职责合同、来源交接及冻结证据导航；实际运行身份与限制见记录。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
@@ -1096,6 +1096,16 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/capabilities/particle-component-coverage.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/puppet-unused-vertices-2026-10-07.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
     {

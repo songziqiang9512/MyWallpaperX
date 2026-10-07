@@ -221,9 +221,25 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
             "mdlv0021.mdl": build_mdl(magic=b"MDLV0021"),
             "bad-magic.mdl": build_mdl(magic=b"MDLX0001"),
             "no-block.mdl": b"MDLV0023\x00" + b"\x00" * 64 + b"MDLS",
-            # max(index) == 1 while the vertex bytes describe 3 vertices, so
-            # no stride candidate can satisfy max == count-1.
+            # 240 vertex bytes fit both stride 48 and 80; without the terminal
+            # index this legacy shape cannot select a unique layout.
             "sparse-indices.mdl": build_mdl(indices=[0, 1, 1, 1, 0, 0]),
+            "unused-tail.mdl": build_mdl(
+                vertices=[(float(i), float(-i), 0, i / 10, 0.5) for i in range(11)],
+                indices=[0, 3, 7],
+            ),
+            "too-many-vertices.mdl": build_mdl(
+                vertices=[(0, 0, 0, 0, 0)] * 65537, indices=[0, 1, 2],
+            ),
+            "unused-tail-oob.mdl": build_mdl(
+                vertices=[(float(i), 0, 0, 0, 0) for i in range(11)],
+                indices=[0, 3, 11],
+            ),
+            "unused-tail-nan.mdl": build_mdl(
+                vertices=[(float(i), 0, 0, 0, 0) for i in range(10)]
+                + [(float("nan"), 0, 0, 0, 0)],
+                indices=[0, 3, 7],
+            ),
             "nan-vertex.mdl": build_mdl(
                 vertices=[
                     (float("nan"), 0.0, 0.0, 0.0, 0.0),
@@ -252,6 +268,17 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         # Last attachment matrix translation is an authored numeric payload.
         struct.pack_into("<f", nonfinite, len(nonfinite) - 16, float("nan"))
         cls.fixtures["legacy-nonfinite.mdl"] = bytes(nonfinite)
+        sparse = cls.fixtures["unused-tail.mdl"]
+        cls.fixtures["sparse-before-strict.mdl"] = (
+            sparse[:sparse.index(b"MDLS")] + build_mdl()[9:]
+        )
+        cls.fixtures["ambiguous-sparse-blocks.mdl"] = (
+            sparse[:sparse.index(b"MDLS")] + sparse[9:]
+        )
+        strict_nan = cls.fixtures["nan-vertex.mdl"]
+        cls.fixtures["invalid-strict-before-sparse.mdl"] = (
+            strict_nan[:strict_nan.index(b"MDLS")] + sparse[9:]
+        )
         bad_bounds = bytearray(legacy)
         struct.pack_into("<I", bad_bounds, bad_bounds.index(b"MDLS0002\0") + 9, len(legacy))
         cls.fixtures["legacy-bad-bounds.mdl"] = bytes(bad_bounds)
@@ -344,10 +371,40 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         self.assertFalse(entry["ok"])
         self.assertIn("no strict bind-pose mesh block", entry["error"])
 
-    def test_partial_index_coverage_fails_closed(self):
+    def test_ambiguous_partial_index_layout_fails_closed(self):
         entry = self.results["sparse-indices.mdl"]
         self.assertFalse(entry["ok"])
         self.assertIn("no strict bind-pose mesh block", entry["error"])
+
+    def test_unreferenced_tail_preserves_all_vertices_and_original_indices(self):
+        entry = self.results["unused-tail.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertEqual(entry["stride"], 80)
+        self.assertEqual(entry["vertexCount"], 11)
+        self.assertEqual(entry["indices"], [0, 3, 7])
+        self.assertEqual(entry["vertices"][-1], [10.0, -10.0, 0.0, 1.0, 0.5])
+
+    def test_unreferenced_tail_does_not_relax_bounds_or_finite_validation(self):
+        self.assertFalse(self.results["too-many-vertices.mdl"]["ok"])
+        self.assertFalse(self.results["unused-tail-oob.mdl"]["ok"])
+        entry = self.results["unused-tail-nan.mdl"]
+        self.assertFalse(entry["ok"])
+        self.assertIn("non-finite vertex data", entry["error"])
+
+    def test_legacy_terminal_index_candidate_precedes_sparse_candidate(self):
+        entry = self.results["sparse-before-strict.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertEqual(entry["vertexCount"], 3)
+        self.assertEqual(entry["stride"], 80)
+        self.assertGreater(entry["blockOffset"], 900)
+
+    def test_invalid_legacy_candidate_does_not_fall_through_to_sparse(self):
+        entry = self.results["invalid-strict-before-sparse.mdl"]
+        self.assertFalse(entry["ok"])
+        self.assertIn("non-finite vertex data", entry["error"])
+
+    def test_multiple_sparse_blocks_fail_closed(self):
+        self.assertFalse(self.results["ambiguous-sparse-blocks.mdl"]["ok"])
 
     def test_non_finite_vertex_fails_closed(self):
         entry = self.results["nan-vertex.mdl"]

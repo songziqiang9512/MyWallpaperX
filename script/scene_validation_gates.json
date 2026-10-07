@@ -188,6 +188,15 @@
       ]
     },
     {
+      "id": "puppet-mesh-layout",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetMeshReader.swift"
+      ],
+      "modules": [
+        "test_scene_puppet_mesh"
+      ]
+    },
+    {
       "id": "scene-script-source-evidence",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift",

@@ -112,16 +112,18 @@ enum SceneMdlPuppetMeshReader {
     }
 
     // Scans [marker, bound) for the first offset whose u32-at-offset+4 forms a
-    // self-consistent vertex/index block. The index list must reference every
-    // vertex slot exactly up to vertexCount-1, which uniquely determines the
-    // stride: max(index) == vertexBytes/strideA - 1 and == vertexBytes/strideB - 1
-    // cannot both hold for distinct strides.
+    // self-consistent vertex/index block. Preserve the established first match
+    // whose maximum index reaches the last vertex (this does not imply every
+    // vertex is used). If no such match exists, an unreferenced tail is legal
+    // only when the entire bounded scan has exactly one index-safe layout.
     private static func findMeshBlock(
         in data: Data,
         bound: Int,
         vertexStrides: [Int]
     ) -> MeshBlock? {
         guard bound > markerSize + meshHeaderSize + 4 else { return nil }
+        var unusedTailCandidate: MeshBlock?
+        var unusedTailIsAmbiguous = false
         for offset in markerSize ..< (bound - meshHeaderSize - 4) {
             let vertexBytes = Int(readUInt32(data, at: offset + 4))
             guard vertexBytes > 0 else { continue }
@@ -142,8 +144,11 @@ enum SceneMdlPuppetMeshReader {
             ) else { continue }
             for stride in strides {
                 let vertexCount = vertexBytes / stride
-                guard Int(maxIndex) == vertexCount - 1 else { continue }
-                return MeshBlock(
+                // The old terminal-index proof implicitly bounded the vertex
+                // count to UInt16's address space. Keep that allocation bound.
+                guard vertexCount <= Int(UInt16.max) + 1,
+                      Int(maxIndex) < vertexCount else { continue }
+                let candidate = MeshBlock(
                     offset: offset,
                     stride: stride,
                     vertexCount: vertexCount,
@@ -151,9 +156,15 @@ enum SceneMdlPuppetMeshReader {
                     indexCount: indexBytes / 2,
                     indexBytesOffset: indicesOffset
                 )
+                if Int(maxIndex) == vertexCount - 1 { return candidate }
+                if unusedTailCandidate == nil {
+                    unusedTailCandidate = candidate
+                } else {
+                    unusedTailIsAmbiguous = true
+                }
             }
         }
-        return nil
+        return unusedTailIsAmbiguous ? nil : unusedTailCandidate
     }
 
     private static func decode(
