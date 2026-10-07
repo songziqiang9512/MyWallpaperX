@@ -14,7 +14,7 @@
 
 | 卡 | 目标与共享职责 | 最小交付与停止条件 |
 |---|---|---|
-| T1 材质与纹理合成 | 单pass静态源与中性材质常量乘色已接通；继续核动态材质的user Alpha/color、非中性Power、多同model图层及perspective；按全243声明选共同首断点 | 优先扩现有neutral-tint与materialConstant消费者；先区分已有链路和真实缺口，避免新Program重复求值。每个新增profile均需真实输出、style叠加及健康反例；透明state研究仍只按已证边界准入 |
+| T1 材质与纹理合成 | 单pass静态源与中性材质常量乘色已接通；0–1 user Alpha已接同一compositor及热切；继续核user color、更宽Alpha域、非中性Power、多同model图层及perspective；按全243声明选共同首断点 | 优先扩现有neutral-tint与materialConstant消费者；先区分已有链路和真实缺口，避免新Program重复求值。每个新增profile均需真实输出、style叠加及健康反例；透明state研究仍只按已证边界准入 |
 | T2 颜色与HDR输出 | 旧SDR shoulder压暗已修；对剩余条纹、HDR物理显示及用户样本复验，按采样purpose/alpha/颜色域→中间target→最终输出定位 | 保留作者HDR/SDR意图；同内容默认/关闭/开启和实际呈现对照。已有16F与热切执行不等于物理亮度正确；找到首错owner再修改 |
 | E1 特效与频谱 | 将运行拒绝按共享shader/slot/graph/动态输入首断点归并；频谱用同声源对照形状和活跃度 | 复用现compiler/graph/audio producer，选覆盖面明确的族恢复动态结果；不抬gain、改作者参数或放宽测试制造通过 |
 
@@ -24,7 +24,7 @@
 
 | 待办 | 状态、证据与下一关闭门 |
 |---|---|
-| 自定义源材质未准入组合 | **首入口已修，公共边界待补**：[833静态双纹理源](../history/source-material-entry-2026-10-08.md)已实际执行并消费后effect；3层中性静态乘色改由既有compositor消费，已跑通3原样本；原“7层动态常量”中1层已有S4，不再列为缺能力，其余6层的user Alpha/color、Power=.99或多source消费者仍待接线/运行。1层perspective、更多multi-pass/provider待证。细分见该记录的后继更正；不能把已修380照片归入同根因 |
+| 自定义源材质未准入组合 | **首入口已修，公共边界待补**：[833静态双纹理源](../history/source-material-entry-2026-10-08.md)已实际执行并消费后effect；3层中性静态乘色改由既有compositor消费，已跑通3原样本；原“7层动态常量”中1层已有S4，不再列为缺能力，其余6层中3609108600与3610154602的0–1 user Alpha已接原/clone消费者并完成实际运行；user color、宽域Alpha、Power=.99或多source消费者仍待接线/运行。1层perspective、更多multi-pass/provider待证。细分见该记录的后继更正；不能把已修380照片归入同根因 |
 | 材质颜色的组合缺口 | **部分已修，组合余项待补**：静态中性RGB已进入原/动态图层；脚本tint占用layer color的覆盖已修，迁至materialConstant并退出clone颜色覆写；受控前后GPU及原379彩虹通过。named raw capture尚不消费材质颜色而被保守排除；被排除的旧脚本候选可能无消费者执行，待沿原route exclusion退出。沿现material typed值及capture职责补齐，不另造渲染器；不得将静态/脚本乘色的有界通过外推到named组合 |
 | 普通unlit中间乘法溢出 | **已证缺陷**：source RGBA=(4,4,4,1)、tint=1e38、alpha=1e-37，HEAD/候选真实GPU同为RGB Inf，`SceneImageLayer.metal`普通路径。证据`/private/tmp/mwx-puppet-inner-harness-20261008/unlit-overflow-diagnosis.json`；修共享数值运算，验有限预乘结果、HDR/普通/lit反例，不加全图压暗或任意clamp |
 | 默认变暗、HDR/SDR最终显示 | **旧压暗首断点已修，视觉余项待复验**：旧SDR shoulder把白点1压到0.75；[白点修复](../history/sdr-white-preservation-implementation-2026-10-06.md)实测RGB(191,64,128)恢复(255,64,128)。EDR及OFF→ON→OFF已有同surface headroom执行证据；用户样本、多屏SDR、暂停重绘及物理亮度未据此关闭。沿唯一颜色/output owner定位，见[热切证据](../history/hdr-live-toggle-verification-2026-10-07.md)；Bloom iterations0/1空间语义另作官方控制 |
@@ -119,7 +119,7 @@
 | `SceneScriptVM / scene-script-bad-return`：3122339805, 3470948192 | 核text content当前值类型/producer与实际文字输出；此前其他target的维度修复不替代本项复验。 |
 | `SceneScriptVM / scene-script-exception-range-error`：3789316755 | 378动态层容量与局部非有限赋值已修；保留频谱外观复验，不重造容量owner。 |
 | `SceneScriptVM / scene-script-exception-reference-error`：3779026256 | 实际复验visibility脚本/module输入并核最早缺失API或值，禁止自动吞异常。 |
-| `SceneScriptVM / scene-script-exception-type-error`：3448845950, 3470948192, 3601964477, 3610154602, 3612199597, 3612795410, 3665307769, 3747492842, 3788066613 | 按effectConstant/text/layer等target及准确异常定位host API/返回类型；复用同一VM owner，不按统一TypeError泛化修法。 |
+| `SceneScriptVM / scene-script-exception-type-error`：3448845950, 3470948192, 3601964477, 3610154602, 3612199597, 3612795410, 3665307769, 3747492842, 3788066613 | 3610154602于本次Alpha最终链路复验仍见layer435 `getTextureAnimation`接收null，保留为独立脚本缺口（不是Alpha未接通）；按effectConstant/text/layer等target及准确异常定位host API/返回类型；复用同一VM owner，不按统一TypeError泛化修法。 |
 
 ### 原人工裁决逐项保留
 

@@ -234,6 +234,14 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         let scriptSource: String?
         let scriptProperties: [String: SceneJSONValue]
         let authoredColor: SIMD3<Double>
+        var alphaKey: String? = nil
+        var authoredAlpha: Float = 1
+        var alphaUserPropertyKey: String? = nil
+        var alphaPropertyTarget: SceneDynamicTarget? {
+            guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
+            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
+                name: alphaKey, materialPath: materialPath)
+        }
     }
 
     static func compile(
@@ -495,13 +503,18 @@ enum Harness {
                 modelPath: "models/unseen/tint.json", sourceLayerID: 101,
                 materialPath: "materials/unseen/tint.json", colorKey: "surface-key",
                 scriptSource: "export function update(value) { return value; }",
-                scriptProperties: [:], authoredColor: SIMD3(0.5, 0.25, 1)
+                scriptProperties: [:], authoredColor: SIMD3(0.5, 0.25, 1),
+                alphaKey: "coverage-parameter", authoredAlpha: 0.6, alphaUserPropertyKey: "opacity"
             )])]
         )
         let payload: [String: Any] = [
             "authoredMaterialMetadataSurvivesTargetExclusion": SceneScriptVectorCandidateCatalog(
-                candidates: family.candidates, authoredMaterialColors: ["models/unseen.json": SIMD3(0.5, 0.25, 1)]
-            ).excludingTargets(Set(family.definitions.map(\.target))).authoredMaterialColors["models/unseen.json"] == SIMD3(0.5, 0.25, 1),
+                candidates: family.candidates, materialBindings: materialProjection.materialBindings
+            ).excludingTargets(Set(family.definitions.map(\.target))).materialBindings.first?.authoredColor == SIMD3(0.5, 0.25, 1),
+            "preparedAlphaFactsSurviveTargetExclusion": materialProjection.excludingTargets([materialTarget])
+                .materialBindings.first?.alphaPropertyTarget == .materialConstant(layerID: 101,
+                    passIndex: 0, name: "coverage-parameter", materialPath: "materials/unseen/tint.json")
+                && materialProjection.excludingTargets([materialTarget]).materialBindings.first?.authoredAlpha == 0.6,
             "materialTargetKeepsExactIdentity": materialProjection.definitions.contains {
                 $0.target == materialTarget && $0.valueType == .vector3
                     && $0.authoredValue == .vector3(0.5, 0.25, 1)
@@ -512,7 +525,7 @@ enum Harness {
             "materialTargetIsAnOrdinaryNonPassValue": materialProjection.nonPassTargets.contains(materialTarget)
                 && !materialProjection.passTargets.contains(materialTarget),
             "scriptMaterialSeedSurvivesProducerExclusion": materialProjection.excludingTargets([materialTarget])
-                .authoredMaterialColors["models/unseen/tint.json"] == SIMD3(0.5, 0.25, 1),
+                .materialBindings.first?.authoredColor == SIMD3(0.5, 0.25, 1),
             "dynamicModelSelectsTheMaterialTarget": materialProjection.dynamicImageMaterialColorTargets[
                 "models/unseen/tint.json"] == materialTarget,
             "visibilityOverridesKeepOwners": overriddenHidden.candidates.first?.definition.authoredValue == .bool(true)
@@ -615,7 +628,7 @@ class SceneScriptLayerTransformProjectionTests(unittest.TestCase):
     def test_material_color_has_an_exact_target_and_independent_layer_style(self) -> None:
         for key in ["materialTargetKeepsExactIdentity", "materialAndLayerColorsHaveIndependentOwners",
                     "materialTargetIsAnOrdinaryNonPassValue", "scriptMaterialSeedSurvivesProducerExclusion",
-                    "dynamicModelSelectsTheMaterialTarget"]:
+                    "dynamicModelSelectsTheMaterialTarget", "preparedAlphaFactsSurviveTargetExclusion"]:
             with self.subTest(key=key):
                 self.assertTrue(self.result[key])
 

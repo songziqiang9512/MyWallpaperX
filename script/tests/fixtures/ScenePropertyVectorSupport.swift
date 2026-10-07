@@ -56,6 +56,14 @@ enum SceneBaseMaterialColorModulationCompiler {
         let scriptSource: String?
         let scriptProperties: [String: SceneJSONValue]
         let authoredColor: SIMD3<Double>
+        var alphaKey: String? = nil
+        var authoredAlpha: Float = 1
+        var alphaUserPropertyKey: String? = nil
+        var alphaPropertyTarget: SceneDynamicTarget? {
+            guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
+            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
+                name: alphaKey, materialPath: materialPath)
+        }
     }
 
     static func compile(

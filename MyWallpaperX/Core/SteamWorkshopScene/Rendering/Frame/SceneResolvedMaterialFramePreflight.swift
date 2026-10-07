@@ -812,7 +812,7 @@ extension SceneMetalRenderer {
                     ),
                     sourceMaterialAlpha: capturesMainTarget ? 1
                         : baseMaterialProviderBindings.sourceMaterialAlpha(
-                            layerID: layerID, snapshot: frameContext.dynamicValues
+                            layer: layer, snapshot: frameContext.dynamicValues
                         ),
                     sourceMaterialColor: capturesMainTarget ? .init(repeating: 1)
                         : baseMaterialProviderBindings.sourceMaterialColor(

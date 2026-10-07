@@ -31,7 +31,8 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
 
     static func compile(
         descriptor: SceneRenderDescriptor,
-        materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance]
+        materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance],
+        provenBindings: [SceneBaseMaterialColorModulationCompiler.Binding] = []
     ) -> [SceneUserPropertyBinding] {
         let linksByModel = Dictionary(
             grouping: descriptor.modelMaterialLinks,
@@ -42,7 +43,8 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
             by: { normalized($0.materialPath) }
         )
         let imagePasses = imageMaterialPasses(descriptor: descriptor)
-        return descriptor.layers.flatMap { layer -> [SceneUserPropertyBinding] in
+        let provenModels = Set(provenBindings.map(\.modelPath))
+        let builtinBindings = descriptor.layers.flatMap { layer -> [SceneUserPropertyBinding] in
             if let modelPath = layer.staticModelPath,
                let links = linksByModel[normalized(modelPath)] {
                 return links.flatMap { link -> [SceneUserPropertyBinding] in
@@ -77,7 +79,8 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
             let passes = imagePasses[layer.id] ?? []
             let instance = materialInstancesByLayerID[layer.id]
             var bindings: [SceneUserPropertyBinding] = []
-            if let declaration = sourceMaterialAlphaDeclaration(
+            let hasProvenSource = layer.imagePath.map { provenModels.contains(normalized($0)) } ?? false
+            if !hasProvenSource, let declaration = sourceMaterialAlphaDeclaration(
                 layer: layer, instance: instance, passes: passes
             ), !declaration.isInstance,
                validAlpha(declaration.value) != nil,
@@ -96,6 +99,27 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
                   let value = binding(layerID: layer.id, pass: pass, name: "emissivebrightness")
             else { return bindings }
             return bindings + [value]
+        }
+        return builtinBindings + provenAlphaBindings(
+            provenBindings, descriptor: descriptor,
+            materialInstancesByLayerID: materialInstancesByLayerID
+        )
+    }
+
+    static func provenAlphaBindings(
+        _ facts: [SceneBaseMaterialColorModulationCompiler.Binding],
+        descriptor: SceneRenderDescriptor,
+        materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance]
+    ) -> [SceneUserPropertyBinding] {
+        let passesByMaterial = Dictionary(grouping: descriptor.materialPasses) {
+            normalized($0.materialPath)
+        }
+        return facts.compactMap { fact in
+            guard fact.alphaUserPropertyKey != nil, let key = fact.alphaKey,
+                  materialInstancesByLayerID[fact.sourceLayerID] == nil,
+                  let pass = (passesByMaterial[normalized(fact.materialPath)] ?? [])
+                    .filter({ $0.passIndex == 0 }).only else { return nil }
+            return binding(layerID: fact.sourceLayerID, pass: pass, name: key, valueType: .scalar)
         }
     }
 

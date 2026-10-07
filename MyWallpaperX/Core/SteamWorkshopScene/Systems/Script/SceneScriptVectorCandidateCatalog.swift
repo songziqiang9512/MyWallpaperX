@@ -59,15 +59,12 @@ nonisolated extension SceneScriptVectorProgram {
             authoredOrdinalOffset: scriptBindings.count + materialCandidates.count
                 + staticModelMaterialCandidates.count
         )
-        let authoredMaterialColors = Dictionary(uniqueKeysWithValues: materialBindings.map { binding in
-            return (normalizedMaterialPath(binding.modelPath), SIMD3<Float>(binding.authoredColor))
-        })
         return .init(candidates: (
             authoredCandidates + materialCandidates
                 + staticModelMaterialCandidates + modelValueCandidates
         ).filter {
             !excludedTargets.contains($0.definition.target)
-        }, authoredMaterialColors: authoredMaterialColors)
+        }, materialBindings: materialBindings)
     }
 
     /// External model materials already retain their authored value wrappers.

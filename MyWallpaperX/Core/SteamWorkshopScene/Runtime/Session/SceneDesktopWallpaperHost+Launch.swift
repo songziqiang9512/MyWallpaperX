@@ -491,22 +491,9 @@ extension SceneDesktopWallpaperHost {
                     )
             )
         logPrepareStage("prepare-admission")
-        // Raw named captures do not yet consume this material-color lowering.
-        // Reserve potential consumers too: effect visibility may change later.
-        let namedMaterialLayerIDs = Set((SceneNamedTextureDependencyReferenceAnalysis.references(
-            in: runtimeInput.renderDescriptor.layers, includingInactiveEffects: true
-        ) + SceneNamedTextureDependencyReferenceAnalysis.potentialOptionalNamedFallbackReferences(
-            in: runtimeInput.renderDescriptor.layers
-        )).flatMap { [$0.consumerLayerID, $0.providerLayerID] })
-        let authoredMaterialColors = model.propertyVectorProjection.authoredMaterialColors.filter { path, _ in
-            runtimeInput.renderDescriptor.layers.filter {
-                $0.imagePath?.replacingOccurrences(of: "\\", with: "/")
-                    .trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase == path
-            }.allSatisfy {
-                model.sceneDocument.materialInstancesByLayerID[$0.id] == nil
-                    && !namedMaterialLayerIDs.contains($0.id)
-            }
-        }
+        let materialPropertyTargets = Set(runtimeInput.propertyBindingProgram.instructions.map(\.target))
+        let provenMaterialBindings = model.propertyVectorProjection.materialBindings
+        let loweredMaterialModelPaths = Set(provenMaterialBindings.map(\.modelPath))
         let resolvedMaterialCatalog = SceneResolvedMaterialRuntimeCatalog(
             descriptor: runtimeInput.renderDescriptor,
             admissionCandidates: resolvedMaterialAdmissionCandidates,
@@ -516,7 +503,7 @@ extension SceneDesktopWallpaperHost {
             timelineDefinitions: timelineDefinitions,
             provenSceneScriptValueTargets: provisionalSceneScriptValueTargets,
             materialInstancesByLayerID: model.sceneDocument.materialInstancesByLayerID,
-            loweredSourceMaterialModelPaths: Set(authoredMaterialColors.keys)
+            loweredSourceMaterialModelPaths: loweredMaterialModelPaths
         )
         logPrepareStage("prepare-catalog")
         try cancellation?.check()
@@ -532,10 +519,10 @@ extension SceneDesktopWallpaperHost {
                 materialInstancesByLayerID:
                     model.sceneDocument.materialInstancesByLayerID,
                 scriptBindings: model.sceneDocument.scriptBindings,
-                materialPropertyTargets: Set(runtimeInput.propertyBindingProgram.instructions.map(\.target)),
-                authoredMaterialColors: authoredMaterialColors,
+                materialPropertyTargets: materialPropertyTargets,
                 materialColorTargets: model.propertyVectorProjection.dynamicImageMaterialColorTargets
-                    .filter { authoredMaterialColors[$0.key] != nil }
+                    .filter { loweredMaterialModelPaths.contains($0.key) },
+                provenBindings: provenMaterialBindings
             )
         let lightingDemands = Set(baseMaterialProviderBindings.lightingProfileByLayerID.values
             .flatMap { [$0.normalAsset, $0.mapAsset].compactMap { $0 } })

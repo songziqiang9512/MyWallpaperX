@@ -89,18 +89,6 @@ struct SceneRuntimeModelBuilder {
         guard let renderDescriptor = sourceFacts.renderDescriptor else {
             throw BuildError.missingRenderDescriptor
         }
-        let sceneBindings = sceneDocument.userPropertyResolution.bindingReport
-        let materialBindings = SceneMaterialPropertyBindingCompiler.compile(
-            descriptor: renderDescriptor,
-            materialInstancesByLayerID: sceneDocument.materialInstancesByLayerID
-        )
-        let compilation = ScenePropertyBindingCompiler().compile(
-            report: .init(
-                bindings: sceneBindings.bindings + materialBindings,
-                diagnostics: sceneBindings.diagnostics
-            ),
-            catalog: project.userProperties
-        )
         guard let sharedLayerAlphaProgram =
                 SceneSharedLayerAlphaProgramCompiler.compile(
                     descriptor: renderDescriptor,
@@ -197,7 +185,7 @@ struct SceneRuntimeModelBuilder {
                 return layer.id
             }
         )
-        let propertyVectorProjection = SceneScriptVectorProgram.project(
+        let rawPropertyVectorProjection = SceneScriptVectorProgram.project(
             descriptor: renderDescriptor,
             scriptBindings: sceneDocument.scriptBindings,
             timelineTargets: timelineTargets,
@@ -209,6 +197,43 @@ struct SceneRuntimeModelBuilder {
             // the matcher-prepared visibility (hidden), not the binding
             // seed.
             preparedDescriptor: runtimeDescriptor
+        )
+        // Validate the small proposed producer set before replacing any builtin
+        // writers. Rejected source lowering must retain the complete old route.
+        let proposedAlpha = SceneMaterialPropertyBindingCompiler.provenAlphaBindings(
+            rawPropertyVectorProjection.materialBindings, descriptor: renderDescriptor,
+            materialInstancesByLayerID: sceneDocument.materialInstancesByLayerID
+        )
+        let proposedAlphaProgram = ScenePropertyBindingCompiler().compile(
+            report: .init(bindings: proposedAlpha, diagnostics: []),
+            catalog: project.userProperties
+        ).program
+        let namedMaterialLayerIDs = Set((SceneNamedTextureDependencyReferenceAnalysis.references(
+            in: runtimeDescriptor.layers, includingInactiveEffects: true
+        ) + SceneNamedTextureDependencyReferenceAnalysis.potentialOptionalNamedFallbackReferences(
+            in: runtimeDescriptor.layers
+        )).flatMap { [$0.consumerLayerID, $0.providerLayerID] })
+        let admittedMaterials = SceneBaseMaterialProviderBindingCompiler.admittedSourceMaterials(
+            rawPropertyVectorProjection.materialBindings, descriptor: runtimeDescriptor,
+            materialInstancesByLayerID: sceneDocument.materialInstancesByLayerID,
+            propertyProgram: proposedAlphaProgram, namedLayerIDs: namedMaterialLayerIDs
+        )
+        let propertyVectorProjection = SceneScriptVectorCandidateCatalog(
+            candidates: rawPropertyVectorProjection.candidates,
+            materialBindings: admittedMaterials
+        )
+        let sceneBindings = sceneDocument.userPropertyResolution.bindingReport
+        let materialBindings = SceneMaterialPropertyBindingCompiler.compile(
+            descriptor: renderDescriptor,
+            materialInstancesByLayerID: sceneDocument.materialInstancesByLayerID,
+            provenBindings: propertyVectorProjection.materialBindings
+        )
+        let compilation = ScenePropertyBindingCompiler().compile(
+            report: .init(
+                bindings: sceneBindings.bindings + materialBindings,
+                diagnostics: sceneBindings.diagnostics
+            ),
+            catalog: project.userProperties
         )
         // Script-owned effect-visibility targets (the batch-B producer
         // channel): these effects are activation-gated executable stages.

@@ -29,6 +29,26 @@ SOURCES = [
 ]
 
 STUBS = r'''
+enum SceneBaseMaterialColorModulationCompiler {
+    struct Binding {
+        let modelPath: String
+        let sourceLayerID: Int
+        let materialPath: String
+        let colorKey: String
+        let scriptSource: String?
+        let scriptProperties: [String: SceneJSONValue]
+        let authoredColor: SIMD3<Double>
+        var alphaKey: String? = nil
+        var authoredAlpha: Float = 1
+        var alphaUserPropertyKey: String? = nil
+        var alphaPropertyTarget: SceneDynamicTarget? {
+            guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
+            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
+                name: alphaKey, materialPath: materialPath)
+        }
+    }
+}
+
 enum SceneShaderUserValueKind {
     case null, boolean, number, string, array, object
 }

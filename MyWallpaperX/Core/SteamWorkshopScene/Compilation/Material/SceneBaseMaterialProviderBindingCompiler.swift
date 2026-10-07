@@ -1,6 +1,32 @@
 import Foundation
 
 enum SceneBaseMaterialProviderBindingCompiler {
+    /// Share the complete prepared proof only where its actual property producer
+    /// and source consumer agree. Unsupported inputs cannot lower color alone.
+    nonisolated static func admittedSourceMaterials(
+        _ bindings: [SceneBaseMaterialColorModulationCompiler.Binding],
+        descriptor: SceneRenderDescriptor,
+        materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance],
+        propertyProgram: ScenePropertyBindingProgram,
+        namedLayerIDs: Set<Int>
+    ) -> [SceneBaseMaterialColorModulationCompiler.Binding] {
+        let targets = Set(propertyProgram.instructions.map(\.target))
+        return bindings.filter { fact in
+            if let target = fact.alphaPropertyTarget {
+                guard targets.contains(target),
+                      let range = propertyProgram.definitions.first(where: { $0.target == target })?
+                        .userPropertyNumericRange,
+                      range.lowerBound >= 0, range.upperBound <= 1 else { return false }
+            }
+            return descriptor.layers.filter {
+                $0.imagePath.map { normalized($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+                    == fact.modelPath
+            }.allSatisfy {
+                materialInstancesByLayerID[$0.id] == nil && !namedLayerIDs.contains($0.id)
+            }
+        }
+    }
+
     nonisolated static func compile(
         descriptor: SceneRenderDescriptor,
         materialInstancesByLayerID: [
@@ -8,10 +34,11 @@ enum SceneBaseMaterialProviderBindingCompiler {
         ],
         scriptBindings: [SceneScriptBindingIR],
         materialPropertyTargets: Set<SceneDynamicTarget>,
-        authoredMaterialColors: [String: SIMD3<Float>] = [:],
-        materialColorTargets: [String: SceneDynamicTarget] = [:]
+        materialColorTargets: [String: SceneDynamicTarget] = [:],
+        provenBindings: [SceneBaseMaterialColorModulationCompiler.Binding] = []
     ) -> SceneBaseMaterialProviderBindingProgram {
         _ = scriptBindings
+        let provenModels = Set(provenBindings.map(\.modelPath))
         let texturePropertyKeys = Set(descriptor.texturePropertyKeys)
         let passesByLayer = SceneMaterialPropertyBindingCompiler.imageMaterialPasses(descriptor: descriptor)
         var accepted: [Int: SceneBaseMaterialProviderBindingProgram.BaseMaterialBinding] = [:]
@@ -138,6 +165,10 @@ enum SceneBaseMaterialProviderBindingCompiler {
                 ),
             sourceMaterialAlphaByLayerID: descriptor.layers.reduce(into: [:]) {
                 result, layer in
+                if let path = layer.imagePath,
+                   provenModels.contains(normalized(path).trimmingCharacters(in: .whitespacesAndNewlines)) {
+                    return
+                }
                 result[layer.id] = SceneMaterialPropertyBindingCompiler
                     .sourceMaterialAlpha(
                         layer: layer,
@@ -146,8 +177,19 @@ enum SceneBaseMaterialProviderBindingCompiler {
                         materialPropertyTargets: materialPropertyTargets
                     )
             },
-            authoredMaterialColors: authoredMaterialColors,
-            materialColorTargets: materialColorTargets
+            authoredMaterialColors: Dictionary(uniqueKeysWithValues: provenBindings.map {
+                ($0.modelPath, SIMD3<Float>($0.authoredColor))
+            }),
+            materialColorTargets: materialColorTargets,
+            sourceMaterialAlphaByModel: Dictionary(uniqueKeysWithValues: provenBindings.map { fact in
+                let alpha: SceneBaseMaterialProviderBindingProgram.SourceMaterialAlpha
+                if let target = fact.alphaPropertyTarget {
+                    alpha = .property(target: target, fallback: fact.authoredAlpha)
+                } else {
+                    alpha = .constant(fact.authoredAlpha)
+                }
+                return (fact.modelPath, alpha)
+            })
         )
     }
 

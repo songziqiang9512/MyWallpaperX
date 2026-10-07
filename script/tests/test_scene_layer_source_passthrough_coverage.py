@@ -186,6 +186,17 @@ class SceneLayerSourcePassthroughCoverageTests(unittest.TestCase):
             # device or submitting GPU work. All product function bodies remain
             # verbatim, including the candidate resolver's fail-closed checks.
             copied = []
+            # Compile the actual leaf Alpha consumer alongside the actual
+            # compositor. Its outer compiler's schema dependencies are tested
+            # by the provider/neutral-proof gates, without a second algorithm.
+            alpha_owner = scene / "Systems/Properties/SceneMaterialPropertyBindingCompiler.swift"
+            alpha_body = alpha_owner.read_text().partition("    enum SourceMaterialAlpha:")[2]
+            alpha_body, marker, _ = alpha_body.partition("\n    static func compile(")
+            self.assertTrue(marker, "SourceMaterialAlpha leaf boundary is unavailable")
+            alpha_source = directory / "SourceMaterialAlpha.swift"
+            alpha_source.write_text("enum SceneMaterialPropertyBindingCompiler {\n    enum SourceMaterialAlpha:"
+                                    + alpha_body + "\n}\n")
+            copied.append(str(alpha_source))
             for source in source_paths:
                 target = directory / source.name
                 target.write_text(source.read_text().replace("import Metal\n", ""))

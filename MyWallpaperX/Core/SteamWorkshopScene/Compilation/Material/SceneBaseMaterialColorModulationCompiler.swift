@@ -13,6 +13,15 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         let scriptSource: String?
         let scriptProperties: [String: SceneJSONValue]
         let authoredColor: SIMD3<Double>
+        var alphaKey: String? = nil
+        var authoredAlpha: Float = 1
+        var alphaUserPropertyKey: String? = nil
+
+        var alphaPropertyTarget: SceneDynamicTarget? {
+            guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
+            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
+                name: alphaKey, materialPath: materialPath)
+        }
     }
 
     static func compile(
@@ -162,13 +171,6 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
                 prepared: prepared
               ),
               neutralScalar(
-                uniformName: fact.alphaUniformName,
-                stage: .fragment,
-                expected: 1,
-                pass: pass,
-                prepared: prepared
-              ),
-              neutralScalar(
                 uniformName: fact.powerUniformName,
                 stage: .fragment,
                 expected: 1,
@@ -187,6 +189,9 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
               }) else {
             return reject(modelPath, "neutral-scalar-values")
         }
+        guard let alpha = alphaBinding(
+            uniformName: fact.alphaUniformName, pass: pass, prepared: prepared
+        ) else { return reject(modelPath, "alpha-binding") }
         guard let colorUniform = SceneResolvedMaterialShaderSchema
                 .uniqueActiveUniform(
                     named: fact.tintUniformName,
@@ -226,7 +231,9 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
             colorKey: colorEntry.key,
             scriptSource: colorValue.scriptSource,
             scriptProperties: colorValue.scriptProperties ?? [:],
-            authoredColor: .init(components[0], components[1], components[2])
+            authoredColor: .init(components[0], components[1], components[2]),
+            alphaKey: alpha.key, authoredAlpha: alpha.value,
+            alphaUserPropertyKey: alpha.userKey
         )
     }
 
@@ -246,6 +253,44 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         }
 #endif
         return nil
+    }
+
+    private static func alphaBinding(
+        uniformName: String,
+        pass: SceneRenderDescriptor.MaterialPassDescriptor,
+        prepared: SceneShaderPreparedProgram
+    ) -> (key: String?, value: Float, userKey: String?)? {
+        guard SceneResolvedMaterialHostUniformSchema.resolve(
+            .init(name: uniformName, stage: .fragment, type: .float, offset: 0),
+            activeTextureSlots: [0]
+        ) == nil,
+        let schema = SceneResolvedMaterialShaderSchema.uniqueActiveUniform(
+            named: uniformName, type: .float, stage: .fragment, prepared: prepared
+        ) else { return nil }
+        let authored = pass.constantShaderValues.filter { schema.materialKeys.contains($0.key) }
+        guard !authored.isEmpty else {
+            guard let fallback = schema.defaultValue,
+                  fallback.componentBitPatterns.count == 1,
+                  fallback.authoredBindingKeys.isEmpty else { return nil }
+            let value = Double(bitPattern: fallback.componentBitPatterns[0])
+            guard value.isFinite, (0 ... 1).contains(value) else { return nil }
+            return (nil, Float(value), nil)
+        }
+        guard authored.count == 1, let entry = authored.first else { return nil }
+        let value = entry.value
+        let tokens = value.rawValue.split(whereSeparator: { $0.isWhitespace || $0 == "," })
+        guard tokens.count == 1, let scalar = Double(tokens[0]),
+              scalar.isFinite, (0 ... 1).contains(scalar), value.components == [scalar],
+              value.scriptSource == nil, value.scriptProperties == nil,
+              value.timeline == nil, value.timelineDiagnostics.isEmpty else { return nil }
+        if value.bindingKeys.isEmpty {
+            guard value.userValueKind == nil, value.userBinding == nil else { return nil }
+            return (entry.key, Float(scalar), nil)
+        }
+        guard value.bindingKeys.sorted() == ["user", "value"],
+              value.userValueKind == .string, let key = value.userBinding, !key.isEmpty
+        else { return nil }
+        return (entry.key, Float(scalar), key)
     }
 
     private static func neutralScalar(

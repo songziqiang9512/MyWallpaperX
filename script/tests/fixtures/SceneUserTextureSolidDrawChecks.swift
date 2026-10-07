@@ -128,12 +128,6 @@ struct SceneEffectTextureInput {
     enum Kind { case system, property }
 }
 struct SceneBaseMaterialLightingProfile {}
-enum SceneMaterialPropertyBindingCompiler {
-    struct SourceMaterialAlpha {
-        let propertyTarget: SceneDynamicTarget?
-        func resolve(snapshot: SceneDynamicSnapshot) -> Float { 1 }
-    }
-}
 enum SceneNamedTextureReference {
     enum Variant { case primary }
     init(providerLayerID: Int, variant: Variant) { self = .placeholder }
@@ -275,11 +269,15 @@ enum Checks {
         }
         let materialTarget = SceneDynamicTarget.materialConstant(layerID: originalLayer.id,
             passIndex: 0, name: "surface-key", materialPath: "materials/unseen/tint.json")
+        let alphaTarget = SceneDynamicTarget.materialConstant(layerID: originalLayer.id,
+            passIndex: 0, name: "coverage-parameter", materialPath: "materials/unseen/tint.json")
         let dynamicMaterial = SceneBaseMaterialProviderBindingProgram(baseMaterialBindings: [:],
             authoredMaterialColors: ["models/tint.json": SIMD3(0.5, 0.25, 1)],
-            materialColorTargets: ["models/tint.json": materialTarget])
+            materialColorTargets: ["models/tint.json": materialTarget],
+            sourceMaterialAlphaByModel: ["models/tint.json": .property(target: alphaTarget, fallback: 0.6)])
         let frame = SceneDynamicSnapshot(values: [
             materialTarget: .init(value: .vector3(0.5, 0.25, 0.75)),
+            alphaTarget: .init(value: .scalar(0.3)),
             .layer(layerID: originalLayer.id, field: .color): .init(value: .vector3(0.4, 0.8, 0.2)),
             .layer(layerID: dynamicLayer.id, field: .color): .init(value: .vector3(0.2, 0.1, 0.6)),
         ])
@@ -293,16 +291,31 @@ enum Checks {
         for (sourceLayer, expected) in [(originalLayer, SIMD4<Float>(0.2, 0.2, 0.15, 1)),
                                       (dynamicLayer, SIMD4<Float>(0.1, 0.025, 0.45, 1))] {
             for offscreen in [false, true] {
-                let values = SceneImageLayerUniformValues(time: 0, alpha: 0.5, cursorUV: .zero,
+                let ownAlpha: Float = sourceLayer.id == originalLayer.id ? 0.5 : 0.8
+                let values = SceneImageLayerUniformValues(time: 0, alpha: ownAlpha, cursorUV: .zero,
                     tint: frame.color(.layer(layerID: sourceLayer.id, field: .color))!)
                 let uniforms = compositor.sourceFragmentUniforms(values: values, layer: sourceLayer,
                     sourceSample: selectedRequest.resolvedBaseTextureSample()!, routesOffscreen: offscreen,
-                    dependencyBlendMode: nil, sourceMaterialAlpha: 0.5,
+                    dependencyBlendMode: nil, sourceMaterialAlpha: dynamicMaterial.sourceMaterialAlpha(layer: sourceLayer, snapshot: frame),
                     sourceMaterialColor: dynamicMaterial.sourceMaterialColor(layer: sourceLayer, snapshot: frame))
                 checks["materialAndOwnStyleMultiplyOnce_\(sourceLayer.id)_\(offscreen)"] = near(uniforms.tint, expected)
-                    && uniforms.alpha == 0.25
+                    && abs(uniforms.alpha - ownAlpha * 0.3) < 0.000_001
+                let zeroFrame = SceneDynamicSnapshot(values: [alphaTarget: .init(value: .scalar(0))])
+                let zero = compositor.sourceFragmentUniforms(values: values, layer: sourceLayer,
+                    sourceSample: selectedRequest.resolvedBaseTextureSample()!, routesOffscreen: offscreen,
+                    dependencyBlendMode: nil, sourceMaterialAlpha: dynamicMaterial.sourceMaterialAlpha(layer: sourceLayer, snapshot: zeroFrame),
+                    sourceMaterialColor: dynamicMaterial.sourceMaterialColor(layer: sourceLayer, snapshot: frame))
+                checks["zeroMaterialAlphaRetained_\(sourceLayer.id)_\(offscreen)"] = zero.alpha == 0
             }
         }
+        for (name, bad) in [("wrongType", SceneDynamicValue.vector3(0.1, 0.2, 0.3)),
+                            ("nonfinite", .scalar(.nan)), ("negative", .scalar(-0.1)),
+                            ("oversized", .scalar(1.1))] {
+            checks["invalidMaterialAlphaFallsBack_\(name)"] = dynamicMaterial.sourceMaterialAlpha(
+                layer: originalLayer, snapshot: .init(values: [alphaTarget: .init(value: bad)])) == 0.6
+        }
+        checks["absentMaterialAlphaFallsBackForClone"] = dynamicMaterial.sourceMaterialAlpha(
+            layer: dynamicLayer, snapshot: .empty(frameIndex: 0)) == 0.6
         for (name, bad) in [("wrongType", SceneDynamicValue.scalar(0.2)),
                             ("nonfinite", .vector3(.nan, 0.2, 0.3))] {
             checks["invalidMaterialValueFallsBack_\(name)"] = dynamicMaterial.sourceMaterialColor(

@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b428a5dd17a85064448facb0cb5463bb941b8d61f7d2c90483be1b2699252b10",
+        "sourceSHA256": "024ad278d2dd518ded934755c8be09a6710e46d7eb348adca3f7a5470b7ef893",
         "method": "document_registry --audit + document_health --check",
-        "scope": "材质脚本独立target与原compositor乘色合同、受控GPU及当前运行证据导航；不重验其他旧合同。",
+        "scope": "本批中性材质Alpha共享属性入口、替换前准入及对应证据导航；不重验其他合同。",
         "limitations": "仅对应本批职责与冻结证据，不表示全样本兼容、官方parity或发布验收。"
       }
     },
@@ -498,9 +498,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "73ea666dc713f5c79d69cee8d3d2874d4a33650536e0cadb2b90fbb5623c1616",
+        "sourceSHA256": "f2d63dbc44434bc600a9892024f1f91dfac7c510d3ac5f2587c574fbd4b14e2b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "材质脚本独立target与原compositor乘色合同、受控GPU及当前运行证据导航；不重验其他旧合同。",
+        "scope": "本批中性材质Alpha共享属性入口、替换前准入及对应证据导航；不重验其他合同。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

@@ -35,9 +35,10 @@ private typealias Descriptor = SceneRenderDescriptor
     }
     """
 
-    static func contract(vertex: String = vertex, fragment: String = fragment) -> SceneShaderContract {
+    static func contract(vertex: String = vertex, fragment: String = fragment,
+        identity: String = "unseen/tint") -> SceneShaderContract {
         func stage(_ kind: SceneShaderContract.StageKind, _ source: String) -> SceneShaderContract.Stage {
-            let path = "shaders/unseen/tint." + (kind == .vertex ? "vert" : "frag")
+            let path = "shaders/" + identity + "." + (kind == .vertex ? "vert" : "frag")
             let parsed = SceneShaderContractSourceParser().parse(source, stageRelativePath: path)
             return .init(kind: kind, relativePath: path, source: source,
                 rawSHA256: SceneShaderStableDigest.hash(Data(source.utf8)),
@@ -46,7 +47,7 @@ private typealias Descriptor = SceneRenderDescriptor
         }
         let stages = [stage(.vertex, vertex), stage(.fragment, fragment)]
         let digest = SceneShaderStableDigest.hash(Data((vertex + fragment).utf8))
-        return .init(identity: "unseen/tint", sourceKind: .authoredSource, stages: stages,
+        return .init(identity: identity, sourceKind: .authoredSource, stages: stages,
             diagnostics: [], canonicalSHA256: digest, sourceGraph: .init(
                 roots: stages.map { .init(label: $0.kind.rawValue, virtualPath: $0.relativePath) },
                 nodes: stages.map { .init(virtualPath: $0.relativePath, provenance: .package,
@@ -69,6 +70,13 @@ private typealias Descriptor = SceneRenderDescriptor
         return ["count": bindings.count, "model": first.modelPath,
             "material": first.materialPath, "key": first.colorKey,
             "color": [first.authoredColor.x, first.authoredColor.y, first.authoredColor.z],
+            "alpha": first.authoredAlpha, "alphaKey": first.alphaKey ?? "",
+            "alphaUserKey": first.alphaUserPropertyKey ?? "",
+            "alphaIsDynamic": first.alphaPropertyTarget != nil,
+            "alphaTargetMatches": first.alphaPropertyTarget == first.alphaKey.map {
+                SceneDynamicTarget.materialConstant(layerID: first.sourceLayerID,
+                    passIndex: 0, name: $0, materialPath: first.materialPath)
+            },
             "hasScript": first.scriptSource != nil, "properties": first.scriptProperties.count]
     }
 
@@ -132,6 +140,55 @@ private typealias Descriptor = SceneRenderDescriptor
         userAlpha.bindingKeys = ["user", "value"]; userAlpha.userValueKind = .string
         value.materialPasses[0].constantShaderValues["opacity-key"] = userAlpha
         results["userAlpha"] = output(value)
+        userAlpha.userBinding = "liveOpacity"
+        value.materialPasses[0].constantShaderValues["opacity-key"] = userAlpha
+        results["strictUserAlpha"] = output(value)
+        let arbitraryAlpha = fragment.replacingOccurrences(of: "opacity-key", with: "coverage-parameter")
+            .replacingOccurrences(of: "opacity", with: "coverageRatio")
+        value = base
+        value.materialPasses[0].constantShaderValues["coverage-parameter"] = .init(rawValue: "0.3", components: [0.3])
+        results["arbitraryStaticAlpha"] = output(value, shader: contract(fragment: arbitraryAlpha))
+        value.materialPasses[0].constantShaderValues["coverage-parameter"] = userAlpha
+        results["arbitraryUserAlpha"] = output(value, shader: contract(fragment: arbitraryAlpha))
+        results["defaultAlphaQuarter"] = output(base, shader: contract(fragment: fragment.replacingOccurrences(
+            of: "\"material\":\"opacity-key\",\"default\":1", with: "\"material\":\"opacity-key\",\"default\":0.25")))
+        results["missingAlphaDeclaration"] = output(base, shader: contract(fragment: fragment.replacingOccurrences(
+            of: " // {\"material\":\"opacity-key\",\"default\":1}", with: "")))
+        for (name, scalar) in [("staticAlphaZero", 0.0), ("staticAlphaOne", 1.0),
+                               ("negativeAlpha", -0.1), ("oversizedAlpha", 1.1),
+                               ("nonfiniteAlpha", Double.nan)] {
+            value = base
+            value.materialPasses[0].constantShaderValues["opacity-key"] = .init(rawValue: String(scalar), components: [scalar])
+            results[name] = output(value)
+        }
+        value = base
+        value.materialPasses[0].constantShaderValues["opacity-key"] = .init(rawValue: "0.5", components: [0.4])
+        results["alphaComponentMismatch"] = output(value)
+        value.materialPasses[0].constantShaderValues["opacity-key"] = .init(rawValue: "0.5 0.5", components: [0.5])
+        results["extraAlphaToken"] = output(value)
+        value = base
+        value.materialPasses[0].constantShaderValues["opacity-key"] = userAlpha
+        value.materialPasses[0].constantShaderValues["opacity"] = userAlpha
+        results["multipleAlphaAliases"] = output(value)
+        for name in ["unknownAlphaWrapper", "emptyAlphaUser", "nullAlphaUser", "scriptedAlpha", "animatedAlpha"] {
+            var invalid = userAlpha
+            switch name {
+            case "unknownAlphaWrapper": invalid.bindingKeys.append("extra")
+            case "emptyAlphaUser": invalid.userBinding = ""
+            case "nullAlphaUser": invalid.userValueKind = .null
+            case "scriptedAlpha": invalid.scriptSource = "export function update(value) { return value; }"
+            default: invalid.timeline = true
+            }
+            value = base; value.materialPasses[0].constantShaderValues["opacity-key"] = invalid
+            results[name] = output(value)
+        }
+        results["hostAlphaUniform"] = output(base, shader: contract(fragment: fragment.replacingOccurrences(
+            of: "opacity", with: "g_Time")))
+        value = base
+        value.materialPasses[0].shaderPath = "genericimage"
+        value.materialPasses[0].constantShaderValues["opacity-key"] = .init(rawValue: "0.25", components: [0.25])
+        value.materialPasses[0].constantShaderValues["Alpha"] = .init(rawValue: "1", components: [1])
+        results["authoredStockAliasUsesExactAlphaKey"] = output(value, shader: contract(identity: "genericimage"))
         value = base; value.materialPasses[0].userShaderValues = ["surface-key": "property-key"]
         results["userShaderValue"] = output(value)
         value = base; value.materialPasses[0].constantShaderValues = ["color": nonwhite]

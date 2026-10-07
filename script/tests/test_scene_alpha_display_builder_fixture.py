@@ -378,6 +378,14 @@ enum SceneBaseMaterialColorModulationCompiler {
         let colorKey: String
         let authoredColor: SIMD3<Double>
         let modelPath: String
+        var alphaKey: String? = nil
+        var authoredAlpha: Float = 1
+        var alphaUserPropertyKey: String? = nil
+        var alphaPropertyTarget: SceneDynamicTarget? {
+            guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
+            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
+                name: alphaKey, materialPath: materialPath)
+        }
     }
 
     static func compile(
@@ -387,6 +395,21 @@ enum SceneBaseMaterialColorModulationCompiler {
         admittedLayerColorConsumerIDs: Set<Int>
     ) -> [Binding] {
         []
+    }
+}
+
+// This builder fixture has no authored shader proof (the link stub above
+// returns no facts). Admission's real behavior is covered by the provider gate.
+enum SceneBaseMaterialProviderBindingCompiler {
+    static func admittedSourceMaterials(
+        _ bindings: [SceneBaseMaterialColorModulationCompiler.Binding],
+        descriptor: SceneRenderDescriptor,
+        materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance],
+        propertyProgram: ScenePropertyBindingProgram,
+        namedLayerIDs: Set<Int>
+    ) -> [SceneBaseMaterialColorModulationCompiler.Binding] {
+        precondition(bindings.isEmpty)
+        return []
     }
 }
 

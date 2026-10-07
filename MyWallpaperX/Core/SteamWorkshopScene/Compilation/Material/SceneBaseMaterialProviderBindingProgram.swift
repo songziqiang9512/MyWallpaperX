@@ -130,6 +130,7 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
     let orderedSystemProviderDemands: [SceneSystemProviderTextureIdentity]
     let lightingProfileByLayerID: [Int: SceneBaseMaterialLightingProfile]
     let sourceMaterialAlphaByLayerID: [Int: SourceMaterialAlpha]
+    let sourceMaterialAlphaByModel: [String: SourceMaterialAlpha]
     /// Immutable authored fallback; current script values live only in the frame snapshot.
     let authoredMaterialColors: [String: SIMD3<Float>]
     let materialColorTargets: [String: SceneDynamicTarget]
@@ -140,10 +141,12 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
         lightingProfileByLayerID: [Int: SceneBaseMaterialLightingProfile] = [:],
         sourceMaterialAlphaByLayerID: [Int: SourceMaterialAlpha] = [:],
         authoredMaterialColors: [String: SIMD3<Float>] = [:],
-        materialColorTargets: [String: SceneDynamicTarget] = [:]
+        materialColorTargets: [String: SceneDynamicTarget] = [:],
+        sourceMaterialAlphaByModel: [String: SourceMaterialAlpha] = [:]
     ) {
         self.authoredMaterialColors = authoredMaterialColors
         self.materialColorTargets = materialColorTargets
+        self.sourceMaterialAlphaByModel = sourceMaterialAlphaByModel
         self.baseMaterialBindings = baseMaterialBindings
         self.rejectedBaseMaterialReasons = rejectedBaseMaterialReasons
         self.lightingProfileByLayerID = lightingProfileByLayerID
@@ -183,12 +186,19 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
 
     var sourceMaterialAlphaPropertyTargets: Set<SceneDynamicTarget> {
         Set(sourceMaterialAlphaByLayerID.values.compactMap(\.propertyTarget))
+            .union(sourceMaterialAlphaByModel.values.compactMap(\.propertyTarget))
     }
 
     func sourceMaterialAlpha(
-        layerID: Int, snapshot: SceneDynamicSnapshot
+        layer: SceneRenderDescriptor.Layer, snapshot: SceneDynamicSnapshot
     ) -> Float {
-        sourceMaterialAlphaByLayerID[layerID]?.resolve(snapshot: snapshot) ?? 1
+        if let alpha = sourceMaterialAlphaByLayerID[layer.id] {
+            return alpha.resolve(snapshot: snapshot)
+        }
+        guard let path = layer.imagePath else { return 1 }
+        let key = path.replacingOccurrences(of: "\\", with: "/")
+            .trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
+        return sourceMaterialAlphaByModel[key]?.resolve(snapshot: snapshot) ?? 1
     }
 
     func sourceMaterialColor(

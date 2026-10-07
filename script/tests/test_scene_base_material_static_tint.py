@@ -39,6 +39,7 @@ nonisolated enum SceneDocument {
         var rawValue: String
         var components: [Double]?
         var userValueKind: UserKind? = nil
+        var userBinding: String? = nil
         var timeline: Bool? = nil
         var timelineDiagnostics: [String] = []
         var scriptSource: String? = nil
@@ -154,7 +155,38 @@ class SceneBaseMaterialStaticTintTests(unittest.TestCase):
                 self.assertEqual(self.result[name]["count"], 0)
 
     def test_non_neutral_scalar_operations_are_not_lowered(self) -> None:
-        for name in ["alphaHalf", "brightnessTwo", "powerHalf", "scrollNonzero"]:
+        for name in ["brightnessTwo", "powerHalf", "scrollNonzero"]:
+            with self.subTest(name=name):
+                self.assertEqual(self.result[name]["count"], 0)
+
+    def test_static_alpha_uses_the_proven_material_declaration(self) -> None:
+        for name, want in [("alphaHalf", 0.5), ("staticAlphaZero", 0),
+                           ("staticAlphaOne", 1), ("defaultAlphaQuarter", 0.25),
+                           ("arbitraryStaticAlpha", 0.3), ("authoredStockAliasUsesExactAlphaKey", 0.25)]:
+            with self.subTest(name=name):
+                row = self.result[name]
+                self.assertEqual(row["count"], 1)
+                self.assertAlmostEqual(row["alpha"], want, places=6)
+                self.assertFalse(row["alphaIsDynamic"])
+        self.assertEqual(self.result["arbitraryStaticAlpha"]["alphaKey"], "coverage-parameter")
+        self.assertEqual(self.result["defaultAlphaQuarter"]["alphaKey"], "")
+
+    def test_strict_user_alpha_retains_prototype_material_identity(self) -> None:
+        for name, key in [("strictUserAlpha", "opacity-key"),
+                          ("arbitraryUserAlpha", "coverage-parameter")]:
+            with self.subTest(name=name):
+                row = self.result[name]
+                self.assertEqual(row["count"], 1)
+                self.assertEqual(row["alphaUserKey"], "liveOpacity")
+                self.assertEqual(row["alphaKey"], key)
+                self.assertTrue(row["alphaIsDynamic"])
+                self.assertTrue(row["alphaTargetMatches"])
+
+    def test_alpha_rejects_ambiguous_invalid_or_non_property_inputs(self) -> None:
+        for name in ["negativeAlpha", "oversizedAlpha", "nonfiniteAlpha",
+                     "alphaComponentMismatch", "extraAlphaToken", "multipleAlphaAliases",
+                     "unknownAlphaWrapper", "emptyAlphaUser", "nullAlphaUser",
+                     "scriptedAlpha", "animatedAlpha", "missingAlphaDeclaration", "hostAlphaUniform"]:
             with self.subTest(name=name):
                 self.assertEqual(self.result[name]["count"], 0)
 

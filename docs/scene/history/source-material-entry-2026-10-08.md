@@ -81,3 +81,22 @@ Resolver/TemplateCompiler共用槽覆盖、uniform投影和ShaderSchema；source
 `3609108600`及`3610154602`仅准备输入，用户Alpha尚未准入，本片不记运行或受益。最近6模块46项CPU行为测试通过（`cpu-final.log`，91.761秒），覆盖真实编译器、target独立/冲突、原/动态图层样式、typed fallback及共享uniforms；三条退役源码形状断言已从棘轮删除。两份VM链接fixture已适配但未单独执行其VM门，实际脚本由上述App运行验证；未测性能量化。独立审查覆盖target/fallback/launch/schema与唯一消费者，提交前冻结证据复核。下一项仍为user Alpha/color公共入口，named实际乘色和非中性Power保持开放，顺序以现役队列为准。
 
 停止使用的输入副本、baseline App及重复截图已清理；本片保留约11MiB报告/日志、输入生成脚本/逐条hash和4张必要PNG，`artifact-retention.json`登记范围。连续迭代仍仅沿用既有build缓存；结构、依赖、文档及代码门通过。一次误选冷构建已主动取消并由工具清理，正常签名增量build成功单独见`build.log`。
+
+
+## 后继修正：材质Alpha复用属性与合成入口
+
+本片基线`db9bc235`。中性shader的Alpha原先必须为1，真实3609108600/3610154602的严格`{user,value}`被挡在入口外，连带颜色证明也未消费。现在同份prepared proof保存实际schema key、作者fallback和属性引用；现属性编译器验证少量拟接入Alpha绑定，再结合整个同model的instance/named消费者范围准入。只有准入事实替换旧builtin writer，随后编译完整属性Program；launch消费同份事实，无新VM、shader pass或当前值缓存。原层与clone复用prototype target，最终原compositor乘材质Alpha×各自图层alpha一次。
+
+独立审查修正三类反例：实际shader别名Opacity不能被旧名称Alpha抢占；slider完整声明域须在0–1内，缺失/宽域不接管；新路径被隐藏同model实例或named参与者拒绝时，必须先保留全部旧writer，不能到launch才撤销proof。小型预验证复用完整属性编译器，没有另写属性类型/范围解析，帧内无新增准备工作。脚本/Timeline Alpha、宽域Alpha、user color与更广source组合保持开放。
+
+证据根`/private/tmp/mwx-material-alpha-20261008`。最终正常签名Debug App SHA`0475f8fd8acb981e823a5ce716a1b4e3e734e1a57ddbc6b84a77a373d395755c`，产品身份见`built-product-admission.json`、构建见`build-admission.log`。受控PKG SHA`07c0f3886af5ecb03e51fd91dcfee2dd37605a4e1e6741a65ff5297275c70471`保留真实shader及Alpha属性声明，只固定RGB、非白layer色、layer alpha=.5和一个clone。
+
+| 运行 | 实际结果及边界 |
+|---|---|
+| `runtime-baseline-half`，旧App`7cff5842…5306c` | 同输入Alpha热切拒绝，材质色未消费，原/clone为RGB(64,32,96) |
+| `runtime-admission-half/zero`，最终App | 热切1→.5：RGB(26,26,19)→(13,13,10)，两块合计596232像素；1→0后全黑符合自有输入期望，原surface/window不变。zero通用benchmark非黑门报FAIL，保留原报告，专用像素及accepted update验收；不篡改为通用PASS |
+| `runtime-admission-original`，完整原3609108600/3610154602 | 两者基础纹理及63动态频谱层实际绘制。Debug PCM经过捕获服务、分析与VM输入，不表示实际声卡/音乐平台全覆盖，也不表示整个样本官方一致。361的layer435仍有`getTextureAnimation`接收null异常，作为独立脚本断点保持队列 |
+
+早期`runtime-final-*`、`runtime-reviewed-*`和`runtime-accepted-original`分别绑定早期App，不能替代最终身份；最终运行在入口顺序修正后重做。7模块39项CPU回归通过（`cpu/tests-final-receipt.json`记录分阶段身份及未变测试复用），覆盖实际编译器、属性publisher→consumer、原/clone各自alpha、旧builtin健康及拒绝后回退；提交前独立复核按冻结差异与证据裁决。下一步优先user color/多source公共缺口；named实际染色及HDR剩余显示问题保持现役优先队列。当前完成的是两个Alpha候选的有界实际链路，不是两样本完整正确率。
+
+本片停止使用的隔离输入、baseline App与重复截图已清理；保留约22MiB日志/报告/生成与身份收据、6张必要PNG，详见`artifact-retention.json`。连续迭代仍只沿用上述唯一build缓存；未知归属目录未动。

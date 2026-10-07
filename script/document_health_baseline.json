@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 573,
-      "bytes": 99076
+      "lines": 575,
+      "bytes": 100546
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 169792
+      "bytes": 169965
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 79,
-      "bytes": 11223
+      "bytes": 11302
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 157,
-      "bytes": 35177
+      "bytes": 35468
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1033,37 +1033,37 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "43cae68a16b962bdefa55dbb3e12d19d2eed29dcb0e31b8e640c7c06e5d1fe8b",
-      "after": "0dc17ea10013c19b3b9267349ee0e323a3fbab38918f141b06a982c5c8deebd3",
+      "before": "0dc17ea10013c19b3b9267349ee0e323a3fbab38918f141b06a982c5c8deebd3",
+      "after": "f4cae2833f55b272e59ed01148bf77df5a1b4312b826955c004e972b74144254",
       "owner": "scene-material",
-      "reason": "脚本材质颜色迁至既有materialConstant，退出topology样式覆盖并记录同输入实际GPU结果与剩余组合边界。",
+      "reason": "Record shared Alpha producer admission before builtin replacement and bounded runtime evidence.",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "c529da83ad62d74b729c4baaf101a8c3149fd5b9eee318a83ebe1106d036e912",
-      "after": "86eb62d6d6df646a984c788676389580dfedc678972e1d49fc872725a0be1cce",
+      "before": "86eb62d6d6df646a984c788676389580dfedc678972e1d49fc872725a0be1cce",
+      "after": "51c3ebf5ebab6240c789eab7dd2f76adc5cdd8a8471c00a90d70ad6b1c465662",
       "owner": "scene-material",
-      "reason": "脚本材质颜色迁至既有materialConstant，退出topology样式覆盖并记录同输入实际GPU结果与剩余组合边界。",
+      "reason": "Record shared Alpha producer admission before builtin replacement and bounded runtime evidence.",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d11e0b50d495512a711ad9dc12d085150b4a6f91350c03cad1aa583cb8d549bf",
-      "after": "d0d6f7491ea95429c691821100f821d056930f51df0f9c3a496fefa1f8e50117",
+      "before": "d0d6f7491ea95429c691821100f821d056930f51df0f9c3a496fefa1f8e50117",
+      "after": "e496486a1bf33092a5135899d2a05147d74a1b32f3ed52ea2f5beea7b251e647",
       "owner": "scene-material",
-      "reason": "脚本材质颜色迁至既有materialConstant，退出topology样式覆盖并记录同输入实际GPU结果与剩余组合边界。",
+      "reason": "Record shared Alpha producer admission before builtin replacement and bounded runtime evidence.",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "eb29b6fcca91b2db572fb011fe150c86dc7217a83ba9fb4bd2823e022c272b72",
-      "after": "f5f6c764f2349b34266db62cf942a4aacd88b7d53b4293d8e83f15c52498c058",
+      "before": "f5f6c764f2349b34266db62cf942a4aacd88b7d53b4293d8e83f15c52498c058",
+      "after": "e74aafc33af21711bd9058176d37713690b4c98475853fbb775ee8357997a50d",
       "owner": "scene-material",
-      "reason": "脚本材质颜色迁至既有materialConstant，退出topology样式覆盖并记录同输入实际GPU结果与剩余组合边界。",
+      "reason": "Record shared Alpha producer admission before builtin replacement and bounded runtime evidence.",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     }
   ]

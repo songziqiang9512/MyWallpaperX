@@ -133,7 +133,7 @@ extension SceneMetalRenderer {
                     : SIMD3(repeating: 1)
             ),
             sourceMaterialAlpha: baseMaterialProviderBindings.sourceMaterialAlpha(
-                layerID: layer.id, snapshot: frameContext.dynamicValues
+                layer: layer, snapshot: frameContext.dynamicValues
             ),
             sourceMaterialColor: baseMaterialProviderBindings.sourceMaterialColor(
                         layer: layer, snapshot: frameContext.dynamicValues

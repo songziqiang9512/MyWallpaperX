@@ -96,6 +96,26 @@ enum SceneStockTextureSemanticRegistry {
     }
 }
 
+enum SceneBaseMaterialColorModulationCompiler {
+    struct Binding {
+        let modelPath: String
+        let sourceLayerID: Int
+        let materialPath: String
+        let colorKey: String
+        let scriptSource: String?
+        let scriptProperties: [String: SceneJSONValue]
+        let authoredColor: SIMD3<Double>
+        var alphaKey: String? = nil
+        var authoredAlpha: Float = 1
+        var alphaUserPropertyKey: String? = nil
+        var alphaPropertyTarget: SceneDynamicTarget? {
+            guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
+            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
+                name: alphaKey, materialPath: materialPath)
+        }
+    }
+}
+
 enum SceneShaderUserValueKind { case null, string, number, object }
 struct SceneDocument {
     struct ShaderValue {
@@ -154,6 +174,7 @@ struct SceneRenderDescriptor {
         let contentKind: String
         let imagePath: String?
         var effects: [EffectDescriptor]
+        var visible: Bool? = nil
         var isImageRenderable: Bool { contentKind == "image" || contentKind == "solid" }
     }
     var layers: [Layer]
@@ -753,6 +774,7 @@ let scalarProfiles = [
     scalarProfile("genericimage2",material:["metallic":.init(userBinding:nil,components:[2]),"roughness":.init(userBinding:nil,components:[-1])]),
 ]
 let result: [String: Any] = [
+    "customAlpha": customMaterialAlphaChecks(),
     "scalarProfiles": scalarProfiles,
     "authoredNormals": authoredNormals,
     "normalAdmission": [unsupportedNormalReported, unsupportedNormal.normalAsset == nil,
@@ -815,12 +837,17 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
                     "swiftc", *map(str, material.SOURCES), str(SOURCE), str(COMPILER_SOURCE),
                     str(LIGHTING_PROFILE_SOURCE),
                     str(VISIBILITY_SOURCE),
+                    str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyLiveUpdateState.swift"),
+                    str(ROOT / "script/tests/fixtures/SceneBaseMaterialAlphaChecks.swift"),
                     str(harness), "-module-cache-path", str(root / "cache"), "-o", str(binary),
                 ],
                 check=True,
                 cwd=ROOT,
             )
             result = json.loads(subprocess.check_output([str(binary)], text=True))
+        for name, passed in result["customAlpha"].items():
+            with self.subTest(alpha=name):
+                self.assertTrue(passed)
         expected = [[.5,.5],[0,.7],[],[0,1],[.8,.2],[0,.7],[.5,.5],[1,0]]
         for actual, wanted in zip(result["scalarProfiles"], expected):
             self.assertEqual(len(actual),len(wanted))
