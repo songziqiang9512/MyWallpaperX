@@ -1154,11 +1154,15 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift",
-        "script/tests/test_scene_optional_named_failure*.py"
+        "script/tests/test_scene_optional_named_failure*.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Frontend.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache.swift",
+        "script/tests/test_scene_mixed_provider_abi_integration.py"
       ],
       "modules": [
         "test_scene_optional_named_failure",
-        "test_scene_optional_named_failure_integration"
+        "test_scene_optional_named_failure_integration",
+        "test_scene_mixed_provider_abi_integration"
       ]
     },
     {

@@ -21,7 +21,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         routeDecision: SceneGenericShaderRouteDecision,
         boundedOutput: SceneAuthoredShaderFrontendOutput?,
         artifactFailure: [String],
-        premultipliedInputSlotsForProfile: (String) -> Set<Int>
+        premultipliedColorInputSlots: Set<Int>
     ) {
         // A sampler whose only source is the internal scene-background
         // default reads a publication the registry defines as premultiplied
@@ -84,11 +84,15 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             SceneGenericShaderRouteDecision
         let boundedOutput: SceneAuthoredShaderFrontendOutput?
         let artifactFailure: [String]
+        let premultipliedColorInputSlots: Set<Int>
         SceneResolvedMaterialVariantCompileProfile.add(
             artifact: (CACurrentMediaTime() - artifactStart) * 1000
         )
         switch artifactResolution {
-        case let .accepted(program, requestKey, decision):
+        case let .accepted(program, inputSlots, requestKey, decision):
+            // The accepted artifact already validated this exact compiler ABI.
+            // Reclassifying it with bounded-frontend rules loses mixed inputs.
+            premultipliedColorInputSlots = inputSlots
             frontend = program
             routeDecision = decision
             boundedOutput = nil
@@ -132,13 +136,14 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 )
             }
             onBoundedFrontendCompilation()
+            premultipliedColorInputSlots =
+                premultipliedInputSlotsForProfile(decision.profile)
             let output = SceneAuthoredShaderFrontend.compile(
                 vertexSource: compilerSources.vertex,
                 fragmentSource: compilerSources.fragment,
                 runtimeLoopBounds: runtimeLoopBounds,
                 provenColorTransfer: sourceColorTransfer,
-                premultipliedColorInputSlots:
-                    premultipliedInputSlotsForProfile(decision.profile)
+                premultipliedColorInputSlots: premultipliedColorInputSlots
             )
             guard output.diagnostics.isEmpty,
                   let bounded = output.program else {
@@ -162,7 +167,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             routeDecision,
             boundedOutput,
             artifactFailure,
-            premultipliedInputSlotsForProfile
+            premultipliedColorInputSlots
         )
     }
 }

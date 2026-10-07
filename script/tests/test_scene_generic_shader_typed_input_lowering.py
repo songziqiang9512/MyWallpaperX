@@ -105,6 +105,9 @@ private struct Result: Codable {
     let preservedOutputUnchanged: Bool
     let nonColorFrontendABI: [[Int]]
     let nonColorBackgroundFrontendABI: [Int]
+    let acceptedMixedABI: [Int]
+    let acceptedEmptyABI: [Int]
+    let boundedMixedABI: [Int]
 }
 
 @main
@@ -297,10 +300,27 @@ private enum Harness {
         }
         func frontendABI(
             auxiliary: Set<Int>, background: Set<Int> = [],
-            output: SceneGenericShaderOutputSemantics = .color
+            output: SceneGenericShaderOutputSemantics = .color,
+            acceptedABI: Set<Int>? = nil, mixed: Set<Int> = []
         ) throws -> [Int] {
             guard let program = bounded.program else {
                 throw SceneResolvedMaterialVariantCache.Failure.fixture
+            }
+            let decision = SceneGenericShaderRouteDecision(
+                profile: "ordinary-shader", state: "generic-only",
+                fallbackOwner: "bounded-frontend"
+            )
+            let artifact: SceneResolvedMaterialGenericShaderArtifactCache.Resolution
+            if let acceptedABI {
+                artifact = .accepted(
+                    program: program, premultipliedColorInputSlots: acceptedABI,
+                    requestKey: "fixture", routeDecision: decision
+                )
+            } else {
+                artifact = .unavailable(
+                    code: "fixture", requestKey: "fixture",
+                    permitsBoundedFrontend: true, routeDecision: decision
+                )
             }
             let selected = try SceneResolvedMaterialVariantCache
                 .resolveVariantFrontend(
@@ -309,24 +329,17 @@ private enum Harness {
                         : [0: .init(defaultTexture: .internalTarget)],
                     spatialWeightedColorBlendExternalColorSlot: nil,
                     premultipliedColorAuxiliarySlots: auxiliary,
+                    mixedProviderSlots: mixed,
                     outputSemantics: output,
                     artifactStart: 0,
-                    artifactResolution: .accepted(
-                        program: program, requestKey: "fixture",
-                        routeDecision: .init(
-                            profile: "ordinary-shader", state: "generic-only",
-                            fallbackOwner: "bounded-frontend"
-                        )
-                    ),
+                    artifactResolution: artifact,
                     compatibilityTargetAdmissionPending: false,
                     onBoundedFrontendCompilation: {},
                     compilerSources: .init(vertex: vertex, fragment: fragment),
                     runtimeLoopBounds: .none,
                     sourceColorTransfer: .straightAlphaPreserving(textureSlot: 0)
                 )
-            return selected.premultipliedInputSlotsForProfile(
-                selected.routeDecision.profile
-            ).sorted()
+            return selected.premultipliedColorInputSlots.sorted()
         }
 
         let result = Result(
@@ -409,7 +422,14 @@ private enum Harness {
             ],
             nonColorBackgroundFrontendABI: try frontendABI(
                 auxiliary: [1], background: [0], output: .preservedRGBAUnorm
-            )
+            ),
+            acceptedMixedABI: try frontendABI(
+                auxiliary: [], background: [0], acceptedABI: [1], mixed: [1]
+            ),
+            acceptedEmptyABI: try frontendABI(
+                auxiliary: [1], background: [0], acceptedABI: [], mixed: [1]
+            ),
+            boundedMixedABI: try frontendABI(auxiliary: [1], mixed: [1])
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(result))
     }
@@ -498,6 +518,14 @@ class SceneGenericShaderTypedInputLoweringTests(unittest.TestCase):
             [str(self.binary)], cwd=REPOSITORY_ROOT, text=True
         ))
         self.assertEqual(result["ordinaryBackgroundUnionABI"], [0, 1], result)
+
+    def test_accepted_compiler_abi_is_not_reclassified_by_bounded_rules(self) -> None:
+        result = json.loads(subprocess.check_output(
+            [str(self.binary)], cwd=REPOSITORY_ROOT, text=True
+        ))
+        self.assertEqual(result["acceptedMixedABI"], [1], result)
+        self.assertEqual(result["acceptedEmptyABI"], [], result)
+        self.assertEqual(result["boundedMixedABI"], [], result)
 
     def test_non_color_output_keeps_data_channels_and_no_color_input_abi(self) -> None:
         result = json.loads(subprocess.check_output(

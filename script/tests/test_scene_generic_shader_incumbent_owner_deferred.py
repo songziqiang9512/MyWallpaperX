@@ -265,7 +265,7 @@ private struct Harness {
                 compositeState: common.compositeState,
                 boundedFrontendAccepted: boundedAccepted
             )
-        case let .accepted(_, requestKey, decision):
+        case let .accepted(_, _, requestKey, decision):
             output = .init(
                 status: "accepted", code: nil, requestKey: requestKey,
                 permitsBoundedFrontend: nil,

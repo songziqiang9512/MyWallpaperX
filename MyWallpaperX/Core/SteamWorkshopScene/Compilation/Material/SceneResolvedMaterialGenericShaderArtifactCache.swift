@@ -12,6 +12,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     enum Resolution {
         case accepted(
             program: SceneAuthoredShaderProgram,
+            premultipliedColorInputSlots: Set<Int>,
             requestKey: String,
             routeDecision: RouteDecision
         )
@@ -415,12 +416,13 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         }
         return .accepted(
             program: program,
+            premultipliedColorInputSlots: premultipliedColorInputSlots,
             requestKey: key,
             routeDecision: routeDecision
         )
         }
         if outcome.cacheHit,
-           case let .accepted(_, requestKey, decision) = outcome.resolution,
+           case let .accepted(_, _, requestKey, decision) = outcome.resolution,
            let state = RouteState(rawValue: decision.state),
            let profile = CapabilityProfile(rawValue: decision.profile) {
             routeTelemetry.record(

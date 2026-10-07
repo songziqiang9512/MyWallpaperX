@@ -4057,6 +4057,7 @@ private struct GenericShaderArtifactHarness {
                 return SceneResolvedMaterialGenericShaderArtifactCache.Resolution
                     .accepted(
                         program: program,
+                        premultipliedColorInputSlots: [],
                         requestKey: "accepted",
                         routeDecision: decision
                     )
@@ -4197,7 +4198,7 @@ private struct GenericShaderArtifactHarness {
                     ] == "1" ? .preservedRGBAUnorm : .color
                 )
         ) {
-        case let .accepted(program, requestKey, decision):
+        case let .accepted(program, _, requestKey, decision):
             result = .init(
                 status: "accepted", code: nil, requestKey: requestKey,
                 permitsBoundedFrontend: nil,

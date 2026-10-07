@@ -32,7 +32,7 @@
 | shader compound边界 | **能力缺口**：已有int四则复合赋值恢复，qualified LHS、`%=`与vertex剩余见[原合同](../history/int-compound-assignment-normalizer-2026-10-07.md)。先核真实引用和类型，扩同一normalizer，保留scope/优先级/非法输入反例 |
 | 未定义varying分量 | **待研究**：sine_wave_circle激活变体读取未初始化分量。不能猜零填充；先取得公开或受控官方可观察合同，再决定归一化/局部拒绝 |
 | 透明target的alphaWeightedAdditive | **待研究**：普通源coverage已修，named/透明target的完整alpha合成尚未同输入裁决，见[coverage证据](../capabilities/runtime-evidence-current.md#e-2026-09-27-direct-draw-coverage)。先核唯一compositor当前blend，不能重新造光束专用补偿 |
-| named纹理optional回退 | **已复现待归因**：3078285611当前原包layer192/effect2仍报`effect-local-passthrough-material-optional-named-fallback-unproven`及graph subject join失败；颜色热切已修但该effect保持FAIL。沿现资源角色/optional fallback/graph publication查首错owner，不用普通纹理强代named输出。[运行身份](../history/source-material-entry-2026-10-08.md#后继修正颜色与显隐错配局部保留) |
+| named纹理optional回退 | **编译ABI丢失已修**：generic accepted直接传递已校验PMA槽；3078285611原包192/effect2恢复材质执行、named189绑定、首帧/下一帧GPU与最终合成，benchmark PASS；自有半透明色与非法三候选反例通过。真实换曲/previous封面及完整视觉仍待验；不再把原`optional-named-fallback-unproven`当未修。[修复证据](../history/mixed-provider-color-abi-2026-10-08.md) |
 | stock noise视觉等价 | **待研究**：按需准备/readiness已修；缺资产synthetic替代的密度/语义未证。375时钟包自带clouds，不属于替代收益；见[资源链证据](../capabilities/runtime-evidence-current.md#e-2026-09-26-stock-noise-preparation) |
 | 更多条件/隐藏组与依赖 | **能力边界/待复验**：根层effect/Bloom条件、style热切及嵌套image/text成员已贯通；更多condition、跨层依赖、隐藏层级、group transform/alpha/clip等按[D1](batch2/composition-render-target-design.md)逐个真实profile闭合，保持固定准备闭包与唯一输出 |
 | 同层secondary可见覆盖 | **待复验**：同层_a/_b路由已执行，不能继续列作统一拒绝；未激活及其他形态仍需producer→consumer→最终输出对照。旧v2“11PASS/2FAIL”不是当前缺陷全集 |
@@ -72,6 +72,7 @@
 |---|---|
 | 粒子子系统/控制点/时长的已知unsupported profile | **能力缺口**：getsuga childScaleOutsideBoundedProfile("1 1 2")、mapsequencebetweencontrolpoints、控制点约束、child变换及深层duration/9999 delay仍有独立缺口。 按真实producer/consumer逐族设计、验证child变换/状态；maxtoemitperperiod另列待研究，不混成倍率问题。 根加载、8/8 particle或Rope可见不证明这些子系统。 [依据1](../capabilities/runtime-evidence-current.md#e-2026-09-28-periodic-instance-overrides)、[依据2](../capabilities/runtime-evidence-current.md#e-2026-09-28-rope-gate-admission) |
 | SceneScript尚未覆盖的类型/骨骼/文字内容边界 | **能力缺口**：angles/reset、文字布局、完整类型转换与String真实可见内容尚未闭合；重力、多骨spring/后继动画另有缺口。 先核实际作者调用与既有owner，再选择有证据的typed输出纵切。 这是现役队列的开放边界；冲量数值未知单独待研究，不用空API消除报错。  |
+| Graph执行大门基线失败 | **验证债待归因**：本批同原harness在`cccea6c1`和修后均271检查、同30项false，新增失败0；mixed/system潜在依赖六项均true。逐项核对输入、旧期待与产品实际行为，不改断言消红，也不直接认定30个产品故障；[失败差集来源](../history/mixed-provider-color-abi-2026-10-08.md)。 |
 | hidden resolvedMaterial extent Python桩覆盖债 | **能力缺口**：已登记审查P2-1为隐藏provider extent分支的测试覆盖，生产跨层813与同层_a/_b已关闭。 检查最新真实harness是否已覆盖该分支；缺时补行为反例并同步退役旧待办。 未检查到fresh关闭链，只登记测试债，不宣称生产extent错误。  |
 | 累计tombstone扫描Program绑定的非阻断成本 | **能力缺口**：作者退休历史登记剩余Program绑定扫描；同页后继仅关闭双demand memo抖动，未宣称消除此成本。 先取得同输入有效性能基线，再在同owner简化；不新增缓存/拓扑owner。 是成本后继，不是已测FPS/能耗退化。 [依据1](../capabilities/runtime-evidence-current.md)、[依据2](../history/authored-layer-retirement-2026-10-07.md) |
 | cursor/Solid/previous-pointer的未证公开语义与Host组合 | **待研究/复验**：localPosition已恢复像素单位，但官方Y原点、text padding/puppet hitBox、缺省/隐藏Solid及父语义未定；按住中途关闭/重开、跨owner动态handle/stale及previous侧作者效果未验。 先自有官方/Host组合反例，再原生录屏；保留旧capture up而无hit不click。 不从绘制visible推导命中过滤，不因普通拖放用户通过关闭所有输入语义。 [依据1](../capabilities/runtime-evidence-current.md#e-2026-09-28-cursor-local-pixels)、[依据2](../capabilities/runtime-evidence-current.md#e-2026-09-28-dynamic-solid) |

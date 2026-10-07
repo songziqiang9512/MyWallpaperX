@@ -161,7 +161,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             routeDecision,
             boundedOutput,
             artifactFailure,
-            premultipliedInputSlotsForProfile
+            premultipliedColorInputSlots
         ) = try resolveVariantFrontend(
             template: template,
             sourceActiveSamplers: sourceActiveSamplers,
@@ -257,8 +257,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             graphInputSourceSlotFacts: graphInputFacts,
             preservedAlphaRGBColorSlots: preservedAlphaRGBColorSlots,
             sourceProvenOpaqueColorSlots: sourceProvenOpaqueColorSlots,
-            premultipliedColorInputSlots:
-                premultipliedInputSlotsForProfile(routeDecision.profile),
+            premultipliedColorInputSlots: premultipliedColorInputSlots,
             preservedChannelsProviderInputSlots:
                 selectedMixedDataSlots.union(
                     sourceCarriedAuxiliaryDataSlots.intersection(
