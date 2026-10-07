@@ -234,6 +234,7 @@ func jsonNumberIsSaturated() -> Bool {
 }
 
         let payload: [String: Any] = [
+            "lightClasses": lightClassCases(),
             "objects": objects,
             "referenced": document.referencedResourcePaths,
             "fov": document.general.fovDegrees as Any? ?? NSNull(),
@@ -279,6 +280,21 @@ func jsonNumberIsSaturated() -> Bool {
             options: [.sortedKeys]
         )
         FileHandle.standardOutput.write(data)
+    }
+
+    static func lightClassCases() -> [String: [Bool]] {
+        let inputs: [String: Any] = [
+            "absent": NSNull(), "empty": [String: Any](),
+            "pointOnly": ["point": 1], "spotOnly": ["spot": 1],
+            "nonzero": ["directional": 0.5, "point": -0.5, "spot": 2],
+            "zero": ["directional": 0, "point": 0, "spot": 0],
+            "malformed": ["directional": "1", "point": NSNull(), "spot": ["value": 1]],
+            "nonfinite": ["directional": Double.nan, "point": Double.infinity, "spot": -Double.infinity],
+        ]
+        return inputs.mapValues { value in
+            let classes = SceneDocumentLoader.parseGeneral(["lightconfig": value]).lightClasses
+            return [classes.directional, classes.point, classes.spot]
+        }
     }
 }
 '''
@@ -350,6 +366,14 @@ class SceneStaticModelDocumentTests(unittest.TestCase):
 
     def test_native_perspective_fov_is_retained(self) -> None:
         self.assertEqual(self.result["fov"], 50)
+
+    def test_light_classes_require_finite_nonzero_authored_keys(self) -> None:
+        self.assertEqual(self.result["lightClasses"], {
+            "absent": [False, False, False], "empty": [False, False, False],
+            "pointOnly": [False, True, False], "spotOnly": [False, False, True],
+            "nonzero": [True, True, True], "zero": [False, False, False],
+            "malformed": [False, False, False], "nonfinite": [False, False, False],
+        })
 
     def test_authored_numbers_beyond_the_float_range_saturate(self) -> None:
         # A finite Double outside the renderer's Float ABI used to become inf

@@ -87,10 +87,15 @@ extension SceneDocumentLoader {
         guard let config = value as? [String: Any] else {
             return .init()
         }
+        func enabled(_ key: String) -> Bool {
+            guard let number = config[key] as? NSNumber else { return false }
+            let value = number.doubleValue
+            return value.isFinite && value != 0
+        }
         return .init(
-            directional: (config["directional"] as? NSNumber)?.intValue != 0,
-            point: (config["point"] as? NSNumber)?.intValue != 0,
-            spot: (config["spot"] as? NSNumber)?.intValue != 0
+            directional: enabled("directional"),
+            point: enabled("point"),
+            spot: enabled("spot")
         )
     }
 

@@ -27,6 +27,7 @@ SOURCES = [
     SCENE / "Format/SceneJSONValue.swift",
     SCENE / "Format/SceneScriptBindingDefinition.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    SCENE / "Systems/Properties/SceneDynamicLayerValues.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptValueOwnership.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgram.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
@@ -178,6 +179,16 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertAlmostEqual(
             angles[2], 3.141592653589793 / 2, delta=1e-6
         )
+
+    def test_layer_angle_vm_publication_reaches_light_consumer_in_radians(self) -> None:
+        value = self.result()
+        self.assertEqual(value["angleFailure"], "", value)
+        self.assertEqual(value["angleSnapshotSource"], "sceneScript", value)
+        self.assertEqual(value["angleSnapshotValue"], value["angleValue"], value)
+        for consumed, published in zip(value["angleLightValue"], value["angleValue"]):
+            self.assertAlmostEqual(consumed, published, delta=1e-6, msg=str({
+                key: value[key] for key in ("angleValue", "angleSnapshotValue", "angleLightValue")
+            }))
 
     def test_spot_light_color_is_a_typed_model_light_consumer(self) -> None:
         value = self.result()

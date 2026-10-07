@@ -518,7 +518,7 @@ struct SceneStaticModelPipeline {
             ),
             lightCounts: SIMD4(
                 UInt32(lighting.directional.count),
-                UInt32(points.count),
+                UInt32(staticModelPoints.count),
                 UInt32(lighting.spot.count),
                 0
             ),

@@ -234,7 +234,9 @@ extension Harness {
 
     static let angleSource = """
     export function update(value) {
+      if (Math.abs(value.z - 90) > 0.00001) throw new Error('angle input is not degrees');
       value.y = 0.15;
+      value.z = 90;
       return value;
     }
     """

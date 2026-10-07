@@ -59,12 +59,9 @@ nonisolated enum SceneDynamicLayerValues {
         return authoredValue
     }
 
-    /// Live raw angle values for a light layer. Authored numbers are the
-    /// fallback and stay radians (own-fixture contract); a published finite
-    /// vector3 wins so script-driven light rotation stays dynamic, and the
-    /// script boundary is degree-typed (author calibration table in
-    /// 3589454154: `-atan2(z,x)*180/PI` with a degree azimuth table), so the
-    /// published value converts to radians here.
+    /// Every angle producer publishes canonical radians into the transform
+    /// channel. SceneScript converts its degrees at the VM/handle boundary;
+    /// consumers preserve the published unit regardless of source.
     static func lightAngles(
         layerID: Int,
         authoredValue: SIMD3<Float>,
@@ -79,12 +76,7 @@ nonisolated enum SceneDynamicLayerValues {
            abs(x) <= Double(Float.greatestFiniteMagnitude),
            abs(y) <= Double(Float.greatestFiniteMagnitude),
            abs(z) <= Double(Float.greatestFiniteMagnitude) {
-            let degreesToRadians = Float.pi / 180
-            return SIMD3(
-                Float(x) * degreesToRadians,
-                Float(y) * degreesToRadians,
-                Float(z) * degreesToRadians
-            )
+            return SIMD3(Float(x), Float(y), Float(z))
         }
         return authoredValue
     }

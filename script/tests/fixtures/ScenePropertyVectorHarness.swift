@@ -216,8 +216,11 @@ final class PropertyVectorFixture {
             }) },
         ]) { _, _ in preconditionFailure("duplicate fixture result") }
         let orderedKeys = ["bindings", "origin", "scale", "targetFilteredValueCount", "targetFilteredOriginPublished", "angleValue", "angleFailure", "failures", "mutations", "passVectorBindings", "passVectorValue", "passVectorFailures", "passVectorWrongWrapperRejected", "passVectorUserProviderRejected", "userColorExactInput", "userColorForeignInput", "userColorScalarInput", "userColorInputKey", "userColorMismatchedKeyCount", "userColorMissingKeyCount", "userColorIRCount", "userColorOwnerCount", "userColorInputCount", "userColorFirst", "userColorChanged", "userColorInvalidUnpublished", "passColorBindings", "passColorValue", "passColorFailures", "currentPropertyFirst", "currentPropertyStableSkipped", "currentPropertyChanged", "currentPropertyTimer", "currentPropertySettledSkipped", "currentPropertyLiveConsumer", "invalidCurrentPropertyFailure", "invalidCurrentPropertyPublished", "invalidCurrentPropertyConsumerDisabled", "partitionedMediaTargetExcluded", "partitionedGenericPeerPreserved", "partitionedGenericPeerValue", "partitionedMediaTargetNotPublished", "partitionedGenericPeerSucceeded", "passAudioBindings", "passAudioDemand", "passAudioValue", "passAudioFailures", "passAudioWrongWrapperRejected", "passAudioUserProviderRejected", "dynamicScalarBindings", "dynamicScalarFirst", "dynamicScalarStable", "dynamicScalarChanged", "dynamicScalarWrongTypeFailure", "dynamicScalarWrongTypePublished", "dynamicScalarRecovered", "dynamicScalarFallback", "dynamicScalarMalformedRejected", "dynamicScalarLiveTarget", "dynamicVectorLiveTarget", "nullOuterUserScalarAdmitted", "failingDynamicScalarInitiallyActive", "failingDynamicScalarBecameUnavailable", "failingDynamicVectorInitiallyActive", "failingDynamicVectorBecameUnavailable", "disabledScalarLiveUpdateRejected", "disabledScalarLiveUpdateWasAtomic", "disabledVectorLiveUpdateRejected", "disabledVectorLiveUpdateWasAtomic", "activeVectorSiblingAccepted", "layerOrigin", "layerFailures", "layerColorBindings", "layerColorMediaTargets", "layerColorValue", "layerColorFailures", "spotColorBindings", "spotColorValue", "spotColorFailures", "layerColorCurrent", "layerColorUndefined", "layerColorUndefinedFailures", "layerColorFirst", "layerColorSecondFailure", "layerColorSecondPublished", "layerColorThirdFailures", "layerColorThirdPublished", "layerColorFallback", "layerColorFallbackSource", "layerColorFailurePeer", "layerColorFailurePeerFailures", "textColorBindings", "textColorValue", "textColorFailures", "badReturn", "badPublished", "duplicateRejected", "wrongOwnerRejected", "animationBindings", "animationCommands", "animationWithoutTimelineRejected", "alphaAnimationBindings", "alphaAnimationValue", "alphaAnimationCommands", "genericAlphaBindings", "genericAlphaValue", "genericPropertyAlphaBindings", "genericPropertyAlphaValue", "alphaTimeOwnerNextFrame", "genericAlphaWrongWrapperRejected", "mediaAnimationCommands", "mediaGenerationDeduplicated", "passTimelineBindings", "passTimelineKeepsTimelineValueOwner", "passTimelineCommands", "passTimelineGenerationDeduplicated", "passTimelineWithoutTargetRejected", "passTimelineWrongWrapperRejected", "passTimelinePropertiesRejected", "playbackBindings", "playbackPlaying", "playbackNextFrame", "playbackStopped", "playbackFailures", "stringBindings", "stringValue", "stringFailures", "stringGenerationDeduplicated", "orderedMediaTrace", "orderedMediaDuplicateTrace", "orderedMediaFailures", "orderedLayerMutationOrder", "orderedLayerMutationFields", "orderedDuplicateLayerMutations", "orderedNextGenerationTrace", "orderedNextGenerationVector", "orderedNextGenerationScalar", "orderedNextGenerationLayerMutations", "orderedInvalidatedValues", "orderedInvalidatedFailures", "orderedInvalidatedLayerMutations", "audioScaleBindings", "audioScaleDemand", "audioScaleValue", "audioScaleFailures", "particleScalarBadValues", "particleScalarBadFailures", "particleScalarBadSizeAbsent", "particleScalarRecovered", "particleColor", "particleColorRecovered", "particleColorBadRejected", "particleColorCursorOwners", "particleColorMarkerCleared", "particleColorNegativeAdmission", "particleScalarMarkersCleared", "particleScalarHiddenPreserved", "particleScalarPartialExact", "particleScalarDuplicateCount", "particleScalarConflictCount", "particleScalarParsed", "particleScalarBindings", "particleScalarValues", "particleScalarFailures", "particleAudioBindings", "particleAudioDemand", "particleAudioValue", "particleAudioFailures", "particlePropertyFreeBindings", "particleNullUserBindings", "particleNullUserParseFailures", "particleConflictingUserRejected", "particleUnknownWrapperRejected", "particleAdmittedVisible", "particleAdmittedRateScriptRemoved", "particleAdmittedSiblingPreserved", "particleStaticFallbackVisible", "particleStaticRatePreserved", "particleStaticSiblingPreserved", "propertyEventFirst", "propertyEventStable", "propertyEventChanged", "propertyEventFailures", "propertyRevisionFirstDelta", "propertyRevisionStableSkipped", "propertyRevisionChangedDelta", "modelTintBindings", "modelTintValue", "modelTintFailures", "textWrapperAdmission"]
-        precondition(observations.count == orderedKeys.count)
-        let payload = Dictionary(uniqueKeysWithValues: orderedKeys.map { ($0, observations[$0]!()) })
+        let payloadKeys = orderedKeys + [
+            "angleSnapshotValue", "angleSnapshotSource", "angleLightValue",
+        ]
+        precondition(observations.count == payloadKeys.count)
+        let payload = Dictionary(uniqueKeysWithValues: payloadKeys.map { ($0, observations[$0]!()) })
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
@@ -245,6 +248,14 @@ extension Harness {
             ],
             frame: frame
         )
+        let angleSnapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 1, generation: 1, definitions: program.definitions,
+            sceneScriptValues: result.values
+        ).snapshot
+        let lightAngles = SceneDynamicLayerValues.lightAngles(
+            layerID: 10, authoredValue: SIMD3(0, 0, Float.pi / 2),
+            snapshot: angleSnapshot
+        )
         let targetFilteredResult = program.evaluate(
             inputs: [
                 .layer(layerID: 10, field: .origin): .vector3(20, 2250, 0),
@@ -264,6 +275,9 @@ extension Harness {
             ] != nil },
             "angleValue": { vector(result.values[angleTarget]) },
             "angleFailure": { result.failures[angleTarget]?.code ?? "" },
+            "angleSnapshotValue": { vector(angleSnapshot[angleTarget]?.value) },
+            "angleSnapshotSource": { angleSnapshot[angleTarget]?.source.rawValue ?? "" },
+            "angleLightValue": { [lightAngles.x, lightAngles.y, lightAngles.z] },
             "failures": { result.failures.count },
             "mutations": { result.materialFunctionMutations.map {
                 ["layerID": $0.layerID, "effectIndex": $0.effectIndex,
