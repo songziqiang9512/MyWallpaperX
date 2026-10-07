@@ -1,3 +1,4 @@
+import Foundation
 import simd
 
 /// Immutable light publication consumed by lit material producers in the
@@ -85,8 +86,7 @@ struct SceneLightSnapshot {
         dynamicLayerColors: [Int: SIMD3<Float>] = [:],
         dynamicSnapshot: SceneDynamicSnapshot? = nil,
         candidateLayerIDs: [Int]? = nil,
-        layersByID: [Int: SceneRenderDescriptor.Layer]? = nil,
-        visibleLayerIDs: Set<Int>? = nil
+        layersByID: [Int: SceneRenderDescriptor.Layer]? = nil
     ) -> SceneLightSnapshot {
         let ambient = color(descriptor.lighting?.ambientColorRGB)
             + color(descriptor.lighting?.skylightColorRGB)
@@ -104,8 +104,13 @@ struct SceneLightSnapshot {
         var acceptedCount = 0
         var overflowCount = 0
         for layer in lightLayers {
-            guard visibleLayerIDs?.contains(layer.id)
-                    ?? (layer.visible != false) else { continue }
+            // Light objects carry no mesh: the authored `visible` flag hides
+            // the editor representation, not the illumination (corpus
+            // 3589454154 authors `lpoint` with `visible:false` and the
+            // official client still lights the scene from it — filtering by
+            // the visible set dropped the sun light and left the planet as a
+            // black silhouette). The world frame below stays the admission
+            // gate: no frame means no resolvable position.
             guard let frame = worldFramesByLayerID[layer.id] else { continue }
             // general.lightconfig gates the STATIC-MODEL light classes per
             // scene: an absent author field leaves directional/lpoint/spot
@@ -180,6 +185,33 @@ struct SceneLightSnapshot {
                 }
             }
         }
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_LIGHT_TRACE"] == "1" {
+            struct LightTraceThrottle {
+                static var count: Int = 0
+                static var lock = NSLock()
+            }
+            LightTraceThrottle.lock.lock()
+            LightTraceThrottle.count += 1
+            let traceThisCall = LightTraceThrottle.count <= 3
+                || LightTraceThrottle.count % 120 == 0
+            LightTraceThrottle.lock.unlock()
+            if traceThisCall {
+                for light in directionalLights {
+                    NSLog("MWX DEBUG LIGHT TRACE: kind=directional layer=%d direction=%.4f %.4f %.4f intensity=%.3f",
+                        light.layerID ?? -1,
+                        light.directionTowardLight.x, light.directionTowardLight.y,
+                        light.directionTowardLight.z, light.intensity)
+                }
+                for light in pointLights {
+                    NSLog("MWX DEBUG LIGHT TRACE: kind=point layer=%d position=%.4f %.4f %.4f radius=%.3f intensity=%.3f",
+                        light.layerID ?? -1,
+                        light.position.x, light.position.y, light.position.z,
+                        light.radius, light.intensity)
+                }
+            }
+        }
+        #endif
         let fog = descriptor.lighting?.distanceFog
         // An unauthored ambient stays black: official renders gated-away or
         // lightless scenes black for lit static models (own-fixture N-series

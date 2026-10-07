@@ -661,16 +661,14 @@ enum LightSnapshotHarness {
         let hiddenLayersByID = Dictionary(uniqueKeysWithValues:
             hiddenParentDescriptor.layers.map { ($0.id, $0) }
         )
-        let activatedVisibleIDs = SceneLayerVisibility.visibleLayerIDs(
-            in: hiddenParentDescriptor,
-            layersByID: hiddenLayersByID,
-            snapshot: activatedSnapshot
-        )
+        // Lights are admitted regardless of the layer visibility flag
+        // (3589454154 authors `lpoint` with `visible:false` and the official
+        // client still lights the scene from it); the dynamic intensity
+        // snapshot remains the activation channel.
         let activated = SceneLightSnapshot.make(
             descriptor: hiddenParentDescriptor,
             worldFramesByLayerID: [9: frame],
-            dynamicSnapshot: activatedSnapshot,
-            visibleLayerIDs: activatedVisibleIDs
+            dynamicSnapshot: activatedSnapshot
         )
         precondition(activated.directional.map(\.intensity) == [19])
 
@@ -730,40 +728,22 @@ enum LightSnapshotHarness {
             descriptor: orderedDescriptor, layersByID: orderedByID
         )
         precondition(orderedIDs == [7, 6, 5, 4, 3, 2, 1])
-        let hiddenTarget = SceneDynamicTarget.layer(
-            layerID: 6, field: .visibility
-        )
-        let visibilitySnapshot = SceneDynamicSnapshotResolver().resolve(
-            frameIndex: 1,
-            generation: 1,
-            definitions: [.init(
-                target: hiddenTarget,
-                valueType: .bool,
-                authoredValue: .bool(true)
-            )],
-            userValues: [:],
-            sceneScriptValues: [hiddenTarget: .bool(false)]
-        ).snapshot
-        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
-            in: orderedDescriptor,
-            layersByID: orderedByID,
-            snapshot: visibilitySnapshot
-        )
-        precondition(!visibleLayerIDs.contains(6))
-        precondition(!visibleLayerIDs.contains(3))
+        // Script-hidden lights stay admitted: illumination is independent of
+        // the visibility flag (3589454154 `lpoint` visible:false still lights
+        // the scene officially), so the four-slot budget spans all seven
+        // ordered lights and three overflow.
         let bounded = SceneLightSnapshot.make(
             descriptor: orderedDescriptor,
             worldFramesByLayerID: Dictionary(
                 uniqueKeysWithValues: (1...7).map { ($0, frame) }
             ),
             candidateLayerIDs: orderedIDs,
-            layersByID: orderedByID,
-            visibleLayerIDs: visibleLayerIDs
+            layersByID: orderedByID
         )
         precondition(bounded.directional.map(\.intensity) == [14])
-        precondition(bounded.point.map(\.intensity) == [17, 15, 12])
-        precondition(bounded.spot.isEmpty)
-        precondition(bounded.overflowCount == 1)
+        precondition(bounded.point.map(\.intensity) == [17, 15])
+        precondition(bounded.spot.map(\.intensity) == [16])
+        precondition(bounded.overflowCount == 3)
 
         let invalidRadiusDescriptor = SceneRenderDescriptor(
             lighting: nil,

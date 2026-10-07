@@ -578,8 +578,11 @@ POINT_AUTHORED_MAIN=r'''
   checks["previous-immutable"] = first.point.first!.position==SIMD3<Float>(11,74,33) && first.point.first!.intensity==2
   let restored=SceneLightSnapshot.make(descriptor:descriptor,worldFramesByLayerID:staticFrames)
   checks["next-frame-authored-restored"] = restored.point.first!.position==first.point.first!.position && restored.point.first!.intensity==2
-  let hidden=SceneLightSnapshot.make(descriptor:descriptor,worldFramesByLayerID:currentFrames,visibleLayerIDs:[21])
-  checks["current-visibility"] = hidden.point.compactMap(\.layerID)==[21] && hidden.shadowLights.isEmpty
+  // Lights ignore the layer visible flag (3589454154 authors lpoint with
+  // visible:false and the official client still lights the scene from it).
+  let hiddenDescriptor=try build("hidden-author")
+  let hidden=SceneLightSnapshot.make(descriptor:hiddenDescriptor.renderDescriptor,worldFramesByLayerID:frames(hiddenDescriptor.renderDescriptor))
+  checks["current-visibility"] = hidden.point.compactMap(\.layerID)==[20,21] && !hidden.shadowLights.isEmpty
   let report:[String:Any]=["checks":checks,"castValues":values,"authoredOrder":mixed.renderOrderLayerIDs,"shadowOrder":admitted.shadowLights.compactMap(\.layerID),"firstPosition":[first.point[0].position.x,first.point[0].position.y,first.point[0].position.z],"currentPosition":[second.point[0].position.x,second.point[0].position.y,second.point[0].position.z]]
   print(String(decoding:try JSONSerialization.data(withJSONObject:report,options:[.sortedKeys]),as:UTF8.self))
  }
@@ -597,7 +600,8 @@ def prepare_point_authored_inputs(root):
         parser.append(entry)
     scenes={'parser':parser,
         'mixed':[light(10),light(11,'lspot',innercone=30,outercone=60),light(12),light(13,'ldirectional'),light(14)],
-        'current':[{'id':90,'image':'models/util/solidlayer.json','size':'1 1','origin':'10 20 30'},light(20,parent=90,origin='1 2 3'),light(21,castshadow=False)]}
+        'current':[{'id':90,'image':'models/util/solidlayer.json','size':'1 1','origin':'10 20 30'},light(20,parent=90,origin='1 2 3'),light(21,castshadow=False)],
+        'hidden-author':[{'id':90,'image':'models/util/solidlayer.json','size':'1 1','origin':'10 20 30'},dict(light(20,parent=90,origin='1 2 3'),visible=False),light(21,castshadow=False)]}
     for name,objects in scenes.items():
         target=root/name;target.mkdir(parents=True,exist_ok=True)
         (target/'project.json').write_text(json.dumps({'type':'scene','file':'scene.json'}))

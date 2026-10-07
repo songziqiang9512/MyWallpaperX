@@ -84,8 +84,7 @@ extension SceneMetalRenderer {
             worldFramesByLayerID: frameWorldFrames, dynamicLayerColors: dynamicLightColors,
             dynamicSnapshot: frameContext.dynamicValues,
             candidateLayerIDs: frameProjection.lightLayerIDs,
-            layersByID: frameLayersByID,
-            visibleLayerIDs: frameVisibleLayerIDs
+            layersByID: frameLayersByID
         )
         performanceTelemetry?.beginStage("prepass-encoder")
         let (mainPass, groups) = makeScenePass(target: mainTarget,
