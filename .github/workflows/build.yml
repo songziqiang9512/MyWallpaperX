@@ -206,6 +206,9 @@ jobs:
 
           /bin/bash script/sign-steam-helper.sh "$APP_PATH/Contents/Resources/SteamService" "$DEVELOPER_ID_APPLICATION"
 
+          codesign --force --timestamp --options runtime \
+            --sign "$DEVELOPER_ID_APPLICATION" "$APP_PATH/Contents/Resources/SceneMediaObserver/SceneMediaObserver.dylib"
+
           for helper in "${APP_NAME}WallpaperDaemon" glslang spirv-cross; do
             codesign --force --timestamp --options runtime \
               --sign "$DEVELOPER_ID_APPLICATION" "$APP_PATH/Contents/Helpers/$helper"

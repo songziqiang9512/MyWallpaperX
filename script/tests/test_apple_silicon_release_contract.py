@@ -2,6 +2,9 @@
 
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+import os
+import subprocess
+import textwrap
 import unittest
 import json
 import tempfile
@@ -20,6 +23,50 @@ def load_validator():
 
 
 class AppleSiliconReleaseContractTests(unittest.TestCase):
+    def test_release_workflow_signs_media_observer_before_the_outer_app(self):
+        workflow = (ROOT / ".github/workflows/build.yml").read_text()
+        sign_step = workflow.split("      - name: Sign app\n", 1)[1].split("      - name:", 1)[0]
+        commands = textwrap.dedent(sign_step.split("        run: |\n", 1)[1])
+        with tempfile.TemporaryDirectory(prefix="mwx-release-signing-") as temporary:
+            root = Path(temporary)
+            app = root / "products/Build/Products/Release/MyWallpaperX.app"
+            observer = app / "Contents/Resources/SceneMediaObserver/SceneMediaObserver.dylib"
+            observer.parent.mkdir(parents=True)
+            observer.write_bytes(b"observer fixture")
+            tools = root / "tools"
+            tools.mkdir()
+            log = root / "codesign.jsonl"
+            codesign = tools / "codesign"
+            codesign.write_text(
+                "#!/usr/bin/env python3\nimport json, os, sys\n"
+                "with open(os.environ['MWX_CODESIGN_LOG'], 'a') as log:\n"
+                "    log.write(json.dumps(sys.argv[1:]) + '\\n')\n"
+            )
+            codesign.chmod(0o755)
+            scripts = root / "script"
+            scripts.mkdir()
+            (scripts / "sign-steam-helper.sh").write_text(
+                '#!/bin/bash\ncodesign --force --timestamp --options runtime --sign "$2" "$1/SteamService"\n'
+            )
+            env = os.environ.copy()
+            identity = "Developer ID Application: Test (TEST)"
+            env.update(PATH=str(tools) + os.pathsep + env["PATH"],
+                       MWX_CODESIGN_LOG=str(log), DERIVED_DATA_PATH=str(root / "products"),
+                       CONFIGURATION="Release", APP_NAME="MyWallpaperX", DEVELOPER_ID_APPLICATION=identity)
+            result = subprocess.run(["/bin/bash", "-eu", "-c", commands], cwd=root, env=env,
+                                    capture_output=True, text=True, timeout=15)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            calls = [json.loads(line) for line in log.read_text().splitlines()]
+            signatures = [call for call in calls if "--sign" in call]
+            signed_paths = [call[-1] for call in signatures]
+            self.assertIn(str(observer), signed_paths, "the unsigned build's observer must be distribution-signed")
+            self.assertLess(signed_paths.index(str(observer)), signed_paths.index(str(app)))
+            observer_call = signatures[signed_paths.index(str(observer))]
+            self.assertIn("--timestamp", observer_call)
+            self.assertEqual(observer_call[observer_call.index("--options") + 1], "runtime")
+            self.assertEqual(observer_call[observer_call.index("--sign") + 1], identity)
+            self.assertTrue(all("--deep" not in call for call in signatures))
+
     def test_bundle_rejects_development_residue_but_keeps_licenses(self):
         validator = load_validator()
         with tempfile.TemporaryDirectory() as temporary:

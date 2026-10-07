@@ -113,8 +113,8 @@ final class SceneSystemMediaProvider {
         systemRetryDelay = min(30, systemRetryDelay * 2)
     }
 
-    /// Apple Music cannot serve the session right now (target not running or
-    /// not authorized); the system observer takes over while enabled. The
+    /// Apple Music cannot serve the session right now (target not running,
+    /// not authorized or no usable snapshot); the system observer takes over. The
     /// Apple authorization latch survives this transition so a denied read
     /// does not restart its authorization check on every poll.
     private func engageSystemFallback() {
@@ -192,20 +192,11 @@ final class SceneSystemMediaProvider {
                       self.targetPID == pid, Self.runningMusicPID() == pid else { return }
                 switch authorization {
                 case .authorized:
-                    if self.activeSource != .appleMusic {
-                        // A confirmed Apple session takes over: stop the
-                        // system transport, retire its publication and fence
-                        // its callbacks before Apple publishes.
-                        self.invalidateSource()
-                        self.activeSource = .appleMusic
-                        self.targetPID = pid
-                        self.authorizationChecked = true
-                        self.authorized = true
-                    }
+                    self.authorizationChecked = true
+                    self.authorized = true
                 case .denied, .consentRequired:
                     self.authorizationChecked = true
                     self.authorized = false
-                    if self.activeSource != .system { self.clearPublishedSession() }
                     self.report("authorization-\(authorization)")
                     self.engageSystemFallback()
                     return
@@ -213,7 +204,6 @@ final class SceneSystemMediaProvider {
                     // Transient (for example the target still launching): do
                     // not latch, so the next poll re-probes while the system
                     // observer covers the session.
-                    if self.activeSource != .system { self.clearPublishedSession() }
                     self.report("authorization-\(authorization)")
                     self.engageSystemFallback()
                     return
@@ -238,27 +228,33 @@ final class SceneSystemMediaProvider {
                 highContrastColor: value.artworkPalette?.highContrastColor
             )
             if accepted {
+                if activeSource != .appleMusic {
+                    // Inbox acceptance proves this complete Apple session can
+                    // replace the current publication. Fence and stop system
+                    // callbacks in this same main-actor turn without clearing
+                    // the newly accepted snapshot.
+                    epoch &+= 1
+                    systemSource.stop()
+                    activeSource = .appleMusic
+                    cachedSystemSource = nil
+                    systemRetryDelay = 2
+                    systemRestartDeadline = nil
+                }
                 hasPublished = true
                 cachedArtworkIdentity = value.identity
                 cachedArtworkData = value.artworkData
                 cachedArtworkPalette = value.artworkPalette
                 report("published")
             } else {
-                clearPublishedSession()
-                report("invalid-session")
+                report("apple-invalid-session")
+                engageSystemFallback()
             }
         case .noSession:
-            clearPublishedSession()
-            cachedArtworkIdentity = nil
-            cachedArtworkData = nil
-            cachedArtworkPalette = nil
-            report("no-session")
+            report("apple-no-session")
+            engageSystemFallback()
         case let .failure(failure):
-            clearPublishedSession()
-            cachedArtworkIdentity = nil
-            cachedArtworkData = nil
-            cachedArtworkPalette = nil
-            report("unavailable-\(failure)")
+            report("apple-unavailable-\(failure)")
+            engageSystemFallback()
         }
     }
 

@@ -33,7 +33,7 @@ nonisolated enum SceneMusicPlayerSource {
         let identity: String; let title: String; let artist = "Artist"; let album = "Album"
         var albumArtist = "Album Artist"
         let state = State.playing; let position = 5.0; let duration = 100.0
-        let artworkData: Data? = Data([1, 2, 3])
+        var artworkData: Data? = Data([1, 2, 3])
     }
     enum AuthorizationStatus: Sendable {
         case authorized, denied, consentRequired
@@ -227,6 +227,47 @@ nonisolated func testPalette(_ red: Double) -> SceneMediaArtworkPalette {
             precondition(SceneSystemMediaSource.starts == 1, "takeover must not spawn a replacement transport")
             provider.release(first)
             precondition(inbox.latest().properties?.title == "")
+        case "handover-no-session", "handover-failure", "handover-invalid":
+            NSRunningApplication.pid = nil
+            provider.acquire(first)
+            let source = SceneSystemMediaSource.latest!
+            let oldCallback = source.callback!
+            source.deliver(.snapshot(.init(source: "Player A", identity: "one", title: "System Track",
+                artworkChanged: true, artworkData: Data([1]), artworkPalette: testPalette(1))))
+            let current = inbox.latest()
+            control.update {
+                switch CommandLine.arguments[1] {
+                case "handover-no-session": $0.result = .noSession
+                case "handover-failure": $0.result = .failure("read-timeout")
+                default: $0.result = .snapshot(.init(identity: "bad", title: "Bad", artworkData: Data()))
+                }
+            }
+            NSRunningApplication.pid = 42
+            wait { control.counts().0 >= 1 }
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
+            precondition(inbox.latest() == current, "an unusable Apple result retired the live system session")
+            precondition(source.callback != nil && SceneSystemMediaSource.starts == 1,
+                         "an unusable Apple result stopped or restarted the system transport")
+            control.update { $0.result = .snapshot(.init(identity: "A", title: "Track A")) }
+            wait { inbox.latest().properties?.title == "Track A" }
+            precondition(source.callback == nil, "accepted Apple takeover must stop the system transport")
+            oldCallback(.snapshot(.init(source: "Player A", identity: "one", title: "Stale System",
+                artworkChanged: true, artworkData: Data([2]))))
+            precondition(inbox.latest().properties?.title == "Track A", "retired system callback leaked into Apple session")
+            provider.release(first)
+        case "apple-read-fallback":
+            provider.acquire(first)
+            wait { inbox.latest().properties?.title == "Track A" }
+            control.update { $0.result = .noSession }
+            wait { SceneSystemMediaSource.latest?.callback != nil }
+            let source = SceneSystemMediaSource.latest!
+            source.deliver(.snapshot(.init(source: "Player A", identity: "one", title: "System Track",
+                artworkChanged: true, artworkData: Data([1]))))
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 2.2))
+            precondition(inbox.latest().properties?.title == "System Track",
+                         "repeated empty Apple reads must preserve the fallback session")
+            precondition(source.callback != nil && SceneSystemMediaSource.starts == 1)
+            provider.release(first)
         case "atomic":
             let a = SceneMediaThumbnailInbox.Snapshot.Properties(title: "A", artist: "A", subTitle: "", albumTitle: "", albumArtist: "", genres: "", contentType: "")
             let b = SceneMediaThumbnailInbox.Snapshot.Properties(title: "B", artist: "B", subTitle: "", albumTitle: "", albumArtist: "", genres: "", contentType: "")
@@ -298,6 +339,18 @@ class SceneSystemMediaProviderTests(unittest.TestCase):
 
     def test_unauthorized_settles_on_system_and_yields_to_confirmed_apple(self):
         self.check_case('handover')
+
+    def test_authorized_music_without_session_preserves_system_until_valid_takeover(self):
+        self.check_case('handover-no-session')
+
+    def test_authorized_music_read_failure_preserves_system_until_valid_takeover(self):
+        self.check_case('handover-failure')
+
+    def test_rejected_music_snapshot_preserves_system_until_valid_takeover(self):
+        self.check_case('handover-invalid')
+
+    def test_active_music_without_session_returns_to_system_once(self):
+        self.check_case('apple-read-fallback')
 
     def test_session_publication_has_no_mixed_channels_and_rejects_atomically(self):
         self.check_case('atomic')
