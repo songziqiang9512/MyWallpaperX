@@ -480,12 +480,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-05",
+      "lastReviewed": "2026-10-07",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e9b6d6d087d8b372d463a74fd514a77dc4023780473cf0fe4d9d7eb5b4bbd978",
+        "sourceSHA256": "5ed0336e3261ae234c1c22473b1996b8d5257ee4f7c9ff6bc3b74eb460da7926",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Navigation audit of bounded runtime evidence. Real metadata/artwork ingress is established for the recorded Debug experiment; full source, visual, and release acceptance remain open.",
+        "scope": "核对本次审查修复对应的职责合同、来源交接及冻结证据导航；实际运行身份与限制见记录。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -507,12 +507,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-06",
+      "lastReviewed": "2026-10-07",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "faaac1b7ae362a9a81c195797a12609183275a5de33bdccfa32c540e6930b65b",
+        "sourceSHA256": "411c89e228c929161a8f8fbf5a076befcc24f58437be107d0a69280172037feb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对本批默认模型颜色输入、已完成设计的稳定合同移交和暂停交接导航。",
+        "scope": "核对本次审查修复对应的职责合同、来源交接及冻结证据导航；实际运行身份与限制见记录。",
         "limitations": "仅对应本批职责与冻结证据，不表示全样本兼容、官方parity或发布验收。"
       }
     },
@@ -688,6 +688,16 @@
       ]
     },
     {
+      "path": "docs/scene/history/committed-range-review-repairs-2026-10-07.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/composition-effect-activation-implementation-2026-10-05.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -696,6 +706,16 @@
         "docs/scene/architecture/runtime-architecture.md",
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/batch2/composition-render-target-design.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/composition-member-closure-2026-10-07.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/composition-render-target-design.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
     {
@@ -883,6 +903,16 @@
       ]
     },
     {
+      "path": "docs/scene/history/data-channel-texture-purpose-2026-10-07.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/render-graph-shader-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/debug-frame-capture-lifecycle-design-2026-10-06.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -938,6 +968,16 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/capabilities/runtime-input-property-coverage.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/int-compound-assignment-normalizer-2026-10-07.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+        "script/scene_shader_preparation_census.py"
       ]
     },
     {
@@ -1682,12 +1722,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "播放器来源进入现役合同并完成真实换曲、权限、来源切换及退出验收后归档；未覆盖播放器仍保留能力缺口。",
-      "lastReviewed": "2026-10-05",
+      "lastReviewed": "2026-10-07",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c17db9b1696f0b22b7d29b7f64f17c572adf5c4e2e1072a7fb4a0425c3ab6328",
+        "sourceSHA256": "9636eb6d4002b868d8cf180f17ee60a2074506dfc6ba7dfeb327422d95647d7d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Source ownership and experimental distribution boundary; runtime evidence lives in the linked implementation record.",
+        "scope": "核对本次审查修复对应的职责合同、来源交接及冻结证据导航；实际运行身份与限制见记录。",
         "limitations": "登记与职责导航不证明已读取真实播放器、运行成功、全部来源兼容或发布验收。"
       }
     },

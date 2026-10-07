@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 75,
-      "bytes": 9407
+      "bytes": 9382
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -98,7 +98,7 @@
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
-      "bytes": 2189
+      "bytes": 2184
     },
     "docs/scene/capabilities/scene-corpus-capability-inventory.md": {
       "lines": 455,
@@ -182,7 +182,7 @@
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 41,
-      "bytes": 8029
+      "bytes": 8024
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 439,
@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 148,
-      "bytes": 57360
+      "bytes": 57151
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,

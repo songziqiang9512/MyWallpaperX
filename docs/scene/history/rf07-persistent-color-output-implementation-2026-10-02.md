@@ -7,7 +7,7 @@
 
 ## 范围与责任
 
-主目录 `codex/engine-refactor-program`、HEAD `85415320`，在已冻结 D2/D3、RF01、RF05、RF03 未提交成果之上实施。完整开工字节在 `/private/tmp/mwx-rf07/baseline/`，只审相对该基线的 RF07 差异，不把其他批次纳入本片。合同见 [D2 RF07-HISTORY](../roadmap/batch2/hdr-tonemap-edr-design.md#rf07-history原始颜色与显示导出分离设计裁决)，稳定资源责任归[架构 §3.3](../architecture/runtime-architecture.md#33-保留事务安全不扩大视觉失败半径)。
+主目录 `codex/engine-refactor-program`、HEAD `85415320`，在已冻结 D2/D3、RF01、RF05、RF03 未提交成果之上实施。完整开工字节在 `/private/tmp/mwx-rf07/baseline/`，只审相对该基线的 RF07 差异，不把其他批次纳入本片。合同见 [D2 RF07-HISTORY](../roadmap/batch2/hdr-tonemap-edr-design.md#rf07-history已实施的原始颜色与显示导出边界)，稳定资源责任归[架构 §3.3](../architecture/runtime-architecture.md#33-保留事务安全不扩大视觉失败半径)。
 
 HDR clear=false 的作者合成写入未 Bloom、未显示映射的 raw sceneColor；已有 allocation cache/residency 保存 raw pair 和 display scratch，原 SubmissionCoordinator 只在 GPU 成功且 epoch 匹配后提升 completed raw。每 surface 最多一个 pending candidate；同 epoch 同 simulation frame 重绘只导出，resize/reset 后用同一 snapshot 初始化新 extent 并合成一次，不推进 VM。首次 seed 使用项目现役不透明 clear color；该初始化策略不宣称官方初帧语义。
 

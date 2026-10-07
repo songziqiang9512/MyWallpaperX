@@ -1,12 +1,12 @@
 <!-- document-role: historical-evidence -->
 
-> **历史证据 — 非现役入口**。本页是接手时点的冻结快照；现役顺序归[兼容路线](../../roadmap/scene-compatibility-roadmap.md)与[断点队列](../../roadmap/scene-open-breakpoint-queue.md)。
+> **历史证据 — 非现役入口**。本页是接手时点的冻结快照；现役顺序归[兼容路线](../roadmap/scene-compatibility-roadmap.md)与[断点队列](../roadmap/scene-open-breakpoint-queue.md)。
 
 # Scene 暂停交接（2026-10-06）
 
 > **已接手（2026-10-06，后继 Agent）**：用户已向新会话下达恢复授权并重申目标；暂停状态解除，本文第1–5节的范围、已完成能力与工作卡由后继 Agent 沿用执行，不再作为"暂停中"的有效状态。接手核对结果：HEAD `dead0a10`、工作区干净、分支 `codex/engine-refactor-program`，与本记录一致。后续进度以各权威文档与提交为准，本页冻结为接手时点快照。
 
-用户要求本批收尾提交后暂停长期 Goal，原因是额度不足。本文件所在提交是暂停快照；恢复时先核对当前 HEAD 和 dirty paths，不能假定工作区仍与本记录一致。本页是恢复操作说明，长期选序仍归[兼容路线](../../roadmap/scene-compatibility-roadmap.md)和[断点队列](../../roadmap/scene-open-breakpoint-queue.md)，能力合同仍归相应专题。
+用户要求本批收尾提交后暂停长期 Goal，原因是额度不足。本文件所在提交是暂停快照；恢复时先核对当前 HEAD 和 dirty paths，不能假定工作区仍与本记录一致。本页是恢复操作说明，长期选序仍归[兼容路线](../roadmap/scene-compatibility-roadmap.md)和[断点队列](../roadmap/scene-open-breakpoint-queue.md)，能力合同仍归相应专题。
 
 ## 1. 用户目标与不可改变的顺序
 
@@ -19,7 +19,7 @@
 
 1. 读根 `AGENTS.md` 和 `.agents/skills/mywallpaperx-maintainer/SKILL.md`，从 `docs/README.md`、仓库地图、技术栈合同与 `docs/scene/README.md` 路由。不要从历史报告或整个 Reference Project 开始。
 2. 执行 `git status --short --branch --untracked-files=all`、`git log -8 --oneline`，列精确 owned paths。暂停前分支 `codex/engine-refactor-program`；本批起点 `fa02f6bf3c21c7454aa7134dadcf4e5157e25cc4`。只窄暂存/提交，不推送。
-3. 读本页第3、4节及本批[默认模型纹理记录](../static-model-default-albedo-implementation-2026-10-06.md)。先确认前批运行与本机文件仍在，丢失旧临时证据时如实重建，不伪称已复验。
+3. 读本页第3、4节及本批[默认模型纹理记录](static-model-default-albedo-implementation-2026-10-06.md)。先确认前批运行与本机文件仍在，丢失旧临时证据时如实重建，不伪称已复验。
 4. 只选择一个最早错误的职责，先复现可见问题再改代码；两次实验未推进断点就重新定位。重要能力先更新既有设计和 `script/design_gated_areas.json`；approved 只表示可实施。
 
 ## 3. 现在已经有什么，不能重做什么
@@ -53,7 +53,7 @@ JUNO先从原总览经右箭头进入木星，开启探测器/标签，再进入
 
 ### H1 — HDR/SDR 用户反馈收口
 
-先读[现役D2设计](../../roadmap/batch2/hdr-tonemap-edr-design.md)第39行后的实施裁决及其链接，**不要重复造Bloom或EDR路径**。旧路线中“尚未开放EDR/缺scatter”是过期导航，本次已纠正。
+先读[现役D2设计](../roadmap/batch2/hdr-tonemap-edr-design.md)第39行后的实施裁决及其链接，**不要重复造Bloom或EDR路径**。旧路线中“尚未开放EDR/缺scatter”是过期导航，本次已纠正。
 
 用固定样本分别记录用户HDR开关、display headroom、surface格式/颜色空间和实际输出。检查SDR设备、EDR设备、移屏、开关热更新、暂停重绘、失败保旧帧。16F不等于线性；PNG只能验证编码后的显示，不是物理EDR亮度；Bloom/输出结果不得回写raw/history。不要重新引入默认压白shoulder，也不要用headroom常数或样本白名单修颜色。
 
@@ -67,13 +67,13 @@ HDR Bloom的五字段与scatter/上采样已存在。`iterations=0/1`的精确�
 
 ### M1 — 通用播放器、封面与歌词后继
 
-恢复时按[系统媒体设计](../../roadmap/batch2/system-media-input-design.md)确认已启用的Debug实验入口和Release边界；D6仍约束私有backend分发。单producer、单inbox、source epoch与迟到回包拒绝必须保留。系统来源未知时不要用Apple Music旧曲目冒充当前来源；不能为QQ/汽水另造状态树。先确认平台实际供应哪些metadata，再补适配、切歌/暂停/退出/无封面和多播放器仲裁；歌词是独立能力，歌曲名/专辑图出现不代表歌词支持。本文没有宣称上述播放器全部已验证。
+恢复时按[系统媒体设计](../roadmap/batch2/system-media-input-design.md)确认已启用的Debug实验入口和Release边界；D6仍约束私有backend分发。单producer、单inbox、source epoch与迟到回包拒绝必须保留。系统来源未知时不要用Apple Music旧曲目冒充当前来源；不能为QQ/汽水另造状态树。先确认平台实际供应哪些metadata，再补适配、切歌/暂停/退出/无封面和多播放器仲裁；歌词是独立能力，歌曲名/专辑图出现不代表歌词支持。本文没有宣称上述播放器全部已验证。
 
-2026-10-06 第一片已完成：平台供应表与实时链验证见[系统媒体供应与实时链](../system-media-live-supply-verification-2026-10-06.md)（WebKit非音乐源活链+自然切歌实时跟随；适配/切歌路径确认无需按播放器新代码，仲裁权在系统localNowPlaying）。剩余：暂停/恢复真实观察、多播放器并发仲裁显式观察、QQ/网易云/汽水账号内实测、歌词独立批。
+2026-10-06 第一片已完成：平台供应表与实时链验证见[系统媒体供应与实时链](system-media-live-supply-verification-2026-10-06.md)（WebKit非音乐源活链+自然切歌实时跟随；适配/切歌路径确认无需按播放器新代码，仲裁权在系统localNowPlaying）。剩余：暂停/恢复真实观察、多播放器并发仲裁显式观察、QQ/网易云/汽水账号内实测、歌词独立批。
 
 ### 其余已规划、不要误认为完成
 
-[Batch2索引](../../roadmap/batch2/batch2-design-index.md)与[派生卡](../../roadmap/batch2/reference-evidence-implementation-cards.md)保留完整范围。D1未知passthrough/特殊变换、D4/D11未确认API/reset、Vortex/Remap/collision-bounds剩余profile、D12缺失mip profile仍按各设计执行；D5 Web跨源回包、D7下载失败可见性是独立队列。D9/D10已有policy/frame gate，不再造第二clock/throttle。设计approved、参考报告条目、语料统计都不等于已执行或用户验收。
+[Batch2索引](../roadmap/batch2/batch2-design-index.md)与[派生卡](../roadmap/batch2/reference-evidence-implementation-cards.md)保留完整范围。D1未知passthrough/特殊变换、D4/D11未确认API/reset、Vortex/Remap/collision-bounds剩余profile、D12缺失mip profile仍按各设计执行；D5 Web跨源回包、D7下载失败可见性是独立队列。D9/D10已有policy/frame gate，不再造第二clock/throttle。设计approved、参考报告条目、语料统计都不等于已执行或用户验收。
 
 ## 5. 测试、运行和独立审查的最短正确路径
 
