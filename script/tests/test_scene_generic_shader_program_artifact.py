@@ -4015,6 +4015,7 @@ private struct GenericShaderArtifactHarness {
                     isSourceIndependentPremultipliedOutput: false,
                     graphTextureSlots: [],
                     graphInputTextureSlots: [],
+                    graphDataTextureSlots: [],
                     activeTextureSlots: [],
                     activeOpacityMaskSlots: [],
                     typedStaticDataAuxiliarySlots: [],

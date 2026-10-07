@@ -217,6 +217,7 @@ private enum Harness {
                     hasOnlyScalarDataInputs: false,
                     isSourceIndependentPremultipliedOutput: false,
                     graphTextureSlots: [], graphInputTextureSlots: [0],
+                    graphDataTextureSlots: [],
                     activeTextureSlots: [0, 1, 2], activeOpacityMaskSlots: [2],
                     typedStaticDataAuxiliarySlots: [2],
                     preservedChannelsExternalProviderTextureSlots:

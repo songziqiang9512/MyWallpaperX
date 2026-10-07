@@ -183,7 +183,7 @@ private func damageEntry(_ url: URL) throws -> Data {
 // MARK: - Generic analysis tier
 
 private func makeGenericInput(
-    marker: String
+    marker: String, graphDataSlots: Set<Int> = []
 ) -> SceneResolvedMaterialGenericShaderResolutionCache.Input {
     .init(
         vertexSource: "// probe vertex \(marker)\n",
@@ -199,7 +199,8 @@ private func makeGenericInput(
         hasOnlyScalarDataInputs: false,
         isSourceIndependentPremultipliedOutput: false,
         graphTextureSlots: [],
-        graphInputTextureSlots: [],
+        graphInputTextureSlots: [0, 1],
+        graphDataTextureSlots: graphDataSlots,
         activeTextureSlots: [0],
         activeOpacityMaskSlots: [],
         typedStaticDataAuxiliarySlots: [],
@@ -224,7 +225,7 @@ private func runGenericProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "generic")
     let root = try cacheRoot()
     let directory = tierDirectory(
-        root: root, name: "SceneGenericShaderAnalysis-v6"
+        root: root, name: "SceneGenericShaderAnalysis-v7"
     )
     let input = makeGenericInput(marker: "probe-a")
     try expect(
@@ -252,6 +253,40 @@ private func runGenericProbe() throws -> ProbeOutput {
             && loaded?.defaultBoundaryColorSlots == [3],
         "hit"
     )
+    let dataInput = makeGenericInput(marker: "probe-a", graphDataSlots: [0])
+    try expect(into: &output,
+        dataInput != input
+            && SceneGenericShaderAnalysisCache.inputDigest(of: dataInput)
+                != SceneGenericShaderAnalysisCache.inputDigest(of: input)
+            && SceneGenericShaderAnalysisCache.load(input: dataInput) == nil,
+        "graph-content-key-miss")
+    let colorAnalysis = SceneResolvedMaterialGenericShaderArtifactCache
+        .computeAnalysis(input: input)
+    let dataAnalysis = SceneResolvedMaterialGenericShaderArtifactCache
+        .computeAnalysis(input: dataInput)
+    try expect(into: &output,
+        colorAnalysis.defaultBoundaryColorSlots == [0, 1]
+            && dataAnalysis.defaultBoundaryColorSlots == [1],
+        "graph-data-excluded-from-color-boundary")
+    let msl = """
+    using namespace metal;
+    fragment Output f() {
+        Output out = {};
+        float4 state = g_Texture0.sample(stateSampler, uv);
+        float4 bg = g_Texture1.sample(colorSampler, uv);
+        out.mwxFragColor = float4(bg.xyz * state.y, bg.w);
+        return out;
+    }
+    """
+    let lowered = SceneGenericShaderDefaultStraightColorBoundaryLowering.lower(
+        msl, colorSlots: dataAnalysis.defaultBoundaryColorSlots)
+    try expect(into: &output,
+        lowered?.appliedSlots == [1]
+            && lowered?.msl.contains("float4 state = g_Texture0.sample(stateSampler, uv);") == true
+            && lowered?.msl.contains("mwxGenericUnpremultiply(g_Texture1.sample") == true
+            && lowered?.msl.components(separatedBy:
+                "out.mwxFragColor = mwxGenericPremultiply(out.mwxFragColor);").count == 2,
+        "graph-data-sample-preserved-color-converted-once")
     let entry = entries[0]
     let original = try damageEntry(entry)
     try expect(
@@ -640,6 +675,9 @@ EXPECTED_TIER_CHECKS = {
         "read-only-miss",
         "publish",
         "hit",
+        "graph-content-key-miss",
+        "graph-data-excluded-from-color-boundary",
+        "graph-data-sample-preserved-color-converted-once",
         "corrupt-safe-miss",
         "tampered-digest-miss",
         "stale-schema-miss",

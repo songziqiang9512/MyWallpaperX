@@ -380,7 +380,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                                 outputIsRGBA8Unorm: outputIsRGBA8Unorm,
                                 implicitFramebufferIdentity:
                                     implicitFramebufferIdentity,
-                                graphTextureFormatFacts: graphTextureFormatFacts
+                                graphTextureFormatFacts: graphTextureFormatFacts,
+                                graphTextureContentFacts: graphTextureContentFacts
                             ))
                         }
                     }
@@ -679,7 +680,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         outputStorage: SceneResolvedMaterialProgram.OutputStorage,
         outputIsRGBA8Unorm: Bool,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
-        graphTextureFormatFacts: [Graph.TextureIdentity: SceneShaderTextureFormat]
+        graphTextureFormatFacts: [Graph.TextureIdentity: SceneShaderTextureFormat],
+        graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent]
     ) throws -> Variant {
         if let entry = entries[key] {
             switch entry {
@@ -704,6 +706,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 outputIsRGBA8Unorm: outputIsRGBA8Unorm,
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
                 graphTextureFormatFacts: graphTextureFormatFacts,
+                graphTextureContentFacts: graphTextureContentFacts,
                 onBoundedFrontendCompilation: { frontendCompilations += 1 }
             )
             entries[key] = .ready(variant)

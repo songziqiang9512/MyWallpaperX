@@ -242,7 +242,7 @@ exact Timeline vector2 是独立 typed producer cohort，不经过 scalar projec
 
 现役调度按stage执行Program-first；Program失败段只可使用typed pair或logical-target，并与Program保持作者顺序；persistent history由共享GraphTargets/MaterialProgram/GraphExecutor直接执行。B8 raw full-frame-compose adapter已由V1共享normalized-sample-sum owner取代并删除；B9-B13曾依次闭合Directional God Rays、visibility、captured-main与两种external-primary ownership，其中B9 legacy Directional logical-target adapter已由当前V1-B shared-owner cohort撤权并物理删除，现只保留历史provenance。Cursor专用strict history-target adapter现也已删除。B15-B22完成其他旧产品owner撤权，B23-B25删除旧执行surface与observation。generic layer-local compose、strict two-node scene-background carrier与bounded two-target feedback已有各自公共证据；stock Refraction normal/mask、其他background/dependency compose、generic/full-frame-compose captured-main、更宽history、generic named texture、secondary/multiple dependency、unknown variants与其他未迁移shape仍不会借第二路径恢复。普通authored Blend继续走现役Program/typed effect合同，requires-source-copy与layer color blend仍是结构性合成。B22 full45 45/45 PASS、fixed13 12/13 NON-PASS仍是最后formal跨样本基线；最新独立V1证据不能替代fresh full、Windows visual golden、性能或视觉parity。
 
-独立信号的通用保留fallback只接纳载体的已证明标量变换；零种子累加检查源读取和每次整向量写，不将生成RGBA合成误标成信号。专用producer/carrier/accumulator保持独立证明，普通颜色回到已有默认边界，typed资源校验不放宽。见[修复记录](../history/signal-color-classification-2026-10-07.md)。
+独立信号的通用保留fallback只接纳载体的已证明标量变换；零种子累加检查源读取和每次整向量写，不将生成RGBA合成误标成信号。专用producer/carrier/accumulator保持独立证明，普通颜色回到已有默认边界；图输入的拓扑身份不等于颜色，最高优先图候选的已证数据内容须排除于颜色转换，内容事实进入编译缓存身份，typed资源校验不放宽。见[修复记录](../history/signal-color-classification-2026-10-07.md)。
 
 ### Advanced Fluid shared graph 现役执行边界
 

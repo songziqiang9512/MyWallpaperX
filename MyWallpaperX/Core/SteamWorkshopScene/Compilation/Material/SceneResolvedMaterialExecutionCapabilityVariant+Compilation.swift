@@ -9,6 +9,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         outputIsRGBA8Unorm: Bool,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         graphTextureFormatFacts: [Graph.TextureIdentity: SceneShaderTextureFormat],
+        graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent],
         onBoundedFrontendCompilation: () -> Void
     ) throws -> Variant {
         let readinessMask = variantKey.readinessMask
@@ -50,6 +51,17 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 else { return nil }
                 return (slot, identity)
             })
+        // The highest-priority graph candidate is terminal in launch selection.
+        // Reuse that exact identity and the producer's admitted content fact;
+        // graph topology and RGBA storage alone do not establish color.
+        let graphDataTextureSlots = Set(activeGraphTextureIdentities.compactMap {
+            slot, identity -> Int? in
+            guard readinessMask & (1 << UInt8(slot)) != 0,
+                  identity != implicitFramebufferIdentity,
+                  let content = graphTextureContentFacts[identity],
+                  !content.isColorContent else { return nil }
+            return slot
+        })
         let graphTextureSlots = Set(activeGraphTextureIdentities.compactMap {
             $0.value.kind == .framebuffer ? $0.key : nil
         })
@@ -130,6 +142,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             activeTextureSlots: activeTextureSlots,
             graphTextureSlots: graphTextureSlots,
             graphInputTextureSlots: graphInputTextureSlots,
+            graphDataTextureSlots: graphDataTextureSlots,
             activeOpacityMaskSlots: activeOpacityMaskSlots,
             typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
             selectedMixedDataSlots: selectedMixedDataSlots,

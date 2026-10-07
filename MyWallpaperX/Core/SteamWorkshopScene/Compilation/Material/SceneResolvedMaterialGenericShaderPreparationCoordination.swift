@@ -28,8 +28,8 @@ nonisolated enum SceneGenericShaderAnalysisCache {
     /// The only invalidation lever for this tier: bump when any analyzer,
     /// normalizer or profile-classification semantic change lands (the shared
     /// frontendSchemaVersion constant has no mechanical bump guarantee).
-    /// v6: terminal color composition no longer claims signal preservation.
-    private static let schemaVersion = 6
+    /// v7: proven graph data does not cross the default color boundary.
+    private static let schemaVersion = 7
     private static let maximumEntryBytes = 64 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()
@@ -87,6 +87,7 @@ nonisolated enum SceneGenericShaderAnalysisCache {
         append(input.isSourceIndependentPremultipliedOutput ? "1" : "0")
         appendSet(input.graphTextureSlots)
         appendSet(input.graphInputTextureSlots)
+        appendSet(input.graphDataTextureSlots)
         appendSet(input.activeTextureSlots)
         appendSet(input.activeOpacityMaskSlots)
         appendSet(input.typedStaticDataAuxiliarySlots)
@@ -308,6 +309,7 @@ nonisolated final class SceneResolvedMaterialGenericShaderResolutionCache:
         let isSourceIndependentPremultipliedOutput: Bool
         let graphTextureSlots: Set<Int>
         let graphInputTextureSlots: Set<Int>
+        let graphDataTextureSlots: Set<Int>
         let activeTextureSlots: Set<Int>
         let activeOpacityMaskSlots: Set<Int>
         let typedStaticDataAuxiliarySlots: Set<Int>
@@ -681,11 +683,12 @@ extension SceneResolvedMaterialGenericShaderArtifactCache {
             []
         }
         // Approved product default for an unclassified color pass: graph
-        // inputs and proven premultiplied provider slots cross the straight
+        // color inputs (excluding producer-proven data) and premultiplied providers cross the straight
         // color boundary and the terminal output is premultiplied once.
         let defaultBoundaryColorSlots: Set<Int> =
             colorTransfer.permitsDefaultStraightColorBoundary
-            ? graphInputTextureSlots.union(premultipliedColorAuxiliarySlots)
+            ? graphInputTextureSlots.subtracting(input.graphDataTextureSlots)
+                .union(premultipliedColorAuxiliarySlots)
             : []
         return SceneGenericShaderAnalysis(
             profile: profile,
