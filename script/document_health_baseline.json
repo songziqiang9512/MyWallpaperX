@@ -133,8 +133,8 @@
       "bytes": 100603
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
-      "lines": 40,
-      "bytes": 6799
+      "lines": 46,
+      "bytes": 8174
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
       "lines": 111,
@@ -193,8 +193,8 @@
       "bytes": 32494
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 131,
-      "bytes": 52006
+      "lines": 148,
+      "bytes": 56407
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1091,15 +1091,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
-      "before": "7e5ff9cd6e3ead5eb4fc8935a35fd12a6569d1c1b4b7a496b2af83c0e99d8848",
-      "after": "756dadf4107ee5b3a349d3d172108c242ab7d01ac2482a62959de69dcbd57358",
-      "owner": "scene-effect-activation",
-      "reason": "真实普通开关的准备遗漏沿D1现owner纠偏，保留资源及utility准入反例。",
-      "decision": "docs/scene/history/composition-effect-activation-implementation-2026-10-05.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "before": "9d0455d8389cae493194fcbd0415c3c0ab1b6525aaa0861c7d6b9510663e925b",
       "after": "b17884019cab574e15c3a95dff30b3d21abc6e8eb3a089d4e4abcd1ed2cf388c",
@@ -1190,15 +1181,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "77009019186cf73ee5986af7570a9de4d834096e5b33ea8ffee4f6243387383a",
-      "after": "224937f6ecb1f3b20a8bd5f9d230036729d3abbac24773b20f351a92302c2462",
-      "owner": "scene-maintainer-succession",
-      "reason": "太阳系条目 2D lit >4 灯象限与零点哨兵收口、lit 族测试债偿清及两预存红登记；只登记本次精确文档变化。",
-      "decision": "docs/scene/history/2d-lit-image-light-contract-2026-10-06.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
       "before": "d3f22eea89504018746a8442678f5c51c274950a23597cfad9a2f8999e3d6be9",
       "after": "07f0baba03e78a9826b928d3c25e3a78e813ca9a84618ea3e0bd0cf066c2e3d0",
@@ -1232,6 +1214,24 @@
       "owner": "steam-detail-sheet",
       "reason": "播放诊断菜单入口改为仅 Debug 提供（Release 详情面板移除入口），responsiveness 合同 3.1 同步该产品事实并刷新导航审查回执；只登记本次精确文档变化。",
       "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
+      "before": "756dadf4107ee5b3a349d3d172108c242ab7d01ac2482a62959de69dcbd57358",
+      "after": "8ea2dd521db4c749956d8813be6cc460577cdc5063da04b0e9165e763c538768",
+      "owner": "scene-composition-render-target",
+      "reason": "成员闭包扩展到完整 parent 级联：组员带 transform 链准入，模型/粒子/灯与依赖型组排除不变。",
+      "decision": "docs/scene/history/composition-member-closure-2026-10-07.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "224937f6ecb1f3b20a8bd5f9d230036729d3abbac24773b20f351a92302c2462",
+      "after": "d2c7b1358ff73d39357b8f7beea5a8b42de5705aeefb97a1cc064d222023720a",
+      "owner": "scene-open-breakpoint-queue",
+      "reason": "QF 工作卡登记+批A 收口与批A2 残余登记：2026-10-07 用户点名四样本公共主链修复。",
+      "decision": "docs/scene/history/composition-member-closure-2026-10-07.md"
     }
   ]
 }

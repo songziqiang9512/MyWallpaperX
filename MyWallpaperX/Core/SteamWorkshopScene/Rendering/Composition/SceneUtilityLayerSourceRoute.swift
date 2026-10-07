@@ -79,6 +79,8 @@ nonisolated enum SceneUtilityLayerSourceRoute {
         }
         // Existing color producers can draw into this target. Depth-tested
         // models, particles and lights retain their existing unsupported route.
+        // Plain members may own transform-parent chains; membership follows
+        // the full parent closure, so only the member kind is restricted.
         for childID in descendants {
             guard let child = layersByID[childID] else {
                 return .failure(.compositionSubtreeShape)
@@ -90,8 +92,7 @@ nonisolated enum SceneUtilityLayerSourceRoute {
                     return .failure(.compositionSubtreeShape)
                 }
             } else {
-                guard ["image", "solid", "text"].contains(child.contentKind),
-                      child.childLayerIDs.isEmpty else {
+                guard ["image", "solid", "text"].contains(child.contentKind) else {
                     return .failure(.compositionSubtreeShape)
                 }
             }

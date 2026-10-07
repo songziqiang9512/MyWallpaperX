@@ -21,6 +21,12 @@
 
 验收包含初始隐藏→显示→隐藏→恢复、嵌套组、子层自身 false、子 effect/文字、健康邻层与静态显隐像素对照，以及畸形层级反例、Debug build 和真实326同输入开关。普通视觉资源失败继续局部降级；非法结构拒绝目标，整键原子准入不拆分。完成此固定分组闭环即收口，不借机扩大 passthrough、变换裁切或官方 parity；启动准备可能增加，实际热更新是否避免重载及画面是否恢复分别验证。
 
+## 成员闭包扩展到完整 parent 级联（2026-10-07）
+
+真实322 的组员是带 transform 父子链的 image/text（中间成员自带效果、叶子可再挂子层），现行守卫要求 image/solid/text 成员 childless，导致两组被 `execution-route-utility-composition-subtree-shape` 整体拒绝、组捕获与组级效果全部缺失。成员语义按本卡既裁决「成员随 parent 分组」推广：成员闭包=完整 parent 闭包，中间 plain 成员允许拥有子层（深层成员沿既有 world frame 父链合成进入同一组目标），成员类型约束不变——模型/粒子/灯、非组合 utility、passthrough、依赖型组维持原排除，父子索引一致与无环必需不变。成员效果在组目标内的执行、嵌套组合成一次、pool/pin/generation/completion 全部沿用现役机制，不新增 owner、不在普通帧重建闭包。成员级 `dependencyLayerIDs`/`authoredDependencies` 的准入在扩展前后保持一致（本批不新增成员级依赖检查，官方成员级依赖语义未证前维持现状，留待组合 parity 批裁决）。
+
+验收：真实322 两组获准捕获且零新增 passthrough，原包三视图构图与组级色差可见改善；既有组合 App 门（authored order 十案、visibility、effect visibility）零回归；成员含模型/粒子的负例仍整组拒绝。
+
 ## 初始关闭效果的实时激活决定（2026-10-05）
 
 真实339的独立composition可在启动前开启CRT、色差和示波器模式，但运行中同键被拒绝。首断点是inactive effect准备准入漏掉composition，不是shader能力缺失。把现有standalone fullscreen准备规则推广到SourceRoute已支持的无父子、无依赖composition；保留原effect Program、activation passthrough、capture计划和唯一compositor。普通值更新只发布typed snapshot，不重编或重建场景。provider、named消费、passthrough、父子及未知source形态不借此开放；脚本候选也不能绕过utility依赖限制。

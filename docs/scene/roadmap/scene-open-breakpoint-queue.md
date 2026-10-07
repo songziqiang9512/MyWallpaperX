@@ -14,6 +14,8 @@
 
 ## 2. 现役执行顺序
 
+2026-10-07：用户点名四样本公共主链修复（见 QF），该顺序临时优先于 2026-10-06 交接顺序（太阳系余项→HDR/SDR→重型普通入口在其后恢复）。
+
 <a id="qv-visual-repairs"></a>
 
 ### QV — 最新实测驱动的可见修复（2026-09-27）
@@ -39,6 +41,21 @@
 | 本轮未提及的旧问题 | 按用户明确指示视为非严重或部分解决，可搁置：包括 `3028090166` 光束、`2419444134` 白点、`3113554287` 顿挫、`2304304373` 雾气、烟花/洋红与一般拖尾样式。既有局部修复及未关闭边界留在[运行证据](../capabilities/runtime-evidence-current.md)，不以本次沉默生成 pass。下方旧 Q1/Q0/Q3 等作为存量余项，除非阻塞本表公共修复或用户重新点名，不抢占本表。 |
 
 实现允许在完整职责范围内简化或重写；优先删除重复状态推导、绕行适配与无收益补偿，不能为每个样本再套一层专用分支。需要用户视觉判断时先准备能直接测试的构建/对照和具体问题，再询问效果是否达标。
+
+### QF — 2026-10-07 用户点名四样本公共主链修复
+
+用户点名 3226487183（纹理合成错误）、833227004（特效不加载）、3809618616（全屏渐变色）、3791967416（合成不全、特效不全），要求从公共主链修复、禁止样本特判；能力不得回退，换链路须平替接线。按批推进：实现→验证→独立子代理审查→窄提交，每批汇报下一批与总进度。取证基线=2026-10-07 当前 HEAD Debug 隔离回放（/private/tmp/mwx-sample4，4×12s+周期截图，日志与遥测为准）。定性如下，全部为公共链缺口：
+
+| 批 | 症状 | 当前 HEAD 定性 | 首查职责与关闭门 |
+|---|---|---|---|
+| 批A ✅2026-10-07 | 3226487183 纹理合成错误 | 层 2522/115975 composition 被 `execution-route-utility-composition-subtree-shape` 拒绝：组员是带 transform 父子链的 image/text（隔代嵌套、成员自带效果），`SceneUtilityLayerSourceRoute` 现行守卫要求 image/solid/text 成员 `childLayerIDs` 为空。组捕获与组级色差/透明度整体缺失。 | 已落地：成员闭包扩到完整 parent 闭包（模型/粒子/灯与非组合 utility 仍排除），D1 设计已修订；两层转捕获执行（组级 chromatic_aberration/opacity 进入 effect-cpu-invocation）、14/14 组合域模块全绿、结构门全绿、独审 APPROVE。记录=[组合成员闭包](../history/composition-member-closure-2026-10-07.md)。fixed13 对账与残余见批A2 |
+| 批A2 | 3226487183 错位残余（批A 后画面基本不变） | 批A 后组捕获准入但用户可见错位（侧脸大图缺失、游离手臂碎片）未变：成员像素与扁平绘制一致。剩余差异指向两侧拆分源文件链——origin 由用户属性脚本求值（newproperty/x 滑条）、`*_puppet.mdl` 骨架附件、`parentAttachmentBindFrame` 挂接；`jiaose` 条件变体求值已证正确（="1"）。 | 侧链取证：隔离回放对比官方截图（三视图完整构图），逐层核对 script origin 求值、puppet 附件矩阵与 world frame；先归因再修公共链（puppet 附件或脚本 origin 域）。门：侧脸构图与官方一致、碎片消失、批A 证据不回退 |
+| 批B | 3809618616 全屏渐变色 | `Simple_Audio_Bars` 作者 shader 在 `int bar` 上 `bar *= step(...)`（int 复合赋值 float 右值，author.frag:273/274）被 stage-link 拒编译；两个全屏 composelayer 上 bars passthrough 后 gradient_color（Hue Speed 0.3）独自全屏执行=整屏旋转渐变。 | normalizer 沿 `or` 改名先例增 int 复合赋值显式截断转换（含 `+=/-=/=*=/=`，需 int 声明扫描）。门：该 shader 编译通过、bars+gradient 可见、全屏渐变消失、shader 既有门零回归 |
+| 批C | 3791967416 合成不全、特效不全 | 层 23（utility-fullscreen）两效果 `texture-purpose-unproven`（聚光灯暗化链缺失→人物身体不可见、白花背景灰蒙）；层 265/271/275/57 `tech_circle_barcode` `color-contract-unproven`。 | 即画质审查第三层#3 已登记「纹理用途 source-proven typing 在 canonical 源上全部失效」：先写语义裁决卡（typing 分析 prepared 源 vs 语法分析器学 canonical 形态）再实施；color-contract 残类另批按 E5 ②-e/②-f。门：层 23 两效果 encoded-output、原包聚光灯可见 |
+| 批D | 833227004 特效不加载 | model→material（flowimage 双纹理流动）材质管线 `planned=0`：零场景效果、模型引用自定义材质的层不在候选集（2026-09-30 缺口1 ②既有登记：raw-graph-count/validateOuterGraph 以 layer.effects 为锚，合成 stage 无从对位）。 | material-only 执行路由（合成单 pass graph 或独立路由）设计先行；与批C typing 修复可能同源合并，先做 C 后按剩余定性。门：材质管线 planned≥1、flow 流动可见、星云底图不回退 |
+
+顺序 A→B→C→D（按证据清楚度与风险）；每批完成后四样本隔离回归+fixed13 对账，全部完成后用户实机验收。进度与每批结果见[运行证据](../capabilities/runtime-evidence-current.md)当日段。
+
 
 ### Q1 — 鼠标/指针交互簇（保留既有闭合与挂起边界）
 
@@ -112,7 +129,7 @@
 | 尚未关闭的问题 | 下一步与关闭条件 |
 |---|---|
 | Scene Bloom 完整HDR链与视觉对照 | 静态及direct属性热调已沿唯一compositor执行；[热调批](../capabilities/runtime-evidence-current.md#e-2026-09-28-bloom-live-properties)闭合binding→snapshot→post、初始禁用后开启及drawable可读用途，保留上一批失败保源。Combo条件开关已接入共享Boolean求值并经真实Metal验证；五字段HDR Bloom/scatter/上采样已实施，范围见[D2](batch2/hdr-tonemap-edr-design.md)。2026-10-06 用户"HDR开关不生效"复验：偏好 off 全程无EDR爬升，on 随内容爬升（同 dylib A/B，偏好已复原；旧 hdr-off3 证据过期）。2026-10-07 运行中热切运行验证：OFF→ON→OFF headroom 爬升后回 1.0、colorspace/format 同 surface 不变、dropped=0（[热切验证](../history/hdr-live-toggle-verification-2026-10-07.md)）。剩余：暂停重绘（需debug控制通道或实机）、多屏/SDR设备（单XDR屏not-run）、物理亮度与用户样本对照，不能因RGBA16F或局部门通过关闭条纹/光束问题。 |
-| 全 corpus identity-only matrix 与人工视觉复核 | **fixed13 已于 2026-09-25 全绿（13/13，观察模式）**：存量 8 样本漂移完成对账（succeeded/utility/text/sha/puppet 数值随能力演进更新；2902406982 层 410/414 处置从 unsupportedEffects 迁移为 capture=能力成长；puppet checker 正则跟上 cbd126d3 的 "puppet world geometry OK" 改名，数据与原期望完全吻合零矩阵改动；8 样本计数器按 retire 全有或全无合同全量退役）。矩阵期望漂移仍用 `generate_scene_full_matrix.py` 正规流程（fixed13 sha pin 已同步）；人工重看后才改 verdict |
+| 全 corpus identity-only matrix 与人工视觉复核 | **fixed13 已于 2026-09-25 全绿（13/13，观察模式）**；**2026-10-07 用户裁定 fixed13 覆盖不足**（语料 208+，fixed13=2026-07-26 冒烟集）：扩张按既有正规流程推进——`generate_scene_full_matrix.py` 在当前 HEAD 重建 45 成员 full-matrix 期望（现状 7/13 fixed 期望已漂移，均为 2026-09-25 钉定后能力成长，与单批改动无关），full matrix 对账通过后按 census 分域挑选代表性扩容成员（音频/组合/模型材质/粒子/文字各域），扩容=跑通当前身份+按 oracle 登记或显式登记为 not-tracked，禁止把未跑样本计入通过。人工重看后才改 verdict |
 
 ### Q2 — 稳定帧性能
 
