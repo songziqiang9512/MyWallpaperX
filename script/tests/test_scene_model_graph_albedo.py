@@ -336,8 +336,9 @@ NATIVE_MAIN = r'''
         // model as available here observes only wrapper input projection/memo;
         // the real plan test above proves models never gain graph identities.
         let memoRoots = [[2], [], [2]].map { prepared -> [Int] in
-            runtime.resolvedMaterialExecutionLayerIDs(visibleRootLayerIDs: [2, 40],
-                availableExecutionLayerIDs: [2, 40], activeStaticModelConsumerLayerIDs: Set(prepared)).sorted()
+            runtime.resolvedMaterialFrameDemand(visibleRootLayerIDs: [2, 40],
+                availableExecutionLayerIDs: [2, 40], liveLayerIDs: [2, 11, 40],
+                activeStaticModelConsumerLayerIDs: Set(prepared)).activeExecutionLayerIDs.sorted()
         }
         for frame in 1...2 {
             let epoch = registry.beginFrame(frameIndex: UInt64(frame), layerSources: [:])

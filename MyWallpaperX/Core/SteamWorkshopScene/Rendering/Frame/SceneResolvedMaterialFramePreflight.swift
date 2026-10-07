@@ -41,40 +41,15 @@ extension SceneMetalRenderer {
         let liveLayerIDs = Set(orderedLayers.map(\.id))
         let availableExecutionLayerIDs = (imageCompositor.resolvedMaterialRuntime?
             .executionLayerIDs ?? []).intersection(liveLayerIDs)
-        // An aggregate cannot consume a partial vector. Retire that consumer
-        // and its dependants from graph demand before preparing any targets.
-        var unavailableAggregateConsumers = Set(dependencyRuntime.plan
-            .multiProviderAggregatesByConsumerLayerID.values.filter {
-                !$0.providerLayerIDs.isSubset(of: liveLayerIDs)
-            }.map(\.consumerLayerID))
-        var changed = !unavailableAggregateConsumers.isEmpty
-        while changed {
-            let previousCount = unavailableAggregateConsumers.count
-            for binding in dependencyRuntime.plan.bindingsByConsumerLayerID.values
-            where unavailableAggregateConsumers.contains(binding.providerLayerID) {
-                unavailableAggregateConsumers.insert(binding.consumerLayerID)
-            }
-            for aggregate in dependencyRuntime.plan.multiProviderAggregatesByConsumerLayerID.values
-            where !aggregate.providerLayerIDs.isDisjoint(with: unavailableAggregateConsumers) {
-                unavailableAggregateConsumers.insert(aggregate.consumerLayerID)
-            }
-            changed = previousCount != unavailableAggregateConsumers.count
-        }
-        var activeExecutionLayerIDs = dependencyRuntime
-            .resolvedMaterialExecutionLayerIDs(
-                visibleRootLayerIDs: frameVisibleLayerIDs,
-                availableExecutionLayerIDs: availableExecutionLayerIDs,
-                activeStaticModelConsumerLayerIDs: frameVisibleLayerIDs
-                    .intersection(staticModelResources.namedAlbedoLayerIDs)
-            )
-        unavailableAggregateConsumers.formIntersection(activeExecutionLayerIDs)
-        if !unavailableAggregateConsumers.isEmpty {
-            activeExecutionLayerIDs = dependencyRuntime.resolvedMaterialExecutionLayerIDs(
-                visibleRootLayerIDs: frameVisibleLayerIDs,
-                availableExecutionLayerIDs: availableExecutionLayerIDs.subtracting(unavailableAggregateConsumers),
-                activeStaticModelConsumerLayerIDs: frameVisibleLayerIDs
-                    .intersection(staticModelResources.namedAlbedoLayerIDs))
-        }
+        let demand = dependencyRuntime.resolvedMaterialFrameDemand(
+            visibleRootLayerIDs: frameVisibleLayerIDs,
+            availableExecutionLayerIDs: availableExecutionLayerIDs,
+            liveLayerIDs: liveLayerIDs,
+            activeStaticModelConsumerLayerIDs: frameVisibleLayerIDs
+                .intersection(staticModelResources.namedAlbedoLayerIDs)
+        )
+        let activeExecutionLayerIDs = demand.activeExecutionLayerIDs
+        let unavailableAggregateConsumers = demand.unavailableLayerIDs
         var byLayerID: [Int: SceneResolvedMaterialFrameTargetPlan] = [:]
         var allocationPlans: [ScenePersistentGraphTargetFramePlan] = []
         var preparationRequests: [

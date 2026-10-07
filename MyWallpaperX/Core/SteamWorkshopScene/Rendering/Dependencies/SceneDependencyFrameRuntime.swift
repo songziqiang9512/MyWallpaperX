@@ -26,6 +26,13 @@ enum SceneGraphOutputPublicationResult: Equatable {
 }
 
 final class SceneDependencyFrameRuntime {
+    struct ResolvedMaterialFrameDemand {
+        let activeExecutionLayerIDs: Set<Int>
+        /// Active consumers whose aggregate input or upstream aggregate is
+        /// unavailable. They keep a local fallback without graph demand.
+        let unavailableLayerIDs: Set<Int>
+    }
+
     enum GraphOutputPublicationRole {
         /// The authored visible layer publishes before its normal main-pass
         /// composite consumes the same graph execution ticket.
@@ -102,11 +109,12 @@ final class SceneDependencyFrameRuntime {
         activeStaticModelConsumerLayerIDs: Set<Int>,
         result: [Int]?
     )?
-    private var executionLayerIDsMemo: (
+    private var resolvedMaterialDemandMemo: (
         visibleRootLayerIDs: Set<Int>,
         availableExecutionLayerIDs: Set<Int>,
+        liveLayerIDs: Set<Int>,
         activeStaticModelConsumerLayerIDs: Set<Int>,
-        result: Set<Int>
+        result: ResolvedMaterialFrameDemand
     )?
     /// Defensive same-frame publication identity. The claim/ticket bridge
     /// executes one graph per layer per frame, so a repeated
@@ -202,14 +210,16 @@ final class SceneDependencyFrameRuntime {
         )
     }
 
-    func resolvedMaterialExecutionLayerIDs(
+    func resolvedMaterialFrameDemand(
         visibleRootLayerIDs: Set<Int>,
         availableExecutionLayerIDs: Set<Int>,
+        liveLayerIDs: Set<Int>,
         activeStaticModelConsumerLayerIDs: Set<Int> = []
-    ) -> Set<Int> {
-        if let memo = executionLayerIDsMemo,
+    ) -> ResolvedMaterialFrameDemand {
+        if let memo = resolvedMaterialDemandMemo,
            memo.visibleRootLayerIDs == visibleRootLayerIDs,
            memo.availableExecutionLayerIDs == availableExecutionLayerIDs,
+           memo.liveLayerIDs == liveLayerIDs,
            memo.activeStaticModelConsumerLayerIDs == activeStaticModelConsumerLayerIDs {
             return memo.result
         }
@@ -220,13 +230,44 @@ final class SceneDependencyFrameRuntime {
         let executionRoots = visibleRootLayerIDs.subtracting(modelConsumers)
             .union(visibleRootLayerIDs.intersection(activeStaticModelConsumerLayerIDs)
                 .intersection(modelConsumers))
-        let result = plan.resolvedMaterialExecutionLayerIDs(
+        let available = availableExecutionLayerIDs.intersection(liveLayerIDs)
+        // An aggregate cannot consume a partial vector. Propagate the miss
+        // through the immutable prepared bindings before preparing targets.
+        var unavailable = Set(plan.multiProviderAggregatesByConsumerLayerID
+            .values.filter { !$0.providerLayerIDs.isSubset(of: liveLayerIDs) }
+            .map(\.consumerLayerID))
+        var changed = !unavailable.isEmpty
+        while changed {
+            let previousCount = unavailable.count
+            for binding in plan.bindingsByConsumerLayerID.values
+            where unavailable.contains(binding.providerLayerID) {
+                unavailable.insert(binding.consumerLayerID)
+            }
+            for aggregate in plan.multiProviderAggregatesByConsumerLayerID.values
+            where !aggregate.providerLayerIDs.isDisjoint(with: unavailable) {
+                unavailable.insert(aggregate.consumerLayerID)
+            }
+            changed = previousCount != unavailable.count
+        }
+        var active = plan.resolvedMaterialExecutionLayerIDs(
             visibleRootLayerIDs: executionRoots,
-            availableExecutionLayerIDs: availableExecutionLayerIDs
+            availableExecutionLayerIDs: available
         )
-        executionLayerIDsMemo = (
+        unavailable.formIntersection(active)
+        if !unavailable.isEmpty {
+            active = plan.resolvedMaterialExecutionLayerIDs(
+                visibleRootLayerIDs: executionRoots,
+                availableExecutionLayerIDs: available.subtracting(unavailable)
+            )
+        }
+        let result = ResolvedMaterialFrameDemand(
+            activeExecutionLayerIDs: active,
+            unavailableLayerIDs: unavailable
+        )
+        resolvedMaterialDemandMemo = (
             visibleRootLayerIDs,
             availableExecutionLayerIDs,
+            liveLayerIDs,
             activeStaticModelConsumerLayerIDs,
             result
         )

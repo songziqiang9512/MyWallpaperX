@@ -31,3 +31,11 @@
 范围是已准备作者leaf，父子级联、完整IScene、destroy回调新增跨对象绘制副作用、官方精确callback先后及多surface联验仍未完成。销毁清理沿既有合同丢弃新绘制命令，不嵌套开事务。本批不等于样本全部效果、眼部组装、HDR/SDR、重型样本、长稳或性能验收。
 
 证据根 `/private/tmp/mwx-spotlight-output-20261007` 与 `/private/tmp/mwx-authored-retirement-20261007`；连续构建缓存复用 `/private/tmp/mwx-scene-next-build/cache/14d60a183f08e048bc3d072d`。进程退出后已清理临时App、输入副本、HOME、shader cache及多余截图，精确清单见`retention.json`。最终日志压缩为`.log.gz`，保留报告、身份、原样本最终1张及受控组关键前后图，主证据根约23.8MiB，第二根不足0.1MiB。中央1GiB预算已满，prune无可清登记包，promotion拒绝；未删除未知材料，本批有界结果暂存本地。
+
+## 删除后需求缓存收口（同日后继）
+
+基线 `574d6f48`。将缺源aggregate闭包从preflight移入现DependencyFrameRuntime，替换原单槽memo：一次查询同时返回active与unavailable，按存活层、可见根、可执行图及实际已准备模型集合失效。稳定缺源帧复用完整结果，不再两次查询交替冲掉memo；拓扑变化保留原过滤前后推导与独立需求。旧wrapper删除，未新增缓存owner或产品遥测。
+
+冻结源码见 `/private/tmp/mwx-scene-demand-eye-20261007/source-identity.json`；Debug build、最终App嵌套签名及独立只读审查通过，CDHash `6e71acb788e45f8f0b07c7ddf37cd8ef4bdbc1ad`。focused 45 PASS/1 App门控skip；随后冻结App下补跑该native门，连同5个named-provider删除像素反例和模型隐藏/恢复，共7项PASS。新需求门在真实runtime、测试plan计数器下证明64次重复查询不再重算及四个key分别失效；不把测试计数当FPS或能耗测量。首轮App测试误在签名完成前启动，5项因Sparkle Team ID尚不一致退出；仅保留失败日志说明，最终7项已在完整签名后重跑。
+
+原样本25秒退出0，身体及眼层继续实际绘制，暗幕/Logo未回退；benchmark仍只因固定中心鼠标未达到hover变化门而FAIL，不能据此通过交互或完整样本验收。48/48纹理、6个Puppet层、10个clip进入当前运行链路。眼部仍需相同viewport、pointer和固定动画phase的官方对照；本批没有改作者眼层配置，也没有FPS改善结论。证据根保留日志、报告、身份及必要截图；构建缓存沿前批复用。

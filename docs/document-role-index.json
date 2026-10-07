@@ -352,9 +352,9 @@
       "lastReviewed": "2026-10-07",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7c4bc9a1307910f5d8862ea4be11d45e29a5e831e2099ccf67b10f5d70f90dcb",
+        "sourceSHA256": "0198c52fb598394059ead3af92663cdecb388ae6096b7cf1c8f04678c7cb56cf",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对作者leaf删除、脚本退休、named provider局部失败的已实现边界及冻结证据；不作全样本验收。",
+        "scope": "核对作者leaf退休、named provider局部失败与单槽需求memo的消费合同；不作全样本验收。",
         "limitations": "仅对应本批职责与冻结证据，不表示全样本兼容、官方parity或发布验收。"
       }
     },
