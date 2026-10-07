@@ -27,7 +27,9 @@ CANVAS = (160, 96)
 TOLERANCE = 4
 POINTS = {"model": (80, 48), "shadow": (60, 48), "receiver": (140, 48),
           "witness": (120, 72), "healthy": (145, 80), "hiddenProvider": (20, 72)}
-PLATFORMS = {"dim": [0, 50, 0], "bright": [0, 100, 0], "transparent": [85, 85, 85]}
+# Display-domain model light contract: 180 * intensity 2 * energy 0.30 * cos(45°).
+RECEIVER_RGB = [76, 76, 76]
+PLATFORMS = {"dim": [0, 50, 0], "bright": [0, 100, 0], "transparent": RECEIVER_RGB}
 SOURCES = tuple(REPO / "script/tests" / name for name in (
     "test_scene_model_graph_albedo.py", "test_scene_directional_shadow_integration.py",
     "test_scene_static_model_reader.py", "test_scene_pkg_cache_extractor.py",
@@ -51,8 +53,11 @@ def encoded(value):
     return json.dumps(value, sort_keys=True).encode()
 
 
-def fixture_entries(*, early=False, source_only=False, visibility=False, bad_material=False):
+def fixture_entries(*, early=False, source_only=False, visibility=False, bad_material=False,
+                    retire_provider=False):
     scene, entries = shadow_fixture(caster_lit=False)
+    scene["general"].update(lightconfig={"directional": 1}, ambientcolor="0 0 0")
+    next(layer for layer in scene["objects"] if layer.get("light") == "ldirectional")["intensity"] = 2
     caster = next(layer for layer in scene["objects"] if layer["id"] == 2)
     caster["dependencies"] = [11]
     if visibility:
@@ -85,6 +90,18 @@ void main(){gl_FragColor=vec4(1.0);}
         # provider. An orphan provider transaction must not block that graph.
         scene["objects"].remove(provider)
         scene["objects"].append(provider)
+    if retire_provider:
+        provider["name"] = "retired-provider"
+        witness = next(layer for layer in scene["objects"] if layer["id"] == 40)
+        witness["visible"] = {"value": True, "script": """
+let removed = false;
+export function update(value) {
+    if (engine.runtime > 2 && !removed) {
+        thisScene.destroyLayer('retired-provider'); removed = true;
+    }
+    return true;
+}
+"""}
     entries.update({
         "models/provider.json": encoded({"material": "materials/provider.json"}),
         "materials/provider.json": encoded({"passes": [{"shader": "genericimage",
@@ -483,8 +500,8 @@ class SceneModelGraphAlbedoAppTests(unittest.TestCase):
         self.assertIn("scene-after-window.png", pixels)
         for row in pixels.values():
             self.assert_rgb(row["pixels"]["healthy"], [0, 0, 255])
-            self.assert_rgb(row["pixels"]["receiver"], [85, 85, 85])
-            self.assert_rgb(row["pixels"]["hiddenProvider"], [85, 85, 85])
+            self.assert_rgb(row["pixels"]["receiver"], RECEIVER_RGB)
+            self.assert_rgb(row["pixels"]["hiddenProvider"], RECEIVER_RGB)
         self.runs[name] = report
         return report
 
@@ -567,6 +584,17 @@ class SceneModelGraphAlbedoAppTests(unittest.TestCase):
             self.assert_rgb(pixels["shadow"], pixels["receiver"])
         self.assertEqual(observed, set(PLATFORMS), result)
 
+
+    def test_deleted_named_provider_does_not_block_healthy_output(self):
+        result = self.run_case("deleted-provider", retire_provider=True)
+        before = result["pixels"]["scene-ready-window.png"]["pixels"]
+        after = result["pixels"]["scene-after-window.png"]["pixels"]
+        self.assert_rgb(before["model"], before["witness"])
+        self.assertLess(max(before["shadow"]), 15)
+        self.assert_rgb(after["model"], after["receiver"])
+        self.assert_rgb(after["shadow"], after["receiver"])
+        self.assert_rgb(after["healthy"], [0, 0, 255])
+        self.assertTrue(result["publicationEvents"], result)
 
 if __name__ == "__main__":
     unittest.main()

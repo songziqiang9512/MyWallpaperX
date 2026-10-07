@@ -1,8 +1,8 @@
 import Foundation
 
 nonisolated struct SceneScriptLayerTopologySnapshot: Sendable {
-    /// Changes only when a dynamic layer is admitted or removed. Authored
-    /// value publication stays frame-varying and does not invalidate the
+    /// Changes only when layer admission, retirement or ordering changes topology.
+    /// Authored value publication stays frame-varying and does not invalidate the
     /// renderer's prepared topology projection.
     var particlePlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
     let topologyRevision: UInt64
@@ -71,6 +71,7 @@ nonisolated struct SceneScriptLayerMutationPlan: Sendable {
     var outcome: SceneScriptLayerMutationApplyOutcome
     let order: [Int]
     let dynamicLayersByID: [Int: SceneRenderDescriptor.Layer]
+    let dynamicLayerCreatorTargetsByID: [Int: SceneDynamicTarget]
     let destroyedAuthoredLayerIDs: Set<Int>
     let authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue]
     let authoredDefinitionOrder: [SceneDynamicTarget]

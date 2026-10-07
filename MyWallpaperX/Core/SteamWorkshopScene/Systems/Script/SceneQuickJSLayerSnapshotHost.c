@@ -5,6 +5,33 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef struct {
+    int32_t order;
+    uint32_t index;
+} MWXSceneQuickJSLayerOrderEntry;
+
+static int compare_layer_order(const void *left, const void *right) {
+    const MWXSceneQuickJSLayerOrderEntry *a = left;
+    const MWXSceneQuickJSLayerOrderEntry *b = right;
+    if (a->order != b->order) return a->order < b->order ? -1 : 1;
+    return a->index == b->index ? 0 : (a->index < b->index ? -1 : 1);
+}
+
+void mwx_scene_quickjs_compact_layer_order(MWXSceneQuickJSDomain *domain) {
+    // Capture the complete old rank before any write: storage order need not
+    // match render order after authored sorts. Lifecycle edits stay bounded.
+    MWXSceneQuickJSLayerOrderEntry entries[MWX_SCENE_QUICKJS_MAX_LAYERS];
+    size_t count = 0;
+    for (uint32_t i = 0; i < domain->layer_count; ++i) {
+        const MWXSceneQuickJSLayerRecord *record = &domain->layers[i];
+        if (record->configured && !record->destroyed)
+            entries[count++] = (MWXSceneQuickJSLayerOrderEntry){record->order_index, i};
+    }
+    qsort(entries, count, sizeof(*entries), compare_layer_order);
+    for (size_t i = 0; i < count; ++i)
+        domain->layers[entries[i].index].order_index = (int32_t)i;
+}
+
 static char *copy_snapshot_string(const char *source, size_t length) {
     char *copy = malloc(length + 1);
     if (copy == NULL) return NULL;
@@ -43,6 +70,9 @@ static void clear_rollback_snapshot(MWXSceneQuickJSDomain *domain) {
         domain->authored_layer_count
     );
     domain->rollback_layer_snapshot_generation = 0;
+    free(domain->rollback_layer_order);
+    domain->rollback_layer_order = NULL;
+    domain->rollback_layer_order_count = 0;
 }
 
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
@@ -433,6 +463,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         );
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
+    bool order_changed = false;
     for (uint32_t index = 0; index < domain->authored_layer_count; ++index) {
         if (!domain->layers[index].configured ||
             !domain->pending_layer_snapshot[index].runtime_fields_staged) {
@@ -442,6 +473,22 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
             );
             return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
         }
+        order_changed = order_changed || (domain->layers[index].destroyed !=
+            domain->pending_layer_snapshot[index].destroyed);
+    }
+    // Snapshot publication owns authored retirement. Save dynamic ranks too,
+    // since removing an authored slot changes every surviving catalog ordinal.
+    if (order_changed && domain->layer_count > 0) {
+        int32_t *saved_order = malloc(domain->layer_count * sizeof(*saved_order));
+        if (saved_order == NULL) {
+            mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity,
+                "layer snapshot order staging allocation failed");
+            return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+        }
+        for (uint32_t i = 0; i < domain->layer_count; ++i)
+            saved_order[i] = domain->layers[i].order_index;
+        domain->rollback_layer_order = saved_order;
+        domain->rollback_layer_order_count = domain->layer_count;
     }
     const uint64_t generation = domain->pending_layer_snapshot_generation;
     for (uint32_t index = 0; index < domain->authored_layer_count; ++index) {
@@ -594,6 +641,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         staged->texture_animation_shared_is_playing =
             previous_texture_animation_shared_is_playing;
     }
+    if (order_changed) mwx_scene_quickjs_compact_layer_order(domain);
     domain->rollback_layer_snapshot = domain->pending_layer_snapshot;
     domain->rollback_layer_snapshot_generation = domain->layer_snapshot_generation;
     domain->pending_layer_snapshot = NULL;
@@ -672,6 +720,8 @@ bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
         record->texture_animation_shared_is_playing =
             saved->texture_animation_shared_is_playing;
     }
+    for (uint32_t i = 0; i < domain->rollback_layer_order_count && i < domain->layer_count; ++i)
+        domain->layers[i].order_index = domain->rollback_layer_order[i];
     domain->layer_snapshot_generation =
         domain->rollback_layer_snapshot_generation;
     clear_rollback_snapshot(domain);

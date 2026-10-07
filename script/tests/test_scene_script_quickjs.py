@@ -3515,7 +3515,9 @@ int main(void) {
 
     const char *authored_peer_destroy_source =
         "export function update(value){"
-        "thisScene.destroyLayer('anchor');return value;}";
+        "if(thisScene.destroyLayer('anchor')!==true)throw new Error('return');"
+        "if(thisScene.getLayer('anchor')===null)throw new Error('not deferred');"
+        "return value;}";
     MWXSceneQuickJSResult authored_peer_destroy_creation =
         MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     MWXSceneQuickJSOwner *authored_peer_destroy =
@@ -3533,15 +3535,21 @@ int main(void) {
         authored_peer_destroy, 42, "authored peer destroy owner identity"
     );
     failures += update_effectful_bool(
-        authored_peer_destroy, 146, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
-        "authored peer destroy rejected"
+        authored_peer_destroy, 146, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "authored peer destroy deferred and returns true"
     );
     failures += check(
         mwx_scene_quickjs_owner_layer_mutation_count(
             authored_peer_destroy
-        ) == 0,
-        "rejected authored peer destroy rolls back", ""
+        ) == 1,
+        "authored peer destroy stages one tombstone", ""
     );
+
+    failures += layer_mutation(
+        authored_peer_destroy, 0, MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY,
+        0, 0, 17, 0, "", "authored peer destroy target snapshot"
+    );
+    mwx_scene_quickjs_owner_discard_layer_mutations(authored_peer_destroy);
 
     const char *authored_peer_source =
         "const replacement=engine.registerAsset('fonts/replacement.ttf');"

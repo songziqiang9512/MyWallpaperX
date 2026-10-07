@@ -3010,6 +3010,8 @@ static JSValue destroy_layer(
 ) {
     (void)this_value; (void)magic;
     MWXSceneQuickJSOwner *owner = opaque;
+    if (!callback_owns(owner))
+        return JS_ThrowTypeError(context, "destroyLayer unavailable");
     if (owner->value_only)
         return JS_ThrowTypeError(context, "Boolean value owner scene handle is read-only");
     MWXSceneQuickJSLayerRecord *record = NULL;
@@ -3028,6 +3030,13 @@ static JSValue destroy_layer(
             }
         }
         JS_FreeCString(context, name);
+    } else if (argc == 1 && JS_IsNumber(argv[0])) {
+        double numeric = -1;
+        if (JS_ToFloat64(context, &numeric, argv[0]) < 0 || !isfinite(numeric) ||
+            floor(numeric) != numeric || numeric < 0 || numeric > INT32_MAX)
+            return JS_ThrowRangeError(context, "destroyLayer index is invalid");
+        const int32_t index = storage_at_order(owner->domain, (int32_t)numeric);
+        if (index >= 0) record = &owner->domain->layers[index];
     } else if (argc == 1) {
         record = resolve_layer_argument(context, owner, argv[0]);
     }
@@ -3036,11 +3045,9 @@ static JSValue destroy_layer(
     const uint32_t record_index =
         (uint32_t)(record - owner->domain->layers);
     if (!record->dynamic) {
-        if (!owner->effectful_boolean || !owner->target_layer_configured ||
-            record_index != owner->target_layer_index)
-            return JS_ThrowTypeError(
-                context, "destroyLayer may only remove the authored owner layer"
-            );
+        // Authored removal is deferred through the existing owner journal.
+        // Swift validates the prepared leaf and retires its script cohorts
+        // only after the complete owner bundle is accepted.
         MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
             mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
         if (mutation == NULL)
@@ -3049,7 +3056,7 @@ static JSValue destroy_layer(
             );
         mutation->destroyed = true;
         mutation->fields = 0;
-        return JS_UNDEFINED;
+        return JS_NewBool(context, true);
     }
     if (record->owner_identity != owner->identity)
         return JS_ThrowTypeError(context, "destroyLayer target is stale");
@@ -3070,7 +3077,7 @@ static JSValue destroy_layer(
             !owner->domain->layers[j].destroyed &&
             owner->domain->layers[j].order_index > removed)
             owner->domain->layers[j].order_index -= 1;
-    return JS_UNDEFINED;
+    return JS_NewBool(context, true);
 }
 
 bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
@@ -3348,28 +3355,17 @@ bool mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner) 
         owner->authored_layer_baseline_available = false;
         return false;
     }
+    bool removed_layers = false;
     for (uint32_t index = 0; index < domain->layer_count; ++index) {
         MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
         if (!record->configured || !record->dynamic ||
             record->owner_identity != owner->identity) continue;
+        removed_layers = removed_layers || !record->destroyed;
         record->destroyed = true;
         record->dirty = false;
         record->dirty_owner_identity = 0;
     }
-    for (uint32_t index = 0; index < domain->layer_count; ++index) {
-        MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
-        if (!record->configured || record->destroyed) continue;
-        int32_t order = 0;
-        for (uint32_t candidate = 0; candidate < domain->layer_count; ++candidate) {
-            MWXSceneQuickJSLayerRecord *other = &domain->layers[candidate];
-            if (!other->configured || other->destroyed || other == record) continue;
-            if (other->order_index < record->order_index ||
-                (other->order_index == record->order_index && candidate < index)) {
-                order += 1;
-            }
-        }
-        record->order_index = order;
-    }
+    if (removed_layers) mwx_scene_quickjs_compact_layer_order(domain);
     owner->authored_layer_baseline_available = false;
     // Removal is permanent; there is no frame result to commit.  Any empty
     // domain candidate can be discarded now; layer_count remains monotonic so

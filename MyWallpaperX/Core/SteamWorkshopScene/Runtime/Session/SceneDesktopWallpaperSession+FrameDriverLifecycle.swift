@@ -103,6 +103,7 @@ extension SceneDesktopWallpaperSession {
         textureAnimationCommands:
             [SceneTextureAnimationCommand],
         puppetAnimationCommands: [ScenePuppetAnimationCommand],
+        scriptFrame: SceneScriptFrameInput,
         timing: SceneFrameTiming,
         layerPlan: SceneScriptLayerMutationPlan,
         rejectedOwnerTargets: Set<SceneDynamicTarget>
@@ -158,7 +159,45 @@ extension SceneDesktopWallpaperSession {
             rejectedOwnerTargets: rejectedOwnerTargets
         )
         finalizeSceneScriptLayerSnapshot(context)
+        retireDestroyedSceneScriptOwners(
+            context, layerIDs: layerPlan.destroyedAuthoredLayerIDs,
+            frame: scriptFrame
+        )
         context.sceneScriptStorageSession?.commitFrameTransaction()
+    }
+
+    private func retireDestroyedSceneScriptOwners(
+        _ context: SceneDesktopWallpaperLaunchContext,
+        layerIDs: Set<Int>,
+        frame: SceneScriptFrameInput
+    ) {
+        guard !layerIDs.isEmpty else { return }
+        // All owner journals have finalized. Retire against the last live
+        // snapshot before the next cadence publishes the accepted tombstones.
+        // Programs remember quiescent cohorts; failed cleanup can retry without
+        // running destroy callbacks or consumed frame commands a second time.
+        let values = context.liveState.effectiveValues
+        let userPropertiesJSON = context.propertyVectorScriptProgram
+            .userPropertiesJSON(effectiveValues: values, revision: context.liveState.revision)
+        let outcomes = context.sceneScriptScalarProgram.retire(
+            layerIDs: layerIDs, frame: frame,
+            effectivePropertyValues: values, userPropertiesJSON: userPropertiesJSON
+        ) + context.sceneScriptStringProgram.retire(
+            layerIDs: layerIDs, frame: frame,
+            effectivePropertyValues: values, userPropertiesJSON: userPropertiesJSON
+        ) + context.sceneScriptCursorProgram.retire(
+            layerIDs: layerIDs, frame: frame,
+            effectivePropertyValues: values, userPropertiesJSON: userPropertiesJSON
+        ) + context.propertyVectorScriptProgram.retire(
+            layerIDs: layerIDs, frame: frame,
+            effectivePropertyValues: values, userPropertiesJSON: userPropertiesJSON
+        )
+        if !outcomes.isEmpty {
+            NSLog("MWX SceneScript VM: lifecycle=layer-retirement owners=%d destroyCallbacks=%d quiescent=%d failures=%d sceneTime=%.3f",
+                outcomes.count, outcomes.filter(\.destroyCallbackInvoked).count,
+                outcomes.filter(\.snapshot.isQuiescent).count,
+                outcomes.compactMap(\.failure).count, frame.runtime)
+        }
     }
 
     func teardownSceneScriptOwners(

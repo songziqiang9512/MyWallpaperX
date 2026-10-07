@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 558,
-      "bytes": 93525
+      "bytes": 93998
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -89,8 +89,8 @@
       "bytes": 334149
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 75,
-      "bytes": 9996
+      "lines": 76,
+      "bytes": 10148
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -114,7 +114,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 402,
-      "bytes": 96890
+      "bytes": 96539
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -177,8 +177,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 80,
-      "bytes": 16464
+      "lines": 90,
+      "bytes": 18953
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 41,
@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 148,
-      "bytes": 57687
+      "bytes": 58049
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1109,15 +1109,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "296d75e2903e97c0d996c9d93476ecedea81c3f75a1abc3d0695ba99e0aff05a",
-      "after": "801bcbab8fe355916dfae6383a77998ec777768b5774dc843b9cd4a73d82cc1d",
-      "owner": "scene-pause-handoff",
-      "reason": "用户明确要求完整暂停交接及归档已完成设计；稳定合同从退役设计移交运行架构，只登记本次精确文档变化。",
-      "decision": "docs/scene/history/scene-maintainer-handoff-2026-10-06.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "207203425c8b5dcd3e5272b346032ed1937d48aab70ec149b5d0b8583d202510",
       "after": "768f1412eac4583c0d84cd54309899dfc5c750fff82d955ed8eaa49b76447c49",
@@ -1244,30 +1235,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "801bcbab8fe355916dfae6383a77998ec777768b5774dc843b9cd4a73d82cc1d",
+      "after": "571d344c14252e2fc2ee4c37eed2fb1bdb18386abed6499a14e9d8131c98ba04",
+      "owner": "scene-authored-retirement",
+      "reason": "替换自层删除和surface barrier旧结论，登记跨层leaf退休及真实画面证据与剩余边界。",
+      "decision": "docs/scene/history/authored-layer-retirement-2026-10-07.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7d13d7973d18dcc5c0ba0fb6fd37a759e0470516ed1086bdb4e3d6cb92244ab7",
-      "after": "a2a4c15d2efe274cbbf7cc0688ff70c09b092b786f5167c7df267a2aeb43ea18",
-      "owner": "scene-puppet-animation",
-      "reason": "动画层脚本控制接通共享播放与GPU，精确登记已实现范围和剩余边界。",
-      "decision": "docs/scene/history/puppet-animation-control-2026-10-07.md"
+      "before": "a2a4c15d2efe274cbbf7cc0688ff70c09b092b786f5167c7df267a2aeb43ea18",
+      "after": "6e39707ea8188857a51fb4469203b3c51112b30994f940012b771b20324fdebc",
+      "owner": "scene-authored-retirement",
+      "reason": "替换自层删除和surface barrier旧结论，登记跨层leaf退休及真实画面证据与剩余边界。",
+      "decision": "docs/scene/history/authored-layer-retirement-2026-10-07.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "c00ffddb19685ecccaa65d58fcdf494c2f91d5a1c7abeb1f94c3527c49ecc7c7",
-      "after": "b7c758a19791c93193f3d99fec6fdbe57c0fd20b561a6c77c6d2bc7e57d2a8f4",
-      "owner": "scene-puppet-animation",
-      "reason": "动画层脚本控制接通共享播放与GPU，精确登记已实现范围和剩余边界。",
-      "decision": "docs/scene/history/puppet-animation-control-2026-10-07.md"
+      "before": "b7c758a19791c93193f3d99fec6fdbe57c0fd20b561a6c77c6d2bc7e57d2a8f4",
+      "after": "d3e6b9d67c1507c51e95f5eecf04c52a089b3b42aab0c0bd1e943530ef848bbb",
+      "owner": "scene-authored-retirement",
+      "reason": "替换自层删除和surface barrier旧结论，登记跨层leaf退休及真实画面证据与剩余边界。",
+      "decision": "docs/scene/history/authored-layer-retirement-2026-10-07.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "310e2ae2a19af53321d58eba475238e2308fc60f10e75126576e904826219dd3",
-      "after": "01eebaa3c29d31c0d28ca3363a409db0ef7f64ce1118d5cac51398f10184ec4a",
-      "owner": "scene-puppet-animation",
-      "reason": "动画层脚本控制接通共享播放与GPU，精确登记已实现范围和剩余边界。",
-      "decision": "docs/scene/history/puppet-animation-control-2026-10-07.md"
+      "before": "01eebaa3c29d31c0d28ca3363a409db0ef7f64ce1118d5cac51398f10184ec4a",
+      "after": "bff467e415fd2bc13ee3d5916a999e48a7c16f305e6f1213a7c7e76fcf2f6cb3",
+      "owner": "scene-authored-retirement",
+      "reason": "替换自层删除和surface barrier旧结论，登记跨层leaf退休及真实画面证据与剩余边界。",
+      "decision": "docs/scene/history/authored-layer-retirement-2026-10-07.md"
     }
   ]
 }

@@ -171,6 +171,72 @@ enum SceneSubmissionPublicationChecks {
                 && aggregateTargets.commit.submissionPin.releaseCount == 1
                 && suffixTargets.commit.submissionPin.releaseCount == 1
             SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
+
+            let unavailableReason = SceneResolvedMaterialRuntimeBridge.FrameInputs
+                .DependencyUnavailability.providerSourceUnavailable.rawValue
+            let skipped = makeCoordinator(device, layerIDs: [7, 8],
+                dependencyOwnershipByLayerID: [7: .externalAggregate(aggregate)])
+            skipped.beginFrame(textureSnapshot: .init(frameIndex: 16, valid: true),
+                dynamicSnapshot: .init(), frameInputs: .init())
+            let installed = skipped.installFrameLocalFallbacks([7: unavailableReason])
+            let suffixOnly = makeAtomicPrepared(device: device, layerID: 8, generation: 3)
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [8: suffixOnly]
+            SceneResolvedMaterialGraphExecutor.prepareTokens = []
+            let suffixOnlyTargets = makeAtomicTargets(layerID: 8, generation: 3)
+            let suffixOnlyPool = SceneOffscreenTexturePool(factory: { _ in suffixOnlyTargets.prepared })
+            let suffixOnlyBuffer = queue.makeCommandBuffer()!
+            let bytes = device.makeBuffer(length: 4, options: .storageModeShared)!
+            memset(bytes.contents(), 0, 4)
+            let blit = suffixOnlyBuffer.makeBlitCommandEncoder()!
+            blit.fill(buffer: bytes, range: 0..<4, value: 73)
+            blit.endEncoding()
+            let preparedSuffixOnly: Bool
+            if case let .claimed(claim) = skipped.preflightClaim(layerID: 8),
+               case .ready = skipped.prepareFrame([.init(claim: claim,
+                    targetPlan: .init(token: claim.token, allocation: .init(graphPlan: .init(key: .init(layerID: 8)))),
+                    sourceTexture: makeTexture(device, "retired-provider-healthy"), sourceUniforms: .init(),
+                    sourcePipeline: .init(), frameInputs: .fixture)], pool: suffixOnlyPool,
+                    commandBuffer: suffixOnlyBuffer) {
+                preparedSuffixOnly = true
+            } else { preparedSuffixOnly = false }
+            let fallbackUnclaimed: Bool
+            if case let .rejected(reason) = skipped.claim(layerID: 7) {
+                fallbackUnclaimed = reason == unavailableReason
+            } else { fallbackUnclaimed = false }
+            var healthyConsumed = false
+            if case let .claimed(claim) = skipped.claim(layerID: 8),
+               case let .encoded(texture, ticket) = skipped.executeClaimed(claim: claim,
+                    dependencyEffects: [], commandBuffer: suffixOnlyBuffer),
+               case .consumed = skipped.markComposite(ticket, texture: texture, consumed: true) {
+                healthyConsumed = true
+            }
+            let suffixOnlySealed = skipped.sealFrame(on: suffixOnlyBuffer)
+            suffixOnlyBuffer.commit()
+            suffixOnlyBuffer.waitUntilCompleted()
+            skipped.completeCommandBuffer(identity: ObjectIdentifier(suffixOnlyBuffer),
+                observationID: skipped.commandBufferRecords[ObjectIdentifier(suffixOnlyBuffer)]?.observationID ?? 0,
+                status: suffixOnlyBuffer.status == .completed ? .completed : .failed)
+            _ = skipped.endFrame()
+            results["aggregateSourceUnavailableSkipsClaimAndKeepsSuffix"] = installed && preparedSuffixOnly
+                && fallbackUnclaimed && healthyConsumed && suffixOnlySealed
+                && SceneResolvedMaterialGraphExecutor.prepareTokens == [8]
+                && suffixOnlyBuffer.status == .completed && suffixOnlyBuffer.error == nil
+                && bytes.contents().load(as: UInt8.self) == 73 && skipped.frameFailures == 0
+                && suffixOnlyTargets.commit.submissionPin.releaseCount == 1
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
+
+            let invalidAggregate = SceneDependencyRenderPlan.MultiProviderAggregate(consumerLayerID: 7,
+                bindings: [secondBinding, firstBinding], authoredSlotOrder: aggregate.authoredSlotOrder)
+            let invalidOwners: [SceneResolvedMaterialDependencyOwnership] = [
+                .none, .graphInternal(referenceCount: 1), .externalAggregate(invalidAggregate)]
+            results["sourceUnavailableFallbackRequiresDependencyContract"] = invalidOwners.allSatisfy { ownership in
+                let invalid = makeCoordinator(device, dependencyOwnershipByLayerID: [7: ownership])
+                invalid.beginFrame(textureSnapshot: .init(frameIndex: 17, valid: true),
+                    dynamicSnapshot: .init(), frameInputs: .init())
+                let rejected = !invalid.installFrameLocalFallbacks([7: unavailableReason])
+                _ = invalid.endFrame()
+                return rejected && invalid.frameLocalFallbacks.isEmpty
+            }
         }
 
     }

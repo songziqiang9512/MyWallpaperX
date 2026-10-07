@@ -14,6 +14,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     private var previousSurfaceID: UInt32?
     private var previousSurface: SceneScriptSurfaceInput?
     private var disabledTargets: Set<SceneDynamicTarget> = []
+    private var retiredTargets: Set<SceneDynamicTarget> = []
     private var scriptPropertiesJSONCache = SceneScriptPropertyInputJSONCache()
     private var pendingEvents: [SceneScriptCursorPendingEvent] = []
     private var candidateEvents: [SceneScriptCursorPendingEvent] = []
@@ -24,15 +25,15 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     private static let maximumEventsPerOwner = 4096
     private static let maximumPendingEvents = 16_384
 
-    let ownerLayerIDs: Set<Int>
-    let ownerTargets: Set<SceneDynamicTarget>
+    private(set) var ownerLayerIDs: Set<Int>
+    private(set) var ownerTargets: Set<SceneDynamicTarget>
     /// Layer hit state is shared, owner state is per target: several typed
     /// owners can live on one layer, so layer lookup must not scan them all.
     private let bindingsByLayer: [Int: [SceneScriptCursorBinding]]
     private let bindingsByTarget: [SceneDynamicTarget: SceneScriptCursorBinding]
     var capturedOwnerLayerIDs: Set<Int> { Set(capturedHits.keys) }
     var ownerCount: Int { bindings.count }
-    var hasAudioConsumers: Bool { bindings.contains { $0.owner.hasAudioRegistration } }
+    var hasAudioConsumers: Bool { bindings.contains { !disabledTargets.contains($0.ownerTarget) && $0.owner.hasAudioRegistration } }
 
     func edgeStateSnapshot() -> SceneScriptCursorEdgeState {
         .init(
@@ -48,11 +49,11 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     }
 
     func restoreEdgeState(_ state: SceneScriptCursorEdgeState) {
-        previousHits = state.previousHits
-        capturedHits = state.capturedHits
+        previousHits = state.previousHits.filter { ownerLayerIDs.contains($0.key) }
+        capturedHits = state.capturedHits.filter { ownerLayerIDs.contains($0.key) }
         previousPointerPosition = state.previousPointerPosition
         previousPrimaryButtonIsDown = state.previousPrimaryButtonIsDown
-        pendingEvents = state.pendingEvents
+        pendingEvents = state.pendingEvents.filter { !disabledTargets.contains($0.ownerTarget) }
         capturedSurfaceID = state.capturedSurfaceID
         previousSurfaceID = state.previousSurfaceID
         previousSurface = state.previousSurface
@@ -60,7 +61,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     }
 
     func timerFrameStateSnapshot() -> SceneScriptProgramTimerFrameState { .init(snapshots: bindings.map { $0.owner.timerFrameSnapshot() }) }
-    func restoreTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { $0.0.owner.restoreTimerFrame($0.1) } }
+    func restoreTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { if !retiredTargets.contains($0.0.ownerTarget) { $0.0.owner.restoreTimerFrame($0.1) } } }
     func discardTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { $0.0.owner.discardTimerFrame($0.1) } }
 
     init(
@@ -632,6 +633,42 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         previousPrimaryButtonIsDown = false
         pendingEvents.removeAll(keepingCapacity: true)
         clearCandidateEvents()
+    }
+
+    /// Borrowed cursor bindings only lose registration; their value Program
+    /// owns teardown. Standalone cursor owners are retired here exactly once.
+    func retire(
+        layerIDs: Set<Int>,
+        frame: SceneScriptFrameInput,
+        effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
+        userPropertiesJSON: String
+    ) -> [SceneScriptOwnerTeardownOutcome] {
+        var outcomes: [SceneScriptOwnerTeardownOutcome] = []
+        for binding in bindings where layerIDs.contains(binding.layerID)
+            && !retiredTargets.contains(binding.ownerTarget) {
+            disabledTargets.insert(binding.ownerTarget)
+            ownerTargets.remove(binding.ownerTarget)
+            if binding.ownsOwner {
+                let outcome = binding.owner.teardown(
+                    frame: frame,
+                    scriptPropertiesJSON: SceneScriptPropertyInputCodec.scriptPropertiesJSON(
+                        binding.scriptProperties, effectiveValues: effectivePropertyValues
+                    ) ?? "{}",
+                    userPropertiesJSON: userPropertiesJSON
+                )
+                outcomes.append(outcome)
+                if outcome.snapshot.isQuiescent { retiredTargets.insert(binding.ownerTarget) }
+            } else {
+                retiredTargets.insert(binding.ownerTarget)
+            }
+        }
+        ownerLayerIDs.subtract(layerIDs)
+        previousHits = previousHits.filter { !layerIDs.contains($0.key) }
+        capturedHits = capturedHits.filter { !layerIDs.contains($0.key) }
+        pendingEvents.removeAll { disabledTargets.contains($0.ownerTarget) }
+        candidateEvents.removeAll { disabledTargets.contains($0.ownerTarget) }
+        candidateFailures.subtract(disabledTargets)
+        return outcomes
     }
 
     func teardown(

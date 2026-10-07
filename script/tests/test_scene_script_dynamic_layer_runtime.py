@@ -60,6 +60,10 @@ nonisolated enum SceneDynamicTarget: Hashable, Sendable {
     case text(layerID: Int, field: SceneDynamicTextField)
     case effectVisibility(layerID: Int, effectIndex: Int)
     case particle(layerID: Int, field: SceneDynamicParticleField)
+    case effectConstant(layerID: Int, effectIndex: Int, passIndex: Int, name: String)
+    case materialConstant(layerID: Int, passIndex: Int, name: String, materialPath: String)
+    case scriptInstanceProperty(layerID: Int, path: [String])
+    case scene(Int), camera(Int)
 }
 nonisolated struct SceneScriptParticlePlaybackCommand: Sendable {
     let layerID: Int
@@ -74,6 +78,8 @@ nonisolated struct SceneScriptOwnerEffects: Sendable {
     var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
     var animationMutations: [Int] = [], materialFunctionMutations: [Int] = []
     var videoCommands: [Int] = [], textureAnimationCommands: [Int] = [], puppetBoneMutations: [Int] = []
+    var puppetAnimationCommands: [Int] = []
+    var puppetAnimationCallbackRegistrations: Int = 0
 }
 nonisolated struct SceneDynamicTargetDefinition: Sendable {
     let target: SceneDynamicTarget

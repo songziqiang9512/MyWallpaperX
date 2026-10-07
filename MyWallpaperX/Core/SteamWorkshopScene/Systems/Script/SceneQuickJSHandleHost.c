@@ -814,6 +814,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown_with_provenance(
     owner->material_function_count = 0;
     owner->animation_command_count = 0;
     mwx_scene_quickjs_destroy_puppet_animation_host(owner);
+    mwx_scene_quickjs_clear_video_ended_callbacks(owner);
     owner->generation += 1;
     owner->disabled = true;
     domain->value_only_guard_active = previous_value_only_guard;

@@ -305,6 +305,8 @@ struct MWXSceneQuickJSDomain {
     uint64_t pending_layer_snapshot_generation;
     MWXSceneQuickJSStagedLayerSnapshot *rollback_layer_snapshot;
     uint64_t rollback_layer_snapshot_generation;
+    int32_t *rollback_layer_order;
+    uint32_t rollback_layer_order_count;
     MWXSceneQuickJSOwner *puppet_animation_owners;
     uint64_t next_owner_identity;
     uint64_t callback_epoch;
@@ -502,6 +504,7 @@ bool mwx_scene_quickjs_install_object_handle(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_owner_discard_layer_mutations(MWXSceneQuickJSOwner *owner);
+void mwx_scene_quickjs_compact_layer_order(MWXSceneQuickJSDomain *domain);
 bool mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner);
 MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_video_ended_callbacks(
     MWXSceneQuickJSOwner *owner, char *diagnostic, size_t diagnostic_capacity

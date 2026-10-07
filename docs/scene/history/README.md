@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-07 | Scene | 实施证据 | [作者层删除与退休](authored-layer-retirement-2026-10-07.md) | intro暗幕根因、跨层leaf删除、cohort退休及named依赖局部失败 | [运行架构](../architecture/runtime-architecture.md)、[SceneScript API](../capabilities/scenescript-api-coverage.md)、[D4](../roadmap/batch2/script-component-api-design.md) |
 | 2026-10-07 | Scene | 实施证据 | [Puppet 动画层控制](puppet-animation-control-2026-10-07.md) | 作者init、定位/混合进入实际pose与GPU；事务拒绝和ended不重放 | [高级对象](../capabilities/advanced-object-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[D4](../roadmap/batch2/script-component-api-design.md) |
 | 2026-10-07 | Scene | 实施证据 | [Puppet 隐藏恢复](puppet-animation-visibility-2026-10-07.md) | 共享播放位置、冻结cadence补入与受控App恢复；该片尚未包含脚本seek | [高级对象](../capabilities/advanced-object-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[D4](../roadmap/batch2/script-component-api-design.md) |
 | 2026-10-07 | Scene | 修复证据 | [颜色误标](signal-color-classification-2026-10-07.md) | barcode实际执行恢复、信号/颜色正反例及剩余音频输入断点 | [效果合同](../capabilities/effect-execution-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |

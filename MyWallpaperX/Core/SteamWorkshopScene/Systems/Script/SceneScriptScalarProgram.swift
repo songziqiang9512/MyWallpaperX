@@ -41,7 +41,7 @@ nonisolated struct SceneScriptScalarProgramConstruction: @unchecked Sendable {
 /// Generic scalar SceneScript owners. The program is deliberately
 /// source/identity based rather than effect-name based; runtime failure keeps
 /// the lower-priority authored/property/Timeline value for the affected owner.
-nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
+nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRetirement, @unchecked Sendable {
     let definitions: [SceneDynamicTargetDefinition]
     let bindings: [SceneScriptValueOwner]
     let inputTargets: Set<SceneDynamicTarget>
@@ -54,13 +54,14 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     let domain: SceneScriptQuickJSDomain?
     let generation: UInt64
     private let authoredOrdinals: [SceneDynamicTarget: Int]
-    private let propertyInputsByTarget:
+    let propertyInputsByTarget:
         [SceneDynamicTarget: [String: SceneScriptPropertyInput]]
     private let livePropertyInputTargetsByTarget:
         [SceneDynamicTarget: Set<SceneDynamicTarget>]
     private let userPropertyKinds: [String: SceneUserPropertyKind]
     let livePropertyInputTargets: Set<SceneDynamicTarget>
-    private var disabledTargets: Set<SceneDynamicTarget> = []
+    var disabledTargets: Set<SceneDynamicTarget> = []
+    var retiredTargets: Set<SceneDynamicTarget> = []
     private var reportedTargets: Set<SceneDynamicTarget> = []
     private var reportedAudioTargets: Set<SceneDynamicTarget> = []
     private var reportedAudioValueTargets: Set<SceneDynamicTarget> = []
@@ -68,7 +69,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     private var scriptPropertiesJSONCache = SceneScriptPropertyInputJSONCache()
 
     var hasAudioConsumers: Bool {
-        bindings.contains(where: \.hasAudioRegistration)
+        bindings.contains { !disabledTargets.contains($0.target) && $0.hasAudioRegistration }
     }
 
     var liveUserPropertyConsumerTargetsByKey:
@@ -83,7 +84,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
 
     var mediaOwnerRegistrations: [SceneScriptMediaOwnerRegistration] {
         bindings.compactMap { binding in
-            guard binding.handlesMediaPlayback
+            guard !disabledTargets.contains(binding.target), binding.handlesMediaPlayback
                     || binding.handlesMediaProperties
                     || binding.handlesMediaThumbnail
                     || binding.handlesMediaTimeline,
@@ -147,7 +148,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
 
     var cursorOwnerRegistrations: [SceneScriptCursorOwnerRegistration] {
         zip(bindings, definitions).compactMap { owner, definition in
-            guard !owner.exportedCursorEvents.isEmpty,
+            guard !disabledTargets.contains(owner.target), !owner.exportedCursorEvents.isEmpty,
                   let layerID = SceneScriptLayerMutationBridge.layerID(for: owner.target) else { return nil }
             return .init(
                 layerID: layerID, authoredOrdinal: authoredOrdinals[owner.target, default: 0],
@@ -732,7 +733,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     ) { frameLedger.restore(state, rejectedOwnerTargets: rejectedOwnerTargets) }
 
     func timerFrameStateSnapshot() -> SceneScriptProgramTimerFrameState { .init(snapshots: bindings.map { $0.timerFrameSnapshot() }) }
-    func restoreTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { $0.0.restoreTimerFrame($0.1) } }
+    func restoreTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { if !retiredTargets.contains($0.0.target) { $0.0.restoreTimerFrame($0.1) } } }
     func discardTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { $0.0.discardTimerFrame($0.1) } }
 
     func finalizeLayerMutations(

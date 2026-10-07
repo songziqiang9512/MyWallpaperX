@@ -187,8 +187,17 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
               !frameRequiresDrop, frameFailure == nil,
               frameLocalFallbacks.isEmpty,
               fallbacks.allSatisfy({ layerID, reasonCode in
-                  capabilities.claim(layerID: layerID) != nil
-                      && allowedReasons.contains(reasonCode)
+                  guard let claim = capabilities.claim(layerID: layerID),
+                        let capability = capabilities.resolve(claim.token) else { return false }
+                  if reasonCode == Bridge.FrameInputs.DependencyUnavailability
+                        .providerSourceUnavailable.rawValue {
+                      if case let .externalAggregate(aggregate) = capability.dependencyOwnership {
+                          return aggregate.consumerLayerID == layerID && aggregate.hasStrictBindingVector
+                      }
+                      return dependencyReservationMatches(nil, unavailability: .providerSourceUnavailable,
+                          ownership: capability.dependencyOwnership)
+                  }
+                  return allowedReasons.contains(reasonCode)
               }) else {
             lock.unlock()
             return false

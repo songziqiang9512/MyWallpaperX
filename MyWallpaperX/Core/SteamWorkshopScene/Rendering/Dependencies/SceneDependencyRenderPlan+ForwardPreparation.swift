@@ -163,17 +163,21 @@ extension SceneDependencyRenderPlan {
             ) {
             providers.insert(binding.providerLayerID)
         }
+        // The prepared binding plan outlives authored leaf deletion. Only
+        // surviving providers can publish this cadence; missing publications
+        // are handled locally by their consumers, not as a frame-wide error.
+        providers.formIntersection(available)
         var changed = true
         while changed {
             changed = false
             for providerLayerID in providers {
-                for upstream in bindingsForConsumer(providerLayerID) {
+                for upstream in bindingsForConsumer(providerLayerID)
+                where available.contains(upstream.providerLayerID) {
                     changed = providers.insert(upstream.providerLayerID)
                         .inserted || changed
                 }
             }
         }
-        guard providers.isSubset(of: available) else { return nil }
         var indegree = Dictionary(uniqueKeysWithValues:
             providers.map { ($0, 0) }
         )

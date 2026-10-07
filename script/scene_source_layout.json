@@ -1392,13 +1392,14 @@
       {
         "id": "scene-protocol-declarations",
         "role": "inventory",
-        "description": "Scene product protocols require an explicit manifest ratchet with owner justification; accidental abstraction layers cannot appear.",
+        "description": "Scene product protocols require an explicit manifest ratchet with owner justification; accidental abstraction layers cannot appear. Script lifecycle bridge shares Scalar/String retirement through one default implementation (D4 authored leaf retirement); no new lifecycle owner or runtime dispatch.",
         "pattern": "^[ \\t]*(?:@\\w+[ \\t]+)*(?:nonisolated[ \\t]+|public[ \\t]+|internal[ \\t]+|private[ \\t]+|fileprivate[ \\t]+)?protocol[ \\t]+\\w+",
-        "baseline_occurrences": 3,
+        "baseline_occurrences": 4,
         "allowed_files": [
           "Format/ScenePkgExtractionReport.swift",
           "Systems/Animation/SceneSpriteAnimation.swift",
-          "Systems/Script/SceneScriptMediaEventBridge.swift"
+          "Systems/Script/SceneScriptMediaEventBridge.swift",
+          "Systems/Script/SceneScriptOwnerLifecycleBridge.swift"
         ]
       },
       {

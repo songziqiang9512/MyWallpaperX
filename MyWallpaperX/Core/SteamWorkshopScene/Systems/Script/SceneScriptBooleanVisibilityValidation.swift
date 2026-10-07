@@ -51,13 +51,12 @@ nonisolated enum SceneScriptBooleanVisibilityValidation {
             }
             if !mutation.isDynamic {
                 if mutation.kind == .destroy {
-                    guard mutation.layerID == layerID,
-                          mutation.fields.isEmpty else {
+                    guard mutation.fields.isEmpty else {
                         return .failure(.invalidArgument(
-                            "Boolean owner may only destroy its authored owner layer"
+                            "Boolean owner produced an invalid authored destroy"
                         ))
                     }
-                    visible = false
+                    if mutation.layerID == layerID { visible = false }
                     resolved.append(mutation)
                     continue
                 }

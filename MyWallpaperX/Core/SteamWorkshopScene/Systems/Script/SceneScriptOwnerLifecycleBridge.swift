@@ -22,7 +22,62 @@ nonisolated struct SceneScriptOwnerTeardownOutcome: Equatable, Sendable {
     let failure: SceneScriptScalarRuntimeFailure?
 }
 
+/// Scalar and String Programs share the same value-owner storage and cleanup
+/// contract; retirement runs once through this existing lifecycle boundary.
+nonisolated protocol SceneScriptValueOwnerProgramRetirement: AnyObject {
+    var bindings: [SceneScriptValueOwner] { get }
+    var propertyInputsByTarget: [SceneDynamicTarget: [String: SceneScriptPropertyInput]] { get }
+    var disabledTargets: Set<SceneDynamicTarget> { get set }
+    var retiredTargets: Set<SceneDynamicTarget> { get set }
+}
+
+extension SceneScriptValueOwnerProgramRetirement {
+    /// Called after the topology commit and every peer journal is finalized.
+    func retire(
+        layerIDs: Set<Int>, frame: SceneScriptFrameInput,
+        effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
+        userPropertiesJSON: String
+    ) -> [SceneScriptOwnerTeardownOutcome] {
+        SceneScriptOwnerLifecycleBridge.retire(
+            owners: bindings, layerIDs: layerIDs, frame: frame,
+            propertiesByTarget: propertyInputsByTarget,
+            effectivePropertyValues: effectivePropertyValues,
+            userPropertiesJSON: userPropertiesJSON,
+            disabledTargets: &disabledTargets, retiredTargets: &retiredTargets
+        )
+    }
+}
+
 nonisolated enum SceneScriptOwnerLifecycleBridge {
+    /// A permanent topology commit retires each target without changing the
+    /// Program binding indexes retained by pending frame snapshots.
+    static func retire(
+        owners: [SceneScriptValueOwner], layerIDs: Set<Int>,
+        frame: SceneScriptFrameInput,
+        propertiesByTarget: [SceneDynamicTarget: [String: SceneScriptPropertyInput]],
+        effectivePropertyValues: [String: SceneUserPropertyValue],
+        userPropertiesJSON: String,
+        disabledTargets: inout Set<SceneDynamicTarget>,
+        retiredTargets: inout Set<SceneDynamicTarget>
+    ) -> [SceneScriptOwnerTeardownOutcome] {
+        owners.compactMap { owner in
+            guard layerIDs.contains(owner.layerID), !retiredTargets.contains(owner.target) else { return nil }
+            disabledTargets.insert(owner.target)
+            let properties = propertiesByTarget[owner.target] ?? [:]
+            let outcome = owner.teardown(
+                frame: frame,
+                scriptPropertiesJSON: SceneScriptPropertyInputCodec.scriptPropertiesJSON(
+                    properties, effectiveValues: effectivePropertyValues
+                ) ?? SceneScriptPropertyInputCodec.scriptPropertiesJSON(
+                    properties, effectiveValues: [:]
+                ) ?? "{}",
+                userPropertiesJSON: userPropertiesJSON
+            )
+            if outcome.snapshot.isQuiescent { retiredTargets.insert(owner.target) }
+            return outcome
+        }
+    }
+
     static func teardown(
         owner: OpaquePointer,
         generation: UInt64,

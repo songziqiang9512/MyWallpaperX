@@ -315,6 +315,11 @@ enum SceneTextureProviderState {
 }
 
 final class SceneResolvedMaterialRuntimeBridge {
+    struct FrameInputs {
+        enum DependencyUnavailability: String {
+            case providerSourceUnavailable = "external-primary-provider-source-unavailable"
+        }
+    }
     struct SceneBackgroundRequirement {}
     enum SourceRoute: Equatable { case transparentDirectDraw }
     struct FrameInputContract {

@@ -349,12 +349,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-06",
+      "lastReviewed": "2026-10-07",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c327a83b388563041664cfe940e4c1fda11f6414f1f88a1400e508839218ccfb",
+        "sourceSHA256": "7c4bc9a1307910f5d8862ea4be11d45e29a5e831e2099ccf67b10f5d70f90dcb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对本批默认模型颜色输入、已完成设计的稳定合同移交和暂停交接导航。",
+        "scope": "核对作者leaf删除、脚本退休、named provider局部失败的已实现边界及冻结证据；不作全样本验收。",
         "limitations": "仅对应本批职责与冻结证据，不表示全样本兼容、官方parity或发布验收。"
       }
     },
@@ -483,9 +483,9 @@
       "lastReviewed": "2026-10-07",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d0a62181ac27136a4e5eec48e4ff92ba08f2b87eeca3485f379eb7bff896bf13",
+        "sourceSHA256": "8a9c47d5f8ee9531cfc77ecc94ca045d5494da373537b6981ac4f8a87b1cfd81",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Puppet共享播放位置与隐藏恢复记录的导航核对，脚本seek和样本完整画面仍开放。",
+        "scope": "核对作者leaf删除、脚本退休、named provider局部失败的已实现边界及冻结证据；不作全样本验收。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -666,6 +666,17 @@
       "role": "navigation",
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene固定历史与当前权威的按需索引，不产生现役任务。"
+    },
+    {
+      "path": "docs/scene/history/authored-layer-retirement-2026-10-07.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/roadmap/batch2/script-component-api-design.md"
+      ]
     },
     {
       "path": "docs/scene/history/bottom-audio-provider-implementation-2026-10-05.md",

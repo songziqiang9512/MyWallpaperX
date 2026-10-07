@@ -52,6 +52,16 @@ handle 包含 scene generation、owner kind、object identity 与生命周期 ep
 首次init/cursor/update前，完整同代surface必须完成粒子准备并发布真实query projection；prepareLaunch模块装载不算init。各scalar/string/vector/cursor共用该顺序，不能从缺失屏或空集合发布假查询。首launch保留现warm-up的prepared-live：init.pause只阻止后续出生，init.stop在首次模拟前清live/batch/history。rebuild须在构造前注入committed paused/stopped，禁止先warm-up再补开关。官方warm-up/init次序未知，不声称parity。
 预算沿现役 VM time/memory/stack 与 aggregate mutation cap，不另开无限队列。首片项目上限为每 owner/frame 256 条 mutation、每 scene/frame 1024 条新增 API 命令、每 scene 128 个动态渲染对象、单次 emit 1024 个、每 scene 65536 个存活粒子；同 owner 的 cursor、timer、event、update 等 effect bundle 合并计入 owner/frame 上限，不能靠拆 callback 重置预算；每个实际有效上限取此值与现役对应预算的较小者，绝不借本设计提高旧上限。待销毁对象占用对象配额及既有 resident-byte budget，GPU 未释放不能返还配额。数字是保守项目配置，不是官方限制；实施时进入既有机器预算并以临界值/超一值测试冻结，调高必须附压力证据与显式基线变更。回调注册计入既有 VM roots/内存与命令配额，未建立可计量预算的 profile 不准入。
 
+## 作者图层跨层删除后继（2026-10-07）
+
+真实首断点是开场控制脚本删除另一个已准备作者图层时被自层限制拒绝，导致淡出中的暗幕和Logo永久残留。公开[IScene](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IScene.html)允许按name/index/ILayer删除并明确延迟生效。本片已沿现authored mutation journal允许有副作用权限的owner删除已准备、有效、无子层的作者图层；只改两个guard会遗留死层脚本，不能作为交付。Boolean controller跨层删除不改自己的返回值，自毁才归并false；有效删除请求返回true。纯value-only、陈旧句柄、子层级联与未准备对象不借此开放。
+
+唯一DynamicLayerRuntime在候选plan中保留动态层的创建owner归属，接受作者层删除时一并移除该层脚本创建的动态渲染对象；同一plan撤回全部相关变化。共同模拟commit先finalize所有peer journals，再按新接受的tombstone退休目标层scalar/string/vector/cursor cohort，复用现生命周期teardown清timer/jobs/ended roots与C动态层，销毁回调至多一次。共享owner不得重复退休；从后续update、media、cursor调度剔除。teardown沿现清理合同，不把destroy回调里新发出的绘制命令另开嵌套提交；其跨对象副作用完整语义仍待独立生命周期后继。资源保持launch/residency/completion所有权，不因删除释放在途GPU资源。当前cadence使用原topology，下一cadence投影移除；不等待surface/GPU成功，也不重放已消费脚本。
+
+Scalar/String通过现生命周期bridge内的value-owner协议共用一个退休入口；Vector复用同一清理循环，Cursor只负责自有owner及借用注册注销，不新增生命周期owner。没有待退休owner时不重建binding属性表。
+
+不新建对象树、clock或销毁队列。拒绝owner的删除不触发退休；先写后删、删后写、重复删除、带child拒绝、被删provider/组合成员不回生均需反例。已实施证据见[删除与退休记录](../../history/authored-layer-retirement-2026-10-07.md)。核心门为真实parser→VM→typed plan→下一帧descriptor，目标timer/update停止、健康peer保持、动态副本同步移除、throw/Swift拒绝无提前退休，以及原样本4秒后暗幕和Logo退出真实合成。官方精确callback先后、多屏呈现及父层级联另验，不能把局部leaf实现称为完整IScene。
+
 ## Puppet 动画层后继（2026-10-07）
 
 目标是让作者 `animationlayers[].visible` 及其 `IAnimationLayer` 控制进入真实骨骼、alpha、挂点和合成。它不同于属性 Timeline，不能借 `getAnimation()` 冒充。固定官方 2.8.0.42 自有黑盒确认：隐藏层冻结帧位置而 `isPlaying` 仍为 true；恢复后继续。`play(); setFrame(frameCount*.93)` 同 callback 保留小数位置且继续播放；getter 即时变化、公开骨骼姿态下一 update 才变化。暂停定位的 raw getter 保留负值和超尾值，姿态采样钳位到首尾；自然循环仍取余。现有自然播放 TRS 小数插值已由 controlled 轨道 0/.5/1 验证，不替换数学。研究原件暂存 `/private/tmp/mwx-puppet-seek-20261007/official`，不将单版本实验外推完整 API。

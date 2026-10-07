@@ -1493,6 +1493,23 @@ enum Harness {
                 "forwardCapture": forwardEffectfulImageBlend?
                     .requiresForwardCapture ?? false,
             ],
+            "retiredForwardProviders": [
+                "direct": forwardPreparation.plan.forwardDependencyPreparationOrder(
+                    authoredLayerIDs: [800, 301, 850, 900],
+                    activeExecutionLayerIDs: [800, 301, 850, 900]) ?? [-1],
+                "upstream": forwardNestedImageBlend.forwardDependencyPreparationOrder(
+                    authoredLayerIDs: [399, 402, 401],
+                    activeExecutionLayerIDs: [401, 402]) ?? [-1],
+                "middle": forwardNestedImageBlend.forwardDependencyPreparationOrder(
+                    authoredLayerIDs: [399, 402, 400],
+                    activeExecutionLayerIDs: [402]) ?? [-1],
+                "model": modelDependencyPlan.forwardDependencyPreparationOrder(
+                    authoredLayerIDs: [610], activeExecutionLayerIDs: [],
+                    activeStaticModelConsumerLayerIDs: [610]) ?? [-1],
+                "duplicateRejected": forwardPreparation.plan.forwardDependencyPreparationOrder(
+                    authoredLayerIDs: [800, 301, 301],
+                    activeExecutionLayerIDs: [301]) == nil,
+            ],
             "forwardEffectfulPreparationOrder": [
                 "authored": forwardPreparation.authoredLayerIDs,
                 "prepared": forwardPreparationOrder ?? [],
@@ -3743,6 +3760,12 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             self.result["brokenNestedImageBlend"],
             {"bindings": [], "providers": [], "graphProviders": []},
         )
+
+    def test_retired_provider_is_unavailable_without_aborting_healthy_layers(self) -> None:
+        self.assertEqual(self.result["retiredForwardProviders"], {
+            "direct": [], "upstream": [401], "middle": [], "model": [],
+            "duplicateRejected": True,
+        })
 
 if __name__ == "__main__":
     unittest.main()

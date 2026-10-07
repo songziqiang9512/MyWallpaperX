@@ -13,7 +13,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     let generation: UInt64
     let descriptor: SceneRenderDescriptor
     private let userPropertyKinds: [String: SceneUserPropertyKind]
-    private var disabledTargets: Set<SceneDynamicTarget> = []
+    private(set) var disabledTargets: Set<SceneDynamicTarget> = []
+    private var retiredTargets: Set<SceneDynamicTarget> = []
     private var reportedTargets: Set<SceneDynamicTarget> = []
     private var reportedAudioTargets: Set<SceneDynamicTarget> = []
     private var reportedAudioValueTargets: Set<SceneDynamicTarget> = []
@@ -874,6 +875,26 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     }
 
     func observeMediaEvents(_ events: SceneScriptMediaFrameEvents) -> SceneScriptObservedMediaFrameEvents { frameLedger.observeMediaEvents(events) }
+    /// Retirement is permanent and follows the accepted topology commit.
+    func retire(
+        layerIDs: Set<Int>,
+        frame: SceneScriptFrameInput,
+        effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
+        userPropertiesJSON: String
+    ) -> [SceneScriptOwnerTeardownOutcome] {
+        guard bindings.contains(where: {
+            layerIDs.contains($0.owner.layerID) && !retiredTargets.contains($0.definition.target)
+        }) else { return [] }
+        return SceneScriptOwnerLifecycleBridge.retire(
+            owners: bindings.map(\.owner), layerIDs: layerIDs, frame: frame,
+            propertiesByTarget: Dictionary(uniqueKeysWithValues: bindings.map {
+                ($0.definition.target, $0.properties)
+            }), effectivePropertyValues: effectivePropertyValues,
+            userPropertiesJSON: userPropertiesJSON,
+            disabledTargets: &disabledTargets, retiredTargets: &retiredTargets
+        )
+    }
+
     func frameStateSnapshot() -> SceneScriptProgramFrameState { frameLedger.snapshot() }
     func restoreFrameState(
         _ state: SceneScriptProgramFrameState,
@@ -881,7 +902,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     ) { frameLedger.restore(state, rejectedOwnerTargets: rejectedOwnerTargets) }
 
     func timerFrameStateSnapshot() -> SceneScriptProgramTimerFrameState { .init(snapshots: bindings.map { $0.owner.timerFrameSnapshot() }) }
-    func restoreTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { $0.0.owner.restoreTimerFrame($0.1) } }
+    func restoreTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { if !retiredTargets.contains($0.0.definition.target) { $0.0.owner.restoreTimerFrame($0.1) } } }
     func discardTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { $0.0.owner.discardTimerFrame($0.1) } }
 
     func finalizeLayerMutations(

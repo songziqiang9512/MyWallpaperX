@@ -2,7 +2,7 @@ import Foundation
 
 extension SceneScriptVectorProgram {
     var hasAudioConsumers: Bool {
-        bindings.contains(where: { $0.owner.hasAudioRegistration })
+        bindings.contains { !disabledTargets.contains($0.definition.target) && $0.owner.hasAudioRegistration }
     }
     var livePropertyInputTargets: Set<SceneDynamicTarget> {
         bindings.reduce(into: Set<SceneDynamicTarget>()) {
@@ -36,7 +36,7 @@ extension SceneScriptVectorProgram {
 
     var mediaOwnerRegistrations: [SceneScriptMediaOwnerRegistration] {
         bindings.compactMap { binding in
-            guard binding.handlesMediaPlayback
+            guard !disabledTargets.contains(binding.definition.target), binding.handlesMediaPlayback
                     || binding.handlesMediaProperties
                     || binding.handlesMediaThumbnail
                     || binding.handlesMediaTimeline else { return nil }
@@ -50,7 +50,8 @@ extension SceneScriptVectorProgram {
 
     var cursorOwnerRegistrations: [SceneScriptCursorOwnerRegistration] {
         bindings.compactMap { binding in
-            guard !binding.owner.exportedCursorEvents.isEmpty else {
+            guard !disabledTargets.contains(binding.definition.target),
+                  !binding.owner.exportedCursorEvents.isEmpty else {
                 return nil
             }
             let layerID: Int

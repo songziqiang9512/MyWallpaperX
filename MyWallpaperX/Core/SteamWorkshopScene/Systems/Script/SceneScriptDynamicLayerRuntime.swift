@@ -22,6 +22,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         [SceneDynamicTarget: SceneDynamicTargetDefinition] = [:]
     private var order: [Int]
     private var dynamicLayersByID: [Int: SceneRenderDescriptor.Layer] = [:]
+    private var dynamicLayerCreatorTargetsByID: [Int: SceneDynamicTarget] = [:]
     private var dynamicLayerValueRevision: UInt64 = 0
     private var destroyedAuthoredLayerIDs: Set<Int> = []
     private var authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
@@ -105,18 +106,25 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         if case .success = result, mutations.contains(where: \.isDynamic) {
             dynamicLayerValueRevision &+= 1
         }
-        return result
+        return result.map { _ in () }
+    }
+
+    private struct AppliedChanges {
+        let finalPositions: [Int: Int]
+        let requiresRetirement: Bool
     }
 
     private func apply(
         _ mutations: [SceneScriptLayerMutation],
-        publishingTopologyRevision: Bool
-    ) -> Result<Void, SceneScriptScalarRuntimeFailure> {
+        publishingTopologyRevision: Bool,
+        deferringFinalization: Bool = false
+    ) -> Result<AppliedChanges, SceneScriptScalarRuntimeFailure> {
         guard mutations.count <= 512 else {
             return .failure(.mutationOverflow("frame layer mutation budget exceeded"))
         }
         var candidateOrder = order
         var candidateLayers = dynamicLayersByID
+        var candidateCreators = dynamicLayerCreatorTargetsByID
         var candidateDestroyedAuthoredLayerIDs = destroyedAuthoredLayerIDs
         var candidateAuthoredValues = authoredLayerValues
         var candidateDefinitionOrder = authoredDefinitionOrder
@@ -128,6 +136,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         // insertion pass below reproduces the C order for mixed frames and
         // is independent of the mutation stream order.
         var orderFinalPositions: [Int: Int] = [:]
+        var requiresRetirement = false
         for mutation in mutations {
             guard mutation.origin.x.isFinite, mutation.origin.y.isFinite,
                   mutation.origin.z.isFinite, mutation.scale.x.isFinite,
@@ -143,14 +152,18 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     return .failure(.invalidArgument("invalid authored layer mutation"))
                 }
                 if mutation.kind == .destroy {
-                    guard mutation.fields.isEmpty,
-                          authoredLayer.childLayerIDs.isEmpty else {
+                    guard mutation.fields.isEmpty, mutation.orderIndex >= 0,
+                          authoredLayer.childLayerIDs.isEmpty,
+                          !candidateDestroyedAuthoredLayerIDs.contains(mutation.layerID) else {
                         return .failure(.invalidArgument(
                             "invalid authored layer destroy"
                         ))
                     }
                     candidateDestroyedAuthoredLayerIDs.insert(mutation.layerID)
-                    candidateOrder.removeAll { $0 == mutation.layerID }
+                    requiresRetirement = true
+                    // C keeps authored tombstones in its catalog until commit;
+                    // retain their final raw slot for the shared order projection.
+                    orderFinalPositions[mutation.layerID] = mutation.orderIndex
                     candidateAuthoredValues = candidateAuthoredValues.filter {
                         Self.layerID(for: $0.key) != mutation.layerID
                     }
@@ -341,6 +354,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     return .failure(.staleOwner)
                 }
                 candidateOrder.removeAll { $0 == mutation.layerID }
+                candidateCreators.removeValue(forKey: mutation.layerID)
+                orderFinalPositions.removeValue(forKey: mutation.layerID)
             case .upsert:
                 let layer: SceneRenderDescriptor.Layer?
                 if let assetPath = mutation.assetPath {
@@ -358,26 +373,24 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 guard let layer else {
                     return .failure(.invalidArgument("dynamic layer is invalid"))
                 }
+                if candidateLayers[mutation.layerID] == nil {
+                    candidateOrder.append(mutation.layerID)
+                    if let creator = mutation.ownerTarget {
+                        candidateCreators[mutation.layerID] = creator
+                        requiresRetirement = requiresRetirement || (Self.layerID(for: creator)
+                            .map(candidateDestroyedAuthoredLayerIDs.contains) ?? false)
+                    }
+                }
                 candidateLayers[mutation.layerID] = layer
                 orderFinalPositions[mutation.layerID] = mutation.orderIndex
             }
         }
-        // Apply the collected order mutations: every affected layer takes
-        // its FINAL absolute position from the C catalog; every other layer
-        // keeps its relative order and fills the gaps. Ascending insertion
-        // over the whole set reproduces the C final order for mixed frames
-        // (dynamic creates + authored sorts) and is independent of the
-        // mutation stream order.
-        if !orderFinalPositions.isEmpty {
-            for layerID in orderFinalPositions.keys {
-                candidateOrder.removeAll { $0 == layerID }
-            }
-            for (layerID, index) in orderFinalPositions.sorted(by: { $0.value < $1.value }) {
-                candidateOrder.insert(
-                    layerID,
-                    at: min(index, candidateOrder.count)
-                )
-            }
+        if !deferringFinalization {
+            Self.finalizeTopology(finalPositions: orderFinalPositions,
+                requiresRetirement: requiresRetirement,
+                destroyedAuthoredLayerIDs: candidateDestroyedAuthoredLayerIDs,
+                order: &candidateOrder, layers: &candidateLayers, creators: &candidateCreators,
+                definitionOrder: &candidateDefinitionOrder, definitions: &candidateDefinitions)
         }
         guard candidateLayers.count <= 256,
               Set(candidateOrder).count == candidateOrder.count,
@@ -392,6 +405,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         )
         order = candidateOrder
         dynamicLayersByID = candidateLayers
+        dynamicLayerCreatorTargetsByID = candidateCreators
         destroyedAuthoredLayerIDs = candidateDestroyedAuthoredLayerIDs
         authoredLayerValues = candidateAuthoredValues
         authoredDefinitionOrder = candidateDefinitionOrder
@@ -400,7 +414,45 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
            dynamicTopologyChanged {
             topologyRevision &+= 1
         }
-        return .success(())
+        return .success(.init(finalPositions: orderFinalPositions, requiresRetirement: requiresRetirement))
+    }
+
+    /// Raw C positions include authored tombstones and creator copies until the
+    /// shared commit boundary. Place all surviving and deferred slots first,
+    /// then remove retired identities in one projection, across all peer owners.
+    private static func finalizeTopology(
+        finalPositions: [Int: Int], requiresRetirement: Bool,
+        destroyedAuthoredLayerIDs: Set<Int>, order: inout [Int],
+        layers: inout [Int: SceneRenderDescriptor.Layer],
+        creators: inout [Int: SceneDynamicTarget],
+        definitionOrder: inout [SceneDynamicTarget],
+        definitions: inout [SceneDynamicTarget: SceneDynamicTargetDefinition]
+    ) {
+        // Explicit dynamic destroys already removed their C catalog slots.
+        let positions = finalPositions.filter { order.contains($0.key) }
+        if !positions.isEmpty {
+            order.removeAll { positions[$0] != nil }
+            for (layerID, index) in positions.sorted(by: { $0.value < $1.value }) {
+                order.insert(layerID, at: min(index, order.count))
+            }
+        }
+        guard requiresRetirement else { return }
+        let retiredDynamicIDs = Set(creators.compactMap { dynamicID, creator -> Int? in
+            guard let creatorLayerID = layerID(for: creator),
+                  destroyedAuthoredLayerIDs.contains(creatorLayerID) else { return nil }
+            return dynamicID
+        })
+        for layerID in retiredDynamicIDs {
+            layers.removeValue(forKey: layerID)
+            creators.removeValue(forKey: layerID)
+        }
+        order.removeAll { destroyedAuthoredLayerIDs.contains($0) || retiredDynamicIDs.contains($0) }
+        definitionOrder.removeAll { target in
+            layerID(for: target).map(destroyedAuthoredLayerIDs.contains) ?? false
+        }
+        definitions = definitions.filter { target, _ in
+            !(layerID(for: target).map(destroyedAuthoredLayerIDs.contains) ?? false)
+        }
     }
 
     /// Product frame commit keeps each VM owner atomic while allowing
@@ -419,6 +471,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     ) -> SceneScriptLayerMutationPlan {
         let originalOrder = order
         let originalLayers = dynamicLayersByID
+        let originalCreators = dynamicLayerCreatorTargetsByID
         let originalDestroyedAuthoredLayerIDs = destroyedAuthoredLayerIDs
         let originalValues = authoredLayerValues
         let originalDefinitionOrder = authoredDefinitionOrder
@@ -435,6 +488,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             outcome: outcome,
             order: order,
             dynamicLayersByID: dynamicLayersByID,
+            dynamicLayerCreatorTargetsByID: dynamicLayerCreatorTargetsByID,
             destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs,
             authoredLayerValues: authoredLayerValues,
             authoredDefinitionOrder: authoredDefinitionOrder,
@@ -443,6 +497,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         )
         order = originalOrder
         dynamicLayersByID = originalLayers
+        dynamicLayerCreatorTargetsByID = originalCreators
         destroyedAuthoredLayerIDs = originalDestroyedAuthoredLayerIDs
         authoredLayerValues = originalValues
         authoredDefinitionOrder = originalDefinitionOrder
@@ -550,8 +605,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     }
 
     func commit(_ plan: SceneScriptLayerMutationPlan) {
-        // Definitions are append-only for the lifetime of a launch. Their
-        // stable order is therefore the cheapest complete invalidation key;
+        // Definitions grow on admitted writes and retire with authored layers.
+        // Their stable order is the cheapest complete invalidation key;
         // authored values remain frame-varying state and do not invalidate
         // the launch schema.
         let definitionsChanged = authoredDefinitionOrder
@@ -559,6 +614,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         particlePlayback = plan.particlePlayback
         order = plan.order
         dynamicLayersByID = plan.dynamicLayersByID
+        dynamicLayerCreatorTargetsByID = plan.dynamicLayerCreatorTargetsByID
         destroyedAuthoredLayerIDs = plan.destroyedAuthoredLayerIDs
         authoredLayerValues = plan.authoredLayerValues
         authoredDefinitionOrder = plan.authoredDefinitionOrder
@@ -600,6 +656,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         var failures: [SceneScriptLayerMutationOwnerFailure] = []
         var committedMutationCount = 0
         var committedDynamicMutationCount = 0
+        var finalPositions: [Int: Int] = [:]
+        var requiresRetirement = false
         for owner in ownerOrder {
             guard let batch = grouped[owner] else { continue }
             let authoredValues = batch.flatMap(Self.authoredValues)
@@ -615,8 +673,10 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 ))
                 continue
             }
-            switch apply(batch, publishingTopologyRevision: false) {
-            case .success:
+            switch apply(batch, publishingTopologyRevision: false, deferringFinalization: true) {
+            case let .success(changes):
+                finalPositions.merge(changes.finalPositions) { _, latest in latest }
+                requiresRetirement = requiresRetirement || changes.requiresRetirement
                 for (target, value) in authoredValues
                 where claimedAuthoredValues[target] == nil {
                     claimedAuthoredValues[target] = value
@@ -629,6 +689,10 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 ))
             }
         }
+        Self.finalizeTopology(finalPositions: finalPositions, requiresRetirement: requiresRetirement,
+            destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs,
+            order: &order, layers: &dynamicLayersByID, creators: &dynamicLayerCreatorTargetsByID,
+            definitionOrder: &authoredDefinitionOrder, definitions: &authoredDefinitionsByTarget)
         return .init(
             committedMutationCount: committedMutationCount,
             committedDynamicMutationCount: committedDynamicMutationCount,
@@ -644,7 +708,9 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
 
     private static func layerID(for target: SceneDynamicTarget) -> Int? {
         switch target {
-        case let .layer(layerID, _), let .text(layerID, _), let .effectVisibility(layerID, _), let .particle(layerID, _):
+        case let .layer(layerID, _), let .text(layerID, _), let .effectVisibility(layerID, _),
+             let .effectConstant(layerID, _, _, _), let .materialConstant(layerID, _, _, _),
+             let .particle(layerID, _), let .scriptInstanceProperty(layerID, _):
             layerID
         default:
             nil

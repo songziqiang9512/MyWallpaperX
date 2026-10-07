@@ -917,6 +917,8 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "preparedProviderOutputKeepsNamedReservationWithoutCompositorOwnership",
                 "namedPublicationMissKeepsSuffixAndFrameLocal",
                 "aggregatePublicationMissRejectsOnlyConsumer",
+                "aggregateSourceUnavailableSkipsClaimAndKeepsSuffix",
+                "sourceUnavailableFallbackRequiresDependencyContract",
                 "twoCandidatesPublishConsumeAndCommitAtomically",
                 "postClaimFailureDropsWholeFrame",
                 "foreignBufferRejectedBeforePrepare",

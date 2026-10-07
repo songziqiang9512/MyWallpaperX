@@ -38,22 +38,43 @@ extension SceneMetalRenderer {
             )
         }
         let utilityExecution = utilityExecution ?? self.utilityExecution
-        let availableExecutionLayerIDs =
-            imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? []
-        // The renderer already walked the frame's visible layer set from the
-        // same snapshot. The dependency runtime intersects it with the base
-        // execution layers (dynamic-layer IDs drop out there); a destroyed
-        // base layer stays equivalent as well — a destroyed provider is
-        // pulled back in by the consumer-closure expansion whenever a
-        // visible consumer needs it, so the second full walk is redundant.
-        let frameVisibleRootLayerIDs = frameVisibleLayerIDs
-        let activeExecutionLayerIDs = dependencyRuntime
+        let liveLayerIDs = Set(orderedLayers.map(\.id))
+        let availableExecutionLayerIDs = (imageCompositor.resolvedMaterialRuntime?
+            .executionLayerIDs ?? []).intersection(liveLayerIDs)
+        // An aggregate cannot consume a partial vector. Retire that consumer
+        // and its dependants from graph demand before preparing any targets.
+        var unavailableAggregateConsumers = Set(dependencyRuntime.plan
+            .multiProviderAggregatesByConsumerLayerID.values.filter {
+                !$0.providerLayerIDs.isSubset(of: liveLayerIDs)
+            }.map(\.consumerLayerID))
+        var changed = !unavailableAggregateConsumers.isEmpty
+        while changed {
+            let previousCount = unavailableAggregateConsumers.count
+            for binding in dependencyRuntime.plan.bindingsByConsumerLayerID.values
+            where unavailableAggregateConsumers.contains(binding.providerLayerID) {
+                unavailableAggregateConsumers.insert(binding.consumerLayerID)
+            }
+            for aggregate in dependencyRuntime.plan.multiProviderAggregatesByConsumerLayerID.values
+            where !aggregate.providerLayerIDs.isDisjoint(with: unavailableAggregateConsumers) {
+                unavailableAggregateConsumers.insert(aggregate.consumerLayerID)
+            }
+            changed = previousCount != unavailableAggregateConsumers.count
+        }
+        var activeExecutionLayerIDs = dependencyRuntime
             .resolvedMaterialExecutionLayerIDs(
-                visibleRootLayerIDs: frameVisibleRootLayerIDs,
+                visibleRootLayerIDs: frameVisibleLayerIDs,
                 availableExecutionLayerIDs: availableExecutionLayerIDs,
                 activeStaticModelConsumerLayerIDs: frameVisibleLayerIDs
                     .intersection(staticModelResources.namedAlbedoLayerIDs)
             )
+        unavailableAggregateConsumers.formIntersection(activeExecutionLayerIDs)
+        if !unavailableAggregateConsumers.isEmpty {
+            activeExecutionLayerIDs = dependencyRuntime.resolvedMaterialExecutionLayerIDs(
+                visibleRootLayerIDs: frameVisibleLayerIDs,
+                availableExecutionLayerIDs: availableExecutionLayerIDs.subtracting(unavailableAggregateConsumers),
+                activeStaticModelConsumerLayerIDs: frameVisibleLayerIDs
+                    .intersection(staticModelResources.namedAlbedoLayerIDs))
+        }
         var byLayerID: [Int: SceneResolvedMaterialFrameTargetPlan] = [:]
         var allocationPlans: [ScenePersistentGraphTargetFramePlan] = []
         var preparationRequests: [
@@ -147,7 +168,8 @@ extension SceneMetalRenderer {
             // are intentionally not in `availableExecutionLayerIDs` and still
             // flow through the ordinary fail-closed claim path below.
             if availableExecutionLayerIDs.contains(layer.id),
-               !activeExecutionLayerIDs.contains(layer.id) {
+               !activeExecutionLayerIDs.contains(layer.id),
+               !unavailableAggregateConsumers.contains(layer.id) {
                 continue
             }
             let route = imageCompositor.preflightResolvedMaterialClaim(
@@ -163,6 +185,11 @@ extension SceneMetalRenderer {
                 return .rejected(reasonCode: reasonCode)
             case let .claimed(value):
                 claim = value
+            }
+            if unavailableAggregateConsumers.contains(layerID) {
+                graphTargetFallbacks[layerID] = SceneResolvedMaterialRuntimeBridge
+                    .FrameInputs.DependencyUnavailability.providerSourceUnavailable.rawValue
+                continue
             }
             if case let .externalPrimary(binding) = claim.dependencyOwnership,
                binding.kind != .resolvedMaterial,
@@ -523,6 +550,11 @@ extension SceneMetalRenderer {
                 guard binding.consumerLayerID == layerID,
                       let providerLayer = layersByID[binding.providerLayerID] else {
                     return invalid("layer-\(layerID)-dependency-binding-invalid")
+                }
+                guard liveLayerIDs.contains(binding.providerLayerID) else {
+                    dependencyEffects = []
+                    dependencyUnavailability = .providerSourceUnavailable
+                    break
                 }
                 let providerMVP = imageMVP(
                     providerLayer,

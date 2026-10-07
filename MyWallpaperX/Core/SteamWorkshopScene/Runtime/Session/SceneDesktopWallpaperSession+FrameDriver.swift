@@ -831,6 +831,7 @@ extension SceneDesktopWallpaperSession {
             videoCommands: videoCommands,
             textureAnimationCommands: textureAnimationCommands,
             puppetAnimationCommands: admittedOwnerEffects.flatMap(\.puppetAnimationCommands),
+            scriptFrame: sceneScriptFrame,
             timing: timing,
             layerPlan: admission.layerPlan,
             rejectedOwnerTargets: rejectedOwnerTargets

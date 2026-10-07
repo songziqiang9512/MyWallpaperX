@@ -347,6 +347,8 @@ extension SceneImageLayerCompositor {
                 || reasonCode == "function-invocation-unknown-function"
                 || reasonCode == "captured-main-color-contract-unproven"
                 || reasonCode == "layer-source-not-ready"
+                || reasonCode == SceneResolvedMaterialRuntimeBridge.FrameInputs
+                    .DependencyUnavailability.providerSourceUnavailable.rawValue
                 || ScenePersistentGraphTargetPlanningFailure
                     .isLocalFallbackReasonCode(reasonCode) {
                 return .localFallback(reasonCode: reasonCode)
