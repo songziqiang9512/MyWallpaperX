@@ -285,6 +285,10 @@ enum Checks {
         let cloneColor = dynamicMaterial.sourceMaterialColor(layer: dynamicLayer, snapshot: frame)
         checks["originalAndCloneReadOneMaterialTarget"] = originalColor == SIMD3(0.5, 0.25, 0.75)
             && originalColor == cloneColor
+        let changedUserFrame = SceneDynamicSnapshot(values: [
+            materialTarget: .init(value: .vector3(0.2, 0.6, 0.8)),
+            alphaTarget: .init(value: .scalar(0.3)),
+        ])
         func near(_ value: SIMD4<Float>, _ expected: SIMD4<Float>) -> Bool {
             (0 ..< 4).allSatisfy { abs(value[$0] - expected[$0]) < 0.000_001 }
         }
@@ -300,6 +304,15 @@ enum Checks {
                     sourceMaterialColor: dynamicMaterial.sourceMaterialColor(layer: sourceLayer, snapshot: frame))
                 checks["materialAndOwnStyleMultiplyOnce_\(sourceLayer.id)_\(offscreen)"] = near(uniforms.tint, expected)
                     && abs(uniforms.alpha - ownAlpha * 0.3) < 0.000_001
+                let changed = compositor.sourceFragmentUniforms(values: values, layer: sourceLayer,
+                    sourceSample: selectedRequest.resolvedBaseTextureSample()!, routesOffscreen: offscreen,
+                    dependencyBlendMode: nil,
+                    sourceMaterialAlpha: dynamicMaterial.sourceMaterialAlpha(layer: sourceLayer, snapshot: changedUserFrame),
+                    sourceMaterialColor: dynamicMaterial.sourceMaterialColor(layer: sourceLayer, snapshot: changedUserFrame))
+                let changedExpected = sourceLayer.id == originalLayer.id
+                    ? SIMD4<Float>(0.08, 0.48, 0.16, 1) : SIMD4<Float>(0.04, 0.06, 0.48, 1)
+                checks["currentUserMaterialKeepsOwnStyle_\(sourceLayer.id)_\(offscreen)"] = near(changed.tint, changedExpected)
+                    && abs(changed.alpha - ownAlpha * 0.3) < 0.000_001
                 let zeroFrame = SceneDynamicSnapshot(values: [alphaTarget: .init(value: .scalar(0))])
                 let zero = compositor.sourceFragmentUniforms(values: values, layer: sourceLayer,
                     sourceSample: selectedRequest.resolvedBaseTextureSample()!, routesOffscreen: offscreen,

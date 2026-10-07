@@ -252,12 +252,17 @@ nonisolated extension SceneScriptVectorProgram {
                 )
             ),
             properties: properties,
-            livePropertyInputTargets: [],
+            livePropertyInputTargets: SceneScriptPropertyInputCodec.liveConsumerTargets(
+                layerID: binding.sourceLayerID,
+                targetPath: SceneScriptPropertyTargetPath.encoded(binding.colorBindingPath),
+                inputs: properties
+            ),
             hasCurrentAnimation: false,
             dynamicImageReferences: [],
             requiresStatefulOwner: false,
             evaluatesAfterSharedProviders: false,
-            dynamicMaterialModelPath: binding.modelPath
+            dynamicMaterialModelPath: binding.modelPath,
+            userPropertyInputKey: binding.colorUserPropertyKey
         )
     }
 

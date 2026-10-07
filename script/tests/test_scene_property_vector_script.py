@@ -91,10 +91,38 @@ HARNESS = "\n".join((FIXTURES / name).read_text(encoding="utf-8") for name in (
     'ScenePropertyVectorParticleCases.swift',
     'ScenePropertyVectorLayerCases.swift',
     'ScenePropertyVectorMediaCases.swift',
+    'ScenePropertyVectorMaterialCases.swift',
 ))
 
 
 class ScenePropertyVectorScriptTests(unittest.TestCase):
+    def test_mixed_material_user_input_and_inner_flag_share_the_existing_vm(self) -> None:
+        value = self.result()["materialMixed"]
+        self.assertEqual(value["ownerCount"], 1, value)
+        self.assertEqual(value["publisherCount"], 2, value)
+        for key in ("borrowedExactUserTarget", "foreignUserNotBorrowed", "nestedTargetActive",
+                    "catalogExclusionKeepsPreparedFact", "validHotChanges", "layerStyleUntouched"):
+            self.assertTrue(value[key], (key, value))
+        self.assertEqual(value["currentFailures"], 0, value)
+        for actual, expected in zip(value["enabledAnimated"], [.3645, .1725, .3645]):
+            self.assertAlmostEqual(actual, expected, places=6)
+
+    def test_mixed_material_undefined_uses_current_user_color_and_preserves_transactions(self) -> None:
+        value = self.result()["materialMixed"]
+        self.assertEqual(value["initialUndefined"], [.729, .345, .729], value)
+        self.assertEqual(value["currentUndefined"], [.2, .6, .8], value)
+        self.assertEqual(value["currentSource"], "sceneScript", value)
+        self.assertTrue(value["invalidTransactionPreserved"], value)
+
+    def test_mixed_material_bad_return_keeps_user_fallback_then_recovers(self) -> None:
+        value = self.result()["materialMixed"]
+        self.assertTrue(value["badReturnUnpublished"], value)
+        self.assertEqual(value["badReturnFallback"], [.2, .6, .8], value)
+        self.assertEqual(value["badReturnFallbackSource"], "userProperty", value)
+        self.assertEqual(value["recoveredUndefined"], [.2, .6, .8], value)
+        self.assertEqual(value["recoveredFailures"], 0, value)
+        self.assertTrue(value["badAndRecoveryChangesAccepted"], value)
+
     @classmethod
     def setUpClass(cls) -> None:
         clang = shutil.which("clang")

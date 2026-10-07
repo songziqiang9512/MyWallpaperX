@@ -113,6 +113,16 @@ enum SceneBaseMaterialColorModulationCompiler {
             return .materialConstant(layerID: sourceLayerID, passIndex: 0,
                 name: alphaKey, materialPath: materialPath)
         }
+        var colorUserPropertyKey: String? = nil
+        var colorPropertyTarget: SceneDynamicTarget? {
+            guard colorUserPropertyKey != nil else { return nil }
+            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
+                name: colorKey, materialPath: materialPath)
+        }
+        var colorBindingPath: [SceneUserPropertyPathComponent] {
+            [.key("materials"), .key(materialPath), .key("passes"), .index(0),
+             .key("constantshadervalues"), .key(colorKey)]
+        }
     }
 }
 
@@ -191,12 +201,14 @@ struct SceneScriptBindingOwner {
     let objectID: Int?
     let effectIndex: Int?
 }
+enum SceneScriptBindingPathComponent { case key(String), index(Int) }
 struct SceneScriptBindingIR {
     let source: String
     let owner: SceneScriptBindingOwner
     let properties: [String: SceneJSONValue]
     let valueType: SceneScriptBindingValueType
     let targetKey: String
+    var targetPath: [SceneScriptBindingPathComponent] = []
 }
 struct SceneScriptSourceEvidenceIR {
     let source: String
@@ -775,6 +787,7 @@ let scalarProfiles = [
 ]
 let result: [String: Any] = [
     "customAlpha": customMaterialAlphaChecks(),
+    "customUserColor": customMaterialUserColorChecks(),
     "scalarProfiles": scalarProfiles,
     "authoredNormals": authoredNormals,
     "normalAdmission": [unsupportedNormalReported, unsupportedNormal.normalAsset == nil,
@@ -839,6 +852,7 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
                     str(VISIBILITY_SOURCE),
                     str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyLiveUpdateState.swift"),
                     str(ROOT / "script/tests/fixtures/SceneBaseMaterialAlphaChecks.swift"),
+                    str(ROOT / "script/tests/fixtures/SceneBaseMaterialUserColorChecks.swift"),
                     str(harness), "-module-cache-path", str(root / "cache"), "-o", str(binary),
                 ],
                 check=True,
@@ -847,6 +861,9 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
             result = json.loads(subprocess.check_output([str(binary)], text=True))
         for name, passed in result["customAlpha"].items():
             with self.subTest(alpha=name):
+                self.assertTrue(passed)
+        for name, passed in result["customUserColor"].items():
+            with self.subTest(user_color=name):
                 self.assertTrue(passed)
         expected = [[.5,.5],[0,.7],[],[0,1],[.8,.2],[0,.7],[.5,.5],[1,0]]
         for actual, wanted in zip(result["scalarProfiles"], expected):

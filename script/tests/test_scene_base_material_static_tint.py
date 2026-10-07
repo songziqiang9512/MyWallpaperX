@@ -25,6 +25,9 @@ FIXTURE = Path(__file__).with_name("fixtures") / "SceneBaseMaterialStaticTintHar
 SOURCES = list(dict.fromkeys([
     *schema_fixture.SWIFT_SOURCES,
     SCENE / "Compilation/Material/SceneEffectTextureInput.swift",
+    SCENE / "Systems/Properties/SceneUserProperty.swift",
+    SCENE / "Systems/Properties/SceneUserPropertyBindings.swift",
+    SCENE / "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
     SCENE / "Compilation/Material/SceneBaseMaterialColorModulationCompiler.swift",
 ]))
 
@@ -137,6 +140,24 @@ class SceneBaseMaterialStaticTintTests(unittest.TestCase):
         self.assertTrue(self.result["scriptDynamic"]["hasScript"])
         self.assertEqual(self.result["scriptDynamic"]["properties"], 1)
         self.assertEqual(self.result["scriptWithoutDynamicResource"]["count"], 0)
+
+    def test_user_and_mixed_color_keep_one_material_target(self) -> None:
+        for name in ["strictUserColor", "mixedUserScriptColor", "mixedColorAndUserAlpha"]:
+            with self.subTest(name=name):
+                row = self.result[name]
+                self.assertEqual(row["count"], 1)
+                self.assertEqual(row["colorUserKey"], "palette")
+                self.assertEqual(row["key"], "surface-key")
+                self.assertTrue(row["colorTargetMatches"])
+                self.assertEqual(row["hasScript"], name != "strictUserColor")
+        self.assertEqual(self.result["mixedColorAndUserAlpha"]["alphaUserKey"], "liveOpacity")
+        self.assertEqual(self.result["mixedUserScriptWithoutDynamicResource"]["count"], 0)
+
+    def test_user_color_requires_the_complete_known_wrapper(self) -> None:
+        for name in ["emptyColorUser", "nullColorUser", "unknownUserColorWrapper",
+                     "mixedMissingScriptProperties", "multipleColorAliases"]:
+            with self.subTest(name=name):
+                self.assertEqual(self.result[name]["count"], 0)
 
     def test_static_and_script_bindings_preserve_the_real_material_key(self) -> None:
         for name in ["staticBlack", "scriptDynamic"]:

@@ -117,6 +117,12 @@ nonisolated enum SceneScriptPropertyInputCodec {
                 SceneScriptPropertyTargetPath.indexComponent(index)
             }
         }
+        return liveConsumerTargets(layerID: layerID, targetPath: targetPath, inputs: inputs)
+    }
+
+    static func liveConsumerTargets(
+        layerID: Int, targetPath: [String], inputs: [String: SceneScriptPropertyInput]
+    ) -> Set<SceneDynamicTarget> {
         return Set(inputs.compactMap { name, input -> SceneDynamicTarget? in
             guard input.userPropertyKey != nil else { return nil }
             return .scriptInstanceProperty(

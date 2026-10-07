@@ -100,3 +100,25 @@ Resolver/TemplateCompiler共用槽覆盖、uniform投影和ShaderSchema；source
 早期`runtime-final-*`、`runtime-reviewed-*`和`runtime-accepted-original`分别绑定早期App，不能替代最终身份；最终运行在入口顺序修正后重做。7模块39项CPU回归通过（`cpu/tests-final-receipt.json`记录分阶段身份及未变测试复用），覆盖实际编译器、属性publisher→consumer、原/clone各自alpha、旧builtin健康及拒绝后回退；提交前独立复核按冻结差异与证据裁决。下一步优先user color/多source公共缺口；named实际染色及HDR剩余显示问题保持现役优先队列。当前完成的是两个Alpha候选的有界实际链路，不是两样本完整正确率。
 
 本片停止使用的隔离输入、baseline App与重复截图已清理；保留约22MiB日志/报告/生成与身份收据、6张必要PNG，详见`artifact-retention.json`。连续迭代仍只沿用上述唯一build缓存；未知归属目录未动。
+
+
+## 后继修正：混合用户颜色接入既有Vec3 owner
+
+本片基线`132ac30d`。在余项中比较mixed user color、多source与Power=.99：前者缺接线但已有完整Vec3合同；多source需多prototype identity，Power非1不能假装普通tint，保留下一片。真实3665307769的材质color同时含user、script和scriptproperties，旧proof拒绝整个材质，颜色显示及热切均不正确。扩同prepared事实和现属性编译器，outer color成为唯一materialConstant的借用输入，内层ifchange复用统一typed path的scriptInstanceProperty producer/consumer。用户色与脚本返回合并、undefined处理均沿原effect Vec3机制，未新增VM、优先级算法、pass或值缓存；内层publisher缺失先拒绝proof，旧Alpha回退保留。颜色仍采用既有有限Vec3及compositor范围规则。
+
+公开[update文档](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/update.html)规定输入为当前属性值，无返回不修改；本次没有据此宣称全部官方user/script热切顺序。证据根`/private/tmp/mwx-material-user-color-20261008`，最终正常签名Debug App SHA`b84454d85483d5eaf7b2974492afd31401ddd7bf3fd3e191b42b347502aebc2c`，构建及7产品文件身份见`build-nested.log`/`built-product.json`。受控包仅替换scene几何与init，原材质、project、mixed脚本bytes不变（117条目中的116条不变）；原/clone各有非白layer色、alpha=.5。没有把真实mixed改成pure user输入来制造通过。
+
+| 输入与运行 | 实际结果及边界 |
+|---|---|
+| `runtime-baseline-false-hot`，旧App`0475f8fd…755c` | 关闭彩虹后热切用户色被拒，原/clone均RGB(64,32,96)，材质色未消费 |
+| `runtime-final-false-hot`，最终App | 用户色(.4,.8,.2)→(.8,.4,.6)，两块RGB(26,26,19)→(51,13,57)，共享材质与各自layer style一次相乘，窗口不重建 |
+| `runtime-final-true-to-false`，最终App | 只改ifchange开关，不改用户色，原/clone从彩虹输出回到RGB(26,26,19)；没有停留旧脚本结果 |
+| `runtime-final-true-hot`，最终App | 彩虹开启时只改用户色，现script返回继续优先，保持动态彩虹；没有让用户输入覆盖脚本返回 |
+| `runtime-final-original`，完整366原PKG SHA`e720c8e15967aab51f75f721d49785b5d654e405f090390ababa99e141e430eb` | 原包彩虹材质实际VM→63动态bar encode/GPU完成。Debug PCM为测试输入，不代表真实音乐来源或全部视觉一致 |
+| `runtime-original-false-hot`，同原PKG/最终App | **FAIL保留**：同key newproperty3还绑定layer146.visible，color→Bool类型冲突使整次颜色热切拒绝。受控通过不能代替该原包控件验收；官方混合类型合同待研究，未放宽事务或悄悄跳过consumer |
+
+原包还保留374.visibility、386.origin的scale undefined/null和386.alpha的getTextureAnimation null异常；这些不是材质color接线成功的反证，也不能从全样本队列删除。当前收益为默认彩虹频谱与通用mixed材质接线；整个366仍未完成。下一步先裁决颜色跨类型绑定，再比较同model多source、named合成和HDR余项，不能因局部有界通过把原包热切标成已修。
+
+8模块70项CPU/QuickJS方法的最近结果全部通过，含原Alpha回归；`cpu/tests-final-receipt.json`保留分阶段测试文件与产品SHA。首轮fixture不可变字段及重复source-list接线错误已修，仅重跑受影响门，未作为产品失败或伪报首轮全绿。独立产品复核未见P1/P2；最终证据另按冻结身份复核。
+
+本片停止使用的输入副本和重复截图已清理，保留约24.0MiB报告/日志、输入生成与身份收据及9张必要PNG；`artifact-retention.json`登记范围。继续只沿用一份既有build缓存，未动未知归属产物。

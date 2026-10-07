@@ -198,14 +198,14 @@ struct SceneRuntimeModelBuilder {
             // seed.
             preparedDescriptor: runtimeDescriptor
         )
-        // Validate the small proposed producer set before replacing any builtin
+        // Validate the small proposed material producer set before replacing any builtin
         // writers. Rejected source lowering must retain the complete old route.
-        let proposedAlpha = SceneMaterialPropertyBindingCompiler.provenAlphaBindings(
+        let proposedMaterialProperties = SceneMaterialPropertyBindingCompiler.provenPropertyBindings(
             rawPropertyVectorProjection.materialBindings, descriptor: renderDescriptor,
             materialInstancesByLayerID: sceneDocument.materialInstancesByLayerID
         )
-        let proposedAlphaProgram = ScenePropertyBindingCompiler().compile(
-            report: .init(bindings: proposedAlpha, diagnostics: []),
+        let proposedMaterialPropertiesProgram = ScenePropertyBindingCompiler().compile(
+            report: .init(bindings: proposedMaterialProperties, diagnostics: []),
             catalog: project.userProperties
         ).program
         let namedMaterialLayerIDs = Set((SceneNamedTextureDependencyReferenceAnalysis.references(
@@ -216,7 +216,7 @@ struct SceneRuntimeModelBuilder {
         let admittedMaterials = SceneBaseMaterialProviderBindingCompiler.admittedSourceMaterials(
             rawPropertyVectorProjection.materialBindings, descriptor: runtimeDescriptor,
             materialInstancesByLayerID: sceneDocument.materialInstancesByLayerID,
-            propertyProgram: proposedAlphaProgram, namedLayerIDs: namedMaterialLayerIDs
+            propertyProgram: proposedMaterialPropertiesProgram, namedLayerIDs: namedMaterialLayerIDs
         )
         let propertyVectorProjection = SceneScriptVectorCandidateCatalog(
             candidates: rawPropertyVectorProjection.candidates,

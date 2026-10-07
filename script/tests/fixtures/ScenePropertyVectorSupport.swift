@@ -45,7 +45,9 @@ enum SceneScriptDynamicImageReferenceAnalysis {
     ) -> [SceneScriptDynamicImageReference]? { nil }
 }
 
-struct SceneShaderContract {}
+struct SceneShaderContract {
+    var materialBindings: [SceneBaseMaterialColorModulationCompiler.Binding] = []
+}
 
 enum SceneBaseMaterialColorModulationCompiler {
     struct Binding {
@@ -64,6 +66,16 @@ enum SceneBaseMaterialColorModulationCompiler {
             return .materialConstant(layerID: sourceLayerID, passIndex: 0,
                 name: alphaKey, materialPath: materialPath)
         }
+        var colorUserPropertyKey: String? = nil
+        var colorPropertyTarget: SceneDynamicTarget? {
+            guard colorUserPropertyKey != nil else { return nil }
+            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
+                name: colorKey, materialPath: materialPath)
+        }
+        var colorBindingPath: [SceneUserPropertyPathComponent] {
+            [.key("materials"), .key(materialPath), .key("passes"), .index(0),
+             .key("constantshadervalues"), .key(colorKey)]
+        }
     }
 
     static func compile(
@@ -71,7 +83,11 @@ enum SceneBaseMaterialColorModulationCompiler {
         shaderContracts: [SceneShaderContract],
         dynamicImageModelPaths: Set<String>,
         admittedLayerColorConsumerIDs: Set<Int>
-    ) -> [Binding] { [] }
+    ) -> [Binding] {
+        // Prepared fact injection only; the separate compiler gate exercises
+        // the real shader/schema proof. Catalog and VM consumers stay real.
+        shaderContracts.flatMap(\.materialBindings)
+    }
 }
 
 struct SceneScriptMaterialFunctionMutation: Equatable, Sendable {

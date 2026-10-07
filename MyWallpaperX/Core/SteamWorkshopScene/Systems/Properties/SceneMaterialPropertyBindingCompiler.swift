@@ -100,13 +100,13 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
             else { return bindings }
             return bindings + [value]
         }
-        return builtinBindings + provenAlphaBindings(
+        return builtinBindings + provenPropertyBindings(
             provenBindings, descriptor: descriptor,
             materialInstancesByLayerID: materialInstancesByLayerID
         )
     }
 
-    static func provenAlphaBindings(
+    static func provenPropertyBindings(
         _ facts: [SceneBaseMaterialColorModulationCompiler.Binding],
         descriptor: SceneRenderDescriptor,
         materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance]
@@ -114,12 +114,32 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
         let passesByMaterial = Dictionary(grouping: descriptor.materialPasses) {
             normalized($0.materialPath)
         }
-        return facts.compactMap { fact in
-            guard fact.alphaUserPropertyKey != nil, let key = fact.alphaKey,
-                  materialInstancesByLayerID[fact.sourceLayerID] == nil,
+        return facts.flatMap { fact -> [SceneUserPropertyBinding] in
+            guard materialInstancesByLayerID[fact.sourceLayerID] == nil,
                   let pass = (passesByMaterial[normalized(fact.materialPath)] ?? [])
-                    .filter({ $0.passIndex == 0 }).only else { return nil }
-            return binding(layerID: fact.sourceLayerID, pass: pass, name: key, valueType: .scalar)
+                    .filter({ $0.passIndex == 0 }).only else { return [] }
+            var bindings: [SceneUserPropertyBinding] = []
+            if fact.alphaUserPropertyKey != nil, let key = fact.alphaKey,
+               let value = binding(layerID: fact.sourceLayerID, pass: pass,
+                   name: key, valueType: .scalar) { bindings.append(value) }
+            if fact.colorUserPropertyKey != nil,
+               let value = binding(layerID: fact.sourceLayerID, pass: pass,
+                   name: fact.colorKey, valueType: .vector3, allowScript: fact.scriptSource != nil) {
+                bindings.append(value)
+            }
+            if fact.scriptSource != nil,
+               let inputs = SceneScriptPropertyInputCodec.inputs(fact.scriptProperties) {
+                for (name, input) in inputs.sorted(by: { $0.key < $1.key }) {
+                    guard let key = input.userPropertyKey,
+                          let fallback = SceneUserPropertyValue.parse(input.fallback.jsonObject) else { continue }
+                    let path = fact.colorBindingPath + [.key("scriptproperties"), .key(name)]
+                    bindings.append(.init(reference: .init(key: key, condition: input.condition),
+                        fallbackValue: fallback, path: .init(components: path),
+                        target: .scriptProperty(layerID: fact.sourceLayerID,
+                            path: SceneScriptPropertyTargetPath.encoded(path))))
+                }
+            }
+            return bindings
         }
     }
 
@@ -244,14 +264,19 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
         layerID: Int,
         pass: SceneRenderDescriptor.MaterialPassDescriptor,
         name: String,
-        valueType: SceneStaticModelMaterialBindings.ValueType? = nil
+        valueType: SceneStaticModelMaterialBindings.ValueType? = nil,
+        allowScript: Bool = false
     ) -> SceneUserPropertyBinding? {
         guard let value = pass.constantShaderValues[name],
-              value.bindingKeys.sorted() == ["user", "value"],
+              value.bindingKeys.sorted() == (allowScript
+                ? (value.scriptProperties == nil ? ["script", "user", "value"]
+                    : ["script", "scriptproperties", "user", "value"])
+                : ["user", "value"]),
               value.userValueKind == .string,
               let propertyKey = value.userBinding,
               SceneScriptUserPropertyInputContract.validName(propertyKey),
-              value.scriptSource == nil, value.scriptProperties == nil,
+              allowScript ? value.scriptSource != nil
+                : value.scriptSource == nil && value.scriptProperties == nil,
               value.timeline == nil, value.timelineDiagnostics.isEmpty,
               let fallback = fallback(
                 name: name, components: value.components, valueType: valueType

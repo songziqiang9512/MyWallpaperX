@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 575,
-      "bytes": 100546
+      "lines": 577,
+      "bytes": 101536
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 169965
+      "bytes": 170121
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 79,
-      "bytes": 11302
+      "bytes": 11398
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -197,8 +197,8 @@
       "bytes": 32798
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 157,
-      "bytes": 35468
+      "lines": 158,
+      "bytes": 36245
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1033,37 +1033,37 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "0dc17ea10013c19b3b9267349ee0e323a3fbab38918f141b06a982c5c8deebd3",
-      "after": "f4cae2833f55b272e59ed01148bf77df5a1b4312b826955c004e972b74144254",
+      "before": "f4cae2833f55b272e59ed01148bf77df5a1b4312b826955c004e972b74144254",
+      "after": "6b00c8786e8803a410c26963c65f3bf66151ec8e5e4eb396ffcff8375b271648",
       "owner": "scene-material",
-      "reason": "Record shared Alpha producer admission before builtin replacement and bounded runtime evidence.",
+      "reason": "Record mixed user color reuse and distinguish the original cross-type binding rejection.",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "86eb62d6d6df646a984c788676389580dfedc678972e1d49fc872725a0be1cce",
-      "after": "51c3ebf5ebab6240c789eab7dd2f76adc5cdd8a8471c00a90d70ad6b1c465662",
+      "before": "51c3ebf5ebab6240c789eab7dd2f76adc5cdd8a8471c00a90d70ad6b1c465662",
+      "after": "96ea770d334d5d3a40720597c8d1192b770dc68665ff2fb0d3004f12e63123b4",
       "owner": "scene-material",
-      "reason": "Record shared Alpha producer admission before builtin replacement and bounded runtime evidence.",
+      "reason": "Record mixed user color reuse and distinguish the original cross-type binding rejection.",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d0d6f7491ea95429c691821100f821d056930f51df0f9c3a496fefa1f8e50117",
-      "after": "e496486a1bf33092a5135899d2a05147d74a1b32f3ed52ea2f5beea7b251e647",
+      "before": "e496486a1bf33092a5135899d2a05147d74a1b32f3ed52ea2f5beea7b251e647",
+      "after": "72f21eb01e9a9311b89c640cbd1ef209524cf02e32921b71eda199536e980119",
       "owner": "scene-material",
-      "reason": "Record shared Alpha producer admission before builtin replacement and bounded runtime evidence.",
+      "reason": "Record mixed user color reuse and distinguish the original cross-type binding rejection.",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f5f6c764f2349b34266db62cf942a4aacd88b7d53b4293d8e83f15c52498c058",
-      "after": "e74aafc33af21711bd9058176d37713690b4c98475853fbb775ee8357997a50d",
+      "before": "e74aafc33af21711bd9058176d37713690b4c98475853fbb775ee8357997a50d",
+      "after": "e14d0b846ee167613d371b0ccd912e8c73143e24affc69bb96df19ecd59526d9",
       "owner": "scene-material",
-      "reason": "Record shared Alpha producer admission before builtin replacement and bounded runtime evidence.",
+      "reason": "Record mixed user color reuse and distinguish the original cross-type binding rejection.",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     }
   ]

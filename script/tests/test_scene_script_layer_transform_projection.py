@@ -24,6 +24,8 @@ SOURCES = [
     SCENE / "Format/ScenePuppetAnimationLayer.swift",
     SCENE / "Systems/Puppet/ScenePuppetAnimationControl.swift",
     SCENE / "Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
+    SCENE / "Systems/Properties/SceneUserProperty.swift",
+    SCENE / "Systems/Properties/SceneUserPropertyBindings.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
@@ -198,6 +200,10 @@ nonisolated enum SceneScriptPropertyInputCodec {
     ) -> Set<SceneDynamicTarget> {
         []
     }
+
+    static func liveConsumerTargets(
+        layerID: Int, targetPath: [String], inputs: [String: SceneScriptPropertyInput]
+    ) -> Set<SceneDynamicTarget> { [] }
 }
 
 nonisolated struct SceneScriptDynamicImageReference: Equatable, Hashable, Sendable {
@@ -241,6 +247,16 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
             guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
             return .materialConstant(layerID: sourceLayerID, passIndex: 0,
                 name: alphaKey, materialPath: materialPath)
+        }
+        var colorUserPropertyKey: String? = nil
+        var colorPropertyTarget: SceneDynamicTarget? {
+            guard colorUserPropertyKey != nil else { return nil }
+            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
+                name: colorKey, materialPath: materialPath)
+        }
+        var colorBindingPath: [SceneUserPropertyPathComponent] {
+            [.key("materials"), .key(materialPath), .key("passes"), .index(0),
+             .key("constantshadervalues"), .key(colorKey)]
         }
     }
 

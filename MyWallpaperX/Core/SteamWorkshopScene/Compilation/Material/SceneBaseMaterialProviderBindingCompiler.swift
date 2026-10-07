@@ -12,6 +12,19 @@ enum SceneBaseMaterialProviderBindingCompiler {
     ) -> [SceneBaseMaterialColorModulationCompiler.Binding] {
         let targets = Set(propertyProgram.instructions.map(\.target))
         return bindings.filter { fact in
+            if fact.scriptSource != nil {
+                guard let inputs = SceneScriptPropertyInputCodec.inputs(fact.scriptProperties),
+                      SceneScriptPropertyInputCodec.liveConsumerTargets(
+                        layerID: fact.sourceLayerID,
+                        targetPath: SceneScriptPropertyTargetPath.encoded(fact.colorBindingPath),
+                        inputs: inputs
+                      ).isSubset(of: targets) else { return false }
+            }
+            if let target = fact.colorPropertyTarget {
+                guard propertyProgram.instructions.contains(where: {
+                    $0.target == target && $0.valueType == .vector3
+                }) else { return false }
+            }
             if let target = fact.alphaPropertyTarget {
                 guard targets.contains(target),
                       let range = propertyProgram.definitions.first(where: { $0.target == target })?
@@ -180,7 +193,9 @@ enum SceneBaseMaterialProviderBindingCompiler {
             authoredMaterialColors: Dictionary(uniqueKeysWithValues: provenBindings.map {
                 ($0.modelPath, SIMD3<Float>($0.authoredColor))
             }),
-            materialColorTargets: materialColorTargets,
+            materialColorTargets: provenBindings.reduce(into: materialColorTargets) { targets, fact in
+                if let target = fact.colorPropertyTarget { targets[fact.modelPath] = target }
+            },
             sourceMaterialAlphaByModel: Dictionary(uniqueKeysWithValues: provenBindings.map { fact in
                 let alpha: SceneBaseMaterialProviderBindingProgram.SourceMaterialAlpha
                 if let target = fact.alphaPropertyTarget {

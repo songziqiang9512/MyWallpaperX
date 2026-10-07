@@ -17,6 +17,7 @@ SOURCES = [
     SCENE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "Compilation/Material/SceneEffectTextureInput.swift",
+    SCENE_ROOT / "Systems/Script/SceneScriptPropertyInput.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyBindings.swift",
@@ -29,6 +30,12 @@ SOURCES = [
 ]
 
 STUBS = r'''
+enum SceneScriptBindingPathComponent { case key(String), index(Int) }
+struct SceneScriptBindingIR {
+    struct Owner { let objectID: Int? }
+    let owner: Owner
+    let targetPath: [SceneScriptBindingPathComponent]
+}
 enum SceneBaseMaterialColorModulationCompiler {
     struct Binding {
         let modelPath: String
@@ -45,6 +52,16 @@ enum SceneBaseMaterialColorModulationCompiler {
             guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
             return .materialConstant(layerID: sourceLayerID, passIndex: 0,
                 name: alphaKey, materialPath: materialPath)
+        }
+        var colorUserPropertyKey: String? = nil
+        var colorPropertyTarget: SceneDynamicTarget? {
+            guard colorUserPropertyKey != nil else { return nil }
+            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
+                name: colorKey, materialPath: materialPath)
+        }
+        var colorBindingPath: [SceneUserPropertyPathComponent] {
+            [.key("materials"), .key(materialPath), .key("passes"), .index(0),
+             .key("constantshadervalues"), .key(colorKey)]
         }
     }
 }

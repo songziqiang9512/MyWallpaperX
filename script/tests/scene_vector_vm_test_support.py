@@ -151,6 +151,16 @@ enum SceneBaseMaterialColorModulationCompiler {
             return .materialConstant(layerID: sourceLayerID, passIndex: 0,
                 name: alphaKey, materialPath: materialPath)
         }
+        var colorUserPropertyKey: String? = nil
+        var colorPropertyTarget: SceneDynamicTarget? {
+            guard colorUserPropertyKey != nil else { return nil }
+            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
+                name: colorKey, materialPath: materialPath)
+        }
+        var colorBindingPath: [SceneUserPropertyPathComponent] {
+            [.key("materials"), .key(materialPath), .key("passes"), .index(0),
+             .key("constantshadervalues"), .key(colorKey)]
+        }
     }
 
     static func compile(

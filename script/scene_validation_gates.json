@@ -2401,7 +2401,9 @@
         "script/tests/test_scene_base_material_static_tint.py",
         "script/tests/fixtures/SceneBaseMaterialStaticTintHarness.swift",
         "script/tests/fixtures/SceneBaseMaterialAlphaChecks.swift",
-        "script/tests/fixtures/SceneUserTextureSolidDrawChecks.swift"
+        "script/tests/fixtures/SceneUserTextureSolidDrawChecks.swift",
+        "script/tests/fixtures/SceneBaseMaterialUserColorChecks.swift",
+        "script/tests/fixtures/ScenePropertyVectorMaterialCases.swift"
       ],
       "modules": [
         "test_scene_base_material_static_tint",
@@ -2409,7 +2411,8 @@
         "test_scene_layer_source_passthrough_coverage",
         "test_scene_script_layer_transform_projection",
         "test_scene_inactive_optional_named_dependency",
-        "test_scene_base_material_provider_binding"
+        "test_scene_base_material_provider_binding",
+        "test_scene_property_vector_script"
       ]
     }
   ],

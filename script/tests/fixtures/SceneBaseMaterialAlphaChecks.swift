@@ -124,7 +124,7 @@ func customMaterialAlphaChecks() -> [String: Bool] {
         ("noRange", [property(nil, nil)], [:], Set<Int>()),
         ("missingProducer", [], [:], Set<Int>()),
     ] {
-        let proposed = SceneMaterialPropertyBindingCompiler.provenAlphaBindings([exactFact],
+        let proposed = SceneMaterialPropertyBindingCompiler.provenPropertyBindings([exactFact],
             descriptor: pair, materialInstancesByLayerID: instances)
         let proposedProgram = ScenePropertyBindingCompiler().compile(
             report: .init(bindings: proposed, diagnostics: []), catalog: .init(definitions: definitions)).program

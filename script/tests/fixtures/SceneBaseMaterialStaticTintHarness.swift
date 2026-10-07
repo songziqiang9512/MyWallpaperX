@@ -71,6 +71,10 @@ private typealias Descriptor = SceneRenderDescriptor
             "material": first.materialPath, "key": first.colorKey,
             "color": [first.authoredColor.x, first.authoredColor.y, first.authoredColor.z],
             "alpha": first.authoredAlpha, "alphaKey": first.alphaKey ?? "",
+            "colorUserKey": first.colorUserPropertyKey ?? "",
+            "colorTargetMatches": first.colorPropertyTarget == .materialConstant(
+                layerID: first.sourceLayerID, passIndex: 0,
+                name: first.colorKey, materialPath: first.materialPath),
             "alphaUserKey": first.alphaUserPropertyKey ?? "",
             "alphaIsDynamic": first.alphaPropertyTarget != nil,
             "alphaTargetMatches": first.alphaPropertyTarget == first.alphaKey.map {
@@ -96,6 +100,30 @@ private typealias Descriptor = SceneRenderDescriptor
         script.bindingKeys = ["script", "scriptproperties", "value"]
         results["scriptDynamic"] = output(descriptor(script), dynamic: ["models/unseen/tint.json"])
         results["scriptWithoutDynamicResource"] = output(descriptor(script))
+        var userColor = nonwhite
+        userColor.userBinding = "palette"
+        userColor.userValueKind = .string
+        userColor.bindingKeys = ["user", "value"]
+        results["strictUserColor"] = output(descriptor(userColor))
+        var mixedColor = userColor
+        mixedColor.scriptSource = "export function update(value) { if (scriptProperties.ifchange) return value.multiply(0.5); }"
+        mixedColor.scriptProperties = ["ifchange": .object(["user": .string("animate"), "value": .bool(true)])]
+        mixedColor.bindingKeys = ["script", "scriptproperties", "user", "value"]
+        results["mixedUserScriptColor"] = output(descriptor(mixedColor), dynamic: ["models/unseen/tint.json"])
+        results["mixedUserScriptWithoutDynamicResource"] = output(descriptor(mixedColor))
+        for name in ["emptyColorUser", "nullColorUser", "unknownUserColorWrapper", "mixedMissingScriptProperties"] {
+            var rejected = name == "mixedMissingScriptProperties" ? mixedColor : userColor
+            switch name {
+            case "emptyColorUser": rejected.userBinding = ""
+            case "nullColorUser": rejected.userValueKind = .null
+            case "unknownUserColorWrapper": rejected.bindingKeys.append("extra")
+            default: rejected.scriptProperties = nil
+            }
+            results[name] = output(descriptor(rejected), dynamic: ["models/unseen/tint.json"])
+        }
+        var aliasedColor = descriptor(userColor)
+        aliasedColor.materialPasses[0].constantShaderValues["surfaceColor"] = userColor
+        results["multipleColorAliases"] = output(aliasedColor)
         results["normalizedDuplicate"] = output(base, dynamic: ["MODELS\\UNSEEN\\TINT.JSON", "models/unseen/tint.json"])
 
         var malformed = nonwhite
@@ -143,6 +171,9 @@ private typealias Descriptor = SceneRenderDescriptor
         userAlpha.userBinding = "liveOpacity"
         value.materialPasses[0].constantShaderValues["opacity-key"] = userAlpha
         results["strictUserAlpha"] = output(value)
+        var mixedMaterial = descriptor(mixedColor)
+        mixedMaterial.materialPasses[0].constantShaderValues["opacity-key"] = userAlpha
+        results["mixedColorAndUserAlpha"] = output(mixedMaterial, dynamic: ["models/unseen/tint.json"])
         let arbitraryAlpha = fragment.replacingOccurrences(of: "opacity-key", with: "coverage-parameter")
             .replacingOccurrences(of: "opacity", with: "coverageRatio")
         value = base

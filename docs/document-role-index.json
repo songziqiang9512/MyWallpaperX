@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "024ad278d2dd518ded934755c8be09a6710e46d7eb348adca3f7a5470b7ef893",
+        "sourceSHA256": "a3d9f48e6731d6387aa05aef032daf1f316ab670adffaa3a78ca94bb5222787c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批中性材质Alpha共享属性入口、替换前准入及对应证据导航；不重验其他合同。",
+        "scope": "本批mixed源材质颜色复用Vec3输入与内层live合同；受控热切和原包失败分列，不重验其他合同。",
         "limitations": "仅对应本批职责与冻结证据，不表示全样本兼容、官方parity或发布验收。"
       }
     },
@@ -498,9 +498,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f2d63dbc44434bc600a9892024f1f91dfac7c510d3ac5f2587c574fbd4b14e2b",
+        "sourceSHA256": "e51629ecd44c933a82f2414f387c1ba9e8a546b664d9310a3fb954d096a11ed6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批中性材质Alpha共享属性入口、替换前准入及对应证据导航；不重验其他合同。",
+        "scope": "本批mixed源材质颜色复用Vec3输入与内层live合同；受控热切和原包失败分列，不重验其他合同。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

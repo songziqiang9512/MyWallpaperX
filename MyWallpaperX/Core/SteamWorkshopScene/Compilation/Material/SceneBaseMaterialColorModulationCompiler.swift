@@ -13,6 +13,16 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         let scriptSource: String?
         let scriptProperties: [String: SceneJSONValue]
         let authoredColor: SIMD3<Double>
+        var colorUserPropertyKey: String? = nil
+        var colorPropertyTarget: SceneDynamicTarget? {
+            guard colorUserPropertyKey != nil else { return nil }
+            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
+                name: colorKey, materialPath: materialPath)
+        }
+        var colorBindingPath: [SceneUserPropertyPathComponent] {
+            [.key("materials"), .key(materialPath), .key("passes"), .index(0),
+             .key("constantshadervalues"), .key(colorKey)]
+        }
         var alphaKey: String? = nil
         var authoredAlpha: Float = 1
         var alphaUserPropertyKey: String? = nil
@@ -208,15 +218,20 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
             return reject(modelPath, "color-binding-count")
         }
         let colorValue = colorEntry.value
-        guard
-              (colorValue.bindingKeys.isEmpty
-                  || colorValue.bindingKeys == ["script", "scriptproperties", "value"]),
-              colorValue.userValueKind == nil,
-              colorValue.timeline == nil,
-              colorValue.timelineDiagnostics.isEmpty,
-              (colorValue.bindingKeys.isEmpty
-                  ? colorValue.scriptSource == nil && colorValue.scriptProperties == nil
-                  : colorValue.scriptSource != nil && colorValue.scriptProperties != nil),
+        let hasScript = colorValue.scriptSource != nil
+        let hasUser = colorValue.userBinding != nil
+        var expectedKeys: [String] = []
+        if hasScript || hasUser {
+            expectedKeys.append("value")
+            if hasScript { expectedKeys.append("script") }
+            if colorValue.scriptProperties != nil { expectedKeys.append("scriptproperties") }
+            if hasUser { expectedKeys.append("user") }
+        }
+        guard colorValue.bindingKeys.sorted() == expectedKeys.sorted(),
+              hasUser ? colorValue.userValueKind == .string : colorValue.userValueKind == nil,
+              colorValue.userBinding.map(SceneScriptUserPropertyInputContract.validName) != false,
+              hasScript || colorValue.scriptProperties == nil,
+              colorValue.timeline == nil, colorValue.timelineDiagnostics.isEmpty,
               let components = colorValue.components,
               components.count == 3,
               components.allSatisfy({ $0.isFinite && (0 ... 1).contains($0) })
@@ -232,6 +247,7 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
             scriptSource: colorValue.scriptSource,
             scriptProperties: colorValue.scriptProperties ?? [:],
             authoredColor: .init(components[0], components[1], components[2]),
+            colorUserPropertyKey: colorValue.userBinding,
             alphaKey: alpha.key, authoredAlpha: alpha.value,
             alphaUserPropertyKey: alpha.userKey
         )
