@@ -216,7 +216,10 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 return failure(
                     .colorContractUnproven,
                     phase: .color,
-                    details: ["launch-color-projection-unresolved"]
+                    details: [
+                        "launch-color-projection-unresolved",
+                        "transfer-\(SceneResolvedMaterialProgramIdentity.colorTransferToken(variant.frontendProgram.colorTransfer))",
+                    ]
                 )
             }
         }

@@ -18,7 +18,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
             premultipliedColorInputSlots: Set<Int>
         ) {
             // v11 retires cached Programs without a vertex coordinate-domain fact.
-            cacheSchemaVersion = 11
+            cacheSchemaVersion = 12
             vertexSourceSHA256 = ProgramCacheDigest.hash(Data(vertexSource.utf8))
             fragmentSourceSHA256 = ProgramCacheDigest.hash(Data(fragmentSource.utf8))
             self.runtimeLoopBounds = runtimeLoopBounds

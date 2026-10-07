@@ -116,19 +116,41 @@ nonisolated enum SceneAuthoredShaderIndependentSignalCarrierAnalyzer {
         return carrier
     }
 
-    private static func scalarTransform(
-        _ expression: [Token],
+    static func scalarTransform(
+        _ rawExpression: [Token],
         of carrier: String,
         state: SceneAuthoredShaderIndependentSignalScalarContract.State,
         dataSlots: Set<Int>,
         fragment: Unit
     ) -> Bool {
+        let expression = Array(SceneAuthoredShaderConditionalStraightUnionAnalyzer
+            .strippingParentheses(rawExpression[...]))
         if expression.count == 1 { return expression[0].text == carrier }
-        guard expression.count >= 3, expression[0].text == carrier,
-              ["/", "*"].contains(expression[1].text) else { return false }
+        // A scalar suffix may contain addition only inside parentheses:
+        // carrier * x + y adds a vector, whereas carrier * (x + y) scales it.
+        var depth = 0
+        var product: Int?
+        for index in expression.indices {
+            let token = expression[index].text
+            if ["(", "["].contains(token) { depth += 1 }
+            if [")", "]"].contains(token) { depth -= 1 }
+            if depth == 0 {
+                if ["+", "-"].contains(token) { return false }
+                if product == nil, ["*", "/"].contains(token) { product = index }
+            }
+        }
+        guard let product, product > 0, product + 1 < expression.count else { return false }
+        typealias Calls = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+        let lhs = Calls.strippingParentheses(expression[..<product])
+        let rhs = Calls.strippingParentheses(expression[(product + 1)...])
+        let scalar: ArraySlice<Token>
+        if Calls.identifier(lhs) == carrier {
+            scalar = rhs
+        } else if expression[product].text == "*", Calls.identifier(rhs) == carrier {
+            scalar = lhs
+        } else { return false }
         return SceneAuthoredShaderIndependentSignalScalarContract.isScalar(
-            Array(expression.dropFirst(2)), state: state,
-            dataSlots: dataSlots, fragment: fragment
+            Array(scalar), state: state, dataSlots: dataSlots, fragment: fragment
         )
     }
 

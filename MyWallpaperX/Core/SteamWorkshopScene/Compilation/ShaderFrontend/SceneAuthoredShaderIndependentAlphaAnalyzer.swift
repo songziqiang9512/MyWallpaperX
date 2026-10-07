@@ -102,7 +102,11 @@ nonisolated enum SceneAuthoredShaderIndependentAlphaAnalyzer {
                   in: expression, before: output, tokens: tokens, body: main.bodyRange
               ), let definition = vectorDefinition(
                   name, before: output, tokens: tokens, body: main.bodyRange
-              ), expression.filter({ $0.text == name }).count == 1,
+              ),
+              let statements = SceneAuthoredShaderUniformRGBMixAnalyzer
+                .topLevelStatements(in: main.bodyRange, tokens: tokens),
+              scalarTransform(expression, carrier: name, before: output,
+                  statements: statements, fragment: fragment),
               let initializer = SceneAuthoredShaderColorTransferAnalyzer
                   .assignmentExpression(
                       after: definition, in: tokens, body: main.bodyRange
@@ -123,13 +127,30 @@ nonisolated enum SceneAuthoredShaderIndependentAlphaAnalyzer {
                   name,
                   definition: definition,
                   output: output,
-                  tokens: tokens,
-                  body: main.bodyRange
+                  fragment: fragment,
+                  main: main,
+                  statements: statements
               ) else { return nil }
         return slot
     }
 
-    /// The broad preserving fallback is intentionally read-only.  Any member
+    /// Scalar scaling preserves the signal carrier; adding generated RGBA does
+    /// not. Share the ordered scalar proof with the dedicated carrier owner.
+    private static func scalarTransform(
+        _ expression: ArraySlice<Token>, carrier: String, before boundary: Int,
+        statements: [Range<Int>], fragment: Unit
+    ) -> Bool {
+        let state = SceneAuthoredShaderIndependentSignalScalarContract.state(
+            before: boundary, carrier: carrier, dataSlots: [],
+            statements: statements, fragment: fragment
+        )
+        return SceneAuthoredShaderIndependentSignalCarrierAnalyzer.scalarTransform(
+            Array(expression), of: carrier, state: state,
+            dataSlots: [], fragment: fragment
+        )
+    }
+
+    /// The broad preserving fallback is intentionally read-only. Any member
     /// mutation, whole-vector assignment, or alias escape needs a more
     /// specific independent-signal proof (producer/carrier/accumulator) or a
     /// direct ordinary-color proof owned by the color-transfer analyzer.
@@ -137,10 +158,12 @@ nonisolated enum SceneAuthoredShaderIndependentAlphaAnalyzer {
         _ name: String,
         definition: Int,
         output: Int,
-        tokens: [Token]
+        tokens: [Token],
+        allowedUses: Set<Int> = []
     ) -> Bool {
-        let writes: Set<String> = ["=", "+=", "-=", "*=", "/="]
+        let writes: Set<String> = ["=", "+=", "-=", "*=", "/=", "%=", "++", "--"]
         for index in (definition + 1)..<output where tokens[index].text == name {
+            if allowedUses.contains(index) { continue }
             guard index + 2 < output,
                   tokens[index + 1].text == ".",
                   ["rgb", "a"].contains(tokens[index + 2].text) else {
@@ -297,35 +320,58 @@ nonisolated enum SceneAuthoredShaderIndependentAlphaAnalyzer {
         _ name: String,
         definition: Int,
         output: Int,
-        tokens: [Token],
-        body: Range<Int>
+        fragment: Unit,
+        main: Unit.Function,
+        statements: [Range<Int>]
     ) -> Bool {
+        let tokens = fragment.tokens
+        let body = main.bodyRange
         guard let initializer = SceneAuthoredShaderColorTransferAnalyzer
             .assignmentExpression(after: definition, in: tokens, body: body) else { return false }
-        if !sampledSlots(
-            tokens: Array(initializer), range: 0..<initializer.count
-        ).isEmpty { return true }
+        if SceneAuthoredShaderColorTransferAnalyzer.directTextureSampleSlot(initializer)
+            != nil { return true }
+        // A computed initializer that happens to sample a texture is not a
+        // signal proof. The fallback only accumulates from a neutral zero.
+        let calls = SceneAuthoredShaderConditionalStraightUnionAnalyzer.self
+        guard let seed = calls.call(initializer),
+              ["vec4", "float4"].contains(seed.name),
+              [1, 4].contains(seed.arguments.count),
+              seed.arguments.allSatisfy({
+                  $0.count == 1 && Double($0.first!.text) == 0
+              }) else { return false }
+        var hasContribution = false
+        var sourceUses: [String: (definition: Int, reads: Set<Int>)] = [:]
         for use in (definition + 1)..<output where tokens[use].text == name {
-            guard use + 1 < output,
+            guard use + 1 < output else { return false }
+            if tokens[use + 1].text == "." {
+                guard use + 2 < output,
+                      ["rgb", "a"].contains(tokens[use + 2].text) else { return false }
+                continue
+            }
+            guard
                   ["=", "+="].contains(tokens[use + 1].text),
                   let value = assignedExpression(
                       after: use, in: tokens, body: body
-                  ) else { continue }
-            if !sampledSlots(tokens: Array(value), range: 0..<value.count).isEmpty {
-                return true
-            }
-            for token in value where token.kind == .identifier {
-                guard let aliasDefinition = vectorDefinition(
-                    token.text, before: use, tokens: tokens, body: body
-                ), let alias = SceneAuthoredShaderColorTransferAnalyzer.assignmentExpression(
-                    after: aliasDefinition, in: tokens, body: body
-                ) else { continue }
-                if !sampledSlots(tokens: Array(alias), range: 0..<alias.count).isEmpty {
-                    return true
-                }
-            }
+                  ) else { return false }
+            guard let source = singleVectorLocal(
+                in: value, before: use, tokens: tokens, body: body
+            ), source != name,
+                let sourceDefinition = vectorDefinition(
+                    source, before: use, tokens: tokens, body: body
+                ), let sample = SceneAuthoredShaderColorTransferAnalyzer
+                    .assignmentExpression(after: sourceDefinition, in: tokens, body: body),
+                SceneAuthoredShaderColorTransferAnalyzer.directTextureSampleSlot(sample) != nil,
+                scalarTransform(value, carrier: source, before: use,
+                    statements: statements, fragment: fragment) else { return false }
+            var reads = sourceUses[source]?.reads ?? []
+            reads.formUnion(value.indices.filter { tokens[$0].text == source })
+            sourceUses[source] = (sourceDefinition, reads)
+            hasContribution = true
         }
-        return false
+        return hasContribution && sourceUses.allSatisfy { source, uses in
+            carrierUsesAreReadOnly(source, definition: uses.definition,
+                output: output, tokens: tokens, allowedUses: uses.reads)
+        }
     }
 
     private static func assignedExpression(

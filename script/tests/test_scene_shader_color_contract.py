@@ -142,6 +142,7 @@ private func transfer(
     ):
         return "signal-underlay-composite:\(signal):\(color):\(underlay)"
     case .premultipliedAlpha: return "premultiplied-alpha"
+    case .sourcedAlpha: return "sourced-alpha"
     case .generatedStraightAlpha: return "generated-straight-alpha"
     case .defaultStraightColorBoundary(let slots):
         return "default-straight-boundary-slots:"
@@ -1942,6 +1943,77 @@ enum Harness {
                 "total += sample * 0.5; total.rgb *= vec3(0.5); " +
                 "gl_FragColor = total;"
             ),
+            "sampleWithGeneratedColorIsNotSignal": transfer(
+                "vec4 background = texSample2D(g_Texture0, v_TexCoord); " +
+                "float coverage = 0.5; " +
+                "gl_FragColor = (1.0 - coverage) * background + " +
+                "vec4(vec3(0.2) * coverage, 1.0);"
+            ),
+            "generatedColorBeforeSampleIsNotSignal": transfer(
+                "vec4 backdrop = texSample2D(g_Texture0, v_TexCoord); " +
+                "gl_FragColor = vec4(0.2, 0.3, 0.4, 1.0) + backdrop * 0.5;"
+            ),
+            "generatedColorInitializerIsNotSignal": transfer(
+                "vec4 result = texSample2D(g_Texture0, v_TexCoord) * 0.5 + " +
+                "vec4(0.2, 0.3, 0.4, 1.0); gl_FragColor = result;"
+            ),
+            "generatedColorAccumulatorIsNotSignal": transfer(
+                "vec4 total = vec4(0.0); " +
+                "vec4 sample = texSample2D(g_Texture0, v_TexCoord); " +
+                "total += sample * 0.5 + vec4(0.2, 0.3, 0.4, 1.0); " +
+                "gl_FragColor = total;"
+            ),
+            "parenthesizedSignalPreserving": transfer(
+                "vec4 total = vec4(0.0); " +
+                "vec4 sample = texSample2D(g_Texture0, v_TexCoord); " +
+                "total += sample * 0.5; total.rgb *= vec3(0.5); " +
+                "gl_FragColor = ((total));"
+            ),
+            "wholeSwizzleGeneratedColorIsNotSignal": transfer(
+                "vec4 total = vec4(0.0); " +
+                "vec4 sample = texSample2D(g_Texture0, v_TexCoord); " +
+                "total += sample * 0.5; total.rgb *= vec3(0.5); " +
+                "total.rgba += vec4(0.2, 0.3, 0.4, 1.0); gl_FragColor = total;"
+            ),
+            "indexedGeneratedColorIsNotSignal": transfer(
+                "vec4 total = vec4(0.0); " +
+                "vec4 sample = texSample2D(g_Texture0, v_TexCoord); " +
+                "total += sample * 0.5; total.rgb *= vec3(0.5); " +
+                "total[3] += 1.0; gl_FragColor = total;"
+            ),
+            "scalarSignalPreserving": transfer(
+                "vec4 total = vec4(0.0); " +
+                "vec4 sample = texSample2D(g_Texture0, v_TexCoord); " +
+                "total += sample * 0.5; total.rgb *= vec3(0.5); " +
+                "gl_FragColor = total * 0.5;"
+            ),
+            "dividedSignalPreserving": transfer(
+                "vec4 total = vec4(0.0); " +
+                "vec4 sample = texSample2D(g_Texture0, v_TexCoord); " +
+                "total += sample * 0.5; total.rgb *= vec3(0.5); " +
+                "float divisor = 2.0; gl_FragColor = total / divisor;"
+            ),
+            "repeatedSignalContributions": transfer(
+                "vec4 total = vec4(0.0); " +
+                "vec4 sample = texSample2D(g_Texture0, v_TexCoord); " +
+                "total += sample * 0.2; total += sample * 0.3; " +
+                "total.rgb *= vec3(0.5); gl_FragColor = (total);"
+            ),
+            "scalarAddIsNotSignal": transfer(
+                "vec4 total = vec4(0.0); vec4 sample = texSample2D(g_Texture0, v_TexCoord); total += sample * 0.5; total.rgb *= vec3(0.5); gl_FragColor = total * 0.5 + 0.1;"
+            ),
+            "accumulatorScalarAddIsNotSignal": transfer(
+                "vec4 total = vec4(0.0); vec4 sample = texSample2D(g_Texture0, v_TexCoord); total += sample * 0.5; total.rgb *= vec3(0.5); total += sample * 0.5 + 0.1; gl_FragColor = total;"
+            ),
+            "accumulatorGeneratedSubtractIsNotSignal": transfer(
+                "vec4 total = vec4(0.0); vec4 sample = texSample2D(g_Texture0, v_TexCoord); total += sample * 0.5; total.rgb *= vec3(0.5); total -= vec4(0.2, 0.3, 0.4, 1.0); gl_FragColor = total;"
+            ),
+            "parenthesizedScalarSumPreserving": transfer(
+                "vec4 total = vec4(0.0); vec4 sample = texSample2D(g_Texture0, v_TexCoord); total += sample * 0.5; total.rgb *= vec3(0.5); gl_FragColor = (total) * (0.2 + 0.3);"
+            ),
+            "leftScalarPreserving": transfer(
+                "vec4 total = vec4(0.0); vec4 sample = texSample2D(g_Texture0, v_TexCoord); total += sample * 0.5; total.rgb *= vec3(0.5); gl_FragColor = 0.5 * (total);"
+            ),
             "independentSignalComposite": transfer(
                 "vec4 rays = texSample2D(g_Texture0, v_TexCoord); " +
                 "vec4 color = texSample2D(g_Texture1, v_TexCoord); " +
@@ -2829,6 +2901,23 @@ class SceneShaderColorContractTests(unittest.TestCase):
             self.result["independentSignalPreserving"],
             "signal-preserving-slot:0",
         )
+        for key in (
+            "sampleWithGeneratedColorIsNotSignal",
+            "generatedColorBeforeSampleIsNotSignal",
+            "generatedColorInitializerIsNotSignal",
+            "generatedColorAccumulatorIsNotSignal",
+            "wholeSwizzleGeneratedColorIsNotSignal", "indexedGeneratedColorIsNotSignal",
+            "scalarAddIsNotSignal", "accumulatorScalarAddIsNotSignal",
+            "accumulatorGeneratedSubtractIsNotSignal",
+        ):
+            self.assertEqual(self.result[key], "unresolved", key)
+        for key in (
+            "parenthesizedSignalPreserving", "scalarSignalPreserving",
+            "dividedSignalPreserving",
+            "repeatedSignalContributions",
+            "parenthesizedScalarSumPreserving", "leftScalarPreserving",
+        ):
+            self.assertEqual(self.result[key], "signal-preserving-slot:0", key)
         self.assertEqual(
             self.result["independentSignalComposite"], "signal-composite:0:1"
         )

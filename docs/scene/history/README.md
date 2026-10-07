@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-07 | Scene | 修复证据 | [颜色误标](signal-color-classification-2026-10-07.md) | barcode实际执行恢复、信号/颜色正反例及剩余音频输入断点 | [效果合同](../capabilities/effect-execution-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-07 | Scene | 修复证据 | [Puppet骨骼alpha](puppet-bone-alpha-2026-10-07.md) | 小眼睛动画恢复、逐骨骼透明度与两条合成路径GPU反例 | [高级对象](../capabilities/advanced-object-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-07 | Scene | 修复证据 | [Puppet静态权重与发布](puppet-static-weight-2026-10-07.md) | 官方有界权重控制、实际动画恢复与首帧/部分失败/对象复用反例 | [高级对象](../capabilities/advanced-object-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-07 | Scene | 修复证据 | [Puppet未引用顶点](puppet-unused-vertices-2026-10-07.md) | 唯一布局的未引用尾顶点准入，身体实际恢复，动画与颜色边界 | [运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |

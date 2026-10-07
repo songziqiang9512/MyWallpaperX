@@ -77,8 +77,8 @@
       "bytes": 168540
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
-      "lines": 275,
-      "bytes": 177326
+      "lines": 277,
+      "bytes": 177696
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 393,
@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 75,
-      "bytes": 9602
+      "bytes": 9721
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 148,
-      "bytes": 57362
+      "bytes": 57590
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1235,21 +1235,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7a729896a2de1a70051c557a11b51b87b89950e48c67e19c3b0f2606dd482f20",
-      "after": "6d589a5639a8676f7291974a9a0d0629b416bd8f7de038d1f6400e3dadab3d71",
-      "owner": "scene-puppet",
-      "reason": "骨骼alpha先行设计转已执行合同，替换小眼睛拒绝状态、更新独立合成反例与剩余任务；历史实验只索引不复制。",
-      "decision": "docs/scene/history/puppet-bone-alpha-2026-10-07.md"
+      "path": "docs/scene/capabilities/effect-execution-coverage.md",
+      "before": "d36132837e023acf0be2eb687876cec0cef0a61c3d39af3b0247155396cc14b5",
+      "after": "6e8f80d2c6d09639c14d5cc331dc7e828582cbc5fa0e1ed2b51ea1980eecd7fe",
+      "owner": "scene-shader-color",
+      "reason": "替换barcode待办为已执行边界，补信号分类的稳定合同与后继数据输入断点；过程只链接历史记录。",
+      "decision": "docs/scene/history/signal-color-classification-2026-10-07.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "004f70be517525f601e043d3e6a29c8dfedbb459981545225e94734cd768dc96",
-      "after": "f287779888eed38672f4b5ee4046c6c36a97305a0f74f904aa104995bdf3f02e",
-      "owner": "scene-puppet",
-      "reason": "骨骼alpha先行设计转已执行合同，替换小眼睛拒绝状态、更新独立合成反例与剩余任务；历史实验只索引不复制。",
-      "decision": "docs/scene/history/puppet-bone-alpha-2026-10-07.md"
+      "before": "f287779888eed38672f4b5ee4046c6c36a97305a0f74f904aa104995bdf3f02e",
+      "after": "8ed1fd42acb554aa450ebeaa3a327c88112ce3c99c599bf81c15aba8f88c727f",
+      "owner": "scene-shader-color",
+      "reason": "替换barcode待办为已执行边界，补信号分类的稳定合同与后继数据输入断点；过程只链接历史记录。",
+      "decision": "docs/scene/history/signal-color-classification-2026-10-07.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "6d589a5639a8676f7291974a9a0d0629b416bd8f7de038d1f6400e3dadab3d71",
+      "after": "c0e4193072d2ad7c919502be138daf59be9802cf47b3aff6152f5f18c261bb6b",
+      "owner": "scene-shader-color",
+      "reason": "替换barcode待办为已执行边界，补信号分类的稳定合同与后继数据输入断点；过程只链接历史记录。",
+      "decision": "docs/scene/history/signal-color-classification-2026-10-07.md"
     }
   ]
 }

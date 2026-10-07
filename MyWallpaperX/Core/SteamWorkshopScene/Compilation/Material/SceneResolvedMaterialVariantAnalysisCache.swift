@@ -20,8 +20,8 @@ import Foundation
 /// successful variant compilation, the read path never creates the cache
 /// directory, and a failed or stale record degrades to a full recompute.
 nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
-    // Prepared sources must be rebuilt after retiring implicit sampling transforms.
-    private static let schemaVersion = 10
+    // Recompute color facts after narrowing independent-signal preservation.
+    private static let schemaVersion = 11
     private static let maximumEntryBytes = 512 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()

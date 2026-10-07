@@ -483,9 +483,9 @@
       "lastReviewed": "2026-10-07",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c8f15c9365d69dd5f9afa8d20b3b06d13d1ae63439909491a8ccee50a802b20a",
+        "sourceSHA256": "94f0d53ae1748926b0f19d130e33804ecfdab8294efd7e12f7c022f2e664b17f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批骨骼alpha历史记录、現役合同与未完成队列导航核对；实际身份和限制见记录。",
+        "scope": "本批颜色误标历史记录、效果合同及断点队列导航核对；身份和限制见记录。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -1562,6 +1562,17 @@
       "currentAuthorities": [
         "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
         "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/signal-color-classification-2026-10-07.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/effect-execution-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
     {
