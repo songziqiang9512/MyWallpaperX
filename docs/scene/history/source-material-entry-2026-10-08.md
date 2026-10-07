@@ -122,3 +122,23 @@ Resolver/TemplateCompiler共用槽覆盖、uniform投影和ShaderSchema；source
 8模块70项CPU/QuickJS方法的最近结果全部通过，含原Alpha回归；`cpu/tests-final-receipt.json`保留分阶段测试文件与产品SHA。首轮fixture不可变字段及重复source-list接线错误已修，仅重跑受影响门，未作为产品失败或伪报首轮全绿。独立产品复核未见P1/P2；最终证据另按冻结身份复核。
 
 本片停止使用的输入副本和重复截图已清理，保留约24.0MiB报告/日志、输入生成与身份收据及9张必要PNG；`artifact-retention.json`登记范围。继续只沿用一份既有build缓存，未动未知归属产物。
+
+## 后继修正：颜色与显隐错配局部保留
+
+基线`8086c122`。两个原包均复现颜色控件被拒：366的`newproperty3`与3078285611的`newproperty8`既绑定合法颜色消费者，又绑定layer.visible。旧启动resolver把颜色字符串写入Bool fallback，typed编译则将整个key列为重建。现复用一条准备期绑定判定：唯一color定义、无condition的直连layerVisibility、合法ID及Bool fallback，启动保留Bool，编译记录`ignoredIncompatibleVisibility`并仅忽略这一不相容输入。合法颜色publisher、独立显隐脚本、snapshot优先级、所有消费者就绪及非法更新原子保旧均沿原owner；未增加渲染算法、VM、frame检查或样本分支。
+
+证据根`/private/tmp/mwx-color-visibility-20261008`。官方2.8.0.42/SHA`daac1ea7c991207fdb6098616757e3dae393850f6862845db55d04921b6bda07`，自有true/false × 有/无无返回visible脚本 × 四色CLI热切共16阶段、32最终捕获：A颜色变化，B始终保留对应Bool，有脚本时回调也收到该Bool。ROI与重复捕获差0，预定容差2；`official/behavior-contract.json` SHA`473ce63c7f2d03b39ea6940652bf7eed6ff9a6fd3f7fae97738c0a6ad382793f`已独立clean-room审查。未访问私有实现；GUI、slider、缺定义、其他Bool target、有效脚本返回优先级未由该实验定义。研究窗口/guest目录已清理，VM恢复原suspended状态。
+
+只读243样本的project与scene条目SHA均与当前census相同；直接layer.visible的非Bool/缺失类型引用共27样本48处，分为color 2处、slider 4处、缺定义40处及有声明但无type的2处（`census.json`）。仅color两处属于本批已证修复，不能将全部声明算作故障或受益量。
+
+正常签名Debug构建通过，最终App SHA`729ba7279f1b5e208197eeb26ca035e9a435dbdaa4ff3b81639920cf7f8751a6`；四产品源身份见`built-product.json`。原始媒体只读，运行使用精确复制的PKG/project。输入颜色均从(.4,.8,.2)热切到(.8,.4,.6)：
+
+| 运行 | 实际结果及边界 |
+|---|---|
+| `runtime-baseline-307`，旧App b84454d8 | accepted=false，同window343011；背景主色前后均RGB(102,204,51) |
+| `runtime-final-307` | accepted=true，同window343024；背景从RGB(102,204,51)变为(204,102,153)。整体benchmark仍FAIL：layer192/effect2的optional named fallback未证及graph join失败；layer60的三处speed脚本仍有toPrimitive异常，均留队列 |
+| `runtime-final-366` | 关闭彩虹时原包颜色accepted=true，同window343037；频谱柱从RGB(102,204,51)变为(204,102,153)，对应捕获精确色像素6560→10563，旧色不残留。benchmark PASS仅为这组运行门；374.visibility、386.origin及386.alpha的三处旧异常仍在 |
+
+本片完成两个已证颜色显隐错配输入的准备→热切→实际画面链。Debug PCM为测试音源，不代表真实媒体平台、整样本视觉或全243兼容验收。下一片继续定位366剩余lookup/纹理动画脚本入口，并按全样本同类声明归并；源材质多source/named组合、HDR余项及其他特效缺口继续按共享职责排队。
+
+6模块89项CPU/QuickJS方法的最近结果通过，覆盖启动Bool保留、实际compiler→live合法颜色链、无真实消费者仍拒绝、错误输入/不可用sibling/批量事务保旧，以及原Bool VM与snapshot回归；阶段日志保留fixture编译与no-op revision期待修正，不伪报首轮全绿。产品独立审查未见阻断，最终收据绑定代码、App、像素和原包未关闭问题。停止使用的输入副本和重复PNG清理，保留六张原生必要捕获及官方小型黑盒证据、日志/生成脚本/身份收据；`artifact-retention.json`记录去留。构建只沿用现有唯一缓存，不动其他任务产物。

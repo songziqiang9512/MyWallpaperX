@@ -417,6 +417,15 @@ nonisolated struct ScenePropertyBindingCompiler {
             let propertyKind = propertyDefinitions.count == 1
                 ? propertyDefinitions[0].kind
                 : nil
+            if binding.preservesAuthoredVisibility(propertyKind: propertyKind) {
+                diagnostics.append(Self.compileDiagnostic(
+                    code: .ignoredIncompatibleVisibility,
+                    binding: binding,
+                    target: nil,
+                    message: "颜色属性不覆盖显隐 Bool；保留作者值及独立脚本，其他同 key 绑定继续执行。"
+                ))
+                continue
+            }
             guard let mapped = Self.map(
                 binding,
                 propertyKind: propertyKind

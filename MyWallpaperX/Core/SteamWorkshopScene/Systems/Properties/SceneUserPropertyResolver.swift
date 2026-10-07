@@ -6,15 +6,24 @@ nonisolated struct SceneUserPropertyDocumentResolver {
         catalog: SceneUserPropertyCatalog,
         overrides: [String: SceneUserPropertyValue]
     ) -> SceneUserPropertyResolution {
-        resolve(root: root, effectiveValues: catalog.effectiveValues(overrides: overrides))
+        resolve(
+            root: root,
+            effectiveValues: catalog.effectiveValues(overrides: overrides),
+            propertyKinds: Dictionary(grouping: catalog.definitions, by: \.key)
+                .compactMapValues { $0.count == 1 ? $0[0].kind : nil }
+        )
     }
 
     nonisolated func resolve(
         root: [String: Any],
-        effectiveValues: [String: SceneUserPropertyValue]
+        effectiveValues: [String: SceneUserPropertyValue],
+        propertyKinds: [String: SceneUserPropertyKind] = [:]
     ) -> SceneUserPropertyResolution {
         let parser = SceneUserPropertyBindingParser()
         let report = parser.parse(root: root)
+        let preservedVisibilityPaths = Set(report.bindings.filter {
+            $0.preservesAuthoredVisibility(propertyKind: propertyKinds[$0.reference.key])
+        }.map(\.path))
         var resolvedCount = 0
         var startupValuePaths: Set<SceneUserPropertyPath> = []
         var diagnostics = report.diagnostics
@@ -23,6 +32,7 @@ nonisolated struct SceneUserPropertyDocumentResolver {
             path: [],
             root: root,
             effectiveValues: effectiveValues,
+            preservedVisibilityPaths: preservedVisibilityPaths,
             parser: parser,
             resolvedCount: &resolvedCount,
             startupValuePaths: &startupValuePaths,
@@ -42,6 +52,7 @@ nonisolated struct SceneUserPropertyDocumentResolver {
         path: [SceneUserPropertyPathComponent],
         root: [String: Any],
         effectiveValues: [String: SceneUserPropertyValue],
+        preservedVisibilityPaths: Set<SceneUserPropertyPath>,
         parser: SceneUserPropertyBindingParser,
         resolvedCount: inout Int,
         startupValuePaths: inout Set<SceneUserPropertyPath>,
@@ -55,6 +66,7 @@ nonisolated struct SceneUserPropertyDocumentResolver {
                     path: path + [.key(key)],
                     root: root,
                     effectiveValues: effectiveValues,
+                    preservedVisibilityPaths: preservedVisibilityPaths,
                     parser: parser,
                     resolvedCount: &resolvedCount,
                     startupValuePaths: &startupValuePaths,
@@ -65,6 +77,7 @@ nonisolated struct SceneUserPropertyDocumentResolver {
                 return result
             }
             let propertyPath = SceneUserPropertyPath(components: path)
+            if preservedVisibilityPaths.contains(propertyPath) { return result }
             let target = parser.target(for: path, root: root)
             guard let effectiveValue = effectiveValues[reference.key] else {
                 if reference.condition == nil { startupValuePaths.insert(propertyPath) }
@@ -93,6 +106,7 @@ nonisolated struct SceneUserPropertyDocumentResolver {
                     path: path + [.index(index)],
                     root: root,
                     effectiveValues: effectiveValues,
+                    preservedVisibilityPaths: preservedVisibilityPaths,
                     parser: parser,
                     resolvedCount: &resolvedCount,
                     startupValuePaths: &startupValuePaths,

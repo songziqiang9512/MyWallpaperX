@@ -583,6 +583,7 @@
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/**",
         "script/tests/test_scene_property_vector_script.py",
+        "script/tests/test_scene_color_visibility_bindings.py",
         "script/tests/fixtures/ScenePropertyVector*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelinePlaybackRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineRuntime.swift",
@@ -597,6 +598,7 @@
       "modules": [
         "test_scene_shared_layer_alpha_transition",
         "test_scene_property_binding_program",
+        "test_scene_color_visibility_bindings",
         "test_scene_text_width_property",
         "test_scene_property_vector_script",
         "test_scene_vector_media_events",

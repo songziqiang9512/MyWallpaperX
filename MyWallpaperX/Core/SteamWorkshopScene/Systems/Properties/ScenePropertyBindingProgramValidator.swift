@@ -107,6 +107,7 @@ nonisolated struct ScenePropertyBindingDiagnostic: Codable, Equatable {
     enum Code: String, Codable {
         case malformedInputBinding
         case unsupportedTarget
+        case ignoredIncompatibleVisibility
         case conditionalBinding
         case duplicateTarget
         case missingPropertyDefinition

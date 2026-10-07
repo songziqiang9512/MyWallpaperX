@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 577,
-      "bytes": 101536
+      "lines": 579,
+      "bytes": 102529
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 170121
+      "bytes": 170272
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 79,
-      "bytes": 11398
+      "bytes": 11486
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -197,8 +197,8 @@
       "bytes": 32798
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 158,
-      "bytes": 36245
+      "lines": 159,
+      "bytes": 37051
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1033,37 +1033,37 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "f4cae2833f55b272e59ed01148bf77df5a1b4312b826955c004e972b74144254",
-      "after": "6b00c8786e8803a410c26963c65f3bf66151ec8e5e4eb396ffcff8375b271648",
-      "owner": "scene-material",
-      "reason": "Record mixed user color reuse and distinguish the original cross-type binding rejection.",
+      "before": "6b00c8786e8803a410c26963c65f3bf66151ec8e5e4eb396ffcff8375b271648",
+      "after": "c90fb27b7c3b71ac87635f154e201b208f41896217dc49dc71b85ed3328adaa6",
+      "owner": "scene-properties",
+      "reason": "Record bounded color visibility mismatch behavior, actual two-sample hot updates, and separate remaining failures.",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "51c3ebf5ebab6240c789eab7dd2f76adc5cdd8a8471c00a90d70ad6b1c465662",
-      "after": "96ea770d334d5d3a40720597c8d1192b770dc68665ff2fb0d3004f12e63123b4",
-      "owner": "scene-material",
-      "reason": "Record mixed user color reuse and distinguish the original cross-type binding rejection.",
+      "before": "96ea770d334d5d3a40720597c8d1192b770dc68665ff2fb0d3004f12e63123b4",
+      "after": "c0c699f8e5ce0e2e4ef907e68685690600a2952a74630b19d6a2aac01862270b",
+      "owner": "scene-properties",
+      "reason": "Record bounded color visibility mismatch behavior, actual two-sample hot updates, and separate remaining failures.",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e496486a1bf33092a5135899d2a05147d74a1b32f3ed52ea2f5beea7b251e647",
-      "after": "72f21eb01e9a9311b89c640cbd1ef209524cf02e32921b71eda199536e980119",
-      "owner": "scene-material",
-      "reason": "Record mixed user color reuse and distinguish the original cross-type binding rejection.",
+      "before": "72f21eb01e9a9311b89c640cbd1ef209524cf02e32921b71eda199536e980119",
+      "after": "8f870425ea3b86a1184e969c5c4251794a1d38e02d84fc995fa041c612077af1",
+      "owner": "scene-properties",
+      "reason": "Record bounded color visibility mismatch behavior, actual two-sample hot updates, and separate remaining failures.",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e74aafc33af21711bd9058176d37713690b4c98475853fbb775ee8357997a50d",
-      "after": "e14d0b846ee167613d371b0ccd912e8c73143e24affc69bb96df19ecd59526d9",
-      "owner": "scene-material",
-      "reason": "Record mixed user color reuse and distinguish the original cross-type binding rejection.",
+      "before": "e14d0b846ee167613d371b0ccd912e8c73143e24affc69bb96df19ecd59526d9",
+      "after": "e0211b27d3246229d42cd8ccebd5a60fbffe11ab5e794a871e9f40618e426c09",
+      "owner": "scene-properties",
+      "reason": "Record bounded color visibility mismatch behavior, actual two-sample hot updates, and separate remaining failures.",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     }
   ]

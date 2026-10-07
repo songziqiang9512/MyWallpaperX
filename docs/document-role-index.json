@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a3d9f48e6731d6387aa05aef032daf1f316ab670adffaa3a78ca94bb5222787c",
+        "sourceSHA256": "f088093df27bb646b5803d293db30ee6d03d5a6592322cb7ceff5174c627e216",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批mixed源材质颜色复用Vec3输入与内层live合同；受控热切和原包失败分列，不重验其他合同。",
+        "scope": "本批直连color显隐错配的局部保Bool合同、两原包热切与未关闭边界；不重验其他合同。",
         "limitations": "仅对应本批职责与冻结证据，不表示全样本兼容、官方parity或发布验收。"
       }
     },
@@ -498,9 +498,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e51629ecd44c933a82f2414f387c1ba9e8a546b664d9310a3fb954d096a11ed6",
+        "sourceSHA256": "487e931a86ea98bc6e16956620aa46f8de6fd66927b80536e7394f8ec71f599d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批mixed源材质颜色复用Vec3输入与内层live合同；受控热切和原包失败分列，不重验其他合同。",
+        "scope": "本批直连color显隐错配的局部保Bool合同、两原包热切与未关闭边界；不重验其他合同。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
