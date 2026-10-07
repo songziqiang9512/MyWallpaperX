@@ -51,8 +51,8 @@ enum ScenePuppetAnimationSelector {
                   layer.additive != nil,
                   let blend = layer.blend,
                   blend.isFinite,
-                  blend > 0,
-                  blend <= 1,
+                  blend >= 0,
+                  Float(blend).isFinite,
                   // Omitted blend edges are the authored false defaults; an
                   // explicit true still stays outside this bounded profile.
                   layer.blendIn != true,
@@ -75,8 +75,8 @@ enum ScenePuppetAnimationSelector {
             return .success(.init(clips: clips, composition: .singleAbsolute))
         }
         // Wallpaper Engine stacks visible puppet layers bottom-to-top.  An
-        // additive layer contributes its frame-relative delta while an
-        // opaque layer blends its absolute pose over the running pose.  Keep
+        // additive layer contributes its bind-relative delta; the first
+        // opaque layer supplies the weighted base pose.  Keep
         // the complete authored order instead of rejecting mixed or
         // overlapping layers; the evaluator still validates every track and
         // fails closed on malformed data.
@@ -90,9 +90,15 @@ enum ScenePuppetAnimationEvaluationFailure: Error, CustomStringConvertible, Equa
     case invalidBindTransform(Int)
     case invalidFrame(Int)
     case duplicateAdditiveAnimation(Int)
+    case invalidBlend
+    case invalidDeformedVertex
 
     nonisolated var description: String {
         switch self {
+        case .invalidBlend:
+            return "puppet weight or weighted pose is not finite"
+        case .invalidDeformedVertex:
+            return "puppet skinning produced a non-finite vertex"
         case .boneCountMismatch:
             return "puppet mesh, rig, and animation bone counts do not match"
         case .singularBindMatrix(let index):

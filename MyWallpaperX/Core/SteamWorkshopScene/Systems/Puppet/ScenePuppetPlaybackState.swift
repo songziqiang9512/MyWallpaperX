@@ -86,8 +86,8 @@ final class ScenePuppetPlaybackState {
     private var preparedFrameSignature: [FrameSignature]?
     private var preparedBoneRevision: UInt64?
     private var preparedAttachmentFrames: [String: simd_float4x4] = [:]
-    private var lastPreparedVertexBufferIndex = 0
-    private var preparedPublicationCommandBuffer: ObjectIdentifier?
+    private var lastPreparedVertexBufferIndex: Int?
+    private weak var preparedPublicationCommandBuffer: MTLCommandBuffer?
     private var scriptBoneOverrides: [Int: simd_float4x4] = [:]
 #if DEBUG
     private var recordedBoneSkin = false
@@ -118,9 +118,8 @@ final class ScenePuppetPlaybackState {
             evaluator = try ScenePuppetAnimationEvaluator(
                 mesh: mesh,
                 rig: rig,
-                // Prepare every selected clip once.  Layered playback needs
-                // the frame-0 reference pose for additive deltas as well as
-                // the absolute tracks; neither is rebuilt on a normal frame.
+                // Prepare selected absolute tracks once. Weight mixing shares
+                // the evaluator's bind poses; normal frames do not rebuild tracks.
                 additiveAnimations: selection.clips.map(\.animation)
             )
         } catch let failure as ScenePuppetAnimationEvaluationFailure {
@@ -249,7 +248,8 @@ final class ScenePuppetPlaybackState {
         transaction: SceneSourceUpdateTransaction
     ) -> [String: simd_float4x4] {
         let frames = prepareFrame(sceneTime: sceneTime, dynamicValues: dynamicValues)
-        preparedPublicationCommandBuffer = ObjectIdentifier(commandBuffer as AnyObject)
+        preparedPublicationCommandBuffer = nil
+        guard let preparedFrameSignature, let preparedBoneRevision else { return frames }
         let attachmentFrames = submissions.update(transaction: transaction) { submission in
             guard submission.frameSignature != preparedFrameSignature
                     || submission.boneRevision != preparedBoneRevision else {
@@ -268,18 +268,20 @@ final class ScenePuppetPlaybackState {
             }
 
             submission.frameSignature = preparedFrameSignature
-            submission.boneRevision = boneRevision
+            submission.boneRevision = preparedBoneRevision
             submission.attachmentFrames = frames
             return frames
         }
+        preparedPublicationCommandBuffer = commandBuffer
 #if DEBUG
         if ScenePuppetBoneEvidence.isEnabled(for: layerID) {
-        boneEvidence.record(layerID: layerID, revision: boneRevision,
+        let publishedPositions = vertexScratch.map(\.position)
+        boneEvidence.record(layerID: layerID, revision: preparedBoneRevision,
             frame: dynamicValues.frameIndex, sceneTime: sceneTime,
-            scriptWritten: boneWrittenInFrame,
-            displacement: zip(positionScratch, mesh.vertices).reduce(Float(0)) {
+            scriptWritten: boneWrittenInFrame && preparedBoneRevision == boneRevision,
+            displacement: zip(publishedPositions, mesh.vertices).reduce(Float(0)) {
                 max($0, simd_length($1.0 - SIMD2($1.1.x, $1.1.y)))
-            }, positions: positionScratch, commandBuffer: commandBuffer)
+            }, positions: publishedPositions, commandBuffer: commandBuffer)
         }
 #endif
         return attachmentFrames
@@ -290,12 +292,12 @@ final class ScenePuppetPlaybackState {
             ownerLayerID: layerID,
             samplingTexture: atlasTexture,
             isPreparedForPublication: { [self] commandBuffer in
-                preparedPublicationCommandBuffer
-                    == ObjectIdentifier(commandBuffer as AnyObject)
+                preparedPublicationCommandBuffer === commandBuffer
             },
             encode: {
             [self] encoder, sourceTexture, dependencyTexture, mvp, uniforms,
             bindColorBlend in
+            guard let lastPreparedVertexBufferIndex else { return false }
 #if DEBUG
             if !recordedWorldDraw,
                SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
@@ -303,7 +305,8 @@ final class ScenePuppetPlaybackState {
                 var minimum = SIMD2<Float>(repeating: .greatestFiniteMagnitude)
                 var maximum = SIMD2<Float>(repeating: -.greatestFiniteMagnitude)
                 var visibleVertexCount = 0
-                for position in positionScratch {
+                for vertex in vertexScratch {
+                    let position = vertex.position
                     let clip = mvp * SIMD4(
                         position.x,
                         position.y,
@@ -322,7 +325,7 @@ final class ScenePuppetPlaybackState {
                 NSLog(
                     "MWX DEBUG SCENE: phase=puppet-world-draw layer=%d ndcMin=%.6f,%.6f ndcMax=%.6f,%.6f visibleVertices=%d totalVertices=%d",
                     layerID, minimum.x, minimum.y, maximum.x, maximum.y,
-                    visibleVertexCount, positionScratch.count
+                    visibleVertexCount, vertexScratch.count
                 )
             }
 #endif

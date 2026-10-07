@@ -24,7 +24,6 @@ struct ScenePuppetAnimationEvaluator {
 
     private struct PreparedAnimation {
         let posesByBone: [[Pose]]
-        let referencePosesByBone: [Pose]
         let drivenBones: Set<Int>
         let authoredBones: Set<Int>
     }
@@ -278,7 +277,7 @@ struct ScenePuppetAnimationEvaluator {
             into: &skinMatricesScratch
         )
         for vertexIndex in preparedVertices.indices {
-            let point = deformedPoint(
+            let point = try deformedPoint(
                 vertex: preparedVertices[vertexIndex],
                 skinMatrices: skinMatricesScratch
             )
@@ -445,17 +444,20 @@ struct ScenePuppetAnimationEvaluator {
                 throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
             }
             for boneIndex in rig.bones.indices {
-                output[boneIndex] = Self.matrix(from: try Self.sample(
-                    animation.transformsByBone[boneIndex],
-                    frameSample: frameSample
+                guard let sampled = Self.pose(from: try Self.sample(
+                    animation.transformsByBone[boneIndex], frameSample: frameSample
+                )) else { throw ScenePuppetAnimationEvaluationFailure.invalidFrame(frameSample.frameA) }
+                output[boneIndex] = Self.matrix(from: try Self.applying(
+                    sampled, relativeTo: bindPoses[boneIndex], to: bindPoses[boneIndex],
+                    weight: selection.clips[0].layer.blend ?? 1
                 ))
             }
 
         case .layered:
             for boneIndex in rig.bones.indices {
                 var pose = bindPoses[boneIndex]
-                // The first replacement, or first active additive track, owns the base pose.
-                let baseClipIndex = Self.baseClipIndex(
+                // Preserve the first opaque owner; every additive uses the same bind reference.
+                let baseClipIndex = Self.opaqueClipIndex(
                     boneIndex: boneIndex,
                     clips: selection.clips,
                     frameSamples: frameSamples,
@@ -467,9 +469,10 @@ struct ScenePuppetAnimationEvaluator {
                        selection.clips[baseClipIndex].animation.id
                    ],
                    prepared.authoredBones.contains(boneIndex) {
-                    pose = try Self.sample(
-                        prepared.posesByBone[boneIndex],
-                        frameSample: baseSample
+                    pose = try Self.applying(
+                        Self.sample(prepared.posesByBone[boneIndex], frameSample: baseSample),
+                        relativeTo: bindPoses[boneIndex], to: pose,
+                        weight: selection.clips[baseClipIndex].layer.blend ?? 1
                     )
                 }
                 for (clipIndex, clip) in selection.clips.enumerated() {
@@ -480,11 +483,9 @@ struct ScenePuppetAnimationEvaluator {
                     else { continue }
                     if clipIndex == baseClipIndex { continue }
                     if clip.layer.additive == true {
-                        pose = try Self.additive(
-                            pose,
-                            poses: prepared.posesByBone[boneIndex],
-                            reference: prepared.referencePosesByBone[boneIndex],
-                            frameSample: frameSample,
+                        pose = try Self.applying(
+                            Self.sample(prepared.posesByBone[boneIndex], frameSample: frameSample),
+                            relativeTo: bindPoses[boneIndex], to: pose,
                             weight: clip.layer.blend ?? 1
                         )
                     }
@@ -503,8 +504,6 @@ struct ScenePuppetAnimationEvaluator {
         }
         var posesByBone: [[Pose]] = []
         posesByBone.reserveCapacity(boneCount)
-        var references: [Pose] = []
-        references.reserveCapacity(boneCount)
         var drivenBones: Set<Int> = []
         var authoredBones: Set<Int> = []
         for (boneIndex, track) in animation.transformsByBone.enumerated() {
@@ -519,7 +518,6 @@ struct ScenePuppetAnimationEvaluator {
             }
             let unwrapped = poses.compactMap { $0 }
             let reference = unwrapped[0]
-            references.append(reference)
             if unwrapped.contains(where: Self.isAuthoredPose) {
                 authoredBones.insert(boneIndex)
             }
@@ -532,7 +530,6 @@ struct ScenePuppetAnimationEvaluator {
         }
         return PreparedAnimation(
             posesByBone: posesByBone,
-            referencePosesByBone: references,
             drivenBones: drivenBones,
             authoredBones: authoredBones
         )
@@ -596,7 +593,7 @@ struct ScenePuppetAnimationEvaluator {
         )
     }
 
-    private static func baseClipIndex(
+    private static func opaqueClipIndex(
         boneIndex: Int,
         clips: [ScenePuppetAnimationSelection.Clip],
         frameSamples: [FrameSample?],
@@ -613,52 +610,38 @@ struct ScenePuppetAnimationEvaluator {
                   prepared.authoredBones.contains(boneIndex) else { continue }
             return index
         }
-        // With no replacement owner, the first visible additive layer is the
-        // base anchor.  Its own frame-0 offset is part of the authored pose;
-        // other additive layers are applied as deltas from their references.
-        for index in clips.indices {
-            guard frameSamples[index] != nil,
-                  clips[index].layer.additive == true,
-                  (clips[index].layer.blend ?? 0) > 0,
-                  let prepared = preparedAnimationsByID[clips[index].animation.id],
-                  prepared.authoredBones.contains(boneIndex) else { continue }
-            return index
-        }
         return nil
     }
 
-    private static func additive(
-        _ current: Pose,
-        poses: [Pose],
-        reference: Pose,
-        frameSample: FrameSample,
-        weight: Double
+    /// Static weight mixing is distinct from time interpolation. A shortest-
+    /// hemisphere normalized linear quaternion mix supports authored extrapolation.
+    /// Use a local delta on the right so bind * delta at weight 1 equals sample,
+    /// including when bind and sample rotations do not commute.
+    private static func applying(
+        _ sampled: Pose, relativeTo reference: Pose, to current: Pose, weight: Double
     ) throws -> Pose {
-        guard poses.indices.contains(frameSample.frameA),
-              poses.indices.contains(frameSample.frameB),
-              frameSample.fraction.isFinite,
-              frameSample.fraction >= 0,
-              frameSample.fraction <= 1 else {
-            throw ScenePuppetAnimationEvaluationFailure.invalidFrame(frameSample.frameA)
+        let w = Float(weight)
+        guard weight.isFinite, weight >= 0, w.isFinite else {
+            throw ScenePuppetAnimationEvaluationFailure.invalidBlend
         }
-        let a = poses[frameSample.frameA]
-        let b = poses[frameSample.frameB]
-        let w = Float(min(1, max(0, weight.isFinite ? weight : 0)))
-        let t = frameSample.fraction
-        let deltaA = a.rotation * reference.rotation.inverse
-        let deltaB = b.rotation * reference.rotation.inverse
-        let deltaRotation = simd_normalize(simd_slerp(deltaA, deltaB, t))
-        return Pose(
-            translation: current.translation + (
-                a.translation + (b.translation - a.translation) * t - reference.translation
-            ) * w,
-            rotation: simd_normalize(
-                current.rotation * simd_slerp(identityPose.rotation, deltaRotation, w)
-            ),
-            scale: current.scale + (
-                a.scale + (b.scale - a.scale) * t - reference.scale
-            ) * w
+        if w == 0 { return current }
+        var delta = (reference.rotation.inverse * sampled.rotation).vector
+        if delta.w < 0 { delta = -delta }
+        let identity = identityPose.rotation.vector
+        let weighted = identity + (delta - identity) * w
+        let normSquared = simd_length_squared(weighted)
+        guard normSquared.isFinite, normSquared > 0 else {
+            throw ScenePuppetAnimationEvaluationFailure.invalidBlend
+        }
+        let result = Pose(
+            translation: current.translation + (sampled.translation - reference.translation) * w,
+            rotation: simd_normalize(current.rotation * simd_quatf(vector: weighted / sqrt(normSquared))),
+            scale: current.scale + (sampled.scale - reference.scale) * w
         )
+        guard isFinite(result.translation), isFinite(result.rotation.vector), isFinite(result.scale) else {
+            throw ScenePuppetAnimationEvaluationFailure.invalidBlend
+        }
+        return result
     }
 
     private static let identityPose = Pose(
@@ -675,8 +658,8 @@ struct ScenePuppetAnimationEvaluator {
         localMatrices: [simd_float4x4]
     ) throws -> [SIMD2<Float>] {
         let skinMatrices = try skinMatrices(localMatrices: localMatrices)
-        return preparedVertices.indices.map { vertexIndex in
-            deformedPoint(
+        return try preparedVertices.indices.map { vertexIndex in
+            try deformedPoint(
                 vertex: preparedVertices[vertexIndex],
                 skinMatrices: skinMatrices
             )
@@ -689,7 +672,7 @@ struct ScenePuppetAnimationEvaluator {
         let skinMatrices = try skinMatrices(localMatrices: localMatrices)
         var maximum = SIMD2<Float>(repeating: 0)
         for vertex in preparedVertices {
-            let point = deformedPoint(vertex: vertex, skinMatrices: skinMatrices)
+            let point = try deformedPoint(vertex: vertex, skinMatrices: skinMatrices)
             maximum.x = max(maximum.x, abs(point.x))
             maximum.y = max(maximum.y, abs(point.y))
         }
@@ -700,7 +683,7 @@ struct ScenePuppetAnimationEvaluator {
     private func deformedPoint(
         vertex: PreparedVertex,
         skinMatrices: [simd_float4x4]
-    ) -> SIMD2<Float> {
+    ) throws -> SIMD2<Float> {
         var point = SIMD2<Float>.zero
         let bindX = vertex.bindPoint.x
         let bindY = vertex.bindPoint.y
@@ -735,6 +718,9 @@ struct ScenePuppetAnimationEvaluator {
                 matrix[0].x * bindX + matrix[1].x * bindY + matrix[3].x,
                 matrix[0].y * bindX + matrix[1].y * bindY + matrix[3].y
             ) * weight3
+        }
+        guard point.x.isFinite, point.y.isFinite else {
+            throw ScenePuppetAnimationEvaluationFailure.invalidDeformedVertex
         }
         return point
     }

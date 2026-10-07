@@ -59,14 +59,7 @@ Utility composition 已是极窄的 `L3` 子集，不再写成完全缺失；hid
 
 Puppet Warp 的核心是骨骼驱动网格变形。官方页面说明 bone hierarchy、weight painting、Timeline animation/mode 和 animation-before-SceneScript 顺序，但没有公开 MDLS/MDLA 二进制 schema、矩阵乘法顺序、skinning 数值算法或 mixing 冲突规则。编辑器教程以旋转关节为主要创作方式，不等于运行时格式禁止 translation/scale；三份独立真实 MDLA0006 资产的逐帧记录都包含变化的 translation 和 scale，因此 IR 必须保留完整 TRS。
 
-当前可执行合同来自真实资产的假设-验证循环，而不是把编辑器建议改写成官方 schema：
-
-1. 已核验的 MDLA0003/0004/0006 每个 bone track 保存 `frameCount + 1` 个完整 TRS sample；reader 只接受对应MDLV/MDLS version pair、`loop` 形状和有限预算。MDLA0003 的 per-bone auxiliary scalar只校验边界/有限`0...1`值并丢弃，语义未定。
-2. 真实 bind frame 对照锁定局部矩阵为 `T * Rz * Ry * Rx * S`；`身体_puppet.mdl` 最大误差 `8.61e-6`，错误的 `R * T * S` 次序误差约 `758.8`。
-3. evaluator 按 MDLS parent 顺序求 bind/animated world，再以 `animatedWorld * inverse(bindWorld)` 和 normalized four-weight linear blend skinning 计算顶点。
-4. 产品播放接单个 non-additive clip，或一组全部 additive、首帧与 bind pose 对齐且实际驱动 bone 集两两不相交的 clips；单 clip接受有限正authored rate，additive组合仍只接rate=1，两者均要求blend=1、无 blend-in/out并按 source FPS 离散 loop。property-bound visibility 只通过现有 typed User Property snapshot 消费。
-5. 重叠 bone、非 bind reference、混合 opaque/additive、非 1 blend、additive非1 rate与缺失动态值均 fail closed；未验证的冲突权重、插值、auxiliary scalar与 independent-rate mixing 不做近似。
-6. 官方公开的 animation-before-SceneScript 顺序仍保留；animation/physics 的 pre-script pose 生成 layer/bone/attachment snapshot，SceneScript override 提交后由同一 evaluator 形成最终 skinning 与 attachment frame。旋转/重力/IK 仍未实现，见下方 Interactive/Bone Constraints。
+执行范围以本页第 3.1/3.2 节为准，格式边界见[Scene 格式合同](scene-format-and-render-graph.md)。真实 bind frame 对照锁定局部矩阵为 `T * Rz * Ry * Rx * S`（已核验资产最大误差 `8.61e-6`）；evaluator 按 MDLS parent 顺序求 world，以 `animatedWorld * inverse(bindWorld)` 和 normalized four-weight LBS 变形。pre-script pose 供脚本查询，override 后的有效几何与 attachment 沿原播放链发布；旋转/重力/IK 物理仍未实现。
 
 #### 与其他系统的边界
 
@@ -108,10 +101,17 @@ Puppet runtime 必须把 authored pose、animations/mixing/rules、constraints/I
 - v25 保存 animation layer 的 id/clip/additive/blend/blend-in/out/time/rate/static-or-bound visibility；缺失或畸形可选数值返回 `nil`，不会递归崩溃。
 - loader 对已验证且无MDLA/MDAT的MDLV0014/MDLS0002建立immutable bind-pose vertex/index buffer；动画只对MDLV0016/MDLS0002/MDLA0003、MDLV0017/MDLS0002/MDLA0004、MDLV0019/MDLS0002/MDLA0005 或 MDLV0023/MDLS0004/MDLA0006 version pair 建立三份 persistent dynamic vertex buffer。每帧 CPU 求 source-FPS LBS，把变形后的原始 mesh 像素位置写入下一 vertex buffer，再由正常 frame command buffer 直接绘制，没有 per-frame `waitUntilCompleted` 或中间纹理。MDLA0005 的 trailer 是 34 字节全零（无 auxiliary track），其他形状失败关闭。
 - compositor 只计算一次 `cameraVP × parallax × authored world(origin/scale/hierarchy) × Y orientation × pivot`，直接作用于原始/变形 mesh 位置；不再计算 `size∪bind-pose` coverage、不把 mesh 归一到 quad，也不按 coverage 分配纹理。无 effect 时 mesh 采样原 atlas；有 effect 时普通 graph 先在 atlas mapped extent 内执行，mesh 再采样 graph-final 纹理。atlas/graph-final 不是已组合 layer source，Puppet 跨层命名 provider 在依赖计划编译阶段拒绝。
-- layered selector 保留完整作者顺序：逐 bone 由首个可见 opaque clip 提供 base pose（无 opaque 时首个可见 additive clip 提升为 base anchor），其余 additive clip 以各自 frame-0 为 reference 叠加 TRS delta；重叠 bone 与非 bind reference 合法，重复 animation id、越界 frame 或不可分解 transform 仍失败关闭。MDLA 的 loop/mirror/single 三种 authored mode 都进入 IR；frame 是相邻两个 authored pose 的 interval，采样携带 fraction 做 TRS/slerp 插值，mirror 保留 authored 末端 pose 与方向，single 停在末端 interval。显式非 1 blend、blend-in/out 仍在 bounded profile 之外。
+- selector 保留作者顺序与有限正 rate；重复 animation id、越界 frame 或非法 transform 失败关闭。loop/mirror/single 均进入 IR；相邻 authored pose 的 interval 携带 fraction 插值，mirror 保留末端 pose 与方向，single 停在末端。静态权重与组合见第 3.2 节；blend-in/out 仍未支持。
 - `animationlayers[].visible` 的 property binding 编译为稳定 `(layerID, animationLayerID)` typed bool target；每帧 snapshot 缺失或类型错误时该 clip 不激活，不执行任意 SceneScript。
-- `3747492842` 继续证明严格单 clip；`3769688830` 定向门证明 7 个 Puppet layers / 17 clips，其中 6 个 layered layers 实际播放；`3264246690` 的 layer 389 以 `mode=layered ids=494,319,483 clips=3` 执行。2026-09-13 的四样本签名回放以原始 mesh 世界空间绘制重新检查该样本头部/肘部、`3238423642` 多层组装以及两个清晰度样本；结果只按本页链接的现役 runtime evidence 解释。旧 fixed13/full45 和 coverage 路径截图只属于历史基线，本批不重跑全量门。
-- 旧 v24 同样本对照仍有 effect 运动，因此 whole-frame 增量只是方向性证据。没有 Windows WE golden 时，不把当前 interval 采样、矩阵、LBS 或 attachment 数值写成 `L4`，也不宣称完整冲突 mixing 的官方权重语义。
+- 既有单 clip、layered、多层组装和清晰度回放见[当前运行证据](runtime-evidence-current.md)。whole-frame 变化含 effect 运动，不能单独证明骨骼数值正确；未完成官方对照的 interval、LBS、attachment 与多轨冲突保持 bounded 状态。
+
+### 3.2 Puppet 静态权重与几何失败边界
+2026-10-07 的先行设计落在本节，沿已有 IR → prepared animation → evaluator → 动态顶点/attachment/compositor 实施。旧 selector 的 `blend<=1`、首 additive 无权重 anchor、frame-0 reference 缓存和 extra clamp 退出；
+
+- 接受能表示为有限 Float 的非负静态 blend，0 不贡献姿态。逐 bone 首个 opaque 相对 bind 加权，各 additive 统一相对 bind 叠加 T/S 差与局部旋转 delta；不再用动画第 0 帧作为权重基准。旋转权重使用最短半球归一化线性混合，时间插值仍沿现有 sampler；额外 opaque 顺序、动态 blend/seek API、非共轴多轨官方 parity 不由本批承诺。
+- 固定官方 2.8.0.42 黑盒暂停帧控制证明 0/.5/1/1.3/2 的 base/extra/单 opaque T/S 外推，并排除球面旋转外推。非 bind 的 frame0 控制区分了参考基准；项目 nlerp 与控制的预设旋转容差为 0.002 rad，不声称恢复官方内部公式。完整输入与身份见[运行证据](runtime-evidence-current.md#e-2026-10-07-puppet-static-weight)。更广权重是本实现安全范围，不等于官方全域 parity。
+- 非有限加权 pose、奇异 world 或最终 skinned vertex 失败时不上传部分几何。PlaybackState 首次未取得完整顶点时 named publication 与直接 draw 都拒绝；后续失败保留上一完整 vertex/attachment，DEBUG 只报告成功顶点。现有 VM getter 仅验证完整有限骨骼矩阵，最终顶点溢出的帧仍可能给脚本提供新骨骼 snapshot；本合同不宣称 VM/geometry 全链原子回滚。
+- 最近门是 `test_scene_puppet_weights`、真实 Metal 的 `test_scene_puppet_buffer_publication`及原播放/骨骼发布门；覆盖非 bind reference、零/外推权重、非共轴 unit-weight 恒等、最短半球、scale、非法数值与首次失败/旧几何保留/恢复。眼部 auxiliary、脚本 seek 和最终合成差异归现役断点队列。
 
 ## 4. 3D Models 官方页面覆盖（8）
 
