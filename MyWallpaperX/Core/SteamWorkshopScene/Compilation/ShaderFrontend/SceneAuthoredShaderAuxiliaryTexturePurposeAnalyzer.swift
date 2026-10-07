@@ -303,9 +303,27 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
         vertex: Unit,
         fragment: Unit
     ) -> [Fact] {
-        let declaredTypes = Dictionary(fragment.declarations.map {
+        var declaredTypes = Dictionary(fragment.declarations.map {
             ($0.name, $0.typeName)
         }, uniquingKeysWith: { first, _ in first })
+        var localNames = Set<String>()
+        for tokens in statements {
+            guard tokens.count >= 2,
+                  SceneAuthoredShaderValueType(authoredName: tokens[0].text) != nil,
+                  tokens[1].kind == .identifier else { continue }
+            let name = tokens[1].text
+            // These statements have no nested scopes. A duplicate or a local
+            // shadowing a stage declaration cannot borrow its type proof.
+            guard declaredTypes[name] == nil, localNames.insert(name).inserted
+            else { return [] }
+            if tokens.count >= 4, tokens[2].text == "=",
+               ["float", "int"].contains(tokens[0].text) {
+                // Independent scalar inputs need no sample-flow proof. Any
+                // initializer or later write touching the sample still passes
+                // through the complete dependency closure below.
+                declaredTypes[name] = tokens[0].text
+            }
+        }
         var claimedSlots = Set<Int>()
         var facts: [Fact] = []
         for tokens in statements {
@@ -322,7 +340,8 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
                   let _ = dataChannelWeightClosure(
                     name,
                     statements: statements,
-                    declaredTypes: declaredTypes
+                    declaredTypes: declaredTypes,
+                    shadowedCalls: Set(fragment.functions.map(\.name))
                   ) else { continue }
             // Two independent channel-data samples of one slot would make the
             // proven purpose ambiguous; stay fail-closed.
@@ -407,7 +426,8 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
     private static func dataChannelWeightClosure(
         _ name: String,
         statements: [[Token]],
-        declaredTypes: [String: String]
+        declaredTypes: [String: String],
+        shadowedCalls: Set<String>
     ) -> Set<String>? {
         var derived = Set<String>()
         func touches(_ tokens: [Token]) -> Bool {
@@ -421,15 +441,17 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
             for tokens in statements where !tokens.isEmpty {
                 // Statement ranges exclude the trailing `;`, so the whole
                 // suffix after `=` is the initializer expression.
-                guard tokens[0].text == "float", tokens[1].kind == .identifier,
-                      tokens[2].text == "=", tokens.count > 4 else { continue }
+                guard tokens.count >= 4, tokens[0].text == "float",
+                      tokens[1].kind == .identifier,
+                      tokens[2].text == "=" else { continue }
                 let local = tokens[1].text
                 guard !derived.contains(local),
                       touches(Array(tokens[3...])) else { continue }
                 guard isScalarWeightExpression(
                     Array(tokens[3...]),
                     channelRoots: [name] + derived,
-                    declaredTypes: declaredTypes
+                    declaredTypes: declaredTypes,
+                    shadowedCalls: shadowedCalls
                 ) else { return nil }
                 derived.insert(local)
                 changed = true
@@ -438,7 +460,7 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
         var weightUseCount = 0
         for tokens in statements where !tokens.isEmpty {
             guard touches(tokens) else { continue }
-            if tokens.count > 4, tokens[2].text == "=",
+            if tokens.count >= 4, tokens[2].text == "=",
                tokens[1].kind == .identifier,
                // Scalar declarations joined the closure above; the channel
                // declaration itself carries the only vector occurrence.
@@ -464,7 +486,8 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
                 )
                 guard let arguments else { return nil }
                 if token.text == "mix" {
-                    guard arguments.count == 3 else { return nil }
+                    guard !shadowedCalls.contains("mix"),
+                          arguments.count == 3 else { return nil }
                     if touches(Array(tokens[arguments[0]]))
                         || touches(Array(tokens[arguments[1]])) {
                         // The sampled channels may only weight the blend, not
@@ -472,16 +495,21 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
                         return nil
                     }
                     if touches(Array(tokens[arguments[2]])) {
+                        guard isScalarWeightExpression(
+                            Array(tokens[arguments[2]]),
+                            channelRoots: [name] + derived,
+                            declaredTypes: declaredTypes,
+                            shadowedCalls: shadowedCalls
+                        ) else { return nil }
                         weightUseCount += 1
                     }
-                } else if weightCallAllowlist.contains(token.text) {
-                    if arguments.contains(where: { touches(Array(tokens[$0])) }) {
-                        weightUseCount += 1
-                    }
+                    index = close + 1
                 } else {
-                    return nil
+                    // Visit arguments of surrounding constructors/calls. Only
+                    // a complete mix weight consumes dependent occurrences;
+                    // an outer scalar builtin cannot hide a color escape.
+                    index += 1
                 }
-                index = close + 1
             }
         }
         guard weightUseCount > 0 else { return nil }
@@ -496,7 +524,8 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
     private static func isScalarWeightExpression(
         _ tokens: [Token],
         channelRoots: [String],
-        declaredTypes: [String: String]
+        declaredTypes: [String: String],
+        shadowedCalls: Set<String>
     ) -> Bool {
         var index = 0
         while index < tokens.count {
@@ -509,19 +538,31 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
             guard token.kind == .identifier else { return false }
             if index + 2 < tokens.count,
                tokens[index + 1].text == ".",
-               isComponentLetter(tokens[index + 2].text) {
+               isComponentLetter(tokens[index + 2].text),
+               channelRoots.contains(token.text)
+                   || declaredTypes[token.text].flatMap(vectorWidth) != nil {
                 index += 3
                 continue
             }
-            if channelRoots.contains(token.text)
+            if (channelRoots.contains(token.text)
                 || declaredTypes[token.text] == "float"
-                || declaredTypes[token.text] == "int" {
+                || declaredTypes[token.text] == "int"),
+               index + 1 == tokens.count || tokens[index + 1].text != "(" {
                 index += 1
                 continue
             }
             if weightCallAllowlist.contains(token.text),
+               !shadowedCalls.contains(token.text),
                index + 1 < tokens.count, tokens[index + 1].text == "(",
-               let close = matchingClose(index + 1, tokens: tokens) {
+               let close = matchingClose(index + 1, tokens: tokens),
+               let arguments = SceneAuthoredShaderTokenScanner.argumentRanges(
+                    in: (index + 2)..<close, tokens: tokens
+               ), arguments.allSatisfy({
+                    isScalarWeightExpression(
+                        Array(tokens[$0]), channelRoots: channelRoots,
+                        declaredTypes: declaredTypes, shadowedCalls: shadowedCalls
+                    )
+               }) {
                 index = close + 1
                 continue
             }

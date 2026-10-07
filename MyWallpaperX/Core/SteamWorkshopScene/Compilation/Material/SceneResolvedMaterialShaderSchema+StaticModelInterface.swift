@@ -44,8 +44,12 @@ extension SceneResolvedMaterialShaderSchema {
             }
             // A potential conditional owner still makes an unconditional key
             // ambiguous. Use the existing exact annotation projection for both.
+            // Comparison samplers describe depth resources, not material
+            // scalar/vector keys; their internal-target defaults must not be
+            // parsed as numeric uniform defaults.
             for record in records.potential where record.declaration.kind == .uniform
                 && !isSampler2D(record.declaration.type)
+                && !isComparisonSampler2D(record.declaration.type)
                 && record.declaration.name != field.authoredName
             {
                 let other = SceneAuthoredShaderUniformLayout.Field(
@@ -151,6 +155,11 @@ extension SceneResolvedMaterialShaderSchema {
             }
         }
         return (unconditional, potential)
+    }
+
+    private nonisolated static func isComparisonSampler2D(_ type: String) -> Bool {
+        type.split(whereSeparator: \.isWhitespace).last?
+            .caseInsensitiveCompare("sampler2DComparison") == .orderedSame
     }
 
     private nonisolated static func staticModelDirectivesAreSafe(

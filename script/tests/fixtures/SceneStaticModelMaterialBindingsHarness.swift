@@ -219,6 +219,14 @@ private func proofBoundaries() -> [String: Any] {
         "malformedRequireRejected": summary(compile(authored, shader(fragmentPrefix:
             "#require Lighting 1"
         ))),
+        // The shadow-atlas comparison sampler (`sampler2DComparison g_Texture6`
+        // with an internal-target default) is an engine-internal depth input:
+        // the disjointness sweep must skip it like any other sampler instead
+        // of running the material schema over `_rt_shadowAtlas` and voiding
+        // the proof for generic4-family materials.
+        "comparisonSamplerSkipped": summary(compile(authored, shader(fragmentExtra:
+            #"uniform sampler2DComparison g_Texture6; // {"hidden":true,"default":"_rt_shadowAtlas"}"#
+        ))),
         "conditionalDuplicate": summary(compile(authored, shader(fragmentExtra: """
             #if defined(HAS_A)
             uniform float g_TintAlpha; // {"material":"Alpha","default":0.125}

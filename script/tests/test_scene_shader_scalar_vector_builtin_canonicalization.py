@@ -816,6 +816,37 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
                 )
                 self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
 
+    def test_compound_assignment_does_not_inherit_another_scope_integer_type(self) -> None:
+        statement = (
+            "float spare = 0.0, k = 1; k *= 0.5;"
+            " gl_FragColor = vec4(k, k, k, float(helper()));"
+        )
+        output = json.loads(subprocess.check_output([
+            str(self.binary), statement,
+            "int helper() { int k = 1; return k; }",
+        ], text=True))
+        self.assertIn("k *= 0.5", output["normalizedFragment"])
+        self.assertNotIn("k = int(k", output["normalizedFragment"])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "comparison.frag"
+            source.write_text(output["normalizedFragment"], encoding="utf-8")
+            spirv = root / "comparison.spv"
+            metal = root / "comparison.metal"
+            for command in (
+                [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                 str(source), "-o", str(spirv)],
+                [str(GLSLANG.with_name("spirv-cross")), str(spirv), "--msl",
+                 "--rename-entry-point", "main", "comparisonFragment", "frag",
+                 "--output", str(metal)],
+            ):
+                compiled = subprocess.run(command, capture_output=True, text=True, timeout=30)
+                self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+            pixels = json.loads(subprocess.check_output([
+                str(self.binary), "--render", str(metal),
+            ], text=True, timeout=30))
+            self.assertEqual(pixels, [0.5, 0.5, 0.5, 1.0] * 2)
+
     def test_comparisons_do_not_narrow_fractional_operands(self) -> None:
         # Comparisons promote unlike assignment conversion: a fractional
         # right operand must not acquire a float-to-int instruction.

@@ -167,6 +167,8 @@ private func dataChannelFragment(
     metadata: String = "",
     projection: String = "ra",
     extraUse: String = "",
+    weightPreparation: String = "",
+    weightFactor: String = "1.0",
     weightSite: String = "mixWeight"
 ) -> String {
     let terminal: String
@@ -197,7 +199,8 @@ private func dataChannelFragment(
         vec2 blendSample = texSample2D(
             g_Texture\(slot), v_TexCoord.xy
         ).\(projection);
-        float blend = saturate(blendSample.x * blendSample.y);
+        \(weightPreparation)
+        float blend = saturate(blendSample.x * blendSample.y * \(weightFactor));
         \(extraUse)
         \(terminal)
     }
@@ -222,6 +225,18 @@ private enum Main {
                 "renamedDataChannel": token(activeSamplers(
                     dataChannelFragment(slot: 7)
                 )[7]),
+                "dataChannelUninitializedLocal": token(activeSamplers(
+                    dataChannelFragment(extraUse: "float scratch;")
+                )[2]),
+                "dataChannelIndependentScalarWeight": token(activeSamplers(
+                    dataChannelFragment(
+                        weightPreparation: """
+                            float radius = distance(v_TexCoord.xy, vec2(0.5));
+                            float edge = 1.0 - smoothstep(0.2, 0.5, radius);
+                        """,
+                        weightFactor: "edge"
+                    )
+                )[2]),
                 "dataChannelWithDefault": token(activeSamplers(dataChannelFragment(
                     metadata: #"// {"default":"particle/halo_6"}"#
                 ))[2]),
@@ -274,6 +289,35 @@ private enum Main {
                 "dataChannelBareUse": token(activeSamplers(dataChannelFragment(
                     extraUse: "vec2 vecUse = blendSample;"
                 ))[2]),
+                "dataChannelColorCall": token(activeSamplers(dataChannelFragment(
+                    weightSite: "gl_FragColor = abs(vec4(blendSample.x));"
+                ))[2]),
+                "dataChannelNestedUnknownWeight": token(activeSamplers(
+                    dataChannelFragment(weightSite: """
+                        vec4 base = texSample2D(g_Texture0, v_TexCoord.xy);
+                        gl_FragColor = mix(base, vec4(1.0), pow(blendSample.x, 2.2));
+                    """)
+                )[2]),
+                "dataChannelAssignedScalarEscape": token(activeSamplers(
+                    dataChannelFragment(
+                        extraUse: "edge = blendSample.x;",
+                        weightPreparation: "float edge = 0.5;",
+                        weightFactor: "edge"
+                    )
+                )[2]),
+                "dataChannelCallNamedLikeLocal": token(activeSamplers(
+                    dataChannelFragment(
+                        weightPreparation: "float pow = pow(blendSample.x, 2.2);",
+                        weightFactor: "pow"
+                    )
+                )[2]),
+                "dataChannelShadowedScalarEscape": token(activeSamplers(
+                    dataChannelFragment(
+                        extraUse: "{ float edge = blendSample.x; }",
+                        weightPreparation: "float edge = 0.5;",
+                        weightFactor: "edge"
+                    )
+                )[2]),
                 "dataChannelConflictDefault": token(activeSamplers(
                     dataChannelFragment(
                         metadata: #"// {"default":"util/noise"}"#
@@ -349,6 +393,10 @@ class SceneSourceProvenAuxiliaryTexturePurposeTests(unittest.TestCase):
                 "dataChannel": "unproven/preserved-channels/preserved-channels",
                 "renamedDataChannel":
                     "unproven/preserved-channels/preserved-channels",
+                "dataChannelUninitializedLocal":
+                    "unproven/preserved-channels/preserved-channels",
+                "dataChannelIndependentScalarWeight":
+                    "unproven/preserved-channels/preserved-channels",
                 # A typed stock default keeps registry authority only when it
                 # conflicts; unregistered and halo defaults accept the proof.
                 "dataChannelWithDefault":
@@ -383,6 +431,11 @@ class SceneSourceProvenAuxiliaryTexturePurposeTests(unittest.TestCase):
                 # A second float initializer joined the closure but the bare
                 # vector use of the sample variable escapes component reads.
                 "dataChannelBareUse": "unproven/nil/nil",
+                "dataChannelColorCall": "unproven/nil/nil",
+                "dataChannelNestedUnknownWeight": "unproven/nil/nil",
+                "dataChannelAssignedScalarEscape": "unproven/nil/nil",
+                "dataChannelCallNamedLikeLocal": "unproven/nil/nil",
+                "dataChannelShadowedScalarEscape": "unproven/nil/nil",
                 # The stock registry's noise semantics win over the proof.
                 "dataChannelConflictDefault": "unproven/nil/noise",
             },
