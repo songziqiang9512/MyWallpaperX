@@ -430,12 +430,15 @@ extension SceneMetalRenderer {
         let includesDirectional = lights.contains { if case .directional = $0 { return true }; return false }
         var casters: [StaticModelDraw] = []
         var bounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4)] = []
+        var receiverBounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4)] = []
         for layer in orderedLayers {
             for draw in state.prepared?[layer.id] ?? [] {
                 let casts = layer.modelShadowCastIntent?.modelCastsShadow ?? true
                 if casts { casters.append(draw) }
                 if includesDirectional && (casts || draw.material.receivesLighting) {
-                    bounds.append((draw.entry.mesh.boundsMinimum, draw.entry.mesh.boundsMaximum, draw.world))
+                    let item = (draw.entry.mesh.boundsMinimum, draw.entry.mesh.boundsMaximum, draw.world)
+                    if casts { bounds.append(item) }
+                    receiverBounds.append(item)
                 }
             }
         }
@@ -446,6 +449,7 @@ extension SceneMetalRenderer {
             switch light {
             case .directional(let value):
                 guard let value = SceneDirectionalShadowProjection.make(bounds: bounds,
+                    receiverBounds: receiverBounds,
                     directionTowardLight: value.directionTowardLight, resolution: 1024) else { continue }
                 projection = .directional(value)
             case .spot(let value):

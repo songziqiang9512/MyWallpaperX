@@ -9,6 +9,7 @@ struct SceneDirectionalShadowProjection {
 
     static func make(
         bounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4)],
+        receiverBounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4)],
         directionTowardLight: SIMD3<Float>, resolution: Int
     ) -> Self? {
         let toward = SIMD3<Double>(directionTowardLight)
@@ -18,8 +19,15 @@ struct SceneDirectionalShadowProjection {
         let reference = abs(z.y) < 0.9 ? SIMD3<Double>(0, 1, 0) : SIMD3<Double>(1, 0, 0)
         let x = simd_normalize(simd_cross(reference, z))
         let y = simd_cross(z, x)
+        // XY fits the occluders only: non-casting receivers (a skybox dome,
+        // for example) must not inflate the frustum, or every texel spans
+        // scene-scale units and model shadows turn into blocky staircase
+        // bands. Z extends over receivers too so shadows cast onto surfaces
+        // beyond the occluder hull stay inside the depth domain.
         var minimum = SIMD3<Double>(repeating: .infinity)
         var maximum = SIMD3<Double>(repeating: -.infinity)
+        var minimumZ = minimum
+        var maximumZ = maximum
         for item in bounds {
             for corner in 0..<8 {
                 let local = SIMD4<Float>(
@@ -33,6 +41,20 @@ struct SceneDirectionalShadowProjection {
                 minimum = simd_min(minimum, light); maximum = simd_max(maximum, light)
             }
         }
+        for item in receiverBounds {
+            for corner in 0..<8 {
+                let local = SIMD4<Float>(
+                    corner & 1 == 0 ? item.minimum.x : item.maximum.x,
+                    corner & 2 == 0 ? item.minimum.y : item.maximum.y,
+                    corner & 4 == 0 ? item.minimum.z : item.maximum.z, 1)
+                let transformed = item.world * local
+                let point = SIMD3<Double>(Double(transformed.x), Double(transformed.y), Double(transformed.z))
+                guard point.x.isFinite, point.y.isFinite, point.z.isFinite else { continue }
+                let light = SIMD3(simd_dot(point, x), simd_dot(point, y), simd_dot(point, z))
+                minimumZ = simd_min(minimumZ, light); maximumZ = simd_max(maximumZ, light)
+            }
+        }
+        minimum.z = simd_min(minimum.z, minimumZ.z); maximum.z = simd_max(maximum.z, maximumZ.z)
         let span = maximum - minimum
         let scale = max(simd_reduce_max(span), 0.0001)
         let texel = max(span.x, span.y, scale * 0.001) / Double(resolution)
