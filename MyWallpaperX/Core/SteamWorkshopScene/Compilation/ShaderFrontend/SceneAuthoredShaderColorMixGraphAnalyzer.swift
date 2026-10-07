@@ -9,6 +9,55 @@ nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
         let main: SceneAuthoredShaderSyntaxUnit.Function
         var remainingNodes = 64
         var activeAssignments: Set<Int> = []
+        var permitsRGBScalarMutation = false
+        var rgbScalarMutations: Set<Int> = []
+        var sampleReferences: [Int: Set<Int>] = [:]
+        var carrierReferences: [String: Set<Int>] = [:]
+    }
+
+    /// A purpose fact, independent of output color transfer: a complete-vector
+    /// sample graph may receive one unconditional RGB scalar multiplication.
+    /// Every sampled leaf and carrier use must belong to this graph; alpha,
+    /// data extraction, alias escapes and helper mutation remain unproven.
+    static func straightColorInputSlots(
+        vertexSource: String, fragmentSource: String
+    ) -> Set<Int> {
+        func syntax(_ source: String, stage: SceneShaderContract.StageKind)
+            -> SceneAuthoredShaderSyntaxUnit? {
+            let parsed = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+                lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: stage),
+                stage: stage
+            )
+            return parsed.diagnostics.isEmpty ? parsed.unit : nil
+        }
+        guard let vertex = syntax(vertexSource, stage: .vertex),
+              let fragment = syntax(fragmentSource, stage: .fragment),
+              let main = fragment.functions.first(where: { $0.name == "main" }) else { return [] }
+        let tokens = fragment.tokens
+        let outputs = tokens.indices.filter { tokens[$0].text == "gl_FragColor" }
+        guard outputs.count == 1, let output = outputs.first,
+              main.bodyRange.contains(output),
+              SceneAuthoredShaderColorTransferAnalyzer.isUnconditionalWrite(
+                output, tokens: tokens, body: main.bodyRange
+              ),
+              let expression = SceneAuthoredShaderColorTransferAnalyzer.assignmentExpression(
+                after: output, in: tokens, body: main.bodyRange
+              ) else { return [] }
+        var state = State(fragment: fragment, main: main, permitsRGBScalarMutation: true)
+        guard let slots = colorSlots(expression, before: output, state: &state),
+              !slots.isEmpty, state.rgbScalarMutations.count == 1 else { return [] }
+        for slot in slots {
+            let name = "g_Texture\(slot)"
+            guard fragment.declarations.contains(where: {
+                $0.name == name && $0.storage == .uniform && $0.typeName == "sampler2D"
+            }), SceneAuthoredShaderTextureChannelAnalyzer.referenceIndices(name, in: vertex).isEmpty,
+            Set(SceneAuthoredShaderTextureChannelAnalyzer.referenceIndices(name, in: fragment))
+                == state.sampleReferences[slot] else { return [] }
+        }
+        for (name, references) in state.carrierReferences {
+            guard Set(tokens.indices.filter { tokens[$0].text == name }) == references else { return [] }
+        }
+        return slots
     }
 
     static func analyze(
@@ -54,6 +103,9 @@ nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
         let expression = unwrapped(expression)
         if let slot = SceneAuthoredShaderColorTransferAnalyzer
             .directTextureSampleSlot(expression) {
+            if state.permitsRGBScalarMutation {
+                state.sampleReferences[slot, default: []].insert(expression.startIndex + 2)
+            }
             return [slot]
         }
         if let arguments = callArguments(named: "mix", expression: expression),
@@ -69,7 +121,7 @@ nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
               let assignment = reachingVectorAssignment(
                   named: token.text,
                   before: boundary,
-                  state: state
+                  state: &state
               ),
               state.activeAssignments.insert(assignment).inserted,
               let initializer = SceneAuthoredShaderColorTransferAnalyzer
@@ -84,6 +136,11 @@ nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
                       name: token.text
                   ) else {
             return nil
+        }
+        if state.permitsRGBScalarMutation {
+            state.carrierReferences[token.text, default: []].formUnion([
+                expression.startIndex, assignment
+            ])
         }
         defer { state.activeAssignments.remove(assignment) }
         return colorSlots(initializer, before: assignment, state: &state)
@@ -115,7 +172,7 @@ nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
     private static func reachingVectorAssignment(
         named name: String,
         before boundary: Int,
-        state: State
+        state: inout State
     ) -> Int? {
         let tokens = state.fragment.tokens
         let body = state.main.bodyRange
@@ -144,7 +201,7 @@ nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
                   named: name,
                   after: assignment,
                   before: boundary,
-                  state: state
+                  state: &state
               ) else {
             return nil
         }
@@ -155,20 +212,27 @@ nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
         named name: String,
         after assignment: Int,
         before boundary: Int,
-        state: State
+        state: inout State
     ) -> Bool {
         let tokens = state.fragment.tokens
         let operators: Set<String> = ["=", "+=", "-=", "*=", "/="]
-        if tokens.indices.contains(where: { index in
-            guard index > assignment, index < boundary,
-                  tokens[index].text == name else { return false }
+        for index in (assignment + 1)..<boundary where tokens[index].text == name {
             if index + 1 < boundary, operators.contains(tokens[index + 1].text) {
                 return true
             }
-            return index + 3 < boundary
-                && tokens[index + 1].text == "."
-                && operators.contains(tokens[index + 3].text)
-        }) { return true }
+            guard index + 3 < boundary, tokens[index + 1].text == ".",
+                  operators.contains(tokens[index + 3].text) else { continue }
+            guard state.permitsRGBScalarMutation,
+                  ["rgb", "xyz"].contains(tokens[index + 2].text),
+                  tokens[index + 3].text == "*=",
+                  SceneAuthoredShaderColorTransferAnalyzer.isUnconditionalWrite(
+                    index, tokens: tokens, body: state.main.bodyRange
+                  ),
+                  let end = (index + 4..<boundary).first(where: { tokens[$0].text == ";" }),
+                  isScalar(tokens[index + 4..<end], before: index, state: state) else { return true }
+            state.rgbScalarMutations.insert(index)
+            state.carrierReferences[name, default: []].insert(index)
+        }
 
         // A user function may mutate an lvalue through an `inout` parameter.
         // The color graph intentionally does not infer interprocedural alias

@@ -68,6 +68,23 @@ struct SceneBaseImageTextureSnapshot {
         )
     }
 
+    func replacingLayerSources(
+        _ sources: [Int: SceneLayerSourcePublication]
+    ) -> Self {
+        guard !sources.isEmpty else { return self }
+        var replacedTextures = textures
+        var replacedPublications = layerSourcePublications
+        for (layerID, source) in sources {
+            replacedTextures[layerID] = source.texture
+            replacedPublications[layerID] = source
+        }
+        return .init(textures: replacedTextures,
+            geometryProducts: geometryProducts.filter { sources[$0.key] == nil },
+            explicitLayerSources: explicitLayerSources,
+            layerSourcePublications: replacedPublications, candidates: candidates,
+            pendingLayerSourceIDs: pendingLayerSourceIDs)
+    }
+
     subscript(layerID: Int) -> MTLTexture? {
         textures[layerID]
     }

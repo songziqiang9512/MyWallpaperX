@@ -142,6 +142,68 @@ private func proof(
     )
 }
 
+private func colorGraph(_ suffix: String = "color.rgb *= gain;", extra: String = "",
+                        leaf: String = "g_Texture3", metadata: String = "") -> String {
+    """
+    uniform sampler2D g_Texture3; \(metadata)
+    uniform sampler2D g_Texture5;
+    uniform float gain;
+    void main() {
+        vec4 color = texSample2D(g_Texture3, vec2(0.2));
+        color = mix(color, texture2D(\(leaf), vec2(0.8)), 0.5);
+        \(suffix)
+        \(extra)
+        gl_FragColor = color;
+    }
+    """
+}
+
+private func colorGraphResults() -> [String: Any] {
+    let source = colorGraph()
+    let typed = preparedSampler(source)
+    let slots = SceneAuthoredShaderColorMixGraphAnalyzer.straightColorInputSlots(
+        vertexSource: vertexSource, fragmentSource: colorGraph(leaf: "g_Texture5")
+    ).sorted()
+    let rejected = [
+        "alphaWrite": colorGraph("color.a *= gain;"),
+        "vectorScale": colorGraph("color.rgb *= vec3(gain);"),
+        "conditional": colorGraph("if (gain > 0.0) color.rgb *= gain;"),
+        "carrierDataRead": colorGraph(extra: "float extracted = color.r;"),
+        "extraSample": colorGraph(extra: "float extracted = texSample2D(g_Texture3, vec2(0.4)).r;"),
+        "alphaDataRead": colorGraph(extra: "float extracted = color.a;"),
+        "wholeMutation": colorGraph(extra: "color *= gain;"),
+        "doubleRGBMutation": colorGraph(extra: "color.xyz *= gain;"),
+        "helperEscape": colorGraph(extra: "mutate(color);")
+            + "void mutate(inout vec4 value) { value.a = 0.0; }",
+        "nestedLeafSample": colorGraph().replacingOccurrences(
+            of: "vec2(0.2)", with: "texSample2D(g_Texture3, vec2(0.1)).xy"
+        ),
+    ]
+    return [
+        "singleSlot": token(typed),
+        "multipleSlots": slots,
+        "transferUnchanged": SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentSource: source) == .unresolved,
+        "rejected": rejected.mapValues {
+            SceneAuthoredShaderColorMixGraphAnalyzer.straightColorInputSlots(
+                vertexSource: vertexSource, fragmentSource: $0
+            ).isEmpty
+        },
+        "metadataPreserved": [
+            "noise": token(preparedSampler(colorGraph(metadata: #"// {"material":"noise"}"#))),
+            "hidden": token(preparedSampler(colorGraph(metadata: #"// {"hidden":true}"#))),
+            "mode": token(preparedSampler(colorGraph(metadata: #"// {"mode":"opacitymask"}"#))),
+            "conflict": token(preparedSampler(colorGraph(metadata: #"// {"default":"util/noise"}"#))),
+        ],
+        "vertexUseRejected": SceneAuthoredShaderColorMixGraphAnalyzer.straightColorInputSlots(
+            vertexSource: """
+                uniform sampler2D g_Texture3;
+                void main() { gl_Position = texSample2D(g_Texture3, vec2(0.0)); }
+                """,
+            fragmentSource: source
+        ).isEmpty,
+    ]
+}
+
 @main
 private enum Main {
     static func main() throws {
@@ -161,6 +223,7 @@ private enum Main {
             """
         )
         let results: [String: Any] = [
+            "colorGraph": colorGraphResults(),
             "positive": [
                 "typoKey": token(preparedSampler(direct)),
                 "renamedKey": token(preparedSampler(xyz)),
@@ -356,6 +419,23 @@ class SceneSourceProvenStraightColorPurposeTests(unittest.TestCase):
             },
             self.result,
         )
+
+    def test_complete_vector_color_graph_gets_purpose_without_output_reclassification(self) -> None:
+        graph = self.result["colorGraph"]
+        self.assertEqual(graph["singleSlot"], "wholeVector/straight-albedo/straight-albedo")
+        self.assertEqual(graph["multipleSlots"], [3, 5])
+        self.assertTrue(graph["transferUnchanged"])
+
+    def test_color_graph_rejects_data_alpha_control_flow_and_escaped_uses(self) -> None:
+        graph = self.result["colorGraph"]
+        for name, rejected in graph["rejected"].items():
+            with self.subTest(case=name):
+                self.assertTrue(rejected)
+        self.assertTrue(graph["vertexUseRejected"])
+        self.assertEqual(graph["metadataPreserved"], {
+            "noise": "wholeVector/nil/noise", "hidden": "wholeVector/nil/nil",
+            "mode": "wholeVector/nil/mask", "conflict": "wholeVector/nil/noise",
+        })
 
 
 if __name__ == "__main__":

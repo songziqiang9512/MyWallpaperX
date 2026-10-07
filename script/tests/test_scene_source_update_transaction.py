@@ -310,6 +310,7 @@ struct SceneLayerSourcePublication {
     let publication: SceneTextureProviderPublication
     let renderSizeWH: [Float]?
     let effectRenderSizeWH: [Float]? = nil
+    var texture: MTLTexture { publication.texture }
 
     static func supportsDirectTextureLane(
         layerID: Int,
@@ -381,6 +382,13 @@ enum Harness {
                 for: 13, matching: replacement
               )?.texture === replacement else {
             fatalError("atomic text lane was not preferred")
+        }
+        let replacedSnapshot = videoSnapshot.replacingLayerSources([13: textAtom])
+        guard replacedSnapshot[13] === replacement,
+              replacedSnapshot.candidate(for: 13, matching: replacement)?.texture === replacement,
+              replacedSnapshot.layerSourceRenderSize(for: 13) == [640, 320],
+              videoSnapshot[13] === video else {
+            fatalError("source replacement was not atomic or changed its input snapshot")
         }
         let mismatchedAtomSnapshot = SceneBaseImageTextureSnapshot(
             textures: [13: video],

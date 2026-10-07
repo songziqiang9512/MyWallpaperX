@@ -14,7 +14,7 @@
 
 | 卡 | 目标与共享职责 | 最小交付与停止条件 |
 |---|---|---|
-| T1 材质与纹理合成 | 沿真实model→material→Program/graph→唯一compositor追查零scene effects层的漏执行，并查询全243引用中的同形态 | 优先复用已有material/pass准备入口；至少一个真实flow动态结果、同族独立输入及健康基础图反例。若静态候选并未进入该故障链，不计受益、不扩第二套执行器 |
+| T1 材质与纹理合成 | 单pass静态源入口已接通；优先补其余10样本11层的公共边界：3层透明state、7层动态材质常量、1层perspective；仍按全243声明选同形态 | 复用现有source Program及typed constant通道。透明state先用官方受控输入裁决，动态常量从现有materialConstant接入，不能按样本开白名单；每个新增profile均需真实输出及健康反例 |
 | T2 颜色与HDR输出 | 旧SDR shoulder压暗已修；对剩余条纹、HDR物理显示及用户样本复验，按采样purpose/alpha/颜色域→中间target→最终输出定位 | 保留作者HDR/SDR意图；同内容默认/关闭/开启和实际呈现对照。已有16F与热切执行不等于物理亮度正确；找到首错owner再修改 |
 | E1 特效与频谱 | 将运行拒绝按共享shader/slot/graph/动态输入首断点归并；频谱用同声源对照形状和活跃度 | 复用现compiler/graph/audio producer，选覆盖面明确的族恢复动态结果；不抬gain、改作者参数或放宽测试制造通过 |
 
@@ -24,7 +24,7 @@
 
 | 待办 | 状态、证据与下一关闭门 |
 |---|---|
-| 零scene effects的material-only路由 | **已证缺陷**：`833227004`的model→自定义flowimage双纹理材质planned=0。沿现prepared Program/graph补入口，重要能力修订现设计后实施；门为实际材质执行、flow多帧可见、底图不退化。不能把已修380照片合并进同一根因 |
+| 自定义源材质未准入组合 | **首入口已修，公共边界待补**：[833静态双纹理源](../history/source-material-entry-2026-10-08.md)已实际执行并消费后effect；剩余3层透明state、7层动态常量、1层perspective按T1推进，更多multi-pass/provider待证。不能把已修380照片归入同根因 |
 | 普通unlit中间乘法溢出 | **已证缺陷**：source RGBA=(4,4,4,1)、tint=1e38、alpha=1e-37，HEAD/候选真实GPU同为RGB Inf，`SceneImageLayer.metal`普通路径。证据`/private/tmp/mwx-puppet-inner-harness-20261008/unlit-overflow-diagnosis.json`；修共享数值运算，验有限预乘结果、HDR/普通/lit反例，不加全图压暗或任意clamp |
 | 默认变暗、HDR/SDR最终显示 | **旧压暗首断点已修，视觉余项待复验**：旧SDR shoulder把白点1压到0.75；[白点修复](../history/sdr-white-preservation-implementation-2026-10-06.md)实测RGB(191,64,128)恢复(255,64,128)。EDR及OFF→ON→OFF已有同surface headroom执行证据；用户样本、多屏SDR、暂停重绘及物理亮度未据此关闭。沿唯一颜色/output owner定位，见[热切证据](../history/hdr-live-toggle-verification-2026-10-07.md)；Bloom iterations0/1空间语义另作官方控制 |
 | shader compound边界 | **能力缺口**：已有int四则复合赋值恢复，qualified LHS、`%=`与vertex剩余见[原合同](../history/int-compound-assignment-normalizer-2026-10-07.md)。先核真实引用和类型，扩同一normalizer，保留scope/优先级/非法输入反例 |
@@ -44,7 +44,7 @@
 | 样本/现象 | 当前剩余与下一门 |
 |---|---|
 | 3226487183 游离手臂、侧脸碎片 | **待归因**：composition成员闭包已修，Puppet姿态/挂点合成仍错。层1028 authored origin(-70,-606)，rootWorld(-154.9,414.9)，117顶点4个入视锥；934/876拆分件亦错位。沿origin→attachment/bone world→skinning核首错坐标，门为手臂画外、侧脸对齐且组级效果不回退。[闭包记录](../history/composition-member-closure-2026-10-07.md) |
-| 833227004 流动效果缺失 | 归T1 material-only共享入口，保留原星云底图，实际多帧flow作为门 |
+| 833227004 流动效果缺失 | **首断点已修**：共享源Program恢复真实多帧flow与完整映射；受控后effect组合已消费同源。完整同时间官方parity仍未证，见[记录](../history/source-material-entry-2026-10-08.md) |
 | 3809618616 全屏渐变、照片 | **原技术缺陷已修**：int compound恢复150柱，TEXB3/ImageIO方向恢复照片；剩余音频活动、完整交互与显示比例裁切复验。见[最终380运行](../history/committed-range-review-repairs-2026-10-07.md#整合验证)，不能继续写“照片归待修D” |
 | 3791967416 合成/眼部/局部图案 | 裁剪有界片已完成：最终冻结eye105闭眼无虹膜；原包intro已退，barcode/audio数据槽/seek/bone alpha技术链已修。**完整眼部周期、局部图案与整体官方视觉仍开放**，见[最终身份与未验边界](../history/puppet-clipping-2026-10-08.md#跨样本app与最终冻结)；不重开已闭首断点 |
 | 3789316755 /3211615441 频谱形状、幅度、全柱活跃度 | 动态容量、非有限单赋值、连续PCM/频带和峰值策略已修；同声源实际App A/B、静音/设备噪声与真实用户视觉仍待验。峰值策略不等于官方算法；见[频带证据](../capabilities/runtime-evidence-current.md#e-2026-09-28-audio-band-peaks) |

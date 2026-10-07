@@ -4,6 +4,45 @@ import Foundation
 import Metal
 
 extension Harness {
+    static func sourceMaterialResidencyChecks(_ device: MTLDevice) -> [String: Any] {
+        let queue = device.makeCommandQueue()!
+        let firstFrame = queue.makeCommandBuffer()!
+        let nextFrame = queue.makeCommandBuffer()!
+        let pool = SceneOffscreenTexturePool(device: device, residentByteBudget: 4 * 4 * 4 * 4)
+        let first = pool.reserveSourceMaterial(layerID: 1, width: 4, height: 4,
+            commandBuffer: firstFrame)!
+        let second = pool.reserveSourceMaterial(layerID: 2, width: 4, height: 4,
+            commandBuffer: firstFrame)!
+        let reuse = pool.reserveSourceMaterial(layerID: 1, width: 4, height: 4,
+            commandBuffer: firstFrame)!
+        let next = pool.reserveSourceMaterial(layerID: 1, width: 4, height: 4,
+            commandBuffer: nextFrame)!
+        let isolated = first.texture !== second.texture && first.texture !== next.texture
+            && first.texture === reuse.texture
+        pool.reset()
+        let retained = pool.residentByteCost == 3 * 4 * 4 * 4
+        first.pin.release(); second.pin.release(); reuse.pin.release(); next.pin.release()
+        let released = pool.residentByteCost == 0
+        let tight = SceneOffscreenTexturePool(device: device, residentByteBudget: 4 * 4 * 4)
+        let kept = tight.reserveSourceMaterial(layerID: 1, width: 4, height: 4,
+            commandBuffer: firstFrame)!
+        let failed = tight.reserveSourceMaterial(layerID: 2, width: 4, height: 4,
+            commandBuffer: firstFrame)
+        let noEviction = failed == nil && tight.residentByteCost == 4 * 4 * 4
+        tight.reset(); kept.pin.release()
+        let terminalPool = SceneOffscreenTexturePool(device: device, residentByteBudget: 4 * 4 * 4)
+        let terminal = terminalPool.reserveCompositionTargets(dimensions: [(4, 4)], commandBuffer: firstFrame)![0]
+        let optional = terminalPool.reserveSourceMaterial(layerID: 7, width: 4, height: 4, commandBuffer: firstFrame)
+        let exported = terminalPool.compositionTarget(width: 4, height: 4, commandBuffer: firstFrame)!
+        let displayProtected = optional == nil && exported.texture === terminal.texture
+        terminalPool.reset(); exported.pin?.release(); terminal.pin.release()
+        return ["sourceMaterialLayerAndSubmissionIsolation": isolated,
+                "sourceMaterialCannotEvictTerminalCapacity": displayProtected,
+                "sourceMaterialPinsSurviveReset": retained,
+                "sourceMaterialCancellationReleases": released,
+                "sourceMaterialBudgetFailureKeepsPinnedSource": noEviction]
+    }
+
     static func sharedFramebufferChecks(
         _ device: MTLDevice
     ) -> [String: Any] {

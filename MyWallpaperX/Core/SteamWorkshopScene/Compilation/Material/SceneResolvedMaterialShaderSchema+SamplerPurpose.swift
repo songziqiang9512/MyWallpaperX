@@ -51,9 +51,13 @@ extension SceneResolvedMaterialShaderSchema {
             fragmentSource: fragmentSource
         )
         var result = auxiliary
+        let colorGraphSlots = SceneAuthoredShaderColorMixGraphAnalyzer.straightColorInputSlots(
+            vertexSource: vertexSource, fragmentSource: fragmentSource
+        )
         for (slot, sampler) in auxiliary {
             guard sampler.permitsSourceStraightColorProjection,
-                  SceneAuthoredShaderTextureChannelAnalyzer
+                  (sampler.channelUse == .wholeVector && colorGraphSlots.contains(slot))
+                    || SceneAuthoredShaderTextureChannelAnalyzer
                       .provesStraightColorUse(
                           samplerName: sampler.name,
                           vertexSource: vertexSource,

@@ -207,6 +207,36 @@ private func dataChannelFragment(
     """
 }
 
+private func coordinateFragment(
+    slot: Int = 1,
+    extraUse: String = "",
+    firstColor: String = "texSample2D(g_Texture0, v_TexCoord.xy + offsetA)",
+    weight: String = "blend",
+    helper: String = ""
+) -> String {
+    """
+    varying vec4 v_TexCoord;
+    uniform sampler2D g_Texture0;
+    uniform sampler2D g_Texture\(slot);
+    uniform float g_Time;
+    \(helper)
+    void main() {
+        vec3 channels = texSample2D(g_Texture\(slot), v_TexCoord.xy).rgb;
+        vec2 direction = (channels.rg - vec2(0.5)) * 2.0;
+        vec2 phases = vec2(frac(g_Time * 0.07 + channels.b),
+                           frac(g_Time * 0.07 + channels.b + 0.5));
+        float blend = 2 * abs(phases.x - 0.5);
+        vec2 offsetA = direction * 0.1 * phases.x;
+        vec2 offsetB = direction * 0.1 * phases.y;
+        \(extraUse)
+        vec4 result = mix(\(firstColor),
+            texSample2D(g_Texture0, v_TexCoord.xy + offsetB), \(weight));
+        result.rgb *= 1.2;
+        gl_FragColor = result;
+    }
+    """
+}
+
 @main
 private enum Main {
     static func main() throws {
@@ -216,6 +246,33 @@ private enum Main {
         let renamedNormal = activeSamplers(normalFragment(slot: 6))
 
         let results: [String: Any] = [
+            "coordinates": [
+                "uvAndWeight": token(activeSamplers(coordinateFragment())[1]),
+                "renamedSlot": token(activeSamplers(coordinateFragment(slot: 6))[6]),
+                "colorEscape": token(activeSamplers(coordinateFragment(
+                    firstColor: "vec4(channels.r, 0.0, 0.0, 1.0)"
+                ))[1]),
+                "alphaEscape": token(activeSamplers(coordinateFragment(
+                    firstColor: "vec4(1.0, 1.0, 1.0, channels.b)"
+                ))[1]),
+                "vectorWeight": token(activeSamplers(coordinateFragment(
+                    weight: "vec4(blend)"
+                ))[1]),
+                "mutation": token(activeSamplers(coordinateFragment(
+                    extraUse: "direction *= channels.r;"
+                ))[1]),
+                "branchMutation": token(activeSamplers(coordinateFragment(
+                    extraUse: "if (g_Time > 0.0) { direction = channels.rg; }"
+                ))[1]),
+                "unusedAlias": token(activeSamplers(coordinateFragment(
+                    extraUse: "vec2 orphan = direction;"
+                ))[1]),
+                "unknownHelper": token(activeSamplers(coordinateFragment(
+                    extraUse: "vec2 unknown = adjust(direction);",
+                    firstColor: "texSample2D(g_Texture0, unknown)",
+                    helper: "vec2 adjust(vec2 value) { return value; }"
+                ))[1]),
+            ],
             "positive": [
                 "phase": token(phase[2]),
                 "renamedPhase": token(renamedPhase[5]),
@@ -441,6 +498,21 @@ class SceneSourceProvenAuxiliaryTexturePurposeTests(unittest.TestCase):
             },
             self.result,
         )
+
+    def test_channels_only_drive_coordinates_and_scalar_weights(self) -> None:
+        coordinates = self.result["coordinates"]
+        for key in ("uvAndWeight", "renamedSlot"):
+            self.assertEqual(
+                coordinates[key],
+                "unproven/preserved-channels/preserved-channels",
+                (key, coordinates),
+            )
+        for key in (
+            "colorEscape", "alphaEscape", "vectorWeight", "mutation",
+            "branchMutation", "unusedAlias", "unknownHelper",
+        ):
+            self.assertNotEqual(coordinates[key], "missing", (key, coordinates))
+            self.assertNotIn("preserved-channels", coordinates[key], (key, coordinates))
 
 
 if __name__ == "__main__":

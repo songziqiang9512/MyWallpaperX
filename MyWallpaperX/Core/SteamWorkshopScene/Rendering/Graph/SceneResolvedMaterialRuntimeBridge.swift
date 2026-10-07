@@ -250,7 +250,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         capabilities.visibilityOwnedLayerIDs
     }
     private let assetProvider: SceneMaterialAssetTextureCatalog.FrameProvider
-    private let submissions: SceneResolvedMaterialSubmissionCoordinator
+    let submissions: SceneResolvedMaterialSubmissionCoordinator
+    var sourceMaterials: [Int: PreparedSourceMaterial] = [:]
     let visibleExecutionRootLayerIDs: Set<Int>
     private let executionEvidenceLock = NSLock()
     private var executionEvidenceByKey: [Graph.EffectKey: String] = [:]

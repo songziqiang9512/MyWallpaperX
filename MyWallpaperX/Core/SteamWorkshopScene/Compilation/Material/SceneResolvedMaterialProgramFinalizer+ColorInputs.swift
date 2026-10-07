@@ -136,6 +136,7 @@ nonisolated extension SceneResolvedMaterialProgramFinalizer {
         case .file: "file"
         case .builtIn: "built-in"
         case .provider(.dynamicText): "provider-dynamic-text"
+        case .provider(.materialSource): "provider-material-source"
         case .provider(.graph): "provider-graph"
         case .provider(.mediaThumbnailCurrent): "provider-media-thumbnail"
         case .provider(.mediaThumbnailPrevious): "provider-media-thumbnail-previous"

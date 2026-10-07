@@ -20,7 +20,8 @@ struct SceneOffscreenTextureAllocationCandidate {
 
     var keyMatchesAllocation: Bool {
         switch (key, allocation) {
-        case let (.composition(width, height), .composition(texture, _)):
+        case let (.composition(width, height), .composition(texture, _)),
+             let (.sourceMaterial(_, width, height), .composition(texture, _)):
             texture.width == width && texture.height == height && texture.mipmapLevelCount == 1
         case let (.modelShadow(_, width, height), .composition(texture, _)):
             texture.width == width && texture.height == height

@@ -22,6 +22,7 @@
 | Batch2 已实施职责与仍待证输入 | [冻结执行记录](#batch2-frozen-records)；按职责查询有界输出、失败与未验profile |
 | 作者图层退出 | <a id="e-2026-10-07-authored-layer-retirement"></a>[删除与脚本退休](../history/authored-layer-retirement-2026-10-07.md) |
 | Puppet、颜色与复审 | <a id="e-2026-10-07-puppet-animation-control"></a>[动画层脚本控制](../history/puppet-animation-control-2026-10-07.md)、<a id="e-2026-10-07-puppet-animation-visibility"></a>[隐藏恢复与共享位置](../history/puppet-animation-visibility-2026-10-07.md)、<a id="e-2026-10-07-signal-color"></a>[颜色与数据边界](../history/signal-color-classification-2026-10-07.md)、 <a id="e-2026-10-07-puppet-bone-alpha"></a>[骨骼alpha](../history/puppet-bone-alpha-2026-10-07.md)、 <a id="e-2026-10-07-puppet-static-weight"></a>[权重/失败发布](../history/puppet-static-weight-2026-10-07.md)、 [身体网格](../history/puppet-unused-vertices-2026-10-07.md)、[提交复审](../history/committed-range-review-repairs-2026-10-07.md) |
+| 自定义源材质 | <a id="e-2026-10-08-source-material"></a>[静态源Program与组合证据](../history/source-material-entry-2026-10-08.md)：833 flow、mapped domain、后effect/HDR及健康基础图；其余候选按准入边界保留，不作全样本受益推断 |
 | Puppet 部件裁剪 | <a id="e-2026-10-08-puppet-clipping"></a>[裁剪与非回退证据](../history/puppet-clipping-2026-10-08.md)：受控0/105、opaque重叠、reader修正及跨样本App边界；独立慢启动失败保留，nested官方parity、source非一alpha与完整视觉仍未证 |
 
 <a id="batch2-frozen-records"></a>

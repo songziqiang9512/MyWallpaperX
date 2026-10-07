@@ -67,7 +67,7 @@ struct SceneDesktopWallpaperLaunchContext {
     }
 
     func makeResolvedMaterialRuntime() -> SceneResolvedMaterialRuntimeBridge {
-        preparedFirstSurfaceRuntime.take() ?? .init(
+        preparedFirstSurfaceRuntime.take() ?? ScenePreparedDeviceResources.makeMaterialRuntime(
             catalog: resolvedMaterialCatalog,
             capabilities: resolvedMaterialExecutionCapabilities,
             assets: materialAssetCatalog,
@@ -498,7 +498,8 @@ extension SceneDesktopWallpaperHost {
             userPropertyProducers: userPropertyProducers,
             propertyDefinitions: propertyBindingDefinitions,
             timelineDefinitions: timelineDefinitions,
-            provenSceneScriptValueTargets: provisionalSceneScriptValueTargets
+            provenSceneScriptValueTargets: provisionalSceneScriptValueTargets,
+            materialInstancesByLayerID: model.sceneDocument.materialInstancesByLayerID
         )
         logPrepareStage("prepare-catalog")
         try cancellation?.check()

@@ -131,7 +131,7 @@ nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
         return result.unit
     }
 
-    private static func referenceIndices(
+    static func referenceIndices(
         _ name: String,
         in unit: SceneAuthoredShaderSyntaxUnit
     ) -> [Int] {

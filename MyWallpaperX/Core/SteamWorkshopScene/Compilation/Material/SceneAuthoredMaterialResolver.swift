@@ -73,7 +73,6 @@ enum SceneAuthoredMaterialResolver {
         graph: Graph,
         descriptor: SceneRenderDescriptor
     ) -> SceneAuthoredMaterialResolution {
-        var issues: [String] = []
         guard node.kind == .material else {
             return .init(node: nil, issues: ["Node is not a material pass."])
         }
@@ -90,15 +89,38 @@ enum SceneAuthoredMaterialResolver {
         guard normalized(material.materialPath) == normalized(node.materialPath ?? "") else {
             return .init(node: nil, issues: ["Material path does not match the graph node."])
         }
-        guard let shaderPath = material.shaderPath, !shaderPath.isEmpty else {
-            return .init(node: nil, issues: ["Material shader path is missing."])
-        }
         guard let instance = instanceOverlay(
             for: node,
             graph: graph,
             descriptor: descriptor
         ) else {
             return .init(node: nil, issues: ["Effect instance pass does not match the graph ordinal."])
+        }
+        return resolve(
+            material: material,
+            nodeIndex: node.nodeIndex,
+            instance: instance,
+            bindings: node.bindings
+        )
+    }
+
+    /// A source pass has no authored effect or graph bindings. The caller
+    /// admits its model/material identity and rejects unsupported instances.
+    nonisolated static func resolveSourceMaterial(
+        material: SceneRenderDescriptor.MaterialPassDescriptor
+    ) -> SceneAuthoredMaterialResolution {
+        resolve(material: material, nodeIndex: 0, instance: .empty, bindings: [])
+    }
+
+    private nonisolated static func resolve(
+        material: SceneRenderDescriptor.MaterialPassDescriptor,
+        nodeIndex: Int,
+        instance: InstanceOverlay,
+        bindings: [Graph.Binding]
+    ) -> SceneAuthoredMaterialResolution {
+        var issues: [String] = []
+        guard let shaderPath = material.shaderPath, !shaderPath.isEmpty else {
+            return .init(node: nil, issues: ["Material shader path is missing."])
         }
 
         var slots = Array<SceneResolvedMaterialNode.TextureSlot?>(repeating: nil, count: 8)
@@ -116,14 +138,14 @@ enum SceneAuthoredMaterialResolver {
             issues: &issues
         )
         mergeUserTextures(instance.userTextureInputs, into: &slots, issues: &issues)
-        mergeBindings(node.bindings, into: &slots, issues: &issues)
+        mergeBindings(bindings, into: &slots, issues: &issues)
 
         var combos = material.combos
         instance.combos.forEach { combos[$0.key] = $0.value }
         var constants = material.constantShaderValues
         instance.constantShaderValues.forEach { constants[$0.key] = $0.value }
         let resolved = SceneResolvedMaterialNode(
-            nodeIndex: node.nodeIndex,
+            nodeIndex: nodeIndex,
             shaderPath: shaderPath,
             textureSlots: slots,
             combos: combos,

@@ -336,12 +336,15 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
                     name,
                     main: main,
                     fragment: fragment
-                  ),
-                  let _ = dataChannelWeightClosure(
+                  ) && dataChannelWeightClosure(
                     name,
                     statements: statements,
                     declaredTypes: declaredTypes,
                     shadowedCalls: Set(fragment.functions.map(\.name))
+                  ) != nil || coordinateDataClosure(
+                    name,
+                    statements: statements,
+                    fragment: fragment
                   ) else { continue }
             // Two independent channel-data samples of one slot would make the
             // proven purpose ambiguous; stay fail-closed.
@@ -350,6 +353,155 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
             facts.append(Fact(slot: declaration.sample.slot, role: .dataChannels))
         }
         return facts
+    }
+
+    /// A sampled channel value may drive coordinates and scalar mix weights,
+    /// including through vector locals. Keep the proof at root declarations:
+    /// mutation, control flow, unknown helpers and color/alpha escapes do not
+    /// borrow this data role. Every dependent local must reach a covered use.
+    private static func coordinateDataClosure(
+        _ root: String,
+        statements: [[Token]],
+        fragment: Unit
+    ) -> Bool {
+        var types = Dictionary(fragment.declarations.map {
+            ($0.name, $0.typeName)
+        }, uniquingKeysWith: { first, _ in first })
+        for tokens in statements where tokens.count >= 2 {
+            if vectorWidth(tokens[0].text) != nil,
+               tokens[1].kind == .identifier {
+                types[tokens[1].text] = tokens[0].text
+            }
+        }
+        let shadowed = Set(fragment.functions.map(\.name))
+        var dependent: Set<String> = [root]
+        var used: Set<String> = []
+        var coordinateUses = 0
+        var budget = 512
+
+        struct Flow {
+            var dependent = false
+            var references: Set<String> = []
+            var coordinates = 0
+            mutating func merge(_ other: Self) {
+                dependent = dependent || other.dependent
+                references.formUnion(other.references)
+                coordinates += other.coordinates
+            }
+        }
+
+        func scalar(_ tokens: [Token]) -> Bool {
+            var index = 0
+            while index < tokens.count {
+                let token = tokens[index]
+                if token.kind == .number || ["+", "-", "*", "/", "(", ")", ","].contains(token.text) {
+                    index += 1
+                } else if index + 2 < tokens.count, tokens[index + 1].text == ".",
+                          isComponentLetter(tokens[index + 2].text) {
+                    index += 3
+                } else if types[token.text] == "float" || types[token.text] == "int" {
+                    index += 1
+                } else if weightCallAllowlist.contains(token.text) || token.text == "frac" {
+                    index += 1
+                } else { return false }
+            }
+            return true
+        }
+
+        func expression(_ tokens: [Token], depth: Int = 0) -> Flow? {
+            guard !tokens.isEmpty, depth < 32, budget >= tokens.count else { return nil }
+            budget -= tokens.count
+            var flow = Flow()
+            var index = 0
+            while index < tokens.count {
+                let token = tokens[index]
+                if token.kind == .number || ["+", "-", "*", "/"].contains(token.text) {
+                    index += 1
+                    continue
+                }
+                if token.text == "(" {
+                    guard let close = matchingClose(index, tokens: tokens),
+                          let nested = expression(Array(tokens[(index + 1)..<close]), depth: depth + 1)
+                    else { return nil }
+                    flow.merge(nested)
+                    index = close + 1
+                    continue
+                }
+                guard token.kind == .identifier else { return nil }
+                if index + 1 < tokens.count, tokens[index + 1].text == "(" {
+                    guard !shadowed.contains(token.text),
+                          let close = matchingClose(index + 1, tokens: tokens),
+                          let ranges = SceneAuthoredShaderTokenScanner.argumentRanges(
+                            in: (index + 2)..<close, tokens: tokens
+                          ) else { return nil }
+                    let arguments = ranges.map { Array(tokens[$0]) }
+                    if ["texSample2D", "texture2D"].contains(token.text) {
+                        guard arguments.count == 2, arguments[0].count == 1,
+                              let sampler = arguments[0].first,
+                              fragment.declarations.contains(where: {
+                                $0.name == sampler.text && $0.typeName == "sampler2D"
+                              }),
+                              let coordinate = expression(arguments[1], depth: depth + 1)
+                        else { return nil }
+                        flow.references.formUnion(coordinate.references)
+                        flow.coordinates += coordinate.coordinates + (coordinate.dependent ? 1 : 0)
+                    } else if token.text == "mix" {
+                        guard arguments.count == 3,
+                              let first = expression(arguments[0], depth: depth + 1),
+                              let second = expression(arguments[1], depth: depth + 1),
+                              let weight = expression(arguments[2], depth: depth + 1),
+                              !first.dependent, !second.dependent,
+                              !weight.dependent || scalar(arguments[2]) else { return nil }
+                        flow.references.formUnion(first.references.union(second.references).union(weight.references))
+                        flow.coordinates += first.coordinates + second.coordinates + weight.coordinates
+                    } else {
+                        guard weightCallAllowlist.contains(token.text) || token.text == "frac"
+                            || ["float", "vec2", "vec3", "vec4", "float2", "float3", "float4"].contains(token.text)
+                        else { return nil }
+                        for argument in arguments {
+                            guard let nested = expression(argument, depth: depth + 1) else { return nil }
+                            flow.merge(nested)
+                        }
+                    }
+                    index = close + 1
+                    continue
+                }
+                guard let type = types[token.text] else { return nil }
+                if dependent.contains(token.text) {
+                    flow.dependent = true
+                    flow.references.insert(token.text)
+                }
+                if index + 2 < tokens.count, tokens[index + 1].text == "." {
+                    guard let width = vectorWidth(type),
+                          let projection = tokens[index + 2].text.first,
+                          let alphabet = "rgba".contains(projection) ? "rgba" : ("xyzw".contains(projection) ? "xyzw" : nil),
+                          !tokens[index + 2].text.isEmpty,
+                          tokens[index + 2].text.allSatisfy({ character in
+                            guard let position = alphabet.firstIndex(of: character) else { return false }
+                            return alphabet.distance(from: alphabet.startIndex, to: position) < width
+                          }) else { return nil }
+                    index += 3
+                } else { index += 1 }
+            }
+            return flow
+        }
+
+        for tokens in statements where !tokens.isEmpty {
+            guard tokens.contains(where: { dependent.contains($0.text) }) else { continue }
+            if tokens.count >= 4, tokens[1].text == root, tokens[2].text == "=" { continue }
+            if tokens.count >= 4, vectorWidth(tokens[0].text) != nil,
+               tokens[1].kind == .identifier, tokens[2].text == "=" {
+                guard let flow = expression(Array(tokens[3...])) else { return false }
+                used.formUnion(flow.references)
+                coordinateUses += flow.coordinates
+                if flow.dependent { dependent.insert(tokens[1].text) }
+            } else if tokens.count >= 3, tokens[0].text == "gl_FragColor", tokens[1].text == "=" {
+                guard let flow = expression(Array(tokens[2...])), !flow.dependent else { return false }
+                used.formUnion(flow.references)
+                coordinateUses += flow.coordinates
+            } else { return false }
+        }
+        return coordinateUses > 0 && dependent.isSubset(of: used)
     }
 
     private static func dataChannelDeclaration(

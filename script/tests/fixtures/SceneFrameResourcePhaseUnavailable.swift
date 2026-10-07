@@ -11,6 +11,15 @@ final class SceneResolvedMaterialFrameResourceBundle {
 // Leaf compositor/admission fixtures include only the handle prefix above.
 // The old one-phase coordinator fixture includes these trap-only signatures
 // because the production coordinator now accepts an optional resource bundle.
+// Source materials are also outside this coordinator-only fixture: the real
+// Runtime preparation job populates them after constructing the bridge. This
+// unconstructible leaf permits only the bridge's empty cold-start collection.
+extension SceneResolvedMaterialRuntimeBridge {
+    struct PreparedSourceMaterial {
+        private init() { fatalError("source preparation is outside this fixture") }
+    }
+}
+
 extension SceneResolvedMaterialFrameResourceBundle {
     struct UnavailableAdmission {
         private init() { fatalError("resource phase is outside this fixture") }

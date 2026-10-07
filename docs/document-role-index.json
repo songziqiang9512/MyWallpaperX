@@ -350,12 +350,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-07",
+      "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0198c52fb598394059ead3af92663cdecb388ae6096b7cf1c8f04678c7cb56cf",
+        "sourceSHA256": "b934df434b646a8b59193edadc2d5f5d9df07dd591af90de8878b8b0bc993e9f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对作者leaf退休、named provider局部失败与单槽需求memo的消费合同；不作全样本验收。",
+        "scope": "本批源材质入口的准备/帧绑定职责、域/UV与有界输出证据导航；不重验其他旧合同。",
         "limitations": "仅对应本批职责与冻结证据，不表示全样本兼容、官方parity或发布验收。"
       }
     },
@@ -498,9 +498,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8d75316aa6d7caea7f5c6515fe1e4d9dedc5554388a38757cbb6e9f1e62b590d",
+        "sourceSHA256": "07649b450340f751df19e9ee529a3cf47c34654baff9dc2babf34e6bcc7a2fd8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对现243声明/旧运行身份的导航与裁剪证据边界；本次仅文档及生成口径维护，无App或全样本运行验收。",
+        "scope": "本批源材质入口的准备/帧绑定职责、域/UV与有界输出证据导航；不重验其他旧合同。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -1631,6 +1631,18 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/capabilities/effect-execution-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/source-material-entry-2026-10-08.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/coverage-ledger.md",
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]

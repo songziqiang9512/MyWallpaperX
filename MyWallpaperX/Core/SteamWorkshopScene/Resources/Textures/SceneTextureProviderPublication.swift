@@ -217,7 +217,8 @@ nonisolated struct SceneLayerSourcePublication {
         switch publication.candidate.identity {
         case .file, .builtIn:
             return true
-        case let .provider(.dynamicText(candidateLayerID)),
+        case let .provider(.materialSource(candidateLayerID, _, _)),
+             let .provider(.dynamicText(candidateLayerID)),
              let .provider(.video(candidateLayerID, _)):
             return candidateLayerID == layerID
         case .provider:
@@ -779,6 +780,31 @@ nonisolated struct SceneFrameTextureRegistrySnapshot {
     func resource(for identity: SceneFrameTextureIdentity) -> SceneFrameTextureResource? {
         guard case let .ready(resource) = entries[identity] else { return nil }
         return resource
+    }
+
+    /// Publishes complete source atoms for this frame before graph inputs freeze.
+    func overlayingLayerSources(_ sources: [Int: SceneLayerSourcePublication]) -> Self? {
+        guard sources.allSatisfy({ layerID, source in
+            source.isComplete(layerID: layerID, matching: source.texture)
+                && source.publication.contentGeneration == frameEpoch
+                && {
+                    if case let .provider(.materialSource(id, epoch, _)) = source.publication.candidate.identity {
+                        return id == layerID && epoch == frameEpoch
+                    }
+                    return false
+                }()
+        }) else { return nil }
+        var overlaid = entries
+        var digest = selectionDigest
+        for (layerID, source) in sources {
+            let identity = SceneFrameTextureIdentity.layerSource(layerID)
+            let atom = SceneFrameTextureLookupStatus.ready(.init(
+                publication: source.publication, resourceGeneration: frameEpoch))
+            digest = digest.replacing(identity, previous: overlaid[identity], with: atom)
+            overlaid[identity] = atom
+        }
+        return .init(frameEpoch: frameEpoch, frameIndex: frameIndex,
+            entries: overlaid, selectionDigest: digest)
     }
 
     /// Returns a value-only graph overlay. Every replacement is validated

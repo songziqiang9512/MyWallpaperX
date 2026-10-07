@@ -401,6 +401,12 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertTrue(self.result["unrelatedReleaseRevalidatesWholeBatch"])
         self.assertTrue(self.result["resetInvalidatesWholePreparedBatch"])
 
+    def test_source_material_storage_is_isolated_and_submission_owned(self) -> None:
+        for name in ("sourceMaterialLayerAndSubmissionIsolation", "sourceMaterialPinsSurviveReset",
+                     "sourceMaterialCancellationReleases", "sourceMaterialBudgetFailureKeepsPinnedSource",
+                     "sourceMaterialCannotEvictTerminalCapacity"):
+            self.assertTrue(self.result[name], name)
+
     def test_residency_counters_fail_closed_instead_of_wrapping(self) -> None:
         source = (
             REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache.swift"

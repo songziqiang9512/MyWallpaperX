@@ -15,7 +15,8 @@ enum SceneBaseImageTextureCandidateResolver {
               candidate.sampling.isResolvedForMaterialProgram,
               !candidate.sampling.usesClampBorderFallback,
               (candidate.pixelFormat == .rgba8Unorm
-                || candidate.pixelFormat == .bgra8Unorm),
+                || candidate.pixelFormat == .bgra8Unorm
+                || candidate.pixelFormat == .rgba16Float),
               candidate.texture.textureType == .type2D,
               candidate.texture.sampleCount == 1,
               candidate.texture.mipmapLevelCount > 0,

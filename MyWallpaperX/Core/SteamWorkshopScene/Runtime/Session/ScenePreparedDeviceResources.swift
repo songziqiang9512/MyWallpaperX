@@ -474,6 +474,100 @@ struct ScenePreparedDeviceResources {
     var device: MTLDevice { pipelineRepository.device }
 }
 
+extension ScenePreparedDeviceResources {
+    /// Both the first-surface worker and later surfaces use this launch-only
+    /// preparation boundary. Rendering receives typed frame binding only.
+    static func makeMaterialRuntime(
+        catalog: SceneResolvedMaterialRuntimeCatalog,
+        capabilities: SceneResolvedMaterialExecutionCapabilityCatalog,
+        assets: SceneMaterialAssetTextureCatalog,
+        device: MTLDevice,
+        visibleExecutionRootLayerIDs: Set<Int> = [],
+        capturesExecutionObservations: Bool
+    ) -> SceneResolvedMaterialRuntimeBridge {
+        let runtime = SceneResolvedMaterialRuntimeBridge(catalog: catalog,
+            capabilities: capabilities, assets: assets, device: device,
+            visibleExecutionRootLayerIDs: visibleExecutionRootLayerIDs,
+            capturesExecutionObservations: capturesExecutionObservations)
+        runtime.sourceMaterials = prepareSourceMaterialPrograms(catalog: catalog,
+            assets: assets, device: device,
+            encoder: runtime.submissions.executor?.materialEncoder,
+            logSink: runtime.submissions.logSink)
+        return runtime
+    }
+
+    private static func prepareSourceMaterialPrograms(
+        catalog: SceneResolvedMaterialRuntimeCatalog,
+        assets: SceneMaterialAssetTextureCatalog,
+        device: MTLDevice,
+        encoder: SceneResolvedMaterialPassEncoder?,
+        logSink: SceneResolvedMaterialRuntimeBridge.LogSink
+    ) -> [Int: SceneResolvedMaterialRuntimeBridge.PreparedSourceMaterial] {
+        guard let encoder else { return [:] }
+        let format = catalog.sourceMaterialTargetFormat.metalPixelFormat
+        var prepared: [Int: SceneResolvedMaterialRuntimeBridge.PreparedSourceMaterial] = [:]
+        for (layerID, entry) in catalog.sourceMaterialEntries.sorted(by: { $0.key < $1.key }) {
+            func reject(_ reason: String) {
+                logSink("source material unavailable: owner=\(entry.key.reportToken) reason=\(reason)")
+            }
+            guard case let .template(template) = entry.entry else {
+                if case let .failure(failure) = entry.entry { reject(String(describing: failure)) }
+                continue
+            }
+            guard case let .success(variants) = SceneResolvedMaterialVariantCache.launchValidated(
+                template: template, maximumVariantCount: 32, assetFormatFacts: assets.launchFormatFacts
+            ) else { reject("variant-schema"); continue }
+            switch variants.precompileLaunchEnvelope(
+                implicitFramebufferIdentity: nil,
+                outputIsRGBA8Unorm: format != .rgba16Float,
+                assetStates: assets.launchStates
+            ) {
+            case let .failure(failure): reject(String(describing: failure)); continue
+            case .success: break
+            }
+            let envelope = variants.launchEnvelopeCapabilitySnapshot()
+            guard envelope.allEntriesReady, !envelope.variants.isEmpty else {
+                reject("variant-envelope-incomplete"); continue
+            }
+            // Source geometry inherits the selected slot-zero asset domain,
+            // not the separately cropped ordinary-image upload. All admitted
+            // variants must agree on that static source representation.
+            guard let reference = template.textureSlots.first??.candidates.last?.reference,
+                  case let .asset(path) = reference else {
+                reject("source-domain-unavailable"); continue
+            }
+            let purposes = envelope.variants.compactMap {
+                $0.activeSamplers[0]?.purpose(for: reference)
+            }
+            guard purposes.count == envelope.variants.count,
+                  Set(purposes).count == 1, let purpose = purposes.first else {
+                reject("source-domain-variant-dependent"); continue
+            }
+            let sourceIdentity = SceneAssetTextureIdentity(path: path, purpose: purpose)
+            let plans = envelope.variants.compactMap { variant in
+                SceneResolvedMaterialPassEncoder.WarmupPlan(
+                    identity: entry.key.reportToken, preparedKey: variant.preparedShader.cacheKey,
+                    frontend: variant.frontendProgram, renderState: template.renderState,
+                    frontendSchemaVersion: variant.preparedShader.vertex.frontendSchemaVersion,
+                    pixelFormat: format, writeMask: .all, device: device)
+            }
+            guard plans.count == envelope.variants.count else {
+                reject("pipeline-plan-incomplete"); continue
+            }
+            let report = encoder.warmup(plans)
+            guard report.failedKeyCount == 0, report.readyKeyCount > 0 else {
+                reject("pipeline-warmup"); continue
+            }
+            prepared[layerID] = .init(template: template, bindFrame: { input in
+                SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: variants)
+            }, pixelFormat: format, sourceIdentity: sourceIdentity)
+            logSink("source material prepared: owner=\(entry.key.reportToken) variants=\(envelope.variants.count)")
+        }
+        return prepared
+    }
+
+}
+
 /// One bounded launch worker overlaps pipeline and initially visible resource
 /// preparation with CPU Program/VM compilation. The result is joined before
 /// publication; its base-image owner may then service bounded, generation-safe
@@ -677,7 +771,7 @@ final class ScenePreparedFirstSurfaceRuntimeTask {
         Self.queue.async { [self] in
             let prepared = Result {
                 try checkCancellation()
-                let runtime = SceneResolvedMaterialRuntimeBridge(
+                let runtime = ScenePreparedDeviceResources.makeMaterialRuntime(
                     catalog: catalog,
                     capabilities: capabilities,
                     assets: assets,

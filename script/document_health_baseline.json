@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 558,
-      "bytes": 93980
+      "lines": 571,
+      "bytes": 97591
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -73,8 +73,8 @@
       "bytes": 20680
     },
     "docs/scene/capabilities/coverage-ledger.md": {
-      "lines": 369,
-      "bytes": 169004
+      "lines": 370,
+      "bytes": 169575
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -93,8 +93,8 @@
       "bytes": 334149
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 78,
-      "bytes": 10753
+      "lines": 79,
+      "bytes": 11028
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 156,
-      "bytes": 34209
+      "bytes": 34407
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1032,75 +1032,39 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "f047a6d35407552c6451f40229fe2b458d2420b12977ed1f91c7911b1082d7a1",
-      "after": "b63c547f1e78653bd39e44c05140a279bab4452fdfef455231f4658da603e0f2",
-      "owner": "scene-puppet-clipping",
-      "reason": "以实际MDLV0023/GPU/固定帧证据替换L0，新增第3.4节为能力状态入口；详细规则仅链接裁剪合同。",
-      "decision": "docs/scene/capabilities/puppet-clipping-design.md#验证与维护"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/puppet-clipping-design.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "c08edfb3b207de57009cbfb4a64463b1465ce6968aaa2b40479e86b89f7a9d63",
-      "owner": "scene-puppet-clipping",
-      "reason": "新增有界裁剪职责合同，明确空part保ordinal、精确空后缀及准备期source去重/排self/empty，未证语义保持关闭。",
-      "decision": "docs/scene/capabilities/puppet-clipping-design.md#验证与维护"
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "ee385693d7b8a4267d45ba8de316f270ce42f28f77ef4d2daceedd2f9b7e5fe6",
+      "after": "68845ccb8d7928d63eccb086152e35fdd4b204d43fa75117cd4680c194567f9f",
+      "owner": "scene-material",
+      "reason": "补齐共享源材质的有界架构合同、真实输出证据和尚未准入的公共缺口；只扩对应权威摘要，不重复全过程。",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "585fc6bec68d600a07741d7f091569deee8d63d5665a72fbc65b5b05851e9384",
-      "after": "033f1d6deb2dfafa15a6056101b2ad88e5f3f614cba838a08ac9ba59bb7f5206",
-      "owner": "scene-compatibility",
-      "reason": "用户要求243全样本统计与公共缺口对账；复用生成台账，显式区分旧运行/人工裁决，保留已闭证据并压缩开放队列。扩展仅绑定当前生成成员及导航/优先序，不代表新运行验收。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "before": "033f1d6deb2dfafa15a6056101b2ad88e5f3f614cba838a08ac9ba59bb7f5206",
+      "after": "79f7471cba71a32a7c4efd2d73d5a720a890f533b9cea0a295469ed7cd5a8c05",
+      "owner": "scene-material",
+      "reason": "补齐共享源材质的有界架构合同、真实输出证据和尚未准入的公共缺口；只扩对应权威摘要，不重复全过程。",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "45793a57bca72856a600c931909c1d12264da39f4920873fe817902332842c80",
-      "after": "2609403dac169928fe844f52398753cf1ba4778c78a489c8e232ddee8f8bdd12",
-      "owner": "scene-compatibility",
-      "reason": "用户要求243全样本统计与公共缺口对账；复用生成台账，显式区分旧运行/人工裁决，保留已闭证据并压缩开放队列。扩展仅绑定当前生成成员及导航/优先序，不代表新运行验收。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
-      "before": "f70a7f562199939f8f54a2e5c2a867bed7933b3729de39627c04ac1866037419",
-      "after": "8d206b405b5a60549218046c071742614b16dc664278b04aace1570098d75929",
-      "owner": "scene-compatibility",
-      "reason": "用户要求243全样本统计与公共缺口对账；复用生成台账，显式区分旧运行/人工裁决，保留已闭证据并压缩开放队列。扩展仅绑定当前生成成员及导航/优先序，不代表新运行验收。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "ebc9c8263c1d548734ebc1bf0439f492b8baaa45b1314632c74e2b22622b3c68",
-      "after": "bc7743a8000737cd98a9dee118aa90cc5ded59eea629bfcfdf5319f6ffa8fb54",
-      "owner": "scene-compatibility",
-      "reason": "用户要求243全样本统计与公共缺口对账；复用生成台账，显式区分旧运行/人工裁决，保留已闭证据并压缩开放队列。扩展仅绑定当前生成成员及导航/优先序，不代表新运行验收。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "24fcb64c6637c341bcc8453d161a7f6393b3bea1d1ef815227ef7f331a08d823",
-      "after": "c4cc6bee67832a7a8b57422de2aa64d1f2f9d977046c0b0eb8b1af527f2ec6cc",
-      "owner": "scene-compatibility",
-      "reason": "用户要求243全样本统计与公共缺口对账；复用生成台账，显式区分旧运行/人工裁决，保留已闭证据并压缩开放队列。扩展仅绑定当前生成成员及导航/优先序，不代表新运行验收。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "before": "2609403dac169928fe844f52398753cf1ba4778c78a489c8e232ddee8f8bdd12",
+      "after": "25b1631681c76301b8f69c0956f0f0952cb3639dace0abfa8571c905c67a90c9",
+      "owner": "scene-material",
+      "reason": "补齐共享源材质的有界架构合同、真实输出证据和尚未准入的公共缺口；只扩对应权威摘要，不重复全过程。",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "8fe4445b1e40ea8288efb795b735ab545e9e6c2eb0f8290eb061de96d04427f4",
-      "after": "118da0415615a8cc755d6c308ece1ca0cf5f14ada5b6a25dbd0477bc49066c88",
-      "owner": "scene-compatibility",
-      "reason": "用户要求243全样本统计与公共缺口对账；复用生成台账，显式区分旧运行/人工裁决，保留已闭证据并压缩开放队列。扩展仅绑定当前生成成员及导航/优先序，不代表新运行验收。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "before": "118da0415615a8cc755d6c308ece1ca0cf5f14ada5b6a25dbd0477bc49066c88",
+      "after": "7cf1f14ca6d62c3e6957f0a1c57b57d09739018485df17cb7cc4f44b22eb41c9",
+      "owner": "scene-material",
+      "reason": "补齐共享源材质的有界架构合同、真实输出证据和尚未准入的公共缺口；只扩对应权威摘要，不重复全过程。",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
     }
   ]
 }

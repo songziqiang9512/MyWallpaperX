@@ -22,10 +22,23 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         do {
             let context = try graphContext(material, graph: graph)
             try validateShader(material.shaderPath, contract: shaderContract)
-            let textures = try textureSlots(material.textureSlots, context: context)
+            let textures = try textureSlots(
+                material.textureSlots,
+                layerID: context.node.effect.layerID,
+                context: context
+            )
             let uniforms = try uniformDeclarations(
                 material,
-                node: context.node,
+                target: { name in
+                    context.node.instancePassIndex.map {
+                        .effectConstant(
+                            layerID: context.node.effect.layerID,
+                            effectIndex: context.node.effect.effectIndex,
+                            passIndex: $0,
+                            name: name
+                        )
+                    }
+                },
                 provenSceneScriptValueTargets: provenSceneScriptValueTargets
             )
             guard let state = SceneMaterialRenderState.compile(
@@ -35,41 +48,118 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                 cullMode: material.renderState.cullMode,
                 alphaWriting: material.renderState.alphaWriting
             ) else { throw Failure(phase: .state, code: .renderStateInvalid) }
-            let combos = material.combos.sorted { $0.key < $1.key }.map {
-                Template.Combo(name: $0.key, value: $0.value)
-            }
-            guard let role = graphRole(context),
-                  let template = Template.validated(
-                    textureSlots: textures.slots,
-                    combos: combos,
-                    inheritedInactiveCombos: inheritedInactiveCombos,
-                    uniformDeclarations: uniforms.values,
-                    renderState: state,
-                    graphRole: role,
-                    previousBlurredCompositeGenericOwnerEligible:
-                        previousBlurredCompositeGenericOwnerEligible,
-                    effectContext: .init(
-                        key: context.effect.key,
-                        input: context.effect.input
-                    ),
-                    compatibilityTarget: compatibilityTarget,
-                    shaderContract: shaderContract,
-                    diagnosticProvenance: .init(
-                        nodeIndex: material.nodeIndex,
-                        authoredShaderPath: material.shaderPath,
-                        contractIdentity: shaderContract.identity,
-                        contractCanonicalSHA256: shaderContract.canonicalSHA256,
-                        textureSources: textures.diagnostics,
-                        uniformSources: uniforms.diagnostics
-                    )
-                  ) else {
+            guard let role = graphRole(context) else {
                 throw Failure(phase: .invariant, code: .identityInvariant)
             }
-            return .success(template)
+            return .success(try makeTemplate(
+                material: material,
+                shaderContract: shaderContract,
+                textures: textures,
+                uniforms: uniforms,
+                renderState: state,
+                graphRole: role,
+                effectContext: .init(key: context.effect.key, input: context.effect.input),
+                inheritedInactiveCombos: inheritedInactiveCombos,
+                previousBlurredCompositeGenericOwnerEligible:
+                    previousBlurredCompositeGenericOwnerEligible,
+                compatibilityTarget: compatibilityTarget
+            ))
         } catch {
             return .failure(error as? Failure
                 ?? Failure(phase: .invariant, code: .identityInvariant))
         }
+    }
+
+    /// Evaluates one real model material into the layer's raw source. Render
+    /// state is lowered by the source admission owner; it is not an authored
+    /// default and does not decide the layer's final composition blend.
+    static func compileSourceMaterial(
+        material: SceneResolvedMaterialNode,
+        layerID: Int,
+        materialPath: String,
+        passIndex: Int,
+        shaderContract: SceneShaderContract,
+        renderState: SceneMaterialRenderState,
+        inheritedInactiveCombos: Set<String> = [],
+        provenSceneScriptValueTargets: Set<SceneDynamicTarget> = [],
+        compatibilityTarget: SceneShaderCompatibilityTarget = .windowsDX11ShaderModel4
+    ) -> Result<Template, Failure> {
+        do {
+            guard passIndex >= 0, let path = SceneVFSAssetPath(materialPath) else {
+                throw Failure(phase: .invariant, code: .identityInvariant)
+            }
+            try validateShader(material.shaderPath, contract: shaderContract)
+            let textures = try textureSlots(material.textureSlots, layerID: layerID)
+            let uniforms = try uniformDeclarations(
+                material,
+                target: {
+                    .materialConstant(
+                        layerID: layerID, passIndex: passIndex,
+                        name: $0, materialPath: path.value
+                    )
+                },
+                provenSceneScriptValueTargets: provenSceneScriptValueTargets
+            )
+            return .success(try makeTemplate(
+                material: material,
+                shaderContract: shaderContract,
+                textures: textures,
+                uniforms: uniforms,
+                renderState: renderState,
+                graphRole: .init(
+                    effectInput: .layerSource, effectOutput: .layerSource,
+                    nodeTarget: .layerSource, bindings: []
+                ),
+                effectContext: nil,
+                inheritedInactiveCombos: inheritedInactiveCombos,
+                previousBlurredCompositeGenericOwnerEligible: false,
+                compatibilityTarget: compatibilityTarget
+            ))
+        } catch {
+            return .failure(error as? Failure
+                ?? Failure(phase: .invariant, code: .identityInvariant))
+        }
+    }
+
+    private static func makeTemplate(
+        material: SceneResolvedMaterialNode,
+        shaderContract: SceneShaderContract,
+        textures: TextureProjection,
+        uniforms: UniformProjection,
+        renderState: SceneMaterialRenderState,
+        graphRole: Template.GraphRole,
+        effectContext: Template.EffectContext?,
+        inheritedInactiveCombos: Set<String>,
+        previousBlurredCompositeGenericOwnerEligible: Bool,
+        compatibilityTarget: SceneShaderCompatibilityTarget
+    ) throws -> Template {
+        let combos = material.combos.sorted { $0.key < $1.key }.map {
+            Template.Combo(name: $0.key, value: $0.value)
+        }
+        guard let template = Template.validated(
+            textureSlots: textures.slots,
+            combos: combos,
+            inheritedInactiveCombos: inheritedInactiveCombos,
+            uniformDeclarations: uniforms.values,
+            renderState: renderState,
+            graphRole: graphRole,
+            previousBlurredCompositeGenericOwnerEligible:
+                previousBlurredCompositeGenericOwnerEligible,
+            effectContext: effectContext,
+            compatibilityTarget: compatibilityTarget,
+            shaderContract: shaderContract,
+            diagnosticProvenance: .init(
+                nodeIndex: material.nodeIndex,
+                authoredShaderPath: material.shaderPath,
+                contractIdentity: shaderContract.identity,
+                contractCanonicalSHA256: shaderContract.canonicalSHA256,
+                textureSources: textures.diagnostics,
+                uniformSources: uniforms.diagnostics
+            )
+        ) else {
+            throw Failure(phase: .invariant, code: .identityInvariant)
+        }
+        return template
     }
 
     private static func graphContext(_ material: SceneResolvedMaterialNode, graph: Graph) throws -> GraphContext {
@@ -144,7 +234,8 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         diagnostics: [Template.DiagnosticProvenance.TextureSource]
     )
     private static func textureSlots(
-        _ authored: [SceneResolvedMaterialNode.TextureSlot?], context: GraphContext
+        _ authored: [SceneResolvedMaterialNode.TextureSlot?], layerID: Int,
+        context: GraphContext? = nil
     ) throws -> TextureProjection {
         guard authored.count == 8
         else { throw Failure(phase: .texture, code: .textureSlotsInvalid) }
@@ -164,7 +255,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                     authoredValue = "graph:\(value.kind.rawValue):\(value.layerID):\(value.name ?? "")"
                 }
                 let reference = try textureReference(
-                    candidate, slot: index, context: context
+                    candidate, slot: index, layerID: layerID, context: context
                 )
                 diagnostics.append(.init(
                     slot: index,
@@ -183,7 +274,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
 
     private static func textureReference(
         _ candidate: SceneResolvedMaterialNode.TextureCandidate, slot: Int,
-        context: GraphContext
+        layerID: Int, context: GraphContext?
     ) throws -> Template.TextureReference {
         switch candidate.source {
         case let .asset(value):
@@ -193,7 +284,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
             switch SceneRenderTargetVocabulary.dispatch(authoredName: value) {
             case .typedFrameInput:
                 return .provider(.sceneBackground(
-                    consumerLayerID: context.node.effect.layerID
+                    consumerLayerID: layerID
                 ))
             case .sceneEnvironment:
                 return .provider(.sceneEnvironment)
@@ -218,7 +309,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
             case .unknown: throw textureFailure(.userTextureUnknown, slot, candidate.provenance)
             }
         case let .graph(identity):
-            guard context.textureUniverse.contains(identity),
+            guard let context, context.textureUniverse.contains(identity),
                   context.node.bindings.contains(where: {
                       $0.slot == slot && $0.texture == identity
                   }) else {
@@ -233,7 +324,8 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         diagnostics: [Template.DiagnosticProvenance.UniformSource]
     )
     private static func uniformDeclarations(
-        _ material: SceneResolvedMaterialNode, node: Graph.Node,
+        _ material: SceneResolvedMaterialNode,
+        target targetForName: (String) -> SceneDynamicTarget?,
         provenSceneScriptValueTargets: Set<SceneDynamicTarget>
     ) throws -> UniformProjection {
         let names = Set(material.constants.keys).union(material.userShaderValues.keys).sorted()
@@ -258,14 +350,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                     )
                 }
             }
-            let target = node.instancePassIndex.map {
-                SceneDynamicTarget.effectConstant(
-                    layerID: node.effect.layerID,
-                    effectIndex: node.effect.effectIndex,
-                    passIndex: $0,
-                    name: name
-                )
-            }
+            let target = targetForName(name)
             guard let dynamic = SceneResolvedMaterialScriptBindingClassifier.binding(
                 authored: authored,
                 userValue: material.userShaderValues[name],

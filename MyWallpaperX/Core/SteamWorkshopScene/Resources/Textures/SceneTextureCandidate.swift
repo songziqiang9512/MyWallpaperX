@@ -86,6 +86,7 @@ nonisolated struct SceneCompletedColorSourceIdentity: Hashable, Sendable {
 
 nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
     case dynamicText(layerID: Int)
+    case materialSource(layerID: Int, frameEpoch: UInt64, allocationGeneration: UInt64)
     case graph(allocationGeneration: UInt64, physicalToken: String)
     case mediaThumbnailCurrent
     case mediaThumbnailPrevious
@@ -101,6 +102,8 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
 
     var reportToken: String {
         switch self {
+        case let .materialSource(layerID, frameEpoch, generation):
+            return "material-source:\(layerID):frame:\(frameEpoch):allocation:\(generation)"
         case let .dynamicText(layerID):
             return "dynamic-text:\(layerID)"
         case let .graph(allocationGeneration, physicalToken):

@@ -38,6 +38,7 @@ extension SceneMetalRenderer {
         reflectionFrame: inout ReflectionFrame?,
         compositionGroupRuntime: inout SceneCompositionGroupFrameRuntime?
     ) -> FrameOutcome? {
+        var imageTextures = imageTextures
         performanceTelemetry?.beginStage("source-update")
         let hubSourceUpdateStart = ProcessInfo.processInfo.systemUptime
         encodeSourceUpdates?(commandBuffer, sourceUpdateTransaction)
@@ -129,7 +130,7 @@ extension SceneMetalRenderer {
         performanceTelemetry?.endStage("frame-admission")
         hubStage(.frameAdmissionMicros, hubFrameAdmissionStart)
         let resolvedMaterialFrameTargetPlans: [Int: SceneResolvedMaterialFrameTargetPlan]
-        let preparationRequests: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest]
+        var preparationRequests: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest]
         let resourceBundle: SceneResolvedMaterialFrameResourceBundle?
         switch resolvedMaterialFrameAdmission {
         case let .ready(plans, requests, bundle):
@@ -245,6 +246,48 @@ extension SceneMetalRenderer {
             }
         }
         performanceTelemetry?.beginStage("frame-admission")
+        // Source evaluation is optional until its complete atom is ready.
+        // Protect graph/display/named-capture capacity first, then replace only
+        // the same unlit source used to prepare the already-reserved requests.
+        if let runtime = imageCompositor.resolvedMaterialRuntime, !runtime.sourceMaterials.isEmpty,
+           prepareTerminalCapacity(sceneColor: sceneColor, target: drawable.texture,
+                dynamicValues: frameContext.dynamicValues),
+           prepareFramebufferSnapshotCapacity(orderedLayers: orderedLayers,
+                visible: frameVisibleLayerIDs, framePlans: resolvedMaterialFrameTargetPlans,
+                imageTextures: imageTextures, frameContext: frameContext,
+                batches: particleBatchesByID, particlePipeline: particlePipeline,
+                mainPass: mainPass, groups: compositionGroupRuntime,
+                utilityExecution: frameProjection.utilityExecution) {
+            let activeConsumers = Set(resolvedMaterialFrameTargetPlans.keys)
+            let demanded = orderedLayers.filter { layer in
+                guard runtime.sourceMaterials[layer.id] != nil else { return false }
+                return frameVisibleLayerIDs.contains(layer.id)
+                    || dependencyRuntime.providerBindingsByLayerID[layer.id]?.contains {
+                        activeConsumers.contains($0.consumerLayerID)
+                    } == true
+                    || dependencyRuntime.staticModelConsumerLayerIDsByProviderLayerID[layer.id]
+                        .map { !$0.isDisjoint(with: activeStaticModelNamedAlbedoLayerIDs) } == true
+            }.map(\.id)
+            let terminalPins: [SceneOffscreenTexturePool.PinnedTexture]?
+            if !demanded.isEmpty, sceneColor == nil, displayMappingPostProcess != nil {
+                // Reserve the existing neutral composition slot, not the
+                // coordinator's one-shot display-export token. Terminal encode
+                // later claims the same pending-buffer allocation.
+                terminalPins = offscreenTexturePool?.reserveCompositionTargets(
+                    dimensions: [(drawable.texture.width, drawable.texture.height)],
+                    commandBuffer: commandBuffer)
+            } else { terminalPins = [] }
+            if let terminalPins {
+                terminalPins.forEach { mainPass.retainCompositionPin($0.pin) }
+                let originalSources = imageTextures
+                imageTextures = runtime.prepareSourceMaterials(imageTextures: imageTextures,
+                    layerIDs: demanded, registry: textureRegistry, pool: offscreenTexturePool,
+                    mainPass: mainPass, commandBuffer: commandBuffer)
+                preparationRequests = preparationRequests.map { request in
+                    request.replacingSource(original: originalSources, prepared: imageTextures)
+                }
+            }
+        }
         let hubFrameFinalizationStart = ProcessInfo.processInfo.systemUptime
         let finalized = finalizeResolvedMaterialFrameTargets(preparationRequests,
             resourceBundle: resourceBundle, pool: offscreenTexturePool,

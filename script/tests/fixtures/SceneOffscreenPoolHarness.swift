@@ -903,6 +903,7 @@ enum Harness {
             defaultBudgetPool: budget.defaultBudgetPool,
             explicit128Pool: budget.explicit128Pool))
         append(sharedFramebufferChecks(device))
+        append(sourceMaterialResidencyChecks(device))
         append(singleChannelChecks(device))
         let chain = directChainChecks(device)
         append(chain.checks)
