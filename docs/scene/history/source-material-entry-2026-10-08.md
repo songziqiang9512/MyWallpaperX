@@ -142,3 +142,12 @@ Resolver/TemplateCompiler共用槽覆盖、uniform投影和ShaderSchema；source
 本片完成两个已证颜色显隐错配输入的准备→热切→实际画面链。Debug PCM为测试音源，不代表真实媒体平台、整样本视觉或全243兼容验收。下一片继续定位366剩余lookup/纹理动画脚本入口，并按全样本同类声明归并；源材质多source/named组合、HDR余项及其他特效缺口继续按共享职责排队。
 
 6模块89项CPU/QuickJS方法的最近结果通过，覆盖启动Bool保留、实际compiler→live合法颜色链、无真实消费者仍拒绝、错误输入/不可用sibling/批量事务保旧，以及原Bool VM与snapshot回归；阶段日志保留fixture编译与no-op revision期待修正，不伪报首轮全绿。产品独立审查未见阻断，最终收据绑定代码、App、像素和原包未关闭问题。停止使用的输入副本和重复PNG清理，保留六张原生必要捕获及官方小型黑盒证据、日志/生成脚本/身份收据；`artifact-retention.json`记录去留。构建只沿用现有唯一缓存，不动其他任务产物。
+
+
+## 后继归因：原包遗留断引用
+
+在`d8d642d2`继续追踪上述366三处异常，未找到隐藏层lookup或资源准备缺陷。原包29层中`playerprogexception`唯一对应399；`playerbackgroundprogbarexception`与`playeroutlineanim`无声明；374的parent279没有parent。全包36份inline script没有生成这两个缺失名字：唯一材料脚本只产生HSV颜色，动态创建为bar及带null守卫的clone声明，后者引用的bar也缺失而提前返回。现C name lookup不按visible/provider过滤，descriptor与VM保留全部作者层。[公开getParent合同](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ILayer.html#getparent-ilayer)规定根层返回undefined，与374的祖父访问异常吻合。
+
+证据`/private/tmp/mwx-scene-layer-lookup-20261008`：`reference-analysis.json`与`layer-metadata.json`保存作者输入；`prepare_probe.py`仅在隔离包386.origin.init首部插入自有诊断throw，117条目只有scene变化，还原该script后scene与原件相等。沿上一批最终App运行，`probe-receipt.json`记录实际lookup：progressName=playerprogexception、progressScale=0、backgroundMissing=true、outlineMissing=true、grandparentMissing=true；原生记录与独立只读包/脚本审查一致。这里不把diagnostic benchmark PASS当作无异常或官方视觉验收。
+
+因此三条从疑似引擎lookup缺口改为作者断引用，保留局部脚本失败，不补假图层、不吞异常、不改真实媒体。完整媒体面板与官方画面仍未据此关闭；后续回到全样本公共纹理/合成首断点。运行停止后清理诊断输入、副本运行目录与无验收价值截图，保留原始日志、输入生成及SHA收据；产品代码无改动。

@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 159,
-      "bytes": 37051
+      "bytes": 37298
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1060,10 +1060,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e14d0b846ee167613d371b0ccd912e8c73143e24affc69bb96df19ecd59526d9",
-      "after": "e0211b27d3246229d42cd8ccebd5a60fbffe11ab5e794a871e9f40618e426c09",
-      "owner": "scene-properties",
-      "reason": "Record bounded color visibility mismatch behavior, actual two-sample hot updates, and separate remaining failures.",
+      "before": "e0211b27d3246229d42cd8ccebd5a60fbffe11ab5e794a871e9f40618e426c09",
+      "after": "eec1d861359a1564c95bf0142e4396c5b63b4c9de6b8c0cae9a06944f33322ea",
+      "owner": "scene-script",
+      "reason": "Classify three reproduced author reference failures without inventing runtime layers.",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     }
   ]

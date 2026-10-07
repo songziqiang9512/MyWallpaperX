@@ -121,7 +121,7 @@
 | `SceneScriptVM / scene-script-bad-return`：3122339805, 3470948192 | 核text content当前值类型/producer与实际文字输出；此前其他target的维度修复不替代本项复验。 |
 | `SceneScriptVM / scene-script-exception-range-error`：3789316755 | 378动态层容量与局部非有限赋值已修；保留频谱外观复验，不重造容量owner。 |
 | `SceneScriptVM / scene-script-exception-reference-error`：3779026256 | 实际复验visibility脚本/module输入并核最早缺失API或值，禁止自动吞异常。 |
-| `SceneScriptVM / scene-script-exception-type-error`：3078285611, 3448845950, 3470948192, 3601964477, 3610154602, 3612199597, 3612795410, 3665307769, 3747492842, 3788066613 | 3078285611当前layer60/effect6、22、24的speed脚本报`TypeError: toPrimitive`；3665307769最新复验仍见374.visibility与386.origin的scale undefined/null及386.alpha的getTextureAnimation null；3610154602于本次Alpha最终链路复验仍见layer435 `getTextureAnimation`接收null，保留为独立脚本缺口（不是Alpha未接通）；按effectConstant/text/layer等target及准确异常定位host API/返回类型；复用同一VM owner，不按统一TypeError泛化修法。 |
+| `SceneScriptVM / scene-script-exception-type-error`：3078285611, 3448845950, 3470948192, 3601964477, 3610154602, 3612199597, 3612795410, 3665307769, 3747492842, 3788066613 | 3078285611当前layer60/effect6、22、24的speed脚本报`TypeError: toPrimitive`；3665307769三处异常已由原包和隔离App确认是作者断引用：374访问不存在祖父，386引用不存在的background/outline；实际399进度条lookup正常，不补造句柄，不再归作引擎lookup缺口，整体媒体面板视觉仍待验（见[归因记录](../history/source-material-entry-2026-10-08.md#后继归因原包遗留断引用)）；3610154602于本次Alpha最终链路复验仍见layer435 `getTextureAnimation`接收null，保留为独立脚本缺口（不是Alpha未接通）；按effectConstant/text/layer等target及准确异常定位host API/返回类型；复用同一VM owner，不按统一TypeError泛化修法。 |
 
 ### 原人工裁决逐项保留
 
