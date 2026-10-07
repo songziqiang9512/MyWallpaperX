@@ -172,7 +172,7 @@ class SceneStaticModelMaterialBindingTests(unittest.TestCase):
 
     def test_unconditional_interface_does_not_need_runtime_texture_facts(self) -> None:
         result = self.result("proofBoundaries")
-        for name in ["noReadinessFacts", "noFormatFacts"]:
+        for name in ["noReadinessFacts", "noFormatFacts", "requireDirectiveAdmitted"]:
             with self.subTest(name=name):
                 self.assertEqual(result[name]["state"], "authored")
                 self.assertEqual(result[name]["keys"], ["Alpha", None, None])
@@ -180,7 +180,8 @@ class SceneStaticModelMaterialBindingTests(unittest.TestCase):
         for name in ["conditionalInterface", "conditionalDuplicate", "conditionalKeyCollision",
                      "macroRewrite", "unresolvedInclude", "vertexFragmentConflict",
                      "sameLineHiddenDeclaration", "bareMacroPrefix", "explicitUniformCombo",
-                     "explicitTypeCombo", "authoredUniformCombo", "samplerUniformCombo"]:
+                     "explicitTypeCombo", "authoredUniformCombo", "samplerUniformCombo",
+                     "malformedRequireRejected"]:
             with self.subTest(name=name):
                 self.assertEqual(result[name]["state"], "unavailable")
                 self.assertEqual(result[name]["keys"], [])

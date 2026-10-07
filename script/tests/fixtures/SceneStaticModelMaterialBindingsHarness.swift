@@ -210,6 +210,15 @@ private func proofBoundaries() -> [String: Any] {
             #"uniform sampler2D g_Texture0; // {"combo":"HAS_A","formatcombo":true}"#
         ))),
         "conditionalInterface": summary(compile(authored, shader(conditionalAlpha: true))),
+        // A well-formed engine-module request (stock lighting shaders all carry
+        // `#require LightingV1`) must not void the interface proof: it never
+        // rewrites declarations. Malformed requires still fail the proof.
+        "requireDirectiveAdmitted": summary(compile(authored, shader(fragmentPrefix:
+            "#require LightingV1"
+        ))),
+        "malformedRequireRejected": summary(compile(authored, shader(fragmentPrefix:
+            "#require Lighting 1"
+        ))),
         "conditionalDuplicate": summary(compile(authored, shader(fragmentExtra: """
             #if defined(HAS_A)
             uniform float g_TintAlpha; // {"material":"Alpha","default":0.125}

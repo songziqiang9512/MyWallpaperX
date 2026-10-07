@@ -207,7 +207,18 @@ extension SceneResolvedMaterialShaderSchema {
             case .endif:
                 guard !sawElse.isEmpty else { return false }
                 sawElse.removeLast()
-            case .defineFunction, .require, .malformedRequire, .unsupported,
+            // A well-formed `#require <module>` (e.g. `#require LightingV1`,
+            // present in every stock lighting shader such as generic4) only
+            // requests an engine feature module; it never rewrites, renames
+            // or conditions the declarations this proof reads. Rejecting it
+            // made the whole model-material interface unprovable for every
+            // lighting-capable stock shader and rendered those models unlit
+            // (3589454154: 23 layers fell back with shader-interface-unproven).
+            // Malformed requires and the genuinely rewriting directives stay
+            // rejected below.
+            case .require:
+                continue
+            case .defineFunction, .malformedRequire, .unsupported,
                  .unknown, .unsupportedFunctionMacro, .malformed:
                 return false
             }
