@@ -33,9 +33,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
     ) -> String {
         var data = Data()
         for value in [
-            // v19 retires the intermediate uniform-shape normalization
-            // namespace; conflict admission now requires stage-body absence.
-            "mwx-generic-shader-request-v19",
+            // v20 retires artifacts compiled before numeric scalar identifier
+            // ternary conditions gained explicit bool conversion.
+            "mwx-generic-shader-request-v20",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,

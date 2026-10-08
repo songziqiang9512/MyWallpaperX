@@ -1,12 +1,13 @@
 import Foundation
 
-/// Rewrites authored numeric-literal ternary conditions into explicit bool
-/// literals so the strict Vulkan GLSL stage link accepts the Wallpaper Engine
+/// Rewrites authored numeric ternary conditions into explicit bool values
+/// so the strict Vulkan GLSL stage link accepts the Wallpaper Engine
 /// dialect's implicit scalar→bool condition conversion (for example
 /// `mask = 0 ? 1 - mask : mask;`). The rewrite preserves the authored
 /// selection exactly: `0` selects the else branch and any other finite value
-/// selects the then branch. Only a number token that is the entire ternary
-/// condition is rewritten; scalar expressions and unprovable contexts stay
+/// selects the then branch. Only a number token or a uniquely declared numeric
+/// scalar identifier that is the entire ternary condition is rewritten;
+/// scalar expressions and unprovable contexts stay
 /// untouched so the stage link keeps failing closed instead of changing
 /// meaning silently.
 nonisolated enum SceneGenericShaderTernaryScalarConditionNormalizer {
@@ -19,11 +20,13 @@ nonisolated enum SceneGenericShaderTernaryScalarConditionNormalizer {
         let lexical = SceneAuthoredShaderLexer.lex(source: analysisSource, stage: .fragment)
         guard lexical.diagnostics.isEmpty else { return normalized }
         let tokens = lexical.tokens
+        let declarations = SceneGenericShaderBooleanScalarArithmeticNormalizer
+            .uniqueScalarDeclarations(in: tokens)
         var lineStarts = [0]
         for (index, scalar) in normalized.unicodeScalars.enumerated() where scalar == "\n" {
             lineStarts.append(index + 1)
         }
-        // A number is the whole ternary condition only when the previous
+        // An atom is the whole ternary condition only when the previous
         // token opens a value position: assignment, argument, grouping,
         // branch boundary, nested ternary, or `return`. Arithmetic, logic,
         // and comparison operators keep the condition an expression the
@@ -32,8 +35,7 @@ nonisolated enum SceneGenericShaderTernaryScalarConditionNormalizer {
         let comparisonTokens: Set<String> = ["==", "<=", ">=", "!="]
         var edits: [(offset: Int, length: Int, text: String)] = []
         for index in tokens.indices where index > 0 && index + 1 < tokens.count {
-            guard tokens[index].kind == .number,
-                  tokens[index + 1].kind == .symbol,
+            guard tokens[index + 1].kind == .symbol,
                   tokens[index + 1].text == "?" else { continue }
             let previous = tokens[index - 1]
             var previousOpensCondition: Bool
@@ -51,9 +53,21 @@ nonisolated enum SceneGenericShaderTernaryScalarConditionNormalizer {
                 previousOpensCondition = false
             }
             guard previousOpensCondition else { continue }
-            guard let value = Double(tokens[index].text), value.isFinite else { continue }
-            let replacement = value == 0 ? "false" : "true"
             let token = tokens[index]
+            let replacement: String
+            if token.kind == .number,
+               let value = Double(token.text), value.isFinite {
+                replacement = value == 0 ? "false" : "true"
+            } else if token.kind == .identifier,
+                      let declaration = declarations[token.text],
+                      declaration.index < index,
+                      ["float", "int", "uint"].contains(declaration.type) {
+                let zero = declaration.type == "float" ? "0.0"
+                    : declaration.type == "uint" ? "0u" : "0"
+                replacement = "(\(token.text) != \(zero))"
+            } else {
+                continue
+            }
             guard token.line > 0, token.line <= lineStarts.count else { continue }
             edits.append((
                 lineStarts[token.line - 1] + token.column - 1,

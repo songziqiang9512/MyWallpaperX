@@ -476,6 +476,103 @@ void main() {
         self.assertIn("values[helper]", source)
         self.assertNotIn("values[int(helper)]", source)
 
+    def _link(self, fragment: Path) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations", "-l",
+             str(self.root / "output.vert"), str(fragment)],
+            cwd=self.root, capture_output=True, text=True,
+        )
+
+    def test_numeric_identifier_ternary_uses_proven_scalar_declarations(self) -> None:
+        for kind, values, zero in (
+            ("float", ("0.0", "1.0", "-0.5"), "0.0"),
+            ("int", ("0", "2", "-2"), "0"),
+            ("uint", ("0u", "2u"), "0u"),
+        ):
+            for value in values:
+                with self.subTest(kind=kind, value=value):
+                    result, output = self._normalize(
+                        "varying vec2 v_TexCoord;\nvoid main() {\n"
+                        f"    {kind} outside = {value}, inside = {value};\n"
+                        "    float first = outside ? 0.25 : 0.75;\n"
+                        "    float second = inside ? 0.5 : 1.0;\n"
+                        "    gl_FragColor = vec4(first, second, 0.0, 1.0);\n}\n"
+                    )
+                    self.assertTrue(result["ok"], result)
+                    source = output.read_text(encoding="utf-8")
+                    self.assertIn(f"(outside != {zero}) ?", source)
+                    self.assertIn(f"(inside != {zero}) ?", source)
+                    linked = self._link(output)
+                    self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_ternary_bool_comparison_and_numeric_literals_keep_selection(self) -> None:
+        result, output = self._normalize(
+            "varying vec2 v_TexCoord;\nvoid main() {\n"
+            "    bool outside = v_TexCoord.x > 0.5;\n"
+            "    float value = outside ? 0.25 : 0.75;\n"
+            "    float comparison = v_TexCoord.y > 0.0 ? 0.5 : 1.0;\n"
+            "    float zero = 0 ? 0.25 : 0.75;\n"
+            "    float nonzero = 2 ? 0.5 : 1.0;\n"
+            "    gl_FragColor = vec4(value, comparison, zero, nonzero);\n}\n"
+        )
+        self.assertTrue(result["ok"], result)
+        source = output.read_text(encoding="utf-8")
+        self.assertIn("outside ?", source)
+        self.assertNotIn("outside !=", source)
+        self.assertIn("v_TexCoord.y > 0.0 ?", source)
+        self.assertIn("false ? 0.25 : 0.75", source)
+        self.assertIn("true ? 0.5 : 1.0", source)
+        linked = self._link(output)
+        self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_unproven_ternary_identifier_remains_rejected(self) -> None:
+        for declarations, body in (
+            ("", ""),
+            ("", "vec2 outside = vec2(1.0);"),
+            ("", "float outside[2];"),
+            ("float outside() { return 1.0; }", ""),
+            ("float outside = 1.0;", "float outside = 0.0;"),
+            ("float outside = 1.0;", "float first = 1.0, outside = 0.0;"),
+            ("float outside = 1.0;", "vec2 first = vec2(1.0), outside = vec2(0.0);"),
+            ("struct Holder { float outside; };", "float outside = 1.0;"),
+        ):
+            with self.subTest(declarations=declarations, body=body):
+                result, output = self._normalize(
+                    "varying vec2 v_TexCoord;\n" + declarations
+                    + "\nvoid main() {\n" + body
+                    + "\n    gl_FragColor = outside ? vec4(0.25) : vec4(0.75);\n}\n"
+                )
+                self.assertTrue(result["ok"], result)
+                source = output.read_text(encoding="utf-8")
+                self.assertIn("outside ?", source)
+                self.assertNotIn("outside !=", source)
+                linked = self._link(output)
+                self.assertNotEqual(linked.returncode, 0, source)
+
+    def test_boolean_arithmetic_preserves_unique_declaration_proof(self) -> None:
+        result, output = self._normalize(
+            "varying vec2 v_TexCoord;\nvoid main() {\n"
+            "    bool ready = v_TexCoord.x > 0.5;\n"
+            "    float value = 0.0;\n"
+            "    value = ready;\n"
+            "    gl_FragColor = vec4(value);\n}\n"
+        )
+        self.assertTrue(result["ok"], result)
+        self.assertIn("value = float(ready);", output.read_text(encoding="utf-8"))
+        linked = self._link(output)
+        self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+        result, output = self._normalize(
+            "varying vec2 v_TexCoord;\nbool ready = true;\nvoid main() {\n"
+            "    bool first = true, ready = false;\n"
+            "    float value = 0.0;\n"
+            "    value = ready;\n"
+            "    gl_FragColor = vec4(value);\n}\n"
+        )
+        self.assertTrue(result["ok"], result)
+        self.assertIn("value = ready;", output.read_text(encoding="utf-8"))
+        linked = self._link(output)
+        self.assertNotEqual(linked.returncode, 0, result)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -28,8 +28,8 @@ nonisolated enum SceneGenericShaderAnalysisCache {
     /// The only invalidation lever for this tier: bump when any analyzer,
     /// normalizer or profile-classification semantic change lands (the shared
     /// frontendSchemaVersion constant has no mechanical bump guarantee).
-    /// v9: stage-uniform conflicts ignore only lexically absent declarations.
-    private static let schemaVersion = 9
+    /// v10: uniquely declared numeric scalar ternary conditions are explicit bools.
+    private static let schemaVersion = 10
     private static let maximumEntryBytes = 64 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()

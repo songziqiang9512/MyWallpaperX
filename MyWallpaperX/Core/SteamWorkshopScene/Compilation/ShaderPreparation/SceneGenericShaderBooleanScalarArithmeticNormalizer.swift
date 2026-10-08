@@ -42,14 +42,7 @@ nonisolated enum SceneGenericShaderBooleanScalarArithmeticNormalizer {
         let lexical = SceneAuthoredShaderLexer.lex(source: analysisSource, stage: .fragment)
         guard lexical.diagnostics.isEmpty else { return normalized }
         let tokens = lexical.tokens
-        var declarations: [String: [(type: String, index: Int)]] = [:]
-        for index in tokens.indices.dropLast() {
-            guard SceneAuthoredShaderValueType(authoredName: tokens[index].text) != nil,
-                  tokens[index + 1].kind == .identifier else { continue }
-            declarations[tokens[index + 1].text, default: []].append(
-                (tokens[index].text, index + 1)
-            )
-        }
+        let declarations = uniqueScalarDeclarations(in: tokens)
         var lineStarts = [0]
         for (index, scalar) in normalized.unicodeScalars.enumerated() where scalar == "\n" {
             lineStarts.append(index + 1)
@@ -61,16 +54,16 @@ nonisolated enum SceneGenericShaderBooleanScalarArithmeticNormalizer {
                   tokens[index + 1].kind == .identifier,
                   tokens[index + 2].text == ";",
                   index < 2 || tokens[index - 2].text != ".",
-                  let targets = declarations[tokens[index - 1].text], targets.count == 1,
-                  let inputs = declarations[tokens[index + 1].text], inputs.count == 1,
-                  ["float", "int", "uint"].contains(targets[0].type),
-                  inputs[0].type == "bool",
-                  targets[0].index < index, inputs[0].index < index else { continue }
+                  let target = declarations[tokens[index - 1].text],
+                  let input = declarations[tokens[index + 1].text],
+                  ["float", "int", "uint"].contains(target.type),
+                  input.type == "bool",
+                  target.index < index, input.index < index else { continue }
             let token = tokens[index + 1]
             guard token.line > 0, token.line <= lineStarts.count else { continue }
             edits.append((lineStarts[token.line - 1] + token.column - 1,
                           token.text.unicodeScalars.count,
-                          "\(targets[0].type)(\(token.text))"))
+                          "\(target.type)(\(token.text))"))
         }
         var result = normalized
         for edit in edits.reversed() {
@@ -82,5 +75,50 @@ nonisolated enum SceneGenericShaderBooleanScalarArithmeticNormalizer {
             result.replaceSubrange(lower..<upper, with: edit.text)
         }
         return result
+    }
+
+    /// Shared scalar facts for explicit bool/numeric conversions. Count every
+    /// declarator in a typed declaration list, including shadowed names and
+    /// members; without scope proof any repeated name stays ambiguous. Array
+    /// and function names never provide scalar values. Balanced initializers
+    /// keep argument commas separate from declaration-list commas.
+    static func uniqueScalarDeclarations(
+        in tokens: [SceneAuthoredShaderToken]
+    ) -> [String: (type: String, index: Int)] {
+        var declarations: [String: [(type: String, index: Int, scalar: Bool)]] = [:]
+        func record(_ index: Int, type: String) {
+            let next = index + 1 < tokens.count ? tokens[index + 1].text : ""
+            declarations[tokens[index].text, default: []].append((
+                type, index,
+                ["float", "int", "uint", "bool"].contains(type)
+                    && next != "[" && next != "("
+            ))
+        }
+        for index in tokens.indices.dropLast() {
+            guard let valueType = SceneAuthoredShaderValueType(
+                authoredName: tokens[index].text
+            ), tokens[index + 1].kind == .identifier else { continue }
+            record(index + 1, type: valueType.rawValue)
+            guard index + 2 < tokens.count,
+                  tokens[index + 2].text != "(" else { continue }
+            var depth = 0
+            var cursor = index + 2
+            while cursor < tokens.count {
+                let text = tokens[cursor].text
+                if depth == 0, [";", ")", "{", "}"].contains(text) { break }
+                if ["(", "["].contains(text) { depth += 1 }
+                if [")", "]"].contains(text) { depth -= 1 }
+                if text == ",", depth == 0, cursor + 2 < tokens.count,
+                   tokens[cursor + 1].kind == .identifier,
+                   ["=", ";", ",", "["].contains(tokens[cursor + 2].text) {
+                    record(cursor + 1, type: valueType.rawValue)
+                }
+                cursor += 1
+            }
+        }
+        return declarations.compactMapValues { facts in
+            guard facts.count == 1, facts[0].scalar else { return nil }
+            return (facts[0].type, facts[0].index)
+        }
     }
 }
