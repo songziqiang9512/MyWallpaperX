@@ -50,11 +50,10 @@ enum SceneResolvedMaterialShaderSchema {
     struct Sampler { let defaultTexture: DefaultTexture? }
 }
 enum SceneResolvedMaterialTextureResolver {
-    static func sceneBackgroundDefault(
+    static func sceneBackgroundColorSlots(
         template: TemplateFixture,
-        sampler: SceneResolvedMaterialShaderSchema.Sampler,
-        slot: Int
-    ) -> Int? { template.backgroundSlots.contains(slot) ? slot : nil }
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+    ) -> Set<Int> { template.backgroundSlots.intersection(samplers.keys) }
     static func sceneEnvironmentReference(
         template: TemplateFixture,
         sampler: SceneResolvedMaterialShaderSchema.Sampler,
@@ -227,6 +226,7 @@ private enum Harness {
                         premultiplied ? [] : [1],
                     premultipliedColorAuxiliarySlots:
                         premultiplied ? [1] : [],
+                    sceneBackgroundColorSlots: [],
                     spatialWeightedColorBlendSourceSlot: nil,
                     spatialWeightedColorBlendActiveSlots: [],
                     spatialWeightedColorBlendTypedAuxiliarySlots: [],

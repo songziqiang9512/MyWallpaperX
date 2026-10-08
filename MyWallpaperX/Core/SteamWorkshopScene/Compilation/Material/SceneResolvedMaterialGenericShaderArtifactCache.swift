@@ -170,6 +170,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         typedStaticDataAuxiliarySlots: Set<Int> = [],
         preservedChannelsExternalProviderTextureSlots: Set<Int> = [],
         premultipliedColorAuxiliarySlots: Set<Int> = [],
+        sceneBackgroundColorSlots: Set<Int> = [],
         spatialWeightedColorBlendSourceSlot: Int? = nil,
         spatialWeightedColorBlendActiveSlots: Set<Int> = [],
         spatialWeightedColorBlendTypedAuxiliarySlots: Set<Int> = [],
@@ -207,6 +208,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 preservedChannelsExternalProviderTextureSlots,
             premultipliedColorAuxiliarySlots:
                 premultipliedColorAuxiliarySlots,
+            sceneBackgroundColorSlots: sceneBackgroundColorSlots,
             spatialWeightedColorBlendSourceSlot:
                 spatialWeightedColorBlendSourceSlot,
             spatialWeightedColorBlendActiveSlots:

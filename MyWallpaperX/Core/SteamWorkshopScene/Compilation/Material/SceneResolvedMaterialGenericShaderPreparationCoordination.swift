@@ -29,7 +29,8 @@ nonisolated enum SceneGenericShaderAnalysisCache {
     /// normalizer or profile-classification semantic change lands (the shared
     /// frontendSchemaVersion constant has no mechanical bump guarantee).
     /// v11: dead resource work shares the conservative deletion Projection.
-    private static let schemaVersion = 11
+    /// v12: typed scene-background color input facts participate in the ABI.
+    private static let schemaVersion = 12
     private static let maximumEntryBytes = 64 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()
@@ -72,7 +73,7 @@ nonisolated enum SceneGenericShaderAnalysisCache {
         func appendSet(_ value: Set<Int>) {
             append(value.sorted().map(String.init).joined(separator: ","))
         }
-        append("mwx-generic-shader-analysis-input-v1")
+        append("mwx-generic-shader-analysis-input-v2")
         append(input.vertexSource)
         append(input.fragmentSource)
         appendSlot(input.alphaAttenuationSourceSlot)
@@ -93,6 +94,7 @@ nonisolated enum SceneGenericShaderAnalysisCache {
         appendSet(input.typedStaticDataAuxiliarySlots)
         appendSet(input.preservedChannelsExternalProviderTextureSlots)
         appendSet(input.premultipliedColorAuxiliarySlots)
+        appendSet(input.sceneBackgroundColorSlots)
         appendSlot(input.spatialWeightedColorBlendSourceSlot)
         appendSet(input.spatialWeightedColorBlendActiveSlots)
         appendSet(input.spatialWeightedColorBlendTypedAuxiliarySlots)
@@ -315,6 +317,7 @@ nonisolated final class SceneResolvedMaterialGenericShaderResolutionCache:
         let typedStaticDataAuxiliarySlots: Set<Int>
         let preservedChannelsExternalProviderTextureSlots: Set<Int>
         let premultipliedColorAuxiliarySlots: Set<Int>
+        let sceneBackgroundColorSlots: Set<Int>
         let spatialWeightedColorBlendSourceSlot: Int?
         let spatialWeightedColorBlendActiveSlots: Set<Int>
         let spatialWeightedColorBlendTypedAuxiliarySlots: Set<Int>
@@ -669,7 +672,7 @@ extension SceneResolvedMaterialGenericShaderArtifactCache {
                     || profile
                         == .sourceProvenGraphInputConditionalGeneratedRGBPreservedAlpha
         )
-        let premultipliedColorInputSlots: Set<Int> = switch profile {
+        let profileInputSlots: Set<Int> = switch profile {
         case .providerBackedGraphInputSpatialWeightedColorBlend:
             spatialWeightedColorBlendExternalColorSlot.map { [$0] } ?? []
         case .ordinaryShader:
@@ -682,6 +685,8 @@ extension SceneResolvedMaterialGenericShaderArtifactCache {
         default:
             []
         }
+        let premultipliedColorInputSlots = profileInputSlots
+            .union(input.sceneBackgroundColorSlots)
         // Approved product default for an unclassified color pass: graph
         // color inputs (excluding producer-proven data) and premultiplied providers cross the straight
         // color boundary and the terminal output is premultiplied once.
@@ -689,6 +694,7 @@ extension SceneResolvedMaterialGenericShaderArtifactCache {
             colorTransfer.permitsDefaultStraightColorBoundary
             ? graphInputTextureSlots.subtracting(input.graphDataTextureSlots)
                 .union(premultipliedColorAuxiliarySlots)
+                .union(input.sceneBackgroundColorSlots)
             : []
         return SceneGenericShaderAnalysis(
             profile: profile,

@@ -157,6 +157,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 ),
             premultipliedColorAuxiliarySlots:
                 premultipliedColorAuxiliarySlots,
+            sceneBackgroundColorSlots:
+                SceneResolvedMaterialTextureResolver.sceneBackgroundColorSlots(
+                    template: template, samplers: sourceActiveSamplers
+                ),
             spatialWeightedColorBlendSourceSlot:
                 spatialWeightedColorBlendFact?.sourceSlot,
             spatialWeightedColorBlendActiveSlots:

@@ -33,6 +33,22 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         return sampler.purpose(for: reference) == nil ? nil : reference
     }
 
+    /// Input representation belongs to the resolved resource, independently
+    /// of the author's output color-flow proof. Overrides and data samplers
+    /// cannot acquire the scene-background publication's color ABI.
+    static func sceneBackgroundColorSlots(
+        template: Template,
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+    ) -> Set<Int> {
+        Set(samplers.compactMap { slot, sampler in
+            guard let reference = sceneBackgroundDefault(
+                template: template, sampler: sampler, slot: slot
+            ), sampler.purpose(for: reference) == .premultipliedColor
+            else { return nil }
+            return slot
+        })
+    }
+
     static func sceneEnvironmentReference(
         template: Template, sampler: SceneResolvedMaterialShaderSchema.Sampler, slot: Int
     ) -> Template.TextureReference? {

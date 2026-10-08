@@ -183,7 +183,7 @@ private func damageEntry(_ url: URL) throws -> Data {
 // MARK: - Generic analysis tier
 
 private func makeGenericInput(
-    marker: String, graphDataSlots: Set<Int> = []
+    marker: String, graphDataSlots: Set<Int> = [], backgroundColorSlots: Set<Int> = []
 ) -> SceneResolvedMaterialGenericShaderResolutionCache.Input {
     .init(
         vertexSource: "// probe vertex \(marker)\n",
@@ -206,6 +206,7 @@ private func makeGenericInput(
         typedStaticDataAuxiliarySlots: [],
         preservedChannelsExternalProviderTextureSlots: [],
         premultipliedColorAuxiliarySlots: [],
+        sceneBackgroundColorSlots: backgroundColorSlots,
         spatialWeightedColorBlendSourceSlot: nil,
         spatialWeightedColorBlendActiveSlots: [],
         spatialWeightedColorBlendTypedAuxiliarySlots: [],
@@ -225,7 +226,7 @@ private func runGenericProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "generic")
     let root = try cacheRoot()
     let directory = tierDirectory(
-        root: root, name: "SceneGenericShaderAnalysis-v11"
+        root: root, name: "SceneGenericShaderAnalysis-v12"
     )
     let input = makeGenericInput(marker: "probe-a")
     try expect(
@@ -260,6 +261,17 @@ private func runGenericProbe() throws -> ProbeOutput {
                 != SceneGenericShaderAnalysisCache.inputDigest(of: input)
             && SceneGenericShaderAnalysisCache.load(input: dataInput) == nil,
         "graph-content-key-miss")
+    let backgroundInput = makeGenericInput(marker: "probe-a", backgroundColorSlots: [3])
+    let backgroundAnalysis = SceneResolvedMaterialGenericShaderArtifactCache
+        .computeAnalysis(input: backgroundInput)
+    try expect(into: &output,
+        backgroundInput != input
+            && SceneGenericShaderAnalysisCache.inputDigest(of: backgroundInput)
+                != SceneGenericShaderAnalysisCache.inputDigest(of: input)
+            && SceneGenericShaderAnalysisCache.load(input: backgroundInput) == nil
+            && backgroundAnalysis.premultipliedColorInputSlots == [3]
+            && backgroundAnalysis.defaultBoundaryColorSlots == [0, 1, 3],
+        "background-color-fact-key-and-abi")
     let colorAnalysis = SceneResolvedMaterialGenericShaderArtifactCache
         .computeAnalysis(input: input)
     let dataAnalysis = SceneResolvedMaterialGenericShaderArtifactCache
@@ -311,7 +323,7 @@ private func runGenericProbe() throws -> ProbeOutput {
     try rewriteEntry(entry) {
         $0.replacingOccurrences(
             of: #""schemaVersion":\d+"#,
-            with: "\"schemaVersion\":0",
+            with: "\"schemaVersion\":11",
             options: .regularExpression
         )
     }
@@ -676,6 +688,7 @@ EXPECTED_TIER_CHECKS = {
         "publish",
         "hit",
         "graph-content-key-miss",
+        "background-color-fact-key-and-abi",
         "graph-data-excluded-from-color-boundary",
         "graph-data-sample-preserved-color-converted-once",
         "corrupt-safe-miss",

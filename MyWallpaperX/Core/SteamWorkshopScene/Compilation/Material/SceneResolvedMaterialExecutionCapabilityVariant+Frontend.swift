@@ -23,24 +23,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         artifactFailure: [String],
         premultipliedColorInputSlots: Set<Int>
     ) {
-        // A sampler whose only source is the internal scene-background
-        // default reads a publication the registry defines as premultiplied
-        // color; that slot crosses the color boundary by contract, not by
-        // authored color-flow analysis.
-        let sceneBackgroundDefaultSlots: Set<Int> = Set(
-            sourceActiveSamplers.compactMap { (
-                slot: Int,
-                sampler: SceneResolvedMaterialShaderSchema.Sampler
-            ) -> Int? in
-                guard case .internalTarget = sampler.defaultTexture,
-                      SceneResolvedMaterialTextureResolver.sceneBackgroundDefault(
-                          template: template,
-                          sampler: sampler,
-                          slot: slot
-                      ) != nil else { return nil }
-                return slot
-            }
-        )
+        let sceneBackgroundColorSlots = SceneResolvedMaterialTextureResolver
+            .sceneBackgroundColorSlots(template: template, samplers: sourceActiveSamplers)
         let sceneEnvironmentSlots = Set(sourceActiveSamplers.compactMap { slot, sampler in
             SceneResolvedMaterialTextureResolver.sceneEnvironmentReference(
                 template: template, sampler: sampler, slot: slot) == nil ? nil : slot
@@ -51,8 +35,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 .providerBackedGraphInputSpatialWeightedColorBlend.rawValue:
                 spatialWeightedColorBlendExternalColorSlot.map { [$0] } ?? []
             case SceneGenericShaderCapabilityProfile.ordinaryShader.rawValue:
-                // Resource representation is independent of the output
-                // profile; keep the existing background boundary as well.
                 // Mixed-provider slots select their ABI through the frame-owned
                 // mixed contract, so the ordinary aux widening must not claim
                 // them: claiming them turned an unproved potential fallback
@@ -60,8 +42,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 outputSemantics == .color
                     ? premultipliedColorAuxiliarySlots
                         .subtracting(mixedProviderSlots)
-                        .union(sceneBackgroundDefaultSlots)
-                    : sceneBackgroundDefaultSlots
+                    : []
             case SceneGenericShaderCapabilityProfile
                 .sourceProvenGraphInputOverlayAlphaBlend.rawValue,
                  SceneGenericShaderCapabilityProfile
@@ -73,11 +54,12 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 .rawValue:
                 premultipliedColorAuxiliarySlots
             default:
-                sceneBackgroundDefaultSlots
+                []
             }
         }
         let premultipliedInputSlotsForProfile: (String) -> Set<Int> = {
-            profileInputSlots($0).union(sceneEnvironmentSlots)
+            profileInputSlots($0).union(sceneBackgroundColorSlots)
+                .union(sceneEnvironmentSlots)
         }
         let frontend: SceneAuthoredShaderProgram
         let routeDecision:

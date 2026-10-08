@@ -4021,6 +4021,7 @@ private struct GenericShaderArtifactHarness {
                     typedStaticDataAuxiliarySlots: [],
                     preservedChannelsExternalProviderTextureSlots: [],
                     premultipliedColorAuxiliarySlots: [],
+                    sceneBackgroundColorSlots: [],
                     spatialWeightedColorBlendSourceSlot: nil,
                     spatialWeightedColorBlendActiveSlots: [],
                     spatialWeightedColorBlendTypedAuxiliarySlots: [],

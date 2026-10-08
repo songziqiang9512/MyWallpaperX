@@ -138,7 +138,16 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         let nodes = graph.nodes.sorted { $0.nodeIndex < $1.nodeIndex }
         guard candidate.consumerLayerID == admittedLayerID,
               graph.layerID == admittedLayerID,
-              graph.blockers.isEmpty else { return false }
+              graph.blockers.isEmpty else {
+#if DEBUG
+            NSLog(
+                "MWX DEBUG SCENE: phase=capability-admission layer=%d background-identity consumer=%d graph=%d blockers=%@",
+                admittedLayerID, candidate.consumerLayerID, graph.layerID,
+                String(describing: graph.blockers.prefix(3))
+            )
+#endif
+            return false
+        }
 
         // A multi-effect generic-only chain rides the same ordered handoff the
         // dependency runtime proves per layer: every effect is one ordinary
@@ -245,6 +254,14 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             let typedABI = sceneBackgroundCandidateHasTypedSinglePassColorABI(
                 candidate
             )
+#if DEBUG
+            if !typedABI && !composeShapeCandidate {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=capability-admission layer=%d background-single-abi nodes=%d slot=%d typed=0",
+                    admittedLayerID, nodes.count, candidate.slot
+                )
+            }
+#endif
             if typedABI && !composeShapeCandidate {
                 let typedShapeValid = nodes.count == 1
                     && candidateNode.nodeIndex == nodes[0].nodeIndex
