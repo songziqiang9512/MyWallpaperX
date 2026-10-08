@@ -98,6 +98,81 @@ extension Harness {
             mediaThumbnailEvent: .init(hasThumbnail: true, generation: 9)
         )
         cachedTimeline.finalizeLayerMutations(committing: true)
+        let cachedIdle = [0.55, 0.25].map { input in
+            let result = cachedTimeline.evaluate(
+                inputs: [passTimelineTarget: .scalar(input)], frame: frame
+            )
+            cachedTimeline.finalizeLayerMutations(committing: true)
+            return result
+        }
+        func valuePipeline(_ source: String, generation: UInt64) -> SceneScriptScalarProgram {
+            SceneScriptScalarProgram.compile(
+                domain: domain, descriptor: timelineDescriptor(source),
+                scriptBindings: [passBinding(key: "unseenTimelineScalar", source: source,
+                    value: 1, wrapperKeys: ["animation", "script", "value"])],
+                timelineTargets: [passTimelineTarget], generation: generation
+            )
+        }
+        let changedInit = valuePipeline(cachedSource.replacingOccurrences(
+            of: "return value;", with: "return value * 0.5;"
+        ), generation: 157)
+        let changedInitFirst = changedInit.evaluate(
+            inputs: [passTimelineTarget: .scalar(0.4)], frame: frame
+        )
+        changedInit.finalizeLayerMutations(committing: true)
+        let changedInitIdle = changedInit.evaluate(
+            inputs: [passTimelineTarget: .scalar(0.6)], frame: frame
+        )
+        changedInit.finalizeLayerMutations(committing: true)
+        let transforming = valuePipeline(cachedSource + "\nexport function update(value){return value*0.5;}",
+            generation: 158)
+        let transformed = transforming.evaluate(
+            inputs: [passTimelineTarget: .scalar(0.6)], frame: frame
+        )
+        transforming.finalizeLayerMutations(committing: true)
+        let overlay = valuePipeline(cachedSource.replacingOccurrences(
+            of: "return value;", with: "thisObject.unseenTimelineScalar=0.7;return value;"
+        ), generation: 159)
+        _ = overlay.evaluate(inputs: [passTimelineTarget: .scalar(0.4)], frame: frame)
+        overlay.finalizeLayerMutations(committing: true)
+        let overlayIdle = overlay.evaluate(inputs: [passTimelineTarget: .scalar(0.6)], frame: frame)
+        overlay.finalizeLayerMutations(committing: true)
+        let staleIdle = overlay.bindings.first?.scalarValueWithoutUpdate(input: 0.6, expectedGeneration: 160)
+        let retiringDomain = try SceneScriptQuickJSDomain()
+        try retiringDomain.configureLayerCatalog(timelineDescriptor(cachedSource))
+        let retiring = SceneScriptScalarProgram.compile(
+            domain: retiringDomain,
+            descriptor: timelineDescriptor(cachedSource),
+            scriptBindings: [passBinding(key: "unseenTimelineScalar", source: cachedSource,
+                value: 1, wrapperKeys: ["animation", "script", "value"])],
+            timelineTargets: [passTimelineTarget], generation: 160
+        )
+        _ = retiring.evaluate(inputs: [passTimelineTarget: .scalar(0.4)], frame: frame)
+        retiring.finalizeLayerMutations(committing: true)
+        let retirement = retiring.retire(layerIDs: [10], frame: frame, userPropertiesJSON: "{}")
+        let retiredIdle = retiring.evaluate(inputs: [passTimelineTarget: .scalar(0.6)], frame: frame)
+        let repeatedRetirement = retiring.retire(layerIDs: [10], frame: frame, userPropertiesJSON: "{}")
+        let invalidatingDomain = try SceneScriptQuickJSDomain()
+        try invalidatingDomain.configureLayerCatalog(timelineDescriptor(cachedSource))
+        let invalidating = SceneScriptScalarProgram.compile(
+            domain: invalidatingDomain, descriptor: timelineDescriptor(cachedSource),
+            scriptBindings: [alphaBinding(source: cachedSource, value: 0.75)],
+            timelineTargets: [animatedAlphaTarget], generation: 161
+        )
+        let beforeInvalidation = invalidating.evaluate(
+            inputs: [animatedAlphaTarget: .scalar(0.4)], frame: frame
+        )
+        invalidating.finalizeLayerMutations(committing: true)
+        let oldTimerState = invalidating.timerFrameStateSnapshot()
+        invalidating.invalidate()
+        let invalidatedIdle = invalidating.evaluate(
+            inputs: [animatedAlphaTarget: .scalar(0.6)], frame: frame
+        )
+        invalidating.restoreTimerFrameState(oldTimerState)
+        invalidating.discardTimerFrameState(oldTimerState)
+        let restoredInvalidatedIdle = invalidating.evaluate(
+            inputs: [animatedAlphaTarget: .scalar(0.7)], frame: frame
+        )
         let throwingSource = cachedSource.replacingOccurrences(
             of: "animation.play();", with: "animation.play(); throw new Error('late');"
         )
@@ -113,6 +188,9 @@ extension Harness {
             mediaThumbnailEvent: mediaEvent
         )
         throwingTimeline.finalizeLayerMutations(committing: false)
+        let throwingIdle = throwingTimeline.evaluate(
+            inputs: [passTimelineTarget: .scalar(0.6)], frame: frame
+        )
         let passTimelineWithoutTarget = SceneScriptScalarProgram.compile(
             domain: domain,
             descriptor: descriptor,
@@ -291,7 +369,7 @@ extension Harness {
             userPropertiesJSON: "{}", events: orderedEvents,
             audioSpectrum: .silent
         )
-        defer { fixture.retained += [mediaOrigin, passTimeline, cachedTimeline, throwingTimeline, passTimelineWithoutTarget, passTimelineWrongWrapper, passTimelineWithProperties, playbackProgram, stringProgram, orderedDomain, orderedVector, orderedString, orderedScalar, orderedCoordinator] }
+        defer { fixture.retained += [mediaOrigin, passTimeline, cachedTimeline, changedInit, transforming, overlay, retiring, invalidating, throwingTimeline, passTimelineWithoutTarget, passTimelineWrongWrapper, passTimelineWithProperties, playbackProgram, stringProgram, orderedDomain, orderedVector, orderedString, orderedScalar, orderedCoordinator] }
         return [
             "mediaAnimationCommands": { mediaOriginResult.animationMutations.map {
                 $0.command.rawValue
@@ -311,11 +389,28 @@ extension Harness {
                  "firstCommands": cachedFirst.animationMutations.map { $0.command.rawValue },
                  "firstValue": String(describing: cachedFirst.values[passTimelineTarget]),
                  "duplicateCommands": cachedDuplicate.animationMutations.map { $0.command.rawValue },
+                 "idleValues": cachedIdle.map { scalar($0.values[passTimelineTarget]) },
+                 "idleEffectsEmpty": cachedIdle.allSatisfy { $0.ownerEffects.isEmpty && $0.animationMutations.isEmpty },
+                 "idleSource": SceneDynamicSnapshotResolver().resolve(
+                    frameIndex: 1, generation: 1, definitions: cachedTimeline.definitions,
+                    timelineValues: [passTimelineTarget: .scalar(0.55)],
+                    sceneScriptValues: cachedIdle[0].values).snapshot[passTimelineTarget]?.source.rawValue ?? "missing",
+                 "changedInitFirst": scalar(changedInitFirst.values[passTimelineTarget]),
+                 "changedInitIdle": scalar(changedInitIdle.values[passTimelineTarget]),
+                 "updateTransform": scalar(transformed.values[passTimelineTarget]),
+                 "boundOverlayIdle": scalar(overlayIdle.values[passTimelineTarget]),
+                 "staleIdleRejected": { if case .failure(.staleOwner)? = staleIdle { return true }; return false }(),
+                 "retiredIdleUnpublished": retirement.count == 1 && repeatedRetirement.isEmpty && retiredIdle.values.isEmpty,
+                 "retirementCounts": [retiring.bindings.count, retirement.count, repeatedRetirement.count, retiredIdle.values.count],
+                 "invalidatingBindings": invalidating.bindings.count,
+                 "beforeInvalidation": scalar(beforeInvalidation.values[animatedAlphaTarget]),
+                 "invalidatedIdleUnpublished": invalidatedIdle.values.isEmpty && restoredInvalidatedIdle.values.isEmpty,
+                 "invalidatedIdleValues": [scalar(invalidatedIdle.values[animatedAlphaTarget]), scalar(restoredInvalidatedIdle.values[animatedAlphaTarget])],
                  "nextFailures": passTimelineNext.failures.count,
                  "nextCommands": passTimelineNext.animationMutations.map { $0.command.rawValue }] as [String: Any] },
             "passTimelineThrowUnpublished": {
                 !throwingTimelineResult.failures.isEmpty && throwingTimelineResult.animationMutations.isEmpty
-                    && throwingTimelineResult.ownerEffects.isEmpty },
+                    && throwingTimelineResult.ownerEffects.isEmpty && throwingIdle.values.isEmpty },
             "passTimelineWithoutTargetRejected": {
                 passTimelineWithoutTarget.bindings.isEmpty },
             "passTimelineWrongWrapperRejected": {

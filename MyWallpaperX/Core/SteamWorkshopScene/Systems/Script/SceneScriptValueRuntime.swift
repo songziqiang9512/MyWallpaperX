@@ -438,8 +438,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
                 }
             }
             if result == MWX_SCENE_QUICKJS_OK, !handlesUpdate {
-                switch boundScalarValue() {
-                case let .success(value): if let value { output = value }
+                switch scalarValueWithoutUpdate(input: output, expectedGeneration: expectedGeneration) {
+                case let .success(value): output = value
                 case let .failure(failure):
                     discardLayerMutations()
                     return .failure(failure)
@@ -847,6 +847,24 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     private static func acceptsScalarValue(_ value: SceneDynamicValue, for target: SceneDynamicTarget) -> Bool {
         guard case let .scalar(number) = value else { return true }
         return acceptsScalar(number, for: target)
+    }
+
+    /// The existing no-update value projection also serves sleeping owners.
+    /// It reads only a finite data property; no callback, timer or journal runs.
+    func scalarValueWithoutUpdate(
+        input: Double, expectedGeneration: UInt64
+    ) -> Result<Double, SceneScriptScalarRuntimeFailure> {
+        guard expectedGeneration == generation else { return .failure(.staleOwner) }
+        guard valueType == .scalar, !handlesUpdate else {
+            return .failure(.invalidArgument("invalid no-update scalar owner"))
+        }
+        return boundScalarValue().flatMap { bound in
+            let value = bound ?? input
+            guard Self.acceptsScalar(value, for: target) else {
+                return .failure(.badReturn("invalid bound scalar output"))
+            }
+            return .success(value)
+        }
     }
 
     private func boundScalarValue() -> Result<Double?, SceneScriptScalarRuntimeFailure> {

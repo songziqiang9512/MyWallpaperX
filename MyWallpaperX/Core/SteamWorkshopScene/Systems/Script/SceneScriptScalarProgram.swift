@@ -50,6 +50,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
     /// remain instantiated so their callbacks can issue playback mutations,
     /// while the Timeline stays the sole value producer.
     private let valuePublishingTargets: Set<SceneDynamicTarget>
+    private let idleTimelinePublishingTargets: Set<SceneDynamicTarget>
     private let bindingIndicesByTarget: [SceneDynamicTarget: Int]
     let domain: SceneScriptQuickJSDomain?
     let generation: UInt64
@@ -117,7 +118,8 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
         livePropertyInputTargets: Set<SceneDynamicTarget> = [],
         userPropertyDefinitions: [SceneUserPropertyDefinition] = [],
         authoredOrdinals: [SceneDynamicTarget: Int] = [:],
-        valuePublishingTargets: Set<SceneDynamicTarget> = []
+        valuePublishingTargets: Set<SceneDynamicTarget> = [],
+        timelineTargets: Set<SceneDynamicTarget> = []
     ) {
         self.domain = domain
         self.bindings = bindings
@@ -140,6 +142,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
             .union(eventOwnerTargets)
         self.authoredOrdinals = authoredOrdinals
         self.valuePublishingTargets = valuePublishingTargets
+        idleTimelinePublishingTargets = valuePublishingTargets.intersection(timelineTargets)
         userPropertyKinds = Dictionary(
             uniqueKeysWithValues: userPropertyDefinitions.map { ($0.key, $0.kind) }
         )
@@ -326,7 +329,8 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
             livePropertyInputTargets: livePropertyInputTargets,
             userPropertyDefinitions: userPropertyDefinitions,
             authoredOrdinals: authoredOrdinals,
-            valuePublishingTargets: valuePublishingTargets
+            valuePublishingTargets: valuePublishingTargets,
+            timelineTargets: timelineTargets
         )
         return .init(
             program: program,
@@ -415,6 +419,20 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                 || pendingPlaybackEvent != nil || pendingMediaEvent != nil
                 || pendingPropertiesEvent != nil || pendingTimelineEvent != nil
             guard hasPendingCallback || binding.requiresFrameEvaluation else {
+                // A sleeping callback owner still forwards its current typed
+                // input through the prepared value lane. In particular, a
+                // Timeline must keep advancing after an init-only script.
+                // Do not run the VM or promote event-only Timeline controls.
+                if idleTimelinePublishingTargets.contains(binding.target) {
+                    switch binding.scalarValueWithoutUpdate(
+                        input: value, expectedGeneration: generation
+                    ) {
+                    case let .success(output): values[binding.target] = .scalar(output)
+                    case let .failure(failure):
+                        failures[binding.target] = failure
+                        if failure.permanentlyDisablesOwner { disabledTargets.insert(binding.target) }
+                    }
+                }
                 continue
             }
             var effects = SceneScriptOwnerEffects(
@@ -722,6 +740,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
 
 
     func invalidate() {
+        disabledTargets.formUnion(inputTargets)
         bindings.forEach { $0.invalidate() }
     }
 

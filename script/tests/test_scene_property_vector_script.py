@@ -344,6 +344,19 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(retained["duplicateCommands"], [], retained)
         self.assertEqual(retained["nextFailures"], 0, retained)
         self.assertEqual(retained["nextCommands"], ["stop", "play"], retained)
+        self.assertEqual(retained["idleValues"], [0.55, 0.25], retained)
+        self.assertTrue(retained["idleEffectsEmpty"], retained)
+        self.assertEqual(retained["idleSource"], "sceneScript", retained)
+        self.assertEqual(retained["changedInitFirst"], 0.2, retained)
+        self.assertEqual(retained["changedInitIdle"], 0.6, retained)
+        self.assertEqual(retained["updateTransform"], 0.3, retained)
+        self.assertEqual(retained["boundOverlayIdle"], 0.7, retained)
+        self.assertTrue(retained["staleIdleRejected"], retained)
+        self.assertTrue(retained["retiredIdleUnpublished"], retained)
+        self.assertEqual(retained["retirementCounts"], [1, 1, 0, 0], retained)
+        self.assertEqual(retained["invalidatingBindings"], 1, retained)
+        self.assertEqual(retained["beforeInvalidation"], 0.4, retained)
+        self.assertTrue(retained["invalidatedIdleUnpublished"], retained)
         self.assertTrue(value["passTimelineThrowUnpublished"])
         self.assertTrue(value["passTimelineWithoutTargetRejected"])
         self.assertTrue(value["passTimelineWrongWrapperRejected"])
@@ -411,7 +424,9 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["orderedNextGenerationScalar"], 0.3)
         self.assertEqual(value["orderedNextGenerationLayerMutations"], 0)
         self.assertEqual(value["orderedInvalidatedValues"], 0)
-        self.assertEqual(value["orderedInvalidatedFailures"], 3)
+        # Scalar invalidation removes the owner before callback dispatch;
+        # the existing vector/string lanes still report C-disabled failures.
+        self.assertEqual(value["orderedInvalidatedFailures"], 2)
         self.assertEqual(value["orderedInvalidatedLayerMutations"], 0)
 
     def test_audio_buffers_update_generic_vec3_owner(self) -> None:
