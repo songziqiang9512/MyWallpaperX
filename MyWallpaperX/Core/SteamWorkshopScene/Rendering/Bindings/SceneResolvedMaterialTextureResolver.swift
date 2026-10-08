@@ -170,8 +170,23 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                        in: textureSlot,
                        sampler: sampler
                    ) {
+                    let lower = Template.TextureReference.provider(
+                        .namedLayerTarget(mixed.lowerNamedReference)
+                    )
+                    let purposeReference: Template.TextureReference
+                    if let identity = SceneResolvedMaterialShaderSchema.sameLayerCompositeInput(
+                        lower, template: input.template,
+                        inputIdentity: input.implicitFramebufferIdentity,
+                        consumerLayerID: input.layerID
+                    ), reference == .graph(identity) {
+                        // Selection normalized this exact lower candidate;
+                        // its original mixed-provider proof still owns ABI.
+                        purposeReference = lower
+                    } else {
+                        purposeReference = reference
+                    }
                     guard let purpose,
-                          mixed.purpose(for: reference) == purpose else {
+                          mixed.purpose(for: purposeReference) == purpose else {
                         throw failure(
                             .textureVariantKeyIdentityInvariant,
                             phase: .invariant,

@@ -1500,7 +1500,9 @@ private func shaderContract(
     crossLayerMix: Bool = false,
     systemProviderMix: Bool = false,
     mixedSystemNamedBlend: Bool = false,
-    colorBlend: Bool = false
+    colorBlend: Bool = false,
+    constantColor: String? = nil,
+    explicitPreviousSampler: Bool = false
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -1554,12 +1556,15 @@ private func shaderContract(
         uniform sampler2D g_Texture0; // {"default":"\(token)","hidden":true,"material":"albedo"}
         void main() {
             vec4 color = texSample2D(g_Texture0, v_TexCoord);
-            color.rgb = color.rgb.gbr;
+            \(pixelTransform == 0 ? "" : "color.rgb = color.rgb.gbr;")
             gl_FragColor = color;
         }
         """
     }
-    let fragment = targetDefaultFragment ?? dormantFragment ?? (implicitFramebuffer ? (implicitFramebufferAnnotation
+    let literalFragment = constantColor.map { color in
+        "varying vec2 v_TexCoord; void main() { gl_FragColor = vec4(\(color), 1.0); }"
+    }
+    var fragment = literalFragment ?? targetDefaultFragment ?? dormantFragment ?? (implicitFramebuffer ? (implicitFramebufferAnnotation
         ? explicitFramebufferFragment : """
     varying vec2 v_TexCoord;
     uniform sampler2D g_Texture0;
@@ -1586,6 +1591,10 @@ private func shaderContract(
         mixedSystemNamedBlend: mixedSystemNamedBlend,
         colorBlend: colorBlend
     ))
+    if explicitPreviousSampler {
+        fragment = fragment.replacingOccurrences(of: "uniform sampler2D g_Texture0;",
+            with: #"uniform sampler2D g_Texture0; // {"material":"previous"}"#)
+    }
     let stages = [
         stage(
             .vertex,
@@ -1747,7 +1756,8 @@ private func template(
     systemProviderHighest: Bool = true,
     systemProviderLowerReference: Template.TextureReference? = nil,
     mixedSystemNamedBlendOverride: Bool? = nil,
-    colorBlendMaskPath: SceneVFSAssetPath? = nil
+    colorBlendMaskPath: SceneVFSAssetPath? = nil,
+    explicitPreviousSampler: Bool = false
 ) -> Template {
     guard let target = node.target,
           let inputBinding = node.bindings.first,
@@ -1790,7 +1800,8 @@ private func template(
             if case .provider(.namedLayerTarget) = lower { return true }
             return false
         }(),
-        colorBlend: colorBlendMaskPath != nil
+        colorBlend: colorBlendMaskPath != nil,
+        explicitPreviousSampler: explicitPreviousSampler
     )
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
     slots[slot] = .init(index: slot, candidates: [
@@ -4256,6 +4267,195 @@ private func rejectedCrossLayerPreparation(
             && readback.firstPixel == [255, 0, 0, 255],
         safeSuffixCompleted: completed
     )
+}
+
+private func runSelfMixedCurrentScenario(device: MTLDevice, queue: MTLCommandQueue,
+    sourcePipeline: SceneImageLayerPipeline, status: SystemProviderFixtureStatus) -> [String: Bool] {
+    let full = chainedGraph()
+    let graph = Graph(layerID: layerID, effects: Array(full.effects.prefix(2)), renderTargets: [],
+        nodes: Array(full.nodes.prefix(2)), finalOutput: chainedSecondOutput, blockers: [])
+    let selfReference = SceneNamedTextureReference(providerLayerID: layerID, variant: .primary)
+    var entries: [SceneResolvedMaterialRuntimeCatalog.Key: SceneResolvedMaterialRuntimeCatalog.Entry] = [:]
+    for node in graph.nodes {
+        let effect = graph.effects.first { $0.key == node.effect }!
+        let original = node.nodeIndex == 0 ? template(for: node) : template(for: node,
+            userPropertyProvider: "selfOverride", systemProviderLowerReference: .provider(.namedLayerTarget(selfReference)),
+            explicitPreviousSampler: true)
+        let value = Template.validated(textureSlots: original.textureSlots, combos: original.combos,
+            uniformDeclarations: original.uniformDeclarations, renderState: original.renderState,
+            graphRole: original.graphRole, effectContext: .init(key: effect.key, input: effect.input),
+            shaderContract: original.shaderContract, diagnosticProvenance: original.diagnosticProvenance)!
+        entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(value)
+    }
+    let owner = SceneDependencyRenderPlan.Reference(consumerLayerID: layerID, providerLayerID: layerID,
+        slot: .init(effectID: chainedSecondEffect.descriptorID, passIndex: 0, slotIndex: 1), variant: .primary)
+    let chain = orderedLayerGraph(graph)
+    let capabilities = capabilities(chain, catalog: .init(entries: entries, resourceDemandIssues: []),
+        secondarySelfUnavailableReference: owner)
+    var result = ["prepared": false, "program": false, "gpuCompleted": false, "pixels": false,
+        "selectedFact": false, "selectedVariantPurpose": false, "sourceAtom": false]
+    guard let claim = capabilities.claim(chain), let capability = capabilities.resolve(claim.token, for: chain),
+          let leases = makeChainedLeases(capability, device: device),
+          let executor = Executor(device: device, capabilities: capabilities), let command = queue.makeCommandBuffer()
+    else { return result }
+    let userIdentity = SceneFrameTextureIdentity.materialUserProperty(SceneUserPropertyTextureIdentity(
+        propertyKey: "selfOverride", purpose: .preservedChannels)!)
+    let lookup: SceneFrameTextureLookupStatus
+    if status == .ready {
+        let candidate = SceneTextureCandidate(texture: makeSource(device, bgra: [0, 0, 255, 255]),
+            identity: .provider(.mediaThumbnailCurrent), generation: .provider(contentGeneration: 1),
+            purpose: .preservedChannels, content: .data, physicalSize: CGSize(width: 1, height: 1),
+            mappedSize: CGSize(width: 1, height: 1), uvTransform: .identity, sampling: .linearClamp)
+        lookup = .ready(.init(publication: .init(requestIdentity: userIdentity, candidate: candidate,
+            contentGeneration: 1), resourceGeneration: 1))
+    } else { lookup = systemProviderStatus(status, device: device, generation: 1) }
+    let preparation = executor.prepare(token: claim.token, leases: leases,
+        historyRehydrateCopiesByEffect: [:], frame: frame(1, textureEntries: [userIdentity: lookup]),
+        sourceTexture: makeSource(device, bgra: [255, 0, 0, 255]), sourceUniforms: .neutral(),
+        sourcePipeline: sourcePipeline, frameInputs: .init(), commandBuffer: command,
+        previousStates: [:], previousGraphResources: [:], effectGeneration: 1, resetGeneration: 1)
+    guard case let .success(prepared) = preparation else {
+        FileHandle.standardError.write(Data("self-mixed-\(status):\(failureCode(preparation))\n".utf8)); return result
+    }
+    result["prepared"] = true
+    result["program"] = prepared.stages[1].effectLocalFailureReasonCode == nil
+        && prepared.stages[1].programCacheKeys.count == 1
+    if let material = capability.material(for: graph.nodes[1]),
+       let overlaid = frame(1, textureEntries: [userIdentity: lookup]).overlayingGraphResources([
+           chainedFirstOutput: prepared.stages[0].effectOutputResource
+       ]), case let .success(program) = SceneResolvedMaterialProgramFinalizer.finalize(
+           overlaid.finalizationInput(template: material.template, layerID: layerID,
+               renderSize: CGSize(width: extent.width, height: extent.height),
+               modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
+               effectOutputModelViewProjection: matrix_identity_float4x4,
+               effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
+               implicitFramebufferIdentity: chainedFirstOutput), variantCache: material.variants
+       ), let slot = program.textureSlots[1] {
+        let ready = status == .ready
+        result["selectedFact"] = ready ? slot.graphInputSourceFact == nil
+            : slot.graphInputSourceFact?.inputIdentity == chainedFirstOutput
+                && slot.graphInputSourceFact?.selectionProvenance == slot.diagnosticSelectionProvenance
+                && program.semanticIdentity.graphRole.bindings.contains(.init(slot: 1, texture: .effectOutput))
+        result["selectedVariantPurpose"] = slot.expectedPurpose == (ready ? .preservedChannels : .premultipliedColor)
+        result["sourceAtom"] = ready ? slot.registryIdentity == userIdentity
+            : slot.resource.publication.isSameAtom(as: prepared.stages[0].effectOutputResource.publication)
+                && slot.resource.resourceGeneration == prepared.stages[0].effectOutputResource.resourceGeneration
+    }
+    guard executor.encode(prepared, commandBuffer: command),
+          let read = appendReadback(prepared.finalTexture, commandBuffer: command) else { return result }
+    command.commit(); command.waitUntilCompleted()
+    result["gpuCompleted"] = command.status == .completed && command.error == nil
+    let expected: [UInt8] = status == .ready ? [0, 64, 64, 128] : [0, 128, 0, 128]
+    result["pixels"] = matches(read.firstPixel, expected) && matches(read.lastPixel, expected)
+    return result
+}
+
+private func runSelfCompositeCurrentScenario(
+    device: MTLDevice, queue: MTLCommandQueue, sourcePipeline: SceneImageLayerPipeline,
+    stageCount: Int, variant: SceneNamedTextureReference.Variant, usesDefault: Bool
+) -> [String: Bool] {
+    let selfReference = SceneNamedTextureReference(providerLayerID: layerID, variant: variant)
+    let token = "_rt_imageLayerComposite_\(layerID)_\(variant == .primary ? "a" : "b")"
+    let colors = ["0.0, 1.0, 0.0", "1.0, 0.0, 0.0", "1.0, 1.0, 0.0"]
+    let expected: [[UInt8]] = [[0, 255, 0, 255], [0, 0, 255, 255], [0, 255, 255, 255]]
+    var effects: [Graph.Effect] = [], nodes: [Graph.Node] = []
+    var entries: [SceneResolvedMaterialRuntimeCatalog.Key: SceneResolvedMaterialRuntimeCatalog.Entry] = [:]
+    var current = input
+    for index in 0 ..< stageCount {
+        let key = Graph.EffectKey(layerID: layerID, effectIndex: index, descriptorID: "self-current-\(index)")
+        let output = Graph.TextureIdentity(kind: .effectOutput, layerID: layerID, effect: key, name: nil)
+        let probe = index == stageCount - 1
+        let original = material(index, ordinal: 0, target: output, read: current, owner: key)
+        let node = Graph.Node(nodeIndex: index, effect: key, definitionPassIndex: 0,
+            materialOrdinal: 0, instancePassIndex: 0, kind: .material,
+            materialPath: original.materialPath, materialPassID: original.materialPassID,
+            target: output, bindings: probe ? [] : original.bindings,
+            commandSource: nil, commandTarget: nil, compose: nil, conditions: nil)
+        let shader = shaderContract(nodeIndex: index, pass: false,
+            renderTargetDefault: probe && usesDefault ? token : nil,
+            pixelTransform: 0, scalarConsumer: "whole",
+            constantColor: probe ? nil : colors[index])
+        var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
+        if !probe || !usesDefault {
+            slots[0] = .init(index: 0, candidates: [.init(
+                reference: probe ? .provider(.namedLayerTarget(selfReference)) : .graph(current),
+                provenance: probe ? .instance : .explicitBinding)])
+        }
+        let value = Template.validated(textureSlots: slots, combos: [], uniformDeclarations: [],
+            renderState: SceneMaterialRenderState.compile(blending: "normal", depthTest: "disabled",
+                depthWrite: "disabled", cullMode: "nocull", alphaWriting: nil)!,
+            graphRole: .init(effectInput: index == 0 ? .layerSource : .effectOutput,
+                effectOutput: .effectOutput, nodeTarget: .effectOutput,
+                bindings: probe ? [] : [.init(slot: 0, texture: index == 0 ? .layerSource : .effectOutput)]),
+            effectContext: .init(key: key, input: current), shaderContract: shader,
+            diagnosticProvenance: .init(nodeIndex: index, authoredShaderPath: shader.identity,
+                contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
+                textureSources: [], uniformSources: []))!
+        entries[.init(effect: key, nodeIndex: index)] = .template(value)
+        effects.append(.init(key: key, definitionPath: "effects/self-current-\(index).json",
+            input: current, output: output, nodeIndices: [index]))
+        nodes.append(node)
+        current = output
+    }
+    let graph = Graph(layerID: layerID, effects: effects, renderTargets: [], nodes: nodes,
+        finalOutput: current, blockers: [])
+    let chain = orderedLayerGraph(graph)
+    let ownership = SceneDependencyRenderPlan.Reference(consumerLayerID: layerID, providerLayerID: layerID,
+        slot: .init(effectID: effects.last!.key.descriptorID, passIndex: 0, slotIndex: 0), variant: variant)
+    let capabilities = capabilities(chain, catalog: .init(entries: entries, resourceDemandIssues: []),
+        secondarySelfUnavailableReference: usesDefault ? nil : ownership)
+    var result = ["prepared": false, "gpuCompleted": false, "latestOutput": false,
+        "onePair": false, "noResourceCopy": false, "currentPublication": false, "secondFrame": false]
+    guard let claim = capabilities.claim(chain), let capability = capabilities.resolve(claim.token, for: chain),
+          let leases = makeChainedLeases(capability, device: device),
+          let executor = Executor(device: device, capabilities: capabilities) else { return result }
+    result["onePair"] = Set(leases.flatMap { $0.texturesByToken.values.map(ObjectIdentifier.init) }).count == 2
+    var previousStates: [Graph.EffectKey: Executor.State] = [:]
+    var previousResources: [Graph.EffectKey: [Graph.TextureIdentity: SceneFrameTextureResource]] = [:]
+    for frameIndex in 1 ... 2 {
+        guard let command = queue.makeCommandBuffer() else { return result }
+        let preparation = executor.prepare(token: claim.token, leases: leases,
+            historyRehydrateCopiesByEffect: [:], frame: frame(UInt64(frameIndex)),
+            sourceTexture: makeSource(device, bgra: [255, 0, 0, 255]), sourceUniforms: .neutral(),
+            sourcePipeline: sourcePipeline, frameInputs: .init(), commandBuffer: command,
+            previousStates: previousStates, previousGraphResources: previousResources,
+            effectGeneration: 1, resetGeneration: 1)
+        guard case let .success(prepared) = preparation else {
+            FileHandle.standardError.write(Data("self-current-\(stageCount)-\(token)-default\(usesDefault):\(failureCode(preparation))\n".utf8))
+            return result
+        }
+        result["prepared"] = prepared.stages.count == stageCount
+        result["noResourceCopy"] = prepared.stages.allSatisfy { $0.historyRehydrateCopyCount == 0
+            && $0.transition.transaction.intents.allSatisfy { if case .copy = $0 { return false }; return true } }
+        let final = prepared.stages.last!, prior = prepared.stages[stageCount - 2]
+        if let material = capability.material(for: nodes.last!),
+           let overlaid = frame(UInt64(frameIndex)).overlayingGraphResources([
+               effects.last!.input: prior.effectOutputResource
+           ]), case let .success(program) = SceneResolvedMaterialProgramFinalizer.finalize(
+               overlaid.finalizationInput(template: material.template, layerID: layerID,
+                   renderSize: CGSize(width: extent.width, height: extent.height),
+                   modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
+                   effectOutputModelViewProjection: matrix_identity_float4x4,
+                   effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
+                   implicitFramebufferIdentity: effects.last!.input), variantCache: material.variants
+           ), let slot = program.textureSlots[0] {
+            result["currentPublication"] = slot.reference == .graph(effects.last!.input)
+                && slot.resource.publication.isSameAtom(as: prior.effectOutputResource.publication)
+                && slot.resource.resourceGeneration == prior.effectOutputResource.resourceGeneration
+                && final.pairStep.inputMember != final.pairStep.outputMember
+        }
+        guard executor.encode(prepared, commandBuffer: command),
+              let read = appendReadback(prepared.finalTexture, commandBuffer: command) else { return result }
+        command.commit(); command.waitUntilCompleted()
+        result["gpuCompleted"] = command.status == .completed && command.error == nil
+        result["latestOutput"] = matches(read.firstPixel, expected[stageCount - 2])
+            && matches(read.lastPixel, expected[stageCount - 2])
+        if !result["gpuCompleted"]! || !result["latestOutput"]! { return result }
+        previousStates = Dictionary(uniqueKeysWithValues: prepared.stages.map { ($0.effect, $0.transition.nextState) })
+        previousResources = Dictionary(uniqueKeysWithValues: prepared.stages.map { ($0.effect, $0.persistentResources) })
+        if frameIndex == 2 { result["secondFrame"] = true }
+    }
+    return result
 }
 
 @main
@@ -10050,6 +10250,47 @@ private enum Harness {
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
+    def test_same_layer_names_consume_latest_effect_output_without_snapshot(self) -> None:
+        harness = HARNESS.split("@main\nprivate enum Harness", 1)[0] + r'''
+@main
+private enum SelfCompositeHarness {
+    static func main() throws {
+        setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)
+        guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
+            print("{\"metalAvailable\":false}"); return
+        }
+        var results: [String: Bool] = [:]
+        for status in [SystemProviderFixtureStatus.ready, .absent, .pending, .unavailable] {
+            for (name, value) in runSelfMixedCurrentScenario(device: device, queue: queue,
+                sourcePipeline: makeSourcePipeline(device), status: status) {
+                results["mixed-\(status)-" + name] = value
+            }
+        }
+        for count in 2 ... 4 {
+            for variant in [SceneNamedTextureReference.Variant.primary, .secondary] {
+                for usesDefault in [false, true] {
+                    let label = "stage\(count)-\(variant)-default\(usesDefault)-"
+                    for (name, value) in runSelfCompositeCurrentScenario(device: device, queue: queue,
+                        sourcePipeline: makeSourcePipeline(device), stageCount: count,
+                        variant: variant, usesDefault: usesDefault) { results[label + name] = value }
+                }
+            }
+        }
+        let data = try JSONSerialization.data(withJSONObject: ["metalAvailable": true, "results": results], options: [.sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    }
+}
+'''
+        compilation, completed = compile_lit_harness(SUPPORT, harness)
+        self.assertEqual(compilation.returncode, 0, compilation.stderr)
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = json.loads(completed.stdout)
+        if not payload["metalAvailable"]:
+            self.skipTest("Metal is unavailable")
+        self.assertEqual([key for key, passed in payload["results"].items() if not passed], [], payload)
+
     def test_production_executor_preflights_and_executes_atomic_graph(self) -> None:
         compilation, completed = compile_lit_harness(SUPPORT, HARNESS)
         self.assertEqual(compilation.returncode, 0, compilation.stderr)

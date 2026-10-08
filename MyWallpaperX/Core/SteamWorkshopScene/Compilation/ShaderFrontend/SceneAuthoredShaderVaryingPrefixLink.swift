@@ -194,7 +194,9 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                   body != vertexMain && body.contains {
                       vertexTokens[$0].text == name
                   }
-              }) else { return nil }
+              }),
+              !hasFunctionParameter(named: name, in: fragmentTokens)
+        else { return nil }
         let required = String("xyzw".prefix(fragmentWidth))
         let publishedComponents = Set("xyzw".prefix(vertexWidth))
 
@@ -219,7 +221,7 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                               publishedComponents.contains(canonicalComponent($0))
                           }),
                           previous != "return",
-                          safeCallContext(
+                          safeReadOnlyCallContext(
                               index,
                               tokens: fragmentTokens,
                               body: body,
@@ -245,9 +247,11 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                         guard body == fragmentMain,
                               swizzle.allSatisfy({ required.contains($0) })
                         else { return nil }
-                    } else if let following,
-                              ["++", "--", "["].contains(following) {
-                        return nil
+                    } else {
+                        guard isComponentReadOnlyUse(
+                            start: index, end: index + 3,
+                            tokens: fragmentTokens, body: body
+                        ) else { return nil }
                     }
                     readComponents.formUnion(swizzle)
                 } else {
@@ -265,7 +269,10 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                     } else if previous == "return" {
                         return nil
                     }
-                    guard safeCallContext(
+                    guard isComponentReadOnlyUse(
+                        start: index, end: index + 1,
+                        tokens: fragmentTokens, body: body
+                    ), safeReadOnlyCallContext(
                         index,
                         tokens: fragmentTokens,
                         body: body,
@@ -462,12 +469,12 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                 index == body.lowerBound || ![
                     "return", "++", "--",
                 ].contains(fragmentTokens[index - 1].text),
-                isReverseComponentReadOnlyUse(
-                    swizzleEnd: after,
+                isComponentReadOnlyUse(
+                    start: index, end: after,
                     tokens: fragmentTokens,
                     body: body
                 ),
-                safeReverseComponentCallContext(
+                safeReadOnlyCallContext(
                     index,
                     tokens: fragmentTokens,
                     body: body,
@@ -520,29 +527,30 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
         return true
     }
 
-    private static func isReverseComponentReadOnlyUse(
-        swizzleEnd: Int,
+    /// Parentheses preserve an lvalue; a constructor/call creates a value.
+    /// Peel only grouping around this exact reference before checking writes
+    /// and indexing, so `(value.xy) += ...` cannot masquerade as a pure read.
+    private static func isComponentReadOnlyUse(
+        start: Int,
+        end: Int,
         tokens: [SceneAuthoredShaderToken],
         body: Range<Int>
     ) -> Bool {
-        var cursor = swizzleEnd
-        var nestedClosures = 0
-        while cursor < body.upperBound {
-            let text = tokens[cursor].text
-            if text == ")" {
-                nestedClosures += 1
-                cursor += 1
-                continue
-            }
-            if nestedClosures > 0 {
-                if ["=", "+=", "-=", "*=", "/=", "%=", "++", "--", ".", "[", "]"].contains(text) {
-                    return false
-                }
-                return true
-            }
-            return !["=", "+=", "-=", "*=", "/=", "%=", "++", "--", ".", "[", "]"].contains(text)
+        var lower = start
+        var upper = end
+        while lower > body.lowerBound, upper < body.upperBound,
+              tokens[lower - 1].text == "(", tokens[upper].text == ")" {
+            if lower >= body.lowerBound + 2,
+               tokens[lower - 2].kind == .identifier,
+               tokens[lower - 2].text != "return" { break }
+            lower -= 1
+            upper += 1
         }
-        return true
+        return (lower == body.lowerBound
+            || !["return", "++", "--"].contains(tokens[lower - 1].text))
+            && (upper == body.upperBound
+            || !["=", "+=", "-=", "*=", "/=", "%=", "++", "--", ".", "[", "]"]
+                .contains(tokens[upper].text))
     }
 
     private static func canonicalComponent(_ value: Character) -> Character {
@@ -607,11 +615,12 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
         return false
     }
 
-    /// Reverse-prefix reads may occur in pure arithmetic built-ins (the B5
-    /// shader uses `step`, `min`, `max`, and `mix`).  User-defined calls remain
-    /// closed unless they are texture samples already proven value-only by the
-    /// shared emitter contract.
-    private static func safeReverseComponentCallContext(
+    /// Prefix reads in either direction may occur in unshadowed constructors,
+    /// pure arithmetic built-ins, or the exact coordinate argument of texture
+    /// samples already proven value-only by the shared emitter contract. Every
+    /// enclosing call must satisfy that contract, including outer calls around
+    /// a constructor or texture sample.
+    private static func safeReadOnlyCallContext(
         _ index: Int,
         tokens: [SceneAuthoredShaderToken],
         body: Range<Int>,
@@ -628,7 +637,7 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
             "abs", "acos", "asin", "atan", "ceil", "clamp", "cos", "cross",
             "degrees", "distance", "dot", "exp", "exp2", "floor", "fract",
             "inversesqrt", "length", "log", "log2", "max", "min", "mix",
-            "mod", "normalize", "pow", "radians", "reflect", "round", "sign",
+            "mod", "normalize", "pow", "radians", "reflect", "round", "saturate", "sign",
             "sin", "smoothstep", "sqrt", "step", "tan", "trunc",
         ]
         guard index > body.lowerBound else { return true }
@@ -654,6 +663,8 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                 continue
             }
             let function = tokens[opening - 1].text
+            // Control-statement parentheses group a condition, not a call.
+            if ["if", "for", "while", "switch"].contains(function) { continue }
             if !functionNames.contains(function),
                constructors.contains(function) || pureBuiltins.contains(function) {
                 continue
@@ -701,65 +712,6 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
         let preceding = index >= body.lowerBound + 4
             ? tokens[index - 4].text : "{"
         return preceding == "{" || preceding == ";"
-    }
-
-    /// Passing the stage input to an unknown call could bind it to `out` or
-    /// `inout`. Constructors create a value. The shared frontend's exact
-    /// texture-sampling built-ins also consume their coordinate argument as a
-    /// value; no other argument or call context is admitted here.
-    private static func safeCallContext(
-        _ index: Int,
-        tokens: [SceneAuthoredShaderToken],
-        body: Range<Int>,
-        functionNames: Set<String>
-    ) -> Bool {
-        let constructors: Set<String> = [
-            "float", "vec2", "vec3", "vec4",
-            "int", "ivec2", "ivec3", "ivec4",
-            "uint", "uvec2", "uvec3", "uvec4",
-            "bool", "bvec2", "bvec3", "bvec4",
-            "mat2", "mat3", "mat4",
-        ]
-        var closedParentheses = 0
-        guard index > body.lowerBound else { return true }
-        for cursor in stride(from: index - 1, through: body.lowerBound, by: -1) {
-            let text = tokens[cursor].text
-            if text == ")" {
-                closedParentheses += 1
-                continue
-            }
-            if text == "(" {
-                if closedParentheses > 0 {
-                    closedParentheses -= 1
-                    continue
-                }
-                guard cursor > body.lowerBound,
-                      tokens[cursor - 1].kind == .identifier else { continue }
-                let function = tokens[cursor - 1].text
-                if constructors.contains(function) { return true }
-                guard let expectedArgumentCount = SceneAuthoredShaderMetalEmitter
-                          .textureSampleArgumentCount(
-                              function,
-                              functionNames: functionNames
-                          ),
-                      let closing = SceneAuthoredShaderTokenScanner
-                          .matchingParenthesis(tokens: tokens, opening: cursor),
-                      closing < body.upperBound,
-                      let arguments = SceneAuthoredShaderMetalEmitter
-                          .textureSampleArguments(
-                              tokens: tokens,
-                              opening: cursor,
-                              closing: closing
-                          ),
-                      arguments.count == expectedArgumentCount,
-                      arguments[1].contains(index) else { return false }
-                return true
-            }
-            if closedParentheses == 0, [";", "{", "}"].contains(text) {
-                return true
-            }
-        }
-        return true
     }
 
     private static func mainBody(

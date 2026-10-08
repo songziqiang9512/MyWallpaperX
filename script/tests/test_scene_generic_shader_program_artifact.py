@@ -811,17 +811,22 @@ private struct GenericShaderArtifactHarness {
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
         }
-        if CommandLine.arguments[1] == "--normalizer-integer-rounding" {
-            let vertex = [
+        if ["--normalizer-integer-rounding", "--normalizer-source"].contains(CommandLine.arguments[1]) {
+            let defaultVertex = [
                 "attribute vec3 a_Position;", "attribute vec2 a_TexCoord;",
                 "varying vec2 v_TexCoord;",
                 "void main() {", "gl_Position = vec4(a_Position, 1.0);",
                 "v_TexCoord = a_TexCoord;", "}"
             ].joined(separator: "\n")
+            let vertex = CommandLine.arguments.count > 3
+                ? try String(contentsOfFile: CommandLine.arguments[3], encoding: .utf8)
+                : defaultVertex
             let fragment = try String(contentsOfFile: CommandLine.arguments[2], encoding: .utf8)
             let canonical = SceneAuthoredShaderBackendCanonicalizer.canonicalize(vertex: vertex, fragment: fragment)
             let normalized = SceneGenericShaderSourceNormalizer.normalize(vertexSource: canonical.vertex, fragmentSource: canonical.fragment, maximumStageSourceBytes: 64 * 1024)
             var output: [String: String] = ["canonical": canonical.fragment]
+            let repeated = SceneAuthoredShaderBackendCanonicalizer.canonicalize(vertex: canonical.vertex, fragment: canonical.fragment)
+            output["idempotent"] = String(repeated == canonical)
             switch normalized {
             case let .success(pair): output["vertex"] = pair.vertex; output["fragment"] = pair.fragment
             case let .failure(error): output["error"] = String(describing: error)
@@ -1491,6 +1496,103 @@ private struct GenericShaderArtifactHarness {
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
         }
+        if CommandLine.arguments[1] == "--normalizer-varying-readonly-builtins" {
+            let vertex = [
+                "attribute vec3 a_Position;",
+                "attribute vec2 a_TexCoord;",
+                "varying vec4 renamedCarrier;",
+                "void main() {",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "    renamedCarrier.xy = a_TexCoord;",
+                "}",
+            ].joined(separator: "\n")
+            let declarations = "uniform sampler2D g_Texture3;\nuniform float g_Time;\nvarying vec2 renamedCarrier;\n"
+            let fragment = declarations + [
+                "void main() {",
+                "    vec4 sampled = texSample2D(g_Texture3, renamedCarrier);",
+                "    vec2 localCopy = renamedCarrier;",
+                "    renamedCarrier.x += fmod(g_Time, 6.28) * 0.2;",
+                "    float mask = pow(saturate(1.0 - abs(sin(renamedCarrier.x * 10.0) - renamedCarrier.y)), 2.0);",
+                "    gl_FragColor = sampled + vec4(localCopy * mask, 0.0, 0.0);",
+                "}",
+            ].joined(separator: "\n")
+            let normalized = SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: vertex,
+                fragmentSource: fragment,
+                maximumStageSourceBytes: 64 * 1_024
+            )
+            let bounded = SceneAuthoredShaderFrontend.compile(
+                vertexSource: vertex,
+                fragmentSource: fragment
+            )
+            var output: [String: Bool] = [
+                "pureBuiltinsBoundedAccepted": bounded.diagnostics.isEmpty
+                    && bounded.program != nil,
+                "pureBuiltinsGenericAccepted": false,
+                "mainMutationPreserved": false,
+                "prefixValueCopyPreserved": false,
+                "unusedSuffixNotFilled": false,
+            ]
+            if case let .success(pair) = normalized {
+                output["pureBuiltinsGenericAccepted"] = true
+                output["mainMutationPreserved"] = pair.fragment.contains(
+                    "mwxMutable_renamedCarrier.x += fmod(g_Time, 6.28)"
+                ) && pair.fragment.contains("sin(mwxMutable_renamedCarrier.x")
+                output["prefixValueCopyPreserved"] = pair.fragment.contains(
+                    "vec2 localCopy = mwxMutable_renamedCarrier.xy;"
+                )
+                output["unusedSuffixNotFilled"] = !pair.vertex.contains("MWX zero-fill")
+            }
+            let safeControlBodies: [String: String] = [
+                "ifControlAccepted": "if (vec2(renamedCarrier.xy).x > 0.5) { localCopy *= 0.5; }",
+                "forControlAccepted": "for (int i = 0; i < 2 && renamedCarrier.x > 0.5; i++) { localCopy *= 0.5; }",
+                "whileControlAccepted": "int i = 0; while (i < 2 && renamedCarrier.x > 0.5) { localCopy *= 0.5; i++; }",
+            ]
+            for (name, body) in safeControlBodies {
+                let candidate = declarations + "void main() { vec2 localCopy = renamedCarrier; " + body + " gl_FragColor = vec4(localCopy, 0.0, 1.0); }"
+                let boundedResult = SceneAuthoredShaderFrontend.compile(vertexSource: vertex, fragmentSource: candidate)
+                let genericResult = SceneGenericShaderSourceNormalizer.normalize(vertexSource: vertex, fragmentSource: candidate, maximumStageSourceBytes: 64 * 1_024)
+                // Loop execution bounds have a separate admission owner; this
+                // gate checks the shared stage-link proof only.
+                if case .success = genericResult {
+                    output[name] = !boundedResult.diagnostics.map(\.code).contains(.stageLinkMismatch)
+                } else { output[name] = false }
+            }
+            let shadow = declarations + "vec2 helper(vec2 renamedCarrier) { return sin(renamedCarrier); }\nvoid main() { vec2 localCopy = renamedCarrier; gl_FragColor = vec4(helper(localCopy), 0.0, 1.0); }"
+            output["parameterShadowBoundedRejected"] = SceneAuthoredShaderFrontend.compile(vertexSource: vertex, fragmentSource: shadow).diagnostics.map(\.code).contains(.stageLinkMismatch)
+            let unsafeBodies: [String: String] = [
+                "groupedMutationRejectedByBoth": "void helper() { sin((renamedCarrier.xy) += vec2(1.0)); }\nvoid main() { vec2 localCopy = renamedCarrier; helper(); gl_FragColor = vec4(localCopy, 0.0, 1.0); }",
+                "groupedPrefixMutationRejectedByBoth": "void helper() { sin(++(renamedCarrier.xy)); }\nvoid main() { vec2 localCopy = renamedCarrier; helper(); gl_FragColor = vec4(localCopy, 0.0, 1.0); }",
+
+                "shadowSinRejectedByBoth": "vec2 sin(vec2 value) { return value; }\nvoid main() { gl_FragColor = vec4(sin(renamedCarrier.xy), 0.0, 1.0); }",
+                "shadowSaturateRejectedByBoth": "vec2 saturate(vec2 value) { return value; }\nvoid main() { gl_FragColor = vec4(saturate(renamedCarrier.xy), 0.0, 1.0); }",
+                "shadowConstructorRejectedByBoth": "vec2 vec2(vec2 value) { return value; }\nvoid main() { gl_FragColor = vec4(vec2(renamedCarrier.xy), 0.0, 1.0); }",
+                "unknownAroundConstructorRejectedByBoth": "vec2 unknownHelper(vec2 value) { return value; }\nvoid main() { gl_FragColor = vec4(unknownHelper(vec2(renamedCarrier.xy)), 0.0, 1.0); }",
+                "unknownAroundTextureRejectedByBoth": "vec4 unknownHelper(vec4 value) { return value; }\nvoid main() { gl_FragColor = unknownHelper(texSample2D(g_Texture3, renamedCarrier)); }",
+                "outRejectedByBoth": "void capture(out vec2 value) { value = vec2(0.0); }\nvoid main() { capture(renamedCarrier.xy); gl_FragColor = vec4(1.0); }",
+                "inoutRejectedByBoth": "void mutate(inout vec2 value) { value = vec2(0.0); }\nvoid main() { mutate(renamedCarrier.xy); gl_FragColor = vec4(1.0); }",
+            ]
+            for (name, body) in unsafeBodies {
+                let candidate = declarations + body
+                let boundedResult = SceneAuthoredShaderFrontend.compile(
+                    vertexSource: vertex,
+                    fragmentSource: candidate
+                )
+                let genericResult = SceneGenericShaderSourceNormalizer.normalize(
+                    vertexSource: vertex,
+                    fragmentSource: candidate,
+                    maximumStageSourceBytes: 64 * 1_024
+                )
+                if case .failure(.varyingUnsupported) = genericResult {
+                    output[name] = boundedResult.diagnostics.map(\.code)
+                        .contains(.stageLinkMismatch)
+                } else {
+                    output[name] = false
+                }
+            }
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
         if CommandLine.arguments[1] == "--normalizer-mutable-fragment-varying" {
             let vertex = [
                 "attribute vec3 a_Position;",
@@ -1770,9 +1872,12 @@ private struct GenericShaderArtifactHarness {
                 "}",
             ].joined(separator: "\n")
             let blendNormalized: String
+            let blendCanonical = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: vertex, fragment: blendFragment
+            )
             switch SceneGenericShaderSourceNormalizer.normalize(
-                vertexSource: vertex,
-                fragmentSource: blendFragment,
+                vertexSource: blendCanonical.vertex,
+                fragmentSource: blendCanonical.fragment,
                 maximumStageSourceBytes: 64 * 1_024
             ) {
             case let .success(pair): blendNormalized = pair.fragment
@@ -5406,6 +5511,35 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "requestIdentityChanged": True,
         })
 
+    def test_varying_prefix_pure_builtin_reads_preserve_both_backend_boundaries(self):
+        completed = subprocess.run(
+            [str(self.binary), "--normalizer-varying-readonly-builtins"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "ifControlAccepted": True,
+            "forControlAccepted": True,
+            "whileControlAccepted": True,
+            "groupedMutationRejectedByBoth": True,
+            "groupedPrefixMutationRejectedByBoth": True,
+            "parameterShadowBoundedRejected": True,
+            "pureBuiltinsBoundedAccepted": True,
+            "pureBuiltinsGenericAccepted": True,
+            "mainMutationPreserved": True,
+            "prefixValueCopyPreserved": True,
+            "unusedSuffixNotFilled": True,
+            "shadowSinRejectedByBoth": True,
+            "shadowSaturateRejectedByBoth": True,
+            "shadowConstructorRejectedByBoth": True,
+            "unknownAroundConstructorRejectedByBoth": True,
+            "unknownAroundTextureRejectedByBoth": True,
+            "outRejectedByBoth": True,
+            "inoutRejectedByBoth": True,
+        })
+
     def test_swift_normalizer_localizes_only_main_scoped_mutable_varying(self):
         completed = subprocess.run(
             [str(self.binary), "--normalizer-mutable-fragment-varying"],
@@ -5911,6 +6045,106 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "arithmeticRewriteIdempotent": True,
         })
 
+    def test_product_normalizer_broadcasts_only_typed_scalar_builtin_assignments(self):
+        fragment = """
+            varying vec2 v_TexCoord;
+            uniform sampler2D g_Texture0;
+            uniform float u_Thickness;
+            uniform float u_Frequency;
+            uniform float u_Amplitude;
+            uniform float u_Intensity;
+            uniform float u_Opacity;
+            uniform vec2 u_Offset;
+            vec3 composeColor(vec3 base, vec3 color, float weight) {
+                return mix(base, color, weight);
+            }
+            void main() {
+                vec4 scene = texSample2D(g_Texture0, v_TexCoord);
+                vec2 signal = v_TexCoord;
+                signal = pow(saturate(u_Thickness - abs(sin(v_TexCoord.x * 10 / u_Frequency + u_Offset.x) - (v_TexCoord.y * 10 + u_Offset.y) / u_Amplitude)), 1.0 / u_Intensity);
+                vec3 result = composeColor(scene.rgb, vec3(0.25), u_Opacity * signal);
+                gl_FragColor = vec4(result, scene.a);
+            }
+        """
+
+        def normalized(source):
+            with tempfile.TemporaryDirectory(prefix="mwx-scalar-broadcast-test-") as directory:
+                path = Path(directory) / "fixture.frag"
+                path.write_text(textwrap.dedent(source), encoding="utf-8")
+                completed = subprocess.run(
+                    [str(self.binary), "--normalizer-source", str(path)],
+                    cwd=REPOSITORY_ROOT, check=True, capture_output=True, text=True,
+                )
+            return json.loads(completed.stdout)
+
+        output = normalized(fragment)
+        self.assertNotIn("error", output)
+        self.assertEqual(output["idempotent"], "true")
+        compact = "".join(output["fragment"].split())
+        self.assertIn("signal=vec2(pow(saturate(", compact)
+        self.assertIn("1.0/u_Intensity));", compact)
+        # Use bare read-only arguments so the existing function conversion
+        # owner can prove the compound vector value independently of calls.
+        direct = normalized(fragment.replace("vec3(0.25)", "scene.rgb"))
+        self.assertIn("(u_Opacity*signal).x", "".join(direct["fragment"].split()))
+        with tempfile.TemporaryDirectory(prefix="mwx-scalar-broadcast-compile-") as directory:
+            root = Path(directory)
+            vertex_path, fragment_path = root / "fixture.vert", root / "fixture.frag"
+            vertex_path.write_text(direct["vertex"], encoding="utf-8")
+            fragment_path.write_text(direct["fragment"], encoding="utf-8")
+            compiler = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneShaderCompilerTools/glslang"
+            compiled = subprocess.run(
+                [str(compiler), "-V", "--auto-map-bindings", "--auto-map-locations",
+                 "-l", str(vertex_path), str(fragment_path)],
+                cwd=root, capture_output=True, text=True,
+            )
+            self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+
+        member = normalized(fragment.replace(
+            "vec2 signal = v_TexCoord;",
+            "vec2 signal = v_TexCoord; signal.x = sin(u_Intensity);",
+        ).replace("uniform float u_Thickness;", "uniform float u_Thickness;\nuniform vec2 x;"))
+        self.assertIn("signal.x=sin(u_Intensity);", "".join(member["fragment"].split()))
+        self.assertNotIn("signal.x=vec2(", "".join(member["fragment"].split()))
+
+        for parameter in ("out float weight", "inout float weight", "int weight", "bool weight"):
+            with self.subTest(parameter=parameter):
+                candidate = fragment.replace("vec3(0.25)", "scene.rgb").replace(
+                    "float weight)", parameter + ")"
+                )
+                preserved = normalized(candidate)
+                self.assertNotIn("(u_Opacity*signal).x", "".join(preserved["fragment"].split()))
+
+        for replacement in (
+            "unknown(u_Thickness)",
+            "sin(v_TexCoord)",
+            "pow(v_TexCoord, u_Intensity)",
+            "u_Thickness + v_TexCoord",
+            "v_TexCoord * vec3(1.0)",
+        ):
+            with self.subTest(replacement=replacement):
+                candidate = fragment.replace(
+                    "pow(saturate(u_Thickness - abs(sin(v_TexCoord.x * 10 / u_Frequency + u_Offset.x) - (v_TexCoord.y * 10 + u_Offset.y) / u_Amplitude)), 1.0 / u_Intensity)",
+                    replacement,
+                )
+                rejected = normalized(candidate)
+                self.assertNotIn("signal=vec2(" + "".join(replacement.split()),
+                                 "".join(rejected.get("fragment", "").split()))
+
+        for parameters in ("float value", "out float value", "inout float value"):
+            with self.subTest(parameters=parameters):
+                shadowed = normalized(fragment.replace(
+                    "void main() {",
+                    f"float sin({parameters}) {{ return value; }}\nvoid main() {{",
+                ))
+                self.assertNotIn("signal=vec2(pow(", "".join(shadowed["fragment"].split()))
+        overloaded = normalized(fragment.replace(
+            "void main() {",
+            "float sin(float value) { return value; }\n"
+            "vec2 sin(vec2 value) { return value; }\nvoid main() {",
+        ))
+        self.assertNotIn("signal=vec2(pow(", "".join(overloaded["fragment"].split()))
+
     def test_numeric_boolean_identifiers_preserve_non_numeric_uses(self):
         completed = subprocess.run(
             [str(self.binary), "--normalizer-boolean-identifiers"],
@@ -5940,6 +6174,48 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "untypedArgumentPreserved": True,
             "mixedWidthArgumentPreserved": True,
         })
+
+    def test_late_vector_arguments_preserve_writable_interface_swizzles(self):
+        compiler = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneShaderCompilerTools/glslang"
+        fragment = "varying vec4 carrier;\nvoid main() { gl_FragColor = carrier; }"
+        for qualifier in ("out", "inout"):
+            with self.subTest(qualifier=qualifier), tempfile.TemporaryDirectory(
+                prefix="mwx-writable-vector-"
+            ) as directory:
+                root = Path(directory)
+                vertex = textwrap.dedent("""
+                    attribute vec3 a_Position;
+                    attribute vec2 a_TexCoord;
+                    varying vec4 carrier;
+                    uniform int u_Count;
+                    float writePair(QUALIFIER vec2 pair) {
+                        pair = vec2(0.2, 0.4); return 1.0;
+                    }
+                    void main() {
+                        carrier = vec4(0.0, 0.0, 0.6, 1.0);
+                        float written = writePair(carrier);
+                        for (int i = 0; i < u_Count; ++i) { carrier.z += 0.001; }
+                        gl_Position = vec4(a_Position, written);
+                    }
+                """).replace("QUALIFIER", qualifier)
+                (root / "author.vert").write_text(vertex)
+                (root / "author.frag").write_text(fragment)
+                result = subprocess.run(
+                    [str(self.binary), "--normalizer-source", str(root / "author.frag"),
+                     str(root / "author.vert")], cwd=REPOSITORY_ROOT,
+                    capture_output=True, text=True, check=True,
+                )
+                pair = json.loads(result.stdout)
+                self.assertNotIn("error", pair)
+                self.assertIn("writePair(carrier.xy)", "".join(pair["vertex"].split()))
+                for stage in ("vertex", "fragment"):
+                    (root / ("normalized.vert" if stage == "vertex" else "normalized.frag")).write_text(pair[stage])
+                linked = subprocess.run(
+                    [str(compiler), "-V", "--auto-map-bindings", "--auto-map-locations",
+                     "-l", "normalized.vert", "normalized.frag"],
+                    cwd=root, capture_output=True, text=True,
+                )
+                self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
 
     def test_product_normalizer_admits_loose_builtin_compat_shapes(self):
         completed = subprocess.run(

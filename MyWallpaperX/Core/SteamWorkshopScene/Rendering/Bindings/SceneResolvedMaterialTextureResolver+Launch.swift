@@ -92,7 +92,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             return background
         }
         guard let inputIdentity,
-              SceneResolvedMaterialShaderSchema.exactEffectInput(inputIdentity, template: template),
+              SceneResolvedMaterialShaderSchema.exactEffectInput(inputIdentity, template: template, requiresEffectContext: true),
               SceneResolvedMaterialShaderSchema.sameLayerCompositeDefault(
                   sampler.defaultTexture, inputIdentity: inputIdentity
               ) else { return nil }

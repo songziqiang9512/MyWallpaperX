@@ -29,8 +29,8 @@ nonisolated enum SceneGenericShaderAnalysisCache {
     /// normalizer or profile-classification semantic change lands (the shared
     /// frontendSchemaVersion constant has no mechanical bump guarantee).
     /// v11: dead resource work shares the conservative deletion Projection.
-    /// v12: typed scene-background color input facts participate in the ABI.
-    private static let schemaVersion = 12
+    /// v13: shared varying-prefix proof and scalar/vector conversion semantics.
+    private static let schemaVersion = 13
     private static let maximumEntryBytes = 64 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()

@@ -57,6 +57,9 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         #"^\s*(uniform|attribute|varying)\s+([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)?(?:\s*\[\s*([0-9]+)\s*\])?\s*;\s*(?://.*)?$"#
     )
 
+    /// Product callers supply shared BackendCanonicalizer compiler sources.
+    /// Scalar broadcast/truncation belongs there; this pass retains the later
+    /// interface-vector adaptation after declaration and stage-link lowering.
     static func normalize(
         vertexSource: String,
         fragmentSource: String,
@@ -73,8 +76,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 rewriteAssignmentVectorConversions(
                     SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewriteUsingBoundedSyntax(
                         SceneGenericShaderScalarArithmeticNormalizer.rewrite(
-                            renameMetalReservedAlternativeTokens(vertexSource),
-                            stage: .vertex
+                            renameMetalReservedAlternativeTokens(vertexSource)
                         ),
                         stage: .vertex
                     ),
@@ -87,8 +89,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                         SceneGenericShaderScalarArithmeticNormalizer.rewrite(
                             renameMetalReservedAlternativeTokens(
                                 stripHLSLAttributeAnnotations(fragmentSource)
-                            ),
-                            stage: .fragment
+                            )
                         ),
                         stage: .fragment
                     ),
@@ -241,11 +242,13 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             let expressionShapes = varyings.merging(uniforms) { current, _ in current }
             vertex.body = SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewrite(
                 vertex.body,
-                shapes: attributes.merging(expressionShapes) { current, _ in current }
+                shapes: attributes.merging(expressionShapes) { current, _ in current },
+                convertsScalarArguments: false, convertsVectorArguments: true
             )
             fragment.body = SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewrite(
                 fragment.body,
-                shapes: expressionShapes
+                shapes: expressionShapes,
+                convertsScalarArguments: false, convertsVectorArguments: true
             )
             vertex.body = rewriteComponentWiseBuiltInAssignmentResults(
                 vertex.body,

@@ -5,6 +5,12 @@ import Foundation
 nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
     typealias Shape = SceneGenericShaderSourceNormalizer.Shape
 
+    private struct Parameter {
+        let width: Int?
+        let isScalarFloat: Bool
+        let isReadOnly: Bool
+    }
+
     /// Uses the complete bounded syntax graph whenever that graph accepts the
     /// authored stage. Unknown expressions and overloads remain fail-closed.
     static func rewriteUsingBoundedSyntax(
@@ -111,10 +117,15 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
     }
 
     /// An unambiguous user function can consume the leading components of a
-    /// directly named wider authored vector. Complete local definitions are
-    /// required; overloaded names, compound expressions and locally shadowed
-    /// identifiers remain untouched for the helper compiler to reject.
-    static func rewrite(_ source: String, shapes: [String: Shape]) -> String {
+    /// wider floating vector. Scalar inputs use the existing compound width
+    /// proof; interface-vector inputs remain direct named values. Mutable
+    /// inputs, overloaded names and unknown widths remain compiler-owned.
+    static func rewrite(
+        _ source: String,
+        shapes: [String: Shape],
+        convertsScalarArguments: Bool,
+        convertsVectorArguments: Bool
+    ) -> String {
         let valueType = #"(?:bool|int|uint|float|[biu]?vec[2-4]|mat[2-4])"#
         let definition = try! NSRegularExpression(
             pattern: #"\b"# + valueType
@@ -126,7 +137,7 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
         )
         let (types, conflicted) = SceneGenericShaderSourceNormalizer
             .declaredScalarVectorTypes(source, shapes: shapes)
-        var signatures: [String: [[Int?]]] = [:]
+        var signatures: [String: [[Parameter]]] = [:]
         for match in definition.matches(
             in: source,
             range: NSRange(source.startIndex..., in: source)
@@ -144,7 +155,7 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
                 signatures[String(source[nameRange]), default: []].append([])
                 continue
             }
-            var widths: [Int?] = []
+            var parameters: [Parameter] = []
             for raw in rawParameters {
                 let value = String(raw).trimmingCharacters(
                     in: .whitespacesAndNewlines
@@ -153,19 +164,24 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
                 guard let parameterMatch = parameter.firstMatch(in: value, range: range),
                       parameterMatch.range == range,
                       let typeRange = Range(parameterMatch.range(at: 1), in: value) else {
-                    widths.removeAll()
+                    parameters.removeAll()
                     break
                 }
-                widths.append(floatVectorWidth(String(value[typeRange])))
+                let type = String(value[typeRange])
+                let words = value.split(whereSeparator: { $0.isWhitespace })
+                parameters.append(.init(
+                    width: floatVectorWidth(type), isScalarFloat: type == "float",
+                    isReadOnly: !words.contains("out") && !words.contains("inout")
+                ))
             }
-            guard widths.count == rawParameters.count else { continue }
-            signatures[String(source[nameRange]), default: []].append(widths)
+            guard parameters.count == rawParameters.count else { continue }
+            signatures[String(source[nameRange]), default: []].append(parameters)
         }
 
         var replacements: [(range: NSRange, value: String)] = []
         for (name, candidates) in signatures where candidates.count == 1 {
-            let widths = candidates[0]
-            guard widths.contains(where: { $0 != nil }) else { continue }
+            let parameters = candidates[0]
+            guard parameters.contains(where: { $0.width != nil }) else { continue }
             let call = try! NSRegularExpression(
                 pattern: #"\b"# + NSRegularExpression.escapedPattern(for: name)
                     + #"\s*\(([^()]*)\)"#
@@ -179,14 +195,14 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
                 }
                 let rawArguments = source[argumentsRange]
                     .split(separator: ",", omittingEmptySubsequences: false)
-                guard rawArguments.count == widths.count else { continue }
+                guard rawArguments.count == parameters.count else { continue }
                 var arguments = rawArguments.map {
                     String($0).trimmingCharacters(in: .whitespacesAndNewlines)
                 }
                 var changed = false
                 for index in arguments.indices {
-                    if let targetWidth = widths[index] {
-                        guard arguments[index].range(
+                    if let targetWidth = parameters[index].width {
+                        guard convertsVectorArguments, arguments[index].range(
                             of: #"^[A-Za-z_]\w*$"#,
                             options: .regularExpression
                         ) != nil,
@@ -209,7 +225,9 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
                         // both directions fail safe (status-quo compile
                         // failure, or a `.x` on a scalar that the compiler
                         // rejects — never a silent wrong render).
-                        guard let width = SceneGenericShaderSourceNormalizer
+                        guard convertsScalarArguments, parameters[index].isScalarFloat,
+                              parameters[index].isReadOnly,
+                              let width = SceneGenericShaderSourceNormalizer
                             .expressionValueWidth(
                                 arguments[index],
                                 types: types,

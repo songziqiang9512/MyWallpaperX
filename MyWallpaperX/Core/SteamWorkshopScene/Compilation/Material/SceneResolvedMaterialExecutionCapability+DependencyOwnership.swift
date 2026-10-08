@@ -196,9 +196,9 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
         // Same-layer composite references name the layer's own target. The
         // declared form (`dependencies == [self]`) keeps the historical
         // previous-shadow proof; authored texture slots without a declaration
-        // are the same ownership: the layer's own base source publishes the
-        // composite during graph execution, so no external provider binding
-        // may claim the reference. The secondary (`_b`) variant qualifies
+        // are the same ownership: each self candidate resolves to the exact
+        // consuming effect ingress, so no external provider binding may claim
+        // the reference. The secondary (`_b`) variant qualifies
         // only in the authored composite form — its slot must be free of a
         // graph binding, because a `previous`-style binding at that slot is
         // shadow provenance with its own fail-soft contract, not a
@@ -618,7 +618,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         guard !namedCandidates.isEmpty else { return .none }
         // A same-layer secondary candidate is the authored composite form
         // (`_rt_imageLayerComposite_<self>_b`): the layer's own graph
-        // publishes both variants from the pair base capture, so it carries
+        // resolves both variants to the consuming effect ingress, so it carries
         // the same conservation contract as the primary. Cross-layer
         // secondary variants keep failing closed.
         func admitsCandidate(_ item: ResolvedNamedCandidate) -> Bool {

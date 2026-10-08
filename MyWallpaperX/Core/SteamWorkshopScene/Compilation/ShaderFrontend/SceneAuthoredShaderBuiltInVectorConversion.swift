@@ -431,6 +431,14 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         }
         guard expressions.count == ranges.count else { return nil }
         if expressions.count == 1 { return firstExpression }
+        if expressions.allSatisfy({ [.float, .int].contains($0.type) }),
+           expressions.contains(where: { $0.type == .float }) {
+            return .init(
+                range: range, type: .float,
+                conversions: expressions.flatMap(\.conversions),
+                compound: true, directlyNarrowable: false
+            )
+        }
         let types = Set(expressions.map(\.type))
         guard types.count == 1, let type = types.first,
               type == .float || floatVectorWidth(type) != nil else { return nil }
@@ -457,7 +465,8 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         }
         guard expressions.count == ranges.count else { return nil }
         if expressions.count == 1 { return firstExpression }
-        if expressions.allSatisfy({ $0.type == .float }) {
+        if expressions.allSatisfy({ [.float, .int].contains($0.type) }),
+           expressions.contains(where: { $0.type == .float }) {
             return .init(
                 range: range,
                 type: .float,
@@ -562,7 +571,8 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
     }
 
     /// Prove floating built-in result types from their operands, excluding
-    /// authored overloads. abs preserves shape; step/smoothstep here are scalar.
+    /// authored overloads. Unary calls preserve shape; multi-argument calls
+    /// here are scalar, with integer literals promoted by floating operands.
     private static func floatBuiltInExpression(
         _ range: Range<Int>,
         tokens: [SceneAuthoredShaderToken],
@@ -573,8 +583,8 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         let name = tokens[range.lowerBound].text
         let expectedCount: Int
         switch name {
-        case "abs": expectedCount = 1
-        case "step": expectedCount = 2
+        case "abs", "sin", "saturate": expectedCount = 1
+        case "step", "pow": expectedCount = 2
         case "smoothstep": expectedCount = 3
         default: return nil
         }
@@ -592,7 +602,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         let arguments = ranges.compactMap {
             componentExpression($0, tokens: tokens, unit: unit)
         }
-        if name == "abs", arguments.count == 1,
+        if expectedCount == 1, arguments.count == 1,
            let argument = arguments.first,
            argument.type == .float || floatVectorWidth(argument.type) != nil {
             return .init(

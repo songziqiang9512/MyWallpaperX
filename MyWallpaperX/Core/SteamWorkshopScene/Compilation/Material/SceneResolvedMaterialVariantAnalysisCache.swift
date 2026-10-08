@@ -21,7 +21,8 @@ import Foundation
 /// directory, and a failed or stale record degrades to a full recompute.
 nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
     // Retire canonical source records before the shared dead-binding Projection.
-    private static let schemaVersion = 13
+    // v14 revalidates varying-prefix calls through the shared read-only proof.
+    private static let schemaVersion = 14
     private static let maximumEntryBytes = 512 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()

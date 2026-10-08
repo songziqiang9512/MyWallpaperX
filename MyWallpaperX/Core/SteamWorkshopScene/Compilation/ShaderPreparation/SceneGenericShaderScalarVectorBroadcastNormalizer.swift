@@ -2,8 +2,9 @@ import Foundation
 
 /// Vulkan GLSL does not implicitly broadcast a scalar expression assigned to
 /// a floating vector. Make only source-proven scalar arithmetic initializers
-/// and assignments explicit; calls, unknown identifiers, and vector-valued
-/// expressions remain under the compiler's fail-closed boundary.
+/// and assignments explicit. Built-in calls reuse the shared typed expression
+/// proof; authored calls, unknown identifiers, and vector-valued expressions
+/// remain under the compiler's fail-closed boundary.
 nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
     static func rewrite(
         _ source: String,
@@ -45,6 +46,7 @@ nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
         for index in unit.tokens.indices {
             guard unit.tokens[index].text == "=", index > 0,
                   unit.tokens[index - 1].kind == .identifier,
+                  index < 2 || unit.tokens[index - 2].text != ".",
                   let target = declaredType(
                       unit.tokens[index - 1].text,
                       before: index,
@@ -120,6 +122,20 @@ nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
                 expectsOperand = false
                 sawOperand = true
                 index += 1
+                continue
+            }
+            if token.kind == .identifier, index + 1 < range.upperBound,
+               unit.tokens[index + 1].text == "(" {
+                guard let closing = SceneAuthoredShaderTokenScanner.matchingParenthesis(
+                    tokens: unit.tokens, opening: index + 1
+                ), closing < range.upperBound,
+                      let expression = SceneAuthoredShaderBuiltInVectorConversion
+                        .componentExpression(
+                            index..<(closing + 1), tokens: unit.tokens, unit: unit
+                        ), expression.type == .float else { return false }
+                index = closing + 1
+                expectsOperand = false
+                sawOperand = true
                 continue
             }
             guard token.kind == .identifier,

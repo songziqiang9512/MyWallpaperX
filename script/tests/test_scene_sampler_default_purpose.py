@@ -223,12 +223,12 @@ private func template(
     )!
 }
 
-private func texture(_ device: MTLDevice) -> MTLTexture {
+private func texture(_ device: MTLDevice, usage: MTLTextureUsage = .shaderRead) -> MTLTexture {
     let descriptor = MTLTextureDescriptor.texture2DDescriptor(
         pixelFormat: .rgba8Unorm, width: 2, height: 2, mipmapped: false
     )
     descriptor.storageMode = .shared
-    descriptor.usage = .shaderRead
+    descriptor.usage = usage
     return device.makeTexture(descriptor: descriptor)!
 }
 
@@ -278,7 +278,8 @@ private func sampler(
 
 private func input(
     _ template: Template,
-    entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus]
+    entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus],
+    implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity? = nil
 ) -> SceneResolvedMaterialFinalizationInput? {
     let dynamic = SceneDynamicSnapshotResolver().resolve(
         frameIndex: 1, generation: 1, definitions: [], userValues: [:],
@@ -295,11 +296,13 @@ private func input(
         dynamicSnapshot: dynamic, frameInputs: frameInputs
     ) else { return nil }
     return frame.finalizationInput(
-        template: template, renderSize: CGSize(width: 2, height: 2),
+        template: template, layerID: implicitFramebufferIdentity?.layerID ?? 0,
+        renderSize: CGSize(width: 2, height: 2),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: matrix_identity_float4x4,
         effectOutputModelViewProjection: matrix_identity_float4x4,
-        effectTextureProjectionMatrixInverse: matrix_identity_float4x4
+        effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
+        implicitFramebufferIdentity: implicitFramebufferIdentity
     )
 }
 
@@ -598,6 +601,97 @@ private func stockDefaultLifecycle(device: MTLDevice) throws -> [String: Bool] {
     ]
 }
 
+private func selfCompositeSelections(_ device: MTLDevice) throws -> [String: Bool] {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+    typealias Schema = SceneResolvedMaterialShaderSchema
+    let prior = Graph.EffectKey(layerID: 81, effectIndex: 0, descriptorID: "prefix")
+    let owner = Graph.EffectKey(layerID: 81, effectIndex: 1, descriptorID: "probe")
+    let ingress = Graph.TextureIdentity(kind: .effectOutput, layerID: 81, effect: prior, name: nil)
+    let base = Graph.TextureIdentity(kind: .layerSource, layerID: 81, effect: nil, name: nil)
+    let selfA = Template.TextureReference.provider(.namedLayerTarget(.init(providerLayerID: 81, variant: .primary)))
+    let selfB = Template.TextureReference.provider(.namedLayerTarget(.init(providerLayerID: 81, variant: .secondary)))
+    let external = Template.TextureReference.provider(.namedLayerTarget(.init(providerLayerID: 99, variant: .primary)))
+    let user = Template.TextureReference.userProperty(.init(key: "override"))
+    let userIdentity = SceneFrameTextureIdentity.materialUserProperty(SceneUserPropertyTextureIdentity(propertyKey: "override", purpose: .preservedChannels)!)
+    let shader = contract(default: "util/white")
+    let original = template(shader)
+    let graphTexture = texture(device, usage: [.shaderRead, .renderTarget])
+    let graphCandidate = SceneTextureCandidate(texture: graphTexture,
+        identity: .provider(.graph(allocationGeneration: 1, physicalToken: "self-current")),
+        generation: .provider(contentGeneration: 1), purpose: .premultipliedColor,
+        content: .color(.resolved(.premultipliedAlpha)), physicalSize: CGSize(width: 2, height: 2),
+        mappedSize: CGSize(width: 2, height: 2), uvTransform: .identity, sampling: .linearClamp)
+    func select(_ candidates: [Template.TextureCandidate], identity: Graph.TextureIdentity = ingress,
+                expected: Graph.TextureIdentity? = ingress, mode: Schema.TextureMode = .regular,
+                defaultTexture: Schema.DefaultTexture? = nil,
+                verifyVariantKey: Bool = false,
+                entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus] = [:]) throws -> SceneResolvedMaterialTextureSelection.Entry {
+        var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
+        if !candidates.isEmpty { slots[0] = .init(index: 0, candidates: candidates) }
+        let value = Template.validated(textureSlots: slots, combos: [], uniformDeclarations: [],
+            renderState: original.renderState,
+            graphRole: .init(effectInput: identity.kind == .layerSource ? .layerSource : .effectOutput,
+                effectOutput: .effectOutput, nodeTarget: .effectOutput, bindings: []),
+            effectContext: expected.map { .init(key: owner, input: $0) },
+            shaderContract: shader, diagnosticProvenance: original.diagnosticProvenance)!
+        let active = Schema.Sampler(name: "g_Texture0", slot: 0, mode: mode, materialKey: nil,
+            isHidden: false, defaultTexture: defaultTexture, readinessCombo: nil)
+        var publications = entries
+        publications[.graph(identity)] = .ready(.init(publication: .init(requestIdentity: .graph(identity),
+            candidate: graphCandidate, contentGeneration: 1), resourceGeneration: 1))
+        let finalization = input(value, entries: publications, implicitFramebufferIdentity: identity)!
+        if verifyVariantKey {
+            _ = try SceneResolvedMaterialTextureResolver.variantKey(finalization, samplers: [0: active],
+                reachableSamplers: [0: [active]], formatSlots: [], channelUses: [0: .wholeVector],
+                allowPresenceIndependentDefaults: false)
+        }
+        return try SceneResolvedMaterialTextureSelection.resolve(finalization, samplers: [0: active],
+            reachableSamplers: [0: [active]], channelUses: [0: .wholeVector],
+            allowPresenceIndependentDefaults: false)[0]
+    }
+    func selected(_ entry: SceneResolvedMaterialTextureSelection.Entry, _ reference: Template.TextureReference,
+                  purpose: SceneTextureLoadPurpose = .premultipliedColor,
+                  fact: Bool = false, provenance: Program.TextureSelectionProvenance = .authored(.instance)) -> Bool {
+        guard case let .reference(actual, actualPurpose, actualProvenance, sourceFact) = entry else { return false }
+        return actual == reference && actualPurpose == purpose && actualProvenance == provenance
+            && (sourceFact != nil) == fact && (sourceFact == nil || (sourceFact?.inputIdentity == ingress
+                && sourceFact?.selectionProvenance == actualProvenance))
+    }
+    let a = Template.TextureCandidate(reference: selfA, provenance: .instance)
+    let b = Template.TextureCandidate(reference: selfB, provenance: .instance)
+    let override = Template.TextureCandidate(reference: user, provenance: .userTexture)
+    var result = [
+        "selfAUsesPrior": selected(try select([a]), .graph(ingress), fact: true),
+        "selfBUsesPrior": selected(try select([b]), .graph(ingress), fact: true),
+        "externalStaysNamed": selected(try select([.init(reference: external, provenance: .instance)]), external),
+        "mismatchedIngressStaysNamed": selected(try select([a], identity: base), selfA),
+        "unknownEffectStaysNamed": selected(try select([a], expected: nil), selfA),
+        "currentEffectStaysNamed": selected(try select([a], identity: .init(kind: .effectOutput, layerID: 81, effect: owner, name: nil), expected: .init(kind: .effectOutput, layerID: 81, effect: owner, name: nil)), selfA),
+        "explicitPreviousWins": selected(try select([a, .init(reference: .graph(ingress), provenance: .explicitBinding)]), .graph(ingress), provenance: .authored(.explicitBinding)),
+        "readyUserWins": selected(try select([a, override], mode: .rgbMask, verifyVariantKey: true, entries: [userIdentity: ready(device, request: userIdentity, purpose: .preservedChannels)]), user, purpose: .preservedChannels, provenance: .authored(.userTexture)),
+        "externalMixedStaysNamed": selected(try select([.init(reference: external, provenance: .instance), override], mode: .rgbMask, entries: [userIdentity: .absent]), external),
+        "unknownMixedStaysNamed": selected(try select([a, a, override], mode: .rgbMask, entries: [userIdentity: .absent]), selfA),
+    ]
+    if case let .reference(reference, purpose, _, fact) = try select([a], identity: base, expected: base) {
+        result["firstEffectUsesBase"] = reference == .graph(base) && purpose == .premultipliedColor && fact?.inputIdentity == base
+    }
+    for (name, status) in [("absent", SceneFrameTextureLookupStatus.absent), ("pending", .pending), ("unavailable", .unavailable)] {
+        result["mixed-" + name + "UsesPrior"] = selected(try select([a, override], mode: .rgbMask, verifyVariantKey: true,
+            entries: [userIdentity: status]), .graph(ingress), fact: true)
+    }
+    for suffix in ["a", "b"] {
+        let target = Schema.DefaultTexture.internalTarget(.init(authoredName: "_rt_imageLayerComposite_81_" + suffix))
+        result["default-" + suffix + "UsesPrior"] = selected(try select([], defaultTexture: target), .graph(ingress), fact: true, provenance: .shaderDefault)
+        if case .internalDefault = try select([], expected: nil, defaultTexture: target) {
+            result["default-" + suffix + "RejectsUnknownEffect"] = true
+        } else { result["default-" + suffix + "RejectsUnknownEffect"] = false }
+        if case .internalDefault = try select([], identity: base, defaultTexture: target) {
+            result["default-" + suffix + "RejectsWrongIngress"] = true
+        } else { result["default-" + suffix + "RejectsWrongIngress"] = false }
+    }
+    return result
+}
+
 @main
 private enum Main {
     static func main() throws {
@@ -693,6 +787,7 @@ private enum Main {
             path: preservedDefault, purpose: .preservedChannels
         ))
         let results: [String: Any] = [
+            "selfCompositeSelections": try selfCompositeSelections(device),
             "stockDefaultLifecycle": try stockDefaultLifecycle(device: device),
             "metalAvailable": true,
             "positive": [
@@ -818,6 +913,10 @@ class SceneSamplerDefaultPurposeTests(unittest.TestCase):
     def test_stock_default_launch_and_frame_share_prepared_publication(self) -> None:
         facts = self.result["stockDefaultLifecycle"]
         self.assertTrue(all(facts.values()), facts)
+
+    def test_same_layer_inputs_preserve_ingress_and_candidate_precedence(self) -> None:
+        facts = self.result["selfCompositeSelections"]
+        self.assertEqual([key for key, passed in facts.items() if not passed], [], facts)
 
     @classmethod
     def tearDownClass(cls) -> None:

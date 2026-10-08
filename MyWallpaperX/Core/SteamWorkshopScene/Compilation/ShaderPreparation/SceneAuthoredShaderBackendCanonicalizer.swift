@@ -50,6 +50,10 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
                 .rewrite(result.fragment)
         )
         result = Pair(
+            vertex: rewriteScalarVectorConversions(result.vertex, stage: .vertex),
+            fragment: rewriteScalarVectorConversions(result.fragment, stage: .fragment)
+        )
+        result = Pair(
             vertex: rewriteVector2ArithmeticOperands(
                 result.vertex,
                 vectorNames: wideVectorInterfaceNames(in: result.vertex)
@@ -95,6 +99,19 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
                 vertex: result.vertex, fragment: result.fragment
             ),
             fragment: result.fragment
+        )
+    }
+
+    /// Both compiler backends consume the same explicit scalar assignment
+    /// broadcasts and read-only scalar input truncations. The generic backend
+    /// retains its later interface-vector adaptation in the existing owner.
+    private static func rewriteScalarVectorConversions(
+        _ source: String,
+        stage: SceneShaderContract.StageKind
+    ) -> String {
+        SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewrite(
+            SceneGenericShaderScalarVectorBroadcastNormalizer.rewrite(source, stage: stage),
+            shapes: [:], convertsScalarArguments: true, convertsVectorArguments: false
         )
     }
 

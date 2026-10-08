@@ -338,27 +338,27 @@ extension SceneResolvedMaterialShaderSchema {
             template: template,
             samplers: samplers
         )
+        let selfCompositeIngress = exactEffectInput(
+            inputIdentity, template: template, requiresEffectContext: true
+        )
         for (slot, sampler) in samplers {
             let provenance: GraphInputFact.Provenance?
-            if template.textureSlots.indices.contains(slot), template.textureSlots[slot] == nil,
+            if selfCompositeIngress,
+               template.textureSlots.indices.contains(slot), template.textureSlots[slot] == nil,
                sameLayerCompositeDefault(sampler.defaultTexture, inputIdentity: inputIdentity) {
                 provenance = .sameLayerCompositeDefault
             } else if sampler.usesGraphInputMaterialAlias {
                 provenance = .explicitMaterialAlias
             } else if implicit.contains(slot) {
                 provenance = .implicitMissingAlias
-            } else if (template.textureSlots.indices.contains(slot)
+            } else if (selfCompositeIngress
+                && template.textureSlots.indices.contains(slot)
                 && sameLayerCompositeCandidate(
                     template.textureSlots[slot],
                     inputIdentity: inputIdentity
                 )) {
-                // The layer's OWN composite target
-                // (`_rt_imageLayerComposite_<self>_{a,b}`) reaches the
-                // sampler either as a shader default or as an authored
-                // pass-binding candidate. Both name the named target the
-                // graph executor publishes from the pair base capture, so
-                // the slot consumes the same captured-main ingress the
-                // alias forms do.
+                // Both authored self variants consume this exact effect
+                // ingress, including the previous effect's current output.
                 provenance = .sameLayerCompositeDefault
             } else {
                 provenance = nil
@@ -453,14 +453,18 @@ extension SceneResolvedMaterialShaderSchema {
 
     nonisolated static func exactEffectInput(
         _ input: Graph.TextureIdentity,
-        template: Template
+        template: Template,
+        requiresEffectContext: Bool = false
     ) -> Bool {
         guard input.name == nil,
               input.kind == .layerSource || input.kind == .effectOutput else {
             return false
         }
         guard let context = template.effectContext else {
-            return true
+            // Existing explicit aliases can name an unscoped graph input.
+            // Self references need prepared ownership for an effect output.
+            return !requiresEffectContext
+                || (input.kind == .layerSource && input.effect == nil)
         }
         guard input == context.input,
               SceneResolvedMaterialEffectIngress.accepts(
@@ -480,8 +484,8 @@ extension SceneResolvedMaterialShaderSchema {
         inputIdentity: Graph.TextureIdentity
     ) -> Bool {
         guard case let .internalTarget(name)? = defaultTexture,
-              inputIdentity.effect == nil,
               inputIdentity.name == nil,
+              inputIdentity.kind == .layerSource || inputIdentity.kind == .effectOutput,
               case let .namedLayerTarget(reference) = name.admission,
               reference.providerLayerID == inputIdentity.layerID else {
             return false
@@ -493,12 +497,12 @@ extension SceneResolvedMaterialShaderSchema {
     /// consuming layer's own composite named target (the authored pass
     /// `textures: ["_rt_imageLayerComposite_<self>_{a,b}"]` form). Any other
     /// candidate keeps the slot out of this classification.
-    private nonisolated static func sameLayerCompositeCandidate(
+    nonisolated static func sameLayerCompositeCandidate(
         _ slot: Template.TextureSlot?,
         inputIdentity: Graph.TextureIdentity
     ) -> Bool {
-        guard inputIdentity.effect == nil,
-              inputIdentity.name == nil,
+        guard inputIdentity.name == nil,
+              inputIdentity.kind == .layerSource || inputIdentity.kind == .effectOutput,
               let slot, !slot.candidates.isEmpty else {
             return false
         }
@@ -509,5 +513,23 @@ extension SceneResolvedMaterialShaderSchema {
             }
             return reference.providerLayerID == inputIdentity.layerID
         }
+    }
+
+    /// Projects an already-typed self candidate onto its consuming effect's
+    /// exact ingress. Candidate-chain admission remains with the caller.
+    nonisolated static func sameLayerCompositeInput(
+        _ reference: Template.TextureReference,
+        template: Template,
+        inputIdentity: Graph.TextureIdentity?,
+        consumerLayerID: Int
+    ) -> Graph.TextureIdentity? {
+        guard let inputIdentity,
+              inputIdentity.layerID == consumerLayerID,
+              case let .provider(.namedLayerTarget(named)) = reference,
+              named.providerLayerID == consumerLayerID,
+              exactEffectInput(
+                  inputIdentity, template: template, requiresEffectContext: true
+              ) else { return nil }
+        return inputIdentity
     }
 }

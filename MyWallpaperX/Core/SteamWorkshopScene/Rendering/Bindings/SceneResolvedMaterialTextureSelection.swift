@@ -33,6 +33,12 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
         ] = [:]
     ) throws -> [Entry] {
         var result = Array(repeating: Entry.absent, count: 8)
+        let graphFacts = graphInputSourceSlotFacts.isEmpty
+            ? SceneResolvedMaterialShaderSchema.graphInputSourceSlotFacts(
+                template: input.template,
+                samplers: samplers,
+                inputIdentity: input.implicitFramebufferIdentity
+            ) : graphInputSourceSlotFacts
         for slot in input.template.textureSlots.compactMap({ $0 })
         where !restrictToSamplerSlots || samplers[slot.index] != nil {
             let sampler = samplers[slot.index]
@@ -56,7 +62,7 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
                     if case .graph = candidate.reference { return true }
                     return false
                 }()
-                let purpose = Resolver.selectionPurpose(
+                var purpose = Resolver.selectionPurpose(
                     in: slot,
                     candidateOrdinal: ordinal,
                     activeSampler: sampler,
@@ -64,11 +70,51 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
                     channelUse: channelUses[slot.index],
                     input: input
                 )
+                var reference = candidate.reference
+                var sourceFact: SceneResolvedMaterialGraphInputSourceSlotFact?
+                if let identity = SceneResolvedMaterialShaderSchema.sameLayerCompositeInput(
+                    reference, template: input.template,
+                    inputIdentity: input.implicitFramebufferIdentity,
+                    consumerLayerID: input.layerID
+                ) {
+                    if let fact = graphFacts[slot.index],
+                       fact.inputIdentity == identity,
+                       SceneResolvedMaterialShaderSchema.sameLayerCompositeCandidate(
+                           slot, inputIdentity: identity
+                       ) {
+                        reference = .graph(identity)
+                        sourceFact = .init(
+                            slot: fact.slot, inputIdentity: fact.inputIdentity,
+                            provenance: fact.provenance,
+                            selectionProvenance: .authored(candidate.provenance)
+                        )
+                    } else if candidate.reference == mixedProviderFact.map({
+                        .provider(.namedLayerTarget($0.lowerNamedReference))
+                    }) {
+                        // This already-proved optional override keeps its
+                        // selected ABI and precedence. Only its lower self
+                        // candidate names the existing graph ingress.
+                        reference = .graph(identity)
+                        sourceFact = .init(
+                            slot: slot.index, inputIdentity: identity,
+                            provenance: .sameLayerCompositeDefault,
+                            selectionProvenance: .authored(candidate.provenance)
+                        )
+                    }
+                    if reference != candidate.reference, let sampler {
+                        // The graph atom owns current content and generation;
+                        // an old named publication cannot relabel that atom.
+                        purpose = SceneResolvedMaterialTextureSlotPurpose.fact(
+                            in: slot, candidateOrdinal: ordinal, sampler: sampler
+                        )?.purpose
+                    }
+                }
                 guard let selection = try referenceSelection(
-                    candidate.reference,
+                    reference,
                     purpose: purpose,
                     provenance: .authored(candidate.provenance),
                     input: input,
+                    graphInputSourceFact: sourceFact,
                     preserveAbsentOverride: terminalGraphOverride,
                     deferUnreadyOptionalPromotion:
                         mixedProviderFact?.optionalInput.matches(
@@ -91,7 +137,7 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
             into: &result,
             input: input,
             samplers: samplers,
-            graphInputSourceSlotFacts: graphInputSourceSlotFacts
+            graphInputSourceSlotFacts: graphFacts
         )
         return result
     }
@@ -170,13 +216,7 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
             Int: SceneResolvedMaterialGraphInputSourceSlotFact
         ]
     ) throws {
-        let facts = graphInputSourceSlotFacts.isEmpty
-            ? SceneResolvedMaterialShaderSchema.graphInputSourceSlotFacts(
-                template: input.template,
-                samplers: samplers,
-                inputIdentity: input.implicitFramebufferIdentity
-            ) : graphInputSourceSlotFacts
-        for (slot, fact) in facts {
+        for (slot, fact) in graphInputSourceSlotFacts {
             guard result.indices.contains(slot),
                   let sampler = samplers[slot],
                   fact.slot == slot,

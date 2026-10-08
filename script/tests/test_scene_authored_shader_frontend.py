@@ -16,10 +16,12 @@ SCENE_ROOT = REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 sys.path.insert(0, str(REPO_ROOT / "script"))
 
 from scene_real_test_fixtures import sample_cache_root
-from scene_swift_source_sets import scene_swift_sources
+from script.tests.test_scene_shader_scalar_vector_builtin_canonicalization import (
+    SWIFT_SOURCES as CANONICALIZER_SWIFT_SOURCES,
+)
 
 
-SWIFT_SOURCES = list(scene_swift_sources("authored_shader_frontend_core"))
+SWIFT_SOURCES = list(CANONICALIZER_SWIFT_SOURCES)
 
 
 
@@ -71,9 +73,16 @@ private struct AuthoredShaderFrontendHarness {
                 }
             }
         }
+        let compilerSources = CommandLine.arguments.dropFirst(3).contains("--canonicalize")
+            ? SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: vertexSource, fragment: fragmentSource
+            )
+            : SceneAuthoredShaderBackendCanonicalizer.Pair(
+                vertex: vertexSource, fragment: fragmentSource
+            )
         let output = SceneAuthoredShaderFrontend.compile(
-            vertexSource: vertexSource,
-            fragmentSource: fragmentSource,
+            vertexSource: compilerSources.vertex,
+            fragmentSource: compilerSources.fragment,
             runtimeLoopBounds: .init(
                 vertex: vertexLoopBounds,
                 fragment: fragmentLoopBounds
@@ -184,7 +193,8 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.build_directory.cleanup()
 
-    def compile(self, vertex_source, fragment_source, *, metal=True, loop_bounds=None):
+    def compile(self, vertex_source, fragment_source, *, metal=True, loop_bounds=None,
+                canonicalize=False):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             vertex = root / "fixture.vert"
@@ -192,6 +202,8 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             vertex.write_text(textwrap.dedent(vertex_source), encoding="utf-8")
             fragment.write_text(textwrap.dedent(fragment_source), encoding="utf-8")
             command = [str(self.binary), str(vertex), str(fragment)]
+            if canonicalize:
+                command.append("--canonicalize")
             for stage, bounds in sorted((loop_bounds or {}).items()):
                 for name, maximum in sorted(bounds.items()):
                     command.append(f"--{stage}-loop-bound={name}={maximum}")
@@ -1286,6 +1298,33 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             metal=False,
         )
         self.assertNotIn(").x;", widened["metalSource"].replace(" ", ""))
+
+    def test_shared_scalar_vector_canonicalization_compiles_to_metal(self):
+        fragment = """
+            varying vec2 v_TexCoord;
+            uniform float strength;
+            uniform float opacity;
+            uniform vec2 x;
+            vec3 composeColor(vec3 base, vec3 color, float weight) {
+                return mix(base, color, weight);
+            }
+            void main() {
+                vec2 signal = v_TexCoord;
+                signal = pow(saturate(abs(sin(v_TexCoord.x * 10 + strength))), 0.5);
+                signal.x = sin(strength);
+                vec3 base = vec3(0.2);
+                vec3 color = vec3(0.7);
+                vec3 result = composeColor(base, color, opacity * signal);
+                gl_FragColor = vec4(result, 1.0);
+            }
+        """
+        output = self.compile(VERTEX_SOURCE, fragment, canonicalize=True)
+        self.assertEqual(output["diagnosticCodes"], [])
+        compact = "".join(output["metalSource"].split())
+        self.assertIn("signal=float2(pow(saturate(abs(sin(", compact)
+        self.assertIn("(mwxUniforms.opacity*signal).x", compact)
+        self.assertIn("signal.x=sin(mwxUniforms.strength);", compact)
+        self.assertIsNone(output.get("metalError"))
 
     def test_builtin_mix_narrows_proven_float_vector_arguments(self):
         output = self.compile(
@@ -2737,6 +2776,32 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         fragments = [
             """
             varying vec2 linkedValue;
+            vec2 sin(vec2 value) { return value; }
+            void main() { gl_FragColor = vec4(sin(linkedValue.xy), 0.0, 1.0); }
+            """,
+            """
+            varying vec2 linkedValue;
+            vec2 saturate(vec2 value) { return value; }
+            void main() { gl_FragColor = vec4(saturate(linkedValue.xy), 0.0, 1.0); }
+            """,
+            """
+            varying vec2 linkedValue;
+            vec2 vec2(vec2 value) { return value; }
+            void main() { gl_FragColor = vec4(vec2(linkedValue.xy), 0.0, 1.0); }
+            """,
+            """
+            varying vec2 linkedValue;
+            vec2 unknownHelper(vec2 value) { return value; }
+            void main() { gl_FragColor = vec4(unknownHelper(vec2(linkedValue.xy)), 0.0, 1.0); }
+            """,
+            """
+            uniform sampler2D g_Texture3;
+            varying vec2 linkedValue;
+            vec4 unknownHelper(vec4 value) { return value; }
+            void main() { gl_FragColor = unknownHelper(texSample2D(g_Texture3, linkedValue)); }
+            """,
+            """
+            varying vec2 linkedValue;
             vec2 unknownHelper(vec2 value) { return value; }
             void main() { gl_FragColor = vec4(unknownHelper(linkedValue.xy), 0.0, 1.0); }
             """,
@@ -2816,6 +2881,39 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             with self.subTest(vertex=invalid_vertex):
                 output = self.compile(invalid_vertex, valid_fragment, metal=False)
                 self.assertIn("stageLinkMismatch", output["diagnosticCodes"])
+
+    def test_float_varying_prefix_preserves_pure_builtin_reads_and_main_mutation(self):
+        output = self.compile(
+            """
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec4 renamedCarrier;
+            void main() {
+                gl_Position = vec4(a_Position, 1.0);
+                renamedCarrier.xy = a_TexCoord;
+            }
+            """,
+            """
+            uniform sampler2D g_Texture3;
+            uniform float g_Time;
+            varying vec2 renamedCarrier;
+            void main() {
+                vec4 sampled = texSample2D(g_Texture3, renamedCarrier);
+                vec2 localCopy = renamedCarrier;
+                renamedCarrier.x += fmod(g_Time, 6.28) * 0.2;
+                float mask = pow(saturate(1.0 - abs(sin(renamedCarrier.x * 10.0) - renamedCarrier.y)), 2.0);
+                gl_FragColor = sampled + vec4(localCopy * mask, 0.0, 0.0);
+            }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertEqual(output["textureSlots"], [3])
+        self.assertIsNone(output.get("metalError"))
+        compact_source = output["metalSource"].replace(" ", "")
+        self.assertIn("mwxInput.renamedCarrier.x+=fmod(", compact_source)
+        self.assertIn("sin(mwxInput.renamedCarrier.x", compact_source)
+        self.assertIn("float2localCopy=mwxInput.renamedCarrier.xy;", compact_source)
+        self.assertNotIn("MWXzero-fill", compact_source)
 
     def test_float_varying_prefix_rejects_suffix_and_conditional_write(self):
         vertex = """
