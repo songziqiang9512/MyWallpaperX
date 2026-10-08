@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 87,
-      "bytes": 19140
+      "bytes": 18879
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -182,7 +182,7 @@
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
       "lines": 96,
-      "bytes": 21073
+      "bytes": 21454
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 219,
-      "bytes": 52012
+      "bytes": 52103
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1095,15 +1095,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "f111462e523b01a06bf4a4ac5d79e0ca4bbb27485ea167d8e24f0101331ad8fe",
-      "after": "00ff45674da72a367c8879f2eb35995f14e2ef4bcbdf80758905a16571656ca0",
-      "owner": "scene-p-route",
-      "reason": "替换已解决的封面mask与数字条件断点，记录真实连续帧、复审生命周期反例及待修事件时序；不增平行路线。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
       "before": "02f1b91473ddedac08c28759fb9fb10cb2a8441756a79c2969f30c32f6d3de88",
       "after": "7d9a27b0a51fa313a6456c576b9694a62add9458c6b2e0bd693a71fe4efe0eef",
@@ -1113,11 +1104,20 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "09d8644fac1db55f229d076f336b7553d29e303012f7041c6d73c07501e240ea",
-      "after": "3534f71f8248d89dcf321958e0b8c2062418e54ded6afe2d40017532d68f2c44",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "00ff45674da72a367c8879f2eb35995f14e2ef4bcbdf80758905a16571656ca0",
+      "after": "3afb89440e63afc89d5969dcfbab45b5a66765f4ce4a15f0bb2fa9a49916e4eb",
       "owner": "scene-p-route",
-      "reason": "替换已解决的封面mask与数字条件断点，记录真实连续帧、复审生命周期反例及待修事件时序；不增平行路线。",
+      "reason": "替换已修同帧旧值断点，明确主动值/回滚与实际输出边界；在原U07卡补副作用反例。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "3534f71f8248d89dcf321958e0b8c2062418e54ded6afe2d40017532d68f2c44",
+      "after": "5f9f1d9f9598f406393f4c653feae5c99209d988a524176223be32f4f19af0b1",
+      "owner": "scene-p-route",
+      "reason": "替换已修同帧旧值断点，明确主动值/回滚与实际输出边界；在原U07卡补副作用反例。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
     }
   ]

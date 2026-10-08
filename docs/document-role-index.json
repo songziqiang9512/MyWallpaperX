@@ -506,10 +506,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4dc0de9630e265e36666cad79538e5ce5392b93d2751892328e292d88790e036",
+        "sourceSHA256": "f827fd1b637bed8b3273f4c8b963bd41b46a18d134d7cc60b7e1d04a4d70b237",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步封面mask、Timeline连续值、数字条件的现owner与有界实机证据；替换旧断点并保存后继事件帧、资源依赖和decoder问题。",
-        "limitations": "仅导航与当前修复证据边界核对；不代表全样本、真实播放器或官方parity验收。"
+        "scope": "同步同帧scalar透传与admitted Timeline preview合同、真实封面事件帧后验及剩余布局/编译依赖队列。",
+        "limitations": "仅本批合同与证据边界；不证明真实播放器来源、完整样本或官方parity。"
       }
     },
     {
@@ -1853,10 +1853,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e1a24b56ac37d0f9f1cbf7f5bc3d2f08963f8ef83f5e05d085337670a3759d92",
+        "sourceSHA256": "3c3a8adbfd05c0a62b4ae8a8c236a145861fefbf89b9cbc1201812428eaa07ab",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步封面mask、Timeline连续值、数字条件的现owner与有界实机证据；替换旧断点并保存后继事件帧、资源依赖和decoder问题。",
-        "limitations": "仅导航与当前修复证据边界核对；不代表全样本、真实播放器或官方parity验收。"
+        "scope": "同步同帧scalar透传与admitted Timeline preview合同、真实封面事件帧后验及剩余布局/编译依赖队列。",
+        "limitations": "仅本批合同与证据边界；不证明真实播放器来源、完整样本或官方parity。"
       }
     },
     {
@@ -1893,10 +1893,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2c1ae33766edf6c4f1025e6f7d4e4571f36d5cb31aa1685fe70af524e2d4aeea",
+        "sourceSHA256": "b6407074562f46445ba9cf6da2ae0a5cc0c42a5d452a63675225e8200ccd9ca0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步封面mask、Timeline连续值、数字条件的现owner与有界实机证据；替换旧断点并保存后继事件帧、资源依赖和decoder问题。",
-        "limitations": "仅导航与当前修复证据边界核对；不代表全样本、真实播放器或官方parity验收。"
+        "scope": "同步同帧scalar透传与admitted Timeline preview合同、真实封面事件帧后验及剩余布局/编译依赖队列。",
+        "limitations": "仅本批合同与证据边界；不证明真实播放器来源、完整样本或官方parity。"
       }
     },
     {
