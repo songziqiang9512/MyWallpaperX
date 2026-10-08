@@ -1924,6 +1924,13 @@
       "retirementCondition": "冻结全集每个样本完成声明与条件场景覆盖、真实显示/动态/参数人工验收和固定官方一致性对照，P5 通过，旧 owner 撤权，unknown/unsupported 未被计作完成，稳定架构、能力与证据权威接管终态后转 historical-evidence；范围缩减须另有明确裁决。"
     },
     {
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "role": "reference",
+      "entrypoint": "docs/scene/README.md",
+      "purpose": "2026-10-09 全样本静态审计的缺口、错误执行与冗余链路清单及逐样本附录，作为后续待修批次的证据基线；不承载 current capability 结论。",
+      "commandPolicy": "reference-only"
+    },
+    {
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
