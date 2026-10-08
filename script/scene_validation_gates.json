@@ -1400,6 +1400,17 @@
       ]
     },
     {
+      "id": "shader-fragment-position",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderMetalEmitter+Translation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
+        "script/tests/test_scene_shader_fragment_position.py"
+      ],
+      "modules": [
+        "test_scene_shader_fragment_position"
+      ]
+    },
+    {
       "id": "shader-frontend",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/**"

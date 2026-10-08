@@ -115,7 +115,10 @@ nonisolated extension SceneAuthoredShaderMetalEmitter {
            context.attributeNames.contains(token.text) {
             return "mwxAttributes.\(token.text)"
         }
-        if token.text == "gl_Position" { return "mwxOutput.position" }
+        if token.text == "gl_Position" {
+            return context.unit.stage == .vertex
+                ? "mwxOutput.position" : "mwxInput.position"
+        }
         if token.text == "gl_FragColor" { return "mwxFragColor" }
         if context.functionNames.contains(token.text) {
             return SceneAuthoredShaderMetalSource.functionPrefix(context.unit.stage) + token.text

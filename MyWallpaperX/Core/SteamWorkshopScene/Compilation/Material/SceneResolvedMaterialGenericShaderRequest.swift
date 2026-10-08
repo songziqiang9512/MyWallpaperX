@@ -36,8 +36,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
     ) -> String {
         var data = Data()
         for value in [
-            // v26 includes shared mix-weight and return value conversions.
-            "mwx-generic-shader-request-v26",
+            // v27 includes stage-specific fragment position translation.
+            "mwx-generic-shader-request-v27",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,

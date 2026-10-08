@@ -264,6 +264,9 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             vertex.body = replaceWord("sample", with: "mwx_sample", in: vertex.body)
             fragment.body = replaceWord("sample", with: "mwx_sample", in: fragment.body)
             fragment.body = replaceWord("gl_FragColor", with: "mwxFragColor", in: fragment.body)
+            // The authored fragment builtin observes raster position, while
+            // the vertex builtin remains the clip-space output.
+            fragment.body = replaceWord("gl_Position", with: "gl_FragCoord", in: fragment.body)
             vertex.body = rewriteTextureCoordinates(
                 vertex.body,
                 shapes: attributes.merging(varyings) { current, _ in current }
