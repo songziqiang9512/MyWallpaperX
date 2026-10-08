@@ -89,12 +89,12 @@
       "bytes": 5005
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 578,
-      "bytes": 339338
+      "lines": 582,
+      "bytes": 341312
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 90,
-      "bytes": 23220
+      "lines": 92,
+      "bytes": 26342
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -141,16 +141,16 @@
       "bytes": 8174
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
-      "lines": 111,
-      "bytes": 20704
+      "lines": 120,
+      "bytes": 21915
     },
     "docs/scene/roadmap/batch2/frame-admission-retry-design.md": {
       "lines": 45,
       "bytes": 8029
     },
     "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md": {
-      "lines": 84,
-      "bytes": 14094
+      "lines": 97,
+      "bytes": 17465
     },
     "docs/scene/roadmap/batch2/host-render-power-protocol-design.md": {
       "lines": 54,
@@ -197,8 +197,8 @@
       "bytes": 32798
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 219,
-      "bytes": 53821
+      "lines": 221,
+      "bytes": 56072
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1050,15 +1050,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
-      "before": "57c664b97a870d1822876ba9846ac7d05d409dc35fd5927d2bb9e73d589ff134",
-      "after": "19bb36846ce51a09cb773a36410a9dcf8472a47a51841b734663a525345977a5",
-      "owner": "scene-e-route",
-      "reason": "统一既有颜色转换并保留扩展RGB，记录实际GPU裁剪反例、缓存退出及328未验边界。",
-      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "a54cbae101733347a809e94511d51876269047a485be7591f30bd2c7c6c3acbf",
       "after": "3a0f755e5c4ebad79d0b2090cdd9f4ff6dd3d5ba7d49a398928fc10259293dc2",
@@ -1086,29 +1077,11 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "ed8e74698bc8eae2a9bed2d678a0fabcaabd466e2aefaeba77a15d3b5c2d1db6",
-      "after": "5301b53112cd95b7b42c9a339dbe50975fe611bdfaa82ecf2d99b52c33755ee8",
-      "owner": "scene-p-route",
-      "reason": "用共享编译/背景 ABI 真实修复结果替换已关闭断点，并记录缓存、回归与未覆盖范围；不建平行路线。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "b63c547f1e78653bd39e44c05140a279bab4452fdfef455231f4658da603e0f2",
       "after": "04234e0436fe560b241dc88e31391072cc98e4f8bc2c0d1b4afbb016dd657c41",
       "owner": "scene-p-route",
       "reason": "补记现reader版本配对和U18真实恢复，保留未知字段、交互和fallback边界；替换已闭断点。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "10fdf0b7315b3562fa4a7f7726e4c0e03fcdf6e442164eba2e8fd5d52a55aaaa",
-      "after": "2f214ad1cf7098cb734a376e24fd4b8ab1006104f05638887cf8aac2ea6334f4",
-      "owner": "scene-p-route",
-      "reason": "补记同一Sampler别名补接与真实音频后验，替换已闭首断点并保留灰外圈、varying及实录边界。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
     },
     {
@@ -1122,12 +1095,48 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "5301b53112cd95b7b42c9a339dbe50975fe611bdfaa82ecf2d99b52c33755ee8",
+      "after": "ca91e14bc09fce1a59f1ee7cf37f177f51b2a7acedfc1b3f13ff99f75d6599f8",
+      "owner": "scene-e-route",
+      "reason": "记录本批真实公共编译/同层输入修复、撤回错误snapshot试验、原包与有界官方颜色证据，以及仍开放的透明RGB/source入口边界；不复制原始报告或扩历史正文。",
+      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "2f214ad1cf7098cb734a376e24fd4b8ab1006104f05638887cf8aac2ea6334f4",
+      "after": "a1152c52f284469788c113022b20280ba7d47986b7394c71ff42a285084ba393",
+      "owner": "scene-e-route",
+      "reason": "记录本批真实公共编译/同层输入修复、撤回错误snapshot试验、原包与有界官方颜色证据，以及仍开放的透明RGB/source入口边界；不复制原始报告或扩历史正文。",
+      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
+      "before": "24c2d4d2459283ee4273301f29ac6ce97552ec290f1662ae7aeed24ee834cb9e",
+      "after": "89c55d786c6e01f9caf526a68b1b90d79f82462739158eb16ae98b9dd05aa850",
+      "owner": "scene-e-route",
+      "reason": "记录本批真实公共编译/同层输入修复、撤回错误snapshot试验、原包与有界官方颜色证据，以及仍开放的透明RGB/source入口边界；不复制原始报告或扩历史正文。",
+      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
+      "before": "19bb36846ce51a09cb773a36410a9dcf8472a47a51841b734663a525345977a5",
+      "after": "0f0e89aa54504d21e57c51d297bee4772b332b83bf131a2144b0cae085dfb4e4",
+      "owner": "scene-e-route",
+      "reason": "记录本批真实公共编译/同层输入修复、撤回错误snapshot试验、原包与有界官方颜色证据，以及仍开放的透明RGB/source入口边界；不复制原始报告或扩历史正文。",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a0499fd431774f15cd6db7b8dd32f64b87fbd167c2132285603d9741a042f378",
-      "after": "ea4a1dbf2056b08075ca04be616cff76b971554eedcb3b1850926124c39cffc0",
-      "owner": "scene-p-route",
-      "reason": "补记同一Sampler别名补接与真实音频后验，替换已闭首断点并保留灰外圈、varying及实录边界。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
+      "before": "ea4a1dbf2056b08075ca04be616cff76b971554eedcb3b1850926124c39cffc0",
+      "after": "b481fd479a1c60fdbee43cfc299d1ab4c54107206d608f72eeaed1ff73d087e0",
+      "owner": "scene-e-route",
+      "reason": "记录本批真实公共编译/同层输入修复、撤回错误snapshot试验、原包与有界官方颜色证据，以及仍开放的透明RGB/source入口边界；不复制原始报告或扩历史正文。",
+      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md"
     }
   ]
 }

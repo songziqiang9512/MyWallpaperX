@@ -172,7 +172,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
-      "design_notes": "批准设计边界；不是产品实现、运行兼容或发布验收。具体准入阶段、unknown 与后继门以 designDoc 为准。",
+      "design_notes": "2026-10-08按官方单pass链颜色证据纠正同层合成引用：显式self与default复用既有typed graph input，删除入口base重复publication；失败snapshot试验已撤回，不增加资源或copy。候选优先级与外部named边界不变；compose内时序未证。批准不代表产品验收。",
       "matchPatterns": [],
       "contentPatterns": []
     },
@@ -355,6 +355,21 @@
         "puppetClipping",
         "PuppetClipping"
       ]
+    },
+    {
+      "id": "scene-authored-color-continuity",
+      "title": "作者颜色跨 effect 连续性与唯一存储适配",
+      "owner": "scene-material-color-boundary",
+      "status": "approved",
+      "designDoc": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
+      "design_notes": "2026-10-08 官方两段自有effect确认零alpha RGB可由后序alpha扩张显露；本机同输入丢失。批准沿既有Program/graph/compositor分两张完整纵向卡实施typed边界，禁止RGB companion/样本补色。当前尚未实施，不推源上传或GodRays根因。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+ColorDerivation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad+Ordinary.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

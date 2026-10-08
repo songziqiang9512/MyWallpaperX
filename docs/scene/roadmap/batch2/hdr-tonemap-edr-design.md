@@ -82,3 +82,16 @@ PMA→straight 是表示转换，不是显示映射。现有编译器插入的�
 ## 退役条件
 
 每阶段完成行为门、颜色权威归入稳定架构、旧输出路径按 route 撤权后归档。未验证的 metadata profile 继续显式禁用，不随 SDR 验收自动解锁。
+
+
+## 作者颜色跨 effect 连续性（2026-10-08，待实施）
+
+设计结论：沿既有 Program、graph publication 与唯一 compositor 保留作者可观察的 straight RGB；中间普通 color overwrite 不再无条件预乘。此处批准后继实施，不代表当前运行已修复。官方与本机同输入的差异见[透明颜色连续性证据](../../capabilities/runtime-evidence-current.md#e-2026-10-08-transparent-color-continuity)。已证范围是生成颜色的两段 effect；普通源上传与真实头冠灰影仍须分别验证。PMA 输入零 alpha 已无可恢复颜色，不能通过改反预乘 helper 猜回 RGB。
+
+**职责与取舍。** 在现有 Program/variant 准备阶段携带 slot 的实际 content/representation、作者数学输入域及输出存储表示；原 builder 统一实施 sampler/output 适配。straight 到 straight 为恒等，真实 PMA 到 straight 才反预乘，opaque 为恒等，data/independent signal 沿原 typed 合同。profile 继续证明数学与用途，不再分别猜普通 graph 的存储表示。保留扩展 RGB；alpha coverage clamp 与作者明确 UNorm clamp 独立保留。输入/输出边界身份必须进入现有 request/cache，旧工件安全失效。普通帧只消费准备值，不分析源码或生成 shader。
+
+唯一 image compositor 按实际表示关联化一次，与 additive 的 source-alpha 权重正交；不得复用现有 `weightsSourceAlpha` 的不同语义来凑结果。attachment、publication、copy/swap/history 均传播真实表示；普通 color 不冒充 data。未迁移的直接 terminal replay 回到原 offscreen→compositor，不丢整层。拒绝隐藏 RGB companion、原图补色、GodRays 特判或另一个颜色 renderer：它们会重复采样、坐标、生命周期职责，且原图 RGB 不能代替作者前序计算结果。
+
+**两张纵向工作卡。** 第一张贯通生成颜色→连续 ordinary effect→graph publication→唯一合成器；同一编译边界覆盖 generic 与 bounded，验证混合 straight/PMA 槽、data/signal 不变、HDR/SDR、alpha0/.5/1、图层 opacity、normal/additive 与 copy/swap，缓存重启及旧工件退出。不得只改 helper 或输出标签后交付。第二张将同一合同向前延伸到原 ordinary texture/source/capture，复用 `straightAlbedo` 和现有 uploader；source tint 与 opacity/coverage 按表示正确消费，验证 PNG/BC3 的零 alpha RGB、无 effect 直采、线性边缘、材质/图层颜色与 alpha、自定义 source material。真实样本用到的 named/history 必须同期闭环；确未覆盖的边界保留 typed 限制与队列，不删除安全校验充当支持。
+
+**验收、失败与退出。** 两段官方输入要求三张 override 卡同亮，零 alpha 卡不得发黑；增加非白 RGB 和同 pass 两种表示反例。所有旧非零 alpha、PMA producer、data/signal 与现有输出门必须保持。最后回到原头冠及其他 alpha 扩大样本观察真实收益，未验不计受益。表示/身份不明时沿原最小 effect fail-soft，资源身份错误仍拒绝；不得用普通帧双执行或影子链回退。每张卡迁移完成即删除被替代的重复边界适配，存量 producer 的真实 PMA 表示不是第二执行链。达到完整纵向结果后再评估源链范围，不将本设计批准写成实现完成。

@@ -109,3 +109,12 @@ B 的实际阶段环已确认：`admitResolvedMaterialFrameTargets` 的实际 Pr
 - GPU 门：A 用自有颜色/时间词经实际 history→copy/mip→不同 LOD consumer→唯一 terminal；两个测试消费者共享源，后置可见层进入后继历史；FullFrameBuffer 仍读当前语义。B 另验实际作者不同槽绑定。明确项目采样容差，不能把 mip 端点量化当官方滤波公式。
 - App 门：A 以隔离自有原型检查内置反射、局部缺历史/预算失败、健康邻层、下一帧启动，并包含关闭 Debug capture 的普通 drawable 运行；B 另验实际作者 sampler。Debug build；最终冻结 diff 独立审查。无 consumer 不增加 history 分配或 mip encode。
 - 完成后稳定 owner/失败合同移入 runtime architecture，撤销 F5 当前前缀实现与对应断言，本节收口为交接；中性官方结果只保留一份历史事实权威。未执行的 HDR/alpha/kernel parity 不计完成。
+
+
+## 同层合成引用归一化（2026-10-08，已实施）
+
+本片已完成，当前语义由[材质覆盖合同](../../capabilities/render-graph-shader-coverage.md)拥有，[最终运行证据](../../capabilities/runtime-evidence-current.md#e-2026-10-08-varying-scalar-conversion)绑定App、原包和官方有界颜色对照；不再作为待实现任务。
+
+裁决采用显式self与shader default共用typed graph ingress，保留候选顺序、mixed用户覆盖、来源事实及原Program/alias验证，删除GraphExecutor的基础图重复publication。曾试验不可变base snapshot，但官方单pass链和真实频谱共同否定该输入含义，未提交实验已撤回；无需额外纹理、copy、资源owner或另一套轮转算法。后继effect继续消费既有graph publication的真实generation/颜色表示，普通alias旧能力保留。
+
+既有graph ingress在compose后重发当前member，新归一化继承该项目策略；官方compose/history/透明色等价仍未证。透明RGB跨effect连续性归[D2后继](hdr-tonemap-edr-design.md)，自定义literal源准入和既有graph测试债保留在[当前队列](../scene-open-breakpoint-queue.md)，均不虚称本片覆盖。

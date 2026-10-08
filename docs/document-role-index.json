@@ -508,10 +508,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3b2e6f1090f3880443e699faa864dbad112dbe773439a6e99f2b73796cac3fc4",
+        "sourceSHA256": "386b2c6c978002aa027f9bee7b9079830701a1fbe8d427a7c56c0603299c6aae",
         "method": "document_registry --audit + document_health --check",
-        "scope": "替换已闭合的死纹理依赖与背景输入 ABI 断点，核对共享 owner、真实矩形恢复和下一项通用纹理/颜色队列。",
-        "limitations": "不代表官方逐像素、全部交互、真实音频/媒体或全样本兼容验收。"
+        "scope": "核对共享shader转换、同层graph输入归一化与透明RGB官方对照的当前证据边界。",
+        "limitations": "导航与证据身份核对；不等同全样本、真实声源、compose或HDR官方parity。"
       }
     },
     {
@@ -522,10 +522,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "94fac2b498a25eb9a791ef70a1b5ebaf08c3097e27c407e8a6fadd506ffb8617",
+        "sourceSHA256": "371404b58aece26b4433d63f5a9228fa4c7cb32b1d75d3b674ea9a7625331c08",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对中文previous同一Sampler合同、四原包音频实际链路及U19灰外圈消融。",
-        "limitations": "受控PCM不代表外部音源、完整视觉/交互或官方parity；GodRays和sine_wave剩余仍开放。"
+        "scope": "核对共享shader转换、同层graph输入归一化与透明RGB官方对照的当前证据边界。",
+        "limitations": "导航与证据身份核对；不等同全样本、真实声源、compose或HDR官方parity。"
       }
     },
     {
@@ -1909,10 +1909,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ced920d52f0ae1f95ae054627da3bda8ef6f5bd940a27446496f0470ff05258c",
+        "sourceSHA256": "a8580584afe0bac9d412312bfe25bd957a340477fafb1effd103877724ec6afb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对中文previous同一Sampler合同、四原包音频实际链路及U19灰外圈消融。",
-        "limitations": "受控PCM不代表外部音源、完整视觉/交互或官方parity；GodRays和sine_wave剩余仍开放。"
+        "scope": "核对共享shader转换、同层graph输入归一化与透明RGB官方对照的当前证据边界。",
+        "limitations": "导航与证据身份核对；不等同全样本、真实声源、compose或HDR官方parity。"
       }
     },
     {
