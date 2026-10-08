@@ -93,8 +93,8 @@
       "bytes": 339338
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 89,
-      "bytes": 21787
+      "lines": 90,
+      "bytes": 23220
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -102,7 +102,7 @@
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
-      "bytes": 2184
+      "bytes": 2480
     },
     "docs/scene/capabilities/scene-corpus-capability-inventory.md": {
       "lines": 488,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 219,
-      "bytes": 53034
+      "bytes": 53821
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1105,19 +1105,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "8d79f28ac60b98a18573e76838a866ba57a6d3d281722df674a83bd9eee2c805",
-      "after": "10fdf0b7315b3562fa4a7f7726e4c0e03fcdf6e442164eba2e8fd5d52a55aaaa",
+      "before": "10fdf0b7315b3562fa4a7f7726e4c0e03fcdf6e442164eba2e8fd5d52a55aaaa",
+      "after": "2f214ad1cf7098cb734a376e24fd4b8ab1006104f05638887cf8aac2ea6334f4",
       "owner": "scene-p-route",
-      "reason": "补记现reader版本配对和U18真实恢复，保留未知字段、交互和fallback边界；替换已闭断点。",
+      "reason": "补记同一Sampler别名补接与真实音频后验，替换已闭首断点并保留灰外圈、varying及实录边界。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/sampler-alias-precedence.md",
+      "before": "0bb0ac0bbcaf1ca113d643e1d18e104d6b61187769d50b2659395c545919a1a4",
+      "after": "b1da23cbc44deb4de495fe63c274fc703a3033aebb1073bca4eca887c9c39df5",
+      "owner": "scene-p-route",
+      "reason": "补记同一Sampler别名补接与真实音频后验，替换已闭首断点并保留灰外圈、varying及实录边界。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "9498bd522255d59c1caf88a6cc566ad7cf43122cfc464920e65deed0fff570fd",
-      "after": "a0499fd431774f15cd6db7b8dd32f64b87fbd167c2132285603d9741a042f378",
+      "before": "a0499fd431774f15cd6db7b8dd32f64b87fbd167c2132285603d9741a042f378",
+      "after": "ea4a1dbf2056b08075ca04be616cff76b971554eedcb3b1850926124c39cffc0",
       "owner": "scene-p-route",
-      "reason": "补记现reader版本配对和U18真实恢复，保留未知字段、交互和fallback边界；替换已闭断点。",
+      "reason": "补记同一Sampler别名补接与真实音频后验，替换已闭首断点并保留灰外圈、varying及实录边界。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
     }
   ]

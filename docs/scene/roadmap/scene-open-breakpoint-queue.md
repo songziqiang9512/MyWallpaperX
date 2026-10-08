@@ -31,7 +31,7 @@ T1共享材质切片已闭，T2共享HDR裁剪与暂停恢复已闭合；328自�
 | 默认变暗、HDR/SDR最终显示 | **旧压暗与特效自动裁剪已修，视觉余项待复验**：旧SDR shoulder把白点1压到0.75；[白点修复](../history/sdr-white-preservation-implementation-2026-10-06.md)实测RGB(191,64,128)恢复(255,64,128)。EDR及OFF→ON→OFF已有同surface headroom执行证据；暂停HDR热切与有界异步失败恢复已补[独立证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-paused-display-recovery)；共享PMA输入/合成输出自动RGB裁剪另由[实际GPU反例与缓存升级](../capabilities/runtime-evidence-current.md#e-2026-10-08-hdr-color-boundary)修复，作者限幅保留；用户样本、多屏SDR及物理亮度仍未关闭。沿唯一颜色/output owner定位，见[热切证据](../history/hdr-live-toggle-verification-2026-10-07.md)；Bloom iterations0/1空间语义另作官方控制 |
 | 显式UNorm的generic准入 | **自有输入边界，真实样本命中未证**：`sample→alpha×uniform→saturateRGBA`控制在generic ordinary路径被`compiler-artifact-colortransfer`拒绝，实际bounded Program的HDR/SDR/零alpha GPU正确。243包严格文本扫描未找到直接对应，不能外推语义不存在；原163 color Pulse、252 alpha Pulse已实际GPU执行，不能作为该缺口影响面。先核真实未准入引用，再扩原分析/准入；不注入fact或新增执行链。[输入与证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-hdr-color-boundary) |
 | shader compound边界 | **能力缺口**：已有int四则复合赋值恢复，qualified LHS、`%=`与vertex剩余见[原合同](../history/int-compound-assignment-normalizer-2026-10-07.md)。先核真实引用和类型，扩同一normalizer，保留scope/优先级/非法输入反例 |
-| 未定义varying分量 | **待研究**：sine_wave_circle激活变体读取未初始化分量。不能猜零填充；先取得公开或受控官方可观察合同，再决定归一化/局部拒绝 |
+| 未定义varying分量 | **待研究**：sine_wave_circle激活变体读取未初始化分量。3747190633、3807151772及3809609151的sine_wave另有当前stageLinkMismatch/varyingUnsupported拒绝，须区分stage声明与未初始化使用，见[音频后验证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-localized-graph-input)。不能猜零填充；先取得公开或受控官方可观察合同，再决定归一化/局部拒绝 |
 | 透明target的alphaWeightedAdditive | **待研究**：普通源coverage已修，named/透明target的完整alpha合成尚未同输入裁决，见[coverage证据](../capabilities/runtime-evidence-current.md#e-2026-09-27-direct-draw-coverage)。先核唯一compositor当前blend，不能重新造光束专用补偿 |
 | named纹理optional回退 | **编译ABI丢失已修**：generic accepted直接传递已校验PMA槽；3078285611原包192/effect2恢复材质执行、named189绑定、首帧/下一帧GPU与最终合成，benchmark PASS；自有半透明色与非法三候选反例通过。真实换曲/previous封面及完整视觉仍待验；不再把原`optional-named-fallback-unproven`当未修。[修复证据](../history/mixed-provider-color-abi-2026-10-08.md) |
 | stock noise视觉等价 | **待研究**：按需准备/readiness已修；缺资产synthetic替代的密度/语义未证。375时钟包自带clouds，不属于替代收益；见[资源链证据](../capabilities/runtime-evidence-current.md#e-2026-09-26-stock-noise-preparation) |
@@ -80,7 +80,7 @@ T1共享材质切片已闭，T2共享HDR裁剪与暂停恢复已闭合；328自�
 | U01 · 3764725758 | ①左侧向右下光束缺失；②人物眼睛错误地飘动 | 光束实际来源/激活/合成；眼部变形与挂点。两项分别定位，不先假定同因 |
 | U02 · 3549827466、3585542943、3581882134、3603711180 | 四样本均缺光束特效 | 各取实际 particle/shader occurrence，比较准入、geometry、coverage 与最终合成；四样本分别复验 |
 | U03 · 3587571382 | 纹理合成错误，额头缺块 | **主报告现象已修复**：[原包视差开启实机](../capabilities/runtime-evidence-current.md#e-2026-10-08-inherited-parallax)额头恢复。继承视差的position改消费与depth同源的当帧world frame，未改纹理/木偶/作者参数；完整交互及官方逐像素未验。 |
-| U04 · 3747190633 | 音频条不出现 | 同声源 audio 输入→作者更新→可见 geometry/材质/合成 |
+| U04 · 3747190633 | 音频条不出现 | **主报告现象已修复**：[中文previous补接](../capabilities/runtime-evidence-current.md#e-2026-10-08-localized-graph-input)后原包layer1897消费左右32频谱，条带可见并进入GPU/最终合成。受控PCM不代表外部声源验收；同包sine_wave的varyingUnsupported仍待沿共享编译链归因。 |
 | U05 · 3723344874 | 人物背后流体烟雾缺失 | 实际烟雾作者定义→资源/Program或粒子→层序/合成 |
 | U06 · 3662390671 | 大面积纹理缺失 | layer185 Scene.tex为TEXB0004内嵌WebM/VP9；[本机探针](../capabilities/runtime-evidence-current.md#e-2026-10-08-frame-declaration)原WebM报AVFoundation -11828，同码流remux MP4报-11833且0frame。不能仅放宽magic或换容器准入；沿原decode职责选择能实际出帧的方案，系统/设备广泛支持未证。另有同源Frame Builder，尚无当前原包可见复验 |
 | U07 · 3804441338 | 中间方框全白、文字不可见；官方应为两个描边镂空矩形 | **主报告现象已修复，整样本未宣称全通过。** [同身份实机后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-frame-declaration)：共用 Projection 退役重复 regex、移除死 slot2；typed 默认背景 PMA 事实接入实际 generic ABI；导数 builtin 在原后端适配。198/218 两框镂空与时间/日期文字可见，245中心图形及272圆角遮罩编码，18个effect occurrence进入输出、无准备/执行失败。跨样本380620的同源三效果也进入链路。官方逐像素、真实音频/媒体和完整交互未验，不能据此报全样本正确率。 |
@@ -95,8 +95,8 @@ T1共享材质切片已闭，T2共享HDR裁剪与暂停恢复已闭合；328自�
 | U16 · 3122339805 | ①两个可移动窗口消失（用户称曾修复）；②文字区域包括关闭按钮 X 轻微偏移 | 回归候选：脚本/动态对象生命周期与位置、文字布局；复验连续拖动与文字 ROI |
 | U17 · 3233141951 | ①脸部不随头发做木偶动画；②背后龙头飞行轨迹不对；③黑色小人动画缺失；④官方音频条双色重叠，现仅粉色 | pose/attachment、轨迹/时序、动画激活、audio 层序/混合四项各自闭合 |
 | U18 · 3232289987 | 头发合成位置错位 | **主报告现象已修复**：[MDLV0021版本合同补接](../capabilities/runtime-evidence-current.md#e-2026-10-08-puppet-v21)使躯干骨骼、动画与五官/右臂挂点进入原链，原包前发/五官回到头部。完整交互/官方逐像素未验；generic max重载仍走既有共享fallback，保留后续归因。 |
-| U19 · 3807668787 | ①头冠应亮色发光却像灰色阴影（用户怀疑混合模式）；②音频条缺失 | **两项仍开放**：①GodRays802 mask覆盖冠环，全部effects已执行，combine GPU符合现合同，下一步局部关闭802并追各pass coverage；②音频925/926在slot0中文“上一个”alias准备处拒绝，先查现sampler owner，不能先改音频gain。[诊断](../capabilities/runtime-evidence-current.md#e-2026-10-08-inherited-parallax) |
-| U20 · 3807151772 | 音频条消失，用户称之前修好过 | 回归候选：以旧关闭证据和当前同输入复验定位首个失效边 |
+| U19 · 3807668787 | ①头冠应亮色发光却像灰色阴影；②音频条缺失 | **②已修、①开放**：[原包后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-localized-graph-input)音频925/926沿原Sampler owner进入频谱/GPU/合成，PCM条高变化、静音基础点线。GodRays802关闭副本已消除灰外圈，下一步追各pass颜色/coverage及作者合成合同，不能用修改gain或关effect当修复。 |
+| U20 · 3807151772 | 音频条消失，用户称之前修好过 | **主报告现象已修复**：[同一中文previous修复](../capabilities/runtime-evidence-current.md#e-2026-10-08-localized-graph-input)后原包layer399的16频谱进入实际GPU/合成，条带可见。未验外部声源/完整交互；同包sine_wave的varyingUnsupported仍待归因，不关闭整样本。 |
 | U21 · 3806337293 | ①人物层上下叠灰层；②下半身过曝；③环形音频条缺失 | 覆盖/层序/颜色域与 audio 几何分别定位，不统一归咎 HDR |
 | U22 · 3805547608 | ①右上角点击切换背景失效；②用户报告带视频层样本普遍越播越卡、帧率递减 | hit/event→属性→媒体切换；视频 decode/publication/资源释放/队列长稳。普遍影响面待测，不能由单样本外推 |
 | U23 · 3796588443 | ①纹理混合明显错误；②音频条缺失 | source/coverage/blend 与 audio 更新分别闭合，交叉验证同根因样本 |
@@ -120,7 +120,7 @@ T1共享材质切片已闭，T2共享HDR裁剪与暂停恢复已闭合；328自�
 | U41 · 3357627941 | 属性面板无替换视频媒体资源的选择入口 | project 属性类型→现有 AppKit 编辑器/资源选择→typed binding→视频 consumer，不另造 provider |
 | U42 · 跨样本属性面板 | ①打开后浏览/滚动严重卡顿；②疑似原中文属性显示成英文，用户询问官方是否有中英映射并提示参考研究 | 沿既有属性 UI 测主线程/布局/重复解析；查作者 locale token/字典、系统语言与官方 fallback。映射表是否存在未证，不硬编码翻译表 |
 
-**执行顺序及单链约束。** U14封面mask、U13连续scalar/同帧旧值、U07镂空矩形、U03额头缺块及U18头发错位主报告现象已修；完成项不再当作未做。下一批优先对 U19（3807668787发灰与音频alias）按纹理采样/混合及现sampler入口的首错处理，兼顾用户优先提出的HDR/SDR默认变暗；不要先造样本分支。U06的WebM/VP9实际decode与重型样本剩余显示/启动复验仍保留高优先级，不能用本片着色器接纳替代。随后继续 U21/U23 纹理与混合，复核 U16/U20/U24/U34“曾好后坏”及 U22 持续退化，再归并光束、音频、动画/交互；属性入口与面板仍开放。条纹官方小输入已有有界证据，328物理显示未闭。顺序仍属于既有T1/T2/E1与P路线，不另建路线。
+**执行顺序及单链约束。** U14封面mask、U13连续scalar/同帧旧值、U07镂空矩形、U03额头缺块及U18头发错位主报告现象已修，U04/U20/U19②音频条现已通过同一中文previous补接恢复；完成项不再当作未做。下一批优先对 U19（3807668787头冠发灰）按纹理采样、各pass颜色/coverage和最终混合的首错处理，兼顾用户优先提出的HDR/SDR默认变暗；不要先造样本分支。U06的WebM/VP9实际decode与重型样本剩余显示/启动复验仍保留高优先级，不能用本片着色器接纳替代。随后继续 U21/U23 纹理与混合，复核 U16/U24/U34“曾好后坏”及 U22 持续退化，再归并光束、音频、动画/交互；属性入口与面板仍开放。条纹官方小输入已有有界证据，328物理显示未闭。顺序仍属于既有T1/T2/E1与P路线，不另建路线。
 
 重写必须在原职责入口替换旧实现，并证明原有效输入/效果和失败隔离不回退；同一输入不可同时走新旧两套 owner。发现能由已有参数、入口或 primitive 表达的能力，优先补接或扩展该处。每批报告逐子现象关闭数、实际复测样本及剩余范围，不把本表录入率当画面修复率。
 

@@ -522,10 +522,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "04ba3eab7ea7fde07f0172183f351fcfd0067e1698deaf25d8a408efb1331bf8",
+        "sourceSHA256": "94fac2b498a25eb9a791ef70a1b5ebaf08c3097e27c407e8a6fadd506ffb8617",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对MDLV0021现reader版本配对、U18实机挂点恢复及剩余边界。",
-        "limitations": "不代表未知MDLS后缀、官方逐像素、完整交互或全样本验收。"
+        "scope": "核对中文previous同一Sampler合同、四原包音频实际链路及U19灰外圈消融。",
+        "limitations": "受控PCM不代表外部音源、完整视觉/交互或官方parity；GodRays和sine_wave剩余仍开放。"
       }
     },
     {
@@ -546,13 +546,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-07",
+      "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "411c89e228c929161a8f8fbf5a076befcc24f58437be107d0a69280172037feb",
+        "sourceSHA256": "371d99a64e860f0e029771b9b86988486ab110db1ffb28b02d7e20c43cd774cd",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对本次审查修复对应的职责合同、来源交接及冻结证据导航；实际运行身份与限制见记录。",
-        "limitations": "仅对应本批职责与冻结证据，不表示全样本兼容、官方parity或发布验收。"
+        "scope": "核对中文previous同一Sampler合同、四原包音频实际链路及U19灰外圈消融。",
+        "limitations": "受控PCM不代表外部音源、完整视觉/交互或官方parity；GodRays和sine_wave剩余仍开放。"
       }
     },
     {
@@ -1909,10 +1909,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5081175181663cd0b916092f1b6aa68fe038386a8dd5b23184f68405b859bb77",
+        "sourceSHA256": "ced920d52f0ae1f95ae054627da3bda8ef6f5bd940a27446496f0470ff05258c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对MDLV0021现reader版本配对、U18实机挂点恢复及剩余边界。",
-        "limitations": "不代表未知MDLS后缀、官方逐像素、完整交互或全样本验收。"
+        "scope": "核对中文previous同一Sampler合同、四原包音频实际链路及U19灰外圈消融。",
+        "limitations": "受控PCM不代表外部音源、完整视觉/交互或官方parity；GodRays和sine_wave剩余仍开放。"
       }
     },
     {

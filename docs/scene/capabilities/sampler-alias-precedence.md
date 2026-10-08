@@ -4,7 +4,7 @@
 
 Owner：`SceneResolvedMaterialShaderSchema`；支持范围见[能力台账](coverage-ledger.md)。
 
-`implicitFramebufferSlots` 只补齐未声明 material 角色的 slot 0。显式 material 必须经现有 alias、authored candidate 或完整 effect-input/color-carrier 证明的 dormant 路径裁决；未知 material 不因 slot 0 自动成为 framebuffer，label 不提供来源身份。有证明的 hidden 任意 key 保留 dormant provenance；未知角色局部失败。不按样本分派，不另建绑定 owner。
+`implicitFramebufferSlots` 只补齐未声明 material 角色的 slot 0。显式 material 必须经现有 alias、authored candidate 或完整 effect-input/color-carrier 证明的 dormant 路径裁决；未知 material 不因 slot 0 自动成为 framebuffer，label 不提供来源身份。有证明的 hidden 任意 key 保留 dormant provenance；未知角色局部失败。已证作者中文 `material=上一个` 与 `ui_editor_properties_framebuffer` 共用隐藏、regular、slot 0 `g_Texture0` 的既有 alias 规则，绑定当前 layer source 或前一个 active effect；只写 label 不成立，显式资源和 default 仍先裁决，缺图 identity 仍拒绝。不按样本分派，不另建绑定 owner。
 
 Direct static model：仅在 authored texture 与 user 请求皆空时，schema 提供普通颜色 sampler 默认资产，descriptor 保存 `staticModelDefaultAlbedoAssetPath`；VFS/loader 加载 straight albedo，沿原 draw、深度、阴影和 compositor 消费。comparison sampler 不参加数值 uniform 证明；这不授权其采样或 shadow 路由。默认事实独立于 uniform `.unavailable`；`.rejected` 仍拒绝部件。帧内不解析或分配默认输入，保留 authored slots/readiness combo。
 
