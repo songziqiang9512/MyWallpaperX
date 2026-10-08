@@ -96,7 +96,8 @@ extension SceneMetalRenderer {
             sourceSampling: sample.sampling.applying(
                 clampUVs: provider.clampUVs,
                 noInterpolation: provider.noInterpolation
-            )
+            ),
+            sourceRepresentation: sample.representation
         )
         let encoded = SceneImageLayerMainPassRenderer.draw(
             texture: source.texture,

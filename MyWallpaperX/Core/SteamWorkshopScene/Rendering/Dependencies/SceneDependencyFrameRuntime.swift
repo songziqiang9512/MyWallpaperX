@@ -338,7 +338,7 @@ final class SceneDependencyFrameRuntime {
         )
         let reservation = reservationsByProviderLayerID[layer.id]
         if reservation == nil,
-           textureRegistry.completeNamedLayerTargetTexture(
+           textureRegistry.completeNamedLayerTargetResource(
                reference: reference,
                frameEpoch: frameEpoch
            ) != nil {
@@ -411,12 +411,12 @@ final class SceneDependencyFrameRuntime {
                   reservation.texture.height == extent.height else {
                 return .finished(.invalid(reasonCode: "named-provider-reservation-invalid"))
             }
-            if let publishedTexture = textureRegistry
-                .completeNamedLayerTargetTexture(
+            if let publishedResource = textureRegistry
+                .completeNamedLayerTargetResource(
                     reference: reference,
                     frameEpoch: frameEpoch
                 ) {
-                guard publishedTexture === reservation.texture else {
+                guard publishedResource.publication.texture === reservation.texture else {
                     return .finished(.invalid(reasonCode: "named-provider-publication-identity-invalid"))
                 }
                 return .finished(.published)
@@ -491,6 +491,7 @@ final class SceneDependencyFrameRuntime {
         let hasStaticModelBindings = staticModelProviderLayerIDs.contains(layer.id)
 
         let encoded: Bool
+        var capturedContent: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
         switch binding?.kind {
         case .imageLayerBlend, .visibleImageGraphOutput:
             guard let sourceTexture, let sourceCandidate else {
@@ -511,6 +512,8 @@ final class SceneDependencyFrameRuntime {
                 captureTelemetry.recordFailure(layerID: layer.id)
                 return .unavailable(reasonCode: "image-provider-source-unavailable")
             }
+            let isStraight = sourceCandidate.content == .color(.resolved(.straightAlpha))
+            capturedContent = isStraight ? .color(.resolved(.straightAlpha)) : .color(.resolved(.premultipliedAlpha))
             encoded = mainPass.encodeOffscreen { commandBuffer in
                 var uniforms = SceneLayerFragmentUniforms.neutral()
                 uniforms.textureFrame0 = sourceCandidate.uvTransform.uniform0
@@ -520,7 +523,7 @@ final class SceneDependencyFrameRuntime {
                         clampUVs: layer.clampUVs,
                         noInterpolation: layer.noInterpolation
                     ).imageLayerUniformMode,
-                    0
+                    isStraight ? 3 : 0
                 )
                 let didEncode = SceneOffscreenEffectRenderer.captureSource(
                     sourceTexture: sourceTexture,
@@ -551,6 +554,8 @@ final class SceneDependencyFrameRuntime {
                     textureRegistry: textureRegistry,
                     commandBuffer: commandBuffer,
                     telemetry: captureTelemetry,
+                    content: sourceCandidate?.content ?? .color(.resolved(.premultipliedAlpha)),
+                    sourceTextureFrame: sourceCandidate?.uvTransform ?? .identity,
                     retainAuxiliary: mainPass.retainAuxiliaryRelease
                 ) ?? .invalid(
                     reasonCode: "geometry-provider-publication-route-missing"
@@ -634,6 +639,8 @@ final class SceneDependencyFrameRuntime {
                 ? providerColor ?? SIMD3(layer.colorRGB ?? [], fill: 1)
                 : SIMD3(repeating: 1)
             uniforms.tint = SIMD4(color.x, color.y, color.z, 1)
+            let isStraight = providerSource.content == .color(.resolved(.straightAlpha))
+            capturedContent = isStraight ? .color(.resolved(.straightAlpha)) : .color(.resolved(.premultipliedAlpha))
             uniforms.textureFrame0 = providerSource.textureFrame.uniform0
             uniforms.textureFrame1 = providerSource.textureFrame.uniform1
             uniforms.sourceSampling = SIMD2(
@@ -641,7 +648,7 @@ final class SceneDependencyFrameRuntime {
                     clampUVs: layer.clampUVs,
                     noInterpolation: layer.noInterpolation
                 ).imageLayerUniformMode,
-                0
+                isStraight ? 3 : 0
             )
             encoded = mainPass.encodeOffscreen { commandBuffer in
                 let didEncode = SceneOffscreenEffectRenderer.captureSource(
@@ -666,11 +673,12 @@ final class SceneDependencyFrameRuntime {
                     variant: .primary
                 ),
                 frameEpoch: frameEpoch,
-                texture: target
-            ), textureRegistry.completeNamedLayerTargetTexture(
+                texture: target,
+                content: capturedContent
+            ), textureRegistry.completeNamedLayerTargetResource(
                 reference: reference,
                 frameEpoch: frameEpoch
-            ) === target else {
+            )?.publication.texture === target else {
                 captureTelemetry.recordFailure(layerID: layer.id)
                 return .invalid(reasonCode: "named-provider-registry-publication-invalid")
             }

@@ -74,7 +74,8 @@ extension SceneImageLayerCompositor {
             tint: tint * sourceMaterialColor * brightness,
             dependencyBlendMode: routesOffscreen
                 ? nil : dependencyBlendMode,
-            sourceSampling: sourceSample.sampling
+            sourceSampling: sourceSample.sampling,
+            sourceRepresentation: sourceSample.representation
         )
         uniforms.alpha *= sourceMaterialAlpha
         return uniforms

@@ -300,7 +300,8 @@ struct SceneImageLayerDrawRequest {
         ) else { return nil }
         return .init(
             textureFrame: sample.textureFrame,
-            sampling: effectiveSourceSampling(for: sample.sampling)
+            sampling: effectiveSourceSampling(for: sample.sampling),
+            representation: sample.representation
         )
     }
 }

@@ -43,15 +43,19 @@ static float2 sceneImageLayerTextureFrameUV(
 // underflow erase a finite HDR contribution after opacity/coverage. Unlike the lit storage
 // calculation this product is signed and has no radiance clamp.
 static float4 sceneImageLayerModulation(float4 color, float4 sourceCoverage,
-    float4 tint, float alpha, float vertexCoverage, float clipCoverage) {
-    float4 result = color * sourceCoverage * tint * alpha * vertexCoverage * clipCoverage;
+    float4 tint, float alpha, float vertexCoverage, float clipCoverage,
+    bool preservesStraightRGB) {
+    const float4 alphaFactors = preservesStraightRGB ? float4(1, 1, 1, alpha) : float4(alpha);
+    const float4 vertexFactors = preservesStraightRGB ? float4(1, 1, 1, vertexCoverage) : float4(vertexCoverage);
+    const float4 clipFactors = preservesStraightRGB ? float4(1, 1, 1, clipCoverage) : float4(clipCoverage);
+    float4 result = color * sourceCoverage * tint * alphaFactors * vertexFactors * clipFactors;
     for (uint channel = 0; channel < 4; ++channel) {
         if (isfinite(result[channel]) && (result[channel] != 0.0
             || color[channel] == 0.0 || sourceCoverage[channel] == 0.0
-            || tint[channel] == 0.0 || alpha == 0.0
-            || vertexCoverage == 0.0 || clipCoverage == 0.0)) continue;
+            || tint[channel] == 0.0 || alphaFactors[channel] == 0.0
+            || vertexFactors[channel] == 0.0 || clipFactors[channel] == 0.0)) continue;
         const float factors[6] = {color[channel], sourceCoverage[channel],
-            tint[channel], alpha, vertexCoverage, clipCoverage};
+            tint[channel], alphaFactors[channel], vertexFactors[channel], clipFactors[channel]};
         float mantissa = 1.0;
         int exponent = 0;
         bool finiteInputs = true;
@@ -153,7 +157,8 @@ fragment float4 sceneImageLayerFrag(
     }
 
     // Storage representation and additive weighting are separate boundaries.
-    // Association happens only here for a straight graph output; true PMA
+    // Association happens here for a straight final draw; source capture
+    // keeps straight RGB and applies opacity only to coverage. True PMA
     // producers already carried their authored coverage into RGB.
     if (uniforms.sourceSampling.y == 1u) color.rgb *= color.a;
 
@@ -163,5 +168,5 @@ fragment float4 sceneImageLayerFrag(
         is_function_constant_defined(weightsSourceAlpha) && weightsSourceAlpha
         ? float4(color.aaa, 1.0) : float4(1.0);
     return sceneImageLayerModulation(color, sourceCoverage, uniforms.tint,
-        uniforms.alpha, input.vertexCoverage, clipCoverage);
+        uniforms.alpha, input.vertexCoverage, clipCoverage, (uniforms.sourceSampling.y & 2u) != 0u);
 }

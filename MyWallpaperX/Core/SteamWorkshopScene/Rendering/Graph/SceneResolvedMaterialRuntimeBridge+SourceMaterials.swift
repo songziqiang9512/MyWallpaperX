@@ -17,6 +17,7 @@ extension SceneResolvedMaterialRuntimeBridge.FramePreparationRequest {
         var uniforms = sourceUniforms
         uniforms?.textureFrame0 = candidate.uvTransform.uniform0
         uniforms?.textureFrame1 = candidate.uvTransform.uniform1
+        uniforms?.sourceSampling.y = candidate.content == .color(.resolved(.straightAlpha)) ? 1 : 0
         return .init(claim: claim, targetPlan: targetPlan,
             materialFunctionInvocations: materialFunctionInvocations,
             sceneBackgroundResource: sceneBackgroundResource, sourceTexture: texture,
@@ -83,6 +84,7 @@ extension SceneResolvedMaterialRuntimeBridge {
                   program.textureSlots.first??.registryIdentity == .asset(material.sourceIdentity),
                   let pass = encoder.prepare(program: program, target: target.texture),
                   pass.storedContent == .color(.resolved(.premultipliedAlpha))
+                    || pass.storedContent == .color(.resolved(.straightAlpha))
                     || pass.storedContent == .color(.resolved(.opaque)) else {
                 target.pin.release(); continue
             }
@@ -94,7 +96,8 @@ extension SceneResolvedMaterialRuntimeBridge {
                 identity: .provider(.materialSource(layerID: layerID,
                     frameEpoch: registry.frameEpoch, allocationGeneration: target.pin.generation)),
                 generation: .provider(contentGeneration: registry.frameEpoch),
-                purpose: .premultipliedColor, content: pass.storedContent,
+                purpose: pass.storedContent == .color(.resolved(.straightAlpha))
+                    ? .straightAlbedo : .premultipliedColor, content: pass.storedContent,
                 physicalSize: size, mappedSize: sourceCandidate.mappedSize,
                 uvTransform: sourceCandidate.uvTransform,
                 sampling: sourceCandidate.sampling)

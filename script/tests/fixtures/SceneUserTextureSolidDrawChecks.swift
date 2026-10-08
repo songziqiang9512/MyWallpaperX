@@ -4,7 +4,7 @@ import simd
 
 // CPU-only member stubs. The draw request, candidate validation, provider
 // selection, color policy, and fragment-uniform producers compile unchanged.
-enum MTLPixelFormat: UInt { case rgba8Unorm, bgra8Unorm, rgba16Float, r8Unorm }
+enum MTLPixelFormat: UInt { case rgba8Unorm, bgra8Unorm, rgba16Float, r8Unorm, bc1_rgba, bc2_rgba, bc3_rgba }
 enum MTLTextureType { case type2D, type3D }
 struct MTLTextureUsage: OptionSet {
     let rawValue: Int

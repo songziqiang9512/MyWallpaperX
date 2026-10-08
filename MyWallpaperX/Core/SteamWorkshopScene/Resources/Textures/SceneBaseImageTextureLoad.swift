@@ -318,6 +318,33 @@ enum SceneBaseImageTextureLoad {
         let container = source.flatMap {
             loader.texContainer(from: url, source: $0)
         }
+        // A static puppet atlas is a sampling resource, not a completed layer
+        // publication. Its existing samplingCandidate carries the same typed
+        // color and padded UV contract as an ordinary base image.
+        let directFormat = container?.rawMetalPixelFormat ?? container?.metalPixelFormat
+        let supportsCandidateFormat = directFormat.map {
+            SceneBaseImageTextureCandidateResolver.supportsColorSampling(pixelFormat: $0)
+        } ?? true
+        let staticSingleImage = container?.imageCount == 1
+            && container?.isAnimated == false
+            && container?.spriteFrames.isEmpty == true
+        if !supportsCandidateFormat, staticSingleImage {
+            // Retain the existing specialized producer and its strict
+            // Candidate geometry/sampler validation before dropping metadata.
+            return loadOrdinaryCandidate(
+                from: url, loader: loader, device: device,
+                purpose: .premultipliedColor
+            )
+        }
+        if usesPuppet, supportsCandidateFormat,
+           (url.pathExtension.lowercased() != "tex"
+            || staticSingleImage) {
+            return loadOrdinaryCandidate(
+                from: url,
+                loader: loader,
+                device: device
+            )
+        }
         if let specializedLoadReason = specializedLoadReason(
             url: url,
             container: container,

@@ -543,7 +543,9 @@ struct SceneImageLayerCompositor {
             layer: request.layer,
             sourceSample: SceneBaseImageTextureSample(
                 textureFrame: plan.source.uvTransform,
-                sampling: plan.source.sampling
+                sampling: plan.source.sampling,
+                representation: plan.source.content == .color(.resolved(.straightAlpha))
+                    ? .straightAlpha : .premultipliedAlpha
             ),
             routesOffscreen: routesOffscreen,
             dependencyBlendMode: nil,

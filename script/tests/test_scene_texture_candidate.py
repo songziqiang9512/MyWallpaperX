@@ -11,6 +11,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from script.tests.scene_source_color_fixture import HARNESS_EXTENSION, assert_source_color_upload
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -871,6 +873,10 @@ enum Harness {
             spriteTextureLoader: spriteTextureLoader,
             device: device
         ))
+        let sourceContinuity = try sourceContinuityProbe(
+            directory: directory, pngURL: fallbackPNGURL,
+            loader: loader, spriteTextureLoader: spriteTextureLoader, device: device
+        )
         let baseUnparsedOutcome = SceneBaseImageTextureLoad.load(
             from: unparsedFallbackURL,
             usesPuppet: false,
@@ -959,7 +965,7 @@ enum Harness {
             routesOffscreen: true
         )
         let sourceFragmentUniformCarriesCandidateAtom =
-            sourceUniforms?.sourceSampling == SIMD2(3, 0)
+            sourceUniforms?.sourceSampling == SIMD2(3, 1)
                 && sourceUniforms?.textureFrame0
                     == mappedNearestSample.textureFrame.uniform0
                 && sourceUniforms?.textureFrame1
@@ -1266,6 +1272,7 @@ enum Harness {
         let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
         let result: [String: Any] = [
             "overflowingRawRejected": overflowingRawRejected,
+            "sourceContinuity": sourceContinuity,
             "available": true,
             "identityIsCanonicalFile": filePath(first.identity)
                 == url.resolvingSymlinksInPath().standardizedFileURL.path,
@@ -1564,9 +1571,11 @@ enum Harness {
                     && baseBudgetLimitedCrossImageSprite.message.contains(
                         "resident budget exceeded"
                     ),
-            "basePuppetSpecialized":
-                basePuppetSpecialized.candidate == nil
-                    && basePuppetSpecialized.message.contains("puppet atlas"),
+            "basePuppetCandidate":
+                basePuppetSpecialized.candidate?.purpose == .straightAlbedo
+                    && basePuppetSpecialized.candidate?.content
+                        == .color(.resolved(.straightAlpha))
+                    && basePuppetSpecialized.candidate?.uvTransform.xAxis == SIMD2(0.5, 0),
             "baseUnparsedRejected": baseUnparsedRejected,
             "baseCandidateFailureTerminal": baseCandidateFailureTerminal,
             "baseStoreReplacementClearsCandidate":
@@ -1634,20 +1643,24 @@ enum Harness {
 
     static func copy(
         _ source: SceneTextureCandidate,
+        purpose: SceneTextureLoadPurpose? = nil,
+        content: SceneTextureContent? = nil,
         physicalSize: CGSize? = nil,
         mappedSize: CGSize? = nil,
         uvTransform: SceneTextureUVTransform? = nil,
-        sampling: SceneTextureSampling? = nil
+        sampling: SceneTextureSampling? = nil,
+        isSpriteSheet: Bool? = nil
     ) -> SceneTextureCandidate {
         SceneTextureCandidate(
             texture: source.texture,
             identity: source.identity,
             generation: source.generation,
-            purpose: source.purpose,
-            content: source.content,
+            purpose: purpose ?? source.purpose,
+            content: content ?? source.content,
             physicalSize: physicalSize ?? source.physicalSize,
             mappedSize: mappedSize ?? source.mappedSize,
             uvTransform: uvTransform ?? source.uvTransform,
+            isSpriteSheet: isSpriteSheet ?? source.isSpriteSheet,
             sampling: sampling ?? source.sampling,
             authoredFormat: source.authoredFormat
         )
@@ -2281,18 +2294,28 @@ enum Harness {
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneTextureCandidateTests(unittest.TestCase):
     def test_candidate_keeps_texture_and_slot_metadata_atomic(self) -> None:
+        self.maxDiff = None
         with tempfile.TemporaryDirectory(prefix="mwx-texture-candidate-") as directory:
             root = Path(directory)
             harness = root / "Harness.swift"
             binary = root / "texture-candidate-test"
-            harness.write_text(HARNESS, encoding="utf-8")
+            harness.write_text(HARNESS + HARNESS_EXTENSION, encoding="utf-8")
+            # Parallel renderer work may update shared source files during
+            # swiftc. Compile and execute one frozen set of input bytes.
+            frozen_sources = []
+            for source in SWIFT_SOURCES:
+                frozen = root / source.name
+                shutil.copy2(source, frozen)
+                frozen_sources.append(frozen)
+            frozen_metal = root / IMAGE_LAYER_METAL_SOURCE.name
+            shutil.copy2(IMAGE_LAYER_METAL_SOURCE, frozen_metal)
             compilation = subprocess.run(
                 [
                     "xcrun",
                     "--sdk",
                     "macosx",
                     "swiftc",
-                    *(str(path) for path in SWIFT_SOURCES),
+                    *(str(path) for path in frozen_sources),
                     str(harness),
                     "-framework",
                     "Metal",
@@ -2312,7 +2335,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
             )
             self.assertEqual(compilation.returncode, 0, compilation.stderr)
             completed = subprocess.run(
-                [str(binary), str(IMAGE_LAYER_METAL_SOURCE)],
+                [str(binary), str(frozen_metal)],
                 check=True,
                 capture_output=True,
                 text=True,
@@ -2321,6 +2344,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
         self.assertTrue(result.pop("overflowingRawRejected"))
         if not result["available"]:
             self.skipTest("Metal is unavailable")
+        assert_source_color_upload(self, result.pop("sourceContinuity"))
         self.assertEqual(
             result,
             {
@@ -2335,7 +2359,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "baseDirectGeneratesMipChain": True,
                 "baseNearestRepeatCandidate": True,
                 "basePaddedR8Specialized": True,
-                "basePuppetSpecialized": True,
+                "basePuppetCandidate": True,
                 "baseRotatedCrossImageSpriteFailsClosed": True,
                 "baseSpritePlayback": True,
                 "baseSnapshotDropsMismatchedCandidate": True,

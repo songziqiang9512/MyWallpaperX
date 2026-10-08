@@ -298,7 +298,7 @@ extension SceneDependencyFrameRuntime {
             }
             if !usesPreparedGraphOutput,
                providerCandidate?.axisAlignedMappedUVScale(
-                   expectedPurpose: .premultipliedColor
+                   expectedPurpose: providerCandidate?.purpose ?? .premultipliedColor
                ) == nil {
                 // Specialized sprite loading intentionally has no Candidate;
                 // its prepared graph source is validated by the original
@@ -426,7 +426,8 @@ extension SceneDependencyFrameRuntime {
         let physical = candidate.physicalSize
         let mapped = candidate.mappedSize
         guard candidate.texture === texture,
-              candidate.purpose == .premultipliedColor,
+              candidate.purpose == (candidate.content == .color(.resolved(.straightAlpha))
+                ? .straightAlbedo : .premultipliedColor),
               candidate.content.isResolved,
               candidate.sampling.isResolvedForMaterialProgram,
               !candidate.sampling.usesClampBorderFallback,
@@ -447,7 +448,7 @@ extension SceneDependencyFrameRuntime {
         // Unlike SlotBinding, this raw profile has no UV-area floor. A tiny
         // positive mapped region is still valid; do not tighten that contract.
         return !requiresExactMapping || candidate.axisAlignedMappedUVScale(
-            expectedPurpose: .premultipliedColor
+            expectedPurpose: candidate.purpose
         ) != nil
     }
 
@@ -463,6 +464,7 @@ extension SceneDependencyFrameRuntime {
         commandBuffer: MTLCommandBuffer,
         telemetry: SceneGPUCompletionTelemetry,
         content: SceneTextureContent = .color(.resolved(.premultipliedAlpha)),
+        sourceTextureFrame: SceneTextureUVTransform = .identity,
         retainAuxiliary: SceneGeometryProduct.AuxiliaryRetainer? = nil
     ) -> SceneGraphOutputPublicationResult? {
         guard plan.requiredProviderLayerIDs.contains(layerID) else { return nil }
@@ -526,6 +528,8 @@ extension SceneDependencyFrameRuntime {
         // compositor boundary, then publish the actual PMA result.
         var uniforms = SceneLayerFragmentUniforms.neutral()
         uniforms.sourceSampling.y = representation == .straightAlpha ? 1 : 0
+        uniforms.textureFrame0 = sourceTextureFrame.uniform0
+        uniforms.textureFrame1 = sourceTextureFrame.uniform1
         let encoded = geometryProduct.encode(
             encoder,
             sourceTexture,

@@ -142,13 +142,16 @@ struct SceneLayerSourcePassthroughPlan {
             return .failure(.publicationGenerationInvalid)
         }
         guard publication.isComplete else { return .failure(.publicationIncomplete) }
-        guard publication.candidate.purpose == .premultipliedColor else {
+        guard publication.candidate.purpose == .premultipliedColor
+            || publication.candidate.purpose == .straightAlbedo else {
             return .failure(.publicationPurposeInvalid)
         }
         guard publication.candidate.content
                 == .color(.resolved(.premultipliedAlpha))
                 || publication.candidate.content
-                == .color(.resolved(.opaque)) else {
+                == .color(.resolved(.opaque))
+                || publication.candidate.content
+                == .color(.resolved(.straightAlpha)) else {
             return .failure(.publicationContentInvalid)
         }
         guard let sourceSample = request.resolvedBaseTextureSample(),

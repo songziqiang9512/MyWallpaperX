@@ -15,16 +15,17 @@ extension SceneDependencyFrameRuntime {
         candidate: SceneTextureCandidate?
     ) -> (
         textureFrame: SceneTextureUVTransform,
-        sampling: SceneTextureSampling
+        sampling: SceneTextureSampling,
+        content: SceneTextureContent
     )? {
         if layer.contentKind == "solid" {
-            return (.identity, .linearClamp)
+            return (.identity, .linearClamp, .color(.resolved(.premultipliedAlpha)))
         }
         guard let candidate,
               isExactImageProviderCandidate(candidate, matching: texture) else {
             return nil
         }
-        return (candidate.uvTransform, candidate.sampling)
+        return (candidate.uvTransform, candidate.sampling, candidate.content)
     }
 
     func requiresForwardCapture(for providerLayerID: Int) -> Bool {
@@ -125,11 +126,19 @@ extension SceneDependencyFrameRuntime {
               normalized(binding.materialPath) == normalized(materialPath) else {
             return nil
         }
-        guard let texture = textureRegistry.completeNamedLayerTargetTexture(
+        guard let resource = textureRegistry.completeNamedLayerTargetResource(
                   reference: expectedReference,
                   frameEpoch: textureRegistry.frameEpoch
-              ),
-              texture.textureType == .type2D,
+              ) else { return nil }
+        let texture = resource.publication.texture
+        let isPremultiplied: Bool
+        switch resource.publication.candidate.content {
+        case .color(.resolved(.premultipliedAlpha)): isPremultiplied = true
+        case .color(.resolved(.straightAlpha)), .color(.resolved(.opaque)):
+            isPremultiplied = false
+        default: return nil
+        }
+        guard texture.textureType == .type2D,
               texture.sampleCount == 1,
               texture.usage.contains(.shaderRead) else { return nil }
         return .init(
@@ -137,7 +146,7 @@ extension SceneDependencyFrameRuntime {
             frameEpoch: textureRegistry.frameEpoch,
             textureFrame: .identity,
             sampling: .linearClamp,
-            isPremultiplied: true
+            isPremultiplied: isPremultiplied
         )
     }
 

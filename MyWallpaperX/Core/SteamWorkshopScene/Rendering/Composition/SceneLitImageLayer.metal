@@ -221,6 +221,8 @@ fragment float4 sceneLitImageLayerFrag(
         break;
     }
 
+    // Lighting retains its associated output contract for either source storage.
+    if ((uniforms.sourceSampling.y & 1u) != 0u) color.rgb *= color.a;
     if (color.a <= 0.0) return float4(0.0);
 
     // Shared quad convention: +Y up and texture v=0 at the top.

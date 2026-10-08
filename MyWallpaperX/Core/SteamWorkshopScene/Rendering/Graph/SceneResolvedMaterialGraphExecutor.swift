@@ -225,6 +225,7 @@ final class SceneResolvedMaterialGraphExecutor {
             member: capability.pairPlan.baseCaptureMember
         )
         let baseCommand: SceneGraphResourcePassEncoder.PreparedCommand
+        var baseRepresentation: SceneShaderColorRepresentation = .premultipliedAlpha
         switch capability.sourceRoute {
         case .capturedLayerTexture, .capturedMainTargetTexture:
             // A lit payload whose PSO does not match the capture target
@@ -239,6 +240,7 @@ final class SceneResolvedMaterialGraphExecutor {
                       pipeline: sourcePipeline,
                       sourceLighting: sourceLighting
                   ) else { return .failure(.captureRejected) }
+            baseRepresentation = capture.preservesStraightSourceColor ? .straightAlpha : .premultipliedAlpha
             baseCommand = capture
         case .transparentDirectDraw:
             guard sourceTexture == nil, sourceUniforms == nil,
@@ -254,14 +256,14 @@ final class SceneResolvedMaterialGraphExecutor {
                   identity: capability.pairPlan.baseCaptureIdentity,
                   member: capability.pairPlan.baseCaptureMember,
                   generation: captureGeneration,
-                  representation: .premultipliedAlpha
+                  representation: baseRepresentation
               ) else { return .failure(.contentGenerationOverflow) }
 
         let sourceCommand = Command.resource(baseCommand)
         var pair = PairAtom(
             member: capability.pairPlan.baseCaptureMember,
             resource: base,
-            representation: .premultipliedAlpha
+            representation: baseRepresentation
         )
         var publications = [
             capability.pairPlan.baseCaptureIdentity: base,

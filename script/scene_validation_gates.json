@@ -575,7 +575,8 @@
         "test_scene_frame_rejection_fault",
         "test_scene_surface_submission",
         "test_scene_utility_layers",
-        "test_scene_terminal_material_receipt"
+        "test_scene_terminal_material_receipt",
+        "test_scene_source_color_graph"
       ]
     },
     {
@@ -702,7 +703,9 @@
       "modules": [
         "test_scene_base_material_provider_binding",
         "test_scene_lit_image_layer",
-        "test_scene_resolved_material_graph_executor"
+        "test_scene_resolved_material_graph_executor",
+        "test_scene_source_color_named_and_lit",
+        "test_scene_source_color_graph"
       ]
     },
     {
@@ -801,7 +804,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerDrawRequest.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneFrameLayerTextureAssembly.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneFrameLayerTextureAssembly.swift",
+        "script/tests/scene_source_color_fixture.py"
       ],
       "modules": [
         "test_scene_resolved_material_runtime_bridge",
@@ -929,7 +933,8 @@
       ],
       "modules": [
         "test_scene_effect_render_graph",
-        "test_scene_resolved_material_graph_executor"
+        "test_scene_resolved_material_graph_executor",
+        "test_scene_source_color_graph"
       ]
     },
     {
@@ -988,7 +993,8 @@
         "test_scene_graph_conditional_fbo_command_contract",
         "test_scene_graph_condition_schema_evidence",
         "test_scene_resolved_material_execution_capability",
-        "test_scene_resolved_material_graph_executor"
+        "test_scene_resolved_material_graph_executor",
+        "test_scene_source_color_graph"
       ]
     },
     {
@@ -1034,7 +1040,8 @@
         "test_scene_resolved_material_execution_capability",
         "test_scene_resolved_material_graph_executor",
         "test_scene_resolved_material_program_finalizer",
-        "test_scene_utility_layers"
+        "test_scene_utility_layers",
+        "test_scene_source_color_graph"
       ]
     },
     {
@@ -1088,7 +1095,8 @@
         "test_scene_persistent_history_visual_failure_gpu",
         "test_scene_material_texture_transform",
         "test_scene_resolved_material_pass_encoder",
-        "test_scene_terminal_material_graph"
+        "test_scene_terminal_material_graph",
+        "test_scene_source_color_graph"
       ]
     },
     {
@@ -1096,7 +1104,8 @@
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/**",
         "script/tests/test_scene_model_graph_albedo.py",
-        "script/tests/test_scene_dependency_frame_demand.py"
+        "script/tests/test_scene_dependency_frame_demand.py",
+        "script/tests/test_scene_source_color_named_and_lit.py"
       ],
       "modules": [
         "test_scene_dependency_capture_fault",
@@ -1106,7 +1115,8 @@
         "test_scene_model_graph_albedo",
         "test_scene_named_render_target_pool",
         "test_scene_visible_graph_output_render_plan",
-        "test_scene_utility_layers"
+        "test_scene_utility_layers",
+        "test_scene_source_color_named_and_lit"
       ]
     },
     {
@@ -1253,7 +1263,8 @@
         "test_scene_source_proven_auxiliary_texture_purpose",
         "test_scene_source_proven_noise_purpose",
         "test_scene_resolved_material_template",
-        "test_scene_localized_graph_input_alias"
+        "test_scene_localized_graph_input_alias",
+        "test_scene_source_color_graph"
       ]
     },
     {
@@ -1304,7 +1315,8 @@
         "test_scene_script_return_diagnostics",
         "test_scene_script_timer_identity",
         "test_scene_vector_media_events",
-        "test_scene_vector_owner_admission"
+        "test_scene_vector_owner_admission",
+        "test_scene_source_color_graph"
       ]
     },
     {

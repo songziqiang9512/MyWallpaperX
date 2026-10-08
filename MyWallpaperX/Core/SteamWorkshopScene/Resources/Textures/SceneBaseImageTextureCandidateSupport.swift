@@ -3,6 +3,17 @@ import Metal
 struct SceneBaseImageTextureSample {
     let textureFrame: SceneTextureUVTransform
     let sampling: SceneTextureSampling
+    let representation: SceneShaderColorRepresentation
+
+    init(
+        textureFrame: SceneTextureUVTransform,
+        sampling: SceneTextureSampling,
+        representation: SceneShaderColorRepresentation = .premultipliedAlpha
+    ) {
+        self.textureFrame = textureFrame
+        self.sampling = sampling
+        self.representation = representation
+    }
 }
 
 enum SceneBaseImageTextureCandidateResolver {
@@ -11,35 +22,45 @@ enum SceneBaseImageTextureCandidateResolver {
         sourceTexture: MTLTexture
     ) -> SceneBaseImageTextureSample? {
         guard candidate.texture === sourceTexture,
-              candidate.purpose == .premultipliedColor,
+              !candidate.isSpriteSheet,
               candidate.sampling.isResolvedForMaterialProgram,
               !candidate.sampling.usesClampBorderFallback,
-              (candidate.pixelFormat == .rgba8Unorm
-                || candidate.pixelFormat == .bgra8Unorm
-                || candidate.pixelFormat == .rgba16Float),
+              supportsColorSampling(pixelFormat: candidate.pixelFormat),
               candidate.texture.textureType == .type2D,
               candidate.texture.sampleCount == 1,
               candidate.texture.mipmapLevelCount > 0,
               candidate.texture.usage.contains(.shaderRead),
               candidate.axisAlignedMappedUVScale(
-                  expectedPurpose: .premultipliedColor
+                  expectedPurpose: candidate.purpose
               ) != nil else {
             return nil
         }
-        switch candidate.content {
-        case .color(.resolved(.opaque)),
-             .color(.resolved(.premultipliedAlpha)):
-            break
-        case .color(.resolved(.straightAlpha)),
-             .color(.resolved(.independentAlphaSignal)),
-             .color(.unresolved), .scalarRedUnorm, .redGreenUnorm,
-             .scalarRedFloat16, .redGreenFloat16, .data:
+        let representation: SceneShaderColorRepresentation
+        switch (candidate.purpose, candidate.content) {
+        case (.premultipliedColor, .color(.resolved(.opaque))):
+            representation = .opaque
+        case (.premultipliedColor, .color(.resolved(.premultipliedAlpha))):
+            representation = .premultipliedAlpha
+        case (.straightAlbedo, .color(.resolved(.straightAlpha))):
+            representation = .straightAlpha
+        default:
             return nil
         }
         return .init(
             textureFrame: candidate.uvTransform,
-            sampling: candidate.sampling
+            sampling: candidate.sampling,
+            representation: representation
         )
+    }
+
+    static func supportsColorSampling(pixelFormat: MTLPixelFormat) -> Bool {
+        switch pixelFormat {
+        case .rgba8Unorm, .bgra8Unorm, .rgba16Float,
+             .bc1_rgba, .bc2_rgba, .bc3_rgba:
+            return true
+        default:
+            return false
+        }
     }
 
     static func textureFrame(

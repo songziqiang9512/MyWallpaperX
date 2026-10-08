@@ -5,18 +5,19 @@ extension SceneBaseImageTextureLoad {
     static func loadOrdinaryCandidate(
         from url: URL,
         loader: SceneTextureLoader,
-        device: MTLDevice
+        device: MTLDevice,
+        purpose: SceneTextureLoadPurpose = .straightAlbedo
     ) -> Outcome {
         switch loader.loadCandidate(
             from: url,
-            purpose: .premultipliedColor,
+            purpose: purpose,
             device: device
         ) {
         case .failed(let failure):
             return .failed(failure)
         case .loaded(let candidate):
             guard let scale = candidate.axisAlignedMappedUVScale(
-                expectedPurpose: .premultipliedColor
+                expectedPurpose: purpose
             ) else {
                 return .failed(.decodeFailed(
                     "base color candidate failed its final purpose/UV validation"
@@ -34,10 +35,18 @@ extension SceneBaseImageTextureLoad {
                         + " rawFlags=\(candidate.sampling.rawFlags.map(String.init) ?? "direct")"
                 ))
             }
-            guard candidate.pixelFormat == .rgba8Unorm,
-                  candidate.texture.textureType == .type2D,
-                  candidate.texture.sampleCount == 1,
-                  candidate.texture.usage.contains(.shaderRead) else {
+            guard SceneBaseImageTextureCandidateResolver.supportsColorSampling(
+                pixelFormat: candidate.pixelFormat
+            ) else {
+                guard purpose == .premultipliedColor,
+                      candidate.texture.textureType == .type2D,
+                      candidate.texture.sampleCount == 1,
+                      candidate.texture.usage.contains(.shaderRead) else {
+                    return .failed(.decodeFailed(
+                        "base color candidate has unsupported sampling format"
+                            + " (\(candidate.diagnosticSummary))"
+                    ))
+                }
                 return .loaded(Loaded(
                     texture: candidate.texture,
                     candidate: nil,

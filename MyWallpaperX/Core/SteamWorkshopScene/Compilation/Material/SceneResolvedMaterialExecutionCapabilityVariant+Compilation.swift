@@ -135,7 +135,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         let colorBoundary = ordinaryColorBoundary(
             sourceTransfer: sourceColorTransfer,
             outputStorage: outputStorage,
-            implicitFramebufferIdentity: implicitFramebufferIdentity,
             template: template,
             samplers: sourceActiveSamplers,
             selectedPurposes: variantKey.selectedTexturePurposes,
@@ -341,7 +340,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
     private static func ordinaryColorBoundary(
         sourceTransfer: SceneShaderColorTransfer,
         outputStorage: SceneResolvedMaterialProgram.OutputStorage,
-        implicitFramebufferIdentity: Graph.TextureIdentity?,
         template: Template,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         selectedPurposes: [SceneTextureLoadPurpose?],
@@ -392,9 +390,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         switch sourceTransfer {
         case .opaque, .opaqueFromStraightColor: output = .opaque
         default:
-            // Source-material capture remains an explicitly associated producer
-            // until its upload/capture boundary is migrated. Effects retain RGB.
-            output = implicitFramebufferIdentity == nil ? .premultipliedAlpha : .straightAlpha
+            output = .straightAlpha
         }
         let signalSlot: Int?
         if case let .passthrough(slot) = sourceTransfer, colorSlots.contains(slot) {

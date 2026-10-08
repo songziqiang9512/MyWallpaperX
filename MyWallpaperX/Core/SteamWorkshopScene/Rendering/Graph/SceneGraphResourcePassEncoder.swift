@@ -18,6 +18,11 @@ final class SceneGraphResourcePassEncoder {
 
         let kind: Kind
 
+        var preservesStraightSourceColor: Bool {
+            guard case let .sourceCapture(_, _, uniforms, _, _) = operation else { return false }
+            return uniforms.sourceSampling.y & 2 != 0
+        }
+
         fileprivate let ownerToken: UUID
         fileprivate let resetGeneration: UInt64
         fileprivate let operation: Operation
@@ -64,6 +69,11 @@ final class SceneGraphResourcePassEncoder {
                 pipeline: pipeline
             ) else { return nil }
             let lighting = sourceLighting?.validated(for: target)
+            var uniforms = uniforms
+            // Only the existing unlit full-target capture retains straight storage.
+            // Lit output and its unlit fallback remain associated.
+            uniforms.sourceSampling.y &= 1
+            if lighting == nil, uniforms.sourceSampling.y == 1 { uniforms.sourceSampling.y = 3 }
             return PreparedCommand(
                 kind: .sourceCapture,
                 ownerToken: ownerToken,
