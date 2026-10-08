@@ -449,7 +449,15 @@
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "role": "current-state",
       "entrypoint": "README.md",
-      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
+      "lastReviewed": "2026-10-08",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "87db7abcf864d9bae6537e7f7201a27d066414298f7ff411ae0bb244aa1449fb",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "核对继承视差共享位置修复、U03原包输出及U18/U19未闭合边界。",
+        "limitations": "不代表官方逐像素、完整交互或全样本兼容验收。"
+      }
     },
     {
       "path": "docs/scene/capabilities/effect-execution-coverage.md",
@@ -506,10 +514,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bf8c1eb1aab20481fd6d133e40bfaad49d97b75c3cd12f808685510f9c8d80ba",
+        "sourceSHA256": "ae0b4fccea134847d7db373b3bff3cac1d1c5a617040d9713dab87299c76ecdf",
         "method": "document_registry --audit + document_health --check",
-        "scope": "替换已闭合的死纹理依赖与背景输入 ABI 断点，核对共享 owner、真实矩形恢复和下一项通用纹理/颜色队列。",
-        "limitations": "不代表官方逐像素、全部交互、真实音频/媒体或全样本兼容验收。"
+        "scope": "核对继承视差共享位置修复、U03原包输出及U18/U19未闭合边界。",
+        "limitations": "不代表官方逐像素、完整交互或全样本兼容验收。"
       }
     },
     {
@@ -1893,10 +1901,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "70998aef5aa457c325269f5647dad0edffac04e1a6eed04330f67b678e1dfe56",
+        "sourceSHA256": "b498f67688fe87f05c75415f181ce8e9faf195aa24619bad45673dac6f54a6fe",
         "method": "document_registry --audit + document_health --check",
-        "scope": "替换已闭合的死纹理依赖与背景输入 ABI 断点，核对共享 owner、真实矩形恢复和下一项通用纹理/颜色队列。",
-        "limitations": "不代表官方逐像素、全部交互、真实音频/媒体或全样本兼容验收。"
+        "scope": "核对继承视差共享位置修复、U03原包输出及U18/U19未闭合边界。",
+        "limitations": "不代表官方逐像素、完整交互或全样本兼容验收。"
       }
     },
     {
