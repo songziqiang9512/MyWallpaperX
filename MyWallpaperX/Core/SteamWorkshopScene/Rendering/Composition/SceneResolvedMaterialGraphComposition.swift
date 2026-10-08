@@ -244,11 +244,14 @@ extension SceneImageLayerCompositor {
         case .failed:
             return false
         }
+        guard case let .color(.resolved(representation)) = ticket.finalContent,
+              representation != .independentAlphaSignal else { return false }
         let uniforms = makeFragmentUniforms(
             values: .init(time: 0, alpha: alpha, cursorUV: .zero),
             textureFrame: .identity,
             tint: SIMD3<Float>(repeating: 1),
-            dependencyBlendMode: nil
+            dependencyBlendMode: nil,
+            sourceRepresentation: representation
         )
         let composited = SceneImageLayerMainPassRenderer.draw(
             texture: texture,

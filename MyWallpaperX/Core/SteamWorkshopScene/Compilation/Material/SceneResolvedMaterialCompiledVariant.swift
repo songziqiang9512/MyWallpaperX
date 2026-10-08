@@ -47,6 +47,9 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     /// missing annotation defaults during a frame.
     let resolvedIntegerCombos: [String: Int]
     let frontendProgram: SceneAuthoredShaderProgram
+    /// Nominal producer fact for preparing following passes. Actual frame
+    /// output content always comes from the finalized resource contract.
+    let preparedOutputContent: SceneTextureContent?
     let routeDecision: SceneGenericShaderRouteDecision
     let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
     let activeSamplers: [Int: Sampler]
@@ -84,6 +87,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         preparedShader: SceneShaderPreparedProgram,
         resolvedIntegerCombos: [String: Int],
         frontendProgram: SceneAuthoredShaderProgram,
+        preparedOutputContent: SceneTextureContent? = nil,
         routeDecision: SceneGenericShaderRouteDecision,
         runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds,
         activeSamplers: [Int: Sampler],
@@ -113,6 +117,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.preparedShader = preparedShader
         self.resolvedIntegerCombos = resolvedIntegerCombos
         self.frontendProgram = frontendProgram
+        self.preparedOutputContent = preparedOutputContent
         self.routeDecision = routeDecision
         self.runtimeLoopBounds = runtimeLoopBounds
         self.activeSamplers = activeSamplers

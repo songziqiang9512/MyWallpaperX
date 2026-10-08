@@ -35,6 +35,18 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
         slots: [Program.TextureSlot?]
     ) -> Data? {
         switch host {
+        case .premultipliedColorInputMask:
+            guard type == .uint, slots.count == 8 else { return nil }
+            let mask = slots.enumerated().reduce(UInt32(0)) { mask, entry in
+                switch entry.element?.resource.publication.candidate.content {
+                case .color(.resolved(.premultipliedAlpha)):
+                    return mask | (UInt32(1) << UInt32(entry.offset))
+                case .color(.resolved(.independentAlphaSignal)):
+                    return mask | (UInt32(1) << UInt32(8 + entry.offset))
+                default: return mask
+                }
+            }
+            return packed([mask], byteSize: 4)
         case .renderSize:
             return encodeSize(inputs.renderSize, type: type)
         case .modelViewProjection:

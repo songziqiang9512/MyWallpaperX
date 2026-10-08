@@ -334,7 +334,8 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                     associatedOverOverlaySlot:
                         selection.variant.associatedOverOverlaySlot,
                     premultipliedColorInputSlots:
-                        selection.variant.premultipliedColorInputSlots
+                        selection.variant.premultipliedColorInputSlots,
+                    colorBoundary: texture.frontend.colorBoundary
                 ) else {
                     throw failure(
                         .color,

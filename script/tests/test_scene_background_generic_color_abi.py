@@ -113,6 +113,7 @@ import Metal
             var result: [String: Any] = ["pmaSlots": variant.premultipliedColorInputSlots.sorted(),
                 "backend": program.backend.rawValue, "profile": variant.routeDecision.profile,
                 "colorTransfer": String(describing: program.colorTransfer),
+                "colorSlots": program.colorBoundary?.colorInputSlots ?? [],
                 "metalSource": program.metalSource,
                 "metalSHA256": SceneShaderStableDigest.hash(Data(program.metalSource.utf8))]
             if name == "source-default" || name == "opaque-output" {
@@ -151,6 +152,12 @@ import Metal
         for field in program.uniformLayout.fields where field.authoredName == "mwxRenderSize" {
             [Float(8), Float(8)].withUnsafeBytes { uniforms.replaceSubrange(
                 field.offset..<(field.offset + 8), with: $0) }
+        }
+        for field in program.uniformLayout.fields
+            where field.authoredName == SceneShaderColorBoundary.uniformName {
+            var mask: UInt32 = (1 << 0) | (1 << 3)
+            withUnsafeBytes(of: &mask) { uniforms.replaceSubrange(
+                field.offset..<(field.offset + 4), with: $0) }
         }
         let buffer = uniforms.withUnsafeBytes {
             device.makeBuffer(bytes: $0.baseAddress!, length: $0.count)!
@@ -222,9 +229,16 @@ class SceneBackgroundGenericColorABITests(unittest.TestCase):
         harness.write_text(HARNESS)
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
-        before = hashes(SOURCES + [support, harness])
-        command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
-            str(support), *map(str, SOURCES), str(harness), "-framework", "Metal",
+        frozen = root / "sources"
+        frozen.mkdir()
+        frozen_sources = []
+        for index, source in enumerate(SOURCES):
+            target = frozen / f"{index}_{source.name}"
+            target.write_bytes(source.read_bytes())
+            frozen_sources.append(target)
+        before = hashes(frozen_sources + [support, harness])
+        command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", "-whole-module-optimization", "-Onone",
+            str(support), *map(str, frozen_sources), str(harness), "-framework", "Metal",
             "-framework", "CoreGraphics", "-framework", "ImageIO", "-framework", "Security",
             "-module-cache-path", str(root / "modules"), "-o", str(binary)]
         compiled = subprocess.run(command, cwd=REPOSITORY_ROOT, env=environment,
@@ -235,7 +249,7 @@ class SceneBackgroundGenericColorABITests(unittest.TestCase):
             evidence.mkdir(parents=True, exist_ok=True)
             (evidence / "compile.json").write_text(json.dumps({"command": command,
                 "returncode": compiled.returncode, "stderr": compiled.stderr,
-                "before": before, "after": hashes(SOURCES + [support, harness])}, indent=2) + "\n")
+                "before": before, "after": hashes(frozen_sources + [support, harness])}, indent=2) + "\n")
         if compiled.returncode:
             raise RuntimeError(compiled.stderr)
         cls.results = {}
@@ -261,7 +275,7 @@ class SceneBackgroundGenericColorABITests(unittest.TestCase):
             if completed.returncode:
                 raise RuntimeError(completed.stderr or completed.stdout)
             cls.results[route] = json.loads(completed.stdout)
-        if before != hashes(SOURCES + [support, harness]):
+        if before != hashes(frozen_sources + [support, harness]):
             raise RuntimeError("Production inputs changed during the background ABI gate")
         if not all(cls.results.values()):
             raise unittest.SkipTest("Metal unavailable; no background ABI/GPU evidence")
@@ -278,16 +292,19 @@ class SceneBackgroundGenericColorABITests(unittest.TestCase):
                 for variant in result["variants"]:
                     self.assertEqual(variant["backend"], backend, variant)
                     self.assertEqual(variant["pmaSlots"], [3], variant)
+                    self.assertEqual(variant["colorSlots"], [0, 3], variant)
         # Input facts do not admit an unproved output on the bounded route.
         bounded_unclassified = self.results["disable-generic"]["source-default"]
         self.assertEqual(bounded_unclassified["variants"], [])
         self.assertIn("colorContractUnproven", bounded_unclassified["launch"])
 
     def test_background_is_unpremultiplied_once_at_the_author_boundary(self) -> None:
-        expected = [value * math.sqrt(0.5) for value in (0.32, 0.36, 0.22)] + [math.sqrt(0.5)]
+        # Both inputs are known PMA: (.2,.1,.05,.5) and (.1,.3,.2,.5).
+        # Authored mix consumes their straight RGB, then changes coverage only.
+        expected = [0.32, 0.36, 0.22, math.sqrt(0.5)]
         for route, name, wanted in (
             ("prefer-generic", "source-default", expected),
-            ("disable-generic", "opaque-output", [0.2, 0.3, 0.19, 1.0]),
+            ("disable-generic", "opaque-output", [0.32, 0.36, 0.22, 1.0]),
         ):
             for variant in self.results[route][name]["variants"]:
                 with self.subTest(route=route):

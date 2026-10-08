@@ -9,22 +9,25 @@ nonisolated enum SceneAuthoredShaderFrontend {
         let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
         let provenColorTransfer: SceneShaderColorTransfer?
         let premultipliedColorInputSlots: [Int]
+        let colorBoundary: SceneShaderColorBoundary?
 
         init(
             vertexSource: String,
             fragmentSource: String,
             runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds,
             provenColorTransfer: SceneShaderColorTransfer?,
-            premultipliedColorInputSlots: Set<Int>
+            premultipliedColorInputSlots: Set<Int>,
+            colorBoundary: SceneShaderColorBoundary?
         ) {
-            // v13 retires old prefix proofs and scalar/vector conversion semantics.
-            cacheSchemaVersion = 13
+            // v15 adds the actual-publication signal passthrough mask ABI.
+            cacheSchemaVersion = 15
             vertexSourceSHA256 = ProgramCacheDigest.hash(Data(vertexSource.utf8))
             fragmentSourceSHA256 = ProgramCacheDigest.hash(Data(fragmentSource.utf8))
             self.runtimeLoopBounds = runtimeLoopBounds
             self.provenColorTransfer = provenColorTransfer
             self.premultipliedColorInputSlots =
                 premultipliedColorInputSlots.sorted()
+            self.colorBoundary = colorBoundary
         }
     }
 
@@ -177,14 +180,16 @@ nonisolated enum SceneAuthoredShaderFrontend {
         fragmentSource: String,
         runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none,
         provenColorTransfer: SceneShaderColorTransfer? = nil,
-        premultipliedColorInputSlots: Set<Int> = []
+        premultipliedColorInputSlots: Set<Int> = [],
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) -> SceneAuthoredShaderFrontendOutput {
         let cacheKey = ProgramCacheKey(
             vertexSource: vertexSource,
             fragmentSource: fragmentSource,
             runtimeLoopBounds: runtimeLoopBounds,
             provenColorTransfer: provenColorTransfer,
-            premultipliedColorInputSlots: premultipliedColorInputSlots
+            premultipliedColorInputSlots: premultipliedColorInputSlots,
+            colorBoundary: colorBoundary
         )
         if let program = programCache.load(cacheKey) {
             return .init(program: program, diagnostics: [])
@@ -208,7 +213,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
         let validation = validate(vertex: vertexUnit, fragment: fragmentUnit)
         guard validation.diagnostics.isEmpty,
               let uniformLayout = makeUniformLayout(
-                  validation.uniforms
+                  validation.uniforms, colorBoundary: colorBoundary
               ) else {
             let layoutDiagnostic = validation.diagnostics.isEmpty
                 ? [SceneAuthoredShaderFrontendDiagnostic(
@@ -223,6 +228,21 @@ nonisolated enum SceneAuthoredShaderFrontend {
         }
         let colorTransfer = provenColorTransfer
             ?? SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentUnit)
+        if let colorBoundary,
+           !colorBoundary.isValid
+            || !Set(colorBoundary.colorInputSlots).isSubset(
+                of: Set(validation.textures.map(\.slot))
+            ) || colorBoundary.signalPassthroughSlot.map({ slot in
+                colorTransfer != .passthrough(textureSlot: slot)
+                    || SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentUnit)
+                        != .passthrough(textureSlot: slot)
+            }) == true {
+            return .init(program: nil, diagnostics: [.init(
+                code: .unsupportedSampler,
+                message: "Ordinary color boundary does not match actively bound slots.",
+                stage: .fragment, line: nil, column: nil
+            )])
+        }
         guard premultipliedColorInputSlots.isSubset(
             of: Set(validation.textures.map(\.slot))
         ) else {
@@ -246,7 +266,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
             varyingPrefixFacts: validation.varyingPrefixFacts,
             omittedVertexStatementRanges: validation.omittedVertexStatementRanges,
             colorTransfer: colorTransfer,
-            premultipliedColorInputSlots: premultipliedColorInputSlots
+            premultipliedColorInputSlots: premultipliedColorInputSlots,
+            colorBoundary: colorBoundary
         )
         guard let metalSource = emission.source, emission.diagnostics.isEmpty else {
             return .init(program: nil, diagnostics: emission.diagnostics)
@@ -262,7 +283,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
                 fragmentOutputChannelUse: fragmentOutputChannelUse,
                 vertexPositionInput: SceneAuthoredShaderGlobalReferenceAnalyzer
                     .isReferenced("g_ModelViewProjectionMatrix", in: vertexUnit)
-                    ? .targetPixels : .clipSpace
+                    ? .targetPixels : .clipSpace,
+                colorBoundary: colorBoundary
         )
         programCache.store(program, for: cacheKey)
         return .init(program: program, diagnostics: [])
@@ -432,7 +454,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
                     }
                     continue
                 }
-                if declaration.name == "mwxRenderSize" {
+                if declaration.name == "mwxRenderSize"
+                    || declaration.name == SceneShaderColorBoundary.uniformName {
                     diagnostics.append(.init(
                         code: .unsupportedDeclaration,
                         message: "Uniform '\(declaration.name)' is reserved by the host ABI.",
@@ -544,7 +567,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
     }
 
     private static func makeUniformLayout(
-        _ uniforms: [SceneAuthoredShaderUniformDeclaration]
+        _ uniforms: [SceneAuthoredShaderUniformDeclaration],
+        colorBoundary: SceneShaderColorBoundary?
     ) -> SceneAuthoredShaderUniformLayout? {
         var fields: [SceneAuthoredShaderUniformLayout.Field] = []
         var offset = 0
@@ -571,6 +595,12 @@ nonisolated enum SceneAuthoredShaderFrontend {
         if internalRemainder != 0 { offset += internalType.alignment - internalRemainder }
         fields.append(.init(name: "mwxRenderSize", type: internalType, offset: offset))
         offset += internalType.byteSize
+        if colorBoundary?.requiresInputMask == true {
+            fields.append(.init(
+                name: SceneShaderColorBoundary.uniformName, type: .uint, offset: offset
+            ))
+            offset += SceneAuthoredShaderValueType.uint.byteSize
+        }
         let remainder = offset % 16
         if remainder != 0 { offset += 16 - remainder }
         guard offset <= 4_096 else { return nil }

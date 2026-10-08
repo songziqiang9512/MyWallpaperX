@@ -18,6 +18,7 @@ from scene_shader_compiler_msl_function_contract import sample_end
 
 
 COMPOSITING_KIND = "independent-alpha-signal-compositing"
+UNDERLAY_KIND = "independent-alpha-signal-underlay-compositing"
 STRAIGHT_ALPHA_PRESERVING_KIND = "straight-alpha-preserving"
 _UNPREMULTIPLY = "mwxSignalCompositeUnpremultiply"
 _PREMULTIPLY = "mwxSignalCompositePremultiply"
@@ -41,12 +42,12 @@ def parse_expected_transfer(value: Any) -> dict[str, Any] | None:
     if isinstance(value, dict) and set(value) == {"kind", "slots"}:
         kind, slots = value.get("kind"), value.get("slots")
         if (
-            kind != COMPOSITING_KIND
+            kind not in {COMPOSITING_KIND, UNDERLAY_KIND}
             or not isinstance(slots, list)
-            or len(slots) != 2
+            or len(slots) != (3 if kind == UNDERLAY_KIND else 2)
             or any(isinstance(slot, bool) or not isinstance(slot, int) for slot in slots)
             or any(not 0 <= slot < 8 for slot in slots)
-            or slots[0] == slots[1]
+            or len(set(slots)) != len(slots)
         ):
             raise IndependentSignalContractFailure("expected-color-transfer")
         return {"kind": kind, "slots": list(slots)}
@@ -81,7 +82,7 @@ def prepare_independent_signal_contract(
         return _prepare_straight_alpha_preserving(
             fragment_msl, expected, texture_bindings
         ), expected
-    if expected["kind"] != COMPOSITING_KIND:
+    if expected["kind"] not in {COMPOSITING_KIND, UNDERLAY_KIND}:
         return _prepare_single_slot_transfer(
             fragment_msl,
             expected,
@@ -99,6 +100,7 @@ def independent_signal_static_loop_work(
 ) -> int | None:
     if expected_transfer["kind"] in (
         COMPOSITING_KIND,
+        UNDERLAY_KIND,
         STRAIGHT_ALPHA_PRESERVING_KIND,
     ):
         return None
@@ -323,8 +325,8 @@ def _prepare_compositing(
 ) -> str:
     if not isinstance(source, str) or not source.strip():
         raise IndependentSignalContractFailure("independent-compositing-source")
-    signal_slot, color_slot = expected["slots"]
-    _validate_bindings([signal_slot, color_slot], texture_bindings)
+    signal_slot, color_slot, *underlay_slots = expected["slots"]
+    _validate_bindings(expected["slots"], texture_bindings)
     if source.count(_UNPREMULTIPLY) or source.count(_PREMULTIPLY):
         raise IndependentSignalContractFailure("independent-compositing-helper")
     if len(re.findall(r"\busing\s+namespace\s+metal\s*;", source)) != 1:
@@ -346,7 +348,7 @@ def _prepare_compositing(
         r"g_Texture([0-7])\.sample\(([^;]+)\)(\s*;[ \t]*)$"
     )
     declarations = list(declaration_pattern.finditer(body))
-    if len(samples) != 2 or len(declarations) != 2:
+    if len(samples) != len(expected["slots"]) or len(declarations) != len(expected["slots"]):
         raise IndependentSignalContractFailure("independent-compositing-samples")
     by_slot: dict[int, re.Match[str]] = {}
     for declaration in declarations:
@@ -354,7 +356,7 @@ def _prepare_compositing(
         if slot in by_slot:
             raise IndependentSignalContractFailure("independent-compositing-samples")
         by_slot[slot] = declaration
-    if set(by_slot) != {signal_slot, color_slot}:
+    if set(by_slot) != set(expected["slots"]):
         raise IndependentSignalContractFailure("independent-compositing-slots")
 
     signal_name = by_slot[signal_slot].group(2)
@@ -389,17 +391,16 @@ def _prepare_compositing(
         + f"out.mwxFragColor = {_PREMULTIPLY}({color_name});"
         + transformed_body[output.end():]
     )
-    color = next(
-        declaration for declaration in declaration_pattern.finditer(transformed_body)
-        if int(declaration.group(3)) == color_slot
-    )
-    replacement = (
-        f"{color.group(1)}{_UNPREMULTIPLY}("
-        f"g_Texture{color_slot}.sample({color.group(4)})){color.group(5)}"
-    )
-    transformed_body = (
-        transformed_body[:color.start()] + replacement + transformed_body[color.end():]
-    )
+    color_slots = {color_slot, *underlay_slots}
+    for color in reversed(list(declaration_pattern.finditer(transformed_body))):
+        slot = int(color.group(3))
+        if slot not in color_slots:
+            continue
+        replacement = (
+            f"{color.group(1)}{_UNPREMULTIPLY}("
+            f"g_Texture{slot}.sample({color.group(4)})){color.group(5)}"
+        )
+        transformed_body = transformed_body[:color.start()] + replacement + transformed_body[color.end():]
     body_start = source.find(original_body)
     if body_start < 0:
         raise IndependentSignalContractFailure("independent-compositing-function")
@@ -414,6 +415,31 @@ def _prepare_compositing(
         transformed,
         count=1,
     )
+
+
+def validate_ordinary_boundary_roles(boundary: dict[str, Any], transfer: dict[str, Any]) -> None:
+    """Keep proven independent signal/data slots outside the color mask ABI."""
+    kind = transfer["kind"]
+    selected = set(boundary["colorInputSlots"])
+    signal_slot = boundary.get("signalPassthroughSlot")
+    if signal_slot is not None and (kind != "passthrough" or transfer.get("slot") != signal_slot):
+        raise IndependentSignalContractFailure("ordinary-color-signal-passthrough")
+    if kind == "independent-alpha-signal":
+        allowed = {transfer["slot"]}
+    elif kind == "independent-alpha-signal-preserving":
+        allowed = set()
+    elif kind in {COMPOSITING_KIND, UNDERLAY_KIND}:
+        allowed = set(transfer["slots"][1:])
+    else:
+        if boundary["outputRepresentation"] == "independent-alpha-signal":
+            raise IndependentSignalContractFailure("ordinary-color-signal-output")
+        return
+    if selected != allowed:
+        raise IndependentSignalContractFailure("ordinary-color-signal-role")
+    independent_output = kind in {"independent-alpha-signal", "independent-alpha-signal-preserving"}
+    output = "independent-alpha-signal" if independent_output else "premultiplied-alpha"
+    if boundary["outputRepresentation"] != output:
+        raise IndependentSignalContractFailure("ordinary-color-signal-output")
 
 
 def _validate_bindings(

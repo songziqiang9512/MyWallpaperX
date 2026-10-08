@@ -39,14 +39,17 @@ static float2 sceneImageLayerTextureFrameUV(
         + uv.y * uniforms.textureFrame1.xy;
 }
 
-// Preserve ordinary arithmetic, but do not let an intermediate overflow erase
-// a finite HDR contribution after opacity/coverage. Unlike the lit storage
+// Preserve ordinary arithmetic, but do not let intermediate overflow or
+// underflow erase a finite HDR contribution after opacity/coverage. Unlike the lit storage
 // calculation this product is signed and has no radiance clamp.
 static float4 sceneImageLayerModulation(float4 color, float4 sourceCoverage,
     float4 tint, float alpha, float vertexCoverage, float clipCoverage) {
     float4 result = color * sourceCoverage * tint * alpha * vertexCoverage * clipCoverage;
     for (uint channel = 0; channel < 4; ++channel) {
-        if (isfinite(result[channel])) continue;
+        if (isfinite(result[channel]) && (result[channel] != 0.0
+            || color[channel] == 0.0 || sourceCoverage[channel] == 0.0
+            || tint[channel] == 0.0 || alpha == 0.0
+            || vertexCoverage == 0.0 || clipCoverage == 0.0)) continue;
         const float factors[6] = {color[channel], sourceCoverage[channel],
             tint[channel], alpha, vertexCoverage, clipCoverage};
         float mantissa = 1.0;
@@ -148,6 +151,11 @@ fragment float4 sceneImageLayerFrag(
             color.rgb = min(color.rgb, target);
         }
     }
+
+    // Storage representation and additive weighting are separate boundaries.
+    // Association happens only here for a straight graph output; true PMA
+    // producers already carried their authored coverage into RGB.
+    if (uniforms.sourceSampling.y == 1u) color.rgb *= color.a;
 
     // Keep layer opacity linear: source coverage belongs to the authored
     // effect output, while uniforms.alpha belongs to the final layer.

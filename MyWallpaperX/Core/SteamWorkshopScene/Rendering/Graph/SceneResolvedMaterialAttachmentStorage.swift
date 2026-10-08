@@ -14,8 +14,9 @@ nonisolated enum SceneResolvedMaterialAttachmentStorage {
         switch resolution {
         case .resolved(.opaque): return .opaque
         case .resolved(.premultipliedAlpha): return .premultipliedAlpha
+        case .resolved(.straightAlpha): return .straightAlpha
         case .resolved(.independentAlphaSignal): return .independentAlphaSignal
-        case .resolved(.straightAlpha), .unresolved: return nil
+        case .unresolved: return nil
         }
     }
 

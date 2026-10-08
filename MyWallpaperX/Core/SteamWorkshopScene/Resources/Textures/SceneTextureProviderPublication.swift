@@ -292,7 +292,9 @@ nonisolated struct SceneFrameTextureResource {
                 frameEpoch: frameEpoch
             )),
             generation: .provider(contentGeneration: frameEpoch),
-            purpose: content == .data ? .preservedChannels : .premultipliedColor,
+            purpose: content == .data ? .preservedChannels
+                : content == .color(.resolved(.straightAlpha))
+                    ? .straightAlbedo : .premultipliedColor,
             content: content,
             physicalSize: size,
             mappedSize: size,
@@ -422,6 +424,12 @@ nonisolated struct SceneFrameTextureResource {
             return false
         }
         switch publication.candidate.content {
+        case .color(.resolved(.straightAlpha)):
+            let format = publication.candidate.pixelFormat
+            return publication.candidate.purpose == .straightAlbedo
+                && (format == .bgra8Unorm || format == .rgba8Unorm || format == .rgba16Float)
+                && publication.candidate.authoredFormat == nil
+                && identityUVScale(expectedPurpose: .straightAlbedo)
         case .color(.resolved(.opaque)),
              .color(.resolved(.premultipliedAlpha)),
              .color(.resolved(.independentAlphaSignal)):
@@ -461,7 +469,7 @@ nonisolated struct SceneFrameTextureResource {
                 && (format == .rgba8Unorm || format == .bgra8Unorm || format == .rgba16Float)
                 && publication.candidate.authoredFormat == nil
                 && identityUVScale(expectedPurpose: .preservedChannels)
-        case .color(.resolved(.straightAlpha)), .color(.unresolved):
+        case .color(.unresolved):
             return false
         }
     }
@@ -475,8 +483,10 @@ nonisolated struct SceneFrameTextureResource {
         switch candidate.content {
         case .data:
             expectedPurpose = .preservedChannels
-        case .color(.resolved(.premultipliedAlpha)):
+        case .color(.resolved(.premultipliedAlpha)), .color(.resolved(.opaque)):
             expectedPurpose = .premultipliedColor
+        case .color(.resolved(.straightAlpha)):
+            expectedPurpose = .straightAlbedo
         default:
             return false
         }

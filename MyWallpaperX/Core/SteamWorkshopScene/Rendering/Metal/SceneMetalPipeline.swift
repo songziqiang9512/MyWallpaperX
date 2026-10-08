@@ -24,7 +24,7 @@ struct SceneLayerFragmentUniforms {
     var usesDependencyBlend: UInt32
     var cursorUV: SIMD2<Float>   // cursor in layer-local UV space ([0..1])
     /// x: 0 linear-clamp, 1 linear-repeat, 2 nearest-clamp, 3 nearest-repeat.
-    /// y stays zero so the second 16-byte lane remains ABI-stable.
+    /// y: 0 associated/opaque color, 1 straight color requiring association.
     var sourceSampling: SIMD2<UInt32>
     var tint: SIMD4<Float>
     var textureFrame0: SIMD4<Float>
@@ -66,9 +66,9 @@ struct SceneImageLayerPipeline {
         descriptor.vertexFunction = vertFn
         descriptor.fragmentFunction = fragFn
         descriptor.colorAttachments[0].pixelFormat = pixelFormat
-        // Ordinary images are premultiplied. Direct-draw effects additionally
-        // weight their emitted RGB by authored coverage in the fragment, before
-        // layer opacity; both therefore use ONE for source RGB here.
+        // The image fragment associates straight input exactly once. Additive
+        // drawing independently weights source RGB by authored coverage before
+        // layer opacity; both use ONE for source RGB here.
         descriptor.colorAttachments[0].isBlendingEnabled = true
         descriptor.colorAttachments[0].sourceRGBBlendFactor = .one
         descriptor.colorAttachments[0].destinationRGBBlendFactor = blendMode == .alphaWeightedAdditive ? .one : .oneMinusSourceAlpha

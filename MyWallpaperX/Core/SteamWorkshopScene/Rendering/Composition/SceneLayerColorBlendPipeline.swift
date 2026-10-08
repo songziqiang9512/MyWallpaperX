@@ -34,7 +34,7 @@ fragment float4 sceneLayerColorBlendFrag(
     texture2d<float> layerTexture [[texture(0)]],
     texture2d<float> backgroundTexture [[texture(1)]],
     texture2d<float> clipMask [[texture(2)]],
-    constant int &blendMode [[buffer(0)]],
+    constant uint2 &blend [[buffer(0)]],
     constant float4 &clipTransform [[buffer(1)]]
 ) {
     constexpr sampler sampler2d(filter::linear, address::clamp_to_edge);
@@ -42,12 +42,13 @@ fragment float4 sceneLayerColorBlendFrag(
     const float clipCoverage = clipTransform.z == 0.0 ? 1.0
         : clipMask.sample(linearClipSampler,
             input.modelPosition * clipTransform.zw + clipTransform.xy).r;
-    float4 layer = layerTexture.sample(sampler2d, input.texcoord)
-        * input.vertexCoverage * clipCoverage;
+    float4 layer = layerTexture.sample(sampler2d, input.texcoord);
     float4 background = backgroundTexture.read(uint2(input.position.xy));
-    float3 straightLayer = layer.a > 0.0 ? layer.rgb / layer.a : float3(0.0);
+    float3 straightLayer = blend.y == 1u ? layer.rgb
+        : layer.a > 0.0 ? layer.rgb / layer.a : float3(0.0);
+    layer.a *= input.vertexCoverage * clipCoverage;
     return float4(
-        sceneApplyBlending(blendMode, background.rgb, straightLayer, layer.a),
+        sceneApplyBlending(int(blend.x), background.rgb, straightLayer, layer.a),
         background.a
     );
 }
@@ -122,6 +123,7 @@ final class SceneLayerColorBlendPipeline {
         backgroundTexture: MTLTexture,
         blendMode: Int,
         mvp: simd_float4x4,
+        sourceIsStraightAlpha: Bool = false,
         encoder: MTLRenderCommandEncoder
     ) {
         var vertices = Self.unitQuadVertices
@@ -135,6 +137,7 @@ final class SceneLayerColorBlendPipeline {
             backgroundTexture: backgroundTexture,
             blendMode: blendMode,
             mvp: mvp,
+            sourceIsStraightAlpha: sourceIsStraightAlpha,
             encoder: encoder
         )
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
@@ -148,10 +151,11 @@ final class SceneLayerColorBlendPipeline {
         backgroundTexture: MTLTexture,
         blendMode: Int,
         mvp: simd_float4x4,
+        sourceIsStraightAlpha: Bool = false,
         encoder: MTLRenderCommandEncoder
     ) {
         var mvpCopy = mvp
-        var mode = Int32(blendMode)
+        var mode = SIMD2<UInt32>(UInt32(blendMode), sourceIsStraightAlpha ? 1 : 0)
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
         encoder.setRenderPipelineState(state.renderPipeline)
         encoder.setVertexBytes(
@@ -159,7 +163,7 @@ final class SceneLayerColorBlendPipeline {
             length: MemoryLayout<simd_float4x4>.size,
             index: 1
         )
-        encoder.setFragmentBytes(&mode, length: MemoryLayout<Int32>.size, index: 0)
+        encoder.setFragmentBytes(&mode, length: MemoryLayout<SIMD2<UInt32>>.size, index: 0)
         encoder.setFragmentTexture(layerTexture, index: 0)
         encoder.setFragmentTexture(backgroundTexture, index: 1)
         SceneImageLayerPipeline.bindClipMask(encoder: encoder, texture: layerTexture)
@@ -237,6 +241,7 @@ enum SceneLayerColorBlendRenderer {
                     backgroundTexture: background,
                     blendMode: blendMode,
                     mvp: geometryMVP,
+                    sourceIsStraightAlpha: uniforms.sourceSampling.y == 1,
                     encoder: encoder
                 )
             }
@@ -254,6 +259,7 @@ enum SceneLayerColorBlendRenderer {
             backgroundTexture: background,
             blendMode: blendMode,
             mvp: mvp,
+            sourceIsStraightAlpha: uniforms.sourceSampling.y == 1,
             encoder: encoder
         )
         return true

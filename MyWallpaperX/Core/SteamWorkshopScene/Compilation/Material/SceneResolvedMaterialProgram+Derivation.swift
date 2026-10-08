@@ -52,6 +52,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                   transfer: frontend.colorTransfer,
                   outputStorage: input.outputStorage,
                   role: input.graphRole,
+                  colorBoundary: frontend.colorBoundary,
                   textureSlots: input.textureSlots
               ),
               input.renderState.supportsResolvedMaterialFullscreenOverwrite,
@@ -140,7 +141,8 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                     conditionalGeneratedRGBInputContract,
                 associatedOverOverlaySlot: associatedOverOverlaySlot,
                 premultipliedColorInputSlots:
-                    premultipliedColorInputSlots
+                    premultipliedColorInputSlots,
+                colorBoundary: frontend.colorBoundary
             ) else { return nil }
             let identity = Program.ColorContractIdentity(
                 framebufferInput: SceneResolvedMaterialProgramIdentity.color(
@@ -204,9 +206,10 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         transfer: SceneShaderColorTransfer,
         outputStorage: Program.OutputStorage,
         role: Template.GraphRole,
+        colorBoundary: SceneShaderColorBoundary?,
         textureSlots: [Program.TextureSlot?]
     ) -> Bool {
-        guard outputStorage == .color else { return true }
+        guard outputStorage == .color, colorBoundary == nil else { return true }
         guard case let .straightAlphaUNorm(slot) = transfer else { return true }
         guard role.effectInput == .layerSource,
               role.effectOutput == .effectOutput,

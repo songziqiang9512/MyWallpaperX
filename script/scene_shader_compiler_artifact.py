@@ -19,12 +19,15 @@ from scene_shader_compiler_input_color_contract import (
     InputColorContractFailure,
     lower_premultiplied_color_inputs,
     premultiplied_color_input_slots as parse_input_color_slots,
+    ordinary_color_boundary as parse_ordinary_color_boundary,
+    lower_ordinary_color_boundary,
 )
 from scene_shader_compiler_passthrough_contract import aliased_texture_passthrough
 from scene_shader_compiler_color_transfer_contract import (
     IndependentSignalContractFailure,
     independent_signal_static_loop_work,
     prepare_independent_signal_contract,
+    validate_ordinary_boundary_roles,
 )
 from scene_shader_compiler_request_contract import (
     RequestContractFailure,
@@ -649,6 +652,7 @@ def build_program_artifact(
     output_semantics: str = "color",
     expected_color_transfer: dict[str, Any] | None = None,
     premultiplied_color_input_slots: list[int] | None = None,
+    color_boundary: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     try:
         input_slots = parse_input_color_slots(
@@ -656,6 +660,9 @@ def build_program_artifact(
             if premultiplied_color_input_slots is None
             else premultiplied_color_input_slots
         )
+        boundary = parse_ordinary_color_boundary(color_boundary)
+        if boundary is not None and output_semantics != "color":
+            raise InputColorContractFailure("ordinary-color-output-semantics")
     except InputColorContractFailure as error:
         raise ArtifactFailure(str(error)) from error
     if set(stage_sources) != {"vertex", "fragment"} or set(msl_sources) != set(stage_sources):
@@ -663,7 +670,7 @@ def build_program_artifact(
     expected = expected_color_transfer_for_output(
         output_semantics, expected_color_transfer
     )
-    if input_slots and (
+    if boundary is None and input_slots and (
         expected is None or expected.get("kind") != "straight-alpha-preserving"
     ):
         raise ArtifactFailure("premultiplied-color-input-transfer")
@@ -676,6 +683,12 @@ def build_program_artifact(
         _active_uniform_fields(vertex_layout[0], msl_sources["vertex"]),
         _active_uniform_fields(fragment_layout[0], msl_sources["fragment"]),
     )
+    if boundary is not None and boundary["colorInputSlots"]:
+        fields, size = _aligned_uniform_layout([*uniform_layout[0], {
+            "name": "mwxPremultipliedColorInputMask",
+            "authoredName": "mwxPremultipliedColorInputMask", "type": "uint", "offset": 0,
+        }])
+        uniform_layout = (fields, size, uniform_layout[2], uniform_layout[3])
     prepared_fragment_msl = msl_sources["fragment"]
     if output_semantics == "red-green-unorm":
         color_transfer = {"kind": "red-green-unorm-data"}
@@ -704,6 +717,8 @@ def build_program_artifact(
     vertex_msl, fragment_msl = _deduplicate_stage_helpers(vertex_msl, fragment_msl)
     metal_source = vertex_msl.rstrip() + "\n\n" + fragment_msl.lstrip()
     texture_bindings = _texture_bindings(compiled_stages, metal_source)
+    if not set(input_slots) <= {binding["slot"] for binding in texture_bindings}:
+        raise ArtifactFailure("premultiplied-color-input-binding")
     accumulator_work = None
     if expected is not None:
         preserving_fallback = (
@@ -721,7 +736,28 @@ def build_program_artifact(
             )
         except IndependentSignalContractFailure as error:
             raise ArtifactFailure(error.code) from error
-    if input_slots:
+    if boundary is not None:
+        bound_slots = {binding["slot"] for binding in texture_bindings}
+        if not set(boundary["colorInputSlots"]) <= bound_slots:
+            raise ArtifactFailure("ordinary-color-input-binding")
+        if color_transfer is None:
+            raise ArtifactFailure("ordinary-color-transfer")
+        try:
+            validate_ordinary_boundary_roles(boundary, color_transfer)
+        except IndependentSignalContractFailure as error:
+            raise ArtifactFailure(error.code) from error
+        try:
+            vertex_msl = _normalize_uniform_struct(
+                lower_ordinary_color_boundary(msl_sources["vertex"], boundary, stage="vertex"),
+                uniform_layout[0], uniform_layout[2],
+            ).replace("MWXUniforms", "MWXVertexUniforms")
+            fragment_msl = _normalize_uniform_struct(
+                lower_ordinary_color_boundary(msl_sources["fragment"], boundary, include_helpers=False),
+                uniform_layout[0], uniform_layout[3],
+            ).replace("MWXUniforms", "MWXFragmentUniforms")
+        except InputColorContractFailure as error:
+            raise ArtifactFailure(str(error)) from error
+    elif input_slots:
         try:
             fragment_msl = lower_premultiplied_color_inputs(
                 fragment_msl, input_slots, texture_bindings
@@ -730,6 +766,7 @@ def build_program_artifact(
             raise ArtifactFailure(str(error)) from error
     if color_transfer is None:
         raise ArtifactFailure("color-transfer")
+    vertex_msl, fragment_msl = _deduplicate_stage_helpers(vertex_msl, fragment_msl)
     metal_source = vertex_msl.rstrip() + "\n\n" + fragment_msl.lstrip()
     if len(metal_source.encode("utf-8")) > maximum_artifact_bytes:
         raise ArtifactFailure("metal-size")
@@ -742,7 +779,7 @@ def build_program_artifact(
         if static_loop_work > 256:
             raise ArtifactFailure("loop-budget")
     return {
-        "schemaVersion": 9,
+        "schemaVersion": 10,
         "kind": "scene-generic-shader-program-artifact",
         "backendID": backend_id,
         "requestKey": request_key,
@@ -759,6 +796,7 @@ def build_program_artifact(
             "textureBindings": texture_bindings,
             "staticLoopWork": static_loop_work,
             "premultipliedColorInputSlots": input_slots,
+            "colorBoundary": boundary,
             "fragmentOutputChannelUse": "unproven",
             "colorTransfer": color_transfer,
         },

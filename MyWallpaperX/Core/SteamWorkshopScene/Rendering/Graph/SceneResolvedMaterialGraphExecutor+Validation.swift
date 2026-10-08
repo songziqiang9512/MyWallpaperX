@@ -411,8 +411,7 @@ extension SceneResolvedMaterialGraphExecutor {
         _ resource: SceneFrameTextureResource
     ) -> SceneShaderColorRepresentation? {
         guard case let .color(.resolved(value)) =
-                resource.publication.candidate.content,
-              value != .straightAlpha else { return nil }
+                resource.publication.candidate.content else { return nil }
         return value
     }
 
@@ -421,7 +420,7 @@ extension SceneResolvedMaterialGraphExecutor {
     ) -> SceneTextureContent? {
         let content = resource.publication.candidate.content
         switch content {
-        case let .color(.resolved(value)) where value != .straightAlpha:
+        case .color(.resolved):
             return content
         case .scalarRedUnorm, .redGreenUnorm, .scalarRedFloat16,
              .redGreenFloat16, .data:

@@ -182,7 +182,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         outputIsRGBA8Unorm: Bool = false,
         sourceColorTransfer: SceneShaderColorTransfer? = nil,
         outputSemantics: SceneGenericShaderOutputSemantics = .color,
-        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none
+        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none,
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) -> Resolution {
         let resolutionInput = SceneResolvedMaterialGenericShaderResolutionCache.Input(
             vertexSource: vertexSource,
@@ -225,7 +226,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             outputIsRGBA8Unorm: outputIsRGBA8Unorm,
             sourceColorTransfer: sourceColorTransfer,
             outputSemantics: outputSemantics,
-            runtimeLoopBounds: runtimeLoopBounds
+            runtimeLoopBounds: runtimeLoopBounds,
+            colorBoundary: colorBoundary
         )
         let outcome = resolutionCache.perform(key: resolutionInput) {
         let resolvedAnalysisOutcome = resolvedAnalysis(for: resolutionInput)
@@ -243,7 +245,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             outputSemantics: outputSemantics,
             expectedColorTransfer: expectedColorTransfer,
             premultipliedColorInputSlots: premultipliedColorInputSlots,
-            defaultBoundaryColorSlots: defaultBoundaryColorSlots
+            defaultBoundaryColorSlots: defaultBoundaryColorSlots,
+            colorBoundary: colorBoundary
         )
         let environment = ProcessInfo.processInfo.environment
         guard let routeState = routeState(
@@ -293,7 +296,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             fragmentSource: fragmentSource,
             outputSemantics: outputSemantics,
             expectedColorTransfer: expectedColorTransfer,
-            premultipliedColorInputSlots: premultipliedColorInputSlots
+            premultipliedColorInputSlots: premultipliedColorInputSlots,
+            defaultBoundaryColorSlots: defaultBoundaryColorSlots,
+            colorBoundary: colorBoundary
         )
         guard routeState == .preferGeneric || routeState == .genericOnly else {
             routeTelemetry.record(
@@ -335,6 +340,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                     expectedColorTransfer: expectedColorTransfer,
                     premultipliedColorInputSlots: premultipliedColorInputSlots,
                     defaultBoundaryColorSlots: defaultBoundaryColorSlots,
+                    colorBoundary: colorBoundary,
                     cacheRoot: root
                 )
             }
@@ -393,6 +399,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                   expectedOutputSemantics: outputSemantics,
                   expectedPremultipliedColorInputSlots:
                       premultipliedColorInputSlots,
+                  expectedColorBoundary: colorBoundary,
                   expectedColorTransfer: colorTransfer,
                   expectedFragmentOutputChannelUse: fragmentOutputChannelUse
               ) else {

@@ -124,7 +124,10 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                         input,
                         reference: reference,
                         purpose: purpose,
-                        slot: slot
+                        slot: slot,
+                        // Readiness does not authorize shader mathematics. The
+                        // exact binding below proves its ordinary color ABI.
+                        acceptsStraightColorStorage: true
                     )
                 } else {
                     guard case let .graph(identity) = reference else {
@@ -278,7 +281,10 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                 input,
                 reference: reference,
                 purpose: purpose,
-                slot: binding.slot
+                slot: binding.slot,
+                acceptsStraightColorStorage: variant.frontendProgram.colorBoundary?
+                    .colorInputSlots.contains(binding.slot) == true
+
             )
             result[binding.slot] = .init(
                 index: binding.slot,
@@ -286,7 +292,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                 registryIdentity: resolved.identity,
                 diagnosticSelectionProvenance: provenance,
                 graphInputSourceFact: graphInputSourceFact,
-                expectedPurpose: purpose,
+                expectedPurpose: resolved.resource.publication.candidate.purpose,
                 resource: resolved.resource
             )
         }
@@ -329,7 +335,8 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         _ input: SceneResolvedMaterialFinalizationInput,
         reference: Template.TextureReference,
         purpose: SceneTextureLoadPurpose,
-        slot: Int
+        slot: Int,
+        acceptsStraightColorStorage: Bool = false
     ) throws -> ResolvedResource {
         let identity = try runtimeIdentity(reference, purpose: purpose)
         guard let status = input.textureSnapshot.lookup(identity) else {
@@ -386,7 +393,17 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
               publication.isComplete else {
             throw failure(.textureMetadataIncomplete, slot: slot)
         }
-        guard publication.candidate.purpose == purpose else {
+        let actualStraightColor: Bool
+        switch reference {
+        case .graph, .provider(.namedLayerTarget):
+            actualStraightColor = acceptsStraightColorStorage
+                && purpose == .premultipliedColor
+                && publication.candidate.purpose == .straightAlbedo
+                && publication.candidate.content == .color(.resolved(.straightAlpha))
+        default:
+            actualStraightColor = false
+        }
+        guard publication.candidate.purpose == purpose || actualStraightColor else {
             throw failure(
                 .textureMetadataIncomplete,
                 slot: slot,

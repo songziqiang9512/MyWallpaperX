@@ -87,6 +87,10 @@ def compile_lit_harness(support_text: str, harness_text: str):
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
         environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
+        scene_cache = root / "scene-cache"
+        scene_cache.mkdir()
+        environment["MWX_SCENE_GENERIC_SHADER_CACHE"] = str(scene_cache)
+        environment["MWX_SCENE_PIPELINE_BINARY_ARCHIVE"] = str(scene_cache)
         compilation = subprocess.run(
             [
                 "xcrun",
@@ -808,9 +812,9 @@ struct SceneImageLayerPipeline {
         uniforms: SceneLayerFragmentUniforms,
         encoder: MTLRenderCommandEncoder
     ) {
-        _ = dependencyTexture
         var mvp = mvp
         var uniforms = uniforms
+        var clipTransform = SIMD4<Float>.zero
         encoder.setVertexBytes(
             &mvp,
             length: MemoryLayout<simd_float4x4>.size,
@@ -822,6 +826,9 @@ struct SceneImageLayerPipeline {
             index: 0
         )
         encoder.setFragmentTexture(texture, index: 0)
+        encoder.setFragmentTexture(dependencyTexture ?? texture, index: 1)
+        encoder.setFragmentTexture(texture, index: 2)
+        encoder.setFragmentBytes(&clipTransform, length: MemoryLayout<SIMD4<Float>>.size, index: 1)
         encoder.drawPrimitives(
             type: .triangleStrip,
             vertexStart: 0,
@@ -1439,12 +1446,12 @@ private func admittedGraph(_ graph: Graph) -> AdmittedLayerGraph {
 }
 
 private func orderedLayerGraph(_ graph: Graph) -> AdmittedLayerGraph {
-    precondition(graph.renderTargets.isEmpty && graph.effects.count >= 2)
+    precondition(graph.effects.count >= 2)
     let stages = graph.effects.enumerated().map { index, effect in
         let stageGraph = Graph(
             layerID: graph.layerID,
             effects: [effect],
-            renderTargets: [],
+            renderTargets: graph.renderTargets.filter { $0.texture.effect == effect.key },
             nodes: graph.nodes.filter { $0.effect == effect.key },
             finalOutput: effect.output,
             blockers: []
@@ -1502,7 +1509,8 @@ private func shaderContract(
     mixedSystemNamedBlend: Bool = false,
     colorBlend: Bool = false,
     constantColor: String? = nil,
-    explicitPreviousSampler: Bool = false
+    explicitPreviousSampler: Bool = false,
+    fragmentOverride: String? = nil
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -1564,7 +1572,7 @@ private func shaderContract(
     let literalFragment = constantColor.map { color in
         "varying vec2 v_TexCoord; void main() { gl_FragColor = vec4(\(color), 1.0); }"
     }
-    var fragment = literalFragment ?? targetDefaultFragment ?? dormantFragment ?? (implicitFramebuffer ? (implicitFramebufferAnnotation
+    var fragment = fragmentOverride ?? literalFragment ?? targetDefaultFragment ?? dormantFragment ?? (implicitFramebuffer ? (implicitFramebufferAnnotation
         ? explicitFramebufferFragment : """
     varying vec2 v_TexCoord;
     uniform sampler2D g_Texture0;
@@ -2171,14 +2179,31 @@ private func makeChainedLeases(
         case .failure: return nil
         }
         let step = capability.pairPlan.effects[index]
+        var texturesByIdentity = [
+            plan.input: texture(step.inputMember),
+            plan.output: texture(step.outputMember),
+        ]
+        var tokensByObject: [ObjectIdentifier: Executor.State.PhysicalToken] = [
+            ObjectIdentifier(zero): zeroToken, ObjectIdentifier(one): oneToken,
+        ]
+        guard let specifications = SceneGraphRenderTargetTable.specifications(for: plan) else { return nil }
+        for specification in specifications where
+            specification.identity != plan.input && specification.identity != plan.output {
+            let targetDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: specification.format.metalPixelFormat,
+                width: specification.extent.width, height: specification.extent.height, mipmapped: false)
+            targetDescriptor.storageMode = .private
+            targetDescriptor.usage = [.renderTarget, .shaderRead]
+            guard let target = device.makeTexture(descriptor: targetDescriptor) else { return nil }
+            texturesByIdentity[specification.identity] = target
+            tokensByObject[ObjectIdentifier(target)] = .init(rawValue:
+                "pixel-admittedGraph-target-\(index)-\(tokensByObject.count)")
+        }
         let mapped: SceneGraphRenderTargetTable
         switch SceneGraphRenderTargetTable.makeMapped(
             plan: plan,
             device: device,
-            texturesByIdentity: [
-                plan.input: texture(step.inputMember),
-                plan.output: texture(step.outputMember),
-            ],
+            texturesByIdentity: texturesByIdentity,
             fullFramePair: .init(first: zero, second: one),
             expectsInputOutputAlias: step.inputMember == step.outputMember,
             makeInputsDigest: 0
@@ -2191,7 +2216,7 @@ private func makeChainedLeases(
             table: mapped,
             generation: generation,
             tokenForTexture: { object in
-                object === zero ? zeroToken : oneToken
+                tokensByObject[ObjectIdentifier(object)]!
             },
             fullFramePairGeneration: generation,
             tokenForPairTexture: { object in
@@ -2323,12 +2348,35 @@ private func makeSourcePipeline(_ device: MTLDevice) -> SceneImageLayerPipeline 
     return .init(state: try! device.makeRenderPipelineState(descriptor: descriptor))
 }
 
+// The graph gate supplies a small Swift binding shell, but this path executes
+// the production image compositor fragment from the frozen default library.
+private func makeProductionSourcePipeline(_ device: MTLDevice) -> SceneImageLayerPipeline? {
+    guard let library = device.makeDefaultLibrary(),
+          let vertex = library.makeFunction(name: "sceneImageLayerVert") else { return nil }
+    let constants = MTLFunctionConstantValues()
+    var weightsSourceAlpha = false
+    constants.setConstantValue(&weightsSourceAlpha, type: .bool, index: 0)
+    guard let fragment = try? library.makeFunction(name: "sceneImageLayerFrag", constantValues: constants)
+    else { return nil }
+    let descriptor = MTLRenderPipelineDescriptor()
+    descriptor.vertexFunction = vertex; descriptor.fragmentFunction = fragment
+    descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
+    descriptor.colorAttachments[0].isBlendingEnabled = true
+    descriptor.colorAttachments[0].sourceRGBBlendFactor = .one
+    descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+    descriptor.colorAttachments[0].sourceAlphaBlendFactor = .one
+    descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+    guard let state = try? device.makeRenderPipelineState(descriptor: descriptor) else { return nil }
+    return .init(state: state)
+}
+
 private func frame(
     _ index: UInt64,
     width: Int = extent.width,
     height: Int = extent.height,
     dynamicDefinitions: [SceneDynamicTargetDefinition] = [],
     timelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
+    sceneTime: Float? = nil,
     textureEntries: [
         SceneFrameTextureIdentity: SceneFrameTextureLookupStatus
     ] = [:]
@@ -2349,7 +2397,7 @@ private func frame(
         frameInputs: .init(
             frameIndex: index,
             screenSize: CGSize(width: width, height: height),
-            sceneTime: Float(index),
+            sceneTime: sceneTime ?? Float(index),
             dayTime: 0,
             frameTime: 1 / 60,
             pointerCurrentNDC: .zero,
@@ -4293,7 +4341,8 @@ private func runSelfMixedCurrentScenario(device: MTLDevice, queue: MTLCommandQue
     let capabilities = capabilities(chain, catalog: .init(entries: entries, resourceDemandIssues: []),
         secondarySelfUnavailableReference: owner)
     var result = ["prepared": false, "program": false, "gpuCompleted": false, "pixels": false,
-        "selectedFact": false, "selectedVariantPurpose": false, "sourceAtom": false]
+        "selectedFact": false, "selectedVariantPurpose": false, "sourceAtom": false,
+        "visiblePixelsUnchanged": false]
     guard let claim = capabilities.claim(chain), let capability = capabilities.resolve(claim.token, for: chain),
           let leases = makeChainedLeases(capability, device: device),
           let executor = Executor(device: device, capabilities: capabilities), let command = queue.makeCommandBuffer()
@@ -4336,17 +4385,37 @@ private func runSelfMixedCurrentScenario(device: MTLDevice, queue: MTLCommandQue
             : slot.graphInputSourceFact?.inputIdentity == chainedFirstOutput
                 && slot.graphInputSourceFact?.selectionProvenance == slot.diagnosticSelectionProvenance
                 && program.semanticIdentity.graphRole.bindings.contains(.init(slot: 1, texture: .effectOutput))
-        result["selectedVariantPurpose"] = slot.expectedPurpose == (ready ? .preservedChannels : .premultipliedColor)
+        result["selectedVariantPurpose"] = slot.expectedPurpose == (ready ? .preservedChannels : .straightAlbedo)
         result["sourceAtom"] = ready ? slot.registryIdentity == userIdentity
             : slot.resource.publication.isSameAtom(as: prepared.stages[0].effectOutputResource.publication)
                 && slot.resource.resourceGeneration == prepared.stages[0].effectOutputResource.resourceGeneration
     }
     guard executor.encode(prepared, commandBuffer: command),
           let read = appendReadback(prepared.finalTexture, commandBuffer: command) else { return result }
+    let visible = makeSource(device, width: extent.width, height: extent.height,
+        usage: [.renderTarget, .shaderRead], bgra: [0, 0, 0, 0])
+    let pass = MTLRenderPassDescriptor()
+    pass.colorAttachments[0].texture = visible
+    pass.colorAttachments[0].loadAction = .clear
+    pass.colorAttachments[0].storeAction = .store
+    pass.colorAttachments[0].clearColor = .init(red: 0, green: 0, blue: 0, alpha: 0)
+    guard let encoder = command.makeRenderCommandEncoder(descriptor: pass),
+          let compositor = makeProductionSourcePipeline(device) else { return result }
+    compositor.bind(encoder: encoder)
+    var uniforms = SceneLayerFragmentUniforms.neutral()
+    uniforms.sourceSampling.y = prepared.finalResource.publication.candidate.content
+        == .color(.resolved(.straightAlpha)) ? 1 : 0
+    compositor.drawLayer(texture: prepared.finalTexture,
+        mvp: simd_float4x4(diagonal: SIMD4(2, 2, 1, 1)), uniforms: uniforms, encoder: encoder)
+    encoder.endEncoding()
+    guard let visibleRead = appendReadback(visible, commandBuffer: command) else { return result }
     command.commit(); command.waitUntilCompleted()
     result["gpuCompleted"] = command.status == .completed && command.error == nil
-    let expected: [UInt8] = status == .ready ? [0, 64, 64, 128] : [0, 128, 0, 128]
+    let expected: [UInt8] = status == .ready ? [0, 128, 128, 128] : [0, 255, 0, 128]
     result["pixels"] = matches(read.firstPixel, expected) && matches(read.lastPixel, expected)
+    let expectedVisible: [UInt8] = status == .ready ? [0, 64, 64, 128] : [0, 128, 0, 128]
+    result["visiblePixelsUnchanged"] = matches(visibleRead.firstPixel, expectedVisible)
+        && matches(visibleRead.lastPixel, expectedVisible)
     return result
 }
 
@@ -4456,6 +4525,315 @@ private func runSelfCompositeCurrentScenario(
         if frameIndex == 2 { result["secondFrame"] = true }
     }
     return result
+}
+
+private func runStraightColorContinuityScenario(
+    device: MTLDevice, queue: MTLCommandQueue, colorProbe: String? = nil
+) -> [String: Any] {
+    let full = chainedGraph()
+    let graph = Graph(layerID: layerID, effects: Array(full.effects.prefix(2)), renderTargets: [],
+        nodes: Array(full.nodes.prefix(2)), finalOutput: chainedSecondOutput, blockers: [])
+    let generated = """
+    varying vec2 v_TexCoord;
+    uniform float g_Time;
+    void main() {
+        vec3 authoredColor = vec3(0.8, 0.4, 0.2);
+        gl_FragColor = vec4(authoredColor, g_Time);
+    }
+    """
+    let replaceCoverage: String
+    if let colorProbe {
+        let declaration = colorProbe == "rg" ? "vec2 channels" : "float channel"
+        let rgb = colorProbe == "rg" ? "channels.r, channels.g, channels.r" : "channel, channel, channel"
+        replaceCoverage = """
+        varying vec2 v_TexCoord;
+        uniform sampler2D g_Texture0; // {"material":"previous"}
+        void main() {
+            \(declaration) = texSample2D(g_Texture0, v_TexCoord).\(colorProbe);
+            gl_FragColor = vec4(\(rgb), 1.0);
+        }
+        """
+    } else { replaceCoverage = """
+    varying vec2 v_TexCoord;
+    uniform sampler2D g_Texture0; // {"material":"previous"}
+    void main() {
+        vec4 color = texSample2D(g_Texture0, v_TexCoord);
+        color.a = 0.5;
+        gl_FragColor = color;
+    }
+    """ }
+    var entries: [SceneResolvedMaterialRuntimeCatalog.Key: SceneResolvedMaterialRuntimeCatalog.Entry] = [:]
+    for node in graph.nodes {
+        let original = template(for: node)
+        let effect = graph.effects.first { $0.key == node.effect }!
+        let shader = shaderContract(nodeIndex: node.nodeIndex, pass: false,
+            fragmentOverride: node.nodeIndex == 0 ? generated : replaceCoverage)
+        let value = Template.validated(textureSlots: original.textureSlots, combos: original.combos,
+            uniformDeclarations: [], renderState: original.renderState, graphRole: original.graphRole,
+            effectContext: .init(key: effect.key, input: effect.input), shaderContract: shader,
+            diagnosticProvenance: .init(nodeIndex: node.nodeIndex, authoredShaderPath: shader.identity,
+                contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
+                textureSources: [], uniformSources: []))!
+        entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(value)
+    }
+    let chain = orderedLayerGraph(graph)
+    let capabilities = capabilities(chain, catalog: .init(entries: entries, resourceDemandIssues: []))
+    guard let claim = capabilities.claim(chain), let capability = capabilities.resolve(claim.token, for: chain),
+          let leases = makeChainedLeases(capability, device: device),
+          let consumer = capability.material(for: graph.nodes[1]),
+          let executor = Executor(device: device, capabilities: capabilities),
+          let sourcePipeline = makeProductionSourcePipeline(device) else {
+        return ["failure": "setup", "reports": capabilities.reportLines]
+    }
+    var rows: [[String: Any]] = [], firstProducerKey: String?, firstConsumerKey: String?
+    var firstFrontendCount = 0, firstLibraryCount = 0
+    var previousStates: [Graph.EffectKey: Executor.State] = [:]
+    var previousResources: [Graph.EffectKey: [Graph.TextureIdentity: SceneFrameTextureResource]] = [:]
+    // The fourth frame deliberately replaces the generated stage with its
+    // true PMA base-source fallback; the consumer must update only its mask.
+    for (offset, alpha) in [Float(0), 0.5, 1, 0.5].enumerated() {
+        let frameIndex = UInt64(offset + 1), fallback = offset == 3
+        if fallback, let key = firstProducerKey {
+            executor.materialEncoder.installTestingPreparationFailure(
+                .libraryCompilationRejected(diagnostic: "owned continuity fallback"), preparedKey: key)
+        }
+        let snapshot = frame(frameIndex, sceneTime: alpha)
+        let command = queue.makeCommandBuffer()!
+        let preparation = executor.prepare(token: claim.token, leases: leases,
+            historyRehydrateCopiesByEffect: [:], frame: snapshot,
+            sourceTexture: makeSource(device, bgra: [26, 51, 102, 128]),
+            sourceUniforms: .neutral(), sourcePipeline: sourcePipeline, frameInputs: .init(),
+            commandBuffer: command, previousStates: previousStates,
+            previousGraphResources: previousResources, effectGeneration: 1, resetGeneration: 1)
+        guard case let .success(prepared) = preparation, prepared.stages.count == 2 else {
+            return ["failure": failureCode(preparation), "frames": rows]
+        }
+        let prior = prepared.stages[0], final = prepared.stages[1]
+        guard let overlaid = snapshot.overlayingGraphResources([chainedFirstOutput: prior.effectOutputResource]),
+              case let .success(program) = SceneResolvedMaterialProgramFinalizer.finalize(
+                overlaid.finalizationInput(template: consumer.template, layerID: layerID,
+                    renderSize: CGSize(width: extent.width, height: extent.height),
+                    modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
+                    effectOutputModelViewProjection: matrix_identity_float4x4,
+                    effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
+                    implicitFramebufferIdentity: chainedFirstOutput), variantCache: consumer.variants),
+              let maskUniform = program.resolvedUniforms.first(where: {
+                $0.field.name == "mwxPremultipliedColorInputMask"
+              }), maskUniform.encodedValue.count == 4 else {
+            return ["failure": "consumer-mask-finalization", "frames": rows]
+        }
+        let mask = maskUniform.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
+        var readbacks: [Readback] = []
+        guard executor.encode(prepared, commandBuffer: command, stageBoundaryObserver: { _, stage, buffer in
+            guard let read = appendReadback(stage.effectOutputResource.publication.texture,
+                commandBuffer: buffer) else { return false }
+            readbacks.append(read); return true
+        }), readbacks.count == 2 else { return ["failure": "encode", "frames": rows] }
+        command.commit(); command.waitUntilCompleted()
+        if offset == 0 {
+            firstProducerKey = prior.programCacheKeys.first
+            firstConsumerKey = final.programCacheKeys.first
+            firstFrontendCount = consumer.variants.counters.frontendCompilationCount
+            firstLibraryCount = executor.materialEncoder.metalLibraryCompilationAttemptCount
+        }
+        let expectedPrior: [UInt8] = fallback ? [26, 51, 102, 128]
+            : [51, 102, 204, UInt8((alpha * 255).rounded())]
+        let expectedFinal: [UInt8] = switch colorProbe {
+        case "r": [204, 204, 204, 255]
+        case "g": [102, 102, 102, 255]
+        case "rg": [204, 102, 204, 255]
+        default: [51, 102, 204, 128]
+        }
+        let expectedOutput: SceneShaderColorRepresentation = colorProbe == nil ? .straightAlpha : .opaque
+        rows.append(["alpha": alpha, "fallback": fallback,
+            "completed": command.status == .completed && command.error == nil,
+            "producerColorRetained": matches(readbacks[0].firstPixel, expectedPrior)
+                && matches(readbacks[0].lastPixel, expectedPrior),
+            "consumerColorRetained": matches(readbacks[1].firstPixel, expectedFinal)
+                && matches(readbacks[1].lastPixel, expectedFinal),
+            "actualInputRepresentation": prior.effectOutputResource.publication.candidate.content
+                == .color(.resolved(fallback ? .premultipliedAlpha : .straightAlpha)),
+            "actualOutputContract": prepared.finalResource.publication.candidate.content
+                == .color(.resolved(expectedOutput))
+                && prepared.finalResource.publication.candidate.purpose
+                    == (colorProbe == nil ? .straightAlbedo : .premultipliedColor),
+            "maskMatchesActualInput": mask == (fallback ? 1 : 0),
+            "sameConsumerProgram": firstConsumerKey == final.programCacheKeys.first,
+            "noVariantRecompile": firstFrontendCount == consumer.variants.counters.frontendCompilationCount
+                && firstLibraryCount == executor.materialEncoder.metalLibraryCompilationAttemptCount,
+            "localFailureStayedLocal": fallback
+                ? prior.effectLocalFailureReasonCode == "material-pass-preparation-library-compilation"
+                    && final.effectLocalFailureReasonCode == nil
+                : prior.effectLocalFailureReasonCode == nil && final.effectLocalFailureReasonCode == nil,
+            "terminalReplayUsesOffscreen": prepared.terminalMaterialReplay == nil,
+            "producerPixel": readbacks[0].firstPixel, "consumerPixel": readbacks[1].firstPixel,
+            "mask": mask])
+        previousStates = Dictionary(uniqueKeysWithValues: prepared.stages.map { ($0.effect, $0.transition.nextState) })
+        previousResources = Dictionary(uniqueKeysWithValues: prepared.stages.map { ($0.effect, $0.persistentResources) })
+    }
+    return ["frames": rows, "oneWorkingPair": Set(leases.flatMap {
+        $0.texturesByToken.values.map(ObjectIdentifier.init)
+    }).count == 2]
+}
+
+private func runRawSignalPassthroughGraphScenario(
+    device: MTLDevice, queue: MTLCommandQueue
+) -> [String: Any] {
+    let signalFirst = Graph.TextureIdentity(kind: .framebuffer, layerID: layerID,
+        effect: chainedFirstEffect, name: "raw-signal-first")
+    let signalSecond = Graph.TextureIdentity(kind: .framebuffer, layerID: layerID,
+        effect: chainedSecondEffect, name: "raw-signal-second")
+    let nodes = [
+        material(0, ordinal: 0, target: signalFirst, read: input, owner: chainedFirstEffect),
+        material(1, ordinal: 1, target: chainedFirstOutput, read: signalFirst, owner: chainedFirstEffect),
+        material(2, ordinal: 0, target: signalSecond, read: chainedFirstOutput, owner: chainedSecondEffect),
+        material(3, ordinal: 1, target: chainedSecondOutput, read: signalSecond, owner: chainedSecondEffect),
+    ]
+    let value = Graph(layerID: layerID, effects: [
+        .init(key: chainedFirstEffect, definitionPath: "effects/raw-signal-first/effect.json",
+            input: input, output: chainedFirstOutput, nodeIndices: [0, 1]),
+        .init(key: chainedSecondEffect, definitionPath: "effects/raw-signal-second/effect.json",
+            input: chainedFirstOutput, output: chainedSecondOutput, nodeIndices: [2, 3]),
+    ], renderTargets: [rawTarget(signalFirst), rawTarget(signalSecond)], nodes: nodes,
+        finalOutput: chainedSecondOutput, blockers: [])
+    let producerSource = """
+    varying vec2 v_TexCoord;
+    uniform sampler2D g_Texture0;
+    void main() {
+        vec4 carrier = texSample2D(g_Texture0, v_TexCoord);
+        carrier.rgb *= carrier.a;
+        carrier.a = 1.0;
+        gl_FragColor = carrier;
+        gl_FragColor.a *= 0.25;
+    }
+    """
+    let passthroughSource = """
+    varying vec2 v_TexCoord;
+    uniform sampler2D g_Texture0;
+    void main() { gl_FragColor = texSample2D(g_Texture0, v_TexCoord); }
+    """
+    // Independent signals remain forbidden at final composition. This existing
+    // source-independent material closes the graph while readbacks inspect
+    // both raw passes, including the one in the preceding effect.
+    let terminalSource = """
+    varying vec2 v_TexCoord;
+    void main() { gl_FragColor = vec4(0.25, 0.5, 0.75, 1.0); }
+    """
+    var entries: [SceneResolvedMaterialRuntimeCatalog.Key: SceneResolvedMaterialRuntimeCatalog.Entry] = [:]
+    for node in nodes {
+        let original = template(for: node)
+        let owner = value.effects.first { $0.key == node.effect }!
+        let contract = shaderContract(nodeIndex: node.nodeIndex, pass: false,
+            fragmentOverride: node.nodeIndex == 0 ? producerSource
+                : node.nodeIndex == 3 ? terminalSource : passthroughSource)
+        let template = Template.validated(textureSlots: original.textureSlots, combos: original.combos,
+            uniformDeclarations: [], renderState: original.renderState, graphRole: original.graphRole,
+            effectContext: .init(key: owner.key, input: owner.input), shaderContract: contract,
+            diagnosticProvenance: .init(nodeIndex: node.nodeIndex, authoredShaderPath: contract.identity,
+                contractIdentity: contract.identity, contractCanonicalSHA256: contract.canonicalSHA256,
+                textureSources: [], uniformSources: []))!
+        entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(template)
+    }
+    let chain = orderedLayerGraph(value)
+    let owners = capabilities(chain, catalog: .init(entries: entries, resourceDemandIssues: []))
+    guard let claim = owners.claim(chain), let capability = owners.resolve(claim.token, for: chain),
+          let leases = makeChainedLeases(capability, device: device),
+          let rawFirst = capability.material(for: nodes[1]), let rawSecond = capability.material(for: nodes[2]),
+          let executor = Executor(device: device, capabilities: owners),
+          let sourcePipeline = makeProductionSourcePipeline(device) else {
+        return ["failure": "raw-signal-admission", "reports": owners.reportLines]
+    }
+    var rows: [[String: Any]] = [], producerKey: String?, rawKey: String?
+    var compilationCount = 0, libraryCount = 0
+    var previousStates: [Graph.EffectKey: Executor.State] = [:]
+    var previousResources: [Graph.EffectKey: [Graph.TextureIdentity: SceneFrameTextureResource]] = [:]
+    for index in UInt64(1)...2 {
+        let fallback = index == 2
+        if fallback, let key = producerKey {
+            executor.materialEncoder.installTestingPreparationFailure(
+                .libraryCompilationRejected(diagnostic: "owned raw-signal producer fallback"), preparedKey: key)
+        }
+        let snapshot = frame(index), command = queue.makeCommandBuffer()!
+        let preparation = executor.prepare(token: claim.token, leases: leases, historyRehydrateCopiesByEffect: [:],
+            frame: snapshot, sourceTexture: makeSource(device, bgra: [26, 51, 102, 128]),
+            sourceUniforms: .neutral(), sourcePipeline: sourcePipeline, frameInputs: .init(), commandBuffer: command,
+            previousStates: previousStates, previousGraphResources: previousResources,
+            effectGeneration: 1, resetGeneration: 1)
+        guard case let .success(prepared) = preparation, prepared.stages.count == 2,
+              let rawResource = prepared.stages[1].frameResources[signalSecond],
+              let overlaid = snapshot.overlayingGraphResources([
+                chainedFirstOutput: prepared.stages[0].effectOutputResource
+              ]), case let .success(program) = SceneResolvedMaterialProgramFinalizer.finalize(
+                overlaid.finalizationInput(template: rawSecond.template, layerID: layerID,
+                    renderSize: CGSize(width: extent.width, height: extent.height),
+                    modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
+                    effectOutputModelViewProjection: matrix_identity_float4x4,
+                    effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
+                    implicitFramebufferIdentity: chainedFirstOutput), variantCache: rawSecond.variants) else {
+            return ["failure": failureCode(preparation), "frames": rows,
+                "firstNominal": String(describing: rawFirst.variants.launchEnvelopeOutputContent),
+                "secondNominal": String(describing: rawSecond.variants.launchEnvelopeOutputContent),
+                "secondVariants": rawSecond.variants.launchEnvelopeCapabilitySnapshot().variants.map {
+                    "content=\(String(describing: $0.preparedOutputContent)) boundary=\(String(describing: $0.frontendProgram.colorBoundary))"
+                }]
+        }
+        var effects: [Readback] = []
+        guard executor.encode(prepared, commandBuffer: command, stageBoundaryObserver: { _, stage, command in
+            guard let read = appendReadback(stage.effectOutputResource.publication.texture,
+                commandBuffer: command) else { return false }
+            effects.append(read); return true
+        }), effects.count == 2, let rawRead = appendReadback(rawResource.publication.texture,
+            commandBuffer: command) else { return ["failure": "raw-signal-encode", "frames": rows] }
+        let producerRead = prepared.stages[0].frameResources[signalFirst].flatMap {
+            appendReadback($0.publication.texture, commandBuffer: command)
+        }
+        command.commit(); command.waitUntilCompleted()
+        if index == 1 {
+            producerKey = prepared.stages[0].programCacheKeys.first
+            rawKey = prepared.stages[1].programCacheKeys.first
+            compilationCount = rawSecond.variants.counters.frontendCompilationCount
+            libraryCount = executor.materialEncoder.metalLibraryCompilationAttemptCount
+        }
+        let expectedInput: [UInt8] = fallback ? [26, 51, 102, 128] : [26, 51, 102, 64]
+        let expectedRaw: [UInt8] = fallback ? [52, 102, 203, 128] : expectedInput
+        let actualInput = SceneTextureContent.color(.resolved(fallback ? .premultipliedAlpha : .independentAlphaSignal))
+        let actualOutput = SceneTextureContent.color(.resolved(fallback ? .straightAlpha : .independentAlphaSignal))
+        let mask = program.resolvedUniforms.first { $0.field.name == "mwxPremultipliedColorInputMask" }
+            .map { $0.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } }
+        rows.append([
+            "completed": command.status == .completed && command.error == nil,
+            "dynamicPassthroughAcrossEffects": [rawFirst, rawSecond].allSatisfy { material in
+                let variants = material.variants.launchEnvelopeCapabilitySnapshot().variants
+                return !variants.isEmpty && variants.allSatisfy {
+                    $0.frontendProgram.colorBoundary?.signalPassthroughSlot == 0
+                        && $0.frontendProgram.colorBoundary?.colorInputSlots == [0]
+                }
+            },
+            "exactPassthroughBoundary": program.frontendProgram.colorBoundary?.signalPassthroughSlot == 0
+                && program.frontendProgram.colorTransfer == .passthrough(textureSlot: 0)
+                && mask == (fallback ? 1 : 256),
+            "actualPublication": prepared.stages[0].effectOutputResource.publication.candidate.content == actualInput
+                && rawResource.publication.candidate.content == actualOutput,
+            "firstRawPassPixels": matches(effects[0].firstPixel, expectedInput) && matches(effects[0].lastPixel, expectedInput),
+            "secondRawPassPixels": matches(rawRead.firstPixel, expectedRaw) && matches(rawRead.lastPixel, expectedRaw),
+            "producerPixels": fallback ? producerRead == nil : producerRead.map {
+                matches($0.firstPixel, expectedInput) && matches($0.lastPixel, expectedInput)
+            } == true,
+            "samePreparedRawPass": rawKey == prepared.stages[1].programCacheKeys.first,
+            "noRepresentationRecompile": compilationCount == rawSecond.variants.counters.frontendCompilationCount
+                && libraryCount == executor.materialEncoder.metalLibraryCompilationAttemptCount,
+            "localFailureStayedLocal": fallback
+                ? prepared.stages[0].effectLocalFailureReasonCode == "material-pass-preparation-library-compilation"
+                    && prepared.stages[1].effectLocalFailureReasonCode == nil
+                : prepared.stages.allSatisfy { $0.effectLocalFailureReasonCode == nil },
+            "terminalIsOpaque": prepared.finalResource.publication.candidate.content == .color(.resolved(.opaque))
+                && matches(effects[1].firstPixel, [191, 128, 64, 255]),
+            "fallback": fallback, "rawPixel": rawRead.firstPixel,
+        ])
+        previousStates = Dictionary(uniqueKeysWithValues: prepared.stages.map { ($0.effect, $0.transition.nextState) })
+        previousResources = Dictionary(uniqueKeysWithValues: prepared.stages.map { ($0.effect, $0.persistentResources) })
+    }
+    return ["frames": rows]
 }
 
 @main
@@ -10250,6 +10628,200 @@ private enum Harness {
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
+    def test_signal_raw_passthrough_crosses_effects_and_keeps_actual_fallback(self) -> None:
+        harness = HARNESS.split("@main\nprivate enum Harness", 1)[0] + r'''
+@main private enum RawSignalPassthroughHarness {
+    static func main() throws {
+        setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)
+        guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
+            print("{\"metalAvailable\":false}"); return
+        }
+        let report = runRawSignalPassthroughGraphScenario(device: device, queue: queue)
+        print(String(decoding: try JSONSerialization.data(withJSONObject:
+            ["metalAvailable": true, "rawSignal": report], options: [.sortedKeys]), as: UTF8.self))
+    }
+}
+'''
+        compilation, completed = compile_lit_harness(SUPPORT, harness)
+        self.assertEqual(compilation.returncode, 0, compilation.stderr)
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = json.loads(completed.stdout)
+        if not payload["metalAvailable"]:
+            self.skipTest("Metal is unavailable")
+        report = payload["rawSignal"]
+        self.assertNotIn("failure", report, report)
+        self.assertEqual(len(report["frames"]), 2, report)
+        for row in report["frames"]:
+            for assertion, passed in row.items():
+                if isinstance(passed, bool) and assertion != "fallback":
+                    self.assertTrue(passed, (assertion, row))
+
+    def test_typed_scalar_and_pair_producers_feed_color_consumers_without_association(self) -> None:
+        harness = HARNESS.split("@main\nprivate enum Harness", 1)[0] + r'''
+@main private enum TypedDataProducerHarness {
+    static func main() throws {
+        setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)
+        guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
+            print("{\"metalAvailable\":false}"); return
+        }
+        var reports: [String: Any] = [:]
+        for format in ["r8", "rg88", "r16f", "rg1616f"] {
+            let paired = format.hasPrefix("rg"), floating = format.hasSuffix("f")
+            let content: SceneTextureContent = paired
+                ? (floating ? .redGreenFloat16 : .redGreenUnorm)
+                : (floating ? .scalarRedFloat16 : .scalarRedUnorm)
+            let dataGraph = graph(targets: [rawTarget(first, format: format)], nodes: [
+                material(0, ordinal: 0, target: first, read: input),
+                material(1, ordinal: 1, target: output, read: first),
+            ])
+            let chain = admittedGraph(dataGraph)
+            let owners = capabilities(chain, catalog: catalog(for: dataGraph,
+                scalarConsumerNodes: [1: paired ? "rg" : "red"]))
+            guard let claim = owners.claim(chain), let capability = owners.resolve(claim.token, for: chain),
+                  let executor = Executor(device: device, capabilities: owners),
+                  let producer = capability.material(for: dataGraph.nodes[0]),
+                  let consumer = capability.material(for: dataGraph.nodes[1]) else {
+                reports[format] = ["failure": "admission", "reports": owners.reportLines]; continue
+            }
+            let lease = makeLease(requirePlan(dataGraph), device: device)
+            let command = queue.makeCommandBuffer()!
+            let preparation = executor.prepare(token: claim.token, leases: [lease],
+                historyRehydrateCopiesByEffect: [:], frame: frame(1),
+                sourceTexture: makeSource(device, bgra: [191, 128, 64, 255]),
+                sourceUniforms: .neutral(), sourcePipeline: makeSourcePipeline(device), frameInputs: .init(),
+                commandBuffer: command, previousStates: [:], previousGraphResources: [:],
+                effectGeneration: 1, resetGeneration: 1)
+            guard case let .success(prepared) = preparation,
+                  let publication = prepared.stages.first?.frameResources[first],
+                  let stored = lease.texture(for: first),
+                  executor.encode(prepared, commandBuffer: command),
+                  let finalRead = appendReadback(prepared.finalTexture, commandBuffer: command),
+                  let buffer = device.makeBuffer(length: 256 * stored.height, options: .storageModeShared),
+                  let blit = command.makeBlitCommandEncoder() else {
+                reports[format] = ["failure": failureCode(preparation)]; continue
+            }
+            blit.copy(from: stored, sourceSlice: 0, sourceLevel: 0, sourceOrigin: .init(x: 0, y: 0, z: 0),
+                sourceSize: .init(width: stored.width, height: stored.height, depth: 1), to: buffer,
+                destinationOffset: 0, destinationBytesPerRow: 256, destinationBytesPerImage: 256 * stored.height)
+            blit.endEncoding(); command.commit(); command.waitUntilCompleted()
+            let channels = paired ? 2 : 1, bytesPerPixel = channels * (floating ? 2 : 1)
+            func pixel(_ offset: Int) -> [Float] {
+                if floating {
+                    let words = buffer.contents().advanced(by: offset).assumingMemoryBound(to: UInt16.self)
+                    return (0..<channels).map { Float(Float16(bitPattern: words[$0])) }
+                }
+                let bytes = buffer.contents().advanced(by: offset).assumingMemoryBound(to: UInt8.self)
+                return (0..<channels).map { Float(bytes[$0]) / 255 }
+            }
+            let expectedStored: [Float] = paired ? [64 / 255, 128 / 255] : [64 / 255]
+            let expectedFinal: [UInt8] = paired ? [0, 128, 64, 255] : [0, 0, 64, 255]
+            let consumerVariants = consumer.variants.launchEnvelopeCapabilitySnapshot().variants
+            reports[format] = [
+                "completed": command.status == .completed && command.error == nil,
+                "producerContentAdmitted": producer.variants.launchEnvelopeOutputContent == content,
+                "actualPublication": publication.publication.candidate.content == content
+                    && publication.publication.candidate.purpose == .preservedChannels,
+                "rawStorage": [pixel(0), pixel((stored.height - 1) * 256 + (stored.width - 1) * bytesPerPixel)]
+                    .allSatisfy { zip($0, expectedStored).allSatisfy { abs($0 - $1) < 0.002 } },
+                "consumerExcludesDataFromColorMask": !consumerVariants.isEmpty
+                    && consumerVariants.allSatisfy { $0.frontendProgram.colorBoundary?.colorInputSlots == [] },
+                "authoredFinalPixels": matches(finalRead.firstPixel, expectedFinal)
+                    && matches(finalRead.lastPixel, expectedFinal),
+                "noVisualFallback": prepared.stages.allSatisfy { $0.effectLocalFailureReasonCode == nil },
+                "twoMaterialDraws": prepared.stages.count == 1 && prepared.stages[0].programCacheKeys.count == 2
+                    && intentKinds(prepared) == ["material", "material"],
+                "storedPixel": pixel(0), "finalPixel": finalRead.firstPixel,
+            ]
+        }
+        print(String(decoding: try JSONSerialization.data(withJSONObject:
+            ["metalAvailable": true, "reports": reports], options: [.sortedKeys]), as: UTF8.self))
+    }
+}
+'''
+        compilation, completed = compile_lit_harness(SUPPORT, harness)
+        self.assertEqual(compilation.returncode, 0, compilation.stderr)
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = json.loads(completed.stdout)
+        if not payload["metalAvailable"]:
+            self.skipTest("Metal is unavailable")
+        self.assertEqual(set(payload["reports"]), {"r8", "rg88", "r16f", "rg1616f"})
+        for format_name, report in payload["reports"].items():
+            self.assertNotIn("failure", report, (format_name, report))
+            for assertion, passed in report.items():
+                if isinstance(passed, bool):
+                    self.assertTrue(passed, (format_name, assertion, report))
+
+    def test_regular_color_channel_reads_use_actual_straight_or_pma_input(self) -> None:
+        harness = HARNESS.split("@main\nprivate enum Harness", 1)[0] + r'''
+@main private enum ColorChannelHarness {
+    static func main() throws {
+        setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)
+        guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
+            print("{\"metalAvailable\":false}"); return
+        }
+        var reports: [String: Any] = [:]
+        for probe in ["r", "g", "rg"] {
+            reports[probe] = runStraightColorContinuityScenario(device: device, queue: queue, colorProbe: probe)
+        }
+        print(String(decoding: try JSONSerialization.data(withJSONObject:
+            ["metalAvailable": true, "channels": reports], options: [.sortedKeys]), as: UTF8.self))
+    }
+}
+'''
+        compilation, completed = compile_lit_harness(SUPPORT, harness)
+        self.assertEqual(compilation.returncode, 0, compilation.stderr)
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = json.loads(completed.stdout)
+        if not payload["metalAvailable"]:
+            self.skipTest("Metal is unavailable")
+        self.assertEqual(set(payload["channels"]), {"r", "g", "rg"})
+        for probe, report in payload["channels"].items():
+            self.assertNotIn("failure", report, (probe, report))
+            self.assertTrue(report["oneWorkingPair"], report)
+            self.assertEqual(len(report["frames"]), 4, report)
+            for row in report["frames"]:
+                for name, passed in row.items():
+                    if isinstance(passed, bool) and name != "fallback":
+                        self.assertTrue(passed, (probe, name, row))
+
+    def test_generated_straight_color_survives_previous_effect_and_pma_fallback(self) -> None:
+        harness = HARNESS.split("@main\nprivate enum Harness", 1)[0] + r'''
+@main private enum StraightContinuityHarness {
+    static func main() throws {
+        setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)
+        guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
+            print("{\"metalAvailable\":false}"); return
+        }
+        let report = runStraightColorContinuityScenario(device: device, queue: queue)
+        print(String(decoding: try JSONSerialization.data(withJSONObject:
+            ["metalAvailable": true, "continuity": report], options: [.sortedKeys]), as: UTF8.self))
+    }
+}
+'''
+        compilation, completed = compile_lit_harness(SUPPORT, harness)
+        self.assertEqual(compilation.returncode, 0, compilation.stderr)
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = json.loads(completed.stdout)
+        if not payload["metalAvailable"]:
+            self.skipTest("Metal is unavailable")
+        report = payload["continuity"]
+        self.assertNotIn("failure", report, report)
+        self.assertTrue(report["oneWorkingPair"], report)
+        self.assertEqual(len(report["frames"]), 4, report)
+        self.assertEqual([row["alpha"] for row in report["frames"]], [0, 0.5, 1, 0.5])
+        for row in report["frames"]:
+            for name, passed in row.items():
+                if isinstance(passed, bool) and name != "fallback":
+                    self.assertTrue(passed, (name, row))
+
     def test_same_layer_names_consume_latest_effect_output_without_snapshot(self) -> None:
         harness = HARNESS.split("@main\nprivate enum Harness", 1)[0] + r'''
 @main

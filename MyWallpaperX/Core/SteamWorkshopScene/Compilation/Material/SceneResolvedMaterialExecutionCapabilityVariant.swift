@@ -163,19 +163,19 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         })
     }
 
-    /// Publishes only the one launch-time graph content fact that can be
-    /// derived without a frame resource: every admitted variant writes opaque
-    /// color. Graph author order remains owned by capability compilation, and
-    /// frame finalization still validates the actual publication.
-    var launchEnvelopeProvesOpaqueColorOutput: Bool {
+    /// Only a content representation shared by every admitted variant may
+    /// enter the prepared graph facts. Frame publications remain authoritative.
+    var launchEnvelopeOutputContent: SceneTextureContent? {
         lock.lock()
         defer { lock.unlock() }
-        guard cachedOutputStorage == .color,
-              !cachedLaunchEnvelopeKeys.isEmpty else { return false }
-        return cachedLaunchEnvelopeKeys.allSatisfy { key in
-            guard case let .ready(variant)? = entries[key] else { return false }
-            return variant.frontendProgram.colorTransfer == .opaque
+        guard !cachedLaunchEnvelopeKeys.isEmpty else { return nil }
+        var contents = Set<SceneTextureContent>()
+        for key in cachedLaunchEnvelopeKeys {
+            guard case let .ready(variant)? = entries[key],
+                  let content = variant.preparedOutputContent else { return nil }
+            contents.insert(content)
         }
+        return contents.count == 1 ? contents.first : nil
     }
 
     /// A feedback attachment may use RGBA storage for either authored color

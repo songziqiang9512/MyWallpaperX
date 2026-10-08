@@ -455,13 +455,25 @@ struct SceneImageLayerCompositor {
             )
             let dependencyConsumed = graphExecutionTicket?
                 .consumesExternalPrimaryDependency == true
+            let finalRepresentation: SceneShaderColorRepresentation
+            if let graphExecutionTicket {
+                guard case let .color(.resolved(representation)) =
+                    graphExecutionTicket.finalContent,
+                    representation != .independentAlphaSignal else {
+                    return .failed
+                }
+                finalRepresentation = representation
+            } else {
+                finalRepresentation = .premultipliedAlpha
+            }
             let finalUniforms = makeFragmentUniforms(
                 values: finalValues,
                 textureFrame: .identity,
                 tint: SIMD3(repeating: 1),
                 dependencyBlendMode: dependencyConsumed
                     ? nil
-                    : dependencyEffect?.blendMode
+                    : dependencyEffect?.blendMode,
+                sourceRepresentation: finalRepresentation
             )
             let finalDependencyTexture = dependencyConsumed
                 ? nil : dependencyEffect?.texture

@@ -87,7 +87,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                             .hasResolvedOpaqueColorSampleContract(
                                 colorSlots:
                                     variant.sourceProvenOpaqueColorSlots,
-                                textureFacts: $0
+                                textureFacts: $0,
+                                colorBoundary: variant.frontendProgram.colorBoundary
                             )
                     }) else {
                         return failure(
@@ -99,7 +100,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     sourceProvenOpaqueProfiles = profiles
                 }
             }
-            if !preservedChannelOutput, case let .straightAlphaUNorm(slot) =
+            if !preservedChannelOutput, variant.frontendProgram.colorBoundary == nil,
+               case let .straightAlphaUNorm(slot) =
                 variant.frontendProgram.colorTransfer {
                 guard implicitFramebufferIdentity?.kind == .layerSource,
                       template.graphRole.effectInput == .layerSource,
@@ -155,7 +157,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                             contract,
                             textureFacts: $0,
                             premultipliedColorInputSlots:
-                                variant.premultipliedColorInputSlots
+                                variant.premultipliedColorInputSlots,
+                            colorBoundary: variant.frontendProgram.colorBoundary
                         )
                 }) else {
                     return failure(
@@ -170,7 +173,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     SceneResolvedMaterialProgramDerivation
                         .hasResolvedSameAlphaReconstructedRGBInputContract(
                             contract,
-                            textureFacts: $0
+                            textureFacts: $0,
+                            colorBoundary: variant.frontendProgram.colorBoundary
                         )
                 }) else {
                     return failure(
@@ -182,7 +186,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     )
                 }
             }
-            if case let .straightAlphaUNorm(slot) =
+            if variant.frontendProgram.colorBoundary == nil,
+               case let .straightAlphaUNorm(slot) =
                 variant.frontendProgram.colorTransfer {
                 guard profiles.allSatisfy({ profile in
                     guard profile.indices.contains(slot),
@@ -210,7 +215,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     associatedOverOverlaySlot:
                         variant.associatedOverOverlaySlot,
                     premultipliedColorInputSlots:
-                        variant.premultipliedColorInputSlots
+                        variant.premultipliedColorInputSlots,
+                    colorBoundary: variant.frontendProgram.colorBoundary
                 ) != nil
             }) else {
                 return failure(
@@ -401,7 +407,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:]
     ) -> LaunchColorFact? {
         if case let .graph(identity) = reference {
-            if identity != implicitFramebufferIdentity {
+            if graphTextureContentFacts[identity] != nil || identity != implicitFramebufferIdentity {
                 guard let content = graphTextureContentFacts[identity] else {
                     return nil
                 }

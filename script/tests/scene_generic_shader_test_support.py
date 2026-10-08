@@ -36,7 +36,7 @@ fragment float4 mwxGenericFragment(
 }
 """.replace("SLOT", str(slot)).strip() + "\n"
     return {
-        "schemaVersion": 9,
+        "schemaVersion": 10,
         "kind": "scene-generic-shader-program-artifact",
         "backendID": "glslang-spirv-cross-msl-v2",
         "requestKey": key,
@@ -80,7 +80,7 @@ fragment float4 mwxGenericFragment(
 
 
 def assert_default_color_artifact(test_case: Any, artifact: dict[str, Any]) -> None:
-    test_case.assertEqual(artifact["schemaVersion"], 9)
+    test_case.assertEqual(artifact["schemaVersion"], 10)
     test_case.assertEqual(
         artifact["kind"], "scene-generic-shader-program-artifact"
     )

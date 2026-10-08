@@ -12,6 +12,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         sourceGraphInputFacts: [Int: SceneResolvedMaterialGraphInputSourceSlotFact],
         sourceColorTransfer: SceneShaderColorTransfer,
+        colorBoundary: SceneShaderColorBoundary?,
         activeGraphTextureIdentities: [Int: Graph.TextureIdentity],
         analysisStart: Double,
         activeExternalProviderTextureSlots: Set<Int>,
@@ -186,7 +187,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             outputIsRGBA8Unorm: outputIsRGBA8Unorm,
             sourceColorTransfer: sourceColorTransfer,
             outputSemantics: outputSemantics,
-            runtimeLoopBounds: runtimeLoopBounds
+            runtimeLoopBounds: runtimeLoopBounds,
+            colorBoundary: colorBoundary
         )
         return (
             alphaAttenuationFact,

@@ -51,17 +51,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 else { return nil }
                 return (slot, identity)
             })
-        // The highest-priority graph candidate is terminal in launch selection.
-        // Reuse that exact identity and the producer's admitted content fact;
-        // graph topology and RGBA storage alone do not establish color.
-        let graphDataTextureSlots = Set(activeGraphTextureIdentities.compactMap {
-            slot, identity -> Int? in
-            guard readinessMask & (1 << UInt8(slot)) != 0,
-                  identity != implicitFramebufferIdentity,
-                  let content = graphTextureContentFacts[identity],
-                  !content.isColorContent else { return nil }
-            return slot
-        })
         let graphTextureSlots = Set(activeGraphTextureIdentities.compactMap {
             $0.value.kind == .framebuffer ? $0.key : nil
         })
@@ -114,11 +103,53 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             activeSamplerNames: activeSamplerNames,
             cachedAnalysis: cachedAnalysis
         )
+        // Exact producer content covers explicit bindings and the existing
+        // previous/default alias. A single color channel is not a data proof.
+        let graphInputContents = Dictionary(uniqueKeysWithValues:
+            sourceActiveSamplers.keys.compactMap { slot -> (Int, SceneTextureContent)? in
+                guard readinessMask & (1 << UInt8(slot)) != 0,
+                      let identity = activeGraphTextureIdentities[slot]
+                        ?? sourceGraphInputFacts[slot]?.inputIdentity,
+                      let content = graphTextureContentFacts[identity] else { return nil }
+                return (slot, content)
+            })
+        let graphDataTextureSlots = Set(graphInputContents.compactMap {
+            $0.value.isColorContent ? nil : $0.key
+        })
+        let signalPassthroughContent: SceneTextureContent?
+        if case let .passthrough(slot) = sourceColorTransfer,
+           graphInputContents[slot] == .color(.resolved(.independentAlphaSignal)) {
+            signalPassthroughContent = graphInputContents[slot]
+        } else {
+            signalPassthroughContent = nil
+        }
         let outputSemantics: SceneGenericShaderOutputSemantics = switch outputStorage {
         case .redGreenUnorm: .redGreenUnorm
         case .preservedRGBAUnorm: .preservedRGBAUnorm
         default: .color
         }
+        // Authored color math has one boundary in both compilers. Actual
+        // straight/PMA representation is a frame-owned input mask, so a local
+        // graph failure can retain its previous publication without compiling
+        // a new shader or guessing the representation from the profile.
+        let colorBoundary = ordinaryColorBoundary(
+            sourceTransfer: sourceColorTransfer,
+            outputStorage: outputStorage,
+            implicitFramebufferIdentity: implicitFramebufferIdentity,
+            template: template,
+            samplers: sourceActiveSamplers,
+            selectedPurposes: variantKey.selectedTexturePurposes,
+            graphColorSlots: graphInputTextureSlots.union(graphTextureSlots),
+            providerColorSlots: premultipliedColorAuxiliarySlots.union(
+                SceneResolvedMaterialTextureResolver.sceneBackgroundColorSlots(
+                    template: template, samplers: sourceActiveSamplers
+                )
+            ),
+            dataSlots: graphDataTextureSlots.union(typedStaticDataAuxiliarySlots)
+                .union(sourceCarriedAuxiliaryDataSlots)
+                .union(selectedMixedDataSlots),
+            conditionalContract: conditionalGeneratedRGBInputContract
+        )
         let (
             alphaAttenuationFact,
             colorBlendFact,
@@ -135,6 +166,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             implicitFramebufferIdentity: implicitFramebufferIdentity,
             sourceGraphInputFacts: sourceGraphInputFacts,
             sourceColorTransfer: sourceColorTransfer,
+            colorBoundary: colorBoundary,
             activeGraphTextureIdentities: activeGraphTextureIdentities,
             analysisStart: analysisStart,
             activeExternalProviderTextureSlots: activeExternalProviderTextureSlots,
@@ -180,7 +212,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             onBoundedFrontendCompilation: onBoundedFrontendCompilation,
             compilerSources: compilerSources,
             runtimeLoopBounds: runtimeLoopBounds,
-            sourceColorTransfer: sourceColorTransfer
+            sourceColorTransfer: sourceColorTransfer,
+            colorBoundary: colorBoundary
         )
         let (
             sourceProvenOpaqueColorSlots,
@@ -251,6 +284,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             preparedShader: prepared,
             resolvedIntegerCombos: resolvedIntegerCombos,
             frontendProgram: frontend,
+            preparedOutputContent: preparedOutputContent(
+                storage: outputStorage, frontend: frontend,
+                signalPassthroughContent: signalPassthroughContent
+            ),
             routeDecision: routeDecision,
             runtimeLoopBounds: runtimeLoopBounds,
             activeSamplers: samplers,
@@ -273,6 +310,100 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             preparedUniformBindings: preparedUniformBindings,
             neutralTextureResolution: neutralTextureResolution
         )
+    }
+
+    private static func preparedOutputContent(
+        storage: SceneResolvedMaterialProgram.OutputStorage,
+        frontend: SceneAuthoredShaderProgram,
+        signalPassthroughContent: SceneTextureContent?
+    ) -> SceneTextureContent? {
+        switch storage {
+        case .scalarRedUnorm: return .scalarRedUnorm
+        case .redGreenUnorm: return .redGreenUnorm
+        case .scalarRedFloat16: return .scalarRedFloat16
+        case .redGreenFloat16: return .redGreenFloat16
+        case .preservedRGBAUnorm: return .data
+        case .color: break
+        }
+        if frontend.colorBoundary?.signalPassthroughSlot != nil {
+            return signalPassthroughContent
+        }
+        if let boundary = frontend.colorBoundary,
+           let representation = SceneShaderColorRepresentation(
+                rawValue: boundary.outputRepresentation.rawValue) {
+            return .color(.resolved(representation))
+        }
+        if frontend.colorTransfer == .opaque { return .color(.resolved(.opaque)) }
+        if case .passthrough = frontend.colorTransfer { return signalPassthroughContent }
+        return nil
+    }
+
+    private static func ordinaryColorBoundary(
+        sourceTransfer: SceneShaderColorTransfer,
+        outputStorage: SceneResolvedMaterialProgram.OutputStorage,
+        implicitFramebufferIdentity: Graph.TextureIdentity?,
+        template: Template,
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        selectedPurposes: [SceneTextureLoadPurpose?],
+        graphColorSlots: Set<Int>,
+        providerColorSlots: Set<Int>,
+        dataSlots: Set<Int>,
+        conditionalContract: SceneResolvedMaterialProgramDerivation
+            .ConditionalGeneratedRGBInputContract?
+    ) -> SceneShaderColorBoundary? {
+        guard outputStorage == .color else { return nil }
+        switch sourceTransfer {
+        case .premultipliedAlpha: return nil
+        case let .independentAlphaSignal(slot):
+            return .init(colorInputSlots: [slot], outputRepresentation: .independentAlphaSignal)
+        case .independentAlphaSignalPreserving:
+            return .init(colorInputSlots: [], outputRepresentation: .independentAlphaSignal)
+        case let .independentAlphaSignalCompositing(_, color):
+            return .init(colorInputSlots: [color], outputRepresentation: .premultipliedAlpha)
+        case let .independentAlphaSignalUnderlayCompositing(_, color, underlay):
+            return .init(colorInputSlots: [color, underlay], outputRepresentation: .premultipliedAlpha)
+        default: break
+        }
+        var colorSlots = graphColorSlots.union(providerColorSlots)
+        for (slot, sampler) in samplers {
+            let references = (template.textureSlots.indices.contains(slot)
+                ? template.textureSlots[slot]?.candidates.map(\.reference) : nil) ?? []
+            let purposes = references.compactMap { sampler.purpose(for: $0) }
+            if purposes.contains(.straightAlbedo) || purposes.contains(.premultipliedColor)
+                || sampler.sourceProvenPurpose == .straightAlbedo
+                || sampler.sourceProvenPurpose == .premultipliedColor {
+                colorSlots.insert(slot)
+            }
+        }
+        colorSlots.subtract(dataSlots)
+        colorSlots = Set(colorSlots.filter { slot in
+            guard let sampler = samplers[slot] else { return false }
+            // A color channel remains color when read alone. Only the typed
+            // data roles above exempt a sample from representation conversion.
+            return sampler.mode == .regular || selectedPurposes[slot] == .premultipliedColor
+        })
+        if let contract = conditionalContract {
+            colorSlots.subtract(contract.scalarRedSlots)
+            colorSlots.subtract(contract.scalarGreenSlots)
+            colorSlots.subtract(contract.scalarBlueSlots)
+            colorSlots.subtract(contract.scalarAlphaSlots)
+        }
+        let output: SceneShaderColorBoundary.OutputRepresentation
+        switch sourceTransfer {
+        case .opaque, .opaqueFromStraightColor: output = .opaque
+        default:
+            // Source-material capture remains an explicitly associated producer
+            // until its upload/capture boundary is migrated. Effects retain RGB.
+            output = implicitFramebufferIdentity == nil ? .premultipliedAlpha : .straightAlpha
+        }
+        let signalSlot: Int?
+        if case let .passthrough(slot) = sourceTransfer, colorSlots.contains(slot) {
+            signalSlot = slot
+        } else {
+            signalSlot = nil
+        }
+        return .init(colorInputSlots: colorSlots, outputRepresentation: output,
+                     signalPassthroughSlot: signalSlot)
     }
 
 }

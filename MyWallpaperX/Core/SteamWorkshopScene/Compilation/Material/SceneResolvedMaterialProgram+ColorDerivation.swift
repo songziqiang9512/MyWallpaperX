@@ -52,7 +52,8 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         conditionalGeneratedRGBInputContract:
             ConditionalGeneratedRGBInputContract? = nil,
         associatedOverOverlaySlot: Int? = nil,
-        premultipliedColorInputSlots: Set<Int> = []
+        premultipliedColorInputSlots: Set<Int> = [],
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) -> Bool {
         resolveColor(
             transfer: transfer,
@@ -60,13 +61,15 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             conditionalGeneratedRGBInputContract:
                 conditionalGeneratedRGBInputContract,
             associatedOverOverlaySlot: associatedOverOverlaySlot,
-            premultipliedColorInputSlots: premultipliedColorInputSlots
+            premultipliedColorInputSlots: premultipliedColorInputSlots,
+            colorBoundary: colorBoundary
         ) != nil
     }
 
     static func hasResolvedColorSampleContract(
         colorSlots: Set<Int>,
-        textureSlots: [Program.TextureSlot?]
+        textureSlots: [Program.TextureSlot?],
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) -> Bool {
         hasResolvedColorSampleContract(
             colorSlots: colorSlots,
@@ -86,13 +89,15 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                     isFramebufferInput: isFramebufferInput,
                     content: slot.resource.publication.candidate.content
                 )
-            }
+            },
+            colorBoundary: colorBoundary
         )
     }
 
     static func hasResolvedColorSampleContract(
         colorSlots: Set<Int>,
-        textureFacts: [ColorTextureFact?]
+        textureFacts: [ColorTextureFact?],
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) -> Bool {
         guard textureFacts.count == 8 else { return false }
         return colorSlots.allSatisfy { slot in
@@ -102,6 +107,8 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             ) else { return false }
             return representation == .opaque
                 || representation == .premultipliedAlpha
+                || (representation == .straightAlpha
+                    && colorBoundary?.colorInputSlots.contains(slot) == true)
         }
     }
 
@@ -110,7 +117,8 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
     /// separately by the transfer projection.
     static func hasResolvedOpaqueColorSampleContract(
         colorSlots: Set<Int>,
-        textureSlots: [Program.TextureSlot?]
+        textureSlots: [Program.TextureSlot?],
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) -> Bool {
         hasResolvedOpaqueColorSampleContract(
             colorSlots: colorSlots,
@@ -130,14 +138,24 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                     isFramebufferInput: isFramebufferInput,
                     content: slot.resource.publication.candidate.content
                 )
-            }
+            },
+            colorBoundary: colorBoundary
         )
     }
 
     static func hasResolvedOpaqueColorSampleContract(
         colorSlots: Set<Int>,
-        textureFacts: [ColorTextureFact?]
+        textureFacts: [ColorTextureFact?],
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) -> Bool {
+        if let boundary = colorBoundary,
+           colorSlots.isSubset(of: Set(boundary.colorInputSlots)) {
+            // The original opaque-only proof was required because that path
+            // had no input conversion. The prepared boundary now normalizes
+            // these exact color reads before authored math.
+            return hasResolvedColorSampleContract(colorSlots: colorSlots,
+                textureFacts: textureFacts, colorBoundary: boundary)
+        }
         guard textureFacts.count == 8 else { return false }
         return colorSlots.allSatisfy { slot in
             representation(slot: slot, textureFacts: textureFacts) == .opaque
@@ -147,27 +165,33 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
     static func hasResolvedConditionalGeneratedRGBInputContract(
         _ contract: ConditionalGeneratedRGBInputContract,
         textureSlots: [Program.TextureSlot?],
-        premultipliedColorInputSlots: Set<Int> = []
+        premultipliedColorInputSlots: Set<Int> = [],
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) -> Bool {
         hasResolvedConditionalGeneratedRGBInputContract(
             contract,
             textureFacts: textureSlots.map(colorTextureFact),
-            premultipliedColorInputSlots: premultipliedColorInputSlots
+            premultipliedColorInputSlots: premultipliedColorInputSlots,
+            colorBoundary: colorBoundary
         )
     }
 
     static func hasResolvedConditionalGeneratedRGBInputContract(
         _ contract: ConditionalGeneratedRGBInputContract,
         textureFacts: [ColorTextureFact?],
-        premultipliedColorInputSlots: Set<Int> = []
+        premultipliedColorInputSlots: Set<Int> = [],
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) -> Bool {
         guard textureFacts.count == 8,
-              premultipliedColorInputSlots.isSubset(
+              (colorBoundary != nil || premultipliedColorInputSlots.isSubset(
                   of: contract.generatedOpaqueColorSlots
-              ), contract.generatedOpaqueColorSlots.allSatisfy({ slot in
+              )), contract.generatedOpaqueColorSlots.allSatisfy({ slot in
                   guard let representation = representation(
                       slot: slot, textureFacts: textureFacts
                   ) else { return false }
+                  if colorBoundary?.colorInputSlots.contains(slot) == true {
+                      return [.opaque, .straightAlpha, .premultipliedAlpha].contains(representation)
+                  }
                   return premultipliedColorInputSlots.contains(slot)
                       ? representation == .premultipliedAlpha
                           || representation == .opaque
@@ -206,17 +230,20 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
 
     static func hasResolvedSameAlphaReconstructedRGBInputContract(
         _ contract: SameAlphaReconstructedRGBInputContract,
-        textureSlots: [Program.TextureSlot?]
+        textureSlots: [Program.TextureSlot?],
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) -> Bool {
         hasResolvedSameAlphaReconstructedRGBInputContract(
             contract,
-            textureFacts: textureSlots.map(colorTextureFact)
+            textureFacts: textureSlots.map(colorTextureFact),
+            colorBoundary: colorBoundary
         )
     }
 
     static func hasResolvedSameAlphaReconstructedRGBInputContract(
         _ contract: SameAlphaReconstructedRGBInputContract,
-        textureFacts: [ColorTextureFact?]
+        textureFacts: [ColorTextureFact?],
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) -> Bool {
         guard textureFacts.count == 8,
               (0 ..< 8).contains(contract.sourceSlot),
@@ -226,7 +253,9 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                   slot: contract.sourceSlot,
                   textureFacts: textureFacts
               ),
-              source == .opaque || source == .premultipliedAlpha else {
+              source == .opaque || source == .premultipliedAlpha
+                || (source == .straightAlpha
+                    && colorBoundary?.colorInputSlots.contains(contract.sourceSlot) == true) else {
             return false
         }
         return contract.dataSlots.allSatisfy { slot in
@@ -242,7 +271,8 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         conditionalGeneratedRGBInputContract:
             ConditionalGeneratedRGBInputContract? = nil,
         associatedOverOverlaySlot: Int? = nil,
-        premultipliedColorInputSlots: Set<Int> = []
+        premultipliedColorInputSlots: Set<Int> = [],
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) -> ColorProjection? {
         resolveColor(
             transfer: transfer,
@@ -250,7 +280,8 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             conditionalGeneratedRGBInputContract:
                 conditionalGeneratedRGBInputContract,
             associatedOverOverlaySlot: associatedOverOverlaySlot,
-            premultipliedColorInputSlots: premultipliedColorInputSlots
+            premultipliedColorInputSlots: premultipliedColorInputSlots,
+            colorBoundary: colorBoundary
         )
     }
 
@@ -260,9 +291,72 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         conditionalGeneratedRGBInputContract:
             ConditionalGeneratedRGBInputContract? = nil,
         associatedOverOverlaySlot: Int? = nil,
-        premultipliedColorInputSlots: Set<Int> = []
+        premultipliedColorInputSlots: Set<Int> = [],
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) -> ColorProjection? {
         guard textureFacts.count == 8 else { return nil }
+        if let boundary = colorBoundary {
+            if let contract = conditionalGeneratedRGBInputContract {
+                guard hasResolvedConditionalGeneratedRGBInputContract(
+                    contract, textureFacts: textureFacts,
+                    premultipliedColorInputSlots: premultipliedColorInputSlots,
+                    colorBoundary: boundary
+                ) else { return nil }
+            }
+            if let slot = boundary.signalPassthroughSlot,
+               transfer != .passthrough(textureSlot: slot) { return nil }
+            guard boundary.isValid,
+                  boundary.colorInputSlots.allSatisfy({ slot in
+                      guard let value = representation(slot: slot, textureFacts: textureFacts)
+                      else { return false }
+                      return value == .opaque || value == .straightAlpha
+                          || value == .premultipliedAlpha
+                          || (value == .independentAlphaSignal
+                              && boundary.signalPassthroughSlot == slot)
+                  }),
+                  let output = SceneShaderColorRepresentation(
+                      rawValue: boundary.outputRepresentation.rawValue
+                  ) else { return nil }
+            if let slot = boundary.signalPassthroughSlot,
+               representation(slot: slot, textureFacts: textureFacts) == .independentAlphaSignal {
+                guard auxiliarySlotsAreData(textureFacts, excluding: [slot]) else { return nil }
+                return .init(framebufferInput: .independentAlphaSignal,
+                             fragmentOutput: .independentAlphaSignal)
+            }
+            // Signal channels remain raw. Only the source-proven color roles
+            // use the shared adapter; a tag cannot turn arbitrary RGBA into a
+            // signal or admit an unrelated color auxiliary.
+            switch transfer {
+            case let .independentAlphaSignal(slot):
+                guard output == .independentAlphaSignal,
+                      boundary.colorInputSlots == [slot],
+                      auxiliarySlotsAreData(textureFacts, excluding: [slot]) else { return nil }
+            case let .independentAlphaSignalPreserving(slot):
+                guard output == .independentAlphaSignal, boundary.colorInputSlots.isEmpty,
+                      representation(slot: slot, textureFacts: textureFacts) == .independentAlphaSignal
+                else { return nil }
+            case let .independentAlphaSignalCompositing(signal, color):
+                guard output == .premultipliedAlpha, boundary.colorInputSlots == [color],
+                      representation(slot: signal, textureFacts: textureFacts) == .independentAlphaSignal,
+                      auxiliarySlotsAreData(textureFacts, excluding: [signal, color]) else { return nil }
+            case let .independentAlphaSignalUnderlayCompositing(signal, color, underlay):
+                guard output == .premultipliedAlpha, Set(boundary.colorInputSlots) == [color, underlay],
+                      representation(slot: signal, textureFacts: textureFacts) == .independentAlphaSignal,
+                      auxiliarySlotsAreData(textureFacts, excluding: [signal, color, underlay]) else { return nil }
+            default:
+                guard output != .independentAlphaSignal else { return nil }
+            }
+            // This describes the normalized authored math domain. The exact
+            // representation of each bound slot remains in texture identities
+            // and drives the one frame-owned mask, including mixed inputs.
+            let input: SceneShaderColorRepresentation
+            if case .independentAlphaSignalPreserving = transfer {
+                input = .independentAlphaSignal
+            } else {
+                input = .straightAlpha
+            }
+            return .init(framebufferInput: input, fragmentOutput: output)
+        }
         if let contract = conditionalGeneratedRGBInputContract {
             guard transfer == .straightAlphaPreserving(
                 textureSlot: contract.alphaCarrierSlot

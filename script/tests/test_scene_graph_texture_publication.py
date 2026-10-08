@@ -605,11 +605,30 @@ private enum Harness {
                     == secondPhysical.contentGeneration
         }
 
-        let straightFailure = failure(lease.graphResource(
+        let straightResource = try lease.graphResource(
             for: first,
             versionedResource: firstPhysical,
             fragmentColorRepresentation: .resolved(.straightAlpha)
-        ))
+        ).get()
+        let straightRewrapped = straightResource.rewrappedForGraphIdentity(second)
+        let straightPublicationPreservesRepresentation = straightResource.isCompleteGraphResource
+            && straightResource.publication.candidate.purpose == .straightAlbedo
+            && straightResource.publication.candidate.content == .color(.resolved(.straightAlpha))
+            && straightRewrapped?.publication.candidate.content == straightResource.publication.candidate.content
+            && straightRewrapped?.publication.candidate.purpose == straightResource.publication.candidate.purpose
+            && straightRewrapped?.publication.texture === straightResource.publication.texture
+            && straightRewrapped?.publication.candidate.identity == straightResource.publication.candidate.identity
+            && straightRewrapped?.resourceGeneration == straightResource.resourceGeneration
+            && straightRewrapped?.publication.requestIdentity == .graph(second)
+        let straightFullFrame = try lease.fullFrameResource(
+            for: input, member: .zero, contentGeneration: 1,
+            fragmentColorRepresentation: .resolved(.straightAlpha)
+        ).get()
+        let straightNamedReference = SceneNamedTextureReference(providerLayerID: 91, variant: .primary)
+        let straightNamed = SceneFrameTextureResource.reservedNamedLayerTarget(
+            reference: straightNamedReference, frameEpoch: 1,
+            texture: straightResource.publication.texture,
+            content: .color(.resolved(.straightAlpha)))
         let unresolvedFailure = failure(lease.graphResource(
             for: first,
             versionedResource: firstPhysical,
@@ -894,6 +913,12 @@ private enum Harness {
             "positive": [
                 "opaquePublication": firstResource.isCompleteGraphResource,
                 "premultipliedPublication": secondResource.isCompleteGraphResource,
+                "straightPublicationPreservesRepresentation": straightPublicationPreservesRepresentation,
+                "straightFullFramePublication": straightFullFrame.isCompleteGraphResource
+                    && straightFullFrame.publication.candidate.purpose == .straightAlbedo,
+                "straightNamedPublication": straightNamed?.isCompleteNamedLayerTarget(
+                    reference: straightNamedReference, frameEpoch: 1) == true
+                    && straightNamed?.publication.candidate.purpose == .straightAlbedo,
                 "physicalIdentity": physicalIdentityCorrect,
                 "swapPreservesPhysicalAtom": swapPreservesPhysicalAtom,
                 "immutableOverlay": immutableOverlay,
@@ -921,7 +946,6 @@ private enum Harness {
                         == .linearClamp,
             ],
             "failures": [
-                "straight": straightFailure,
                 "unresolved": unresolvedFailure,
                 "zeroGeneration": zeroGenerationFailure,
                 "unknownToken": unknownTokenFailure,
@@ -974,6 +998,10 @@ class SceneGraphTexturePublicationTests(unittest.TestCase):
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
         environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
+        scene_cache = root / "scene-cache"
+        scene_cache.mkdir()
+        environment["MWX_SCENE_GENERIC_SHADER_CACHE"] = str(scene_cache)
+        environment["MWX_SCENE_PIPELINE_BINARY_ARCHIVE"] = str(scene_cache)
         compilation = subprocess.run(
             [
                 "xcrun",
@@ -1032,7 +1060,6 @@ class SceneGraphTexturePublicationTests(unittest.TestCase):
         self.assertEqual(
             self.result["failures"],
             {
-                "straight": "colorRepresentationUnresolved",
                 "unresolved": "colorRepresentationUnresolved",
                 "zeroGeneration": "invalidGeneration",
                 "unknownToken": "unknownPhysicalToken",

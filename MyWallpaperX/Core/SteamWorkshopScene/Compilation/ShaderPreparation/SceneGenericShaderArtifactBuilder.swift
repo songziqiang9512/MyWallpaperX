@@ -76,6 +76,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         expectedColorTransfer: SceneGenericShaderExpectedColorTransfer? = nil,
         premultipliedColorInputSlots: Set<Int> = [],
         defaultBoundaryColorSlots: Set<Int> = [],
+        colorBoundary: SceneShaderColorBoundary? = nil,
         stages: [Stage],
         vertexPositionInput: SceneAuthoredShaderProgram.VertexPositionInput? = nil,
         loopGuardCap: Int? = nil,
@@ -85,6 +86,10 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             return .failure(.reflection)
         }
         do {
+            guard colorBoundary?.isValid != false,
+                  colorBoundary == nil || outputSemantics == .color else {
+                throw Failure.colorTransfer
+            }
             var decoded: [String: Reflection] = [:]
             for stage in stages {
                 decoded[stage.name] = try JSONDecoder().decode(
@@ -108,7 +113,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 fragment: try activeUniformFields(
                     fragmentLayout.fields,
                     in: fragmentStage.msl
-                )
+                ), colorBoundary: colorBoundary
             )
             let reflectedTextureNames = try reflectedTextureNames(
                 reflections: [vertexReflection, fragmentReflection]
@@ -184,18 +189,38 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 )
             }
             let preparedColorMSL: String
-            if premultipliedColorInputSlots.isEmpty {
+            let preparedVertexMSL: String
+            if let colorBoundary {
+                if let slot = colorBoundary.signalPassthroughSlot {
+                    guard color.transfer.kind == "passthrough", color.transfer.slot == slot,
+                          color.transfer.slots == nil else { throw Failure.colorTransfer }
+                }
+                // One helper implementation precedes both stages. Vertex
+                // color samples enter the same authored straight domain;
+                // only the fragment owns the terminal storage boundary.
+                guard let vertexLowered = SceneGenericShaderDefaultStraightColorBoundaryLowering
+                    .lowerOrdinary(vertexStage.msl, boundary: colorBoundary, stage: .vertex),
+                      let fragmentLowered = SceneGenericShaderDefaultStraightColorBoundaryLowering
+                    .lowerOrdinary(fragmentStage.msl, boundary: colorBoundary,
+                        includeBoundaryHelpers: false) else {
+                    throw Failure.colorTransfer
+                }
+                preparedVertexMSL = vertexLowered
+                preparedColorMSL = fragmentLowered
+            } else if premultipliedColorInputSlots.isEmpty {
+                preparedVertexMSL = vertexStage.msl
                 preparedColorMSL = color.msl
             } else if let lowered = lowerPremultipliedColorInputs(
                 color.msl,
                 slots: premultipliedColorInputSlots
             ) {
+                preparedVertexMSL = vertexStage.msl
                 preparedColorMSL = lowered
             } else {
                 throw Failure.colorTransfer
             }
             var vertexMSL = try normalizeUniformStruct(
-                vertexStage.msl,
+                preparedVertexMSL,
                 layout: uniformLayout,
                 fieldNames: stagedUniforms.vertexNames
             )
@@ -244,6 +269,9 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             guard premultipliedColorInputSlots.isSubset(
                 of: Set(bindings.map(\.slot))
             ) else { throw Failure.colorTransfer }
+            guard colorBoundary.map({
+                Set($0.colorInputSlots).isSubset(of: Set(bindings.map(\.slot)))
+            }) ?? true else { throw Failure.colorTransfer }
             let accumulatorLoopWork: Int? = if
                 expectedColorTransfer?.usesRGBA8UnormAttachmentBoundary == true
             {
@@ -299,6 +327,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 loopGuardCap: loopGuardCap,
                 premultipliedColorInputSlots:
                     premultipliedColorInputSlots.sorted(),
+                colorBoundary: colorBoundary,
                 colorTransfer: color.transfer,
                 fragmentOutputChannelUse: outputChannelUse.rawValue,
                 vertexPositionInput: vertexPositionInput?.rawValue

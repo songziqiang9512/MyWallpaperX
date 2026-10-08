@@ -18,6 +18,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         let globalReferenceTokens: Set<SceneAuthoredShaderToken>
         let fragmentDerivativeNames: Set<String>
         let unpremultipliedTextureSlots: Set<Int>
+        let colorBoundary: SceneShaderColorBoundary?
         let omittedStatementRanges: [Range<Int>]
     }
 
@@ -31,7 +32,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         varyingPrefixFacts: [String: SceneAuthoredShaderVaryingPrefixLink.Fact],
         omittedVertexStatementRanges: [Range<Int>],
         colorTransfer: SceneShaderColorTransfer,
-        premultipliedColorInputSlots: Set<Int> = []
+        premultipliedColorInputSlots: Set<Int> = [],
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) -> Output {
         let defineResult = SceneAuthoredShaderMetalSource.mergedDefines(
             vertex.defines,
@@ -77,6 +79,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                 SceneAuthoredShaderGlobalReferenceAnalyzer.referenceTokens(in: vertex),
             fragmentDerivativeNames: [],
             unpremultipliedTextureSlots: [],
+            colorBoundary: colorBoundary,
             omittedStatementRanges: omittedVertexStatementRanges
         )
         var unpremultipliedTextureSlots: Set<Int>
@@ -128,6 +131,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                 .subtracting(declaredDerivativeNames)
                 .subtracting(fragment.defines.keys),
             unpremultipliedTextureSlots: unpremultipliedTextureSlots,
+            colorBoundary: colorBoundary,
             omittedStatementRanges: []
         )
         let vertexEmission = emitStage(context: vertexContext, textures: textures)
@@ -143,7 +147,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                 defines: defines,
                 colorTransfer: colorTransfer,
                 requiresInputColorBoundary:
-                    !premultipliedColorInputSlots.isEmpty
+                    !premultipliedColorInputSlots.isEmpty,
+                colorBoundary: colorBoundary
             ),
             [vertex, fragment].contains(where: {
                 SceneAuthoredShaderFunctionSemantics.usesFloat3x3Inverse($0)
@@ -160,7 +165,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             ),
             SceneAuthoredShaderMetalSource.fragmentWrapper(
                 textures: textures,
-                colorTransfer: colorTransfer
+                colorTransfer: colorTransfer,
+                colorBoundary: colorBoundary
             ),
         ].joined(separator: "\n\n")
         return Output(source: source, diagnostics: [])
@@ -498,9 +504,15 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         } ?? coordinate.source
         let sample = "mwxTexture\(texture.slot).sample(mwxSampler\(texture.slot), "
             + "\(coordinateSource)\(level))"
-        let sampledSource = context.unpremultipliedTextureSlots.contains(texture.slot)
-            ? "mwxUnpremultiply(\(sample))"
-            : sample
+        let sampledSource: String
+        if let boundary = context.colorBoundary {
+            sampledSource = boundary.colorInputSlots.contains(texture.slot)
+                ? "mwxStraightColorInput(\(sample), mwxUniforms.\(SceneShaderColorBoundary.uniformName), \(texture.slot)u)"
+                : sample
+        } else {
+            sampledSource = context.unpremultipliedTextureSlots.contains(texture.slot)
+                ? "mwxUnpremultiply(\(sample))" : sample
+        }
         let suffix = SceneAuthoredShaderVectorConversion.suffixForTextureSample(
             tokens: tokens, start: start, closing: close)
         let source = suffix.map { "(\(sampledSource)).\($0)" } ?? sampledSource

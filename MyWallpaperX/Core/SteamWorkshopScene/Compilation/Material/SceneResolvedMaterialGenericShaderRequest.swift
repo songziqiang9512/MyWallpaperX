@@ -10,12 +10,14 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
             let source: String
         }
 
-        let schemaVersion = 5
+        let schemaVersion = 6
         let requestID: String
         let sourceDialect = "wallpaper-engine-glsl-like-v0"
         let outputSemantics: SceneGenericShaderOutputSemantics
         let expectedColorTransfer: SceneGenericShaderExpectedColorTransfer?
         let premultipliedColorInputSlots: [Int]
+        let defaultBoundaryColorSlots: [Int]
+        let colorBoundary: SceneShaderColorBoundary?
         let defines: [String: Int] = [:]
         let stages: [Stage]
     }
@@ -29,13 +31,13 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
         outputSemantics: SceneGenericShaderOutputSemantics,
         expectedColorTransfer: SceneGenericShaderExpectedColorTransfer?,
         premultipliedColorInputSlots: Set<Int>,
-        defaultBoundaryColorSlots: Set<Int> = []
+        defaultBoundaryColorSlots: Set<Int> = [],
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) -> String {
         var data = Data()
         for value in [
-            // v22 retires artifacts whose varying-prefix proof could skip
-            // shadowed or unsafe enclosing calls.
-            "mwx-generic-shader-request-v22",
+            // v25 includes the dynamic signal passthrough slot in the ABI.
+            "mwx-generic-shader-request-v25",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,
@@ -45,6 +47,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
                 .joined(separator: ","),
             defaultBoundaryColorSlots.sorted().map(String.init)
                 .joined(separator: ","),
+            colorBoundary?.cacheKey ?? "-",
             "{}",
         ] {
             let encoded = Data(value.utf8)
@@ -61,7 +64,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
         fragmentSource: String,
         outputSemantics: SceneGenericShaderOutputSemantics,
         expectedColorTransfer: SceneGenericShaderExpectedColorTransfer?,
-        premultipliedColorInputSlots: Set<Int>
+        premultipliedColorInputSlots: Set<Int>,
+        defaultBoundaryColorSlots: Set<Int> = [],
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) {
         let environment = ProcessInfo.processInfo.environment
         guard let rawRoot = environment[exportEnvironment],
@@ -71,6 +76,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
             outputSemantics: outputSemantics,
             expectedColorTransfer: expectedColorTransfer,
             premultipliedColorInputSlots: premultipliedColorInputSlots.sorted(),
+            defaultBoundaryColorSlots: defaultBoundaryColorSlots.sorted(),
+            colorBoundary: colorBoundary,
             stages: [
                 .init(stage: "vertex", entryPoint: "main", source: vertexSource),
                 .init(stage: "fragment", entryPoint: "main", source: fragmentSource),

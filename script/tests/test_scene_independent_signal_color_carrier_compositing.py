@@ -343,7 +343,244 @@ private enum Harness {
 '''
 
 
+SIGNAL_BRIDGE_HARNESS = r'''
+private func bridgePublication(
+    _ texture: MTLTexture, identity: Graph.TextureIdentity,
+    content: SceneTextureContent, generation: UInt64
+) -> SceneFrameTextureResource {
+    let purpose: SceneTextureLoadPurpose = content.isColorContent
+        ? (content == .color(.resolved(.straightAlpha)) ? .straightAlbedo : .premultipliedColor)
+        : .preservedChannels
+    let publication = SceneTextureProviderPublication(requestIdentity: .graph(identity),
+        candidate: .init(texture: texture,
+            identity: .provider(.graph(allocationGeneration: generation, physicalToken: "bridge-\(identity.name ?? "color")")),
+            generation: .provider(contentGeneration: generation), purpose: purpose, content: content,
+            physicalSize: CGSize(width: extent.width, height: extent.height),
+            mappedSize: CGSize(width: extent.width, height: extent.height),
+            uvTransform: .identity, sampling: .directImageFallback), contentGeneration: generation)
+    return .init(publication: publication, resourceGeneration: generation)
+}
+
+private func bridgeTemplate(_ name: String) -> Template {
+    let fragment: String
+    let isDataPrevious = name == "dataPrevious"
+    let previous = isDataPrevious ? "// {\"material\":\"previous\",\"mode\":\"rgbmask\"}" : ""
+    if name == "producer" { fragment = """
+    varying vec2 v_TexCoord;
+    uniform sampler2D g_Texture0;
+    void main() {
+        vec4 carrier = texSample2D(g_Texture0, v_TexCoord);
+        carrier.rgb *= carrier.a;
+        carrier.a = 1.0;
+        gl_FragColor = carrier;
+        gl_FragColor.a *= 0.25;
+    }
+    """ } else if name == "raw" { fragment = """
+    varying vec2 v_TexCoord;
+    uniform sampler2D g_Texture0;
+    void main() { gl_FragColor = texSample2D(g_Texture0, v_TexCoord); }
+    """ } else if name == "composer" { fragment = """
+    varying vec2 v_TexCoord;
+    uniform sampler2D g_Texture0;
+    uniform sampler2D g_Texture1;
+    vec3 ApplyBlending(const int mode, in vec3 base, in vec3 blend, in float opacity) {
+        return base + blend * opacity;
+    }
+    void main() {
+        vec4 impulse = texSample2D(g_Texture0, v_TexCoord);
+        vec4 canvas = texSample2D(g_Texture1, v_TexCoord);
+        canvas.rgb = ApplyBlending(7, canvas.rgb, impulse.rgb, impulse.a);
+        canvas.a = saturate(canvas.a + impulse.a);
+        gl_FragColor = canvas;
+    }
+    """ } else { fragment = """
+    varying vec2 v_TexCoord;
+    uniform sampler2D g_Texture0; \(previous)
+    void main() {
+        float scalar = texSample2D(g_Texture0, v_TexCoord).r;
+        gl_FragColor = vec4(scalar, scalar, scalar, 1.0);
+    }
+    """ }
+    let contract = shaderContract(nodeIndex: 41, pass: false, fragmentOverride: fragment)
+    var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
+    if !isDataPrevious {
+        slots[0] = .init(index: 0, candidates: [.init(reference: .graph(first), provenance: .explicitBinding)])
+    }
+    if name == "composer" {
+        slots[1] = .init(index: 1, candidates: [.init(reference: .graph(second), provenance: .explicitBinding)])
+    }
+    return Template.validated(textureSlots: slots, combos: [], uniformDeclarations: [],
+        renderState: SceneMaterialRenderState.compile(blending: "normal", depthTest: "disabled",
+            depthWrite: "disabled", cullMode: "nocull", alphaWriting: nil)!,
+        graphRole: .init(effectInput: isDataPrevious ? .effectOutput : .framebuffer,
+            effectOutput: .effectOutput, nodeTarget: .effectOutput,
+            bindings: name == "composer" ? [.init(slot: 0, texture: .framebuffer), .init(slot: 1, texture: .framebuffer)]
+                : isDataPrevious ? [] : [.init(slot: 0, texture: .framebuffer)]),
+        effectContext: .init(key: isDataPrevious ? chainedSecondEffect : effect,
+            input: isDataPrevious ? chainedFirstOutput : first), shaderContract: contract,
+        diagnosticProvenance: .init(nodeIndex: 41, authoredShaderPath: contract.identity,
+            contractIdentity: contract.identity, contractCanonicalSHA256: contract.canonicalSHA256,
+            textureSources: [], uniformSources: []))!
+}
+
+private func runSignalBridge(_ name: String, device: MTLDevice, queue: MTLCommandQueue) -> [String: Any] {
+    let template = bridgeTemplate(name)
+    let isScalar = name.hasPrefix("scalar")
+    let isDataPrevious = name == "dataPrevious"
+    let rawData = isScalar || isDataPrevious
+    let ingress = isDataPrevious ? chainedFirstOutput : first
+    guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(template: template,
+        maximumVariantCount: 16), let encoder = SceneResolvedMaterialPassEncoder(device: device) else {
+        return ["failure": "bridge-setup"]
+    }
+    let initialContent: SceneTextureContent = isScalar ? .scalarRedUnorm : isDataPrevious ? .data
+        : name == "composer" || name == "raw" ? .color(.resolved(.independentAlphaSignal))
+        : .color(.resolved(.premultipliedAlpha))
+    let formats: [Graph.TextureIdentity: SceneShaderTextureFormat] = isScalar ? [first: .r8] : [:]
+    let contents: [Graph.TextureIdentity: SceneTextureContent] = name == "composer"
+        ? [ingress: initialContent, second: .color(.resolved(.premultipliedAlpha))] : [ingress: initialContent]
+    let launch = cache.precompileLaunchEnvelope(implicitFramebufferIdentity: ingress,
+        outputIsRGBA8Unorm: true, graphTextureFormatFacts: formats, graphTextureContentFacts: contents)
+    guard case .success = launch else {
+        return ["failure": "bridge-precompile", "diagnostic": String(describing: launch)]
+    }
+    var rows: [[String: Any]] = [], key: String?, compilationCount = 0, libraryCount = 0
+    let representations: [SceneShaderColorRepresentation] = rawData ? [.opaque]
+        : name == "raw" ? [.independentAlphaSignal, .straightAlpha, .premultipliedAlpha]
+        : [.straightAlpha, .premultipliedAlpha]
+    for (offset, representation) in representations.enumerated() {
+        let index = UInt64(offset + 1)
+        let source: MTLTexture
+        if isScalar {
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r8Unorm,
+                width: extent.width, height: extent.height, mipmapped: false)
+            descriptor.storageMode = .shared; descriptor.usage = [.shaderRead, .renderTarget]
+            source = device.makeTexture(descriptor: descriptor)!
+            [UInt8](repeating: 64, count: extent.width * extent.height).withUnsafeBytes {
+                source.replace(region: MTLRegionMake2D(0, 0, extent.width, extent.height), mipmapLevel: 0,
+                    withBytes: $0.baseAddress!, bytesPerRow: extent.width)
+            }
+        } else {
+            let color: [UInt8] = name == "raw"
+                ? (representation == .straightAlpha ? [51, 102, 204, 0]
+                    : representation == .independentAlphaSignal ? [26, 51, 102, 64] : [26, 51, 102, 128])
+                : isDataPrevious ? [26, 51, 102, 0] : name == "composer" ? [26, 51, 204, 64]
+                : representation == .straightAlpha ? [51, 102, 204, 128] : [26, 51, 102, 128]
+            source = makeSource(device, width: extent.width, height: extent.height,
+                usage: [.shaderRead, .renderTarget], bgra: color)
+        }
+        var resources = [ingress: bridgePublication(source, identity: ingress,
+            content: name == "producer" || name == "raw" ? .color(.resolved(representation)) : initialContent,
+            generation: index)]
+        if name == "composer" {
+            let color = makeSource(device, width: extent.width, height: extent.height,
+                usage: [.shaderRead, .renderTarget],
+                bgra: representation == .straightAlpha ? [26, 51, 102, 128] : [13, 26, 51, 128])
+            resources[second] = bridgePublication(color, identity: second,
+                content: .color(.resolved(representation)), generation: index)
+        }
+        guard let snapshot = frame(index).overlayingGraphResources(resources) else {
+            return ["failure": "bridge-publication", "frames": rows]
+        }
+        let result = SceneResolvedMaterialProgramFinalizer.finalize(snapshot.finalizationInput(
+            template: template, layerID: layerID, renderSize: CGSize(width: extent.width, height: extent.height),
+            modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
+            effectOutputModelViewProjection: matrix_identity_float4x4,
+            effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
+            implicitFramebufferIdentity: ingress), variantCache: cache)
+        guard case let .success(program) = result else {
+            return ["failure": "bridge-finalize", "diagnostic": String(describing: result), "frames": rows]
+        }
+        let target = makeSource(device, width: extent.width, height: extent.height,
+            usage: [.shaderRead, .renderTarget], bgra: [0, 0, 0, 0])
+        guard let prepared = encoder.prepare(program: program, target: target),
+              let command = queue.makeCommandBuffer(), encoder.encode(prepared, commandBuffer: command),
+              let read = appendReadback(target, commandBuffer: command) else {
+            return ["failure": "bridge-encode", "frames": rows]
+        }
+        command.commit(); command.waitUntilCompleted()
+        let mask = program.resolvedUniforms.first { $0.field.name == "mwxPremultipliedColorInputMask" }
+            .map { $0.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
+        if offset == 0 {
+            key = program.preparedShader.cacheKey
+            compilationCount = cache.counters.frontendCompilationCount
+            libraryCount = encoder.metalLibraryCompilationAttemptCount
+        }
+        let colorSlot = name == "composer" ? 1 : 0
+        let expectedMask: UInt32 = (rawData || representation == .straightAlpha
+            || representation == .independentAlphaSignal ? 0 : 1 << UInt32(colorSlot))
+            | (name == "composer" || representation == .independentAlphaSignal ? 256 : 0)
+        let expectedPixel: [UInt8] = name == "raw"
+            ? (representation == .straightAlpha ? [51, 102, 204, 0]
+                : representation == .independentAlphaSignal ? [26, 51, 102, 64] : [52, 102, 203, 128])
+            : name == "producer" ? [26, 51, 102, 64]
+            : name == "composer" ? [24, 48, 115, 192]
+            : isDataPrevious ? [102, 102, 102, 255] : [64, 64, 64, 255]
+        let expectedRepresentation: SceneShaderColorRepresentation = name == "raw"
+            ? (representation == .independentAlphaSignal ? .independentAlphaSignal : .straightAlpha)
+            : name == "producer" ? .independentAlphaSignal
+            : name == "composer" ? .premultipliedAlpha : .opaque
+        let actualRepresentation: SceneShaderColorRepresentation? = switch program.outputContract {
+        case let .color(contract): SceneResolvedMaterialAttachmentStorage.acceptedColorOutput(contract.fragmentOutput)
+        default: nil
+        }
+        rows.append(["completed": command.status == .completed && command.error == nil,
+            "maskUsesOnlyActualColor": mask == expectedMask,
+            "exactColorRole": program.frontendProgram.colorBoundary?.colorInputSlots == (rawData ? [] : [colorSlot]),
+            "actualOutputRepresentation": actualRepresentation == expectedRepresentation,
+            "samePreparedProgram": key == program.preparedShader.cacheKey,
+            "noRepresentationRecompile": compilationCount == cache.counters.frontendCompilationCount
+                && libraryCount == encoder.metalLibraryCompilationAttemptCount,
+            "dynamicSignalPassthroughRetained": name != "raw" || (
+                program.frontendProgram.colorBoundary?.signalPassthroughSlot == 0
+                && program.frontendProgram.colorTransfer == .passthrough(textureSlot: 0)
+                && program.resolvedUniforms.contains { $0.field.name == "mwxPremultipliedColorInputMask" }),
+            "authoredMathPreserved": matches(read.firstPixel, expectedPixel) && matches(read.lastPixel, expectedPixel),
+            "pixel": read.firstPixel, "mask": mask])
+    }
+    return ["frames": rows]
+}
+
+@main private enum SignalBridgeHarness {
+    static func main() throws {
+        setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)
+        guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
+            print("{\"metalAvailable\":false}"); return
+        }
+        var bridges: [String: Any] = [:]
+        for name in ["producer", "composer", "scalar", "dataPrevious", "raw"] {
+            bridges[name] = runSignalBridge(name, device: device, queue: queue)
+        }
+        print(String(decoding: try JSONSerialization.data(withJSONObject:
+            ["metalAvailable": true, "bridges": bridges], options: [.sortedKeys]), as: UTF8.self))
+    }
+}
+'''
+
+
 class SceneIndependentSignalColorCarrierCompositingTests(unittest.TestCase):
+    def test_prepared_signal_bridge_uses_actual_color_representation(self) -> None:
+        from script.tests import test_scene_resolved_material_graph_executor as graph_gate
+
+        harness = graph_gate.HARNESS.split("@main\nprivate enum Harness", 1)[0] + SIGNAL_BRIDGE_HARNESS
+        compilation, completed = graph_gate.compile_lit_harness(graph_gate.SUPPORT, harness)
+        self.assertEqual(compilation.returncode, 0, compilation.stderr)
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = json.loads(completed.stdout)
+        if not payload["metalAvailable"]:
+            self.skipTest("Metal is unavailable")
+        self.assertEqual(set(payload["bridges"]), {"producer", "composer", "scalar", "dataPrevious", "raw"})
+        for name, report in payload["bridges"].items():
+            self.assertNotIn("failure", report, (name, report))
+            self.assertEqual(len(report["frames"]), 1 if name in {"scalar", "dataPrevious"}
+                else 3 if name == "raw" else 2, report)
+            for row in report["frames"]:
+                for assertion, passed in row.items():
+                    if isinstance(passed, bool):
+                        self.assertTrue(passed, (name, assertion, row))
+
     def test_swift_frontend_artifact_and_route_contract(self) -> None:
         with tempfile.TemporaryDirectory(
             prefix="mwx-signal-color-compositing-"
@@ -456,7 +693,7 @@ fragment Output mwxGenericFragment() {
 
         reverse = {**expected, "slots": [2, 6]}
         request = {
-            "schemaVersion": 5,
+            "schemaVersion": 6,
             "outputSemantics": "color",
             "premultipliedColorInputSlots": [],
             "stages": [

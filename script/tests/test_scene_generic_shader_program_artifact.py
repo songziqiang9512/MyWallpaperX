@@ -5299,7 +5299,7 @@ vertex float4 mwxGenericVertex(uint vertexID [[vertex_id]], constant Uniforms& u
 fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], constant Uniforms& u [[buffer(8)]]) {{ return g_Texture0.sample(sampler(), float2(0.5)); }}
 """.strip() + "\n"
         return {
-            "schemaVersion": 9,
+            "schemaVersion": 10,
             "kind": "scene-generic-shader-program-artifact",
             "backendID": "glslang-spirv-cross-msl-v2",
             "requestKey": key,
@@ -5421,6 +5421,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             expected_key,
             ",".join(map(str, sorted(premultiplied_color_input_slots))),
             ",".join(map(str, sorted(default_boundary_color_slots))),
+            "-",
             "{}",
         ):
             encoded = value.encode("utf-8")
@@ -6421,7 +6422,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             request = json.loads(
                 (requests / f"{data['requestKey']}.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(request["schemaVersion"], 5)
+            self.assertEqual(request["schemaVersion"], 6)
             self.assertEqual(request["premultipliedColorInputSlots"], [])
             self.assertEqual(request["outputSemantics"], "preserved-rgba-unorm")
 

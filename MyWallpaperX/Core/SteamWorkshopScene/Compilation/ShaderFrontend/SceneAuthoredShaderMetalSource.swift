@@ -39,12 +39,14 @@ nonisolated enum SceneAuthoredShaderMetalSource {
     static func prelude(
         defines: [String: String],
         colorTransfer: SceneShaderColorTransfer,
-        requiresInputColorBoundary: Bool = false
+        requiresInputColorBoundary: Bool = false,
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) -> String {
         let authoredDefines = defines.sorted { $0.key < $1.key }.map {
             "#define \($0.key) \($0.value)"
         }.joined(separator: "\n")
-        let colorBoundary = colorBoundaryHelpers(
+        let boundaryHelpers = colorBoundary.map { ordinaryColorBoundaryHelpers($0) }
+            ?? colorBoundaryHelpers(
             for: colorTransfer,
             requiresInputColorBoundary: requiresInputColorBoundary
         )
@@ -65,7 +67,7 @@ nonisolated enum SceneAuthoredShaderMetalSource {
         #define saturate(x) clamp((x), 0.0, 1.0)
         #define lerp mix
         \(authoredDefines)
-        \(colorBoundary)
+        \(boundaryHelpers)
         """
     }
 
@@ -161,12 +163,15 @@ nonisolated enum SceneAuthoredShaderMetalSource {
 
     static func fragmentWrapper(
         textures: [SceneAuthoredShaderProgram.TextureBinding],
-        colorTransfer: SceneShaderColorTransfer
+        colorTransfer: SceneShaderColorTransfer,
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) -> String {
         let resources = wrapperResourceParameters(textures: textures)
         let arguments = contextArguments(stage: .fragment, textures: textures)
         let result: String
-        switch colorTransfer {
+        if let boundary = colorBoundary {
+            result = ordinaryColorOutputExpression("mwxFragColor", boundary: boundary, uniforms: "mwxUniforms")
+        } else { switch colorTransfer {
         case .straightAlphaPreserving, .straightAlpha,
              .independentAlphaSignalCompositing,
              .independentAlphaSignalUnderlayCompositing,
@@ -176,7 +181,7 @@ nonisolated enum SceneAuthoredShaderMetalSource {
             result = "mwxSaturateAndPremultiply(mwxFragColor)"
         default:
             result = "mwxFragColor"
-        }
+        } }
         return """
         fragment float4 sceneAuthoredFragment(
             SceneAuthoredFragmentInput mwxInput [[stage_in]],
@@ -200,6 +205,49 @@ nonisolated enum SceneAuthoredShaderMetalSource {
             return float4(rgb, alpha);
         }
         """
+    }
+
+    static func ordinaryColorBoundaryHelpers(_ boundary: SceneShaderColorBoundary) -> String {
+        let input = boundary.requiresInputMask ? unpremultiplyHelper(named: "mwxUnpremultiply") + """
+
+        inline float4 mwxStraightColorInput(float4 color, uint mask, uint slot) {
+            return (mask & (1u << slot)) != 0u ? mwxUnpremultiply(color) : color;
+        }
+        """ : ""
+        let output = boundary.outputRepresentation == .premultipliedAlpha
+            ? premultiplyHelper(named: "mwxPremultiply") : ""
+        let coverage = """
+
+        inline float4 mwxStraightColorOutput(float4 color) {
+            return float4(color.xyz, clamp(color.w, 0.0, 1.0));
+        }
+        """
+        let passthrough = boundary.signalPassthroughSlot != nil ? """
+
+        inline float4 mwxPassthroughColorOutput(float4 color, uint mask, uint slot) {
+            return (mask & (1u << (8u + slot))) != 0u ? color : \(ordinaryStoredColorExpression("color", boundary: boundary));
+        }
+        """ : ""
+        return input + output + coverage + passthrough
+    }
+
+    static func ordinaryColorOutputExpression(
+        _ value: String, boundary: SceneShaderColorBoundary, uniforms: String
+    ) -> String {
+        if let slot = boundary.signalPassthroughSlot {
+            return "mwxPassthroughColorOutput(\(value), \(uniforms).\(SceneShaderColorBoundary.uniformName), \(slot)u)"
+        }
+        return ordinaryStoredColorExpression(value, boundary: boundary)
+    }
+
+    private static func ordinaryStoredColorExpression(
+        _ value: String, boundary: SceneShaderColorBoundary
+    ) -> String {
+        switch boundary.outputRepresentation {
+        case .straightAlpha: "mwxStraightColorOutput(\(value))"
+        case .premultipliedAlpha: "mwxPremultiply(\(value))"
+        case .opaque, .independentAlphaSignal: value
+        }
     }
 
     static func premultiplyHelper(named name: String, clampingRGB: Bool = false) -> String {

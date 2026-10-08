@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "premultipliedColorInputSlots": [],
   "requestID": "project-wallpaper-engine-one-pass-v1",
   "sourceDialect": "wallpaper-engine-glsl-like-v0",

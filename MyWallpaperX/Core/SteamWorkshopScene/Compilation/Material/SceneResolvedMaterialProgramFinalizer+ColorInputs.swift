@@ -7,7 +7,8 @@ nonisolated extension SceneResolvedMaterialProgramFinalizer {
     ) -> Failure? {
         guard SceneResolvedMaterialProgramDerivation.hasResolvedColorSampleContract(
             colorSlots: variant.preservedAlphaRGBColorSlots,
-            textureSlots: textureSlots
+            textureSlots: textureSlots,
+            colorBoundary: variant.frontendProgram.colorBoundary
         ) else {
             return failure(
                 .color,
@@ -22,7 +23,8 @@ nonisolated extension SceneResolvedMaterialProgramFinalizer {
         guard SceneResolvedMaterialProgramDerivation
             .hasResolvedOpaqueColorSampleContract(
                 colorSlots: variant.sourceProvenOpaqueColorSlots,
-                textureSlots: textureSlots
+                textureSlots: textureSlots,
+                colorBoundary: variant.frontendProgram.colorBoundary
             ) else {
             return failure(
                 .color,
@@ -40,7 +42,8 @@ nonisolated extension SceneResolvedMaterialProgramFinalizer {
                 contract,
                 textureSlots: textureSlots,
                 premultipliedColorInputSlots:
-                    variant.premultipliedColorInputSlots
+                    variant.premultipliedColorInputSlots,
+                colorBoundary: variant.frontendProgram.colorBoundary
             ) {
             return failure(
                 .color,
@@ -56,7 +59,8 @@ nonisolated extension SceneResolvedMaterialProgramFinalizer {
            !SceneResolvedMaterialProgramDerivation
             .hasResolvedSameAlphaReconstructedRGBInputContract(
                 contract,
-                textureSlots: textureSlots
+                textureSlots: textureSlots,
+                colorBoundary: variant.frontendProgram.colorBoundary
             ) {
             return failure(
                 .color,

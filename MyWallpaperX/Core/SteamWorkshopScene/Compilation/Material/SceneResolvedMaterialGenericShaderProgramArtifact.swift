@@ -88,6 +88,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         /// Absent (and omitted from the artifact) for statically proven loops.
         var loopGuardCap: Int? = nil
         let premultipliedColorInputSlots: [Int]
+        var colorBoundary: SceneShaderColorBoundary? = nil
         let colorTransfer: ColorTransfer
         let fragmentOutputChannelUse: String
         var vertexPositionInput: String? = nil
@@ -106,7 +107,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         outputSemantics: SceneGenericShaderOutputSemantics = .color,
         program: Program
     ) {
-        schemaVersion = 9
+        schemaVersion = 10
         kind = "scene-generic-shader-program-artifact"
         self.backendID = backendID
         self.requestKey = requestKey
@@ -118,16 +119,22 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         expectedKey: String,
         expectedOutputSemantics: SceneGenericShaderOutputSemantics = .color,
         expectedPremultipliedColorInputSlots: Set<Int> = [],
+        expectedColorBoundary: SceneShaderColorBoundary? = nil,
         expectedColorTransfer: SceneShaderColorTransfer,
         expectedFragmentOutputChannelUse:
             SceneAuthoredShaderProgram.FragmentOutputChannelUse
     ) -> SceneAuthoredShaderProgram? {
-        guard schemaVersion == 9,
+        guard schemaVersion == 10,
               kind == "scene-generic-shader-program-artifact",
               backendID == "glslang-spirv-cross-msl-v2",
               requestKey == expectedKey,
               outputSemantics == expectedOutputSemantics else { return nil }
         let raw = program
+        guard raw.colorBoundary == expectedColorBoundary,
+              raw.colorBoundary?.isValid != false,
+              raw.colorBoundary == nil || expectedOutputSemantics == .color else {
+            return nil
+        }
         guard raw.vertexFunctionName == "mwxGenericVertex",
               raw.fragmentFunctionName == "mwxGenericFragment",
               raw.uniformBufferIndex == 8,
@@ -185,6 +192,13 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
               raw.premultipliedColorInputSlots.allSatisfy({ slot in
                   bindings.contains(where: { $0.slot == slot })
               }) else { return nil }
+        if let boundary = raw.colorBoundary {
+            guard Set(boundary.colorInputSlots).isSubset(of: Set(bindings.map(\.slot))),
+                  !boundary.requiresInputMask || fields.contains(where: {
+                      $0.name == SceneShaderColorBoundary.uniformName && $0.type == .uint
+                          && $0.arrayCount == nil
+                  }) else { return nil }
+        }
         let colorTransfer: SceneShaderColorTransfer
         switch (raw.colorTransfer.kind, raw.colorTransfer.slot, raw.colorTransfer.slots) {
         case let ("passthrough", slot?, nil):
@@ -261,6 +275,9 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         default:
             return nil
         }
+        if let slot = raw.colorBoundary?.signalPassthroughSlot {
+            guard colorTransfer == .passthrough(textureSlot: slot) else { return nil }
+        }
         let requiresExactExpectedTransfer: Bool = switch colorTransfer {
         case .independentAlphaSignal,
              .independentAlphaSignalPreserving,
@@ -316,7 +333,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
             backend: .genericCompilerArtifact,
             vertexPositionInput: raw.vertexPositionInput.flatMap {
                 SceneAuthoredShaderProgram.VertexPositionInput(rawValue: $0)
-            }
+            }, colorBoundary: raw.colorBoundary
         )
     }
 

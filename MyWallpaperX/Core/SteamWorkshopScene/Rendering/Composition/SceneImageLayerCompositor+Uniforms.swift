@@ -18,7 +18,8 @@ extension SceneImageLayerCompositor {
         textureFrame: SceneTextureUVTransform,
         tint: SIMD3<Float>,
         dependencyBlendMode: Int?,
-        sourceSampling: SceneTextureSampling = .linearClamp
+        sourceSampling: SceneTextureSampling = .linearClamp,
+        sourceRepresentation: SceneShaderColorRepresentation = .premultipliedAlpha
     ) -> SceneLayerFragmentUniforms {
         return SceneLayerFragmentUniforms(
             time: values.time,
@@ -26,7 +27,8 @@ extension SceneImageLayerCompositor {
             dependencyBlendMode: UInt32(dependencyBlendMode ?? 0),
             usesDependencyBlend: dependencyBlendMode == nil ? 0 : 1,
             cursorUV: values.cursorUV,
-            sourceSampling: SIMD2(sourceSampling.imageLayerUniformMode, 0),
+            sourceSampling: SIMD2(sourceSampling.imageLayerUniformMode,
+                sourceRepresentation == .straightAlpha ? 1 : 0),
             tint: SIMD4(tint.x, tint.y, tint.z, 1),
             textureFrame0: textureFrame.uniform0,
             textureFrame1: textureFrame.uniform1

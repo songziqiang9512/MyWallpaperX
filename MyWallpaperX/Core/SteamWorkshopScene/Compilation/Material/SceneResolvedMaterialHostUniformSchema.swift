@@ -8,6 +8,8 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
         activeTextureSlots: Set<Int>
     ) -> Program.HostUniform? {
         switch (field.authoredName, field.type) {
+        case (SceneShaderColorBoundary.uniformName, .uint) where field.arrayCount == nil:
+            .premultipliedColorInputMask
         case ("mwxRenderSize", .float2): .renderSize
         case ("g_ModelViewProjectionMatrix", .float4x4): .modelViewProjection
         case ("g_ModelViewProjectionMatrixInverse", .float4x4):

@@ -332,6 +332,45 @@ nonisolated enum SceneShaderColorTransfer: Codable, Equatable, Hashable, Sendabl
     }
 }
 
+/// Prepared ordinary-color ABI. The bound publications supply the actual
+/// PMA bits (0...7) and independent-signal bits (8...15) as typed frame data;
+/// source/profile identity never guesses them.
+nonisolated struct SceneShaderColorBoundary: Codable, Hashable, Sendable {
+    enum OutputRepresentation: String, Codable, Hashable, Sendable {
+        case opaque
+        case straightAlpha = "straight-alpha"
+        case premultipliedAlpha = "premultiplied-alpha"
+        case independentAlphaSignal = "independent-alpha-signal"
+    }
+    static let uniformName = "mwxPremultipliedColorInputMask"
+    let colorInputSlots: [Int]
+    let outputRepresentation: OutputRepresentation
+    let signalPassthroughSlot: Int?
+
+    init(
+        colorInputSlots: Set<Int>, outputRepresentation: OutputRepresentation,
+        signalPassthroughSlot: Int? = nil
+    ) {
+        self.colorInputSlots = colorInputSlots.sorted()
+        self.outputRepresentation = outputRepresentation
+        self.signalPassthroughSlot = signalPassthroughSlot
+    }
+
+    var requiresInputMask: Bool { !colorInputSlots.isEmpty }
+    var cacheKey: String {
+        "ordinary-color-v2:\(colorInputSlots.map(String.init).joined(separator: ",")):\(outputRepresentation.rawValue):\(signalPassthroughSlot.map(String.init) ?? "-")"
+    }
+
+    var isValid: Bool {
+        colorInputSlots == colorInputSlots.sorted()
+            && Set(colorInputSlots).count == colorInputSlots.count
+            && colorInputSlots.allSatisfy { (0 ..< 8).contains($0) }
+            && signalPassthroughSlot.map {
+                colorInputSlots.contains($0) && outputRepresentation != .independentAlphaSignal
+            } ?? true
+    }
+}
+
 nonisolated struct SceneAuthoredShaderProgram: Codable {
     enum VertexPositionInput: String, Codable, Hashable, Sendable {
         case clipSpace, targetPixels
@@ -380,6 +419,7 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
     let textureBindings: [TextureBinding]
     let staticLoopWork: Int
     let colorTransfer: SceneShaderColorTransfer
+    let colorBoundary: SceneShaderColorBoundary?
     let fragmentOutputChannelUse: FragmentOutputChannelUse
     let backend: Backend
     /// Missing in older artifacts: absence never authorizes terminal replay.
@@ -402,7 +442,8 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
         colorTransfer: SceneShaderColorTransfer,
         fragmentOutputChannelUse: FragmentOutputChannelUse = .unproven,
         backend: Backend = .boundedSwift,
-        vertexPositionInput: VertexPositionInput? = nil
+        vertexPositionInput: VertexPositionInput? = nil,
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) {
         self.metalSource = metalSource
         self.vertexFunctionName = vertexFunctionName
@@ -412,6 +453,7 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
         self.textureBindings = textureBindings
         self.staticLoopWork = staticLoopWork
         self.colorTransfer = colorTransfer
+        self.colorBoundary = colorBoundary
         self.fragmentOutputChannelUse = fragmentOutputChannelUse
         self.backend = backend
         self.vertexPositionInput = vertexPositionInput

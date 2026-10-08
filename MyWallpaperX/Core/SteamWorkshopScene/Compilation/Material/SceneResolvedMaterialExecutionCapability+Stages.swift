@@ -329,9 +329,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         ) else {
             return .failure(rejection("material-target-storage-unproven"))
         }
+        var graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent] = [:]
         let preservedRGBADataTargets = preservedRGBADataTargets(in: product.graph)
         var materials: [MaterialKey: MaterialCapability] = [:]
-        var graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent] = [:]
         var capturedMainSourceConsumerCount = 0
         var firstCapturedMainMaterial: (node: Graph.Node, template: Template)?
         for node in product.graph.nodes {
@@ -500,14 +500,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             if let target = node.target,
                node.conditions == nil,
                node.compose == nil {
-                if attachment.storage == .preservedRGBAUnorm {
-                    // The accumulation owner writes an RGBA8 state vector;
-                    // its channels remain data through validated copies.
-                    // A terminal consumer must prove its own content contract.
-                    graphTextureContentFacts[target] = .data
-                } else if variants.launchEnvelopeProvesOpaqueColorOutput {
-                    graphTextureContentFacts[target] =
-                        .color(.resolved(.opaque))
+                if let content = variants.launchEnvelopeOutputContent {
+                    graphTextureContentFacts[target] = content
                 } else {
                     graphTextureContentFacts.removeValue(forKey: target)
                 }

@@ -983,6 +983,7 @@ def compile_request(
                     premultiplied_color_input_slots=request.get(
                         "premultipliedColorInputSlots"
                     ),
+                    color_boundary=request.get("colorBoundary"),
                 )
             except ArtifactFailure as error:
                 raise HarnessFailure("artifact", str(error)) from error

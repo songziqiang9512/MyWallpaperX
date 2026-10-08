@@ -246,6 +246,209 @@ nonisolated enum SceneGenericShaderDefaultStraightColorBoundaryLowering {
     private static let unpremultiply = "mwxGenericUnpremultiply"
     private static let premultiply = "mwxGenericPremultiply"
 
+    /// Applies the prepared ordinary-color ABI to original compiler MSL after
+    /// the source/compiler proof has succeeded. No authored expression is
+    /// replaced by a shape-specific reconstructed output.
+    static func lowerOrdinary(
+        _ original: String,
+        boundary: SceneShaderColorBoundary,
+        stage: SceneShaderContract.StageKind = .fragment,
+        includeBoundaryHelpers: Bool = true
+    ) -> String? {
+        guard boundary.isValid,
+              !original.contains("mwxStraightColorInput"),
+              !original.contains("mwxStraightColorOutput"),
+              !original.contains("mwxPassthroughColorOutput"),
+              !original.contains("mwxUnpremultiply"),
+              !original.contains(unpremultiply),
+              !original.contains(premultiply),
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: original).count == 1,
+              let source = ordinaryUniformContexts(original, boundary: boundary),
+              let calls = SceneGenericShaderStraightAlphaPreservingLowering
+                .compilerTextureSampleCalls(in: source),
+              let scopes = ordinaryFunctionScopes(source) else { return nil }
+        let returns = SceneShaderSourceTextFacts.matches(
+            #"(?m)^([ \t]*)return\s+out\s*;[ \t]*$"#, in: source
+        )
+        guard stage == .vertex || (!returns.isEmpty && returns.allSatisfy({ result in
+            scopes.contains { $0.name == "mwxGenericFragment" && $0.contains(result.range) }
+        })) else { return nil }
+
+        var edits: [(range: NSRange, replacement: String)] = []
+        if stage == .fragment,
+           boundary.signalPassthroughSlot != nil
+            || [.straightAlpha, .premultipliedAlpha].contains(boundary.outputRepresentation) {
+            for result in returns {
+                guard let scope = scopes.first(where: { $0.contains(result.range) }),
+                      boundary.signalPassthroughSlot == nil || scope.uniforms != nil else { return nil }
+                let expression = SceneAuthoredShaderMetalSource.ordinaryColorOutputExpression(
+                    "out.mwxFragColor", boundary: boundary, uniforms: scope.uniforms ?? ""
+                )
+                let indent = SceneShaderSourceTextFacts.capture(result, 1, in: source) ?? ""
+                edits.append((result.range,
+                    "\(indent)out.mwxFragColor = \(expression);\n"
+                        + "\(indent)return out;"))
+            }
+        }
+        for call in calls where boundary.colorInputSlots.contains(call.slot) {
+            guard let range = Range(call.range, in: source),
+                  let scope = scopes.first(where: { $0.contains(call.range) }),
+                  let uniforms = scope.uniforms else { return nil }
+            edits.append((call.range,
+                "mwxStraightColorInput(\(source[range]), \(uniforms).\(SceneShaderColorBoundary.uniformName), \(call.slot)u)"))
+        }
+        var transformed = source
+        for edit in edits.sorted(by: { $0.range.location > $1.range.location }) {
+            guard let range = Range(edit.range, in: transformed) else { return nil }
+            transformed.replaceSubrange(range, with: edit.replacement)
+        }
+        guard includeBoundaryHelpers else { return transformed }
+        guard let namespace = SceneShaderSourceTextFacts.matches(
+            #"\busing\s+namespace\s+metal\s*;"#, in: transformed
+        ).first, let range = Range(namespace.range, in: transformed) else { return nil }
+        transformed.insert(contentsOf: SceneAuthoredShaderMetalSource
+            .ordinaryColorBoundaryHelpers(boundary), at: range.upperBound)
+        return transformed
+    }
+
+    private struct OrdinaryFunctionScope {
+        let name: String
+        let parameters: NSRange
+        let body: NSRange
+        let uniforms: String?
+        let entryStage: SceneShaderContract.StageKind?
+
+        func contains(_ range: NSRange) -> Bool {
+            body.location <= range.location && NSMaxRange(range) <= NSMaxRange(body)
+        }
+    }
+
+    /// SPIRV-Cross omits an unused uniform entry argument. The prepared mask
+    /// makes it used, so thread that same buffer through only the compiler
+    /// functions that now need it. Existing context names remain authoritative.
+    private static func ordinaryUniformContexts(
+        _ source: String, boundary: SceneShaderColorBoundary
+    ) -> String? {
+        guard let scopes = ordinaryFunctionScopes(source),
+              let samples = SceneGenericShaderStraightAlphaPreservingLowering
+                .compilerTextureSampleCalls(in: source) else { return nil }
+        var needed = Set<Int>()
+        for sample in samples where boundary.colorInputSlots.contains(sample.slot) {
+            guard let index = scopes.firstIndex(where: { $0.contains(sample.range) }) else { return nil }
+            needed.insert(index)
+        }
+        if boundary.signalPassthroughSlot != nil {
+            needed.formUnion(scopes.indices.filter { scopes[$0].entryStage == .fragment })
+        }
+        struct Call { let caller: Int; let target: Int; let arguments: NSRange }
+        var calls: [Call] = []
+        for target in scopes.indices {
+            let pattern = #"\b"# + SceneShaderSourceTextFacts.escaped(scopes[target].name) + #"\s*\("#
+            for match in SceneShaderSourceTextFacts.matches(pattern, in: source) {
+                guard let caller = scopes.firstIndex(where: { $0.contains(match.range) }) else { continue }
+                guard let range = Range(match.range, in: source),
+                      let open = source[range].lastIndex(of: "("),
+                      let close = ordinaryCallClose(source, opening: open) else { return nil }
+                calls.append(.init(caller: caller, target: target,
+                    arguments: NSRange(source.index(after: open)..<close, in: source)))
+            }
+        }
+        var changed = true
+        while changed {
+            changed = false
+            for call in calls where needed.contains(call.target) && scopes[call.target].uniforms == nil {
+                if needed.insert(call.caller).inserted { changed = true }
+            }
+        }
+        let missing = needed.filter { scopes[$0].uniforms == nil }
+        guard !missing.isEmpty else { return source }
+        let injected = "mwxColorUniforms"
+        guard SceneShaderSourceTextFacts.matches(#"\b"# + injected + #"\b"#, in: source).isEmpty,
+              Set(scopes.map(\.name)).count == scopes.count else { return nil }
+        var edits: [(NSRange, String)] = []
+        for index in missing {
+            let scope = scopes[index]
+            let isEntry = scope.entryStage != nil
+            let entryName = scope.entryStage == .vertex ? "mwxGenericVertex" : "mwxGenericFragment"
+            guard isEntry ? scope.name == entryName : calls.contains(where: { $0.target == index }),
+                  let parameters = SceneShaderSourceTextFacts.substring(scope.parameters, in: source),
+                  !isEntry || !parameters.contains("[[buffer(8)]]") else { return nil }
+            let attribute = isEntry ? " [[buffer(8)]]" : ""
+            let separator = parameters.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : ", "
+            edits.append((NSRange(location: scope.parameters.location, length: 0),
+                "constant MWXUniforms& \(injected)\(attribute)\(separator)"))
+        }
+        for call in calls where missing.contains(call.target) {
+            guard let arguments = SceneShaderSourceTextFacts.substring(call.arguments, in: source) else { return nil }
+            let uniforms = scopes[call.caller].uniforms ?? injected
+            let separator = arguments.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : ", "
+            edits.append((NSRange(location: call.arguments.location, length: 0), "\(uniforms)\(separator)"))
+        }
+        var result = source
+        for (range, replacement) in edits.sorted(by: { $0.0.location > $1.0.location }) {
+            guard let swiftRange = Range(range, in: result) else { return nil }
+            result.replaceSubrange(swiftRange, with: replacement)
+        }
+        return result
+    }
+
+    private static func ordinaryCallClose(_ source: String, opening: String.Index) -> String.Index? {
+        var depth = 0
+        var cursor = opening
+        while cursor < source.endIndex {
+            if source[cursor] == "(" { depth += 1 }
+            if source[cursor] == ")" {
+                depth -= 1
+                if depth == 0 { return cursor }
+            }
+            cursor = source.index(after: cursor)
+        }
+        return nil
+    }
+
+    /// Resolve the enclosing compiler signature for each adapted sample.
+    private static func ordinaryFunctionScopes(_ source: String) -> [OrdinaryFunctionScope]? {
+        let signatures = SceneShaderSourceTextFacts.matches(
+            #"(?m)^[ \t]*(?:(?:fragment|vertex|inline|static)\s+|__attribute__\s*\(\(\s*always_inline\s*\)\)\s*)*[A-Za-z_]\w*(?:<[^{};\n]+>)?\s+([A-Za-z_]\w*)\s*\(([^{};]*)\)\s*\{"#,
+            in: source
+        )
+        var result: [OrdinaryFunctionScope] = []
+        for signature in signatures {
+            guard let range = Range(signature.range, in: source),
+                  let name = SceneShaderSourceTextFacts.capture(signature, 1, in: source),
+                  let parameters = SceneShaderSourceTextFacts.capture(signature, 2, in: source),
+                  let open = source[..<range.upperBound].lastIndex(of: "{") else { return nil }
+            let declarations = SceneShaderSourceTextFacts.matches(
+                #"\bconstant\s+MWXUniforms\s*&\s*([A-Za-z_]\w*)\b"#, in: parameters
+            )
+            guard declarations.count <= 1 else { return nil }
+            let uniforms = declarations.first.flatMap {
+                SceneShaderSourceTextFacts.capture($0, 1, in: parameters)
+            }
+            var depth = 0
+            var cursor = open
+            var close: String.Index?
+            while cursor < source.endIndex {
+                if source[cursor] == "{" { depth += 1 }
+                if source[cursor] == "}" {
+                    depth -= 1
+                    if depth == 0 { close = cursor; break }
+                    if depth < 0 { return nil }
+                }
+                cursor = source.index(after: cursor)
+            }
+            guard let close else { return nil }
+            let declaration = SceneShaderSourceTextFacts.substring(signature.range, in: source)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let entryStage: SceneShaderContract.StageKind? = declaration.hasPrefix("vertex ")
+                ? .vertex : declaration.hasPrefix("fragment ") ? .fragment : nil
+            result.append(.init(name: name, parameters: signature.range(at: 2),
+                body: NSRange(source.index(after: open)..<close, in: source), uniforms: uniforms,
+                entryStage: entryStage))
+        }
+        return result
+    }
+
     static func lower(_ source: String, colorSlots: Set<Int>) -> Lowered? {
         guard colorSlots.allSatisfy({ (0 ..< 8).contains($0) }),
               !source.contains(unpremultiply),

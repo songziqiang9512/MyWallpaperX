@@ -484,14 +484,14 @@ enum SceneTextureSampling {
         }
     }
 }
-enum StubAlpha { case premultipliedAlpha }
-enum StubColor { case resolved(StubAlpha) }
-struct SceneTextureContent: Equatable {
-    let isResolved: Bool
-    var isData = false
-    static let data = Self(isResolved: true, isData: true)
-    static func color(_ value: StubColor) -> Self { .init(isResolved: true) }
-    var isColorContent: Bool { !isData }
+enum StubAlpha: Equatable { case premultipliedAlpha, straightAlpha, opaque }
+enum StubColor: Equatable { case resolved(StubAlpha) }
+enum SceneTextureContent: Equatable {
+    case color(StubColor)
+    case data
+    init(isResolved: Bool) { self = .color(.resolved(.premultipliedAlpha)) }
+    var isResolved: Bool { true }
+    var isColorContent: Bool { self != .data }
 }
 
 struct SceneTextureCandidate {
@@ -1269,6 +1269,7 @@ enum Harness {
             bytesPerRow: geometryGraphOutput.width * 4
         )
         var encodedGeometrySource: MTLTexture?
+        var encodedGeometryAssociation: UInt32 = 99
         let geometryProduct = SceneGeometryProduct(
             ownerLayerID: 800,
             samplingTexture: geometryAtlas,
@@ -1276,8 +1277,9 @@ enum Harness {
             isPreparedForPublication: { candidate in
                 candidate === commandBuffer
             },
-            encode: { _, sourceTexture, _, _, _, _ in
+            encode: { _, sourceTexture, _, _, uniforms, _ in
                 encodedGeometrySource = sourceTexture
+                encodedGeometryAssociation = uniforms.sourceSampling.y
                 return true
             },
             authoredSize: SIMD2(4, 3),
@@ -1309,8 +1311,14 @@ enum Harness {
                 publicationRole: .visibleMainLoop,
                 textureRegistry: geometryRegistry,
                 commandBuffer: commandBuffer,
-                geometryProduct: geometryProduct
+                geometryProduct: geometryProduct,
+                content: .color(.resolved(.straightAlpha))
             ) == .published
+        let geometryStraightAssociatedExactlyOnce = encodedGeometryAssociation == 1
+            && geometryRegistry.completeNamedLayerTargetResource(
+                reference: .init(providerLayerID: 800, variant: .primary),
+                frameEpoch: 19
+            )?.publication.candidate.content == .color(.resolved(.premultipliedAlpha))
         let geometryPublishedExactReservation = geometryRegistry
             .completeNamedLayerTargetTexture(
                 reference: .init(providerLayerID: 800, variant: .primary),
@@ -1934,6 +1942,7 @@ enum Harness {
                 && geometryReservationFailure == nil,
             "geometryPreparedOutputInstalled": geometryPreparedOutputInstalled,
             "geometryPublished": geometryPublished,
+            "geometryStraightAssociatedExactlyOnce": geometryStraightAssociatedExactlyOnce,
             "geometryPublishedExactReservation":
                 geometryPublishedExactReservation,
             "oversizedGeometryNormalized": oversizedGeometryNormalized,
@@ -2084,6 +2093,7 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "geometryReservation": True,
                     "geometryPreparedOutputInstalled": True,
                     "geometryPublished": True,
+                    "geometryStraightAssociatedExactlyOnce": True,
                     "geometryPublishedExactReservation": True,
                     "oversizedGeometryNormalized": True,
                     "oversizedGeometryKeepsAuthoredLocalProjection": True,
@@ -2171,6 +2181,7 @@ ATLAS_NATIVE_MAIN = r'''
             report["safety"] = try safety(d)
             report["lifecycle"] = try lifecycle(d)
             report["budget"] = budget(d)
+            report["geometryRepresentation"] = geometryRepresentation(d)
         }
         print(String(decoding: try JSONSerialization.data(withJSONObject: report,
             options: [.sortedKeys]), as: UTF8.self))
@@ -2181,6 +2192,56 @@ ATLAS_NATIVE_MAIN = r'''
 
 ATLAS_NATIVE_EXTRA = r'''
 extension AtlasNamedProbe {
+    static func geometryRepresentation(_ d: MTLDevice) -> [[String: Any]] {
+        let q = d.makeCommandQueue()!, image = SceneImageLayerPipeline(device: d)!
+        let provider = SceneRenderDescriptor.Layer(id: 800, contentKind: "image",
+            utilityLayer: nil, alpha: 1, colorRGB: [1, 1, 1])
+        let binding = SceneDependencyRenderPlan.Binding(consumerLayerID: 801,
+            providerLayerID: 800, slot: .init(effectID: "owned-geometry", passIndex: 0, slotIndex: 1),
+            blendMode: 0, kind: .geometryLayer, requiresResolvedMaterialProgram: true)
+        var rows: [[String: Any]] = []
+        for straight in [false, true] {
+            for alpha: UInt8 in [0, 128, 255] {
+                let runtime = SceneDependencyFrameRuntime(descriptor: .init(layers: [provider],
+                    bindings: [801: binding], graphOutputProviderLayerIDs: [800]),
+                    visibleLayerIDs: [800, 801], executableUtilityConsumerLayerIDs: [], device: d)
+                let registry = SceneFrameTextureRegistry(), source = texture(d, 1, 1)
+                let associated = [64, 128, 200].map { UInt8((Float($0) * Float(alpha) / 255).rounded()) }
+                let input = (straight ? [UInt8(64), 128, 200] : associated) + [alpha]
+                input.withUnsafeBytes { source.replace(region: MTLRegionMake2D(0, 0, 1, 1),
+                    mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 4) }
+                let epoch = registry.beginFrame(frameIndex: 1, layerSources: [:]), cb = q.makeCommandBuffer()!
+                var association: UInt32 = 99, encodes = 0
+                let product = SceneGeometryProduct(ownerLayerID: 800, samplingTexture: source,
+                    resourceGeneration: 1, isPreparedForPublication: { $0 === cb },
+                    encode: { encoder, texture, _, mvp, uniforms, _ in
+                        association = uniforms.sourceSampling.y; encodes += 1
+                        image.bind(encoder: encoder)
+                        image.drawLayer(texture: texture, mvp: mvp, uniforms: uniforms, encoder: encoder)
+                        return true
+                    }, authoredSize: SIMD2(1, 1), effectSourceExtentContract: .exactSamplingTexture)
+                var reason: String?
+                let reserved = runtime.reserveEffectInput(for: binding, providerLayer: provider,
+                    providerTexture: source, providerCandidate: nil, layerMVP: matrix_identity_float4x4,
+                    viewportSize: CGSize(width: 1, height: 1), preparedOutputExtent: (1, 1),
+                    geometryProduct: product, providerOutputMVP: matrix_identity_float4x4,
+                    consumerOutputMVP: matrix_identity_float4x4, frameEpoch: epoch, failureReason: &reason)
+                let published = runtime.publishGraphOutputIfRequired(layerID: 800, texture: source,
+                    publicationRole: .visibleMainLoop, textureRegistry: registry, commandBuffer: cb,
+                    geometryProduct: product, content: .color(.resolved(straight ? .straightAlpha : .premultipliedAlpha)))
+                let atom = registry.completeNamedLayerTargetResource(
+                    reference: .init(providerLayerID: 800, variant: .primary), frameEpoch: epoch)
+                let copied = reserved.map { readback(d, $0.texture, cb) }
+                cb.commit(); cb.waitUntilCompleted()
+                rows.append(["straight": straight, "alpha": alpha, "reserved": reserved != nil && reason == nil,
+                    "published": status(published), "association": association, "encodes": encodes,
+                    "actualPMA": atom?.publication.candidate.content == .color(.resolved(.premultipliedAlpha)),
+                    "sourceUnchanged": read(source) == input, "pixel": copied.map(read) ?? [],
+                    "expected": associated + [alpha], "completed": cb.status == .completed && cb.error == nil])
+            }
+        }
+        return rows
+    }
     static func fixture(_ d: MTLDevice, planned: Bool = true) ->
         (SceneRenderDescriptor.Layer, [SceneDependencyRenderPlan.Binding], SceneDependencyFrameRuntime) {
         let provider = SceneRenderDescriptor.Layer(id: 700, contentKind: "image",
@@ -2525,6 +2586,19 @@ class SceneAtlasNamedNativeOwnerTests(unittest.TestCase):
         self.assertIsNone(self.report["reservationReason"])
         self.assertEqual(self.report["sourceExtent"], [64, 32])
         self.assertEqual(self.report["targetExtent"], [80, 40])
+
+    def test_geometry_raster_associates_actual_straight_once_and_publishes_pma(self):
+        rows = self.report["geometryRepresentation"]
+        self.assertEqual(len(rows), 6)
+        for row in rows:
+            with self.subTest(straight=row["straight"], alpha=row["alpha"]):
+                for key in ("reserved", "actualPMA", "sourceUnchanged", "completed"):
+                    self.assertTrue(row[key], (key, row))
+                self.assertEqual(row["published"], "published")
+                self.assertEqual(row["association"], int(row["straight"]))
+                self.assertEqual(row["encodes"], 1)
+                for actual, expected in zip(row["pixel"], row["expected"], strict=True):
+                    self.assertAlmostEqual(actual, expected, delta=1, msg=row)
 
     def test_two_consumers_share_once_per_epoch_and_observe_changed_pixels(self):
         rows = self.report["publication"]

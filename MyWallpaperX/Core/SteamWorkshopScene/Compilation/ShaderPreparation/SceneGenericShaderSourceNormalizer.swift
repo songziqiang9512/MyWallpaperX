@@ -229,7 +229,10 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 varyingPrefixFacts[name] = fact
             }
             let varyings = vertexVaryings
-            guard uniforms["mwxRenderSize"] == nil else { throw Failure.reservedUniform }
+            guard uniforms["mwxRenderSize"] == nil,
+                  uniforms[SceneShaderColorBoundary.uniformName] == nil else {
+                throw Failure.reservedUniform
+            }
 
             guard var vertex = parsed["vertex"], var fragment = parsed["fragment"] else {
                 throw Failure.stageLinkMismatch

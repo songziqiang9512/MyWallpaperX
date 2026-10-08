@@ -51,6 +51,7 @@ extension SceneResolvedMaterialProgram {
         let textureSlots: [Int]
         let textureChannelUses: [SceneAuthoredShaderProgram.TextureBinding.ChannelUse]
         let colorTransfer: ColorTransfer
+        let colorBoundary: SceneShaderColorBoundary?
         let vertexPositionInput: SceneAuthoredShaderProgram.VertexPositionInput?
         let fragmentOutputChannelUse:
             SceneAuthoredShaderProgram.FragmentOutputChannelUse
@@ -298,6 +299,7 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
             textureSlots: frontend.textureBindings.map(\.slot),
             textureChannelUses: frontend.textureBindings.map(\.channelUse),
             colorTransfer: transfer,
+            colorBoundary: frontend.colorBoundary,
             vertexPositionInput: frontend.vertexPositionInput,
             fragmentOutputChannelUse: frontend.fragmentOutputChannelUse
         )

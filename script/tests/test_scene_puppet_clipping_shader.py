@@ -47,6 +47,7 @@ import simd
             return result
         }
         let source = texture(.rgba8Unorm, 1, 1, [64, 32, 16, 128])
+        let straightSource = texture(.rgba8Unorm, 1, 1, [128, 64, 32, 128])
         let background = texture(.rgba8Unorm, 8, 8,
             (0..<64).flatMap { _ in [UInt8(64), 96, 128, 255] })
         let black = texture(.r8Unorm, 4, 4, Array(repeating: 0, count: 16))
@@ -56,7 +57,9 @@ import simd
         let identityClip = SIMD4<Float>(0.5, 0.5, 1, 1)
         func draw(mask: MTLTexture, transform: SIMD4<Float> = identityClip,
                   coverage: Float = 1, alpha: Float = 1, blendMode: Int? = nil,
-                  ordinaryReset: Bool = false, additiveMode: Bool = false) -> [[UInt8]] {
+                  ordinaryReset: Bool = false, additiveMode: Bool = false,
+                  straight: Bool = false) -> [[UInt8]] {
+            let source = straight ? straightSource : source
             let command = queue.makeCommandBuffer()!
             let target = texture(.bgra8Unorm, 8, 8, target: true)
             let pass = MTLRenderPassDescriptor()
@@ -70,7 +73,7 @@ import simd
             mvp.columns.0.x = 2; mvp.columns.1.y = 2
             var uniforms = SceneLayerFragmentUniforms(time: 0, alpha: alpha,
                 dependencyBlendMode: 0, usesDependencyBlend: 0, cursorUV: .zero,
-                sourceSampling: .zero, tint: SIMD4(repeating: 1),
+                sourceSampling: SIMD2(0, straight ? 1 : 0), tint: SIMD4(repeating: 1),
                 textureFrame0: SIMD4(0, 0, 1, 0), textureFrame1: SIMD4(0, 1, 0, 0))
             if let mode = blendMode {
                 // Seed stale state before the real production binder. Its
@@ -78,7 +81,7 @@ import simd
                 SceneImageLayerPipeline.bindClipMask(encoder: encoder, texture: black,
                                                      transform: identityClip)
                 blend.bindGeometry(layerTexture: source, backgroundTexture: background,
-                    blendMode: mode, mvp: mvp, encoder: encoder)
+                    blendMode: mode, mvp: mvp, sourceIsStraightAlpha: straight, encoder: encoder)
             } else {
                 pipeline.bind(encoder: encoder)
                 encoder.setVertexBytes(&mvp, length: MemoryLayout<simd_float4x4>.size, index: 1)
@@ -132,6 +135,8 @@ import simd
             "blendBlack": draw(mask: black, coverage: 0.5, blendMode: 2),
             "blendGray": draw(mask: gray, coverage: 0.5, blendMode: 2),
             "blendAddGray": draw(mask: gray, coverage: 0.5, blendMode: 31),
+            "straightBlendGray": draw(mask: gray, coverage: 0.5, blendMode: 2, straight: true),
+            "straightBlendAddGray": draw(mask: gray, coverage: 0.5, blendMode: 31, straight: true),
             "blendReset": draw(mask: black, blendMode: 31, ordinaryReset: true),
             "blendSplit": draw(mask: split, blendMode: 31),
             "blendOutside": draw(mask: white, transform: SIMD4(2.5, 0.5, 1, 1), blendMode: 2),
@@ -209,6 +214,13 @@ class ScenePuppetClippingShaderTests(unittest.TestCase):
         self.assert_pixel("blendSplit", [128, 128, 144, 255], index=2)
         self.assert_pixel("blendOutside", [64, 96, 128, 255])
         self.assert_pixel("blendReset", [128, 128, 144, 255])
+
+    def test_color_blend_applies_coverage_independently_of_straight_storage(self):
+        for straight, associated in (("straightBlendGray", "blendGray"),
+                                     ("straightBlendAddGray", "blendAddGray")):
+            for pixel, expected in zip(self.result[straight], self.result[associated], strict=True):
+                for actual, wanted in zip(pixel, expected, strict=True):
+                    self.assertAlmostEqual(actual, wanted, delta=1, msg=straight)
 
     def test_vertex_abi_and_lit_capture_pipeline_remain_compatible(self):
         self.assertEqual(self.result["vertexStride"], 24)

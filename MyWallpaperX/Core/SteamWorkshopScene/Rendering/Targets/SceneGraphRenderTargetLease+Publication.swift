@@ -74,10 +74,11 @@ extension SceneGraphRenderTargetLease {
     ) -> Result<SceneFrameTextureResource, PublicationFailure> {
         switch fragmentColorRepresentation {
         case .resolved(.opaque),
+             .resolved(.straightAlpha),
              .resolved(.premultipliedAlpha),
              .resolved(.independentAlphaSignal):
             break
-        case .resolved(.straightAlpha), .unresolved:
+        case .unresolved:
             return .failure(.colorRepresentationUnresolved)
         }
         return graphResource(
@@ -203,7 +204,9 @@ extension SceneGraphRenderTargetLease {
         }
         let purpose: SceneTextureLoadPurpose
         switch content {
-        case let .color(.resolved(representation)) where representation != .straightAlpha:
+        case .color(.resolved(.straightAlpha)):
+            purpose = .straightAlbedo
+        case .color(.resolved):
             purpose = .premultipliedColor
         case .scalarRedUnorm, .redGreenUnorm, .scalarRedFloat16,
              .redGreenFloat16, .data:
@@ -260,10 +263,10 @@ extension SceneGraphRenderTargetLease {
              (.rgba16f, .data),
              (.rgba8888, .data):
             return true
-        case (.rgbaBackbuffer, .color(.resolved(let representation))),
-             (.rgba16f, .color(.resolved(let representation))),
-             (.rgba8888, .color(.resolved(let representation))):
-            return representation != .straightAlpha
+        case (.rgbaBackbuffer, .color(.resolved)),
+             (.rgba16f, .color(.resolved)),
+             (.rgba8888, .color(.resolved)):
+            return true
         default:
             return false
         }

@@ -36,7 +36,8 @@ extension SceneGenericShaderArtifactBuilder {
 
     nonisolated static func stageLocalUniformLayout(
         vertex: [SceneGenericShaderProgramArtifact.Program.UniformLayout.Field],
-        fragment: [SceneGenericShaderProgramArtifact.Program.UniformLayout.Field]
+        fragment: [SceneGenericShaderProgramArtifact.Program.UniformLayout.Field],
+        colorBoundary: SceneShaderColorBoundary? = nil
     ) throws -> (
         layout: ReflectedLayout,
         vertexNames: [String: String],
@@ -107,6 +108,13 @@ extension SceneGenericShaderArtifactBuilder {
             names: &fragmentNames
         )
         fields += internalFields.values.sorted { $0.authoredName < $1.authoredName }
+        if colorBoundary?.requiresInputMask == true {
+            fields.append(.init(
+                name: SceneShaderColorBoundary.uniformName,
+                authoredName: SceneShaderColorBoundary.uniformName,
+                type: "uint", offset: 0, arrayCount: nil
+            ))
+        }
         return (alignedLayout(fields), vertexNames, fragmentNames)
     }
 

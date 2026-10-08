@@ -30,7 +30,7 @@ nonisolated enum SceneGenericShaderAnalysisCache {
     /// frontendSchemaVersion constant has no mechanical bump guarantee).
     /// v11: dead resource work shares the conservative deletion Projection.
     /// v13: shared varying-prefix proof and scalar/vector conversion semantics.
-    private static let schemaVersion = 13
+    private static let schemaVersion = 14
     private static let maximumEntryBytes = 64 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()
@@ -109,6 +109,7 @@ nonisolated enum SceneGenericShaderAnalysisCache {
         ) else { return nil }
         append(sourceTransfer)
         append(input.outputSemantics.rawValue)
+        append(input.colorBoundary?.cacheKey ?? "-")
         guard let loopBounds = encodeCodable(input.runtimeLoopBounds) else {
             return nil
         }
@@ -330,6 +331,7 @@ nonisolated final class SceneResolvedMaterialGenericShaderResolutionCache:
         let sourceColorTransfer: SceneShaderColorTransfer?
         let outputSemantics: SceneGenericShaderOutputSemantics
         let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
+        var colorBoundary: SceneShaderColorBoundary? = nil
     }
 
     struct Outcome {

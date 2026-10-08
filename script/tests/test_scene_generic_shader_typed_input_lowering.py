@@ -40,6 +40,7 @@ SWIFT_SOURCES = [
 
 HARNESS = r'''
 import Foundation
+import Metal
 
 // Only the surrounding resource/diagnostic types are fixtures. The complete
 // product analysis, frontend selection and lowering implementations compile
@@ -112,6 +113,69 @@ private struct Result: Codable {
 @main
 private enum Harness {
     static func main() throws {
+        if let flag = CommandLine.arguments.firstIndex(where: {
+            $0 == "--compiled-request" || $0 == "--vertex-sampling-gpu" || $0 == "--signal-passthrough-gpu"
+        }) {
+            struct Input: Decodable {
+                struct Expected: Decodable { let kind: String }
+                struct Stage: Decodable {
+                    let name: String
+                    let source: String
+                    let authoredSource: String
+                    let msl: String
+                    let reflection: String
+                }
+                let requestKey: String
+                let colorBoundary: SceneShaderColorBoundary
+                let defaultBoundaryColorSlots: [Int]?
+                let premultipliedColorInputSlots: [Int]?
+                let expectedColorTransfer: Expected?
+                let stages: [Stage]
+            }
+            let input = try JSONDecoder().decode(Input.self, from: Data(contentsOf:
+                URL(fileURLWithPath: CommandLine.arguments[flag + 1])))
+            guard input.expectedColorTransfer == nil else { throw SceneResolvedMaterialVariantCache.Failure.fixture }
+            let result = SceneGenericShaderArtifactBuilder.build(requestKey: input.requestKey,
+                backendID: "glslang-spirv-cross-msl-v2",
+                premultipliedColorInputSlots: Set(input.premultipliedColorInputSlots ?? []),
+                defaultBoundaryColorSlots: Set(input.defaultBoundaryColorSlots ?? input.colorBoundary.colorInputSlots),
+                colorBoundary: input.colorBoundary, stages: input.stages.map {
+                    .init(name: $0.name, source: $0.source, authoredSource: $0.authoredSource,
+                          msl: $0.msl, reflection: Data($0.reflection.utf8))
+                }, maximumArtifactBytes: 4_194_304)
+            switch result {
+            case let .success(artifact):
+                if input.colorBoundary.signalPassthroughSlot != nil {
+                    func accepted(_ value: SceneGenericShaderProgramArtifact) -> Bool {
+                        value.makeProgram(expectedKey: input.requestKey, expectedColorBoundary: input.colorBoundary,
+                            expectedColorTransfer: .unresolved, expectedFragmentOutputChannelUse: .unproven) != nil
+                    }
+                    guard accepted(artifact) else { throw SceneResolvedMaterialVariantCache.Failure.fixture }
+                    var packet = try JSONSerialization.jsonObject(with: JSONEncoder().encode(artifact)) as! [String: Any]
+                    var program = packet["program"] as! [String: Any]
+                    program["colorTransfer"] = ["kind": "opaque"]
+                    packet["program"] = program
+                    let tampered = try JSONDecoder().decode(SceneGenericShaderProgramArtifact.self,
+                        from: JSONSerialization.data(withJSONObject: packet))
+                    guard !accepted(tampered) else { throw SceneResolvedMaterialVariantCache.Failure.fixture }
+                }
+                if CommandLine.arguments[flag] != "--compiled-request" {
+                    let bounded = SceneAuthoredShaderFrontend.compile(
+                        vertexSource: input.stages.first(where: { $0.name == "vertex" })!.authoredSource,
+                        fragmentSource: input.stages.first(where: { $0.name == "fragment" })!.authoredSource,
+                        colorBoundary: input.colorBoundary)
+                    guard let bounded = bounded.program else { throw SceneResolvedMaterialVariantCache.Failure.fixture }
+                    let payload = try vertexSamplingGPU(bounded: bounded, generic: artifact.program,
+                        signalPassthrough: input.colorBoundary.signalPassthroughSlot != nil)
+                    FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: payload))
+                } else {
+                    FileHandle.standardOutput.write(try JSONEncoder().encode(artifact))
+                }
+            case let .failure(failure):
+                throw failure
+            }
+            return
+        }
         let vertex = """
         attribute vec3 a_Position;
         attribute vec2 a_TexCoord;
@@ -136,6 +200,116 @@ private enum Harness {
             );
         }
         """
+        if CommandLine.arguments.contains("--ordinary") {
+            let contract = SceneShaderColorBoundary(colorInputSlots: [0, 1],
+                outputRepresentation: .straightAlpha)
+            let ordinary = SceneAuthoredShaderFrontend.compile(vertexSource: vertex,
+                fragmentSource: fragment, colorBoundary: contract)
+            let source = ordinary.program?.metalSource ?? ""
+            let msl = """
+            #include <metal_stdlib>
+            using namespace metal;
+            struct MWXUniforms { float2 mwxRenderSize; };
+            struct Output { float4 mwxFragColor [[color(0)]]; };
+            inline float4 readColor(texture2d<float> g_Texture0, sampler s,
+                constant MWXUniforms& helperUniforms) {
+                return g_Texture0.sample(s, float2(0.5));
+            }
+            fragment Output mwxGenericFragment(
+                texture2d<float> g_Texture0 [[texture(0)]],
+                texture2d<float> g_Texture1 [[texture(1)]],
+                texture2d<float> g_Texture2 [[texture(2)]],
+                sampler s [[sampler(0)]],
+                constant MWXUniforms& frameUniforms [[buffer(8)]]) {
+                Output out = {};
+                float4 base = readColor(g_Texture0, s, frameUniforms);
+                float4 provider = g_Texture1.sample(s, float2(0.5));
+                float data = g_Texture2.sample(s, float2(0.5)).r;
+                out.mwxFragColor = float4(mix(base.rgb, provider.rgb, data), base.a);
+                return out;
+            }
+            """
+            let generic = SceneGenericShaderDefaultStraightColorBoundaryLowering
+                .lowerOrdinary(msl, boundary: contract) ?? ""
+            let contextDrift = msl.replacingOccurrences(of:
+                "constant MWXUniforms& helperUniforms", with: "float mwxColorUniforms")
+            let omittedContext = """
+            #include <metal_stdlib>
+            using namespace metal;
+            struct MWXUniforms { float2 mwxRenderSize; };
+            struct Output { float4 mwxFragColor [[color(0)]]; };
+            inline float4 sampleColor(texture2d<float> g_Texture0, sampler s) {
+                return g_Texture0.sample(s, float2(0.5));
+            }
+            inline float4 readColor(texture2d<float> g_Texture0, sampler s) {
+                return sampleColor(g_Texture0, s);
+            }
+            fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]],
+                sampler s [[sampler(0)]]) {
+                Output out = {};
+                out.mwxFragColor = readColor(g_Texture0, s);
+                out.mwxFragColor.w = 0.5;
+                return out;
+            }
+            """
+            let threaded = SceneGenericShaderDefaultStraightColorBoundaryLowering
+                .lowerOrdinary(omittedContext, boundary: .init(colorInputSlots: [0],
+                    outputRepresentation: .straightAlpha)) ?? ""
+            let mismatch = SceneAuthoredShaderFrontend.compile(vertexSource: vertex,
+                fragmentSource: fragment, colorBoundary: .init(colorInputSlots: [7],
+                    outputRepresentation: .straightAlpha))
+            let generated = SceneAuthoredShaderFrontend.compile(vertexSource: vertex,
+                fragmentSource: "void main() { gl_FragColor = vec4(0.6, 0.4, 1.25, 0.0); }",
+                colorBoundary: .init(colorInputSlots: [], outputRepresentation: .straightAlpha))
+            let passthroughBoundary = SceneShaderColorBoundary(colorInputSlots: [0],
+                outputRepresentation: .straightAlpha, signalPassthroughSlot: 0)
+            let passthroughSource = "uniform sampler2D g_Texture0; void main() { gl_FragColor=texSample2D(g_Texture0,vec2(0.5)); }"
+            let passthrough = SceneAuthoredShaderFrontend.compile(vertexSource: vertex,
+                fragmentSource: passthroughSource, colorBoundary: passthroughBoundary)
+            let proofDrift = SceneAuthoredShaderFrontend.compile(vertexSource: vertex,
+                fragmentSource: "uniform sampler2D g_Texture0; void main() { vec4 c=texSample2D(g_Texture0,vec2(0.5)); gl_FragColor=vec4(c.rgb,0.5); }",
+                provenColorTransfer: .passthrough(textureSlot: 0), colorBoundary: passthroughBoundary)
+            func key(_ boundary: SceneShaderColorBoundary?) -> String {
+                SceneResolvedMaterialGenericShaderRequest.key(vertexSource: vertex,
+                    fragmentSource: fragment, outputSemantics: .color,
+                    expectedColorTransfer: nil, premultipliedColorInputSlots: [],
+                    colorBoundary: boundary)
+            }
+            let result: [String: Bool] = [
+                "boundedAccepted": ordinary.program?.colorBoundary == contract,
+                "signalPassthroughProven": passthrough.program?.colorBoundary == passthroughBoundary
+                    && proofDrift.program == nil,
+                "signalPassthroughCacheIdentity": key(passthroughBoundary) != key(.init(
+                    colorInputSlots: [0], outputRepresentation: .straightAlpha)),
+                "uintMask": ordinary.program?.uniformLayout.fields.contains(where: {
+                    $0.name == SceneShaderColorBoundary.uniformName && $0.type == .uint
+                }) == true,
+                "boundedColorOnly": source.contains("mwxStraightColorInput(mwxTexture0.sample(")
+                    && source.contains("mwxStraightColorInput(mwxTexture1.sample(")
+                    && !source.contains("mwxStraightColorInput(mwxTexture2.sample("),
+                "generatedZeroAlpha": generated.program?.colorBoundary?.outputRepresentation == .straightAlpha
+                    && (generated.program?.metalSource.contains("return mwxStraightColorOutput(mwxFragColor)") == true),
+                "coveragePreservesRGB": source.contains("return float4(color.xyz, clamp(color.w, 0.0, 1.0))")
+                    && !source.contains("return mwxPremultiply(mwxFragColor)"),
+                "genericHelperContext": generic.contains("helperUniforms.mwxPremultipliedColorInputMask, 0u")
+                    && generic.contains("frameUniforms.mwxPremultipliedColorInputMask, 1u"),
+                "genericDataRaw": generic.contains("float data = g_Texture2.sample(s, float2(0.5)).r;"),
+                "genericMathPreserved": generic.contains("out.mwxFragColor = float4(mix(base.rgb, provider.rgb, data), base.a);"),
+                "genericCoverage": generic.contains("out.mwxFragColor = mwxStraightColorOutput(out.mwxFragColor)"),
+                "omittedContextThreaded": threaded.contains("constant MWXUniforms& mwxColorUniforms [[buffer(8)]]")
+                    && threaded.contains("sampleColor(mwxColorUniforms, g_Texture0, s)")
+                    && threaded.contains("readColor(mwxColorUniforms, g_Texture0, s)")
+                    && threaded.contains("mwxColorUniforms.mwxPremultipliedColorInputMask, 0u"),
+                "helperContextDriftRejected": SceneGenericShaderDefaultStraightColorBoundaryLowering
+                    .lowerOrdinary(contextDrift, boundary: contract) == nil,
+                "missingColorSlotRejected": mismatch.program == nil,
+                "cacheBoundaryIdentity": key(contract) != key(nil)
+                    && key(contract) != key(.init(colorInputSlots: [0], outputRepresentation: .straightAlpha))
+                    && key(contract) != key(.init(colorInputSlots: [0, 1], outputRepresentation: .premultipliedAlpha)),
+            ]
+            FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: result))
+            return
+        }
         let bounded = SceneAuthoredShaderFrontend.compile(
             vertexSource: vertex,
             fragmentSource: fragment,
@@ -337,7 +511,8 @@ private enum Harness {
                     onBoundedFrontendCompilation: {},
                     compilerSources: .init(vertex: vertex, fragment: fragment),
                     runtimeLoopBounds: .none,
-                    sourceColorTransfer: .straightAlphaPreserving(textureSlot: 0)
+                    sourceColorTransfer: .straightAlphaPreserving(textureSlot: 0),
+                    colorBoundary: nil
                 )
             return selected.premultipliedColorInputSlots.sorted()
         }
@@ -433,6 +608,113 @@ private enum Harness {
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(result))
     }
+
+    private static func vertexSamplingGPU(
+        bounded: SceneAuthoredShaderProgram,
+        generic: SceneGenericShaderProgramArtifact.Program,
+        signalPassthrough: Bool = false
+    ) throws -> [String: Any] {
+        guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
+            return ["metalAvailable": false]
+        }
+        func texture(_ value: [Float]) -> MTLTexture {
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Float,
+                width: 1, height: 1, mipmapped: false)
+            descriptor.storageMode = .shared
+            descriptor.usage = [.shaderRead, .renderTarget]
+            let result = device.makeTexture(descriptor: descriptor)!
+            var bytes = value.map(Float16.init)
+            bytes.withUnsafeMutableBytes { result.replace(region: MTLRegionMake2D(0, 0, 1, 1),
+                mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 8) }
+            return result
+        }
+        var cases: [[String: Any]] = []
+        for isGeneric in [false, true] {
+            let source = isGeneric ? generic.metalSource : bounded.metalSource
+            let library = try device.makeLibrary(source: source, options: nil)
+            let descriptor = MTLRenderPipelineDescriptor()
+            descriptor.vertexFunction = library.makeFunction(name:
+                isGeneric ? generic.vertexFunctionName : bounded.vertexFunctionName)
+            descriptor.fragmentFunction = library.makeFunction(name:
+                isGeneric ? generic.fragmentFunctionName : bounded.fragmentFunctionName)
+            descriptor.colorAttachments[0].pixelFormat = .rgba16Float
+            if isGeneric {
+                let vertex = MTLVertexDescriptor()
+                vertex.attributes[0].format = .float3
+                vertex.attributes[0].offset = 0
+                vertex.attributes[0].bufferIndex = 16
+                vertex.attributes[1].format = .float2
+                vertex.attributes[1].offset = 12
+                vertex.attributes[1].bufferIndex = 16
+                vertex.layouts[16].stride = 20
+                descriptor.vertexDescriptor = vertex
+            }
+            let pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
+            let uniformIndex = isGeneric ? generic.uniformBufferIndex : bounded.uniformBufferIndex
+            let byteSize = isGeneric ? generic.uniformLayout.byteSize : bounded.uniformLayout.byteSize
+            let maskOffset = isGeneric
+                ? generic.uniformLayout.fields.first(where: { $0.name == SceneShaderColorBoundary.uniformName })!.offset
+                : bounded.uniformLayout.fields.first(where: { $0.name == SceneShaderColorBoundary.uniformName })!.offset
+            let probes: [(UInt32, [Float], [Float])] = signalPassthrough ? [
+                (0, [2, 0.6, 0.25, 0.5], [2, 0.6, 0.25, 0.5]),
+                (1, [1, 0.3, 0.125, 0.5], [2, 0.6, 0.25, 0.5]),
+                (0, [2, 0.6, 0.25, 0], [2, 0.6, 0.25, 0]),
+                (1, [0, 0, 0, 0], [0, 0, 0, 0]),
+                (256, [2, 0.6, 0.25, 2.5], [2, 0.6, 0.25, 2.5]),
+                (256, [2, 0.6, 0.25, -0.25], [2, 0.6, 0.25, -0.25]),
+                (512, [2, 0.6, 0.25, 2.5], [2, 0.6, 0.25, 1]),
+            ] : [
+                (UInt32(2), [Float(2), 0.6, 0.25, 0.5], [Float(1), 0.3, 0.125, 0.5]),
+                (UInt32(3), [Float(1), 0.3, 0.125, 0.5], [Float(1), 0.3, 0.125, 0.5]),
+                (UInt32(2), [Float(2), 0.6, 0.25, 0], [Float(1), 0.3, 0.125, 0.5]),
+                (UInt32(3), [Float(0), 0, 0, 0], [Float(0), 0, 0, 0.5])
+            ]
+            // Reuse each pipeline while switching only typed frame bytes.
+            for (mask, value, authoredExpected) in probes {
+                let pmaOutput = bounded.colorBoundary?.outputRepresentation == .premultipliedAlpha
+                let expected = signalPassthrough && pmaOutput && mask != 256
+                    ? [authoredExpected[0] * authoredExpected[3], authoredExpected[1] * authoredExpected[3],
+                       authoredExpected[2] * authoredExpected[3], authoredExpected[3]] : authoredExpected
+                let input = texture(value)
+                let data = texture([0.5, 0, 0, 0.25])
+                let output = texture([0, 0, 0, 0])
+                var bytes = [UInt8](repeating: 0, count: byteSize)
+                withUnsafeBytes(of: mask) { bytes.replaceSubrange(maskOffset..<(maskOffset + 4), with: $0) }
+                let command = queue.makeCommandBuffer()!
+                let pass = MTLRenderPassDescriptor()
+                pass.colorAttachments[0].texture = output
+                pass.colorAttachments[0].loadAction = .clear
+                pass.colorAttachments[0].storeAction = .store
+                let encoder = command.makeRenderCommandEncoder(descriptor: pass)!
+                encoder.setRenderPipelineState(pipeline)
+                bytes.withUnsafeBytes {
+                    encoder.setVertexBytes($0.baseAddress!, length: $0.count, index: uniformIndex)
+                    encoder.setFragmentBytes($0.baseAddress!, length: $0.count, index: uniformIndex)
+                }
+                var positions: [Float] = [-1, -1, 0, 0.5, 0.5, 1, -1, 0, 0.5, 0.5,
+                                         -1, 1, 0, 0.5, 0.5, 1, 1, 0, 0.5, 0.5]
+                if isGeneric { encoder.setVertexBytes(&positions, length: positions.count * 4, index: 16) }
+                let sampler = device.makeSamplerState(descriptor: MTLSamplerDescriptor())!
+                for (slot, sourceTexture) in [input, data].enumerated() {
+                    encoder.setVertexTexture(sourceTexture, index: slot)
+                    encoder.setVertexSamplerState(sampler, index: slot)
+                    encoder.setFragmentTexture(sourceTexture, index: slot)
+                    encoder.setFragmentSamplerState(sampler, index: slot)
+                }
+                encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+                encoder.endEncoding()
+                command.commit()
+                command.waitUntilCompleted()
+                var pixel = [Float16](repeating: 0, count: 4)
+                pixel.withUnsafeMutableBytes { output.getBytes($0.baseAddress!, bytesPerRow: 8,
+                    from: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0) }
+                cases.append(["generic": isGeneric, "mask": mask, "uniformIndex": uniformIndex,
+                    "completed": command.status == .completed, "actual": pixel.map(Float.init),
+                    "expected": expected])
+            }
+        }
+        return ["metalAvailable": true, "cases": cases]
+    }
 }
 '''
 
@@ -464,6 +746,7 @@ class SceneGenericShaderTypedInputLoweringTests(unittest.TestCase):
                 *(str(path) for path in SWIFT_SOURCES),
                 str(harness),
                 "-framework", "Security",
+                "-framework", "Metal",
                 "-o",
                 str(cls.binary),
             ],
@@ -478,6 +761,94 @@ class SceneGenericShaderTypedInputLoweringTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.build_directory.cleanup()
+
+    def test_ordinary_color_abi_preserves_math_and_validates_helper_scope(self) -> None:
+        result = json.loads(subprocess.check_output(
+            [str(self.binary), "--ordinary"], cwd=REPOSITORY_ROOT, text=True
+        ))
+        self.assertTrue(result, result)
+        self.assertTrue(all(result.values()), result)
+
+    def compile_authored_stages(self, authored: list[dict], root: Path) -> list[dict]:
+        from scene_shader_compiler_harness import normalize_wallpaper_engine_pair
+
+        tools = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneShaderCompilerTools"
+        if not (tools / "glslang").is_file():
+            self.skipTest("bundled shader compiler is unavailable")
+        normalized, _ = normalize_wallpaper_engine_pair(authored, {})
+        compiled = []
+        for stage in normalized:
+            name = stage["stage"]
+            source = root / f"{name}.{'vert' if name == 'vertex' else 'frag'}"
+            source.write_text(stage["source"], encoding="utf-8")
+            spirv, msl, reflection = (root / f"{name}.{suffix}" for suffix in ("spv", "metal", "json"))
+            commands = [
+                [str(tools / "glslang"), "-V", "--auto-map-bindings", "--auto-map-locations",
+                 "-S", "vert" if name == "vertex" else "frag", "-e", "main", "-o", str(spirv), str(source)],
+                [str(tools / "spirv-cross"), str(spirv), "--msl", "--msl-version", "20000",
+                 "--msl-decoration-binding", "--rename-entry-point", "main",
+                 "mwxGenericVertex" if name == "vertex" else "mwxGenericFragment",
+                 "vert" if name == "vertex" else "frag", "--output", str(msl)],
+                [str(tools / "spirv-cross"), str(spirv), "--reflect", "--output", str(reflection)],
+            ]
+            for command in commands:
+                result = subprocess.run(command, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            compiled.append({"name": name, "source": stage["source"],
+                             "authoredSource": next(s["source"] for s in authored if s["stage"] == name),
+                             "msl": msl.read_text(encoding="utf-8"),
+                             "reflection": reflection.read_text(encoding="utf-8")})
+        return compiled
+
+    def test_real_compiler_texture_only_alpha_override_restores_uniform_context(self) -> None:
+        from scene_shader_compiler_harness import normalize_wallpaper_engine_pair
+
+        tools = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneShaderCompilerTools"
+        if not (tools / "glslang").is_file() or shutil.which("xcrun") is None:
+            self.skipTest("bundled compiler or Metal toolchain is unavailable")
+        metal = subprocess.run(["xcrun", "--find", "metal"], capture_output=True, text=True)
+        if metal.returncode != 0:
+            self.skipTest("Metal toolchain is unavailable")
+        authored = [
+            {"stage": "vertex", "entryPoint": "main", "source":
+             "uniform mat4 g_ModelViewProjectionMatrix;\nattribute vec3 a_Position;\n"
+             "attribute vec2 a_TexCoord;\nvarying vec2 v_TexCoord;\n"
+             "void main() { gl_Position=mul(vec4(a_Position,1.0),g_ModelViewProjectionMatrix); "
+             "v_TexCoord=a_TexCoord; }\n"},
+            {"stage": "fragment", "entryPoint": "main", "source":
+             "varying vec2 v_TexCoord;\nuniform sampler2D g_Texture0;\n"
+             "void main() { vec4 sampled=texSample2D(g_Texture0,v_TexCoord); "
+             "sampled.a=0.5; gl_FragColor=sampled; }\n"},
+        ]
+        with tempfile.TemporaryDirectory(prefix="mwx-color-uniform-context-") as directory:
+            root = Path(directory)
+            compiled = self.compile_authored_stages(authored, root)
+            raw_fragment = next(s["msl"] for s in compiled if s["name"] == "fragment")
+            self.assertNotIn("constant MWXUniforms&", raw_fragment)
+            request = root / "input.json"
+            request.write_text(json.dumps({"requestKey": "c" * 64, "stages": compiled,
+                                          "colorBoundary": {"colorInputSlots": [0],
+                                                            "outputRepresentation": "straight-alpha"}}), encoding="utf-8")
+            built = subprocess.run([str(self.binary), "--compiled-request", str(request)],
+                                   capture_output=True, text=True)
+            self.assertEqual(built.returncode, 0, built.stderr)
+            program = json.loads(built.stdout)["program"]
+            self.assertIn("constant MWXFragmentUniforms& mwxColorUniforms [[buffer(8)]]", program["metalSource"])
+            self.assertIn("sampled.w = 0.5;", program["metalSource"])
+            self.assertEqual(program["metalSource"].count("mwxStraightColorInput(g_Texture0.sample"), 1)
+            self.assertIn("out.mwxFragColor = mwxStraightColorOutput(out.mwxFragColor);", program["metalSource"])
+            combined = root / "program.metal"
+            combined.write_text(program["metalSource"], encoding="utf-8")
+            accepted = subprocess.run([metal.stdout.strip(), "-x", "metal", "-std=macos-metal2.4",
+                                       "-c", str(combined), "-o", str(root / "program.air")],
+                                      capture_output=True, text=True)
+            self.assertEqual(accepted.returncode, 0, accepted.stdout + accepted.stderr)
+            request.write_text(json.dumps({"requestKey": "c" * 64, "stages": compiled,
+                "colorBoundary": {"colorInputSlots": [0], "outputRepresentation": "straight-alpha",
+                                  "signalPassthroughSlot": 0}}), encoding="utf-8")
+            drift = subprocess.run([str(self.binary), "--compiled-request", str(request)], capture_output=True, text=True)
+            self.assertNotEqual(drift.returncode, 0)
+            self.assertIn("colorTransfer", drift.stderr)
 
     def test_exact_provider_slot_is_lowered_and_other_slots_remain_raw(self) -> None:
         completed = subprocess.run(
@@ -502,6 +873,70 @@ class SceneGenericShaderTypedInputLoweringTests(unittest.TestCase):
                 "boundaryThenPremultipliedNoDoubleWrap": True,
             },
         )
+
+    def test_vertex_color_mask_switch_reaches_fragment_through_varying_on_gpu(self) -> None:
+        authored = [
+            {"stage": "vertex", "entryPoint": "main", "source":
+             "attribute vec3 a_Position;\nattribute vec2 a_TexCoord;\nuniform sampler2D g_Texture0;\n"
+             "uniform sampler2D g_Texture1;\nvarying vec4 v_Color;\n"
+             "vec4 readColor(vec2 uv) { return texSample2D(g_Texture0,uv); }\n"
+             "void main() { vec4 sampled=readColor(a_TexCoord); "
+             "float data=texSample2D(g_Texture1,a_TexCoord).r; "
+             "v_Color=vec4(sampled.rgb*data,sampled.a); gl_Position=vec4(a_Position,1.0); }\n"},
+            {"stage": "fragment", "entryPoint": "main", "source":
+             "varying vec4 v_Color;\nvoid main() { gl_FragColor=vec4(v_Color.rgb,0.5); }\n"},
+        ]
+        with tempfile.TemporaryDirectory(prefix="mwx-vertex-color-boundary-gpu-") as directory:
+            root = Path(directory)
+            compiled = self.compile_authored_stages(authored, root)
+            self.assertNotIn("constant MWXUniforms&", next(s["msl"] for s in compiled if s["name"] == "vertex"))
+            request = root / "input.json"
+            request.write_text(json.dumps({"requestKey": "d" * 64, "stages": compiled,
+                                          "colorBoundary": {"colorInputSlots": [0],
+                                                            "outputRepresentation": "straight-alpha"}}), encoding="utf-8")
+            executed = subprocess.run([str(self.binary), "--vertex-sampling-gpu", str(request)],
+                                      capture_output=True, text=True)
+            self.assertEqual(executed.returncode, 0, executed.stderr)
+            result = json.loads(executed.stdout)
+        if not result["metalAvailable"]:
+            self.skipTest("Metal is unavailable")
+        self.assertEqual(len(result["cases"]), 8, result)
+        self.assertEqual({case["uniformIndex"] for case in result["cases"]}, {0, 8})
+        for case in result["cases"]:
+            self.assertTrue(case["completed"], case)
+            for actual, expected in zip(case["actual"], case["expected"], strict=True):
+                self.assertAlmostEqual(actual, expected, delta=0.002, msg=case)
+
+    def test_signal_passthrough_switches_actual_representation_on_one_pipeline(self) -> None:
+        authored = [
+            {"stage": "vertex", "entryPoint": "main", "source":
+             "attribute vec3 a_Position;\nattribute vec2 a_TexCoord;\nvarying vec2 v_TexCoord;\n"
+             "void main() { v_TexCoord=a_TexCoord; gl_Position=vec4(a_Position,1.0); }\n"},
+            {"stage": "fragment", "entryPoint": "main", "source":
+             "varying vec2 v_TexCoord;\nuniform sampler2D g_Texture0;\n"
+             "void main() { gl_FragColor=texSample2D(g_Texture0,v_TexCoord); }\n"},
+        ]
+        with tempfile.TemporaryDirectory(prefix="mwx-signal-passthrough-gpu-") as directory:
+            root = Path(directory)
+            compiled = self.compile_authored_stages(authored, root)
+            for representation in ["straight-alpha", "premultiplied-alpha"]:
+                boundary = {"colorInputSlots": [0], "outputRepresentation": representation,
+                            "signalPassthroughSlot": 0}
+                request = root / "input.json"
+                request.write_text(json.dumps({"requestKey": "e" * 64, "stages": compiled,
+                                              "colorBoundary": boundary}), encoding="utf-8")
+                executed = subprocess.run([str(self.binary), "--signal-passthrough-gpu", str(request)],
+                                          capture_output=True, text=True)
+                self.assertEqual(executed.returncode, 0, executed.stderr)
+                result = json.loads(executed.stdout)
+                if not result["metalAvailable"]:
+                    self.skipTest("Metal is unavailable")
+                self.assertEqual(len(result["cases"]), 14, result)
+                self.assertEqual({case["uniformIndex"] for case in result["cases"]}, {0, 8})
+                for case in result["cases"]:
+                    self.assertTrue(case["completed"], case)
+                    for actual, expected in zip(case["actual"], case["expected"], strict=True):
+                        self.assertAlmostEqual(actual, expected, delta=0.002, msg=case)
 
     def test_ordinary_profile_conserves_both_typed_provider_abis(self) -> None:
         result = json.loads(subprocess.check_output(

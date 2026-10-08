@@ -16,6 +16,8 @@ from scene_shader_compiler_input_color_contract import (
     InputColorContractFailure,
     cache_key as input_color_cache_key,
     premultiplied_color_input_slots,
+    ordinary_color_boundary,
+    ordinary_boundary_cache_key,
 )
 
 
@@ -49,7 +51,7 @@ def expected_color_transfer_for_output(
 
 
 def request_cache_key(request: dict[str, Any]) -> str:
-    if request.get("schemaVersion") != 5:
+    if request.get("schemaVersion") != 6:
         raise RequestContractFailure("request-schema")
     raw_stages = request.get("stages")
     if not isinstance(raw_stages, list):
@@ -73,19 +75,24 @@ def request_cache_key(request: dict[str, Any]) -> str:
         input_slots = premultiplied_color_input_slots(
             request.get("premultipliedColorInputSlots")
         )
+        default_slots = premultiplied_color_input_slots(request.get("defaultBoundaryColorSlots", []))
+        boundary = ordinary_color_boundary(request.get("colorBoundary"))
+        if boundary is not None and output_semantics != "color":
+            raise InputColorContractFailure("ordinary-color-output-semantics")
     except InputColorContractFailure as error:
         raise RequestContractFailure(str(error)) from error
 
     digest = hashlib.sha256()
     for value in (
-        "mwx-generic-shader-request-v21",
+        "mwx-generic-shader-request-v25",
         str(request.get("sourceDialect", "glsl-450")),
         output_semantics,
         sources["vertex"],
         sources["fragment"],
         expected_color_transfer_key(expected),
         input_color_cache_key(input_slots),
-        "",  # Offline requests do not carry product default-boundary slots.
+        input_color_cache_key(default_slots),
+        ordinary_boundary_cache_key(boundary),
         json.dumps(request.get("defines", {}), sort_keys=True, separators=(",", ":")),
     ):
         encoded = value.encode("utf-8")
@@ -97,7 +104,7 @@ def request_cache_key(request: dict[str, Any]) -> str:
 def validated_request_stages(
     payload: dict[str, Any], maximum_stage_source_bytes: int
 ) -> list[dict[str, str]]:
-    if payload.get("schemaVersion") != 5:
+    if payload.get("schemaVersion") != 6:
         raise RequestContractFailure("schema-version")
     request_id = payload.get("requestID")
     if not isinstance(request_id, str) or not request_id or len(request_id) > 128:
@@ -109,6 +116,10 @@ def validated_request_stages(
         premultiplied_color_input_slots(
             payload.get("premultipliedColorInputSlots")
         )
+        premultiplied_color_input_slots(payload.get("defaultBoundaryColorSlots", []))
+        boundary = ordinary_color_boundary(payload.get("colorBoundary"))
+        if boundary is not None and payload.get("outputSemantics") != "color":
+            raise InputColorContractFailure("ordinary-color-output-semantics")
     except InputColorContractFailure as error:
         raise RequestContractFailure(str(error)) from error
 

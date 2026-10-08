@@ -410,7 +410,8 @@ final class SceneResolvedMaterialGraphExecutor {
         guard pair.member == capability.pairPlan.terminalMember,
               pair.member == Pair.fixedTerminalMember,
               pair.representation == .opaque
-                || pair.representation == .premultipliedAlpha,
+                || pair.representation == .premultipliedAlpha
+                || pair.representation == .straightAlpha,
               let terminal = stages.last?.effectOutputResource,
               terminal.publication.requestIdentity
                 == .graph(capability.pairPlan.terminalOutputIdentity),

@@ -472,7 +472,9 @@ extension SceneDependencyFrameRuntime {
             telemetry.recordFailure(layerID: layerID)
             return .invalid(reasonCode: "geometry-provider-reservation-missing")
         }
-        guard content == .color(.resolved(.premultipliedAlpha)),
+        guard case let .color(.resolved(representation)) = content,
+              representation == .premultipliedAlpha
+                || representation == .straightAlpha || representation == .opaque,
               reservation.kind == .geometry,
               reservation.frameEpoch == frameEpoch,
               reservation.providerLayerID == layerID,
@@ -519,12 +521,17 @@ extension SceneDependencyFrameRuntime {
             return .unavailable(reasonCode: "geometry-provider-encoder-unavailable")
         }
         encoder.label = "Scene named geometry publication layer=\(layerID)"
+        // This existing geometry raster applies vertex/clip coverage and writes
+        // associated color. Associate a straight graph input once at that
+        // compositor boundary, then publish the actual PMA result.
+        var uniforms = SceneLayerFragmentUniforms.neutral()
+        uniforms.sourceSampling.y = representation == .straightAlpha ? 1 : 0
         let encoded = geometryProduct.encode(
             encoder,
             sourceTexture,
             nil,
             mvp,
-            .neutral(),
+            uniforms,
             nil
         )
         encoder.endEncoding()
@@ -540,7 +547,7 @@ extension SceneDependencyFrameRuntime {
             reference: reference,
             frameEpoch: frameEpoch,
             texture: reservation.texture,
-            content: content
+            content: .color(.resolved(.premultipliedAlpha))
         ), textureRegistry.completeNamedLayerTargetResource(
             reference: reference,
             frameEpoch: frameEpoch
