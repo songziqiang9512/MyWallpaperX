@@ -17,6 +17,10 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         name: SceneBaseMaterialProviderBindingProgram.currentIdentity,
         purpose: .preservedChannels
     )
+    private static let currentMaskIdentity = SceneSystemProviderTextureIdentity(
+        name: SceneBaseMaterialProviderBindingProgram.currentIdentity,
+        purpose: .mask
+    )
     private static let previousColorIdentity = SceneSystemProviderTextureIdentity(
         name: SceneBaseMaterialProviderBindingProgram.previousIdentity,
         purpose: .premultipliedColor
@@ -24,6 +28,10 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
     private static let previousPreservedIdentity = SceneSystemProviderTextureIdentity(
         name: SceneBaseMaterialProviderBindingProgram.previousIdentity,
         purpose: .preservedChannels
+    )
+    private static let previousMaskIdentity = SceneSystemProviderTextureIdentity(
+        name: SceneBaseMaterialProviderBindingProgram.previousIdentity,
+        purpose: .mask
     )
 
     private final class DecodeRequest: @unchecked Sendable {
@@ -81,8 +89,10 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             providerStates: [
                 SceneMediaThumbnailTextureStore.currentColorIdentity: .absent,
                 SceneMediaThumbnailTextureStore.currentPreservedIdentity: .absent,
+                SceneMediaThumbnailTextureStore.currentMaskIdentity: .absent,
                 SceneMediaThumbnailTextureStore.previousColorIdentity: .absent,
                 SceneMediaThumbnailTextureStore.previousPreservedIdentity: .absent,
+                SceneMediaThumbnailTextureStore.previousMaskIdentity: .absent,
             ],
             systemTextures: [:],
             publications: [:]
@@ -230,7 +240,12 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             SceneTextureContent
         ) -> SceneTextureProviderPublication? = {
             name, providerIdentity, textures, purpose, content in
-            guard let texture = textures[purpose] else { return nil }
+            // Mask samplers read source channels just like preserved-data
+            // samplers. Publish their exact typed view of the same upload;
+            // the PMA color upload must never supply mask channel values.
+            let storagePurpose: SceneTextureLoadPurpose = purpose == .mask
+                ? .preservedChannels : purpose
+            guard let texture = textures[storagePurpose] else { return nil }
             let identity = SceneSystemProviderTextureIdentity(
                 name: name,
                 purpose: purpose
@@ -266,6 +281,10 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             .preservedChannels,
             .data
         )
+        let currentMask = publication(
+            SceneBaseMaterialProviderBindingProgram.currentIdentity,
+            .mediaThumbnailCurrent, currentTextures, .mask, .data
+        )
         let previous = publication(
             SceneBaseMaterialProviderBindingProgram.previousIdentity,
             .mediaThumbnailPrevious,
@@ -280,8 +299,13 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             .preservedChannels,
             .data
         )
+        let previousMask = publication(
+            SceneBaseMaterialProviderBindingProgram.previousIdentity,
+            .mediaThumbnailPrevious, previousTextures, .mask, .data
+        )
         let readyPublications = [
-            current, preservedCurrent, previous, preservedPrevious,
+            current, preservedCurrent, currentMask,
+            previous, preservedPrevious, previousMask,
         ].compactMap { $0 }
         var textures: [SceneSystemProviderTextureIdentity: MTLTexture] = [:]
         var publications: [
@@ -301,10 +325,12 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             var identities: Set<SceneSystemProviderTextureIdentity> = [
                 Self.currentColorIdentity,
                 Self.currentPreservedIdentity,
+                Self.currentMaskIdentity,
             ]
             if pendingRequest?.willRotatePrevious == true {
                 identities.insert(Self.previousColorIdentity)
                 identities.insert(Self.previousPreservedIdentity)
+                identities.insert(Self.previousMaskIdentity)
             }
             pendingIdentities = identities
         }
@@ -313,8 +339,10 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         ] = [
             Self.currentColorIdentity: currentAvailability,
             Self.currentPreservedIdentity: currentAvailability,
+            Self.currentMaskIdentity: currentAvailability,
             Self.previousColorIdentity: previousAvailability,
             Self.previousPreservedIdentity: previousAvailability,
+            Self.previousMaskIdentity: previousAvailability,
         ]
         let providerStates = exactIdentities.reduce(into: [
             SceneSystemProviderTextureIdentity: SceneTextureProviderState
