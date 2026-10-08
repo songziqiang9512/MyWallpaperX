@@ -679,9 +679,15 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
         purpose_reports = purpose_reports.split("private nonisolated extension SceneTextureLoadPurpose", 1)[0]
         registry = (SCENE_ROOT / "Resources/Textures/SceneFrameTextureRegistry.swift").read_text()
         system_identity = method_body(registry, "nonisolated struct SceneSystemProviderTextureIdentity:")
+        builder_leaves = builder.HARNESS_SOURCE.split("@main", 1)[0]
+        # This gate compiles the real provider compiler below. The shared
+        # builder's no-material-proof leaf must not shadow the same owner.
+        builder_leaves = builder_leaves.replace(method_body(
+            builder_leaves, "enum SceneBaseMaterialProviderBindingCompiler {"
+        ), "")
         harness = cls.work / "Probe.swift"
         harness.write_text("\n".join([
-            builder.HARNESS_SOURCE.split("@main", 1)[0], identities,
+            builder_leaves, identities,
             purpose, purpose_reports, system_identity, CONTEXT_LEAF_STUBS,
         ]))
         sources = builder.SWIFT_SOURCES + [

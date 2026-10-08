@@ -33,6 +33,7 @@ SOURCES = [
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader+Resample.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneMediaThumbnailTextureStore.swift",
+    ROOT / "script/tests/fixtures/SceneMediaThumbnailFallbackChecks.swift",
 ]
 
 HARNESS = r'''
@@ -100,16 +101,19 @@ struct SceneBaseMaterialProviderBindingProgram {
         let source: Source
         let slotIndex: Int
         let provider: Provider
+        let fallbackAsset: SceneAssetTextureIdentity?
         init(
             layerID: Int,
             source: Source,
             slotIndex: Int,
-            provider: Provider = .current
+            provider: Provider = .current,
+            fallbackAsset: SceneAssetTextureIdentity? = nil
         ) {
             self.layerID = layerID
             self.source = source
             self.slotIndex = slotIndex
             self.provider = provider
+            self.fallbackAsset = fallbackAsset
         }
     }
     static let currentIdentity = "$mediaThumbnail"
@@ -815,7 +819,11 @@ let duplicateEmptyPropertiesAccepted = eventInbox.publishMediaProperties(
 )
 let afterDuplicateEmptyProperties = eventInbox.latest()
 
+let solidAssetChecks = checkSolidInstanceProviderFallback(device: device,
+    absent: initialEmpty, pending: initialPending, ready: fourth, cleared: cleared)
+
 let result: [String: Any] = [
+    "solidAssetFallback": solidAssetChecks,
     "initialEmptyStatesAbsent": allTransitionSystemIdentities.allSatisfy {
         providerStateIsAbsent(initialEmpty, $0)
     },
@@ -1422,6 +1430,9 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
                 env=environment,
             )
             result = json.loads(subprocess.check_output([str(binary)], text=True))
+        for name, passed in result["solidAssetFallback"].items():
+            with self.subTest(solid_fallback=name):
+                self.assertTrue(passed)
         self.assertEqual(result["generation"], 3)
         self.assertTrue(result["initialEmptyStatesAbsent"])
         self.assertEqual(result["initialPendingGeneration"], 3)

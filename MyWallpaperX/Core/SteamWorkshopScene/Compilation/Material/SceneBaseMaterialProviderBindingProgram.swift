@@ -105,17 +105,22 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
         let source: Source
         let slotIndex: Int
         let provider: Provider
+        /// Instance asset beneath the provider override. Nil retains the
+        /// existing loaded image source or procedural neutral-white carrier.
+        let fallbackAsset: SceneAssetTextureIdentity?
 
         init(
             layerID: Int,
             source: Source,
             slotIndex: Int,
-            provider: Provider = .current
+            provider: Provider = .current,
+            fallbackAsset: SceneAssetTextureIdentity? = nil
         ) {
             self.layerID = layerID
             self.source = source
             self.slotIndex = slotIndex
             self.provider = provider
+            self.fallbackAsset = fallbackAsset
         }
 
     }
@@ -128,6 +133,7 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
     let baseMaterialBindings: [Int: BaseMaterialBinding]
     let rejectedBaseMaterialReasons: [Int: String]
     let orderedSystemProviderDemands: [SceneSystemProviderTextureIdentity]
+    let assetDemands: Set<SceneAssetTextureIdentity>
     let lightingProfileByLayerID: [Int: SceneBaseMaterialLightingProfile]
     let sourceMaterialAlphaByLayerID: [Int: SourceMaterialAlpha]
     let sourceMaterialAlphaByModel: [String: SourceMaterialAlpha]
@@ -148,6 +154,7 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
         self.materialColorTargets = materialColorTargets
         self.sourceMaterialAlphaByModel = sourceMaterialAlphaByModel
         self.baseMaterialBindings = baseMaterialBindings
+        self.assetDemands = Set(baseMaterialBindings.values.compactMap(\.fallbackAsset))
         self.rejectedBaseMaterialReasons = rejectedBaseMaterialReasons
         self.lightingProfileByLayerID = lightingProfileByLayerID
         self.sourceMaterialAlphaByLayerID = sourceMaterialAlphaByLayerID

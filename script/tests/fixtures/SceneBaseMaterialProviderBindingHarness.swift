@@ -1,0 +1,844 @@
+import Foundation
+
+// SceneEffectTextureInput comes from the shared SOURCES (real product type).
+
+enum SceneTextureLoadPurpose: Hashable {
+    case premultipliedColor
+    case normal
+    case mask
+}
+enum SceneTextureProviderIdentity: Hashable {
+    case mediaThumbnailCurrent
+    case mediaThumbnailPrevious
+}
+enum SceneTextureResourceIdentity: Hashable {
+    case file
+    case provider(SceneTextureProviderIdentity)
+}
+struct SceneTextureCandidate {
+    let identity: SceneTextureResourceIdentity
+    let purpose: SceneTextureLoadPurpose
+}
+struct SceneSystemProviderTextureIdentity: Hashable {
+    let name: String
+    let purpose: SceneTextureLoadPurpose
+    var reportToken: String { name }
+}
+struct SceneUserPropertyTextureIdentity: Hashable {
+    let propertyKey: String
+    let purpose: SceneTextureLoadPurpose
+    init?(propertyKey: String, purpose: SceneTextureLoadPurpose) {
+        guard !propertyKey.isEmpty else { return nil }
+        self.propertyKey = propertyKey
+        self.purpose = purpose
+    }
+    var reportToken: String { propertyKey }
+}
+enum SceneFrameTextureIdentity: Hashable {
+    case system(SceneSystemProviderTextureIdentity)
+    case materialUserProperty(SceneUserPropertyTextureIdentity)
+}
+struct SceneVFSAssetPath: Hashable, Sendable {
+    let value: String
+    init?(_ rawValue: String) {
+        let normalized = rawValue.replacingOccurrences(of: "\\", with: "/")
+            .lowercased()
+        guard !normalized.isEmpty else { return nil }
+        value = normalized
+    }
+}
+struct SceneAssetTextureIdentity: Hashable, Sendable {
+    let path: SceneVFSAssetPath
+    let purpose: SceneTextureLoadPurpose
+    init(path: SceneVFSAssetPath, purpose: SceneTextureLoadPurpose) {
+        self.path = path; self.purpose = purpose
+    }
+    init?(virtualPath: String, purpose: SceneTextureLoadPurpose) {
+        guard let path = SceneVFSAssetPath(virtualPath) else { return nil }
+        self.path = path; self.purpose = purpose
+    }
+}
+enum SceneStockTextureSemanticRegistry {
+    static func isNeutralColorCarrier(_ path: SceneVFSAssetPath) -> Bool {
+        path.value == "util/white"
+    }
+
+    // Mirrors the product registry's normal-purpose stock entry.
+    static func purpose(
+        for path: SceneVFSAssetPath
+    ) -> SceneTextureLoadPurpose? {
+        switch path.value {
+        case "effects/waterripplenormal": .normal
+        default: nil
+        }
+    }
+}
+
+enum SceneBaseMaterialColorModulationCompiler {
+    struct Binding {
+        let modelPath: String
+        let sourceLayerID: Int
+        let materialPath: String
+        let colorKey: String
+        let scriptSource: String?
+        let scriptProperties: [String: SceneJSONValue]
+        let authoredColor: SIMD3<Double>
+        var alphaKey: String? = nil
+        var authoredAlpha: Float = 1
+        var alphaUserPropertyKey: String? = nil
+        var alphaPropertyTarget: SceneDynamicTarget? {
+            guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
+            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
+                name: alphaKey, materialPath: materialPath)
+        }
+        var colorUserPropertyKey: String? = nil
+        var colorPropertyTarget: SceneDynamicTarget? {
+            guard colorUserPropertyKey != nil else { return nil }
+            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
+                name: colorKey, materialPath: materialPath)
+        }
+        var colorBindingPath: [SceneUserPropertyPathComponent] {
+            [.key("materials"), .key(materialPath), .key("passes"), .index(0),
+             .key("constantshadervalues"), .key(colorKey)]
+        }
+    }
+}
+
+enum SceneShaderUserValueKind { case null, string, number, object }
+struct SceneDocument {
+    struct ShaderValue {
+        var rawValue: String = ""
+        let userBinding: String?
+        let components: [Double]?
+        var userValueKind: SceneShaderUserValueKind? = nil
+        var scriptSource: String? = nil
+        var scriptProperties: [String: SceneJSONValue]? = nil
+        var timeline: Int? = nil
+        var timelineDiagnostics: [String] = []
+        var bindingKeys: [String] = []
+    }
+    struct SceneLayerMaterialInstance {
+        let id: Int?
+        let textureSlots: [String?]
+        let userTextureInputs: [SceneEffectTextureInput?]
+        let hasUserTextureOverride: Bool
+        let combos: [String: Int]
+        let unknownKeys: [String]
+        let isMalformed: Bool
+        var scalarShaderValues: [String: ShaderValue]? = nil
+    }
+}
+
+struct SceneRenderDescriptor {
+    struct ModelMaterialLink {
+        let modelPath: String
+        let materialPath: String?
+    }
+    struct MaterialPassDescriptor {
+        let materialPath: String
+        let passIndex = 0
+        var staticModelMaterialBindings: SceneStaticModelMaterialBindings? = nil
+        var shaderPath: String? = nil
+        var combos: [String: Int] = [:]
+        let textureSlots: [String?]
+        let userTextureInputs: [SceneEffectTextureInput?]
+        var constantShaderValues: [String: SceneDocument.ShaderValue] = [:]
+    }
+    struct EffectDescriptor {
+        struct PassDescriptor {
+            let textureSlots: [String?]
+            let userTextureInputs: [SceneEffectTextureInput?]
+            let combos: [String: Int]
+            let constantShaderValues: [String: SceneDocument.ShaderValue]
+        }
+        let file: String
+        var visible: Bool?
+        let passes: [PassDescriptor]
+    }
+    struct Layer {
+        let id: Int
+        let puppetMeshPath: String? = nil
+        let staticModelPath: String? = nil
+        let contentKind: String
+        let imagePath: String?
+        var effects: [EffectDescriptor]
+        var visible: Bool? = nil
+        var isImageRenderable: Bool { contentKind == "image" || contentKind == "solid" }
+    }
+    var layers: [Layer]
+    let modelMaterialLinks: [ModelMaterialLink]
+    let materialPasses: [MaterialPassDescriptor]
+    let texturePropertyKeys: [String]
+}
+
+
+enum SceneScriptBindingValueType { case boolean, number }
+struct SceneScriptBindingOwner {
+    enum Kind { case effect, object }
+    let kind: Kind
+    let objectID: Int?
+    let effectIndex: Int?
+}
+enum SceneScriptBindingPathComponent { case key(String), index(Int) }
+struct SceneScriptBindingIR {
+    let source: String
+    let owner: SceneScriptBindingOwner
+    let properties: [String: SceneJSONValue]
+    let valueType: SceneScriptBindingValueType
+    let targetKey: String
+    var targetPath: [SceneScriptBindingPathComponent] = []
+}
+struct SceneScriptSourceEvidenceIR {
+    let source: String
+    let owner: SceneScriptBindingOwner
+    let targetKey: String
+    let wrapperKeys: [String]
+}
+
+func effect(
+    path: String = "effects/blend/effect.json",
+    visible: Bool? = true,
+    identity: String = "$mediaThumbnail",
+    multiply: Double = 1,
+    alpha: Double = 1
+) -> SceneRenderDescriptor.EffectDescriptor {
+    .init(
+        file: path,
+        visible: visible,
+        passes: [.init(
+            textureSlots: [nil, "authored/fallback"],
+            userTextureInputs: [nil, .init(kind: .system, value: identity)],
+            combos: ["BLENDMODE": 0, "TRANSFORMREPEAT": 2],
+            constantShaderValues: [
+                "multiply": .init(userBinding: nil, components: [multiply]),
+                "alpha": .init(userBinding: nil, components: [alpha]),
+            ]
+        )]
+    )
+}
+
+let visibilitySource = """
+// comments do not change the exact stock event contract
+'use strict';
+// Workshop exports may carry inert package provenance before the handler.
+export let __workshopId = '9876543210';
+export function mediaThumbnailChanged(event) {
+    thisObject.visible = event.hasThumbnail;
+}
+"""
+let directBinding = SceneScriptBindingIR(
+    source: visibilitySource,
+    owner: .init(kind: .effect, objectID: 20, effectIndex: 0),
+    properties: ["unrelatedUserCondition": .bool(true)],
+    valueType: .boolean,
+    targetKey: "visible"
+)
+let timedBinding = SceneScriptBindingIR(
+    source: """
+    export let __workshopId = '2468135790';
+    var lastHideEvent;
+    export function mediaThumbnailChanged(event) {
+        if (lastHideEvent) {
+            lastHideEvent();
+            lastHideEvent = undefined;
+        }
+        thisObject.visible = event.hasThumbnail;
+        if (event.hasThumbnail) {
+            lastHideEvent = engine.setTimeout(() => {
+                thisObject.visible = false;
+            }, 1000);
+        }
+    }
+    """,
+    owner: .init(kind: .effect, objectID: 30, effectIndex: 0),
+    properties: [:],
+    valueType: .boolean,
+    targetKey: "visible"
+)
+let unsupportedBinding = SceneScriptBindingIR(
+    source: visibilitySource + "\nexport let metadata = 'different topology';",
+    owner: .init(kind: .effect, objectID: 40, effectIndex: 0),
+    properties: [:],
+    valueType: .boolean,
+    targetKey: "visible"
+)
+let combinedEvidence = SceneScriptSourceEvidenceIR(
+    source: visibilitySource,
+    owner: .init(kind: .effect, objectID: 40, effectIndex: 0),
+    targetKey: "visible",
+    wrapperKeys: ["script", "user", "value"]
+)
+let unsupportedCombinedEvidence = SceneScriptSourceEvidenceIR(
+    source: visibilitySource,
+    owner: .init(kind: .effect, objectID: 50, effectIndex: 0),
+    targetKey: "visible",
+    wrapperKeys: ["script", "user", "value", "unknown"]
+)
+let current = SceneEffectTextureInput(kind: .system, value: "$mediaThumbnail")
+let previous = SceneEffectTextureInput(kind: .system, value: "$mediaPreviousThumbnail")
+let futureCurrent = SceneEffectTextureInput(kind: .unknown, value: "$mediaThumbnail")
+let customCover = SceneEffectTextureInput(kind: .property, value: "customCover")
+let malformedCustomCover = SceneEffectTextureInput(
+    kind: .unknown, value: "customCover"
+)
+let undeclaredCover = SceneEffectTextureInput(
+    kind: .property, value: "undeclaredCover"
+)
+let currentInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: 7,
+    textureSlots: ["util/white"],
+    userTextureInputs: [current],
+    hasUserTextureOverride: true,
+    combos: ["version": 2],
+    unknownKeys: [],
+    isMalformed: false
+)
+let previousInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["util/white"], userTextureInputs: [previous],
+    hasUserTextureOverride: true, combos: [:], unknownKeys: [], isMalformed: false
+)
+let badSlotInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["base", "mask"],
+    userTextureInputs: [nil, current], hasUserTextureOverride: true,
+    combos: [:], unknownKeys: [],
+    isMalformed: false
+)
+let badPreviousSlotInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["base", "mask"],
+    userTextureInputs: [nil, previous], hasUserTextureOverride: true,
+    combos: [:], unknownKeys: [], isMalformed: false
+)
+let emptyOverrideInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["fallback"], userTextureInputs: [],
+    hasUserTextureOverride: true, combos: [:], unknownKeys: [],
+    isMalformed: false
+)
+let nonNeutralSolidInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["util/black"], userTextureInputs: [current],
+    hasUserTextureOverride: true, combos: [:], unknownKeys: [],
+    isMalformed: false
+)
+let customCoverInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["fallback"], userTextureInputs: [customCover],
+    hasUserTextureOverride: true, combos: [:], unknownKeys: [],
+    isMalformed: false
+)
+let litInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["fallback"], userTextureInputs: [],
+    hasUserTextureOverride: true, combos: ["LIGHTING": 1], unknownKeys: [],
+    isMalformed: false
+)
+let litNoComboInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["fallback"], userTextureInputs: [],
+    hasUserTextureOverride: true, combos: [:], unknownKeys: [],
+    isMalformed: false
+)
+let litNormalSlotInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["fallback", "effects/waterripplenormal"],
+    userTextureInputs: [], hasUserTextureOverride: true, combos: [:],
+    unknownKeys: [], isMalformed: false
+)
+let litTierTwoInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["fallback"], userTextureInputs: [],
+    hasUserTextureOverride: true, combos: ["LIGHTING": 2], unknownKeys: [],
+    isMalformed: false
+)
+let litNormalInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["fallback", "effects/waterripplenormal"],
+    userTextureInputs: [], hasUserTextureOverride: true,
+    combos: ["LIGHTING": 1], unknownKeys: [], isMalformed: false
+)
+let descriptor = SceneRenderDescriptor(layers: [
+    .init(
+        id: 10, contentKind: "image", imagePath: "models/cover.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 20, contentKind: "solid", imagePath: "models/solid.json",
+        effects: [effect(path: "effects/workshop/fixture/blend/effect.json", visible: true)]
+    ),
+    .init(
+        id: 30, contentKind: "solid", imagePath: "models/previous.json",
+        effects: [effect(visible: true)]
+    ),
+    .init(
+        id: 40, contentKind: "image", imagePath: "models/bad-slot.json",
+        effects: [effect(identity: "$unclaimedMediaTexture")]
+    ),
+    .init(
+        id: 50, contentKind: "image", imagePath: "models/multi.json",
+        effects: [effect(multiply: 0.5)]
+    ),
+    .init(
+        id: 60, contentKind: "image", imagePath: "models/plain.json",
+        effects: [effect(path: "effects/color/effect.json")]
+    ),
+    .init(
+        id: 70, contentKind: "text", imagePath: nil,
+        effects: [effect()]
+    ),
+    .init(
+        id: 80, contentKind: "image", imagePath: "models/mismatch.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 90, contentKind: "image", imagePath: "models/future.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 100, contentKind: "solid", imagePath: "models/non-neutral.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 110, contentKind: "solid", imagePath: "models/stock-absent.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 120, contentKind: "solid", imagePath: "models/solid-multi.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 130, contentKind: "solid", imagePath: "models/solid-nil.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 140, contentKind: "solid", imagePath: "models/solid-mismatch.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 150, contentKind: "image", imagePath: "models/previous-bad-slot.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 160, contentKind: "image", imagePath: "models/previous-multi.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 170, contentKind: "image", imagePath: "models/property.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 180, contentKind: "image", imagePath: "models/property-instance.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 190, contentKind: "image", imagePath: "models/property-bad-slot.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 200, contentKind: "image", imagePath: "models/property-undeclared.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 210, contentKind: "image", imagePath: "models/property-malformed.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 220, contentKind: "image", imagePath: "models/provider-mixed.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 300, contentKind: "image", imagePath: "models/lit.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 301, contentKind: "image", imagePath: "models/lit-no-combo.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 302, contentKind: "image", imagePath: "models/lit-shader.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 303, contentKind: "image", imagePath: "models/lit-normal-slot.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 304, contentKind: "image", imagePath: "models/lit-tier-two.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 305, contentKind: "image", imagePath: "models/lit-normal.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 306, contentKind: "text", imagePath: nil,
+        effects: [effect()]
+    ),
+], modelMaterialLinks: [
+    .init(modelPath: "models/cover.json", materialPath: "materials/cover.json"),
+    .init(modelPath: "models/solid.json", materialPath: "materials/solid.json"),
+    .init(modelPath: "models/bad-slot.json", materialPath: "materials/bad-slot.json"),
+    .init(modelPath: "models/multi.json", materialPath: "materials/multi.json"),
+    .init(modelPath: "models/plain.json", materialPath: "materials/plain.json"),
+    .init(modelPath: "models/future.json", materialPath: "materials/future.json"),
+    .init(modelPath: "models/solid-multi.json", materialPath: "materials/solid-multi.json"),
+    .init(modelPath: "models/solid-nil.json", materialPath: "materials/solid-nil.json"),
+    .init(
+        modelPath: "models/solid-mismatch.json",
+        materialPath: "materials/solid-mismatch.json"
+    ),
+    .init(
+        modelPath: "models/previous-bad-slot.json",
+        materialPath: "materials/previous-bad-slot.json"
+    ),
+    .init(
+        modelPath: "models/previous-multi.json",
+        materialPath: "materials/previous-multi.json"
+    ),
+    .init(modelPath: "models/property.json", materialPath: "materials/property.json"),
+    .init(
+        modelPath: "models/property-instance.json",
+        materialPath: "materials/property-instance.json"
+    ),
+    .init(
+        modelPath: "models/property-bad-slot.json",
+        materialPath: "materials/property-bad-slot.json"
+    ),
+    .init(
+        modelPath: "models/property-undeclared.json",
+        materialPath: "materials/property-undeclared.json"
+    ),
+    .init(
+        modelPath: "models/property-malformed.json",
+        materialPath: "materials/property-malformed.json"
+    ),
+    .init(
+        modelPath: "models/provider-mixed.json",
+        materialPath: "materials/provider-mixed.json"
+    ),
+    .init(modelPath: "models/lit.json", materialPath: "materials/lit.json"),
+    .init(
+        modelPath: "models/lit-no-combo.json",
+        materialPath: "materials/lit-no-combo.json"
+    ),
+    .init(
+        modelPath: "models/lit-shader.json",
+        materialPath: "materials/lit-shader.json"
+    ),
+    .init(
+        modelPath: "models/lit-normal-slot.json",
+        materialPath: "materials/lit-normal-slot.json"
+    ),
+    .init(
+        modelPath: "models/lit-tier-two.json",
+        materialPath: "materials/lit-tier-two.json"
+    ),
+    .init(
+        modelPath: "models/lit-normal.json",
+        materialPath: "materials/lit-normal.json"
+    ),
+], materialPasses: [
+    .init(
+        materialPath: "materials/cover.json", textureSlots: ["fallback"],
+        userTextureInputs: [current]
+    ),
+    .init(
+        materialPath: "materials/solid.json", textureSlots: ["util/white"],
+        userTextureInputs: [nil]
+    ),
+    .init(
+        materialPath: "materials/bad-slot.json", textureSlots: ["base", "mask"],
+        userTextureInputs: [nil, nil]
+    ),
+    .init(
+        materialPath: "materials/multi.json", textureSlots: ["fallback"],
+        userTextureInputs: [current]
+    ),
+    .init(
+        materialPath: "materials/multi.json", textureSlots: ["other"],
+        userTextureInputs: [nil]
+    ),
+    .init(
+        materialPath: "materials/plain.json", textureSlots: ["fallback"],
+        userTextureInputs: [current]
+    ),
+    .init(
+        materialPath: "materials/future.json", textureSlots: ["fallback"],
+        userTextureInputs: [futureCurrent]
+    ),
+    .init(
+        materialPath: "materials/solid-multi.json", textureSlots: ["util/white"],
+        userTextureInputs: [nil]
+    ),
+    .init(
+        materialPath: "materials/solid-multi.json", textureSlots: ["util/white"],
+        userTextureInputs: [nil]
+    ),
+    .init(
+        materialPath: "materials/solid-nil.json", textureSlots: [nil],
+        userTextureInputs: [nil]
+    ),
+    .init(
+        materialPath: "materials/solid-mismatch.json", textureSlots: ["util/black"],
+        userTextureInputs: [nil]
+    ),
+    .init(
+        materialPath: "materials/previous-bad-slot.json", textureSlots: ["base", "mask"],
+        userTextureInputs: [nil, nil]
+    ),
+    .init(
+        materialPath: "materials/previous-multi.json", textureSlots: ["fallback"],
+        userTextureInputs: [previous]
+    ),
+    .init(
+        materialPath: "materials/previous-multi.json", textureSlots: ["other"],
+        userTextureInputs: [nil]
+    ),
+    .init(
+        materialPath: "materials/property.json", textureSlots: ["fallback"],
+        userTextureInputs: [customCover]
+    ),
+    .init(
+        materialPath: "materials/property-instance.json", textureSlots: ["fallback"],
+        userTextureInputs: [nil]
+    ),
+    .init(
+        materialPath: "materials/property-bad-slot.json",
+        textureSlots: ["base", "fallback"], userTextureInputs: [nil, customCover]
+    ),
+    .init(
+        materialPath: "materials/property-undeclared.json",
+        textureSlots: ["fallback"], userTextureInputs: [undeclaredCover]
+    ),
+    .init(
+        materialPath: "materials/property-malformed.json",
+        textureSlots: ["fallback"], userTextureInputs: [malformedCustomCover]
+    ),
+    .init(
+        materialPath: "materials/provider-mixed.json",
+        textureSlots: ["fallback", "mask"],
+        userTextureInputs: [current, customCover]
+    ),
+    .init(
+        materialPath: "materials/lit.json", textureSlots: ["fallback"],
+        userTextureInputs: [current]
+    ),
+    .init(
+        materialPath: "materials/lit-no-combo.json", textureSlots: ["fallback"],
+        userTextureInputs: [current]
+    ),
+    .init(
+        materialPath: "materials/lit-shader.json",
+        shaderPath: "shaders/custom.frag",
+        textureSlots: ["fallback"],
+        userTextureInputs: [current]
+    ),
+    .init(
+        materialPath: "materials/lit-normal-slot.json",
+        textureSlots: ["fallback"], userTextureInputs: [current]
+    ),
+    .init(
+        materialPath: "materials/lit-tier-two.json", textureSlots: ["fallback"],
+        userTextureInputs: [current]
+    ),
+    .init(
+        materialPath: "materials/lit-normal.json", shaderPath: "genericimage2", textureSlots: ["fallback"],
+        userTextureInputs: [current]
+    ),
+], texturePropertyKeys: ["customCover"])
+let program = SceneBaseMaterialProviderBindingCompiler.compile(
+    descriptor: descriptor,
+    materialInstancesByLayerID: [
+        20: currentInstance,
+        30: previousInstance,
+        40: badSlotInstance,
+        60: emptyOverrideInstance,
+        70: currentInstance,
+        80: currentInstance,
+        100: nonNeutralSolidInstance,
+        110: currentInstance,
+        120: currentInstance,
+        130: currentInstance,
+        140: currentInstance,
+        150: badPreviousSlotInstance,
+        180: customCoverInstance,
+        300: litInstance,
+        301: litNoComboInstance,
+        302: litInstance,
+        303: litNormalSlotInstance,
+        304: litTierTwoInstance,
+        305: litNormalInstance,
+        306: litInstance,
+    ],
+    scriptBindings: [directBinding, timedBinding, unsupportedBinding]
+, materialPropertyTargets: [])
+func instanceFallbackChecks() -> [String: Bool] {
+    func compile(_ path: String, slots: [String?]? = nil,
+        combos: [String:Int] = ["version":2]) -> SceneBaseMaterialProviderBindingProgram {
+        let layer = SceneRenderDescriptor.Layer(id: 501, contentKind: "solid",
+            imagePath: "models/instanced-solid.json", effects: [])
+        let instance = SceneDocument.SceneLayerMaterialInstance(id: 502,
+            textureSlots: slots ?? [path], userTextureInputs: [current],
+            hasUserTextureOverride: true, combos: combos, unknownKeys: [], isMalformed: false)
+        return SceneBaseMaterialProviderBindingCompiler.compile(descriptor: .init(layers:[layer],
+            modelMaterialLinks: [], materialPasses: [], texturePropertyKeys: []),
+            materialInstancesByLayerID:[501:instance], scriptBindings:[], materialPropertyTargets:[])
+    }
+    let authored = compile("music")
+    var checks = ["authoredAssetDemand": authored.assetDemands.count == 1
+        && authored.assetDemands.first?.path.value == "music"
+        && authored.assetDemands.first?.purpose == .premultipliedColor
+        && authored.baseMaterialBindings[501]?.fallbackAsset == authored.assetDemands.first,
+        "neutralWhiteKeepsOldCarrier": compile("util/white").assetDemands.isEmpty]
+    for path in ["effects/waterripplenormal", "$mediaThumbnail", "_rt_imageLayerComposite_42_a"] {
+        let result = compile(path)
+        checks["reject-"+path] = result.baseMaterialBindings.isEmpty && result.assetDemands.isEmpty
+    }
+    for combos in [["version":3],["unsupported":1]] {
+        let result = compile("music", combos: combos)
+        checks["reject-combos-"+String(describing:combos)] = result.baseMaterialBindings.isEmpty
+            && result.assetDemands.isEmpty
+    }
+    let multi = compile("music",slots:["music","mask"])
+    checks["extraAssetSlotRejected"] = multi.baseMaterialBindings.isEmpty && multi.assetDemands.isEmpty
+    return checks
+}
+let projected = SceneInitialMediaEffectVisibilityProjection.apply(
+    to: descriptor,
+    scriptBindings: [directBinding, timedBinding, unsupportedBinding],
+    sourceEvidence: [combinedEvidence, unsupportedCombinedEvidence]
+)
+let litMaterialInstancesByLayerID: [
+    Int: SceneDocument.SceneLayerMaterialInstance
+] = [
+    300: litInstance, 301: litNoComboInstance, 302: litInstance,
+    303: litNormalSlotInstance, 304: litTierTwoInstance,
+    305: litNormalInstance, 306: litInstance,
+]
+// Authored material JSON (schema observed in legal corpus), independent of
+// layer instances: both supported built-in material versions are reachable.
+let materialJSON = """
+{"passes":[{"shader":"genericimage2","combos":{"LIGHTING":1},"textures":["albedo"]}]}
+"""
+let authoredPass = (try! JSONSerialization.jsonObject(with: Data(materialJSON.utf8))
+    as! [String: Any])["passes"] as! [[String: Any]]
+func materialLighting(shader: String, override: Int? = nil) -> Bool {
+    let combos = authoredPass[0]["combos"] as! [String: Int]
+    let pass = SceneRenderDescriptor.MaterialPassDescriptor(
+        materialPath: "material.json", shaderPath: shader, combos: combos,
+        textureSlots: ["albedo"], userTextureInputs: []
+    )
+    let instance = override.map { value in
+        SceneDocument.SceneLayerMaterialInstance(
+            id: nil, textureSlots: [], userTextureInputs: [],
+            hasUserTextureOverride: false, combos: ["LIGHTING": value],
+            unknownKeys: [], isMalformed: false
+        )
+    }
+    return SceneBaseMaterialLightingProfileCompiler.profile(
+        layer: descriptor.layers.first { $0.id == 300 }!,
+        materialInstance: instance, materialPasses: [pass]
+    , materialPropertyTargets: []).lightingEnabled
+}
+let authoredMaterialLighting = [
+    materialLighting(shader: authoredPass[0]["shader"] as! String),
+    materialLighting(shader: "genericimage4"),
+    materialLighting(shader: "shaders/custom.frag"),
+    materialLighting(shader: "genericimage2", override: 0),
+    materialLighting(shader: "genericimage2", override: 1),
+]
+let directlyCompiledProfiles = SceneBaseMaterialLightingProfileCompiler
+    .profiles(
+        descriptor: descriptor,
+        materialInstancesByLayerID: litMaterialInstancesByLayerID
+    , materialPropertyTargets: [])
+let lightingProfilesMatchDirectCompiler =
+    directlyCompiledProfiles == program.lightingProfileByLayerID
+func authoredNormal(_ slots: [String?], instanceSlots: [String?] = [],
+    combo: Int? = nil, shader: String? = "genericimage2", lighting: Int = 1) -> String {
+    let pass = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: "normal.json",
+        shaderPath: shader, combos: ["LIGHTING": lighting], textureSlots: slots, userTextureInputs: [])
+    let instance = SceneDocument.SceneLayerMaterialInstance(id: nil, textureSlots: instanceSlots,
+        userTextureInputs: [], hasUserTextureOverride: false,
+        combos: combo.map { ["NORMALMAP": $0] } ?? [:], unknownKeys: [], isMalformed: false)
+    return SceneBaseMaterialLightingProfileCompiler.profile(layer: descriptor.layers[0],
+        materialInstance: instance, materialPasses: [pass], materialPropertyTargets: []).normalAsset?.path.value ?? "absent"
+}
+let authoredNormals = [
+    authoredNormal(["albedo", "maps/authored.png"]),
+    authoredNormal(["albedo", nil, "effects/waterripplenormal"]),
+    authoredNormal(["albedo", "maps/authored.png"], instanceSlots: ["alternate", nil]),
+    authoredNormal(["albedo", "maps/authored.png"], instanceSlots: [nil, "maps/override.png"]),
+    authoredNormal(["albedo", "maps/authored.png"], combo: 0),
+    authoredNormal(["albedo"], combo: 1),
+    authoredNormal(["albedo", "maps/authored.png"], shader: "genericimage4"),
+    authoredNormal(["albedo", "maps/authored.png"], shader: "custom"),
+    authoredNormal(["albedo", "maps/authored.png"], lighting: 0),
+    authoredNormal(["albedo", "maps/authored.png"], shader: nil),
+]
+let unsupportedNormal = SceneBaseMaterialLightingProfileCompiler.profile(
+    layer: descriptor.layers[0], materialInstance: nil, materialPasses: [.init(
+        materialPath: "normal.json", shaderPath: "genericimage2", combos: ["LIGHTING": 1],
+        textureSlots: ["albedo", "fallback"], userTextureInputs: [nil, current])], materialPropertyTargets: [])
+let unsupportedNormalReported: Bool
+if case .unsupported = unsupportedNormal.normalSource { unsupportedNormalReported = true }
+else { unsupportedNormalReported = false }
+let missingNormalPass = SceneBaseMaterialLightingProfileCompiler.profile(
+    layer: descriptor.layers[0], materialInstance: litNormalInstance, materialPasses: [], materialPropertyTargets: [])
+func scalarProfile(_ shader: String?, material: [String:SceneDocument.ShaderValue] = [:], instance: [String:SceneDocument.ShaderValue] = [:]) -> [Float] {
+    var pass = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: "scalar", shaderPath: shader,
+        combos: ["LIGHTING":1], textureSlots: ["albedo"], userTextureInputs: [])
+    pass.constantShaderValues = material
+    var overlay = litInstance
+    overlay.scalarShaderValues = instance
+    let profile = SceneBaseMaterialLightingProfileCompiler.profile(layer: descriptor.layers[0],
+        materialInstance: overlay, materialPasses: [pass], materialPropertyTargets: [])
+    return profile.scalarMaterial.map { [$0.x,$0.y] } ?? []
+}
+let scalarProfiles = [
+    scalarProfile("genericimage2"), scalarProfile("genericimage4"), scalarProfile(nil),
+    scalarProfile("genericimage2",material:["metallic":.init(userBinding:nil,components:[0]),"roughness":.init(userBinding:nil,components:[1])]),
+    scalarProfile("genericimage4",material:["metallic":.init(userBinding:nil,components:[0.8])],instance:["roughness":.init(userBinding:nil,components:[0.2])]),
+    scalarProfile("genericimage4",material:["metallic":.init(userBinding:nil,components:[0.8])],instance:["metallic":.init(userBinding:nil,components:[Double.nan])]),
+    scalarProfile("genericimage2",material:["roughness":.init(userBinding:"live",components:[0.1])]),
+    scalarProfile("genericimage2",material:["metallic":.init(userBinding:nil,components:[2]),"roughness":.init(userBinding:nil,components:[-1])]),
+]
+let result: [String: Any] = [
+    "instanceFallback": instanceFallbackChecks(),
+    "customAlpha": customMaterialAlphaChecks(),
+    "customUserColor": customMaterialUserColorChecks(),
+    "scalarProfiles": scalarProfiles,
+    "authoredNormals": authoredNormals,
+    "normalAdmission": [unsupportedNormalReported, unsupportedNormal.normalAsset == nil,
+        missingNormalPass.lightingEnabled, missingNormalPass.normalAsset == nil],
+    "accepted": program.currentLayerIDs.sorted(),
+    "previousAccepted": program.previousLayerIDs.sorted(),
+    "authoredMaterialLighting": authoredMaterialLighting,
+    "lightingProfiles": Dictionary(uniqueKeysWithValues:
+        program.lightingProfileByLayerID.map { layerID, profile in
+            (
+                String(layerID),
+                [
+                    profile.lightingEnabled ? 1 : 0,
+                    profile.normalAsset == nil ? 0 : 1,
+                ]
+            )
+        }
+    ),
+    "lightingProfileNormalSlotPaths": Dictionary(uniqueKeysWithValues:
+        program.lightingProfileByLayerID.map { layerID, profile in
+            (String(layerID), profile.normalAsset?.path.value ?? "")
+        }
+    ),
+    "lightingProfilesMatchDirectCompiler": lightingProfilesMatchDirectCompiler,
+    "propertyAccepted": program.baseMaterialBindings.compactMap {
+        if case .userProperty = $0.value.provider { return $0.key }
+        return nil
+    }.sorted(),
+    "providers": Dictionary(uniqueKeysWithValues: program.baseMaterialBindings.map {
+        (String($0.key), $0.value.provider.reportToken)
+    }),
+    "rejected": Dictionary(uniqueKeysWithValues: program.rejectedBaseMaterialReasons.map {
+        (String($0.key), $0.value)
+    }),
+    "demands": program.systemProviderDemands.map { "\($0.name)" }.sorted(),
+    "propertyDemands": program.userPropertyDemands.map(\.propertyKey).sorted(),
+    "hasConsumers": program.hasConsumers,
+    "report": program.reportLines(),
+    "projected": Dictionary(uniqueKeysWithValues: projected.layers.map {
+        (String($0.id), $0.effects[0].visible as Any)
+    }),
+]
+let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+print(String(decoding: data, as: UTF8.self))

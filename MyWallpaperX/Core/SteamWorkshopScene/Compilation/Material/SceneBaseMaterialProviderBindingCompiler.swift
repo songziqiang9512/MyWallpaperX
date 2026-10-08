@@ -59,6 +59,7 @@ enum SceneBaseMaterialProviderBindingCompiler {
 
         for layer in descriptor.layers where layer.isImageRenderable {
             let materialPasses = passesByLayer[layer.id] ?? []
+            var fallbackAsset: SceneAssetTextureIdentity?
             let candidate: (
                 source: SceneBaseMaterialProviderBindingProgram.BaseMaterialBinding.Source,
                 textureSlots: [String?],
@@ -80,16 +81,29 @@ enum SceneBaseMaterialProviderBindingCompiler {
                 guard !instanceProviders.isEmpty else { continue }
                 guard instance.textureSlots.indices.contains(0),
                       let instanceFallback = instance.textureSlots[0],
-                      instanceFallbackMatchesLoadedBase(
+                      resolveInstanceFallback(
                         instanceFallback,
                         layer: layer,
-                        materialPasses: materialPasses
+                        materialPasses: materialPasses,
+                        fallbackAsset: &fallbackAsset
                       ) else {
                     rejected[layer.id] = rejectionReason(
                         providers: instanceProviders,
                         suffix: "instance-fallback-mismatch"
                     )
                     continue
+                }
+                if fallbackAsset != nil {
+                    guard instance.textureSlots.count == 1,
+                          instance.combos.allSatisfy({
+                            $0.key == "version" && (1...2).contains($0.value)
+                          }) else {
+                        rejected[layer.id] = rejectionReason(
+                            providers: instanceProviders,
+                            suffix: "instance-shape-unsupported"
+                        )
+                        continue
+                    }
                 }
                 candidate = (
                     .layerInstance,
@@ -164,7 +178,8 @@ enum SceneBaseMaterialProviderBindingCompiler {
                 layerID: layer.id,
                 source: candidate.source,
                 slotIndex: 0,
-                provider: provider
+                provider: provider,
+                fallbackAsset: fallbackAsset
             )
         }
         return .init(
@@ -242,10 +257,11 @@ enum SceneBaseMaterialProviderBindingCompiler {
         }
     }
 
-    private nonisolated static func instanceFallbackMatchesLoadedBase(
+    private nonisolated static func resolveInstanceFallback(
         _ instanceFallback: String,
         layer: SceneRenderDescriptor.Layer,
-        materialPasses: [SceneRenderDescriptor.MaterialPassDescriptor]
+        materialPasses: [SceneRenderDescriptor.MaterialPassDescriptor],
+        fallbackAsset: inout SceneAssetTextureIdentity?
     ) -> Bool {
         if materialPasses.count == 1,
            let pass = materialPasses.first,
@@ -253,12 +269,17 @@ enum SceneBaseMaterialProviderBindingCompiler {
            let loadedFallback = pass.textureSlots[0] {
             return normalized(instanceFallback) == normalized(loadedFallback)
         }
-        // Solid layers intentionally use the shared procedural white carrier;
-        // their stock material is not duplicated into the descriptor catalog.
+        // Stock solid materials are absent from the descriptor catalog. Keep
+        // neutral white procedural; prepare other authored color assets through
+        // the existing asset catalog instead of discarding them into white.
         guard materialPasses.isEmpty,
               layer.contentKind == "solid",
               let path = SceneVFSAssetPath(instanceFallback) else { return false }
-        return SceneStockTextureSemanticRegistry.isNeutralColorCarrier(path)
+        if SceneStockTextureSemanticRegistry.isNeutralColorCarrier(path) { return true }
+        guard !path.value.hasPrefix("$"), !path.value.hasPrefix("_rt_"),
+              SceneStockTextureSemanticRegistry.purpose(for: path) == nil else { return false }
+        fallbackAsset = .init(path: path, purpose: .premultipliedColor)
+        return true
     }
 
     private nonisolated static func rejectionReason(

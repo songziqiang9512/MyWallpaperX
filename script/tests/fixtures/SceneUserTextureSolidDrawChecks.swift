@@ -53,6 +53,7 @@ struct SceneSystemProviderTextureIdentity: Hashable {
     var reportToken: String { name }
 }
 enum SceneFrameTextureIdentity: Hashable {
+    case asset(SceneAssetTextureIdentity)
     case system(SceneSystemProviderTextureIdentity)
     case materialUserProperty(SceneUserPropertyTextureIdentity)
 }

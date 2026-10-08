@@ -37,6 +37,41 @@ enum SceneBaseMaterialTextureSelection {
 }
 
 enum SceneBaseMaterialTextureResolver {
+    static func resolveFallback(
+        binding: SceneBaseMaterialProviderBindingProgram.BaseMaterialBinding,
+        registry: SceneFrameTextureRegistry
+    ) -> SceneBaseMaterialTextureResolution {
+        guard let asset = binding.fallbackAsset else { return .authoredFallback }
+        let identity = SceneFrameTextureIdentity.asset(asset)
+        let prefix = binding.provider.diagnosticPrefix + "-fallback"
+        guard let status = registry.lookup(identity) else {
+            return .rejected(reasonCode: "\(prefix)-registry-missing")
+        }
+        switch status {
+        case let .ready(resource):
+            let publication = resource.publication
+            let candidate = publication.candidate
+            let isAsset: Bool
+            switch candidate.identity {
+            case .file, .builtIn: isAsset = true
+            case .provider: isAsset = false
+            }
+            guard publication.requestIdentity == identity,
+                  publication.isComplete, isAsset,
+                  SceneBaseImageTextureCandidateResolver.sample(
+                    candidate: candidate, sourceTexture: candidate.texture
+                  ) != nil else {
+                return .rejected(reasonCode: "\(prefix)-publication-invalid")
+            }
+            return .ready(candidate)
+        case .incomplete:
+            return .rejected(reasonCode: "\(prefix)-publication-incomplete")
+        case .absent: return .rejected(reasonCode: "\(prefix)-absent")
+        case .pending: return .rejected(reasonCode: "\(prefix)-pending")
+        case .unavailable: return .rejected(reasonCode: "\(prefix)-unavailable")
+        }
+    }
+
     static func resolve(
         binding: SceneBaseMaterialProviderBindingProgram.BaseMaterialBinding,
         registry: SceneFrameTextureRegistry
@@ -80,17 +115,13 @@ extension SceneMetalRenderer {
         imageTextures: SceneBaseImageTextureSnapshot,
         readyProviderUsesAuthoredLayerColor: Bool = false
     ) -> SceneBaseMaterialTextureSelection {
-        let fallbackTexture = imageTextures[layer.id]
-        let fallbackCandidate = fallbackTexture.flatMap {
-            imageTextures.candidate(for: layer.id, matching: $0)
-        }
         guard let binding = baseMaterialProviderBindings
             .baseMaterialBindings[layer.id] else {
-            guard let fallbackTexture else { return .missing }
+            guard let fallbackTexture = imageTextures[layer.id] else { return .missing }
             return .source(
                 SceneBaseMaterialTextureSource(
                     texture: fallbackTexture,
-                    candidate: fallbackCandidate,
+                    candidate: imageTextures.candidate(for: layer.id, matching: fallbackTexture),
                     usesSystemProvider: false,
                     usesUserPropertyProvider: false,
                     usesAuthoredLayerColor: true,
@@ -118,30 +149,45 @@ extension SceneMetalRenderer {
                 rejectedProviderReason: nil
             ))
         case .authoredFallback:
-            guard let fallbackTexture else { return .missing }
-            return .source(SceneBaseMaterialTextureSource(
-                texture: fallbackTexture,
-                candidate: fallbackCandidate,
-                usesSystemProvider: false,
-                usesUserPropertyProvider: false,
-                usesAuthoredLayerColor: true,
-                rejectedProviderReason: nil
-            ))
+            return authoredBaseMaterialFallback(
+                for: layer, binding: binding, imageTextures: imageTextures
+            )
         case let .rejected(reasonCode):
             // Reject only the unsafe provider replacement. The authored
             // placeholder remains the safe previous-current for this slot.
-            guard let fallbackTexture else {
-                return .rejected(reasonCode: reasonCode)
-            }
-            return .source(SceneBaseMaterialTextureSource(
-                texture: fallbackTexture,
-                candidate: fallbackCandidate,
-                usesSystemProvider: false,
-                usesUserPropertyProvider: false,
-                usesAuthoredLayerColor: true,
+            return authoredBaseMaterialFallback(
+                for: layer, binding: binding, imageTextures: imageTextures,
                 rejectedProviderReason: reasonCode
-            ))
+            )
         }
+    }
+
+    private func authoredBaseMaterialFallback(
+        for layer: SceneRenderDescriptor.Layer,
+        binding: SceneBaseMaterialProviderBindingProgram.BaseMaterialBinding,
+        imageTextures: SceneBaseImageTextureSnapshot,
+        rejectedProviderReason: String? = nil
+    ) -> SceneBaseMaterialTextureSelection {
+        let texture: MTLTexture
+        let candidate: SceneTextureCandidate?
+        switch SceneBaseMaterialTextureResolver.resolveFallback(
+            binding: binding, registry: textureRegistry
+        ) {
+        case let .ready(asset):
+            texture = asset.texture
+            candidate = asset
+        case .authoredFallback:
+            guard let fallback = imageTextures[layer.id] else {
+                return rejectedProviderReason.map { .rejected(reasonCode: $0) } ?? .missing
+            }
+            texture = fallback
+            candidate = imageTextures.candidate(for: layer.id, matching: fallback)
+        case let .rejected(reasonCode):
+            return .rejected(reasonCode: reasonCode)
+        }
+        return .source(.init(texture: texture, candidate: candidate,
+            usesSystemProvider: false, usesUserPropertyProvider: false,
+            usesAuthoredLayerColor: true, rejectedProviderReason: rejectedProviderReason))
     }
 
     func baseMaterialTextureSource(
