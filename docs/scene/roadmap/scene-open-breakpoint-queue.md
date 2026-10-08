@@ -82,15 +82,15 @@ T1共享材质切片已闭，T2共享HDR裁剪与暂停恢复已闭合；328自�
 | U03 · 3587571382 | 纹理合成错误，额头缺块 | source/atlas、mask/clip、变形后合成，核缺块首次出现的阶段 |
 | U04 · 3747190633 | 音频条不出现 | 同声源 audio 输入→作者更新→可见 geometry/材质/合成 |
 | U05 · 3723344874 | 人物背后流体烟雾缺失 | 实际烟雾作者定义→资源/Program或粒子→层序/合成 |
-| U06 · 3662390671 | 大面积纹理缺失 | 当前静态首因：layer185 Scene.tex为TEXB0004内嵌WebM/VP9，被现MP4检测遗漏后落raw长度拒绝；不能仅放宽magic，先验证现平台decoder。另有同源Frame Builder，尚无当前原包可见复验 |
-| U07 · 3804441338 | 中间方框全白、文字不可见；官方应为两个描边镂空矩形 | [本批原包后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-frame-declaration)：三个occurrence已越过声明/无用uniform冲突，当前首错为数字scalar标识符三元条件不兼容；沿既有TernaryScalarConditionNormalizer补齐，白块/镂空/文字仍待修 |
+| U06 · 3662390671 | 大面积纹理缺失 | layer185 Scene.tex为TEXB0004内嵌WebM/VP9；[本机探针](../capabilities/runtime-evidence-current.md#e-2026-10-08-frame-declaration)原WebM报AVFoundation -11828，同码流remux MP4报-11833且0frame。不能仅放宽magic或换容器准入；沿原decode职责选择能实际出帧的方案，系统/设备广泛支持未证。另有同源Frame Builder，尚无当前原包可见复验 |
+| U07 · 3804441338 | 中间方框全白、文字不可见；官方应为两个描边镂空矩形 | [本批原包后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-frame-declaration)：三个occurrence已越过声明/无用uniform冲突与数字scalar三元条件，ordinary Program已accepted；当前首错textureBindingInvalid slot2来自vertex尺寸计算仅供fragment未读的v_Size.zw。现bundled后端-Os不可用、linked/LTO未消除此依赖；下一卡在同一编译工件链证明dead维度需求可删除并核活跃zw反例，不伪造slot默认、不放资源guard、不新建Swift SSA或renderer。白块/镂空/文字仍待修 |
 | U08 · 3802005866 | 音频条及背后蓝背景似乎越出作者限定矩形 | 作者边界→变换/clip/target extent；需先确认限定区域合同 |
 | U09 · 3797217144 | 缺奥特曼旋转并由小放大的出场动画 | intro/Timeline/脚本启动、变换及首帧至入场结束时序 |
 | U10 · 3793998447 | 似乎缺作者音频光圈和其他属性 | 音频消费、属性声明→入口→typed 更新；先清点具体未生效属性，不猜字段 |
 | U11 · 3792249095 | 缺音频发光，整体样式与原版差距大 | 音频驱动→effect/颜色/合成，并保留整体构图复验 |
 | U12 · 3477054430 | ①整体颜色差异大；②建筑窗户不亮 | 颜色域、mask、发光与最终输出；旧 mask/几何恢复不关闭这两项 |
-| U13 · 3042492564 | ①顶部两道分叉光束差异大；②歌曲识别封面不显示 | 光束仍开放；[封面后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-media-base-fallback)已恢复注入封面与clear作者图片、保留句柄四次事件无stale。面板位置、rate、previous mask、AA/blur后继及真实播放器仍待闭，不关闭② |
-| U14 · 2932157836 | 歌曲封面不显示 | [本批后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-media-base-fallback)恢复注入封面与clear作者音符图片；转场slot2请求previous.mask但现Store仅color/preserved表示，仍局部失败。复用Store同一物理data纹理发布mask typed用途后核转场，不另造provider；真实播放器来源仍待复验 |
+| U13 · 3042492564 | ①顶部两道分叉光束差异大；②歌曲识别封面不显示 | 光束仍开放；[封面后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-media-base-fallback)已补mask供给和init-only Timeline连续scalar，最终无resize窗口157帧g_Multiply、4事件无stale/拒绝。**时序/布局仍待修**：换图callback stop/play后事件帧仍发布旧0、下一帧近1；下一最小片沿同一typed事务消除此旧值，不重建动画/VM链。右侧裁切在无resize窗口仍存在，布局原因待核；AA/blur及真实播放器仍开放，不关闭② |
+| U14 · 2932157836 | 歌曲封面不显示 | [本批后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-media-base-fallback)：**mask技术首断点已闭**：同Store复用preserved上传发布current/previous mask的typed data视图，原包受控红→绿→蓝出现中间像素、clear恢复作者音符图片，事件/GPU/退出正常。独立blur/spin拒绝及真实播放器来源仍待复验，不关闭整样本 |
 | U15 · 3299228616 | ①鼠标划过水波不明显；②时钟上方矩形独立运动，似未与其他内容同层合成 | pointer→水波输入；graph/变换/相机及合成空间，不能用抬强度掩盖 |
 | U16 · 3122339805 | ①两个可移动窗口消失（用户称曾修复）；②文字区域包括关闭按钮 X 轻微偏移 | 回归候选：脚本/动态对象生命周期与位置、文字布局；复验连续拖动与文字 ROI |
 | U17 · 3233141951 | ①脸部不随头发做木偶动画；②背后龙头飞行轨迹不对；③黑色小人动画缺失；④官方音频条双色重叠，现仅粉色 | pose/attachment、轨迹/时序、动画激活、audio 层序/混合四项各自闭合 |
@@ -120,7 +120,7 @@ T1共享材质切片已闭，T2共享HDR裁剪与暂停恢复已闭合；328自�
 | U41 · 3357627941 | 属性面板无替换视频媒体资源的选择入口 | project 属性类型→现有 AppKit 编辑器/资源选择→typed binding→视频 consumer，不另造 provider |
 | U42 · 跨样本属性面板 | ①打开后浏览/滚动严重卡顿；②疑似原中文属性显示成英文，用户询问官方是否有中英映射并提示参考研究 | 沿既有属性 UI 测主线程/布局/重复解析；查作者 locale token/字典、系统语言与官方 fallback。映射表是否存在未证，不硬编码翻译表 |
 
-**执行顺序及单链约束。** 下一片先闭合已定位的U13/U14封面mask用途与U07数字条件兼容，沿原owner补齐并实机后验；条纹官方小输入对照已取得有界证据，328物理显示未闭。随后优先 U03/U06/U07/U18/U19/U21/U23 的缺纹理、镂空、错位和混合，按真实首错职责选覆盖最多的可验证切片；同时优先复核 U16/U20/U24/U34“曾好后坏”的回归候选及 U22 的持续退化。再按共同声明/运行拒绝归并光束发光与音频、动画/交互；属性入口与面板问题保持开放，不能因不属 GPU 而漏掉。此为既有 T1/T2/E1 卡的输入排序，服从 P 路线，不另建路线。
+**执行顺序及单链约束。** U14封面mask、U13连续scalar与U07数字条件技术首断点已闭；下一最小片先修U13换图callback事件帧仍发布旧值的typed事务顺序，再核U07仍阻断encode的dead vertex维度依赖，复用现编译/工件权威并以活跃分量反例守住资源合同；条纹官方小输入对照已取得有界证据，328物理显示未闭。随后优先 U03/U06/U07/U18/U19/U21/U23 的缺纹理、镂空、错位和混合，按真实首错职责选覆盖最多的可验证切片；同时优先复核 U16/U20/U24/U34“曾好后坏”的回归候选及 U22 的持续退化。再按共同声明/运行拒绝归并光束发光与音频、动画/交互；属性入口与面板问题保持开放，不能因不属 GPU 而漏掉。此为既有 T1/T2/E1 卡的输入排序，服从 P 路线，不另建路线。
 
 重写必须在原职责入口替换旧实现，并证明原有效输入/效果和失败隔离不回退；同一输入不可同时走新旧两套 owner。发现能由已有参数、入口或 primitive 表达的能力，优先补接或扩展该处。每批报告逐子现象关闭数、实际复测样本及剩余范围，不把本表录入率当画面修复率。
 

@@ -488,7 +488,15 @@
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
-      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
+      "lastReviewed": "2026-10-08",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "e1337b53619770bb4e44f5ecc145258de383b1d80f9d60a8304f5c6559ee8dce",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "同步封面mask、Timeline连续值、数字条件的现owner与有界实机证据；替换旧断点并保存后继事件帧、资源依赖和decoder问题。",
+        "limitations": "仅导航与当前修复证据边界核对；不代表全样本、真实播放器或官方parity验收。"
+      }
     },
     {
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
@@ -498,10 +506,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9834dbe6d45182170cceaeb1a4e0148a601e0a4e17fbc62a1e7991822b06b19a",
+        "sourceSHA256": "4dc0de9630e265e36666cad79538e5ce5392b93d2751892328e292d88790e036",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核本批唯一动画/纹理/着色器职责与真实293/304/380后验；保留转场、数字条件、播放器与整样本未关闭边界。",
-        "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
+        "scope": "同步封面mask、Timeline连续值、数字条件的现owner与有界实机证据；替换旧断点并保存后继事件帧、资源依赖和decoder问题。",
+        "limitations": "仅导航与当前修复证据边界核对；不代表全样本、真实播放器或官方parity验收。"
       }
     },
     {
@@ -1841,7 +1849,15 @@
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
-      "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。"
+      "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。",
+      "lastReviewed": "2026-10-08",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "e1a24b56ac37d0f9f1cbf7f5bc3d2f08963f8ef83f5e05d085337670a3759d92",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "同步封面mask、Timeline连续值、数字条件的现owner与有界实机证据；替换旧断点并保存后继事件帧、资源依赖和decoder问题。",
+        "limitations": "仅导航与当前修复证据边界核对；不代表全样本、真实播放器或官方parity验收。"
+      }
     },
     {
       "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
@@ -1851,10 +1867,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "00eac07a45fad409b9855adbfc2a75e6221d1104b64b556ac9546991676f10b0",
+        "sourceSHA256": "6f0b4c8579972b3903d269ac9c5c46fb498bc35fb652c24bfc458a82b251e80d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核本批唯一动画/纹理/着色器职责与真实293/304/380后验；保留转场、数字条件、播放器与整样本未关闭边界。",
-        "limitations": "登记与职责导航不证明已读取真实播放器、运行成功、全部来源兼容或发布验收。"
+        "scope": "同步封面mask、Timeline连续值、数字条件的现owner与有界实机证据；替换旧断点并保存后继事件帧、资源依赖和decoder问题。",
+        "limitations": "仅导航与当前修复证据边界核对；不代表全样本、真实播放器或官方parity验收。"
       }
     },
     {
@@ -1873,7 +1889,15 @@
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
-      "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。"
+      "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
+      "lastReviewed": "2026-10-08",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "2c1ae33766edf6c4f1025e6f7d4e4571f36d5cb31aa1685fe70af524e2d4aeea",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "同步封面mask、Timeline连续值、数字条件的现owner与有界实机证据；替换旧断点并保存后继事件帧、资源依赖和decoder问题。",
+        "limitations": "仅导航与当前修复证据边界核对；不代表全样本、真实播放器或官方parity验收。"
+      }
     },
     {
       "path": "docs/scene/roadmap/scene-steamkit-migration-plan.md",

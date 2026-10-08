@@ -90,11 +90,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 574,
-      "bytes": 336162
+      "bytes": 336937
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 87,
-      "bytes": 17782
+      "bytes": 19140
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -181,12 +181,12 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 94,
-      "bytes": 20360
+      "lines": 96,
+      "bytes": 21073
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
-      "bytes": 9190
+      "bytes": 9700
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 439,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 219,
-      "bytes": 51133
+      "bytes": 52012
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1068,24 +1068,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "deec6068147ed71356f7604e28da8d5b0643c3cb97c56678d2296039b98f5cfb",
-      "after": "ab4df1389650e01549bae153acd0a0b4ccec34398cd6b00835cb841870b767ff",
-      "owner": "scene-p-route",
-      "reason": "同步单链通用修复合同与原包可见后验，明确未闭首断点及下一门，替换过期结论。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "97bf46c45da0b02e9f51587b3947adbc88e1cc36e2a2b100ed0540656612b435",
-      "after": "d4fb8084fcd061ae62f929f1c75f88867753e2f23bd6b9e965d62d29c2d89530",
-      "owner": "scene-p-route",
-      "reason": "同步单链通用修复合同与原包可见后验，明确未闭首断点及下一门，替换过期结论。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "a54cbae101733347a809e94511d51876269047a485be7591f30bd2c7c6c3acbf",
       "after": "3a0f755e5c4ebad79d0b2090cdd9f4ff6dd3d5ba7d49a398928fc10259293dc2",
@@ -1095,29 +1077,47 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "d3e6b9d67c1507c51e95f5eecf04c52a089b3b42aab0c0bd1e943530ef848bbb",
-      "after": "f111462e523b01a06bf4a4ac5d79e0ca4bbb27485ea167d8e24f0101331ad8fe",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "ab4df1389650e01549bae153acd0a0b4ccec34398cd6b00835cb841870b767ff",
+      "after": "ed8e74698bc8eae2a9bed2d678a0fabcaabd466e2aefaeba77a15d3b5c2d1db6",
       "owner": "scene-p-route",
-      "reason": "同步单链通用修复合同与原包可见后验，明确未闭首断点及下一门，替换过期结论。",
+      "reason": "替换已解决的封面mask与数字条件断点，记录真实连续帧、复审生命周期反例及待修事件时序；不增平行路线。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "d4fb8084fcd061ae62f929f1c75f88867753e2f23bd6b9e965d62d29c2d89530",
+      "after": "aeb7516b99ee84d00148f608705827118cdaaf76cfd1e9b73ebe2a2fd800ea38",
+      "owner": "scene-p-route",
+      "reason": "替换已解决的封面mask与数字条件断点，记录真实连续帧、复审生命周期反例及待修事件时序；不增平行路线。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "f111462e523b01a06bf4a4ac5d79e0ca4bbb27485ea167d8e24f0101331ad8fe",
+      "after": "00ff45674da72a367c8879f2eb35995f14e2ef4bcbdf80758905a16571656ca0",
+      "owner": "scene-p-route",
+      "reason": "替换已解决的封面mask与数字条件断点，记录真实连续帧、复审生命周期反例及待修事件时序；不增平行路线。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
-      "before": "1db5cd59f311ae70c9eb2c60f4a0e6526322c278d1e7b7c74af4322d12148cee",
-      "after": "02f1b91473ddedac08c28759fb9fb10cb2a8441756a79c2969f30c32f6d3de88",
+      "before": "02f1b91473ddedac08c28759fb9fb10cb2a8441756a79c2969f30c32f6d3de88",
+      "after": "7d9a27b0a51fa313a6456c576b9694a62add9458c6b2e0bd693a71fe4efe0eef",
       "owner": "scene-p-route",
-      "reason": "同步单链通用修复合同与原包可见后验，明确未闭首断点及下一门，替换过期结论。",
+      "reason": "替换已解决的封面mask与数字条件断点，记录真实连续帧、复审生命周期反例及待修事件时序；不增平行路线。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7d928572143b555d0add40c12b4f2d5565137ac6ef46ac026ad03fea5a4ed6f5",
-      "after": "09d8644fac1db55f229d076f336b7553d29e303012f7041c6d73c07501e240ea",
+      "before": "09d8644fac1db55f229d076f336b7553d29e303012f7041c6d73c07501e240ea",
+      "after": "3534f71f8248d89dcf321958e0b8c2062418e54ded6afe2d40017532d68f2c44",
       "owner": "scene-p-route",
-      "reason": "同步单链通用修复合同与原包可见后验，明确未闭首断点及下一门，替换过期结论。",
+      "reason": "替换已解决的封面mask与数字条件断点，记录真实连续帧、复审生命周期反例及待修事件时序；不增平行路线。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
     }
   ]

@@ -30,7 +30,7 @@
 
 ## 实例纹理 fallback
 
-作者 base-material instance 的 provider 与 fallback 共用既有 source selection。Solid 的非白 `textures[0]` 不能丢成 procedural-white：现 `BaseMaterialBinding` 保留一个可选 `SceneAssetTextureIdentity`，沿 `SceneMaterialAssetTextureCatalog` 的 typed demand、准备与 frame registry 发布；没有该事实的现有白 carrier 和已加载 image fallback 保持原合同。只接纳当前支持的 instance/provider slot0 形状与安全颜色 asset；未知 instance、冲突 slot、已知 data purpose 仍局部拒绝。Ready 封面沿原 provider identity/完整性校验替换该 slot；absent/pending/clear 或 provider 失败时只消费同一作者 fallback，校验其完整 publication、PMA purpose、颜色内容、UV 与 sampler，缺失或不安全时局部拒绝，不伪造白图。普通帧只查已准备的 typed atom，不重新解析或加载，不增加路径表、provider、cache 或 compositor。验收以非白纹理的 fallback→current→clear、失败回退及错 identity/purpose/UV 反例和真实原包可见结果为准；测试纹理通过不代替真实播放器来源验收。
+作者 base-material instance 的 provider 与 fallback 共用既有 source selection。Solid 的非白 `textures[0]` 不能丢成 procedural-white：现 `BaseMaterialBinding` 保留一个可选 `SceneAssetTextureIdentity`，沿 `SceneMaterialAssetTextureCatalog` 的 typed demand、准备与 frame registry 发布；没有该事实的现有白 carrier 和已加载 image fallback 保持原合同。只接纳当前支持的 instance/provider slot0 形状与安全颜色 asset；未知 instance、冲突 slot、已知 data purpose 仍局部拒绝。Ready 封面沿原 provider identity/完整性校验替换该 slot；absent/pending/clear 或 provider 失败时只消费同一作者 fallback，校验其完整 publication、PMA purpose、颜色内容、UV 与 sampler，缺失或不安全时局部拒绝，不伪造白图。封面转场的current/previous mask沿同一Store发布：在原preservedChannels物理纹理上增加purpose为mask、content为data的typed视图，保留原provider identity/generation、UV与sampler；不能让PMA颜色上传供mask读源通道。ready/pending、换图、解码失败、clear与冻结frame沿原事务一起更新，颜色值单独变化继续复用上传，不增加解码或纹理分配。普通帧只查已准备的typed atom，不重新解析或加载，不增加路径表、provider、cache或compositor。验收以非白fallback→current→clear、current/previous mask同纹理及失败/陈旧publication反例，和原包受控转场实际像素为准；[已有执行证据](../../capabilities/runtime-evidence-current.md#e-2026-10-08-media-base-fallback)不代替真实播放器来源验收。
 
 ## 封面颜色输入
 

@@ -78,6 +78,8 @@ Scalar/String通过现生命周期bridge内的value-owner协议共用一个退�
 
 真实作者在 `init` 保存 `thisObject.getAnimation()`，随后在媒体事件调用 `stop/play`；原 callback epoch 限制使该合法同 owner 调用报 stale。公开 [IThisPropertyObject](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IThisPropertyObject.html) 返回当前属性的 [IAnimation](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IAnimation.html)，未规定 callback 临时寿命；此片不冒称已有官方缓存行为黑盒。沿现 property Timeline bridge 保持当前 target、play/pause/stop journal 与唯一 Timeline runtime，组件及图层的 accessor 和返回 handle 共用 domain、单调 owner identity 和 generation；每次调用从当前 active owner 解析并校验同身份、同代、未禁用和当前 Timeline 可用，不保存可能释放的 owner 指针。合法 init/event/timer/update 间复用成立，callback 外、跨 owner、销毁或同代重建均拒绝；JS throw 和 Swift 拒绝继续走既有 owner bundle 接纳/撤回，不因 handle 持久化重放命令或新增 clock。named lookup、rate 和其他 IAnimation 方法不在本片。真实 VM 及 ASan 门验证 init→media、事务拒绝、disabled、generation、销毁重建后保留的 handle、`thisObject` 和 detached accessor，以及健康 peer；实际原包运行另证。
 
+含 `init` 的属性脚本仍可能变换值，不能仅因没有 `update` 改判为纯 Timeline 控制。已准入且带 Timeline 的 scalar 值管线在无事件、timer 或待初始化工作时只投影当前 typed 输入和原有有限数据属性 overlay，保持 SceneScript 值发布而不重跑 VM；自然 Timeline 继续作为当前输入，不保留旧脚本值阻断动画。实际 `update`、init/event mutation 与失败/disabled/退休继续遵守原 owner 事务。没有值发布权的 event-only Timeline 控制保持唯一 Timeline 值 producer；无 Timeline 的稳定 owner 保留原 idle 跳过。材质 finalizer 不放宽 source 校验，也不以 authored fallback 掩盖缺失输出。
+
 ## fallback / route
 
 unsupported API/配置是局部脚本调用失败，保留先前有效对象和画面；stale handle/跨 generation、越界、OOM/timeout/预算超限硬拒绝该不安全事务。禁止将失败返回伪装成有效 native handle。迁移沿现役 bridge `prefer-generic`→`generic-only`，旧 setter 同批撤权。
