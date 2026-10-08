@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "869ffff5648b75a0d2476462c2487d10e442c17984ff3cb6ec55298839a5744e",
+        "sourceSHA256": "448f200f93cd5ce9e724ee3f0a604fd10a1806d1f0a270760e47b41c6b0c9dd8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核generic工件ABI直传合同、原307与半透明App证据及既有graph红门边界；不重验其他合同。",
+        "scope": "复核同model多引用共享材质合同、原369热切与自有合成证据；删除首引用的官方续跑未知，不外推整样本。",
         "limitations": "仅对应本批职责与冻结证据，不表示全样本兼容、官方parity或发布验收。"
       }
     },
@@ -498,9 +498,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "030bed9a0a292089e71636a4147a8e483e10bc9f00fa135d97e0fc25550970fc",
+        "sourceSHA256": "a63460d40f8e4ac81f1e95d875fe70ce7f1fb62243eb220c961aa20f74e6befe",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核普通图片乘法溢出修复的GPU证据及保留的下溢边界；不重验其他合同。",
+        "scope": "复核同model多引用共享材质合同、原369热切与自有合成证据；删除首引用的官方续跑未知，不外推整样本。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

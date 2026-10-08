@@ -251,10 +251,18 @@ class SceneBaseMaterialStaticTintTests(unittest.TestCase):
                 self.assertEqual(self.result[name]["count"], 0)
 
     def test_unsupported_consumer_shape_and_untyped_color_key_are_rejected(self) -> None:
-        for name in ["hidden", "perspective", "puppet", "multipleConsumers",
+        for name in ["hidden", "perspective", "puppet", "hiddenFirstConsumer",
+                     "hiddenLastConsumer", "unsupportedSibling", "unadmittedSibling",
                      "effects", "wrongColorKey"]:
             with self.subTest(name=name):
                 self.assertEqual(self.result[name]["count"], 0)
+
+    def test_shared_material_has_one_binding_in_first_authored_context(self) -> None:
+        for name, context in [("multipleConsumers", 57), ("reversedConsumers", 58)]:
+            with self.subTest(name=name):
+                self.assertEqual(self.result[name]["count"], 1)
+                self.assertEqual(self.result[name]["context"], context)
+                self.assertEqual(self.result[name]["color"], [0.2, 0.4, 0.6])
 
 
 if __name__ == "__main__":

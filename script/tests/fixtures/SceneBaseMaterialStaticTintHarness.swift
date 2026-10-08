@@ -67,7 +67,7 @@ private typealias Descriptor = SceneRenderDescriptor
             descriptor: descriptor, shaderContracts: [shader ?? contract()],
             dynamicImageModelPaths: dynamic, admittedLayerColorConsumerIDs: [57, 58])
         guard let first = bindings.first else { return ["count": 0] }
-        return ["count": bindings.count, "model": first.modelPath,
+        return ["count": bindings.count, "model": first.modelPath, "context": first.sourceLayerID,
             "material": first.materialPath, "key": first.colorKey,
             "color": [first.authoredColor.x, first.authoredColor.y, first.authoredColor.z],
             "alpha": first.authoredAlpha, "alphaKey": first.alphaKey ?? "",
@@ -290,6 +290,18 @@ private typealias Descriptor = SceneRenderDescriptor
         value = base; value.layers[0].puppetMeshPath = "models/puppet.mdl"; results["puppet"] = output(value)
         value = base; var sibling = value.layers[0]; sibling.id = 58; value.layers.append(sibling)
         results["multipleConsumers"] = output(value)
+        value.layers.reverse()
+        results["reversedConsumers"] = output(value)
+        value.layers[0].visible = false
+        results["hiddenFirstConsumer"] = output(value)
+        value.layers.reverse()
+        results["hiddenLastConsumer"] = output(value)
+        value.layers[1].visible = true
+        value.layers[1].usesPerspective = true
+        results["unsupportedSibling"] = output(value)
+        value.layers[1].usesPerspective = false
+        value.layers[1].id = 59
+        results["unadmittedSibling"] = output(value)
         value = base; value.layers[0].effects = [1]; results["effects"] = output(value)
         let data = try JSONSerialization.data(withJSONObject: results, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))

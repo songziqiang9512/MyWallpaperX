@@ -14,7 +14,7 @@
 
 | 卡 | 目标与共享职责 | 最小交付与停止条件 |
 |---|---|---|
-| T1 材质与纹理合成 | 单pass静态源与中性材质常量乘色已接通；0–1 user Alpha已接同一compositor及热切；mixed user color公共入口已接，原366颜色热切及307背景颜色已通过共享显隐错配修复；继续核更宽Alpha域、非中性Power、多同model图层及perspective；按全243声明选共同首断点 | 优先扩现有neutral-tint与materialConstant消费者；先区分已有链路和真实缺口，避免新Program重复求值。每个新增profile均需真实输出、style叠加及健康反例；透明state研究仍只按已证边界准入 |
+| T1 材质与纹理合成 | 单pass静态源与中性材质常量乘色已接通；0–1 user Alpha已接同一compositor及热切；mixed user color公共入口已接，原366颜色热切及307背景颜色已通过共享显隐错配修复；同model多图层共享已接；继续核更宽Alpha域、非中性Power及perspective；按全243声明选共同首断点 | 优先扩现有neutral-tint与materialConstant消费者；先区分已有链路和真实缺口，避免新Program重复求值。每个新增profile均需真实输出、style叠加及健康反例；透明state研究仍只按已证边界准入 |
 | T2 颜色与HDR输出 | 旧SDR shoulder压暗已修；对剩余条纹、HDR物理显示及用户样本复验，按采样purpose/alpha/颜色域→中间target→最终输出定位 | 保留作者HDR/SDR意图；同内容默认/关闭/开启和实际呈现对照。已有16F与热切执行不等于物理亮度正确；找到首错owner再修改 |
 | E1 特效与频谱 | 将运行拒绝按共享shader/slot/graph/动态输入首断点归并；频谱用同声源对照形状和活跃度 | 复用现compiler/graph/audio producer，选覆盖面明确的族恢复动态结果；不抬gain、改作者参数或放宽测试制造通过 |
 
@@ -24,9 +24,9 @@
 
 | 待办 | 状态、证据与下一关闭门 |
 |---|---|
-| 自定义源材质未准入组合 | **首入口已修，公共边界待补**：[833静态双纹理源](../history/source-material-entry-2026-10-08.md)已实际执行并消费后effect；3层中性静态乘色改由既有compositor消费，已跑通3原样本；原“7层动态常量”中1层已有S4，不再列为缺能力，其余6层中3609108600与3610154602的0–1 user Alpha已接原/clone消费者并完成实际运行；3665307769的mixed user color及内层开关接入既有Vec3 owner，原包彩虹已运行、受控热切通过；原包颜色热切的同key visible错配已按官方保Bool合同修复。宽域Alpha、Power=.99或多source消费者仍待接线/运行。1层perspective、更多multi-pass/provider待证。细分见该记录的后继更正；不能把已修380照片归入同根因 |
+| 自定义源材质未准入组合 | **首入口已修，公共边界待补**：[833静态双纹理源](../history/source-material-entry-2026-10-08.md)已实际执行并消费后effect；3层中性静态乘色改由既有compositor消费，已跑通3原样本；原“7层动态常量”中1层已有S4，不再列为缺能力，其余6层中3609108600与3610154602的0–1 user Alpha已接原/clone消费者并完成实际运行；3665307769的mixed user color及内层开关接入既有Vec3 owner，原包彩虹已运行、受控热切通过；原包颜色热切的同key visible错配已按官方保Bool合同修复。同model多source已沿原入口接通，见[共享材质证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-shared-source-material)；宽域Alpha、Power=.99仍待接线/运行。1层perspective、更多multi-pass/provider待证。细分见该记录的后继更正；不能把已修380照片归入同根因 |
 | 显隐属性的其他非Bool/缺失类型引用 | **color范围已修，其他输入待复验**：243场景/project身份核同的直连layer.visible统计有color 2样本2处、slider 3样本4处、缺定义40处及有声明但无type的2处；合计27样本48处只是声明。color两原包3665307769/3078285611热切现已实际变色、不重建；完成记录归入[显隐错配修复](../history/source-material-entry-2026-10-08.md#后继修正颜色与显隐错配局部保留)。slider与缺定义不得沿用该合同或直接认定失败，按同key合法消费者、当前回退及官方可观察行为继续归因。 |
-| 材质颜色的组合缺口 | **部分已修，组合余项待补**：静态中性RGB已进入原/动态图层；脚本tint占用layer color的覆盖已修，迁至materialConstant并退出clone颜色覆写；受控前后GPU及原379彩虹通过。named组合仍待官方合同与实际消费者证实，不直接给raw capture叠加材质调制。复核10候选样本/11层没有named边；193频谱12条named声明被作者previous绑定覆盖，不能计为漏Alpha。优先处理3690859128双source共用模型的已知准入限制；不得外推静态/脚本乘色结果 |
+| 材质颜色的组合缺口 | **部分已修，组合余项待补**：静态中性RGB已进入原/动态图层；脚本tint占用layer color的覆盖已修，迁至materialConstant并退出clone颜色覆写；受控前后GPU及原379彩虹通过。named组合仍待官方合同与实际消费者证实，不直接给raw capture叠加材质调制。复核10候选样本/11层没有named边；193频谱12条named声明被作者previous绑定覆盖，不能计为漏Alpha。3690859128双source共用模型限制已修，证据见[共享材质](../capabilities/runtime-evidence-current.md#e-2026-10-08-shared-source-material)；首引用删除后的官方续跑未知，保留既有安全退休，不能外推所有材料实例范围 |
 | 普通unlit数值边界 | **溢出已修、下溢待修**：4×1e38×1e-37的Inf沿现shader回算有限40，无全图压暗/cap。[有界证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-unlit-product)。source alpha=.5、vertex=.25、R8clip=128/255的weighted组合仍输出0（数学RGB≈2.5098），属于既有fast-math下溢；此失败保留，不能由溢出正例关闭。优先真实多source颜色消费者，数值余项不扩大为所有HDR已修 |
 | 默认变暗、HDR/SDR最终显示 | **旧压暗首断点已修，视觉余项待复验**：旧SDR shoulder把白点1压到0.75；[白点修复](../history/sdr-white-preservation-implementation-2026-10-06.md)实测RGB(191,64,128)恢复(255,64,128)。EDR及OFF→ON→OFF已有同surface headroom执行证据；用户样本、多屏SDR、暂停重绘及物理亮度未据此关闭。沿唯一颜色/output owner定位，见[热切证据](../history/hdr-live-toggle-verification-2026-10-07.md)；Bloom iterations0/1空间语义另作官方控制 |
 | shader compound边界 | **能力缺口**：已有int四则复合赋值恢复，qualified LHS、`%=`与vertex剩余见[原合同](../history/int-compound-assignment-normalizer-2026-10-07.md)。先核真实引用和类型，扩同一normalizer，保留scope/优先级/非法输入反例 |

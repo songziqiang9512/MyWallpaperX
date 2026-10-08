@@ -7,6 +7,8 @@ import Foundation
 nonisolated enum SceneBaseMaterialColorModulationCompiler {
     struct Binding: Sendable {
         let modelPath: String
+        /// First authored reference supplies the shared material's context;
+        /// all admitted references and dynamic instances consume this target.
         let sourceLayerID: Int
         let materialPath: String
         let colorKey: String
@@ -91,7 +93,13 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
             return reject(modelPath, "material-pass-shape")
         }
 
-        let sourceLayers = descriptor.layers.filter { layer in
+        let sourceLayers = descriptor.layers.filter {
+            $0.imagePath.map(normalized) == normalized(modelPath)
+        }
+        // Validate every consumer before selecting the authored context. A
+        // filtered subset could silently skip the first reference or apply the
+        // shared value to an unsupported sibling. No per-layer material copy.
+        guard let sourceLayer = sourceLayers.first, sourceLayers.allSatisfy({ layer in
             if case .some = layer.utilityLayer { return false }
             return layer.contentKind == "image"
                 && layer.visible != false
@@ -105,9 +113,7 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
                 && layer.parentID == nil
                 && layer.childLayerIDs.isEmpty
                 && admittedLayerColorConsumerIDs.contains(layer.id)
-                && layer.imagePath.map(normalized) == normalized(modelPath)
-        }
-        guard sourceLayers.count == 1, let sourceLayer = sourceLayers.first else {
+        }) else {
             return reject(modelPath, "source-layer-consumer")
         }
 

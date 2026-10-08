@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 579,
-      "bytes": 102809
+      "lines": 581,
+      "bytes": 104015
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -93,8 +93,8 @@
       "bytes": 334149
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 81,
-      "bytes": 12023
+      "lines": 82,
+      "bytes": 12899
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 160,
-      "bytes": 37825
+      "bytes": 38118
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1042,29 +1042,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "c90fb27b7c3b71ac87635f154e201b208f41896217dc49dc71b85ed3328adaa6",
-      "after": "f417d4e02f54e752def2a0a6fa9c834d2c76d9f8cb0a28d4853365003c95a647",
+      "before": "f417d4e02f54e752def2a0a6fa9c834d2c76d9f8cb0a28d4853365003c95a647",
+      "after": "67a447b93430e29bedda1095ac1e490cfb624e2025fbadc0705d64e62cf8d777",
       "owner": "scene-material",
-      "reason": "Record verified compiler ABI propagation, real composition recovery and unchanged baseline failures.",
-      "decision": "docs/scene/history/mixed-provider-color-abi-2026-10-08.md"
+      "reason": "Record one shared material entry, bounded official context and native hot-update evidence; retire the multi-source rejection without a second owner.",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "49390eebf995cf2cba3ff4b562a3b402ed5c14ab0d6a1be94253dd91bdbce307",
-      "after": "40fc5573460d1fef5fa90a95f8546710f1d572902c8e13eb21c1073310e7426e",
-      "owner": "scene-composition",
-      "reason": "Record bounded GPU overflow recovery and retain diagnosed underflow; correct false named-consumer inference.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#e-2026-10-08-unlit-product"
+      "before": "40fc5573460d1fef5fa90a95f8546710f1d572902c8e13eb21c1073310e7426e",
+      "after": "f1baacff8cba13c11d2e1be456a63b86756a3d1c21245f8313476028c2f47d2d",
+      "owner": "scene-material",
+      "reason": "Record one shared material entry, bounded official context and native hot-update evidence; retire the multi-source rejection without a second owner.",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "72aa826a352b3441ae71c9ae3fcadd953b235afdfa55371008693f17d9d0b6c4",
-      "after": "4cce60e8ea86d5e7fe26abeda7b1c9899092d96b1fbdfc29e3b4540cdc409655",
-      "owner": "scene-composition",
-      "reason": "Record bounded GPU overflow recovery and retain diagnosed underflow; correct false named-consumer inference.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#e-2026-10-08-unlit-product"
+      "before": "4cce60e8ea86d5e7fe26abeda7b1c9899092d96b1fbdfc29e3b4540cdc409655",
+      "after": "fdb62ca9775c74511ca1f315fab113e0a038a0c8041974f91f462b4e5416b85a",
+      "owner": "scene-material",
+      "reason": "Record one shared material entry, bounded official context and native hot-update evidence; retire the multi-source rejection without a second owner.",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
     }
   ]
 }
