@@ -88,7 +88,7 @@ PMA→straight 是表示转换，不是显示映射。现有编译器插入的�
 
 ## 作者颜色跨 effect 连续性（2026-10-08）
 
-设计结论：沿既有 Program、graph publication 与唯一 compositor 保留作者可观察的 straight RGB；中间普通 color overwrite 不再无条件预乘。第一卡生成颜色→连续effect→compositor已实施，证据与退出边界见[执行记录](../../history/authored-color-continuity-2026-10-09.md)；第二卡源上传/capture仍待实施。官方与本机同输入的差异见[透明颜色连续性证据](../../capabilities/runtime-evidence-current.md#e-2026-10-08-transparent-color-continuity)。已证范围是生成颜色的两段 effect；普通源上传与真实头冠灰影仍须分别验证。PMA 输入零 alpha 已无可恢复颜色，不能通过改反预乘 helper 猜回 RGB。
+设计结论：沿既有 Program、graph publication 与唯一 compositor 保留作者可观察的 straight RGB；中间普通 color overwrite 不再无条件预乘。第一卡生成颜色→连续effect→compositor已实施，证据与退出边界见[执行记录](../../history/authored-color-continuity-2026-10-09.md)；第二卡普通静态源上传/capture已接入同一合同，验收见同一执行记录的后继章节。官方与本机同输入的差异见[透明颜色连续性证据](../../capabilities/runtime-evidence-current.md#e-2026-10-08-transparent-color-continuity)。证据分别记录生成颜色、静态源像素与真实头冠后验；source小输入官方准入失败，不计同输入parity。PMA 输入零 alpha 已无可恢复颜色，不能通过改反预乘 helper 猜回 RGB。
 
 **职责与取舍。** 在现有 Program/variant 准备阶段携带 slot 的实际 content/representation、作者数学输入域及输出存储表示；原 builder 统一实施 sampler/output 适配。straight 到 straight 为恒等，真实 PMA 到 straight 才反预乘，opaque 为恒等，data/independent signal 沿原 typed 合同。profile 继续证明数学与用途，不再分别猜普通 graph 的存储表示。保留扩展 RGB；alpha coverage clamp 与作者明确 UNorm clamp 独立保留。输入数学用途、允许的颜色表示及输出边界身份进入现有 request/cache，旧工件安全失效。源码已证passthrough可指定一个signal槽；同一uint的低8位标记实际PMA，高8位标记实际signal，只有被证明的指定槽可按signal保留raw输出，普通颜色仍走同一适配。nominal输出事实由variant一次发布供同effect后继pass准备，未知保持未知，不能替代帧事实；跨effect保持原并行编译。每帧由已验证 publication 填写掩码，只有对应 color 槽执行反预乘；这同时覆盖前序成功输出 straight 与局部失败保留 PMA 的切换，不枚举表示组合、不临帧编译。普通帧只消费准备布局与 typed 资源事实，不分析源码或生成 shader。
 
@@ -97,3 +97,6 @@ PMA→straight 是表示转换，不是显示映射。现有编译器插入的�
 **两张纵向工作卡。** 第一张贯通生成颜色→连续 ordinary effect→graph publication→唯一合成器；同一编译边界覆盖 generic 与 bounded，验证混合 straight/PMA 槽、data/signal 不变、HDR/SDR、alpha0/.5/1、图层 opacity、normal/additive 与 copy/swap，缓存重启及旧工件退出。不得只改 helper 或输出标签后交付。第二张将同一合同向前延伸到原 ordinary texture/source/capture，复用 `straightAlbedo` 和现有 uploader；source tint 与 opacity/coverage 按表示正确消费，验证 PNG/BC3 的零 alpha RGB、无 effect 直采、线性边缘、材质/图层颜色与 alpha、自定义 source material。真实样本用到的 named/history 必须同期闭环；确未覆盖的边界保留 typed 限制与队列，不删除安全校验充当支持。
 
 **验收、失败与退出。** 两段官方输入要求三张 override 卡同亮，零 alpha 卡不得发黑；增加非白 RGB 和同 pass 两种表示反例。所有旧非零 alpha、PMA producer、data/signal 与现有输出门必须保持。最后回到原头冠及其他 alpha 扩大样本观察真实收益，未验不计受益。表示/身份不明时沿原最小 effect fail-soft，资源身份错误仍拒绝；不得用普通帧双执行或影子链回退。每张卡迁移完成即删除被替代的重复边界适配，存量 producer 的真实 PMA 表示不是第二执行链。达到完整纵向结果后再评估源链范围，不将本设计批准写成实现完成。
+
+
+**源链第二卡实施边界（2026-10-09）。** 首错已定位为普通图片与静态Puppet atlas上传选择PMA，提前清掉零alpha RGB；3807668787的BC3原始透明texel含非零RGB，后续作者pass提高alpha，因而具有真实受益可能，原包后验灰边已恢复亮色，完整官方数值仍未证明。静态单图复用原`straightAlbedo`上传及Candidate的物理/映射UV合同；Puppet沿已有samplingCandidate保留采样元数据，不发布atlas为已完成图层，不新增专用纹理或旁路map。普通无effect直采在原compositor关联一次；graph源capture在原全quad写入保持straight，tint影响RGB，opacity影响alpha；PreparedCommand发布该次实际存储表示。真实PMA的动态文字/媒体、动画生产者及lit输出仍按其真实表示消费，不伪称已保留丢失RGB。自定义source Program沿同一边界输出straight。大尺寸原生BC不能丢Candidate再默认为PMA；必须验证原native格式与映射后沿同一采样入口接纳。验收必须含padded BC3、PNG透明彩色texel、线性采样边缘、无effect/alpha扩张、材质alpha/tint与Puppet原包；若物理尺寸改变导致UV或effect extent错配，在现有extent/UV owner修复，不补一层裁图。命名几何的真实PMA栅格化边界暂不改变，涉及它的隐藏RGB能力不计完成。

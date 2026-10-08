@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 581,
-      "bytes": 104884
+      "bytes": 105146
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 92,
-      "bytes": 25596
+      "bytes": 25773
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -149,8 +149,8 @@
       "bytes": 8029
     },
     "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md": {
-      "lines": 99,
-      "bytes": 18279
+      "lines": 102,
+      "bytes": 19733
     },
     "docs/scene/roadmap/batch2/host-render-power-protocol-design.md": {
       "lines": 54,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 221,
-      "bytes": 56125
+      "bytes": 55849
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1032,110 +1032,29 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/frame-admission-retry-design.md",
-      "before": "145b584145efe807453d0cbf1f2fad53c09ec11b2d3f78be17744fd9a71cb07a",
-      "after": "1540b6c506d44ec07f60127ee90a0bf187c012192fcb09f9ad31470d65aee6cb",
-      "owner": "scene-session",
-      "reason": "Record one bounded paused redraw recovery path and its controlled failure and signed App evidence; keep physical HDR and real sample visual gates open.",
-      "decision": "docs/scene/roadmap/batch2/frame-admission-retry-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "a54cbae101733347a809e94511d51876269047a485be7591f30bd2c7c6c3acbf",
-      "after": "3a0f755e5c4ebad79d0b2090cdd9f4ff6dd3d5ba7d49a398928fc10259293dc2",
-      "owner": "scene-p-route",
-      "reason": "同步单链通用修复合同与原包可见后验，明确未闭首断点及下一门，替换过期结论。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
-      "before": "02f1b91473ddedac08c28759fb9fb10cb2a8441756a79c2969f30c32f6d3de88",
-      "after": "7d9a27b0a51fa313a6456c576b9694a62add9458c6b2e0bd693a71fe4efe0eef",
-      "owner": "scene-p-route",
-      "reason": "替换已解决的封面mask与数字条件断点，记录真实连续帧、复审生命周期反例及待修事件时序；不增平行路线。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "00ff45674da72a367c8879f2eb35995f14e2ef4bcbdf80758905a16571656ca0",
-      "after": "3afb89440e63afc89d5969dcfbab45b5a66765f4ce4a15f0bb2fa9a49916e4eb",
-      "owner": "scene-p-route",
-      "reason": "替换已修同帧旧值断点，明确主动值/回滚与实际输出边界；在原U07卡补副作用反例。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "b63c547f1e78653bd39e44c05140a279bab4452fdfef455231f4658da603e0f2",
-      "after": "04234e0436fe560b241dc88e31391072cc98e4f8bc2c0d1b4afbb016dd657c41",
-      "owner": "scene-p-route",
-      "reason": "补记现reader版本配对和U18真实恢复，保留未知字段、交互和fallback边界；替换已闭断点。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/sampler-alias-precedence.md",
-      "before": "0bb0ac0bbcaf1ca113d643e1d18e104d6b61187769d50b2659395c545919a1a4",
-      "after": "b1da23cbc44deb4de495fe63c274fc703a3033aebb1073bca4eca887c9c39df5",
-      "owner": "scene-p-route",
-      "reason": "补记同一Sampler别名补接与真实音频后验，替换已闭首断点并保留灰外圈、varying及实录边界。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "5301b53112cd95b7b42c9a339dbe50975fe611bdfaa82ecf2d99b52c33755ee8",
-      "after": "ca91e14bc09fce1a59f1ee7cf37f177f51b2a7acedfc1b3f13ff99f75d6599f8",
-      "owner": "scene-e-route",
-      "reason": "记录本批真实公共编译/同层输入修复、撤回错误snapshot试验、原包与有界官方颜色证据，以及仍开放的透明RGB/source入口边界；不复制原始报告或扩历史正文。",
-      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md"
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "f7fd59f79a41d586cf5cdad0096a251dd8d4a0b6530e345d5620ca3c9e1139a9",
+      "after": "699664cefe1d43bf357e8533856537725b584ce71fbf8032b6f0b490e0ba451a",
+      "owner": "Scene source color contract",
+      "reason": "沿现有源上传和typed publication补齐实际颜色表示；详细证据归原历史记录，保留官方准入失败和PMA未验边界。",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#作者颜色跨-effect-连续性2026-10-08待实施"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2f214ad1cf7098cb734a376e24fd4b8ab1006104f05638887cf8aac2ea6334f4",
-      "after": "a1152c52f284469788c113022b20280ba7d47986b7394c71ff42a285084ba393",
-      "owner": "scene-e-route",
-      "reason": "记录本批真实公共编译/同层输入修复、撤回错误snapshot试验、原包与有界官方颜色证据，以及仍开放的透明RGB/source入口边界；不复制原始报告或扩历史正文。",
-      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
-      "before": "24c2d4d2459283ee4273301f29ac6ce97552ec290f1662ae7aeed24ee834cb9e",
-      "after": "89c55d786c6e01f9caf526a68b1b90d79f82462739158eb16ae98b9dd05aa850",
-      "owner": "scene-e-route",
-      "reason": "记录本批真实公共编译/同层输入修复、撤回错误snapshot试验、原包与有界官方颜色证据，以及仍开放的透明RGB/source入口边界；不复制原始报告或扩历史正文。",
-      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "ba314d5b8e656300970ffeafbe6ee1e185989d6ddd58dbc15944bd28449a5c9d",
-      "after": "f7fd59f79a41d586cf5cdad0096a251dd8d4a0b6530e345d5620ca3c9e1139a9",
-      "owner": "Scene color contract",
-      "reason": "替换旧PMA-only描述为同一实际表示边界，区分已实施effect卡与未实施source卡；详细过程归档。",
+      "before": "85b7a48e36a65c514c2ad8b704ef89ca4df134ab26ae31326a482ef38afde5f0",
+      "after": "c2bb4193f0b7b7d67893234b76c03e7ed4505b0a6883d882999548cf18cafc54",
+      "owner": "Scene source color contract",
+      "reason": "沿现有源上传和typed publication补齐实际颜色表示；详细证据归原历史记录，保留官方准入失败和PMA未验边界。",
       "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#作者颜色跨-effect-连续性2026-10-08待实施"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
-      "before": "0f0e89aa54504d21e57c51d297bee4772b332b83bf131a2144b0cae085dfb4e4",
-      "after": "517701189e9ab7c380684ef270a0b9d4f127a6529e20c7803c02f074391f2333",
-      "owner": "Scene color contract",
-      "reason": "替换旧PMA-only描述为同一实际表示边界，区分已实施effect卡与未实施source卡；详细过程归档。",
-      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#作者颜色跨-effect-连续性2026-10-08待实施"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b481fd479a1c60fdbee43cfc299d1ab4c54107206d608f72eeaed1ff73d087e0",
-      "after": "2afea4839c0de4043ae1299102b8cd41694d241b9cab56551a97f8c001aeff89",
-      "owner": "Scene color contract",
-      "reason": "替换旧PMA-only描述为同一实际表示边界，区分已实施effect卡与未实施source卡；详细过程归档。",
+      "before": "517701189e9ab7c380684ef270a0b9d4f127a6529e20c7803c02f074391f2333",
+      "after": "0b0faf5fb6748c082343e4025096f15e5e9e4309cc65a9070fb77769aeb887a5",
+      "owner": "Scene source color contract",
+      "reason": "沿现有源上传和typed publication补齐实际颜色表示；详细证据归原历史记录，保留官方准入失败和PMA未验边界。",
       "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#作者颜色跨-effect-连续性2026-10-08待实施"
     }
   ]
