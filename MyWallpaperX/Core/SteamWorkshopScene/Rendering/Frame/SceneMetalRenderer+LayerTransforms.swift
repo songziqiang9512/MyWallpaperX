@@ -25,7 +25,7 @@ extension SceneMetalRenderer {
         let world = worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
         let parallax = parallaxOffset(
             for: layer,
-            worldFrame: world,
+            worldFramesByLayerID: worldFramesByLayerID,
             mouseNormalized: parallaxMouseNormalized,
             configuration: configuration
         )
@@ -64,7 +64,7 @@ extension SceneMetalRenderer {
         let world = worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
         let parallax = parallaxOffset(
             for: layer,
-            worldFrame: world,
+            worldFramesByLayerID: worldFramesByLayerID,
             mouseNormalized: parallaxMouseNormalized,
             configuration: configuration
         )
@@ -89,7 +89,7 @@ extension SceneMetalRenderer {
         let world = worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
         let parallax = parallaxOffset(
             for: layer,
-            worldFrame: world,
+            worldFramesByLayerID: worldFramesByLayerID,
             mouseNormalized: parallaxMouseNormalized,
             configuration: configuration
         )
@@ -126,7 +126,7 @@ extension SceneMetalRenderer {
         let world = worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
         let parallax = parallaxOffset(
             for: layer,
-            worldFrame: world,
+            worldFramesByLayerID: worldFramesByLayerID,
             mouseNormalized: parallaxMouseNormalized,
             configuration: configuration
         )
@@ -139,14 +139,20 @@ extension SceneMetalRenderer {
 
     private func parallaxOffset(
         for layer: SceneRenderDescriptor.Layer,
-        worldFrame: simd_float4x4,
+        worldFramesByLayerID: [Int: simd_float4x4],
         mouseNormalized: SIMD2<Float>,
         configuration: SceneLayerParallax.Configuration
     ) -> SIMD2<Float> {
-        SceneLayerParallax.offset(
-            resolution: parallaxByLayerID[layer.id],
+        guard let resolution = parallaxByLayerID[layer.id],
+              let sourceFrame = worldFramesByLayerID[resolution.sourceLayerID]
+        else { return .zero }
+        // Depth and camera-relative position belong to the same inherited
+        // source. Using each child's position separates authored pieces even
+        // when every member inherits one parent's parallax.
+        return SceneLayerParallax.offset(
+            resolution: resolution,
             configuration: configuration,
-            layerPosition: SIMD2(worldFrame.columns.3.x, worldFrame.columns.3.y),
+            layerPosition: SIMD2(sourceFrame.columns.3.x, sourceFrame.columns.3.y),
             mouseNormalized: mouseNormalized
         )
     }

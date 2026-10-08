@@ -1355,7 +1355,9 @@
         "script/tests/test_scene_shader_dead_binding_projection.py",
         "script/tests/fixtures/SceneShaderDeadBindingProjectionHarness.swift"
       ],
-      "modules": ["test_scene_shader_dead_binding_projection"]
+      "modules": [
+        "test_scene_shader_dead_binding_projection"
+      ]
     },
     {
       "id": "scene-background-color-input",
@@ -1367,7 +1369,9 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
         "script/tests/test_scene_background_generic_color_abi.py"
       ],
-      "modules": ["test_scene_background_generic_color_abi"]
+      "modules": [
+        "test_scene_background_generic_color_abi"
+      ]
     },
     {
       "id": "shader-derivative-aliases",
@@ -1376,7 +1380,9 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
         "script/tests/test_scene_shader_derivative_aliases.py"
       ],
-      "modules": ["test_scene_shader_derivative_aliases"]
+      "modules": [
+        "test_scene_shader_derivative_aliases"
+      ]
     },
     {
       "id": "shader-frontend",
@@ -2468,6 +2474,18 @@
       ],
       "modules": [
         "test_scene_independent_signal_compositing_gpu"
+      ]
+    },
+    {
+      "id": "inherited-parallax-geometry",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+LayerTransforms.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/SceneLayerParallax.swift",
+        "script/tests/test_scene_inherited_parallax_geometry.py"
+      ],
+      "modules": [
+        "test_scene_inherited_parallax_geometry",
+        "test_scene_layer_parallax"
       ]
     }
   ],
