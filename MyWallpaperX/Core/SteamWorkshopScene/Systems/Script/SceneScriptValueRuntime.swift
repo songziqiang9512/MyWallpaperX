@@ -416,14 +416,15 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             return .failure(.invalidArgument("invalid typed vector input"))
         }
         guard expectedGeneration == generation else { return .failure(.staleOwner) }
-        let scriptInput = sceneScriptInput(
-            consumePendingInitializationValue() ?? input
-        )
+        let initializesValue = needsInitialization
+        let pendingValue = consumePendingInitializationValue()
+        let scriptInput = sceneScriptInput(pendingValue ?? input)
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         var frameInput = frame.quickJSValue
         var diagnostic = [CChar](repeating: 0, count: 512)
         let result: MWXSceneQuickJSResult
         let publishedValue: SceneDynamicValue
+        var scalarValueFollowsInput = false
         switch scriptInput {
         case let .scalar(value):
             var output = 0.0
@@ -439,7 +440,10 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             }
             if result == MWX_SCENE_QUICKJS_OK, !handlesUpdate {
                 switch scalarValueWithoutUpdate(input: output, expectedGeneration: expectedGeneration) {
-                case let .success(value): output = value
+                case let .success(projection):
+                    output = projection.value
+                    scalarValueFollowsInput = projection.followsInput
+                        && !initializesValue && pendingValue == nil
                 case let .failure(failure):
                     discardLayerMutations()
                     return .failure(failure)
@@ -528,14 +532,16 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         return validatedEvaluation(
             value: publishedValue,
             mutations: callbackMutations,
-            layerID: layerID
+            layerID: layerID,
+            scalarValueFollowsInput: scalarValueFollowsInput
         )
     }
 
     private func validatedEvaluation(
         value publishedValue: SceneDynamicValue,
         mutations: SceneScriptMediaEventMutations,
-        layerID: Int
+        layerID: Int,
+        scalarValueFollowsInput: Bool = false
     ) -> Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure> {
         guard Self.acceptsScalarValue(publishedValue, for: target) else {
             discardLayerMutations()
@@ -582,7 +588,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             textureAnimationCommands: mutations.textureAnimationCommands,
             particlePlaybackCommands: mutations.particlePlaybackCommands,
             puppetAnimationCommands: mutations.puppetAnimationCommands,
-            puppetAnimationCallbackRegistrations: mutations.puppetAnimationCallbackRegistrations
+            puppetAnimationCallbackRegistrations: mutations.puppetAnimationCallbackRegistrations,
+            scalarValueFollowsInput: scalarValueFollowsInput
         ))
     }
 
@@ -853,7 +860,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     /// It reads only a finite data property; no callback, timer or journal runs.
     func scalarValueWithoutUpdate(
         input: Double, expectedGeneration: UInt64
-    ) -> Result<Double, SceneScriptScalarRuntimeFailure> {
+    ) -> Result<(value: Double, followsInput: Bool), SceneScriptScalarRuntimeFailure> {
         guard expectedGeneration == generation else { return .failure(.staleOwner) }
         guard valueType == .scalar, !handlesUpdate else {
             return .failure(.invalidArgument("invalid no-update scalar owner"))
@@ -863,7 +870,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             guard Self.acceptsScalar(value, for: target) else {
                 return .failure(.badReturn("invalid bound scalar output"))
             }
-            return .success(value)
+            return .success((value, bound == nil))
         }
     }
 

@@ -538,7 +538,8 @@ extension SceneDesktopWallpaperSession {
         // Visibility, instance alpha and explicit emission consume one admitted frame value.
         // Other authored setters retain their existing next-cadence contract.
         func frameScriptValues(_ admitted: [SceneScriptOwnerEffects],
-                               excluding rejected: Set<SceneDynamicTarget>)
+                               excluding rejected: Set<SceneDynamicTarget>,
+                               timelineValues: [SceneDynamicTarget: SceneDynamicValue])
             -> [SceneDynamicTarget: SceneDynamicValue] {
             var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
             for mutation in admitted.filter({ !rejected.contains($0.ownerTarget) }).flatMap(\.layerMutations)
@@ -551,7 +552,8 @@ extension SceneDesktopWallpaperSession {
                 }
             }
             values.merge(sceneScriptStringResult.values.filter { !rejected.contains($0.key) }) { _, current in current }
-            values.merge(sceneScriptResult.values.filter { !rejected.contains($0.key) }) { _, current in current }
+            values.merge(sceneScriptResult.valuesForAdmission(
+                timelineValues: timelineValues, excluding: rejected)) { _, current in current }
             values.merge(sceneScriptVectorResult.values.filter { !rejected.contains($0.key) }) { _, current in current }
             return values
         }
@@ -607,7 +609,7 @@ extension SceneDesktopWallpaperSession {
                     let resolution = SceneDynamicSnapshotResolver().resolve(
                         frameIndex: timing.frameIndex, generation: 0, index: definitionIndex,
                         base: preliminarySceneScriptResolution, timelineValues: timeline,
-                        sceneScriptValues: frameScriptValues(admitted, excluding: rejected))
+                        sceneScriptValues: frameScriptValues(admitted, excluding: rejected, timelineValues: timeline))
                     guard let failed = particleEmission.prepare(transitions, visibility: { instance in
                         self.surfaces[instance.surfaceID]?.metalView.particlePlaybackVisibility(
                             layerID: instance.layerID, dynamicValues: resolution.snapshot)
@@ -718,7 +720,7 @@ extension SceneDesktopWallpaperSession {
         let sharedSurfaceResolution = SceneDynamicSnapshotResolver().resolve(
             frameIndex: timing.frameIndex, generation: 0, index: definitionIndex,
             base: preliminarySceneScriptResolution, timelineValues: settledTimelineValues,
-            sceneScriptValues: frameScriptValues(admittedOwnerEffects, excluding: rejectedOwnerTargets))
+            sceneScriptValues: frameScriptValues(admittedOwnerEffects, excluding: rejectedOwnerTargets, timelineValues: settledTimelineValues))
         let materialFunctionMutations = admittedOwnerEffects.flatMap(\.materialFunctionMutations)
         let pendingEvaluation = evaluationTransaction.prepare(
             frameIndex: timing.frameIndex, resolution: sharedSurfaceResolution

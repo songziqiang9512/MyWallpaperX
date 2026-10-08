@@ -96,17 +96,6 @@ struct SceneScriptMaterialFunctionMutation: Equatable, Sendable {
     let functionName: String
 }
 
-enum SceneTimelinePlaybackCommand: String, Equatable, Sendable {
-    case play
-    case pause
-    case stop
-}
-
-struct SceneTimelinePlaybackMutation: Equatable, Sendable {
-    let target: SceneDynamicTarget
-    let command: SceneTimelinePlaybackCommand
-}
-
 enum SceneParticleNumericValue: Equatable, Sendable {
     case scalar(Double)
     case vector([Double])

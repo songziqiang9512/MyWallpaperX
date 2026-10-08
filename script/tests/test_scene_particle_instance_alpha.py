@@ -42,12 +42,14 @@ import simd
             result.append(value);return result
         }
         struct Values {let values:[SceneDynamicTarget:SceneDynamicValue]}
-        let sceneScriptStringResult = Values(values:[:]), sceneScriptResult = Values(values:[:]), sceneScriptVectorResult = Values(values:[:])
+        let sceneScriptStringResult = Values(values:[:]), sceneScriptVectorResult = Values(values:[:])
+        let sceneScriptResult = SceneScriptScalarFrameResult(values:[:], failures:[:],
+            materialFunctionMutations:[], animationMutations:[], layerMutations:[])
         // PRODUCTION_FRAME_SCRIPT_VALUES
         func resolution(_ runtime:SceneScriptDynamicLayerRuntime,_ admitted:[SceneScriptOwnerEffects]) -> SceneDynamicSnapshot {
             SceneDynamicSnapshotResolver().resolve(frameIndex:0,generation:1,
                 definitions:runtime.authoredLayerDefinitions,
-                sceneScriptValues:frameScriptValues(admitted,excluding:[])).snapshot
+                sceneScriptValues:frameScriptValues(admitted,excluding:[],timelineValues:[:])).snapshot
         }
         func override(_ snapshot:SceneDynamicSnapshot,_ authored:SceneParticleInstanceOverride? = nil) -> SceneParticleInstanceOverride? {
             SceneParticleInstanceOverride.resolving(authored:authored,dynamic:snapshot.particleInstanceValues(layerID:42))

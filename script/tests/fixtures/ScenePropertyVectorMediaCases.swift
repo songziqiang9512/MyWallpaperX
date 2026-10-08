@@ -113,6 +113,61 @@ extension Harness {
                 timelineTargets: [passTimelineTarget], generation: generation
             )
         }
+        let eventPipeline = valuePipeline(cachedSource, generation: 162)
+        _ = eventPipeline.evaluate(inputs: [passTimelineTarget: .scalar(1)], frame: frame)
+        eventPipeline.finalizeLayerMutations(committing: true)
+        let eventAnimation = SceneTimelineAnimation(
+            lanes: [[
+                .init(frame: 0, value: 1, back: nil, front: nil, locksAngle: nil, locksLength: nil),
+                .init(frame: 1, value: 0, back: nil, front: nil, locksAngle: nil, locksLength: nil)
+            ]],
+            options: .init(fps: 1, length: 1, mode: .single, startsPaused: true,
+                wrapsLoop: false, smoothing: nil, stiffness: nil, parent: nil, children: []),
+            isRelative: false, previewValue: nil
+        )
+        let peerTimelineTarget = SceneDynamicTarget.layer(layerID: 42, field: .alpha)
+        let eventRuntime = SceneTimelinePlaybackRuntime(program: .init(bindings: [
+            .init(definition: eventPipeline.definitions[0], animation: eventAnimation, composition: .absolute),
+            .init(definition: .init(target: peerTimelineTarget, valueType: .scalar, authoredValue: .scalar(1)),
+                animation: eventAnimation, composition: .absolute)
+        ], diagnostics: []))
+        _ = try eventRuntime.apply([.init(target: passTimelineTarget, command: .play)], sceneTime: 0).get()
+        let oldEventInput = eventRuntime.values(sceneTime: 2)
+        let eventResult = eventPipeline.evaluate(inputs: oldEventInput, frame: frame,
+            mediaThumbnailEvent: .init(hasThumbnail: true, generation: 1))
+        let eventPreview = try eventRuntime.preview(eventResult.animationMutations, sceneTime: 2).get()
+        let eventResolution = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 1, generation: 1, definitions: eventPipeline.definitions,
+            timelineValues: eventPreview, sceneScriptValues: eventResult.valuesForAdmission(
+                timelineValues: eventPreview, excluding: [])
+        )
+        let foreignPreview = try eventRuntime.preview([
+            .init(target: peerTimelineTarget, command: .stop),
+            .init(target: peerTimelineTarget, command: .play)
+        ], sceneTime: 2).get()
+        let foreignProjection = eventResult.valuesForAdmission(timelineValues: foreignPreview, excluding: [])
+        let rejectedProjection = eventResult.valuesForAdmission(timelineValues: eventPreview, excluding: [passTimelineTarget])
+        let noCommandProjection = eventResult.valuesForAdmission(
+            timelineValues: try eventRuntime.preview([], sceneTime: 2).get(), excluding: [])
+        let eventBeforeCommit = eventRuntime.values(sceneTime: 2)
+        eventPipeline.finalizeLayerMutations(committing: true)
+        _ = try eventRuntime.apply(eventResult.animationMutations, sceneTime: 2).get()
+        let eventNextFrame = eventRuntime.values(sceneTime: 2.25)
+        let eventIdle = eventPipeline.evaluate(inputs: eventNextFrame, frame: frame)
+        eventPipeline.finalizeLayerMutations(committing: true)
+        let emptyVector = SceneScriptVectorProgram.compile(domain: domain,
+            descriptor: descriptor, scriptBindings: [], userPropertyDefinitions: [], generation: 162)
+        let emptyString = SceneScriptStringProgram.compile(domain: domain,
+            descriptor: descriptor, scriptBindings: [], generation: 162)
+        let eventCoordinator = SceneScriptMediaFrameCoordinator(vectorProgram: emptyVector,
+            stringProgram: emptyString, scalarProgram: eventPipeline)
+        let coordinatedEvent = eventCoordinator.evaluate(vectorInputs: [:], stringInputs: [:],
+            scalarInputs: [passTimelineTarget: .scalar(0)], effectivePropertyValues: [:], frame: frame,
+            userPropertiesJSON: "{}", events: .init(playback: nil, properties: nil,
+                thumbnail: .init(hasThumbnail: true, generation: 2), timeline: nil), audioSpectrum: .silent)
+        let coordinatedPreview = try eventRuntime.preview(coordinatedEvent.animationMutations, sceneTime: 3).get()
+        let coordinatedValue = coordinatedEvent.scalar.valuesForAdmission(timelineValues: coordinatedPreview, excluding: [])
+        eventPipeline.finalizeLayerMutations(committing: false)
         let changedInit = valuePipeline(cachedSource.replacingOccurrences(
             of: "return value;", with: "return value * 0.5;"
         ), generation: 157)
@@ -130,6 +185,16 @@ extension Harness {
             inputs: [passTimelineTarget: .scalar(0.6)], frame: frame
         )
         transforming.finalizeLayerMutations(committing: true)
+        let equalInit = valuePipeline(cachedSource, generation: 167)
+        let equalInitEvent = equalInit.evaluate(inputs: [passTimelineTarget: .scalar(0)], frame: frame,
+            mediaThumbnailEvent: .init(hasThumbnail: true, generation: 1))
+        equalInit.finalizeLayerMutations(committing: true)
+        let equalUpdate = valuePipeline(cachedSource + "\nexport function update(value){return value;}", generation: 168)
+        _ = equalUpdate.evaluate(inputs: [passTimelineTarget: .scalar(1)], frame: frame)
+        equalUpdate.finalizeLayerMutations(committing: true)
+        let equalUpdateEvent = equalUpdate.evaluate(inputs: [passTimelineTarget: .scalar(0)], frame: frame,
+            mediaThumbnailEvent: .init(hasThumbnail: true, generation: 1))
+        equalUpdate.finalizeLayerMutations(committing: true)
         let overlay = valuePipeline(cachedSource.replacingOccurrences(
             of: "return value;", with: "thisObject.unseenTimelineScalar=0.7;return value;"
         ), generation: 159)
@@ -137,6 +202,62 @@ extension Harness {
         overlay.finalizeLayerMutations(committing: true)
         let overlayIdle = overlay.evaluate(inputs: [passTimelineTarget: .scalar(0.6)], frame: frame)
         overlay.finalizeLayerMutations(committing: true)
+        let equalOverlay = valuePipeline(cachedSource.replacingOccurrences(
+            of: "return value;", with: "thisObject.unseenTimelineScalar=0;return value;"
+        ), generation: 163)
+        _ = equalOverlay.evaluate(inputs: [passTimelineTarget: .scalar(1)], frame: frame)
+        equalOverlay.finalizeLayerMutations(committing: true)
+        let equalOverlayEvent = equalOverlay.evaluate(inputs: [passTimelineTarget: .scalar(0)], frame: frame,
+            mediaThumbnailEvent: .init(hasThumbnail: true, generation: 1))
+        equalOverlay.finalizeLayerMutations(committing: true)
+        let pendingInit = valuePipeline(cachedSource.replacingOccurrences(
+            of: "return value;", with: "return value * 0.5;"
+        ), generation: 164)
+        _ = try pendingInit.bindings[0].initializeIfNeeded(input: .scalar(0.6), frame: frame,
+            scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 164,
+            interruptBudget: nil, retainsValueForNextUpdate: true).get()
+        pendingInit.finalizeLayerMutations(committing: true)
+        let pendingEvent = pendingInit.evaluate(inputs: [passTimelineTarget: .scalar(0)], frame: frame,
+            mediaThumbnailEvent: .init(hasThumbnail: true, generation: 1))
+        pendingInit.finalizeLayerMutations(committing: false)
+        let pendingRetry = pendingInit.evaluate(inputs: [passTimelineTarget: .scalar(0)], frame: frame)
+        pendingInit.finalizeLayerMutations(committing: true)
+        func boundedProjection(_ target: SceneDynamicTarget, firstValue: Double,
+                               generation: UInt64) throws -> [Double] {
+            let owner = try SceneScriptValueOwner(domain: domain,
+                source: "export function init(value){return value;}", target: target,
+                valueType: .scalar, effectNames: [], hasCurrentAnimation: true,
+                generation: generation, budget: .default)
+            _ = try owner.evaluate(input: .scalar(1), frame: frame,
+                scriptPropertiesJSON: "", userPropertiesJSON: "{}",
+                expectedGeneration: generation, interruptBudget: nil).get()
+            owner.commitLayerMutations()
+            let output = try owner.evaluate(input: .scalar(1), frame: frame,
+                scriptPropertiesJSON: "", userPropertiesJSON: "{}",
+                expectedGeneration: generation, interruptBudget: nil).get()
+            let value = SceneScriptScalarFrameResult(values: [target: output.value], failures: [:],
+                materialFunctionMutations: [], animationMutations: [], layerMutations: [],
+                timelineInputTargets: output.scalarValueFollowsInput ? [target] : [])
+            let animation = SceneTimelineAnimation(lanes: [[
+                .init(frame: 0, value: firstValue, back: nil, front: nil, locksAngle: nil, locksLength: nil),
+                .init(frame: 1, value: 1, back: nil, front: nil, locksAngle: nil, locksLength: nil)
+            ]], options: eventAnimation.options, isRelative: false, previewValue: nil)
+            let runtime = SceneTimelinePlaybackRuntime(program: .init(bindings: [.init(
+                definition: .init(target: target, valueType: .scalar, authoredValue: .scalar(1)),
+                animation: animation, composition: .absolute
+            )], diagnostics: []))
+            let preview = try runtime.preview([.init(target: target, command: .stop)], sceneTime: 2).get()
+            let rejected = value.valuesForAdmission(timelineValues: preview, excluding: [])
+            let accepted = value.valuesForAdmission(timelineValues: [target: .scalar(2)], excluding: [])
+            owner.commitLayerMutations()
+            fixture.retained += [owner, runtime]
+            return [scalar(preview[target]), scalar(rejected[target]), scalar(accepted[target])]
+        }
+        let intensityProjection = try boundedProjection(.layer(layerID: 10, field: .intensity),
+            firstValue: -1, generation: 165)
+        let materialProjection = try boundedProjection(.materialConstant(layerID: 10,
+            passIndex: 0, name: "Alpha", materialPath: "materials/fixture.json"),
+            firstValue: Double(Float.greatestFiniteMagnitude) * 2, generation: 166)
         let staleIdle = overlay.bindings.first?.scalarValueWithoutUpdate(input: 0.6, expectedGeneration: 160)
         let retiringDomain = try SceneScriptQuickJSDomain()
         try retiringDomain.configureLayerCatalog(timelineDescriptor(cachedSource))
@@ -369,7 +490,7 @@ extension Harness {
             userPropertiesJSON: "{}", events: orderedEvents,
             audioSpectrum: .silent
         )
-        defer { fixture.retained += [mediaOrigin, passTimeline, cachedTimeline, changedInit, transforming, overlay, retiring, invalidating, throwingTimeline, passTimelineWithoutTarget, passTimelineWrongWrapper, passTimelineWithProperties, playbackProgram, stringProgram, orderedDomain, orderedVector, orderedString, orderedScalar, orderedCoordinator] }
+        defer { fixture.retained += [mediaOrigin, passTimeline, cachedTimeline, eventPipeline, eventRuntime, eventCoordinator, changedInit, transforming, equalInit, equalUpdate, overlay, equalOverlay, pendingInit, retiring, invalidating, throwingTimeline, passTimelineWithoutTarget, passTimelineWrongWrapper, passTimelineWithProperties, playbackProgram, stringProgram, orderedDomain, orderedVector, orderedString, orderedScalar, orderedCoordinator] }
         return [
             "mediaAnimationCommands": { mediaOriginResult.animationMutations.map {
                 $0.command.rawValue
@@ -389,6 +510,29 @@ extension Harness {
                  "firstCommands": cachedFirst.animationMutations.map { $0.command.rawValue },
                  "firstValue": String(describing: cachedFirst.values[passTimelineTarget]),
                  "duplicateCommands": cachedDuplicate.animationMutations.map { $0.command.rawValue },
+                 "eventFrame": ["oldInput": scalar(oldEventInput[passTimelineTarget]),
+                     "preview": scalar(eventPreview[passTimelineTarget]),
+                     "settled": scalar(eventResolution.snapshot[passTimelineTarget]?.value),
+                     "source": eventResolution.snapshot[passTimelineTarget]?.source.rawValue ?? "missing",
+                     "followsInput": eventResult.timelineInputTargets.contains(passTimelineTarget),
+                     "foreignUnchanged": scalar(foreignProjection[passTimelineTarget]) == 0 && foreignProjection[peerTimelineTarget] == nil,
+                     "rejectedEmpty": rejectedProjection.isEmpty,
+                     "noCommandUnchanged": scalar(noCommandProjection[passTimelineTarget]) == 0,
+                     "previewDidNotCommit": scalar(eventBeforeCommit[passTimelineTarget]) == 0,
+                     "nextFrame": scalar(eventIdle.values[passTimelineTarget]),
+                     "coordinatorSettled": scalar(coordinatedValue[passTimelineTarget]),
+                     "activeInit": scalar(changedInitFirst.valuesForAdmission(timelineValues: eventPreview, excluding: [])[passTimelineTarget]),
+                     "activeUpdate": scalar(transformed.valuesForAdmission(timelineValues: eventPreview, excluding: [])[passTimelineTarget]),
+                     "equalInit": scalar(equalInitEvent.valuesForAdmission(timelineValues: eventPreview, excluding: [])[passTimelineTarget]),
+                     "equalUpdate": scalar(equalUpdateEvent.valuesForAdmission(timelineValues: eventPreview, excluding: [])[passTimelineTarget]),
+                     "overlay": scalar(overlayIdle.valuesForAdmission(timelineValues: eventPreview, excluding: [])[passTimelineTarget]),
+                     "equalOverlay": scalar(equalOverlayEvent.valuesForAdmission(timelineValues: eventPreview, excluding: [])[passTimelineTarget]),
+                     "pendingInit": scalar(pendingEvent.valuesForAdmission(timelineValues: eventPreview, excluding: [])[passTimelineTarget]),
+                     "pendingInitAfterRejection": scalar(pendingRetry.valuesForAdmission(timelineValues: eventPreview, excluding: [])[passTimelineTarget]),
+                     "rejectedCommandsNotReplayed": pendingRetry.animationMutations.isEmpty,
+                     "intensityProjection": intensityProjection,
+                     "materialProjection": materialProjection,
+                     "throwUnpublished": throwingTimelineResult.valuesForAdmission(timelineValues: eventPreview, excluding: []).isEmpty] as [String: Any],
                  "idleValues": cachedIdle.map { scalar($0.values[passTimelineTarget]) },
                  "idleEffectsEmpty": cachedIdle.allSatisfy { $0.ownerEffects.isEmpty && $0.animationMutations.isEmpty },
                  "idleSource": SceneDynamicSnapshotResolver().resolve(

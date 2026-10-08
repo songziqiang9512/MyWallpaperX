@@ -2,6 +2,7 @@ import Foundation
 
 nonisolated struct SceneScriptScalarFrameResult: Equatable, Sendable {
     let values: [SceneDynamicTarget: SceneDynamicValue]
+    let timelineInputTargets: Set<SceneDynamicTarget>
     let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
@@ -14,14 +15,32 @@ nonisolated struct SceneScriptScalarFrameResult: Equatable, Sendable {
         materialFunctionMutations: [SceneScriptMaterialFunctionMutation],
         animationMutations: [SceneTimelinePlaybackMutation],
         layerMutations: [SceneScriptLayerMutation],
-        ownerEffects: [SceneScriptOwnerEffects] = []
+        ownerEffects: [SceneScriptOwnerEffects] = [],
+        timelineInputTargets: Set<SceneDynamicTarget> = []
     ) {
         self.values = values
+        self.timelineInputTargets = timelineInputTargets
         self.failures = failures
         self.materialFunctionMutations = materialFunctionMutations
         self.animationMutations = animationMutations
         self.layerMutations = layerMutations
         self.ownerEffects = ownerEffects
+    }
+
+    /// Reconcile only input forwarding against this admission's existing
+    /// Timeline preview. Explicit callbacks/overlays retain their script value.
+    func valuesForAdmission(
+        timelineValues: [SceneDynamicTarget: SceneDynamicValue],
+        excluding rejected: Set<SceneDynamicTarget>
+    ) -> [SceneDynamicTarget: SceneDynamicValue] {
+        var admitted = values.filter { !rejected.contains($0.key) }
+        for (target, value) in timelineValues
+            where timelineInputTargets.contains(target) && admitted[target] != nil {
+            guard case let .scalar(number) = value,
+                  SceneScriptValueOwner.acceptsScalar(number, for: target) else { continue }
+            admitted[target] = value
+        }
+        return admitted
     }
 }
 
@@ -359,6 +378,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
     ) -> SceneScriptScalarFrameResult {
         let observedMediaEvent = observedMediaEvents?.thumbnail ?? frameLedger.observedMediaThumbnailEvent.observe(mediaThumbnailEvent); let observedPlaybackEvent = observedMediaEvents?.playback ?? frameLedger.observedMediaPlaybackEvent.observe(mediaPlaybackEvent); let observedPropertiesEvent = observedMediaEvents?.properties ?? frameLedger.observedMediaPropertiesEvent.observe(mediaPropertiesEvent); let observedTimelineEvent = observedMediaEvents?.timeline ?? frameLedger.observedMediaTimelineEvent.observe(mediaTimelineEvent)
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
+        var timelineInputTargets: Set<SceneDynamicTarget> = []
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
         var animationMutations: [SceneTimelinePlaybackMutation] = []
@@ -427,7 +447,9 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                     switch binding.scalarValueWithoutUpdate(
                         input: value, expectedGeneration: generation
                     ) {
-                    case let .success(output): values[binding.target] = .scalar(output)
+                    case let .success(projection):
+                        values[binding.target] = .scalar(projection.value)
+                        if projection.followsInput { timelineInputTargets.insert(binding.target) }
                     case let .failure(failure):
                         failures[binding.target] = failure
                         if failure.permanentlyDisablesOwner { disabledTargets.insert(binding.target) }
@@ -443,9 +465,11 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
             var propertiesLayerMutationCount = 0
             var thumbnailMutationCount = 0
             var evaluationInput = value
+            var hasActiveInitializationValue = false
             if changedUserPropertiesJSON != nil || pendingPlaybackEvent != nil
                 || pendingMediaEvent != nil || pendingPropertiesEvent != nil
                 || pendingTimelineEvent != nil {
+                let runsAuthoredInitialization = binding.needsInitialization
                 switch binding.initializeIfNeeded(
                     input: .scalar(value),
                     frame: frame,
@@ -467,6 +491,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                             continue
                         }
                         evaluationInput = initializedValue
+                        hasActiveInitializationValue = runsAuthoredInitialization
                         effects.append(initialization)
                     }
                 case let .failure(failure):
@@ -646,6 +671,10 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                 if !effects.isEmpty { ownerEffects.append(effects) }
                 if valuePublishingTargets.contains(binding.target) {
                     values[binding.target] = evaluation.value
+                    if idleTimelinePublishingTargets.contains(binding.target),
+                       evaluation.scalarValueFollowsInput, !hasActiveInitializationValue {
+                        timelineInputTargets.insert(binding.target)
+                    }
                 }
                 materialFunctionMutations.append(contentsOf: effects.materialFunctionMutations)
                 animationMutations.append(contentsOf: effects.animationMutations)
@@ -734,7 +763,8 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
             materialFunctionMutations: materialFunctionMutations,
             animationMutations: animationMutations,
             layerMutations: layerMutations,
-            ownerEffects: ownerEffects
+            ownerEffects: ownerEffects,
+            timelineInputTargets: timelineInputTargets
         )
     }
 

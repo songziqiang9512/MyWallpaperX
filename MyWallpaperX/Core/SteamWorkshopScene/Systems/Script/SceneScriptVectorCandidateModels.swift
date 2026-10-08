@@ -2,6 +2,9 @@ import Foundation
 
 nonisolated struct SceneScriptValueEvaluation: Equatable, Sendable {
     let value: SceneDynamicValue
+    /// A no-update scalar adopted its input, rather than an active callback or
+    /// finite bound property. Admission may rebase it onto the same Timeline preview.
+    let scalarValueFollowsInput: Bool
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
@@ -24,12 +27,14 @@ nonisolated struct SceneScriptValueEvaluation: Equatable, Sendable {
             [SceneTextureAnimationCommand],
         particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = [],
         puppetAnimationCommands: [ScenePuppetAnimationCommand] = [],
-        puppetAnimationCallbackRegistrations: Int = 0
+        puppetAnimationCallbackRegistrations: Int = 0,
+        scalarValueFollowsInput: Bool = false
     ) {
         self.puppetAnimationCommands = puppetAnimationCommands
         self.puppetAnimationCallbackRegistrations = puppetAnimationCallbackRegistrations
         self.particlePlaybackCommands = particlePlaybackCommands
         self.value = value
+        self.scalarValueFollowsInput = scalarValueFollowsInput
         self.materialFunctionMutations = materialFunctionMutations
         self.animationMutations = animationMutations
         self.layerMutations = layerMutations

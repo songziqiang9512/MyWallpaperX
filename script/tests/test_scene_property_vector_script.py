@@ -22,6 +22,10 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 VM = SCENE / "Systems/Script"
 QUICKJS = VM / "QuickJSNG"
 SOURCES = [
+    SCENE / "Format/SceneTimelineAnimation.swift",
+    SCENE / "Systems/Timeline/SceneTimelineEvaluator.swift",
+    SCENE / "Systems/Timeline/SceneTimelineRuntime.swift",
+    SCENE / "Systems/Timeline/SceneTimelinePlaybackRuntime.swift",
     SCENE / "Systems/Particles/SceneParticlePlaybackModels.swift",
     SCENE / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
     SCENE / "Format/SceneJSONValue.swift",
@@ -93,6 +97,11 @@ HARNESS = "\n".join((FIXTURES / name).read_text(encoding="utf-8") for name in (
     'ScenePropertyVectorMediaCases.swift',
     'ScenePropertyVectorMaterialCases.swift',
 ))
+# Use the production binding/program declarations without pulling the unrelated
+# descriptor compiler into this VM fixture; all sampling/playback stays real.
+HARNESS += (SCENE / "Systems/Timeline/SceneTimelineTargetCompiler.swift").read_text(
+    encoding="utf-8"
+).split("nonisolated enum SceneTimelineTargetCompiler", 1)[0]
 
 
 class ScenePropertyVectorScriptTests(unittest.TestCase):
@@ -339,6 +348,28 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["passTimelineCommands"], ["stop", "play"])
         self.assertTrue(value["passTimelineGenerationDeduplicated"])
         retained = value["passTimelineAfterRejection"]
+        self.assertEqual(retained["eventFrame"]["oldInput"], 0)
+        self.assertEqual(retained["eventFrame"]["preview"], 1)
+        self.assertEqual(retained["eventFrame"]["settled"], 1, retained["eventFrame"])
+        event = retained["eventFrame"]
+        self.assertEqual(event["source"], "sceneScript")
+        for key in ("followsInput", "foreignUnchanged", "rejectedEmpty", "noCommandUnchanged",
+                    "previewDidNotCommit", "throwUnpublished"):
+            self.assertTrue(event[key], (key, event))
+        self.assertEqual(event["nextFrame"], 0.75)
+        self.assertEqual(event["coordinatorSettled"], 1)
+        self.assertEqual(event["activeInit"], 0.2)
+        self.assertEqual(event["activeUpdate"], 0.3)
+        self.assertEqual(event["equalInit"], 0)
+        self.assertEqual(event["equalUpdate"], 0)
+        self.assertEqual(event["overlay"], 0.7)
+        self.assertEqual(event["equalOverlay"], 0)
+        self.assertEqual(event["pendingInit"], 0.3)
+        self.assertEqual(event["pendingInitAfterRejection"], 0.3)
+        self.assertTrue(event["rejectedCommandsNotReplayed"])
+        self.assertEqual(event["intensityProjection"], [-1, 1, 2])
+        self.assertGreater(event["materialProjection"][0], 3.4e38)
+        self.assertEqual(event["materialProjection"][1:], [1, 2])
         self.assertEqual(retained["firstFailures"], 0, retained)
         self.assertEqual(retained["firstCommands"], ["stop", "play"], retained)
         self.assertEqual(retained["duplicateCommands"], [], retained)
