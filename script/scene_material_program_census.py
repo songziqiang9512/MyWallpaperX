@@ -225,6 +225,7 @@ struct SceneRenderDescriptor: Decodable {
 // Template compilation uses these production concepts, while Program
 // finalization is deliberately unavailable without immutable frame snapshots.
 enum SceneDynamicTarget: Hashable {
+    case materialConstant(layerID: Int, passIndex: Int, name: String, materialPath: String = "")
     case effectVisibility(layerID: Int, effectIndex: Int)
     case effectConstant(
         layerID: Int, effectIndex: Int, passIndex: Int, name: String
