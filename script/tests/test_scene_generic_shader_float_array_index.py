@@ -38,6 +38,14 @@ private struct FloatArrayIndexHarness {
         let arguments = CommandLine.arguments
         let vertex = try String(contentsOfFile: arguments[1], encoding: .utf8)
         let fragment = try String(contentsOfFile: arguments[2], encoding: .utf8)
+        let frontend = SceneAuthoredShaderFrontend.compile(
+            vertexSource: vertex, fragmentSource: fragment
+        )
+        var result: [String: Any] = [
+            "boundedHasProgram": frontend.program != nil,
+            "boundedDiagnostics": frontend.diagnostics.map { $0.code.rawValue },
+            "boundedMetal": frontend.program?.metalSource ?? "",
+        ]
         switch SceneGenericShaderSourceNormalizer.normalize(
             vertexSource: vertex,
             fragmentSource: fragment,
@@ -46,10 +54,14 @@ private struct FloatArrayIndexHarness {
         case let .success(pair):
             try pair.vertex.write(toFile: arguments[3], atomically: true, encoding: .utf8)
             try pair.fragment.write(toFile: arguments[4], atomically: true, encoding: .utf8)
-            print(json: ["ok": true, "vertex": pair.vertex, "fragment": pair.fragment])
+            result["ok"] = true
+            result["vertex"] = pair.vertex
+            result["fragment"] = pair.fragment
         case let .failure(failure):
-            print(json: ["ok": false, "failure": String(describing: failure)])
+            result["ok"] = false
+            result["failure"] = String(describing: failure)
         }
+        print(json: result)
     }
 
     private static func print(json value: [String: Any]) {
@@ -91,8 +103,8 @@ class SceneGenericShaderFloatArrayIndexTests(unittest.TestCase):
 
         shutil.rmtree(cls.root, ignore_errors=True)
 
-    def _normalize(self, fragment: str) -> tuple[dict, Path]:
-        vertex = """attribute vec3 a_Position;
+    def _normalize(self, fragment: str, vertex: str | None = None) -> tuple[dict, Path]:
+        vertex = vertex or """attribute vec3 a_Position;
 attribute vec2 a_TexCoord;
 varying vec2 v_TexCoord;
 void main() {
@@ -213,6 +225,236 @@ void main() { gl_FragColor = vec4(mod(v_TexCoord.x, v_TexCoord.y)); }
         )
         self.assertFalse(result["ok"], result)
         self.assertEqual(result.get("failure"), "declarationUnsupported")
+
+    def test_dead_uniform_stage_shapes_do_not_revoke_linked_program(self) -> None:
+        vertex = """attribute vec3 a_Position;
+attribute vec2 a_TexCoord;
+uniform vec2 u_Reference;
+varying vec2 v_TexCoord;
+void main() {
+    gl_Position = vec4(a_Position, 1.0);
+    v_TexCoord = a_TexCoord;
+}
+"""
+        fragment = """uniform float u_Reference;
+varying vec2 v_TexCoord;
+void main() { gl_FragColor = vec4(v_TexCoord, 0.25, 1.0); }
+"""
+        standard, _ = self._normalize(
+            fragment.replace("uniform float u_Reference;\n", ""),
+            vertex.replace("uniform vec2 u_Reference;\n", ""),
+        )
+        result, output = self._normalize(fragment, vertex)
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["vertex"], standard["vertex"])
+        self.assertEqual(result["fragment"], standard["fragment"])
+        subprocess.run([
+            str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations", "-l",
+            str(self.root / "output.vert"), str(output),
+        ], cwd=self.root, check=True, capture_output=True, text=True)
+
+    def test_fragment_member_declaration_preserves_complete_vec4(self) -> None:
+        vertex = """attribute vec3 a_Position;
+attribute vec2 a_TexCoord;
+varying vec4 v_Span;
+void main() {
+    gl_Position = vec4(a_Position, 1.0);
+    v_Span = vec4(a_TexCoord, 0.1, 0.2);
+}
+"""
+        for expression in (
+            "vec4(v_Span.z, v_Span.w, v_Span.x, 1.0)",
+            "texSample2D(g_Texture0, v_Span.xy + v_Span.zw)",
+        ):
+            outputs = []
+            for suffix in ("", ".xy"):
+                with self.subTest(expression=expression, suffix=suffix):
+                    result, output = self._normalize(
+                        "uniform sampler2D g_Texture0;\n"
+                        f"varying vec4 v_Span{suffix}; // full linked value\n"
+                        f"void main() {{ gl_FragColor = {expression}; }}\n",
+                        vertex,
+                    )
+                    self.assertTrue(result["ok"], result)
+                    self.assertTrue(result["boundedHasProgram"], result)
+                    self.assertEqual(result["boundedDiagnostics"], [])
+                    subprocess.run(
+                        [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations", "-l",
+                         str(self.root / "output.vert"), str(output)],
+                        cwd=self.root, check=True, capture_output=True, text=True,
+                    )
+                    outputs.append((result["vertex"], result["fragment"], result["boundedMetal"]))
+            self.assertEqual(outputs[0], outputs[1])
+
+    def test_same_name_shadow_and_member_tokens_keep_shape_conflict_rejected(self) -> None:
+        bodies = (
+            ("u_Reference", "void main() { vec2 u_Reference = a_TexCoord; gl_Position = vec4(u_Reference, 0.0, 1.0); v_TexCoord = a_TexCoord; }"),
+            ("u_Reference", "vec2 pass(vec2 u_Reference) { return u_Reference; }\nvoid main() { gl_Position = vec4(pass(a_TexCoord), 0.0, 1.0); v_TexCoord = a_TexCoord; }"),
+            ("x", "void main() { gl_Position = vec4(a_Position.x, a_Position.y, 0.0, 1.0); v_TexCoord = a_TexCoord; }"),
+            ("u_Reference", "void main() { v_TexCoord = a_TexCoord; for (int u_Reference = 0; u_Reference < 2; u_Reference++) v_TexCoord += vec2(float(u_Reference)); gl_Position = vec4(a_Position, 1.0); }"),
+            ("u_Reference", "void main() { v_TexCoord = a_TexCoord; for (int u_Reference = 0; u_Reference < 2; u_Reference++) if (a_TexCoord.x < 0.5) { v_TexCoord += vec2(float(u_Reference)); } else v_TexCoord -= vec2(float(u_Reference)); gl_Position = vec4(a_Position, 1.0); }"),
+        )
+        for name, body in bodies:
+            with self.subTest(name=name, body=body):
+                vertex = ("attribute vec3 a_Position;\nattribute vec2 a_TexCoord;\n"
+                          f"uniform vec2 {name};\nvarying vec2 v_TexCoord;\n{body}\n")
+                fragment = (f"uniform float {name};\nvarying vec2 v_TexCoord;\n"
+                            f"void main() {{ gl_FragColor = vec4({name}); }}\n")
+                standard, _ = self._normalize(fragment, vertex.replace(f"uniform vec2 {name};\n", ""))
+                self.assertTrue(standard["ok"], standard.get("failure"))
+                subprocess.run([
+                    str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations", "-l",
+                    str(self.root / "output.vert"), str(self.root / "output.frag"),
+                ], cwd=self.root, check=True, capture_output=True, text=True)
+                result, _ = self._normalize(fragment, vertex)
+                self.assertFalse(result["ok"], body)
+                self.assertEqual(result.get("failure"), "uniformUnsupported")
+
+    def test_initializer_and_selection_scopes_remain_legal_without_shape_conflict(self) -> None:
+        for body in (
+            "vec2 u_Reference = vec2(u_Reference);",
+            "if (a_TexCoord.x < 0.5) vec2 u_Reference = vec2(0.25);",
+        ):
+            with self.subTest(body=body):
+                vertex = ("attribute vec3 a_Position;\nattribute vec2 a_TexCoord;\n"
+                          "uniform vec2 u_Reference;\nvarying vec2 v_TexCoord;\n"
+                          "void main() { " + body + " gl_Position = vec4(a_Position, 1.0); v_TexCoord = a_TexCoord + u_Reference; }\n")
+                fragment = ("uniform vec2 u_Reference;\nvarying vec2 v_TexCoord;\n"
+                            "void main() { gl_FragColor = vec4(v_TexCoord + u_Reference, 0.0, 1.0); }\n")
+                result, output = self._normalize(fragment, vertex)
+                self.assertTrue(result["ok"], result.get("failure"))
+                subprocess.run([
+                    str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations", "-l",
+                    str(self.root / "output.vert"), str(output),
+                ], cwd=self.root, check=True, capture_output=True, text=True)
+
+    def test_live_uniform_in_vertex_keeps_shape_when_fragment_declaration_is_dead(self) -> None:
+        vertex = ("attribute vec3 a_Position;\nattribute vec2 a_TexCoord;\n"
+                  "uniform vec2 u_Reference;\nvarying vec2 v_TexCoord;\n"
+                  "void main() { gl_Position = vec4(a_Position, 1.0); v_TexCoord = a_TexCoord + u_Reference; }\n")
+        fragment = ("uniform float u_Reference;\nvarying vec2 v_TexCoord;\n"
+                    "void main() { gl_FragColor = vec4(v_TexCoord, 0.0, 1.0); }\n")
+        standard, _ = self._normalize(fragment.replace("uniform float u_Reference;\n", ""), vertex)
+        result, output = self._normalize(fragment, vertex)
+        self.assertTrue(result["ok"], result.get("failure"))
+        self.assertEqual(result["vertex"], standard["vertex"])
+        self.assertEqual(result["fragment"], standard["fragment"])
+        subprocess.run([
+            str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations", "-l",
+            str(self.root / "output.vert"), str(output),
+        ], cwd=self.root, check=True, capture_output=True, text=True)
+
+    def test_active_stage_uniform_shape_conflicts_remain_rejected(self) -> None:
+        bodies = (
+            "void main() { gl_Position = vec4(a_Position, 1.0); v_TexCoord = a_TexCoord + u_Reference; }",
+            "void main() { vec2 value = u_Reference; gl_Position = vec4(a_Position, 1.0); v_TexCoord = value; }",
+            "void main() { vec2 u_Reference = vec2(u_Reference); gl_Position = vec4(a_Position, 1.0); v_TexCoord = a_TexCoord + u_Reference; }",
+            "void main() { if (a_TexCoord.x < 0.5) vec2 u_Reference = vec2(0.25); gl_Position = vec4(a_Position, 1.0); v_TexCoord = a_TexCoord + u_Reference; }",
+            "vec2 value() { return u_Reference; }\nvoid main() { gl_Position = vec4(a_Position, 1.0); v_TexCoord = value(); }",
+            "void main() { { vec2 u_Reference = a_TexCoord; v_TexCoord = u_Reference; } gl_Position = vec4(a_Position, 1.0); v_TexCoord += u_Reference; }",
+            "void main() { v_TexCoord = a_TexCoord; for (int u_Reference = 0; u_Reference < 2; u_Reference++) { v_TexCoord += vec2(float(u_Reference)); } gl_Position = vec4(a_Position, 1.0); v_TexCoord += u_Reference; }",
+            "void main() { v_TexCoord = a_TexCoord; for (int u_Reference = 0; u_Reference < 2; u_Reference++) v_TexCoord += vec2(float(u_Reference)); gl_Position = vec4(a_Position, 1.0); v_TexCoord += u_Reference; }",
+            "void main() { v_TexCoord = a_TexCoord; for (int u_Reference = 0; u_Reference < 2; u_Reference++) for (int inner = 0; inner < 2; inner++) { v_TexCoord += vec2(float(u_Reference)); } gl_Position = vec4(a_Position, 1.0); v_TexCoord += u_Reference; }",
+            "void main() { v_TexCoord = a_TexCoord; for (int u_Reference = 0; u_Reference < 2; u_Reference++) if (a_TexCoord.x < 0.5) { v_TexCoord += vec2(float(u_Reference)); } else v_TexCoord -= vec2(float(u_Reference)); gl_Position = vec4(a_Position, 1.0); v_TexCoord += u_Reference; }",
+        )
+        for body in bodies:
+            with self.subTest(body=body):
+                result, _ = self._normalize(
+                    "uniform float u_Reference;\nvarying vec2 v_TexCoord;\n"
+                    "void main() { gl_FragColor = vec4(u_Reference); }\n",
+                    "attribute vec3 a_Position;\nattribute vec2 a_TexCoord;\n"
+                    f"uniform vec2 u_Reference;\nvarying vec2 v_TexCoord;\n{body}\n",
+                )
+                self.assertFalse(result["ok"], body)
+                self.assertEqual(result.get("failure"), "uniformUnsupported")
+
+    def test_invalid_dead_uniform_shapes_still_fail_closed(self) -> None:
+        vertex = ("attribute vec3 a_Position;\nattribute vec2 a_TexCoord;\n"
+                  "uniform vec2 u_Reference;\nvarying vec2 v_TexCoord;\n"
+                  "void main() { gl_Position = vec4(a_Position, 1.0); v_TexCoord = a_TexCoord; }\n")
+        for declaration, body in (
+            ("uniform vec2 u_Reference[2];", "gl_FragColor = vec4(v_TexCoord, 0.0, 1.0);"),
+            ("uniform Unknown u_Reference;", "gl_FragColor = vec4(v_TexCoord, 0.0, 1.0);"),
+        ):
+            with self.subTest(declaration=declaration):
+                result, _ = self._normalize(
+                    declaration + "\nvarying vec2 v_TexCoord;\nvoid main() { " + body + " }\n",
+                    vertex,
+                )
+                self.assertFalse(result["ok"], result.get("failure"))
+                self.assertEqual(result.get("failure"), "uniformUnsupported")
+        fragment = ("uniform float u_Reference;\nvarying vec2 v_TexCoord;\n"
+                    "void main() { if (v_TexCoord.x < 0.5) discard; gl_FragColor = vec4(u_Reference); }\n")
+        standard, _ = self._normalize(fragment, vertex.replace("uniform vec2 u_Reference;\n", ""))
+        result, output = self._normalize(fragment, vertex)
+        self.assertTrue(result["ok"], result.get("failure"))
+        self.assertEqual(result["vertex"], standard["vertex"])
+        self.assertEqual(result["fragment"], standard["fragment"])
+        subprocess.run([
+            str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations", "-l",
+            str(self.root / "output.vert"), str(output),
+        ], cwd=self.root, check=True, capture_output=True, text=True)
+
+    def test_member_declaration_rejects_unproven_storage_shape_and_suffix(self) -> None:
+        declarations = (
+            "uniform vec4 u_Value.xy;", "attribute vec4 a_Value.xy;",
+            "varying vec2 v_Value.xy;", "varying vec3 v_Value.xy;",
+            "varying vec4 v_Value.zw;", "varying vec4 v_Value.rg;",
+            "varying vec4 v_Value.xq;", "varying vec4 v_Value.xy.z;",
+            "varying vec4 v_Value.xy[2];", "varying vec4 v_Value[2].xy;",
+            "varying vec4 v_Value.xy = vec4(1.0);",
+            "varying vec4 v_Value.xy",
+        )
+        for declaration in declarations:
+            with self.subTest(declaration=declaration):
+                result, _ = self._normalize(
+                    declaration + "\nvarying vec2 v_TexCoord;\n"
+                    "void main() { gl_FragColor = vec4(v_TexCoord, 0.0, 1.0); }\n"
+                )
+                self.assertFalse(result["ok"], result)
+                self.assertEqual(result.get("failure"), "declarationUnsupported")
+                self.assertIn("unsupportedDeclaration", result["boundedDiagnostics"])
+        result, _ = self._normalize(
+            "varying vec2 v_TexCoord;\nvoid main() { gl_FragColor = vec4(v_TexCoord, 0.0, 1.0); }\n",
+            "attribute vec3 a_Position;\nattribute vec2 a_TexCoord;\n"
+            "varying vec4 v_Span.xy;\nvarying vec2 v_TexCoord;\n"
+            "void main() { gl_Position = vec4(a_Position, 1.0); v_TexCoord = a_TexCoord; }\n",
+        )
+        self.assertFalse(result["ok"], result)
+        self.assertEqual(result.get("failure"), "declarationUnsupported")
+        self.assertIn("unsupportedDeclaration", result["boundedDiagnostics"])
+
+    def test_member_declaration_cannot_supply_missing_vertex_components(self) -> None:
+        result, _ = self._normalize(
+            "uniform sampler2D g_Texture0;\nvarying vec4 v_Span.xy;\n"
+            "void main() { gl_FragColor = texSample2D(g_Texture0, v_Span.xy + v_Span.zw); }\n",
+            "attribute vec3 a_Position;\nattribute vec2 a_TexCoord;\n"
+            "varying vec3 v_Span;\n"
+            "void main() { gl_Position = vec4(a_Position, 1.0); v_Span = vec3(a_TexCoord, 0.5); }\n",
+        )
+        self.assertFalse(result["ok"], result)
+        self.assertEqual(result.get("failure"), "varyingUnsupported")
+        self.assertFalse(result["boundedHasProgram"], result)
+        self.assertNotIn("unsupportedDeclaration", result["boundedDiagnostics"])
+
+    def test_fragment_duplicate_varying_requires_matching_type_and_array_count(self) -> None:
+        body = "void main() { gl_FragColor = vec4(v_TexCoord, 0.0, 1.0); }\n"
+        result, output = self._normalize(
+            "varying vec2 v_TexCoord;\nvarying vec2 v_TexCoord;\n" + body
+        )
+        self.assertTrue(result["ok"], result)
+        subprocess.run(
+            [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations", "-l",
+             str(self.root / "output.vert"), str(output)],
+            cwd=self.root, check=True, capture_output=True, text=True,
+        )
+        for repeated in ("varying vec3 v_TexCoord;", "varying vec2 v_TexCoord[2];"):
+            with self.subTest(repeated=repeated):
+                result, _ = self._normalize(
+                    "varying vec2 v_TexCoord;\n" + repeated + "\n" + body
+                )
+                self.assertFalse(result["ok"], result)
+                self.assertEqual(result.get("failure"), "declarationDuplicate")
 
     def test_member_and_function_identifiers_fail_closed(self) -> None:
         result, output = self._normalize("""uniform float g_AudioSpectrum32Left[32];

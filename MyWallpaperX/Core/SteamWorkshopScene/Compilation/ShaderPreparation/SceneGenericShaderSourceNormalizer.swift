@@ -54,7 +54,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         // noise, not an unsupported declaration: a real workshop shader
         // (`varying vec2 v_TexCoord; ` with no annotation) was rejected here
         // and lost its effect to the shared-backend fallback.
-        #"^\s*(uniform|attribute|varying)\s+([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s*\[\s*([0-9]+)\s*\])?\s*;\s*(?://.*)?$"#
+        #"^\s*(uniform|attribute|varying)\s+([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)?(?:\s*\[\s*([0-9]+)\s*\])?\s*;\s*(?://.*)?$"#
     )
 
     static func normalize(
@@ -100,6 +100,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 "fragment": try parse(typedFragmentSource, stage: "fragment"),
             ]
             var uniforms: [String: Shape] = [:]
+            var uniformStages: [String: String] = [:]
             var samplers: [String: Int] = [:]
             var attributes: [String: Shape] = [:]
             var stageVaryingShapes: [String: [String: Shape]] = [
@@ -128,8 +129,24 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                                   item.count == nil || isAudioSpectrumArray(item) else {
                                 throw Failure.uniformUnsupported
                             }
-                            try insert(shape, name: item.name, into: &uniforms,
-                                       failure: .uniformUnsupported)
+                            if let previous = uniforms[item.name], previous != shape {
+                                guard let previousStage = uniformStages[item.name],
+                                      let previousBody = parsed[previousStage]?.body else {
+                                    throw Failure.uniformUnsupported
+                                }
+                                let previousIsLive = maskedContainsWord(item.name, in: previousBody)
+                                let currentIsLive = maskedContainsWord(item.name, in: value.body)
+                                guard !previousIsLive || !currentIsLive else {
+                                    throw Failure.uniformUnsupported
+                                }
+                                if !currentIsLive { continue }
+                            }
+                            // Only a conflicting declaration whose name is
+                            // absent from its stage body exits the merge.
+                            // Shadowed names and member tokens remain live;
+                            // no scope inference may change the shared ABI.
+                            uniforms[item.name] = shape
+                            uniformStages[item.name] = stage
                         }
                     case "attribute":
                         guard stage == "vertex", item.count == nil,
@@ -408,12 +425,12 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
     ) throws -> ParsedStage {
         var kept: [String] = []
         var declarations: [Declaration] = []
-        var seen = Set<String>()
+        var seen: [String: Declaration] = [:]
         // The authoritative WE toolchain tolerated a repeated identical
         // varying declaration in the fragment stage (authored bundles
         // concatenate sources and may repeat the declaration). Keep the
-        // first and drop the duplicate; a conflicting type still throws
-        // through the `varying` value-type guard below.
+        // first and drop the identical duplicate; a conflicting type or
+        // array shape is rejected here.
         let duplicateVaryingAllowed = stage == "fragment"
         for line in source.replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
@@ -428,23 +445,39 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 kept.append(line)
                 continue
             }
-            let storage = capture(match, 1, in: line)
-            let type = capture(match, 2, in: line)
-            let name = capture(match, 3, in: line)
             let count = Int(capture(match, 4, in: line))
             if let count, !(1 ... 128).contains(count) { throw Failure.arrayUnsupported }
-            guard seen.insert("\(storage)|\(name)").inserted else {
+            let kind: SceneShaderContract.StageKind = stage == "vertex" ? .vertex : .fragment
+            let lexical = SceneAuthoredShaderLexer.lex(source: line, stage: kind)
+            guard lexical.diagnostics.isEmpty,
+                  let storage = SceneAuthoredShaderSyntaxUnit.Storage(
+                    rawValue: capture(match, 1, in: line)
+                  ),
+                  let item = SceneAuthoredShaderSyntaxAnalyzer.declaration(
+                    at: 0, storage: storage, tokens: lexical.tokens, stage: kind
+                  ), item.range.upperBound == lexical.tokens.count else {
+                throw Failure.declarationUnsupported
+            }
+            let type = item.typeName
+            let name = item.name
+            let storageName = storage.rawValue
+            let value = Declaration(
+                storage: storageName, type: type, name: name, count: item.arraySize
+            )
+            let identity = "\(storageName)|\(name)"
+            if let previous = seen[identity] {
                 // The authoritative toolchain tolerated a repeated identical
                 // varying declaration in fragment sources (bundled shaders
-                // concatenate stages); keep the first and drop the rest. A
-                // conflicting type still fails the value-type guard.
-                if duplicateVaryingAllowed, storage == "varying",
-                   line.contains(type) {
+                // concatenate stages); keep the first only when both value
+                // type and array shape agree.
+                if duplicateVaryingAllowed, storage == .varying,
+                   previous.type == value.type, previous.count == value.count {
                     continue
                 }
                 throw Failure.declarationDuplicate
             }
-            declarations.append(.init(storage: storage, type: type, name: name, count: count))
+            seen[identity] = value
+            declarations.append(value)
         }
         return .init(body: kept.joined(separator: "\n"), declarations: declarations)
     }

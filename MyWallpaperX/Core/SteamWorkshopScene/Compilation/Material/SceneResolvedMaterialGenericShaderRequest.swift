@@ -33,9 +33,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
     ) -> String {
         var data = Data()
         for value in [
-            // v17 preserves extended RGB at the shared color boundary,
-            // retiring clipped artifacts in default and override cache roots.
-            "mwx-generic-shader-request-v17",
+            // v19 retires the intermediate uniform-shape normalization
+            // namespace; conflict admission now requires stage-body absence.
+            "mwx-generic-shader-request-v19",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,

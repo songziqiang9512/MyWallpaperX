@@ -93,7 +93,8 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
                 guard let declaration = declaration(
                     at: index,
                     storage: storage,
-                    tokens: tokens
+                    tokens: tokens,
+                    stage: stage
                 ) else {
                     return failure(
                         .unsupportedDeclaration,
@@ -170,10 +171,11 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
         )
     }
 
-    private static func declaration(
+    static func declaration(
         at index: Int,
         storage: SceneAuthoredShaderSyntaxUnit.Storage,
-        tokens: [SceneAuthoredShaderToken]
+        tokens: [SceneAuthoredShaderToken],
+        stage: SceneShaderContract.StageKind
     ) -> SceneAuthoredShaderSyntaxUnit.Declaration? {
         guard index + 3 < tokens.count,
               tokens[index + 1].kind == .identifier,
@@ -183,6 +185,16 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
         let typeName = tokens[index + 1].text
         let name = tokens[index + 2].text
         var cursor = index + 3
+        if tokens[cursor].text == "." {
+            // The authored fragment dialect admits this name suffix while
+            // retaining the complete vec4 interface, including z/w reads.
+            // It is not a projection or a general member declaration rule.
+            guard stage == .fragment, storage == .varying, typeName == "vec4",
+                  cursor + 2 < tokens.count,
+                  tokens[cursor + 1].text == "xy",
+                  tokens[cursor + 2].text == ";" else { return nil }
+            cursor += 2
+        }
         var arraySize: Int?
         if tokens[cursor].text == "[" {
             guard cursor + 2 < tokens.count,
