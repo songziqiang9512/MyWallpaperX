@@ -65,8 +65,8 @@
       "bytes": 11331
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 312,
-      "bytes": 60695
+      "lines": 314,
+      "bytes": 61242
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 170525
+      "bytes": 170355
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -93,8 +93,8 @@
       "bytes": 339338
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 88,
-      "bytes": 20690
+      "lines": 89,
+      "bytes": 21787
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 219,
-      "bytes": 52968
+      "bytes": 53034
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1095,29 +1095,29 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "c0c699f8e5ce0e2e4ef907e68685690600a2952a74630b19d6a2aac01862270b",
-      "after": "c0f2f4604e570ac35a098c6cd06581ad0bee5e2beff2b169793dd9eaae08330b",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "b63c547f1e78653bd39e44c05140a279bab4452fdfef455231f4658da603e0f2",
+      "after": "04234e0436fe560b241dc88e31391072cc98e4f8bc2c0d1b4afbb016dd657c41",
       "owner": "scene-p-route",
-      "reason": "登记继承视差调用端实际修复，替换U03断点并区分U18/U19剩余问题；复用现役队列。",
+      "reason": "补记现reader版本配对和U18真实恢复，保留未知字段、交互和fallback边界；替换已闭断点。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "8883782e942c22e327f80beedf4085a5fa3e3c6f9c0b0f907533afa0bb6d1b92",
-      "after": "8d79f28ac60b98a18573e76838a866ba57a6d3d281722df674a83bd9eee2c805",
+      "before": "8d79f28ac60b98a18573e76838a866ba57a6d3d281722df674a83bd9eee2c805",
+      "after": "10fdf0b7315b3562fa4a7f7726e4c0e03fcdf6e442164eba2e8fd5d52a55aaaa",
       "owner": "scene-p-route",
-      "reason": "登记继承视差调用端实际修复，替换U03断点并区分U18/U19剩余问题；复用现役队列。",
+      "reason": "补记现reader版本配对和U18真实恢复，保留未知字段、交互和fallback边界；替换已闭断点。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "25d385b813e9bdac038160bfd172b80799ef7de9156d513851d98cb8b14b3c88",
-      "after": "9498bd522255d59c1caf88a6cc566ad7cf43122cfc464920e65deed0fff570fd",
+      "before": "9498bd522255d59c1caf88a6cc566ad7cf43122cfc464920e65deed0fff570fd",
+      "after": "a0499fd431774f15cd6db7b8dd32f64b87fbd167c2132285603d9741a042f378",
       "owner": "scene-p-route",
-      "reason": "登记继承视差调用端实际修复，替换U03断点并区分U18/U19剩余问题；复用现役队列。",
+      "reason": "补记现reader版本配对和U18真实恢复，保留未知字段、交互和fallback边界；替换已闭断点。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
     }
   ]

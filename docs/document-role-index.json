@@ -437,7 +437,15 @@
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
-      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
+      "lastReviewed": "2026-10-08",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "61f7cebea8773e511f9e2601c2109bb0fd30d882f057640a598857e9fae7d1b6",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "核对MDLV0021现reader版本配对、U18实机挂点恢复及剩余边界。",
+        "limitations": "不代表未知MDLS后缀、官方逐像素、完整交互或全样本验收。"
+      }
     },
     {
       "path": "docs/scene/capabilities/alpha-display-fallback-design.md",
@@ -453,10 +461,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "87db7abcf864d9bae6537e7f7201a27d066414298f7ff411ae0bb244aa1449fb",
+        "sourceSHA256": "09b27973a75887ac7949453989f79cde65e4e1f4b8fb1b3bc8fc5ea4eb3d216b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对继承视差共享位置修复、U03原包输出及U18/U19未闭合边界。",
-        "limitations": "不代表官方逐像素、完整交互或全样本兼容验收。"
+        "scope": "核对MDLV0021现reader版本配对、U18实机挂点恢复及剩余边界。",
+        "limitations": "不代表未知MDLS后缀、官方逐像素、完整交互或全样本验收。"
       }
     },
     {
@@ -514,10 +522,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ae0b4fccea134847d7db373b3bff3cac1d1c5a617040d9713dab87299c76ecdf",
+        "sourceSHA256": "04ba3eab7ea7fde07f0172183f351fcfd0067e1698deaf25d8a408efb1331bf8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对继承视差共享位置修复、U03原包输出及U18/U19未闭合边界。",
-        "limitations": "不代表官方逐像素、完整交互或全样本兼容验收。"
+        "scope": "核对MDLV0021现reader版本配对、U18实机挂点恢复及剩余边界。",
+        "limitations": "不代表未知MDLS后缀、官方逐像素、完整交互或全样本验收。"
       }
     },
     {
@@ -1901,10 +1909,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b498f67688fe87f05c75415f181ce8e9faf195aa24619bad45673dac6f54a6fe",
+        "sourceSHA256": "5081175181663cd0b916092f1b6aa68fe038386a8dd5b23184f68405b859bb77",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对继承视差共享位置修复、U03原包输出及U18/U19未闭合边界。",
-        "limitations": "不代表官方逐像素、完整交互或全样本兼容验收。"
+        "scope": "核对MDLV0021现reader版本配对、U18实机挂点恢复及剩余边界。",
+        "limitations": "不代表未知MDLS后缀、官方逐像素、完整交互或全样本验收。"
       }
     },
     {
