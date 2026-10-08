@@ -492,10 +492,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e1337b53619770bb4e44f5ecc145258de383b1d80f9d60a8304f5c6559ee8dce",
+        "sourceSHA256": "3b2e6f1090f3880443e699faa864dbad112dbe773439a6e99f2b73796cac3fc4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步封面mask、Timeline连续值、数字条件的现owner与有界实机证据；替换旧断点并保存后继事件帧、资源依赖和decoder问题。",
-        "limitations": "仅导航与当前修复证据边界核对；不代表全样本、真实播放器或官方parity验收。"
+        "scope": "替换已闭合的死纹理依赖与背景输入 ABI 断点，核对共享 owner、真实矩形恢复和下一项通用纹理/颜色队列。",
+        "limitations": "不代表官方逐像素、全部交互、真实音频/媒体或全样本兼容验收。"
       }
     },
     {
@@ -506,10 +506,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f827fd1b637bed8b3273f4c8b963bd41b46a18d134d7cc60b7e1d04a4d70b237",
+        "sourceSHA256": "bf8c1eb1aab20481fd6d133e40bfaad49d97b75c3cd12f808685510f9c8d80ba",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步同帧scalar透传与admitted Timeline preview合同、真实封面事件帧后验及剩余布局/编译依赖队列。",
-        "limitations": "仅本批合同与证据边界；不证明真实播放器来源、完整样本或官方parity。"
+        "scope": "替换已闭合的死纹理依赖与背景输入 ABI 断点，核对共享 owner、真实矩形恢复和下一项通用纹理/颜色队列。",
+        "limitations": "不代表官方逐像素、全部交互、真实音频/媒体或全样本兼容验收。"
       }
     },
     {
@@ -1893,10 +1893,10 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b6407074562f46445ba9cf6da2ae0a5cc0c42a5d452a63675225e8200ccd9ca0",
+        "sourceSHA256": "70998aef5aa457c325269f5647dad0edffac04e1a6eed04330f67b678e1dfe56",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步同帧scalar透传与admitted Timeline preview合同、真实封面事件帧后验及剩余布局/编译依赖队列。",
-        "limitations": "仅本批合同与证据边界；不证明真实播放器来源、完整样本或官方parity。"
+        "scope": "替换已闭合的死纹理依赖与背景输入 ABI 断点，核对共享 owner、真实矩形恢复和下一项通用纹理/颜色队列。",
+        "limitations": "不代表官方逐像素、全部交互、真实音频/媒体或全样本兼容验收。"
       }
     },
     {

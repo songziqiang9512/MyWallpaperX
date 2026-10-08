@@ -89,12 +89,12 @@
       "bytes": 5005
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 574,
-      "bytes": 336937
+      "lines": 578,
+      "bytes": 339338
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 87,
-      "bytes": 18879
+      "bytes": 19605
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 219,
-      "bytes": 52103
+      "bytes": 52259
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1077,24 +1077,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "ab4df1389650e01549bae153acd0a0b4ccec34398cd6b00835cb841870b767ff",
-      "after": "ed8e74698bc8eae2a9bed2d678a0fabcaabd466e2aefaeba77a15d3b5c2d1db6",
-      "owner": "scene-p-route",
-      "reason": "替换已解决的封面mask与数字条件断点，记录真实连续帧、复审生命周期反例及待修事件时序；不增平行路线。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d4fb8084fcd061ae62f929f1c75f88867753e2f23bd6b9e965d62d29c2d89530",
-      "after": "aeb7516b99ee84d00148f608705827118cdaaf76cfd1e9b73ebe2a2fd800ea38",
-      "owner": "scene-p-route",
-      "reason": "替换已解决的封面mask与数字条件断点，记录真实连续帧、复审生命周期反例及待修事件时序；不增平行路线。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
       "before": "02f1b91473ddedac08c28759fb9fb10cb2a8441756a79c2969f30c32f6d3de88",
       "after": "7d9a27b0a51fa313a6456c576b9694a62add9458c6b2e0bd693a71fe4efe0eef",
@@ -1113,11 +1095,29 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "3534f71f8248d89dcf321958e0b8c2062418e54ded6afe2d40017532d68f2c44",
-      "after": "5f9f1d9f9598f406393f4c653feae5c99209d988a524176223be32f4f19af0b1",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "ed8e74698bc8eae2a9bed2d678a0fabcaabd466e2aefaeba77a15d3b5c2d1db6",
+      "after": "5301b53112cd95b7b42c9a339dbe50975fe611bdfaa82ecf2d99b52c33755ee8",
       "owner": "scene-p-route",
-      "reason": "替换已修同帧旧值断点，明确主动值/回滚与实际输出边界；在原U07卡补副作用反例。",
+      "reason": "用共享编译/背景 ABI 真实修复结果替换已关闭断点，并记录缓存、回归与未覆盖范围；不建平行路线。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "674f322873cd9bddd5c1fe2e3344c31484745d8a768e8da1936fb51bb2a79ee5",
+      "after": "8883782e942c22e327f80beedf4085a5fa3e3c6f9c0b0f907533afa0bb6d1b92",
+      "owner": "scene-p-route",
+      "reason": "用共享编译/背景 ABI 真实修复结果替换已关闭断点，并记录缓存、回归与未覆盖范围；不建平行路线。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "5f9f1d9f9598f406393f4c653feae5c99209d988a524176223be32f4f19af0b1",
+      "after": "25d385b813e9bdac038160bfd172b80799ef7de9156d513851d98cb8b14b3c88",
+      "owner": "scene-p-route",
+      "reason": "用共享编译/背景 ABI 真实修复结果替换已关闭断点，并记录缓存、回归与未覆盖范围；不建平行路线。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
     }
   ]

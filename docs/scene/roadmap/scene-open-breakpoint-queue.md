@@ -83,7 +83,7 @@ T1共享材质切片已闭，T2共享HDR裁剪与暂停恢复已闭合；328自�
 | U04 · 3747190633 | 音频条不出现 | 同声源 audio 输入→作者更新→可见 geometry/材质/合成 |
 | U05 · 3723344874 | 人物背后流体烟雾缺失 | 实际烟雾作者定义→资源/Program或粒子→层序/合成 |
 | U06 · 3662390671 | 大面积纹理缺失 | layer185 Scene.tex为TEXB0004内嵌WebM/VP9；[本机探针](../capabilities/runtime-evidence-current.md#e-2026-10-08-frame-declaration)原WebM报AVFoundation -11828，同码流remux MP4报-11833且0frame。不能仅放宽magic或换容器准入；沿原decode职责选择能实际出帧的方案，系统/设备广泛支持未证。另有同源Frame Builder，尚无当前原包可见复验 |
-| U07 · 3804441338 | 中间方框全白、文字不可见；官方应为两个描边镂空矩形 | [本批原包后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-frame-declaration)：三个occurrence已越过声明/无用uniform冲突与数字scalar三元条件，ordinary Program已accepted；当前首错textureBindingInvalid slot2来自vertex尺寸计算仅供fragment未读的v_Size.zw。现bundled后端-Os不可用、linked/LTO未消除此依赖；下一卡先复现并修正既有direct删除判定漏检`++/--`副作用，再在同一Projection证明dead分量及局部量可删除；复用已解析函数范围，核活跃zw、gl_Position、同名局部和副作用反例，不伪造slot默认、不放资源guard、不新建Swift SSA或renderer。白块/镂空/文字仍待修 |
+| U07 · 3804441338 | 中间方框全白、文字不可见；官方应为两个描边镂空矩形 | **主报告现象已修复，整样本未宣称全通过。** [同身份实机后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-frame-declaration)：共用 Projection 退役重复 regex、移除死 slot2；typed 默认背景 PMA 事实接入实际 generic ABI；导数 builtin 在原后端适配。198/218 两框镂空与时间/日期文字可见，245中心图形及272圆角遮罩编码，18个effect occurrence进入输出、无准备/执行失败。跨样本380620的同源三效果也进入链路。官方逐像素、真实音频/媒体和完整交互未验，不能据此报全样本正确率。 |
 | U08 · 3802005866 | 音频条及背后蓝背景似乎越出作者限定矩形 | 作者边界→变换/clip/target extent；需先确认限定区域合同 |
 | U09 · 3797217144 | 缺奥特曼旋转并由小放大的出场动画 | intro/Timeline/脚本启动、变换及首帧至入场结束时序 |
 | U10 · 3793998447 | 似乎缺作者音频光圈和其他属性 | 音频消费、属性声明→入口→typed 更新；先清点具体未生效属性，不猜字段 |
@@ -120,7 +120,7 @@ T1共享材质切片已闭，T2共享HDR裁剪与暂停恢复已闭合；328自�
 | U41 · 3357627941 | 属性面板无替换视频媒体资源的选择入口 | project 属性类型→现有 AppKit 编辑器/资源选择→typed binding→视频 consumer，不另造 provider |
 | U42 · 跨样本属性面板 | ①打开后浏览/滚动严重卡顿；②疑似原中文属性显示成英文，用户询问官方是否有中英映射并提示参考研究 | 沿既有属性 UI 测主线程/布局/重复解析；查作者 locale token/字典、系统语言与官方 fallback。映射表是否存在未证，不硬编码翻译表 |
 
-**执行顺序及单链约束。** U14封面mask、U13连续scalar及同帧旧值覆盖、U07数字条件技术首断点已闭；下一片处理U07仍阻断encode的dead vertex维度依赖，先修旧direct删除的副作用证明，再扩同一Projection并以活跃分量反例守住资源合同；条纹官方小输入对照已取得有界证据，328物理显示未闭。随后优先 U03/U06/U07/U18/U19/U21/U23 的缺纹理、镂空、错位和混合，按真实首错职责选覆盖最多的可验证切片；同时优先复核 U16/U20/U24/U34“曾好后坏”的回归候选及 U22 的持续退化。再按共同声明/运行拒绝归并光束发光与音频、动画/交互；属性入口与面板问题保持开放，不能因不属 GPU 而漏掉。此为既有 T1/T2/E1 卡的输入排序，服从 P 路线，不另建路线。
+**执行顺序及单链约束。** U14封面mask、U13连续scalar/同帧旧值及U07镂空矩形主报告现象已修；完成项不再当作未做。下一批优先对 U03（3587571382额头缺块）与 U19（3807668787发灰）按纹理采样/混合/颜色输入的共同首错归并，兼顾用户优先提出的HDR/SDR默认变暗；不要先造样本分支。U06的WebM/VP9实际decode和重型样本启动仍为独立高优先级缺口，不能用本片着色器接纳替代。随后继续 U18/U21/U23 纹理与混合，复核 U16/U20/U24/U34“曾好后坏”及 U22 持续退化，再归并光束、音频、动画/交互；属性入口与面板仍开放。条纹官方小输入已有有界证据，328物理显示未闭。顺序仍属于既有T1/T2/E1与P路线，不另建路线。
 
 重写必须在原职责入口替换旧实现，并证明原有效输入/效果和失败隔离不回退；同一输入不可同时走新旧两套 owner。发现能由已有参数、入口或 primitive 表达的能力，优先补接或扩展该处。每批报告逐子现象关闭数、实际复测样本及剩余范围，不把本表录入率当画面修复率。
 
@@ -130,7 +130,7 @@ T1共享材质切片已闭，T2共享HDR裁剪与暂停恢复已闭合；328自�
 |---|---|
 | 粒子子系统/控制点/时长的已知unsupported profile | **能力缺口**：getsuga childScaleOutsideBoundedProfile("1 1 2")、mapsequencebetweencontrolpoints、控制点约束、child变换及深层duration/9999 delay仍有独立缺口。 按真实producer/consumer逐族设计、验证child变换/状态；maxtoemitperperiod另列待研究，不混成倍率问题。 根加载、8/8 particle或Rope可见不证明这些子系统。 [依据1](../capabilities/runtime-evidence-current.md#e-2026-09-28-periodic-instance-overrides)、[依据2](../capabilities/runtime-evidence-current.md#e-2026-09-28-rope-gate-admission) |
 | SceneScript尚未覆盖的类型/骨骼/文字内容边界 | **能力缺口**：angles/reset、文字布局、完整类型转换与String真实可见内容尚未闭合；重力、多骨spring/后继动画另有缺口。 先核实际作者调用与既有owner，再选择有证据的typed输出纵切。 这是现役队列的开放边界；冲量数值未知单独待研究，不用空API消除报错。  |
-| Graph执行大门基线失败 | **验证债待归因**：本批同原harness在`cccea6c1`和修后均271检查、同30项false，新增失败0；mixed/system潜在依赖六项均true。本批增量另确认HEAD同样失败的sync_launch_generation旧入口截取、PBR startup夹具缺type；embedded_image_orientation裸runner的非包import失败，补PYTHONPATH后行为门通过。收据`/private/tmp/mwx-user-repairs-20261008`保留同输入对照；这些测试债不能伪称门全绿。逐项核对输入、旧期待与产品实际行为，不改断言消红，也不直接认定30个产品故障；[失败差集来源](../history/mixed-provider-color-abi-2026-10-08.md)。 |
+| Graph执行大门基线失败 | **验证债待归因**：本批同原harness在`cccea6c1`和修后均271检查、同30项false，新增失败0；mixed/system潜在依赖六项均true。本批增量另确认HEAD同样失败的sync_launch_generation旧入口截取、PBR startup夹具缺type；embedded_image_orientation裸runner的非包import失败，补PYTHONPATH后行为门通过。收据`/private/tmp/mwx-user-repairs-20261008`保留同输入对照；另两门在固定`f79088a5`源码复现同失败：`persistent_history_visual_failure_gpu`的initial passthrough、`preserved_channel_frame_local_unique`的8项false；对照收据`/private/tmp/mwx-scene-background-color-20261008/baseline-comparison-receipt.json`，根因仍待诊断。这些测试债不能伪称门全绿。逐项核对输入、旧期待与产品实际行为，不改断言消红，也不直接认定30个产品故障；[失败差集来源](../history/mixed-provider-color-abi-2026-10-08.md)。 |
 | 共享shader引用分析的scope证明债 | **静态反例已证、实际样本影响未量化**：GlobalReferenceAnalyzer误把局部initializer内同名global及非block if后同名global当局部；现有loop相关遮蔽同需核。红证`/private/tmp/mwx-user-repairs-20261008/frame-declaration/reference-analysis-debt.json`。本批三个analyzer保持原样，新uniform冲突准入只用词法完全无token事实、不消费该证明。后续修原分析owner并核所有消费方，不能另建scope扫描器。 |
 | hidden resolvedMaterial extent Python桩覆盖债 | **能力缺口**：已登记审查P2-1为隐藏provider extent分支的测试覆盖，生产跨层813与同层_a/_b已关闭。 检查最新真实harness是否已覆盖该分支；缺时补行为反例并同步退役旧待办。 未检查到fresh关闭链，只登记测试债，不宣称生产extent错误。  |
 | 累计tombstone扫描Program绑定的非阻断成本 | **能力缺口**：作者退休历史登记剩余Program绑定扫描；同页后继仅关闭双demand memo抖动，未宣称消除此成本。 先取得同输入有效性能基线，再在同owner简化；不新增缓存/拓扑owner。 是成本后继，不是已测FPS/能耗退化。 [依据1](../capabilities/runtime-evidence-current.md)、[依据2](../history/authored-layer-retirement-2026-10-07.md) |
