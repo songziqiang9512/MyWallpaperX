@@ -106,7 +106,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         outputSemantics: SceneGenericShaderOutputSemantics = .color,
         program: Program
     ) {
-        schemaVersion = 8
+        schemaVersion = 9
         kind = "scene-generic-shader-program-artifact"
         self.backendID = backendID
         self.requestKey = requestKey
@@ -122,7 +122,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         expectedFragmentOutputChannelUse:
             SceneAuthoredShaderProgram.FragmentOutputChannelUse
     ) -> SceneAuthoredShaderProgram? {
-        guard schemaVersion == 8,
+        guard schemaVersion == 9,
               kind == "scene-generic-shader-program-artifact",
               backendID == "glslang-spirv-cross-msl-v2",
               requestKey == expectedKey,

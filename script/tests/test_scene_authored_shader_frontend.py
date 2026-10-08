@@ -834,7 +834,7 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(output["diagnosticCodes"], [])
         self.assertIn("mwxUnpremultiply(mwxTexture0.sample", output["metalSource"])
         self.assertIn("returnmwxPremultiply(mwxFragColor);", compact_source)
-        self.assertIn("returnfloat4(color.rgb*alpha,alpha);", compact_source)
+        self.assertRegex(compact_source, r"returnfloat4\(color\.(?:rgb|xyz)\*alpha,alpha\);")
         self.assertIsNone(output.get("metalError"))
 
     def test_additive_output_rejects_unproven_alpha_relationships(self):

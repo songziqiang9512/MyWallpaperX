@@ -33,9 +33,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
     ) -> String {
         var data = Data()
         for value in [
-            // v16 requires a producer-proven vertex coordinate-domain fact
-            // in both default and override cache roots.
-            "mwx-generic-shader-request-v16",
+            // v17 preserves extended RGB at the shared color boundary,
+            // retiring clipped artifacts in default and override cache roots.
+            "mwx-generic-shader-request-v17",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,

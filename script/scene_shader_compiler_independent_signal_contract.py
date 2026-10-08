@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from scene_shader_compiler_input_color_contract import unpremultiply_helper
 from scene_shader_compiler_msl_function_contract import sample_end
 from scene_shader_compiler_independent_signal_inline_contract import (
     InlineAccumulatorContractFailure,
@@ -473,16 +474,7 @@ def _prepare_producer(source: str, expected: dict[str, Any]) -> str:
     namespace = re.search(r"\busing\s+namespace\s+metal\s*;", transformed)
     if namespace is None:
         raise IndependentSignalContractFailure("independent-color-boundary")
-    helper = f"""
-
-inline float4 {_UNPREMULTIPLY}(float4 color) {{
-    const float alpha = clamp(color.w, 0.0, 1.0);
-    const float3 rgb = alpha > 0.0
-        ? clamp(color.xyz / alpha, float3(0.0), float3(1.0))
-        : float3(0.0);
-    return float4(rgb, alpha);
-}}
-"""
+    helper = unpremultiply_helper(_UNPREMULTIPLY)
     return transformed[:namespace.end()] + helper + transformed[namespace.end():]
 
 

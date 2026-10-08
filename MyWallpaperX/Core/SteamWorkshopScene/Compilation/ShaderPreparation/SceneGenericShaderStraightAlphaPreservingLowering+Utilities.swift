@@ -145,21 +145,8 @@ nonisolated extension SceneGenericShaderStraightAlphaPreservingLowering {
     }
 
     static func insertingBoundaryHelpers(into source: String) -> String? {
-        let helpers = """
-
-inline float4 \(unpremultiply)(float4 color) {
-    const float alpha = clamp(color.w, 0.0, 1.0);
-    const float3 rgb = alpha > 0.0
-        ? clamp(color.xyz / alpha, float3(0.0), float3(1.0))
-        : float3(0.0);
-    return float4(rgb, alpha);
-}
-
-inline float4 \(premultiply)(float4 color) {
-    const float alpha = clamp(color.w, 0.0, 1.0);
-    return float4(color.xyz * alpha, alpha);
-}
-"""
+        let helpers = SceneAuthoredShaderMetalSource.unpremultiplyHelper(named: unpremultiply)
+            + SceneAuthoredShaderMetalSource.premultiplyHelper(named: premultiply)
         guard let namespace = source.range(
             of: #"\busing\s+namespace\s+metal\s*;"#,
             options: .regularExpression

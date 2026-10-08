@@ -13,7 +13,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
-      "design_notes": "2026-10-06阶段B已纠正SDR白点；后继在唯一Bloom owner接通HDR五字段和typed更新，标准分支保留。默认/扩散/平滑边界须公开或官方自有输入差分，未定不得猜测上线；阶段C采用固定linear surface、终端sRGB解码、逐屏headroom与用户开关，映射失败不发布；实际EDR另验，approved不是产品验收。 2026-10-08暂停导出异步失败复用Session原一秒重试和PreparedFrame完成回执，替换透传deadline为唯一状态，保持冻结输入及旧候选失效；不增HDR调度owner，物理亮度和多屏仍单列验收。",
+      "design_notes": "2026-10-06阶段B已纠正SDR白点；后继在唯一Bloom owner接通HDR五字段和typed更新，标准分支保留。默认/扩散/平滑边界须公开或官方自有输入差分，未定不得猜测上线；阶段C采用固定linear surface、终端sRGB解码、逐屏headroom与用户开关，映射失败不发布；实际EDR另验，approved不是产品验收。 2026-10-08暂停导出异步失败复用Session原一秒重试和PreparedFrame完成回执，替换透传deadline为唯一状态，保持冻结输入及旧候选失效；不增HDR调度owner，物理亮度和多屏仍单列验收。 2026-10-08实际accepted Program GPU证明颜色表示转换的输入/合成输出自动裁剪丢失HDR；复用MetalSource统一helper并撤销自动RGB限幅，作者UNorm保留，工件/请求/准备cache同步失效；328物理条纹不据此关闭。",
       "matchPatterns": [],
       "contentPatterns": [
         "wantsExtendedDynamicRange",

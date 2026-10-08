@@ -206,21 +206,8 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
             )
         }
 
-        let helpers = """
-
-inline float4 \(unpremultiply)(float4 value) {
-    const float alpha = clamp(value.w, 0.0, 1.0);
-    const float3 rgb = alpha > 0.0
-        ? clamp(value.xyz / alpha, float3(0.0), float3(1.0))
-        : float3(0.0);
-    return float4(rgb, alpha);
-}
-
-inline float4 \(premultiply)(float4 value) {
-    const float alpha = clamp(value.w, 0.0, 1.0);
-    return float4(clamp(value.xyz, float3(0.0), float3(1.0)) * alpha, alpha);
-}
-"""
+        let helpers = SceneAuthoredShaderMetalSource.unpremultiplyHelper(named: unpremultiply)
+            + SceneAuthoredShaderMetalSource.premultiplyHelper(named: premultiply)
         guard let namespace = transformed.range(
             of: #"\busing\s+namespace\s+metal\s*;"#,
             options: .regularExpression

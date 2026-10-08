@@ -5193,7 +5193,7 @@ vertex float4 mwxGenericVertex(uint vertexID [[vertex_id]], constant Uniforms& u
 fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], constant Uniforms& u [[buffer(8)]]) {{ return g_Texture0.sample(sampler(), float2(0.5)); }}
 """.strip() + "\n"
         return {
-            "schemaVersion": 8,
+            "schemaVersion": 9,
             "kind": "scene-generic-shader-program-artifact",
             "backendID": "glslang-spirv-cross-msl-v2",
             "requestKey": key,

@@ -338,6 +338,238 @@ private func execute(
     )
 }
 
+private struct BoundaryInput {
+    let name: String
+    let textures: [Int: [Double]]
+    let expected: [Double]
+}
+
+private struct BoundaryFixture {
+    let name: String
+    let source: String
+    let graphSlots: Set<Int>
+    let activeSlots: Set<Int>
+    let inputs: [BoundaryInput]
+}
+
+private func boundaryFixtures() -> [BoundaryFixture] {
+    let preserving = """
+    uniform sampler2D g_Texture0;
+    varying vec2 v_TexCoord;
+    void main() {
+        vec4 albedo = texSample2D(g_Texture0, v_TexCoord);
+        albedo.rgb *= 0.25;
+        gl_FragColor = albedo;
+    }
+    """
+    let compositing = """
+    uniform sampler2D g_Texture6;
+    uniform sampler2D g_Texture2;
+    varying vec2 v_TexCoord;
+    vec3 ApplyBlending(const int mode, in vec3 base, in vec3 blend, in float opacity) {
+        return base + blend * opacity;
+    }
+    void main() {
+        vec4 impulse = texSample2D(g_Texture6, v_TexCoord);
+        vec4 canvas = texSample2D(g_Texture2, v_TexCoord);
+        canvas.rgb = ApplyBlending(7, canvas.rgb, impulse.rgb, impulse.a);
+        canvas.a = saturate(canvas.a + impulse.a);
+        gl_FragColor = canvas;
+    }
+    """
+    let authorUNorm = """
+    uniform sampler2D g_Texture0;
+    uniform float g_ScalarWeight;
+    varying vec2 v_TexCoord;
+    void main() {
+        vec4 sampled = texSample2D(g_Texture0, v_TexCoord);
+        vec4 color = sampled;
+        float pulse = 0.0;
+        pulse = g_ScalarWeight;
+        color.a *= pulse;
+        gl_FragColor = saturate(color);
+    }
+    """
+    return [
+        .init(name: "preserving", source: preserving, graphSlots: [0], activeSlots: [0], inputs: [
+            .init(name: "hdrOpaque", textures: [0: [2, 0.5, 0.25, 1]],
+                  expected: [0.5, 0.125, 0.0625, 1]),
+            .init(name: "hdrHalf", textures: [0: [1, 0.25, 0.125, 0.5]],
+                  expected: [0.25, 0.0625, 0.03125, 0.5]),
+            .init(name: "sdrOpaque", textures: [0: [0.8, 0.4, 0.2, 1]],
+                  expected: [0.2, 0.1, 0.05, 1]),
+            .init(name: "sdrHalf", textures: [0: [0.4, 0.2, 0.1, 0.5]],
+                  expected: [0.1, 0.05, 0.025, 0.5]),
+            .init(name: "zeroAlpha", textures: [0: [2, 0.5, 0.25, 0]],
+                  expected: [0, 0, 0, 0]),
+        ]),
+        .init(name: "compositing", source: compositing, graphSlots: [6], activeSlots: [6, 2], inputs: [
+            .init(name: "hdrOpaque", textures: [2: [0.75, 0.5, 0.25, 1], 6: [1, 0.5, 0.25, 0.5]],
+                  expected: [1.25, 0.75, 0.375, 1]),
+            .init(name: "hdrCoverage", textures: [2: [0.1875, 0.125, 0.0625, 0.25], 6: [1, 0.5, 0.25, 0.5]],
+                  expected: [0.9375, 0.5625, 0.28125, 0.75]),
+            .init(name: "sdr", textures: [2: [0.25, 0.125, 0.0625, 1], 6: [0.5, 0.25, 0.125, 0.5]],
+                  expected: [0.5, 0.25, 0.125, 1]),
+            .init(name: "zeroAlpha", textures: [2: [2, 0.5, 0.25, 0], 6: [1, 0.5, 0.25, 0]],
+                  expected: [0, 0, 0, 0]),
+        ]),
+        .init(name: "authorUNorm", source: authorUNorm, graphSlots: [0], activeSlots: [0], inputs: [
+            .init(name: "hdrOpaque", textures: [0: [2, 0.5, 0.25, 1]],
+                  expected: [1, 0.5, 0.25, 1]),
+            .init(name: "hdrHalf", textures: [0: [1, 0.25, 0.125, 0.5]],
+                  expected: [0.5, 0.25, 0.125, 0.5]),
+            .init(name: "sdr", textures: [0: [0.8, 0.4, 0.2, 1]],
+                  expected: [0.8, 0.4, 0.2, 1]),
+            .init(name: "zeroAlpha", textures: [0: [2, 0.5, 0.25, 0]],
+                  expected: [0, 0, 0, 0]),
+        ]),
+    ]
+}
+
+private func renderBoundary(
+    _ program: SceneAuthoredShaderProgram,
+    inputs: [BoundaryInput], device: MTLDevice, queue: MTLCommandQueue
+) throws -> [String: [[String: Any]]] {
+    // Execute the accepted Program unchanged. A float target with blending
+    // disabled measures its PMA boundary before the downstream compositor.
+    let library = try device.makeLibrary(source: program.metalSource, options: nil)
+    let pipelineDescriptor = MTLRenderPipelineDescriptor()
+    pipelineDescriptor.vertexFunction = library.makeFunction(name: program.vertexFunctionName)
+    pipelineDescriptor.fragmentFunction = library.makeFunction(name: program.fragmentFunctionName)
+    pipelineDescriptor.colorAttachments[0].pixelFormat = .rgba16Float
+    let pipeline = try device.makeRenderPipelineState(descriptor: pipelineDescriptor)
+    let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .rgba16Float, width: 1, height: 1, mipmapped: false)
+    descriptor.storageMode = .shared
+    descriptor.usage = [.shaderRead, .renderTarget]
+    let sources = Dictionary(uniqueKeysWithValues: program.textureBindings.map {
+        ($0.slot, device.makeTexture(descriptor: descriptor)!)
+    })
+    let target = device.makeTexture(descriptor: descriptor)!
+    let samplerDescriptor = MTLSamplerDescriptor()
+    samplerDescriptor.minFilter = .nearest
+    samplerDescriptor.magFilter = .nearest
+    samplerDescriptor.sAddressMode = .clampToEdge
+    samplerDescriptor.tAddressMode = .clampToEdge
+    let sampler = device.makeSamplerState(descriptor: samplerDescriptor)!
+    var uniforms = Data(count: max(program.uniformLayout.byteSize, 16))
+    for field in program.uniformLayout.fields {
+        let value: Data
+        switch field.authoredName {
+        case "mwxRenderSize": value = bytes(SIMD2<Float>(1, 1))
+        case "g_ScalarWeight": value = bytes(Float(1))
+        default:
+            throw NSError(domain: "unbound-boundary-ABI-\(field.authoredName)", code: 1)
+        }
+        uniforms.replaceSubrange(field.offset..<field.offset + value.count, with: value)
+    }
+    var results: [String: [[String: Any]]] = [:]
+    for input in inputs {
+        for binding in program.textureBindings {
+            let pixel = input.textures[binding.slot]!.map { Float16($0) }
+            pixel.withUnsafeBytes {
+                sources[binding.slot]!.replace(region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
+                    withBytes: $0.baseAddress!, bytesPerRow: 8)
+            }
+        }
+        var frames: [[String: Any]] = []
+        for _ in 0..<2 {
+            let pass = MTLRenderPassDescriptor()
+            pass.colorAttachments[0].texture = target
+            pass.colorAttachments[0].loadAction = .clear
+            pass.colorAttachments[0].storeAction = .store
+            let command = queue.makeCommandBuffer()!
+            let encoder = command.makeRenderCommandEncoder(descriptor: pass)!
+            encoder.setRenderPipelineState(pipeline)
+            uniforms.withUnsafeBytes {
+                encoder.setVertexBytes($0.baseAddress!, length: $0.count, index: program.uniformBufferIndex)
+                encoder.setFragmentBytes($0.baseAddress!, length: $0.count, index: program.uniformBufferIndex)
+            }
+            for binding in program.textureBindings {
+                encoder.setVertexTexture(sources[binding.slot], index: binding.slot)
+                encoder.setFragmentTexture(sources[binding.slot], index: binding.slot)
+                encoder.setVertexSamplerState(sampler, index: binding.slot)
+                encoder.setFragmentSamplerState(sampler, index: binding.slot)
+            }
+            encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+            encoder.endEncoding()
+            command.commit()
+            command.waitUntilCompleted()
+            var pixel = [UInt16](repeating: 0, count: 4)
+            pixel.withUnsafeMutableBytes {
+                target.getBytes($0.baseAddress!, bytesPerRow: 8,
+                    from: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0)
+            }
+            frames.append([
+                "output": pixel.map { Double(Float16(bitPattern: $0)) },
+                "bits": pixel.map(Int.init), "expected": input.expected,
+                "completion": command.status == .completed && command.error == nil
+                    ? "completed" : "failed",
+            ])
+        }
+        results[input.name] = frames
+    }
+    return results
+}
+
+private func runBoundaries(device: MTLDevice, queue: MTLCommandQueue) throws -> [String: Any] {
+    var results: [String: Any] = [:]
+    for fixture in boundaryFixtures() {
+        var accepted: (program: SceneAuthoredShaderProgram, pmaSlots: Set<Int>,
+                       key: String, route: SceneGenericShaderRouteDecision)?
+        // The existing ordinary generic route rejects this scalar-alpha UNorm
+        // shape. Its bounded control checks author saturation, without claiming
+        // an accepted generic artifact or injecting a fabricated source fact.
+        if fixture.name != "authorUNorm" {
+            let resolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
+                vertexSource: vertexSource, fragmentSource: fixture.source,
+                graphTextureSlots: fixture.graphSlots, graphInputTextureSlots: fixture.activeSlots,
+                activeTextureSlots: fixture.activeSlots,
+                hasOnlyGraphInputSampler: true, outputIsRGBA8Unorm: false)
+            guard case let .accepted(program, pmaSlots, key, route) = resolution else {
+                throw NSError(domain: "boundary-artifact-rejected-\(fixture.name)", code: 1,
+                              userInfo: [NSLocalizedDescriptionKey: String(describing: resolution)])
+            }
+            accepted = (program, pmaSlots, key, route)
+        }
+        let boundedOutput = SceneAuthoredShaderFrontend.compile(
+            vertexSource: vertexSource, fragmentSource: fixture.source,
+            provenColorTransfer: accepted?.program.colorTransfer,
+            premultipliedColorInputSlots: accepted?.pmaSlots ?? [])
+        guard let bounded = boundedOutput.program else {
+            throw NSError(domain: "boundary-bounded-rejected-\(fixture.name)", code: 1)
+        }
+        var result: [String: Any] = [
+            "boundedBackend": bounded.backend.rawValue,
+            "transfer": String(describing: bounded.colorTransfer),
+            "vertexSource": vertexSource, "fragmentSource": fixture.source,
+            "inputFormat": "rgba16Float", "outputFormat": "rgba16Float",
+            "inputs": fixture.inputs.map { input in
+                ["name": input.name, "textures": Dictionary(uniqueKeysWithValues:
+                    input.textures.map { (String($0.key), $0.value) }),
+                 "expected": input.expected] as [String: Any]
+            },
+            "boundedProgram": try JSONSerialization.jsonObject(with: JSONEncoder().encode(bounded)),
+            "bounded": try renderBoundary(bounded, inputs: fixture.inputs, device: device, queue: queue),
+        ]
+        if let accepted {
+            result["requestKey"] = accepted.key
+            result["routeProfile"] = accepted.route.profile
+            result["routeState"] = accepted.route.state
+            result["backend"] = accepted.program.backend.rawValue
+            result["premultipliedColorInputSlots"] = accepted.pmaSlots.sorted()
+            result["acceptedProgram"] = try JSONSerialization.jsonObject(
+                with: JSONEncoder().encode(accepted.program))
+            result["metalSHA256"] = SceneGenericShaderProgramArtifact.sha256(
+                Data(accepted.program.metalSource.utf8))
+            result["generic"] = try renderBoundary(accepted.program,
+                inputs: fixture.inputs, device: device, queue: queue)
+        }
+        results[fixture.name] = result
+    }
+    return results
+}
+
 @main
 private enum Harness {
     static func main() throws {
@@ -437,7 +669,7 @@ private enum Harness {
             repeating: colorCarrierExpectedPixel,
             count: 4
         ).flatMap { $0 }
-        let result: [String: Any] = [
+        var result: [String: Any] = [
             "metalAvailable": true,
             "positiveAssembled": signalCarrier != nil,
             "negativeRejected": signalCarrierBadAlpha == nil,
@@ -477,6 +709,7 @@ private enum Harness {
             ),
             "colorCarrierPixels": colorCarrierExecution.pixels,
         ]
+        result["boundaries"] = try runBoundaries(device: device, queue: queue)
         let data = try JSONSerialization.data(
             withJSONObject: result,
             options: [.sortedKeys]

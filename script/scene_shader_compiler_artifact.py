@@ -742,7 +742,7 @@ def build_program_artifact(
         if static_loop_work > 256:
             raise ArtifactFailure("loop-budget")
     return {
-        "schemaVersion": 8,
+        "schemaVersion": 9,
         "kind": "scene-generic-shader-program-artifact",
         "backendID": backend_id,
         "requestKey": request_key,

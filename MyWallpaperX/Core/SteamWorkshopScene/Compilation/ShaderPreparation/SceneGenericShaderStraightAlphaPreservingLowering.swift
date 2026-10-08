@@ -289,27 +289,8 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
                 with: "\(prefix)\(unpremultiply)(g_Texture\(expectedSlot).sample(\(arguments)))\(suffix)"
             )
         }
-        let helpers = """
-
-inline float4 \(unpremultiply)(float4 color) {
-    const float alpha = clamp(color.w, 0.0, 1.0);
-    const float3 rgb = alpha > 0.0
-        ? clamp(color.xyz / alpha, float3(0.0), float3(1.0))
-        : float3(0.0);
-    return float4(rgb, alpha);
-}
-
-inline float4 \(premultiply)(float4 color) {
-    const float alpha = clamp(color.w, 0.0, 1.0);
-    return float4(color.xyz * alpha, alpha);
-}
-"""
-        guard let namespace = transformed.range(
-            of: #"\busing\s+namespace\s+metal\s*;"#,
-            options: .regularExpression
-        ) else { return nil }
-        transformed.insert(contentsOf: helpers, at: namespace.upperBound)
-        return transformed
+        return SceneGenericShaderStraightAlphaPreservingLowering
+            .insertingBoundaryHelpers(into: transformed)
     }
 
     /// Applies one straight-color boundary to a source-proven conditional

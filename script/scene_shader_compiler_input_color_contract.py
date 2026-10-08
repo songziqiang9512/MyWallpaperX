@@ -80,3 +80,25 @@ def lower_premultiplied_color_inputs(
             + transformed[end:]
         )
     return transformed
+
+
+def unpremultiply_helper(name: str) -> str:
+    """Convert represented color without clipping authored HDR RGB."""
+    return f"""
+
+inline float4 {name}(float4 color) {{
+    const float alpha = clamp(color.w, 0.0, 1.0);
+    const float3 rgb = alpha > 0.0 ? color.xyz / alpha : float3(0.0);
+    return float4(rgb, alpha);
+}}
+"""
+
+
+def premultiply_helper(name: str) -> str:
+    return f"""
+
+inline float4 {name}(float4 color) {{
+    const float alpha = clamp(color.w, 0.0, 1.0);
+    return float4(color.xyz * alpha, alpha);
+}}
+"""

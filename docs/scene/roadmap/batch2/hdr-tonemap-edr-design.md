@@ -44,6 +44,10 @@
 
 用户设置“Scene HDR显示”独立于作者Bloom，默认允许在支持的屏幕自动使用，关闭后同会话回到SDR。现役共享设置传递意图，SceneMetalView按所在屏幕的potential能力请求EDR，以current headroom控制typed帧输出；不以current=1拒绝初次opt-in。颜色空间在surface生命周期内固定，避免在途drawable因开关变义；屏幕/设置变化只更新显示状态与重绘，不改Program/图/raw历史。每帧只读取本屏标量headroom，暂停通过现有surface失效入口重绘；不增加计时器或输出owner。验证真实CAMetalLayer配置、GPU普通色/超白/源alpha、设置热切与SDR设备回退、映射失败不发布及raw隔离。截图按其线性输入转换为普通sRGB预览，不把PNG亮度当物理EDR验收；硬件亮度与多屏实测边界分别报告。metadata不叠加。
 
+## 特效颜色边界保留浮点范围（2026-10-08）
+
+PMA→straight 是表示转换，不是显示映射。现有编译器插入的输入 helper 将 RGB/alpha 裁到0–1，违背上文中间HDR不提前裁剪的合同；先用实际accepted Program和F16输入证明超白经作者衰减后仍错误变暗。修复归现有 Metal source 生成职责：共享边界函数供 bounded frontend 与 generic lowering 使用，删除各处重复实现；离线编译工具同步同一合同。只转换已证明的颜色槽，data/signal采样及作者表达式不改。alpha仍按既有coverage域处理，零alpha返回零RGB；有限扩展RGB保留到作者运算与既有终端。作者明确的UNorm输出饱和保留；独立信号合成的自动RGB输出裁剪同样撤销：两个0–1输入的实际generic Program将作者结果1.25裁成1，bounded Program保留1.25。两端覆盖alpha仍有界。持久工件及含生成代码的准备缓存撤销旧版本，不靠用户清缓存。验收覆盖不透明/半透明HDR、普通SDR、零alpha、显式饱和、不同lowering及缓存重启；真实328渐变条纹仍独立验收，不以此共享反例指认其根因。
+
 ## HDR Bloom 参数与运行分支（2026-10-06）
 
 **首断点与目标。** Earth 作者 `general.bloomhdrstrength` 绑定 HDR slider；实际 App 三次修改均被 live consumer 拒绝。本批基线仅解析标准 Bloom，不能把 HDR slider 改绑标准强度当作兼容。保留 `bloomhdrstrength/threshold/scatter/feather/iterations` 的作者数值，沿现有 Document → CameraDescriptor/BloomConfiguration → property Program → typed snapshot → 唯一 Bloom owner 进入实际 GPU。标准 Bloom 和 HDR Bloom 各自使用其参数；显示 SDR/EDR 仍由终端 owner 决定。

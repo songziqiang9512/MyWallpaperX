@@ -12,6 +12,7 @@ from scene_shader_compiler_independent_signal_contract import (
     parse_expected_transfer as _parse_single_slot_transfer,
     prepare_independent_signal_contract as _prepare_single_slot_transfer,
 )
+from scene_shader_compiler_input_color_contract import unpremultiply_helper, premultiply_helper
 from scene_shader_compiler_msl_function_contract import function_body
 from scene_shader_compiler_msl_function_contract import sample_end
 
@@ -251,21 +252,8 @@ def _prepare_straight_alpha_preserving(
         + transformed[return_end:]
     )
 
-    helpers = f"""
-
-inline float4 {_STRAIGHT_UNPREMULTIPLY}(float4 color) {{
-    const float alpha = clamp(color.w, 0.0, 1.0);
-    const float3 rgb = alpha > 0.0
-        ? clamp(color.xyz / alpha, float3(0.0), float3(1.0))
-        : float3(0.0);
-    return float4(rgb, alpha);
-}}
-
-inline float4 {_STRAIGHT_PREMULTIPLY}(float4 color) {{
-    const float alpha = clamp(color.w, 0.0, 1.0);
-    return float4(color.xyz * alpha, alpha);
-}}
-"""
+    helpers = (unpremultiply_helper(_STRAIGHT_UNPREMULTIPLY)
+               + premultiply_helper(_STRAIGHT_PREMULTIPLY))
     return re.sub(
         r"(\busing\s+namespace\s+metal\s*;)",
         lambda match: match.group(1) + helpers,
@@ -418,21 +406,8 @@ def _prepare_compositing(
     transformed = (
         source[:body_start] + transformed_body + source[body_start + len(original_body):]
     )
-    helpers = f"""
-
-inline float4 {_UNPREMULTIPLY}(float4 value) {{
-    const float alpha = clamp(value.w, 0.0, 1.0);
-    const float3 rgb = alpha > 0.0
-        ? clamp(value.xyz / alpha, float3(0.0), float3(1.0))
-        : float3(0.0);
-    return float4(rgb, alpha);
-}}
-
-inline float4 {_PREMULTIPLY}(float4 value) {{
-    const float alpha = clamp(value.w, 0.0, 1.0);
-    return float4(clamp(value.xyz, float3(0.0), float3(1.0)) * alpha, alpha);
-}}
-"""
+    helpers = (unpremultiply_helper(_UNPREMULTIPLY)
+               + premultiply_helper(_PREMULTIPLY))
     return re.sub(
         r"(\busing\s+namespace\s+metal\s*;)",
         lambda match: match.group(1) + helpers,

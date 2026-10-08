@@ -27,10 +27,10 @@ def assert_sampling_semantics_request_and_cache_namespaces(
             root, route="observe-only"
         )
         current_key = test_case.request_key(
-            "mwx-generic-shader-request-v16", vertex, fragment
+            "mwx-generic-shader-request-v17", vertex, fragment
         )
         legacy_key = test_case.request_key(
-            "mwx-generic-shader-request-v15", vertex, fragment
+            "mwx-generic-shader-request-v16", vertex, fragment
         )
         test_case.assertEqual(observed["requestKey"], current_key)
         test_case.assertNotEqual(current_key, legacy_key)
@@ -48,7 +48,7 @@ def assert_sampling_semantics_request_and_cache_namespaces(
         )
         test_case.assertNotIn("artifact-invalid-json", log)
         previous_schema = test_case.artifact(current_key)
-        previous_schema["schemaVersion"] = 7
+        previous_schema["schemaVersion"] = 8
         current_path = cache / f"{current_key}.json"
         current_path.write_text(json.dumps(previous_schema), encoding="utf-8")
         rejected, _, _, _ = test_case.run_harness(root, route="prefer-generic")
@@ -97,13 +97,13 @@ def assert_independent_signal_request_contract(
             "kind": expected[0], "slot": expected[1],
         })
         keyed = test_case.request_key(
-            "mwx-generic-shader-request-v16",
+            "mwx-generic-shader-request-v17",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
             expected,
         )
         unresolved = test_case.request_key(
-            "mwx-generic-shader-request-v16",
+            "mwx-generic-shader-request-v17",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
         )
@@ -152,14 +152,14 @@ def assert_provider_backed_spatial_weighted_profile(
         test_case.assertEqual(request["schemaVersion"], 5)
         test_case.assertEqual(request["premultipliedColorInputSlots"], [1])
         expected_key = test_case.request_key(
-            "mwx-generic-shader-request-v16",
+            "mwx-generic-shader-request-v17",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
             premultiplied_color_input_slots=(1,),
             default_boundary_color_slots=(0,),
         )
         empty_contract_key = test_case.request_key(
-            "mwx-generic-shader-request-v16",
+            "mwx-generic-shader-request-v17",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
         )

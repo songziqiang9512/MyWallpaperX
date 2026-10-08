@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d7cf1abe0d9d677716246307385d172d5888207e095410eb2ef276415209cb74",
+        "sourceSHA256": "ade1da5deb200b76ccb8219617a9bc5091d8e7ccd3f2916c81134a4550ce80ae",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核同一Session暂停重绘恢复、原一秒截止与真实暂停HDR热切证据；自然GPU故障、物理亮度和多屏未验。",
+        "scope": "复核编译时共享颜色转换、HDR范围、作者UNorm及冻结GPU/App缓存升级证据；328条纹根因与物理EDR仍未验。",
         "limitations": "仅对应本批职责与冻结证据，不表示全样本兼容、官方parity或发布验收。"
       }
     },
@@ -498,9 +498,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f8f6549be3dedc061bb2a3958475feee88f2ace75ee14b3eb0562fbd40b38cdc",
+        "sourceSHA256": "dd162cb7426d0142163e8cdac4cf19a8f74666217901bb52dccccffddf2de384",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核同一Session暂停重绘恢复、原一秒截止与真实暂停HDR热切证据；自然GPU故障、物理亮度和多屏未验。",
+        "scope": "复核编译时共享颜色转换、HDR范围、作者UNorm及冻结GPU/App缓存升级证据；328条纹根因与物理EDR仍未验。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

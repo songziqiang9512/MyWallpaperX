@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 581,
-      "bytes": 104185
+      "bytes": 104381
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -93,8 +93,8 @@
       "bytes": 334149
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 83,
-      "bytes": 13729
+      "lines": 84,
+      "bytes": 14724
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -149,8 +149,8 @@
       "bytes": 8029
     },
     "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md": {
-      "lines": 80,
-      "bytes": 12912
+      "lines": 84,
+      "bytes": 14094
     },
     "docs/scene/roadmap/batch2/host-render-power-protocol-design.md": {
       "lines": 54,
@@ -197,8 +197,8 @@
       "bytes": 32798
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 160,
-      "bytes": 38322
+      "lines": 161,
+      "bytes": 39105
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1041,24 +1041,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "67a447b93430e29bedda1095ac1e490cfb624e2025fbadc0705d64e62cf8d777",
-      "after": "f18713ca53b7df602e2a6e153924b67be78eaa688dc8ba3926ce3734800d3453",
-      "owner": "scene-session",
-      "reason": "Record one bounded paused redraw recovery path and its controlled failure and signed App evidence; keep physical HDR and real sample visual gates open.",
-      "decision": "docs/scene/roadmap/batch2/frame-admission-retry-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f1baacff8cba13c11d2e1be456a63b86756a3d1c21245f8313476028c2f47d2d",
-      "after": "00e2577aafc5d5bd3b942b5d39df449a773455f7283b63157dae6df32ef0bb97",
-      "owner": "scene-session",
-      "reason": "Record one bounded paused redraw recovery path and its controlled failure and signed App evidence; keep physical HDR and real sample visual gates open.",
-      "decision": "docs/scene/roadmap/batch2/frame-admission-retry-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/frame-admission-retry-design.md",
       "before": "145b584145efe807453d0cbf1f2fad53c09ec11b2d3f78be17744fd9a71cb07a",
       "after": "1540b6c506d44ec07f60127ee90a0bf187c012192fcb09f9ad31470d65aee6cb",
@@ -1068,21 +1050,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "f18713ca53b7df602e2a6e153924b67be78eaa688dc8ba3926ce3734800d3453",
+      "after": "ba314d5b8e656300970ffeafbe6ee1e185989d6ddd58dbc15944bd28449a5c9d",
+      "owner": "scene-e-route",
+      "reason": "统一既有颜色转换并保留扩展RGB，记录实际GPU裁剪反例、缓存退出及328未验边界。",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "00e2577aafc5d5bd3b942b5d39df449a773455f7283b63157dae6df32ef0bb97",
+      "after": "e053582f2cc615b1d17ec59d814fcb3d56fb594e73522094c240d2ff76311129",
+      "owner": "scene-e-route",
+      "reason": "统一既有颜色转换并保留扩展RGB，记录实际GPU裁剪反例、缓存退出及328未验边界。",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
-      "before": "f495356b8d239e35e5b32f1c8e179fbe3b36a11c4cc3e16cedcce511c830e016",
-      "after": "57c664b97a870d1822876ba9846ac7d05d409dc35fd5927d2bb9e73d589ff134",
-      "owner": "scene-session",
-      "reason": "Record one bounded paused redraw recovery path and its controlled failure and signed App evidence; keep physical HDR and real sample visual gates open.",
-      "decision": "docs/scene/roadmap/batch2/frame-admission-retry-design.md"
+      "before": "57c664b97a870d1822876ba9846ac7d05d409dc35fd5927d2bb9e73d589ff134",
+      "after": "19bb36846ce51a09cb773a36410a9dcf8472a47a51841b734663a525345977a5",
+      "owner": "scene-e-route",
+      "reason": "统一既有颜色转换并保留扩展RGB，记录实际GPU裁剪反例、缓存退出及328未验边界。",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "fdb62ca9775c74511ca1f315fab113e0a038a0c8041974f91f462b4e5416b85a",
-      "after": "81ef7462cd9f50fd3b00a5162fde2f53b322184c91e8211793b663514529d861",
-      "owner": "scene-session",
-      "reason": "Record one bounded paused redraw recovery path and its controlled failure and signed App evidence; keep physical HDR and real sample visual gates open.",
-      "decision": "docs/scene/roadmap/batch2/frame-admission-retry-design.md"
+      "before": "81ef7462cd9f50fd3b00a5162fde2f53b322184c91e8211793b663514529d861",
+      "after": "2acaceb2024242b45d0db991d714ff9eeba94e66c8ce73b06a1efd0acfc00eb2",
+      "owner": "scene-e-route",
+      "reason": "统一既有颜色转换并保留扩展RGB，记录实际GPU裁剪反例、缓存退出及328未验边界。",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md"
     }
   ]
 }

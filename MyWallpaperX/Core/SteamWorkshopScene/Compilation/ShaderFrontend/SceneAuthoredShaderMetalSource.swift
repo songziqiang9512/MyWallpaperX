@@ -189,6 +189,30 @@ nonisolated enum SceneAuthoredShaderMetalSource {
         """
     }
 
+    // Representation conversion preserves authored HDR energy. Only a proven
+    // UNorm terminal write requests RGB saturation; coverage stays bounded.
+    static func unpremultiplyHelper(named name: String) -> String {
+        """
+
+        inline float4 \(name)(float4 color) {
+            const float alpha = clamp(color.w, 0.0, 1.0);
+            const float3 rgb = alpha > 0.0 ? color.xyz / alpha : float3(0.0);
+            return float4(rgb, alpha);
+        }
+        """
+    }
+
+    static func premultiplyHelper(named name: String, clampingRGB: Bool = false) -> String {
+        let rgb = clampingRGB ? "clamp(color.xyz, float3(0.0), float3(1.0))" : "color.xyz"
+        return """
+
+        inline float4 \(name)(float4 color) {
+            const float alpha = clamp(color.w, 0.0, 1.0);
+            return float4(\(rgb) * alpha, alpha);
+        }
+        """
+    }
+
     private static func colorBoundaryHelpers(
         for transfer: SceneShaderColorTransfer,
         requiresInputColorBoundary: Bool
@@ -204,25 +228,9 @@ nonisolated enum SceneAuthoredShaderMetalSource {
         default:
             if !requiresInputColorBoundary { return "" }
         }
-        return """
-        float4 mwxUnpremultiply(float4 color) {
-            const float alpha = saturate(color.a);
-            const float3 rgb = alpha > 0.0
-                ? saturate(color.rgb / alpha)
-                : float3(0.0);
-            return float4(rgb, alpha);
-        }
-
-        float4 mwxPremultiply(float4 color) {
-            const float alpha = saturate(color.a);
-            return float4(color.rgb * alpha, alpha);
-        }
-
-        float4 mwxSaturateAndPremultiply(float4 color) {
-            const float4 straight = saturate(color);
-            return float4(straight.rgb * straight.a, straight.a);
-        }
-        """
+        return unpremultiplyHelper(named: "mwxUnpremultiply")
+            + premultiplyHelper(named: "mwxPremultiply")
+            + premultiplyHelper(named: "mwxSaturateAndPremultiply", clampingRGB: true)
     }
 
     static func contextParameterList(

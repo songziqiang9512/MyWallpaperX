@@ -1850,6 +1850,7 @@
         "script/scene_shader_compiler_dependencies.json",
         "script/scene_shader_compiler_*.py",
         "script/tests/scene_generic_shader_provider_test_support.py",
+        "script/tests/scene_generic_shader_test_support.py",
         "script/fixtures/scene_shader_compiler/**",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderCompiler*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
@@ -1863,7 +1864,8 @@
         "test_scene_shader_compiler_harness",
         "test_scene_generic_shader_typed_input_lowering",
         "test_scene_shader_scalar_vector_builtin_canonicalization",
-        "test_scene_shader_compiler_product_manifest"
+        "test_scene_shader_compiler_product_manifest",
+        "test_scene_shader_compiler_straight_alpha_preserving_contract"
       ]
     },
     {
@@ -2422,6 +2424,17 @@
         "test_scene_inactive_optional_named_dependency",
         "test_scene_base_material_provider_binding",
         "test_scene_property_vector_script"
+      ]
+    },
+    {
+      "id": "shader-color-boundary",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderMetalSource.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShader*Lowering*.swift",
+        "script/tests/fixtures/SceneIndependentSignalCompositingGPUHarness.swift"
+      ],
+      "modules": [
+        "test_scene_independent_signal_compositing_gpu"
       ]
     }
   ],
