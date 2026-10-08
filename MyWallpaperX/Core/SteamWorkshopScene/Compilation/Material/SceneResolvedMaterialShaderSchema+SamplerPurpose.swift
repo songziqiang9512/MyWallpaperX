@@ -167,7 +167,7 @@ extension SceneResolvedMaterialShaderSchema.Sampler {
         switch materialKey?.lowercased() {
         case "framebuffer", "previous":
             return true
-        case "ui_editor_properties_framebuffer":
+        case "ui_editor_properties_framebuffer", "上一个":
             return name == "g_Texture0" && slot == 0
                 && mode == .regular && isHidden
         default:

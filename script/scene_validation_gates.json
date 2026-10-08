@@ -1250,7 +1250,8 @@
         "test_scene_sampler_default_purpose",
         "test_scene_source_proven_auxiliary_texture_purpose",
         "test_scene_source_proven_noise_purpose",
-        "test_scene_resolved_material_template"
+        "test_scene_resolved_material_template",
+        "test_scene_localized_graph_input_alias"
       ]
     },
     {
