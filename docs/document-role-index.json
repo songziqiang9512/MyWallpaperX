@@ -498,9 +498,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dd162cb7426d0142163e8cdac4cf19a8f74666217901bb52dccccffddf2de384",
+        "sourceSHA256": "35ce6bebcc31fddc0812895f4376c6f9bb7c86344764eb088a27918148ffdbc9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核编译时共享颜色转换、HDR范围、作者UNorm及冻结GPU/App缓存升级证据；328条纹根因与物理EDR仍未验。",
+        "scope": "复核真实gradient Program的输出存储精度隔离与原Pulse消费者GPU证据；官方输入传输失败不作为有效截图，未判328根因或整样本通过。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },

@@ -18,7 +18,7 @@
 | T2 颜色与HDR输出 | 旧SDR shoulder压暗已修；对剩余条纹、HDR物理显示及用户样本复验，按采样purpose/alpha/颜色域→中间target→最终输出定位 | 保留作者HDR/SDR意图；同内容默认/关闭/开启和实际呈现对照。已有16F与热切执行不等于物理亮度正确；找到首错owner再修改 |
 | E1 特效与频谱 | 将运行拒绝按共享shader/slot/graph/动态输入首断点归并；频谱用同声源对照形状和活跃度 | 复用现compiler/graph/audio producer，选覆盖面明确的族恢复动态结果；不抬gain、改作者参数或放宽测试制造通过 |
 
-T1共享材质切片已闭，本批转T2：暂停重绘异步失败复用原调度恢复，后继优先328渐变条纹与真实样本显示对照；不能重做已修SDR shoulder。每批闭合后重新比较三者，不等243样本全部重跑才开始修复。完整矩阵扩容与证据关联随共同修复推进。
+T1共享材质切片已闭，T2共享HDR裁剪与暂停恢复已闭合；328自有实验分离出F16输出量化，但官方输入传输受阻，不能据此换全图精度。先恢复有界官方同输入对照；同时按E1核真实封面previous→current过渡，不为已执行的Pulse再建链路。不能重做已修SDR shoulder。每批闭合后重新比较三者，不等243样本全部重跑才开始修复。完整矩阵扩容与证据关联随共同修复推进。
 
 ## 2. 纹理、合成与特效公共缺口
 
@@ -29,7 +29,7 @@ T1共享材质切片已闭，本批转T2：暂停重绘异步失败复用原调�
 | 材质颜色的组合缺口 | **部分已修，组合余项待补**：静态中性RGB已进入原/动态图层；脚本tint占用layer color的覆盖已修，迁至materialConstant并退出clone颜色覆写；受控前后GPU及原379彩虹通过。named组合仍待官方合同与实际消费者证实，不直接给raw capture叠加材质调制。复核10候选样本/11层没有named边；193频谱12条named声明被作者previous绑定覆盖，不能计为漏Alpha。3690859128双source共用模型限制已修，证据见[共享材质](../capabilities/runtime-evidence-current.md#e-2026-10-08-shared-source-material)；首引用删除后的官方续跑未知，保留既有安全退休，不能外推所有材料实例范围 |
 | 普通unlit数值边界 | **溢出已修、下溢待修**：4×1e38×1e-37的Inf沿现shader回算有限40，无全图压暗/cap。[有界证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-unlit-product)。source alpha=.5、vertex=.25、R8clip=128/255的weighted组合仍输出0（数学RGB≈2.5098），属于既有fast-math下溢；此失败保留，不能由溢出正例关闭。优先真实多source颜色消费者，数值余项不扩大为所有HDR已修 |
 | 默认变暗、HDR/SDR最终显示 | **旧压暗与特效自动裁剪已修，视觉余项待复验**：旧SDR shoulder把白点1压到0.75；[白点修复](../history/sdr-white-preservation-implementation-2026-10-06.md)实测RGB(191,64,128)恢复(255,64,128)。EDR及OFF→ON→OFF已有同surface headroom执行证据；暂停HDR热切与有界异步失败恢复已补[独立证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-paused-display-recovery)；共享PMA输入/合成输出自动RGB裁剪另由[实际GPU反例与缓存升级](../capabilities/runtime-evidence-current.md#e-2026-10-08-hdr-color-boundary)修复，作者限幅保留；用户样本、多屏SDR及物理亮度仍未关闭。沿唯一颜色/output owner定位，见[热切证据](../history/hdr-live-toggle-verification-2026-10-07.md)；Bloom iterations0/1空间语义另作官方控制 |
-| 显式UNorm的generic准入 | **自有输入边界，真实样本命中未证**：`sample→alpha×uniform→saturateRGBA`控制在generic ordinary路径被`compiler-artifact-colortransfer`拒绝，实际bounded Program的HDR/SDR/零alpha GPU正确。先核全样本真实引用，再扩原分析/准入；不注入fact或新增执行链。[输入与证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-hdr-color-boundary) |
+| 显式UNorm的generic准入 | **自有输入边界，真实样本命中未证**：`sample→alpha×uniform→saturateRGBA`控制在generic ordinary路径被`compiler-artifact-colortransfer`拒绝，实际bounded Program的HDR/SDR/零alpha GPU正确。243包严格文本扫描未找到直接对应，不能外推语义不存在；原163 color Pulse、252 alpha Pulse已实际GPU执行，不能作为该缺口影响面。先核真实未准入引用，再扩原分析/准入；不注入fact或新增执行链。[输入与证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-hdr-color-boundary) |
 | shader compound边界 | **能力缺口**：已有int四则复合赋值恢复，qualified LHS、`%=`与vertex剩余见[原合同](../history/int-compound-assignment-normalizer-2026-10-07.md)。先核真实引用和类型，扩同一normalizer，保留scope/优先级/非法输入反例 |
 | 未定义varying分量 | **待研究**：sine_wave_circle激活变体读取未初始化分量。不能猜零填充；先取得公开或受控官方可观察合同，再决定归一化/局部拒绝 |
 | 透明target的alphaWeightedAdditive | **待研究**：普通源coverage已修，named/透明target的完整alpha合成尚未同输入裁决，见[coverage证据](../capabilities/runtime-evidence-current.md#e-2026-09-27-direct-draw-coverage)。先核唯一compositor当前blend，不能重新造光束专用补偿 |
@@ -58,7 +58,7 @@ T1共享材质切片已闭，本批转T2：暂停重绘异步失败复用原调�
 | 3769761761 缺左上向右下斜光 | 局部粒子变换、trail默认与alpha修复均未恢复官方目标；Shine/GodRays各pass已有输出，1/2/4倍size实验未恢复。保持**待归因**，官方同viewport/phase分离粒子与shader来源，见[诊断](../capabilities/runtime-evidence-current.md#e-2026-09-28-ray-source-diagnosis)；不改作者参数作“修复” |
 | 3768724269 光束范围/根部/位置与脱层感 | additive、源coverage、方形载体和shader视差输入已修；用户仍指范围过大或根部深入。固定相机开关、作者depth和官方同状态核MVP/载体及连续输出；见[视差输入](../capabilities/runtime-evidence-current.md#e-2026-09-27-parallax-shader-input)；不强绑背景变形 |
 | 3287715210 眼周过亮、淡入淡出弱 | 源coverage已修；原样本相位对照及用户视觉未验，不额外压暗。[证据](../capabilities/runtime-evidence-current.md#e-2026-09-27-direct-draw-coverage) |
-| 3287715210 全屏横移细竖条纹 | 已定位gradient_color，终端16F超过256级已执行；10-08原包与gradient-only的phase4实际App均完成GPU/退出；shader为float、终端16F，共享HDR裁剪修复未证明是条纹根因。恢复作者速度后物理屏/官方对照仍缺。区分纹理、输出精度与系统呈现，不重复优先消融Bloom。[证据](../capabilities/runtime-evidence-current.md#e-2026-09-27-scene-color-precision) |
+| 3287715210 全屏横移细竖条纹 | 已定位gradient_color，终端16F超过256级已执行；10-08原包与gradient-only的phase4实际App均完成GPU/退出；shader为float、终端16F，共享HDR裁剪修复未证明是条纹根因。[自有恒定源实验](../capabilities/runtime-evidence-current.md#e-2026-10-08-gradient-storage-isolation)证明F16写出可形成平台，未证明本样本根因；官方隔离输入传输未成功。恢复同输入官方/物理屏对照后再裁决精度或呈现，区分纹理、输出精度与系统呈现，不重复优先消融Bloom。[证据](../capabilities/runtime-evidence-current.md#e-2026-09-27-scene-color-precision) |
 | 3113287126 小提琴粒子锚定 | MDLV0017挂点恢复，粒子已从腿部回到琴/手；具体发散、密度、动画/视差和长稳仍待复验。[证据](../capabilities/runtime-evidence-current.md#e-2026-09-27-puppet-legacy-attachments) |
 | 3750813609 时钟黑白 | 原包clouds资产ready，不能把synthetic noise记作修复；时钟ROI与作者预期仍待比对。[证据](../capabilities/runtime-evidence-current.md#e-2026-09-26-stock-noise-preparation) |
 | 3792817546 /3790726145 /2986218263 指针/绳带 | CP0 flags/default、world/perspective、Rope及pointer三门已贯通；剩余原生输入和官方绳带宽度/UV/颜色，child profile另见下表。[执行证据](../capabilities/runtime-evidence-current.md#e-2026-09-28-rope-gate-admission) |
