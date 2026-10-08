@@ -84,11 +84,13 @@ PMA→straight 是表示转换，不是显示映射。现有编译器插入的�
 每阶段完成行为门、颜色权威归入稳定架构、旧输出路径按 route 撤权后归档。未验证的 metadata profile 继续显式禁用，不随 SDR 验收自动解锁。
 
 
-## 作者颜色跨 effect 连续性（2026-10-08，待实施）
+<a id="作者颜色跨-effect-连续性2026-10-08待实施"></a>
 
-设计结论：沿既有 Program、graph publication 与唯一 compositor 保留作者可观察的 straight RGB；中间普通 color overwrite 不再无条件预乘。此处批准后继实施，不代表当前运行已修复。官方与本机同输入的差异见[透明颜色连续性证据](../../capabilities/runtime-evidence-current.md#e-2026-10-08-transparent-color-continuity)。已证范围是生成颜色的两段 effect；普通源上传与真实头冠灰影仍须分别验证。PMA 输入零 alpha 已无可恢复颜色，不能通过改反预乘 helper 猜回 RGB。
+## 作者颜色跨 effect 连续性（2026-10-08）
 
-**职责与取舍。** 在现有 Program/variant 准备阶段携带 slot 的实际 content/representation、作者数学输入域及输出存储表示；原 builder 统一实施 sampler/output 适配。straight 到 straight 为恒等，真实 PMA 到 straight 才反预乘，opaque 为恒等，data/independent signal 沿原 typed 合同。profile 继续证明数学与用途，不再分别猜普通 graph 的存储表示。保留扩展 RGB；alpha coverage clamp 与作者明确 UNorm clamp 独立保留。输入/输出边界身份必须进入现有 request/cache，旧工件安全失效。普通帧只消费准备值，不分析源码或生成 shader。
+设计结论：沿既有 Program、graph publication 与唯一 compositor 保留作者可观察的 straight RGB；中间普通 color overwrite 不再无条件预乘。第一卡生成颜色→连续effect→compositor已实施，证据与退出边界见[执行记录](../../history/authored-color-continuity-2026-10-09.md)；第二卡源上传/capture仍待实施。官方与本机同输入的差异见[透明颜色连续性证据](../../capabilities/runtime-evidence-current.md#e-2026-10-08-transparent-color-continuity)。已证范围是生成颜色的两段 effect；普通源上传与真实头冠灰影仍须分别验证。PMA 输入零 alpha 已无可恢复颜色，不能通过改反预乘 helper 猜回 RGB。
+
+**职责与取舍。** 在现有 Program/variant 准备阶段携带 slot 的实际 content/representation、作者数学输入域及输出存储表示；原 builder 统一实施 sampler/output 适配。straight 到 straight 为恒等，真实 PMA 到 straight 才反预乘，opaque 为恒等，data/independent signal 沿原 typed 合同。profile 继续证明数学与用途，不再分别猜普通 graph 的存储表示。保留扩展 RGB；alpha coverage clamp 与作者明确 UNorm clamp 独立保留。输入数学用途、允许的颜色表示及输出边界身份进入现有 request/cache，旧工件安全失效。源码已证passthrough可指定一个signal槽；同一uint的低8位标记实际PMA，高8位标记实际signal，只有被证明的指定槽可按signal保留raw输出，普通颜色仍走同一适配。nominal输出事实由variant一次发布供同effect后继pass准备，未知保持未知，不能替代帧事实；跨effect保持原并行编译。每帧由已验证 publication 填写掩码，只有对应 color 槽执行反预乘；这同时覆盖前序成功输出 straight 与局部失败保留 PMA 的切换，不枚举表示组合、不临帧编译。普通帧只消费准备布局与 typed 资源事实，不分析源码或生成 shader。
 
 唯一 image compositor 按实际表示关联化一次，与 additive 的 source-alpha 权重正交；不得复用现有 `weightsSourceAlpha` 的不同语义来凑结果。attachment、publication、copy/swap/history 均传播真实表示；普通 color 不冒充 data。未迁移的直接 terminal replay 回到原 offscreen→compositor，不丢整层。拒绝隐藏 RGB companion、原图补色、GodRays 特判或另一个颜色 renderer：它们会重复采样、坐标、生命周期职责，且原图 RGB 不能代替作者前序计算结果。
 

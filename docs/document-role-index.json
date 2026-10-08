@@ -350,12 +350,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-08",
+      "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ade1da5deb200b76ccb8219617a9bc5091d8e7ccd3f2916c81134a4550ce80ae",
+        "sourceSHA256": "452464aa1cbc6d52c31b1072be3866792b8f836c44ad3b6747022652d531f33b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核编译时共享颜色转换、HDR范围、作者UNorm及冻结GPU/App缓存升级证据；328条纹根因与物理EDR仍未验。",
+        "scope": "核对普通effect颜色连续性、typed信号/数据边界及对应执行证据入口；真实灰头冠与源上传/capture仍开放。",
         "limitations": "仅对应本批职责与冻结证据，不表示全样本兼容、官方parity或发布验收。"
       }
     },
@@ -519,12 +519,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-08",
+      "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "371404b58aece26b4433d63f5a9228fa4c7cb32b1d75d3b674ea9a7625331c08",
+        "sourceSHA256": "4964f1342497a5cd38aeb9c993ac16d008c2d1549a29a2e2141be0f8bc05a986",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对共享shader转换、同层graph输入归一化与透明RGB官方对照的当前证据边界。",
+        "scope": "核对普通effect颜色连续性、typed信号/数据边界及对应执行证据入口；真实灰头冠与源上传/capture仍开放。",
         "limitations": "导航与证据身份核对；不等同全样本、真实声源、compose或HDR官方parity。"
       }
     },
@@ -705,6 +705,17 @@
       "role": "navigation",
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene固定历史与当前权威的按需索引，不产生现役任务。"
+    },
+    {
+      "path": "docs/scene/history/authored-color-continuity-2026-10-09.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
     },
     {
       "path": "docs/scene/history/authored-layer-retirement-2026-10-07.md",

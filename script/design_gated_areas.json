@@ -362,7 +362,7 @@
       "owner": "scene-material-color-boundary",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
-      "design_notes": "2026-10-08 官方两段自有effect确认零alpha RGB可由后序alpha扩张显露；本机同输入丢失。批准沿既有Program/graph/compositor分两张完整纵向卡实施typed边界，禁止RGB companion/样本补色。当前尚未实施，不推源上传或GodRays根因。",
+      "design_notes": "2026-10-08 官方两段自有effect确认零alpha RGB可由后序alpha扩张显露；本机同输入丢失。批准沿既有Program/graph/compositor分两张完整纵向卡实施typed边界，禁止RGB companion/样本补色。第一卡effect连续性已实施，执行边界见设计链接；第二卡源上传/capture待实施，不推GodRays根因。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+ColorDerivation.swift",

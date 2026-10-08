@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 581,
-      "bytes": 104381
+      "bytes": 104884
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 92,
-      "bytes": 26342
+      "bytes": 25596
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -149,8 +149,8 @@
       "bytes": 8029
     },
     "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md": {
-      "lines": 97,
-      "bytes": 17465
+      "lines": 99,
+      "bytes": 18279
     },
     "docs/scene/roadmap/batch2/host-render-power-protocol-design.md": {
       "lines": 54,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 221,
-      "bytes": 56072
+      "bytes": 56125
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1041,15 +1041,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "f18713ca53b7df602e2a6e153924b67be78eaa688dc8ba3926ce3734800d3453",
-      "after": "ba314d5b8e656300970ffeafbe6ee1e185989d6ddd58dbc15944bd28449a5c9d",
-      "owner": "scene-e-route",
-      "reason": "统一既有颜色转换并保留扩展RGB，记录实际GPU裁剪反例、缓存退出及328未验边界。",
-      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "a54cbae101733347a809e94511d51876269047a485be7591f30bd2c7c6c3acbf",
       "after": "3a0f755e5c4ebad79d0b2090cdd9f4ff6dd3d5ba7d49a398928fc10259293dc2",
@@ -1122,21 +1113,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "ba314d5b8e656300970ffeafbe6ee1e185989d6ddd58dbc15944bd28449a5c9d",
+      "after": "f7fd59f79a41d586cf5cdad0096a251dd8d4a0b6530e345d5620ca3c9e1139a9",
+      "owner": "Scene color contract",
+      "reason": "替换旧PMA-only描述为同一实际表示边界，区分已实施effect卡与未实施source卡；详细过程归档。",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#作者颜色跨-effect-连续性2026-10-08待实施"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
-      "before": "19bb36846ce51a09cb773a36410a9dcf8472a47a51841b734663a525345977a5",
-      "after": "0f0e89aa54504d21e57c51d297bee4772b332b83bf131a2144b0cae085dfb4e4",
-      "owner": "scene-e-route",
-      "reason": "记录本批真实公共编译/同层输入修复、撤回错误snapshot试验、原包与有界官方颜色证据，以及仍开放的透明RGB/source入口边界；不复制原始报告或扩历史正文。",
-      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md"
+      "before": "0f0e89aa54504d21e57c51d297bee4772b332b83bf131a2144b0cae085dfb4e4",
+      "after": "517701189e9ab7c380684ef270a0b9d4f127a6529e20c7803c02f074391f2333",
+      "owner": "Scene color contract",
+      "reason": "替换旧PMA-only描述为同一实际表示边界，区分已实施effect卡与未实施source卡；详细过程归档。",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#作者颜色跨-effect-连续性2026-10-08待实施"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "ea4a1dbf2056b08075ca04be616cff76b971554eedcb3b1850926124c39cffc0",
-      "after": "b481fd479a1c60fdbee43cfc299d1ab4c54107206d608f72eeaed1ff73d087e0",
-      "owner": "scene-e-route",
-      "reason": "记录本批真实公共编译/同层输入修复、撤回错误snapshot试验、原包与有界官方颜色证据，以及仍开放的透明RGB/source入口边界；不复制原始报告或扩历史正文。",
-      "decision": "docs/scene/roadmap/batch2/copy-pass-unification-design.md"
+      "before": "b481fd479a1c60fdbee43cfc299d1ab4c54107206d608f72eeaed1ff73d087e0",
+      "after": "2afea4839c0de4043ae1299102b8cd41694d241b9cab56551a97f8c001aeff89",
+      "owner": "Scene color contract",
+      "reason": "替换旧PMA-only描述为同一实际表示边界，区分已实施effect卡与未实施source卡；详细过程归档。",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#作者颜色跨-effect-连续性2026-10-08待实施"
     }
   ]
 }
