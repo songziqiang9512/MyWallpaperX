@@ -54,6 +54,9 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan+Descriptor.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneSolidLayerTexture.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceIndex.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceView.swift",
+    SOURCE_ROOT / "Resources/Textures/SceneTexturePathResolver.swift",
 ]
 
 
@@ -185,6 +188,19 @@ SCENE_FIXTURE = {
                 "combos": {"version": 2},
                 "futurekey": {"preserve": True},
             },
+        },
+        {
+            "id": 33,
+            "image": "models/util/solidlayer.json",
+            "size": "2560 1440",
+            "color": "0.2 0.4 0.6",
+            "instance": {"textures": ["custom/carrier"], "combos": {"version": 2}},
+        },
+        {
+            "id": 34,
+            "image": "models/util/solidlayer.json",
+            "size": "640 480",
+            "instance": {"textures": ["custom/missing"], "combos": {"version": 2}},
         },
         {
             "id": 40,
@@ -515,6 +531,17 @@ enum Harness {
 
         let objects = Dictionary(uniqueKeysWithValues: document.objects.map { ($0.id, $0) })
         let layers = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
+        let sourceResolver = SceneTexturePathResolver(
+            resourceView: SceneResourceView(projectRootURL: project.rootURL,
+                packageRootURL: nil, stockAssetsRootURL: nil),
+            descriptor: descriptor
+        )
+        let solidSourceInputs = [10, 30, 33, 34].map { id -> [String: Any] in
+            let layer = layers[id]!
+            return ["staticPath": layer.staticBaseTexturePath ?? "",
+                "resolvedFile": sourceResolver.resolvePrimaryTexture(for: layer)?.lastPathComponent ?? "",
+                "size": layer.sizeWH ?? [], "color": layer.colorRGB ?? []]
+        }
         let splitMaterialInstance = SceneDocument.SceneLayerMaterialInstance.parse(
             [
                 "textures": ["resolved/cover"],
@@ -559,6 +586,7 @@ enum Harness {
         })
         let result: [String: Any] = [
             "bloomProfiles": bloomProfiles,
+            "solidSourceInputs": solidSourceInputs,
             "staticWorldSpaceTRS": staticWorldSpaceTRS,
             "cameraParallaxEnabled": descriptor.camera.parallaxEnabled,
             "worldSpaceFrameLayerIDs": descriptor.staticParticleWorldSpaceFrames.keys.sorted(),
@@ -658,6 +686,9 @@ class SceneSolidLayerTests(unittest.TestCase):
         directory = Path(cls.temporary_directory.name)
         fixture = directory / "scene.json"
         fixture.write_text(json.dumps(SCENE_FIXTURE), encoding="utf-8")
+        carrier = directory / "materials/custom/carrier.tex"
+        carrier.parent.mkdir(parents=True)
+        carrier.write_bytes(b"owned resolver fixture")
         duplicate_fixture = directory / "duplicate-scene.json"
         duplicate_scene = {
             "objects": [
@@ -869,7 +900,7 @@ class SceneSolidLayerTests(unittest.TestCase):
         )
         self.assertRegex(
             compositor_uniforms,
-            re.compile(r"tint\s*:\s*tint \* brightness"),
+            re.compile(r"tint\s*:\s*tint(?:\s*\*\s*sourceMaterialColor)?\s*\*\s*brightness"),
         )
 
     def test_puppet_animation_layer_round_trips_into_descriptor(self) -> None:
@@ -891,23 +922,23 @@ class SceneSolidLayerTests(unittest.TestCase):
             ],
         )
 
-    def test_one_white_texture_is_reused_for_every_solid_layer(self) -> None:
+    def test_explicit_static_solid_source_uses_resolver_without_changing_author_values(self) -> None:
+        expected = [
+            ("", "", [1920, 1080], [0.1, 0.2, 0.3]),
+            ("", "", [320, 200], []),
+            ("custom/carrier", "carrier.tex", [2560, 1440], [0.2, 0.4, 0.6]),
+            ("custom/missing", "", [640, 480], []),
+        ]
+        self.assertEqual(len(self.result["solidSourceInputs"]), len(expected))
+        for actual, (path, filename, size, color) in zip(self.result["solidSourceInputs"], expected):
+            self.assertEqual((actual["staticPath"], actual["resolvedFile"], actual["size"]), (path, filename, size))
+            self.assertEqual(len(actual["color"]), len(color))
+            for channel, expected_channel in zip(actual["color"], color):
+                self.assertAlmostEqual(channel, expected_channel, places=6)
+
+    def test_procedural_solid_fallback_reuses_white_texture(self) -> None:
         self.assertEqual(self.result["textureSize"], [1, 1])
         self.assertEqual(self.result["texturePixel"], [255, 255, 255, 255])
-
-        view = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift").read_text(encoding="utf-8")
-        self.assertRegex(view, r"private let solidLayerTexture\s*:\s*MTLTexture\??")
-        self.assertEqual(view.count("SceneSolidLayerTexture.make("), 1)
-        self.assertRegex(
-            view,
-            re.compile(
-                r'if layer\.contentKind\s*==\s*"solid"'
-                r"[\s\S]{0,400}guard let texture\s*=\s*solidLayerTexture"
-                r"[\s\S]{0,400}loaded\.set\("
-                r"\s*texture,\s*candidate:\s*nil,\s*layerID:\s*layer\.id\s*\)"
-            ),
-        )
-        self.assertNotRegex(view, r"SceneSolidLayerTexture\.make\([^)]*color")
 
 
 if __name__ == "__main__":

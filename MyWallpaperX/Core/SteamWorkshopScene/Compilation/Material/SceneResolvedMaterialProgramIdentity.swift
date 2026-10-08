@@ -181,6 +181,7 @@ extension SceneResolvedMaterialProgram {
     enum PassRole: String, Hashable {
         case offscreenOverwrite
         case terminalSourceOver
+        case terminalStraightSourceOver
     }
 
     struct MetalCompileStateKey: Hashable {

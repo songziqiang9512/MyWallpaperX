@@ -362,12 +362,12 @@ extension SceneResolvedMaterialGraphExecutor {
                     )
                 }
                 commands.append(.material(prepared))
-                // The direct replay pipeline blends associated color. A straight
-                // overwrite remains on the existing offscreen -> compositor
-                // route, which owns its one association at final consumption.
+                // Only the terminal stage receives this target. Its frozen
+                // input member stays live until the main compositor consumes it.
                 if let terminalReplayTarget,
                    prepared.fragmentOutput == .opaque
-                    || prepared.fragmentOutput == .premultipliedAlpha {
+                    || prepared.fragmentOutput == .premultipliedAlpha
+                    || prepared.fragmentOutput == .straightAlpha {
                     switch materialEncoder.prepareTerminalReplay(
                         program: program,
                         target: terminalReplayTarget,

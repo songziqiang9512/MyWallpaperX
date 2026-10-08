@@ -44,7 +44,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                                && $0.type == .float4x4
                        }) {
                         plans += [MTLPixelFormat.bgra8Unorm, .rgba16Float]
-                            .compactMap { plan($0, .terminalSourceOver) }
+                            .flatMap { format in
+                                [plan(format, .terminalSourceOver),
+                                 plan(format, .terminalStraightSourceOver)].compactMap { $0 }
+                            }
                     }
                     return plans
                 }

@@ -216,7 +216,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let isVisibleExecutionRoot: Bool
         let isGraphOutputProvider: Bool
         let requiresGraphOutputProvider: Bool
-        let supportsTerminalMaterialReplay: Bool
+        let supportsSourceSizedSolidEffects: Bool
+        var supportsTerminalMaterialReplay: Bool {
+            supportsSourceSizedSolidEffects && stages.count == 1
+        }
 
         fileprivate let capabilityID = UUID()
 
@@ -282,7 +285,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             isVisibleExecutionRoot = admitted.isVisibleExecutionRoot
             isGraphOutputProvider = admitted.isGraphOutputProvider
             requiresGraphOutputProvider = admitted.requiresGraphOutputProvider
-            supportsTerminalMaterialReplay = Self.supportsTerminalReplay(
+            supportsSourceSizedSolidEffects = Self.supportsSourceSizedSolidEffects(
                 admitted: admitted,
                 stages: stages,
                 materials: materials,

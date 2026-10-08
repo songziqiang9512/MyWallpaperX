@@ -68,3 +68,21 @@ U23原包隔离运行`blend/position-final`：241首effect从0 material/1 reject
 网点11项作者常量经现有schema→Finalizer→static uniform编码核对一致，包括Scale250（不按UI range0…50裁剪）、Alpha .3、三个鼠标/贴图影响参数0；`dot-cpu/result.json`位于前片任务根，非App buffer捕获。solid241的colorBlendMode28沿原compositor传入最终混合，未被mode0专用terminal replay绕过。实际stock读取确认noise256×256、white32×32全白；本机slot0工作纹理2048×1152，作者公式仅用xy/y，其比例与2560×1440一致，尺寸差异不能直接解释为网格数量改变。
 
 原包静音缩窗至1210×786后网点仍明显，见`/private/tmp/mwx-u23-blend-20261009/blend/small-silent`。官方自有窗口以公开API校正到相同client extent后，两帧仍无同样强网点，收据在官方任务根`matched-extent/official-matched-corrected-{0,1}.*`。对该自有location提交13项作者bool/color默认值，公开CLI无readback，故不把返回成功等同属性读取验证。两端时间、音频与内部pass extent仍未对齐，下一门是官方参数读数及pass执行哨兵；此处未新增产品修复或宣称完整画面验收。本机已停止的样本副本/HOME/cache精确清理27,273,187字节，保留截图、日志、请求和身份收据，原包hash不变。
+
+
+## solid源尺寸后继
+
+基线 `16a4d52a`。首错在已有静态源入口：solid 无条件使用共享1×1白占位、没有 Candidate，作者明确的静态 slot0 未进入原 resolver/loader。现接回 prepared base image→Candidate→Store；没有可解析静态源继续原程序化 fallback。不是新增纹理算法，也没有把32写入产品。正交可见、非provider的简单 color 链按实际源 extent 运行；mode0仅单stage复用现 terminal Program/MainPass，straight PSO恰好关联一次；高级混合仍从 graph-final 进入唯一 compositor。独立审查指出多stage普通混合尾段停用、前段失败尚未守住输入/回执，因此本批撤回该扩展，保留旧高分辨率路径，余项进入断点队列。
+
+官方2.8.0.42自有输入用公开shader导数和颜色哨兵区分采样/栅格，未读取私有实现：mode0两阶段中，前段单位UV栅格32×32，末段覆盖1397×786（1210×786 client裁切16:9 quad），末段slot0 metadata为32×4；mode28前末段仅证≤512，不能宣称精确32。控制色误差≤0.5 U8，两帧稳定。原始身份和清理收据曾在 `/private/tmp/mwx-solid-raster-metadata-20261009/official` 与 `mwx-solid-raster-mode28-20261009/official`，续接后目录已不可访问；下述数值来自本会话已完成的工具观察，不再将旧路径冒称现存证据。曾尝试整链取占位1×1，虽消除网点却破坏光束：普通光柱相对官方最大误差223/255，已完整撤销。只改resolution uniform也未消除网点；一次测试FBO副本因instance pass数量不匹配未准入，不作视觉证据。
+
+首轮签名Debug App SHA256 `3171f09ebdb15f5a994359f2fa69653046cfd9f5617fc2e9a08e8cd658d75316`，dylib `c198e6c99b629761be66b39cd43cf55dc1c7786f698fd4b24ad37ddac61057fc`；2806产品源码与构建一致。U23原始entry字节副本和固定光效副本均实际播放；241两stage现在input32×32、rejected0、GPU completed，末段compositorConsumed=true。固定输入1210×786画面强网点消失、紫色光束保留；背景ROI相邻亮度差XY由10.966/11.020降至0.721/0.678，官方两帧约0.84–0.88/0.73–0.81。ROI只证明异常高频改善，其他动画未锁相，不是全图parity百分比。普通单光柱同输入有效内区与官方最大误差1/255、p95=0，未出现占位尺寸候选的回退。
+
+终端graph/pass真实GPU门通过，包含straight半alpha只关联一次、预热后不再编译；coordinator覆盖straight/opaque、data拒绝、同buffer、epoch、one-shot和append失败；显式solid静态源与无源fallback、原runtime bridge近邻门通过。修正了standalone capability stub与Python receipt消费key，保留初轮失败日志，不把其计作产品成功。独立只读审查所报三项产品问题以收窄profile及正确回执处理关闭，无新增renderer、registry或输出owner。构建与少数运行不代表其他混合模式、完整交互、真实声源或长稳验收。
+
+本批续接时原临时目录及测试句柄失效，不能宣称旧截图仍可读或旧测试最终通过；已观察的数值单独标记为会话恢复记录。重新构建、原始包直接播放及近邻门的现存收据/最终图保留在 `.artifacts/tmp/solid-source-domains-recovery-20261009`。promotion被既有总缓存预算拒绝，prune-expired无可删项；未提高额度或清理未知材料，不冒称已入正式证据缓存。当前可见专项为“强网点及普通光效不回退”已闭，整样本外部音源/交互尚未闭。下一优先 U21 音频数组双下标→环形频谱/灰层实际输出；不能将 U23 的源尺寸修复直接套给 U21 或修改作者参数。
+
+
+续接补验：签名Debug App `18981d97623140fded6d52e5d3470529e67a93608054da47ef9bd2a98a1c22ae` / dylib `7db720f9f237c716be754c7d4d8032a051eab71a86a3ed8783860b99fd7bc4cc`，4239个产品/项目文件构建前后hash一致。直接复制原始scene.pkg与project.json（不重打包、不改shader），受控PCM下上下两组频谱可见，131/650各4stage均GPU完成且末段被compositor消费；241两个stage为32×32，背景强网点消失、光束保留。首帧44个effect执行记录合计59材质/0拒绝，exit0、surfacesAfter0、gpuDrainedtrue，原文件hash不变。40项近邻CPU/GPU测试及49项文档测试全部通过；结构/依赖/防御/代码/设计门通过，仅既有未知归属`.mimosa`218字节使residue门非PASS。未重跑旧官方截图实验，旧对照数值保留明确证据上限。
+
+本批已停止的原包副本/HOME/cache精确清理27273187字节，明细`cleanup.json`；唯一构建缓存留 `.build-cache/solid-source-domains-recovery-20261009` 供下一批增量验证。

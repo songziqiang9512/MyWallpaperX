@@ -25,9 +25,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
 }
 
 extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
-    /// This launch decision proves graph shape only. The renderer separately
-    /// admits native solid geometry and its actual terminal attachment.
-    static func supportsTerminalReplay(
+    /// Proves a simple color chain whose intermediates follow its real source.
+    /// Direct terminal replay remains single-stage: trailing passthroughs can
+    /// overwrite an earlier material's input member before the compositor runs.
+    static func supportsSourceSizedSolidEffects(
         admitted: SceneResolvedMaterialAdmittedLayer,
         stages: [SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability],
         materials: [SceneResolvedMaterialExecutionCapabilityCatalog.MaterialKey:
@@ -42,19 +43,24 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
               case .capturedLayerTexture = admitted.sourceRoute,
               case .none = dependencyOwnership,
               sceneBackgroundRequirement == nil,
-              stages.count == 1,
-              case let .resolved(product, _, _) = stages[0],
-              product.clearFunctions.functions.isEmpty,
-              product.graph.renderTargets.isEmpty,
-              product.graph.effects.count == 1,
-              product.graph.nodes.count == 1,
-              let node = product.graph.nodes.first,
-              node.kind == .material,
-              node.target == product.graph.effects[0].output,
-              node.compose == nil,
-              materials.count == 1,
-              let material = materials.values.first,
-              material.attachmentStorage == .color else { return false }
+              !stages.isEmpty,
+              materials.count == stages.count else { return false }
+        for stage in stages {
+            guard case let .resolved(product, _, _) = stage,
+                  product.clearFunctions.functions.isEmpty,
+                  product.graph.renderTargets.isEmpty,
+                  product.graph.effects.count == 1,
+                  product.graph.nodes.count == 1,
+                  let node = product.graph.nodes.first,
+                  node.kind == .material,
+                  node.target == product.graph.effects[0].output,
+                  node.compose == nil else { return false }
+        }
+        guard materials.values.allSatisfy({ $0.attachmentStorage == .color }),
+              let lastEffect = stages.last?.product.graph.effects.first?.key,
+              let material = materials.values.first(where: {
+                  $0.key.effect == lastEffect
+              }) else { return false }
         let snapshot = material.variants.launchEnvelopeCapabilitySnapshot()
         return snapshot.allEntriesReady && !snapshot.variants.isEmpty
             && snapshot.variants.allSatisfy { variant in

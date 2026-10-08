@@ -24,6 +24,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let frameInputContract:
             SceneResolvedMaterialExecutionCapabilityCatalog.FrameInputContract
         let supportsTerminalMaterialReplay: Bool
+        let supportsSourceSizedSolidEffects: Bool
         let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
 
         fileprivate init(
@@ -38,6 +39,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             frameInputContract:
                 SceneResolvedMaterialExecutionCapabilityCatalog.FrameInputContract,
             supportsTerminalMaterialReplay: Bool = false,
+            supportsSourceSizedSolidEffects: Bool = false,
             token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
         ) {
             self.layerID = layerID
@@ -49,6 +51,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.sceneBackgroundRequirement = sceneBackgroundRequirement
             self.frameInputContract = frameInputContract
             self.supportsTerminalMaterialReplay = supportsTerminalMaterialReplay
+            self.supportsSourceSizedSolidEffects = supportsSourceSizedSolidEffects
             self.token = token
         }
     }
@@ -665,6 +668,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             sceneBackgroundRequirement: capability.sceneBackgroundRequirement,
             frameInputContract: capability.frameInputContract,
             supportsTerminalMaterialReplay: capability.supportsTerminalMaterialReplay,
+            supportsSourceSizedSolidEffects: capability.supportsSourceSizedSolidEffects,
             token: token
         )
         claimExecutionByToken[token] = execution

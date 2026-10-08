@@ -324,7 +324,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         guard let executor,
               capabilities.resolve(ledger.capabilityToken)?.supportsTerminalMaterialReplay == true,
               (ticket.finalContent == .color(.resolved(.opaque))
-                || ticket.finalContent == .color(.resolved(.premultipliedAlpha))),
+                || ticket.finalContent == .color(.resolved(.premultipliedAlpha))
+                || ticket.finalContent == .color(.resolved(.straightAlpha))),
               ticket.effectFailures.isEmpty,
               !ticket.consumesExternalPrimaryDependency,
               ledger.commandBuffer.status == .notEnqueued,

@@ -144,11 +144,12 @@ enum SceneSubmissionTerminalReplayChecks {
             opaque.outcome == "consumed" && opaque.calls == 1 && opaque.consumed && !opaque.dropped
         let straight = scenario(content: .color(.resolved(.straightAlpha)))
         let data = scenario(content: .data)
-        results["unassociatedOrDataOutputRejectsBeforeDraw"] =
-            straight.outcome == "terminal-material-replay-target-rejected"
-                && data.outcome == "terminal-material-replay-target-rejected"
-                && straight.calls == 0 && data.calls == 0
-                && !straight.consumed && !data.consumed && straight.dropped && data.dropped
+        results["straightTerminalReceiptConsumesOnce"] =
+            straight.outcome == "consumed" && straight.calls == 1
+                && straight.consumed && !straight.dropped
+        results["dataOutputRejectsBeforeDraw"] =
+            data.outcome == "terminal-material-replay-target-rejected"
+                && data.calls == 0 && !data.consumed && data.dropped
         let inactive = scenario(replay: false)
         results["absentReplayLeavesTicketForOrdinaryTextureComposite"] =
             inactive.outcome == "not-applicable" && inactive.calls == 0 && !inactive.consumed && !inactive.dropped

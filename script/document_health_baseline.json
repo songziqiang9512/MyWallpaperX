@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 581,
-      "bytes": 105146
+      "lines": 583,
+      "bytes": 106115
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 92,
-      "bytes": 25635
+      "bytes": 25825
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -197,8 +197,8 @@
       "bytes": 32798
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 221,
-      "bytes": 55733
+      "lines": 222,
+      "bytes": 56407
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1033,29 +1033,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "f7fd59f79a41d586cf5cdad0096a251dd8d4a0b6530e345d5620ca3c9e1139a9",
-      "after": "699664cefe1d43bf357e8533856537725b584ce71fbf8032b6f0b490e0ba451a",
-      "owner": "Scene source color contract",
-      "reason": "沿现有源上传和typed publication补齐实际颜色表示；详细证据归原历史记录，保留官方准入失败和PMA未验边界。",
-      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#作者颜色跨-effect-连续性2026-10-08待实施"
+      "before": "699664cefe1d43bf357e8533856537725b584ce71fbf8032b6f0b490e0ba451a",
+      "after": "eb72158e8ea4a51c6626044fb280a4047598b6903ec92e24c5ad1bdc14660d6f",
+      "owner": "Scene solid source and terminal composition",
+      "reason": "补齐现静态源与单stage终端分域合同；结果归历史证据，显式保留多stage普通混合余项。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#terminal-material-raster"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "85b7a48e36a65c514c2ad8b704ef89ca4df134ab26ae31326a482ef38afde5f0",
-      "after": "c2bb4193f0b7b7d67893234b76c03e7ed4505b0a6883d882999548cf18cafc54",
-      "owner": "Scene source color contract",
-      "reason": "沿现有源上传和typed publication补齐实际颜色表示；详细证据归原历史记录，保留官方准入失败和PMA未验边界。",
-      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#作者颜色跨-effect-连续性2026-10-08待实施"
+      "before": "7203d64c545f1a67cf0d50cf4713f0009334cb74fbb369cffba6e346010f8026",
+      "after": "5721356f2846dfd6dc0cfef097f1fa29ef48878af3685f1e76929ee5dbdcf94f",
+      "owner": "Scene solid source and terminal composition",
+      "reason": "补齐现静态源与单stage终端分域合同；结果归历史证据，显式保留多stage普通混合余项。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#terminal-material-raster"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
-      "before": "517701189e9ab7c380684ef270a0b9d4f127a6529e20c7803c02f074391f2333",
-      "after": "0b0faf5fb6748c082343e4025096f15e5e9e4309cc65a9070fb77769aeb887a5",
-      "owner": "Scene source color contract",
-      "reason": "沿现有源上传和typed publication补齐实际颜色表示；详细证据归原历史记录，保留官方准入失败和PMA未验边界。",
-      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#作者颜色跨-effect-连续性2026-10-08待实施"
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "cb63f8641e12bde5b2c8484526a248dbdb0827710619dd6bec982ae9063f249c",
+      "after": "17a7d53af26bcea71f715e195128213e410422b3c5e85b7cc1a61749a7a52e34",
+      "owner": "Scene solid source and terminal composition",
+      "reason": "补齐现静态源与单stage终端分域合同；结果归历史证据，显式保留多stage普通混合余项。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#terminal-material-raster"
     }
   ]
 }

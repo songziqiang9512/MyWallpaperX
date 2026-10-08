@@ -85,16 +85,40 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
     let aliasRejected: Bool
     if case .failure(.bindingsRejected) = alias { aliasRejected = true } else { aliasRejected = false }
     let clip = program(device: device, marker: 8801, outputSlot: 0)!
+    let beforeStraightWarmup = encoder.pipelineCompilationAttemptCount == attempts
+    let straightInput = texture(device: device, usage: [.shaderRead, .renderTarget],
+        fill: [255,0,0,128, 255,0,0,128, 255,0,0,128, 255,0,0,128])
     let straight = program(device: device, marker: 8802, outputSlot: 0,
+        slot0Texture: straightInput,
         slot0Content: .color(.resolved(.straightAlpha)), slot0Purpose: .straightAlbedo,
         uniformValues: ["g_ModelViewProjectionMatrix": bytes(matrix_identity_float4x4),
                         "g_ModelViewProjectionMatrixInverse": bytes(matrix_identity_float4x4)],
         replayVertexSource: vertex)!
+    let straightWarmup = encoder.warmup([.init(
+        identity: "terminal-straight", preparedKey: straight.preparedShader.cacheKey,
+        frontend: straight.frontendProgram, renderState: straight.renderState,
+        frontendSchemaVersion: straight.semanticIdentity.shader.frontendSchemaVersion,
+        pixelFormat: .bgra8Unorm, writeMask: .all,
+        passRole: .terminalStraightSourceOver, device: device)!])
+    let straightAttempts = encoder.pipelineCompilationAttemptCount
     let straightResult = encoder.prepareTerminalReplay(program: straight, target: target,
         unitModelViewProjection: matrix_identity_float4x4)
-    let straightRejected: Bool
-    if case .failure(.fragmentOutputRejected) = straightResult { straightRejected = true }
-    else { straightRejected = false }
+    var straightAssociatedOnce = false
+    if case let .success(straightPass) = straightResult {
+        let straightCommand = queue.makeCommandBuffer()!
+        let straightMain = SceneMainPassEncoder(commandBuffer: straightCommand, target: target,
+            clearColor: .init(red: 0, green: 0, blue: 1, alpha: 1), clearEnabled: true)
+        let drawn = straightMain.encodePreparedDraw {
+            encoder.terminalDraw(straightPass, target: $0, commandBuffer: $1)
+        }
+        let finished = straightMain.finishEnsuringClear()
+        straightCommand.commit(); straightCommand.waitUntilCompleted()
+        let center = pixel(pixels(target), at: 8 * 16 + 8)!
+        straightAssociatedOnce = drawn && finished && straightCommand.status == .completed
+            && straightPass.role == .terminalStraightSourceOver
+            && abs(Int(center[0]) - 127) <= 1 && center[1] == 0
+            && abs(Int(center[2]) - 128) <= 1 && center[3] == 255
+    }
     encoder.reset()
     let staleCommand = queue.makeCommandBuffer()!
     let staleMain = SceneMainPassEncoder(commandBuffer: staleCommand, target: target,
@@ -115,7 +139,8 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
     return [
         "terminalColdCacheRejectsWithoutFrameCompilation": coldRejected && coldAttempts == 0,
         "terminalRolesAndFormatsWarmSeparately": report.uniqueKeyCount == 3 && report.readyKeyCount == 3,
-        "terminalNoFrameCompilation": encoder.pipelineCompilationAttemptCount == attempts,
+        "terminalNoFrameCompilation": beforeStraightWarmup
+            && encoder.pipelineCompilationAttemptCount == straightAttempts,
         "terminalPreservesFrozenProgram": replay.semanticIdentity == material.semanticIdentity
             && replay.exactIdentity != material.exactIdentity
             && replay.exactIdentity.uniformBytes == replay.uniformBytes
@@ -132,7 +157,9 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
             && command.status == .completed && sourceOver,
         "terminalResizeUsesPreparedFormat": resizedPass != nil,
         "terminalTargetAndCommandIdentity": targetRejected && commandRejected && roleRejected,
-        "terminalBindingsAndColorRejected": aliasRejected && straightRejected,
+        "terminalBindingsRejected": aliasRejected,
+        "terminalStraightAssociatedOnce": straightWarmup.readyKeyCount == 1
+            && straightAssociatedOnce,
         "terminalStaleRejected": staleRejected,
         "terminalLegacyModelNotAdmitted": !oldModel.supportsTerminalMaterialReplay,
         "terminalPersistentRoleIdentity": archiveOriginal != nil && archiveTerminal != archiveOriginal,

@@ -562,6 +562,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         var supportsTerminalMaterialReplay = false
+        var supportsSourceSizedSolidEffects = false
         let sceneBackgroundRequirement: SceneBackgroundRequirement? = nil
         let frameInputContract = FrameInputContract(
             effectTextureProjectionSource: .emittedOutputGeometry,

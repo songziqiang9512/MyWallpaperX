@@ -18,7 +18,7 @@
 | T2 颜色与HDR输出 | 旧SDR shoulder压暗已修；对剩余条纹、HDR物理显示及用户样本复验，按采样purpose/alpha/颜色域→中间target→最终输出定位 | 保留作者HDR/SDR意图；同内容默认/关闭/开启和实际呈现对照。已有16F与热切执行不等于物理亮度正确；找到首错owner再修改 |
 | E1 特效与频谱 | 将运行拒绝按共享shader/slot/graph/动态输入首断点归并；频谱用同声源对照形状和活跃度 | 复用现compiler/graph/audio producer，选覆盖面明确的族恢复动态结果；不抬gain、改作者参数或放宽测试制造通过 |
 
-T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅证F16量化，不据此换全图精度。T2透明RGB跨effect与静态源/source/capture两卡已闭合，U19灰头冠恢复亮色；当前修U21数组与U23混合；U23坐标拒绝已修；[类型兼容后验](../history/shared-shader-type-compatibility-2026-10-09.md)保留实际运行及未决合同，不重做已修SDR shoulder或已执行效果；按批回写矩阵。
+T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅证F16量化，不据此换全图精度。T2透明RGB跨effect与静态源/source/capture两卡已闭合，U19灰头冠恢复亮色；U23坐标拒绝与背景强网点已修，下一优先U21数组/环形输出；[类型兼容后验](../history/shared-shader-type-compatibility-2026-10-09.md)保留实际运行及未决合同，不重做已修SDR shoulder或已执行效果；按批回写矩阵。
 
 ## 2. 纹理、合成与特效公共缺口
 
@@ -34,6 +34,7 @@ T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅
 | 透明RGB跨effect丢失 | **普通effect与静态源两卡已接通**：[执行记录](../history/authored-color-continuity-2026-10-09.md#静态源上传与采集后继)覆盖原straightAlbedo上传、Candidate映射、unlit采集、typed命名发布和唯一compositor。U19头冠灰边恢复亮色。动态PMA/命名几何隐藏RGB与source小输入官方准入仍未证；不能外推所有混合/HDR问题已修。 |
 | varying局部重名误删全局声明 | **审查静态反例、待修**：`SceneGenericShaderSourceNormalizer.hasLocalDeclaration` 把同名局部/参数存在误当全局varying已死；不属于prefix宽度裁决。复用已有scope/global引用事实，验证main仍读全局、局部声明前读取、嵌套局部退出后读取、全局确实已死四种边界；不另建scope算法，不退回正则删除，不以新增prefix guard声称已修。 |
 | 未定义varying分量 | **待研究**：sine_wave_circle激活变体读取未初始化分量。3747190633、3807151772及3809609151的sine_wave共享prefix/标量转换已在本批隔离App执行；后继self取错基础输入已按官方单pass链合同归一化到同一graph ingress，错误snapshot试验撤回；见[音频后验证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-localized-graph-input)。不能猜零填充；先取得公开或受控官方可观察合同，再决定归一化/局部拒绝 |
+| solid多stage普通混合分域 | **官方差异已证，产品余项**：[源尺寸后继](../history/shared-shader-type-compatibility-2026-10-09.md#solid源尺寸后继)显示mode0前段源栅格、末段投影栅格不同；本批仅开放single-stage terminal，高级混合仍消费原graph texture。多stage普通混合保留旧高分辨率路径；下一扩展须在现transaction内保证尾段inactive/失败不覆盖前段输入、prefix局部失败能被同一terminal receipt合法确认，不加第二输出owner。 |
 | 透明target的alphaWeightedAdditive | **待研究**：普通源coverage已修，named/透明target的完整alpha合成尚未同输入裁决，见[coverage证据](../capabilities/runtime-evidence-current.md#e-2026-09-27-direct-draw-coverage)。先核唯一compositor当前blend，不能重新造光束专用补偿 |
 | named纹理optional回退 | **编译ABI丢失已修**：generic accepted直接传递已校验PMA槽；3078285611原包192/effect2恢复材质执行、named189绑定、首帧/下一帧GPU与最终合成，benchmark PASS；自有半透明色与非法三候选反例通过。真实换曲/previous封面及完整视觉仍待验；不再把原`optional-named-fallback-unproven`当未修。[修复证据](../history/mixed-provider-color-abi-2026-10-08.md) |
 | stock noise视觉等价 | **待研究**：按需准备/readiness已修；缺资产synthetic替代的密度/语义未证。375时钟包自带clouds，不属于替代收益；见[资源链证据](../capabilities/runtime-evidence-current.md#e-2026-09-26-stock-noise-preparation) |
@@ -101,7 +102,7 @@ T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅
 | U20 · 3807151772 | 音频条消失，用户称之前修好过 | **主报告现象已修复**：[同一中文previous修复](../capabilities/runtime-evidence-current.md#e-2026-10-08-localized-graph-input)后原包layer399的16频谱进入实际GPU/合成，条带可见。未验外部声源/完整交互；后继sine_wave已走同一公共编译与graph输入链，黄色频谱和条内波纹可见；[本批后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-varying-scalar-conversion)保留最终身份与边界，不关闭整样本。 |
 | U21 · 3806337293 | ①人物层上下叠灰层；②下半身过曝；③环形音频条缺失 | **当前复现**：两环首effect均拒绝，后续消费solid回退；先修共享shader类型/数组兼容，灰层与过曝另验 |
 | U22 · 3805547608 | ①右上角点击切换背景失效；②用户报告带视频层样本普遍越播越卡、帧率递减 | hit/event→属性→媒体切换；视频 decode/publication/资源释放/队列长稳。普遍影响面待测，不能由单样本外推 |
-| U23 · 3796588443 | ①纹理混合明显错误；②音频条缺失 | **光效拒绝已修，网点差异待查；②受控频谱已绘制**：59个effect材质节点/0拒绝不等于视觉正确；官方原包也有LOVE色阶与灰紫矩形，勿误修作者设计；[后验](../history/shared-shader-type-compatibility-2026-10-09.md#原包混合后验) |
+| U23 · 3796588443 | ①纹理混合明显错误；②音频条缺失 | **光效与强网点已修，整样本未关闭；②受控频谱已绘制**：[源尺寸后继](../history/shared-shader-type-compatibility-2026-10-09.md#solid源尺寸后继)接回原静态源/Candidate，原始entry副本背景恢复、普通光柱官方对照无回退。LOVE色阶与灰紫矩形属作者设计；完整交互/外部音源及全图逐像素仍未验，59节点执行不算正确率 |
 | U24 · 3420215721 | 完全静止，用户称之前修好过 | 回归候选：clock/暂停状态→脚本/动画/粒子实际帧更新 |
 | U25 · 3351163962 | 左上音频圆环内时间文字跑到环外 | text anchor/布局/parent transform，核圆环和文字的共同坐标 |
 | U26 · 2849382252 | 三条白色图形分辨率明显过低 | 原资产/采样/target extent/几何，不先认定压缩或任意提高分辨率 |

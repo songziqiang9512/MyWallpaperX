@@ -1179,11 +1179,10 @@ private enum Harness {
             slot0Content: .color(.resolved(.straightAlpha)),
             slot0Purpose: .straightAlbedo
         )!
-        let attemptsBeforeColorGate = encoder.pipelineCompilationAttemptCount
-        let straightRejected = encoder.prepare(
+        let straightStoredWithoutAssociation = encoder.prepare(
             program: straight,
             target: rgbaTarget
-        ) == nil && encoder.pipelineCompilationAttemptCount == attemptsBeforeColorGate
+        )?.fragmentOutput == .straightAlpha
         let unresolvedRejectedUpstream = program(
             device: device,
             marker: 4,
@@ -2609,7 +2608,7 @@ private enum Harness {
             "rgbaAndBgraSupported": separateFormatPipeline,
             "metalLibraryReusedAcrossPipelineVariants":
                 libraryReusedAcrossPipelineVariants,
-            "straightOutputRejectedBeforeCompile": straightRejected,
+            "straightOutputStoredWithoutAssociation": straightStoredWithoutAssociation,
             "unresolvedOutputRejectedUpstream": unresolvedRejectedUpstream,
             "inputTargetAliasRejected": aliasRejected,
             "crossExtentGraphPrepared": crossExtentPrepared != nil,

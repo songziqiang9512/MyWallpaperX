@@ -76,6 +76,15 @@ HARNESS = HELPERS + r'''
     effectGeneration: 2, resetGeneration: 2).get()
   result["inactiveKeepsTextureRoute"] = inactive.terminalMaterialReplay == nil
     && inactive.stages[0].effectLocalActivationBypassReasonCode != nil
+  // A low-resolution texture route does not authorize multi-stage terminal
+  // replay: inactive suffixes may overwrite an earlier Program's input member.
+  let chain = chainedGraph()
+  let admittedChain = orderedLayerGraph(chain)
+  let chainCaps = capabilities(admittedChain, catalog: catalog(for: chain))
+  let chainClaim = chainCaps.claim(admittedChain)!
+  let chainCapability = chainCaps.resolve(chainClaim.token)!
+  result["chainKeepsTextureRoute"] = chainCapability.supportsSourceSizedSolidEffects
+    && !chainCapability.supportsTerminalMaterialReplay
   let payload: [String: Any] = ["metalAvailable": true, "results": result, "transitions": transitions]
   let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
   FileHandle.standardOutput.write(data)

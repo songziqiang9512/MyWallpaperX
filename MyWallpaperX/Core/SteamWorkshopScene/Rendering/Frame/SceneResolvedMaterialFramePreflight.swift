@@ -185,7 +185,7 @@ extension SceneMetalRenderer {
                 selectedMainSource = mainTarget
             }
             let desiredSize: CGSize
-            let terminalReplayTarget: MTLTexture? =
+            var terminalReplayTarget: MTLTexture? =
                 claim.supportsTerminalMaterialReplay
                     && layer.contentKind == "solid"
                     && cameraFrame.defaultsToPerspective
@@ -284,6 +284,26 @@ extension SceneMetalRenderer {
                             quantizedUp(CGFloat(onCanvasHeight))
                         )
                     )
+                    break
+                }
+                if !cameraFrame.resolvesPerspective(for: layer),
+                   claim.supportsSourceSizedSolidEffects,
+                   (layer.colorBlendMode ?? 0) != 0 || claim.supportsTerminalMaterialReplay,
+                   frameVisibleLayerIDs.contains(layerID),
+                   !dependencyRuntime.requiresGraphOutputCapture(for: layerID),
+                   let candidate = selectedSource.candidate,
+                   let authoredSize = layer.renderSizeWH,
+                   authoredSize.count == 2, authoredSize.allSatisfy({ $0 > 0 }),
+                   SceneLayerEffectSourceExtent.resolveSolid(
+                       authoredRenderSizeWH: authoredSize
+                   ) != nil {
+                    // The real source owns intermediate sampling density. A
+                    // normal terminal material draws at placement density;
+                    // advanced blending consumes the existing graph texture.
+                    desiredSize = candidate.mappedSize
+                    if (layer.colorBlendMode ?? 0) == 0 {
+                        terminalReplayTarget = selectedMainSource
+                    }
                     break
                 }
                 if terminalReplayTarget != nil,

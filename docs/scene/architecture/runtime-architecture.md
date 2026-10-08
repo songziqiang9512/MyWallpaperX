@@ -566,9 +566,11 @@ GPU 分配和保留的 decoded cache 进入唯一 `SceneResourceBudget` 父额�
 
 ### 终端材质光栅的有界合同
 
-已完成 native 3D solid、普通source-over、单material pass、无FBO/history/function/copy/swap及外部graph-final消费者、无geometry mesh、额外terminal alpha=1的分域。输入Candidate/sampler/resolution仍为作者尺寸；同一冻结Program只派生placement uniforms与attachment/blend角色，在作者层序位置由唯一MainPass编码。只接受associated color；inactive/不支持组合保留原graph输出，不能拿straight/data直接做premultiplied混合。
+solid 有显式且可解析静态 slot0 时复用 resource resolver→prepared base image→Candidate→Store；无源仍用原程序化白载体，不增加纹理 owner 或固定像素尺寸。正交可见、非外部 graph provider、有合法作者尺寸的 simple color 链（每 stage 单 material、无FBO/history/function/copy/swap/compose/依赖）以真实 Candidate extent 采样和生成中间结果；高级混合继续消费原 graph-final 纹理，普通 source-over 只对单 stage 开放此分域。多 stage 普通混合保留原高分辨率路径：尾段停用可能覆盖前段输入，前段失败也尚无 terminal 回执合同，不能直接扩大准入。该限制是已知兼容余项，不是官方行为定义。[官方观察与后验](../history/shared-shader-type-compatibility-2026-10-09.md#solid源尺寸后继)限定本批证据。
 
-原GraphExecutor仍执行小尺寸捕获/输出以守住transaction、publication、state与completion；terminal typed receipt绑定ticket/epoch/pass/同command buffer，区别于纹理被采样的回执。PSO角色参与原cache身份且launch预热；普通帧不解析/compile/VM重放。preflight先验证，部分main写入后失败仍拒帧，不能补画旧纹理。此过渡确有重复小光栅成本；未来删除它必须同时迁移这些守恒，不把main target冒充graph texture。[归档设计](../history/terminal-material-raster-design-2026-10-06.md)与[实施证据](../history/terminal-material-raster-implementation-2026-10-06.md)不授予更宽profile准入。
+原 native 3D solid profile 继续限定单 material pass、无显式目标/外部消费者/geometry mesh、额外 terminal alpha=1。terminal 使用同一冻结 Program，只派生 placement uniforms 和 attachment/blend 角色，由唯一 MainPass 按层序编码。straight 输出在 typed PSO 中恰好关联一次，associated/opaque 沿原混合；data 不得进入颜色终端。单 stage 输入 pair member 保留到终端编码；inactive/不支持组合沿原 graph 纹理回执。源采样尺寸不得替代输出 placement；不按样本、路径、hash 或效果名选择算法。
+
+原 GraphExecutor 仍执行小尺寸捕获/输出，维护 transaction、publication、state 与 completion；terminal typed receipt 绑定 ticket/epoch/pass/同 command buffer，保持 one-shot，区别于纹理采样回执。PSO 角色参与原 cache 身份并在 launch 预热；普通帧不解析、compile 或重放 VM。preflight 先验证，部分 main 写入后失败仍拒帧。过渡期重复小光栅成本须在迁移这些守恒后才能删除，不能把 main target 冒充 graph texture。[原设计](../history/terminal-material-raster-design-2026-10-06.md)与[原实施](../history/terminal-material-raster-implementation-2026-10-06.md)不授予更宽 profile 准入。
 
 <a id="debug-capture-lifecycle"></a>
 

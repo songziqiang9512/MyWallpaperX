@@ -83,6 +83,7 @@ class SceneTerminalMaterialReceiptTests(unittest.TestCase):
     def test_success_and_inactive_keep_distinct_output_contracts(self) -> None:
         for key in ("terminalReceiptConsumesOnceWithoutTextureSampling",
                     "opaqueTerminalReceiptConsumesOnce",
+                    "straightTerminalReceiptConsumesOnce",
                     "absentReplayLeavesTicketForOrdinaryTextureComposite",
                     "absentReplayAllowsOrdinaryTextureReceipt"):
             with self.subTest(key=key):
@@ -104,8 +105,8 @@ class SceneTerminalMaterialReceiptTests(unittest.TestCase):
     def test_replay_cannot_claim_texture_sampling_or_named_publication(self) -> None:
         self.assertTrue(self.results["terminalReplayCannotClaimLegacyTextureOrNamedReceipt"])
 
-    def test_unassociated_and_data_output_never_append_terminal_draw(self) -> None:
-        self.assertTrue(self.results["unassociatedOrDataOutputRejectsBeforeDraw"])
+    def test_data_output_never_appends_terminal_draw(self) -> None:
+        self.assertTrue(self.results["dataOutputRejectsBeforeDraw"])
 
 
 if __name__ == "__main__":

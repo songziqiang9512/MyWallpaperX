@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "78d468bd09c5b58759a4f790767ce74c24472dbfccdb630344c5a6161e237cf7",
+        "sourceSHA256": "4a2d52f14795ad1f46a87ff5bd20f1d134aa932311b75bde028d28767936097b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对静态源颜色合同、现有owner与有界证据导航。",
+        "scope": "核对solid静态源、终端分域边界、实际证据与开放队列导航。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
@@ -522,9 +522,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f17ac14335d5f4bb41c59ba30660df9e59a3cc9508b8a0b4a948f77d25c6a950",
+        "sourceSHA256": "2d2e0a12382e38847ae4742acf7ecf27bb1a365bc3a16a34df05db6b7cda5949",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对共享颜色及片元坐标修复的证据导航，区分effect执行与整样本视觉、base降级。",
+        "scope": "核对solid静态源、终端分域边界、实际证据与开放队列导航。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
@@ -1938,9 +1938,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a8580584afe0bac9d412312bfe25bd957a340477fafb1effd103877724ec6afb",
+        "sourceSHA256": "b544ca1126f2b7450d4925072f0f6755b497db114f48c53dbf1c0a7c86849a12",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对共享shader转换、同层graph输入归一化与透明RGB官方对照的当前证据边界。",
+        "scope": "核对solid静态源、终端分域边界、实际证据与开放队列导航。",
         "limitations": "导航与证据身份核对；不等同全样本、真实声源、compose或HDR官方parity。"
       }
     },

@@ -134,6 +134,10 @@ final class SceneResolvedMaterialPassEncoder {
            output.colorRepresentation != .opaque {
             return .failure(.fragmentOutputRejected)
         }
+        if role == .terminalStraightSourceOver,
+           output.colorRepresentation != .straightAlpha {
+            return .failure(.fragmentOutputRejected)
+        }
         let storedContent = output.content
         guard SceneResolvedMaterialAttachmentStorage.target(
             target,
@@ -211,8 +215,12 @@ final class SceneResolvedMaterialPassEncoder {
               let replay = program.terminalReplay(
                 unitModelViewProjection: unitModelViewProjection)
         else { return .failure(.uniformsRejected) }
+        let output = SceneResolvedMaterialAttachmentStorage.storedOutput(
+            program.outputContract, attachmentStorage: .color)
         return prepareAuthorizedResult(program: replay, target: target,
-            attachmentStorage: .color, role: .terminalSourceOver)
+            attachmentStorage: .color,
+            role: output?.colorRepresentation == .straightAlpha
+                ? .terminalStraightSourceOver : .terminalSourceOver)
     }
 
     func terminalDraw(
@@ -220,7 +228,7 @@ final class SceneResolvedMaterialPassEncoder {
         target: MTLTexture,
         commandBuffer: MTLCommandBuffer
     ) -> ((MTLRenderCommandEncoder) -> Void)? {
-        guard pass.role == .terminalSourceOver,
+        guard pass.role != .offscreenOverwrite,
               target === pass.target,
               isValid(pass, commandBuffer: commandBuffer) else { return nil }
         return { [self] encoder in encodeDraw(pass, encoder: encoder) }
@@ -536,10 +544,11 @@ final class SceneResolvedMaterialPassEncoder {
         descriptor.fragmentFunction = fragment
         descriptor.rasterSampleCount = sampleCount
         descriptor.colorAttachments[0].pixelFormat = pixelFormat
-        descriptor.colorAttachments[0].isBlendingEnabled = passRole == .terminalSourceOver
-        if passRole == .terminalSourceOver {
+        descriptor.colorAttachments[0].isBlendingEnabled = passRole != .offscreenOverwrite
+        if passRole != .offscreenOverwrite {
             descriptor.colorAttachments[0].rgbBlendOperation = .add
-            descriptor.colorAttachments[0].sourceRGBBlendFactor = .one
+            descriptor.colorAttachments[0].sourceRGBBlendFactor =
+                passRole == .terminalStraightSourceOver ? .sourceAlpha : .one
             descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
             descriptor.colorAttachments[0].alphaBlendOperation = .add
             descriptor.colorAttachments[0].sourceAlphaBlendFactor = .one

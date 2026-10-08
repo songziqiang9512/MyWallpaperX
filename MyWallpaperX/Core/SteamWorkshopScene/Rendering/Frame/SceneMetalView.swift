@@ -270,7 +270,10 @@ class SceneMetalView: NSView {
             let name = report.isEnabled ? (layer.name ?? "(unnamed)") : ""
             let placementSummary = report.isEnabled
                 ? renderer.debugPlacementSummary(for: layer) : ""
-            if layer.contentKind == "solid" {
+            let primaryTextureURL = layer.contentKind != "solid"
+                || layer.staticBaseTexturePath != nil
+                ? resolver.resolvePrimaryTexture(for: layer) : nil
+            if layer.contentKind == "solid", primaryTextureURL == nil {
                 guard let texture = solidLayerTexture else {
                     report.append("layer \(layer.id) \"\(name)\": procedural solid texture unavailable; \(placementSummary)")
                     continue
@@ -290,7 +293,7 @@ class SceneMetalView: NSView {
                 }
                 continue
             }
-            guard let url = resolver.resolvePrimaryTexture(for: layer) else {
+            guard let url = primaryTextureURL else {
                 report.append("layer \(layer.id) \"\(name)\": no texture URL (built-in or unresolvable); \(placementSummary)")
                 continue
             }

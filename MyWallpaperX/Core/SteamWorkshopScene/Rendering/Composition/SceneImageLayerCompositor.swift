@@ -362,7 +362,8 @@ struct SceneImageLayerCompositor {
                       (request.layer.colorBlendMode ?? 0) == 0,
                       (request.finalCompositeAlpha ?? 1) == 1,
                       (ticket.finalContent == .color(.resolved(.opaque))
-                        || ticket.finalContent == .color(.resolved(.premultipliedAlpha))) else {
+                        || ticket.finalContent == .color(.resolved(.premultipliedAlpha))
+                        || ticket.finalContent == .color(.resolved(.straightAlpha))) else {
                     resolvedMaterialRuntime?.recordClaimedFailure(
                         reasonCode: "terminal-material-replay-compositor-rejected"
                     )

@@ -124,7 +124,7 @@ final class ScenePreparedBaseImageResources {
         uploadCommandQueue.beginMipmapBatch()
         for layer in descriptor.layers where layer.isImageRenderable {
             try cancellationCheck()
-            guard layer.contentKind != "solid",
+            guard layer.contentKind != "solid" || layer.staticBaseTexturePath != nil,
                   let url = resolver.resolvePrimaryTexture(for: layer),
                   let source = textureLoader.sourceKey(for: url) else {
                 continue
