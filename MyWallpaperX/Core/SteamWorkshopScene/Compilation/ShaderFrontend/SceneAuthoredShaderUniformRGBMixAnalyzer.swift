@@ -219,20 +219,33 @@ nonisolated enum SceneAuthoredShaderUniformRGBMixAnalyzer {
         return body.contains { forbidden.contains(tokens[$0].text) }
     }
 
+    /// The default proof requires a straight-line body. The projection mode
+    /// keeps nested blocks opaque while exposing surrounding top-level work.
     static func topLevelStatements(
-        in body: Range<Int>, tokens: [Token]
+        in body: Range<Int>, tokens: [Token], skippingNestedBlocks: Bool = false
     ) -> [Range<Int>]? {
         guard body.count >= 2, tokens[body.lowerBound].text == "{",
               tokens[body.upperBound - 1].text == "}" else { return nil }
         var result: [Range<Int>] = []
         var start = body.lowerBound + 1
         var depth = 0
+        var blockDepth = 0
         for index in start..<(body.upperBound - 1) {
             switch tokens[index].text {
-            case "(", "[": depth += 1
-            case ")", "]": depth -= 1
-            case "{", "}": return nil
-            case ";" where depth == 0:
+            case "(", "[": if blockDepth == 0 { depth += 1 }
+            case ")", "]": if blockDepth == 0 { depth -= 1 }
+            case "{":
+                guard skippingNestedBlocks else { return nil }
+                blockDepth += 1
+            case "}":
+                guard skippingNestedBlocks, blockDepth > 0 else { return nil }
+                blockDepth -= 1
+                if blockDepth == 0 { start = index + 1 }
+            case ";" where depth == 0 && blockDepth == 0:
+                if skippingNestedBlocks, start == index {
+                    start = index + 1
+                    continue
+                }
                 guard start < index else { return nil }
                 result.append(start..<index)
                 start = index + 1
@@ -240,7 +253,7 @@ nonisolated enum SceneAuthoredShaderUniformRGBMixAnalyzer {
             }
             guard depth >= 0 else { return nil }
         }
-        return depth == 0 && start == body.upperBound - 1 ? result : nil
+        return depth == 0 && blockDepth == 0 && start == body.upperBound - 1 ? result : nil
     }
 
     static func texts(_ tokens: [Token]) -> [String] { tokens.map(\.text) }

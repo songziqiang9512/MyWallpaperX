@@ -225,7 +225,7 @@ private func runGenericProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "generic")
     let root = try cacheRoot()
     let directory = tierDirectory(
-        root: root, name: "SceneGenericShaderAnalysis-v10"
+        root: root, name: "SceneGenericShaderAnalysis-v11"
     )
     let input = makeGenericInput(marker: "probe-a")
     try expect(
@@ -337,7 +337,7 @@ private func runVariantProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "variant")
     let root = try cacheRoot()
     let directory = tierDirectory(
-        root: root, name: "SceneVariantAnalysis-v12"
+        root: root, name: "SceneVariantAnalysis-v13"
     )
     let key = "probe-variant-key"
     try expect(
@@ -402,7 +402,7 @@ private func runVariantProbe() throws -> ProbeOutput {
     try rewriteEntry(entry) {
         $0.replacingOccurrences(
             of: #""schemaVersion":\d+"#,
-            with: "\"schemaVersion\":0",
+            with: "\"schemaVersion\":12",
             options: .regularExpression
         )
     }

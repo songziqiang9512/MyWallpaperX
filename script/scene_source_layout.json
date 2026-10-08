@@ -269,7 +269,6 @@
           "SceneGenericShaderTernaryScalarConditionNormalizer.swift",
           "SceneGenericShaderTextureSamplingNormalizer.swift",
           "SceneGenericShaderTypedDataRGBFilterLowering.swift",
-          "SceneGenericShaderVaryingNormalizer.swift",
           "SceneShaderDirective.swift",
           "SceneShaderMacroExpansion.swift",
           "SceneShaderMalformedMetadataAdmission.swift",

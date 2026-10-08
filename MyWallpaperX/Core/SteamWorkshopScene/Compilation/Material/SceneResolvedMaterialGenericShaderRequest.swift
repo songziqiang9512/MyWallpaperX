@@ -33,9 +33,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
     ) -> String {
         var data = Data()
         for value in [
-            // v20 retires artifacts compiled before numeric scalar identifier
-            // ternary conditions gained explicit bool conversion.
-            "mwx-generic-shader-request-v20",
+            // v21 retires artifacts before shared dead-binding projection and
+            // preservation of expression mutations during deletion.
+            "mwx-generic-shader-request-v21",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,

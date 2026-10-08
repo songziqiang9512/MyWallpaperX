@@ -16,6 +16,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         let attributeNames: Set<String>
         let texturesByName: [String: SceneAuthoredShaderProgram.TextureBinding]
         let globalReferenceTokens: Set<SceneAuthoredShaderToken>
+        let fragmentDerivativeNames: Set<String>
         let unpremultipliedTextureSlots: Set<Int>
         let omittedStatementRanges: [Range<Int>]
     }
@@ -74,6 +75,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             texturesByName: texturesByName,
             globalReferenceTokens:
                 SceneAuthoredShaderGlobalReferenceAnalyzer.referenceTokens(in: vertex),
+            fragmentDerivativeNames: [],
             unpremultipliedTextureSlots: [],
             omittedStatementRanges: omittedVertexStatementRanges
         )
@@ -100,6 +102,17 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             unpremultipliedTextureSlots = []
         }
         unpremultipliedTextureSlots.formUnion(premultipliedColorInputSlots)
+        let derivativeNames: Set<String> = ["ddx", "ddy"]
+        let declaredDerivativeNames = Set(fragment.tokens.indices.compactMap { index -> String? in
+            let token = fragment.tokens[index]
+            guard derivativeNames.contains(token.text) else { return nil }
+            let isCall = index + 1 < fragment.tokens.count
+                && fragment.tokens[index + 1].text == "("
+            let hasDeclarationPrefix = index > 0
+                && fragment.tokens[index - 1].kind == .identifier
+                && !["return", "else", "do", "case"].contains(fragment.tokens[index - 1].text)
+            return !isCall || hasDeclarationPrefix ? token.text : nil
+        })
         let fragmentContext = Context(
             unit: fragment,
             functionNames: Set(fragment.functions.map(\.name)),
@@ -111,6 +124,9 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             texturesByName: texturesByName,
             globalReferenceTokens:
                 SceneAuthoredShaderGlobalReferenceAnalyzer.referenceTokens(in: fragment),
+            fragmentDerivativeNames: derivativeNames
+                .subtracting(declaredDerivativeNames)
+                .subtracting(fragment.defines.keys),
             unpremultipliedTextureSlots: unpremultipliedTextureSlots,
             omittedStatementRanges: []
         )
@@ -383,7 +399,15 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                 && context.functionNames.contains(token.text)
                 && index + 1 < tokens.count
                 && tokens[index + 1].text == "("
-            let rawTranslated = translatedToken(token, context: context)
+            let rawTranslated: String
+            if context.fragmentDerivativeNames.contains(token.text),
+               !context.functionNames.contains(token.text),
+               index + 1 < tokens.count, tokens[index + 1].text == "(",
+               index == 0 || tokens[index - 1].text != "." {
+                rawTranslated = token.text == "ddx" ? "dfdx" : "dfdy"
+            } else {
+                rawTranslated = translatedToken(token, context: context)
+            }
             let translated = mutableParameterNames.contains(token.text)
                 ? "&\(rawTranslated)"
                 : rawTranslated

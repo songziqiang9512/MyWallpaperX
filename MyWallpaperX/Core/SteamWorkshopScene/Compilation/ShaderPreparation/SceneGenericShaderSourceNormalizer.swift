@@ -97,7 +97,10 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             )
             var parsed: [String: ParsedStage] = [
                 "vertex": try parse(typedVertexSource, stage: "vertex"),
-                "fragment": try parse(typedFragmentSource, stage: "fragment"),
+                "fragment": try parse(
+                    rewriteFragmentDerivativeCalls(typedFragmentSource),
+                    stage: "fragment"
+                ),
             ]
             var uniforms: [String: Shape] = [:]
             var uniformStages: [String: String] = [:]
@@ -317,11 +320,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             ) else {
                 throw Failure.vertexMain
             }
-            vertex.body = pruneUnusedVaryingComponentAssignments(
-                injected,
-                fragmentBody: fragment.body,
-                varyings: varyings
-            )
+            vertex.body = injected
             parsed["vertex"] = vertex
             parsed["fragment"] = fragment
 
@@ -417,6 +416,38 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         } catch {
             return .failure(.declarationUnsupported)
         }
+    }
+
+    /// Fragment derivatives are authored under HLSL names. Rewrite calls, not
+    /// symbols: a variable or author function named ddx/ddy keeps its identity.
+    private static func rewriteFragmentDerivativeCalls(_ source: String) -> String {
+        let masked = lexicalMask(source)
+        let declarations = SceneShaderSourceTextFacts.matches(
+            #"\b([A-Za-z_]\w*)\s+(ddx|ddy)\b"#,
+            in: masked
+        )
+        var declaredNames = Set(declarations.compactMap { match -> String? in
+            guard let type = SceneShaderSourceTextFacts.capture(match, 1, in: masked),
+                  !["return", "else", "do", "case"].contains(type) else { return nil }
+            return SceneShaderSourceTextFacts.capture(match, 2, in: masked)
+        })
+        // Comma declarators and other value references can shadow a builtin
+        // without repeating its type. Keep an ambiguous name unchanged.
+        declaredNames.formUnion(SceneShaderSourceTextFacts.matches(
+            #"\b(ddx|ddy)\b(?!\s*\()"#, in: masked
+        ).compactMap { SceneShaderSourceTextFacts.capture($0, 1, in: masked) })
+        var result = source
+        for match in SceneShaderSourceTextFacts.matches(
+            #"\b(ddx|ddy)(?=\s*\()"#, in: masked
+        ).reversed() {
+            guard let range = Range(match.range, in: masked),
+                  let replacement = Range(match.range, in: result),
+                  !declaredNames.contains(String(masked[range])),
+                  !hasMemberPrefix(before: range.lowerBound, in: masked) else { continue }
+            result.replaceSubrange(replacement,
+                with: masked[range] == "ddx" ? "dFdx" : "dFdy")
+        }
+        return result
     }
 
     private static func parse(
@@ -649,16 +680,6 @@ void main() {
             in: code,
             range: NSRange(code.startIndex..., in: code)
         ) != nil
-    }
-
-    static func componentAlias(_ value: Character) -> Character {
-        switch value {
-        case "r": "x"
-        case "g": "y"
-        case "b": "z"
-        case "a": "w"
-        default: value
-        }
     }
 
     static func capture(_ match: NSTextCheckingResult, _ index: Int, in source: String) -> String {

@@ -314,7 +314,8 @@ nonisolated extension SceneAuthoredShaderColorTransferAnalyzer {
 
     static func helperCallsArePureAndUnsampled(
         fragment: SceneAuthoredShaderSyntaxUnit,
-        expressionRanges: [Range<Int>]
+        expressionRanges: [Range<Int>],
+        discardingExpression: Bool = false
     ) -> Bool {
         let tokens = fragment.tokens
         let builtins: Set<String> = [
@@ -327,15 +328,25 @@ nonisolated extension SceneAuthoredShaderColorTransferAnalyzer {
         ]
         var names: Set<String> = []
         for range in expressionRanges {
+            if discardingExpression && tokens[range].contains(where: {
+                ["=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=",
+                 "<<=", ">>=", "++", "--"].contains($0.text)
+            }) { return false }
             for index in range where index + 1 < range.upperBound {
                 guard tokens[index].kind == .identifier,
-                      tokens[index + 1].text == "(",
-                      index == range.lowerBound || tokens[index - 1].text != "."
+                      tokens[index + 1].text == "("
                 else { continue }
+                if index > range.lowerBound && tokens[index - 1].text == "." {
+                    if discardingExpression { return false }
+                    continue
+                }
                 names.insert(tokens[index].text)
             }
         }
         for name in names {
+            guard !discardingExpression || fragment.defines[name] == nil else {
+                return false
+            }
             guard let function = fragment.functions.first(where: {
                 $0.name == name
             }) else {
@@ -343,7 +354,11 @@ nonisolated extension SceneAuthoredShaderColorTransferAnalyzer {
                 // prepared sources retain the include directive instead of
                 // inlining its helper body, so absence of that declaration is
                 // allowed.  Every other unknown call must fail closed.
-                guard builtins.contains(name) || name == "ApplyBlending" else {
+                guard (builtins.contains(name)
+                       && (!discardingExpression || !["fast", "CAST3"].contains(name)))
+                    || (discardingExpression
+                        && SceneAuthoredShaderValueType(authoredName: name) != nil)
+                    || (!discardingExpression && name == "ApplyBlending") else {
                     return false
                 }
                 continue
@@ -351,7 +366,9 @@ nonisolated extension SceneAuthoredShaderColorTransferAnalyzer {
             // A user declaration shadows even a built-in spelling (for
             // example `mix`).  Validate that body through the same pure,
             // read-only helper closure instead of trusting the built-in name.
-            guard function.name != "main",
+            // The color proof permits read-only helper closures; deletion is
+            // narrower and never grants an authored helper that authority.
+            guard !discardingExpression, function.name != "main",
                   !tokens[function.parameterRange].contains(where: {
                       ["out", "inout"].contains($0.text)
                   }), let closure = SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer

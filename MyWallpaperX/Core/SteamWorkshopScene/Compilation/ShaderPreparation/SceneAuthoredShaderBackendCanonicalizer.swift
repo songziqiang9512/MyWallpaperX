@@ -90,7 +90,12 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
               result.fragment.utf8.count <= maximumSourceBytes else {
             return original
         }
-        return result
+        return Pair(
+            vertex: SceneAuthoredShaderDeadBindingAnalyzer.projectVertexSource(
+                vertex: result.vertex, fragment: result.fragment
+            ),
+            fragment: result.fragment
+        )
     }
 
     /// The authored dialect occasionally subtracts a scalar-broadcast vec2

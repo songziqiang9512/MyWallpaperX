@@ -1723,7 +1723,7 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             (
                 "gl_Position = vec4(a_Position, 1.0);",
                 "v_Coordinates.zw = normalize(g_Texture1Resolution.xy);",
-                "v_Coordinates.xy",
+                "v_Coordinates.zw",
             ),
         ]
         for position, assignment, fragment_coordinates in fixtures:

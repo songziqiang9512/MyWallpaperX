@@ -253,8 +253,8 @@
         "Compilation/ShaderPreparation/SceneGenericShaderStraightAlphaWholeOutputUnionLowering.swift",
         "Compilation/ShaderPreparation/SceneGenericShaderTernaryScalarConditionNormalizer.swift",
         "Compilation/ShaderPreparation/SceneGenericShaderTextureSamplingNormalizer.swift",
-        "Compilation/ShaderPreparation/SceneGenericShaderTypedDataRGBFilterLowering.swift",
-        "Compilation/ShaderPreparation/SceneGenericShaderVaryingNormalizer.swift"
+        "Compilation/ShaderPreparation/SceneGenericShaderTypedDataRGBFilterLowering.swift"
+
       ]
     },
     "resolved_material_program_model": {

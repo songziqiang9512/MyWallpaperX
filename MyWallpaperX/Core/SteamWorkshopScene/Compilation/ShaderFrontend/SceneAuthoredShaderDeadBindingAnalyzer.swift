@@ -3,6 +3,8 @@ import Foundation
 /// Removes prepared-variant resource bindings only when their remaining
 /// vertex work is proven to feed fragment-dead varying components.
 nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
+    private static let maximumProjectionStatements = 512
+    private static let maximumProjectionWork = 1_000_000
     struct Projection {
         let activeSamplerNames: Set<String>
         let omittedUniformNames: Set<String>
@@ -25,6 +27,10 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
             units.contains { referenced(name, in: $0) }
         })
         let inactiveSamplerNames = samplerNames.subtracting(activeSamplerNames)
+        guard !inactiveSamplerNames.isEmpty else {
+            return .init(activeSamplerNames: activeSamplerNames,
+                         omittedUniformNames: [], omittedVertexStatementRanges: [])
+        }
         let directlyActiveSlots = Set(activeSamplerNames.compactMap(textureSlot))
         let neutralTextureResolution =
             SceneAuthoredShaderNeutralTextureResolutionAnalyzer.analyze(
@@ -32,52 +38,47 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
                 fragment: fragment,
                 activeSamplerSlots: directlyActiveSlots
             )
-        let fragmentReads = varyingComponentReads(in: fragment)
-        let vertexVaryings = Dictionary(uniqueKeysWithValues: vertex.declarations.compactMap {
-            declaration -> (String, Int)? in
-            guard declaration.storage == .varying,
-                  declaration.arraySize == nil,
-                  let count = componentCount(declaration.typeName) else { return nil }
-            return (declaration.name, count)
-        })
-
+        let needsProjection = inactiveSamplerNames.contains { name in
+            neutralTextureResolution?.resolutionSlot != textureSlot(name)
+                && referenced(name + "Resolution", in: vertex)
+                && !referenced(name + "Resolution", in: fragment)
+        }
+        let removableRanges: [Range<Int>]
+        if needsProjection {
+            let vertexVaryings = Dictionary(uniqueKeysWithValues: vertex.declarations.compactMap {
+                declaration -> (String, Int)? in
+                guard declaration.storage == .varying, declaration.arraySize == nil,
+                      let count = componentCount(declaration.typeName) else { return nil }
+                return (declaration.name, count)
+            })
+            removableRanges = removableMainStatements(
+                vertex: vertex, vertexVaryings: vertexVaryings,
+                fragmentReads: varyingComponentReads(in: fragment)
+            )
+        } else {
+            removableRanges = []
+        }
         var omittedUniformNames: Set<String> = []
         var omittedRanges: [Range<Int>] = []
         for samplerName in inactiveSamplerNames.sorted() {
             let resolutionName = samplerName + "Resolution"
-            let vertexReferences = referenceIndices(
-                resolutionName,
-                in: vertex
-            )
-            let fragmentReferences = referenceIndices(resolutionName, in: fragment)
-            if !fragmentReferences.isEmpty {
+            let vertexReferences = referenceIndices(resolutionName, in: vertex)
+            if !referenceIndices(resolutionName, in: fragment).isEmpty {
                 activeSamplerNames.insert(samplerName)
                 continue
             }
-            guard !vertexReferences.isEmpty else {
-                continue
-            }
+            guard !vertexReferences.isEmpty else { continue }
             if neutralTextureResolution?.resolutionSlot == textureSlot(samplerName) {
                 continue
             }
-            let ranges = Set(vertexReferences.compactMap {
-                removableStatement(
-                    containing: $0,
-                    resolutionName: resolutionName,
-                    vertex: vertex,
-                    vertexVaryings: vertexVaryings,
-                    fragmentReads: fragmentReads
-                )
-            })
-            guard !ranges.isEmpty,
-                  vertexReferences.allSatisfy({ index in
-                      ranges.contains(where: { $0.contains(index) })
-                  }) else {
+            guard vertexReferences.allSatisfy({ index in
+                removableRanges.contains(where: { $0.contains(index) })
+            }) else {
                 activeSamplerNames.insert(samplerName)
                 continue
             }
             omittedUniformNames.insert(resolutionName)
-            omittedRanges.append(contentsOf: ranges)
+            omittedRanges = removableRanges
         }
         return Projection(
             activeSamplerNames: activeSamplerNames,
@@ -258,95 +259,163 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
         return .init(declarations: Set(declarations.keys), references: references)
     }
 
-    private static func removableStatement(
-        containing index: Int,
-        resolutionName: String,
+    /// One deletion proof serves both the bounded emitter and compiler input.
+    /// Only main's top-level statements participate; nested/control-flow work
+    /// and authored helper bodies remain the compiler's responsibility.
+    private static func removableMainStatements(
         vertex: SceneAuthoredShaderSyntaxUnit,
         vertexVaryings: [String: Int],
         fragmentReads: [String: Set<Int>]
-    ) -> Range<Int>? {
-        guard let function = vertex.functions.first(where: {
-            $0.bodyRange.contains(index)
-        }),
-        let range = statementRange(containing: index, in: function.bodyRange, tokens: vertex.tokens)
-        else { return nil }
+    ) -> [Range<Int>] {
+        guard let main = vertex.functions.first(where: { $0.name == "main" }) else {
+            return []
+        }
         let tokens = vertex.tokens
-        guard range.count >= 6,
-              let componentCount = vertexVaryings[tokens[range.lowerBound].text],
-              tokens[range.lowerBound + 1].text == ".",
-              tokens[range.lowerBound + 2].kind == .identifier,
-              tokens[range.lowerBound + 3].text == "=",
-              tokens[range.upperBound - 1].text == ";",
-              let written = componentMask(
-                  tokens[range.lowerBound + 2].text,
-                  componentCount: componentCount
-              ),
-              written.isDisjoint(with: fragmentReads[tokens[range.lowerBound].text] ?? []),
-              range.contains(where: { tokens[$0].text == resolutionName }),
-              !range.contains(where: {
-                  isOtherTextureResolution(tokens[$0].text, than: resolutionName)
-              }),
-              safeExpression(
-                  range: (range.lowerBound + 4)..<(range.upperBound - 1),
-                  tokens: tokens
-              ),
-              varyingComponentsRemainDead(
-                  name: tokens[range.lowerBound].text,
-                  written: written,
-                  omitting: range,
-                  in: vertex
-              ) else { return nil }
-        return range
-    }
-
-    private static func statementRange(
-        containing index: Int,
-        in body: Range<Int>,
-        tokens: [SceneAuthoredShaderToken]
-    ) -> Range<Int>? {
-        var start = index
-        while start > body.lowerBound,
-              ![";", "{"].contains(tokens[start - 1].text) {
-            start -= 1
+        guard let statementRanges = SceneAuthoredShaderUniformRGBMixAnalyzer
+            .topLevelStatements(in: main.bodyRange, tokens: tokens, skippingNestedBlocks: true),
+              statementRanges.count <= maximumProjectionStatements else { return [] }
+        let statements = statementRanges.map { $0.lowerBound..<($0.upperBound + 1) }
+        var referencesByVarying: [String: [Int]] = [:]
+        for index in tokens.indices where vertexVaryings[tokens[index].text] != nil {
+            referencesByVarying[tokens[index].text, default: []].append(index)
         }
-        var end = index
-        while end < body.upperBound, tokens[end].text != ";" { end += 1 }
-        guard end < body.upperBound else { return nil }
-        return start..<(end + 1)
-    }
-
-    private static func safeExpression(
-        range: Range<Int>,
-        tokens: [SceneAuthoredShaderToken]
-    ) -> Bool {
-        for index in range {
-            if ["=", "+=", "-=", "*=", "/=", "%="].contains(tokens[index].text) {
-                return false
+        let declarationIndices = Set(vertex.declarations.flatMap { $0.range })
+        var writes: [Range<Int>: (name: String, components: Set<Int>)] = [:]
+        for range in statements where range.count >= 6 {
+            let start = range.lowerBound
+            let name = tokens[start].text
+            let swizzle = tokens[start + 2].text
+            guard let count = vertexVaryings[name], tokens[start + 1].text == ".",
+                  let mask = componentMask(swizzle, componentCount: count),
+                  mask.count == swizzle.count,
+                  ["xyzw", "rgba", "stpq"].contains(where: { family in
+                      swizzle.allSatisfy { family.contains($0) }
+                  }),
+                  ["=", "+=", "-=", "*=", "/="].contains(tokens[start + 3].text),
+                  mask.isDisjoint(with: fragmentReads[name] ?? []),
+                  discardable((start + 4)..<(range.upperBound - 1), in: vertex) else {
+                continue
             }
-            if index + 1 < range.upperBound, tokens[index + 1].text == "(",
-               SceneAuthoredShaderValueType(authoredName: tokens[index].text) == nil {
-                return false
+            writes[range] = (name, mask)
+        }
+        // Consider all dead writes together, including compound writes. Any
+        // read outside that set keeps the affected components and their inputs.
+        var changed = true
+        var remainingWork = maximumProjectionWork
+        while changed {
+            changed = false
+            let candidateIndices = Set(writes.keys.flatMap { $0 })
+            for (range, write) in writes {
+                var hasLiveRead = false
+                for index in referencesByVarying[write.name] ?? [] {
+                    remainingWork -= 1
+                    guard remainingWork >= 0 else { return [] }
+                    if !declarationIndices.contains(index), !candidateIndices.contains(index),
+                       !write.components.isDisjoint(with: componentMask(
+                           at: index, in: vertex,
+                           componentCount: vertexVaryings[write.name] ?? 4
+                       )) {
+                        hasLiveRead = true
+                        break
+                    }
+                }
+                if hasLiveRead {
+                    writes.removeValue(forKey: range)
+                    changed = true
+                }
             }
         }
-        return true
+        var omitted = Set(writes.keys)
+        let globalNames = Set(vertex.declarations.map(\.name))
+        let locals: [(name: String, range: Range<Int>)] = statements.compactMap { range in
+            let start = range.lowerBound
+            guard range.count >= 5,
+                  SceneAuthoredShaderValueType(authoredName: tokens[start].text) != nil,
+                  tokens[start + 1].kind == .identifier,
+                  tokens[start + 2].text == "=",
+                  !globalNames.contains(tokens[start + 1].text),
+                  !tokens[main.parameterRange].contains(where: {
+                      $0.text == tokens[start + 1].text
+                  }) else { return nil }
+            let name = tokens[start + 1].text
+            let initializer = (start + 3)..<(range.upperBound - 1)
+            guard !initializer.contains(where: { tokens[$0].text == name }),
+                  SceneAuthoredShaderTokenScanner.split(
+                    initializer, separator: ",", tokens: tokens
+                  )?.count == 1,
+                  discardable(initializer, in: vertex) else { return nil }
+            return (name, range)
+        }
+        var localReferences: [String: [Int]] = [:]
+        let localNames = Set(locals.map(\.name))
+        for index in main.bodyRange where localNames.contains(tokens[index].text) {
+            localReferences[tokens[index].text, default: []].append(index)
+        }
+        var omittedIndices = Set(omitted.flatMap { $0 })
+        // Walk backward through declaration order. Every use must already be
+        // deleted; a forward reference or ambiguous definition stays live.
+        // This closure evaluates no values and builds no SSA/control-flow graph.
+        for local in locals.reversed() {
+            guard (localReferences[local.name] ?? []).allSatisfy({ index in
+                local.range.contains(index) || omittedIndices.contains(index)
+            }) else { continue }
+            omitted.insert(local.range)
+            omittedIndices.formUnion(local.range)
+        }
+        return omitted.sorted { $0.lowerBound < $1.lowerBound }
     }
 
-    private static func varyingComponentsRemainDead(
-        name: String,
-        written: Set<Int>,
-        omitting range: Range<Int>,
-        in vertex: SceneAuthoredShaderSyntaxUnit
+    private static func discardable(
+        _ range: Range<Int>, in unit: SceneAuthoredShaderSyntaxUnit
     ) -> Bool {
-        for index in referenceIndices(name, in: vertex) where !range.contains(index) {
-            let read = componentMask(at: index, in: vertex, componentCount: 4)
-            if !written.isDisjoint(with: read) { return false }
+        SceneAuthoredShaderColorTransferAnalyzer.helperCallsArePureAndUnsampled(
+            fragment: unit, expressionRanges: [range], discardingExpression: true
+        )
+    }
+
+    /// Blank proven token ranges without shifting diagnostics or fragment
+    /// source. A token/source mismatch (for example macro expansion) keeps the
+    /// original input instead of applying offsets to unproven text.
+    static func projectVertexSource(vertex: String, fragment: String) -> String {
+        let outputs = syntaxOutputs(vertexSource: vertex, fragmentSource: fragment,
+                                    runtimeLoopBounds: .none)
+        guard outputs.vertex.diagnostics.isEmpty, outputs.fragment.diagnostics.isEmpty,
+              let vertexUnit = outputs.vertex.unit, let fragmentUnit = outputs.fragment.unit else {
+            return vertex
         }
-        for index in referenceIndices(name, in: vertex)
-            where range.contains(index) && index != range.lowerBound {
-            let read = componentMask(at: index, in: vertex, componentCount: 4)
-            if !written.isDisjoint(with: read) { return false }
+        let projection = analyze(vertex: vertexUnit, fragment: fragmentUnit)
+        guard !projection.omittedVertexStatementRanges.isEmpty else { return vertex }
+        var scalars = Array(vertex.unicodeScalars)
+        var lineStarts = [0]
+        for index in scalars.indices where scalars[index] == "\n" {
+            lineStarts.append(index + 1)
         }
-        return true
+        var ranges: [Range<Int>] = []
+        for range in projection.omittedVertexStatementRanges {
+            let tokens = vertexUnit.tokens[range]
+            guard let first = tokens.first, let last = tokens.last,
+                  lineStarts.indices.contains(first.line - 1),
+                  lineStarts.indices.contains(last.line - 1) else { return vertex }
+            let start = lineStarts[first.line - 1] + first.column - 1
+            let end = lineStarts[last.line - 1] + last.column - 1 + last.text.unicodeScalars.count
+            guard start >= 0, end <= scalars.count, start < end else { return vertex }
+            for token in tokens {
+                guard lineStarts.indices.contains(token.line - 1) else { return vertex }
+                let offset = lineStarts[token.line - 1] + token.column - 1
+                let spelling = Array(token.text.unicodeScalars)
+                guard offset >= start, offset + spelling.count <= end,
+                      Array(scalars[offset..<(offset + spelling.count)]) == spelling else {
+                    return vertex
+                }
+            }
+            ranges.append(start..<end)
+        }
+        for range in ranges {
+            for index in range where scalars[index] != "\n" && scalars[index] != "\r" {
+                scalars[index] = " "
+            }
+        }
+        return String(String.UnicodeScalarView(scalars))
     }
 
     private static func varyingComponentReads(
@@ -422,13 +491,6 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
             unit.tokens[index].text == name
                 && !declarations.contains(where: { $0.contains(index) })
         }
-    }
-
-    private static func isOtherTextureResolution(
-        _ name: String,
-        than expected: String
-    ) -> Bool {
-        name != expected && name.hasPrefix("g_Texture") && name.hasSuffix("Resolution")
     }
 
     private static func textureSlot(_ name: String) -> Int? {
