@@ -2487,6 +2487,21 @@
         "test_scene_inherited_parallax_geometry",
         "test_scene_layer_parallax"
       ]
+    },
+    {
+      "id": "puppet-v21-reader-contract",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetRigReader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAttachmentReader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimationReader.swift",
+        "script/tests/test_scene_puppet_v21_contract.py"
+      ],
+      "modules": [
+        "test_scene_puppet_v21_contract",
+        "test_scene_puppet_rig",
+        "test_scene_puppet_mesh",
+        "test_scene_puppet_animation"
+      ]
     }
   ],
   "method_gates": {

@@ -51,7 +51,8 @@ enum SceneMdlPuppetAnimationReadError: Error, CustomStringConvertible, Equatable
 }
 
 /// Restricted version-matched MDLA reader. MDLV0016/MDLS0002/MDLA0003,
-/// MDLV0017/MDLS0002/MDLA0004, and MDLV0023/MDLS0004/MDLA0006 share the same
+/// MDLV0017/MDLS0002/MDLA0004, MDLV0021/MDLS0003/MDLA0006 and
+/// MDLV0023/MDLS0004/MDLA0006 share the same
 /// bounded full-transform track records; their distinct trailer shapes remain
 /// part of the version contract.
 /// Tracks are ordered by MDLS bone index and contain frameCount + 1 full
@@ -87,6 +88,11 @@ enum SceneMdlPuppetAnimationReader {
             skeletonMarker: Data("MDLS0002\0".utf8),
             animationMarker: Data("MDLA0005\0".utf8),
             trailer: .legacyZeros34
+        ),
+        "MDLV0021": VersionContract(
+            skeletonMarker: Data("MDLS0003\0".utf8),
+            animationMarker: Data("MDLA0006\0".utf8),
+            trailer: .modernAuxiliary
         ),
         "MDLV0023": VersionContract(
             skeletonMarker: Data("MDLS0004\0".utf8),

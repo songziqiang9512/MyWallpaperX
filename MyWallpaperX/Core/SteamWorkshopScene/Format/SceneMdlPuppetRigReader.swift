@@ -118,7 +118,7 @@ enum SceneMdlPuppetRigReadError: Error, CustomStringConvertible, Equatable {
 
 /// Version-matched MDLS bind hierarchy plus the four-index/four-weight vertex
 /// fields. MDLV0014/MDLS0002, MDLV0016/MDLS0002, MDLV0017/MDLS0002, and
-/// MDLV0023/MDLS0004 use the same strictly validated record shape; the version
+/// MDLV0021/MDLS0003 and MDLV0023/MDLS0004 use the same validated record shape; the version
 /// pair is still checked before any bone data is consumed. The index fields
 /// begin at stride - 40 and weights at stride - 24 for the verified 52-, 80-,
 /// and 84-byte records.
@@ -143,6 +143,10 @@ enum SceneMdlPuppetRigReader {
         ),
         "MDLV0019": VersionContract(
             skeletonMarker: Data("MDLS0002\0".utf8),
+            vertexStrides: [80]
+        ),
+        "MDLV0021": VersionContract(
+            skeletonMarker: Data("MDLS0003\0".utf8),
             vertexStrides: [80]
         ),
         "MDLV0023": VersionContract(
