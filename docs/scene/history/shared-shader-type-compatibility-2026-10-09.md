@@ -58,3 +58,13 @@ U23原包隔离运行`blend/position-final`：241首effect从0 material/1 reject
 本片原样本副本、HOME与generic cache在已停止PID确认后精确清理27,273,187字节；保留官方中性输入、必要截图、App/代码身份、失败和GPU/运行收据。连续构建仍只留既有`/private/tmp/mwx-scene-next-build/cache/14d60a183f08e048bc3d072d`。未知归属`.mimosa`218字节仍保留，residue门非PASS；不冒充工作区残留已清零。
 
 产品提交`bd9fc353439e46b5ffa7c84aa93de543b65f6cb4`；提交后9个代码/测试文件逐一核对与独立审查freeze相同，5个产品文件与实际构建相同。严格staged preflight通过；35项文档检查通过，文档导航/预算只降同步。下一原子先归因U23的base降级、LOVE色阶与背景矩形；U21音频合同另用缩小输入实验，不新增样本分派。
+
+## 原包混合后验
+
+基线`21e97130`。官方2.8.0.42以同hash原包运行，1280×720两帧均有灰紫色矩形和蓝/洋红/白LOVE图案；其存在属于作者设计，不能再作为待消除缺陷。LOVE为text，作者colorBlendMode17；背景人物alpha .3、colorBlendMode23。剩余明确观察是本机背景网点比官方强；两端尚非同一时间、音频和内部工作尺寸，不据此直接修改混合公式。官方原样本证据、输入身份与精确清理收据在`/private/tmp/mwx-u23-official-20261009`。
+
+`material-pass-count`等日志来自可选的base材质颜色绑定筛选，不证明图层丢失：三solid与composelayer无普通image材质是现有utility入口预期；两人物图层有effects且base为hostBuiltin，不属于neutral authored-source tint候选，回退附加材质tint为白，作者layer tint仍参与原source链。LOVE从未进入该image筛选。不得为消除这些日志另造base渲染链或放宽候选。
+
+网点11项作者常量经现有schema→Finalizer→static uniform编码核对一致，包括Scale250（不按UI range0…50裁剪）、Alpha .3、三个鼠标/贴图影响参数0；`dot-cpu/result.json`位于前片任务根，非App buffer捕获。solid241的colorBlendMode28沿原compositor传入最终混合，未被mode0专用terminal replay绕过。实际stock读取确认noise256×256、white32×32全白；本机slot0工作纹理2048×1152，作者公式仅用xy/y，其比例与2560×1440一致，尺寸差异不能直接解释为网格数量改变。
+
+原包静音缩窗至1210×786后网点仍明显，见`/private/tmp/mwx-u23-blend-20261009/blend/small-silent`。官方自有窗口以公开API校正到相同client extent后，两帧仍无同样强网点，收据在官方任务根`matched-extent/official-matched-corrected-{0,1}.*`。对该自有location提交13项作者bool/color默认值，公开CLI无readback，故不把返回成功等同属性读取验证。两端时间、音频与内部pass extent仍未对齐，下一门是官方参数读数及pass执行哨兵；此处未新增产品修复或宣称完整画面验收。本机已停止的样本副本/HOME/cache精确清理27,273,187字节，保留截图、日志、请求和身份收据，原包hash不变。
