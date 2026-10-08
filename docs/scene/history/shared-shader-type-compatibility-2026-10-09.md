@@ -4,7 +4,7 @@
 
 > **历史证据 — 非现役入口**。截止2026-10-09；当前合同归[运行架构](../architecture/runtime-architecture.md)，待办归[断点队列](../roadmap/scene-open-breakpoint-queue.md)。
 
-## 范围与当前结果
+## 类型兼容片的范围与结果
 
 基线 `e5928b54274756d8e0207de1f81997c4406babb5`。用户在 `cccea6c` 报告的 U21 `3806337293` 灰层/过曝/环形音频缺失和 U23 `3796588443` 混合/音频缺失，分别以原包隔离运行。样本仅作回归输入，产品没有样本、路径或 shader 名称分派。
 
@@ -41,3 +41,20 @@
 后续同输入实验在窗口有效extent前失败，未产生语义证据；必须修复公共窗口ready采集流程后再测，不能猜测flatten或直接替换gl_FragCoord。保留 `/private/tmp/mwx-blend-common-20261009/official` 中的中性输入/身份/失败与清理收据；没有消费私有实现。窗口流程已修为fresh HWND/真实extent最多60秒，并在失败时保留preflight。随后公开进程清单证实客户端已退出，重新启动所得PID10664路径/版本/hash均核同；同输入open返回0，但119次检查始终无HWND，结束时该进程已退出。没有像素证据，不推断shader崩溃或数组/坐标行为。下一实验先以过去成功的简单输入区分客户端启动与新fixture失败，不能继续原样超时重试。VM恢复暂停，未杀其他进程；精确guest目录70文件已删除，本地同hash输入保留，收据`official/refined/startup-guest-cleanup-receipt.json`。
 
 下一门：取得保留音频数组与片元位置的可区分官方合同，再扩原编译/输入owner，确认目标节点 material=1/rejected=0并检查最终画面；灰层/过曝、背景混合及真实声源分别验收。类型片已独立只读审查，无可操作正确性或重复owner问题；审查13文件diff与实现身份一致。产品提交`c9040e6aa6bb13ea52160a292782fbfaed2c152a`；提交后逐文件核对13个已审文件及10个构建产品文件均匹配，严格staged preflight通过。原样本开放状态不因提交改变；本轮已停止的样本副本、HOME、generic cache与临时GPU二进制/模块清理148,886,657字节，明细`cleanup.json`；保留上述有界身份、截图、日志、输入及失败复现。连续构建仅留`/private/tmp/mwx-scene-next-build/cache/14d60a183f08e048bc3d072d`；未知归属`.mimosa`218字节保留，residue门因此非PASS，结构/依赖/设计/代码与测试断言门通过，文档49项通过。
+
+
+## 片元位置后继
+
+基线`0330eca4`。官方2.8.0.42的成功自有controls保持全部vertex、资源和元数据不变，仅改一个fragment读取gl_Position.xy；1280×720固定窗口的三处ROI符合左上原点像素模型，最大误差0.25 U8（预定门2），两帧差0。仅移动面板x800→480后，红通道下降63.75–63.875，旧位置恢复背景，排除240×240局部坐标解释。只验证XY读取，不定义Z/W或fragment写语义。没有读取私有实现。
+
+采集修正了PowerShell空字符串不等于native NULL及DPI虚拟化；旧复合probe全黑，公开Error确认客户端崩溃，因此旧图无坐标证据。后继音频单下标阳性控制也出现Error/黑控制图，双下标两输入未打开，音频映射仍未知。下一次先隔离audio flag和shader声明，不原样重试或猜flatten。官方自有进程、音频child、窗口及guest/shared输入已清理，原本running VM和未知新renderer保留；精确收据位于`/private/tmp/mwx-blend-contract-20261009`的`neutral-summary.json`及cleanup文件。
+
+产品只在既有bounded emitter按stage选position输入/输出，generic fragment归一化为gl_FragCoord；无新runtime owner、坐标uniform、texture或copy。bounded ProgramCacheKey v17、generic analysis v16、request v27及Python镜像同步退旧；prepared source/VariantAnalysis未变。9文件代码/测试freeze的tracked diff SHA256为`01233525a4b54a9e07088ad3d96ee956a9241b7e1f49d738b5f51c2253d588f7`，新测试hash见`freeze.json`。独立只读审查无可行动问题。
+
+签名Debug build成功且2806源码身份不变：App SHA256 `edee8b25a36ebb50ed831d6748db8a0d258b566bdd2a0edaa68c706824ef8510`，Debug dylib SHA256 `3e5c92ea3f8089c1324f1a59a99e5bb7851d0333744a4499feddb5318f942f1d`。8项cache/request、4项结构门通过；真实原shader经当前Swift normalizer、generic stage-link/Cross/离线Metal通过。片元位置3项门通过，实际两个backend的vertex/fragment在14组合、两帧28次Metal提交中完成84像素核验，含helper、平移viewport、不同target尺寸和vertex缩小反例。`fragment-position-gpu.json`的139源码hash匹配build；未把未知fragment写语义固定为长期测试。
+
+U23原包隔离运行`blend/position-final`：241首effect从0 material/1 rejected变为1/0，首帧与下一帧GPU完成；后继effect消费该effectOutput并进入最终compositor。首帧effect graph记录59材质节点、0拒绝；base仍有material-pass-count降级，不能外推所有输入无降级；两组音频各4阶段仍执行，不重复计为新增收益。截图中紫色光效恢复参与背景和LOVE合成；LOVE色阶及矩形背景仍未完成官方同输入验收，不能把59/59执行当完整正确率。App正常停止surfacesAfter=0、gpuDrained=true，原包hash不变；`native-position-result.json`保存逐节点链及运行身份。U21数组/环形音频/灰层/过曝仍开放。
+
+本片原样本副本、HOME与generic cache在已停止PID确认后精确清理27,273,187字节；保留官方中性输入、必要截图、App/代码身份、失败和GPU/运行收据。连续构建仍只留既有`/private/tmp/mwx-scene-next-build/cache/14d60a183f08e048bc3d072d`。未知归属`.mimosa`218字节仍保留，residue门非PASS；不冒充工作区残留已清零。
+
+产品提交`bd9fc353439e46b5ffa7c84aa93de543b65f6cb4`；提交后9个代码/测试文件逐一核对与独立审查freeze相同，5个产品文件与实际构建相同。严格staged preflight通过；35项文档检查通过，文档导航/预算只降同步。下一原子先归因U23的base降级、LOVE色阶与背景矩形；U21音频合同另用缩小输入实验，不新增样本分派。

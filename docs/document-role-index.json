@@ -522,9 +522,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2692bdfd881de65d4591c6100cb3522e4b1fff865b99397ea64666518db08270",
+        "sourceSHA256": "f17ac14335d5f4bb41c59ba30660df9e59a3cc9508b8a0b4a948f77d25c6a950",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对静态源颜色合同、现有owner与有界证据导航。",
+        "scope": "核对共享颜色及片元坐标修复的证据导航，区分effect执行与整样本视觉、base降级。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
