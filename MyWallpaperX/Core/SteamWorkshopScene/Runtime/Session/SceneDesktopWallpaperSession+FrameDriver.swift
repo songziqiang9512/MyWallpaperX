@@ -40,8 +40,6 @@ extension SceneDesktopWallpaperSession {
         frameDriverDeadline = nil
 #if DEBUG
         ScenePerformanceHUDController.shared.showIfNeeded()
-#endif
-#if DEBUG
         if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
             NSLog(
                 "MWX DEBUG SCENE: phase=frame-driver-start paused=%@",
@@ -52,12 +50,9 @@ extension SceneDesktopWallpaperSession {
         // A newly loaded or rebuilt paused surface still needs its frozen first
         // frame. scheduleFrameDriver keeps the repeating driver stopped.
         let initialDeadline = CACurrentMediaTime()
+        pausedFrameRetryDeadline = sceneClock.isPaused ? initialDeadline + 1 : nil
         let attempt = renderFrame()
-        scheduleFrameDriver(
-            after: attempt,
-            scheduledDeadline: initialDeadline,
-            pausedRetryUntil: sceneClock.isPaused ? initialDeadline + 1 : nil
-        )
+        scheduleFrameDriver(after: attempt, scheduledDeadline: initialDeadline)
 #if DEBUG
         if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
             NSLog(
@@ -69,14 +64,13 @@ extension SceneDesktopWallpaperSession {
     }
     private func scheduleFrameDriver(
         after attempt: SceneFrameDriverAttempt,
-        scheduledDeadline: CFTimeInterval,
-        pausedRetryUntil: CFTimeInterval? = nil
+        scheduledDeadline: CFTimeInterval
     ) {
         let now = CACurrentMediaTime()
         // A paused first frame may briefly wait for a drawable or an in-flight
         // GPU transaction. Reuse this driver with a bounded admission deadline.
         let retryPausedFrame = (attempt == .busy || attempt == .dropped)
-            && pausedRetryUntil.map { now < $0 } == true
+            && pausedFrameRetryDeadline.map { now < $0 } == true
         guard launchContext != nil, !sceneClock.isPaused || retryPausedFrame else {
             frameTimer?.invalidate()
             frameTimer = nil
@@ -113,9 +107,9 @@ extension SceneDesktopWallpaperSession {
             frameDriverDeadline = nil
             return
         }
-        armFrameDriver(at: nextDeadline, pausedRetryUntil: pausedRetryUntil)
+        armFrameDriver(at: nextDeadline)
     }
-    private func armFrameDriver(at deadline: CFTimeInterval, pausedRetryUntil: CFTimeInterval?) {
+    private func armFrameDriver(at deadline: CFTimeInterval) {
         frameTimer?.invalidate()
         frameDriverDeadline = deadline
         let delay = max(0.000_001, deadline - CACurrentMediaTime())
@@ -123,11 +117,7 @@ extension SceneDesktopWallpaperSession {
             guard let self else { return }
             self.frameTimer = nil
             let attempt = self.renderFrame()
-            self.scheduleFrameDriver(
-                after: attempt,
-                scheduledDeadline: deadline,
-                pausedRetryUntil: pausedRetryUntil
-            )
+            self.scheduleFrameDriver(after: attempt, scheduledDeadline: deadline)
         }
         RunLoop.main.add(timer, forMode: .common)
         frameTimer = timer
@@ -873,11 +863,19 @@ extension SceneDesktopWallpaperSession {
                 performanceTelemetry: SceneDesktopWallpaperHost.usesDebugEvidenceWindow
                     ? SceneFramePerformanceTelemetry.debugEvidence : nil
             )
-            if onFirstFrameCompletion != nil, case let .prepared(candidate) = frameOutcome {
-                candidate.whenCompleted { [weak self, weak surface] succeeded in
+            if onFirstFrameCompletion != nil || sceneClock.isPaused,
+               case let .prepared(candidate) = frameOutcome {
+                if sceneClock.isPaused { surface.pendingPausedFrame = candidate }
+                candidate.whenCompleted { [weak self, weak surface, weak candidate] succeeded in
                     DispatchQueue.main.async {
                         guard let self, let surface, self.surfaces[displayID] === surface else { return }
                         self.onFirstFrameCompletion?(displayID, succeeded)
+                        guard self.surfaces[displayID] === surface,
+                              let candidate, surface.pendingPausedFrame === candidate else { return }
+                        surface.pendingPausedFrame = nil
+                        guard self.sceneClock.isPaused, !succeeded else { return }
+                        surface.didSubmitSimulationFrame = false
+                        self.scheduleFrameDriver(after: .dropped, scheduledDeadline: CACurrentMediaTime())
                     }
                 }
             }
@@ -914,6 +912,7 @@ extension SceneDesktopWallpaperSession {
                 surface.metalView.commitPreparedMediaThumbnailUpdate()
                 surface.metalView.commitPreparedDynamicTextUpdate()
             } else {
+                if frameOutcome.isPrepared { surface.pendingPausedFrame = nil }
                 surface.metalView.discardPreparedMaterialAssetFrame()
                 surface.metalView.discardPreparedFrameTexturePublication()
                 surface.metalView.discardPreparedMediaThumbnailUpdate()

@@ -4,8 +4,8 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
-| 2026-10-08 | Scene | 修复证据 | [混合纹理颜色ABI](mixed-provider-color-abi-2026-10-08.md) | 编译工件输入合同直达variant、半透明合成与原307执行恢复；基线红门保留 | [运行架构](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
-| 2026-10-08 | Scene | 实施与有界验证 | [自定义源材质](source-material-entry-2026-10-08.md) | 双纹理动态源进入原effect/compositor、物理域纠偏、缓存失效；其他10候选样本准入缺口保留 | [运行架构](../architecture/runtime-architecture.md)、[能力台账](../capabilities/coverage-ledger.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
+| 2026-10-08 | Scene | 修复证据 | [混合纹理颜色ABI](mixed-provider-color-abi-2026-10-08.md) | 编译工件输入合同直达variant、半透明合成与原307执行恢复；基线红门保留 | [运行架构](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md)；[运行证据](../capabilities/runtime-evidence-current.md) |
+| 2026-10-08 | Scene | 实施与有界验证 | [自定义源材质](source-material-entry-2026-10-08.md) | 双纹理动态源进入原effect/compositor、物理域纠偏、缓存失效；其他10候选样本准入缺口保留 | [运行架构](../architecture/runtime-architecture.md)、[能力台账](../capabilities/coverage-ledger.md)、[队列](../roadmap/scene-open-breakpoint-queue.md)；[运行证据](../capabilities/runtime-evidence-current.md) |
 | 2026-10-08 | Scene | 实施与有界验证 | [Puppet部件裁剪](puppet-clipping-2026-10-08.md) | 公共part/paint关系、固定闭眼恢复与reader回退修正；跨样本慢启动失败及未证语义保留 | [裁剪合同](../capabilities/puppet-clipping-design.md)、[高级对象表](../capabilities/advanced-object-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-07 | Scene | 实施证据 | [作者层删除与退休](authored-layer-retirement-2026-10-07.md) | intro暗幕根因、跨层leaf删除、cohort退休及named依赖局部失败 | [运行架构](../architecture/runtime-architecture.md)、[SceneScript API](../capabilities/scenescript-api-coverage.md)、[D4](../roadmap/batch2/script-component-api-design.md) |
 | 2026-10-07 | Scene | 实施证据 | [Puppet 动画层控制](puppet-animation-control-2026-10-07.md) | 作者init、定位/混合进入实际pose与GPU；事务拒绝和ended不重放 | [高级对象](../capabilities/advanced-object-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[D4](../roadmap/batch2/script-component-api-design.md) |

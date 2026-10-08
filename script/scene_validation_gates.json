@@ -1970,7 +1970,8 @@
         "test_scene_session_activation",
         "test_scene_resource_budget",
         "test_scene_surface_submission",
-        "test_scene_script_storage_transaction"
+        "test_scene_script_storage_transaction",
+        "test_scene_paused_frame_recovery"
       ]
     },
     {

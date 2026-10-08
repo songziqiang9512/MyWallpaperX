@@ -152,12 +152,15 @@ final class Host {
     var soundPlaybackRegistry: Sounds?
     var frameTimer: Timer?
     var frameDriverDeadline: Double?
+    var pausedFrameRetryDeadline: Double?
+    var surfaces: [Int: Surface] = [:]
+    final class Surface { var pendingPausedFrame: Int? }
     var sceneFrameInterval: Double = 1.0/60
     var sceneBusyFrameRetryInterval: Double = 0.002
     var frames = 0, timers = 0
     var result: SceneFrameDriverAttempt = .rendered
     func renderFrame() -> SceneFrameDriverAttempt { frames += 1; return result }
-    func armFrameDriver(at deadline: Double, pausedRetryUntil: Double?) { timers += 1 }
+    func armFrameDriver(at deadline: Double) { timers += 1 }
     // METHODS
 }
 @main enum Harness {
@@ -185,11 +188,10 @@ final class Host {
         busyHost.startFrameDriver()
         precondition(busyHost.frames == 1 && busyHost.timers == 1)
         busyHost.result = .rendered
-        busyHost.scheduleFrameDriver(after: busyHost.renderFrame(), scheduledDeadline: CACurrentMediaTime(),
-            pausedRetryUntil: CACurrentMediaTime() + 1)
+        busyHost.scheduleFrameDriver(after: busyHost.renderFrame(), scheduledDeadline: CACurrentMediaTime())
         precondition(busyHost.frames == 2 && busyHost.timers == 1)
-        busyHost.scheduleFrameDriver(after: .busy, scheduledDeadline: CACurrentMediaTime(),
-            pausedRetryUntil: CACurrentMediaTime() - 1)
+        busyHost.pausedFrameRetryDeadline = CACurrentMediaTime() - 1
+        busyHost.scheduleFrameDriver(after: .busy, scheduledDeadline: CACurrentMediaTime())
         precondition(busyHost.timers == 1, "Expired paused retry must not keep scheduling")
         print("scene-paused-first-frame-pass")
     }

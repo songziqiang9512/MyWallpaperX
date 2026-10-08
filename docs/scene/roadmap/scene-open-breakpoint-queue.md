@@ -18,7 +18,7 @@
 | T2 颜色与HDR输出 | 旧SDR shoulder压暗已修；对剩余条纹、HDR物理显示及用户样本复验，按采样purpose/alpha/颜色域→中间target→最终输出定位 | 保留作者HDR/SDR意图；同内容默认/关闭/开启和实际呈现对照。已有16F与热切执行不等于物理亮度正确；找到首错owner再修改 |
 | E1 特效与频谱 | 将运行拒绝按共享shader/slot/graph/动态输入首断点归并；频谱用同声源对照形状和活跃度 | 复用现compiler/graph/audio producer，选覆盖面明确的族恢复动态结果；不抬gain、改作者参数或放宽测试制造通过 |
 
-当前以T1为首个代码切片；T2保留高优先用户视觉验收，不能重做已修SDR shoulder。每批闭合后重新比较三者，不等243样本全部重跑才开始修复。完整矩阵扩容与证据关联随共同修复推进。
+T1共享材质切片已闭，本批转T2：暂停重绘异步失败复用原调度恢复，后继优先328渐变条纹与真实样本显示对照；不能重做已修SDR shoulder。每批闭合后重新比较三者，不等243样本全部重跑才开始修复。完整矩阵扩容与证据关联随共同修复推进。
 
 ## 2. 纹理、合成与特效公共缺口
 
@@ -28,7 +28,7 @@
 | 显隐属性的其他非Bool/缺失类型引用 | **color范围已修，其他输入待复验**：243场景/project身份核同的直连layer.visible统计有color 2样本2处、slider 3样本4处、缺定义40处及有声明但无type的2处；合计27样本48处只是声明。color两原包3665307769/3078285611热切现已实际变色、不重建；完成记录归入[显隐错配修复](../history/source-material-entry-2026-10-08.md#后继修正颜色与显隐错配局部保留)。slider与缺定义不得沿用该合同或直接认定失败，按同key合法消费者、当前回退及官方可观察行为继续归因。 |
 | 材质颜色的组合缺口 | **部分已修，组合余项待补**：静态中性RGB已进入原/动态图层；脚本tint占用layer color的覆盖已修，迁至materialConstant并退出clone颜色覆写；受控前后GPU及原379彩虹通过。named组合仍待官方合同与实际消费者证实，不直接给raw capture叠加材质调制。复核10候选样本/11层没有named边；193频谱12条named声明被作者previous绑定覆盖，不能计为漏Alpha。3690859128双source共用模型限制已修，证据见[共享材质](../capabilities/runtime-evidence-current.md#e-2026-10-08-shared-source-material)；首引用删除后的官方续跑未知，保留既有安全退休，不能外推所有材料实例范围 |
 | 普通unlit数值边界 | **溢出已修、下溢待修**：4×1e38×1e-37的Inf沿现shader回算有限40，无全图压暗/cap。[有界证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-unlit-product)。source alpha=.5、vertex=.25、R8clip=128/255的weighted组合仍输出0（数学RGB≈2.5098），属于既有fast-math下溢；此失败保留，不能由溢出正例关闭。优先真实多source颜色消费者，数值余项不扩大为所有HDR已修 |
-| 默认变暗、HDR/SDR最终显示 | **旧压暗首断点已修，视觉余项待复验**：旧SDR shoulder把白点1压到0.75；[白点修复](../history/sdr-white-preservation-implementation-2026-10-06.md)实测RGB(191,64,128)恢复(255,64,128)。EDR及OFF→ON→OFF已有同surface headroom执行证据；用户样本、多屏SDR、暂停重绘及物理亮度未据此关闭。沿唯一颜色/output owner定位，见[热切证据](../history/hdr-live-toggle-verification-2026-10-07.md)；Bloom iterations0/1空间语义另作官方控制 |
+| 默认变暗、HDR/SDR最终显示 | **旧压暗首断点已修，视觉余项待复验**：旧SDR shoulder把白点1压到0.75；[白点修复](../history/sdr-white-preservation-implementation-2026-10-06.md)实测RGB(191,64,128)恢复(255,64,128)。EDR及OFF→ON→OFF已有同surface headroom执行证据；暂停HDR热切与有界异步失败恢复已补[独立证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-paused-display-recovery)；用户样本、多屏SDR及物理亮度仍未关闭。沿唯一颜色/output owner定位，见[热切证据](../history/hdr-live-toggle-verification-2026-10-07.md)；Bloom iterations0/1空间语义另作官方控制 |
 | shader compound边界 | **能力缺口**：已有int四则复合赋值恢复，qualified LHS、`%=`与vertex剩余见[原合同](../history/int-compound-assignment-normalizer-2026-10-07.md)。先核真实引用和类型，扩同一normalizer，保留scope/优先级/非法输入反例 |
 | 未定义varying分量 | **待研究**：sine_wave_circle激活变体读取未初始化分量。不能猜零填充；先取得公开或受控官方可观察合同，再决定归一化/局部拒绝 |
 | 透明target的alphaWeightedAdditive | **待研究**：普通源coverage已修，named/透明target的完整alpha合成尚未同输入裁决，见[coverage证据](../capabilities/runtime-evidence-current.md#e-2026-09-27-direct-draw-coverage)。先核唯一compositor当前blend，不能重新造光束专用补偿 |

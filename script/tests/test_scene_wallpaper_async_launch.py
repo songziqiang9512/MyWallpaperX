@@ -180,7 +180,7 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
             prepare.index("firstSurfaceRuntimePreparation.start()"),
             prepare.index("SceneScriptQuickJSProgramCandidate.compile("),
         )
-        self.assertIn("preparedFirstSurfaceRuntime.take() ?? .init(", make_runtime)
+        self.assertIn("preparedFirstSurfaceRuntime.take() ??", make_runtime)
         self.assertIn(
             "final class ScenePreparedFirstSurfaceRuntime",
             self.prepared_device_resources,

@@ -58,6 +58,8 @@
 
 ## RF07-HISTORY：已实施的原始颜色与显示导出边界
 
+暂停导出的异步失败与同步拒绝复用 Session 同一有限重试，职责与验收见 [D10 后继](frame-admission-retry-design.md#暂停导出的异步失败恢复2026-10-08)。
+
 原始颜色与显示导出的隔离已实施，过程、失败门和验收边界统一见[冻结执行记录](../../history/rf07-persistent-color-output-implementation-2026-10-02.md)，不在本待实施设计复写。本次 HDR Bloom 必须保留其约束：作者有序合成写入未映射 raw；Bloom 只写 display scratch，终端显示结果不累积回 raw；每帧仍只有一次 layer traversal 和一个 compositor/present。
 
 资源沿现役 allocation cache/residency pin 与 SubmissionCoordinator 管理，只有身份匹配且 GPU completed 才提升 raw。暂停导出不重跑 VM/模拟；resize/reset 后的新 raw epoch 先安全初始化。Bloom失败保留安全原图；线性surface显示映射失败保留旧帧，禁止导出未解码raw；资源/代际错误拒绝对应候选；不新增历史、完成回调或资源 owner。后续 HDR 改动继续通过 raw 多帧累积、paused resize、失败恢复和预算门。

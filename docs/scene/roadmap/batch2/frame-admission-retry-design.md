@@ -30,6 +30,10 @@ PreparedFrame 的 submit/cancel 闭包整体提取到同一 renderer extension�
 
 验证必须运行真实提取代码的 submission/cancel 事件门与实际 variant 编译门，并注入破坏 arm/commit 或提交后取消顺序的反例，证明 oracle 不因同形复制而通过；Debug build 由整合批串行完成。原有源码断言不作为本次正确性证据，拆分涉及的 standalone source list 必须更新。行为测试和构建都不外推为视觉 parity。`bounded-frontend-product-entry` 的调用职责移动以一次性 receipt 绑定旧/新机器合同 SHA、精确一对 from/to owner、全仓调用数和不变调用 token；新增 scope、调用变化或 receipt 提交后改写均拒绝。文件体量遵守统一 1000 行门，不再维护这两个 owner 的 400 行家族例外；职责边界仍由真实调用、状态归属、事务和行为反例检验，不能靠拆扩展或改名证明架构健康。
 
+## 暂停导出的异步失败恢复（2026-10-08）
+
+暂停失效重绘的提交不等于 GPU 成功；现有 Session 在提交后停表，异步失败会使旧画面一直保留。修复归原帧驱动：把已有一秒重试截止时间从调用参数移为唯一 Session 状态，同步拒绝和异步失败共用它，失败不能续期。原 PreparedFrame 完成回执只撤销同一存活 surface 的当前暂停候选，成功结束，失败在余下窗口内重试冻结输入；新的显式失效才重开窗口。旧候选、换屏、退出及恢复播放后的回执不得唤醒或覆盖新提交。首帧激活仍服从原 Host 回调，回调后重验 surface；不新增 HDR 调度、计时器、输出或 completion owner。验收须覆盖单次失败恢复、持续失败有界、陈旧/取消回执、多屏局部恢复与 VM/时钟不推进，并补正常暂停 HDR 热切真实运行；模拟回执不冒充真实 GPU 故障或物理亮度验收。
+
 ## 验证与退役
 
 行为门包含：共享脚本 heap 计数加 timer/input/localStorage，在一屏 drawable 缺失、另一屏实际 Metal completion 的多帧序列中每 tick 只消费一次；恢复屏使用最新 typed generation；粒子随机状态/child births 和 Puppet physics 在连续无 drawable 后对应同 cadence 基线；局部失败、所有屏失败、GPU 异步失败、stale completion、暂停与停止释放只影响各自 owner。发布/GPU/next-frame 与脚本 C/Swift 路径分别实测，构建不能替代。

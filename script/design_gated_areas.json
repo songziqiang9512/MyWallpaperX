@@ -13,7 +13,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
-      "design_notes": "2026-10-06阶段B已纠正SDR白点；后继在唯一Bloom owner接通HDR五字段和typed更新，标准分支保留。默认/扩散/平滑边界须公开或官方自有输入差分，未定不得猜测上线；阶段C采用固定linear surface、终端sRGB解码、逐屏headroom与用户开关，映射失败不发布；实际EDR另验，approved不是产品验收。",
+      "design_notes": "2026-10-06阶段B已纠正SDR白点；后继在唯一Bloom owner接通HDR五字段和typed更新，标准分支保留。默认/扩散/平滑边界须公开或官方自有输入差分，未定不得猜测上线；阶段C采用固定linear surface、终端sRGB解码、逐屏headroom与用户开关，映射失败不发布；实际EDR另验，approved不是产品验收。 2026-10-08暂停导出异步失败复用Session原一秒重试和PreparedFrame完成回执，替换透传deadline为唯一状态，保持冻结输入及旧候选失效；不增HDR调度owner，物理亮度和多屏仍单列验收。",
       "matchPatterns": [],
       "contentPatterns": [
         "wantsExtendedDynamicRange",
@@ -142,7 +142,7 @@
       "owner": "SceneDesktopWallpaperHost / SceneMetalView / SceneMetalRenderer",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/frame-admission-retry-design.md",
-      "design_notes": "2026-10-01 用户裁决替换 all-surface rollback：共享模拟一次消费，每屏独立提交，恢复读最新状态。跨 clock/VM/provider/particle/Puppet 生命周期；设计与反例门、generic-only 迁移及退役条件见 designDoc。approved 不是运行验收。 2026-10-03 仓库改良P1-5批准同designDoc的职责提取：保留renderFrame终态/defer/ownership转移；Compilation同cache内分prepared analysis/artifact route/finalization，不改变算法或生命周期权威。 P1-5 source-set整合：同目录原字节抽离既有SceneRenderTargetVocabulary enum以恢复最小Template/census真实编译，设计已先补，无语义/类型预算增长。",
+      "design_notes": "2026-10-01 用户裁决替换 all-surface rollback：共享模拟一次消费，每屏独立提交，恢复读最新状态。跨 clock/VM/provider/particle/Puppet 生命周期；设计与反例门、generic-only 迁移及退役条件见 designDoc。approved 不是运行验收。 2026-10-03 仓库改良P1-5批准同designDoc的职责提取：保留renderFrame终态/defer/ownership转移；Compilation同cache内分prepared analysis/artifact route/finalization，不改变算法或生命周期权威。 P1-5 source-set整合：同目录原字节抽离既有SceneRenderTargetVocabulary enum以恢复最小Template/census真实编译，设计已先补，无语义/类型预算增长。 2026-10-08修正暂停重绘异步失败停滞：同一Session截止/原PreparedFrame回执恢复，旧身份撤权，不重复模拟、不增调度owner。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession*FrameDriver*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView*.swift",

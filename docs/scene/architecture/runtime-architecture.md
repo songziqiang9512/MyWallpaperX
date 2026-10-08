@@ -494,7 +494,7 @@ container/image/solid/text及无依赖composition树共用visibility准入与准
 
 | 次序 | 逻辑阶段 | 对外可见性与写入约束 |
 |---|---|---|
-| 1 | 验证活动 session、暂停与 cadence | 每 cadence 至多推进一次共享模拟；暂停首帧重试复用准备结果，不重跑 VM／粒子／骨骼 |
+| 1 | 验证活动 session、暂停与 cadence | 每 cadence 至多推进一次共享模拟；暂停首帧/失效重绘复用准备结果，不重跑 VM／粒子／骨骼。同步拒绝和当前候选GPU失败共用Session一秒重试截止，失败不续期；PreparedFrame回执按surface与候选身份生效，恢复/退场撤权 |
 | 2 | 冻结 host time、scene time、property revision、输入／音频／媒体及可用 provider | 一帧一份共享时间；surface 坐标输入单独投影，不能用另一屏的值 |
 | 3 | 求属性／Timeline／状态继承与 VM 前置 snapshot | 形成回调读取值；前帧已提交值与当前 typed producer 按既定优先级合并 |
 | 4 | 执行本帧合法生命周期／timer／input／update 回调并收集 mutation | 各回调排序服从 SceneScript 合同；同回调 local setter 可读 staged local，world getter 不随每次 setter 临时重算 |

@@ -22,6 +22,7 @@ extension SceneDesktopWallpaperSession {
         frameTimer?.invalidate()
         frameTimer = nil
         frameDriverDeadline = nil
+        pausedFrameRetryDeadline = nil
         for surface in surfaces.values {
             surface.metalView.invalidateResolvedMaterialRuntime(reason: reason)
             surface.metalView.teardownParticlePlayback(reason: reason)

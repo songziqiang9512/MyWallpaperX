@@ -20,6 +20,7 @@ final class SceneDesktopWallpaperSession {
         let metalView: SceneMetalView
         let scriptGeneration: UInt64
         var didSubmitSimulationFrame = false
+        var pendingPausedFrame: SceneMetalRenderer.PreparedFrame?
 
         init(
             window: NSWindow,
@@ -59,6 +60,7 @@ final class SceneDesktopWallpaperSession {
     var globalPointerEventMonitor: Any?
     var frameTimer: Timer?
     var frameDriverDeadline: CFTimeInterval?
+    var pausedFrameRetryDeadline: CFTimeInterval?
     var screenReconciliationWorkItem: DispatchWorkItem?
     var screenTopology: [SceneScreenTopology] = []
     /// 最近一次实际建成表面的拓扑快照；与权威目标集 screenTopology

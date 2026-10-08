@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "448f200f93cd5ce9e724ee3f0a604fd10a1806d1f0a270760e47b41c6b0c9dd8",
+        "sourceSHA256": "d7cf1abe0d9d677716246307385d172d5888207e095410eb2ef276415209cb74",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核同model多引用共享材质合同、原369热切与自有合成证据；删除首引用的官方续跑未知，不外推整样本。",
+        "scope": "复核同一Session暂停重绘恢复、原一秒截止与真实暂停HDR热切证据；自然GPU故障、物理亮度和多屏未验。",
         "limitations": "仅对应本批职责与冻结证据，不表示全样本兼容、官方parity或发布验收。"
       }
     },
@@ -498,9 +498,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a63460d40f8e4ac81f1e95d875fe70ce7f1fb62243eb220c961aa20f74e6befe",
+        "sourceSHA256": "f8f6549be3dedc061bb2a3958475feee88f2ace75ee14b3eb0562fbd40b38cdc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核同model多引用共享材质合同、原369热切与自有合成证据；删除首引用的官方续跑未知，不外推整样本。",
+        "scope": "复核同一Session暂停重绘恢复、原一秒截止与真实暂停HDR热切证据；自然GPU故障、物理亮度和多屏未验。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
