@@ -197,8 +197,8 @@
       "bytes": 32798
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 161,
-      "bytes": 39649
+      "lines": 218,
+      "bytes": 49416
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1068,21 +1068,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2acaceb2024242b45d0db991d714ff9eeba94e66c8ce73b06a1efd0acfc00eb2",
-      "after": "32e401bb43d250978ea2e0eaa979c7d626cac924474377cfd5fc5915466234a0",
-      "owner": "scene-e-route",
-      "reason": "记录F16量化的可复验边界及已执行的真实Pulse入口，防止凭声明新增重复实现。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "before": "e053582f2cc615b1d17ec59d814fcb3d56fb594e73522094c240d2ff76311129",
       "after": "97bf46c45da0b02e9f51587b3947adbc88e1cc36e2a2b100ed0540656612b435",
       "owner": "scene-e-route",
       "reason": "记录F16量化的可复验边界及已执行的真实Pulse入口，防止凭声明新增重复实现。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "32e401bb43d250978ea2e0eaa979c7d626cac924474377cfd5fc5915466234a0",
+      "after": "7d928572143b555d0add40c12b4f2d5565137ac6ef46ac026ad03fea5a4ed6f5",
+      "owner": "scene-p-route",
+      "reason": "逐项登记用户基于cccea6c实机发现的44样本及跨样本属性问题，保留版本边界和单一共享修复链。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-cccea6c-user-report"
     }
   ]
 }
