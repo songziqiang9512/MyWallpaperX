@@ -657,10 +657,14 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         tokens: [SceneAuthoredShaderToken],
         unit: SceneAuthoredShaderSyntaxUnit
     ) -> Bool {
-        guard let type = standaloneType(
+        if let type = standaloneType(
             range, before: limit, tokens: tokens, unit: unit
-        ) else { return false }
-        return type == .float || floatVectorWidth(type) == width
+        ) {
+            return type == .float || floatVectorWidth(type) == width
+        }
+        // A source-proven scalar built-in expression is a valid scalar mix
+        // weight. Vector expressions and authored overloads stay closed.
+        return componentExpression(range, tokens: tokens, unit: unit)?.type == .float
     }
 
     private static func standaloneType(

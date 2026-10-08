@@ -11,9 +11,9 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
         let isReadOnly: Bool
     }
 
-    /// Uses the complete bounded syntax graph whenever that graph accepts the
-    /// authored stage. Unknown expressions and overloads remain fail-closed.
-    static func rewriteUsingBoundedSyntax(
+    /// Uses the shared syntax graph without admitting its loops for bounded
+    /// execution. Unknown expressions and overloads remain fail-closed.
+    static func rewriteUsingTypeSyntax(
         _ source: String,
         stage: SceneShaderContract.StageKind
     ) -> String {
@@ -25,7 +25,7 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
                 ? "" : line
         }.joined(separator: "\n")
         let lexer = SceneAuthoredShaderLexer.lex(source: analysisSource, stage: stage)
-        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
             lexerOutput: lexer,
             stage: stage
         )
@@ -39,7 +39,7 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
             scalarOffset += 1
             if scalar == "\n" { lineStarts.append(scalarOffset) }
         }
-        var insertions = unit.tokens.indices.compactMap { index -> (Int, String)? in
+        var edits = unit.tokens.indices.compactMap { index -> (Int, Int, String)? in
             let token = unit.tokens[index]
             guard token.kind == .identifier,
                   let suffix = SceneAuthoredShaderVectorConversion.suffix(
@@ -52,68 +52,92 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
             let end = lineStarts[token.line - 1] + token.column - 1
                 + token.text.unicodeScalars.count
             guard end <= normalized.unicodeScalars.count else { return nil }
-            return (end, ".\(suffix)")
+            return (end, 0, ".\(suffix)")
         }
-        for index in scalarModFunctionReferences(unit) {
+        for function in unit.functions {
+            let preceding = function.headerRange.lowerBound - 1
+            guard preceding >= 0, unit.tokens[preceding].text == "const",
+                  SceneAuthoredShaderValueType(authoredName: function.returnType) != nil
+            else { continue }
+            let token = unit.tokens[preceding]
+            guard token.line > 0, token.line <= lineStarts.count else { return normalized }
+            edits.append((lineStarts[token.line - 1] + token.column - 1, token.text.count, ""))
+        }
+        for index in scalarIntrinsicFunctionReferences(unit) {
             let token = unit.tokens[index]
             guard token.line > 0, token.line <= lineStarts.count else { return normalized }
-            insertions.append((lineStarts[token.line - 1] + token.column - 1, "mwxAuthored_"))
+            edits.append((lineStarts[token.line - 1] + token.column - 1, 0, "mwxAuthored_"))
         }
-        insertions.sort { $0.0 > $1.0 }
-        guard !insertions.isEmpty else { return normalized }
+        edits.sort { $0.0 > $1.0 }
+        guard !edits.isEmpty else { return normalized }
 
         var result = normalized
-        for (offset, suffix) in insertions {
+        for (offset, length, replacement) in edits {
             let scalarIndex = result.unicodeScalars.index(
                 result.unicodeScalars.startIndex,
                 offsetBy: offset
             )
-            guard let index = String.Index(scalarIndex, within: result) else {
+            let scalarEnd = result.unicodeScalars.index(scalarIndex, offsetBy: length)
+            guard let index = String.Index(scalarIndex, within: result),
+                  let end = String.Index(scalarEnd, within: result) else {
                 return normalized
             }
-            result.insert(contentsOf: suffix, at: index)
+            result.replaceSubrange(index..<end, with: replacement)
         }
         return result
     }
 
-    /// GLSL rejects a source-defined scalar `mod` that collides with its
-    /// intrinsic. Preserve the author function, not a replacement algorithm.
-    /// Only one exact scalar signature and calls with provably scalar leaves
-    /// are renamed; overloads, shadowing and compound arguments stay rejected.
-    private static func scalarModFunctionReferences(
+    /// GLSL rejects source-defined scalar intrinsic signatures. Preserve the
+    /// author body and its references under a private name. Exact float
+    /// signatures and scalar argument proofs reuse the syntax/type owners;
+    /// overloads, shadowing, unknown arguments and alias collisions stay closed.
+    private static func scalarIntrinsicFunctionReferences(
         _ unit: SceneAuthoredShaderSyntaxUnit
     ) -> [Int] {
         let tokens = unit.tokens
-        let functions = unit.functions.filter { $0.name == "mod" }
-        guard functions.count == 1, let function = functions.first,
-              function.returnType == "float",
-              !tokens.contains(where: { $0.text == "mwxAuthored_mod" }) else { return [] }
-        let parameters = Array(tokens[function.parameterRange])
-        guard parameters.count == 5,
-              parameters[0].text == "float", parameters[1].kind == .identifier,
-              parameters[2].text == ",", parameters[3].text == "float",
-              parameters[4].kind == .identifier else { return [] }
-        var references: [Int] = []
-        for index in tokens.indices where tokens[index].text == "mod" {
-            guard index + 1 < tokens.count, tokens[index + 1].text == "(",
-                  index == 0 || tokens[index - 1].text != "." else { return [] }
-            if function.headerRange.contains(index) {
-                references.append(index)
-                continue
-            }
-            var end = index + 2
-            while end < tokens.count && !["(", ")"].contains(tokens[end].text) { end += 1 }
-            guard end < tokens.count, tokens[end].text == ")" else { return [] }
-            let args = tokens[(index + 2)..<end].split { $0.text == "," }
-            guard args.count == 2, args.allSatisfy({ argument in
-                let values = Array(argument)
-                if values.count == 1 { return Double(values[0].text) != nil }
-                return values.count == 3 && values[0].kind == .identifier
-                    && values[1].text == "." && ["x", "y", "z", "w", "r", "g", "b", "a"].contains(values[2].text)
+        return [("mod", 2), ("fract", 1)].flatMap { name, arity -> [Int] in
+            let functions = unit.functions.filter { $0.name == name }
+            guard functions.count == 1, let function = functions.first,
+                  function.returnType == "float",
+                  !tokens.contains(where: { $0.text == "mwxAuthored_" + name })
+            else { return [] }
+            let parameters = tokens[function.parameterRange].split { $0.text == "," }
+            guard parameters.count == arity, parameters.allSatisfy({ parameter in
+                let value = Array(parameter).filter { !["const", "in"].contains($0.text) }
+                return value.count == 2 && value[0].text == "float"
+                    && value[1].kind == .identifier
             }) else { return [] }
-            references.append(index)
+            var references: [Int] = []
+            for index in tokens.indices where tokens[index].text == name {
+                guard index + 1 < tokens.count, tokens[index + 1].text == "(",
+                      index == 0 || tokens[index - 1].text != "." else { return [] }
+                if function.headerRange.contains(index) {
+                    references.append(index)
+                    continue
+                }
+                guard let end = SceneAuthoredShaderTokenScanner.matchingParenthesis(
+                    tokens: tokens, opening: index + 1
+                ), let arguments = SceneAuthoredShaderBuiltInVectorConversion.argumentRanges(
+                    opening: index + 1, closing: end, tokens: tokens
+                ), arguments.count == arity,
+                arguments.allSatisfy({ argument in
+                    if name == "mod" {
+                        // Preserve the existing mod admission boundary.
+                        let values = Array(tokens[argument])
+                        if values.count == 1 { return Double(values[0].text) != nil }
+                        return values.count == 3 && values[0].kind == .identifier
+                            && values[1].text == "."
+                            && ["x", "y", "z", "w", "r", "g", "b", "a"].contains(values[2].text)
+                    }
+                    guard let expression = SceneAuthoredShaderBuiltInVectorConversion
+                        .componentExpression(argument, tokens: tokens, unit: unit)
+                    else { return false }
+                    return [.float, .int].contains(expression.type)
+                }) else { return [] }
+                references.append(index)
+            }
+            return references
         }
-        return references
     }
 
     /// An unambiguous user function can consume the leading components of a

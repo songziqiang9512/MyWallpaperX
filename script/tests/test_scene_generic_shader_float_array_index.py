@@ -573,6 +573,158 @@ void main() {
         linked = self._link(output)
         self.assertNotEqual(linked.returncode, 0, result)
 
+    def test_scalar_builtin_mix_weight_and_return_share_bounded_and_generic_types(self) -> None:
+        for loop in ("for (int pass = 0; pass < 2; ++pass)",
+                     "for (float pass = 0.0; pass < 2.0; ++pass)"):
+            for wide_name in ("accumulated", "renamedValue"):
+                with self.subTest(loop=loop, name=wide_name):
+                    result, output = self._normalize(
+                        "varying vec2 v_TexCoord;\n"
+                        "vec3 computeColor(vec2 coord) {\n"
+                        f"    vec4 {wide_name} = vec4(0.2, 0.4, 0.6, 0.8);\n"
+                        "    vec3 replacement = vec3(0.9, 0.7, 0.5);\n"
+                        "    float distanceValue = coord.x - 0.5;\n"
+                        f"    {loop} {{\n"
+                        f"        {wide_name} = vec4(mix(replacement, {wide_name}, "
+                        "step(0.0, distanceValue)), 1.0);\n    }\n"
+                        f"    return {wide_name};\n}}\n"
+                        "void main() { gl_FragColor = vec4(computeColor(v_TexCoord), 1.0); }\n"
+                    )
+                    self.assertTrue(result["ok"], result)
+                    source = output.read_text(encoding="utf-8")
+                    self.assertIn(f"mix(replacement, {wide_name}.xyz, step(", source)
+                    self.assertIn(f"return ({wide_name}).xyz;", source)
+                    linked = self._link(output)
+                    self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+                    if "int pass" in loop:
+                        self.assertTrue(result["boundedHasProgram"], result)
+                        metal = self.root / "typed-conversion.metal"
+                        metal.write_text(result["boundedMetal"], encoding="utf-8")
+                        compiled = subprocess.run(
+                            ["xcrun", "--sdk", "macosx", "metal", "-c", str(metal),
+                             "-o", str(self.root / "typed-conversion.air")],
+                            cwd=self.root, capture_output=True, text=True,
+                        )
+                        self.assertEqual(compiled.returncode, 0, compiled.stderr)
+                    else:
+                        self.assertFalse(result["boundedHasProgram"], result)
+                        self.assertIn("dynamicLoop", result["boundedDiagnostics"])
+
+    def test_vec3_return_narrows_one_known_vector_constructor_or_authored_call(self) -> None:
+        for expression in ("vec4(coord, 0.5, 0.75)", "makeWide(coord)"):
+            with self.subTest(expression=expression):
+                result, output = self._normalize(
+                    "varying vec2 v_TexCoord;\n"
+                    "vec4 makeWide(vec2 inputCoord) { return vec4(inputCoord, 0.5, 0.75); }\n"
+                    f"vec3 takeRGB(vec2 coord) {{ return {expression}; }}\n"
+                    "void main() { gl_FragColor = vec4(takeRGB(v_TexCoord), 1.0); }\n"
+                )
+                self.assertTrue(result["ok"], result)
+                self.assertTrue(result["boundedHasProgram"], result)
+                self.assertIn(f"return ({expression}).xyz;", output.read_text(encoding="utf-8"))
+                linked = self._link(output)
+                self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+                metal = self.root / "typed-call-return.metal"
+                metal.write_text(result["boundedMetal"], encoding="utf-8")
+                compiled = subprocess.run(
+                    ["xcrun", "--sdk", "macosx", "metal", "-c", str(metal),
+                     "-o", str(self.root / "typed-call-return.air")],
+                    cwd=self.root, capture_output=True, text=True,
+                )
+                self.assertEqual(compiled.returncode, 0, compiled.stderr)
+
+    def test_mix_unknown_vector_or_source_overload_weight_stays_rejected(self) -> None:
+        for declarations, weight in (
+            ("", "unknownWeight"),
+            ("vec2 weightPair = vec2(0.5);", "step(vec2(0.0), weightPair)"),
+            ("float weightFunction(float x) { return x; }", "weightFunction(0.5)"),
+            ("float step(float x, float y) { return x + y; }", "step(0.0, 0.5)"),
+        ):
+            with self.subTest(weight=weight):
+                result, output = self._normalize(
+                    "varying vec2 v_TexCoord;\n" + declarations + "\n"
+                    "void main() { vec4 wideColor = vec4(0.25); vec3 smallColor = vec3(0.5);\n"
+                    f"gl_FragColor = vec4(mix(smallColor, wideColor, {weight}), 1.0); }}\n"
+                )
+                self.assertTrue(result["ok"], result)
+                self.assertIn(f"mix(smallColor, wideColor, {weight})", output.read_text(encoding="utf-8"))
+                linked = self._link(output)
+                self.assertNotEqual(linked.returncode, 0, weight)
+
+    def test_return_unknown_array_overload_and_shadow_facts_are_not_narrowed(self) -> None:
+        cases = (
+            ("", "", "missingValue", False),
+            ("", "vec4 values[2];", "values", False),
+            ("vec4 makeValue(float x) { return vec4(x); }\n"
+             "vec3 makeValue(vec2 x) { return vec3(x, 1.0); }", "", "makeValue(0.5)", False),
+            ("vec4 makeValue(float sourceValue) { return vec4(sourceValue); }",
+             "vec3 makeValue = vec3(0.5);", "makeValue(0.5)", False),
+            ("vec4 outputValue = vec4(0.25);", "vec3 outputValue = vec3(0.5);", "outputValue", True),
+            ("vec4 outputValue = vec4(0.25);", "vec3 firstValue = vec3(0.5), outputValue = firstValue;", "outputValue", True),
+            ("struct Holder { vec3 xyz; };\nvec4 outputValue = vec4(0.25);", "Holder outputValue;", "outputValue", False),
+        )
+        for declarations, body, expression, links in cases:
+            with self.subTest(expression=expression, body=body):
+                result, output = self._normalize(
+                    "varying vec2 v_TexCoord;\n" + declarations + "\n"
+                    f"vec3 returnedRGB() {{ {body} return {expression}; }}\n"
+                    "void main() { gl_FragColor = vec4(returnedRGB(), 1.0); }\n"
+                )
+                self.assertTrue(result["ok"], result)
+                self.assertIn(f"return {expression};", output.read_text(encoding="utf-8"))
+                linked = self._link(output)
+                self.assertEqual(linked.returncode == 0, links, linked.stdout + linked.stderr)
+
+    def test_source_scalar_fract_keeps_body_and_only_return_const_is_removed(self) -> None:
+        result, output = self._normalize(
+            "varying vec2 v_TexCoord;\nconst float retainedGlobal = 0.25;\n"
+            "const float fract(const float inputValue) {\n"
+            "    const float retainedLocal = 0.75;\n"
+            "    return inputValue * retainedLocal - floor(inputValue) * 0.25;\n}\n"
+            "const vec3 returnedColor(const vec3 inputColor) { return inputColor; }\n"
+            "void main() {\n"
+            "    float selectedValue = 0.0;\n"
+            "    for (float repetition = 0.0; repetition < 2.0; repetition++) {\n"
+            "        selectedValue = fract(v_TexCoord.x * v_TexCoord.y * (1.0 + v_TexCoord.x));\n"
+            "    }\n"
+            "    gl_FragColor = vec4(returnedColor(vec3(selectedValue + retainedGlobal)), 1.0);\n"
+            "    // const float fract(const float inputValue) is author commentary.\n}\n"
+        )
+        self.assertTrue(result["ok"], result)
+        source = output.read_text(encoding="utf-8")
+        self.assertIn("float mwxAuthored_fract(const float inputValue)", source)
+        self.assertIn("vec3 returnedColor(const vec3 inputColor)", source)
+        self.assertIn("const float retainedGlobal = 0.25;", source)
+        self.assertIn("const float retainedLocal = 0.75;", source)
+        self.assertIn("return inputValue * retainedLocal - floor(inputValue) * 0.25;", source)
+        self.assertIn("mwxAuthored_fract(v_TexCoord.x * v_TexCoord.y * (1.0 + v_TexCoord.x))", source)
+        self.assertIn("// const float fract(const float inputValue) is author commentary.", source)
+        self.assertFalse(result["boundedHasProgram"], result)
+        self.assertIn("dynamicLoop", result["boundedDiagnostics"])
+        linked = self._link(output)
+        self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_source_fract_unknown_signature_overload_shadow_or_alias_stays_closed(self) -> None:
+        for declarations, argument, local in (
+            ("float fract(float scalarValue) { return scalarValue; }", "missingArgument", ""),
+            ("float fract(float scalarValue) { return scalarValue; }\n"
+             "vec2 fract(vec2 vectorValue) { return vectorValue; }", "v_TexCoord.x", ""),
+            ("float fract(vec2 vectorValue) { return vectorValue.x; }", "v_TexCoord", ""),
+            ("float fract(float scalarValue) { return scalarValue; }", "v_TexCoord.x", "float fract = 0.5;"),
+            ("float fract(float scalarValue) { return scalarValue; }\nfloat mwxAuthored_fract = 0.5;", "v_TexCoord.x", ""),
+            ("float fract(float scalarValue) { return scalarValue; }", "v_TexCoord", ""),
+        ):
+            with self.subTest(declarations=declarations, argument=argument, local=local):
+                result, output = self._normalize(
+                    "varying vec2 v_TexCoord;\n" + declarations + "\n"
+                    f"void main() {{ {local} gl_FragColor = vec4(fract({argument})); }}\n"
+                )
+                self.assertTrue(result["ok"], result)
+                self.assertIn(f"fract({argument})", output.read_text(encoding="utf-8"))
+                self.assertNotIn("mwxAuthored_fract(", output.read_text(encoding="utf-8"))
+                linked = self._link(output)
+                self.assertNotEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

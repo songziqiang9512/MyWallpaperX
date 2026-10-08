@@ -42,6 +42,47 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
         let diagnostics: [SceneAuthoredShaderFrontendDiagnostic]
     }
 
+    /// The same unique-declarator proof also serves vector return conversion.
+    /// Arrays, functions and repeated names never provide a value type.
+    static func uniqueValueDeclarations(
+        in tokens: [SceneAuthoredShaderToken]
+    ) -> [String: (type: String, index: Int)] {
+        var declarations: [String: [(type: String, index: Int, value: Bool)]] = [:]
+        func record(_ index: Int, type: String) {
+            let next = index + 1 < tokens.count ? tokens[index + 1].text : ""
+            declarations[tokens[index].text, default: []].append((
+                type, index,
+                next != "[" && next != "("
+            ))
+        }
+        for index in tokens.indices.dropLast() {
+            guard let valueType = SceneAuthoredShaderValueType(
+                authoredName: tokens[index].text
+            ), tokens[index + 1].kind == .identifier else { continue }
+            record(index + 1, type: valueType.rawValue)
+            guard index + 2 < tokens.count,
+                  tokens[index + 2].text != "(" else { continue }
+            var depth = 0
+            var cursor = index + 2
+            while cursor < tokens.count {
+                let text = tokens[cursor].text
+                if depth == 0, [";", ")", "{", "}"].contains(text) { break }
+                if ["(", "["].contains(text) { depth += 1 }
+                if [")", "]"].contains(text) { depth -= 1 }
+                if text == ",", depth == 0, cursor + 2 < tokens.count,
+                   tokens[cursor + 1].kind == .identifier,
+                   ["=", ";", ",", "["].contains(tokens[cursor + 2].text) {
+                    record(cursor + 1, type: valueType.rawValue)
+                }
+                cursor += 1
+            }
+        }
+        return declarations.compactMapValues { facts in
+            guard facts.count == 1, facts[0].value else { return nil }
+            return (facts[0].type, facts[0].index)
+        }
+    }
+
     private static let forbiddenControlFlow: Set<String> = [
         "while", "do", "switch", "goto", "discard",
     ]
@@ -50,6 +91,32 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
         lexerOutput: SceneAuthoredShaderLexer.Output,
         stage: SceneShaderContract.StageKind,
         provenRuntimeLoopBounds: [String: SceneAuthoredShaderExactScalarFact] = [:]
+    ) -> Output {
+        analyze(
+            lexerOutput: lexerOutput, stage: stage,
+            provenRuntimeLoopBounds: provenRuntimeLoopBounds,
+            requiresBoundedLoops: true
+        )
+    }
+
+    /// Reuses the syntax facts for explicit value conversions in a generic
+    /// compiler input. This is not execution admission: the bounded frontend
+    /// still calls `analyze` and proves every loop before it emits Metal.
+    static func analyzeForTypeConversions(
+        lexerOutput: SceneAuthoredShaderLexer.Output,
+        stage: SceneShaderContract.StageKind
+    ) -> Output {
+        analyze(
+            lexerOutput: lexerOutput, stage: stage,
+            provenRuntimeLoopBounds: [:], requiresBoundedLoops: false
+        )
+    }
+
+    private static func analyze(
+        lexerOutput: SceneAuthoredShaderLexer.Output,
+        stage: SceneShaderContract.StageKind,
+        provenRuntimeLoopBounds: [String: SceneAuthoredShaderExactScalarFact],
+        requiresBoundedLoops: Bool
     ) -> Output {
         guard lexerOutput.diagnostics.isEmpty else {
             return Output(unit: nil, diagnostics: lexerOutput.diagnostics)
@@ -142,15 +209,15 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
         ) {
             return Output(unit: nil, diagnostics: [diagnostic])
         }
-        let loopResult = SceneAuthoredShaderLoopAnalyzer.analyze(
+        let loopResult = requiresBoundedLoops ? SceneAuthoredShaderLoopAnalyzer.analyze(
             functions: functions,
             tokens: tokens,
             defines: lexerOutput.defines,
             declarations: declarations,
             provenRuntimeLoopBounds: provenRuntimeLoopBounds,
             stage: stage
-        )
-        guard loopResult.diagnostics.isEmpty else {
+        ) : nil
+        if let loopResult, !loopResult.diagnostics.isEmpty {
             return Output(unit: nil, diagnostics: loopResult.diagnostics)
         }
         return Output(
@@ -160,12 +227,12 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
                 defines: lexerOutput.defines,
                 declarations: declarations,
                 functions: functions,
-                staticLoopWork: max(1, loopResult.work),
-                boundedLoopUniformReferences: loopResult.boundedUniformReferences,
+                staticLoopWork: max(1, loopResult?.work ?? 1),
+                boundedLoopUniformReferences: loopResult?.boundedUniformReferences ?? [:],
                 constantParameterArraysByFunctionIndex:
-                    loopResult.constantParameterArraysByFunctionIndex,
+                    loopResult?.constantParameterArraysByFunctionIndex ?? [:],
                 exactRuntimeLoopUniformArrays:
-                    loopResult.exactRuntimeLoopUniformArrays
+                    loopResult?.exactRuntimeLoopUniformArrays ?? []
             ),
             diagnostics: []
         )

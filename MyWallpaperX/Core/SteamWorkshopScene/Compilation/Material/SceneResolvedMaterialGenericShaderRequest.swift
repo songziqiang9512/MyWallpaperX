@@ -36,8 +36,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
     ) -> String {
         var data = Data()
         for value in [
-            // v25 includes the dynamic signal passthrough slot in the ABI.
-            "mwx-generic-shader-request-v25",
+            // v26 includes shared mix-weight and return value conversions.
+            "mwx-generic-shader-request-v26",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,

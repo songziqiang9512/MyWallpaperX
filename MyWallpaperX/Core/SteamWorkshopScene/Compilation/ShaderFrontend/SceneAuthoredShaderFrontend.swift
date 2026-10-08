@@ -19,8 +19,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
             premultipliedColorInputSlots: Set<Int>,
             colorBoundary: SceneShaderColorBoundary?
         ) {
-            // v15 adds the actual-publication signal passthrough mask ABI.
-            cacheSchemaVersion = 15
+            // v16 makes scalar built-in mix weights and vec3 returns explicit.
+            cacheSchemaVersion = 16
             vertexSourceSHA256 = ProgramCacheDigest.hash(Data(vertexSource.utf8))
             fragmentSourceSHA256 = ProgramCacheDigest.hash(Data(fragmentSource.utf8))
             self.runtimeLoopBounds = runtimeLoopBounds

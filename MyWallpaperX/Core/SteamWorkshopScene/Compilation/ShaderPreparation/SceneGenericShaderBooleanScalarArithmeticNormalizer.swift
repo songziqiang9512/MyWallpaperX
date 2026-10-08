@@ -85,40 +85,8 @@ nonisolated enum SceneGenericShaderBooleanScalarArithmeticNormalizer {
     static func uniqueScalarDeclarations(
         in tokens: [SceneAuthoredShaderToken]
     ) -> [String: (type: String, index: Int)] {
-        var declarations: [String: [(type: String, index: Int, scalar: Bool)]] = [:]
-        func record(_ index: Int, type: String) {
-            let next = index + 1 < tokens.count ? tokens[index + 1].text : ""
-            declarations[tokens[index].text, default: []].append((
-                type, index,
-                ["float", "int", "uint", "bool"].contains(type)
-                    && next != "[" && next != "("
-            ))
-        }
-        for index in tokens.indices.dropLast() {
-            guard let valueType = SceneAuthoredShaderValueType(
-                authoredName: tokens[index].text
-            ), tokens[index + 1].kind == .identifier else { continue }
-            record(index + 1, type: valueType.rawValue)
-            guard index + 2 < tokens.count,
-                  tokens[index + 2].text != "(" else { continue }
-            var depth = 0
-            var cursor = index + 2
-            while cursor < tokens.count {
-                let text = tokens[cursor].text
-                if depth == 0, [";", ")", "{", "}"].contains(text) { break }
-                if ["(", "["].contains(text) { depth += 1 }
-                if [")", "]"].contains(text) { depth -= 1 }
-                if text == ",", depth == 0, cursor + 2 < tokens.count,
-                   tokens[cursor + 1].kind == .identifier,
-                   ["=", ";", ",", "["].contains(tokens[cursor + 2].text) {
-                    record(cursor + 1, type: valueType.rawValue)
-                }
-                cursor += 1
-            }
-        }
-        return declarations.compactMapValues { facts in
-            guard facts.count == 1, facts[0].scalar else { return nil }
-            return (facts[0].type, facts[0].index)
+        SceneAuthoredShaderSyntaxAnalyzer.uniqueValueDeclarations(in: tokens).filter {
+            ["float", "int", "uint", "bool"].contains($0.value.type)
         }
     }
 }

@@ -74,7 +74,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         do {
             let typedVertexSource = rewriteFloatArrayIndices(
                 rewriteAssignmentVectorConversions(
-                    SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewriteUsingBoundedSyntax(
+                    SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewriteUsingTypeSyntax(
                         SceneGenericShaderScalarArithmeticNormalizer.rewrite(
                             renameMetalReservedAlternativeTokens(vertexSource)
                         ),
@@ -85,7 +85,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             )
             let typedFragmentSource = rewriteFloatArrayIndices(
                 rewriteAssignmentVectorConversions(
-                    SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewriteUsingBoundedSyntax(
+                    SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewriteUsingTypeSyntax(
                         SceneGenericShaderScalarArithmeticNormalizer.rewrite(
                             renameMetalReservedAlternativeTokens(
                                 stripHLSLAttributeAnnotations(fragmentSource)
