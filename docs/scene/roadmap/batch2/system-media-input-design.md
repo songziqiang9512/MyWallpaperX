@@ -28,6 +28,10 @@
 
 实验系统宿主只装载项目自写、身份固定的本地辅助库；输入端负责有界读取、类型校验及进程退出，不能每帧启动进程或重复传输完整封面。不引入私有 entitlement、网络封面搜索、另一个合成器或帧内 IPC。普通系统装载或签名检查失败时记录不可用，不关闭检查。任何来源未在真实签名 App 获得可靠数据时保持未验收，不以模拟通过替代。
 
+## 实例纹理 fallback
+
+作者 base-material instance 的 provider 与 fallback 共用既有 source selection。Solid 的非白 `textures[0]` 不能丢成 procedural-white：现 `BaseMaterialBinding` 保留一个可选 `SceneAssetTextureIdentity`，沿 `SceneMaterialAssetTextureCatalog` 的 typed demand、准备与 frame registry 发布；没有该事实的现有白 carrier 和已加载 image fallback 保持原合同。只接纳当前支持的 instance/provider slot0 形状与安全颜色 asset；未知 instance、冲突 slot、已知 data purpose 仍局部拒绝。Ready 封面沿原 provider identity/完整性校验替换该 slot；absent/pending/clear 或 provider 失败时只消费同一作者 fallback，校验其完整 publication、PMA purpose、颜色内容、UV 与 sampler，缺失或不安全时局部拒绝，不伪造白图。普通帧只查已准备的 typed atom，不重新解析或加载，不增加路径表、provider、cache 或 compositor。验收以非白纹理的 fallback→current→clear、失败回退及错 identity/purpose/UV 反例和真实原包可见结果为准；测试纹理通过不代替真实播放器来源验收。
+
 ## 封面颜色输入
 
 系统与Music适配器在各自后台读取队列上，对新取得的封面调用同一个无状态 `SceneMediaArtworkPalette`；不在主线程、渲染帧或每个显示器重复取色。适配器/producer复用既有同来源同曲目封面缓存，颜色与其字节绑定，和metadata、状态、timeline一起提交原Inbox。原显式颜色输入保持不变；没有图片或取色失败时只清本次颜色，不保留前曲颜色。

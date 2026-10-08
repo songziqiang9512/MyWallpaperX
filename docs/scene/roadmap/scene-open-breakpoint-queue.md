@@ -82,15 +82,15 @@ T1共享材质切片已闭，T2共享HDR裁剪与暂停恢复已闭合；328自�
 | U03 · 3587571382 | 纹理合成错误，额头缺块 | source/atlas、mask/clip、变形后合成，核缺块首次出现的阶段 |
 | U04 · 3747190633 | 音频条不出现 | 同声源 audio 输入→作者更新→可见 geometry/材质/合成 |
 | U05 · 3723344874 | 人物背后流体烟雾缺失 | 实际烟雾作者定义→资源/Program或粒子→层序/合成 |
-| U06 · 3662390671 | 大面积纹理缺失 | 资源 demand/解码/映射→source→graph/compositor，先修共同阻塞 |
-| U07 · 3804441338 | 中间方框全白、文字不可见；官方应为两个描边镂空矩形 | text/shape coverage、mask 与混合；分别核镂空、描边及文字 |
+| U06 · 3662390671 | 大面积纹理缺失 | 当前静态首因：layer185 Scene.tex为TEXB0004内嵌WebM/VP9，被现MP4检测遗漏后落raw长度拒绝；不能仅放宽magic，先验证现平台decoder。另有同源Frame Builder，尚无当前原包可见复验 |
+| U07 · 3804441338 | 中间方框全白、文字不可见；官方应为两个描边镂空矩形 | [本批原包后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-frame-declaration)：三个occurrence已越过声明/无用uniform冲突，当前首错为数字scalar标识符三元条件不兼容；沿既有TernaryScalarConditionNormalizer补齐，白块/镂空/文字仍待修 |
 | U08 · 3802005866 | 音频条及背后蓝背景似乎越出作者限定矩形 | 作者边界→变换/clip/target extent；需先确认限定区域合同 |
 | U09 · 3797217144 | 缺奥特曼旋转并由小放大的出场动画 | intro/Timeline/脚本启动、变换及首帧至入场结束时序 |
 | U10 · 3793998447 | 似乎缺作者音频光圈和其他属性 | 音频消费、属性声明→入口→typed 更新；先清点具体未生效属性，不猜字段 |
 | U11 · 3792249095 | 缺音频发光，整体样式与原版差距大 | 音频驱动→effect/颜色/合成，并保留整体构图复验 |
 | U12 · 3477054430 | ①整体颜色差异大；②建筑窗户不亮 | 颜色域、mask、发光与最终输出；旧 mask/几何恢复不关闭这两项 |
-| U13 · 3042492564 | ①顶部两道分叉光束差异大；②歌曲识别封面不显示 | 光束形态独立归因；媒体输入→当前/previous provider→作者槽→最终合成 |
-| U14 · 2932157836 | 歌曲封面不显示 | 复用同一媒体 provider 链；区分播放器未送达、事件未触发、槽未消费 |
+| U13 · 3042492564 | ①顶部两道分叉光束差异大；②歌曲识别封面不显示 | 光束仍开放；[封面后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-media-base-fallback)已恢复注入封面与clear作者图片、保留句柄四次事件无stale。面板位置、rate、previous mask、AA/blur后继及真实播放器仍待闭，不关闭② |
+| U14 · 2932157836 | 歌曲封面不显示 | [本批后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-media-base-fallback)恢复注入封面与clear作者音符图片；转场slot2请求previous.mask但现Store仅color/preserved表示，仍局部失败。复用Store同一物理data纹理发布mask typed用途后核转场，不另造provider；真实播放器来源仍待复验 |
 | U15 · 3299228616 | ①鼠标划过水波不明显；②时钟上方矩形独立运动，似未与其他内容同层合成 | pointer→水波输入；graph/变换/相机及合成空间，不能用抬强度掩盖 |
 | U16 · 3122339805 | ①两个可移动窗口消失（用户称曾修复）；②文字区域包括关闭按钮 X 轻微偏移 | 回归候选：脚本/动态对象生命周期与位置、文字布局；复验连续拖动与文字 ROI |
 | U17 · 3233141951 | ①脸部不随头发做木偶动画；②背后龙头飞行轨迹不对；③黑色小人动画缺失；④官方音频条双色重叠，现仅粉色 | pose/attachment、轨迹/时序、动画激活、audio 层序/混合四项各自闭合 |
@@ -120,7 +120,7 @@ T1共享材质切片已闭，T2共享HDR裁剪与暂停恢复已闭合；328自�
 | U41 · 3357627941 | 属性面板无替换视频媒体资源的选择入口 | project 属性类型→现有 AppKit 编辑器/资源选择→typed binding→视频 consumer，不另造 provider |
 | U42 · 跨样本属性面板 | ①打开后浏览/滚动严重卡顿；②疑似原中文属性显示成英文，用户询问官方是否有中英映射并提示参考研究 | 沿既有属性 UI 测主线程/布局/重复解析；查作者 locale token/字典、系统语言与官方 fallback。映射表是否存在未证，不硬编码翻译表 |
 
-**执行顺序及单链约束。** 继续完成在途封面 previous→current 与条纹有界对照；封面共享链的回归输入新增 U13/U14。下一批优先 U03/U06/U07/U18/U19/U21/U23 的缺纹理、镂空、错位和混合，按真实首错职责选覆盖最多的可验证切片；同时优先复核 U16/U20/U24/U34“曾好后坏”的回归候选及 U22 的持续退化。再按共同声明/运行拒绝归并光束发光与音频、动画/交互；属性入口与面板问题保持开放，不能因不属 GPU 而漏掉。此为既有 T1/T2/E1 卡的输入排序，服从 P 路线，不另建路线。
+**执行顺序及单链约束。** 下一片先闭合已定位的U13/U14封面mask用途与U07数字条件兼容，沿原owner补齐并实机后验；条纹官方小输入对照已取得有界证据，328物理显示未闭。随后优先 U03/U06/U07/U18/U19/U21/U23 的缺纹理、镂空、错位和混合，按真实首错职责选覆盖最多的可验证切片；同时优先复核 U16/U20/U24/U34“曾好后坏”的回归候选及 U22 的持续退化。再按共同声明/运行拒绝归并光束发光与音频、动画/交互；属性入口与面板问题保持开放，不能因不属 GPU 而漏掉。此为既有 T1/T2/E1 卡的输入排序，服从 P 路线，不另建路线。
 
 重写必须在原职责入口替换旧实现，并证明原有效输入/效果和失败隔离不回退；同一输入不可同时走新旧两套 owner。发现能由已有参数、入口或 primitive 表达的能力，优先补接或扩展该处。每批报告逐子现象关闭数、实际复测样本及剩余范围，不把本表录入率当画面修复率。
 
@@ -130,7 +130,8 @@ T1共享材质切片已闭，T2共享HDR裁剪与暂停恢复已闭合；328自�
 |---|---|
 | 粒子子系统/控制点/时长的已知unsupported profile | **能力缺口**：getsuga childScaleOutsideBoundedProfile("1 1 2")、mapsequencebetweencontrolpoints、控制点约束、child变换及深层duration/9999 delay仍有独立缺口。 按真实producer/consumer逐族设计、验证child变换/状态；maxtoemitperperiod另列待研究，不混成倍率问题。 根加载、8/8 particle或Rope可见不证明这些子系统。 [依据1](../capabilities/runtime-evidence-current.md#e-2026-09-28-periodic-instance-overrides)、[依据2](../capabilities/runtime-evidence-current.md#e-2026-09-28-rope-gate-admission) |
 | SceneScript尚未覆盖的类型/骨骼/文字内容边界 | **能力缺口**：angles/reset、文字布局、完整类型转换与String真实可见内容尚未闭合；重力、多骨spring/后继动画另有缺口。 先核实际作者调用与既有owner，再选择有证据的typed输出纵切。 这是现役队列的开放边界；冲量数值未知单独待研究，不用空API消除报错。  |
-| Graph执行大门基线失败 | **验证债待归因**：本批同原harness在`cccea6c1`和修后均271检查、同30项false，新增失败0；mixed/system潜在依赖六项均true。逐项核对输入、旧期待与产品实际行为，不改断言消红，也不直接认定30个产品故障；[失败差集来源](../history/mixed-provider-color-abi-2026-10-08.md)。 |
+| Graph执行大门基线失败 | **验证债待归因**：本批同原harness在`cccea6c1`和修后均271检查、同30项false，新增失败0；mixed/system潜在依赖六项均true。本批增量另确认HEAD同样失败的sync_launch_generation旧入口截取、PBR startup夹具缺type；embedded_image_orientation裸runner的非包import失败，补PYTHONPATH后行为门通过。收据`/private/tmp/mwx-user-repairs-20261008`保留同输入对照；这些测试债不能伪称门全绿。逐项核对输入、旧期待与产品实际行为，不改断言消红，也不直接认定30个产品故障；[失败差集来源](../history/mixed-provider-color-abi-2026-10-08.md)。 |
+| 共享shader引用分析的scope证明债 | **静态反例已证、实际样本影响未量化**：GlobalReferenceAnalyzer误把局部initializer内同名global及非block if后同名global当局部；现有loop相关遮蔽同需核。红证`/private/tmp/mwx-user-repairs-20261008/frame-declaration/reference-analysis-debt.json`。本批三个analyzer保持原样，新uniform冲突准入只用词法完全无token事实、不消费该证明。后续修原分析owner并核所有消费方，不能另建scope扫描器。 |
 | hidden resolvedMaterial extent Python桩覆盖债 | **能力缺口**：已登记审查P2-1为隐藏provider extent分支的测试覆盖，生产跨层813与同层_a/_b已关闭。 检查最新真实harness是否已覆盖该分支；缺时补行为反例并同步退役旧待办。 未检查到fresh关闭链，只登记测试债，不宣称生产extent错误。  |
 | 累计tombstone扫描Program绑定的非阻断成本 | **能力缺口**：作者退休历史登记剩余Program绑定扫描；同页后继仅关闭双demand memo抖动，未宣称消除此成本。 先取得同输入有效性能基线，再在同owner简化；不新增缓存/拓扑owner。 是成本后继，不是已测FPS/能耗退化。 [依据1](../capabilities/runtime-evidence-current.md)、[依据2](../history/authored-layer-retirement-2026-10-07.md) |
 | cursor/Solid/previous-pointer的未证公开语义与Host组合 | **待研究/复验**：localPosition已恢复像素单位，但官方Y原点、text padding/puppet hitBox、缺省/隐藏Solid及父语义未定；按住中途关闭/重开、跨owner动态handle/stale及previous侧作者效果未验。 先自有官方/Host组合反例，再原生录屏；保留旧capture up而无hit不click。 不从绘制visible推导命中过滤，不因普通拖放用户通过关闭所有输入语义。 [依据1](../capabilities/runtime-evidence-current.md#e-2026-09-28-cursor-local-pixels)、[依据2](../capabilities/runtime-evidence-current.md#e-2026-09-28-dynamic-solid) |

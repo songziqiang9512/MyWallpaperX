@@ -498,9 +498,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "35ce6bebcc31fddc0812895f4376c6f9bb7c86344764eb088a27918148ffdbc9",
+        "sourceSHA256": "9834dbe6d45182170cceaeb1a4e0148a601e0a4e17fbc62a1e7991822b06b19a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核真实gradient Program的输出存储精度隔离与原Pulse消费者GPU证据；官方输入传输失败不作为有效截图，未判328根因或整样本通过。",
+        "scope": "复核本批唯一动画/纹理/着色器职责与真实293/304/380后验；保留转场、数字条件、播放器与整样本未关闭边界。",
         "limitations": "只证明本次导航维护与已记录证据边界，不证明全部语义、全profile兼容或官方parity。"
       }
     },
@@ -1848,12 +1848,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "播放器来源进入现役合同并完成真实换曲、权限、来源切换及退出验收后归档；未覆盖播放器仍保留能力缺口。",
-      "lastReviewed": "2026-10-07",
+      "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9636eb6d4002b868d8cf180f17ee60a2074506dfc6ba7dfeb327422d95647d7d",
+        "sourceSHA256": "00eac07a45fad409b9855adbfc2a75e6221d1104b64b556ac9546991676f10b0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对本次审查修复对应的职责合同、来源交接及冻结证据导航；实际运行身份与限制见记录。",
+        "scope": "复核本批唯一动画/纹理/着色器职责与真实293/304/380后验；保留转场、数字条件、播放器与整样本未关闭边界。",
         "limitations": "登记与职责导航不证明已读取真实播放器、运行成功、全部来源兼容或发布验收。"
       }
     },
