@@ -338,6 +338,13 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertTrue(value["passTimelineKeepsTimelineValueOwner"])
         self.assertEqual(value["passTimelineCommands"], ["stop", "play"])
         self.assertTrue(value["passTimelineGenerationDeduplicated"])
+        retained = value["passTimelineAfterRejection"]
+        self.assertEqual(retained["firstFailures"], 0, retained)
+        self.assertEqual(retained["firstCommands"], ["stop", "play"], retained)
+        self.assertEqual(retained["duplicateCommands"], [], retained)
+        self.assertEqual(retained["nextFailures"], 0, retained)
+        self.assertEqual(retained["nextCommands"], ["stop", "play"], retained)
+        self.assertTrue(value["passTimelineThrowUnpublished"])
         self.assertTrue(value["passTimelineWithoutTargetRejected"])
         self.assertTrue(value["passTimelineWrongWrapperRejected"])
         self.assertTrue(value["passTimelinePropertiesRejected"])

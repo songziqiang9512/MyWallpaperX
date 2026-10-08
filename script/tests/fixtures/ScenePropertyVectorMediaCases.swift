@@ -61,6 +61,58 @@ extension Harness {
             frame: frame,
             mediaThumbnailEvent: mediaEvent
         )
+        let cachedSource = """
+        let animation;
+        export function init(value){animation=thisObject.getAnimation();return value;}
+        export function mediaThumbnailChanged(event){animation.stop();animation.play();}
+        """
+        func timelineDescriptor(_ source: String) -> SceneRenderDescriptor {
+            .init(layers: [.init(id: 10, layerIndex: 0, name: "anchor", visible: true,
+                originXYZ: [20, 2250, 0], scaleXYZ: [1.5, 1.5, 1.5],
+                scaleHasScript: nil, alpha: 0.75,
+                effects: [.init(name: "history", effectID: 100, passes: [.init(
+                    passIndex: 0, id: 200, constantShaderValues: [
+                        "unseenTimelineScalar": .init(scriptSource: source, components: [1])
+                    ])])])])
+        }
+        let cachedTimeline = SceneScriptScalarProgram.compile(
+            domain: domain, descriptor: timelineDescriptor(cachedSource),
+            scriptBindings: [passBinding(key: "unseenTimelineScalar",
+                source: cachedSource, value: 1, wrapperKeys: ["animation", "script", "value"])],
+            timelineTargets: [passTimelineTarget], generation: 156
+        )
+        let cachedFirst = cachedTimeline.evaluate(
+            inputs: [passTimelineTarget: .scalar(0.4)], frame: frame,
+            mediaThumbnailEvent: mediaEvent
+        )
+        // Reject the real Swift bundle; consumed media input is not replayed,
+        // while the property capability survives the next event generation.
+        cachedTimeline.finalizeLayerMutations(committing: false)
+        let cachedDuplicate = cachedTimeline.evaluate(
+            inputs: [passTimelineTarget: .scalar(0.6)], frame: frame,
+            mediaThumbnailEvent: mediaEvent
+        )
+        cachedTimeline.finalizeLayerMutations(committing: true)
+        let passTimelineNext = cachedTimeline.evaluate(
+            inputs: [passTimelineTarget: .scalar(0.6)], frame: frame,
+            mediaThumbnailEvent: .init(hasThumbnail: true, generation: 9)
+        )
+        cachedTimeline.finalizeLayerMutations(committing: true)
+        let throwingSource = cachedSource.replacingOccurrences(
+            of: "animation.play();", with: "animation.play(); throw new Error('late');"
+        )
+        let throwingTimeline = SceneScriptScalarProgram.compile(
+            domain: domain, descriptor: timelineDescriptor(throwingSource),
+            scriptBindings: [passBinding(
+                key: "unseenTimelineScalar",
+                source: throwingSource, value: 1, wrapperKeys: ["animation", "script", "value"]
+            )], timelineTargets: [passTimelineTarget], generation: 155
+        )
+        let throwingTimelineResult = throwingTimeline.evaluate(
+            inputs: [passTimelineTarget: .scalar(0.4)], frame: frame,
+            mediaThumbnailEvent: mediaEvent
+        )
+        throwingTimeline.finalizeLayerMutations(committing: false)
         let passTimelineWithoutTarget = SceneScriptScalarProgram.compile(
             domain: domain,
             descriptor: descriptor,
@@ -239,7 +291,7 @@ extension Harness {
             userPropertiesJSON: "{}", events: orderedEvents,
             audioSpectrum: .silent
         )
-        defer { fixture.retained += [mediaOrigin, passTimeline, passTimelineWithoutTarget, passTimelineWrongWrapper, passTimelineWithProperties, playbackProgram, stringProgram, orderedDomain, orderedVector, orderedString, orderedScalar, orderedCoordinator] }
+        defer { fixture.retained += [mediaOrigin, passTimeline, cachedTimeline, throwingTimeline, passTimelineWithoutTarget, passTimelineWrongWrapper, passTimelineWithProperties, playbackProgram, stringProgram, orderedDomain, orderedVector, orderedString, orderedScalar, orderedCoordinator] }
         return [
             "mediaAnimationCommands": { mediaOriginResult.animationMutations.map {
                 $0.command.rawValue
@@ -254,6 +306,16 @@ extension Harness {
             } },
             "passTimelineGenerationDeduplicated": {
                 passTimelineDuplicate.animationMutations.isEmpty },
+            "passTimelineAfterRejection": {
+                ["firstFailures": cachedFirst.failures.count,
+                 "firstCommands": cachedFirst.animationMutations.map { $0.command.rawValue },
+                 "firstValue": String(describing: cachedFirst.values[passTimelineTarget]),
+                 "duplicateCommands": cachedDuplicate.animationMutations.map { $0.command.rawValue },
+                 "nextFailures": passTimelineNext.failures.count,
+                 "nextCommands": passTimelineNext.animationMutations.map { $0.command.rawValue }] as [String: Any] },
+            "passTimelineThrowUnpublished": {
+                !throwingTimelineResult.failures.isEmpty && throwingTimelineResult.animationMutations.isEmpty
+                    && throwingTimelineResult.ownerEffects.isEmpty },
             "passTimelineWithoutTargetRejected": {
                 passTimelineWithoutTarget.bindings.isEmpty },
             "passTimelineWrongWrapperRejected": {

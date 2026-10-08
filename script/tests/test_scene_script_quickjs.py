@@ -484,6 +484,178 @@ static int animation_command(
     );
 }
 
+static int configure_layers(MWXSceneQuickJSDomain *domain);
+
+static int retained_animation_lifetime(uint32_t property_object_is_layer) {
+    int failures = 0;
+    char diagnostic[512] = {0};
+    MWXSceneQuickJSDomain *domain = mwx_scene_quickjs_domain_create(
+        2 * 1024 * 1024, 512 * 1024, 100000, diagnostic, sizeof(diagnostic));
+    if (domain == NULL) return check(0, "retained animation domain", diagnostic);
+    failures += configure_layers(domain);
+    const char *source =
+        "let a;export function init(v){a=thisObject.getAnimation();shared.a=a;"
+        "shared.obj=thisObject;shared.getter=thisObject.getAnimation;return v;}"
+        "export function update(v){if(v===2)shared.obj.getAnimation().play();"
+        "if(v===3)shared.getter().pause();return v;}"
+        "export function mediaThumbnailChanged(e){a.stop();a.play();}"
+        "export function applyUserProperties(p){if(p.later)engine.setTimeout(()=>a.pause(),0);}"
+        "export function destroy(){a.stop();}";
+    MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+        domain, source, strlen(source), 901, diagnostic, sizeof(diagnostic));
+    failures += check(owner != NULL, "retained animation owner", diagnostic);
+    failures += check(mwx_scene_quickjs_owner_configure_layer_identity(
+        owner, 17, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "retained animation layer identity", diagnostic);
+    failures += check(mwx_scene_quickjs_owner_set_property_object_scope(
+        owner, property_object_is_layer, diagnostic, sizeof(diagnostic))
+        == MWX_SCENE_QUICKJS_OK, "retained animation object scope", diagnostic);
+    failures += check(mwx_scene_quickjs_owner_configure_current_animation(
+        owner, 1, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "retained animation configure", diagnostic);
+    failures += update(owner, 901, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "init captures current property animation");
+    mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+    failures += update(owner, 901, 2, MWX_SCENE_QUICKJS_OK, 2,
+        "saved property object accessor survives a later callback");
+    failures += animation_command(owner, 0, MWX_SCENE_QUICKJS_ANIMATION_PLAY,
+        "saved property object accessor play");
+    mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+    failures += media_thumbnail(owner, 901, 1, MWX_SCENE_QUICKJS_OK,
+        "init handle enters later media callback");
+    failures += check(mwx_scene_quickjs_owner_animation_command_count(owner) == 2,
+        "retained media callback produces exactly two commands", diagnostic);
+    failures += animation_command(owner, 0, MWX_SCENE_QUICKJS_ANIMATION_STOP,
+        "retained media stop");
+    failures += animation_command(owner, 1, MWX_SCENE_QUICKJS_ANIMATION_PLAY,
+        "retained media play");
+    // A host admission rejection discards the bundle. The next callback must
+    // not replay those commands; the capability itself remains valid.
+    mwx_scene_quickjs_owner_discard_layer_mutations(owner);
+    failures += update(owner, 901, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "retained handle survives host rejection");
+    failures += check(mwx_scene_quickjs_owner_animation_command_count(owner) == 0,
+        "discarded commands do not replay", diagnostic);
+    mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+    failures += update(owner, 902, 3, MWX_SCENE_QUICKJS_STALE_OWNER, 0,
+        "wrong generation cannot execute retained animation");
+    failures += update(owner, 901, 3, MWX_SCENE_QUICKJS_OK, 3,
+        "retained handle still belongs to current generation");
+    failures += animation_command(owner, 0, MWX_SCENE_QUICKJS_ANIMATION_PAUSE,
+        "later update pause");
+    mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+    failures += user_properties(owner, 901, "{\"later\":true}", "", "{\"later\":true}",
+        MWX_SCENE_QUICKJS_OK, "schedule retained animation timer");
+    mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+    failures += update_at(owner, 901, 1, 0.016, 3,
+        MWX_SCENE_QUICKJS_OK, 1, "retained handle inside later timer");
+    failures += animation_command(owner, 0, MWX_SCENE_QUICKJS_ANIMATION_PAUSE,
+        "timer pause command");
+    mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+
+    const char *peer_source =
+        "export function update(v){for(const f of ['play','pause','stop']){"
+        "let refused=false;try{shared.a[f]();}catch(e){refused=e instanceof TypeError;}"
+        "if(!refused)throw new Error('foreign animation accepted');}"
+        "for(const f of [()=>shared.obj.getAnimation(),()=>shared.getter()]){"
+        "let refused=false;try{f();}catch(e){refused=e instanceof TypeError;}"
+        "if(!refused)throw new Error('foreign animation accessor accepted');}"
+        "thisObject.getAnimation().play();return v;}";
+    MWXSceneQuickJSOwner *peer = mwx_scene_quickjs_owner_create(
+        domain, peer_source, strlen(peer_source), 901, diagnostic, sizeof(diagnostic));
+    failures += check(peer != NULL, "animation peer same generation", diagnostic);
+    failures += check(mwx_scene_quickjs_owner_configure_current_animation(
+        peer, 1, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "animation peer configure", diagnostic);
+    failures += update(peer, 901, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "live foreign owner handle rejected without disabling healthy peer");
+    failures += check(mwx_scene_quickjs_owner_animation_command_count(peer) == 1,
+        "foreign animation cannot append peer commands", diagnostic);
+    mwx_scene_quickjs_owner_commit_layer_mutations(peer);
+    MWXSceneQuickJSFrameInput frame = {.time_of_day=.25, .frame_time=.016, .runtime=3};
+    uint32_t invoked = 0;
+    failures += check(mwx_scene_quickjs_owner_teardown(owner, 901, &frame,
+        "", 0, "{}", 2, &invoked, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK
+        && invoked == 1, "destroy may use retained animation before revocation", diagnostic);
+    failures += update(owner, 902, 1, MWX_SCENE_QUICKJS_DISABLED, 0,
+        "retired owner cannot execute retained handle");
+    mwx_scene_quickjs_owner_destroy(owner);
+    // The JS object remains in shared after the native owner is freed. A
+    // same-generation replacement cannot alias it even if malloc reuses memory.
+    failures += update(peer, 901, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "freed owner's retained animation does not alias healthy peer");
+    mwx_scene_quickjs_owner_commit_layer_mutations(peer);
+    MWXSceneQuickJSOwner *rebuilt = mwx_scene_quickjs_owner_create(
+        domain, peer_source, strlen(peer_source), 901, diagnostic, sizeof(diagnostic));
+    failures += check(rebuilt != NULL, "same-generation owner rebuilt after destroy", diagnostic);
+    failures += check(mwx_scene_quickjs_owner_configure_current_animation(
+        rebuilt, 1, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "rebuilt animation configure", diagnostic);
+    failures += update(rebuilt, 901, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "same-generation rebuild rejects freed owner's capability");
+    failures += check(mwx_scene_quickjs_owner_animation_command_count(rebuilt) == 1,
+        "rebuilt owner only stages its own play", diagnostic);
+    mwx_scene_quickjs_owner_commit_layer_mutations(rebuilt);
+    mwx_scene_quickjs_owner_destroy(rebuilt);
+    const char *outside_source =
+        "let refused=false;try{shared.a.play();}catch(e){refused=e instanceof TypeError;}"
+        "if(!refused)throw new Error('animation ran outside callback');"
+        "for(const f of [()=>shared.obj.getAnimation(),()=>shared.getter()]){"
+        "let refused=false;try{f();}catch(e){refused=e instanceof TypeError;}"
+        "if(!refused)throw new Error('animation accessor ran outside callback');}"
+        "export function update(v){return v;}";
+    MWXSceneQuickJSOwner *outside = mwx_scene_quickjs_owner_create(
+        domain, outside_source, strlen(outside_source), 901, diagnostic, sizeof(diagnostic));
+    failures += check(outside != NULL, "retained animation rejected during module evaluation", diagnostic);
+    failures += update(outside, 901, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "module rejection preserves independent owner");
+    mwx_scene_quickjs_owner_commit_layer_mutations(outside);
+
+    const char *retry_source =
+        "let a,n=0;export function init(v){if(++n===1){a=thisObject.getAnimation();"
+        "a.play();return {};}a.stop();return v;}";
+    MWXSceneQuickJSOwner *retry = mwx_scene_quickjs_owner_create(
+        domain, retry_source, strlen(retry_source), 901, diagnostic, sizeof(diagnostic));
+    failures += check(mwx_scene_quickjs_owner_configure_current_animation(
+        retry, 1, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "init retry configure", diagnostic);
+    failures += update(retry, 901, 1, MWX_SCENE_QUICKJS_BAD_RETURN, 0,
+        "invalid init return rejects animation bundle");
+    mwx_scene_quickjs_owner_discard_layer_mutations(retry);
+    failures += update(retry, 901, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "retained property identity survives init admission retry");
+    failures += check(mwx_scene_quickjs_owner_animation_command_count(retry) == 1,
+        "retry has no rejected play prefix", diagnostic);
+    failures += animation_command(retry, 0, MWX_SCENE_QUICKJS_ANIMATION_STOP,
+        "init retry only stop");
+    mwx_scene_quickjs_owner_commit_layer_mutations(retry);
+    const char *throw_source =
+        "let a;export function init(v){a=thisObject.getAnimation();shared.a=a;"
+        "shared.obj=thisObject;shared.getter=thisObject.getAnimation;return v;}"
+        "export function mediaThumbnailChanged(e){a.play();throw new Error('late');}";
+    MWXSceneQuickJSOwner *thrower = mwx_scene_quickjs_owner_create(
+        domain, throw_source, strlen(throw_source), 901, diagnostic, sizeof(diagnostic));
+    failures += check(mwx_scene_quickjs_owner_configure_current_animation(
+        thrower, 1, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "throwing retained animation configure", diagnostic);
+    failures += update(thrower, 901, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "throwing retained handle initialized");
+    mwx_scene_quickjs_owner_commit_layer_mutations(thrower);
+    failures += media_thumbnail(thrower, 901, 1, MWX_SCENE_QUICKJS_EXCEPTION,
+        "late throw rejects callback animation effects");
+    failures += update(thrower, 901, 1, MWX_SCENE_QUICKJS_DISABLED, 0,
+        "throw disables originating owner");
+    failures += update(peer, 901, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "disabled owner's handle cannot be borrowed");
+    mwx_scene_quickjs_owner_commit_layer_mutations(peer);
+    mwx_scene_quickjs_owner_destroy(thrower);
+    mwx_scene_quickjs_owner_destroy(retry);
+    mwx_scene_quickjs_owner_destroy(outside);
+    mwx_scene_quickjs_owner_destroy(peer);
+    mwx_scene_quickjs_domain_destroy(domain);
+    return failures;
+}
+
 static int texture_animation_command(
     MWXSceneQuickJSOwner *owner,
     size_t index,
@@ -2232,12 +2404,16 @@ int main(void) {
     );
     failures += update(
         stale_animation, 17, 1, MWX_SCENE_QUICKJS_OK, 1,
-        "animation handle callback scope"
+        "animation handle captured by owner"
     );
     failures += update(
-        stale_animation, 17, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
-        "stale animation handle rejected"
+        stale_animation, 17, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "animation handle survives same-owner callback"
     );
+    failures += animation_command(stale_animation, 0,
+        MWX_SCENE_QUICKJS_ANIMATION_PAUSE, "retained animation pause mutation");
+    failures += retained_animation_lifetime(0);
+    failures += retained_animation_lifetime(1);
 
     const char *named_animation_source =
         "export function update(value){thisObject.getAnimation('named');return value;}";
@@ -2258,8 +2434,9 @@ int main(void) {
     );
 
     const char *media_animation_source =
+        "let a;export function init(value){a=thisObject.getAnimation();return value;}"
         "export function mediaThumbnailChanged(event){"
-        "if(event.hasThumbnail){const a=thisObject.getAnimation();a.stop();a.play();}}";
+        "if(event.hasThumbnail){a.stop();a.play();}}";
     MWXSceneQuickJSOwner *media_animation = mwx_scene_quickjs_owner_create(
         domain, media_animation_source, strlen(media_animation_source),
         19, diagnostic, sizeof(diagnostic)

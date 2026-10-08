@@ -1,6 +1,6 @@
 import Foundation
 
-/// Lowers callback-scoped `thisObject.getAnimation()` commands into mutations
+/// Lowers commands from the active owner's retained `getAnimation()` handle into mutations
 /// for the existing authored Timeline target. The JS handle never carries or
 /// invents a target identity.
 nonisolated enum SceneScriptAnimationHandleBridge {

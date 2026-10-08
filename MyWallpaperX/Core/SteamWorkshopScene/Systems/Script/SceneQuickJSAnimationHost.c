@@ -5,23 +5,46 @@
 #include <string.h>
 
 typedef struct MWXSceneQuickJSAnimationHandle {
-    MWXSceneQuickJSOwner *owner;
-    uint64_t callback_epoch;
+    MWXSceneQuickJSDomain *domain;
+    uint64_t owner_identity;
+    uint64_t generation;
     MWXSceneQuickJSAnimationCommand command;
 } MWXSceneQuickJSAnimationHandle;
 
-static bool callback_owns_animation(
+// The JS closure belongs to this domain, but can outlive its original owner.
+// Resolve only the current callback owner; never dereference a retained owner.
+static MWXSceneQuickJSOwner *animation_handle_owner(
     const MWXSceneQuickJSAnimationHandle *handle
 ) {
-    return handle != NULL && handle->owner != NULL &&
-        handle->owner->domain != NULL &&
-        handle->owner->domain->callback_active &&
-        handle->owner->domain->active_owner == handle->owner &&
-        handle->owner->domain->callback_epoch == handle->callback_epoch;
+    if (handle == NULL || handle->domain == NULL ||
+        !handle->domain->callback_active) return NULL;
+    MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
+    if (owner == NULL || owner->disabled ||
+        owner->identity != handle->owner_identity ||
+        owner->generation != handle->generation) return NULL;
+    return owner;
 }
 
 static void free_animation_handle(void *opaque) {
     free(opaque);
+}
+
+static JSValue animation_closure(
+    MWXSceneQuickJSOwner *owner,
+    JSCClosure *function,
+    const char *name,
+    MWXSceneQuickJSAnimationCommand command
+) {
+    MWXSceneQuickJSAnimationHandle *handle = calloc(1, sizeof(*handle));
+    if (handle == NULL) return JS_ThrowOutOfMemory(owner->domain->context);
+    handle->domain = owner->domain;
+    handle->owner_identity = owner->identity;
+    handle->generation = owner->generation;
+    handle->command = command;
+    return JS_NewCClosure(
+        owner->domain->context, function, name,
+        free_animation_handle, 0, 0, handle
+    );
 }
 
 static JSValue mutate_current_animation(
@@ -36,10 +59,10 @@ static JSValue mutate_current_animation(
     (void)argv;
     (void)magic;
     MWXSceneQuickJSAnimationHandle *handle = opaque;
-    if (argc != 0 || !callback_owns_animation(handle)) {
+    MWXSceneQuickJSOwner *owner = animation_handle_owner(handle);
+    if (argc != 0 || owner == NULL || !owner->current_animation_available) {
         return JS_ThrowTypeError(context, "animation handle is stale");
     }
-    MWXSceneQuickJSOwner *owner = handle->owner;
     if (owner->animation_command_count >= MWX_SCENE_QUICKJS_MAX_ANIMATION_COMMANDS) {
         owner->animation_command_overflow = true;
         return JS_ThrowInternalError(context, "animation command buffer exceeded");
@@ -56,14 +79,8 @@ static bool define_animation_command(
     const char *name,
     MWXSceneQuickJSAnimationCommand command
 ) {
-    MWXSceneQuickJSAnimationHandle *handle = calloc(1, sizeof(*handle));
-    if (handle == NULL) return false;
-    handle->owner = owner;
-    handle->callback_epoch = owner->domain->callback_epoch;
-    handle->command = command;
-    JSValue callback = JS_NewCClosure(
-        context, mutate_current_animation, name,
-        free_animation_handle, 0, 0, handle
+    JSValue callback = animation_closure(
+        owner, mutate_current_animation, name, command
     );
     if (JS_IsException(callback) ||
         JS_DefinePropertyValueStr(
@@ -85,9 +102,8 @@ static JSValue get_animation(
     (void)this_value;
     (void)argv;
     (void)magic;
-    MWXSceneQuickJSOwner *owner = opaque;
-    if (owner == NULL || owner->domain == NULL ||
-        !owner->domain->callback_active || owner->domain->active_owner != owner) {
+    MWXSceneQuickJSOwner *owner = animation_handle_owner(opaque);
+    if (owner == NULL) {
         return JS_ThrowTypeError(context, "getAnimation host is unavailable");
     }
     if (argc != 0) {
@@ -118,8 +134,8 @@ bool mwx_scene_quickjs_install_object_handle(MWXSceneQuickJSOwner *owner) {
     JSContext *context = owner->domain->context;
     JSValue object = JS_NewObject(context);
     if (JS_IsException(object)) return false;
-    JSValue animation = JS_NewCClosure(
-        context, get_animation, "getAnimation", NULL, 0, 0, owner
+    JSValue animation = animation_closure(
+        owner, get_animation, "getAnimation", 0
     );
     if (JS_IsException(animation) ||
         JS_DefinePropertyValueStr(
@@ -145,8 +161,8 @@ bool mwx_scene_quickjs_define_property_animation_accessor(
         return false;
     }
     JSContext *context = owner->domain->context;
-    JSValue animation = JS_NewCClosure(
-        context, get_animation, "getAnimation", NULL, 0, 0, owner
+    JSValue animation = animation_closure(
+        owner, get_animation, "getAnimation", 0
     );
     if (JS_IsException(animation)) return false;
     return JS_DefinePropertyValueStr(
