@@ -90,7 +90,13 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             snapshotsByProperty[propertyName] = nextSnapshot
 
             if nextStatus.isAccessible {
+                // watcher 归属键与 FD 目标都用解析符号链接后的真实路径：
+                // 键存原路径串时，符号链接被原子换指向（rsync/Dropbox 式写新
+                // 目录再换链）后路径串不变 → 旧 watcher 被 reconfigure 复用、
+                // FD 仍盯着旧 inode，事件驱动静默退化成 10s 轮询且不自愈；
+                // 存解析后路径则换指向 → 键变化 → watcher 在新目标上重建。
                 watchedDirectoriesByProperty[propertyName] = URL(fileURLWithPath: directoryPath)
+                    .resolvingSymlinksInPath()
                     .standardizedFileURL
                     .path
             }

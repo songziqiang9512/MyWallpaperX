@@ -4,6 +4,10 @@ import ObjectiveC
 
 /// Author controls reuse the existing Web property persistence and preview owners.
 final class SteamWorkshopWebPropertyEditorView: NSView {
+    /// 颜色属性最后一个 colorChanged 后的提交去抖窗（覆盖色板 popover 路径，
+    /// 见 WebPropertyActionTarget.schedulePendingColorCommit）。
+    static let colorCommitDebounceInterval: TimeInterval = 0.6
+
     private let service = SteamWorkshopService.shared
     private let record: SteamWorkshopDownloadRecord
     private let contentStack = NSStackView()
@@ -387,6 +391,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         weak var textField: NSTextField?
         private var pendingColorString: String?
         private var colorPanelCloseObserver: NSObjectProtocol?
+        private var pendingColorCommitWorkItem: DispatchWorkItem?
 
         init(
             view: SteamWorkshopWebPropertyEditorView,
@@ -406,6 +411,9 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             if let colorPanelCloseObserver {
                 NotificationCenter.default.removeObserver(colorPanelCloseObserver)
             }
+            // rebuild 销毁行控件时（例如色板挂起期间提交了另一个属性）冲刷
+            // 未提交的颜色：否则挂起值随 target 释放无声丢失（改了 A 丢 B）。
+            commitPendingColor()
         }
 
         @objc func toggleChanged(_ sender: NSButton) {
@@ -453,6 +461,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             summaryLabel?.stringValue = view?.valueSummary(.string(colorString), definition: definition) ?? colorString
             textField?.stringValue = colorString
             view?.updateWebProperty(.string(colorString), definition: definition, record: record, preview: true)
+            schedulePendingColorCommit()
         }
 
         @objc func choosePath(_ sender: NSButton) {
@@ -510,7 +519,22 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             view?.updateWebProperty(webPropertyValue(from: rawValue), definition: definition, record: record)
         }
 
+        /// 颜色提交的去抖窗：NSColorWell 在 macOS 12+ 弹的是内建色板
+        /// popover（非 NSColorPanel，willClose 永不触发），面板关闭观察者
+        /// 覆盖不了这条路径——最后一个 colorChanged 后 0.6s 静默即提交，
+        /// 拖动期间持续重置（连续 preview，不触发 rebuild 打断交互）。
+        private func schedulePendingColorCommit() {
+            pendingColorCommitWorkItem?.cancel()
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.commitPendingColor()
+            }
+            pendingColorCommitWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + SteamWorkshopWebPropertyEditorView.colorCommitDebounceInterval, execute: workItem)
+        }
+
         private func commitPendingColor() {
+            pendingColorCommitWorkItem?.cancel()
+            pendingColorCommitWorkItem = nil
             guard let pendingColorString else { return }
             self.pendingColorString = nil
             view?.updateWebProperty(.string(pendingColorString), definition: definition, record: record)

@@ -175,6 +175,22 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             failCurrentLaunch(message: "dedicated_web_host_no_surface")
             return
         }
+        // 增屏闪断（新屏在装载完成前被拔掉）后，剩余屏可能早已全部就绪：
+        // markScreenReady 的计数门要求 inserted，旧屏不会再触发——phase 会
+        // 永久卡在 .launching，空间切换/应用激活的 reassert 门全部失效。
+        // 此处按当前就绪事实补 .ready（引擎侧 .ready 事件已发过，不重发）。
+        if phase == .launching, surfaces.isEmpty == false,
+           readyScreenIDs == Set(surfaces.keys) {
+            recordDiagnostic(
+                type: "host.ready.restored",
+                severity: .info,
+                message: "screens=\(surfaces.count)",
+                screenID: nil,
+                url: nil
+            )
+            phase = .ready
+            scheduleDebugEvidenceIfNeeded()
+        }
         installDefaultInteractiveRegionsIfNeeded()
     }
 
