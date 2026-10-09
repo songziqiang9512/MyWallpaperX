@@ -20,9 +20,8 @@ import Foundation
 /// successful variant compilation, the read path never creates the cache
 /// directory, and a failed or stale record degrades to a full recompute.
 nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
-    // Retire canonical source records before the shared dead-binding Projection.
-    // v14 revalidates varying-prefix calls through the shared read-only proof.
-    private static let schemaVersion = 14
+    // v15 replays built-in type conversions independently of loop admission.
+    private static let schemaVersion = 15
     private static let maximumEntryBytes = 512 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()

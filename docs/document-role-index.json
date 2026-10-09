@@ -508,9 +508,9 @@
       "lastReviewed": "2026-10-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "386b2c6c978002aa027f9bee7b9079830701a1fbe8d427a7c56c0603299c6aae",
+        "sourceSHA256": "c97c356f1b8c76f253f54081b6b09497cd1b111978c107e3a9ee0c4e02af1130",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对共享shader转换、同层graph输入归一化与透明RGB官方对照的当前证据边界。",
+        "scope": "核对类型转换入口复用、原包编译接线及视觉未闭的证据边界。",
         "limitations": "导航与证据身份核对；不等同全样本、真实声源、compose或HDR官方parity。"
       }
     },
@@ -522,9 +522,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5dc4cc96ba4d30a3a90ac3cff98c235271fd07d27fc7d6dd5ae21df9b6c28c44",
+        "sourceSHA256": "ed5fda6d1e1d2ca81c3e75a6b3aa8f58f34fc78b501fea4c21937c6fa8aba172",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对本批模型发光合同、原包证据和剩余队列的导航。",
+        "scope": "核对类型转换入口复用、原包编译接线及视觉未闭的证据边界。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
@@ -1949,9 +1949,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "293dd86f224e09d7faf468b928c6915c3d8b2e08db8f1bdc42c0f2cf8c264c3e",
+        "sourceSHA256": "e9944bc0a729e6bcd9cb9a3224ac2d16f481f907929a7667cae31fcac79fb05a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对本批模型发光合同、原包证据和剩余队列的导航。",
+        "scope": "核对类型转换入口复用、原包编译接线及视觉未闭的证据边界。",
         "limitations": "导航与证据身份核对；不等同全样本、真实声源、compose或HDR官方parity。"
       }
     },

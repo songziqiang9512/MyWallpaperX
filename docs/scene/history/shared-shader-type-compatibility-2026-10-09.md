@@ -106,3 +106,15 @@ U23原包隔离运行`blend/position-final`：241首effect从0 material/1 reject
 本样本人工报告的三项现象已在受控PCM原包关闭（3/3），不是完整正确率。官方与本机音频/时间/窗口比例未锁相，不宣称全图逐像素一致；外部播放器、完整属性交互、长稳与正常App→daemon入口另验。下一批按现队列优先核剩余颜色/窗光与光束共享首错，不重做已闭SDR shoulder或重型启动；本批必要证据保留于上述任务根，正式证据缓存预算限制不变。官方自有窗口和guest输入已清理、VM恢复暂停；测试副本去重清理见`cleanup-first.json`，连续迭代只留既有构建缓存。
 
 六数组GPU数值门沿最终Swift normalizer→bundled glslang→SPIRV-Cross→Metal，分别输入不同频段数值，两帧读回最大误差7.5e−8；保留既有N-float布局，证据`gpu/receipt.json`。该门为反射buffer自有输入，App真实输入另由上面的原包受控PCM验收。首轮自有vertex缺少标准attribute输入且声明行不规范，被normalizer拒绝；修正fixture后通过，未为测试修改产品。
+
+<a id="u12循环与类型转换"></a>
+
+## U12 循环与类型转换
+
+基线 `2b705601`。真实月亮 effect 的 `max(0, albedo.rgb)` 本已属于共享 scalar/vector 转换范围，但同 shader 的 uniform-bound 音频循环使严格分析先报 `dynamicLoop`，转换整体退出。min/max/mix/pow 的四处入口现复用已有 `analyzeForTypeConversions`；严格执行分析、重载/语法保护与求值次数不变，没有新增解析器、执行准入或运行时分支。variant analysis schema 14→15 退休旧 canonical source；下游缓存仍按既有源码身份消费。
+
+13项 built-in 门通过，组合输入经真实 stage-link→SPIR-V→MSL→Metal，两帧精确读回 `[.015625,.140625,.390625,.75]`；严格分析仍拒绝动态循环，畸形语法/作者重载保持原文。6项持久缓存门通过。原测试内嵌 Swift harness 整体迁入 fixture，保留原编译/GPU驱动。
+
+签名Debug构建前后4239产品文件hash一致；App `f084f47350718b0a06c8c7622e251851c251180e28e74a9fa67b81d059042a90`、dylib `d11d96451e4b90d5695920c8bcc36a398f6d6660aaa97dd751fa036b4b5501e7`。原U12 pkg/project字节副本、受控PCM、7秒隔离Host运行，月亮新request `f0915e58a8300e3146b5f2849dafc2ae5ccc7cdcf18d6914cb57bb6fe2242371` published/generic-only，layer44 effect0首/次帧GPU完成且compositor消费；exit0、surfacesAfter0、gpuDrainedtrue，原包不变。旧fallback也曾报1材质/0拒绝，不能以该计数冒称效果恢复。
+
+本轮截图与窗光修复后基线在月亮ROI几乎一致（RGB平均绝对差0.016/255）；没有证据认领新增明显视觉收益。作者只读64带的[0,3)，静音底值0.1/5.85低于0.02触发阈值；宽频PCM中整体nonzero不等于目标三带触发。月亮过亮、低频响应、猫受光、材料脚本/嵌套输入仍开放；正常App→daemon、外部音乐与官方锁相未验。本批只闭合编译/实际接线，不提高整样本正确率。最小证据在 `.artifacts/tmp/u12-moon-shader-20261009`、built-in门在 `.artifacts/tmp/u12-moon-trace-20261009`；沿用唯一构建缓存 `.build-cache/solid-source-domains-recovery-20261009`。

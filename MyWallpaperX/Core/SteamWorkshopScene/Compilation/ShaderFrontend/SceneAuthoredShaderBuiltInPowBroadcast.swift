@@ -21,7 +21,7 @@ extension SceneAuthoredShaderBuiltInVectorConversion {
             source: analysisSource,
             stage: stage
         )
-        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
             lexerOutput: lexer,
             stage: stage
         )

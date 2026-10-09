@@ -349,7 +349,7 @@ private func runVariantProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "variant")
     let root = try cacheRoot()
     let directory = tierDirectory(
-        root: root, name: "SceneVariantAnalysis-v14"
+        root: root, name: "SceneVariantAnalysis-v15"
     )
     let key = "probe-variant-key"
     try expect(
@@ -414,7 +414,7 @@ private func runVariantProbe() throws -> ProbeOutput {
     try rewriteEntry(entry) {
         $0.replacingOccurrences(
             of: #""schemaVersion":\d+"#,
-            with: "\"schemaVersion\":13",
+            with: "\"schemaVersion\":14",
             options: .regularExpression
         )
     }

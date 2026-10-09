@@ -89,12 +89,12 @@
       "bytes": 5005
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 582,
-      "bytes": 341237
+      "lines": 584,
+      "bytes": 341542
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 93,
-      "bytes": 25931
+      "bytes": 26074
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 222,
-      "bytes": 56585
+      "bytes": 56728
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1050,21 +1050,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "2cd13300a06f1c91c1d44f75e68a420b58563abbf31aa8766823a00a8992bdac",
+      "after": "f3a78c7bc0c8e4a5a2ee673c11cb724e8f83f2644a1da14273986de416412139",
+      "owner": "Scene shared shader frontend",
+      "reason": "更新既有类型转换边界和已闭编译断点，明确视觉仍未闭，不新增路线。",
+      "decision": "docs/scene/history/shared-shader-type-compatibility-2026-10-09.md#u12循环与类型转换"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "5be414e118c65cd5372c6f3b0bdd01a764564d2c60788edc04b9c898be34ce09",
-      "after": "264b1bc48f103331f0053e0660c54b4d69bbaaaee6b614b356401b10c9739d49",
-      "owner": "Scene static-model material",
-      "reason": "记录有界模型发光合同、U12已修窗光和U29实际未闭边界，保留单一现役状态。",
-      "decision": "docs/scene/history/static-model-emission-2026-10-09.md"
+      "before": "264b1bc48f103331f0053e0660c54b4d69bbaaaee6b614b356401b10c9739d49",
+      "after": "04f6cf612f4c8636f8ae02daefcf9a6dc94d50a09f4342bf7633a12b5bb78ca6",
+      "owner": "Scene shared shader frontend",
+      "reason": "更新既有类型转换边界和已闭编译断点，明确视觉仍未闭，不新增路线。",
+      "decision": "docs/scene/history/shared-shader-type-compatibility-2026-10-09.md#u12循环与类型转换"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "6219442e4f33a75771d38da55ee021ce913c78bb4e085861a64cefa941679d65",
-      "after": "0d20cd15c3c423b0fa8c6f445c9476771ca579c7dd605e0e7b1344e0d8007ce0",
-      "owner": "Scene static-model material",
-      "reason": "记录有界模型发光合同、U12已修窗光和U29实际未闭边界，保留单一现役状态。",
-      "decision": "docs/scene/history/static-model-emission-2026-10-09.md"
+      "before": "0d20cd15c3c423b0fa8c6f445c9476771ca579c7dd605e0e7b1344e0d8007ce0",
+      "after": "9536b1cd3a82d9d21386c8c6b9c24a188bb52e2a020b8a2d00352996f8192aaa",
+      "owner": "Scene shared shader frontend",
+      "reason": "更新既有类型转换边界和已闭编译断点，明确视觉仍未闭，不新增路线。",
+      "decision": "docs/scene/history/shared-shader-type-compatibility-2026-10-09.md#u12循环与类型转换"
     }
   ]
 }
