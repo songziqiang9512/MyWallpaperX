@@ -281,7 +281,7 @@ FRAME_MAIN=r'''
   renderer.prepareModelShadow(state:state,candidates:candidates,lights:[.directional(light)],orderedLayers:layers,visible:visible,batches:batches,particlePipeline:particle,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,leases:&leases,mandatoryCapacity:{
    capacity=renderer.prepareFramebufferSnapshotCapacity(orderedLayers:layers,visible:visible,framePlans:plans,imageTextures:.init(),frameContext:context,batches:batches,particlePipeline:particle,mainPass:pass,groups:nil,utilityExecution:renderer.utilityExecution)
    return capacity
-  },recordsEvidence:false)
+  },recordsEvidence:false,cameraFrame:camera)
   let noCopy=(ScenePerformanceCounterHub.shared.snapshot()[.framebufferCaptures] ?? 0)==pre
   let colorBytes=renderer.imageCompositor.color.renderTargetResidentByteCost,particleBytes=particle.framebufferSnapshot.residentByteCost
   let published = !state.shadows.isEmpty

@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 591,
-      "bytes": 109591
+      "bytes": 109583
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 93,
-      "bytes": 26848
+      "bytes": 26833
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -133,8 +133,8 @@
       "bytes": 19030
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
-      "lines": 489,
-      "bytes": 105205
+      "lines": 487,
+      "bytes": 105036
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 46,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 222,
-      "bytes": 58080
+      "bytes": 58076
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,

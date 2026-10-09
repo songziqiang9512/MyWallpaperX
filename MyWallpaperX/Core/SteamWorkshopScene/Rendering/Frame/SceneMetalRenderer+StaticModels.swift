@@ -256,7 +256,7 @@ extension SceneMetalRenderer {
         mainPass: SceneMainPassEncoder, groups: SceneCompositionGroupFrameRuntime?,
         pool: SceneOffscreenTexturePool, commandBuffer: MTLCommandBuffer,
         leases: inout [SceneParticleDepthTargetLease], mandatoryCapacity: () -> Bool,
-        recordsEvidence: Bool
+        recordsEvidence: Bool, cameraFrame: SceneParticleCameraFrame
     ) {
         guard staticModelResources.pipeline != nil else { return }
         guard prepareMandatoryDepth(state: state, candidates: candidates,
@@ -265,7 +265,8 @@ extension SceneMetalRenderer {
             leases: &leases) else { return }
         emitModelShadow(state: state, lights: lights, orderedLayers: orderedLayers,
             mainPass: mainPass, groups: groups, pool: pool, commandBuffer: commandBuffer,
-            recordsEvidence: recordsEvidence, mandatoryCapacity: mandatoryCapacity)
+            recordsEvidence: recordsEvidence, cameraFrame: cameraFrame,
+            mandatoryCapacity: mandatoryCapacity)
     }
 
     /// Both optional producers protect the real draws' leases. Particle depth
@@ -416,7 +417,7 @@ extension SceneMetalRenderer {
         guard terminalCapacity() else { return nil }
         emitModelShadow(state: state, lights: lights, orderedLayers: orderedLayers,
             mainPass: mainPass, groups: groups, pool: pool, commandBuffer: commandBuffer,
-            recordsEvidence: recordsEvidence)
+            recordsEvidence: recordsEvidence, cameraFrame: cameraFrame)
         return nil
     }
 
@@ -424,17 +425,22 @@ extension SceneMetalRenderer {
         state: StaticModelFrame, lights: [SceneLightSnapshot.ShadowLight],
         orderedLayers: [SceneRenderDescriptor.Layer], mainPass: SceneMainPassEncoder,
         groups: SceneCompositionGroupFrameRuntime?, pool: SceneOffscreenTexturePool,
-        commandBuffer: MTLCommandBuffer, recordsEvidence: Bool, mandatoryCapacity: () -> Bool = { true }
+        commandBuffer: MTLCommandBuffer, recordsEvidence: Bool,
+        cameraFrame: SceneParticleCameraFrame, mandatoryCapacity: () -> Bool = { true }
     ) {
         guard let pipeline = staticModelResources.pipeline else { return }
         let includesDirectional = lights.contains { if case .directional = $0 { return true }; return false }
-        var casters: [StaticModelDraw] = []
+        var casters: [(draw: StaticModelDraw, frontFacing: MTLWinding)] = []
         var bounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4)] = []
         var receiverBounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4)] = []
         for layer in orderedLayers {
+            // Native models use Y-up world winding. Canvas and fitted cameras
+            // retain their reflected authored convention in the same light map.
+            let frontFacing: MTLWinding = cameraFrame.defaultsToPerspective
+                && cameraFrame.resolvesPerspective(for: layer) ? .clockwise : .counterClockwise
             for draw in state.prepared?[layer.id] ?? [] {
                 let casts = layer.modelShadowCastIntent?.modelCastsShadow ?? true
-                if casts { casters.append(draw) }
+                if casts { casters.append((draw, frontFacing)) }
                 if includesDirectional && (casts || draw.material.receivesLighting) {
                     let item = (draw.entry.mesh.boundsMinimum, draw.entry.mesh.boundsMaximum, draw.world)
                     if casts { bounds.append(item) }
@@ -476,11 +482,13 @@ extension SceneMetalRenderer {
                 encoder.setViewport(viewport)
                 encoder.setScissorRect(MTLScissorRect(x: Int(viewport.originX), y: Int(viewport.originY),
                     width: Int(viewport.width), height: Int(viewport.height)))
-                for draw in casters {
+                for caster in casters {
+                    let draw = caster.draw
                     encoded = pipeline.drawShadow(mesh: draw.entry.mesh, texture: draw.texture,
                         textureFrame: draw.textureFrame, sampling: draw.sampling,
                         modelMatrix: draw.world, projection: projection, face: face, viewport: viewport,
-                        layerAlpha: draw.alpha, material: draw.material, encoder: encoder) && encoded
+                        layerAlpha: draw.alpha, material: draw.material, encoder: encoder,
+                        frontFacing: caster.frontFacing) && encoded
                 }
             }
             encoder.endEncoding()

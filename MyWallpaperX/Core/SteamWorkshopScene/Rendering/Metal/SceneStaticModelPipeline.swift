@@ -501,7 +501,8 @@ struct SceneStaticModelPipeline {
         modelMatrix: simd_float4x4, projection: SceneStaticModelShadowProjection,
         face: Int, viewport: MTLViewport,
         layerAlpha: Float, material: SceneStaticModelMaterial,
-        encoder: MTLRenderCommandEncoder
+        encoder: MTLRenderCommandEncoder,
+        frontFacing: MTLWinding = .counterClockwise
     ) -> Bool {
         let pipeline: MTLRenderPipelineState?
         var clip = matrix_identity_float4x4, light = matrix_identity_float4x4
@@ -536,7 +537,7 @@ struct SceneStaticModelPipeline {
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
         encoder.setRenderPipelineState(pipeline)
         encoder.setDepthStencilState(shadowDepthState)
-        encoder.setFrontFacing(.counterClockwise)
+        encoder.setFrontFacing(frontFacing)
         encoder.setCullMode(material.cullMode)
         encoder.setVertexBuffer(mesh.vertexBuffer, offset: 0, index: 0)
         encoder.setVertexBytes(&uniforms, length: MemoryLayout<SceneStaticModelShadowUniforms>.stride, index: 1)

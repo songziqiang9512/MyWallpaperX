@@ -650,7 +650,7 @@ FRAME_FLIGHT=r'''
    let nextCandidates=renderer.shadowDrawCandidates(orderedLayers:nextLayers,visible:[1],worldFrames:world,snapshot:dynamic,groups:nil)!
    renderer.prepareModelShadow(state:nextState,candidates:nextCandidates,lights:lighting.shadowLights,
     orderedLayers:nextLayers,visible:[1],batches:[:],particlePipeline:nil,mainPass:nextPass,groups:nil,pool:pool,
-    commandBuffer:nextCB,leases:&nextLeases,mandatoryCapacity:{nextMandatory+=1;return true},recordsEvidence:false)
+    commandBuffer:nextCB,leases:&nextLeases,mandatoryCapacity:{nextMandatory+=1;return true},recordsEvidence:false,cameraFrame:camera)
    let separate=nextState.shadows.allSatisfy{!mapTextures.contains(ObjectIdentifier($0.texture))}
    let nextCount=nextState.shadows.count,nextDepth=nextLeases.count
    let oldDepth=shared!.texture,cancelledDepth=nextLeases.first!.texture
@@ -682,7 +682,7 @@ FRAME_FLIGHT=r'''
    let recoveryCandidates=renderer.shadowDrawCandidates(orderedLayers:recoveryLayers,visible:[1],worldFrames:world,snapshot:dynamic,groups:nil)!
    renderer.prepareModelShadow(state:recoveryState,candidates:recoveryCandidates,lights:lighting.shadowLights,
     orderedLayers:recoveryLayers,visible:[1],batches:[:],particlePipeline:nil,mainPass:recoveryPass,groups:nil,pool:pool,
-    commandBuffer:recoveryCB,leases:&recoveryLeases,mandatoryCapacity:{recoveryMandatory+=1;return true},recordsEvidence:false)
+    commandBuffer:recoveryCB,leases:&recoveryLeases,mandatoryCapacity:{recoveryMandatory+=1;return true},recordsEvidence:false,cameraFrame:camera)
    flight["recoveryMapIDs"]=recoveryState.shadows.map(\.lightLayerID)
    flight["recoveryCurrentCB"]=recoveryState.shadows.allSatisfy{$0.commandBuffer === recoveryCB}
    flight["recoveryMandatory"]=recoveryMandatory

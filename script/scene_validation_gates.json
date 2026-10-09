@@ -797,7 +797,8 @@
         "test_scene_surface_submission",
         "test_scene_source_update_transaction",
         "test_scene_visible_graph_output_render_plan",
-        "test_scene_image_distance_fog"
+        "test_scene_image_distance_fog",
+        "test_scene_directional_shadow_frame_owner"
       ]
     },
     {
@@ -2180,7 +2181,8 @@
         "test_scene_static_model_parts",
         "test_scene_static_model_pipeline",
         "test_scene_static_model_emission",
-        "test_scene_static_model_cull_integration"
+        "test_scene_static_model_cull_integration",
+        "test_scene_directional_shadow_frame_owner"
       ]
     },
     {

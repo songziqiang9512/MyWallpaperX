@@ -199,7 +199,8 @@ extension SceneMetalRenderer {
                         mainPass: mainPass, groups: compositionGroupRuntime,
                         utilityExecution: frameProjection.utilityExecution)
                 },
-                recordsEvidence: SceneDesktopWallpaperHost.usesDebugEvidenceWindow && frameContext.frameIndex <= 2)
+                recordsEvidence: SceneDesktopWallpaperHost.usesDebugEvidenceWindow && frameContext.frameIndex <= 2,
+                cameraFrame: cameraFrame)
         }
         var preparedEnvironment: SceneFrameTextureResource?
         if let targets = optionalScratch {

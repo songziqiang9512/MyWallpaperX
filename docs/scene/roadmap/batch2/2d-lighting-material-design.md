@@ -438,7 +438,7 @@ Launch现有profile normal/map聚合应能自然接入，不为环境建立第�
 
 ### 目标、证据与范围纠正
 
-基线 `67b2b644`。本片使现已准备的 direct static-model 三角几何在显式启用投影的方向光下互相遮挡，仅衰减该灯的直射贡献，继续由现模型 draw 写入唯一 compositor。它可用于含模型的正交或透视 Scene；普通 image、Puppet、粒子不因层 Z 或 normal 被虚构为模型投影者。五判据①跨 Format/prepare/frame/Metal、②光源与资源唯一权威、④资源/ABI基线、⑤外部作者合同命中；窄登记 `scene-static-model-directional-shadow` 已获独立设计 ACCEPT。审查绑定批准前文档 SHA `b3f1936541f25b5a6dadd34c46652dcf74d773dccd31e1a629f7975d299c1be9`、登记 SHA `38476482cc9fc62db8c6967cbf457224896b7b02379ef758e0e64293c88d190f`；本机 `/private/tmp/mwx-2d-shadow/design-review.md` SHA `141296d6b307980deb4b49f1b7212c5144148908ac144a6cf1601d0685537d9f`。设计批准本身不是产品验收；本片现已通过独立产品终审，冻结身份、实际红绿与未验边界见[执行记录](../../history/d3-model-directional-shadow-implementation-2026-10-02.md)。仅本窄登记退役，完整D3与其余光型保持原边界。
+基线 `67b2b644`。本片使已准备的 direct static-model 三角几何在显式启用投影的方向光下互相遮挡，仅衰减该灯的直射贡献，继续写入唯一 compositor。范围含正交与透视模型；普通 image、Puppet、粒子不因 Z 或 normal 被虚构为 caster。五设计判据①②④⑤命中；原窄设计与产品已获独立验收，冻结身份、实际红绿及未验边界由[执行记录](../../history/d3-model-directional-shadow-implementation-2026-10-02.md)保留。仅首片窄登记退役，完整D3与其余光型边界不变。
 
 - `official-public-contract`：[3D Advanced Lighting](https://docs.wallpaperengine.io/en/scene/models/lighting.html) 明确 point/spot/directional 均支持、灯须开启投影、模型默认投影且可逐模型关闭；[模型介绍](https://docs.wallpaperengine.io/en/scene/models/introduction.html)允许 2D Scene 含真实 3D 模型。它们不公开投影数学、透明度规则或序列化字段。
 - `third-party-reference-pattern`：[Mirage 中性参考 §8.4](../../development/reference/miragewallpaper-rendering-reference.md#84-lightingfogshadow-和-volumetrics)记录 flags/uniform、缺 shadow atlas 及正交 image 抑制整灯。只采用输入/职责边界，不继承关整灯策略，不复制实现。它不能证明 image 投影合同。
@@ -449,9 +449,7 @@ Launch现有profile normal/map聚合应能自然接入，不为环境建立第�
 
 原 Format/loader→descriptor 保留 model object 的静态 `castshadow`：合法省略默认 true，显式 false 只关闭投影、不关闭模型显示或接收；不是新 receive 键。方向光定义保留显式 true，省略不自动开灯阴影。字段存在但类型非法与合法省略区分，不能将 malformed 开关误升默认 true；startup user 解析沿原 loader，live cast 开关不伪称已支持。typed 灯身份与意图进入现 `SceneLightSnapshot`，首个被该四灯预算接纳且显式开启的方向光获得本片 shadow；其他灯原照明不变，不另扫 raw 灯表或按数值猜身份。
 
-`ScenePreparedStaticModelResources` 沿已验证顶点一次保存局部 bounds 与 caster 候选，沿同一 pipeline 在准备期创建 depth PSO；不用未核 header bounds 覆盖实际顶点。普通帧只消费当前模型 world/visibility/material alpha、现 snapshot 与准备资源。caster 的材质受光开关与投影开关独立，unlit 模型仍可投影；receiver 必须是原模型受光 consumer。默认只绘制当前主链能产生的模型几何，不复制/补造被 importer 拒绝的模型；该输入缺口需记录，不能宣称完整作者阴影。
-
-现 renderer 的 model draw/depth preparation 可按完整职责提取到同 owner extension，避免继续扩张大循环。模型 alpha、纹理 frame/sampler、world 和可见性直接复用原帧值，不能另建属性、变换、clock、资源表或 compositor。没有 shadow 灯/receiver 时不新增每帧目标、深度绘制或全模型 bounds 遍历。
+`ScenePreparedStaticModelResources` 从已验证顶点一次保存 bounds/caster，沿原 pipeline 准备 depth PSO，不用未核 header 替代实际顶点。普通帧消费现 world/visibility/material alpha、纹理 frame/sampler、snapshot 与准备资源。caster 的受光与投影开关独立，unlit 可投影；receiver 仍是原模型受光 consumer。只画已准入几何，importer 拒绝的模型不补造、不计受益。原生 Y-up 与 canvas/fitted 的投影 Y 反射约定不同。现 frame 两条 preparation 路径复用 `SceneParticleCameraFrame.defaultsToPerspective && resolvesPerspective(for:)` 的坐标族事实：仅原生 Y-up 透视传 clockwise，canvas/fitted/utility 与显式正交传 counterClockwise，逐 caster 交给唯一 `SceneStaticModelPipeline.drawShadow`。不新增属性、变换、clock、registry 或 compositor；原 material normal/nocull、光投影、receiver 与 bias 不变。无 shadow 灯/receiver 不增加目标、深度绘制或 bounds 遍历。
 
 ### 独立投影与材质策略
 
@@ -475,7 +473,7 @@ depth target 进入原 `SceneOffscreenTexturePool`/allocation cache，独立 key
 
 ### 纠正门、备选与退役
 
-先用不可变旧 App 与自造合法模型证明 direct lighting 已实际显示、cast 开关/遮挡无响应，再用相同输入验新结果。固定实际 App/源码身份，验证首帧和 next-frame 的 caster depth encode→当前发布→receiver→GPU completion→唯一 terminal 及遮挡/健康双 ROI。
+固定不可变旧/新 App、源码与合法自造模型，验证首帧和 next-frame 的 caster depth→同帧发布→receiver→GPU completion→唯一 terminal 及遮挡/健康 ROI。绕序纠正须保原 canvas 八种 cull oracle，覆盖三光源、native/canvas/fitted/utility/显式正交、正反绕序与 normal/nocull、同 map 混合提交、父变换和薄模型独立 caster。固定完整同 epoch 投影的重放区分错误面深度与数值误差；不以加 bias 或排除 self-shadow 过门。临时 trace 验后撤回；这些有界门不代表完整官方 cull parity，map/resource 失败仍沿原 optional 局部退出。
 
 必须覆盖：灯 false/true、模型省略/true/false、cast=false 仍接收、unlit 仍投影；主相机外/晚顺序 caster、移动与父变换、方向改变、相机正交/透视；zero/partial/opaque/tint-mask；ambient/emission/第二灯保留；关闭零额外 shadow 分配；在飞两帧不同内容、cancel/reset/resize、未写 map 不发布、stale identity、真实 allocation 注入失败及后续恢复。mandatory model/particle depth 与多个 image scratch 的正好预算边界必须证明原画面未因 optional 退化。真实 `3589454154` 的受益数量与更早 importer/材质缺口单列，不以完整场景开机或非黑宣称官方 parity。
 

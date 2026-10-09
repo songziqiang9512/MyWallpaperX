@@ -287,7 +287,7 @@ MAIN = r'''
   if mode != "original" {
    renderer.prepareModelShadow(state:state,candidates:candidates,lights:[.directional(light)],orderedLayers:layers,visible:visible,
       batches:[4:[batch]],particlePipeline:particles,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,
-      leases:&leases,mandatoryCapacity:{true},recordsEvidence:false)
+      leases:&leases,mandatoryCapacity:{true},recordsEvidence:false,cameraFrame:camera)
   }
   let before=leases.count
   let shared=state.prepared?[1]?.first?.depth?.lease
@@ -332,6 +332,147 @@ MAIN = r'''
 }
 '''
 HARNESS = pool_fixture.HARNESS.split('@main', 1)[0] + SHELL + UNUSED_ORDERED_SUPPORT + MAIN
+
+
+
+# Prepared geometry inputs only: the real camera, frame producer, all three
+# shadow projections and the unique drawShadow encode remain unchanged.
+CULL_MAIN = r'''
+extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
+@main enum CameraFamilyCullProbe {
+ static func main() throws {
+  guard let device=MTLCreateSystemDefaultDevice(),let queue=device.makeCommandQueue() else {
+   print("{\"metalUnavailable\":true}");return
+  }
+  var rows:[[String:Any]]=[]
+  for family in ["native","canvas","fitted","native-ortho","native-utility"] {
+   for type in ["directional","spot","point"] {
+    for transformed in [false,true] {
+     for reverse in [false,true] { for noCull in [false,true] {
+      rows.append(try run(family,type,transformed,reverse,noCull,device,queue))
+     }}
+    }
+   }
+  }
+  print(String(decoding:try JSONSerialization.data(withJSONObject:["rows":rows],options:[.sortedKeys]),as:UTF8.self))
+ }
+ static func run(_ family:String,_ type:String,_ transformed:Bool,_ reverse:Bool,_ noCull:Bool,
+                 _ device:MTLDevice,_ queue:MTLCommandQueue)throws->[String:Any] {
+  let pipeline=SceneStaticModelPipeline(device:device)!
+  let native=family.hasPrefix("native")
+  let camera=SceneParticleCameraFrame(camera:.init(eye:[0,0,5],center:[0,0,0],up:[0,1,0],
+   orthoWidth:native ? nil:8,orthoHeight:native ? nil:8,fovDegrees:native ? 60:nil,
+   perspectiveOverrideFOVDegrees:family=="fitted" ? 60:nil,nearZ:0.01,farZ:100),viewportSize:CGSize(width:64,height:64))
+  let layer=SceneRenderDescriptor.Layer(id:1,utilityLayer:family=="native-utility" ? true:nil,
+    usesPerspective:family=="canvas" || family=="native-ortho" ? false:true)
+  let positions:[SIMD3<Float>]=[SIMD3(-1,-1,0),SIMD3(1,-1,0),SIMD3(1,1,0),SIMD3(-1,1,0)]
+  let vertices=positions.map{SceneMdlStaticModel.Vertex(position:$0,normal:SIMD3(0,0,1),tangent:SIMD4(1,0,0,1),uv:SIMD2(repeating:0.5))}
+  let mesh=pipeline.makeMesh(vertices:vertices,indices:reverse ? [0,2,1,0,3,2]:[0,1,2,0,2,3])!
+  let td=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:1,height:1,mipmapped:false)
+  td.storageMode = .shared;td.usage = .shaderRead
+  let white=device.makeTexture(descriptor:td)!,pixel:[UInt8]=[255,255,255,255]
+  pixel.withUnsafeBytes{white.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:4)}
+  var material=SceneStaticModelMaterial(color:SIMD3(repeating:1),opacity:1,receivesLighting:true,
+   textureAlphaIsOpacity:true,textureAlphaIsTintMask:false,emissiveColor:.zero,emissiveBrightness:0,
+   brightness:1,usesHDRBrightness:false,viewTint:nil)
+  material.cullMode=noCull ? .none:.back
+  let entry=ScenePreparedStaticModelResources.Entry(materialPath:"own-cull",dynamicMaterialPath:"",geometryIdentity:"quad",
+   mesh:mesh,albedo:PreparedTexture(texture:white),material:material)
+  var entries=[1:[entry]]
+  var layers=[layer]
+  if family=="native" {
+   // Native, explicit canvas and utility casters share one encoder/map. Peers
+   // use authored canvas front winding; reverse changes submission order too.
+   let peerMesh=pipeline.makeMesh(vertices:vertices,indices:[0,2,1,0,3,2])!
+   var peerMaterial=material;peerMaterial.cullMode = .back
+   for id in [2,3] {
+    entries[id]=[.init(materialPath:"own-peer",dynamicMaterialPath:"",geometryIdentity:"peer",
+      mesh:peerMesh,albedo:PreparedTexture(texture:white),material:peerMaterial)]
+   }
+   layers += [.init(id:2,utilityLayer:nil,usesPerspective:false),.init(id:3,utilityLayer:true,usesPerspective:true)]
+   if reverse {layers.reverse()}
+  }
+  let renderer=SceneMetalRenderer(device:device,resources:.init(pipeline:pipeline,entries:entries))
+  var world=transformed ? SceneMatrix.eulerXYZ(SIMD3(0.2,-0.3,0.1))*SceneMatrix.scale(SIMD3(1.1,0.8,1.2)):matrix_identity_float4x4
+  if transformed {world.columns.3=SIMD4(2,-3,-4,1)}
+  let center=world.columns.3.xyz,position=(world*SIMD4(0,0,4,1)).xyz
+  let toward=simd_normalize(position-center)
+  let light:SceneLightSnapshot.ShadowLight
+  if type=="directional" {light = .directional(.init(layerID:7,castsShadow:true,directionTowardLight:toward,color:SIMD3(repeating:1),intensity:1))}
+  else if type=="spot" {light = .spot(.init(layerID:7,castsShadow:true,position:position,directionFromLight:-toward,
+    color:SIMD3(repeating:1),intensity:1,radius:10,innerConeCosine:cos(.pi/6),outerConeCosine:cos(.pi/4),outerConeDegrees:45))}
+  else {light = .point(.init(layerID:7,castsShadow:true,position:position,color:SIMD3(repeating:1),intensity:1,radius:10))}
+  let outDesc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm,width:64,height:64,mipmapped:false)
+  outDesc.storageMode = .private;outDesc.usage = .renderTarget
+  let output=device.makeTexture(descriptor:outDesc)!,cb=queue.makeCommandBuffer()!
+  let pass=SceneMainPassEncoder(commandBuffer:cb,target:output,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
+  let pool=SceneOffscreenTexturePool(device:device,pixelFormat:.bgra8Unorm,residentByteBudget:32*1024*1024)
+  let state=SceneMetalRenderer.StaticModelFrame(),dynamic=SceneDynamicSnapshot.empty(frameIndex:1,generation:1)
+  var worlds=[1:world]
+  for (id,x) in [(2,Float(3)),(3,Float(-3))] where entries[id] != nil {
+   worlds[id]=world*SceneMatrix.translation(SIMD3(x,0,0))
+  }
+  let visible=Set(layers.map(\.id))
+  let candidates=renderer.shadowDrawCandidates(orderedLayers:layers,visible:visible,worldFrames:worlds,snapshot:dynamic,groups:nil)!
+  var leases:[SceneParticleDepthTargetLease]=[]
+  renderer.prepareModelShadow(state:state,candidates:candidates,lights:[light],orderedLayers:layers,visible:visible,batches:[:],
+   particlePipeline:nil,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,leases:&leases,
+   mandatoryCapacity:{true},recordsEvidence:false,cameraFrame:camera)
+  let shadow=state.shadows.first!,map=shadow.texture
+  let blit=cb.makeBlitCommandEncoder()!
+  var buffers:[MTLBuffer]=[]
+  for id in worlds.keys.sorted() {
+   let point=worlds[id]!.columns.3.xyz
+   let clip:SIMD3<Float>,face:Int
+   switch shadow.projection {
+   case .directional(let p):clip=(p.worldToClip*SIMD4(point,1)).xyz;face=0
+   case .spot(let p):let q=(p.worldToLight*SIMD4(point-p.position,0)).xyz;clip=SIMD3(q.x/(q.z*p.tanHalfAngle),q.y/(q.z*p.tanHalfAngle),0);face=0
+   case .point(let p):
+    let ray=point-p.position,a=simd_abs(ray)
+    face=a.x>=a.y && a.x>=a.z ? (ray.x>=0 ? 0:1):a.y>=a.z ? (ray.y>=0 ? 2:3):(ray.z>=0 ? 4:5)
+    let q=(ScenePointShadowProjection.worldToFaces[face]*SIMD4(ray,0)).xyz
+    clip=SIMD3(q.x/q.z,q.y/q.z,0)
+   }
+   let viewport=shadow.projection.viewport(face:face,width:map.width,height:map.height)
+   let x=Int(viewport.originX+(Double(clip.x)+1)*viewport.width*0.5)
+   let y=Int(viewport.originY+(1-Double(clip.y))*viewport.height*0.5)
+   let buffer=device.makeBuffer(length:256,options:.storageModeShared)!
+   blit.copy(from:map,sourceSlice:0,sourceLevel:0,sourceOrigin:.init(x:x,y:y,z:0),sourceSize:.init(width:1,height:1,depth:1),
+    to:buffer,destinationOffset:0,destinationBytesPerRow:256,destinationBytesPerImage:256)
+   buffers.append(buffer)
+  }
+  blit.endEncoding();leases.forEach{$0.arm(on:cb)};state.arm(on:cb);cb.commit();cb.waitUntilCompleted()
+  precondition(cb.status == .completed && cb.error == nil)
+  let depths=buffers.map{$0.contents().bindMemory(to:Float.self,capacity:1).pointee}
+  return ["family":family,"light":type,"transformed":transformed,"reverse":reverse,"noCull":noCull,
+   "nativeCamera":camera.defaultsToPerspective,"perspectiveLayer":camera.resolvesPerspective(for:layer),
+   "depth":depths[0],"peerDepth":Array(depths.dropFirst()),"completed":true]
+ }
+}
+'''
+
+
+class SceneModelShadowCameraFamilyTests(unittest.TestCase):
+    def test_real_frame_native_canvas_fitted_and_override_cull_for_three_lights(self):
+        support = pool_fixture.HARNESS.split('@main', 1)[0] + SHELL + UNUSED_ORDERED_SUPPORT + CULL_MAIN
+        report = shadow_fixture.run_swift(SOURCES, support, label='camera-family-cull',
+                    metal_sources=[SCENE/'Rendering/Composition/SceneStaticModel.metal'])
+        self.assertEqual(len(report['rows']), 120)
+        for row in report['rows']:
+            native = row['family'] == 'native'
+            expected = row['noCull'] or (not row['reverse'] if native else row['reverse'])
+            self.assertTrue(row['completed'], row)
+            self.assertEqual(len(row['peerDepth']), 2 if native else 0, row)
+            for depth in row['peerDepth']:
+                self.assertGreaterEqual(depth, 0, row)
+                self.assertLess(depth, .99, row)
+            self.assertEqual(row['nativeCamera'], row['family'].startswith('native'), row)
+            self.assertEqual(row['perspectiveLayer'], row['family'] in ('native', 'fitted'), row)
+            if expected:
+                self.assertLess(row['depth'], .99, row)
+                self.assertGreaterEqual(row['depth'], 0, row)
+            else:
+                self.assertEqual(row['depth'], 1, row)
 
 
 def typecheck():

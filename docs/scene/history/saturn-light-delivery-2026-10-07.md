@@ -62,3 +62,19 @@
 完整土星固定日期包在新App运行50秒、40秒取稳态图，startup约39秒，VM 92 owners/1 destroy callback全部quiescent、零失败且GPU drain。盘面恢复左亮右暗；预登记左/右ROI median RGB由107/99/86与63/59/52变为151/138/118与0/0/0，官方139/125/106与0/0/0。巨大479陨石环仍入链且颗粒可见。前环ROI由3/3/3升到19/18.5/17.5，但官方141/133/120；环带仍有扇形三角暗纹，文本/布局也未对齐。只冻结作者天文时间，实际时钟、媒体及其他随机内容不相同，不计算整图正确率。下一首断点是环带几何/法线、材质和阴影消费，需要有界消融定位，禁止全局补亮。
 
 证据：`.artifacts/tmp/saturn-light-ablation-20261009/`内`direction-native-comparison.json`、`saturn-final-comparison.json`、`build-final.json`及CPU/GPU门；新App dylib SHA `d43dba2c9bc16886bb1e02ef95e06ad0ad664d01fc7d202eceef8f335a91b49e`，土星固定输入pkg SHA `b9d7255300d5399e25822330c26bb85e6f8a9a6cc00f77ba273498cbd8d2ad91`。官方任务窗口均关闭，VM已挂起。全样本、任意3D方向/父缩放、完整2D/阴影官方parity及性能改善未声明。
+
+
+<a id="native-shadow-winding"></a>
+## 2026-10-09 原生相机阴影面向纠正
+
+起点 `69523150`。上批恢复正确灯输入后，土星环仍有大块三角暗纹。本批完整包消融表明，关闭全部方向光阴影使暗纹消失，但同时丢失星球投影；只关闭星环 caster 则主要暗纹消失。两者只是诊断输入，未作为产品修复。原包与全部模型在最终运行保留，没有按样本或材质名分支。
+
+先前共面探针未复现错误，不能证明精度问题。随后通过原 DEBUG 出口临时采集真实 frame 的相机、模型、灯及投影；首次诊断因双重节流与 direct 入口缺相机参数未触发，修正后采到13帧，临时诊断已精确撤回。固定天文日期不等于冻结所有模型姿态，因此离线重放使用完整同一 epoch1441及原完整阴影范围。真实环是朝内的薄壳：GPU 深度读回与朝光背面的另一片几何匹配，误差远小于两片间距；绝大暗区不是需要加大 bias 的数值 acne。单变量面向纠正后，原228773个覆盖像素中ring-only暗像素从223886降到0，ring+sphere与sphere-only暗区一致，证明修正没有靠关闭星球投影。
+
+根因是原生3D与画布相机的正面约定不同，shadow却固定CCW。现有`SceneParticleCameraFrame`同时提供native默认与逐层透视决议；direct/ordered准备路径都将同一frame传到原`emitModelShadow`，按每个caster解析面向，交给唯一`drawShadow`。原生且该层实际透视时使用CW，canvas/fitted、显式正交与utility保原CCW；每次draw显式设置，混合模型不沿用前一caster状态。directional/spot/point共用原入口，材质normal/nocull准入、shader、投影、bias和资源所有权不变。没有新增阴影算法或相机分类owner。
+
+最终Debug App签名与全部Scene源码身份一致，dylib SHA `080bf84fc6eb33775891033c929c56d47c034b99739f34a3aa103884c8cadb8d`。完整土星固定日期包运行50秒、40秒取图，三角暗纹消失，星球左亮右暗、右上投影和陨石颗粒保留。原前环ROI median RGB从19/18.5/17.5改善到98/93/85.5，官方141/133/120；左球保持151/138/118。运行正常退出，92个VM owner全部quiescent、1次destroy、零失败且GPU drain。
+
+前环剩余亮度、投影细节及文字/布局仍未关闭；不宣称完整土星或三类灯全部官方parity。新官方轻型A/B未执行：guest普通桌面黑，安全菜单可见，未把该前置失败算作渲染结果；VM已挂起。此前有效官方完整/轻型截图仍是有界视觉参照。
+
+证据：`.artifacts/tmp/saturn-ring-20261009/`内`audit/candidate-freeze.json`、`audit/real-depth-analysis.json`、实际同帧重放、`build-final.json`、`native-final-comparison.json`与`native-final/baseline`。新增真实GPU门1项通过，覆盖三灯型、五相机族、正反绕序、normal/nocull及同map混合提交；4个既有caller仅做CPU typecheck并通过，不计运行测试。原有4项App回归（投影开关/缺caster、透视与父变换、灯移动恢复、八种材质cull）全部通过，旧画布oracle未改。新GPU门接入原rendering/material-segments测试组，三产品逐path预览均可选中，6项selector检查通过。测试开发中一次point peer采错atlas face，按射线最大分量纠正采样位置、保持原阈值；失败result仍存，原断言整日志被重跑覆盖的限制明确记录。结构/依赖/代码健康/防重复/设计门通过；全局文档检查仍只报并行Web的3个健康问题与1个入口反链问题，未混入本批。独立审查绑定最终freeze。

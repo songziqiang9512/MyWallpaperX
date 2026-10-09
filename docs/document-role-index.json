@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b568a8d6c46e51e560f395dfceb309001c76da0bc70b80d1574450698617d843",
+        "sourceSHA256": "65363a827a16f896f6f5cccb220115eac31a2c2682464e8b306a2e5cb61dcd48",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对灯光显隐、world方向与direct/shadow共享owner；历史误判撤销及土星残余断点链接。",
+        "scope": "核对原生/画布相机阴影面向沿现有frame与唯一drawShadow接线；土星暗纹修复、剩余亮度/布局及证据链接。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
@@ -522,9 +522,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "25a9928e83da50e2a749a5f83f01efb91c878f0acaa82667019002a5a9e9e82d",
+        "sourceSHA256": "7b9f20f2f0154c56ccb1f5245a694807043a8ad16a0f67b4a4c70f7c40cd82d1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对灯光显隐、world方向与direct/shadow共享owner；历史误判撤销及土星残余断点链接。",
+        "scope": "核对原生/画布相机阴影面向沿现有frame与唯一drawShadow接线；土星暗纹修复、剩余亮度/布局及证据链接。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
