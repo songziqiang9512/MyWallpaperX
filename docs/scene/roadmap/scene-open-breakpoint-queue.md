@@ -20,7 +20,7 @@
 
 T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅证F16量化，不据此换全图精度。T2透明RGB跨effect与静态源/source/capture两卡已闭合，U19灰头冠恢复亮色；U23坐标拒绝与背景强网点已修，U21数组/环形输出及灰斜层已修，下一复核剩余颜色/光束；[类型兼容后验](../history/shared-shader-type-compatibility-2026-10-09.md)保留实际运行及未决合同，不重做已修SDR shoulder或已执行效果；按批回写矩阵。
 
-**下一批（10-10调序）：** 优先T1非中性source-material Power：3601964477真实材质Power=0.99仍被中性值准入拒绝，先验实际可见影响，再复用现有prepared/Program链补齐。3609108600、3690859128的Power=1且原Alpha/共享材质已修，只作健康回归，不计同一缺陷。E1同声源频谱形状为备选，现尚无新共同首断点，不能先调gain。土星只保留下表有界余项，长期Goal继续。
+**下一批（10-10）：** T1动态源材质：3601964477层149实机拒绝`source-material-dynamic-declaration-unsupported`；Power=0.99不满足neutral优化，并非Program数学缺失。PCM已有白柱；须接同model原层/63个clone共享材质颜色、Alpha及源输出，避免重复求值/乘色。证据`.artifacts/tmp/source-power-20261010/diagnosis.json`。3609108600、3690859128健康回归，E1备选；土星余项暂缓，Goal继续。
 
 ## 2. 纹理、合成与特效公共缺口
 
