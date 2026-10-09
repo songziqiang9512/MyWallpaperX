@@ -75,6 +75,31 @@ def ambient_vectors() -> list[dict]:
     ]
 
 
+def distance_fog_vectors() -> list[dict]:
+    # Official half-gray flat-quad probes: the halfway distance yields RGB 96,
+    # while a constant .5 density yields 64. These are different contracts.
+    # The harness pixel is at world (0, 0, .5); camera positions preserve the
+    # independently specified distance, including an off-axis radial control.
+    cases = [
+        ("quarter", [0, 4, 0, 1], [0, 0, 1.5], 0.0625),
+        ("half", [0, 2, 0, 1], [0, 0, 1.5], 0.25),
+        ("three-quarter", [0, 4 / 3, 0, 1], [0, 0, 1.5], 0.5625),
+        ("offset", [0.5, 1.5, 0, 1], [0, 0, 1.5], 0.25),
+        ("double-distance", [0, 4, 0, 1], [0, 0, 2.5], 0.25),
+        ("off-axis", [0, 2, 0, 1], [1, 0, 1.5], 0.5),
+        ("before-start", [2, 4, 0.2, 0.8], [0, 0, 1.5], 0.2),
+        ("after-end", [0, 0.5, 0.2, 0.8], [0, 0, 1.5], 0.8),
+        ("density-endpoints", [0, 2, 0.2, 0.8], [0, 0, 1.5], 0.35),
+    ]
+    return [dict(
+        name=f"distance-fog-{name}", albedo=[0.5, 0.5, 0.5], opacity=1,
+        normal=[0, 1, 0], ambient=[1, 1, 1], ambientResponse=1,
+        hasMask=False, maskAlpha=0, emissiveColor=[1, 1, 1], brightness=0,
+        fogRange=interval, cameraPosition=camera, expectedFogDensity=density,
+        fogColor=[0.125, 0.25, 0.5] if name == "density-endpoints" else [0, 0, 0],
+    ) for name, interval, camera, density in cases]
+
+
 def expected_pixel(vector: dict) -> list[float]:
     # The additive material contract was established by controlled official
     # renders; known-normal cases carry measured response weights independently.
@@ -87,7 +112,7 @@ def expected_pixel(vector: dict) -> list[float]:
             vector["albedo"], vector["ambient"], vector.get("skylight", [0, 0, 0]), vector["emissiveColor"]
         )
     ]
-    density = vector.get("fogDensity")
+    density = vector.get("expectedFogDensity", vector.get("fogDensity"))
     if density is not None:
         radiance = [lit * (1.0 - density) + fog * density
                     for lit, fog in zip(radiance, vector["fogColor"])]
@@ -182,11 +207,16 @@ PIXEL_MAIN = r'''
                 lighting.distanceFogColor = SIMD4(fogColor, 1)
                 lighting.distanceFogRange = SIMD4(0, 20, Float(density), Float(density))
             }
+            if let range = input["fogRange"] as? [Double] {
+                lighting.distanceFogColor = SIMD4(vector(input["fogColor"] as! [Double]), 1)
+                lighting.distanceFogRange = SIMD4(Float(range[0]), Float(range[1]), Float(range[2]), Float(range[3]))
+            }
             precondition(pipeline.draw(
                 mesh: mesh, texture: albedo, colorTextureIsPremultiplied: false,
                 emissiveMask: mask, emissiveMaskTextureFrame: mask == nil ? nil : .identity,
                 emissiveMaskSampling: mask == nil ? nil : .linearClamp, modelMatrix: matrix_identity_float4x4,
-                viewProjection: matrix_identity_float4x4, cameraPosition: SIMD3(0, 0, 10),
+                viewProjection: matrix_identity_float4x4,
+                cameraPosition: vector(input["cameraPosition"] as? [Double] ?? [0, 0, 10]),
                 textureFrame: .identity, sampling: .linearClamp, layerAlpha: 1,
                 material: material, lighting: lighting, writesDepth: true, frameEpoch: 1,
                 commandBuffer: commandBuffer, encoder: encoder
@@ -232,7 +262,7 @@ class SceneStaticModelEmissionTests(unittest.TestCase):
             SCENE / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
             SCENE / "Resources/Textures/SceneResourceBudget.swift",
         ]
-        cls.vectors = emission_vectors() + ambient_vectors()
+        cls.vectors = emission_vectors() + ambient_vectors() + distance_fog_vectors()
         cls.report = run_swift(
             sources, "import Foundation\nimport Metal\nimport simd\n" + model_fixture.LIGHTING_STUB + PIXEL_MAIN,
             label="model-emission", metal_sources=[model_fixture.METAL_SOURCE], input_value=cls.vectors,

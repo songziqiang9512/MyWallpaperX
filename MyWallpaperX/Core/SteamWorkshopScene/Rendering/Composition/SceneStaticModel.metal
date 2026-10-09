@@ -473,7 +473,9 @@ fragment half4 sceneStaticModelFragment(
         float4 range = uniforms.distanceFogRange;
         float distanceFromCamera = length(uniforms.cameraPosition.xyz - in.worldPosition);
         float fraction = clamp((distanceFromCamera - range.x) / (range.y - range.x), 0.0, 1.0);
-        float density = mix(range.z, range.w, fraction);
+        // The distance ramp is quadratic; authored endpoint densities remain
+        // linear weights. A halfway distance and constant .5 density differ.
+        float density = mix(range.z, range.w, fraction * fraction);
         litColor = mix(litColor, uniforms.distanceFogColor.xyz, density);
     }
     // Static-model inputs preserve straight texture channels. Convert the
