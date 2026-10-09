@@ -209,8 +209,8 @@
       "bytes": 6445
     },
     "docs/web/current-state.md": {
-      "lines": 110,
-      "bytes": 31010
+      "lines": 111,
+      "bytes": 32411
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 58,
@@ -1100,10 +1100,10 @@
     {
       "section": "bodies",
       "path": "docs/web/current-state.md",
-      "before": "58b17f193b82986b3d78d72844dba3d1be8fe350571f12f7642f85e29bda1db0",
-      "after": "e7c18aa190ed17e1ca11ff06518c1b48c2fd724a20d251fff9d514efe28d5d19",
+      "before": "e7c18aa190ed17e1ca11ff06518c1b48c2fd724a20d251fff9d514efe28d5d19",
+      "after": "92c828cfe86b4bc23131db368659da0f33d8a97ac5fcd89f5f96a8a8178e4390",
       "owner": "Web 现役状态",
-      "reason": "批九后续项收口证据行并入（reassert 幂等化+半态自愈、双 web 抢入保留继承）。",
+      "reason": "批十提交点状态对称证据行并入（isPlaying 提交点修复+⑦④定案登记）。",
       "decision": "docs/web/cold-descriptor-parse-offload-design.md#验收"
     }
   ]

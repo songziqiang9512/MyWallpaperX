@@ -104,13 +104,15 @@ extension WallpaperEngine {
             lastFailureVideoPath = nil
             lastFailureAt = 0
             // E2a-4: web 已就绪——现在退场被保留的 video runtime（提交点）。
+            // currentWallpaper/currentContentPath 不在此清：launch 已无条件
+            // 置好 web 侧真值（nil / entry 路径），清掉会让 video→web 提交后
+            // isPlaying()（对 web 看 currentContentPath）误报未在播，
+            // 与 web→web 提交路径不对称。
             if pendingVideoRetirementOnWebReady {
                 pendingVideoRetirementOnWebReady = false
                 for displayID in Array(displaySessions.keys) {
                     terminateSession(for: displayID)
                 }
-                currentWallpaper = nil
-                currentContentPath = nil
                 retainedVideoWallpaper = nil
                 retainedVideoContentPath = nil
                 retainedVideoMultiDisplayEnabled = nil
