@@ -621,6 +621,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             valueType: valueType,
             target: target,
             allowsLayerSideEffects: allowsDynamicLayerSideEffects,
+            retainsVisibilityMutation: !handlesUpdate,
             dynamicImagePathsByAuthoredIdentity:
                 dynamicImagePathsByAuthoredIdentity,
             value: publishedValue,

@@ -17,7 +17,7 @@
 | 全样本声明与旧运行关联 | [当前声明全集](scene-corpus-capability-inventory.md)、[样本验收来源](scene-sample-acceptance-ledger.md)；2026-10-08只刷新成员与声明，旧归档/人工裁决保留原身份，后继已修断点查[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | Sampler 声明、绑定与缓存身份 | [声明/缓存修复记录](#e-2026-10-01-sampler-baseline-repair) |
 | 生命周期与发布完整性 | [生命周期完整性记录](#e-2026-10-01-lifecycle-integrity) |
-| SceneScript 显隐准备与交互 | [统一显隐记录](#e-2026-09-27-unified-effect-visibility) |
+| SceneScript 显隐准备与交互 | [统一显隐记录](#e-2026-09-27-unified-effect-visibility)、[事件显隐持久修复](../history/event-visibility-persistence-2026-10-10.md)：312两个浮动窗口恢复，四次属性热切无重建、两窗口拖动已验 |
 | 音频共享 producer 与产品入口 | [共享 producer 记录](#e-2026-09-22-audio-shared-canonical-producer)、[普通产品入口记录](#e-2026-09-22-audio-ordinary-scene-web) |
 | Batch2 已实施职责与仍待证输入 | [冻结执行记录](#batch2-frozen-records)；按职责查询有界输出、失败与未验profile |
 | 作者图层退出 | <a id="e-2026-10-07-authored-layer-retirement"></a>[删除与脚本退休](../history/authored-layer-retirement-2026-10-07.md) |

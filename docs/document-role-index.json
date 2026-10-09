@@ -524,9 +524,9 @@
       "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "655b2b48047da39ec16689f45e46667c4ce7e779f7940a0c6debeac236c66135",
+        "sourceSHA256": "9d050050be267b73b402b913ea498676f94c0eeeb2ba96b22bd1592d3b955d1f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核U06背景真实连续帧、原provider链、剩余effect与历史身份引用；其他记录保留原证据上限。",
+        "scope": "核312事件显隐持久、属性热切与拖动的证据指针；其余记录保留原证据上限。",
         "limitations": "非全页运行重验，不升级整样本与官方parity。"
       }
     },
@@ -1005,6 +1005,17 @@
       "currentAuthorities": [
         "docs/scene/roadmap/engine-refactor-program.md",
         "docs/scene/capabilities/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/event-visibility-persistence-2026-10-10.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/runtime-input-property-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
     {

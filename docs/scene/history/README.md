@@ -112,3 +112,4 @@
 | 2026-09-05 | Scene | runtime evidence archive | [Scene 运行证据完整归档](runtime-evidence-index.md) | 现役证据摘要之外的完整 E-* provenance 与历史包 | [Scene 当前证据摘要](../capabilities/runtime-evidence-current.md)、[Scene 能力台账](../capabilities/coverage-ledger.md) |
 
 - [内嵌WebM视频背景恢复](embedded-webm-video-2026-10-10.md)：单一AVPlayer链、无损容器准备、U06原包及剩余边界。
+- [事件型显隐持久修复](event-visibility-persistence-2026-10-10.md)：复用原图层事务，恢复312双窗口、热切与拖动。

@@ -20,7 +20,7 @@
 
 T1材质首片、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅证F16量化，不据此换全图精度。T2透明RGB跨effect与静态源/source/capture两卡已闭合，U19灰头冠恢复亮色；U23坐标拒绝与背景强网点已修，U21数组/环形输出及灰斜层已修，下一复核剩余颜色/光束；[类型兼容后验](../history/shared-shader-type-compatibility-2026-10-09.md)保留实际运行及未决合同，不重做已修SDR shoulder或已执行效果；按批回写矩阵。
 
-**下一批（10-10）：** 先复核U16（3122339805）两个可移动窗口消失及文字偏移，沿真实资源/显隐/变换/输出找共同首错；再处理U24/U34曾好后坏与U22长期掉帧。U06内嵌WebM背景已恢复，另有Audio bar effect612颜色合同局部回退，单列待修，见[验收及边界](../history/embedded-webm-video-2026-10-10.md)。相比继续细化土星，此顺序优先已报告的可见回归；不以整样本全部完成作为切换门。Goal继续，土星余项暂缓。
+**下一批（10-10）：** U16两浮动窗口的显隐回归、属性热切及单次拖动已沿公共setter事务闭合，文字/X偏移经用户本轮实机复核已恢复，未验组合单列。接着复核U24（3420215721）整体静止、U34（3782740481）音频环回归，再处理U22视频持续掉帧。U06内嵌WebM背景已恢复，effect612局部回退仍待修。Goal继续，土星细影/Bloom等余项按用户指示暂缓，不以整样本全验作为换题门。
 
 ## 2. 纹理、合成与特效公共缺口
 
@@ -97,7 +97,7 @@ T1材质首片、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；
 | U13 · 3042492564 | ①顶部两道分叉光束差异大；②歌曲识别封面不显示 | 光束仍开放；[封面后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-media-base-fallback)已闭合mask供给、idle连续scalar及换图事件帧旧值覆盖：同一typed admission消费restart preview，4次事件当帧均1并连续递减，无stale/拒绝。主动init/update/overlay与失败回滚不改，未新增clock/值链。**布局/AA/blur与真实播放器仍待修**：默认无resize窗口右侧裁切原因未定，不能关闭②或整样本。 |
 | U14 · 2932157836 | 歌曲封面不显示 | [本批后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-media-base-fallback)：**mask技术首断点已闭**：同Store复用preserved上传发布current/previous mask的typed data视图，原包受控红→绿→蓝出现中间像素、clear恢复作者音符图片，事件/GPU/退出正常。独立blur/spin拒绝及真实播放器来源仍待复验，不关闭整样本 |
 | U15 · 3299228616 | ①鼠标划过水波不明显；②时钟上方矩形独立运动，似未与其他内容同层合成 | pointer→水波输入；graph/变换/相机及合成空间，不能用抬强度掩盖 |
-| U16 · 3122339805 | ①两个可移动窗口消失（用户称曾修复）；②文字区域包括关闭按钮 X 轻微偏移 | 回归候选：脚本/动态对象生命周期与位置、文字布局；复验连续拖动与文字 ROI |
+| U16 · 3122339805 | ①两个可移动窗口消失（用户称曾修复）；②文字区域包括关闭按钮 X 轻微偏移 | ①**已修**：[事件型显隐setter持久修复](../history/event-visibility-persistence-2026-10-10.md)，两父层及子树持续显示，四次属性热切同window，两窗口分别单次拖动完成。②**用户本轮实机复核已恢复**，观察为前几批连带修正，不再列待修偏移。连续同会话拖动、完整设置仍未验；X作者无关闭handler，EYES黑区属于原视频。 |
 | U17 · 3233141951 | ①脸部不随头发做木偶动画；②背后龙头飞行轨迹不对；③黑色小人动画缺失；④官方音频条双色重叠，现仅粉色 | pose/attachment、轨迹/时序、动画激活、audio 层序/混合四项各自闭合 |
 | U18 · 3232289987 | 头发合成位置错位 | **主报告现象已修复**：[MDLV0021版本合同补接](../capabilities/runtime-evidence-current.md#e-2026-10-08-puppet-v21)使躯干骨骼、动画与五官/右臂挂点进入原链，原包前发/五官回到头部。完整交互/官方逐像素未验；generic max重载仍走既有共享fallback，保留后续归因。 |
 | U19 · 3807668787 | ①头冠应亮色发光却像灰色阴影；②音频条缺失 | **两项主报告现象已修，整样本未关闭**：②沿[原音频证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-localized-graph-input)；①[静态源后继](../history/authored-color-continuity-2026-10-09.md#静态源上传与采集后继)保留BC3透明texel的作者RGB，原包GodRays五节点与终端均执行，灰外圈恢复亮色，频谱仍可见。未改gain、关闭effect或按样本补色。未验完整交互/外部音源/官方精确数值。 |
@@ -183,7 +183,7 @@ T1材质首片、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；
 | `GraphTargets / named-target-capture-failed`：3775355045, 3775373546 | 两视频样本有后继完整运行；核同身份capture恢复，不能只用旧失败日志或首帧成功关闭所有组合。 |
 | `BaseImageTextureStore / base-image-texture-load-incomplete`：3264246690, 3629927359, 3784012236 | 326旧mesh/atlas首断点已修；362/378的实际texture demand、purpose、decode与最终source重新定位，不能把loaded计数当具体原因。 |
 | `ParticleRuntime / particle-layer-load-incomplete`：2974757317, 2986218263, 3396722575, 3665307769, 3690859128, 3712499998, 3779904456, 3780119725, 3788467391 | 298 Rope已贯通；其余按当前root/child准入具体原因复验，保留366子profile，不以九条旧计数断言九个当前失败。 |
-| `SceneScriptVM / scene-script-bad-return`：3122339805, 3470948192 | 核text content当前值类型/producer与实际文字输出；此前其他target的维度修复不替代本项复验。 |
+| `SceneScriptVM / scene-script-bad-return`：3470948192 | 核text content类型/producer与实际文字输出。3122339805本批原默认五次运行均无VM失败，数字更新已见，不再沿旧默认bad-return追修；未验属性组合仍不外推。 |
 | `SceneScriptVM / scene-script-exception-range-error`：3789316755 | 378动态层容量与局部非有限赋值已修；保留频谱外观复验，不重造容量owner。 |
 | `SceneScriptVM / scene-script-exception-reference-error`：3779026256 | 实际复验visibility脚本/module输入并核最早缺失API或值，禁止自动吞异常。 |
 | `SceneScriptVM / scene-script-exception-type-error`：3078285611, 3448845950, 3470948192, 3601964477, 3610154602, 3612199597, 3612795410, 3665307769, 3747492842, 3788066613 | 3078285611当前layer60/effect6、22、24的speed脚本报`TypeError: toPrimitive`；3665307769三处异常已由原包和隔离App确认是作者断引用：374访问不存在祖父，386引用不存在的background/outline；实际399进度条lookup正常，不补造句柄，不再归作引擎lookup缺口，整体媒体面板视觉仍待验（见[归因记录](../history/source-material-entry-2026-10-08.md#后继归因原包遗留断引用)）；3610154602于本次Alpha最终链路复验仍见layer435 `getTextureAnimation`接收null，保留为独立脚本缺口（不是Alpha未接通）；按effectConstant/text/layer等target及准确异常定位host API/返回类型；复用同一VM owner，不按统一TypeError泛化修法。 |

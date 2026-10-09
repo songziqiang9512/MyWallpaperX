@@ -10,6 +10,7 @@ nonisolated enum SceneScriptBooleanVisibilityValidation {
         valueType: SceneDynamicValueType,
         target: SceneDynamicTarget,
         allowsLayerSideEffects: Bool,
+        retainsVisibilityMutation: Bool,
         dynamicImagePathsByAuthoredIdentity: [String: String],
         value publishedValue: SceneDynamicValue,
         mutations: [SceneScriptLayerMutation]
@@ -74,7 +75,12 @@ nonisolated enum SceneScriptBooleanVisibilityValidation {
                 if mutation.fields.contains(.visibility) {
                     visible = mutation.visible
                 }
-                let sideEffectFields = mutation.fields.subtracting(.visibility)
+                // A sleeping event owner needs its explicit setter committed
+                // by the same authored-layer runtime as origin/scale writes.
+                // Update owners publish a fresh value each frame; retaining
+                // their setter would pin a stale input over later returns.
+                let sideEffectFields = retainsVisibilityMutation
+                    ? mutation.fields : mutation.fields.subtracting(.visibility)
                 if !sideEffectFields.isEmpty {
                     resolved.append(
                         mutation.selectingAuthoredFields(sideEffectFields)
