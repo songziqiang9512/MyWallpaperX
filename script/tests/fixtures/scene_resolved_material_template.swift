@@ -223,12 +223,16 @@ private func assetFailure(_ path: String) -> SceneResolvedMaterialFailure? {
     return failure(compile(material(slots: slots)))
 }
 private func sourceContracts() -> [String: Bool] {
+    let colorTarget = SceneDynamicTarget.materialConstant(layerID: 123, passIndex: 5, name: "Surface", materialPath: "materials/source.json")
     let pass = SceneRenderDescriptor.MaterialPassDescriptor(
         id: "materials/source.json#5", materialPath: "materials/source.json",
         shaderPath: "images/own-flow", textureSlots: ["Textures/Base.PNG", nil, "_rt_FullFrameBuffer"],
         userTextureInputs: [nil, .init(kind: .property, value: " skin ")],
         combos: ["FLOW": 1], constantShaderValues: [
             "Static": .init(rawValue: "-0", components: [-0.0]),
+            "Power": .init(rawValue: "0.99", components: [0.99]),
+            "Surface": .init(rawValue: "0.2 0.6 0.8", valueKind: "binding", userBinding: "palette", components: [0.2, 0.6, 0.8], scriptSource: "export function update(value) { return value; }", bindingKeys: ["script", "user", "value"]),
+            "Coverage": .init(rawValue: "0.3", userBinding: "opacity", components: [0.3], bindingKeys: ["user", "value"]),
             "Strength": .init(rawValue: "0.75", components: [0.75])
         ], userShaderValues: ["Strength": " strength "],
         blending: nil, depthTest: "disabled", depthWrite: "disabled", cullMode: nil, alphaWriting: nil
@@ -240,26 +244,34 @@ private func sourceContracts() -> [String: Bool] {
         blending: .normal, depthTest: .disabled, depthWrite: .disabled, cullMode: .noCull, alphaWriting: .unspecified
     )
     func sourceCompile(_ node: SceneResolvedMaterialNode, path: String = "Materials/Source.JSON", passIndex: Int = 5,
-                       shader: SceneShaderContract? = nil) -> Result<Template, SceneResolvedMaterialFailure> {
+                       shader: SceneShaderContract? = nil, provenTargets: Set<SceneDynamicTarget> = []) -> Result<Template, SceneResolvedMaterialFailure> {
         SceneResolvedMaterialTemplateCompiler.compileSourceMaterial(
             material: node, layerID: 123, materialPath: path, passIndex: passIndex,
-            shaderContract: shader ?? contract(node.shaderPath), renderState: state
+            shaderContract: shader ?? contract(node.shaderPath), renderState: state,
+            provenSceneScriptValueTargets: provenTargets
         )
     }
-    let value = template(sourceCompile(source))
+    let value = template(sourceCompile(source, provenTargets: [colorTarget]))
     var bound = source.textureSlots
     bound[0] = .init(index: 0, candidates: [.init(source: .graph(layerSource()), provenance: .explicitBinding)])
     let graphBound = material(shaderPath: source.shaderPath, slots: bound)
     let staticExact: Bool = {
         guard case let .staticExact(value)? = value?.uniformDeclarations.first(where: { $0.name == "Static" })?.value else { return false }
         return value.componentBitPatterns == [Double(-0.0).bitPattern]
+            && template(sourceCompile(source))?.uniformDeclarations.contains { $0.name == "Power" && $0.value == .staticExact(.init(valueKind: "number", componentBitPatterns: [Double(0.99).bitPattern], authoredBindingKeys: [], authoredScalarProjectionProven: true)) } == true
     }()
     let dynamicExact: Bool = {
-        guard case let .dynamic(value)? = value?.uniformDeclarations.first(where: { $0.name == "Strength" })?.value else { return false }
-        return value.target == .materialConstant(layerID: 123, passIndex: 5, name: "Strength", materialPath: "materials/source.json")
-            && value.valueContributors == [.userProperty("strength")]
-            && value.authoredFallback?.componentBitPatterns == [Double(0.75).bitPattern]
+        guard case let .dynamic(strength)? = value?.uniformDeclarations.first(where: { $0.name == "Strength" })?.value,
+              case let .dynamic(color)? = value?.uniformDeclarations.first(where: { $0.name == "Surface" })?.value,
+              case let .dynamic(alpha)? = value?.uniformDeclarations.first(where: { $0.name == "Coverage" })?.value else { return false }
+        return strength.target == .materialConstant(layerID: 123, passIndex: 5, name: "Strength", materialPath: "materials/source.json")
+            && strength.valueContributors == [.userProperty("strength")]
+            && strength.authoredFallback?.componentBitPatterns == [Double(0.75).bitPattern]
+            && color.target == colorTarget && color.valueContributors == [.sceneScript] && color.scriptAttachments.isEmpty
+            && alpha.target == .materialConstant(layerID: 123, passIndex: 5, name: "Coverage", materialPath: "materials/source.json") && alpha.valueContributors == [.userProperty("opacity")] && alpha.authoredFallback?.componentBitPatterns == [Double(0.3).bitPattern]
     }()
+    let wrongProof = template(sourceCompile(source, provenTargets: [.materialConstant(layerID: 124, passIndex: 5, name: "Surface", materialPath: "materials/source.json")]))
+    let wrongProofUnproven = wrongProof?.uniformDeclarations.first(where: { $0.name == "Surface" }).map { if case let .dynamic(color) = $0.value { return color.target == colorTarget && color.scriptAttachments == [.unproven] && !color.valueContributors.contains(.sceneScript) }; return false } == true
     let overflowPass = SceneRenderDescriptor.MaterialPassDescriptor(
         id: "overflow", materialPath: pass.materialPath, shaderPath: pass.shaderPath,
         textureSlots: Array(repeating: nil, count: 8) + ["textures/overflow.png"], userTextureInputs: [],
@@ -274,6 +286,7 @@ private func sourceContracts() -> [String: Bool] {
             && value?.textureSlots[1]?.candidates.map { referenceToken($0.reference) } == ["property:skin"]
             && value?.textureSlots[2]?.candidates.map { referenceToken($0.reference) } == ["scene-background:123"],
         "sourceSharedUniformProjection": staticExact && dynamicExact,
+        "sourceScriptProofCannotBorrowAnotherLayerIdentity": wrongProofUnproven,
         "sourceStateAuthorshipPreserved": value?.renderState == state && value?.renderState.rawValues.blending == nil && value?.renderState.rawValues.cullMode == nil,
         "sourceGraphBindingRejected": failure(sourceCompile(graphBound))?.code == .textureReferenceInvalid,
         "sourceIdentityRejected": failure(sourceCompile(source, path: "../escaped.json"))?.code == .identityInvariant && failure(sourceCompile(source, passIndex: -1))?.code == .identityInvariant && failure(sourceCompile(source, shader: contract("images/other")))?.code == .shaderIdentityMismatch,

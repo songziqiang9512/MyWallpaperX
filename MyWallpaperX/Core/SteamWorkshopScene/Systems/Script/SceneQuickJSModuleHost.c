@@ -242,11 +242,10 @@ static JSValue wecolor_hsv_to_rgb(
 ) {
     (void)this_value;
     double hsv[3] = {0};
-    if (argc != 1 || !wecolor_read_vec3(context, argv[0], hsv) ||
-        hsv[1] < 0 || hsv[1] > 1 || hsv[2] < 0 || hsv[2] > 1) {
+    if (argc != 1 || !wecolor_read_vec3(context, argv[0], hsv)) {
         return JS_ThrowTypeError(
             context,
-            "WEColor.hsv2rgb expects a finite normalized HSV Vec3"
+            "WEColor.hsv2rgb expects a finite HSV Vec3"
         );
     }
     const double hue = hsv[0] - floor(hsv[0]);

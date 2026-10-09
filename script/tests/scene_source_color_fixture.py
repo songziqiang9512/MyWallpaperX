@@ -85,6 +85,33 @@ extension Harness {
                     candidate: $0, sourceTexture: png.texture) == nil
             },
         ]
+        let materialCandidate = SceneTextureCandidate(texture: png.texture,
+            identity: .provider(.materialSource(layerID: 8, frameEpoch: 7, allocationGeneration: 2)),
+            generation: .provider(contentGeneration: 7), purpose: pngCandidate.purpose,
+            content: pngCandidate.content, physicalSize: pngCandidate.physicalSize,
+            mappedSize: pngCandidate.mappedSize, uvTransform: pngCandidate.uvTransform,
+            sampling: pngCandidate.sampling)
+        let materialSample = SceneBaseImageTextureCandidateResolver.sample(
+            candidate: materialCandidate, sourceTexture: png.texture)!
+        let styledValues = SceneImageLayerUniformValues(time: 9, alpha: 0.5,
+            cursorUV: SIMD2(0.2, 0.3), tint: SIMD3(0.5, 0.25, 0.75))
+        func sourceUniforms(_ source: SceneBaseImageTextureSample) -> SceneLayerFragmentUniforms {
+            SceneImageLayerCompositor().sourceFragmentUniforms(values: styledValues,
+                layer: .init(contentKind: "image", brightness: 2), sourceSample: source,
+                routesOffscreen: true, dependencyBlendMode: nil,
+                sourceMaterialAlpha: 0.5, sourceMaterialColor: SIMD3(0.4, 0.8, 0.6))
+        }
+        let materialUniforms = sourceUniforms(materialSample)
+        var replacedUniforms = sourceUniforms(pngSample)
+        let rawAlpha = replacedUniforms.alpha
+        replacedUniforms.consumeCompletedMaterialSource(materialCandidate.identity)
+        result["completedMaterialStyle"] = materialUniforms.alpha == 1
+            && materialUniforms.tint == SIMD4(repeating: 1)
+            && materialUniforms.time == 9 && materialUniforms.cursorUV == styledValues.cursorUV
+            && materialUniforms.textureFrame0 == pngSample.textureFrame.uniform0
+            && materialUniforms.sourceSampling.y == 1
+            && rawAlpha == 0.25 && replacedUniforms.alpha == materialUniforms.alpha
+            && replacedUniforms.tint == materialUniforms.tint
         for (name, width, height, native) in [
             ("decodedBC3", UInt32(8), UInt32(4), false),
             // Above the existing 4096² CPU decode budget, with a compact
@@ -180,6 +207,7 @@ def assert_source_color_upload(self, continuity):
         "pngPMA": [0, 0, 0, 0],
         "defaultSamplePMA": True,
         "rejectWrongTypedPairs": True,
+        "completedMaterialStyle": True,
         "decodedBC3": bc3_expected,
         "nativeBC3": bc3_expected,
     })

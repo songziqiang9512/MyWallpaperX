@@ -52,6 +52,8 @@ enum SceneBaseMaterialProviderBindingCompiler {
     ) -> SceneBaseMaterialProviderBindingProgram {
         _ = scriptBindings
         let provenModels = Set(provenBindings.map(\.modelPath))
+        let loweredBindings = provenBindings.filter(\.canLowerToCompositor)
+        let loweredModels = Set(loweredBindings.map(\.modelPath))
         let texturePropertyKeys = Set(descriptor.texturePropertyKeys)
         let passesByLayer = SceneMaterialPropertyBindingCompiler.imageMaterialPasses(descriptor: descriptor)
         var accepted: [Int: SceneBaseMaterialProviderBindingProgram.BaseMaterialBinding] = [:]
@@ -205,13 +207,15 @@ enum SceneBaseMaterialProviderBindingCompiler {
                         materialPropertyTargets: materialPropertyTargets
                     )
             },
-            authoredMaterialColors: Dictionary(uniqueKeysWithValues: provenBindings.map {
+            authoredMaterialColors: Dictionary(uniqueKeysWithValues: loweredBindings.map {
                 ($0.modelPath, SIMD3<Float>($0.authoredColor))
             }),
-            materialColorTargets: provenBindings.reduce(into: materialColorTargets) { targets, fact in
+            materialColorTargets: loweredBindings.reduce(into: materialColorTargets.filter {
+                !provenModels.contains($0.key) || loweredModels.contains($0.key)
+            }) { targets, fact in
                 if let target = fact.colorPropertyTarget { targets[fact.modelPath] = target }
             },
-            sourceMaterialAlphaByModel: Dictionary(uniqueKeysWithValues: provenBindings.map { fact in
+            sourceMaterialAlphaByModel: Dictionary(uniqueKeysWithValues: loweredBindings.map { fact in
                 let alpha: SceneBaseMaterialProviderBindingProgram.SourceMaterialAlpha
                 if let target = fact.alphaPropertyTarget {
                     alpha = .property(target: target, fallback: fact.authoredAlpha)

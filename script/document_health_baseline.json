@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 593,
-      "bytes": 111229
+      "lines": 595,
+      "bytes": 112609
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 93,
-      "bytes": 27408
+      "bytes": 27584
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 224,
-      "bytes": 59541
+      "bytes": 59833
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1081,15 +1081,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "7efcaa1dd0030b661ff5f7ef1e677b40a49ebde9c4106e9543b05074c23a0904",
-      "after": "6f63035c663f810a0422f806593d15b495722164d0df785b4efc5b23804f7ac5",
-      "owner": "Scene模型材质caster准入",
-      "reason": "以成对官方控制修复prepared材质语义丢失；长期准入合同与已验长暗带归档，土星余项按用户调序暂缓并保明确重启边界。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#translucent-model-shadow"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
       "before": "18461eb040d1352c4fb74564067869e2265d2fcac6b54debcf532e33872254f5",
       "after": "3c040b968e69266aac093b348611ffcd1a89efbe3f58edee17fe690e59c48be0",
@@ -1108,21 +1099,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "063b2aab83e56f66ace54ef594b79571d81c00242038828de08e3379c99b080f",
-      "after": "6e27bb601fd061d2a16654727f25420cc0344ca5329a61fbdd0ba7114733e67b",
-      "owner": "Scene模型材质caster准入",
-      "reason": "以成对官方控制修复prepared材质语义丢失；长期准入合同与已验长暗带归档，土星余项按用户调序暂缓并保明确重启边界。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#translucent-model-shadow"
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "6f63035c663f810a0422f806593d15b495722164d0df785b4efc5b23804f7ac5",
+      "after": "ebce0bf190e96dd0e9a14838fa59de043f7d0dc9ba6ae9a68d56f6c2a5e72ccb",
+      "owner": "Scene共享源材质",
+      "reason": "将已验动态共享源、统一style消费与有限HSV合同合并现owner；完成过程归历史，待修队列转U06，不新增并行路线。",
+      "decision": "docs/scene/history/source-material-entry-2026-10-08.md#动态共享源与颜色范围后继"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f51c7fadfc6b98b8860afda74376c0ad53c8bd1b1ecaa9880bad4080e7c47037",
-      "after": "044b03fd330da62cbfa7bbb454c587b482c59892568b0bd15669f877b17d35b6",
-      "owner": "Scene模型材质caster准入",
-      "reason": "以成对官方控制修复prepared材质语义丢失；长期准入合同与已验长暗带归档，土星余项按用户调序暂缓并保明确重启边界。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#translucent-model-shadow"
+      "before": "044b03fd330da62cbfa7bbb454c587b482c59892568b0bd15669f877b17d35b6",
+      "after": "57aedb36841ff02b5ca080f100b31ec69b6733075b09eda13eff5ed58a7de77c",
+      "owner": "Scene共享源材质",
+      "reason": "将已验动态共享源、统一style消费与有限HSV合同合并现owner；完成过程归历史，待修队列转U06，不新增并行路线。",
+      "decision": "docs/scene/history/source-material-entry-2026-10-08.md#动态共享源与颜色范围后继"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "6e27bb601fd061d2a16654727f25420cc0344ca5329a61fbdd0ba7114733e67b",
+      "after": "64082f5ef06589fb152f877ed106a222a5601f91da86f00cfd388b3312c5179f",
+      "owner": "Scene共享源材质",
+      "reason": "将已验动态共享源、统一style消费与有限HSV合同合并现owner；完成过程归历史，待修队列转U06，不新增并行路线。",
+      "decision": "docs/scene/history/source-material-entry-2026-10-08.md#动态共享源与颜色范围后继"
     }
   ]
 }

@@ -640,6 +640,7 @@ final class SceneDependencyFrameRuntime {
                 : SIMD3(repeating: 1)
             uniforms.tint = SIMD4(color.x, color.y, color.z, 1)
             let isStraight = providerSource.content == .color(.resolved(.straightAlpha))
+            uniforms.consumeCompletedMaterialSource(sourceCandidate?.identity)
             capturedContent = isStraight ? .color(.resolved(.straightAlpha)) : .color(.resolved(.premultipliedAlpha))
             uniforms.textureFrame0 = providerSource.textureFrame.uniform0
             uniforms.textureFrame1 = providerSource.textureFrame.uniform1

@@ -304,12 +304,14 @@ JavaScriptCore 是系统自带对照，但当前 Xcode SDK 没有公开的执行
 
 - 在现 `SceneAuthoredMaterialResolver` / `SceneResolvedMaterialTemplateCompiler` 增加明确的 source-material 入口，共用 slot 覆盖、uniform 投影、ShaderSchema、VariantCache、ProgramFinalizer 和 PassEncoder。源身份为真实 layer/model/material/pass，不伪造 EffectDescriptor、EffectKey 或 effect ordinal。Catalog 统一收集资源需求；`ScenePreparedDeviceResources.makeMaterialRuntime` 为首个与后续 surface 完成编译和同 executor 的 pipeline warmup。Rendering 只持 typed frame binder、源域与输出格式，普通帧只选已准备 variant、更新 typed host 值和编码。
 - 首片支持唯一 model/material 关联、单 pass 普通 image quad，以及共享编译器已经证明的颜色/采样/host uniform 合同。是否带后置 effects 不作为准入条件。builtin image 继续由已有 owner 处理；多 pass、Puppet、未证明的 source provider/instance 覆盖和 render state 必须明确拒绝该源入口，不能静默忽略作者字段或编造默认值。
-- 源求值与最终图层合成分离：源目标透明清空后完整写入，layer tint/alpha/world transform/最终 layer blend 仍只由原 compositor 消费一次。源求值 overwrite 是中间产物角色，不代表作者缺省 blending 的官方后端状态；显式冲突 material blend/depth/cull/alpha 拒绝入口，不能声称它们已由 layer blend 消费。作者 material state 的缺省与显式 blend/depth/cull 必须有独立准入依据；不能把不支持的 translucent/default 强制改成 normal。输出颜色由 Program 推导，不以“非黑”或普通 RGBA 纹理代替颜色证明。
+- 源求值与最终图层合成分离：源目标透明清空后完整写入；已完成materialSource由同一uniform转换将外部tint/alpha/brightness归一，直接绘制、preflight源替换及模型named采集共用，避免再次乘色。descriptor/动态layer值保留给已准入宿主输入；world transform、显式finalCompositeAlpha、visibility与最终layer blend仍归原compositor。源求值 overwrite 是中间产物角色，不代表作者缺省 blending 的官方后端状态；显式冲突 material blend/depth/cull/alpha 拒绝入口，不能声称它们已由 layer blend 消费。作者 material state 的缺省与显式 blend/depth/cull 必须有独立准入依据；只有既有单纹理接口证明的translucent/default组合可按raw overwrite求值，其他state不放开。输出颜色由 Program 推导，不以“非黑”或普通 RGBA 纹理代替颜色证明。
 - 帧内准备落在主 pass 建立后、任何 graph/source 消费之前；复用同一 executor 的 PassEncoder、offscreen pool、预算和 MainPass submission pin。成功后发布完整 texture/content/UV/logical extent/frame generation 原子事实；首片在静态资产物理域求值，保留该域真实 padding 映射，最终只消费 mapped region；若改为逻辑域求值则必须改为单位 UV，不得机械沿用旧 atlas UV 或另建持久源缓存、时钟、提交队列。失败保留原安全源，拒绝最小失败材质；GPU 未提交/失败时沿现有生命周期回收，不发布伪 ready。
 
 取舍：扩整个 effect Graph 为 source stage 会牵连 effect visibility/function/history 等不相关职责；独立 shader renderer 会重复算法与资源 owner。此次只扩共享材质编译和现源准备入口。若有限入口无法保留某类作者语义，先列明反例再扩既有合同，不以继续叠加样本分支解决。
 
 验证合同：双纹理+时间材质须有定量 GPU 正反例，真实动态源、同源后置 effects、HDR 与健康 builtin 须走实际输出。纹理域由已选 slot 0 资产的 identity/purpose 决定；源输出及 effect capture 同步 UV，不能复用普通底图裁切后的物理尺寸。缓存中保存的 purpose/transfer 证明随分析语义版本失效。实际证据与尚未准入组合见[实施记录](../history/source-material-entry-2026-10-08.md)及[待修队列](../roadmap/scene-open-breakpoint-queue.md)，不把首片当全部 T1 完成。
+
+动态共享源沿同一接口证明区分“可消费”与“可降低”：有限静态Bright/Power非中性保留完整Program，scroll仍须中性；color/Alpha只借用实际已准入的属性、materialConstant与共享模型脚本。仅中性降低注册compositor乘数，完整Program退出旧乘数，已ready template的target才进入live consumer。每model固定首作者上下文、一份template，每帧对有需求的原层/clone求值一次，各consumer发布同texture/epoch但自己的layerID、geometry和logical extent，共用一份submission pin；不得借prototype身份或放宽validator。隐藏原层仍可服务可见clone，无消费者不求值；未知输入、Timeline、实例/provider覆盖及layer相关shader仍拒绝。公开WEColor的hsv2rgb接受有限的超范围s/v并沿原算法返回负数/HDR分量，不提前夹到0–1；非有限输入拒绝，结果沿现typed发布校验。准入、三卡官方对照、热切与退役的有界验证见[动态源记录](../history/source-material-entry-2026-10-08.md#动态共享源与颜色范围后继)。
 
 ### 5.1 普通 effect 快速通路
 

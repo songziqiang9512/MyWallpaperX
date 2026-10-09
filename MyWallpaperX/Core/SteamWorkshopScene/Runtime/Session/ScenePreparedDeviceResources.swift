@@ -560,7 +560,8 @@ extension ScenePreparedDeviceResources {
             }
             prepared[layerID] = .init(template: template, bindFrame: { input in
                 SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: variants)
-            }, pixelFormat: format, sourceIdentity: sourceIdentity)
+            }, pixelFormat: format, sourceIdentity: sourceIdentity,
+                sharedModelPath: entry.sharedModelPath)
             logSink("source material prepared: owner=\(entry.key.reportToken) variants=\(envelope.variants.count)")
         }
         return prepared

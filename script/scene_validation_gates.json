@@ -2523,6 +2523,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorCandidateModels.swift",
         "script/tests/test_scene_base_material_static_tint.py",
         "script/tests/fixtures/SceneBaseMaterialStaticTintHarness.swift",
+        "script/tests/fixtures/SceneBaseMaterialProviderBindingHarness.swift",
         "script/tests/fixtures/SceneBaseMaterialAlphaChecks.swift",
         "script/tests/fixtures/SceneUserTextureSolidDrawChecks.swift",
         "script/tests/fixtures/SceneBaseMaterialUserColorChecks.swift",

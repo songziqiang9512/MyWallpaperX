@@ -86,6 +86,7 @@ enum SceneBaseMaterialColorModulationCompiler {
         var alphaKey: String? = nil
         var authoredAlpha: Float = 1
         var alphaUserPropertyKey: String? = nil
+        var canLowerToCompositor: Bool = true
         var alphaPropertyTarget: SceneDynamicTarget? {
             guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
             return .materialConstant(layerID: sourceLayerID, passIndex: 0,

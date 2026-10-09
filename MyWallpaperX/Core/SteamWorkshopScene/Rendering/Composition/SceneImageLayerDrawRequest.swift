@@ -302,7 +302,8 @@ struct SceneImageLayerDrawRequest {
         return .init(
             textureFrame: sample.textureFrame,
             sampling: effectiveSourceSampling(for: sample.sampling),
-            representation: sample.representation
+            representation: sample.representation,
+            identity: sample.identity
         )
     }
 }

@@ -493,7 +493,7 @@ extension SceneDesktopWallpaperHost {
         logPrepareStage("prepare-admission")
         let materialPropertyTargets = Set(runtimeInput.propertyBindingProgram.instructions.map(\.target))
         let provenMaterialBindings = model.propertyVectorProjection.materialBindings
-        let loweredMaterialModelPaths = Set(provenMaterialBindings.map(\.modelPath))
+        let loweredMaterialModelPaths = Set(provenMaterialBindings.filter(\.canLowerToCompositor).map(\.modelPath))
         let resolvedMaterialCatalog = SceneResolvedMaterialRuntimeCatalog(
             descriptor: runtimeInput.renderDescriptor,
             admissionCandidates: resolvedMaterialAdmissionCandidates,
@@ -503,7 +503,8 @@ extension SceneDesktopWallpaperHost {
             timelineDefinitions: timelineDefinitions,
             provenSceneScriptValueTargets: provisionalSceneScriptValueTargets,
             materialInstancesByLayerID: model.sceneDocument.materialInstancesByLayerID,
-            loweredSourceMaterialModelPaths: loweredMaterialModelPaths
+            loweredSourceMaterialModelPaths: loweredMaterialModelPaths,
+            provenSourceMaterialBindings: provenMaterialBindings
         )
         logPrepareStage("prepare-catalog")
         try cancellation?.check()
@@ -743,9 +744,15 @@ extension SceneDesktopWallpaperHost {
             demands: userTextureDemands
         ) else { throw SceneDesktopWallpaperHostLaunchError.requiredUserTextureUnavailable }
         NSLog("MWX LAUNCH-STAGE: stage=device-join elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
-        let preparedFirstSurfaceRuntime = ScenePreparedFirstSurfaceRuntime(
-            try firstSurfaceRuntimePreparation.value()
-        )
+        let firstSurfaceRuntime = try firstSurfaceRuntimePreparation.value()
+        let preparedSourceMaterialTargets: Set<SceneDynamicTarget> = Set(firstSurfaceRuntime.sourceMaterials.values
+            .flatMap { material in
+                material.template.uniformDeclarations.compactMap { declaration in
+                    if case let .dynamic(value) = declaration.value { return value.target }
+                    return nil
+                }
+            })
+        let preparedFirstSurfaceRuntime = ScenePreparedFirstSurfaceRuntime(firstSurfaceRuntime)
         NSLog("MWX LAUNCH-STAGE: stage=first-surface-join elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
         let frameSchema = SceneDesktopWallpaperLaunchFrameSchema(
             runtimeInput: runtimeInput,
@@ -813,7 +820,8 @@ extension SceneDesktopWallpaperHost {
                 preparedImageMaterialTargets: Set(baseMaterialProviderBindings.lightingProfileByLayerID.values
                     .compactMap(\.emissionPropertyTarget))
                     .union(baseMaterialProviderBindings.sourceMaterialAlphaPropertyTargets)
-                    .union(baseMaterialProviderBindings.materialColorTargets.values),
+                    .union(baseMaterialProviderBindings.materialColorTargets.values)
+                    .union(preparedSourceMaterialTargets),
                 preparedParticleVisibilityLayerIDs:
                     preparedParticleVisibilityLayerIDs,
                 propertyVectorScriptProgram: propertyVectorScriptProgram,

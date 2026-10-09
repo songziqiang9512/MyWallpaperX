@@ -4,15 +4,18 @@ struct SceneBaseImageTextureSample {
     let textureFrame: SceneTextureUVTransform
     let sampling: SceneTextureSampling
     let representation: SceneShaderColorRepresentation
+    let identity: SceneTextureResourceIdentity?
 
     init(
         textureFrame: SceneTextureUVTransform,
         sampling: SceneTextureSampling,
-        representation: SceneShaderColorRepresentation = .premultipliedAlpha
+        representation: SceneShaderColorRepresentation = .premultipliedAlpha,
+        identity: SceneTextureResourceIdentity? = nil
     ) {
         self.textureFrame = textureFrame
         self.sampling = sampling
         self.representation = representation
+        self.identity = identity
     }
 }
 
@@ -49,7 +52,8 @@ enum SceneBaseImageTextureCandidateResolver {
         return .init(
             textureFrame: candidate.uvTransform,
             sampling: candidate.sampling,
-            representation: representation
+            representation: representation,
+            identity: candidate.identity
         )
     }
 

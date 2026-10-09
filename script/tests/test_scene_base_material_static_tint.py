@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real prepared neutral-tint admission for static and scripted material colors.
+"""Real prepared single-texture interface admission and compositor lowering.
 
 The fixture uses self-authored shader stages. Only descriptor/value leaves are
 doubled; preprocessing, schema, the neutral shader proof and compiler are real.
@@ -133,7 +133,21 @@ class SceneBaseMaterialStaticTintTests(unittest.TestCase):
         for name in ["staticBlack", "staticNonwhite", "staticComma", "directVec2UV"]:
             with self.subTest(name=name):
                 self.assertEqual(self.result[name]["count"], 1)
+                self.assertTrue(self.result[name]["canLower"])
                 self.assertFalse(self.result[name]["hasScript"])
+
+    def test_full_source_schema_consumes_the_shared_color_purpose_proof(self) -> None:
+        self.assertTrue(self.result["sharedTintPowerPurpose"]["matches"])
+        self.assertTrue(self.result["sharedPurposePreservesAlreadyTypedSampler"]["matches"])
+
+    def test_full_source_precedes_independent_effects_without_direct_tint_claim(self) -> None:
+        for name in ["fullProgramEffects", "fullProgramMixedEffectConsumers"]:
+            with self.subTest(name=name):
+                self.assertEqual(self.result[name]["count"], 1)
+                self.assertFalse(self.result[name]["canLower"])
+                self.assertEqual(self.result[name]["context"], 57)
+        self.assertEqual(self.result["effects"]["count"], 0)
+        self.assertEqual(self.result["fullProgramEffectSiblingWithDependency"]["count"], 0)
 
     def test_script_binding_retains_the_existing_dynamic_resource_boundary(self) -> None:
         self.assertEqual(self.result["scriptDynamic"]["count"], 1)
@@ -175,8 +189,20 @@ class SceneBaseMaterialStaticTintTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertEqual(self.result[name]["count"], 0)
 
-    def test_non_neutral_scalar_operations_are_not_lowered(self) -> None:
-        for name in ["brightnessTwo", "powerHalf", "scrollNonzero"]:
+    def test_non_neutral_static_scalars_keep_the_full_source_program(self) -> None:
+        for name in ["brightnessTwo", "powerHalf", "powerPoint99",
+                     "fullProgramMixedColorAndUserAlpha"]:
+            with self.subTest(name=name):
+                self.assertEqual(self.result[name]["count"], 1)
+                self.assertFalse(self.result[name]["canLower"])
+        mixed = self.result["fullProgramMixedColorAndUserAlpha"]
+        self.assertTrue(mixed["colorTargetMatches"])
+        self.assertTrue(mixed["alphaTargetMatches"])
+        self.assertTrue(mixed["hasScript"])
+        self.assertEqual(mixed["colorUserKey"], "palette")
+        self.assertEqual(mixed["alphaUserKey"], "liveOpacity")
+        for name in ["scrollNonzero", "overflowingBrightness", "nonfinitePower",
+                     "unknownBrightnessWrapper"]:
             with self.subTest(name=name):
                 self.assertEqual(self.result[name]["count"], 0)
 

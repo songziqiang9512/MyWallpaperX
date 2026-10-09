@@ -134,6 +134,36 @@ enum Harness {
             fatalError("dynamic script text layer was rejected")
         }
 
+        // One evaluated material texture may serve a prototype and clones,
+        // but each consumer owns its publication identity and geometry.
+        let sharedMaterialAtoms = [8, -1, -2].enumerated().map { index, layerID in
+            SceneLayerSourcePublication(
+                layerID: layerID,
+                publication: publication(layerID: layerID,
+                    provider: .materialSource(layerID: layerID,
+                        frameEpoch: 17, allocationGeneration: 4)),
+                renderSizeWH: [Float(20 + index), 10]
+            )
+        }
+        guard sharedMaterialAtoms.allSatisfy({ $0?.publication.texture === texture }),
+              sharedMaterialAtoms[0]?.renderSizeWH == [20, 10],
+              sharedMaterialAtoms[1]?.renderSizeWH == [21, 10],
+              sharedMaterialAtoms[2]?.renderSizeWH == [22, 10],
+              SceneLayerSourcePublication(layerID: -1,
+                publication: sharedMaterialAtoms[0]!.publication) == nil
+        else { fatalError("shared material output lost consumer identity or geometry") }
+        let sharedFrame = SceneFrameTextureRegistrySnapshot(
+            frameEpoch: 17, frameIndex: 3, entries: [:])
+        let staleMaterial = SceneLayerSourcePublication(layerID: -1,
+            publication: publication(layerID: -1,
+                provider: .materialSource(layerID: -1,
+                    frameEpoch: 16, allocationGeneration: 4)))!
+        guard sharedFrame.overlayingLayerSources([
+            8: sharedMaterialAtoms[0]!, -1: sharedMaterialAtoms[1]!, -2: sharedMaterialAtoms[2]!
+        ])?.resource(for: .layerSource(-2))?.publication.texture === texture,
+              sharedFrame.overlayingLayerSources([-1: staleMaterial]) == nil
+        else { fatalError("shared material frame accepted stale source epoch") }
+
         guard SceneLayerSourcePublication(
             layerID: 8,
             publication: publication(candidateLayerID: 9),

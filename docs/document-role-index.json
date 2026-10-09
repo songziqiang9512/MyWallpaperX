@@ -354,10 +354,10 @@
       "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8c24a7d634c0120e4b90b3ba52a14663b4425e3498dba8a2b2bbca0a2d7e4545",
+        "sourceSHA256": "78c49b33dd430651834ff84d5325eb49051f11f3cbef8548e964364047ff8777",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅核模型材质caster准入的单owner合同、完整包实际输出与有界余项转序入口。",
-        "limitations": "非全文实现审查；不升级微颗粒/弧线/Bloom、全部动态/交互、性能或全样本官方一致性。"
+        "scope": "核动态共享源的现owner、完成source样式消费、有限HSV及有界运行/待修入口。",
+        "limitations": "仅此合同与导航审查；不升级未准入材料、整样本官方一致性、全部交互或性能。"
       }
     },
     {
@@ -523,10 +523,10 @@
       "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f8f61c21a588d61dda0e13eeb03263c81e07d8043ef7588f912e9a77bdecb933",
+        "sourceSHA256": "76e58b29d2bc4b1e80b25c1c173c5d471702573e62720533d5eb0dbd50758769",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅核模型材质caster准入的单owner合同、完整包实际输出与有界余项转序入口。",
-        "limitations": "非全文实现审查；不升级微颗粒/弧线/Bloom、全部动态/交互、性能或全样本官方一致性。"
+        "scope": "仅核自定义源材质后继条目的已验输入与历史入口。",
+        "limitations": "非全页运行重验，不升级整样本与官方parity。"
       }
     },
     {

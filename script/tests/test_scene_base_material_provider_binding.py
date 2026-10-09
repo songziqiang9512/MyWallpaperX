@@ -42,7 +42,6 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
                     "swiftc", *map(str, material.SOURCES), str(SOURCE), str(COMPILER_SOURCE),
                     str(LIGHTING_PROFILE_SOURCE),
                     str(VISIBILITY_SOURCE),
-                    str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyLiveUpdateState.swift"),
                     str(ROOT / "script/tests/fixtures/SceneBaseMaterialAlphaChecks.swift"),
                     str(ROOT / "script/tests/fixtures/SceneBaseMaterialUserColorChecks.swift"),
                     str(harness), "-module-cache-path", str(root / "cache"), "-o", str(binary),

@@ -254,7 +254,17 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
     private let assetProvider: SceneMaterialAssetTextureCatalog.FrameProvider
     let submissions: SceneResolvedMaterialSubmissionCoordinator
-    var sourceMaterials: [Int: PreparedSourceMaterial] = [:]
+    var sourceMaterials: [Int: PreparedSourceMaterial] = [:] {
+        didSet {
+            let shared = Dictionary(grouping: sourceMaterials.compactMap { id, material in
+                material.sharedModelPath.map { (path: $0, id: id) }
+            }, by: \.path)
+            sourceMaterialPrototypeByModel = shared.compactMapValues {
+                $0.count == 1 ? $0.first?.id : nil
+            }
+        }
+    }
+    private(set) var sourceMaterialPrototypeByModel: [String: Int] = [:]
     let visibleExecutionRootLayerIDs: Set<Int>
     private let executionEvidenceLock = NSLock()
     private var executionEvidenceByKey: [Graph.EffectKey: String] = [:]

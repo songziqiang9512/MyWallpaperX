@@ -46,6 +46,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     struct SourceMaterialEntry {
         let key: SourceMaterialKey
         let entry: Entry
+        var sharedModelPath: String? = nil
     }
 
     enum Entry {
@@ -166,7 +167,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         timelineDefinitions: Set<SceneDynamicTargetDefinition> = [],
         provenSceneScriptValueTargets: Set<SceneDynamicTarget> = [],
         materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance] = [:],
-        loweredSourceMaterialModelPaths: Set<String> = []
+        loweredSourceMaterialModelPaths: Set<String> = [],
+        provenSourceMaterialBindings: [SceneBaseMaterialColorModulationCompiler.Binding] = []
     ) {
         var records: [Key: [(graph: Graph, node: Graph.Node)]] = [:]
         for candidate in admissionCandidates {
@@ -335,6 +337,9 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             descriptor: descriptor, shaderContracts: shaderContracts,
             instances: materialInstancesByLayerID,
             loweredModelPaths: loweredSourceMaterialModelPaths,
+            provenBindings: provenSourceMaterialBindings,
+            sceneScriptTargets: provenSceneScriptValueTargets,
+            userPropertyProducers: userPropertyProducers,
             demands: &demands, userDemands: &userDemands,
             systemDemands: &systemDemands, issues: &demandIssues,
             analyses: resourceDemandAnalyses
@@ -355,6 +360,9 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         shaderContracts: [SceneShaderContract],
         instances: [Int: SceneDocument.SceneLayerMaterialInstance],
         loweredModelPaths: Set<String>,
+        provenBindings: [SceneBaseMaterialColorModulationCompiler.Binding],
+        sceneScriptTargets: Set<SceneDynamicTarget>,
+        userPropertyProducers: Set<SceneDynamicUserPropertyProducer>,
         demands: inout Set<SceneAssetTextureIdentity>,
         userDemands: inout Set<SceneUserPropertyTextureIdentity>,
         systemDemands: inout Set<SystemProviderDemand>,
@@ -363,6 +371,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     ) -> [Int: SourceMaterialEntry] {
         let links = Dictionary(grouping: descriptor.modelMaterialLinks) { normalized($0.modelPath) }
         let passes = Dictionary(grouping: descriptor.materialPasses) { normalized($0.materialPath) }
+        let fullBindings = provenBindings.filter { !$0.canLowerToCompositor }
         var result: [Int: SourceMaterialEntry] = [:]
         for layer in descriptor.layers where layer.contentKind == "image" {
             guard let modelPath = layer.imagePath,
@@ -374,6 +383,9 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                   materialPasses.contains(where: { pass in
                       pass.shaderPath.map { !SceneBuiltinShaderIdentity.isImage($0) } ?? true
                   }) else { continue }
+            let proof = fullBindings.first { normalized($0.modelPath) == normalized(modelPath)
+                && normalized($0.materialPath) == normalized(materialPath) }
+            if let proof, proof.sourceLayerID != layer.id { continue }
             let key = SourceMaterialKey(layerID: layer.id, modelPath: modelPath,
                 materialPath: materialPath, passIndex: materialPasses.first?.passIndex ?? 0)
             func reject(_ detail: String) -> SourceMaterialEntry {
@@ -390,9 +402,9 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             guard instances[layer.id] == nil, layer.staticBaseTexturePath == nil,
                   pass.userTextureInputs.allSatisfy({ $0 == nil }),
                   pass.userShaderValues.isEmpty,
-                  pass.constantShaderValues.values.allSatisfy({
-                      $0.bindingKeys.isEmpty && $0.timelineDiagnostics.isEmpty
-                          && $0.timeline == nil
+                  pass.constantShaderValues.allSatisfy({ name, value in
+                      sourceUniformIsAdmitted(name: name, value: value, proof: proof,
+                          sceneScriptTargets: sceneScriptTargets, userPropertyProducers: userPropertyProducers)
                   }) else {
                 result[layer.id] = reject("dynamic-declaration-unsupported"); continue
             }
@@ -401,7 +413,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             guard let material = resolution.node, resolution.issues.isEmpty else {
                 result[layer.id] = reject("resolution:" + resolution.issues.joined(separator: ";")); continue
             }
-            guard let state = sourceEvaluationState(material.renderState) else {
+            guard let state = sourceEvaluationState(material.renderState, provenInterface: proof != nil) else {
                 result[layer.id] = reject("render-state-unsupported"); continue
             }
             let contracts = shaderContracts.filter {
@@ -412,7 +424,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             }
             switch SceneResolvedMaterialTemplateCompiler.compileSourceMaterial(
                 material: material, layerID: layer.id, materialPath: materialPath,
-                passIndex: pass.passIndex, shaderContract: contract, renderState: state
+                passIndex: pass.passIndex, shaderContract: contract, renderState: state,
+                provenSceneScriptValueTargets: sceneScriptTargets
             ) {
             case let .failure(failure):
                 result[layer.id] = .init(key: key, entry: .failure(failure))
@@ -429,10 +442,51 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     implicitFramebufferIdentity: nil, demands: &demands,
                     userDemands: &userDemands, systemDemands: &systemDemands,
                     issues: &issues, analyses: analyses)
-                result[layer.id] = .init(key: key, entry: .template(template))
+                result[layer.id] = .init(key: key, entry: .template(template),
+                    sharedModelPath: proof.map { normalized($0.modelPath) })
             }
         }
         return result
+    }
+
+    /// Only the interface-proven color/Alpha inputs may borrow the existing
+    /// typed producers. Unknown dynamic fields keep the original rejection.
+    private static func sourceUniformIsAdmitted(
+        name: String, value: SceneDocument.ShaderValue,
+        proof: SceneBaseMaterialColorModulationCompiler.Binding?,
+        sceneScriptTargets: Set<SceneDynamicTarget>,
+        userPropertyProducers: Set<SceneDynamicUserPropertyProducer>
+    ) -> Bool {
+        guard value.timeline == nil, value.timelineDiagnostics.isEmpty else { return false }
+        if value.bindingKeys.isEmpty { return true }
+        guard let proof else { return false }
+        let target = SceneDynamicTarget.materialConstant(layerID: proof.sourceLayerID,
+            passIndex: 0, name: name, materialPath: proof.materialPath)
+        func hasUserProducer(_ key: String, _ type: SceneDynamicValueType) -> Bool {
+            let matches = userPropertyProducers.filter { $0.target == target }
+            return matches.count == 1 && matches.first?.propertyKey == key
+                && matches.first?.valueType == type
+        }
+        if name == proof.colorKey {
+            guard value.scriptSource == proof.scriptSource,
+                  value.userBinding == proof.colorUserPropertyKey else { return false }
+            var keys = ["value"]
+            if proof.scriptSource != nil {
+                keys.append("script")
+                guard sceneScriptTargets.contains(target) else { return false }
+            }
+            if value.scriptProperties != nil { keys.append("scriptproperties") }
+            if let key = proof.colorUserPropertyKey {
+                keys.append("user")
+                guard hasUserProducer(key, .vector3) else { return false }
+            }
+            return value.bindingKeys.sorted() == keys.sorted()
+        }
+        guard name == proof.alphaKey, let key = proof.alphaUserPropertyKey,
+              value.bindingKeys.sorted() == ["user", "value"],
+              value.userBinding == key, value.scriptSource == nil,
+              value.scriptProperties == nil else { return false }
+        return hasUserProducer(key, .scalar)
     }
 
     /// Evaluation writes raw material output into a transparent source target;
@@ -440,15 +494,18 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     /// declarations and reject conflicting explicit states instead of claiming
     /// that omitted authored blending/culling has a proven backend default.
     private static func sourceEvaluationState(
-        _ raw: SceneResolvedMaterialNode.RenderState
+        _ raw: SceneResolvedMaterialNode.RenderState,
+        provenInterface: Bool
     ) -> SceneMaterialRenderState? {
         func allows(_ value: String?, _ expected: String) -> Bool {
             value == nil || value?.trimmingCharacters(in: .whitespacesAndNewlines)
                 .lowercased() == expected
         }
-        guard allows(raw.blending, "normal"), allows(raw.depthTest, "disabled"),
+        let provenRawOverwrite = provenInterface && allows(raw.blending, "translucent")
+            && allows(raw.alphaWriting, "default")
+        guard (allows(raw.blending, "normal") || provenRawOverwrite), allows(raw.depthTest, "disabled"),
               allows(raw.depthWrite, "disabled"), allows(raw.cullMode, "nocull"),
-              raw.alphaWriting == nil || allows(raw.alphaWriting, "enabled") else { return nil }
+              raw.alphaWriting == nil || allows(raw.alphaWriting, "enabled") || provenRawOverwrite else { return nil }
         return .init(rawValues: .init(blending: raw.blending, depthTest: raw.depthTest,
             depthWrite: raw.depthWrite, cullMode: raw.cullMode, alphaWriting: raw.alphaWriting),
             blending: .normal, depthTest: .disabled, depthWrite: .disabled,

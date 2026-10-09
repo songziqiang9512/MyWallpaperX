@@ -18,6 +18,7 @@ extension SceneResolvedMaterialRuntimeBridge.FramePreparationRequest {
         uniforms?.textureFrame0 = candidate.uvTransform.uniform0
         uniforms?.textureFrame1 = candidate.uvTransform.uniform1
         uniforms?.sourceSampling.y = candidate.content == .color(.resolved(.straightAlpha)) ? 1 : 0
+        uniforms?.consumeCompletedMaterialSource(candidate.identity)
         return .init(claim: claim, targetPlan: targetPlan,
             materialFunctionInvocations: materialFunctionInvocations,
             sceneBackgroundResource: sceneBackgroundResource, sourceTexture: texture,
@@ -34,6 +35,23 @@ extension SceneResolvedMaterialRuntimeBridge {
             -> Result<SceneResolvedMaterialProgram, SceneResolvedMaterialFailure>
         let pixelFormat: MTLPixelFormat
         let sourceIdentity: SceneAssetTextureIdentity
+        var sharedModelPath: String? = nil
+    }
+
+    struct SourceMaterialConsumer {
+        let layerID: Int
+        let prototypeLayerID: Int
+    }
+
+    func sourceMaterialConsumer(layerID: Int, modelPath: String?) -> SourceMaterialConsumer? {
+        if sourceMaterials[layerID] != nil {
+            return .init(layerID: layerID, prototypeLayerID: layerID)
+        }
+        guard let modelPath else { return nil }
+        let normalized = modelPath.replacingOccurrences(of: "\\", with: "/")
+            .trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
+        guard let prototype = sourceMaterialPrototypeByModel[normalized] else { return nil }
+        return .init(layerID: layerID, prototypeLayerID: prototype)
     }
 
     /// Produces source atoms before any graph request freezes its inputs.
@@ -41,7 +59,7 @@ extension SceneResolvedMaterialRuntimeBridge {
     /// whose subsequent publication fails. There is no persistent source cache.
     func prepareSourceMaterials(
         imageTextures: SceneBaseImageTextureSnapshot,
-        layerIDs: [Int],
+        consumers: [SourceMaterialConsumer],
         registry: SceneFrameTextureRegistry,
         pool: SceneOffscreenTexturePool?,
         mainPass: SceneMainPassEncoder,
@@ -58,10 +76,14 @@ extension SceneResolvedMaterialRuntimeBridge {
         guard let original, original.frameIndex == registry.frameIndex,
               original.textureRegistrySnapshot.frameEpoch == registry.frameEpoch else { return imageTextures }
         var sources: [Int: SceneLayerSourcePublication] = [:]
-        for layerID in layerIDs {
-            guard let material = sourceMaterials[layerID], material.pixelFormat == pool.pixelFormat,
-                  let base = imageTextures[layerID],
-                  imageTextures.candidate(for: layerID, matching: base) != nil,
+        let groups = Dictionary(grouping: consumers, by: \.prototypeLayerID)
+        for layerID in groups.keys.sorted() {
+            let layerIDs = (groups[layerID] ?? []).map(\.layerID).filter {
+                guard let base = imageTextures[$0] else { return false }
+                return imageTextures.candidate(for: $0, matching: base) != nil
+            }
+            guard !layerIDs.isEmpty,
+                  let material = sourceMaterials[layerID], material.pixelFormat == pool.pixelFormat,
                   let source = original.textureRegistrySnapshot.resource(for: .asset(material.sourceIdentity)),
                   source.publication.candidate.materialProgramUVTransform() != nil,
                   !source.publication.candidate.isSpriteSheet,
@@ -92,24 +114,26 @@ extension SceneResolvedMaterialRuntimeBridge {
             // validation fails; only submission completion/cancellation releases it.
             mainPass.retainCompositionPin(target.pin)
             guard encoder.encode(pass, commandBuffer: commandBuffer) else { continue }
-            let candidate = SceneTextureCandidate(texture: target.texture,
-                identity: .provider(.materialSource(layerID: layerID,
-                    frameEpoch: registry.frameEpoch, allocationGeneration: target.pin.generation)),
-                generation: .provider(contentGeneration: registry.frameEpoch),
-                purpose: pass.storedContent == .color(.resolved(.straightAlpha))
-                    ? .straightAlbedo : .premultipliedColor, content: pass.storedContent,
-                physicalSize: size, mappedSize: sourceCandidate.mappedSize,
-                uvTransform: sourceCandidate.uvTransform,
-                sampling: sourceCandidate.sampling)
-            let publication = SceneTextureProviderPublication(requestIdentity: .layerSource(layerID),
-                candidate: candidate, contentGeneration: registry.frameEpoch)
-            guard let source = SceneLayerSourcePublication(layerID: layerID, publication: publication,
-                renderSizeWH: imageTextures.layerSourceRenderSize(for: layerID),
-                effectRenderSizeWH: imageTextures.layerSourceEffectRenderSize(for: layerID),
-                textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: layerID)) else { continue }
-            sources[layerID] = source
+            for consumerID in layerIDs {
+                let candidate = SceneTextureCandidate(texture: target.texture,
+                    identity: .provider(.materialSource(layerID: consumerID,
+                        frameEpoch: registry.frameEpoch, allocationGeneration: target.pin.generation)),
+                    generation: .provider(contentGeneration: registry.frameEpoch),
+                    purpose: pass.storedContent == .color(.resolved(.straightAlpha))
+                        ? .straightAlbedo : .premultipliedColor, content: pass.storedContent,
+                    physicalSize: size, mappedSize: sourceCandidate.mappedSize,
+                    uvTransform: sourceCandidate.uvTransform,
+                    sampling: sourceCandidate.sampling)
+                let publication = SceneTextureProviderPublication(requestIdentity: .layerSource(consumerID),
+                    candidate: candidate, contentGeneration: registry.frameEpoch)
+                guard let source = SceneLayerSourcePublication(layerID: consumerID, publication: publication,
+                    renderSizeWH: imageTextures.layerSourceRenderSize(for: consumerID),
+                    effectRenderSizeWH: imageTextures.layerSourceEffectRenderSize(for: consumerID),
+                    textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: consumerID)) else { continue }
+                sources[consumerID] = source
+            }
             if original.frameIndex <= 2 {
-                submissions.logSink("source material encoded: layer=\(layerID) frame=\(original.frameIndex) target=\(target.texture.width)x\(target.texture.height)")
+                submissions.logSink("source material encoded: layer=\(layerID) frame=\(original.frameIndex) consumers=\(layerIDs.count) target=\(target.texture.width)x\(target.texture.height)")
             }
         }
         guard !sources.isEmpty,

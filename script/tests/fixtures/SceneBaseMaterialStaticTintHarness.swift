@@ -62,12 +62,14 @@ private typealias Descriptor = SceneRenderDescriptor
     }
 
     static func output(_ descriptor: Descriptor,
-        dynamic: Set<String> = [], shader: SceneShaderContract? = nil) -> [String: Any] {
+        dynamic: Set<String> = [], shader: SceneShaderContract? = nil,
+        consumers: Set<Int> = [57, 58]) -> [String: Any] {
         let bindings = SceneBaseMaterialColorModulationCompiler.compile(
             descriptor: descriptor, shaderContracts: [shader ?? contract()],
-            dynamicImageModelPaths: dynamic, admittedLayerColorConsumerIDs: [57, 58])
+            dynamicImageModelPaths: dynamic, admittedLayerColorConsumerIDs: consumers)
         guard let first = bindings.first else { return ["count": 0] }
         return ["count": bindings.count, "model": first.modelPath, "context": first.sourceLayerID,
+            "canLower": first.canLowerToCompositor,
             "material": first.materialPath, "key": first.colorKey,
             "color": [first.authoredColor.x, first.authoredColor.y, first.authoredColor.z],
             "alpha": first.authoredAlpha, "alphaKey": first.alphaKey ?? "",
@@ -86,6 +88,23 @@ private typealias Descriptor = SceneRenderDescriptor
 
     static func main() throws {
         var results: [String: [String: Any]] = [:]
+        let shader = contract()
+        if case let .accepted(prepared) = SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: shader, compatibilityTarget: .windowsDX11ShaderModel4,
+            combos: [:], textureReadiness: [0: true]),
+           let sampler = try SceneResolvedMaterialShaderSchema.activeSamplers(prepared)[0] {
+            let sources = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: prepared.vertex.source, fragment: prepared.fragment.source)
+            let typed = sampler.withSourceProvenPurpose(.normal)
+            let retained = SceneResolvedMaterialShaderSchema.sourceTypedColorSamplers(
+                [0: typed], vertexSource: sources.vertex, fragmentSource: sources.fragment)[0]
+            results["sharedTintPowerPurpose"] = ["matches": sampler.sourceProvenPurpose == .straightAlbedo
+                && sampler.purpose(for: .asset(.init("unseen/source")!)) == .straightAlbedo]
+            results["sharedPurposePreservesAlreadyTypedSampler"] = ["matches": retained?.sourceProvenPurpose == .normal]
+        } else {
+            results["sharedTintPowerPurpose"] = ["matches": false]
+            results["sharedPurposePreservesAlreadyTypedSampler"] = ["matches": false]
+        }
         let black = Value(rawValue: "0 0 0", components: [0, 0, 0])
         let nonwhite = Value(rawValue: "0.2 0.4 0.6", components: [0.2, 0.4, 0.6])
         let base = descriptor(nonwhite)
@@ -149,7 +168,8 @@ private typealias Descriptor = SceneRenderDescriptor
 
         for (name, key, number) in [
             ("alphaHalf", "opacity-key", 0.5), ("brightnessTwo", "gain-key", 2.0),
-            ("powerHalf", "power-key", 0.5), ("scrollNonzero", "slide-x", 0.5),
+            ("powerHalf", "power-key", 0.5), ("powerPoint99", "power-key", 0.99),
+            ("scrollNonzero", "slide-x", 0.5),
         ] {
             var value = base
             value.materialPasses[0].constantShaderValues[key] = .init(rawValue: String(number), components: [number])
@@ -174,6 +194,23 @@ private typealias Descriptor = SceneRenderDescriptor
         var mixedMaterial = descriptor(mixedColor)
         mixedMaterial.materialPasses[0].constantShaderValues["opacity-key"] = userAlpha
         results["mixedColorAndUserAlpha"] = output(mixedMaterial, dynamic: ["models/unseen/tint.json"])
+        mixedMaterial.materialPasses[0].constantShaderValues["power-key"] = .init(
+            rawValue: "0.99", components: [0.99])
+        results["fullProgramMixedColorAndUserAlpha"] = output(mixedMaterial,
+            dynamic: ["models/unseen/tint.json"])
+        for (name, scalar) in [("overflowingBrightness", 1e100),
+                               ("nonfinitePower", Double.nan)] {
+            var rejected = base
+            let key = name == "overflowingBrightness" ? "gain-key" : "power-key"
+            rejected.materialPasses[0].constantShaderValues[key] = .init(
+                rawValue: String(scalar), components: [scalar])
+            results[name] = output(rejected)
+        }
+        var unknownBrightness = base
+        var wrappedBrightness = Value(rawValue: "2", components: [2])
+        wrappedBrightness.bindingKeys = ["extra", "value"]
+        unknownBrightness.materialPasses[0].constantShaderValues["gain-key"] = wrappedBrightness
+        results["unknownBrightnessWrapper"] = output(unknownBrightness)
         let arbitraryAlpha = fragment.replacingOccurrences(of: "opacity-key", with: "coverage-parameter")
             .replacingOccurrences(of: "opacity", with: "coverageRatio")
         value = base
@@ -303,6 +340,12 @@ private typealias Descriptor = SceneRenderDescriptor
         value.layers[1].id = 59
         results["unadmittedSibling"] = output(value)
         value = base; value.layers[0].effects = [1]; results["effects"] = output(value)
+        value.materialPasses[0].constantShaderValues["power-key"] = .init(rawValue: "0.99", components: [0.99])
+        results["fullProgramEffects"] = output(value, consumers: [])
+        value.layers.append(.init(id: 58))
+        results["fullProgramMixedEffectConsumers"] = output(value, consumers: [])
+        value.layers[1].parentID = 57
+        results["fullProgramEffectSiblingWithDependency"] = output(value, consumers: [])
         let data = try JSONSerialization.data(withJSONObject: results, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

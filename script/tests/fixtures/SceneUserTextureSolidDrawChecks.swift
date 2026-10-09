@@ -33,6 +33,7 @@ enum MTLSamplerMinMagFilter { case nearest, linear }
 enum MTLSamplerAddressMode { case `repeat`, clampToEdge }
 final class MTLSamplerDescriptor {
     var normalizedCoordinates = true
+    var maxAnisotropy = 1
     var minFilter = MTLSamplerMinMagFilter.linear
     var magFilter = MTLSamplerMinMagFilter.linear
     var mipFilter = MTLSamplerMinMagFilter.linear
@@ -168,7 +169,7 @@ struct SceneLayerFragmentUniforms {
     let usesDependencyBlend: UInt32
     let cursorUV: SIMD2<Float>
     let sourceSampling: SIMD2<UInt32>
-    let tint: SIMD4<Float>
+    var tint: SIMD4<Float>
     let textureFrame0: SIMD4<Float>
     let textureFrame1: SIMD4<Float>
 }
@@ -271,6 +272,39 @@ enum Checks {
             let uniforms = compositor.sourceFragmentUniforms(for: materialRequest, routesOffscreen: offscreen)
             checks["materialMultipliesLayerColorOnce_\(offscreen)"] = uniforms?.tint == SIMD4(0.125, 0.125, 0.75, 1)
             checks["materialAlphaPreserved_\(offscreen)"] = uniforms?.alpha == 0.5
+        }
+        let completedCandidate = SceneTextureCandidate(
+            texture: selectedTexture,
+            identity: .provider(.materialSource(layerID: 70, frameEpoch: 9, allocationGeneration: 3)),
+            generation: .provider(contentGeneration: 3), purpose: candidate.purpose,
+            content: candidate.content, physicalSize: candidate.physicalSize,
+            mappedSize: candidate.mappedSize, uvTransform: candidate.uvTransform,
+            sampling: candidate.sampling)
+        func imageRequest(_ imageCandidate: SceneTextureCandidate) -> SceneImageLayerDrawRequest {
+            .init(layer: .init(id: 70, contentKind: "image", brightness: 2),
+                  texture: selectedTexture, baseTextureCandidate: imageCandidate, masks: .empty,
+                  textureFrame: .identity, mvp: matrix_identity_float4x4,
+                  uniforms: .init(time: 0, alpha: 0.4, cursorUV: .zero, tint: SIMD3(0.2, 0.4, 0.6)),
+                  sourceMaterialAlpha: 0.5, sourceMaterialColor: SIMD3(0.5, 0.25, 1),
+                  offscreenTexturePool: nil, effectSourceExtent: nil,
+                  requiresSourceCopy: false, finalCompositeAlpha: nil)
+        }
+        for (name, imageCandidate) in [("completedMaterial", completedCandidate), ("rawFile", candidate)] {
+            let imageRequest = imageRequest(imageCandidate)
+            let sample = imageRequest.resolvedBaseTextureSample()
+            checks["\(name)DrawRequestPreservesIdentity"] = sample?.identity == imageCandidate.identity
+            checks["\(name)DrawRequestPreservesUVAndSampling"] = sample?.textureFrame == imageCandidate.uvTransform
+                && sample?.sampling == imageCandidate.sampling
+            for offscreen in [false, true] {
+                let uniforms = compositor.sourceFragmentUniforms(for: imageRequest, routesOffscreen: offscreen)
+                checks["\(name)DrawUniformsKeepUVAndSampling_\(offscreen)"] =
+                    uniforms?.textureFrame0 == imageCandidate.uvTransform.uniform0
+                    && uniforms?.textureFrame1 == imageCandidate.uvTransform.uniform1
+                    && uniforms?.sourceSampling == SIMD2(imageCandidate.sampling.imageLayerUniformMode, 0)
+                checks["\(name)DrawUniformsOwnStyle_\(offscreen)"] = name == "completedMaterial"
+                    ? uniforms?.alpha == 1 && uniforms?.tint == SIMD4(1, 1, 1, 1)
+                    : uniforms?.alpha == 0.2 && uniforms?.tint == SIMD4(0.2, 0.2, 1.2, 1)
+            }
         }
         let materialTarget = SceneDynamicTarget.materialConstant(layerID: originalLayer.id,
             passIndex: 0, name: "surface-key", materialPath: "materials/unseen/tint.json")

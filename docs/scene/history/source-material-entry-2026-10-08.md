@@ -151,3 +151,23 @@ Resolver/TemplateCompiler共用槽覆盖、uniform投影和ShaderSchema；source
 证据`/private/tmp/mwx-scene-layer-lookup-20261008`：`reference-analysis.json`与`layer-metadata.json`保存作者输入；`prepare_probe.py`仅在隔离包386.origin.init首部插入自有诊断throw，117条目只有scene变化，还原该script后scene与原件相等。沿上一批最终App运行，`probe-receipt.json`记录实际lookup：progressName=playerprogexception、progressScale=0、backgroundMissing=true、outlineMissing=true、grandparentMissing=true；原生记录与独立只读包/脚本审查一致。这里不把diagnostic benchmark PASS当作无异常或官方视觉验收。
 
 因此三条从疑似引擎lookup缺口改为作者断引用，保留局部脚本失败，不补假图层、不吞异常、不改真实媒体。完整媒体面板与官方画面仍未据此关闭；后续回到全样本公共纹理/合成首断点。运行停止后清理诊断输入、副本运行目录与无验收价值截图，保留原始日志、输入生成及SHA收据；产品代码无改动。
+
+## 动态共享源与颜色范围后继
+
+2026-10-10，T1有界完成。3601964477原包（PKG SHA `4959ac1c89fe3cfec7706d7eaf522894b7bd2ac7337e086e2861ff75897887ab`）层149因Power=.99不能neutral降低，完整源又拒动态声明；受控PCM下只有白柱。原neutral证明现同时给出输入接口与是否可降低，非中性静态Bright/Power沿既有完整Program求值；材质色/0–1 user Alpha沿原typed producer共享，旧compositor乘数退出。原层及63副本共用一份template与每帧一次源求值，各保自己的publication身份/尺寸，共用原submission pin。没有新增材质算法、纹理缓存或输出owner。
+
+作者彩虹还因WEColor拒绝s=2.16/v=4.32报错。官方2.8.0.42自有12组有限HSV黑盒确认可返回负数/HDR（例如h=.25返回[-.3456,4.32,-5.0112]）；只删除s/v的0–1拒绝，原算法与typed非有限拒绝保持。另以自有不透明/半透明/半透明后接identity effect三卡核对源输出：官方无宿主style引用的shader不在外部再乘layer色/Alpha，改三层为白/1仍全图完全相同。因此完成的materialSource统一中和外部style，不改raw源及neutral降低；直接、源替换和模型named采集共用转换。曾遗漏DrawRequest转存identity导致直接两卡变暗，已修并重新构建/运行。
+
+最终隔离Debug dylib SHA `142433aa5b4c48a901b9b52377dc962c393a6f4912939ae01f00a01261dfd284`，`build-candidate.json`绑定全部Scene源与App；隔离树Web基线较旧，不声称完整HEAD构建或发布验收。约21MB验收包`.artifacts/tmp/source-power-20261010/retained-evidence.zip`保存输入/源码身份、官方自有输入、关键截图与失败收据；正式提取因证据库总预算满而失败，prune无可清包，未抬预算/删除他人材料，后继腾出预算再提取。该目录另留复用构建脚本及小收据；已退出的临时HOME/样本副本/生成shader与重复截图清理，单份`.build-cache/solid-source-domains-recovery-20261009`供后继复用。只读原包，受控音频不是外部播放器验收。
+
+| 实际输入/输出 | 验证结果与边界 |
+|---|---|
+| 原360 `final-pcm` / `final-alpha-hot` | 彩色频谱恢复，frame0=1、frame1=64消费者共用源。Alpha .5→0→1画面变淡→消失→恢复，三次accepted、同window9478及1surface，无重建；VM31/31静默、GPU排空。 |
+| 官方三卡与 `final-three-card` | 80×80中心ROI native [51,59,85]/[34,68,126]/[34,68,126]，官方[50,59,86]/[34,68,126]/[34,68,126]，各max差1/0/0。只证此输入，非整幅/所有材质parity。 |
+| 自有 `final-shared-clones` | 原层隐藏，两clone尺寸24/16像素、同材质纹理；4秒销毁左层、8秒销毁右层，画面2→1→0，无残留；单源encode consumers=2，VM1/1、dynamicLayers0、GPU排空。未注入GPU失败/取消。 |
+| 健康3609108600 / 3690859128原包 | 同最终App仍有彩色频谱；前者VM5/5、后者VM12/12，均退出GPU排空。用于保护既有中性降低，非新增修复样本或完整parity。 |
+| CPU与原publication/GPU门 | 32唯一CPU用例（含真实DrawRequest身份透传；去掉透传后4断言失败）；实际publication与source uniform GPU各1门，含外来layer身份/陈旧epoch拒绝、raw源保持样式及非有限HSV/下一帧恢复。生命周期原资源owner复用，静态审查不能冒充故障注入。 |
+
+边界：其他source层320/323/328仍`render-state-unsupported`，媒体黑色占位与完整交互、整样本官方视觉未闭；0–1之外Alpha、perspective、multi-pass/provider、首作者引用销毁后的官方续跑合同继续开放。360整样本仅粗估约85%，非统计正确率；本片共享颜色/Alpha/副本主链已实际进入最终显示。失败尝试（sampler purpose拒绝、松散fixture缓存不可用、identity丢失）保留诊断收据，均不计通过。后继顺序归[断点队列](../roadmap/scene-open-breakpoint-queue.md)。
+
+结构门6/8通过；已有HEAD的Web `DedicatedWebWallpaperHostPlaceholderAdapter+RuntimeBridge.swift` 1008行及未知归属Scene `.mimosa`残留使两个全局门失败，均保留、不算本片通过。文档健康通过；全库导航仍有两个并行Web设计缺少入口反链，Scene本片链接无新增失败。ProviderBinding fixture已补入原验证映射，不增runner。

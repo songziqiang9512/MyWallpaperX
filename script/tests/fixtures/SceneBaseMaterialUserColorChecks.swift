@@ -52,12 +52,20 @@ func customMaterialUserColorChecks() -> [String: Bool] {
     }
     let source = SceneBaseMaterialProviderBindingCompiler.compile(descriptor: descriptor,
         materialInstancesByLayerID: [:], scriptBindings: [], materialPropertyTargets: targets, provenBindings: [fact])
+    var fullFact = fact
+    fullFact.canLowerToCompositor = false
+    let fullSource = SceneBaseMaterialProviderBindingCompiler.compile(descriptor: descriptor,
+        materialInstancesByLayerID: [:], scriptBindings: [], materialPropertyTargets: targets,
+        materialColorTargets: [model: colorTarget], provenBindings: [fullFact])
     var checks: [String: Bool] = [
         "mixedHasExactlyThreeRealPublishers": compiled.diagnostics.isEmpty && declarations.count == 3
             && targets == [colorTarget, alphaTarget, nestedTarget],
         "arbitraryColorKeyUsesVector3Publisher": program.instructions.contains { $0.target == colorTarget && $0.valueType == .vector3 },
         "innerFlagUsesTheSameEncodedMaterialPath": program.instructions.contains { $0.target == nestedTarget && $0.valueType == .bool },
         "completeMixedClosureIsAdmitted": admitted(program),
+        "fullProgramRetainsTheSameCompleteProducerClosure": admitted(program, [fullFact]),
+        "fullProgramDoesNotRegisterMaterialMultipliers": fullSource.authoredMaterialColors.isEmpty
+            && fullSource.materialColorTargets.isEmpty && fullSource.sourceMaterialAlphaPropertyTargets.isEmpty,
         "missingOuterColorProducerRejectsLowering": !admitted(propertyProgram(definitions.filter { $0.key != "palette" }).program),
         "missingInnerFlagProducerRejectsLowering": !admitted(propertyProgram(definitions.filter { $0.key != "animate" }).program),
         "missingAlphaProducerRejectsLowering": !admitted(propertyProgram(definitions.filter { $0.key != "opacity" }).program),
@@ -84,6 +92,12 @@ func customMaterialUserColorChecks() -> [String: Bool] {
         "palette": .string("0.2 0.6 0.8"), "animate": .bool(false), "opacity": .number(0.3)
     ], changedPropertyKeys: ["palette", "animate", "opacity"]) && state.revision == 1
     let current = snapshot(state)
+    checks["fullProgramPrototypeAndCloneKeepCompositorMultipliersNeutral"] = [original, clone].allSatisfy {
+        fullSource.sourceMaterialColor(layer: $0, snapshot: current) == SIMD3(1, 1, 1)
+            && fullSource.sourceMaterialAlpha(layer: $0, snapshot: current) == 1
+    }
+    checks["fullProgramValuesRemainInTheTypedSnapshot"] = current[colorTarget]?.value == .vector3(0.2, 0.6, 0.8)
+        && current[alphaTarget]?.value == .scalar(0.3)
     checks["prototypeAndCloneReadTheSameCurrentColor"] = [original, clone].allSatisfy {
         source.sourceMaterialColor(layer: $0, snapshot: current) == SIMD3(0.2, 0.6, 0.8)
             && abs(source.sourceMaterialAlpha(layer: $0, snapshot: current) - 0.3) < 0.000_001

@@ -261,15 +261,16 @@ extension SceneMetalRenderer {
                 mainPass: mainPass, groups: compositionGroupRuntime,
                 utilityExecution: frameProjection.utilityExecution) {
             let activeConsumers = Set(resolvedMaterialFrameTargetPlans.keys)
-            let demanded = orderedLayers.filter { layer in
-                guard runtime.sourceMaterials[layer.id] != nil else { return false }
-                return frameVisibleLayerIDs.contains(layer.id)
+            let demanded = orderedLayers.compactMap { layer -> SceneResolvedMaterialRuntimeBridge.SourceMaterialConsumer? in
+                guard let consumer = runtime.sourceMaterialConsumer(layerID: layer.id, modelPath: layer.imagePath) else { return nil }
+                let needed = frameVisibleLayerIDs.contains(layer.id)
                     || dependencyRuntime.providerBindingsByLayerID[layer.id]?.contains {
                         activeConsumers.contains($0.consumerLayerID)
                     } == true
                     || dependencyRuntime.staticModelConsumerLayerIDsByProviderLayerID[layer.id]
                         .map { !$0.isDisjoint(with: activeStaticModelNamedAlbedoLayerIDs) } == true
-            }.map(\.id)
+                return needed ? consumer : nil
+            }
             let terminalPins: [SceneOffscreenTexturePool.PinnedTexture]?
             if !demanded.isEmpty, sceneColor == nil, displayMappingPostProcess != nil {
                 // Reserve the existing neutral composition slot, not the
@@ -283,7 +284,7 @@ extension SceneMetalRenderer {
                 terminalPins.forEach { mainPass.retainCompositionPin($0.pin) }
                 let originalSources = imageTextures
                 imageTextures = runtime.prepareSourceMaterials(imageTextures: imageTextures,
-                    layerIDs: demanded, registry: textureRegistry, pool: offscreenTexturePool,
+                    consumers: demanded, registry: textureRegistry, pool: offscreenTexturePool,
                     mainPass: mainPass, commandBuffer: commandBuffer)
                 preparationRequests = preparationRequests.map { request in
                     request.replacingSource(original: originalSources, prepared: imageTextures)

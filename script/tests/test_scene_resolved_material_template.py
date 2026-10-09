@@ -271,6 +271,7 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
         self.assert_contracts([
             "sourceResolved", "sourceNoEffectIdentity", "sourceSharedTextureProjection",
             "sourceSharedUniformProjection", "sourceStateAuthorshipPreserved",
+            "sourceScriptProofCannotBorrowAnotherLayerIdentity",
             "sourceGraphBindingRejected", "sourceIdentityRejected",
             "sourceResolverSlotOverflowRejected",
         ])

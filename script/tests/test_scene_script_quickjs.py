@@ -1901,23 +1901,57 @@ int main(void) {
         MWX_SCENE_QUICKJS_OK, red, "WEColor hue wraps"
     );
 
-    const char *wecolor_invalid_source =
-        "import * as WEColor from 'WEColor';\n"
-        "export function update(value) {\n"
-        "  return WEColor.hsv2rgb({x:0,y:2,z:1});\n"
-        "}";
-    MWXSceneQuickJSOwner *wecolor_invalid = mwx_scene_quickjs_owner_create(
-        domain, wecolor_invalid_source, strlen(wecolor_invalid_source),
-        54, diagnostic, sizeof(diagnostic)
-    );
-    failures += check(
-        wecolor_invalid != NULL, "invalid WEColor compile", diagnostic
-    );
-    failures += update_vec3(
-        wecolor_invalid, 54, vec3_input, "", "{}",
-        MWX_SCENE_QUICKJS_EXCEPTION, vec3_input,
-        "WEColor rejects non-normalized saturation"
-    );
+    // The first four outputs are from the public official WEColor probe;
+    // negative value uses the independent normalized-output scaling identity.
+    // Negative/HDR values must survive; malformed/nonfinite/overflow must fail.
+    static const struct {
+        const char *input;
+        MWXSceneQuickJSResult result;
+        double rgb[3];
+        const char *label;
+    } hsv_cases[] = {
+        {"{x:0.25,y:1,z:1}", MWX_SCENE_QUICKJS_OK, {0.5,1,0}, "WEColor normalized quarter hue"},
+        {"{x:0.25,y:2.16,z:4.32}", MWX_SCENE_QUICKJS_OK, {-0.3456,4.32,-5.0112}, "WEColor finite HDR quarter hue"},
+        {"{x:0.5,y:2.16,z:4.32}", MWX_SCENE_QUICKJS_OK, {-5.0112,4.32,4.32}, "WEColor finite HDR half hue"},
+        {"{x:0.25,y:-0.2,z:4.32}", MWX_SCENE_QUICKJS_OK, {4.752,4.32,5.184}, "WEColor finite negative saturation"},
+        {"{x:0.25,y:1,z:-2}", MWX_SCENE_QUICKJS_OK, {-1,-2,0}, "WEColor finite negative value scales normalized output"},
+        {"undefined", MWX_SCENE_QUICKJS_EXCEPTION, {0}, "WEColor missing Vec3 rejects"},
+        {"{x:0.25,y:1}", MWX_SCENE_QUICKJS_EXCEPTION, {0}, "WEColor incomplete Vec3 rejects"},
+        {"{x:NaN,y:1,z:1}", MWX_SCENE_QUICKJS_EXCEPTION, {0}, "WEColor NaN hue rejects"},
+        {"{x:0.25,y:Infinity,z:1}", MWX_SCENE_QUICKJS_EXCEPTION, {0}, "WEColor infinite saturation rejects"},
+        {"{x:0.25,y:1,z:-Infinity}", MWX_SCENE_QUICKJS_EXCEPTION, {0}, "WEColor infinite value rejects"},
+        {"{x:0.25,y:Number.MAX_VALUE,z:Number.MAX_VALUE}", MWX_SCENE_QUICKJS_BAD_RETURN, {0}, "WEColor finite overflow is not a typed publication"},
+    };
+    for (size_t index = 0; index < sizeof(hsv_cases) / sizeof(hsv_cases[0]); ++index) {
+        char source[512];
+        snprintf(source, sizeof(source),
+            "import * as WEColor from 'WEColor';"
+            "export var scriptProperties = createScriptProperties().addCheckbox({name:'recover',value:false}).finish();"
+            "export function update(value) {"
+            "if (scriptProperties.recover) return value; return WEColor.hsv2rgb(%s);}", hsv_cases[index].input);
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            domain, source, strlen(source), 54, diagnostic, sizeof(diagnostic));
+        failures += check(owner != NULL, hsv_cases[index].label, diagnostic);
+        const MWXSceneQuickJSFrameInput frame = {.time_of_day = 0.25, .frame_time = 1.0 / 60.0, .runtime = 2};
+        double output[3] = {0};
+        const MWXSceneQuickJSResult status = mwx_scene_quickjs_owner_update_vector(
+            owner, 54, vec3_input, 3, &frame, "{}", 2, "{}", 2, output, diagnostic, sizeof(diagnostic));
+        bool passed = status == hsv_cases[index].result;
+        if (status == MWX_SCENE_QUICKJS_OK) {
+            for (size_t component = 0; component < 3; ++component)
+                passed = passed && isfinite(output[component]) && fabs(output[component] - hsv_cases[index].rgb[component]) <= 1e-12;
+        }
+        failures += check(passed, hsv_cases[index].label, diagnostic);
+        if (status == MWX_SCENE_QUICKJS_OK)
+            printf("WEColor probe: %s status=%d rgb=[%.12g,%.12g,%.12g]\n",
+                hsv_cases[index].label, status, output[0], output[1], output[2]);
+        else
+            printf("WEColor probe: %s status=%d typedPublication=false\n", hsv_cases[index].label, status);
+        if (hsv_cases[index].result == MWX_SCENE_QUICKJS_BAD_RETURN)
+            failures += update_vec3(owner, 54, vec3_input, "{\"recover\":true}", "{}",
+                MWX_SCENE_QUICKJS_OK, vec3_input, "WEColor overflow owner recovers on the next finite frame");
+        mwx_scene_quickjs_owner_destroy(owner);
+    }
 
     const char *wecolor_normalize_source =
         "import * as WEColor from 'WEColor';\n"
@@ -4776,7 +4810,6 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(vec3_string_return);
     mwx_scene_quickjs_owner_destroy(wecolor);
     mwx_scene_quickjs_owner_destroy(wecolor_wrap);
-    mwx_scene_quickjs_owner_destroy(wecolor_invalid);
     mwx_scene_quickjs_owner_destroy(wecolor_normalize);
     mwx_scene_quickjs_owner_destroy(wecolor_normalize_invalid);
     mwx_scene_quickjs_owner_destroy(immutable_user);
@@ -4861,6 +4894,8 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             0,
             completed.stdout + completed.stderr,
         )
+        if completed.stdout:
+            print(completed.stdout, end="")
 
 
 if __name__ == "__main__":

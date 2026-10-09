@@ -2,6 +2,16 @@ import CoreGraphics
 import Metal
 import simd
 
+extension SceneLayerFragmentUniforms {
+    /// A completed material already owns its output color and coverage.
+    /// Keep geometry, visibility and explicit final composition independent.
+    mutating func consumeCompletedMaterialSource(_ identity: SceneTextureResourceIdentity?) {
+        guard case .provider(.materialSource) = identity else { return }
+        alpha = 1
+        tint = .init(repeating: 1)
+    }
+}
+
 extension SceneImageLayerCompositor {
     var shouldDeferResolvedMaterialFrame: Bool {
         resolvedMaterialRuntime?.shouldDeferFrame == true
@@ -78,6 +88,7 @@ extension SceneImageLayerCompositor {
             sourceRepresentation: sourceSample.representation
         )
         uniforms.alpha *= sourceMaterialAlpha
+        uniforms.consumeCompletedMaterialSource(sourceSample.identity)
         return uniforms
     }
 

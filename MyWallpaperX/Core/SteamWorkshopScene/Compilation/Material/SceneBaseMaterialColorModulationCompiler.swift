@@ -1,9 +1,8 @@
 import Foundation
 
-/// Admits a package-local base material only when its prepared shader proves
-/// equivalence to the existing single-texture image compositor plus typed RGB
-/// tint. This is a lowering into the one compositor, not a parallel material
-/// renderer.
+/// Proves the input interface of a single-texture base material. Neutral
+/// scalars lower to the image compositor; non-neutral static scalars retain
+/// the complete source Program while sharing the same typed value producers.
 nonisolated enum SceneBaseMaterialColorModulationCompiler {
     struct Binding: Sendable {
         let modelPath: String
@@ -28,6 +27,7 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         var alphaKey: String? = nil
         var authoredAlpha: Float = 1
         var alphaUserPropertyKey: String? = nil
+        var canLowerToCompositor: Bool = true
 
         var alphaPropertyTarget: SceneDynamicTarget? {
             guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
@@ -42,8 +42,7 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         dynamicImageModelPaths: Set<String>,
         admittedLayerColorConsumerIDs: Set<Int>
     ) -> [Binding] {
-        guard !shaderContracts.isEmpty,
-              !admittedLayerColorConsumerIDs.isEmpty else { return [] }
+        guard !shaderContracts.isEmpty else { return [] }
         let dynamicPaths = Set(dynamicImageModelPaths.map(normalized))
         let modelPaths = dynamicPaths.union(descriptor.layers.compactMap(\.imagePath).map(normalized))
         return modelPaths.sorted().compactMap { modelPath in
@@ -107,12 +106,10 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
                 && layer.staticModelPath == nil
                 && layer.staticBaseTexturePath == nil
                 && layer.usesPerspective != true
-                && layer.effects.isEmpty
                 && layer.dependencyLayerIDs.isEmpty
                 && layer.authoredDependencies.isEmpty
                 && layer.parentID == nil
                 && layer.childLayerIDs.isEmpty
-                && admittedLayerColorConsumerIDs.contains(layer.id)
         }) else {
             return reject(modelPath, "source-layer-consumer")
         }
@@ -179,17 +176,15 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         matrixSchema.materialKeys.allSatisfy({ pass.constantShaderValues[$0] == nil }) else {
             return reject(modelPath, "position-matrix-binding")
         }
-        guard neutralScalar(
+        guard let brightness = staticScalar(
                 uniformName: fact.brightnessUniformName,
                 stage: .fragment,
-                expected: 1,
                 pass: pass,
                 prepared: prepared
               ),
-              neutralScalar(
+              let power = staticScalar(
                 uniformName: fact.powerUniformName,
                 stage: .fragment,
-                expected: 1,
                 pass: pass,
                 prepared: prepared
               ),
@@ -205,6 +200,13 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
               }) else {
             return reject(modelPath, "neutral-scalar-values")
         }
+        let canLowerToCompositor = brightness.bitPattern == Double(1).bitPattern
+            && power.bitPattern == Double(1).bitPattern
+        // A lowered tint needs the direct compositor consumer. A full source
+        // Program publishes before each layer's independent effect suffix.
+        guard !canLowerToCompositor || sourceLayers.allSatisfy({
+            $0.effects.isEmpty && admittedLayerColorConsumerIDs.contains($0.id)
+        }) else { return reject(modelPath, "source-layer-consumer") }
         guard let alpha = alphaBinding(
             uniformName: fact.alphaUniformName, pass: pass, prepared: prepared
         ) else { return reject(modelPath, "alpha-binding") }
@@ -255,7 +257,8 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
             authoredColor: .init(components[0], components[1], components[2]),
             colorUserPropertyKey: colorValue.userBinding,
             alphaKey: alpha.key, authoredAlpha: alpha.value,
-            alphaUserPropertyKey: alpha.userKey
+            alphaUserPropertyKey: alpha.userKey,
+            canLowerToCompositor: canLowerToCompositor
         )
     }
 
@@ -322,13 +325,23 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         pass: SceneRenderDescriptor.MaterialPassDescriptor,
         prepared: SceneShaderPreparedProgram
     ) -> Bool {
+        staticScalar(uniformName: uniformName, stage: stage, pass: pass,
+            prepared: prepared)?.bitPattern == expected.bitPattern
+    }
+
+    private static func staticScalar(
+        uniformName: String,
+        stage: SceneShaderContract.StageKind,
+        pass: SceneRenderDescriptor.MaterialPassDescriptor,
+        prepared: SceneShaderPreparedProgram
+    ) -> Double? {
         guard let schema = SceneResolvedMaterialShaderSchema
                 .uniqueActiveUniform(
                     named: uniformName,
                     type: .float,
                     stage: stage,
                     prepared: prepared
-                ) else { return false }
+                ) else { return nil }
         let authored = pass.constantShaderValues.filter {
             schema.materialKeys.contains($0.key)
         }
@@ -339,15 +352,17 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
                   value.timeline == nil,
                   value.timelineDiagnostics.isEmpty,
                   value.components?.count == 1,
-                  let scalar = value.components?.first else { return false }
+                  let scalar = value.components?.first else { return nil }
             let tokens = value.rawValue.split(whereSeparator: { $0.isWhitespace || $0 == "," })
-            return tokens.count == 1 && Double(tokens[0]) == scalar
-                && scalar.isFinite && scalar.bitPattern == expected.bitPattern
+            guard tokens.count == 1, Double(tokens[0]) == scalar,
+                  scalar.isFinite, Float(scalar).isFinite else { return nil }
+            return scalar
         }
         guard let fallback = schema.defaultValue,
               fallback.componentBitPatterns.count == 1,
-              fallback.authoredBindingKeys.isEmpty else { return false }
-        return fallback.componentBitPatterns[0] == expected.bitPattern
+              fallback.authoredBindingKeys.isEmpty else { return nil }
+        let scalar = Double(bitPattern: fallback.componentBitPatterns[0])
+        return scalar.isFinite && Float(scalar).isFinite ? scalar : nil
     }
 
     private static func normalized(_ path: String) -> String {
