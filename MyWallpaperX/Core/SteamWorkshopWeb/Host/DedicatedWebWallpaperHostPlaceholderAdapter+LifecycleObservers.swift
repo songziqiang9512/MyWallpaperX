@@ -117,6 +117,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             }
             setTransientMouseCaptureEnabled(false, for: surface)
         }
-        startGlobalMouseForwarding()
+        // 空间切换/应用激活只需「确保转发在跑」（NSEvent monitor 不随空间
+        // 失效）：经幂等入口，全运行零副作用；半态在此自愈。
+        startSyntheticInputForwardingIfNeeded()
     }
 }

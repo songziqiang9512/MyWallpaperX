@@ -67,9 +67,12 @@ extension WallpaperEngine {
         // E2a-4: prepare-then-commit——video 会话与真值保留到 web `.ready`
         // 才退场（retire）；web 失败时 video 仍在原处，旧可见输出保留。
         // 旧实现在此处先行 terminate 全部 session 并清真值（stop-then-start
-        // 无回滚）。
-        pendingVideoRetirementOnWebReady = currentPlaybackContentKind == .video
-        if pendingVideoRetirementOnWebReady {
+        // 无回滚）。保留标志跨 web 抢入存活：上一个未提交的 web 启动持有
+        // video 保留时，新请求继承它——video 仍是引擎事实，直到某个 web
+        // 请求真正提交（.ready）或失败回滚；旧请求的 .ready/.failed 由
+        // requestID 代际守卫静默退役。
+        if currentPlaybackContentKind == .video {
+            pendingVideoRetirementOnWebReady = true
             retainedVideoWallpaper = currentWallpaper
             retainedVideoContentPath = currentContentPath
             retainedVideoMultiDisplayEnabled = multiDisplayEnabledAtLaunch

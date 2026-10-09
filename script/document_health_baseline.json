@@ -209,8 +209,8 @@
       "bytes": 6445
     },
     "docs/web/current-state.md": {
-      "lines": 109,
-      "bytes": 29693
+      "lines": 110,
+      "bytes": 31010
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 58,
@@ -1100,10 +1100,10 @@
     {
       "section": "bodies",
       "path": "docs/web/current-state.md",
-      "before": "3b3da7fc883cec5eea0f1c7bb1d3dd5eb75586495e2e8884105a9a405a4916ee",
-      "after": "58b17f193b82986b3d78d72844dba3d1be8fe350571f12f7642f85e29bda1db0",
+      "before": "58b17f193b82986b3d78d72844dba3d1be8fe350571f12f7642f85e29bda1db0",
+      "after": "e7c18aa190ed17e1ca11ff06518c1b48c2fd724a20d251fff9d514efe28d5d19",
       "owner": "Web 现役状态",
-      "reason": "批七双击实机与批八四缺陷修复证据行并入（rapid-double-launch 序列、E2a-4 保留序、转发幂等、416 双侧、空差异门控）。",
+      "reason": "批九后续项收口证据行并入（reassert 幂等化+半态自愈、双 web 抢入保留继承）。",
       "decision": "docs/web/cold-descriptor-parse-offload-design.md#验收"
     }
   ]
