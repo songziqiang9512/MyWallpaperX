@@ -39,14 +39,27 @@ enum DebugWebPropertyPersistenceRunner {
         }
         let service = SteamWorkshopService.shared
         service.reloadInstalledItems()
-        guard let record = service.latestDownloadRecord(for: itemID),
-              let switchRecord = service.latestDownloadRecord(for: switchItemID),
-              record.contentType == .web,
-              switchRecord.contentType == .web else {
-            logEvent(stage: stage, action: "precondition", detail: "samples-required")
-            terminate(after: 0.1)
-            return
+        // 整库扫描异步完成：等两个样本记录实际可见再判前置（有界）。
+        Task { @MainActor in
+            guard let record = await DebugWebPlaybackRunner.awaitInstalledRecord(itemID, using: service),
+                  let switchRecord = await DebugWebPlaybackRunner.awaitInstalledRecord(switchItemID, using: service),
+                  record.contentType == .web,
+                  switchRecord.contentType == .web else {
+                logEvent(stage: stage, action: "precondition", detail: "samples-required")
+                terminate(after: 0.1)
+                return
+            }
+            await runResolved(stage: stage, filePath: filePath, directoryPath: directoryPath, service: service, record: record)
         }
+    }
+
+    private static func runResolved(
+        stage: String,
+        filePath: String?,
+        directoryPath: String?,
+        service: SteamWorkshopService,
+        record: SteamWorkshopDownloadRecord
+    ) async {
         let definitions = service.webPropertyDefinitions(for: record)
         guard let fileDefinition = definitions.first(where: { $0.key == fileKey }),
               let directoryDefinition = definitions.first(where: { $0.key == directoryKey }),
@@ -66,27 +79,35 @@ enum DebugWebPropertyPersistenceRunner {
             service.updateWebPropertyValue(.string(filePath), for: fileDefinition, record: record)
             service.updateWebPropertyValue(.string(directoryPath), for: directoryDefinition, record: record)
             service.updateWebPropertyValue(.number(2), for: modeDefinition, record: record)
-            DebugWebPlaybackRunner.launchWebWorkshopItem(itemID, using: service)
-            logState(stage: stage, action: "set", service: service, record: record)
+            Task { @MainActor in
+                await DebugWebPlaybackRunner.launchWebWorkshopItem(itemID, using: service)
+                await logState(stage: stage, action: "set", service: service, record: record)
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-                DebugWebPlaybackRunner.launchWebWorkshopItem(switchItemID, using: service)
+                Task { @MainActor in await DebugWebPlaybackRunner.launchWebWorkshopItem(switchItemID, using: service) }
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 10.0) {
-                DebugWebPlaybackRunner.launchWebWorkshopItem(itemID, using: service)
-                logState(stage: stage, action: "returned-a", service: service, record: record)
+                Task { @MainActor in
+                    await DebugWebPlaybackRunner.launchWebWorkshopItem(itemID, using: service)
+                    await logState(stage: stage, action: "returned-a", service: service, record: record)
+                }
             }
             finish(stage: stage, after: 15.0)
         case "restore-clear":
-            DebugWebPlaybackRunner.launchWebWorkshopItem(itemID, using: service)
-            logState(stage: stage, action: "restored", service: service, record: record)
+            Task { @MainActor in
+                await DebugWebPlaybackRunner.launchWebWorkshopItem(itemID, using: service)
+                await logState(stage: stage, action: "restored", service: service, record: record)
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
                 service.resetWebPropertyValues(for: record)
-                logState(stage: stage, action: "cleared", service: service, record: record)
+                Task { @MainActor in await logState(stage: stage, action: "cleared", service: service, record: record) }
             }
             finish(stage: stage, after: 6.0)
         case "verify-cleared":
-            DebugWebPlaybackRunner.launchWebWorkshopItem(itemID, using: service)
-            logState(stage: stage, action: "verified-cleared", service: service, record: record)
+            Task { @MainActor in
+                await DebugWebPlaybackRunner.launchWebWorkshopItem(itemID, using: service)
+                await logState(stage: stage, action: "verified-cleared", service: service, record: record)
+            }
             finish(stage: stage, after: 5.0)
         default:
             logEvent(stage: stage, action: "precondition", detail: "unknown-stage")
@@ -115,7 +136,7 @@ enum DebugWebPropertyPersistenceRunner {
         action: String,
         service: SteamWorkshopService,
         record: SteamWorkshopDownloadRecord
-    ) {
+    ) async {
         let definitions = service.webPropertyDefinitions(for: record)
         guard let fileDefinition = definitions.first(where: { $0.key == fileKey }),
               let directoryDefinition = definitions.first(where: { $0.key == directoryKey }),
@@ -123,7 +144,7 @@ enum DebugWebPropertyPersistenceRunner {
             logEvent(stage: stage, action: "precondition", detail: "properties-required")
             return
         }
-        let context = service.resolvedWebPlaybackContext(for: record)
+        let context = await service.resolvedWebPlaybackContext(for: record)
         let payload = payloadDictionary(from: context?.propertyPayloadJSON)
         let fileRaw = service.currentWebPropertyValue(for: fileDefinition, record: record).stringValue ?? ""
         let directoryRaw = service.currentWebPropertyValue(for: directoryDefinition, record: record).stringValue ?? ""

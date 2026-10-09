@@ -33,6 +33,10 @@ enum DebugWebRuntimeSwitchRunner {
 
     private static func schedule(itemID: String) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            // resolvedWebPlaybackContext 已转为 async（读盘/扫描在后台），
+            // 时序链整体在 Task 内展开，各 checkpoint 仍以 sequenceStartedAt
+            // 为零点，相对时序不变。
+            Task { @MainActor in
             guard DebugWebPlaybackRunner.hasUsableWorkshopRoot else {
                 logPreconditionFailure("isolated-root-required")
                 return
@@ -46,10 +50,14 @@ enum DebugWebRuntimeSwitchRunner {
             let service = SteamWorkshopService.shared
             NSLog("MWX DEBUG PLAY: using workshop root %@", service.libraryRootURL.path)
             service.reloadInstalledItems()
-            guard let record = service.latestDownloadRecord(for: itemID),
+            // 整库扫描异步完成：等记录实际可见再判前置（有界）。
+            guard let record = await DebugWebPlaybackRunner.awaitInstalledRecord(itemID, using: service),
                   record.contentType == .web,
-                  service.canLaunchDownloadRecord(record),
-                  let context = service.resolvedWebPlaybackContext(for: record) else {
+                  service.canLaunchDownloadRecord(record) else {
+                logPreconditionFailure("web-sample-not-launchable")
+                return
+            }
+            guard let context = await service.resolvedWebPlaybackContext(for: record) else {
                 logPreconditionFailure("web-sample-not-launchable")
                 return
             }
@@ -132,6 +140,7 @@ enum DebugWebRuntimeSwitchRunner {
                 logCheckpoint("post-stop")
                 logAction("completed")
                 removePlaybackFailureObserver()
+            }
             }
         }
     }

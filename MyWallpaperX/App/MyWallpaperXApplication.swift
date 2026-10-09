@@ -129,9 +129,9 @@ enum MyWallpaperXApplication {
     /// （SteamWorkshopService+WebRuntimeCacheValidation.swift:76-88），record 入口候选
     /// 因此覆盖创建侧全部四个分支（webHostRootURL / projectFileURL 父目录 / 记录目录 /
     /// 入口父目录）。刻意不读运行时缓存：`loadCachedWebPlaybackContext` 会付
-    /// project.json 解析与资源签名扫描（最多 120 文件 stat + 读取）的主线程同步代价，
-    /// 而它对本集合逐字节冗余。再并上解析根 / 依赖宿主目录 / 记录目录作为宽集合——
-    /// 宽集合只让在用 store 更不可能被误判为孤儿。
+    /// 读盘与资源签名扫描（最多 120 文件 stat + 读取，2026-10-09 起在后台段
+    /// 执行）的等待代价，而它对本集合逐字节冗余。再并上解析根 / 依赖宿主目录 /
+    /// 记录目录作为宽集合——宽集合只让在用 store 更不可能被误判为孤儿。
     @MainActor
     private static func webPersistentDataStoreRecord(
         for record: SteamWorkshopDownloadRecord

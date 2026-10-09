@@ -278,7 +278,9 @@ struct ResolvedWebRuntimeDiagnosticsSnapshot: Equatable {
     let isActivePlayback: Bool
 }
 
-struct ResolvedWebPlaybackContext: Equatable {
+/// 纯数据值：由运行时缓存的后台解析段构造并跨执行器返回，不随
+/// default-MainActor 隔离。
+nonisolated struct ResolvedWebPlaybackContext: Equatable {
     let recordID: String
     let effectiveEntryURL: URL
     let effectiveRootURL: URL

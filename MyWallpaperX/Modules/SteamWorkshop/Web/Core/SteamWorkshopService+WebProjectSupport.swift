@@ -187,7 +187,9 @@ extension SteamWorkshopService {
         return values
     }
 
-    func effectiveWebRootURL(for record: SteamWorkshopDownloadRecord, entryURL: URL) -> URL {
+    /// 纯 URL/record 推导，无 actor 状态：运行时缓存的签名扫描在后台线程
+    /// 复用（nonisolated），不要往这里加任何 self 可变状态访问。
+    nonisolated func effectiveWebRootURL(for record: SteamWorkshopDownloadRecord, entryURL: URL) -> URL {
         let standardizedEntryDirectory = entryURL
             .resolvingSymlinksInPath()
             .standardizedFileURL
@@ -221,7 +223,7 @@ extension SteamWorkshopService {
         return standardizedEntryDirectory
     }
 
-    func webRelativePath(for fileURL: URL, under rootURL: URL) -> String {
+    nonisolated func webRelativePath(for fileURL: URL, under rootURL: URL) -> String {
         let normalizedRoot = rootURL.resolvingSymlinksInPath().standardizedFileURL.path
         let normalizedFile = fileURL.resolvingSymlinksInPath().standardizedFileURL.path
         guard Self.isWebPath(normalizedFile, insideRootPath: normalizedRoot) else {
@@ -233,7 +235,7 @@ extension SteamWorkshopService {
         return relative.isEmpty ? fileURL.lastPathComponent : relative
     }
 
-    static func extractLocalWebResourceReferences(from content: String, fileExtension _: String) -> [WebResourceReference] {
+    nonisolated static func extractLocalWebResourceReferences(from content: String, fileExtension _: String) -> [WebResourceReference] {
         let pattern = #"(?:^|[\s<])(?:src|href)\s*=\s*(?:\"([^\"]+)\"|'([^']+)'|([^\s\"'=<>`]+))|url\(\s*['\"]?([^'\")]+)['\"]?\s*\)|import\s+[\"']([^\"']+)[\"']"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
             return []
@@ -275,7 +277,7 @@ extension SteamWorkshopService {
         return references
     }
 
-    static func resolveWebResourceURL(_ path: String, relativeTo fileURL: URL, rootURL: URL) -> URL? {
+    nonisolated static func resolveWebResourceURL(_ path: String, relativeTo fileURL: URL, rootURL: URL) -> URL? {
         let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         var normalized = trimmed.replacingOccurrences(of: "\\", with: "/")
@@ -299,12 +301,12 @@ extension SteamWorkshopService {
         return resolved
     }
 
-    static func shouldScanWebDependencyFile(named fileName: String) -> Bool {
+    nonisolated static func shouldScanWebDependencyFile(named fileName: String) -> Bool {
         let ext = URL(fileURLWithPath: fileName).pathExtension.lowercased()
         return ["html", "htm", "css", "js", "json"].contains(ext)
     }
 
-    private static func isWebPath(_ path: String, insideRootPath rootPath: String) -> Bool {
+    private nonisolated static func isWebPath(_ path: String, insideRootPath rootPath: String) -> Bool {
         let normalizedRoot = rootPath.hasSuffix("/") ? String(rootPath.dropLast()) : rootPath
         guard path == normalizedRoot || path.hasPrefix(normalizedRoot + "/") else {
             return false

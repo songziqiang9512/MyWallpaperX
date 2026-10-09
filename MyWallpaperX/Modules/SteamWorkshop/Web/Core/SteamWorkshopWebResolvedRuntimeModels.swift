@@ -125,8 +125,10 @@ extension SteamWorkshopService {
         )
     }
 
-    func resolvedWebPlaybackContext(for record: SteamWorkshopDownloadRecord) -> ResolvedWebPlaybackContext? {
-        if let cachedPlaybackContext = loadCachedWebPlaybackContext(for: record) {
+    /// 缓存命中的读盘/校验扫描与冷路径的写盘都在内部后台段执行；
+    /// 冷路径的 descriptor 解析仍在主线程（读取属性覆盖等 actor 状态）。
+    func resolvedWebPlaybackContext(for record: SteamWorkshopDownloadRecord) async -> ResolvedWebPlaybackContext? {
+        if let cachedPlaybackContext = await loadCachedWebPlaybackContext(for: record) {
             return cachedPlaybackContext
         }
 
@@ -139,7 +141,7 @@ extension SteamWorkshopService {
             definitions: descriptor.propertyDefinitions,
             valuesOverride: effectiveValues
         )
-        saveWebRuntimeCache(descriptor: descriptor, propertyPayloadJSON: propertyPayloadJSON, for: record)
+        await saveWebRuntimeCache(descriptor: descriptor, propertyPayloadJSON: propertyPayloadJSON, for: record)
         return ResolvedWebPlaybackContext(
             recordID: record.id,
             effectiveEntryURL: descriptor.resolvedEntryURL,

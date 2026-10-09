@@ -30,7 +30,7 @@ enum DebugWebSpaceLifecycleRunner {
             let service = SteamWorkshopService.shared
             NSLog("MWX DEBUG PLAY: using workshop root %@", service.libraryRootURL.path)
             service.reloadInstalledItems()
-            DebugWebPlaybackRunner.launchWebWorkshopItem(itemID, using: service)
+            Task { @MainActor in await DebugWebPlaybackRunner.launchWebWorkshopItem(itemID, using: service) }
 
             schedule(after: 6.0, action: "default-space") {
                 NotificationCenter.default.post(name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
@@ -50,7 +50,7 @@ enum DebugWebSpaceLifecycleRunner {
                 }
             }
             schedule(after: 8.0, action: "relaunch") {
-                DebugWebPlaybackRunner.launchWebWorkshopItem(itemID, using: service)
+                Task { @MainActor in await DebugWebPlaybackRunner.launchWebWorkshopItem(itemID, using: service) }
             }
             schedule(after: 13.5, action: "workspace-space-after-relaunch") {
                 NSWorkspace.shared.notificationCenter.post(

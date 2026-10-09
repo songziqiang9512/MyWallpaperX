@@ -71,27 +71,32 @@ extension SteamWorkshopService {
         }
 
         if record.contentType == .web {
-            guard let playbackContext = resolvedWebPlaybackContext(for: record) else {
-                clearLaunchPending(matching: record.id)
-                downloadError = "没有找到可播放的 HTML 入口文件。"
-                return
+            // Web 分支：缓存读盘/签名扫描/写盘在后台执行（点击热路径不做
+            // 文件 IO），解析完成后回主线程发布启动通知；失败走同一早退出口。
+            Task { [weak self] in
+                guard let self else { return }
+                guard let playbackContext = await self.resolvedWebPlaybackContext(for: record) else {
+                    self.clearLaunchPending(matching: record.id)
+                    self.downloadError = "没有找到可播放的 HTML 入口文件。"
+                    return
+                }
+                let runtimeProfile = self.recommendedWebRuntimeProfile(for: record)
+                NotificationCenter.default.post(
+                    name: .steamWorkshopWebWallpaperReadyToPlay,
+                    object: nil,
+                    userInfo: [
+                        "recordID": record.id,
+                        "entryURL": playbackContext.effectiveEntryURL,
+                        "rootURL": playbackContext.effectiveRootURL,
+                        "propertiesJSON": playbackContext.propertyPayloadJSON as Any,
+                        "language": playbackContext.language,
+                        "runtimeProfile": runtimeProfile,
+                        "resourceLifetime": resourceLifetime as Any
+                    ]
+                )
+                self.statusMessage = "已将 \(record.title) 发送到 HTML 网页壁纸实验宿主"
+                self.scheduleLaunchPendingFallbackClear(recordID: record.id)
             }
-            let runtimeProfile = recommendedWebRuntimeProfile(for: record)
-            NotificationCenter.default.post(
-                name: .steamWorkshopWebWallpaperReadyToPlay,
-                object: nil,
-                userInfo: [
-                    "recordID": record.id,
-                    "entryURL": playbackContext.effectiveEntryURL,
-                    "rootURL": playbackContext.effectiveRootURL,
-                    "propertiesJSON": playbackContext.propertyPayloadJSON as Any,
-                    "language": playbackContext.language,
-                    "runtimeProfile": runtimeProfile,
-                    "resourceLifetime": resourceLifetime as Any
-                ]
-            )
-            statusMessage = "已将 \(record.title) 发送到 HTML 网页壁纸实验宿主"
-            scheduleLaunchPendingFallbackClear(recordID: record.id)
             return
         }
 

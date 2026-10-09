@@ -48,16 +48,19 @@ enum DebugWebPlaybackRunner {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
             let service = SteamWorkshopService.shared
             service.reloadInstalledItems()
-            guard let record = service.latestDownloadRecord(for: itemID) else {
-                NSLog("MWX DEBUG PLAY: workshop item %@ not found", itemID)
-                return
+            Task { @MainActor in
+                // 整库扫描异步完成：等记录实际可见再走启动（有界）。
+                guard let record = await awaitInstalledRecord(itemID, using: service) else {
+                    NSLog("MWX DEBUG PLAY: workshop item %@ not found", itemID)
+                    return
+                }
+                NSLog(
+                    "MWX DEBUG PLAY: launching workshop item %@ type=%@",
+                    itemID,
+                    String(describing: record.contentType)
+                )
+                service.setAsWallpaper(record)
             }
-            NSLog(
-                "MWX DEBUG PLAY: launching workshop item %@ type=%@",
-                itemID,
-                String(describing: record.contentType)
-            )
-            service.setAsWallpaper(record)
         }
     }
 
@@ -110,7 +113,7 @@ enum DebugWebPlaybackRunner {
             let service = SteamWorkshopService.shared
             NSLog("MWX DEBUG PLAY: using workshop root %@", service.libraryRootURL.path)
             service.reloadInstalledItems()
-            launchWebWorkshopItem(itemID, using: service)
+            Task { @MainActor in await launchWebWorkshopItem(itemID, using: service) }
         }
     }
 
@@ -134,7 +137,7 @@ enum DebugWebPlaybackRunner {
             service.reloadInstalledItems()
             for (index, itemID) in itemIDs.enumerated() {
                 DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 4.0) {
-                    launchWebWorkshopItem(itemID, using: service)
+                    Task { @MainActor in await launchWebWorkshopItem(itemID, using: service) }
                 }
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(itemIDs.count) * 4.0) {
@@ -156,7 +159,7 @@ enum DebugWebPlaybackRunner {
             let service = SteamWorkshopService.shared
             NSLog("MWX DEBUG PLAY: using workshop root %@", service.libraryRootURL.path)
             service.reloadInstalledItems()
-            launchWebWorkshopItem(itemID, using: service)
+            Task { @MainActor in await launchWebWorkshopItem(itemID, using: service) }
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
                 NSLog("MWX DEBUG SYSTEM STATE: action=system-sleep")
@@ -201,7 +204,7 @@ enum DebugWebPlaybackRunner {
             let service = SteamWorkshopService.shared
             NSLog("MWX DEBUG PLAY: using workshop root %@", service.libraryRootURL.path)
             service.reloadInstalledItems()
-            launchWebWorkshopItem(itemID, using: service)
+            Task { @MainActor in await launchWebWorkshopItem(itemID, using: service) }
 
             for (index, delay) in [6.0, 6.05, 6.1].enumerated() {
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
@@ -223,11 +226,29 @@ enum DebugWebPlaybackRunner {
         }
     }
 
+    /// 整库扫描是异步单飞（`reloadInstalledItems` 返回不代表 downloads 投影
+    /// 已应用）；debug runner 的 reload→guard 链路须等记录实际可见，否则
+    /// 在扫描完成前一律误报 not-found。
+    static func awaitInstalledRecord(
+        _ itemID: String,
+        using service: SteamWorkshopService,
+        timeout: TimeInterval = 8.0
+    ) async -> SteamWorkshopDownloadRecord? {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let record = service.latestDownloadRecord(for: itemID) {
+                return record
+            }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        return service.latestDownloadRecord(for: itemID)
+    }
+
     static func launchWebWorkshopItem(
         _ itemID: String,
         using service: SteamWorkshopService
-    ) {
-        guard let record = service.latestDownloadRecord(for: itemID) else {
+    ) async {
+        guard let record = await awaitInstalledRecord(itemID, using: service) else {
             NSLog("MWX DEBUG PLAY: workshop item %@ not found", itemID)
             return
         }
@@ -247,7 +268,7 @@ enum DebugWebPlaybackRunner {
             NSLog("MWX DEBUG PLAY: workshop item %@ precondition=not-launchable", itemID)
             return
         }
-        guard let playbackContext = service.resolvedWebPlaybackContext(for: record) else {
+        guard let playbackContext = await service.resolvedWebPlaybackContext(for: record) else {
             NSLog("MWX DEBUG PLAY: workshop item %@ precondition=missing-playback-context", itemID)
             return
         }

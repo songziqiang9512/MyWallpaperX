@@ -56,43 +56,38 @@ extension SteamWorkshopService {
         return true
     }
 
-    func isWebRuntimeCacheManifestValid(
+    /// 运行时缓存清单的纯比对：输入快照与实时签名都由调用方给定（扫描在
+    /// 后台完成后传入），本函数不做任何 IO，可在任意线程执行。
+    nonisolated static func isRuntimeManifestValid(
         _ manifest: SteamWorkshopWebRuntimeCacheManifest,
-        for record: SteamWorkshopDownloadRecord
+        inputs: WebRuntimeCacheManifestInputs,
+        liveResourceSignature: SteamWorkshopWebRuntimeResourceSignature?
     ) -> Bool {
-        if manifest.language != Self.resolvedWebWallpaperLanguage() {
+        if manifest.language != inputs.language {
             return false
         }
-        if manifest.projectModifiedAt != webRuntimeCacheProjectModifiedAt(for: record) {
+        if manifest.projectModifiedAt != inputs.projectModifiedAt {
             return false
         }
-        if manifest.propertySourceRecordID != webPropertyDefinitionSourceRecord(for: record)?.id {
+        if manifest.propertySourceRecordID != inputs.propertySourceRecordID {
             return false
         }
-        if manifest.propertySourceProjectModifiedAt != webRuntimeCachePropertySourceProjectModifiedAt(for: record) {
+        if manifest.propertySourceProjectModifiedAt != inputs.propertySourceProjectModifiedAt {
             return false
         }
-        if manifest.resolvedEntryModifiedAt != webRuntimeCacheResolvedEntryModifiedAt(for: record) {
+        if manifest.resolvedEntryModifiedAt != inputs.resolvedEntryModifiedAt {
             return false
         }
-        if manifest.resourceSignature != webRuntimeResourceSignature(for: record) {
+        if manifest.resourceSignature != liveResourceSignature {
             return false
         }
-        if manifest.overridesSignature != webRuntimeCacheOverridesSignature(for: record) {
+        if manifest.overridesSignature != inputs.overridesSignature {
             return false
         }
-        let currentEntryPath = record.webEntryURL?.resolvingSymlinksInPath().standardizedFileURL.path ?? ""
-        let cachedEntryPath = manifest.execution.resolvedEntryPath
-        if currentEntryPath != cachedEntryPath {
+        if inputs.currentEntryPath != manifest.execution.resolvedEntryPath {
             return false
         }
-        let currentRootPath: String = if let entryURL = record.webEntryURL?.resolvingSymlinksInPath().standardizedFileURL {
-            effectiveWebRootURL(for: record, entryURL: entryURL).path
-        } else {
-            ""
-        }
-        let cachedRootPath = manifest.execution.effectiveRootPath
-        if currentRootPath != cachedRootPath {
+        if inputs.currentRootPath != manifest.execution.effectiveRootPath {
             return false
         }
         return true

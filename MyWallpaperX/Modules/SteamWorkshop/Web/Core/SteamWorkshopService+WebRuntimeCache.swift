@@ -1,6 +1,8 @@
 import Foundation
 
-struct SteamWorkshopWebAnalysisCacheManifest: Codable, Equatable {
+// 纯数据值类型：清单在后台线程解码/编码（detached 段），不随服务类的
+// default-MainActor 隔离。
+nonisolated struct SteamWorkshopWebAnalysisCacheManifest: Codable, Equatable {
     static let currentVersion = 15
 
     let version: Int
@@ -17,7 +19,7 @@ struct SteamWorkshopWebAnalysisCacheManifest: Codable, Equatable {
     let analysis: CachedResolvedWebProjectDescriptor
 }
 
-struct SteamWorkshopWebRuntimeCacheManifest: Codable, Equatable {
+nonisolated struct SteamWorkshopWebRuntimeCacheManifest: Codable, Equatable {
     static let currentVersion = 18
 
     let version: Int
@@ -34,25 +36,25 @@ struct SteamWorkshopWebRuntimeCacheManifest: Codable, Equatable {
     let execution: CachedResolvedWebExecutionManifest
 }
 
-struct SteamWorkshopWebRuntimeResourceSignature: Codable, Equatable {
+nonisolated struct SteamWorkshopWebRuntimeResourceSignature: Codable, Equatable {
     let scannedFileCount: Int
     let truncated: Bool
     let entries: [Entry]
 
-    struct Entry: Codable, Equatable {
+    nonisolated struct Entry: Codable, Equatable {
         let relativePath: String
         let modifiedAt: Date?
         let size: Int64?
     }
 }
 
-struct CachedResolvedWebExecutionManifest: Codable, Equatable {
+nonisolated struct CachedResolvedWebExecutionManifest: Codable, Equatable {
     let resolvedEntryPath: String
     let effectiveRootPath: String
     let propertyPayloadJSON: String?
 }
 
-struct CachedResolvedWebProjectDescriptor: Codable, Equatable {
+nonisolated struct CachedResolvedWebProjectDescriptor: Codable, Equatable {
     let sourceKind: ResolvedWebProjectDescriptor.SourceKind
     let declaredEntryRelativePath: String?
     let resolvedEntryRelativePath: String
@@ -75,6 +77,46 @@ struct CachedResolvedWebProjectDescriptor: Codable, Equatable {
 }
 
 extension SteamWorkshopService {
+    /// Web 运行时缓存清单字段的输入快照：主线程一次性收集（actor 状态 +
+    /// 轻量 stat），签名扫描 / JSON 编码 / 写盘在后台线程消费；后台段不得
+    /// 回读任何 actor 状态。
+    nonisolated struct WebRuntimeCacheManifestInputs {
+        let recordID: String
+        let language: String
+        let projectModifiedAt: Date?
+        let propertySourceRecordID: String?
+        let propertySourceProjectModifiedAt: Date?
+        let resolvedEntryModifiedAt: Date?
+        let overridesSignature: Data?
+        let entryURL: URL?
+        let rootURL: URL?
+        let currentEntryPath: String
+        let currentRootPath: String
+        let analysisFileURL: URL
+        let runtimeFileURL: URL
+    }
+
+    /// 主线程入口：收集清单输入快照（缓存校验与保存共用一份字段来源）。
+    func webRuntimeCacheManifestInputs(for record: SteamWorkshopDownloadRecord) -> WebRuntimeCacheManifestInputs {
+        let entryURL = record.webEntryURL?.resolvingSymlinksInPath().standardizedFileURL
+        let rootURL = entryURL.map { effectiveWebRootURL(for: record, entryURL: $0) }
+        return WebRuntimeCacheManifestInputs(
+            recordID: record.id,
+            language: Self.resolvedWebWallpaperLanguage(),
+            projectModifiedAt: webRuntimeCacheProjectModifiedAt(for: record),
+            propertySourceRecordID: webPropertyDefinitionSourceRecord(for: record)?.id,
+            propertySourceProjectModifiedAt: webRuntimeCachePropertySourceProjectModifiedAt(for: record),
+            resolvedEntryModifiedAt: webRuntimeCacheResolvedEntryModifiedAt(for: record),
+            overridesSignature: webRuntimeCacheOverridesSignature(for: record),
+            entryURL: entryURL,
+            rootURL: rootURL,
+            currentEntryPath: entryURL?.path ?? "",
+            currentRootPath: rootURL?.path ?? "",
+            analysisFileURL: webAnalysisCacheFileURL(for: record),
+            runtimeFileURL: webRuntimeCacheFileURL(for: record)
+        )
+    }
+
     nonisolated static func webRuntimeCacheDirectoryURL() -> URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library", isDirectory: true)
@@ -106,17 +148,20 @@ extension SteamWorkshopService {
         let webRecords = records.filter { $0.contentType == .web }
         guard !webRecords.isEmpty else { return }
         webRuntimePreloadTask?.cancel()
+        // 主 actor 只做轻量字段收集与失效判定；签名扫描与写盘在
+        // loadCached/resolved 内部的后台段执行，循环间的 await 让主线程
+        // 在每条记录的重 IO 期间保持可用。
         webRuntimePreloadTask = Task(priority: .utility) { @MainActor [weak self] in
             guard let self else { return }
             for record in webRecords {
                 guard !Task.isCancelled else { break }
                 let requiresLiveResolution = self.webRuntimeRequiresLiveResourceResolution(for: record)
                 guard !requiresLiveResolution else { continue }
-                if self.loadCachedWebPlaybackContext(
+                if await self.loadCachedWebPlaybackContext(
                     for: record,
                     liveResourceResolutionRequired: requiresLiveResolution
                 ) == nil {
-                    _ = self.resolvedWebPlaybackContext(for: record)
+                    _ = await self.resolvedWebPlaybackContext(for: record)
                 }
                 try? await Task.sleep(for: .milliseconds(40))
             }
@@ -124,39 +169,45 @@ extension SteamWorkshopService {
         }
     }
 
+    /// 缓存命中路径：读盘 / 解码 / 签名扫描 / 字段比对全部在后台段完成，
+    /// 主线程只产出输入快照。点击播放的热路径因此不再做任何文件 IO。
     func loadCachedWebPlaybackContext(
         for record: SteamWorkshopDownloadRecord,
         liveResourceResolutionRequired: Bool? = nil
-    ) -> ResolvedWebPlaybackContext? {
+    ) async -> ResolvedWebPlaybackContext? {
         let requiresLiveResolution = liveResourceResolutionRequired
             ?? webRuntimeRequiresLiveResourceResolution(for: record)
         guard !requiresLiveResolution else {
             NSLog("MWX WEB RUNTIME CACHE: live resource resolution record=%@", record.id)
             return nil
         }
-        let fileURL = webRuntimeCacheFileURL(for: record)
-        guard let data = try? Data(contentsOf: fileURL),
-              let manifest = try? JSONDecoder().decode(SteamWorkshopWebRuntimeCacheManifest.self, from: data),
-              manifest.version == SteamWorkshopWebRuntimeCacheManifest.currentVersion,
-              manifest.recordID == record.id,
-              isWebRuntimeCacheManifestValid(manifest, for: record) else {
-            return nil
-        }
-
-        let resolvedEntryURL = URL(fileURLWithPath: manifest.execution.resolvedEntryPath).resolvingSymlinksInPath().standardizedFileURL
-        let effectiveRootURL = URL(fileURLWithPath: manifest.execution.effectiveRootPath).resolvingSymlinksInPath().standardizedFileURL
-        guard FileManager.default.fileExists(atPath: resolvedEntryURL.path),
-              FileManager.default.fileExists(atPath: effectiveRootURL.path) else {
-            return nil
-        }
-
-        return ResolvedWebPlaybackContext(
-            recordID: record.id,
-            effectiveEntryURL: resolvedEntryURL,
-            effectiveRootURL: effectiveRootURL,
-            propertyPayloadJSON: manifest.execution.propertyPayloadJSON,
-            language: Self.resolvedWebWallpaperLanguage()
-        )
+        let inputs = webRuntimeCacheManifestInputs(for: record)
+        return await Task.detached(priority: .userInitiated) { [weak self] () -> ResolvedWebPlaybackContext? in
+            guard let data = try? Data(contentsOf: inputs.runtimeFileURL),
+                  let manifest = try? JSONDecoder().decode(SteamWorkshopWebRuntimeCacheManifest.self, from: data),
+                  manifest.version == SteamWorkshopWebRuntimeCacheManifest.currentVersion,
+                  manifest.recordID == inputs.recordID else {
+                return nil
+            }
+            guard let self else { return nil }
+            let liveResourceSignature = Self.liveResourceSignature(inputs: inputs, scanner: self)
+            guard Self.isRuntimeManifestValid(manifest, inputs: inputs, liveResourceSignature: liveResourceSignature) else {
+                return nil
+            }
+            let resolvedEntryURL = URL(fileURLWithPath: manifest.execution.resolvedEntryPath).resolvingSymlinksInPath().standardizedFileURL
+            let effectiveRootURL = URL(fileURLWithPath: manifest.execution.effectiveRootPath).resolvingSymlinksInPath().standardizedFileURL
+            guard FileManager.default.fileExists(atPath: resolvedEntryURL.path),
+                  FileManager.default.fileExists(atPath: effectiveRootURL.path) else {
+                return nil
+            }
+            return ResolvedWebPlaybackContext(
+                recordID: inputs.recordID,
+                effectiveEntryURL: resolvedEntryURL,
+                effectiveRootURL: effectiveRootURL,
+                propertyPayloadJSON: manifest.execution.propertyPayloadJSON,
+                language: inputs.language
+            )
+        }.value
     }
 
     func loadCachedWebProjectDescriptor(for record: SteamWorkshopDownloadRecord) -> ResolvedWebProjectDescriptor? {
@@ -216,73 +267,64 @@ extension SteamWorkshopService {
             propertySourceProjectModifiedAt: webRuntimeCachePropertySourceProjectModifiedAt(for: record),
             resolvedEntryModifiedAt: webRuntimeCacheResolvedEntryModifiedAt(for: record),
             resourceSignature: resourceSignature ?? webRuntimeResourceSignature(for: record),
-            analysis: CachedResolvedWebProjectDescriptor(
-                sourceKind: descriptor.sourceKind,
-                declaredEntryRelativePath: descriptor.declaredEntryRelativePath,
-                resolvedEntryRelativePath: descriptor.resolvedEntryRelativePath,
-                resolvedEntryPath: descriptor.resolvedEntryURL.path,
-                effectiveRootPath: descriptor.effectiveRootURL.path,
-                entrySource: descriptor.entrySource,
-                sampleStructure: descriptor.sampleStructure,
-                propertySource: descriptor.propertySource,
-                propertyDefinitions: descriptor.propertyDefinitions,
-                defaultValueMap: descriptor.defaultValueMap,
-                presetOverrideMap: descriptor.presetOverrideMap,
-                presetResourceBindingsByKey: descriptor.presetResourceBindingsByKey,
-                baselineVisiblePropertyKeys: descriptor.baselineVisiblePropertyKeys,
-                baselineVisibleOptionsByKey: descriptor.baselineVisibleOptionsByKey,
-                baselinePreconditionStates: descriptor.baselinePreconditionStates,
-                resolvedLocalizationMap: descriptor.resolvedLocalizationMap,
-                hostCapabilitySnapshot: descriptor.hostCapabilitySnapshot,
-                staticContentSummary: descriptor.staticContentSummary,
-                runtimeRiskFlags: descriptor.runtimeRiskFlags
-            )
+            analysis: Self.cachedAnalysis(from: descriptor)
         )
-
-        guard let data = try? JSONEncoder().encode(manifest) else { return }
-        let fileURL = webAnalysisCacheFileURL(for: record)
-        try? FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? data.write(to: fileURL, options: [.atomic])
+        Self.writeManifest(manifest, to: webAnalysisCacheFileURL(for: record))
     }
 
+    /// 冷路径保存：主线程只收集清单字段与纯映射，扫描 / 编码 / 双清单
+    /// 原子写盘在后台段完成后返回（保持与同步版相同的完成时序语义）。
     func saveWebRuntimeCache(
         descriptor: ResolvedWebProjectDescriptor,
         propertyPayloadJSON: String?,
         for record: SteamWorkshopDownloadRecord
-    ) {
-        let fileURL = webRuntimeCacheFileURL(for: record)
+    ) async {
+        let inputs = webRuntimeCacheManifestInputs(for: record)
         guard !webRuntimeRequiresLiveResourceResolution(for: record) else {
-            try? FileManager.default.removeItem(at: fileURL)
+            try? FileManager.default.removeItem(at: inputs.runtimeFileURL)
             return
         }
-        let resourceSignature = webRuntimeResourceSignature(for: record)
-        saveWebAnalysisCache(
-            descriptor: descriptor,
-            for: record,
-            resourceSignature: resourceSignature
+        let cachedAnalysis = Self.cachedAnalysis(from: descriptor)
+        let execution = CachedResolvedWebExecutionManifest(
+            resolvedEntryPath: descriptor.resolvedEntryURL.path,
+            effectiveRootPath: descriptor.effectiveRootURL.path,
+            propertyPayloadJSON: propertyPayloadJSON
         )
-
-        let manifest = SteamWorkshopWebRuntimeCacheManifest(
-            version: SteamWorkshopWebRuntimeCacheManifest.currentVersion,
-            recordID: record.id,
-            generatedAt: Date(),
-            language: Self.resolvedWebWallpaperLanguage(),
-            projectModifiedAt: webRuntimeCacheProjectModifiedAt(for: record),
-            propertySourceRecordID: webPropertyDefinitionSourceRecord(for: record)?.id,
-            propertySourceProjectModifiedAt: webRuntimeCachePropertySourceProjectModifiedAt(for: record),
-            resolvedEntryModifiedAt: webRuntimeCacheResolvedEntryModifiedAt(for: record),
-            resourceSignature: resourceSignature,
-            overridesSignature: webRuntimeCacheOverridesSignature(for: record),
-            execution: CachedResolvedWebExecutionManifest(
-                resolvedEntryPath: descriptor.resolvedEntryURL.path,
-                effectiveRootPath: descriptor.effectiveRootURL.path,
-                propertyPayloadJSON: propertyPayloadJSON
+        await Task.detached(priority: .utility) { [weak self] () -> Void in
+            guard let self else { return }
+            let resourceSignature = Self.liveResourceSignature(inputs: inputs, scanner: self)
+            Self.writeManifest(
+                SteamWorkshopWebAnalysisCacheManifest(
+                    version: SteamWorkshopWebAnalysisCacheManifest.currentVersion,
+                    recordID: inputs.recordID,
+                    generatedAt: Date(),
+                    language: inputs.language,
+                    projectModifiedAt: inputs.projectModifiedAt,
+                    propertySourceRecordID: inputs.propertySourceRecordID,
+                    propertySourceProjectModifiedAt: inputs.propertySourceProjectModifiedAt,
+                    resolvedEntryModifiedAt: inputs.resolvedEntryModifiedAt,
+                    resourceSignature: resourceSignature,
+                    analysis: cachedAnalysis
+                ),
+                to: inputs.analysisFileURL
             )
-        )
-
-        guard let data = try? JSONEncoder().encode(manifest) else { return }
-        try? FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? data.write(to: fileURL, options: [.atomic])
+            Self.writeManifest(
+                SteamWorkshopWebRuntimeCacheManifest(
+                    version: SteamWorkshopWebRuntimeCacheManifest.currentVersion,
+                    recordID: inputs.recordID,
+                    generatedAt: Date(),
+                    language: inputs.language,
+                    projectModifiedAt: inputs.projectModifiedAt,
+                    propertySourceRecordID: inputs.propertySourceRecordID,
+                    propertySourceProjectModifiedAt: inputs.propertySourceProjectModifiedAt,
+                    resolvedEntryModifiedAt: inputs.resolvedEntryModifiedAt,
+                    resourceSignature: resourceSignature,
+                    overridesSignature: inputs.overridesSignature,
+                    execution: execution
+                ),
+                to: inputs.runtimeFileURL
+            )
+        }.value
     }
 
     func webRuntimeResourceSignature(for record: SteamWorkshopDownloadRecord) -> SteamWorkshopWebRuntimeResourceSignature? {
@@ -290,6 +332,15 @@ extension SteamWorkshopService {
             return nil
         }
         let rootURL = effectiveWebRootURL(for: record, entryURL: entryURL)
+        return webRuntimeResourceSignature(entryURL: entryURL, rootURL: rootURL)
+    }
+
+    /// 签名扫描核心：≤120 文件 BFS + 文本依赖全文读取，纯 FS 无 actor 状态，
+    /// 可在任意线程执行。
+    nonisolated func webRuntimeResourceSignature(
+        entryURL: URL,
+        rootURL: URL
+    ) -> SteamWorkshopWebRuntimeResourceSignature? {
         let maxScannedFiles = 120
         let deadline = Date().addingTimeInterval(0.20)
         var scannedFiles = Set<URL>()
@@ -335,6 +386,47 @@ extension SteamWorkshopService {
             truncated: truncated,
             entries: entries.sorted { $0.relativePath < $1.relativePath }
         )
+    }
+
+    /// 后台段调用的签名入口：无 entry/root（记录无入口）时与同步版一致返回 nil。
+    nonisolated private static func liveResourceSignature(
+        inputs: WebRuntimeCacheManifestInputs,
+        scanner: SteamWorkshopService
+    ) -> SteamWorkshopWebRuntimeResourceSignature? {
+        guard let entryURL = inputs.entryURL, let rootURL = inputs.rootURL else { return nil }
+        return scanner.webRuntimeResourceSignature(entryURL: entryURL, rootURL: rootURL)
+    }
+
+    /// 纯映射：descriptor → 分析缓存负载（同步保存与后台保存共用一份构造）。
+    private static func cachedAnalysis(from descriptor: ResolvedWebProjectDescriptor) -> CachedResolvedWebProjectDescriptor {
+        CachedResolvedWebProjectDescriptor(
+            sourceKind: descriptor.sourceKind,
+            declaredEntryRelativePath: descriptor.declaredEntryRelativePath,
+            resolvedEntryRelativePath: descriptor.resolvedEntryRelativePath,
+            resolvedEntryPath: descriptor.resolvedEntryURL.path,
+            effectiveRootPath: descriptor.effectiveRootURL.path,
+            entrySource: descriptor.entrySource,
+            sampleStructure: descriptor.sampleStructure,
+            propertySource: descriptor.propertySource,
+            propertyDefinitions: descriptor.propertyDefinitions,
+            defaultValueMap: descriptor.defaultValueMap,
+            presetOverrideMap: descriptor.presetOverrideMap,
+            presetResourceBindingsByKey: descriptor.presetResourceBindingsByKey,
+            baselineVisiblePropertyKeys: descriptor.baselineVisiblePropertyKeys,
+            baselineVisibleOptionsByKey: descriptor.baselineVisibleOptionsByKey,
+            baselinePreconditionStates: descriptor.baselinePreconditionStates,
+            resolvedLocalizationMap: descriptor.resolvedLocalizationMap,
+            hostCapabilitySnapshot: descriptor.hostCapabilitySnapshot,
+            staticContentSummary: descriptor.staticContentSummary,
+            runtimeRiskFlags: descriptor.runtimeRiskFlags
+        )
+    }
+
+    /// 纯编码 + 原子写盘，可在任意线程执行。
+    nonisolated private static func writeManifest<T: Encodable>(_ manifest: T, to fileURL: URL) {
+        guard let data = try? JSONEncoder().encode(manifest) else { return }
+        try? FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? data.write(to: fileURL, options: [.atomic])
     }
 
 }
