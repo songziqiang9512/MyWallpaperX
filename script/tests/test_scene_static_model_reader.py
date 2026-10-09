@@ -9,6 +9,7 @@ import shutil
 import struct
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -45,6 +46,29 @@ enum Harness {
                 }
                 let parts = try SceneMdlStaticModelReader.readParts(data: data)
                 let model = parts[0]
+                if ProcessInfo.processInfo.environment["MWX_READER_COMPACT"] == "1" {
+                    // Exercise the complete decoder without serializing millions
+                    // of vectors. Tail samples also prove the widened range is read.
+                    let selected = [0, 1, 2, model.vertices.count - 3,
+                                    model.vertices.count - 2, model.vertices.count - 1]
+                    entry["ok"] = true
+                    entry["partCount"] = parts.count
+                    entry["vertexCount"] = model.vertices.count
+                    entry["decodedVertexBytes"] = model.vertices.count
+                        * MemoryLayout<SceneMdlStaticModel.Vertex>.stride
+                    entry["indexElementSize"] = model.indexElementSize
+                    entry["indices"] = model.indices.map(Int.init)
+                    entry["samples"] = selected.map { index in
+                        let vertex = model.vertices[index]
+                        return ["index": index,
+                            "position": [vertex.position.x, vertex.position.y, vertex.position.z].map(Double.init),
+                            "normal": [vertex.normal.x, vertex.normal.y, vertex.normal.z].map(Double.init),
+                            "tangent": [vertex.tangent.x, vertex.tangent.y, vertex.tangent.z, vertex.tangent.w].map(Double.init),
+                            "uv": [vertex.uv.x, vertex.uv.y].map(Double.init)] as [String: Any]
+                    }
+                    results.append(entry)
+                    continue
+                }
                 entry["parts"] = parts.map { part in
                     ["material": part.materialPath, "indices": part.indices.map(Int.init),
                      "elementSize": part.indexElementSize,
@@ -231,6 +255,30 @@ def build_legacy_model(
     )
 
 
+def write_large_valid_model(path: Path) -> tuple[int, int]:
+    """Stream self-authored triangles just beyond the retired 64 MiB limit."""
+    triangle = b"".join(struct.pack("<12f", *(p + n + t + uv))
+                        for p, n, t, uv in DEFAULT_VERTICES)
+    repetitions = (64 * 1024 * 1024) // len(triangle) + 1
+    vertex_count = repetitions * 3
+    vertex_bytes = repetitions * len(triangle)
+    header = b"".join([
+        b"MDLV0023\0", struct.pack("<III", 15, 1, 1),
+        b"materials/models/fixture/large.json\0",
+        struct.pack("<I6fII", 1, -1, -1, -1, 1, 1, 1, 15, vertex_bytes),
+    ])
+    with path.open("wb") as handle:
+        handle.write(header)
+        block_count, remainder = divmod(repetitions, 1024)
+        block = triangle * 1024
+        for _ in range(block_count):
+            handle.write(block)
+        handle.write(triangle * remainder)
+        handle.write(struct.pack("<I3I", 12, 0, vertex_count - 2, vertex_count - 1))
+        handle.write(b"\0" * 7)
+    return vertex_count, len(header)
+
+
 class SceneMdlStaticModelReaderTests(unittest.TestCase):
     maxDiff = None
 
@@ -244,10 +292,12 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
         harness.write_text(HARNESS, encoding="utf-8")
         cls.binary = root / "harness"
         compilation = subprocess.run(
-            ["swiftc", *map(str, SWIFT_SOURCES), str(harness), "-o", str(cls.binary)],
+            ["swiftc", "-O", *map(str, SWIFT_SOURCES), str(harness),
+             "-module-cache-path", str(root / "cache"), "-o", str(cls.binary)],
             cwd=REPOSITORY_ROOT,
             capture_output=True,
             text=True,
+            timeout=120,
         )
         if compilation.returncode != 0:
             raise AssertionError(f"harness compilation failed:\n{compilation.stderr}")
@@ -291,7 +341,7 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
             "empty-vertices.mdl": build_model(vertices=[]),
             "bad-vertex-bytes.mdl": build_model(declared_vertex_byte_count=47),
             "vertex-budget.mdl": build_model(
-                declared_vertex_byte_count=67_108_896
+                declared_vertex_byte_count=268_435_488
             ),
             "nan-vertex.mdl": build_model(
                 vertices=[
@@ -348,7 +398,7 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
             "late-trailer.mdl": build_parts(8)[:-1] + b"\1",
             # Each later declaration fits the individual byte limit, but adding
             # already validated first-part bytes crosses the unchanged model budget.
-            "cumulative-vertex.mdl": build_parts(2, last_changes={"declared_vertex_byte_count": 67_108_848}),
+            "cumulative-vertex.mdl": build_parts(2, last_changes={"declared_vertex_byte_count": 268_435_440}),
             "cumulative-index.mdl": (build_model(material_count=2, indices=(0,1,2)*4)[:-7]
                 + b"\0"*6 + build_model(index_flag=1, declared_index_byte_count=33_554_424)[21:]),
         })
@@ -359,6 +409,7 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
             cwd=REPOSITORY_ROOT,
             capture_output=True,
             text=True,
+            timeout=60,
         )
         if completed.returncode != 0:
             raise AssertionError(f"harness run failed:\n{completed.stderr}")
@@ -369,12 +420,60 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
             [str(cls.binary), *(str(root / name) for name in fixtures)],
             cwd=REPOSITORY_ROOT, capture_output=True, text=True,
             env={**os.environ, "MWX_READER_SLICE": "1"},
+            timeout=60,
         )
         if sliced.returncode != 0:
             raise AssertionError(f"sliced harness run failed:\n{sliced.stderr}")
         cls.sliced_results = {
             result["file"]: result for result in json.loads(sliced.stdout)
         }
+
+    def test_geometry_above_retired_budget_validates_and_decodes_through_its_tail(self):
+        path = Path(self._tmp.name) / "large-valid.mdl"
+        count, vertex_offset = write_large_valid_model(path)
+        self.assertGreater(count * 48, 64 * 1024 * 1024)
+        self.assertLess(count * 48, 256 * 1024 * 1024)
+        started = time.monotonic()
+        completed = subprocess.run(
+            [str(self.binary), str(path)], cwd=REPOSITORY_ROOT,
+            capture_output=True, text=True, timeout=60,
+            env={**os.environ, "MWX_READER_COMPACT": "1"},
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertLess(len(completed.stdout), 4096)
+        row = json.loads(completed.stdout)[0]
+        self.assertTrue(row["ok"], row)
+        self.assertEqual(row["partCount"], 1)
+        self.assertEqual(row["fullMetadataPaths"], ["materials/models/fixture/large.json"])
+        self.assertEqual(row["vertexCount"], count)
+        self.assertEqual(row["decodedVertexBytes"], count * 64)
+        self.assertEqual(row["indexElementSize"], 4)
+        self.assertEqual(row["indices"], [0, count - 2, count - 1])
+        for sample in row["samples"]:
+            position, normal, tangent, uv = DEFAULT_VERTICES[sample["index"] % 3]
+            self.assertEqual(sample, {"index": sample["index"], "position": list(position),
+                "normal": list(normal), "tangent": list(tangent), "uv": list(uv)})
+        print(f"Large model reader: {count * 48} authored bytes, {count * 64} decoded bytes, "
+              f"{len(completed.stdout)} output bytes, {time.monotonic() - started:.3f}s", flush=True)
+
+        # Corruption beyond the old cap must still reject the complete metadata
+        # and decode with the same late failure, before publishing any part.
+        with path.open("r+b") as handle:
+            handle.seek(vertex_offset + (count - 1) * 48)
+            handle.write(struct.pack("<f", float("nan")))
+        corrupted = subprocess.run(
+            [str(self.binary), str(path)], cwd=REPOSITORY_ROOT,
+            capture_output=True, text=True, timeout=60,
+            env={**os.environ, "MWX_READER_COMPACT": "1"},
+        )
+        self.assertEqual(corrupted.returncode, 0, corrupted.stderr)
+        rejected = json.loads(corrupted.stdout)[0]
+        self.assertFalse(rejected["ok"])
+        self.assertTrue(rejected["fullMetadataRejected"])
+        self.assertEqual(rejected["fullMetadataError"], rejected["error"])
+        self.assertIn(f"non-finite static mdl vertex data at index {count - 1}", rejected["error"])
+        self.assertNotIn("partCount", rejected)
+        path.unlink()
 
     def test_metadata_preserves_full_decode_acceptance_and_error_identity(self):
         for row in self.results.values():

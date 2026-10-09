@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 591,
-      "bytes": 108995
+      "bytes": 109335
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -53,8 +53,8 @@
       "bytes": 14336
     },
     "docs/scene/architecture/scene-resource-admission.md": {
-      "lines": 37,
-      "bytes": 7226
+      "lines": 42,
+      "bytes": 7640
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 124,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 93,
-      "bytes": 26584
+      "bytes": 26702
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 222,
-      "bytes": 57571
+      "bytes": 57782
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1041,30 +1041,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/scene-resource-admission.md",
+      "before": "f0c438db06a1027042354a9394da5ed8cf59183bb185e67b976eff900323f5f4",
+      "after": "02f61c3ec7e357466792c4f02a37b553451af292054ffeb2522ac8f8c1e1844d",
+      "owner": "Scene static model preparation",
+      "reason": "替换旧64MiB模型准备预算，稳定原reader/identity/GPU owner与内存边界；新结果归历史，已实施设计退为指针，队列保留真实受光残差。",
+      "decision": "docs/scene/history/l1-heavy-retest-2026-10-07.md#large-static-model"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "1019f7a6068987d91933ed78a05162ba0813182b1dd310a0ccde112605d0b96e",
-      "after": "e6465d1badcacaa241e32201d3f945692aa70cddb70c5ee553245c10fc61547a",
-      "owner": "Scene shared text layout",
-      "reason": "既有CoreText owner统一测量/截断/栅格化合同；队列替换已完成媒体和布局项，详细运行证据归历史，不新增并行状态。",
-      "decision": "docs/scene/history/text-width-property-implementation-2026-10-05.md#glyph-bounds"
+      "before": "e6465d1badcacaa241e32201d3f945692aa70cddb70c5ee553245c10fc61547a",
+      "after": "3bfd34eb50e73411b0fffd4adbd926feb13dee7e212cfe47776bb23950daf6c6",
+      "owner": "Scene static model preparation",
+      "reason": "替换旧64MiB模型准备预算，稳定原reader/identity/GPU owner与内存边界；新结果归历史，已实施设计退为指针，队列保留真实受光残差。",
+      "decision": "docs/scene/history/l1-heavy-retest-2026-10-07.md#large-static-model"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c5c4c955ddaadecab4ea43ccbd9874faf6d92e30b6880c96c137bb2eb04b4a7b",
-      "after": "a1eff96387ceb04ed71441edea5693f24e2822e9ecc0bec030d8dcc970a8ec51",
-      "owner": "Scene shared text layout",
-      "reason": "既有CoreText owner统一测量/截断/栅格化合同；队列替换已完成媒体和布局项，详细运行证据归历史，不新增并行状态。",
-      "decision": "docs/scene/history/text-width-property-implementation-2026-10-05.md#glyph-bounds"
+      "before": "a1eff96387ceb04ed71441edea5693f24e2822e9ecc0bec030d8dcc970a8ec51",
+      "after": "78ea18daf135cd2090406349e4e1090767a1229575e6f2bfcc5adcb045162281",
+      "owner": "Scene static model preparation",
+      "reason": "替换旧64MiB模型准备预算，稳定原reader/identity/GPU owner与内存边界；新结果归历史，已实施设计退为指针，队列保留真实受光残差。",
+      "decision": "docs/scene/history/l1-heavy-retest-2026-10-07.md#large-static-model"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a25d1da8d294f376d6d9e3d22db437e528319856c8ac3d71789034e9eebfae66",
-      "after": "dabd51a10adf60bdd311d4e0f251e6be0d7244be2f59e61f499fac26e1614c5c",
-      "owner": "Scene shared text layout",
-      "reason": "既有CoreText owner统一测量/截断/栅格化合同；队列替换已完成媒体和布局项，详细运行证据归历史，不新增并行状态。",
-      "decision": "docs/scene/history/text-width-property-implementation-2026-10-05.md#glyph-bounds"
+      "before": "dabd51a10adf60bdd311d4e0f251e6be0d7244be2f59e61f499fac26e1614c5c",
+      "after": "ada0dccd4553878cdd46770dd7f0306c016e29d368a6b85dcc8f442999a3728e",
+      "owner": "Scene static model preparation",
+      "reason": "替换旧64MiB模型准备预算，稳定原reader/identity/GPU owner与内存边界；新结果归历史，已实施设计退为指针，队列保留真实受光残差。",
+      "decision": "docs/scene/history/l1-heavy-retest-2026-10-07.md#large-static-model"
     }
   ]
 }

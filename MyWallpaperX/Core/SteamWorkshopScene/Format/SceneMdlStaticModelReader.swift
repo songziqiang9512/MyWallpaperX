@@ -82,7 +82,7 @@ nonisolated enum SceneMdlStaticModelReader {
     private static let maximumPathByteCount = 4_096
     /// Per-model load work budget, not a format maximum.
     private static let maximumMaterialSegmentCount: UInt32 = 64
-    private static let maximumVertexByteCount: UInt32 = 64 * 1_024 * 1_024
+    private static let maximumVertexByteCount: UInt32 = 256 * 1_024 * 1_024
     private static let maximumIndexByteCount: UInt32 = 32 * 1_024 * 1_024
     private static let maximumAbsoluteValue: Float = 1_000_000
 

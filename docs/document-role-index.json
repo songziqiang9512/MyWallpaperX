@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1d5c4dc1dfeb6b94cd3fd6cb4320da241de43063f653f5ffd337a1f3242e46b5",
+        "sourceSHA256": "c06944773f381293e06cf745773645b27f71511c85e4714937e82c18a9f69122",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对既有文字测量、末行截断与栅格化的共享CoreText合同及有界证据导航。",
+        "scope": "核对大型静态模型累计准备预算、原identity与GPU资源owner及实际入链边界。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
@@ -522,9 +522,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1ede7ce30f0b0ee46d3b276965d93206a35afd55c07921cb5ec3b3e22786d245",
+        "sourceSHA256": "0318a196e40640d96a84c2bf115b210989634860dd7897e06c9de24618a7d3c5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对文字与真实系统媒体切源的有界结果导航；细节归既有历史。",
+        "scope": "核对大型静态模型累计准备预算、原identity与GPU资源owner及实际入链边界。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
@@ -1057,7 +1057,9 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-        "docs/scene/capabilities/scene-sample-debug-ledger.md"
+        "docs/scene/capabilities/scene-sample-debug-ledger.md",
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
     {
