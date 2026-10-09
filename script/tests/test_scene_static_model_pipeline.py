@@ -13,6 +13,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 METAL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal"
+FOG_HEADER = METAL_SOURCE.with_name("SceneDistanceFog.metalh")
 SHADOW_SOURCE = SCENE_ROOT / "Rendering/Metal/SceneStaticModelShadow.swift"
 PIPELINE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift"
 DYNAMIC_SNAPSHOT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift"
@@ -100,6 +101,7 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory(prefix="mwx-model-light-count-") as tmp:
             probe_shader = Path(tmp) / "LightCounts.metal"
+            (Path(tmp) / FOG_HEADER.name).write_bytes(FOG_HEADER.read_bytes())
             source = METAL_SOURCE.read_text(encoding="utf-8").replace(
                 "fragment half4 sceneStaticModelFragment(",
                 "fragment half4 sceneStaticModelOriginalFragment(", 1)

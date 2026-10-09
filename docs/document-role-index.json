@@ -522,9 +522,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "37a28760b480d85d9b7344a0f8a085145b52df583afb6692009fd4126ddee4c4",
+        "sourceSHA256": "68cb90d9495a22b55e73e4cd14cd07cddb74091e7627d02b704882e15a357df7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对模型距离雾修复证据和图片雾、窗光残差仍开放的导航。",
+        "scope": "核对原生透视图片Fog已接、窗光残差与正交距离域仍开放的单一导航；不外推其他2D profile。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
@@ -1949,9 +1949,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e9944bc0a729e6bcd9cb9a3224ac2d16f481f907929a7667cae31fcac79fb05a",
+        "sourceSHA256": "0324e36c2e26869abe7175e40c213a2c8cd6990972a37d213a2be9ac53bff5be",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对类型转换入口复用、原包编译接线及视觉未闭的证据边界。",
+        "scope": "核对原生透视图片Fog已接、窗光残差与正交距离域仍开放的单一导航；不外推其他2D profile。",
         "limitations": "导航与证据身份核对；不等同全样本、真实声源、compose或HDR官方parity。"
       }
     },

@@ -10,13 +10,16 @@ enum SceneImageLayerMainPassRenderer {
         layer: SceneRenderDescriptor.Layer,
         pipeline: SceneImageLayerPipeline,
         colorBlendPipeline: SceneLayerColorBlendPipeline?,
+        distanceFog: SceneImageDistanceFogUniforms = .init(),
         geometryProduct: SceneGeometryProduct? = nil,
         mainPass: SceneMainPassEncoder
     ) -> Bool {
-        SceneLayerColorBlendRenderer.draw(
+        var visibleUniforms = uniforms
+        visibleUniforms.distanceFog = distanceFog
+        return SceneLayerColorBlendRenderer.draw(
             texture: texture,
             mvp: mvp,
-            uniforms: uniforms,
+            uniforms: visibleUniforms,
             dependencyTexture: dependencyTexture,
             layer: layer,
             pipeline: pipeline,

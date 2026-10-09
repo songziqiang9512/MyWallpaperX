@@ -334,6 +334,7 @@ struct SceneImageLayerCompositor {
                     dependencyTexture: dependencyEffect?.texture,
                     layer: request.layer, pipeline: pipeline,
                     colorBlendPipeline: colorBlendPipeline,
+                    distanceFog: request.distanceFog,
                     geometryProduct: request.geometryProduct, mainPass: mainPass
                 )
                 guard encoded else { return .failed }
@@ -486,6 +487,7 @@ struct SceneImageLayerCompositor {
                 layer: request.layer,
                 pipeline: pipeline,
                 colorBlendPipeline: colorBlendPipeline,
+                distanceFog: request.distanceFog,
                 geometryProduct: request.geometryProduct,
                 mainPass: mainPass
             )
@@ -519,6 +521,7 @@ struct SceneImageLayerCompositor {
             layer: request.layer,
             pipeline: pipeline,
             colorBlendPipeline: colorBlendPipeline,
+            distanceFog: request.distanceFog,
             geometryProduct: request.geometryProduct,
             mainPass: mainPass
         )
@@ -563,6 +566,7 @@ struct SceneImageLayerCompositor {
                 layer: request.layer,
                 pipeline: pipeline,
                 colorBlendPipeline: nil,
+                distanceFog: request.distanceFog,
                 mainPass: mainPass
             )
         }
@@ -604,6 +608,7 @@ struct SceneImageLayerCompositor {
             layer: request.layer,
             pipeline: pipeline,
             colorBlendPipeline: colorBlendPipeline,
+            distanceFog: request.distanceFog,
             mainPass: mainPass
         )
     }

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -15,6 +16,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 PIPELINE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift"
 SHADER = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal"
+FOG_HEADER = SHADER.with_name("SceneDistanceFog.metalh")
 
 HARNESS = r'''
 import Foundation
@@ -188,6 +190,11 @@ class SceneImageCompositorRepresentationGPUTests(unittest.TestCase):
             folder = Path(directory)
             harness = folder / "Harness.swift"
             harness.write_text(HARNESS, encoding="utf-8")
+            identity = {path: hashlib.sha256(path.read_bytes()).hexdigest()
+                        for path in (PIPELINE, SHADER, FOG_HEADER)}
+            shader = folder / SHADER.name
+            shader.write_text(SHADER.read_text().replace(
+                '#include "SceneDistanceFog.metalh"', FOG_HEADER.read_text()), encoding="utf-8")
             binary = folder / "image-representation"
             environment = os.environ.copy()
             environment["CLANG_MODULE_CACHE_PATH"] = str(folder / "clang-cache")
@@ -198,9 +205,11 @@ class SceneImageCompositorRepresentationGPUTests(unittest.TestCase):
                 "-module-cache-path", str(folder / "module-cache"), "-o", str(binary)
             ], cwd=ROOT, env=environment, capture_output=True, text=True)
             self.assertEqual(compiled.returncode, 0, compiled.stderr)
-            executed = subprocess.run([str(binary), str(SHADER)], cwd=ROOT,
+            executed = subprocess.run([str(binary), str(shader)], cwd=ROOT,
                 env=environment, capture_output=True, text=True)
             self.assertEqual(executed.returncode, 0, executed.stderr)
+            self.assertEqual(identity, {path: hashlib.sha256(path.read_bytes()).hexdigest()
+                                        for path in identity}, "product source changed during GPU gate")
             payload = json.loads(executed.stdout)
         if not payload["metalAvailable"]:
             self.skipTest("Metal is unavailable")

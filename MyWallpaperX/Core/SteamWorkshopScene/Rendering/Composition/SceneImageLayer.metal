@@ -1,4 +1,5 @@
 #include <metal_stdlib>
+#include "SceneDistanceFog.metalh"
 using namespace metal;
 
 constant bool weightsSourceAlpha [[function_constant(0)]];
@@ -28,6 +29,7 @@ struct SceneImageLayerFragmentUniforms {
     float4 tint;
     float4 textureFrame0;
     float4 textureFrame1;
+    SceneImageDistanceFogUniforms distanceFog;
 };
 
 static float2 sceneImageLayerTextureFrameUV(
@@ -167,6 +169,9 @@ fragment float4 sceneImageLayerFrag(
     const float4 sourceCoverage =
         is_function_constant_defined(weightsSourceAlpha) && weightsSourceAlpha
         ? float4(color.aaa, 1.0) : float4(1.0);
-    return sceneImageLayerModulation(color, sourceCoverage, uniforms.tint,
+    float4 result = sceneImageLayerModulation(color, sourceCoverage, uniforms.tint,
         uniforms.alpha, input.vertexCoverage, clipCoverage, (uniforms.sourceSampling.y & 2u) != 0u);
+    result.rgb = sceneImageDistanceFog(result.rgb, input.modelPosition,
+        uniforms.distanceFog, result.a * sourceCoverage.x);
+    return result;
 }

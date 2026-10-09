@@ -87,3 +87,19 @@
 同一原样本受控副本的签名Debug App中，native减official的固定ROI平均RGB差：前屋顶从(-31.16,-23.79,-22.98)变为(5.10,-1.75,-.85)，后屋顶从(-16.36,-15.56,-15.76)变为(-.26,.12,-.39)，左楼从(-30.50,-30.37,-21.57)变为(1.56,1.99,-3.07)。这是模型暗部恢复；窗区仍有(11.59,10.22,-1.67)残差，月亮仍约+25，普通图片Fog漏接未修，整样本不闭合。后继须先查2D Fog的生效阶段及共享接线，再复验发光/雾组合，不以全局调色补偿。
 
 构建/签名及4239产品源码身份通过，实际App正常退出、surface归零且GPU排空。最终Metal库SHA `7eeb27c10f7a0a20d33cd68cff02480f4736048150accece7a4ac2a49392b15b`；证据与失败探索分存于 `.artifacts/tmp/u12-full-color-20261009`。窗口动画姿态、长期性能、正常UI→daemon、2D Fog及完整官方像素等价均不由此片证明。
+
+
+<a id="image-distance-fog"></a>
+## 2026-10-09 原生透视图片距离雾接线
+
+基线 `382b063a`。已有模型 Fog consumer 保持输出，原生透视世界空间图片复用同帧 camera/model/light snapshot，经 request 的 typed Fog 参数进入原 MainPass；原 source capture、named graph publication 不施可见 Fog，utility 不参与。模型、固定 image 和动态 ColorBlend 共用 `SceneDistanceFog.metalh` 的唯一距离函数，动态 state 仅准备期读取同一打包资源。没有新增 renderer、pass、纹理拷贝、资源表或逐帧编译。范围只确认普通 image，不能扩称 solid terminal replay、所有2D或文字均已等价。
+
+官方2.8.0.42自有输入，10组各9文件guest SHA一致：plain 128→64；常红 effect 经ICC转sRGB为(128,0,1)→(63,1,0)；红tint+蓝Fog为(63,1,129)；Screen源.5/背景.25在alpha1/.5时分别80/56。Fog在effect/tint后，ColorBlend沿既有含style alpha的颜色混合结果再施雾。原图实际为含Display ICC的JPEG，正式量色先转sRGB，约1U8压缩误差；旧段落的原始截图RGB数值不能直接当统一颜色域的误差。正交常密度.5同样64，但range20/2000两组渐变全黑、无可量形状，未确定其eye/距离域；原生透视之外保持原输出，后继合同见F7，不猜相机常量。
+
+独立审查补出shape覆盖反例：clip/vertex为零时不得把背景加雾。沿原blend fragment区分style alpha与shape，blend→Fog后才按shape淡入背景；关闭Fog保持原blend权重，包括原特殊模式。GPU覆盖距离/变换、PMA/straight、非黑雾、关闭/raw默认、Screen阶段及zero/partial shape；暂拟Fog-before-blend的两项真实GPU红结果与最终绿结果分别保留，未复制算法到测试。
+
+同输入、同1210×786的U12对照统一到sRGB后，月亮ROI的native−official从(24.68,25.31,25.06)降到(-.12,-.06,-.32)/255；前后屋顶、窗区和左楼相对本批修前逐像素不变，关雾各固定ROI同样不变。前屋顶约(.10,.01,.12)，窗区仍(9.91,10.56,4.67)，关雾窗区也仍偏亮，因此下一项查窗区材质/发光/后处理残差，不能仅归咎于Fog。完整动画、真实音源、UI→daemon、长期性能与整样本官方等价仍未由本片证明。
+
+实际签名Debug、App/源码/编译Metal库与打包header身份、原生App退出/surface归零/GPU排空分别核验；证据保留 `.artifacts/tmp/u12-image-fog-20261009`。官方自有窗口关闭、本轮guest目录删除，VM已suspended；未处理此前批次目录或其他窗口。
+
+独立审查保留未整改的既有结构问题：`test_scene_resolved_material_graph_executor.py` 10888→10899行、`test_scene_dependency_graph_output_runtime.py` 2686→2694行、`test_scene_texture_candidate.py` 2498→2509行。本批仅同步真实GPU参数及共享header输入，未完成按职责迁移。Swift code-health通过不覆盖这些Python内嵌Swift测试，也不能据此宣称1000行规则全达标；后续需按完整测试职责迁移并保持相同行为反例，不以截断字符串、拆碎harness或删断言过门。

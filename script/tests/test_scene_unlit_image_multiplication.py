@@ -19,6 +19,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SHADER = SCENE / "Rendering/Composition/SceneImageLayer.metal"
+FOG_HEADER = SHADER.with_name("SceneDistanceFog.metalh")
 SOURCES = [SCENE / "Rendering/Metal/SceneMetalPipeline.swift",
            SCENE / "Diagnostics/ScenePerformanceCounterHub.swift"]
 
@@ -177,7 +178,9 @@ class SceneUnlitImageMultiplicationTests(unittest.TestCase):
         original = Path(os.environ.get("MWX_UNLIT_IMAGE_SHADER", SHADER))
         shader = folder / "SceneImageLayer.metal"
         shader.write_bytes(original.read_bytes())
-        source_hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in SOURCES}
+        (folder / FOG_HEADER.name).write_bytes(FOG_HEADER.read_bytes())
+        identity_paths = [*SOURCES, original, FOG_HEADER]
+        source_hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in identity_paths}
         inputs = vectors()
         (folder / "vectors.json").write_text(json.dumps(inputs, indent=2))
         (folder / "Harness.swift").write_text(HARNESS)
@@ -219,8 +222,8 @@ class SceneUnlitImageMultiplicationTests(unittest.TestCase):
                       "input": inputs, "runExit": run.returncode, "stderr": run.stderr, "output": cls.output,
                       "scope": "real fixed product pipeline and shader; numerical readback only, no App/parity"}
             (evidence / "gpu-output.json").write_text(json.dumps(report, indent=2, sort_keys=True))
-        if source_hashes != {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in SOURCES}:
-            raise RuntimeError("product Swift source changed during compilation")
+        if source_hashes != {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in identity_paths}:
+            raise RuntimeError("product source or Fog header changed during compilation/run")
         if injected and library_before != hashlib.sha256(library.read_bytes()).hexdigest():
             raise RuntimeError("injected product metallib changed during GPU run")
 

@@ -2539,11 +2539,19 @@ def run_native_atlas_probe():
     sources = list(native.DEPENDENCY_SOURCES)
     metal = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal"
     ref = os.environ.get("MWX_ATLAS_NAMED_PRODUCT_REF")
+    metal_data = (subprocess.check_output(["git", "show", f"{ref}:{metal.relative_to(REPOSITORY_ROOT)}"],
+                                          cwd=REPOSITORY_ROOT) if ref else metal.read_bytes())
+    snapshot_sources = [*sources, metal]
+    # Freeze actual compile dependencies and their SHA alongside the shader.
+    # Historical shaders without this include do not require the later header.
+    if b'#include "SceneDistanceFog.metalh"' in metal_data:
+        snapshot_sources.append(metal.with_name("SceneDistanceFog.metalh"))
     inputs = {}
-    for source in [*sources, metal]:
+    for source in snapshot_sources:
         relative = source.relative_to(REPOSITORY_ROOT)
-        data = (subprocess.check_output(["git", "show", f"{ref}:{relative}"], cwd=REPOSITORY_ROOT)
-                if ref else source.read_bytes())
+        data = metal_data if source == metal else (
+            subprocess.check_output(["git", "show", f"{ref}:{relative}"], cwd=REPOSITORY_ROOT)
+            if ref else source.read_bytes())
         frozen = snapshot / relative
         frozen.parent.mkdir(parents=True, exist_ok=True)
         frozen.write_bytes(data)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import shutil
@@ -14,6 +15,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 IMAGE_LAYER_METAL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal"
+FOG_HEADER = IMAGE_LAYER_METAL_SOURCE.with_name("SceneDistanceFog.metalh")
 SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneTextLayerPivot.swift",
@@ -147,12 +149,9 @@ enum Harness {
             contentsOfFile: CommandLine.arguments[1],
             encoding: .utf8
         )
-        guard let device = MTLCreateSystemDefaultDevice(),
-              let library = try? device.makeLibrary(
-                  source: shaderSource,
-                  options: nil
-              ),
-              let queue = device.makeCommandQueue(),
+        guard let device = MTLCreateSystemDefaultDevice() else { return nil }
+        let library = try device.makeLibrary(source: shaderSource, options: nil)
+        guard let queue = device.makeCommandQueue(),
               let pipeline = SceneImageLayerPipeline(
                   device: device,
                   pixelFormat: .rgba8Unorm,
@@ -307,6 +306,11 @@ class SceneTextLayerPivotTests(unittest.TestCase):
             raise RuntimeError("Scene text pivot sources are missing: " + ", ".join(missing))
         cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-scene-text-pivot-")
         directory = Path(cls.temporary_directory.name)
+        identity_paths = [Path(__file__), *SWIFT_SOURCES, IMAGE_LAYER_METAL_SOURCE, FOG_HEADER]
+        identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in identity_paths}
+        shader = directory / IMAGE_LAYER_METAL_SOURCE.name
+        shader.write_text(IMAGE_LAYER_METAL_SOURCE.read_text().replace(
+            '#include "SceneDistanceFog.metalh"', FOG_HEADER.read_text()), encoding="utf-8")
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         cls.binary = directory / "scene-text-layer-pivot"
@@ -324,11 +328,13 @@ class SceneTextLayerPivotTests(unittest.TestCase):
         if compilation.returncode != 0:
             raise RuntimeError(compilation.stderr)
         completed = subprocess.run(
-            [str(cls.binary), str(IMAGE_LAYER_METAL_SOURCE)],
+            [str(cls.binary), str(shader)],
             check=True,
             capture_output=True,
             text=True,
         )
+        if identity != {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in identity_paths}:
+            raise RuntimeError("text pivot GPU inputs changed during gate")
         cls.result = json.loads(completed.stdout)
 
     @classmethod

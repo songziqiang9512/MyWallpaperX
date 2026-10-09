@@ -262,6 +262,7 @@ struct SceneImageLayerDrawRequest {
     var authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs? = nil
     var geometryProduct: SceneGeometryProduct? = nil
     var sourceLighting: SceneBaseMaterialLitCapturePayload? = nil
+    var distanceFog: SceneImageDistanceFogUniforms = .init()
 
     nonisolated func effectiveSourceSampling(
         for sampling: SceneTextureSampling

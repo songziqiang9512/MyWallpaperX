@@ -470,3 +470,10 @@ depth target 进入原 `SceneOffscreenTexturePool`/allocation cache，独立 key
 必须覆盖：灯 false/true、模型省略/true/false、cast=false 仍接收、unlit 仍投影；主相机外/晚顺序 caster、移动与父变换、方向改变、相机正交/透视；zero/partial/opaque/tint-mask；ambient/emission/第二灯保留；关闭零额外 shadow 分配；在飞两帧不同内容、cancel/reset/resize、未写 map 不发布、stale identity、真实 allocation 注入失败及后续恢复。mandatory model/particle depth 与多个 image scratch 的正好预算边界必须证明原画面未因 optional 退化。真实 `3589454154` 的受益数量与更早 importer/材质缺口单列，不以完整场景开机或非黑宣称官方 parity。
 
 one-spot 草案无当前可证 caster 受益，故后移；point 需要完整全向覆盖，不能用一面替代；屏幕空间后处理丢主相机外 caster，另建 deferred renderer 扩大职责，均不选。选现 static geometry + single directional depth pass，是最小真实投影闭环；私有公式缺失不构成停工条件。通过实际行为/GPU/App、Debug、code-health、scene-defense、design-gate 与独立终审后，稳定 owner 移交架构、实际身份及未验边界归执行记录并删除窄登记；未完成 point/spot/image/provider caster 与官方 parity 不随之退役。
+
+
+## F7 — 原生透视图片距离雾与正交后继（2026-10-09）
+
+原生透视图片片的设计与实施过程见[距离雾记录](../../history/static-model-light-input-semantics-2026-10-06.md#image-distance-fog)。沿已有model/camera/light snapshot→typed request→唯一MainPass接入；raw/named publication与utility旁路，模型和两种图片fragment共用一个MSL函数。Fog在effect/tint后，ColorBlend按style alpha混合后再Fog，shape最后限制写入；关闭沿原路。无额外pass、纹理或逐帧解析/编译。
+
+**仍开放：正交距离域。** 官方常密度有响应，但两项距离控制全黑，不足以确定eye/距离；本片不启用正交画布或其perspective override，也不把solid terminal replay等未验路径记为支持。后继先用可见健康邻层及不饱和分段标尺区分Fog距离与失败，再沿现camera owner输出typed位置；不得猜默认距离、复制Fog或按样本分支。修复后验证距离、完整model变换、透明/shape、关闭和raw不变，补官方同输入、实际App与独立审查；全部profile闭合再退役本节。

@@ -17,6 +17,7 @@
 		A20000022F800002005688A8 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000122F800002005688A8 /* AppIntents.framework */; };
 		A30000012F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang in CopyFiles */ = {isa = PBXBuildFile; fileRef = A30000112F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		A30000022F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross in CopyFiles */ = {isa = PBXBuildFile; fileRef = A30000122F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		F70000012F810001005688A8 /* SceneDistanceFog.metalh in Resources */ = {isa = PBXBuildFile; fileRef = F70000112F810001005688A8 /* SceneDistanceFog.metalh */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -44,12 +45,14 @@
 		A20000122F800002005688A8 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 		A30000112F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = MyWallpaperX/Resources/SceneShaderCompilerTools/glslang; sourceTree = SOURCE_ROOT; };
 		A30000122F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = "MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross"; sourceTree = SOURCE_ROOT; };
+		F70000112F810001005688A8 /* SceneDistanceFog.metalh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		98CED6592F6AF9E3005688A8 /* Exceptions for "MyWallpaperX" folder in "MyWallpaperX" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh,
 				Core/SteamWorkshopScene/Systems/Script/QuickJSNG/README.md,
 				Core/SteamWorkshopScene/Systems/Media/Observer/SceneMediaObserver.m,
 				Info.plist,
@@ -143,6 +146,7 @@
 		98FCEC7930718F89009B3931 /* Recovered References */ = {
 			isa = PBXGroup;
 			children = (
+				F70000112F810001005688A8 /* SceneDistanceFog.metalh */,
 				A30000112F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang */,
 				A30000122F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross */,
 			);
@@ -260,6 +264,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000062F6B0001005688A8 /* MyWallpaperXHelp in Resources */,
+				F70000012F810001005688A8 /* SceneDistanceFog.metalh in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import shutil
 import subprocess
 import tempfile
@@ -11,6 +12,7 @@ import unittest
 from pathlib import Path
 
 from script.tests.test_scene_puppet_playback import SCENE_ROOT, SWIFT_SOURCES
+FOG_HEADER = SCENE_ROOT / "Rendering/Composition/SceneDistanceFog.metalh"
 
 
 PLAYBACK_SOURCES = [
@@ -258,10 +260,13 @@ func render(_ output: ScenePuppetPlaybackState.Output? = nil, sceneTime: Double,
             // geometry binder hook, with only fixed test uniforms/texture binds.
             let bind: SceneGeometryProduct.ColorBlendBinder = { encoder, source, matrix in
                 var mvp = matrix
-                var mode = Int32(colorBlendMode)
+                var mode = SIMD2<UInt32>(UInt32(colorBlendMode), 0)
+                var distanceFog = SceneImageDistanceFogUniforms()
                 encoder.setRenderPipelineState(colorBlendState.renderPipeline)
                 encoder.setVertexBytes(&mvp, length: MemoryLayout<simd_float4x4>.size, index: 1)
-                encoder.setFragmentBytes(&mode, length: MemoryLayout<Int32>.size, index: 0)
+                encoder.setFragmentBytes(&mode, length: MemoryLayout<SIMD2<UInt32>>.size, index: 0)
+                encoder.setFragmentBytes(&distanceFog,
+                    length: MemoryLayout<SceneImageDistanceFogUniforms>.stride, index: 2)
                 encoder.setFragmentTexture(source, index: 0)
                 encoder.setFragmentTexture(background, index: 1)
                 SceneImageLayerPipeline.bindClipMask(encoder: encoder, texture: source)
@@ -429,7 +434,8 @@ func render(_ output: ScenePuppetPlaybackState.Output? = nil, sceneTime: Double,
                 device: device, queue: queue, atlas: coloredAtlas, layerAlpha: 0.5).report
         }
 
-        let colorBlend = SceneLayerColorBlendPipelineState(device: device)!
+        let fogSource = try String(contentsOfFile: CommandLine.arguments[2], encoding: .utf8)
+        let colorBlend = SceneLayerColorBlendPipelineState(device: device, fogShaderSource: fogSource)!
         let ordinaryColorBlend = render(sceneTime: 0, device: device, queue: queue,
             atlas: coloredAtlas, colorBlendState: colorBlend)
         var colorBlendFrames: [String: [String: Any]] = [:]
@@ -589,6 +595,11 @@ class PuppetBufferPublicationTests(unittest.TestCase):
             raise unittest.SkipTest("Swift/Metal toolchain unavailable")
         with tempfile.TemporaryDirectory(prefix="mwx-puppet-publication-") as directory:
             root = Path(directory)
+            identity_paths = [Path(__file__), *SWIFT_SOURCES,
+                *(SCENE_ROOT / path for path in PLAYBACK_SOURCES), FOG_HEADER,
+                SCENE_ROOT / "Rendering/Composition/SceneLayerColorBlendPipeline.swift",
+                SCENE_ROOT / "Rendering/Composition/SceneImageLayer.metal"]
+            identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in identity_paths}
             source = root / "publication.swift"
             source.write_text(HARNESS, encoding="utf-8")
             # Compile the exact production shader/state prefix. The subsequent
@@ -612,8 +623,13 @@ class PuppetBufferPublicationTests(unittest.TestCase):
                 run = subprocess.run(command, capture_output=True, text=True, timeout=120)
                 if run.returncode:
                     raise RuntimeError(run.stdout + run.stderr)
-            run = subprocess.run([str(binary), str(library)], capture_output=True,
-                                 text=True, check=True, timeout=30)
+            run = subprocess.run([str(binary), str(library), str(FOG_HEADER)], capture_output=True,
+                                 text=True, timeout=30)
+            if run.returncode:
+                raise RuntimeError(f"Puppet publication GPU harness exit {run.returncode}:\n"
+                                   + run.stdout + run.stderr)
+            if identity != {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in identity_paths}:
+                raise RuntimeError("product source or Fog header changed during GPU gate")
             cls.result = json.loads(run.stdout)
         print(json.dumps(cls.result, sort_keys=True))
 

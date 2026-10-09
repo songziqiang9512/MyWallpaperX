@@ -1,0 +1,33 @@
+#ifndef MWX_SCENE_DISTANCE_FOG
+#define MWX_SCENE_DISTANCE_FOG
+#include <metal_stdlib>
+using namespace metal;
+
+// One distance response for model and image consumers. The distance ramp is
+// quadratic; authored density endpoints are linear weights.
+static float3 sceneDistanceFog(float3 rgb, float3 cameraRelativePosition,
+    float4 color, float4 range, float coverage = 1.0) {
+    if (color.w <= 0.5) return rgb;
+    float fraction = clamp((length(cameraRelativePosition) - range.x)
+        / (range.y - range.x), 0.0, 1.0);
+    float density = mix(range.z, range.w, fraction * fraction);
+    return mix(rgb, color.xyz * coverage, density);
+}
+
+// Swift mirror: SceneImageDistanceFogUniforms. Local coordinates are already
+// carried by the existing quad/geometry varyings; no extra vertex stream.
+struct SceneImageDistanceFogUniforms {
+    float4 color;
+    float4 range;
+    float4 cameraRelativeOrigin;
+    float4 modelX;
+    float4 modelY;
+};
+
+static float3 sceneImageDistanceFog(float3 rgb, float2 modelPosition,
+    constant SceneImageDistanceFogUniforms &fog, float coverage = 1.0) {
+    return sceneDistanceFog(rgb, fog.cameraRelativeOrigin.xyz
+        + modelPosition.x * fog.modelX.xyz + modelPosition.y * fog.modelY.xyz,
+        fog.color, fog.range, coverage);
+}
+#endif

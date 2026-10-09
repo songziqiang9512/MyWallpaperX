@@ -28,7 +28,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
-      "design_notes": "材质模型与光传递路径设计决定后续所有 material 形状；台账 L0 家族（3662790108 动态点光 ROI 已正证、接近闭合的静态点光/强度除外）。 设计裁决、限定准入、owner 与退役条件见 designDoc；approved 不表示运行能力或发布验收。",
+      "design_notes": "材质模型与光传递路径设计决定后续所有 material 形状；台账 L0 家族（3662790108 动态点光 ROI 已正证、接近闭合的静态点光/强度除外）。 设计裁决、限定准入、owner 与退役条件见 designDoc；approved 不表示运行能力或发布验收。 2026-10-09 F7复用原native camera/frame snapshot/main compositor接入透视图片Fog；官方已锁effect/tint后与ColorBlend含alpha后顺序，普通PMA保coverage；正交距离域未定不开放，模型与图片共用一个MSL定义。",
       "matchPatterns": [],
       "contentPatterns": [
         "SceneLitMaterial",

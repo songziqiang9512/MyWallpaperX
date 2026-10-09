@@ -157,6 +157,10 @@ struct SceneImageLayerCompositor {
     }
     let resolvedMaterialRuntime: Runtime? = nil
 }
+// This CPU fixture passes the disabled typed request value without encoding
+// Fog or reproducing its shader behavior.
+struct SceneImageDistanceFogUniforms {}
+
 struct SceneLayerFragmentUniforms {
     let time: Float
     var alpha: Float

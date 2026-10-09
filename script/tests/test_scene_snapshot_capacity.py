@@ -10,6 +10,7 @@ from script.tests.test_scene_directional_shadow import run_swift
 
 REPO=Path(__file__).resolve().parents[2]
 SCENE=REPO/'MyWallpaperX/Core/SteamWorkshopScene'
+FOG_HEADER=SCENE/'Rendering/Composition/SceneDistanceFog.metalh'
 SOURCES=[SCENE/p for p in [
  'Resources/Textures/SceneResourceBudget.swift','Diagnostics/ScenePerformanceCounterHub.swift',
  'Diagnostics/SceneGPUCensus.swift','Rendering/Composition/SceneFramebufferSnapshot.swift',
@@ -206,7 +207,11 @@ struct SceneGeometryProduct {
 }
 final class SceneImageLayerCompositor {
  let color:SceneLayerColorBlendPipeline
- init(device:MTLDevice) {color=SceneLayerColorBlendPipeline(device:device)!}
+ init(device:MTLDevice) {
+  let fogSource=try! String(contentsOfFile:__FOG_HEADER_PATH__,encoding:.utf8)
+  let state=SceneLayerColorBlendPipelineState(device:device,fogShaderSource:fogSource)!
+  color=SceneLayerColorBlendPipeline(device:device,state:state)
+ }
  func prepareSnapshotCapacity(width:Int,height:Int,pixelFormat:MTLPixelFormat,then remaining:()->Bool)->Bool {
   color.framebufferSnapshot.prepareCapacity(width:width,height:height,pixelFormat:pixelFormat,then:remaining)
  }
@@ -302,11 +307,11 @@ FRAME_HARNESS=frame_fixture.pool_fixture.HARNESS.split('@main',1)[0]+FRAME_SHELL
 class SceneSnapshotFrameOwnerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        paths=[Path(__file__),Path(frame_fixture.__file__),*FRAME_SOURCES,SCENE/'Rendering/Composition/SceneStaticModel.metal']
+        paths=[Path(__file__),Path(frame_fixture.__file__),*FRAME_SOURCES,FOG_HEADER,SCENE/'Rendering/Composition/SceneStaticModel.metal']
         identity={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
         parent=Path(os.environ.get('MWX_SNAPSHOT_EVIDENCE','/private/tmp/mwx-rf12'));parent.mkdir(parents=True,exist_ok=True)
         work=Path(tempfile.mkdtemp(prefix='snapshot-frame-identity-',dir=parent));(work/'sources.json').write_text(json.dumps(identity,indent=2))
-        cls.result=run_swift(FRAME_SOURCES,FRAME_HARNESS,label='snapshot-frame-owner',
+        cls.result=run_swift(FRAME_SOURCES,FRAME_HARNESS.replace('__FOG_HEADER_PATH__',json.dumps(str(FOG_HEADER))),label='snapshot-frame-owner',
                             metal_sources=[SCENE/'Rendering/Composition/SceneStaticModel.metal'])
         assert all(hashlib.sha256(Path(p).read_bytes()).hexdigest()==h for p,h in identity.items()),'source identity drift'
         cls.rows={row['mode']:row for row in cls.result['rows']}

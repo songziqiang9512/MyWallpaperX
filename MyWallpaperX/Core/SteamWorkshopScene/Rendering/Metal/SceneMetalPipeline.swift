@@ -15,6 +15,16 @@ enum SceneLayerBlendMode {
     case alphaWeightedAdditive
 }
 
+// Only visible world-space composition receives Fog; raw/source captures
+// retain this disabled value. Layout matches SceneDistanceFog.metalh.
+struct SceneImageDistanceFogUniforms {
+    var color: SIMD4<Float> = .zero
+    var range: SIMD4<Float> = .zero
+    var cameraRelativeOrigin: SIMD4<Float> = .zero
+    var modelX: SIMD4<Float> = .zero
+    var modelY: SIMD4<Float> = .zero
+}
+
 // Per-layer uniform packed for setFragmentBytes. Layout matches MSL struct
 // LayerFragmentUniforms below; all vector fields stay 16-byte aligned.
 struct SceneLayerFragmentUniforms {
@@ -29,6 +39,7 @@ struct SceneLayerFragmentUniforms {
     var tint: SIMD4<Float>
     var textureFrame0: SIMD4<Float>
     var textureFrame1: SIMD4<Float>
+    var distanceFog: SceneImageDistanceFogUniforms = .init()
 }
 
 struct SceneImageLayerPipeline {

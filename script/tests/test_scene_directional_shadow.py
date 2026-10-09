@@ -199,7 +199,12 @@ def run_swift(sources, support, *, label, metal_sources=(), input_value=None):
     source = work / 'Harness.swift'
     source.write_text(support)
     binary = work / 'probe'
-    identity_paths = [Path(__file__), REPO/'script/tests/fixtures/scene_directional_shadow_oracle.py', *sources, *metal_sources]
+    # Fixed model/image shaders share this canonical response with dynamic
+    # ColorBlend. Freeze the include as part of the executed shader identity.
+    metal_headers = {metal.parent/'SceneDistanceFog.metalh' for metal in metal_sources
+                     if (metal.parent/'SceneDistanceFog.metalh').is_file()}
+    identity_paths = [Path(__file__), REPO/'script/tests/fixtures/scene_directional_shadow_oracle.py',
+                      *sources, *metal_sources, *sorted(metal_headers)]
     source_identity = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in identity_paths}
     (work/'source-identity.json').write_text(json.dumps(source_identity, indent=2))
     airs = []

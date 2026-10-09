@@ -1,3 +1,4 @@
+import Foundation
 import Metal
 import simd
 
@@ -35,7 +36,8 @@ fragment float4 sceneLayerColorBlendFrag(
     texture2d<float> backgroundTexture [[texture(1)]],
     texture2d<float> clipMask [[texture(2)]],
     constant uint2 &blend [[buffer(0)]],
-    constant float4 &clipTransform [[buffer(1)]]
+    constant float4 &clipTransform [[buffer(1)]],
+    constant SceneImageDistanceFogUniforms &distanceFog [[buffer(2)]]
 ) {
     constexpr sampler sampler2d(filter::linear, address::clamp_to_edge);
     constexpr sampler linearClipSampler(filter::linear, address::clamp_to_zero);
@@ -46,11 +48,18 @@ fragment float4 sceneLayerColorBlendFrag(
     float4 background = backgroundTexture.read(uint2(input.position.xy));
     float3 straightLayer = blend.y == 1u ? layer.rgb
         : layer.a > 0.0 ? layer.rgb / layer.a : float3(0.0);
-    layer.a *= input.vertexCoverage * clipCoverage;
-    return float4(
-        sceneApplyBlending(int(blend.x), background.rgb, straightLayer, layer.a),
-        background.a
-    );
+    const float shapeCoverage = input.vertexCoverage * clipCoverage;
+    const bool usesFog = distanceFog.color.w > 0.5;
+    // Authored opacity participates in color blending before Fog. Geometry
+    // coverage instead bounds the entire visible result, including its Fog;
+    // a clipped mesh part must not darken the background around its shape.
+    float3 blended = sceneApplyBlending(int(blend.x), background.rgb, straightLayer,
+        layer.a * (usesFog ? 1.0 : shapeCoverage));
+    if (usesFog) {
+        blended = mix(background.rgb,
+            sceneImageDistanceFog(blended, input.modelPosition, distanceFog), shapeCoverage);
+    }
+    return float4(blended, background.a);
 }
 """
 
@@ -59,11 +68,18 @@ final class SceneLayerColorBlendPipelineState {
 
     init?(
         device: MTLDevice,
-        pixelFormat: MTLPixelFormat = .bgra8Unorm
+        pixelFormat: MTLPixelFormat = .bgra8Unorm,
+        fogShaderSource: String? = nil
     ) {
+        // Fixed shaders include this same header at build time. Dynamic blend
+        // preparation reads its bundled copy once through the existing slot.
+        let fogSource = fogShaderSource ?? Bundle.main.url(
+            forResource: "SceneDistanceFog", withExtension: "metalh"
+        ).flatMap { try? String(contentsOf: $0, encoding: .utf8) }
+        guard let fogSource else { return nil }
         let options = MTLCompileOptions()
         guard let library = try? device.makeLibrary(
-            source: sceneLayerColorBlendShaderSource,
+            source: fogSource + "\n" + sceneLayerColorBlendShaderSource,
             options: options
         ), let vertex = library.makeFunction(name: "sceneLayerColorBlendVert"),
            let fragment = library.makeFunction(name: "sceneLayerColorBlendFrag") else {
@@ -124,6 +140,7 @@ final class SceneLayerColorBlendPipeline {
         blendMode: Int,
         mvp: simd_float4x4,
         sourceIsStraightAlpha: Bool = false,
+        distanceFog: SceneImageDistanceFogUniforms = .init(),
         encoder: MTLRenderCommandEncoder
     ) {
         var vertices = Self.unitQuadVertices
@@ -138,6 +155,7 @@ final class SceneLayerColorBlendPipeline {
             blendMode: blendMode,
             mvp: mvp,
             sourceIsStraightAlpha: sourceIsStraightAlpha,
+            distanceFog: distanceFog,
             encoder: encoder
         )
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
@@ -152,10 +170,12 @@ final class SceneLayerColorBlendPipeline {
         blendMode: Int,
         mvp: simd_float4x4,
         sourceIsStraightAlpha: Bool = false,
+        distanceFog: SceneImageDistanceFogUniforms = .init(),
         encoder: MTLRenderCommandEncoder
     ) {
         var mvpCopy = mvp
         var mode = SIMD2<UInt32>(UInt32(blendMode), sourceIsStraightAlpha ? 1 : 0)
+        var fog = distanceFog
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
         encoder.setRenderPipelineState(state.renderPipeline)
         encoder.setVertexBytes(
@@ -164,6 +184,7 @@ final class SceneLayerColorBlendPipeline {
             index: 1
         )
         encoder.setFragmentBytes(&mode, length: MemoryLayout<SIMD2<UInt32>>.size, index: 0)
+        encoder.setFragmentBytes(&fog, length: MemoryLayout<SceneImageDistanceFogUniforms>.stride, index: 2)
         encoder.setFragmentTexture(layerTexture, index: 0)
         encoder.setFragmentTexture(backgroundTexture, index: 1)
         SceneImageLayerPipeline.bindClipMask(encoder: encoder, texture: layerTexture)
@@ -242,6 +263,7 @@ enum SceneLayerColorBlendRenderer {
                     blendMode: blendMode,
                     mvp: geometryMVP,
                     sourceIsStraightAlpha: uniforms.sourceSampling.y == 1,
+                    distanceFog: uniforms.distanceFog,
                     encoder: encoder
                 )
             }
@@ -260,6 +282,7 @@ enum SceneLayerColorBlendRenderer {
             blendMode: blendMode,
             mvp: mvp,
             sourceIsStraightAlpha: uniforms.sourceSampling.y == 1,
+            distanceFog: uniforms.distanceFog,
             encoder: encoder
         )
         return true

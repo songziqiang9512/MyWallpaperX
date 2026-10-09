@@ -1,5 +1,6 @@
 """Execute production image and ColorBlend clipping fragments with real Metal."""
 import json
+import hashlib
 from pathlib import Path
 import shutil
 import subprocess
@@ -7,6 +8,7 @@ import tempfile
 import unittest
 
 SCENE = Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene"
+FOG_HEADER = SCENE / "Rendering/Composition/SceneDistanceFog.metalh"
 SOURCES = [SCENE / path for path in (
     "Rendering/Metal/SceneMetalPipeline.swift",
     "Rendering/Composition/SceneBlendModeShaderSource.swift",
@@ -30,7 +32,9 @@ import simd
         let image = SceneImageLayerPipeline(device: device, library: library)!
         let additive = SceneImageLayerPipeline(device: device, blendMode: .alphaWeightedAdditive,
                                               library: library)!
-        let blend = SceneLayerColorBlendPipeline(device: device)!
+        let fogSource = try String(contentsOfFile: CommandLine.arguments[2], encoding: .utf8)
+        let blend = SceneLayerColorBlendPipeline(device: device,
+            state: SceneLayerColorBlendPipelineState(device: device, fogShaderSource: fogSource)!)
         func texture(_ format: MTLPixelFormat, _ width: Int, _ height: Int,
                      _ pixels: [UInt8] = [], target: Bool = false) -> MTLTexture {
             let desc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format,
@@ -154,6 +158,11 @@ class ScenePuppetClippingShaderTests(unittest.TestCase):
             raise unittest.SkipTest("Swift/Metal toolchain unavailable")
         with tempfile.TemporaryDirectory(prefix="mwx-puppet-clip-shader-") as directory:
             root = Path(directory)
+            identity_paths = [*SOURCES, FOG_HEADER,
+                SCENE / "Rendering/Composition/SceneLayerColorBlendPipeline.swift",
+                *(SCENE / f"Rendering/Composition/{name}.metal"
+                  for name in ("SceneImageLayer", "SceneLitImageLayer"))]
+            identity = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in identity_paths}
             source = root / "Harness.swift"
             source.write_text(HARNESS)
             blend = root / "ColorBlend.swift"
@@ -171,7 +180,9 @@ class ScenePuppetClippingShaderTests(unittest.TestCase):
             cls.run_command(["xcrun", "--sdk", "macosx", "metallib", *map(str, airs), "-o", str(library)])
             cls.run_command(["swiftc", *map(str, SOURCES), str(blend), str(source),
                              "-module-cache-path", str(root / "module-cache"), "-o", str(binary)])
-            cls.result = json.loads(cls.run_command([str(binary), str(library)]))
+            cls.result = json.loads(cls.run_command([str(binary), str(library), str(FOG_HEADER)]))
+            if identity != {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in identity_paths}:
+                raise RuntimeError("product source or Fog header changed during GPU gate")
         if cls.result.get("metalUnavailable"):
             raise unittest.SkipTest("Metal unavailable")
 

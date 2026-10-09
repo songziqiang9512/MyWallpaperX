@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import subprocess
@@ -17,6 +18,7 @@ from script.tests.scene_source_color_fixture import HARNESS_EXTENSION, assert_so
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 IMAGE_LAYER_METAL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal"
+FOG_HEADER = IMAGE_LAYER_METAL_SOURCE.with_name("SceneDistanceFog.metalh")
 SWIFT_SOURCES = [
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
@@ -2309,6 +2311,12 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 frozen_sources.append(frozen)
             frozen_metal = root / IMAGE_LAYER_METAL_SOURCE.name
             shutil.copy2(IMAGE_LAYER_METAL_SOURCE, frozen_metal)
+            frozen_header = root / FOG_HEADER.name
+            shutil.copy2(FOG_HEADER, frozen_header)
+            frozen_metal.write_text(frozen_metal.read_text().replace(
+                '#include "SceneDistanceFog.metalh"', frozen_header.read_text()), encoding="utf-8")
+            identity_paths = [*frozen_sources, frozen_metal, frozen_header, harness]
+            identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in identity_paths}
             compilation = subprocess.run(
                 [
                     "xcrun",
@@ -2340,6 +2348,9 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 capture_output=True,
                 text=True,
             )
+            self.assertEqual(identity, {
+                str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in identity_paths
+            }, "frozen candidate GPU inputs changed during gate")
         result = json.loads(completed.stdout)
         self.assertTrue(result.pop("overflowingRawRejected"))
         if not result["available"]:

@@ -1,4 +1,5 @@
 #include <metal_stdlib>
+#include "SceneDistanceFog.metalh"
 using namespace metal;
 
 struct SceneStaticModelVertex {
@@ -469,15 +470,9 @@ fragment half4 sceneStaticModelFragment(
         ) * emissive;
         litColor = min(litColor + emittedColor, float3(MAXFLOAT));
     }
-    if (uniforms.distanceFogColor.w > 0.5) {
-        float4 range = uniforms.distanceFogRange;
-        float distanceFromCamera = length(uniforms.cameraPosition.xyz - in.worldPosition);
-        float fraction = clamp((distanceFromCamera - range.x) / (range.y - range.x), 0.0, 1.0);
-        // The distance ramp is quadratic; authored endpoint densities remain
-        // linear weights. A halfway distance and constant .5 density differ.
-        float density = mix(range.z, range.w, fraction * fraction);
-        litColor = mix(litColor, uniforms.distanceFogColor.xyz, density);
-    }
+    litColor = sceneDistanceFog(litColor,
+        uniforms.cameraPosition.xyz - in.worldPosition,
+        uniforms.distanceFogColor, uniforms.distanceFogRange);
     // Static-model inputs preserve straight texture channels. Convert the
     // material result to the existing premultiplied main-pass contract here.
     return half4(half3(clamp(litColor * float(outputAlpha), 0.0, 65504.0)), outputAlpha);

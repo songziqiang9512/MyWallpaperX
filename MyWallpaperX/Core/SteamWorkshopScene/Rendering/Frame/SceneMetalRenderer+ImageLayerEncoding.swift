@@ -78,6 +78,17 @@ extension SceneMetalRenderer {
             usesPerspective: usesPerspective
         )
         let mvp = cameraFrame.viewProjection(for: layer) * model
+        // The native camera contract is proven for world-space images.
+        // Orthographic Fog's distance domain remains unproven; neither canvas
+        // depth nor the fitted perspective eye is established by current probes.
+        let fog = cameraFrame.defaultsToPerspective && usesPerspective ? SceneImageDistanceFogUniforms(
+            color: frameLightSnapshot.distanceFogColor,
+            range: frameLightSnapshot.distanceFogRange,
+            cameraRelativeOrigin: model.columns.3
+                - SIMD4(cameraFrame.perspectiveEyePosition, 0),
+            modelX: model.columns.0,
+            modelY: model.columns.1
+        ) : .init()
         let cursorUV = SceneLayerCursorGeometry.layerUV(
             mouseNormalized: frameContext.pointer.current,
             modelViewProjection: mvp
@@ -153,7 +164,8 @@ extension SceneMetalRenderer {
             dynamicValues: frameContext.dynamicValues,
             audioSpectrum: frameContext.audioSpectrum,
             authoredShaderFrameInputs: .init(frameContext: frameContext),
-            geometryProduct: geometryProduct
+            geometryProduct: geometryProduct,
+            distanceFog: fog
         )
         preparePlainSourceLighting(request: &request, snapshot: frameLightSnapshot,
             model: model, worldFrame: frameWorldFrames[layer.id] ?? SceneMatrix.identity(),

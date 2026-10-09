@@ -683,14 +683,16 @@ class SceneNamedModelShadowPublicationTests(unittest.TestCase):
         self.assertEqual(row['capturedRGBA'],[0,0,255,255])
         self.assertEqual(row['finalRGBA'],[0,255,0,255])
 
-
 def mixed_support():
     s=admission_support()
     a=s.index('final class SceneImageLayerCompositor {');b=s.index('\n}\n',a)+3
     s=s[:a]+r'''
 final class SceneImageLayerCompositor {
  let color:SceneLayerColorBlendPipeline
- init(device:MTLDevice) {color=SceneLayerColorBlendPipeline(device:device)!}
+ init(device:MTLDevice) {
+  let fogSource=try! String(contentsOfFile:__FOG_HEADER_PATH__,encoding:.utf8)
+  color=SceneLayerColorBlendPipeline(device:device,state:SceneLayerColorBlendPipelineState(device:device,fogShaderSource:fogSource)!)
+ }
  func prepareSnapshotCapacity(width:Int,height:Int,pixelFormat:MTLPixelFormat,then remaining:()->Bool)->Bool {
   color.framebufferSnapshot.prepareCapacity(width:width,height:height,pixelFormat:pixelFormat,then:remaining)
  }
@@ -698,8 +700,7 @@ final class SceneImageLayerCompositor {
 '''+s[b:]
     s=s.replace('let imageCompositor=SceneImageLayerCompositor()','let imageCompositor:SceneImageLayerCompositor')
     s=s.replace('self.device=device;staticModelResources=resources;', 'self.device=device;staticModelResources=resources;imageCompositor=SceneImageLayerCompositor(device:device);')
-    return s
-
+    return s.replace('__FOG_HEADER_PATH__',json.dumps(str(SCENE/'Rendering/Composition/SceneDistanceFog.metalh')))
 
 def mixed_main():
     from script.tests import test_scene_snapshot_capacity as previous

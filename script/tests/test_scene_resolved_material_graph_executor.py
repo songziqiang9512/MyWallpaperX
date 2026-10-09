@@ -734,6 +734,16 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     }
 }
 
+// ABI-only disabled tail for the actual Image shader bound below. Fog
+// evaluation stays in the canonical product header, not in this scaffold.
+struct SceneImageDistanceFogUniforms {
+    var color = SIMD4<Float>.zero
+    var range = SIMD4<Float>.zero
+    var cameraRelativeOrigin = SIMD4<Float>.zero
+    var modelX = SIMD4<Float>.zero
+    var modelY = SIMD4<Float>.zero
+}
+
 struct SceneLayerFragmentUniforms {
     // Mirrors the product layout in SceneMetalPipeline.swift so the real
     // lit-capture shader reads the same bytes the CPU struct produces.
@@ -746,6 +756,7 @@ struct SceneLayerFragmentUniforms {
     var tint: SIMD4<Float>
     var textureFrame0: SIMD4<Float>
     var textureFrame1: SIMD4<Float>
+    var distanceFog: SceneImageDistanceFogUniforms = .init()
 
     init(
         time: Float = 0,

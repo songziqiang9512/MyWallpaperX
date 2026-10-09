@@ -105,6 +105,10 @@ enum SceneLayerColorBlendRenderer {
     }
 }
 
+// Fog evaluation belongs to the real GPU gate; this routing fixture only
+// needs the typed request/default argument accepted by production callers.
+struct SceneImageDistanceFogUniforms {}
+
 struct SceneLayerFragmentUniforms {
     let time: Float
     var alpha: Float
@@ -195,6 +199,7 @@ enum SceneImageLayerMainPassRenderer {
         layer: SceneRenderDescriptor.Layer,
         pipeline: SceneImageLayerPipeline,
         colorBlendPipeline: SceneLayerColorBlendPipeline?,
+        distanceFog: SceneImageDistanceFogUniforms = .init(),
         geometryProduct: SceneGeometryProduct? = nil,
         mainPass: SceneMainPassEncoder
     ) -> Bool {
