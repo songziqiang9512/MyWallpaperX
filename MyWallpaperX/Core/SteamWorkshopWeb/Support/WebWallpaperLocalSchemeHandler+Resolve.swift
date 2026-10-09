@@ -68,13 +68,27 @@ extension WebWallpaperLocalSchemeHandler {
         return outcome
     }
 
+    /// mwx-local 请求路径的解码合同：三条生产路径（入口构造、
+    /// randomFile/__absolute__ 逐段编码、页面 encodeURIComponent）都恰好编码
+    /// 一次，这里恰好解码一次。不用 `URL.path`——它把段内 `%2F` 解码成路径
+    /// 分隔符，也不做第二次整体 `removingPercentEncoding`——那会把字面
+    /// `%XX` 文件名解析到错误路径并让缓存键互相碰撞。
+    static func decodedRequestPath(for requestURL: URL) -> String {
+        guard let components = URLComponents(url: requestURL, resolvingAgainstBaseURL: false) else {
+            return requestURL.path
+        }
+        return components.percentEncodedPath
+            .split(separator: "/", omittingEmptySubsequences: false)
+            .map { $0.removingPercentEncoding ?? String($0) }
+            .joined(separator: "/")
+    }
+
     static func resolveCacheKey(
         for requestURL: URL,
         allowsDirectoryIndexFallback: Bool,
         generation: UInt64
     ) -> String {
-        let decodedPath = requestURL.path.removingPercentEncoding ?? requestURL.path
-        return "\(generation)|\(allowsDirectoryIndexFallback ? 1 : 0)|\(decodedPath)"
+        return "\(generation)|\(allowsDirectoryIndexFallback ? 1 : 0)|\(Self.decodedRequestPath(for: requestURL))"
     }
 
     func readableRootsSnapshot() -> (roots: [URL], generation: UInt64) {
@@ -110,7 +124,7 @@ extension WebWallpaperLocalSchemeHandler {
         allowsDirectoryIndexFallback: Bool,
         roots: [URL]
     ) -> ResolveOutcome {
-        let decodedPath = requestURL.path.removingPercentEncoding ?? requestURL.path
+        let decodedPath = Self.decodedRequestPath(for: requestURL)
         let originalURL: URL
         if decodedPath.hasPrefix("/__absolute__/") {
             let absolutePath = "/" + decodedPath.dropFirst("/__absolute__/".count)

@@ -14,6 +14,12 @@ extension WebWallpaperLoopbackServer {
         var bufferedRequestData = Data()
         var servedRequestCount = 0
         var idleTimeoutWorkItem: DispatchWorkItem?
+        /// 当前请求头阶段已扫描过的起始偏移：收据只追加，终结符搜索从上一轮
+        /// 尾部回退 3 字节继续，避免对整个增长缓冲反复全扫（O(n²)）。
+        var headerScanStartIndex: Int = 0
+        /// 当前请求头阶段是否已武装空闲超时；每阶段只武装一次，收集期间
+        /// 不再按收据重挂（滴流字节不能无限续命）。
+        var headerTimeoutArmed = false
 
         init(connection: NWConnection, queue: DispatchQueue) {
             self.connection = connection
@@ -27,29 +33,66 @@ extension WebWallpaperLoopbackServer {
     static let maxRequestsPerConnection = 64
     static let idleConnectionTimeout: TimeInterval = 5
     static let headerTerminator = Data("\r\n\r\n".utf8)
+    /// 未完成请求头的累积上限：授权检查发生在头收集完成之后，未认证的
+    /// 本机连接不得在等待 `\r\n\r\n` 期间无限占内存。
+    static let maxRequestHeaderBytes = 64 * 1024
+
+    /// 名额归还的一次性闸：NWConnection 终态在个别 teardown 路径可能
+    /// `.failed` 后再派发 `.cancelled`，同一连接只允许归还一次名额。
+    /// 不持有 connection，无环。
+    final class ConnectionSlotReleaseGuard {
+        var released = false
+    }
 
     /// listener 的 accept 队列在这里交棒：连接后续读写都在自己的串行队列上。
     func handle(_ connection: NWConnection) {
+        // 连接数上限：WKWebView 对单 host 的并发远低于该值，超限连接只可能
+        // 来自本机进程的可用性攻击面（每连接一个串行队列与 FD），直接拒绝。
+        guard claimActiveConnectionSlot() else {
+            connection.cancel()
+            return
+        }
         let queue = DispatchQueue(
             label: "com.songziqiang.MyWallpaperX.web-loopback.connection",
             qos: .userInitiated
         )
         let context = ConnectionContext(connection: connection, queue: queue)
+        let slotReleaseGuard = ConnectionSlotReleaseGuard()
+        connection.stateUpdateHandler = { [weak self] state in
+            switch state {
+            case .cancelled, .failed:
+                guard slotReleaseGuard.released == false else { return }
+                slotReleaseGuard.released = true
+                self?.releaseActiveConnectionSlot()
+            default:
+                break
+            }
+        }
         connection.start(queue: queue)
         receiveRequest(on: context)
     }
 
     private func receiveRequest(on context: ConnectionContext, isComplete: Bool = false) {
         // keep-alive 下同一连接的后续请求（含已到达的 pipelined 字节）直接处理。
-        if let headerRange = context.bufferedRequestData.range(of: Self.headerTerminator) {
+        let scanStart = max(0, context.headerScanStartIndex)
+        if let headerRange = context.bufferedRequestData.range(
+            of: Self.headerTerminator,
+            options: [],
+            in: scanStart..<context.bufferedRequestData.count
+        ) {
             respondToRequestHeader(in: context, headerRange: headerRange)
             return
         }
+        // 终结符可能跨收据分界：下一轮从回退一个终结符长度的位置继续扫。
+        context.headerScanStartIndex = max(0, context.bufferedRequestData.count - (Self.headerTerminator.count - 1))
         if isComplete {
             sendError(400, message: "bad_request", on: context)
             return
         }
-        scheduleIdleTimeout(for: context)
+        if context.headerTimeoutArmed == false {
+            context.headerTimeoutArmed = true
+            scheduleIdleTimeout(for: context)
+        }
         context.connection.receive(minimumIncompleteLength: 1, maximumLength: 32 * 1024) { [weak self] data, _, isComplete, error in
             guard let self else { return }
             if let data {
@@ -57,6 +100,10 @@ extension WebWallpaperLoopbackServer {
             }
             guard error == nil else {
                 self.sendError(500, message: error?.localizedDescription ?? "receive_failed", on: context)
+                return
+            }
+            guard context.bufferedRequestData.count <= Self.maxRequestHeaderBytes else {
+                self.sendError(431, message: "header_too_large", on: context)
                 return
             }
             self.receiveRequest(on: context, isComplete: isComplete)
@@ -69,6 +116,9 @@ extension WebWallpaperLoopbackServer {
         let headerData = Data(context.bufferedRequestData[0..<headerRange.lowerBound])
         let leftover = Data(context.bufferedRequestData[headerRange.upperBound...])
         context.bufferedRequestData = Data()
+        // 下一请求头阶段重新武装扫描与超时（pipelined leftover 也按新阶段起算）。
+        context.headerScanStartIndex = 0
+        context.headerTimeoutArmed = false
         guard let requestText = String(data: headerData, encoding: .utf8) else {
             sendError(400, message: "bad_request", on: context)
             return

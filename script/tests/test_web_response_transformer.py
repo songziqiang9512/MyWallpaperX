@@ -9,7 +9,13 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
+# 转换器 + mwx-local resolve：两类断言共用一次 swiftc 编译，覆盖 Support 层
+# 的响应改写与受控读取解析（resolve 百分号合同见 harness 末段）。
 TRANSFORMER_SOURCES = [
+    ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host/WebRuntimeDiagnosticsStore.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLocalSchemeHandler.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLocalSchemeHandler+Resolve.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLocalSchemeHandler+IO.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperResponseTransformer.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperHTMLTransformer.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperCSSImportTransformer.swift",
@@ -132,10 +138,59 @@ class WebResponseTransformerTests(unittest.TestCase):
             expect(WebWallpaperCSSImportTransformer.transform(conditionalImport) == conditionalImport, "conditional imports must retain their authored media semantics")
             let protocolRelativeConditionalImport = #"@import url(//fonts.googleapis.com/css2?family=Layered) layer(fonts);"#
             expect(WebWallpaperCSSImportTransformer.transform(protocolRelativeConditionalImport) == protocolRelativeConditionalImport, "protocol-relative imports with authored conditions must remain untouched")
+            let compoundMediaImport = #"@import url("https://fonts.googleapis.com/css2?family=Wide") screen and (min-width:400px);"#
+            expect(WebWallpaperCSSImportTransformer.transform(compoundMediaImport) == compoundMediaImport, "compound media imports must retain their authored media semantics")
+            // 裸 screen 在壁纸 WKWebView 恒真：随 not all 丢弃无语义损失，
+            // 必须与其他恒真形式一样改写为非阻塞。
+            let screenQualifiedImport = #"@import url("https://fonts.googleapis.com/css2?family=ScreenOnly") screen;"#
+            let transformedScreenQualified = WebWallpaperCSSImportTransformer.transform(screenQualifiedImport)
+            expect(transformedScreenQualified == #"@import url("https://fonts.googleapis.com/css2?family=ScreenOnly") not all;"#, "bare screen qualifier is always true in the wallpaper webview and must defer like unqualified imports")
+            let screenQualifiedQuotedImport = #"@import "https://fonts.googleapis.com/css2?family=ScreenQuoted" screen;"#
+            let transformedScreenQuoted = WebWallpaperCSSImportTransformer.transform(screenQualifiedQuotedImport)
+            expect(transformedScreenQuoted == #"@import url("https://fonts.googleapis.com/css2?family=ScreenQuoted") not all;"#, "quoted import with bare screen qualifier must defer and normalize to HTTPS")
 
             expect(WebWallpaperResponseTransformer.supportsTransformation(for: URL(fileURLWithPath: "/tmp/index.HTML")), "HTML should be transformable")
             expect(WebWallpaperResponseTransformer.supportsTransformation(for: URL(fileURLWithPath: "/tmp/site.css")), "CSS should be transformable")
             expect(!WebWallpaperResponseTransformer.supportsTransformation(for: URL(fileURLWithPath: "/tmp/video.mp4")), "binary media must not be transformed")
+
+            // mwx-local resolve 百分号合同：三条生产路径（入口构造、
+            // randomFile/__absolute__ 逐段编码、页面 encodeURIComponent）都
+            // 恰好编码一次，自定义 scheme 的 URL.path 恰好解码一次——resolve
+            // 侧不得再做第二次 removingPercentEncoding，否则字面 %XX 文件名
+            // 解析到错误路径或 404，且缓存键互相碰撞会静默交付错内容。
+            let resolveRoot = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+                .appendingPathComponent("mwx-web-scheme-resolve-\(UUID().uuidString)", isDirectory: true)
+            let resolveAssets = resolveRoot.appendingPathComponent("assets", isDirectory: true)
+            try FileManager.default.createDirectory(at: resolveAssets, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: resolveRoot) }
+            for (name, payload) in [
+                ("bg%20cover.png", Data("LITERAL".utf8)),
+                ("bg cover.png", Data("SPACED".utf8)),
+                ("sub%2Ffile.png", Data("SLASHY".utf8)),
+                ("100%.png", Data("PCT".utf8)),
+                ("plain.png", Data("PLAIN".utf8)),
+            ] {
+                try Data(payload).write(to: resolveAssets.appendingPathComponent(name))
+            }
+            let schemeHandler = WebWallpaperLocalSchemeHandler(rootURL: resolveRoot)
+            func resolvedLastComponent(_ urlString: String) -> String? {
+                guard let url = URL(string: urlString) else { return nil }
+                return schemeHandler.resolveResource(for: url, allowsDirectoryIndexFallback: false).resource?.fileURL.lastPathComponent
+            }
+            expect(resolvedLastComponent("mwx-local://wallpaper/assets/bg%2520cover.png") == "bg%20cover.png",
+                   "literal %20 filename must resolve to itself")
+            expect(resolvedLastComponent("mwx-local://wallpaper/assets/bg%20cover.png") == "bg cover.png",
+                   "space filename must resolve to itself")
+            expect(resolvedLastComponent("mwx-local://wallpaper/assets/sub%252Ffile.png") == "sub%2Ffile.png",
+                   "literal %2F filename must stay one path component")
+            expect(resolvedLastComponent("mwx-local://wallpaper/assets/100%25.png") == "100%.png",
+                   "invalid percent sequence filename must resolve to itself")
+            expect(resolvedLastComponent("mwx-local://wallpaper/assets/plain.png") == "plain.png",
+                   "plain filename must resolve to itself")
+            expect(resolvedLastComponent("mwx-local://wallpaper/assets/bg%2520cover.png?cb=1") == "bg%20cover.png",
+                   "literal %20 request with query must still resolve to the literal file")
+            expect(resolvedLastComponent("mwx-local://wallpaper/assets/bg%20cover.png?cb=1") == "bg cover.png",
+                   "space request with query must still resolve to the spaced file")
 
             print("Web response transformer tests passed")
             '''

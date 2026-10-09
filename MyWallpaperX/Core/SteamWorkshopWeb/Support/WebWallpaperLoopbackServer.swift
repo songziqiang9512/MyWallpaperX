@@ -18,10 +18,30 @@ final class WebWallpaperLoopbackServer {
     private var startupTimeoutWorkItem: DispatchWorkItem?
     private(set) var port: UInt16?
     var diagnosticHandler: ((String, WebRuntimeDiagnosticEvent.Severity, String, URL?) -> Void)?
+    /// 并发连接上限与当前计数（+Connection 的 handle 消费）：每连接一个串行
+    /// 队列与 FD，无上限 accept 会被本机进程用作可用性放大面。
+    static let maxConcurrentConnections = 16
+    private let connectionCountLock = NSLock()
+    private var activeConnectionCount = 0
 
     init(schemeHandler: WebWallpaperLocalSchemeHandler) {
         self.schemeHandler = schemeHandler
         self.accessToken = Self.makeAccessToken()
+    }
+
+    /// 原子占用一个连接名额；返回 false 表示已超过并发上限，调用方应立即取消连接。
+    func claimActiveConnectionSlot() -> Bool {
+        connectionCountLock.lock()
+        defer { connectionCountLock.unlock() }
+        guard activeConnectionCount < Self.maxConcurrentConnections else { return false }
+        activeConnectionCount += 1
+        return true
+    }
+
+    func releaseActiveConnectionSlot() {
+        connectionCountLock.lock()
+        defer { connectionCountLock.unlock() }
+        activeConnectionCount = max(0, activeConnectionCount - 1)
     }
 
     /// 请求路径的强制前缀；入口 URL 与页面内相对路径都从它派生。
@@ -159,6 +179,12 @@ final class WebWallpaperLoopbackServer {
         listener?.cancel()
         listener = nil
         port = nil
+        // listener cancel 不级联已 accept 的连接（Apple 语义：存量连接独立
+        // 存活），这里清零使重启计数从零起算；存续连接的迟到 release 由
+        // releaseActiveConnectionSlot 的 max(0) 下限钳制，至多短暂放宽上限。
+        connectionCountLock.lock()
+        activeConnectionCount = 0
+        connectionCountLock.unlock()
     }
 
     /// 请求目标只有在带 `/mwx-<token>/` 前缀、或携带本服务器的会话标记 cookie 时
@@ -235,6 +261,7 @@ final class WebWallpaperLoopbackServer {
         case 403: "Forbidden"
         case 404: "Not Found"
         case 405: "Method Not Allowed"
+        case 431: "Request Header Fields Too Large"
         default: "Error"
         }
     }

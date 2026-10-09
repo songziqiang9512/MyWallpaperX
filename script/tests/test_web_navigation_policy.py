@@ -75,6 +75,14 @@ class WebNavigationPolicyTests(unittest.TestCase):
                 var readyScreenIDs = Set<CGDirectDisplayID>()
                 var launchFailureMessages: [String] = []
 
+                /// D5 定向回包的 endpoint 登记（产品在 WebWallpaperHostTypes.swift
+                /// 定义）；主导航开始与进程终止路径只消费 revokeAll。
+                final class FrameEndpointRegistryStub {
+                    var revokeAllCallCount = 0
+                    func revokeAll(in webView: WKWebView) { revokeAllCallCount += 1 }
+                }
+                var frameEndpointRegistry = FrameEndpointRegistryStub()
+
                 func recordDiagnostic(
                     type: String,
                     severity: WebRuntimeDiagnosticEvent.Severity,

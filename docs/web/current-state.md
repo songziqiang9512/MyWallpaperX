@@ -2,7 +2,7 @@
 
 > 状态：Web 当前状态唯一入口
 >
-> 源码复核：2026-08-11；共享暂停链路复核：2026-09-28；宿主缺陷与导航合同：2026-09-30；收尾修复（loopback 会话因子 / frame 硬门 / 暂停回合 / store 回收归文档）：2026-09-30
+> 源码复核：2026-08-11；共享暂停链路复核：2026-09-28；宿主缺陷与导航合同：2026-09-30；收尾修复（loopback 会话因子 / frame 硬门 / 暂停回合 / store 回收归文档）：2026-09-30；Web 引擎缺口批（mwx-local 百分号合同 / fetchall 去抖 / XHR open 清理 / loopback 上限 / @import 限定符）：2026-10-09
 >
 > 证据边界：2026-09-28 共享暂停批已完成 Debug 构建、实际 WKWebView 暂停测试与隔离 Scene 子进程验证；没有重跑 Web 样本矩阵。2026-09-30 宿主缺陷批按 229a6b25 / c5719a0d 的记录完成免签名 Debug checkpoint 构建（退出码 0）与 F01/F29/F40 的 node vm 拼接 15 段注入脚本实跑，但没有在同一身份跑运行门（无 App 运行、无样本门）。导航/兼容脚本收敛批与收尾修复批（同一工作树，未提交）批内实际执行：`py_compile`、`swiftc -parse`、门禁选择器干跑（inner/checkpoint），以及**真实 WKWebView harness 实跑**——`test_web_compat_parity`（F01/F19/F29/F40/frames 全过）、`test_web_playback_pause`（暂停/恢复、帧边界与 AudioContext 暂停回合）、`test_web_navigation_policy`、`test_web_response_transformer`、`test_web_static_content_signals`、`test_web_display_conditions`。未执行 App 构建、`swiftc` 类型检查（只有语法解析）、`checkpoint` 构建与任何样本门。
 
@@ -43,7 +43,7 @@ project.json / Workshop directory
 - 暂停快照按宿主暂停「回合」记录，不按每次应用的观测状态重写：同一暂停被重复应用（种子期、`dom.ready`、DCL/`load` 兜底重放、`applyPausedState`）时，宿主自己的 `suspend()` 不得被记成作者挂起；`AudioContext` 与媒体节点在恢复时只重放未被作者暂停者。DCL 与 `load` 是同一属性重放的互斥兜底（先到者取走一次性标志并撤销另一侧），不是两次重放。
 - Web 与视频、Scene 的产品状态分离，但共享高层播放切换、显示器、系统中断和音频采集合同。显式暂停由 WebKit 原生媒体门与所有 frame 的页面调度门执行，冻结 RAF、定时器、CSS/Web Animations；恢复保留作者自行暂停的动画。调度门不接管 Web Worker 等独立执行域，不承诺冻结任意后台计算。
 - 每个播放 request 使用显式 identity；旧 navigation、旧 surface、旧 property replay 和旧异步回调不得修改新 request。
-- Web 项目通过受控本地 scheme 和明确的资源根加载，不以任意 `file://` 权限换取兼容。
+- Web 项目通过受控本地 scheme 和明确的资源根加载，不以任意 `file://` 权限换取兼容。mwx-local 请求路径的百分号合同：三条生产路径（入口构造、randomFile/`__absolute__` 逐段编码、页面 `encodeURIComponent`）都恰好编码一次，resolve 侧取 `percentEncodedPath` 按段解码恰好一次（`WebWallpaperLocalSchemeHandler.decodedRequestPath`，`+Resolve.swift`）——既不做第二次整体解码（字面 `%XX` 文件名会解析到错误路径且缓存键碰撞），也不用 `URL.path`（它把段内 `%2F` 解码成路径分隔符）。
 - Wallpaper Engine property、audio、media、pause、input 等桥接按声明和需求启用；存在 handler 或路由不等于用户可见行为已经通过。
 - macOS 桌面输入不宣称与 Windows Wallpaper Engine 等价。单宿主的 click-through、hit test 和短时接管必须以“不吞桌面输入、不产生长期 focus/Space 副作用”为上限。
 - 不新增第二套生产 Web 宿主。只有现有宿主无法满足且有可复现证据时，才允许提出替代方案；替代必须同批撤销旧 owner。
@@ -59,6 +59,7 @@ project.json / Workshop directory
 | 共享暂停执行（2026-09-28 身份） | `test_playback_policy`、`test_playback_policy_delivery`，以及 `test_web_playback_pause` 中真实 WKWebView + 生产兼容脚本 + 原生媒体门 | 该身份上已验证设置持久化与组合、暂停/恢复、iframe、媒体不能自行重启、作者暂停保留；该身份之后兼容脚本与宿主文件已被 aee7c08a、229a6b25 等批改动，重新表述当前 HEAD 必须先重跑 `test_web_playback_pause`（本批未运行）。物理电源/锁屏/多显示器与任意远程网页仍未验收 |
 | 2026-09-30 Web 宿主缺陷批（F01/F02/F04/F19/F20/F29/F37/F40） | 229a6b25 提交记录（含免签名 Debug checkpoint 构建退出码 0、F01/F29/F40 的 node vm 实跑）与 c5719a0d（F02 DEBUG-only 运行时探针，checkpoint 构建 exit 0）；F 编号源 [2026-09-30 UI 代码审查](../history/cross-topic/ui-code-review-2026-09-30.md)，该文声明修复结果以工作树与提交历史为准 | 可称“八项缺陷已按批落地并附探针”；该批没有在同一身份跑运行门，修复效果不能称已验证 |
 | 2026-09-30 导航/兼容脚本收敛批 + 收尾修复（本批，工作树未提交） | 收尾修复批实跑 `test_web_compat_parity.py`（F01/F19/F29/F40/frames 五场景，真实 WKWebView）、`test_web_playback_pause.py`（含新增的 AudioContext 暂停回合断言）、`test_web_navigation_policy.py`、`test_web_response_transformer.py`、`test_web_static_content_signals.py`、`test_web_display_conditions.py`；`scene_validation_gates.json` 的 `web-host-lifecycle` 现覆盖 Support 目录（scheme handler / loopback server 与 connection）、Modules web 运行时缓存与校验路径 | 可称“资源服务、暂停/恢复、frame 边界与属性路径已有可复跑断言，并进入宿主文件的 focused 选择”；**未运行** App 构建、`swiftc` 类型检查与任何样本门。资源服务批（scheme handler / loopback keep-alive / 流式交付）没有专属测试模块，只由 focused 组的既有 Web 模块间接覆盖；本批以 checkpoint 档起步 |
+| 2026-10-09 Web 引擎缺口批（本批，工作树未提交） | 实跑：`test_web_response_transformer`（新增 mwx-local resolve 百分号合同断言——swiftc 编译生产 Support 源，修复前 HEAD 逻辑反证 FAIL "literal %20 filename must resolve to itself"；新增 Google Fonts @import 裸 `screen` 限定符改写与复合媒体保留断言）、`test_web_playback_pause` 与 `test_web_compat_parity`（真实 WKWebView 装配全量兼容脚本，XHR open() 清理改动入链）、`test_web_navigation_policy`（补 D5 `frameEndpointRegistry` 桩，清偿 ff267b62 落地时的预存红）、`test_playback_policy_delivery`、`test_web_display_conditions`、`test_web_static_content_signals`；loopback cluster（Server+Connection+SchemeHandler+Transformers）`swiftc -typecheck` 通过；XHR open() 清理语义经 node vm 原型访问器探针验证；隔离 DerivedData Debug 构建（退出码 0，`** BUILD SUCCEEDED **`） | 可称五项缺口（mwx-local 双重解码 / fetchall 事件无合并 / XHR 实例访问器残留 / loopback 无上限缓冲与滴流续窗 / 裸 screen @import 漏改写）已按批落地并有可复跑断言；实机多显示器与真实网络不可达场景未验收 |
 | 当前 HEAD 发布级 Web 闭环 | 本批未运行 | **未验证**，不得写成已完成 |
 
 新的“当前 PASS”、样本数量、得分、coverage、Team ID、CDHash 或报告路径只能在同一源码/构建身份完成正式门后写回本页；被替代的历史数字收入统一 history，不复制到 README 或长期技术规范。

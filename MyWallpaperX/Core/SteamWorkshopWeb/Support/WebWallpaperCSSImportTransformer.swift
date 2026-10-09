@@ -7,12 +7,12 @@ import Foundation
 
 enum WebWallpaperCSSImportTransformer {
     private static let quotedGoogleFontImportExpression = try! NSRegularExpression(
-        pattern: #"^@import\s+([\"'])((?:https?:)?//fonts\.googleapis\.com/[^\"']+)\1\s*;$"#,
+        pattern: #"^@import\s+([\"'])((?:https?:)?//fonts\.googleapis\.com/[^\"']+)\1\s*([^;]*);$"#,
         options: [.caseInsensitive]
     )
 
     private static let urlGoogleFontImportExpression = try! NSRegularExpression(
-        pattern: #"^@import\s+url\(\s*(?:([\"'])((?:https?:)?//fonts\.googleapis\.com/[^\"']+)\1|((?:https?:)?//fonts\.googleapis\.com/[^\s\"'()]+))\s*\)\s*;$"#,
+        pattern: #"^@import\s+url\(\s*(?:([\"'])((?:https?:)?//fonts\.googleapis\.com/[^\"']+)\1|((?:https?:)?//fonts\.googleapis\.com/[^\s\"'()]+))\s*\)\s*([^;]*);$"#,
         options: [.caseInsensitive]
     )
 
@@ -106,9 +106,17 @@ enum WebWallpaperCSSImportTransformer {
     private static func rewriteGoogleFontImport(_ statement: String) -> String? {
         let source = statement as NSString
         let fullRange = NSRange(location: 0, length: source.length)
-        guard let rawURL = googleFontURL(in: statement, source: source, range: fullRange),
-              var components = URLComponents(string: rawURL),
+        guard let googleImport = googleFontImport(in: statement, source: source, range: fullRange),
+              var components = URLComponents(string: googleImport.url),
               components.host?.lowercased() == "fonts.googleapis.com" else {
+            return nil
+        }
+        // 限定符分类处置：裸 screen 在壁纸 WKWebView 恒真，随 not all 丢弃无
+        // 语义损失；其余限定符保留作者语义不动——可能为假的媒体（print 等）
+        // 浏览器本就不取，layer() 因恢复路径只能以 <link> 重建、无法承载层
+        // 语义，一律不改写。
+        let qualifier = googleImport.qualifier.trimmingCharacters(in: .whitespaces)
+        guard qualifier.isEmpty || qualifier.caseInsensitiveCompare("screen") == .orderedSame else {
             return nil
         }
         components.scheme = "https"
@@ -116,14 +124,17 @@ enum WebWallpaperCSSImportTransformer {
         return "@import url(\"\(secureURL)\") not all;"
     }
 
-    private static func googleFontURL(
+    private static func googleFontImport(
         in statement: String,
         source: NSString,
         range: NSRange
-    ) -> String? {
+    ) -> (url: String, qualifier: String)? {
         if let match = quotedGoogleFontImportExpression.firstMatch(in: statement, range: range),
            match.range == range {
-            return source.substring(with: match.range(at: 2))
+            return (
+                source.substring(with: match.range(at: 2)),
+                source.substring(with: match.range(at: 3))
+            )
         }
         guard let match = urlGoogleFontImportExpression.firstMatch(in: statement, range: range),
               match.range == range else {
@@ -131,7 +142,7 @@ enum WebWallpaperCSSImportTransformer {
         }
         let quotedURLRange = match.range(at: 2)
         let rawURLRange = quotedURLRange.location == NSNotFound ? match.range(at: 3) : quotedURLRange
-        return source.substring(with: rawURLRange)
+        return (source.substring(with: rawURLRange), source.substring(with: match.range(at: 4)))
     }
 
     private static func skipIgnorables(in source: NSString, from offset: Int) -> Int {

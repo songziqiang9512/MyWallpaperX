@@ -451,6 +451,9 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     static let webContentRecoveryCoolingWindow: TimeInterval = 5 * 60
     /// 随机文件目录快照的最小重枚举间隔，与 fetchall 目录轮询节奏一致。
     static let randomFileSnapshotRefreshInterval: TimeInterval = 10
+    /// fetchall 目录事件（DispatchSource + 10s 定时器）触发全树重枚举前的
+    /// trailing 去抖窗；churn 目录在一个窗内的所有事件合并为一次枚举。
+    static let directorySyncDebounceInterval: TimeInterval = 0.5
 
     /// 兼容脚本主体（7 段顶层常量的一次性拼接）。旧实现按 surface 重新拼接，
     /// 每个新 surface 都在主线程重复分配约 187KB；per-screen 只有 seedScript

@@ -230,7 +230,9 @@ final class WebWallpaperLocalSchemeHandler: NSObject, WKURLSchemeHandler {
     }
 
     private func optionalMissingMediaDiagnostic(for requestURL: URL) -> (type: String, message: String)? {
-        let normalizedPath = requestURL.path.removingPercentEncoding?.lowercased() ?? requestURL.path.lowercased()
+        // 解码合同见 +Resolve.decodedRequestPath；split 按段边界，段内字面
+        // `%2F` 不会被拆成分隔符。
+        let normalizedPath = Self.decodedRequestPath(for: requestURL).lowercased()
         let components = normalizedPath.split(separator: "/").map(String.init)
         let fileName = components.last ?? ""
         let directoryNames = Set(components.dropLast())

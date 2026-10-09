@@ -35,10 +35,25 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         }
     }
 
+    /// fetchall 目录的事件入口（DispatchSource 事件与 10s 定时器共用）：
+    /// 高频 churn 下每个事件都全树重枚举纯烧 CPU/IO，这里按 trailing 去抖合并
+    /// 到最后一个事件；launch 与属性变更的初次同步走
+    /// `syncFetchAllDirectoryProperties` 直调，不受延迟影响。事件、定时器与
+    /// 去抖 workItem 都在主队列，cancel 后未开始的 item 不会再执行。
     func pollFetchAllDirectoryProperties() {
         guard phase == .ready || phase == .launching,
               let propertiesJSON = currentRequest?.propertiesJSON else { return }
-        syncFetchAllDirectoryProperties(using: propertiesJSON)
+        deferredDirectorySyncWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.deferredDirectorySyncWorkItem = nil
+            self.syncFetchAllDirectoryProperties(using: propertiesJSON)
+        }
+        deferredDirectorySyncWorkItem = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.directorySyncDebounceInterval,
+            execute: workItem
+        )
     }
 
     func notifyFetchAllDirectoryChanges(

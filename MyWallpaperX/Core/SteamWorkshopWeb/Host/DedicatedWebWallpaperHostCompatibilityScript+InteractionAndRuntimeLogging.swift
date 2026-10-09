@@ -329,6 +329,13 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
     this.__mwx_url = url;
     this.__mwx_responseHeaders = {};
     this.__mwx_requestHeaders = {};
+    // 代理路径会在实例上定义 readyState/status/... 访问器（configurable），
+    // open() 复用同一对象（XHR 规范允许）再走原生路径时必须摘除，否则
+    // 实例属性持续遮蔽原型访问器，页面永远读到上一次代理响应；__mwx_proxied
+    // 同理，残留会让 getResponseHeader 走空 __mwx_responseHeaders 而非原生头。
+    for (const proxiedKey of ['readyState', 'status', 'statusText', 'responseURL', 'responseText', 'response', '__mwx_proxied']) {
+      try { delete this[proxiedKey]; } catch (_) {}
+    }
     this.addEventListener('error', () => {
       if (canProxyNetworkRequest(method, url) && wallpaperHostReplyReachable() === true) {
         hostLogger.post('xhr.proxy.pending', `${method} ${String(url)}`);
