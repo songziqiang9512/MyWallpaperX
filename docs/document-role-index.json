@@ -522,7 +522,7 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "69a3c60ea4a60abc270eb62d1be5f82b5aabf7207e676f000843c3007e2e929a",
+        "sourceSHA256": "cccf2351e28316f8fc567714f8a21515f1eed18552b575416a41c1c20f7e9ab4",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对模型发光脚本/nested属性合同、运行证据与U12剩余月亮队列的导航。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"

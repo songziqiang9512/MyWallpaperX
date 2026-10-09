@@ -118,3 +118,18 @@ U23原包隔离运行`blend/position-final`：241首effect从0 material/1 reject
 签名Debug构建前后4239产品文件hash一致；App `f084f47350718b0a06c8c7622e251851c251180e28e74a9fa67b81d059042a90`、dylib `d11d96451e4b90d5695920c8bcc36a398f6d6660aaa97dd751fa036b4b5501e7`。原U12 pkg/project字节副本、受控PCM、7秒隔离Host运行，月亮新request `f0915e58a8300e3146b5f2849dafc2ae5ccc7cdcf18d6914cb57bb6fe2242371` published/generic-only，layer44 effect0首/次帧GPU完成且compositor消费；exit0、surfacesAfter0、gpuDrainedtrue，原包不变。旧fallback也曾报1材质/0拒绝，不能以该计数冒称效果恢复。
 
 本轮截图与窗光修复后基线在月亮ROI几乎一致（RGB平均绝对差0.016/255）；没有证据认领新增明显视觉收益。作者只读64带的[0,3)，静音底值0.1/5.85低于0.02触发阈值；宽频PCM中整体nonzero不等于目标三带触发。月亮过亮、低频响应、猫受光、材料脚本/嵌套输入仍开放；正常App→daemon、外部音乐与官方锁相未验。本批只闭合编译/实际接线，不提高整样本正确率。最小证据在 `.artifacts/tmp/u12-moon-shader-20261009`、built-in门在 `.artifacts/tmp/u12-moon-trace-20261009`；沿用唯一构建缓存 `.build-cache/solid-source-domains-recovery-20261009`。
+
+
+<a id="u12月亮受控对照"></a>
+
+## U12 月亮受控对照（同日后继）
+
+代码基线 `71fafe01`。本片没有修改产品算法：复核原始截图后，先前工作摘要中的“静音紫色增亮”没有可复验依据，不保留为缺陷。原包静音、固定镜头，月亮效果 Brightness0 与缺省画面接近；关闭全场 Bloom 才恢复月面暗部细节。不能据此推断 Bloom 错误。
+
+同一份合法作者月亮输入，在两端固定白色、512²正交场景、1210×786 viewport、作者HDR关闭且无fog/dither声明；仅把作者两处频谱读取替换成显式0，依次比较效果关闭、Brightness0、Brightness.29、Bloom开启。官方2.8.0.42（exe SHA `daac1ea7c991207fdb6098616757e3dae393850f6862845db55d04921b6bda07`）中心ROI前三项逐像素相同；边缘存在最大3/255的小差异，不声称全图相同。Bloom使中心RGB均值增加约68/255，三通道≥250的像素占比由0升至63.91%；Bloom重复截图全viewport逐像素相同。画质设置名称未取回，只证明同设置下的开关行为。
+
+MyWallpaperX保留同样响应：关闭/零谱效果的中心ROI相对官方MAE1.24/255，Bloom开启后中心1.10、边缘2.29、外围0.81。指标用于定位责任，未事先制定跨端精确parity容差，不能事后称像素一致。原作者完整数组版本在0 PCM下，与关闭效果的最终RGB逐像素相同。实际App GPU诊断输出确认 Suppression5.85、Radius.97、Max3、前三带零和，以及 getFrequency≈.017094；独立生产uniform编码保留656-byte原ABI，两组64带全零。不是靠修改数组布局或另一套音频算法“修好”。
+
+补充正例保持全部输入bytes（含CRLF），仅将两处0改为每带0.05：官方和本机均出现紫色边环，edge RGB均值增量分别31.43/25.20/33.98与32.23/24.68/34.15。非零输入进入最终画面；外围光晕本机仍较弱（均值差约2.3–2.8/255），保留为有界空间差异，不称完整parity。官方重复全viewport相同。首次本机探索稿被发现转换换行，正式比较采用重新核字节并重跑的 `native-on-low-bloom-bytefixed`，旧稿不作正式对照。
+
+签名App/dylib沿用[发光脚本批](model-material-value-scripts-implementation-2026-10-06.md#2026-10-09发光脚本与嵌套属性)，每次运行前核4239源码hash。原包/project只读hash未变；本机证据 `.artifacts/tmp/u12-moon-inputs-20261009`。本片只解除静音月亮/Bloom明显错误的疑点，不证明真实音乐的低频包络、完整样本颜色、正常App→daemon或全样本兼容；剩余问题沿现有音频producer与整场颜色owner定位。
