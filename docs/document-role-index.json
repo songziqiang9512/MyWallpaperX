@@ -354,10 +354,10 @@
       "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "497374b6a96fec01012bda8fcced76a47aca3703220c90c3f2336c0690bf5eeb",
+        "sourceSHA256": "1f6b4e1364e2586dc17347c00c2fa3bc5784df2987add5d686302dec39e5c4ec",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批仅核directional surface补接与既有模型职责/证据入口；导航audit与document_health复核。",
-        "limitations": "非全文实现审查，不升级其它历史运行、完整PBR、全样本或官方parity证据。"
+        "scope": "本批仅核共用阴影depth/过滤职责、真实反例和现役证据入口；导航audit与document_health复核。",
+        "limitations": "非全文实现审查，不升级完整阴影轮廓、Bloom、性能或全样本官方parity。"
       }
     },
     {
@@ -523,10 +523,10 @@
       "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ad33829802401d4183258d4acef41dc1c71e0a8d5b19f889ddd0aa63ea8d0a10",
+        "sourceSHA256": "d3a609bbefce260690571de351f61e28e1664f59c1386903687fb43692558cce",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批仅核directional surface补接与既有模型职责/证据入口；导航audit与document_health复核。",
-        "limitations": "非全文实现审查，不升级其它历史运行、完整PBR、全样本或官方parity证据。"
+        "scope": "本批仅核共用阴影depth/过滤职责、真实反例和现役证据入口；导航audit与document_health复核。",
+        "limitations": "非全文实现审查，不升级完整阴影轮廓、Bloom、性能或全样本官方parity。"
       }
     },
     {

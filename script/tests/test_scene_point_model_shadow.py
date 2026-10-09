@@ -318,22 +318,23 @@ def face_for_ray(ray):
 
 
 def geometric_tap_rays(point,size):
- """Independent declared discrete policy, never a product matrix or texture."""
+ """Declared four weighted world rays, independent of product matrices/maps."""
  selected=face_for_ray(point);_,right,up,forward,_=FACES[selected]
  denominator=dot(point,forward)
  u=(dot(point,right)/denominator+1)*.5;v=(1-dot(point,up)/denominator)*.5
- base_x=math.floor(u*size);base_y=math.floor(v*size);out=[]
+ pixel_x=u*size-.5;pixel_y=v*size-.5
+ base_x=math.floor(pixel_x);base_y=math.floor(pixel_y);fx=pixel_x-base_x;fy=pixel_y-base_y;out=[]
  def basis_ray(x,y,face):
   _,r,up,f,_=face
   return [x*r[i]+y*up[i]+f[i] for i in range(3)]
- for dy in [-1,0,1]:
-  for dx in [-1,0,1]:
+ for dy,wy in [(0,1-fy),(1,fy)]:
+  for dx,wx in [(0,1-fx),(1,fx)]:
    extended=basis_ray(2*(base_x+dx+.5)/size-1,1-2*(base_y+dy+.5)/size,FACES[selected])
    actual_face=face_for_ray(extended);_,r,up,f,_=FACES[actual_face];den=dot(extended,f)
    tu=(dot(extended,r)/den+1)*.5;tv=(1-dot(extended,up)/den)*.5
    tx=min(size-1,max(0,math.floor(tu*size)));ty=min(size-1,max(0,math.floor(tv*size)))
    final=basis_ray(2*(tx+.5)/size-1,1-2*(ty+.5)/size,FACES[actual_face])
-   out.append({'face':actual_face,'texel':[tx,ty],'ray':final})
+   out.append({'face':actual_face,'texel':[tx,ty],'ray':final,'weight':wx*wy})
  return out
 
 
@@ -366,7 +367,9 @@ def seam_vectors():
     # Exclude no sample based on the eventual output. Positive hits must be
     # independently away from all authored triangle edges.
     assert all(h[1]>1e-5 for h in hits),(row['name'],tap,hits)
-   row['independentTaps']=taps;row['expectedVisibility']=sum(t['visibility'] for t in taps)/9
+   assert len(taps)==4 and all(0<=t['weight']<=1 for t in taps)
+   assert abs(sum(t['weight'] for t in taps)-1)<1e-12
+   row['independentTaps']=taps;row['expectedVisibility']=sum(t['visibility']*t['weight'] for t in taps)
    assert 0<row['expectedVisibility']<1,(row['name'],row['expectedVisibility'])
    rows.append(row)
  # Actual hard cutout texture values around the half storage boundary, same
@@ -393,7 +396,7 @@ class ScenePointModelShadowSeamTests(unittest.TestCase):
   cls.vectors=seam_vectors()
   cls.report=run_point(spot.sources(),'import Foundation\nimport Metal\nimport simd\n'+model.LIGHTING_STUB+seam_main(),label='point-seams',metal_sources=[model.METAL_SOURCE],input_value=cls.vectors)
 
- def test_independent_nine_ray_cross_face_fraction_and_coverage(self):
+ def test_independent_four_weighted_cross_face_rays_and_coverage(self):
   for vector,row in zip(self.vectors,self.report['rows']):
    with self.subTest(case=vector['name']):
     self.assertTrue(row['completed']);a,full,actual,stale,_,_,_,wrong,other=row['pixels'];visibility=vector['expectedVisibility']

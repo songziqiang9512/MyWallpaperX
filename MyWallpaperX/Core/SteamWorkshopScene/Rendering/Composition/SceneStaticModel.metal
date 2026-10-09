@@ -79,6 +79,22 @@ vertex SceneStaticModelRasterVertex sceneStaticModelVertex(
     return out;
 }
 
+// One texel-centered bilinear footprint is shared by all model shadow maps.
+// Each caller keeps its geometric receiver-depth correction. The UV remains
+// unclamped here so a point-light tap can select its adjacent cube face.
+struct SceneShadowFilterTap {
+    float2 uv;
+    float weight;
+};
+SceneShadowFilterTap sceneShadowFilterTap(float2 uv, float2 extent, uint index) {
+    float2 pixel = uv * extent - 0.5;
+    float2 base = floor(pixel);
+    float2 fraction = pixel - base;
+    float2 offset = float2(index & 1u, index >> 1u);
+    float2 weight = mix(1.0 - fraction, fraction, offset);
+    return { (base + offset + 0.5) / extent, weight.x * weight.y };
+}
+
 float sceneDirectionalVisibility(float3 position, float3 worldDX, float3 worldDY,
     depth2d<float> shadow, constant SceneModelShadowUniforms &uniforms) {
     float4 projected = uniforms.transform * float4(position, 1.0);
@@ -112,25 +128,23 @@ float sceneDirectionalVisibility(float3 position, float3 worldDX, float3 worldDY
     float depthMagnitude = projectionMagnitude.z
         + dot(abs(depthGradient), (projectionMagnitude.xy + 1.0) * 0.5);
     float visibility = 0.0;
-    for (int y = -1; y <= 1; ++y) {
-        for (int x = -1; x <= 1; ++x) {
-            float2 pixel = clamp(floor(uv * extent) + float2(x, y), float2(0.0), extent - 1.0);
-            float2 sampleUV = (pixel + 0.5) / extent;
-            float2 correction = depthGradient * (sampleUV - uv);
-            float referenceDepth = clip.z + correction.x + correction.y;
-            // Near-tangent receiver planes can leave the map's depth domain
-            // within this finite filter footprint. Clear depth is not an
-            // occluder beyond that domain; retain this tap's unoccluded weight.
-            if (referenceDepth < 0.0 || referenceDepth > 1.0) {
-                visibility += 1.0;
-                continue;
-            }
-            float precisionBias = uniforms.parameters.z
-                * max(1.0, depthMagnitude + abs(correction.x) + abs(correction.y));
-            visibility += shadow.sample_compare(shadowSampler, sampleUV, referenceDepth - precisionBias);
+    for (uint index = 0; index < 4; ++index) {
+        SceneShadowFilterTap tap = sceneShadowFilterTap(uv, extent, index);
+        float2 sampleUV = clamp(tap.uv, 0.5 / extent, 1.0 - 0.5 / extent);
+        float2 correction = depthGradient * (sampleUV - uv);
+        float referenceDepth = clip.z + correction.x + correction.y;
+        // Near-tangent receiver planes can leave the map's depth domain
+        // within this finite filter footprint. Clear depth is not an
+        // occluder beyond that domain; retain this tap's unoccluded weight.
+        if (referenceDepth < 0.0 || referenceDepth > 1.0) {
+            visibility += tap.weight;
+            continue;
         }
+        float precisionBias = uniforms.parameters.z
+            * max(1.0, depthMagnitude + abs(correction.x) + abs(correction.y));
+        visibility += tap.weight * shadow.sample_compare(shadowSampler, sampleUV, referenceDepth - precisionBias);
     }
-    return visibility / 9.0;
+    return visibility;
 }
 
 // Absolute multiplication scales for a cross product, without cancellation.
@@ -204,34 +218,32 @@ float sceneSpotVisibility(float3 position, float3 worldDX, float3 worldDY,
                                     filter::nearest, compare_func::less_equal);
     float2 extent = float2(shadow.get_width(), shadow.get_height());
     float visibility = 0.0;
-    for (int y = -1; y <= 1; ++y) {
-        for (int x = -1; x <= 1; ++x) {
-            float2 pixel = clamp(floor(uv * extent) + float2(x, y), float2(0.0), extent - 1.0);
-            float2 sampleUV = (pixel + 0.5) / extent;
-            float3 ray((2.0 * sampleUV.x - 1.0) * tangent,
-                       (1.0 - 2.0 * sampleUV.y) * tangent, 1.0);
-            float denominator = dot(n, ray);
-            float distance = h / denominator;
-            float referenceDepth = distance / radius;
-            // A finite footprint can cross a tangent, the apex, sphere or cone.
-            // Such a tap has no valid forward receiver-plane depth in this map.
-            if (denominator == 0.0 || !isfinite(referenceDepth) || distance <= 0.0
-                || distance * length(ray) >= radius
-                || 1.0 / length(ray) < uniforms.parameters.y) {
-                visibility += 1.0;
-                continue;
-            }
-            float3 rayMagnitude((2.0 * abs(sampleUV.x) + 1.0) * tangent + abs(ray.x),
-                                (2.0 * abs(sampleUV.y) + 1.0) * tangent + abs(ray.y), 0.0);
-            float denominatorMagnitude = dot(abs(n), abs(ray) + rayMagnitude) + dot(nMagnitude, abs(ray));
-            float depthMagnitude = (hMagnitude + abs(distance) * denominatorMagnitude)
-                / abs(denominator) / radius + abs(referenceDepth);
-            float precisionBias = uniforms.parameters.z * max(1.0, depthMagnitude);
-            if (!isfinite(precisionBias)) { visibility += 1.0; continue; }
-            visibility += shadow.sample_compare(shadowSampler, sampleUV, referenceDepth - precisionBias);
+    for (uint index = 0; index < 4; ++index) {
+        SceneShadowFilterTap tap = sceneShadowFilterTap(uv, extent, index);
+        float2 sampleUV = clamp(tap.uv, 0.5 / extent, 1.0 - 0.5 / extent);
+        float3 ray((2.0 * sampleUV.x - 1.0) * tangent,
+                   (1.0 - 2.0 * sampleUV.y) * tangent, 1.0);
+        float denominator = dot(n, ray);
+        float distance = h / denominator;
+        float referenceDepth = distance / radius;
+        // A finite footprint can cross a tangent, the apex, sphere or cone.
+        // Such a tap has no valid forward receiver-plane depth in this map.
+        if (denominator == 0.0 || !isfinite(referenceDepth) || distance <= 0.0
+            || distance * length(ray) >= radius
+            || 1.0 / length(ray) < uniforms.parameters.y) {
+            visibility += tap.weight;
+            continue;
         }
+        float3 rayMagnitude((2.0 * abs(sampleUV.x) + 1.0) * tangent + abs(ray.x),
+                            (2.0 * abs(sampleUV.y) + 1.0) * tangent + abs(ray.y), 0.0);
+        float denominatorMagnitude = dot(abs(n), abs(ray) + rayMagnitude) + dot(nMagnitude, abs(ray));
+        float depthMagnitude = (hMagnitude + abs(distance) * denominatorMagnitude)
+            / abs(denominator) / radius + abs(referenceDepth);
+        float precisionBias = uniforms.parameters.z * max(1.0, depthMagnitude);
+        if (!isfinite(precisionBias)) { visibility += tap.weight; continue; }
+        visibility += tap.weight * shadow.sample_compare(shadowSampler, sampleUV, referenceDepth - precisionBias);
     }
-    return visibility / 9.0;
+    return visibility;
 }
 
 // Columns map face coordinates to world-relative coordinates. This fixed
@@ -253,7 +265,7 @@ uint scenePointShadowFace(float3 direction) {
 
 
 float2 scenePointShadowUV(float3 local) {
-    // Exact face ties must stay at 0/1 before floor chooses the nine-tap
+    // Exact face ties must stay at 0/1 before floor chooses the filter
     // footprint; fast reciprocal cancellation can move zero below the face.
     float2 ratio = precise::divide(local.xy, float2(local.z));
     return fma(float2(0.5, -0.5), ratio, float2(0.5));
@@ -276,49 +288,48 @@ float scenePointVisibility(float3 position, float3 worldDX, float3 worldDY,
     constexpr sampler shadowSampler(coord::normalized, address::clamp_to_edge,
                                     filter::nearest, compare_func::less_equal);
     float visibility = 0.0;
-    for (int y = -1; y <= 1; ++y) {
-        for (int x = -1; x <= 1; ++x) {
-            // Do not clamp to the center face: this ray may cross an edge or
-            // corner. Requantize on its chosen face, then use THAT texel's ray.
-            float2 initialUV = (floor(uv * faceExtent) + float2(x, y) + 0.5) / faceExtent;
-            float3 initialRay = scenePointFaceToWorld[centerFace]
-                * float3(2.0 * initialUV.x - 1.0, 1.0 - 2.0 * initialUV.y, 1.0);
-            uint face = scenePointShadowFace(initialRay);
-            float3 local = transpose(scenePointFaceToWorld[face]) * initialRay;
-            float2 projectedUV = scenePointShadowUV(local);
-            float2 pixel = clamp(floor(projectedUV * faceExtent), float2(0.0), faceExtent - 1.0);
-            float2 sampleUV = (pixel + 0.5) / faceExtent;
-            float3 localRay(2.0 * sampleUV.x - 1.0, 1.0 - 2.0 * sampleUV.y, 1.0);
-            float3 ray = scenePointFaceToWorld[face] * localRay;
-            float rayLength = length(ray), denominator = dot(n, ray);
-            float distance = plane.height / denominator;
-            float referenceDepth = distance * rayLength / radius;
-            // A real receiver plane can meet adjacent rays behind the light,
-            // outside its sphere or at a tangent. Keep this tap's ninth weight.
-            if (denominator == 0.0 || !isfinite(referenceDepth) || distance <= 0.0 || referenceDepth >= 1.0) {
-                visibility += 1.0;
-                continue;
-            }
-            float3 localMagnitude(2.0 * abs(sampleUV.x) + 1.0 + abs(localRay.x),
-                                  2.0 * abs(sampleUV.y) + 1.0 + abs(localRay.y), 0.0);
-            // Face transforms only permute/sign components. Propagate the
-            // actual plane/ray quotient and radial length, not an axial bias.
-            float3 rayMagnitude = abs(scenePointFaceToWorld[face] * localMagnitude);
-            float denominatorMagnitude = dot(abs(n), abs(ray) + rayMagnitude)
-                + dot(plane.normalMagnitude, abs(ray));
-            float distanceMagnitude = (plane.heightMagnitude + abs(distance) * denominatorMagnitude)
-                / abs(denominator) + abs(distance);
-            float lengthMagnitude = dot(abs(ray), abs(ray) + rayMagnitude) / rayLength + rayLength;
-            float depthMagnitude = (rayLength * distanceMagnitude + abs(distance) * lengthMagnitude)
-                / radius + abs(referenceDepth);
-            float precisionBias = uniforms.parameters.z * max(1.0, depthMagnitude);
-            if (!isfinite(precisionBias)) { visibility += 1.0; continue; }
-            float2 tile = float2(face % 3u, face / 3u);
-            float2 atlasUV = (tile + sampleUV) / float2(3.0, 2.0);
-            visibility += shadow.sample_compare(shadowSampler, atlasUV, referenceDepth - precisionBias);
+    for (uint index = 0; index < 4; ++index) {
+        SceneShadowFilterTap tap = sceneShadowFilterTap(uv, faceExtent, index);
+        // Do not clamp to the center face: this ray may cross an edge or
+        // corner. Requantize on its chosen face, then use THAT texel's ray.
+        float2 initialUV = tap.uv;
+        float3 initialRay = scenePointFaceToWorld[centerFace]
+            * float3(2.0 * initialUV.x - 1.0, 1.0 - 2.0 * initialUV.y, 1.0);
+        uint face = scenePointShadowFace(initialRay);
+        float3 local = transpose(scenePointFaceToWorld[face]) * initialRay;
+        float2 projectedUV = scenePointShadowUV(local);
+        float2 pixel = clamp(floor(projectedUV * faceExtent), float2(0.0), faceExtent - 1.0);
+        float2 sampleUV = (pixel + 0.5) / faceExtent;
+        float3 localRay(2.0 * sampleUV.x - 1.0, 1.0 - 2.0 * sampleUV.y, 1.0);
+        float3 ray = scenePointFaceToWorld[face] * localRay;
+        float rayLength = length(ray), denominator = dot(n, ray);
+        float distance = plane.height / denominator;
+        float referenceDepth = distance * rayLength / radius;
+        // A real receiver plane can meet adjacent rays behind the light,
+        // outside its sphere or at a tangent. Keep this tap's filter weight.
+        if (denominator == 0.0 || !isfinite(referenceDepth) || distance <= 0.0 || referenceDepth >= 1.0) {
+            visibility += tap.weight;
+            continue;
         }
+        float3 localMagnitude(2.0 * abs(sampleUV.x) + 1.0 + abs(localRay.x),
+                              2.0 * abs(sampleUV.y) + 1.0 + abs(localRay.y), 0.0);
+        // Face transforms only permute/sign components. Propagate the
+        // actual plane/ray quotient and radial length, not an axial bias.
+        float3 rayMagnitude = abs(scenePointFaceToWorld[face] * localMagnitude);
+        float denominatorMagnitude = dot(abs(n), abs(ray) + rayMagnitude)
+            + dot(plane.normalMagnitude, abs(ray));
+        float distanceMagnitude = (plane.heightMagnitude + abs(distance) * denominatorMagnitude)
+            / abs(denominator) + abs(distance);
+        float lengthMagnitude = dot(abs(ray), abs(ray) + rayMagnitude) / rayLength + rayLength;
+        float depthMagnitude = (rayLength * distanceMagnitude + abs(distance) * lengthMagnitude)
+            / radius + abs(referenceDepth);
+        float precisionBias = uniforms.parameters.z * max(1.0, depthMagnitude);
+        if (!isfinite(precisionBias)) { visibility += tap.weight; continue; }
+        float2 tile = float2(face % 3u, face / 3u);
+        float2 atlasUV = (tile + sampleUV) / float2(3.0, 2.0);
+        visibility += tap.weight * shadow.sample_compare(shadowSampler, atlasUV, referenceDepth - precisionBias);
     }
-    return visibility / 9.0;
+    return visibility;
 }
 
 // The admitted material response is shared by all model lamp kinds. Callers
@@ -547,6 +558,7 @@ struct SceneStaticModelShadowUniforms {
 struct SceneStaticModelShadowVertexOut {
     float4 position [[position]];
     float2 uv;
+    float3 lightPosition; // orthographic clip.xyz or perspective light coordinates
 };
 vertex SceneStaticModelShadowVertexOut sceneStaticModelShadowVertex(
     uint vertexID [[vertex_id]], constant SceneStaticModelVertex *vertices [[buffer(0)]],
@@ -554,6 +566,7 @@ vertex SceneStaticModelShadowVertexOut sceneStaticModelShadowVertex(
     SceneStaticModelVertex modelVertex = vertices[vertexID];
     SceneStaticModelShadowVertexOut out;
     out.position = uniforms.modelToLightClip * float4(modelVertex.position, 1.0);
+    out.lightPosition = out.position.xyz;
     out.uv = uniforms.textureFrame0.xy + modelVertex.uv.x * uniforms.textureFrame0.zw
         + modelVertex.uv.y * uniforms.textureFrame1.xy;
     return out;
@@ -564,24 +577,28 @@ void sceneStaticModelShadowCoverage(float2 uv, texture2d<half> albedo,
     if (uniforms.coverage.y != 0.0) coverage *= float(albedo.sample(albedoSampler, uv).a);
     if (coverage <= 0.5) discard_fragment();
 }
-fragment void sceneStaticModelShadowFragment(
+struct SceneStaticModelShadowDepth { float depth [[depth(any)]]; };
+fragment SceneStaticModelShadowDepth sceneStaticModelShadowFragment(
     SceneStaticModelShadowVertexOut in [[stage_in]],
     texture2d<half> albedo [[texture(0)]], sampler albedoSampler [[sampler(0)]],
     constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
+    // Reconstruct the authored triangle plane at the actual texel center;
+    // interpolated clip coordinates follow the snapped raster triangle.
+    float3 plane = cross(dfdx(in.lightPosition), dfdy(in.lightPosition));
+    float2 uv = (in.position.xy - uniforms.viewport.xy) / uniforms.viewport.zw;
+    float2 clipXY = float2(2.0 * uv.x - 1.0, 1.0 - 2.0 * uv.y);
+    float depth = in.lightPosition.z - dot(plane.xy / plane.z, clipXY - in.lightPosition.xy);
     sceneStaticModelShadowCoverage(in.uv, albedo, albedoSampler, uniforms);
+    if (plane.z == 0.0 || !isfinite(depth) || depth < 0.0 || depth > 1.0) discard_fragment();
+    return {depth};
 }
-struct SceneStaticModelSpotShadowVertexOut {
-    float4 position [[position]];
-    float2 uv;
-    float3 lightPosition;
-};
-vertex SceneStaticModelSpotShadowVertexOut sceneStaticModelSpotShadowVertex(
+vertex SceneStaticModelShadowVertexOut sceneStaticModelSpotShadowVertex(
     uint vertexID [[vertex_id]], constant SceneStaticModelVertex *vertices [[buffer(0)]],
     constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
     SceneStaticModelVertex modelVertex = vertices[vertexID];
     float3 world = (uniforms.modelMatrix * float4(modelVertex.position, 1.0)).xyz;
     float3 q = (uniforms.worldToLight * float4(world - uniforms.positionRadius.xyz, 0.0)).xyz;
-    SceneStaticModelSpotShadowVertexOut out;
+    SceneStaticModelShadowVertexOut out;
     // Homogeneous clipping retains the forward part of triangles crossing the
     // light's apex plane. Fragment axial depth needs no arbitrary positive near.
     out.position = float4(q.xy / uniforms.projectionParameters.x, 0.0, q.z);
@@ -590,8 +607,7 @@ vertex SceneStaticModelSpotShadowVertexOut sceneStaticModelSpotShadowVertex(
         + modelVertex.uv.y * uniforms.textureFrame1.xy;
     return out;
 }
-struct SceneStaticModelSpotShadowDepth { float depth [[depth(any)]]; };
-float2 sceneStaticModelPerspectiveShadowDepth(SceneStaticModelSpotShadowVertexOut in,
+float2 sceneStaticModelPerspectiveShadowDepth(SceneStaticModelShadowVertexOut in,
     texture2d<half> albedo, sampler albedoSampler,
     constant SceneStaticModelShadowUniforms &uniforms) {
     // Interpolated q stays on the triangle plane, but raster snapping shifts
@@ -609,14 +625,14 @@ float2 sceneStaticModelPerspectiveShadowDepth(SceneStaticModelSpotShadowVertexOu
         || radialDistance >= uniforms.positionRadius.w) discard_fragment();
     return float2(distance, radialDistance) / uniforms.positionRadius.w;
 }
-fragment SceneStaticModelSpotShadowDepth sceneStaticModelSpotShadowFragment(
-    SceneStaticModelSpotShadowVertexOut in [[stage_in]],
+fragment SceneStaticModelShadowDepth sceneStaticModelSpotShadowFragment(
+    SceneStaticModelShadowVertexOut in [[stage_in]],
     texture2d<half> albedo [[texture(0)]], sampler albedoSampler [[sampler(0)]],
     constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
     return {sceneStaticModelPerspectiveShadowDepth(in, albedo, albedoSampler, uniforms).x};
 }
-fragment SceneStaticModelSpotShadowDepth sceneStaticModelPointShadowFragment(
-    SceneStaticModelSpotShadowVertexOut in [[stage_in]],
+fragment SceneStaticModelShadowDepth sceneStaticModelPointShadowFragment(
+    SceneStaticModelShadowVertexOut in [[stage_in]],
     texture2d<half> albedo [[texture(0)]], sampler albedoSampler [[sampler(0)]],
     constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
     return {sceneStaticModelPerspectiveShadowDepth(in, albedo, albedoSampler, uniforms).y};

@@ -2175,7 +2175,10 @@
         "script/tests/test_scene_static_model_pipeline.py",
         "script/tests/fixtures/SceneLightSnapshotHarness.swift",
         "script/tests/test_scene_static_model_emission.py",
-        "script/tests/test_scene_static_model_cull_integration.py"
+        "script/tests/test_scene_static_model_cull_integration.py",
+        "script/tests/test_scene_directional_shadow.py",
+        "script/tests/test_scene_spot_model_shadow.py",
+        "script/tests/test_scene_point_model_shadow.py"
       ],
       "modules": [
         "test_scene_static_model_reader",
@@ -2183,7 +2186,10 @@
         "test_scene_static_model_pipeline",
         "test_scene_static_model_emission",
         "test_scene_static_model_cull_integration",
-        "test_scene_directional_shadow_frame_owner"
+        "test_scene_directional_shadow_frame_owner",
+        "test_scene_directional_shadow",
+        "test_scene_spot_model_shadow",
+        "test_scene_point_model_shadow"
       ]
     },
     {

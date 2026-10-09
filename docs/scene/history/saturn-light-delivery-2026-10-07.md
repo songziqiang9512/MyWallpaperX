@@ -125,3 +125,23 @@
 隔离Debug/签名通过，762个Scene输入按最终三产品文件冻结，dylib `f0570670…56a9da6`。有影无Bloom、同姿态有Bloom及原完整包均exit0并GPU drained；原包SHA`8cb79fa9…c037bb0`运行91.86秒，92/92脚本owner quiescent、0 teardown failure，实际图保留大型陨石环、球体及文字。该原包用实时日期，只作完整资源/合成回归，不与冻结官方姿态混算parity。已停止HOME/TMP清理，留必要PNG/收据及共用构建缓存。
 
 最近回归：emission 5项、directional shadow 2项、模型pipeline/准入5项及parts 3项通过，保nil旧输出、point/spot既有外部oracle、显式0/.14、unlit、coverage/HDR和材质分段。旧parts首次失败来自上批文字入口的共享非目标stub签名陈旧，本批只同步原共享stub，不新增产品分支。Scene结构/依赖/防御/设计及文档健康通过；全仓code-health、文档导航和residue分别仍报告并行Web的1008行文件、既存Web设计回链及未知归属`.mimosa`，保留并未当作本批通过。独立审查分别核产品、官方/候选ROI、运行身份及有界声明。
+
+
+<a id="shadow-depth-and-filter"></a>
+## 2026-10-10 阴影深度与过渡修正
+
+起点 `e0de2ffc`。同一固定姿态、有影无Bloom输入的上后阴影有过宽灰边；冻结实际epoch901的27个prepared part、24个caster、真实alpha/UV/采样/绕序和完整投影重放，原9点过滤是主要过渡来源。仅换四点候选虽改善上后边缘，却使前环细暗线恶化，已被真实App和独审否决，未提交。固定投影分别移除sphere/ring证明细线来自ring自身；独立几何平面求交与原始GPU深度不一致，不能据此扩大bias或关闭caster。
+
+分离实验只纠正directional caster片元几何depth，旧9点与四点均让前区5151个有效像素恢复与no-shadow逐通道完全相同；coverage mask、alpha及上后真实球体投影保持，排除以少画几何换效果。旧9/四点新depth图相同，明确区分depth首断点和filter质量。CPU几何未观测GPU primitive-ID，不把候选获胜三角形解释提升为私有实现或全部硬件光栅误差合同。
+
+最终沿同一`SceneStaticModel.metal`把directional补入原spot/point片元几何depth职责，合并三灯varying/depth输出形状，spot/point数值body不改。三灯共用texel中心四点加权footprint；point仍逐tap选真实cube face并重新量化射线，失效tap保原weight，不混采atlas邻tile。投影、1024质量范围、bias、coverage/cull、uniform、资源生命周期和唯一合成链均未扩张。比较次数上限9→4，但directional新增片元几何计算，未声明性能净收益。
+
+冻结正常Debug的762个Scene源码前后身份及签名通过，产品SHA `eecf7905d60a059695d532d67b3c1509458b2ed8e660b8a4f40b3bcdf4b0e386`，dylib SHA `8f69c9ea38af67982089ccda2197160170fd97b7869dd1b3a03483c4b63209fc`。同输入官方2.8.0.42/1210×786原始截图对照：前暗线ROI `[260,590,360,640]` 的平均逐通道绝对误差2.8458→0.1688/255、P95 15→1，中值与官方同为136/128/113；上后ROI `[810,155,1160,330]` 平均误差1.7247→0.8372、P95 10→6。球体与前环两个原亮度控制区逐像素保持。局部轮廓仍有少量像素偏差，不声明完整footprint、官方过滤kernel或全场景parity。
+
+本批证据根 `.artifacts/tmp/saturn-shadow-footprint-20261010/`：`audit/caster-plane-nine-four-analysis.json`、`audit/final-image-comparison.json`、`build-candidate.json`及`candidate-final/`；失败的仅filter候选另存`audit/rejected-filter-only-candidate/`，不混为验收版本。后继还包括Bloom残差、亚像素细线及完整媒体/交互，未扩展到全样本正确率。
+
+最终近门11项通过：三类灯共享过滤权重、directional/spot近间隙与coverage、point轴/接缝/非均匀变换，以及新增自有细长共面三角形。新反例复用现有Pipeline，含self、正负0.001world间隙、normal剔除backface及nocull保真实薄片遮挡；同输入/容差的旧仅filter负控在self与thin-normal失败，最终版本通过。长期selector已沿现有组接三灯模块，未另建测试或运行owner。
+
+同一最终App的无Bloom、有Bloom和未经改动原完整包分别运行65.583/65.280/91.234秒，PID79925/80095/80267均正常退出；各92/92脚本owner quiescent、零失败、GPU drained。完整陨石环、文字与原脚本保留。原完整图仍有球体弧形点线及环带细斜条；旧图也存在相关点线，但新旧天文日期/活动姿态未同一冻结，不能证明新增错误，也不能宣布完整重型输入阴影正确。下一批先做完整包同姿态归因，再推进Bloom与亚像素细线。本批验收范围限于固定轻型姿态改善及通用几何合同，不外推完整土星、性能或全样本。
+
+本轮已停止的两轮三App HOME/TMP共约1.60GB已清理；必要失败/最终截图、日志和输入身份保留，一份共享Debug缓存继续用于后继。Scene结构/依赖/防御/设计、文档健康及selector门通过；全仓Web的1008行文件、既存Web文档回链及未知归属`.mimosa`仍是独立存量，未修改或伪称全仓门通过。

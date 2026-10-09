@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 593,
-      "bytes": 110284
+      "bytes": 110808
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 170920
+      "bytes": 171072
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 93,
-      "bytes": 27120
+      "bytes": 27253
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -133,8 +133,8 @@
       "bytes": 19030
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
-      "lines": 489,
-      "bytes": 106062
+      "lines": 493,
+      "bytes": 108264
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 46,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 222,
-      "bytes": 58439
+      "bytes": 58678
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1037,11 +1037,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
-      "before": "ee833ad1c666d05a467bf1f0e32d4459783edd8830b76a7d3fff4b9d76604367",
-      "after": "e81baaae233cd2f74c1a9cbd12806e1244a35bb52b2f9d9bc952180d6ff6868e",
-      "owner": "Scene方向光材质消费",
-      "reason": "既有surface profile补接directional并移除旧范围外推；已修项退出队列，保留Bloom和投影余项。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#directional-material-response"
+      "before": "e81baaae233cd2f74c1a9cbd12806e1244a35bb52b2f9d9bc952180d6ff6868e",
+      "after": "18461eb040d1352c4fb74564067869e2265d2fcac6b54debcf532e33872254f5",
+      "owner": "Scene共用阴影depth与过滤",
+      "reason": "沿原caster补directional几何depth并共享有限过滤；已修宽灰边与共面暗线退出队列，轮廓精度/Bloom保持待验。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#shadow-depth-and-filter"
     },
     {
       "section": "bodies",
@@ -1082,38 +1082,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "b877b7ebaae8dc36ed1bff421611e19fe24482c23888c7ecd5743d5c602cd11e",
-      "after": "98a833fb3845ba4256379432780e60ac5fc905e224a6c8e4da77828247ca51bb",
-      "owner": "Scene方向光材质消费",
-      "reason": "既有surface profile补接directional并移除旧范围外推；已修项退出队列，保留Bloom和投影余项。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#directional-material-response"
+      "before": "98a833fb3845ba4256379432780e60ac5fc905e224a6c8e4da77828247ca51bb",
+      "after": "7efcaa1dd0030b661ff5f7ef1e677b40a49ebde9c4106e9543b05074c23a0904",
+      "owner": "Scene共用阴影depth与过滤",
+      "reason": "沿原caster补directional几何depth并共享有限过滤；已修宽灰边与共面暗线退出队列，轮廓精度/Bloom保持待验。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#shadow-depth-and-filter"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "733dd5f1ce8a7f79cef6737f79d1e07fccc88040e0a03f0e9377331cf0f54554",
-      "after": "ed6e1dbb607057eed4df250d12871f098ff02f8fda12d6db277c150f64b6aadd",
-      "owner": "Scene方向光材质消费",
-      "reason": "既有surface profile补接directional并移除旧范围外推；已修项退出队列，保留Bloom和投影余项。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#directional-material-response"
+      "before": "ed6e1dbb607057eed4df250d12871f098ff02f8fda12d6db277c150f64b6aadd",
+      "after": "b5b33ca6606ff335968b151d4061fff699e40df1427b1dfdb8a9ad92057460fe",
+      "owner": "Scene共用阴影depth与过滤",
+      "reason": "沿原caster补directional几何depth并共享有限过滤；已修宽灰边与共面暗线退出队列，轮廓精度/Bloom保持待验。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#shadow-depth-and-filter"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ce4e6cd3a8ac6b47095c7fd52ab3515e164aabf1403c875c2d29e8f0b24d53ee",
-      "after": "36a3d62294af0563c258f4dd9909d9041e1189864be74068c3d3f19570ba7115",
-      "owner": "Scene方向光材质消费",
-      "reason": "既有surface profile补接directional并移除旧范围外推；已修项退出队列，保留Bloom和投影余项。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#directional-material-response"
+      "before": "36a3d62294af0563c258f4dd9909d9041e1189864be74068c3d3f19570ba7115",
+      "after": "063b2aab83e56f66ace54ef594b79571d81c00242038828de08e3379c99b080f",
+      "owner": "Scene共用阴影depth与过滤",
+      "reason": "沿原caster补directional几何depth并共享有限过滤；已修宽灰边与共面暗线退出队列，轮廓精度/Bloom保持待验。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#shadow-depth-and-filter"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c4078e6d8073f57fe105375b3c80ce1789d7a282dd309db09e9a4bed9f93a99e",
-      "after": "7ca576595de3fcb5b8f108781424bd8757bc8c1e26da4cbcf76799621538f3fb",
-      "owner": "Scene方向光材质消费",
-      "reason": "既有surface profile补接directional并移除旧范围外推；已修项退出队列，保留Bloom和投影余项。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#directional-material-response"
+      "before": "7ca576595de3fcb5b8f108781424bd8757bc8c1e26da4cbcf76799621538f3fb",
+      "after": "f51c7fadfc6b98b8860afda74376c0ad53c8bd1b1ecaa9880bad4080e7c47037",
+      "owner": "Scene共用阴影depth与过滤",
+      "reason": "沿原caster补directional几何depth并共享有限过滤；已修宽灰边与共面暗线退出队列，轮廓精度/Bloom保持待验。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#shadow-depth-and-filter"
     }
   ]
 }
