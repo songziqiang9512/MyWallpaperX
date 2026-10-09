@@ -40,6 +40,7 @@
       "docs/scene/roadmap/scene-steamkit-migration-plan.md",
       "docs/web/cold-descriptor-parse-offload-design.md",
       "docs/web/cross-origin-reply-delivery-design.md",
+      "docs/web/css-animation-freeze-redesign.md",
       "docs/web/mediaremote-nowplaying-design.md",
       "docs/web/steam-downloads-failed-items-visibility-design.md",
       "docs/web/wallpaper-engine-web-rules.md",
@@ -1983,6 +1984,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "所有宿主消息消费者使用同一 frame 定向投递并通过导航和跨源门，旧主 frame 中继撤权后归档。"
+    },
+    {
+      "path": "docs/web/css-animation-freeze-redesign.md",
+      "role": "active-plan",
+      "entrypoint": "docs/web/README.md",
+      "retirementCondition": "播放门按本设计完成 CSSAnimation 样式表冻结改造且行为断言（冻结/恢复/authored play-state 保持/帧冻结）入库后，若引入替代机制则整体归档。"
     },
     {
       "path": "docs/web/current-state.md",

@@ -209,8 +209,8 @@
       "bytes": 6445
     },
     "docs/web/current-state.md": {
-      "lines": 118,
-      "bytes": 42981
+      "lines": 119,
+      "bytes": 44852
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 58,
@@ -239,6 +239,10 @@
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
       "bytes": 6163
+    },
+    "docs/web/css-animation-freeze-redesign.md": {
+      "lines": 46,
+      "bytes": 6677
     }
   },
   "archives": [
@@ -1064,10 +1068,10 @@
     {
       "section": "bodies",
       "path": "docs/web/current-state.md",
-      "before": "0d4f2b761d6b017c042328b9f4b98357c8109e47806dd85935704c7a6b2d0c7d",
-      "after": "87c8025b1ea56711caed4753bbd460b1c483ecf7938a23571642ab884d6b8e3c",
+      "before": "87c8025b1ea56711caed4753bbd460b1c483ecf7938a23571642ab884d6b8e3c",
+      "after": "edf8bab8a0406ed50b3239afc93a9c79a2be8a0d8254ae62a611472f9946e158",
       "owner": "Web 现役状态",
-      "reason": "批十七第五轮侦察修复证据行并入（shadow 媒体穿透、缓存命中 memo 预热、备飞窗全灭保留清空；CSS 动画解耦设计登记）。",
+      "reason": "批十八 CSS 动画冻结重构证据行并入（样式表双轨制闭口 play-state 解耦）。",
       "decision": "docs/web/cold-descriptor-parse-offload-design.md#验收"
     },
     {
@@ -1096,6 +1100,15 @@
       "owner": "Scene模型材质caster准入",
       "reason": "以成对官方控制修复prepared材质语义丢失；长期准入合同与已验长暗带归档，土星余项按用户调序暂缓并保明确重启边界。",
       "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#translucent-model-shadow"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/css-animation-freeze-redesign.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "5bbf0cd3c998c680452477614f8302310b4de6d6d681713b28520cddac9c9639",
+      "owner": "Web 播放门",
+      "reason": "批十八设计文档入库：CSS 动画冻结机制重构（样式表双轨制替代 Animation API，闭口 play-state 解耦）。",
+      "decision": "docs/web/css-animation-freeze-redesign.md#验收"
     },
     {
       "section": "bodies",
