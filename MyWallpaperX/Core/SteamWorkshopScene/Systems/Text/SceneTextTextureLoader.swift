@@ -138,11 +138,9 @@ enum SceneTextTextureLoader {
             maxDimension: maxDimension
         ) else { return nil }
         let font = layout.scale == 1
-            ? sourceFont
-            : SceneTextFontResolver.resolve(
-                path: style.fontPath,
-                size: CGFloat(SceneTextGeometry.pointSizeInPixels(style.pointSize) * layout.scale),
-                cacheDirectory: cacheDirectory
+            ? sourceFont.font
+            : CTFontCreateCopyWithAttributes(
+                sourceFont.font, CTFontGetSize(sourceFont.font) * CGFloat(layout.scale), nil, nil
             )
         let width = layout.width
         let height = layout.height
@@ -166,7 +164,7 @@ enum SceneTextTextureLoader {
                 text: prepared.text,
                 wrapWidth: CGFloat(prepared.wrapWidth * layout.scale),
                 style: style,
-                font: font.font,
+                font: font,
                 layout: layout,
                 width: width,
                 height: height,
@@ -193,7 +191,7 @@ enum SceneTextTextureLoader {
         )
         return RenderedTexture(
             texture: texture,
-            font: font,
+            font: sourceFont,
             renderSizeWH: renderSize
         )
     }
@@ -203,7 +201,10 @@ enum SceneTextTextureLoader {
         style: SceneTextDescriptor,
         font: CTFont
     ) -> (text: String, size: [Float], wrapWidth: Float)? {
-        let attributes = [kCTFontAttributeName: font] as CFDictionary
+        let attributes = [
+            kCTFontAttributeName: font,
+            kCTParagraphStyleAttributeName: paragraphStyle(alignment: .natural)
+        ] as CFDictionary
         let wrapWidth = Float(SceneTextRowLimit.wrapWidth(
             contentWidth: CGFloat(maxAutoSizeDimension), style: style, scale: 1
         ))
@@ -254,6 +255,10 @@ enum SceneTextTextureLoader {
     ) {
         let bounds = CGRect(x: 0, y: 0, width: width, height: height)
         context.clear(bounds)
+        // Glyph-path margins can place the first outline at a fractional
+        // origin. Quantizing that origin again clips its edge at padding=0.
+        context.setShouldSubpixelPositionFonts(true)
+        context.setShouldSubpixelQuantizeFonts(false)
         if style.opaqueBackground {
             context.setFillColor(color(style.backgroundColorRGB, brightness: style.backgroundBrightness))
             let border = CGFloat(style.decorationInset * layout.scale)
@@ -263,25 +268,7 @@ enum SceneTextTextureLoader {
         let padding = CGFloat(layout.padding)
         let contentWidth = CGFloat(layout.contentWidth)
         let contentHeight = CGFloat(layout.contentHeight)
-        var alignment = textAlignment(style.horizontalAlignment)
-        var lineBreak = CTLineBreakMode.byWordWrapping
-        let paragraph = withUnsafePointer(to: &alignment) { alignmentPointer in
-            withUnsafePointer(to: &lineBreak) { lineBreakPointer in
-                var settings = [
-                    CTParagraphStyleSetting(
-                        spec: .alignment,
-                        valueSize: MemoryLayout<CTTextAlignment>.size,
-                        value: alignmentPointer
-                    ),
-                    CTParagraphStyleSetting(
-                        spec: .lineBreakMode,
-                        valueSize: MemoryLayout<CTLineBreakMode>.size,
-                        value: lineBreakPointer
-                    )
-                ]
-                return CTParagraphStyleCreate(&settings, settings.count)
-            }
-        }
+        let paragraph = paragraphStyle(alignment: textAlignment(style.horizontalAlignment))
         let attributes: [CFString: Any] = [
             kCTFontAttributeName: font,
             kCTForegroundColorAttributeName: color(style.colorRGB, brightness: style.brightness),
@@ -380,6 +367,29 @@ enum SceneTextTextureLoader {
         CTFrameDraw(frame, context)
         if shadow != nil { context.endTransparencyLayer() }
         context.restoreGState()
+    }
+
+    /// One native line-bound contract for truncation, measurement and raster.
+    /// Ink that fits the authored width must not wrap because of side bearings.
+    private static func paragraphStyle(alignment: CTTextAlignment) -> CTParagraphStyle {
+        var alignment = alignment
+        var lineBreak = CTLineBreakMode.byWordWrapping
+        var bounds = SceneTextRowLimit.lineBoundsOptions
+        return withUnsafePointer(to: &alignment) { alignmentPointer in
+            withUnsafePointer(to: &lineBreak) { lineBreakPointer in
+                withUnsafePointer(to: &bounds) { boundsPointer in
+                    var settings = [
+                        CTParagraphStyleSetting(spec: .alignment,
+                            valueSize: MemoryLayout<CTTextAlignment>.size, value: alignmentPointer),
+                        CTParagraphStyleSetting(spec: .lineBreakMode,
+                            valueSize: MemoryLayout<CTLineBreakMode>.size, value: lineBreakPointer),
+                        CTParagraphStyleSetting(spec: .lineBoundsOptions,
+                            valueSize: MemoryLayout<CTLineBoundsOptions>.size, value: boundsPointer)
+                    ]
+                    return CTParagraphStyleCreate(&settings, settings.count)
+                }
+            }
+        }
     }
 
     private static func color(_ rgb: [Float], brightness: Float, alpha: CGFloat = 1) -> CGColor {

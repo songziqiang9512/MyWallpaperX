@@ -226,6 +226,7 @@ SCENE_FIXTURE = {
 
 HARNESS_SOURCE = r'''
 import CoreGraphics
+import CoreText
 import Foundation
 import Metal
 
@@ -487,7 +488,43 @@ enum Harness {
             )
         }
 
+        // Independent native font metrics choose a width that admits visible
+        // glyphs but excludes the final advance. No Workshop font is copied.
+        let boundaryFont = CTFontCreateWithName("Arial" as CFString, 50, nil)
+        let boundaryLine = CTLineCreateWithAttributedString(NSAttributedString(
+            string: "ONE TWO", attributes: [NSAttributedString.Key(kCTFontAttributeName as String): boundaryFont]
+        ))
+        let inkWidth = CTLineGetBoundsWithOptions(boundaryLine, .useGlyphPathBounds).width
+        let advance = CTLineGetTypographicBounds(boundaryLine, nil, nil, nil)
+        let admittedWidth = Float(ceil(inkWidth))
+        precondition(Double(admittedWidth) < advance)
+        var boundaryInk: [String: Any] = [:]
+        for (name, id, width) in [("fits", 60, admittedWidth),
+                                  ("tooNarrow", 60, Float(floor(inkWidth) - 1)),
+                                  ("oneRow", 20, admittedWidth)] {
+            if let layer = layers[id], let rendered = SceneTextTextureLoader.makeDynamicTexture(
+                for: layer, content: "ONE TWO", pointSize: 12,
+                colorRGB: [1, 1, 1], maxWidth: width,
+                cacheDirectory: cacheDirectory, device: device
+            ) { boundaryInk[name] = inkStatistics(rendered.texture) }
+        }
+
+        let lastRowLiteral = layers[70].flatMap {
+            SceneTextTextureLoader.makeDynamicTexture(
+                for: $0, content: "AAAA B", pointSize: 12,
+                colorRGB: [1, 1, 1], cacheDirectory: cacheDirectory, device: device
+            )
+        }
+        let ellipsisLiteral = layers[70].flatMap {
+            SceneTextTextureLoader.makeDynamicTexture(
+                for: $0, content: "AAAA …", pointSize: 12,
+                colorRGB: [1, 1, 1], cacheDirectory: cacheDirectory, device: device
+            )
+        }
         let result: [String: Any] = [
+            "ellipsisLiteralInk": ellipsisLiteral.map { inkStatistics($0.texture) } ?? [:],
+            "lastRowLiteralInk": lastRowLiteral.map { inkStatistics($0.texture) } ?? [:],
+            "glyphBoundaryInk": boundaryInk,
             "style": style,
             "ink": ink,
             "sameContentDynamicInk": sameContentDynamicInk,
@@ -609,6 +646,12 @@ class SceneTextRowLimitTests(unittest.TestCase):
         if hasattr(cls, "temporary_directory"):
             cls.temporary_directory.cleanup()
 
+    def test_visible_glyph_width_controls_wrap_and_row_truncation(self) -> None:
+        boundary = self.result["glyphBoundaryInk"]
+        self.assertEqual(len(boundary["fits"]["rowRanges"]), 1)
+        self.assertEqual(len(boundary["tooNarrow"]["rowRanges"]), 2)
+        self.assertEqual(boundary["oneRow"], boundary["fits"])
+
     def test_default_loader_has_no_unclaimed_effect_runtime_authority(self) -> None:
         source = TEXT_TEXTURE_LOADER_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
@@ -665,6 +708,7 @@ class SceneTextRowLimitTests(unittest.TestCase):
         self.assertEqual(len(limited["rowRanges"]), 1)
         self.assertEqual(limited["rowRanges"][0], baseline["rowRanges"][0])
         self.assertLess(limited["count"], baseline["count"])
+        self.assertEqual(limited, self.result["lastRowLiteralInk"])
 
     def test_max_rows_counts_hard_line_breaks(self) -> None:
         baseline = self.result["ink"]["50"]
@@ -673,12 +717,12 @@ class SceneTextRowLimitTests(unittest.TestCase):
         self.assertEqual(len(limited["rowRanges"]), 2)
         self.assertEqual(limited["rowRanges"], baseline["rowRanges"][:2])
 
-    def test_overflow_ellipsis_extends_the_kept_row(self) -> None:
+    def test_overflow_ellipsis_fits_the_final_row_and_marks_truncation(self) -> None:
         plain = self.result["ink"]["20"]
         ellipsis = self.result["ink"]["30"]
         self.assertEqual(len(ellipsis["rowRanges"]), 1)
         self.assertGreater(ellipsis["maxX"], plain["maxX"])
-        self.assertGreater(ellipsis["count"], plain["count"])
+        self.assertEqual(ellipsis, self.result["ellipsisLiteralInk"])
 
     def test_ellipsis_backs_off_characters_to_fit_the_narrowed_wrap(self) -> None:
         # 80 号同时开三个开关且全是 property 包装形式：换行宽度 100 px 装不下
@@ -735,7 +779,9 @@ class SceneTextRowLimitTests(unittest.TestCase):
         limited = self.result["dynamicLimitedInk"]
         self.assertGreater(limited["count"], 0)
         self.assertGreaterEqual(len(limited["rowRanges"]), 4)
-        self.assertLessEqual(limited["size"][0], 100)
+        # Width limits constrain ink. CoreText can retain a fractional
+        # trailing advance in the allocation extent without drawing past it.
+        self.assertLess(limited["maxX"], 100)
         self.assertGreater(limited["size"][1], self.result["dynamicAutoInk"]["size"][1])
 
     def test_initial_and_updated_text_have_identical_ink_and_geometry(self) -> None:

@@ -363,6 +363,12 @@ producer 的优先级、同帧/下一帧可见性和冲突处理由 frame commit
 
 TextureAnimation 的脚本控制遵守同一边界：launch preparation 只登记 animated TEX 的 immutable frame/source 定义；每帧在 QuickJS callback 前由唯一 SceneClock 与现有播放控制状态形成 immutable handle snapshot。`rate/play/pause/stop/setFrame/join` 只产生 owner-scoped typed command，在共同模拟提交时接纳，不随 surface 呈现失败重放，并从下一帧同时影响普通 atlas UV、resolved-material preflight 和既有 multi-image upload。播放控制不拥有 texture、provider、timer、clock、resource registry 或 renderer；`join` 只移除 layer-local override。prepared 动画必须由 frame batch 提供 playback time，consumer 不得自行回读 `sceneTime` 形成第二条时钟路径。
 
+### 文字宽度与栅格化
+
+文字继续由同一个 CoreText 排版器生成 TextureProduct。宽度限制按字形可见边界计算；行数截断、省略号、尺寸测量与绘制共用这一段落合同，不能一个阶段按 advance、另一个阶段按 ink，也不新增 Unicode 换行算法。复用 `CTParagraphStyle.lineBoundsOptions/useGlyphPathBounds`，替换原默认边界设置；字体来源仍归 FontResolver，作者字号换算与 raster 缩放仍归 Geometry。字号在作者点数乘300/72后向下取整为准备像素尺寸（保持原1–1024预算），只量化一次；下采样复制已解析字体并连续缩放，不重新加载或取整。该项目选择符合固定官方字体24/28/29/36点的换行阈值（1作者像素容差），不是私有公式声明；不能按样本缩小字体或加宽maxwidth。
+
+此修订的目标是纠正已复现的长艺人文字提前折行/截断；不更改媒体、脚本、provider 或 compositor。准备与栅格化使用同一段落选项，最后允许行复用CoreText cluster break填满可见前缀（其他行仍word wrap），省略号按同一字形边界回退组合字符；保持显式换行、width/rows 开关、对齐、padding、装饰、动态更新及 last-ready 失败语义。验收包括官方同字体不同宽度/字号控制、真实长短文字、初始/动态像素一致及下采样/装饰反例；系统替代字体与跨平台 hinting 不冒充逐像素一致。稳定职责在此维护，不保留第二排版链。
+
 ### 5.4 Particle 通路
 
 Particle definition 编译为有序 component ops；system 实例拥有固定步进、spawn/death/event、control point、child 和 renderer 生命周期。未知 optional component 产生诊断并跳过；缺少唯一 renderer 或产生非法数值时停用该 particle system，不终止整个 scene。

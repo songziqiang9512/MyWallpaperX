@@ -46,7 +46,7 @@
 
 | 职责 | 精确冻结记录 |
 |---|---|
-| Scene媒体输入与文字动画 | [系统来源/仲裁](../history/scene-system-media-input-implementation-2026-10-05.md#selected-source)、[五色](../history/media-artwork-palette-implementation-2026-10-05.md)、[封面替换](../history/scene-system-media-input-implementation-2026-10-05.md#u12-artwork)有界已验；<a id="e-2026-10-09-single-replay"></a>[Single重播](../history/scene-system-media-input-implementation-2026-10-05.md#single-replay)恢复U12两次受控文字。全平台/整样本未验 |
+| Scene媒体输入与文字动画 | [系统来源/仲裁](../history/scene-system-media-input-implementation-2026-10-05.md#selected-source)、[五色](../history/media-artwork-palette-implementation-2026-10-05.md)、[封面替换](../history/scene-system-media-input-implementation-2026-10-05.md#u12-artwork)有界已验；<a id="e-2026-10-09-single-replay"></a>[Single重播](../history/scene-system-media-input-implementation-2026-10-05.md#single-replay)恢复U12两次受控文字。[真实切源/清空](../history/scene-system-media-input-implementation-2026-10-05.md#selected-source)及[长文布局](../history/text-width-property-implementation-2026-10-05.md#glyph-bounds)有界已验；全平台/整样本未验 |
 | HDR raw/display与计费 | [LDR Bloom尺寸纠正](../history/sdr-white-preservation-implementation-2026-10-06.md#ldr-bloom-spatial)；[RF07](../history/rf07-persistent-color-output-implementation-2026-10-02.md)、[RF11](../history/rf11-shared-hdr-target-budget-implementation-2026-10-02.md) |
 | 2D normal/PBR/emission | [MR/emission](../history/d3-pbr-map-emission-implementation-2026-10-02.md)、[live亮度](../history/d3-material-user-emission-implementation-2026-10-02.md)；前序normal/标量证据沿记录内链接 |
 | 图片材质 Alpha | [静态/用户属性接线](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-image-material-alpha)：真实193透明度热切与source-before-effects像素门；限定builtin profile，不计整样本通过 |

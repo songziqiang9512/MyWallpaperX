@@ -79,4 +79,8 @@ Provider 14项行为测试通过，覆盖Music playing/paused/stopped不抢占�
 
 同App以U12作者副本、billboard=true、隔离HOME和显式系统输入运行：system发布，AppleEvents为consentRequired，最终截图显示真实封面与歌手文字；exit0/GPU排空。本机 `.artifacts/tmp/u12-media-selection-20261009/` 的 `report.json`、`build-final.json`、`native-live-music/` 绑定源码、App及截图；provider反例不冒充真实双播放器切换。独立只读审查通过；结构、依赖、代码/防御、设计与链接门通过。全局文档仍有并行Web预算问题；未知归属`.mimosa`残留保留。
 
-尚未验收真实双播放器切换、连续真实换曲、普通产品IPC与U12媒体布局官方对照。两个API的opaque ID尚无可靠桥接，系统缺图不拿Music封面猜补；同名同专辑的metadata歧义不声称身份等价。U12工程估计保持约92%，不按测试数提高完整正确率；下一批完成这些样本组合边界，再按队列进入HDR/SDR和重型启动。
+后继同一签名App及U12原包副本运行70秒，以两个自有AVAudioPlayer/MPNowPlayingInfoCenter应用经真实OS会话发布，无直接Inbox注入：红ALPHA ONE→绿ALPHA TWO→同曲暂停保留→蓝BETA→黄ALPHA BACK→clear恢复作者猫图并清空艺人，逐段实际可见。退出发布器后既有Music被系统重新选中，非旧fixture回包；properties/thumbnail/playback各自计generation，不混成一个快照代次。App/发布器均正常退出且GPU排空。独立只读对齐操作、事件、原截图与精确PID；本机`u12-media-live-20261009/fixtures/review/report.json`保存身份和七阶段截图。
+
+该序列证明自有应用通过系统输入的切歌/切源/暂停/清空，非全部商业平台或普通产品IPC验收；ALPHA BACK是新曲，未证同曲resume。截图证artist，title只证事件送达。短暂consentRequired、clear时helperUnavailable保留原typed诊断，不伪称明确noSession。两个API的opaque ID仍无桥接，系统缺图不猜补Music封面。U12媒体布局后继由[文字宽度证据](text-width-property-implementation-2026-10-05.md)接管。
+
+本机后继证据包`.artifacts/tmp/u12-media-live-20261009/u12-media-live-evidence.zip`：2,605,833 bytes，SHA256 `f41041fb08c998b4664356b5bbd539ef593d51e87d5534ed10660d839f82e5fe`。总缓存1 GiB额度不足、无到期包，保留此有界任务包；退出后清理8个精确owned临时目录119,491,817逻辑bytes，未删除未知证据。

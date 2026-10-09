@@ -1,12 +1,10 @@
 import CoreText
 import Foundation
 
-/// WE 的 text layer 有两组溢出控制：Limit width / Max width 决定换行宽度，
-/// Limit rows / Max rows 决定最多排几行，Overflow ellipsis 决定被裁时是否补省略号。
-/// 三个开关关闭时必须完全不改变原有排版，因为 `maxwidth`/`maxrows` 在关闭状态下
-/// 仍带着编辑器默认值（本机语料 393 个 `limitwidth: false` 的 layer 全是 500，
-/// 其中 79 个作者宽度已经超过 500），一旦无条件生效就会把它们错误地压窄。
+/// Width and row limits share CoreText's glyph-bound contract. Disabled limits
+/// ignore the editor's saved default maxwidth/maxrows values.
 nonisolated enum SceneTextRowLimit {
+    static let lineBoundsOptions: CTLineBoundsOptions = .useGlyphPathBounds
     private static let ellipsis = "…"
 
     /// `maxwidth` 的单位是像素（lib.sceneScript.d.ts 的 ITextLayer："Max width in
@@ -21,8 +19,9 @@ nonisolated enum SceneTextRowLimit {
         return min(contentWidth, CGFloat(style.maxWidth) * CGFloat(max(0, scale)))
     }
 
-    /// 按 `maxrows` 裁行：多出来的行整行丢掉，`limituseellipsis` 打开时在末行补 `…`，
-    /// 并逐个（按组合字符序列）回退末行字符，保证补上省略号后仍不超过换行宽度。
+    /// Earlier rows use word wrapping; the final permitted row fills with
+    /// complete glyph clusters before truncation. CoreText preserves hard line
+    /// breaks in both modes. Ellipsis backs off composed characters to fit.
     nonisolated static func limitedText(
         _ text: String,
         style: SceneTextDescriptor,
@@ -40,9 +39,11 @@ nonisolated enum SceneTextRowLimit {
         let maxRows = max(1, style.maxRows)
         var rowStart = 0
         var index = 0
-        for _ in 0 ..< maxRows {
+        for row in 0 ..< maxRows {
             guard index < source.length else { break }
-            let count = CTTypesetterSuggestLineBreak(typesetter, index, Double(wrapWidth))
+            let count = row == maxRows - 1
+                ? CTTypesetterSuggestClusterBreak(typesetter, index, Double(wrapWidth))
+                : CTTypesetterSuggestLineBreak(typesetter, index, Double(wrapWidth))
             guard count > 0 else { return text }
             rowStart = index
             index += count
@@ -67,7 +68,7 @@ nonisolated enum SceneTextRowLimit {
             kCFAllocatorDefault, value as CFString, attributes
         ) else { return 0 }
         let line = CTLineCreateWithAttributedString(attributed)
-        return CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil))
+        return CTLineGetBoundsWithOptions(line, lineBoundsOptions).width
     }
 
     private nonisolated static func droppingLastCharacter(_ value: String) -> String {

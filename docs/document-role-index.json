@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5ffe68ea5bcb70df397e0dc61772aa46cf155ebeea3cdbec8018ca8b707ea410",
+        "sourceSHA256": "1d5c4dc1dfeb6b94cd3fd6cb4320da241de43063f653f5ffd337a1f3242e46b5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对模型静态材质profile的唯一prepare/数学/输出职责及有界D3与历史证据导航。",
+        "scope": "核对既有文字测量、末行截断与栅格化的共享CoreText合同及有界证据导航。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
@@ -522,9 +522,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d521e81597003bb79fee2c77a48b4a149f755d5cf5957f682570bc85750ab904",
+        "sourceSHA256": "1ede7ce30f0b0ee46d3b276965d93206a35afd55c07921cb5ec3b3e22786d245",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对媒体来源仲裁、封面替换与Single重播的限定证据及U12剩余导航。",
+        "scope": "核对文字与真实系统媒体切源的有界结果导航；细节归既有历史。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
@@ -1781,7 +1781,9 @@
       "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
-        "docs/scene/capabilities/runtime-input-property-coverage.md"
+        "docs/scene/capabilities/runtime-input-property-coverage.md",
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
     {

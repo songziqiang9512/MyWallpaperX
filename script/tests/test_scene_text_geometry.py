@@ -82,6 +82,8 @@ enum Harness {
             "point32": SceneTextGeometry.pointSizeInPixels(32),
             "point64": SceneTextGeometry.pointSizeInPixels(64),
             "point300": SceneTextGeometry.pointSizeInPixels(300),
+            "point28": SceneTextGeometry.pointSizeInPixels(28),
+            "point29": SceneTextGeometry.pointSizeInPixels(29),
             "pointZero": SceneTextGeometry.pointSizeInPixels(0),
             "rasterLayout": rasterLayout(),
             "vectorPadding": vectorPadding.padding,
@@ -156,12 +158,14 @@ class SceneTextGeometryTests(unittest.TestCase):
             cls.temporary_directory.cleanup()
 
     def test_authored_point_size_uses_we_pixel_scale_and_cap(self) -> None:
-        self.assertAlmostEqual(self.result["point32"], 400 / 3, places=4)
-        self.assertAlmostEqual(self.result["point64"], 800 / 3, places=4)
+        self.assertEqual(self.result["point32"], 133)
+        self.assertEqual(self.result["point64"], 266)
         self.assertAlmostEqual(
             self.result["point64"] / self.result["point32"], 2, places=6
         )
         self.assertEqual(self.result["point300"], 1024)
+        self.assertEqual(self.result["point28"], 116)
+        self.assertEqual(self.result["point29"], 120)
         self.assertEqual(self.result["pointZero"], 1)
 
     def test_padding_vector_and_wrapped_value_use_first_component(self) -> None:

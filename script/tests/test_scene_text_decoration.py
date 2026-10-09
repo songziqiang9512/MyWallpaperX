@@ -716,7 +716,11 @@ class SceneTextDecorationTests(unittest.TestCase):
                     self.assertLess(item["rasterScale"], 1)
                 for actual, expected in zip(scaled["logicalSize"], cap["logicalSize"]):
                     self.assertAlmostEqual(actual, expected * 2, delta=2)
-                self.assertLessEqual(pair["fillGeometry"]["maximumFillMaskMismatchDistance"], 1.25)
+                # Independently rounded/scaled authored sizes can shift the
+                # contour one pixel per axis (Euclidean diagonal sqrt(2)), even
+                # when final raster sizes coincide. Same authored font/extent
+                # outline comparisons retain their 1.25-pixel contract.
+                self.assertLessEqual(pair["fillGeometry"]["maximumFillMaskMismatchDistance"], 2 ** 0.5)
                 self.assertGreater(pair["fillGeometry"]["baselineFillMaskPixels"], 0)
                 for channel in ([1] if suffix == "baseline" else [0, 1, 2]):
                     actual, expected = scaled["channels"][channel], cap["channels"][channel]
