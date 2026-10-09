@@ -19,8 +19,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
             premultipliedColorInputSlots: Set<Int>,
             colorBoundary: SceneShaderColorBoundary?
         ) {
-            // v17 maps fragment position to the existing raster input.
-            cacheSchemaVersion = 17
+            // v18 scopes return-value declarations to their owning function.
+            cacheSchemaVersion = 18
             vertexSourceSHA256 = ProgramCacheDigest.hash(Data(vertexSource.utf8))
             fragmentSourceSHA256 = ProgramCacheDigest.hash(Data(fragmentSource.utf8))
             self.runtimeLoopBounds = runtimeLoopBounds

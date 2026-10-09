@@ -226,7 +226,7 @@ private func runGenericProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "generic")
     let root = try cacheRoot()
     let directory = tierDirectory(
-        root: root, name: "SceneGenericShaderAnalysis-v13"
+        root: root, name: "SceneGenericShaderAnalysis-v17"
     )
     let input = makeGenericInput(marker: "probe-a")
     try expect(

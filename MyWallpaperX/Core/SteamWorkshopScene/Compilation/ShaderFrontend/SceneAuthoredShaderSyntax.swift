@@ -45,10 +45,26 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
     /// The same unique-declarator proof also serves vector return conversion.
     /// Arrays, functions and repeated names never provide a value type.
     static func uniqueValueDeclarations(
-        in tokens: [SceneAuthoredShaderToken]
+        in tokens: [SceneAuthoredShaderToken], excluding ranges: [Range<Int>] = []
     ) -> [String: (type: String, index: Int)] {
+        valueDeclarationFacts(in: tokens, excluding: ranges).compactMapValues { facts in
+            guard facts.count == 1, facts[0].value else { return nil }
+            return (facts[0].type, facts[0].index)
+        }
+    }
+
+    /// Includes arrays and repeated declarations: either shadows an outer
+    /// binding even when it cannot supply a unique scalar/vector value type.
+    static func valueDeclarationNames(in tokens: [SceneAuthoredShaderToken]) -> Set<String> {
+        Set(valueDeclarationFacts(in: tokens, excluding: []).keys)
+    }
+
+    private static func valueDeclarationFacts(
+        in tokens: [SceneAuthoredShaderToken], excluding ranges: [Range<Int>]
+    ) -> [String: [(type: String, index: Int, value: Bool)]] {
         var declarations: [String: [(type: String, index: Int, value: Bool)]] = [:]
         func record(_ index: Int, type: String) {
+            guard !ranges.contains(where: { $0.contains(index) }) else { return }
             let next = index + 1 < tokens.count ? tokens[index + 1].text : ""
             declarations[tokens[index].text, default: []].append((
                 type, index,
@@ -77,10 +93,7 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
                 cursor += 1
             }
         }
-        return declarations.compactMapValues { facts in
-            guard facts.count == 1, facts[0].value else { return nil }
-            return (facts[0].type, facts[0].index)
-        }
+        return declarations
     }
 
     private static let forbiddenControlFlow: Set<String> = [
@@ -345,7 +358,7 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
         )
     }
 
-    private static func matchingDelimiter(
+    static func matchingDelimiter(
         at index: Int,
         tokens: [SceneAuthoredShaderToken]
     ) -> Int? {
@@ -496,6 +509,34 @@ extension SceneShaderSourceTextFacts {
 nonisolated enum SceneAuthoredShaderTokenScanner {}
 
 extension SceneAuthoredShaderTokenScanner {
+    /// Parentheses preserve an lvalue; a constructor/call creates a value.
+    /// Peel only grouping around this exact reference before checking writes
+    /// and indexing, so `(value.xy) += ...` cannot masquerade as a pure read.
+    static func isReadOnlyValueUse(
+        start: Int,
+        end: Int,
+        tokens: [SceneAuthoredShaderToken],
+        body: Range<Int>,
+        permitsReturn: Bool = false
+    ) -> Bool {
+        var lower = start
+        var upper = end
+        while lower > body.lowerBound, upper < body.upperBound,
+              tokens[lower - 1].text == "(", tokens[upper].text == ")" {
+            if lower >= body.lowerBound + 2,
+               tokens[lower - 2].kind == .identifier,
+               tokens[lower - 2].text != "return" { break }
+            lower -= 1
+            upper += 1
+        }
+        let forbiddenPrefix = permitsReturn ? ["++", "--"] : ["return", "++", "--"]
+        return (lower == body.lowerBound
+            || !forbiddenPrefix.contains(tokens[lower - 1].text))
+            && (upper == body.upperBound
+            || !["=", "+=", "-=", "*=", "/=", "%=", "++", "--", ".", "[", "]"]
+                .contains(tokens[upper].text))
+    }
+
     /// A one-token identifier; the ternary form of the same predicate that the
     /// analyzers used locally.
     static func identifier(_ tokens: ArraySlice<SceneAuthoredShaderToken>) -> String? {

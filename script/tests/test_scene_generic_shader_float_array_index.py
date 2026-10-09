@@ -130,6 +130,115 @@ void main() {
         )
         return json.loads(completed.stdout), output_fragment
 
+    def test_contiguous_audio_helper_indices_preserve_six_scalar_array_shapes(self) -> None:
+        declarations, calls = [], []
+        for count in (16, 32, 64):
+            for channel in ("Left", "Right"):
+                name = f"g_AudioSpectrum{count}{channel}"
+                helper = f"read{count}{channel}"
+                declarations.append(
+                    f"uniform float {name}[{count}];\n"
+                    f"float {helper}(float bin) {{ return {name}[((bin) / (4.))][(bin % 4)]; }}"
+                )
+                calls.append(f"for (float i = 0.; i < {count}.; ++i) {{ value += {helper}((i)); }}")
+        result, output = self._normalize(
+            "varying vec2 v_TexCoord;\n" + "\n".join(declarations)
+            + "\nvoid main() { float value = 0.;\n" + "\n".join(calls)
+            + "\ngl_FragColor = vec4(value); }\n"
+        )
+        self.assertTrue(result["ok"], result)
+        source = output.read_text(encoding="utf-8")
+        for count in (16, 32, 64):
+            for channel in ("Left", "Right"):
+                name = f"g_AudioSpectrum{count}{channel}"
+                self.assertIn(f"float {name}[{count}];", source)
+                self.assertIn(f"return {name}[int(bin)];", source)
+        self.assertFalse(result["boundedHasProgram"], result)
+        linked = self._link(output)
+        self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_audio_helpers_accept_dynamic_bin_calls_without_a_loop(self) -> None:
+        declarations, calls = [], []
+        for count in (16, 32, 64):
+            for channel in ("Left", "Right"):
+                name = f"g_AudioSpectrum{count}{channel}"
+                helper = f"read{count}{channel}"
+                declarations.append(
+                    f"uniform float {name}[{count}];\n"
+                    f"float {helper}(float bin) {{ return {name}[bin / 4][bin % 4]; }}"
+                )
+                calls.append(
+                    f"value += {helper}(floor(v_TexCoord.x * {count}.));"
+                    f"value += {helper}(v_TexCoord.x * {count}.);"
+                )
+        result, output = self._normalize(
+            "varying vec2 v_TexCoord;\n" + "\n".join(declarations)
+            + "\nvoid main() { float value = 0.;" + "\n".join(calls)
+            + "gl_FragColor = vec4(value); }\n"
+        )
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(output.read_text(encoding="utf-8").count("[int(bin)]"), 6)
+        linked = self._link(output)
+        self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_audio_helper_ambiguous_or_mutated_bindings_stay_unchanged(self) -> None:
+        access = "g_AudioSpectrum64Left[bin / 4][bin % 4]"
+        for declarations, body, loop_body in (
+            ("", "float bin=1.; return " + access + ";", "value += read(i);"),
+            ("", "bin += 0.5; return " + access + ";", "value += read(i);"),
+            ("", "(bin) += 0.5; return " + access + ";", "value += read(i);"),
+            ("", "++(bin); return " + access + ";", "value += read(i);"),
+            ("", "(bin)++; return " + access + ";", "value += read(i);"),
+            ("void change(inout float v){v+=0.5;}", "change(bin); return " + access + ";", "value += read(i);"),
+            ("void change(highp inout float v){v+=0.5;}", "change(bin); return " + access + ";", "value += read(i);"),
+            ("void change(highp out float v){v=0.5;}", "change(bin); return " + access + ";", "value += read(i);"),
+            ("", "modf(1.5, bin); return " + access + ";", "value += read(i);"),
+            ("", "float g_AudioSpectrum64Left[64]; return " + access + ";", "value += read(i);"),
+            ("", "float unused, g_AudioSpectrum64Left[64]; return " + access + ";", "value += read(i);"),
+            ("float read(vec2 v){return v.x;}", "return " + access + ";", "value += read(i);"),
+        ):
+            with self.subTest(body=body, loop_body=loop_body):
+                result, output = self._normalize(
+                    "varying vec2 v_TexCoord;\nuniform float g_AudioSpectrum64Left[64];\n"
+                    + declarations + "\nfloat read(float bin){" + body + "}\n"
+                    + "void main(){float value=0.;for(float i=0.;i<64.;++i){"
+                    + loop_body + "}gl_FragColor=vec4(value);}\n"
+                )
+                self.assertTrue(result["ok"], result)
+                self.assertIn(access, output.read_text(encoding="utf-8"))
+                self.assertNotEqual(self._link(output).returncode, 0)
+
+    def test_audio_double_index_does_not_generalize_main_arrays_or_expressions(self) -> None:
+        for declarations, helper, expected in (
+            ("uniform float g_AudioSpectrum64Left[64];", "", "g_AudioSpectrum64Left[bin / 4][bin % 4]"),
+            ("float values[64];", "float read(float bin){return values[bin / 4][bin % 4];}", "values[bin / 4][bin % 4]"),
+            ("vec4 values[16];", "float read(float bin){return values[int(bin)/4][int(bin)%4];}", "values[int(bin)/4][int(bin)%4]"),
+            ("uniform float g_AudioSpectrum64Left[64];", "float read(float bin){return g_AudioSpectrum64Left[(bin + 0.) / 4][bin % 4];}", "g_AudioSpectrum64Left[(bin + 0.) / 4][bin % 4]"),
+            ("uniform float g_AudioSpectrum64Left[64];", "float read(float bin){return g_AudioSpectrum64Left[bin++ / 4][bin % 4];}", "g_AudioSpectrum64Left[bin++ / 4][bin % 4]"),
+        ):
+            with self.subTest(expected=expected):
+                result, output = self._normalize(
+                    "varying vec2 v_TexCoord;\n" + declarations + "\n" + helper
+                    + "\nvoid main(){float value=0.;float bin=floor(v_TexCoord.x*63.99);"
+                    + ("value=" + expected + ";" if not helper else "for(float i=0.;i<64.;++i){value+=read(i);}")
+                    + "gl_FragColor=vec4(value);}\n"
+                )
+                self.assertTrue(result["ok"], result)
+                self.assertIn(expected, output.read_text(encoding="utf-8"))
+                linked = self._link(output)
+                self.assertEqual(linked.returncode == 0, declarations == "vec4 values[16];", linked.stdout + linked.stderr)
+
+        result, output = self._normalize(
+            "varying vec2 v_TexCoord;\n"
+            "struct Holder { vec4 g_AudioSpectrum64Left[16]; }; Holder holder;\n"
+            "float read(float bin){return holder.g_AudioSpectrum64Left[int(bin)/4][int(bin)%4];}\n"
+            "void main(){float value=0.;for(float i=0.;i<64.;++i){value+=read(i);}gl_FragColor=vec4(value);}\n"
+        )
+        self.assertTrue(result["ok"], result)
+        self.assertIn("holder.g_AudioSpectrum64Left[int(bin)/4][int(bin)%4]", output.read_text(encoding="utf-8"))
+        linked = self._link(output)
+        self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
     def test_float_index_is_cast_only_for_proven_fixed_float_arrays(self) -> None:
         positive, output = self._normalize("""uniform float g_AudioSpectrum32Left[32];
 varying vec2 v_TexCoord;
@@ -632,6 +741,40 @@ void main() {
                     cwd=self.root, capture_output=True, text=True,
                 )
                 self.assertEqual(compiled.returncode, 0, compiled.stderr)
+
+    def test_vec3_return_uses_its_function_scope_with_repeated_names_elsewhere(self) -> None:
+        result, output = self._normalize(
+            "varying vec2 v_TexCoord;\n"
+            "vec3 computeColor(vec2 coord) { vec4 col = vec4(coord, 0.5, 0.75); return col; }\n"
+            "void main() { vec3 col = computeColor(v_TexCoord); gl_FragColor = vec4(col, 1.0); }\n"
+        )
+        self.assertTrue(result["ok"], result)
+        self.assertIn("return (col).xyz;", output.read_text(encoding="utf-8"))
+        linked = self._link(output)
+        self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+        self.assertTrue(result["boundedHasProgram"], result)
+        metal = self.root / "scoped-return.metal"
+        metal.write_text(result["boundedMetal"], encoding="utf-8")
+        compiled = subprocess.run(
+            ["xcrun", "--sdk", "macosx", "metal", "-c", str(metal),
+             "-o", str(self.root / "scoped-return.air")],
+            cwd=self.root, capture_output=True, text=True,
+        )
+        self.assertEqual(compiled.returncode, 0, compiled.stderr)
+
+    def test_vec3_return_inner_scope_and_same_function_shadow_stay_rejected(self) -> None:
+        for body in (
+            "{ vec4 col = vec4(0.5); } return col;",
+            "vec4 col = vec4(0.5); { vec3 col = vec3(0.25); } return col;",
+        ):
+            with self.subTest(body=body):
+                result, output = self._normalize(
+                    "varying vec2 v_TexCoord;\nvec3 computeColor() {" + body + "}\n"
+                    "void main() { vec3 col = computeColor(); gl_FragColor = vec4(col, 1.0); }\n"
+                )
+                self.assertTrue(result["ok"], result)
+                self.assertIn("return col;", output.read_text(encoding="utf-8"))
+                self.assertNotEqual(self._link(output).returncode, 0)
 
     def test_mix_unknown_vector_or_source_overload_weight_stays_rejected(self) -> None:
         for declarations, weight in (

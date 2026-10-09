@@ -25,6 +25,20 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
     private static let maximumLoopIterations = 256
     private static let maximumStaticLoopWork = 4_096
 
+    static func mutableArgumentNames(
+        in range: Range<Int>, unit: SceneAuthoredShaderSyntaxUnit
+    ) -> Set<String> {
+        mutableArgumentNames(
+            in: range, tokens: unit.tokens,
+            functionIndicesByName: Dictionary(grouping: unit.functions.indices) {
+                unit.functions[$0].name
+            },
+            mutableFactsByFunctionIndex: Dictionary(uniqueKeysWithValues: unit.functions.indices.map {
+                ($0, mutableParameterFacts(for: unit.functions[$0], tokens: unit.tokens))
+            }), unknownCallsAreMutable: true
+        )
+    }
+
     static func analyze(
         functions: [SceneAuthoredShaderSyntaxUnit.Function],
         tokens: [SceneAuthoredShaderToken],
@@ -387,8 +401,7 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         return .init(
             count: parameters.count,
             ordinals: Set(parameters.indices.filter { ordinal in
-                guard let first = parameters[ordinal].first else { return false }
-                return ["inout", "out"].contains(tokens[first].text)
+                parameters[ordinal].contains { ["inout", "out"].contains(tokens[$0].text) }
             })
         )
     }
@@ -399,13 +412,13 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         in range: Range<Int>,
         tokens: [SceneAuthoredShaderToken],
         functionIndicesByName: [String: [Int]],
-        mutableFactsByFunctionIndex: [Int: MutableParameterFacts]
+        mutableFactsByFunctionIndex: [Int: MutableParameterFacts],
+        unknownCallsAreMutable: Bool = false
     ) -> Set<String> {
         var result: Set<String> = []
         for index in range {
-            guard index + 1 < range.upperBound,
+            guard tokens[index].kind == .identifier, index + 1 < range.upperBound,
                   tokens[index + 1].text == "(",
-                  let functionIndices = functionIndicesByName[tokens[index].text],
                   let close = matchingDelimiter(at: index + 1, tokens: tokens),
                   close < range.upperBound else { continue }
             let arguments = index + 2 == close ? [] : SceneAuthoredShaderTokenScanner.split(
@@ -413,6 +426,12 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
                 separator: ",",
                 tokens: tokens
             )
+            guard let functionIndices = functionIndicesByName[tokens[index].text] else {
+                if unknownCallsAreMutable {
+                    result.formUnion(arguments.compactMap { lvalueRoot(in: $0, tokens: tokens) })
+                }
+                continue
+            }
             for functionIndex in functionIndices {
                 guard let facts = mutableFactsByFunctionIndex[functionIndex],
                       facts.count == arguments.count else { continue }

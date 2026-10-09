@@ -248,7 +248,7 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                               swizzle.allSatisfy({ required.contains($0) })
                         else { return nil }
                     } else {
-                        guard isComponentReadOnlyUse(
+                        guard SceneAuthoredShaderTokenScanner.isReadOnlyValueUse(
                             start: index, end: index + 3,
                             tokens: fragmentTokens, body: body
                         ) else { return nil }
@@ -269,7 +269,7 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                     } else if previous == "return" {
                         return nil
                     }
-                    guard isComponentReadOnlyUse(
+                    guard SceneAuthoredShaderTokenScanner.isReadOnlyValueUse(
                         start: index, end: index + 1,
                         tokens: fragmentTokens, body: body
                     ), safeReadOnlyCallContext(
@@ -469,7 +469,7 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                 index == body.lowerBound || ![
                     "return", "++", "--",
                 ].contains(fragmentTokens[index - 1].text),
-                isComponentReadOnlyUse(
+                SceneAuthoredShaderTokenScanner.isReadOnlyValueUse(
                     start: index, end: after,
                     tokens: fragmentTokens,
                     body: body
@@ -525,32 +525,6 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
             }
         }
         return true
-    }
-
-    /// Parentheses preserve an lvalue; a constructor/call creates a value.
-    /// Peel only grouping around this exact reference before checking writes
-    /// and indexing, so `(value.xy) += ...` cannot masquerade as a pure read.
-    private static func isComponentReadOnlyUse(
-        start: Int,
-        end: Int,
-        tokens: [SceneAuthoredShaderToken],
-        body: Range<Int>
-    ) -> Bool {
-        var lower = start
-        var upper = end
-        while lower > body.lowerBound, upper < body.upperBound,
-              tokens[lower - 1].text == "(", tokens[upper].text == ")" {
-            if lower >= body.lowerBound + 2,
-               tokens[lower - 2].kind == .identifier,
-               tokens[lower - 2].text != "return" { break }
-            lower -= 1
-            upper += 1
-        }
-        return (lower == body.lowerBound
-            || !["return", "++", "--"].contains(tokens[lower - 1].text))
-            && (upper == body.upperBound
-            || !["=", "+=", "-=", "*=", "/=", "%=", "++", "--", ".", "[", "]"]
-                .contains(tokens[upper].text))
     }
 
     private static func canonicalComponent(_ value: Character) -> Character {

@@ -30,8 +30,8 @@ nonisolated enum SceneGenericShaderAnalysisCache {
     /// frontendSchemaVersion constant has no mechanical bump guarantee).
     /// v11: dead resource work shares the conservative deletion Projection.
     /// v13: shared varying-prefix proof and scalar/vector conversion semantics.
-    /// v16: fragment position uses the existing raster builtin.
-    private static let schemaVersion = 16
+    /// v17: contiguous audio indices and function-scoped return conversions.
+    private static let schemaVersion = 17
     private static let maximumEntryBytes = 64 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()

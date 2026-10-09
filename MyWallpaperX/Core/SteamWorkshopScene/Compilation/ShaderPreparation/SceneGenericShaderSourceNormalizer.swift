@@ -81,7 +81,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                         stage: .vertex
                     ),
                     stage: .vertex
-                )
+                ), stage: .vertex
             )
             let typedFragmentSource = rewriteFloatArrayIndices(
                 rewriteAssignmentVectorConversions(
@@ -94,7 +94,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                         stage: .fragment
                     ),
                     stage: .fragment
-                )
+                ), stage: .fragment
             )
             var parsed: [String: ParsedStage] = [
                 "vertex": try parse(typedVertexSource, stage: "vertex"),
@@ -543,6 +543,93 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
               [16, 32, 64].contains(count) else { return false }
         return declaration.name == "g_AudioSpectrum\(count)Left"
             || declaration.name == "g_AudioSpectrum\(count)Right"
+    }
+
+    /// The authored audio dialect accepts this contiguous-bin helper idiom.
+    /// It does not establish a general two-dimensional scalar-array access.
+    /// Keep the N-float ABI and lower only a pure float helper parameter.
+    static func rewriteContiguousAudioIndices(
+        _ source: String, stage: SceneShaderContract.StageKind
+    ) -> String {
+        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
+            lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: stage), stage: stage
+        )
+        guard analysis.diagnostics.isEmpty, let unit = analysis.unit,
+              !unit.tokens.contains(where: { $0.text == "struct" }) else { return source }
+        let tokens = unit.tokens
+        func stripped(_ initial: Range<Int>) -> Range<Int> {
+            var range = initial
+            while range.count >= 2, tokens[range.lowerBound].text == "(",
+                  SceneAuthoredShaderSyntaxAnalyzer.matchingDelimiter(at: range.lowerBound, tokens: tokens)
+                    == range.upperBound - 1 {
+                range = (range.lowerBound + 1)..<(range.upperBound - 1)
+            }
+            return range
+        }
+        func parameter(in range: Range<Int>, operation: String) -> String? {
+            guard let parts = SceneAuthoredShaderTokenScanner.split(
+                stripped(range), separator: operation, tokens: tokens
+            ), parts.count == 2 else { return nil }
+            let left = stripped(parts[0]), right = stripped(parts[1])
+            guard left.count == 1, right.count == 1,
+                  tokens[left.lowerBound].kind == .identifier,
+                  tokens[right.lowerBound].kind == .number,
+                  Double(tokens[right.lowerBound].text) == 4 else { return nil }
+            return tokens[left.lowerBound].text
+        }
+        var lineStarts = [0]
+        for (offset, scalar) in source.unicodeScalars.enumerated() where scalar == "\n" {
+            lineStarts.append(offset + 1)
+        }
+        var edits: [(start: Int, end: Int, replacement: String)] = []
+        for index in tokens.indices {
+            guard let declaration = unit.declarations.first(where: { $0.name == tokens[index].text }),
+                  declaration.storage == .uniform, declaration.typeName == "float",
+                  let count = declaration.arraySize,
+                  isAudioSpectrumArray(.init(storage: "uniform", type: "float",
+                      name: declaration.name, count: count)),
+                  index == 0 || tokens[index - 1].text != ".",
+                  index + 1 < tokens.count, tokens[index + 1].text == "[",
+                  let rowEnd = SceneAuthoredShaderSyntaxAnalyzer.matchingDelimiter(at: index + 1, tokens: tokens),
+                  rowEnd + 1 < tokens.count, tokens[rowEnd + 1].text == "[",
+                  let componentEnd = SceneAuthoredShaderSyntaxAnalyzer.matchingDelimiter(at: rowEnd + 1, tokens: tokens),
+                  componentEnd + 1 >= tokens.count || tokens[componentEnd + 1].text != "[",
+                  let bin = parameter(in: (index + 2)..<rowEnd, operation: "/"),
+                  parameter(in: (rowEnd + 2)..<componentEnd, operation: "%") == bin,
+                  let function = unit.functions.first(where: { $0.bodyRange.contains(index) }),
+                  function.name != "main", function.returnType == "float",
+                  unit.functions.filter({ $0.name == function.name }).count == 1,
+                  function.parameterRange.count == 2,
+                  tokens[function.parameterRange.lowerBound].text == "float",
+                  tokens[function.parameterRange.lowerBound + 1].text == bin,
+                  SceneAuthoredShaderSyntaxAnalyzer.uniqueValueDeclarations(
+                      in: Array(tokens[function.parameterRange.lowerBound..<function.bodyRange.upperBound])
+                  )[bin]?.type == "float",
+                  !SceneAuthoredShaderSyntaxAnalyzer.valueDeclarationNames(
+                      in: Array(tokens[function.bodyRange])
+                  ).contains(declaration.name),
+                  !SceneAuthoredShaderLoopAnalyzer.mutableArgumentNames(in: function.bodyRange, unit: unit).contains(bin),
+                  !function.bodyRange.contains(where: { position in
+                      tokens[position].text == bin && !SceneAuthoredShaderTokenScanner.isReadOnlyValueUse(
+                          start: position, end: position + 1, tokens: tokens,
+                          body: function.bodyRange, permitsReturn: true
+                      )
+                  }) else { continue }
+            let first = tokens[index], last = tokens[componentEnd]
+            guard first.line > 0, last.line > 0,
+                  first.line <= lineStarts.count, last.line <= lineStarts.count else { continue }
+            edits.append((lineStarts[first.line - 1] + first.column - 1,
+                lineStarts[last.line - 1] + last.column - 1 + last.text.unicodeScalars.count,
+                "\(declaration.name)[int(\(bin))]"))
+        }
+        var result = source
+        for edit in edits.sorted(by: { $0.start > $1.start }) {
+            let start = result.unicodeScalars.index(result.unicodeScalars.startIndex, offsetBy: edit.start)
+            let end = result.unicodeScalars.index(result.unicodeScalars.startIndex, offsetBy: edit.end)
+            guard let lower = String.Index(start, within: result), let upper = String.Index(end, within: result) else { return source }
+            result.replaceSubrange(lower..<upper, with: edit.replacement)
+        }
+        return result
     }
 
     private static func injectVertexMain(

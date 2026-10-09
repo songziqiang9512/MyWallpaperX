@@ -72,10 +72,12 @@ extension SceneGenericShaderSourceNormalizer {
     /// structurally proven: a fixed-size float array and an unambiguous float
     /// scalar identifier. Unknown expressions, dynamic arrays, and ambiguous
     /// shadowed names remain untouched and therefore fail closed in glslang.
-    static func rewriteFloatArrayIndices(_ source: String) -> String {
-        let normalized = source
+    static func rewriteFloatArrayIndices(
+        _ source: String, stage: SceneShaderContract.StageKind
+    ) -> String {
+        let normalized = rewriteContiguousAudioIndices(source
             .replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n"), stage: stage)
         let masked = lexicalMask(normalized)
         let arrayMatcher = try! NSRegularExpression(pattern:
             #"\b(?:uniform\s+|const\s+)?float\s+([A-Za-z_][A-Za-z0-9_]*)\s*\[\s*[0-9]+\s*\]"#

@@ -522,7 +522,7 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2d2e0a12382e38847ae4742acf7ecf27bb1a365bc3a16a34df05db6b7cda5949",
+        "sourceSHA256": "ac08043d9db14d2a3e192b29e15c722a57ec079157dcd1fb1a6fc3e691b809d3",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对solid静态源、终端分域边界、实际证据与开放队列导航。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"

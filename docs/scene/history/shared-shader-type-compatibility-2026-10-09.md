@@ -86,3 +86,23 @@ U23原包隔离运行`blend/position-final`：241首effect从0 material/1 reject
 续接补验：签名Debug App `18981d97623140fded6d52e5d3470529e67a93608054da47ef9bd2a98a1c22ae` / dylib `7db720f9f237c716be754c7d4d8032a051eab71a86a3ed8783860b99fd7bc4cc`，4239个产品/项目文件构建前后hash一致。直接复制原始scene.pkg与project.json（不重打包、不改shader），受控PCM下上下两组频谱可见，131/650各4stage均GPU完成且末段被compositor消费；241两个stage为32×32，背景强网点消失、光束保留。首帧44个effect执行记录合计59材质/0拒绝，exit0、surfacesAfter0、gpuDrainedtrue，原文件hash不变。40项近邻CPU/GPU测试及49项文档测试全部通过；结构/依赖/防御/代码/设计门通过，仅既有未知归属`.mimosa`218字节使residue门非PASS。未重跑旧官方截图实验，旧对照数值保留明确证据上限。
 
 本批已停止的原包副本/HOME/cache精确清理27273187字节，明细`cleanup.json`；唯一构建缓存留 `.build-cache/solid-source-domains-recovery-20261009` 供下一批增量验证。
+
+
+<a id="u21音频索引后继"></a>
+
+## U21 音频索引后继
+
+基线 `a75020bb`。原包实际首错为 float 复合数组下标（generic stage-link: scalar integer expression required）。两环首effect拒绝后白solid继续通过spin/opacity和mode31，故灰色斜矩形、亮度增量与环缺失首先归同一编译断点；不据此改混合公式。
+
+官方2.8.0.42黑盒合同：六个保留float音频数组（16/32/64、Left/Right），float helper参数由有界循环或动态UV传入[0,N)内整数/小数时，`audio[bin / 4][bin % 4]` 与 `audio[int(bin)]` 同帧相等（shader阈值1e−6）；半段错位负对照同帧均不相等。六组正条全部绿色、反条全部红色，排除静音全零假阳性。直接main动态双下标及普通const float数组双下标被官方X3121拒绝，不能推广成任意二维数组或另一套host打包ABI。追加动态helper和去掉floor的小数helper正反对照均通过，因而删除拟议的caller-loop证明，无须新增循环准入职责。未裁定负数、越界、副作用或任意row/component表达式。公开资料/作者输入/自有probe/官方黑盒之外未消费实现表达。
+
+最小实施边界：在已有authored index归一化owner降低这一已证索引形式，保留N个float的现host输入；未证或绑定不唯一的表达式不改。同一实际compiler随后暴露vec3 helper返回vec4局部值，原声明扫描被另一函数同名col阻断；现仅在原VectorConversion按所属函数获取声明事实，保留同函数遮蔽/内层scope拒绝。必要输入、同帧正反输出、客户端身份与合同保留于 `.artifacts/tmp/u21-audio-contract-20261009/neutral-contract.json`、`six-live.png`、`six-live-pixels.json`。早期简化fixture使官方崩溃、音频未加载及直接RGB比较受显示颜色转换影响的尝试均不作语义成功证据。实现与原包运行结果见下。
+
+
+最终签名Debug App `64f8abf219f7873117613f5f2e618d415e8915317518ad28a31d338906c295b7` / dylib `b42ffd42ec46d318c605ed8fc47795b341368da5c49c67512f725ed39d53cead`，4239个产品/项目文件构建前后hash一致。原始pkg/project字节副本、受控PCM、7秒隔离Host运行：两环2676/2686各3stage在首帧/次帧/resize后均material=1、rejected=0、GPU completed，末段compositorConsumed=true；首帧21个effect材质/0拒绝。截图中灰斜矩形消失，肩胸部额外增亮解除并恢复衣物细节，环形频谱可见。原包hash不变，exit0、surfacesAfter0、gpuDrainedtrue；最终身份/逐节点结果/截图在同根`accepted-u21`。
+
+本片不改FFT/gain、host音频数组、作者参数或混合公式，不新增runtime/输出owner。独审发现逗号声明shadow、括号lvalue写及highp inout/out参数顺序绕过guard，分别复用原declarator facts与原varying只读scanner修正；旧scanner原位副本删除，varying默认语义不变；原mutable参数事实改为识别完整参数范围的out/inout。最终13路径静态独审ACCEPT，身份`review-freeze.json`。32项normalizer、4项varying、2项loop近邻和7项cache/request门通过。六数组合同是通用兼容；242个scene.pkg文本扫描只确认U21命中该具体形式，另一个非同名包未计，不冒称其他样本运行受益。
+
+本样本人工报告的三项现象已在受控PCM原包关闭（3/3），不是完整正确率。官方与本机音频/时间/窗口比例未锁相，不宣称全图逐像素一致；外部播放器、完整属性交互、长稳与正常App→daemon入口另验。下一批按现队列优先核剩余颜色/窗光与光束共享首错，不重做已闭SDR shoulder或重型启动；本批必要证据保留于上述任务根，正式证据缓存预算限制不变。官方自有窗口和guest输入已清理、VM恢复暂停；测试副本去重清理见`cleanup-first.json`，连续迭代只留既有构建缓存。
+
+六数组GPU数值门沿最终Swift normalizer→bundled glslang→SPIRV-Cross→Metal，分别输入不同频段数值，两帧读回最大误差7.5e−8；保留既有N-float布局，证据`gpu/receipt.json`。该门为反射buffer自有输入，App真实输入另由上面的原包受控PCM验收。首轮自有vertex缺少标准attribute输入且声明行不规范，被normalizer拒绝；修正fixture后通过，未为测试修改产品。
