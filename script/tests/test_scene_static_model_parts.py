@@ -576,9 +576,10 @@ def app_fixture(count, cast=True):
     objects=[{'id':4,'model':'models/background.mdl','origin':'0 96 0','perspective':False,'castshadow':False},
              {'id':1,'model':'models/receivers.mdl','origin':'0 96 0','perspective':False,'castshadow':False},
              {'id':2,'model':'models/parts.mdl','origin':'0 96 0','perspective':False,'castshadow':cast},
-             {'id':3,'light':'ldirectional','angles':f'0 {math.atan(.6)} 0','intensity':.7,'color':'1 1 1','castshadow':count==5}]
+             {'id':3,'light':'ldirectional','angles':f'0 {math.pi / 2 + math.atan(.6)} 0','intensity':.7,'color':'1 1 1','castshadow':count==5}]
     scene={'version':3,'general':{'orthogonalprojection':{'width':160,'height':96},
-        'clearcolor':'0 0 0','ambientcolor':'0.05 0.05 0.05','skylightcolor':'0 0 0'},'objects':objects}
+        'clearcolor':'0 0 0','ambientcolor':'0.05 0.05 0.05','skylightcolor':'0 0 0',
+        'lightconfig':{'directional':1}},'objects':objects}
     entries={'scene.json':json.dumps(scene).encode(),
         'project.json':json.dumps({'type':'scene','file':'scene.json'}).encode(),
         'models/background.mdl':quad(5,155,5,91,-1,'materials/background.json'),

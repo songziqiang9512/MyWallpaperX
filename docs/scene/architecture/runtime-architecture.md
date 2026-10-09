@@ -210,7 +210,7 @@ Solid 的 layer-local effect 源不能因显示 scale 为零丢失作者横向�
 
 准备资源缺失仅使当前provider走既有局部失败，消费者缺纹理时保留健康邻居；identity/extent/epoch漂移沿现失败权威拒绝。图无可执行产品时只能使用已明示的source fallback，不得把回退记为特效成功。已有共享消费者尚未证明的capture形状维持原准入，不借此改变image消费者；随后由实际反例扩展。验收须包含自有变色/动态effect的模型像素（区别raw源）、前后作者顺序、隐藏模型停止需求、source-only与普通image邻居、失败恢复/陈旧epoch，以及真实原包连续播放；不据单样本宣布全语料或任意模型shader完成。通过后将结果归RF05记录并退役此临时设计登记。
 
-模型方向光与聚光阴影沿原 Format/descriptor 与唯一 LightSnapshot 保留作者投影意图和灯身份；只使用当前主链可绘的准备几何及同帧 world/visibility/material，不虚构 image 高度或第二套变换。候选复用原颜色绘制的变换准入，单个不可绘模型局部剔除；cast 与材质受光、相机 depth-write 分别属于不同合同。已准入的 source-only named albedo 与静态纹理使用同一当前纹理、frame/sampler、world及coverage投影和绘色，不要求caster另有静态albedo，也不重复应用provider alpha。
+模型方向光与聚光阴影沿原 Format/descriptor 与唯一 LightSnapshot 保留作者投影意图和灯身份；只使用当前主链可绘的准备几何及同帧 world/visibility/material，不虚构 image 高度或第二套变换。灯光朝向复用同帧world-frame，不另从原始角度解算或为零角度设哨兵；direct、shadow与槽预算共用当前有效可见集合；启动候选保全，隐藏/恢复沿原typed Boolean及父链规则，不另建灯光可见性算法。候选复用原颜色绘制的变换准入，单个不可绘模型局部剔除；cast 与材质受光、相机 depth-write 分别属于不同合同。已准入的 source-only named albedo 与静态纹理使用同一当前纹理、frame/sampler、world及coverage投影和绘色，不要求caster另有静态albedo，也不重复应用provider alpha。
 
 mandatory 资源先于 optional 灯深度。静态输入保留原批准备；存在活跃named模型时，原完整forward仍只执行一次，现frame owner按原作者资源顺序准备真实source target、模型/粒子depth、plain scratch和实际消费者/utility快照，最后Bloom与display容量。已准入source-only可提前实际capture，普通normal/background provider只提前容量，内容与graph/主颜色仍在原位置执行；target/extent/identity选择共用原dependency owner，成功publication沿同epoch幂等复用。plain scratch需求使用原实际lighting payload与blend准入，本帧resolution交原consumer复用；environment闭包沿原F5准入且仅在原消费点执行。terminal仅在原pool准备容量并持有现pin，不抢先消费coordinator的一次性display reservation。所有准备不新增registry、depth plan或capture实现。
 

@@ -84,7 +84,8 @@ struct SceneLightSnapshot {
         dynamicLayerColors: [Int: SIMD3<Float>] = [:],
         dynamicSnapshot: SceneDynamicSnapshot? = nil,
         candidateLayerIDs: [Int]? = nil,
-        layersByID: [Int: SceneRenderDescriptor.Layer]? = nil
+        layersByID: [Int: SceneRenderDescriptor.Layer]? = nil,
+        visibleLayerIDs: Set<Int>? = nil
     ) -> SceneLightSnapshot {
         let resolvedLayersByID = layersByID ?? Dictionary(
             uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) }
@@ -93,6 +94,11 @@ struct SceneLightSnapshot {
             descriptor: descriptor,
             layersByID: resolvedLayersByID
         )
+        let visibleLayerIDs = visibleLayerIDs ?? dynamicSnapshot.map {
+            SceneLayerVisibility.visibleLayerIDs(
+                in: descriptor, layersByID: resolvedLayersByID, snapshot: $0
+            )
+        } ?? SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let lightLayers = lightLayerIDs.compactMap { resolvedLayersByID[$0] }
         var directionalLights: [Directional] = []
         var pointLights: [Point] = []
@@ -100,14 +106,11 @@ struct SceneLightSnapshot {
         var acceptedCount = 0
         var overflowCount = 0
         for layer in lightLayers {
-            // Light objects carry no mesh: the authored `visible` flag hides
-            // the editor representation, not the illumination (corpus
-            // 3589454154 authors `lpoint` with `visible:false` and the
-            // official client still lights the scene from it — filtering by
-            // the visible set dropped the sun light and left the planet as a
-            // black silhouette). The world frame below stays the admission
-            // gate: no frame means no resolvable position.
-            guard let frame = worldFramesByLayerID[layer.id] else { continue }
+            // The same current visibility authority gates direct light,
+            // shadow publication and the model-light budget. Launch candidates
+            // remain complete so a later show can use its prepared producers.
+            guard visibleLayerIDs.contains(layer.id),
+                  let frame = worldFramesByLayerID[layer.id] else { continue }
             // general.lightconfig gates the STATIC-MODEL light classes per
             // scene: an absent author field leaves directional/lpoint/spot
             // inert for models in the official client (own-fixture N-series
@@ -148,8 +151,7 @@ struct SceneLightSnapshot {
                 continue
             }
             if let light = directional(
-                layer: layer, dynamicSnapshot: dynamicSnapshot,
-                reflectY: (descriptor.camera.orthoHeight ?? 0) > 0,
+                layer: layer, frame: frame,
                 dynamicColor: dynamicColor,
                 intensity: intensity
             ) {
@@ -265,15 +267,18 @@ struct SceneLightSnapshot {
 
     private static func directional(
         layer: SceneRenderDescriptor.Layer,
-        dynamicSnapshot: SceneDynamicSnapshot?,
-        reflectY: Bool,
+        frame: simd_float4x4,
         dynamicColor: SIMD3<Float>?,
         intensity: Float?
     ) -> Directional? {
+        // Light emission follows the same world-frame +X axis as a spot.
+        // Direct lighting and shadows consume its opposite, toward the light.
+        // Parent transforms, typed angles and orthographic reflection are
+        // already resolved by the shared world-frame owner.
         guard let definition = layer.directionalLight,
-              let direction = directionalTowardLight(
-                  layer: layer, dynamicSnapshot: dynamicSnapshot, reflectY: reflectY
-              ),
+              let direction = normalized(-SIMD3(
+                  frame.columns.0.x, frame.columns.0.y, frame.columns.0.z
+              )),
               let intensity,
               intensity.isFinite, intensity >= 0 else { return nil }
         return Directional(
@@ -283,50 +288,6 @@ struct SceneLightSnapshot {
                 ?? color(definition.colorRGB, fallback: SIMD3(1, 1, 1)),
             intensity: intensity
         )
-    }
-
-    /// Official directional lights read the authored angle values verbatim as
-    /// radians (own-fixture black-box, WE 2.8.0.42, 2026-10-06): the second
-    /// value sweeps the world XZ plane toward +Z, the third raises elevation
-    /// toward +Y, the first has no observed direction effect, and exactly zero
-    /// rotation keeps the official default aim (0, 0, -1). Raw values are used
-    /// directly because a matrix round trip loses the sign of cos for wrapped
-    /// angles; orthographic scenes reflect the result through Y exactly like
-    /// the frame resolver reflects every other layer transform.
-    private static func directionalTowardLight(
-        layer: SceneRenderDescriptor.Layer,
-        dynamicSnapshot: SceneDynamicSnapshot?,
-        reflectY: Bool
-    ) -> SIMD3<Float>? {
-        let authoredValues = layer.anglesXYZ ?? []
-        let authored = SIMD3(
-            authoredValues.count > 0 ? authoredValues[0] : 0,
-            authoredValues.count > 1 ? authoredValues[1] : 0,
-            authoredValues.count > 2 ? authoredValues[2] : 0
-        )
-        guard authored.x.isFinite, authored.y.isFinite, authored.z.isFinite else {
-            return nil
-        }
-        let angles = dynamicSnapshot.map {
-            SceneDynamicLayerValues.lightAngles(
-                layerID: layer.id, authoredValue: authored, snapshot: $0
-            )
-        } ?? authored
-        guard angles.x.isFinite, angles.y.isFinite, angles.z.isFinite else {
-            return nil
-        }
-        let direction: SIMD3<Float>
-        if angles == SIMD3<Float>.zero {
-            direction = SIMD3(0, 0, -1)
-        } else {
-            let yawCosine = cos(angles.z) * cos(angles.y)
-            let elevation = sin(angles.z)
-            let yawSine = cos(angles.z) * sin(angles.y)
-            direction = simd_normalize(SIMD3(yawCosine, elevation, yawSine))
-        }
-        return reflectY
-            ? SIMD3(direction.x, -direction.y, direction.z)
-            : direction
     }
 
     private static func authoredIntensity(

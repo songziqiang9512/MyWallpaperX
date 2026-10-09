@@ -59,28 +59,6 @@ nonisolated enum SceneDynamicLayerValues {
         return authoredValue
     }
 
-    /// Every angle producer publishes canonical radians into the transform
-    /// channel. SceneScript converts its degrees at the VM/handle boundary;
-    /// consumers preserve the published unit regardless of source.
-    static func lightAngles(
-        layerID: Int,
-        authoredValue: SIMD3<Float>,
-        snapshot: SceneDynamicSnapshot
-    ) -> SIMD3<Float> {
-        let target = SceneDynamicTarget.layer(
-            layerID: layerID, field: .angles
-        )
-        if let resolved = snapshot[target],
-           case let .vector3(x, y, z) = resolved.value,
-           x.isFinite, y.isFinite, z.isFinite,
-           abs(x) <= Double(Float.greatestFiniteMagnitude),
-           abs(y) <= Double(Float.greatestFiniteMagnitude),
-           abs(z) <= Double(Float.greatestFiniteMagnitude) {
-            return SIMD3(Float(x), Float(y), Float(z))
-        }
-        return authoredValue
-    }
-
     private static func normalizedAlpha(_ value: Double) -> Float {
         guard value.isFinite else { return 1 }
         return Float(min(max(value, 0), 1))

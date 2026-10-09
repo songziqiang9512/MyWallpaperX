@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c06944773f381293e06cf745773645b27f71511c85e4714937e82c18a9f69122",
+        "sourceSHA256": "b568a8d6c46e51e560f395dfceb309001c76da0bc70b80d1574450698617d843",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对大型静态模型累计准备预算、原identity与GPU资源owner及实际入链边界。",
+        "scope": "核对灯光显隐、world方向与direct/shadow共享owner；历史误判撤销及土星残余断点链接。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
@@ -522,9 +522,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0318a196e40640d96a84c2bf115b210989634860dd7897e06c9de24618a7d3c5",
+        "sourceSHA256": "25a9928e83da50e2a749a5f83f01efb91c878f0acaa82667019002a5a9e9e82d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对大型静态模型累计准备预算、原identity与GPU资源owner及实际入链边界。",
+        "scope": "核对灯光显隐、world方向与direct/shadow共享owner；历史误判撤销及土星残余断点链接。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },

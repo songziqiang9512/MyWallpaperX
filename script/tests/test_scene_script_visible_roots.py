@@ -168,6 +168,32 @@ struct SceneDependencyRenderPlan {
         return [:]
 #endif
     }
+    static func lightTree(_ violation: String? = nil) -> SceneRenderDescriptor {
+        let root = SceneRenderDescriptor.Layer(id: 800, childLayerIDs: [801, 802, 803],
+                                                contentKind: "container")
+        var first = SceneRenderDescriptor.Layer(id: 801, parentID: 800,
+                                                 contentKind: "pointLight")
+        let spot = SceneRenderDescriptor.Layer(id: 802, visible: true, parentID: 800,
+                                                contentKind: "spotLight")
+        let directional = SceneRenderDescriptor.Layer(id: 803, visible: true, parentID: 800,
+                                                       contentKind: "directionalLight")
+        let peer = SceneRenderDescriptor.Layer(id: 804, visible: true,
+                                                contentKind: "pointLight")
+        var extras: [SceneRenderDescriptor.Layer] = []
+        switch violation {
+        case "effect": first.effects = [.init(visible: true)]
+        case "dependency": first.dependencyLayerIDs = [804]
+        case "authored-dependency": first.authoredDependencies = [804]
+        case "nonleaf":
+            first.childLayerIDs = [805]
+            extras = [.init(id: 805, parentID: 801, contentKind: "text")]
+        case "model-subtree":
+            first.contentKind = "model"; first.staticModelPath = "owned.mdl"
+        case nil: break
+        default: fatalError("unknown owned light fixture")
+        }
+        return .init(layers: [root, first, spot, directional, peer] + extras)
+    }
     static func main() throws {
         if CommandLine.arguments.count > 1 {
             let name = CommandLine.arguments[1]
@@ -222,7 +248,37 @@ struct SceneDependencyRenderPlan {
             "nestedInitiallyHidden": visible(false), "nestedShown": visible(true),
             "nestedHiddenAgain": visible(false), "nestedShownAgain": visible(true)
         ]
+        let lightDescriptor = lightTree()
+        output["lightTargets"] = ids(lightDescriptor,
+            candidates: Set((800...804).map(target)))
+        output["lightScriptTargets"] = ids(lightDescriptor, candidates: [], scripts: true)
+        output["lightNoOwnerTargets"] = ids(lightDescriptor, candidates: [])
+        func visibleLights(parent: Bool, child: Bool? = nil) -> [Int] {
+            var values: [SceneDynamicTarget: SceneDynamicValue] = [target(800): .bool(parent)]
+            if let child { values[target(801)] = .bool(child) }
+            let snapshot = SceneDynamicSnapshotResolver().resolve(
+                frameIndex: 3, generation: 3,
+                definitions: lightDescriptor.layers.map {
+                    .init(target: target($0.id), valueType: .bool,
+                          authoredValue: .bool($0.visible ?? true))
+                }, sceneScriptValues: values
+            ).snapshot
+            return SceneLayerVisibility.visibleLayerIDs(in: lightDescriptor, snapshot: snapshot).sorted()
+        }
+        output["lightParentHidden"] = visibleLights(parent: false, child: true)
+        output["lightParentShown"] = visibleLights(parent: true)
+        output["lightChildShown"] = visibleLights(parent: true, child: true)
+        output["lightParentHiddenAgain"] = visibleLights(parent: false, child: true)
+        output["lightParentRestored"] = visibleLights(parent: true)
+        for violation in ["effect", "dependency", "authored-dependency", "nonleaf", "model-subtree"] {
+            output["lightReject-" + violation] = ids(lightTree(violation),
+                candidates: [target(800), target(801), target(804)])
+        }
 #if PREPARATION_API
+        output["lightPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+            in: lightDescriptor, candidates: [target(800)]).sorted()
+        output["lightLeafPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+            in: lightDescriptor, candidates: [target(801)]).sorted()
         output["nestedPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
             in: nested, candidates: [target(10)]).sorted()
         output["leafPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
@@ -560,6 +616,23 @@ class ScriptVisibleRootTests(unittest.TestCase):
     def test_preparation_includes_the_complete_hidden_subtree(self):
         self.assertEqual(self.result['nestedPreparation'], [10, 11, 12, 13, 14])
         self.assertEqual(self.result['leafPreparation'], [12])
+
+    def test_light_leaves_and_parent_reuse_typed_and_script_visibility_admission(self):
+        self.assertEqual(self.result['lightTargets'], [800, 801, 802, 803, 804])
+        self.assertEqual(self.result['lightScriptTargets'], [800, 801, 802, 803, 804])
+        self.assertEqual(self.result['lightNoOwnerTargets'], [])
+        self.assertEqual(self.result['lightPreparation'], [800, 801, 802, 803])
+        self.assertEqual(self.result['lightLeafPreparation'], [801])
+        self.assertEqual(self.result['lightParentHidden'], [804])
+        self.assertEqual(self.result['lightParentShown'], [800, 802, 803, 804])
+        self.assertEqual(self.result['lightChildShown'], [800, 801, 802, 803, 804])
+        self.assertEqual(self.result['lightParentHiddenAgain'], [804])
+        self.assertEqual(self.result['lightParentRestored'], [800, 802, 803, 804])
+
+    def test_light_route_remains_a_resource_free_leaf_and_does_not_admit_model_subtrees(self):
+        for violation in ['effect', 'dependency', 'authored-dependency', 'nonleaf', 'model-subtree']:
+            with self.subTest(case=violation):
+                self.assertEqual(self.result['lightReject-' + violation], [804])
 
     def test_parent_cycles_preserve_the_childs_own_false_and_healthy_peer(self):
         self.assertEqual(self.result['nestedInitiallyHidden'], [20])

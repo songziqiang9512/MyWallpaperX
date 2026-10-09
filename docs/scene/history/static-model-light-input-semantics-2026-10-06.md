@@ -2,6 +2,8 @@
 
 > **历史证据 — 非现役入口**。历史能量近似（k≈0.30）见[当时记录](model-light-energy-contract-implementation-2026-10-06.md)，generic4点/聚光后继见[静态表面响应](#model-surface-response)；现役代码以 `SceneLightSnapshot`/`SceneStaticModel.metal` 为准。
 
+> **2026-10-09 方向语义纠正**：下文由球面截图估算法线得到的方向符号、零角度默认 −Z、pitch/roll 与独立球面角公式均不作为当前合同；忽略父旋转的实现已撤销。固定顶点法线与父旋转官方对照，以及复用现有 world-frame 的修复见[后继验证](saturn-light-delivery-2026-10-07.md#effective-light-visibility)。作者 JSON 角度弧度、typed transform 的度数转换仍由通用变换链处理，不再单设 `lightAngles`。ambient/sky、spot、雾等独立后继证据继续有效；下文基于旧方向推导的响应分桶只作历史线索，不能据此继续拟合公式。
+
 # 静态模型光照输入语义批（官方黑盒 v2，2026-10-06）
 
 起点 `b50ad32e`。承接光照能量合同的开放边界，用 61 个官方黑盒夹具（Parallels WE 2.8.0.42，二进制 SHA 当日由 `…685F…` 变更为 `…6862…` 同版本字节替换，P4/NA 锚点复现证明行为不变）钉死四项输入语义并落地产品代码。

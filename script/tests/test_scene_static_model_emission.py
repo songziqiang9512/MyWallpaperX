@@ -317,7 +317,7 @@ class SceneStaticModelEmissionTests(unittest.TestCase):
     def setUpClass(cls):
         sources = [getattr(model_fixture, name) for name in [
             "MODEL_SOURCE", "SAMPLING_SOURCE", "UV_TRANSFORM_SOURCE", "DIRECTIONAL_LIGHT_SOURCE",
-            "POINT_LIGHT_SOURCE", "SPOT_LIGHT_SOURCE", "LIGHT_SOURCE", "DYNAMIC_SNAPSHOT_SOURCE",
+            "POINT_LIGHT_SOURCE", "SPOT_LIGHT_SOURCE", "LIGHT_SOURCE", "VISIBILITY_SOURCE", "DYNAMIC_SNAPSHOT_SOURCE",
             "DYNAMIC_LAYER_VALUES_SOURCE", "PERFORMANCE_COUNTER_SOURCE", "MATERIAL_SOURCE", "PIPELINE_SOURCE", "SHADOW_SOURCE",
         ]]
         sources += [

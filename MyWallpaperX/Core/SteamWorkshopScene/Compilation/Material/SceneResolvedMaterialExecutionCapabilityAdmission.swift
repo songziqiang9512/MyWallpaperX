@@ -192,8 +192,15 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
                     && layer.particlePath != nil
                     && (layer.parentID == nil || layer.effects.isEmpty)
                     && layer.childLayerIDs.isEmpty && children[id, default: []].isEmpty
+                // Light leaves need no display resource preparation. They
+                // retain the same authored hierarchy and Boolean publication
+                // rules as the supported container that can reveal them.
+                let lightLeaf = ["pointLight", "spotLight", "directionalLight"].contains(layer.contentKind)
+                    && layer.effects.isEmpty && layer.authoredDependencies.isEmpty
+                    && layer.dependencyLayerIDs.isEmpty
+                    && layer.childLayerIDs.isEmpty && children[id, default: []].isEmpty
                 guard ["container", "image", "solid", "text"].contains(layer.contentKind)
-                    || particleLeaf || id == preparedModelLeafID else { return nil }
+                    || particleLeaf || lightLeaf || id == preparedModelLeafID else { return nil }
             }
             let childIDs = children[id, default: []]
             guard Set(layer.childLayerIDs) == Set(childIDs),

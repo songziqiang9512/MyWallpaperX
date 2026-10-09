@@ -96,15 +96,8 @@ enum LightSnapshotHarness {
             descriptor: ungatedSpotDescriptor,
             worldFramesByLayerID: [12: frame]
         ).spot.isEmpty)
-        // Official directional semantics (own-fixture black-box, 2026-10-06):
-        // angle values are radians; an exactly identity rotation keeps the
-        // official default aim (0, 0, -1) and yaw sweeps XZ toward +Z.
-        let directionalFrame = simd_float4x4(columns: (
-            SIMD4<Float>(0.5403023, 0, -0.84147096, 0),
-            SIMD4<Float>(0, 1, 0, 0),
-            SIMD4<Float>(0.84147096, 0, 0.5403023, 0),
-            SIMD4<Float>(10, 20, 30, 1)
-        ))
+        // Official fixed-normal probes (2026-10-09) identify toward-light
+        // opposite the shared world-frame +X emission axis, including zero.
         let directionalDescriptor = SceneRenderDescriptor(
             lighting: .init(
                 ambientColorRGB: [0, 0, 0], skylightColorRGB: [0, 0, 0],
@@ -124,13 +117,16 @@ enum LightSnapshotHarness {
         )
         let directionalSnapshot = SceneLightSnapshot.make(
             descriptor: directionalDescriptor,
-            worldFramesByLayerID: [13: frame, 14: directionalFrame]
+            worldFramesByLayerID: SceneLayerWorldFrameResolver.compute(
+                descriptor: directionalDescriptor,
+                byID: Dictionary(uniqueKeysWithValues: directionalDescriptor.layers.map { ($0.id, $0) })
+            )
         )
         precondition(directionalSnapshot.directional.count == 2)
         precondition(directionalSnapshot.directional[0].directionTowardLight
-            == SIMD3(0, 0, -1))
+            == SIMD3(-1, 0, 0))
         let yawed = directionalSnapshot.directional[1].directionTowardLight
-        precondition(abs(yawed.x - 0.5403023) < 1e-4
+        precondition(abs(yawed.x + 0.5403023) < 1e-4
             && abs(yawed.y) < 1e-4
             && abs(yawed.z - 0.84147096) < 1e-4)
         // An owner for another field also reserves the authored angles lane.
@@ -145,12 +141,21 @@ enum LightSnapshotHarness {
             frameIndex: 1, generation: 1, definitions: angleDefinitions,
             sceneScriptValues: [angleTarget: .vector3(0, 0.15 * .pi / 180, .pi / 2)]
         ).snapshot
-        let scriptDirection = SceneLightSnapshot.make(
-            descriptor: directionalDescriptor,
-            worldFramesByLayerID: [13: frame, 14: directionalFrame],
-            dynamicSnapshot: scriptAngles
-        ).directional[1].directionTowardLight
-        precondition(simd_length(scriptDirection - SIMD3(0, 1, 0)) < 1e-4,
+        let directionalLayers = Dictionary(uniqueKeysWithValues:
+            directionalDescriptor.layers.map { ($0.id, $0) })
+        let directionalFrames = SceneLayerWorldFrameResolver.compute(
+            descriptor: directionalDescriptor, byID: directionalLayers)
+        func dynamicDirectional(_ angles: SceneDynamicSnapshot) -> SIMD3<Float> {
+            let frames = SceneLayerDynamicWorldFrameResolver.resolve(
+                descriptor: directionalDescriptor, byID: directionalLayers,
+                snapshot: angles, staticFrames: directionalFrames)
+            return SceneLightSnapshot.make(
+                descriptor: directionalDescriptor, worldFramesByLayerID: frames,
+                dynamicSnapshot: angles).directional[1].directionTowardLight
+        }
+        let scriptDirection = dynamicDirectional(scriptAngles)
+        let scriptYaw = Float(0.15 * Double.pi / 180)
+        precondition(simd_length(scriptDirection - SIMD3(0, -cos(scriptYaw), sin(scriptYaw))) < 1e-4,
             "light-angle-canonical-script-value: \(scriptDirection)")
         for source in [SceneDynamicSource.authored, .userProperty, .timeline, .sceneScript] {
             let value = SceneDynamicValue.vector3(0, 1, 0)
@@ -160,13 +165,70 @@ enum LightSnapshotHarness {
                 timelineValues: source == .timeline ? [angleTarget: value] : [:],
                 sceneScriptValues: source == .sceneScript ? [angleTarget: value] : [:]
             ).snapshot
-            let published = SceneLightSnapshot.make(
-                descriptor: directionalDescriptor,
-                worldFramesByLayerID: [13: frame, 14: directionalFrame],
-                dynamicSnapshot: angles
-            ).directional[1].directionTowardLight
+            let published = dynamicDirectional(angles)
             precondition(simd_length(published - yawed) < 1e-4,
                 "light-angle-source-\(source.rawValue)")
+        }
+        func parentedDirectional(parentYaw: Float, childAngles: [Float], ortho: Float? = nil,
+                                 snapshot: SceneDynamicSnapshot? = nil) -> SceneLightSnapshot {
+            let layers: [SceneRenderDescriptor.Layer] = [
+                .init(id: 90, visible: true, anglesXYZ: [0, parentYaw, 0],
+                      spotLight: nil, directionalLight: nil, originXYZ: [30, 40, 50]),
+                .init(id: 91, visible: true, anglesXYZ: childAngles,
+                      spotLight: spot, directionalLight: .init(colorRGB: [1, 1, 1], intensity: 1),
+                      parentID: 90, scaleXYZ: [2, 3, 4]),
+            ]
+            let scene = SceneRenderDescriptor(lighting: directionalDescriptor.lighting,
+                layers: layers, sceneOrthoHeight: ortho)
+            let index = Dictionary(uniqueKeysWithValues: layers.map { ($0.id, $0) })
+            let base = SceneLayerWorldFrameResolver.compute(descriptor: scene, byID: index)
+            let world = snapshot.map {
+                SceneLayerDynamicWorldFrameResolver.resolve(descriptor: scene, byID: index,
+                    snapshot: $0, staticFrames: base)
+            } ?? base
+            return SceneLightSnapshot.make(descriptor: scene, worldFramesByLayerID: world,
+                                          dynamicSnapshot: snapshot)
+        }
+        let rootHalf = Float(0.7071067811865476)
+        let identityParent = parentedDirectional(parentYaw: 0, childAngles: [0, .pi / 4, 0])
+        let rotatedParent = parentedDirectional(parentYaw: .pi / 2, childAngles: [0, .pi / 4, 0])
+        precondition(simd_length(identityParent.directional[0].directionTowardLight
+            - SIMD3(-rootHalf, 0, rootHalf)) < 1e-6)
+        precondition(simd_length(rotatedParent.directional[0].directionTowardLight
+            - SIMD3(rootHalf, 0, rootHalf)) < 1e-6)
+        let parentTarget = SceneDynamicTarget.layer(layerID: 90, field: .angles)
+        let dynamicParent = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 2, generation: 1,
+            definitions: [.init(target: parentTarget, valueType: .vector3, authoredValue: .vector3(0, 0, 0))],
+            sceneScriptValues: [parentTarget: .vector3(0, .pi / 2, 0)]).snapshot
+        precondition(simd_length(parentedDirectional(parentYaw: 0, childAngles: [0, .pi / 4, 0],
+            snapshot: dynamicParent).directional[0].directionTowardLight
+            - rotatedParent.directional[0].directionTowardLight) < 1e-6)
+        precondition(simd_length(identityParent.directional[0].directionTowardLight
+            - SIMD3(-rootHalf, 0, rootHalf)) < 1e-6, "prior snapshot remains immutable")
+        let perspectiveRoll = parentedDirectional(parentYaw: 0, childAngles: [0, 0, .pi / 2])
+        let orthoRoll = parentedDirectional(parentYaw: 0, childAngles: [0, 0, .pi / 2], ortho: 100)
+        precondition(simd_length(perspectiveRoll.directional[0].directionTowardLight - SIMD3(0, -1, 0)) < 1e-6)
+        precondition(simd_length(orthoRoll.directional[0].directionTowardLight - SIMD3(0, 1, 0)) < 1e-6)
+        // Both light classes read one already-reflected parent/world frame.
+        let paired = SceneRenderDescriptor(lighting: .init(ambientColorRGB: [0, 0, 0], skylightColorRGB: [0, 0, 0]),
+            layers: [.init(id: 91, visible: true, spotLight: spot,
+                directionalLight: .init(colorRGB: [1, 1, 1], intensity: 1)),
+                .init(id: 92, visible: true, spotLight: spot, directionalLight: nil)])
+        let pairedFrame = SceneMatrix.eulerXYZ(SIMD3(0.4, 1.2, 0.6)) * SceneMatrix.scale(SIMD3(2, 3, 4))
+        let pairedLights = SceneLightSnapshot.make(descriptor: paired,
+            worldFramesByLayerID: [91: pairedFrame, 92: pairedFrame])
+        precondition(simd_length(pairedLights.directional[0].directionTowardLight
+            + pairedLights.spot[0].directionFromLight) < 1e-6)
+        // An unsafe/degenerate emission axis rejects only its light. The
+        // independent spot still has the unchanged valid world transform.
+        for invalidAxis in [SIMD4<Float>.zero, SIMD4<Float>(.infinity, 0, 0, 0)] {
+            var invalidFrame = pairedFrame
+            invalidFrame.columns.0 = invalidAxis
+            let rejected = SceneLightSnapshot.make(descriptor: paired,
+                worldFramesByLayerID: [91: invalidFrame, 92: pairedFrame])
+            precondition(rejected.directional.isEmpty && rejected.spot.count == 1
+                && rejected.overflowCount == 0)
         }
         precondition(snapshot.ambient == SIMD3(0.1, 0.2, 0.3))
         precondition(snapshot.skylight == SIMD3(0.2, 0.1, 0))
@@ -276,35 +338,58 @@ enum LightSnapshotHarness {
         let hiddenLayersByID = Dictionary(uniqueKeysWithValues:
             hiddenParentDescriptor.layers.map { ($0.id, $0) }
         )
-        // Lights are admitted regardless of the layer visibility flag
-        // (3589454154 authors `lpoint` with `visible:false` and the official
-        // client still lights the scene from it); the dynamic intensity
-        // snapshot remains the activation channel.
+        // Launch candidates retain their producers while current visibility
+        // gates illumination. A published show can reveal a hidden child
+        // only when its parent is also visible.
+        precondition(SceneLightSnapshot.make(
+            descriptor: hiddenParentDescriptor,
+            worldFramesByLayerID: [9: frame]
+        ).directional.isEmpty)
         let activated = SceneLightSnapshot.make(
             descriptor: hiddenParentDescriptor,
             worldFramesByLayerID: [9: frame],
             dynamicSnapshot: activatedSnapshot
         )
         precondition(activated.directional.map(\.intensity) == [19])
+        let parentHidden = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 3, generation: 3,
+            definitions: [
+                .init(target: .layer(layerID: 8, field: .visibility),
+                      valueType: .bool, authoredValue: .bool(false)),
+                .init(target: .layer(layerID: 9, field: .visibility),
+                      valueType: .bool, authoredValue: .bool(false)),
+            ],
+            sceneScriptValues: [
+                .layer(layerID: 8, field: .visibility): .bool(false),
+                .layer(layerID: 9, field: .visibility): .bool(true),
+            ]
+        ).snapshot
+        precondition(SceneLightSnapshot.make(
+            descriptor: hiddenParentDescriptor,
+            worldFramesByLayerID: [9: frame],
+            dynamicSnapshot: parentHidden
+        ).directional.isEmpty)
+        precondition(activated.directional.map(\.intensity) == [19])
 
         func makePoint(_ intensity: Float, radius: Float = 40)
             -> ScenePointLightDefinition {
             .init(
                 kind: "lpoint", colorRGB: [1, 1, 1], intensity: intensity,
-                radius: radius, castsVolumetrics: nil, castsShadow: nil,
+                radius: radius, castsVolumetrics: nil, castsShadow: true,
                 isSolid: nil
             )
         }
         func direction(_ intensity: Float)
             -> SceneDirectionalLightDefinition {
-            .init(colorRGB: [1, 1, 1], intensity: intensity)
+            .init(colorRGB: [1, 1, 1], intensity: intensity,
+                  shadowCastIntent: .enabled)
         }
         func cone(_ intensity: Float) -> SceneSpotLightDefinition {
             .init(
                 kind: "lspot", colorRGB: [1, 1, 1], intensity: intensity,
                 radius: 40, innerConeDegrees: 60, outerConeDegrees: 90,
                 density: nil, exponent: nil, volumetricsExponent: nil,
-                castsVolumetrics: nil, castsShadow: nil, isSolid: nil
+                castsVolumetrics: nil, castsShadow: true, isSolid: nil
             )
         }
         let orderedDescriptor = SceneRenderDescriptor(
@@ -315,7 +400,7 @@ enum LightSnapshotHarness {
             layers: [
                 .init(id: 1, visible: true, pointLight: nil,
                       spotLight: nil, directionalLight: direction(11)),
-                .init(id: 2, visible: true, pointLight: makePoint(12),
+                .init(id: 2, visible: false, pointLight: makePoint(12),
                       spotLight: nil, directionalLight: nil),
                 .init(id: 3, visible: true, pointLight: nil,
                       spotLight: cone(13), directionalLight: nil,
@@ -343,22 +428,102 @@ enum LightSnapshotHarness {
             descriptor: orderedDescriptor, layersByID: orderedByID
         )
         precondition(orderedIDs == [7, 6, 5, 4, 3, 2, 1])
-        // Script-hidden lights stay admitted: illumination is independent of
-        // the visibility flag (3589454154 `lpoint` visible:false still lights
-        // the scene officially), so the four-slot budget spans all seven
-        // ordered lights and three overflow.
+        let hiddenScriptLight = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 4, generation: 4,
+            definitions: [.init(
+                target: .layer(layerID: 6, field: .visibility),
+                valueType: .bool, authoredValue: .bool(true)
+            )],
+            sceneScriptValues: [.layer(layerID: 6, field: .visibility): .bool(false)]
+        ).snapshot
+        // Authored-hidden, script-hidden and inherited-hidden lamps remain
+        // launch candidates but consume no slot, overflow or shadow map.
         let bounded = SceneLightSnapshot.make(
             descriptor: orderedDescriptor,
             worldFramesByLayerID: Dictionary(
                 uniqueKeysWithValues: (1...7).map { ($0, frame) }
             ),
+            dynamicSnapshot: hiddenScriptLight,
             candidateLayerIDs: orderedIDs,
             layersByID: orderedByID
         )
-        precondition(bounded.directional.map(\.intensity) == [14])
+        precondition(bounded.directional.map(\.intensity) == [14, 11])
         precondition(bounded.point.map(\.intensity) == [17, 15])
-        precondition(bounded.spot.map(\.intensity) == [16])
-        precondition(bounded.overflowCount == 3)
+        precondition(bounded.spot.isEmpty)
+        precondition(bounded.overflowCount == 0)
+        precondition(bounded.shadowLights.compactMap(\.layerID) == [4, 7, 5])
+        precondition(SceneLightSnapshot.liveConsumerTargets(
+            descriptor: orderedDescriptor
+        ).count == 14)
+
+        let visibilityDescriptor = SceneRenderDescriptor(
+            lighting: orderedDescriptor.lighting,
+            layers: [
+                .init(id: 60, visible: true, pointLight: nil, spotLight: nil,
+                      directionalLight: nil),
+                .init(id: 61, visible: false, pointLight: makePoint(2),
+                      spotLight: nil, directionalLight: nil, parentID: 60),
+                .init(id: 62, visible: true, pointLight: nil, spotLight: cone(3),
+                      directionalLight: nil, parentID: 60),
+                .init(id: 63, visible: true, pointLight: nil, spotLight: nil,
+                      directionalLight: direction(4), parentID: 60),
+                .init(id: 64, visible: false, pointLight: .init(
+                    kind: "point", colorRGB: [1, 1, 1], intensity: 5,
+                    radius: 40, castsVolumetrics: nil, castsShadow: true, isSolid: nil
+                ), spotLight: nil, directionalLight: nil, parentID: 60),
+            ]
+        )
+        let visibilityLayers = Dictionary(uniqueKeysWithValues:
+            visibilityDescriptor.layers.map { ($0.id, $0) })
+        let visibilityFrames = Dictionary(uniqueKeysWithValues:
+            (61...64).map { ($0, frame) })
+        func visibilitySnapshot(parent: Bool, children: Bool) -> SceneDynamicSnapshot {
+            SceneDynamicSnapshotResolver().resolve(
+                frameIndex: 5, generation: 5,
+                definitions: visibilityDescriptor.layers.map {
+                    .init(target: .layer(layerID: $0.id, field: .visibility),
+                          valueType: .bool, authoredValue: .bool($0.visible ?? true))
+                },
+                sceneScriptValues: Dictionary(uniqueKeysWithValues:
+                    visibilityDescriptor.layers.map {
+                        (.layer(layerID: $0.id, field: .visibility),
+                         .bool($0.id == 60 ? parent : children))
+                    })
+            ).snapshot
+        }
+        func lights(_ dynamic: SceneDynamicSnapshot?, precomputed: Set<Int>? = nil)
+            -> SceneLightSnapshot {
+            SceneLightSnapshot.make(
+                descriptor: visibilityDescriptor,
+                worldFramesByLayerID: visibilityFrames,
+                dynamicSnapshot: dynamic,
+                layersByID: visibilityLayers,
+                visibleLayerIDs: precomputed
+            )
+        }
+        func noLights(_ value: SceneLightSnapshot) -> Bool {
+            value.directional.isEmpty && value.point.isEmpty && value.spot.isEmpty
+                && value.shadowLights.isEmpty && value.overflowCount == 0
+        }
+        let authoredVisibility = lights(nil)
+        precondition(authoredVisibility.point.isEmpty)
+        precondition(authoredVisibility.spot.compactMap(\.layerID) == [62])
+        precondition(authoredVisibility.directional.compactMap(\.layerID) == [63])
+        let allShown = visibilitySnapshot(parent: true, children: true)
+        let shownLights = lights(allShown)
+        precondition(shownLights.point.compactMap(\.layerID) == [61, 64])
+        precondition(shownLights.spot.compactMap(\.layerID) == [62])
+        precondition(shownLights.directional.compactMap(\.layerID) == [63])
+        precondition(shownLights.shadowLights.compactMap(\.layerID) == [63, 62, 61])
+        let precomputed = SceneLayerVisibility.visibleLayerIDs(
+            in: visibilityDescriptor, layersByID: visibilityLayers, snapshot: allShown)
+        precondition(lights(allShown, precomputed: precomputed).shadowLights.compactMap(\.layerID)
+            == shownLights.shadowLights.compactMap(\.layerID))
+        precondition(noLights(lights(allShown, precomputed: [])))
+        precondition(noLights(lights(visibilitySnapshot(parent: true, children: false))))
+        precondition(noLights(lights(visibilitySnapshot(parent: false, children: true))))
+        precondition(lights(allShown).point.compactMap(\.layerID) == [61, 64])
+        precondition(shownLights.point.compactMap(\.layerID) == [61, 64])
 
         let invalidRadiusDescriptor = SceneRenderDescriptor(
             lighting: nil,

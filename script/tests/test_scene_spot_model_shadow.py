@@ -114,7 +114,7 @@ def depth_vectors():
 def sources():
     result = [getattr(model, name) for name in [
         'MODEL_SOURCE', 'SAMPLING_SOURCE', 'UV_TRANSFORM_SOURCE', 'DIRECTIONAL_LIGHT_SOURCE',
-        'POINT_LIGHT_SOURCE', 'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE',
+        'POINT_LIGHT_SOURCE', 'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'VISIBILITY_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE',
         'DYNAMIC_LAYER_VALUES_SOURCE', 'PERFORMANCE_COUNTER_SOURCE', 'MATERIAL_SOURCE', 'PIPELINE_SOURCE']]
     return result + [SCENE/'Resources/Textures/SceneResourceBudget.swift',
                      SCENE/'Rendering/Metal/SceneStaticModelShadow.swift',
@@ -411,7 +411,7 @@ class SceneSpotModelAuthoredConeTests(unittest.TestCase):
 }
 '''
         selected = [model.DIRECTIONAL_LIGHT_SOURCE, model.POINT_LIGHT_SOURCE,
-                    model.SPOT_LIGHT_SOURCE, model.LIGHT_SOURCE,
+                    model.SPOT_LIGHT_SOURCE, model.LIGHT_SOURCE, model.VISIBILITY_SOURCE,
                     model.DYNAMIC_SNAPSHOT_SOURCE, model.DYNAMIC_LAYER_VALUES_SOURCE,
                     SCENE/'Rendering/Metal/SceneStaticModelShadow.swift']
         report = run_spot(selected, 'import Foundation\nimport Metal\nimport simd\n'
@@ -476,7 +476,7 @@ SNAPSHOT_MAIN = r'''
 class SceneSpotModelShadowSnapshotTests(unittest.TestCase):
     def test_actual_current_snapshot_order_budget_cast_and_transforms(self):
         selected=[model.DIRECTIONAL_LIGHT_SOURCE,model.POINT_LIGHT_SOURCE,model.SPOT_LIGHT_SOURCE,
-                  model.LIGHT_SOURCE,model.DYNAMIC_SNAPSHOT_SOURCE,model.DYNAMIC_LAYER_VALUES_SOURCE]
+                  model.LIGHT_SOURCE,model.VISIBILITY_SOURCE,model.DYNAMIC_SNAPSHOT_SOURCE,model.DYNAMIC_LAYER_VALUES_SOURCE]
         report=run_spot(selected,'import Foundation\nimport simd\n'+model.LIGHTING_STUB+SNAPSHOT_MAIN,label='spot-snapshot')
         for name,passed in report.items():
             with self.subTest(check=name):self.assertTrue(passed)

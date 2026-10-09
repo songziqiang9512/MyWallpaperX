@@ -44,7 +44,7 @@
 
 **近白指标盲区**：10-06 修复验证用的"近白 8.1→0.0%/17.5→1.9%"无法区分"正确照亮"与"打黑"——当前 HEAD 盘面已从修复前的 89% 顶格白变为**完全未受光**。回归窗口在[光照能量合同批](model-light-energy-contract-implementation-2026-10-06.md)（当时仅验证近白下降）之后的光照语义批（弧度直读/lightconfig 门控/typed lightAngles）。
 
-**新首断点=静态模型灯光送达链**：土星场景 `lightconfig` 四键全开、ambient/skylight 黑（合合同），照明仅来自 `lpoint` 6.0（radius 100，**origin 脚本读 `shared.sun_pos*`×0.0005**）+ `ldirectional` 5.0（**angles 脚本读 shared**），行星为 24 个静态模型之一。盘面全黑 ⇒ 两灯对静态模型贡献为零。**日志级坐实**（独立终审发现）：`saturn/app.log` 两灯层（433/259）每帧 `failure=badReturn("non-finite vector output") fallback=current-frame-lower-priority`（badReturn 共 17,256 行）且 `sun_pos` 全日志零命中——`shared.sun_pos*` 无 producer 注册，灯 origin/angles 求值为 NaN 矢量、逐帧拒入；另 `lpoint` 作者 `visible:false`（灯体隐藏，行为不变）。与光照输入语义批的 typed light 通道改动交汇处即修复落点。已入断点队列。
+**新首断点=静态模型灯光送达链**：土星场景 `lightconfig` 四键全开、ambient/skylight 黑（合合同），照明仅来自 `lpoint` 6.0（radius 100，**origin 脚本读 `shared.sun_pos*`×0.0005**）+ `ldirectional` 5.0（**angles 脚本读 shared**），行星为 24 个静态模型之一。盘面全黑 ⇒ 两灯对静态模型贡献为零。**日志级坐实**（独立终审发现）：`saturn/app.log` 两灯层（433/259）每帧 `failure=badReturn("non-finite vector output") fallback=current-frame-lower-priority`（badReturn 共 17,256 行）且 `sun_pos` 全日志零命中——`shared.sun_pos*` 无 producer 注册，灯 origin/angles 求值为 NaN 矢量、逐帧拒入；另 `lpoint` 作者 `visible:false`（当时推断“灯体隐藏，行为不变”已由[后继显隐实验](saturn-light-delivery-2026-10-07.md#effective-light-visibility)否定）。与光照输入语义批的 typed light 通道改动交汇处即修复落点。已入断点队列。
 
 
 <a id="large-static-model"></a>

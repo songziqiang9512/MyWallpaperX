@@ -220,15 +220,17 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
             angles[2], 3.141592653589793 / 2, delta=1e-6
         )
 
-    def test_layer_angle_vm_publication_reaches_light_consumer_in_radians(self) -> None:
+    def test_layer_angle_vm_publication_reaches_world_transform_in_radians(self) -> None:
         value = self.result()
         self.assertEqual(value["angleFailure"], "", value)
         self.assertEqual(value["angleSnapshotSource"], "sceneScript", value)
         self.assertEqual(value["angleSnapshotValue"], value["angleValue"], value)
-        for consumed, published in zip(value["angleLightValue"], value["angleValue"]):
-            self.assertAlmostEqual(consumed, published, delta=1e-6, msg=str({
-                key: value[key] for key in ("angleValue", "angleSnapshotValue", "angleLightValue")
-            }))
+        # Directional light consumes the opposite of the already-resolved
+        # perspective world frame's +X axis, with no second angle resolver.
+        direction = value["angleWorldDirection"]
+        self.assertAlmostEqual(direction[0], 0, delta=1e-6, msg=str(value))
+        self.assertAlmostEqual(direction[1], -1, delta=1e-5, msg=str(value))
+        self.assertAlmostEqual(direction[2], 0.0026179909, delta=1e-6, msg=str(value))
 
     def test_spot_light_color_is_a_typed_model_light_consumer(self) -> None:
         value = self.result()

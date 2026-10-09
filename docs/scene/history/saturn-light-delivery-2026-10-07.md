@@ -2,6 +2,8 @@
 
 > **历史证据 — 非现役入口**。断点定位见[L1 复测与土星对比](l1-heavy-retest-2026-10-07.md)；官方对照截图为用户提供（只读引用）。
 
+> **2026-10-09 纠正**：下文“隐藏灯仍照明”的推断及据此修改的测试不再作为合同。固定日期的官方消融表明，删除隐藏点光没有可检测的大尺度贡献；原场景还有方向光，不能从“场景亮了”推断隐藏点光有效。后继验证与修复见[有效可见性与方向](#effective-light-visibility)。`destroy` 准入和模拟恢复是独立结果，不随此推断撤销。
+
 # 土星静态模型灯光送达修复（destroy 导出准入，2026-10-07）
 
 起点 `a13ae170`。承接[L1 复测](l1-heavy-retest-2026-10-07.md)钉死的断点：土星层 443 'main'（54KB VSOP87 模拟脚本）的 Bool 可见性 owner 构造被 `invalidSource` 拒收——脚本导出 `destroy`（官方生命周期回调），而 Bool 可见性准入一概拒绝带 destroy 的脚本 → 模拟永不运行 → `shared.sun_pos*` 无发布 → 灯 origin/angles 脚本求值 NaN → 两灯逐帧 `badReturn("non-finite vector output")` 拒入（17,256 行）→ 行星零受光黑剪影。
@@ -21,14 +23,14 @@
 
 盘面受光后与官方截图仍有两处量化差异：①明暗界线镜像——官方左亮右暗，我方右亮左暗；②能量偏低——盘面 ROI mean 13.7 vs 官方 60.2（~4.4×），光环近黑 vs 官方 60.8。方向光精确响应曲线族（已登记开放）只能解释 6–25%，不能解释 4.4×；下一归因层=灯 origin/angles 的**值约定**（`0.0005*shared.sun_pos*` 的坐标符号/单位与 typed lightAngles 逐帧值的追踪），需逐帧灯光值探针。
 
-## 同日后续批：度→弧转换 + visible:false 真因修复（当前 HEAD）
+## 当日后续批：度→弧转换与隐藏灯推断（后者已撤销）
 
 **逐帧灯光值探针**（DEBUG 环境门控 `MWX_SCENE_DEBUG_LIGHT_TRACE`，SceneLightSnapshot 节流日志）拿到实际值，两段归因：
 
 1. **typed lightAngles 单位=度**：ldirectional angles 脚本 `deg=-atan2(z,x)*180/PI; value.y=deg-180` 带作者度数方位表（x=-1,z=0→0°…），度数值被 directional() 按弧度直读 → 方向错 57.3× 因子。修：`SceneDynamicLayerValues.lightAngles` 的 typed 分支度→弧转换（authored JSON 角度的弧度合同不动——61 夹具仅覆盖 authored 路径；脚本边界官方按度换算，作者注释表即官方校准）。实机：帧均值 2.55→5.24、盘面带纹增强（方向值生效）。
 2. **真因=可见性过滤丢灯**：trace 显示快照只有 directional、point 整帧缺失——`lpoint` 作者 `visible:false`（L1 复测已录）被 `visibleLayerIDs` 门控整灯跳过，而 **origin 脚本本身正常发布 `(-11.04, 0.003, …)`（太阳在 -X，正是官方左亮侧）**。修：`SceneLightSnapshot.make` 灯光层不再按可见集过滤（灯光对象无网格，`visible` 只隐藏编辑表示；官方数据 visible:false 且场景被点亮即官方行为），无用的 `visibleLayerIDs` 参数随删。实机：**双灯入快照**（point 433 position=(-11.64,0.003,-2.71) r=100 i=6.0 + directional 259），盘面亮侧翻到 -X（左），暗侧能量与官方完全一致（34.9 vs 35.7），环点亮（下左带 mean 17.7/max 108）。
 
-## 当前与官方的剩余差距（下一层归因登记）
+## 当时与官方的差距（不能作为当前归因）
 
 受光侧能量 0.44×（我方盘面左 37.2 vs 官方 84.5；暗侧 34.9 vs 35.7 完全一致 ⇒ 差异纯在直接光照能量）+ 光环偏暗（17.7 vs 88.3）。候选=逐灯能量分解（双灯叠加口径、衰减形状、响应曲线在真实 E 处的取值）——已登记的响应曲线开放族的延伸，需逐灯值探针带 albedo/NdotL 分解。
 
@@ -41,3 +43,22 @@
 ## 产物
 
 `/private/tmp/mwx-l1-retest-20261007/saturn/`（修复后日志+14 张快照）保留至 2026-10-21；对比图 `/tmp/saturn-side-by-side.png`、`/tmp/saturn-disk-crops.png`（会话临时）。
+
+<a id="effective-light-visibility"></a>
+## 2026-10-09 有效可见性与方向纠正
+
+起点 `d4cdb4fd`。固定土星作者天文日期为 `2026-10-09T12:00:00Z`，其累积模拟秒置零；其余脚本、全部模型/材质及相机保留。三包193个entry逐字节比对只有scene.json变化：baseline、仅删除隐藏点光433、仅关闭259方向光阴影。真实样本根只读，官方与Native消费相同包SHA；研究仅为黑盒，不消费私有实现。
+
+官方2.8.0.42、1210×786在同输入baseline与删433之间，预选左/中/右球体及前环ROI的median RGB差均不超过3/255，右暗面逐像素相同。移除巨大479模型的同构轻型正控只改变433.visible：左球median RGB由140/125/107变为255/255/255，前环144/136/121变为255/255/253，右面均0。该证据推翻上面的单张截图归因，确认此输入的可见性门控，不决定照明公式。首次完整阴影组和完整visible正控因官方渲染异常/遮挡失效，未当作算法证据；恢复后轻型两组同PID、同输入身份并准确关闭。
+
+初次只恢复visibility后，Native右侧亮、环带近黑；错误点光曾掩盖方向光错误，因此没有单独交付此中间态。后续四个固定法线±X/±Z模型按轮廓直径排序识别，避免按屏幕左右猜法线。官方三组同输入：child yaw π/4、parent0照亮−X/+Z；parent yaw改π/2照亮+X/+Z；child/parent均0仅−X亮。其余面全黑，几何边界漂移≤1px。这否定旧符号、忽略父旋转和零角默认−Z，不推导新的能量公式或全角度parity。
+
+接线：frame已计算的有效visibility与world-frame直接送入唯一LightSnapshot。三类灯先按可见性过滤，再做类别、四槽容量和阴影准入；启动候选保全，使隐藏灯仍可重新显示。三类light leaf补入原visibility route和原Boolean candidate projection；父container沿原规则，模型混合子树没有扩大准入。方向光复用现有world-frame朝向，删除独立raw-angle解算器和已无调用的lightAngles helper；单位转换、脚本、父链及正交映射由通用transform链负责。direct/shadow共消费同一结果，没有第二旋转、显隐、属性或输出owner。standalone volumetric cone的inline脚本仍仅准入原exact intensity，不能把direct light Bool补接外推给cone。
+
+验证：Debug构建、签名及全部Scene源身份一致；实际三探针12项明暗分类与官方一致，受光RGB 54/77对官方56/79，暗面均0。Native要求pkg，初次散装输入launch-failed且没有画面，其exit0不作成功；接受的pkg每entry与官方相同散装输入逐SHA对应。真实QuickJS三灯的child/parent Bool经typed publication→visibility→LightSnapshot/shadow得到[0,1,0,0,1]，实际live property hide/show与候选保全通过；静态/动态父旋转、无效轴局部拒绝及原灯影回归按最终日志冻结。
+
+相邻App shadow夹具同步显式directional class与原world ray：directional z20→X20、parts/cull z20→X12，ROI不改。首轮parts通过，另4项因旧强度0.6在现行表面合同下只产生27/32、低于原无影区>50前提而失败；固定法线解析与实测一致。只将这两组自有输入强度改2，保持非饱和正控、阴影位置/相对阈值/动态恢复全部不变；没有为测试修改产品能量。最终4项App重跑通过（108.328秒），加前轮5材质段App项通过；原生Metal近门5项、方向/Boolean最近CPU23项及独立cone窄边界1项通过。此前38项与本次有重叠，不累加；新producer测试已接原登记组，相称selector门6项通过。
+
+完整土星固定日期包在新App运行50秒、40秒取稳态图，startup约39秒，VM 92 owners/1 destroy callback全部quiescent、零失败且GPU drain。盘面恢复左亮右暗；预登记左/右ROI median RGB由107/99/86与63/59/52变为151/138/118与0/0/0，官方139/125/106与0/0/0。巨大479陨石环仍入链且颗粒可见。前环ROI由3/3/3升到19/18.5/17.5，但官方141/133/120；环带仍有扇形三角暗纹，文本/布局也未对齐。只冻结作者天文时间，实际时钟、媒体及其他随机内容不相同，不计算整图正确率。下一首断点是环带几何/法线、材质和阴影消费，需要有界消融定位，禁止全局补亮。
+
+证据：`.artifacts/tmp/saturn-light-ablation-20261009/`内`direction-native-comparison.json`、`saturn-final-comparison.json`、`build-final.json`及CPU/GPU门；新App dylib SHA `d43dba2c9bc16886bb1e02ef95e06ad0ad664d01fc7d202eceef8f335a91b49e`，土星固定输入pkg SHA `b9d7255300d5399e25822330c26bb85e6f8a9a6cc00f77ba273498cbd8d2ad91`。官方任务窗口均关闭，VM已挂起。全样本、任意3D方向/父缩放、完整2D/阴影官方parity及性能改善未声明。

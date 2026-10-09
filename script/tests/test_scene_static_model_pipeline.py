@@ -76,6 +76,10 @@ struct SceneRenderDescriptor {
         let directionalLight: SceneDirectionalLightDefinition?
         var parentID: Int? = nil
         var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
+        var originXYZ: [Float]? = nil
+        var scaleXYZ: [Float]? = nil
+        var attachmentName: String? = nil
+        var parentAttachmentBindFrame: [Float]? = nil
     }
 
     let lighting: LightingDescriptor?
@@ -86,10 +90,11 @@ struct SceneRenderDescriptor {
     init(
         lighting: LightingDescriptor?,
         layers: [Layer],
-        renderOrderLayerIDs: [Int]? = nil
+        renderOrderLayerIDs: [Int]? = nil,
+        sceneOrthoHeight: Float? = nil
     ) {
         self.lighting = lighting
-        self.camera = CameraDescriptor(orthoHeight: nil)
+        self.camera = CameraDescriptor(orthoHeight: sceneOrthoHeight)
         self.layers = layers
         self.renderOrderLayerIDs = renderOrderLayerIDs ?? layers.map(\.id)
     }
@@ -118,7 +123,7 @@ fragment half4 sceneStaticModelFragment(
             probe_shader.write_text(source, encoding="utf-8")
             sources = [MODEL_SOURCE, SAMPLING_SOURCE, UV_TRANSFORM_SOURCE,
                        DIRECTIONAL_LIGHT_SOURCE, POINT_LIGHT_SOURCE, SPOT_LIGHT_SOURCE,
-                       LIGHT_SOURCE, DYNAMIC_SNAPSHOT_SOURCE, DYNAMIC_LAYER_VALUES_SOURCE,
+                       LIGHT_SOURCE, VISIBILITY_SOURCE, DYNAMIC_SNAPSHOT_SOURCE, DYNAMIC_LAYER_VALUES_SOURCE,
                        PERFORMANCE_COUNTER_SOURCE, BINDINGS_SOURCE, MATERIAL_SOURCE, PIPELINE_SOURCE, SHADOW_SOURCE,
                        SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"]
             support = LIGHTING_STUB + (
@@ -202,6 +207,7 @@ fragment half4 sceneStaticModelFragment(
                     str(SPOT_LIGHT_SOURCE),
                     str(lighting_stub),
                     str(LIGHT_SOURCE),
+                    str(VISIBILITY_SOURCE),
                     str(DYNAMIC_SNAPSHOT_SOURCE),
                     str(DYNAMIC_LAYER_VALUES_SOURCE),
                     str(PERFORMANCE_COUNTER_SOURCE),
@@ -456,6 +462,7 @@ enum MaterialHarness {
                     str(SPOT_LIGHT_SOURCE),
                     str(lighting_stub),
                     str(LIGHT_SOURCE),
+                    str(VISIBILITY_SOURCE),
                     str(DYNAMIC_SNAPSHOT_SOURCE),
                     str(DYNAMIC_LAYER_VALUES_SOURCE),
                     str(PERFORMANCE_COUNTER_SOURCE),
@@ -505,6 +512,9 @@ enum MaterialHarness {
                     str(VISIBILITY_SOURCE),
                     str(LIGHT_SOURCE),
                     str(SCENE_ROOT / "Rendering/Geometry/SceneMatrix.swift"),
+                    str(SCENE_ROOT / "Rendering/Geometry/SceneLayerWorldFrameResolver.swift"),
+                    str(SCENE_ROOT / "Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift"),
+                    str(SCENE_ROOT / "Systems/Puppet/ScenePuppetAttachmentFrameSnapshot.swift"),
                     str(harness),
                     "-o", str(executable),
                 ],
@@ -605,6 +615,7 @@ enum DepthPlanHarness {
                     str(SPOT_LIGHT_SOURCE),
                     str(lighting_stub),
                     str(LIGHT_SOURCE),
+                    str(VISIBILITY_SOURCE),
                     str(DYNAMIC_SNAPSHOT_SOURCE),
                     str(DYNAMIC_LAYER_VALUES_SOURCE),
                     str(PERFORMANCE_COUNTER_SOURCE),

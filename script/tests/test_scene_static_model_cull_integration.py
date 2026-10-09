@@ -69,16 +69,20 @@ def fixture_entries(*, cast=True, all_nocull=False):
                 "shadowed": cast and (all_nocull or not reverse or state == "nocull")})
     # Adjacent parts alternate authored states within one model; an independent
     # front-facing default material is drawn later in the same main encoder.
+    # Legacy directional energy is 0.30 * intensity. Intensity 2 gives the +Z
+    # receiver 180 * (0.025 + 0.60 / sqrt(1 + 0.6**2)) ~= 97, below saturation;
+    # shadowed ambient remains ~= 5. Geometry and the pixel gates stay fixed.
     scene = {"version": 3, "general": {
         "orthogonalprojection": {"width": CANVAS[0], "height": CANVAS[1]},
-        "clearcolor": "0 0 0", "ambientcolor": "0.05 0.05 0.05", "skylightcolor": "0 0 0"},
+        "clearcolor": "0 0 0", "ambientcolor": "0.05 0.05 0.05", "skylightcolor": "0 0 0",
+        "lightconfig": {"directional": 1}},
         "objects": [
             {"id": 1, "model": "models/receiver.mdl", "origin": "0 96 0",
              "perspective": False, "castshadow": False},
             {"id": 2, "model": "models/cases.mdl", "origin": "0 96 0",
              "perspective": False, "castshadow": cast},
-            {"id": 3, "light": "ldirectional", "angles": f"0 {math.atan(.6)} 0",
-             "color": "1 1 1", "intensity": .6, "castshadow": True},
+            {"id": 3, "light": "ldirectional", "angles": f"0 {math.pi / 2 + math.atan(.6)} 0",
+             "color": "1 1 1", "intensity": 2, "castshadow": True},
             {"id": 4, "model": "models/healthy.mdl", "origin": "0 96 0",
              "perspective": False, "castshadow": False}]}
     entries.update({"scene.json": encoded(scene), "models/cases.mdl": join_parts(parts),

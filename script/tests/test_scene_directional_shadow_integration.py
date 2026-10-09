@@ -42,7 +42,7 @@ def quad(x0, x1, y0, y1, z, material):
 
 def fixture_entries(*, cast=True, light_cast=True, caster=True, caster_lit=True,
                     layer_alpha=1, texture_alpha=255, tint_mask=False,
-                    caster_x=70, caster_z=20, angle=.78539816339,
+                    caster_x=70, caster_z=20, angle=2.35619449019,
                     caster_first=False, moving=False, bloom=False, healthy_effect=False, singular_caster=False, extra_valid_caster=False, perspective=False, parent_offset=0, moving_light=False, color_blend=0, healthy_visible=True):
     receiver = {'id': 1, 'model': 'models/receiver.mdl', 'origin': '0 96 0',
                 'perspective': False, 'castshadow': False}
@@ -61,13 +61,19 @@ def fixture_entries(*, cast=True, light_cast=True, caster=True, caster_lit=True,
     if moving:
         occluder['origin'] = {'value': '0 96 0', 'script':
             'export function update(v) { return new Vec3(engine.runtime >= 2.5 && engine.runtime < 5.5 ? 35 : 0, 96, 0); }'}
+    # Emission is local +X; yaw 135 degrees gives toward-light (+X,+Z),
+    # preserving the independent ray/ROI oracle below.
+    # Legacy directional energy is 0.30 * intensity. At intensity 2 the +Z
+    # receiver predicts 180 * (0.025 + 0.60 / sqrt(2)) ~= 81, below saturation;
+    # shadowed ambient predicts 180 * 0.025 ~= 5. Keep the original pixel gates.
     lamp = {'id': 3, 'light': 'ldirectional', 'angles': f'0 {angle} 0',
-            'color': '1 1 1', 'intensity': .6, 'castshadow': light_cast}
+            'color': '1 1 1', 'intensity': 2, 'castshadow': light_cast}
     if moving_light:
-        lamp['angles'] = {'value': '0 .78539816339 0', 'script': 'export function update(v) { return new Vec3(0, engine.runtime >= 2.5 && engine.runtime < 5.5 ? -45 : 45, 0); }'}
+        lamp['angles'] = {'value': '0 2.35619449019 0', 'script': 'export function update(v) { return new Vec3(0, engine.runtime >= 2.5 && engine.runtime < 5.5 ? 45 : 135, 0); }'}
     objects = ([occluder, receiver] if caster_first else [receiver, occluder]) if caster else [receiver]
     scene = {'version': 3, 'general': {'orthogonalprojection': {'width': 160, 'height': 96},
-             'clearcolor': '0 0 0', 'ambientcolor': '0.05 0.05 0.05', 'skylightcolor': '0 0 0'},
+             'clearcolor': '0 0 0', 'ambientcolor': '0.05 0.05 0.05', 'skylightcolor': '0 0 0',
+             'lightconfig': {'directional': 1}},
              'objects': objects + [lamp]}
     if parent_offset:
         scene['objects'].insert(0, {'id': 6, 'name': 'transform-parent', 'origin': f'{parent_offset} 0 0'})

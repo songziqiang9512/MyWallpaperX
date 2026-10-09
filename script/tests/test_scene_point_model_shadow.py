@@ -589,11 +589,10 @@ POINT_AUTHORED_MAIN=r'''
   checks["previous-immutable"] = first.point.first!.position==SIMD3<Float>(11,74,33) && first.point.first!.intensity==2
   let restored=SceneLightSnapshot.make(descriptor:descriptor,worldFramesByLayerID:staticFrames)
   checks["next-frame-authored-restored"] = restored.point.first!.position==first.point.first!.position && restored.point.first!.intensity==2
-  // Lights ignore the layer visible flag (3589454154 authors lpoint with
-  // visible:false and the official client still lights the scene from it).
+  // The same effective visibility gates direct lights and their shadow maps.
   let hiddenDescriptor=try build("hidden-author")
   let hidden=SceneLightSnapshot.make(descriptor:hiddenDescriptor.renderDescriptor,worldFramesByLayerID:frames(hiddenDescriptor.renderDescriptor))
-  checks["current-visibility"] = hidden.point.compactMap(\.layerID)==[20,21] && !hidden.shadowLights.isEmpty
+  checks["current-visibility"] = hidden.point.compactMap(\.layerID)==[21] && hidden.shadowLights.isEmpty && hidden.overflowCount==0
   let report:[String:Any]=["checks":checks,"castValues":values,"authoredOrder":mixed.renderOrderLayerIDs,"shadowOrder":admitted.shadowLights.compactMap(\.layerID),"firstPosition":[first.point[0].position.x,first.point[0].position.y,first.point[0].position.z],"currentPosition":[second.point[0].position.x,second.point[0].position.y,second.point[0].position.z]]
   print(String(decoding:try JSONSerialization.data(withJSONObject:report,options:[.sortedKeys]),as:UTF8.self))
  }

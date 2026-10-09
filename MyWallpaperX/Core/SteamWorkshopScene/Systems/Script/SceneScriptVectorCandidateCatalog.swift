@@ -660,7 +660,8 @@ nonisolated extension SceneScriptVectorProgram {
               binding.targetPath == [
                   .key("objects"), .index(objectIndex), .key("visible"),
               ],
-              ["image", "solid", "text", "container", "composition", "particle"].contains(
+              ["image", "solid", "text", "container", "composition", "particle",
+               "pointLight", "spotLight", "directionalLight"].contains(
                   layer.contentKind
               ),
               Self.admitsUtilityLayerVisibility(layer) else { return nil }
