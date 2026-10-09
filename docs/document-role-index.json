@@ -522,9 +522,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "68cb90d9495a22b55e73e4cd14cd07cddb74091e7627d02b704882e15a357df7",
+        "sourceSHA256": "9b2705592e9f726d3448c13358f6b2e1a6d565e9cdec11165379ea69018c94e3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对原生透视图片Fog已接、窗光残差与正交距离域仍开放的单一导航；不外推其他2D profile。",
+        "scope": "核对LDR Bloom窗光残差已修及主体受光/动态仍待验，保留单一证据导航；19个默认声明不等于视觉验收。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
@@ -1949,9 +1949,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0324e36c2e26869abe7175e40c213a2c8cd6990972a37d213a2be9ac53bff5be",
+        "sourceSHA256": "01071e6f3bfabb7a1549d3428212e7b5263f7d74196644a62b008abc9fbaec80",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对原生透视图片Fog已接、窗光残差与正交距离域仍开放的单一导航；不外推其他2D profile。",
+        "scope": "核对LDR Bloom窗光残差已修及主体受光/动态仍待验，保留单一证据导航；19个默认声明不等于视觉验收。",
         "limitations": "导航与证据身份核对；不等同全样本、真实声源、compose或HDR官方parity。"
       }
     },

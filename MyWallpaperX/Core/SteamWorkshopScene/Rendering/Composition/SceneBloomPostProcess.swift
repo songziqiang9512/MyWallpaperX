@@ -60,7 +60,7 @@ nonisolated struct SceneBloomConfiguration: Codable, Equatable, Sendable {
 }
 
 /// Scene post processing in one owner. Standard Bloom retains its existing
-/// quarter/sixteenth-resolution blur. Authored HDR selects a separate prepared
+/// quarter/eighth-resolution blur. Authored HDR selects a separate prepared
 /// multiscale pipeline, preserving superwhite energy until terminal display.
 /// Both routes add to the completed source only after all intermediates succeed.
 /// Pipeline and resource failures skip this optional effect.
@@ -171,11 +171,11 @@ final class SceneBloomPostProcess {
         let quarter = SIMD2(
             max(1, source.width / 4), max(1, source.height / 4)
         )
-        let sixteenth = SIMD2(
-            max(1, quarter.x / 4), max(1, quarter.y / 4)
+        let eighth = SIMD2(
+            max(1, quarter.x / 2), max(1, quarter.y / 2)
         )
         guard let mip1 = makeTexture(width: quarter.x, height: quarter.y),
-              let mip2 = makeTexture(width: sixteenth.x, height: sixteenth.y)
+              let mip2 = makeTexture(width: eighth.x, height: eighth.y)
         else {
             if !textureFailureLogged {
                 textureFailureLogged = true
@@ -198,9 +198,6 @@ final class SceneBloomPostProcess {
         var direction: SIMD2<Float>
         var stepUV: SIMD2<Float>
     }
-
-    /// Fixed reference tap step (g_TexelSize 1080p compile-time constant ×8).
-    private static let blurStep = SIMD2<Float>(Float(8.0 / 1920.0), Float(8.0 / 1080.0))
 
     private func encodeQuad(
         _ pipeline: MTLRenderPipelineState,
@@ -255,9 +252,11 @@ final class SceneBloomPostProcess {
             )
         }) else { return false }
 
+        // Both passes measure their tap spacing in completed-source pixels.
+        let blurStep = SIMD2<Float>(8.0 / Float(source.width), 8.0 / Float(source.height))
         var blurVertical = BlurUniforms(
             direction: SIMD2(0, 1),
-            stepUV: Self.blurStep
+            stepUV: blurStep
         )
         guard encodeQuad(blurPipeline, target: targets.mip2, commandBuffer: commandBuffer, bind: { encoder in
             encoder.setFragmentTexture(targets.mip1, index: 0)
@@ -268,7 +267,7 @@ final class SceneBloomPostProcess {
 
         var blurHorizontal = BlurUniforms(
             direction: SIMD2(1, 0),
-            stepUV: Self.blurStep
+            stepUV: blurStep
         )
         guard encodeQuad(blurPipeline, target: targets.mip1, commandBuffer: commandBuffer, bind: { encoder in
             encoder.setFragmentTexture(targets.mip2, index: 0)

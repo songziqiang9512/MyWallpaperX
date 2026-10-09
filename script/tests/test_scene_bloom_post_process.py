@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Real scene Bloom GPU output: zero contribution, reuse and positive halos."""
+import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -85,17 +87,27 @@ enum SceneGPUCensus {
     let preparedCount = MWXPipelineAttempts()
     func render(
       _ w: Int, _ h: Int, strength: Float, threshold: Float, enabled: Bool = true, phase: Int = 0, failEncoder: Int = 0,
-      configuration: SceneBloomConfiguration? = nil
+      configuration: SceneBloomConfiguration? = nil,
+      flatBlock: (value: UInt8, bounds: SIMD4<Int>)? = nil
     ) -> [String: Any] {
       var bytes = [UInt8](repeating: 0, count: w * h * 4)
       for y in 0..<h {
         for x in 0..<w {
           let i = (y * w + x) * 4
-          let high = abs(x - w / 2 - phase) < w / 12 && abs(y - h / 3) < h / 10
-          bytes[i] = high ? 255 : UInt8((x * 37 + y * 13 + phase) % 100)
-          bytes[i + 1] = high ? 230 : UInt8((x * 17 + y * 23 + phase) % 80)
-          bytes[i + 2] = high ? 250 : UInt8((x * 7 + y * 43 + phase) % 120)
-          bytes[i + 3] = UInt8(100 + (x + y) % 156)
+          if let flatBlock {
+            let b = flatBlock.bounds
+            let value = x >= b.x && x < b.z && y >= b.y && y < b.w ? flatBlock.value : 0
+            bytes[i] = value
+            bytes[i + 1] = value
+            bytes[i + 2] = value
+            bytes[i + 3] = 255
+          } else {
+            let high = abs(x - w / 2 - phase) < w / 12 && abs(y - h / 3) < h / 10
+            bytes[i] = high ? 255 : UInt8((x * 37 + y * 13 + phase) % 100)
+            bytes[i + 1] = high ? 230 : UInt8((x * 17 + y * 23 + phase) % 80)
+            bytes[i + 2] = high ? 250 : UInt8((x * 7 + y * 43 + phase) % 120)
+            bytes[i + 3] = UInt8(100 + (x + y) % 156)
+          }
         }
       }
       let desc = MTLTextureDescriptor.texture2DDescriptor(
@@ -138,11 +150,20 @@ enum SceneGPUCensus {
           }
         }
       }
-      return [
+      var report: [String: Any] = [
         "encoded": encoded, "changedRGB": changed, "changedAlpha": alphaChanges,
         "encoderAttempts": MWXEncoderAttempts(),
         "darkened": darkened, "maxDelta": maxDelta,
       ]
+      if let flatBlock {
+        let b = flatBlock.bounds, centerX = (b.x + b.z) / 2, centerY = (b.y + b.w) / 2
+        let distances = [1, 4, 8, 16, 24, 32, 40]
+        report["profileX"] = distances.map { Int(output[(centerY * w + b.z - 1 + $0) * 4 + 2]) }
+        report["profileY"] = distances.map { Int(output[((b.w - 1 + $0) * w + centerX) * 4 + 2]) }
+        let center = (centerY * w + centerX) * 4
+        report["centerBGRA"] = Array(output[center..<center + 4]).map(Int.init)
+      }
+      return report
     }
     var results: [String: Any] = [:]
     for (name, w, h) in [("small", 237, 149), ("large", 3024, 1964), ("tiny", 3, 2)] {
@@ -153,6 +174,12 @@ enum SceneGPUCensus {
     results["positive"] = render(400, 240, strength: 1, threshold: 0.3)
     results["reuseZero"] = render(400, 240, strength: 0, threshold: 0, phase: 13)
     results["reusePositive"] = render(400, 240, strength: 1, threshold: 0.3, phase: 13)
+    results["ldrGray1210"] = render(1210, 786, strength: 1, threshold: 0.1,
+      flatBlock: (128, SIMD4(352, 140, 858, 646)))
+    results["ldrWhite1210"] = render(1210, 786, strength: 1, threshold: 0.1,
+      flatBlock: (255, SIMD4(352, 140, 858, 646)))
+    results["ldrWhite800"] = render(800, 450, strength: 1, threshold: 0.1,
+      flatBlock: (255, SIMD4(255, 80, 545, 370)))
     for index in 1...4 {
       _ = render(400, 240, strength: 1, threshold: 0.3, phase: index)
       results["fault\(index)"] = render(400, 240, strength: 1, threshold: 0.3,
@@ -671,6 +698,15 @@ enum SceneGPUCensus {
 class SceneBloomPostProcessTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        identity_paths = [Path(__file__), *SWIFT_SOURCES,
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift",
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
+            *(SCENE / name for name in ("SceneBloomPostProcess.swift", "SceneBloomPostProcess.metal",
+                "SceneDisplayMappingPostProcess.swift", "SceneDisplayMappingPostProcess.metal", "SceneMainPassEncoder.swift"))]
+        identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in identity_paths}
+        evidence = Path(os.environ["MWX_BLOOM_GPU_EVIDENCE"]) if os.environ.get("MWX_BLOOM_GPU_EVIDENCE") else None
+        if evidence:
+            evidence.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="mwx-bloom-gpu-") as directory:
             folder = Path(directory)
             (folder / "Main.swift").write_text(HARNESS)
@@ -687,15 +723,45 @@ class SceneBloomPostProcessTests(unittest.TestCase):
                 ["xcrun", "-sdk", "macosx", "metallib", str(folder / "bloom.air"),
                  str(folder / "display-mapping.air"),
                  "-o", str(folder / "default.metallib")],
-                ["swiftc","-import-objc-header",str(folder / "Fault.h"),str(folder / "fault.o"),*map(str, SWIFT_SOURCES),str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift"),str(SCENE / "SceneBloomPostProcess.swift"),str(SCENE / "SceneDisplayMappingPostProcess.swift"),str(SCENE / "SceneMainPassEncoder.swift"),str(folder / "Main.swift"),"-o",str(folder / "run"),Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift"],
+                ["swiftc","-import-objc-header",str(folder / "Fault.h"),str(folder / "fault.o"),*map(str, SWIFT_SOURCES),str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift"),str(SCENE / "SceneBloomPostProcess.swift"),str(SCENE / "SceneDisplayMappingPostProcess.swift"),str(SCENE / "SceneMainPassEncoder.swift"),str(folder / "Main.swift"),"-module-cache-path",str(folder / "module-cache"),"-o",str(folder / "run"),Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift"],
             ]
-            for command in commands:
+            for index, command in enumerate(commands):
                 compiled = subprocess.run(command, capture_output=True, text=True, timeout=120)
+                if evidence:
+                    (evidence / f"compile-{index}.log").write_text(compiled.stdout + compiled.stderr)
                 if compiled.returncode:
                     raise RuntimeError(compiled.stderr)
             result = subprocess.run([str(folder / "run")], capture_output=True,
                                     text=True, check=True, timeout=120)
             cls.result = json.loads(result.stdout)
+            if identity != {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in identity_paths}:
+                raise RuntimeError("Bloom GPU source inputs changed during gate")
+            if evidence:
+                (evidence / "gpu-output.json").write_text(json.dumps({"sourceSHA256": identity,
+                    "binarySHA256": hashlib.sha256((folder / "run").read_bytes()).hexdigest(),
+                    "metallibSHA256": hashlib.sha256((folder / "default.metallib").read_bytes()).hexdigest(),
+                    "compileReturnCodes": [0] * len(commands), "harnessReturnCode": result.returncode,
+                    "gpu": cls.result}, indent=2, sort_keys=True) + "\n")
+
+    def test_ldr_halo_profiles_keep_physical_pixel_extent_across_output_sizes(self):
+        # Fixed black-box observations from gray/white rectangles, 2026-10-09.
+        # Profiles sample 1/4/8/16/24/32/40 physical pixels beyond the right/bottom edge.
+        expected = {
+            "ldrGray1210": (179, [24, 21, 17, 10, 5, 2, 1], [24, 21, 17, 10, 5, 2, 1]),
+            "ldrWhite1210": (255, [110, 95, 76, 45, 23, 10, 3], [111, 97, 78, 46, 24, 10, 3]),
+            "ldrWhite800": (255, [109, 94, 75, 44, 22, 10, 4], [111, 95, 79, 45, 24, 10, 4]),
+        }
+        for name, (center, profile_x, profile_y) in expected.items():
+            actual = self.result[name]
+            self.assertTrue(actual["encoded"], name)
+            self.assertEqual(actual["changedAlpha"], 0, name)
+            self.assertEqual(actual["centerBGRA"][3], 255, name)
+            for channel in actual["centerBGRA"][:3]:
+                self.assertLessEqual(abs(channel - center), 2, (name, "center", channel))
+            for axis, target in (("profileX", profile_x), ("profileY", profile_y)):
+                for distance, value, observed in zip([1, 4, 8, 16, 24, 32, 40], actual[axis], target, strict=True):
+                    with self.subTest(case=name, axis=axis, distance=distance):
+                        self.assertLessEqual(abs(value - observed), 2, (value, observed))
 
     def test_authored_bindings_reach_gpu_and_change_on_the_next_frame(self):
         self.assertTrue(self.result["bindingAdmitted"])

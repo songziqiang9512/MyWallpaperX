@@ -47,7 +47,7 @@
 | 职责 | 精确冻结记录 |
 |---|---|
 | Scene真实媒体输入 | [系统来源](../history/scene-system-media-input-implementation-2026-10-05.md)与[封面五色](../history/media-artwork-palette-implementation-2026-10-05.md)：339标题/封面、reader恢复、颜色及真实音频；[通用专辑歌手/多样本](../history/scene-system-media-input-implementation-2026-10-05.md#通用专辑歌手与跨样本后继)保留来源边界；[播放事件赋值](../history/scene-system-media-input-implementation-2026-10-05.md#播放事件值语义)恢复312受控封面；未证全平台或发行 |
-| HDR raw/display与计费 | [RF07](../history/rf07-persistent-color-output-implementation-2026-10-02.md)、[RF11](../history/rf11-shared-hdr-target-budget-implementation-2026-10-02.md) |
+| HDR raw/display与计费 | [LDR Bloom尺寸纠正](../history/sdr-white-preservation-implementation-2026-10-06.md#ldr-bloom-spatial)；[RF07](../history/rf07-persistent-color-output-implementation-2026-10-02.md)、[RF11](../history/rf11-shared-hdr-target-budget-implementation-2026-10-02.md) |
 | 2D normal/PBR/emission | [MR/emission](../history/d3-pbr-map-emission-implementation-2026-10-02.md)、[live亮度](../history/d3-material-user-emission-implementation-2026-10-02.md)；前序normal/标量证据沿记录内链接 |
 | 图片材质 Alpha | [静态/用户属性接线](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-image-material-alpha)：真实193透明度热切与source-before-effects像素门；限定builtin profile，不计整样本通过 |
 | 默认/作者环境与容量 | [RF04共享历史](../history/rf04-completed-scene-environment-implementation-2026-10-03.md#b-作者环境输入落地)、[RF12共存](../history/rf12-snapshot-shadow-coexistence-implementation-2026-10-02.md) |

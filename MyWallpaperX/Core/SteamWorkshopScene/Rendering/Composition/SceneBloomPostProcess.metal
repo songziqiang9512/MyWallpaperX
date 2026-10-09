@@ -49,8 +49,8 @@ fragment float4 sceneBloomBrightFragment(
         mag_filter::linear, min_filter::linear,
         address::clamp_to_edge, coord::normalized
     );
-    // Fixed reference offsets (g_TexelSize compile-time 1080p constant).
-    float2 texel = float2(1.0 / 1920.0, 1.0 / 1080.0);
+    // Keep the extraction footprint tied to the completed source resolution.
+    float2 texel = 1.0 / float2(source.get_width(), source.get_height());
     float3 albedo =
         source.sample(bilinearSampler, input.texcoord + float2(-texel.x, -texel.y)).rgb
         + source.sample(bilinearSampler, input.texcoord + float2(texel.x, texel.y)).rgb
@@ -77,10 +77,8 @@ fragment float4 sceneBloomBlurFragment(
         mag_filter::linear, min_filter::linear,
         address::clamp_to_edge, coord::normalized
     );
-    // The reference engine never sets g_TexelSize at runtime; it falls back
-    // to the compile-time 1080p constant, so the tap step is a fixed screen
-    // fraction (8/1920, 8/1080) — a dense gaussian on the chain targets,
-    // not a sparse comb. Reproduce exactly that geometry.
+    // The caller expresses spacing in completed-source pixels for both axes,
+    // independent of this pass's downsampled input texture dimensions.
     float2 step = uniforms.direction * uniforms.stepUV;
     float3 albedo = 0.0;
     for (int index = 0; index < 13; index++) {

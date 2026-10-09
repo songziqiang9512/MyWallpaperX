@@ -28,7 +28,7 @@ T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅
 | 显隐属性的其他非Bool/缺失类型引用 | **color范围已修，其他输入待复验**：243场景/project身份核同的直连layer.visible统计有color 2样本2处、slider 3样本4处、缺定义40处及有声明但无type的2处；合计27样本48处只是声明。color两原包3665307769/3078285611热切现已实际变色、不重建；完成记录归入[显隐错配修复](../history/source-material-entry-2026-10-08.md#后继修正颜色与显隐错配局部保留)。slider与缺定义不得沿用该合同或直接认定失败，按同key合法消费者、当前回退及官方可观察行为继续归因。 |
 | 材质颜色的组合缺口 | **部分已修，组合余项待补**：静态中性RGB已进入原/动态图层；脚本tint占用layer color的覆盖已修，迁至materialConstant并退出clone颜色覆写；受控前后GPU及原379彩虹通过。named组合仍待官方合同与实际消费者证实，不直接给raw capture叠加材质调制。复核10候选样本/11层没有named边；193频谱12条named声明被作者previous绑定覆盖，不能计为漏Alpha。3690859128双source共用模型限制已修，证据见[共享材质](../capabilities/runtime-evidence-current.md#e-2026-10-08-shared-source-material)；首引用删除后的官方续跑未知，保留既有安全退休，不能外推所有材料实例范围 |
 | 普通unlit数值边界 | **溢出已修、下溢待修**：4×1e38×1e-37的Inf沿现shader回算有限40，无全图压暗/cap。[有界证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-unlit-product)。source alpha=.5、vertex=.25、R8clip=128/255的weighted组合仍输出0（数学RGB≈2.5098），属于既有fast-math下溢；此失败保留，不能由溢出正例关闭。优先真实多source颜色消费者，数值余项不扩大为所有HDR已修 |
-| 默认变暗、HDR/SDR最终显示 | **旧压暗与特效自动裁剪已修，视觉余项待复验**：旧SDR shoulder把白点1压到0.75；[白点修复](../history/sdr-white-preservation-implementation-2026-10-06.md)实测RGB(191,64,128)恢复(255,64,128)。EDR及OFF→ON→OFF已有同surface headroom执行证据；暂停HDR热切与有界异步失败恢复已补[独立证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-paused-display-recovery)；共享PMA输入/合成输出自动RGB裁剪另由[实际GPU反例与缓存升级](../capabilities/runtime-evidence-current.md#e-2026-10-08-hdr-color-boundary)修复，作者限幅保留；用户样本、多屏SDR及物理亮度仍未关闭。沿唯一颜色/output owner定位，见[热切证据](../history/hdr-live-toggle-verification-2026-10-07.md)；Bloom iterations0/1空间语义另作官方控制 |
+| 默认变暗、HDR/SDR最终显示 | **旧压暗与特效自动裁剪已修，视觉余项待复验**：旧SDR shoulder把白点1压到0.75；[白点修复](../history/sdr-white-preservation-implementation-2026-10-06.md)实测RGB(191,64,128)恢复(255,64,128)。EDR及OFF→ON→OFF已有同surface headroom执行证据；暂停HDR热切与有界异步失败恢复已补[独立证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-paused-display-recovery)；共享PMA输入/合成输出自动RGB裁剪另由[实际GPU反例与缓存升级](../capabilities/runtime-evidence-current.md#e-2026-10-08-hdr-color-boundary)修复，作者限幅保留；用户样本、多屏SDR及物理亮度仍未关闭。沿唯一颜色/output owner定位，见[热切证据](../history/hdr-live-toggle-verification-2026-10-07.md)；Bloom iterations0/1空间语义、LDR自有输入顶层brightness官方未响应差异另作控制（见白点修复记录LDR后继） |
 | 显式UNorm的generic准入 | **自有输入边界，真实样本命中未证**：`sample→alpha×uniform→saturateRGBA`控制在generic ordinary路径被`compiler-artifact-colortransfer`拒绝，实际bounded Program的HDR/SDR/零alpha GPU正确。243包严格文本扫描未找到直接对应，不能外推语义不存在；原163 color Pulse、252 alpha Pulse已实际GPU执行，不能作为该缺口影响面。先核真实未准入引用，再扩原分析/准入；不注入fact或新增执行链。[输入与证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-hdr-color-boundary) |
 | shader compound边界 | **能力缺口**：已有int四则复合赋值恢复，qualified LHS、`%=`与vertex剩余见[原合同](../history/int-compound-assignment-normalizer-2026-10-07.md)。先核真实引用和类型，扩同一normalizer，保留scope/优先级/非法输入反例 |
 | 透明RGB跨effect丢失 | **普通effect与静态源两卡已接通**：[执行记录](../history/authored-color-continuity-2026-10-09.md#静态源上传与采集后继)覆盖原straightAlbedo上传、Candidate映射、unlit采集、typed命名发布和唯一compositor。U19头冠灰边恢复亮色。动态PMA/命名几何隐藏RGB与source小输入官方准入仍未证；不能外推所有混合/HDR问题已修。 |
@@ -91,7 +91,7 @@ T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅
 | U09 · 3797217144 | 缺奥特曼旋转并由小放大的出场动画 | intro/Timeline/脚本启动、变换及首帧至入场结束时序 |
 | U10 · 3793998447 | 似乎缺作者音频光圈和其他属性 | 音频消费、属性声明→入口→typed 更新；先清点具体未生效属性，不猜字段 |
 | U11 · 3792249095 | 缺音频发光，整体样式与原版差距大 | 音频驱动→effect/颜色/合成，并保留整体构图复验 |
-| U12 · 3477054430 | 模型/图片雾已修；余窗光残差 | [窗光](../history/static-model-emission-2026-10-09.md)、[光照](../history/static-model-light-input-semantics-2026-10-06.md#2026-10-09模型环境与天空光响应纠正)、[脚本](../history/model-material-value-scripts-implementation-2026-10-06.md#2026-10-09发光脚本与嵌套属性)已接；[模型雾](../history/static-model-light-input-semantics-2026-10-06.md#model-distance-fog)；[图片雾](../history/static-model-light-input-semantics-2026-10-06.md#image-distance-fog)月亮恢复；余窗光残差 |
+| U12 · 3477054430 | 雾/Bloom窗光已修；余主体受光 | [窗光](../history/static-model-emission-2026-10-09.md)、[光照](../history/static-model-light-input-semantics-2026-10-06.md#2026-10-09模型环境与天空光响应纠正)、[脚本](../history/model-material-value-scripts-implementation-2026-10-06.md#2026-10-09发光脚本与嵌套属性)已接；[模型雾](../history/static-model-light-input-semantics-2026-10-06.md#model-distance-fog)；[图片雾](../history/static-model-light-input-semantics-2026-10-06.md#image-distance-fog)月亮恢复；[LDR Bloom尺寸](../history/sdr-white-preservation-implementation-2026-10-06.md#ldr-bloom-spatial)窗区残差已修，余猫身/耳机受光、动态与完整布局待验 |
 | U13 · 3042492564 | ①顶部两道分叉光束差异大；②歌曲识别封面不显示 | 光束仍开放；[封面后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-media-base-fallback)已闭合mask供给、idle连续scalar及换图事件帧旧值覆盖：同一typed admission消费restart preview，4次事件当帧均1并连续递减，无stale/拒绝。主动init/update/overlay与失败回滚不改，未新增clock/值链。**布局/AA/blur与真实播放器仍待修**：默认无resize窗口右侧裁切原因未定，不能关闭②或整样本。 |
 | U14 · 2932157836 | 歌曲封面不显示 | [本批后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-media-base-fallback)：**mask技术首断点已闭**：同Store复用preserved上传发布current/previous mask的typed data视图，原包受控红→绿→蓝出现中间像素、clear恢复作者音符图片，事件/GPU/退出正常。独立blur/spin拒绝及真实播放器来源仍待复验，不关闭整样本 |
 | U15 · 3299228616 | ①鼠标划过水波不明显；②时钟上方矩形独立运动，似未与其他内容同层合成 | pointer→水波输入；graph/变换/相机及合成空间，不能用抬强度掩盖 |
@@ -123,7 +123,7 @@ T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅
 | U41 · 3357627941 | 属性面板无替换视频媒体资源的选择入口 | project 属性类型→现有 AppKit 编辑器/资源选择→typed binding→视频 consumer，不另造 provider |
 | U42 · 跨样本属性面板 | ①打开后浏览/滚动严重卡顿；②疑似原中文属性显示成英文，用户询问官方是否有中英映射并提示参考研究 | 沿既有属性 UI 测主线程/布局/重复解析；查作者 locale token/字典、系统语言与官方 fallback。映射表是否存在未证，不硬编码翻译表 |
 
-**执行顺序及单链约束。** U14封面mask、U13连续scalar/同帧旧值、U07镂空矩形、U03额头缺块及U18头发错位主报告现象已修，U04/U20/U19②音频条现已通过同一中文previous补接恢复；完成项不再当作未做。U19灰头冠、U21两环/灰层及U23强网点已修；U12查窗光残差，再进HDR/SDR；正交Fog距离域按[F7](batch2/2d-lighting-material-design.md#f7-原生透视图片距离雾与正交后继2026-10-09)保留待证/待接，不能把透视图片修复外推。U06 WebM/VP9 decode与重型剩余显示复验保留高优先级。随后复核 U16/U24/U34“曾好后坏”及 U22 持续退化，再归并光束、音频、动画/交互；属性入口与面板仍开放。条纹328物理显示仍未闭。顺序仍属于既有T1/T2/E1与P路线，不另建路线。
+**执行顺序及单链约束。** U14封面mask、U13连续scalar/同帧旧值、U07镂空矩形、U03额头缺块及U18头发错位主报告现象已修，U04/U20/U19②音频条现已通过同一中文previous补接恢复；完成项不再当作未做。U19灰头冠、U21两环/灰层及U23强网点已修；U12先分离猫身/耳机受光与头部动态差异，再进HDR/SDR；正交Fog距离域按[F7](batch2/2d-lighting-material-design.md#f7-原生透视图片距离雾与正交后继2026-10-09)保留待证/待接，不能把透视图片修复外推。U06 WebM/VP9 decode与重型剩余显示复验保留高优先级。随后复核 U16/U24/U34“曾好后坏”及 U22 持续退化，再归并光束、音频、动画/交互；属性入口与面板仍开放。条纹328物理显示仍未闭。顺序仍属于既有T1/T2/E1与P路线，不另建路线。
 
 重写必须在原职责入口替换旧实现，并证明原有效输入/效果和失败隔离不回退；同一输入不可同时走新旧两套 owner。发现能由已有参数、入口或 primitive 表达的能力，优先补接或扩展该处。每批报告逐子现象关闭数、实际复测样本及剩余范围，不把本表录入率当画面修复率。
 
@@ -200,7 +200,7 @@ T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅
 | 3437487219 | 未取得该样本collision后继关闭证据，先复跑定位owner；日期/时间不重修。 |
 | 3448845950 | 脚本效果、完整布局仍复验；不要按旧黑屏重开资源owner。 |
 | 3470948192 | NaN、文字碎片、异常背景均保留当前运行定位，不能只验首帧文字。 |
-| 3477054430 | 当前以U12为准：月亮Fog已恢复，窗光残差及完整布局仍待复验。 |
+| 3477054430 | 当前以U12为准：月亮Fog与窗光Bloom残差已修，主体受光、动态及完整布局仍待复验。 |
 | 3509243656 | 旧启动失败已关闭；开场模拟、坐标文字仍属整景视觉验收。 |
 | 3662790108 | JUNO完整导航已有后继证据；球体/曲率/布局和性能边界按上表核，不把8.8FPS当现值。 |
 | 3712499998 | WEVector及Vec3(Vec2)技术断点已闭，环形频谱可见；重复文字与完整样式未裁决。 |
