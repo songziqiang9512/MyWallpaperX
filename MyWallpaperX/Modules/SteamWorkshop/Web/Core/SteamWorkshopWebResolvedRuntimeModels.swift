@@ -6,6 +6,26 @@ extension SteamWorkshopService {
             return nil
         }
 
+        // mtime 键记忆缓存（与 webValidationReportCache / webRuntimeModelCache
+        // 同一纪律）：属性面板 rebuild、详情页、宿主桥解析闭包等高频同步
+        // 调用面在 mtime 态未变时零 IO 返回，只有首个未命中才走读盘校验
+        // 或冷解析。
+        let memoSignature = webProjectDescriptorSignature(for: record)
+        if let cached = webProjectDescriptorCache[record.id], cached.signature == memoSignature {
+            return cached.descriptor
+        }
+
+        guard let resolvedDescriptor = computeResolvedWebProjectDescriptor(for: record) else {
+            return nil
+        }
+        webProjectDescriptorCache[record.id] = CachedWebProjectDescriptor(
+            signature: memoSignature,
+            descriptor: resolvedDescriptor
+        )
+        return resolvedDescriptor
+    }
+
+    private func computeResolvedWebProjectDescriptor(for record: SteamWorkshopDownloadRecord) -> ResolvedWebProjectDescriptor? {
         if let cachedDescriptor = loadCachedWebProjectDescriptor(for: record) {
             return cachedDescriptor
         }
@@ -55,9 +75,10 @@ extension SteamWorkshopService {
             entryURL: standardizedEntryURL,
             rootURL: effectiveRootURL
         )
-        var runtimeRiskFlags = resolvedWebStructuralRiskFlags(for: record, sampleStructure: webSampleStructure(for: record))
-        runtimeRiskFlags = runtimeRiskFlags.union(with: resolvedWebStaticContentRiskFlags(from: staticContentSummary))
         let presetResourceBindingsByKey = resolvedWebPresetResourceBindings(for: record)
+        let sampleStructure = webSampleStructure(for: record)
+        var runtimeRiskFlags = resolvedWebStructuralRiskFlags(for: record, sampleStructure: sampleStructure)
+        runtimeRiskFlags = runtimeRiskFlags.union(with: resolvedWebStaticContentRiskFlags(from: staticContentSummary))
         let baselineVisiblePropertyKeys = propertyDefinitions
             .filter {
                 shouldDisplayWebProperty(
@@ -91,7 +112,7 @@ extension SteamWorkshopService {
             resolvedEntryURL: standardizedEntryURL,
             effectiveRootURL: effectiveRootURL,
             entrySource: entrySource,
-            sampleStructure: webSampleStructure(for: record),
+            sampleStructure: sampleStructure,
             propertySource: propertySource,
             propertyDefinitions: propertyDefinitions,
             defaultValueMap: baselineValues,

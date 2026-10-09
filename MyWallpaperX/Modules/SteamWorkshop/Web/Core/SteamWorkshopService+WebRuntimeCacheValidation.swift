@@ -36,7 +36,13 @@ extension SteamWorkshopService {
         if manifest.resolvedEntryModifiedAt != webRuntimeCacheResolvedEntryModifiedAt(for: record) {
             return false
         }
-        if manifest.resourceSignature != webRuntimeResourceSignature(for: record) {
+        // 会话新鲜清单快速路径：本会话后台保存段写入清单时刚完成同源签名
+        // 扫描，会话内校验免再扫（扫描是 mtime 键之外最强的资源级校验，
+        // 只对跨会话清单逐次执行——外部改动检测语义不变；上方 mtime/路径
+        // 等廉价键对本会话清单仍然逐项生效）。
+        let manifestIsSessionFresh = manifest.generatedAt >= webRuntimeCacheSessionStartDate
+        if manifestIsSessionFresh == false,
+           manifest.resourceSignature != webRuntimeResourceSignature(for: record) {
             return false
         }
         let currentEntryPath = record.webEntryURL?.resolvingSymlinksInPath().standardizedFileURL.path ?? ""
