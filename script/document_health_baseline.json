@@ -209,8 +209,8 @@
       "bytes": 6445
     },
     "docs/web/current-state.md": {
-      "lines": 107,
-      "bytes": 26990
+      "lines": 108,
+      "bytes": 28229
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 58,
@@ -1100,10 +1100,10 @@
     {
       "section": "bodies",
       "path": "docs/web/current-state.md",
-      "before": "9aed8e902df045dd2c95b79796d7eee48e98af6a47d703cc9bf4b861855d0763",
-      "after": "3c12330f3dfdf4e3d5a365221b15b99d393868e22dcc673738caa5d8904bfe8f",
+      "before": "3c12330f3dfdf4e3d5a365221b15b99d393868e22dcc673738caa5d8904bfe8f",
+      "after": "3b3da7fc883cec5eea0f1c7bb1d3dd5eb75586495e2e8884105a9a405a4916ee",
       "owner": "Web 现役状态",
-      "reason": "批三至批六证据行并入（点击代际、descriptor 记忆缓存、layer 保持恢复、冷解析下沉）；旧无预算增长一并收口。",
+      "reason": "批七双击实机序列证据行并入（rapid-double-launch 调试序列与代际护栏实机证明）。",
       "decision": "docs/web/cold-descriptor-parse-offload-design.md#验收"
     }
   ]

@@ -22,6 +22,7 @@ enum DebugWebPlaybackRunner {
             || arguments.contains("--mwx-debug-web-space-lifecycle-sequence")
             || arguments.contains("--mwx-debug-web-runtime-switch-sequence")
             || arguments.contains("--mwx-debug-web-failure-state-report")
+            || arguments.contains("--mwx-debug-web-rapid-double-launch")
     }
 
     private static var arguments: [String] {
@@ -99,6 +100,12 @@ enum DebugWebPlaybackRunner {
             return
         }
 
+        if let rapidIndex = arguments.firstIndex(of: "--mwx-debug-web-rapid-double-launch"),
+           arguments.indices.contains(rapidIndex + 1) {
+            scheduleRapidDoubleLaunchSequence(rawItemIDs: arguments[rapidIndex + 1])
+            return
+        }
+
         guard let flagIndex = arguments.firstIndex(of: "--mwx-debug-run-web-workshop-id"),
               arguments.indices.contains(flagIndex + 1) else { return }
         let itemID = arguments[flagIndex + 1]
@@ -114,6 +121,72 @@ enum DebugWebPlaybackRunner {
             NSLog("MWX DEBUG PLAY: using workshop root %@", service.libraryRootURL.path)
             service.reloadInstalledItems()
             Task { @MainActor in await launchWebWorkshopItem(itemID, using: service) }
+        }
+    }
+
+    /// 双击完成序倒置的实机验证序列：`--mwx-debug-web-rapid-double-launch <idA>,<idB>`
+    /// 在 A（冷缓存）解析在飞时点击 B（应预热），观察 `.steamWorkshopWebWallpaperReadyToPlay`
+    /// 实际发布序与最终壁纸归属——点击代际护栏下，B 点击之后只允许 B 的通知存在，
+    /// 最终引擎记录必须是 B。
+    private static func scheduleRapidDoubleLaunchSequence(rawItemIDs: String) {
+        let itemIDs = rawItemIDs
+            .split(separator: ",")
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard itemIDs.count == 2 else {
+            NSLog("MWX DEBUG RAPID LAUNCH: precondition=two-item-ids-required")
+            return
+        }
+        let firstID = itemIDs[0]
+        let secondID = itemIDs[1]
+
+        // 通知发布序记录（代际护栏的判据面：post 事件本身）。
+        let postedObserver = NotificationCenter.default.addObserver(
+            forName: .steamWorkshopWebWallpaperReadyToPlay,
+            object: nil,
+            queue: .main
+        ) { note in
+            let recordID = note.userInfo?["recordID"] as? String ?? "-"
+            let elapsed = String(format: "%.0f", Date().timeIntervalSinceReferenceDate * 1000)
+            NSLog("MWX DEBUG RAPID LAUNCH: posted record=%@ atMs=%@", recordID, elapsed)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            guard hasUsableWorkshopRoot else {
+                NSLog("MWX DEBUG RAPID LAUNCH: precondition=isolated-root-required")
+                return
+            }
+            let service = SteamWorkshopService.shared
+            service.reloadInstalledItems()
+            Task { @MainActor in
+                // 记录先就绪再开跑：整库扫描（异步单飞）不应占用点击间隔，
+                // 否则 B 的点击会落在 A 发布之后、踩不中竞态窗口。
+                guard let recordA = await awaitInstalledRecord(firstID, using: service),
+                      let recordB = await awaitInstalledRecord(secondID, using: service) else {
+                    NSLog("MWX DEBUG RAPID LAUNCH: precondition=records-missing")
+                    return
+                }
+                NSLog("MWX DEBUG RAPID LAUNCH: click a=%@", firstID)
+                service.setAsWallpaper(recordA)
+                // B 的点击落在 A 的异步解析窗口内（亚秒窗）。
+                try? await Task.sleep(for: .milliseconds(50))
+                NSLog("MWX DEBUG RAPID LAUNCH: click b=%@", secondID)
+                service.setAsWallpaper(recordB)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) {
+                let engine = WallpaperEngine.shared
+                let host = engine.dedicatedWebHostAdapter as? DedicatedWebWallpaperHostPlaceholderAdapter
+                NSLog(
+                    "MWX DEBUG RAPID LAUNCH: summary currentRecord=%@ phase=%@ surfaces=%ld",
+                    engine.currentWebRecordID ?? "-",
+                    host?.phase.rawValue ?? "unavailable",
+                    host?.surfaces.count ?? -1
+                )
+                NotificationCenter.default.removeObserver(postedObserver)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    NSApp.terminate(nil)
+                }
+            }
         }
     }
 
