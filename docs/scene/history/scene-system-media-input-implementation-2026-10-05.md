@@ -49,3 +49,11 @@ Debug build、provider五方法及Music/transport/Inbox十方法通过；Observe
 只读复核确认其余392:3、338:2/4是作者字面false，无公开设置或脚本激活；radial blur的varyingUnsupported保留为潜在通用能力缺口，不强改作者内容凑39/39。结合既有媒体、文件reset、字体/时钟/日期/显隐证据，本轮未发现剩余已证可见阻断；完整官方视觉/全播放器字段仍未证明，339粗估仍70–75%/低置信。按用户优先级转HDR/SDR，再重型样本启动；339继续作回归，不称全样本或整体Goal完成。
 
 必要日志/六图/命令与临时输入身份在 `/private/tmp/mwx-audio-modes-20261006/runtime_evidence.zip`，11,498,811 bytes，SHA256 `9d0cba38373ce65e42a2aad15045e864f15c1c16205983103af02cdcfbeb13a4`。证据根总预算已满，临时保留14天；取证后清理四轮HOME/截图重试及实验App，继续复用同任务构建缓存。
+
+<a id="single-replay"></a>
+
+## 单次动画重播与切歌文字（2026-10-09）
+
+U12 `3477054430` 的 billboard=true 副本在两次媒体属性事件后 Artist120 持续不可见，首断点为 completed Single 保持旧 elapsed，以及持久 alpha=0 压住 Timeline。沿唯一 playback state 与 layer candidate 修复；拒绝命令保留旧值，不加样本分支。官方2.8.0.42（EXE `daac1ea7…bda07`）自有 genericimage4 双卡两次重播分别56→120→128、64→128；六卡中三种含play赋值顺序渐显一致，play后pause/stop三卡保持首值26，未保留手写0.5对应64。旧genericimage2正控失败已排除；无play setter语义、头部鼠标输入未验。最终签名Debug dylib `1075c365…e3ecc` 在同一输入连续三轮恢复两卡；U12两次受控媒体事件实际显示ARTIST ONE/TWO，退出GPU排空。源码/App、输入SHA、官方序列和运行日志在 `.artifacts/tmp/u12-dynamic-media-20261009/` 的 `build-final.json`、`implementation-freeze.json`、`official/official-observation-receipt.json` 与 `native-media-billboard-final/`。受控媒体输入不证明外部播放器供给、封面替换、完整U12或全样本正确率。
+
+三个既有产品文件只补播放状态与已准入属性接管；Timeline 15、dynamic layer 16最近门通过，独立只读审查无阻塞。最终native六卡40帧中31帧在timer触发后，top三卡逐帧相同，bottom三卡全部RGB26。无play的setter/暂停、非alpha和跨owner官方顺序尚未作观测，不扩大合同。

@@ -522,7 +522,7 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "82c439449284b4c3eb6f042b8643746bc233b08c6814f14a16ac5a76c7b5712e",
+        "sourceSHA256": "a7bedde1f5415450a522d8710c40f485daaaaf00338e29620051c91d59f68636",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对聚光锥角共享合同、限定运行证据与U12剩余队列导航。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"

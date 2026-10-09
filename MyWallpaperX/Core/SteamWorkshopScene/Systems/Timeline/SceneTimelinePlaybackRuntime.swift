@@ -183,9 +183,13 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
             )
             switch mutation.command {
             case .play:
+                // A completed single animation starts a new run. Playing or
+                // paused positions before its end still resume in place.
+                let completed = binding.animation.options.mode == .single
+                    && elapsed >= binding.animation.options.length
                 candidate[stateIndex] = .playing(
                     anchorSceneTime: sceneTime,
-                    anchorElapsedFrames: elapsed
+                    anchorElapsedFrames: completed ? 0 : elapsed
                 )
             case .pause:
                 candidate[stateIndex] = .paused(elapsedFrames: elapsed)

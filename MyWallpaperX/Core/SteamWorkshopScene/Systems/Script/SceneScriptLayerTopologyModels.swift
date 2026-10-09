@@ -40,7 +40,7 @@ nonisolated struct SceneScriptLayerMutationPlan: Sendable {
     let dynamicLayersByID: [Int: SceneRenderDescriptor.Layer]
     let dynamicLayerCreatorTargetsByID: [Int: SceneDynamicTarget]
     let destroyedAuthoredLayerIDs: Set<Int>
-    let authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue]
+    var authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue]
     let authoredDefinitionOrder: [SceneDynamicTarget]
     let authoredDefinitionsByTarget:
         [SceneDynamicTarget: SceneDynamicTargetDefinition]

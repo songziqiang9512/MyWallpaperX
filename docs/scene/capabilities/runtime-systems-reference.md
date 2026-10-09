@@ -276,6 +276,8 @@ MyWallpaperX 当前的 `pointsize * 300 / 72` 直接来自官方 typings 对 `IT
 | Bézier | 默认平滑，可分别启用 left/right tangent 或关闭为 linear |
 | Combined animation | 多个不同 property 可共享同一 animation timeline |
 
+2026-10-09 有界播放补正：完成的 Single 再次 `play()` 从首帧启动；未到结尾的播放/暂停位置继续沿现有播放状态处理。获准的 `play()` 在既有 layer mutation candidate 中释放该 target 的持久脚本 setter，让同一 prepared Timeline 接管；同回调先后写 alpha，或 play 后立即 pause/stop，均不永久压住动画。外部命令/owner 被拒绝则重算 candidate 并保留旧 setter，其他 target 与 schema 不变；普通帧不新增 clock、表或解析。官方对照仅覆盖含 play 的六种 alpha 组合，无 play 的 setter/pause 语义未新增结论，见[连续重播证据](runtime-evidence-current.md#e-2026-10-09-single-replay)。
+
 ### 4.2 Animation Events
 
 事件绑定到特定 animation frame，并发送给同一 layer 的 SceneScript `animationEvent`。事件本身不直接播放声音、切换 layer 或创建 effect；脚本决定后续动作。

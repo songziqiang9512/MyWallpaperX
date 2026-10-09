@@ -462,6 +462,31 @@ enum Harness {
         }
         playbackPayload["afterRejected"] = playbackScalar(11, pausedTarget) ?? -1
         payload["playback"] = playbackPayload
+
+        let replay = SceneTimelinePlaybackRuntime(program: program)
+        func replayScalar(_ time: Double) -> Double {
+            guard case let .scalar(value)? = replay.values(sceneTime: time)[pausedTarget]
+            else { return -1 }
+            return value
+        }
+        _ = replay.apply([.init(target: pausedTarget, command: .play)], sceneTime: 2)
+        let completed = replayScalar(4)
+        let replayPreview = replay.preview([.init(target: pausedTarget, command: .play)], sceneTime: 9)
+        let beforeCommit = replayScalar(9)
+        _ = replay.apply([.init(target: pausedTarget, command: .play)], sceneTime: 9)
+        let restarted = replayScalar(9)
+        _ = replay.apply([.init(target: pausedTarget, command: .play)], sceneTime: 9.5)
+        let playingIsNotRewound = replayScalar(10)
+        _ = replay.apply([.init(target: pausedTarget, command: .play)], sceneTime: 15)
+        payload["singleReplay"] = [
+            "completed": completed,
+            "preview": String(describing: try! replayPreview.get()[pausedTarget]!),
+            "beforeCommit": beforeCommit,
+            "restarted": restarted,
+            "playingIsNotRewound": playingIsNotRewound,
+            "secondRestart": replayScalar(15),
+            "secondMidpoint": replayScalar(16),
+        ]
         let constantTarget = SceneDynamicTarget.effectConstant(
             layerID: 20, effectIndex: 0, passIndex: 0, name: "multiply"
         )
@@ -611,6 +636,16 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         self.assertAlmostEqual(playback["stopped"], 1.0)
         self.assertTrue(playback["atomicRejected"])
         self.assertAlmostEqual(playback["afterRejected"], 1.0)
+
+    def test_completed_single_restarts_without_rewinding_active_playback(self) -> None:
+        replay = self.result["singleReplay"]
+        self.assertEqual(replay["completed"], 0)
+        self.assertEqual(replay["beforeCommit"], 0)
+        self.assertEqual(replay["preview"], "scalar(1.0)")
+        self.assertEqual(replay["restarted"], 1)
+        self.assertAlmostEqual(replay["playingIsNotRewound"], 0.5)
+        self.assertEqual(replay["secondRestart"], 1)
+        self.assertAlmostEqual(replay["secondMidpoint"], 0.5)
 
     def test_prepared_program_has_frame_driven_uniform_consumption_proof(self) -> None:
         source = GRAPH_EXECUTOR_SOURCE.read_text(encoding="utf-8")

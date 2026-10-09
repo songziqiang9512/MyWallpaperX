@@ -525,6 +525,15 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             plan = particlePlaybackPlan(for: admitted, observations: particleObservations,
                 layerPlan: preflightIsolatingOwners(admitted.flatMap(\.layerMutations)))
         }
+        // An admitted play returns this property to its prepared Timeline,
+        // including when the callback also writes it or immediately pauses.
+        // Clear only the candidate value: external rejection rebuilds the plan
+        // from current state, preserving setters from rejected commands.
+        for effect in admitted {
+            for mutation in effect.animationMutations where mutation.command == .play {
+                plan.authoredLayerValues.removeValue(forKey: mutation.target)
+            }
+        }
         return .init(
             admittedEffects: admitted,
             rejectedOwners: rejected,

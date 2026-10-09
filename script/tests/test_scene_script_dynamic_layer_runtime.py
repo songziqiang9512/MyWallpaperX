@@ -61,11 +61,17 @@ nonisolated struct SceneScriptParticlePlaybackCommand: Sendable {
     let ordinal: UInt32
     var count: Int = 0
 }
+nonisolated enum SceneTimelinePlaybackCommand: Equatable, Sendable { case play, pause, stop }
+nonisolated struct SceneTimelinePlaybackMutation: Sendable {
+    let target: SceneDynamicTarget
+    let command: SceneTimelinePlaybackCommand
+}
 nonisolated struct SceneScriptOwnerEffects: Sendable {
     let ownerTarget: SceneDynamicTarget
     let layerMutations: [SceneScriptLayerMutation]
     var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
-    var animationMutations: [Int] = [], materialFunctionMutations: [Int] = []
+    var animationMutations: [SceneTimelinePlaybackMutation] = []
+    var materialFunctionMutations: [Int] = []
     var videoCommands: [Int] = [], textureAnimationCommands: [Int] = [], puppetBoneMutations: [Int] = []
     var puppetAnimationCommands: [Int] = []
     var puppetAnimationCallbackRegistrations: Int = 0
@@ -260,6 +266,37 @@ enum Harness {
         let styleAfterCommit = styleRuntime.snapshot()
         let invalidStyle = styleRuntime.apply([mutation(10, dynamic: false, alpha: -1, fields: [.alpha])])
         let styleAfterFailure = styleRuntime.snapshot()
+        let replayRuntime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [10])
+        let replayTarget = SceneDynamicTarget.layer(layerID: 10, field: .alpha)
+        let replayColor = SceneDynamicTarget.layer(layerID: 10, field: .color)
+        _ = replayRuntime.apply([mutation(10, dynamic: false, alpha: 0.25, fields: [.alpha, .color])])
+        let replayBefore = replayRuntime.snapshot()
+        let replayRevision = replayRuntime.authoredDefinitionRevision
+        func replayEffects(_ commands: [SceneTimelinePlaybackCommand]) -> [SceneScriptOwnerEffects] {
+            [.init(ownerTarget: replayTarget,
+                   layerMutations: [mutation(10, dynamic: false, alpha: 0, fields: [.alpha], ownerTarget: replayTarget)],
+                   animationMutations: commands.map { .init(target: replayTarget, command: $0) })]
+        }
+        let replayPlans = [[SceneTimelinePlaybackCommand.play], [.play, .pause], [.play, .stop]].map {
+            replayRuntime.preflightOwnerEffects(replayEffects($0)).layerPlan
+        }
+        let replayReadOnly = replayRuntime.snapshot().authoredLayerValues == replayBefore.authoredLayerValues
+        let replayReleased = replayPlans.allSatisfy {
+            $0.authoredLayerValues[replayTarget] == nil
+                && $0.authoredLayerValues[replayColor] == .vector3(1, 1, 1)
+        }
+        let pausedSetter = replayRuntime.preflightOwnerEffects(replayEffects([.pause]))
+        let rejectedReplay = replayRuntime.preflightOwnerEffectsToFixedPoint(replayEffects([.play])) { _ in [replayTarget] }
+        let rejectedReplayPreservesValue = rejectedReplay.admission.layerPlan.authoredLayerValues == replayBefore.authoredLayerValues
+        let invalidReplay = replayRuntime.preflightOwnerEffects([.init(
+            ownerTarget: replayTarget,
+            layerMutations: [mutation(10, dynamic: false, alpha: -1, fields: [.alpha], ownerTarget: replayTarget)],
+            animationMutations: [.init(target: replayTarget, command: .play)]
+        )])
+        replayRuntime.commit(replayPlans[0])
+        let replayCommitReleasedOnlyTarget = replayRuntime.snapshot().authoredLayerValues[replayTarget] == nil
+            && replayRuntime.snapshot().authoredLayerValues[replayColor] == .vector3(1, 1, 1)
+            && replayRuntime.authoredDefinitionRevision == replayRevision
         let beforeInvalidParticleAlpha = runtime.snapshot().authoredLayerValues
         let invalidParticleAlpha = runtime.apply([mutation(10, dynamic: false, fields: [.particleAlpha])])
         let invalidParticleAlphaPreservesValues = runtime.snapshot().authoredLayerValues == beforeInvalidParticleAlpha
@@ -420,8 +457,8 @@ enum Harness {
         )
         let projectionOwnerA = budgetOwnerA, projectionOwnerB = budgetOwnerB
         let projectionEffects = [
-            SceneScriptOwnerEffects(ownerTarget: projectionOwnerA, layerMutations: [], animationMutations: [-1]),
-            SceneScriptOwnerEffects(ownerTarget: projectionOwnerB, layerMutations: [], animationMutations: [2]),
+            SceneScriptOwnerEffects(ownerTarget: projectionOwnerA, layerMutations: [], videoCommands: [-1]),
+            SceneScriptOwnerEffects(ownerTarget: projectionOwnerB, layerMutations: [], videoCommands: [2]),
         ]
         var particleRejectedSets: [Set<SceneDynamicTarget>] = []
         var particleEligibleCommands: [[Int]] = []
@@ -429,24 +466,24 @@ enum Harness {
             projectionEffects,
             rejectingParticleTransitions: { _, admitted, rejected in
                 particleRejectedSets.append(rejected)
-                let commands = admitted.filter { !rejected.contains($0.ownerTarget) }.flatMap(\.animationMutations)
+                let commands = admitted.filter { !rejected.contains($0.ownerTarget) }.flatMap(\.videoCommands)
                 particleEligibleCommands.append(commands)
                 return commands.contains(-1) ? [projectionOwnerB] : []
             }
         ) { admitted in
-            Set(admitted.filter { $0.animationMutations.contains(-1) }.map(\.ownerTarget))
+            Set(admitted.filter { $0.videoCommands.contains(-1) }.map(\.ownerTarget))
         }
         var projectedCommandRounds: [[Int]] = []
         let laterRejection = projectionRuntime.preflightOwnerEffectsToFixedPoint(
             projectionEffects.map { owner in
                 .init(ownerTarget: owner.ownerTarget, layerMutations: [],
-                      animationMutations: owner.animationMutations.map(abs))
+                      videoCommands: owner.videoCommands.map(abs))
             },
             rejectingDependents: { rejected in
                 rejected.union([projectionOwnerA, budgetOwnerC])
             }
         ) { admitted in
-            projectedCommandRounds.append(admitted.flatMap(\.animationMutations))
+            projectedCommandRounds.append(admitted.flatMap(\.videoCommands))
             return []
         }
         let destroy = runtime.apply([mutation(-1, kind: .destroy, order: 2)])
@@ -548,6 +585,12 @@ enum Harness {
         ])
         let mixedBOrder = mixedBRuntime.snapshot().renderOrderLayerIDs
         let payload: [String: Any] = [
+            "replayCandidateIsReadOnly": replayReadOnly,
+            "replayReleasesOnlyTargetIncludingImmediatePauseStop": replayReleased,
+            "pausedSetterWithoutPlayIsRetained": pausedSetter.layerPlan.authoredLayerValues[replayTarget] == .scalar(0),
+            "externallyRejectedPlayPreservesSetter": rejectedReplayPreservesValue,
+            "invalidOwnerPlayPreservesSetter": invalidReplay.layerPlan.authoredLayerValues == replayBefore.authoredLayerValues,
+            "replayCommitKeepsSchemaAndPeer": replayCommitReleasedOnlyTarget,
             "nonParticleInstanceAlphaRejected": !succeeded(invalidParticleAlpha) && invalidParticleAlphaPreservesValues,
             "styleBeforeCommit": styleBeforeCommit,
             "styleAlphaPublished": styleAfterCommit.authoredLayerValues[.layer(layerID: 10, field: .alpha)] == .scalar(0.25),
@@ -808,6 +851,18 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["dynamicImageUpdateSucceeded"])
         for actual, expected in zip(self.result["dynamicImageUpdatedColor"], [0.8, 0.4, 0.2]):
             self.assertAlmostEqual(actual, expected, places=6)
+
+    def test_admitted_play_releases_setter_without_losing_rejected_or_paused_values(self) -> None:
+        for key in (
+            "replayCandidateIsReadOnly",
+            "replayReleasesOnlyTargetIncludingImmediatePauseStop",
+            "pausedSetterWithoutPlayIsRetained",
+            "externallyRejectedPlayPreservesSetter",
+            "invalidOwnerPlayPreservesSetter",
+            "replayCommitKeepsSchemaAndPeer",
+        ):
+            with self.subTest(key=key):
+                self.assertTrue(self.result[key])
 
     def test_definition_revision_tracks_schema_changes_only(self) -> None:
         self.assertTrue(self.result["definitionRevisionBumped"])
