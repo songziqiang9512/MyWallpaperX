@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 595,
-      "bytes": 112609
+      "lines": 598,
+      "bytes": 114290
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 171214
+      "bytes": 171421
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -93,12 +93,12 @@
       "bytes": 341542
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 93,
-      "bytes": 27584
+      "lines": 94,
+      "bytes": 28038
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
-      "bytes": 174395
+      "bytes": 174547
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 224,
-      "bytes": 59833
+      "bytes": 59808
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1094,15 +1094,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "b5b33ca6606ff335968b151d4061fff699e40df1427b1dfdb8a9ad92057460fe",
-      "after": "e41600aabb046f92debed2c55cedbe81f559714b03f95c002e0e3fb5a11db78c",
-      "owner": "Scene模型材质caster准入",
-      "reason": "以成对官方控制修复prepared材质语义丢失；长期准入合同与已验长暗带归档，土星余项按用户调序暂缓并保明确重启边界。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#translucent-model-shadow"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/css-animation-freeze-redesign.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
       "after": "5bbf0cd3c998c680452477614f8302310b4de6d6d681713b28520cddac9c9639",
@@ -1113,29 +1104,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "6f63035c663f810a0422f806593d15b495722164d0df785b4efc5b23804f7ac5",
-      "after": "ebce0bf190e96dd0e9a14838fa59de043f7d0dc9ba6ae9a68d56f6c2a5e72ccb",
-      "owner": "Scene共享源材质",
-      "reason": "将已验动态共享源、统一style消费与有限HSV合同合并现owner；完成过程归历史，待修队列转U06，不新增并行路线。",
-      "decision": "docs/scene/history/source-material-entry-2026-10-08.md#动态共享源与颜色范围后继"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "044b03fd330da62cbfa7bbb454c587b482c59892568b0bd15669f877b17d35b6",
-      "after": "57aedb36841ff02b5ca080f100b31ec69b6733075b09eda13eff5ed58a7de77c",
-      "owner": "Scene共享源材质",
-      "reason": "将已验动态共享源、统一style消费与有限HSV合同合并现owner；完成过程归历史，待修队列转U06，不新增并行路线。",
-      "decision": "docs/scene/history/source-material-entry-2026-10-08.md#动态共享源与颜色范围后继"
+      "before": "ebce0bf190e96dd0e9a14838fa59de043f7d0dc9ba6ae9a68d56f6c2a5e72ccb",
+      "after": "863b00f3bca7842a909644929b89db14830144f0cd4aa3fa50fb7c26472ea084",
+      "owner": "Scene内嵌视频provider",
+      "reason": "合入有界WebM容器准备及原包验证，已完成过程归历史；修正U06首断点、明确剩余effect与下一回归样本，不扩增平行路线。",
+      "decision": "docs/scene/history/embedded-webm-video-2026-10-10.md#首断点与实现"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6e27bb601fd061d2a16654727f25420cc0344ca5329a61fbdd0ba7114733e67b",
-      "after": "64082f5ef06589fb152f877ed106a222a5601f91da86f00cfd388b3312c5179f",
-      "owner": "Scene共享源材质",
-      "reason": "将已验动态共享源、统一style消费与有限HSV合同合并现owner；完成过程归历史，待修队列转U06，不新增并行路线。",
-      "decision": "docs/scene/history/source-material-entry-2026-10-08.md#动态共享源与颜色范围后继"
+      "before": "64082f5ef06589fb152f877ed106a222a5601f91da86f00cfd388b3312c5179f",
+      "after": "862258a0c74c6525f8d45af9f785649f1b97eb57b3512a52ca50b89e76126d86",
+      "owner": "Scene内嵌视频provider",
+      "reason": "合入有界WebM容器准备及原包验证，已完成过程归历史；修正U06首断点、明确剩余effect与下一回归样本，不扩增平行路线。",
+      "decision": "docs/scene/history/embedded-webm-video-2026-10-10.md#首断点与实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "e41600aabb046f92debed2c55cedbe81f559714b03f95c002e0e3fb5a11db78c",
+      "after": "62c30b582203e96e3ee0c3d3c467249e736e3a736498a1b4f443a2623abe301c",
+      "owner": "Scene内嵌视频provider",
+      "reason": "合入有界WebM容器准备及原包验证，已完成过程归历史；修正U06首断点、明确剩余effect与下一回归样本，不扩增平行路线。",
+      "decision": "docs/scene/history/embedded-webm-video-2026-10-10.md#首断点与实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "768f1412eac4583c0d84cd54309899dfc5c750fff82d955ed8eaa49b76447c49",
+      "after": "377e7851f9464c30b2517e1bf8dd71896a7edef1fe6acc6b4a18e53508844e03",
+      "owner": "Scene内嵌视频provider",
+      "reason": "合入有界WebM容器准备及原包验证，已完成过程归历史；修正U06首断点、明确剩余effect与下一回归样本，不扩增平行路线。",
+      "decision": "docs/scene/history/embedded-webm-video-2026-10-10.md#首断点与实现"
     }
   ]
 }

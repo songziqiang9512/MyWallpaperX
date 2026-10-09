@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import html
 import json
 import os
@@ -18,6 +19,7 @@ from script.document_registry import managed_documents
 from script.source_authority import (
     authority_metric_digest,
     authority_relocation_transition_violations,
+    capability_addition_transition_violations,
     classification_transition_violations,
     render_chain_authority_violations,
     render_chain_completion_violations,
@@ -301,8 +303,6 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                 violations.append(f"{rule_id}: committed rule was removed")
                 continue
             violations.extend(classification_transition_violations(old_rule, new_rule))
-            if int(new_rule["baseline_occurrences"]) > int(old_rule["baseline_occurrences"]):
-                violations.append(f"{rule_id}: baseline occurrence increased")
             renamed_allowed = {
                 renamed_scene_files.get(path, path)
                 for path in old_rule["allowed_files"]
@@ -328,6 +328,26 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             violations.extend(relocation_errors)
             exact_owner_relocated = (new_rule.get("owner_relocation") is not None
                                      and old_rule.get("owner_relocation") is None and not relocation_errors)
+            if new_rule.get("capability_addition") is not None and old_rule.get("capability_addition") is None:
+                for relative in set(old_rule["allowed_files"]) | {"Format/SceneWebMContainer.swift"}:
+                    source = subprocess.run(
+                        ["git", "show", f"{base_ref}:{scene_prefix}{relative}"], cwd=REPOSITORY_ROOT,
+                        capture_output=True, text=True, check=False)
+                    if source.returncode == 0:
+                        previous_sources[relative] = source.stdout
+                current_sources = {path.relative_to(SCENE_SOURCE_ROOT).as_posix(): path.read_bytes().decode("utf-8")
+                                   for path in SCENE_SOURCE_ROOT.rglob("*.swift")}
+            elif new_rule.get("capability_addition") is not None:
+                path = SCENE_SOURCE_ROOT / "Format/SceneWebMContainer.swift"
+                if path.is_file():
+                    current_sources["Format/SceneWebMContainer.swift"] = path.read_bytes().decode("utf-8")
+            addition_errors = capability_addition_transition_violations(
+                old_rule, new_rule, previous_sources, current_sources)
+            violations.extend(addition_errors)
+            exact_capability_added = (new_rule.get("capability_addition") is not None
+                                     and old_rule.get("capability_addition") is None and not addition_errors)
+            if int(new_rule["baseline_occurrences"]) > int(old_rule["baseline_occurrences"]) and not exact_capability_added:
+                violations.append(f"{rule_id}: baseline occurrence increased")
             new_allowed = set(new_rule["allowed_files"])
             new_only_allowed = new_allowed - renamed_allowed
             old_only_allowed = renamed_allowed - new_allowed
@@ -361,6 +381,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                 not new_allowed.issubset(renamed_allowed)
                 and not inventory_consolidated_without_growth
                 and not exact_owner_relocated
+                and not exact_capability_added
             ):
                 violations.append(f"{rule_id}: allowed file set increased")
             renamed_scope = {
@@ -720,6 +741,79 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             self.assertEqual(classification_transition_violations(new, retired), [])
             reopened["classification_migration"]["from_contract_sha256"] = authority_metric_digest(retired)
             self.assertTrue(classification_transition_violations(retired, reopened))
+
+    def test_capability_addition_binds_exact_source_and_cannot_reopen_growth(self) -> None:
+        old = next(rule for rule in json.loads(SCENE_LAYOUT_PATH.read_text())["render_chain_authority_ratchet"]["rules"]
+                   if rule["id"] == "shape-derived-analyzer-fleet")
+        old = {**old, "baseline_occurrences": 65, "allowed_files": ["Legacy.swift"], "classifications": []}
+        old.pop("capability_addition", None)
+        file = "Format/SceneWebMContainer.swift"
+        source = "nonisolated enum SceneWebMContainer {\n    private struct Parser { func read() {} }\n}\n"
+        previous = {"Legacy.swift": "\n".join(f"struct Legacy{i}Parser {{}}" for i in range(65))}
+        current = {**previous, file: source}
+        new = {**old, "baseline_occurrences": 66, "allowed_files": [file, "Legacy.swift"]}
+        new["capability_addition"] = {
+            "file": file, "scope": [{"kind": "enum", "name": "SceneWebMContainer"}],
+            "declaration": "private struct Parser", "source_sha256": hashlib.sha256(source.encode()).hexdigest(),
+            "from_contract_sha256": authority_metric_digest(old), "to_contract_sha256": authority_metric_digest(new),
+            "design_doc": "docs/scene/architecture/runtime-architecture.md", "design_area": "scene-embedded-webm-video",
+            "owner": "format preparation", "reason": "public container capability", "retirement": "complete inventory retirement",
+        }
+        self.assertEqual(capability_addition_transition_violations(old, new, previous, current), [])
+        for field in new["capability_addition"]:
+            changed = copy.deepcopy(new)
+            changed["capability_addition"].pop(field)
+            self.assertTrue(capability_addition_transition_violations(old, changed, previous, current), field)
+        for field in ("from_contract_sha256", "to_contract_sha256", "source_sha256", "design_doc", "design_area", "file"):
+            changed = copy.deepcopy(new); changed["capability_addition"][field] = "forged"
+            self.assertTrue(capability_addition_transition_violations(old, changed, previous, current), field)
+        for mutation in (source + "\nstruct ExtraParser {}", source.replace("SceneWebMContainer", "OtherOwner"),
+                         source.replace("    private struct", "#if DEBUG\n    private struct").replace("\n}", "\n#endif\n}")):
+            changed = copy.deepcopy(new)
+            changed["capability_addition"]["source_sha256"] = hashlib.sha256(mutation.encode()).hexdigest()
+            self.assertTrue(capability_addition_transition_violations(old, changed, previous, {**current, file: mutation}))
+        for sources in ({**current, "Extra.swift": "struct ExtraParser {}"}, previous,
+                        {**current, "Legacy.swift": previous["Legacy.swift"] + "\nstruct ExtraParser {}"}):
+            self.assertTrue(capability_addition_transition_violations(old, new, previous, sources))
+        self.assertTrue(capability_addition_transition_violations(old, new, {**previous, file: "struct Prior {}"}, current))
+        for field, value in (("baseline_occurrences", 67), ("allowed_files", [file, "Legacy.swift", "Extra.swift"]),
+                             ("scope_files", [file]), ("pattern", "NEVER"), ("classifications", [])):
+            changed = copy.deepcopy(new); changed[field] = value
+            if field == "classifications": changed[field] = [{"file": file}]
+            changed["capability_addition"]["to_contract_sha256"] = authority_metric_digest(changed)
+            self.assertTrue(capability_addition_transition_violations(old, changed, previous, current), field)
+            self.assertTrue(capability_addition_transition_violations(new, changed, {}, {}), field)
+        self.assertEqual(capability_addition_transition_violations(new, copy.deepcopy(new), {}, current), [])
+        self.assertEqual(capability_addition_transition_violations(new, copy.deepcopy(new), {},
+                         {**current, file: source.replace("func read() {}", "func read() { let fixed = 1 }")}), [])
+        self.assertTrue(capability_addition_transition_violations(new, copy.deepcopy(new), {},
+                        {**current, file: source.replace("SceneWebMContainer", "OtherOwner")}))
+        for action in ("remove", "rewrite"):
+            changed = copy.deepcopy(new)
+            if action == "remove": del changed["capability_addition"]
+            else: changed["capability_addition"]["reason"] = "rewritten receipt"
+            self.assertTrue(capability_addition_transition_violations(new, changed, {}, {}))
+        retired = {**new, "baseline_occurrences": 0, "allowed_files": [], "classifications": []}
+        del retired["capability_addition"]
+        self.assertEqual(capability_addition_transition_violations(new, retired, {}, {}), [])
+        self.assertTrue(capability_addition_transition_violations(retired, new, {}, current))
+
+    def test_capability_addition_missing_receipt_cannot_raise_live_ratchet(self) -> None:
+        layout = json.loads(SCENE_LAYOUT_PATH.read_text())
+        rule = next(rule for rule in layout["render_chain_authority_ratchet"]["rules"]
+                    if rule["id"] == "shape-derived-analyzer-fleet")
+        committed = next(rule for rule in committed_scene_layout()["render_chain_authority_ratchet"]["rules"]
+                         if rule["id"] == "shape-derived-analyzer-fleet")
+        message = "committed capability receipt" if "capability_addition" in committed else "baseline occurrence increased"
+        rule.pop("capability_addition", None)
+        if "capability_addition" not in committed:
+            rule["baseline_occurrences"] = committed["baseline_occurrences"] + 1
+        with tempfile.TemporaryDirectory(prefix="mwx-capability-receipt-") as temporary:
+            path = Path(temporary) / "layout.json"
+            path.write_text(json.dumps(layout))
+            with patch.dict(globals(), SCENE_LAYOUT_PATH=path):
+                with self.assertRaisesRegex(AssertionError, message):
+                    self.test_render_chain_ratchet_cannot_rise_above_committed_baseline()
 
     def test_render_chain_completion_distinguishes_inventory_from_retirement(self) -> None:
         rules = [

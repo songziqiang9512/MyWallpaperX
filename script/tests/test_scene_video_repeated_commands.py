@@ -8,6 +8,24 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 PROVIDERS = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers"
+SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+
+
+def compile_probe(work):
+    compiled = subprocess.run([
+        "swiftc", "-parse-as-library", "-default-isolation", "MainActor",
+        "-swift-version", "5",
+        str(PROVIDERS / "SceneVideoProviderLifecycleState.swift"),
+        str(SCENE / "Format/SceneWebMContainer.swift"),
+        str(PROVIDERS / "SceneVideoPayloadPreparation.swift"),
+        str(SCENE / "Resources/Textures/SceneResourceBudget.swift"),
+        str(PROVIDERS / "SceneVideoTextureSource.swift"),
+        str(ROOT / "script/tests/fixtures/SceneVideoRepeatedCommandsHarness.swift"),
+        "-module-cache-path", str(work / "module-cache"),
+        "-o", str(work / "probe")
+    ], capture_output=True, text=True, timeout=120)
+    if compiled.returncode:
+        raise RuntimeError(compiled.stderr)
 
 class SceneVideoRepeatedCommandsTests(unittest.TestCase):
     def test_repeated_commands_preserve_playback_and_real_transitions_work(self):
@@ -20,14 +38,7 @@ class SceneVideoRepeatedCommandsTests(unittest.TestCase):
                 "testsrc2=size=320x180:rate=30:duration=12", "-c:v", "libx264",
                 "-pix_fmt", "yuv420p", str(work / "clip.mp4")
             ], check=True, capture_output=True, timeout=30)
-            subprocess.run([
-                "swiftc", "-parse-as-library",
-                str(PROVIDERS / "SceneVideoProviderLifecycleState.swift"),
-                str(PROVIDERS / "SceneVideoTextureSource.swift"),
-                str(ROOT / "script/tests/fixtures/SceneVideoRepeatedCommandsHarness.swift"),
-                "-module-cache-path", str(work / "module-cache"),
-                "-o", str(work / "probe")
-            ], check=True, capture_output=True, timeout=120)
+            compile_probe(work)
             run = subprocess.run([str(work / "probe"), str(work)],
                                  check=True, capture_output=True, text=True, timeout=30)
             result = json.loads(run.stdout)
@@ -69,12 +80,7 @@ class SceneVideoRepeatedCommandsTests(unittest.TestCase):
             subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i",
                 "testsrc2=size=320x180:rate=30:duration=10", "-c:v", "libx264",
                 "-pix_fmt", "yuv420p", str(work / "clip.mp4")], check=True, capture_output=True)
-            subprocess.run(["swiftc", "-parse-as-library",
-                str(PROVIDERS / "SceneVideoProviderLifecycleState.swift"),
-                str(PROVIDERS / "SceneVideoTextureSource.swift"),
-                str(ROOT / "script/tests/fixtures/SceneVideoRepeatedCommandsHarness.swift"),
-                "-module-cache-path", str(work / "module-cache"), "-o", str(work / "probe")],
-                check=True, capture_output=True, timeout=120)
+            compile_probe(work)
             run = subprocess.run([str(work / "probe"), str(work), "--paused-seek"],
                 check=True, capture_output=True, text=True, timeout=20)
             result = json.loads(run.stdout)
@@ -99,12 +105,7 @@ class SceneVideoRepeatedCommandsTests(unittest.TestCase):
                 "testsrc2=size=320x180:rate=30:duration=2", "-c:v", "libx264",
                 "-pix_fmt", "yuv420p", str(work / "clip.mp4")],
                 check=True, capture_output=True, timeout=30)
-            subprocess.run(["swiftc", "-parse-as-library",
-                str(PROVIDERS / "SceneVideoProviderLifecycleState.swift"),
-                str(PROVIDERS / "SceneVideoTextureSource.swift"),
-                str(ROOT / "script/tests/fixtures/SceneVideoRepeatedCommandsHarness.swift"),
-                "-module-cache-path", str(work / "module-cache"), "-o", str(work / "probe")],
-                check=True, capture_output=True, timeout=120)
+            compile_probe(work)
             run = subprocess.run([str(work / "probe"), str(work), "--loop-phase"],
                 check=True, capture_output=True, text=True, timeout=20)
             result = json.loads(run.stdout)
@@ -130,12 +131,7 @@ class SceneVideoRepeatedCommandsTests(unittest.TestCase):
                 "testsrc2=size=320x180:rate=30:duration=2", "-c:v", "libx264",
                 "-pix_fmt", "yuv420p", str(work / "clip.mp4")],
                 check=True, capture_output=True, timeout=30)
-            subprocess.run(["swiftc", "-parse-as-library",
-                str(PROVIDERS / "SceneVideoProviderLifecycleState.swift"),
-                str(PROVIDERS / "SceneVideoTextureSource.swift"),
-                str(ROOT / "script/tests/fixtures/SceneVideoRepeatedCommandsHarness.swift"),
-                "-module-cache-path", str(work / "module-cache"), "-o", str(work / "probe")],
-                check=True, capture_output=True, timeout=120)
+            compile_probe(work)
             for looping in (True, False):
                 with self.subTest(looping=looping):
                     args = [str(work / "probe"), str(work), "--eof-discard"]
@@ -166,6 +162,79 @@ class SceneVideoRepeatedCommandsTests(unittest.TestCase):
                         self.assertFalse(result["finalPlaying"])
                         self.assertAlmostEqual(result["time"], 2)
                         self.assertAlmostEqual(result["finalTime"], 2)
+
+    def test_webm_preparation_uses_real_player_frames_and_stop_cancels_publication(self):
+        if any(not shutil.which(tool) for tool in ("swiftc", "ffmpeg", "ffprobe")):
+            self.skipTest("Swift, ffmpeg and ffprobe are required for real WebM evidence")
+        with tempfile.TemporaryDirectory(prefix="mwx-video-webm-") as tmp:
+            work = Path(tmp)
+            subprocess.run([
+                "ffmpeg", "-v", "error", "-f", "lavfi", "-i",
+                "testsrc2=size=320x180:rate=30:duration=2", "-c:v", "libvpx-vp9",
+                "-deadline", "realtime", "-cpu-used", "8", "-g", "30",
+                "-pix_fmt", "yuv420p", str(work / "clip.webm")
+            ], check=True, capture_output=True, timeout=30)
+            packets = json.loads(subprocess.run([
+                "ffprobe", "-v", "error", "-select_streams", "v:0", "-show_packets",
+                "-show_entries", "packet=pts_time", "-of", "json",
+                str(work / "clip.webm")
+            ], check=True, capture_output=True, text=True, timeout=10).stdout)["packets"]
+            source_pts = [float(packet["pts_time"]) for packet in packets]
+            compile_probe(work)
+            result = json.loads(subprocess.run(
+                [str(work / "probe"), str(work), "--webm"],
+                check=True, capture_output=True, text=True, timeout=20).stdout)
+            self.assertTrue(result["initialItemPending"])
+            self.assertTrue(result["pendingCommandsHeld"])
+            self.assertTrue(result["preparedFilePresent"])
+            self.assertAlmostEqual(result["duration"], 2, delta=0.002)
+            self.assertTrue(result["initialRows"])
+            self.assertAlmostEqual(result["initialRows"][0][1], 0.7, delta=1 / 30)
+            self.assertGreater(len(result["playingRows"]), 5)
+            self.assertTrue(result["pauseHeld"])
+            self.assertEqual(result["pausedRefreshRows"], [])
+            self.assertTrue(result["seekRows"])
+            self.assertTrue(all(abs(row[1] - 0.3) < 1 / 30 for row in result["seekRows"]))
+            self.assertGreaterEqual(result["ends"], 2)
+            self.assertGreaterEqual(result["decodedWraps"], 2)
+            rows = sum((result[phase] for phase in
+                        ("initialRows", "playingRows", "seekRows", "loopRows")), [])
+            self.assertGreater(len(rows), 50)
+            self.assertTrue(all(row[3:6] == [320, 180, True] for row in rows))
+            self.assertLess(result["firstTexture"]["rgbRange"][0],
+                            result["firstTexture"]["rgbRange"][1])
+            self.assertNotEqual(result["firstTexture"]["sha256"],
+                                result["playingTexture"]["sha256"])
+            off_grid = [(phase, row[:3]) for phase in
+                        ("initialRows", "playingRows", "seekRows", "loopRows")
+                        for row in result[phase]
+                        # AVPlayer may retime the first display buffer after
+                        # seek/EOF. The harness tags that phase before copying,
+                        # from command/EOF/backend state, never from PTS error.
+                        if row[6] == "steady"
+                        if min(abs(row[1] - pts) for pts in source_pts) >= 0.002]
+            self.assertEqual(off_grid, [],
+                             "decoded PTS off source packet grid: " + repr(off_grid[:10]))
+            self.assertGreater(sum(row[6] == "steady" for row in rows), 30)
+            loop_spans = [[]]
+            previous_display = None
+            for row in result["loopRows"]:
+                if previous_display is not None and row[1] < previous_display:
+                    loop_spans.append([])
+                previous_display = row[1]
+                if row[6] == "steady":
+                    loop_spans[-1].append(row)
+            self.assertGreaterEqual(sum(len(span) >= 5 for span in loop_spans), 2,
+                                    "source-grid assertions need steady frames across loops")
+            generations = [row[2] for row in rows]
+            self.assertTrue(all(b == a + 1 for a, b in zip(generations, generations[1:])))
+            self.assertTrue(result["stoppedFrameAbsent"])
+            self.assertTrue(result["stoppedItemAbsent"])
+            self.assertEqual(result["filesAfterStop"], [])
+            self.assertTrue(result["cancelStartedPending"])
+            self.assertTrue(result["cancelLateFrameAbsent"])
+            self.assertTrue(result["cancelLateItemAbsent"])
+            self.assertEqual(result["cancelFilesAfterSettle"], [])
 
 if __name__ == "__main__":
     unittest.main()

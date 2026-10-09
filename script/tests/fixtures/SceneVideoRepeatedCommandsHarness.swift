@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import Metal
 import QuartzCore
+import CryptoKit
 
 // Standalone compilation shims for value envelopes outside the provider under test.
 // AVPlayer, pixel decoding, Metal textures, lifecycle and command execution are production code.
@@ -23,11 +24,14 @@ struct SceneTextureProviderPublication { let requestIdentity: FrameIdentity; let
 
 @main enum Harness {
  static func main() throws {
-  let root=URL(fileURLWithPath:CommandLine.arguments[1]);let data=try Data(contentsOf:root.appendingPathComponent("clip.mp4"))
-  guard let device=MTLCreateSystemDefaultDevice(), let source=SceneVideoTextureSource(layerID:7,mp4PayloadData:data,cacheDirectory:root,device:device) else { fatalError("provider unavailable") }
+  let root=URL(fileURLWithPath:CommandLine.arguments[1])
+  let isWebM=CommandLine.arguments.contains("--webm")
+  let data=try Data(contentsOf:root.appendingPathComponent(isWebM ? "clip.webm" : "clip.mp4"))
+  guard let device=MTLCreateSystemDefaultDevice(), let source=SceneVideoTextureSource(layerID:7,mp4PayloadData:data,isWebM:isWebM,cacheDirectory:root,device:device) else { fatalError("provider unavailable") }
   defer { source.stop() }
   // Observe the actual AVPlayer without changing product APIs or replacing its backend.
   let player=Mirror(reflecting:source).children.compactMap{$0.value as? AVPlayer}.first!
+  if isWebM { try webM(source,player,data:data,root:root,device:device); return }
   if CommandLine.arguments.contains("--eof-discard") { try eofDiscard(source, player, looping: !CommandLine.arguments.contains("--no-loop")); return }
   if CommandLine.arguments.contains("--paused-seek") { try pausedSeek(source); return }
   if CommandLine.arguments.contains("--loop-phase") { try loopPhase(source); return }
@@ -67,6 +71,90 @@ struct SceneTextureProviderPublication { let requestIdentity: FrameIdentity; let
   _=source.currentFrame(for:rejectedTiming);let retried=pump(0.3);let retryRate=player.rate
   let result:[String:Any] = ["beforeRate":beforeRate,"afterRepeatedPlayRate":afterPlayRate,"afterUnchangedRate":afterSameRate,"initialFrames":initial.count,"repeatedPlayFrames":repeated.count,"repeatedPlayTimes":repeated,"decodedTimes":decodedTimes,"repeatedDecodedTimes":repeatedDecodedTimes,"repeatedRequestedTimes":repeatedRequestedTimes,"requestedTimes":requestedTimes,"pauseHeld":abs(held.currentTime-pausedTime)<0.000001 && !held.isPlaying,"resumedFrames":resumed.count,"seekFrames":sought.count,"seekFirst":sought.first ?? -1,"seekLast":sought.last ?? -1,"wrongLayerIgnored":wrongIgnored,"changedRate":changedRate,"fasterTimes":faster,"invalidRateIgnored":invalidRateIgnored,"recoveredRate":recoveredRate,"recoveredFrames":recovered.count,"retryRate":retryRate,"retriedFrames":retried.count]
   let encoded=try JSONSerialization.data(withJSONObject:result,options:[.prettyPrinted,.sortedKeys]); print(String(decoding:encoded,as:UTF8.self))
+ }
+ static func webM(_ source:SceneVideoTextureSource,_ player:AVPlayer,data:Data,root:URL,device:MTLDevice) throws {
+  let start=CACurrentMediaTime();var frame:UInt64=0;var generation:UInt64=0
+  var last:SceneVideoTextureSource.Frame?
+  func timing()->SceneFrameTiming {let now=CACurrentMediaTime();frame+=1;return .init(frameIndex:frame,hostTime:now,sceneTime:now-start)}
+  func command(_ action:SceneScriptVideoCommand.Action) {source.apply(.init(layerID:7,action:action),timing:timing())}
+  func pump(_ seconds:Double,untilFirst:Bool=false)->[[Any]] {
+   let end=CACurrentMediaTime()+seconds;var rows:[[Any]]=[]
+   var anchorPending=true
+   var knownEnd=source.playbackSnapshot(sceneTime:timing().sceneTime).endedGeneration
+   while CACurrentMediaTime()<end {
+    let snapshot=source.playbackSnapshot(sceneTime:timing().sceneTime)
+    // Mark the phase before observing displayTime. Explicit commands above
+    // start an anchor; EOF or an actually paused backend requires a new one.
+    if snapshot.endedGeneration != knownEnd || (snapshot.isPlaying && player.rate == 0) {anchorPending=true}
+    knownEnd=snapshot.endedGeneration
+    if let f=source.currentFrame(for:timing()),f.contentGeneration != generation {
+     generation=f.contentGeneration;last=f
+     let opaque:Bool
+     if case .color(.resolved(.opaque))=f.content {opaque=true} else {opaque=false}
+     rows.append([f.requestedItemTime,f.decodedItemTime ?? -1,f.contentGeneration,f.texture.width,f.texture.height,opaque,anchorPending ? "reanchor" : "steady"])
+     anchorPending=false
+     if untilFirst {break}
+    }
+    RunLoop.current.run(until:Date(timeIntervalSinceNow:1.0/120))
+   };return rows
+  }
+  func files(_ directory:URL)->[String] {
+   let payloads=directory.appendingPathComponent(".mywallpaperx-scene-video-payloads")
+   return ((try? FileManager.default.contentsOfDirectory(atPath:payloads.path)) ?? []).sorted()
+  }
+  func textureWitness(_ value:SceneVideoTextureSource.Frame)->[String:Any] {
+   let width=value.texture.width,height=value.texture.height,rowBytes=width*4,length=rowBytes*height
+   guard let queue=device.makeCommandQueue(),let command=queue.makeCommandBuffer(),
+         let buffer=device.makeBuffer(length:length,options:.storageModeShared),
+         let blit=command.makeBlitCommandEncoder() else {fatalError("texture readback unavailable")}
+   blit.copy(from:value.texture,sourceSlice:0,sourceLevel:0,sourceOrigin:.init(x:0,y:0,z:0),sourceSize:.init(width:width,height:height,depth:1),to:buffer,destinationOffset:0,destinationBytesPerRow:rowBytes,destinationBytesPerImage:length)
+   blit.endEncoding();command.commit();command.waitUntilCompleted()
+   guard command.status == .completed else {fatalError("texture readback failed")}
+   let bytes=Data(bytes:buffer.contents(),count:length)
+   let rgb=bytes.enumerated().filter{$0.offset%4 != 3}.map{$0.element}
+   return ["sha256":SHA256.hash(data:bytes).map{String(format:"%02x",$0)}.joined(),"rgbRange":[rgb.min()!,rgb.max()!]]
+  }
+  // No run-loop yield has occurred: the background preparation cannot yet
+  // install its item. Commands must reach the original lifecycle while pending.
+  let initialItemPending=player.currentItem == nil
+  command(.pause);command(.setRate(2));command(.setCurrentTime(0.7))
+  let pending=source.playbackSnapshot(sceneTime:timing().sceneTime)
+  let pendingCommandsHeld = !pending.isPlaying && pending.rate == 2 && abs(pending.currentTime-0.7)<0.000001
+  let initial=pump(4,untilFirst:true)
+  guard let first=last else {fatalError("WebM did not publish a real frame")}
+  let firstWitness=textureWitness(first),preparedFilePresent = !files(root).isEmpty
+  let duration=source.playbackSnapshot(sceneTime:timing().sceneTime).duration
+  command(.play);let playing=pump(0.5)
+  let playingWitness=textureWitness(last!)
+  command(.pause);let pauseTime=source.playbackSnapshot(sceneTime:timing().sceneTime).currentTime
+  let pausedRefresh=pump(0.2),held=source.playbackSnapshot(sceneTime:timing().sceneTime)
+  let pauseHeld = !held.isPlaying && abs(held.currentTime-pauseTime)<0.000001
+  command(.setCurrentTime(0.3));let seek=pump(0.4)
+  command(.setCurrentTime(1.8));command(.setLoop(true));command(.play)
+  let loopRows=pump(2.4),ends=source.playbackSnapshot(sceneTime:timing().sceneTime).endedGeneration
+  let decoded=loopRows.compactMap{$0[1] as? Double}
+  let decodedWraps=zip(decoded,decoded.dropFirst()).filter{$0.1<$0.0}.count
+  source.stop()
+  let stoppedFrameAbsent=source.currentFrame(for:timing()) == nil
+  let stoppedItemAbsent=player.currentItem == nil
+  let filesAfterStop=files(root)
+
+  // Cancel before preparation can install AVPlayerItem. Keep the cancelled
+  // provider alive and pump its public frame API after the worker has settled.
+  let cancelRoot=root.appendingPathComponent("cancelled",isDirectory:true)
+  guard let cancelled=SceneVideoTextureSource(layerID:8,mp4PayloadData:data,isWebM:true,cacheDirectory:cancelRoot,device:device) else {fatalError("cancel provider unavailable")}
+  let cancelPlayer=Mirror(reflecting:cancelled).children.compactMap{$0.value as? AVPlayer}.first!
+  let cancelStartedPending=cancelPlayer.currentItem == nil
+  cancelled.apply(.init(layerID:8,action:.play),timing:timing())
+  cancelled.stop()
+  var cancelLateFrameAbsent=true
+  let settle=CACurrentMediaTime()+0.5
+  while CACurrentMediaTime()<settle {
+   if cancelled.currentFrame(for:timing()) != nil {cancelLateFrameAbsent=false}
+   RunLoop.current.run(until:Date(timeIntervalSinceNow:1.0/120))
+  }
+  let result:[String:Any]=["initialItemPending":initialItemPending,"pendingCommandsHeld":pendingCommandsHeld,"preparedFilePresent":preparedFilePresent,"duration":duration,"initialRows":initial,"playingRows":playing,"pausedRefreshRows":pausedRefresh,"pauseHeld":pauseHeld,"seekRows":seek,"loopRows":loopRows,"ends":ends,"decodedWraps":decodedWraps,"firstTexture":firstWitness,"playingTexture":playingWitness,"stoppedFrameAbsent":stoppedFrameAbsent,"stoppedItemAbsent":stoppedItemAbsent,"filesAfterStop":filesAfterStop,"cancelStartedPending":cancelStartedPending,"cancelLateFrameAbsent":cancelLateFrameAbsent,"cancelLateItemAbsent":cancelPlayer.currentItem == nil,"cancelFilesAfterSettle":files(cancelRoot)]
+  print(String(decoding:try JSONSerialization.data(withJSONObject:result,options:[.sortedKeys]),as:UTF8.self))
  }
  static func eofDiscard(_ source:SceneVideoTextureSource, _ player:AVPlayer, looping:Bool) throws {
   let start=CACurrentMediaTime();var frame:UInt64=0

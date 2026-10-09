@@ -370,6 +370,19 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad+Ordinary.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-embedded-webm-video",
+      "title": "内嵌WebM无损容器接入",
+      "owner": "Scene existing video provider / Format",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/runtime-architecture.md",
+      "design_notes": "已有原WebM -11828与注册后无损MP4出帧证据；仅原provider准备任务，不建播放/clock/发布owner；全部边界与验收见设计。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneWebM*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideo*.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

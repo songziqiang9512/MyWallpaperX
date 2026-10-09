@@ -355,10 +355,10 @@
       "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "78c49b33dd430651834ff84d5325eb49051f11f3cbef8548e964364047ff8777",
+        "sourceSHA256": "37169bc8bcb074ac365c0e0690f24e16024d826c5f3e973e089d2f0dfc56c9d4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核动态共享源的现owner、完成source样式消费、有限HSV及有界运行/待修入口。",
-        "limitations": "仅此合同与导航审查；不升级未准入材料、整样本官方一致性、全部交互或性能。"
+        "scope": "核内嵌WebM准备归原video provider、单一时钟/输出、取消与已验范围；过程归历史。",
+        "limitations": "仅此容器合同与导航；不升级全WebM、全样本、官方parity或性能。"
       }
     },
     {
@@ -524,9 +524,9 @@
       "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "76e58b29d2bc4b1e80b25c1c173c5d471702573e62720533d5eb0dbd50758769",
+        "sourceSHA256": "655b2b48047da39ec16689f45e46667c4ce7e779f7940a0c6debeac236c66135",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅核自定义源材质后继条目的已验输入与历史入口。",
+        "scope": "核U06背景真实连续帧、原provider链、剩余effect与历史身份引用；其他记录保留原证据上限。",
         "limitations": "非全页运行重验，不升级整样本与官方parity。"
       }
     },
@@ -983,6 +983,18 @@
       "currentAuthorities": [
         "docs/scene/architecture/runtime-architecture.md",
         "docs/scene/capabilities/sampler-alias-precedence.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/embedded-webm-video-2026-10-10.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
     {

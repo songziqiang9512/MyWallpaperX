@@ -301,6 +301,77 @@ def classification_transition_violations(old: dict, new: dict) -> list[str]:
     return []
 
 
+def capability_addition_transition_violations(
+    old: dict, new: dict, old_sources: dict[str, str], new_sources: dict[str, str],
+) -> list[str]:
+    """One format capability addition, measured without reclassifying its authority."""
+    before, receipt = old.get("capability_addition"), new.get("capability_addition")
+    file = "Format/SceneWebMContainer.swift"
+    scope = [{"kind": "enum", "name": "SceneWebMContainer"}]
+    error = [f"{new['id']}: capability addition requires its exact reviewed format receipt"]
+    def declaration_matches() -> bool:
+        text = swift_without_comments(new_sources.get(file, ""))
+        count, violations, _ = classified_authority_count(text, file, new)
+        tokens = governance_tokens(text)
+        bounds = named_scope_range(tokens, scope)
+        if bounds is None or count != 1 or violations:
+            return False
+        values = [value for value, _ in tokens]
+        declarations = [i for i in direct_scope_indices(values, *bounds)
+                        if values[i:i + 4] == ["private", "struct", "Parser", "{"]]
+        return len(declarations) == 1 and not conditional_stack_at(text, tokens[declarations[0]][1])
+    stable = all(old.get(k) == new.get(k) for k in authority_metric_contract(old)
+                 if k not in {"allowed_files", "baseline_occurrences"})
+    if before is not None:
+        retired = new.get("baseline_occurrences") == 0 and not new.get("allowed_files") and receipt is None
+        if retired:
+            stable = all(old.get(k) == new.get(k) for k in authority_metric_contract(old)
+                         if k not in {"allowed_files", "baseline_occurrences", "classifications"})
+        if (not stable or new.get("role") != old.get("role")
+                or not set(new.get("allowed_files", [])).issubset(old["allowed_files"])
+                or new.get("baseline_occurrences", 0) > old["baseline_occurrences"]):
+            return [f"{new['id']}: committed capability discovery and owner scope cannot expand or change"]
+        if not retired and receipt != before:
+            return [f"{new['id']}: committed capability receipt is immutable until complete retirement"]
+        return error if file in new.get("allowed_files", []) and not declaration_matches() else []
+    if receipt is None:
+        return []
+    fields = {"file", "scope", "declaration", "source_sha256", "from_contract_sha256",
+              "to_contract_sha256", "design_doc", "design_area", "owner", "reason", "retirement"}
+    if (not isinstance(receipt, dict) or set(receipt) != fields or not stable
+            or old.get("id") != "shape-derived-analyzer-fleet" or new.get("id") != old["id"]
+            or old.get("role") != "inventory" or new.get("role") != "inventory"
+            or old.get("metric") != "classified-declarations"
+            or old.get("baseline_occurrences") != 65 or new.get("baseline_occurrences") != 66
+            or set(new.get("allowed_files", [])) != set(old["allowed_files"]) | {file}
+            or file in old_sources or file in old["allowed_files"] or file not in new_sources
+            or receipt.get("file") != file or receipt.get("scope") != scope
+            or receipt.get("declaration") != "private struct Parser"
+            or receipt.get("source_sha256") != hashlib.sha256(new_sources[file].encode()).hexdigest()
+            or receipt.get("from_contract_sha256") != authority_metric_digest(old)
+            or receipt.get("to_contract_sha256") != authority_metric_digest(new)
+            or receipt.get("design_doc") != "docs/scene/architecture/runtime-architecture.md"
+            or receipt.get("design_area") != "scene-embedded-webm-video"
+            or any(not isinstance(receipt.get(k), str) or not receipt[k].strip()
+                   for k in ("owner", "reason", "retirement"))):
+        return error
+    inventories = []
+    for sources, rule in ((old_sources, old), (new_sources, new)):
+        inventory = {}
+        for path, source in sources.items():
+            count, violations, _ = classified_authority_count(swift_without_comments(source), path, rule)
+            if violations:
+                return error
+            if count:
+                inventory[path] = count
+        inventories.append(inventory)
+    previous, current = inventories
+    if (set(previous) != set(old["allowed_files"]) or sum(previous.values()) != 65
+            or current != {**previous, file: 1}):
+        return error
+    return [] if declaration_matches() else error
+
+
 
 def authority_call_inventory(sources: dict[str, str], pattern: str) -> dict[str, list[tuple[str, ...]]]:
     """Exact call tokens, retaining literal contents and ignoring only comments/spacing."""

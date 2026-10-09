@@ -259,7 +259,7 @@ nonisolated enum SceneTextureMipUploader {
         guard let first = container.mips.first else {
             return .decodeFailed("TEX container has no mip data")
         }
-        guard !SceneTexContainer.isMP4Payload(first.data) else { return .texContainsVideoPayload }
+        guard !SceneTexContainer.isVideoPayload(first.data) else { return .texContainsVideoPayload }
         guard SceneTexContainer.valid2DMipDimensions(
             container.mips.map { ($0.width, $0.height) }
         ) else {

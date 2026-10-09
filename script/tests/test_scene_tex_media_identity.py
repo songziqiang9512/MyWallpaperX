@@ -27,8 +27,11 @@ import Foundation
 @main enum Harness {
     static func main() throws {
         let results = try CommandLine.arguments.dropFirst().map {
-            try SceneTexContainerReader().read(data: Data(contentsOf:
-                URL(fileURLWithPath: $0))).isVideoMp4
+            let container = try SceneTexContainerReader().read(data: Data(contentsOf:
+                URL(fileURLWithPath: $0)))
+            let payload = container.mips[0].data
+            return [container.isVideoMp4, SceneTexContainer.isVideoPayload(payload),
+                    SceneTexContainer.isWebMPayload(payload)]
         }
         print(String(decoding: try JSONEncoder().encode(results), as: UTF8.self))
     }
@@ -42,15 +45,16 @@ import Foundation
             fixtures = []
             expected = []
             # This is only a container media signature fixture, not a playable MP4.
-            for payload, video in [(b'\x89PNG\r\n\x1a\n' + bytes(16), False),
-                                   (b'\xff\xd8\xff' + bytes(16), False),
-                                   (bytes(16), False),
-                                   (b'\0\0\0\x14ftypisom' + bytes(8), True)]:
+            for payload, mp4, webm in [(b'\x89PNG\r\n\x1a\n' + bytes(16), False, False),
+                                   (b'\xff\xd8\xff' + bytes(16), False, False),
+                                   (bytes(16), False, False),
+                                   (b'\0\0\0\x14ftypisom' + bytes(8), True, False),
+                                   (bytes.fromhex("1a45dfa3") + bytes(8), False, True)]:
                 for count in (0, 1, 2):
                     path = root / f"fixture-{len(fixtures)}.tex"
                     path.write_bytes(tex(payload, count))
                     fixtures.append(str(path))
-                    expected.append(video)
+                    expected.append([mp4, mp4 or webm, webm])
             result = subprocess.run([str(binary), *fixtures], check=True,
                                     capture_output=True, text=True)
             self.assertEqual(json.loads(result.stdout), expected)
@@ -58,5 +62,5 @@ import Foundation
             # Receiver-agnostic on purpose: the shared payload predicate moved to
             # the Format layer, and a receiver-specific assertion would pin the
             # call site instead of the media identity contract.
-            self.assertIn("isMP4Payload(payload)", registry)
+            self.assertIn("isVideoPayload(payload)", registry)
             self.assertNotIn("container.isVideoMp4 ||", registry)

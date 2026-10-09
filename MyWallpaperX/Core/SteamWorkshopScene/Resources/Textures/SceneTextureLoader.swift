@@ -444,7 +444,7 @@ nonisolated final class SceneTextureLoader {
             )
         }
 
-        if SceneTexContainer.isMP4Payload(firstMip.data) {
+        if SceneTexContainer.isVideoPayload(firstMip.data) {
             return .texContainsVideoPayload
         }
 

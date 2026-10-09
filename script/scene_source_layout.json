@@ -523,6 +523,7 @@
           "SceneDynamicImageTextureProvider.swift",
           "SceneMediaThumbnailTextureStore.swift",
           "SceneStockNoiseTextureStore.swift",
+          "SceneVideoPayloadPreparation.swift",
           "SceneVideoProviderLifecycleState.swift",
           "SceneVideoTextureSource.swift",
           "SceneVideoTextureSourceRegistry.swift"
@@ -1241,9 +1242,9 @@
       {
         "id": "shape-derived-analyzer-fleet",
         "role": "inventory",
-        "description": "Broad five-suffix type discovery remains global. The E5 family has 65 counted declarations; reviewed passive value declarations are classified separately by exact declaration and lexical scope, never excluded by filename alone. Owner: Scene analysis-family consolidation. Retire classifications when declarations disappear or move into the counted family.",
+        "description": "Broad five-suffix type discovery remains global: 65 existing E5 declarations plus one public WebM format parser. Passive values retain exact lexical classification. The capability receipt admits only this measured 65-to-66 addition; committed discovery and owner scope cannot grow. Owner: Scene analysis-family consolidation; retire the receipt only with complete inventory retirement.",
         "pattern": "^[ \\t]*(?:@\\w+[ \\t]+)*(?:nonisolated[ \\t]+|public[ \\t]+|internal[ \\t]+|private[ \\t]+|fileprivate[ \\t]+|final[ \\t]+)*(?:struct|enum|class)[ \\t]+\\w*(?:Contract|Link|Parser|Admission|Conversion)\\b",
-        "baseline_occurrences": 65,
+        "baseline_occurrences": 66,
         "allowed_files": [
           "Compilation/Material/SceneDirectBoolEffectVisibilityRouteAdmission.swift",
           "Compilation/Material/SceneEffectStageAdmission.swift",
@@ -1275,6 +1276,7 @@
           "Format/SceneMdlPuppetRigReader.swift",
           "Format/SceneScriptBindingDefinition.swift",
           "Format/SceneTimelineAnimation.swift",
+          "Format/SceneWebMContainer.swift",
           "Rendering/Dependencies/SceneImageLayerBlendDependencyContract.swift",
           "Rendering/Frame/SceneMetalRenderer+FrameOutcome.swift",
           "Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Execution.swift",
@@ -1323,6 +1325,24 @@
           "owner": "repository structural governance",
           "reason": "Replace name-occurrence ambiguity with explicitly reviewed bounded declaration classification while retaining global discovery.",
           "retirement": "One-time migration only; freeze classification once committed and remove with its retired inventory."
+        },
+        "capability_addition": {
+          "file": "Format/SceneWebMContainer.swift",
+          "scope": [
+            {
+              "kind": "enum",
+              "name": "SceneWebMContainer"
+            }
+          ],
+          "declaration": "private struct Parser",
+          "source_sha256": "2b14bdc9f69d881759cc7b8950253de8d346fe27511ca43c14b1415b577258a6",
+          "from_contract_sha256": "b48c75642acf909108eff2eb393da197da2c6890321c58e9fe0deadad28c830b",
+          "to_contract_sha256": "a322c17a37f349fae5996fc656da723a7bd0869637da9e4090c55eec30392ba8",
+          "design_doc": "docs/scene/architecture/runtime-architecture.md",
+          "design_area": "scene-embedded-webm-video",
+          "owner": "SceneWebMContainer preparation-only format reader",
+          "reason": "A new public WebM container responsibility adds one Parser; existing E5 counts and discovery stay unchanged, with no passive classification exemption.",
+          "retirement": "This receipt is immutable after commit; remove only when the full inventory reaches zero with no allowed files. Later capability growth needs a separately designed governance change."
         }
       },
       {
@@ -1466,7 +1486,8 @@
         "SceneSpotLightDefinition.swift",
         "SceneTexContainer.swift",
         "SceneTexDataReader.swift",
-        "SceneTimelineAnimation.swift"
+        "SceneTimelineAnimation.swift",
+        "SceneWebMContainer.swift"
       ],
       "responsibility": "Authored file and value models, decoding and parsing; no live rendering ownership."
     }

@@ -110,3 +110,5 @@
 | 2026-09-05 | Scene | cold navigation | [官方页面能力映射](reference/official-page-crosswalk.md) | 官方页面分组导航与合同交叉表 | [资料来源索引](../development/source-index.md)、[官方页面逐页映射](../development/reference/official-page-map.md)、[能力台账](../capabilities/coverage-ledger.md) |
 | 2026-09-05 | Scene | cold compatibility | [zcompat 向后兼容取证](reference/zcompat-backward-compatibility-forensics.md) | 固定版本兼容 patch record 研究 | [资料来源索引](../development/source-index.md)、[changelog 取证](../development/reference/client-changelog-forensics.md)、[能力台账](../capabilities/coverage-ledger.md) |
 | 2026-09-05 | Scene | runtime evidence archive | [Scene 运行证据完整归档](runtime-evidence-index.md) | 现役证据摘要之外的完整 E-* provenance 与历史包 | [Scene 当前证据摘要](../capabilities/runtime-evidence-current.md)、[Scene 能力台账](../capabilities/coverage-ledger.md) |
+
+- [内嵌WebM视频背景恢复](embedded-webm-video-2026-10-10.md)：单一AVPlayer链、无损容器准备、U06原包及剩余边界。

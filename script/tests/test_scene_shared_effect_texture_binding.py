@@ -41,6 +41,7 @@ final class SceneVideoTextureSource {
     init?(
         layerID: Int,
         mp4PayloadData: Data,
+        isWebM: Bool = false,
         cacheDirectory: URL,
         device: MTLDevice
     ) { return nil }

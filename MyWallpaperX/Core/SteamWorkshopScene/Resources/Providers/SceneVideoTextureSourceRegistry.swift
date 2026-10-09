@@ -21,13 +21,14 @@ extension SceneTextureLoader {
               let container = texContainer(from: url, source: source),
               container.format == 0,
               let payload = container.mips.first?.data,
-              SceneTexContainer.isMP4Payload(payload),
+              SceneTexContainer.isVideoPayload(payload),
               sourceKey(for: url) == source else {
             return nil
         }
         return SceneVideoTextureSource(
             layerID: layerID,
             mp4PayloadData: payload,
+            isWebM: SceneTexContainer.isWebMPayload(payload),
             cacheDirectory: cacheDirectory,
             device: device,
             capturesLifecycleObservations: capturesLifecycleObservations

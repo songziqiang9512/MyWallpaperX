@@ -36,13 +36,15 @@ final class SceneVideoTextureSource {
     }
 
     private let player: AVPlayer
-    private let item: AVPlayerItem
+    private var item: AVPlayerItem?
     private let videoOutput: AVPlayerItemVideoOutput
     private let textureCache: CVMetalTextureCache
     private let temporaryFileURL: URL
     private let layerID: Int
     private let capturesLifecycleObservations: Bool
     private var endObserver: NSObjectProtocol?
+    private var payloadPreparation: Task<Void, Error>?
+    private var payloadPreparationID: UUID?
     private var lifecycle = SceneVideoProviderLifecycleState(epoch: 0)
     private var lastFrame: Frame?
     private var pendingFrame: Frame?
@@ -64,6 +66,7 @@ final class SceneVideoTextureSource {
     init?(
         layerID: Int,
         mp4PayloadData: Data,
+        isWebM: Bool = false,
         cacheDirectory: URL,
         device: MTLDevice,
         capturesLifecycleObservations: Bool = false
@@ -85,7 +88,7 @@ final class SceneVideoTextureSource {
         let filename = "layer-\(layerID)-\(UUID().uuidString).mp4"
         let fileURL = outputDirectory.appendingPathComponent(filename)
         do {
-            try mp4PayloadData.write(to: fileURL, options: [.atomic])
+            if !isWebM { try mp4PayloadData.write(to: fileURL, options: [.atomic]) }
         } catch {
             return nil
         }
@@ -115,15 +118,45 @@ final class SceneVideoTextureSource {
         output.suppressesPlayerRendering = true
         videoOutput = output
 
-        let item = AVPlayerItem(url: fileURL)
-        item.add(output)
-        self.item = item
-        player = AVPlayer(playerItem: item)
+        SceneVideoPayloadPreparation.registerDecoders()
+        player = AVPlayer()
         player.automaticallyWaitsToMinimizeStalling = false
         player.actionAtItemEnd = .pause
         player.isMuted = true
         player.volume = 0
 
+        if isWebM {
+            let preparationID = UUID()
+            payloadPreparationID = preparationID
+            let worker = Task.detached(priority: .utility) {
+                try await SceneVideoPayloadPreparation.writeWebM(mp4PayloadData, to: fileURL)
+            }
+            payloadPreparation = worker
+            Task { [weak self] in
+                let result = await worker.result
+                guard let self, self.payloadPreparationID == preparationID else {
+                    try? FileManager.default.removeItem(at: fileURL)
+                    return
+                }
+                self.payloadPreparation = nil
+                self.payloadPreparationID = nil
+                switch result {
+                case .success:
+                    self.installItem(at: fileURL)
+                case let .failure(error):
+                    NSLog("MWX video preparation failed: layer=%d error=%@", layerID, String(describing: error))
+                }
+            }
+        } else {
+            installItem(at: fileURL)
+        }
+    }
+
+    private func installItem(at fileURL: URL) {
+        let item = AVPlayerItem(url: fileURL)
+        item.add(videoOutput)
+        self.item = item
+        player.replaceCurrentItem(with: item)
         endObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: item,
@@ -181,7 +214,6 @@ final class SceneVideoTextureSource {
         }
         pendingFrame = nil
         pendingFrameIndex = nil
-        guard player.currentItem != nil else { return nil }
         pendingPreparationSnapshot = .init(
             lifecycle: lifecycle,
             endedGeneration: endedGeneration,
@@ -213,7 +245,7 @@ final class SceneVideoTextureSource {
         // Keep the previous texture until that point instead of scheduling
         // item zero against an earlier host time and shifting playback ahead.
         guard plan.itemTime >= 0 else { return lastFrame }
-        guard item.status == .readyToPlay else {
+        guard item?.status == .readyToPlay else {
             markPlayerAnchorRequired()
             return lastFrame
         }
@@ -476,12 +508,16 @@ final class SceneVideoTextureSource {
 
     func stop() {
         guard lifecycle.stop() else { return }
+        payloadPreparationID = nil
+        payloadPreparation?.cancel()
+        payloadPreparation = nil
         if let endObserver {
             NotificationCenter.default.removeObserver(endObserver)
             self.endObserver = nil
         }
         player.pause()
         player.replaceCurrentItem(with: nil)
+        item = nil
         lastFrame = nil
         pendingFrame = nil
         pendingFrameIndex = nil
@@ -502,7 +538,7 @@ final class SceneVideoTextureSource {
     }
 
     private var endEventTolerance: TimeInterval {
-        let timescale = item.duration.timescale
+        let timescale = item?.duration.timescale ?? 0
         return timescale > 0 ? 1 / Double(timescale) : 1 / 600
     }
 
@@ -533,14 +569,13 @@ final class SceneVideoTextureSource {
         } else {
             seconds = max(0, itemTime)
         }
-        let timescale = item.duration.timescale > 0
-            ? item.duration.timescale
-            : CMTimeScale(600)
+        let itemTimescale = item?.duration.timescale ?? 0
+        let timescale = itemTimescale > 0 ? itemTimescale : CMTimeScale(600)
         return CMTime(seconds: seconds, preferredTimescale: timescale)
     }
 
     private var duration: TimeInterval {
-        let value = CMTimeGetSeconds(item.duration)
+        let value = CMTimeGetSeconds(item?.duration ?? .invalid)
         return value.isFinite && value > 0 ? value : 0
     }
 

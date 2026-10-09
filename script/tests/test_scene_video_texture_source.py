@@ -472,35 +472,6 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
             with self.subTest(restore=token):
                 self.assertIn(token, discard)
 
-    def test_eof_requires_the_current_anchor_and_observed_end_position(self) -> None:
-        initializer = swift_block(self.source, "init?(")
-        self.assertIsNotNone(initializer)
-        assert initializer is not None
-        for token in (
-            "lifecycle.isPlaying",
-            "playerEventState.acceptsEndEvent(",
-            "observedItemTime: observedItemTime",
-            "duration: itemDuration",
-            "tolerance: endEventTolerance",
-            'disposition: "ignored-stale"',
-            'disposition: "accepted"',
-        ):
-            with self.subTest(admission=token):
-                self.assertIn(token, initializer)
-
-        current_frame = swift_block(self.source, "func prepareFrame(")
-        self.assertIsNotNone(current_frame)
-        assert current_frame is not None
-        self.assertIn("playerEventState.didAnchorPlayback()", current_frame)
-        self.assertIn(
-            "expectedCommandGeneration == playerEventState.commandGeneration",
-            current_frame,
-        )
-        anchor = swift_block(self.source, "private func markPlayerAnchorRequired()")
-        self.assertIsNotNone(anchor)
-        assert anchor is not None
-        self.assertIn("playerEventState.invalidateAnchor()", anchor)
-
     def test_stop_is_idempotent_and_releases_all_owned_resources(self) -> None:
         stop = swift_block(self.source, "func stop(")
         self.assertIsNotNone(

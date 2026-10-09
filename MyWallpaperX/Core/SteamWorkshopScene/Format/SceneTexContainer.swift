@@ -10,6 +10,14 @@ nonisolated extension SceneTexContainer {
         return data[4...7].elementsEqual(Data("ftyp".utf8))
     }
 
+    static func isWebMPayload(_ data: Data) -> Bool {
+        data.starts(with: [0x1A, 0x45, 0xDF, 0xA3])
+    }
+
+    static func isVideoPayload(_ data: Data) -> Bool {
+        isMP4Payload(data) || isWebMPayload(data)
+    }
+
     static func isEmbeddedImagePayload(_ data: Data) -> Bool {
         data.starts(with: Data([0x89, 0x50, 0x4E, 0x47]))
             || data.starts(with: Data([0xFF, 0xD8, 0xFF]))

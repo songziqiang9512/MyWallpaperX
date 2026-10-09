@@ -1275,10 +1275,16 @@
     {
       "id": "scene-video-command-harness",
       "patterns": [
-        "script/tests/fixtures/SceneVideoRepeatedCommandsHarness.swift"
+        "script/tests/fixtures/SceneVideoRepeatedCommandsHarness.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideo*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneWebMContainer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneTexContainer.swift"
       ],
       "modules": [
-        "test_scene_video_repeated_commands"
+        "test_scene_video_repeated_commands",
+        "test_scene_webm_container",
+        "test_scene_tex_media_identity",
+        "test_scene_video_texture_source"
       ]
     },
     {
@@ -2607,7 +2613,9 @@
         "test_local_alias_metric_rejects_new_owners_and_unclassified_references",
         "test_classification_migration_binds_both_measured_contracts",
         "test_owner_relocation_preserves_calls_and_refuses_forged_receipts",
-        "test_ci_base_rejects_committed_receipt_tampering_and_invalid_base"
+        "test_ci_base_rejects_committed_receipt_tampering_and_invalid_base",
+        "test_capability_addition_binds_exact_source_and_cannot_reopen_growth",
+        "test_capability_addition_missing_receipt_cannot_raise_live_ratchet"
       ]
     },
     "document-links": {

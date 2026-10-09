@@ -20,7 +20,7 @@
 
 T1材质首片、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅证F16量化，不据此换全图精度。T2透明RGB跨effect与静态源/source/capture两卡已闭合，U19灰头冠恢复亮色；U23坐标拒绝与背景强网点已修，U21数组/环形输出及灰斜层已修，下一复核剩余颜色/光束；[类型兼容后验](../history/shared-shader-type-compatibility-2026-10-09.md)保留实际运行及未决合同，不重做已修SDR shoulder或已执行效果；按批回写矩阵。
 
-**下一批（10-10）：** U06（3662390671）内嵌WebM/VP9视频纹理：先复用现媒体解码/上传链追0frame首断点，以真实帧进入texture→effect→compositor为最小结果；不另建播放器或按样本分支。相比U22长期退化及U16/U24/U34回归，这一项已有明确解码反例、直接影响大面积画面；若平台路径需较大替代方案，限时完成合同与可复现断点后转回归组。T1动态共享源已恢复3601964477彩色频谱和Alpha热切，见[有界验收](../history/source-material-entry-2026-10-08.md#动态共享源与颜色范围后继)；土星余项继续暂缓，Goal继续。
+**下一批（10-10）：** 先复核U16（3122339805）两个可移动窗口消失及文字偏移，沿真实资源/显隐/变换/输出找共同首错；再处理U24/U34曾好后坏与U22长期掉帧。U06内嵌WebM背景已恢复，另有Audio bar effect612颜色合同局部回退，单列待修，见[验收及边界](../history/embedded-webm-video-2026-10-10.md)。相比继续细化土星，此顺序优先已报告的可见回归；不以整样本全部完成作为切换门。Goal继续，土星余项暂缓。
 
 ## 2. 纹理、合成与特效公共缺口
 
@@ -87,7 +87,7 @@ T1材质首片、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；
 | U03 · 3587571382 | 纹理合成错误，额头缺块 | **主报告现象已修复**：[原包视差开启实机](../capabilities/runtime-evidence-current.md#e-2026-10-08-inherited-parallax)额头恢复。继承视差的position改消费与depth同源的当帧world frame，未改纹理/木偶/作者参数；完整交互及官方逐像素未验。 |
 | U04 · 3747190633 | 音频条不出现 | **主报告现象已修复**：[中文previous补接](../capabilities/runtime-evidence-current.md#e-2026-10-08-localized-graph-input)后原包layer1897消费左右32频谱，条带可见并进入GPU/最终合成。受控PCM不代表外部声源验收；后继sine_wave已通过公共prefix/标量转换与self→graph输入修复，青色条带及内部波纹可见，错误灰矩形消失；[本批后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-varying-scalar-conversion)保留最终身份与边界，不代表整样本parity。 |
 | U05 · 3723344874 | 人物背后流体烟雾缺失 | 实际烟雾作者定义→资源/Program或粒子→层序/合成 |
-| U06 · 3662390671 | 大面积纹理缺失 | layer185 Scene.tex为TEXB0004内嵌WebM/VP9；[本机探针](../capabilities/runtime-evidence-current.md#e-2026-10-08-frame-declaration)原WebM报AVFoundation -11828，同码流remux MP4报-11833且0frame。不能仅放宽magic或换容器准入；沿原decode职责选择能实际出帧的方案，系统/设备广泛支持未证。另有同源Frame Builder，尚无当前原包可见复验 |
+| U06 · 3662390671 | 大面积纹理缺失 | **主报告现象已修复**：[内嵌WebM接入](../history/embedded-webm-video-2026-10-10.md)补系统VP9注册及原provider后台无损封装，原包layer185恢复完整人物/背景，636次实际帧发布、3次循环、退出GPU排空。该层无effects，不能把背景恢复记作所有特效支持。另Audio bar layer58/effect612仍`material-variant-envelope-color-contract`局部回退；全部属性、媒体/交互与官方完整对照未验 |
 | U07 · 3804441338 | 中间方框全白、文字不可见；官方应为两个描边镂空矩形 | **主报告现象已修复，整样本未宣称全通过。** [同身份实机后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-frame-declaration)：共用 Projection 退役重复 regex、移除死 slot2；typed 默认背景 PMA 事实接入实际 generic ABI；导数 builtin 在原后端适配。198/218 两框镂空与时间/日期文字可见，245中心图形及272圆角遮罩编码，18个effect occurrence进入输出、无准备/执行失败。跨样本380620的同源三效果也进入链路。官方逐像素、真实音频/媒体和完整交互未验，不能据此报全样本正确率。 |
 | U08 · 3802005866 | 音频条及背后蓝背景似乎越出作者限定矩形 | 作者边界→变换/clip/target extent；需先确认限定区域合同 |
 | U09 · 3797217144 | 缺奥特曼旋转并由小放大的出场动画 | intro/Timeline/脚本启动、变换及首帧至入场结束时序 |
@@ -125,7 +125,7 @@ T1材质首片、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；
 | U41 · 3357627941 | 属性面板无替换视频媒体资源的选择入口 | project 属性类型→现有 AppKit 编辑器/资源选择→typed binding→视频 consumer，不另造 provider |
 | U42 · 跨样本属性面板 | ①打开后浏览/滚动严重卡顿；②疑似原中文属性显示成英文，用户询问官方是否有中英映射并提示参考研究 | 沿既有属性 UI 测主线程/布局/重复解析；查作者 locale token/字典、系统语言与官方 fallback。映射表是否存在未证，不硬编码翻译表 |
 
-**执行顺序及单链约束。** U14封面mask、U13连续scalar/同帧旧值、U07镂空矩形、U03额头缺块及U18头发错位主报告现象已修，U04/U20/U19②音频条现已通过同一中文previous补接恢复；完成项不再当作未做。U19灰头冠、U21两环/灰层及U23强网点已修；U12聚光/文字重播已闭，封面/Music暂停已验；来源抢占已修，相机/头部/受光已验；真实换歌/切源与长文布局有界已验，HDR/SDR余项归T2；正交Fog距离域按[F7](batch2/2d-lighting-material-design.md#f7-原生透视图片距离雾与正交后继2026-10-09)保留待证/待接，不能把透视图片修复外推。土星陨石环、受光、暗纹、斜视采样、center文字锚点及方向光材质消费已修，阴影depth/过滤已修宽灰边及前环细暗线，translucent误投影长暗带已修，细影线/Bloom/轮廓余项已归档暂缓；下一项U06 WebM/VP9 decode。随后复核 U16/U24/U34“曾好后坏”及 U22 持续退化，再归并光束、音频、动画/交互；属性入口与面板仍开放。条纹328物理显示仍未闭。顺序仍属于既有T1/T2/E1与P路线，不另建路线。
+**执行顺序及单链约束。** U14封面mask、U13连续scalar/同帧旧值、U07镂空矩形、U03额头缺块及U18头发错位主报告现象已修，U04/U20/U19②音频条现已通过同一中文previous补接恢复；完成项不再当作未做。U19灰头冠、U21两环/灰层及U23强网点已修；U12聚光/文字重播已闭，封面/Music暂停已验；来源抢占已修，相机/头部/受光已验；真实换歌/切源与长文布局有界已验，HDR/SDR余项归T2；正交Fog距离域按[F7](batch2/2d-lighting-material-design.md#f7-原生透视图片距离雾与正交后继2026-10-09)保留待证/待接，不能把透视图片修复外推。土星陨石环、受光、暗纹、斜视采样、center文字锚点及方向光材质消费已修，阴影depth/过滤已修宽灰边及前环细暗线，translucent误投影长暗带已修，细影线/Bloom/轮廓余项已归档暂缓；U06 WebM/VP9背景缺图已闭，effect612及全交互仍待验。下一批复核 U16/U24/U34“曾好后坏”及 U22 持续退化，再归并光束、音频、动画/交互；属性入口与面板仍开放。条纹328物理显示仍未闭。顺序仍属于既有T1/T2/E1与P路线，不另建路线。
 
 重写必须在原职责入口替换旧实现，并证明原有效输入/效果和失败隔离不回退；同一输入不可同时走新旧两套 owner。发现能由已有参数、入口或 primitive 表达的能力，优先补接或扩展该处。每批报告逐子现象关闭数、实际复测样本及剩余范围，不把本表录入率当画面修复率。
 
