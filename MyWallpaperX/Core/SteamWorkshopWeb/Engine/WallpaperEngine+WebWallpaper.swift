@@ -57,6 +57,10 @@ extension WallpaperEngine {
         }
         PlaybackPolicyController.shared.refresh()
         let runtimeState = webWallpaperRuntimeState()
+        // E2a-4 保留块必须在 web 请求值写入前快照真值：video 仍在播放时的
+        // 多屏拓扑是 currentMultiDisplayEnabled 的当前值，不是本请求的
+        // multiDisplayEnabled——失败回滚要还原的是前者的真实拓扑。
+        let multiDisplayEnabledAtLaunch = currentMultiDisplayEnabled
         currentMultiDisplayEnabled = request.multiDisplayEnabled
         currentWebRecordID = request.recordID
         currentWebRequestID = request.id
@@ -68,7 +72,7 @@ extension WallpaperEngine {
         if pendingVideoRetirementOnWebReady {
             retainedVideoWallpaper = currentWallpaper
             retainedVideoContentPath = currentContentPath
-            retainedVideoMultiDisplayEnabled = currentMultiDisplayEnabled
+            retainedVideoMultiDisplayEnabled = multiDisplayEnabledAtLaunch
         }
 
         currentWallpaper = nil

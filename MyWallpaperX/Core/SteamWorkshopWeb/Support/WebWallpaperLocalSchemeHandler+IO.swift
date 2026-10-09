@@ -169,6 +169,20 @@ extension WebWallpaperLocalSchemeHandler {
     ) {
         switch delivery {
         case let .failure(error):
+            // 416 先行：不可满足的 Range 是可恢复协议响应，不走
+            // didFailWithError——那会触发媒体源摘除（pause+摘 src），
+            // 把"seek 越界可重验证"变成资源永久死亡。
+            if case let LocalSchemeError.rangeNotSatisfiable(totalSize) = error,
+               let notSatisfiableResponse = try? Self.makeRangeNotSatisfiableResponse(
+                   for: requestURL,
+                   totalSize: totalSize
+               ) {
+                urlSchemeTask.didReceive(notSatisfiableResponse)
+                finishRequest(urlSchemeTask)
+                urlSchemeTask.didFinish()
+                diagnosticHandler?("local-resource.range-not-satisfiable", .info, "totalSize=\(totalSize)", requestURL)
+                return
+            }
             if let denied = error as? AccessDenied {
                 recordDeny(denied)
             } else {
@@ -364,6 +378,24 @@ extension WebWallpaperLocalSchemeHandler {
             statusCode: 304,
             httpVersion: "HTTP/1.1",
             headerFields: headers
+        ) else {
+            throw LocalSchemeError.invalidResponse
+        }
+        return response
+    }
+
+    /// 416（RFC 9110 §14.2）：不可满足的 Range 带
+    /// `Content-Range: bytes */总长`、零长度正文——媒体 seek 越界（文件在
+    /// 会话中被替换短版）是可恢复协议响应，客户端可据此重验证资源尺寸。
+    static func makeRangeNotSatisfiableResponse(for requestURL: URL, totalSize: Int64) throws -> HTTPURLResponse {
+        guard let response = HTTPURLResponse(
+            url: requestURL,
+            statusCode: 416,
+            httpVersion: "HTTP/1.1",
+            headerFields: [
+                "Content-Length": "0",
+                "Content-Range": "bytes */\(totalSize)"
+            ]
         ) else {
             throw LocalSchemeError.invalidResponse
         }

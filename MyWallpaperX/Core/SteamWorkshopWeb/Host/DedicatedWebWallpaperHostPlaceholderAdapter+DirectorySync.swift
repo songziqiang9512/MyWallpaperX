@@ -105,13 +105,21 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
 
             let removed = previousFiles.keys.filter { nextFiles[$0] == nil }.sorted()
 
-            changeNotifications.append(
-                FetchAllDirectoryNotification(
-                    propertyName: propertyName,
-                    addedOrChangedFiles: addedOrChanged,
-                    removedFiles: removed
+            // 变更事件只在有真实差异时投递（与 access 通知的
+            // previousError != nextError 去重同纪律）：静止目录的 10s 轮询
+            // 不再向每个 endpoint 派发空集事件——`wallpaper-directory-files-changed`
+            // 的语义是"发生了变更"。首次同步 previousFiles 为空，非空目录的
+            // added 即全量必然非空，初始投递不受影响（零文件目录首同步无事件，
+            // 与 access 事件 nil==nil 去重的既有口径一致）。
+            if addedOrChanged.isEmpty == false || removed.isEmpty == false {
+                changeNotifications.append(
+                    FetchAllDirectoryNotification(
+                        propertyName: propertyName,
+                        addedOrChangedFiles: addedOrChanged,
+                        removedFiles: removed
+                    )
                 )
-            )
+            }
             accessNotifications.append(
                 FetchAllDirectoryAccessNotification(
                     propertyName: propertyName,

@@ -165,12 +165,13 @@ extension WebWallpaperLoopbackServer {
             return
         }
 
+        // keep-alive 到量关闭：本连接第 maxRequestsPerConnection 个请求的响应
+        // 必须显式声明 `Connection: close`，否则客户端会继续复用随后被关闭的
+        // 连接（第 65 个请求以连接错误告终）。声明在 do 之外：catch 里的
+        // 416 分支同样要按此复用语义续接。
+        let keepAlive = shouldKeepConnectionAlive(requestText: requestText, firstLine: firstLine)
+            && context.servedRequestCount + 1 < Self.maxRequestsPerConnection
         do {
-            // keep-alive 到量关闭：本连接第 maxRequestsPerConnection 个请求的响应
-            // 必须显式声明 `Connection: close`，否则客户端会继续复用随后被关闭的
-            // 连接（第 65 个请求以连接错误告终）。
-            let keepAlive = shouldKeepConnectionAlive(requestText: requestText, firstLine: firstLine)
-                && context.servedRequestCount + 1 < Self.maxRequestsPerConnection
             try sendResourceResponse(
                 resource,
                 method: method,
@@ -181,6 +182,16 @@ extension WebWallpaperLoopbackServer {
                 on: context
             )
         } catch {
+            // 不可满足的 Range 是可恢复的协议响应（RFC 9110 §14.2：416 +
+            // Content-Range: bytes */总长），不是资源失败——媒体 seek 越界
+            //（文件在会话中被替换短版）客户端可据此重验证尺寸。
+            if case let WebWallpaperLocalSchemeHandler.LocalSchemeError.rangeNotSatisfiable(totalSize) = error {
+                diagnosticHandler?("loopback.resource.range-not-satisfiable", .info, "totalSize=\(totalSize)", requestURL)
+                sendRangeNotSatisfiableResponse(totalSize: totalSize, keepAlive: keepAlive, on: context) { [weak self] in
+                    self?.continueAfterResponse(on: context, leftover: leftover, keepAlive: keepAlive)
+                }
+                return
+            }
             respondWithResourceFailure(error, requestURL: requestURL, on: context)
         }
     }
@@ -433,6 +444,24 @@ extension WebWallpaperLoopbackServer {
         if let lastModified = validators.lastModified {
             headers.append("Last-Modified: \(lastModified)")
         }
+        if keepAlive == false {
+            headers.append("Connection: close")
+        }
+        send(Data((headers.joined(separator: "\r\n") + "\r\n\r\n").utf8), on: context, completion: completion)
+    }
+
+    /// 416 与 scheme 侧同合同：带 `Content-Range: bytes */总长`、零长度正文。
+    private func sendRangeNotSatisfiableResponse(
+        totalSize: Int64,
+        keepAlive: Bool,
+        on context: ConnectionContext,
+        completion: @escaping () -> Void
+    ) {
+        var headers = [
+            "HTTP/1.1 416 Range Not Satisfiable",
+            "Content-Length: 0",
+            "Content-Range: bytes */\(totalSize)"
+        ]
         if keepAlive == false {
             headers.append("Connection: close")
         }
