@@ -36,8 +36,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
     ) -> String {
         var data = Data()
         for value in [
-            // v28 includes contiguous audio indices and scoped return values.
-            "mwx-generic-shader-request-v28",
+            // v29 bounds integer assignment conversion to its own expression.
+            "mwx-generic-shader-request-v29",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,

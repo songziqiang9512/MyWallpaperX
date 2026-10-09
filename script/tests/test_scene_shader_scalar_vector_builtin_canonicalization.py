@@ -384,6 +384,22 @@ void main() {
         if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
             self.skipTest("bundled glslang is unavailable")
         cases = [
+            # A for-update ends at the enclosing ')', never the first body
+            # semicolon. Float atoms in the body cannot type the update.
+            ("float value = 0.0; for (int k = 0; k < 4; k += 1) { value += 0.25; }"
+             " gl_FragColor = vec4(value);", "k += 1) { value += 0.25; }"),
+            ("float value = 0.0; for (int k = 0; k < 4; k = k + 1) { value += 0.25; }"
+             " gl_FragColor = vec4(value);", "k = k + 1) { value += 0.25; }"),
+            ("float value = 0.0; for (int k = 0; k < 4; k += 1.0) { value += 0.25; }"
+             " gl_FragColor = vec4(value);", "k = int(k + (1.0))) { value += 0.25; }"),
+            ("float value = 0.0; for (int k = 0; k < 4; k = k + (1.0)) value += 0.25;"
+             " gl_FragColor = vec4(value);", "k = int(k + (1.0))) value += 0.25;"),
+            ("float value = 0.0; for (int k = 0; k < 4; k += int(1.0)) { value += 0.25; }"
+             " gl_FragColor = vec4(value);", "k += int(1.0)) { value += 0.25; }"),
+            ("int offsets[2]; offsets[0] = 0; float value = 0.0;"
+             " for (int k = 0; k < 2.5; k += offsets[0] + 1.0) { value += 0.25; }"
+             " gl_FragColor = vec4(value);",
+             "k = int(k + (offsets[0] + 1.0))) { value += 0.25; }"),
             ("int k = g_Ratio.y * 2;"
              " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
              "int k = int(g_Ratio.y * 2);"),

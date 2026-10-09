@@ -476,12 +476,17 @@ extension SceneGenericShaderSourceNormalizer {
             var end = index + 1
             var depth = 0
             while end < tokens.count {
-                if tokens[end].text == "(" { depth += 1 }
-                if tokens[end].text == ")" && depth > 0 { depth -= 1 }
-                if tokens[end].text == ";" && depth == 0 { break }
+                // A for-update ends before its enclosing ')'. Do not let
+                // float atoms in the following body type the update's RHS.
+                let token = tokens[end].text
+                if ["{", "}"].contains(token) { break }
+                if depth == 0, [";", ")", "]"].contains(token) { break }
+                if ["(", "["].contains(token) { depth += 1 }
+                if [")", "]"].contains(token) { depth -= 1 }
                 end += 1
             }
             guard end < tokens.count, index + 1 < end,
+                  depth == 0, [";", ")"].contains(tokens[end].text),
                   let startOffset = sourceOffset(tokens[index + 1], after: false),
                   let endOffset = sourceOffset(tokens[end - 1], after: true) else { continue }
             let rhs = (index + 1)..<end
