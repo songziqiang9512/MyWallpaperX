@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 593,
-      "bytes": 110231
+      "bytes": 110284
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 170746
+      "bytes": 170920
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 93,
-      "bytes": 26989
+      "bytes": 27120
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -133,8 +133,8 @@
       "bytes": 19030
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
-      "lines": 487,
-      "bytes": 105036
+      "lines": 489,
+      "bytes": 106062
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 46,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 222,
-      "bytes": 58269
+      "bytes": 58439
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1037,11 +1037,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
-      "before": "cbb723a0e3ee4a37692c38d38a9c79019d365e8da5822ad64a5e8fff61173280",
-      "after": "231d2756199282d06ab26703818d04513cdb2bbf616e223f1c36da2c1f972057",
-      "owner": "Scene model static surface response",
-      "reason": "在既有D3保存模型静态MR有界决策；稳定prepare/profile/共享数学/output职责回归架构，运行细节归历史。未解析输入与2D策略边界明确，队列合并已完成事项。",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#generic4-模型静态表面响应2026-10-09有界后继"
+      "before": "ee833ad1c666d05a467bf1f0e32d4459783edd8830b76a7d3fff4b9d76604367",
+      "after": "e81baaae233cd2f74c1a9cbd12806e1244a35bb52b2f9d9bc952180d6ff6868e",
+      "owner": "Scene方向光材质消费",
+      "reason": "既有surface profile补接directional并移除旧范围外推；已修项退出队列，保留Bloom和投影余项。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#directional-material-response"
     },
     {
       "section": "bodies",
@@ -1082,38 +1082,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "a9190886f28b0b0dcf555d036f526f297dd6a8d57c17fb8e0bcc96aae072a450",
-      "after": "b877b7ebaae8dc36ed1bff421611e19fe24482c23888c7ecd5743d5c602cd11e",
-      "owner": "Scene文字栅格与锚点",
-      "reason": "替换已完成center断点，登记同代锚点和有界官方对照；继续保留亮度/投影余项。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#text-center-anchor"
+      "before": "b877b7ebaae8dc36ed1bff421611e19fe24482c23888c7ecd5743d5c602cd11e",
+      "after": "98a833fb3845ba4256379432780e60ac5fc905e224a6c8e4da77828247ca51bb",
+      "owner": "Scene方向光材质消费",
+      "reason": "既有surface profile补接directional并移除旧范围外推；已修项退出队列，保留Bloom和投影余项。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#directional-material-response"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "98ba3a5cf4ad96bf8aa36d15113268329e72492dd4e725c19c134b8e88386f3d",
-      "after": "733dd5f1ce8a7f79cef6737f79d1e07fccc88040e0a03f0e9377331cf0f54554",
-      "owner": "Scene文字栅格与锚点",
-      "reason": "替换已完成center断点，登记同代锚点和有界官方对照；继续保留亮度/投影余项。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#text-center-anchor"
+      "before": "733dd5f1ce8a7f79cef6737f79d1e07fccc88040e0a03f0e9377331cf0f54554",
+      "after": "ed6e1dbb607057eed4df250d12871f098ff02f8fda12d6db277c150f64b6aadd",
+      "owner": "Scene方向光材质消费",
+      "reason": "既有surface profile补接directional并移除旧范围外推；已修项退出队列，保留Bloom和投影余项。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#directional-material-response"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "fbdf6adc39d43cacfb8ea86e44789264a243102e94a8413e680cf5cfbe01883f",
-      "after": "ce4e6cd3a8ac6b47095c7fd52ab3515e164aabf1403c875c2d29e8f0b24d53ee",
-      "owner": "Scene文字栅格与锚点",
-      "reason": "替换已完成center断点，登记同代锚点和有界官方对照；继续保留亮度/投影余项。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#text-center-anchor"
+      "before": "ce4e6cd3a8ac6b47095c7fd52ab3515e164aabf1403c875c2d29e8f0b24d53ee",
+      "after": "36a3d62294af0563c258f4dd9909d9041e1189864be74068c3d3f19570ba7115",
+      "owner": "Scene方向光材质消费",
+      "reason": "既有surface profile补接directional并移除旧范围外推；已修项退出队列，保留Bloom和投影余项。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#directional-material-response"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f80c17ca9b799c6bd441f29d6876bf6ce8bf31f2d121f35fee75e46f4ffc1235",
-      "after": "c4078e6d8073f57fe105375b3c80ce1789d7a282dd309db09e9a4bed9f93a99e",
-      "owner": "Scene文字栅格与锚点",
-      "reason": "替换已完成center断点，登记同代锚点和有界官方对照；继续保留亮度/投影余项。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#text-center-anchor"
+      "before": "c4078e6d8073f57fe105375b3c80ce1789d7a282dd309db09e9a4bed9f93a99e",
+      "after": "7ca576595de3fcb5b8f108781424bd8757bc8c1e26da4cbcf76799621538f3fb",
+      "owner": "Scene方向光材质消费",
+      "reason": "既有surface profile补接directional并移除旧范围外推；已修项退出队列，保留Bloom和投影余项。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#directional-material-response"
     }
   ]
 }

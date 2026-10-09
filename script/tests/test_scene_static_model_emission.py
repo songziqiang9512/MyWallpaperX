@@ -121,12 +121,44 @@ def surface_vectors() -> list[dict]:
         albedo=[128/255]*3, tint=[1, 1, 1]))
     # Local preservation controls use the old project's center, not an official BRDF claim.
     rows.append(dict(rows[0], name="legacy-point-preserved", surface=None, expectedByte=49))
-    rows.append(dict(rows[0], name="directional-preserved", lamp="directional", expectedByte=77))
+    # The old directional preservation row inherited a surface profile while
+    # asserting the legacy path. The official metallic single-variable probe
+    # disproves that bypass; preserve the original 77 oracle on its nil domain.
+    rows.append(dict(rows[0], name="directional-preserved", lamp="directional",
+        surface=None, expectedByte=77))
+    default_directional = dict(rows[-1], name="directional-default-preserved")
+    del default_directional["surface"]
+    rows.append(default_directional)
+    # These axis fixtures place point/spot two units away at radius ten. Their
+    # independently validated falloff is .64, so a directional intensity 1.28
+    # supplies the same incident energy as intensity-two point/spot. Keep the
+    # existing measured point/spot pixel oracles, rather than deriving a BRDF.
+    for reference in ("H1-point-axis", "H9-roughness-one", "H10-metal-view60"):
+        row = next(row for row in rows if row["name"] == reference)
+        rows.append(dict(row, name=f"directional-{reference}", lamp="directional",
+            lightIntensity=1.28, equivalentIncidentEnergy=reference))
+    neutral = next(row for row in rows if row["name"] == "directional-H9-roughness-one")
+    # Retain an interior metallic declaration matching the real author input;
+    # its response must differ from zero, not just from the metallic endpoint.
+    rows.append(dict(neutral, name="directional-metallic-point14", surface=[.14, 1],
+        equivalentIncidentEnergy=None, expectedByte=None,
+        materialResponseReference=neutral["name"]))
+    rows.append(dict(neutral, name="directional-nil-at-same-energy", surface=None,
+        equivalentIncidentEnergy=None, expectedByte=49))
     # Reproduced black output from early half(100000), despite a finite
     # metallic surface response. This checks storage safety, not official HDR parity.
     rows.append(dict(rows[0], name="metal-hdr-finite-response", surface=[1, .7],
         tint=[1, 1, 1], materialBrightness=100000, usesHDR=True, finiteSurface=True,
         expectedByte=108))
+    rows.append(dict(rows[-1], name="directional-metal-hdr-finite-response",
+        lamp="directional", lightIntensity=1.28,
+        equivalentIncidentEnergy="metal-hdr-finite-response"))
+    for profile in (None, [0, .7]):
+        rows.append(dict(rows[0], name=f"directional-unlit-profile-{profile is not None}",
+            lamp="directional", surface=profile, receivesLighting=False,
+            albedo=ALBEDO, tint=[1, 1, 1], opacity=OPACITY, lightIntensity=100,
+            ambient=[20, 30, 40], expectedByte=None,
+            expectedUnlitPixel=[0.15, 0.225, 0.3, OPACITY]))
     return rows
 
 
@@ -145,6 +177,8 @@ def surface_storage_vectors() -> list[dict]:
 def expected_pixel(vector: dict) -> list[float]:
     # The additive material contract was established by controlled official
     # renders; known-normal cases carry measured response weights independently.
+    if "expectedUnlitPixel" in vector:
+        return vector["expectedUnlitPixel"]
     mask = vector["maskAlpha"] if vector["hasMask"] else 0.0
     radiance = [
         albedo * (ambient * vector.get("ambientResponse", 0.5)
@@ -234,7 +268,8 @@ PIXEL_MAIN = r'''
             let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: pass)!
             let material = SceneStaticModelMaterial(
                 color: vector(input["tint"] as? [Double] ?? [1, 1, 1]), opacity: Float(input["opacity"] as! Double),
-                receivesLighting: true, textureAlphaIsOpacity: false, textureAlphaIsTintMask: false,
+                receivesLighting: input["receivesLighting"] as? Bool ?? true,
+                textureAlphaIsOpacity: false, textureAlphaIsTintMask: false,
                 emissiveColor: vector(input["emissiveColor"] as! [Double]),
                 emissiveBrightness: Float(input["brightness"] as! Double),
                 brightness: Float(input["materialBrightness"] as? Double ?? 1),
@@ -249,17 +284,18 @@ PIXEL_MAIN = r'''
                 }, cullMode: .none
             )
             let lamp = input["lamp"] as? String
+            let lightIntensity = Float(input["lightIntensity"] as? Double ?? 2)
             let lightPosition = vector(input["lightPosition"] as? [Double] ?? [0, 0, 2.5])
             var lighting = SceneLightSnapshot(
                 ambient: vector(input["ambient"] as! [Double]),
                 skylight: vector(input["skylight"] as? [Double] ?? [0, 0, 0]),
                 directional: lamp == "directional" ? [.init(
-                    directionTowardLight: SIMD3(0, 0, 1), color: SIMD3(repeating: 1), intensity: 2
+                    directionTowardLight: SIMD3(0, 0, 1), color: SIMD3(repeating: 1), intensity: lightIntensity
                 )] : [],
                 point: lamp == "point" ? [.init(position: lightPosition,
-                    color: SIMD3(repeating: 1), intensity: 2, radius: 10)] : [],
+                    color: SIMD3(repeating: 1), intensity: lightIntensity, radius: 10)] : [],
                 spot: lamp == "spot" ? [.init(position: lightPosition,
-                    directionFromLight: SIMD3(0, 0, -1), color: SIMD3(repeating: 1), intensity: 2,
+                    directionFromLight: SIMD3(0, 0, -1), color: SIMD3(repeating: 1), intensity: lightIntensity,
                     radius: 10, innerConeCosine: cos(Float.pi/9),
                     outerConeCosine: cos(Float.pi*2/9), outerConeDegrees: 40)] : [],
                 overflowCount: 0
@@ -343,7 +379,7 @@ class SceneStaticModelEmissionTests(unittest.TestCase):
 
     def test_additive_emission_pixels_match_numeric_contract(self):
         for vector, row in zip(self.vectors, self.report["rows"]):
-            if "expectedByte" in vector:
+            if "expectedByte" in vector and "expectedUnlitPixel" not in vector:
                 continue
             for channel, (actual, expected) in enumerate(zip(row["pixel"], expected_pixel(vector))):
                 with self.subTest(case=vector["name"], channel=channel):
@@ -360,6 +396,24 @@ class SceneStaticModelEmissionTests(unittest.TestCase):
                     self.assertTrue(all(math.isfinite(float(v)) and float(v) > 0 for v in row["pixel"][:3]))
                 for actual in row["pixel"][:3]:
                     self.assertLessEqual(abs(float(actual)*255-vector["expectedByte"]), 1)
+
+    def test_directional_profile_matches_incident_energy_and_preserves_legacy(self):
+        by_name = {row["name"]: row for row in self.report["rows"]}
+        for vector in self.vectors:
+            reference = vector.get("equivalentIncidentEnergy")
+            if reference is None:
+                continue
+            with self.subTest(case=vector["name"]):
+                for actual, expected in zip(by_name[vector["name"]]["pixel"], by_name[reference]["pixel"]):
+                    self.assertAlmostEqual(float(actual), float(expected),
+                        delta=half_storage_tolerance(float(expected)))
+        self.assertEqual(by_name["directional-preserved"]["pixel"],
+            by_name["directional-default-preserved"]["pixel"])
+        metallic = by_name["directional-metallic-point14"]["pixel"]
+        neutral = by_name["directional-H9-roughness-one"]["pixel"]
+        for actual, reference in zip(metallic[:3], neutral[:3]):
+            self.assertGreater(float(actual), 0)
+            self.assertLess(float(actual), float(reference))
 
     def test_finite_surface_storage_profile_and_legacy_boundaries(self):
         legacy = {(1, 1): 49/255, (1, 100000): MAX_HALF,

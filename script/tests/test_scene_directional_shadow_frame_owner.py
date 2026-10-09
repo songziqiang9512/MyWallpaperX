@@ -174,6 +174,7 @@ extension SceneFrameContext {
 }
 extension SceneBaseImageTextureSnapshot {
  func layerSourceRenderSize(for id:Int)->[Float]? { fatalError("unused RF13 ordered preparation shell") }
+ func layerSourceTextCenterOffsetY(for id:Int)->Float? { fatalError("unused RF13 ordered preparation shell") }
  var geometryProducts:[Int:FixtureGeometryProduct] { fatalError("unused RF13 ordered preparation shell") }
 }
 extension SceneMetalRenderer {
@@ -187,7 +188,7 @@ extension SceneMetalRenderer {
   fatalError("unused RF13 ordered preparation shell")
  }
  func imageModelMatrix(for layer:SceneRenderDescriptor.Layer,worldFramesByLayerID:[Int:simd_float4x4],
-  renderSizeOverride:[Float]?,parallaxMouseNormalized:SIMD2<Float>,configuration:SceneLayerParallax.Configuration,
+  renderSizeOverride:[Float]?,textCenterOffsetY:Float=0,parallaxMouseNormalized:SIMD2<Float>,configuration:SceneLayerParallax.Configuration,
   visibleHalfExtents:SIMD2<Float>,usesPerspective:Bool)->simd_float4x4 {
   fatalError("unused RF13 ordered preparation shell")
  }

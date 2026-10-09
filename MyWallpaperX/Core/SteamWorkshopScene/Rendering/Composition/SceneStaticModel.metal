@@ -321,6 +321,16 @@ float scenePointVisibility(float3 position, float3 worldDX, float3 worldDY,
     return visibility / 9.0;
 }
 
+// The admitted material response is shared by all model lamp kinds. Callers
+// retain each lamp's attenuation and multiply visibility across both lobes.
+static float3 sceneStaticModelSurfaceResponse(float3 normal, float3 view,
+    float3 light, float3 surfaceColor, float2 material) {
+    const SceneSurfaceWeights weights = sceneSurfaceResponse(normal, view,
+        light, clamp(surfaceColor, 0.0, 1.0), material.x, material.y, true,
+        SceneSurfaceAnalyticSchlick);
+    return (surfaceColor * weights.diffuse + weights.specular) / M_PI_F;
+}
+
 fragment half4 sceneStaticModelFragment(
     SceneStaticModelRasterVertex in [[stage_in]],
     texture2d<half> colorTexture [[texture(0)]],
@@ -403,7 +413,13 @@ fragment half4 sceneStaticModelFragment(
         float4 light = uniforms.lightDirectionIntensity[lightIndex];
         float diffuse = max(dot(normal, light.xyz), 0.0);
         float visibility = directionalVisibility[lightIndex];
-        lighting += uniforms.lightColor[lightIndex].xyz * light.w * diffuse * visibility;
+        if (surfaceEnabled) {
+            surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
+                light.xyz, surfaceColor, uniforms.surfaceMaterial.xy)
+                * uniforms.lightColor[lightIndex].xyz * light.w * visibility;
+        } else {
+            lighting += uniforms.lightColor[lightIndex].xyz * light.w * diffuse * visibility;
+        }
     }
     uint pointCount = receivesLighting ? uniforms.lightCounts.y : 0u;
     for (uint lightIndex = 0; lightIndex < min(pointCount, 4u); ++lightIndex) {
@@ -424,13 +440,9 @@ fragment half4 sceneStaticModelFragment(
         float diffuse = max(dot(normal, directionTowardLight), 0.0);
         float4 colorIntensity = uniforms.pointColorIntensity[lightIndex];
         if (surfaceEnabled) {
-            const SceneSurfaceWeights weights = sceneSurfaceResponse(normal, viewDirection,
-                directionTowardLight, clamp(float3(surfaceColor), 0.0, 1.0),
-                uniforms.surfaceMaterial.x, uniforms.surfaceMaterial.y, true,
-                SceneSurfaceAnalyticSchlick);
-            const float3 response = (float3(surfaceColor) * weights.diffuse + weights.specular)
-                / M_PI_F;
-            surfaceRadiance += response * colorIntensity.xyz * colorIntensity.w
+            surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
+                directionTowardLight, surfaceColor, uniforms.surfaceMaterial.xy)
+                * colorIntensity.xyz * colorIntensity.w
                 * radial * pointVisibility[lightIndex];
         } else {
             lighting += colorIntensity.xyz * colorIntensity.w * radial * diffuse * pointVisibility[lightIndex];
@@ -461,13 +473,9 @@ fragment half4 sceneStaticModelFragment(
         float diffuse = max(dot(normal, directionTowardLight), 0.0);
         float4 colorIntensity = uniforms.spotColorIntensity[lightIndex];
         if (surfaceEnabled) {
-            const SceneSurfaceWeights weights = sceneSurfaceResponse(normal, viewDirection,
-                directionTowardLight, clamp(float3(surfaceColor), 0.0, 1.0),
-                uniforms.surfaceMaterial.x, uniforms.surfaceMaterial.y, true,
-                SceneSurfaceAnalyticSchlick);
-            const float3 response = (float3(surfaceColor) * weights.diffuse + weights.specular)
-                / M_PI_F;
-            surfaceRadiance += response * colorIntensity.xyz * colorIntensity.w
+            surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
+                directionTowardLight, surfaceColor, uniforms.surfaceMaterial.xy)
+                * colorIntensity.xyz * colorIntensity.w
                 * radial * cone * spotVisibility[lightIndex];
         } else {
             lighting += colorIntensity.xyz * colorIntensity.w

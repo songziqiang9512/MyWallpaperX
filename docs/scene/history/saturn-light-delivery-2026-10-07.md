@@ -102,3 +102,26 @@
 证据：`.artifacts/tmp/saturn-text-anchor-20261010/`的`official/`、`audit/singleline-candidate-comparison.json`、`audit/multiline-candidate-comparison.json`、`build-candidate.json`。该修复适用于现有共用文字链，未新增字体/样本专用算法。土星亮度/Bloom、上后方投影、亚像素细线及完整媒体/交互验收仍开放。
 
 完整原始土星包SHA `8cb79fa9f77c992c2bc3c3ea6300af0f058bf5e85b96ae1d1f300fdf3c037bb0`在同一候选App运行50秒、40秒取图，保留大型陨石模型与脚本；PID55491正常退出、92/92脚本quiescent、零失败、GPU drain。原包时间/音频未与官方冻结一致，仅证明新锚点进入真实3D/effect/最终合成链和运行收尾，不作为整图parity或性能验收。
+
+
+<a id="directional-material-response"></a>
+## 方向光消费既有模型表面响应（2026-10-10）
+
+起点`82a4dc3c`（Scene为`3d934ffd`）。当前AF/文字版本的同姿态有影无Bloom对照仍有球亮侧偏亮、前环偏暗；球及环unlit对照排除了简单底图增益解释。复用四固定法线/不同直径的自有几何，固定实际作者child/parent角度，唯一材质变量为metallic 0→0.14，roughness保持1。官方2.8.0.42的−X区域从238降至190，原Native两图完全相同、均229；其它三法线保原始低值，不用亮暗分类推断完整BRDF或3D旋转合同。
+
+修复沿已准入的`surfaceProfile`进入既有表面求值，directional/point/spot收拢同一组合入口；不新建BRDF、材质状态、方向或合成链。nil profile保legacy，显式metallic0仍使用surface；shadow作用于完整直接光响应，ambient/emission及coverage、雾、最终预乘各保原序。未扩大动态MR、贴图或作者shader override准入；实现前取舍见[D3](../roadmap/batch2/2d-lighting-material-design.md#generic4-模型静态表面响应2026-10-09有界后继)。
+
+冻结候选App的8个四法线ROI中值与官方全部一致：neutral `[0,238,5,0]`，metallic0.14 `[0,190,4,0]`。真实有影无Bloom包SHA`c49bdf2f…0e29032`在固定区域得到：
+
+| 区域 | 修复前RGB中值 | 修复后RGB中值 | 官方RGB中值 |
+|---|---|---|---|
+| 球体左亮侧 | 126/115/98 | 114/105/91 | 116/107/92 |
+| 前环 | 116.5/112/101.5 | 120/116/105 | 120/116/105 |
+
+这是同一共用材质修复同时减少相反偏差，不是全局曝光补偿；球仍有1–2阶残差，区域中值不能升级为整图像素一致。输入、官方GDI、各版App/source身份及固定ROI保留于`.artifacts/tmp/saturn-light-residual-20261010/`。后继仍需处理上后方投影与亚像素细线，并保留完整媒体/交互验收边界。
+
+保留Bloom的同姿态包SHA`e44babef…596e2ef`中，球左从146/134/114变为128/118/103（官方134/123/105），前环从131.5/126/115变为137.5/132/120.5（官方140/133/119.5）。该结果仍有Bloom端残差，不能将本次材质修复记为完整亮度/Bloom验收。
+
+隔离Debug/签名通过，762个Scene输入按最终三产品文件冻结，dylib `f0570670…56a9da6`。有影无Bloom、同姿态有Bloom及原完整包均exit0并GPU drained；原包SHA`8cb79fa9…c037bb0`运行91.86秒，92/92脚本owner quiescent、0 teardown failure，实际图保留大型陨石环、球体及文字。该原包用实时日期，只作完整资源/合成回归，不与冻结官方姿态混算parity。已停止HOME/TMP清理，留必要PNG/收据及共用构建缓存。
+
+最近回归：emission 5项、directional shadow 2项、模型pipeline/准入5项及parts 3项通过，保nil旧输出、point/spot既有外部oracle、显式0/.14、unlit、coverage/HDR和材质分段。旧parts首次失败来自上批文字入口的共享非目标stub签名陈旧，本批只同步原共享stub，不新增产品分支。Scene结构/依赖/防御/设计及文档健康通过；全仓code-health、文档导航和residue分别仍报告并行Web的1008行文件、既存Web设计回链及未知归属`.mimosa`，保留并未当作本批通过。独立审查分别核产品、官方/候选ROI、运行身份及有界声明。

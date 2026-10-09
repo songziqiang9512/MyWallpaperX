@@ -1,8 +1,8 @@
 import Metal
 import simd
 
-/// Static generic4 point/spot surface parameters, prepared once per material.
-/// The caller retains the existing directional and other material policies.
+/// Static generic4 surface parameters, prepared once for all model light kinds.
+/// Materials without this admitted profile retain their legacy response.
 struct SceneStaticModelSurfaceProfile: Equatable, Sendable {
     let metallic: Float
     let roughness: Float
@@ -139,4 +139,3 @@ struct SceneStaticModelMaterial {
         )
     }
 }
-

@@ -336,11 +336,11 @@ struct SceneStaticModelPipeline {
                 ? SceneModelShadowUniforms(acceptedShadows[index].0, lightIndex: acceptedShadows[index].1)
                 : SceneModelShadowUniforms()
         }
-        let lights = Self.encodedLights(lighting.directional)
-        let pointSpotEnergyScale: Float = material.surfaceProfile == nil
+        let lightEnergyScale: Float = material.surfaceProfile == nil
             ? Self.staticModelLightEnergyScale : 1
-        let points = Self.encodedPoints(staticModelPoints, energyScale: pointSpotEnergyScale)
-        let spots = Self.encodedSpots(lighting.spot, energyScale: pointSpotEnergyScale)
+        let lights = Self.encodedLights(lighting.directional, energyScale: lightEnergyScale)
+        let points = Self.encodedPoints(staticModelPoints, energyScale: lightEnergyScale)
+        let spots = Self.encodedSpots(lighting.spot, energyScale: lightEnergyScale)
         let brightness = material.usesHDRBrightness
             ? max(material.brightness, 0)
             : 1
@@ -638,13 +638,13 @@ struct SceneStaticModelPipeline {
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotColorIntensity3) == 848
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotOuterCosines) == 864
 
-    /// Preserved legacy diffuse policy for directional and materials without
-    /// an admitted static surface profile. Generic4 point/spot now upload raw
-    /// intensity; their shared surface response supplies its one 1/pi factor.
+    /// Preserve legacy diffuse units for materials without an admitted surface
+    /// profile. Admitted generic4 model lights upload raw intensity; the shared
+    /// surface response supplies its one normalization factor.
     static let staticModelLightEnergyScale: Float = 0.30
 
     private static func encodedLights(
-        _ lights: [SceneLightSnapshot.Directional]
+        _ lights: [SceneLightSnapshot.Directional], energyScale: Float
     ) -> [(directionIntensity: SIMD4<Float>, color: SIMD4<Float>)] {
         (0..<SceneLightSnapshot.maximumLightCount).map { index in
             guard lights.indices.contains(index) else {
@@ -656,7 +656,7 @@ struct SceneStaticModelPipeline {
                     light.directionTowardLight.x,
                     light.directionTowardLight.y,
                     light.directionTowardLight.z,
-                    max(light.intensity, 0) * staticModelLightEnergyScale
+                    max(light.intensity, 0) * energyScale
                 ),
                 SIMD4(light.color.x, light.color.y, light.color.z, 0)
             )

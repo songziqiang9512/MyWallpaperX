@@ -4,6 +4,8 @@
 
 # 静态模型光照能量合同与过曝修复（2026-10-06）
 
+> **后继范围纠正（2026-10-10）**：下文经验能量尺度仅保留为未准入surface profile的legacy行为，不能作为generic4方向光的当前材质合同。方向光已准入profile复用共享表面响应，依据及验收见[方向光材质补接](saturn-light-delivery-2026-10-07.md#directional-material-response)；不将早期同族外推当成全材质官方结论。
+
 起点 `a11e5b6b`。用户登录 Windows VM 后，按[官方行为研究工作流](../development/official-client-behavior-research-workflow.md)完成有界黑盒探针战役，落地模型光照合同并修复水星/土星过曝。
 
 ## 官方黑盒合同（固定 WE 2.8.0.42 / wallpaper32.exe SHA `daac1ea7…bda07`）

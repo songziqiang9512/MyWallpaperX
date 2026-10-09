@@ -354,10 +354,10 @@
       "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cdb0634e5c44f2cc110dbed012e12633791f63deb9fe79592dc33c0cc3bf640d",
+        "sourceSHA256": "497374b6a96fec01012bda8fcced76a47aca3703220c90c3f2336c0690bf5eeb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核文字texture/extent/anchor同代发布、现有提交屏障及唯一pivot的职责与引用。",
-        "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
+        "scope": "本批仅核directional surface补接与既有模型职责/证据入口；导航audit与document_health复核。",
+        "limitations": "非全文实现审查，不升级其它历史运行、完整PBR、全样本或官方parity证据。"
       }
     },
     {
@@ -523,10 +523,10 @@
       "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4df53e353d7f68d1734ac25e1d864027e5986d8a41ad894abd15b0e45421fea0",
+        "sourceSHA256": "ad33829802401d4183258d4acef41dc1c71e0a8d5b19f889ddd0aa63ea8d0a10",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对同字体1/2/3行center锚点对照与土星剩余亮度/投影链接；只维护本批证据导航。",
-        "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
+        "scope": "本批仅核directional surface补接与既有模型职责/证据入口；导航audit与document_health复核。",
+        "limitations": "非全文实现审查，不升级其它历史运行、完整PBR、全样本或官方parity证据。"
       }
     },
     {
