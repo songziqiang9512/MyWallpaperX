@@ -28,6 +28,7 @@ SOURCES = list(dict.fromkeys([
         'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'VISIBILITY_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE',
         'DYNAMIC_LAYER_VALUES_SOURCE', 'MATERIAL_SOURCE', 'PIPELINE_SOURCE', 'SHADOW_SOURCE']),
     SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift',
+    SCENE/'Compilation/Material/SceneMaterialRenderState.swift',
     SCENE/'Rendering/Frame/SceneMetalRenderer+StaticModels.swift',
     SCENE/'Rendering/Frame/SceneMetalRenderer+Particles.swift',
 ]))
@@ -81,6 +82,7 @@ struct ScenePreparedStaticModelResources {
   let materialPath:String;let dynamicMaterialPath:String;let geometryIdentity:String;let mesh:SceneStaticModelMesh
   let albedo:PreparedTexture?;var namedAlbedo:String? = nil;var emissiveMask:PreparedTexture? = nil
   let material:SceneStaticModelMaterial;var writesDepth:Bool = true
+  var materialBlending:SceneMaterialRenderState.Blending? = nil
  }
  let pipeline:SceneStaticModelPipeline?;let entries:[Int:[Entry]]
  subscript(_ id:Int)->[Entry]? { entries[id] }

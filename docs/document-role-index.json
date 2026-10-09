@@ -354,10 +354,10 @@
       "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1f6b4e1364e2586dc17347c00c2fa3bc5784df2987add5d686302dec39e5c4ec",
+        "sourceSHA256": "8c24a7d634c0120e4b90b3ba52a14663b4425e3498dba8a2b2bbca0a2d7e4545",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批仅核共用阴影depth/过滤职责、真实反例和现役证据入口；导航audit与document_health复核。",
-        "limitations": "非全文实现审查，不升级完整阴影轮廓、Bloom、性能或全样本官方parity。"
+        "scope": "仅核模型材质caster准入的单owner合同、完整包实际输出与有界余项转序入口。",
+        "limitations": "非全文实现审查；不升级微颗粒/弧线/Bloom、全部动态/交互、性能或全样本官方一致性。"
       }
     },
     {
@@ -523,10 +523,10 @@
       "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d3a609bbefce260690571de351f61e28e1664f59c1386903687fb43692558cce",
+        "sourceSHA256": "f8f61c21a588d61dda0e13eeb03263c81e07d8043ef7588f912e9a77bdecb933",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批仅核共用阴影depth/过滤职责、真实反例和现役证据入口；导航audit与document_health复核。",
-        "limitations": "非全文实现审查，不升级完整阴影轮廓、Bloom、性能或全样本官方parity。"
+        "scope": "仅核模型材质caster准入的单owner合同、完整包实际输出与有界余项转序入口。",
+        "limitations": "非全文实现审查；不升级微颗粒/弧线/Bloom、全部动态/交互、性能或全样本官方一致性。"
       }
     },
     {

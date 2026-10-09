@@ -2,7 +2,7 @@
 
 # Scene 当前断点修复队列
 
-> 复核：2026-10-09。本文是[兼容 P 路线](scene-compatibility-roadmap.md)的派生待修队列，保存所有已登记开放问题，不建立第二套阶段。当前优先 **纹理与最终合成 → 特效 → 频谱等直观显示**；启动阻塞需同时定位，性能优化不能牺牲画面正确性。
+> 复核：2026-10-10。本文是[兼容 P 路线](scene-compatibility-roadmap.md)的派生待修队列，保存所有已登记开放问题，不建立第二套阶段。当前优先 **纹理与最终合成 → 特效 → 频谱等直观显示**；启动阻塞需同时定位，性能优化不能牺牲画面正确性。
 
 ## 1. 全样本依据与状态
 
@@ -19,6 +19,8 @@
 | E1 特效与频谱 | 将运行拒绝按共享shader/slot/graph/动态输入首断点归并；频谱用同声源对照形状和活跃度 | 复用现compiler/graph/audio producer，选覆盖面明确的族恢复动态结果；不抬gain、改作者参数或放宽测试制造通过 |
 
 T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅证F16量化，不据此换全图精度。T2透明RGB跨effect与静态源/source/capture两卡已闭合，U19灰头冠恢复亮色；U23坐标拒绝与背景强网点已修，U21数组/环形输出及灰斜层已修，下一复核剩余颜色/光束；[类型兼容后验](../history/shared-shader-type-compatibility-2026-10-09.md)保留实际运行及未决合同，不重做已修SDR shoulder或已执行效果；按批回写矩阵。
+
+**下一批（10-10调序）：** 优先T1非中性source-material Power：3601964477真实材质Power=0.99仍被中性值准入拒绝，先验实际可见影响，再复用现有prepared/Program链补齐。3609108600、3690859128的Power=1且原Alpha/共享材质已修，只作健康回归，不计同一缺陷。E1同声源频谱形状为备选，现尚无新共同首断点，不能先调gain。土星只保留下表有界余项，长期Goal继续。
 
 ## 2. 纹理、合成与特效公共缺口
 
@@ -66,7 +68,7 @@ T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅
 | 3750813609 时钟黑白 | 原包clouds资产ready，不能把synthetic noise记作修复；时钟ROI与作者预期仍待比对。[证据](../capabilities/runtime-evidence-current.md#e-2026-09-26-stock-noise-preparation) |
 | 3792817546 /3790726145 /2986218263 指针/绳带 | CP0 flags/default、world/perspective、Rope及pointer三门已贯通；剩余原生输入和官方绳带宽度/UV/颜色，child profile另见下表。[执行证据](../capabilities/runtime-evidence-current.md#e-2026-09-28-rope-gate-admission) |
 | 3750813609 /3363252053 相机过强、纵向反转 | 两项输入/收敛子缺陷已修但用户三轮验收仍失败，**用户曾要求挂起**。有官方同输入时重启layout/显示器/脚本相机输入对照；不拿约50px量级正确当体验通过 |
-| 3662790108 JUNO /3589454154 土星 | JUNO albedo/两跳导航/原生进退已验，布局未闭；[三体3509243656/土星旧启动失败已闭](../history/l1-heavy-retest-2026-10-07.md)，普通入口约14秒，三体获用户确认；[大型模型后验](../history/l1-heavy-retest-2026-10-07.md#large-static-model)恢复超64MiB陨石环，颗粒可见。[显隐/方向](../history/saturn-light-delivery-2026-10-07.md#effective-light-visibility)已恢复球体左亮右暗；[原生阴影面向](../history/saturn-light-delivery-2026-10-07.md#native-shadow-winding)已消除环带大块三角暗纹，保留星球投影；[斜视采样](../history/saturn-light-delivery-2026-10-07.md#oblique-texture-sampling)已修；[center文字锚点](../history/saturn-light-delivery-2026-10-07.md#text-center-anchor)已修；[方向光材质](../history/saturn-light-delivery-2026-10-07.md#directional-material-response)已改善球/环亮度，[阴影depth/过滤](../history/saturn-light-delivery-2026-10-07.md#shadow-depth-and-filter)已修宽灰边/前环细暗线，先查完整陨石包同姿态细影线，续Bloom与细线/轮廓覆盖。[最终土星](../history/committed-range-review-repairs-2026-10-07.md#整合验证)、[导航](../history/juno-full-scene-navigation-acceptance-2026-10-06.md) |
+| 3662790108 JUNO /3589454154 土星 | JUNO albedo/两跳导航/原生进退已验，布局未闭；[三体3509243656/土星旧启动失败已闭](../history/l1-heavy-retest-2026-10-07.md)，普通入口约14秒，三体获用户确认；[大型模型后验](../history/l1-heavy-retest-2026-10-07.md#large-static-model)恢复超64MiB陨石环，颗粒可见。[显隐/方向](../history/saturn-light-delivery-2026-10-07.md#effective-light-visibility)已恢复球体左亮右暗；[原生阴影面向](../history/saturn-light-delivery-2026-10-07.md#native-shadow-winding)已消除环带大块三角暗纹，保留星球投影；[斜视采样](../history/saturn-light-delivery-2026-10-07.md#oblique-texture-sampling)已修；[center文字锚点](../history/saturn-light-delivery-2026-10-07.md#text-center-anchor)已修；[方向光材质](../history/saturn-light-delivery-2026-10-07.md#directional-material-response)已改善球/环亮度，[阴影depth/过滤](../history/saturn-light-delivery-2026-10-07.md#shadow-depth-and-filter)已修宽灰边/前环细暗线，[完整包材质caster准入](../history/saturn-light-delivery-2026-10-07.md#translucent-model-shadow)已修宽斜暗带，原动态代表帧通过；微颗粒/球面细弧线仍在。用户10-10补报斜长影高速变位并怀疑屏外模型；需保留合法屏外投影，不做视锥排除。**按用户调序，本批收尾后暂缓土星**：余Bloom、亚像素细线/颗粒与轮廓、完整媒体/交互保留待复验，不再以土星全部问题修完作为切换门。[最终土星](../history/committed-range-review-repairs-2026-10-07.md#整合验证)、[导航](../history/juno-full-scene-navigation-acceptance-2026-10-06.md) |
 | 3747492842 额外闪烁 | 固定输入与phase连续输出，核首个不同stage，再定根因 |
 | 3088601835 雪雾及旧低优先项 | 用户认为雪雾已较正常，官方也过曝；3028090166光束、2419444134白点、3113554287顿挫、2304304373雾气、烟花/洋红/一般拖尾保留低优先未验。公共修复涉及或用户重新点名时重启，不以沉默记PASS |
 

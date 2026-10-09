@@ -17,6 +17,7 @@ struct ScenePreparedStaticModelResources {
         let emissiveMask: SceneTextureCandidate?
         let material: SceneStaticModelMaterial
         let writesDepth: Bool
+        let materialBlending: SceneMaterialRenderState.Blending?
     }
 
     let pipeline: SceneStaticModelPipeline?
@@ -164,7 +165,8 @@ struct ScenePreparedStaticModelResources {
                     namedAlbedo: namedAlbedo,
                     emissiveMask: emissiveMask,
                     material: modelMaterial,
-                    writesDepth: writesDepth(pass.depthWrite)
+                    writesDepth: writesDepth(pass.depthWrite),
+                    materialBlending: SceneMaterialRenderState.compileBlending(pass.blending)
                 ))
                 try cancellationCheck()
             }

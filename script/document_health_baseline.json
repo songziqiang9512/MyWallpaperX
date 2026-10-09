@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 593,
-      "bytes": 110808
+      "bytes": 111229
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 171072
+      "bytes": 171214
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 93,
-      "bytes": 27253
+      "bytes": 27408
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -133,8 +133,8 @@
       "bytes": 19030
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
-      "lines": 493,
-      "bytes": 108264
+      "lines": 499,
+      "bytes": 110178
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 46,
@@ -197,8 +197,8 @@
       "bytes": 32798
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 222,
-      "bytes": 58678
+      "lines": 224,
+      "bytes": 59541
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1036,15 +1036,6 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
-      "before": "e81baaae233cd2f74c1a9cbd12806e1244a35bb52b2f9d9bc952180d6ff6868e",
-      "after": "18461eb040d1352c4fb74564067869e2265d2fcac6b54debcf532e33872254f5",
-      "owner": "Scene共用阴影depth与过滤",
-      "reason": "沿原caster补directional几何depth并共享有限过滤；已修宽灰边与共面暗线退出队列，轮廓精度/Bloom保持待验。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#shadow-depth-and-filter"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
       "before": "f0c438db06a1027042354a9394da5ed8cf59183bb185e67b976eff900323f5f4",
       "after": "02f61c3ec7e357466792c4f02a37b553451af292054ffeb2522ac8f8c1e1844d",
@@ -1082,38 +1073,47 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "98a833fb3845ba4256379432780e60ac5fc905e224a6c8e4da77828247ca51bb",
-      "after": "7efcaa1dd0030b661ff5f7ef1e677b40a49ebde9c4106e9543b05074c23a0904",
-      "owner": "Scene共用阴影depth与过滤",
-      "reason": "沿原caster补directional几何depth并共享有限过滤；已修宽灰边与共面暗线退出队列，轮廓精度/Bloom保持待验。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#shadow-depth-and-filter"
+      "before": "7efcaa1dd0030b661ff5f7ef1e677b40a49ebde9c4106e9543b05074c23a0904",
+      "after": "6f63035c663f810a0422f806593d15b495722164d0df785b4efc5b23804f7ac5",
+      "owner": "Scene模型材质caster准入",
+      "reason": "以成对官方控制修复prepared材质语义丢失；长期准入合同与已验长暗带归档，土星余项按用户调序暂缓并保明确重启边界。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#translucent-model-shadow"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+      "before": "18461eb040d1352c4fb74564067869e2265d2fcac6b54debcf532e33872254f5",
+      "after": "3c040b968e69266aac093b348611ffcd1a89efbe3f58edee17fe690e59c48be0",
+      "owner": "Scene模型材质caster准入",
+      "reason": "以成对官方控制修复prepared材质语义丢失；长期准入合同与已验长暗带归档，土星余项按用户调序暂缓并保明确重启边界。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#translucent-model-shadow"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "ed6e1dbb607057eed4df250d12871f098ff02f8fda12d6db277c150f64b6aadd",
-      "after": "b5b33ca6606ff335968b151d4061fff699e40df1427b1dfdb8a9ad92057460fe",
-      "owner": "Scene共用阴影depth与过滤",
-      "reason": "沿原caster补directional几何depth并共享有限过滤；已修宽灰边与共面暗线退出队列，轮廓精度/Bloom保持待验。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#shadow-depth-and-filter"
+      "before": "b5b33ca6606ff335968b151d4061fff699e40df1427b1dfdb8a9ad92057460fe",
+      "after": "e41600aabb046f92debed2c55cedbe81f559714b03f95c002e0e3fb5a11db78c",
+      "owner": "Scene模型材质caster准入",
+      "reason": "以成对官方控制修复prepared材质语义丢失；长期准入合同与已验长暗带归档，土星余项按用户调序暂缓并保明确重启边界。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#translucent-model-shadow"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "36a3d62294af0563c258f4dd9909d9041e1189864be74068c3d3f19570ba7115",
-      "after": "063b2aab83e56f66ace54ef594b79571d81c00242038828de08e3379c99b080f",
-      "owner": "Scene共用阴影depth与过滤",
-      "reason": "沿原caster补directional几何depth并共享有限过滤；已修宽灰边与共面暗线退出队列，轮廓精度/Bloom保持待验。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#shadow-depth-and-filter"
+      "before": "063b2aab83e56f66ace54ef594b79571d81c00242038828de08e3379c99b080f",
+      "after": "6e27bb601fd061d2a16654727f25420cc0344ca5329a61fbdd0ba7114733e67b",
+      "owner": "Scene模型材质caster准入",
+      "reason": "以成对官方控制修复prepared材质语义丢失；长期准入合同与已验长暗带归档，土星余项按用户调序暂缓并保明确重启边界。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#translucent-model-shadow"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7ca576595de3fcb5b8f108781424bd8757bc8c1e26da4cbcf76799621538f3fb",
-      "after": "f51c7fadfc6b98b8860afda74376c0ad53c8bd1b1ecaa9880bad4080e7c47037",
-      "owner": "Scene共用阴影depth与过滤",
-      "reason": "沿原caster补directional几何depth并共享有限过滤；已修宽灰边与共面暗线退出队列，轮廓精度/Bloom保持待验。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#shadow-depth-and-filter"
+      "before": "f51c7fadfc6b98b8860afda74376c0ad53c8bd1b1ecaa9880bad4080e7c47037",
+      "after": "044b03fd330da62cbfa7bbb454c587b482c59892568b0bd15669f877b17d35b6",
+      "owner": "Scene模型材质caster准入",
+      "reason": "以成对官方控制修复prepared材质语义丢失；长期准入合同与已验长暗带归档，土星余项按用户调序暂缓并保明确重启边界。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#translucent-model-shadow"
     }
   ]
 }

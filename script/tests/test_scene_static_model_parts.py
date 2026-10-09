@@ -106,6 +106,25 @@ def native_fixture(count, *, bad=False, overlap=False):
     return entries, expected
 
 
+def blending_fixture():
+    entries, expected = native_fixture(5)
+    for part, blending in zip(expected, [' Normal ', ' TRANSLUCENT ', 'additive', 'unknown', None]):
+        path = part['material']
+        material = json.loads(entries[path])
+        if blending is None:
+            material['passes'][0].pop('blending')
+        else:
+            material['passes'][0]['blending'] = blending
+        entries[path] = json.dumps(material).encode()
+    # A zero-coverage caster keeps the same projection extent for cast=false.
+    # It cannot hide the five real parts in either their color or depth maps.
+    entries['models/peer.mdl'] = quad(0, 160, 0, 128, -10, 'materials/peer.json')
+    peer = json.loads(entries['materials/peer.json'])
+    peer['passes'][0]['constantshadervalues'] = {'alpha': 0}
+    entries['materials/peer.json'] = json.dumps(peer).encode()
+    return entries, expected
+
+
 def identity_chunk_fixture():
     """Cross a hash chunk in vertex words, narrow indices and wide indices."""
     entries, expected = native_fixture(3)
@@ -307,6 +326,7 @@ extension SceneRenderDescriptor {
   let constantShaderValues:[String:SceneDocument.ShaderValue];var passIndex:Int=0;var depthWrite:String?=nil
   var staticModelMaterialBindings:SceneStaticModelMaterialBindings?=nil;var cullMode:String?=nil
   var staticModelDefaultAlbedoAssetPath:String?=nil;var shaderPath:String?=nil
+  var blending:String?=nil
   var userShaderValues:[String:String]=[:]
  }
 }
@@ -338,7 +358,8 @@ NATIVE_MAIN=r'''
   var rows:[[String:Any]]=[]
   for (name,fixture) in [("parts5","parts5"),("parts8","parts8"),("parts64","parts64"),
                           ("bad8","bad8"),("quota","parts8"),("recovery","parts8"),("overlap","overlap"),
-                          ("defaults","defaults"),("emission","emission"),("identities","identities") ] {
+                          ("defaults","defaults"),("emission","emission"),("identities","identities"),
+                          ("blends","blends"),("blends-false","blends") ] {
    let before=SceneResourceBudget.shared.snapshot.residentBytes
    var row=try autoreleasepool {try run(name,root.appendingPathComponent(fixture),device,queue)}
    row["budgetBefore"]=before;row["budgetAfter"]=SceneResourceBudget.shared.snapshot.residentBytes
@@ -360,12 +381,14 @@ NATIVE_MAIN=r'''
        textureSlots:(pass["textures"] as? [Any] ?? []).map{$0 as? String},
        combos:pass["combos"] as! [String:Int],constantShaderValues:constants,depthWrite:pass["depthwrite"] as? String)
    result.staticModelDefaultAlbedoAssetPath = pass["defaultAlbedo"] as? String
+   result.blending = pass["blending"] as? String
    if pass["rejectedMaterial"] as? Bool == true {
        result.staticModelMaterialBindings = .init(state:.rejected,bindings:[],rejectionReason:"fixture-rejected-value")
    }
    return result
   }
-  let layers=[SceneRenderDescriptor.Layer(id:1,staticModelPath:"models/peer.mdl"),.init(id:2,staticModelPath:"models/parts.mdl")]
+  var layers=[SceneRenderDescriptor.Layer(id:1,staticModelPath:"models/peer.mdl"),.init(id:2,staticModelPath:"models/parts.mdl")]
+  if mode=="blends-false" {layers[1].modelShadowCastIntent = .disabled}
   let descriptor=SceneRenderDescriptor(lighting:nil,layers:layers,renderOrderLayerIDs:[1,2],materialPasses:passes)
   let loader=try SceneTextureLoader(root:root,device:device)
   let meshCost=device.heapBufferSizeAndAlign(length:4*MemoryLayout<SceneMdlStaticModel.Vertex>.stride,options:.storageModeShared).size
@@ -390,6 +413,43 @@ NATIVE_MAIN=r'''
   let td=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm,width:160,height:128,mipmapped:false)
   td.storageMode = .shared;td.usage=[.renderTarget,.shaderRead]
   let target=device.makeTexture(descriptor:td)!
+  var shadowDepths:[[Float]]=[]
+  if mode.hasPrefix("blends") {
+   for kind in ["directional","spot","point"] {
+    let light:SceneLightSnapshot.ShadowLight
+    if kind=="directional" {light = .directional(.init(layerID:7,castsShadow:true,directionTowardLight:SIMD3(0,0,1),color:SIMD3(repeating:1),intensity:1))}
+    else if kind=="spot" {light = .spot(.init(layerID:7,castsShadow:true,position:SIMD3(40,8,100),directionFromLight:SIMD3(0,0,-1),color:SIMD3(repeating:1),intensity:1,radius:200,innerConeCosine:0.9,outerConeCosine:cos(.pi/4),outerConeDegrees:45))}
+    else {light = .point(.init(layerID:7,castsShadow:true,position:SIMD3(40,8,100),color:SIMD3(repeating:1),intensity:1,radius:200))}
+    let cb=queue.makeCommandBuffer()!,state=SceneMetalRenderer.StaticModelFrame()
+    let pass=SceneMainPassEncoder(commandBuffer:cb,target:target,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
+    let pool=SceneOffscreenTexturePool(device:device,pixelFormat:.bgra8Unorm,residentByteBudget:64*1024*1024)
+    var leases:[SceneParticleDepthTargetLease]=[]
+    let visible=Set(layers.map(\.id))
+    let candidates=renderer.shadowDrawCandidates(orderedLayers:layers,visible:visible,worldFrames:world,snapshot:dynamic,groups:nil)!
+    renderer.prepareModelShadow(state:state,candidates:candidates,lights:[light],orderedLayers:layers,visible:visible,batches:[:],particlePipeline:nil,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,leases:&leases,mandatoryCapacity:{true},recordsEvidence:false,cameraFrame:camera)
+    let shadow=state.shadows.first!,map=shadow.texture,blit=cb.makeBlitCommandEncoder()!
+    var buffers:[MTLBuffer]=[]
+    for part in resources[2]! {
+     let point=(part.mesh.boundsMinimum+part.mesh.boundsMaximum)*0.5
+     let clip:SIMD3<Float>,face:Int
+     switch shadow.projection {
+     case .directional(let p):let q=p.worldToClip*SIMD4(point,1);clip=SIMD3(q.x,q.y,q.z);face=0
+     case .spot(let p):let q=p.worldToLight*SIMD4(point-p.position,0);clip=SIMD3(q.x/(q.z*p.tanHalfAngle),q.y/(q.z*p.tanHalfAngle),0);face=0
+     case .point(let p):let ray=point-p.position;face=5;let q=ScenePointShadowProjection.worldToFaces[face]*SIMD4(ray,0);clip=SIMD3(q.x/q.z,q.y/q.z,0)
+     }
+     let v=shadow.projection.viewport(face:face,width:map.width,height:map.height)
+     let x=Int(v.originX+(Double(clip.x)+1)*v.width*0.5),y=Int(v.originY+(1-Double(clip.y))*v.height*0.5)
+     precondition(x>=0 && x<map.width && y>=0 && y<map.height)
+     let buffer=device.makeBuffer(length:256,options:.storageModeShared)!
+     blit.copy(from:map,sourceSlice:0,sourceLevel:0,sourceOrigin:.init(x:x,y:y,z:0),sourceSize:.init(width:1,height:1,depth:1),to:buffer,destinationOffset:0,destinationBytesPerRow:256,destinationBytesPerImage:256)
+     buffers.append(buffer)
+    }
+    blit.endEncoding();precondition(pass.finishEnsuringClear())
+    leases.forEach{$0.arm(on:cb)};state.arm(on:cb);cb.commit();cb.waitUntilCompleted()
+    precondition(cb.status == .completed && cb.error == nil)
+    shadowDepths.append(buffers.map{$0.contents().bindMemory(to:Float.self,capacity:1).pointee})
+   }
+  }
   var frames:[[[Int]]]=[];var leaseCounts:[Int]=[]
   for _ in 0..<2 {
    let cb=queue.makeCommandBuffer()!
@@ -411,6 +471,7 @@ NATIVE_MAIN=r'''
   let parts=resources[2] ?? []
   let row:[String:Any]=["mode":mode,"parts":parts.map(\.materialPath),"identities":parts.map(\.geometryIdentity),
       "materials":parts.map{[$0.material.color.x,$0.material.color.y,$0.material.color.z,$0.material.opacity]},
+      "materialBlending":parts.map{$0.materialBlending?.rawValue ?? "unresolved"},"shadowDepths":shadowDepths,
       "textureIDs":parts.map{String(describing:$0.albedo!.identity)},
       "maskIDs":parts.map{$0.emissiveMask.map{String(describing:$0.identity)} ?? ""},
       "maskPurposes":parts.map{$0.emissiveMask.map{String(describing:$0.purpose)} ?? ""},
@@ -484,7 +545,7 @@ class SceneModelPartsNativeTests(unittest.TestCase):
         cls.root=freeze_inputs('native',{**{f'parts{n}':native_fixture(n) for n in [5,8,64]},
             'bad8':native_fixture(8,bad=True),'overlap':native_fixture(2,overlap=True),
             'defaults':default_albedo_fixture(),'emission':emission_mask_fixture(),
-            'identities':identity_chunk_fixture()})
+            'identities':identity_chunk_fixture(),'blends':blending_fixture()})
         cls.report=native.run_swift(NATIVE_SOURCES,resource_support()+NATIVE_MAIN,label='parts-native',
             metal_sources=[MODEL_METAL],input_value={'root':str(cls.root)})
         cls.rows={r['mode']:r for r in cls.report['rows']}
@@ -502,6 +563,20 @@ class SceneModelPartsNativeTests(unittest.TestCase):
                 for a,b in zip(actual,want['rgba']):self.assertLessEqual(abs(a-b),1,(count,actual,want))
             self.assertEqual(row['frames'][0],row['frames'][1])
             self.assertEqual(row['leaseCounts'],[1,1])
+
+    def test_prepared_mixed_blending_and_layer_cast_intent_reach_three_shadow_maps(self):
+        enabled, disabled = self.rows['blends'], self.rows['blends-false']
+        for row in [enabled, disabled]:
+            self.assertEqual(row['materialBlending'], ['normal', 'translucent', 'additive', 'unresolved', 'unresolved'])
+            self.assertEqual(len(row['parts']), 5)
+            self.assertTrue(row['completed'])
+        self.assertEqual(enabled['frames'], disabled['frames'])
+        self.assertEqual(enabled['frames'][0], self.rows['parts5']['frames'][0][:64] + [[0, 0, 0, 255], [0, 0, 0, 255]])
+        for depths in enabled['shadowDepths']:
+            self.assertEqual(depths[1], 1)
+            self.assertTrue(all(depths[i] < 1 for i in [0, 2, 3, 4]), depths)
+        self.assertEqual(len(enabled['shadowDepths']), 3)
+        self.assertEqual(disabled['shadowDepths'], [[1] * 5] * 3)
 
     def test_actual_prepared_identity_preserves_canonical_words_across_hash_chunks(self):
         row = self.rows['identities']; expected = identity_chunk_fixture()[1]

@@ -49,6 +49,10 @@ enum Harness {
             missingBlending: .translucent
         )
         let result: [String: Any] = [
+            "preparedBlends": ([" Normal ", " TRANSLUCENT ", "additive", nil,
+                "unknown", "alpha_to_coverage", "alpha-test"] as [String?]).map {
+                SceneMaterialRenderState.compileBlending($0)?.rawValue ?? "unresolved"
+            },
             "enabledCompiled": enabled != nil,
             "enabledRawPreserved": enabled?.rawValues.blending == " Normal ",
             "enabledMatches": enabled?.matchesFullscreenOverwrite(
@@ -153,6 +157,12 @@ class SceneMaterialRenderStateCompilerTests(unittest.TestCase):
         self.assertTrue(self.result["unknownBlendRejected"])
         self.assertTrue(self.result["unknownAlphaRejected"])
         self.assertTrue(self.result["missingDepthRejected"])
+
+    def test_prepared_blending_is_independent_of_unrelated_state_fields(self) -> None:
+        self.assertEqual(self.result["preparedBlends"], [
+            "normal", "translucent", "additive", "unresolved", "unresolved",
+            "unresolved", "unresolved",
+        ])
 
 
 if __name__ == "__main__":

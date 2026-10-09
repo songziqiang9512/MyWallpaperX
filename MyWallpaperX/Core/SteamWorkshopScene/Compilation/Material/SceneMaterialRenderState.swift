@@ -60,11 +60,7 @@ nonisolated struct SceneMaterialRenderState: Equatable, Hashable, Sendable {
             cullMode: cullMode,
             alphaWriting: alphaWriting
         )
-        guard let typedBlending = typed(
-                  blending,
-                  as: Blending.self,
-                  missing: missingBlending
-              ),
+        guard let typedBlending = compileBlending(blending, missing: missingBlending),
               let typedDepthTest = typed(depthTest, as: Depth.self),
               let typedDepthWrite = typed(depthWrite, as: Depth.self),
               let typedCullMode = typed(cullMode, as: Cull.self),
@@ -79,6 +75,12 @@ nonisolated struct SceneMaterialRenderState: Equatable, Hashable, Sendable {
             cullMode: typedCullMode,
             alphaWriting: typedAlphaWriting
         )
+    }
+
+    /// Prepared model casting needs only this authored state. Do not make it
+    /// depend on unrelated depth/cull fields or classify unknown alpha modes.
+    static func compileBlending(_ rawValue: String?, missing: Blending? = nil) -> Blending? {
+        typed(rawValue, as: Blending.self, missing: missing)
     }
 
     func matchesFullscreenOverwrite(

@@ -455,13 +455,19 @@ Launch现有profile normal/map聚合应能自然接入，不为环境建立第�
 
 ### 独立投影与材质策略
 
+**2026-10-10完整模型材质准入修正（实施前决策）。** 完整土星固定姿态的斜长暗带已由保留全部投影与其他caster、仅跳过陨石caster的重放定位；用户另报原始动态场景暗带快速变位，仍须动态验收。官方同包两组成对控制把材质与开关分离：`translucent`材质下仅切换该模型`castshadow`，场景静态区无可见差；只将材质改为`normal`后再独立切换同一开关，环带出现方向一致的点状减光，球体关闭投影的正控也成立。这里不要求官方重现Native错误长带，不据单次混合类型变化推断阴影公式。
+
+沿现有`SceneMaterialRenderState.Blending`唯一解析入口，在`ScenePreparedStaticModelResources.Entry`一次保存每个part的typed blending；唯一caster收集处组合作者投影意图与明确`translucent`材质准入。普通帧不重新读材质或解析字符串，不因同模型一个part半透明而排除其它part。只修已证`translucent`路径，normal、additive、缺省、未知及尚无独立合同的alpha-to-coverage保持原边界；alpha coverage、颜色/深度绘制、接收阴影、屏外合法caster、三类灯的投影/过滤/bias与资源owner不变。未知值不新增视觉算法或第二条shadow链。本批仅过滤实际caster提交，保留原保守caster/receiver bounds集合，避免同时改变投影拟合。
+
+验收先覆盖canonical解析及真实prepared part→caster消费的正反例，再用同姿态完整包和原始未冻结包连续帧验证；保留既有coverage/cull与近间隙门。若材质准入修正未改善完整真实画面或普通模型投影回退则否决。增大map分辨率的scratch方案暂停，不把未执行的质量实验列为已实现能力。证据归本专题执行记录，不将单一材质控制提升为所有透明模式、性能或全样本验收。
+
 一个 1024×1024 depth32Float 目标是本项目有界质量选择，非官方上限；本片不增加假质量 UI。用当前合格 caster/receiver 的 world bounds 和唯一方向光构造正交灯空间，覆盖主相机外、作者顺序较晚的 caster，不使用 F5 主画面前缀或屏幕深度。方向近坐标轴时采用确定的稳定 basis；平面/薄 bounds 给有限安全深度区间。bounds、偏移和深度比较的数学由本项目独立实现，有限邻域比较必须按实际接收几何平面把比较深度校正到各采样 texel 中心，只保有限精度所需的数值偏移：先从真实 world 导数求灯空间平面，数值裕量涵盖 world→shadow 变换及斜面传播的运算量级；其固定保守系数是项目策略，不是全域 GPU 误差定理。越过 map 有效深度域的外推 tap 只局部回无影并保留原权重；不能靠放大全局偏移吞掉近间隙真遮挡。真实几何导数与材质插值法线职责分开，光线趋于几何切面等退化输入只局部回无 shadow 分量；远近、clear 与 compare 方向配套，不误借相机 reverse-Z。不能按 sample、层名、路径或截图调整算法。范围扩大降低精度属于本质量边界，须有不同尺度/相机/变换的独立反例。
 
 **2026-10-10过滤修正（实施前决策）。** 土星同姿态有影无Bloom对照的差异集中于阴影过渡边缘。冻结实际27个prepared part及其中24个caster重放，保留真实alpha、UV、采样与绕序；去掉球体caster后该receiver区域全亮。同一深度图仅改变过滤的诊断确认现有9点比较扩大灰色过渡，尚未证明投影中心或贴图分辨率错误。优先验证沿现有shadow consumer以texel中心对齐的四点加权比较替换9点过滤；这是公开基本插值的项目实现，不声明官方kernel。沿同一共享采样职责供directional/spot/point使用，保留各自几何平面校正、边界权重和精度保护，不增加质量分支、资源或最终输出链。增大map有平方资源成本，重拟合会改变全caster投影，均不是本批首选；单点硬边仅作诊断，不交付。先在固定深度图验证过渡收窄且中心无异常移动，再验三光型、立方体接缝、薄片与近间隙真遮挡、alpha及自阴影反例；任一旧能力回退即停止候选，不能放大bias或排除合法caster。隔离Debug和原完整样本运行、独立审查后才更新当前验收；未通过前现役质量仍是旧实现。
 
 **同批caster首断点补接。** 真实前环反例否决了仅换过滤的候选：固定投影下移除ring caster即消失，独立几何复算显示相邻共面三角与stored depth不一致。分离实验中，只补directional caster的片元几何depth即可让旧9点与新四点都消除暗线，且coverage、alpha及上后真实球体阴影保留。将directional接入现spot/point已有的片元几何depth职责，保原coverage/cull/投影及receiver比较，不增加bias、资源或按材质退出。非有限、几何退化或域外只拒绝当前不安全投影片元，不能关闭整模型；实现审查须核每项失败条件的真实产生者。代价为directional caster增加片元几何计算，性能待测。产品实施前先保存本决策；实施后保薄片、近间隙、倾斜面与alpha门，并增加自有细长共面几何的真实GPU反例；旧9+depth与四点+depth分别验因，最终三类灯及完整土星再验。
 
-透明策略明确为硬 cutout 阴影：采用原材质与 layer opacity、原 coverage alpha 共同决定是否覆盖；覆盖不超过一半的片元不投影，其余写灯深度。tint-mask alpha 不参与 coverage。该阈值和半透明不产生透射色是独立项目策略，非官方 alpha/parity 结论；不得因为 writesDepth 关闭便认为该材质不是 caster，也不得让透明 texel 整块遮挡。预先固定 zero/partial/opaque 与 tint-mask 对照。首片 caster 使用现 ready 静态 albedo 与无变形 mesh；尚未可消费的 named/provider caster 明确局部不提供该 caster 阴影，原模型/灯照明保留，不能借 stale texture。动态 provider caster 是独立后继，不能声称本片完整覆盖它。
+已准入caster的透明覆盖策略为硬 cutout 阴影：采用原材质与 layer opacity、原 coverage alpha 共同决定是否覆盖；覆盖不超过一半的片元不投影，其余写灯深度。tint-mask alpha 不参与 coverage。该阈值和半透明不产生透射色是独立项目策略，非官方 alpha/parity 结论；不得因为 writesDepth 关闭便认为该材质不是 caster，也不得让透明 texel 整块遮挡。预先固定 zero/partial/opaque 与 tint-mask 对照。首片 caster 使用现 ready 静态 albedo 与无变形 mesh；尚未可消费的 named/provider caster 明确局部不提供该 caster 阴影，原模型/灯照明保留，不能借 stale texture。动态 provider caster 是独立后继，不能声称本片完整覆盖它。
 
 同帧 light-space target 成功写入后才交给模型 receiver；receiver 使用自己的真实 world position，只调整选中方向光的 direct diffuse，保留 ambient、emission、其他灯、材质颜色/alpha、HDR 和后处理。cast=false 模型仍可接收。无当前 map、超额 shadow 灯或未支持光型保持原 direct，不能关整灯、改 image 受光或复用上一帧遮挡。
 

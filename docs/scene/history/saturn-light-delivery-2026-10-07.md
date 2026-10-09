@@ -145,3 +145,25 @@
 同一最终App的无Bloom、有Bloom和未经改动原完整包分别运行65.583/65.280/91.234秒，PID79925/80095/80267均正常退出；各92/92脚本owner quiescent、零失败、GPU drained。完整陨石环、文字与原脚本保留。原完整图仍有球体弧形点线及环带细斜条；旧图也存在相关点线，但新旧天文日期/活动姿态未同一冻结，不能证明新增错误，也不能宣布完整重型输入阴影正确。下一批先做完整包同姿态归因，再推进Bloom与亚像素细线。本批验收范围限于固定轻型姿态改善及通用几何合同，不外推完整土星、性能或全样本。
 
 本轮已停止的两轮三App HOME/TMP共约1.60GB已清理；必要失败/最终截图、日志和输入身份保留，一份共享Debug缓存继续用于后继。Scene结构/依赖/防御/设计、文档健康及selector门通过；全仓Web的1008行文件、既存Web文档回链及未知归属`.mimosa`仍是独立存量，未修改或伪称全仓门通过。
+
+
+<a id="translucent-model-shadow"></a>
+## 完整模型的半透明材质投影准入（2026-10-10）
+
+基线`7c2ae06f`。用户补报星环斜长暗影会快速变位，怀疑屏外模型投影；本批保留完整大型陨石模型、原作者层级和合法屏外caster。固定土星姿态的完整包SHA `07e7a38d7602db67baab8a9d580054b0ae60104e515380b5494699f49ada6e56`，193条目中192个非scene payload与原包字节相同。固定实际投影的25-caster重放只跳过479即消除长带；跳过479颜色/深度draw仍保留长带，排除“整段只是可见陨石挡住环”。局部微颗粒覆盖是另一剩余问题。724的五个part未冻结全部时间变换，不能称全场景严格同相位；其余模型与共同投影身份核同。
+
+官方2.8.0.42、1210×786、原始GDI的成对控制裁决材质准入：原translucent下479 cast=true/false在排除HUD及左下边缘后场景无差；sphere456 cast=false使球体投影退出，证明字段受理。仅将479作者材质改为normal，再配对切换cast flag（材质及其余192payload字节同），HUD外25820像素只升亮、无负差；前/后环分别1078/863像素变化，最大23/21。不能要求normal产生Native错误长带才算投影成立，也不能把单次blend变化的颜色差当投影。持久化shadows=high/MSAA=x2不代表已读取实际GPU sampleCount，不据此猜官方采样公式。
+
+最早丢失职责是prepared model未保留blending。最终复用`SceneMaterialRenderState`唯一typed解析，每个`ScenePreparedStaticModelResources.Entry`保存可选blending；唯一`emitModelShadow`按part排除明确translucent。normal/additive/缺省/未知保持原路由，颜色、depth-write、receiver、屏外合法caster及原保守bounds保持；未更改shadow数学、bias、分辨率、clock或compositor。完整捕获的28parts中，明确排除462星环与479陨石各part0，25个作者投影意图部件剩23个；这是准入事实，不是性能测量或全部encode验收。
+
+隔离Debug核同762个Scene源文件并通过签名；dylib SHA `715c58dc89ceaf372827db230fbe867efe56262c6957a17e3df52242d561a76e`。同姿态完整App PID2176正常退出，93.855秒；原包字节不变的动态App PID2537正常退出，90.658秒。两次均92/92脚本owner quiescent、failures=0、GPU drained。原动态晚期连续帧0078/0079/0080保留作者动画、球体影和颗粒，未见原宽斜带；早期8秒baseline只有入场动画，不冒充稳态对照。运行使用隔离checkout及旧Web基线，只核Scene身份，不是当前全仓发布构建。
+
+固定前环ROI `[130,615,280,682]` 对官方平均逐通道绝对差20.559→8.092/255，P95 87→45；后环 `[980,230,1120,315]` 15.808→9.270、P95 70→51。球体控制区前后最大差1阶。连续长带点恢复接近官方，例如(160,652)由32/31/27到141/135/122，官方143/137/122；后环(980,300)由38/35/32到168/159/143，官方172/161/142。微颗粒点(180,640)仍为21/20/18，对官方165/157/137，不能把局部均值改善说成全图正确。
+
+最近18个不同测试通过（CPU5、GPU13，无skip）：真实MDL→prepared Entry→frame→三灯depth map验证mixed parts，normal/additive/unknown/missing保留，translucent退出，layer cast=false全退；颜色两帧逐字节同、真实budget回收，旧frame/cull/coverage/近间隙门保持。首次harness缺SIMD4.xyz扩展的编译失败为0 tests，修测试分量读取后通过，失败另存未计PASS。独立审查核产品单owner、成对官方证据与真实测试链。Scene结构/依赖/防御/设计通过；全仓Web既有1008行文件及未知归属218B `.mimosa`保留，不借本批清理或宣称全仓门通过。
+
+本批唯一证据根`.artifacts/tmp/saturn-heavy-shadow-20261010/`：`audit/final-image-comparison.json`、`audit/final-dynamic-observation.json`、`audit/caster-blend-causal-observations.json`、`audit/tests/final-freeze.json`、`build-candidate.json`及`official/`保存来源与失败边界。测试freeze SHA `f3f0b12d75ea5460f1b936d8af4a7900c2579d1f90b38d33fc90976e245f5a2b`。1024→2048只做CPU准备，未编译、未运行、未进入产品；材质已提供较短的根因修复，不继续该分支。
+
+**按用户调序暂缓土星余项。** 当前完整样本仍按约90%的工程估计，不是统计正确率。球面细弧线、微颗粒/边缘采样、Bloom与亚像素细线、完整媒体及交互均未关闭；本批不证明所有动态时刻或长稳。重启时先复用这里的原始包、成对材质控制与固定投影证据，只选择一个可区分残差，禁止重新以禁屏外投影、样本分支或扩大bias掩盖。后续优先其他样本的共性纹理/合成与特效/频谱缺口，当前优先级只由断点队列维护。
+
+本批清理已停止App的HOME/TMP、重复连续截图与测试/replay编译缓存，共约2.38GB；保留成对官方原图、固定最终图、三张动态代表帧、失败收据和重建输入身份。一份共享Debug缓存位于`.build-cache/solid-source-domains-recovery-20261009`，用于下一样本；官方任务已精确关闭、VM已挂起，既有receiver保留。未修改真实用户媒体。
