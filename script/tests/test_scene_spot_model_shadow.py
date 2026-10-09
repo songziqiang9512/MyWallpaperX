@@ -261,9 +261,9 @@ def radiance_main():
    func spot(_ intensity:Float)->SceneLightSnapshot.Spot {
     .init(layerID:10,castsShadow:true,position:lightPosition,directionFromLight:SIMD3(0,0,-1),color:SIMD3(repeating:1),intensity:intensity,radius:100,innerConeCosine:cos(inner*Float.pi/360),outerConeCosine:cos(outer*Float.pi/360),outerConeDegrees:outer)
    }
-   let projection=SceneSpotShadowProjection.make(light:spot(1))!
+   let projection=SceneSpotShadowProjection.make(light:spot(1))
 ''' + code[end:]
-    code=code.replace('.directional(projection)', '.spot(projection)')
+    code=code.replace('projection:.directional(', 'projection:.spot(')
     start=code.index('    let lights = SceneLightSnapshot(')
     end=code.index('    let enabled = ',start)
     code=code[:start]+r'''
@@ -352,7 +352,7 @@ SNAPSHOT_MAIN = r'''
   var checks:[String:Bool]=[:]
   checks["order-budget"] = snapshot.spot.compactMap(\.layerID)==[14,12,11,10] && snapshot.overflowCount==1
   checks["cast-and-order"] = snapshot.shadowLights.compactMap(\.layerID)==[14,12,10]
-  checks["world-position-direction"] = snapshot.spot.allSatisfy{$0.position==SIMD3(10,20,30) && $0.directionFromLight==SIMD3(-1,0,0)}
+  checks["world-position-direction"] = snapshot.spot.allSatisfy{$0.position==SIMD3(10,20,30) && $0.directionFromLight==SIMD3(0,0,-1)}
   checks["authored-cone"] = snapshot.spot.map(\.outerConeDegrees)==[100,80,70,60]
   checks["current-intensity-color"] = snapshot.spot[1].intensity==2.5 && snapshot.spot[1].color==SIMD3(0.2,0.4,0.6)
   let directional=SceneRenderDescriptor.Layer(id:2,visible:true,spotLight:nil,directionalLight:.parse(["light":"ldirectional","castshadow":true,"intensity":1]))
@@ -396,7 +396,7 @@ MULTI_MAIN = r'''
    var records:[SceneStaticModelShadow]=[]
    for i in 0..<4 {
     let projection:SceneStaticModelShadowProjection
-    if mixed && i==0 { projection = .directional(SceneDirectionalShadowProjection.make(bounds:[(receiver.boundsMinimum,receiver.boundsMaximum,matrix_identity_float4x4)]+(casters.map{[($0.boundsMinimum,$0.boundsMaximum,matrix_identity_float4x4)]} ?? []),directionTowardLight:SIMD3(0,0,1),resolution:1024)!) }
+    if mixed && i==0 { projection = .directional(SceneDirectionalShadowProjection.make(bounds:[(receiver.boundsMinimum,receiver.boundsMaximum,matrix_identity_float4x4)]+(casters.map{[($0.boundsMinimum,$0.boundsMaximum,matrix_identity_float4x4)]} ?? []),receiverBounds:[(receiver.boundsMinimum,receiver.boundsMaximum,matrix_identity_float4x4)],directionTowardLight:SIMD3(0,0,1),resolution:1024)!) }
     else { projection = .spot(SceneSpotShadowProjection.make(light:spot(i,1))!) }
     let mapDesc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:1024,height:1024,mipmapped:false);mapDesc.storageMode = .private;mapDesc.usage = [.renderTarget,.shaderRead]
     let map=d.makeTexture(descriptor:mapDesc)!,rp=MTLRenderPassDescriptor();rp.depthAttachment.texture=map;rp.depthAttachment.loadAction = .clear;rp.depthAttachment.storeAction = .store;rp.depthAttachment.clearDepth=1
@@ -499,7 +499,7 @@ FRAME_LIGHT_INPUTS=r'''
   let lightLayers:[SceneRenderDescriptor.Layer] = mode=="four-spots"
    ? [spotLayer(8,90),spotLayer(9,90),spotLayer(10,90),spotLayer(11,90)]
    : [directionalLayer,spotLayer(8,90),spotLayer(9,mode=="gap" ? Float.leastNonzeroMagnitude:90),spotLayer(10,90)]
-  var lightWorld=matrix_identity_float4x4;lightWorld.columns.3=SIMD4(32,32,40,1)
+  var lightWorld=SceneMatrix.eulerXYZ(SIMD3(0, .pi/2, 0));lightWorld.columns.3=SIMD4(32,32,40,1)
   let lightDescriptor=SceneRenderDescriptor(lighting:.init(ambientColorRGB:[0.5,0.5,0.5],skylightColorRGB:nil),layers:lightLayers,renderOrderLayerIDs:lightLayers.map(\.id))
   let lighting=SceneLightSnapshot.make(descriptor:lightDescriptor,worldFramesByLayerID:Dictionary(uniqueKeysWithValues:lightLayers.map{($0.id,lightWorld)}))
   precondition(lighting.shadowLights.count==4)
@@ -711,7 +711,7 @@ def partial_frame_harness(alpha):
     s=s[:a]+r'''
   let spotDefinition=SceneSpotLightDefinition.parse(["light":"lspot","color":"1 1 1","intensity":0,"radius":100,"innercone":90,"outercone":90,"castshadow":true])!
   let lamp=SceneRenderDescriptor.Layer(id:7,spotLight:spotDefinition,contentKind:"light")
-  var lampWorld=matrix_identity_float4x4;lampWorld.columns.3=SIMD4(32,32,40,1)
+  var lampWorld=SceneMatrix.eulerXYZ(SIMD3(0, .pi/2, 0));lampWorld.columns.3=SIMD4(32,32,40,1)
   let lighting=SceneLightSnapshot.make(descriptor:SceneRenderDescriptor(lighting:.init(ambientColorRGB:[0.5,0.5,0.5],skylightColorRGB:nil),layers:[lamp],renderOrderLayerIDs:[7]),worldFramesByLayerID:[7:lampWorld])
   precondition(lighting.shadowLights.count==1)
 '''+s[b:]

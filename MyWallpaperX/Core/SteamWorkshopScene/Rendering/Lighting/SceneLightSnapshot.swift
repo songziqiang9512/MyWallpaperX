@@ -372,10 +372,10 @@ struct SceneLightSnapshot {
         intensity: Float?
     ) -> Spot? {
         guard let definition = layer.spotLight,
-              let direction = normalized(-SIMD3(
-                  frame.columns.2.x,
-                  frame.columns.2.y,
-                  frame.columns.2.z
+              let direction = normalized(SIMD3(
+                  frame.columns.0.x,
+                  frame.columns.0.y,
+                  frame.columns.0.z
               )),
               let intensity,
               let radius = definition.radius,

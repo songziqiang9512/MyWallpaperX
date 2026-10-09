@@ -522,9 +522,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ed5fda6d1e1d2ca81c3e75a6b3aa8f58f34fc78b501fea4c21937c6fa8aba172",
+        "sourceSHA256": "cad0f751a527641f230ec603c3865a9e471d2b48b93e611e9331a490cabcae2e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对类型转换入口复用、原包编译接线及视觉未闭的证据边界。",
+        "scope": "核对聚光轴复用、实际补光证据及ambient反向仍开放的边界。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },

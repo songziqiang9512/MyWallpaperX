@@ -494,6 +494,7 @@ enum MaterialHarness {
                     str(DYNAMIC_LAYER_VALUES_SOURCE),
                     str(VISIBILITY_SOURCE),
                     str(LIGHT_SOURCE),
+                    str(SCENE_ROOT / "Rendering/Geometry/SceneMatrix.swift"),
                     str(harness),
                     "-o", str(executable),
                 ],

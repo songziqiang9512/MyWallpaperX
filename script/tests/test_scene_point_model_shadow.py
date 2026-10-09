@@ -411,7 +411,7 @@ POINT_FRAME_LIGHTS=r'''
   if mode=="four-points" || mode=="flight" {lightLayers=[pointLayer(8),pointLayer(9),pointLayer(10),pointLayer(11)]}
   else if mode=="gap" {lightLayers=[directionalLayer,spotLayer(8,90),spotLayer(9,Float.leastNonzeroMagnitude),pointLayer(10)]}
   else {lightLayers=[directionalLayer,spotLayer(8,90),pointLayer(9),pointLayer(10)]}
-  var lightWorld=matrix_identity_float4x4;lightWorld.columns.3=SIMD4(32,32,40,1)
+  var lightWorld=SceneMatrix.eulerXYZ(SIMD3(0, .pi/2, 0));lightWorld.columns.3=SIMD4(32,32,40,1)
   let lightDescriptor=SceneRenderDescriptor(lighting:.init(ambientColorRGB:[0.5,0.5,0.5],skylightColorRGB:nil),layers:lightLayers,renderOrderLayerIDs:lightLayers.map(\.id))
   let lighting=SceneLightSnapshot.make(descriptor:lightDescriptor,worldFramesByLayerID:Dictionary(uniqueKeysWithValues:lightLayers.map{($0.id,lightWorld)}))
   precondition(lighting.shadowLights.count==4)

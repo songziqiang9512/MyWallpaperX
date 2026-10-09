@@ -33,3 +33,22 @@
 ## 证据
 
 官方 61 夹具+捕获（含锚点 ANCHP4 复现 153）、我方 33 次运行快照/日志/身份，共 627 文件逐 SHA manifest，打包 `/private/tmp/mwx-light2-20261006/static-light-input-semantics-20261006.zip`（`296498bf…41d9`）。
+
+
+## 2026-10-09：聚光灯发光轴纠正
+
+此前“spot 朝向未探、保持 frame 语义”由本节有界实测补齐。官方 2.8.0.42 黑盒、自有 scene/material 与原作者球体 MDL，未消费私有实现表达。固定球体与光位，逐项更换角度；每项保留独立窗口名、输入和截图 SHA。CUA 曾返回旧帧，恢复 Parallels 窗口显示前的截图全部作废。
+
+- 光源 `(0,0,2)`、球体原点：零角和 yaw `−π/2` 不点亮，yaw `+π/2` 点亮；同位置 parent yaw `+π/2`、child 零角得到同样结果。
+- 光源 `(-2,0,0)`：零角与 yaw `0.0001` 均照亮球侧，未出现零角特殊跳变。
+- 区分实验：angles `(0,1.2,0.6)`、光位 `(-0.5981335,-0.4092052,1.8640782)`、inner/outer `4/8`、球 scale `0.1`，官方球中心点亮。这支持既有 `Rz*Ry*Rx` 的正 X 轴，排除此前同轴探针无法区分的球面 yaw/elevation 候选。pitch/roll 在 yaw `π/2` 的相同截图不能单独证明全域角度无效。
+
+产品仅将 `SceneLightSnapshot.spot` 的 `−worldFrame.Z` 改为 `+worldFrame.X` 并沿用既有归一化。作者、typed 动态和 parent/attachment 仍由同一 world-frame owner 处理；模型、2D lit payload 和阴影消费同一 snapshot。未新增角度公式、状态、分支或渲染链。独立 volumetric projector 不属于本次修正。
+
+签名 Debug App 的实际相同输入已验证：zero 中心由约147降至0，yaw `+π/2` 由0升至约147；官方相应为黑/约153，幅度差未闭。原 `3477054430` pkg/project 哈希未改，7秒隔离运行含 resize、PCM 输入和正常退出；猫身侧面补光可见，头部鼠标姿态/时间不同，不作整图误差或完整正确率结论。243包静态扫描仅3样本/9个 `lspot` 声明，是潜在覆盖，不代表其他样本视觉已验。
+
+**下个首断点已经复现**：同一 ambient-only 球输入，官方上亮下暗，本机上暗下亮；原始 MDL 法线向外，当前静态模型 shader 的环境光响应式方向相反，端点范围也不同。需纠正既有 ambient 响应合同，不能反转整个模型/normal matrix，也不能仅换符号便宣称 parity。U12 月亮视觉、材质脚本/嵌套输入及整体颜色仍开放。
+
+回归：22项现有snapshot/spot/point阴影测试通过。两处旧夹具未同步现有directional projection的optional/receiverBounds接口，已修调用，像素与失败隔离oracle未放宽；结构、依赖、代码/防御/设计与文档门通过。已知218B `.mimosa`未知归属残留保留，不算本批新产物。
+
+证据保留于 `.artifacts/tmp/u12-spot-direction-20261009/`：`valid-observables.json`、输入/PNG哈希、签名构建身份及 `repaired-u12/`。官方父级非均匀/负/零缩放、完整2D/阴影像素 parity 和整样本正确性未覆盖。

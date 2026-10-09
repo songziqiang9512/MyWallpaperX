@@ -181,7 +181,35 @@ enum LightSnapshotHarness {
         precondition(snapshot.overflowCount == 0)
         let light = snapshot.spot[0]
         precondition(light.position == SIMD3(10, 20, 30))
-        precondition(light.directionFromLight == SIMD3(0, 0, -1))
+        precondition(light.directionFromLight == SIMD3(1, 0, 0))
+        // Official own-scene probes: a spot at +Z reaches the sphere after
+        // +pi/2 yaw, not at zero or -pi/2. Parent yaw has the same effect.
+        // Exercise the existing matrix utility, rather than a second angle
+        // converter inside the lighting snapshot.
+        func aimedSpot(_ frame: simd_float4x4) -> SIMD3<Float> {
+            SceneLightSnapshot.make(
+                descriptor: descriptor, worldFramesByLayerID: [7: frame]
+            ).spot[0].directionFromLight
+        }
+        let positiveYaw = SceneMatrix.eulerXYZ(SIMD3(0, .pi / 2, 0))
+        precondition(simd_length(aimedSpot(positiveYaw) - SIMD3(0, 0, -1)) < 1e-6)
+        precondition(simd_length(aimedSpot(SceneMatrix.eulerXYZ(
+            SIMD3(0, -.pi / 2, 0)
+        )) - SIMD3(0, 0, 1)) < 1e-6)
+        precondition(simd_length(aimedSpot(positiveYaw * frame)
+            - SIMD3(0, 0, -1)) < 1e-6)
+        // Off-axis target separates Euler +X from a spherical yaw/elevation
+        // replacement; roll at yaw pi/2 alone cannot distinguish the two.
+        let offAxis = SceneMatrix.eulerXYZ(SIMD3(0, 1.2, 0.6))
+        precondition(simd_length(aimedSpot(offAxis)
+            - SIMD3(0.29906676, 0.20460258, -0.93203909)) < 1e-6)
+        precondition(simd_length(aimedSpot(SceneMatrix.eulerXYZ(
+            SIMD3(0.4, 1.2, 0.6)
+        )) - aimedSpot(offAxis)) < 1e-6)
+        // A same-frame transform update reaches the same consumer, while
+        // the previous immutable snapshot keeps its original direction.
+        precondition(simd_length(aimedSpot(positiveYaw) - light.directionFromLight) > 1)
+        precondition(light.directionFromLight == SIMD3(1, 0, 0))
         precondition(light.color == SIMD3(0.25, 0.5, 1))
         precondition(light.intensity == 5 && light.radius == 6000)
         precondition(abs(light.innerConeCosine - cos(Float.pi / 6)) < 1e-6)
