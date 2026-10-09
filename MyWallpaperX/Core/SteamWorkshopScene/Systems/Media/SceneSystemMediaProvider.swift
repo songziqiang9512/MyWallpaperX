@@ -7,13 +7,10 @@ import Foundation
 final class SceneSystemMediaProvider {
     static let shared = SceneSystemMediaProvider()
 
-    /// The concrete transport engaged for an enabled preference. Apple Music
-    /// serves while its target runs and is authorized; the system observer
-    /// covers every other moment (and player) while its helper ships.
-    private enum ActiveSource {
-        case none
-        case appleMusic
-        case system
+    private enum ActiveSource { case none, appleMusic, system }
+    private enum MusicSelection: Equatable {
+        case fallback
+        case selected(String)
     }
 
     private let inbox: SceneMediaThumbnailInbox
@@ -23,19 +20,27 @@ final class SceneSystemMediaProvider {
     private var preferenceObserver: NSObjectProtocol?
     private var activeSource = ActiveSource.none
     private var epoch: UInt64 = 0
+    private var selectionGeneration: UInt64 = 0
     private var inFlight = false
     private var targetPID: pid_t?
     private var authorizationChecked = false
     private var authorized = false
-    private var cachedArtworkIdentity: String?
-    private var cachedArtworkData: Data?
-    private var cachedArtworkPalette: SceneMediaArtworkPalette?
+    private var musicSnapshot: SceneMusicPlayerSource.Snapshot?
     private var lastStatus: String?
     private var hasPublished = false
     private let systemSource = SceneSystemMediaSource()
-    private var cachedSystemSource: String?
+    private var systemSession: SceneSystemMediaSource.Snapshot?
+    private var systemArtworkData: Data?
+    private var systemArtworkPalette: SceneMediaArtworkPalette?
+    private var usesMusicFallback = false
     private var systemRetryDelay: TimeInterval = 2
     private var systemRestartDeadline: Date?
+
+    private var musicSelection: MusicSelection? {
+        if usesMusicFallback { return .fallback }
+        guard let systemSession, systemSession.source == "com.apple.Music" else { return nil }
+        return .selected(systemSession.identity)
+    }
 
     init(inbox: SceneMediaThumbnailInbox = .shared) {
         self.inbox = inbox
@@ -60,13 +65,11 @@ final class SceneSystemMediaProvider {
         }
         preferenceObserver = nil
         invalidateSource()
-        activeSource = .none
     }
 
     private func reloadSource() {
         SceneMediaSourcePreference.refresh()
         invalidateSource()
-        activeSource = .none
         timer?.invalidate()
         timer = nil
         guard !consumers.isEmpty, SceneMediaSourcePreference.isEnabled else { return }
@@ -74,6 +77,7 @@ final class SceneSystemMediaProvider {
             MainActor.assumeIsolated { self?.poll() }
         }
         timer?.tolerance = 0.25
+        startSystemSource()
         poll()
     }
 
@@ -83,57 +87,32 @@ final class SceneSystemMediaProvider {
         targetPID = nil
         authorizationChecked = false
         authorized = false
-        cachedArtworkIdentity = nil
-        cachedArtworkData = nil
-        cachedArtworkPalette = nil
-        cachedSystemSource = nil
+        musicSnapshot = nil
+        systemSession = nil
+        systemArtworkData = nil
+        systemArtworkPalette = nil
+        usesMusicFallback = false
         systemRetryDelay = 2
         systemRestartDeadline = nil
         clearPublishedSession()
+        activeSource = .none
     }
 
     private func startSystemSource() {
         epoch &+= 1
         let requestEpoch = epoch
         systemSource.start { [weak self] result in
-            guard let self, self.epoch == requestEpoch, !self.consumers.isEmpty,
-                  self.activeSource == .system else { return }
+            guard let self, self.epoch == requestEpoch, !self.consumers.isEmpty else { return }
             self.consumeSystem(result)
         }
     }
 
     private func scheduleSystemRestart(after failure: SceneSystemMediaSource.Failure) {
-        // A live helper reports temporary unavailable snapshots during track
-        // transitions and a missing helper library cannot come back mid-run;
-        // only a transport that plausibly returns is retried. The next poll
-        // consumes the deadline, so restarts stay on the low polling cadence
-        // with a 2 to 30 second capped backoff.
+        // helperUnavailable is a live observer's temporary unknown selection;
+        // missingResource cannot recover mid-run. Only retired transports retry.
         guard failure != .helperUnavailable, failure != .missingResource else { return }
         systemRestartDeadline = Date().addingTimeInterval(systemRetryDelay)
         systemRetryDelay = min(30, systemRetryDelay * 2)
-    }
-
-    /// Apple Music cannot serve the session right now (target not running,
-    /// not authorized or no usable snapshot); the system observer takes over. The
-    /// Apple authorization latch survives this transition so a denied read
-    /// does not restart its authorization check on every poll.
-    private func engageSystemFallback() {
-        if activeSource == .system {
-            if let deadline = systemRestartDeadline, Date() >= deadline {
-                systemRestartDeadline = nil
-                startSystemSource()
-            }
-            return
-        }
-        epoch &+= 1
-        cachedSystemSource = nil
-        cachedArtworkIdentity = nil
-        cachedArtworkData = nil
-        cachedArtworkPalette = nil
-        systemRestartDeadline = nil
-        clearPublishedSession()
-        activeSource = .system
-        startSystemSource()
     }
 
     private func clearPublishedSession() {
@@ -148,30 +127,24 @@ final class SceneSystemMediaProvider {
 
     private func poll() {
         guard !consumers.isEmpty, SceneMediaSourcePreference.isEnabled else { return }
+        if let deadline = systemRestartDeadline, Date() >= deadline {
+            systemRestartDeadline = nil
+            startSystemSource()
+        }
         let pid = Self.runningMusicPID()
         if pid != targetPID {
-            // The Apple target changed or vanished. Retire Apple-side state
-            // only: an engaged system transport and its published session
-            // are not the Apple path's to tear down, and its live callbacks
-            // stay fenced by the untouched epoch.
-            if activeSource != .system {
-                epoch &+= 1
-                clearPublishedSession()
-                cachedArtworkIdentity = nil
-                cachedArtworkData = nil
-                cachedArtworkPalette = nil
-            }
+            selectionGeneration &+= 1
             targetPID = pid
             authorizationChecked = false
             authorized = false
+            musicSnapshot = nil
+            if let systemSession { publishSystemSession(systemSession) }
+            else if activeSource == .appleMusic { clearPublishedSession() }
         }
-        guard let pid else { engageSystemFallback(); return }
-        guard !inFlight else { return }
-        let checkAuthorization = !authorizationChecked
-        guard checkAuthorization || authorized else { engageSystemFallback(); return }
-        let artworkIdentity = cachedArtworkData == nil ? nil : cachedArtworkIdentity
-        let artwork = cachedArtworkData
-        let artworkPalette = cachedArtworkPalette
+        guard let selection = musicSelection, let pid, !inFlight else { return }
+        guard !authorizationChecked || authorized else { return }
+        let cached = musicSnapshot
+        let requestSelectionGeneration = selectionGeneration
         let requestEpoch = epoch
         inFlight = true
         queue.async { [weak self] in
@@ -179,8 +152,8 @@ final class SceneSystemMediaProvider {
             let result: SceneMusicPlayerSource.ReadResult?
             if case .authorized = authorization {
                 result = SceneMusicPlayerSource.read(
-                    pid: pid, cachedArtworkIdentity: artworkIdentity, cachedArtworkData: artwork,
-                    cachedArtworkPalette: artworkPalette
+                    pid: pid, cachedArtworkIdentity: cached?.artworkData == nil ? nil : cached?.identity,
+                    cachedArtworkData: cached?.artworkData, cachedArtworkPalette: cached?.artworkPalette
                 )
             } else {
                 result = nil
@@ -189,7 +162,9 @@ final class SceneSystemMediaProvider {
                 guard let self else { return }
                 self.inFlight = false
                 guard self.epoch == requestEpoch, !self.consumers.isEmpty,
-                      self.targetPID == pid, Self.runningMusicPID() == pid else { return }
+                      self.targetPID == pid, Self.runningMusicPID() == pid,
+                      self.musicSelection == selection,
+                      self.selectionGeneration == requestSelectionGeneration else { return }
                 switch authorization {
                 case .authorized:
                     self.authorizationChecked = true
@@ -197,15 +172,12 @@ final class SceneSystemMediaProvider {
                 case .denied, .consentRequired:
                     self.authorizationChecked = true
                     self.authorized = false
+                    self.clearMusicSupplement()
                     self.report("authorization-\(authorization)")
-                    self.engageSystemFallback()
                     return
                 case .unavailable:
-                    // Transient (for example the target still launching): do
-                    // not latch, so the next poll re-probes while the system
-                    // observer covers the session.
+                    self.clearMusicSupplement()
                     self.report("authorization-\(authorization)")
-                    self.engageSystemFallback()
                     return
                 }
                 guard let result else { return }
@@ -214,9 +186,20 @@ final class SceneSystemMediaProvider {
         }
     }
 
+    private func clearMusicSupplement() {
+        musicSnapshot = nil
+        if let systemSession { publishSystemSession(systemSession) }
+        else { clearPublishedSession() }
+    }
+
     private func consume(_ result: SceneMusicPlayerSource.ReadResult) {
         switch result {
         case let .snapshot(value):
+            musicSnapshot = value
+            if let systemSession {
+                publishSystemSession(systemSession)
+                return
+            }
             let accepted = inbox.publishMediaSession(
                 artwork: value.artworkData,
                 properties: .init(title: value.title, artist: value.artist, subTitle: "",
@@ -228,33 +211,19 @@ final class SceneSystemMediaProvider {
                 highContrastColor: value.artworkPalette?.highContrastColor
             )
             if accepted {
-                if activeSource != .appleMusic {
-                    // Inbox acceptance proves this complete Apple session can
-                    // replace the current publication. Fence and stop system
-                    // callbacks in this same main-actor turn without clearing
-                    // the newly accepted snapshot.
-                    epoch &+= 1
-                    systemSource.stop()
-                    activeSource = .appleMusic
-                    cachedSystemSource = nil
-                    systemRetryDelay = 2
-                    systemRestartDeadline = nil
-                }
+                activeSource = .appleMusic
                 hasPublished = true
-                cachedArtworkIdentity = value.identity
-                cachedArtworkData = value.artworkData
-                cachedArtworkPalette = value.artworkPalette
                 report("published")
             } else {
+                clearMusicSupplement()
                 report("apple-invalid-session")
-                engageSystemFallback()
             }
         case .noSession:
+            clearMusicSupplement()
             report("apple-no-session")
-            engageSystemFallback()
         case let .failure(failure):
+            clearMusicSupplement()
             report("apple-unavailable-\(failure)")
-            engageSystemFallback()
         }
     }
 
@@ -270,54 +239,70 @@ final class SceneSystemMediaProvider {
         NSLog("MWX Scene media source: source=%@ status=%@", source, status)
     }
 
+    private func publishSystemSession(_ value: SceneSystemMediaSource.Snapshot) {
+        // The two APIs have unrelated opaque track IDs. Supplement metadata only
+        // when its nonempty title, artist and album agree; never substitute the
+        // system's track, transport state or cover using this comparison.
+        let supplement = musicSnapshot.flatMap { music in
+            value.source == "com.apple.Music" && !music.title.isEmpty
+                && value.title == music.title && value.artist == music.artist && value.album == music.album ? music : nil
+        }
+        let accepted = inbox.publishMediaSession(
+            artwork: systemArtworkData,
+            properties: .init(title: value.title ?? "", artist: value.artist ?? "", subTitle: "",
+                              albumTitle: value.album ?? "", albumArtist: supplement?.albumArtist ?? "",
+                              genres: "", contentType: supplement == nil ? "" : "music"),
+            playbackState: value.playbackState ?? 0,
+            timeline: .init(position: value.position ?? 0, duration: value.duration ?? 0),
+            primaryColor: systemArtworkPalette?.primaryColor, secondaryColor: systemArtworkPalette?.secondaryColor,
+            tertiaryColor: systemArtworkPalette?.tertiaryColor, textColor: systemArtworkPalette?.textColor,
+            highContrastColor: systemArtworkPalette?.highContrastColor
+        )
+        activeSource = .system
+        if accepted {
+            hasPublished = true
+            report(value.artworkFailure == nil ? "published" : "published-without-artwork")
+        } else {
+            clearPublishedSession()
+            report("invalid-session")
+        }
+    }
+
     private func consumeSystem(_ result: SceneSystemMediaSource.Result) {
+        let oldSelection = musicSelection
         switch result {
         case let .snapshot(value):
-            let sameTrack = cachedSystemSource == value.source && cachedArtworkIdentity == value.identity
-            // The cache belongs to this exact selected source and track. The
-            // wire decoder also checks identity, but it does not own this data.
-            let artwork = value.artworkChanged ? value.artworkData : (sameTrack ? cachedArtworkData : nil)
-            let palette = value.artworkChanged ? value.artworkPalette : (sameTrack ? cachedArtworkPalette : nil)
-            let accepted = inbox.publishMediaSession(
-                artwork: artwork,
-                properties: .init(title: value.title ?? "", artist: value.artist ?? "", subTitle: "",
-                                  albumTitle: value.album ?? "", albumArtist: "", genres: "", contentType: ""),
-                playbackState: value.playbackState ?? 0,
-                timeline: .init(position: value.position ?? 0, duration: value.duration ?? 0),
-                primaryColor: palette?.primaryColor, secondaryColor: palette?.secondaryColor,
-                tertiaryColor: palette?.tertiaryColor, textColor: palette?.textColor,
-                highContrastColor: palette?.highContrastColor
-            )
-            if accepted {
-                hasPublished = true
-                systemRetryDelay = 2
-                cachedSystemSource = value.source
-                cachedArtworkIdentity = value.identity
-                cachedArtworkData = artwork
-                cachedArtworkPalette = palette
-                report(value.artworkFailure == nil ? "published" : "published-without-artwork")
-            } else {
-                clearPublishedSession()
-                cachedArtworkData = nil
-                cachedArtworkPalette = nil
-                report("invalid-session")
-            }
-        case .noSession:
+            let sameTrack = systemSession?.source == value.source && systemSession?.identity == value.identity
+            if !sameTrack { musicSnapshot = nil }
+            systemArtworkData = value.artworkChanged ? value.artworkData : (sameTrack ? systemArtworkData : nil)
+            systemArtworkPalette = value.artworkChanged ? value.artworkPalette : (sameTrack ? systemArtworkPalette : nil)
+            systemSession = value
+            usesMusicFallback = false
             systemRetryDelay = 2
+            publishSystemSession(value)
+        case .noSession, .unavailable:
+            systemSession = nil
+            systemArtworkData = nil
+            systemArtworkPalette = nil
+            musicSnapshot = nil
             clearPublishedSession()
-            cachedArtworkIdentity = nil
-            cachedArtworkData = nil
-            cachedArtworkPalette = nil
-            cachedSystemSource = nil
-            report("no-session")
-        case let .unavailable(failure):
-            clearPublishedSession()
-            cachedArtworkIdentity = nil
-            cachedArtworkData = nil
-            cachedArtworkPalette = nil
-            cachedSystemSource = nil
-            report("unavailable-\(failure)")
-            scheduleSystemRestart(after: failure)
+            activeSource = .system
+            usesMusicFallback = false
+            if case let .unavailable(failure) = result {
+                // An unknown system selection is not permission to show an old
+                // Music track. Public fallback is only for builds without the
+                // system backend, not transient query or transport failures.
+                usesMusicFallback = failure == .missingResource
+                report("unavailable-\(failure)")
+                scheduleSystemRestart(after: failure)
+            } else {
+                systemRetryDelay = 2
+                report("no-session")
+            }
+        }
+        if musicSelection != oldSelection {
+            selectionGeneration &+= 1
+            poll()
         }
     }
 }

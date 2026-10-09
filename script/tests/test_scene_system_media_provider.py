@@ -27,12 +27,12 @@ import Foundation
     }
 }
 nonisolated enum SceneMusicPlayerSource {
-    enum State: Sendable { case playing; var inboxValue: Int { 1 } }
+    enum State: Int, Sendable { case stopped = 0, playing = 1, paused = 2; var inboxValue: Int { rawValue } }
     struct Snapshot: Sendable {
         var artworkPalette: SceneMediaArtworkPalette? = testPalette(1)
         let identity: String; let title: String; let artist = "Artist"; let album = "Album"
         var albumArtist = "Album Artist"
-        let state = State.playing; let position = 5.0; let duration = 100.0
+        var state = State.playing; let position = 5.0; let duration = 100.0
         var artworkData: Data? = Data([1, 2, 3])
     }
     enum AuthorizationStatus: Sendable {
@@ -81,17 +81,19 @@ nonisolated enum SceneMusicPlayerSource {
     nonisolated enum Result: Sendable { case snapshot(Snapshot), noSession, unavailable(Failure) }
     static var latest: SceneSystemMediaSource?
     static var starts = 0
+    static var initial: Result? = .unavailable(.missingResource)
     var callback: (@MainActor @Sendable (Result) -> Void)?
     func start(_ receive: @escaping @MainActor @Sendable (Result) -> Void) {
         guard callback == nil else { return }
         callback = receive; Self.latest = self; Self.starts += 1
+        if let initial = Self.initial { deliver(initial) }
     }
     func stop() { callback = nil }
     /// A terminal unavailable result retires the transport, mirroring the
     /// production session teardown that lets a later start succeed.
     func deliver(_ result: Result) {
         guard let current = callback else { return }
-        if case .unavailable = result { callback = nil }
+        if case let .unavailable(failure) = result, failure != .helperUnavailable { callback = nil }
         current(result)
     }
 }
@@ -109,7 +111,11 @@ nonisolated func testPalette(_ red: Double) -> SceneMediaArtworkPalette {
         let inbox = SceneMediaThumbnailInbox(), control = SceneMusicPlayerSource.control
         let provider = SceneSystemMediaProvider(inbox: inbox)
         let first = UUID(), second = UUID()
-        switch CommandLine.arguments[1] {
+        let name = CommandLine.arguments[1]
+        if !["lifecycle", "stale", "permission", "fallback-invalid", "atomic"].contains(name) {
+            SceneSystemMediaSource.initial = nil
+        }
+        switch name {
         case "lifecycle":
             provider.acquire(first)
             wait { inbox.latest().properties?.title == "Track A" }
@@ -161,8 +167,7 @@ nonisolated func testPalette(_ red: Double) -> SceneMediaArtworkPalette {
             wait { inbox.latest().properties?.title == "" }
             provider.release(second)
         case "system":
-            // Apple Music unavailable is what hands the session to the
-            // system observer under the single-switch arbitration.
+            // The system observer owns selection even when Music is running.
             NSRunningApplication.pid = nil
             provider.acquire(first)
             let source = SceneSystemMediaSource.latest!
@@ -200,73 +205,130 @@ nonisolated func testPalette(_ red: Double) -> SceneMediaArtworkPalette {
             source.deliver(.snapshot(.init(source: "Player B", identity: "two", title: "New", artworkChanged: true, artworkData: blue)))
             provider.release(second)
             precondition(inbox.latest().current == nil && inbox.latest().properties?.title == "")
-        case "handover":
-            // Music running but unauthorized must settle on the system
-            // observer without per-poll respawns, keep its session across the
-            // Music exit transition, and yield to a confirmed Apple session.
-            control.update { $0.authorization = .denied }
-            provider.acquire(first)
-            wait { SceneSystemMediaSource.latest?.callback != nil }
-            let source = SceneSystemMediaSource.latest!
-            let red = Data([1])
-            source.deliver(.snapshot(.init(source: "Player A", identity: "one", title: "System Track", artworkChanged: true, artworkData: red)))
-            precondition(inbox.latest().properties?.title == "System Track")
-            RunLoop.main.run(until: Date(timeIntervalSinceNow: 2.4))
-            precondition(SceneSystemMediaSource.starts == 1,
-                         "denied latch must not respawn the system transport per poll")
-            NSRunningApplication.pid = nil
-            RunLoop.main.run(until: Date(timeIntervalSinceNow: 2.4))
-            precondition(SceneSystemMediaSource.starts == 1,
-                         "Music exit must not tear down or respawn the engaged observer")
-            precondition(inbox.latest().properties?.title == "System Track",
-                         "Music exit must not clear the engaged system session")
-            control.update { $0.authorization = .authorized }
-            NSRunningApplication.pid = 42
-            wait { inbox.latest().properties?.title == "Track A" }
-            precondition(source.callback == nil, "confirmed Apple takeover must stop the system transport")
-            precondition(SceneSystemMediaSource.starts == 1, "takeover must not spawn a replacement transport")
-            provider.release(first)
-            precondition(inbox.latest().properties?.title == "")
-        case "handover-no-session", "handover-failure", "handover-invalid":
-            NSRunningApplication.pid = nil
+        case "selected-other-player":
             provider.acquire(first)
             let source = SceneSystemMediaSource.latest!
-            let oldCallback = source.callback!
-            source.deliver(.snapshot(.init(source: "Player A", identity: "one", title: "System Track",
-                artworkChanged: true, artworkData: Data([1]), artworkPalette: testPalette(1))))
-            let current = inbox.latest()
-            control.update {
-                switch CommandLine.arguments[1] {
-                case "handover-no-session": $0.result = .noSession
-                case "handover-failure": $0.result = .failure("read-timeout")
-                default: $0.result = .snapshot(.init(identity: "bad", title: "Bad", artworkData: Data()))
-                }
+            source.deliver(.snapshot(.init(source: "other.player", identity: "B", title: "Selected B",
+                artworkChanged: true, artworkData: Data([9]))))
+            let selected = inbox.latest()
+            for state in [SceneMusicPlayerSource.State.paused, .stopped, .playing] {
+                control.update { $0.result = .snapshot(.init(identity: "A", title: "Old Music", state: state)) }
+                RunLoop.main.run(until: Date(timeIntervalSinceNow: 2.2))
+                precondition(inbox.latest() == selected, "Music stole selected player")
+                precondition(source.callback != nil, "source selection observation stopped")
             }
-            NSRunningApplication.pid = 42
-            wait { control.counts().0 >= 1 }
-            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
-            precondition(inbox.latest() == current, "an unusable Apple result retired the live system session")
-            precondition(source.callback != nil && SceneSystemMediaSource.starts == 1,
-                         "an unusable Apple result stopped or restarted the system transport")
-            control.update { $0.result = .snapshot(.init(identity: "A", title: "Track A")) }
-            wait { inbox.latest().properties?.title == "Track A" }
-            precondition(source.callback == nil, "accepted Apple takeover must stop the system transport")
-            oldCallback(.snapshot(.init(source: "Player A", identity: "one", title: "Stale System",
-                artworkChanged: true, artworkData: Data([2]))))
-            precondition(inbox.latest().properties?.title == "Track A", "retired system callback leaked into Apple session")
+            precondition(control.counts().0 == 0 && control.counts().1 == 0,
+                         "unselected player must not incur public reads or authorization probes")
             provider.release(first)
-        case "apple-read-fallback":
+        case "unknown-selection":
+            provider.acquire(first)
+            let source = SceneSystemMediaSource.latest!
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 2.1))
+            precondition(control.counts().0 == 0, "pending selection enabled Music fallback")
+            source.deliver(.noSession)
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 2.1))
+            source.deliver(.unavailable(.helperUnavailable))
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 2.1))
+            precondition(control.counts().0 == 0, "empty or unknown selection enabled Music fallback")
+            precondition(source.callback != nil, "temporary unknown stopped the live observer")
+            source.deliver(.unavailable(.heartbeatTimeout))
+            wait(6) { SceneSystemMediaSource.starts == 2 }
+            precondition(control.counts().0 == 0, "transport retry enabled Music fallback")
+            provider.release(first)
+        case "supplement":
+            provider.acquire(first)
+            let source = SceneSystemMediaSource.latest!
+            let value = SceneSystemMediaSource.Snapshot(source: "com.apple.Music", identity: "system-A", title: "Track A",
+                playbackState: 2, position: 17, artworkChanged: true, artworkData: Data([9]), artworkPalette: testPalette(0))
+            source.deliver(.snapshot(value))
+            wait { inbox.latest().properties?.albumArtist == "Album Artist" }
+            let selected = inbox.latest()
+            precondition(selected.current == Data([9]) && selected.primaryColor == testPalette(0).primaryColor,
+                         "public API replaced system artwork")
+            precondition(selected.playbackState == 2 && selected.timeline?.position == 17,
+                         "public playing state replaced selected paused state")
+            for _ in 0..<3 {
+                source.deliver(.snapshot(.init(source: "com.apple.Music", identity: "system-A", title: "Track A",
+                    playbackState: 2, position: 17, artworkChanged: false, artworkData: nil)))
+                precondition(inbox.latest() == selected, "system tick cleared accepted supplement or artwork")
+            }
+            control.update { $0.result = .snapshot(.init(identity: "B", title: "Track B")) }
+            wait { inbox.latest().properties?.albumArtist == "" }
+            precondition(inbox.latest().properties?.title == "Track A" && inbox.latest().current == Data([9]),
+                         "new public track replaced system selection")
+            control.update { $0.result = .snapshot(.init(identity: "A", title: "Track A", albumArtist: "")) }
+            source.deliver(.snapshot(.init(source: "com.apple.Music", identity: "system-A", title: "Track A",
+                playbackState: 2, artworkChanged: true, artworkData: nil)))
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 2.1))
+            precondition(inbox.latest().properties?.albumArtist == "" && inbox.latest().current == nil,
+                         "public cover substituted for an explicitly missing system cover")
+            // Restarting or exiting Music cannot tear down an unrelated system source.
+            source.deliver(.snapshot(.init(source: "other.player", identity: "B", title: "Selected B",
+                artworkChanged: true, artworkData: Data([8]))))
+            NSRunningApplication.pid = nil
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 2.1))
+            precondition(inbox.latest().properties?.title == "Selected B" && source.callback != nil)
+            provider.release(first)
+        case "supplement-no-session", "supplement-failure":
+            provider.acquire(first)
+            let source = SceneSystemMediaSource.latest!
+            source.deliver(.snapshot(.init(source: "com.apple.Music", identity: "system-A", title: "Track A",
+                artworkChanged: true, artworkData: Data([9]))))
+            wait { inbox.latest().properties?.albumArtist == "Album Artist" }
+            control.update { $0.result = name == "supplement-no-session" ? .noSession : .failure("timeout") }
+            wait { inbox.latest().properties?.albumArtist == "" }
+            precondition(inbox.latest().properties?.title == "Track A" && inbox.latest().current == Data([9]))
+            precondition(source.callback != nil && SceneSystemMediaSource.starts == 1)
+            provider.release(first)
+        case "selection-aba", "selection-new-key":
+            let held = DispatchSemaphore(value: 0)
+            control.update { $0.blocker = held }
+            provider.acquire(first)
+            let source = SceneSystemMediaSource.latest!
+            source.deliver(.snapshot(.init(source: "com.apple.Music", identity: "system-A", title: "Track A",
+                artworkChanged: true, artworkData: Data([9]))))
+            wait { control.counts().2 }
+            if name == "selection-aba" {
+                source.deliver(.snapshot(.init(source: "other.player", identity: "B", title: "Selected B",
+                    artworkChanged: true, artworkData: Data([8]))))
+            }
+            source.deliver(.snapshot(.init(source: "com.apple.Music", identity: name == "selection-aba" ? "system-A" : "system-C",
+                title: "Track A", artworkChanged: true, artworkData: Data([7]))))
+            control.update { $0.blocker = nil; $0.result = .snapshot(.init(identity: "fresh", title: "Track A", albumArtist: "Fresh")) }
+            held.signal()
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
+            precondition(inbox.latest().properties?.albumArtist == "", "retired selection supplement survived ABA/new key")
+            wait { inbox.latest().properties?.albumArtist == "Fresh" }
+            precondition(inbox.latest().current == Data([7]))
+            provider.release(first)
+        case "disable":
+            let held = DispatchSemaphore(value: 0)
+            control.update { $0.blocker = held }
+            provider.acquire(first)
+            let source = SceneSystemMediaSource.latest!
+            source.deliver(.snapshot(.init(source: "com.apple.Music", identity: "system-A", title: "Track A",
+                artworkChanged: true, artworkData: Data([9]))))
+            let old = source.callback!
+            wait { control.counts().2 }
+            SceneMediaSourcePreference.isEnabled = false
+            DistributedNotificationCenter.default().postNotificationName(SceneMediaSourcePreference.changed,
+                object: nil, userInfo: nil, deliverImmediately: true)
+            wait { source.callback == nil }
+            held.signal()
+            old(.snapshot(.init(source: "com.apple.Music", identity: "system-A", title: "Stale", artworkChanged: true, artworkData: Data([9]))))
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
+            precondition(inbox.latest().properties?.title == "" && inbox.latest().current == nil)
+            provider.release(first)
+        case "fallback-invalid":
             provider.acquire(first)
             wait { inbox.latest().properties?.title == "Track A" }
+            control.update { $0.result = .snapshot(.init(identity: "bad", title: "Bad", artworkData: Data())) }
+            wait { inbox.latest().properties?.title == "" }
+            control.update { $0.result = .snapshot(.init(identity: "B", title: "Track B", state: .paused)) }
+            wait { inbox.latest().properties?.title == "Track B" }
+            precondition(inbox.latest().playbackState == 2)
             control.update { $0.result = .noSession }
-            wait { SceneSystemMediaSource.latest?.callback != nil }
-            let source = SceneSystemMediaSource.latest!
-            source.deliver(.snapshot(.init(source: "Player A", identity: "one", title: "System Track",
-                artworkChanged: true, artworkData: Data([1]))))
-            RunLoop.main.run(until: Date(timeIntervalSinceNow: 2.2))
-            precondition(inbox.latest().properties?.title == "System Track",
-                         "repeated empty Apple reads must preserve the fallback session")
-            precondition(source.callback != nil && SceneSystemMediaSource.starts == 1)
+            wait { inbox.latest().properties?.title == "" }
             provider.release(first)
         case "atomic":
             let a = SceneMediaThumbnailInbox.Snapshot.Properties(title: "A", artist: "A", subTitle: "", albumTitle: "", albumArtist: "", genres: "", contentType: "")
@@ -324,9 +386,12 @@ class SceneSystemMediaProviderTests(unittest.TestCase):
             raise AssertionError(result.stderr)
 
     def check_case(self, name):
-        result = subprocess.run([str(self.binary), name], capture_output=True, text=True, timeout=12)
+        result = subprocess.run([str(self.binary), name], capture_output=True, text=True, timeout=18)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('PASS ' + name, result.stdout)
+
+    def test_paused_music_cannot_steal_selected_other_player(self):
+        self.check_case('selected-other-player')
 
     def test_last_demand_retires_polling_and_clears_all_channels(self):
         self.check_case('lifecycle')
@@ -337,20 +402,29 @@ class SceneSystemMediaProviderTests(unittest.TestCase):
     def test_denied_permission_is_latched_and_player_exit_clears(self):
         self.check_case('permission')
 
-    def test_unauthorized_settles_on_system_and_yields_to_confirmed_apple(self):
-        self.check_case('handover')
+    def test_pending_empty_and_temporarily_unavailable_selection_do_not_guess_music(self):
+        self.check_case('unknown-selection')
 
-    def test_authorized_music_without_session_preserves_system_until_valid_takeover(self):
-        self.check_case('handover-no-session')
+    def test_selected_music_supplement_preserves_system_pause_cover_and_stable_events(self):
+        self.check_case('supplement')
 
-    def test_authorized_music_read_failure_preserves_system_until_valid_takeover(self):
-        self.check_case('handover-failure')
+    def test_empty_music_read_preserves_system_session(self):
+        self.check_case('supplement-no-session')
 
-    def test_rejected_music_snapshot_preserves_system_until_valid_takeover(self):
-        self.check_case('handover-invalid')
+    def test_failed_music_read_preserves_system_session(self):
+        self.check_case('supplement-failure')
 
-    def test_active_music_without_session_returns_to_system_once(self):
-        self.check_case('apple-read-fallback')
+    def test_selection_aba_rejects_old_music_supplement(self):
+        self.check_case('selection-aba')
+
+    def test_new_system_key_with_same_metadata_requires_fresh_supplement(self):
+        self.check_case('selection-new-key')
+
+    def test_disable_retires_both_inputs(self):
+        self.check_case('disable')
+
+    def test_missing_backend_retains_public_fallback_validation_and_pause(self):
+        self.check_case('fallback-invalid')
 
     def test_session_publication_has_no_mixed_channels_and_rejects_atomically(self):
         self.check_case('atomic')

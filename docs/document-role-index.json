@@ -522,9 +522,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a7bedde1f5415450a522d8710c40f485daaaaf00338e29620051c91d59f68636",
+        "sourceSHA256": "d521e81597003bb79fee2c77a48b4a149f755d5cf5957f682570bc85750ab904",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对聚光锥角共享合同、限定运行证据与U12剩余队列导航。",
+        "scope": "核对媒体来源仲裁、封面替换与Single重播的限定证据及U12剩余导航。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
@@ -1913,12 +1913,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "播放器来源进入现役合同并完成真实换曲、权限、来源切换及退出验收后归档；未覆盖播放器仍保留能力缺口。",
-      "lastReviewed": "2026-10-08",
+      "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6f0b4c8579972b3903d269ac9c5c46fb498bc35fb652c24bfc458a82b251e80d",
+        "sourceSHA256": "43562317bef120685216c838fc9c37852d3c20427b0f4693a259ae0e855b6758",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步封面mask、Timeline连续值、数字条件的现owner与有界实机证据；替换旧断点并保存后继事件帧、资源依赖和decoder问题。",
+        "scope": "核对媒体来源仲裁、封面替换与Single重播的限定证据及U12剩余导航。",
         "limitations": "仅导航与当前修复证据边界核对；不代表全样本、真实播放器或官方parity验收。"
       }
     },
@@ -1949,9 +1949,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b9ef14ed319373d359cdc11dc09abf35e45d0c7cc7a4851f7d41d447165fae08",
+        "sourceSHA256": "89684a4f5477d576f87b02649a9697d96cb68dec4b9c8a006bd9cd436555df0f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对聚光锥角共享合同、限定运行证据与U12剩余队列导航。",
+        "scope": "核对媒体来源仲裁、封面替换与Single重播的限定证据及U12剩余导航。",
         "limitations": "导航与证据身份核对；不等同全样本、真实声源、compose或HDR官方parity。"
       }
     },

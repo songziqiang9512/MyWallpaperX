@@ -67,3 +67,16 @@ U12 `3477054430` 的 billboard=true 副本在两次媒体属性事件后 Artist1
 证据 `.artifacts/tmp/u12-media-artwork-20261009/artwork-acceptance.json` 绑定输入/App、763个与现工作树一致的Scene源文件；两轮 `cover-observations.json` 绑定固定ROI与逐帧SHA，独立只读链审查未发现重复owner。范围限受控Inbox、一surface及作者固定size；不证明实际播放器供给、普通产品IPC、官方宽高比策略、头部交互或整样本验收。
 
 同一签名App再以隔离HOME、argument-domain开关及 `MWX_SCENE_DEBUG_SYSTEM_MEDIA=1` 运行U12：AppleEvents静默预检为consentRequired，既有system observer从正在运行的Apple Music取得暂停快照；provider→Inbox→Artist120与layer102实际显示歌手及封面，退出0/GPU排空。未操作播放器/媒体库或持久设置；`live-media-acceptance.json` 绑定日志和截图SHA。这仅补真实暂停来源→direct Host显示，换歌、普通产品IPC、AppleEvents授权和其他播放器仍未验。
+
+
+<a id="selected-source"></a>
+
+## 系统选中来源与 Music 补充（2026-10-09）
+
+基线 `4056aa1d`。生产Provider/Inbox反例证明：其他播放器B已被系统选中后，Music暂停旧曲A仍会接管并停止系统观察。现原producer持续观察系统，只有观察库缺失允许完整Music fallback；pending、无会话、临时helperUnavailable与transport重试均不能猜选Music。公开Music只为系统选中的Music、精确匹配的非空标题/歌手/专辑补albumArtist与music类型；系统保有歌曲、状态/进度和封面。独立transport epoch与选择generation拒绝A→B→A旧回包；没有新增provider、纹理或合成链。
+
+Provider 14项行为测试通过，覆盖Music playing/paused/stopped不抢占、零无关公开读取、暂停/封面/进度保留、同曲事件稳定、API不同步、新key/ABA/禁用迟到及缺库fallback。相邻Music、系统transport、observer、调色板与纹理provider 22项通过。Signed Debug dylib `62cca83e9857ce4aacf524d8f7e27e8cfcdbeaba4f73edd67a5b09009aaa7c52` strict/deep验签；隔离checkout的Scene源与本批一致，Web仍为该checkout基线，不宣称全工作树App。
+
+同App以U12作者副本、billboard=true、隔离HOME和显式系统输入运行：system发布，AppleEvents为consentRequired，最终截图显示真实封面与歌手文字；exit0/GPU排空。本机 `.artifacts/tmp/u12-media-selection-20261009/` 的 `report.json`、`build-final.json`、`native-live-music/` 绑定源码、App及截图；provider反例不冒充真实双播放器切换。独立只读审查通过；结构、依赖、代码/防御、设计与链接门通过。全局文档仍有并行Web预算问题；未知归属`.mimosa`残留保留。
+
+尚未验收真实双播放器切换、连续真实换曲、普通产品IPC与U12媒体布局官方对照。两个API的opaque ID尚无可靠桥接，系统缺图不拿Music封面猜补；同名同专辑的metadata歧义不声称身份等价。U12工程估计保持约92%，不按测试数提高完整正确率；下一批完成这些样本组合边界，再按队列进入HDR/SDR和重型启动。
