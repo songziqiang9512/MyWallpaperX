@@ -55,6 +55,19 @@ final class SteamWorkshopService: ObservableObject {
     /// （≤1 runloop turn 渲染加载态）；Scene launch 终态或 runtime 切换
     /// 通知清除；video/web 发送后另有 1.5s 兜底清除。
     @Published private(set) var launchPendingRecordID: String?
+    /// setAsWallpaper 的点击代际：每次进入递增。web 分支的异步解析完成
+    /// 回到主线程后必须仍是最新代际才发布启动通知或走失败出口——窗口内
+    /// 出现更新的点击（web/scene/video 任意分支）时本请求整体退役，避免
+    /// 旧请求的迟到通知覆盖用户的最后选择（完成序倒置）。
+    private(set) var webLaunchIntentGeneration: UInt64 = 0
+
+    /// 递增点击代际并返回新值（仅 setAsWallpaper 入口调用；跨文件扩展
+    /// 不能直接写 private(set) 字段）。
+    @discardableResult
+    func advanceWebLaunchIntentGeneration() -> UInt64 {
+        webLaunchIntentGeneration &+= 1
+        return webLaunchIntentGeneration
+    }
 
     func isLaunchPending(_ recordID: String) -> Bool {
         launchPendingRecordID == recordID
@@ -308,6 +321,10 @@ final class SteamWorkshopService: ObservableObject {
 
     var browserFetchTask: Task<Void, Never>?
     var webRuntimePreloadTask: Task<Void, Never>?
+    /// preload 任务代际：被抢占的旧任务收尾时据此判断句柄是否已归属新
+    /// 任务，避免把新任务的 cancel 句柄清成 nil（重复 IO 有界但脏）。
+    /// 唯一写方是 preloadWebRuntimeCaches。
+    var webRuntimePreloadGeneration: UInt64 = 0
     var lastPreviewPrefetchIDSet = Set<String>()
     var browserLoadMoreRetryAfter: Date = .distantPast
     /// 稀疏筛选下连续无新增可见项的自动续载页数（见 maxConsecutiveEmptyLoadMorePages）。

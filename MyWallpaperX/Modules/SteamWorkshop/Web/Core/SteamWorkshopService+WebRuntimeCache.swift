@@ -151,8 +151,16 @@ extension SteamWorkshopService {
         // 主 actor 只做轻量字段收集与失效判定；签名扫描与写盘在
         // loadCached/resolved 内部的后台段执行，循环间的 await 让主线程
         // 在每条记录的重 IO 期间保持可用。
+        webRuntimePreloadGeneration &+= 1
+        let preloadGeneration = webRuntimePreloadGeneration
         webRuntimePreloadTask = Task(priority: .utility) { @MainActor [weak self] in
             guard let self else { return }
+            defer {
+                // 被抢占的旧任务只许清自己的句柄：字段已指向新任务时保持原样。
+                if self.webRuntimePreloadGeneration == preloadGeneration {
+                    self.webRuntimePreloadTask = nil
+                }
+            }
             for record in webRecords {
                 guard !Task.isCancelled else { break }
                 let requiresLiveResolution = self.webRuntimeRequiresLiveResourceResolution(for: record)
@@ -165,7 +173,6 @@ extension SteamWorkshopService {
                 }
                 try? await Task.sleep(for: .milliseconds(40))
             }
-            self.webRuntimePreloadTask = nil
         }
     }
 

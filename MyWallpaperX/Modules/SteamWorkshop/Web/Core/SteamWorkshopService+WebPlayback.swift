@@ -30,6 +30,9 @@ extension SteamWorkshopService {
         // M0.5：点击即进入 pending（≤1 runloop turn 渲染加载态）。
         // 早退路径立即清除；scene 由 launch 终态清除；video/web 由
         // runtime 切换通知清除，1.5s 兜底防挂死。
+        // 每次点击（含早退）递增代际：让在飞的 web 异步启动整体退役，
+        // 见 web 分支的代际校验。
+        advanceWebLaunchIntentGeneration()
         markLaunchPending(recordID: record.id)
         if case let .missing(itemID) = record.dependencyStatus {
             clearLaunchPending(matching: record.id)
@@ -73,9 +76,19 @@ extension SteamWorkshopService {
         if record.contentType == .web {
             // Web 分支：缓存读盘/签名扫描/写盘在后台执行（点击热路径不做
             // 文件 IO），解析完成后回主线程发布启动通知；失败走同一早退出口。
+            // 代际校验：窗口内有更新的点击时本请求整体退役——成功通知与
+            // 失败出口都不得覆盖新点击的 pending / 状态 / 最终壁纸。
+            let launchGeneration = webLaunchIntentGeneration
             Task { [weak self] in
                 guard let self else { return }
-                guard let playbackContext = await self.resolvedWebPlaybackContext(for: record) else {
+                let playbackContext = await self.resolvedWebPlaybackContext(for: record)
+                guard launchGeneration == self.webLaunchIntentGeneration else {
+                    // 更新的点击已在 setAsWallpaper 入口同步 mark 过 pending
+                    //（或已随早退自行清除），退役请求不触碰任何共享状态——
+                    // 也不清 pending，避免同名重击时提前熄灭加载态。
+                    return
+                }
+                guard let playbackContext else {
                     self.clearLaunchPending(matching: record.id)
                     self.downloadError = "没有找到可播放的 HTML 入口文件。"
                     return
