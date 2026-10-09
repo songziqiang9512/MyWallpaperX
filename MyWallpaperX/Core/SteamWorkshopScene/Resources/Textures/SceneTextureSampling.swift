@@ -201,6 +201,9 @@ struct SceneTextureSamplerStateSet {
         descriptor.minFilter = metalFilter
         descriptor.magFilter = metalFilter
         descriptor.mipFilter = filter == .nearest ? .nearest : .linear
+        // Bounded visual validation selects this shared hardware quality policy.
+        // This preserves elongated texture detail, not an inferred official default.
+        if filter == .linear { descriptor.maxAnisotropy = 16 }
         let metalAddress: MTLSamplerAddressMode = addressMode == .repeatWrap
             ? .repeat
             : .clampToEdge

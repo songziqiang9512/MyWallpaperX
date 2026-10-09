@@ -520,12 +520,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-09",
+      "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7b9f20f2f0154c56ccb1f5245a694807043a8ad16a0f67b4a4c70f7c40cd82d1",
+        "sourceSHA256": "995b69ffd29ca071681344ff2183b6850ee1afedca8893de05cd54ef18727c6c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对原生/画布相机阴影面向沿现有frame与唯一drawShadow接线；土星暗纹修复、剩余亮度/布局及证据链接。",
+        "scope": "核对共享采样器质量策略、同输入斜视纹理对照与土星剩余亮度/投影链接；只维护本批证据导航。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },

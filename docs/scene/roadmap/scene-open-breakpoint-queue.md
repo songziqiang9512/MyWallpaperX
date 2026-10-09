@@ -66,7 +66,7 @@ T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅
 | 3750813609 时钟黑白 | 原包clouds资产ready，不能把synthetic noise记作修复；时钟ROI与作者预期仍待比对。[证据](../capabilities/runtime-evidence-current.md#e-2026-09-26-stock-noise-preparation) |
 | 3792817546 /3790726145 /2986218263 指针/绳带 | CP0 flags/default、world/perspective、Rope及pointer三门已贯通；剩余原生输入和官方绳带宽度/UV/颜色，child profile另见下表。[执行证据](../capabilities/runtime-evidence-current.md#e-2026-09-28-rope-gate-admission) |
 | 3750813609 /3363252053 相机过强、纵向反转 | 两项输入/收敛子缺陷已修但用户三轮验收仍失败，**用户曾要求挂起**。有官方同输入时重启layout/显示器/脚本相机输入对照；不拿约50px量级正确当体验通过 |
-| 3662790108 JUNO /3589454154 土星 | JUNO albedo/两跳导航/原生进退已验，布局未闭；[三体3509243656/土星旧启动失败已闭](../history/l1-heavy-retest-2026-10-07.md)，普通入口约14秒，三体获用户确认；[大型模型后验](../history/l1-heavy-retest-2026-10-07.md#large-static-model)恢复超64MiB陨石环，颗粒可见。[显隐/方向](../history/saturn-light-delivery-2026-10-07.md#effective-light-visibility)已恢复球体左亮右暗；[原生阴影面向](../history/saturn-light-delivery-2026-10-07.md#native-shadow-winding)已消除环带大块三角暗纹，保留星球投影；待修前环亮度/投影及文字布局，不全局补亮。[最终土星](../history/committed-range-review-repairs-2026-10-07.md#整合验证)、[导航](../history/juno-full-scene-navigation-acceptance-2026-10-06.md) |
+| 3662790108 JUNO /3589454154 土星 | JUNO albedo/两跳导航/原生进退已验，布局未闭；[三体3509243656/土星旧启动失败已闭](../history/l1-heavy-retest-2026-10-07.md)，普通入口约14秒，三体获用户确认；[大型模型后验](../history/l1-heavy-retest-2026-10-07.md#large-static-model)恢复超64MiB陨石环，颗粒可见。[显隐/方向](../history/saturn-light-delivery-2026-10-07.md#effective-light-visibility)已恢复球体左亮右暗；[原生阴影面向](../history/saturn-light-delivery-2026-10-07.md#native-shadow-winding)已消除环带大块三角暗纹，保留星球投影；[斜视采样](../history/saturn-light-delivery-2026-10-07.md#oblique-texture-sampling)已修；续亮度/投影及center文字锚点。[最终土星](../history/committed-range-review-repairs-2026-10-07.md#整合验证)、[导航](../history/juno-full-scene-navigation-acceptance-2026-10-06.md) |
 | 3747492842 额外闪烁 | 固定输入与phase连续输出，核首个不同stage，再定根因 |
 | 3088601835 雪雾及旧低优先项 | 用户认为雪雾已较正常，官方也过曝；3028090166光束、2419444134白点、3113554287顿挫、2304304373雾气、烟花/洋红/一般拖尾保留低优先未验。公共修复涉及或用户重新点名时重启，不以沉默记PASS |
 
@@ -123,7 +123,7 @@ T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅
 | U41 · 3357627941 | 属性面板无替换视频媒体资源的选择入口 | project 属性类型→现有 AppKit 编辑器/资源选择→typed binding→视频 consumer，不另造 provider |
 | U42 · 跨样本属性面板 | ①打开后浏览/滚动严重卡顿；②疑似原中文属性显示成英文，用户询问官方是否有中英映射并提示参考研究 | 沿既有属性 UI 测主线程/布局/重复解析；查作者 locale token/字典、系统语言与官方 fallback。映射表是否存在未证，不硬编码翻译表 |
 
-**执行顺序及单链约束。** U14封面mask、U13连续scalar/同帧旧值、U07镂空矩形、U03额头缺块及U18头发错位主报告现象已修，U04/U20/U19②音频条现已通过同一中文previous补接恢复；完成项不再当作未做。U19灰头冠、U21两环/灰层及U23强网点已修；U12聚光/文字重播已闭，封面/Music暂停已验；来源抢占已修，相机/头部/受光已验；真实换歌/切源与长文布局有界已验，下一批进HDR/SDR；正交Fog距离域按[F7](batch2/2d-lighting-material-design.md#f7-原生透视图片距离雾与正交后继2026-10-09)保留待证/待接，不能把透视图片修复外推。土星陨石环入链和球体受光方向已修，续环带三角暗纹与能量；U06 WebM/VP9 decode保留高优先级。随后复核 U16/U24/U34“曾好后坏”及 U22 持续退化，再归并光束、音频、动画/交互；属性入口与面板仍开放。条纹328物理显示仍未闭。顺序仍属于既有T1/T2/E1与P路线，不另建路线。
+**执行顺序及单链约束。** U14封面mask、U13连续scalar/同帧旧值、U07镂空矩形、U03额头缺块及U18头发错位主报告现象已修，U04/U20/U19②音频条现已通过同一中文previous补接恢复；完成项不再当作未做。U19灰头冠、U21两环/灰层及U23强网点已修；U12聚光/文字重播已闭，封面/Music暂停已验；来源抢占已修，相机/头部/受光已验；真实换歌/切源与长文布局有界已验，下一批进HDR/SDR；正交Fog距离域按[F7](batch2/2d-lighting-material-design.md#f7-原生透视图片距离雾与正交后继2026-10-09)保留待证/待接，不能把透视图片修复外推。土星陨石环、受光、暗纹及斜视采样已修，续center文字锚点及亮度/投影；U06 WebM/VP9 decode保留高优先级。随后复核 U16/U24/U34“曾好后坏”及 U22 持续退化，再归并光束、音频、动画/交互；属性入口与面板仍开放。条纹328物理显示仍未闭。顺序仍属于既有T1/T2/E1与P路线，不另建路线。
 
 重写必须在原职责入口替换旧实现，并证明原有效输入/效果和失败隔离不回退；同一输入不可同时走新旧两套 owner。发现能由已有参数、入口或 primitive 表达的能力，优先补接或扩展该处。每批报告逐子现象关闭数、实际复测样本及剩余范围，不把本表录入率当画面修复率。
 

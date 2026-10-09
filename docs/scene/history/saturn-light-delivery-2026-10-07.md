@@ -78,3 +78,15 @@
 前环剩余亮度、投影细节及文字/布局仍未关闭；不宣称完整土星或三类灯全部官方parity。新官方轻型A/B未执行：guest普通桌面黑，安全菜单可见，未把该前置失败算作渲染结果；VM已挂起。此前有效官方完整/轻型截图仍是有界视觉参照。
 
 证据：`.artifacts/tmp/saturn-ring-20261009/`内`audit/candidate-freeze.json`、`audit/real-depth-analysis.json`、实际同帧重放、`build-final.json`、`native-final-comparison.json`与`native-final/baseline`。新增真实GPU门1项通过，覆盖三灯型、五相机族、正反绕序、normal/nocull及同map混合提交；4个既有caller仅做CPU typecheck并通过，不计运行测试。原有4项App回归（投影开关/缺caster、透视与父变换、灯移动恢复、八种材质cull）全部通过，旧画布oracle未改。新GPU门接入原rendering/material-segments测试组，三产品逐path预览均可选中，6项selector检查通过。测试开发中一次point peer采错atlas face，按射线最大分量纠正采样位置、保持原阈值；失败result仍存，原断言整日志被重跑覆盖的限制明确记录。结构/依赖/代码健康/防重复/设计门通过；全局文档检查仍只报并行Web的3个健康问题与1个入口反链问题，未混入本批。独立审查绑定最终freeze。
+
+
+<a id="oblique-texture-sampling"></a>
+## 2026-10-10 斜视纹理采样
+
+同姿态、unlit、关闭Bloom的原环材质在Native偏暗。实际frame900的color/brightness/opacity/layerAlpha均为1，straight albedo和原9级mip完整入链。按实际mesh/UV复原预声明600像素ROI，普通trilinear的逐通道95%误差<0.88/255；该处纹理足迹长短轴比约34。仅保留原最高级mip后，Native中值从165/158/145变185/174/156.5；官方2.8.0.42同包两组ROI逐像素不变，仍181.5/175/159。这定位采样差异，不支持改灯光增益或重复alpha补偿。
+
+唯一`SceneTextureSamplerStateSet.makeState`为linear启用Metal硬件16×各向异性过滤；nearest、寻址、UV、完整mip链及alpha保持原路径，不新增采样算法或资源owner。这是经有界视觉验证的项目质量策略，配置窄查未确认官方实际过滤倍数。保留全部mip的候选App在同包ROI对官方逐通道median误差0、最大1/255；恢复作者光照/Bloom的固定姿态前环中值118/114/104→131.5/126/115，官方140/133/120，尚有照明/后处理偏差，不宣称土星全画面一致。
+
+证据位于`.artifacts/tmp/saturn-energy-20261009/`：`audit/sampler-candidate-comparison.json`、`audit/ring-roi-sampling-result.json`与输入/build收据。相关首断点与后继顺序回到派生队列；同轮自有7卡另确认两个字体的center文字锚点偏差，top/bottom一致、单行blockalign Bool无差异，尚未修改文字产品代码。硬件质量策略影响共享模型/材质/粒子sampler；未外推全样本或性能改善。
+
+最终产品源码冻结后Debug构建/签名通过，dylib `0818e13a78208d9bab7f70bb56bf4582a46809ccaa1314ca29dc0fba4a5ddac8`。原始完整pkg `8cb79fa9f77c992c2bc3c3ea6300af0f058bf5e85b96ae1d1f300fdf3c037bb0`保留全部大型模型/脚本，最终App运行50秒并取40秒图，陨石可见，92/92脚本quiescent、零失败、GPU drain；使用隔离HOME和静音输入，不等于外部音源/交互验收。共享sampler自有GPU斜视/isotropic反例、nearest/四种寻址/方形足迹/单级控制通过；粒子filter/address/mip/straight-alpha、BC原mip保留和typed candidate近门通过。代码结构、依赖、防御与设计门通过；全仓Web文档及未知`.mimosa`残留检查另有非本批问题，未改动。候选与最终产品仅注释措辞有别，ROI证据保留候选身份，完整原包绑定最终身份；不宣称性能提升。

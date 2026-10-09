@@ -103,6 +103,140 @@ struct SceneRenderDescriptor {
 
 
 class SceneStaticModelPipelineTests(unittest.TestCase):
+    def test_shared_sampler_preserves_nearest_address_and_mips_with_anisotropic_quality(self) -> None:
+        from script.tests.test_scene_directional_shadow import run_swift
+
+        # The owned mip colors identify the selected level independently of
+        # Saturn. A 16:1 footprint has a fine red gradient along its short axis;
+        # its coarser authored levels are blue with a different alpha marker.
+        shader = r'''
+#include <metal_stdlib>
+using namespace metal;
+struct SamplingVertex { float4 position [[position]]; float2 uv; };
+vertex SamplingVertex samplingVertex(uint id [[vertex_id]]) {
+    const float2 p[] = { {-1,-1}, {1,-1}, {-1,1}, {1,-1}, {1,1}, {-1,1} };
+    return { float4(p[id],0,1), (p[id]+1)*0.5 };
+}
+fragment float4 samplingFragment(SamplingVertex in [[stage_in]],
+    constant float4 &mapping [[buffer(0)]], texture2d<float> source [[texture(0)]],
+    sampler sourceSampler [[sampler(0)]]) {
+    float4 c = source.sample(sourceSampler, in.uv*mapping.xy+mapping.zw);
+    return float4(c.rgb*c.a,c.a);
+}
+'''
+        support = r'''
+import Foundation
+import Metal
+@main enum SharedSamplerProbe {
+    static func makeTexture(_ device: MTLDevice, levels: Int) -> MTLTexture {
+        let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
+            width: 256, height: 256, mipmapped: false)
+        d.mipmapLevelCount = levels; d.storageMode = .shared; d.usage = .shaderRead
+        let texture = device.makeTexture(descriptor: d)!
+        for level in 0..<levels {
+            let size = max(1,256 >> level)
+            var rgba = [UInt8](repeating: 0, count: size*size*4)
+            for y in 0..<size { for x in 0..<size {
+                let i = (y*size+x)*4
+                rgba[i] = level == 0 ? UInt8(128+x/2) : 0
+                rgba[i+2] = level == 0 ? 0 : 255
+                rgba[i+3] = level == 0 ? 128 : 64
+            } }
+            rgba.withUnsafeBytes { texture.replace(region: MTLRegionMake2D(0,0,size,size),
+                mipmapLevel: level, withBytes: $0.baseAddress!, bytesPerRow: size*4) }
+        }
+        return texture
+    }
+    static func main() throws {
+        guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue(),
+              let samplers = SceneTextureSamplerStateSet(device: device) else {
+            print("{\"metalUnavailable\":true}"); return
+        }
+        let library = try device.makeLibrary(URL: URL(fileURLWithPath: "default.metallib"))
+        let descriptor = MTLRenderPipelineDescriptor()
+        descriptor.vertexFunction = library.makeFunction(name: "samplingVertex")
+        descriptor.fragmentFunction = library.makeFunction(name: "samplingFragment")
+        descriptor.colorAttachments[0].pixelFormat = .rgba8Unorm
+        let pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
+        func render(_ source: MTLTexture, _ sampler: MTLSamplerState, _ transform: SIMD4<Float>) -> [UInt8] {
+            let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
+                width: 64, height: 64, mipmapped: false)
+            d.storageMode = .shared; d.usage = .renderTarget
+            let output = device.makeTexture(descriptor: d)!
+            let pass = MTLRenderPassDescriptor()
+            pass.colorAttachments[0].texture = output
+            pass.colorAttachments[0].loadAction = .clear; pass.colorAttachments[0].storeAction = .store
+            let cb = queue.makeCommandBuffer()!, encoder = cb.makeRenderCommandEncoder(descriptor: pass)!
+            var mapping = transform
+            encoder.setRenderPipelineState(pipeline)
+            encoder.setFragmentTexture(source,index: 0); encoder.setFragmentSamplerState(sampler,index: 0)
+            encoder.setFragmentBytes(&mapping,length: MemoryLayout<SIMD4<Float>>.stride,index: 0)
+            encoder.drawPrimitives(type: .triangle,vertexStart: 0,vertexCount: 6)
+            encoder.endEncoding(); cb.commit(); cb.waitUntilCompleted()
+            precondition(cb.status == .completed && cb.error == nil)
+            var rgba = [UInt8](repeating: 0,count: 4)
+            rgba.withUnsafeMutableBytes { output.getBytes($0.baseAddress!,bytesPerRow: 4,
+                from: MTLRegionMake2D(32,32,1,1),mipmapLevel: 0) }
+            return rgba
+        }
+        // This independent control represents isotropic trilinear filtering;
+        // the production sampler remains the only tested quality-policy owner.
+        let isotropicDescriptor = MTLSamplerDescriptor()
+        isotropicDescriptor.minFilter = .linear; isotropicDescriptor.magFilter = .linear
+        isotropicDescriptor.mipFilter = .linear; isotropicDescriptor.maxAnisotropy = 1
+        isotropicDescriptor.sAddressMode = .repeat; isotropicDescriptor.tAddressMode = .repeat
+        let isotropic = device.makeSamplerState(descriptor: isotropicDescriptor)!
+        let full = makeTexture(device,levels: 9), single = makeTexture(device,levels: 1)
+        let elongated = SIMD4<Float>(0.125,2,0.25,0.25)
+        let square = SIMD4<Float>(2,2,0.25,0.25)
+        let linear = samplers.state(for: .init(texFlags: 0))
+        var result: [String: Any] = [
+            "mipCount": full.mipmapLevelCount,
+            "linearElongated": render(full,linear,elongated),
+            "isotropicElongated": render(full,isotropic,elongated),
+            "nearestElongated": render(full,samplers.state(for: .init(texFlags: 1)),elongated),
+            "singleMipElongated": render(single,linear,elongated),
+            "squareLinear": render(full,linear,square),
+            "squareIsotropic": render(full,isotropic,square),
+        ]
+        let tinyDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
+            width: 2,height: 2,mipmapped: false)
+        tinyDescriptor.storageMode = .shared; tinyDescriptor.usage = .shaderRead
+        let tiny = device.makeTexture(descriptor: tinyDescriptor)!
+        let pixels: [UInt8] = [255,0,0,255,0,255,0,255,255,0,0,255,0,255,0,255]
+        pixels.withUnsafeBytes { tiny.replace(region: MTLRegionMake2D(0,0,2,2),
+            mipmapLevel: 0,withBytes: $0.baseAddress!,bytesPerRow: 8) }
+        for flags: UInt32 in 0...3 {
+            let sampler = samplers.state(for: .init(texFlags: flags))
+            result["outside-\(flags)"] = render(tiny,sampler,SIMD4(0,0,-0.25,0.5))
+            result["between-\(flags)"] = render(tiny,sampler,SIMD4(0,0,0.5,0.5))
+        }
+        print(String(decoding: try JSONSerialization.data(withJSONObject: result,options: [.sortedKeys]),as: UTF8.self))
+    }
+}
+'''
+        with tempfile.TemporaryDirectory(prefix="mwx-shared-sampler-") as tmp:
+            metal = Path(tmp) / "SharedSampler.metal"
+            metal.write_text(shader, encoding="utf-8")
+            result = run_swift([SAMPLING_SOURCE], support, label="shared-sampler-quality", metal_sources=[metal])
+        self.assertEqual(result["mipCount"], 9)
+        # The gradient at x=32.5 is 167.75; multiplying its alpha once yields
+        # 84.20 RGB8. The orthogonal UV footprint selects level 3, blue/alpha64.
+        self.assertAlmostEqual(result["linearElongated"][0], 84, delta=3)
+        self.assertEqual(result["linearElongated"][1:3], [0, 0])
+        self.assertAlmostEqual(result["linearElongated"][3], 128, delta=1)
+        self.assertEqual(result["singleMipElongated"], result["linearElongated"])
+        for name in ("isotropicElongated", "nearestElongated", "squareLinear", "squareIsotropic"):
+            self.assertEqual(result[name], [0, 0, 64, 64], name)
+        for flags in range(4):
+            self.assertEqual(result[f"outside-{flags}"], [255, 0, 0, 255] if flags & 2 else [0, 255, 0, 255])
+            if flags & 1:
+                self.assertEqual(result[f"between-{flags}"], [0, 255, 0, 255])
+            else:
+                for channel in result[f"between-{flags}"][:2]:
+                    self.assertAlmostEqual(channel, 128, delta=1)
+                self.assertEqual(result[f"between-{flags}"][2:], [0, 255])
+
     def test_real_draw_uploads_only_static_model_point_count(self) -> None:
         from script.tests.test_scene_directional_shadow import run_swift
 
