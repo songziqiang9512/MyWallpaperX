@@ -136,10 +136,23 @@ class WebResponseTransformerTests(unittest.TestCase):
             expect(WebWallpaperCSSImportTransformer.transform(cssStringOnly) == cssStringOnly, "CSS strings must remain untouched")
             let conditionalImport = #"@import url("https://fonts.googleapis.com/css2?family=Print") print;"#
             expect(WebWallpaperCSSImportTransformer.transform(conditionalImport) == conditionalImport, "conditional imports must retain their authored media semantics")
-            let protocolRelativeConditionalImport = #"@import url(//fonts.googleapis.com/css2?family=Layered) layer(fonts);"#
-            expect(WebWallpaperCSSImportTransformer.transform(protocolRelativeConditionalImport) == protocolRelativeConditionalImport, "protocol-relative imports with authored conditions must remain untouched")
             let compoundMediaImport = #"@import url("https://fonts.googleapis.com/css2?family=Wide") screen and (min-width:400px);"#
             expect(WebWallpaperCSSImportTransformer.transform(compoundMediaImport) == compoundMediaImport, "compound media imports must retain their authored media semantics")
+            // layer()/layer 是无条件层指定（非媒体条件）：改写为非阻塞时保留
+            // 原段——恢复侧（RemoteStylesheets）以 <style>@import … layer(…);</style>
+            // 重插，层语义不丢。
+            let layeredImport = #"@import url(//fonts.googleapis.com/css2?family=Layered) layer(fonts);"#
+            let transformedLayered = WebWallpaperCSSImportTransformer.transform(layeredImport)
+            expect(transformedLayered == #"@import url("https://fonts.googleapis.com/css2?family=Layered") layer(fonts) not all;"#, "named-layer import must defer with the authored layer segment preserved")
+            let anonymousLayerImport = #"@import url(https://fonts.googleapis.com/css2?family=Anon) layer;"#
+            let transformedAnonymousLayer = WebWallpaperCSSImportTransformer.transform(anonymousLayerImport)
+            expect(transformedAnonymousLayer == #"@import url("https://fonts.googleapis.com/css2?family=Anon") layer not all;"#, "anonymous-layer import must defer with the bare layer segment preserved")
+            let unsafeLayerNameImport = #"@import url(https://fonts.googleapis.com/css2?family=Weird) layer(a)b);"#
+            expect(WebWallpaperCSSImportTransformer.transform(unsafeLayerNameImport) == unsafeLayerNameImport, "layer names needing re-serialization must remain untouched")
+            let emptyLayerNameImport = #"@import url(https://fonts.googleapis.com/css2?family=NoName) layer();"#
+            expect(WebWallpaperCSSImportTransformer.transform(emptyLayerNameImport) == emptyLayerNameImport, "empty layer names must remain untouched")
+            let layeredMediaImport = #"@import url("https://fonts.googleapis.com/css2?family=LayeredScreen") layer(base) screen;"#
+            expect(WebWallpaperCSSImportTransformer.transform(layeredMediaImport) == layeredMediaImport, "layer+media compound qualifiers must retain their authored semantics")
             // 裸 screen 在壁纸 WKWebView 恒真：随 not all 丢弃无语义损失，
             // 必须与其他恒真形式一样改写为非阻塞。
             let screenQualifiedImport = #"@import url("https://fonts.googleapis.com/css2?family=ScreenOnly") screen;"#

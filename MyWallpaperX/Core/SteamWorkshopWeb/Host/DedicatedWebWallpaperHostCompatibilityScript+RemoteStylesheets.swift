@@ -69,13 +69,17 @@ let webRemoteStylesheetCompatibilityScript = #"""
     if (!isDeferredLink(link)) return null;
     const href = resolvedHref(link);
     const originalRel = link.getAttribute('data-mwx-deferred-stylesheet') || 'stylesheet';
+    const importLayer = link.hasAttribute('data-mwx-import-layer')
+      ? String(link.getAttribute('data-mwx-import-layer') || '')
+      : null;
     const existing = states.get(link);
-    if (existing && existing.href === href && existing.originalRel === originalRel) return existing;
+    if (existing && existing.href === href && existing.originalRel === originalRel && existing.importLayer === importLayer) return existing;
     if (existing) invalidateState(link);
     const state = {
       authoredHref: href,
       href,
       originalRel,
+      importLayer,
       startedAt: performance.now(),
       phase: 'initial',
       settled: false,
@@ -105,10 +109,13 @@ let webRemoteStylesheetCompatibilityScript = #"""
     cancelWork(state);
     state.settled = true;
     state.phase = 'failed';
-    if (wasDeferred) restoreAuthoredRel(link, state);
+    // 层保持恢复不回落 rel=stylesheet：无层应用一个本应进层的样式表会
+    // 污染级联（比不应用更糟）。已插入的恢复 style 不主动移除——网络后到
+    // 时样式仍会进正确的层并应用（多恢复优于少恢复）。
+    if (wasDeferred && state.importLayer === null) restoreAuthoredRel(link, state);
     post(
       'resource.remote-stylesheet.failed',
-      `host=${hostForHref(state.href)} reason=${reason} attempts=${state.retryCount} authoredRelRestored=${wasDeferred}`
+      `host=${hostForHref(state.href)} reason=${reason} attempts=${state.retryCount} authoredRelRestored=${wasDeferred && state.importLayer === null}`
     );
   };
   const finishApplied = (link, state) => {
@@ -117,15 +124,55 @@ let webRemoteStylesheetCompatibilityScript = #"""
     state.settled = true;
     state.phase = 'applied';
     const elapsedMS = Math.max(0, Math.round(performance.now() - state.startedAt));
+    const layerSuffix = state.importLayer === null || state.importLayer === undefined
+      ? ''
+      : ` layer=${state.importLayer === '' ? '(anonymous)' : state.importLayer}`;
     post(
       state.degraded ? 'resource.remote-stylesheet.recovered' : 'resource.remote-stylesheet.activated',
-      `host=${hostForHref(state.href)} elapsedMs=${elapsedMS} attempts=${state.retryCount} rel=${String(link.rel || '')} applied=true`
+      `host=${hostForHref(state.href)} elapsedMs=${elapsedMS} attempts=${state.retryCount} rel=${String(link.rel || '')}${layerSuffix} applied=true`
     );
   };
   const beginActivation = (link, state) => {
     if (!isCurrentDeferredState(link, state) || state.settled) return;
     cancelWork(state);
     state.phase = 'activating';
+    // 层保持恢复：预加载探针已证明可达，改以 <style>@import … layer(…);</style>
+    // 重插承载层语义（<link> 无层属性）。探针 link 保留为惰性 preload——
+    // 删除或剥属性会触发 MutationObserver 的 invalidateState / 恢复标记
+    // rescan，前者取消刚启动的应用轮询，后者无限重建恢复循环。
+    // 应用态经 CSSOM 轮询确认：fonts.googleapis.com 带 CORS 头，导入子表
+    // cssRules 可读。
+    if (state.importLayer !== null && state.importLayer !== undefined) {
+      const style = document.createElement('style');
+      style.setAttribute('data-mwx-css-import-recovery', '');
+      const layerSegment = state.importLayer === '' ? 'layer' : `layer(${state.importLayer})`;
+      style.textContent = `@import url("${state.href}") ${layerSegment};`;
+      (document.head || document.documentElement).appendChild(style);
+      const startedAt = performance.now();
+      const check = () => {
+        if (states.get(link) !== state || state.settled) return;
+        if (!style.isConnected) {
+          invalidateState(link);
+          return;
+        }
+        try {
+          const rules = style.sheet && style.sheet.cssRules;
+          const importRule = rules && rules.length > 0 ? rules[0] : null;
+          if (importRule && importRule.styleSheet &&
+              importRule.styleSheet.cssRules && importRule.styleSheet.cssRules.length > 0) {
+            finishApplied(link, state);
+            return;
+          }
+        } catch (_) {}
+        if ((performance.now() - startedAt) >= activationTimeoutMS) {
+          finishFinalFailure(link, state, 'activation_timeout');
+          return;
+        }
+        state.activationTimer = window.setTimeout(check, 50);
+      };
+      check();
+      return;
+    }
     restoreAuthoredRel(link, state);
     const startedAt = performance.now();
     const check = () => {
@@ -224,17 +271,24 @@ let webRemoteStylesheetCompatibilityScript = #"""
     }
   };
 
-  const queueImportRecovery = (href) => {
-    const existing = importRecoveryLinks.get(href);
+  const queueImportRecovery = (href, layerName) => {
+    // layerName：null=无层（原 <link> 恢复）；''=匿名层（裸 layer）；
+    // 非空=命名层。层形态以 <style>@import … layer(…);</style> 重插恢复
+    // （<link> 无层语义），见 beginActivation 的层分支。
+    const recoveryKey = layerName === null || layerName === undefined ? href : `${href}\n${layerName}`;
+    const existing = importRecoveryLinks.get(recoveryKey);
     if (existing && existing.isConnected) return;
-    if (existing) importRecoveryLinks.delete(href);
+    if (existing) importRecoveryLinks.delete(recoveryKey);
     const link = document.createElement('link');
     link.rel = 'preload';
     link.as = 'style';
     link.href = href;
     link.setAttribute('data-mwx-deferred-stylesheet', 'stylesheet');
     link.setAttribute('data-mwx-css-import-recovery', '');
-    importRecoveryLinks.set(href, link);
+    if (layerName !== null && layerName !== undefined) {
+      link.setAttribute('data-mwx-import-layer', layerName);
+    }
+    importRecoveryLinks.set(recoveryKey, link);
     (document.head || document.documentElement).appendChild(link);
   };
   const scanStyleSheets = () => {
@@ -247,7 +301,13 @@ let webRemoteStylesheetCompatibilityScript = #"""
           const href = new URL(rule.href, document.location.href);
           const media = String(rule.media && rule.media.mediaText || '').toLowerCase().replace(/\s+/g, ' ').trim();
           if (href.host === 'fonts.googleapis.com' && /(^|,)\s*not all\s*(,|$)/.test(media)) {
-            queueImportRecovery(href.href);
+            // layer() 由 CSSOM 从 media 列表里解析为 layerName：null=无层，
+            // ''=匿名层，非空=命名层（Safari 17.4+；缺失时按无层恢复，行为
+            // 与旧版一致，不回退）。
+            const layerName = rule.layerName === undefined || rule.layerName === null
+              ? null
+              : String(rule.layerName);
+            queueImportRecovery(href.href, layerName);
           }
         }
         if (rule.styleSheet) scanSheet(rule.styleSheet);

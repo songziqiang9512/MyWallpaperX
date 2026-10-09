@@ -112,16 +112,45 @@ enum WebWallpaperCSSImportTransformer {
             return nil
         }
         // 限定符分类处置：裸 screen 在壁纸 WKWebView 恒真，随 not all 丢弃无
-        // 语义损失；其余限定符保留作者语义不动——可能为假的媒体（print 等）
-        // 浏览器本就不取，layer() 因恢复路径只能以 <link> 重建、无法承载层
-        // 语义，一律不改写。
+        // 语义损失；layer/layer(name) 是无条件层指定（非媒体条件），保留原
+        // 段并追加 not all——恢复侧（RemoteStylesheets）以
+        // <style>@import … layer(name);</style> 重插，层语义不丢。其余限定
+        // 符（可能为假的媒体如 print、supports()、layer+媒体复合）保留作者
+        // 语义不动；可能为假者浏览器本就不取。
         let qualifier = googleImport.qualifier.trimmingCharacters(in: .whitespaces)
-        guard qualifier.isEmpty || qualifier.caseInsensitiveCompare("screen") == .orderedSame else {
+        let layerSegment: String?
+        if qualifier.isEmpty || qualifier.caseInsensitiveCompare("screen") == .orderedSame {
+            layerSegment = nil
+        } else if let segment = Self.authoredLayerSegment(qualifier) {
+            layerSegment = segment
+        } else {
             return nil
         }
         components.scheme = "https"
         guard let secureURL = components.string else { return nil }
+        if let layerSegment {
+            return "@import url(\"\(secureURL)\") \(layerSegment) not all;"
+        }
         return "@import url(\"\(secureURL)\") not all;"
+    }
+
+    /// `layer` / `layer(<name>)`（大小写不敏感）返回原样段；层名含括号/
+    /// 分号/引号等需要再序列化的字符时按不可识别处理（保留作者原句）。
+    private static func authoredLayerSegment(_ qualifier: String) -> String? {
+        if qualifier.caseInsensitiveCompare("layer") == .orderedSame {
+            return "layer"
+        }
+        guard qualifier.count > 6,
+              qualifier.prefix(6).caseInsensitiveCompare("layer(") == .orderedSame,
+              qualifier.hasSuffix(")") else {
+            return nil
+        }
+        let name = String(qualifier.dropFirst(6).dropLast())
+        guard name.isEmpty == false,
+              name.rangeOfCharacter(from: CharacterSet(charactersIn: "()\"';")) == nil else {
+            return nil
+        }
+        return qualifier
     }
 
     private static func googleFontImport(
