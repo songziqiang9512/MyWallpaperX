@@ -209,8 +209,8 @@
       "bytes": 6445
     },
     "docs/web/current-state.md": {
-      "lines": 119,
-      "bytes": 44852
+      "lines": 120,
+      "bytes": 46443
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 58,
@@ -1068,10 +1068,10 @@
     {
       "section": "bodies",
       "path": "docs/web/current-state.md",
-      "before": "87c8025b1ea56711caed4753bbd460b1c483ecf7938a23571642ab884d6b8e3c",
-      "after": "edf8bab8a0406ed50b3239afc93a9c79a2be8a0d8254ae62a611472f9946e158",
+      "before": "edf8bab8a0406ed50b3239afc93a9c79a2be8a0d8254ae62a611472f9946e158",
+      "after": "45622250aa1b88c116c2540e5a4871e72b0b7227d15bf69159efe140fcfeb0a2",
       "owner": "Web 现役状态",
-      "reason": "批十八 CSS 动画冻结重构证据行并入（样式表双轨制闭口 play-state 解耦）。",
+      "reason": "批十九第六轮侦察修复证据行并入（DCL 补扫全量递归闭口自定义元素 shadow 死区）。",
       "decision": "docs/web/cold-descriptor-parse-offload-design.md#验收"
     },
     {

@@ -291,12 +291,30 @@ let webCompatibilityScriptDOMLifecycleScaffold = #"""
           };
           const installShadowObserversFromDocument = () => {
             try {
+              // 全量递归扫 shadow root（含嵌套）：解析期（DCL 之前）创建且
+              // 宿主不在旧五类白名单（audio,video,iframe,[data-wallpaper],
+              // canvas）内的自定义元素 shadow root，attachShadow 包装器的
+              // window holder 尚未生效，旧白名单补扫永远接不到——其中的
+              // <video> 拿不到媒体观察器/时间轴监听（退化为 8s 轮询粒度）。
+              // WeakSet 防环；installWallpaperShadowObserver 自带幂等。
+              const visitedRoots = new WeakSet();
+              const collectAndInstall = (root) => {
+                if (!root || visitedRoots.has(root)) return;
+                visitedRoots.add(root);
+                try {
+                  if (!root.querySelectorAll) return;
+                  root.querySelectorAll('*').forEach((element) => {
+                    if (element && element.shadowRoot) {
+                      installWallpaperShadowObserver(element.shadowRoot);
+                      collectAndInstall(element.shadowRoot);
+                    }
+                  });
+                } catch (_) {}
+              };
               Array.from(document.querySelectorAll('audio,video,iframe,[data-wallpaper],canvas')).forEach((element) => {
-                if (element && element.shadowRoot) {
-                  installWallpaperShadowObserver(element.shadowRoot);
-                }
                 installFrameBindings(element);
               });
+              collectAndInstall(document);
             } catch (_) {}
           };
           installShadowObserversFromDocument();

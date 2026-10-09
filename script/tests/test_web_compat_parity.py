@@ -715,6 +715,22 @@ enum Scenarios {
             "typeof window.__mwxInstallWallpaperShadowObserver === 'function'",
             label: "shadow observer holder"
         )
+        // 解析期宿主的挂接证据（红→绿判别器）：本页唯一媒体节点就是解析期
+        // shadow audio，挂接它才会上报 first-media-node-found——音量回填与
+        // timeline 非空都不构成判别（前者走 shadow 穿透 setter，后者 8s 全量
+        // 刷新也写）。检查点先于晚建宿主创建，消息只可能来自解析期节点。
+        try await host.waitUntil(
+            "(() => { try { document.getElementById('f01-parse-host').shadowRoot.querySelector('audio').dispatchEvent(new Event('canplay')); return true; } catch (_) { return false; } })()",
+            label: "parse-host event dispatch"
+        )
+        let attachmentDeadline = Date().addingTimeInterval(5.0)
+        while Date() < attachmentDeadline && host.recorder.logTypes.contains("first-media-node-found") == false {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        expect(
+            host.recorder.logTypes.contains("first-media-node-found"),
+            "解析期 shadow 宿主的媒体节点未被挂接（first-media-node-found 缺失）"
+        )
         _ = try await host.script("window.__myWallpaperSetGlobalVolume(0.25);")
         try await host.waitUntil(
             "window.__myWallpaperLastHostVolume === 0.25",
