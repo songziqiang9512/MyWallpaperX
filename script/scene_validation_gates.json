@@ -2136,15 +2136,18 @@
       "id": "scene-static-model-material-segments",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlStaticModelReader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
         "script/tests/test_scene_static_model_pipeline.py",
+        "script/tests/test_scene_static_model_emission.py",
         "script/tests/test_scene_static_model_cull_integration.py"
       ],
       "modules": [
         "test_scene_static_model_reader",
         "test_scene_static_model_parts",
         "test_scene_static_model_pipeline",
+        "test_scene_static_model_emission",
         "test_scene_static_model_cull_integration"
       ]
     },

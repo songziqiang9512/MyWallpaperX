@@ -461,28 +461,29 @@ fragment half4 sceneStaticModelFragment(
         );
         surfaceColor *= viewTint;
     }
-    half3 litColor = surfaceColor * half3(lighting);
+    float3 litColor = float3(surfaceColor * half3(lighting));
     if ((uniforms.materialFlags.y & 1u) != 0u) {
-        half emissive = clamp(
+        float emissive = float(saturate(
             componentTexture.sample(componentSampler, in.componentUV).a
-                * half(uniforms.emissiveColorAndBrightness.w),
-            half(0.0),
-            half(1.0)
-        );
-        half3 emittedColor = surfaceColor
-            * half3(uniforms.emissiveColorAndBrightness.xyz);
-        litColor = mix(litColor, emittedColor, emissive);
+        )) * uniforms.emissiveColorAndBrightness.w;
+        // The mask scales additional radiance; brightness is not a mix weight.
+        // Keep finite HDR energy through fog and coverage before half storage.
+        float3 emittedColor = min(
+            float3(surfaceColor) * uniforms.emissiveColorAndBrightness.xyz,
+            float3(MAXFLOAT)
+        ) * emissive;
+        litColor = min(litColor + emittedColor, float3(MAXFLOAT));
     }
     if (uniforms.distanceFogColor.w > 0.5) {
         float4 range = uniforms.distanceFogRange;
         float distanceFromCamera = length(uniforms.cameraPosition.xyz - in.worldPosition);
         float fraction = clamp((distanceFromCamera - range.x) / (range.y - range.x), 0.0, 1.0);
-        half density = half(mix(range.z, range.w, fraction));
-        litColor = mix(litColor, half3(uniforms.distanceFogColor.xyz), density);
+        float density = mix(range.z, range.w, fraction);
+        litColor = mix(litColor, uniforms.distanceFogColor.xyz, density);
     }
     // Static-model inputs preserve straight texture channels. Convert the
     // material result to the existing premultiplied main-pass contract here.
-    return half4(litColor * outputAlpha, outputAlpha);
+    return half4(half3(clamp(litColor * float(outputAlpha), 0.0, 65504.0)), outputAlpha);
 }
 
 struct SceneStaticModelShadowUniforms {

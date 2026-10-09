@@ -316,7 +316,10 @@ PIXEL_MAIN = r'''
     if translated { for i in triangles.indices { for j in triangles[i].indices { triangles[i][j][0] -= 5 } } }
     return mesh(triangles)
    }
-   let projection = SceneDirectionalShadowProjection.make(bounds: [(minimum:receiver.boundsMinimum,maximum:receiver.boundsMaximum,world:receiverWorld)] + meshes.map { (minimum:$0.boundsMinimum,maximum:$0.boundsMaximum,world:casterWorld) }, directionTowardLight:toward,resolution:1024)!
+   let projection = SceneDirectionalShadowProjection.make(
+    bounds: meshes.map { (minimum:$0.boundsMinimum,maximum:$0.boundsMaximum,world:casterWorld) },
+    receiverBounds: [(minimum:receiver.boundsMinimum,maximum:receiver.boundsMaximum,world:receiverWorld)],
+    directionTowardLight:toward,resolution:1024)
    let cb = queue.makeCommandBuffer()!
    let depthDesc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:1024,height:1024,mipmapped:false)
    depthDesc.storageMode = .private; depthDesc.usage = [.renderTarget,.shaderRead]
@@ -329,10 +332,10 @@ PIXEL_MAIN = r'''
     let covered = (c["uses_coverage_alpha"] as? Bool ?? true) && !tint
     let uvFrame = SceneTextureUVTransform(origin:SIMD2(Float(c["sample_u"] as? Double ?? 0.5)-0.5,0),xAxis:SIMD2(1,0),yAxis:SIMD2(0,1))
     let sampleFlags = UInt32(c["sample_flags"] as? Int ?? 2)
-    precondition(pipeline.drawShadow(mesh:meshes[index],texture:coverageTexture(c),textureFrame:uvFrame,sampling:SceneTextureSampling(texFlags:sampleFlags),modelMatrix:casterWorld,projection:.directional(projection),face:0,viewport:MTLViewport(originX:0,originY:0,width:Double(map.width),height:Double(map.height),znear:0,zfar:1),layerAlpha:Float(c["layer_alpha"] as? Double ?? 1),material:material(Float(c["material_opacity"] as? Double ?? 1),covered,tint,c["receives_lighting"] as? Bool ?? true),encoder:encoder))
+    precondition(pipeline.drawShadow(mesh:meshes[index],texture:coverageTexture(c),textureFrame:uvFrame,sampling:SceneTextureSampling(texFlags:sampleFlags),modelMatrix:casterWorld,projection:.directional(projection!),face:0,viewport:MTLViewport(originX:0,originY:0,width:Double(map.width),height:Double(map.height),znear:0,zfar:1),layerAlpha:Float(c["layer_alpha"] as? Double ?? 1),material:material(Float(c["material_opacity"] as? Double ?? 1),covered,tint,c["receives_lighting"] as? Bool ?? true),encoder:encoder))
    }
    encoder.endEncoding()
-   let shadow = SceneStaticModelShadow(texture:map,frameEpoch:7,generation:1,lightLayerID:10,projection:.directional(projection),commandBuffer:cb)
+   let shadow = projection.map { SceneStaticModelShadow(texture:map,frameEpoch:7,generation:1,lightLayerID:10,projection:.directional($0),commandBuffer:cb) }
    // Authored camera sample at the chosen world point, independent of product light projection.
    let scale = Float(v["camera_scale"] as? Double ?? 0.05)
    var view = simd_float4x4(rows:[SIMD4(scale,0,0,-Float(position[0])*scale),SIMD4(0,-scale,0,Float(position[1])*scale),SIMD4(0,0,-0.001,0.5),SIMD4(0,0,0,1)])
@@ -354,9 +357,9 @@ PIXEL_MAIN = r'''
      .init(layerID:10,castsShadow:true,directionTowardLight:toward,color:SIMD3(repeating:1),intensity:selected),
      .init(layerID:11,directionTowardLight:SIMD3(0,0,1),color:SIMD3(0.5,0.7,1),intensity:mode == 5 ? 0 : 0.2)],point:[],spot:[],overflowCount:0)
     let enabled = v["shadow_enabled"] as? Bool ?? true
-    let wrongLight = SceneStaticModelShadow(texture:map,frameEpoch:7,generation:1,lightLayerID:999,projection:.directional(projection),commandBuffer:cb)
+    let wrongLight = projection.map { SceneStaticModelShadow(texture:map,frameEpoch:7,generation:1,lightLayerID:999,projection:.directional($0),commandBuffer:cb) }
     let testedShadow = mode == 7 ? wrongLight : shadow
-    precondition(pipeline.draw(mesh:receiver,texture:albedo,colorTextureIsPremultiplied:false,emissiveMask:emissionMask,emissiveMaskTextureFrame:.identity,emissiveMaskSampling:.linearClamp,modelMatrix:receiverWorld,viewProjection:view,cameraPosition:SIMD3(Float(position[0]),Float(position[1]),100),textureFrame:.identity,sampling:.linearClamp,layerAlpha:0.75,material:material(1,false,false,true,mode == 6 ? 0 : 0.8),lighting:lights,writesDepth:true,shadows:(mode == 2 || mode == 3 || mode >= 7) && enabled ? [testedShadow] : [],frameEpoch:mode == 3 ? 8 : 7,commandBuffer:mode == 8 ? queue.makeCommandBuffer()! : cb,encoder:e))
+    precondition(pipeline.draw(mesh:receiver,texture:albedo,colorTextureIsPremultiplied:false,emissiveMask:emissionMask,emissiveMaskTextureFrame:.identity,emissiveMaskSampling:.linearClamp,modelMatrix:receiverWorld,viewProjection:view,cameraPosition:SIMD3(Float(position[0]),Float(position[1]),100),textureFrame:.identity,sampling:.linearClamp,layerAlpha:0.75,material:material(1,false,false,true,mode == 6 ? 0 : 0.8),lighting:lights,writesDepth:true,shadows:(mode == 2 || mode == 3 || mode >= 7) && enabled ? testedShadow.map { [$0] } ?? [] : [],frameEpoch:mode == 3 ? 8 : 7,commandBuffer:mode == 8 ? queue.makeCommandBuffer()! : cb,encoder:e))
     e.endEncoding()
     let b = device.makeBuffer(length:256,options:.storageModeShared)!
     let blit = cb.makeBlitCommandEncoder()!

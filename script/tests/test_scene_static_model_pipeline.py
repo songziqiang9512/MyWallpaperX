@@ -173,7 +173,6 @@ fragment half4 sceneStaticModelFragment(
         self.assertIn("surfaceColor = mix(albedo.rgb, tinted, albedo.a)", source)
         self.assertIn("uniforms.viewTintBackAndEnabled.w > 0.5", source)
         self.assertIn("uniforms.cameraPosition.xyz - in.worldPosition", source)
-        self.assertIn("litColor * outputAlpha", source)
 
     def test_pipeline_typechecks_against_decoded_vertex_contract(self) -> None:
         swiftc = shutil.which("swiftc")

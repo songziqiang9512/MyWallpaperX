@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4a2d52f14795ad1f46a87ff5bd20f1d134aa932311b75bde028d28767936097b",
+        "sourceSHA256": "0c2b7d4d443aec236f3f76478f23c9a2c822f7eca3460145ec9eb3260a1bbfc0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对solid静态源、终端分域边界、实际证据与开放队列导航。",
+        "scope": "核对本批模型发光合同、原包证据和剩余队列的导航。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
@@ -438,12 +438,12 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-08",
+      "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "61f7cebea8773e511f9e2601c2109bb0fd30d882f057640a598857e9fae7d1b6",
+        "sourceSHA256": "e218322a9786baf7d0b3d62555be3103161a09dfdbb486d9658ca0d5be2cdd32",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对MDLV0021现reader版本配对、U18实机挂点恢复及剩余边界。",
+        "scope": "核对本批模型发光合同、原包证据和剩余队列的导航。",
         "limitations": "不代表未知MDLS后缀、官方逐像素、完整交互或全样本验收。"
       }
     },
@@ -522,9 +522,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ac08043d9db14d2a3e192b29e15c722a57ec079157dcd1fb1a6fc3e691b809d3",
+        "sourceSHA256": "5dc4cc96ba4d30a3a90ac3cff98c235271fd07d27fc7d6dd5ae21df9b6c28c44",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对solid静态源、终端分域边界、实际证据与开放队列导航。",
+        "scope": "核对本批模型发光合同、原包证据和剩余队列的导航。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
@@ -1715,6 +1715,17 @@
       ]
     },
     {
+      "path": "docs/scene/history/static-model-emission-2026-10-09.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/advanced-object-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/static-model-light-input-semantics-2026-10-06.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -1935,12 +1946,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-08",
+      "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b544ca1126f2b7450d4925072f0f6755b497db114f48c53dbf1c0a7c86849a12",
+        "sourceSHA256": "293dd86f224e09d7faf468b928c6915c3d8b2e08db8f1bdc42c0f2cf8c264c3e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对solid静态源、终端分域边界、实际证据与开放队列导航。",
+        "scope": "核对本批模型发光合同、原包证据和剩余队列的导航。",
         "limitations": "导航与证据身份核对；不等同全样本、真实声源、compose或HDR官方parity。"
       }
     },
