@@ -2144,6 +2144,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
         "script/tests/test_scene_static_model_pipeline.py",
+        "script/tests/fixtures/SceneLightSnapshotHarness.swift",
         "script/tests/test_scene_static_model_emission.py",
         "script/tests/test_scene_static_model_cull_integration.py"
       ],

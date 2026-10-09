@@ -37,6 +37,7 @@ struct SceneLightSnapshot {
         let radius: Float
         let innerConeCosine: Float
         let outerConeCosine: Float
+        /// Authored off-axis angle, rather than the complete cone opening.
         let outerConeDegrees: Float
     }
 
@@ -380,7 +381,9 @@ struct SceneLightSnapshot {
               innerCone.isFinite, outerCone.isFinite,
               innerCone > 0, innerCone <= outerCone, outerCone < 180,
               let position = position(of: frame) else { return nil }
-        let degreesToHalfRadians = Float.pi / 360
+        // Own-fixture official black-box cones (2026-10-09) establish that
+        // authored inner/outer values measure away from the light axis.
+        let degreesToRadians = Float.pi / 180
         return Spot(
             layerID: layer.id, castsShadow: definition.castsShadow == true,
             position: position,
@@ -389,8 +392,8 @@ struct SceneLightSnapshot {
                 ?? color(definition.colorRGB, fallback: SIMD3(1, 1, 1)),
             intensity: intensity,
             radius: radius,
-            innerConeCosine: cos(innerCone * degreesToHalfRadians),
-            outerConeCosine: cos(outerCone * degreesToHalfRadians),
+            innerConeCosine: cos(innerCone * degreesToRadians),
+            outerConeCosine: cos(outerCone * degreesToRadians),
             outerConeDegrees: outerCone
         )
     }

@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e08be021de33c362011b7c7e30939c013c87f2f71932b9c075946dd626660d10",
+        "sourceSHA256": "39ee2d6fa32b3003781663eab76ed20f29c4f037d38455bb3167612f4dd72f8a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对模型发光脚本/nested属性合同、运行证据与U12剩余月亮队列的导航。",
+        "scope": "核对聚光锥角共享合同、限定运行证据与U12剩余队列导航。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
@@ -522,9 +522,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9b2705592e9f726d3448c13358f6b2e1a6d565e9cdec11165379ea69018c94e3",
+        "sourceSHA256": "82c439449284b4c3eb6f042b8643746bc233b08c6814f14a16ac5a76c7b5712e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对LDR Bloom窗光残差已修及主体受光/动态仍待验，保留单一证据导航；19个默认声明不等于视觉验收。",
+        "scope": "核对聚光锥角共享合同、限定运行证据与U12剩余队列导航。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
@@ -1949,9 +1949,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "01071e6f3bfabb7a1549d3428212e7b5263f7d74196644a62b008abc9fbaec80",
+        "sourceSHA256": "b9ef14ed319373d359cdc11dc09abf35e45d0c7cc7a4851f7d41d447165fae08",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对LDR Bloom窗光残差已修及主体受光/动态仍待验，保留单一证据导航；19个默认声明不等于视觉验收。",
+        "scope": "核对聚光锥角共享合同、限定运行证据与U12剩余队列导航。",
         "limitations": "导航与证据身份核对；不等同全样本、真实声源、compose或HDR官方parity。"
       }
     },

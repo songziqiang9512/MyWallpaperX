@@ -103,3 +103,17 @@
 实际签名Debug、App/源码/编译Metal库与打包header身份、原生App退出/surface归零/GPU排空分别核验；证据保留 `.artifacts/tmp/u12-image-fog-20261009`。官方自有窗口关闭、本轮guest目录删除，VM已suspended；未处理此前批次目录或其他窗口。
 
 独立审查保留未整改的既有结构问题：`test_scene_resolved_material_graph_executor.py` 10888→10899行、`test_scene_dependency_graph_output_runtime.py` 2686→2694行、`test_scene_texture_candidate.py` 2498→2509行。本批仅同步真实GPU参数及共享header输入，未完成按职责迁移。Swift code-health通过不覆盖这些Python内嵌Swift测试，也不能据此宣称1000行规则全达标；后续需按完整测试职责迁移并保持相同行为反例，不以截断字符串、拆碎harness或删断言过门。
+
+
+<a id="spot-cone-angle"></a>
+## 2026-10-09：聚光灯锥角恢复作者覆盖范围
+
+官方2.8.0.42、自有灰平面和单灯黑盒对照证明：inner/outer 是轴线到边缘的角度。20/40 与40/80两组的同尺寸径向剖面排除了旧的半角解释；距离0.5/2/5及128灰纹理控制只用于区分覆盖与能量，不据此推出精确衰减/BRDF。9个官方输入逐文件核对，错误旧帧排除，客机副本及窗口清除，VM已暂停。根上下文曾意外展开运行报告内stock表达，立即停止该数值职责写入；独立新上下文只接收核准的可观察角度合同后实现，未接收原表达。
+
+产品复用唯一 `SceneLightSnapshot`，纠正作者角度到cosine转换；模型和2D payload共同消费。原可选聚光阴影投影使用相同轴边角；outer≥90°无法形成有限前向投影，仅省略可选阴影，保留direct。未改方向、强度、0.30系数、衰减核或Metal shader，没有新增渲染链。门禁只把既有snapshot harness补登到实际执行它的既有组。
+
+固定头部姿态、关闭Bloom/Fog，1210×786并统一sRGB后，U12 native−official平均RGB：猫身从(-30.41,-29.03,-26.28)降为(-2.27,-2.23,-2.27)/255；脸部从(-26.84,-20.86,-20.06)降为(-2.64,-2.10,-2.47)；耳机从(-58.15,-10.18,-25.49)降为(-1.76,-2.83,-2.92)。ambient-only逐像素不变。修复主因是恢复原来遗漏的受光区域；尚有约2–3色阶残差，自有平面中心仍49对官方54，不调全局亮度掩盖。完整动画/交互、媒体、不同法线响应、2D与宽锥官方阴影parity仍未验。
+
+旧产品新增反例5个断言失败；修后完整spot模块13项、模型pipeline7项及shadow telemetry1项通过。独立只读审查无阻塞。隔离签名Debug dylib `e9246f89c52bec0901939dfbbcbf19aaf36cfb6eadb6db791c350973731507cd`，构建源码前后4240项身份一致；构建基于隔离2f4ab514加前批Bloom及本批两产品文件，不包含并行Web新提交。7次App运行包含2自有角度、4个U12控制及恢复作者Bloom/Fog/头部脚本的组合，均exit0/gpuDrained=true；组合运行不冒充固定姿态逐像素证明。243包仅3样本/9个lspot声明是潜在覆盖，不是3样本验收。
+
+收据 `.artifacts/tmp/u12-subject-light-20261009/`：`official/official-observables.json`（24195a50…fccd）、`official/cone-profiles.json`、`u12-subject-final-comparison.json`、`native-final-summary.json`、`build-final.json`、`implementation-plan.json`及`review-spot-code.md`。测试缓存/临时App输入清理，保留必要对照与收据及一份持续构建缓存。下一片先验证U12动态/媒体与剩余受光响应，之后按原队列推进HDR/SDR及重型样本。

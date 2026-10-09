@@ -105,7 +105,7 @@ def depth_vectors():
         # renderer counterclockwise convention after Metal viewport Y inversion.
         draw_triangles = [tri if _dot(_cross(_sub(tri[1], tri[0]), _sub(tri[2], tri[0])), tri[0]) >= 0
                           else [tri[0], tri[2], tri[1]] for tri in triangles]
-        result.append(dict(name=name, triangles=triangles, draw_triangles=draw_triangles, expected=expected, skip=skip, size=size, outer_degrees=math.degrees(2*math.atan(tangent))))
+        result.append(dict(name=name, triangles=triangles, draw_triangles=draw_triangles, expected=expected, skip=skip, size=size, outer_degrees=math.degrees(math.atan(tangent))))
     front = next(r for r in result if r['name'] == 'unequal-w-dyadic')
     result.append(dict(front, name='backface-culled', draw_triangles=[[t[0],t[2],t[1]] for t in front['draw_triangles']], expected=[1]*4096, skip=[False]*4096))
     return result
@@ -127,7 +127,7 @@ DEPTH_MAIN = r'''
   let rows=try JSONSerialization.jsonObject(with:Data(contentsOf:URL(fileURLWithPath:CommandLine.arguments[1]))) as! [[String:Any]]
   let d=MTLCreateSystemDefaultDevice()!,queue=d.makeCommandQueue()!
   let pipeline=SceneStaticModelPipeline(device:d,colorPixelFormat:.rgba16Float)!
-  func projection(_ degrees:Float) -> SceneSpotShadowProjection { let light=SceneLightSnapshot.Spot(layerID:10,castsShadow:true,position:.zero,directionFromLight:SIMD3(0,0,1),color:SIMD3(repeating:1),intensity:1,radius:10,innerConeCosine:cos(Float.pi/6),outerConeCosine:cos(degrees*Float.pi/360),outerConeDegrees:degrees)
+  func projection(_ degrees:Float) -> SceneSpotShadowProjection { let light=SceneLightSnapshot.Spot(layerID:10,castsShadow:true,position:.zero,directionFromLight:SIMD3(0,0,1),color:SIMD3(repeating:1),intensity:1,radius:10,innerConeCosine:cos(Float.pi/6),outerConeCosine:cos(degrees*Float.pi/180),outerConeDegrees:degrees)
   return SceneSpotShadowProjection.make(light:light)! }
   let td=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba32Float,width:1,height:1,mipmapped:false);td.storageMode = .shared;td.usage = .shaderRead
   let albedo=d.makeTexture(descriptor:td)!;var white:[Float]=[1,1,1,1];albedo.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:&white,bytesPerRow:16)
@@ -230,8 +230,8 @@ def radiance_vectors():
         result.append(v)
     for name,extras in [('perspective-world-shift',{'camera':'perspective'}),
                          ('caster-parent-translation',{}),('caster-nonuniform-scale',{}),
-                         ('narrow-cone',{'outer_degrees':40,'inner_degrees':35}),
-                         ('wide-cone',{'outer_degrees':140,'inner_degrees':120})]:
+                         ('narrow-cone',{'outer_degrees':20,'inner_degrees':17.5}),
+                         ('wide-cone',{'outer_degrees':70,'inner_degrees':60})]:
         v=copy.deepcopy(result[0]);v.update(name=name,**extras);result.append(v)
     result.append(dict(name='receiver-near-light',receiver=[84,48,30],casters=[rectangle(81.5,82.5,47.5,48.5,z=35)],slope=[0,0]))
     result.append(dict(name='caster-behind-light',receiver=[92,48,0],casters=[rectangle(72,76,44,52,z=60)],slope=[0,0]))
@@ -257,9 +257,9 @@ def radiance_main():
     code=code[:start]+r'''
    let lp=v["light_position"] as! [Double]
    let lightPosition=SIMD3<Float>(Float(lp[0]),Float(lp[1]),Float(lp[2])+(perspective ? 20:0))
-   let outer=Float(v["outer_degrees"] as? Double ?? 90),inner=Float(v["inner_degrees"] as? Double ?? 60)
+   let outer=Float(v["outer_degrees"] as? Double ?? 45),inner=Float(v["inner_degrees"] as? Double ?? 30)
    func spot(_ intensity:Float)->SceneLightSnapshot.Spot {
-    .init(layerID:10,castsShadow:true,position:lightPosition,directionFromLight:SIMD3(0,0,-1),color:SIMD3(repeating:1),intensity:intensity,radius:100,innerConeCosine:cos(inner*Float.pi/360),outerConeCosine:cos(outer*Float.pi/360),outerConeDegrees:outer)
+    .init(layerID:10,castsShadow:true,position:lightPosition,directionFromLight:SIMD3(0,0,-1),color:SIMD3(repeating:1),intensity:intensity,radius:100,innerConeCosine:cos(inner*Float.pi/180),outerConeCosine:cos(outer*Float.pi/180),outerConeDegrees:outer)
    }
    let projection=SceneSpotShadowProjection.make(light:spot(1))
 ''' + code[end:]
@@ -312,6 +312,112 @@ class SceneSpotModelShadowRadianceTests(unittest.TestCase):
                     self.assertGreater(a[c]-no_ambient[c],.004)
                     self.assertGreater(a[c]-no_second[c],.005)
                     self.assertGreater(a[c]-no_emission[c],.005)
+
+
+def authored_cone_vectors():
+    """World-space rays distinguish authored off-axis angles from full openings."""
+    from script.tests.fixtures.scene_directional_shadow_oracle import rectangle
+    vectors = []
+    # atan(24/40) is about 31 degrees; atan(80/40) is about 63 degrees.
+    # Both rays lie in the authored transition ring and outside the old cone.
+    for inner, outer, offset, inside in [(20, 40, 0, True), (20, 40, 24, True),
+                                       (20, 40, 40, False), (40, 80, 0, True),
+                                       (40, 80, 80, True), (40, 80, 240, False)]:
+        midpoint = 80 + offset / 2
+        vectors.append(dict(name=f'authored-{inner}-{outer}-offset-{offset}',
+            inner_degrees=inner, outer_degrees=outer, receiver=[80+offset, 48, 0],
+            receiver_half_extent=10, toward_light=[-offset, 0, 40], slope=[0, 0],
+            light_position=[80, 48, 40], light_intensity=2,
+            casters=[rectangle(midpoint-2, midpoint+2, 46, 50)], inside=inside))
+    return vectors
+
+
+def authored_cone_main():
+    code = radiance_main()
+    start = code.index('   func spot(_ intensity:Float)')
+    end = code.index('   let cb = queue.makeCommandBuffer()!', start)
+    code = code[:start] + r'''
+   func spot(_ intensity:Float)->SceneLightSnapshot.Spot {
+    let definition=SceneSpotLightDefinition.parse(["light":"lspot","color":"1 1 1",
+      "intensity":Double(intensity),"radius":1000,"innercone":Double(inner),
+      "outercone":Double(outer),"castshadow":true])!
+    let descriptor=SceneRenderDescriptor(lighting:.init(ambientColorRGB:nil,skylightColorRGB:nil),
+      layers:[.init(id:10,visible:true,spotLight:definition,directionalLight:nil)])
+    var frame=matrix_identity_float4x4
+    frame.columns.0=SIMD4(0,0,-1,0);frame.columns.2=SIMD4(1,0,0,0)
+    frame.columns.3=SIMD4(lightPosition,1)
+    return SceneLightSnapshot.make(descriptor:descriptor,worldFramesByLayerID:[10:frame]).spot[0]
+   }
+   let projection=SceneSpotShadowProjection.make(light:spot(1))!
+   let relative=SIMD3(Float(position[0]),Float(position[1]),Float(position[2]))-lightPosition
+   let local=projection.worldToLight*SIMD4(relative,0)
+   let insideProjection=local.z>0 && abs(local.x)<local.z*projection.tanHalfAngle
+      && abs(local.y)<local.z*projection.tanHalfAngle
+''' + code[end:]
+    # The reusable pixel harness carries optional projections for failure tests.
+    code = code.replace('let projection=SceneSpotShadowProjection.make(light:spot(1))!',
+                        'let concrete=SceneSpotShadowProjection.make(light:spot(1))!\n   let projection:SceneSpotShadowProjection?=concrete')
+    code = code.replace('projection.worldToLight', 'concrete.worldToLight')
+    code = code.replace('projection.tanHalfAngle', 'concrete.tanHalfAngle')
+    code = code.replace('"pixels":pixels,"completed":true',
+                        '"pixels":pixels,"completed":true,"insideProjection":insideProjection')
+    return code
+
+
+class SceneSpotModelAuthoredConeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.vectors = authored_cone_vectors()
+        cls.report = run_spot(sources(), 'import Foundation\nimport Metal\nimport simd\n'
+            + model.LIGHTING_STUB + authored_cone_main(), label='authored-cone',
+            metal_sources=[model.METAL_SOURCE], input_value=cls.vectors)
+
+    def test_authored_transition_ring_is_lit_and_shadowed(self):
+        for vector, row in zip(self.vectors, self.report['rows']):
+            with self.subTest(case=vector['name']):
+                self.assertTrue(row['completed'])
+                ambient, direct, shadowed = row['pixels'][:3]
+                for channel in range(3):
+                    if vector['inside']:
+                        self.assertGreater(direct[channel]-ambient[channel], 1e-5)
+                        self.assertLess(shadowed[channel], direct[channel])
+                    else:
+                        self.assertEqual(direct[channel], ambient[channel])
+                    self.assertEqual(shadowed[channel], ambient[channel])
+                self.assertEqual([p[3] for p in row['pixels']], [.75]*9)
+
+    def test_shadow_projection_covers_the_authored_cone(self):
+        for vector, row in zip(self.vectors, self.report['rows']):
+            with self.subTest(case=vector['name']):
+                self.assertEqual(row['insideProjection'], vector['inside'])
+
+    def test_wide_direct_light_only_omits_optional_perspective_shadow(self):
+        main = r'''
+@main enum WideConeProbe {
+ static func main() throws {
+  var rows:[[String:Any]]=[]
+  for outer in [Float(80),90,120,179] {
+   let definition=SceneSpotLightDefinition.parse(["light":"lspot","color":"1 1 1",
+    "intensity":1,"radius":100,"innercone":60,"outercone":Double(outer),"castshadow":true])!
+   let descriptor=SceneRenderDescriptor(lighting:.init(ambientColorRGB:nil,skylightColorRGB:nil),
+    layers:[.init(id:10,visible:true,spotLight:definition,directionalLight:nil)])
+   let snapshot=SceneLightSnapshot.make(descriptor:descriptor,worldFramesByLayerID:[10:matrix_identity_float4x4])
+   let light=snapshot.spot[0]
+   rows.append(["outer":outer,"directAdmitted":snapshot.spot.count==1,
+    "shadowAdmitted":SceneSpotShadowProjection.make(light:light) != nil])
+  }
+  print(String(data:try JSONSerialization.data(withJSONObject:["rows":rows]),encoding:.utf8)!)
+ }
+}
+'''
+        selected = [model.DIRECTIONAL_LIGHT_SOURCE, model.POINT_LIGHT_SOURCE,
+                    model.SPOT_LIGHT_SOURCE, model.LIGHT_SOURCE,
+                    model.DYNAMIC_SNAPSHOT_SOURCE, model.DYNAMIC_LAYER_VALUES_SOURCE,
+                    SCENE/'Rendering/Metal/SceneStaticModelShadow.swift']
+        report = run_spot(selected, 'import Foundation\nimport Metal\nimport simd\n'
+            + model.LIGHTING_STUB + main, label='authored-wide-cone')
+        self.assertTrue(all(row['directAdmitted'] for row in report['rows']))
+        self.assertEqual([row['shadowAdmitted'] for row in report['rows']], [True,False,False,False])
 
 PARSER_MAIN = r'''
 @main enum SpotAuthoredProbe {
@@ -387,7 +493,7 @@ MULTI_MAIN = r'''
   let receiver=mesh([[[10,10,0],[150,86,0],[150,10,0]],[[10,10,0],[10,86,0],[150,86,0]]])
   let lightPositions:[SIMD3<Float>]=[SIMD3(80,48,40),SIMD3(100,48,40),SIMD3(80,68,40),SIMD3(100,68,40)]
   let colors:[SIMD3<Float>]=[SIMD3(1,0.2,0.1),SIMD3(0.1,1,0.2),SIMD3(0.2,0.1,1),SIMD3(0.8,0.6,0.4)]
-  func spot(_ i:Int,_ intensity:Float)->SceneLightSnapshot.Spot {.init(layerID:10+i,castsShadow:true,position:lightPositions[i],directionFromLight:SIMD3(0,0,-1),color:colors[i],intensity:intensity,radius:100,innerConeCosine:cos(Float.pi/6),outerConeCosine:cos(Float.pi/4),outerConeDegrees:90)}
+  func spot(_ i:Int,_ intensity:Float)->SceneLightSnapshot.Spot {.init(layerID:10+i,castsShadow:true,position:lightPositions[i],directionFromLight:SIMD3(0,0,-1),color:colors[i],intensity:intensity,radius:100,innerConeCosine:cos(Float.pi/6),outerConeCosine:cos(Float.pi/4),outerConeDegrees:45)}
   var output:[[String:Any]]=[]
   for input in inputs {
    let mixed=input["mixed"] as! Bool,triangles=input["triangles"] as! [[[Double]]]
@@ -497,8 +603,8 @@ FRAME_LIGHT_INPUTS=r'''
   }
   let directionalLayer=SceneRenderDescriptor.Layer(id:7,directionalLight:.init(colorRGB:[1,1,1],intensity:0,shadowCastIntent:.enabled),contentKind:"light")
   let lightLayers:[SceneRenderDescriptor.Layer] = mode=="four-spots"
-   ? [spotLayer(8,90),spotLayer(9,90),spotLayer(10,90),spotLayer(11,90)]
-   : [directionalLayer,spotLayer(8,90),spotLayer(9,mode=="gap" ? Float.leastNonzeroMagnitude:90),spotLayer(10,90)]
+   ? [spotLayer(8,45),spotLayer(9,45),spotLayer(10,45),spotLayer(11,45)]
+   : [directionalLayer,spotLayer(8,45),spotLayer(9,mode=="gap" ? Float.leastNonzeroMagnitude:45),spotLayer(10,45)]
   var lightWorld=SceneMatrix.eulerXYZ(SIMD3(0, .pi/2, 0));lightWorld.columns.3=SIMD4(32,32,40,1)
   let lightDescriptor=SceneRenderDescriptor(lighting:.init(ambientColorRGB:[0.5,0.5,0.5],skylightColorRGB:nil),layers:lightLayers,renderOrderLayerIDs:lightLayers.map(\.id))
   let lighting=SceneLightSnapshot.make(descriptor:lightDescriptor,worldFramesByLayerID:Dictionary(uniqueKeysWithValues:lightLayers.map{($0.id,lightWorld)}))
@@ -677,7 +783,7 @@ def named_spot_main():
     code=code.replace('"caster",false','"caster",true')
     code=code.replace('activeNamedModels:[2,3]','activeNamedModels:[1,2,3]')
     code=code.replace('let sharedCurrent=[2,3].allSatisfy','let sharedCurrent=[1,2,3].allSatisfy')
-    code=code.replace('let light=SceneLightSnapshot.Directional(layerID:7,castsShadow:true,directionTowardLight:SIMD3(1,0,1),color:SIMD3(repeating:1),intensity:0.5)', 'let light=SceneLightSnapshot.Spot(layerID:7,castsShadow:true,position:SIMD3(116,32,100),directionFromLight:simd_normalize(SIMD3(-1,0,-1)),color:SIMD3(repeating:1),intensity:1,radius:300,innerConeCosine:cos(Float.pi/6),outerConeCosine:cos(Float.pi/4),outerConeDegrees:90)')
+    code=code.replace('let light=SceneLightSnapshot.Directional(layerID:7,castsShadow:true,directionTowardLight:SIMD3(1,0,1),color:SIMD3(repeating:1),intensity:0.5)', 'let light=SceneLightSnapshot.Spot(layerID:7,castsShadow:true,position:SIMD3(116,32,100),directionFromLight:simd_normalize(SIMD3(-1,0,-1)),color:SIMD3(repeating:1),intensity:1,radius:300,innerConeCosine:cos(Float.pi/6),outerConeCosine:cos(Float.pi/4),outerConeDegrees:45)')
     code=code.replace('directional:[light],point:[],spot:[]','directional:[],point:[],spot:[light]')
     return code.replace('lights:[.directional(light)]','lights:[.spot(light)]')
 
@@ -709,7 +815,7 @@ def partial_frame_harness(alpha):
     s=s.replace('.init(id:3),.init(id:4,contentKind:"particle")','.init(id:4,contentKind:"particle")')
     a=s.index('  let light=SceneLightSnapshot.Directional');b=s.index('  let instances=',a)
     s=s[:a]+r'''
-  let spotDefinition=SceneSpotLightDefinition.parse(["light":"lspot","color":"1 1 1","intensity":0,"radius":100,"innercone":90,"outercone":90,"castshadow":true])!
+  let spotDefinition=SceneSpotLightDefinition.parse(["light":"lspot","color":"1 1 1","intensity":0,"radius":100,"innercone":45,"outercone":45,"castshadow":true])!
   let lamp=SceneRenderDescriptor.Layer(id:7,spotLight:spotDefinition,contentKind:"light")
   var lampWorld=SceneMatrix.eulerXYZ(SIMD3(0, .pi/2, 0));lampWorld.columns.3=SIMD4(32,32,40,1)
   let lighting=SceneLightSnapshot.make(descriptor:SceneRenderDescriptor(lighting:.init(ambientColorRGB:[0.5,0.5,0.5],skylightColorRGB:nil),layers:[lamp],renderOrderLayerIDs:[7]),worldFramesByLayerID:[7:lampWorld])

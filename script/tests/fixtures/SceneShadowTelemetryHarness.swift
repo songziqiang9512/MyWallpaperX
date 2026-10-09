@@ -6,7 +6,7 @@
         let pipeline = SceneStaticModelPipeline(device: device, colorPixelFormat: .rgba16Float)!
         let light = SceneLightSnapshot.Spot(layerID: 1, castsShadow: true, position: .zero,
             directionFromLight: SIMD3(0, 0, 1), color: SIMD3(repeating: 1), intensity: 1,
-            radius: 10, innerConeCosine: 0.9, outerConeCosine: 0.7, outerConeDegrees: 90)
+            radius: 10, innerConeCosine: 0.9, outerConeCosine: 0.7, outerConeDegrees: 45)
         let projection = SceneSpotShadowProjection.make(light: light)!
         let vertices = [SIMD3<Float>(-0.5, -0.5, 1), SIMD3(0.5, -0.5, 1), SIMD3(0, 0.5, 1)].map {
             SceneMdlStaticModel.Vertex(position: $0, normal: SIMD3(0, 0, -1), tangent: SIMD4(1, 0, 0, 1), uv: SIMD2(0.5, 0.5))

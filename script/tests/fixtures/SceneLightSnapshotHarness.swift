@@ -213,8 +213,8 @@ enum LightSnapshotHarness {
         precondition(light.directionFromLight == SIMD3(1, 0, 0))
         precondition(light.color == SIMD3(0.25, 0.5, 1))
         precondition(light.intensity == 5 && light.radius == 6000)
-        precondition(abs(light.innerConeCosine - cos(Float.pi / 6)) < 1e-6)
-        precondition(abs(light.outerConeCosine - cos(Float.pi / 4)) < 1e-6)
+        precondition(abs(light.innerConeCosine - 0.5) < 1e-6)
+        precondition(abs(light.outerConeCosine) < 1e-6)
         let liveTargets = SceneLightSnapshot.liveConsumerTargets(
             descriptor: descriptor
         )

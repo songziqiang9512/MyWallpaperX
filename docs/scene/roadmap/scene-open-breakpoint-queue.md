@@ -91,7 +91,7 @@ T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅
 | U09 · 3797217144 | 缺奥特曼旋转并由小放大的出场动画 | intro/Timeline/脚本启动、变换及首帧至入场结束时序 |
 | U10 · 3793998447 | 似乎缺作者音频光圈和其他属性 | 音频消费、属性声明→入口→typed 更新；先清点具体未生效属性，不猜字段 |
 | U11 · 3792249095 | 缺音频发光，整体样式与原版差距大 | 音频驱动→effect/颜色/合成，并保留整体构图复验 |
-| U12 · 3477054430 | 雾/Bloom窗光已修；余主体受光 | [窗光](../history/static-model-emission-2026-10-09.md)、[光照](../history/static-model-light-input-semantics-2026-10-06.md#2026-10-09模型环境与天空光响应纠正)、[脚本](../history/model-material-value-scripts-implementation-2026-10-06.md#2026-10-09发光脚本与嵌套属性)已接；[模型雾](../history/static-model-light-input-semantics-2026-10-06.md#model-distance-fog)；[图片雾](../history/static-model-light-input-semantics-2026-10-06.md#image-distance-fog)月亮恢复；[LDR Bloom尺寸](../history/sdr-white-preservation-implementation-2026-10-06.md#ldr-bloom-spatial)窗区残差已修，余猫身/耳机受光、动态与完整布局待验 |
+| U12 · 3477054430 | 雾/Bloom/聚光覆盖已修；余残差与动态 | [窗光](../history/static-model-emission-2026-10-09.md)、[光照](../history/static-model-light-input-semantics-2026-10-06.md#2026-10-09模型环境与天空光响应纠正)、[脚本](../history/model-material-value-scripts-implementation-2026-10-06.md#2026-10-09发光脚本与嵌套属性)已接；[模型雾](../history/static-model-light-input-semantics-2026-10-06.md#model-distance-fog)；[图片雾](../history/static-model-light-input-semantics-2026-10-06.md#image-distance-fog)月亮恢复；[LDR Bloom尺寸](../history/sdr-white-preservation-implementation-2026-10-06.md#ldr-bloom-spatial)窗区残差已修；[聚光锥角](../history/static-model-light-input-semantics-2026-10-06.md#spot-cone-angle)恢复猫身/耳机受光，余小幅响应残差、动态/媒体与完整布局待验 |
 | U13 · 3042492564 | ①顶部两道分叉光束差异大；②歌曲识别封面不显示 | 光束仍开放；[封面后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-media-base-fallback)已闭合mask供给、idle连续scalar及换图事件帧旧值覆盖：同一typed admission消费restart preview，4次事件当帧均1并连续递减，无stale/拒绝。主动init/update/overlay与失败回滚不改，未新增clock/值链。**布局/AA/blur与真实播放器仍待修**：默认无resize窗口右侧裁切原因未定，不能关闭②或整样本。 |
 | U14 · 2932157836 | 歌曲封面不显示 | [本批后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-media-base-fallback)：**mask技术首断点已闭**：同Store复用preserved上传发布current/previous mask的typed data视图，原包受控红→绿→蓝出现中间像素、clear恢复作者音符图片，事件/GPU/退出正常。独立blur/spin拒绝及真实播放器来源仍待复验，不关闭整样本 |
 | U15 · 3299228616 | ①鼠标划过水波不明显；②时钟上方矩形独立运动，似未与其他内容同层合成 | pointer→水波输入；graph/变换/相机及合成空间，不能用抬强度掩盖 |
@@ -123,7 +123,7 @@ T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅
 | U41 · 3357627941 | 属性面板无替换视频媒体资源的选择入口 | project 属性类型→现有 AppKit 编辑器/资源选择→typed binding→视频 consumer，不另造 provider |
 | U42 · 跨样本属性面板 | ①打开后浏览/滚动严重卡顿；②疑似原中文属性显示成英文，用户询问官方是否有中英映射并提示参考研究 | 沿既有属性 UI 测主线程/布局/重复解析；查作者 locale token/字典、系统语言与官方 fallback。映射表是否存在未证，不硬编码翻译表 |
 
-**执行顺序及单链约束。** U14封面mask、U13连续scalar/同帧旧值、U07镂空矩形、U03额头缺块及U18头发错位主报告现象已修，U04/U20/U19②音频条现已通过同一中文previous补接恢复；完成项不再当作未做。U19灰头冠、U21两环/灰层及U23强网点已修；U12先分离猫身/耳机受光与头部动态差异，再进HDR/SDR；正交Fog距离域按[F7](batch2/2d-lighting-material-design.md#f7-原生透视图片距离雾与正交后继2026-10-09)保留待证/待接，不能把透视图片修复外推。U06 WebM/VP9 decode与重型剩余显示复验保留高优先级。随后复核 U16/U24/U34“曾好后坏”及 U22 持续退化，再归并光束、音频、动画/交互；属性入口与面板仍开放。条纹328物理显示仍未闭。顺序仍属于既有T1/T2/E1与P路线，不另建路线。
+**执行顺序及单链约束。** U14封面mask、U13连续scalar/同帧旧值、U07镂空矩形、U03额头缺块及U18头发错位主报告现象已修，U04/U20/U19②音频条现已通过同一中文previous补接恢复；完成项不再当作未做。U19灰头冠、U21两环/灰层及U23强网点已修；U12聚光覆盖已闭，先验剩余响应及头部动态/媒体，再进HDR/SDR；正交Fog距离域按[F7](batch2/2d-lighting-material-design.md#f7-原生透视图片距离雾与正交后继2026-10-09)保留待证/待接，不能把透视图片修复外推。U06 WebM/VP9 decode与重型剩余显示复验保留高优先级。随后复核 U16/U24/U34“曾好后坏”及 U22 持续退化，再归并光束、音频、动画/交互；属性入口与面板仍开放。条纹328物理显示仍未闭。顺序仍属于既有T1/T2/E1与P路线，不另建路线。
 
 重写必须在原职责入口替换旧实现，并证明原有效输入/效果和失败隔离不回退；同一输入不可同时走新旧两套 owner。发现能由已有参数、入口或 primitive 表达的能力，优先补接或扩展该处。每批报告逐子现象关闭数、实际复测样本及剩余范围，不把本表录入率当画面修复率。
 
@@ -142,7 +142,7 @@ T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅
 | bone physics impulse、gravity/spring与高级Puppet profile | **待研究/复验**：选骨/蒙皮后松手100ms到applyBonePhysicsImpulse可达；省略angular、physics-disabled、direction空间及数值仍unknown。IK、跨层geometry provider和完整3D另需专项。 只用公开/作者/官方受控观测补合同，净化交接给独立实现，沿原journal/motion推进。 不以no-op、位置跳变或空API伪造冲量；不消费私有实现表达。 [依据1](../capabilities/runtime-evidence-current.md#e-2026-09-28-bone-impulse-research) |
 | clipping未知source alpha/nested软边及更多格式 | **待研究/复验**：当前只有opaque sources和单样本规则获受控证据；本地GPU nested交集不是官方nested parity，非一source coverage局部关闭。legacy suffix、更多版本未知。 真实引用优先；官方受控fractional source alpha/nested/软边区分，再扩已有IR/prepare/fragment链。 51样本reader非回退不能算51样本裁剪获益；不因源列表含self推定cycle。 [依据1](../history/puppet-clipping-2026-10-08.md) |
 | Puppet mixing/ended/lookup等未开放控制语义 | **待研究/复验**：多clip非一alpha、非共轴多轨及额外opaque顺序没有完整官方合同；ended只已证loop单次越界，single/mirror/多圈及跨层lookup/create/destroy关闭。 先找到authored可达需求与可区分官方控制，再设计局部owner支持及typed unsupported。 自然single/mirror姿态可播放不等于ended callbacks已支持。 [依据1](../history/puppet-static-weight-2026-10-07.md)、[依据2](../history/puppet-bone-alpha-2026-10-07.md) |
-| directional/point/spot及2D ambient精确光照合同 | **待研究/复验**：spot正X轴与模型ambient/sky半球响应已闭；方向光地板+凸增响应、point剖面不一致、spot父级缩放/完整响应、2D ambient/spot/directional、config point=false象限及k精确值未全定。 分类型/consumer的自有官方black-box矩阵，保留已落地门控/有界4灯/零点最大能量。 2D >4灯整包拒绝与零点哨兵已闭；两旧测试红由`e4443511`/`49672888`[明确偿清](../history/head-preexisting-red-clearance-2026-10-07.md)，不重新列为产品缺陷。 [依据1](../history/static-model-light-input-semantics-2026-10-06.md)、[依据2](../history/2d-lit-image-light-contract-2026-10-06.md) |
+| directional/point/spot及2D ambient精确光照合同 | **待研究/复验**：spot正X轴/轴边锥角与模型ambient/sky半球响应已闭；方向光地板+凸增响应、point剖面不一致、spot父级缩放/完整响应、2D ambient/spot/directional、config point=false象限及k精确值未全定。 分类型/consumer的自有官方black-box矩阵，保留已落地门控/有界4灯/零点最大能量。 2D >4灯整包拒绝与零点哨兵已闭；两旧测试红由`e4443511`/`49672888`[明确偿清](../history/head-preexisting-red-clearance-2026-10-07.md)，不重新列为产品缺陷。 [依据1](../history/static-model-light-input-semantics-2026-10-06.md)、[依据2](../history/2d-lit-image-light-contract-2026-10-06.md) |
 | 初始化/事件事务的真实多显示器及异步GPU组合 | **待研究/复验**：init/timer/storage/cursor typed撤回、single/multi-surface屏障、String init-only已有门；真多屏坐标/重建拖动、其他事件资源家族和异步GPU故障整合仍未验。shared heap明确非事务。 真实多显示器/重建中途拖动、具体资源事件/GPU故障注入，遵守现失败边界。 不重新引入每帧JS heap序列化伪回滚；shared非回滚不自动等于待实现通用回滚。 [依据1](../capabilities/runtime-evidence-current.md#e-2026-09-27-shared-identity)、[依据2](../capabilities/runtime-evidence-current.md#e-2026-09-28-cursor-surface-routing) |
 | 脚本video effect/ended组合与多屏资源寿命 | **待研究/复验**：视频命令和真实样本protocol已过；effect graph、ended组合、多屏生命周期没有相同范围验收。 实际App的effect+seek/stop+ended与多surface恢复/释放反例。 不按视频原包3/3输出推所有脚本side effects通过。 [依据1](../capabilities/runtime-evidence-current.md#e-2026-09-28-video-real-samples) |
 | 慢启动与cold preparation/跨帧复用性能 | **待研究/复验**：323在70.45s ready且首图后超duration+60被终止，因果未定；322历史新准入46材质冷shader分析15.5→48.3s，旧Q2跨帧复用需当前有效基线。 定位当前launch关键路径与同输入有效性能基线，保留超时/退出/后继输出；达到明确owner再简化。 不归因Puppet或reader、不抬timeout掩盖、不把重DEBUG FPS作性能通过。 [依据1](../history/puppet-clipping-2026-10-08.md)、[依据2](../history/composition-member-closure-2026-10-07.md) |
@@ -200,7 +200,7 @@ T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅
 | 3437487219 | 未取得该样本collision后继关闭证据，先复跑定位owner；日期/时间不重修。 |
 | 3448845950 | 脚本效果、完整布局仍复验；不要按旧黑屏重开资源owner。 |
 | 3470948192 | NaN、文字碎片、异常背景均保留当前运行定位，不能只验首帧文字。 |
-| 3477054430 | 当前以U12为准：月亮Fog与窗光Bloom残差已修，主体受光、动态及完整布局仍待复验。 |
+| 3477054430 | 当前以U12为准：月亮Fog、窗光Bloom及聚光覆盖已修，小幅受光残差、动态/媒体及完整布局仍待复验。 |
 | 3509243656 | 旧启动失败已关闭；开场模拟、坐标文字仍属整景视觉验收。 |
 | 3662790108 | JUNO完整导航已有后继证据；球体/曲率/布局和性能边界按上表核，不把8.8FPS当现值。 |
 | 3712499998 | WEVector及Vec3(Vec2)技术断点已闭，环形频谱可见；重复文字与完整样式未裁决。 |

@@ -89,11 +89,15 @@ struct SceneSpotShadowProjection {
     let depthBias: Float
 
     static func make(light: SceneLightSnapshot.Spot) -> Self? {
+        // The snapshot admits direct-light cones up to 180 authored degrees.
+        // This single forward perspective map cannot cover a hemisphere or
+        // wider cone; omit only its optional shadow, preserving direct light.
+        guard light.outerConeDegrees < 90 else { return nil }
         let z = simd_normalize(SIMD3<Double>(light.directionFromLight))
         let reference = abs(z.y) < 0.9 ? SIMD3<Double>(0, 1, 0) : SIMD3<Double>(1, 0, 0)
         let x = simd_normalize(simd_cross(reference, z))
         let y = simd_cross(z, x)
-        let authored = Double(light.outerConeDegrees) * Double.pi / 360
+        let authored = Double(light.outerConeDegrees) * Double.pi / 180
         let quantized = acos(Double(light.outerConeCosine))
         let tangent = Float(tan(max(authored, quantized)))
         let matrix = simd_double4x4(rows: [SIMD4(x, 0), SIMD4(y, 0), SIMD4(z, 0), SIMD4(0, 0, 0, 1)])
