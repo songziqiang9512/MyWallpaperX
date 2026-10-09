@@ -57,3 +57,13 @@ Debug build、provider五方法及Music/transport/Inbox十方法通过；Observe
 U12 `3477054430` 的 billboard=true 副本在两次媒体属性事件后 Artist120 持续不可见，首断点为 completed Single 保持旧 elapsed，以及持久 alpha=0 压住 Timeline。沿唯一 playback state 与 layer candidate 修复；拒绝命令保留旧值，不加样本分支。官方2.8.0.42（EXE `daac1ea7…bda07`）自有 genericimage4 双卡两次重播分别56→120→128、64→128；六卡中三种含play赋值顺序渐显一致，play后pause/stop三卡保持首值26，未保留手写0.5对应64。旧genericimage2正控失败已排除；无play setter语义、头部鼠标输入未验。最终签名Debug dylib `1075c365…e3ecc` 在同一输入连续三轮恢复两卡；U12两次受控媒体事件实际显示ARTIST ONE/TWO，退出GPU排空。源码/App、输入SHA、官方序列和运行日志在 `.artifacts/tmp/u12-dynamic-media-20261009/` 的 `build-final.json`、`implementation-freeze.json`、`official/official-observation-receipt.json` 与 `native-media-billboard-final/`。受控媒体输入不证明外部播放器供给、封面替换、完整U12或全样本正确率。
 
 三个既有产品文件只补播放状态与已准入属性接管；Timeline 15、dynamic layer 16最近门通过，独立只读审查无阻塞。最终native六卡40帧中31帧在timer触发后，top三卡逐帧相同，bottom三卡全部RGB26。无play的setter/暂停、非alpha和跨owner官方顺序尚未作观测，不扩大合同。
+
+<a id="u12-artwork"></a>
+
+## U12 封面替换验证（2026-10-09）
+
+在 `ab1efe8d` 对应 Scene 源码、签名 dylib `1075c365…e3ecc` 上，billboard=true 的 U12 作者副本连续完成红256²→绿512×256→clear作者默认→蓝128×256；第二轮红→损坏PNG→作者默认→蓝→clear默认。固定封面ROI中位数分别为红(188,0,0)、绿(0,177,0)、蓝(0,0,195)、默认(98,87,69)，两轮退出0且GPU排空。现有 layer102 instance system provider、TextureStore、帧registry和base-material consumer已贯通，无需新增产品逻辑；MediaArea130事件把自身alpha置0是独立作者行为。
+
+证据 `.artifacts/tmp/u12-media-artwork-20261009/artwork-acceptance.json` 绑定输入/App、763个与现工作树一致的Scene源文件；两轮 `cover-observations.json` 绑定固定ROI与逐帧SHA，独立只读链审查未发现重复owner。范围限受控Inbox、一surface及作者固定size；不证明实际播放器供给、普通产品IPC、官方宽高比策略、头部交互或整样本验收。
+
+同一签名App再以隔离HOME、argument-domain开关及 `MWX_SCENE_DEBUG_SYSTEM_MEDIA=1` 运行U12：AppleEvents静默预检为consentRequired，既有system observer从正在运行的Apple Music取得暂停快照；provider→Inbox→Artist120与layer102实际显示歌手及封面，退出0/GPU排空。未操作播放器/媒体库或持久设置；`live-media-acceptance.json` 绑定日志和截图SHA。这仅补真实暂停来源→direct Host显示，换歌、普通产品IPC、AppleEvents授权和其他播放器仍未验。

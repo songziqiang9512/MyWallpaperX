@@ -117,3 +117,9 @@
 旧产品新增反例5个断言失败；修后完整spot模块13项、模型pipeline7项及shadow telemetry1项通过。独立只读审查无阻塞。隔离签名Debug dylib `e9246f89c52bec0901939dfbbcbf19aaf36cfb6eadb6db791c350973731507cd`，构建源码前后4240项身份一致；构建基于隔离2f4ab514加前批Bloom及本批两产品文件，不包含并行Web新提交。7次App运行包含2自有角度、4个U12控制及恢复作者Bloom/Fog/头部脚本的组合，均exit0/gpuDrained=true；组合运行不冒充固定姿态逐像素证明。243包仅3样本/9个lspot声明是潜在覆盖，不是3样本验收。
 
 收据 `.artifacts/tmp/u12-subject-light-20261009/`：`official/official-observables.json`（24195a50…fccd）、`official/cone-profiles.json`、`u12-subject-final-comparison.json`、`native-final-summary.json`、`build-final.json`、`implementation-plan.json`及`review-spot-code.md`。测试缓存/临时App输入清理，保留必要对照与收据及一份持续构建缓存。下一片先验证U12动态/媒体与剩余受光响应，之后按原队列推进HDR/SDR及重型样本。
+
+## U12 受光残差控制（2026-10-09，未改产品）
+
+同一自有灰平面/固定投影原点，官方2.8.0.42与签名native `1075c365…e3ecc` 在统一sRGB下：point正照54/49、等距离斜照31/29、spot视角60°为52/49；官方后两项重复不变。以旧spot基准54/49，只改单变量的albedo .25/.75及intensity 1/4，官方29/79/27/108，native24/73/24/98；官方各3×3和5×5 ROI均匀；native H2的5×5为29–30，其余控制均匀。官方H4/H6虽color×intensity相同却相差2 U8，拒绝单一乘法增益；尚不能从这些值确定通用材质公式。原始作者输入、SHA、协议、截图及独立官方回执在 `.artifacts/tmp/u12-media-artwork-20261009/light-controls/`、`official-light/`、`official-light-followup/` 和两份native-light观测JSON。本轮不新增或拟合数值算法，残差保留；下一步先闭合头部交互正控。
+
+子灯133/124的spot-light failed来自standalone体积光窄profile，不等于共享模型直接照明失败。作者未显式写castvolumetrics；公开官方启用步骤未证明省略字段等于true，故不据此新增体积光分支或宣称该项已正确。
