@@ -396,14 +396,14 @@ enum Harness {
                 "maxWidth": text.maxWidth,
                 "useEllipsis": text.useEllipsis,
             ]
-            guard let texture = loaded.textures[id] else { continue }
+            guard let texture = loaded.rasters[id]?.texture else { continue }
             ink["\(id)"] = inkStatistics(texture)
             if let dynamic = SceneTextTextureLoader.makeDynamicTexture(
                 for: layer, content: layer.text!, pointSize: text.pointSize,
                 colorRGB: text.colorRGB, cacheDirectory: cacheDirectory, device: device
             ) {
                 sameContentDynamicInk["\(id)"] = inkStatistics(dynamic.texture)
-                precondition(loaded.renderSizes[id] == dynamic.renderSizeWH)
+                precondition(loaded.rasters[id]?.renderSizeWH == dynamic.renderSizeWH)
             }
         }
 
@@ -540,7 +540,7 @@ enum Harness {
                 "wide": timelineWide.map { inkStatistics($0.texture) } ?? [:],
             ],
             "hiddenStillHidden": !SceneLayerVisibility.visibleLayerIDs(in: descriptor).contains(130),
-            "hiddenPrepared": loaded.textures[130] != nil,
+            "hiddenPrepared": loaded.rasters[130]?.texture != nil,
             "messages": loaded.messages,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])

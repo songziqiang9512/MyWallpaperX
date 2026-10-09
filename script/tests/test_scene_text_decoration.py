@@ -363,8 +363,8 @@ enum DecorationProbe {
         let layers = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.name!, $0) })
         var images: [String: Image] = [:], styleEncoding: [String: Bool] = [:]
         for (name, layer) in layers {
-            guard let texture = loaded.textures[layer.id] else { throw ProbeError.texture(name) }
-            images[name] = Image(texture, logicalSize: loaded.renderSizes[layer.id]!)
+            guard let texture = loaded.rasters[layer.id]?.texture else { throw ProbeError.texture(name) }
+            images[name] = Image(texture, logicalSize: loaded.rasters[layer.id]!.renderSizeWH)
             styleEncoding[name] = (try? JSONEncoder().encode(layer.textStyle)) != nil
         }
         let baseline = images["baseline"]!

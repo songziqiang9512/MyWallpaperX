@@ -74,7 +74,7 @@ class SceneMetalView: NSView {
         particlePlayback?.loadReportLines(descriptor: renderer.renderDescriptor)
     }
     #endif
-    private var dynamicTextTextures: SceneDynamicTextTextureStore?
+    private(set) var dynamicTextTextures: SceneDynamicTextTextureStore?
     private var pendingDynamicTextUpdate: (
         snapshot: SceneDynamicSnapshot,
         dynamicLayers: [SceneRenderDescriptor.Layer],
@@ -469,14 +469,13 @@ class SceneMetalView: NSView {
             recordsDiagnostics: report.isEnabled,
             effectSummary: { [renderer] in renderer.effectRuntimeSummary(for: $0) }
         )
-        imageTextures.merge(textLoad.textures)
+        imageTextures.merge(textLoad.rasters.mapValues(\.texture))
         report.append(contentsOf: renderer.runtimeReportLines())
         dynamicTextTextures = SceneDynamicTextTextureStore(
             descriptor: renderer.renderDescriptor,
             cacheDirectory: cacheDirectory,
             device: metalDevice,
-            initialTextures: textLoad.textures,
-            initialRenderSizes: textLoad.renderSizes,
+            initialRasters: textLoad.rasters,
             dynamicTextFieldsByLayerID: preparedDynamicTextFieldsByLayerID,
             onPublication: { [weak self] store in
                 DispatchQueue.main.async { [weak self] in

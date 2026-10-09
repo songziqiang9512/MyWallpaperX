@@ -369,6 +369,8 @@ TextureAnimation 的脚本控制遵守同一边界：launch preparation 只登�
 
 此修订的目标是纠正已复现的长艺人文字提前折行/截断；不更改媒体、脚本、provider 或 compositor。准备与栅格化使用同一段落选项，最后允许行复用CoreText cluster break填满可见前缀（其他行仍word wrap），省略号按同一字形边界回退组合字符；保持显式换行、width/rows 开关、对齐、padding、装饰、动态更新及 last-ready 失败语义。验收包括官方同字体不同宽度/字号控制、真实长短文字、初始/动态像素一致及下采样/装饰反例；系统替代字体与跨平台 hinting 不冒充逐像素一致。稳定职责在此维护，不保留第二排版链。
 
+文字中心锚点与栅格结果一同准备：同一个 resolved font 提供逻辑源像素的 descent 区偏移，center 使用该偏移，top/bottom 保持内容边界；不在普通帧查询字体、不移动栅格内字形来补偿。初始与动态文字共用一个 texture/extent/anchor product，经同 generation layer-source atom 进入已有 model/pivot 和效果链；源材质重发布保留几何元数据。cursor 只读取同一 Store 在既有提交屏障记录的最后已提交锚点，discard 不推进；点击框尺寸仍沿用 authored content geometry，不能据此宣称动态墨迹边界或实际 didPresent 同步。
+
 ### 5.4 Particle 通路
 
 Particle definition 编译为有序 component ops；system 实例拥有固定步进、spawn/death/event、control point、child 和 renderer 生命周期。未知 optional component 产生诊断并跳过；缺少唯一 renderer 或产生非法数值时停用该 particle system，不终止整个 scene。

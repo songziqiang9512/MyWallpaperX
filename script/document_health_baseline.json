@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 591,
-      "bytes": 109583
+      "lines": 593,
+      "bytes": 110231
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 170536
+      "bytes": 170746
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 93,
-      "bytes": 26865
+      "bytes": 26989
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 222,
-      "bytes": 58164
+      "bytes": 58269
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1054,15 +1054,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "3bfd34eb50e73411b0fffd4adbd926feb13dee7e212cfe47776bb23950daf6c6",
-      "after": "96c5b1ea1010eeca568640e969e1ac1589eb6f325c3a8828cc43d80b10cd3e28",
-      "owner": "Scene light snapshot",
-      "reason": "纠正被固定法线与隐藏灯正反例否定的方向/显隐合同，复用world和visibility唯一owner；后继证据只存历史，现役保留有界结果与环带待办。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#effective-light-visibility"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "8d478ad4d8d9c3c1762ee605721c3261ab0a0130b781de1f5e57bdec5f491b30",
       "after": "d6588ae6a85c3603258c2f740545f083e38bedbd3bb9b232826cfaca5a0c0740",
@@ -1090,30 +1081,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "a9190886f28b0b0dcf555d036f526f297dd6a8d57c17fb8e0bcc96aae072a450",
+      "after": "b877b7ebaae8dc36ed1bff421611e19fe24482c23888c7ecd5743d5c602cd11e",
+      "owner": "Scene文字栅格与锚点",
+      "reason": "替换已完成center断点，登记同代锚点和有界官方对照；继续保留亮度/投影余项。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#text-center-anchor"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "4fc1e2b187988df7adc3b7cec438cdcaafdd8e61b83568aa80d9ac432c23694d",
-      "after": "98ba3a5cf4ad96bf8aa36d15113268329e72492dd4e725c19c134b8e88386f3d",
-      "owner": "Scene共享采样器",
-      "reason": "记录同包斜视采样修复和有界官方证据，替换已完成暗纹断点，保留center文字及亮度投影余项。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#oblique-texture-sampling"
+      "before": "98ba3a5cf4ad96bf8aa36d15113268329e72492dd4e725c19c134b8e88386f3d",
+      "after": "733dd5f1ce8a7f79cef6737f79d1e07fccc88040e0a03f0e9377331cf0f54554",
+      "owner": "Scene文字栅格与锚点",
+      "reason": "替换已完成center断点，登记同代锚点和有界官方对照；继续保留亮度/投影余项。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#text-center-anchor"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0deb44468319fcffe6ee7df0263819aa420ec01add2192056aa70492b226a9a5",
-      "after": "fbdf6adc39d43cacfb8ea86e44789264a243102e94a8413e680cf5cfbe01883f",
-      "owner": "Scene共享采样器",
-      "reason": "记录同包斜视采样修复和有界官方证据，替换已完成暗纹断点，保留center文字及亮度投影余项。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#oblique-texture-sampling"
+      "before": "fbdf6adc39d43cacfb8ea86e44789264a243102e94a8413e680cf5cfbe01883f",
+      "after": "ce4e6cd3a8ac6b47095c7fd52ab3515e164aabf1403c875c2d29e8f0b24d53ee",
+      "owner": "Scene文字栅格与锚点",
+      "reason": "替换已完成center断点，登记同代锚点和有界官方对照；继续保留亮度/投影余项。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#text-center-anchor"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "4c2e99895666a1700a5a3f8b5d3251090f34465e1fcf09c825010cabe3e00a31",
-      "after": "f80c17ca9b799c6bd441f29d6876bf6ce8bf31f2d121f35fee75e46f4ffc1235",
-      "owner": "Scene共享采样器",
-      "reason": "记录同包斜视采样修复和有界官方证据，替换已完成暗纹断点，保留center文字及亮度投影余项。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#oblique-texture-sampling"
+      "before": "f80c17ca9b799c6bd441f29d6876bf6ce8bf31f2d121f35fee75e46f4ffc1235",
+      "after": "c4078e6d8073f57fe105375b3c80ce1789d7a282dd309db09e9a4bed9f93a99e",
+      "owner": "Scene文字栅格与锚点",
+      "reason": "替换已完成center断点，登记同代锚点和有界官方对照；继续保留亮度/投影余项。",
+      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#text-center-anchor"
     }
   ]
 }

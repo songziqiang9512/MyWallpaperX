@@ -176,6 +176,7 @@ extension SceneMetalRenderer {
         if layer.contentKind == "solid" {
             let model = imageModelMatrix(for: layer, worldFramesByLayerID: worldFrames,
                 renderSizeOverride: imageTextures.layerSourceRenderSize(for: layer.id),
+                textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: layer.id) ?? 0,
                 parallaxMouseNormalized: frameContext.cameraParallaxPosition, configuration: parallax,
                 visibleHalfExtents: cameraFrame.coverHalfExtents,
                 usesPerspective: cameraFrame.resolvesPerspective(for: layer))

@@ -91,9 +91,15 @@ enum Harness {
         let valid = SceneLayerSourcePublication(
             layerID: 8,
             publication: validPublication,
-            renderSizeWH: [16_384, 4_096]
+            renderSizeWH: [16_384, 4_096],
+            textCenterOffsetY: 40
         )
         guard valid?.renderSizeWH == [16_384, 4_096],
+              valid?.textCenterOffsetY == 40,
+              SceneLayerSourcePublication(layerID: 8, publication: validPublication,
+                renderSizeWH: [100, 50], textCenterOffsetY: .infinity) == nil,
+              SceneLayerSourcePublication(layerID: 8, publication: validPublication,
+                textCenterOffsetY: 40) == nil,
               valid?.isComplete(layerID: 8, matching: texture) == true,
               valid?.isComplete(layerID: 8, matching: replacement) == false,
               SceneLayerSourcePublication(

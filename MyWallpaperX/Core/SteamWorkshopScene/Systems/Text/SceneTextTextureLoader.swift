@@ -3,21 +3,20 @@ import Foundation
 import Metal
 
 struct SceneTextTextureLoadResult {
-    let textures: [Int: MTLTexture]
-    let renderSizes: [Int: [Float]]
+    let rasters: [Int: SceneTextTextureLoader.RasterizedTexture]
     let messages: [String]
 }
 
 enum SceneTextTextureLoader {
-    struct DynamicTexture {
+    struct RasterizedTexture {
         let texture: MTLTexture
         let renderSizeWH: [Float]
+        let centerOffsetY: Float
     }
 
     private struct RenderedTexture {
-        let texture: MTLTexture
+        let raster: RasterizedTexture
         let font: SceneTextFontResolver.Resolution
-        let renderSizeWH: [Float]
     }
 
     private static let maxDimension = 2048
@@ -35,8 +34,7 @@ enum SceneTextTextureLoader {
         let candidates = descriptor.layers.filter {
             $0.contentKind == "text"
         }
-        var textures: [Int: MTLTexture] = [:]
-        var renderSizes: [Int: [Float]] = [:]
+        var rasters: [Int: RasterizedTexture] = [:]
         var messages: [String] = []
         for layer in candidates {
             guard let rendered = makeRenderedTexture(
@@ -52,12 +50,11 @@ enum SceneTextTextureLoader {
                 }
                 continue
             }
-            textures[layer.id] = rendered.texture
-            renderSizes[layer.id] = rendered.renderSizeWH
+            rasters[layer.id] = rendered.raster
             if recordsDiagnostics {
                 var message = "text layer \(layer.id)"
                     + " \"\(layer.name ?? "(unnamed)")\": OK"
-                    + " \(rendered.texture.width)×\(rendered.texture.height);"
+                    + " \(rendered.raster.texture.width)×\(rendered.raster.texture.height);"
                     + " \(rendered.font.summary)"
                 if let summary = effectSummary(layer) {
                     message += "; \(summary)"
@@ -66,10 +63,10 @@ enum SceneTextTextureLoader {
             }
         }
         if recordsDiagnostics {
-            messages.append("text loaded: \(textures.count) / \(candidates.count)")
+            messages.append("text loaded: \(rasters.count) / \(candidates.count)")
         }
         return SceneTextTextureLoadResult(
-            textures: textures, renderSizes: renderSizes, messages: messages
+            rasters: rasters, messages: messages
         )
     }
 
@@ -82,7 +79,7 @@ enum SceneTextTextureLoader {
         maxWidth: Float? = nil,
         cacheDirectory: URL,
         device: MTLDevice
-    ) -> DynamicTexture? {
+    ) -> RasterizedTexture? {
         guard let rendered = makeRenderedTexture(
             for: layer,
             content: content,
@@ -95,10 +92,7 @@ enum SceneTextTextureLoader {
         ) else {
             return nil
         }
-        return DynamicTexture(
-            texture: rendered.texture,
-            renderSizeWH: rendered.renderSizeWH
-        )
+        return rendered.raster
     }
 
     private static func makeRenderedTexture(
@@ -189,10 +183,15 @@ enum SceneTextTextureLoader {
             withBytes: pixels,
             bytesPerRow: rowBytes
         )
+        // Center alignment anchors the line block without its trailing descent
+        // region. Keep the raster intact (including descenders and decoration);
+        // the shared layer pivot consumes this logical, pre-downsample offset.
         return RenderedTexture(
-            texture: texture,
-            font: sourceFont,
-            renderSizeWH: renderSize
+            raster: RasterizedTexture(
+                texture: texture, renderSizeWH: renderSize,
+                centerOffsetY: Float(CTFontGetDescent(sourceFont.font)) / 2
+            ),
+            font: sourceFont
         )
     }
 

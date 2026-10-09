@@ -98,6 +98,7 @@ extension SceneMetalRenderer {
                 for: layer,
                 worldFramesByLayerID: worldFramesByLayerID,
                 renderSizeOverride: renderSizeOverride,
+                textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: layer.id) ?? 0,
                 parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                 configuration: parallaxConfiguration,
                 visibleHalfExtents: cameraFrame.coverHalfExtents,
@@ -262,6 +263,7 @@ extension SceneMetalRenderer {
                         renderSizeOverride: imageTextures.layerSourceRenderSize(
                             for: layer.id
                         ),
+                        textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: layer.id) ?? 0,
                         parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                         configuration: parallaxConfiguration,
                         visibleHalfExtents: cameraFrame.coverHalfExtents,
@@ -322,6 +324,7 @@ extension SceneMetalRenderer {
                     renderSizeOverride: imageTextures.layerSourceRenderSize(
                         for: layer.id
                     ),
+                    textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: layer.id) ?? 0,
                     parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                     configuration: parallaxConfiguration,
                     visibleHalfExtents: cameraFrame.coverHalfExtents,

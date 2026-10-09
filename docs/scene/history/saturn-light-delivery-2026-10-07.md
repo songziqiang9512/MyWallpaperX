@@ -90,3 +90,15 @@
 证据位于`.artifacts/tmp/saturn-energy-20261009/`：`audit/sampler-candidate-comparison.json`、`audit/ring-roi-sampling-result.json`与输入/build收据。相关首断点与后继顺序回到派生队列；同轮自有7卡另确认两个字体的center文字锚点偏差，top/bottom一致、单行blockalign Bool无差异，尚未修改文字产品代码。硬件质量策略影响共享模型/材质/粒子sampler；未外推全样本或性能改善。
 
 最终产品源码冻结后Debug构建/签名通过，dylib `0818e13a78208d9bab7f70bb56bf4582a46809ccaa1314ca29dc0fba4a5ddac8`。原始完整pkg `8cb79fa9f77c992c2bc3c3ea6300af0f058bf5e85b96ae1d1f300fdf3c037bb0`保留全部大型模型/脚本，最终App运行50秒并取40秒图，陨石可见，92/92脚本quiescent、零失败、GPU drain；使用隔离HOME和静音输入，不等于外部音源/交互验收。共享sampler自有GPU斜视/isotropic反例、nearest/四种寻址/方形足迹/单级控制通过；粒子filter/address/mip/straight-alpha、BC原mip保留和typed candidate近门通过。代码结构、依赖、防御与设计门通过；全仓Web文档及未知`.mimosa`残留检查另有非本批问题，未改动。候选与最终产品仅注释措辞有别，ROI证据保留候选身份，完整原包绑定最终身份；不宣称性能提升。
+
+
+<a id="text-center-anchor"></a>
+## 2026-10-10 文字中心锚点
+
+自有同字体控制确认center偏差跨单行、两行、三行稳定，top/bottom正确；单行blockalign两值无差，不为该字段新增分支。原单行Chathura/Arial的H0中心对官方偏差25/9 viewport像素；多行在半比例画布分别偏12–12.5/4.5–5像素。复用resolved CoreText字体的descent/2作为逻辑源像素偏移，唯一pivot仅center消费；栅格、padding、装饰、换行、UV与最终输出owner不变。初始/动态纹理与extent/anchor合成一个raster结果，替换原并行字典；既有publication、fallback、effect源材质重发布保留同代锚点。cursor采用同Store最后已提交snapshot，避免异步ready提前改变位置；点击框仍为作者尺寸，未宣称动态墨迹或官方点击parity。
+
+候选签名Debug App dylib `d2bd63df853d46bbc603ff069f049a7442f2a6d405756fceb94ca38c851d47a7`在7卡单行和12卡多行实际运行：每行H0中心对官方2.8.0.42差≤1 viewport像素，center差≤0.5；所有top/bottom相对Native修前位置不变。相同字体文件、原点marker、冻结作者输入与逐卡ROI绑定；不同系统hinting不作为逐像素相同。原有字号/自动换行/行数/省略号/留白/装饰/降采样反例通过；这些内部回归不外推所有字体官方parity。
+
+证据：`.artifacts/tmp/saturn-text-anchor-20261010/`的`official/`、`audit/singleline-candidate-comparison.json`、`audit/multiline-candidate-comparison.json`、`build-candidate.json`。该修复适用于现有共用文字链，未新增字体/样本专用算法。土星亮度/Bloom、上后方投影、亚像素细线及完整媒体/交互验收仍开放。
+
+完整原始土星包SHA `8cb79fa9f77c992c2bc3c3ea6300af0f058bf5e85b96ae1d1f300fdf3c037bb0`在同一候选App运行50秒、40秒取图，保留大型陨石模型与脚本；PID55491正常退出、92/92脚本quiescent、零失败、GPU drain。原包时间/音频未与官方冻结一致，仅证明新锚点进入真实3D/effect/最终合成链和运行收尾，不作为整图parity或性能验收。

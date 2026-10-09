@@ -43,6 +43,9 @@ def fixture_scene():
         objects.append(base | {"id": len(objects) + 1, "name": f"scaled-{padding}",
             "text": "W" * 260, "pointsize": 32, "padding": padding,
             "horizontalalign": "left", "verticalalign": "top"})
+    objects.append(base | {"id": len(objects) + 1, "name": "center-arial-official",
+        "text": "H0", "pointsize": 32, "padding": 32,
+        "horizontalalign": "center", "verticalalign": "center"})
     return {"version": 3, "objects": objects}
 
 
@@ -89,13 +92,14 @@ import CryptoKit
 
  var result: [String:Any] = [:]
  for layer in descriptor.layers {
-  guard let texture = loaded.textures[layer.id], let size = loaded.renderSizes[layer.id], let style = layer.textStyle else { continue }
-  func measure(_ tex: MTLTexture, _ logical: [Float]) -> [String:Any] {
+  guard let raster = loaded.rasters[layer.id], let style = layer.textStyle else { continue }
+  func measure(_ raster: SceneTextTextureLoader.RasterizedTexture) -> [String:Any] {
+   let tex=raster.texture, logical=raster.renderSizeWH
    let w=tex.width, h=tex.height
    var bytes=[UInt8](repeating:0,count:w*h*4)
    tex.getBytes(&bytes,bytesPerRow:w*4,from:MTLRegionMake2D(0,0,w,h),mipmapLevel:0)
    let scale=Double(w)/Double(logical[0])
-   let pivot=SceneTextLayerPivot.unitOffset(horizontal:style.horizontalAlignment,vertical:style.verticalAlignment,renderSize:SIMD2(logical[0],logical[1]),padding:style.padding)
+   let pivot=SceneTextLayerPivot.unitOffset(horizontal:style.horizontalAlignment,vertical:style.verticalAlignment,renderSize:SIMD2(logical[0],logical[1]),padding:style.padding,centerOffsetY:raster.centerOffsetY)
    var minX=w, minY=h, maxX = -1, maxY = -1, ink=0
    var minAlphaX=w, minAlphaY=h, maxAlphaX = -1, maxAlphaY = -1
    var inkRows=Set<Int>()
@@ -112,10 +116,10 @@ import CryptoKit
   }
   guard let same=SceneTextTextureLoader.makeDynamicTexture(for:layer,content:layer.text!,pointSize:style.pointSize,colorRGB:style.colorRGB,cacheDirectory:cacheDirectory,device:device),
     let changed=SceneTextTextureLoader.makeDynamicTexture(for:layer,content:"HOHO",pointSize:style.pointSize,colorRGB:style.colorRGB,cacheDirectory:cacheDirectory,device:device) else { throw HarnessError.descriptorRejected }
-  var entry: [String:Any] = ["static":measure(texture,size),"same":measure(same.texture,same.renderSizeWH),"changed":measure(changed.texture,changed.renderSizeWH)]
+  var entry: [String:Any] = ["static":measure(raster),"same":measure(same),"changed":measure(changed)]
   if style.limitWidth {
    guard let widened=SceneTextTextureLoader.makeDynamicTexture(for:layer,content:layer.text!,pointSize:style.pointSize,colorRGB:style.colorRGB,maxWidth:400,cacheDirectory:cacheDirectory,device:device) else { throw HarnessError.descriptorRejected }
-   entry["widened"]=measure(widened.texture,widened.renderSizeWH)
+   entry["widened"]=measure(widened)
   }
   result[layer.name ?? String(layer.id)] = entry
  }
@@ -172,6 +176,12 @@ class SceneTextPaddingTests(unittest.TestCase):
                 for padding in [32, 64]:
                     yield key, padding, self.result[key + "-0"], self.result[key + "-" + str(padding)]
 
+    def test_centered_arial_ink_matches_bounded_official_anchor(self):
+        # Fixed official client, Arial 133px: H/0 ink center is 7.5..8px below
+        # origin at 0.6 projected scale. Allow cross-platform raster rounding.
+        glyph = self.result["center-arial-official"]["static"]["glyphWorld"]
+        self.assertAlmostEqual((glyph[1] + glyph[3]) / 2, 12.9, delta=2)
+
     def test_padding_keeps_all_nine_content_anchors_for_static_and_changed_text(self):
         for key, padding, baseline, padded in self.pairs():
             for phase in ["static", "changed"]:
@@ -191,7 +201,7 @@ class SceneTextPaddingTests(unittest.TestCase):
                     self.assertAlmostEqual(padded[phase]["ink"], baseline[phase]["ink"], delta=4)
 
     def test_initial_and_same_content_update_produce_identical_geometry_and_pixels(self):
-        self.assertEqual(len(self.result), 34)
+        self.assertEqual(len(self.result), 35)
         for name, case in self.result.items():
             with self.subTest(name=name):
                 self.assertEqual(case["static"], case["same"])

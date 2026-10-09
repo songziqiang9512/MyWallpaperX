@@ -6,7 +6,7 @@ import simd
 /// 内容边缘；外框还要越过 origin 延伸一圈 padding，供文字 effect 使用。
 ///
 /// 取值域来自 lib.sceneScript.d.ts 的 ITextLayer：horizontalalign 为 left/center/right，
-/// verticalalign 为 center/top/bottom。缺省和未知取值都按 center 处理，也就是不偏移。
+/// verticalalign 为 center/top/bottom。缺省和未知取值都按 center 处理，使用同代文字栅格发布的中心锚点。
 ///
 /// 零 padding 判据来自随包 `dino_run`：`label_coins` 与 `label_top` 都是 `horizontalalign: right`
 /// 且共用 `origin.x = 341.42999`（画布宽 343），但作者 size 相差一倍（780 与 390，
@@ -21,12 +21,14 @@ nonisolated enum SceneTextLayerPivot {
         horizontal: String?,
         vertical: String?,
         renderSize: SIMD2<Float>,
-        padding: Float
+        padding: Float,
+        centerOffsetY: Float = 0
     ) -> SIMD2<Float> {
         let inset = max(0, padding)
         return SIMD2(
             horizontalOffset(horizontal, inset: normalizedInset(inset, extent: renderSize.x)),
-            verticalOffset(vertical, inset: normalizedInset(inset, extent: renderSize.y))
+            verticalOffset(vertical, inset: normalizedInset(inset, extent: renderSize.y),
+                center: renderSize.y > 0 ? -centerOffsetY / renderSize.y : 0)
         )
     }
 
@@ -41,11 +43,13 @@ nonisolated enum SceneTextLayerPivot {
 
     /// sizeScale 的 -size.y 会把单位 quad 的 +y 翻成画面上边，所以 `top` 与 `right`
     /// 同向补偿：内容上边落在 origin，外框再越过它保留 padding。
-    private nonisolated static func verticalOffset(_ value: String?, inset: Float) -> Float {
+    private nonisolated static func verticalOffset(
+        _ value: String?, inset: Float, center: Float
+    ) -> Float {
         switch value?.lowercased() {
         case "top": return -0.5 + inset
         case "bottom": return 0.5 - inset
-        default: return 0
+        default: return center
         }
     }
 

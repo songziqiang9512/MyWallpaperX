@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import os
 import shutil
 import subprocess
 import tempfile
@@ -87,6 +89,178 @@ enum Harness {
 }
 '''
 
+# Execute the production Store and generation scheduler. Only the non-target
+# descriptor/input/publication shells and raster producer are substituted; no
+# Store locking, ready/prepared/submitted state, or generation logic is copied.
+STORE_HARNESS = r'''
+import Foundation
+import Metal
+
+enum SceneDynamicTextField: Hashable { case content, font, pointSize, color, maxWidth }
+enum SceneDynamicValue { case string(String), scalar(Double), vector3(Double,Double,Double) }
+enum SceneDynamicTarget: Hashable { case text(layerID: Int,field: SceneDynamicTextField) }
+struct SceneDynamicSnapshot {
+    struct Entry { let value: SceneDynamicValue }
+    let values: [SceneDynamicTarget: Entry]
+    subscript(_ key: SceneDynamicTarget) -> Entry? { values[key] }
+}
+struct SceneRenderDescriptor {
+    struct TextStyle {
+        let fontPath: String? = nil
+        let pointSize: Float = 8
+        let colorRGB: [Float] = [1,1,1]
+        let maxWidth: Float = 100
+        let limitWidth = true
+    }
+    struct Layer {
+        let id: Int
+        let contentKind = "text"
+        let text: String? = "A"
+        let textStyle: TextStyle? = .init()
+    }
+    let layers: [Layer]
+}
+enum SceneFrameTextureIdentity { case layerSource(Int) }
+enum SceneTextureResourceIdentity { enum Provider { case dynamicText(layerID: Int) }; case provider(Provider) }
+enum SceneTextureResourceGeneration { case provider(contentGeneration: UInt64) }
+enum SceneTextureLoadPurpose { case premultipliedColor }
+enum SceneTextureContent {
+    enum Color { case resolved(Representation) }
+    enum Representation { case premultipliedAlpha }
+    case color(Color)
+}
+struct SceneTextureUVTransform { static let identity = Self() }
+struct SceneTextureSampling { static let linearClamp = Self() }
+struct SceneTextureCandidate {
+    let texture: MTLTexture
+    let identity: SceneTextureResourceIdentity
+    let generation: SceneTextureResourceGeneration
+    let purpose: SceneTextureLoadPurpose
+    let content: SceneTextureContent
+    let physicalSize: CGSize
+    let mappedSize: CGSize
+    let uvTransform: SceneTextureUVTransform
+    let sampling: SceneTextureSampling
+}
+struct SceneTextureProviderPublication {
+    let requestIdentity: SceneFrameTextureIdentity
+    let candidate: SceneTextureCandidate
+    let contentGeneration: UInt64
+}
+struct SceneLayerSourcePublication {
+    let layerID: Int
+    let publication: SceneTextureProviderPublication
+    let renderSizeWH: [Float]
+    let textCenterOffsetY: Float
+    var texture: MTLTexture { publication.candidate.texture }
+    init?(layerID: Int,publication: SceneTextureProviderPublication,
+          renderSizeWH: [Float],textCenterOffsetY: Float) {
+        self.layerID = layerID; self.publication = publication
+        self.renderSizeWH = renderSizeWH; self.textCenterOffsetY = textCenterOffsetY
+    }
+}
+final class ControlledRasterProducer: @unchecked Sendable {
+    let startedB = DispatchSemaphore(value: 0), startedC = DispatchSemaphore(value: 0)
+    let startedD = DispatchSemaphore(value: 0), allowB = DispatchSemaphore(value: 0)
+    let allowC = DispatchSemaphore(value: 0), allowD = DispatchSemaphore(value: 0)
+    let published = DispatchSemaphore(value: 0)
+    let rasterB: SceneTextTextureLoader.RasterizedTexture
+    let rasterD: SceneTextTextureLoader.RasterizedTexture
+    private let lock = NSLock()
+    private var calls: [String] = []
+    init(_ b: SceneTextTextureLoader.RasterizedTexture,_ d: SceneTextTextureLoader.RasterizedTexture) {
+        rasterB = b; rasterD = d
+    }
+    func render(_ content: String) -> SceneTextTextureLoader.RasterizedTexture? {
+        lock.lock(); calls.append(content); lock.unlock()
+        switch content {
+        case "B": startedB.signal(); wait(allowB); return rasterB
+        case "C": startedC.signal(); wait(allowC); return nil
+        case "D": startedD.signal(); wait(allowD); return rasterD
+        default: preconditionFailure("unexpected raster request: \(content)")
+        }
+    }
+    func renderedContents() -> [String] { lock.lock(); defer { lock.unlock() }; return calls }
+    func wait(_ semaphore: DispatchSemaphore) {
+        precondition(semaphore.wait(timeout: .now()+5) == .success,"producer deadline")
+    }
+}
+enum SceneTextTextureLoader {
+    struct RasterizedTexture { let texture: MTLTexture; let renderSizeWH: [Float]; let centerOffsetY: Float }
+    static var producer: ControlledRasterProducer!
+    static func makeDynamicTexture(for layer: SceneRenderDescriptor.Layer,content: String,
+        fontPath: String?,pointSize: Float,colorRGB: [Float],maxWidth: Float,
+        cacheDirectory: URL,device: MTLDevice) -> RasterizedTexture? {
+        producer.render(content)
+    }
+}
+@main enum StoreProbe {
+    static func main() throws {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            print("{\"metalUnavailable\":true}"); return
+        }
+        func raster(_ name: String,_ width: Int,_ height: Int,_ size: [Float],_ offset: Float)
+            -> SceneTextTextureLoader.RasterizedTexture {
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
+                width: width,height: height,mipmapped: false)
+            descriptor.storageMode = .shared; descriptor.usage = .shaderRead
+            let texture = device.makeTexture(descriptor: descriptor)!
+            texture.label = name
+            return .init(texture: texture,renderSizeWH: size,centerOffsetY: offset)
+        }
+        let a = raster("g1",2,3,[120,30],3), b = raster("g2",4,5,[240,50],-11)
+        let d = raster("g4",6,7,[360,70],19)
+        let producer = ControlledRasterProducer(b,d)
+        SceneTextTextureLoader.producer = producer
+        let store = SceneDynamicTextTextureStore(descriptor: .init(layers: [.init(id: 7)]),
+            cacheDirectory: URL(fileURLWithPath: NSTemporaryDirectory()),device: device,
+            initialRasters: [7:a],dynamicTextFieldsByLayerID: [7:[.content]],
+            onPublication: { _ in producer.published.signal() })
+        func update(_ content: String) {
+            store.update(from: .init(values: [.text(layerID: 7,field: .content): .init(value: .string(content))]),
+                dynamicTextFieldsByLayerID: [7:[.content]])
+        }
+        func atom(_ snapshot: SceneDynamicTextTextureStore.Snapshot?) -> [String: Any] {
+            guard let source = snapshot?.layerSources[7] else { return [:] }
+            let candidate = source.publication.candidate
+            let generation: UInt64
+            switch candidate.generation { case .provider(let value): generation = value }
+            return ["texture": source.texture.label!,"physicalSize": [source.texture.width,source.texture.height],
+                "renderSize": source.renderSizeWH,"offset": source.textCenterOffsetY,
+                "generation": generation,"publicationGeneration": source.publication.contentGeneration]
+        }
+        var result: [String: Any] = ["initialSubmitted": atom(store.submittedSnapshot())]
+        _ = store.prepareFrame(); store.commitPreparedFrame()
+        result["initialCommitted"] = atom(store.submittedSnapshot())
+        _ = store.prepareFrame()
+        update("B"); producer.wait(producer.startedB)
+        producer.allowB.signal(); producer.wait(producer.published)
+        result["preparedWhileBReady"] = atom(store.snapshot())
+        result["submittedWhileBReady"] = atom(store.submittedSnapshot())
+        store.discardPreparedFrame()
+        result["readyAfterDiscard"] = atom(store.snapshot())
+        result["submittedAfterDiscard"] = atom(store.submittedSnapshot())
+        result["preparedB"] = atom(store.prepareFrame())
+        store.commitPreparedFrame()
+        result["committedB"] = atom(store.submittedSnapshot())
+        store.commitPreparedFrame()
+        result["commitWithoutPrepared"] = atom(store.submittedSnapshot())
+        update("C"); producer.wait(producer.startedC)
+        update("D"); producer.allowC.signal()
+        // D can enter only after the real serial Store finished failed C.
+        // Keep D blocked while checking the complete previous raster atom.
+        producer.wait(producer.startedD)
+        result["readyAfterFailure"] = atom(store.snapshot())
+        result["submittedAfterFailure"] = atom(store.submittedSnapshot())
+        producer.allowD.signal(); producer.wait(producer.published)
+        result["readyAfterRecovery"] = atom(store.snapshot())
+        result["submittedAfterRecovery"] = atom(store.submittedSnapshot())
+        result["renderCalls"] = producer.renderedContents()
+        print(String(decoding: try JSONSerialization.data(withJSONObject: result,options: [.sortedKeys]),as: UTF8.self))
+    }
+}
+'''
+
 
 class SceneDynamicTextGenerationTests(unittest.TestCase):
     @classmethod
@@ -116,6 +290,60 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
     def test_same_value_is_deduplicated_and_generations_are_monotonic(self) -> None:
         self.assertIsNone(self.result["duplicate"])
         self.assertTrue(self.result["ordered"])
+
+    def test_store_submitted_atom_survives_async_ready_discard_and_failure(self) -> None:
+        parent = os.environ.get("MWX_DYNAMIC_TEXT_EVIDENCE")
+        if parent:
+            Path(parent).mkdir(parents=True, exist_ok=True)
+        directory = Path(tempfile.mkdtemp(prefix="mwx-text-store-", dir=parent))
+        try:
+            harness = directory / "StoreHarness.swift"
+            harness.write_text(STORE_HARNESS, encoding="utf-8")
+            binary = directory / "text-store"
+            identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+                        for path in (SOURCE, STORE_SOURCE, Path(__file__), harness)}
+            (directory / "source-identity.json").write_text(json.dumps(identity, indent=2))
+            compiled = subprocess.run(
+                ["swiftc", str(SOURCE), str(STORE_SOURCE), str(harness), "-o", str(binary)],
+                capture_output=True, text=True, timeout=60,
+            )
+            (directory / "compile.log").write_text(compiled.stdout + compiled.stderr)
+            self.assertEqual(compiled.returncode, 0, f"{directory}\n{compiled.stderr}")
+            completed = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)
+            (directory / "run.log").write_text(completed.stdout + completed.stderr)
+            self.assertEqual(completed.returncode, 0, f"{directory}\n{completed.stderr}")
+            self.assertEqual(identity, {path: hashlib.sha256(Path(path).read_bytes()).hexdigest()
+                                        for path in identity})
+            result = json.loads(completed.stdout)
+            (directory / "result.json").write_text(json.dumps(result, indent=2))
+            if result.get("metalUnavailable"):
+                self.skipTest("Metal is unavailable")
+            g1 = result["initialCommitted"]
+            g2 = result["committedB"]
+            self.assertEqual(result["initialSubmitted"], {})
+            for key in ("preparedWhileBReady", "submittedWhileBReady", "submittedAfterDiscard"):
+                self.assertEqual(result[key], g1, key)
+            for key in ("readyAfterDiscard", "preparedB", "commitWithoutPrepared",
+                        "readyAfterFailure", "submittedAfterFailure", "submittedAfterRecovery"):
+                self.assertEqual(result[key], g2, key)
+            self.assertEqual(g1["texture"], "g1")
+            self.assertEqual(g1["physicalSize"], [2, 3])
+            self.assertEqual(g1["renderSize"], [120, 30])
+            self.assertEqual(g1["offset"], 3)
+            self.assertEqual(g2["texture"], "g2")
+            self.assertEqual(g2["physicalSize"], [4, 5])
+            self.assertEqual(g2["renderSize"], [240, 50])
+            self.assertEqual(g2["offset"], -11)
+            self.assertGreater(g2["generation"], g1["generation"])
+            for atom in (g1, g2, result["readyAfterRecovery"]):
+                self.assertEqual(atom["generation"], atom["publicationGeneration"])
+            self.assertEqual(result["readyAfterRecovery"]["texture"], "g4")
+            self.assertEqual(result["readyAfterRecovery"]["renderSize"], [360, 70])
+            self.assertEqual(result["readyAfterRecovery"]["offset"], 19)
+            self.assertEqual(result["renderCalls"], ["B", "C", "D"])
+        finally:
+            if not parent:
+                shutil.rmtree(directory)
 
     def test_stale_or_failed_results_never_replace_the_last_ready_value(self) -> None:
         self.assertFalse(self.result["staleAccepted"])
@@ -155,7 +383,7 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
             "purpose: .premultipliedColor",
             "content: .color(.resolved(.premultipliedAlpha))",
             "SceneLayerSourcePublication(",
-            "renderSizeWH: renderSizeWH",
+            "renderSizeWH: raster.renderSizeWH",
             "let snapshot = Snapshot(layerSources: layerSources)",
         ):
             self.assertIn(token, source)

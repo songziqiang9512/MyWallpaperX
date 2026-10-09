@@ -59,6 +59,7 @@ extension SceneMetalRenderer {
             renderSizeOverride: imageTextures.layerSourceRenderSize(
                 for: provider.id
             ),
+            textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: provider.id) ?? 0,
             parallaxMouseNormalized: frameContext.cameraParallaxPosition,
             configuration: parallaxConfiguration,
             visibleHalfExtents: cameraFrame.coverHalfExtents,

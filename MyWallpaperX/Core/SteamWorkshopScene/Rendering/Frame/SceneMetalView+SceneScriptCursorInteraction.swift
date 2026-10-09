@@ -188,6 +188,7 @@ extension SceneMetalView {
             viewportSize: frameContext.screenSize,
             dynamicValues: dynamicValues
         )
+        let submittedText = dynamicTextTextures?.submittedSnapshot()
         var hits: [Int: SceneScriptCursorHit] = [:]
         var projections: [Int: SceneScriptCursorHit] = [:]
         for ownerLayerID in ownerLayerIDs {
@@ -197,6 +198,7 @@ extension SceneMetalView {
             let model = renderer.imageModelMatrix(
                 for: layer,
                 worldFramesByLayerID: worldFrames,
+                textCenterOffsetY: submittedText?.layerSources[ownerLayerID]?.textCenterOffsetY ?? 0,
                 parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                 configuration: parallax,
                 visibleHalfExtents: cameraFrame.coverHalfExtents,

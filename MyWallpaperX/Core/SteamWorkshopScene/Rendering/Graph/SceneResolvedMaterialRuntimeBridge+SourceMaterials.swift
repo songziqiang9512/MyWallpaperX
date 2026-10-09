@@ -105,7 +105,8 @@ extension SceneResolvedMaterialRuntimeBridge {
                 candidate: candidate, contentGeneration: registry.frameEpoch)
             guard let source = SceneLayerSourcePublication(layerID: layerID, publication: publication,
                 renderSizeWH: imageTextures.layerSourceRenderSize(for: layerID),
-                effectRenderSizeWH: imageTextures.layerSourceEffectRenderSize(for: layerID)) else { continue }
+                effectRenderSizeWH: imageTextures.layerSourceEffectRenderSize(for: layerID),
+                textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: layerID)) else { continue }
             sources[layerID] = source
             if original.frameIndex <= 2 {
                 submissions.logSink("source material encoded: layer=\(layerID) frame=\(original.frameIndex) target=\(target.texture.width)x\(target.texture.height)")

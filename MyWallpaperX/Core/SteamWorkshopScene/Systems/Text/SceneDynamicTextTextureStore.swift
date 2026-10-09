@@ -16,11 +16,11 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.mywallpaperx.scene.dynamic-text", qos: .userInitiated)
     private let lock = NSLock()
     private var generationState = SceneDynamicTextGenerationState()
-    private var currentTextures: [Int: MTLTexture]
-    private var currentRenderSizes: [Int: [Float]]
+    private var currentRasters: [Int: SceneTextTextureLoader.RasterizedTexture]
     private var cachedSnapshot: Snapshot?
     private var snapshotDirty = true
     private var preparedFrameSnapshot: Snapshot?
+    private var submittedFrameSnapshot: Snapshot?
 #if DEBUG
     private var debugLoggedDynamicLayers: Set<Int> = []
 #endif
@@ -29,8 +29,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         descriptor: SceneRenderDescriptor,
         cacheDirectory: URL,
         device: MTLDevice,
-        initialTextures: [Int: MTLTexture],
-        initialRenderSizes: [Int: [Float]] = [:],
+        initialRasters: [Int: SceneTextTextureLoader.RasterizedTexture],
         dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:],
         onPublication: (@Sendable (SceneDynamicTextTextureStore) -> Void)? = nil
     ) {
@@ -47,10 +46,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         self.layersByID = Dictionary(uniqueKeysWithValues: layers.map { ($0.id, $0) })
         authoredLayerIDs = Set(layers.map(\.id))
         self.dynamicTextFieldsByLayerID = dynamicTextFieldsByLayerID
-        self.currentTextures = initialTextures
-        self.currentRenderSizes = Dictionary(uniqueKeysWithValues: layers.compactMap { layer in
-            (initialRenderSizes[layer.id] ?? layer.renderSizeWH).map { (layer.id, $0) }
-        })
+        self.currentRasters = initialRasters
         for layer in layers {
             generationState.registerInitial(
                 layerID: layer.id,
@@ -58,7 +54,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
                     for: layer, snapshot: nil,
                     dynamicFields: dynamicTextFieldsByLayerID[layer.id] ?? []
                 ),
-                isReady: initialTextures[layer.id] != nil
+                isReady: initialRasters[layer.id] != nil
             )
         }
     }
@@ -107,8 +103,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         let retired = Set(layersByID.keys).subtracting(authoredLayerIDs).subtracting(admittedIDs)
         for layerID in retired {
             layersByID.removeValue(forKey: layerID)
-            currentTextures.removeValue(forKey: layerID)
-            currentRenderSizes.removeValue(forKey: layerID)
+            currentRasters.removeValue(forKey: layerID)
             self.dynamicTextFieldsByLayerID.removeValue(forKey: layerID)
             snapshotDirty = true
             generationState.unregister(layerID: layerID)
@@ -150,7 +145,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
     }
 
     /// Pins the currently published provider view for one host frame. Async
-    /// raster completion may replace `currentTextures` while another surface
+    /// raster completion may replace `currentRasters` while another surface
     /// is encoding; the host outcome decides when that replacement becomes
     /// visible to the next frame.
     func prepareFrame() -> Snapshot {
@@ -164,8 +159,17 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
 
     func commitPreparedFrame() {
         lock.lock()
+        submittedFrameSnapshot = preparedFrameSnapshot ?? submittedFrameSnapshot
         preparedFrameSnapshot = nil
         lock.unlock()
+    }
+
+    /// Cursor callbacks run before the next texture frame is prepared. Use
+    /// the last submitted raster geometry, not a newer async-ready result.
+    func submittedSnapshot() -> Snapshot? {
+        lock.lock()
+        defer { lock.unlock() }
+        return submittedFrameSnapshot
     }
 
     func discardPreparedFrame() {
@@ -183,12 +187,12 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
 
     private func makeSnapshotLocked() -> Snapshot {
         if !snapshotDirty, let cachedSnapshot { return cachedSnapshot }
-        let pairs: [(Int, SceneLayerSourcePublication)] = currentTextures.compactMap {
-            layerID, texture in
-            guard let generation = generationState.readyGeneration(layerID: layerID),
-                  let renderSizeWH = currentRenderSizes[layerID] else {
+        let pairs: [(Int, SceneLayerSourcePublication)] = currentRasters.compactMap {
+            layerID, raster in
+            guard let generation = generationState.readyGeneration(layerID: layerID) else {
                 return nil
             }
+            let texture = raster.texture
             let size = CGSize(width: texture.width, height: texture.height)
             let publication = SceneTextureProviderPublication(
                 requestIdentity: .layerSource(layerID),
@@ -208,7 +212,8 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
             guard let layerSource = SceneLayerSourcePublication(
                 layerID: layerID,
                 publication: publication,
-                renderSizeWH: renderSizeWH
+                renderSizeWH: raster.renderSizeWH,
+                textCenterOffsetY: raster.centerOffsetY
             ) else { return nil }
             return (layerID, layerSource)
         }
@@ -266,8 +271,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         lock.lock()
         let completion = generationState.finish(request, succeeded: rendered != nil)
         if completion.accepted, let rendered {
-            currentTextures[request.layerID] = rendered.texture
-            currentRenderSizes[request.layerID] = rendered.renderSizeWH
+            currentRasters[request.layerID] = rendered
             snapshotDirty = true
 #if DEBUG
             if debugLoggedDynamicLayers.insert(request.layerID).inserted {

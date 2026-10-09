@@ -131,12 +131,15 @@ nonisolated struct SceneLayerSourcePublication {
     let publication: SceneTextureProviderPublication
     let logicalRenderSize: SIMD2<Float>?
     let effectLogicalRenderSize: SIMD2<Float>?
+    /// Logical source-pixel offset prepared with this text raster generation.
+    let textCenterOffsetY: Float?
 
     init?(
         layerID: Int,
         publication: SceneTextureProviderPublication,
         renderSizeWH: [Float]? = nil,
-        effectRenderSizeWH: [Float]? = nil
+        effectRenderSizeWH: [Float]? = nil,
+        textCenterOffsetY: Float? = nil
     ) {
         guard publication.requestIdentity == .layerSource(layerID),
               Self.matchesLayerIdentity(
@@ -168,7 +171,11 @@ nonisolated struct SceneLayerSourcePublication {
         } else {
             effectLogicalRenderSize = nil
         }
+        if let textCenterOffsetY {
+            guard textCenterOffsetY.isFinite, logicalRenderSize != nil else { return nil }
+        }
         self.publication = publication
+        self.textCenterOffsetY = textCenterOffsetY
         self.logicalRenderSize = logicalRenderSize
         self.effectLogicalRenderSize = effectLogicalRenderSize
     }
