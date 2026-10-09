@@ -17,6 +17,10 @@ class ScenePBRScalarTests(unittest.TestCase):
         support=document.HARNESS_SOURCE.split('@main',1)[0]
         start=support.index('enum SceneUserPropertyValue {}');end=support.index('struct ScenePkgExtractionReport')
         support=support[:start]+support[end:]
+        # Reuse the nearest material fixture's color binding transport type.
+        start=material.STUBS.index('enum SceneBaseMaterialColorModulationCompiler {')
+        end=material.STUBS.index('enum SceneShaderUserValueKind',start)
+        support+=material.STUBS[start:end]
         support+=r'''
 enum SceneTextureLoadPurpose { case normal, mask }
 struct SceneAssetTextureIdentity: Hashable, Sendable {

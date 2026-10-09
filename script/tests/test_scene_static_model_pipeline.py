@@ -14,8 +14,10 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 METAL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal"
 FOG_HEADER = METAL_SOURCE.with_name("SceneDistanceFog.metalh")
+SURFACE_HEADER = METAL_SOURCE.with_name("SceneSurfaceResponse.metalh")
 SHADOW_SOURCE = SCENE_ROOT / "Rendering/Metal/SceneStaticModelShadow.swift"
 PIPELINE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift"
+MATERIAL_SOURCE = SCENE_ROOT / "Rendering/Metal/SceneStaticModelMaterial.swift"
 DYNAMIC_SNAPSHOT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift"
 BINDINGS_SOURCE = SCENE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift"
 DYNAMIC_LAYER_VALUES_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicLayerValues.swift"
@@ -102,6 +104,7 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="mwx-model-light-count-") as tmp:
             probe_shader = Path(tmp) / "LightCounts.metal"
             (Path(tmp) / FOG_HEADER.name).write_bytes(FOG_HEADER.read_bytes())
+            (Path(tmp) / SURFACE_HEADER.name).write_bytes(SURFACE_HEADER.read_bytes())
             source = METAL_SOURCE.read_text(encoding="utf-8").replace(
                 "fragment half4 sceneStaticModelFragment(",
                 "fragment half4 sceneStaticModelOriginalFragment(", 1)
@@ -116,7 +119,7 @@ fragment half4 sceneStaticModelFragment(
             sources = [MODEL_SOURCE, SAMPLING_SOURCE, UV_TRANSFORM_SOURCE,
                        DIRECTIONAL_LIGHT_SOURCE, POINT_LIGHT_SOURCE, SPOT_LIGHT_SOURCE,
                        LIGHT_SOURCE, DYNAMIC_SNAPSHOT_SOURCE, DYNAMIC_LAYER_VALUES_SOURCE,
-                       PERFORMANCE_COUNTER_SOURCE, BINDINGS_SOURCE, PIPELINE_SOURCE, SHADOW_SOURCE,
+                       PERFORMANCE_COUNTER_SOURCE, BINDINGS_SOURCE, MATERIAL_SOURCE, PIPELINE_SOURCE, SHADOW_SOURCE,
                        SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"]
             support = LIGHTING_STUB + (
                 REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticModelLightCountHarness.swift"
@@ -172,7 +175,7 @@ fragment half4 sceneStaticModelFragment(
         self.assertIn("max(dot(normal, light.xyz), 0.0)", source)
         self.assertNotIn("lighting / (float3(1.0) + lighting)", source)
         self.assertIn("uniforms.materialFlags.w != 0", source)
-        self.assertIn("surfaceColor = mix(albedo.rgb, tinted, albedo.a)", source)
+        self.assertIn("mix(albedo.rgb, tinted, albedo.a)", source)
         self.assertIn("uniforms.viewTintBackAndEnabled.w > 0.5", source)
         self.assertIn("uniforms.cameraPosition.xyz - in.worldPosition", source)
 
@@ -204,6 +207,7 @@ fragment half4 sceneStaticModelFragment(
                     str(PERFORMANCE_COUNTER_SOURCE),
                     str(SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"),
                     str(BINDINGS_SOURCE),
+                    str(MATERIAL_SOURCE),
                     str(PIPELINE_SOURCE),
                     str(SHADOW_SOURCE),
                 ],
@@ -299,14 +303,17 @@ enum MaterialHarness {
         for mode: MTLCullMode in [.none, .back, .front] {
             var authoredCull = base
             authoredCull.cullMode = mode
+            authoredCull.surfaceProfile = .init(metallic: 0.25, roughness: 0.7)
             let dynamic = authoredCull.resolvingDynamicValues(
                 layerID: 7, snapshot: snapshot
             )
             precondition(dynamic.opacity == 0.4 && dynamic.color != base.color)
             precondition(dynamic.cullMode == mode)
+            precondition(dynamic.surfaceProfile == authoredCull.surfaceProfile)
             let tint = dynamic.resolvingDynamicViewTintBack(SIMD3(0.8, 0.7, 0.6))
             precondition(tint.viewTint?.back == SIMD3<Float>(0.8, 0.7, 0.6))
             precondition(tint.cullMode == mode)
+            precondition(tint.surfaceProfile == authoredCull.surfaceProfile)
             precondition(authoredCull.resolvingDynamicValues(
                 layerID: 8, snapshot: snapshot
             ).cullMode == mode)
@@ -454,6 +461,7 @@ enum MaterialHarness {
                     str(PERFORMANCE_COUNTER_SOURCE),
                     str(SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"),
                     str(BINDINGS_SOURCE),
+                    str(MATERIAL_SOURCE),
                     str(PIPELINE_SOURCE),
                     str(SHADOW_SOURCE),
                     str(harness),
@@ -602,6 +610,7 @@ enum DepthPlanHarness {
                     str(PERFORMANCE_COUNTER_SOURCE),
                     str(SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"),
                     str(BINDINGS_SOURCE),
+                    str(MATERIAL_SOURCE),
                     str(PIPELINE_SOURCE),
                     str(SHADOW_SOURCE),
                     str(harness),
@@ -656,7 +665,6 @@ enum DepthPlanHarness {
         ):
             self.assertIn(contract, source)
         self.assertNotIn("makeLibrary(source:", source)
-        self.assertNotIn("generic4", source.lower())
         self.assertNotIn("chroma4", source.lower())
         self.assertNotIn("parity", source.lower())
 

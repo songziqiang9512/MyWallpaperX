@@ -35,7 +35,7 @@ PRODUCT_PREFIXES = (
     "SteamService/",
     "WallpaperDaemonSources/",
 )
-PRODUCT_SOURCE_SUFFIXES = {".swift", ".c", ".h", ".m", ".mm", ".metal", ".cs"}
+PRODUCT_SOURCE_SUFFIXES = {".swift", ".c", ".h", ".m", ".mm", ".metal", ".metalh", ".cs"}
 ROOT_GOVERNANCE_FILES = {"AGENTS.md", "README.md", ".gitignore"}
 RELEASE_WORKFLOW_FILES = {
     ".github/workflows/build.yml",

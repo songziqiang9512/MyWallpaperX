@@ -259,8 +259,12 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
         instance: SceneDocument.SceneLayerMaterialInstance?,
         pass: SceneRenderDescriptor.MaterialPassDescriptor,
         count: Int,
-        fallback: [Double]
+        fallback: [Double],
+        requiresCompleteScalar: Bool = false
     ) -> [Double]? {
+        // Strict scalar admission is opt-in; existing image projections retain
+        // their current semantics. It cannot be applied to vector components.
+        guard !requiresCompleteScalar || count == 1 else { return nil }
         guard let value = instance?.scalarShaderValues?[key]
             ?? pass.constantShaderValues[key] else { return fallback }
         guard value.userBinding == nil,
@@ -270,6 +274,9 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
               value.bindingKeys.allSatisfy({ $0 == "value" || $0 == "user" }),
               let components = value.components, components.count == count,
               components.allSatisfy(\.isFinite) else { return nil }
+        guard !requiresCompleteScalar || Double(value.rawValue.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )) == components[0] else { return nil }
         return components
     }
 

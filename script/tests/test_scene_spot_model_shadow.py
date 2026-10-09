@@ -115,7 +115,7 @@ def sources():
     result = [getattr(model, name) for name in [
         'MODEL_SOURCE', 'SAMPLING_SOURCE', 'UV_TRANSFORM_SOURCE', 'DIRECTIONAL_LIGHT_SOURCE',
         'POINT_LIGHT_SOURCE', 'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE',
-        'DYNAMIC_LAYER_VALUES_SOURCE', 'PERFORMANCE_COUNTER_SOURCE', 'PIPELINE_SOURCE']]
+        'DYNAMIC_LAYER_VALUES_SOURCE', 'PERFORMANCE_COUNTER_SOURCE', 'MATERIAL_SOURCE', 'PIPELINE_SOURCE']]
     return result + [SCENE/'Resources/Textures/SceneResourceBudget.swift',
                      SCENE/'Rendering/Metal/SceneStaticModelShadow.swift',
                      SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift']

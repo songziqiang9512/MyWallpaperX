@@ -1,0 +1,63 @@
+#ifndef MWX_SCENE_SURFACE_RESPONSE
+#define MWX_SCENE_SURFACE_RESPONSE
+#include <metal_stdlib>
+using namespace metal;
+
+// One project-owned surface composition; callers own lamp units, color
+// coverage and geometry. Weights include NoL once and omit the common 1/pi.
+// Legacy image visibility is retained migration debt, not an official split.
+enum SceneSurfaceVisibility {
+    SceneSurfaceCorrelatedSmith,
+    SceneSurfaceAnalyticSchlick
+};
+
+struct SceneSurfaceWeights {
+    float3 diffuse;
+    float3 specular;
+};
+
+static SceneSurfaceWeights sceneSurfaceResponse(float3 normal, float3 view,
+    float3 light, float3 reflectance, float metallic, float roughness,
+    bool materialEnabled, SceneSurfaceVisibility visibility) {
+    const float noL = clamp(dot(normal, light), 0.0, 1.0);
+    float3 diffuseWeight = float3(noL);
+    float3 specularWeight = float3(0.0);
+    if (materialEnabled) {
+        const float3 f0 = mix(float3(0.04), reflectance, metallic);
+        float3 fresnel = f0;
+        const float noV = clamp(dot(normal, view), 0.0, 1.0);
+        if (noL > 0.0 && noV > 0.0) {
+            const float3 halfway = normalize(light + view);
+            const float noH = clamp(dot(normal, halfway), 0.0, 1.0);
+            const float voH = clamp(dot(view, halfway), 0.0, 1.0);
+            const float slope = max(0.01, roughness * roughness);
+            const float a2 = slope * slope;
+            const float h2 = noH * noH;
+            const float distributionDenominator = (1.0 - h2) + a2 * h2;
+            const float scaledDistribution = a2 /
+                (distributionDenominator * distributionDenominator);
+            float weightedVisibility;
+            if (visibility == SceneSurfaceCorrelatedSmith) {
+                // Preserve the existing image arithmetic order exactly.
+                const float visibilityScale = max(noL, noV);
+                const float l = noL / visibilityScale, v = noV / visibilityScale;
+                const float visibilityDenominator = l * sqrt(a2 + (1.0-a2)*noV*noV)
+                    + v * sqrt(a2 + (1.0-a2)*noL*noL);
+                weightedVisibility = 0.5 * l / visibilityDenominator;
+            } else {
+                // Published analytic-light Schlick-Smith remap, fixed policy:
+                // k=(r+1)^2/8. GGX still uses alpha=r^2 above.
+                const float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
+                const float l = noL * (1.0-k) + k;
+                const float v = noV * (1.0-k) + k;
+                weightedVisibility = noL / (4.0 * l * v);
+            }
+            const float grazing = pow(1.0 - voH, 5.0);
+            fresnel = f0 + (1.0 - f0) * grazing;
+            specularWeight = fresnel * (scaledDistribution * weightedVisibility);
+        }
+        diffuseWeight = (1.0-metallic) * (1.0-fresnel) * noL;
+    }
+    return {diffuseWeight, specularWeight};
+}
+#endif

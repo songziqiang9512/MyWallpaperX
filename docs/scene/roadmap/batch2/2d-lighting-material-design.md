@@ -128,6 +128,16 @@ XY超出单位圆时，方向落在正半球赤道并归一化，缺失Z取零�
 
 **退役。** 标量片先完成可见门与独立终审并按职责提交；窄登记在贴图输入/解码后继也闭合、稳定输入/owner移交架构后删除。D3整体登记保留，贴图之后推进明确环境资源的reflection与有合法caster/depth的shadow。未知某个分支只限制该分支，不以缺官方公式停止整个能力。
 
+### generic4 模型静态表面响应（2026-10-09有界后继）
+
+**目标与依据。** 实施前模型只累加漫反射并在灯编码乘经验0.30，未消费MR。自有模型平面H1–H10中性控制已区分albedo、强度、距离、视向与明确roughness/metallic；公开GGX、Schlick Fresnel、能量分配后的Lambert及analytic-light Schlick visibility可解释该有界集合，不声称还原官方私有BRDF或完整PBR。只开放原direct模型路径中generic4的静态MR、point/spot；本片按中性作者声明与数值门采用项目默认metallic0/roughness0.7，不外推所有tier/editor。其它tier、directional、动态MR及模型normal/PBR贴图不扩权。2D新夹具未通过Lighting入场，不能裁定其官方visibility或分量gate，也不阻塞本有界模型缺口。
+
+**唯一数学与caller。** `Rendering/Composition/SceneSurfaceResponse.metalh`拥有GGX分布、Schlick Fresnel、非金属漫反射份额和diffuse/specular组合，返回包含一次NoL、尚未除π的分量。2D调用保留当前计算顺序、height-correlated Smith、灯几何/单位、source coverage/tint、HDR稳定乘积与环境反射；3D调用选择公开analytic-light Schlick `k=(roughness+1)^2/8`，在caller恰好作一次1/π归一化，保原world normal/view、径向/锥体及阴影。唯一owner中仅visibility有两个显式策略，不复制整套BRDF、不按样本/路径选择。2D策略保留是迁移债，不是官方两种材质不同合同的声明；退出门为合法2D入场及角度反例定出策略，且原颜色/alpha/HDR/normal/环境门无回退。
+
+**准备与旧路径退出。** 原`ScenePreparedStaticModelResources`在prepare通过现`SceneResourceView`的package/loose/stock优先级排除同名generic4根stage的作者override，再读取精确MR静态值；不加载shader表达、不新增source分类owner。非法或未解析user/script/Timeline使该可选profile不准入，保原模型输出；有限超域按项目物理域0…1归一化。完整搬出现有material/viewTint/动态解析值对象到`Rendering/Metal/SceneStaticModelMaterial.swift`，保一个typed profile，两个dynamic copy均保留。普通帧只读prepared值与现snapshot。新profile的point/spot不再编码0.30，改用标准表面归一化；未迁移材质和directional保原输出。模型albedo与材质颜色先形成有效表面色，F0只在反射率域限制0…1，镜面不再乘一次albedo；coverage、viewTint、雾和最终合成仍各一次。`.5 g_Color/无纹理`与`gray128纹理/白 g_Color`必须保持已观测等价。ambient/emission/tint-mask继续原职责，不把这片扩大为新贴图或动态参数承诺。
+
+**范围与验收。** 上述六产品职责外，`SceneMaterialPropertyBindingCompiler`以完整scalar的显式选项验证新profile，旧调用默认不变。材质值对象整体搬出，pipeline从959行降至833行，不制造wrapper。复用最近typed profile/copy/ABI、2D PBR scalar/normal/HDR门；隔离Debug及GPU由统一运行owner验证H1–H10、灰纹理pair、旧directional/legacy/shadow及2D不回退，独审后才能声明本片验收。缺optional profile不夺整层；原资源安全边界不放松。稳定职责已移交[运行时架构](../../architecture/runtime-architecture.md)，窄登记退役；[实现与有界验证](../../history/static-model-light-input-semantics-2026-10-06.md#model-surface-response)归历史，未证范围保留。
+
 ## F3 — slot2材质贴图与静态自发光（独立设计审查已批准）
 
 本片已通过独立产品/实际App/有界真实材料验收，冻结身份及原场景未恢复边界见[执行记录](../../history/d3-pbr-map-emission-implementation-2026-10-02.md)。稳定slot2职责由架构接管，窄登记同批退役；下述设计仍限定开放范围。

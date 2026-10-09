@@ -455,6 +455,7 @@
           "SceneImageEffectPipelineRepository.swift",
           "SceneLitImageLayerPipeline.swift",
           "SceneMetalPipeline.swift",
+          "SceneStaticModelMaterial.swift",
           "SceneStaticModelPipeline.swift",
           "SceneStaticModelShadow.swift"
         ],

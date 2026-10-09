@@ -419,6 +419,46 @@ enum Harness {
 
 
 class SceneStaticModelMaterialPropertyTests(unittest.TestCase):
+    def test_opt_in_complete_scalar_rejects_filtered_plain_and_wrapper_values(self):
+        main=r'''
+@main enum CompleteScalarProbe {
+ static func main() {
+  func projected(_ raw:String,_ values:[Double],_ keys:[String],_ count:Int=1,
+                 strict:Bool=true)->[Double]? {
+   let value=SceneDocument.ShaderValue(userBinding:nil,userValueKind:nil,components:values,
+       bindingKeys:keys,rawValue:raw,valueKind:keys.isEmpty ? "string":"binding")
+   let pass=SceneRenderDescriptor.MaterialPassDescriptor(materialPath:"material",passIndex:0,
+       constantShaderValues:["roughness":value])
+   return SceneMaterialPropertyBindingCompiler.staticComponents("roughness",instance:nil,pass:pass,
+       count:count,fallback:[0.7],requiresCompleteScalar:strict)
+  }
+  for keys in [[],["value"],["user","value"]] {
+   precondition(projected("0.5 garbage",[0.5],keys) == nil)
+   precondition(projected("  5e-1  ",[0.5],keys) == [0.5])
+   precondition(projected("0.5 garbage",[0.5],keys,strict:false) == [0.5])
+  }
+  precondition(projected("0.5 0.25",[0.5,0.25],[],2) == nil)
+  for value in [0.0,1.0,-2.0,2.0] {
+   precondition(projected(String(value),[value],[]) == [value])
+  }
+  let pass=SceneRenderDescriptor.MaterialPassDescriptor(materialPath:"material",passIndex:0,
+      constantShaderValues:[:])
+  precondition(SceneMaterialPropertyBindingCompiler.staticComponents("roughness",instance:nil,pass:pass,
+      count:1,fallback:[0.7],requiresCompleteScalar:true) == [0.7])
+  print("complete-scalar: OK")
+ }
+}
+'''
+        with tempfile.TemporaryDirectory(prefix='mwx-complete-scalar-') as tmp:
+            work=Path(tmp);source=work/'Harness.swift';binary=work/'probe'
+            source.write_text(STUBS+main)
+            compiled=subprocess.run(['xcrun','swiftc',*map(str,SOURCES),str(source),
+                '-module-cache-path',str(work/'cache'),'-o',str(binary)],capture_output=True,text=True)
+            self.assertEqual(compiled.returncode,0,compiled.stderr)
+            result=subprocess.run([str(binary)],capture_output=True,text=True)
+            self.assertEqual(result.returncode,0,result.stderr)
+            self.assertIn('complete-scalar: OK',result.stdout)
+
     def test_material_wrappers_reach_shared_typed_snapshot(self) -> None:
         swiftc = shutil.which("swiftc")
         if swiftc is None:

@@ -1,5 +1,6 @@
 #include <metal_stdlib>
 #include "SceneDistanceFog.metalh"
+#include "SceneSurfaceResponse.metalh"
 using namespace metal;
 
 struct SceneStaticModelVertex {
@@ -44,6 +45,7 @@ struct SceneStaticModelUniforms {
     float4 spotColorIntensity[4];
     float4 spotOuterCosines;
     SceneModelShadowUniforms shadows[4];
+    float4 surfaceMaterial;
 };
 
 struct SceneStaticModelRasterVertex {
@@ -335,6 +337,30 @@ fragment half4 sceneStaticModelFragment(
             ? albedo.rgb / albedo.a
             : half3(0.0);
     }
+    bool surfaceEnabled = uniforms.surfaceMaterial.z != 0.0;
+    float3 surfaceColor;
+    if (surfaceEnabled) {
+        // The prepared HDR tint is Float. Keep it finite through surface
+        // composition; half conversion here can produce inf*0 in both lanes.
+        if (uniforms.materialFlags.w != 0) {
+            float luminancePeak = float(max(albedo.r, max(albedo.g, albedo.b)));
+            float3 tinted = luminancePeak * uniforms.materialColorAndOpacity.xyz;
+            surfaceColor = mix(float3(albedo.rgb), tinted, float(albedo.a));
+        } else {
+            surfaceColor = float3(albedo.rgb) * uniforms.materialColorAndOpacity.xyz;
+        }
+    } else {
+        // Preserve the old material path's arithmetic and half rounding.
+        half3 legacySurfaceColor;
+        if (uniforms.materialFlags.w != 0) {
+            half luminancePeak = max(albedo.r, max(albedo.g, albedo.b));
+            half3 tinted = luminancePeak * half3(uniforms.materialColorAndOpacity.xyz);
+            legacySurfaceColor = mix(albedo.rgb, tinted, albedo.a);
+        } else {
+            legacySurfaceColor = albedo.rgb * half3(uniforms.materialColorAndOpacity.xyz);
+        }
+        surfaceColor = float3(legacySurfaceColor);
+    }
     float normalLengthSquared = dot(in.normal, in.normal);
     float3 normal = normalLengthSquared > 1e-12
         ? in.normal * rsqrt(normalLengthSquared)
@@ -347,6 +373,12 @@ fragment half4 sceneStaticModelFragment(
         ? uniforms.ambientColor.xyz * ambientRamp
             + uniforms.skylightColor.xyz * (1.0 - ambientRamp)
         : float3(1.0);
+    float3 surfaceRadiance = float3(0.0);
+    float3 towardCamera = uniforms.cameraPosition.xyz - in.worldPosition;
+    float viewLengthSquared = dot(towardCamera, towardCamera);
+    float3 viewDirection = viewLengthSquared > 1e-8
+        ? towardCamera * rsqrt(viewLengthSquared)
+        : float3(0.0, 0.0, 1.0);
     float directionalVisibility[4] = {1.0, 1.0, 1.0, 1.0};
     float spotVisibility[4] = {1.0, 1.0, 1.0, 1.0};
     float pointVisibility[4] = {1.0, 1.0, 1.0, 1.0};
@@ -391,7 +423,18 @@ fragment half4 sceneStaticModelFragment(
         radial *= radial;
         float diffuse = max(dot(normal, directionTowardLight), 0.0);
         float4 colorIntensity = uniforms.pointColorIntensity[lightIndex];
-        lighting += colorIntensity.xyz * colorIntensity.w * radial * diffuse * pointVisibility[lightIndex];
+        if (surfaceEnabled) {
+            const SceneSurfaceWeights weights = sceneSurfaceResponse(normal, viewDirection,
+                directionTowardLight, clamp(float3(surfaceColor), 0.0, 1.0),
+                uniforms.surfaceMaterial.x, uniforms.surfaceMaterial.y, true,
+                SceneSurfaceAnalyticSchlick);
+            const float3 response = (float3(surfaceColor) * weights.diffuse + weights.specular)
+                / M_PI_F;
+            surfaceRadiance += response * colorIntensity.xyz * colorIntensity.w
+                * radial * pointVisibility[lightIndex];
+        } else {
+            lighting += colorIntensity.xyz * colorIntensity.w * radial * diffuse * pointVisibility[lightIndex];
+        }
     }
     uint spotCount = receivesLighting ? uniforms.lightCounts.z : 0u;
     for (uint lightIndex = 0; lightIndex < min(spotCount, 4u); ++lightIndex) {
@@ -417,8 +460,19 @@ fragment half4 sceneStaticModelFragment(
             : step(outerCosine, coneDot);
         float diffuse = max(dot(normal, directionTowardLight), 0.0);
         float4 colorIntensity = uniforms.spotColorIntensity[lightIndex];
-        lighting += colorIntensity.xyz * colorIntensity.w
-            * radial * cone * diffuse * spotVisibility[lightIndex];
+        if (surfaceEnabled) {
+            const SceneSurfaceWeights weights = sceneSurfaceResponse(normal, viewDirection,
+                directionTowardLight, clamp(float3(surfaceColor), 0.0, 1.0),
+                uniforms.surfaceMaterial.x, uniforms.surfaceMaterial.y, true,
+                SceneSurfaceAnalyticSchlick);
+            const float3 response = (float3(surfaceColor) * weights.diffuse + weights.specular)
+                / M_PI_F;
+            surfaceRadiance += response * colorIntensity.xyz * colorIntensity.w
+                * radial * cone * spotVisibility[lightIndex];
+        } else {
+            lighting += colorIntensity.xyz * colorIntensity.w
+                * radial * cone * diffuse * spotVisibility[lightIndex];
+        }
     }
     half authoredOpacity = half(uniforms.materialColorAndOpacity.w);
     half outputAlpha = authoredOpacity * (
@@ -429,35 +483,28 @@ fragment half4 sceneStaticModelFragment(
     if (outputAlpha <= half(0.0)) {
         discard_fragment();
     }
-    half3 surfaceColor;
-    if (uniforms.materialFlags.w != 0) {
-        half luminancePeak = max(albedo.r, max(albedo.g, albedo.b));
-        half3 tinted = luminancePeak
-            * half3(uniforms.materialColorAndOpacity.xyz);
-        surfaceColor = mix(albedo.rgb, tinted, albedo.a);
-    } else {
-        surfaceColor = albedo.rgb
-            * half3(uniforms.materialColorAndOpacity.xyz);
-    }
     if (uniforms.viewTintBackAndEnabled.w > 0.5) {
-        float3 towardCamera = uniforms.cameraPosition.xyz - in.worldPosition;
-        float viewLengthSquared = dot(towardCamera, towardCamera);
-        float3 viewDirection = viewLengthSquared > 1e-8
-            ? towardCamera * rsqrt(viewLengthSquared)
-            : float3(0.0, 0.0, 1.0);
         float facing = clamp(dot(viewDirection, normal), 0.0, 1.0);
         float frontWeight = pow(
             facing,
             max(uniforms.viewTintFrontAndExponent.w, 0.01)
         );
-        half3 viewTint = mix(
-            half3(uniforms.viewTintBackAndEnabled.xyz),
-            half3(uniforms.viewTintFrontAndExponent.xyz),
-            half(frontWeight)
-        );
-        surfaceColor *= viewTint;
+        if (surfaceEnabled) {
+            float3 viewTint = mix(uniforms.viewTintBackAndEnabled.xyz,
+                uniforms.viewTintFrontAndExponent.xyz, frontWeight);
+            surfaceColor *= viewTint;
+            surfaceRadiance *= viewTint;
+        } else {
+            half3 viewTint = mix(
+                half3(uniforms.viewTintBackAndEnabled.xyz),
+                half3(uniforms.viewTintFrontAndExponent.xyz),
+                half(frontWeight)
+            );
+            surfaceColor = float3(half3(surfaceColor) * viewTint);
+        }
     }
-    float3 litColor = float3(surfaceColor * half3(lighting));
+    float3 litColor = surfaceEnabled ? surfaceColor * lighting + surfaceRadiance
+        : float3(half3(surfaceColor) * half3(lighting));
     if ((uniforms.materialFlags.y & 1u) != 0u) {
         float emissive = float(saturate(
             componentTexture.sample(componentSampler, in.componentUV).a

@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "39ee2d6fa32b3003781663eab76ed20f29c4f037d38455bb3167612f4dd72f8a",
+        "sourceSHA256": "5ffe68ea5bcb70df397e0dc61772aa46cf155ebeea3cdbec8018ca8b707ea410",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对聚光锥角共享合同、限定运行证据与U12剩余队列导航。",
+        "scope": "核对模型静态材质profile的唯一prepare/数学/输出职责及有界D3与历史证据导航。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },

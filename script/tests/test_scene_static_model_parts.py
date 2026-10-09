@@ -197,10 +197,20 @@ class SceneModelPartsDependencyTests(unittest.TestCase):
 # Native transport only. All material flags/extraction, reader, mesh upload and
 # partial allocation policy remain inside the production resource owner.
 RESOURCE_TRANSPORT=r'''
+enum SceneMaterialPropertyBindingCompiler {
+ static func staticComponents(_ key:String,instance:Any?,pass:SceneRenderDescriptor.MaterialPassDescriptor,
+                              count:Int,fallback:[Double],requiresCompleteScalar:Bool=false)->[Double]? {
+  // Values here are typed transport inputs; full raw projection is tested
+  // against the actual shared compiler in the material property fixture.
+  return pass.constantShaderValues[key]?.components ?? fallback
+ }
+}
 struct SceneDocument {
  struct ShaderValue {let components:[Double];var userBinding:String?=nil;var scriptSource:String?=nil}
 }
 struct SceneResourceView {
+ enum Source {case package,loose,stock}
+ func source(containing url:URL)->Source? {.loose}
  struct Resource {let url:URL}
  let root:URL
  func resource(relativePath:String)->Resource? {
@@ -245,7 +255,8 @@ extension SceneRenderDescriptor {
   let materialPath:String;let textureSlots:[String?];let combos:[String:Int]
   let constantShaderValues:[String:SceneDocument.ShaderValue];var passIndex:Int=0;var depthWrite:String?=nil
   var staticModelMaterialBindings:SceneStaticModelMaterialBindings?=nil;var cullMode:String?=nil
-  var staticModelDefaultAlbedoAssetPath:String?=nil
+  var staticModelDefaultAlbedoAssetPath:String?=nil;var shaderPath:String?=nil
+  var userShaderValues:[String:String]=[:]
  }
 }
 '''
@@ -359,6 +370,61 @@ NATIVE_MAIN=r'''
  }
 }
 '''
+
+
+class SceneStaticModelSurfaceAdmissionTests(unittest.TestCase):
+    def test_default_profile_and_either_author_stage_override(self):
+        # Executes the whole resource owner without constructing a Metal device.
+        main=r'''
+@main enum SurfaceAdmissionProbe {
+ static func main() throws {
+  let root=URL(fileURLWithPath:CommandLine.arguments[1])
+  let view=SceneResourceView(root:root)
+  var pass=SceneRenderDescriptor.MaterialPassDescriptor(materialPath:"material",textureSlots:[],
+      combos:["LIGHTING":1],constantShaderValues:[:],shaderPath:"generic4")
+  let profile=ScenePreparedStaticModelResources.surfaceProfile(pass,resourceView:view)!
+  precondition(profile == .init(metallic:0,roughness:0.7))
+  let shaderRoot=root.appendingPathComponent("shaders")
+  try FileManager.default.createDirectory(at:shaderRoot,withIntermediateDirectories:true)
+  for suffix in ["vert","frag"] {
+   let stage=shaderRoot.appendingPathComponent("generic4."+suffix)
+   try Data().write(to:stage)
+   precondition(ScenePreparedStaticModelResources.surfaceProfile(pass,resourceView:view) == nil)
+   try FileManager.default.removeItem(at:stage)
+  }
+  pass.shaderPath="custom/generic4"
+  precondition(ScenePreparedStaticModelResources.surfaceProfile(pass,resourceView:view) == nil)
+  pass=SceneRenderDescriptor.MaterialPassDescriptor(materialPath:"material",textureSlots:[],
+      combos:["LIGHTING":0],constantShaderValues:[:],shaderPath:"generic4")
+  precondition(ScenePreparedStaticModelResources.surfaceProfile(pass,resourceView:view) == nil)
+  for key in ["metallic","roughness"] {
+   for constants in [[:],[key:SceneDocument.ShaderValue(components:[0.5])]] {
+    var userPass=SceneRenderDescriptor.MaterialPassDescriptor(materialPath:"material",textureSlots:[],
+        combos:["LIGHTING":1],constantShaderValues:constants,shaderPath:"generic4")
+    userPass.userShaderValues[key]="control"
+    precondition(ScenePreparedStaticModelResources.surfaceProfile(userPass,resourceView:view) == nil,
+                 "User MR must preserve the legacy profile with or without a parallel constant")
+   }
+  }
+  let domainPass=SceneRenderDescriptor.MaterialPassDescriptor(materialPath:"material",textureSlots:[],
+      combos:["LIGHTING":1],constantShaderValues:["metallic":.init(components:[-2]),
+      "roughness":.init(components:[2])],shaderPath:"generic4")
+  precondition(ScenePreparedStaticModelResources.surfaceProfile(domainPass,resourceView:view)
+               == .init(metallic:0,roughness:1))
+  print("surface-admission: OK")
+ }
+}
+'''
+        with tempfile.TemporaryDirectory(prefix='mwx-model-surface-admission-') as temporary:
+            work=Path(temporary);source=work/'Harness.swift';binary=work/'probe'
+            source.write_text(resource_support()+main)
+            compiled=subprocess.run(['xcrun','swiftc',*map(str,NATIVE_SOURCES),str(source),
+                '-module-cache-path',str(work/'cache'),'-framework','Metal','-o',str(binary)],
+                capture_output=True,text=True)
+            self.assertEqual(compiled.returncode,0,compiled.stderr)
+            result=subprocess.run([str(binary),str(work)],capture_output=True,text=True)
+            self.assertEqual(result.returncode,0,result.stderr)
+            self.assertIn('surface-admission: OK',result.stdout)
 
 
 class SceneModelPartsNativeTests(unittest.TestCase):

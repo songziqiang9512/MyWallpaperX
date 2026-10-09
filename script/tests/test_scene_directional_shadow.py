@@ -201,8 +201,9 @@ def run_swift(sources, support, *, label, metal_sources=(), input_value=None):
     binary = work / 'probe'
     # Fixed model/image shaders share this canonical response with dynamic
     # ColorBlend. Freeze the include as part of the executed shader identity.
-    metal_headers = {metal.parent/'SceneDistanceFog.metalh' for metal in metal_sources
-                     if (metal.parent/'SceneDistanceFog.metalh').is_file()}
+    metal_headers = {metal.parent/header for metal in metal_sources
+                     for header in ['SceneDistanceFog.metalh', 'SceneSurfaceResponse.metalh']
+                     if (metal.parent/header).is_file()}
     identity_paths = [Path(__file__), REPO/'script/tests/fixtures/scene_directional_shadow_oracle.py',
                       *sources, *metal_sources, *sorted(metal_headers)]
     source_identity = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in identity_paths}
@@ -382,7 +383,7 @@ PIXEL_MAIN = r'''
 class SceneDirectionalShadowPixelTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        sources = [getattr(model_fixture, name) for name in ['MODEL_SOURCE', 'SAMPLING_SOURCE', 'UV_TRANSFORM_SOURCE', 'DIRECTIONAL_LIGHT_SOURCE', 'POINT_LIGHT_SOURCE', 'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE', 'DYNAMIC_LAYER_VALUES_SOURCE', 'PERFORMANCE_COUNTER_SOURCE', 'PIPELINE_SOURCE', 'SHADOW_SOURCE']] + [SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift']
+        sources = [getattr(model_fixture, name) for name in ['MODEL_SOURCE', 'SAMPLING_SOURCE', 'UV_TRANSFORM_SOURCE', 'DIRECTIONAL_LIGHT_SOURCE', 'POINT_LIGHT_SOURCE', 'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE', 'DYNAMIC_LAYER_VALUES_SOURCE', 'PERFORMANCE_COUNTER_SOURCE', 'MATERIAL_SOURCE', 'PIPELINE_SOURCE', 'SHADOW_SOURCE']] + [SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift']
         sources.append(SCENE/'Resources/Textures/SceneResourceBudget.swift')
         cls.vectors = freeze_vectors()
         for name, u, flags, alpha in [('frame-left', .25, 3, 0), ('frame-right', .75, 3, .75),

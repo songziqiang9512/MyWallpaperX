@@ -1,6 +1,6 @@
 <!-- document-role: historical-evidence -->
 
-> **历史证据 — 非现役入口**。光照能量合同（k≈0.30）见[模型光照能量合同](model-light-energy-contract-implementation-2026-10-06.md)；现役代码以 `SceneLightSnapshot`/`SceneStaticModel.metal` 为准。
+> **历史证据 — 非现役入口**。历史能量近似（k≈0.30）见[当时记录](model-light-energy-contract-implementation-2026-10-06.md)，generic4点/聚光后继见[静态表面响应](#model-surface-response)；现役代码以 `SceneLightSnapshot`/`SceneStaticModel.metal` 为准。
 
 # 静态模型光照输入语义批（官方黑盒 v2，2026-10-06）
 
@@ -123,3 +123,14 @@
 同一自有灰平面/固定投影原点，官方2.8.0.42与签名native `1075c365…e3ecc` 在统一sRGB下：point正照54/49、等距离斜照31/29、spot视角60°为52/49；官方后两项重复不变。以旧spot基准54/49，只改单变量的albedo .25/.75及intensity 1/4，官方29/79/27/108，native24/73/24/98；官方各3×3和5×5 ROI均匀；native H2的5×5为29–30，其余控制均匀。官方H4/H6虽color×intensity相同却相差2 U8，拒绝单一乘法增益；尚不能从这些值确定通用材质公式。原始作者输入、SHA、协议、截图及独立官方回执在 `.artifacts/tmp/u12-media-artwork-20261009/light-controls/`、`official-light/`、`official-light-followup/` 和两份native-light观测JSON。本轮不新增或拟合数值算法，残差保留；下一步先闭合头部交互正控。
 
 子灯133/124的spot-light failed来自standalone体积光窄profile，不等于共享模型直接照明失败。作者未显式写castvolumetrics；公开官方启用步骤未证明省略字段等于true，故不据此新增体积光分支或宣称该项已正确。
+
+<a id="model-surface-response"></a>
+## 2026-10-09：模型点光与聚光静态材质响应
+
+基线`75281a7a`。本片沿[D3既有设计](../roadmap/batch2/2d-lighting-material-design.md#generic4-模型静态表面响应2026-10-09有界后继)补齐bare generic4的静态metallic/roughness。准备期沿原资源与属性owner判定，typed材料值随原动态copy进入同一模型pipeline；2D/3D复用一个表面响应数学owner，2D保原可见性策略，未迁移材质及方向光保原输出。没有样本选择器、第二renderer或逐帧资源解析；公开数学独立实现只消费中性输入/官方截图，未复制参考或官方表达。
+
+官方2.8.0.42固定可执行文件SHA `daac1ea7c991207fdb6098616757e3dae393850f6862845db55d04921b6bda07`。原自有平面14个输入包括H0–H10、灰128纹理与白tint、近/远距离；官方视口经ICC到sRGB，不缩放。实际App中心3×3逐通道分别为54、54、31、52、29、79、27、108、66、51、25、54、76、21，与冻结官方整数读数全部相同。旧H0为49；灰纹理与灰色常量在新输出同为54。二维斜照及旧方向光实际前后整幅RGB字节相同；真实2815826216仅作为动态图像回归，不宣称整图逐像素等价。
+
+U12固定姿态、原材质与三处既定ROI的native−official平均RGB偏差：混合灯下身体从约−2.27降到绝对值≤0.17，脸部从最大2.64降到≤0.48，耳机从最大2.92降到≤0.28；仅spot59下三处最大均值误差≤0.62。主体原来轻微发暗的受光已收敛，ambient-only保留既有表现。另运行原相机/组合效果副本确认月亮、屋顶、窗光与主体一起输出；动态头部、音乐状态不同，不据此计算全样本正确率。
+
+最终七产品冻结`3b4bd8fa…a6cd23`，签名Debug dylib `8b8dbd4a10e9db2838f8bf1bbde0c17ba4870913bc09107ed0faaf06bd5fa4e4`；上述14数值与2保留控制、U12四组及真实2D均在此身份重跑，正常退出且GPU排空。既有光照/阴影等50项门47通过、3个未配专用App的集成门跳过；最终emission四门含19个表面控制通过，结构/依赖/代码/防御及映射门通过。独审封住并列MR用户属性、非法完整scalar误准入，以及新旧材质高亮度/tint误黑：九个GPU极值组合通过，旧四行与HEAD实GPU相同。此片不证明官方HDR物理亮度、长期性能或普通UI到daemon的全链。证据在`.artifacts/tmp/u12-surface-response-20261009/`，含输入/构建冻结、官方中心矩阵、U12 ROI、回归与独审；原失败2D入场实验仍不作为官方材质策略结论。开放边界为动态MR、模型normal/PBR贴图、其它tier/自定义stage、方向光精确响应及完整HDR/整图parity。U12继续换歌/跨来源与媒体布局验收，不把此片扩大为所有音乐平台或整个样本已完成。

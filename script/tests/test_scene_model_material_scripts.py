@@ -181,10 +181,8 @@ class SceneModelMaterialScriptTests(unittest.TestCase):
         cls.directory = tempfile.TemporaryDirectory(prefix="mwx-model-material-script-")
         cls.addClassCleanup(cls.directory.cleanup)
         root = Path(cls.directory.name)
-        # Compile the unchanged value consumer, excluding unrelated GPU buffer/PSO construction.
-        consumer = root / "MaterialConsumer.swift"
-        source = (SCENE / "Rendering/Metal/SceneStaticModelPipeline.swift").read_text()
-        consumer.write_text(source.split("private struct SceneStaticModelShadowUniforms")[0])
+        # Compile the complete value owner, excluding unrelated GPU buffer/PSO construction.
+        consumer = SCENE / "Rendering/Metal/SceneStaticModelMaterial.swift"
         binary = compile_vector_harness(root,HARNESS,"model-material",extra_swift_sources=(consumer,))
         result = subprocess.run([str(binary)],capture_output=True,text=True,check=True,timeout=15)
         cls.result = json.loads(result.stdout)

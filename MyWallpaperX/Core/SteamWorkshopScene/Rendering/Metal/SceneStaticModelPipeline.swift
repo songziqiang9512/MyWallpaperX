@@ -10,135 +10,6 @@ struct SceneStaticModelMesh {
     fileprivate let indexType: MTLIndexType
 }
 
-struct SceneStaticModelViewTint {
-    let front: SIMD3<Float>
-    let back: SIMD3<Float>
-    let exponent: Float
-    let usesDynamicBackColor: Bool
-
-    func resolvingBackColor(_ color: SIMD3<Float>) -> Self {
-        guard usesDynamicBackColor else { return self }
-        return .init(
-            front: front,
-            back: color,
-            exponent: exponent,
-            usesDynamicBackColor: true
-        )
-    }
-}
-
-/// Small material contract shared by direct static-model shader families.
-/// Authored alpha meaning is kept separate from storage alpha so tint masks
-/// cannot accidentally punch holes through otherwise opaque geometry.
-struct SceneStaticModelMaterial {
-    let color: SIMD3<Float>
-    let opacity: Float
-    let receivesLighting: Bool
-    let textureAlphaIsOpacity: Bool
-    let textureAlphaIsTintMask: Bool
-    let emissiveColor: SIMD3<Float>
-    let emissiveBrightness: Float
-    let brightness: Float
-    let usesHDRBrightness: Bool
-    let viewTint: SceneStaticModelViewTint?
-    var channelBindings: SceneStaticModelMaterialBindings? = nil
-    var cullMode: MTLCullMode = .back
-
-    func resolvingDynamicViewTintBack(_ color: SIMD3<Float>) -> Self {
-        .init(
-            color: self.color,
-            opacity: opacity,
-            receivesLighting: receivesLighting,
-            textureAlphaIsOpacity: textureAlphaIsOpacity,
-            textureAlphaIsTintMask: textureAlphaIsTintMask,
-            emissiveColor: emissiveColor,
-            emissiveBrightness: emissiveBrightness,
-            brightness: brightness,
-            usesHDRBrightness: usesHDRBrightness,
-            viewTint: viewTint?.resolvingBackColor(color),
-            channelBindings: channelBindings,
-            cullMode: cullMode
-        )
-    }
-
-    func resolvingDynamicValues(
-        layerID: Int,
-        materialPath: String = "",
-        snapshot: SceneDynamicSnapshot
-    ) -> Self {
-        let color = vector3(dynamicKey(for: .color, legacy: "color"), layerID: layerID, materialPath: materialPath, snapshot: snapshot)
-            ?? self.color
-        let emissiveColor = vector3(
-            "emissivecolor", layerID: layerID, materialPath: materialPath, snapshot: snapshot
-        ) ?? self.emissiveColor
-        return .init(
-            color: color,
-            opacity: scalar(dynamicKey(for: .alpha, legacy: "alpha"), layerID: layerID, materialPath: materialPath, snapshot: snapshot)
-                .map { min(max($0, 0), 1) } ?? opacity,
-            receivesLighting: receivesLighting,
-            textureAlphaIsOpacity: textureAlphaIsOpacity,
-            textureAlphaIsTintMask: textureAlphaIsTintMask,
-            emissiveColor: emissiveColor,
-            emissiveBrightness: scalar(
-                "emissivebrightness", layerID: layerID, materialPath: materialPath, snapshot: snapshot
-            ).map { max($0, 0) } ?? emissiveBrightness,
-            brightness: scalar(
-                dynamicKey(for: .brightness, legacy: "brightness"), layerID: layerID, materialPath: materialPath, snapshot: snapshot
-            ).map { max($0, 0) } ?? brightness,
-            usesHDRBrightness: usesHDRBrightness,
-            viewTint: viewTint,
-            channelBindings: channelBindings,
-            cullMode: cullMode
-        )
-    }
-
-    private func dynamicKey(
-        for channel: SceneStaticModelMaterialBindings.Channel,
-        legacy: String
-    ) -> String? {
-        switch channelBindings?.state {
-        case .some(.authored):
-            return channelBindings?.binding(for: channel)?.materialKey
-        case .some(.rejected):
-            return nil
-        default:
-            return legacy
-        }
-    }
-
-    private func scalar(
-        _ name: String?,
-        layerID: Int,
-        materialPath: String,
-        snapshot: SceneDynamicSnapshot
-    ) -> Float? {
-        guard let name, let resolved = snapshot[.materialConstant(
-            layerID: layerID, passIndex: 0, name: name, materialPath: materialPath
-        )], case let .scalar(value) = resolved.value, value.isFinite else {
-            return nil
-        }
-        let result = Float(value)
-        return result.isFinite ? result : nil
-    }
-
-    private func vector3(
-        _ name: String?,
-        layerID: Int,
-        materialPath: String,
-        snapshot: SceneDynamicSnapshot
-    ) -> SIMD3<Float>? {
-        guard let name, let resolved = snapshot[.materialConstant(
-            layerID: layerID, passIndex: 0, name: name, materialPath: materialPath
-        )], case let .vector3(x, y, z) = resolved.value,
-              x.isFinite, y.isFinite, z.isFinite else { return nil }
-        return SIMD3(
-            Float(min(max(x, 0), 1)),
-            Float(min(max(y, 0), 1)),
-            Float(min(max(z, 0), 1))
-        )
-    }
-}
-
 private struct SceneStaticModelShadowUniforms {
     var modelToLightClip: simd_float4x4
     var modelMatrix: simd_float4x4
@@ -229,6 +100,7 @@ private struct SceneStaticModelUniforms {
     var shadow1: SceneModelShadowUniforms
     var shadow2: SceneModelShadowUniforms
     var shadow3: SceneModelShadowUniforms
+    var surfaceMaterial: SIMD4<Float>
 }
 
 /// Fixed, bounded pipeline for decoded static-model triangles. It consumes the
@@ -465,8 +337,10 @@ struct SceneStaticModelPipeline {
                 : SceneModelShadowUniforms()
         }
         let lights = Self.encodedLights(lighting.directional)
-        let points = Self.encodedPoints(staticModelPoints)
-        let spots = Self.encodedSpots(lighting.spot)
+        let pointSpotEnergyScale: Float = material.surfaceProfile == nil
+            ? Self.staticModelLightEnergyScale : 1
+        let points = Self.encodedPoints(staticModelPoints, energyScale: pointSpotEnergyScale)
+        let spots = Self.encodedSpots(lighting.spot, energyScale: pointSpotEnergyScale)
         let brightness = material.usesHDRBrightness
             ? max(material.brightness, 0)
             : 1
@@ -561,7 +435,10 @@ struct SceneStaticModelPipeline {
                 spots[2].outerCosine,
                 spots[3].outerCosine
             ),
-            shadow0: maps[0], shadow1: maps[1], shadow2: maps[2], shadow3: maps[3]
+            shadow0: maps[0], shadow1: maps[1], shadow2: maps[2], shadow3: maps[3],
+            surfaceMaterial: material.surfaceProfile.map {
+                SIMD4($0.metallic, $0.roughness, 1, 0)
+            } ?? .zero
         )
 
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
@@ -721,7 +598,7 @@ struct SceneStaticModelPipeline {
     /// same test that executes this gate; host-side drift rejects pipeline
     /// preparation before any draw can be encoded.
     static let hasExpectedUniformABI =
-        MemoryLayout<SceneStaticModelUniforms>.stride == 1328
+        MemoryLayout<SceneStaticModelUniforms>.stride == 1344
         && MemoryLayout<SceneModelShadowUniforms>.stride == 112
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.positionRadius) == 64
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.parameters) == 80
@@ -735,6 +612,7 @@ struct SceneStaticModelPipeline {
         && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.coverage) == 272
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.shadow0) == 880
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.shadow3) == 1216
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.surfaceMaterial) == 1328
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.modelMatrix) == 0
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.viewProjectionMatrix) == 64
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.normalMatrix) == 128
@@ -759,13 +637,9 @@ struct SceneStaticModelPipeline {
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotColorIntensity3) == 848
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotOuterCosines) == 864
 
-    /// Bounded official black-box contract (2026-10-06, fixed WE 2.8.0.42,
-    /// own gray-0.5 sphere fixtures): the lit model output scales the
-    /// display-referred albedo by intensity × NdotL × (1-d/r)² × ~0.30.
-    /// Measured center values 38/76/153 (8-bit) at intensity 1/2/4 on a 128
-    /// albedo, giving k ∈ [0.30, 0.305]. Point-light evidence; directional
-    /// reproduced the exact linear scaling and shares the factor. Spot has no
-    /// separate observation and is applied the same family factor.
+    /// Preserved legacy diffuse policy for directional and materials without
+    /// an admitted static surface profile. Generic4 point/spot now upload raw
+    /// intensity; their shared surface response supplies its one 1/pi factor.
     static let staticModelLightEnergyScale: Float = 0.30
 
     private static func encodedLights(
@@ -789,7 +663,7 @@ struct SceneStaticModelPipeline {
     }
 
     private static func encodedSpots(
-        _ lights: [SceneLightSnapshot.Spot]
+        _ lights: [SceneLightSnapshot.Spot], energyScale: Float
     ) -> [(
         positionRadius: SIMD4<Float>,
         directionInnerCosine: SIMD4<Float>,
@@ -814,7 +688,7 @@ struct SceneStaticModelPipeline {
                 ),
                 SIMD4(
                     light.color.x, light.color.y, light.color.z,
-                    light.intensity * staticModelLightEnergyScale
+                    light.intensity * energyScale
                 ),
                 light.outerConeCosine
             )
@@ -822,7 +696,7 @@ struct SceneStaticModelPipeline {
     }
 
     private static func encodedPoints(
-        _ lights: [SceneLightSnapshot.Point]
+        _ lights: [SceneLightSnapshot.Point], energyScale: Float
     ) -> [(
         positionRadius: SIMD4<Float>,
         colorIntensity: SIMD4<Float>
@@ -839,7 +713,7 @@ struct SceneStaticModelPipeline {
                 ),
                 SIMD4(
                     light.color.x, light.color.y, light.color.z,
-                    light.intensity * staticModelLightEnergyScale
+                    light.intensity * energyScale
                 )
             )
         }

@@ -26,7 +26,7 @@ SOURCES = list(dict.fromkeys([
     *(getattr(model_fixture, name) for name in [
         'MODEL_SOURCE', 'DIRECTIONAL_LIGHT_SOURCE', 'POINT_LIGHT_SOURCE',
         'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE',
-        'DYNAMIC_LAYER_VALUES_SOURCE', 'PIPELINE_SOURCE', 'SHADOW_SOURCE']),
+        'DYNAMIC_LAYER_VALUES_SOURCE', 'MATERIAL_SOURCE', 'PIPELINE_SOURCE', 'SHADOW_SOURCE']),
     SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift',
     SCENE/'Rendering/Frame/SceneMetalRenderer+StaticModels.swift',
     SCENE/'Rendering/Frame/SceneMetalRenderer+Particles.swift',

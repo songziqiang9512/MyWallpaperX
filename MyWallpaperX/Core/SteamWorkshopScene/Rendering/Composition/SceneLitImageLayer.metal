@@ -1,4 +1,5 @@
 #include <metal_stdlib>
+#include "SceneSurfaceResponse.metalh"
 using namespace metal;
 
 // Project-owned bounded direct material response in world space.
@@ -124,43 +125,16 @@ static float sceneLitStoredTerm(float response, float intensity, float lightColo
 static float3 sceneLitDirect(float3 normal, float3 view, float3 light,
     float4 source, float4 material, float3 lightColor, float intensity,
     float falloff, float3 tint, float opacity) {
-    const float noL = clamp(dot(normal, light), 0.0, 1.0);
-    float3 diffuseWeight = float3(noL);
-    float3 specularWeight = float3(0.0);
-    if (material.z != 0.0) {
-        const float metallic = material.x;
-        const float3 reflectance = clamp(source.rgb / source.a, 0.0, 1.0);
-        const float3 f0 = mix(float3(0.04), reflectance, metallic);
-        float3 fresnel = f0;
-        const float noV = clamp(dot(normal, view), 0.0, 1.0);
-        if (noL > 0.0 && noV > 0.0) {
-            const float3 halfway = normalize(light + view);
-            const float noH = clamp(dot(normal, halfway), 0.0, 1.0);
-            const float voH = clamp(dot(view, halfway), 0.0, 1.0);
-            const float slope = max(0.01, material.y * material.y);
-            const float a2 = slope * slope;
-            const float h2 = noH * noH;
-            const float distributionDenominator = (1.0 - h2) + a2 * h2;
-            // pi cancels the GGX distribution pi in the legacy lamp units.
-            const float scaledDistribution = a2 /
-                (distributionDenominator * distributionDenominator);
-            const float visibilityScale = max(noL, noV);
-            const float l = noL / visibilityScale, v = noV / visibilityScale;
-            const float visibilityDenominator = l * sqrt(a2 + (1.0-a2)*noV*noV)
-                + v * sqrt(a2 + (1.0-a2)*noL*noL);
-            // Height-correlated Smith, already multiplied by outgoing NoL.
-            const float weightedVisibility = 0.5 * l / visibilityDenominator;
-            const float grazing = pow(1.0 - voH, 5.0);
-            fresnel = f0 + (1.0 - f0) * grazing;
-            specularWeight = fresnel * (scaledDistribution * weightedVisibility);
-        }
-        diffuseWeight = (1.0-metallic) * (1.0-fresnel) * noL;
-    }
+    const float3 reflectance = material.z != 0.0
+        ? clamp(source.rgb / source.a, 0.0, 1.0) : float3(0.0);
+    const SceneSurfaceWeights weights = sceneSurfaceResponse(normal, view, light,
+        reflectance, material.x, material.y, material.z != 0.0,
+        SceneSurfaceCorrelatedSmith);
     float3 result;
     for (uint channel = 0; channel < 3; ++channel) {
-        const float diffuse = sceneLitStoredTerm(diffuseWeight[channel], intensity,
+        const float diffuse = sceneLitStoredTerm(weights.diffuse[channel], intensity,
             lightColor[channel], falloff, source[channel], tint[channel], opacity);
-        const float specular = sceneLitStoredTerm(specularWeight[channel], intensity,
+        const float specular = sceneLitStoredTerm(weights.specular[channel], intensity,
             lightColor[channel], falloff, source.a, tint[channel], opacity);
         result[channel] = min(65504.0, diffuse + specular);
     }

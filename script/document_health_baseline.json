@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 585,
-      "bytes": 107035
+      "bytes": 107465
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -133,8 +133,8 @@
       "bytes": 19030
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
-      "lines": 479,
-      "bytes": 101733
+      "lines": 489,
+      "bytes": 105205
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 46,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 222,
-      "bytes": 57298
+      "bytes": 57296
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1032,39 +1032,30 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
-      "before": "b286074b03ad0715d4a93cdfe0febf41345e073c0e22e7482ea74576034d6667",
-      "after": "cbb723a0e3ee4a37692c38d38a9c79019d365e8da5822ad64a5e8fff61173280",
-      "owner": "Scene image distance Fog",
-      "reason": "原生透视图片片沿原合成链完成，过程移入现有历史记录；现役F7只留稳定接线与未定正交距离后继，队列撤销已修月亮重复待办。",
-      "decision": "docs/scene/history/static-model-light-input-semantics-2026-10-06.md#image-distance-fog"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "097c1f1e1b0c3502eb222b0f2ba0bc583ddcd5105e55b9eb9701f1e1e842e03d",
-      "after": "7b9ca2c2793c818d3102aadb7cf5f536c4733bfd60e685dff9dc4d53d47bfdf0",
-      "owner": "Scene spotlight angle",
-      "reason": "纠正共享锥角合同并撤销已修覆盖缺口，保留受光残差和动态验收；细节归入既有历史。",
-      "decision": "docs/scene/history/static-model-light-input-semantics-2026-10-06.md#spot-cone-angle"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "940fc6711722c18c4a3a723690add2cad924755163b62e7f8e9f2a31f5fdaa31",
-      "after": "e76ab4fb709698fa47d6df104f34900bfb60c7befaa5968e657338a0fb350b63",
-      "owner": "Scene spotlight angle",
-      "reason": "纠正共享锥角合同并撤销已修覆盖缺口，保留受光残差和动态验收；细节归入既有历史。",
-      "decision": "docs/scene/history/static-model-light-input-semantics-2026-10-06.md#spot-cone-angle"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "before": "0a923a96bfc082ec51a2f27fb3c7d8e2f472b09db9688069293b808a5185f69b",
       "after": "beac092148728ee66b589514a1433c26eec57b6aad01ce1c24bf12fd1ba2f983",
       "owner": "Scene spotlight angle",
       "reason": "纠正共享锥角合同并撤销已修覆盖缺口，保留受光残差和动态验收；细节归入既有历史。",
       "decision": "docs/scene/history/static-model-light-input-semantics-2026-10-06.md#spot-cone-angle"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "7b9ca2c2793c818d3102aadb7cf5f536c4733bfd60e685dff9dc4d53d47bfdf0",
+      "after": "1019f7a6068987d91933ed78a05162ba0813182b1dd310a0ccde112605d0b96e",
+      "owner": "Scene model static surface response",
+      "reason": "在既有D3保存模型静态MR有界决策；稳定prepare/profile/共享数学/output职责回归架构，运行细节归历史。未解析输入与2D策略边界明确，队列合并已完成事项。",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#generic4-模型静态表面响应2026-10-09有界后继"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+      "before": "cbb723a0e3ee4a37692c38d38a9c79019d365e8da5822ad64a5e8fff61173280",
+      "after": "231d2756199282d06ab26703818d04513cdb2bbf616e223f1c36da2c1f972057",
+      "owner": "Scene model static surface response",
+      "reason": "在既有D3保存模型静态MR有界决策；稳定prepare/profile/共享数学/output职责回归架构，运行细节归历史。未解析输入与2D策略边界明确，队列合并已完成事项。",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#generic4-模型静态表面响应2026-10-09有界后继"
     }
   ]
 }

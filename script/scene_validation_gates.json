@@ -2016,7 +2016,8 @@
         "test_check_design_gate",
         "test_commit_preflight",
         "test_repository_residue",
-        "test_debug_source_layout"
+        "test_debug_source_layout",
+        "test_scene_surface_response_gates"
       ]
     },
     {
@@ -2087,6 +2088,28 @@
         "test_scene_lit_image_layer",
         "test_scene_base_material_provider_binding",
         "test_scene_renderer_submission_stage"
+      ]
+    },
+    {
+      "id": "scene-shared-surface-response",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneSurfaceResponse.metalh"
+      ],
+      "modules": [
+        "test_scene_pbr_scalar",
+        "test_scene_authored_normal",
+        "test_scene_lit_image_layer",
+        "test_scene_static_model_emission"
+      ]
+    },
+    {
+      "id": "scene-static-model-material-value",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelMaterial.swift"
+      ],
+      "modules": [
+        "test_scene_static_model_pipeline",
+        "test_scene_model_material_scripts"
       ]
     },
     {

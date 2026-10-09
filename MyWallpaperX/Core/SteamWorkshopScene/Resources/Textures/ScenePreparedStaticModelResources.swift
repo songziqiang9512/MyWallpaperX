@@ -118,7 +118,9 @@ struct ScenePreparedStaticModelResources {
                 }
 #endif
                 guard pass.staticModelMaterialBindings?.state != .rejected,
-                      let modelMaterial = material(pass, hdrEnabled: descriptor.hdrEnabled),
+                      let modelMaterial = material(
+                          pass, hdrEnabled: descriptor.hdrEnabled, resourceView: resourceView
+                      ),
                       let texturePath = pass.textureSlots.first.flatMap({ $0 })
                         ?? pass.staticModelDefaultAlbedoAssetPath else {
                     continue
@@ -219,7 +221,8 @@ struct ScenePreparedStaticModelResources {
 
     private static func material(
         _ pass: SceneRenderDescriptor.MaterialPassDescriptor,
-        hdrEnabled: Bool
+        hdrEnabled: Bool,
+        resourceView: SceneResourceView
     ) -> SceneStaticModelMaterial? {
         let color: [Double]
         let opacity: Double
@@ -289,12 +292,43 @@ struct ScenePreparedStaticModelResources {
             usesHDRBrightness: hdrEnabled,
             viewTint: viewTint,
             channelBindings: pass.staticModelMaterialBindings,
+            surfaceProfile: surfaceProfile(pass, resourceView: resourceView),
             // Missing or unrecognized state retains the existing back-face
             // policy; only the authored no-cull state opens both mesh sides.
             cullMode: SceneMaterialRenderState.Cull(rawValue:
                 pass.cullMode?.trimmingCharacters(in: .whitespacesAndNewlines)
                     .localizedLowercase ?? ""
             ) == .noCull ? .none : .back
+        )
+    }
+
+    /// The resource namespace owns source precedence. An author override of
+    /// either generic4 root stage never gains the fixed model surface policy.
+    static func surfaceProfile(
+        _ pass: SceneRenderDescriptor.MaterialPassDescriptor,
+        resourceView: SceneResourceView
+    ) -> SceneStaticModelSurfaceProfile? {
+        guard pass.shaderPath?.localizedLowercase == "generic4",
+              pass.combos["LIGHTING"] != 0,
+              pass.userShaderValues["metallic"] == nil,
+              pass.userShaderValues["roughness"] == nil,
+              let metallic = SceneMaterialPropertyBindingCompiler.staticComponents(
+                  "metallic", instance: nil, pass: pass, count: 1, fallback: [0],
+                  requiresCompleteScalar: true
+              )?.first,
+              let roughness = SceneMaterialPropertyBindingCompiler.staticComponents(
+                  "roughness", instance: nil, pass: pass, count: 1, fallback: [0.7],
+                  requiresCompleteScalar: true
+              )?.first else { return nil }
+        for suffix in [".vert", ".frag"] {
+            if let stage = resourceView.resource(relativePath: "shaders/generic4" + suffix),
+               resourceView.source(containing: stage.url) != .stock {
+                return nil
+            }
+        }
+        return .init(
+            metallic: Float(min(1, max(0, metallic))),
+            roughness: Float(min(1, max(0, roughness)))
         )
     }
 
