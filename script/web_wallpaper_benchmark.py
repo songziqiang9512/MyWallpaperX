@@ -351,6 +351,21 @@ def classify_sample_resource_noise(event: DiagnosticEvent) -> bool:
     url = (event.url or "").lower()
     if event.type in {"resource.error", "fetch.error"}:
         return True
+    # 防护 token 的页面侧孪生：宿主按白名单拒绝/配额超限/授权超时/响应
+    # 超上限回包 {ok:false} 后，页面侧 fetch/XHR 代理路径 reject 落
+    # fetch.proxy.error / xhr.proxy.error（message 尾部携带回包 token）。
+    # 这四类是桥的明示契约行为（样本请求未登记/超频/DNS 黑洞/超 2MB），
+    # 不是桥回归——与宿主侧同名专项诊断一致按样本噪音封顶。
+    if event.type in {"fetch.proxy.error", "xhr.proxy.error"} and any(
+        token in message
+        for token in (
+            "destination_not_allowed",
+            "too_many_requests",
+            "authorization_timeout",
+            "response_too_large",
+        )
+    ):
+        return True
     if "reason=missing" in message or "denied_missing" in message:
         return True
     parsed_url = urlsplit(url)
@@ -541,6 +556,18 @@ def score_sample(
             "local-resource-deny",
             "loopback.resource.error",
             "fetch.error",
+            # 宿主网络桥自身的失败签名：整体回归（白名单解析坏、授权链路坏、
+            # 代理传输坏）此前只落 fetch.error（噪音类、罚分封顶 4）与本集合
+            # 外的 proxy 签名，resource 维度对桥坏死不设防。按 host mapping
+            # 计数——任意 host 的代理失败（经 classify_sample_resource_noise
+            # 排除可选远端与防护 token 后）触发未封顶罚分。
+            # network.proxy.denied / .overloaded / .authorization.timeout /
+            # .too-large 不进：白名单拒绝、配额保护、DNS 黑洞条件与 2MB
+            # 明示上限都是桥契约行为；它们的页面侧孪生（fetch/xhr.proxy.error
+            # 带回包 token）由噪音分类器按 token 封顶。
+            "fetch.proxy.error",
+            "network.proxy.error",
+            "xhr.proxy.error",
         ),
     )
     resource_score = 15.0
