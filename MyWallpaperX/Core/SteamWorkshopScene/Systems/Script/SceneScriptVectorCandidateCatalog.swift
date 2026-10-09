@@ -91,14 +91,18 @@ nonisolated extension SceneScriptVectorProgram {
                 let firstPasses = (passes[material] ?? []).filter { $0.passIndex == 0 }
                 guard firstPasses.count == 1, let pass = firstPasses.first,
                       pass.staticModelMaterialBindings?.state != .rejected else { continue }
-                for channel in [SceneStaticModelMaterialBindings.Channel.alpha, .color, .brightness] {
-                    let name: String
+                let channels: [SceneStaticModelMaterialBindings.Channel] = [.alpha, .color, .brightness]
+                var fields: [(name: String, type: SceneStaticModelMaterialBindings.ValueType)] = channels.compactMap { channel in
                     if let bindings = pass.staticModelMaterialBindings, bindings.state == .authored {
-                        guard let key = bindings.binding(for: channel)?.materialKey else { continue }
-                        name = key
-                    } else {
-                        name = channel.rawValue
+                        guard let binding = bindings.binding(for: channel), let key = binding.materialKey else { return nil }
+                        return (key, binding.valueType)
                     }
+                    return (channel.rawValue, channel == .color ? .vector3 : .scalar)
+                }
+                let claimedKeys = Set(fields.map(\.name))
+                fields += [("emissivecolor", .vector3), ("emissivebrightness", .scalar)]
+                    .filter { !claimedKeys.contains($0.0) }
+                for (name, valueType) in fields {
                     guard let value = pass.constantShaderValues[name],
                           let source = value.scriptSource,
                           value.userBinding == nil,
@@ -108,16 +112,15 @@ nonisolated extension SceneScriptVectorProgram {
                           value.bindingKeys.contains("value"),
                           !value.bindingKeys.contains("scriptproperties") || value.scriptProperties != nil,
                           let inputs = SceneScriptPropertyInputCodec.inputs(value.scriptProperties ?? [:]),
-                          inputs.values.allSatisfy({ $0.userPropertyKey == nil }),
                           let components = value.components,
-                          components.count == (channel == .color ? 3 : 1),
+                          components.count == (valueType == .vector3 ? 3 : 1),
                           components.allSatisfy({ $0.isFinite && Float($0).isFinite }) else { continue }
                     // The legacy numeric projection can drop malformed tokens.
                     // A new executable owner must account for the entire seed.
                     let tokens = value.rawValue.split(whereSeparator: { $0.isWhitespace || $0 == "," })
                     guard tokens.count == components.count,
                           zip(tokens, components).allSatisfy({ Double($0.0) == $0.1 }) else { continue }
-                    let seed: SceneDynamicValue = channel == .color
+                    let seed: SceneDynamicValue = valueType == .vector3
                         ? .vector3(components[0], components[1], components[2]) : .scalar(components[0])
                     candidates.append(.init(
                         authoredOrdinal: authoredOrdinalOffset + candidates.count,
@@ -125,11 +128,17 @@ nonisolated extension SceneScriptVectorProgram {
                         definition: .init(
                             target: .materialConstant(layerID: layer.id, passIndex: 0,
                                 name: name, materialPath: material),
-                            valueType: channel == .color ? .vector3 : .scalar,
+                            valueType: valueType == .vector3 ? .vector3 : .scalar,
                             authoredValue: seed
                         ),
                         properties: inputs,
-                        livePropertyInputTargets: [],
+                        livePropertyInputTargets: SceneScriptPropertyInputCodec.liveConsumerTargets(
+                            layerID: layer.id,
+                            targetPath: SceneScriptPropertyTargetPath.encoded([
+                                .key("materials"), .key(material), .key("passes"), .index(0),
+                                .key("constantshadervalues"), .key(name),
+                            ]), inputs: inputs
+                        ),
                         hasCurrentAnimation: false,
                         dynamicImageReferences: [],
                         requiresStatefulOwner: false,

@@ -37,8 +37,8 @@
       "bytes": 18301
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 583,
-      "bytes": 106287
+      "lines": 585,
+      "bytes": 106905
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -66,7 +66,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 314,
-      "bytes": 61250
+      "bytes": 61244
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 93,
-      "bytes": 26031
+      "bytes": 26169
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 222,
-      "bytes": 56713
+      "bytes": 56822
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1032,24 +1032,6 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "eb72158e8ea4a51c6626044fb280a4047598b6903ec92e24c5ad1bdc14660d6f",
-      "after": "4605fc9ba6ddf5ff43406986bed70aee1b9596896e920e35537ba92f4aebaf1b",
-      "owner": "Scene static-model material",
-      "reason": "记录有界模型发光合同、U12已修窗光和U29实际未闭边界，保留单一现役状态。",
-      "decision": "docs/scene/history/static-model-emission-2026-10-09.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "04234e0436fe560b241dc88e31391072cc98e4f8bc2c0d1b4afbb016dd657c41",
-      "after": "23415d01c0e3f61074da8310d892171108b6264061c5906a7789a3838a754ab5",
-      "owner": "Scene static-model material",
-      "reason": "记录有界模型发光合同、U12已修窗光和U29实际未闭边界，保留单一现役状态。",
-      "decision": "docs/scene/history/static-model-emission-2026-10-09.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "2cd13300a06f1c91c1d44f75e68a420b58563abbf31aa8766823a00a8992bdac",
       "after": "f3a78c7bc0c8e4a5a2ee673c11cb724e8f83f2644a1da14273986de416412139",
@@ -1059,21 +1041,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "4605fc9ba6ddf5ff43406986bed70aee1b9596896e920e35537ba92f4aebaf1b",
+      "after": "097c1f1e1b0c3502eb222b0f2ba0bc583ddcd5105e55b9eb9701f1e1e842e03d",
+      "owner": "Scene model material scripts",
+      "reason": "补齐现链的发光/nested属性稳定合同及完成指针；过程留原历史文档，不新增执行路线。",
+      "decision": "docs/scene/history/model-material-value-scripts-implementation-2026-10-06.md#2026-10-09发光脚本与嵌套属性"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "264b1bc48f103331f0053e0660c54b4d69bbaaaee6b614b356401b10c9739d49",
-      "after": "04f6cf612f4c8636f8ae02daefcf9a6dc94d50a09f4342bf7633a12b5bb78ca6",
-      "owner": "Scene shared shader frontend",
-      "reason": "更新既有类型转换边界和已闭编译断点，明确视觉仍未闭，不新增路线。",
-      "decision": "docs/scene/history/shared-shader-type-compatibility-2026-10-09.md#u12循环与类型转换"
+      "before": "24ac046016dd9b52641dcc0c2e31099e569909680f973886a0574a2a6fb458b3",
+      "after": "3e9046387889f87449f1c7ec82b80f145bab72ebf2d0eaf3a7eab1c0ac7dba93",
+      "owner": "Scene model material scripts",
+      "reason": "补齐现链的发光/nested属性稳定合同及完成指针；过程留原历史文档，不新增执行路线。",
+      "decision": "docs/scene/history/model-material-value-scripts-implementation-2026-10-06.md#2026-10-09发光脚本与嵌套属性"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "0d20cd15c3c423b0fa8c6f445c9476771ca579c7dd605e0e7b1344e0d8007ce0",
-      "after": "9536b1cd3a82d9d21386c8c6b9c24a188bb52e2a020b8a2d00352996f8192aaa",
-      "owner": "Scene shared shader frontend",
-      "reason": "更新既有类型转换边界和已闭编译断点，明确视觉仍未闭，不新增路线。",
-      "decision": "docs/scene/history/shared-shader-type-compatibility-2026-10-09.md#u12循环与类型转换"
+      "before": "0a0b94939afd1fc6e32df14bc0c81cc9761d5b5d706fb7f484c9c579b4b9250a",
+      "after": "7eec1aba348e42ce9a71800e8b58eb4fb2d64882687fb70bb2fc5f49e27b5eb8",
+      "owner": "Scene model material scripts",
+      "reason": "补齐现链的发光/nested属性稳定合同及完成指针；过程留原历史文档，不新增执行路线。",
+      "decision": "docs/scene/history/model-material-value-scripts-implementation-2026-10-06.md#2026-10-09发光脚本与嵌套属性"
     }
   ]
 }

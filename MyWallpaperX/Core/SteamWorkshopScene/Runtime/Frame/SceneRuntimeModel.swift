@@ -226,7 +226,10 @@ struct SceneRuntimeModelBuilder {
         let materialBindings = SceneMaterialPropertyBindingCompiler.compile(
             descriptor: renderDescriptor,
             materialInstancesByLayerID: sceneDocument.materialInstancesByLayerID,
-            provenBindings: propertyVectorProjection.materialBindings
+            provenBindings: propertyVectorProjection.materialBindings,
+            modelScriptInputs: propertyVectorProjection.uniqueCandidates.map {
+                (target: $0.definition.target, inputs: $0.properties)
+            }
         )
         let compilation = ScenePropertyBindingCompiler().compile(
             report: .init(

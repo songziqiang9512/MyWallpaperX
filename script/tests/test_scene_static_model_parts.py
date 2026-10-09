@@ -110,6 +110,30 @@ def default_albedo_fixture():
     return entries, expected
 
 
+def emission_mask_fixture():
+    entries, expected = native_fixture(8)
+    for i in range(8):
+        path = f'materials/part{i:03}.json'
+        material = json.loads(entries[path]); p = material['passes'][0]
+        p['textures'] = [f'materials/part{i:03}.png', None, f'materials/mask{i:03}.png']
+        entries[f'materials/mask{i:03}.png'] = png([255,255,255,255])
+        entries[f'materials/mask{i:03}.rgba'] = bytes([255,255,255,255])
+        gain = {'value': 0, 'script': 'export function update(value) { return value; }'}
+        if i == 1: gain = {'value': 0, 'user': 'gain'}
+        elif i == 2: gain = 0
+        elif i == 3: p['textures'][2] = None
+        elif i == 4: p['textures'][2] = 'materials/missing-mask.png'
+        elif i == 5:
+            # File resolves, but the deterministic transport rejects its payload.
+            del entries[f'materials/mask{i:03}.rgba']
+        elif i == 6: p['rejectedMaterial'] = True
+        elif i == 7: gain = 1
+        p['constantshadervalues']['emissivebrightness'] = gain
+        p['constantshadervalues']['emissivecolor'] = [.25, .25, .25]
+        entries[path] = json.dumps(material).encode()
+    return entries, expected
+
+
 def freeze_inputs(label, variants):
     parent=os.environ.get('MWX_MODEL_PARTS_EVIDENCE')
     if parent: Path(parent).mkdir(parents=True,exist_ok=True)
@@ -174,7 +198,7 @@ class SceneModelPartsDependencyTests(unittest.TestCase):
 # partial allocation policy remain inside the production resource owner.
 RESOURCE_TRANSPORT=r'''
 struct SceneDocument {
- struct ShaderValue {let components:[Double];var userBinding:Int?=nil;var scriptSource:String?=nil}
+ struct ShaderValue {let components:[Double];var userBinding:String?=nil;var scriptSource:String?=nil}
 }
 struct SceneResourceView {
  struct Resource {let url:URL}
@@ -191,6 +215,7 @@ struct SceneTexturePathResolver {
 final class SceneTextureLoader {
  enum Result {case loaded(SceneTextureCandidate);case missing}
  var candidates:[String:SceneTextureCandidate]=[:]
+ var requests:[[String:String]]=[]
  init(root:URL,device:MTLDevice)throws {
   let paths=try FileManager.default.contentsOfDirectory(at:root.appendingPathComponent("materials"),includingPropertiesForKeys:nil)
   for path in paths where path.pathExtension=="rgba" {
@@ -206,8 +231,12 @@ final class SceneTextureLoader {
   }
  }
  func loadCandidate(from url:URL,purpose:SceneTextureLoadPurpose,device:MTLDevice)->Result {
-  precondition(purpose == .straightAlbedo)
-  return candidates[url.resolvingSymlinksInPath().path].map{.loaded($0)} ?? .missing
+  precondition(purpose == .straightAlbedo || purpose == .mask)
+  requests.append(["path":url.lastPathComponent,"purpose":String(describing:purpose)])
+  guard let candidate=candidates[url.resolvingSymlinksInPath().path] else {return .missing}
+  return .loaded(.init(texture:candidate.texture,identity:candidate.identity,generation:candidate.generation,
+      purpose:purpose,content:candidate.content,physicalSize:candidate.physicalSize,mappedSize:candidate.mappedSize,
+      uvTransform:candidate.uvTransform,sampling:candidate.sampling))
  }
 }
 extension SceneRenderDescriptor {
@@ -247,7 +276,7 @@ NATIVE_MAIN=r'''
   var rows:[[String:Any]]=[]
   for (name,fixture) in [("parts5","parts5"),("parts8","parts8"),("parts64","parts64"),
                           ("bad8","bad8"),("quota","parts8"),("recovery","parts8"),("overlap","overlap"),
-                          ("defaults","defaults") ] {
+                          ("defaults","defaults"),("emission","emission") ] {
    let before=SceneResourceBudget.shared.snapshot.residentBytes
    var row=try autoreleasepool {try run(name,root.appendingPathComponent(fixture),device,queue)}
    row["budgetBefore"]=before;row["budgetAfter"]=SceneResourceBudget.shared.snapshot.residentBytes
@@ -260,8 +289,10 @@ NATIVE_MAIN=r'''
   let passes=try files.map {url -> SceneRenderDescriptor.MaterialPassDescriptor in
    let object=try JSONSerialization.jsonObject(with:Data(contentsOf:url)) as! [String:Any]
    let pass=(object["passes"] as! [[String:Any]])[0]
-   let constants=(pass["constantshadervalues"] as? [String:Any] ?? [:]).mapValues {
-       SceneDocument.ShaderValue(components:($0 as? [Double]) ?? [($0 as! NSNumber).doubleValue])
+   let constants=(pass["constantshadervalues"] as? [String:Any] ?? [:]).mapValues { raw in
+       let wrapper=raw as? [String:Any];let value=wrapper?["value"] ?? raw
+       return SceneDocument.ShaderValue(components:(value as? [Double]) ?? [(value as! NSNumber).doubleValue],
+           userBinding:wrapper?["user"] as? String,scriptSource:wrapper?["script"] as? String)
    }
    var result = SceneRenderDescriptor.MaterialPassDescriptor(materialPath:"materials/"+url.lastPathComponent,
        textureSlots:(pass["textures"] as? [Any] ?? []).map{$0 as? String},
@@ -319,6 +350,9 @@ NATIVE_MAIN=r'''
   let row:[String:Any]=["mode":mode,"parts":parts.map(\.materialPath),"identities":parts.map(\.geometryIdentity),
       "materials":parts.map{[$0.material.color.x,$0.material.color.y,$0.material.color.z,$0.material.opacity]},
       "textureIDs":parts.map{String(describing:$0.albedo!.identity)},
+      "maskIDs":parts.map{$0.emissiveMask.map{String(describing:$0.identity)} ?? ""},
+      "maskPurposes":parts.map{$0.emissiveMask.map{String(describing:$0.purpose)} ?? ""},
+      "emissionSeeds":parts.map{$0.material.emissiveBrightness},"textureRequests":loader.requests,
       "meshIndexCounts":parts.map{$0.mesh.indexCount},"peerParts":resources[1]?.count ?? 0,"rejections":rejected,
       "frames":frames,"leaseCounts":leaseCounts,"completed":true,"encoded":renderer.dependencyRuntime.encoded[2] ?? false]
   return row
@@ -332,7 +366,7 @@ class SceneModelPartsNativeTests(unittest.TestCase):
     def setUpClass(cls):
         cls.root=freeze_inputs('native',{**{f'parts{n}':native_fixture(n) for n in [5,8,64]},
             'bad8':native_fixture(8,bad=True),'overlap':native_fixture(2,overlap=True),
-            'defaults':default_albedo_fixture()})
+            'defaults':default_albedo_fixture(),'emission':emission_mask_fixture()})
         cls.report=native.run_swift(NATIVE_SOURCES,resource_support()+NATIVE_MAIN,label='parts-native',
             metal_sources=[MODEL_METAL],input_value={'root':str(cls.root)})
         cls.rows={r['mode']:r for r in cls.report['rows']}
@@ -384,6 +418,24 @@ class SceneModelPartsNativeTests(unittest.TestCase):
             for a, b in zip(actual, wanted): self.assertLessEqual(abs(a-b), 1)
         self.assertEqual(row['frames'][0], row['frames'][1])
         self.assertEqual(row['textureIDs'][0], row['textureIDs'][3])
+        self.assertEqual(row['budgetBefore'], row['budgetAfter'])
+
+
+    def test_zero_script_seed_reserves_typed_mask_with_local_optional_failures(self):
+        row = self.rows['emission']
+        self.assertEqual(row['parts'], [f'materials/part{i:03}.json' for i in [0,1,2,3,4,5,7]])
+        self.assertEqual([bool(identity) for identity in row['maskIDs']], [True,True,False,False,False,False,True])
+        self.assertEqual(row['maskPurposes'], ['mask','mask','','','','','mask'])
+        self.assertEqual(row['emissionSeeds'], [0,0,0,0,0,0,1])
+        mask_requests = [request['path'] for request in row['textureRequests'] if request['purpose'] == 'mask']
+        self.assertEqual(sorted(mask_requests), ['mask000.png','mask001.png','mask005.png','mask007.png'])
+        # Zero-seed scripts reserve resources without executing or creating a VM consumer.
+        expected = emission_mask_fixture()[1]
+        for i in range(6): self.assertEqual(row['frames'][0][i], expected[i]['rgba'])
+        self.assertEqual(row['frames'][0][6], [0,0,0,255])
+        self.assertEqual(row['peerParts'], 1)
+        self.assertEqual(row['frames'][0][64], [255,255,255,255])
+        self.assertEqual(row['frames'][0], row['frames'][1])
         self.assertEqual(row['budgetBefore'], row['budgetAfter'])
 
 

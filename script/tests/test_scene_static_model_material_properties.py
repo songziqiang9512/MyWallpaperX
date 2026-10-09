@@ -26,6 +26,7 @@ SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgram.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgramValidator.swift",
+    SCENE_ROOT / "Systems/Properties/ScenePropertyLiveUpdateState.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneMaterialPropertyBindingCompiler.swift",
 ]
 
@@ -275,6 +276,115 @@ enum Harness {
                 layerID: layerID, passIndex: 0, name: "color", materialPath: "materials/model.json"
             )))
         }
+        nestedMaterialInputs()
+    }
+
+    static func nestedMaterialInputs() {
+        let brightnessInputs = SceneScriptPropertyInputCodec.inputs([
+            "minvalue": .object(["user": .string("minimum"), "value": .number(0)]),
+            "smooth": .object(["user": .string("smooth"), "value": .number(0)]),
+            "literal": .number(2),
+        ])!
+        let colorInputs = SceneScriptPropertyInputCodec.inputs([
+            "green": .object(["user": .string("green"), "value": .number(0.2)]),
+        ])!
+        // Reuse one material asset while preserving each layer and field's VM identity.
+        let descriptor = SceneRenderDescriptor(
+            layers: [.init(id: 7, staticModelPath: "models/a.mdl"),
+                     .init(id: 8, staticModelPath: "models/a.mdl"),
+                     .init(id: 9, staticModelPath: nil)],
+            modelMaterialLinks: [.init(modelPath: "models/a.mdl", materialPath: "materials/model.json")],
+            materialPasses: [.init(materialPath: "materials/model.json", passIndex: 0,
+                                  constantShaderValues: [:])]
+        )
+        var entries: [(target: SceneDynamicTarget, inputs: [String: SceneScriptPropertyInput])] = []
+        var expectedTargets: Set<SceneDynamicTarget> = []
+        for layerID in [7, 8] {
+            for (name, inputs) in [("emissivebrightness", brightnessInputs), ("emissivecolor", colorInputs)] {
+                entries.append((.materialConstant(layerID: layerID, passIndex: 0,
+                    name: name, materialPath: "materials/model.json"), inputs))
+                let path: [SceneUserPropertyPathComponent] = [
+                    .key("materials"), .key("materials/model.json"), .key("passes"), .index(0),
+                    .key("constantshadervalues"), .key(name),
+                ]
+                expectedTargets.formUnion(SceneScriptPropertyInputCodec.liveConsumerTargets(
+                    layerID: layerID, targetPath: SceneScriptPropertyTargetPath.encoded(path), inputs: inputs
+                ))
+            }
+        }
+        let bindings = SceneMaterialPropertyBindingCompiler.compile(
+            descriptor: descriptor, materialInstancesByLayerID: [:], modelScriptInputs: entries
+        )
+        precondition(bindings.count == 6)
+        let compilation = ScenePropertyBindingCompiler().compile(
+            report: .init(bindings: bindings, diagnostics: []),
+            catalog: .init(definitions: [
+                property("minimum", .slider, .number(1), 0, 1),
+                property("smooth", .slider, .number(0), 0, 28),
+                property("green", .slider, .number(0.2), 0, 1),
+            ])
+        )
+        precondition(compilation.diagnostics.isEmpty)
+        let targets = Set(compilation.program.instructions.map(\.target))
+        precondition(targets == expectedTargets && targets.count == 6)
+        precondition(compilation.program.rebuildRequiredPropertyKeys.isEmpty)
+        // Inputs remain script-instance properties; only the VM produces material constants.
+        precondition(targets.allSatisfy { if case .scriptInstanceProperty = $0 { return true }; return false })
+        var state = ScenePropertyLiveUpdateState(
+            program: compilation.program,
+            effectiveValues: ["minimum": .number(1), "smooth": .number(0), "green": .number(0.2)],
+            activeConsumerTargets: targets
+        )
+        precondition(state.apply(.number(0), forPropertyKey: "minimum"))
+        precondition(state.apply(replacements: ["smooth": .number(4), "green": .number(0.8)],
+                                 changedPropertyKeys: ["smooth", "green"]))
+        precondition(state.revision == 2)
+        for instruction in compilation.program.instructions {
+            let expected: Double = instruction.propertyKey == "minimum" ? 0
+                : instruction.propertyKey == "smooth" ? 4 : 0.8
+            precondition(state.userValues[instruction.target] == .scalar(expected))
+        }
+        let json = SceneScriptPropertyInputCodec.scriptPropertiesJSON(
+            brightnessInputs, effectiveValues: state.effectiveValues
+        )!
+        let object = try! JSONSerialization.jsonObject(with: Data(json.utf8)) as! [String: Double]
+        precondition(object == ["minvalue": 0, "smooth": 4, "literal": 2])
+        let before = state
+        for invalid in [SceneUserPropertyValue.string("bad"), .number(.nan), .number(2)] {
+            precondition(!state.apply(replacements: ["minimum": invalid, "smooth": .number(5)],
+                                      changedPropertyKeys: ["minimum", "smooth"]))
+            unchanged(state, before)
+        }
+        let unavailable = compilation.program.instructions.first { $0.propertyKey == "smooth" }!.target
+        precondition(!state.apply(.number(5), forPropertyKey: "smooth", unavailableConsumerTargets: [unavailable]))
+        unchanged(state, before)
+        var missingConsumer = ScenePropertyLiveUpdateState(
+            program: compilation.program, effectiveValues: state.effectiveValues,
+            activeConsumerTargets: targets.subtracting([unavailable])
+        )
+        let missingBefore = missingConsumer
+        precondition(!missingConsumer.apply(.number(5), forPropertyKey: "smooth"))
+        unchanged(missingConsumer, missingBefore)
+        precondition(SceneMaterialPropertyBindingCompiler.compile(
+            descriptor: descriptor, materialInstancesByLayerID: [:], modelScriptInputs: [
+                (.layer(layerID: 7, field: .color), brightnessInputs),
+                (.materialConstant(layerID: 9, passIndex: 0, name: "emissivebrightness",
+                    materialPath: "materials/model.json"), brightnessInputs),
+                (.materialConstant(layerID: 404, passIndex: 0, name: "emissivebrightness",
+                    materialPath: "materials/model.json"), brightnessInputs),
+            ]
+        ).isEmpty)
+        // Candidate admission still owns malformed nested wrappers.
+        precondition(SceneScriptPropertyInputCodec.inputs([
+            "minvalue": .object(["user": .string("minimum"), "value": .number(0), "extra": .bool(true)])
+        ]) == nil)
+        print("nested-material-live-transaction: OK")
+    }
+
+    static func unchanged(_ state: ScenePropertyLiveUpdateState, _ before: ScenePropertyLiveUpdateState) {
+        precondition(state.effectiveValues == before.effectiveValues)
+        precondition(state.userValues == before.userValues)
+        precondition(state.revision == before.revision)
     }
 
     static func wrapper(
@@ -340,6 +450,7 @@ class SceneStaticModelMaterialPropertyTests(unittest.TestCase):
                 [str(executable)], capture_output=True, text=True, env=environment
             ) if compiled.returncode == 0 else compiled
         self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("nested-material-live-transaction: OK", completed.stdout)
 
 
 if __name__ == "__main__":

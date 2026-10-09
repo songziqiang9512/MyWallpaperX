@@ -353,9 +353,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0c2b7d4d443aec236f3f76478f23c9a2c822f7eca3460145ec9eb3260a1bbfc0",
+        "sourceSHA256": "e08be021de33c362011b7c7e30939c013c87f2f71932b9c075946dd626660d10",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对本批模型发光合同、原包证据和剩余队列的导航。",
+        "scope": "核对模型发光脚本/nested属性合同、运行证据与U12剩余月亮队列的导航。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },
@@ -522,9 +522,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9e127809d2ba1fbefd86bf99ba02cb31fb6544411abd3b97c478aeb68e5aa1fb",
+        "sourceSHA256": "69a3c60ea4a60abc270eb62d1be5f82b5aabf7207e676f000843c3007e2e929a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对模型半球响应的有界对照、原样本改善及月亮/整体颜色剩余边界。",
+        "scope": "核对模型发光脚本/nested属性合同、运行证据与U12剩余月亮队列的导航。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },

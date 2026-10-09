@@ -32,7 +32,8 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
     static func compile(
         descriptor: SceneRenderDescriptor,
         materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance],
-        provenBindings: [SceneBaseMaterialColorModulationCompiler.Binding] = []
+        provenBindings: [SceneBaseMaterialColorModulationCompiler.Binding] = [],
+        modelScriptInputs: [(target: SceneDynamicTarget, inputs: [String: SceneScriptPropertyInput])] = []
     ) -> [SceneUserPropertyBinding] {
         let linksByModel = Dictionary(
             grouping: descriptor.modelMaterialLinks,
@@ -100,7 +101,18 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
             else { return bindings }
             return bindings + [value]
         }
-        return builtinBindings + provenPropertyBindings(
+        let modelLayerIDs = Set(descriptor.layers.compactMap {
+            $0.staticModelPath == nil ? nil : $0.id
+        })
+        let nestedModelBindings = modelScriptInputs.flatMap { entry -> [SceneUserPropertyBinding] in
+            guard case let .materialConstant(layerID, passIndex, name, materialPath) = entry.target,
+                  modelLayerIDs.contains(layerID) else { return [] }
+            return scriptPropertyBindings(layerID: layerID, path: [
+                .key("materials"), .key(materialPath), .key("passes"), .index(passIndex),
+                .key("constantshadervalues"), .key(name),
+            ], inputs: entry.inputs)
+        }
+        return builtinBindings + nestedModelBindings + provenPropertyBindings(
             provenBindings, descriptor: descriptor,
             materialInstancesByLayerID: materialInstancesByLayerID
         )
@@ -129,17 +141,28 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
             }
             if fact.scriptSource != nil,
                let inputs = SceneScriptPropertyInputCodec.inputs(fact.scriptProperties) {
-                for (name, input) in inputs.sorted(by: { $0.key < $1.key }) {
-                    guard let key = input.userPropertyKey,
-                          let fallback = SceneUserPropertyValue.parse(input.fallback.jsonObject) else { continue }
-                    let path = fact.colorBindingPath + [.key("scriptproperties"), .key(name)]
-                    bindings.append(.init(reference: .init(key: key, condition: input.condition),
-                        fallbackValue: fallback, path: .init(components: path),
-                        target: .scriptProperty(layerID: fact.sourceLayerID,
-                            path: SceneScriptPropertyTargetPath.encoded(path))))
-                }
+                bindings += scriptPropertyBindings(
+                    layerID: fact.sourceLayerID, path: fact.colorBindingPath, inputs: inputs
+                )
             }
             return bindings
+        }
+    }
+
+    /// Both image and model material scripts feed the existing property transaction.
+    /// These are preparation facts; the VM remains the only value producer.
+    private static func scriptPropertyBindings(
+        layerID: Int, path: [SceneUserPropertyPathComponent],
+        inputs: [String: SceneScriptPropertyInput]
+    ) -> [SceneUserPropertyBinding] {
+        inputs.sorted(by: { $0.key < $1.key }).compactMap { name, input in
+            guard let key = input.userPropertyKey,
+                  let fallback = SceneUserPropertyValue.parse(input.fallback.jsonObject) else { return nil }
+            let path = path + [.key("scriptproperties"), .key(name)]
+            return .init(reference: .init(key: key, condition: input.condition),
+                fallbackValue: fallback, path: .init(components: path),
+                target: .scriptProperty(layerID: layerID,
+                    path: SceneScriptPropertyTargetPath.encoded(path)))
         }
     }
 

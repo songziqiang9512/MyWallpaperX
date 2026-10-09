@@ -137,10 +137,10 @@ struct ScenePreparedStaticModelResources {
                 } else {
                     albedo = nil
                 }
-                let hasDynamicEmissiveBrightness = shaderValue(
-                    named: "emissivebrightness",
-                    in: pass
-                )?.userBinding != nil
+                let emission = shaderValue(named: "emissivebrightness", in: pass)
+                // Dynamic declarations need the mask even with a zero seed.
+                // Resource reservation does not grant a live script consumer.
+                let hasDynamicEmissiveBrightness = emission?.userBinding != nil || emission?.scriptSource != nil
                 let emissiveMask = modelMaterial.emissiveBrightness > 0
                     || hasDynamicEmissiveBrightness
                     ? optionalTexture(
