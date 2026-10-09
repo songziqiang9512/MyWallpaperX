@@ -3,8 +3,15 @@ import Foundation
 extension SteamWorkshopService {
     func webPropertyDefinitions(for record: SteamWorkshopDownloadRecord) -> [SteamWorkshopWebPropertyDefinition] {
         guard let sourceRecord = webPropertyDefinitionSourceRecord(for: record),
-              let root = loadWebProjectRoot(for: sourceRecord),
-              let general = root["general"] as? [String: Any],
+              let root = Self.loadWebProjectRootStatic(for: sourceRecord) else {
+            return []
+        }
+        return Self.webPropertyDefinitions(projectRoot: root)
+    }
+
+    /// 解析核：project root 由调用方加载后传入，可在任意线程执行。
+    nonisolated static func webPropertyDefinitions(projectRoot root: [String: Any]) -> [SteamWorkshopWebPropertyDefinition] {
+        guard let general = root["general"] as? [String: Any],
               let properties = general["properties"] as? [String: Any] else {
             return []
         }
@@ -81,9 +88,9 @@ extension SteamWorkshopService {
         }
     }
 
-    func webShellResourcePathLikePresetValues(for record: SteamWorkshopDownloadRecord) -> [String: SteamWorkshopWebPropertyValue] {
+    nonisolated func webShellResourcePathLikePresetValues(for record: SteamWorkshopDownloadRecord) -> [String: SteamWorkshopWebPropertyValue] {
         guard record.isDependencyBackedWeb else { return [:] }
-        let presetValues = webPresetValues(for: record)
+        let presetValues = Self.webPresetValues(for: record)
         var values: [String: SteamWorkshopWebPropertyValue] = [:]
         for (key, value) in presetValues {
             guard let raw = value.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else { continue }
@@ -96,7 +103,7 @@ extension SteamWorkshopService {
         return values
     }
 
-    func webShellResourcePathLikeKeys(for record: SteamWorkshopDownloadRecord) -> Set<String> {
+    nonisolated func webShellResourcePathLikeKeys(for record: SteamWorkshopDownloadRecord) -> Set<String> {
         Set(
             webShellResourcePathLikePresetValues(for: record)
                 .keys
@@ -104,7 +111,7 @@ extension SteamWorkshopService {
         )
     }
 
-    static func trimmedNonEmptyString(_ rawValue: String?) -> String? {
+    nonisolated static func trimmedNonEmptyString(_ rawValue: String?) -> String? {
         guard let trimmed = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines),
               !trimmed.isEmpty else {
             return nil

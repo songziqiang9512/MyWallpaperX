@@ -1,7 +1,7 @@
 import Foundation
 
 extension SteamWorkshopService {
-    func loadDecodedWebProject(for record: SteamWorkshopDownloadRecord) -> SteamWorkshopProject? {
+    nonisolated func loadDecodedWebProject(for record: SteamWorkshopDownloadRecord) -> SteamWorkshopProject? {
         Self.loadWorkshopProject(from: record.projectFileURL)
     }
 
@@ -46,7 +46,7 @@ extension SteamWorkshopService {
         "bgimage"
     ]
 
-    static func fallbackResourceSemantic(forKey key: String, rawPath: String) -> WebFallbackResourceSemantic? {
+    nonisolated static func fallbackResourceSemantic(forKey key: String, rawPath: String) -> WebFallbackResourceSemantic? {
         let normalizedKey = key.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let normalizedPath = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "\\", with: "/")
@@ -121,7 +121,11 @@ extension SteamWorkshopService {
         case external(String)
     }
 
-    func loadWebProjectRoot(for record: SteamWorkshopDownloadRecord) -> [String: Any]? {
+    nonisolated func loadWebProjectRoot(for record: SteamWorkshopDownloadRecord) -> [String: Any]? {
+        Self.loadWebProjectRootStatic(for: record)
+    }
+
+    nonisolated static func loadWebProjectRootStatic(for record: SteamWorkshopDownloadRecord) -> [String: Any]? {
         guard let projectFileURL = record.projectFileURL,
               let data = try? Data(contentsOf: projectFileURL),
               let object = try? JSONSerialization.jsonObject(with: data),
@@ -131,7 +135,7 @@ extension SteamWorkshopService {
         return root
     }
 
-    func declaredWebEntryRelativePath(for record: SteamWorkshopDownloadRecord) -> String? {
+    nonisolated func declaredWebEntryRelativePath(for record: SteamWorkshopDownloadRecord) -> String? {
         let declaredEntry = loadDecodedWebProject(for: record)?.file?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard let declaredEntry,
@@ -157,9 +161,19 @@ extension SteamWorkshopService {
     }
 
     func webSampleStructure(for record: SteamWorkshopDownloadRecord) -> SteamWorkshopWebSampleStructure {
+        Self.webSampleStructure(
+            record: record,
+            sourceRecord: webPropertyDefinitionSourceRecord(for: record) ?? record
+        )
+    }
+
+    /// 解析核：sourceRecord 由主线程快照后传入，可在任意线程执行。
+    nonisolated static func webSampleStructure(
+        record: SteamWorkshopDownloadRecord,
+        sourceRecord: SteamWorkshopDownloadRecord
+    ) -> SteamWorkshopWebSampleStructure {
         if record.isDependencyBackedWeb { return .dependencyBackedShell }
-        let sourceRecord = webPropertyDefinitionSourceRecord(for: record) ?? record
-        let root = loadWebProjectRoot(for: sourceRecord)
+        let root = Self.loadWebProjectRootStatic(for: sourceRecord)
         let propertyCount = ((root?["general"] as? [String: Any])?["properties"] as? [String: Any])?.count ?? 0
         let fileNames = Set((try? FileManager.default.contentsOfDirectory(atPath: sourceRecord.folderURL.path)) ?? [])
         if fileNames.contains("spine-player.js") || fileNames.contains("spine-player4.1.js") { return .spineWebCharacter }
@@ -171,8 +185,12 @@ extension SteamWorkshopService {
     }
 
     func webPresetValues(for record: SteamWorkshopDownloadRecord) -> [String: SteamWorkshopWebPropertyValue] {
+        Self.webPresetValues(for: record)
+    }
+
+    nonisolated static func webPresetValues(for record: SteamWorkshopDownloadRecord) -> [String: SteamWorkshopWebPropertyValue] {
         guard record.contentType == .web,
-              let root = loadWebProjectRoot(for: record),
+              let root = Self.loadWebProjectRootStatic(for: record),
               let preset = root["preset"] as? [String: Any] else {
             return [:]
         }

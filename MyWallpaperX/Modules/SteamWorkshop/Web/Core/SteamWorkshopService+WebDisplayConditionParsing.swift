@@ -235,7 +235,7 @@ extension SteamWorkshopService {
         }
     }
 
-    static func tokenizeWebDisplayCondition(_ input: String) -> [WebDisplayConditionToken]? {
+    nonisolated static func tokenizeWebDisplayCondition(_ input: String) -> [WebDisplayConditionToken]? {
         var tokens: [WebDisplayConditionToken] = []
         var index = input.startIndex
 
@@ -361,7 +361,7 @@ extension SteamWorkshopService {
         return tokens
     }
 
-    static func containsOnlySupportedConditionOperators(_ condition: String) -> Bool {
+    nonisolated static func containsOnlySupportedConditionOperators(_ condition: String) -> Bool {
         let sanitized = condition
             .replacingOccurrences(of: "!==", with: "")
             .replacingOccurrences(of: "===", with: "")

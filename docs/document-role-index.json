@@ -38,6 +38,7 @@
       "docs/scene/roadmap/scene-compatibility-roadmap.md",
       "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "docs/scene/roadmap/scene-steamkit-migration-plan.md",
+      "docs/web/cold-descriptor-parse-offload-design.md",
       "docs/web/cross-origin-reply-delivery-design.md",
       "docs/web/mediaremote-nowplaying-design.md",
       "docs/web/steam-downloads-failed-items-visibility-design.md",
@@ -1970,6 +1971,12 @@
       "role": "navigation",
       "entrypoint": "docs/README.md",
       "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。"
+    },
+    {
+      "path": "docs/web/cold-descriptor-parse-offload-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/web/README.md",
+      "retirementCondition": "启动冷路径的解析核函数全部 nonisolated 单实现、后台段执行并被门禁断言锁定后，若后续引入替代编排则整体归档。"
     },
     {
       "path": "docs/web/cross-origin-reply-delivery-design.md",

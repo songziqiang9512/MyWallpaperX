@@ -1,7 +1,7 @@
 import Foundation
 
 extension SteamWorkshopService {
-    func resolvedWebHostCapabilitySnapshot() -> ResolvedWebHostCapabilitySnapshot {
+    nonisolated func resolvedWebHostCapabilitySnapshot() -> ResolvedWebHostCapabilitySnapshot {
         ResolvedWebHostCapabilitySnapshot(
             userPropertiesLevel: .basic,
             generalProperties: .init(
@@ -30,7 +30,22 @@ extension SteamWorkshopService {
         entryURL: URL,
         rootURL: URL
     ) -> ResolvedWebStaticContentSummary {
-        let propertyDefinitions = webPropertyDefinitions(for: record)
+        resolvedWebStaticContentSummary(
+            for: record,
+            entryURL: entryURL,
+            rootURL: rootURL,
+            propertyDefinitions: webPropertyDefinitions(for: record)
+        )
+    }
+
+    /// 解析核：definitions 由调用方解析后传入（后台段不回读记录存储），
+    /// BFS 文件扫描可在任意线程执行。
+    nonisolated func resolvedWebStaticContentSummary(
+        for record: SteamWorkshopDownloadRecord,
+        entryURL: URL,
+        rootURL: URL,
+        propertyDefinitions: [SteamWorkshopWebPropertyDefinition]
+    ) -> ResolvedWebStaticContentSummary {
         var scannedFiles = Set<URL>()
         var pendingFiles = [entryURL]
         var externalDependencyURLs = Set<String>()

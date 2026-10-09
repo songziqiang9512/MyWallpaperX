@@ -67,12 +67,12 @@ extension SteamWorkshopService {
         return values
     }
 
-    func webPropertyBaselineValues(
+    nonisolated func webPropertyBaselineValues(
         for record: SteamWorkshopDownloadRecord,
         definitions: [SteamWorkshopWebPropertyDefinition]
     ) -> [String: SteamWorkshopWebPropertyValue] {
         var values = Dictionary(uniqueKeysWithValues: definitions.map { ($0.key, $0.defaultValue) })
-        for (key, value) in webPresetValues(for: record) {
+        for (key, value) in Self.webPresetValues(for: record) {
             values[key] = value
         }
         return values

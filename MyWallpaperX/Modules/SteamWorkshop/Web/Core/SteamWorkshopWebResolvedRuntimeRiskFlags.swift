@@ -5,8 +5,21 @@ extension SteamWorkshopService {
         for record: SteamWorkshopDownloadRecord,
         sampleStructure: SteamWorkshopWebSampleStructure? = nil
     ) -> [ResolvedWebRuntimeRiskFlag] {
+        Self.resolvedWebStructuralRiskFlags(
+            record: record,
+            sampleStructure: sampleStructure ?? webSampleStructure(for: record),
+            propertyDefinitions: webPropertyDefinitions(for: record)
+        )
+    }
+
+    /// 解析核：sampleStructure 与 definitions 由调用方解析后传入。
+    nonisolated static func resolvedWebStructuralRiskFlags(
+        record: SteamWorkshopDownloadRecord,
+        sampleStructure: SteamWorkshopWebSampleStructure,
+        propertyDefinitions: [SteamWorkshopWebPropertyDefinition]
+    ) -> [ResolvedWebRuntimeRiskFlag] {
         var flags = Set<ResolvedWebRuntimeRiskFlag>()
-        let resolvedSampleStructure = sampleStructure ?? webSampleStructure(for: record)
+        let resolvedSampleStructure = sampleStructure
         if resolvedSampleStructure == .shaderOrCanvasWeb
             || resolvedSampleStructure == .spineWebCharacter
             || resolvedSampleStructure == .megaConfigDashboardWeb
@@ -14,7 +27,6 @@ extension SteamWorkshopService {
             flags.insert(.highLoadStructure)
         }
 
-        let propertyDefinitions = webPropertyDefinitions(for: record)
         if propertyDefinitions.contains(where: { ($0.displayCondition?.isEmpty == false) && SteamWorkshopService.webDisplayConditionRequiresFallback($0.displayCondition) }) {
             flags.insert(.unsupportedDisplayConditionFallback)
         }
@@ -24,19 +36,19 @@ extension SteamWorkshopService {
         if propertyDefinitions.contains(where: { $0.kind == .slider && $0.allowsFractionalValues && $0.fractionalPrecision == nil }) {
             flags.insert(.implicitFractionalSliderPrecision)
         }
-        if webHasKnownSafariIncompatibility(for: record) {
+        if Self.webHasKnownSafariIncompatibility(for: record) {
             flags.insert(.knownSafariBaselineIncompatibility)
         }
         return Array(flags)
     }
 
-    func webHasKnownSafariIncompatibility(for _: SteamWorkshopDownloadRecord) -> Bool {
+    nonisolated static func webHasKnownSafariIncompatibility(for _: SteamWorkshopDownloadRecord) -> Bool {
         false
     }
 
     /// 运行风险旗标只由结构化信号装配。`staticContentSummary` 是静态扫描的唯一结构化结果，
     /// 校验文案只用于展示，不作为旗标来源：文案措辞变化不得改变运行档位。
-    func resolvedWebStaticContentRiskFlags(
+    nonisolated func resolvedWebStaticContentRiskFlags(
         from summary: ResolvedWebStaticContentSummary
     ) -> [ResolvedWebRuntimeRiskFlag] {
         var flags = Set<ResolvedWebRuntimeRiskFlag>()

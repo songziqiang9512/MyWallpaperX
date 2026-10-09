@@ -94,6 +94,8 @@ extension SteamWorkshopService {
         let currentRootPath: String
         let analysisFileURL: URL
         let runtimeFileURL: URL
+        /// 会话新鲜快速路径起点（实例初始化时刻），分析校验器消费。
+        let sessionStartDate: Date
     }
 
     /// 主线程入口：收集清单输入快照（缓存校验与保存共用一份字段来源）。
@@ -113,7 +115,8 @@ extension SteamWorkshopService {
             currentEntryPath: entryURL?.path ?? "",
             currentRootPath: rootURL?.path ?? "",
             analysisFileURL: webAnalysisCacheFileURL(for: record),
-            runtimeFileURL: webRuntimeCacheFileURL(for: record)
+            runtimeFileURL: webRuntimeCacheFileURL(for: record),
+            sessionStartDate: webRuntimeCacheSessionStartDate
         )
     }
 
@@ -217,16 +220,34 @@ extension SteamWorkshopService {
         }.value
     }
 
-    func loadCachedWebProjectDescriptor(for record: SteamWorkshopDownloadRecord) -> ResolvedWebProjectDescriptor? {
-        let fileURL = webAnalysisCacheFileURL(for: record)
-        guard let data = try? Data(contentsOf: fileURL),
+    /// 启动冷路径的分析缓存装载：读盘/解码/校验（含会话新鲜快速路径）
+    /// 全部在调用线程执行，scanner 仅用于 nonisolated 签名扫描。
+    nonisolated static func loadCachedAnalysisDescriptor(
+        inputs: WebRuntimeCacheManifestInputs,
+        scanner: SteamWorkshopService?
+    ) -> ResolvedWebProjectDescriptor? {
+        guard let data = try? Data(contentsOf: inputs.analysisFileURL),
               let manifest = try? JSONDecoder().decode(SteamWorkshopWebAnalysisCacheManifest.self, from: data),
               manifest.version == SteamWorkshopWebAnalysisCacheManifest.currentVersion,
-              manifest.recordID == record.id,
-              isWebAnalysisCacheManifestValid(manifest, for: record) else {
+              manifest.recordID == inputs.recordID else {
             return nil
         }
-
+        // 廉价键先行短路（HEAD 同序）：已失效清单不做签名扫描——同步装载
+        // 在主线程执行时不在廉价键失配上白付一次 ≤120 文件 BFS。
+        guard Self.analysisManifestCheapFieldsMatch(manifest, inputs: inputs) else {
+            return nil
+        }
+        let liveResourceSignature: SteamWorkshopWebRuntimeResourceSignature?
+        if manifest.generatedAt >= inputs.sessionStartDate {
+            liveResourceSignature = manifest.resourceSignature
+        } else if let scanner, let entryURL = inputs.entryURL, let rootURL = inputs.rootURL {
+            liveResourceSignature = scanner.webRuntimeResourceSignature(entryURL: entryURL, rootURL: rootURL)
+        } else {
+            liveResourceSignature = nil
+        }
+        guard manifest.resourceSignature == liveResourceSignature else {
+            return nil
+        }
         let cached = manifest.analysis
         let resolvedEntryURL = URL(fileURLWithPath: cached.resolvedEntryPath).resolvingSymlinksInPath().standardizedFileURL
         let effectiveRootURL = URL(fileURLWithPath: cached.effectiveRootPath).resolvingSymlinksInPath().standardizedFileURL
@@ -234,9 +255,8 @@ extension SteamWorkshopService {
               FileManager.default.fileExists(atPath: effectiveRootURL.path) else {
             return nil
         }
-
         return ResolvedWebProjectDescriptor(
-            recordID: record.id,
+            recordID: inputs.recordID,
             sourceKind: cached.sourceKind,
             declaredEntryRelativePath: cached.declaredEntryRelativePath,
             resolvedEntryRelativePath: cached.resolvedEntryRelativePath,
@@ -256,6 +276,15 @@ extension SteamWorkshopService {
             hostCapabilitySnapshot: cached.hostCapabilitySnapshot,
             staticContentSummary: cached.staticContentSummary,
             runtimeRiskFlags: cached.runtimeRiskFlags
+        )
+    }
+
+    /// 同步表面（属性面板等）的分析缓存装载：与启动冷路径共用同一
+    /// nonisolated 装载器（读盘/校验/重建单一实现），只是执行线程不同。
+    func loadCachedWebProjectDescriptor(for record: SteamWorkshopDownloadRecord) -> ResolvedWebProjectDescriptor? {
+        Self.loadCachedAnalysisDescriptor(
+            inputs: webRuntimeCacheManifestInputs(for: record),
+            scanner: self
         )
     }
 

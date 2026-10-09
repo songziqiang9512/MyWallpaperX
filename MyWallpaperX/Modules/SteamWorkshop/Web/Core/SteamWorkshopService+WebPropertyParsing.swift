@@ -1,7 +1,7 @@
 import Foundation
 
 extension SteamWorkshopService {
-    static func inferWebPropertyKind(
+    nonisolated static func inferWebPropertyKind(
         key: String,
         rawTitle: String?,
         value: Any?
@@ -15,7 +15,7 @@ extension SteamWorkshopService {
         return .text
     }
 
-    static func webPropertyValue(from rawValue: Any?) -> SteamWorkshopWebPropertyValue? {
+    nonisolated static func webPropertyValue(from rawValue: Any?) -> SteamWorkshopWebPropertyValue? {
         switch rawValue {
         case let value as String:
             return .string(value)
@@ -33,7 +33,7 @@ extension SteamWorkshopService {
         }
     }
 
-    static func webPropertyTitle(key: String, rawTitle: String?) -> String {
+    nonisolated static func webPropertyTitle(key: String, rawTitle: String?) -> String {
         if let rawTitle, !rawTitle.isEmpty {
             return normalizedWebPropertyTitleText(rawTitle)
         }
@@ -41,7 +41,7 @@ extension SteamWorkshopService {
         return spaced.isEmpty ? key : normalizedWebPropertyTitleText(spaced.capitalized)
     }
 
-    static func webPropertyNumber(from rawValue: Any?) -> Double? {
+    nonisolated static func webPropertyNumber(from rawValue: Any?) -> Double? {
         switch rawValue {
         case let value as Double:
             return value
@@ -58,7 +58,7 @@ extension SteamWorkshopService {
         }
     }
 
-    static func webPropertyPrecision(from rawValue: Any?) -> Int? {
+    nonisolated static func webPropertyPrecision(from rawValue: Any?) -> Int? {
         switch rawValue {
         case let value as Int:
             return value
@@ -79,7 +79,7 @@ extension SteamWorkshopService {
         return definition.fractionalPrecision ?? 2
     }
 
-    static func webPropertyBool(from rawValue: Any?) -> Bool? {
+    nonisolated static func webPropertyBool(from rawValue: Any?) -> Bool? {
         switch rawValue {
         case let value as Bool:
             return value
@@ -103,7 +103,7 @@ extension SteamWorkshopService {
         }
     }
 
-    static func webPropertyOptions(
+    nonisolated static func webPropertyOptions(
         from rawValue: Any?,
         localization: [String: String]
     ) -> [SteamWorkshopWebPropertyOption] {

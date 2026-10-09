@@ -3,7 +3,7 @@ import Foundation
 extension SteamWorkshopService {
     static let webStaticAnalysisMaximumFileBytes = 128 * 1024
 
-    static func webStaticAnalysisContent(from fileURL: URL) -> (content: String, isTruncated: Bool)? {
+    nonisolated static func webStaticAnalysisContent(from fileURL: URL) -> (content: String, isTruncated: Bool)? {
         guard let handle = try? FileHandle(forReadingFrom: fileURL) else { return nil }
         defer { try? handle.close() }
 
@@ -33,17 +33,17 @@ extension SteamWorkshopService {
         return (content, true)
     }
 
-    static func webFileContainsServiceWorkerRegistration(_ fileURL: URL) -> Bool {
+    nonisolated static func webFileContainsServiceWorkerRegistration(_ fileURL: URL) -> Bool {
         WebStaticFileSignalScanner.containsServiceWorkerRegistration(in: fileURL)
     }
 
-    static func webContentUsesWebMResource(_ content: String) -> Bool {
+    nonisolated static func webContentUsesWebMResource(_ content: String) -> Bool {
         let lowered = content.lowercased()
         return lowered.contains(".webm")
             || lowered.contains("video/webm")
     }
 
-    static func webContentUsesHoverOnlyInteraction(_ content: String) -> Bool {
+    nonisolated static func webContentUsesHoverOnlyInteraction(_ content: String) -> Bool {
         let lowered = content.lowercased()
         guard lowered.contains(":hover") else { return false }
         let pointerMarkers = [
@@ -54,17 +54,17 @@ extension SteamWorkshopService {
         return !pointerMarkers.contains { lowered.contains($0) }
     }
 
-    static func webContentUsesApplyGeneralProperties(_ content: String) -> Bool {
+    nonisolated static func webContentUsesApplyGeneralProperties(_ content: String) -> Bool {
         let lowered = content.lowercased()
         return lowered.contains("applygeneralproperties")
     }
 
-    static func webContentUsesGeneralFPS(_ content: String) -> Bool {
+    nonisolated static func webContentUsesGeneralFPS(_ content: String) -> Bool {
         let lowered = content.lowercased()
         return lowered.contains("properties.fps") || lowered.contains("fps:")
     }
 
-    static func webContentReferencesSchemeColorUserProperty(_ content: String) -> Bool {
+    nonisolated static func webContentReferencesSchemeColorUserProperty(_ content: String) -> Bool {
         let lowered = content.lowercased()
         let patterns = [
             #"\.\s*schemecolor\b"#,
@@ -79,7 +79,7 @@ extension SteamWorkshopService {
         }
     }
 
-    static func webContentHasUncertainUserPropertyUsage(_ content: String) -> Bool {
+    nonisolated static func webContentHasUncertainUserPropertyUsage(_ content: String) -> Bool {
         let lowered = content.lowercased()
         guard lowered.contains("applyuserproperties") else {
             return false
@@ -104,7 +104,7 @@ extension SteamWorkshopService {
         }
     }
 
-    static func webDisplayConditionRequiresFallback(_ condition: String?) -> Bool {
+    nonisolated static func webDisplayConditionRequiresFallback(_ condition: String?) -> Bool {
         guard let condition,
               condition.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
             return false
@@ -115,52 +115,52 @@ extension SteamWorkshopService {
             || Self.canTokenizeWebDisplayCondition(trimmed) == false
     }
 
-    static func webContentUsesPluginBridge(_ content: String) -> Bool {
+    nonisolated static func webContentUsesPluginBridge(_ content: String) -> Bool {
         let lowered = content.lowercased()
         return lowered.contains("wallpaperpluginlistener")
             || lowered.contains("onpluginloaded")
             || lowered.contains("wpplugins")
     }
 
-    static func webContentUsesPersistentBrowserStorage(_ content: String) -> Bool {
+    nonisolated static func webContentUsesPersistentBrowserStorage(_ content: String) -> Bool {
         let lowered = content.lowercased()
         return lowered.contains("localstorage")
             || lowered.contains("indexeddb")
             || lowered.contains("sessionstorage")
     }
 
-    static func webContentUsesServiceWorkerRegistration(_ content: String) -> Bool {
+    nonisolated static func webContentUsesServiceWorkerRegistration(_ content: String) -> Bool {
         let lowered = content.lowercased()
         return lowered.contains("serviceworker.register")
             || lowered.contains("navigator.serviceworker")
     }
 
-    static func webContentUsesESModuleDependency(_ content: String) -> Bool {
+    nonisolated static func webContentUsesESModuleDependency(_ content: String) -> Bool {
         let lowered = content.lowercased()
         return lowered.contains("type=\"module\"")
             || lowered.contains("type='module'")
             || lowered.contains(".mjs")
     }
 
-    static func webContentUsesDynamicImport(_ content: String) -> Bool {
+    nonisolated static func webContentUsesDynamicImport(_ content: String) -> Bool {
         let lowered = content.lowercased()
         return lowered.contains("import(")
     }
 
-    static func webContentUsesWASMResource(_ content: String) -> Bool {
+    nonisolated static func webContentUsesWASMResource(_ content: String) -> Bool {
         let lowered = content.lowercased()
         return lowered.contains(".wasm")
             || lowered.contains("application/wasm")
             || lowered.contains("webassembly.")
     }
 
-    static func webContentUsesWASMStreaming(_ content: String) -> Bool {
+    nonisolated static func webContentUsesWASMStreaming(_ content: String) -> Bool {
         let lowered = content.lowercased()
         return lowered.contains("webassembly.instantiatestreaming")
             || lowered.contains("webassembly.compilestreaming")
     }
 
-    static func webContentUsesCustomSchemeSensitiveWebGL(_ content: String) -> Bool {
+    nonisolated static func webContentUsesCustomSchemeSensitiveWebGL(_ content: String) -> Bool {
         let lowered = content.lowercased()
         let usesWebGLContext = lowered.contains("getcontext(\"webgl")
             || lowered.contains("getcontext('webgl")
@@ -178,7 +178,7 @@ extension SteamWorkshopService {
             || lowered.contains("readpixels(")
     }
 
-    static func webContentUsesIframeCrossFrameAccess(_ content: String) -> Bool {
+    nonisolated static func webContentUsesIframeCrossFrameAccess(_ content: String) -> Bool {
         let lowered = content.lowercased()
         let hasIframe = lowered.contains("<iframe")
             || lowered.contains("createelement('iframe")

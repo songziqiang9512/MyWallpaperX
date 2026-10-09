@@ -2,14 +2,14 @@ import Foundation
 import UniformTypeIdentifiers
 
 extension SteamWorkshopService {
-    static func normalizedWebDirectoryMode(from propertyObject: [String: Any]) -> String? {
+    nonisolated static func normalizedWebDirectoryMode(from propertyObject: [String: Any]) -> String? {
         trimmedNonEmptyString(
             (propertyObject["mode"] as? String)
             ?? (propertyObject["directoryMode"] as? String)
         )?.lowercased()
     }
 
-    static func normalizedWebPropertyFileType(
+    nonisolated static func normalizedWebPropertyFileType(
         from propertyObject: [String: Any],
         key: String,
         rawTitle: String?
@@ -88,7 +88,7 @@ extension SteamWorkshopService {
         }
     }
 
-    static func webProjectLocalization(from root: [String: Any]) -> [String: String] {
+    nonisolated static func webProjectLocalization(from root: [String: Any]) -> [String: String] {
         if let localization = root["localization"] as? [String: String] {
             return localization
         }
@@ -141,7 +141,7 @@ extension SteamWorkshopService {
         return [:]
     }
 
-    static func localizedWebString(_ raw: String, localization: [String: String]) -> String {
+    nonisolated static func localizedWebString(_ raw: String, localization: [String: String]) -> String {
         normalizedWebDisplayText(localization[raw] ?? raw)
     }
 
@@ -150,7 +150,7 @@ extension SteamWorkshopService {
         return wallpaperEngineLanguageCode(for: preferredLanguage)
     }
 
-    static func wallpaperEngineLanguageCode(for localeIdentifier: String) -> String {
+    nonisolated static func wallpaperEngineLanguageCode(for localeIdentifier: String) -> String {
         let normalized = localeIdentifier
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "_", with: "-")
@@ -190,7 +190,7 @@ extension SteamWorkshopService {
         return fallbackLanguages[language] ?? "en-us"
     }
 
-    static func normalizedWebPropertyTitleText(_ raw: String) -> String {
+    nonisolated static func normalizedWebPropertyTitleText(_ raw: String) -> String {
         let segments = normalizedWebDisplaySegments(from: raw)
         guard segments.isEmpty == false else {
             return normalizedWebDisplayText(raw)
@@ -208,7 +208,7 @@ extension SteamWorkshopService {
         return Array(segments.prefix(2)).joined(separator: " / ")
     }
 
-    static func normalizedWebDisplayText(_ raw: String) -> String {
+    nonisolated static func normalizedWebDisplayText(_ raw: String) -> String {
         let segments = normalizedWebDisplaySegments(from: raw)
         guard segments.isEmpty == false else {
             return raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -226,7 +226,7 @@ extension SteamWorkshopService {
         return nil
     }
 
-    static func parseWebColorComponents(from raw: String) -> (red: Double, green: Double, blue: Double)? {
+    nonisolated static func parseWebColorComponents(from raw: String) -> (red: Double, green: Double, blue: Double)? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return nil }
 
@@ -258,7 +258,7 @@ extension SteamWorkshopService {
         return normalizeWebColorTriplet(Array(components.prefix(3)))
     }
 
-    private static func webLocalizationTables(from rawValue: Any) -> [String: [String: String]] {
+    private nonisolated static func webLocalizationTables(from rawValue: Any) -> [String: [String: String]] {
         guard let rawTables = rawValue as? [String: Any] else { return [:] }
         var tables: [String: [String: String]] = [:]
         for (languageKey, tableValue) in rawTables {
@@ -276,7 +276,7 @@ extension SteamWorkshopService {
         return tables
     }
 
-    private static func normalizedWebDisplaySegments(from raw: String) -> [String] {
+    private nonisolated static func normalizedWebDisplaySegments(from raw: String) -> [String] {
         let normalizedRaw = raw
             .replacingOccurrences(of: "&nbsp;", with: " ")
             .replacingOccurrences(of: "&amp;", with: "&")
@@ -313,7 +313,7 @@ extension SteamWorkshopService {
         return uniqueOrderedLines
     }
 
-    private static func collapseRepeatedWebDisplaySegments(_ segments: [String]) -> [String] {
+    private nonisolated static func collapseRepeatedWebDisplaySegments(_ segments: [String]) -> [String] {
         guard segments.count >= 2 else { return segments }
 
         let halfCount = segments.count / 2
@@ -329,7 +329,7 @@ extension SteamWorkshopService {
         return collapsed
     }
 
-    private static func preferredWebLocalizationKeys() -> [String] {
+    private nonisolated static func preferredWebLocalizationKeys() -> [String] {
         var orderedKeys: [String] = []
 
         func append(_ rawKey: String?) {
@@ -357,14 +357,14 @@ extension SteamWorkshopService {
         return orderedKeys
     }
 
-    private static func normalizeWebLocalizationKey(_ rawKey: String) -> String {
+    private nonisolated static func normalizeWebLocalizationKey(_ rawKey: String) -> String {
         rawKey
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "_", with: "-")
             .lowercased()
     }
 
-    private static func normalizeWebColorTriplet(_ components: [Double]) -> (red: Double, green: Double, blue: Double)? {
+    private nonisolated static func normalizeWebColorTriplet(_ components: [Double]) -> (red: Double, green: Double, blue: Double)? {
         guard components.count >= 3 else { return nil }
         let usesByteRange = components.contains { $0 > 1.0 }
         let scale = usesByteRange ? 255.0 : 1.0
@@ -375,7 +375,7 @@ extension SteamWorkshopService {
         return (normalized[0], normalized[1], normalized[2])
     }
 
-    private static func parseHexWebColor(_ raw: String) -> (red: Double, green: Double, blue: Double)? {
+    private nonisolated static func parseHexWebColor(_ raw: String) -> (red: Double, green: Double, blue: Double)? {
         guard raw.hasPrefix("#") else { return nil }
         let hex = String(raw.dropFirst())
         let expanded: String

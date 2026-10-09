@@ -1,7 +1,7 @@
 import Foundation
 
 extension SteamWorkshopService {
-    static func evaluateWebDisplayCondition(
+    nonisolated static func evaluateWebDisplayCondition(
         _ condition: String,
         values: [String: SteamWorkshopWebPropertyValue],
         definitions: [SteamWorkshopWebPropertyDefinition]
@@ -37,11 +37,11 @@ extension SteamWorkshopService {
         return result.boolValue
     }
 
-    static func webDisplayConditionUsesOnlySupportedOperators(_ condition: String) -> Bool {
+    nonisolated static func webDisplayConditionUsesOnlySupportedOperators(_ condition: String) -> Bool {
         containsOnlySupportedConditionOperators(condition)
     }
 
-    static func canTokenizeWebDisplayCondition(_ condition: String) -> Bool {
+    nonisolated static func canTokenizeWebDisplayCondition(_ condition: String) -> Bool {
         tokenizeWebDisplayCondition(condition) != nil
     }
 

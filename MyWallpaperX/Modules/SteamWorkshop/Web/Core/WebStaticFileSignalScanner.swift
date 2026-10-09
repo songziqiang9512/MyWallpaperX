@@ -3,14 +3,14 @@ import Foundation
 enum WebStaticFileSignalScanner {
     private static let maximumScanBytes: UInt64 = 1024 * 1024
 
-    static func containsServiceWorkerRegistration(in fileURL: URL) -> Bool {
+    nonisolated static func containsServiceWorkerRegistration(in fileURL: URL) -> Bool {
         contains(
             asciiSignals: ["serviceworker.register", "navigator.serviceworker"],
             in: fileURL
         )
     }
 
-    private static func contains(asciiSignals: [String], in fileURL: URL) -> Bool {
+    private nonisolated static func contains(asciiSignals: [String], in fileURL: URL) -> Bool {
         let signals = asciiSignals.map { Data($0.utf8) }
         let overlapCount = max(0, (signals.map(\.count).max() ?? 1) - 1)
         guard let handle = try? FileHandle(forReadingFrom: fileURL) else { return false }

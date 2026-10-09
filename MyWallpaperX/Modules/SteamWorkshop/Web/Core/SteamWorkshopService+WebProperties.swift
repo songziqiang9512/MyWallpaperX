@@ -170,7 +170,7 @@ extension SteamWorkshopService {
         )
     }
 
-    func visibleWebPropertyOptions(
+    nonisolated func visibleWebPropertyOptions(
         for definition: SteamWorkshopWebPropertyDefinition,
         values: [String: SteamWorkshopWebPropertyValue],
         definitions: [SteamWorkshopWebPropertyDefinition]
@@ -196,7 +196,7 @@ extension SteamWorkshopService {
         )
     }
 
-    func shouldDisplayWebProperty(
+    nonisolated func shouldDisplayWebProperty(
         _ definition: SteamWorkshopWebPropertyDefinition,
         values: [String: SteamWorkshopWebPropertyValue],
         definitions: [SteamWorkshopWebPropertyDefinition]

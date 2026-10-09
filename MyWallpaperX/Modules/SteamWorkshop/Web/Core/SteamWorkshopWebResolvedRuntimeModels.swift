@@ -25,18 +25,109 @@ extension SteamWorkshopService {
         return resolvedDescriptor
     }
 
+    /// 冷解析产物：除书签相邻段（presetBindings/preconditions——经
+    /// resolvedWebResourceBinding 触 security scope 与陈旧书签回写，必须
+    /// 主线程）外的全部字段；由 nonisolated 解析核产出，主线程收尾装配。
+    struct WebProjectDescriptorParseProduct {
+        let standardizedEntryURL: URL
+        let effectiveRootURL: URL
+        let propertySource: SteamWorkshopWebPropertySource
+        let sourceKind: ResolvedWebProjectDescriptor.SourceKind
+        let declaredEntryRelativePath: String?
+        let entrySource: ResolvedWebProjectDescriptor.EntrySource
+        let propertyDefinitions: [SteamWorkshopWebPropertyDefinition]
+        let localization: [String: String]
+        let baselineValues: [String: SteamWorkshopWebPropertyValue]
+        let presetOverrides: [String: SteamWorkshopWebPropertyValue]
+        let hostCapabilitySnapshot: ResolvedWebHostCapabilitySnapshot
+        let staticContentSummary: ResolvedWebStaticContentSummary
+        let sampleStructure: SteamWorkshopWebSampleStructure
+        let runtimeRiskFlags: [ResolvedWebRuntimeRiskFlag]
+    }
+
     private func computeResolvedWebProjectDescriptor(for record: SteamWorkshopDownloadRecord) -> ResolvedWebProjectDescriptor? {
         if let cachedDescriptor = loadCachedWebProjectDescriptor(for: record) {
             return cachedDescriptor
         }
 
-        guard let resolvedEntryURL = record.webEntryURL else {
+        guard let resolvedDescriptor = assembleResolvedWebProjectDescriptor(
+            record: record,
+            propertySourceRecord: webPropertyDefinitionSourceRecord(for: record),
+            parseProduct: nil
+        ) else {
             return nil
         }
+        saveWebAnalysisCache(descriptor: resolvedDescriptor, for: record)
+        return resolvedDescriptor
+    }
 
-        let standardizedEntryURL = resolvedEntryURL.resolvingSymlinksInPath().standardizedFileURL
-        let effectiveRootURL = effectiveWebRootURL(for: record, entryURL: standardizedEntryURL)
+    /// 启动冷路径入口：memo（主线程零 IO 命中）→ 后台段（分析缓存读盘
+    /// 校验/解析核全量构造）→ 主线程收尾（书签相邻段 + 装配 + memo）。
+    /// 与同步版共享 memo、解析核与装配，只是执行位置不同。
+    func resolvedWebProjectDescriptorForLaunch(for record: SteamWorkshopDownloadRecord) async -> ResolvedWebProjectDescriptor? {
+        guard record.contentType == .web else {
+            return nil
+        }
+        let memoSignature = webProjectDescriptorSignature(for: record)
+        if let cached = webProjectDescriptorCache[record.id], cached.signature == memoSignature {
+            return cached.descriptor
+        }
+        // 主线程快照：actor 输入一次收集，后台段不回读。
         let propertySourceRecord = webPropertyDefinitionSourceRecord(for: record)
+        let inputs = webRuntimeCacheManifestInputs(for: record)
+        let entryURL = inputs.entryURL
+        let rootURL = inputs.rootURL
+        enum LaunchOutcome {
+            case cached(ResolvedWebProjectDescriptor)
+            case parsed(WebProjectDescriptorParseProduct)
+            case none
+        }
+        let outcome: LaunchOutcome = await Task.detached(priority: .userInitiated) { [weak self] () -> LaunchOutcome in
+            if let cachedDescriptor = Self.loadCachedAnalysisDescriptor(inputs: inputs, scanner: self) {
+                return .cached(cachedDescriptor)
+            }
+            guard let self, let entryURL, let rootURL else {
+                return .none
+            }
+            guard let product = self.parseWebProjectDescriptorCore(
+                record: record,
+                propertySourceRecord: propertySourceRecord,
+                standardizedEntryURL: entryURL,
+                effectiveRootURL: rootURL
+            ) else {
+                return .none
+            }
+            return .parsed(product)
+        }.value
+        let resolvedDescriptor: ResolvedWebProjectDescriptor?
+        switch outcome {
+        case let .cached(cachedDescriptor):
+            resolvedDescriptor = cachedDescriptor
+        case let .parsed(product):
+            resolvedDescriptor = assembleResolvedWebProjectDescriptor(
+                record: record,
+                propertySourceRecord: propertySourceRecord,
+                parseProduct: product
+            )
+        case .none:
+            resolvedDescriptor = nil
+        }
+        guard let resolvedDescriptor else { return nil }
+        webProjectDescriptorCache[record.id] = CachedWebProjectDescriptor(
+            signature: memoSignature,
+            descriptor: resolvedDescriptor
+        )
+        return resolvedDescriptor
+    }
+
+    /// 解析核：project root/入口 HTML BFS/目录 listing 等全部文件 IO 在
+    /// 调用线程执行；propertySourceRecord 由主线程快照传入。
+    nonisolated private func parseWebProjectDescriptorCore(
+        record: SteamWorkshopDownloadRecord,
+        propertySourceRecord: SteamWorkshopDownloadRecord?,
+        standardizedEntryURL: URL,
+        effectiveRootURL: URL
+    ) -> WebProjectDescriptorParseProduct? {
         let propertySource: SteamWorkshopWebPropertySource = if let propertySourceRecord, propertySourceRecord.id != record.id {
             .dependencyHost(itemID: propertySourceRecord.id)
         } else {
@@ -64,21 +155,75 @@ extension SteamWorkshopService {
             entrySource = .inferredFallbackEntry
         }
 
-        let propertyDefinitions = webPropertyDefinitions(for: record)
-        let localizationRoot = propertySourceRecord.flatMap(loadWebProjectRoot(for:)) ?? loadWebProjectRoot(for: record) ?? [:]
+        let sourceRoot = propertySourceRecord.flatMap { Self.loadWebProjectRootStatic(for: $0) }
+        let localizationRoot = sourceRoot ?? Self.loadWebProjectRootStatic(for: record) ?? [:]
+        let propertyDefinitions = sourceRoot.map { Self.webPropertyDefinitions(projectRoot: $0) } ?? []
         let localization = Self.webProjectLocalization(from: localizationRoot)
         let baselineValues = webPropertyBaselineValues(for: record, definitions: propertyDefinitions)
-        let presetOverrides = webPresetValues(for: record)
+        let presetOverrides = Self.webPresetValues(for: record)
         let hostCapabilitySnapshot = resolvedWebHostCapabilitySnapshot()
         let staticContentSummary = resolvedWebStaticContentSummary(
             for: record,
             entryURL: standardizedEntryURL,
-            rootURL: effectiveRootURL
+            rootURL: effectiveRootURL,
+            propertyDefinitions: propertyDefinitions
         )
-        let presetResourceBindingsByKey = resolvedWebPresetResourceBindings(for: record)
-        let sampleStructure = webSampleStructure(for: record)
-        var runtimeRiskFlags = resolvedWebStructuralRiskFlags(for: record, sampleStructure: sampleStructure)
+        let sampleStructure = Self.webSampleStructure(
+            record: record,
+            sourceRecord: propertySourceRecord ?? record
+        )
+        var runtimeRiskFlags = Self.resolvedWebStructuralRiskFlags(
+            record: record,
+            sampleStructure: sampleStructure,
+            propertyDefinitions: propertyDefinitions
+        )
         runtimeRiskFlags = runtimeRiskFlags.union(with: resolvedWebStaticContentRiskFlags(from: staticContentSummary))
+        return WebProjectDescriptorParseProduct(
+            standardizedEntryURL: standardizedEntryURL,
+            effectiveRootURL: effectiveRootURL,
+            propertySource: propertySource,
+            sourceKind: sourceKind,
+            declaredEntryRelativePath: declaredEntryRelativePath,
+            entrySource: entrySource,
+            propertyDefinitions: propertyDefinitions,
+            localization: localization,
+            baselineValues: baselineValues,
+            presetOverrides: presetOverrides,
+            hostCapabilitySnapshot: hostCapabilitySnapshot,
+            staticContentSummary: staticContentSummary,
+            sampleStructure: sampleStructure,
+            runtimeRiskFlags: runtimeRiskFlags
+        )
+    }
+
+    /// 主线程装配：书签相邻段（presetBindings/preconditions）+ 最终
+    /// descriptor 构造。`parseProduct == nil` 时在调用线程（同步路径=主
+    /// 线程）先执行解析核——两条编排共享同一实现。
+    private func assembleResolvedWebProjectDescriptor(
+        record: SteamWorkshopDownloadRecord,
+        propertySourceRecord: SteamWorkshopDownloadRecord?,
+        parseProduct: WebProjectDescriptorParseProduct?
+    ) -> ResolvedWebProjectDescriptor? {
+        let product: WebProjectDescriptorParseProduct
+        if let parseProduct {
+            product = parseProduct
+        } else {
+            guard let resolvedEntryURL = record.webEntryURL else {
+                return nil
+            }
+            let standardizedEntryURL = resolvedEntryURL.resolvingSymlinksInPath().standardizedFileURL
+            guard let parsed = parseWebProjectDescriptorCore(
+                record: record,
+                propertySourceRecord: propertySourceRecord,
+                standardizedEntryURL: standardizedEntryURL,
+                effectiveRootURL: effectiveWebRootURL(for: record, entryURL: standardizedEntryURL)
+            ) else {
+                return nil
+            }
+            product = parsed
+        }
+        let propertyDefinitions = product.propertyDefinitions
+        let baselineValues = product.baselineValues
         let baselineVisiblePropertyKeys = propertyDefinitions
             .filter {
                 shouldDisplayWebProperty(
@@ -98,36 +243,35 @@ extension SteamWorkshopService {
                 )
             )
         })
+        let presetResourceBindingsByKey = resolvedWebPresetResourceBindings(for: record)
         let baselinePreconditionStates = resolvedWebRuntimePreconditions(
             for: record,
             definitions: propertyDefinitions,
             effectiveValues: baselineValues
         )
 
-        let descriptor = ResolvedWebProjectDescriptor(
+        return ResolvedWebProjectDescriptor(
             recordID: record.id,
-            sourceKind: sourceKind,
-            declaredEntryRelativePath: declaredEntryRelativePath,
-            resolvedEntryRelativePath: webRelativePath(for: standardizedEntryURL, under: effectiveRootURL),
-            resolvedEntryURL: standardizedEntryURL,
-            effectiveRootURL: effectiveRootURL,
-            entrySource: entrySource,
-            sampleStructure: sampleStructure,
-            propertySource: propertySource,
+            sourceKind: product.sourceKind,
+            declaredEntryRelativePath: product.declaredEntryRelativePath,
+            resolvedEntryRelativePath: webRelativePath(for: product.standardizedEntryURL, under: product.effectiveRootURL),
+            resolvedEntryURL: product.standardizedEntryURL,
+            effectiveRootURL: product.effectiveRootURL,
+            entrySource: product.entrySource,
+            sampleStructure: product.sampleStructure,
+            propertySource: product.propertySource,
             propertyDefinitions: propertyDefinitions,
             defaultValueMap: baselineValues,
-            presetOverrideMap: presetOverrides,
+            presetOverrideMap: product.presetOverrides,
             presetResourceBindingsByKey: presetResourceBindingsByKey,
             baselineVisiblePropertyKeys: baselineVisiblePropertyKeys,
             baselineVisibleOptionsByKey: baselineVisibleOptionsByKey,
             baselinePreconditionStates: baselinePreconditionStates,
-            resolvedLocalizationMap: localization,
-            hostCapabilitySnapshot: hostCapabilitySnapshot,
-            staticContentSummary: staticContentSummary,
-            runtimeRiskFlags: runtimeRiskFlags
+            resolvedLocalizationMap: product.localization,
+            hostCapabilitySnapshot: product.hostCapabilitySnapshot,
+            staticContentSummary: product.staticContentSummary,
+            runtimeRiskFlags: product.runtimeRiskFlags
         )
-        saveWebAnalysisCache(descriptor: descriptor, for: record)
-        return descriptor
     }
 
     func resolvedWebPresetResourceBindings(for record: SteamWorkshopDownloadRecord) -> [String: ResolvedWebResourceBinding] {
@@ -146,14 +290,15 @@ extension SteamWorkshopService {
         )
     }
 
-    /// 缓存命中的读盘/校验扫描与冷路径的写盘都在内部后台段执行；
-    /// 冷路径的 descriptor 解析仍在主线程（读取属性覆盖等 actor 状态）。
+    /// 缓存命中的读盘/校验扫描与冷路径的解析/写盘都在内部后台段执行；
+    /// 冷路径解析核与同步表面共享同一 nonisolated 实现（见
+    /// resolvedWebProjectDescriptorForLaunch）。
     func resolvedWebPlaybackContext(for record: SteamWorkshopDownloadRecord) async -> ResolvedWebPlaybackContext? {
         if let cachedPlaybackContext = await loadCachedWebPlaybackContext(for: record) {
             return cachedPlaybackContext
         }
 
-        guard let descriptor = resolvedWebProjectDescriptor(for: record) else {
+        guard let descriptor = await resolvedWebProjectDescriptorForLaunch(for: record) else {
             return nil
         }
         let effectiveValues = effectiveWebPropertyValues(for: record, descriptor: descriptor)
@@ -347,7 +492,7 @@ private extension ResolvedWebProjectDescriptor.EntrySource {
 }
 
 private extension Array where Element == ResolvedWebRuntimeRiskFlag {
-    func union(with other: [ResolvedWebRuntimeRiskFlag]) -> [ResolvedWebRuntimeRiskFlag] {
+    nonisolated func union(with other: [ResolvedWebRuntimeRiskFlag]) -> [ResolvedWebRuntimeRiskFlag] {
         Array(Set(self).union(other))
     }
 }

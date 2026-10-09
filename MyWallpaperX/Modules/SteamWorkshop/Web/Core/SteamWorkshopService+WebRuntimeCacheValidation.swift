@@ -17,46 +17,31 @@ extension SteamWorkshopService {
         }
     }
 
-    func isWebAnalysisCacheManifestValid(
+    /// 分析清单的廉价键比对（语言/三 mtime/属性源 ID/入口与根路径）：
+    /// 无 IO，先于签名扫描短路（与 HEAD 校验序一致）。
+    nonisolated static func analysisManifestCheapFieldsMatch(
         _ manifest: SteamWorkshopWebAnalysisCacheManifest,
-        for record: SteamWorkshopDownloadRecord
+        inputs: WebRuntimeCacheManifestInputs
     ) -> Bool {
-        if manifest.language != Self.resolvedWebWallpaperLanguage() {
+        if manifest.language != inputs.language {
             return false
         }
-        if manifest.projectModifiedAt != webRuntimeCacheProjectModifiedAt(for: record) {
+        if manifest.projectModifiedAt != inputs.projectModifiedAt {
             return false
         }
-        if manifest.propertySourceRecordID != webPropertyDefinitionSourceRecord(for: record)?.id {
+        if manifest.propertySourceRecordID != inputs.propertySourceRecordID {
             return false
         }
-        if manifest.propertySourceProjectModifiedAt != webRuntimeCachePropertySourceProjectModifiedAt(for: record) {
+        if manifest.propertySourceProjectModifiedAt != inputs.propertySourceProjectModifiedAt {
             return false
         }
-        if manifest.resolvedEntryModifiedAt != webRuntimeCacheResolvedEntryModifiedAt(for: record) {
+        if manifest.resolvedEntryModifiedAt != inputs.resolvedEntryModifiedAt {
             return false
         }
-        // 会话新鲜清单快速路径：本会话后台保存段写入清单时刚完成同源签名
-        // 扫描，会话内校验免再扫（扫描是 mtime 键之外最强的资源级校验，
-        // 只对跨会话清单逐次执行——外部改动检测语义不变；上方 mtime/路径
-        // 等廉价键对本会话清单仍然逐项生效）。
-        let manifestIsSessionFresh = manifest.generatedAt >= webRuntimeCacheSessionStartDate
-        if manifestIsSessionFresh == false,
-           manifest.resourceSignature != webRuntimeResourceSignature(for: record) {
+        if inputs.currentEntryPath != manifest.analysis.resolvedEntryPath {
             return false
         }
-        let currentEntryPath = record.webEntryURL?.resolvingSymlinksInPath().standardizedFileURL.path ?? ""
-        let cachedEntryPath = manifest.analysis.resolvedEntryPath
-        if currentEntryPath != cachedEntryPath {
-            return false
-        }
-        let currentRootPath: String = if let entryURL = record.webEntryURL?.resolvingSymlinksInPath().standardizedFileURL {
-            effectiveWebRootURL(for: record, entryURL: entryURL).path
-        } else {
-            ""
-        }
-        let cachedRootPath = manifest.analysis.effectiveRootPath
-        if currentRootPath != cachedRootPath {
+        if inputs.currentRootPath != manifest.analysis.effectiveRootPath {
             return false
         }
         return true

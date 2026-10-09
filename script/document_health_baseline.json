@@ -209,8 +209,8 @@
       "bytes": 6445
     },
     "docs/web/current-state.md": {
-      "lines": 101,
-      "bytes": 18728
+      "lines": 107,
+      "bytes": 26990
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 58,
@@ -235,6 +235,10 @@
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 7241
+    },
+    "docs/web/cold-descriptor-parse-offload-design.md": {
+      "lines": 45,
+      "bytes": 6163
     }
   },
   "archives": [
@@ -1083,6 +1087,24 @@
       "owner": "Scene light snapshot",
       "reason": "纠正被固定法线与隐藏灯正反例否定的方向/显隐合同，复用world和visibility唯一owner；后继证据只存历史，现役保留有界结果与环带待办。",
       "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#effective-light-visibility"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/cold-descriptor-parse-offload-design.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "b33cb6d1f4b69f29f592db4c21e1a39fc060bf7066c2fa8a9e742d8f94a18280",
+      "owner": "Web 冷解析下沉",
+      "reason": "批六新设计文档入库：冷路径 descriptor 解析后台下沉的目标/取舍/验收（active-plan，document-role-index 已登记）。",
+      "decision": "docs/web/cold-descriptor-parse-offload-design.md#验收"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/current-state.md",
+      "before": "9aed8e902df045dd2c95b79796d7eee48e98af6a47d703cc9bf4b861855d0763",
+      "after": "3c12330f3dfdf4e3d5a365221b15b99d393868e22dcc673738caa5d8904bfe8f",
+      "owner": "Web 现役状态",
+      "reason": "批三至批六证据行并入（点击代际、descriptor 记忆缓存、layer 保持恢复、冷解析下沉）；旧无预算增长一并收口。",
+      "decision": "docs/web/cold-descriptor-parse-offload-design.md#验收"
     }
   ]
 }
