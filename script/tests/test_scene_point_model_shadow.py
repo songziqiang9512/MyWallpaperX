@@ -261,7 +261,7 @@ RADIANCE_MAIN=r'''
     let output=device.makeTexture(descriptor:color)!,zdesc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:1,height:1,mipmapped:false);zdesc.storageMode = .private;zdesc.usage = .renderTarget
     let z=device.makeTexture(descriptor:zdesc)!,rp=MTLRenderPassDescriptor();rp.colorAttachments[0].texture=output;rp.colorAttachments[0].loadAction = .clear;rp.colorAttachments[0].storeAction = .store;rp.colorAttachments[0].clearColor=MTLClearColorMake(0,0,0,0);rp.depthAttachment.texture=z;rp.depthAttachment.loadAction = .clear;rp.depthAttachment.storeAction = .dontCare;rp.depthAttachment.clearDepth=0
     let enc=cb.makeRenderCommandEncoder(descriptor:rp)!
-    let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:mode==4 ? 0:0.08),ambientNormalYSpaceSign:1,directional:[.init(layerID:11,directionTowardLight:n,color:SIMD3(0.5,0.7,1),intensity:mode==5 ? 0:0.2)],point:[light(mode==0 || (4...6).contains(mode) ? 0:2)],spot:[],overflowCount:0)
+    let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:mode==4 ? 0:0.08),skylight: .zero,directional:[.init(layerID:11,directionTowardLight:n,color:SIMD3(0.5,0.7,1),intensity:mode==5 ? 0:0.2)],point:[light(mode==0 || (4...6).contains(mode) ? 0:2)],spot:[],overflowCount:0)
     let wrong=SceneStaticModelShadow(texture:map,frameEpoch:7,generation:1,lightLayerID:999,projection:.point(projection),commandBuffer:cb)
     precondition(pipeline.draw(mesh:receiver,texture:albedo,colorTextureIsPremultiplied:false,emissiveMask:emissionMask,emissiveMaskTextureFrame:.identity,emissiveMaskSampling:.linearClamp,modelMatrix:matrix_identity_float4x4,viewProjection:view,cameraPosition:p+n*10,textureFrame:.identity,sampling:.linearClamp,layerAlpha:0.75,material:material(mode==6 ? 0:0.8),lighting:lighting,writesDepth:true,shadows:mode==2 || mode==3 || mode>=7 ? [mode==7 ? wrong:record]:[],frameEpoch:mode==3 ? 8:7,commandBuffer:mode==8 ? queue.makeCommandBuffer()!:cb,encoder:enc))
     enc.endEncoding();let b=device.makeBuffer(length:256,options:.storageModeShared)!,blit=cb.makeBlitCommandEncoder()!;blit.copy(from:output,sourceSlice:0,sourceLevel:0,sourceOrigin:.init(x:0,y:0,z:0),sourceSize:.init(width:1,height:1,depth:1),to:b,destinationOffset:0,destinationBytesPerRow:256,destinationBytesPerImage:256);blit.endEncoding();buffers.append(b)
@@ -295,9 +295,20 @@ class ScenePointModelShadowRadianceTests(unittest.TestCase):
     if not vector['expectedBlocked']:self.assertEqual(actual,full)
 
  def test_other_direct_ambient_and_emission_remain_independent(self):
-  for row in self.report['rows']:
+  for vector,row in zip(self.vectors,self.report['rows']):
    a=row['pixels'][0]
-   for mode in [4,5,6]:
+   # White albedo, ambient .08 and layer alpha .75; the independently
+   # established hemisphere contract permits exactly zero at normalY=-1.
+   ambient=.08*.75*(1+vector['receiverNormal'][1])/2
+   with self.subTest(case=row['name'],removed=4):
+    if ambient==0:
+     self.assertEqual(a,row['pixels'][4])
+    else:
+     for c in range(3):
+      tolerance=2*2**(math.floor(math.log2(abs(a[c])))-10)
+      self.assertAlmostEqual(a[c]-row['pixels'][4][c],ambient,delta=tolerance)
+      self.assertGreater(a[c],row['pixels'][4][c])
+   for mode in [5,6]:
     with self.subTest(case=row['name'],removed=mode):
      self.assertTrue(all(a[c]>row['pixels'][mode][c] for c in range(3)))
 

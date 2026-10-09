@@ -1,4 +1,4 @@
-"""Real static-model material emission pixels through the shared GPU harness."""
+"""Real static-model ambient and emission pixels through the shared GPU harness."""
 
 from __future__ import annotations
 
@@ -53,13 +53,39 @@ def emission_vectors() -> list[dict]:
     return vectors
 
 
+def ambient_vectors() -> list[dict]:
+    # Official fixed-unit-normal inputs (2026-10-09), half-gray albedo:
+    # ambient-only bytes 0,32,64,96,128; sky-only endpoints/midpoint 128,64,0.
+    cases = [
+        (f"ambient-y-{y}", [math.sqrt(1-y*y), y, 0], [0.4, 0.6, 0.8], [0, 0, 0], a, 0)
+        for y, a in [(-1, 0), (-0.5, 0.25), (0, 0.5), (0.5, 0.75), (1, 1)]
+    ] + [
+        (f"sky-y-{y}", [math.sqrt(1-y*y), y, 0], [0, 0, 0], [0.4, 0.6, 0.8], 0, sky)
+        for y, sky in [(-1, 1), (0, 0.5), (1, 0)]
+    ] + [
+        ("mixed-y-zero", [1, 0, 0], [0.2, 0.4, 0.6], [0.6, 0.4, 0.2], 0.5, 0.5),
+        ("ambient-z-plus1", [0, 0, 1], [0.4, 0.6, 0.8], [0, 0, 0], 0.5, 0),
+    ]
+    return [
+        {"name": name, "normal": normal, "ambient": ambient, "skylight": sky,
+         "ambientResponse": a, "skyResponse": k, "albedo": ALBEDO,
+         "hasMask": False, "maskAlpha": 0, "emissiveColor": [1, 1, 1],
+         "brightness": 0, "opacity": OPACITY}
+        for name, normal, ambient, sky, a, k in cases
+    ]
+
+
 def expected_pixel(vector: dict) -> list[float]:
     # The additive material contract was established by controlled official
-    # renders. This fixture's normalY=0 makes the existing ambient ramp 0.5.
+    # renders; known-normal cases carry measured response weights independently.
     mask = vector["maskAlpha"] if vector["hasMask"] else 0.0
     radiance = [
-        albedo * (ambient * 0.5 + color * mask * vector["brightness"])
-        for albedo, ambient, color in zip(vector["albedo"], vector["ambient"], vector["emissiveColor"])
+        albedo * (ambient * vector.get("ambientResponse", 0.5)
+                  + sky * vector.get("skyResponse", 0.5)
+                  + color * mask * vector["brightness"])
+        for albedo, ambient, sky, color in zip(
+            vector["albedo"], vector["ambient"], vector.get("skylight", [0, 0, 0]), vector["emissiveColor"]
+        )
     ]
     density = vector.get("fogDensity")
     if density is not None:
@@ -107,14 +133,14 @@ PIXEL_MAIN = r'''
         let positions: [SIMD3<Float>] = [
             SIMD3(-1, -1, 0.5), SIMD3(1, -1, 0.5), SIMD3(1, 1, 0.5), SIMD3(-1, 1, 0.5),
         ]
-        let vertices = positions.map {
-            SceneMdlStaticModel.Vertex(position: $0, normal: SIMD3(0, 0, 1),
-                tangent: SIMD4(1, 0, 0, 1), uv: SIMD2(0.5, 0.5))
-        }
-        let mesh = pipeline.makeMesh(vertices: vertices, indices: [0, 1, 2, 0, 2, 3])!
         let commandBuffer = queue.makeCommandBuffer()!
         var buffers: [MTLBuffer] = []
         for input in inputs {
+            let vertices = positions.map {
+                SceneMdlStaticModel.Vertex(position: $0, normal: vector(input["normal"] as? [Double] ?? [0, 0, 1]),
+                    tangent: SIMD4(1, 0, 0, 1), uv: SIMD2(0.5, 0.5))
+            }
+            let mesh = pipeline.makeMesh(vertices: vertices, indices: [0, 1, 2, 0, 2, 3])!
             let albedo = texture(input["albedo"] as! [Double], alpha: 1)
             let mask: MTLTexture? = (input["hasMask"] as! Bool)
                 ? texture([0, 0, 0], alpha: Float(input["maskAlpha"] as! Double)) : nil
@@ -147,7 +173,8 @@ PIXEL_MAIN = r'''
                 usesHDRBrightness: false, viewTint: nil, cullMode: .none
             )
             var lighting = SceneLightSnapshot(
-                ambient: vector(input["ambient"] as! [Double]), ambientNormalYSpaceSign: 1,
+                ambient: vector(input["ambient"] as! [Double]),
+                skylight: vector(input["skylight"] as? [Double] ?? [0, 0, 0]),
                 directional: [], point: [], spot: [], overflowCount: 0
             )
             if let density = input["fogDensity"] as? Double {
@@ -205,7 +232,7 @@ class SceneStaticModelEmissionTests(unittest.TestCase):
             SCENE / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
             SCENE / "Resources/Textures/SceneResourceBudget.swift",
         ]
-        cls.vectors = emission_vectors()
+        cls.vectors = emission_vectors() + ambient_vectors()
         cls.report = run_swift(
             sources, "import Foundation\nimport Metal\nimport simd\n" + model_fixture.LIGHTING_STUB + PIXEL_MAIN,
             label="model-emission", metal_sources=[model_fixture.METAL_SOURCE], input_value=cls.vectors,
@@ -214,7 +241,6 @@ class SceneStaticModelEmissionTests(unittest.TestCase):
     def test_matrix_completes_with_finite_premultiplied_pixels(self):
         rows = self.report["rows"]
         self.assertEqual(len(rows), len(self.vectors))
-        self.assertEqual(len(rows), 84)
         for vector, row in zip(self.vectors, rows):
             with self.subTest(case=vector["name"]):
                 self.assertEqual(row["name"], vector["name"])

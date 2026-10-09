@@ -31,6 +31,7 @@ struct SceneStaticModelUniforms {
     uint4 materialFlags;
     uint4 lightCounts;
     float4 ambientColor;
+    float4 skylightColor;
     float4 distanceFogColor;
     float4 distanceFogRange;
     float4 lightDirectionIntensity[4];
@@ -338,18 +339,12 @@ fragment half4 sceneStaticModelFragment(
         ? in.normal * rsqrt(normalLengthSquared)
         : float3(0.0, 0.0, 1.0);
     bool receivesLighting = (uniforms.materialFlags.y & 2u) == 0u;
-    // Official static-model ambient follows a world-normal-Y ramp measured on
-    // the official client (own-fixture NA family, 2026-10-06):
-    // clamp(0.5 - 0.73 * authorNormalY, 0.15, 0.85). The sign in
-    // ambientColor.w maps this renderer's world Y onto author Y for
-    // orthographic scenes whose frames are reflected through Y.
-    float ambientRamp = clamp(
-        0.5 - 0.73 * (uniforms.ambientColor.w * normal.y),
-        0.15,
-        0.85
-    );
+    // Fixed unit-normal official probes give 0, .25, .5, .75, 1 as
+    // normal Y goes from -1 to +1 (2026-10-09); no interior floor or cap.
+    float ambientRamp = 0.5 + 0.5 * normal.y;
     float3 lighting = receivesLighting
         ? uniforms.ambientColor.xyz * ambientRamp
+            + uniforms.skylightColor.xyz * (1.0 - ambientRamp)
         : float3(1.0);
     float directionalVisibility[4] = {1.0, 1.0, 1.0, 1.0};
     float spotVisibility[4] = {1.0, 1.0, 1.0, 1.0};

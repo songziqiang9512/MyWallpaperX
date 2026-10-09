@@ -193,6 +193,7 @@ private struct SceneStaticModelUniforms {
     var materialFlags: SIMD4<UInt32>
     var lightCounts: SIMD4<UInt32>
     var ambientColor: SIMD4<Float>
+    var skylightColor: SIMD4<Float>
     var distanceFogColor: SIMD4<Float>
     var distanceFogRange: SIMD4<Float>
     var lightDirectionIntensity0: SIMD4<Float>
@@ -522,12 +523,8 @@ struct SceneStaticModelPipeline {
                 UInt32(lighting.spot.count),
                 0
             ),
-            ambientColor: SIMD4(
-                lighting.ambient.x,
-                lighting.ambient.y,
-                lighting.ambient.z,
-                lighting.ambientNormalYSpaceSign
-            ),
+            ambientColor: SIMD4(lighting.ambient, 0),
+            skylightColor: SIMD4(lighting.skylight, 0),
             distanceFogColor: lighting.distanceFogColor,
             distanceFogRange: lighting.distanceFogRange,
             lightDirectionIntensity0: lights[0].directionIntensity,
@@ -724,7 +721,7 @@ struct SceneStaticModelPipeline {
     /// same test that executes this gate; host-side drift rejects pipeline
     /// preparation before any draw can be encoded.
     static let hasExpectedUniformABI =
-        MemoryLayout<SceneStaticModelUniforms>.stride == 1312
+        MemoryLayout<SceneStaticModelUniforms>.stride == 1328
         && MemoryLayout<SceneModelShadowUniforms>.stride == 112
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.positionRadius) == 64
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.parameters) == 80
@@ -736,8 +733,8 @@ struct SceneStaticModelPipeline {
         && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.viewport) == 224
         && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.textureFrame0) == 240
         && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.coverage) == 272
-        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.shadow0) == 864
-        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.shadow3) == 1200
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.shadow0) == 880
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.shadow3) == 1216
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.modelMatrix) == 0
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.viewProjectionMatrix) == 64
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.normalMatrix) == 128
@@ -745,21 +742,22 @@ struct SceneStaticModelPipeline {
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.materialFlags) == 320
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.lightCounts) == 336
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.ambientColor) == 352
-        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.lightDirectionIntensity0) == 400
-        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.lightDirectionIntensity3) == 448
-        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.lightColor0) == 464
-        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.lightColor3) == 512
-        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.pointPositionRadius0) == 528
-        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.pointPositionRadius3) == 576
-        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.pointColorIntensity0) == 592
-        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.pointColorIntensity3) == 640
-        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotPositionRadius0) == 656
-        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotPositionRadius3) == 704
-        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotDirectionInnerCosine0) == 720
-        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotDirectionInnerCosine3) == 768
-        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotColorIntensity0) == 784
-        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotColorIntensity3) == 832
-        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotOuterCosines) == 848
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.skylightColor) == 368
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.lightDirectionIntensity0) == 416
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.lightDirectionIntensity3) == 464
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.lightColor0) == 480
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.lightColor3) == 528
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.pointPositionRadius0) == 544
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.pointPositionRadius3) == 592
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.pointColorIntensity0) == 608
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.pointColorIntensity3) == 656
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotPositionRadius0) == 672
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotPositionRadius3) == 720
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotDirectionInnerCosine0) == 736
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotDirectionInnerCosine3) == 784
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotColorIntensity0) == 800
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotColorIntensity3) == 848
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotOuterCosines) == 864
 
     /// Bounded official black-box contract (2026-10-06, fixed WE 2.8.0.42,
     /// own gray-0.5 sphere fixtures): the lit model output scales the

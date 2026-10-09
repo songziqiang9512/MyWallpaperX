@@ -168,7 +168,8 @@ enum LightSnapshotHarness {
             precondition(simd_length(published - yawed) < 1e-4,
                 "light-angle-source-\(source.rawValue)")
         }
-        precondition(snapshot.ambient == SIMD3(0.3, 0.3, 0.3))
+        precondition(snapshot.ambient == SIMD3(0.1, 0.2, 0.3))
+        precondition(snapshot.skylight == SIMD3(0.2, 0.1, 0))
         precondition(snapshot.distanceFogColor == SIMD4(0.1, 0.2, 0.3, 1))
         precondition(snapshot.distanceFogRange == SIMD4(10, 100, 0.2, 0.8))
         precondition(snapshot.directional.isEmpty)

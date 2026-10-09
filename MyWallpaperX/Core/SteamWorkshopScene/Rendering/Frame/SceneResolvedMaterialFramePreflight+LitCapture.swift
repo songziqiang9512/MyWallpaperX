@@ -123,7 +123,9 @@ extension SceneMetalRenderer {
                     outerConeCosine: light.outerConeCosine
                 )
             },
-            ambient: profile.lightingEnabled ? snapshot.ambient : .zero,
+            // Preserve the existing bounded 2D response; model hemisphere weights
+            // belong to the static-model consumer, not the shared snapshot.
+            ambient: profile.lightingEnabled ? snapshot.ambient + snapshot.skylight : .zero,
             material: profile.scalarMaterial,
             view: cameraFrame.materialView(usesPerspective: usesPerspective),
             layerModelMatrix: layerModelMatrix,

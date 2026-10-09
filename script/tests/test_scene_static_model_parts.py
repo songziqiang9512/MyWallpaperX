@@ -293,7 +293,7 @@ NATIVE_MAIN=r'''
   let world=[1:matrix_identity_float4x4,2:matrix_identity_float4x4]
   let camera=SceneParticleCameraFrame(camera:.init(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:160,
       orthoHeight:128,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000),viewportSize:CGSize(width:160,height:128))
-  let lighting=SceneLightSnapshot(ambient:.zero,ambientNormalYSpaceSign:1,directional:[],point:[],spot:[],overflowCount:0)
+  let lighting=SceneLightSnapshot(ambient:.zero,skylight: .zero,directional:[],point:[],spot:[],overflowCount:0)
   let td=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm,width:160,height:128,mipmapped:false)
   td.storageMode = .shared;td.usage=[.renderTarget,.shaderRead]
   let target=device.makeTexture(descriptor:td)!

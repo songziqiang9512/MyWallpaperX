@@ -37,7 +37,7 @@ import simd
                     color: SIMD3(repeating: 1), intensity: 1, radius: 10)
             } + [SceneLightSnapshot.Point(illuminatesStaticModels: false,
                 position: SIMD3(0, 0, 1), color: SIMD3(repeating: 1), intensity: 1, radius: 10)]
-            let lighting = SceneLightSnapshot(ambient: .zero, ambientNormalYSpaceSign: 1,
+            let lighting = SceneLightSnapshot(ambient: .zero, skylight: .zero,
                 directional: [], point: points, spot: [], overflowCount: 0)
             let pass = MTLRenderPassDescriptor()
             pass.colorAttachments[0].texture = target

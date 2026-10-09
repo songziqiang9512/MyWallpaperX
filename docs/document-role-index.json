@@ -522,9 +522,9 @@
       "lastReviewed": "2026-10-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cad0f751a527641f230ec603c3865a9e471d2b48b93e611e9331a490cabcae2e",
+        "sourceSHA256": "9e127809d2ba1fbefd86bf99ba02cb31fb6544411abd3b97c478aeb68e5aa1fb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对聚光轴复用、实际补光证据及ambient反向仍开放的边界。",
+        "scope": "核对模型半球响应的有界对照、原样本改善及月亮/整体颜色剩余边界。",
         "limitations": "仅本批职责和链接审查；不宣称完整运行、官方parity或发布验收。"
       }
     },

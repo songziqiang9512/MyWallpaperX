@@ -183,6 +183,7 @@ class SceneSnapshotCapacityTests(unittest.TestCase):
 from script.tests import test_scene_directional_shadow_frame_owner as frame_fixture
 FRAME_SOURCES=list(dict.fromkeys([*frame_fixture.SOURCES,
  SCENE/'Rendering/Composition/SceneLayerColorBlendPipeline.swift',
+ SCENE/'Rendering/Metal/SceneMetalPipeline.swift',
  SCENE/'Rendering/Composition/SceneBlendModeShaderSource.swift']))
 FRAME_SHELL=frame_fixture.SHELL.replace(
  'enum SceneLayerColorBlendRenderer {static func supports(_ mode:Int)->Bool {fatalError("unused snapshot-demand shell")}}','')
@@ -197,13 +198,9 @@ FRAME_SHELL=FRAME_SHELL.replace('->FixtureImageSelection {fatalError("unused sna
 start=FRAME_SHELL.index('final class SceneImageLayerCompositor {')
 end=FRAME_SHELL.index('\n}\n',start)+3
 FRAME_SHELL=FRAME_SHELL[:start]+r'''
-struct SceneQuadVertex {let position:SIMD2<Float>;let texcoord:SIMD2<Float>}
-struct SceneLayerFragmentUniforms {}
-final class SceneImageLayerPipeline {
- func bind(encoder:MTLRenderCommandEncoder) {fatalError("unused normal path")}
- func drawLayer(texture:MTLTexture,dependencyTexture:MTLTexture?,mvp:simd_float4x4,uniforms:SceneLayerFragmentUniforms,encoder:MTLRenderCommandEncoder) {fatalError("unused normal path")}
-}
 struct SceneGeometryProduct {
+ typealias AuxiliaryRetainer=(@escaping ()->Void)->Void
+ let prepare:((MTLCommandBuffer,SIMD2<Int>,simd_float4x4,AuxiliaryRetainer)->Void)?=nil
  typealias ColorBlendBinder=(MTLRenderCommandEncoder,MTLTexture,simd_float4x4)->Void
  let encode:(MTLRenderCommandEncoder,MTLTexture,MTLTexture?,simd_float4x4,SceneLayerFragmentUniforms,ColorBlendBinder?)->Bool
 }
@@ -261,7 +258,7 @@ FRAME_MAIN=r'''
   let camera=SceneParticleCameraFrame(camera:.init(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:64,orthoHeight:64,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000),viewportSize:CGSize(width:64,height:64))
   let world=Dictionary(uniqueKeysWithValues:layers.map{($0.id,matrix_identity_float4x4)})
   let light=SceneLightSnapshot.Directional(layerID:9,castsShadow:true,directionTowardLight:SIMD3(0,0,1),color:SIMD3(repeating:1),intensity:0.5)
-  let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:0.5),ambientNormalYSpaceSign:1,directional:[light],point:[],spot:[],overflowCount:0)
+  let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:0.5),skylight: .zero,directional:[light],point:[],spot:[],overflowCount:0)
   let pool=SceneOffscreenTexturePool(device:d,pixelFormat:.bgra8Unorm,residentByteBudget:8*1024*1024)
   let state=SceneMetalRenderer.StaticModelFrame();var leases:[SceneParticleDepthTargetLease]=[]
   var held=0
@@ -322,7 +319,8 @@ class SceneSnapshotFrameOwnerTests(unittest.TestCase):
             self.assertEqual(row['refractionDraws'],1);self.assertEqual(row['copies'],2)
         self.assertTrue(normal['shadow']);self.assertFalse(limited['shadow'])
         self.assertEqual(limited['pixels'],normal['pixels'])
-        self.assertEqual(normal['pixels'][0],[255,0,0,255]);self.assertEqual(normal['pixels'][1],[0,64,0,255])
+        # Red albedo: ambient .5 * equatorial .5 + directional .5 * .30 = .4.
+        self.assertEqual(normal['pixels'][0],[102,0,0,255]);self.assertEqual(normal['pixels'][1],[0,64,0,255])
 
     def test_admitted_utility_at_hidden_trigger_reserves_original_color_owner(self):
         row=self.rows['utility-trigger'];self.assertTrue(row['capacity']);self.assertTrue(row['shadow'])

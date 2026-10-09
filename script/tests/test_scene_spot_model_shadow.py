@@ -267,7 +267,7 @@ def radiance_main():
     start=code.index('    let lights = SceneLightSnapshot(')
     end=code.index('    let enabled = ',start)
     code=code[:start]+r'''
-    let lights=SceneLightSnapshot(ambient:SIMD3(repeating:mode == 4 ? 0 : 0.08),ambientNormalYSpaceSign:1,directional:[
+    let lights=SceneLightSnapshot(ambient:SIMD3(repeating:mode == 4 ? 0 : 0.08),skylight: .zero,directional:[
       .init(layerID:11,directionTowardLight:SIMD3(0,0,1),color:SIMD3(0.5,0.7,1),intensity:mode == 5 ? 0 : 0.2)],point:[],spot:[spot(selected)],overflowCount:0)
 ''' +code[end:]
     line='   let receiver = mesh([[[x0,y0,receiverZ],[x1,y1,receiverZ],[x1,y0,receiverZ]],[[x0,y0,receiverZ],[x0,y1,receiverZ],[x1,y1,receiverZ]]])'
@@ -408,7 +408,7 @@ MULTI_MAIN = r'''
    for mode in 0..<17 {
     func intensity(_ i:Int)->Float { if mode==0{return 0};if (3..<11).contains(mode){return (mode-3)%4==i ? 2:0};return 2 }
     let directional:[SceneLightSnapshot.Directional]=mixed ? [.init(layerID:10,castsShadow:true,directionTowardLight:SIMD3(0,0,1),color:colors[0],intensity:intensity(0))] : []
-    let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:0.08),ambientNormalYSpaceSign:1,directional:directional,point:[],spot:(mixed ? 1..<4 : 0..<4).map{spot($0,intensity($0))},overflowCount:0)
+    let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:0.08),skylight: .zero,directional:directional,point:[],spot:(mixed ? 1..<4 : 0..<4).map{spot($0,intensity($0))},overflowCount:0)
     let shadows:[SceneStaticModelShadow]
     if mode==0 || mode==1 || (3..<7).contains(mode) {shadows=[]}
     else if (11..<15).contains(mode) { shadows=records.enumerated().filter{$0.offset != mode-11}.map(\.element) }

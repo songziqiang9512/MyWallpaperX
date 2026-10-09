@@ -69,10 +69,7 @@ struct SceneLightSnapshot {
     }
 
     let ambient: SIMD3<Float>
-    /// Sign that maps this renderer's world-normal Y onto the author-space Y
-    /// the official ambient ramp is measured in (+1 perspective, -1 ortho
-    /// because the frame resolver reflects authored Y-down scenes through Y).
-    let ambientNormalYSpaceSign: Float
+    let skylight: SIMD3<Float>
     let directional: [Directional]
     let point: [Point]
     let spot: [Spot]
@@ -88,8 +85,6 @@ struct SceneLightSnapshot {
         candidateLayerIDs: [Int]? = nil,
         layersByID: [Int: SceneRenderDescriptor.Layer]? = nil
     ) -> SceneLightSnapshot {
-        let ambient = color(descriptor.lighting?.ambientColorRGB)
-            + color(descriptor.lighting?.skylightColorRGB)
         let resolvedLayersByID = layersByID ?? Dictionary(
             uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) }
         )
@@ -219,9 +214,8 @@ struct SceneLightSnapshot {
         // sample that lights models authors ambient or skylight, so the
         // historical white unlit default is retired.
         return SceneLightSnapshot(
-            ambient: ambient,
-            ambientNormalYSpaceSign:
-                (descriptor.camera.orthoHeight ?? 0) > 0 ? -1 : 1,
+            ambient: color(descriptor.lighting?.ambientColorRGB),
+            skylight: color(descriptor.lighting?.skylightColorRGB),
             directional: directionalLights,
             point: pointLights,
             spot: spotLights,

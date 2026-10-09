@@ -32,10 +32,10 @@ struct SceneImageLayerDrawRequest {
     var sourceLighting:SceneBaseMaterialLitCapturePayload?
 }
 struct ProviderBindings { var lightingProfileByLayerID:[Int:SceneBaseMaterialLightingProfile]=[:] }
-struct PackedLights { var sceneViewProjection=matrix_identity_float4x4; var reflection=SIMD4<Float>.zero }
+struct PackedLights { var ambient=SIMD3<Float>.zero; var sceneViewProjection=matrix_identity_float4x4; var reflection=SIMD4<Float>.zero }
 struct SceneLightSnapshot {
     struct Light { let position:SIMD3<Float>;let directionFromLight:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float;let innerConeCosine:Float;let outerConeCosine:Float;var illuminatesStaticModels:Bool = true }
-    let point:[Light]=[];let spot:[Light]=[];let ambient=SIMD3<Float>.zero
+    let point:[Light]=[];let spot:[Light]=[];let ambient=SIMD3<Float>(0.25,0.5,0.75);let skylight=SIMD3<Float>(0.75,0.5,0.25)
 }
 struct SceneParticleCameraFrame { func materialView(usesPerspective:Bool)->Bool { false }; func viewProjection(for layer:SceneRenderDescriptor.Layer)->simd_float4x4 { matrix_identity_float4x4 } }
 enum SceneCameraProjection { static func imageCardYDirection(usesPerspective:Bool,sceneOrthoHeight:Float?)->Float { 1 } }
@@ -46,9 +46,10 @@ struct SceneBaseMaterialLitCapturePayload {
     }
     struct PointLight { let position:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float }
     struct SpotLight { let position:SIMD3<Float>;let direction:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float;let innerConeCosine:Float;let outerConeCosine:Float }
-    static func packLights(pointLights:[PointLight],spotLights:[SpotLight],ambient:SIMD3<Float>,material:SIMD2<Float>?,view:Bool,layerModelMatrix:simd_float4x4,normalModelMatrix:simd_float4x4)->PackedLights? { PackedLights() }
+    static func packLights(pointLights:[PointLight],spotLights:[SpotLight],ambient:SIMD3<Float>,material:SIMD2<Float>?,view:Bool,layerModelMatrix:simd_float4x4,normalModelMatrix:simd_float4x4)->PackedLights? { var result=PackedLights();result.ambient=ambient;return result }
     let emission:SIMD4<Float>?
-    init?(pipeline:Int,lights:PackedLights,normal:TextureInput,materialMap:TextureInput,mapAllowedComponents:UInt32,mapRequiredComponents:UInt32,emission:SIMD4<Float>?,environmentSource:((MTLCommandBuffer)->SceneFrameTextureResource?)?) { self.emission=emission }
+    let ambient:SIMD3<Float>
+    init?(pipeline:Int,lights:PackedLights,normal:TextureInput,materialMap:TextureInput,mapAllowedComponents:UInt32,mapRequiredComponents:UInt32,emission:SIMD4<Float>?,environmentSource:((MTLCommandBuffer)->SceneFrameTextureResource?)?) { self.emission=emission;self.ambient=lights.ambient }
 }
 struct Pipelines { let litImageLayer:Int?=1 }
 struct SceneMetalRenderer {
@@ -70,12 +71,13 @@ struct SceneMetalRenderer {
             [146,135,143].map { id in
                 let p=profiles[id]!
                 let emission:Any
+                let ambient:Any
                 switch renderer.makeLitCapturePayload(profile:p,snapshot:SceneLightSnapshot(),dynamicValues:snap,
                     layerModelMatrix:SceneMatrix.identity(),layerWorldFrame:SceneMatrix.identity(),usesPerspective:false,cameraFrame:.init(),sceneViewProjection:matrix_identity_float4x4,environmentSource:nil) {
-                case let .payload(payload): emission=payload.emission.map { [$0.x,$0.y,$0.z,$0.w] } as Any? ?? NSNull()
-                case .miss: emission="miss"
+                case let .payload(payload): emission=payload.emission.map { [$0.x,$0.y,$0.z,$0.w] } as Any? ?? NSNull();ambient=[payload.ambient.x,payload.ambient.y,payload.ambient.z]
+                case .miss: emission="miss";ambient=NSNull()
                 }
-                return ["id":id,"dynamic":p.emissionPropertyTarget != nil,"mapDemand":p.mapAsset != nil,"emission":emission]
+                return ["id":id,"dynamic":p.emissionPropertyTarget != nil,"mapDemand":p.mapAsset != nil,"emission":emission,"ambient":ambient]
             }
         }
         var state=ScenePropertyLiveUpdateState(program:program,effectiveValues:model.runtimeInput.effectivePropertyValues,activeConsumerTargets:targets)
@@ -129,6 +131,7 @@ class SceneMaterialUserEmissionTests(unittest.TestCase):
         result=self.probe(alpha=True)
         self.assertEqual(result['instructions'],6,result)
         for row in result['rows']:
+            self.assertEqual(row['ambient'],[1,1,1])  # Existing 2D combined input is preserved.
             self.assertEqual(row['emission'],[.25,.5,.125,1]);self.assertTrue(row['dynamic']);self.assertTrue(row['mapDemand'])
         for row in result['fallback']:self.assertAlmostEqual(row['emission'][3],2.3,places=6)
         self.assertEqual([e['accepted'] for e in result['events']],[True,True,True,True,False,False])
