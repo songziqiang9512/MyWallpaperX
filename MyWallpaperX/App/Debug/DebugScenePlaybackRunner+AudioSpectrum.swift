@@ -111,10 +111,21 @@ extension DebugScenePlaybackRunner {
         guard silence || arguments.contains("--mwx-debug-scene-audio-spectrum-fixture") else {
             return
         }
-        NSLog("MWX DEBUG SCENE AUDIO: mode=%@ source=capture-service callbackFrames=128",
-              silence ? "silence" : "pcm")
+        var toneFrequency: Float?
+        if !silence, arguments.contains("--mwx-debug-scene-audio-tone-hz") {
+            guard let raw = argumentValue(after: "--mwx-debug-scene-audio-tone-hz"),
+                  let frequency = Float(raw), frequency.isFinite,
+                  frequency > 0, frequency < DebugSceneAudioSpectrumFixtureState.sampleRate / 2 else {
+                NSLog("MWX DEBUG SCENE AUDIO: rejected invalid tone frequency")
+                return
+            }
+            toneFrequency = frequency
+        }
+        NSLog("MWX DEBUG SCENE AUDIO: mode=%@ toneHz=%.3f source=capture-service callbackFrames=128",
+              silence ? "silence" : "pcm", toneFrequency ?? 0)
         scheduleAudioSpectrumFixtureFrame(
             0,
+            toneFrequency: toneFrequency,
             previousLeft: nil,
             startUptime: DispatchTime.now().uptimeNanoseconds
         )
@@ -122,6 +133,7 @@ extension DebugScenePlaybackRunner {
 
     private static func scheduleAudioSpectrumFixtureFrame(
         _ frame: Int,
+        toneFrequency: Float?,
         previousLeft: [Float]?,
         startUptime: UInt64
     ) {
@@ -135,8 +147,8 @@ extension DebugScenePlaybackRunner {
             deadline: DispatchTime(uptimeNanoseconds: targetUptime)
         ) {
             let state = DebugSceneAudioSpectrumFixtureState.self
-            let left = fixturePCM(frame: frame, channelPhase: 0)
-            let right = fixturePCM(frame: frame, channelPhase: 0.19)
+            let left = fixturePCM(frame: frame, channelPhase: 0, toneFrequency: toneFrequency)
+            let right = fixturePCM(frame: frame, channelPhase: 0.19, toneFrequency: toneFrequency)
             let format = AudioStreamBasicDescription(
                 mSampleRate: Double(state.sampleRate), mFormatID: kAudioFormatLinearPCM,
                 mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked
@@ -180,19 +192,22 @@ extension DebugScenePlaybackRunner {
                 NSLog(
                     "MWX DEBUG SCENE AUDIO: frame=%d leftRange=%.3f...%.3f "
                         + "shapeDelta=%.4f upperPeak=%.3f upperShapeDelta=%.4f "
-                        + "rightPeak=%.3f",
+                        + "rightPeak=%.3f left16First=%.6f left64LowSum=%.6f",
                     frame,
                     levels.left.min() ?? 0,
                     levels.left.max() ?? 0,
                     shapeDelta,
                     levels.left.dropFirst(upperHalfStart).max() ?? 0,
                     upperShapeDelta,
-                    levels.right64.max() ?? 0
+                    levels.right64.max() ?? 0,
+                    levels.left.first ?? 0,
+                    levels.left64.prefix(3).reduce(0, +)
                 )
             }
             Task { @MainActor in
                 scheduleAudioSpectrumFixtureFrame(
                     frame + 1,
+                    toneFrequency: toneFrequency,
                     previousLeft: levels.left,
                     startUptime: startUptime
                 )
@@ -223,11 +238,21 @@ extension DebugScenePlaybackRunner {
     /// PCM，零输入模式保持严格静止。
     private nonisolated static func fixturePCM(
         frame: Int,
-        channelPhase: Float
+        channelPhase: Float,
+        toneFrequency: Float?
     ) -> [Float] {
         let state = DebugSceneAudioSpectrumFixtureState.self
         if state.isSilence { return Array(repeating: 0, count: state.samplesPerFrame) }
         let startSample = frame * state.samplesPerFrame
+        if let toneFrequency {
+            // The diagnostic tone still enters the shared PCM/FFT path. It
+            // never constructs bins or changes the author's frequency range.
+            return (0 ..< state.samplesPerFrame).map { localSample in
+                let time = Double(startSample + localSample) / Double(state.sampleRate)
+                return Float(0.5 * sin(2 * .pi * (Double(toneFrequency) * time
+                    + Double(channelPhase))))
+            }
+        }
         let elapsed = Float(frame) / state.publicationRate
         let overallEnvelope = 0.68
             + 0.12 * sin((elapsed * 0.27 + channelPhase * 0.07) * 2 * .pi)

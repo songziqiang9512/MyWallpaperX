@@ -133,3 +133,16 @@ MyWallpaperX保留同样响应：关闭/零谱效果的中心ROI相对官方MAE1
 补充正例保持全部输入bytes（含CRLF），仅将两处0改为每带0.05：官方和本机均出现紫色边环，edge RGB均值增量分别31.43/25.20/33.98与32.23/24.68/34.15。非零输入进入最终画面；外围光晕本机仍较弱（均值差约2.3–2.8/255），保留为有界空间差异，不称完整parity。官方重复全viewport相同。首次本机探索稿被发现转换换行，正式比较采用重新核字节并重跑的 `native-on-low-bloom-bytefixed`，旧稿不作正式对照。
 
 签名App/dylib沿用[发光脚本批](model-material-value-scripts-implementation-2026-10-06.md#2026-10-09发光脚本与嵌套属性)，每次运行前核4239源码hash。原包/project只读hash未变；本机证据 `.artifacts/tmp/u12-moon-inputs-20261009`。本片只解除静音月亮/Bloom明显错误的疑点，不证明真实音乐的低频包络、完整样本颜色、正常App→daemon或全样本兼容；剩余问题沿现有音频producer与整场颜色owner定位。
+
+
+<a id="u12真实pcm链"></a>
+
+## U12 真实 PCM 与系统采集后继
+
+基线 `1befc7d7`；只扩现有 Debug PCM 音源，不改产品频带或 shader。`--mwx-debug-scene-audio-spectrum-fixture` 可加 `--mwx-debug-scene-audio-tone-hz <Hz>`，有限正频率须小于24kHz；连续48kHz、峰幅0.5音调仍经原128帧回调、服务FFT、共享inbox。显式缺值/NaN/Nyquist均日志拒绝且不发布测试PCM；silence优先，未指定时原宽频公式不变。日志增加首16带值与64带前三和，以区分“宽频非零”和“作者目标频段非零”。首版缺值误用宽频的静态审查问题已修并实际验证。
+
+原包、固定镜头、窗光响应属性minvalue0/smooth1：静音的首带/前三和均0，32Hz稳定约0.64/1.93，80Hz约0.24/0.42，宽频旧fixture取图时段首带/前三和为0，期间有短暂小峰（frame150约0.0334/0.0499），未持续覆盖作者最低频段；不能由截图无响应推断全程未响应或接线缺失。预登记月亮ROI RGB由静音205.08/203.19/202.27变为32Hz240.53/232.48/240.70；窗光ROI49.84/43.91/35.88→83.56/77.17/46.46。80Hz两处也有较小响应。作者原完整shader及VM消费后进入真实合成，未换作者频段或造活动底。独立生产analyzer的32/40/60/80Hz连续输入全部进入前三带；约0.77–0.80秒静音后六数组精确归零，重启恢复。
+
+另一次原包运行不带任何fixture选项，外部afplay播放自有WAV，真实system tap启动48kHz双声道：generation1进入inbox、原发光脚本输出1.7021、月亮uniform首值约0.311/0.312，最终画面有响应。系统tap可能混入其他应用，不能把幅度独占归因于该WAV；这是App直接Host的实采证据，不外推App UI→daemon、所有播放器、官方FFT映射或长稳。原project缺省窗光minvalue1仍是常亮，不应强制随音乐变动。
+
+最终签名Debug dylib SHA `bc86b3d85c514c9b2a26524200f7cbcfb0dfee6c67908213a11c36b977e8b396`，4239源码hash构建前后一致，7项正式App正反运行全部exit0、原包/project不变。11组相关门、结构13项及Debug布局2项通过；总wrapper被既有未知 `.mimosa` 218B残留挡住，保留未删，不声称全门绿；code-health/defense/design另行通过。证据 `.artifacts/tmp/u12-low-frequency-20261009`，`*-final`为最终构建，首版探索结果不冒充最终证据。本批补齐音源验证工具并关闭PCM/实采接线疑点，未新增渲染修复；U12余整景颜色及已记录外围光晕差异。

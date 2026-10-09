@@ -91,7 +91,7 @@ T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅
 | U09 · 3797217144 | 缺奥特曼旋转并由小放大的出场动画 | intro/Timeline/脚本启动、变换及首帧至入场结束时序 |
 | U10 · 3793998447 | 似乎缺作者音频光圈和其他属性 | 音频消费、属性声明→入口→typed 更新；先清点具体未生效属性，不猜字段 |
 | U11 · 3792249095 | 缺音频发光，整体样式与原版差距大 | 音频驱动→effect/颜色/合成，并保留整体构图复验 |
-| U12 · 3477054430 | ①整景颜色待核；②窗光已修 | [窗光](../history/static-model-emission-2026-10-09.md)、[光照](../history/static-model-light-input-semantics-2026-10-06.md#2026-10-09模型环境与天空光响应纠正)、[脚本](../history/model-material-value-scripts-implementation-2026-10-06.md#2026-10-09发光脚本与嵌套属性)已接；[月亮对照](../history/shared-shader-type-compatibility-2026-10-09.md#u12月亮受控对照)后余真实低频 |
+| U12 · 3477054430 | ①整景颜色待核；②窗光已修 | [窗光](../history/static-model-emission-2026-10-09.md)、[光照](../history/static-model-light-input-semantics-2026-10-06.md#2026-10-09模型环境与天空光响应纠正)、[脚本](../history/model-material-value-scripts-implementation-2026-10-06.md#2026-10-09发光脚本与嵌套属性)已接；[PCM/实采](../history/shared-shader-type-compatibility-2026-10-09.md#u12真实pcm链)已验，余整景/光晕 |
 | U13 · 3042492564 | ①顶部两道分叉光束差异大；②歌曲识别封面不显示 | 光束仍开放；[封面后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-media-base-fallback)已闭合mask供给、idle连续scalar及换图事件帧旧值覆盖：同一typed admission消费restart preview，4次事件当帧均1并连续递减，无stale/拒绝。主动init/update/overlay与失败回滚不改，未新增clock/值链。**布局/AA/blur与真实播放器仍待修**：默认无resize窗口右侧裁切原因未定，不能关闭②或整样本。 |
 | U14 · 2932157836 | 歌曲封面不显示 | [本批后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-media-base-fallback)：**mask技术首断点已闭**：同Store复用preserved上传发布current/previous mask的typed data视图，原包受控红→绿→蓝出现中间像素、clear恢复作者音符图片，事件/GPU/退出正常。独立blur/spin拒绝及真实播放器来源仍待复验，不关闭整样本 |
 | U15 · 3299228616 | ①鼠标划过水波不明显；②时钟上方矩形独立运动，似未与其他内容同层合成 | pointer→水波输入；graph/变换/相机及合成空间，不能用抬强度掩盖 |
@@ -123,7 +123,7 @@ T1材质、T2 HDR裁剪/暂停、E1 prefix/标量及同层current已闭；328仅
 | U41 · 3357627941 | 属性面板无替换视频媒体资源的选择入口 | project 属性类型→现有 AppKit 编辑器/资源选择→typed binding→视频 consumer，不另造 provider |
 | U42 · 跨样本属性面板 | ①打开后浏览/滚动严重卡顿；②疑似原中文属性显示成英文，用户询问官方是否有中英映射并提示参考研究 | 沿既有属性 UI 测主线程/布局/重复解析；查作者 locale token/字典、系统语言与官方 fallback。映射表是否存在未证，不硬编码翻译表 |
 
-**执行顺序及单链约束。** U14封面mask、U13连续scalar/同帧旧值、U07镂空矩形、U03额头缺块及U18头发错位主报告现象已修，U04/U20/U19②音频条现已通过同一中文previous补接恢复；完成项不再当作未做。U19灰头冠、U21两环/灰层及U23强网点已修；U12已修项不重做；续查真实低频、整景/HDR/SDR。U06 WebM/VP9 decode与重型剩余显示复验保留高优先级。随后复核 U16/U24/U34“曾好后坏”及 U22 持续退化，再归并光束、音频、动画/交互；属性入口与面板仍开放。条纹328物理显示仍未闭。顺序仍属于既有T1/T2/E1与P路线，不另建路线。
+**执行顺序及单链约束。** U14封面mask、U13连续scalar/同帧旧值、U07镂空矩形、U03额头缺块及U18头发错位主报告现象已修，U04/U20/U19②音频条现已通过同一中文previous补接恢复；完成项不再当作未做。U19灰头冠、U21两环/灰层及U23强网点已修；U12音频已接；续查整景/光晕，再进HDR/SDR。U06 WebM/VP9 decode与重型剩余显示复验保留高优先级。随后复核 U16/U24/U34“曾好后坏”及 U22 持续退化，再归并光束、音频、动画/交互；属性入口与面板仍开放。条纹328物理显示仍未闭。顺序仍属于既有T1/T2/E1与P路线，不另建路线。
 
 重写必须在原职责入口替换旧实现，并证明原有效输入/效果和失败隔离不回退；同一输入不可同时走新旧两套 owner。发现能由已有参数、入口或 primitive 表达的能力，优先补接或扩展该处。每批报告逐子现象关闭数、实际复测样本及剩余范围，不把本表录入率当画面修复率。
 
