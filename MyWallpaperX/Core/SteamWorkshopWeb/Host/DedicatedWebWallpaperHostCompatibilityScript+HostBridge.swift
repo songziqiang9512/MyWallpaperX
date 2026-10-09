@@ -571,8 +571,11 @@ let webCompatibilityScriptHostBridge = #"""
   window.__myWallpaperSetGlobalVolume = function(value) {
     const volume = Math.max(0, Math.min(1, Number(value) || 0));
     window.__myWallpaperLastHostVolume = volume;
-    const mediaNodes = Array.from(document.querySelectorAll('audio,video'));
-    for (const node of mediaNodes.concat(audioStreams)) {
+    // 全量穿透（shadow root + 同源 iframe）：querySelectorAll 不穿 shadow
+    // 边界，自定义元素内的 <video> 只有挂接时的一次性回填，宿主音量调整
+    // 永远到不了——与媒体状态 payload 共用同一遍历器（MediaDiscovery 段
+    // 在 HostBridge 之前拼接，const 先于本段的种子调用与宿主调用求值）。
+    for (const node of wallpaperMediaNodes().concat(audioStreams)) {
       if (!node) continue;
       try { node.volume = volume; } catch (_) {}
     }
@@ -586,8 +589,8 @@ let webCompatibilityScriptHostBridge = #"""
   window.__myWallpaperSetPlaybackRate = function(value) {
     const playbackRate = Math.max(0.25, Math.min(2, Number(value) || 1));
     window.__myWallpaperLastHostPlaybackRate = playbackRate;
-    const mediaNodes = Array.from(document.querySelectorAll('audio,video'));
-    for (const node of mediaNodes.concat(audioStreams)) {
+    // 同 __myWallpaperSetGlobalVolume：穿透 shadow 边界的全量遍历。
+    for (const node of wallpaperMediaNodes().concat(audioStreams)) {
       if (!node) continue;
       try { node.playbackRate = playbackRate; } catch (_) {}
     }

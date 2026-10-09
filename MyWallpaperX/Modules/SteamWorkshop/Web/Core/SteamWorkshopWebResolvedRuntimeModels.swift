@@ -295,6 +295,12 @@ extension SteamWorkshopService {
     /// resolvedWebProjectDescriptorForLaunch）。
     func resolvedWebPlaybackContext(for record: SteamWorkshopDownloadRecord) async -> ResolvedWebPlaybackContext? {
         if let cachedPlaybackContext = await loadCachedWebPlaybackContext(for: record) {
+            // 磁盘命中路径同时预热 descriptor memo：否则回主线程后
+            // recommendedWebRuntimeProfile → resolvedWebRuntimeModel 的两级
+            // memo 全冷，analysis 清单读盘+解码（跨会话清单还有 BFS 签名
+            // 扫描）落回主线程，违反「点击热路径不做文件 IO」契约。预热在
+            // 后台段完成后返回；model 构造自此是纯计算。
+            _ = await resolvedWebProjectDescriptorForLaunch(for: record)
             return cachedPlaybackContext
         }
 

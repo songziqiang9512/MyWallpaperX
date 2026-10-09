@@ -209,8 +209,8 @@
       "bytes": 6445
     },
     "docs/web/current-state.md": {
-      "lines": 117,
-      "bytes": 41294
+      "lines": 118,
+      "bytes": 42981
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 58,
@@ -1064,10 +1064,10 @@
     {
       "section": "bodies",
       "path": "docs/web/current-state.md",
-      "before": "a2ad6fea72956fb81b82cea0a8bbd5fe34c0ca49f939993beabf8bb02b98fcb4",
-      "after": "0d4f2b761d6b017c042328b9f4b98357c8109e47806dd85935704c7a6b2d0c7d",
+      "before": "0d4f2b761d6b017c042328b9f4b98357c8109e47806dd85935704c7a6b2d0c7d",
+      "after": "87c8025b1ea56711caed4753bbd460b1c483ecf7938a23571642ab884d6b8e3c",
       "owner": "Web 现役状态",
-      "reason": "批十五 benchmark 计数收口证据行并入（桥失败签名进 resource 维度）。",
+      "reason": "批十七第五轮侦察修复证据行并入（shadow 媒体穿透、缓存命中 memo 预热、备飞窗全灭保留清空；CSS 动画解耦设计登记）。",
       "decision": "docs/web/cold-descriptor-parse-offload-design.md#验收"
     },
     {

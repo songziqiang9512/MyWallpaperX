@@ -38,6 +38,18 @@ extension WallpaperEngine {
                 }
                 self.cleanupSessionIO(session)
 
+                // web 准备窗内被保留的 video runtime 全灭（多屏全部会话崩溃/
+                // 单屏唯一会话崩溃）时清空保留：E2a-4 失败回滚假设被保留的
+                // runtime 还活着——否则回滚会把引擎真值复活成已死的 video
+                // （isPlaying 为真、屏幕无输出、无自愈路径）。全灭后走 else
+                // 清空分支，引擎如实报告未在播。
+                if self.pendingVideoRetirementOnWebReady, self.displaySessions.isEmpty {
+                    self.pendingVideoRetirementOnWebReady = false
+                    self.retainedVideoWallpaper = nil
+                    self.retainedVideoContentPath = nil
+                    self.retainedVideoMultiDisplayEnabled = nil
+                }
+
                 guard wasCurrentSession,
                       self.currentPlaybackContentKind == .video,
                       self.shouldMaintainSession(for: displayID),
