@@ -356,7 +356,10 @@ def classify_sample_resource_noise(event: DiagnosticEvent) -> bool:
     # fetch.proxy.error / xhr.proxy.error（message 尾部携带回包 token）。
     # 这四类是桥的明示契约行为（样本请求未登记/超频/DNS 黑洞/超 2MB），
     # 不是桥回归——与宿主侧同名专项诊断一致按样本噪音封顶。
-    if event.type in {"fetch.proxy.error", "xhr.proxy.error"} and any(
+    # network.proxy.error + destination_not_allowed 同理：白名单在重定向
+    # 跳上的正确执法（willPerformHTTPRedirection 的 authorizeRedirect 拒绝）
+    # 是该组合的唯一宿主侧来源（首跳拒绝走独立的 network.proxy.denied）。
+    if event.type in {"fetch.proxy.error", "xhr.proxy.error", "network.proxy.error"} and any(
         token in message
         for token in (
             "destination_not_allowed",

@@ -209,8 +209,8 @@
       "bytes": 6445
     },
     "docs/web/current-state.md": {
-      "lines": 116,
-      "bytes": 40279
+      "lines": 117,
+      "bytes": 41294
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 58,
@@ -234,7 +234,7 @@
     },
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
-      "bytes": 8191
+      "bytes": 8377
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1064,8 +1064,8 @@
     {
       "section": "bodies",
       "path": "docs/web/current-state.md",
-      "before": "828dd756eb56deb598a40357cb8615e6f827e19c05d3d138fef810a32b1487cd",
-      "after": "a2ad6fea72956fb81b82cea0a8bbd5fe34c0ca49f939993beabf8bb02b98fcb4",
+      "before": "a2ad6fea72956fb81b82cea0a8bbd5fe34c0ca49f939993beabf8bb02b98fcb4",
+      "after": "0d4f2b761d6b017c042328b9f4b98357c8109e47806dd85935704c7a6b2d0c7d",
       "owner": "Web 现役状态",
       "reason": "批十五 benchmark 计数收口证据行并入（桥失败签名进 resource 维度）。",
       "decision": "docs/web/cold-descriptor-parse-offload-design.md#验收"
@@ -1073,8 +1073,8 @@
     {
       "section": "bodies",
       "path": "docs/web/web-wallpaper-benchmark-standard.md",
-      "before": "5a120aaf008d08ce81bc5463c66dd626dc73e6106cf3c308caf9e8c24a019203",
-      "after": "81eed0ebfd9fc8045415bec3780240bc44233dc153541862e98c60c7e0715737",
+      "before": "81eed0ebfd9fc8045415bec3780240bc44233dc153541862e98c60c7e0715737",
+      "after": "4a6342b0d7cc82163bb072487a1200708438523fa1c1636afa46f5ec9e8cce23",
       "owner": "Web benchmark standard",
       "reason": "resource_mapping 计数集扩入宿主桥失败签名（scorer 变更的合同化记录，跨版本以 scorer 变更为界）。",
       "decision": "docs/web/web-wallpaper-benchmark-standard.md#短板归因"

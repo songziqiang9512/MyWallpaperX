@@ -90,12 +90,16 @@ class WebBenchmarkBridgeScoringTests(unittest.TestCase):
         # 防护 token 的页面侧孪生：宿主回包 {ok:false} 后 fetch/XHR 代理
         # reject 落 fetch.proxy.error/xhr.proxy.error（message 带回包 token）——
         # 与宿主侧专项诊断一致按样本噪音封顶，不触发 host mapping 罚分。
+        # network.proxy.error + destination_not_allowed 是白名单在重定向跳
+        # 上的正确执法（唯一宿主侧来源），同样封顶。
         dimension = resource_dimension(
             [
                 make_event("fetch.proxy.error", "GET https://unregistered.example.com destination_not_allowed", url="http://127.0.0.1:1/mwx-t/index.html"),
                 make_event("fetch.proxy.error", "GET https://burst.example.com too_many_requests", url="http://127.0.0.1:1/mwx-t/index.html"),
                 make_event("xhr.proxy.error", "GET https://blackhole.example.com authorization_timeout", url="http://127.0.0.1:1/mwx-t/index.html"),
                 make_event("fetch.proxy.error", "GET https://heavy.example.com response_too_large", url="http://127.0.0.1:1/mwx-t/index.html"),
+                make_event("network.proxy.error", "GET https://whitelisted.example.com/redirect destination_not_allowed", url="http://127.0.0.1:1/mwx-t/index.html"),
+                make_event("network.proxy.error", "GET https://whitelisted.example.com/hop2 destination_not_allowed", url="http://127.0.0.1:1/mwx-t/index.html"),
             ]
         )
         self.assertGreaterEqual(dimension.score, 11, f"protection-token echoes must stay noise-capped (score={dimension.score})")
