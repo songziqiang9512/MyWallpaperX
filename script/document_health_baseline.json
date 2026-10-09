@@ -209,8 +209,8 @@
       "bytes": 6445
     },
     "docs/web/current-state.md": {
-      "lines": 114,
-      "bytes": 37196
+      "lines": 115,
+      "bytes": 38497
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 58,
@@ -1073,10 +1073,10 @@
     {
       "section": "bodies",
       "path": "docs/web/current-state.md",
-      "before": "69586cfb37e04ffacb313a73144e65f90ae1a013874b577e6f0649fe6c3f0af7",
-      "after": "45660408524cff571f4ca767c16f2483050aebe83073a718a22ff16c79d4b224",
+      "before": "45660408524cff571f4ca767c16f2483050aebe83073a718a22ff16c79d4b224",
+      "after": "828dd756eb56deb598a40357cb8615e6f827e19c05d3d138fef810a32b1487cd",
       "owner": "Web 现役状态",
-      "reason": "批十三第四轮侦察修复证据行并入（颜色提交去抖、phase 补 .ready、symlink 解析键）。",
+      "reason": "批十四边角收口证据行并入（恢复默认冲刷竞态、引擎侧 ready 补发）。",
       "decision": "docs/web/cold-descriptor-parse-offload-design.md#验收"
     },
     {

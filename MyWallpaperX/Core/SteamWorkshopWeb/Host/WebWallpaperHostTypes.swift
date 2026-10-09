@@ -411,6 +411,11 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     var webContentRecoveryReloadStartedScreenIDs = Set<CGDirectDisplayID>()
     var webContentRecoveryWorkItems: [CGDirectDisplayID: DispatchWorkItem] = [:]
     var readyScreenIDs = Set<CGDirectDisplayID>()
+    /// 当前 request 是否已向引擎发过 `.ready`（markScreenReady 或 reconcile
+    /// 补位）：多屏初始启动在途闪断（一屏 ready、另一屏 pre-ready 被拔）时，
+    /// 补位转 .ready 后引擎的 .ready 事件也须补发一次（video 退场/暂停补发
+    /// 还悬置着）；增屏闪断（增前已 ready）则不重发。launch 时复位。
+    var didEmitReadyEventForCurrentRequest = false
     var audioSpectrumDemandScreenIDs = Set<CGDirectDisplayID>()
     var surfaces: [CGDirectDisplayID: HostSurface] = [:]
     var navigationOwnershipByScreen: [CGDirectDisplayID: NavigationOwnership] = [:]

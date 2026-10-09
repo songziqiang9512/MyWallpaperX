@@ -12,6 +12,10 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
     private let record: SteamWorkshopDownloadRecord
     private let contentStack = NSStackView()
     private let scrollView = InspectorFadingScrollView(fadeRatio: 0)
+    /// 当前在树行控件的 action target（rebuild 时随控件一并退役）：
+    /// 「恢复默认」需要先冲刷它们的挂起颜色，否则 reset 后 0.6s 去抖/deinit
+    /// 会把旧值重新提交，部分回滚恢复默认。
+    private var actionTargets: [WebPropertyActionTarget] = []
 
     init(record: SteamWorkshopDownloadRecord) {
         self.record = record
@@ -56,6 +60,10 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             editingSliderIdentifier = nil
         }
         contentStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        // 旧 target 随控件退役；数组清空避免强持有跨越 rebuild。正确性不
+        // 依赖销毁时序：reset 路径的 pending 已提前废弃，普通 rebuild 的
+        // deinit 冲刷兜底与批十三语义一致。
+        actionTargets.removeAll()
         guard let descriptor = service.resolvedWebProjectDescriptor(for: record) else {
             contentStack.addArrangedSubview(label("当前壁纸的属性暂不可用，请先完成依赖下载。", font: .systemFont(ofSize: 13), color: .secondaryLabelColor, lines: 0))
             return
@@ -98,7 +106,15 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         }
         return nil
     }
-    @objc private func resetProperties() { service.resetWebPropertyValues(for: record); rebuild() }
+    @objc private func resetProperties() {
+        // 先废弃全部挂起颜色（含去抖 workItem）：reset 后任何迟到提交都会
+        // 部分回滚「恢复默认」。
+        for target in actionTargets {
+            target.discardPendingColor()
+        }
+        service.resetWebPropertyValues(for: record)
+        rebuild()
+    }
     private func label(_ text: String, font: NSFont, color: NSColor, lines: Int) -> NSTextField {
         let label = NSTextField(wrappingLabelWithString: text)
         label.font = font; label.textColor = color; label.maximumNumberOfLines = lines
@@ -149,7 +165,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
     ) -> NSView {
         switch definition.kind {
         case .slider:
-            let target = WebPropertyActionTarget(view: self, record: record, definition: definition, summaryLabel: summaryLabel)
+            let target = makeActionTarget(record: record, definition: definition, summaryLabel: summaryLabel)
             let slider = WebPropertySlider(value: value.numberValue ?? definition.defaultValue.numberValue ?? definition.minimumValue ?? 0,
                                            minValue: definition.minimumValue ?? 0,
                                            maxValue: definition.maximumValue ?? max((definition.minimumValue ?? 0) + 1, value.numberValue ?? 1),
@@ -166,7 +182,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         case .toggle:
             let checkbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
             checkbox.state = (value.boolValue ?? definition.defaultValue.boolValue ?? false) ? .on : .off
-            let target = WebPropertyActionTarget(view: self, record: record, definition: definition)
+            let target = makeActionTarget(record: record, definition: definition)
             checkbox.target = target
             checkbox.action = #selector(WebPropertyActionTarget.toggleChanged(_:))
             retainActionTarget(target, for: checkbox)
@@ -198,7 +214,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
                     popup.select(item)
                 }
             }
-            let target = WebPropertyActionTarget(view: self, record: record, definition: definition, visibleOptions: visibleOptions)
+            let target = makeActionTarget(record: record, definition: definition, visibleOptions: visibleOptions)
             popup.target = target
             popup.action = #selector(WebPropertyActionTarget.popupChanged(_:))
             retainActionTarget(target, for: popup)
@@ -214,7 +230,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             let choose = NSButton(title: definition.kind == .directory ? "选择文件夹" : "选择文件", target: nil, action: nil)
             choose.bezelStyle = .rounded
             choose.controlSize = .small
-            let target = WebPropertyActionTarget(view: self, record: record, definition: definition, summaryLabel: summaryLabel)
+            let target = makeActionTarget(record: record, definition: definition, summaryLabel: summaryLabel)
             choose.target = target
             choose.action = #selector(WebPropertyActionTarget.choosePath(_:))
             retainActionTarget(target, for: choose)
@@ -237,7 +253,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         case .color:
             return colorControl(value: value, definition: definition, record: record, summaryLabel: summaryLabel)
         case .text, .unknown:
-            let target = WebPropertyActionTarget(view: self, record: record, definition: definition, summaryLabel: summaryLabel)
+            let target = makeActionTarget(record: record, definition: definition, summaryLabel: summaryLabel)
             return textField(textValue(value, definition: definition), placeholder: definition.title, target: target, action: #selector(WebPropertyActionTarget.textChanged(_:)))
         }
     }
@@ -254,7 +270,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         row.spacing = 10
         row.translatesAutoresizingMaskIntoConstraints = false
 
-        let target = WebPropertyActionTarget(view: self, record: record, definition: definition, summaryLabel: summaryLabel)
+        let target = makeActionTarget(record: record, definition: definition, summaryLabel: summaryLabel)
         let colorWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 42, height: 26))
         colorWell.color = color(from: value.stringValue ?? definition.defaultValue.stringValue ?? "0 0 0")
         colorWell.target = target
@@ -281,6 +297,23 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
 
     private func retainActionTarget(_ target: WebPropertyActionTarget, for control: NSControl) {
         objc_setAssociatedObject(control, "[\(Unmanaged.passUnretained(control).toOpaque())].target", target, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    }
+
+    private func makeActionTarget(
+        record: SteamWorkshopDownloadRecord,
+        definition: SteamWorkshopWebPropertyDefinition,
+        visibleOptions: [SteamWorkshopWebPropertyOption] = [],
+        summaryLabel: NSTextField? = nil
+    ) -> WebPropertyActionTarget {
+        let target = WebPropertyActionTarget(
+            view: self,
+            record: record,
+            definition: definition,
+            visibleOptions: visibleOptions,
+            summaryLabel: summaryLabel
+        )
+        actionTargets.append(target)
+        return target
     }
 
     private func updateWebProperty(_ value: SteamWorkshopWebPropertyValue, definition: SteamWorkshopWebPropertyDefinition, record: SteamWorkshopDownloadRecord, preview: Bool = false) {
@@ -538,6 +571,14 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             guard let pendingColorString else { return }
             self.pendingColorString = nil
             view?.updateWebProperty(.string(pendingColorString), definition: definition, record: record)
+        }
+
+        /// 「恢复默认」用：废弃挂起颜色与去抖（不提交）——reset 后的迟到
+        /// 提交会部分回滚恢复默认。
+        func discardPendingColor() {
+            pendingColorCommitWorkItem?.cancel()
+            pendingColorCommitWorkItem = nil
+            pendingColorString = nil
         }
 
         private func webPropertyValue(from rawValue: String) -> SteamWorkshopWebPropertyValue {

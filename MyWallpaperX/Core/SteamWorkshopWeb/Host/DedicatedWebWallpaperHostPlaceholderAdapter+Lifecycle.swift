@@ -41,6 +41,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         installLifecycleObservers()
         beginHostActivity()
         currentRequest = request
+        didEmitReadyEventForCurrentRequest = false
         currentVolume = runtimeState.volume
         currentPlaybackRate = runtimeState.playbackRate
         currentSpectrumLevels = runtimeState.spectrumLevels
@@ -178,7 +179,10 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         // 增屏闪断（新屏在装载完成前被拔掉）后，剩余屏可能早已全部就绪：
         // markScreenReady 的计数门要求 inserted，旧屏不会再触发——phase 会
         // 永久卡在 .launching，空间切换/应用激活的 reassert 门全部失效。
-        // 此处按当前就绪事实补 .ready（引擎侧 .ready 事件已发过，不重发）。
+        // 此处按当前就绪事实补 .ready；引擎侧 .ready 事件只在初始启动从未
+        // 发过时补发一次（多屏启动在途闪断场景：一屏已 ready、另一屏
+        // pre-ready 被拔——video 退场/暂停补发仍悬置），增屏闪断（增前
+        // 已发过）不重发。
         if phase == .launching, surfaces.isEmpty == false,
            readyScreenIDs == Set(surfaces.keys) {
             recordDiagnostic(
@@ -189,6 +193,11 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 url: nil
             )
             phase = .ready
+            if didEmitReadyEventForCurrentRequest == false,
+               let requestID = currentRequest?.id {
+                didEmitReadyEventForCurrentRequest = true
+                eventHandler?(.ready(requestID: requestID))
+            }
             scheduleDebugEvidenceIfNeeded()
         }
         installDefaultInteractiveRegionsIfNeeded()
@@ -517,6 +526,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         }
         recordDiagnostic(type: "host.ready", severity: .info, message: "ready", screenID: screenID, url: nil)
         phase = .ready
+        didEmitReadyEventForCurrentRequest = true
         if let requestID = currentRequest?.id {
             eventHandler?(.ready(requestID: requestID))
         }
