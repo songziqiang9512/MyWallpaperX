@@ -30,6 +30,17 @@ extension WallpaperEngine {
 
     @objc func handleScreenParametersChanged() {
         scanDisplays()
+        if currentWallpaper == nil, pendingVideoRetirementOnWebReady {
+            // web 准备窗内被保留的 video 会话（E2a-4）没有 currentWallpaper
+            // 可供 applyWallpaper 收敛——拔掉的显示器对应的 daemon 会话在此
+            // 剪枝，否则 web 失败回滚后幽灵会话对不存在的显示器持续解码
+            // 且不静音（双份可听音频）。成功路径由 .ready 全量 terminate 覆盖。
+            let onlineDisplays = Set(displayIDs)
+            for displayID in displaySessions.keys where onlineDisplays.contains(displayID) == false {
+                terminateSession(for: displayID)
+            }
+            return
+        }
         guard let currentWallpaper else { return }
         applyWallpaper(currentWallpaper, multiDisplayEnabled: currentMultiDisplayEnabled,
             videoFillMode: currentVideoFillMode, shouldLoopCurrentItem: currentShouldLoopCurrentItem)

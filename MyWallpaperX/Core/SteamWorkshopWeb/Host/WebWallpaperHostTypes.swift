@@ -381,6 +381,10 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     var frameEndpointRegistry = WebWallpaperFrameEndpointRegistry()
     /// 租约续约心跳（宿主调度）：首 endpoint 注册时启动，teardown 停止。
     var frameEndpointLeaseRenewalTimer: DispatchSourceTimer?
+    /// 网络桥授权阶段（DNS 解析等，无应用层超时）在飞的 requestID：授权
+    /// 看门狗据此在窗口到期时释放配额并回包；授权完成方与看门狗先到先得，
+    /// 迟到方整体退役（防止双重 release/双重回包）。只在主线程访问。
+    var pendingNetworkBridgeAuthorizationIDs: Set<String> = []
 
     var phase: Phase = .idle
     var currentRequest: WallpaperEngine.WebWallpaperLaunchRequest? {

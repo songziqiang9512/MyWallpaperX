@@ -256,6 +256,10 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     /// 限流，超限走既有失败回包通道（JS 侧对 ok !== true 一律 reject）。单条请求的
     /// 存活窗口 = 空闲 10s 与资源总时限 10s 的较小者（WebNetworkBridgeRequest.start()）。
     private static let networkBridgeMaxInflightRequestsPerScreen = 8
+    /// 授权阶段看门狗窗口（仅覆盖 admit→授权完成：白名单 + getaddrinfo 等
+    /// 无应用层超时的解析）：超时先到先得地释放配额并回包；授权完成后
+    /// bridge 期由自身双 10s 时限自守，单请求总存活上界约 20s（按阶段各有界）。
+    private static let networkBridgeAuthorizationTimeout: TimeInterval = 10
 
     var currentGeneralProperties: [String: Any] {
         currentGeneralProperties(for: nil, screenID: nil)
@@ -663,6 +667,27 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
 
         // ownedWebView 只用于配额归属：弱捕获（实测内层闭包不扣留对象），不阻止
         // surface 拆除后 webView 释放，也不把 webView 带进任何强持有链。
+        // 授权阶段（白名单 + getaddrinfo）无应用层超时——resolver 黑洞可把
+        // 配额扣住远超声明的 10s 存活窗口；看门狗先到先得地释放配额并回包。
+        pendingNetworkBridgeAuthorizationIDs.insert(requestID)
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.networkBridgeAuthorizationTimeout) { [weak self, weak ownedWebView = webView] in
+            guard let self, self.pendingNetworkBridgeAuthorizationIDs.remove(requestID) != nil else { return }
+            WebNetworkBridgeInflightRegistry.shared.release(screenID, frameKey: frameKey, owner: ownedWebView)
+            guard let webView = self.surfaces[screenID]?.webView else { return }
+            self.resolveNetworkRequest(
+                requestID: requestID,
+                payload: ["ok": false, "error": "authorization_timeout"],
+                webView: webView,
+                frameInfo: frameInfo
+            )
+            self.recordDiagnostic(
+                type: "network.proxy.authorization.timeout",
+                severity: .warning,
+                message: "\(method) \(rawURLString)",
+                screenID: screenID,
+                url: webView.url?.absoluteString
+            )
+        }
         DispatchQueue.global(qos: .utility).async { [weak self, weak ownedWebView = webView] in
             guard let authorization = Self.authorizedNetworkBridgeRequest(
                 request,
@@ -670,8 +695,9 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 reusing: nil
             ) else {
                 Task { @MainActor in
+                    guard let self, self.pendingNetworkBridgeAuthorizationIDs.remove(requestID) != nil else { return }
                     WebNetworkBridgeInflightRegistry.shared.release(screenID, frameKey: frameKey, owner: ownedWebView)
-                    guard let self, let webView = self.surfaces[screenID]?.webView else { return }
+                    guard let webView = self.surfaces[screenID]?.webView else { return }
                     self.resolveNetworkRequest(
                         requestID: requestID,
                         payload: ["ok": false, "error": WebNetworkBridgeFailure.destinationNotAllowed.message],
@@ -701,6 +727,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 }
             ) { [weak self] result in
                 Task { @MainActor in
+                    // 授权成功即已移除 pendingID（见下方 start 前的门卫）——
+                    // bridge 期由自身双 10s 时限自守，完成时无条件释放配额。
                     WebNetworkBridgeInflightRegistry.shared.release(screenID, frameKey: frameKey, owner: ownedWebView)
                     guard let self, let webView = self.surfaces[screenID]?.webView else { return }
                     switch result {
@@ -751,7 +779,14 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                     }
                 }
             }
-            bridgeRequest.start()
+            // 看门狗只覆盖授权阶段：授权完成后先回主线程移除 pendingID——
+            // 移除失败=看门狗已胜（配额已释放、超时已回包），不再启动传输；
+            // 移除成功则 bridge 期开始，由其自身双 10s 时限自守（不覆盖传输
+            // 期，避免把「授权快+合法慢传输」的请求误杀成 authorization_timeout）。
+            Task { @MainActor [weak self] in
+                guard let self, self.pendingNetworkBridgeAuthorizationIDs.remove(requestID) != nil else { return }
+                bridgeRequest.start()
+            }
         }
     }
 

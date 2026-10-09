@@ -47,7 +47,13 @@ extension WallpaperEngine {
             baseJSON: currentWebPropertiesJSON,
             deltaJSON: propertiesJSON
         )
-        dispatchWebRuntimeCommand(.applyProperties(propertiesJSON ?? "{}"))
+        // 推合并后的完整属性袋而非原始单键 delta：页面侧
+        // __myWallpaperApplyProperties 对镜像做整体替换，推 delta 会把全量镜像
+        // 覆盖成单键——此后 listener 晚注册/错误重放只交付不完整属性袋，与
+        // WE「每次变更交付完整 userProperties」契约相悖。完整袋签名不变时
+        // 页面侧去重自然短路。镜像 nil（理论不可达）不推，避免清空页面镜像。
+        guard let mergedPropertiesJSON = currentWebPropertiesJSON else { return }
+        dispatchWebRuntimeCommand(.applyProperties(mergedPropertiesJSON))
     }
 
     func launchWebWallpaper(_ request: WebWallpaperLaunchRequest) {
