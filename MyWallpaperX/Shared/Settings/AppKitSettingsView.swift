@@ -31,7 +31,9 @@ final class AppKitSettingsContainerView: NSView {
 
         override init(frame frameRect: NSRect) {
             super.init(frame: frameRect)
-            translatesAutoresizingMaskIntoConstraints = false
+            // document 的尺寸由 updateDocumentFrame 写入；让该 frame 约束内容栈，
+            // 否则栈会停在自然宽度，留下不对称的左右空白。
+            translatesAutoresizingMaskIntoConstraints = true
         }
 
         @available(*, unavailable)
