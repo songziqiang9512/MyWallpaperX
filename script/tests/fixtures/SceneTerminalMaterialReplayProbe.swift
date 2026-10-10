@@ -119,6 +119,49 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
             && abs(Int(center[0]) - 127) <= 1 && center[1] == 0
             && abs(Int(center[2]) - 128) <= 1 && center[3] == 255
     }
+
+    // A terminal attachment is drawn into, not sampled. Keep the same PMA
+    // and straight source-over pixel oracle when shaderRead is unavailable.
+    let renderOnlyTarget = texture(device: device, format: .bgra8Unorm,
+        width: 16, height: 16, usage: .renderTarget)
+    func renderOnlySourceOver(_ source: Program, role: Program.PassRole) -> Bool {
+        guard case let .success(renderOnlyPass) = encoder.prepareTerminalReplay(
+            program: source, target: renderOnlyTarget,
+            unitModelViewProjection: matrix_identity_float4x4)
+        else { return false }
+        let command = queue.makeCommandBuffer()!
+        let main = SceneMainPassEncoder(commandBuffer: command, target: renderOnlyTarget,
+            clearColor: .init(red: 0, green: 0, blue: 1, alpha: 1), clearEnabled: true)
+        let drawn = main.encodePreparedDraw {
+            encoder.terminalDraw(renderOnlyPass, target: $0, commandBuffer: $1)
+        }
+        let finished = main.finishEnsuringClear()
+        command.commit(); command.waitUntilCompleted()
+        let rgba = pixels(renderOnlyTarget)
+        let center = pixel(rgba, at: 8 * 16 + 8)!
+        let outside = pixel(rgba, at: 0)!
+        return renderOnlyTarget.usage == .renderTarget
+            && renderOnlyPass.role == role && drawn && finished
+            && command.status == .completed
+            && abs(Int(center[0]) - 127) <= 1 && center[1] == 0
+            && abs(Int(center[2]) - 128) <= 1 && center[3] == 255
+            && outside == [255, 0, 0, 255]
+    }
+    let renderOnlyPMA = renderOnlySourceOver(material, role: .terminalSourceOver)
+    let renderOnlyStraight = renderOnlySourceOver(straight, role: .terminalStraightSourceOver)
+    let renderOnlyOffscreenRejected: Bool
+    if case .failure(.targetRejected) = encoder.prepareResult(
+        program: material, target: renderOnlyTarget) {
+        renderOnlyOffscreenRejected = true
+    } else { renderOnlyOffscreenRejected = false }
+    let readOnlyTarget = texture(device: device, format: .bgra8Unorm,
+        width: 16, height: 16, usage: .shaderRead)
+    let readOnlyTerminalRejected: Bool
+    if case .failure(.targetRejected) = encoder.prepareTerminalReplay(
+        program: material, target: readOnlyTarget,
+        unitModelViewProjection: matrix_identity_float4x4) {
+        readOnlyTerminalRejected = true
+    } else { readOnlyTerminalRejected = false }
     encoder.reset()
     let staleCommand = queue.makeCommandBuffer()!
     let staleMain = SceneMainPassEncoder(commandBuffer: staleCommand, target: target,
@@ -160,6 +203,10 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
         "terminalBindingsRejected": aliasRejected,
         "terminalStraightAssociatedOnce": straightWarmup.readyKeyCount == 1
             && straightAssociatedOnce,
+        "terminalRenderTargetOnlyPMAAndPlacement": renderOnlyPMA,
+        "terminalRenderTargetOnlyStraightAssociatedOnce": renderOnlyStraight,
+        "offscreenRenderTargetOnlyRejected": renderOnlyOffscreenRejected,
+        "terminalShaderReadOnlyRejected": readOnlyTerminalRejected,
         "terminalStaleRejected": staleRejected,
         "terminalLegacyModelNotAdmitted": !oldModel.supportsTerminalMaterialReplay,
         "terminalPersistentRoleIdentity": archiveOriginal != nil && archiveTerminal != archiveOriginal,

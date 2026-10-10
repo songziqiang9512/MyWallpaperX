@@ -142,7 +142,8 @@ final class SceneResolvedMaterialPassEncoder {
         guard SceneResolvedMaterialAttachmentStorage.target(
             target,
             belongsTo: device,
-            stores: storedContent
+            stores: storedContent,
+            role: role
         ) else {
             return .failure(.targetRejected)
         }
@@ -292,7 +293,7 @@ final class SceneResolvedMaterialPassEncoder {
             && commandBuffer.status == .notEnqueued
             && commandBuffer.commandQueue.device.registryID == device.registryID
             && SceneResolvedMaterialAttachmentStorage.target(
-                pass.target, belongsTo: device, stores: pass.storedContent)
+                pass.target, belongsTo: device, stores: pass.storedContent, role: pass.role)
             && pass.bindings.allSatisfy { valid($0, target: pass.target) }
     }
 

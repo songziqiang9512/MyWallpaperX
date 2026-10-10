@@ -16,6 +16,7 @@ final class SceneResolvedMaterialFrameResourceBundle {
 // unconstructible leaf permits only the bridge's empty cold-start collection.
 extension SceneResolvedMaterialRuntimeBridge {
     struct PreparedSourceMaterial {
+        var sharedModelPath: String? { fatalError("source preparation is outside this fixture") }
         private init() { fatalError("source preparation is outside this fixture") }
     }
 }

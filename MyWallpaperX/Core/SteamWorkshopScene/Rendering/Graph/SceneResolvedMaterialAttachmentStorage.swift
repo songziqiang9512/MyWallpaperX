@@ -23,7 +23,8 @@ nonisolated enum SceneResolvedMaterialAttachmentStorage {
     static func target(
         _ target: MTLTexture,
         belongsTo device: MTLDevice,
-        stores content: SceneTextureContent
+        stores content: SceneTextureContent,
+        role: SceneResolvedMaterialProgram.PassRole
     ) -> Bool {
         let formatMatchesContent: Bool
         switch (target.pixelFormat, content) {
@@ -49,7 +50,7 @@ nonisolated enum SceneResolvedMaterialAttachmentStorage {
             && target.mipmapLevelCount == 1
             && target.sampleCount == 1
             && target.usage.contains(.renderTarget)
-            && target.usage.contains(.shaderRead)
+            && (role != .offscreenOverwrite || target.usage.contains(.shaderRead))
     }
 
     static func writeMask(for content: SceneTextureContent) -> MTLColorWriteMask {

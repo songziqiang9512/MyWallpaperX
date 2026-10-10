@@ -34,7 +34,8 @@ HARNESS = HELPERS + r'''
     let leases = makeChainedLeases(capability, device: device),
     let command = queue.makeCommandBuffer() else { fatalError("fixture preparation") }
   var result: [String: Bool] = ["singlePassAdmitted": capability.supportsTerminalMaterialReplay]
-  let target = makeSource(device, width: 256, height: 64, usage: [.renderTarget, .shaderRead])
+  // Normal SDR drawables need attachment writes, not shader sampling.
+  let target = makeSource(device, width: 256, height: 64, usage: [.renderTarget])
   let main = SceneMainPassEncoder(commandBuffer: command, target: target,
     clearColor: .init(red: 0, green: 0, blue: 1, alpha: 1), clearEnabled: true)
   let prepared = try executor.prepare(token: claim.token, leases: leases,

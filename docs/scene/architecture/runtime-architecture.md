@@ -585,6 +585,8 @@ solid 有显式且可解析静态 slot0 时复用 resource resolver→prepared b
 
 原 native 3D solid profile 继续限定单 material pass、无显式目标/外部消费者/geometry mesh、额外 terminal alpha=1。terminal 使用同一冻结 Program，只派生 placement uniforms 和 attachment/blend 角色，由唯一 MainPass 按层序编码。straight 输出在 typed PSO 中恰好关联一次，associated/opaque 沿原混合；data 不得进入颜色终端。单 stage 输入 pair member 保留到终端编码；inactive/不支持组合沿原 graph 纹理回执。源采样尺寸不得替代输出 placement；不按样本、路径、hash 或效果名选择算法。
 
+终端 attachment 只要求可渲染，不要求其自身可被 shader 采样；离屏 graph 输出仍要求 `.renderTarget + .shaderRead`。准备和编码再验证按同一既有 pass role 检查，输入纹理的采样权限与输入/目标别名拒绝不变。普通 SDR drawable 保留 framebuffer-only；不得因终端 replay 统一放开屏幕纹理权限。
+
 原 GraphExecutor 仍执行小尺寸捕获/输出，维护 transaction、publication、state 与 completion；terminal typed receipt 绑定 ticket/epoch/pass/同 command buffer，保持 one-shot，区别于纹理采样回执。PSO 角色参与原 cache 身份并在 launch 预热；普通帧不解析、compile 或重放 VM。preflight 先验证，部分 main 写入后失败仍拒帧。过渡期重复小光栅成本须在迁移这些守恒后才能删除，不能把 main target 冒充 graph texture。[原设计](../history/terminal-material-raster-design-2026-10-06.md)与[原实施](../history/terminal-material-raster-implementation-2026-10-06.md)不授予更宽 profile 准入。
 
 <a id="debug-capture-lifecycle"></a>
