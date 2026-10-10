@@ -1019,6 +1019,15 @@
       ]
     },
     {
+      "path": "docs/scene/history/for-update-integer-conversion-2026-10-10.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/hdr-live-toggle-verification-2026-10-07.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -1154,6 +1163,15 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/named-input-desktop-startup-2026-10-10.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
@@ -1780,6 +1798,15 @@
       "currentAuthorities": [
         "docs/scene/roadmap/batch2/system-media-input-design.md",
         "docs/scene/history/scene-maintainer-handoff-2026-10-06.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/terminal-attachment-desktop-freeze-2026-10-10.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
     {

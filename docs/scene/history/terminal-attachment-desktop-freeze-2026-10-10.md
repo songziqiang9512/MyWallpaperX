@@ -1,4 +1,4 @@
-<!-- document-role: historical-evidence -->
+> **历史证据 — 非现役入口**。当前任务从[断点队列](../roadmap/scene-open-breakpoint-queue.md)继续。
 
 # 正常桌面终端目标权限与歌曲触发停帧（2026-10-10）
 

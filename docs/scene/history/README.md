@@ -4,6 +4,9 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-10 | Scene | 修复证据 | [桌面named颜色输入](named-input-desktop-startup-2026-10-10.md) | 预留/发布表示一致与provider颜色边界，Debug/Release共用启动缺陷 | [断点队列](../roadmap/scene-open-breakpoint-queue.md) |
+| 2026-10-10 | Scene | 修复证据 | [终端目标权限](terminal-attachment-desktop-freeze-2026-10-10.md) | 歌曲进入后桌面停帧与证据窗口差异 | [断点队列](../roadmap/scene-open-breakpoint-queue.md) |
+| 2026-10-10 | Scene | 修复证据 | [for更新整数转换](for-update-integer-conversion-2026-10-10.md) | 共享编译边界及声波恢复，完整播放仍待验 | [断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-09 | Scene | 修复证据 | [模型发光](static-model-emission-2026-10-09.md) | 官方受控加法合同与楼宇窗光恢复 | [架构](../architecture/runtime-architecture.md)、[高级对象](../capabilities/advanced-object-coverage.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-09 | Scene | 实施与有界验证 | [作者颜色跨effect连续性](authored-color-continuity-2026-10-09.md) | 实际颜色表示进入同一shader/graph/compositor，透明RGB与跨effect信号回退；源链与灰冠仍开放 | [运行架构](../architecture/runtime-architecture.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-09 | Scene | 实施与有界验证 | [共享Shader类型兼容](shared-shader-type-compatibility-2026-10-09.md) | 同一编译链修复标量mix权重、向量返回和作者fract；数组/坐标及原样本视觉仍开放 | [运行架构](../architecture/runtime-architecture.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |

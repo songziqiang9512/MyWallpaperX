@@ -21,6 +21,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = runpy.run_path(str(Path(__file__).with_name(
     "test_scene_resolved_material_program_finalizer.py")))
 SOURCES = list(dict.fromkeys(FIXTURE["SWIFT_SOURCES"]))
+NAMED_PROVIDER_FIXTURE = REPOSITORY_ROOT / "script/tests/fixtures/SceneNamedProviderColorBoundaryProbe.swift"
 
 HARNESS = r'''
 import Foundation
@@ -126,7 +127,9 @@ import Metal
                 "fragment": fragment]
     }
 
-    static func render(_ program: SceneAuthoredShaderProgram) throws -> [Float] {
+    static func render(_ program: SceneAuthoredShaderProgram,
+                       providerPixel: [Float] = [0.1, 0.3, 0.2, 0.5], providerSlot: Int = 3,
+                       inputMask: UInt32 = (1 << 0) | (1 << 3)) throws -> [Float] {
         let device = MTLCreateSystemDefaultDevice()!
         let library = try device.makeLibrary(source: program.metalSource, options: nil)
         let descriptor = MTLRenderPipelineDescriptor()
@@ -144,7 +147,7 @@ import Metal
         let primary = device.makeTexture(descriptor: textureDescriptor)!
         let background = device.makeTexture(descriptor: textureDescriptor)!
         for (texture, values) in [(primary, [Float(0.2), 0.1, 0.05, 0.5]),
-                                  (background, [Float(0.1), 0.3, 0.2, 0.5])] {
+                                  (background, providerPixel)] {
             values.withUnsafeBytes { texture.replace(region: MTLRegionMake2D(0, 0, 1, 1),
                 mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 16) }
         }
@@ -155,7 +158,7 @@ import Metal
         }
         for field in program.uniformLayout.fields
             where field.authoredName == SceneShaderColorBoundary.uniformName {
-            var mask: UInt32 = (1 << 0) | (1 << 3)
+            var mask = inputMask
             withUnsafeBytes(of: &mask) { uniforms.replaceSubrange(
                 field.offset..<(field.offset + 4), with: $0) }
         }
@@ -173,7 +176,7 @@ import Metal
         encoder.setVertexBuffer(buffer, offset: 0, index: program.uniformBufferIndex)
         encoder.setFragmentBuffer(buffer, offset: 0, index: program.uniformBufferIndex)
         for binding in program.textureBindings {
-            let texture = binding.slot == 3 ? background : primary
+            let texture = binding.slot == providerSlot ? background : primary
             encoder.setVertexTexture(texture, index: binding.slot)
             encoder.setFragmentTexture(texture, index: binding.slot)
             encoder.setVertexSamplerState(sampler, index: binding.slot)
@@ -199,7 +202,9 @@ import Metal
             "opaque-output": try evaluate("opaque-output", opaque: true),
             "author-override": try evaluate("author-override", override: true),
             "data-default": try evaluate("data-default", mode: "rgbmask"),
-            "unknown-target": try evaluate("unknown-target", defaultName: "_rt_Unknown")]
+            "unknown-target": try evaluate("unknown-target", defaultName: "_rt_Unknown"),
+            "named-provider": try namedProviderColorBoundary("named-provider", mixed: false),
+            "mixed-provider": try namedProviderColorBoundary("mixed-provider", mixed: true)]
         print(String(data: try JSONSerialization.data(withJSONObject: result,
             options: [.sortedKeys]), encoding: .utf8)!)
     }
@@ -226,15 +231,18 @@ class SceneBackgroundGenericColorABITests(unittest.TestCase):
         binary = app / "Contents/MacOS/Probe"
         support, harness = root / "Support.swift", root / "Harness.swift"
         support.write_text(FIXTURE["SUPPORT"])
-        harness.write_text(HARNESS)
+        harness.write_text(HARNESS + NAMED_PROVIDER_FIXTURE.read_text())
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
         frozen = root / "sources"
         frozen.mkdir()
         frozen_sources = []
+        ref = os.environ.get("MWX_BACKGROUND_COLOR_PRODUCT_REF")
         for index, source in enumerate(SOURCES):
             target = frozen / f"{index}_{source.name}"
-            target.write_bytes(source.read_bytes())
+            target.write_bytes(subprocess.check_output(
+                ["git", "show", f"{ref}:{source.relative_to(REPOSITORY_ROOT)}"], cwd=REPOSITORY_ROOT)
+                if ref else source.read_bytes())
             frozen_sources.append(target)
         before = hashes(frozen_sources + [support, harness])
         command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", "-whole-module-optimization", "-Onone",
@@ -323,6 +331,38 @@ class SceneBackgroundGenericColorABITests(unittest.TestCase):
                         self.assertTrue(results[name]["launch"].startswith("failure("))
                     for variant in results[name]["variants"]:
                         self.assertNotIn(3, variant["pmaSlots"], variant)
+
+    def test_nonregular_named_provider_keeps_color_boundary_and_data_variant_does_not(self) -> None:
+        for route, results in self.results.items():
+            with self.subTest(route=route):
+                single, mixed = results["named-provider"], results["mixed-provider"]
+                for result, count in ((single, 1), (mixed, 2)):
+                    self.assertTrue(result["ready"], result)
+                    self.assertEqual(len(result["variants"]), count, result)
+                    for variant in result["variants"]:
+                        self.assertEqual(variant["backend"], "genericCompilerArtifact"
+                            if route == "prefer-generic" else "boundedSwift", variant)
+                color = single["variants"][0]
+                self.assertTrue(color["isRGBMask"], color)
+                self.assertEqual(color["profilePMASlots"], [1], color)
+                self.assertEqual(color["preservedSlots"], [], color)
+                self.assertEqual(color["colorSlots"], [0, 1], color)
+                data = next(v for v in mixed["variants"] if v["preservedSlots"] == [1])
+                mixed_color = next(v for v in mixed["variants"] if not v["preservedSlots"])
+                self.assertEqual(mixed_color["colorSlots"], [0, 1], mixed_color)
+                self.assertEqual(mixed_color["profilePMASlots"], [1]
+                    if route == "prefer-generic" else [], mixed_color)
+                self.assertEqual(data["profilePMASlots"], [], data)
+                self.assertEqual(data["colorSlots"], [0], data)
+                # Primary PMA=(.2,.1,.05,.5) gives authored RGB=(.4,.2,.1).
+                # Color provider PMA=(.1,.3,.2,.5) and straight=(.2,.6,.4,.5)
+                # are equivalent. Data keeps RGB=(.1,.3,.2), with alpha=.5.
+                for variant in (color, mixed_color):
+                    for label in ("pmaPixels", "straightPixels"):
+                        for observed, expected in zip(variant[label], [0.3, 0.4, 0.25, 1.0], strict=True):
+                            self.assertAlmostEqual(observed, expected, delta=0.00003, msg=variant)
+                for observed, expected in zip(data["dataPixels"], [0.25, 0.25, 0.15, 1.0], strict=True):
+                    self.assertAlmostEqual(observed, expected, delta=0.00003, msg=data)
 
 
 if __name__ == "__main__":

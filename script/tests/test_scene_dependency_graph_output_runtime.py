@@ -2182,6 +2182,7 @@ ATLAS_NATIVE_MAIN = r'''
             report["lifecycle"] = try lifecycle(d)
             report["budget"] = budget(d)
             report["geometryRepresentation"] = geometryRepresentation(d)
+            report["rawImageRepresentation"] = rawImageRepresentation(d)
         }
         print(String(decoding: try JSONSerialization.data(withJSONObject: report,
             options: [.sortedKeys]), as: UTF8.self))
@@ -2538,10 +2539,11 @@ def run_native_atlas_probe():
     snapshot = work / "production"
     sources = list(native.DEPENDENCY_SOURCES)
     metal = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal"
+    uniforms = metal.with_name("SceneImageLayerCompositor+Uniforms.swift")
     ref = os.environ.get("MWX_ATLAS_NAMED_PRODUCT_REF")
     metal_data = (subprocess.check_output(["git", "show", f"{ref}:{metal.relative_to(REPOSITORY_ROOT)}"],
                                           cwd=REPOSITORY_ROOT) if ref else metal.read_bytes())
-    snapshot_sources = [*sources, metal]
+    snapshot_sources = [*sources, metal, uniforms]
     # Freeze actual compile dependencies and their SHA alongside the shader.
     # Historical shaders without this include do not require the later header.
     if b'#include "SceneDistanceFog.metalh"' in metal_data:
@@ -2560,7 +2562,18 @@ def run_native_atlas_probe():
             raise AssertionError(f"production source changed while freezing: {source}")
         inputs[str(source)] = {"frozen": str(frozen), "sha256": digest,
                                "productionRef": ref or "current-tree"}
-    support = native.dependency_support() + ATLAS_NATIVE_MAIN + ATLAS_NATIVE_EXTRA
+    fixture = REPOSITORY_ROOT / "script/tests/fixtures/SceneDependencyRawImageCaptureProbe.swift"
+    fixture_data = fixture.read_bytes()
+    frozen_fixture = work / fixture.name
+    frozen_fixture.write_bytes(fixture_data)
+    inputs[str(fixture)] = {"frozen": str(frozen_fixture),
+                           "sha256": hashlib.sha256(fixture_data).hexdigest(),
+                           "productionRef": "test-fixture"}
+    # Compile the real uniform-stage extension; the unrelated compositor
+    # methods need App scaffolding and are outside this dependency probe.
+    uniform_source = (snapshot / uniforms.relative_to(REPOSITORY_ROOT)).read_text()
+    uniform_extension = uniform_source[:uniform_source.index("\nextension SceneImageLayerCompositor {")]
+    support = native.dependency_support() + uniform_extension + ATLAS_NATIVE_MAIN + ATLAS_NATIVE_EXTRA + fixture_data.decode()
     identity = {"inputs": inputs, "harnessSHA256": hashlib.sha256(support.encode()).hexdigest(),
                 "testSHA256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 "scope": "real native owners; prepared plan and unused peripherals scaffolded"}
@@ -2624,6 +2637,28 @@ class SceneAtlasNamedNativeOwnerTests(unittest.TestCase):
                 self.assertEqual(row["consumerCount"], 2)
                 for key in ("installed", "shared", "typed", "copiedExactly", "consumerPixelsMatch", "completed"):
                     self.assertTrue(row[key], (key, row))
+
+    def test_raw_image_reservation_and_publication_preserve_representation(self):
+        rows = self.report["rawImageRepresentation"]
+        self.assertEqual(len(rows), 5)
+        self.assertEqual([(r["route"], r["straight"]) for r in rows[:4]],
+                         [(route, straight) for route in ("image-layer-blend", "visible-image-raw-fallback")
+                          for straight in (False, True)])
+        for row in rows:
+            with self.subTest(route=row["route"], straight=row.get("straight")):
+                self.assertEqual(row["published"], "published", row)
+                for key in ("reserved", "preparedContentMatchesSource", "actualContentMatchesSource",
+                            "preparedMatchesReadyIdentity", "preparedMatchesReadyContent", "sourceUnchanged", "completed"):
+                    self.assertTrue(row[key], (key, row))
+                if row["route"] == "mixed-raw-aggregate":
+                    self.assertTrue(row["unavailableBeforeCapture"], row)
+                    self.assertTrue(row["slotOrderPreserved"], row)
+                else:
+                    self.assertTrue(row["publicationMatchesReadyContent"], row)
+                    self.assertTrue(row["distinctNamedTarget"], row)
+                self.assertEqual(len(row["pixel"]), len(row["expected"]), row)
+                for actual, expected in zip(row["pixel"], row["expected"], strict=True):
+                    self.assertAlmostEqual(actual, expected, delta=1, msg=row)
 
     def test_illegal_metadata_and_texture_identity_are_hard_rejected(self):
         self.assertFalse(self.report["safety"]["invalidActualTextureAccepted"])

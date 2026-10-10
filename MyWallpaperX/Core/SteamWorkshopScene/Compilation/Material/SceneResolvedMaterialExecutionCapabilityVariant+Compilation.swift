@@ -378,7 +378,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             guard let sampler = samplers[slot] else { return false }
             // A color channel remains color when read alone. Only the typed
             // data roles above exempt a sample from representation conversion.
-            return sampler.mode == .regular || selectedPurposes[slot] == .premultipliedColor
+            return sampler.mode == .regular || providerColorSlots.contains(slot)
+                || selectedPurposes[slot] == .premultipliedColor
         })
         if let contract = conditionalContract {
             colorSlots.subtract(contract.scalarRedSlots)

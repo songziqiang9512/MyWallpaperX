@@ -436,6 +436,14 @@ final class SceneDependencyFrameRuntime {
         return .target(target)
     }
 
+    /// Raw image capture preserves straight alpha; other color inputs use
+    /// the capture target's associated representation. Reservation and encode
+    /// must describe the same publication before any consumer is prepared.
+    static func rawImageCaptureContent(_ content: SceneTextureContent?) -> SceneTextureContent {
+        content == .color(.resolved(.straightAlpha))
+            ? .color(.resolved(.straightAlpha)) : .color(.resolved(.premultipliedAlpha))
+    }
+
     @discardableResult
     func captureProviderIfRequired(
         layer: SceneRenderDescriptor.Layer,
@@ -512,8 +520,8 @@ final class SceneDependencyFrameRuntime {
                 captureTelemetry.recordFailure(layerID: layer.id)
                 return .unavailable(reasonCode: "image-provider-source-unavailable")
             }
-            let isStraight = sourceCandidate.content == .color(.resolved(.straightAlpha))
-            capturedContent = isStraight ? .color(.resolved(.straightAlpha)) : .color(.resolved(.premultipliedAlpha))
+            capturedContent = Self.rawImageCaptureContent(sourceCandidate.content)
+            let isStraight = capturedContent == .color(.resolved(.straightAlpha))
             encoded = mainPass.encodeOffscreen { commandBuffer in
                 var uniforms = SceneLayerFragmentUniforms.neutral()
                 uniforms.textureFrame0 = sourceCandidate.uvTransform.uniform0

@@ -130,10 +130,18 @@ extension SceneDependencyFrameRuntime {
             frameEpoch: frameEpoch,
             failureReason: &failureReason
         ) else { return nil }
+        // Graph outputs obtain their actual content from the prepared graph
+        // in the submission coordinator. Raw image providers preserve their
+        // source representation; geometry and main/solid captures publish PMA.
+        let preservesRawImage = preparedOutputExtent == nil
+            && (binding.kind == .imageLayerBlend || binding.kind == .visibleImageGraphOutput)
         return makeEffectInput(
             binding: binding,
             frameEpoch: frameEpoch,
-            texture: texture
+            texture: texture,
+            content: preservesRawImage
+                ? Self.rawImageCaptureContent(providerCandidate?.content)
+                : .color(.resolved(.premultipliedAlpha))
         )
     }
 
