@@ -245,6 +245,9 @@ if args[:2] == ['release', 'edit'] and os.environ.get('FAIL_EDIT') == '1': sys.e
         helper = app / "Contents/Resources/SteamService"
         helper.mkdir(parents=True)
         (helper / "SteamService").touch()
+        media_observer = app / "Contents/Resources/SceneMediaObserver/SceneMediaObserver.dylib"
+        media_observer.parent.mkdir(parents=True)
+        media_observer.touch()
         for name in ("MyWallpaperXWallpaperDaemon", "glslang", "spirv-cross"):
             path = app / "Contents/Helpers" / name
             path.parent.mkdir(exist_ok=True)
@@ -263,9 +266,26 @@ if args[:2] == ['release', 'edit'] and os.environ.get('FAIL_EDIT') == '1': sys.e
         commands = self.commands()
         self.assertTrue(commands[0][-1].endswith("Contents/Resources/SteamService/SteamService"))
         self.assertTrue(commands[-2][-1].endswith("MyWallpaperX.app"))
+        self.assertNotIn("--deep", commands[-2])
         self.assertIn("--verify", commands[-1])
+        media_target = str(media_observer.relative_to(self.root))
+        media_commands = [command for command in commands if command[-1] == media_target]
+        self.assertEqual(len(media_commands), 1)
+        media_command = media_commands[0]
+        self.assertIn("--timestamp", media_command)
+        self.assertEqual(media_command[media_command.index("--options") + 1], "runtime")
+        self.assertEqual(media_command[media_command.index("--sign") + 1], "fixture identity")
+        self.assertLess(commands.index(media_command), len(commands) - 2)
         downloader = next(command for command in commands if command[-1].endswith("Downloader.xpc"))
         self.assertIn("--preserve-metadata=entitlements", downloader)
+
+        # A missing required nested library must stop before the outer App is sealed.
+        self.log.unlink()
+        media_observer.unlink()
+        result = self.run_shell(workflow_shell("Sign app"))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(media_target, result.stderr)
+        self.assertFalse(any(command[-1].endswith("MyWallpaperX.app") for command in self.commands()))
 
 
 if __name__ == "__main__":

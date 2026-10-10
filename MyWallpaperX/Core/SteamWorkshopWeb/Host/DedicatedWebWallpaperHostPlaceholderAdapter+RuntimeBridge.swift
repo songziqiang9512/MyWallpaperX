@@ -261,10 +261,6 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     /// bridge 期由自身双 10s 时限自守，单请求总存活上界约 20s（按阶段各有界）。
     private static let networkBridgeAuthorizationTimeout: TimeInterval = 10
 
-    var currentGeneralProperties: [String: Any] {
-        currentGeneralProperties(for: nil, screenID: nil)
-    }
-
     func currentGeneralProperties(for screen: NSScreen?, screenID: CGDirectDisplayID?) -> [String: Any] {
         let targetScreen = screen ?? NSScreen.main
         let frame = targetScreen?.frame ?? .zero
@@ -282,22 +278,9 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         ]
     }
 
-    var resolvedGeneralFPSValue: Int {
-        resolvedGeneralFPSValue(for: NSScreen.main)
-    }
-
     func resolvedGeneralFPSValue(for screen: NSScreen?) -> Int {
         guard let screen else { return 60 }
         return max(1, min(60, screen.maximumFramesPerSecond))
-    }
-
-    var currentGeneralPropertiesJSON: String {
-        guard JSONSerialization.isValidJSONObject(currentGeneralProperties),
-              let data = try? JSONSerialization.data(withJSONObject: currentGeneralProperties),
-              let json = String(data: data, encoding: .utf8) else {
-            return #"{"fps":30,"language":"en-us"}"#
-        }
-        return json
     }
 
     func currentGeneralPropertiesJSON(for screen: NSScreen?, screenID: CGDirectDisplayID?) -> String {

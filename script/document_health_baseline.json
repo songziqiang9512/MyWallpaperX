@@ -126,7 +126,7 @@
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 64,
-      "bytes": 8967
+      "bytes": 8832
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 282,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 224,
-      "bytes": 60143
+      "bytes": 60136
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,

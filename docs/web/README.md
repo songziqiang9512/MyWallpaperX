@@ -17,6 +17,9 @@
 - [web-project-json-localization.md](web-project-json-localization.md)：原始声明、本地派生数据与本地化边界。
 - [web-wallpaper-benchmark-standard.md](web-wallpaper-benchmark-standard.md)：长期运行证据与评分合同；不保存当前 PASS 数字。
 
+- [冷启动项目解析设计](cold-descriptor-parse-offload-design.md)：后台解析与取消边界。
+- [CSS 动画暂停设计](css-animation-freeze-redesign.md)：页面动画冻结与恢复合同。
+
 ## 2. 历史材料
 
 - [统一历史索引](../history/README.md)：2026-04 阶段计划、2026-07 Web/Scene 状态快照、作者源码与 Steam CDN 代表样本基线。历史正文中的“当前”“下一步”、样本数字和命令只对其截止日期负责；本入口不再复制历史 PASS/coverage。

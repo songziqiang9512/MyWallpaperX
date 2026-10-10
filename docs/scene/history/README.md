@@ -4,6 +4,8 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-10 | Scene | 修复证据 | [内嵌 WebM 视频](embedded-webm-video-2026-10-10.md) | VP9 容器准备接入原播放器及真实视频底图恢复；其余效果仍开放 | [运行架构](../architecture/runtime-architecture.md)、[能力台账](../capabilities/coverage-ledger.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
+| 2026-10-10 | Scene | 修复证据 | [事件显隐持久化](event-visibility-persistence-2026-10-10.md) | 事件 setter 跨帧保存、双窗口显隐与拖动回归 | [属性能力](../capabilities/runtime-input-property-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-10 | Scene | 修复证据 | [桌面named颜色输入](named-input-desktop-startup-2026-10-10.md) | 预留/发布表示一致与provider颜色边界，Debug/Release共用启动缺陷 | [断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-10 | Scene | 修复证据 | [终端目标权限](terminal-attachment-desktop-freeze-2026-10-10.md) | 歌曲进入后桌面停帧与证据窗口差异 | [断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-10 | Scene | 修复证据 | [for更新整数转换](for-update-integer-conversion-2026-10-10.md) | 共享编译边界及声波恢复，完整播放仍待验 | [断点队列](../roadmap/scene-open-breakpoint-queue.md) |

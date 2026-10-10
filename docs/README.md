@@ -31,7 +31,7 @@
 
 ## App、Web 与发布
 
-- [当前版本更新说明](releases/2.10.0.md)：该版本的发布记录，不代表 HEAD 或实时发布状态。
+- [2.10.1 待发布更新说明](releases/2.10.1.md)；[2.10.0 发布记录](releases/2.10.0.md)。说明文件不代表已发布，实际状态以正式 Release 为准。
 
 - [AppKit 迁移](architecture/appkit-migration.md)：当前 SwiftUI 残留和迁移门。
 - [Web 专题入口](web/README.md)：Web 当前状态、稳定合同和历史导航。

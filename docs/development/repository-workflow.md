@@ -23,7 +23,7 @@
 
 ## 并行与验证
 
-并行按精确文件分工，共享 JSON 和同一文件由单个整合者写入。审查者只读冻结的 diff、未跟踪清单和对应证据；修订后重审受影响结论。没有用户提交授权时保留工作区供复核。
+并行按精确文件分工，共享 JSON 和同一文件由单个整合者写入。审查者只读冻结的 diff、未跟踪清单和对应证据；修订后重审受影响结论。提交权限遵循 AGENTS.md。
 
 ```bash
 # 显式预览指定路径（包括尚未修改的预期影响面）
@@ -48,11 +48,11 @@ python3.12 -B script/verify_scene_change.py --phase inner --base HEAD --owned-pa
 
 `python3.12 -B script/repository_health.py --format json --limit 50` 从现役 code-health、结构/防御面与测试断言基线、真实 Swift 文件及测试路由派生报告；`--path <精确路径>` 聚焦单个职责。报告区分真实行数、未关联测试的路径和仅登记的冻结预算，不运行验证，不建立第二份债务台账。未关联产品路径或已失效的测试模块会进入编排报告，单独构建成功不能把它们标为 `closure_complete`。
 
-纯源码移动是有限例外：编排报告保留原有缺失测试映射，并单列相对比较基准的唯一、字节完全相同的旧删除→新文件证明；仅本次产品构建实际成功后才允许闭合这次移动。复制、歧义匹配或任意正文变化都失去该证明，不能用于以后的行为编辑。
+纯源码移动仍报告缺失测试映射；只有唯一、字节相同的旧删除→新文件证明及本次构建通过才能闭合。复制、歧义、正文变化或后续行为编辑均不适用。
 
 不再要求每批为全仓未修改项填写清偿receipt。旧receipt仅保存在历史库；后续在本次改动涉及的owner上解决真实问题，并同步其已有基线。文件不超过1000行且职责清楚即可，不用400行或逐文件测试映射数量制造拆分/测试任务。
 
-`script/run_checkpoint_build.sh` 默认仍使用退出时清理的隔离 DerivedData。需要反复验证同一 checkout 时，可显式传 `--cache-dir /private/tmp/<本任务缓存目录>`；仓库内仅允许 `.build-cache/`，真实 Scene 样本目录禁止作为缓存。缓存键包含 checkout、构建器路径、Xcode 版本、SDK 和构建配置，源码增量失效由 Xcode 负责；全局锁拒绝并行 checkpoint。成功或失败都会保留显式缓存，输出确切路径。结束时报告该目录及用途，按精确清单清理，不递归清理父目录。缓存复用不替代里程碑的冷构建，也不能证明运行态正确。
+`script/run_checkpoint_build.sh` 默认退出时清理隔离 DerivedData；同一 checkout 可用 `--cache-dir /private/tmp/<任务缓存>` 复用，仓库内只允许 `.build-cache/`，禁止真实样本目录。缓存键绑定 checkout、构建器、Xcode、SDK 和配置；Xcode 管源码增量，全局锁拒绝并行 checkpoint。指定缓存成功失败均保留，收尾报告路径与用途并按精确清单清理。复用不替代冷构建或运行验收。 共享 scheme 的 Run（Cmd+R）用 Release 优化构建，Test、Analyze 保持 Debug。逐行调试/`DEBUG` 诊断用 `xcodebuild -configuration Debug`、现有 Debug runner，或临时在 Edit Scheme → Run → Build Configuration 改为 Debug，结束恢复 Release。优化构建保留符号与错误日志；逐帧诊断按需开启。
 
 ## 代码与知识交付
 

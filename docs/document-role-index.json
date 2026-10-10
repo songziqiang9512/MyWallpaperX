@@ -137,13 +137,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-10-03",
+      "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7bb484d86f175e63d3fd58086383e88024de6cebfdf0400210801770881a9370",
+        "sourceSHA256": "9f134c378fec041cf2ae580653843911ab638659d747bbb25ec0bf633d5412d5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役角色、入口、合同路由和可达锚点的机器审计",
-        "limitations": "不证明产品运行、语义完整性或官方parity"
+        "scope": "2.10.1 发布准备：构建入口与现役/历史引用整理后核对角色、链接和锚点",
+        "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
       }
     },
     {
@@ -315,6 +315,13 @@
       "commandPolicy": "reference-only"
     },
     {
+      "path": "docs/releases/2.10.1.md",
+      "role": "reference",
+      "entrypoint": "docs/README.md",
+      "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
+      "commandPolicy": "reference-only"
+    },
+    {
       "path": "docs/releases/TEMPLATE.md",
       "role": "reference",
       "entrypoint": "docs/release/release-signing.md",
@@ -355,10 +362,10 @@
       "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "37169bc8bcb074ac365c0e0690f24e16024d826c5f3e973e089d2f0dfc56c9d4",
+        "sourceSHA256": "c9d82d5d3b5c60b10b8f2bcf910c5a96dc30adbc1696ba2da95bce837e02cb97",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核内嵌WebM准备归原video provider、单一时钟/输出、取消与已验范围；过程归历史。",
-        "limitations": "仅此容器合同与导航；不升级全WebM、全样本、官方parity或性能。"
+        "scope": "2.10.1 发布准备：构建入口与现役/历史引用整理后核对角色、链接和锚点",
+        "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
       }
     },
     {
@@ -620,13 +627,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/runtime-evidence-current.md",
-      "lastReviewed": "2026-10-03",
+      "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "704ff3e3037e4616109f839fcfb53f66e882d4c6609be0fc9db2ae67be2a6ea0",
+        "sourceSHA256": "4361c5faf79c5277f4e3b2d23650aab301bede1a94eaa440e58311ce7c200aa8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
-        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+        "scope": "2.10.1 发布准备：构建入口与现役/历史引用整理后核对角色、链接和锚点",
+        "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
       }
     },
     {
