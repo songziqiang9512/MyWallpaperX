@@ -196,7 +196,22 @@ extension Harness {
         guard let orderedQueue = device.makeCommandQueue() else {
             fatalError("same-queue fixture unavailable")
         }
+        let pinnedPool = SceneOffscreenTexturePool(device: device,
+            residentByteBudget: inflightPlan.residentByteCost)
+        let ownBuffer = orderedQueue.makeCommandBuffer()!
+        let ownTarget = pinnedPool.compositionGroupTarget(layerID: 42,
+            width: 1, height: 1, commandBuffer: ownBuffer)!
+        let ownPinRejects = pinnedPool.allocationCache.preflightGraphs([inflightPlan],
+            orderingContext: .init(commandBuffer: ownBuffer))
+                == .rejected(reasonCode: "frame-target-byte-budget-exceeded")
+        let peerBuffer = orderedQueue.makeCommandBuffer()!
+        let peerPinDefers = pinnedPool.allocationCache.preflightGraphs([inflightPlan],
+            orderingContext: .init(commandBuffer: peerBuffer)) == .temporarilyBlocked
+        ownTarget.pin.release()
+        let releasedPinAdmits = pinnedPool.allocationCache.preflightGraphs([inflightPlan],
+            orderingContext: .init(commandBuffer: ownBuffer)) == .ready
         let checks: [String: Any] = [
+            "currentBufferPinMustFitBeforeSubmission": ownPinRejects && peerPinDefers && releasedPinAdmits,
             "inFlightAllocationsAreDistinct": inFlightAllocationsAreDistinct,
             "inFlightCapacityFailsBeforeAllocation":
                 inFlightCapacityFailsBeforeAllocation,

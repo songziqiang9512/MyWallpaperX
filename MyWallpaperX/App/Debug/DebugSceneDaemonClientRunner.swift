@@ -353,13 +353,21 @@ enum DebugSceneDaemonClientRunner {
                     ?? NSNull()
             ]
         }
-        if let evidenceDirectory,
+        // Result-only probes keep the normal framebuffer-only desktop path.
+        // The screenshot flag also changes daemon surface configuration.
+        let resultDirectory = DebugScenePlaybackRunner.argumentValue(
+            after: "--mwx-debug-scene-result-dir"
+        ).map { URL(fileURLWithPath: $0, isDirectory: true) } ?? evidenceDirectory
+        if let resultDirectory,
            let data = try? JSONSerialization.data(
                 withJSONObject: result,
                 options: [.prettyPrinted, .sortedKeys]
            ) {
+            try? FileManager.default.createDirectory(
+                at: resultDirectory, withIntermediateDirectories: true
+            )
             try? data.write(
-                to: evidenceDirectory.appendingPathComponent(
+                to: resultDirectory.appendingPathComponent(
                     "scene-daemon-client-result.json"
                 )
             )

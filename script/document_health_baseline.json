@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 598,
-      "bytes": 114290
+      "bytes": 114274
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -93,8 +93,8 @@
       "bytes": 341542
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 94,
-      "bytes": 28206
+      "lines": 95,
+      "bytes": 28433
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 224,
-      "bytes": 60136
+      "bytes": 59909
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1121,15 +1121,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "862258a0c74c6525f8d45af9f785649f1b97eb57b3512a52ca50b89e76126d86",
-      "after": "574e960a8aa216d0de01e954fbab001696e48601d95372f1400edf04cd31ce5b",
-      "owner": "Scene事件型显隐setter",
-      "reason": "复用原持久事务闭合窗口回归；完成过程归档，当前入口只记有界结果与余项，不增平行路线。",
-      "decision": "docs/scene/history/event-visibility-persistence-2026-10-10.md#首断点与实现"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "377e7851f9464c30b2517e1bf8dd71896a7edef1fe6acc6b4a18e53508844e03",
       "after": "5cbc2923bd7d4077bc6916bf4f482464d77d660d79f663acde12f559b53417b3",
@@ -1145,6 +1136,15 @@
       "owner": "Scene事件型显隐setter",
       "reason": "复用原持久事务闭合窗口回归；完成过程归档，当前入口只记有界结果与余项，不增平行路线。",
       "decision": "docs/scene/history/event-visibility-persistence-2026-10-10.md#首断点与实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "574e960a8aa216d0de01e954fbab001696e48601d95372f1400edf04cd31ce5b",
+      "after": "e12b127e7afe8118544f8c30aded3e25db90e85ee6d4636b1812a0ed9b92821d",
+      "owner": "Scene帧资源驻留",
+      "reason": "现役运行证据增加真实App音频冻结的单一归档入口；详细过程仍归既有历史页，架构和队列正文同时缩减。",
+      "decision": "docs/scene/history/terminal-attachment-desktop-freeze-2026-10-10.md#后继真实app音频与u24资源驻留同日"
     }
   ]
 }

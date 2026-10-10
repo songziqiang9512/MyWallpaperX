@@ -300,6 +300,9 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertTrue(self.result["mixedFrameReadyAfterHistoryRelease"])
         self.assertTrue(self.result["inFlightHistoryPreservesPinnedSeed"])
 
+    def test_current_buffer_pin_cannot_wait_for_its_own_completion(self) -> None:
+        self.assertTrue(self.result["currentBufferPinMustFitBeforeSubmission"])
+
     def test_fit_transient_blocker_is_not_reported_as_byte_budget(self) -> None:
         self.assertTrue(
             self.result[

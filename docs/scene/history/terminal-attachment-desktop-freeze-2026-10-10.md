@@ -28,3 +28,24 @@
 本机根 `.artifacts/tmp/media-freeze-20261010` 保留有界运行、构建身份与红绿证据，pass红收据另见 `.artifacts/tmp/terminal-replay-target-20261010/audit`。正式证据库已达1GiB预算，本批不扩预算、不删除他人包。仅连续复用 `.build-cache/solid-source-domains-recovery-20261009` 一份构建缓存。
 
 独立审查覆盖原公共权限合同、同一检查的两调用方、反例及真实桌面证据。下一项继续U24真实App音频/可见冻结条件及in-flight丢帧；不把U16因果闭环写成两样本全修。正常桌面与证据窗口的验证差异已写回开发工作流。
+
+
+## 后继：真实App音频与U24资源驻留（同日）
+
+基线 `ffac15da`。先前直接daemon不采集App音频，未覆盖触发条件。本轮新增Debug runner结果目录参数，只写现有结果JSON，不启用证据窗口或改变framebuffer权限。隔离原包、HOME，正常App product entry→client→daemon，真实系统音频与媒体信息进入后，342只提交7帧，随后3706次丢帧；首个非零音频使更多示波器图层进入渲染。不能把同时出现的歌曲文字本身当作因果。
+
+连续定位到两处资源问题：预检把本command buffer已经预留、尚未提交的组输入当成可等GPU完成释放的旧资源，永远延期；修正分类并共享空透明输入后，graph已能准备/编码，但末端颜色转换还要新增47,513,088B scratch，仍因预算不足丢弃整帧。中间候选7帧/3388drop仍失败，明确不算闭环。
+
+最终沿原资源链修复：
+
+- 只有无成员且copybackground=false的组共享同帧透明输入，forward预检可读前清零；有成员/背景组、graph输出和history独立。此样本四个同尺寸空输入合为一个，减少142,539,264B重复占用。
+- 当前command buffer自己的pin计入本帧必需量，不再等待自身完成；其他buffer在飞资源仍按原规则延期。
+- authored绘制与反射快照结束后，最终颜色转换可覆盖复用已经读完的等尺寸组输入，省掉另分配47,513,088B。仍由原group pin持有至取消/GPU完成；copy、mapper、seal及无组时原scratch入口不变。没有提高预算、改变分辨率/颜色算法或增加资源owner。
+
+最终Debug构建来自当前主工作区，临时诊断撤回；真实App路径80秒提交1324帧、2680次未提交，非零音频峰值0.4477，metadata和thumbnail事件实际到达，exit0。冻结反例已闭，2680次未提交的具体原因仍待分解，不能把此结果当作性能完成或完整画面验收。封面491的execution-stage-conservation及官方圆环亮度对照仍开放。
+
+同一最终App回归3122339805：40秒提交1328帧、0drop，真实metadata/thumbnail进入后仍更新，exit0；这不扩展为所有交互验收。
+
+永久GPU反例验证四组在三张纹理预算内运行、先读透明/背景像素后终端覆写仍保留旧读结果、错buffer拒绝、arm后不可借用、completion释放及下帧清零；原terminal/HDR/reflection门继续验证真实mapper与seal。实际App补足新组合分支。独立只读审查核对named输出/history没有跨帧保留raw组输入，原cancel/arm唯一链不变。
+
+本批有界证据保留于 `.artifacts/tmp/scene-empty-composition-20261010`，含基线、中间失败、最终运行、源码/App身份和验证日志；一份连续构建缓存仍为 `.build-cache/solid-source-domains-recovery-20261009`。当前状态及下一项以队列为准。

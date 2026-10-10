@@ -116,6 +116,11 @@ extension SceneOffscreenTextureAllocationCache {
                     || !entry.sceneColorPins.isEmpty
             default: false
             }
+            // This buffer cannot complete until preflight admits it. Its own
+            // reservations must fit now, not masquerade as older GPU work.
+            let heldByCurrentSubmission = entry.submissionPins.values.contains {
+                $0.orderingContext?.accepts(orderingContext?.commandBuffer) == true
+            }
             return SceneOffscreenTextureFramePreflight.Resident(
                 id: offset,
                 location: entry.preparationPins.isEmpty ? location : .currentOther,
@@ -134,7 +139,7 @@ extension SceneOffscreenTextureAllocationCache {
                 isResetInvalidated: entry.isResetInvalidated,
                 lastAccess: entry.lastAccess,
                 existedBeforeFrame: true,
-                requiredByFrame: requiredByFrame || !entry.preparationPins.isEmpty
+                requiredByFrame: requiredByFrame || heldByCurrentSubmission || !entry.preparationPins.isEmpty
             )
         }
         for (_, byteCost) in pendingSharedPairByteCosts {

@@ -189,7 +189,8 @@ struct SceneMetalRenderer {
             commandBuffer: commandBuffer) { return failure }
         if let failure = encodeTerminalColor(sceneColor: sceneColor, target: drawable.texture,
             offscreenTexturePool: offscreenTexturePool, dynamicValues: frameContext.dynamicValues,
-            commandBuffer: commandBuffer, output: displayOutput) { return failure }
+            commandBuffer: commandBuffer, output: displayOutput,
+            compositionGroupRuntime: compositionGroupRuntime) { return failure }
         let preparedFrame = makePreparedFrame(
             commandBuffer: commandBuffer,
             drawable: drawable,

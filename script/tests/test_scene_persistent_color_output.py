@@ -72,6 +72,9 @@ final class SceneCompositionGroupFrameRuntime {
     func closeAllGroupEncoders() {
         fatalError("terminal fixture must not close composition groups")
     }
+    func terminalScratch(matching target: MTLTexture, on commandBuffer: MTLCommandBuffer) -> MTLTexture? {
+        fatalError("terminal fixture must not borrow composition groups")
+    }
 }
 struct SceneMetalRenderer {
     let renderDescriptor: TerminalRenderDescriptor
