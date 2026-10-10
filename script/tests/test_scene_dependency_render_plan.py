@@ -285,7 +285,7 @@ enum Harness {
         )
         let allMixedPotentialReferences = Set(
             SceneDependencyGraphAnalysis
-                .potentialOptionalNamedFallbackReferences(
+                .potentialNamedReferences(
                     in: mixedProviderDescriptor.layers
                 )
         )
@@ -340,7 +340,7 @@ enum Harness {
         )
         let vectorPotentialReferences = Set(
             SceneDependencyGraphAnalysis
-                .potentialOptionalNamedFallbackReferences(
+                .potentialNamedReferences(
                     in: vectorDescriptor.layers
                 )
         )
@@ -356,7 +356,7 @@ enum Harness {
                 vectorDirectReferences.union(vectorPotentialReferences)
         )
         let vectorPotentialBindings = SceneDependencyRenderPlan
-            .potentialOptionalNamedFallbackBindings(
+            .potentialNamedBindings(
                 descriptor: vectorDescriptor,
                 visibleLayerIDs: [vectorConsumer.id]
             )[vectorConsumer.id] ?? []
@@ -392,7 +392,7 @@ enum Harness {
         )
         let propertyPotentialReferences = Set(
             SceneDependencyGraphAnalysis
-                .potentialOptionalNamedFallbackReferences(
+                .potentialNamedReferences(
                     in: propertyDescriptor.layers
                 )
         )

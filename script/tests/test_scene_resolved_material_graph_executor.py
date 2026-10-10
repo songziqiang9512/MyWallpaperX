@@ -238,7 +238,7 @@ enum SceneDependencyGraphAnalysis {
         layers.flatMap(\.namedReferences)
     }
 
-    static func potentialOptionalNamedFallbackReferences(
+    static func potentialNamedReferences(
         in layers: [SceneRenderDescriptor.Layer]
     ) -> [SceneDependencyRenderPlan.Reference] {
         layers.flatMap(\.potentialNamedReferences)
@@ -360,7 +360,7 @@ struct SceneDependencyRenderPlan {
         return Set(references.map(\.providerLayerID))
     }
 
-    static func potentialOptionalNamedFallbackBindings(
+    static func potentialNamedBindings(
         descriptor: SceneRenderDescriptor,
         visibleLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int> = []
@@ -385,7 +385,7 @@ struct SceneDependencyRenderPlan {
         )
         let potentials = Set(
             SceneDependencyGraphAnalysis
-                .potentialOptionalNamedFallbackReferences(in: descriptor.layers)
+                .potentialNamedReferences(in: descriptor.layers)
         ).intersection(admittedResolvedMaterialReferences)
         references = products + potentials.filter { !products.contains($0) }
         namedReferenceConsumerLayerIDs = Set(references.compactMap {

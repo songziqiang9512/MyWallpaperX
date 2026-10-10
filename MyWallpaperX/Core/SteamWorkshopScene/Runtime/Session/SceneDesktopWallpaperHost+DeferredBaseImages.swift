@@ -48,7 +48,7 @@ extension SceneDesktopWallpaperHost {
         let namedReferences = SceneNamedTextureDependencyReferenceAnalysis
             .references(in: descriptor.layers)
             + SceneNamedTextureDependencyReferenceAnalysis
-                .potentialOptionalNamedFallbackReferences(in: descriptor.layers)
+                .potentialNamedReferences(in: descriptor.layers)
         let sourceProviderLayerIDs = Set(namedReferences.map(\.providerLayerID))
             .union(modelProviderLayerIDs)
         return SceneDynamicLayerVisibilityRouteAdmission.layerIDs(

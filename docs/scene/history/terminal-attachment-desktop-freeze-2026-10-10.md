@@ -49,3 +49,20 @@
 永久GPU反例验证四组在三张纹理预算内运行、先读透明/背景像素后终端覆写仍保留旧读结果、错buffer拒绝、arm后不可借用、completion释放及下帧清零；原terminal/HDR/reflection门继续验证真实mapper与seal。实际App补足新组合分支。独立只读审查核对named输出/history没有跨帧保留raw组输入，原cancel/arm唯一链不变。
 
 本批有界证据保留于 `.artifacts/tmp/scene-empty-composition-20261010`，含基线、中间失败、最终运行、源码/App身份和验证日志；一份连续构建缓存仍为 `.build-cache/solid-source-domains-recovery-20261009`。当前状态及下一项以队列为准。
+
+
+<a id="u24-cover-dependency"></a>
+
+## 后继：封面依赖与完整画面驻留（同日）
+
+基线 `057ae394`。342封面491有五个作者effect：三项初始启用的direct/system/previous输入、一项初始关闭的本地direct输入、末端圆角mask。初始引用漏掉inactive direct候选，准备Program却包含该stage，finalizer因此以execution-stage-conservation拒绝整链。现在沿原候选投影统一收集optional fallback与inactive direct，按已准入Program、consumer/provider/slot/purpose的完整身份合并；原base引用必须恰好保留一次。候选仅用于准备，实际采集仍取admitted Program交集。无依赖的effect自有FBO不再被无关限制拒绝；external/aggregate/self的原边界保留。没有新增provider、shader或输出路径。
+
+完整封面恢复后，真实音频又使旧子额度不足：合法目标集合805,233,856B，旧automatic额度794,569,728B；其中140,953,600B旧history仍有真实pin，shared pair已去重。此时不能删history或别名复用。按资源准入设计，将原automatic池策略从设备建议工作集/16改为/8，192–1536MiB限幅不变；显式额度及唯一进程父账不变。实际父账上限3,178,278,912B，诊断采样占用由219,728,896增至933,760,768/935,078,656B，无拒绝、decoded为0。这是有界容量修正，不是显存优化，也不证明其他重型样本或多屏全部可用；采样不等于峰值。
+
+最终无临时日志Debug App的普通App→client→daemon路径运行60秒，提交931帧、1879次未提交、busy0，真实音频峰值0.6161，媒体信息实际进入且未冻结。池占用908,260,032B；MTL统计1,223,245,824B与父账口径不同。未提交的具体原因与提交率仍需后继检查；最终视觉日志另有circular_text slot1 textureBindingInvalid，保留后继首断点，不宣称圆周文字正常。同一冻结App另回归312普通桌面30秒，真实音频峰值0.5245，提交921帧、0drop、busy0，exit0；未复验其全部交互。
+
+同一最终App的原包副本由受控封面红→蓝，属性系统→本地→系统两次热切accepted，同window/surface保持。准备5/5 stages与4/4命名引用，GPU记录含初始inactive effect357；截图依次验证红封面、作者本地图、蓝封面。直接证据窗口只证明此显示/热切，不替代上述普通桌面验证；没有宣称与官方全部亮度/转场逐帧一致。首次after截图请求早于第二次切回，其本地图不是回归；最终将请求延后至8秒，`sample-visual-final-scene-after-window.png`已确认蓝图。
+
+验证：候选/预证明/计划36项、补充final proof 7项、池31项、预算/父账4项、FBO激活与颜色GPU 2项通过；真实App自有inactive direct+optional+健康peer像素反例与既有mixed ABI通过。自有激活fixture含合法layer-access脚本，不单独证明纯属性激活；实际包热切补足本次用户路径。旧graph宽门候选仍32项false，隔离基线40项false，无新增失败；8项差别来自baseline缺默认Metal库，不能列为本批修复。该宽门仍非全绿，不改旧预期掩盖失败。Debug build、依赖/defense/代码健康与设计门通过，产品获独立只读审查；临时诊断撤回。
+
+有界证据归 `.artifacts/tmp/scene-cover-dependency-20261010`，最终App/源码身份、红绿门、实际输入与截图分别留收据。复用一份 `.build-cache/solid-source-domains-recovery-20261009`，本批隔离样本/HOME在证据提取后清理。当前剩余与下一项只由队列维护。

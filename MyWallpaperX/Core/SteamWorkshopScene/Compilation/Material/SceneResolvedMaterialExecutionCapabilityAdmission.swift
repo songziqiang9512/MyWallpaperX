@@ -313,10 +313,10 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         )
         let potentialDependencyReferences = Set(
             SceneDependencyGraphAnalysis
-                .potentialOptionalNamedFallbackReferences(in: descriptor.layers)
+                .potentialNamedReferences(in: descriptor.layers)
         )
         let potentialBindingsByConsumerLayerID = SceneDependencyRenderPlan
-            .potentialOptionalNamedFallbackBindings(
+            .potentialNamedBindings(
             descriptor: descriptor,
             visibleLayerIDs: executableVisibleRootLayerIDs,
             executableUtilityConsumerLayerIDs:

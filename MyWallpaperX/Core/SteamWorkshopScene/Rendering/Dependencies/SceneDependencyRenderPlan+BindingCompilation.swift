@@ -17,7 +17,7 @@ extension SceneDependencyRenderPlan {
         )
         let potentialReferences = Set(
             SceneDependencyGraphAnalysis
-                .potentialOptionalNamedFallbackReferences(in: descriptor.layers)
+                .potentialNamedReferences(in: descriptor.layers)
         )
         let admittedPotentialReferences = potentialReferences.intersection(
             admittedResolvedMaterialReferences

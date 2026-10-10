@@ -173,7 +173,7 @@ extension SceneResolvedMaterialGraphExecutor {
             "effect-activation-pointer-provider-unavailable",
             "effect-activation-scalar-below-minimum",
             "initially-inactive-property-stage-passthrough",
-            "script-gated-dependency-preproof-mismatch",
+            "inactive-dependency-preproof-mismatch",
         ].contains(reasonCode) else {
             return rejection
         }

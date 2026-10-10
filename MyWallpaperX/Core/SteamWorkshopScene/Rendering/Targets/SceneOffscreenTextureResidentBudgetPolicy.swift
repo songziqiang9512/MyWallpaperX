@@ -9,11 +9,13 @@ enum SceneOffscreenTextureResidentBudgetPolicy {
     // Bound this pool even when Metal reports a large recommended working set.
     // The proportional share admits legitimate concurrent graph targets; a
     // frame target set above the result still fails before allocation.
+    // This is half the shared account's uncapped device share; actual Metal
+    // allocations still compete in that one process-wide account.
     private static let maximumBytes = 1_536 * 1_024 * 1_024
 
     static func automatic(recommendedMaxWorkingSetSize: UInt64) -> Int {
         let proposed = min(
-            recommendedMaxWorkingSetSize / 16,
+            recommendedMaxWorkingSetSize / 8,
             UInt64(maximumBytes)
         )
         return max(Int(proposed), minimumBytes)

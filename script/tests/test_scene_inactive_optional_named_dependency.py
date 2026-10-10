@@ -113,9 +113,9 @@ enum Harness {
             in: descriptor.layers
         )
         let potential = SceneDependencyGraphAnalysis
-            .potentialOptionalNamedFallbackReferences(in: descriptor.layers)
+            .potentialNamedReferences(in: descriptor.layers)
         let carriers = SceneDependencyRenderPlan
-            .potentialOptionalNamedFallbackBindings(
+            .potentialNamedBindings(
                 descriptor: descriptor, visibleLayerIDs: [consumerID]
             )[consumerID] ?? []
         let plan = SceneDependencyRenderPlan(
@@ -179,6 +179,11 @@ enum Harness {
                 id: "direct-stage", visible: true, kind: nil
             )]),
             "inactiveDirect": descriptor(effects: [effect(kind: nil)]),
+            "activeDirectWithInactiveDirect": descriptor(effects: [
+                effect(id: "direct-stage", visible: true, kind: nil),
+                effect(id: "inactive-direct", kind: nil),
+                effect(),
+            ]),
             "activeDirectWithInactiveOptional": descriptor(effects: [
                 effect(id: "direct-stage", visible: true, kind: nil),
                 effect(),
@@ -323,8 +328,19 @@ class SceneInactiveOptionalNamedDependencyTests(unittest.TestCase):
         self.assertTrue(
             self.results["forwardDirectWithInactiveOptional"]["admittedForwardCapture"]
         )
-        for field in ("direct", "potential", "carriers", "runtimeBindings", "productEdges"):
+        for field in ("direct", "runtimeBindings", "productEdges"):
             self.assertEqual(self.results["inactiveDirect"][field], [])
+
+    def test_inactive_direct_uses_candidate_admission(self) -> None:
+        inactive = self.results["inactiveDirect"]
+        self.assertEqual(len(inactive["potential"]), 1)
+        self.assertEqual(len(inactive["carriers"]), 1)
+        self.assertEqual(inactive["admittedReferenceEffects"], ["optional-stage"])
+        mixed = self.results["activeDirectWithInactiveDirect"]
+        self.assertEqual(mixed["runtimeBindings"], ["direct-stage"])
+        self.assertEqual(mixed["admittedReferenceEffects"],
+                         ["direct-stage", "inactive-direct", "optional-stage"])
+        self.assertTrue(mixed["admittedRequiresProgram"])
 
     def test_inactive_direct_reference_can_reserve_material_source_ownership(self) -> None:
         self.assertEqual(self.results["inactiveDirect"]["direct"], [])

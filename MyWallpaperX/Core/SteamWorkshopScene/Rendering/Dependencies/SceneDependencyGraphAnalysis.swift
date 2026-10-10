@@ -19,11 +19,11 @@ nonisolated enum SceneDependencyGraphAnalysis {
         }
     }
 
-    nonisolated static func potentialOptionalNamedFallbackReferences(
+    nonisolated static func potentialNamedReferences(
         in layers: [SceneRenderDescriptor.Layer]
     ) -> [Reference] {
         SceneNamedTextureDependencyReferenceAnalysis
-            .potentialOptionalNamedFallbackReferences(in: layers).map {
+            .potentialNamedReferences(in: layers).map {
                 Reference(
                     consumerLayerID: $0.consumerLayerID,
                     providerLayerID: $0.providerLayerID,

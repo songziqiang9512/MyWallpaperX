@@ -170,10 +170,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     ))
                     continue
                 }
-                if initiallyInactive,
-                   compiled.stages[0].activationPolicy?
-                       .effectVisibilityPropertyKey == nil {
-                    // D2b script lane: pre-proof the resolved dependencies
+                if initiallyInactive {
+                    // Property and script activation pre-proof the dependencies
                     // against the admitted direct and potential bindings before
                     // finalization runs. A stage outside those proofs would
                     // fail finalization for the whole layer; it downgrades
@@ -196,7 +194,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                         stages.append(.initiallyInactivePassthrough(
                             product: product,
                             reasonCode:
-                                "script-gated-dependency-preproof-mismatch"
+                                "inactive-dependency-preproof-mismatch"
                         ))
                         continue
                     }
@@ -277,7 +275,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         )
     }
 
-    /// D2b script-lane pre-proof: a script-gated initially-inactive stage
+    /// An initially inactive stage with typed activation
     /// whose resolved external dependencies sit outside the layer's direct
     /// ownership and exact potential bindings would fail finalization.
     /// Those stages downgrade to the passthrough instead. Stages without
@@ -303,14 +301,15 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         guard product.graph.layerID == layerID else { return false }
         switch ownership {
         case let .externalPrimary(binding):
-            guard binding.consumerLayerID == layerID,
-                  product.graph.renderTargets.isEmpty else { return false }
+            guard binding.consumerLayerID == layerID else { return false }
             switch resolvedExternalDependencies(in: stage) {
             case .none:
                 return true
             case .invalid:
                 return false
             case let .exact(dependencies):
+                if dependencies.isEmpty { return true }
+                guard product.graph.renderTargets.isEmpty else { return false }
                 let expected = Set(binding.referenceSlots.map { slot in
                     BindingDependency(
                         consumerLayerID: binding.consumerLayerID,
@@ -322,22 +321,21 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     guard dependency.consumerLayerID == layerID else {
                         return false
                     }
-                    switch dependency.origin {
-                    case .terminalNamed:
-                        return expected.contains(dependency.bindingDependency)
-                    case .exactMixedOptionalFallback:
-                        guard let candidate = exactPotentialBinding(
-                            for: dependency,
-                            in: potentialBindings,
-                            layerID: layerID
-                        ) else { return false }
-                        return compatible(candidate, with: binding)
+                    if dependency.origin == .terminalNamed,
+                       expected.contains(dependency.bindingDependency) {
+                        return true
                     }
+                    guard let candidate = exactPotentialBinding(
+                        for: dependency,
+                        in: potentialBindings,
+                        layerID: layerID
+                    ) else { return false }
+                    return compatible(candidate, with: binding)
                 }
             }
         case .none:
-            // Finalization can promote an all-optional exact potential vector.
-            // Its script activation still requires the same no-FBO safety shape.
+            // Finalization can promote an exact potential vector.
+            // Its activation still requires the same no-FBO safety shape.
             switch resolvedExternalDependencies(in: stage) {
             case .none:
                 return true
@@ -516,9 +514,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             if resolvedDependencyStages.isEmpty {
                 return ownership
             }
-            guard resolvedDependencyStages.allSatisfy({
-                      $0.origin == .exactMixedOptionalFallback
-                  }) else { return nil }
             guard let binding = expandedPotentialBinding(
                       dependencies: resolvedDependencyStages,
                       potentialBindings: potentialBindings,
@@ -542,22 +537,23 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             let passthroughDependencyStages = stages.flatMap {
                 visualFailureExternalDependencies(in: $0, binding: binding)
             }
+            let baseSlots = Set(binding.referenceSlots)
             let directDependencyStages = resolvedDependencyStages.filter {
-                $0.origin == .terminalNamed
+                $0.origin == .terminalNamed && baseSlots.contains($0.slot)
             }.map(\.bindingDependency) + passthroughDependencyStages
             guard matches(directDependencyStages, binding: binding) else {
                 return nil
             }
-            let optionalDependencies = resolvedDependencyStages.filter {
-                $0.origin == .exactMixedOptionalFallback
+            let additionalDependencies = resolvedDependencyStages.filter {
+                $0.origin == .exactMixedOptionalFallback || !baseSlots.contains($0.slot)
             }
-            guard !optionalDependencies.isEmpty else { return ownership }
+            guard !additionalDependencies.isEmpty else { return ownership }
             guard let orderedDependencies = orderedStageDependencies(
                       stages,
                       binding: binding
                   ), let expanded = expandedPotentialBinding(
                       base: binding,
-                      dependencies: optionalDependencies,
+                      dependencies: additionalDependencies,
                       orderedDependencies: orderedDependencies,
                       potentialBindings: potentialBindings,
                       layerID: layerID
@@ -577,8 +573,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         }
     }
 
-    /// Promotes an all-optional same-provider vector from descriptor-only
-    /// carriers after every selected Program stage proves its exact lower
+    /// Promotes a same-provider candidate vector from descriptor-only
+    /// carriers after every selected Program stage proves its exact
     /// named candidate. No carrier can stand in for a sibling slot.
     private static func expandedPotentialBinding(
         dependencies: [ResolvedExternalDependency],
@@ -600,7 +596,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         )
     }
 
-    /// Extends one direct external owner with the exact optional siblings that
+    /// Extends one direct external owner with the exact candidate siblings that
     /// selected the same provider. The returned referenceSlots preserve the
     /// authored stage/pass/slot order used by frame reservation and Program
     /// input binding.
@@ -613,10 +609,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     ) -> SceneDependencyRenderPlan.Binding? {
         guard !dependencies.isEmpty,
               Set(dependencies).count == dependencies.count,
-              Set(orderedDependencies).count == orderedDependencies.count,
-              dependencies.allSatisfy({
-                  $0.origin == .exactMixedOptionalFallback
-              }) else { return nil }
+              Set(orderedDependencies).count == orderedDependencies.count else { return nil }
         var requiresResolvedMaterialProgram = base.requiresResolvedMaterialProgram
         for dependency in dependencies {
             guard let candidate = exactPotentialBinding(
@@ -650,6 +643,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         in potentialBindings: [SceneDependencyRenderPlan.Binding],
         layerID: Int
     ) -> SceneDependencyRenderPlan.Binding? {
+        guard dependency.consumerLayerID == layerID else { return nil }
         let matches = potentialBindings.filter { candidate in
             candidate.consumerLayerID == layerID
                 && candidate.providerLayerID == dependency.providerLayerID
