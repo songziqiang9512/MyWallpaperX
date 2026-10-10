@@ -68,6 +68,7 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
     var particleEmissionBoundary: ((OpaquePointer, Bool) -> Void)?
     var particleEmissionHost: ((OpaquePointer, MWXSceneQuickJSParticlePlaybackCommand) throws -> SceneParticlePlaybackObservation)?
 
+    var namedAnimationTargets: [SceneDynamicTarget]?
     var layerCatalogSignature: String?
     var layerSnapshotGeneration: UInt64 = 0
     var layerWorldTransformProjection:

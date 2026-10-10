@@ -603,6 +603,9 @@ extension SceneDesktopWallpaperHost {
                 ), routeExcludedTargets: excludedVectorTargets,
                 userPropertyDefinitions: model.project.userProperties.definitions,
                 timelineTargets: timelineTargets,
+                namedAnimations: timelineProgram.bindings.compactMap { binding in
+                    binding.animation.options.name.map { (binding.target, $0) }
+                },
                 scalarExcludedTargets: boundedSceneScriptTargets,
                 stringExcludedTargets: sceneScriptStringExcludedTargets,
                 admittedVectorPassTargets: vectorPassTargets,

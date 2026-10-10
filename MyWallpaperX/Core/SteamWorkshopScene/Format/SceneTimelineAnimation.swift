@@ -68,6 +68,8 @@ nonisolated struct SceneTimelineOptions: Codable, Equatable {
     /// Combined Animation 分组。持有方在 `children` 列出成员，成员用 `parent` 指回。
     let parent: SceneTimelineGroupReference?
     let children: [SceneTimelineGroupReference]
+    /// Authored lookup name; playback identity remains the compiled target.
+    var name: String? = nil
 
     /// 作者声明的总时长。`length` 是帧数，不是秒。
     nonisolated var durationSeconds: Double {
@@ -240,7 +242,8 @@ nonisolated enum SceneTimelineAnimationParser {
             smoothing: doubleValue(root["smoothing"]),
             stiffness: doubleValue(root["stiffness"]),
             parent: parent.reference,
-            children: children
+            children: children,
+            name: root["name"] as? String
         )
     }
 

@@ -1183,6 +1183,16 @@
       ]
     },
     {
+      "path": "docs/scene/history/named-timeline-interaction-2026-10-10.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/native-perspective-cursor-implementation-2026-10-06.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",

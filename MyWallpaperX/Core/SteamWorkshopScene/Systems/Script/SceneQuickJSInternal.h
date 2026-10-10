@@ -8,6 +8,8 @@
 
 #define MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_MUTATIONS 16
 #define MWX_SCENE_QUICKJS_MAX_ANIMATION_COMMANDS 16
+#define MWX_SCENE_QUICKJS_MAX_NAMED_ANIMATIONS 4096
+#define MWX_SCENE_QUICKJS_MAX_ANIMATION_NAME 256
 #define MWX_SCENE_QUICKJS_MAX_PUPPET_ANIMATION_COMMANDS 64
 #define MWX_SCENE_QUICKJS_MAX_PUPPET_ANIMATION_CALLBACKS 16
 #define MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_NAME 128
@@ -53,6 +55,19 @@ typedef struct MWXSceneQuickJSMaterialFunctionMutationRecord {
     uint32_t effect_index;
     char function_name[MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_NAME];
 } MWXSceneQuickJSMaterialFunctionMutationRecord;
+
+typedef struct MWXSceneQuickJSAnimationCommandRecord {
+    MWXSceneQuickJSAnimationCommand command;
+    uint32_t target_index;
+} MWXSceneQuickJSAnimationCommandRecord;
+
+typedef struct MWXSceneQuickJSNamedAnimationRecord {
+    uint32_t target_index;
+    uint32_t layer_index;
+    int64_t layer_id;
+    size_t name_length;
+    char name[MWX_SCENE_QUICKJS_MAX_ANIMATION_NAME + 1];
+} MWXSceneQuickJSNamedAnimationRecord;
 
 // Shared identity for ordinary layer access and its particle-instance projection.
 typedef struct MWXSceneQuickJSLayerAccessHandle {
@@ -280,6 +295,9 @@ struct MWXSceneQuickJSDomain {
     MWXSceneQuickJSLayerRecord *layers;
     uint32_t layer_count;
     uint32_t authored_layer_count;
+    MWXSceneQuickJSNamedAnimationRecord *named_animations;
+    size_t named_animation_count;
+    bool named_animations_configured;
     // All callbacks run serially, but their dynamic topology edits remain
     // provisional until the host frame barrier. The baseline plus operation
     // journal lets the domain replay only committed/pending owner ranges when
@@ -441,7 +459,7 @@ struct MWXSceneQuickJSOwner {
     MWXSceneQuickJSMaterialFunctionMutationRecord material_functions[
         MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_MUTATIONS
     ];
-    MWXSceneQuickJSAnimationCommand animation_commands[
+    MWXSceneQuickJSAnimationCommandRecord animation_commands[
         MWX_SCENE_QUICKJS_MAX_ANIMATION_COMMANDS
     ];
     MWXSceneQuickJSVideoCommand video_commands[
@@ -501,6 +519,10 @@ bool mwx_scene_quickjs_install_asset_engine(
     JSValue engine
 );
 bool mwx_scene_quickjs_install_object_handle(MWXSceneQuickJSOwner *owner);
+bool mwx_scene_quickjs_define_layer_animation_accessor(
+    MWXSceneQuickJSOwner *owner, JSValue layer, uint32_t layer_index,
+    bool current_property
+);
 void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_owner_discard_layer_mutations(MWXSceneQuickJSOwner *owner);

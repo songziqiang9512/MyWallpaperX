@@ -7,6 +7,14 @@
 
 typedef struct MWXSceneQuickJSDomain MWXSceneQuickJSDomain;
 typedef struct MWXSceneQuickJSOwner MWXSceneQuickJSOwner;
+// Prepared Timeline target indices belong to the Swift Program. C copies only
+// this immutable lookup metadata; it owns no playback state or clock.
+typedef struct MWXSceneQuickJSNamedAnimation {
+    uint32_t target_index;
+    int64_t layer_id;
+    const char *name;
+    size_t name_length;
+} MWXSceneQuickJSNamedAnimation;
 typedef struct MWXSceneQuickJSTimerFrameSnapshot
     MWXSceneQuickJSTimerFrameSnapshot;
 
@@ -782,6 +790,16 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_current_animation(
     size_t diagnostic_capacity
 );
 
+// Configure once after authored layer descriptors and before callbacks. Names
+// are 1...256 bytes; count is at most 4096. Invalid input publishes no catalog.
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_named_animations(
+    MWXSceneQuickJSDomain *domain,
+    const MWXSceneQuickJSNamedAnimation *animations,
+    size_t count,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
 void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner);
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown(
@@ -1100,6 +1118,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_animation_command_at(
     const MWXSceneQuickJSOwner *owner,
     size_t index,
     MWXSceneQuickJSAnimationCommand *command,
+    uint32_t *target_index, // UINT32_MAX means this owner's current property.
     char *diagnostic,
     size_t diagnostic_capacity
 );

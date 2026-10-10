@@ -118,7 +118,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 402,
-      "bytes": 96816
+      "bytes": 96445
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -181,8 +181,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 96,
-      "bytes": 21454
+      "lines": 109,
+      "bytes": 24273
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 224,
-      "bytes": 59923
+      "bytes": 60621
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1139,12 +1139,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "3afb89440e63afc89d5969dcfbab45b5a66765f4ce4a15f0bb2fa9a49916e4eb",
+      "after": "202c33e7f688ed2f62bf0a38ce14337b2185f7030ce2116a0318e06b2496b6d0",
+      "owner": "Scene命名Timeline",
+      "reason": "复用既有Timeline闭合跨层点击与timer，完成过程归历史并纠正已失效样本报告；新增权限及未覆盖边界明确登记。",
+      "decision": "docs/scene/history/named-timeline-interaction-2026-10-10.md#首断点与实现"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "610371544115cde72064f0e21eff01e65cd4e67626b5ed3140e31cfc3176652e",
-      "after": "33945be8a7030e508aaa3ef653f868a40339e0e081953c09786669050767efac",
-      "owner": "Scene",
-      "reason": "统一inactive named候选与子额度合同；维护实测剩余，不将已闭首断点重复排队。",
-      "decision": "docs/scene/history/terminal-attachment-desktop-freeze-2026-10-10.md#u24-cover-dependency"
+      "before": "33945be8a7030e508aaa3ef653f868a40339e0e081953c09786669050767efac",
+      "after": "848ca0043592c5d2e25ab738a40c182682c1897ae566cddfa3591d6d69622b4d",
+      "owner": "Scene命名Timeline",
+      "reason": "复用既有Timeline闭合跨层点击与timer，完成过程归历史并纠正已失效样本报告；新增权限及未覆盖边界明确登记。",
+      "decision": "docs/scene/history/named-timeline-interaction-2026-10-10.md#首断点与实现"
     }
   ]
 }

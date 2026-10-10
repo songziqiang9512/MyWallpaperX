@@ -143,8 +143,9 @@ extension SceneScriptCursorProgram {
                 break
             }
             let events = exportedEvents(owner)
-            // This path never evaluates frames or timers. A constructed
-            // owner that needs them would silently lose authored execution.
+            // Standalone owners have no authored value seed or init/update
+            // route. Timers scheduled later by cursor callbacks advance through
+            // this same owner's evaluation without publishing a return value.
             guard !events.isEmpty, !owner.requiresFrameEvaluation else {
                 failures[target] = .invalidSource
                 requiresDomainReconstruction = true

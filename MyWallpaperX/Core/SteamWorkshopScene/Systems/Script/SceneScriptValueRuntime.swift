@@ -380,7 +380,9 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         guard didInitialize != 0 else { return .success(nil) }
         let callbackMutations: SceneScriptMediaEventMutations
         switch SceneScriptMediaEventBridge.mutations(
-            owner: handle, target: target, layerID: layerID
+            owner: handle,
+            namedAnimationTargets: domain.namedAnimationTargets ?? [],
+            target: target, layerID: layerID
         ) {
         case let .success(value): callbackMutations = value
         case let .failure(failure):
@@ -522,7 +524,9 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         }
         let callbackMutations: SceneScriptMediaEventMutations
         switch SceneScriptMediaEventBridge.mutations(
-            owner: handle, target: target, layerID: layerID
+            owner: handle,
+            namedAnimationTargets: domain.namedAnimationTargets ?? [],
+            target: target, layerID: layerID
         ) {
         case let .success(value): callbackMutations = value
         case let .failure(failure):
@@ -557,7 +561,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         let resolvedValue: SceneDynamicValue
         if valueType == .bool {
             guard mutations.materialFunctions.isEmpty,
-                  mutations.animations.isEmpty else {
+                  mutations.animations.isEmpty || allowsStatefulLayerSideEffects else {
                 discardLayerMutations()
                 return .failure(.invalidArgument(
                     "Boolean value owner produced out-of-cohort mutations"
@@ -662,6 +666,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         return SceneScriptMediaEventBridge.dispatchThumbnail(
             owner: handle,
+            namedAnimationTargets: domain.namedAnimationTargets ?? [],
             target: target,
             layerID: layerID,
             ownerGeneration: generation,
@@ -680,6 +685,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         return SceneScriptMediaEventBridge.dispatchPlayback(
             owner: handle,
+            namedAnimationTargets: domain.namedAnimationTargets ?? [],
             target: target,
             layerID: layerID,
             ownerGeneration: generation,
@@ -697,7 +703,9 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         return SceneScriptMediaEventBridge.dispatchProperties(
-            owner: handle, target: target, layerID: layerID,
+            owner: handle,
+            namedAnimationTargets: domain.namedAnimationTargets ?? [],
+            target: target, layerID: layerID,
             ownerGeneration: generation, event: event, frame: frame,
             userPropertiesJSON: userPropertiesJSON
         )
@@ -711,7 +719,9 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         return SceneScriptMediaEventBridge.dispatchTimeline(
-            owner: handle, target: target, layerID: layerID,
+            owner: handle,
+            namedAnimationTargets: domain.namedAnimationTargets ?? [],
+            target: target, layerID: layerID,
             ownerGeneration: generation, event: event, frame: frame,
             userPropertiesJSON: userPropertiesJSON
         )
@@ -727,6 +737,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         return SceneScriptMediaEventBridge.dispatchUserProperties(
             owner: handle,
+            namedAnimationTargets: domain.namedAnimationTargets ?? [],
             target: target,
             layerID: layerID,
             ownerGeneration: generation,
@@ -757,6 +768,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         return SceneScriptMediaEventBridge.dispatchCursor(
             owner: handle,
+            namedAnimationTargets: domain.namedAnimationTargets ?? [],
             target: target,
             ownerGeneration: generation,
             event: event,
