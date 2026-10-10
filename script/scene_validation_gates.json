@@ -2551,6 +2551,19 @@
       ]
     },
     {
+      "id": "sampled-alpha-reconstruction",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSameAlphaReconstructedRGBFilterLowering.swift",
+        "script/tests/test_scene_sampled_alpha_rgba_reconstruction.py"
+      ],
+      "modules": [
+        "test_scene_sampled_alpha_rgba_reconstruction",
+        "test_scene_typed_data_rgb_filter",
+        "test_scene_preserved_alpha_rgb_color_inputs"
+      ]
+    },
+    {
       "id": "shader-color-boundary",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderMetalSource.swift",

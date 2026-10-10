@@ -89,8 +89,8 @@
       "bytes": 5005
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 584,
-      "bytes": 341542
+      "lines": 586,
+      "bytes": 343456
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 95,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 224,
-      "bytes": 60621
+      "bytes": 60696
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1148,11 +1148,20 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "f3a78c7bc0c8e4a5a2ee673c11cb724e8f83f2644a1da14273986de416412139",
+      "after": "e65e2245fa0684d1d4e97fc4b0037a2c324b890fb8454dda52dcce4439ab7453",
+      "owner": "Scene",
+      "reason": "同一same-alpha owner新增标量局部形态的证明/重证边界、缓存退旧与真实作者shader回归锁；未做App内运行后验，不宣告可见修复。",
+      "decision": "docs/scene/history/sampled-alpha-scalar-local-reconstruction-2026-10-10.md#真实形态回归锁"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "33945be8a7030e508aaa3ef653f868a40339e0e081953c09786669050767efac",
-      "after": "848ca0043592c5d2e25ab738a40c182682c1897ae566cddfa3591d6d69622b4d",
+      "after": "91cd27f345250d3057b01553c74209083b18a3b46eb67385ab5e2f3de3ea71fe",
       "owner": "Scene命名Timeline",
-      "reason": "复用既有Timeline闭合跨层点击与timer，完成过程归历史并纠正已失效样本报告；新增权限及未覆盖边界明确登记。",
+      "reason": "复用既有Timeline闭合跨层点击与timer，完成过程归历史并纠正已失效样本报告；同批并入2.10.1发布状态与U06 effect612复核口径的字段更新，不新增任务。",
       "decision": "docs/scene/history/named-timeline-interaction-2026-10-10.md#首断点与实现"
     }
   ]

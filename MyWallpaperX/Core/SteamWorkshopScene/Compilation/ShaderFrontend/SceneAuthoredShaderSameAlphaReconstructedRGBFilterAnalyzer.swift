@@ -115,8 +115,14 @@ nonisolated enum SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer {
                   outputExpression,
                   names: ["mix", "lerp"],
                   count: 3
-              ),
-              let snapshot = identifier(terminal[0]),
+              ) else { return nil }
+
+        if let fact = constructorLocalsFact(
+            terminal: terminal, output: output, fragment: fragment,
+            main: main, statements: statements
+        ) { return fact }
+
+        guard let snapshot = identifier(terminal[0]),
               let carrier = identifier(terminal[1]),
               snapshot != carrier,
               terminal[2].allSatisfy({
@@ -254,10 +260,17 @@ nonisolated enum SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer {
               ) else { return nil }
 
         let sourceCalls = calls.filter { $0.slot == sourceSlot }
-        guard Set(sourceCalls.map(\.index)) == sourceCallIndices,
-              sourceCalls.count >= 2,
-              sourceCalls.count <= 16 else { return nil }
+        guard Set(sourceCalls.map(\.index)) == sourceCallIndices else { return nil }
+        return sampleFact(
+            calls: calls, sourceSlot: sourceSlot,
+            preservesSnapshotAlpha: preservesSnapshotAlpha, fragment: fragment
+        )
+    }
 
+    private static func sampleFact(
+        calls: [SampleCall], sourceSlot: Int, preservesSnapshotAlpha: Bool,
+        fragment: Unit
+    ) -> Fact? {
         var sourceCounts: [Projection: Int] = [:]
         var dataCounts: [Int: [Projection: Int]] = [:]
         for call in calls {
@@ -276,12 +289,86 @@ nonisolated enum SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer {
         guard !dataCounts.isEmpty,
               counts.allSatisfy({ (1 ... 16).contains($0) }),
               counts.reduce(0, +) <= 32,
+              (2 ... 16).contains(calls.filter({ $0.slot == sourceSlot }).count),
               sourceCounts[.fullVector] == 1 else { return nil }
         return .init(
             sourceSlot: sourceSlot,
             sourceSampleCallCounts: sourceCounts,
             dataSampleCallCounts: dataCounts,
             preservesSnapshotAlpha: preservesSnapshotAlpha
+        )
+    }
+
+    /// A terminal constructor may carry the same four projected color samples
+    /// without an intermediate vec4. Each scalar has one definition and one
+    /// matching constructor use; aliases, mutations and extra source reads do
+    /// not acquire the reconstruction contract.
+    private static func constructorLocalsFact(
+        terminal: [ArraySlice<Token>],
+        output: Int,
+        fragment: Unit,
+        main: Unit.Function,
+        statements: [Range<Int>]
+    ) -> Fact? {
+        let tokens = fragment.tokens
+        guard Set(fragment.functions.map(\.name)).isDisjoint(
+                  with: ["texSample2D", "texture2D", "vec4", "float4"]
+              ),
+              let sourceSlot = SceneAuthoredShaderColorTransferAnalyzer
+                .directTextureSampleSlot(terminal[0]),
+              samplerType(slot: sourceSlot, fragment: fragment) == "sampler2D",
+              let lanes = callArguments(
+                  terminal[1], names: ["vec4", "float4"], count: 4
+              ),
+              let calls = sampleCalls(tokens: tokens),
+              calls.allSatisfy({ main.bodyRange.contains($0.index) }),
+              let snapshot = calls.first(where: {
+                  terminal[0].indices.contains($0.index)
+              }),
+              snapshot.slot == sourceSlot,
+              snapshot.projection == .fullVector else { return nil }
+
+        let projections: [Projection] = [.red, .green, .blue, .alpha]
+        var sourceIndices: Set<Int> = [snapshot.index]
+        var names = Set<String>()
+        for (lane, projection) in zip(lanes, projections) {
+            guard let name = identifier(lane), names.insert(name).inserted else {
+                return nil
+            }
+            let definitions = statements.filter { statement in
+                statement.lowerBound < output && statement.count >= 4
+                    && tokens[statement.lowerBound].text == "float"
+                    && tokens[statement.lowerBound + 1].text == name
+                    && tokens[statement.lowerBound + 2].text == "="
+            }
+            guard definitions.count == 1,
+                  let definition = definitions.first,
+                  let initializer = SceneAuthoredShaderColorTransferAnalyzer
+                    .assignmentExpression(
+                        after: definition.lowerBound + 1,
+                        in: tokens, body: main.bodyRange
+                    ),
+                  let sample = directProjectedSample(
+                      initializer, calls: calls, tokens: tokens
+                  ),
+                  sample.slot == sourceSlot,
+                  sample.projection == projection,
+                  main.bodyRange.filter({ tokens[$0].text == name })
+                    == [definition.lowerBound + 1, lane.startIndex]
+            else { return nil }
+            sourceIndices.insert(sample.index)
+        }
+        guard !terminal[2].contains(where: {
+                  names.contains($0.text)
+                      || ["texSample2D", "texture2D"].contains($0.text)
+              }),
+              Set(calls.filter({ $0.slot == sourceSlot }).map(\.index))
+                == sourceIndices else { return nil }
+        guard calls.filter({ $0.slot != sourceSlot }).allSatisfy({ $0.index < output })
+        else { return nil }
+        return sampleFact(
+            calls: calls, sourceSlot: sourceSlot,
+            preservesSnapshotAlpha: false, fragment: fragment
         )
     }
 
@@ -318,7 +405,7 @@ nonisolated enum SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer {
             && fragment.tokens[index].kind == .identifier
             && fragment.tokens[index + 1].text == "(" {
             let name = fragment.tokens[index].text
-            if builtins.contains(name) { continue }
+            if builtins.contains(name), !defined.contains(name) { continue }
             guard defined.contains(name) else { return false }
             if !checked.insert(name).inserted { continue }
             guard let closure = SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer

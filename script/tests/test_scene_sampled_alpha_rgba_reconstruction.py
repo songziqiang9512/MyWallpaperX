@@ -29,9 +29,55 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRouteAuthority.swift",
 ]
 
+CONSTRUCTOR_SOURCE = """uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+varying vec4 v_Coordinate;
+vec2 bend(vec2 uv, float amount) {
+    vec2 shifted = uv;
+    return uv + vec2(amount * shifted.y * shifted.y, 0.0);
+}
+void main() {
+    float red = texSample2D(g_Texture0, bend(v_Coordinate.xy, 0.4)).r;
+    float green = texSample2D(g_Texture0, bend(v_Coordinate.xy, 0.0)).g;
+    float blue = texSample2D(g_Texture0, bend(v_Coordinate.xy, -0.4)).b;
+    float alpha = texSample2D(g_Texture0, bend(v_Coordinate.xy, 0.2)).a;
+    float mask = texSample2D(g_Texture1, v_Coordinate.xy).r;
+    gl_FragColor = lerp(texSample2D(g_Texture0, v_Coordinate.xy), vec4(red, green, blue, alpha), mask);
+}
+"""
+
+# Captured from a real Workshop effect that the previous analyzer left on the
+# unresolved color contract: a helper that writes its `uv` parameter and
+# reassigns `uv` before returning, plus a chromatic-aberration offset spread
+# across the four scalar lanes. The scalar vector broadcast in the captured
+# source is written as an explicit constructor because the strict offline
+# glslang invocation does not run the app's compatibility prelude.
+CHROMATIC_ABERRATION_SOURCE = """uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform float u_aberration;
+varying vec4 v_TexCoord;
+vec2 computeUV(vec2 uv, float amount){
+    uv = (uv - 0.5) * 2.0;
+    vec2 radial = vec2(0.0);
+    float focusLength = 1.0 / max(length(uv), 0.0001);
+    radial += uv * (1.0 + amount * pow(length(uv), 2.0)) * focusLength;
+    return (radial / 2.0) + 0.5;
+}
+void main() {
+    float offset = u_aberration * 0.1;
+    float red = texSample2D(g_Texture0, computeUV(v_TexCoord.xy, offset)).r;
+    float green = texSample2D(g_Texture0, computeUV(v_TexCoord.xy, 0.0)).g;
+    float blue = texSample2D(g_Texture0, computeUV(v_TexCoord.xy, -offset)).b;
+    float alpha = texSample2D(g_Texture0, computeUV(v_TexCoord.xy, 0.0)).a;
+    float mask = texSample2D(g_Texture1, v_TexCoord.xy).r;
+    gl_FragColor = lerp(texSample2D(g_Texture0, v_TexCoord.xy), vec4(red, green, blue, alpha), mask);
+}
+"""
+
 
 HARNESS = r'''
 import Foundation
+import Metal
 
 private struct Output: Codable {
     let transfer: String
@@ -67,6 +113,110 @@ private struct Output: Codable {
     let renamedCompilerAccepted: Bool
     let renamedCompilerDriftRejected: Bool
     let snapshotAlphaWithAuxiliaryRGAccepted: Bool
+    let constructorChecks: [String: Bool]
+    let constructorSourceUnpremultipliedCount: Int
+    let constructorOutputPremultiplied: Bool
+    let constructorPixels: [[Float]]
+    let chromaticChecks: [String: Bool]
+}
+
+private func constructorPixels(_ source: String?) throws -> [[Float]] {
+    guard let source else { return [] }
+    guard let device = MTLCreateSystemDefaultDevice(),
+          let queue = device.makeCommandQueue() else {
+        throw NSError(domain: "ConstructorGPU", code: 1)
+    }
+    let vertex = """
+    struct ConstructorProbeVertexOutput {
+        float4 position [[position]];
+        float4 coordinate [[user(locn0)]];
+    };
+    vertex ConstructorProbeVertexOutput constructorProbeVertex(uint id [[vertex_id]]) {
+        float2 positions[3] = {float2(-1.0, -1.0), float2(3.0, -1.0), float2(-1.0, 3.0)};
+        ConstructorProbeVertexOutput out;
+        out.position = float4(positions[id], 0.0, 1.0);
+        out.coordinate = float4(0.5, 0.5, 0.0, 0.0);
+        return out;
+    }
+    """
+    let library = try device.makeLibrary(source: source + "\n" + vertex, options: nil)
+    let pipelineDescriptor = MTLRenderPipelineDescriptor()
+    pipelineDescriptor.vertexFunction = library.makeFunction(name: "constructorProbeVertex")
+    pipelineDescriptor.fragmentFunction = library.makeFunction(name: "mwxGenericFragment")
+    pipelineDescriptor.colorAttachments[0].pixelFormat = .rgba32Float
+    let pipeline = try device.makeRenderPipelineState(descriptor: pipelineDescriptor)
+    func texture(width: Int) throws -> MTLTexture {
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba32Float, width: width, height: 1, mipmapped: false
+        )
+        descriptor.storageMode = .shared
+        descriptor.usage = [.shaderRead, .renderTarget]
+        guard let texture = device.makeTexture(descriptor: descriptor) else {
+            throw NSError(domain: "ConstructorGPU", code: 2)
+        }
+        return texture
+    }
+    let color = try texture(width: 64)
+    let mask = try texture(width: 1)
+    let output = try texture(width: 1)
+    let samplerDescriptor = MTLSamplerDescriptor()
+    samplerDescriptor.minFilter = .nearest
+    samplerDescriptor.magFilter = .nearest
+    samplerDescriptor.sAddressMode = .clampToEdge
+    samplerDescriptor.tAddressMode = .clampToEdge
+    guard let sampler = device.makeSamplerState(descriptor: samplerDescriptor) else {
+        throw NSError(domain: "ConstructorGPU", code: 3)
+    }
+    var colors = Array(repeating: Float(0), count: 64 * 4)
+    func setColor(_ index: Int, _ rgba: [Float]) {
+        colors.replaceSubrange(index * 4..<(index + 1) * 4, with: rgba)
+    }
+    setColor(32, [0.05, 0.3, 0.1, 0.5])
+    setColor(38, [0.2, 0.1, 0.05, 0.25])
+    setColor(25, [0.3, 0.15, 0.675, 0.75])
+    setColor(35, [0.06, 0.02, 0.12, 0.2])
+    var pixels: [[Float]] = []
+    for (index, weight) in [Float(0), 0.5, 1, 1, 1].enumerated() {
+        if index == 3 { setColor(38, [0, 0, 0, 0]) }
+        if index == 4 { setColor(35, [0, 0, 0, 0]) }
+        colors.withUnsafeBytes {
+            color.replace(region: MTLRegionMake2D(0, 0, 64, 1), mipmapLevel: 0,
+                          withBytes: $0.baseAddress!, bytesPerRow: 64 * 16)
+        }
+        [weight, Float(0), 0, 0.1].withUnsafeBytes {
+            mask.replace(region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
+                         withBytes: $0.baseAddress!, bytesPerRow: 16)
+        }
+        guard let command = queue.makeCommandBuffer() else {
+            throw NSError(domain: "ConstructorGPU", code: 4)
+        }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = output
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].storeAction = .store
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else {
+            throw NSError(domain: "ConstructorGPU", code: 5)
+        }
+        encoder.setRenderPipelineState(pipeline)
+        encoder.setFragmentTexture(color, index: 0)
+        encoder.setFragmentTexture(mask, index: 1)
+        encoder.setFragmentSamplerState(sampler, index: 0)
+        encoder.setFragmentSamplerState(sampler, index: 1)
+        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+        encoder.endEncoding()
+        command.commit()
+        command.waitUntilCompleted()
+        guard command.status == .completed, command.error == nil else {
+            throw command.error ?? NSError(domain: "ConstructorGPU", code: 6)
+        }
+        var pixel = Array(repeating: Float(0), count: 4)
+        pixel.withUnsafeMutableBytes {
+            output.getBytes($0.baseAddress!, bytesPerRow: 16,
+                            from: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0)
+        }
+        pixels.append(pixel)
+    }
+    return pixels
 }
 
 @main
@@ -158,7 +308,7 @@ private enum SampledAlphaRGBAReconstructionHarness {
             authoredSource: authored
         )
         let loweredMSL = lowered?.msl ?? ""
-        let realCompilerMSL = CommandLine.arguments.count == 2
+        let realCompilerMSL = CommandLine.arguments.count >= 2
             ? (try? String(
                 contentsOfFile: CommandLine.arguments[1],
                 encoding: .utf8
@@ -200,6 +350,157 @@ private enum SampledAlphaRGBAReconstructionHarness {
             .replacingOccurrences(of: "float3 field", with: "float2 field")
             .replacingOccurrences(of: ").yzx;", with: ").xy;")
             .replacingOccurrences(of: "reconstructed.xyz, field,", with: "reconstructed.xyz, float3(field, 0.0),"))
+
+        let constructorSource = try String(contentsOfFile: CommandLine.arguments[2], encoding: .utf8)
+        let constructorMSL = try String(contentsOfFile: CommandLine.arguments[3], encoding: .utf8)
+        let constructorFact = fact(constructorSource)
+        let constructorLowered = try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+            msl: constructorMSL, authoredSource: constructorSource
+        )
+        let constructorRenamed = constructorSource
+            .replacingOccurrences(of: "red", with: "firstLane")
+            .replacingOccurrences(of: "green", with: "secondLane")
+            .replacingOccurrences(of: "blue", with: "thirdLane")
+            .replacingOccurrences(of: "alpha", with: "lastLane")
+            .replacingOccurrences(of: "bend", with: "coordinateWarp")
+        var constructorChecks: [String: Bool] = [
+            "sourceAccepted": constructorFact?.sourceSlot == 0
+                && constructorFact?.auxiliarySlots == [1]
+                && constructorFact?.preservesSnapshotAlpha == false
+                && constructorFact?.sourceSampleCallCounts == [
+                    .fullVector: 1, .red: 1, .green: 1, .blue: 1, .alpha: 1
+                ] && constructorFact?.dataSampleCallCounts == [1: [.red: 1]],
+            "renamedAccepted": fact(constructorRenamed) == constructorFact
+                && constructorFact != nil,
+            "realCompilerAccepted": constructorLowered?.transfer.kind == "straight-alpha",
+            "realCompilerRenamedAccepted": (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                msl: constructorMSL
+                    .replacingOccurrences(of: "red", with: "firstLane")
+                    .replacingOccurrences(of: "green", with: "secondLane")
+                    .replacingOccurrences(of: "blue", with: "thirdLane")
+                    .replacingOccurrences(of: "alpha", with: "lastLane")
+                    .replacingOccurrences(of: "bend", with: "coordinateWarp"),
+                authoredSource: constructorRenamed
+            ))?.transfer.kind == "straight-alpha",
+        ]
+        let constructorLoweredMSL = constructorLowered?.msl ?? ""
+        let chromaticAuthored = try String(
+            contentsOfFile: CommandLine.arguments[4], encoding: .utf8
+        )
+        let chromaticMSL = try String(
+            contentsOfFile: CommandLine.arguments[5], encoding: .utf8
+        )
+        let chromaticFact = fact(chromaticAuthored)
+        let chromaticLowered = try? SceneGenericShaderArtifactBuilder
+            .prepareColorTransfer(
+                msl: chromaticMSL, authoredSource: chromaticAuthored
+            )
+        let chromaticLoweredMSL = chromaticLowered?.msl ?? ""
+        var chromaticChecks: [String: Bool] = [
+            // The real effect's helper writes its `uv` parameter, assigns a
+            // local through a call argument and reassigns `uv` before
+            // returning; the four scalar lanes spread one uniform offset.
+            "sourceAccepted": chromaticFact?.sourceSlot == 0
+                && chromaticFact?.auxiliarySlots == [1]
+                && chromaticFact?.preservesSnapshotAlpha == false
+                && chromaticFact?.sourceSampleCallCounts == [
+                    .fullVector: 1, .red: 1, .green: 1, .blue: 1, .alpha: 1
+                ] && chromaticFact?.dataSampleCallCounts == [1: [.red: 1]],
+            "realCompilerAccepted":
+                chromaticLowered?.transfer.kind == "straight-alpha",
+            "boundaryCounts": chromaticLoweredMSL.components(
+                separatedBy: "mwxGenericUnpremultiply(g_Texture0.sample("
+            ).count - 1 == 5
+                && chromaticLoweredMSL.contains(
+                    "out.mwxFragColor = mwxGenericPremultiply("
+                ),
+        ]
+        let chromaticSourceDrifts: [String: String] = [
+            "wrongLane": chromaticAuthored.replacingOccurrences(
+                of: "    float blue = texSample2D(g_Texture0,"
+                    + " computeUV(v_TexCoord.xy, -offset)).b;",
+                with: "    float blue = texSample2D(g_Texture0,"
+                    + " computeUV(v_TexCoord.xy, -offset)).g;"
+            ),
+            "helperExtraSample": chromaticAuthored.replacingOccurrences(
+                of: "    vec2 radial = vec2(0.0);",
+                with: "    vec2 radial = texSample2D(g_Texture0, uv).rg;"
+            ),
+        ]
+        for (name, source) in chromaticSourceDrifts {
+            chromaticChecks["sourceChanged-" + name] = source != chromaticAuthored
+            chromaticChecks["sourceRejected-" + name] = fact(source) == nil
+        }
+        // Reading the helper's own parameter is not side-effect authority: the
+        // closure proof only denies writes and texture reads, so this stays
+        // accepted.
+        chromaticChecks["helperParameterReadAccepted"] = fact(
+            chromaticAuthored.replacingOccurrences(
+                of: "    return (radial / 2.0) + 0.5;",
+                with: "    return radial + uv;"
+            )
+        ) != nil
+        for (name, source) in [
+            "wrongLane": chromaticMSL.replacingOccurrences(
+                of: ").w;", with: ").y;"
+            ),
+            "paramAlias": chromaticMSL.replacingOccurrences(
+                of: "    float mask = g_Texture1.sample",
+                with: "    float red = 0.0;\n    float mask = g_Texture1.sample"
+            ),
+        ] {
+            chromaticChecks["compilerChanged-" + name] = source != chromaticMSL
+            chromaticChecks["compilerRejected-" + name] = (try? SceneGenericShaderArtifactBuilder
+                .prepareColorTransfer(
+                    msl: source, authoredSource: chromaticAuthored
+                )) == nil
+        }
+
+        let constructorTerminal = "gl_FragColor = lerp("
+        let sourceDrifts: [String: String] = [
+            "wrongLane": constructorSource.replacingOccurrences(of: "0.2)).a;", with: "0.2)).g;"),
+            "wrongSlot": constructorSource.replacingOccurrences(of: "float alpha = texSample2D(g_Texture0", with: "float alpha = texSample2D(g_Texture1"),
+            "laneOrder": constructorSource.replacingOccurrences(of: "vec4(red, green, blue, alpha)", with: "vec4(blue, green, red, alpha)"),
+            "laterWrite": constructorSource.replacingOccurrences(of: constructorTerminal, with: "alpha = mask;\n    " + constructorTerminal),
+            "increment": constructorSource.replacingOccurrences(of: constructorTerminal, with: "++alpha;\n    " + constructorTerminal),
+            "extraSample": constructorSource.replacingOccurrences(of: constructorTerminal, with: "float hidden = texSample2D(g_Texture0, v_Coordinate.xy).r;\n    " + constructorTerminal),
+            "escape": constructorSource.replacingOccurrences(of: constructorTerminal, with: "float hidden = alpha;\n    " + constructorTerminal),
+            "inout": constructorSource.replacingOccurrences(of: "bend(vec2 uv", with: "bend(inout vec2 uv"),
+            "scalarInout": ("void mutate(inout float lane) { lane = 0.0; }\n" + constructorSource).replacingOccurrences(of: constructorTerminal, with: "mutate(alpha);\n    " + constructorTerminal),
+            "builtinInout": ("vec2 floor(inout vec2 uv) { uv += vec2(0.1); return uv; }\n" + constructorSource)
+                .replacingOccurrences(of: "float red =", with: "vec2 address = v_Coordinate.xy;\n    float red =")
+                .replacingOccurrences(of: "bend(v_Coordinate.xy, 0.4)", with: "floor(address)"),
+            "fakeSampler": "vec4 texSample2D(sampler2D image, vec2 uv) { return vec4(1.0); }\n" + constructorSource,
+            "fakeMix": "vec4 lerp(vec4 a, vec4 b, float weight) { return b; }\n" + constructorSource,
+            "endpoint": constructorSource.replacingOccurrences(of: "lerp(texSample2D(g_Texture0, v_Coordinate.xy), vec4(red, green, blue, alpha), mask)", with: "lerp(vec4(red, green, blue, alpha), texSample2D(g_Texture0, v_Coordinate.xy), mask)"),
+        ]
+        for (name, source) in sourceDrifts {
+            constructorChecks["sourceRejected-" + name] = fact(source) == nil
+        }
+        let compilerDrifts: [String: String] = [
+            "wrongLane": constructorMSL.replacingOccurrences(of: ").w;", with: ").y;"),
+            "wrongSlot": constructorMSL.replacingOccurrences(of: "float alpha = g_Texture0.sample", with: "float alpha = g_Texture1.sample"),
+            "laneOrder": constructorMSL.replacingOccurrences(of: "float4(red, green, blue, alpha)", with: "float4(blue, green, red, alpha)"),
+            "laterWrite": constructorMSL.replacingOccurrences(of: "    out.mwxFragColor =", with: "    alpha = mask;\n    out.mwxFragColor ="),
+            "increment": constructorMSL.replacingOccurrences(of: "    out.mwxFragColor =", with: "    ++alpha;\n    out.mwxFragColor ="),
+            "extraSample": constructorMSL.replacingOccurrences(of: "    out.mwxFragColor =", with: "    float hidden = g_Texture0.sample(g_Texture0Smplr, in.v_Coordinate.xy).x;\n    out.mwxFragColor ="),
+            "escape": constructorMSL.replacingOccurrences(of: "    out.mwxFragColor =", with: "    float hidden = alpha;\n    out.mwxFragColor ="),
+            "inout": ("void mutate(thread float& lane) { lane = 0.0; }\n" + constructorMSL).replacingOccurrences(of: "    out.mwxFragColor =", with: "    mutate(alpha);\n    out.mwxFragColor ="),
+            "fakeMix": constructorMSL.replacingOccurrences(
+                of: "using namespace metal;",
+                with: "using namespace metal;\nfloat4 mix(float4 a, float4 b, float4 weight) { return b; }"
+            ),
+            "commentClosedBody": constructorMSL.replacingOccurrences(
+                of: "float4(mask)", with: "float4(mask /* } */)"
+            ),
+            "endpoint": constructorMSL.replacingOccurrences(of: "float4(red, green, blue, alpha)", with: "float4(red, green, blue, mask)"),
+        ]
+        for (name, source) in compilerDrifts {
+            constructorChecks["compilerChanged-" + name] = source != constructorMSL
+            constructorChecks["compilerRejected-" + name] = (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                msl: source, authoredSource: constructorSource
+            )) == nil
+        }
 
         let output = Output(
             transfer: {
@@ -326,7 +627,16 @@ private enum SampledAlphaRGBAReconstructionHarness {
             )) == nil,
             snapshotAlphaWithAuxiliaryRGAccepted: (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
                 msl: preservingMSL, authoredSource: preservingSource
-            ))?.transfer.kind == "straight-alpha-preserving"
+            ))?.transfer.kind == "straight-alpha-preserving",
+            constructorChecks: constructorChecks,
+            constructorSourceUnpremultipliedCount: constructorLoweredMSL.components(
+                separatedBy: "mwxGenericUnpremultiply(g_Texture0.sample("
+            ).count - 1,
+            constructorOutputPremultiplied: constructorLoweredMSL.contains(
+                "out.mwxFragColor = mwxGenericPremultiply("
+            ),
+            constructorPixels: try constructorPixels(constructorLowered?.msl),
+            chromaticChecks: chromaticChecks
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(output))
     }
@@ -403,6 +713,82 @@ void main() {
         )
         if cross.returncode != 0:
             raise RuntimeError(cross.stderr or cross.stdout)
+        constructor_authored = root / "constructor-authored.frag"
+        constructor_authored.write_text(CONSTRUCTOR_SOURCE, encoding="utf-8")
+        constructor_glsl = root / "constructor.frag"
+        constructor_glsl.write_text(
+            "#version 450\nlayout(location=0) out vec4 mwxFragColor;\n"
+            + CONSTRUCTOR_SOURCE.replace(
+                "uniform sampler2D g_Texture0;",
+                "layout(binding=0) uniform sampler2D g_Texture0;",
+            ).replace(
+                "uniform sampler2D g_Texture1;",
+                "layout(binding=1) uniform sampler2D g_Texture1;",
+            ).replace(
+                "varying vec4 v_Coordinate;",
+                "layout(location=0) in vec4 v_Coordinate;",
+            ).replace("texSample2D(", "texture(")
+            .replace("gl_FragColor", "mwxFragColor")
+            .replace("lerp(", "mix("),
+            encoding="utf-8",
+        )
+        constructor_spirv = root / "constructor.spv"
+        constructor_msl = root / "constructor.metal"
+        for command in (
+            [str(glslang), "-V", "--auto-map-bindings", "--auto-map-locations",
+             "-S", "frag", "-e", "main", "-o", str(constructor_spirv),
+             str(constructor_glsl)],
+            [str(spirv_cross), str(constructor_spirv), "--msl", "--msl-version",
+             "20000", "--msl-decoration-binding", "--rename-entry-point",
+             "main", "mwxGenericFragment", "frag", "--output",
+             str(constructor_msl)],
+        ):
+            completed = subprocess.run(
+                command, cwd=REPOSITORY_ROOT, capture_output=True, text=True
+            )
+            if completed.returncode != 0:
+                raise RuntimeError(completed.stderr or completed.stdout)
+        chromatic_authored = root / "chromatic-authored.frag"
+        chromatic_authored.write_text(
+            CHROMATIC_ABERRATION_SOURCE, encoding="utf-8"
+        )
+        chromatic_glsl = root / "chromatic.frag"
+        chromatic_glsl.write_text(
+            "#version 450\nlayout(location=0) out vec4 mwxFragColor;\n"
+            + CHROMATIC_ABERRATION_SOURCE.replace(
+                "uniform sampler2D g_Texture0;",
+                "layout(binding=0) uniform sampler2D g_Texture0;",
+            ).replace(
+                "uniform sampler2D g_Texture1;",
+                "layout(binding=1) uniform sampler2D g_Texture1;",
+            ).replace(
+                "uniform float u_aberration;",
+                "layout(std140, binding=4) uniform AberrationUniforms"
+                " { float u_aberration; };",
+            ).replace(
+                "varying vec4 v_TexCoord;",
+                "layout(location=0) in vec4 v_TexCoord;",
+            ).replace("texSample2D(", "texture(")
+            .replace("gl_FragColor", "mwxFragColor")
+            .replace("lerp(", "mix("),
+            encoding="utf-8",
+        )
+        chromatic_spirv = root / "chromatic.spv"
+        chromatic_msl = root / "chromatic.metal"
+        for command in (
+            [str(glslang), "-V", "--auto-map-bindings", "--auto-map-locations",
+             "-S", "frag", "-e", "main", "-o", str(chromatic_spirv),
+             str(chromatic_glsl)],
+            [str(spirv_cross), str(chromatic_spirv), "--msl", "--msl-version",
+             "20000", "--msl-decoration-binding", "--rename-entry-point",
+             "main", "mwxGenericFragment", "frag", "--output",
+             str(chromatic_msl)],
+        ):
+            completed = subprocess.run(
+                command, cwd=REPOSITORY_ROOT, capture_output=True, text=True
+            )
+            if completed.returncode != 0:
+                raise RuntimeError(completed.stderr or completed.stdout)
         cls.binary = root / "sampled-alpha-rgba"
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
@@ -424,7 +810,9 @@ void main() {
         if completed.returncode != 0:
             raise RuntimeError(completed.stderr)
         result = subprocess.run(
-            [str(cls.binary), str(actual_msl)],
+            [str(cls.binary), str(actual_msl), str(constructor_authored),
+             str(constructor_msl), str(chromatic_authored),
+             str(chromatic_msl)],
             cwd=REPOSITORY_ROOT,
             env=environment,
             capture_output=True,
@@ -484,6 +872,58 @@ void main() {
             "renamedCompilerDriftRejected",
         ):
             self.assertTrue(self.result[key], (key, self.result))
+
+    def test_constructor_locals_share_the_sampled_alpha_contract(self) -> None:
+        checks = self.result["constructorChecks"]
+        for key in (
+            "sourceAccepted", "renamedAccepted", "realCompilerAccepted",
+            "realCompilerRenamedAccepted",
+        ):
+            self.assertTrue(checks[key], (key, checks))
+        # Five same-slot reads cross the straight-color boundary exactly once
+        # each; the terminal returns to premultiplied storage exactly once.
+        self.assertEqual(self.result["constructorSourceUnpremultipliedCount"], 5)
+        self.assertTrue(self.result["constructorOutputPremultiplied"])
+
+    def test_constructor_source_and_real_compiler_drift_fail_closed(self) -> None:
+        checks = self.result["constructorChecks"]
+        for key, value in checks.items():
+            if "Rejected-" in key or "Changed-" in key:
+                self.assertTrue(value, (key, checks))
+
+    def test_constructor_real_compiler_pixels_preserve_straight_rgba_and_data_mask(self) -> None:
+        expected = (
+            (0.05, 0.3, 0.1, 0.5),
+            (0.1575, 0.21, 0.1925, 0.35),
+            (0.16, 0.12, 0.18, 0.2),
+            (0.0, 0.12, 0.18, 0.2),
+            (0.0, 0.0, 0.0, 0.0),
+        )
+        self.assertEqual(len(self.result["constructorPixels"]), len(expected))
+        for actual, target in zip(self.result["constructorPixels"], expected):
+            for value, wanted in zip(actual, target):
+                self.assertAlmostEqual(value, wanted, delta=0.00001)
+
+    def test_captured_workshop_effect_reaches_the_shared_reconstruction_owner(
+        self,
+    ) -> None:
+        checks = self.result["chromaticChecks"]
+        for key in (
+            "sourceAccepted", "realCompilerAccepted", "boundaryCounts",
+            "helperParameterReadAccepted",
+        ):
+            self.assertTrue(checks[key], (key, checks))
+
+    def test_captured_workshop_effect_drift_fails_closed(self) -> None:
+        checks = self.result["chromaticChecks"]
+        for key in (
+            "sourceChanged-wrongLane", "sourceRejected-wrongLane",
+            "sourceChanged-helperExtraSample",
+            "sourceRejected-helperExtraSample",
+            "compilerChanged-wrongLane", "compilerRejected-wrongLane",
+            "compilerChanged-paramAlias", "compilerRejected-paramAlias",
+        ):
+            self.assertTrue(checks[key], (key, checks))
 
 
 if __name__ == "__main__":

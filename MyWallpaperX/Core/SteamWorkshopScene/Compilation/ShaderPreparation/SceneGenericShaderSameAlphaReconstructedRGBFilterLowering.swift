@@ -22,9 +22,6 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
     static func lower(_ source: String, fact: Fact) -> String? {
         guard (0 ..< 8).contains(fact.sourceSlot),
               !fact.auxiliarySlots.isEmpty,
-              (fact.preservesSnapshotAlpha
-                ? fact.sourceSampleCallCounts[.greenAlpha] == nil
-                : fact.sourceSampleCallCounts[.greenAlpha] == 1),
               fact.auxiliarySlots.allSatisfy({ (0 ..< 8).contains($0) }),
               !fact.auxiliarySlots.contains(fact.sourceSlot),
               fact.totalSampleCallCount <= 32,
@@ -41,6 +38,17 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
               observedCounts(calls, sourceSlot: fact.sourceSlot)
                 == (fact.sourceSampleCallCounts, fact.dataSampleCallCounts)
         else { return nil }
+
+        if let output = constructorOutput(source: source, fact: fact, calls: calls) {
+            return insertingBoundaries(
+                into: source, calls: calls, sourceSlot: fact.sourceSlot,
+                output: output.range, indent: output.indent,
+                expression: output.expression
+            )
+        }
+        guard fact.preservesSnapshotAlpha
+            ? fact.sourceSampleCallCounts[.greenAlpha] == nil
+            : fact.sourceSampleCallCounts[.greenAlpha] == 1 else { return nil }
 
         let outputs = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*((?:mix|lerp)\(\s*([A-Za-z_]\w*)\s*,\s*([A-Za-z_]\w*)\s*,\s*(?:float4\([^;]+\)|[^;]+)\))\s*;[ \t]*$"#,
@@ -73,19 +81,53 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
                   output: output.range,
                   body: body,
                   source: source
-              ),
-              let outputRange = Range(output.range, in: source)
+              )
         else { return nil }
 
+        return insertingBoundaries(
+            into: source, calls: calls, sourceSlot: fact.sourceSlot,
+            output: output.range, indent: indent, expression: expression
+        )
+    }
+
+    private static func insertingBoundaries(
+        into source: String,
+        calls: [SampleCall],
+        sourceSlot: Int,
+        output: NSRange,
+        indent: String,
+        expression: String
+    ) -> String? {
+        guard let outputRange = Range(output, in: source) else { return nil }
+        // Samples nested in the terminal expression must retain their original
+        // ranges until they have crossed the same boundary as earlier locals.
+        let expressionRange = (source as NSString).range(
+            of: expression, options: [], range: output
+        )
+        guard expressionRange.location != NSNotFound else { return nil }
+        let sourceCalls = calls.filter({ $0.slot == sourceSlot }).sorted(by: {
+            $0.range.location > $1.range.location
+        })
+        var terminalExpression = expression
+        for call in sourceCalls where contains(output, call.range) {
+            guard contains(expressionRange, call.range),
+                  let originalRange = Range(call.range, in: source),
+                  let localRange = Range(NSRange(
+                      location: call.range.location - expressionRange.location,
+                      length: call.range.length
+                  ), in: terminalExpression) else { return nil }
+            terminalExpression.replaceSubrange(
+                localRange, with: "\(unpremultiply)(\(source[originalRange]))"
+            )
+        }
         var transformed = source
         transformed.replaceSubrange(
             outputRange,
-            with: "\(indent)out.mwxFragColor = \(premultiply)(\(expression));"
+            with: "\(indent)out.mwxFragColor = \(premultiply)(\(terminalExpression));"
         )
-        for call in calls.filter({ $0.slot == fact.sourceSlot }).sorted(by: {
-            $0.range.location > $1.range.location
-        }) {
+        for call in sourceCalls where !contains(output, call.range) {
             guard let originalRange = Range(call.range, in: source),
+                  NSMaxRange(call.range) <= output.location,
                   let transformedRange = Range(call.range, in: transformed) else {
                 return nil
             }
@@ -96,6 +138,107 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
         }
         return SceneGenericShaderStraightAlphaPreservingLowering
             .insertingBoundaryHelpers(into: transformed)
+    }
+
+    private static func constructorOutput(
+        source: String,
+        fact: Fact,
+        calls: [SampleCall]
+    ) -> (range: NSRange, indent: String, expression: String)? {
+        guard !fact.preservesSnapshotAlpha,
+              fact.sourceSampleCallCounts[.fullVector] == 1,
+              [Projection.red, .green, .blue, .alpha].allSatisfy({
+                  fact.sourceSampleCallCounts[$0] == 1
+              }) else { return nil }
+        let outputs = SceneShaderSourceTextFacts.matches(
+            #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*([^;]+);[ \t]*$"#,
+            in: source
+        )
+        guard outputs.count == 1, let output = outputs.first,
+              let indent = SceneShaderSourceTextFacts.capture(output, 1, in: source),
+              let expression = SceneShaderSourceTextFacts.capture(output, 2, in: source),
+              let terminal = callArguments(expression, names: ["mix", "lerp"], count: 3),
+              let lanes = callArguments(terminal[1], names: ["float4"], count: 4),
+              SceneShaderSourceTextFacts.matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
+              let body = fragmentBodyRange(containing: output.range.location, in: source),
+              contains(body, output.range),
+              calls.allSatisfy({ contains(body, $0.range) }),
+              terminalOutputIsProven(output: output.range, body: body, source: source),
+              bodyHasNoExtraAuthority(body, output: output.range, source: source),
+              let bodyRange = Range(body, in: source),
+              SceneShaderSourceTextFacts.matches(
+                  #"\b(?:if|else|for|while|do|switch|case)\b|\?"#,
+                  in: String(source[bodyRange])
+              ).isEmpty,
+              let snapshot = calls.first(where: {
+                  $0.slot == fact.sourceSlot && $0.projection == .fullVector
+              }),
+              let snapshotRange = Range(snapshot.range, in: source),
+              terminal[0] == String(source[snapshotRange]),
+              contains(output.range, snapshot.range)
+        else { return nil }
+
+        let projections: [Projection] = [.red, .green, .blue, .alpha]
+        let components = ["x", "y", "z", "w"]
+        var names = Set<String>()
+        for (index, name) in lanes.enumerated() {
+            guard SceneShaderSourceTextFacts.matches(#"^[A-Za-z_]\w*$"#, in: name).count == 1,
+                  names.insert(name).inserted,
+                  let call = calls.first(where: {
+                      $0.slot == fact.sourceSlot && $0.projection == projections[index]
+                  }),
+                  let callRange = Range(call.range, in: source)
+            else { return nil }
+            let escapedName = SceneShaderSourceTextFacts.escaped(name)
+            let definitions = SceneShaderSourceTextFacts.matches(
+                #"(?m)^[ \t]*(?:const[ \t]+)?float[ \t]+"# + escapedName
+                    + #"\s*=\s*"# + SceneShaderSourceTextFacts.escaped(String(source[callRange]))
+                    + #"\s*\.\s*"# + components[index] + #"\s*;[ \t]*$"#,
+                in: source
+            )
+            guard definitions.count == 1,
+                  let definition = definitions.first,
+                  contains(body, definition.range),
+                  NSMaxRange(definition.range) < output.range.location,
+                  SceneShaderSourceTextFacts.matches(
+                      #"\b"# + escapedName + #"\b"#,
+                      in: String(source[bodyRange])
+                  ).count == 2,
+                  SceneShaderSourceTextFacts.matches(
+                      #"\b"# + escapedName + #"\b"#, in: terminal[2]
+                  ).isEmpty else { return nil }
+        }
+        guard calls.filter({ $0.slot != fact.sourceSlot }).allSatisfy({
+            NSMaxRange($0.range) < output.range.location
+        }) else { return nil }
+        return (output.range, indent, expression)
+    }
+
+    private static func callArguments(
+        _ expression: String, names: Set<String>, count: Int
+    ) -> [String]? {
+        let value = expression.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let open = value.firstIndex(of: "("), value.last == ")",
+              names.contains(value[..<open].trimmingCharacters(in: .whitespacesAndNewlines))
+        else { return nil }
+        let end = value.index(before: value.endIndex)
+        var start = value.index(after: open)
+        var depth = 0
+        var arguments: [String] = []
+        for cursor in value.indices where cursor >= start && cursor < end {
+            switch value[cursor] {
+            case "(", "[": depth += 1
+            case ")", "]": depth -= 1
+            case "," where depth == 0:
+                arguments.append(value[start..<cursor].trimmingCharacters(in: .whitespacesAndNewlines))
+                start = value.index(after: cursor)
+            default: break
+            }
+            guard depth >= 0 else { return nil }
+        }
+        arguments.append(value[start..<end].trimmingCharacters(in: .whitespacesAndNewlines))
+        return depth == 0 && arguments.count == count
+            && arguments.allSatisfy({ !$0.isEmpty }) ? arguments : nil
     }
 
     private static func observedCounts(
