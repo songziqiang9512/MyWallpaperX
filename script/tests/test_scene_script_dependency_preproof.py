@@ -167,7 +167,47 @@ enum Checks {
             ownership: .none, potential: [optional])
         result["rejectsUnprovenDependency"] = !preproof(stage(.invalid),
             ownership: .externalPrimary(base), potential: [optional])
-        result["noneRejectsTerminalNamed"] = !preproof(baseStage, ownership: .none, potential: [base])
+        result["nonePromotesProvenTerminalNamed"] = preproof(baseStage, ownership: .none, potential: [base])
+        result["noneRejectsUnprovenTerminalNamed"] = !preproof(baseStage, ownership: .none)
+        let inactiveDirectStage = stage(.exact([dependency(second, key: 2, origin: .terminalNamed)]))
+        result["inactiveDirectPreproof"] = preproof(inactiveDirectStage,
+            ownership: .externalPrimary(base), potential: [optional])
+        result["inactiveDirectFinalization"] = C.finalizeDependencyOwnership(.externalPrimary(base),
+            potentialBindings: [optional], layerID: consumer, stages: [baseStage, inactiveDirectStage])
+                == .externalPrimary(expanded)
+        result["inactiveDirectOnlyFinalization"] = C.finalizeDependencyOwnership(.none,
+            potentialBindings: [optional], layerID: consumer, stages: [inactiveDirectStage])
+                == .externalPrimary(optional)
+        for (name, potential) in bad {
+            result["directPreproofRejects_" + name] = !preproof(inactiveDirectStage,
+                ownership: .externalPrimary(base), potential: potential)
+            result["directFinalizerRejects_" + name] = C.finalizeDependencyOwnership(.externalPrimary(base),
+                potentialBindings: potential, layerID: consumer, stages: [baseStage, inactiveDirectStage]) == nil
+        }
+        result["inactiveDirectFramebufferRejected"] = !preproof(stage(.exact([
+            dependency(second, key: 2, origin: .terminalNamed)]), fbo: true),
+            ownership: .externalPrimary(base), potential: [optional])
+        result["unrelatedFramebufferStageRetainsActivation"] = preproof(stage(.none, fbo: true),
+            ownership: .externalPrimary(base), potential: [optional])
+        result["emptyExactFramebufferStageRetainsActivation"] = preproof(stage(.exact([]), fbo: true),
+            ownership: .externalPrimary(base), potential: [optional])
+        result["selfFramebufferStageRetainsActivation"] = preproof(stage(.exact([
+            dependency(second, key: 2, providerID: consumer, origin: .terminalNamed)]), fbo: true),
+            ownership: .graphInternal(referenceCount: 1))
+        result["inactiveDirectMissingBaseRejected"] = C.finalizeDependencyOwnership(.externalPrimary(base),
+            potentialBindings: [optional], layerID: consumer, stages: [inactiveDirectStage]) == nil
+        result["inactiveDirectDuplicateRejected"] = C.finalizeDependencyOwnership(.externalPrimary(base),
+            potentialBindings: [optional], layerID: consumer,
+            stages: [baseStage, inactiveDirectStage, inactiveDirectStage]) == nil
+        let third = SceneEffectPassSlot(effectID: "980", passIndex: 0, slotIndex: 1)
+        let thirdStage = stage(.exact([dependency(third, key: 3, origin: .exactMixedOptionalFallback)]))
+        result["mixedCandidateAuthoredOrder"] = C.finalizeDependencyOwnership(.externalPrimary(base),
+            potentialBindings: [binding(third), optional], layerID: consumer,
+            stages: [baseStage, thirdStage, inactiveDirectStage])
+                == .externalPrimary(binding(first, slots: [first, third, second]))
+        result["noneRejectsWrongDependencyConsumer"] = C.finalizeDependencyOwnership(.none,
+            potentialBindings: [optional], layerID: consumer, stages: [stage(.exact([
+                dependency(second, key: 2, consumerID: consumer + 1, origin: .terminalNamed)]))]) == nil
         result["noneRejectsMixedProviders"] = !preproof(stage(.exact([mixed,
             dependency(first, key: 3, providerID: provider + 1, origin: .exactMixedOptionalFallback)])),
             ownership: .none, potential: [optional, binding(first, providerID: provider + 1)])

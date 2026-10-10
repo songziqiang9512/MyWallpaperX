@@ -352,6 +352,7 @@ final class SceneCompositionGroupFrameRuntime {
     private let viewportSize: CGSize
     private var passesByRootID: [Int: SceneMainPassEncoder] = [:]
     private var texturesByRootID: [Int: MTLTexture] = [:]
+    private var emptySourceRootID: Int?
     private var degradedRootIDs: Set<Int> = []
     private var sourcePins: [SceneGraphRenderTargetResidencyPin] = []
     private var initializedRootIDs: Set<Int> = []
@@ -376,8 +377,8 @@ final class SceneCompositionGroupFrameRuntime {
         self.resetEpoch = offscreenTexturePool.sceneColorResetEpoch
     }
 
-    /// Reserve the selected sources before graph preparation. No encoder is
-    /// created until the layer loop writes or consumes a source.
+    /// Reserve selected sources before graph preparation; immutable empty
+    /// inputs are cleared before forward providers can read them.
     func reserveSources(orderedRootIDs: [Int], visibleLayerIDs: Set<Int>) {
         for rootID in orderedRootIDs {
             if visibleLayerIDs.contains(rootID) {
@@ -493,6 +494,19 @@ final class SceneCompositionGroupFrameRuntime {
         }
     }
 
+    /// Only after all authored draws and raw reflection capture: group inputs
+    /// have no remaining readers. Their original pins still own GPU lifetime.
+    func terminalScratch(matching target: MTLTexture, on commandBuffer: MTLCommandBuffer) -> MTLTexture? {
+        guard self.commandBuffer === commandBuffer,
+              resetEpoch == offscreenTexturePool.sceneColorResetEpoch,
+              !sourcePins.isEmpty, commandBuffer.status == .notEnqueued else { return nil }
+        closeAllGroupEncoders()
+        return texturesByRootID.values.first {
+            $0 !== target && $0.width == target.width && $0.height == target.height
+                && $0.pixelFormat == target.pixelFormat
+        }
+    }
+
     private func beginGroup(forRootID rootID: Int) -> SceneMainPassEncoder? {
         guard sourceIsAvailable(forLayerID: rootID),
               let pass = reservePass(forRootID: rootID) else { return nil }
@@ -538,6 +552,16 @@ final class SceneCompositionGroupFrameRuntime {
     private func reservePass(forRootID rootID: Int) -> SceneMainPassEncoder? {
         if degradedRootIDs.contains(rootID) { return nil }
         if let pass = passesByRootID[rootID] { return pass }
+        // Empty transparent groups never write members or copy background.
+        // Only their input may alias; authored graph outputs remain independent.
+        let emptySource = membersByRootID[rootID]?.isEmpty == true
+            && !copyBackgroundRootIDs.contains(rootID)
+        if emptySource, let sourceRootID = emptySourceRootID,
+           let pass = passesByRootID[sourceRootID], let texture = texturesByRootID[sourceRootID] {
+            passesByRootID[rootID] = pass
+            texturesByRootID[rootID] = texture
+            return pass
+        }
         let width = max(1, Int(viewportSize.width.rounded(.up)))
         let height = max(1, Int(viewportSize.height.rounded(.up)))
         guard let target = offscreenTexturePool.compositionGroupTarget(
@@ -559,6 +583,17 @@ final class SceneCompositionGroupFrameRuntime {
         passesByRootID[rootID] = pass
         texturesByRootID[rootID] = target.texture
         sourcePins.append(target.pin)
+        if emptySource {
+            // Forward providers can read preparedSource before the layer loop.
+            // An immutable empty source is safe to clear before authored draws.
+            closeAllGroupEncoders()
+            parentPass.closeForOffscreen()
+            guard pass.withReadableTarget({ _, _ in true }) == true else {
+                degradedRootIDs.insert(rootID)
+                return nil
+            }
+            emptySourceRootID = rootID
+        }
         return pass
     }
 }

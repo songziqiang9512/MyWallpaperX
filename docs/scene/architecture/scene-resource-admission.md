@@ -16,6 +16,8 @@ GPU 入口先用 Metal heap size-and-alignment 查询所需字节，在加锁总
 
 base images 清理之后，静态模型与 surface 图片/粒子准备仍可能重新填充同一 loader 的 CPU 解码缓存；各同步准备结束点再次清理可重建缓存，保留已发布 GPU texture 与消费者资源。不得通过清空 GPU cache 或提前返还仍在使用的租约模拟回收。
 
+离屏池 automatic 子额度取 Metal 建议工作集的八分之一，仍限 192 MiB–1536 MiB；默认设备区间相当于父账的一半，实际分配继续先取得同一父租约。10-10 完整封面与波形同时执行的合法驻留集合已超过原 /16 子额度：旧 history 有真实 pin、shared pair 已按尺寸去重，不能为过门丢历史或放宽别名。此次只修子额度策略，不增加总账或动态借贷 owner，显式 residentByteBudget、COW、取消/完成和多屏总额约束保持不变。验收包括实际媒体连续播放、父账占用/拒绝观察及低预算/跨surface争用；不据此宣称降低显存或全部重型样本可运行。
+
 预算拒绝沿现有 nil / allocation failure 通道拒绝最小 unsafe unit；不停止健康屏、不挪用仍在飞行的资源、不自动驱逐其他会话。候选不能首帧则按 Session 合同失败并保留 active。旧会话与新会话在 GPU drain 期间一起占额度。低配额或连续请求下可以明确拒绝新候选，禁止靠清空旧画面省预算。
 
 ## Startup source readiness：隐藏 provider 的资源准备
@@ -24,7 +26,7 @@ RF05（2026-10-02）纠偏属于①跨 Host/资源/provider 与②唯一资源�
 
 当前反例：`Runtime/Session/SceneDesktopWallpaperHost+DeferredBaseImages.swift:38–49` 只豁免 static-model named providers；初始combo覆盖令普通image provider隐藏时仍defer，`PreparedDeviceResources`不加载，consumer缺source。冻结App三对照证明常量隐藏可采蓝、属性隐藏却显示白、无consumer隐藏仍defer；是启动资源策略首断点，不改变可见性或shader。
 
-选择复用 `SceneNamedTextureDependencyReferenceAnalysis.references` 与 `potentialOptionalNamedFallbackReferences` 的现役作者引用事实，将对应provider与已有static-model provider合并后从defer候选扣除。它只预备base source，不授予执行/graph identity/publication，也不保证资源分配成功。备选逐帧触发provider加载扩大异步首图失败窗口；另造活跃graph会复制owner，均不选。已有terminal user texture遮蔽的named字符串不构成引用；typed optional来源可能发布absent，允许其现役fallback候选准备。没有引用的hidden对象继续defer。隐藏consumer潜在引用可保守预备，便于其随后显示；这不是精确active闭包裁剪或性能收益声明，若需缩小须由现有prepared dependency owner发布完整潜在需求后替代，而非独立分析器。
+选择复用 `SceneNamedTextureDependencyReferenceAnalysis.references` 与 `potentialNamedReferences` 的现役作者引用事实，将对应provider与已有static-model provider合并后从defer候选扣除。它只预备base source，不授予执行/graph identity/publication，也不保证资源分配成功。备选逐帧触发provider加载扩大异步首图失败窗口；另造活跃graph会复制owner，均不选。已有terminal user texture遮蔽的named字符串不构成引用；typed optional来源可能发布absent，其fallback与初始inactive effect的direct候选均沿同一投影准备。没有引用的hidden对象继续defer。隐藏consumer潜在引用可保守预备，便于其随后显示；这不是精确active闭包裁剪或性能收益声明，若需缩小须由现有prepared dependency owner发布完整潜在需求后替代，而非独立分析器。
 
 首轮真实App的可见→隐藏对照又暴露同一源的准入断点：`SceneDependencyRenderPlan+ImageProgramReference.swift:436` 及 `+BindingCompilation.swift:570` 对无效果普通图片重复要求初始hidden，造成已加载source仍被拒绝。限定纠偏：无effects、无dependencies/children、非Puppet的普通image，named composite沿既有capture owner提供source，display visibility不改变该源的资格；两入口复用现有predicate，不新建route或重复执行。Renderer在display过滤前已有capture调用。effectful visible image仍须现役graph-final publication，geometry/aggregate及purpose/顺序/cycle约束均不扩大；合法前向引用复用既有capture prepass，顺序与循环失败沿原最小单元处理。备选把visibility变化变成全图重建无必要；仅删除测试不能恢复目标。纠正门新增初值可见→隐藏、反向切换、前向消费及不合profile反例；统一prepared需求同时接管资格和资源准备后退役过渡判据。
 

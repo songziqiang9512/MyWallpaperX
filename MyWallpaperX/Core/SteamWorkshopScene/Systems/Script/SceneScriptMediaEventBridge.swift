@@ -404,6 +404,7 @@ nonisolated struct SceneScriptCursorEventInput: Equatable, Sendable {
 nonisolated enum SceneScriptMediaEventBridge {
     static func dispatchUserProperties(
         owner: OpaquePointer,
+        namedAnimationTargets: [SceneDynamicTarget] = [],
         target: SceneDynamicTarget,
         layerID: Int,
         ownerGeneration: UInt64,
@@ -440,11 +441,12 @@ nonisolated enum SceneScriptMediaEventBridge {
         guard raw == MWX_SCENE_QUICKJS_OK else {
             return .failure(failure(raw, diagnostic))
         }
-        return mutations(owner: owner, target: target, layerID: layerID)
+        return mutations(owner: owner, namedAnimationTargets: namedAnimationTargets, target: target, layerID: layerID)
     }
 
     static func dispatchCursor(
         owner: OpaquePointer,
+        namedAnimationTargets: [SceneDynamicTarget] = [],
         target: SceneDynamicTarget,
         ownerGeneration: UInt64,
         event: SceneScriptCursorEventInput,
@@ -497,6 +499,7 @@ nonisolated enum SceneScriptMediaEventBridge {
         }
         return mutations(
             owner: owner,
+            namedAnimationTargets: namedAnimationTargets,
             target: target,
             layerID: event.layerID
         )
@@ -504,6 +507,7 @@ nonisolated enum SceneScriptMediaEventBridge {
 
     static func dispatchThumbnail(
         owner: OpaquePointer,
+        namedAnimationTargets: [SceneDynamicTarget] = [],
         target: SceneDynamicTarget,
         layerID: Int,
         ownerGeneration: UInt64,
@@ -553,11 +557,12 @@ nonisolated enum SceneScriptMediaEventBridge {
         guard raw == MWX_SCENE_QUICKJS_OK else {
             return .failure(failure(raw, diagnostic))
         }
-        return mutations(owner: owner, target: target, layerID: layerID)
+        return mutations(owner: owner, namedAnimationTargets: namedAnimationTargets, target: target, layerID: layerID)
     }
 
     static func dispatchPlayback(
         owner: OpaquePointer,
+        namedAnimationTargets: [SceneDynamicTarget] = [],
         target: SceneDynamicTarget,
         layerID: Int,
         ownerGeneration: UInt64,
@@ -588,11 +593,12 @@ nonisolated enum SceneScriptMediaEventBridge {
         guard raw == MWX_SCENE_QUICKJS_OK else {
             return .failure(failure(raw, diagnostic))
         }
-        return mutations(owner: owner, target: target, layerID: layerID)
+        return mutations(owner: owner, namedAnimationTargets: namedAnimationTargets, target: target, layerID: layerID)
     }
 
     static func dispatchProperties(
         owner: OpaquePointer,
+        namedAnimationTargets: [SceneDynamicTarget] = [],
         target: SceneDynamicTarget,
         layerID: Int,
         ownerGeneration: UInt64,
@@ -657,11 +663,12 @@ nonisolated enum SceneScriptMediaEventBridge {
         guard raw == MWX_SCENE_QUICKJS_OK else {
             return .failure(failure(raw, diagnostic))
         }
-        return mutations(owner: owner, target: target, layerID: layerID)
+        return mutations(owner: owner, namedAnimationTargets: namedAnimationTargets, target: target, layerID: layerID)
     }
 
     static func dispatchTimeline(
         owner: OpaquePointer,
+        namedAnimationTargets: [SceneDynamicTarget] = [],
         target: SceneDynamicTarget,
         layerID: Int,
         ownerGeneration: UInt64,
@@ -694,11 +701,12 @@ nonisolated enum SceneScriptMediaEventBridge {
         guard raw == MWX_SCENE_QUICKJS_OK else {
             return .failure(failure(raw, diagnostic))
         }
-        return mutations(owner: owner, target: target, layerID: layerID)
+        return mutations(owner: owner, namedAnimationTargets: namedAnimationTargets, target: target, layerID: layerID)
     }
 
     static func mutations(
         owner: OpaquePointer,
+        namedAnimationTargets: [SceneDynamicTarget] = [],
         target: SceneDynamicTarget,
         layerID: Int
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
@@ -713,7 +721,8 @@ nonisolated enum SceneScriptMediaEventBridge {
         let animations: [SceneTimelinePlaybackMutation]
         switch SceneScriptAnimationHandleBridge.mutations(
             owner: owner,
-            target: target
+            target: target,
+            namedTargets: namedAnimationTargets
         ) {
         case let .success(value): animations = value
         case let .failure(failure): return .failure(failure)

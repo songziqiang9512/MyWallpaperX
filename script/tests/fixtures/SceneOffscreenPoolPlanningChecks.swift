@@ -25,7 +25,7 @@ extension Harness {
             )
         let automaticBudgetBoundsAreStable =
             automaticBudgetFloor == 192 * mebibyte
-            && automaticBudgetMiddle == 512 * mebibyte
+            && automaticBudgetMiddle == 1_024 * mebibyte
             && automaticBudgetCeiling == 1_536 * mebibyte
 
         let defaultBudgetPool = SceneOffscreenTexturePool(

@@ -1,5 +1,6 @@
 """Launch visibility may hide display without deferring a consumed named source."""
 from pathlib import Path
+import copy
 import hashlib
 import json
 import os
@@ -81,8 +82,31 @@ class SceneHiddenProviderIntegrationTests(unittest.TestCase):
             raise unittest.SkipTest("requires explicitly frozen Debug App executable")
         cls.app = Path(executable).resolve(strict=True)
 
-    def run_provider(self, conditional=True, consumer=True, launch="off", live=None, consumer_hidden=False, optional=False, shadow=False):
+    def run_provider(self, conditional=True, consumer=True, launch="off", live=None, consumer_hidden=False, optional=False, shadow=False, inactive_direct=False):
         project, entries = fixture_entries(conditional, consumer, consumer_hidden, optional, shadow)
+        if inactive_direct:
+            scene = json.loads(entries["scene.json"])
+            effects = scene["objects"][1]["effects"]
+            direct = copy.deepcopy(effects[0])
+            direct["id"] = 219
+            direct["passes"][0].pop("usertextures", None)
+            effects.insert(0, direct)
+            inactive = copy.deepcopy(direct)
+            inactive.update(id=222, file="effects/own_invert/effect.json",
+                            visible={"value": True, "user": {"name": "mode", "condition": "on"},
+                                     "script": "export function update(value) { return value; }"})
+            effects.append(inactive)
+            # Layer-access scripts reserve effect targets before initial
+            # visibility filtering, as in media-driven dependency consumers.
+            scene["objects"][2]["visible"] = {"value": True, "script":
+                "export function update(value) { thisScene.getLayer('Named source consumer').getEffect(2).visible = engine.runtime > 2; return true; }"}
+            material = json.loads(entries["materials/own_sample.json"])
+            material["passes"][0]["shader"] = "own_invert"
+            entries.update({"scene.json": json.dumps(scene).encode(),
+                "effects/own_invert/effect.json": json.dumps({"passes": [{"material": "materials/own_invert.json"}]}).encode(),
+                "materials/own_invert.json": json.dumps(material).encode(),
+                "shaders/own_invert.vert": entries["shaders/own_sample.vert"],
+                "shaders/own_invert.frag": b"uniform sampler2D g_Texture1;\nvarying vec2 v_TexCoord;\nvoid main(){gl_FragColor=texSample2D(g_Texture1,v_TexCoord).bgra;}\n"})
         with tempfile.TemporaryDirectory(prefix="mwx-hidden-provider-") as temp:
             root = Path(temp)
             content = root / "content"
@@ -137,6 +161,8 @@ class SceneHiddenProviderIntegrationTests(unittest.TestCase):
             for name, value in measured.items():
                 self.assertGreater(value["green"], 0, name)
                 expected = [255, 255, 255] if shadow else [0, 0, 255] if consumer and not consumer_hidden else [0, 0, 0]
+                if inactive_direct and name == "scene-after-window.png":
+                    expected = [255, 0, 0]
                 self.assertEqual(value["center"], expected, (name, value))
             if consumer and not shadow and not consumer_hidden:
                 self.assertIn("phase=named-target-capture layer=11 status=succeeded", log)
@@ -156,6 +182,9 @@ class SceneHiddenProviderIntegrationTests(unittest.TestCase):
             if live is not None:
                 self.assertIn("phase=live-property-update accepted=true surfacesBefore=1 surfacesAfter=1", log)
             return log, preview, measured
+
+    def test_inactive_direct_and_optional_siblings_hot_activate(self):
+        self.run_provider(optional=True, inactive_direct=True, live="on")
 
     def test_constant_hidden_provider_remains_available(self):
         self.run_provider(conditional=False)

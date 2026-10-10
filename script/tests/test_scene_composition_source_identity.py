@@ -95,6 +95,84 @@ enum CompositionSourceProbe {
             ], options: [.sortedKeys]), as: UTF8.self))
             return
         }
+        if CommandLine.arguments.contains("--empty-groups") {
+            let pool = SceneOffscreenTexturePool(device: device, maxDimension: 64,
+                residentByteBudget: 3 * 512)
+            let seedCommand = queue.makeCommandBuffer()!
+            let seed = pool.compositionGroupTarget(layerID: 1, width: 16, height: 8,
+                commandBuffer: seedCommand)!
+            let seedPass = SceneMainPassEncoder(commandBuffer: seedCommand, target: seed.texture,
+                clearColor: MTLClearColor(red: 1, green: 0, blue: 0, alpha: 1), clearEnabled: true)
+            precondition(seedPass.finishEnsuringClear())
+            seedCommand.commit(); seedCommand.waitUntilCompleted(); seed.pin.release()
+            let command = queue.makeCommandBuffer()!
+            let main = device.makeTexture(descriptor: .texture2DDescriptor(
+                pixelFormat: .bgra8Unorm, width: 16, height: 8, mipmapped: false))!
+            let parent = SceneMainPassEncoder(commandBuffer: command, target: main,
+                clearColor: MTLClearColor(red: 1, green: 0, blue: 0, alpha: 1), clearEnabled: true)
+            let runtime = SceneCompositionGroupFrameRuntime(parentPass: parent,
+                commandBuffer: command, offscreenTexturePool: pool,
+                memberRootsByLayerID: [40: 4], membersByRootID: [1: [], 2: [], 3: [], 4: [40]],
+                viewportSize: CGSize(width: 16, height: 8), copyBackgroundRootIDs: [3])
+            runtime.reserveSources(orderedRootIDs: [1, 2, 3, 4], visibleLayerIDs: [1, 2, 3, 4])
+            // Forward preparation reads before either empty root is visited.
+            let first = runtime.preparedSource(forLayerID: 1, mainTarget: main)!
+            let second = runtime.preparedSource(forLayerID: 2, mainTarget: main)!
+            precondition(first === seed.texture)
+            let background = runtime.groupTexture(forRootID: 3)!
+            let populated = runtime.preparedSource(forLayerID: 40, mainTarget: main)!
+            precondition(first === second && first !== background && first !== populated)
+            precondition(background !== populated && pool.residentByteCost == 3 * 512)
+            let pixels = device.makeBuffer(length: 3 * 256 * 8, options: .storageModeShared)!
+            runtime.closeAllGroupEncoders()
+            parent.closeForOffscreen()
+            let blit = command.makeBlitCommandEncoder()!
+            for (index, texture) in [first, background].enumerated() {
+                blit.copy(from: texture, sourceSlice: 0, sourceLevel: 0, sourceOrigin: MTLOrigin(),
+                    sourceSize: MTLSize(width: 16, height: 8, depth: 1), to: pixels,
+                    destinationOffset: index * 256 * 8, destinationBytesPerRow: 256,
+                    destinationBytesPerImage: 256 * 8)
+            }
+            blit.endEncoding()
+            // No extra texture fits. After every group read, terminal export
+            // can overwrite an existing input without erasing those reads.
+            precondition(pool.reserveDisplayScratch(width: 16, height: 8, commandBuffer: command) == nil)
+            precondition(runtime.terminalScratch(matching: main, on: queue.makeCommandBuffer()!) == nil)
+            let scratch = runtime.terminalScratch(matching: main, on: command)!
+            precondition([first, background, populated].contains { $0 === scratch })
+            let terminal = command.makeBlitCommandEncoder()!
+            terminal.copy(from: main, sourceSlice: 0, sourceLevel: 0, sourceOrigin: MTLOrigin(),
+                sourceSize: MTLSize(width: 16, height: 8, depth: 1), to: scratch,
+                destinationSlice: 0, destinationLevel: 0, destinationOrigin: MTLOrigin())
+            terminal.copy(from: scratch, sourceSlice: 0, sourceLevel: 0, sourceOrigin: MTLOrigin(),
+                sourceSize: MTLSize(width: 16, height: 8, depth: 1), to: pixels,
+                destinationOffset: 2 * 256 * 8, destinationBytesPerRow: 256,
+                destinationBytesPerImage: 256 * 8)
+            terminal.endEncoding()
+            let done = DispatchSemaphore(value: 0)
+            runtime.arm()
+            precondition(runtime.terminalScratch(matching: main, on: command) == nil)
+            command.addCompletedHandler { _ in done.signal() }
+            command.commit()
+            precondition(done.wait(timeout: .now() + 5) == .success && command.status == .completed)
+            let bytes = pixels.contents().bindMemory(to: UInt8.self, capacity: 3 * 256 * 8)
+            let transparent = (0..<8).allSatisfy { y in (0..<64).allSatisfy { bytes[y * 256 + $0] == 0 } }
+            let red = (0..<8).allSatisfy { y in (0..<16).allSatisfy { x in
+                let offset = 256 * 8 + y * 256 + x * 4
+                return bytes[offset] == 0 && bytes[offset+1] == 0 && bytes[offset+2] == 255 && bytes[offset+3] == 255
+            } }
+            let terminalRed = (0..<8).allSatisfy { y in (0..<16).allSatisfy { x in
+                let offset = 2 * 256 * 8 + y * 256 + x * 4
+                return bytes[offset] == 0 && bytes[offset+1] == 0 && bytes[offset+2] == 255 && bytes[offset+3] == 255
+            } }
+            pool.reset()
+            print(String(decoding: try JSONSerialization.data(withJSONObject: [
+                "terminalReusesCompletedInput": terminalRed,
+                "transparentSharedInput": transparent, "backgroundRemainsIndependent": red,
+                "completedAndReleased": pool.residentByteCost == 0,
+            ], options: [.sortedKeys]), as: UTF8.self))
+            return
+        }
         let command = queue.makeCommandBuffer()!
         let pool = SceneOffscreenTexturePool(
             device: device, maxDimension: 64, residentByteBudget: 4096
@@ -150,7 +228,8 @@ enum CompositionSourceProbe {
             let runtime = SceneCompositionGroupFrameRuntime(parentPass: parent,
                 commandBuffer: runtimeCommand, offscreenTexturePool: runtimePool,
                 memberRootsByLayerID: members,
-                membersByRootID: Dictionary(uniqueKeysWithValues: roots.map { ($0, []) }),
+                membersByRootID: Dictionary(uniqueKeysWithValues: roots.map { root in
+                    (root, members.filter { $0.value == root }.map(\.key)) }),
                 viewportSize: CGSize(width: 16, height: 8))
             runtime.reserveSources(orderedRootIDs: roots, visibleLayerIDs: Set(roots))
             return runtime
@@ -232,6 +311,14 @@ class SceneCompositionSourceIdentityTests(unittest.TestCase):
         self.assertEqual(self.result["residentBytes"], 1024)
         self.assertEqual(self.result["lifetime"], [True] * 10)
         self.assertEqual(self.result["runtime"], [True] * 5)
+
+    def test_empty_groups_share_only_the_transparent_input(self) -> None:
+        completed = subprocess.run([str(self.binary), "--empty-groups"], capture_output=True, text=True, timeout=20)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(json.loads(completed.stdout), {
+            "transparentSharedInput": True, "backgroundRemainsIndependent": True,
+            "terminalReusesCompletedInput": True, "completedAndReleased": True,
+        })
 
     def test_submitted_source_pins_and_empty_gpu_clear(self) -> None:
         import os

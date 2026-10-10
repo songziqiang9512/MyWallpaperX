@@ -210,7 +210,7 @@ struct SceneRuntimeModelBuilder {
         ).program
         let namedMaterialLayerIDs = Set((SceneNamedTextureDependencyReferenceAnalysis.references(
             in: runtimeDescriptor.layers, includingInactiveEffects: true
-        ) + SceneNamedTextureDependencyReferenceAnalysis.potentialOptionalNamedFallbackReferences(
+        ) + SceneNamedTextureDependencyReferenceAnalysis.potentialNamedReferences(
             in: runtimeDescriptor.layers
         )).flatMap { [$0.consumerLayerID, $0.providerLayerID] })
         let admittedMaterials = SceneBaseMaterialProviderBindingCompiler.admittedSourceMaterials(

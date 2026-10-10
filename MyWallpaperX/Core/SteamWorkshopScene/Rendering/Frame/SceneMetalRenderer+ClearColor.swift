@@ -153,7 +153,8 @@ extension SceneMetalRenderer {
     func encodeTerminalColor(sceneColor: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?,
                              target: MTLTexture, offscreenTexturePool: SceneOffscreenTexturePool?,
                              dynamicValues: SceneDynamicSnapshot, commandBuffer: MTLCommandBuffer,
-                             output: SceneDisplayMappingPostProcess.Output = .sRGB) -> FrameOutcome? {
+                             output: SceneDisplayMappingPostProcess.Output = .sRGB,
+                             compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil) -> FrameOutcome? {
         if let sceneColor {
             guard let display = sceneColor.display else {
                 return .dropped(reasonCode: "scene-color-display-reservation-invalid")
@@ -186,7 +187,8 @@ extension SceneMetalRenderer {
             var mapped = false
             if let displayMappingPostProcess,
                let offscreenTexturePool,
-               let scratch = imageCompositor.resolvedMaterialRuntime?.reserveDisplayScratch(
+               let scratch = compositionGroupRuntime?.terminalScratch(matching: target, on: commandBuffer)
+                    ?? imageCompositor.resolvedMaterialRuntime?.reserveDisplayScratch(
                 pool: offscreenTexturePool, width: target.width,
                 height: target.height, commandBuffer: commandBuffer),
                copySceneColor(target, to: scratch, commandBuffer: commandBuffer) {

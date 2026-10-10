@@ -15,21 +15,20 @@ nonisolated enum SceneNamedTextureDependencyReferenceAnalysis {
         in layers: [SceneRenderDescriptor.Layer],
         includingInactiveEffects: Bool = false
     ) -> [Reference] {
-        references(in: layers, includingInactiveEffects: includingInactiveEffects) { slotIndex, pass in
+        references(in: layers, includingInactiveEffects: includingInactiveEffects) { slotIndex, pass, _ in
             !hasUserTexture(slotIndex: slotIndex, pass: pass)
         }
     }
 
-    /// A typed system or user-property texture may explicitly publish
-    /// `absent`, allowing the frame selector to continue to a lower authored
-    /// named target. These references are only admission candidates: they
-    /// acquire capture/publication authority after an exact MaterialProgram
-    /// variant proves the mixed slot.
-    nonisolated static func potentialOptionalNamedFallbackReferences(
+    /// Optional texture fallbacks and initially inactive direct references use
+    /// one candidate path. Only a prepared Program and safe activation policy
+    /// can promote an exact slot to capture/publication authority.
+    nonisolated static func potentialNamedReferences(
         in layers: [SceneRenderDescriptor.Layer]
     ) -> [Reference] {
-        references(in: layers, includingInactiveEffects: true) { slotIndex, pass in
+        references(in: layers, includingInactiveEffects: true) { slotIndex, pass, inactive in
             hasOptionalUserTexture(slotIndex: slotIndex, pass: pass)
+                || (inactive && !hasUserTexture(slotIndex: slotIndex, pass: pass))
         }
     }
 
@@ -38,7 +37,8 @@ nonisolated enum SceneNamedTextureDependencyReferenceAnalysis {
         includingInactiveEffects: Bool = false,
         acceptsSlot: (
             Int,
-            SceneRenderDescriptor.EffectDescriptor.PassDescriptor
+            SceneRenderDescriptor.EffectDescriptor.PassDescriptor,
+            Bool
         ) -> Bool
     ) -> [Reference] {
         layers.flatMap { layer in
@@ -47,7 +47,7 @@ nonisolated enum SceneNamedTextureDependencyReferenceAnalysis {
             }.flatMap { effect in
                 effect.passes.flatMap { pass in
                     pass.textureSlots.enumerated().compactMap { slotIndex, path in
-                        guard acceptsSlot(slotIndex, pass),
+                        guard acceptsSlot(slotIndex, pass, effect.visible == false),
                               let reference = SceneNamedTextureReference.parse(path)
                         else {
                             return nil

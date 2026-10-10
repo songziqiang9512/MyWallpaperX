@@ -474,11 +474,12 @@ static int animation_command(
 ) {
     char diagnostic[512] = {0};
     MWXSceneQuickJSAnimationCommand command = 0;
+    uint32_t target_index = 0;
     MWXSceneQuickJSResult result = mwx_scene_quickjs_owner_animation_command_at(
-        owner, index, &command, diagnostic, sizeof(diagnostic)
+        owner, index, &command, &target_index, diagnostic, sizeof(diagnostic)
     );
     return check(
-        result == MWX_SCENE_QUICKJS_OK && command == expected,
+        result == MWX_SCENE_QUICKJS_OK && command == expected && target_index == UINT32_MAX,
         label,
         diagnostic
     );

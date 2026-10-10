@@ -70,6 +70,7 @@ enum Harness {
                 "length": animation.options.length,
                 "mode": animation.options.mode.rawValue,
                 "startsPaused": animation.options.startsPaused,
+                "name": animation.options.name ?? "-",
                 "wrapsLoop": animation.options.wrapsLoop,
                 "smoothing": animation.options.smoothing.map { "\($0)" } ?? "-",
                 "stiffness": animation.options.stiffness.map { "\($0)" } ?? "-",
@@ -122,6 +123,7 @@ CASES = {
                 "length": 15,
                 "mode": "single",
                 "startpaused": True,
+                "name": "淡入-789",
                 "wraploop": None,
             },
         },
@@ -394,6 +396,7 @@ class SceneTimelineIRTests(unittest.TestCase):
         options = animation["options"]
         self.assertEqual(options["mode"], "single")
         self.assertTrue(options["startsPaused"])
+        self.assertEqual(options["name"], "淡入-789")
         # wraploop: null 必须落成 false，而不是被当作 true
         self.assertFalse(options["wrapsLoop"])
         self.assertEqual(options["fps"], 15)

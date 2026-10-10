@@ -362,9 +362,9 @@
       "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c9d82d5d3b5c60b10b8f2bcf910c5a96dc30adbc1696ba2da95bce837e02cb97",
+        "sourceSHA256": "ea57c1e564df1d7c2516a672260c31e63ec8ed69fbbc1cce336f04566aa71e27",
         "method": "document_registry --audit + document_health --check",
-        "scope": "2.10.1 发布准备：构建入口与现役/历史引用整理后核对角色、链接和锚点",
+        "scope": "U24封面依赖及资源驻留后继：核对合同、完成记录与开放余项的职责和链接",
         "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
       }
     },
@@ -531,9 +531,9 @@
       "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9d050050be267b73b402b913ea498676f94c0eeeb2ba96b22bd1592d3b955d1f",
+        "sourceSHA256": "e72aeb4becbbecbb25fab018578d02f8b92cb1e13d069661468baaa0758ed20c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核312事件显隐持久、属性热切与拖动的证据指针；其余记录保留原证据上限。",
+        "scope": "U24封面依赖及资源驻留后继：核对合同、完成记录与开放余项的职责和链接",
         "limitations": "非全页运行重验，不升级整样本与官方parity。"
       }
     },
@@ -1179,6 +1179,16 @@
       "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/named-timeline-interaction-2026-10-10.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/scenescript-api-coverage.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
@@ -2009,12 +2019,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-09",
+      "lastReviewed": "2026-10-10",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "89684a4f5477d576f87b02649a9697d96cb68dec4b9c8a006bd9cd436555df0f",
+        "sourceSHA256": "320c83735e085f4176f27c72ef5b1f72f789c8487b4d487b0feaa25245ffc91a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对媒体来源仲裁、封面替换与Single重播的限定证据及U12剩余导航。",
+        "scope": "U24封面依赖及资源驻留后继：核对合同、完成记录与开放余项的职责和链接",
         "limitations": "导航与证据身份核对；不等同全样本、真实声源、compose或HDR官方parity。"
       }
     },

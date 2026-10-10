@@ -27,9 +27,9 @@ import Foundation
 enum Harness {
     static func main() throws {
         let mibibyte = 1_024 * 1_024
-        let oldBudget = 397_284_864
-        let requiredBytes = 411_292_672
-        let measuredRecommendedWorkingSet = UInt64(oldBudget) * 32
+        let oldBudget = 794_569_728
+        let requiredBytes = 805_233_856
+        let measuredRecommendedWorkingSet = UInt64(oldBudget) * 16
         let result: [String: Any] = [
             "floor": SceneOffscreenTextureResidentBudgetPolicy.automatic(
                 recommendedMaxWorkingSetSize: 0
@@ -47,8 +47,8 @@ enum Harness {
                 recommendedMaxWorkingSetSize: UInt64.max
             ),
             "floorExpected": 192 * mibibyte,
-            "middleExpected": 512 * mibibyte,
-            "measuredExpected": 794_569_728,
+            "middleExpected": 1_024 * mibibyte,
+            "measuredExpected": 1_589_139_456,
             "ceilingExpected": 1_536 * mibibyte,
             "oldBudgetBelowRequirement": oldBudget < requiredBytes,
             "measuredBudgetAdmitsRequirement": requiredBytes

@@ -94,3 +94,16 @@ unsupported API/配置是局部脚本调用失败，保留先前有效对象和�
 ## 退役条件
 
 表面与事务已由唯一脚本语义合同接管，所有开放 profile 验收、旧重复 bridge 撤权后归档。未证实 API 不可借归档自动转为支持。
+
+
+## 命名属性 Timeline 入口后继（2026-10-10，已实施，有界验收）
+
+U22实机副本点击命中后，`getLayer(...).getAnimation(name)` 缺方法，整个cursor owner事务失败，两个已编译alpha动画没有收到play。公开[ILayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ILayer.html)规定按名返回属性Timeline；[IAnimation](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IAnimation.html)的play/pause/stop语义与当前播放owner一致。选择保留动画options.name，由已经编译的Timeline Program在准备期发布不可变名称→typed target索引，QuickJS layer accessor与current-property accessor共用原animation handle/journal；Swift仅将稳定索引还原原target，沿现owner bundle、固定点、preview/commit执行，不增播放状态、clock或每帧解析。
+
+首片覆盖layer/text自身属性动画；effect/material对象的命名范围、rate/seek等仍未实现，不扩大方法声明。缺名或同对象同名多target没有明确裁决时拒绝该lookup；不同layer同名必须隔离。句柄绑定domain、owner identity/generation与已准备target，合法同owner跨callback/timer复用；跨owner、退休/删除目标、越界索引、回调外及throw继续原拒绝/撤回。没有name的旧Timeline与无参数当前属性入口保持原样。动态创建层尚无Timeline编译来源，不能把静态索引套到clone身份。
+
+验收：真实VM的异层同名隔离、retained/timer play-pause-stop、无名/歧义/过期/失败反例；同一Timeline runtime消费并生成alpha值。实际U22两次点击在同窗口驱动背景/水印alpha、视频持续播放；未验证官方完整逐帧交互与长时间性能不得关闭。新入口稳定后无需迁移owner，现役唯一Timeline runtime始终保留。
+
+- 后继反例：独立cursor-only owner在点击内创建timer后不再求值；U22实际由借用的stateful Bool owner持有，timer到期后被typed cohort无条件拒绝animation。允许已有stateful Bool权限消费同一typed Timeline命令，纯只读Bool及material function边界不放宽。独立cursor timer缺口由自有VM门验证。该owner仍由CursorProgram唯一持有，仅在已有active timer时、cursor事件前调用既有typed evaluation并并入同owner effects；沿现有cadence消费与共同commit，不新增clock/调度器。构造继续拒绝init/update需求，借用owner仍由原Program推进，避免双跑。验收覆盖无新pointer事件时timer到期、snapshot helper恢复（不等于产品GPU丢帧重放）及借用owner不重复执行。
+
+实施及反例统一归[历史记录](../../history/named-timeline-interaction-2026-10-10.md)，当前范围由API台账维护，不以局部交互代替完整样本验收。

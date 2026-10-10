@@ -111,11 +111,6 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     primaryButtonIsDown: false
                 )
             }
-            return .init(
-                failures: [:], materialFunctionMutations: [],
-                animationMutations: [], layerMutations: [],
-                inputBatchOverflowed: true
-            )
         }
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         func hasActiveBinding(layerID: Int) -> Bool {
@@ -374,6 +369,58 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 removeCaptureIfOrphaned(layerID: binding.layerID)
             }
         }
+        // Standalone cursor owners have no init/update value route, but their
+        // callbacks can schedule timers. Advance only that owner's existing VM
+        // cadence; borrowed owners are advanced by their value Program later.
+        for binding in bindings where binding.ownsOwner
+            && !disabledTargets.contains(binding.ownerTarget)
+            && failures[binding.ownerTarget] == nil
+            && mwx_scene_quickjs_owner_active_timer_count(binding.owner.handle) > 0 {
+            let ownerTarget = binding.ownerTarget
+            let evaluation: Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure>
+            if let propertiesJSON = scriptPropertiesJSONCache.value(
+                for: binding.owner.target,
+                inputs: binding.scriptProperties,
+                effectiveValues: effectivePropertyValues,
+                revision: propertyRevision
+            ) {
+                evaluation = binding.owner.evaluate(
+                    input: .vector3(0, 0, 0),
+                    frame: frame,
+                    scriptPropertiesJSON: propertiesJSON,
+                    userPropertiesJSON: userPropertiesJSON,
+                    expectedGeneration: generation,
+                    interruptBudget: interruptBudget
+                )
+            } else {
+                evaluation = .failure(.invalidArgument(
+                    "SceneScript cursor script properties unavailable"
+                ))
+            }
+            switch evaluation {
+            case let .success(mutations):
+                // This owner has no value producer. Only its existing typed
+                // side effects join the cursor owner bundle.
+                appendOwnerMutations(
+                    ownerTarget: ownerTarget,
+                    materialFunctions: mutations.materialFunctionMutations,
+                    animations: mutations.animationMutations,
+                    layers: mutations.layerMutations,
+                    puppetBones: mutations.puppetBoneMutations,
+                    videos: mutations.videoCommands,
+                    textureAnimations: mutations.textureAnimationCommands,
+                    particles: mutations.particlePlaybackCommands
+                )
+            case let .failure(failure):
+                discardCandidates(ownerTarget: ownerTarget)
+                binding.owner.discardLayerMutations()
+                failures[ownerTarget] = failure
+                if failure.permanentlyDisablesOwner {
+                    disabledTargets.insert(ownerTarget)
+                }
+                removeCaptureIfOrphaned(layerID: binding.layerID)
+            }
+        }
         var eventCounts = candidateEvents.reduce(into: [SceneDynamicTarget: Int]()) {
             $0[$1.ownerTarget, default: 0] += 1
         }
@@ -403,7 +450,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         }
         // Recognize the entire input batch before executing callbacks. A
         // recoverable enter/down failure must not erase later up/click edges.
-        for sample in batch.samples {
+        for sample in batch.samples where !batch.overflowed {
             if let capturedSurfaceID, sample.surfaceID != capturedSurfaceID {
                 capturedHits = [:]
                 self.capturedSurfaceID = nil
@@ -563,7 +610,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             materialFunctionMutations: materialFunctions.map { $0.mutation },
             animationMutations: animations.map { $0.mutation },
             layerMutations: layers.map { $0.mutation },
-            inputBatchOverflowed: false,
+            inputBatchOverflowed: batch.overflowed,
             ownerEffects: ownerEffects
         )
     }
