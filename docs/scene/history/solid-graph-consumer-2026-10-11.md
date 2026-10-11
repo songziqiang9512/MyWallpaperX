@@ -1,0 +1,22 @@
+<!-- document-role: historical-evidence -->
+
+> **历史证据 — 非现役入口**。稳定职责归[运行架构](../architecture/runtime-architecture.md)，余项与顺序归[断点队列](../roadmap/scene-open-breakpoint-queue.md)。
+# Solid 图输出的普通材质消费者（2026-10-11）
+
+基线41b027c3。两个原包在当前App复现stage-reference拒绝：3708363772的image705读hidden solid804；3476868923的Puppet105读visible solid1914。provider在作者顺序中均早于consumer；旧日志forwardUtilityProvider是联合拒因，不代表逆序。唯一Program solid carrier只准composition utility，普通消费者落到resolvedMaterial carrier后因provider种类不符被拒。
+
+修复只扩原materialProgramSolidLayerReference，沿同solid binding、Program、pool、publication和compositor。精确引用复用resolvedMaterialReference；保单primary/pass0/slot1、命中effect单pass、provider无子层/自身依赖及旧顺序门。普通image/text/solid的源几何和附件仍归原owner；其他effect与asset槽由原Program逐槽验证，不要求整层只有一个effect或只有两个纹理槽。composition结构限制不变，不新增算法、binding kind或运行owner。
+
+## 实际结果与上限
+
+3476868923原包修前105/effect1935为materialNodes0的透传；修后首帧和后帧均materialNodes1、GPU completed，dependencyProviders=1914，末段effect23由compositor消费。武器环由灰白恢复彩色渐变，与用户官方截图所示彩环方向一致；截图相位/viewport不同，不声明逐像素parity或完整动画交互正确。原包SHA `4f8f2d654acbfc45040a449b45874038a09a3802df0f8fdd415f4f2b416490be`。
+
+3708363772的804现已实际执行两material+history copy，以64×1 data发布；705 external-primary/launch Program已接通，但frame仍materialNodes0，后继拒因为material-finalizer-color-contract。实际data slot1被shader colorBoundary同时列为颜色槽；slot0真实straightAlbedo不应伪装PMA。频谱画面未恢复，必须沿现有typed sampler purpose/颜色边界查首错，不删finalizer守卫。原包SHA `be9f6bc7c3a4c55443fc54f3ab009ab2f68850d98f0ddbe0b61061bbebe06248`。
+
+下一片从`SceneResolvedMaterialExecutionCapabilityVariant+ProviderAnalysis`及`SceneResolvedMaterialTextureResolver+LaunchSelection/GraphSelection`开始：regular terminal named slot被默认列为PMA，现selectedTexturePurposes→launch envelope→frame key仅在特定mixed-provider路径投影用途。应复用该入口为已准入named input准备color/data ABI，按完整publication选择，保slot0已有straight mask adapter；不得篡改slot0内容或放宽ColorDerivation。保存的失败artifact与作者片段在`remaining-data-purpose/manifest.json`。反例需覆盖color一次转换、data四通道不改、pending/stale不获权限、非regular named不扩域和mixed/self引用不回退；最近门为background_generic_color_abi、resolved_material_program_finalizer及既有graph-output runtime。
+
+实际原包前后运行均exit0并排空GPU；修后370约34.51秒、347约137.71秒，含准备/8秒播放/退出，不作启动性能统计。验证App主程序SHA `49185613946a6b1abd5b060280230aed637019bdf9049d1c292a7f5a25e52a41`，dylib `7eda0ddc1064a549afb874cab22b9eb60e6d400f198483ca3a84394890795f29`。对应功能源码与最终源码只差文档注释。
+
+33项plan测试通过；同新harness仅换基线产品源时，6个普通消费者/额外asset正例与既有carrier额外asset正例失败，原composition与负例保持。真实App自有输入证明hidden red solid经effect输出blue后普通image读blue255；额外灰mask读blue128，后绘red overlap保作者顺序，独立green层保留。provider/consumer首帧与后帧GPU完成，provider不入主合成、consumer实际消费。另15项publication/资源需求测试通过；修正旧测试stub漏接raw source identity、completed-source接口与straightAlbedo枚举，不改变产品行为。
+
+本机证据根`.artifacts/tmp/stage-reference-20261011/`：actual-chain-comparison.json关联原包前后graph/publication/运行身份；test-plan-baseline.json保存固定源码反例。独立源码审查未发现P1/P2；最终测试/文档冻结复审与提交门另附该根收据。以上为内部Host验证，不代替普通桌面入口、系统音源、长稳、性能或完整样本验收。

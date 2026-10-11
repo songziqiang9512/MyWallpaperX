@@ -441,7 +441,7 @@ final class SceneGPUCompletionTelemetry {
     func recordFailure(layerID: Int) { _ = layerID }
 }
 
-enum SceneTexturePurpose { case premultipliedColor }
+enum SceneTexturePurpose { case premultipliedColor, straightAlbedo }
 enum SceneTextureSampling {
     case linearClamp
     case linearRepeat
@@ -494,12 +494,15 @@ enum SceneTextureContent: Equatable {
     var isColorContent: Bool { self != .data }
 }
 
+enum StubSourceIdentity { case raw }
+
 struct SceneTextureCandidate {
     let texture: MTLTexture
     let purpose: SceneTexturePurpose
     let content: SceneTextureContent
     let sampling: SceneTextureSampling
     let uvTransform: SceneTextureUVTransform
+    var identity: StubSourceIdentity { .raw }
     // This older regression shell uses identity-only prepared candidates.
     // Actual metadata admission is exercised by the native-owner gate below.
     var physicalSize: CGSize { CGSize(width: texture.width, height: texture.height) }
@@ -529,6 +532,9 @@ struct SceneLayerFragmentUniforms {
     var sourceSampling = SIMD2<UInt32>.zero
     var alpha: Float = 1
     var tint = SIMD4<Float>(repeating: 1)
+    // This scaffold creates only raw sources; completed material-source
+    // modulation is covered by the production compositor tests.
+    mutating func consumeCompletedMaterialSource(_ identity: StubSourceIdentity?) {}
     static func neutral() -> Self { .init() }
 }
 

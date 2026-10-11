@@ -24,14 +24,14 @@
 
 ### 新增样本公共断点（N01–N10）
 
-以下保留本批已见断链与明确待对照项；每成员结果及证据身份仅在[普查记录](../history/new-scene-intake-2026-10-11.md)。同一拒因可有多种上游原因，不按样本增加算法。N01已闭；N02组装首断点已补接，其他问题分别留N03/N06。N03无依赖终端链已闭合，named内容控制失败暂缓扩域；下一批先复验N04两处stage-reference公共断链，再核Skew尺寸合同；N06另列。
+以下保留本批已见断链与明确待对照项；每成员结果及证据身份仅在[普查记录](../history/new-scene-intake-2026-10-11.md)。同一拒因可有多种上游原因，不按样本增加算法。N01已闭；N02组装首断点已补接，其他问题分别留N03/N06。N03无依赖终端链已闭合，named内容控制失败暂缓扩域；N04普通solid consumer已接，下一批追数据槽颜色边界，再核Skew尺寸合同；N06另列。
 
 | 项 | 实际问题、现有责任与关闭门 |
 |---|---|
 | N01 嵌视频资源入口 | **有界已闭**：[大载荷修复](../history/embedded-webm-video-2026-10-10.md#large-video-payload)沿原reader/provider恢复3811216799人物视频，18秒持续播放且健康MP4保留；完整预算和静态限制不变。普通桌面入口、长稳与全交互未验，不计整样本完成。 |
 | N02 Puppet局部缺失 | **组装首断点有界已修**：[独立reference补接](../history/puppet-reference-pose-2026-10-11.md)使2824690710人物13、2877855240人物333与2887542690头370重新组装；沿原reader/evaluator，inverse-bind不变，健康多clip/静态路径保留。287六段effect回退归N03；288 origin TypeError和片区布局/运动归N06。官方数值、全属性/交互及完整画面仍待验，不能关闭整样本。 |
 | N03 共享材质/effect owner | **局部回退/显示差异**：2877855240六段solid/text Skew缺`g_TextureReductionScale`，缩减尺寸须验证，不猜1；3351179520待分诊。3761619125的[函数输入](../history/direct-function-scalar-inputs-2026-10-11.md)、[广播](../history/smoothstep-local-failure-2026-10-11.md)、[draw颜色](../history/effect-draw-color-2026-10-11.md)已使24段wave与14段texture_override实际GPU执行；deformer466仍缺slot1尺寸，裙摆仍重复。无依赖普通solid多stage尺寸/终端输入保留已接通（见本页分域项），外部named consumer尚未扩域；38/39接通不代表整样本97%正确。3435573282的21段颜色uniform拒绝已消失，active consumer仍被material-template/named-binding阻挡，无目标GPU或画面收益。image+effect动态color/Timeline/brightness未闭；solid source亮度三档与官方差异修前后相同，先核合同，不全局删brightness。沿原compiler/graph按实际首错修复。 |
-| N04 绑定、依赖与发布 | **实际断链**：2960821850材质texture-binding拒绝且92 source-coverage未证；3039882306基础user-property fallback不可用；3708363772的705/560与3476868923的105/1935 stage-reference不支持；3815761795的233 publication unavailable。自有named-provider探针r4的provider已执行、consumer仍`dependency-stage-reference-unsupported`，见[alpha后验](../history/effect-draw-alpha-2026-10-11.md)，沿既有准入定位。分别追到consumer，不把下游多effect重复算能力缺失。 |
+| N04 绑定、依赖与发布 | **实际断链**：2960821850材质texture-binding拒绝且92 source-coverage未证；3039882306基础user-property fallback不可用；[普通solid图消费已接](../history/solid-graph-consumer-2026-10-11.md)：3476868923的105/1935实际GPU混合恢复彩环；3708363772的804数据图已发布，705/560后继仍因data slot1误入颜色边界而透传，频谱未恢复，下一批沿typed sampler purpose查首错。3815761795的233 publication unavailable。 |
 | N05 Frontend/可见源 | **已见拒绝，画面因果待核**：3666041758 fullscreen190两段Blur frontend-envelope回退，主solid138仅Program准备无graph，141.visibility owner invalidSource；2960821850 Blendgradient仍有texture-purpose/envelope回退。3248220186 GodRays的[可选alpha写入合同已修](../history/independent-signal-producer-2026-10-11.md)，五节点执行与放射光束恢复，不再列该frontend断点。先定位实际入口/显隐与依赖，不另造磁流体算法。 |
 | N06 SceneScript输入 | **执行失败**：2887542690的34个origin target归两份脚本，首缺`thisScene.getInitialLayerConfig`；应从prepared作者配置接原catalog/ABI/VM并返回副本，不用当前帧值伪装初始配置。2890473419、3761619125 origin TypeError；3766310551 visibility TypeError；3781757083 visibility BAD_RETURN；3337494481还有callback invalid-argument；3708363772的221.visibility owner invalidSource属于准备期，另核作者调用合同。沿同VM调用/返回合同修复，保留合法返回和失败原值，不用按样本默认值掩盖。 |
 | N07 世界Sprite渲染组合 | **准入与相机首断点有界已修**：[共用Sprite相机/深度](../history/particle-world-depth-2026-10-11.md)恢复3248220186三层加载，两球层实际出粒子，黑屏变蓝紫球体；保留作者depth/cull，健康379原链通过。实际窗口呈现已验，N05后继已修GodRays和hidden utility计数，当前隔离benchmark通过；运动/密度与亮度差异、native其他operator方向及官方parity仍待验，不记整样本完成。 |

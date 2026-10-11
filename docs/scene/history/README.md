@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-11 | Scene | 修复证据 | [Solid图输出的普通消费者](solid-graph-consumer-2026-10-11.md) | 共用Program carrier恢复彩环；音频data颜色边界未闭 | [运行合同](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-11 | Scene | 修复证据 | [多段终端材质与源尺寸](terminal-material-chain-2026-10-11.md) | 无依赖链分域及尾段透传的真实输入保留；named consumer未扩域 | [运行合同](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-11 | Scene | 修复证据 | [Effect draw颜色](effect-draw-color-2026-10-11.md) | 14段纹理替换真实GPU及白遮挡恢复；矩形错位/依赖准入仍开放 | [运行合同](../architecture/runtime-architecture.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-11 | Scene | 修复证据 | [smoothstep与局部失败](smoothstep-local-failure-2026-10-11.md) | 公共广播、typed launch故障半径及脸部恢复；纹理替换/遮罩缺口仍开放 | [运行合同](../architecture/runtime-architecture.md)、[shader合同](../capabilities/render-graph-shader-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |

@@ -366,9 +366,9 @@ extension SceneDependencyRenderPlan {
         return reference
     }
 
-    /// A childless composition utility may consume one authored primary
-    /// named target from an effectful solid provider.  The MaterialProgram
-    /// owns the utility shader semantics; this carrier only proves the
+    /// Ordinary image/text/solid layers and structurally admitted composition
+    /// utilities may consume one primary target from an effectful solid.
+    /// The MaterialProgram owns shader semantics; this carrier only proves the
     /// provider/slot shape so the shared graph publication can supply the
     /// typed payload (including `.data`).
     nonisolated static func materialProgramSolidLayerReference(
@@ -377,10 +377,19 @@ extension SceneDependencyRenderPlan {
         references: [Reference],
         layersByID: [Int: SceneRenderDescriptor.Layer]
     ) -> Reference? {
-        guard supportsStructuralUtilityConsumer(layer),
-              visibleEffects.count == 1,
+        // The sampler consumes the provider's graph output independently of
+        // the consumer's source geometry or attached children. Utility source
+        // capture keeps its existing structural contract; ordinary layers use
+        // their existing source/geometry and compositor owners.
+        let supportsConsumer = supportsStructuralUtilityConsumer(layer)
+            || (hasNoUtilityLayer(layer)
+                && ["image", "text", "solid"].contains(layer.contentKind))
+        guard supportsConsumer,
               references.count == 1,
-              let reference = references.first,
+              let reference = resolvedMaterialReference(
+                  in: visibleEffects,
+                  references: references
+              ),
               reference.variant == .primary,
               reference.slot.passIndex == 0,
               reference.slot.slotIndex == 1,
@@ -398,20 +407,12 @@ extension SceneDependencyRenderPlan {
               provider.effects.contains(where: { $0.visible != false }) else {
             return nil
         }
-        guard let effect = visibleEffects.first,
-              effect.id == reference.slot.effectID,
+        guard let effect = visibleEffects.first(where: {
+                  $0.id == reference.slot.effectID
+              }),
               effect.passes.count == 1,
               let pass = effect.passes.first,
-              pass.passIndex == reference.slot.passIndex,
-              pass.textureSlots.count == 2,
-              pass.textureSlots[0] == nil,
-              let path = pass.textureSlots[reference.slot.slotIndex],
-              pass.texturePaths == [path],
-              pass.userTextureInputs.isEmpty,
-              SceneNamedTextureReference.parse(path) == .init(
-                  providerLayerID: reference.providerLayerID,
-                  variant: .primary
-              ) else {
+              pass.passIndex == reference.slot.passIndex else {
             return nil
         }
         return reference

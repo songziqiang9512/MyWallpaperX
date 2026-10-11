@@ -16,7 +16,7 @@ from script.web_benchmark_capture import png_rgb_pixels
 from .test_scene_pkg_cache_extractor import make_package
 
 
-def fixture_entries(conditional=True, consumer=True, consumer_hidden=False, optional=False, shadow=False):
+def fixture_entries(conditional=True, consumer=True, consumer_hidden=False, optional=False, shadow=False, solid_graph=False, solid_mask=False):
     def chunk(kind, payload):
         return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xffffffff)
     def png(color):
@@ -71,6 +71,34 @@ void main() {
     gl_FragColor = base;
 }
 '''
+    if solid_graph:
+        scene["objects"][0].update(image="models/util/solidlayer.json", visible=False,
+            color="1 0 0", effects=[{"id": 110, "file": "effects/own_blue/effect.json", "visible": True}])
+        # A later overlapping layer witnesses authored compositor order. The
+        # hidden provider's red base must neither appear here nor replace its
+        # blue graph publication at the consumer's center.
+        scene["objects"].append({"id": 44, "name": "Later red overlap",
+            "image": "models/util/solidlayer.json", "origin": "70 64 0", "size": "6 6", "color": "1 0 0"})
+        entries.update({"scene.json": json.dumps(scene).encode(),
+            "effects/own_blue/effect.json": json.dumps({"passes": [{"material": "materials/own_blue.json"}]}).encode(),
+            "materials/own_blue.json": json.dumps({"passes": [{"shader": "own_blue", "blending": "normal",
+                "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]}).encode(),
+            "shaders/own_blue.vert": entries["shaders/own_sample.vert"],
+            "shaders/own_blue.frag": b"uniform sampler2D g_Texture0;\nvarying vec2 v_TexCoord;\nvoid main(){gl_FragColor=texSample2D(g_Texture0,v_TexCoord).bgra;}\n"})
+        if solid_mask:
+            material = json.loads(entries["materials/own_sample.json"])
+            material["passes"][0]["textures"] = ["materials/white.png", "_rt_imageLayerComposite_11_a", "materials/mask.png"]
+            entries.update({"materials/own_sample.json": json.dumps(material).encode(),
+                "materials/mask.png": png((128, 128, 128, 255)),
+                "shaders/own_sample.frag": b'''uniform sampler2D g_Texture1;
+uniform sampler2D g_Texture2; // {"mode":"rgbmask"}
+varying vec2 v_TexCoord;
+void main() {
+    vec4 color = texSample2D(g_Texture1, v_TexCoord);
+    color.rgb *= texSample2D(g_Texture2, v_TexCoord).r;
+    gl_FragColor = color;
+}
+'''})
     return project, entries
 
 
@@ -82,8 +110,8 @@ class SceneHiddenProviderIntegrationTests(unittest.TestCase):
             raise unittest.SkipTest("requires explicitly frozen Debug App executable")
         cls.app = Path(executable).resolve(strict=True)
 
-    def run_provider(self, conditional=True, consumer=True, launch="off", live=None, consumer_hidden=False, optional=False, shadow=False, inactive_direct=False):
-        project, entries = fixture_entries(conditional, consumer, consumer_hidden, optional, shadow)
+    def run_provider(self, conditional=True, consumer=True, launch="off", live=None, consumer_hidden=False, optional=False, shadow=False, inactive_direct=False, solid_graph=False, solid_mask=False):
+        project, entries = fixture_entries(conditional, consumer, consumer_hidden, optional, shadow, solid_graph, solid_mask)
         if inactive_direct:
             scene = json.loads(entries["scene.json"])
             effects = scene["objects"][1]["effects"]
@@ -129,6 +157,8 @@ class SceneHiddenProviderIntegrationTests(unittest.TestCase):
             for capture in captures:
                 width, height, rows = png_rgb_pixels(capture)
                 center = list(rows[height // 2][width // 2 * 3:width // 2 * 3 + 3])
+                order_x = round(width * 70 / 128)
+                order_pixel = list(rows[height // 2][order_x * 3:order_x * 3 + 3])
                 blue = green = 0
                 blue_left = blue_center = 0
                 for row in rows[::8]:
@@ -140,7 +170,7 @@ class SceneHiddenProviderIntegrationTests(unittest.TestCase):
                         blue_left += is_blue and x // 3 < width * (44 / 128)
                         blue_center += is_blue and abs(x // 3 - width / 2) < width * 0.05
                         green += g > 200 and r < 30 and b < 30
-                measured[capture.name] = {"size": [width, height], "center": center, "blue": blue, "green": green, "blueLeft": blue_left, "blueCenter": blue_center}
+                measured[capture.name] = {"size": [width, height], "center": center, "orderPixel": order_pixel, "blue": blue, "green": green, "blueLeft": blue_left, "blueCenter": blue_center}
             if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
                 saved = Path(destination) / self._testMethodName
                 saved.mkdir(parents=True, exist_ok=True)
@@ -161,20 +191,26 @@ class SceneHiddenProviderIntegrationTests(unittest.TestCase):
             for name, value in measured.items():
                 self.assertGreater(value["green"], 0, name)
                 expected = [255, 255, 255] if shadow else [0, 0, 255] if consumer and not consumer_hidden else [0, 0, 0]
+                if solid_mask:
+                    expected = [0, 0, 128]
                 if inactive_direct and name == "scene-after-window.png":
                     expected = [255, 0, 0]
                 self.assertEqual(value["center"], expected, (name, value))
+                if solid_graph:
+                    self.assertEqual(value["orderPixel"], [255, 0, 0], (name, value))
             if consumer and not shadow and not consumer_hidden:
-                self.assertIn("phase=named-target-capture layer=11 status=succeeded", log)
+                phase = "named-graph-output-publication" if solid_graph else "named-target-capture"
+                self.assertIn(f"phase={phase} layer=11 status=succeeded", log)
                 self.assertIn("phase=named-target-binding layer=22 status=succeeded", log)
-                self.assertRegex(preview, r"prepared static base resources: entries=2 .*deferred=0 loaded=2 failed=0")
+                if not solid_graph:
+                    self.assertRegex(preview, r"prepared static base resources: entries=2 .*deferred=0 loaded=2 failed=0")
             if consumer_hidden:
                 self.assertRegex(preview, r"prepared static base resources: entries=2 .*deferred=0 loaded=2 failed=0")
             if shadow:
                 self.assertRegex(preview, r"prepared static base resources: entries=1 .*deferred=1 loaded=1 failed=0")
                 self.assertNotIn("phase=named-target-capture layer=11 status=succeeded", log)
             for name, value in measured.items():
-                shown = conditional and (live if name == "scene-after-window.png" and live is not None else launch) == "on"
+                shown = not solid_graph and conditional and (live if name == "scene-after-window.png" and live is not None else launch) == "on"
                 if shown:
                     self.assertGreater(value["blueLeft"], 0, (name, value))
                 else:
@@ -182,6 +218,37 @@ class SceneHiddenProviderIntegrationTests(unittest.TestCase):
             if live is not None:
                 self.assertIn("phase=live-property-update accepted=true surfacesBefore=1 surfacesAfter=1", log)
             return log, preview, measured
+
+    def assert_solid_graph_execution(self, log):
+        observations = []
+        for line in log.splitlines():
+            if "axis=graph-execution" in line:
+                fields = dict(re.findall(r"(\w+)=([^\s]+)", line))
+                if fields.get("layer") in {"11", "22"} and fields.get("gpuCompletion") == "completed":
+                    observations.append(fields)
+        self.assertTrue(observations, log[-5000:])
+        identities = [(item["runtime"], item["frame"], item["layer"], item["effect"]) for item in observations]
+        self.assertEqual(len(identities), len(set(identities)), "a graph executed twice in an observed cadence")
+        observed_frames = {item["frame"] for item in observations}
+        self.assertGreaterEqual(len(observed_frames), 2)
+        for frame in observed_frames:
+            pair = [item for item in observations if item["frame"] == frame]
+            self.assertEqual([item["layer"] for item in pair], ["11", "22"], pair)
+            for item in pair:
+                self.assertEqual(item["materialNodes"], "1", item)
+                self.assertEqual(item["rejectedNodes"], "0", item)
+                self.assertEqual(item["outcome"], "succeeded", item)
+            self.assertEqual(pair[0]["compositorConsumed"], "false", pair)
+            self.assertEqual(pair[1]["compositorConsumed"], "true", pair)
+            self.assertEqual(pair[1]["dependencyProviders"], "11", pair)
+
+    def test_hidden_solid_graph_supplies_ordinary_image_once_at_authored_order(self):
+        log, _, _ = self.run_provider(solid_graph=True)
+        self.assert_solid_graph_execution(log)
+
+    def test_solid_graph_named_color_and_asset_mask_are_independently_bound(self):
+        log, _, _ = self.run_provider(solid_graph=True, solid_mask=True)
+        self.assert_solid_graph_execution(log)
 
     def test_inactive_direct_and_optional_siblings_hot_activate(self):
         self.run_provider(optional=True, inactive_direct=True, live="on")

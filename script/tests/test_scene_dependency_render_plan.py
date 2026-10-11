@@ -1462,13 +1462,13 @@ enum Harness {
                 "wrongSlot": materialProgramSolidCarrierBinding(
                     slotIndex: 0
                 ) == nil,
-                "extraTexture": materialProgramSolidCarrierBinding(
-                    extraTexture: true
-                ) == nil,
                 "forwardProvider": materialProgramSolidCarrierBinding(
                     providerFirst: false
                 ) == nil,
             ],
+            "materialProgramSolidCarrierExtraAsset": materialProgramSolidCarrierBinding(
+                extraTexture: true
+            )?.requiresResolvedMaterialProgram == true,
             "imageBlendBinding": [
                 "consumer": imageBlend?.consumerLayerID ?? -1,
                 "provider": imageBlend?.providerLayerID ?? -1,
@@ -3646,6 +3646,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertTrue(
             all(self.result["materialProgramSolidCarrierRejects"].values())
         )
+        self.assertTrue(self.result["materialProgramSolidCarrierExtraAsset"])
 
     def test_visible_effectless_image_uses_same_named_source_owner(self) -> None:
         self.assertEqual(self.result["visibleStaticImageBindings"], {
