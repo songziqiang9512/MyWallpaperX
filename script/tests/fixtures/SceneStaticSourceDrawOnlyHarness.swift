@@ -116,7 +116,7 @@ struct SceneLayerFragmentUniforms {
     let usesDependencyBlend: UInt32
     let cursorUV: SIMD2<Float>
     let sourceSampling: SIMD2<UInt32>
-    let tint: SIMD4<Float>
+    var tint: SIMD4<Float>
     let textureFrame0: SIMD4<Float>
     let textureFrame1: SIMD4<Float>
 }
