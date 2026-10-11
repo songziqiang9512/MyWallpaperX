@@ -427,6 +427,7 @@ nonisolated struct SceneResolvedMaterialProgram {
     enum HostUniform: Hashable {
         case renderSize, modelViewProjection, modelViewProjectionInverse
         case premultipliedColorInputMask
+        case effectDrawAlpha
         case layerModelMatrix
         case effectModelViewProjection
         case effectTextureProjectionMatrix
@@ -526,6 +527,8 @@ nonisolated struct SceneResolvedMaterialProgram {
         let graphRole: SceneResolvedMaterialTemplate.GraphRole
         let outputStorage: OutputStorage
         let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
+        /// Prepared template scope; graph roles do not define uniform ownership.
+        let hasEffectContext: Bool
 
         init(
             preparedShader: SceneShaderPreparedProgram,
@@ -534,7 +537,8 @@ nonisolated struct SceneResolvedMaterialProgram {
             renderState: SceneMaterialRenderState,
             graphRole: SceneResolvedMaterialTemplate.GraphRole,
             outputStorage: OutputStorage = .color,
-            runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none
+            runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none,
+            hasEffectContext: Bool = false
         ) {
             self.preparedShader = preparedShader
             self.textureSlots = textureSlots
@@ -543,6 +547,7 @@ nonisolated struct SceneResolvedMaterialProgram {
             self.graphRole = graphRole
             self.outputStorage = outputStorage
             self.runtimeLoopBounds = runtimeLoopBounds
+            self.hasEffectContext = hasEffectContext
         }
     }
 

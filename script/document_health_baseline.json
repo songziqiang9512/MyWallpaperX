@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 114949
+      "bytes": 115904
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -89,12 +89,12 @@
       "bytes": 5005
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 590,
-      "bytes": 344585
+      "lines": 592,
+      "bytes": 344941
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 98,
-      "bytes": 29329
+      "bytes": 29573
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 241,
-      "bytes": 65791
+      "bytes": 66217
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1103,15 +1103,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "6194350bb405aee7172637925c023effb458e2268df02ba335bbf11ad6b8644f",
-      "after": "b2ed0adb1fe51b6ea33d2164c87c434bd8575a6b7031e24655cc9656fc99770e",
-      "owner": "Scene",
-      "reason": "统一inactive named候选与子额度合同；维护实测剩余，不将已闭首断点重复排队。",
-      "decision": "docs/scene/history/terminal-attachment-desktop-freeze-2026-10-10.md#u24-cover-dependency"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
       "before": "02f61c3ec7e357466792c4f02a37b553451af292054ffeb2522ac8f8c1e1844d",
       "after": "1750f94adeb0cbe492d1934da84c367ac1371bf22b59fdc1fa93de4778893e33",
@@ -1148,30 +1139,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "b2ed0adb1fe51b6ea33d2164c87c434bd8575a6b7031e24655cc9656fc99770e",
+      "after": "2b0225c6280ee586a823462815eb68542465515eeb422a865bcfb3a7b92c659c",
+      "owner": "Scene shared uniform and local failure",
+      "reason": "稳定合同并回原owner，替换已修首错并导航真实GPU/官方证据；不外推白块或整样本验收。",
+      "decision": "docs/scene/history/effect-draw-alpha-2026-10-11.md#决策与实现"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "579aa19b4024b792805482ac2749cded6529f1a04c9a02e65e9db0c214fbe161",
-      "after": "b3d36b4960c7751315cd6a5f5cb52ac0549169f89cc10f3a901f6318d8632ecc",
-      "owner": "Scene direct function input compatibility",
-      "reason": "登记原direct-function owner的readonly int参数兼容合同与严格边界，无新算法链路。",
-      "decision": "docs/scene/history/direct-function-scalar-inputs-2026-10-11.md#首错与修复"
+      "before": "b3d36b4960c7751315cd6a5f5cb52ac0549169f89cc10f3a901f6318d8632ecc",
+      "after": "a9860bad841591a8c58254e9c81a4f628955b81006315c166776f5c142dbb979",
+      "owner": "Scene shared uniform and local failure",
+      "reason": "稳定合同并回原owner，替换已修首错并导航真实GPU/官方证据；不外推白块或整样本验收。",
+      "decision": "docs/scene/history/effect-draw-alpha-2026-10-11.md#决策与实现"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "140f999d44351006724ed3dddeacafceffc9100dd3d81b77347ceb4647c884a7",
-      "after": "0bb571fe6761164ea04781c17ae1048182c1560ab7b1427cb97ca88649e0eba8",
-      "owner": "Scene direct function input compatibility",
-      "reason": "导航新24段GPU执行证据，明确白块仍在；不是整样本通过。",
-      "decision": "docs/scene/history/direct-function-scalar-inputs-2026-10-11.md#首错与修复"
+      "before": "0bb571fe6761164ea04781c17ae1048182c1560ab7b1427cb97ca88649e0eba8",
+      "after": "d96fc8d930df449ec60feae1281b7f2de13e019826e4a216203421a27abd8456",
+      "owner": "Scene shared uniform and local failure",
+      "reason": "稳定合同并回原owner，替换已修首错并导航真实GPU/官方证据；不外推白块或整样本验收。",
+      "decision": "docs/scene/history/effect-draw-alpha-2026-10-11.md#决策与实现"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "58acd9e1e5901bda8b96b591237aadd339236108026ec4100e44d5cb4abeaeb3",
-      "after": "41c8f6bb8b7c3e5250f7b7f96c2067223ec90c06a04f851078b582673bef23df",
-      "owner": "Scene direct function input compatibility",
-      "reason": "替换过时N03顺序和已修首错，明确draw alpha下一断点，避免重复排队。",
-      "decision": "docs/scene/history/direct-function-scalar-inputs-2026-10-11.md#首错与修复"
+      "before": "41c8f6bb8b7c3e5250f7b7f96c2067223ec90c06a04f851078b582673bef23df",
+      "after": "daaa34aa6350bf2b80fc3f114d317153e80b5e76f7b098dceb2ff729102ffb7a",
+      "owner": "Scene shared uniform and local failure",
+      "reason": "稳定合同并回原owner，替换已修首错并导航真实GPU/官方证据；不外推白块或整样本验收。",
+      "decision": "docs/scene/history/effect-draw-alpha-2026-10-11.md#决策与实现"
     }
   ]
 }

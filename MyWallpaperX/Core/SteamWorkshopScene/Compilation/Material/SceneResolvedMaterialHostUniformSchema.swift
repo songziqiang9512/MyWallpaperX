@@ -5,11 +5,14 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
 
     static func resolve(
         _ field: SceneAuthoredShaderUniformLayout.Field,
-        activeTextureSlots: Set<Int>
+        activeTextureSlots: Set<Int>,
+        hasEffectContext: Bool = false
     ) -> Program.HostUniform? {
         switch (field.authoredName, field.type) {
         case (SceneShaderColorBoundary.uniformName, .uint) where field.arrayCount == nil:
             .premultipliedColorInputMask
+        case ("g_Alpha", .float) where field.arrayCount == nil && hasEffectContext:
+            .effectDrawAlpha
         case ("mwxRenderSize", .float2): .renderSize
         case ("g_ModelViewProjectionMatrix", .float4x4): .modelViewProjection
         case ("g_ModelViewProjectionMatrixInverse", .float4x4):
@@ -66,6 +69,13 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
         guard let slot = textureSlotPrefix(name) else { return false }
         return name == "g_Texture\(slot)Rotation"
             || name == "g_Texture\(slot)Translation"
+    }
+
+    static func requiresEffectDrawAlphaHost(
+        _ name: String,
+        hasEffectContext: Bool
+    ) -> Bool {
+        hasEffectContext && name == "g_Alpha"
     }
 
     private static func textureSlotPrefix(_ name: String) -> Int? {

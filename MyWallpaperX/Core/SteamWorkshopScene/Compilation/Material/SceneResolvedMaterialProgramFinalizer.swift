@@ -45,6 +45,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
         layerModelMatrix: simd_float4x4,
         effectOutputModelViewProjection: simd_float4x4,
         effectTextureProjectionMatrixInverse: simd_float4x4,
+        effectDrawAlpha: Float = 1,
         implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity? = nil
     ) -> SceneResolvedMaterialFinalizationInput {
         .init(
@@ -56,6 +57,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
             layerModelMatrix: layerModelMatrix,
             effectOutputModelViewProjection: effectOutputModelViewProjection,
             effectTextureProjectionMatrixInverse: effectTextureProjectionMatrixInverse,
+            effectDrawAlpha: effectDrawAlpha,
             implicitFramebufferIdentity: implicitFramebufferIdentity
         )
     }
@@ -119,6 +121,8 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
     let layerModelMatrix: simd_float4x4
     let effectOutputModelViewProjection: simd_float4x4
     let effectTextureProjectionMatrixInverse: simd_float4x4
+    /// Consumer opacity; source capture and named provider alpha remain separate.
+    var effectDrawAlpha: Float = 1
     /// Current full-frame graph input for shader samplers that explicitly
     /// declare a `framebuffer` or `previous` material alias without an authored
     /// texture binding.
@@ -146,6 +150,7 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
             effectTextureProjectionMatrix:
                 effectTextureProjectionMatrixInverse.inverse,
             effectTextureProjectionMatrixInverse: effectTextureProjectionMatrixInverse,
+            effectDrawAlpha: effectDrawAlpha,
             sceneTime: frameSnapshot.frameInputs.sceneTime,
             dayTime: frameSnapshot.frameInputs.dayTime,
             frameTime: frameSnapshot.frameInputs.frameTime,
@@ -194,7 +199,8 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             }
             if let host = SceneResolvedMaterialUniformEncoder.hostUniform(
                 field,
-                activeTextureSlots: activeTextureSlots
+                activeTextureSlots: activeTextureSlots,
+                hasEffectContext: template.effectContext != nil
             ) {
                 guard declarations.isEmpty else {
                     throw failure(
@@ -206,7 +212,11 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 return .init(field: field, source: .host(host))
             }
             guard !SceneResolvedMaterialHostUniformSchema
-                .requiresTextureCompanionHost(field.authoredName) else {
+                .requiresTextureCompanionHost(field.authoredName),
+                  !SceneResolvedMaterialHostUniformSchema.requiresEffectDrawAlphaHost(
+                      field.authoredName,
+                      hasEffectContext: template.effectContext != nil
+                  ) else {
                 throw failure(
                     .uniform,
                     .staticUniformBindingInvalid,
@@ -379,7 +389,8 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 renderState: input.template.renderState,
                 graphRole: graphRole,
                 outputStorage: outputStorage,
-                runtimeLoopBounds: selection.variant.runtimeLoopBounds
+                runtimeLoopBounds: selection.variant.runtimeLoopBounds,
+                hasEffectContext: input.template.effectContext != nil
             ), frontend: selection.variant.frontendProgram,
                 routeDecision: selection.variant.routeDecision,
                 conditionalGeneratedRGBInputContract:

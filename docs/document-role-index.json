@@ -359,12 +359,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-10",
+      "lastReviewed": "2026-10-11",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ea57c1e564df1d7c2516a672260c31e63ec8ed69fbbc1cce336f04566aa71e27",
+        "sourceSHA256": "b87e37baf3d30970f5fc26dd484fbd475ab7a32d3f5619320a867240fc3b524c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "U24封面依赖及资源驻留后继：核对合同、完成记录与开放余项的职责和链接",
+        "scope": "核对smoothstep、局部失败及effect alpha稳定职责、完成记录、剩余断点导航；不扩张运行验收范围。",
         "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
       }
     },
@@ -531,9 +531,9 @@
       "lastReviewed": "2026-10-11",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "56a63eff3d3cde132dd09448c8beca037c62c0bc182a772eda85c6e45a798a87",
+        "sourceSHA256": "0c7d6ad600457816f8504b3a263da4c8cf60778f44a74848218d71fd022c75f8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对只读整数函数输入修复的GPU执行历史导航及白块未闭边界；仅更新导航与正文身份。",
+        "scope": "核对smoothstep、局部失败及effect alpha稳定职责、完成记录、剩余断点导航；不扩张运行验收范围。",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
@@ -998,6 +998,18 @@
       "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
+        "docs/scene/capabilities/render-graph-shader-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/effect-draw-alpha-2026-10-11.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
         "docs/scene/capabilities/render-graph-shader-coverage.md",
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
@@ -1815,6 +1827,18 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/capabilities/effect-execution-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/smoothstep-local-failure-2026-10-11.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/render-graph-shader-coverage.md",
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]

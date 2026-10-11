@@ -63,7 +63,8 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
               let uniforms = resolveUniforms(
                   input.resolvedUniforms,
                   layout: frontend.uniformLayout,
-                  activeTextureSlots: Set(textures.activeSlots)
+                  activeTextureSlots: Set(textures.activeSlots),
+                  hasEffectContext: input.hasEffectContext
               ),
               let graphRole = SceneResolvedMaterialProgramIdentity.graphRole(
                   input.graphRole,
@@ -410,7 +411,8 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
     private static func resolveUniforms(
         _ resolved: [Program.ResolvedUniform],
         layout: SceneAuthoredShaderUniformLayout,
-        activeTextureSlots: Set<Int>
+        activeTextureSlots: Set<Int>,
+        hasEffectContext: Bool
     ) -> UniformProjection? {
         guard resolved.count == layout.fields.count else { return nil }
         var bytes = Data(count: layout.byteSize)
@@ -422,7 +424,8 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                   let source = uniformSourceIdentity(
                       value.source,
                       field: field,
-                      activeTextureSlots: activeTextureSlots
+                      activeTextureSlots: activeTextureSlots,
+                      hasEffectContext: hasEffectContext
                   ) else {
                 return nil
             }
@@ -461,14 +464,21 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
     private static func uniformSourceIdentity(
         _ source: Program.ResolvedUniform.Source,
         field: SceneAuthoredShaderUniformLayout.Field,
-        activeTextureSlots: Set<Int>
+        activeTextureSlots: Set<Int>,
+        hasEffectContext: Bool
     ) -> Program.UniformSourceSchema? {
         let expectedHost = SceneResolvedMaterialHostUniformSchema.resolve(
             field,
-            activeTextureSlots: activeTextureSlots
+            activeTextureSlots: activeTextureSlots,
+            hasEffectContext: hasEffectContext
         )
-        guard expectedHost != nil || !SceneResolvedMaterialHostUniformSchema
-            .requiresTextureCompanionHost(field.authoredName) else { return nil }
+        guard expectedHost != nil || (
+            !SceneResolvedMaterialHostUniformSchema
+                .requiresTextureCompanionHost(field.authoredName)
+                && !SceneResolvedMaterialHostUniformSchema.requiresEffectDrawAlphaHost(
+                    field.authoredName, hasEffectContext: hasEffectContext
+                )
+        ) else { return nil }
         switch source {
         case let .host(host):
             guard host == expectedHost else { return nil }

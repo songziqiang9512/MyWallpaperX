@@ -88,6 +88,7 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
     let effectOutputModelViewProjection: simd_float4x4
     let effectTextureProjectionMatrix: simd_float4x4
     let effectTextureProjectionMatrixInverse: simd_float4x4
+    let effectDrawAlpha: Float
     let sceneTime: Float
     let dayTime: Float
     let frameTime: Float
@@ -107,6 +108,7 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         effectOutputModelViewProjection: simd_float4x4,
         effectTextureProjectionMatrix: simd_float4x4 = matrix_identity_float4x4,
         effectTextureProjectionMatrixInverse: simd_float4x4,
+        effectDrawAlpha: Float = 1,
         sceneTime: Float,
         dayTime: Float,
         frameTime: Float,
@@ -126,6 +128,7 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
             effectOutputModelViewProjection
         self.effectTextureProjectionMatrix = effectTextureProjectionMatrix
         self.effectTextureProjectionMatrixInverse = effectTextureProjectionMatrixInverse
+        self.effectDrawAlpha = effectDrawAlpha
         self.sceneTime = sceneTime
         self.dayTime = dayTime
         self.frameTime = frameTime

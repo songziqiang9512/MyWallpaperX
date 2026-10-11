@@ -6,13 +6,15 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
 
     static func hostUniform(
         _ field: SceneAuthoredShaderUniformLayout.Field,
-        slots: [Program.TextureSlot?]
+        slots: [Program.TextureSlot?],
+        hasEffectContext: Bool = false
     ) -> Program.HostUniform? {
         hostUniform(
             field,
             activeTextureSlots: Set(slots.enumerated().compactMap {
                 $0.element == nil ? nil : $0.offset
-            })
+            }),
+            hasEffectContext: hasEffectContext
         )
     }
 
@@ -20,11 +22,13 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
     /// are intentionally absent so launch/first-use compilation can cache it.
     static func hostUniform(
         _ field: SceneAuthoredShaderUniformLayout.Field,
-        activeTextureSlots: Set<Int>
+        activeTextureSlots: Set<Int>,
+        hasEffectContext: Bool = false
     ) -> Program.HostUniform? {
         SceneResolvedMaterialHostUniformSchema.resolve(
             field,
-            activeTextureSlots: activeTextureSlots
+            activeTextureSlots: activeTextureSlots,
+            hasEffectContext: hasEffectContext
         )
     }
 
@@ -35,6 +39,9 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
         slots: [Program.TextureSlot?]
     ) -> Data? {
         switch host {
+        case .effectDrawAlpha:
+            guard type == .float else { return nil }
+            return encodeScalar(inputs.effectDrawAlpha, type: type)
         case .premultipliedColorInputMask:
             guard type == .uint, slots.count == 8 else { return nil }
             let mask = slots.enumerated().reduce(UInt32(0)) { mask, entry in

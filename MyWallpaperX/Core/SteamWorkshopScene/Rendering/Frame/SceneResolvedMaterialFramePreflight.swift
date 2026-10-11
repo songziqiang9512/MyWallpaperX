@@ -800,6 +800,11 @@ extension SceneMetalRenderer {
                 mouseNormalized: frameContext.pointer.previous,
                 modelViewProjection: effectProjectionMVP
             )
+            let effectDrawAlpha = SceneDynamicLayerValues.alpha(
+                layerID: layerID,
+                authoredValue: layer.alpha,
+                snapshot: frameContext.dynamicValues
+            )
             if let texture = sourceTexture {
                 let request = SceneImageLayerDrawRequest(
                     layer: layer,
@@ -811,11 +816,7 @@ extension SceneMetalRenderer {
                     mvp: outputMVP,
                     uniforms: .init(
                         time: time,
-                        alpha: capturesMainTarget ? 1 : SceneDynamicLayerValues.alpha(
-                            layerID: layerID,
-                            authoredValue: layer.alpha,
-                            snapshot: frameContext.dynamicValues
-                        ),
+                        alpha: capturesMainTarget ? 1 : effectDrawAlpha,
                         cursorUV: cursor ?? .zero,
                         previousCursorUV: previousCursor ?? cursor ?? .zero,
                         cursorIsInside:
@@ -884,6 +885,7 @@ extension SceneMetalRenderer {
                 effectOutputModelViewProjection: effectProjectionMVP,
                 effectTextureProjectionMatrixInverse:
                     effectTextureProjectionMatrixInverse,
+                effectDrawAlpha: effectDrawAlpha,
                 frameTime: Float(frameContext.frameTime),
                 time: time,
                 audioSpectrum: frameContext.audioSpectrum,

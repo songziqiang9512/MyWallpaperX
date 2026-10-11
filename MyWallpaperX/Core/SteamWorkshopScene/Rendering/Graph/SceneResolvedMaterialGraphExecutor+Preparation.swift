@@ -212,6 +212,7 @@ extension SceneResolvedMaterialGraphExecutor {
                             frameInputs.effectOutputModelViewProjection,
                         effectTextureProjectionMatrixInverse:
                             frameInputs.effectTextureProjectionMatrixInverse,
+                        effectDrawAlpha: frameInputs.effectDrawAlpha,
                         implicitFramebufferIdentity: pairStep.inputIdentity
                     ),
                     variantCache: material.variants,

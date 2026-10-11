@@ -171,6 +171,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         /// derived back from the pointer-facing inverse convention below.
         let effectOutputModelViewProjection: simd_float4x4
         let effectTextureProjectionMatrixInverse: simd_float4x4
+        let effectDrawAlpha: Float
         let frameTime: Float
         let time: Float
         let audioSpectrum: SceneAudioSpectrumSnapshot
@@ -191,6 +192,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             layerModelMatrix: simd_float4x4,
             effectOutputModelViewProjection: simd_float4x4,
             effectTextureProjectionMatrixInverse: simd_float4x4,
+            effectDrawAlpha: Float = 1,
             frameTime: Float,
             time: Float,
             audioSpectrum: SceneAudioSpectrumSnapshot,
@@ -208,6 +210,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.effectOutputModelViewProjection =
                 effectOutputModelViewProjection
             self.effectTextureProjectionMatrixInverse = effectTextureProjectionMatrixInverse
+            self.effectDrawAlpha = effectDrawAlpha
             self.frameTime = frameTime
             self.time = time
             self.audioSpectrum = audioSpectrum
@@ -231,6 +234,7 @@ final class SceneResolvedMaterialRuntimeBridge {
                     effectOutputModelViewProjection,
                 effectTextureProjectionMatrixInverse:
                     effectTextureProjectionMatrixInverse,
+                effectDrawAlpha: effectDrawAlpha,
                 frameTime: frameTime,
                 time: time,
                 audioSpectrum: audioSpectrum,
