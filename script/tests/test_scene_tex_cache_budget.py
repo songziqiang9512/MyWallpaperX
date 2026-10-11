@@ -119,11 +119,17 @@ import Foundation
             + png_chunk(b'IHDR', struct.pack('>IIBBBBB', 4, 4, 8, 6, 0, 0, 0))
             + png_chunk(b'IDAT', zlib.compress((b'\0' + b'\xff\0\0\xff' * 4) * 4))
             + png_chunk(b'IEND', b''))
+        wide_png = (b'\x89PNG\r\n\x1a\n'
+            + png_chunk(b'IHDR', struct.pack('>IIBBBBB', 4097, 2, 8, 6, 0, 0, 0))
+            + png_chunk(b'IDAT', zlib.compress((b'\0' + b'\xff\0\0\xff' * 4097) * 2))
+            + png_chunk(b'IEND', b''))
         with tempfile.TemporaryDirectory(prefix='mwx-late-cache-release-') as directory:
             root = Path(directory)
             tex_url, png_url = root / 'owned.tex', root / 'owned.png'
+            wide_url = root / 'wide.png'
             tex_url.write_bytes(compressed_tex())
             png_url.write_bytes(red_png)
+            wide_url.write_bytes(wide_png)
             harness = root / 'Harness.swift'
             harness.write_text(r'''
 import Foundation
@@ -139,6 +145,7 @@ import Metal
         guard let device = MTLCreateSystemDefaultDevice() else { print("SKIP"); return }
         let tex = URL(fileURLWithPath: CommandLine.arguments[1])
         let png = URL(fileURLWithPath: CommandLine.arguments[2])
+        let wide = URL(fileURLWithPath: CommandLine.arguments[3])
         let options: MTLResourceOptions = .storageModeShared
         let anchorLength = 65536, requestLength = 8192, decodedCost = 10240
         let anchorCost = device.heapBufferSizeAndAlign(length: anchorLength, options: options).size
@@ -150,10 +157,27 @@ import Metal
               case let .loaded(firstTexture) = loader.load(from: png, device: device)
         else { fatalError("initial real resource preparation failed") }
         let before = pixels(firstTexture)
+        let pngSource = loader.sourceKey(for: png)!
+        let nativePNG = loader.preparedNaturalImageSize(from: png, source: pngSource)
+        let zeroBudget = SceneTextureDecodeCacheBudget(maximumBytes: 0)
+        let zeroLoader = SceneTextureLoader(decodeCacheBudget: zeroBudget)
+        guard case .loaded = zeroLoader.load(from: png, device: device) else { fatalError("uncached PNG failed") }
+        let zeroNativePNG = zeroLoader.preparedNaturalImageSize(from: png, source: zeroLoader.sourceKey(for: png)!)
+        guard case let .loaded(wideTexture) = zeroLoader.load(from: wide, device: device) else {
+            fatalError("normalized PNG failed")
+        }
+        let wideNativePNG = zeroLoader.preparedNaturalImageSize(from: wide, source: zeroLoader.sourceKey(for: wide)!)
         precondition(before == Array(repeating: [UInt8](arrayLiteral: 255, 0, 0, 255), count: 16).flatMap { $0 })
         loader.evictDecodedCaches()
         guard let initial = loader.texContainer(from: tex) else { fatalError("initial TEX parse failed") }
-        var result: [String: Any] = ["initialDecoded": decoded.residentBytes]
+        var result: [String: Any] = ["initialDecoded": decoded.residentBytes,
+            "nativePNGMetadata": nativePNG?.width == 4 && nativePNG?.height == 4,
+            "zeroBudgetNativePNGMetadata": zeroNativePNG?.width == 4 && zeroNativePNG?.height == 4 &&
+                zeroBudget.residentBytes == 0 && zeroLoader.directImageDecodeAttemptCount == 2,
+            "normalizedPNGNativeMetadata": wideNativePNG?.width == 4097 && wideNativePNG?.height == 2 &&
+                wideTexture.width == 4096 && wideTexture.height == 1,
+            "metadataClearedWithDecodeCache": loader.preparedNaturalImageSize(from: png, source: pngSource) == nil,
+            "nativeTEXMetadata": loader.preparedNaturalImageSize(from: tex, source: loader.sourceKey(for: tex)!)?.width == 32]
         loader.evictDecodedCaches()
         result["firstEvictionDecoded"] = decoded.residentBytes
         guard let late = loader.texContainer(from: tex) else { fatalError("late TEX parse failed") }
@@ -185,7 +209,7 @@ import Metal
             subprocess.run(['swiftc', str(SOURCE), str(RESAMPLE_SOURCE), *map(str, LOADER_SOURCES),
                             str(harness), '-o', str(binary)],
                            check=True, capture_output=True, text=True, timeout=120)
-            run = subprocess.run([str(binary), str(tex_url), str(png_url)],
+            run = subprocess.run([str(binary), str(tex_url), str(png_url), str(wide_url)],
                                  check=True, capture_output=True, text=True, timeout=60)
             if run.stdout.strip() == 'SKIP':
                 self.skipTest('requires actual Metal device')
@@ -199,7 +223,9 @@ import Metal
             self.assertEqual(result['restoredResident'], result['expectedRestoredResident'])
             self.assertGreaterEqual(result['restoredBufferLength'], 8192)
             for name in ('lateContentSame', 'allocationRejectedWhileLateDecoded',
-                         'sameUploadedTexture', 'uploadedPixelsUnchanged'):
+                         'sameUploadedTexture', 'uploadedPixelsUnchanged', 'nativePNGMetadata',
+                         'zeroBudgetNativePNGMetadata', 'metadataClearedWithDecodeCache', 'nativeTEXMetadata'):
                 self.assertIs(result[name], True, name)
+            self.assertIs(result['normalizedPNGNativeMetadata'], True)
             self.assertEqual(result['cachedLoadDecoded'], 0)
             self.assertEqual(result['decodeAttempts'], 1)

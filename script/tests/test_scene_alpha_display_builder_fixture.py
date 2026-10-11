@@ -300,6 +300,8 @@ struct SceneScriptLayerMutation: Equatable, Sendable {
     let orderIndex: Int
     let visible: Bool
     let solid: Bool
+    let size: SIMD2<Double>?
+    let perspective: Bool?
     let alpha: Double
     let origin: SIMD3<Double>
     let scale: SIMD3<Double>
@@ -318,7 +320,8 @@ struct SceneScriptLayerMutation: Equatable, Sendable {
         origin: SIMD3<Double>, scale: SIMD3<Double>, angles: SIMD3<Double>,
         color: SIMD3<Double>, pointSize: Double, text: String, font: String,
         assetPath: String?, ownerTarget: SceneDynamicTarget? = nil,
-        effectVisibilities: [Int: Bool] = [:]
+        effectVisibilities: [Int: Bool] = [:], size: SIMD2<Double>? = nil,
+        perspective: Bool? = nil
     ) {
         self.kind = kind
         self.isDynamic = isDynamic
@@ -327,6 +330,8 @@ struct SceneScriptLayerMutation: Equatable, Sendable {
         self.orderIndex = orderIndex
         self.visible = visible
         self.solid = solid
+        self.size = size
+        self.perspective = perspective
         self.alpha = alpha
         self.origin = origin
         self.scale = scale
@@ -454,6 +459,28 @@ enum SceneTextGeometry {
 
 @main
 enum Harness {
+    static func creationGeometry() -> [String: Any] {
+        let template = SceneScriptDynamicImageLayerTemplate(
+            modelPath: "models/renamed-resource.json", renderSizeWH: [4, 4])
+        func mutation(_ size: SIMD2<Double>?, path: String = "models/renamed-resource.json") -> SceneScriptLayerMutation {
+            .init(kind: .upsert, isDynamic: true, fields: [], layerID: -1,
+                orderIndex: 0, visible: true, solid: true, alpha: 1,
+                origin: .init(10, 20, 30), scale: .init(2, 3, 4),
+                angles: .init(0, 0.6, 0), color: .init(1, 1, 1),
+                pointSize: 32, text: "", font: "", assetPath: path,
+                size: size, perspective: true)
+        }
+        let created = SceneRenderDescriptor.Layer.dynamicImage(mutation(.init(200, 100)), template: template)
+        let fallback = SceneRenderDescriptor.Layer.dynamicImage(mutation(nil), template: template)
+        return ["explicitSize": created?.renderSizeWH ?? [],
+            "preparedFallbackSize": fallback?.renderSizeWH ?? [],
+            "usesPerspective": created?.usesPerspective == true,
+            "anglesRemainRadians": created?.anglesXYZ == [0, 0.6, 0],
+            "invalidSizeRejected": SceneRenderDescriptor.Layer.dynamicImage(mutation(.init(0, 100)), template: template) == nil &&
+                SceneRenderDescriptor.Layer.dynamicImage(mutation(.init(.infinity, 100)), template: template) == nil,
+            "unmatchedResourceRejected": SceneRenderDescriptor.Layer.dynamicImage(mutation(.init(200, 100), path: "models/neighbor.json"), template: template) == nil]
+    }
+
     static func main() throws {
         guard CommandLine.arguments.count == 2 else {
             throw HarnessError.missingFixture
@@ -478,6 +505,7 @@ enum Harness {
             ]
         }
         let payload: [String: Any] = [
+            "creationGeometry": creationGeometry(),
             "layers": layers,
             "visibleLayerIDs": SceneLayerVisibility.visibleLayerIDs(
                 in: model.renderDescriptor
@@ -508,6 +536,13 @@ def layer_result(payload: dict, layer_id: int) -> dict:
 
 
 class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
+    def test_dynamic_creation_projection_preserves_geometry_and_rejects_neighbors(self) -> None:
+        geometry = self.result["creationGeometry"]
+        self.assertEqual(geometry["explicitSize"], [200, 100])
+        self.assertEqual(geometry["preparedFallbackSize"], [1, 1])
+        for key in ("usesPerspective", "anglesRemainRadians", "invalidSizeRejected", "unmatchedResourceRejected"):
+            self.assertIs(geometry[key], True, key)
+
     @classmethod
     def setUpClass(cls) -> None:
         swiftc = shutil.which("swiftc")

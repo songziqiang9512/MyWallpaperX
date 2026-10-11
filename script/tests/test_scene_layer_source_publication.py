@@ -24,6 +24,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader+Resample.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneFrameTextureRegistry.swift",
+    SOURCE_ROOT / "Resources/Providers/SceneDynamicImageTextureProvider.swift",
 ]
 
 
@@ -36,6 +37,22 @@ enum SceneTextureLoadOutcome {
     case loaded(MTLTexture)
     case decodeFailed(String)
     case textureAllocationFailed(width: Int, height: Int)
+}
+
+struct ScenePreparedDynamicImageResource {
+    struct Loaded { let texture: MTLTexture; let candidate: SceneTextureCandidate? }
+    let modelPath: String
+    let loaded: Loaded
+}
+struct SceneScriptLayerTopologySnapshot {
+    struct Layer {
+        let id: Int
+        let contentKind: String
+        let imagePath: String?
+        let renderSizeWH: [Float]?
+    }
+    let topologyRevision: UInt64
+    let dynamicLayers: [Layer]
 }
 
 @main
@@ -220,6 +237,30 @@ enum Harness {
         ) else {
             fatalError("legacy direct-video lane was not bounded")
         }
+        let imageCandidate = SceneTextureCandidate(texture: texture,
+            identity: .builtIn(name: "owned-geometry"), generation: .immutable(revision: 1),
+            purpose: .premultipliedColor, content: .color(.resolved(.premultipliedAlpha)),
+            physicalSize: CGSize(width: 4, height: 4), mappedSize: CGSize(width: 4, height: 4),
+            uvTransform: .identity, sampling: .linearClamp)
+        let imageProvider = SceneDynamicImageTextureProvider(resources: [
+            "models/renamed.json": .init(modelPath: "models/renamed.json",
+                loaded: .init(texture: texture, candidate: imageCandidate))])
+        let imageTopology = SceneScriptLayerTopologySnapshot(topologyRevision: 1, dynamicLayers: [
+            .init(id: -2, contentKind: "image", imagePath: "MODELS/RENAMED.JSON", renderSizeWH: [200, 100]),
+            .init(id: -3, contentKind: "image", imagePath: "models/missing.json", renderSizeWH: [200, 100]),
+            .init(id: -4, contentKind: "text", imagePath: nil, renderSizeWH: [200, 100])])
+        let createdImage = imageProvider.snapshot(topology: imageTopology)
+        guard createdImage.layerSources[-2]?.renderSizeWH == [200, 100],
+              createdImage.layerSources[-2]?.publication.texture === texture,
+              createdImage.pendingLayerSourceIDs == [-3],
+              createdImage.layerSources[-4] == nil,
+              createdImage.layerSources[-2]?.isComplete(layerID: -2, matching: texture) == true,
+              imageProvider.snapshot(topology: imageTopology).layerSources[-2]?.renderSizeWH == [200, 100]
+        else { fatalError("created image publication lost logical geometry or candidate identity") }
+        let changedGeometry = imageProvider.snapshot(topology: .init(topologyRevision: 2, dynamicLayers: [
+            .init(id: -2, contentKind: "image", imagePath: "models/renamed.json", renderSizeWH: [120, 60])]))
+        guard changedGeometry.layerSources[-2]?.renderSizeWH == [120, 60]
+        else { fatalError("new geometry revision retained stale logical dimensions") }
         print("bounded")
     }
 }
@@ -256,10 +297,11 @@ class SceneLayerSourcePublicationTests(unittest.TestCase):
             completed = subprocess.run(
                 [str(binary)],
                 cwd=REPOSITORY_ROOT,
-                check=True,
                 capture_output=True,
                 text=True,
             )
+            if completed.returncode:
+                raise AssertionError(completed.stdout + completed.stderr)
         self.assertEqual(completed.stdout.strip(), "bounded")
 
 

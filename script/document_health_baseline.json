@@ -93,8 +93,8 @@
       "bytes": 344941
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 101,
-      "bytes": 30660
+      "lines": 102,
+      "bytes": 31042
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -118,15 +118,15 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 402,
-      "bytes": 97345
+      "bytes": 97747
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
       "bytes": 5848
     },
     "docs/scene/development/development-workflow.md": {
-      "lines": 75,
-      "bytes": 9961
+      "lines": 76,
+      "bytes": 10878
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 282,
@@ -181,8 +181,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 145,
-      "bytes": 34577
+      "lines": 161,
+      "bytes": 41647
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 241,
-      "bytes": 68396
+      "bytes": 69777
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1162,47 +1162,47 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4918147200f308c585b8b258a678c712afcca9f5a181eaab525a9fc4400f2243",
-      "after": "e63ca127cd4df18879a6c936d4089df3a69c954a4d19ef6f54a9fe42bc961a4f",
-      "owner": "Scene Script / compatibility acceptance",
-      "reason": "用户要求通用语义、变体反例、独立真实画面与集中例外；本片记录唯一perspective合同和有界状态，过程证据归历史。",
-      "decision": "docs/scene/history/layer-perspective-2026-10-12.md#通用语义与结果"
+      "before": "e63ca127cd4df18879a6c936d4089df3a69c954a4d19ef6f54a9fe42bc961a4f",
+      "after": "1082729cacf02a3b09c4c849872058878b1479a17a048eccebb4012059005f4b",
+      "owner": "Scene Script / prepared creation geometry",
+      "reason": "补已准备图片创建几何与唯一资源身份合同，登记现存源码形状限制、实际输出及明确未闭合首断点；过程/原始收据归历史，不将新fixture失败隐藏为通过。",
+      "decision": "docs/scene/history/dynamic-layer-geometry-2026-10-12.md#通用语义与边界"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "c2ac0a84f4c385b479aae2a4a1aa47ee0f4b94e6dbcf00e747b9ad4ab650b304",
-      "after": "4ce1bcbb60e61ed446286d056a5634c1bf4ed8cfb6f68124f4fbe08ac8db9775",
-      "owner": "Scene Script / compatibility acceptance",
-      "reason": "用户要求通用语义、变体反例、独立真实画面与集中例外；本片记录唯一perspective合同和有界状态，过程证据归历史。",
-      "decision": "docs/scene/history/layer-perspective-2026-10-12.md#通用语义与结果"
+      "before": "4ce1bcbb60e61ed446286d056a5634c1bf4ed8cfb6f68124f4fbe08ac8db9775",
+      "after": "ea01c0eb09f3571d7cfefced1ed9caa0d235c6fc846a995fd5c6f851b2081964",
+      "owner": "Scene Script / prepared creation geometry",
+      "reason": "补已准备图片创建几何与唯一资源身份合同，登记现存源码形状限制、实际输出及明确未闭合首断点；过程/原始收据归历史，不将新fixture失败隐藏为通过。",
+      "decision": "docs/scene/history/dynamic-layer-geometry-2026-10-12.md#通用语义与边界"
     },
     {
       "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
-      "before": "b4bf387abcdfdb4a341597979b9833f6a234de8f43650347ff4753ae3fb359ea",
-      "after": "dce009c7d88ba923c62f163b43a2477b93487c770c1b996f26f982c9279ea401",
-      "owner": "Scene Script / compatibility acceptance",
-      "reason": "用户要求通用语义、变体反例、独立真实画面与集中例外；本片记录唯一perspective合同和有界状态，过程证据归历史。",
-      "decision": "docs/scene/history/layer-perspective-2026-10-12.md#通用语义与结果"
+      "before": "dce009c7d88ba923c62f163b43a2477b93487c770c1b996f26f982c9279ea401",
+      "after": "49a4f23570e1ce439c8911eb01720a95f43aacead74f4338743b9491706ff1e1",
+      "owner": "Scene Script / prepared creation geometry",
+      "reason": "补已准备图片创建几何与唯一资源身份合同，登记现存源码形状限制、实际输出及明确未闭合首断点；过程/原始收据归历史，不将新fixture失败隐藏为通过。",
+      "decision": "docs/scene/history/dynamic-layer-geometry-2026-10-12.md#通用语义与边界"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "4fc276269e6575228fd415450335eb7323de9482d1bc4517dfc580c71930480c",
-      "after": "ef201db4819e1cc4d62ed78862376c4ff635b5450efae995816c7c75bb41fddb",
-      "owner": "Scene Script / compatibility acceptance",
-      "reason": "用户要求通用语义、变体反例、独立真实画面与集中例外；本片记录唯一perspective合同和有界状态，过程证据归历史。",
-      "decision": "docs/scene/history/layer-perspective-2026-10-12.md#通用语义与结果"
+      "before": "ef201db4819e1cc4d62ed78862376c4ff635b5450efae995816c7c75bb41fddb",
+      "after": "fd60ec9c5a16249aab9b17f06198a484837fcee94497f7c1431aabb593a26a3d",
+      "owner": "Scene Script / prepared creation geometry",
+      "reason": "补已准备图片创建几何与唯一资源身份合同，登记现存源码形状限制、实际输出及明确未闭合首断点；过程/原始收据归历史，不将新fixture失败隐藏为通过。",
+      "decision": "docs/scene/history/dynamic-layer-geometry-2026-10-12.md#通用语义与边界"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b152310d7bf7ff4c441274ee2b06329af7357823b943dc5310844c1161e55844",
-      "after": "dce81e95f4c8590f45f4a1602f5ca9e14a49e4b046091be844157f7931e0ed24",
-      "owner": "Scene Script / compatibility acceptance",
-      "reason": "用户要求通用语义、变体反例、独立真实画面与集中例外；本片记录唯一perspective合同和有界状态，过程证据归历史。",
-      "decision": "docs/scene/history/layer-perspective-2026-10-12.md#通用语义与结果"
+      "before": "dce81e95f4c8590f45f4a1602f5ca9e14a49e4b046091be844157f7931e0ed24",
+      "after": "0592e13ee7fc9f166775438961036da6e35f8232d1e1b5050207dd0478efa108",
+      "owner": "Scene Script / prepared creation geometry",
+      "reason": "补已准备图片创建几何与唯一资源身份合同，登记现存源码形状限制、实际输出及明确未闭合首断点；过程/原始收据归历史，不将新fixture失败隐藏为通过。",
+      "decision": "docs/scene/history/dynamic-layer-geometry-2026-10-12.md#通用语义与边界"
     }
   ]
 }

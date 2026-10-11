@@ -46,6 +46,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     let visible: Bool
     let solid: Bool
     let perspective: Bool?
+    let size: SIMD2<Double>?
     let alpha: Double
     let particleAlpha: Double
     let origin: SIMD3<Double>
@@ -79,7 +80,8 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         effectVisibilities: [Int: Bool] = [:],
         solid: Bool = true,
         particleAlpha: Double = 1,
-        perspective: Bool? = nil
+        perspective: Bool? = nil,
+        size: SIMD2<Double>? = nil
     ) {
         self.kind = kind
         self.isDynamic = isDynamic
@@ -88,6 +90,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         self.orderIndex = orderIndex
         self.solid = solid
         self.perspective = perspective
+        self.size = size
         self.visible = visible
         self.alpha = alpha
         self.particleAlpha = particleAlpha
@@ -109,7 +112,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             layerID: layerID, orderIndex: orderIndex, visible: visible,
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
-            assetPath: assetPath, ownerTarget: target, effectVisibilities: effectVisibilities, solid: solid, particleAlpha: particleAlpha, perspective: perspective
+            assetPath: assetPath, ownerTarget: target, effectVisibilities: effectVisibilities, solid: solid, particleAlpha: particleAlpha, perspective: perspective, size: size
         )
     }
 
@@ -119,7 +122,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             layerID: layerID, orderIndex: orderIndex, visible: visible,
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
-            assetPath: resolved, ownerTarget: ownerTarget, effectVisibilities: effectVisibilities, solid: solid, particleAlpha: particleAlpha, perspective: perspective
+            assetPath: resolved, ownerTarget: ownerTarget, effectVisibilities: effectVisibilities, solid: solid, particleAlpha: particleAlpha, perspective: perspective, size: size
         )
     }
 
@@ -130,7 +133,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
             assetPath: assetPath, ownerTarget: ownerTarget,
-            effectVisibilities: selected.contains(.effectVisibility) ? effectVisibilities : [:], solid: solid, particleAlpha: particleAlpha, perspective: perspective
+            effectVisibilities: selected.contains(.effectVisibility) ? effectVisibilities : [:], solid: solid, particleAlpha: particleAlpha, perspective: perspective, size: size
         )
     }
 

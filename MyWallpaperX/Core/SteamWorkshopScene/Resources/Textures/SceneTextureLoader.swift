@@ -157,6 +157,7 @@ nonisolated final class SceneTextureLoader {
     private var textures: [TextureKey: MTLTexture] = [:]
     private var texResources: [SourceKey: TexResource] = [:]
     private var directImageResources: [SourceKey: DirectImageResource] = [:]
+    private var directImageNaturalSizes: [SourceKey: CGSize] = [:]
     private var texEmbeddedImageResources: [SourceKey: TexEmbeddedImageResource] = [:]
     let uploadCommandQueue: SceneTextureUploadCommandQueue
     let decodeCacheBudget: SceneTextureDecodeCacheBudget
@@ -266,6 +267,7 @@ nonisolated final class SceneTextureLoader {
     func evictDecodedCaches() {
         texResources.removeAll()
         directImageResources.removeAll()
+        directImageNaturalSizes.removeAll()
         texEmbeddedImageResources.removeAll()
         decodeCacheLease.releaseAll()
     }
@@ -305,6 +307,19 @@ nonisolated final class SceneTextureLoader {
         return texResource(from: url, source: source)?.container
     }
 
+    /// Preparation-only metadata from the existing decode owner before upload
+    /// resizing. TEX lookup follows the same bounded parse/cache owner; direct
+    /// image dimensions remain available even if the decode lease was denied.
+    func preparedNaturalImageSize(from url: URL, source: SourceKey) -> CGSize? {
+        guard sourceKey(for: url) == source else { return nil }
+        if url.pathExtension.lowercased() == Self.texExtension {
+            return texContainer(from: url, source: source).map {
+                CGSize(width: $0.imageWidth, height: $0.imageHeight)
+            }
+        }
+        return directImageNaturalSizes[source]
+    }
+
     private func loadDirectImage(
         url: URL,
         source: SourceKey,
@@ -338,6 +353,7 @@ nonisolated final class SceneTextureLoader {
         case let .failed(message):
             return .decodeFailed(message)
         }
+        directImageNaturalSizes[source] = CGSize(width: cgImage.width, height: cgImage.height)
         return SceneImageTextureUploader.upload(
             image: cgImage,
             purpose: purpose,

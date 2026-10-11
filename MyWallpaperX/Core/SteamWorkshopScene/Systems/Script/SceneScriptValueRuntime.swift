@@ -146,6 +146,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             guard layerResult == MWX_SCENE_QUICKJS_OK else {
                 throw Self.failure(layerResult, diagnostic)
             }
+            try SceneScriptLayerMutationBridge.configureDynamicImageAliases(
+                owner: created, paths: dynamicImagePathsByAuthoredIdentity)
             let scopeResult = mwx_scene_quickjs_owner_set_property_object_scope(
                 created,
                 SceneScriptLayerMutationBridge.propertyObjectIsLayer(target) ? 1 : 0,

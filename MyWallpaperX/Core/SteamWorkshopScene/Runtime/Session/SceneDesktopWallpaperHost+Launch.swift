@@ -717,6 +717,18 @@ extension SceneDesktopWallpaperHost {
             resourceView: model.resourceView
         )
         let preparedDeviceResources = try deviceResourcesPreparation.value()
+        let autosizeByModelPath = Dictionary(uniqueKeysWithValues: model.assetCatalog.models.map {
+            ($0.relativePath.lowercased(), $0.autosize ?? false)
+        })
+        let dynamicImageTemplates = Dictionary(uniqueKeysWithValues:
+            preparedDeviceResources.baseImages.dynamicImageResources.compactMap {
+                key, resource -> (String, SceneScriptDynamicImageLayerTemplate)? in
+                let autosize = autosizeByModelPath[key] ?? false
+                guard !autosize || resource.naturalSizeWH != nil else { return nil }
+                return (key, SceneScriptDynamicImageLayerTemplate(modelPath: resource.modelPath,
+                    renderSizeWH: resource.naturalSizeWH ?? resource.renderSizeWH, autosize: autosize))
+            })
+        try propertyVectorScriptProgram.domain?.configureDynamicImageCatalog(dynamicImageTemplates)
         let userTextureDemands = resolvedMaterialCatalog.userPropertyDemands
             .union(baseMaterialProviderBindings.userPropertyDemands)
             .union(runtimeInput.renderDescriptor.texturePropertyKeys.compactMap {
@@ -765,7 +777,7 @@ extension SceneDesktopWallpaperHost {
             sceneScriptScalarProgram: sceneScriptScalarProgram,
             sceneScriptStringProgram: sceneScriptStringProgram,
             sceneScriptOwnerLayerIDs: sceneScriptOwnerLayerIDs,
-            preparedDeviceResources: preparedDeviceResources,
+            dynamicImageTemplates: dynamicImageTemplates,
             timelineProgram: timelineProgram,
             textScriptProgram: textScriptProgram
         )

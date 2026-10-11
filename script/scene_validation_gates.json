@@ -282,11 +282,13 @@
     {
       "id": "scene-script-runtime",
       "patterns": [
+        "script/tests/test_scene_script_create_geometry.py",
         "script/tests/fixtures/SceneInitialLayerConfigurationQuickJSCases.c",
         "script/tests/test_scene_script_initial_layer_configuration.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/**"
       ],
       "modules": [
+        "test_scene_script_create_geometry",
         "test_scene_script_initial_layer_configuration",
         "test_scene_cross_layer_effect_visibility",
         "test_scene_effect_cursor_visibility",
@@ -328,6 +330,33 @@
         "test_scene_quickjs_named_animation",
         "test_scene_script_named_timeline",
         "test_scene_cursor_timer_cadence"
+      ]
+    },
+    {
+      "id": "scene-script-create-geometry",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneDynamicImageTextureProvider.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchFrameSchema.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS*.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS*.h",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerHandleBridge.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerMutation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerTopology*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarRuntime.swift",
+        "script/tests/test_scene_script_create_geometry.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueRuntime.swift"
+      ],
+      "modules": [
+        "test_scene_script_create_geometry",
+        "test_scene_script_dynamic_layer_runtime",
+        "test_scene_prepared_base_image_resources",
+        "test_scene_alpha_display_builder_fixture",
+        "test_scene_layer_source_publication",
+        "test_scene_tex_cache_budget"
       ]
     },
     {
@@ -1321,6 +1350,7 @@
         "script/tests/scene_vector_vm_test_support.py"
       ],
       "modules": [
+        "test_scene_script_create_geometry",
         "test_scene_script_initial_layer_configuration",
         "test_scene_cursor_candidate_collision",
         "test_scene_cursor_capture_continuity",

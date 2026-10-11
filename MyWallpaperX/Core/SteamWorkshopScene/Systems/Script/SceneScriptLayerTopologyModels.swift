@@ -12,9 +12,12 @@ nonisolated struct SceneScriptLayerTopologySnapshot: Sendable {
     let authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue]
 }
 
-nonisolated struct SceneScriptDynamicImageLayerTemplate: Sendable {
+nonisolated struct SceneScriptDynamicImageLayerTemplate: Equatable, Sendable {
     let modelPath: String
     let renderSizeWH: [Float]
+    var autosize: Bool = false
+
+    var defaultRenderSizeWH: [Float] { autosize ? renderSizeWH : [1, 1] }
 }
 
 nonisolated struct SceneScriptLayerMutationOwnerFailure: Sendable {

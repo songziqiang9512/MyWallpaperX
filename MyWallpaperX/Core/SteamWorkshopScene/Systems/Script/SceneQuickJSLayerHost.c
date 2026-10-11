@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 typedef struct MWXSceneQuickJSLayerResourceHandle {
     MWXSceneQuickJSDomain *domain;
@@ -863,9 +864,9 @@ static bool read_vec3(
     return true;
 }
 
-static bool valid_asset_path(const char *path, size_t length) {
+static bool valid_asset_path(const char *path, size_t length, size_t maximum_length) {
     if (path == NULL || length == 0 ||
-        length > MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH ||
+        length > maximum_length ||
         path[0] == '/' || path[0] == '\\' ||
         memchr(path, '\0', length) != NULL ||
         memchr(path, '\\', length) != NULL) return false;
@@ -888,7 +889,7 @@ static JSValue make_asset_handle(
     const char *path,
     size_t length
 ) {
-    if (!valid_asset_path(path, length)) return JS_UNDEFINED;
+    if (!valid_asset_path(path, length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH)) return JS_UNDEFINED;
     MWXSceneQuickJSAssetHandle *handle = calloc(1, sizeof(*handle));
     if (handle == NULL) return JS_EXCEPTION;
     handle->path = malloc(length + 1);
@@ -937,7 +938,7 @@ static JSValue register_asset(
     if (argc == 2 && JS_ToBool(context, argv[1]) < 0) return JS_EXCEPTION;
     size_t length = 0;
     const char *path = JS_ToCStringLen(context, &length, argv[0]);
-    if (!valid_asset_path(path, length)) {
+    if (!valid_asset_path(path, length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH)) {
         if (path != NULL) JS_FreeCString(context, path);
         return JS_ThrowTypeError(context, "registerAsset path is invalid");
     }
@@ -1128,7 +1129,7 @@ static JSValue layer_get(
             ) : record->current_origin
         );
     case LAYER_SIZE:
-        return record->dynamic
+        return record->dynamic && !record->size_available
             ? JS_UNDEFINED
             : make_vec2(context, handle->domain, record->size);
     case LAYER_SCALE:
@@ -1528,7 +1529,7 @@ static JSValue layer_set(
             );
         const char *value = registered_asset_path(handle->domain, argv[0]);
         const size_t length = value == NULL ? 0 : strlen(value);
-        if (!valid_asset_path(value, length) ||
+        if (!valid_asset_path(value, length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH) ||
             length > MWX_SCENE_QUICKJS_MAX_LAYER_FONT)
             return JS_ThrowTypeError(
                 context, "layer font expects a registered asset handle"
@@ -2772,7 +2773,7 @@ static bool read_optional_font(
     }
     const char *path = registered_asset_path(domain, value);
     const size_t length = path == NULL ? 0 : strlen(path);
-    if (!valid_asset_path(path, length) ||
+    if (!valid_asset_path(path, length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH) ||
         length > MWX_SCENE_QUICKJS_MAX_LAYER_FONT) {
         JS_FreeValue(context, value);
         return false;
@@ -2821,7 +2822,8 @@ static bool read_optional_vec3(
             memcpy(output, fallback, sizeof(double) * 3);
         return true;
     }
-    const bool valid = JS_IsObject(value) && read_vec3(context, value, output, NULL);
+    const bool valid = (JS_IsObject(value) || JS_IsString(value)) &&
+        mwx_scene_quickjs_read_vector(context, value, output, 3, false);
     JS_FreeValue(context, value);
     return valid;
 }
@@ -2887,6 +2889,47 @@ static bool read_optional_asset_path(
     return *output != NULL;
 }
 
+static bool read_optional_size(JSContext *context, MWXSceneQuickJSDomain *domain,
+                               JSValueConst object, double output[2], bool *available) {
+    JSValue value = JS_GetPropertyStr(context, object, "size");
+    bool valid = !JS_IsException(value);
+    int instance = valid && JS_IsObject(value)
+        ? JS_IsInstanceOf(context, value, domain->vec2_constructor) : 0;
+    if (instance < 0) valid = false;
+    if (valid && JS_IsObject(value) && instance == 0) {
+        JSAtom script = JS_NewAtom(context, "script"), user = JS_NewAtom(context, "user");
+        valid = script != JS_ATOM_NULL && user != JS_ATOM_NULL &&
+            JS_HasProperty(context, value, script) == 0 &&
+            JS_HasProperty(context, value, user) == 0;
+        JS_FreeAtom(context, script); JS_FreeAtom(context, user);
+        if (valid) {
+            JSValue wrapped = JS_GetPropertyStr(context, value, "value");
+            JS_FreeValue(context, value);
+            value = wrapped;
+            valid = !JS_IsException(value);
+            instance = valid && JS_IsObject(value)
+                ? JS_IsInstanceOf(context, value, domain->vec2_constructor) : 0;
+            if (instance < 0) valid = false;
+        }
+    }
+    *available = valid && (JS_IsString(value) || JS_IsNumber(value) ||
+        (JS_IsObject(value) && instance == 1));
+    if (*available)
+        valid = mwx_scene_quickjs_read_vector(context, value, output, 2, JS_IsNumber(value));
+    JS_FreeValue(context, value);
+    return valid;
+}
+
+static bool read_optional_perspective(JSContext *context, JSValueConst object,
+                                      uint32_t *output) {
+    JSValue value = JS_GetPropertyStr(context, object, "perspective");
+    bool valid = !JS_IsException(value);
+    if (!JS_IsUndefined(value))
+        *output = JS_IsBool(value) && JS_ToBool(context, value) != 0;
+    JS_FreeValue(context, value);
+    return valid;
+}
+
 static JSValue create_layer(
     JSContext *context, JSValueConst this_value, int argc,
     JSValueConst *argv, int magic, void *opaque
@@ -2918,7 +2961,11 @@ static JSValue create_layer(
     double point_size = 32, alpha = 1;
     double origin[3] = {0, 0, 0};
     double scale[3] = {1, 1, 1};
+    double angles[3] = {0, 0, 0};
     double color[3] = {1, 1, 1};
+    double size[2] = {0, 0};
+    bool size_available = false;
+    uint32_t perspective = 2;
     bool visible = true;
     bool solid = true;
     const char *registered_asset = registered_asset_path(domain, argv[0]);
@@ -2930,7 +2977,7 @@ static JSValue create_layer(
         } else {
             path = JS_ToCStringLen(context, &length, argv[0]);
         }
-        if (!valid_asset_path(path, length)) {
+        if (!valid_asset_path(path, length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH)) {
             if (registered_asset == NULL && path != NULL)
                 JS_FreeCString(context, path);
             return JS_ThrowTypeError(context, "dynamic layer asset path is invalid");
@@ -2952,11 +2999,19 @@ static JSValue create_layer(
             !read_optional_asset_path(context, argv[0], &asset_path) ||
             !read_optional_vec3(context, argv[0], "origin", origin, origin) ||
             !read_optional_vec3(context, argv[0], "scale", scale, scale) ||
+            !read_optional_vec3(context, argv[0], "angles", angles, angles) ||
             !read_optional_color(context, argv[0], color, color) ||
             !read_optional_bool(context, argv[0], "visible", true, &visible) ||
-            !read_optional_bool(context, argv[0], "solid", true, &solid)) {
+            !read_optional_bool(context, argv[0], "solid", true, &solid) ||
+            !read_optional_perspective(context, argv[0], &perspective)) {
             free(text); free(font); free(name); free(asset_path);
+            if (JS_HasException(context)) return JS_EXCEPTION;
             return JS_ThrowTypeError(context, "dynamic layer configuration field is invalid");
+        }
+        if (asset_path[0] != '\0' &&
+            !read_optional_size(context, domain, argv[0], size, &size_available)) {
+            free(text); free(font); free(name); free(asset_path);
+            return JS_HasException(context) ? JS_EXCEPTION : JS_NULL;
         }
         point_size = optional_number(context, argv[0], "pointsize", 32);
         alpha = optional_number(context, argv[0], "alpha", 1);
@@ -2966,6 +3021,72 @@ static JSValue create_layer(
             color[2] < 0 || color[2] > 1) {
             free(text); free(font); free(name); free(asset_path);
             return JS_ThrowRangeError(context, "dynamic layer configuration is invalid");
+        }
+    }
+    if (asset_path[0] != '\0') {
+        // The prepared owner resolves namespaces; the original host identity
+        // rule supplies comparison keys. Keep canonical spelling in the record.
+        char *identity = domain->asset_path_normalizer == NULL ? NULL :
+            domain->asset_path_normalizer(asset_path, strlen(asset_path));
+        if (domain->asset_path_normalizer != NULL && identity == NULL) {
+            free(text); free(font); free(name); free(asset_path);
+            return JS_ThrowOutOfMemory(context);
+        }
+        for (uint32_t index = 0; index < owner->dynamic_image_alias_count; ++index) {
+            const MWXSceneQuickJSDynamicImageAliasRecord *alias = &owner->dynamic_image_aliases[index];
+            if (strcmp(alias->authored_path, identity) != 0) continue;
+            char *resolved = strdup(alias->model_path);
+            if (resolved == NULL) {
+                free(identity); free(text); free(font); free(name); free(asset_path);
+                return JS_ThrowOutOfMemory(context);
+            }
+            free(asset_path); asset_path = resolved;
+            free(identity);
+            identity = domain->asset_path_normalizer(asset_path, strlen(asset_path));
+            if (identity == NULL) {
+                free(text); free(font); free(name); free(asset_path);
+                return JS_ThrowOutOfMemory(context);
+            }
+            break;
+        }
+        const MWXSceneQuickJSDynamicImageRecord *resource = NULL;
+        for (uint32_t index = 0; index < domain->dynamic_image_resource_count; ++index)
+            if (strcmp(domain->dynamic_image_resources[index].identity_key, identity) == 0) {
+                resource = &domain->dynamic_image_resources[index]; break;
+            }
+        free(identity);
+        if (domain->dynamic_image_catalog_configured && resource == NULL) {
+            free(text); free(font); free(name); free(asset_path);
+            return JS_NULL;
+        }
+        if (resource != NULL && strcmp(asset_path, resource->model_path) != 0) {
+            char *canonical = strdup(resource->model_path);
+            if (canonical == NULL) {
+                free(text); free(font); free(name); free(asset_path);
+                return JS_ThrowOutOfMemory(context);
+            }
+            free(asset_path); asset_path = canonical;
+        }
+        if (resource != NULL && resource->autosize) {
+            memcpy(size, resource->natural_size, sizeof(size));
+        } else if (!size_available) {
+            size[0] = size[1] = 1;
+        }
+        // Logical signed/degenerate geometry is legal publicly but the current
+        // publication/capture/cursor lane cannot consume it. Reject this create
+        // before journaling so healthy peers keep their transaction.
+        if (!(size[0] > 0 && size[1] > 0 && size[0] <= FLT_MAX && size[1] <= FLT_MAX &&
+              (float)size[0] > 0 && (float)size[1] > 0)) {
+            free(text); free(font); free(name); free(asset_path);
+            return JS_NULL;
+        }
+        size_available = true;
+    }
+    for (uint32_t component = 0; component < 3; ++component) {
+        angles[component] *= 180.0 / 3.14159265358979323846;
+        if (!isfinite(angles[component])) {
+            free(text); free(font); free(name); free(asset_path);
+            return JS_NULL;
         }
     }
     int64_t identity = -1;
@@ -3003,10 +3124,12 @@ static JSValue create_layer(
         .asset_path = asset_path,
         .current_origin = {origin[0], origin[1], origin[2]},
         .scale = {scale[0], scale[1], scale[2]},
+        .angles = {angles[0], angles[1], angles[2]},
         .color = {color[0], color[1], color[2]},
+        .size = {size[0], size[1]}, .size_available = size_available,
         .alpha = alpha, .point_size = point_size,
         .order_index = insertion_order, .owner_identity = owner->identity,
-        .visible = visible, .solid = solid, .perspective = 2, .dynamic = true, .configured = true,
+        .visible = visible, .solid = solid, .perspective = perspective, .dynamic = true, .configured = true,
     };
     if (!mark_dirty(owner, record)) {
         free(record->name);
@@ -3629,6 +3752,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
             .order_index = record->order_index, .visible = record->visible, .solid = record->solid,
             .perspective = record->perspective,
             .alpha = record->alpha, .point_size = record->point_size,
+            .size_available = record->size_available,
             .text = record->text == NULL ? "" : record->text,
             .font = record->font == NULL ? "" : record->font,
             .asset_path = record->asset_path == NULL ? "" : record->asset_path,
@@ -3637,9 +3761,111 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
         memcpy(mutation->scale, record->scale, sizeof(mutation->scale));
         memcpy(mutation->angles, record->angles, sizeof(mutation->angles));
         memcpy(mutation->color, record->color, sizeof(mutation->color));
+        memcpy(mutation->size, record->size, sizeof(mutation->size));
         return MWX_SCENE_QUICKJS_OK;
     }
     return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_asset_path_normalizer(
+    MWXSceneQuickJSDomain *domain, MWXSceneQuickJSAssetPathNormalizer normalizer
+) {
+    if (domain == NULL || domain->context == NULL || normalizer == NULL ||
+        domain->asset_path_normalizer != NULL || domain->next_owner_identity != 0 ||
+        domain->callback_epoch != 0 || domain->callback_active ||
+        domain->frame_input_active || domain->dynamic_image_catalog_configured)
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    domain->asset_path_normalizer = normalizer;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_dynamic_image_alias(
+    MWXSceneQuickJSOwner *owner,
+    const char *authored_path, size_t authored_path_length,
+    const char *model_path, size_t model_path_length,
+    char *diagnostic, size_t diagnostic_capacity
+) {
+    if (owner == NULL || owner->domain == NULL || owner->initialized ||
+        owner->initialization_pending || owner->domain->callback_active ||
+        owner->domain->asset_path_normalizer == NULL ||
+        owner->dynamic_image_alias_count >= MWX_SCENE_QUICKJS_MAX_LAYERS ||
+        // Internal keys may expand in UTF-8 when the original host lowercases.
+        !valid_asset_path(authored_path, authored_path_length, SIZE_MAX - 1) ||
+        !valid_asset_path(model_path, model_path_length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH))
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    char *authored = owner->domain->asset_path_normalizer(authored_path, authored_path_length);
+    if (authored == NULL) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    for (uint32_t i = 0; i < owner->dynamic_image_alias_count; ++i)
+        if (strcmp(owner->dynamic_image_aliases[i].authored_path, authored) == 0) {
+            free(authored);
+            return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+        }
+    char *model = malloc(model_path_length + 1);
+    if (model == NULL) {
+        free(authored);
+        return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    }
+    memcpy(model, model_path, model_path_length); model[model_path_length] = '\0';
+    MWXSceneQuickJSDynamicImageAliasRecord *aliases = realloc(owner->dynamic_image_aliases,
+        (owner->dynamic_image_alias_count + 1) * sizeof(*aliases));
+    if (aliases == NULL) {
+        free(authored); free(model);
+        mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "dynamic image alias allocation failed");
+        return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    }
+    owner->dynamic_image_aliases = aliases;
+    aliases[owner->dynamic_image_alias_count++] = (MWXSceneQuickJSDynamicImageAliasRecord){authored, model};
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_dynamic_image_catalog(
+    MWXSceneQuickJSDomain *domain, uint32_t count,
+    const MWXSceneQuickJSDynamicImageDescriptor *descriptors,
+    char *diagnostic, size_t diagnostic_capacity
+) {
+    if (domain == NULL || domain->context == NULL || domain->callback_epoch != 0 ||
+        domain->callback_active || domain->frame_input_active ||
+        domain->dynamic_image_catalog_configured || domain->asset_path_normalizer == NULL ||
+        count > MWX_SCENE_QUICKJS_MAX_LAYERS ||
+        (count != 0 && descriptors == NULL))
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    MWXSceneQuickJSDynamicImageRecord *records = count == 0 ? NULL : calloc(count, sizeof(*records));
+    if (count != 0 && records == NULL) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    MWXSceneQuickJSResult result = MWX_SCENE_QUICKJS_OK;
+    for (uint32_t index = 0; index < count; ++index) {
+        const MWXSceneQuickJSDynamicImageDescriptor *input = &descriptors[index];
+        if (!valid_asset_path(input->model_path, input->model_path_length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH) || input->autosize > 1 ||
+            !(input->natural_size[0] > 0 && input->natural_size[1] > 0 &&
+              input->natural_size[0] <= FLT_MAX && input->natural_size[1] <= FLT_MAX)) {
+            result = MWX_SCENE_QUICKJS_INVALID_ARGUMENT; break;
+        }
+        records[index].identity_key = domain->asset_path_normalizer(input->model_path, input->model_path_length);
+        if (records[index].identity_key == NULL) { result = MWX_SCENE_QUICKJS_MEMORY_EXCEEDED; break; }
+        for (uint32_t previous = 0; previous < index; ++previous)
+            if (strcmp(records[previous].identity_key, records[index].identity_key) == 0)
+                result = MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+        if (result != MWX_SCENE_QUICKJS_OK) break;
+        records[index].model_path = malloc(input->model_path_length + 1);
+        if (records[index].model_path == NULL) { result = MWX_SCENE_QUICKJS_MEMORY_EXCEEDED; break; }
+        memcpy(records[index].model_path, input->model_path, input->model_path_length);
+        records[index].model_path[input->model_path_length] = '\0';
+        memcpy(records[index].natural_size, input->natural_size, sizeof(input->natural_size));
+        records[index].autosize = input->autosize != 0;
+    }
+    if (result != MWX_SCENE_QUICKJS_OK) {
+        for (uint32_t index = 0; index < count; ++index) {
+            free(records[index].model_path);
+            free(records[index].identity_key);
+        }
+        free(records);
+        mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity,
+                                          "invalid prepared dynamic image catalog");
+        return result;
+    }
+    domain->dynamic_image_resources = records;
+    domain->dynamic_image_resource_count = count;
+    domain->dynamic_image_catalog_configured = true;
+    return MWX_SCENE_QUICKJS_OK;
 }
 
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_layer_catalog(
@@ -4071,7 +4297,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         text_copy[text_length] = '\0';
     }
     if ((fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT) != 0) {
-        if (!valid_asset_path(font, font_length)) {
+        if (!valid_asset_path(font, font_length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH)) {
             free(text_copy);
             return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
         }

@@ -106,6 +106,11 @@ final class SceneTextureLoader {
     func texContainer(from url: URL, source: SourceKey) -> String? {
         url.lastPathComponent == "animated.tex" ? "animation" : nil
     }
+    func preparedNaturalImageSize(from url: URL, source: SourceKey) -> CGSize? {
+        // Controlled source metadata deliberately differs from the uploaded 2x1 texture.
+        guard source == sourceKey(for: url), textures[url.path] != nil else { return nil }
+        return CGSize(width: 20, height: 10)
+    }
     func controlledLoad(url: URL, device: MTLDevice) -> SceneBaseImageTextureLoad.Outcome {
         loadCount += 1
         let name = url.lastPathComponent
@@ -274,7 +279,8 @@ enum Checks {
                 "sameCandidate": resource != nil && first != nil && sameCandidate,
                 "sameCanonicalTexture": resource != nil && second != nil && resource!.loaded.texture === second!.texture,
                 "differentOverrideTexture": resource != nil && first != nil && resource!.loaded.texture !== first!.texture,
-                "size": resource?.renderSizeWH ?? [], "hasOutcome": first != nil,
+                "size": resource?.renderSizeWH ?? [],
+                "naturalSize": resource?.naturalSizeWH ?? [], "hasOutcome": first != nil,
                 "evicted": prepared.textureLoader.evictionCount,
                 "pending": layers.first.map { prepared.deferredStatus(for: $0.id) == .pending } ?? false,
                 "dynamicLoadOrdinal": resource?.loaded.loadOrdinal ?? 0,

@@ -149,6 +149,8 @@ typedef struct MWXSceneQuickJSLayerMutation {
     uint32_t visible;
     uint32_t solid;
     uint32_t perspective; /* dynamic: 2 retains the inherited camera policy */
+    uint32_t size_available; /* dynamic image creation geometry, read-only */
+    double size[2];
     double alpha;
     double particle_alpha;
     double origin[3];
@@ -394,6 +396,39 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_layer_catalog(
     uint32_t defaults_to_perspective,
     char *diagnostic,
     size_t diagnostic_capacity
+);
+
+/* The host's existing identity rule. Installed once before any owner/catalog.
+ * Returns an independently malloc-allocated UTF-8 key; C owns and frees it.
+ * This pure function has no opaque state and must not call author JavaScript. */
+typedef char *(*MWXSceneQuickJSAssetPathNormalizer)(const char *path, size_t length);
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_asset_path_normalizer(
+    MWXSceneQuickJSDomain *domain, MWXSceneQuickJSAssetPathNormalizer normalizer
+);
+
+typedef struct MWXSceneQuickJSDynamicImageDescriptor {
+    const char *model_path;
+    size_t model_path_length;
+    double natural_size[2];
+    uint32_t autosize;
+} MWXSceneQuickJSDynamicImageDescriptor;
+
+/* Launch-prepared metadata only. The domain copies these values before the
+ * first callback; this catalog never loads or selects resources. */
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_dynamic_image_catalog(
+    MWXSceneQuickJSDomain *domain, uint32_t count,
+    const MWXSceneQuickJSDynamicImageDescriptor *descriptors,
+    char *diagnostic, size_t diagnostic_capacity
+);
+
+/* Prepared authored identity mapping, local to one owner. No namespace parsing.
+ * The trusted host key may expand in UTF-8 during its identity conversion;
+ * canonical model paths retain the original authored-path validation bound. */
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_dynamic_image_alias(
+    MWXSceneQuickJSOwner *owner,
+    const char *authored_path, size_t authored_path_length,
+    const char *model_path, size_t model_path_length,
+    char *diagnostic, size_t diagnostic_capacity
 );
 
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_descriptor(

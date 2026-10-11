@@ -13,6 +13,16 @@ private nonisolated func sceneScriptQuickJSCancellationCheck(
         .fromOpaque(opaque).takeUnretainedValue()
     do { try box.check(); return 0 } catch { return 1 }
 }
+private nonisolated func sceneScriptQuickJSAssetPathIdentity(
+    _ path: UnsafePointer<CChar>?, _ length: Int
+) -> UnsafeMutablePointer<CChar>? {
+    guard let path, length > 0 else { return nil }
+    let bytes = UnsafeRawPointer(path).assumingMemoryBound(to: UInt8.self)
+    // Encode Swift String equality as a stable byte key at the original ABI.
+    let identity = String(decoding: UnsafeBufferPointer(start: bytes, count: length),
+                          as: UTF8.self).lowercased().precomposedStringWithCanonicalMapping
+    return identity.withCString { strdup($0) }
+}
 nonisolated struct SceneScriptScalarBudget: Equatable, Sendable {
     let heapBytes: Int
     let stackBytes: Int
@@ -70,6 +80,7 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
 
     var namedAnimationTargets: [SceneDynamicTarget]?
     var layerCatalogSignature: String?
+    var dynamicImageCatalog: [String: SceneScriptDynamicImageLayerTemplate]?
     var layerSnapshotGeneration: UInt64 = 0
     var layerWorldTransformProjection:
         SceneScriptLayerWorldTransformProjection?
@@ -86,6 +97,14 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
         ) else {
             throw SceneScriptScalarRuntimeFailure.invalidArgument(
                 Self.diagnostic(diagnostic)
+            )
+        }
+        guard mwx_scene_quickjs_domain_set_asset_path_normalizer(
+            handle, sceneScriptQuickJSAssetPathIdentity
+        ) == MWX_SCENE_QUICKJS_OK else {
+            mwx_scene_quickjs_domain_destroy(handle)
+            throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                "SceneScript asset identity normalization unavailable"
             )
         }
         self.handle = handle

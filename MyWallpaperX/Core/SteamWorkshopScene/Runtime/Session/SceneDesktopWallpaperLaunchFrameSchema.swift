@@ -118,7 +118,7 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
         sceneScriptScalarProgram: SceneScriptScalarProgram,
         sceneScriptStringProgram: SceneScriptStringProgram,
         sceneScriptOwnerLayerIDs: Set<Int>,
-        preparedDeviceResources: ScenePreparedDeviceResources,
+        dynamicImageTemplates: [String: SceneScriptDynamicImageLayerTemplate],
         timelineProgram: SceneTimelineProgram,
         textScriptProgram: SceneTextScriptProgram
     ) {
@@ -141,15 +141,7 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
         let dynamicLayerRuntime = SceneScriptDynamicLayerRuntime(
             descriptor: runtimeInput.renderDescriptor,
             authoredMutationLayerIDs: sceneScriptOwnerLayerIDs,
-            dynamicImageTemplates: Dictionary(
-                uniqueKeysWithValues: preparedDeviceResources.baseImages
-                    .dynamicImageResources.map { key, resource in
-                        (key, SceneScriptDynamicImageLayerTemplate(
-                            modelPath: resource.modelPath,
-                            renderSizeWH: resource.renderSizeWH
-                        ))
-                    }
-            )
+            dynamicImageTemplates: dynamicImageTemplates
         )
         self.dynamicLayerRuntime = dynamicLayerRuntime
         self.launchDefinitions = SceneDynamicDefinitionMerger.merge(

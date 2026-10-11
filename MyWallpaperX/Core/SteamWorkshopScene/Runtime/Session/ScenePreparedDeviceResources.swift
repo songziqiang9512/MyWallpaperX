@@ -4,6 +4,9 @@ import Metal
 struct ScenePreparedDynamicImageResource {
     let modelPath: String
     let loaded: SceneBaseImageTextureLoad.Loaded
+    /// Source image extent retained before texture normalization/downscaling.
+    /// The same decode owner supplies TEX and direct-image native metadata.
+    var naturalSizeWH: [Float]? = nil
 
     var renderSizeWH: [Float] {
         [Float(loaded.texture.width), Float(loaded.texture.height)]
@@ -185,7 +188,9 @@ final class ScenePreparedBaseImageResources {
             ) {
             case let .loaded(loaded):
                 dynamicImageResources[modelPath.lowercased()] = .init(
-                    modelPath: modelPath, loaded: loaded
+                    modelPath: modelPath, loaded: loaded,
+                    naturalSizeWH: textureLoader.preparedNaturalImageSize(from: url, source: source)
+                        .map { [Float($0.width), Float($0.height)] }
                 )
                 loadedCount += 1
             case .failed:
@@ -243,7 +248,9 @@ final class ScenePreparedBaseImageResources {
                   let candidate = loaded.candidate,
                   candidate.texture === loaded.texture else { continue }
             dynamicImageResources[modelPath.lowercased()] = .init(
-                modelPath: modelPath, loaded: loaded
+                modelPath: modelPath, loaded: loaded,
+                naturalSizeWH: textureLoader.preparedNaturalImageSize(from: modelURL, source: entry.source)
+                    .map { [Float($0.width), Float($0.height)] }
             )
         }
         // Every launch texture is GPU-published past this point: drop the

@@ -94,6 +94,7 @@ typedef struct MWXSceneQuickJSLayerRecord {
     double authored_origin[3];
     double current_origin[3];
     double size[2];
+    bool size_available;
     double world_transform[16];
     double scale[3];
     double angles[3];
@@ -135,6 +136,13 @@ typedef struct MWXSceneQuickJSLayerRecord {
     double texture_animation_shared_rate;
     double texture_animation_shared_current_frame;
 } MWXSceneQuickJSLayerRecord;
+
+typedef struct MWXSceneQuickJSDynamicImageRecord {
+    char *model_path;
+    char *identity_key;
+    double natural_size[2];
+    bool autosize;
+} MWXSceneQuickJSDynamicImageRecord;
 
 typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     char *text;
@@ -305,6 +313,10 @@ struct MWXSceneQuickJSDomain {
     MWXSceneQuickJSLayerRecord *layers;
     uint32_t layer_count;
     uint32_t authored_layer_count;
+    MWXSceneQuickJSAssetPathNormalizer asset_path_normalizer;
+    MWXSceneQuickJSDynamicImageRecord *dynamic_image_resources;
+    uint32_t dynamic_image_resource_count;
+    bool dynamic_image_catalog_configured;
     bool defaults_to_perspective;
     MWXSceneQuickJSNamedAnimationRecord *named_animations;
     size_t named_animation_count;
@@ -352,6 +364,11 @@ struct MWXSceneQuickJSDomain {
     char *storage_screen_identity;
 };
 
+typedef struct MWXSceneQuickJSDynamicImageAliasRecord {
+    char *authored_path;
+    char *model_path;
+} MWXSceneQuickJSDynamicImageAliasRecord;
+
 struct MWXSceneQuickJSOwner {
     MWXSceneQuickJSDomain *domain;
     JSValue module;
@@ -363,6 +380,8 @@ struct MWXSceneQuickJSOwner {
     bool disabled;
     bool value_only;
     bool effectful_boolean;
+    MWXSceneQuickJSDynamicImageAliasRecord *dynamic_image_aliases;
+    uint32_t dynamic_image_alias_count;
     /// Set when the property this owner drives belongs to the layer itself
     /// (layer/text fields) instead of an effect, particle or material
     /// component. `thisObject` then binds to the layer's own object so its
@@ -638,6 +657,7 @@ bool mwx_scene_quickjs_assign_script_properties(
     size_t length
 );
 
+bool mwx_scene_quickjs_read_vector(JSContext *, JSValueConst, double *, uint32_t, bool);
 MWXSceneQuickJSLayerRecord *mwx_scene_quickjs_layer_record_for_handle(MWXSceneQuickJSLayerAccessHandle *);
 bool mwx_scene_quickjs_define_particle_instance(MWXSceneQuickJSOwner *, JSValue,
     uint32_t, bool owner_target, bool persistent);

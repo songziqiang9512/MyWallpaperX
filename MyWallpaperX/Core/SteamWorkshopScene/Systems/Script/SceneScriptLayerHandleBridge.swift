@@ -275,6 +275,26 @@ nonisolated enum SceneScriptTextureAnimationCommandBridge {
 }
 
 nonisolated enum SceneScriptLayerMutationBridge {
+    static func configureDynamicImageAliases(
+        owner: OpaquePointer, paths: [String: String]
+    ) throws {
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        for (authored, model) in paths.sorted(by: { $0.key < $1.key }) {
+            let result = authored.withCString { authoredPath in
+                model.withCString { modelPath in
+                    mwx_scene_quickjs_owner_add_dynamic_image_alias(owner,
+                        authoredPath, authored.utf8.count, modelPath, model.utf8.count,
+                        &diagnostic, diagnostic.count)
+                }
+            }
+            guard result == MWX_SCENE_QUICKJS_OK else {
+                throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                    String(cString: diagnostic).isEmpty
+                        ? "invalid prepared dynamic image alias" : String(cString: diagnostic))
+            }
+        }
+    }
+
     // These limits mirror the lossless C DTO/QuickJS contracts. Keep the
     // validation at this ABI boundary so malformed native data cannot become
     // a permissive Swift mutation and then reach the shared frame plan.
@@ -386,6 +406,12 @@ nonisolated enum SceneScriptLayerMutationBridge {
             guard result == MWX_SCENE_QUICKJS_OK,
                   raw.dynamic <= 1,
                   raw.visible <= 1, raw.solid <= 1, raw.perspective <= 2,
+                  raw.size_available <= 1,
+                  raw.size_available == 0 || (raw.dynamic == 1 &&
+                    raw.size.0.isFinite && raw.size.1.isFinite &&
+                    raw.size.0 > 0 && raw.size.1 > 0 &&
+                    raw.size.0 <= Double(Float.greatestFiniteMagnitude) &&
+                    raw.size.1 <= Double(Float.greatestFiniteMagnitude)),
                   raw.layer_id >= -maximumLayerIdentity,
                   raw.layer_id <= maximumLayerIdentity,
                   raw.order_index >= 0,
@@ -484,7 +510,8 @@ nonisolated enum SceneScriptLayerMutationBridge {
                 assetPath: assetPath.nilIfEmpty,
                 ownerTarget: ownerTarget, effectVisibilities: effectVisibilities, solid: raw.solid != 0,
                 particleAlpha: raw.particle_alpha,
-                perspective: raw.perspective == 2 ? nil : raw.perspective != 0
+                perspective: raw.perspective == 2 ? nil : raw.perspective != 0,
+                size: raw.size_available == 0 ? nil : .init(raw.size.0, raw.size.1)
             ))
         }
         return .success(output)
@@ -531,6 +558,46 @@ nonisolated extension SceneScriptQuickJSDomain {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         return String(decoding: try encoder.encode(configuration), as: UTF8.self)
+    }
+
+    func configureDynamicImageCatalog(
+        _ templates: [String: SceneScriptDynamicImageLayerTemplate]
+    ) throws {
+        if let configured = dynamicImageCatalog {
+            guard configured == templates else {
+                throw SceneScriptScalarRuntimeFailure.invalidArgument("dynamic image catalog identity changed")
+            }
+            return
+        }
+        guard templates.count <= 4096,
+              templates.allSatisfy({ key, value in
+                  key == value.modelPath.lowercased() && value.renderSizeWH.count == 2 &&
+                    value.renderSizeWH.allSatisfy { $0.isFinite && $0 > 0 }
+              }) else {
+            throw SceneScriptScalarRuntimeFailure.invalidArgument("invalid dynamic image catalog")
+        }
+        let entries = templates.sorted { $0.key < $1.key }
+        let paths = entries.map { $0.value.modelPath.withCString { strdup($0) } }
+        defer { paths.forEach { free($0) } }
+        guard paths.allSatisfy({ $0 != nil }) else {
+            throw SceneScriptScalarRuntimeFailure.memoryExceeded("dynamic image catalog paths")
+        }
+        let descriptors = entries.enumerated().map { index, entry in
+            MWXSceneQuickJSDynamicImageDescriptor(
+                model_path: UnsafePointer(paths[index]!),
+                model_path_length: entry.value.modelPath.utf8.count,
+                natural_size: (Double(entry.value.renderSizeWH[0]), Double(entry.value.renderSizeWH[1])),
+                autosize: entry.value.autosize ? 1 : 0)
+        }
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let result = descriptors.withUnsafeBufferPointer { buffer in
+            mwx_scene_quickjs_domain_configure_dynamic_image_catalog(
+                handle, UInt32(buffer.count), buffer.baseAddress, &diagnostic, diagnostic.count)
+        }
+        guard result == MWX_SCENE_QUICKJS_OK else {
+            throw layerSnapshotFailure(result, diagnostic: diagnostic)
+        }
+        dynamicImageCatalog = templates
     }
 
     func configureLayerCatalog(_ descriptor: SceneRenderDescriptor) throws {

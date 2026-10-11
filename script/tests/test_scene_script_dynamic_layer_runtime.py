@@ -108,6 +108,7 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         let text: String?
         let textStyle: TextStyle?
         let imagePath: String?
+        var sizeWH: [Float]? = nil
         var colorRGB: [Float]?
         var childLayerIDs: [Int] = []
         var particleInstanceOverride: SceneParticleInstanceOverride? = nil

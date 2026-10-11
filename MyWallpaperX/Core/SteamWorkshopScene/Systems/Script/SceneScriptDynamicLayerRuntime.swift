@@ -336,6 +336,12 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                   mutation.font.utf8.count <= 1_024 else {
                 return .failure(.invalidArgument("invalid dynamic layer mutation"))
             }
+            if let size = mutation.size {
+                guard mutation.assetPath != nil, size.x > 0, size.y > 0,
+                      Float(size.x).isFinite, Float(size.y).isFinite else {
+                    return .failure(.invalidArgument("invalid dynamic image dimensions"))
+                }
+            }
             guard !authoredLayerIDs.contains(mutation.layerID) else {
                 return .failure(.invalidArgument("dynamic layer identity collides with authored layer"))
             }
@@ -787,7 +793,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
 
     /// Dynamic upserts carry their complete frame value record, but that does
     /// not make them a new graph topology. Only identity/order or the
-    /// structural resource lane invalidates the renderer's prepared
+    /// structural resource lane or immutable creation size invalidates the renderer's prepared
     /// descriptor projection. Position, scale, angles, visibility, alpha,
     /// color, text and font are applied to the cached projection per frame.
     private static func dynamicTopologyChanged(
@@ -806,7 +812,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                   let candidate = candidateLayers[layerID],
                   current.id == candidate.id,
                   current.contentKind == candidate.contentKind,
-                  current.imagePath == candidate.imagePath else {
+                  current.imagePath == candidate.imagePath,
+                  current.sizeWH == candidate.sizeWH else {
                 return true
             }
         }

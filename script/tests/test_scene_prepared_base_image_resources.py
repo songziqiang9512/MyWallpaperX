@@ -57,6 +57,7 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         self.assertTrue(case["sameTexture"])
         self.assertTrue(case["sameCandidate"])
         self.assertEqual(case["size"], [2, 1])
+        self.assertEqual(case["naturalSize"], [20, 10])
 
     def test_layer_override_cannot_publish_as_the_model_default(self) -> None:
         case = self.facts["overrideWithCanonicalPeer"]
@@ -64,6 +65,7 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         self.assertEqual(case["dynamicCount"], 1)
         self.assertTrue(case["sameCanonicalTexture"])
         self.assertTrue(case["differentOverrideTexture"])
+        self.assertEqual(case["naturalSize"], [20, 10])
         for name in ("overrideOnly", "missingCanonical"):
             with self.subTest(name=name):
                 self.assertEqual(self.facts[name]["loads"], 1)
@@ -94,8 +96,10 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         self.assertEqual(case["dynamicCount"], 1)
         self.assertEqual(case["dynamicLoadOrdinal"], 2)
         self.assertEqual(case["entryLoadOrdinal"], 1)
+        self.assertEqual(case["naturalSize"], [20, 10])
         self.assertEqual(self.facts["explicitOnly"]["loads"], 1)
         self.assertEqual(self.facts["explicitOnly"]["dynamicCount"], 1)
+        self.assertEqual(self.facts["explicitOnly"]["naturalSize"], [20, 10])
 
     def test_plain_texture_success_cannot_admit_unknown_material_semantics(self) -> None:
         for name in ("customShader", "multiplePasses", "duplicateModelLinks", "secondSlot",

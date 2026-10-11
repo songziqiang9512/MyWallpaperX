@@ -64,6 +64,9 @@ nonisolated extension SceneRenderDescriptor.Layer {
         let color = [mutation.color.x, mutation.color.y, mutation.color.z].map {
             Float(max(0, min($0, 1)))
         }
+        let size = mutation.size.map { [Float($0.x), Float($0.y)] }
+            ?? template.defaultRenderSizeWH
+        guard size.count == 2, size.allSatisfy({ $0.isFinite && $0 > 0 }) else { return nil }
         return SceneRenderDescriptor.Layer(
             id: mutation.layerID, layerIndex: mutation.orderIndex, name: nil,
             cameraPath: nil, contentKind: "image",
@@ -76,7 +79,7 @@ nonisolated extension SceneRenderDescriptor.Layer {
             displayScriptOwnership: nil, colorRGB: color,
             colorBlendMode: nil, brightness: 1, imageAlignment: nil,
             origin: nil, size: nil, scale: nil, scaleHasScript: false,
-            angles: nil, originXYZ: origin, sizeWH: template.renderSizeWH,
+            angles: nil, originXYZ: origin, sizeWH: size,
             scaleXYZ: scale, anglesXYZ: angles, parallaxDepthXY: [0, 0],
             disablesParallaxPropagation: false, timelines: [],
             timelineDiagnostics: [], particleTimelines: [],

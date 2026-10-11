@@ -920,7 +920,8 @@ bool mwx_scene_quickjs_assign_script_properties(
     return success;
 }
 
-static bool read_vector(JSContext *context, JSValueConst value, double *output, uint32_t dimensions) {
+bool mwx_scene_quickjs_read_vector(JSContext *context, JSValueConst value, double *output,
+                                  uint32_t dimensions, bool allow_scalar) {
     if (JS_IsString(value)) {
         const char *text = JS_ToCString(context, value);
         if (text == NULL) return false;
@@ -939,8 +940,10 @@ static bool read_vector(JSContext *context, JSValueConst value, double *output, 
         }
         JS_FreeCString(context, text);
         if (valid) return true;
+        if (!allow_scalar) return false;
     }
     if (!JS_IsObject(value)) {
+        if (!allow_scalar) return false;
         double scalar = 0;
         if (JS_ToFloat64(context, &scalar, value) < 0 || !isfinite(scalar)) {
             return false;
@@ -1097,7 +1100,7 @@ static MWXSceneQuickJSResult call_vector(
         return discard_layer_mutations_after_failure(owner, result_code);
     }
     JSValueConst value = JS_IsUndefined(result) ? argument : result;
-    bool valid = read_vector(domain->context, value, output, dimensions);
+    bool valid = mwx_scene_quickjs_read_vector(domain->context, value, output, dimensions, true);
     if (!valid && owner->authored_layer_mutation_count > 0) {
         memcpy(output, input, sizeof(double) * dimensions);
         valid = true;
@@ -1199,6 +1202,12 @@ void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain) {
     mwx_scene_quickjs_domain_abort_layer_snapshot(domain);
     mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
     free(domain->named_animations);
+    for (uint32_t index = 0; index < domain->dynamic_image_resource_count; ++index) {
+        free(domain->dynamic_image_resources[index].model_path);
+        free(domain->dynamic_image_resources[index].identity_key);
+    }
+    free(domain->dynamic_image_resources);
+    domain->asset_path_normalizer = NULL;
     if (domain->context != NULL) {
         JS_FreeValue(domain->context, domain->vec2_constructor);
         JS_FreeValue(domain->context, domain->vec3_constructor);
@@ -1612,6 +1621,11 @@ void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
     }
     for (uint32_t i = 0; i < MWX_SCENE_QUICKJS_MAX_PUPPET_BONES; ++i)
         free(owner->puppet_bone_names[i]);
+    for (uint32_t i = 0; i < owner->dynamic_image_alias_count; ++i) {
+        free(owner->dynamic_image_aliases[i].authored_path);
+        free(owner->dynamic_image_aliases[i].model_path);
+    }
+    free(owner->dynamic_image_aliases);
     mwx_scene_quickjs_discard_jobs(owner);
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
     mwx_scene_quickjs_owner_clear_authored_layer_mutation_baselines(owner);

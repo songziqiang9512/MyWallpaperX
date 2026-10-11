@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-12 | SceneScript | 修复证据 | [动态图片创建几何](dynamic-layer-geometry-2026-10-12.md) | 同一prepared自然尺寸、创建配置与实际publication；变体/近邻反例及边界 | [脚本覆盖](../capabilities/scenescript-api-coverage.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-12 | SceneScript | 修复证据 | [图层透视状态](layer-perspective-2026-10-12.md) | Bool事务接原camera/geometry；变体反例及独立样本真实绘制 | [脚本覆盖](../capabilities/scenescript-api-coverage.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-12 | SceneScript | 修复证据 | [初始配置与图片复用](initial-layer-configuration-2026-10-12.md) | 原catalog深副本、成功图片引用复用与动态getter副作用边界 | [运行合同](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-12 | Scene | 修复证据 | [缺省尺寸归一化](missing-resolution-normalization-2026-10-12.md) | 头部deformer接回公共Program；真实绑定尺寸与空槽缓存隔离 | [运行合同](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |

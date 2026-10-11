@@ -37,7 +37,7 @@ final class SceneDynamicImageTextureProvider {
                         candidate: candidate,
                         contentGeneration: 1
                     ),
-                    renderSizeWH: resource.renderSizeWH
+                    renderSizeWH: layer.renderSizeWH
                   ) else {
                 pending.insert(layer.id)
                 continue

@@ -532,9 +532,9 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6e17292cc00976721ddf2ac6c7ccf896ca7103291db8a0cf9075e6db742ffe48",
+        "sourceSHA256": "0fb46f9d5ee866365e0682408ad061dc4e21050c9ff4bbb7d7725af61f3a0264",
         "method": "document_registry --audit + document_health --check",
-        "scope": "perspective有界合同、状态引用及用户新增兼容验收规则核对；不代表全文产品语义重验",
+        "scope": "创建几何/资源身份有界状态、开放首断点与历史引用核对；不代表全文产品语义重验",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
@@ -631,9 +631,9 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5f368297882b6230041fe9e980ae71c3a65d1affb84867164b8027207e32e5de",
+        "sourceSHA256": "d3022b5c74587e8c3461d55153c5be2b046fd50f4bd7ad8c8eed29c51137c83e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "perspective有界合同、状态引用及用户新增兼容验收规则核对；不代表全文产品语义重验",
+        "scope": "新增现存动态资源发现源码形状限制登记，核对必要性、边界、失败证据与替换条件；不代表全库例外已审计",
         "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
       }
     },
@@ -1001,6 +1001,16 @@
       "currentAuthorities": [
         "docs/scene/capabilities/render-graph-shader-coverage.md",
         "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/dynamic-layer-geometry-2026-10-12.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/scenescript-api-coverage.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
