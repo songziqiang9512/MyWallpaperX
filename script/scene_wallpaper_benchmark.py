@@ -393,7 +393,7 @@ UTILITY_NAMED_TARGET_GAP_RE = re.compile(
 )
 UTILITY_LAYER_RE = re.compile(
     r"^utility layer (?P<id>\d+): (?P<disposition>\w+) kind=(?P<kind>\w+)"
-    r"(?P<named_target>; named target planned)?",
+    r"(?: trigger=\d+)?(?P<named_target>; named target planned)?",
     re.MULTILINE,
 )
 UTILITY_CAPTURE_EXECUTION_RE = re.compile(
@@ -2675,6 +2675,9 @@ def utility_runtime_metrics(preview_text: str) -> dict[str, Any]:
 def utility_runtime_failures(
     sample: dict[str, Any],
     metrics: dict[str, Any],
+    *,
+    capture_execution: dict[str, Any] | None = None,
+    graph_execution: dict[str, Any] | None = None,
 ) -> list[str]:
     expected_metrics = {
         "expected_utility_candidates": "candidates",
@@ -2703,6 +2706,45 @@ def utility_runtime_failures(
             failures.append(
                 f"utility layer {layer_id} disposition should be {disposition}"
             )
+    if capture_execution is not None:
+        succeeded = set(capture_execution["succeeded_layer_ids"])
+        if capture_execution["failed_layer_ids"]:
+            failures.append("utility capture execution reported failures")
+        planned = {
+            layer["id"]: layer for layer in metrics["layers"]
+            if layer["disposition"] == "capture"
+        }
+        visibility = (graph_execution or {}).get("dynamic_visibility", {})
+        routes = (graph_execution or {}).get("layer_routes", {})
+        observations = (graph_execution or {}).get("graph_observations", {})
+        dormant: set[int] = set()
+        if (routes.get("has_evidence") and visibility.get("has_evidence")
+                and visibility.get("schema_version") == "dynamic-layer-visibility-v1"
+                and "ever_visible_layer_ids" in visibility
+                and "execution_observed_layer_ids" in observations
+                and not observations.get("validation_failures")
+                and not visibility.get("duplicate_layer_ids")
+                and not visibility.get("malformed_observation_count")):
+            # A latest-hidden layer may have needed capture earlier. Only a
+            # proven dormant graph member that never became visible is idle;
+            # hidden named providers still owe their consumer a publication.
+            dormant = set(visibility["dormant_accepted_layer_ids"]).difference(
+                visibility["ever_visible_layer_ids"],
+                observations["execution_observed_layer_ids"])
+            dormant.intersection_update(
+                layer_id for layer_id, layer in planned.items()
+                if not layer["named_target_planned"]
+            )
+        if len(planned) == metrics["capture_planned"]:
+            missing_capture = bool(set(planned).difference(dormant, succeeded))
+        else:
+            # Older/incomplete membership cannot justify an identity exemption.
+            missing_capture = len(succeeded) < metrics["capture_planned"]
+        if missing_capture:
+            failures.append("utility capture execution below planned count")
+        for layer_id in sample.get("required_utility_capture_succeeded_layer_ids", []):
+            if layer_id not in succeeded:
+                failures.append(f"utility layer {layer_id} capture should succeed")
     return failures
 
 
@@ -4108,6 +4150,10 @@ def resolved_material_graph_execution_metrics(
                 "dynamic-layer-visibility-v1" if visibility_records else None
             ),
             "current_hidden_layer_ids": current_hidden_layer_ids,
+            "ever_visible_layer_ids": sorted({
+                record["layer_id"] for record in raw_visibility_records
+                if record["effective"]
+            }),
             "dormant_accepted_layer_ids": sorted(dormant_layer_set),
             "execution_expected_layer_ids": execution_expected_layer_ids,
             "duplicate_layer_ids": duplicate_visibility_layer_ids,
@@ -8107,7 +8153,10 @@ def run_sample(
     failures.extend(
         puppet_animation_runtime_failures(sample, puppet_animation_runtime)
     )
-    failures.extend(utility_runtime_failures(sample, utility_runtime))
+    failures.extend(utility_runtime_failures(
+        sample, utility_runtime, capture_execution=utility_capture_execution,
+        graph_execution=resolved_material_graph_execution,
+    ))
     failures.extend(authored_effect_graph_failures(
         sample,
         workshop_shadow_count=authored_effect_graph_workshop_shadow,
@@ -8162,12 +8211,6 @@ def run_sample(
         require_evidence=require_graph_execution,
         sample=sample,
     ))
-    succeeded_capture_ids = set(utility_capture_execution["succeeded_layer_ids"])
-    if len(succeeded_capture_ids) < utility_runtime["capture_planned"]:
-        failures.append("utility capture execution below planned count")
-    for layer_id in sample.get("required_utility_capture_succeeded_layer_ids", []):
-        if layer_id not in succeeded_capture_ids:
-            failures.append(f"utility layer {layer_id} capture should succeed")
     succeeded_named_target_ids = set(
         named_target_capture_execution["succeeded_layer_ids"]
     ).union(

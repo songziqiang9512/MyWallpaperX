@@ -142,6 +142,7 @@ def resolved_material_graph_observation_metrics(
     ]
     validation_failures: list[str] = []
     terminal_successes: list[dict[str, Any]] = []
+    execution_observed_layer_ids: set[int] = set()
     diagnostic_count = 0
     layer_source_transient_diagnostics: list[dict[str, Any]] = []
     other_diagnostic_count = 0
@@ -210,6 +211,22 @@ def resolved_material_graph_observation_metrics(
                 "resolved material graph observation evidence malformed"
             )
             continue
+        try:
+            frame = int(fields["frame"])
+            layer_id = int(fields["layer"])
+        except ValueError:
+            validation_failures.append(
+                "resolved material graph observation evidence malformed"
+            )
+            continue
+        if frame < 0 or layer_id < 0:
+            validation_failures.append(
+                "resolved material graph observation identity invalid"
+            )
+            continue
+        # First-success and failed encodes are execution observations even
+        # before GPU completion. Keep their identity without promoting success.
+        execution_observed_layer_ids.add(layer_id)
         outcome = fields["outcome"]
         gpu_completion = fields["gpuCompletion"]
         if outcome == "failed":
@@ -231,8 +248,6 @@ def resolved_material_graph_observation_metrics(
             counts = {
                 key: int(fields[field]) for key, field in count_fields.items()
             }
-            frame = int(fields["frame"])
-            layer_id = int(fields["layer"])
             effect_index = (
                 int(fields["effect"]) if "effect" in fields else None
             )
@@ -759,6 +774,7 @@ def resolved_material_graph_observation_metrics(
         "has_evidence": bool(payloads),
         "schema_version": 1 if payloads else None,
         "observation_count": len(payloads),
+        "execution_observed_layer_ids": sorted(execution_observed_layer_ids),
         "terminal_success_count": len(terminal_successes),
         "successful_transaction_count": len(successful_transactions),
         "successful_transactions": successful_transactions,

@@ -32,6 +32,7 @@ from script.tests.scene_wallpaper_graph_output_test_support import (
     assert_named_provider_terminal,
     assert_visible_provider_requires_compositor_consumption,
     assert_visible_publication_execution_metrics,
+    assert_utility_capture_respects_dormant_graph_members,
 )
 
 
@@ -3346,6 +3347,10 @@ utility layer 763: skippedHidden kind=composition
         )
         self.assertEqual(metrics["succeeded_layer_ids"], [530])
         self.assertEqual(metrics["failed_layer_ids"], [410, 530])
+        assert_utility_capture_respects_dormant_graph_members(
+            self, benchmark=benchmark,
+            graph_execution_observation=graph_execution_observation,
+        )
     def test_authored_workshop_shadow_count_is_an_exact_gate(self) -> None:
         preview = "authoredEffectGraphWorkshopShadowCount: 1\n"
         count = benchmark.authored_effect_graph_workshop_shadow_count(preview)
