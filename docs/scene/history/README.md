@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-11 | Scene | 修复证据 | [终端材质局部失败](terminal-replay-local-failure-2026-10-11.md) | 失败suffix保留有效终端提交，恢复启动；Skew仍待修 | [运行合同](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-11 | Scene | 修复证据 | [命名数据纹理用途](named-provider-data-purpose-2026-10-11.md) | 复用prepared用途变体恢复频谱；颜色/数据与缺席回退保留 | [运行合同](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-11 | Scene | 修复证据 | [Solid图输出的普通消费者](solid-graph-consumer-2026-10-11.md) | 共用Program carrier恢复彩环；音频data颜色边界未闭 | [运行合同](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-11 | Scene | 修复证据 | [多段终端材质与源尺寸](terminal-material-chain-2026-10-11.md) | 无依赖链分域及尾段透传的真实输入保留；named consumer未扩域 | [运行合同](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |

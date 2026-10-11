@@ -139,6 +139,19 @@ enum SceneSubmissionTerminalReplayChecks {
         let success = scenario()
         results["terminalReceiptConsumesOnceWithoutTextureSampling"] =
             success.outcome == "consumed" && success.calls == 1 && success.consumed && !success.dropped
+        // Execution emits local passthrough diagnostics alongside a valid
+        // prepared terminal draw; they must not turn its receipt into a frame drop.
+        let localFailure = scenario(mutate: { _, ticket in
+            ticket = .init(identity: ticket.identity, epoch: ticket.epoch,
+                finalTextureIdentity: ticket.finalTextureIdentity, finalContent: ticket.finalContent,
+                consumesExternalPrimaryDependency: false,
+                effectFailures: [.init(layerID: 7, effectIndex: 1,
+                    descriptorID: "local-visual-failure", reasonCode: "material-generic-owner-revoked")],
+                hasTerminalMaterialReplay: true)
+        })
+        results["localVisualFailurePreservesPreparedTerminalReceipt"] =
+            localFailure.outcome == "consumed" && localFailure.calls == 1
+                && localFailure.consumed && !localFailure.dropped
         let opaque = scenario(content: .color(.resolved(.opaque)))
         results["opaqueTerminalReceiptConsumesOnce"] =
             opaque.outcome == "consumed" && opaque.calls == 1 && opaque.consumed && !opaque.dropped

@@ -1978,6 +1978,16 @@
       ]
     },
     {
+      "path": "docs/scene/history/terminal-replay-local-failure-2026-10-11.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/text-width-property-implementation-2026-10-05.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",

@@ -83,6 +83,7 @@ class SceneTerminalMaterialReceiptTests(unittest.TestCase):
     def test_success_and_inactive_keep_distinct_output_contracts(self) -> None:
         for key in ("terminalReceiptConsumesOnceWithoutTextureSampling",
                     "opaqueTerminalReceiptConsumesOnce",
+                    "localVisualFailurePreservesPreparedTerminalReceipt",
                     "straightTerminalReceiptConsumesOnce",
                     "absentReplayLeavesTicketForOrdinaryTextureComposite",
                     "absentReplayAllowsOrdinaryTextureReceipt"):
