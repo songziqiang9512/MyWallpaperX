@@ -1,4 +1,24 @@
 nonisolated enum SceneAuthoredShaderFunctionSemantics {
+    /// Shared by return and argument conversion. A unique non-array value
+    /// belongs to the global/parameter scope or this function's root block;
+    /// a declaration in another function or an inner block is not proof.
+    static func uniqueRootScopeValueDeclarations(
+        for function: SceneAuthoredShaderSyntaxUnit.Function,
+        in unit: SceneAuthoredShaderSyntaxUnit
+    ) -> [String: (type: String, index: Int)] {
+        SceneAuthoredShaderSyntaxAnalyzer.uniqueValueDeclarations(
+            in: unit.tokens,
+            excluding: unit.functions.filter { $0 != function }.map {
+                $0.headerRange.lowerBound..<$0.bodyRange.upperBound
+            }
+        ).filter { _, value in
+            guard function.bodyRange.contains(value.index) else { return true }
+            return unit.tokens[function.bodyRange.lowerBound..<value.index].reduce(0) {
+                $0 + ($1.text == "{" ? 1 : $1.text == "}" ? -1 : 0)
+            } == 1
+        }
+    }
+
     static func diagnostics(
         for unit: SceneAuthoredShaderSyntaxUnit
     ) -> [SceneAuthoredShaderFrontendDiagnostic] {

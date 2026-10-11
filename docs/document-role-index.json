@@ -531,9 +531,9 @@
       "lastReviewed": "2026-10-11",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "12ef144682b29aae012f0ef1103a17f972732671f341441a6790f27e6668b077",
+        "sourceSHA256": "56a63eff3d3cde132dd09448c8beca037c62c0bc182a772eda85c6e45a798a87",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对独立信号可选alpha写入修复、光束实际呈现与粒子未闭项的历史导航；仅更新导航与正文身份。",
+        "scope": "核对只读整数函数输入修复的GPU执行历史导航及白块未闭边界；仅更新导航与正文身份。",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
@@ -990,6 +990,17 @@
       "currentAuthorities": [
         "docs/scene/architecture/runtime-architecture.md",
         "docs/scene/capabilities/sampler-alias-precedence.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/direct-function-scalar-inputs-2026-10-11.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/render-graph-shader-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
     {

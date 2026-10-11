@@ -301,26 +301,15 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                   index + 1 < end else { return nil }
             let expression = (index + 1)..<end
             let first = tokens[expression.lowerBound]
-            let declarations = SceneAuthoredShaderSyntaxAnalyzer.uniqueValueDeclarations(
-                in: unit.tokens,
-                excluding: unit.functions.filter { $0 != function }.map {
-                    $0.headerRange.lowerBound..<$0.bodyRange.upperBound
-                }
-            )
+            let declarations = SceneAuthoredShaderFunctionSemantics
+                .uniqueRootScopeValueDeclarations(for: function, in: unit)
             let isWideValue: Bool
             if expression.count == 1 {
                 isWideValue = first.kind == .identifier
                     && !unit.tokens.contains(where: { $0.text == "struct" })
                     && declarations[first.text].map {
-                        guard $0.index < originalIndex,
-                              SceneAuthoredShaderValueType(authoredName: $0.type) == .float4 else { return false }
-                        if !function.bodyRange.contains($0.index) { return true }
-                        // Only the function's root lexical scope establishes
-                        // this value; an inner-block declaration is not proof
-                        // for a return outside that block.
-                        return unit.tokens[function.bodyRange.lowerBound..<$0.index].reduce(0) {
-                            $0 + ($1.text == "{" ? 1 : $1.text == "}" ? -1 : 0)
-                        } == 1
+                        $0.index < originalIndex
+                            && SceneAuthoredShaderValueType(authoredName: $0.type) == .float4
                     } == true
             } else if expression.count >= 3,
                       tokens[expression.lowerBound + 1].text == "(",

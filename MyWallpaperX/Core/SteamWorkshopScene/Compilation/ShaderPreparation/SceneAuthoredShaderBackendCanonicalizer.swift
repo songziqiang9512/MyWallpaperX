@@ -111,7 +111,8 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
     ) -> String {
         SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewrite(
             SceneGenericShaderScalarVectorBroadcastNormalizer.rewrite(source, stage: stage),
-            shapes: [:], convertsScalarArguments: true, convertsVectorArguments: false
+            shapes: [:], convertsScalarArguments: true, convertsVectorArguments: false,
+            stage: stage
         )
     }
 

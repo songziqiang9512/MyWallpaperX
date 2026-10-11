@@ -1376,6 +1376,7 @@
         "test_scene_generic_shader_texture_transform_compiler",
         "test_scene_material_texture_transform",
         "test_scene_shader_scalar_vector_builtin_canonicalization",
+        "test_scene_direct_function_scalar_conversion",
         "test_scene_swift_source_sets"
       ]
     },
@@ -1454,6 +1455,7 @@
         "test_scene_standard_alpha_composite_generic_contract",
         "test_scene_generic_shader_typed_input_lowering",
         "test_scene_shader_scalar_vector_builtin_canonicalization",
+        "test_scene_direct_function_scalar_conversion",
         "test_scene_swift_source_sets"
       ]
     },
@@ -1949,6 +1951,7 @@
         "test_scene_shader_compiler_harness",
         "test_scene_generic_shader_typed_input_lowering",
         "test_scene_shader_scalar_vector_builtin_canonicalization",
+        "test_scene_direct_function_scalar_conversion",
         "test_scene_shader_compiler_product_manifest",
         "test_scene_shader_compiler_straight_alpha_preserving_contract"
       ]

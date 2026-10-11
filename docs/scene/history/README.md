@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-11 | Scene | 修复证据 | [只读整数函数输入](direct-function-scalar-inputs-2026-10-11.md) | 24段波动进入实际GPU；白块及draw alpha缺口保留 | [shader合同](../capabilities/render-graph-shader-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-11 | Scene | 修复证据 | [独立信号可选alpha写入](independent-signal-producer-2026-10-11.md) | 原compiler合同修正恢复GodRays光束，隐藏utility验证误报收口；粒子模拟余项保留 | [shader合同](../capabilities/render-graph-shader-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-11 | Scene | 修复证据 | [Sprite世界空间与深度](particle-world-depth-2026-10-11.md) | 共享准入与native相机恢复蓝紫粒子球、真实呈现；GodRays/运动余项保留 | [粒子合同](../capabilities/particle-component-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-11 | Scene | 修复证据 | [Puppet角色参考姿态](puppet-reference-pose-2026-10-11.md) | 独立reference沿原rig/evaluator恢复三原包组装；N03/N06余项与官方数值未验 | [高级对象](../capabilities/advanced-object-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |

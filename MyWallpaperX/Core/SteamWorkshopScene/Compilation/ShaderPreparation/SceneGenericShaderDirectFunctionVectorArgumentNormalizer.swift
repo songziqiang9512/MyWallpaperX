@@ -1,7 +1,6 @@
 import Foundation
 
-/// Applies the one direct user-function vector conversion that can remain
-/// valid when the broader bounded syntax analyzer rejects unrelated language.
+/// Adapts proven direct user-function arguments in the shared preparation chain.
 nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
     typealias Shape = SceneGenericShaderSourceNormalizer.Shape
 
@@ -33,12 +32,7 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
             return normalized
         }
 
-        var lineStarts = [0]
-        var scalarOffset = 0
-        for scalar in normalized.unicodeScalars {
-            scalarOffset += 1
-            if scalar == "\n" { lineStarts.append(scalarOffset) }
-        }
+        let lineStarts = sourceLineStarts(normalized)
         var edits = unit.tokens.indices.compactMap { index -> (Int, Int, String)? in
             let token = unit.tokens[index]
             guard token.kind == .identifier,
@@ -68,11 +62,20 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
             guard token.line > 0, token.line <= lineStarts.count else { return normalized }
             edits.append((lineStarts[token.line - 1] + token.column - 1, 0, "mwxAuthored_"))
         }
-        edits.sort { $0.0 > $1.0 }
-        guard !edits.isEmpty else { return normalized }
+        return applying(edits, to: normalized)
+    }
 
-        var result = normalized
-        for (offset, length, replacement) in edits {
+    private static func sourceLineStarts(_ source: String) -> [Int] {
+        var starts = [0]
+        for (index, scalar) in source.unicodeScalars.enumerated() where scalar == "\n" {
+            starts.append(index + 1)
+        }
+        return starts
+    }
+
+    private static func applying(_ edits: [(Int, Int, String)], to source: String) -> String {
+        var result = source
+        for (offset, length, replacement) in edits.sorted(by: { $0.0 > $1.0 }) {
             let scalarIndex = result.unicodeScalars.index(
                 result.unicodeScalars.startIndex,
                 offsetBy: offset
@@ -80,7 +83,7 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
             let scalarEnd = result.unicodeScalars.index(scalarIndex, offsetBy: length)
             guard let index = String.Index(scalarIndex, within: result),
                   let end = String.Index(scalarEnd, within: result) else {
-                return normalized
+                return source
             }
             result.replaceSubrange(index..<end, with: replacement)
         }
@@ -148,8 +151,11 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
         _ source: String,
         shapes: [String: Shape],
         convertsScalarArguments: Bool,
-        convertsVectorArguments: Bool
+        convertsVectorArguments: Bool,
+        stage: SceneShaderContract.StageKind = .fragment
     ) -> String {
+        let source = convertsScalarArguments
+            ? rewriteIntegerInputs(source, stage: stage) : source
         let valueType = #"(?:bool|int|uint|float|[biu]?vec[2-4]|mat[2-4])"#
         let definition = try! NSRegularExpression(
             pattern: #"\b"# + valueType
@@ -278,6 +284,102 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
             result.replaceSubrange(range, with: replacement.value)
         }
         return result
+    }
+
+    // An authored definition does not remove a better matching builtin
+    // overload. Numeric intrinsic calls must keep backend overload resolution.
+    private static let intrinsicOverloadNames: Set<String> = [
+        "abs", "acos", "acosh", "all", "any", "asin", "asinh", "atan", "atan2", "atanh",
+        "ceil", "clamp", "clip", "cos", "cosh", "cross", "ddx", "ddy", "degrees",
+        "determinant", "dFdx", "dFdxCoarse", "dFdxFine", "dFdy", "dFdyCoarse", "dFdyFine",
+        "distance", "dot", "exp", "exp2", "faceforward", "fma", "floor", "fmod", "frac",
+        "fract", "frexp", "fwidth", "fwidthCoarse", "fwidthFine", "inverse", "inversesqrt",
+        "isfinite", "isinf", "isnan", "ldexp", "length", "lerp", "lit", "log", "log2", "log10",
+        "mad", "max", "min", "mix", "mod", "modf", "mul", "normalize", "pow", "radians",
+        "rcp", "reflect", "refract", "round", "roundEven", "rsqrt", "saturate", "sign",
+        "sin", "sincos", "sinh", "smoothstep", "sqrt", "step", "tan", "tanh", "transpose", "trunc",
+        "floatBitsToInt", "floatBitsToUint", "intBitsToFloat", "uintBitsToFloat",
+        "asint", "asuint", "asfloat", "asdouble", "noise", "noise1", "noise2", "noise3", "noise4",
+        "packDouble2x32", "unpackDouble2x32", "packHalf2x16", "unpackHalf2x16",
+        "packUnorm2x16", "packSnorm2x16", "packUnorm4x8", "packSnorm4x8",
+        "unpackUnorm2x16", "unpackSnorm2x16", "unpackUnorm4x8", "unpackSnorm4x8",
+        "lessThan", "lessThanEqual", "greaterThan", "greaterThanEqual", "equal", "notEqual", "not",
+        "texture", "textureProj", "textureLod", "textureOffset", "textureProjOffset",
+        "textureLodOffset", "textureProjLod", "textureProjLodOffset", "textureGrad",
+        "textureGradOffset", "textureProjGrad", "textureProjGradOffset", "textureGather",
+        "textureGatherOffset", "textureGatherOffsets", "textureSize", "textureQueryLod",
+        "textureQueryLevels", "textureSamples", "texelFetch", "texelFetchOffset",
+        "texture1D", "texture2D", "texture3D", "textureCube", "texture1DProj", "texture2DProj",
+        "texture3DProj", "texture1DLod", "texture2DLod", "texture3DLod", "textureCubeLod",
+        "texture1DProjLod", "texture2DProjLod", "texture3DProjLod", "texSample2D", "texSample2DLod",
+        "tex1D", "tex2D", "tex3D", "texCUBE", "tex1Dbias", "tex2Dbias", "tex3Dbias", "texCUBEbias",
+        "tex1Dgrad", "tex2Dgrad", "tex3Dgrad", "texCUBEgrad", "tex1Dlod", "tex2Dlod", "tex3Dlod",
+        "texCUBElod", "tex1Dproj", "tex2Dproj", "tex3Dproj", "texCUBEproj",
+        "imageLoad", "imageStore", "imageSize", "imageSamples",
+        "uaddCarry", "usubBorrow", "umulExtended", "imulExtended", "bitfieldExtract", "bitfieldInsert",
+        "bitfieldReverse", "bitCount", "findLSB", "findMSB", "f16tof32", "f32tof16",
+    ]
+
+    /// HLSL converts a floating input to an integer parameter at the call.
+    /// Use the same unique root-scope proof as vector returns, never the
+    /// whole-source width table: mutable/overloaded/unknown inputs stay closed.
+    private static func rewriteIntegerInputs(
+        _ source: String, stage: SceneShaderContract.StageKind
+    ) -> String {
+        let lexical = SceneAuthoredShaderLexer.lex(source: source, stage: stage)
+        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
+            lexerOutput: lexical, stage: stage
+        )
+        guard analysis.diagnostics.isEmpty, let unit = analysis.unit,
+              !unit.tokens.contains(where: { $0.text == "struct" }) else { return source }
+        let tokens = unit.tokens
+        let starts = sourceLineStarts(source)
+        var edits: [(Int, Int, String)] = []
+        for (name, candidates) in Dictionary(grouping: unit.functions, by: \.name)
+            where candidates.count == 1 && !intrinsicOverloadNames.contains(name) {
+            let function = candidates[0]
+            let references = tokens.indices.filter { tokens[$0].text == name }
+            // A prototype or value/member reference can hide an overload.
+            guard references.allSatisfy({ index in
+                index + 1 < tokens.count && tokens[index + 1].text == "("
+                    && (index == 0 || tokens[index - 1].text != ".")
+                    && (function.headerRange.contains(index)
+                        || unit.functions.contains { $0.bodyRange.contains(index) })
+            }), let parameters = SceneAuthoredShaderTokenScanner.split(
+                function.parameterRange, separator: ",", tokens: tokens
+            ) else { continue }
+            let integerInputs = parameters.enumerated().compactMap { index, range -> Int? in
+                let value = tokens[range].filter { ["const", "in"].contains($0.text) == false }
+                return value.count == 2 && value[0].text == "int"
+                    && value[1].kind == .identifier ? index : nil
+            }
+            guard !integerInputs.isEmpty else { continue }
+            for call in references where !function.headerRange.contains(call) {
+                guard let caller = unit.functions.first(where: { $0.bodyRange.contains(call) }),
+                      let close = SceneAuthoredShaderTokenScanner.matchingParenthesis(
+                        tokens: tokens, opening: call + 1
+                      ), let arguments = SceneAuthoredShaderBuiltInVectorConversion.argumentRanges(
+                        opening: call + 1, closing: close, tokens: tokens
+                      ), arguments.count == parameters.count else { continue }
+                let declarations = SceneAuthoredShaderFunctionSemantics
+                    .uniqueRootScopeValueDeclarations(for: caller, in: unit)
+                for index in integerInputs {
+                    let argument = arguments[index]
+                    guard argument.count == 1 else { continue }
+                    let token = tokens[argument.lowerBound]
+                    let isFloat = token.kind == .number
+                        ? Double(token.text).map { $0.isFinite &&
+                            (token.text.contains(".") || token.text.lowercased().contains("e")) } == true
+                        : token.kind == .identifier && declarations[token.text].map {
+                            $0.index < call && $0.type == "float"
+                        } == true
+                    guard isFloat, token.line > 0, token.line <= starts.count else { continue }
+                    let offset = starts[token.line - 1] + token.column - 1
+                    edits.append((offset, token.text.unicodeScalars.count, "int(\(token.text))"))
+                }
+            }
+        }
+        return applying(edits, to: source)
     }
 
     private static func floatVectorWidth(_ type: String) -> Int? {
