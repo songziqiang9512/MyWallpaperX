@@ -153,6 +153,117 @@ void main() {
             ))
             self.assertEqual(pixels, [0.015625, 0.140625, 0.390625, 0.75] * 2)
 
+    def test_comma_vector_initializers_broadcast_each_proven_scalar_and_link(self) -> None:
+        cases = [
+            # The actual U06 stage-link failure: each declarator owns a
+            # separate initializer, while center is already vector-valued.
+            ("uniform vec2 g_Ratio;\nvoid main() {\n"
+             "    vec2 radial = 0.0, tangential = 0.0, center = (1.0 - g_Ratio - 0.5) * 0.25;\n"
+             "    gl_FragColor = vec4(radial + tangential + center, 0.0, 1.0);\n}",
+             ["radial = vec2(0.0)", "tangential = vec2(0.0)",
+              "center = (1.0 - g_Ratio - 0.5) * 0.25"]),
+            # Later declarators also provide types for subsequent assignments.
+            ("void main() { float spare = 0.0, scale = 0.25;\n"
+             "    vec4 first = 0.0, second = scale; second = scale * 2.0;\n"
+             "    gl_FragColor = first + second; }",
+             ["first = vec4(0.0)", "second = vec4(scale)",
+              "second = vec4(scale * 2.0)"]),
+            # Argument commas never end an initializer, and explicit vector
+            # constructors retain their authored arguments.
+            ("void main() { vec3 first = abs(0.25), second = vec3(0.1, 0.2, 0.3), third = 0.75;\n"
+             "    gl_FragColor = vec4(first + second + third, 1.0); }",
+             ["first = vec3(abs(0.25))", "second = vec3(0.1, 0.2, 0.3)",
+              "third = vec3(0.75)"]),
+            # Equal names in another function cannot lend a type or revoke
+            # this function's independently proven declaration.
+            ("vec2 helper() { float scale = 0.5; vec2 value = scale; return value; }\n"
+             "void main() { float scale = 0.25; vec4 value = scale;\n"
+             "    gl_FragColor = value + vec4(helper(), 0.0, 0.0); }",
+             ["vec2 value = vec2(scale)", "vec4 value = vec4(scale)"]),
+            # The original rule supports equal types in distinct block scopes.
+            ("void main() { vec2 value = 0.5;\n"
+             "    { vec2 value = 0.25; gl_FragColor = vec4(value, 0.0, 1.0); }\n"
+             "    gl_FragColor = vec4(value, 0.0, 1.0); }",
+             ["vec2 value = vec2(0.5)", "vec2 value = vec2(0.25)"]),
+            # A later conflicting shadow cannot revoke an earlier conversion.
+            ("void main() { vec2 value = 0.5;\n"
+             "    { float value = 0.25; gl_FragColor = vec4(value); }\n"
+             "    gl_FragColor = vec4(value, 0.0, 1.0); }",
+             ["vec2 value = vec2(0.5)", "float value = 0.25"]),
+            # Built-in scalar arguments remain eligible when the current
+            # function's comma declarator agrees with the expression proof.
+            ("float helper() { float scale = 0.5; return scale; }\n"
+             "void main() { float spare = 0.0, scale = 0.25;\n"
+             "    vec2 first = vec2(0.0), value = abs(scale);\n"
+             "    gl_FragColor = vec4(first + value, 0.0, 1.0); }",
+             ["value = vec2(abs(scale))"]),
+            ("uniform vec2 g_Ratio;\nvoid main() { vec2 value = abs(g_Ratio.x);\n"
+             "    gl_FragColor = vec4(value, 0.0, 1.0); }",
+             ["value = vec2(abs(g_Ratio.x))"]),
+        ]
+        for source, expected in cases:
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                authored = root / "source.frag"
+                authored.write_text(source, encoding="utf-8")
+                output = json.loads(subprocess.check_output(
+                    [str(self.binary), "--analyze", str(authored)], text=True,
+                ))
+                self.assertTrue(output["idempotent"])
+                for text in expected:
+                    self.assertIn(text, output["canonicalFragment"])
+                vertex, fragment = root / "author.vert", root / "author.frag"
+                vertex.write_text(output["normalizedVertex"], encoding="utf-8")
+                fragment.write_text(output["normalizedFragment"], encoding="utf-8")
+                linked = subprocess.run(
+                    [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                     "-l", str(vertex), str(fragment)],
+                    cwd=root, capture_output=True, text=True, timeout=30,
+                )
+                self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_vector_broadcast_preserves_unproven_comma_and_shadow_shapes(self) -> None:
+        bodies = [
+            # A plain assignment comma expression is not a declaration list.
+            "vec2 value = vec2(0.0); float scalar = 0.0; value = 0.5, scalar = 1.0;",
+            "vec2 value = (0.5, 1.0);",
+            "vec2 first = missingValue, second = vec2(0.0);",
+            # Conflicting local types cannot provide a broadcast type.
+            "vec2 value = vec2(0.0); { float value = 0.25; } value = 0.5;",
+            "vec2 values[2]; values[0] = 0.5;",
+            "vec2 values[2]; values = 0.5;",
+        ]
+        for body in bodies:
+            source = "void main() { " + body + " gl_FragColor = vec4(1.0); }"
+            with self.subTest(body=body), tempfile.TemporaryDirectory() as directory:
+                authored = Path(directory) / "source.frag"
+                authored.write_text(source, encoding="utf-8")
+                output = json.loads(subprocess.check_output(
+                    [str(self.binary), "--analyze", str(authored)], text=True,
+                ))
+                self.assertEqual(output["canonicalFragment"], source)
+                self.assertTrue(output["idempotent"])
+
+    def test_builtin_broadcast_does_not_borrow_another_function_scalar_type(self) -> None:
+        # The target uses shared comma-declarator facts, but the older
+        # component-expression proof can mistake helper's scale for main's
+        # vec3 scale. Its claimed scalar result must agree with this scope.
+        for expression in ["abs(scale)", "sin(abs(scale))", "pow(scale, 2.0)"]:
+            source = (
+                "float helper() { float scale = 0.5; return scale; }\n"
+                "void main() { vec3 spare = vec3(0.0), scale = vec3(0.1, 0.2, 0.3);\n"
+                f"    vec2 first = vec2(0.0), value = {expression};\n"
+                "    gl_FragColor = vec4(first + value, 0.0, 1.0); }"
+            )
+            with self.subTest(expression=expression), tempfile.TemporaryDirectory() as directory:
+                authored = Path(directory) / "source.frag"
+                authored.write_text(source, encoding="utf-8")
+                output = json.loads(subprocess.check_output(
+                    [str(self.binary), "--analyze", str(authored)], text=True,
+                ))
+                self.assertEqual(output["canonicalFragment"], source)
+                self.assertTrue(output["idempotent"])
+
     def test_dynamic_loop_does_not_bypass_syntax_or_custom_overload_guards(self) -> None:
         cases = [
             ("vec3 max(int bound, vec3 value) { return value; }", "max(0, color)"),

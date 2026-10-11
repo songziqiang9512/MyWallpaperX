@@ -53,6 +53,21 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
         }
     }
 
+    /// A conversion may depend on a name's type without depending on one
+    /// declaration identity. Equal types in distinct lexical scopes preserve
+    /// that fact; conflicting types, arrays and function names do not.
+    static func consistentValueDeclarations(
+        in tokens: [SceneAuthoredShaderToken], excluding ranges: [Range<Int>] = [],
+        before limit: Int = .max
+    ) -> [String: (type: String, indices: [Int])] {
+        valueDeclarationFacts(in: tokens, excluding: ranges).compactMapValues { facts in
+            let preceding = facts.filter { $0.index < limit }
+            guard let first = preceding.first,
+                  preceding.allSatisfy({ $0.value && $0.type == first.type }) else { return nil }
+            return (first.type, preceding.map(\.index))
+        }
+    }
+
     /// Includes arrays and repeated declarations: either shadows an outer
     /// binding even when it cannot supply a unique scalar/vector value type.
     static func valueDeclarationNames(in tokens: [SceneAuthoredShaderToken]) -> Set<String> {

@@ -6,6 +6,8 @@ import Foundation
 /// proof; authored calls, unknown identifiers, and vector-valued expressions
 /// remain under the compiler's fail-closed boundary.
 nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
+    private typealias DeclarationFacts = [String: (type: String, indices: [Int])]
+
     static func rewrite(
         _ source: String,
         stage: SceneShaderContract.StageKind
@@ -42,22 +44,47 @@ nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
                 + (after ? token.text.unicodeScalars.count : 0)
         }
 
+        // Type consensus preserves the existing same-type shadow behaviour.
+        // Unrelated helpers cannot lend or revoke a type, and every comma
+        // declarator uses the shared scanner before the current assignment.
+        let functionExclusions = unit.functions.map { function in
+            (
+                range: function.bodyRange,
+                excluded: unit.functions.filter { $0 != function }.map {
+                    $0.headerRange.lowerBound..<$0.bodyRange.upperBound
+                }
+            )
+        }
+        let globalExclusions = unit.functions.map {
+            $0.headerRange.lowerBound..<$0.bodyRange.upperBound
+        }
         var insertions: [(offset: Int, text: String)] = []
         for index in unit.tokens.indices {
             guard unit.tokens[index].text == "=", index > 0,
                   unit.tokens[index - 1].kind == .identifier,
-                  index < 2 || unit.tokens[index - 2].text != ".",
+                  index < 2 || unit.tokens[index - 2].text != "." else { continue }
+            let exclusions = functionExclusions.first {
+                $0.range.contains(index)
+            }?.excluded ?? globalExclusions
+            let declarations = SceneAuthoredShaderSyntaxAnalyzer.consistentValueDeclarations(
+                in: unit.tokens, excluding: exclusions, before: index
+            )
+            guard let declaration = declarations[unit.tokens[index - 1].text],
                   let target = declaredType(
                       unit.tokens[index - 1].text,
                       before: index,
-                      unit: unit
+                      declarations: declarations
                   ), let constructor = vectorConstructor(target),
-                  let end = statementEnd(after: index, tokens: unit.tokens),
+                  let end = statementEnd(
+                      after: index, tokens: unit.tokens,
+                      isInitializer: declaration.indices.contains(index - 1)
+                  ),
                   index + 1 < end,
                   isScalarArithmetic(
                       (index + 1)..<end,
                       before: index,
-                      unit: unit
+                      unit: unit,
+                      declarations: declarations
                   ), let startOffset = offset(index + 1, after: false),
                   let endOffset = offset(end - 1, after: true) else { continue }
             insertions.append((startOffset, "\(constructor)("))
@@ -87,7 +114,8 @@ nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
     private static func isScalarArithmetic(
         _ range: Range<Int>,
         before limit: Int,
-        unit: SceneAuthoredShaderSyntaxUnit
+        unit: SceneAuthoredShaderSyntaxUnit,
+        declarations: DeclarationFacts
     ) -> Bool {
         var depth = 0
         var expectsOperand = true
@@ -132,7 +160,18 @@ nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
                       let expression = SceneAuthoredShaderBuiltInVectorConversion
                         .componentExpression(
                             index..<(closing + 1), tokens: unit.tokens, unit: unit
-                        ), expression.type == .float else { return false }
+                        ), expression.type == .float,
+                      let arguments = SceneAuthoredShaderTokenScanner.split(
+                          (index + 2)..<closing, separator: ",", tokens: unit.tokens
+                      ), arguments.allSatisfy({ argument in
+                          // The shared built-in result proof must agree with
+                          // this function's declarator facts. A scalar name
+                          // in another helper cannot type these arguments.
+                          isScalarArithmetic(
+                              argument, before: limit, unit: unit,
+                              declarations: declarations
+                          )
+                      }) else { return false }
                 index = closing + 1
                 expectsOperand = false
                 sawOperand = true
@@ -144,7 +183,7 @@ nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
                   let type = declaredType(
                       token.text,
                       before: limit,
-                      unit: unit
+                      declarations: declarations
                   ) else { return false }
             if scalarType(type) {
                 index += 1
@@ -168,27 +207,19 @@ nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
     private static func declaredType(
         _ name: String,
         before limit: Int,
-        unit: SceneAuthoredShaderSyntaxUnit
+        declarations: DeclarationFacts
     ) -> SceneAuthoredShaderValueType? {
-        var types = Set(unit.declarations.compactMap {
-            $0.name == name
-                ? SceneAuthoredShaderValueType(authoredName: $0.typeName) : nil
-        })
-        if limit > 0 {
-            for index in 0..<limit where index + 1 < unit.tokens.count {
-                guard unit.tokens[index + 1].text == name,
-                      let type = SceneAuthoredShaderValueType(
-                          authoredName: unit.tokens[index].text
-                      ) else { continue }
-                types.insert(type)
-            }
+        guard let declaration = declarations[name],
+              declaration.indices.contains(where: { $0 < limit }) else {
+            return nil
         }
-        return types.count == 1 ? types.first : nil
+        return SceneAuthoredShaderValueType(rawValue: declaration.type)
     }
 
     private static func statementEnd(
         after assignment: Int,
-        tokens: [SceneAuthoredShaderToken]
+        tokens: [SceneAuthoredShaderToken],
+        isInitializer: Bool
     ) -> Int? {
         var depth = 0
         for index in (assignment + 1)..<tokens.count {
@@ -196,6 +227,9 @@ nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
             if [")", "]"].contains(tokens[index].text) { depth -= 1 }
             guard depth >= 0 else { return nil }
             if depth == 0, tokens[index].text == ";" { return index }
+            // Only a proven declaration initializer ends at a sibling
+            // declarator. Assignment comma expressions stay whole.
+            if depth == 0, isInitializer, tokens[index].text == "," { return index }
         }
         return nil
     }
