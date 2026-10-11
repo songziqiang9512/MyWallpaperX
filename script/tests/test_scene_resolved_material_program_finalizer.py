@@ -1090,6 +1090,7 @@ private enum SnapshotKind {
     case pending
     case unavailable
     case incomplete
+    case straightGraphColor
     case purposeMismatch
     case unresolvedColor
     case data
@@ -1130,12 +1131,24 @@ private func snapshot(
             ),
             resourceGeneration: 1
         ))
-    case .purposeMismatch:
+    case .straightGraphColor:
         status = .ready(.init(
             publication: publication(
                 device,
                 requestIdentity: identity,
                 purpose: .straightAlbedo,
+                content: .color(.resolved(.straightAlpha))
+            ),
+            resourceGeneration: 1
+        ))
+    case .purposeMismatch:
+        // A supported straight graph must carry its matching purpose.
+        // Relabeling those bytes as PMA is incomplete publication metadata.
+        status = .ready(.init(
+            publication: publication(
+                device,
+                requestIdentity: identity,
+                purpose: .premultipliedColor,
                 content: .color(.resolved(.straightAlpha))
             ),
             resourceGeneration: 1
@@ -3764,6 +3777,14 @@ private func namedProviderRuntimePurposeTokens(
     ]
 }
 
+private func inputAssociationMask(_ program: Program) -> UInt32? {
+    guard let uniform = program.resolvedUniforms.first(where: {
+        if case .host(.premultipliedColorInputMask) = $0.source { return true }
+        return false
+    }), uniform.encodedValue.count == 4 else { return nil }
+    return uniform.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
+}
+
 private func rtDefaultAdmissionTokens(_ device: MTLDevice) -> [String: String] {
     var result: [String: String] = [:]
     for token in ["_rt_imageLayerComposite_42", "_rt_imageLayerComposite_42_a", "_rt_imageLayerComposite_42_b", "_rt_imageLayerComposite_43_a", "_rt_imagelayercomposite_42_a", "_rt_unknown", "_rt_imageLayerComposite_42_c", "_rt_imageLayerComposite_-1", "_RT_imageLayerComposite_42_a"] {
@@ -3788,6 +3809,17 @@ private func rtDefaultAdmissionTokens(_ device: MTLDevice) -> [String: String] {
             if case let .internalTarget(target)? = samplers[0]?.defaultTexture {
                 result[token + ":spelling"] = target.authoredName
                 result[token + ":persistent"] = ScenePersistentSamplerRecord(sampler: samplers[0]!).rebuild() == samplers[0] ? "same" : "changed"
+            }
+            let straight = finalize(shader: shader, device: device, includePrimaryCandidate: false,
+                snapshotKind: .straightGraphColor, implicitFramebufferIdentity: graphTexture())
+            result[token + ":straight"] = failureToken(straight)
+            if case let .success(program) = straight, let slot = program.textureSlots[0] {
+                result[token + ":straightPurpose"] = slot.expectedPurpose.reportToken
+                result[token + ":straightIngress"] = String(slot.reference == .graph(graphTexture())
+                    && slot.registryIdentity == .graph(graphTexture())
+                    && slot.resource.publication.candidate.content == .color(.resolved(.straightAlpha))
+                    && program.frontendProgram.colorBoundary?.colorInputSlots == [0]
+                    && inputAssociationMask(program) == 0)
             }
             for (label, kind) in [("missing", SnapshotKind.missing), ("stale", .incomplete), ("purpose", .purposeMismatch)] {
                 result[token + ":" + label] = failureToken(finalize(shader: shader, device: device, includePrimaryCandidate: false, snapshotKind: kind, implicitFramebufferIdentity: graphTexture()))
@@ -4389,11 +4421,17 @@ private enum Harness {
             implicitFramebufferIdentity: graphTexture()
         )
         let shaderDefaultPreserved: Bool = {
-            guard case let .failure(failure) = shaderDefaultBeforeImplicit else {
-                return false
-            }
-            return failure.phase == .color
-                && failure.code == .colorContractUnproven
+            guard case let .success(program) = shaderDefaultBeforeImplicit,
+                  let slot = program.textureSlots[0],
+                  slot.reference == .asset(implicitDefaultPath),
+                  slot.registryIdentity == .asset(.init(path: implicitDefaultPath, purpose: .mask)),
+                  slot.expectedPurpose == .mask,
+                  slot.diagnosticSelectionProvenance == .shaderDefault,
+                  case .data = slot.resource.publication.candidate.content,
+                  case let .color(output) = program.semanticIdentity.outputContract else { return false }
+            return program.frontendProgram.textureBindings.map(\.slot) == [0]
+                && program.frontendProgram.colorBoundary?.colorInputSlots == []
+                && output.fragmentOutput == .straightAlpha
         }()
 
         let tintField = programA.frontendProgram.uniformLayout.fields.first {
@@ -4487,13 +4525,16 @@ private enum Harness {
                     where: { $0.name == "g_UserAlpha" }
                   ),
                   let maskSlot = program.textureSlots[1],
+                  maskSlot.reference == .asset(maskedPath),
+                  maskSlot.expectedPurpose == .mask,
                   case .data = maskSlot.resource.publication.candidate.content,
-                  case .straightAlpha(0) = program.semanticIdentity.shader.colorTransfer
+                  program.frontendProgram.colorBoundary?.colorInputSlots == [0]
             else { return false }
             guard case let .color(contract) =
                     program.semanticIdentity.outputContract else { return false }
             return float(program.uniformBytes, at: field.offset) == 0.25
-                && contract.fragmentOutput == .premultipliedAlpha
+                && contract.fragmentOutput == .straightAlpha
+                && inputAssociationMask(program) == 1
         }()
         let directScalarWithinRange = finalize(
             shader: maskedShader,
@@ -5003,14 +5044,15 @@ private enum Harness {
                   overlay.resource.publication.candidate.purpose
                     == .preservedChannels,
                   case .data = overlay.resource.publication.candidate.content,
-                  case .straightAlpha(0) =
-                    program.semanticIdentity.shader.colorTransfer else {
+                  overlay.reference == .asset(overlayPath),
+                  program.frontendProgram.colorBoundary?.colorInputSlots == [0] else {
                 return false
             }
             guard case let .color(contract) =
                     program.semanticIdentity.outputContract else { return false }
             return program.frontendProgram.textureBindings.map(\.slot) == [0, 1]
-                && contract.fragmentOutput == .premultipliedAlpha
+                && contract.fragmentOutput == .straightAlpha
+                && inputAssociationMask(program) == 1
         }()
         let overlayColorAuxiliary = finalize(
             shader: overlayShader,
@@ -5185,7 +5227,9 @@ private enum Harness {
             guard case let .color(contract) =
                     program.semanticIdentity.outputContract else { return false }
             return program.frontendProgram.textureBindings.map(\.slot) == [0, 1]
-                && contract.fragmentOutput == .premultipliedAlpha
+                && program.frontendProgram.colorBoundary?.colorInputSlots == [0]
+                && contract.fragmentOutput == .straightAlpha
+                && inputAssociationMask(program) == 1
         }()
         let activeAuthoredMaskProgram = finalize(
             shader: activeDefaultMaskShader,
@@ -5870,6 +5914,11 @@ private enum Harness {
                 device: device,
                 snapshotKind: .incomplete
             )),
+            "straightGraphColor": failureToken(finalize(
+                shader: contract(revision: "straight-graph-color"),
+                device: device,
+                snapshotKind: .straightGraphColor
+            )),
             "purposeMismatch": failureToken(finalize(
                 shader: contract(revision: "purpose-mismatch"),
                 device: device,
@@ -6403,6 +6452,9 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             self.assertEqual(results[token + ":spelling"], token)
             self.assertEqual(results[token + ":persistent"], "same")
             self.assertEqual(results[token + ":override"], "success", results)
+            self.assertEqual(results[token + ":straight"], "success", results)
+            self.assertEqual(results[token + ":straightPurpose"], "straight-albedo", results)
+            self.assertEqual(results[token + ":straightIngress"], "true", results)
             for failure in ("missing", "stale", "purpose"):
                 self.assertNotEqual(results[token + ":" + failure], "success", results)
 
@@ -6856,6 +6908,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
         )
 
     def test_snapshot_identity_and_metadata_states_remain_distinct(self) -> None:
+        self.assertEqual(self.result["failures"]["straightGraphColor"], "success")
         expected = {
             "missingGraphIdentity": "texture/resourceSnapshotUnresolved",
             "pending": "texture/resourceSnapshotUnresolved",
