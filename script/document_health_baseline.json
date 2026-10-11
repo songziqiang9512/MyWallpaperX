@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 117985
+      "bytes": 118608
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 99,
-      "bytes": 29854
+      "bytes": 30048
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 241,
-      "bytes": 67507
+      "bytes": 68025
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1161,24 +1161,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "64e48b242471c74c686280c64d6f0ceec9f48638a7b454beae7c53866addffca",
-      "after": "bdc65954079fc948f8b5d0512bbbea0f77ba8780b4efb97dd0a900afe503d302",
-      "owner": "scene-terminal-material",
-      "reason": "Replace closed raw named solid size gap with bounded shared-chain acceptance and preserve graph-final and special geometry exclusions.",
-      "decision": "docs/scene/history/named-solid-source-extent-2026-10-12.md#首断点与实现"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "655988ba9d5663fa3ecb95574bd2cc5000c5d25d5d5932b2d27c54cde9c0f42e",
-      "after": "3fb2d619dd3ae4ef275091ac8cef7855970a4d382079f72c2898dea86a515d32",
-      "owner": "scene-terminal-material",
-      "reason": "Replace closed raw named solid size gap with bounded shared-chain acceptance and preserve graph-final and special geometry exclusions.",
-      "decision": "docs/scene/history/named-solid-source-extent-2026-10-12.md#首断点与实现"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
       "before": "14ba04a12e008f5b7a26c003888e0314fee6b1c7bfb512f1a33c3ffbf18f5e1c",
       "after": "746f03697f736b295f216d23582401f475a0275dfd0f89f5106398ed295fc0ad",
@@ -1188,12 +1170,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "bdc65954079fc948f8b5d0512bbbea0f77ba8780b4efb97dd0a900afe503d302",
+      "after": "9b735829469bb5fbfb13cfcf6ad6bc83a7bfff3fa123c99e0fd5fe367c8d6b63",
+      "owner": "scene-material-preparation",
+      "reason": "Replace closed missing-resolution gap with one normalization proof and preserve real bound resource identity; archive execution details.",
+      "decision": "docs/scene/history/missing-resolution-normalization-2026-10-12.md#首断点与实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "3fb2d619dd3ae4ef275091ac8cef7855970a4d382079f72c2898dea86a515d32",
+      "after": "bbe681a7779c959badc1dcdcb2976d5f0e629c8dc6a529f32cf01be9bfb711c4",
+      "owner": "scene-material-preparation",
+      "reason": "Replace closed missing-resolution gap with one normalization proof and preserve real bound resource identity; archive execution details.",
+      "decision": "docs/scene/history/missing-resolution-normalization-2026-10-12.md#首断点与实现"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "dbd8f19dc65a1c3067c699d5539f1e3a13da5287abed067670ff6922fa621046",
-      "after": "420c708a54c5af5ad53af72afe983ef61e29637d777c56c0068b10948390f79a",
-      "owner": "scene-terminal-material",
-      "reason": "Replace closed raw named solid size gap with bounded shared-chain acceptance and preserve graph-final and special geometry exclusions.",
-      "decision": "docs/scene/history/named-solid-source-extent-2026-10-12.md#首断点与实现"
+      "before": "420c708a54c5af5ad53af72afe983ef61e29637d777c56c0068b10948390f79a",
+      "after": "cbbc55d58fa616b61a4e42fddeb3a9a340905134b605b0ab17f8d93bc43d1b43",
+      "owner": "scene-material-preparation",
+      "reason": "Replace closed missing-resolution gap with one normalization proof and preserve real bound resource identity; archive execution details.",
+      "decision": "docs/scene/history/missing-resolution-normalization-2026-10-12.md#首断点与实现"
     }
   ]
 }

@@ -13,7 +13,8 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
 
     static func analyze(
         vertex: SceneAuthoredShaderSyntaxUnit,
-        fragment: SceneAuthoredShaderSyntaxUnit
+        fragment: SceneAuthoredShaderSyntaxUnit,
+        boundTextureSlots: Set<Int> = []
     ) -> Projection {
         let units = [vertex, fragment]
         let samplerNames = Set(units.flatMap { unit in
@@ -36,7 +37,7 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
             SceneAuthoredShaderNeutralTextureResolutionAnalyzer.analyze(
                 vertex: vertex,
                 fragment: fragment,
-                activeSamplerSlots: directlyActiveSlots
+                activeSamplerSlots: directlyActiveSlots.union(boundTextureSlots)
             )
         let needsProjection = inactiveSamplerNames.contains { name in
             neutralTextureResolution?.resolutionSlot != textureSlot(name)
@@ -92,7 +93,8 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
     static func activeSamplerNames(
         vertexSource: String,
         fragmentSource: String,
-        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none
+        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none,
+        boundTextureSlots: Set<Int> = []
     ) -> Set<String>? {
         let (vertex, fragment) = syntaxOutputs(
             vertexSource: vertexSource,
@@ -103,7 +105,8 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
               fragment.diagnostics.isEmpty,
               let vertexUnit = vertex.unit,
               let fragmentUnit = fragment.unit else { return nil }
-        return analyze(vertex: vertexUnit, fragment: fragmentUnit).activeSamplerNames
+        return analyze(vertex: vertexUnit, fragment: fragmentUnit,
+                       boundTextureSlots: boundTextureSlots).activeSamplerNames
     }
 
     /// Projects active sampler names for schema construction when the bounded
@@ -119,12 +122,14 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
     static func activeSamplerNamesForSchema(
         vertexSource: String,
         fragmentSource: String,
-        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none
+        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none,
+        boundTextureSlots: Set<Int> = []
     ) -> Set<String>? {
         if let names = activeSamplerNames(
             vertexSource: vertexSource,
             fragmentSource: fragmentSource,
-            runtimeLoopBounds: runtimeLoopBounds
+            runtimeLoopBounds: runtimeLoopBounds,
+            boundTextureSlots: boundTextureSlots
         ) {
             return names
         }
@@ -161,7 +166,11 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
         let references = vertexProjection.references.union(
             fragmentProjection.references
         )
-        return declarations.intersection(references)
+        let resolutionDependencies = declarations.filter { name in
+            guard let slot = textureSlot(name), boundTextureSlots.contains(slot) else { return false }
+            return references.contains(name + "Resolution")
+        }
+        return declarations.intersection(references).union(resolutionDependencies)
     }
 
     private static func syntaxOutputs(
@@ -376,14 +385,17 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
     /// Blank proven token ranges without shifting diagnostics or fragment
     /// source. A token/source mismatch (for example macro expansion) keeps the
     /// original input instead of applying offsets to unproven text.
-    static func projectVertexSource(vertex: String, fragment: String) -> String {
+    static func projectVertexSource(
+        vertex: String, fragment: String, boundTextureSlots: Set<Int> = []
+    ) -> String {
         let outputs = syntaxOutputs(vertexSource: vertex, fragmentSource: fragment,
                                     runtimeLoopBounds: .none)
         guard outputs.vertex.diagnostics.isEmpty, outputs.fragment.diagnostics.isEmpty,
               let vertexUnit = outputs.vertex.unit, let fragmentUnit = outputs.fragment.unit else {
             return vertex
         }
-        let projection = analyze(vertex: vertexUnit, fragment: fragmentUnit)
+        let projection = analyze(vertex: vertexUnit, fragment: fragmentUnit,
+                                 boundTextureSlots: boundTextureSlots)
         guard !projection.omittedVertexStatementRanges.isEmpty else { return vertex }
         var scalars = Array(vertex.unicodeScalars)
         var lineStarts = [0]

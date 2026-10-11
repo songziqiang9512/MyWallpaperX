@@ -177,9 +177,13 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             textureFormats: textureFormats
         ) {
         case let .accepted(prepared):
+            let boundTextureSlots = Set(template.textureSlots.indices.filter {
+                template.textureSlots[$0] != nil
+            })
             let sources = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
                 vertex: prepared.vertex.source,
-                fragment: prepared.fragment.source
+                fragment: prepared.fragment.source,
+                boundTextureSlots: boundTextureSlots
             )
             let loopBounds = SceneResolvedMaterialRuntimeLoopBoundResolver.resolve(
                 template: template,
@@ -189,7 +193,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                     .activeSamplerNames(
                         vertexSource: sources.vertex,
                         fragmentSource: sources.fragment,
-                        runtimeLoopBounds: loopBounds
+                        runtimeLoopBounds: loopBounds,
+                        boundTextureSlots: boundTextureSlots
                     ), let resolvedCombos =
                     SceneAuthoredShaderPreparation.resolvedIntegerCombos(
                         contract: template.shaderContract,
@@ -342,7 +347,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
 
     static func activeSamplers(
         _ prepared: SceneShaderPreparedProgram,
-        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none
+        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none,
+        boundTextureSlots: Set<Int> = []
     ) throws -> [Int: Sampler] {
         // Schema construction may retain a conservative lexical sampler set
         // when only a dynamic loop blocks the bounded frontend.  Executable
@@ -351,7 +357,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             .activeSamplerNamesForSchema(
                 vertexSource: prepared.vertex.source,
                 fragmentSource: prepared.fragment.source,
-                runtimeLoopBounds: runtimeLoopBounds
+                runtimeLoopBounds: runtimeLoopBounds,
+                boundTextureSlots: boundTextureSlots
             ) else { throw Issue.sampler("prepared-frontend") }
         return try activeSamplers(prepared, activeNames: activeNames)
     }

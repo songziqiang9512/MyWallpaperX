@@ -20,7 +20,7 @@
 | 生命周期与发布完整性 | [生命周期完整性记录](#e-2026-10-01-lifecycle-integrity) |
 | SceneScript 显隐准备与交互 | [统一显隐记录](#e-2026-09-27-unified-effect-visibility)、[事件显隐持久修复](../history/event-visibility-persistence-2026-10-10.md)：312两个浮动窗口恢复，四次属性热切无重建、两窗口拖动已验 |
 | 音频共享 producer 与产品入口 | [共享 producer 记录](#e-2026-09-22-audio-shared-canonical-producer)、[普通产品入口记录](#e-2026-09-22-audio-ordinary-scene-web) |
-| solid named源尺寸 | [有界修复](../history/named-solid-source-extent-2026-10-12.md)：376裙摆11层重复矩形消失，14层terminal/GPU/下一帧，保留graph-final依赖及deformer缺口。 |
+| solid named源尺寸 | [有界修复](../history/named-solid-source-extent-2026-10-12.md)：376裙摆11层重复矩形消失，14层terminal/GPU/下一帧，保留graph-final依赖；后继[缺省尺寸修复](../history/missing-resolution-normalization-2026-10-12.md)使头部deformer进入原GPU/合成链，实际材质阶段由77增至78，另37段作者关闭而透传，非整图parity。 |
 | Batch2 已实施职责与仍待证输入 | [冻结执行记录](#batch2-frozen-records)；按职责查询有界输出、失败与未验profile |
 | 作者图层退出 | <a id="e-2026-10-07-authored-layer-retirement"></a>[删除与脚本退休](../history/authored-layer-retirement-2026-10-07.md) |
 | Sprite世界空间与深度 | [相机与深度修复](../history/particle-world-depth-2026-10-11.md)：324原包三层准入、主体恢复并实际呈现，379健康回归；后继[信号producer修复](../history/independent-signal-producer-2026-10-11.md)恢复GodRays放射光束；运动形态余项仍开放，不计整样本通过。 |

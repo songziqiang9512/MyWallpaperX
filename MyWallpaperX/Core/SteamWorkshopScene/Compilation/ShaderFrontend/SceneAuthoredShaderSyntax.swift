@@ -25,6 +25,7 @@ nonisolated struct SceneAuthoredShaderSyntaxUnit {
         let line: Int
     }
 
+    let source: String?
     let stage: SceneShaderContract.StageKind
     let tokens: [SceneAuthoredShaderToken]
     let defines: [String: String]
@@ -250,6 +251,7 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
         }
         return Output(
             unit: .init(
+                source: lexerOutput.source,
                 stage: stage,
                 tokens: tokens,
                 defines: lexerOutput.defines,

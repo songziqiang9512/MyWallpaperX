@@ -23,7 +23,9 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
     private static let maximumUnrolledIterations = 16
     private static let maximumSourceBytes = 512 * 1_024
 
-    static func canonicalize(vertex: String, fragment: String) -> Pair {
+    static func canonicalize(
+        vertex: String, fragment: String, boundTextureSlots: Set<Int> = []
+    ) -> Pair {
         let original = Pair(vertex: vertex, fragment: fragment)
         var result = Pair(
             vertex: SceneAuthoredShaderBuiltInVectorConversion
@@ -96,7 +98,8 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
         }
         return Pair(
             vertex: SceneAuthoredShaderDeadBindingAnalyzer.projectVertexSource(
-                vertex: result.vertex, fragment: result.fragment
+                vertex: result.vertex, fragment: result.fragment,
+                boundTextureSlots: boundTextureSlots
             ),
             fragment: result.fragment
         )

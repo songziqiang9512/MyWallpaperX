@@ -77,6 +77,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         premultipliedColorInputSlots: Set<Int> = [],
         defaultBoundaryColorSlots: Set<Int> = [],
         colorBoundary: SceneShaderColorBoundary? = nil,
+        boundTextureSlots: Set<Int> = [],
         stages: [Stage],
         vertexPositionInput: SceneAuthoredShaderProgram.VertexPositionInput? = nil,
         loopGuardCap: Int? = nil,
@@ -122,7 +123,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 SceneAuthoredShaderNeutralTextureResolutionAnalyzer.analyze(
                     vertexSource: vertexStage.authoredSource,
                     fragmentSource: fragmentStage.authoredSource,
-                    activeSamplerSlots: Set(reflectedTextureNames.keys)
+                    activeSamplerSlots: Set(reflectedTextureNames.keys).union(boundTextureSlots)
                 )
             let resolutionTextureSlots = resolutionTextureDependencySlots(
                 layout: stagedUniforms.layout,

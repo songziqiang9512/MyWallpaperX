@@ -5406,12 +5406,11 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         expected_color_transfer: tuple[str, int] | None = None,
         premultiplied_color_input_slots: tuple[int, ...] = (),
         default_boundary_color_slots: tuple[int, ...] = (),
+        bound_texture_slots: tuple[int, ...] = (),
     ) -> str:
         digest = hashlib.sha256()
-        expected_key = (
-            f"{expected_color_transfer[0]}:{expected_color_transfer[1]}"
-            if expected_color_transfer is not None else "-"
-        )
+        expected_key = "-" if expected_color_transfer is None else (
+            f"{expected_color_transfer[0]}:{expected_color_transfer[1]}")
         for value in (
             seed,
             "wallpaper-engine-glsl-like-v0",
@@ -5422,6 +5421,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             ",".join(map(str, sorted(premultiplied_color_input_slots))),
             ",".join(map(str, sorted(default_boundary_color_slots))),
             "-",
+            *((",".join(map(str, sorted(bound_texture_slots))),) if seed.endswith("-v31") else ()),
             "{}",
         ):
             encoded = value.encode("utf-8")
@@ -6422,7 +6422,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             request = json.loads(
                 (requests / f"{data['requestKey']}.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(request["schemaVersion"], 6)
+            self.assertEqual(request["schemaVersion"], 7)
             self.assertEqual(request["premultipliedColorInputSlots"], [])
             self.assertEqual(request["outputSemantics"], "preserved-rgba-unorm")
 

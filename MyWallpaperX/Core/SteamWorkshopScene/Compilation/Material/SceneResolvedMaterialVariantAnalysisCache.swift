@@ -21,7 +21,7 @@ import Foundation
 /// directory, and a failed or stale record degrades to a full recompute.
 nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
     // v20 includes function-local comma declarators in scalar/vector broadcasts.
-    private static let schemaVersion = 20
+    private static let schemaVersion = 22
     private static let maximumEntryBytes = 512 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()
@@ -79,10 +79,6 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
 
     struct NeutralTextureResolutionMirror: Codable, Equatable {
         let resolutionSlot: Int
-        let coordinateTextureSlot: Int
-        let varyingName: String
-        let sourceComponents: String
-        let targetComponents: String
     }
 
     struct AuxiliaryRedCarrierMirror: Codable, Equatable {
@@ -447,11 +443,7 @@ extension SceneResolvedMaterialVariantAnalysisCache {
     ) -> SceneAuthoredShaderNeutralTextureResolutionFact? {
         guard let mirror else { return nil }
         return .init(
-            resolutionSlot: mirror.resolutionSlot,
-            coordinateTextureSlot: mirror.coordinateTextureSlot,
-            varyingName: mirror.varyingName,
-            sourceComponents: mirror.sourceComponents,
-            targetComponents: mirror.targetComponents
+            resolutionSlot: mirror.resolutionSlot
         )
     }
 
@@ -459,11 +451,7 @@ extension SceneResolvedMaterialVariantAnalysisCache {
         _ fact: SceneAuthoredShaderNeutralTextureResolutionFact
     ) -> NeutralTextureResolutionMirror {
         .init(
-            resolutionSlot: fact.resolutionSlot,
-            coordinateTextureSlot: fact.coordinateTextureSlot,
-            varyingName: fact.varyingName,
-            sourceComponents: fact.sourceComponents,
-            targetComponents: fact.targetComponents
+            resolutionSlot: fact.resolutionSlot
         )
     }
 

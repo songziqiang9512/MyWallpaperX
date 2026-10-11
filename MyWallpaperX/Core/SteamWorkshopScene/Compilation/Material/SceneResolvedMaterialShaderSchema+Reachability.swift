@@ -57,7 +57,10 @@ extension SceneResolvedMaterialShaderSchema {
                 runtimeLoopBounds: SceneResolvedMaterialRuntimeLoopBoundResolver.resolve(
                     template: template,
                     prepared: prepared
-                )
+                ),
+                boundTextureSlots: Set(template.textureSlots.indices.filter {
+                    template.textureSlots[$0] != nil
+                })
             )
             cache[key] = result
             return result

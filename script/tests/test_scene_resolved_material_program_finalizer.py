@@ -2621,6 +2621,7 @@ private func neutralTextureResolutionResult(
     mappedSize: CGSize = CGSize(width: 2, height: 2),
     uvTransform: SceneTextureUVTransform = .identity,
     includeResolutionCandidate: Bool = false,
+    includeResolutionDefault: Bool = false,
     vertexSourceOverride: String? = nil,
     fragmentSourceOverride: String? = nil,
     coordinateStatusOverride: SceneFrameTextureLookupStatus? = nil
@@ -2660,6 +2661,14 @@ private func neutralTextureResolutionResult(
     var entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus] = [
         maskIdentity: coordinateStatus,
     ]
+    if includeResolutionDefault {
+        let identity = SceneFrameTextureIdentity.asset(.init(
+            path: SceneVFSAssetPath("textures/default.tex")!, purpose: .mask))
+        entries[identity] = readyStatus(device, identity: identity,
+            purpose: .mask, content: .data,
+            physicalSize: CGSize(width: 64, height: 32),
+            mappedSize: CGSize(width: 64, height: 32))
+    }
     if includeResolutionCandidate {
         let path = SceneVFSAssetPath(
             "textures/unexpected-resolution-slot-\(resolutionSlot).tex"
@@ -2698,12 +2707,7 @@ private func neutralTextureResolutionToken(_ device: MTLDevice) -> String {
         return failureToken(result)
     }
     guard program.textureSlots[1] == nil else { return "slot1-bound" }
-    guard let maskSlot = program.textureSlots[2] else { return "slot2-missing" }
-    guard
-          maskSlot.resource.publication.candidate.axisAlignedMappedUVScale(
-              expectedPurpose: .mask
-          ) == SIMD2<Float>(1, 1)
-    else { return "slot2-mapping" }
+    guard program.textureSlots[2] != nil else { return "slot2-missing" }
     guard let uniform = program.resolvedUniforms.first(where: {
               $0.field.name == "g_Texture1Resolution"
           }) else { return "uniform-missing" }
@@ -2711,19 +2715,15 @@ private func neutralTextureResolutionToken(_ device: MTLDevice) -> String {
     else { return "uniform-source" }
     guard
           fact.resolutionSlot == 1,
-          fact.coordinateTextureSlot == 2,
-          fact.varyingName == "coordinateCarrier",
-          fact.sourceComponents == "xy",
-          fact.targetComponents == "zw",
           uniform.encodedValue.count == 16,
           (0 ..< 4).allSatisfy({
-              Harness.float(uniform.encodedValue, at: $0 * 4) == 1
+              Harness.float(uniform.encodedValue, at: $0 * 4) == 2
           }),
           program.semanticIdentity.activeUniforms.contains(where: {
               guard $0.fieldName == "g_Texture1Resolution",
                     case .neutralMissingTextureResolution(fact) = $0.source
               else { return false }
-              return fact.resolutionSlot == 1 && fact.coordinateTextureSlot == 2
+              return fact.resolutionSlot == 1
           })
     else { return "uniform-fact-or-bytes" }
     return program.exactIdentity.textureSlots[2]?.physicalExtent == [2, 2]
@@ -2743,10 +2743,7 @@ private func neutralTextureResolutionUnseenToken(_ device: MTLDevice) -> String 
     )
     guard case let .success(program) = result,
           program.textureSlots[3] == nil,
-          let slot = program.textureSlots[5],
-          slot.resource.publication.candidate.axisAlignedMappedUVScale(
-              expectedPurpose: .mask
-          ) == SIMD2<Float>(1, 1),
+          program.textureSlots[5] != nil,
           program.exactIdentity.textureSlots[5]?.physicalExtent == [64, 32],
           program.exactIdentity.textureSlots[5]?.mappedExtent == [64, 32],
           let uniform = program.resolvedUniforms.first(where: {
@@ -2754,8 +2751,8 @@ private func neutralTextureResolutionUnseenToken(_ device: MTLDevice) -> String 
           }),
           case let .neutralMissingTextureResolution(fact) = uniform.source,
           fact.resolutionSlot == 3,
-          fact.coordinateTextureSlot == 5,
-          fact.varyingName == "unseenCoordinates"
+          uniform.encodedValue.count == 16,
+          (0 ..< 4).allSatisfy({ Harness.float(uniform.encodedValue, at: $0 * 4) == 2 })
     else { return failureToken(result) }
     return "success"
 }
@@ -2788,12 +2785,8 @@ private func separateNeutralTextureResolutionToken(_ device: MTLDevice) -> Strin
           }),
           case let .neutralMissingTextureResolution(fact) = uniform.source,
           fact.resolutionSlot == 7,
-          fact.coordinateTextureSlot == 3,
-          fact.varyingName == "opacityCoordinates",
-          fact.sourceComponents == "baseCoordinates.xy",
-          fact.targetComponents == "xy",
           (0 ..< 4).allSatisfy({
-              Harness.float(uniform.encodedValue, at: $0 * 4) == 1
+              Harness.float(uniform.encodedValue, at: $0 * 4) == 2
           })
     else { return failureToken(result) }
     return "success"
@@ -2874,9 +2867,7 @@ private func neutralTextureResolutionAnalyzerCases() -> [String: Bool] {
         gl_FragColor = albedo * mask * opactiyMask;
     }
     """
-    let realPrepared: (
-        current: Bool, missing: Bool, coordinate: Bool, count: Bool, analyzed: Bool
-    ) = {
+    let realPrepared: Bool = {
         let shader = contract(
             revision: "neutral-texture-resolution-real-prepared",
             uniformMetadata: nil,
@@ -2890,7 +2881,7 @@ private func neutralTextureResolutionAnalyzerCases() -> [String: Bool] {
                 combos: [:],
                 inactiveComboProviders: ["MASK"],
                 textureReadiness: [0: true, 1: false, 2: true]
-            ) else { return (false, false, false, false, false) }
+            ) else { return false }
         let sources = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
             vertex: prepared.vertex.source,
             fragment: prepared.fragment.source
@@ -2899,7 +2890,7 @@ private func neutralTextureResolutionAnalyzerCases() -> [String: Bool] {
             .activeSamplerNames(
                 vertexSource: sources.vertex,
                 fragmentSource: sources.fragment
-            ) else { return (false, false, false, false, false) }
+            ) else { return false }
         let activeSlots = Set(activeNames.compactMap { name -> Int? in
             guard name.hasPrefix("g_Texture") else { return nil }
             return Int(name.dropFirst("g_Texture".count))
@@ -2909,13 +2900,7 @@ private func neutralTextureResolutionAnalyzerCases() -> [String: Bool] {
             fragmentSource: sources.fragment,
             activeSamplerSlots: activeSlots
         ) != nil
-        return (
-            activeSlots.contains(0),
-            !activeSlots.contains(1),
-            activeSlots.contains(2),
-            activeSlots.count == 2,
-            analyzed
-        )
+        return activeSlots == [0, 2] && analyzed
     }()
     return [
         "exact": fact(sources.vertex) != nil,
@@ -2932,18 +2917,14 @@ private func neutralTextureResolutionAnalyzerCases() -> [String: Bool] {
                 of: "gl_FragColor =",
                 with: "float live = opacityCoordinates.x; gl_FragColor ="
             )
-        ) == nil,
+        ) != nil,
         "realActiveCurrentAndMask": SceneAuthoredShaderNeutralTextureResolutionAnalyzer
             .analyze(
                 vertexSource: realVertex,
                 fragmentSource: realFragment,
                 activeSamplerSlots: [0, 2]
             ) != nil,
-        "realPreparedCurrentActive": realPrepared.current,
-        "realPreparedResolutionInactive": realPrepared.missing,
-        "realPreparedCoordinateActive": realPrepared.coordinate,
-        "realPreparedActiveSamplerCount": realPrepared.count,
-        "realPreparedCombo": realPrepared.analyzed,
+        "realPreparedCombo": realPrepared,
         "activeResolutionSlot": SceneAuthoredShaderNeutralTextureResolutionAnalyzer
             .analyze(
                 vertexSource: sources.vertex,
@@ -2958,9 +2939,15 @@ private func neutralTextureResolutionAnalyzerCases() -> [String: Bool] {
             of: "\(resolution).z",
             with: "\(resolution).y"
         )) == nil,
+        "attributeUV": fact(sources.vertex.replacingOccurrences(
+            of: "\(varying).x *", with: "a_TexCoord.x *"
+        ).replacingOccurrences(of: "\(varying).y *", with: "a_TexCoord.y *")) != nil,
         "functionUse": fact(sources.vertex.replacingOccurrences(
             of: "\(varying).x * \(resolution).z",
             with: "abs(\(varying).x) * \(resolution).z"
+        )) == nil,
+        "fragmentResolutionUse": fact(sources.vertex, sources.fragment.replacingOccurrences(
+            of: "void main() {", with: "uniform vec4 \(resolution);\nvoid main() { float extra = \(resolution).x;"
         )) == nil,
         "array": fact(sources.vertex.replacingOccurrences(
             of: "uniform vec4 \(resolution);",
@@ -2996,14 +2983,14 @@ private func neutralTextureResolutionAnalyzerCases() -> [String: Bool] {
                 of: "gl_FragColor =",
                 with: "float duplicate = texSample2D(g_Texture2, \(varying).zw).r; gl_FragColor ="
             )
-        ) == nil,
+        ) != nil,
         "targetLiveUse": fact(
             sources.vertex,
             sources.fragment.replacingOccurrences(
                 of: "gl_FragColor =",
                 with: "float live = \(varying).z; gl_FragColor ="
             )
-        ) == nil,
+        ) != nil,
         "wrongUniformType": fact(sources.vertex.replacingOccurrences(
             of: "uniform vec4 \(resolution);",
             with: "uniform vec3 \(resolution);"
@@ -3053,6 +3040,22 @@ private func neutralTextureResolutionFinalizerFailures(
         ),
         resourceGeneration: 7
     ))
+    let defaultResult = neutralTextureResolutionResult(device,
+        includeResolutionDefault: true,
+        fragmentSourceOverride: sources.fragment.replacingOccurrences(
+            of: "void main() {",
+            with: "uniform sampler2D g_Texture1; // {\"mode\":\"opacitymask\",\"default\":\"textures/default.tex\"}\nvoid main() {"))
+    let defaultToken: String = {
+        guard case let .success(program) = defaultResult,
+              let slot = program.textureSlots[1], slot.registryIdentity ==
+                .asset(.init(path: SceneVFSAssetPath("textures/default.tex")!, purpose: .mask)),
+              let uniform = program.resolvedUniforms.first(where: {
+                  $0.field.name == "g_Texture1Resolution"
+              }), case .host(.textureResolution(slot: 1)) = uniform.source,
+              (0..<4).map({ Harness.float(uniform.encodedValue, at: $0 * 4) }) == [64, 32, 64, 32]
+        else { return failureToken(defaultResult) + "/default-resource-or-host" }
+        return "success"
+    }()
     return [
         "resolutionCandidate": failureToken(neutralTextureResolutionResult(
             device,
@@ -3085,20 +3088,14 @@ private func neutralTextureResolutionFinalizerFailures(
                 with: "g_Texture1Resolution.y"
             )
         )),
-        "targetLiveUse": failureToken(neutralTextureResolutionResult(
+        "downstreamComputation": failureToken(neutralTextureResolutionResult(
             device,
             fragmentSourceOverride: sources.fragment.replacingOccurrences(
-                of: "gl_FragColor =",
-                with: "float live = coordinateCarrier.z; gl_FragColor ="
+                of: "(coordinateCarrier.zw)",
+                with: "(coordinateCarrier.zw * 0.5)"
             )
         )),
-        "resolutionSamplerActive": failureToken(neutralTextureResolutionResult(
-            device,
-            fragmentSourceOverride: sources.fragment.replacingOccurrences(
-                of: "void main() {",
-                with: "uniform sampler2D g_Texture1; // {\"mode\":\"opacitymask\",\"default\":\"textures/default.tex\"}\nvoid main() {"
-            )
-        )),
+        "unsampledDefaultResolution": defaultToken,
     ]
 }
 
@@ -6552,13 +6549,13 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             self.result["neutralTextureResolutionFailures"],
             {
                 "resolutionCandidate": "uniform/staticUniformBindingInvalid",
-                "mappedNotIdentity": "uniform/staticUniformBindingInvalid",
-                "uvNotIdentity": "uniform/staticUniformBindingInvalid",
+                "mappedNotIdentity": "success",
+                "uvNotIdentity": "success",
                 "coordinatePending": "texture/resourceSnapshotUnresolved",
                 "coordinateWrongPurpose": "texture/textureMetadataIncomplete",
                 "wrongComponent": "uniform/staticUniformBindingInvalid",
-                "targetLiveUse": "uniform/staticUniformBindingInvalid",
-                "resolutionSamplerActive": "texture/textureBindingInvalid",
+                "downstreamComputation": "success",
+                "unsampledDefaultResolution": "success",
             },
         )
 

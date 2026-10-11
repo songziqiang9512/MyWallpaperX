@@ -10,6 +10,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
         let provenColorTransfer: SceneShaderColorTransfer?
         let premultipliedColorInputSlots: [Int]
         let colorBoundary: SceneShaderColorBoundary?
+        let boundTextureSlots: [Int]
 
         init(
             vertexSource: String,
@@ -17,10 +18,11 @@ nonisolated enum SceneAuthoredShaderFrontend {
             runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds,
             provenColorTransfer: SceneShaderColorTransfer?,
             premultipliedColorInputSlots: Set<Int>,
-            colorBoundary: SceneShaderColorBoundary?
+            colorBoundary: SceneShaderColorBoundary?,
+            boundTextureSlots: Set<Int>
         ) {
-            // v18 scopes return-value declarations to their owning function.
-            cacheSchemaVersion = 18
+            // v19 preserves real resolution dependencies across neutral proofs.
+            cacheSchemaVersion = 19
             vertexSourceSHA256 = ProgramCacheDigest.hash(Data(vertexSource.utf8))
             fragmentSourceSHA256 = ProgramCacheDigest.hash(Data(fragmentSource.utf8))
             self.runtimeLoopBounds = runtimeLoopBounds
@@ -28,6 +30,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
             self.premultipliedColorInputSlots =
                 premultipliedColorInputSlots.sorted()
             self.colorBoundary = colorBoundary
+            self.boundTextureSlots = boundTextureSlots.sorted()
         }
     }
 
@@ -181,7 +184,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
         runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none,
         provenColorTransfer: SceneShaderColorTransfer? = nil,
         premultipliedColorInputSlots: Set<Int> = [],
-        colorBoundary: SceneShaderColorBoundary? = nil
+        colorBoundary: SceneShaderColorBoundary? = nil,
+        boundTextureSlots: Set<Int> = []
     ) -> SceneAuthoredShaderFrontendOutput {
         let cacheKey = ProgramCacheKey(
             vertexSource: vertexSource,
@@ -189,7 +193,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
             runtimeLoopBounds: runtimeLoopBounds,
             provenColorTransfer: provenColorTransfer,
             premultipliedColorInputSlots: premultipliedColorInputSlots,
-            colorBoundary: colorBoundary
+            colorBoundary: colorBoundary,
+            boundTextureSlots: boundTextureSlots
         )
         if let program = programCache.load(cacheKey) {
             return .init(program: program, diagnostics: [])
@@ -210,7 +215,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
               syntaxDiagnostics.isEmpty else {
             return .init(program: nil, diagnostics: syntaxDiagnostics)
         }
-        let validation = validate(vertex: vertexUnit, fragment: fragmentUnit)
+        let validation = validate(vertex: vertexUnit, fragment: fragmentUnit,
+                                  boundTextureSlots: boundTextureSlots)
         guard validation.diagnostics.isEmpty,
               let uniformLayout = makeUniformLayout(
                   validation.uniforms, colorBoundary: colorBoundary
@@ -321,14 +327,16 @@ nonisolated enum SceneAuthoredShaderFrontend {
 
     private static func validate(
         vertex: SceneAuthoredShaderSyntaxUnit,
-        fragment: SceneAuthoredShaderSyntaxUnit
+        fragment: SceneAuthoredShaderSyntaxUnit,
+        boundTextureSlots: Set<Int>
     ) -> Validation {
         var diagnostics: [SceneAuthoredShaderFrontendDiagnostic] = []
         diagnostics += SceneAuthoredShaderFunctionSemantics.diagnostics(for: vertex)
         diagnostics += SceneAuthoredShaderFunctionSemantics.diagnostics(for: fragment)
         let deadBindings = SceneAuthoredShaderDeadBindingAnalyzer.analyze(
             vertex: vertex,
-            fragment: fragment
+            fragment: fragment,
+            boundTextureSlots: boundTextureSlots
         )
         let vertexAttributes = vertex.declarations.filter { $0.storage == .attribute }
         let expectedAttributes: [String: SceneAuthoredShaderValueType] = [

@@ -127,7 +127,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 runtimeLoopBounds: runtimeLoopBounds,
                 provenColorTransfer: sourceColorTransfer,
                 premultipliedColorInputSlots: premultipliedColorInputSlots,
-                colorBoundary: colorBoundary
+                colorBoundary: colorBoundary,
+                boundTextureSlots: Set(sourceActiveSamplers.keys)
             )
             guard output.diagnostics.isEmpty,
                   let bounded = output.program else {

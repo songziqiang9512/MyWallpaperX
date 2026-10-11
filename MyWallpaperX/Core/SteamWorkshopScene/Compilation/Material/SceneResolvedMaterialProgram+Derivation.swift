@@ -8,7 +8,8 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
     typealias Template = SceneResolvedMaterialTemplate
 
     static func derive(_ input: Program.AssemblyInput) -> Program.Derived? {
-        guard let frontend = compileFrontend(input.preparedShader) else { return nil }
+        guard let frontend = compileFrontend(input.preparedShader,
+            boundTextureSlots: Set(input.textureSlots.indices.filter { input.textureSlots[$0] != nil })) else { return nil }
         return derive(
             input,
             frontend: frontend,
@@ -266,11 +267,13 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
     }
 
     private static func compileFrontend(
-        _ prepared: SceneShaderPreparedProgram
+        _ prepared: SceneShaderPreparedProgram,
+        boundTextureSlots: Set<Int>
     ) -> SceneAuthoredShaderProgram? {
         let output = SceneAuthoredShaderFrontend.compile(
             vertexSource: prepared.vertex.source,
-            fragmentSource: prepared.fragment.source
+            fragmentSource: prepared.fragment.source,
+            boundTextureSlots: boundTextureSlots
         )
         guard output.diagnostics.isEmpty,
               let program = output.program,
@@ -492,8 +495,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                   field.authoredName == fact.resolutionUniformName,
                   field.type == .float4,
                   field.arrayCount == nil,
-                  !activeTextureSlots.contains(fact.resolutionSlot),
-                  activeTextureSlots.contains(fact.coordinateTextureSlot)
+                  !activeTextureSlots.contains(fact.resolutionSlot)
             else { return nil }
             return .neutralMissingTextureResolution(fact)
         case let .selfCompositeTextureResolution(slot):

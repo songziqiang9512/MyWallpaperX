@@ -12,12 +12,8 @@ nonisolated enum SceneAuthoredShaderNeutralTextureResolutionAnalyzer {
         guard let vertex = unit(source: vertexSource, stage: .vertex),
               let fragment = unit(source: fragmentSource, stage: .fragment)
         else { return nil }
-
-        return analyze(
-            vertex: vertex,
-            fragment: fragment,
-            activeSamplerSlots: activeSamplerSlots
-        )
+        return analyze(vertex: vertex, fragment: fragment,
+                       activeSamplerSlots: activeSamplerSlots)
     }
 
     static func analyze(
@@ -25,223 +21,89 @@ nonisolated enum SceneAuthoredShaderNeutralTextureResolutionAnalyzer {
         fragment: SceneAuthoredShaderSyntaxUnit,
         activeSamplerSlots: Set<Int>
     ) -> SceneAuthoredShaderNeutralTextureResolutionFact? {
-
-        let facts = vertex.declarations.flatMap { declaration in
-            [
-                packedCoordinateFact(
-                    resolution: declaration,
-                    vertex: vertex,
-                    fragment: fragment,
-                    activeSamplerSlots: activeSamplerSlots
-                ),
-                separateCoordinateFact(
-                    resolution: declaration,
-                    vertex: vertex,
-                    fragment: fragment,
-                    activeSamplerSlots: activeSamplerSlots
-                ),
-            ].compactMap { $0 }
+        let facts = vertex.declarations.compactMap { resolution
+            -> SceneAuthoredShaderNeutralTextureResolutionFact? in
+            guard resolution.storage == .uniform, resolution.typeName == "vec4",
+                  resolution.arraySize == nil,
+                  let slot = textureResolutionSlot(resolution.name),
+                  !activeSamplerSlots.contains(slot),
+                  references(resolution.name, in: fragment).isEmpty,
+                  let main = main(in: vertex) else { return nil }
+            let uses = references(resolution.name, in: vertex)
+            guard uses.count == 4,
+                  let assignment = single(statements(in: main.bodyRange, tokens: vertex.tokens),
+                    where: { range in uses.allSatisfy(range.contains) }),
+                  let source = normalizationSource(assignment,
+                    resolution: resolution.name, unit: vertex),
+                  authoredUVSource(source, assignment: assignment, unit: vertex),
+                  noSamplerDefault(slot: slot, units: [vertex, fragment]) else { return nil }
+            return .init(resolutionSlot: slot)
         }
         return facts.count == 1 ? facts[0] : nil
     }
 
-    private static func packedCoordinateFact(
-        resolution: Unit.Declaration,
-        vertex: Unit,
-        fragment: Unit,
-        activeSamplerSlots: Set<Int>
-    ) -> SceneAuthoredShaderNeutralTextureResolutionFact? {
-        guard resolution.storage == .uniform,
-              resolution.typeName == "vec4",
-              resolution.arraySize == nil,
-              let resolutionSlot = textureResolutionSlot(resolution.name),
-              (0 ..< 8).contains(resolutionSlot),
-              !activeSamplerSlots.contains(resolutionSlot),
-              references(resolution.name, in: fragment).isEmpty,
-              let vertexMain = main(in: vertex),
-              let fragmentMain = main(in: fragment)
-        else { return nil }
-
-        let resolutionReferences = references(resolution.name, in: vertex)
-        guard resolutionReferences.count == 4,
-              let assignment = single(
-                statements(in: vertexMain.bodyRange, tokens: vertex.tokens),
-                where: { range in
-                    resolutionReferences.allSatisfy(range.contains)
-                }
-              ),
-              let varying = exactCoordinateAssignment(
-                  assignment,
-                  resolutionName: resolution.name,
-                  tokens: vertex.tokens
-              ),
-              resolutionReferences.allSatisfy(assignment.contains),
-              let vertexVarying = single(vertex.declarations, where: {
-                  $0.storage == .varying
-                      && $0.typeName == "vec4"
-                      && $0.name == varying
-                      && $0.arraySize == nil
+    /// Preserve the authored multiplication/division, including parentheses.
+    /// The complete expressions contain only these three operands and two
+    /// operators; dropping parentheses here compares their shape, not codegen.
+    private static func normalizationSource(
+        _ range: Range<Int>, resolution: String, unit: Unit
+    ) -> String? {
+        let expression = Array(unit.tokens[range].dropLast()).map(\.text)
+        guard let equal = expression.firstIndex(of: "="),
+              (equal == 1 || (equal == 3 && expression[1] == ".")),
+              let target = single(unit.declarations, where: {
+                  $0.name == expression[0] && $0.storage == .varying && $0.arraySize == nil
               }),
-              fragment.declarations.contains(where: {
-                  $0.storage == .varying
-                      && $0.typeName == vertexVarying.typeName
-                      && $0.name == varying
-                      && $0.arraySize == nil
-              })
+              (equal == 1 && target.typeName == "vec2")
+                || (equal == 3 && target.typeName == "vec4" && expression[2] == "zw"),
+              let constructor = call(Array(expression.dropFirst(equal + 1))),
+              constructor.name == "vec2", constructor.arguments.count == 2 else { return nil }
+        let x = compact(constructor.arguments[0]), y = compact(constructor.arguments[1])
+        guard x.count == 11, y.count == 11, x[0] == y[0],
+              Array(x.dropFirst()) == [".", "x", "*", resolution, ".", "z", "/", resolution, ".", "x"],
+              Array(y.dropFirst()) == [".", "y", "*", resolution, ".", "w", "/", resolution, ".", "y"]
         else { return nil }
-
-        let vertexVaryingReferences = references(varying, in: vertex)
-        guard vertexVaryingReferences.count == 4,
-              let sourceAssignment = single(
-                statements(in: vertexMain.bodyRange, tokens: vertex.tokens),
-                where: {
-                    exactAuthoredUVAssignment(
-                        $0,
-                        varying: varying,
-                        unit: vertex
-                    )
-                }
-              ),
-              vertexVaryingReferences.allSatisfy({
-                  assignment.contains($0) || sourceAssignment.contains($0)
-              }),
-              let sample = exactCoordinateConsumer(
-                  varying: varying,
-                  main: fragmentMain,
-                  unit: fragment
-              ),
-              targetComponentsHaveOnlyConsumer(
-                  varying: varying,
-                  consumerRange: sample.range,
-                  unit: fragment
-              ),
-              let coordinateSlot = textureSamplerSlot(sample.samplerName),
-              coordinateSlot != resolutionSlot,
-              activeSamplerSlots.contains(coordinateSlot),
-              !activeSamplerSlots.contains(resolutionSlot),
-              fragment.declarations.contains(where: {
-                  $0.storage == .uniform
-                      && $0.typeName == "sampler2D"
-                      && $0.name == sample.samplerName
-                      && $0.arraySize == nil
-              }),
-              references(sample.samplerName, in: vertex).isEmpty,
-              references(sample.samplerName, in: fragment).count == 1
-        else { return nil }
-
-        return .init(
-            resolutionSlot: resolutionSlot,
-            coordinateTextureSlot: coordinateSlot,
-            varyingName: varying,
-            sourceComponents: "xy",
-            targetComponents: "zw"
-        )
+        return x[0]
     }
 
-    private static func separateCoordinateFact(
-        resolution: Unit.Declaration,
-        vertex: Unit,
-        fragment: Unit,
-        activeSamplerSlots: Set<Int>
-    ) -> SceneAuthoredShaderNeutralTextureResolutionFact? {
-        guard resolution.storage == .uniform,
-              resolution.typeName == "vec4",
-              resolution.arraySize == nil,
-              let resolutionSlot = textureResolutionSlot(resolution.name),
-              (0 ..< 8).contains(resolutionSlot),
-              !activeSamplerSlots.contains(resolutionSlot),
-              references(resolution.name, in: fragment).isEmpty,
-              let vertexMain = main(in: vertex),
-              let fragmentMain = main(in: fragment)
-        else { return nil }
+    private static func authoredUVSource(
+        _ name: String, assignment: Range<Int>, unit: Unit
+    ) -> Bool {
+        // A local declaration/parameter with the same name is not the authored input.
+        guard SceneAuthoredShaderSyntaxAnalyzer.uniqueValueDeclarations(in: unit.tokens)[name] != nil,
+              let declaration = single(unit.declarations, where: { $0.name == name }),
+              declaration.arraySize == nil else { return false }
+        if declaration.storage == .attribute { return declaration.typeName == "vec2" }
+        guard declaration.storage == .varying, declaration.typeName == "vec4",
+              let main = main(in: unit),
+              let producer = single(statements(in: main.bodyRange, tokens: unit.tokens),
+                where: { exactAuthoredUVAssignment($0, varying: name, unit: unit) }) else { return false }
+        return sourceXYHasOnlyProducerAndConsumer(name, producer: producer,
+                                                  consumer: assignment, unit: unit)
+    }
 
-        let resolutionReferences = references(resolution.name, in: vertex)
-        guard resolutionReferences.count == 4,
-              let assignment = single(
-                  statements(in: vertexMain.bodyRange, tokens: vertex.tokens),
-                  where: { range in resolutionReferences.allSatisfy(range.contains) }
-              ),
-              let mapping = exactSeparateCoordinateAssignment(
-                  assignment,
-                  resolutionName: resolution.name,
-                  tokens: vertex.tokens
-              ),
-              mapping.source != mapping.target,
-              resolutionReferences.allSatisfy(assignment.contains),
-              vertex.declarations.contains(where: {
-                  $0.storage == .varying
-                      && $0.typeName == "vec4"
-                      && $0.name == mapping.source
-                      && $0.arraySize == nil
-              }),
-              vertex.declarations.contains(where: {
-                  $0.storage == .varying
-                      && $0.typeName == "vec2"
-                      && $0.name == mapping.target
-                      && $0.arraySize == nil
-              }),
-              fragment.declarations.contains(where: {
-                  $0.storage == .varying
-                      && $0.typeName == "vec4"
-                      && $0.name == mapping.source
-                      && $0.arraySize == nil
-              }),
-              fragment.declarations.contains(where: {
-                  $0.storage == .varying
-                      && $0.typeName == "vec2"
-                      && $0.name == mapping.target
-                      && $0.arraySize == nil
-              })
-        else { return nil }
-
-        let targetReferences = references(mapping.target, in: vertex)
-        guard let sourceAssignment = single(
-                  statements(in: vertexMain.bodyRange, tokens: vertex.tokens),
-                  where: {
-                      exactAuthoredUVAssignment(
-                          $0,
-                          varying: mapping.source,
-                          unit: vertex
-                      )
-                  }
-              ),
-              sourceXYHasOnlyProducerAndConsumer(
-                  mapping.source,
-                  producer: sourceAssignment,
-                  consumer: assignment,
-                  unit: vertex
-              ),
-              targetReferences.count == 1,
-              targetReferences.allSatisfy(assignment.contains),
-              let sample = exactDirectCoordinateConsumer(
-                  varying: mapping.target,
-                  main: fragmentMain,
-                  unit: fragment
-              ),
-              references(mapping.target, in: fragment).count == 1,
-              references(mapping.target, in: fragment).allSatisfy(
-                  sample.range.contains
-              ),
-              let coordinateSlot = textureSamplerSlot(sample.samplerName),
-              coordinateSlot != resolutionSlot,
-              activeSamplerSlots.contains(coordinateSlot),
-              fragment.declarations.contains(where: {
-                  $0.storage == .uniform
-                      && $0.typeName == "sampler2D"
-                      && $0.name == sample.samplerName
-                      && $0.arraySize == nil
-              }),
-              references(sample.samplerName, in: vertex).isEmpty,
-              references(sample.samplerName, in: fragment).count == 1
-        else { return nil }
-
-        return .init(
-            resolutionSlot: resolutionSlot,
-            coordinateTextureSlot: coordinateSlot,
-            varyingName: mapping.target,
-            sourceComponents: "\(mapping.source).xy",
-            targetComponents: "xy"
-        )
+    /// Default metadata must survive before dead-binding projection. Reuse the
+    /// contract parser, and conservatively keep the resource path for any
+    /// default declaration (including malformed/ambiguous metadata).
+    private static func noSamplerDefault(slot: Int, units: [Unit]) -> Bool {
+        let name = "g_Texture\(slot)"
+        for unit in units {
+            guard let source = unit.source else { return false }
+            let parsed = SceneShaderContractSourceParser().parse(source, stageRelativePath: "")
+            guard parsed.diagnostics.isEmpty else { return false }
+            let declarations = parsed.declarations.filter { $0.name == name }
+            let syntaxDeclarations = unit.declarations.filter { $0.name == name }
+            guard declarations.count == syntaxDeclarations.count,
+                  syntaxDeclarations.allSatisfy({ expected in
+                      declarations.contains { $0.line == expected.line && $0.type == expected.typeName }
+                  }) else { return false }
+            let lines = Set(declarations.map(\.line))
+            for annotation in parsed.annotations where lines.contains(annotation.line) {
+                guard case let .object(values) = annotation.value,
+                      values["default"] == nil else { return false }
+            }
+        }
+        return true
     }
 
     private static func sourceXYHasOnlyProducerAndConsumer(
@@ -281,154 +143,20 @@ nonisolated enum SceneAuthoredShaderNeutralTextureResolutionAnalyzer {
         unit: Unit
     ) -> Bool {
         let expression = Array(unit.tokens[range]).map(\.text)
-        guard expression.count == 6,
+        guard (expression.count == 6 || expression.count == 8),
               expression[0] == varying,
               expression[1] == ".",
               expression[2] == "xy",
               expression[3] == "=",
-              expression[5] == ";" else { return false }
+              expression.last == ";",
+              expression.count == 6 || Array(expression[5...6]) == [".", "xy"]
+        else { return false }
         return unit.declarations.contains {
             $0.storage == .attribute
                 && $0.typeName == "vec2"
                 && $0.name == expression[4]
                 && $0.arraySize == nil
         }
-    }
-
-    private static func targetComponentsHaveOnlyConsumer(
-        varying: String,
-        consumerRange: Range<Int>,
-        unit: Unit
-    ) -> Bool {
-        for index in references(varying, in: unit) {
-            guard index + 2 < unit.tokens.count,
-                  unit.tokens[index + 1].text == "." else { return false }
-            let swizzle = unit.tokens[index + 2].text
-            if consumerRange.contains(index) {
-                guard swizzle == "zw" else { return false }
-            } else if swizzle.contains("z") || swizzle.contains("w")
-                        || swizzle.contains("b") || swizzle.contains("a")
-                        || swizzle.contains("p") || swizzle.contains("q") {
-                return false
-            }
-        }
-        return references(varying, in: unit).contains(where: consumerRange.contains)
-    }
-
-    private static func exactCoordinateAssignment(
-        _ range: Range<Int>,
-        resolutionName: String,
-        tokens: [Token]
-    ) -> String? {
-        let expression = Array(tokens[range].dropLast()).map(\.text)
-        guard expression.count >= 10,
-              expression[1] == ".",
-              expression[2] == "zw",
-              expression[3] == "=",
-              let call = call(Array(expression.dropFirst(4))),
-              call.name == "vec2",
-              call.arguments.count == 2
-        else { return nil }
-        let varying = expression[0]
-        guard compact(call.arguments[0]) == [
-            varying, ".", "x", "*", resolutionName, ".", "z", "/",
-            resolutionName, ".", "x",
-        ], compact(call.arguments[1]) == [
-            varying, ".", "y", "*", resolutionName, ".", "w", "/",
-            resolutionName, ".", "y",
-        ] else { return nil }
-        return varying
-    }
-
-    private static func exactSeparateCoordinateAssignment(
-        _ range: Range<Int>,
-        resolutionName: String,
-        tokens: [Token]
-    ) -> (source: String, target: String)? {
-        let expression = Array(tokens[range].dropLast()).map(\.text)
-        guard expression.count >= 8,
-              expression[1] == "=",
-              let call = call(Array(expression.dropFirst(2))),
-              call.name == "vec2",
-              call.arguments.count == 2
-        else { return nil }
-        let target = expression[0]
-        let first = compact(call.arguments[0])
-        let second = compact(call.arguments[1])
-        guard first.count == 11, second.count == 11,
-              first[1...] == [
-                  ".", "x", "*", resolutionName, ".", "z", "/",
-                  resolutionName, ".", "x",
-              ],
-              second[1...] == [
-                  ".", "y", "*", resolutionName, ".", "w", "/",
-                  resolutionName, ".", "y",
-              ],
-              first[0] == second[0]
-        else { return nil }
-        return (first[0], target)
-    }
-
-    private static func exactCoordinateConsumer(
-        varying: String,
-        main: Unit.Function,
-        unit: Unit
-    ) -> (samplerName: String, range: Range<Int>)? {
-        var matches: [(String, Range<Int>)] = []
-        var index = main.bodyRange.lowerBound
-        while index + 1 < main.bodyRange.upperBound {
-            let name = unit.tokens[index].text
-            guard ["texSample2D", "texture2D"].contains(name),
-                  unit.tokens[index + 1].text == "(",
-                  let end = matchingDelimiter(
-                      at: index + 1,
-                      upperBound: main.bodyRange.upperBound,
-                      tokens: unit.tokens
-                  ),
-                  let parsed = call(Array(unit.tokens[index...end]).map(\.text)),
-                  parsed.arguments.count == 2,
-                  parsed.arguments[0].count == 1,
-                  compact(parsed.arguments[1]) == [varying, ".", "zw"]
-            else {
-                index += 1
-                continue
-            }
-            matches.append((parsed.arguments[0][0], index..<(end + 1)))
-            index = end + 1
-        }
-        guard matches.count == 1 else { return nil }
-        return matches[0]
-    }
-
-    private static func exactDirectCoordinateConsumer(
-        varying: String,
-        main: Unit.Function,
-        unit: Unit
-    ) -> (samplerName: String, range: Range<Int>)? {
-        var matches: [(String, Range<Int>)] = []
-        var index = main.bodyRange.lowerBound
-        while index + 1 < main.bodyRange.upperBound {
-            let name = unit.tokens[index].text
-            guard ["texSample2D", "texture2D"].contains(name),
-                  unit.tokens[index + 1].text == "(",
-                  let end = matchingDelimiter(
-                      at: index + 1,
-                      upperBound: main.bodyRange.upperBound,
-                      tokens: unit.tokens
-                  ),
-                  let parsed = call(Array(unit.tokens[index...end]).map(\.text)),
-                  parsed.arguments.count == 2,
-                  parsed.arguments[0].count == 1,
-                  compact(parsed.arguments[1]) == [varying]
-            else {
-                index += 1
-                continue
-            }
-            matches.append((parsed.arguments[0][0], index..<(end + 1)))
-            index = end + 1
-        }
-        guard matches.count == 1 else { return nil }
-        return matches[0]
     }
 
     private static func call(
@@ -494,52 +222,22 @@ nonisolated enum SceneAuthoredShaderNeutralTextureResolutionAnalyzer {
         single(unit.functions, where: { $0.name == "main" })
     }
 
-    private static func unit(
-        source: String,
-        stage: SceneShaderContract.StageKind
-    ) -> Unit? {
-        let output = SceneAuthoredShaderSyntaxAnalyzer.analyze(
-            lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: stage),
-            stage: stage
-        )
-        guard output.diagnostics.isEmpty else { return nil }
-        return output.unit
+    private static func unit(source: String, stage: SceneShaderContract.StageKind) -> Unit? {
+        // This is a structural uniform proof, not bounded execution admission.
+        // The normal frontend still checks its own loop budget before emitting.
+        let output = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
+            lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: stage), stage: stage)
+        return output.diagnostics.isEmpty ? output.unit : nil
     }
 
     private static func textureResolutionSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"), name.hasSuffix("Resolution") else {
-            return nil
-        }
-        let start = name.index(name.startIndex, offsetBy: "g_Texture".count)
-        let end = name.index(name.endIndex, offsetBy: -"Resolution".count)
-        return Int(name[start..<end])
+        guard name.hasPrefix("g_Texture"), name.hasSuffix("Resolution"),
+              let slot = Int(name.dropFirst(9).dropLast(10)), (0..<8).contains(slot),
+              name == "g_Texture\(slot)Resolution" else { return nil }
+        return slot
     }
 
-    private static func textureSamplerSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture") else { return nil }
-        return Int(name.dropFirst("g_Texture".count))
-    }
-
-    private static func matchingDelimiter(
-        at open: Int,
-        upperBound: Int,
-        tokens: [Token]
-    ) -> Int? {
-        var depth = 0
-        for index in open..<upperBound {
-            if tokens[index].text == "(" { depth += 1 }
-            if tokens[index].text == ")" {
-                depth -= 1
-                if depth == 0 { return index }
-            }
-        }
-        return nil
-    }
-
-    private static func single<Element>(
-        _ values: [Element],
-        where predicate: (Element) -> Bool
-    ) -> Element? {
+    private static func single<Element>(_ values: [Element], where predicate: (Element) -> Bool) -> Element? {
         let matches = values.filter(predicate)
         return matches.count == 1 ? matches[0] : nil
     }

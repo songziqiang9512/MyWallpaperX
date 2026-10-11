@@ -363,9 +363,9 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e59a88c0fe6b3b06c68abd830d706b57d93bb7c4d668c1c0b89acccd20afa30b",
+        "sourceSHA256": "a85bce8568bc6790a936f7a4b4439a3172e3e82d2c6f623692d6b0065741094b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对named solid源尺寸、单一terminal消费及graph-final/文字/透视/高级混合排除边界；完成过程归历史、余项归原断点队列。",
+        "scope": "核对缺省Resolution与真实绑定身份、原Program单链职责；完成过程归档，限定实际GPU证据及未验视觉边界。",
         "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
       }
     },
@@ -532,9 +532,9 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "745dabbf6ba7eaaa2ed105e6d1e11b3ca9d176ab2fce84c271782733fab6d913",
+        "sourceSHA256": "87bb4f321f25f1e17d0e540a8e423917e2320eff157fde1703ebda72f42af7d2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对named solid源尺寸、单一terminal消费及graph-final/文字/透视/高级混合排除边界；完成过程归历史、余项归原断点队列。",
+        "scope": "核对缺省Resolution与真实绑定身份、原Program单链职责；完成过程归档，限定实际GPU证据及未验视觉边界。",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
@@ -1197,6 +1197,16 @@
         "docs/scene/development/source-index.md",
         "docs/scene/development/reference/miragewallpaper-rendering-reference.md",
         "docs/scene/capabilities/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/missing-resolution-normalization-2026-10-12.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
     {
@@ -2210,9 +2220,9 @@
       "lastReviewed": "2026-10-11",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fe6c409178eaad6f361ec16f7e82c65ca180499c63c27d68e38110cc22fa4789",
+        "sourceSHA256": "d02521816d139f29a43e36d47525cc9bc9cc534b966558802532e0cc32f50be8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对N07世界Sprite准入首断点的有界退出与GodRays、运动和视觉余项的后续关闭门；仅更新导航与正文身份。",
+        "scope": "核对缺省Resolution与真实绑定身份、原Program单链职责；完成过程归档，限定实际GPU证据及未验视觉边界。",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },

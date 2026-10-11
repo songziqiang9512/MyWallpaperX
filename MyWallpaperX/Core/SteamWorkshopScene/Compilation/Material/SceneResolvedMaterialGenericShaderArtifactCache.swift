@@ -246,7 +246,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             expectedColorTransfer: expectedColorTransfer,
             premultipliedColorInputSlots: premultipliedColorInputSlots,
             defaultBoundaryColorSlots: defaultBoundaryColorSlots,
-            colorBoundary: colorBoundary
+            colorBoundary: colorBoundary,
+            boundTextureSlots: activeTextureSlots
         )
         let environment = ProcessInfo.processInfo.environment
         guard let routeState = routeState(
@@ -298,7 +299,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             expectedColorTransfer: expectedColorTransfer,
             premultipliedColorInputSlots: premultipliedColorInputSlots,
             defaultBoundaryColorSlots: defaultBoundaryColorSlots,
-            colorBoundary: colorBoundary
+            colorBoundary: colorBoundary,
+            boundTextureSlots: activeTextureSlots
         )
         guard routeState == .preferGeneric || routeState == .genericOnly else {
             routeTelemetry.record(
@@ -341,6 +343,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                     premultipliedColorInputSlots: premultipliedColorInputSlots,
                     defaultBoundaryColorSlots: defaultBoundaryColorSlots,
                     colorBoundary: colorBoundary,
+                    boundTextureSlots: activeTextureSlots,
                     cacheRoot: root
                 )
             }

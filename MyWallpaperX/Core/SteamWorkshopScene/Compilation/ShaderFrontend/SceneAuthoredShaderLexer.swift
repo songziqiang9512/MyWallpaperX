@@ -5,6 +5,7 @@ nonisolated enum SceneAuthoredShaderLexer {
         let tokens: [SceneAuthoredShaderToken]
         let defines: [String: String]
         let diagnostics: [SceneAuthoredShaderFrontendDiagnostic]
+        var source: String? = nil
     }
 
     private static let maximumSourceBytes = 512 * 1_024
@@ -36,11 +37,13 @@ nonisolated enum SceneAuthoredShaderLexer {
                 diagnostics: directiveResult.diagnostics
             )
         }
-        return tokenize(
+        var output = tokenize(
             directiveResult.source,
             defines: directiveResult.defines,
             stage: stage
         )
+        output.source = normalizedSource
+        return output
     }
 
     private struct DirectiveOutput {

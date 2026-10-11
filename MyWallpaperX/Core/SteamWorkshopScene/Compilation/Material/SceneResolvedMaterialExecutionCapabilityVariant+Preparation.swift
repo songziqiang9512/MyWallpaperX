@@ -28,6 +28,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         sourceActiveSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
     ) {
         let profileStart = CACurrentMediaTime()
+        let boundTextureSlots = Set(template.textureSlots.indices.filter {
+            template.textureSlots[$0] != nil
+        })
         let prepared: SceneShaderPreparedProgram
         switch SceneAuthoredShaderPreparation.prepareShaderStages(
             contract: template.shaderContract,
@@ -100,7 +103,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             compilerSources = SceneAuthoredShaderBackendCanonicalizer
                 .canonicalize(
                     vertex: prepared.vertex.source,
-                    fragment: prepared.fragment.source
+                    fragment: prepared.fragment.source,
+                    boundTextureSlots: boundTextureSlots
                 )
         }
         SceneResolvedMaterialVariantCompileProfile.add(
@@ -131,7 +135,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 .activeSamplerNamesForSchema(
                     vertexSource: compilerSources.vertex,
                     fragmentSource: compilerSources.fragment,
-                    runtimeLoopBounds: runtimeLoopBounds
+                    runtimeLoopBounds: runtimeLoopBounds,
+                    boundTextureSlots: boundTextureSlots
                 ) ?? []
             guard let resolved =
                     SceneAuthoredShaderPreparation.resolvedIntegerCombos(

@@ -1,17 +1,12 @@
 import Foundation
 
-/// A source-pair proof that an inactive texture-resolution uniform only
-/// normalizes coordinates consumed by one different, active texture slot.
+/// A source-pair proof that an inactive, default-free texture Resolution is
+/// used only by one paired UV normalization. Its missing value is prepared
+/// separately from real texture resources; no sampler binding is invented.
 nonisolated struct SceneAuthoredShaderNeutralTextureResolutionFact: Hashable {
     let resolutionSlot: Int
-    let coordinateTextureSlot: Int
-    let varyingName: String
-    let sourceComponents: String
-    let targetComponents: String
 
-    var resolutionUniformName: String {
-        "g_Texture\(resolutionSlot)Resolution"
-    }
+    var resolutionUniformName: String { "g_Texture\(resolutionSlot)Resolution" }
 }
 
 nonisolated struct SceneAuthoredShaderFrontendDiagnostic: Equatable {

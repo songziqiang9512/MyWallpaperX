@@ -51,8 +51,10 @@ def expected_color_transfer_for_output(
 
 
 def request_cache_key(request: dict[str, Any]) -> str:
-    if request.get("schemaVersion") != 6:
+    schema = request.get("schemaVersion")
+    if type(schema) is not int or schema not in (6, 7):
         raise RequestContractFailure("request-schema")
+    bound_slots = bound_texture_slots(request, schema)
     raw_stages = request.get("stages")
     if not isinstance(raw_stages, list):
         raise RequestContractFailure("request-stages")
@@ -83,8 +85,8 @@ def request_cache_key(request: dict[str, Any]) -> str:
         raise RequestContractFailure(str(error)) from error
 
     digest = hashlib.sha256()
-    for value in (
-        "mwx-generic-shader-request-v29",
+    values = [
+        f"mwx-generic-shader-request-v{31 if schema == 7 else 29}",
         str(request.get("sourceDialect", "glsl-450")),
         output_semantics,
         sources["vertex"],
@@ -93,19 +95,37 @@ def request_cache_key(request: dict[str, Any]) -> str:
         input_color_cache_key(input_slots),
         input_color_cache_key(default_slots),
         ordinary_boundary_cache_key(boundary),
-        json.dumps(request.get("defines", {}), sort_keys=True, separators=(",", ":")),
-    ):
+    ]
+    if schema == 7:
+        values.append(input_color_cache_key(bound_slots))
+    values.append(json.dumps(request.get("defines", {}), sort_keys=True, separators=(",", ":")))
+    for value in values:
         encoded = value.encode("utf-8")
         digest.update(len(encoded).to_bytes(8, "big"))
         digest.update(encoded)
     return digest.hexdigest()
 
 
+def bound_texture_slots(payload: dict[str, Any], schema: int) -> list[int]:
+    # Schema 6 has no binding context: do not silently discard a newer field
+    # while producing its historical v29 identity.
+    if schema == 6:
+        if "boundTextureSlots" in payload:
+            raise RequestContractFailure("bound-texture-slots-schema")
+        return []
+    try:
+        return premultiplied_color_input_slots(payload.get("boundTextureSlots", []))
+    except InputColorContractFailure as error:
+        raise RequestContractFailure("bound-texture-slots") from error
+
+
 def validated_request_stages(
     payload: dict[str, Any], maximum_stage_source_bytes: int
 ) -> list[dict[str, str]]:
-    if payload.get("schemaVersion") != 6:
+    schema = payload.get("schemaVersion")
+    if type(schema) is not int or schema not in (6, 7):
         raise RequestContractFailure("schema-version")
+    bound_texture_slots(payload, schema)
     request_id = payload.get("requestID")
     if not isinstance(request_id, str) or not request_id or len(request_id) > 128:
         raise RequestContractFailure("request-id")

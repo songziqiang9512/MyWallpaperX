@@ -1390,10 +1390,13 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderDeadBindingAnalyzer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
         "script/tests/test_scene_shader_dead_binding_projection.py",
-        "script/tests/fixtures/SceneShaderDeadBindingProjectionHarness.swift"
+        "script/tests/fixtures/SceneShaderDeadBindingProjectionHarness.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderNeutralTextureResolutionAnalyzer.swift",
+        "script/tests/test_scene_missing_resolution_normalization.py"
       ],
       "modules": [
-        "test_scene_shader_dead_binding_projection"
+        "test_scene_shader_dead_binding_projection",
+        "test_scene_missing_resolution_normalization"
       ]
     },
     {
@@ -1959,7 +1962,8 @@
         "test_scene_smoothstep_vector_broadcast",
         "test_scene_direct_function_scalar_conversion",
         "test_scene_shader_compiler_product_manifest",
-        "test_scene_shader_compiler_straight_alpha_preserving_contract"
+        "test_scene_shader_compiler_straight_alpha_preserving_contract",
+        "test_scene_shader_compiler_request_contract"
       ]
     },
     {

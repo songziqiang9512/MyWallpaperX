@@ -651,18 +651,8 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
     ) -> Program.ResolvedUniform? {
         guard slots.indices.contains(fact.resolutionSlot),
               slots[fact.resolutionSlot] == nil,
-              slots.indices.contains(fact.coordinateTextureSlot),
-              let source = slots[fact.coordinateTextureSlot],
-              source.index == fact.coordinateTextureSlot,
-              source.resource.publication.requestIdentity == source.registryIdentity,
-              source.expectedPurpose
-                  == source.resource.publication.candidate.purpose,
-              source.resource.publication.isComplete,
-              source.resource.publication.candidate.axisAlignedMappedUVScale(
-                  expectedPurpose: source.expectedPurpose
-              ) == SIMD2<Float>(1, 1),
               let encoded = SceneResolvedMaterialUniformEncoder.encodeComponents(
-                  [1, 1, 1, 1],
+                  [2, 2, 2, 2],
                   as: field.type
               )
         else { return nil }
@@ -718,11 +708,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
               schema.materialKeys == [fact.resolutionUniformName],
               template.textureSlots.indices.contains(fact.resolutionSlot),
               template.textureSlots[fact.resolutionSlot] == nil,
-              !activeTextureSlots.contains(fact.resolutionSlot),
-              template.textureSlots.indices.contains(
-                  fact.coordinateTextureSlot
-              ),
-              template.textureSlots[fact.coordinateTextureSlot] != nil
+              !activeTextureSlots.contains(fact.resolutionSlot)
         else { return nil }
         return fact
     }
