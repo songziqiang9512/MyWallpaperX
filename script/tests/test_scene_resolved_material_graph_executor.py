@@ -132,10 +132,6 @@ def compile_lit_harness(support_text: str, harness_text: str):
 
 
 SUPPORT = PUBLICATION_FIXTURE["SUPPORT"] + r'''
-final class SceneGraphRenderTargetResidencyPin {
-    func release() {}
-}
-
 import simd
 
 struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
@@ -503,6 +499,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         let layerModelMatrix: simd_float4x4
         let effectOutputModelViewProjection: simd_float4x4
         let effectTextureProjectionMatrixInverse: simd_float4x4
+        let effectDrawAlpha: Float = 1
+        let effectDrawColor = SIMD3<Float>(repeating: 1)
         // The single ordered dependency lane: a one-element vector when a
         // single-provider dependency is reserved, empty otherwise.
         let dependencyEffects: [SceneDependencyEffectInput]

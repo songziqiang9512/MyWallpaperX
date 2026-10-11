@@ -18,7 +18,9 @@ final class SceneResolvedMaterialPassEncoder {
         fileprivate let resetGeneration: UInt64
         fileprivate let pipeline: MTLRenderPipelineState
         fileprivate let target: MTLTexture
-        fileprivate let bindings: [Binding]
+        var writtenTexture: MTLTexture { target }
+        var sampledTextures: [MTLTexture] { bindings.map(\.texture) }
+        fileprivate var bindings: [Binding]
         fileprivate let uniformBytes: Data
         fileprivate let uniformBufferIndex: Int
     }
@@ -222,6 +224,24 @@ final class SceneResolvedMaterialPassEncoder {
             attachmentStorage: .color,
             role: output?.colorRepresentation == .straightAlpha
                 ? .terminalStraightSourceOver : .terminalSourceOver)
+    }
+
+    /// Exact-copy snapshots change storage only; the prepared Program's
+    /// sampling, companion uniforms and pipeline identity remain unchanged.
+    func replacingTerminalInputs(
+        _ pass: PreparedPass,
+        copies: [ObjectIdentifier: MTLTexture]
+    ) -> PreparedPass? {
+        guard pass.role != .offscreenOverwrite,
+              pass.ownerToken == ownerToken,
+              pass.resetGeneration == withLock({ resetGeneration }) else { return nil }
+        var result = pass
+        result.bindings = pass.bindings.map { binding in
+            Binding(slot: binding.slot,
+                texture: copies[ObjectIdentifier(binding.texture)] ?? binding.texture,
+                sampler: binding.sampler, sampling: binding.sampling)
+        }
+        return result
     }
 
     func terminalDraw(

@@ -583,11 +583,11 @@ GPU 分配和保留的 decoded cache 进入唯一 `SceneResourceBudget` 父额�
 
 ### 终端材质光栅的有界合同
 
-solid 有显式且可解析静态 slot0 时复用 resource resolver→prepared base image→Candidate→Store；无源仍用原程序化白载体，不增加纹理 owner 或固定像素尺寸。正交可见、非外部 graph provider、有合法作者尺寸的 simple color 链（每 stage 单 material、无FBO/history/function/copy/swap/compose/依赖）以真实 Candidate extent 采样和生成中间结果；高级混合继续消费原 graph-final 纹理，普通 source-over 只对单 stage 开放此分域。多 stage 普通混合仍走原高分辨率路径：尾段停用可能覆盖前段输入，前段失败尚缺 terminal 回执，故不扩准入；此限制不定义官方行为。[官方观察与后验](../history/shared-shader-type-compatibility-2026-10-09.md#solid源尺寸后继)限定本批证据。
+solid 的显式静态 slot0 复用 resolver→prepared base image→Candidate→Store；无源仍用原白载体。正交可见、非 provider 的 simple color 链（每 stage 单 material、无FBO/history/function/copy/swap/compose/依赖），普通 source-over 按 Candidate extent、无Candidate按作者尺寸生成中间结果。所有可成为终端的成功材质须证明 target-pixel placement；GraphExecutor 选最后成功 active 材质，只有后继命令会覆盖其输入时才由原pool按层/槽保存同descriptor副本、原resource encoder精确copy、原PassEncoder替换物理绑定。副本pin随原submission ledger至completion；分配失败消费graph输出。高级混合保留全resolved、末material proof及Candidate要求，仍消费graph-final。外部依赖未扩域，见[后继设计](../roadmap/batch2/terminal-material-chain-design.md)。
 
-native 3D solid 仍限单 material pass、无显式目标/外部消费者/geometry mesh、terminal alpha=1。terminal 复用冻结 Program，仅派生 placement uniforms、attachment/blend，由唯一 MainPass 按层序编码。typed PSO 对 straight 输出只关联一次，associated/opaque 沿原混合，data 拒入颜色终端；单 stage 输入 pair member 保留到终端编码，inactive/不支持组合走原 graph 纹理回执。终端 attachment 仅须可渲染，离屏 graph 输出仍须 `.renderTarget + .shaderRead`；准备与编码复验共用既有 pass role，保留输入采样权限及输入/目标别名拒绝。普通 SDR drawable 保持 framebuffer-only，不因 terminal replay 放开读取权限。
+native 3D solid 仍限单 material pass、无显式目标/外部消费者/geometry mesh、terminal alpha=1。terminal 复用冻结 Program，仅派生 placement uniforms、attachment/blend，由唯一 MainPass 按层序编码。typed PSO 对 straight 输出只关联一次，associated/opaque 沿原混合，data 拒入颜色终端；单 stage 输入 pair member 保留到终端编码；无成功 material 或不支持组合走原 graph 纹理回执。终端 attachment 仅须可渲染，离屏 graph 输出仍须 `.renderTarget + .shaderRead`；准备与编码复验共用既有 pass role，保留输入采样权限及输入/目标别名拒绝。普通 SDR drawable 保持 framebuffer-only，不因 terminal replay 放开读取权限。
 
-GraphExecutor 仍执行小尺寸捕获/输出，拥有 transaction/publication/state/completion；terminal typed receipt 绑定 ticket/epoch/pass 及同一 command buffer，one-shot，非纹理采样回执。PSO 角色参与 cache 身份并在 launch 预热；preflight 先验证，main 部分写入后失败仍拒帧。迁移这些守恒后才可删除过渡期重复小光栅；main target 不冒充 graph texture。[原设计](../history/terminal-material-raster-design-2026-10-06.md)与[原实施](../history/terminal-material-raster-implementation-2026-10-06.md)不授予更宽 profile 准入。
+GraphExecutor 保有小尺寸捕获/输出及 transaction/publication/state/completion。terminal receipt 绑定 ticket/epoch/pass 和同一 command buffer，仅消费一次；PSO 角色进入 cache 并预热，preflight验证，main写入后失败拒帧。迁移守恒后才可删重复小光栅；main target 不冒充 graph texture。[原设计](../history/terminal-material-raster-design-2026-10-06.md)与[原实施](../history/terminal-material-raster-implementation-2026-10-06.md)不授予更宽 profile 准入。
 
 <a id="debug-capture-lifecycle"></a>
 

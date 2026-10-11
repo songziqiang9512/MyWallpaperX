@@ -26,9 +26,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
 
 extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
     /// Proves a simple color chain whose intermediates follow its real source.
-    /// Direct terminal replay remains single-stage: trailing passthroughs can
-    /// overwrite an earlier material's input member before the compositor runs.
-    static func supportsSourceSizedSolidEffects(
+    /// Every possible terminal has the same proven placement contract;
+    /// the graph executor preserves inputs across trailing passthroughs.
+    static func solidEffectSizingCapabilities(
         admitted: SceneResolvedMaterialAdmittedLayer,
         stages: [SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability],
         materials: [SceneResolvedMaterialExecutionCapabilityCatalog.MaterialKey:
@@ -36,35 +36,42 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
         sceneBackgroundRequirement:
             SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement?
-    ) -> Bool {
+    ) -> (intermediates: Bool, terminal: Bool) {
         guard admitted.isVisibleExecutionRoot,
               !admitted.isGraphOutputProvider,
               !admitted.requiresGraphOutputProvider,
               case .capturedLayerTexture = admitted.sourceRoute,
               case .none = dependencyOwnership,
               sceneBackgroundRequirement == nil,
-              !stages.isEmpty,
-              materials.count == stages.count else { return false }
+              !stages.isEmpty, !materials.isEmpty else { return (false, false) }
         for stage in stages {
-            guard case let .resolved(product, _, _) = stage,
-                  product.clearFunctions.functions.isEmpty,
+            let product = stage.product
+            guard product.clearFunctions.functions.isEmpty,
                   product.graph.renderTargets.isEmpty,
                   product.graph.effects.count == 1,
                   product.graph.nodes.count == 1,
                   let node = product.graph.nodes.first,
                   node.kind == .material,
                   node.target == product.graph.effects[0].output,
-                  node.compose == nil else { return false }
+                  node.compose == nil else { return (false, false) }
         }
-        guard materials.values.allSatisfy({ $0.attachmentStorage == .color }),
-              let lastEffect = stages.last?.product.graph.effects.first?.key,
-              let material = materials.values.first(where: {
-                  $0.key.effect == lastEffect
-              }) else { return false }
-        let snapshot = material.variants.launchEnvelopeCapabilitySnapshot()
-        return snapshot.allEntriesReady && !snapshot.variants.isEmpty
-            && snapshot.variants.allSatisfy { variant in
-                variant.frontendProgram.supportsTerminalMaterialReplay
-            }
+        guard materials.values.allSatisfy({ $0.attachmentStorage == .color }) else {
+            return (false, false)
+        }
+        func supportsReplay(_ material: SceneResolvedMaterialExecutionCapabilityCatalog.MaterialCapability) -> Bool {
+            let snapshot = material.variants.launchEnvelopeCapabilitySnapshot()
+            return snapshot.allEntriesReady && !snapshot.variants.isEmpty
+                && snapshot.variants.allSatisfy {
+                    $0.frontendProgram.supportsTerminalMaterialReplay
+                }
+        }
+        // Advanced blending retains its existing source-sized eligibility.
+        // Only normal source-over can replay an earlier surviving material.
+        let lastEffect = stages.last?.product.graph.effects.first?.key
+        let lastMaterial = materials.values.first { $0.key.effect == lastEffect }
+        let intermediates = materials.count == stages.count && stages.allSatisfy {
+            if case .resolved = $0 { return true }; return false
+        } && lastMaterial.map(supportsReplay) == true
+        return (intermediates, materials.values.allSatisfy(supportsReplay))
     }
 }

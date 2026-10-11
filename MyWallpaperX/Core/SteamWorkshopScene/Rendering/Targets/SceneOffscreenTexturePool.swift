@@ -179,8 +179,18 @@ final class SceneOffscreenTexturePool {
             commandBuffer: commandBuffer, textureFactory: nil)?.first
     }
 
+    func reserveTerminalInput(
+        layerID: Int, slot: Int, width: Int, height: Int,
+        commandBuffer: MTLCommandBuffer
+    ) -> PinnedTexture? {
+        reserveFrameTextures(dimensions: [(width, height)],
+            kind: .terminalInput(layerID: layerID, slot: slot),
+            commandBuffer: commandBuffer, textureFactory: nil)?.first
+    }
+
     private enum FrameTextureKind {
         case composition, environment, shadow(Int), sourceMaterial(Int)
+        case terminalInput(layerID: Int, slot: Int)
         case puppetClipping(layerID: Int, clipID: Int, domain: UUID)
     }
 
@@ -194,7 +204,7 @@ final class SceneOffscreenTexturePool {
         case .shadow: format = .depth32Float; bytesPerPixel = 4; mipmapped = false
         case .environment:
             format = pixelFormat; bytesPerPixel = backbufferFormat.logicalBytesPerPixel; mipmapped = true
-        case .composition, .sourceMaterial:
+        case .composition, .sourceMaterial, .terminalInput:
             format = pixelFormat; bytesPerPixel = backbufferFormat.logicalBytesPerPixel; mipmapped = false
         case .puppetClipping: format = .r8Unorm; bytesPerPixel = 1; mipmapped = false
         }
@@ -205,6 +215,8 @@ final class SceneOffscreenTexturePool {
             let key: CacheKey = switch kind {
             case .composition: .composition(width: width, height: height)
             case let .sourceMaterial(layerID): .sourceMaterial(layerID: layerID, width: width, height: height)
+            case let .terminalInput(layerID, slot):
+                .terminalInput(layerID: layerID, slot: slot, width: width, height: height)
             case .environment: .environment(width: width, height: height)
             case .shadow(let slot): .modelShadow(slot: slot, width: width, height: height)
             case let .puppetClipping(layerID, clipID, domain):

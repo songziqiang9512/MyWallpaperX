@@ -217,9 +217,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let isGraphOutputProvider: Bool
         let requiresGraphOutputProvider: Bool
         let supportsSourceSizedSolidEffects: Bool
-        var supportsTerminalMaterialReplay: Bool {
-            supportsSourceSizedSolidEffects && stages.count == 1
-        }
+        let supportsTerminalMaterialReplay: Bool
 
         fileprivate let capabilityID = UUID()
 
@@ -285,13 +283,15 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             isVisibleExecutionRoot = admitted.isVisibleExecutionRoot
             isGraphOutputProvider = admitted.isGraphOutputProvider
             requiresGraphOutputProvider = admitted.requiresGraphOutputProvider
-            supportsSourceSizedSolidEffects = Self.supportsSourceSizedSolidEffects(
+            let solidSizing = Self.solidEffectSizingCapabilities(
                 admitted: admitted,
                 stages: stages,
                 materials: materials,
                 dependencyOwnership: dependencyOwnership,
                 sceneBackgroundRequirement: sceneBackgroundRequirement
             )
+            supportsSourceSizedSolidEffects = solidSizing.intermediates
+            supportsTerminalMaterialReplay = solidSizing.terminal
         }
 
         func material(for node: Graph.Node) -> MaterialCapability? {

@@ -187,7 +187,7 @@ extension SceneMetalRenderer {
             }
             let desiredSize: CGSize
             var terminalReplayTarget: MTLTexture? =
-                claim.supportsTerminalMaterialReplay
+                claim.supportsTerminalMaterialReplay && claim.admittedGraphs.count == 1
                     && layer.contentKind == "solid"
                     && cameraFrame.defaultsToPerspective
                     && cameraFrame.resolvesPerspective(for: layer)
@@ -289,20 +289,20 @@ extension SceneMetalRenderer {
                     break
                 }
                 if !cameraFrame.resolvesPerspective(for: layer),
-                   claim.supportsSourceSizedSolidEffects,
-                   (layer.colorBlendMode ?? 0) != 0 || claim.supportsTerminalMaterialReplay,
+                   ((layer.colorBlendMode ?? 0) == 0 && claim.supportsTerminalMaterialReplay)
+                    || ((layer.colorBlendMode ?? 0) != 0 && claim.supportsSourceSizedSolidEffects
+                        && selectedSource.candidate != nil),
                    frameVisibleLayerIDs.contains(layerID),
                    !dependencyRuntime.requiresGraphOutputCapture(for: layerID),
-                   let candidate = selectedSource.candidate,
                    let authoredSize = layer.renderSizeWH,
                    authoredSize.count == 2, authoredSize.allSatisfy({ $0 > 0 }),
-                   SceneLayerEffectSourceExtent.resolveSolid(
+                   let solidExtent = SceneLayerEffectSourceExtent.resolveSolid(
                        authoredRenderSizeWH: authoredSize
-                   ) != nil {
+                   ) {
                     // The real source owns intermediate sampling density. A
                     // normal terminal material draws at placement density;
                     // advanced blending consumes the existing graph texture.
-                    desiredSize = candidate.mappedSize
+                    desiredSize = selectedSource.candidate?.mappedSize ?? solidExtent.pixelSize
                     if (layer.colorBlendMode ?? 0) == 0 {
                         terminalReplayTarget = selectedMainSource
                     }

@@ -18,6 +18,13 @@ final class SceneGraphResourcePassEncoder {
 
         let kind: Kind
 
+        var writtenTexture: MTLTexture {
+            switch operation {
+            case let .sourceCapture(_, target, _, _, _),
+                 let .initialization(target, _), let .copy(_, target): target
+            }
+        }
+
         var preservesStraightSourceColor: Bool {
             guard case let .sourceCapture(_, _, uniforms, _, _) = operation else { return false }
             return uniforms.sourceSampling.y & 2 != 0

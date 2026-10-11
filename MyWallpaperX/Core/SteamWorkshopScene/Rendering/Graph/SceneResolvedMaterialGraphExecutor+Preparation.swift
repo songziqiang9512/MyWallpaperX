@@ -364,8 +364,8 @@ extension SceneResolvedMaterialGraphExecutor {
                     )
                 }
                 commands.append(.material(prepared))
-                // Only the terminal stage receives this target. Its frozen
-                // input member stays live until the main compositor consumes it.
+                // The executor selects the last successful material and keeps
+                // any input that later passthrough commands would overwrite.
                 if let terminalReplayTarget,
                    prepared.fragmentOutput == .opaque
                     || prepared.fragmentOutput == .premultipliedAlpha

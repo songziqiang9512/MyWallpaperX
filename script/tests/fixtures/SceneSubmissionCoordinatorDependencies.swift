@@ -952,7 +952,7 @@ final class SceneResolvedMaterialGraphExecutor {
         sourceUniforms: SceneLayerFragmentUniforms?,
         sourcePipeline: SceneImageLayerPipeline,
         sourceLighting: SceneBaseMaterialLitCapturePayload? = nil,
-        terminalReplayTarget: MTLTexture? = nil,
+        terminalReplayTarget: MTLTexture? = nil, pool: SceneOffscreenTexturePool? = nil,
         frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
         commandBuffer: MTLCommandBuffer,
         previousStates: [Graph.EffectKey: State],

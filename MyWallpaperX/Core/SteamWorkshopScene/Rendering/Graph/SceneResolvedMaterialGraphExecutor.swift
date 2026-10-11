@@ -69,7 +69,7 @@ final class SceneResolvedMaterialGraphExecutor {
         let persistentResources: [Graph.TextureIdentity: SceneFrameTextureResource]
         let effectOutputResource: SceneFrameTextureResource
 
-        fileprivate let commands: [Command]
+        fileprivate var commands: [Command]
     }
 
     struct PreparedGraph {
@@ -84,6 +84,8 @@ final class SceneResolvedMaterialGraphExecutor {
         fileprivate let resetGeneration: UInt64
         fileprivate let queueIdentity: ObjectIdentifier
         fileprivate let sourceCommand: Command
+        /// Held by the existing submission ledger through GPU completion.
+        let terminalInputPins: [SceneGraphRenderTargetResidencyPin]
     }
 
     struct PairAtom {
@@ -108,6 +110,13 @@ final class SceneResolvedMaterialGraphExecutor {
             targetOrdinal: Int
         )
         case material(SceneResolvedMaterialPassEncoder.PreparedPass)
+
+        var writtenTexture: MTLTexture {
+            switch self {
+            case let .resource(command), let .functionClear(command, _, _): command.writtenTexture
+            case let .material(pass): pass.writtenTexture
+            }
+        }
     }
 
     typealias StageBoundaryObserver = (
@@ -166,6 +175,7 @@ final class SceneResolvedMaterialGraphExecutor {
         sourcePipeline: SceneImageLayerPipeline,
         sourceLighting: SceneBaseMaterialLitCapturePayload? = nil,
         terminalReplayTarget: MTLTexture? = nil,
+        pool: SceneOffscreenTexturePool? = nil,
         frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
         commandBuffer: MTLCommandBuffer,
         previousStates: [Graph.EffectKey: State],
@@ -270,6 +280,7 @@ final class SceneResolvedMaterialGraphExecutor {
         ]
         var stages: [PreparedStage] = []
         var terminalMaterialReplay: SceneResolvedMaterialPassEncoder.PreparedPass?
+        var terminalStageIndex: Int?
 
         for index in capability.stages.indices {
             var stageCommands: [Command] = []
@@ -329,6 +340,7 @@ final class SceneResolvedMaterialGraphExecutor {
                   ) else { return .failure(.stateRejected) }
             stageCommands.append(contentsOf: history.commands.map(Command.resource))
 
+            var stageTerminalReplay: SceneResolvedMaterialPassEncoder.PreparedPass?
             var programKeys: [String] = []
             var effectLocalFailureReasonCode: String?
             var effectLocalActivationBypassReasonCode: String?
@@ -344,7 +356,7 @@ final class SceneResolvedMaterialGraphExecutor {
                 frameInputs: frameInputs,
                 terminalReplayTarget: capability.supportsTerminalMaterialReplay
                     ? terminalReplayTarget : nil,
-                terminalMaterialReplay: &terminalMaterialReplay,
+                terminalMaterialReplay: &stageTerminalReplay,
                 pair: &pair,
                 publications: &publications,
                 commands: &stageCommands,
@@ -386,6 +398,10 @@ final class SceneResolvedMaterialGraphExecutor {
                       matching: committedTransition.nextState.logicalMapping,
                       from: publications
                   ) else { return .failure(.graphPublicationRejected) }
+            if let stageTerminalReplay {
+                terminalMaterialReplay = stageTerminalReplay
+                terminalStageIndex = index
+            }
             stages.append(.init(
                 effect: effect,
                 graph: graph,
@@ -422,6 +438,39 @@ final class SceneResolvedMaterialGraphExecutor {
               let historyTokens = historyTokens(stages) else {
             return .failure(.graphPublicationRejected)
         }
+        var terminalInputPins: [SceneGraphRenderTargetResidencyPin] = []
+        if let replay = terminalMaterialReplay, let terminalStageIndex {
+            let suffixWrites = Set(stages.dropFirst(terminalStageIndex + 1)
+                .flatMap(\.commands).map { ObjectIdentifier($0.writtenTexture) })
+            var copied: Set<ObjectIdentifier> = []
+            let overwrittenInputs = replay.sampledTextures.filter {
+                let identity = ObjectIdentifier($0)
+                return suffixWrites.contains(identity) && copied.insert(identity).inserted
+            }
+            if !overwrittenInputs.isEmpty {
+                var copies: [ObjectIdentifier: MTLTexture] = [:]
+                var copyCommands: [Command] = []
+                for (slot, input) in overwrittenInputs.enumerated() {
+                    guard let target = pool?.reserveTerminalInput(
+                        layerID: capability.layerID, slot: slot,
+                        width: input.width, height: input.height, commandBuffer: commandBuffer),
+                          let copy = resourceEncoder?.prepareCopy(source: input, target: target.texture)
+                    else { break }
+                    copies[ObjectIdentifier(input)] = target.texture
+                    terminalInputPins.append(target.pin)
+                    copyCommands.append(.resource(copy))
+                }
+                if copies.count == overwrittenInputs.count,
+                   let preserved = materialEncoder.replacingTerminalInputs(replay, copies: copies) {
+                    stages[terminalStageIndex].commands.append(contentsOf: copyCommands)
+                    terminalMaterialReplay = preserved
+                } else {
+                    // The real graph output is still safe and locally usable.
+                    terminalInputPins.removeAll()
+                    terminalMaterialReplay = nil
+                }
+            }
+        }
         return .success(.init(
             stages: stages,
             finalTexture: terminal.publication.texture,
@@ -432,7 +481,8 @@ final class SceneResolvedMaterialGraphExecutor {
             ownerToken: ownerToken,
             resetGeneration: self.resetGeneration,
             queueIdentity: queueIdentity,
-            sourceCommand: sourceCommand
+            sourceCommand: sourceCommand,
+            terminalInputPins: terminalInputPins
         ))
     }
 

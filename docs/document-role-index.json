@@ -34,6 +34,7 @@
       "docs/scene/roadmap/batch2/rt-prefix-admission-design.md",
       "docs/scene/roadmap/batch2/script-component-api-design.md",
       "docs/scene/roadmap/batch2/system-media-input-design.md",
+      "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
       "docs/scene/roadmap/engine-refactor-program.md",
       "docs/scene/roadmap/scene-compatibility-roadmap.md",
       "docs/scene/roadmap/scene-open-breakpoint-queue.md",
@@ -362,9 +363,9 @@
       "lastReviewed": "2026-10-11",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "86f0052c202f4d7fb5252d261b7e0f04723c3ada9353fd437e8d51345bdcb648",
+        "sourceSHA256": "313a64648002f3843167209fde5b836758ddeac9808438ad76564b35b0b7f7bf",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对effect draw颜色的同一owner合同、14段实际链与残余错位、第二包未执行边界和完成记录导航。",
+        "scope": "核对多段终端材质同一owner、源尺寸/末尾停用分域、旧高级混合准入和未扩named边界；完成记录与设计导航。",
         "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
       }
     },
@@ -1927,6 +1928,16 @@
       ]
     },
     {
+      "path": "docs/scene/history/terminal-material-chain-2026-10-11.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/terminal-material-raster-design-2026-10-06.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -2094,6 +2105,12 @@
         "scope": "核对媒体来源仲裁、封面替换与Single重播的限定证据及U12剩余导航。",
         "limitations": "仅导航与当前修复证据边界核对；不代表全样本、真实播放器或官方parity验收。"
       }
+    },
+    {
+      "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "retirementCondition": "无依赖简单链及外部输入扩域分别验收；稳定职责移交运行架构、剩余边界归队列后归档。批准不是运行验收。"
     },
     {
       "path": "docs/scene/roadmap/engine-refactor-program.md",

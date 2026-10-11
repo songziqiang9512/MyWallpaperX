@@ -134,8 +134,23 @@ struct SceneGraphCommandRuntime {
     }
 }
 
+final class SceneGraphRenderTargetResidencyPin {
+    func release() {}
+}
+
 final class SceneOffscreenTexturePool {
     struct Pair {}
+    struct PinnedTexture {
+        let texture: MTLTexture
+        let pin: SceneGraphRenderTargetResidencyPin
+    }
+
+    // Publication-only gates never reserve terminal storage. The terminal
+    // graph gate replaces this disabled adapter with the production pool.
+    func reserveTerminalInput(
+        layerID: Int, slot: Int, width: Int, height: Int,
+        commandBuffer: MTLCommandBuffer
+    ) -> PinnedTexture? { nil }
 }
 '''
 

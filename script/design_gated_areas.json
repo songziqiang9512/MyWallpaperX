@@ -383,6 +383,18 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideo*.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-terminal-material-chain",
+      "title": "多段材质输入尺寸与末尾有效材质显示",
+      "owner": "scene-e-route",
+      "status": "approved",
+      "designDoc": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
+      "design_notes": "2026-10-11 官方自有输入确认源尺寸和末尾停用分域。沿现 GraphExecutor/PassEncoder/pool/submission/MainPass，按真实覆盖保留终端输入，不伪造资源尺寸。先无外部依赖，扩域须同一生命周期及真实运行验证；批准不代表验收。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor*.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }
