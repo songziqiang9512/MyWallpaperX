@@ -4,6 +4,8 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-11 | Scene | 样本诊断 | [新增37份运行普查](new-scene-intake-2026-10-11.md) | 固定App运行、可见异常与公共首断点归并；不是完整正确率 | [运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
+| 2026-10-10 | Scene | 修复证据 | [标量RGBA重组](sampled-alpha-scalar-local-reconstruction-2026-10-10.md) | 同一采样颜色合同的第二种作者写法及其验证边界 | [Graph覆盖](../capabilities/render-graph-shader-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-10 | Scene | 修复证据 | [命名Timeline交互](named-timeline-interaction-2026-10-10.md) | 跨层命名动画、stateful Bool权限与独立cursor定时器；旧报告有界复核 | [API台账](../capabilities/scenescript-api-coverage.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-10 | Scene | 修复证据 | [内嵌 WebM 视频](embedded-webm-video-2026-10-10.md) | VP9 容器准备接入原播放器及真实视频底图恢复；其余效果仍开放 | [运行架构](../architecture/runtime-architecture.md)、[能力台账](../capabilities/coverage-ledger.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-10 | Scene | 修复证据 | [事件显隐持久化](event-visibility-persistence-2026-10-10.md) | 事件 setter 跨帧保存、双窗口显隐与拖动回归 | [属性能力](../capabilities/runtime-input-property-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |

@@ -528,13 +528,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-10",
+      "lastReviewed": "2026-10-11",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e72aeb4becbbecbb25fab018578d02f8b92cb1e13d069661468baaa0758ed20c",
+        "sourceSHA256": "46d6d3061965f084977f3b23e7456765cbd738c18de78fbce5de18c740823ff0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "U24封面依赖及资源驻留后继：核对合同、完成记录与开放余项的职责和链接",
-        "limitations": "非全页运行重验，不升级整样本与官方parity。"
+        "scope": "新增37样本固定App普查与旧243快照、279当前目录及队列的职责和导航核对",
+        "limitations": "仅新增37的有界direct Host运行；非全页运行重验、普通产品入口或完整视觉验收。"
       }
     },
     {
@@ -1215,6 +1215,16 @@
       "uniqueValue": "固定新样本诊断、实测输入与失败解释，页首明确旧composition解释已经失效而原样本尚未重新验收。"
     },
     {
+      "path": "docs/scene/history/new-scene-intake-2026-10-11.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/particle-scalar-remap-implementation-2026-10-05.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -1593,6 +1603,17 @@
       "currentAuthorities": [
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/sampled-alpha-scalar-local-reconstruction-2026-10-10.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/render-graph-shader-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
     {

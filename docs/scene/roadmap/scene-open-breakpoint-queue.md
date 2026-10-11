@@ -2,11 +2,11 @@
 
 # Scene 当前断点修复队列
 
-> 复核：2026-10-10。本文是[兼容 P 路线](scene-compatibility-roadmap.md)的派生待修队列，保存所有已登记开放问题，不建立第二套阶段。当前优先 **纹理与最终合成 → 特效 → 频谱等直观显示**；启动阻塞需同时定位，性能优化不能牺牲画面正确性。
+> 更新：2026-10-11。本文是[兼容 P 路线](scene-compatibility-roadmap.md)的派生待修队列，保存所有已登记开放问题，不建立第二套阶段。当前优先 **纹理与最终合成 → 特效 → 频谱等直观显示**；启动阻塞需同时定位，性能优化不能牺牲画面正确性。
 
 ## 1. 全样本依据与状态
 
-[全样本统计](../capabilities/scene-corpus-capability-inventory.md)已按243样本刷新，声明解析及守恒通过；[验收台账](../capabilities/scene-sample-acceptance-ledger.md)补齐同一成员全集。声明、旧运行与人工裁决分栏：旧归档为2026-09-17的混合App身份，旧失败可能已被后继修复，新增成员没有运行关联便保留not-run。当前批次查[运行证据](../capabilities/runtime-evidence-current.md)，不能把静态 family、加载比例、benchmark或少数截图算成全样本正确率。
+[统计](../capabilities/scene-corpus-capability-inventory.md)与[验收台账](../capabilities/scene-sample-acceptance-ledger.md)保留243成员快照；当前目录279份，新增37份的独立运行见[10-11普查](../history/new-scene-intake-2026-10-11.md)。声明、旧运行与人工裁决分栏：旧归档为2026-09-17的混合App身份，旧失败可能已被后继修复，新增成员没有运行关联便保留not-run。当前批次查[运行证据](../capabilities/runtime-evidence-current.md)，不能把静态 family、加载比例、benchmark或少数截图算成全样本正确率。
 
 本页的“已证缺陷”已有执行反例，“能力缺口”指可达合同缺失或未支持profile，“待研究”指行为/根因尚不明确，“待复验”指技术首断点已修但视觉或入口未验。后两类仍是待办；证据不足继续用可区分实验，不按样本补偿。没有修复事件的family不等于故障；静态missing纹理须核optional/default/VFS，粗分类model3d不得当真实3D数量。
 
@@ -16,11 +16,28 @@
 
 | 卡 | 目标与共享职责 | 最小交付与停止条件 |
 |---|---|---|
-| T1 材质与纹理合成 | 单pass静态源与中性材质常量乘色已接通；0–1 user Alpha已接同一compositor及热切；mixed user color公共入口已接，原366颜色热切及307背景颜色已通过共享显隐错配修复；同model多图层共享已接；非中性静态Bright/Power动态共享源已接，继续核更宽Alpha域及perspective；按全243声明选共同首断点 | 优先扩现有neutral-tint与materialConstant消费者；先区分已有链路和真实缺口，避免新Program重复求值。每个新增profile均需真实输出、style叠加及健康反例；透明state研究仍只按已证边界准入 |
+| T1 材质与纹理合成 | 单pass静态源与中性材质常量乘色已接通；0–1 user Alpha已接同一compositor及热切；mixed user color公共入口已接，原366颜色热切及307背景颜色已通过共享显隐错配修复；同model多图层共享已接；非中性静态Bright/Power动态共享源已接，继续核更宽Alpha域及perspective；按声明与新增运行选共同首断点 | 优先扩现有neutral-tint与materialConstant消费者；先区分已有链路和真实缺口，避免新Program重复求值。每个新增profile均需真实输出、style叠加及健康反例；透明state研究仍只按已证边界准入 |
 | T2 颜色与HDR输出 | 旧SDR shoulder压暗已修；对剩余条纹、HDR物理显示及用户样本复验，按采样purpose/alpha/颜色域→中间target→最终输出定位 | 保留作者HDR/SDR意图；同内容默认/关闭/开启和实际呈现对照。已有16F与热切执行不等于物理亮度正确；找到首错owner再修改 |
 | E1 特效与频谱 | 将运行拒绝按共享shader/slot/graph/动态输入首断点归并；频谱用同声源对照形状和活跃度 | 复用现compiler/graph/audio producer，选覆盖面明确的族恢复动态结果；不抬gain、改作者参数或放宽测试制造通过 |
 
-**下一批（10-10）：** U24封面已闭；原包circular_text明确关闭，不把准备日志列作可见缺失。U34三音频环受控输入下已显示。U22命名动画与stateful Bool timer已闭合两条实际alpha；独立cursor timer另由VM反例闭合。2.10.1已纳入前三批并触发发布，用户已接受Apple新协议且明确自行核验远端，不再阻塞开发。当前先复核U06 effect612的颜色合同及同源未见组合，再查视频长稳。U24普通App未提交率和中央环官方亮度仍待定标。U06 effect612回退另留。U16显隐/拖动、文字/X和终端权限首断点不重做。Goal继续，土星细影/Bloom按用户指示暂缓。
+**当前批（10-11）：** 新增37份已全部首轮运行，2份启动超时延长复验后均ready/排空退出。目录279＝旧243－本次未见1＋新增37；旧统计不当作当前全集。2.10.1远端由用户核验。U06颜色proof已通，逗号scalar→vec2编译修复在途冻结，尚欠缓存退旧与App后验；不计入本批固定App。U22普通App视频长稳、U24中央环亮度仍开放；土星细影/Bloom暂缓。
+
+### 新增样本公共断点（N01–N10）
+
+以下保留本批已见断链与明确待对照项；每成员结果及证据身份仅在[普查记录](../history/new-scene-intake-2026-10-11.md)。同一拒因可有多种上游原因，不按样本增加算法。新增方向先N01，再N02，后按实际覆盖评估T1/E1与粒子；先前冻结代码独立收尾。
+
+| 项 | 实际问题、现有责任与关闭门 |
+|---|---|
+| N01 嵌视频资源入口 | **已定位**：3811216799主17灰底，257,625,236B MP4在视频识别前被静态mip250MB门拒绝。沿TexDataReader/Container→原视频provider分清载荷/解码边界，恢复原样本并保住越界和静态纹理解压限制；不调大全局上限。 |
+| N02 Puppet局部缺失 | **可见异常，根因待隔离**：2824690710人物13、2877855240人物333几何显著越屏；2887542690头370缺失且origin脚本失败。未被默认hidden/alpha0解释，沿既有pose→world transform→UV/alpha→compositor定位，保留健康0017/0023与多clip反例。 |
+| N03 共享材质/effect owner | **实际局部回退**：2877855240六段solid/text Skew、3351179520及3761619125的39段等generic-owner-revoked；后者另有大片白缺失，不能先认唯一根因。3435573282有source passthrough及上游material-template拒绝。归并精确source/profile/envelope，复用原compiler/graph；不能按同名效果整族重写。 |
+| N04 绑定、依赖与发布 | **实际断链**：2960821850材质texture-binding拒绝且92 source-coverage未证；3039882306基础user-property fallback不可用；3708363772的705/560与3476868923的105/1935 stage-reference不支持；3815761795的233 publication unavailable。分别从既有binding/provider/graph首错追到consumer，不把下游多effect重复算能力缺失。 |
+| N05 Frontend/可见源 | **已见拒绝，画面因果待核**：3666041758 fullscreen190两段Blur frontend-envelope回退，主solid138仅Program准备无graph，141.visibility owner invalidSource；2960821850 Blendgradient及3248220186 GodRays另有实际texture-purpose/envelope回退，按不同profile核准入。先定位实际入口/显隐与依赖，不另造磁流体算法。 |
+| N06 SceneScript输入 | **执行失败**：2887542690、2890473419、3761619125 origin TypeError；3766310551 visibility TypeError；3781757083 visibility BAD_RETURN；3337494481还有callback invalid-argument；3708363772的221.visibility owner invalidSource属于准备期，另核作者调用合同。沿同VM调用/返回合同修复，保留合法返回和失败原值，不用按样本默认值掩盖。 |
+| N07 世界Sprite渲染组合 | **可见拒绝**：3248220186三个visible Sprite unsupportedRenderState、截图全黑。现screen Sprite已有depth/cull，缺口在world/perspective组合；需核后续geometry与深度行为，不关闭作者depth来换通过。 |
+| N08 RopeTrail组合 | **可见拒绝、语义待研究**：3337494481十个复制层visible unavailable，flags1/subdivision=-16均超当前profile；原十hidden不是故障。先证world/负subdivision合同，扩原trail owner，不能clamp作者值。 |
+| N09 重型冷启动 | **超过首轮预算**：3476868923、3507496797首轮69秒未ready，延时约153.425/93.820秒ready并正常退出。不能当永久无法启动；沿现准备/编译/cache开销定位，保留进度、取消与失败边界，不以提高测试时限当性能修复。 |
+| N10 条件与视觉待核 | 2807058277隐藏Perspective、3374523158依赖链四段及3471294034两段准备拒绝，本轮不足以判默认可见故障；3337494481首帧五层source-not-ready、其中一条未恢复需复验；3632513108只截到天空/花瓣，先复验入场及属性。3605502569主图三特效和粒子已实际合成，辅助频谱作者默认hidden，不列默认音频缺失。 |
 
 ## 2. 纹理、合成与特效公共缺口
 
@@ -87,7 +104,7 @@
 | U03 · 3587571382 | 纹理合成错误，额头缺块 | **主报告现象已修复**：[原包视差开启实机](../capabilities/runtime-evidence-current.md#e-2026-10-08-inherited-parallax)额头恢复。继承视差的position改消费与depth同源的当帧world frame，未改纹理/木偶/作者参数；完整交互及官方逐像素未验。 |
 | U04 · 3747190633 | 音频条不出现 | **主报告现象已修复**：[中文previous补接](../capabilities/runtime-evidence-current.md#e-2026-10-08-localized-graph-input)后原包layer1897消费左右32频谱，条带可见并进入GPU/最终合成。受控PCM不代表外部声源验收；后继sine_wave已通过公共prefix/标量转换与self→graph输入修复，青色条带及内部波纹可见，错误灰矩形消失；[本批后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-varying-scalar-conversion)保留最终身份与边界，不代表整样本parity。 |
 | U05 · 3723344874 | 人物背后流体烟雾缺失 | 实际烟雾作者定义→资源/Program或粒子→层序/合成 |
-| U06 · 3662390671 | 大面积纹理缺失 | **主报告现象已修复**：[内嵌WebM接入](../history/embedded-webm-video-2026-10-10.md)补系统VP9注册及原provider后台无损封装，原包layer185恢复完整人物/背景，636次实际帧发布、3次循环、退出GPU排空。该层无effects，不能把背景恢复记作所有特效支持。另Audio bar layer58/effect612仍`material-variant-envelope-color-contract`局部回退；全部属性、媒体/交互与官方完整对照未验 |
+| U06 · 3662390671 | 大面积纹理缺失 | **主报告现象已修复**：[内嵌WebM接入](../history/embedded-webm-video-2026-10-10.md)补系统VP9注册及原provider后台无损封装，原包layer185恢复完整人物/背景，636次实际帧发布、3次循环、退出GPU排空。该层无effects，不能把背景恢复记作所有特效支持。另Audio bar layer58/effect612的颜色proof已接通，10-11实际首错推进到通用编译的逗号声明scalar→vec2初始化（与3792400801同根因），仍局部回退；全部属性、媒体/交互与官方完整对照未验 |
 | U07 · 3804441338 | 中间方框全白、文字不可见；官方应为两个描边镂空矩形 | **主报告现象已修复**：[同身份实机后验](../capabilities/runtime-evidence-current.md#e-2026-10-08-frame-declaration)保存共享修复与跨样本收益。两框镂空及时间/日期可见，中心图形、圆角遮罩实际编码，无准备/执行失败；官方逐像素、真实音频/媒体和完整交互未验，不报整样本或全样本正确率。 |
 | U08 · 3802005866 | 音频条及背后蓝背景似乎越出作者限定矩形 | 作者边界→变换/clip/target extent；需先确认限定区域合同 |
 | U09 · 3797217144 | 缺奥特曼旋转并由小放大的出场动画 | intro/Timeline/脚本启动、变换及首帧至入场结束时序 |

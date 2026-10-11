@@ -15,7 +15,7 @@
 | 查询主题 | 本页证据入口 |
 |---|---|
 | App音频触发桌面冻结 | [普通桌面权限与资源驻留](../history/terminal-attachment-desktop-freeze-2026-10-10.md)：包含342真实App音频、封面依赖/热切与312健康回归；亮度、性能及证据边界见该页。 |
-| 全样本声明与旧运行关联 | [当前声明全集](scene-corpus-capability-inventory.md)、[样本验收来源](scene-sample-acceptance-ledger.md)；2026-10-08只刷新成员与声明，旧归档/人工裁决保留原身份，后继已修断点查[队列](../roadmap/scene-open-breakpoint-queue.md) |
+| 样本声明与运行关联 | [243份声明快照](scene-corpus-capability-inventory.md)、[验收来源](scene-sample-acceptance-ledger.md)保留旧身份；[10-11新增37份普查](../history/new-scene-intake-2026-10-11.md)补当前279成员中的新增运行，未验全库正确率；待修归[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | Sampler 声明、绑定与缓存身份 | [声明/缓存修复记录](#e-2026-10-01-sampler-baseline-repair) |
 | 生命周期与发布完整性 | [生命周期完整性记录](#e-2026-10-01-lifecycle-integrity) |
 | SceneScript 显隐准备与交互 | [统一显隐记录](#e-2026-09-27-unified-effect-visibility)、[事件显隐持久修复](../history/event-visibility-persistence-2026-10-10.md)：312两个浮动窗口恢复，四次属性热切无重建、两窗口拖动已验 |
