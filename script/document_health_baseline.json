@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 116238
+      "bytes": 117326
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 241,
-      "bytes": 66198
+      "bytes": 66532
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1152,27 +1152,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "2b0225c6280ee586a823462815eb68542465515eeb422a865bcfb3a7b92c659c",
-      "after": "d47ecf397dadc809a357c3e7d27b4f997b2280261a526f6dc76c182348c91998",
-      "owner": "Scene effect draw modulation",
-      "reason": "合并同一颜色host职责，替换已修首错并保留实际画面与第二包未闭边界；不扩大整体通过声明。",
-      "decision": "docs/scene/history/effect-draw-color-2026-10-11.md#决策与实现"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "before": "d96fc8d930df449ec60feae1281b7f2de13e019826e4a216203421a27abd8456",
       "after": "655988ba9d5663fa3ecb95574bd2cc5000c5d25d5d5932b2d27c54cde9c0f42e",
-      "owner": "Scene effect draw modulation",
-      "reason": "合并同一颜色host职责，替换已修首错并保留实际画面与第二包未闭边界；不扩大整体通过声明。",
-      "decision": "docs/scene/history/effect-draw-color-2026-10-11.md#决策与实现"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "daaa34aa6350bf2b80fc3f114d317153e80b5e76f7b098dceb2ff729102ffb7a",
-      "after": "5c5cdce2c542ec5d27ae4382bb8eda1952365e2442d46b6d6cd444a397987672",
       "owner": "Scene effect draw modulation",
       "reason": "合并同一颜色host职责，替换已修首错并保留实际画面与第二包未闭边界；不扩大整体通过声明。",
       "decision": "docs/scene/history/effect-draw-color-2026-10-11.md#决策与实现"
@@ -1185,6 +1167,24 @@
       "owner": "Scene terminal material chain",
       "reason": "官方自有输入证明多段源/终端尺寸不同；需要记录现有owner中的快照生命周期、失败退回及外部输入未扩域边界。",
       "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "81733bde7723ce4526ef6fa9e9f553ec12564c260abff57e7f1b65db10ea92f0",
+      "after": "92819173d8acbaad461ab67c3e50d0fa956f8f82cfa3a7820cac092ecca71224",
+      "owner": "Scene material host schema",
+      "reason": "公共host缩减参数的有界官方依据、唯一接线、拒绝与退出合同并入现host职责，不新增运行owner。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#effect-texture-reduction"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "a5bad6840346043b63c258e9c857965e09a8c21e0e0a2328426e6ea007119567",
+      "after": "2b752efcf210e9a640ce68e52d23889da0e0af68115af78bff061d277867827f",
+      "owner": "Scene material host schema",
+      "reason": "替换已修Skew断点并按既有运行错误和只读作者输入重排N06 Sound公共缺口，不宣称全部样本复现。",
+      "decision": "docs/scene/history/effect-texture-reduction-2026-10-11.md#实际画面与边界"
     }
   ]
 }

@@ -363,9 +363,9 @@
       "lastReviewed": "2026-10-11",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "313a64648002f3843167209fde5b836758ddeac9808438ad76564b35b0b7f7bf",
+        "sourceSHA256": "cfbaf1fa1415840762cff6b3e9929ce71ee58a0358dadce31033ea6ac9d333a1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对多段终端材质同一owner、源尺寸/末尾停用分域、旧高级混合准入和未扩named边界；完成记录与设计导航。",
+        "scope": "核对effect host缩减参数设计与现有单链导航；官方有界观察、未测质量档与未来唯一producer接管条件分开。",
         "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
       }
     },
@@ -1024,6 +1024,16 @@
       "currentAuthorities": [
         "docs/scene/architecture/runtime-architecture.md",
         "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/effect-texture-reduction-2026-10-11.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },

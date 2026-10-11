@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Effect draw modulation through the existing material preparation/Metal harnesses."""
+"""Effect hosts through preparation and bounded Program/Metal graph execution.
+
+The bare Swift GPU carrier follows the graph fixture's explicit bounded route;
+it does not exercise the signed generic compiler bundle. The reduction probe
+reads the material stage's authored FBO publication, not terminal composition.
+"""
 
 from __future__ import annotations
 
@@ -98,15 +103,16 @@ private func rejection(_ body: () throws -> SceneResolvedMaterialPreparedUniform
 }
 
 private func assembly(effect: Bool, source: Program.ResolvedUniform.Source,
-    alpha: Float = 0.25, color: SIMD3<Float>? = nil) -> Program? {
-    let contract = color == nil ? alphaShader() : colorShader()
+    alpha: Float = 0.25, color: SIMD3<Float>? = nil,
+    contractOverride: SceneShaderContract? = nil, scalarName: String = "g_Alpha") -> Program? {
+    let contract = contractOverride ?? (color == nil ? alphaShader() : colorShader())
     guard let shader = prepared(contract),
           let frontend = SceneAuthoredShaderFrontend.compile(vertexSource: shader.vertex.source,
             fragmentSource: shader.fragment.source).program else { return nil }
     let slots = Array<Program.TextureSlot?>(repeating: nil, count: 8)
     var values: [Program.ResolvedUniform] = []
     for field in frontend.uniformLayout.fields {
-        if field.authoredName == "g_Alpha" {
+        if field.authoredName == scalarName {
             guard let encoded = SceneResolvedMaterialUniformEncoder.encode(
                 staticValue([Double(alpha)]), as: field.type) else { return nil }
             values.append(.init(field: field, source: source, encodedValue: encoded))
@@ -136,10 +142,11 @@ private func assembly(effect: Bool, source: Program.ResolvedUniform.Source,
 }
 
 private func variantAliasScope(effect: Bool, name: String = "g_Alpha") -> String {
-    let type = name == "g_Alpha" ? "float" : name == "g_Color" ? "vec3" : "vec4"
-    let fallback = name == "g_Alpha" ? "0.75" : name == "g_Color" ? "\"0.1 0.2 0.3\"" : "\"0.1 0.2 0.3 0.75\""
-    let gainDefault = name == "g_Alpha" ? "1" : name == "g_Color" ? "\"1 1 1\"" : "\"1 1 1 1\""
-    let output = name == "g_Alpha" ? "vec4(g_Alpha, gain, 0.0, 1.0)" : "vec4(\(name).rgb + gain.rgb, 1.0)"
+    let scalar = name == "g_Alpha" || name == "g_TextureReductionScale"
+    let type = scalar ? "float" : name == "g_Color" ? "vec3" : "vec4"
+    let fallback = scalar ? "0.75" : name == "g_Color" ? "\"0.1 0.2 0.3\"" : "\"0.1 0.2 0.3 0.75\""
+    let gainDefault = scalar ? "1" : name == "g_Color" ? "\"1 1 1\"" : "\"1 1 1 1\""
+    let output = scalar ? "vec4(\(name), gain, 0.0, 1.0)" : "vec4(\(name).rgb + gain.rgb, 1.0)"
     let shader = contract(revision: "self-owned-draw-alias-\(name)", fragmentSourceOverride: """
         uniform \(type) \(name); // {"material":"gain","default":\(fallback)}
         uniform \(type) gain; // {"default":\(gainDefault)}
@@ -159,8 +166,8 @@ private func variantAliasScope(effect: Bool, name: String = "g_Alpha") -> String
               let gain = bindings.first(where: { $0.field.authoredName == "gain" }),
               case let .host(host) = alpha.source,
               case .staticValue = gain.source else { return "wrong-ownership" }
-        let expected: Program.HostUniform = name == "g_Alpha" ? .effectDrawAlpha
-            : name == "g_Color" ? .effectDrawColor : .effectDrawColor4
+        let expected = SceneResolvedMaterialHostUniformSchema.resolve(alpha.field,
+            activeTextureSlots: [], hasEffectContext: effect)
         guard host == expected else { return "wrong-host" }
         return "effect-host-and-authored-gain"
     case let .failure(.material(error)): return error.code.rawValue
@@ -244,6 +251,73 @@ private func colorFacts() throws -> [String: Any] {
             inputs: drawUniformInputs(alpha: .nan), slots: slots) == nil]
 }
 
+private func reductionFacts() throws -> [String: Any] {
+    let name = "g_TextureReductionScale"
+    let shader = contract(revision: "self-owned-effect-reduction", vertexSourceOverride: """
+        attribute vec3 a_Position;
+        uniform mat4 g_ModelViewProjectionMatrix;
+        uniform float g_TextureReductionScale; // {"default":0.75}
+        varying float v_Reduction;
+        void main() {
+            v_Reduction = g_TextureReductionScale;
+            gl_Position = g_ModelViewProjectionMatrix * vec4(a_Position, 1.0);
+        }
+        """, fragmentSourceOverride: """
+        varying float v_Reduction;
+        void main() { gl_FragColor = vec4(v_Reduction, 0.0, 0.0, 1.0); }
+        """)
+    let field = SceneAuthoredShaderUniformLayout.Field(name: name, type: .float, offset: 0)
+    let host = SceneResolvedMaterialHostUniformSchema.resolve(field,
+        activeTextureSlots: [], hasEffectContext: true)
+    let effect = try preparedDrawAlpha(effect: true, name: name)
+    let source = try preparedDrawAlpha(effect: false, name: name)
+    let declared = staticDeclaration(name, components: [0.125])
+    let dynamic = Template.UniformDeclaration(name: name, value: .dynamic(.init(
+        target: .effectConstant(layerID: fixtureLayerID, effectIndex: 0, passIndex: 0, name: name),
+        valueContributors: [.timeline], scriptAttachments: [],
+        authoredFallback: staticValue([0.3]), authoredBindingKeys: ["value"])))
+    let sourceDeclared = try preparedDrawAlpha(effect: false, name: name, declarations: [declared])
+    let sourceDynamic = try preparedDrawAlpha(effect: false, name: name, declarations: [dynamic])
+    var effectIsHost = false, sourceIsStatic = false, sourceStaticOwned = false, sourceDynamicOwned = false
+    if case let .host(actual) = effect.source { effectIsHost = host != nil && actual == host }
+    if case .staticValue = source.source { sourceIsStatic = true }
+    if case .staticValue = sourceDeclared.source { sourceStaticOwned = true }
+    if case .dynamic = sourceDynamic.source { sourceDynamicOwned = true }
+    func program(_ effect: Bool, _ source: Program.ResolvedUniform.Source, _ value: Float = 1) -> Program? {
+        assembly(effect: effect, source: source, alpha: value,
+            contractOverride: shader, scalarName: name)
+    }
+    let correct = host.flatMap { program(true, .host($0)) }
+    let sourceProgram = program(false, .staticValue, 0.125)
+    let sourceBytes = sourceProgram?.resolvedUniforms.first { $0.field.authoredName == name }?.encodedValue
+    let hostBytes = host.flatMap { SceneResolvedMaterialUniformEncoder.encodeHost($0,
+        type: .float, inputs: drawUniformInputs(), slots: Array(repeating: nil, count: 8)) }
+    let wrongType = host.map { SceneResolvedMaterialUniformEncoder.encodeHost($0,
+        type: .float2, inputs: drawUniformInputs(), slots: Array(repeating: nil, count: 8)) == nil } ?? false
+    let replay = correct?.terminalReplay(unitModelViewProjection: matrix_identity_float4x4)
+    return ["effectIsHost": effectIsHost, "sourceIsStatic": sourceIsStatic,
+        "sourceStaticOwned": sourceStaticOwned, "sourceDynamicOwned": sourceDynamicOwned,
+        "hostBytes": hostBytes.map { Harness.float($0, at: 0) == 1 } ?? false,
+        "sourceBytes": sourceBytes.map { Harness.float($0, at: 0) == 0.125 } ?? false,
+        "wrongEncoderType": wrongType,
+        "staticConflict": rejection { try preparedDrawAlpha(effect: true, name: name, declarations: [declared]) },
+        "dynamicConflict": rejection { try preparedDrawAlpha(effect: true, name: name, declarations: [dynamic]) },
+        "effectAliasVariant": variantAliasScope(effect: true, name: name),
+        "sourceAliasVariant": variantAliasScope(effect: false, name: name),
+        "wrongScalar": rejection { try preparedDrawAlpha(effect: true, name: name, type: .int) },
+        "wrongVector": rejection { try preparedDrawAlpha(effect: true, name: name, type: .float2) },
+        "wrongVectorStatic": rejection { try preparedDrawAlpha(effect: true, name: name, type: .float2,
+            declarations: [staticDeclaration(name, components: [0.2, 0.3])]) },
+        "array": rejection { try preparedDrawAlpha(effect: true, name: name, arrayCount: 2) },
+        "hostAssembly": correct != nil,
+        "effectStaticRejected": program(true, .staticValue) == nil,
+        "wrongHostRejected": program(true, .host(.time)) == nil,
+        "sourceHostRejected": host.map { program(false, .host($0)) == nil } ?? false,
+        "sourceStaticAccepted": sourceProgram != nil,
+        "terminalPreserved": replay?.resolvedUniforms.contains {
+            $0.field.authoredName == name && Harness.float($0.encodedValue, at: 0) == 1 } ?? false]
+}
+
 @main private enum EffectDrawAlphaPreparationHarness {
     static func main() throws {
         let effect = try preparedDrawAlpha(effect: true)
@@ -309,6 +383,7 @@ private func colorFacts() throws -> [String: Any] {
             "sourceAliasVariant": variantAliasScope(effect: false),
         ]
         output.merge(try colorFacts()) { _, value in value }
+        output["reduction"] = try reductionFacts()
         print(String(data: try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys]),
             encoding: .utf8)!)
     }
@@ -317,12 +392,41 @@ private func colorFacts() throws -> [String: Any] {
 
 
 METAL_HARNESS = graph_fixture.HARNESS.split("@main\nprivate enum Harness", 1)[0] + r'''
+private func reductionVertex(_ shader: SceneShaderContract) -> SceneShaderContract {
+    let stages = shader.stages.map { stage -> SceneShaderContract.Stage in
+        guard stage.kind == .vertex else { return stage }
+        let source = "uniform float g_TextureReductionScale;\nvarying float v_Reduction;\n"
+            + stage.source.replacingOccurrences(of: "v_TexCoord = a_TexCoord;",
+                with: "v_TexCoord = a_TexCoord; v_Reduction = g_TextureReductionScale;")
+                .replacingOccurrences(of: "gl_Position = vec4(a_Position, 1.0);",
+                    with: "gl_Position = vec4(a_Position * g_TextureReductionScale, 1.0);")
+        let parsed = SceneShaderContractSourceParser().parse(source, stageRelativePath: stage.relativePath)
+        return .init(kind: stage.kind, relativePath: stage.relativePath, source: source,
+            rawSHA256: SceneShaderStableDigest.hash(Data(source.utf8)), includes: parsed.includes,
+            annotations: parsed.annotations, declarations: parsed.declarations)
+    }
+    let graph = SceneShaderSourceGraph(roots: stages.map {
+        .init(label: $0.kind.rawValue, virtualPath: $0.relativePath)
+    }, nodes: stages.map {
+        .init(virtualPath: $0.relativePath, provenance: .package, source: $0.source,
+            rawSHA256: $0.rawSHA256, byteCount: $0.source.utf8.count)
+    }, edges: [], diagnostics: [], dependencySHA256: SceneShaderStableDigest.hash(stages))
+    return .init(identity: shader.identity, sourceKind: shader.sourceKind, stages: stages,
+        diagnostics: [], canonicalSHA256: SceneShaderStableDigest.hash(stages), sourceGraph: graph)
+}
+
 private func drawModulationFrames(
-    device: MTLDevice, queue: MTLCommandQueue, colorProbe: String? = nil
+    device: MTLDevice, queue: MTLCommandQueue, colorProbe: String? = nil,
+    reductionScale: Double? = nil
 ) -> [String: Any] {
     let provider = SceneNamedTextureReference(providerLayerID: 879, variant: .primary)
-    let node = material(0, ordinal: 0, target: output, read: input)
-    let value = graph(targets: [], nodes: [node])
+    let node = material(0, ordinal: 0, target: reductionScale == nil ? output : first, read: input)
+    let terminal = material(1, ordinal: 1, target: output, read: first)
+    let target = Graph.RenderTarget(texture: first,
+        extent: .init(width: 8, height: 8, fit: nil, scale: reductionScale),
+        format: "rgba_backbuffer", declaredUnique: false, clear: nil, uvs: nil, conditions: nil)
+    let value = graph(targets: reductionScale == nil ? [] : [target],
+        nodes: reductionScale == nil ? [node] : [node, terminal])
     let base = template(for: node, namedProvider: provider)
     let declaration: String
     let consumerExpression: String
@@ -339,11 +443,14 @@ private func drawModulationFrames(
     case "color4BlueAlpha":
         declaration = "uniform vec4 g_Color4;"
         consumerExpression = "vec4(g_Color4.b, g_Color4.w, provider.a, 1.0)"
+    case "reduction":
+        declaration = "varying float v_Reduction;"
+        consumerExpression = "vec4(v_Reduction / 8.0, provider.a, provider.r, 1.0)"
     default:
         declaration = "uniform float g_Alpha;"
         consumerExpression = "vec4(g_Alpha, provider.a, provider.r, 1.0)"
     }
-    let shader = shaderContract(nodeIndex: 0, pass: false, fragmentOverride: """
+    var shader = shaderContract(nodeIndex: 0, pass: false, fragmentOverride: """
         varying vec2 v_TexCoord;
         uniform sampler2D g_Texture1;
         \(declaration)
@@ -352,15 +459,18 @@ private func drawModulationFrames(
             gl_FragColor = \(consumerExpression);
         }
         """)
+    if reductionScale != nil { shader = reductionVertex(shader) }
     let materialTemplate = Template.validated(textureSlots: base.textureSlots, combos: [],
         uniformDeclarations: [], renderState: base.renderState, graphRole: base.graphRole,
         effectContext: .init(key: effect, input: input), shaderContract: shader,
         diagnosticProvenance: .init(nodeIndex: 0, authoredShaderPath: shader.identity,
             contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
             textureSources: [], uniformSources: []))!
-    let materials = SceneResolvedMaterialRuntimeCatalog(entries: [
+    var entries: [SceneResolvedMaterialRuntimeCatalog.Key: SceneResolvedMaterialRuntimeCatalog.Entry] = [
         .init(effect: effect, nodeIndex: 0): .template(materialTemplate)
-    ], resourceDemandIssues: [])
+    ]
+    if reductionScale != nil { entries[.init(effect: effect, nodeIndex: 1)] = .template(template(for: terminal)) }
+    let materials = SceneResolvedMaterialRuntimeCatalog(entries: entries, resourceDemandIssues: [])
     let dependency = SceneDependencyRenderPlan.Binding(consumerLayerID: layerID,
         providerLayerID: provider.providerLayerID,
         slot: .init(effectID: effect.descriptorID, passIndex: 0, slotIndex: 1),
@@ -408,13 +518,17 @@ private func drawModulationFrames(
             commandBuffer: command, previousStates: states, previousGraphResources: resources,
             effectGeneration: 1, resetGeneration: 1)
         guard case let .success(prepared) = result, prepared.stages.count == 1,
-              executor.encode(prepared, commandBuffer: command),
-              let read = appendReadback(prepared.finalResource.publication.texture,
-                commandBuffer: command) else {
+              executor.encode(prepared, commandBuffer: command) else {
             return ["failure": failureCode(result), "frames": rows]
         }
-        command.commit(); command.waitUntilCompleted()
         let stage = prepared.stages[0]
+        // Read the authored FBO independently of the existing terminal template.
+        let rendered = reductionScale == nil ? prepared.finalResource : stage.frameResources[first]
+        guard let rendered, let read = appendReadback(rendered.publication.texture,
+                commandBuffer: command) else {
+            return ["failure": "readback", "frames": rows]
+        }
+        command.commit(); command.waitUntilCompleted()
         if offset == 0 {
             key = stage.programCacheKeys.first
             frontendCount = selected.variants.counters.frontendCompilationCount
@@ -429,6 +543,8 @@ private func drawModulationFrames(
             expected = [179, 51, UInt8((color.z * 255).rounded()), 255]
         case "color4BlueAlpha":
             expected = [191, alphaByte, UInt8((color.z * 255).rounded()), 255]
+        case "reduction":
+            expected = [51, 191, 32, 255]
         default:
             expected = [51, 191, alphaByte, 255]
         }
@@ -444,21 +560,31 @@ private func drawModulationFrames(
             "noRecompile": frontendCount == selected.variants.counters.frontendCompilationCount
                 && libraryCount == executor.materialEncoder.metalLibraryCompilationAttemptCount,
             "noLocalFallback": stage.effectLocalFailureReasonCode == nil,
-            "opaqueOutput": prepared.finalResource.publication.candidate.content == .color(.resolved(.opaque))])
+            "opaqueOutput": rendered.publication.candidate.content == .color(.resolved(.opaque))])
         states = [stage.effect: stage.transition.nextState]
         resources = [stage.effect: stage.persistentResources]
     }
-    return ["frames": rows]
+    var result: [String: Any] = ["frames": rows]
+    if let reductionScale, let texture = leases.first?.texture(for: first) {
+        result["fboExtent"] = [texture.width, texture.height]
+        result["authoredScale"] = reductionScale
+    }
+    return result
 }
 
 @main private enum EffectDrawAlphaMetalHarness {
     static func main() throws {
+        setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)
         guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
             print("{\"skip\":\"Metal unavailable\"}"); return
         }
         var result: [String: Any] = ["alpha": drawModulationFrames(device: device, queue: queue)]
         for probe in ["colorRG", "colorBlue", "color4RG", "color4BlueAlpha"] {
             result[probe] = drawModulationFrames(device: device, queue: queue, colorProbe: probe)
+        }
+        for scale in [1.0, 2.0, 4.0] {
+            result["reduction\(Int(scale))"] = drawModulationFrames(device: device, queue: queue,
+                colorProbe: "reduction", reductionScale: scale)
         }
         print(String(data: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]),
             encoding: .utf8)!)
@@ -532,6 +658,24 @@ class SceneEffectDrawAlphaTests(unittest.TestCase):
         self.assertTrue(self.result["nonFiniteRejected"], self.result)
         self.assertEqual(self.result["copiedAlpha"], 0.25, self.result)
 
+    def test_reduction_effect_host_and_source_authored_values(self) -> None:
+        result = self.result["reduction"]
+        for key in ("effectIsHost", "hostBytes", "sourceIsStatic", "sourceStaticOwned",
+                    "sourceDynamicOwned", "sourceBytes", "sourceStaticAccepted"):
+            self.assertTrue(result[key], result)
+
+    def test_reduction_types_conflicts_and_program_identity(self) -> None:
+        result = self.result["reduction"]
+        for key in ("staticConflict", "dynamicConflict"):
+            self.assertEqual(result[key], "hostUniformDeclarationConflict", result)
+        for key in ("wrongScalar", "wrongVector", "wrongVectorStatic", "array"):
+            self.assertEqual(result[key], "staticUniformBindingInvalid", result)
+        for key in ("wrongEncoderType", "hostAssembly", "effectStaticRejected", "wrongHostRejected",
+                    "sourceHostRejected", "terminalPreserved"):
+            self.assertTrue(result[key], result)
+        self.assertEqual(result["effectAliasVariant"], "effect-host-and-authored-gain", result)
+        self.assertEqual(result["sourceAliasVariant"], "uniformBindingInvalid", result)
+
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneEffectDrawAlphaMetalTests(unittest.TestCase):
@@ -560,6 +704,15 @@ class SceneEffectDrawAlphaMetalTests(unittest.TestCase):
     def test_actual_graph_rgb_and_rgba_follow_consumer_not_source_or_provider(self) -> None:
         for name in ("colorRG", "colorBlue", "color4RG", "color4BlueAlpha"):
             self.assert_probe_frames(name)
+
+    def test_vertex_reduction_host_stays_one_at_authored_fbo_scales(self) -> None:
+        for scale in (1, 2, 4):
+            name = f"reduction{scale}"
+            self.assert_probe_frames(name)
+            result = self.result[name]
+            self.assertEqual(result["fboExtent"], [8 // scale, 8 // scale], result)
+            for row in result["frames"]:
+                self.assertEqual(row["expected"], [51, 191, 32, 255], result)
 
 
 if __name__ == "__main__":

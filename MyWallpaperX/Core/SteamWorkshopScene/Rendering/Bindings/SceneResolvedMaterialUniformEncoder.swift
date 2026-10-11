@@ -48,6 +48,11 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
             var components = [Double(color.x), Double(color.y), Double(color.z)]
             if host == .effectDrawColor4 { components.append(Double(inputs.effectDrawAlpha)) }
             return encodeComponents(components, as: type)
+        case .textureReductionScale:
+            guard type == .float else { return nil }
+            // The current host has no global texture-quality reduction. Local
+            // resource caps, padding and authored FBO scales do not define it.
+            return encodeScalar(1, type: type)
         case .premultipliedColorInputMask:
             guard type == .uint, slots.count == 8 else { return nil }
             let mask = slots.enumerated().reduce(UInt32(0)) { mask, entry in

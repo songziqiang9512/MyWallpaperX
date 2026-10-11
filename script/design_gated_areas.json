@@ -395,6 +395,22 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor*.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-effect-texture-reduction",
+      "title": "Effect 纹理缩减 host 参数",
+      "owner": "scene-material-host-schema",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/runtime-architecture.md",
+      "design_notes": "effect-texture-reduction 决策先于代码：固定官方普通/显式FBO有效探针支持当前中性profile值1；只扩既有HostUniform链，局部cap不推导。全局quality/HDR/透视未验，批准不代表运行验收；未来质量producer接管时重验并替换常量。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialHostUniformSchema.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift"
+      ],
+      "contentPatterns": [
+        "textureReductionScale",
+        "g_TextureReductionScale"
+      ]
     }
   ]
 }

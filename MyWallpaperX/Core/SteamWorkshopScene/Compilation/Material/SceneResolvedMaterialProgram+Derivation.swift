@@ -475,7 +475,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         guard expectedHost != nil || (
             !SceneResolvedMaterialHostUniformSchema
                 .requiresTextureCompanionHost(field.authoredName)
-                && !SceneResolvedMaterialHostUniformSchema.requiresEffectDrawModulationHost(
+                && !SceneResolvedMaterialHostUniformSchema.requiresEffectHost(
                     field.authoredName, hasEffectContext: hasEffectContext
                 )
         ) else { return nil }
