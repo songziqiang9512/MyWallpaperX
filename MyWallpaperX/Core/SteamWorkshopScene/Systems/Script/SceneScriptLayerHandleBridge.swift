@@ -503,10 +503,10 @@ nonisolated extension SceneScriptQuickJSDomain {
     /// the catalog.
     nonisolated static func catalogSignature(
         for descriptor: SceneRenderDescriptor
-    ) -> String {
+    ) throws -> String {
         let camera = descriptor.camera.orthoHeight.map { String($0) }
             ?? "perspective"
-        let layers = descriptor.layers.enumerated().map { index, layer in
+        let layers = try descriptor.layers.enumerated().map { index, layer in
             let origin = layer.originXYZ ?? [0, 0, 0]
             let scale = layer.scaleXYZ ?? [1, 1, 1]
             let angles = layer.anglesXYZ ?? [0, 0, 0]
@@ -515,9 +515,18 @@ nonisolated extension SceneScriptQuickJSDomain {
             let effectIdentity = layer.effects.map { [$0.id, $0.name ?? ""] }
             let textMutable = layer.contentKind == "text"
                 && layer.text != nil && layer.textStyle != nil
-            return "\(index):\(layer.id):\(layer.parentID.map(String.init) ?? "root"):\(layer.name ?? ""):\(origin):\(scale):\(angles):size=\(size):attachment=\(attachment):text=\(textMutable):effects=\(effectIdentity)"
+            return "\(index):\(layer.id):\(layer.parentID.map(String.init) ?? "root"):\(layer.name ?? ""):\(origin):\(scale):\(angles):size=\(size):attachment=\(attachment):text=\(textMutable):effects=\(effectIdentity):initial=\(try initialConfigurationJSON(layer) ?? "unavailable")"
         }.joined(separator: "|")
         return "camera=\(camera)|\(layers)"
+    }
+
+    private static func initialConfigurationJSON(
+        _ layer: SceneRenderDescriptor.Layer
+    ) throws -> String? {
+        guard let configuration = layer.initialConfiguration else { return nil }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return String(decoding: try encoder.encode(configuration), as: UTF8.self)
     }
 
     func configureLayerCatalog(_ descriptor: SceneRenderDescriptor) throws {
@@ -553,7 +562,7 @@ nonisolated extension SceneScriptQuickJSDomain {
                 "SceneScript layer catalog exceeds its identity contract"
             )
         }
-        let signature = Self.catalogSignature(for: descriptor)
+        let signature = try Self.catalogSignature(for: descriptor)
         if let configured = layerCatalogSignature {
             guard configured == signature,
                   layerWorldTransformProjection?.catalogSignature
@@ -611,6 +620,17 @@ nonisolated extension SceneScriptQuickJSDomain {
                 throw SceneScriptScalarRuntimeFailure.invalidArgument(
                     Self.layerDiagnostic(diagnostic)
                 )
+            }
+            if let configuration = try Self.initialConfigurationJSON(layer) {
+                let status = configuration.withCString { json in
+                    mwx_scene_quickjs_domain_set_layer_initial_configuration(
+                        handle, UInt32(index), json, configuration.utf8.count,
+                        &diagnostic, diagnostic.count
+                    )
+                }
+                guard status == MWX_SCENE_QUICKJS_OK else {
+                    throw layerSnapshotFailure(status, diagnostic: diagnostic)
+                }
             }
             let effectNames: [UnsafeMutablePointer<CChar>?] = layer.effects.map { effect in
                 effect.name.map { name in name.withCString { strdup($0) } } ?? nil

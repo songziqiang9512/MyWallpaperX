@@ -2641,6 +2641,45 @@ static JSValue get_layer(
     return make_layer_handle(context, owner, (uint32_t)storage, true);
 }
 
+static JSValue get_initial_layer_config(
+    JSContext *context, JSValueConst this_value, int argc,
+    JSValueConst *argv, int magic, void *opaque
+) {
+    MWXSceneQuickJSOwner *owner = opaque;
+    if (!callback_owns(owner) || argc != 1)
+        return JS_ThrowTypeError(context, "getInitialLayerConfig expects one layer");
+    JSValue layer = JS_UNDEFINED;
+    if (JS_IsString(argv[0]) || JS_IsNumber(argv[0])) {
+        if (JS_IsNumber(argv[0])) {
+            double index = 0;
+            if (JS_ToFloat64(context, &index, argv[0]) < 0) return JS_EXCEPTION;
+            if (!isfinite(index) || floor(index) != index || index < 0 || index > INT32_MAX)
+                return JS_NULL;
+        }
+        layer = get_layer(context, this_value, argc, argv, magic, opaque);
+        if (JS_IsException(layer)) return layer;
+    } else {
+        layer = JS_DupValue(context, argv[0]);
+    }
+    MWXSceneQuickJSLayerRecord *record = resolve_layer_argument(context, owner, layer);
+    JS_FreeValue(context, layer);
+    if (record == NULL) return JS_NULL;
+    if (record->initial_configuration == NULL) {
+        if (record->dynamic)
+            return JS_ThrowTypeError(context, "dynamic initial configuration is unavailable");
+        return JS_NULL;
+    }
+    JSValue configuration = JS_ReadObject(context, record->initial_configuration,
+                                          record->initial_configuration_length, 0);
+    if (JS_IsException(configuration)) return configuration;
+    JSAtom id = JS_NewAtom(context, "id");
+    if (id == JS_ATOM_NULL) { JS_FreeValue(context, configuration); return JS_EXCEPTION; }
+    int deleted = JS_DeleteProperty(context, configuration, id, 0);
+    JS_FreeAtom(context, id);
+    if (deleted < 0) { JS_FreeValue(context, configuration); return JS_EXCEPTION; }
+    return configuration;
+}
+
 static JSValue get_layer_by_id(
     JSContext *context, JSValueConst this_value, int argc,
     JSValueConst *argv, int magic, void *opaque
@@ -3174,6 +3213,7 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
     struct { const char *name; JSCClosure *function; int argc; } functions[] = {
         {"getLayer", get_layer, 1}, {"getLayerByID", get_layer_by_id, 1},
         {"getLayerCount", get_layer_count, 0},
+        {"getInitialLayerConfig", get_initial_layer_config, 1},
         {"enumerateLayers", enumerate_layers, 0}, {"createLayer", create_layer, 1},
         {"destroyLayer", destroy_layer, 1}, {"sortLayer", sort_layer, 2},
         {"getLayerIndex", get_layer_index, 1},
@@ -3680,6 +3720,42 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_mutation_capabilities(
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
     domain->layers[layer_index].text_mutable = text_mutable != 0;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_initial_configuration(
+    MWXSceneQuickJSDomain *domain, uint32_t layer_index,
+    const char *json, size_t json_length,
+    char *diagnostic, size_t diagnostic_capacity
+) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (domain == NULL || domain->callback_active || domain->layers == NULL ||
+        layer_index >= domain->authored_layer_count ||
+        !domain->layers[layer_index].configured || json == NULL ||
+        domain->layers[layer_index].initial_configuration != NULL) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity, "invalid initial layer configuration"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    JSContext *context = domain->context;
+    JSValue value = JS_ParseJSON(context, json, json_length, "initial-layer-configuration");
+    if (JS_IsException(value))
+        return mwx_scene_quickjs_exception_result(domain, diagnostic, diagnostic_capacity);
+    if (!JS_IsObject(value) || JS_IsArray(value)) {
+        JS_FreeValue(context, value);
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity, "initial layer configuration must be an object"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    size_t length = 0;
+    uint8_t *bytes = JS_WriteObject(context, &length, value, 0);
+    JS_FreeValue(context, value);
+    if (bytes == NULL)
+        return mwx_scene_quickjs_exception_result(domain, diagnostic, diagnostic_capacity);
+    domain->layers[layer_index].initial_configuration = bytes;
+    domain->layers[layer_index].initial_configuration_length = length;
     return MWX_SCENE_QUICKJS_OK;
 }
 

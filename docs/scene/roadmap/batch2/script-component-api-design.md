@@ -16,6 +16,16 @@
 - component/object/particle综合项仍有缺口，不能由综合等级推断各基础设施缺失；现`SceneScriptLayerHandleBridge`已有upsert/destroy、mutation commit/discard与scope隔离，`SceneScriptOwnerLifecycleBridge`已有生命周期及mutation预算。
 - 2026-10-01核对官方[IScene](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IScene.html)、[IEngine](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html)、[IThisPropertyObject](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IThisPropertyObject.html)、[IParticleSystem](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystem.html)。公开入口未证明作者可调用`registerSceneScriptComponent`。
 
+## 初始图层配置后继（2026-10-12，实施中）
+
+N06 真实脚本通过 `getInitialLayerConfig` 读取作者配置，再提取 image/size 或 text 字段交给既有 createLayer；本片优先恢复可由现役普通图片资源消费的原层脚本，不承诺完整 clone、Puppet 或 composition。官方 2.8.0.42 自有黑盒已证 String 名称、Number 顺序、ILayer 三入口返回原作者字段的独立对象，保留 script/value wrapper、string size 和未知作者字段，去除顶层 id；运行中的属性写入不改变初始配置；找不到名称或序号返回 null。同一 R2 实验已证嵌套数组/对象的副本隔离，动态 createLayer 的普通 Object 配置亦保留创建时深副本。不得推测 wrapper 展开。
+
+数据沿现 `SceneObject.authoredValue → SceneRenderDescriptor.Layer → QuickJS layer catalog`；保留原始配置，不从当前帧逆构造。配置参与 load/configuration 阶段 catalog identity，初始化期间解析一次并保存 QuickJS 自有的对象序列化快照；getter 用 VM 原生对象反序列化返回独立对象，不重新解析作者 JSON、编译脚本或建立场景图。只复制调用者请求的配置，不做普通帧整图序列化。快照归现 domain/layer record，跟随其销毁释放，不新增状态库、renderer 或 lifecycle owner。缺少配置证据的合成 descriptor 不伪造作者配置。
+
+本片仅开放 prepared 作者层配置读取；动态层 getter 明确报告 unavailable，旧 createLayer 不增加配置遍历或新的准入要求。官方已证动态 Object 的创建时深副本，但暂不实施：直接对任意动态参数调用 VM 序列化会读取数组 index getter（含稀疏数组原型上的 getter），为旧 create 引入额外脚本副作用；当前目标脚本不读取动态层初始配置，为此新增递归对象图准入收益不足。后继须先证明无新增 getter/Proxy 副作用及事务兼容，再复用当前接口开放，不能用当前值回填。
+
+接口复用现层名称/顺序解析及带代次的 handle 校验。现值、事务和资源仍由原 owner 负责；读取初始配置不代表 createLayer 已能消费其中所有字段。对不支持的资源保持局部拒绝，不能把 Puppet 扁平化或对缺少 provider 返回假成功。验收覆盖三入口、嵌套副本隔离、实时值不污染初始值、缺层/旧句柄、配置 identity 变化、现 create/destroy/rollback；真实 App 则核对原 34 个失败 target 的实际分布、普通图片模板复用与实际脚本角度输出，不以方法存在或截图非黑计完成。
+
 ## owner
 
 QuickJS domain owns JS object 与 callback roots；现役 Script bridge owns handle 验证与 mutation 编码；host frame transaction owns commit 时机；graph/resources owns 动态对象准备与释放。粒子作者播放意图纳入现役 `SceneScriptDynamicLayerRuntime` 的 typed layer state、candidate plan 和 immutable committed snapshot，C 只保存已提交镜像与 callback journal；不另建 session 意图库。各 surface 的现役粒子 runtime 仍独占实际 emitter schedule、存活、粒子 ID 与随机流，按 [D11](particle-playback-state-design.md) 消费有序转移。注册内部组件不能建立第二份对象树、simulation 或 clock。
@@ -107,6 +117,12 @@ U22实机副本点击命中后，`getLayer(...).getAnimation(name)` 缺方法，
 - 后继反例：独立cursor-only owner在点击内创建timer后不再求值；U22实际由借用的stateful Bool owner持有，timer到期后被typed cohort无条件拒绝animation。允许已有stateful Bool权限消费同一typed Timeline命令，纯只读Bool及material function边界不放宽。独立cursor timer缺口由自有VM门验证。该owner仍由CursorProgram唯一持有，仅在已有active timer时、cursor事件前调用既有typed evaluation并并入同owner effects；沿现有cadence消费与共同commit，不新增clock/调度器。构造继续拒绝init/update需求，借用owner仍由原Program推进，避免双跑。验收覆盖无新pointer事件时timer到期、snapshot helper恢复（不等于产品GPU丢帧重放）及借用owner不重复执行。
 
 实施及反例统一归[历史记录](../../history/named-timeline-interaction-2026-10-10.md)，当前范围由API台账维护，不以局部交互代替完整样本验收。
+
+## 已准备普通图片的动态复用（2026-10-12）
+
+作者通过初始配置取得 image model 路径后，createLayer 仍消费既有 dynamicImageResources、LaunchFrameSchema 模板和 DynamicImageTextureProvider；不扫描脚本表达式、不新增加载或 provider。ScenePreparedBaseImageResources 在原上传完成/失败回收之后，只将成功普通 image Entry 的 Loaded 引用投影到现动态资源表。model 默认纹理的 SourceKey 必须与该 Entry 相同，保留原 candidate、采样元数据及 texture 身份；layer slot0 override 不能污染 model 默认源，已有显式动态资源优先保留。新别名仅接受唯一 model/material/pass、既有 builtin image 身份、唯一 slot0、无常量/用户/provider 输入，combo 仅允许 VERSION=2，render state 为 translucent/disabled/disabled/nocull 且 alphawriting 未指定；未知、自定义和多pass材质不借纹理成功伪装为普通 quad。ColorModulationCompiler 负责源 shader Program 的语义 lowering，不是资源引用资格，本片不重复调用它准备 shader。
+
+缺失、失败、延迟尚未准备的 Entry，以及 Puppet、composition、动画等特殊 provider 不借此开放。动态创建仍由原模板与拓扑事务检查，失败不返回假资源；资源随原 launch owner 保留，删除和 GPU completion 生命周期不新增权威。反例验证同 model 不同 layer override、没有原始成功 Entry、特殊来源和上传失败；正例验证共享实际引用且 load 次数不增加。初始配置的返回副本由 catalog/ABI/VM 合同负责，clone 的作者 size、perspective、text wrapper 和任意 model/material 语义不由该资源投影扩域；真实画面需另验，不把资源可用当成整样本通过。
 
 ## Sound 播放控制接入（2026-10-12）
 

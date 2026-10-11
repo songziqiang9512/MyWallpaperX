@@ -129,11 +129,13 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
         )
         let configuredCatalogSignature = propertyVectorScriptProgram.domain?
             .layerCatalogSignature
-        if let configuredCatalogSignature,
-           configuredCatalogSignature == SceneScriptQuickJSDomain
-               .catalogSignature(for: runtimeInput.renderDescriptor) {
-            sceneScriptLayerCatalogToken = configuredCatalogSignature
-        } else {
+        do {
+            let expectedSignature = try SceneScriptQuickJSDomain
+                .catalogSignature(for: runtimeInput.renderDescriptor)
+            sceneScriptLayerCatalogToken = configuredCatalogSignature == expectedSignature
+                ? configuredCatalogSignature : nil
+        } catch {
+            // A malformed authored configuration cannot authorize a frame catalog.
             sceneScriptLayerCatalogToken = nil
         }
         let dynamicLayerRuntime = SceneScriptDynamicLayerRuntime(

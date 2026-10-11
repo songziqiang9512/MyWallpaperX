@@ -139,7 +139,7 @@ enum Harness {
             "disabledFailures": disabled.failures.count,
             "mutableHandleProjected": mutableHandleProjection.targets.contains(target),
             "catalogSignatureMatchesToken":
-                SceneScriptQuickJSDomain.catalogSignature(for: descriptor)
+                try SceneScriptQuickJSDomain.catalogSignature(for: descriptor)
                     == catalogToken,
             "tokenPublishSucceeded": tokenPublishSucceeded,
             "tokenFailureCode": tokenFailureCode,

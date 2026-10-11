@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-12 | SceneScript | 修复证据 | [初始配置与图片复用](initial-layer-configuration-2026-10-12.md) | 原catalog深副本、成功图片引用复用与动态getter副作用边界 | [运行合同](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-12 | Scene | 修复证据 | [缺省尺寸归一化](missing-resolution-normalization-2026-10-12.md) | 头部deformer接回公共Program；真实绑定尺寸与空槽缓存隔离 | [运行合同](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-12 | Scene | 修复证据 | [Sound控制与Vector热更](sound-script-control-2026-10-12.md) | 普通layer共享媒体事务、首帧准备与属性回调登记；官方single重复play反例 | [脚本覆盖](../capabilities/scenescript-api-coverage.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-12 | Scene | 修复证据 | [Named solid源尺寸](named-solid-source-extent-2026-10-12.md) | 原始named纹理复用源尺寸与terminal；裙摆重复消失、删除提供层局部回退 | [终端合同](../architecture/runtime-architecture.md#terminal-material-raster)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |

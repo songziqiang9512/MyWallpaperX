@@ -227,6 +227,25 @@ final class ScenePreparedBaseImageResources {
             failedCount += reclaimed
             textureLoader.evictTextures(containedIn: failedTextures)
         }
+        // An authored ordinary model can be requested through initial config
+        // without a literal script reference. Reuse only GPU-published entries
+        // whose source is the model default, never a layer-local override.
+        for layer in descriptor.layers where layer.contentKind == "image" {
+            try cancellationCheck()
+            guard let modelPath = layer.imagePath,
+                  dynamicImageResources[modelPath.lowercased()] == nil,
+                  supportsDynamicImageAlias(modelPath: modelPath, descriptor: descriptor),
+                  let entry = entries[layer.id],
+                  let modelURL = resolver.resolvePrimaryTexture(modelPath: modelPath),
+                  textureLoader.sourceKey(for: modelURL) == entry.source,
+                  case let .loaded(loaded) = entry.outcome,
+                  loaded.animation == nil,
+                  let candidate = loaded.candidate,
+                  candidate.texture === loaded.texture else { continue }
+            dynamicImageResources[modelPath.lowercased()] = .init(
+                modelPath: modelPath, loaded: loaded
+            )
+        }
         // Every launch texture is GPU-published past this point: drop the
         // loader's CPU-side decoded bytes so they do not sit next to their
         // GPU copies for the whole session. Later loads hit the GPU cache;
@@ -243,6 +262,32 @@ final class ScenePreparedBaseImageResources {
             loadedCount: loadedCount,
             failedCount: failedCount
         )
+    }
+
+    /// Texture readiness does not prove arbitrary model/material execution.
+    /// The existing dynamic quad consumes only a plain built-in slot-zero image.
+    private static func supportsDynamicImageAlias(
+        modelPath: String, descriptor: SceneRenderDescriptor
+    ) -> Bool {
+        let links = descriptor.modelMaterialLinks.filter { $0.modelPath == modelPath }
+        guard links.count == 1, let materialPath = links.first?.materialPath else { return false }
+        let passes = descriptor.materialPasses.filter { $0.materialPath == materialPath }
+        guard passes.count == 1, let pass = passes.first,
+              pass.passIndex == 0,
+              pass.shaderPath.map(SceneBuiltinShaderIdentity.isImage) == true,
+              pass.textureSlots.count == 1, let texturePath = pass.textureSlots.first ?? nil,
+              !texturePath.isEmpty, pass.texturePaths == [texturePath],
+              pass.userTextureInputs.allSatisfy({ $0 == nil }),
+              pass.constantShaderValues.isEmpty, pass.userShaderValues.isEmpty,
+              pass.combos.allSatisfy({ $0.key == "VERSION" && $0.value == 2 }),
+              let state = SceneMaterialRenderState.compile(
+                blending: pass.blending, depthTest: pass.depthTest,
+                depthWrite: pass.depthWrite, cullMode: pass.cullMode,
+                alphaWriting: pass.alphaWriting
+              ) else { return false }
+        return state.blending == .translucent && state.depthTest == .disabled
+            && state.depthWrite == .disabled && state.cullMode == .noCull
+            && state.alphaWriting == .unspecified
     }
 
     func outcome(

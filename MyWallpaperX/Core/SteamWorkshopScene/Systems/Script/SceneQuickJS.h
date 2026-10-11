@@ -407,6 +407,16 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_descriptor(
     size_t diagnostic_capacity
 );
 
+/// Preparation-only immutable authored configuration; returned copies never alias it.
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_initial_configuration(
+    MWXSceneQuickJSDomain *domain,
+    uint32_t layer_index,
+    const char *json,
+    size_t json_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
     MWXSceneQuickJSDomain *domain,
     uint32_t layer_index,

@@ -194,7 +194,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("sceneScriptLayerCatalogToken", launch_schema)
         self.assertIn(
             "SceneScriptQuickJSDomain\n"
-            "               .catalogSignature(for: runtimeInput.renderDescriptor)",
+            "                .catalogSignature(for: runtimeInput.renderDescriptor)",
             launch_schema,
         )
         self.assertIn("catalogToken: launchContext.frameSchema", frame)

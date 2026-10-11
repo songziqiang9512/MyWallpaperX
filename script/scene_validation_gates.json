@@ -282,9 +282,12 @@
     {
       "id": "scene-script-runtime",
       "patterns": [
+        "script/tests/fixtures/SceneInitialLayerConfigurationQuickJSCases.c",
+        "script/tests/test_scene_script_initial_layer_configuration.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/**"
       ],
       "modules": [
+        "test_scene_script_initial_layer_configuration",
         "test_scene_cross_layer_effect_visibility",
         "test_scene_effect_cursor_visibility",
         "test_scene_effect_visibility_alias_integration",
@@ -414,7 +417,9 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift",
+        "script/tests/test_scene_prepared_base_image_resources.py",
+        "script/tests/fixtures/ScenePreparedBaseImageResourcesHarness.swift"
       ],
       "modules": [
         "test_scene_detail_diagnostics_on_demand",
@@ -423,7 +428,8 @@
         "test_scene_surface_submission",
         "test_scene_runtime_input",
         "test_scene_sync_launch_generation",
-        "test_scene_wallpaper_benchmark"
+        "test_scene_wallpaper_benchmark",
+        "test_scene_prepared_base_image_resources"
       ]
     },
     {
@@ -1315,6 +1321,7 @@
         "script/tests/scene_vector_vm_test_support.py"
       ],
       "modules": [
+        "test_scene_script_initial_layer_configuration",
         "test_scene_cursor_candidate_collision",
         "test_scene_cursor_capture_continuity",
         "test_scene_cursor_owner_transaction",

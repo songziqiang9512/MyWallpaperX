@@ -363,9 +363,9 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a85bce8568bc6790a936f7a4b4439a3172e3e82d2c6f623692d6b0065741094b",
+        "sourceSHA256": "ae5ba4122b73cdc90f3335fe262c5442dce1ae3980fbddbb21a009c215471d00",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对缺省Resolution与真实绑定身份、原Program单链职责；完成过程归档，限定实际GPU证据及未验视觉边界。",
+        "scope": "N06初始配置职责、限定运行证据及现役队列引用核对；不代表全文产品语义重验",
         "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
       }
     },
@@ -532,9 +532,9 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "87bb4f321f25f1e17d0e540a8e423917e2320eff157fde1703ebda72f42af7d2",
+        "sourceSHA256": "652e3776b814762be8d3e5a6aa43e666bbcb2c312c27e55797cfce0b62a938af",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对缺省Resolution与真实绑定身份、原Program单链职责；完成过程归档，限定实际GPU证据及未验视觉边界。",
+        "scope": "N06初始配置职责、限定运行证据及现役队列引用核对；不代表全文产品语义重验",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
@@ -1125,6 +1125,16 @@
       "currentAuthorities": [
         "docs/scene/capabilities/render-graph-shader-coverage.md",
         "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/initial-layer-configuration-2026-10-12.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
@@ -2164,12 +2174,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。",
-      "lastReviewed": "2026-10-08",
+      "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3c3a8adbfd05c0a62b4ae8a8c236a145861fefbf89b9cbc1201812428eaa07ab",
+        "sourceSHA256": "50496b155aba8b0e061756ddcdef54504b10457f376961bb2e94b2be46115be9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步同帧scalar透传与admitted Timeline preview合同、真实封面事件帧后验及剩余布局/编译依赖队列。",
+        "scope": "N06初始配置职责、限定运行证据及现役队列引用核对；不代表全文产品语义重验",
         "limitations": "仅本批合同与证据边界；不证明真实播放器来源、完整样本或官方parity。"
       }
     },
@@ -2217,12 +2227,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-11",
+      "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d02521816d139f29a43e36d47525cc9bc9cc534b966558802532e0cc32f50be8",
+        "sourceSHA256": "874959c4ed9a85bf5124024660e42d2f2ee7c5501412246f2b4c4b28c6cf4134",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对缺省Resolution与真实绑定身份、原Program单链职责；完成过程归档，限定实际GPU证据及未验视觉边界。",
+        "scope": "N06初始配置职责、限定运行证据及现役队列引用核对；不代表全文产品语义重验",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },

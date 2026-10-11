@@ -376,6 +376,7 @@ struct SceneRenderDescriptor {
         var attachmentName: String? = nil
         var parentAttachmentBindFrame: [Float]? = nil
         var puppetAnimationLayers: [ScenePuppetAnimationLayer] = []
+        var initialConfiguration: SceneJSONValue? = nil
     }
 
     var layers: [Layer]

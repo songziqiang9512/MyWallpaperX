@@ -134,6 +134,7 @@ struct SceneRenderDescriptorBuilder {
                     id: object.id,
                     layerIndex: index,
                     name: object.name,
+                    initialConfiguration: object.authoredValue,
                     cameraPath: object.cameraPath,
                     contentKind: contentKind,
                     imagePath: object.imagePath,

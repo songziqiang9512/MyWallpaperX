@@ -86,6 +86,8 @@ typedef struct MWXSceneQuickJSLayerRecord {
     char *text;
     char *font;
     char *asset_path;
+    uint8_t *initial_configuration;
+    size_t initial_configuration_length;
     uint32_t effect_count;
     char **effect_names;
     uint8_t *effect_visible;
