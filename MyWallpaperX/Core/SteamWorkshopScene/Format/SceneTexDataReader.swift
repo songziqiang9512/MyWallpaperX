@@ -103,6 +103,7 @@ nonisolated extension SceneTexContainerReader {
         containerVersion: SceneTexContainer.ContainerVersion,
         metadataEntryCount: Int,
         volumeHeader: Bool,
+        permitsLargeVideoPayload: Bool,
         remainingDecodedBytes: inout Int
     ) throws -> SceneTexContainer.Mip {
         if containerVersion == .texb0004 {
@@ -166,8 +167,18 @@ nonisolated extension SceneTexContainerReader {
         let storedByteCount = Int(data.int32LE(at: offset))
         offset += 4
         guard storedByteCount >= 0,
-              storedByteCount <= Self.maximumMipByteCount,
-              offset + storedByteCount <= data.count else {
+              storedByteCount <= data.count - offset else {
+            throw ReadError.invalidMipTable
+        }
+        // Uncompressed video in a single 2D payload is media storage, not a
+        // static decoded mip. Sniff only its validated prefix; retain the full
+        // payload's aggregate budget check before any large copy below.
+        let isLargeVideoPayload = storedByteCount > Self.maximumMipByteCount
+            && permitsLargeVideoPayload && compressionCode == 0
+            && SceneTexContainer.isVideoPayload(data.subdata(
+                in: offset..<(offset + min(storedByteCount, 12))
+            ))
+        guard storedByteCount <= Self.maximumMipByteCount || isLargeVideoPayload else {
             throw ReadError.invalidMipTable
         }
 

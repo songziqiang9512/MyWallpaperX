@@ -39,3 +39,19 @@ U06大面积缺图主现象已闭。该样本Audio bar layer58的effect612（作
 Scene依赖/防御门、Debug及上述运行通过。全局code-health仍有本批外Web文件1008行，residue仍有未知归属`.mimosa`，document-registry仍有两处Web入口缺反链；均为既有失败，本批不修改或声称全门通过。最终独立审查与精确diff身份见本机review/freeze收据。
 
 证据缓存总预算已满，`promote_scene_evidence.py`拒绝新增，`--prune-expired`没有可回收已登记包；没有提高预算或删除他人证据。本批必要截图、日志/原始观察、源码/App/输入身份压缩留在`.artifacts/tmp/embedded-video-20261010/retained-evidence.zip`，保留可复核的单份构建缓存`.build-cache/solid-source-domains-recovery-20261009`供下一批；临时媒体、两次运行HOME/缓存与重复输出在提取后删除。
+
+
+<a id="large-video-payload"></a>
+
+## 10-11 后继：大体积内嵌视频入口（N01）
+
+新增原包3811216799只有主video layer17与文字/声音；257,625,236 B MP4在TEXB0004零metadata容器内，被250 MB静态mip门提前拒绝，画面仅剩灰底与时钟。修复只改既有Container/DataReader：format0、非volume/sprite、单image单mip、未压缩载荷且共享视频签名成立时，存储字节不套静态解码mip上限；先验证完整范围、至多读12 B前缀，复制前仍全额扣原容器总预算。静态/压缩/volume/sprite限制不变，继续原provider、clock与compositor；没有增大全局预算或新增播放器。签名只用于分类，不能证明媒体可播放；总预算不等于RSS上限，WebM自身容量/profile限制不变。
+
+基线4196869f，产品两路径diff SHA `543114daa783db72ab2514a054dd92c82092690ea0480f1997de3d4c7cf1c7c8`；四路径含测试diff `5ed17cbad68c9e0f2ac1294d22beb69478c94d1b3abb295309f2c30cd7e3a9e2`。独立worktree排除原工作区U06三路径在途改动。签名Debug构建成功，App executable SHA `a31a1f2bcea5cfd552b5ba64ca42954ef8d8b2d6499fc3824f3f9bbd70bfdb0e`，dylib `1dacf5094ee9d136fac6377a7b31d27e8abbdd7852c5511281bf6c01491199dc`；正式发布状态不由该开发App裁决。
+
+- 新增行为反例先红后绿；media identity、aggregate budget、truncation、decompression四模块7门通过。大MP4/WebM稀疏签名fixture只证明读取边界；精确预算/少1 B、异常shape、截断、跨payload签名和小视频旧兼容均有反例。
+- 同一App、原包隔离副本及HOME，既有direct Host入口ready后18秒：381主视频从0恢复1,072次发布，末次decoded=18.016667秒；健康3814040466为1,067次、18.025秒。两者exit0、gpuDrained=true，benchmark通过。
+- 修后5秒与约16秒截图显示人物姿态变化、完整黑白底图及斜向时钟；用户原目录`截屏2026-10-11 14.40.11.png`支持缺失主体已恢复的视觉判断。屏幕比例及动画相位不同，未作逐像素parity。没有验证普通App→daemon桌面入口、所有交互、长稳、多屏或性能改善；不能记整样本100%正确。
+- 四路径独立只读审查无阻断；静态安全审查与实际视频验证分别成立。必要身份、日志、报告和两帧留在`.artifacts/tmp/large-video-payload-20261011`；构建缓存沿用`.artifacts/tmp/scene-constructor-runtime-20261011/DerivedData`供连续迭代。
+
+本条关闭N01大载荷入口及对应主画面缺失；不覆盖N02 Puppet及其他新样本问题，后续顺序仍由现役断点队列决定。

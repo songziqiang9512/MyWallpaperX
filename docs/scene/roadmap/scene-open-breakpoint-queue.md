@@ -24,11 +24,11 @@
 
 ### 新增样本公共断点（N01–N10）
 
-以下保留本批已见断链与明确待对照项；每成员结果及证据身份仅在[普查记录](../history/new-scene-intake-2026-10-11.md)。同一拒因可有多种上游原因，不按样本增加算法。新增方向先N01，再N02，后按实际覆盖评估T1/E1与粒子；先前冻结代码独立收尾。
+以下保留本批已见断链与明确待对照项；每成员结果及证据身份仅在[普查记录](../history/new-scene-intake-2026-10-11.md)。同一拒因可有多种上游原因，不按样本增加算法。N01已闭，下一批N02，再按实际覆盖评估T1/E1与粒子；先前冻结代码独立收尾。
 
 | 项 | 实际问题、现有责任与关闭门 |
 |---|---|
-| N01 嵌视频资源入口 | **已定位**：3811216799主17灰底，257,625,236B MP4在视频识别前被静态mip250MB门拒绝。沿TexDataReader/Container→原视频provider分清载荷/解码边界，恢复原样本并保住越界和静态纹理解压限制；不调大全局上限。 |
+| N01 嵌视频资源入口 | **有界已闭**：[大载荷修复](../history/embedded-webm-video-2026-10-10.md#large-video-payload)沿原reader/provider恢复3811216799人物视频，18秒持续播放且健康MP4保留；完整预算和静态限制不变。普通桌面入口、长稳与全交互未验，不计整样本完成。 |
 | N02 Puppet局部缺失 | **可见异常，根因待隔离**：2824690710人物13、2877855240人物333几何显著越屏；2887542690头370缺失且origin脚本失败。未被默认hidden/alpha0解释，沿既有pose→world transform→UV/alpha→compositor定位，保留健康0017/0023与多clip反例。 |
 | N03 共享材质/effect owner | **实际局部回退**：2877855240六段solid/text Skew、3351179520及3761619125的39段等generic-owner-revoked；后者另有大片白缺失，不能先认唯一根因。3435573282有source passthrough及上游material-template拒绝。归并精确source/profile/envelope，复用原compiler/graph；不能按同名效果整族重写。 |
 | N04 绑定、依赖与发布 | **实际断链**：2960821850材质texture-binding拒绝且92 source-coverage未证；3039882306基础user-property fallback不可用；3708363772的705/560与3476868923的105/1935 stage-reference不支持；3815761795的233 publication unavailable。分别从既有binding/provider/graph首错追到consumer，不把下游多effect重复算能力缺失。 |

@@ -531,7 +531,7 @@
       "lastReviewed": "2026-10-11",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "46d6d3061965f084977f3b23e7456765cbd738c18de78fbce5de18c740823ff0",
+        "sourceSHA256": "50ffae6c26873f37d0cc1fb866026be4ac03f76f35f06a93ad9f944e2d37274c",
         "method": "document_registry --audit + document_health --check",
         "scope": "新增37样本固定App普查与旧243快照、279当前目录及队列的职责和导航核对",
         "limitations": "仅新增37的有界direct Host运行；非全页运行重验、普通产品入口或完整视觉验收。"

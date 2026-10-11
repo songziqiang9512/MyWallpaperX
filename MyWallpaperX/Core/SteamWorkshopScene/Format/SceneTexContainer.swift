@@ -314,6 +314,8 @@ nonisolated struct SceneTexContainerReader {
                     containerVersion: effectiveContainerVersion,
                     metadataEntryCount: mipMetadataEntryCount,
                     volumeHeader: volumeHeader,
+                    permitsLargeVideoPayload: format == 0 && !volumeHeader
+                        && flags & 4 == 0 && imageCount == 1 && mipCount == 1,
                     remainingDecodedBytes: &remainingDecodedBytes
                 )
                 if mipIndex == 0 {
