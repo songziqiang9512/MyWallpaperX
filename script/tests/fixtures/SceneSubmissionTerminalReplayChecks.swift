@@ -49,9 +49,18 @@ enum SceneSubmissionTerminalReplayChecks {
             legacyReceipt: Bool = false,
             namedReceipt: Bool = false,
             ordinaryAfterNotApplicable: Bool = false,
-            repeated: Bool = false
-        ) -> (outcome: String, calls: Int, consumed: Bool, dropped: Bool) {
-            var capability = makeCapabilities().capabilitiesByLayerID[7]!
+            repeated: Bool = false,
+            dependencyKind: SceneDependencyRenderPlan.Binding.Kind? = nil,
+            providerUnavailable: Bool = false
+        ) -> (outcome: String, calls: Int, consumed: Bool, dropped: Bool,
+              dependencyConsumed: Bool, bypassReason: String?) {
+            let binding = dependencyKind.map {
+                externalPrimaryBinding(slotIndex: $0 == .solidLayer ? 3 : 1,
+                    kind: $0)
+            }
+            var capability = makeCapabilities(dependencyOwnershipByLayerID:
+                binding.map { [7: .externalPrimary($0)] } ?? [:]
+            ).capabilitiesByLayerID[7]!
             capability.supportsTerminalMaterialReplay = supportsReplay
             let coordinator = Coordinator(
                 device: device,
@@ -75,17 +84,57 @@ enum SceneSubmissionTerminalReplayChecks {
                 historyTokensByEffect: prepared.historyTokensByEffect
             )
             prepared.terminalMaterialReplay = replay ? true : nil
+            let dependencyEffects = binding.flatMap { binding in
+                providerUnavailable ? nil : dependencyInput(binding: binding,
+                    texture: makeTexture(device, "terminal-named-provider"))
+            }.map { [$0] } ?? []
+            let unavailable: SceneResolvedMaterialRuntimeBridge.FrameInputs.DependencyUnavailability? =
+                providerUnavailable ? .providerSourceUnavailable : nil
+            if let unavailable {
+                let stage = makeObservationTransition(device: device)
+                let passthrough = SceneResolvedMaterialGraphExecutor.PreparedStage(
+                    effect: stage.effect, graph: stage.graph, pairStep: stage.pairStep,
+                    transition: stage.transition, inputWidth: stage.inputWidth,
+                    inputHeight: stage.inputHeight,
+                    fullFramePairIsShared: stage.fullFramePairIsShared,
+                    fullFramePairGeneration: stage.fullFramePairGeneration,
+                    historyRehydrateCopyCount: stage.historyRehydrateCopyCount,
+                    historyContentDiscarded: stage.historyContentDiscarded,
+                    frameResources: stage.frameResources,
+                    persistentResources: stage.persistentResources,
+                    effectOutputResource: prepared.finalResource,
+                    programCacheKeys: stage.programCacheKeys,
+                    effectLocalFailureReasonCode: unavailable.rawValue,
+                    effectLocalActivationBypassReasonCode: nil,
+                    discardedPersistentTargetState: false
+                )
+                // Model an already-prepared ordinary local passthrough. This
+                // fixture does not claim to prepare or draw the missing provider.
+                prepared = .init(stages: [passthrough],
+                    finalResource: prepared.finalResource,
+                    finalTexture: prepared.finalTexture,
+                    historyTokensByEffect: prepared.historyTokensByEffect)
+            }
             coordinator.frameIsActive = true
             coordinator.framePreparationComplete = true
+            coordinator.frame = .init(frameIndex: 13)
             coordinator.activeTransactions = [1]
-            coordinator.activeByID[1] = makeLedger(
-                coordinator: coordinator,
-                identity: 1,
-                commandBuffer: buffer,
+            coordinator.preparedLedgerByLayerID = [7: 1]
+            coordinator.activeByID[1] = .init(
+                identity: 1, epoch: coordinator.executionEpoch,
+                frameIndex: 13, layerID: 7, capabilityToken: .init(value: 7),
                 prepared: prepared,
+                preparedDependencyEffects: dependencyEffects,
+                preparedDependencyUnavailability: unavailable,
+                commandBuffer: buffer,
+                committedBaseTails: coordinator.committedTails,
+                blueprint: nil,
+                candidateTails: [:],
                 commit: makeCommit(generation: 1),
-                candidate: [:],
-                phase: .encoded
+                phase: binding == nil ? .encoded : .allocationCommitted,
+                claimConsumed: binding == nil, ticketConsumed: false,
+                outputConsumed: false, compositorConsumed: false,
+                submissionID: nil
             )
             var ticket = SceneResolvedMaterialRuntimeBridge.ExecutionTicket(
                 identity: 1,
@@ -96,6 +145,19 @@ enum SceneSubmissionTerminalReplayChecks {
                 effectFailures: [],
                 hasTerminalMaterialReplay: replay
             )
+            let bypassReason = coordinator.preparedExternalDependencyBypassReason(layerID: 7)
+            if binding != nil {
+                SceneResolvedMaterialGraphExecutor.encodeSucceeds = true
+                guard case let .claimed(claim) = coordinator.claim(layerID: 7),
+                      case let .encoded(_, issuedTicket) = coordinator.executeClaimed(
+                        claim: claim, dependencyEffects: dependencyEffects,
+                        commandBuffer: buffer
+                      ) else {
+                    return ("dependency-execution-rejected", 0, false,
+                            coordinator.frameRequiresDrop, false, bypassReason)
+                }
+                ticket = issuedTicket
+            }
             mutate(coordinator, &ticket)
             SceneSubmissionTerminalReplayFixture.expectedTarget = target
             SceneSubmissionTerminalReplayFixture.succeeds = succeeds
@@ -134,11 +196,45 @@ enum SceneSubmissionTerminalReplayChecks {
                 && coordinator.activeByID[1]?.phase == .outputConsumed
             if repeated { value = outcome() }
             return (value, SceneSubmissionTerminalReplayFixture.commandBuffers.count,
-                    consumed, coordinator.frameRequiresDrop)
+                    consumed, coordinator.frameRequiresDrop,
+                    ticket.consumesExternalPrimaryDependency, bypassReason)
         }
         let success = scenario()
         results["terminalReceiptConsumesOnceWithoutTextureSampling"] =
             success.outcome == "consumed" && success.calls == 1 && success.consumed && !success.dropped
+        for kind in [SceneDependencyRenderPlan.Binding.Kind.imageLayerBlend,
+                     .visibleImageGraphOutput, .solidLayer, .resolvedMaterial] {
+            let ready = scenario(dependencyKind: kind)
+            results["externalPrimaryReady_\(kind)_ConsumesTerminalReceipt"] =
+                ready.outcome == "consumed" && ready.calls == 1
+                    && ready.consumed && !ready.dropped && ready.dependencyConsumed
+        }
+        let hiddenDependency = scenario(mutate: { _, ticket in
+            ticket = .init(identity: ticket.identity, epoch: ticket.epoch,
+                finalTextureIdentity: ticket.finalTextureIdentity, finalContent: ticket.finalContent,
+                consumesExternalPrimaryDependency: false,
+                effectFailures: ticket.effectFailures, hasTerminalMaterialReplay: true)
+        }, dependencyKind: .imageLayerBlend)
+        results["externalPrimaryTicketCannotHideConsumption"] =
+            hiddenDependency.outcome == "terminal-material-replay-target-rejected"
+                && hiddenDependency.calls == 0 && !hiddenDependency.consumed
+                && hiddenDependency.dropped
+        let inventedDependency = scenario(mutate: { _, ticket in
+            ticket = .init(identity: ticket.identity, epoch: ticket.epoch,
+                finalTextureIdentity: ticket.finalTextureIdentity, finalContent: ticket.finalContent,
+                consumesExternalPrimaryDependency: true,
+                effectFailures: [], hasTerminalMaterialReplay: true)
+        })
+        results["terminalTicketCannotInventDependencyConsumption"] =
+            inventedDependency.outcome == "terminal-material-replay-target-rejected"
+                && inventedDependency.calls == 0 && !inventedDependency.consumed
+                && inventedDependency.dropped
+        let missing = scenario(replay: false, ordinaryAfterNotApplicable: true,
+            dependencyKind: .resolvedMaterial, providerUnavailable: true)
+        results["missingProviderKeepsOrdinaryLocalFallbackReceipt"] =
+            missing.bypassReason == "external-primary-provider-source-unavailable"
+                && !missing.dependencyConsumed && missing.outcome == "consumed"
+                && missing.calls == 0 && missing.consumed && !missing.dropped
         // Execution emits local passthrough diagnostics alongside a valid
         // prepared terminal draw; they must not turn its receipt into a frame drop.
         let localFailure = scenario(mutate: { _, ticket in

@@ -3,6 +3,8 @@
 Overflow cases use the existing bounded route: the bare Swift carrier has no
 signed compiler license bundle. They exercise real Program/Metal output, not
 App generic compilation, text rasterization, or FramePreflight admission.
+Named cases use the production capability/finalizer and same-frame reserved
+publication; the unequal provider remains a read-only input to terminal replay.
 """
 import hashlib
 import json
@@ -26,7 +28,15 @@ HELPERS = HELPERS.replace('gl_Position = vec4(a_Position, 1.0);',
     'gl_Position = mul(vec4(a_Position, 1.0), g_ModelViewProjectionMatrix);', 1)
 HELPERS = HELPERS.replace('explicitPreviousSampler: explicitPreviousSampler\n    )', r'''
         explicitPreviousSampler: explicitPreviousSampler,
-        fragmentOverride: """
+        fragmentOverride: namedProvider != nil ? """
+        varying vec2 v_TexCoord;
+        uniform sampler2D g_Texture0;
+        uniform sampler2D g_Texture1;
+        void main() {
+            gl_FragColor = mix(texSample2D(g_Texture0, v_TexCoord),
+                texSample2D(g_Texture1, vec2(fract(v_TexCoord.x * 64.0), v_TexCoord.y)), 0.5);
+        }
+        """ : """
         varying vec2 v_TexCoord;
         uniform sampler2D g_Texture0;
         void main() {
@@ -60,6 +70,40 @@ private func terminalChain(_ count: Int) -> Graph {
     let effects = Array(full.effects.prefix(count))
     return .init(layerID: full.layerID, effects: effects, renderTargets: [],
         nodes: Array(full.nodes.prefix(count)), finalOutput: effects.last!.output, blockers: [])
+}
+
+private func dependencySizingChecks(
+    _ capability: SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability,
+    binding: SceneDependencyRenderPlan.Binding
+) -> [String: Bool] {
+    func supports(_ ownership: SceneResolvedMaterialDependencyOwnership) -> Bool {
+        let admitted = SceneResolvedMaterialAdmittedLayer(layerID: capability.layerID,
+            products: capability.admittedProducts, pairPlan: capability.pairPlan,
+            dependencyOwnership: ownership, sourceRoute: capability.sourceRoute,
+            isVisibleExecutionRoot: capability.isVisibleExecutionRoot,
+            isGraphOutputProvider: capability.isGraphOutputProvider,
+            requiresGraphOutputProvider: capability.requiresGraphOutputProvider)
+        let sizing = SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability.solidEffectSizingCapabilities(
+            admitted: admitted, stages: capability.stages, materials: capability.materials,
+            dependencyOwnership: ownership, sceneBackgroundRequirement: capability.sceneBackgroundRequirement)
+        return sizing.intermediates || sizing.terminal
+    }
+    let geometry = SceneDependencyRenderPlan.Binding(consumerLayerID: binding.consumerLayerID,
+        providerLayerID: binding.providerLayerID, slot: binding.slot, blendMode: 0,
+        kind: .geometryLayer, requiresResolvedMaterialProgram: true)
+    let advanced = SceneDependencyRenderPlan.Binding(consumerLayerID: binding.consumerLayerID,
+        providerLayerID: binding.providerLayerID, slot: binding.slot, blendMode: 30, kind: binding.kind)
+    let other = SceneDependencyRenderPlan.Binding(consumerLayerID: binding.consumerLayerID,
+        providerLayerID: binding.providerLayerID + 1,
+        slot: .init(effectID: binding.slot.effectID, passIndex: 0, slotIndex: 2),
+        blendMode: 0, kind: binding.kind)
+    let aggregate = SceneDependencyRenderPlan.MultiProviderAggregate(consumerLayerID: binding.consumerLayerID,
+        bindings: [binding, other], authoredSlotOrder: [binding.slot, other.slot])
+    return ["ordinaryExternalAccepted": supports(.externalPrimary(binding)),
+        "geometryDependencyRejected": !supports(.externalPrimary(geometry)),
+        "advancedDependencyBlendRejected": !supports(.externalPrimary(advanced)),
+        "internalDependencyRejected": !supports(.graphInternal(referenceCount: 1)),
+        "aggregateDependencyRejected": !supports(.externalAggregate(aggregate))]
 }
 
 private func overflowCase(
@@ -188,23 +232,44 @@ private func overflowCase(
 
 private func terminalCase(
     device: MTLDevice, queue: MTLCommandQueue, count: Int,
-    inactive: Set<Int> = [], failed: Set<Int> = [], budget: Int = 4096
+    inactive: Set<Int> = [], failed: Set<Int> = [], budget: Int = 4096,
+    named: Bool = false
 ) throws -> [String: Any] {
     let graph = terminalChain(count), admitted = orderedLayerGraph(graph)
     let targets = graph.effects.map {
         SceneDynamicTarget.effectVisibility(layerID: layerID, effectIndex: $0.key.effectIndex)
     }
-    let caps = capabilities(admitted, catalog: catalog(for: graph), dynamicProducers: .init(
+    let reference = SceneNamedTextureReference(providerLayerID: 879, variant: .primary)
+    let binding = SceneDependencyRenderPlan.Binding(consumerLayerID: layerID,
+        providerLayerID: reference.providerLayerID,
+        slot: .init(effectID: graph.effects[0].key.descriptorID, passIndex: 0, slotIndex: 1),
+        blendMode: 0, kind: .resolvedMaterial)
+    let caps = capabilities(admitted, catalog: catalog(for: graph,
+        namedProvidersByNode: named ? [0: reference] : [:]), dynamicProducers: .init(
         userProperties: Set(targets.enumerated().map {
             SceneDynamicUserPropertyProducer(propertyKey: "show\($0.offset)",
                 target: $0.element, valueType: .bool)
-        }), authoredFallbackTargets: Set(targets), timelineTargets: [], sceneScriptTargets: []))
+        }), authoredFallbackTargets: Set(targets), timelineTargets: [], sceneScriptTargets: []),
+        namedProvider: named ? reference : nil, dependencyBinding: named ? binding : nil)
     guard let claim = caps.claim(admitted), let capability = caps.resolve(claim.token),
           let executor = Executor(device: device, capabilities: caps),
           let leases = makeChainedLeases(capability, device: device) else {
         throw NSError(domain: "terminal-fixture", code: 1)
     }
-    let source = makeSource(device), pipeline = makeSourcePipeline(device)
+    let source = makeSource(device, width: named ? 10 : 1, height: named ? 10 : 1)
+    let pipeline = makeSourcePipeline(device)
+    let providerRow: [UInt8] = (0..<7).flatMap { x in
+        [UInt8(64), 128, x < 3 ? 0 : 255, 255]
+    }
+    let providerPixels = (0..<3).flatMap { _ in providerRow }
+    let provider = makeSource(device, width: 7, height: 3,
+        usage: [.shaderRead, .renderTarget], pixelsBGRA: providerPixels)
+    let resource = SceneFrameTextureResource.reservedNamedLayerTarget(
+        reference: reference, frameEpoch: 1, texture: provider)!
+    let dependencies: [SceneDependencyEffectInput] = named ? [.init(
+        consumerLayerID: binding.consumerLayerID, providerLayerID: binding.providerLayerID,
+        slot: binding.slot, frameEpoch: 1, texture: provider,
+        namedReference: reference, reservedMaterialResource: resource)] : []
     let target = makeSource(device, width: 256, height: 64, usage: [.renderTarget])
     let pool = SceneOffscreenTexturePool(device: device, pixelFormat: .bgra8Unorm,
         residentByteBudget: budget)
@@ -217,7 +282,8 @@ private func terminalCase(
         return try executor.prepare(token: claim.token, leases: leases,
             historyRehydrateCopiesByEffect: [:], frame: frame(1), sourceTexture: source,
             sourceUniforms: .neutral(), sourcePipeline: pipeline, terminalReplayTarget: target,
-            pool: pool, frameInputs: .init(dynamicValues: dynamic), commandBuffer: command,
+            pool: pool, frameInputs: .init(dependencyEffects: dependencies, dynamicValues: dynamic),
+            commandBuffer: command,
             previousStates: [:], previousGraphResources: [:], effectGeneration: 1,
             resetGeneration: 1).get()
     }
@@ -250,6 +316,7 @@ private func terminalCase(
         return texture
     }
     let snapshotReadback = snapshotTexture.flatMap { appendReadback($0, commandBuffer: command) }
+    let providerReadback = named ? appendReadback(provider, commandBuffer: command) : nil
     let pinsBeforeCompletion = pool.allocationCache.locked {
         pool.allocationCache.residents.values.reduce(0) { $0 + $1.submissionPins.count }
     }
@@ -270,7 +337,22 @@ private func terminalCase(
     target.getBytes(&bytes, bytesPerRow: 256 * 4,
         from: MTLRegionMake2D(0, 0, 256, 64), mipmapLevel: 0)
     let red = (64..<192).map { Int(bytes[(32 * 256 + $0) * 4 + 2]) }
-    let transitions = zip(red, red.dropFirst()).filter { ($0 > 127) != ($1 > 127) }.count
+    let peakX = red.indices.max { red[$0] < red[$1] }! + 64
+    let peakPixel = Array(bytes[(32 * 256 + peakX) * 4..<(32 * 256 + peakX) * 4 + 4])
+    // A missing/blank/replaced named input changes G and B even when the red
+    // stripe-density oracle still passes. Both inputs have alpha one, so the
+    // 50% mix has B=32/G=64/alpha=255 while R varies between 128 and
+    // 255. The named UV repeats provide the high-frequency stripe input.
+    let namedColorSurvives = !named || ((red.max() ?? 0) > 200 && (64..<192).allSatisfy { x in
+        let pixel = (32 * 256 + x) * 4
+        return abs(Int(bytes[pixel]) - 32) <= 1
+            && abs(Int(bytes[pixel + 1]) - 64) <= 1
+            && bytes[pixel + 3] == 255
+    })
+    let providerUnchanged = !named || (providerReadback?.width == 7 && providerReadback?.height == 3
+        && providerReadback?.allPixels == (0..<3).map { _ in providerRow })
+    let threshold = named ? 191 : 127
+    let transitions = zip(red, red.dropFirst()).filter { ($0 > threshold) != ($1 > threshold) }.count
     let bypassCount = inactive.union(failed).count
     let expectedPins = lastActive != nil && bypassCount > 0 && budget > 0 ? 1 : 0
     let highDensity = lastActive == 0 && hasReplay
@@ -295,14 +377,20 @@ private func terminalCase(
     stale.terminalInputPins.forEach { $0.release() }
     return ["transitions": transitions, "copyCount": copyCount,
         "pinCount": prepared.terminalInputPins.count, "snapshotPixels": snapshotReadback?.allPixels ?? [],
+        "providerExtent": named ? [provider.width, provider.height] : [],
+        "peakPixel": peakPixel, "providerFirstPixel": providerReadback?.firstPixel ?? [],
+        "failureReasons": prepared.stages.map { $0.effectLocalFailureReasonCode ?? "none" },
+        "dependencySizing": named ? dependencySizingChecks(capability, binding: binding) : [:],
         "results": ["chainAdmitted": capability.supportsTerminalMaterialReplay,
+            "exactExternalPrimaryAdmitted": !named || capability.dependencyOwnership == .externalPrimary(binding),
+            "namedColorSurvives": namedColorSurvives, "namedProviderUnchanged": providerUnchanged,
             "sourceRemainsTenPixels": prepared.stages.allSatisfy {
                 $0.inputWidth == 10 && $0.inputHeight == 10
             } && prepared.finalTexture.width == 10 && prepared.finalTexture.height == 10,
             "lastActiveDensity": lastActive == nil ? transitions == 0
                 : highDensity ? transitions >= 120 : (1...20).contains(transitions),
             "sourceOrStripesPresent": lastActive == nil ? red.allSatisfy { $0 == 255 }
-                : red.min()! < 16 && red.max()! > 239,
+                : red.min()! < (named ? 160 : 16) && red.max()! > 239,
             "noActiveMaterialUsesGraph": lastActive != nil || (!hasReplay
                 && prepared.terminalInputPins.isEmpty && snapshotTexture == nil),
             "necessaryCopiesOnly": copyCount == UInt64(bypassCount + expectedPins),
@@ -347,8 +435,12 @@ private func terminalCase(
             probeX: 50, probeY: 32),
         "halfAlpha": try overflowCase(device: device, queue: queue, skew: 0.75, offset: 2.5,
             alpha: 0.5, probeX: 50, probeY: 22)]
+    let named = [
+        "active": try terminalCase(device: device, queue: queue, count: 2, named: true),
+        "inactive": try terminalCase(device: device, queue: queue, count: 2, inactive: [1], named: true),
+        "failed": try terminalCase(device: device, queue: queue, count: 2, failed: [1], named: true)]
     let data = try JSONSerialization.data(withJSONObject:
-        ["metalAvailable": true, "rows": rows, "overflow": overflow], options: [.sortedKeys])
+        ["metalAvailable": true, "rows": rows, "overflow": overflow, "named": named], options: [.sortedKeys])
     FileHandle.standardOutput.write(data)
  }
 }
@@ -408,3 +500,15 @@ class TerminalMaterialGraphTests(unittest.TestCase):
     def test_identity_terminal_replay_matches_the_unclipped_graph(self):
         row = self.result['overflow']['identity']
         self.assertEqual([k for k, v in row['results'].items() if not v], [], row)
+
+    def test_named_input_survives_active_inactive_and_failed_terminal_suffixes(self):
+        for name in ('active', 'inactive', 'failed'):
+            with self.subTest(case=name):
+                row = self.result['named'][name]
+                if name == 'active':
+                    self.assertTrue(1 <= row['transitions'] <= 20, row)
+                else:
+                    self.assertGreaterEqual(row['transitions'], 120, row)
+                self.assertEqual([k for k, v in row['results'].items() if not v], [], row)
+                self.assertEqual(row['providerExtent'], [7, 3], row)
+                self.assertEqual([k for k, v in row['dependencySizing'].items() if not v], [], row)

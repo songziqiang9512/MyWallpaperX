@@ -50,6 +50,12 @@ def fixture_entries(case):
     terminal = consumer
     independent = None
     background = None
+    if case == "solid":
+        provider.pop("effects")
+        consumer.update(image="models/util/solidlayer.json", scale="2 2 1", color="1 1 1")
+        entries["shaders/own_sample.vert"] = b"attribute vec3 a_Position;\nattribute vec2 a_TexCoord;\n" \
+            b"uniform mat4 g_ModelViewProjectionMatrix;\nvarying vec2 v_TexCoord;\n" \
+            b"void main(){gl_Position=mul(vec4(a_Position,1.0),g_ModelViewProjectionMatrix);v_TexCoord=a_TexCoord;}\n"
     if case.startswith("aggregate"):
         second = copy.deepcopy(provider)
         second.update(id=12, name="surviving-provider", image="models/green.json", origin="24 24 0")
@@ -187,7 +193,7 @@ class SceneDeletedNamedProviderIntegrationTests(unittest.TestCase):
         self.assertNotIn("predecessor-output-not-consumed", log)
         self.assertNotIn("frame-success-blueprint-rejected", log)
         ready, after = pixels["scene-ready-window.png"], pixels["scene-after-window.png"]
-        expected = [0, 128, 0] if case.startswith("aggregate") else [0, 0, 128]
+        expected = [0, 128, 0] if case.startswith("aggregate") else [0, 0, 255 if case == "solid" else 128]
         for actual, wanted in zip(ready["terminal"], expected):
             self.assertAlmostEqual(actual, wanted, delta=4)
         self.assertEqual(after["terminal"], [255, 255, 255], pixels)
@@ -196,7 +202,14 @@ class SceneDeletedNamedProviderIntegrationTests(unittest.TestCase):
             if case == "aggregate-provider":
                 for actual, wanted in zip(phase["independent"], [0, 128, 0]):
                     self.assertAlmostEqual(actual, wanted, delta=4)
-        self.assertIn("phase=named-graph-output-publication layer=11", log)
+        if case == "solid":
+            self.assertRegex(log, r"layer=22 .*operation=terminal-material-replay outcome=encoded")
+            self.assertRegex(log, r"layer=22 .*inputWidth=24 inputHeight=24")
+        else:
+            self.assertIn("phase=named-graph-output-publication layer=11", log)
+
+    def test_deleted_named_provider_preserves_solid_terminal_fallback(self):
+        self.run_case("solid")
 
     def test_deleted_hidden_graph_provider_keeps_healthy_output(self):
         self.run_case("single")

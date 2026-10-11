@@ -37,6 +37,12 @@ SWIFT_SOURCES = list(dict.fromkeys([
 ]))
 SUPPORT = (
     EXECUTOR_FIXTURE["SUPPORT"]
+    .replace(
+        EXECUTOR_FIXTURE["PUBLICATION_FIXTURE"]["SUPPORT"],
+        EXECUTOR_FIXTURE["PUBLICATION_FIXTURE"]["SUPPORT"].rsplit(
+            "final class SceneOffscreenTexturePool {", 1
+        )[0],
+    )
     .replace("final class SceneGraphRenderTargetResidencyPin {\n    func release() {}\n}\n", "")
     .replace(
         """struct SceneGraphCommandRuntime {
@@ -51,10 +57,6 @@ SUPPORT = (
     }
 }
 """,
-        "",
-    )
-    .replace(
-        "final class SceneOffscreenTexturePool {\n    struct Pair {}\n}\n",
         "",
     )
     .replace(
@@ -113,6 +115,8 @@ SUPPORT = (
         let layerModelMatrix: simd_float4x4
         let effectOutputModelViewProjection: simd_float4x4
         let effectTextureProjectionMatrixInverse: simd_float4x4
+        let effectDrawAlpha: Float = 1
+        let effectDrawColor = SIMD3<Float>(repeating: 1)
         // The single ordered dependency lane: a one-element vector when a
         // single-provider dependency is reserved, empty otherwise.
         let dependencyEffects: [SceneDependencyEffectInput]
@@ -165,6 +169,8 @@ SUPPORT = (
         let layerModelMatrix = matrix_identity_float4x4
         let effectOutputModelViewProjection = matrix_identity_float4x4
         let effectTextureProjectionMatrixInverse = matrix_identity_float4x4
+        let effectDrawAlpha: Float = 1
+        let effectDrawColor = SIMD3<Float>(repeating: 1)
         let dependencyEffects: [SceneDependencyEffectInput]
         let dependencyUnavailability: DependencyUnavailability?
 

@@ -109,6 +109,20 @@ class SceneTerminalMaterialReceiptTests(unittest.TestCase):
     def test_data_output_never_appends_terminal_draw(self) -> None:
         self.assertTrue(self.results["dataOutputRejectsBeforeDraw"])
 
+    def test_ready_external_primary_uses_the_existing_terminal_receipt(self) -> None:
+        for kind in ("imageLayerBlend", "visibleImageGraphOutput", "solidLayer", "resolvedMaterial"):
+            with self.subTest(kind=kind):
+                self.assertTrue(self.results[f"externalPrimaryReady_{kind}_ConsumesTerminalReceipt"])
+
+    def test_terminal_ticket_dependency_flag_must_match_prepared_inputs(self) -> None:
+        for key in ("externalPrimaryTicketCannotHideConsumption",
+                    "terminalTicketCannotInventDependencyConsumption"):
+            with self.subTest(key=key):
+                self.assertTrue(self.results[key])
+
+    def test_missing_provider_preserves_the_ordinary_local_fallback_receipt(self) -> None:
+        self.assertTrue(self.results["missingProviderKeepsOrdinaryLocalFallbackReceipt"])
+
 
 if __name__ == "__main__":
     unittest.main()

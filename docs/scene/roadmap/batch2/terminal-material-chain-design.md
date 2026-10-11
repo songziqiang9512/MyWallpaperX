@@ -9,6 +9,14 @@
 
 首批限定可见、非 provider 的简单 color 链、普通 source-over、target-pixel 顶点、无 FBO/history/function/compose/几何网格；保留现高级混合职责。2026-10-12 补充：普通正交文字的单 stage 链复用同一证明与 terminal receipt，保留文字源尺寸、padding、pivot 和动态纹理 generation；作者顶点越过原矩形时直接进入既有 MainPass，不先采已裁的 graph-final。文字高级混合、透视及跨图输出暂不扩域。先验证无外部依赖，再依据同一资源生命周期合同接入已准入的外部只读输入。未验证的跨图 provider 与复杂图保持原路径。
 
+## 外部只读输入扩域（2026-10-12）
+
+已证首错是consumer工作纹理使用placement放大尺寸，named provider和Resolution编码已传递真实资源尺寸；不修改作者shader、采样器或uniform数值。扩展同一prepared资格，使原依赖owner已准入的精确externalPrimary在可见、非provider、简单color链及target-pixel顶点证明成立时使用同一源尺寸/terminal链；保留`!requiresGraphOutputProvider`：本片不要求provider graph output；binding仍由原owner准入，不能直接删除全部dependency守卫。外部text、透视solid、高级混合、aggregate、同层/secondary、几何placement特殊合同与复杂图不据此扩大。
+
+原FrameInputs依赖证据、PreparedLedger与GPU submission共同保留provider/slot/epoch/object/content及实际texture；terminal replay只消费已经验证并编码的同帧资源，冻结Program输入不再解析/捕获。最终消费仍通过唯一ticket、MainPass和completion pin，不能为named输入新增尺寸表、资源缓存或输出入口。真实写后读冲突继续原输入副本机制；普通缺图沿原局部passthrough；陈旧/被覆盖资源拒绝当前不安全单元，不能回放旧帧。
+
+验收补充：尺寸不同的named provider与consumer、scale/viewport改变、末段active/inactive/失败、多段覆盖保留、错误provider/slot/epoch/object/content、同buffer/重复消费、取消与完成前pin。官方named实验须先通过内容正控；历史失败探针不作数值合同。原始376截图必须实际减少矩形重复，保留头部deformer独立缺口及其他样本回归，不以效果节点执行成功代替画面收益。
+
 ## 职责与数据流
 
 1. Capability 用已有 prepared graph/material/variant 事实证明所有可能成为终端的材质；纯停用或局部失败阶段可透传，不独立发明材质。

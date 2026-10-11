@@ -360,12 +360,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-11",
+      "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4213bb484208da579a90ee827162f3b0dbdb53c206c01734a6b587c683ccbf4c",
+        "sourceSHA256": "e59a88c0fe6b3b06c68abd830d706b57d93bb7c4d668c1c0b89acccd20afa30b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对effect host缩减参数设计与现有单链导航；官方有界观察、未测质量档与未来唯一producer接管条件分开。",
+        "scope": "核对named solid源尺寸、单一terminal消费及graph-final/文字/透视/高级混合排除边界；完成过程归历史、余项归原断点队列。",
         "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
       }
     },
@@ -529,12 +529,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-11",
+      "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "467b1c7a06a464147e5ccfdf8ed464d65d80060d9f4a9477b511cb3be13d545c",
+        "sourceSHA256": "745dabbf6ba7eaaa2ed105e6d1e11b3ca9d176ab2fce84c271782733fab6d913",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对effect draw颜色的同一owner合同、14段实际链与残余错位、第二包未执行边界和完成记录导航。",
+        "scope": "核对named solid源尺寸、单一terminal消费及graph-final/文字/透视/高级混合排除边界；完成过程归历史、余项归原断点队列。",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
@@ -1240,6 +1240,16 @@
     },
     {
       "path": "docs/scene/history/named-provider-data-purpose-2026-10-11.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/named-solid-source-extent-2026-10-12.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",

@@ -188,6 +188,7 @@ extension SceneMetalRenderer {
             let desiredSize: CGSize
             var terminalReplayTarget: MTLTexture? =
                 claim.supportsTerminalMaterialReplay && claim.admittedGraphs.count == 1
+                    && claim.dependencyOwnership == .none
                     && ((layer.contentKind == "solid" && cameraFrame.defaultsToPerspective
                             && cameraFrame.resolvesPerspective(for: layer))
                         || (layer.contentKind == "text" && frameVisibleLayerIDs.contains(layerID)
@@ -292,6 +293,7 @@ extension SceneMetalRenderer {
                 if !cameraFrame.resolvesPerspective(for: layer),
                    ((layer.colorBlendMode ?? 0) == 0 && claim.supportsTerminalMaterialReplay)
                     || ((layer.colorBlendMode ?? 0) != 0 && claim.supportsSourceSizedSolidEffects
+                        && claim.dependencyOwnership == .none
                         && selectedSource.candidate != nil),
                    frameVisibleLayerIDs.contains(layerID),
                    !dependencyRuntime.requiresGraphOutputCapture(for: layerID),

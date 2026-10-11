@@ -328,7 +328,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               (ticket.finalContent == .color(.resolved(.opaque))
                 || ticket.finalContent == .color(.resolved(.premultipliedAlpha))
                 || ticket.finalContent == .color(.resolved(.straightAlpha))),
-              !ticket.consumesExternalPrimaryDependency,
+              ticket.consumesExternalPrimaryDependency
+                == !ledger.preparedDependencyEffects.isEmpty,
               ledger.commandBuffer.status == .notEnqueued,
               mainPass.belongs(to: ledger.commandBuffer) else {
             return fail("terminal-material-replay-target-rejected")

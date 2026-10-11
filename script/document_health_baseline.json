@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 117655
+      "bytes": 117985
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -93,8 +93,8 @@
       "bytes": 344941
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 98,
-      "bytes": 29649
+      "lines": 99,
+      "bytes": 29854
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 241,
-      "bytes": 67179
+      "bytes": 67507
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -245,8 +245,8 @@
       "bytes": 6677
     },
     "docs/scene/roadmap/batch2/terminal-material-chain-design.md": {
-      "lines": 26,
-      "bytes": 4078
+      "lines": 34,
+      "bytes": 5767
     }
   },
   "archives": [
@@ -1134,33 +1134,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d96fc8d930df449ec60feae1281b7f2de13e019826e4a216203421a27abd8456",
-      "after": "655988ba9d5663fa3ecb95574bd2cc5000c5d25d5d5932b2d27c54cde9c0f42e",
-      "owner": "Scene effect draw modulation",
-      "reason": "合并同一颜色host职责，替换已修首错并保留实际画面与第二包未闭边界；不扩大整体通过声明。",
-      "decision": "docs/scene/history/effect-draw-color-2026-10-11.md#决策与实现"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
-      "before": "99679dffa29faa64cbd846311cae837cc3683df9b4e21fc9402f713906272044",
-      "after": "14ba04a12e008f5b7a26c003888e0314fee6b1c7bfb512f1a33c3ffbf18f5e1c",
-      "owner": "Scene terminal text",
-      "reason": "复用现终端材质链接通单stage文字越界绘制，记录新反馈及验证边界，不扩写第二算法。",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#行为与范围"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "92819173d8acbaad461ab67c3e50d0fa956f8f82cfa3a7820cac092ecca71224",
-      "after": "64e48b242471c74c686280c64d6f0ceec9f48638a7b454beae7c53866addffca",
-      "owner": "Scene terminal text",
-      "reason": "复用现终端材质链接通单stage文字越界绘制，记录新反馈及验证边界，不扩写第二算法。",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#行为与范围"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "d64bf8a764fc02bb9004ec36ee4b392026a34722d6142cf897c02e6d3b426be8",
       "after": "a7118b84477356c98855d54466d049f4084d2862f0e1c9629460810526f6798f",
@@ -1188,12 +1161,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "64e48b242471c74c686280c64d6f0ceec9f48638a7b454beae7c53866addffca",
+      "after": "bdc65954079fc948f8b5d0512bbbea0f77ba8780b4efb97dd0a900afe503d302",
+      "owner": "scene-terminal-material",
+      "reason": "Replace closed raw named solid size gap with bounded shared-chain acceptance and preserve graph-final and special geometry exclusions.",
+      "decision": "docs/scene/history/named-solid-source-extent-2026-10-12.md#首断点与实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "655988ba9d5663fa3ecb95574bd2cc5000c5d25d5d5932b2d27c54cde9c0f42e",
+      "after": "3fb2d619dd3ae4ef275091ac8cef7855970a4d382079f72c2898dea86a515d32",
+      "owner": "scene-terminal-material",
+      "reason": "Replace closed raw named solid size gap with bounded shared-chain acceptance and preserve graph-final and special geometry exclusions.",
+      "decision": "docs/scene/history/named-solid-source-extent-2026-10-12.md#首断点与实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
+      "before": "14ba04a12e008f5b7a26c003888e0314fee6b1c7bfb512f1a33c3ffbf18f5e1c",
+      "after": "746f03697f736b295f216d23582401f475a0275dfd0f89f5106398ed295fc0ad",
+      "owner": "scene-terminal-material",
+      "reason": "Replace closed raw named solid size gap with bounded shared-chain acceptance and preserve graph-final and special geometry exclusions.",
+      "decision": "docs/scene/history/named-solid-source-extent-2026-10-12.md#首断点与实现"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7284f00e97c882755f0599b3ee4f93c3817ec4da1c943cb0987134a87eeac9a3",
-      "after": "dbd8f19dc65a1c3067c699d5539f1e3a13da5287abed067670ff6922fa621046",
-      "owner": "scene-script-media",
-      "reason": "Replace obsolete Sound rejection state with one shared media transaction and bounded runtime acceptance; retain open capabilities in the existing queue.",
-      "decision": "docs/scene/history/sound-script-control-2026-10-12.md#首断点与实现"
+      "before": "dbd8f19dc65a1c3067c699d5539f1e3a13da5287abed067670ff6922fa621046",
+      "after": "420c708a54c5af5ad53af72afe983ef61e29637d777c56c0068b10948390f79a",
+      "owner": "scene-terminal-material",
+      "reason": "Replace closed raw named solid size gap with bounded shared-chain acceptance and preserve graph-final and special geometry exclusions.",
+      "decision": "docs/scene/history/named-solid-source-extent-2026-10-12.md#首断点与实现"
     }
   ]
 }

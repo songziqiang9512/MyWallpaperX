@@ -358,8 +358,8 @@ struct SceneImageLayerCompositor {
                 guard resolvedMaterialGraphOutputPublisher == nil,
                       (request.layer.contentKind == "solid" || request.layer.contentKind == "text"),
                       request.geometryProduct == nil,
-                      request.dependencyEffects.isEmpty,
-                      !request.requiresDependencyEffect,
+                      ticket.consumesExternalPrimaryDependency == hasDependencyInput,
+                      !request.requiresDependencyEffect || ticket.consumesExternalPrimaryDependency,
                       (request.layer.colorBlendMode ?? 0) == 0,
                       (request.finalCompositeAlpha ?? 1) == 1,
                       (ticket.finalContent == .color(.resolved(.opaque))
@@ -377,7 +377,7 @@ struct SceneImageLayerCompositor {
                     executionTrace: executionTrace,
                     executionOrigin: executionOrigin
                 ) else { return .failed }
-                return .normal(consumedDependency: false)
+                return .normal(consumedDependency: ticket.consumesExternalPrimaryDependency)
             }
             if let resolvedMaterialGraphOutputPublisher {
                 guard let graphExecutionTicket else { return .failed }

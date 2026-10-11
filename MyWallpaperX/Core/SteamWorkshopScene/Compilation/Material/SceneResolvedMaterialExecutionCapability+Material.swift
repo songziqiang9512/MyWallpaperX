@@ -41,9 +41,21 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
               !admitted.isGraphOutputProvider,
               !admitted.requiresGraphOutputProvider,
               case .capturedLayerTexture = admitted.sourceRoute,
-              case .none = dependencyOwnership,
               sceneBackgroundRequirement == nil,
               !stages.isEmpty, !materials.isEmpty else { return (false, false) }
+        // An admitted raster dependency is a frozen read-only input, just
+        // like a static texture. Its publication keeps its own real extent.
+        // Special geometry and aggregate ownership retain their existing route.
+        switch dependencyOwnership {
+        case .none:
+            break
+        case let .externalPrimary(binding):
+            guard binding.kind != .geometryLayer, binding.blendMode == 0 else {
+                return (false, false)
+            }
+        case .graphInternal, .externalAggregate:
+            return (false, false)
+        }
         for stage in stages {
             let product = stage.product
             guard product.clearFunctions.functions.isEmpty,
