@@ -107,3 +107,15 @@ U22实机副本点击命中后，`getLayer(...).getAnimation(name)` 缺方法，
 - 后继反例：独立cursor-only owner在点击内创建timer后不再求值；U22实际由借用的stateful Bool owner持有，timer到期后被typed cohort无条件拒绝animation。允许已有stateful Bool权限消费同一typed Timeline命令，纯只读Bool及material function边界不放宽。独立cursor timer缺口由自有VM门验证。该owner仍由CursorProgram唯一持有，仅在已有active timer时、cursor事件前调用既有typed evaluation并并入同owner effects；沿现有cadence消费与共同commit，不新增clock/调度器。构造继续拒绝init/update需求，借用owner仍由原Program推进，避免双跑。验收覆盖无新pointer事件时timer到期、snapshot helper恢复（不等于产品GPU丢帧重放）及借用owner不重复执行。
 
 实施及反例统一归[历史记录](../../history/named-timeline-interaction-2026-10-10.md)，当前范围由API台账维护，不以局部交互代替完整样本验收。
+
+## Sound 播放控制接入（2026-10-12）
+
+目标是把作者对已准备 Sound 层的 play/pause/stop/isPlaying 接到唯一 SceneSoundPlaybackRegistry，首验 MP3 loop/single 与 startsilent。公开ISoundLayer描述启动、pause保留位置与stop重置计时，未明确重复play位置；本次黑盒对照补足single重复play和同回调查询，宿主暂停仍按产品生命周期合同验证。volume脚本属性、random/spatial/OGG不借此准入，失败仍只影响相应脚本owner或声音资源，不改变视觉算法。
+
+复用现video command buffer/owner effects/frame validation/commit链，将其显式泛化为media playback command，携带videoTexture/soundLayer destination；保留一个64条预算与一次收集，不复制Sound回调/事件/遍历。旧Video名称迁移后退出，不保留alias或第二命令buffer。Video纹理handle沿原接口，Sound方法复用普通layer handle身份/过期检查；只对prepared registry有来源的层开放。查询读取当帧已发布状态，并在公开/黑盒合同要求时投影当前callback暂存命令；只读Bool仅可查询，不获得播放权限；异常、捕获后的预算超额和owner拒绝均随原事务丢弃，不在VM调用中操作AVPlayer。
+
+帧前发布registry状态，现owner fixed-point admission分别交video/sound唯一registry无副作用验证，完整owner成功后才按命令顺序执行。play/pause/stop是可逆作者意图，宿主pause独立阻止实际播放，resume不得把脚本停止/暂停或startsilent对象改为播放；ready回调也服从同一意图。Sound registry stop仍是epoch销毁，不作为脚本stop复用。官方自有2秒MP3双层对照确认：single正在播放时再次play从头，pause后play续播；single播完后play可重建同player的item。loop重复play位置未证，保持原连续行为并登记边界。停止重置用现AVFoundation定位，不新增时钟或PCM播放器；已提交的authored layer销毁按ID从同registry撤observers/looper/queue，其他层继续；场景退役清整registry，迟到事件不能复活。首帧会在surface安装内同步执行，故registry必须在rebuildSurfaces之前建立并继承候选暂停/静音，失败由原session stop回收。
+
+Vector applyUserProperties原已执行，但live state仅登记Scalar/String导致属性切换fallback重建；沿同一consumer map给Vector补真实callback owner/已声明key，失效owner仍由all−active拒绝，不新增属性解析器。
+
+验收：真实VM方法→typed destination→owner提交/拒绝→AVQueuePlayer时钟与查询；startsilent、重复play、pause位置、stop归零重播、single自然结束、宿主暂停/恢复与停止后恢复、stale句柄/跨owner/throw/超额回滚，Video原方法回归。真实3761619125选曲脚本四MP3进入链，其他样本仅报告准入子集。Debug构建、独审及隔离运行，不把方法存在或player ready当成已播放；无法验证的模式继续记录首断点。

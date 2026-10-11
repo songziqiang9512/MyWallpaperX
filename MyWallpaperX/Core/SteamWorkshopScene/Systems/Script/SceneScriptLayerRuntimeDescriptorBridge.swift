@@ -13,6 +13,7 @@ nonisolated extension SceneScriptQuickJSDomain {
         _ snapshot: SceneDynamicSnapshot,
         descriptor: SceneRenderDescriptor,
         videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:],
+        soundPlaybackSnapshots: [Int: Bool] = [:],
         particlePlaybackObservations: [Int: SceneParticlePlaybackObservation] = [:],
         particleInstanceLayerIDs: Set<Int> = [],
         textureAnimationSnapshots: [
@@ -28,7 +29,7 @@ nonisolated extension SceneScriptQuickJSDomain {
                !destroyedAuthoredLayerIDs.contains(layer.id),
                videoSnapshots[layer.id] == nil,
                textureAnimationSnapshots[layer.id] == nil,
-               layer.contentKind != "particle" {
+               layer.contentKind != "particle", layer.contentKind != "sound" {
                 let result = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
                     handle,
                     UInt32(index),
@@ -154,6 +155,15 @@ nonisolated extension SceneScriptQuickJSDomain {
             )
             guard instanceResult == MWX_SCENE_QUICKJS_OK else {
                 throw layerSnapshotFailure(instanceResult, diagnostic: diagnostic)
+            }
+            if layer.contentKind == "sound" {
+                let soundResult = mwx_scene_quickjs_domain_update_layer_sound_fields(
+                    handle, UInt32(index), soundPlaybackSnapshots[layer.id] == nil ? 0 : 1,
+                    soundPlaybackSnapshots[layer.id] == true ? 1 : 0, &diagnostic, diagnostic.count
+                )
+                guard soundResult == MWX_SCENE_QUICKJS_OK else {
+                    throw layerSnapshotFailure(soundResult, diagnostic: diagnostic)
+                }
             }
             if let video = videoSnapshots[layer.id] {
                 let videoResult = mwx_scene_quickjs_domain_update_layer_video_fields(

@@ -434,7 +434,7 @@ nonisolated final class SceneScriptStringProgram: SceneScriptValueOwnerProgramRe
             }
             var effects = SceneScriptOwnerEffects(
                 ownerTarget: binding.target, materialFunctionMutations: [],
-                animationMutations: [], layerMutations: [], videoCommands: []
+                animationMutations: [], layerMutations: [], mediaPlaybackCommands: []
             )
             if changedUserPropertiesJSON != nil || playback != nil
                 || properties != nil || thumbnail != nil

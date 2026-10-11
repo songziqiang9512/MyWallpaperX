@@ -552,7 +552,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             return .failure(.badReturn("invalid scalar output"))
         }
         if puppetAnimationIdentity != nil,
-           !mutations.videoCommands.isEmpty || !mutations.textureAnimationCommands.isEmpty
+           !mutations.mediaPlaybackCommands.isEmpty || !mutations.textureAnimationCommands.isEmpty
             || !mutations.puppetBones.isEmpty || !mutations.particlePlaybackCommands.isEmpty {
             discardLayerMutations()
             return .failure(.invalidArgument("Puppet animation owner produced out-of-cohort mutations"))
@@ -588,7 +588,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             animationMutations: mutations.animations,
             layerMutations: publishedLayerMutations,
             puppetBoneMutations: mutations.puppetBones,
-            videoCommands: mutations.videoCommands,
+            mediaPlaybackCommands: mutations.mediaPlaybackCommands,
             textureAnimationCommands: mutations.textureAnimationCommands,
             particlePlaybackCommands: mutations.particlePlaybackCommands,
             puppetAnimationCommands: mutations.puppetAnimationCommands,

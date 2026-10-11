@@ -459,7 +459,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
             }
             var effects = SceneScriptOwnerEffects(
                 ownerTarget: binding.target, materialFunctionMutations: [],
-                animationMutations: [], layerMutations: [], videoCommands: []
+                animationMutations: [], layerMutations: [], mediaPlaybackCommands: []
             )
             var playbackMutationCount = 0
             var propertiesLayerMutationCount = 0

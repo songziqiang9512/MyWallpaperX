@@ -1656,25 +1656,43 @@ static MWXSceneQuickJSLayerRecord *video_record_for_handle(
         ? record : NULL;
 }
 
-static bool append_video_command(
+static size_t media_playback_callback_start(MWXSceneQuickJSOwner *owner) {
+    if (owner->media_playback_callback_epoch != owner->domain->callback_epoch) {
+        owner->media_playback_callback_epoch = owner->domain->callback_epoch;
+        owner->media_playback_callback_start = owner->media_playback_command_count;
+    }
+    return owner->media_playback_callback_start;
+}
+
+static bool append_media_playback_command(
     MWXSceneQuickJSOwner *owner,
     MWXSceneQuickJSLayerRecord *record,
+    uint32_t destination,
     uint32_t kind,
     double number_value,
     uint32_t bool_value
 ) {
-    if (owner->video_command_count >= MWX_SCENE_QUICKJS_MAX_VIDEO_COMMANDS) {
-        owner->video_command_overflow = true;
+    if (owner->value_only) return false;
+    media_playback_callback_start(owner);
+    if (owner->media_playback_command_count >= MWX_SCENE_QUICKJS_MAX_MEDIA_PLAYBACK_COMMANDS) {
+        owner->media_playback_command_overflow = true;
         return false;
     }
-    owner->video_commands[owner->video_command_count++] =
-        (MWXSceneQuickJSVideoCommand){
+    owner->media_playback_commands[owner->media_playback_command_count++] =
+        (MWXSceneQuickJSMediaPlaybackCommand){
             .kind = kind,
+            .destination = destination,
             .layer_id = record->layer_id,
             .number_value = number_value,
             .bool_value = bool_value,
         };
     return true;
+}
+
+static JSValue media_playback_command_failure(JSContext *context, MWXSceneQuickJSOwner *owner) {
+    return owner->value_only
+        ? JS_ThrowTypeError(context, "media playback control requires a stateful owner")
+        : JS_ThrowInternalError(context, "media playback command buffer exceeded");
 }
 
 enum VideoProperty {
@@ -1714,22 +1732,22 @@ static JSValue video_set(
         if (JS_ToFloat64(context, &value, argv[0]) < 0 || !isfinite(value) ||
             value <= 0 || value > 16)
             return JS_ThrowRangeError(context, "video rate must be finite in (0, 16]");
-        accepted = append_video_command(
-            owner, record, MWX_SCENE_QUICKJS_VIDEO_SET_RATE, value, 0
+        accepted = append_media_playback_command(
+            owner, record, MWX_SCENE_QUICKJS_MEDIA_VIDEO_TEXTURE,
+            MWX_SCENE_QUICKJS_MEDIA_SET_RATE, value, 0
         );
     } else if ((enum VideoProperty)magic == VIDEO_LOOP) {
         int value = JS_ToBool(context, argv[0]);
         if (value < 0) return JS_EXCEPTION;
-        accepted = append_video_command(
-            owner, record, MWX_SCENE_QUICKJS_VIDEO_SET_LOOP, 0,
+        accepted = append_media_playback_command(
+            owner, record, MWX_SCENE_QUICKJS_MEDIA_VIDEO_TEXTURE,
+            MWX_SCENE_QUICKJS_MEDIA_SET_LOOP, 0,
             value != 0 ? 1 : 0
         );
     } else {
         return JS_ThrowTypeError(context, "video duration is read-only");
     }
-    return accepted ? JS_UNDEFINED : JS_ThrowInternalError(
-        context, "video command buffer exceeded"
-    );
+    return accepted ? JS_UNDEFINED : media_playback_command_failure(context, owner);
 }
 
 enum VideoFunction {
@@ -1767,10 +1785,11 @@ static JSValue video_call(
             return JS_ThrowRangeError(
                 context, "setCurrentTime expects a bounded finite time"
             );
-        if (!append_video_command(
-                owner, record, MWX_SCENE_QUICKJS_VIDEO_SET_CURRENT_TIME,
+        if (!append_media_playback_command(
+                owner, record, MWX_SCENE_QUICKJS_MEDIA_VIDEO_TEXTURE,
+                MWX_SCENE_QUICKJS_MEDIA_SET_CURRENT_TIME,
                 value, 0
-            )) return JS_ThrowInternalError(context, "video command buffer exceeded");
+            )) return media_playback_command_failure(context, owner);
         return JS_UNDEFINED;
     }
     case VIDEO_ADD_ENDED_CALLBACK: {
@@ -1794,12 +1813,13 @@ static JSValue video_call(
     case VIDEO_STOP: {
         if (argc != 0) return JS_ThrowTypeError(context, "video command expects no arguments");
         const uint32_t kind = (enum VideoFunction)magic == VIDEO_PLAY
-            ? MWX_SCENE_QUICKJS_VIDEO_PLAY
+            ? MWX_SCENE_QUICKJS_MEDIA_PLAY
             : ((enum VideoFunction)magic == VIDEO_PAUSE
-                ? MWX_SCENE_QUICKJS_VIDEO_PAUSE
-                : MWX_SCENE_QUICKJS_VIDEO_STOP);
-        if (!append_video_command(owner, record, kind, 0, 0))
-            return JS_ThrowInternalError(context, "video command buffer exceeded");
+                ? MWX_SCENE_QUICKJS_MEDIA_PAUSE
+                : MWX_SCENE_QUICKJS_MEDIA_STOP);
+        if (!append_media_playback_command(owner, record,
+                MWX_SCENE_QUICKJS_MEDIA_VIDEO_TEXTURE, kind, 0, 0))
+            return media_playback_command_failure(context, owner);
         return JS_UNDEFINED;
     }
     }
@@ -1918,14 +1938,35 @@ static bool define_get_video_texture(
 }
 
 // play/pause/stop and isPlaying share the ordinary layer-handle identity checks.
-static JSValue particle_playback_call(JSContext *context, JSValueConst this_value,
+static JSValue layer_playback_call(JSContext *context, JSValueConst this_value,
     int argc, JSValueConst *argv, int magic, void *opaque) {
     (void)this_value;
     MWXSceneQuickJSLayerAccessHandle *handle = opaque;
     MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(handle);
-    if ((magic == 4 ? argc != 1 : argc != 0) || record == NULL || !record->particle_playback.available)
-        return JS_ThrowTypeError(context, "particle playback unavailable or unsupported arguments");
+    if ((magic == 4 ? argc != 1 : argc != 0) || record == NULL)
+        return JS_ThrowTypeError(context, "layer playback unavailable or unsupported arguments");
     MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
+    if (magic != 4 && record->sound_available) {
+        if (magic == 3) {
+            bool playing = record->sound_is_playing;
+            for (size_t index = media_playback_callback_start(owner);
+                 index < owner->media_playback_command_count; ++index) {
+                const MWXSceneQuickJSMediaPlaybackCommand *command = &owner->media_playback_commands[index];
+                if (command->destination == MWX_SCENE_QUICKJS_MEDIA_SOUND_LAYER &&
+                    command->layer_id == record->layer_id)
+                    playing = command->kind == MWX_SCENE_QUICKJS_MEDIA_PLAY;
+            }
+            return JS_NewBool(context, playing);
+        }
+        uint32_t kind = magic == 0 ? MWX_SCENE_QUICKJS_MEDIA_PLAY
+            : (magic == 1 ? MWX_SCENE_QUICKJS_MEDIA_PAUSE : MWX_SCENE_QUICKJS_MEDIA_STOP);
+        if (!append_media_playback_command(owner, record,
+                MWX_SCENE_QUICKJS_MEDIA_SOUND_LAYER, kind, 0, 0))
+            return media_playback_command_failure(context, owner);
+        return JS_UNDEFINED;
+    }
+    if (!record->particle_playback.available)
+        return JS_ThrowTypeError(context, "particle playback unavailable or unsupported arguments");
     uint32_t count = 0;
     if (magic == 4) {
         double value;
@@ -1980,7 +2021,7 @@ static JSValue particle_playback_call(JSContext *context, JSValueConst this_valu
     return JS_UNDEFINED;
 }
 
-static bool define_particle_playback(JSContext *context, JSValue layer,
+static bool define_layer_playback(JSContext *context, JSValue layer,
     MWXSceneQuickJSOwner *owner, uint32_t index, bool owner_target, bool persistent) {
     const char *names[] = {"play", "pause", "stop", "isPlaying", "emitParticles"};
     for (int action = 0; action < 5; ++action) {
@@ -1990,7 +2031,7 @@ static bool define_particle_playback(JSContext *context, JSValue layer,
             .owner_identity = owner->identity, .layer_index = index,
             .callback_epoch = owner->domain->callback_epoch,
             .owner_target = owner_target, .persistent = persistent };
-        JSValue function = JS_NewCClosure(context, particle_playback_call,
+        JSValue function = JS_NewCClosure(context, layer_playback_call,
             names[action], free_layer_handle, 0, action, handle);
         if (JS_IsException(function) || JS_DefinePropertyValueStr(context, layer,
             names[action], function, JS_PROP_ENUMERABLE) < 0) return false;
@@ -2500,7 +2541,7 @@ static JSValue make_layer_handle(
     if (!mwx_scene_quickjs_define_particle_instance(owner, layer, index, owner_target, persistent)) {
         JS_FreeValue(context, layer); return JS_EXCEPTION;
     }
-    if (!define_particle_playback(context, layer, owner, index, owner_target, persistent)) {
+    if (!define_layer_playback(context, layer, owner, index, owner_target, persistent)) {
         JS_FreeValue(context, layer); return JS_EXCEPTION;
     }
     if (!define_get_texture_animation(
@@ -3112,7 +3153,7 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
             context, owner->material_function_layer, owner, 0, true, true
         )) return false;
     if (!mwx_scene_quickjs_define_particle_instance(owner, owner->material_function_layer, 0, true, true)) return false;
-    if (!define_particle_playback(context, owner->material_function_layer, owner, 0, true, true)) return false;
+    if (!define_layer_playback(context, owner->material_function_layer, owner, 0, true, true)) return false;
     if (!define_get_texture_animation(
             context, owner->material_function_layer, owner, 0, true, true
         )) return false;
@@ -3167,6 +3208,10 @@ void mwx_scene_quickjs_owner_discard_layer_mutations(
     owner->effect_visibility_pending = false;
     finish_dynamic_layer_transaction(owner, false);
     clear_layer_mutation_buffers(owner);
+    owner->media_playback_command_count = 0;
+    owner->media_playback_command_overflow = false;
+    owner->media_playback_callback_epoch = 0;
+    owner->media_playback_callback_start = 0;
     owner->particle_playback_command_count = 0;
     owner->particle_playback_command_overflow = false;
     if (owner->puppet_bone_transaction_active)
@@ -3219,35 +3264,47 @@ void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner) 
         memcpy(owner->puppet_bone_local_baseline[bone], owner->puppet_bone_local[bone], sizeof(double) * 16);
     }
     owner->puppet_bone_transaction_active = true;
-    owner->video_command_count = 0;
-    owner->video_command_overflow = false;
+    owner->media_playback_command_count = 0;
+    owner->media_playback_command_overflow = false;
+    owner->media_playback_callback_epoch = 0;
+    owner->media_playback_callback_start = 0;
     owner->texture_animation_command_count = 0;
     owner->texture_animation_command_overflow = false;
 }
 
-size_t mwx_scene_quickjs_owner_video_command_count(
+size_t mwx_scene_quickjs_owner_media_playback_command_count(
     const MWXSceneQuickJSOwner *owner
 ) {
-    return owner == NULL ? 0 : owner->video_command_count;
+    // Catching the JS exception cannot turn a truncated native journal into
+    // an accepted transaction. Match the existing particle admission ABI.
+    if (owner != NULL && owner->media_playback_command_overflow)
+        return MWX_SCENE_QUICKJS_MAX_MEDIA_PLAYBACK_COMMANDS + 1;
+    return owner == NULL ? 0 : owner->media_playback_command_count;
 }
 
-MWXSceneQuickJSResult mwx_scene_quickjs_owner_video_command_at(
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_media_playback_command_at(
     const MWXSceneQuickJSOwner *owner,
     size_t requested,
-    MWXSceneQuickJSVideoCommand *command,
+    MWXSceneQuickJSMediaPlaybackCommand *command,
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
-    if (owner == NULL || command == NULL ||
-        requested >= owner->video_command_count ||
-        requested >= MWX_SCENE_QUICKJS_MAX_VIDEO_COMMANDS) {
+    if (owner != NULL && owner->media_playback_command_overflow) {
         mwx_scene_quickjs_write_diagnostic(
-            diagnostic, diagnostic_capacity, "invalid video command index"
+            diagnostic, diagnostic_capacity, "media playback command buffer exceeded"
+        );
+        return MWX_SCENE_QUICKJS_MUTATION_OVERFLOW;
+    }
+    if (owner == NULL || command == NULL ||
+        requested >= owner->media_playback_command_count ||
+        requested >= MWX_SCENE_QUICKJS_MAX_MEDIA_PLAYBACK_COMMANDS) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity, "invalid media playback command index"
         );
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
-    *command = owner->video_commands[requested];
+    *command = owner->media_playback_commands[requested];
     return MWX_SCENE_QUICKJS_OK;
 }
 
@@ -3318,7 +3375,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_video_ended_callbacks(
         JS_FreeValue(context, result);
         if (outcome != MWX_SCENE_QUICKJS_OK) {
             return owner->material_function_overflow || owner->animation_command_overflow ||
-                owner->video_command_overflow || owner->texture_animation_command_overflow ||
+                owner->media_playback_command_overflow || owner->texture_animation_command_overflow ||
                 owner->particle_playback_command_overflow || owner->storage_mutation_overflow
                 ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW : outcome;
         }

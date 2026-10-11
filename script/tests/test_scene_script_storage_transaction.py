@@ -122,7 +122,7 @@ HARNESS = r'''
                 userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil).get()
             try o.commitStorage().get()
             return .init(ownerTarget:o.target,materialFunctionMutations:[],animationMutations:[],
-                layerMutations:result.layerMutations,videoCommands:[])
+                layerMutations:result.layerMutations,mediaPlaybackCommands:[])
         }
         let seedEffects = try effects(seed), dependentEffects = try effects(dependent), peerEffects = try effects(peer)
         let orderedEffects = [dependentEffects,seedEffects,peerEffects]

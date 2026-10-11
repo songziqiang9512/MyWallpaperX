@@ -388,8 +388,8 @@ final class SceneVideoTextureSource {
         )
     }
 
-    func canApply(_ command: SceneScriptVideoCommand) -> Bool {
-        guard command.layerID == layerID else { return false }
+    func canApply(_ command: SceneScriptMediaPlaybackCommand) -> Bool {
+        guard command.destination == .videoTexture, command.layerID == layerID else { return false }
         switch command.action {
         case .play, .pause, .stop, .setLoop:
             return true
@@ -402,7 +402,7 @@ final class SceneVideoTextureSource {
     }
 
     func apply(
-        _ command: SceneScriptVideoCommand,
+        _ command: SceneScriptMediaPlaybackCommand,
         timing: SceneFrameTiming
     ) {
         guard canApply(command) else { return }

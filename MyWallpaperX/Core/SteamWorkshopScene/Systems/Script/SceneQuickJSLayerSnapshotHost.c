@@ -147,6 +147,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
         pending[index].video_loop = record->video_loop;
         pending[index].video_current_time = record->video_current_time;
         pending[index].video_is_playing = record->video_is_playing;
+        pending[index].sound_available = record->sound_available;
+        pending[index].sound_is_playing = record->sound_is_playing;
         pending[index].video_ended_generation = record->video_ended_generation;
         pending[index].particle_playback = record->particle_playback;
         pending[index].texture_animation_available =
@@ -306,6 +308,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     staged->video_loop = true;
     staged->video_current_time = 0;
     staged->video_is_playing = false;
+    staged->sound_available = false;
+    staged->sound_is_playing = false;
     staged->video_ended_generation = 0;
     staged->particle_playback = (MWXSceneQuickJSParticlePlaybackState){0};
     staged->particle_instance_available = false;
@@ -360,6 +364,28 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_video_fields(
     staged->video_current_time = current_time;
     staged->video_is_playing = is_playing != 0;
     staged->video_ended_generation = ended_generation;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_sound_fields(
+    MWXSceneQuickJSDomain *domain, uint32_t layer_index,
+    uint32_t available, uint32_t is_playing,
+    char *diagnostic, size_t diagnostic_capacity
+) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (domain == NULL || domain->callback_active ||
+        domain->pending_layer_snapshot == NULL ||
+        layer_index >= domain->authored_layer_count ||
+        !domain->layers[layer_index].configured || available > 1 || is_playing > 1) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity, "invalid staged layer sound fields"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    MWXSceneQuickJSStagedLayerSnapshot *staged =
+        &domain->pending_layer_snapshot[layer_index];
+    staged->sound_available = available != 0;
+    staged->sound_is_playing = is_playing != 0;
     return MWX_SCENE_QUICKJS_OK;
 }
 
@@ -525,6 +551,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         const bool previous_video_loop = record->video_loop;
         const double previous_video_current_time = record->video_current_time;
         const bool previous_video_is_playing = record->video_is_playing;
+        const bool previous_sound_available = record->sound_available;
+        const bool previous_sound_is_playing = record->sound_is_playing;
         const uint64_t previous_video_ended_generation =
             record->video_ended_generation;
         const MWXSceneQuickJSParticlePlaybackState previous_particle_playback = record->particle_playback;
@@ -580,6 +608,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         record->video_loop = staged->video_loop;
         record->video_current_time = staged->video_current_time;
         record->video_is_playing = staged->video_is_playing;
+        record->sound_available = staged->sound_available;
+        record->sound_is_playing = staged->sound_is_playing;
         record->video_ended_generation = staged->video_ended_generation;
         record->particle_playback = staged->particle_playback;
         record->texture_animation_available =
@@ -621,6 +651,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         staged->video_loop = previous_video_loop;
         staged->video_current_time = previous_video_current_time;
         staged->video_is_playing = previous_video_is_playing;
+        staged->sound_available = previous_sound_available;
+        staged->sound_is_playing = previous_sound_is_playing;
         staged->video_ended_generation = previous_video_ended_generation;
         staged->particle_playback = previous_particle_playback;
         staged->texture_animation_available =
@@ -701,6 +733,8 @@ bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
         record->video_loop = saved->video_loop;
         record->video_current_time = saved->video_current_time;
         record->video_is_playing = saved->video_is_playing;
+        record->sound_available = saved->sound_available;
+        record->sound_is_playing = saved->sound_is_playing;
         record->video_ended_generation = saved->video_ended_generation;
         record->particle_playback = saved->particle_playback;
         record->texture_animation_available =

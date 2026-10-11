@@ -1886,6 +1886,17 @@
       ]
     },
     {
+      "path": "docs/scene/history/sound-script-control-2026-10-12.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/capabilities/runtime-input-property-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/source-material-entry-2026-10-08.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",

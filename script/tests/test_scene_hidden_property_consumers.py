@@ -37,7 +37,15 @@ struct SceneLayerDisplayScriptOwnership {
 struct SceneRenderDescriptor {
     struct TextStyle { var limitWidth = false }
     struct AnimationLayer { var id: Int?; var visibilityBinding: Bool? }
-    struct Camera { var orthoWidth: Float? = 512; var orthoHeight: Float? = 512 }
+    struct Camera {
+        struct Bloom {
+            struct HDR {}
+            var hdr: HDR? = nil
+        }
+        var orthoWidth: Float? = 512
+        var orthoHeight: Float? = 512
+        var bloom = Bloom()
+    }
     struct Layer {
         var id: Int
         var contentKind: String

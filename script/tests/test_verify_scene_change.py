@@ -1085,7 +1085,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
                 self.assertIn(scope, gates[0].command)
                 self.assertIn("--fail-fast", gates[0].command)
 
-    def test_video_command_fixture_selects_its_executable_consumer(self) -> None:
+    def test_media_playback_command_fixture_selects_its_executable_consumer(self) -> None:
         gates, _ = verify.build_plan(
             ["script/tests/fixtures/SceneVideoRepeatedCommandsHarness.swift"],
             arguments(), self.registry,

@@ -308,6 +308,7 @@ extension SceneDesktopWallpaperSession {
                     preliminaryForSceneScript,
                     descriptor: launchContext.runtimeInput.renderDescriptor,
                     videoSnapshots: sceneScriptVideoSnapshots,
+                    soundPlaybackSnapshots: soundPlaybackRegistry?.sceneScriptSnapshots() ?? [:],
                     textureAnimationSnapshots:
                         sceneScriptTextureAnimationSnapshots,
                     particlePlaybackObservations: particleObservations,
@@ -423,7 +424,7 @@ extension SceneDesktopWallpaperSession {
                         }
                     ),
                     materialFunctionMutations: [], animationMutations: [],
-                    layerMutations: [], videoCommands: [],
+                    layerMutations: [], mediaPlaybackCommands: [],
                     videoCommandTargets: []
                 ),
                 string: .init(
@@ -449,7 +450,7 @@ extension SceneDesktopWallpaperSession {
                 materialFunctionMutations: [],
                 animationMutations: [],
                 layerMutations: [],
-                videoCommands: []
+                mediaPlaybackCommands: []
             )
         } else {
             coordinatedSceneScript = launchContext.frameSchema.mediaFrameCoordinator.evaluate(
@@ -631,6 +632,7 @@ extension SceneDesktopWallpaperSession {
                         textureAnimationRuntime:
                             launchContext.textureAnimationPlaybackRuntime,
                         videoRegistry: videoTextureSourceRegistry,
+                        soundRegistry: soundPlaybackRegistry,
                         timing: timing,
                         puppetAnimationRuntime: launchContext.puppetAnimationPlaybackRuntime
                     )
@@ -709,7 +711,7 @@ extension SceneDesktopWallpaperSession {
         let puppetBoneMutations = admittedOwnerEffects.flatMap(
             \.puppetBoneMutations
         )
-        let videoCommands = admittedOwnerEffects.flatMap(\.videoCommands)
+        let mediaPlaybackCommands = admittedOwnerEffects.flatMap(\.mediaPlaybackCommands)
         let textureAnimationCommands = admittedOwnerEffects.flatMap(
             \.textureAnimationCommands
         )
@@ -820,7 +822,7 @@ extension SceneDesktopWallpaperSession {
             pendingEvaluation: pendingEvaluation,
             pendingSharedLayerAlpha: pendingSharedLayerAlpha,
             animationMutations: animationMutations,
-            videoCommands: videoCommands,
+            mediaPlaybackCommands: mediaPlaybackCommands,
             textureAnimationCommands: textureAnimationCommands,
             puppetAnimationCommands: admittedOwnerEffects.flatMap(\.puppetAnimationCommands),
             scriptFrame: sceneScriptFrame,

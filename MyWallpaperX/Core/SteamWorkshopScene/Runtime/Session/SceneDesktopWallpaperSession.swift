@@ -154,19 +154,8 @@ final class SceneDesktopWallpaperSession {
         sharedLayerAlphaRuntime = .init(
             program: context.sharedLayerAlphaProgram
         )
-        guard rebuildSurfacesReconcilingAudioDemand(
-            context,
-            rebuild: {
-                rebuildSurfaces(
-                    resetClock: true,
-                    teardownReason: teardownReason
-                )
-            },
-            revokeLaunch: { stop() }
-        ) else {
-            throw SceneDesktopWallpaperHostLaunchError.noSurface
-        }
-        NSLog("MWX LAUNCH-STAGE: stage=activate-surfaces elapsedMs=%.0f", (CACurrentMediaTime() - activateStageStart) * 1000)
+        // Surface installation evaluates the first script frame synchronously.
+        // Publish prepared Sound sources before that frame can call them.
         nextSoundPlaybackEpoch &+= 1
         let soundPlaybackRegistry = SceneSoundPlaybackRegistry(
             program: context.soundPlaybackProgram,
@@ -184,6 +173,19 @@ final class SceneDesktopWallpaperSession {
             paused: !isVisible || sceneClock.isPaused,
             userValues: context.liveState.userValues
         )
+        guard rebuildSurfacesReconcilingAudioDemand(
+            context,
+            rebuild: {
+                rebuildSurfaces(
+                    resetClock: true,
+                    teardownReason: teardownReason
+                )
+            },
+            revokeLaunch: { stop() }
+        ) else {
+            throw SceneDesktopWallpaperHostLaunchError.noSurface
+        }
+        NSLog("MWX LAUNCH-STAGE: stage=activate-surfaces elapsedMs=%.0f", (CACurrentMediaTime() - activateStageStart) * 1000)
         installPointerEventMonitorsIfNeeded()
         NSLog(
             "MWX LAUNCH-STAGE: stage=activate-end elapsedMs=%.0f",

@@ -20,7 +20,7 @@ extension SceneScriptDynamicLayerRuntime {
             let aggregateCount = ownerBundles.reduce(0) { total, bundle in
                 total + bundle.particlePlaybackCommands.count + bundle.layerMutations.count
                     + bundle.animationMutations.count + bundle.materialFunctionMutations.count
-                    + bundle.videoCommands.count + bundle.textureAnimationCommands.count
+                    + bundle.mediaPlaybackCommands.count + bundle.textureAnimationCommands.count
                     + bundle.puppetBoneMutations.count + bundle.puppetAnimationCommands.count
                     + bundle.puppetAnimationCallbackRegistrations
             }

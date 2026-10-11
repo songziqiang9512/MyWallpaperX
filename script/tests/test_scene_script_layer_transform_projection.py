@@ -58,7 +58,7 @@ nonisolated struct SceneScriptMaterialFunctionMutation: Equatable, Sendable {}
 nonisolated struct SceneTimelinePlaybackMutation: Equatable, Sendable {}
 nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {}
 nonisolated struct SceneScriptPuppetBoneMutation: Equatable, Sendable {}
-nonisolated struct SceneScriptVideoCommand: Equatable, Sendable {}
+nonisolated struct SceneScriptMediaPlaybackCommand: Equatable, Sendable {}
 nonisolated struct SceneScriptParticlePlaybackCommand: Equatable, Sendable {}
 nonisolated struct SceneTextureAnimationCommand: Equatable, Sendable {}
 
@@ -66,7 +66,7 @@ nonisolated struct SceneScriptOwnerEffects {
     var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
     var animationMutations: [SceneTimelinePlaybackMutation] = []
     var layerMutations: [SceneScriptLayerMutation] = []
-    var videoCommands: [SceneScriptVideoCommand] = []
+    var mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand] = []
     var textureAnimationCommands: [SceneTextureAnimationCommand] = []
     var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
     var puppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
@@ -77,7 +77,7 @@ nonisolated struct SceneScriptMediaEventMutations {
     let materialFunctions: [SceneScriptMaterialFunctionMutation]
     let animations: [SceneTimelinePlaybackMutation]
     let layers: [SceneScriptLayerMutation]
-    let videoCommands: [SceneScriptVideoCommand]
+    let mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand]
     let particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
     let textureAnimationCommands: [SceneTextureAnimationCommand]
     let puppetAnimationCommands: [ScenePuppetAnimationCommand] = []

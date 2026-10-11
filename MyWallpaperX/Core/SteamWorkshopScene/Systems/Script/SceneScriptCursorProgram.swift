@@ -152,7 +152,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         )] = []
         var videos: [(
             ownerTarget: SceneDynamicTarget,
-            command: SceneScriptVideoCommand
+            command: SceneScriptMediaPlaybackCommand
         )] = []
         var layers: [(
             ownerTarget: SceneDynamicTarget,
@@ -185,7 +185,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             animations ownerAnimations: [SceneTimelinePlaybackMutation],
             layers ownerLayers: [SceneScriptLayerMutation],
             puppetBones ownerPuppetBones: [SceneScriptPuppetBoneMutation],
-            videos ownerVideos: [SceneScriptVideoCommand],
+            videos ownerVideos: [SceneScriptMediaPlaybackCommand],
             textureAnimations ownerTextureAnimations: [SceneTextureAnimationCommand],
             particles ownerParticles: [SceneScriptParticlePlaybackCommand]
         ) {
@@ -269,7 +269,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     animations: initialization.animationMutations,
                     layers: initialization.layerMutations,
                     puppetBones: initialization.puppetBoneMutations,
-                    videos: initialization.videoCommands,
+                    videos: initialization.mediaPlaybackCommands,
                     textureAnimations: initialization.textureAnimationCommands,
                     particles: initialization.particlePlaybackCommands
                 )
@@ -337,7 +337,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     animations: mutations.animations,
                     layers: mutations.layers,
                     puppetBones: mutations.puppetBones,
-                    videos: mutations.videoCommands,
+                    videos: mutations.mediaPlaybackCommands,
                     textureAnimations: mutations.textureAnimationCommands,
                     particles: mutations.particlePlaybackCommands
                 )
@@ -407,7 +407,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     animations: mutations.animationMutations,
                     layers: mutations.layerMutations,
                     puppetBones: mutations.puppetBoneMutations,
-                    videos: mutations.videoCommands,
+                    videos: mutations.mediaPlaybackCommands,
                     textureAnimations: mutations.textureAnimationCommands,
                     particles: mutations.particlePlaybackCommands
                 )
@@ -590,7 +590,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 layerMutations: layers.compactMap {
                     $0.ownerTarget == binding.ownerTarget ? $0.mutation : nil
                 },
-                videoCommands: videos.compactMap {
+                mediaPlaybackCommands: videos.compactMap {
                     $0.ownerTarget == binding.ownerTarget ? $0.command : nil
                 },
                 textureAnimationCommands: textureAnimations.compactMap {

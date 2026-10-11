@@ -342,7 +342,7 @@ struct SceneScriptLayerMutation: Equatable, Sendable {
 }
 
 struct SceneScriptPuppetBoneMutation: Equatable, Sendable {}
-struct SceneScriptVideoCommand: Equatable, Sendable {}
+struct SceneScriptMediaPlaybackCommand: Equatable, Sendable {}
 struct SceneScriptParticlePlaybackCommand: Equatable, Sendable {}
 
 struct SceneScriptOwnerEffects: Equatable, Sendable {
@@ -350,7 +350,7 @@ struct SceneScriptOwnerEffects: Equatable, Sendable {
     var animationMutations: [SceneTimelinePlaybackMutation] = []
     var layerMutations: [SceneScriptLayerMutation] = []
     var puppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
-    var videoCommands: [SceneScriptVideoCommand] = []
+    var mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand] = []
     var textureAnimationCommands: [SceneTextureAnimationCommand] = []
     var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
     var puppetAnimationCommands: [ScenePuppetAnimationCommand] = []
@@ -362,7 +362,7 @@ struct SceneScriptMediaEventMutations: Equatable, Sendable {
     var animations: [SceneTimelinePlaybackMutation] = []
     var layers: [SceneScriptLayerMutation] = []
     var puppetBones: [SceneScriptPuppetBoneMutation] = []
-    var videoCommands: [SceneScriptVideoCommand] = []
+    var mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand] = []
     var textureAnimationCommands: [SceneTextureAnimationCommand] = []
     var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
     var puppetAnimationCommands: [ScenePuppetAnimationCommand] = []

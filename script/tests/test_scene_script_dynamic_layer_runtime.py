@@ -72,7 +72,7 @@ nonisolated struct SceneScriptOwnerEffects: Sendable {
     var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
     var animationMutations: [SceneTimelinePlaybackMutation] = []
     var materialFunctionMutations: [Int] = []
-    var videoCommands: [Int] = [], textureAnimationCommands: [Int] = [], puppetBoneMutations: [Int] = []
+    var mediaPlaybackCommands: [Int] = [], textureAnimationCommands: [Int] = [], puppetBoneMutations: [Int] = []
     var puppetAnimationCommands: [Int] = []
     var puppetAnimationCallbackRegistrations: Int = 0
 }
@@ -457,8 +457,8 @@ enum Harness {
         )
         let projectionOwnerA = budgetOwnerA, projectionOwnerB = budgetOwnerB
         let projectionEffects = [
-            SceneScriptOwnerEffects(ownerTarget: projectionOwnerA, layerMutations: [], videoCommands: [-1]),
-            SceneScriptOwnerEffects(ownerTarget: projectionOwnerB, layerMutations: [], videoCommands: [2]),
+            SceneScriptOwnerEffects(ownerTarget: projectionOwnerA, layerMutations: [], mediaPlaybackCommands: [-1]),
+            SceneScriptOwnerEffects(ownerTarget: projectionOwnerB, layerMutations: [], mediaPlaybackCommands: [2]),
         ]
         var particleRejectedSets: [Set<SceneDynamicTarget>] = []
         var particleEligibleCommands: [[Int]] = []
@@ -466,24 +466,24 @@ enum Harness {
             projectionEffects,
             rejectingParticleTransitions: { _, admitted, rejected in
                 particleRejectedSets.append(rejected)
-                let commands = admitted.filter { !rejected.contains($0.ownerTarget) }.flatMap(\.videoCommands)
+                let commands = admitted.filter { !rejected.contains($0.ownerTarget) }.flatMap(\.mediaPlaybackCommands)
                 particleEligibleCommands.append(commands)
                 return commands.contains(-1) ? [projectionOwnerB] : []
             }
         ) { admitted in
-            Set(admitted.filter { $0.videoCommands.contains(-1) }.map(\.ownerTarget))
+            Set(admitted.filter { $0.mediaPlaybackCommands.contains(-1) }.map(\.ownerTarget))
         }
         var projectedCommandRounds: [[Int]] = []
         let laterRejection = projectionRuntime.preflightOwnerEffectsToFixedPoint(
             projectionEffects.map { owner in
                 .init(ownerTarget: owner.ownerTarget, layerMutations: [],
-                      videoCommands: owner.videoCommands.map(abs))
+                      mediaPlaybackCommands: owner.mediaPlaybackCommands.map(abs))
             },
             rejectingDependents: { rejected in
                 rejected.union([projectionOwnerA, budgetOwnerC])
             }
         ) { admitted in
-            projectedCommandRounds.append(admitted.flatMap(\.videoCommands))
+            projectedCommandRounds.append(admitted.flatMap(\.mediaPlaybackCommands))
             return []
         }
         let destroy = runtime.apply([mutation(-1, kind: .destroy, order: 2)])

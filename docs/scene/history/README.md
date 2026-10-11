@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-12 | Scene | 修复证据 | [Sound控制与Vector热更](sound-script-control-2026-10-12.md) | 普通layer共享媒体事务、首帧准备与属性回调登记；官方single重复play反例 | [脚本覆盖](../capabilities/scenescript-api-coverage.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-12 | Scene | 修复证据 | [文字终端越界与在途收尾](text-terminal-overflow-2026-10-12.md) | 文字末端变形复用既有终端链；广播作用域与缓存退旧收尾 | [终端合同](../architecture/runtime-architecture.md#terminal-material-raster)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-11 | Scene | 修复证据 | [Effect纹理缩减参数](effect-texture-reduction-2026-10-11.md) | 六段Skew恢复实际顶点执行、文字及条端倾斜；无新增尺寸owner | [运行合同](../architecture/runtime-architecture.md#effect-texture-reduction)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-11 | Scene | 修复证据 | [终端材质局部失败](terminal-replay-local-failure-2026-10-11.md) | 失败suffix保留有效终端提交，恢复启动；后继Skew修复见上项 | [运行合同](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |

@@ -7,7 +7,7 @@ nonisolated struct SceneScriptMediaFrameCoordinatorResult: Sendable {
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
-    let videoCommands: [SceneScriptVideoCommand]
+    let mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand]
     let ownerEffects: [SceneScriptOwnerEffects]
 
     init(
@@ -17,7 +17,7 @@ nonisolated struct SceneScriptMediaFrameCoordinatorResult: Sendable {
         materialFunctionMutations: [SceneScriptMaterialFunctionMutation],
         animationMutations: [SceneTimelinePlaybackMutation],
         layerMutations: [SceneScriptLayerMutation],
-        videoCommands: [SceneScriptVideoCommand],
+        mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand],
         ownerEffects: [SceneScriptOwnerEffects] = []
     ) {
         self.vector = vector
@@ -26,7 +26,7 @@ nonisolated struct SceneScriptMediaFrameCoordinatorResult: Sendable {
         self.materialFunctionMutations = materialFunctionMutations
         self.animationMutations = animationMutations
         self.layerMutations = layerMutations
-        self.videoCommands = videoCommands
+        self.mediaPlaybackCommands = mediaPlaybackCommands
         self.ownerEffects = ownerEffects
     }
 }
@@ -92,7 +92,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
         var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
         var animationMutations: [SceneTimelinePlaybackMutation] = []
         var layerMutations: [SceneScriptLayerMutation] = []
-        var videoCommands: [SceneScriptVideoCommand] = []
+        var mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand] = []
         var ownerEffects: [SceneScriptOwnerEffects] = []
         let observedVectorEvents = vectorProgram.observeMediaEvents(events)
         let observedStringEvents = stringProgram.observeMediaEvents(events)
@@ -131,7 +131,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
                     layers: frameResult.layerMutations,
                     ownedBy: frameResult.ownerEffects
                 )
-                videoCommands.append(contentsOf: frameResult.videoCommands)
+                mediaPlaybackCommands.append(contentsOf: frameResult.mediaPlaybackCommands)
                 vector.merge(frameResult)
             case .string:
                 let frameResult = stringProgram.evaluate(
@@ -196,7 +196,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
             layers: remainingVector.layerMutations,
             ownedBy: remainingVector.ownerEffects
         )
-        videoCommands.append(contentsOf: remainingVector.videoCommands)
+        mediaPlaybackCommands.append(contentsOf: remainingVector.mediaPlaybackCommands)
         vector.merge(remainingVector)
         let remainingString = stringProgram.evaluate(
             inputs: stringInputs,
@@ -239,7 +239,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
             materialFunctionMutations: materialFunctionMutations,
             animationMutations: animationMutations,
             layerMutations: layerMutations,
-            videoCommands: videoCommands,
+            mediaPlaybackCommands: mediaPlaybackCommands,
             ownerEffects: ownerEffects
         )
     }
@@ -252,7 +252,7 @@ private nonisolated struct VectorAccumulator {
     var materialFunctions: [SceneScriptMaterialFunctionMutation] = []
     var animations: [SceneTimelinePlaybackMutation] = []
     var layers: [SceneScriptLayerMutation] = []
-    var videoCommands: [SceneScriptVideoCommand] = []
+    var mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand] = []
     var videoCommandTargets: Set<SceneDynamicTarget> = []
     var ownerEffects: [SceneScriptOwnerEffects] = []
 
@@ -262,7 +262,7 @@ private nonisolated struct VectorAccumulator {
         materialFunctions.append(contentsOf: frame.materialFunctionMutations)
         animations.append(contentsOf: frame.animationMutations)
         layers.append(contentsOf: frame.layerMutations)
-        videoCommands.append(contentsOf: frame.videoCommands)
+        mediaPlaybackCommands.append(contentsOf: frame.mediaPlaybackCommands)
         videoCommandTargets.formUnion(frame.videoCommandTargets)
         ownerEffects.append(contentsOf: frame.ownerEffects)
     }
@@ -274,7 +274,7 @@ private nonisolated struct VectorAccumulator {
             materialFunctionMutations: materialFunctions,
             animationMutations: animations,
             layerMutations: layers,
-            videoCommands: videoCommands,
+            mediaPlaybackCommands: mediaPlaybackCommands,
             videoCommandTargets: videoCommandTargets,
             ownerEffects: ownerEffects
         )

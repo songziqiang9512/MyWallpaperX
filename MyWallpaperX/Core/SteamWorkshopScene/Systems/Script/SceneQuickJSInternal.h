@@ -27,7 +27,7 @@
 #define MWX_SCENE_QUICKJS_MAX_JOBS_PER_CALLBACK 64
 #define MWX_SCENE_QUICKJS_MAX_UNHANDLED_REJECTIONS 16
 #define MWX_SCENE_QUICKJS_MAX_OWNER_SOURCE_BYTES (256u * 1024u)
-#define MWX_SCENE_QUICKJS_MAX_VIDEO_COMMANDS 64
+#define MWX_SCENE_QUICKJS_MAX_MEDIA_PLAYBACK_COMMANDS 64
 #define MWX_SCENE_QUICKJS_MAX_TEXTURE_ANIMATION_COMMANDS 64
 #define MWX_SCENE_QUICKJS_MAX_PARTICLE_PLAYBACK_COMMANDS 64
 #define MWX_SCENE_QUICKJS_MAX_VIDEO_ENDED_CALLBACKS 16
@@ -115,6 +115,8 @@ typedef struct MWXSceneQuickJSLayerRecord {
     bool video_available;
     bool video_loop;
     bool video_is_playing;
+    bool sound_available;
+    bool sound_is_playing;
     double video_duration;
     double video_rate;
     double video_current_time;
@@ -154,6 +156,8 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     bool video_available;
     bool video_loop;
     bool video_is_playing;
+    bool sound_available;
+    bool sound_is_playing;
     double video_duration;
     double video_rate;
     double video_current_time;
@@ -365,8 +369,12 @@ struct MWXSceneQuickJSOwner {
     bool material_function_overflow;
     size_t animation_command_count;
     bool animation_command_overflow;
-    size_t video_command_count;
-    bool video_command_overflow;
+    size_t media_playback_command_count;
+    bool media_playback_command_overflow;
+    // Query projection only: commands before this callback retain their journal
+    // order but cannot stand in for a published playback observation.
+    uint64_t media_playback_callback_epoch;
+    size_t media_playback_callback_start;
     size_t particle_playback_command_count;
     bool particle_playback_command_overflow;
     MWXSceneQuickJSParticlePlaybackCommand particle_playback_commands[MWX_SCENE_QUICKJS_MAX_PARTICLE_PLAYBACK_COMMANDS];
@@ -462,8 +470,8 @@ struct MWXSceneQuickJSOwner {
     MWXSceneQuickJSAnimationCommandRecord animation_commands[
         MWX_SCENE_QUICKJS_MAX_ANIMATION_COMMANDS
     ];
-    MWXSceneQuickJSVideoCommand video_commands[
-        MWX_SCENE_QUICKJS_MAX_VIDEO_COMMANDS
+    MWXSceneQuickJSMediaPlaybackCommand media_playback_commands[
+        MWX_SCENE_QUICKJS_MAX_MEDIA_PLAYBACK_COMMANDS
     ];
     MWXSceneQuickJSTextureAnimationCommand texture_animation_commands[
         MWX_SCENE_QUICKJS_MAX_TEXTURE_ANIMATION_COMMANDS

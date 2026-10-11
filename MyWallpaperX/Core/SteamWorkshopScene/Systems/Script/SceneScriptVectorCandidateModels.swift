@@ -12,7 +12,7 @@ nonisolated struct SceneScriptValueEvaluation: Equatable, Sendable {
     let particlePlaybackCommands: [SceneScriptParticlePlaybackCommand]
     let puppetAnimationCommands: [ScenePuppetAnimationCommand]
     let puppetAnimationCallbackRegistrations: Int
-    let videoCommands: [SceneScriptVideoCommand]
+    let mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand]
     let textureAnimationCommands:
         [SceneTextureAnimationCommand]
 
@@ -22,7 +22,7 @@ nonisolated struct SceneScriptValueEvaluation: Equatable, Sendable {
         animationMutations: [SceneTimelinePlaybackMutation],
         layerMutations: [SceneScriptLayerMutation],
         puppetBoneMutations: [SceneScriptPuppetBoneMutation] = [],
-        videoCommands: [SceneScriptVideoCommand],
+        mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand],
         textureAnimationCommands:
             [SceneTextureAnimationCommand],
         particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = [],
@@ -39,7 +39,7 @@ nonisolated struct SceneScriptValueEvaluation: Equatable, Sendable {
         self.animationMutations = animationMutations
         self.layerMutations = layerMutations
         self.puppetBoneMutations = puppetBoneMutations
-        self.videoCommands = videoCommands
+        self.mediaPlaybackCommands = mediaPlaybackCommands
         self.textureAnimationCommands = textureAnimationCommands
     }
 }
@@ -209,7 +209,7 @@ extension SceneScriptOwnerEffects {
         materialFunctionMutations.append(contentsOf: evaluation.materialFunctionMutations)
         animationMutations.append(contentsOf: evaluation.animationMutations)
         layerMutations.append(contentsOf: evaluation.layerMutations)
-        videoCommands.append(contentsOf: evaluation.videoCommands)
+        mediaPlaybackCommands.append(contentsOf: evaluation.mediaPlaybackCommands)
         textureAnimationCommands.append(contentsOf: evaluation.textureAnimationCommands)
         particlePlaybackCommands.append(contentsOf: evaluation.particlePlaybackCommands)
         puppetBoneMutations.append(contentsOf: evaluation.puppetBoneMutations)
@@ -221,7 +221,7 @@ extension SceneScriptOwnerEffects {
         materialFunctionMutations.append(contentsOf: mutations.materialFunctions)
         animationMutations.append(contentsOf: mutations.animations)
         layerMutations.append(contentsOf: mutations.layers)
-        videoCommands.append(contentsOf: mutations.videoCommands)
+        mediaPlaybackCommands.append(contentsOf: mutations.mediaPlaybackCommands)
         textureAnimationCommands.append(contentsOf: mutations.textureAnimationCommands)
         particlePlaybackCommands.append(contentsOf: mutations.particlePlaybackCommands)
         puppetBoneMutations.append(contentsOf: mutations.puppetBones)

@@ -38,7 +38,7 @@ import simd
         }
         func effects(_ owner:SceneScriptValueOwner,_ value:SceneScriptValueEvaluation) -> SceneScriptOwnerEffects {
             var result = SceneScriptOwnerEffects(ownerTarget:owner.target,materialFunctionMutations:[],
-                animationMutations:[],layerMutations:[],videoCommands:[])
+                animationMutations:[],layerMutations:[],mediaPlaybackCommands:[])
             result.append(value);return result
         }
         struct Values {let values:[SceneDynamicTarget:SceneDynamicValue]}

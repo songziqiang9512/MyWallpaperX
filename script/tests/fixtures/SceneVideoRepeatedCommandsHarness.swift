@@ -8,7 +8,7 @@ import CryptoKit
 // AVPlayer, pixel decoding, Metal textures, lifecycle and command execution are production code.
 struct SceneFrameTiming { let frameIndex: UInt64; let hostTime: Double; let sceneTime: Double }
 struct SceneScriptVideoPlaybackSnapshot { let layerID: Int; let duration: Double; let rate: Double; let loop: Bool; let currentTime: Double; let isPlaying: Bool; let endedGeneration: UInt64 }
-struct SceneScriptVideoCommand { enum Action { case play, pause, stop, setCurrentTime(Double), setRate(Double), setLoop(Bool) }; let layerID: Int; let action: Action }
+struct SceneScriptMediaPlaybackCommand { enum Action { case play, pause, stop, setCurrentTime(Double), setRate(Double), setLoop(Bool) }; let layerID: Int; let action: Action }
 enum ColorRepresentation { case opaque, premultipliedAlpha }
 enum ColorResolution { case resolved(ColorRepresentation), unresolved }
 enum SceneTextureContent { case color(ColorResolution) }
@@ -76,7 +76,7 @@ struct SceneTextureProviderPublication { let requestIdentity: FrameIdentity; let
   let start=CACurrentMediaTime();var frame:UInt64=0;var generation:UInt64=0
   var last:SceneVideoTextureSource.Frame?
   func timing()->SceneFrameTiming {let now=CACurrentMediaTime();frame+=1;return .init(frameIndex:frame,hostTime:now,sceneTime:now-start)}
-  func command(_ action:SceneScriptVideoCommand.Action) {source.apply(.init(layerID:7,action:action),timing:timing())}
+  func command(_ action:SceneScriptMediaPlaybackCommand.Action) {source.apply(.init(layerID:7,action:action),timing:timing())}
   func pump(_ seconds:Double,untilFirst:Bool=false)->[[Any]] {
    let end=CACurrentMediaTime()+seconds;var rows:[[Any]]=[]
    var anchorPending=true

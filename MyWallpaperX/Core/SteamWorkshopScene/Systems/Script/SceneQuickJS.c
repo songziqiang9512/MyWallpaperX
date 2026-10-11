@@ -651,7 +651,7 @@ static MWXSceneQuickJSResult call_primitive(
         );
         JS_FreeValue(domain->context, result);
         if (owner->material_function_overflow || owner->animation_command_overflow ||
-            owner->video_command_overflow || owner->texture_animation_command_overflow || owner->particle_playback_command_overflow ||
+            owner->media_playback_command_overflow || owner->texture_animation_command_overflow || owner->particle_playback_command_overflow ||
             owner->storage_mutation_overflow) {
             write_diagnostic(
                 diagnostic,
@@ -662,8 +662,8 @@ static MWXSceneQuickJSResult call_primitive(
                     ? "localStorage mutation buffer exceeded"
                     : (owner->texture_animation_command_overflow
                     ? "texture animation command buffer exceeded"
-                    : (owner->video_command_overflow
-                    ? "video command buffer exceeded"
+                    : (owner->media_playback_command_overflow
+                    ? "media playback command buffer exceeded"
                     : (owner->animation_command_overflow
                         ? "animation command buffer exceeded"
                         : "material function mutation buffer exceeded")))
@@ -811,7 +811,7 @@ static MWXSceneQuickJSResult call_string(
         JS_FreeValue(domain->context, result);
         MWXSceneQuickJSResult result_code =
             owner->material_function_overflow || owner->animation_command_overflow ||
-                owner->video_command_overflow || owner->texture_animation_command_overflow || owner->particle_playback_command_overflow ||
+                owner->media_playback_command_overflow || owner->texture_animation_command_overflow || owner->particle_playback_command_overflow ||
             owner->storage_mutation_overflow
             ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW : failure;
         return discard_layer_mutations_after_failure(owner, result_code);
@@ -1091,7 +1091,7 @@ static MWXSceneQuickJSResult call_vector(
         JS_FreeValue(domain->context, result);
         MWXSceneQuickJSResult result_code =
             owner->material_function_overflow || owner->animation_command_overflow ||
-                owner->video_command_overflow || owner->texture_animation_command_overflow || owner->particle_playback_command_overflow ||
+                owner->media_playback_command_overflow || owner->texture_animation_command_overflow || owner->particle_playback_command_overflow ||
             owner->storage_mutation_overflow
             ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW : failure;
         return discard_layer_mutations_after_failure(owner, result_code);

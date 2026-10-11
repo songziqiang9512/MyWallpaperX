@@ -45,7 +45,7 @@ final class SceneDesktopWallpaperSession {
             try owner.evaluate(input:.scalar(value),frame:frame,scriptPropertiesJSON:"",userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil).get()
         }
         func effects(_ owner:SceneScriptValueOwner,_ evaluation:SceneScriptValueEvaluation)->SceneScriptOwnerEffects {
-            var result=SceneScriptOwnerEffects(ownerTarget:owner.target,materialFunctionMutations:[],animationMutations:[],layerMutations:[],videoCommands:[])
+            var result=SceneScriptOwnerEffects(ownerTarget:owner.target,materialFunctionMutations:[],animationMutations:[],layerMutations:[],mediaPlaybackCommands:[])
             result.append(evaluation);return result
         }
         var result:[String:Bool]=[:]

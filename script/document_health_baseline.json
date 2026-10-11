@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 171605
+      "bytes": 171774
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -98,7 +98,7 @@
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
-      "bytes": 174795
+      "bytes": 174488
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -118,7 +118,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 402,
-      "bytes": 96445
+      "bytes": 96659
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -181,8 +181,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 109,
-      "bytes": 24273
+      "lines": 121,
+      "bytes": 27281
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 241,
-      "bytes": 66932
+      "bytes": 67179
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1116,24 +1116,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "3afb89440e63afc89d5969dcfbab45b5a66765f4ce4a15f0bb2fa9a49916e4eb",
-      "after": "202c33e7f688ed2f62bf0a38ce14337b2185f7030ce2116a0318e06b2496b6d0",
-      "owner": "Scene命名Timeline",
-      "reason": "复用既有Timeline闭合跨层点击与timer，完成过程归历史并纠正已失效样本报告；新增权限及未覆盖边界明确登记。",
-      "decision": "docs/scene/history/named-timeline-interaction-2026-10-10.md#首断点与实现"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "62c30b582203e96e3ee0c3d3c467249e736e3a736498a1b4f443a2623abe301c",
-      "after": "d64bf8a764fc02bb9004ec36ee4b392026a34722d6142cf897c02e6d3b426be8",
-      "owner": "Scene TEX视频输入",
-      "reason": "N01真实大载荷修复更新能力与关闭门，沿既有reader/provider且保留未验边界。",
-      "decision": "docs/scene/history/embedded-webm-video-2026-10-10.md#large-video-payload"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "65fa2853afe8879b5554dc31e3421dc8daa0d3d2065834946f75e43765aa5be7",
       "after": "d56cf7956612651369cc728785ceae72730796b723d3634f9d38e3c293381eaa",
@@ -1179,12 +1161,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "d64bf8a764fc02bb9004ec36ee4b392026a34722d6142cf897c02e6d3b426be8",
+      "after": "a7118b84477356c98855d54466d049f4084d2862f0e1c9629460810526f6798f",
+      "owner": "scene-script-media",
+      "reason": "Replace obsolete Sound rejection state with one shared media transaction and bounded runtime acceptance; retain open capabilities in the existing queue.",
+      "decision": "docs/scene/history/sound-script-control-2026-10-12.md#首断点与实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "86133968c516efa7013b0f4acfa35926c1bf9f33788e129dd38cee0e5ea02828",
+      "after": "215ac680d2d805cb1bdac3506a752d02475fa250f2db01eeea224d54be9ad3e8",
+      "owner": "scene-script-media",
+      "reason": "Replace obsolete Sound rejection state with one shared media transaction and bounded runtime acceptance; retain open capabilities in the existing queue.",
+      "decision": "docs/scene/history/sound-script-control-2026-10-12.md#首断点与实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "202c33e7f688ed2f62bf0a38ce14337b2185f7030ce2116a0318e06b2496b6d0",
+      "after": "4dd581499c136615d378c94e0db2fa1ff799d1006dc81eff1a1962bb2903eb59",
+      "owner": "scene-script-media",
+      "reason": "Replace obsolete Sound rejection state with one shared media transaction and bounded runtime acceptance; retain open capabilities in the existing queue.",
+      "decision": "docs/scene/history/sound-script-control-2026-10-12.md#首断点与实现"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2b752efcf210e9a640ce68e52d23889da0e0af68115af78bff061d277867827f",
-      "after": "7284f00e97c882755f0599b3ee4f93c3817ec4da1c943cb0987134a87eeac9a3",
-      "owner": "Scene terminal text",
-      "reason": "复用现终端材质链接通单stage文字越界绘制，记录新反馈及验证边界，不扩写第二算法。",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#行为与范围"
+      "before": "7284f00e97c882755f0599b3ee4f93c3817ec4da1c943cb0987134a87eeac9a3",
+      "after": "dbd8f19dc65a1c3067c699d5539f1e3a13da5287abed067670ff6922fa621046",
+      "owner": "scene-script-media",
+      "reason": "Replace obsolete Sound rejection state with one shared media transaction and bounded runtime acceptance; retain open capabilities in the existing queue.",
+      "decision": "docs/scene/history/sound-script-control-2026-10-12.md#首断点与实现"
     }
   ]
 }

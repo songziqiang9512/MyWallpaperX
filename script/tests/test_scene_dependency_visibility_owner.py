@@ -122,9 +122,9 @@ enum Harness {
             "positiveMutations": positive.materialFunctionMutations.count
                 + positive.animationMutations.count
                 + positive.layerMutations.count,
-            "positiveVideoCommands": positive.videoCommands.count,
+            "positiveMediaPlaybackCommands": positive.mediaPlaybackCommands.count,
             "positiveVideoLayers": Array(Set(
-                positive.videoCommands.map(\.layerID)
+                positive.mediaPlaybackCommands.map(\.layerID)
             )).sorted(),
             "callbackFailureCode": rejected.failures[target]?.code ?? "",
             "callbackFailure": String(describing: rejected.failures[target]),
@@ -352,7 +352,7 @@ class SceneDependencyVisibilityOwnerTests(unittest.TestCase):
         self.assertTrue(self.value["positiveValue"])
         self.assertEqual(self.value["positiveFailures"], 0)
         self.assertEqual(self.value["positiveMutations"], 0)
-        self.assertGreaterEqual(self.value["positiveVideoCommands"], 8)
+        self.assertGreaterEqual(self.value["positiveMediaPlaybackCommands"], 8)
         self.assertEqual(self.value["positiveVideoLayers"], [21, 22])
 
     def test_callback_mutation_becomes_the_typed_visibility_value(self) -> None:

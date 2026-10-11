@@ -5,21 +5,31 @@ import Foundation
 /// Visual surfaces and the compositor never depend on this registry: a decode
 /// or playback failure is contained to the corresponding Sound layer.
 final class SceneSoundPlaybackRegistry {
+    enum CommandFailure: Error, Equatable {
+        case commandBudgetExceeded
+        case unavailableLayer(Int)
+        case invalidCommand(Int)
+    }
+
     private final class Source {
         let binding: SceneSoundPlaybackProgram.Binding
+        private let epoch: UInt64
         private let player = AVQueuePlayer()
         private let looper: AVPlayerLooper?
         private var currentItemObservation: NSKeyValueObservation?
         private var itemStatusObservation: NSKeyValueObservation?
         private var timeControlObservation: NSKeyValueObservation?
         private var stopped = false
-        private var wantsPlayback = false
+        private var wantsPlayback: Bool
+        private var hostPaused = true
         private var baseVolume: Double
         private var masterVolume = 1.0
         private var isMuted = false
 
         init(binding: SceneSoundPlaybackProgram.Binding, epoch: UInt64) {
             self.binding = binding
+            self.epoch = epoch
+            wantsPlayback = !binding.startsSilent
             baseVolume = binding.authoredVolume
             let item = AVPlayerItem(url: binding.resourceURL)
             // The loop/restart boundary is the only mode branch: `loop`
@@ -54,21 +64,66 @@ final class SceneSoundPlaybackRegistry {
 
         func start(paused: Bool) {
             guard !stopped else { return }
-            wantsPlayback = !paused
-            guard wantsPlayback else { return }
-            player.playImmediately(atRate: 1)
+            hostPaused = paused
+            reconcilePlayback()
         }
 
         func pause() {
             guard !stopped else { return }
-            wantsPlayback = false
+            hostPaused = true
             player.pause()
         }
 
         func resume() {
             guard !stopped else { return }
+            hostPaused = false
+            reconcilePlayback()
+        }
+
+        var isPlaying: Bool {
+            !stopped && wantsPlayback && !hostPaused
+                && player.currentItem != nil && player.rate > 0
+        }
+
+        func play() {
+            guard !stopped else { return }
+            // Repeating author play on an active single restarts it. Host
+            // suspension does not erase that author state; author pause does.
+            if !binding.loops, wantsPlayback, player.currentItem != nil {
+                player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+            }
             wantsPlayback = true
-            player.playImmediately(atRate: 1)
+            // Natural single completion empties the queue. Only an explicit
+            // author play rebuilds its item; host resume never restarts it.
+            if !binding.loops, player.currentItem == nil {
+                player.insert(AVPlayerItem(url: binding.resourceURL), after: nil)
+            }
+            reconcilePlayback()
+#if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-root") {
+                scheduleClockObservation(epoch: epoch)
+            }
+#endif
+        }
+
+        func pausePlayback() {
+            guard !stopped else { return }
+            wantsPlayback = false
+            player.pause()
+        }
+
+        func stopPlayback() {
+            pausePlayback()
+            guard !stopped, player.currentItem != nil else { return }
+            player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+        }
+
+        private func reconcilePlayback() {
+            if wantsPlayback, !hostPaused, player.currentItem != nil {
+                if player.rate != 1 { player.playImmediately(atRate: 1) }
+            } else {
+                player.pause()
+            }
         }
 
         func apply(volume: Double) {
@@ -128,7 +183,7 @@ final class SceneSoundPlaybackRegistry {
                 guard let self else { return }
                 switch item.status {
                 case .readyToPlay:
-                    if self.wantsPlayback {
+                    if !self.stopped, self.wantsPlayback, !self.hostPaused {
                         self.player.playImmediately(atRate: 1)
                     }
                     NSLog(
@@ -176,6 +231,7 @@ final class SceneSoundPlaybackRegistry {
     private var sources: [Int: Source] = [:]
     private var isMuted = false
     private var masterVolume: Double = 1.0
+    private var stopped = false
 
     init(program: SceneSoundPlaybackProgram, epoch: UInt64) {
         self.program = program
@@ -183,7 +239,7 @@ final class SceneSoundPlaybackRegistry {
     }
 
     func start(paused: Bool, userValues: [SceneDynamicTarget: SceneDynamicValue]) {
-        guard sources.isEmpty else { return }
+        guard !stopped, sources.isEmpty else { return }
         for binding in program.bindings {
             let source = Source(binding: binding, epoch: epoch)
             if let volume = volume(for: binding, userValues: userValues) {
@@ -230,6 +286,46 @@ final class SceneSoundPlaybackRegistry {
         sources.values.forEach { $0.resume() }
     }
 
+    func sceneScriptSnapshots() -> [Int: Bool] {
+        sources.mapValues(\.isPlaying)
+    }
+
+    func validate(
+        _ commands: [SceneScriptMediaPlaybackCommand]
+    ) -> Result<Void, CommandFailure> {
+        guard commands.count <= 64 else { return .failure(.commandBudgetExceeded) }
+        for (index, command) in commands.enumerated() {
+            guard !stopped, sources[command.layerID] != nil else {
+                return .failure(.unavailableLayer(command.layerID))
+            }
+            guard command.destination == .soundLayer else { return .failure(.invalidCommand(index)) }
+            switch command.action {
+            case .play, .pause, .stop: break
+            case .setCurrentTime, .setRate, .setLoop: return .failure(.invalidCommand(index))
+            }
+        }
+        return .success(())
+    }
+
+    func apply(
+        _ commands: [SceneScriptMediaPlaybackCommand]
+    ) -> Result<Void, CommandFailure> {
+        switch validate(commands) {
+        case let .failure(failure): return .failure(failure)
+        case .success: break
+        }
+        for command in commands {
+            guard let source = sources[command.layerID] else { continue }
+            switch command.action {
+            case .play: source.play()
+            case .pause: source.pausePlayback()
+            case .stop: source.stopPlayback()
+            case .setCurrentTime, .setRate, .setLoop: break // Rejected above, before any action.
+            }
+        }
+        return .success(())
+    }
+
     /// 静音门（M0.2）：作用于全部已存在的 Sound 层；随后新建的
     /// 层经 start() 继承当前静音态。
     func setMuted(_ muted: Bool) {
@@ -246,7 +342,14 @@ final class SceneSoundPlaybackRegistry {
         sources.values.forEach { $0.setMasterVolume(volume) }
     }
 
+    func retire(layerIDs: Set<Int>) {
+        for layerID in layerIDs {
+            sources.removeValue(forKey: layerID)?.stop()
+        }
+    }
+
     func stop() {
+        stopped = true
         sources.values.forEach { $0.stop() }
         sources.removeAll()
     }

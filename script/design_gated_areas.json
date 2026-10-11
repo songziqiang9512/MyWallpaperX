@@ -413,6 +413,21 @@
         "textureReductionScale",
         "g_TextureReductionScale"
       ]
+    },
+    {
+      "id": "scene-sound-script-control",
+      "title": "Sound脚本控制复用媒体事务",
+      "owner": "SceneScript / SceneSoundPlaybackRegistry",
+      "status": "approved",
+      "designDoc": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "design_notes": "2026-10-12 决策先于实现：泛化既有Video命令通道携带明确destination，唯一预算与owner事务；Sound意图独立于宿主pause，旧Video类型名退出。批准不等于播放验收。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlayback*.swift"
+      ],
+      "contentPatterns": [
+        "SceneScriptMediaPlaybackCommand",
+        "sound_is_playing"
+      ]
     }
   ]
 }

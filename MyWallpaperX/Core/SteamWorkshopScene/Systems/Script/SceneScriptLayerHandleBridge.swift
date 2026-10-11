@@ -25,7 +25,8 @@ nonisolated struct SceneScriptVideoPlaybackSnapshot: Equatable, Sendable {
     let endedGeneration: UInt64
 }
 
-nonisolated struct SceneScriptVideoCommand: Equatable, Sendable {
+nonisolated struct SceneScriptMediaPlaybackCommand: Equatable, Sendable {
+    enum Destination: Equatable, Sendable { case videoTexture, soundLayer }
     enum Action: Equatable, Sendable {
         case play
         case pause
@@ -35,8 +36,15 @@ nonisolated struct SceneScriptVideoCommand: Equatable, Sendable {
         case setLoop(Bool)
     }
 
+    let destination: Destination
     let layerID: Int
     let action: Action
+
+    init(layerID: Int, action: Action, destination: Destination = .videoTexture) {
+        self.destination = destination
+        self.layerID = layerID
+        self.action = action
+    }
 }
 
 nonisolated struct SceneScriptPuppetBoneMutation: Equatable, Sendable {
@@ -89,7 +97,7 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
     var materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     var animationMutations: [SceneTimelinePlaybackMutation]
     var layerMutations: [SceneScriptLayerMutation]
-    var videoCommands: [SceneScriptVideoCommand]
+    var mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand]
     var textureAnimationCommands:
         [SceneTextureAnimationCommand]
     var puppetBoneMutations: [SceneScriptPuppetBoneMutation]
@@ -102,7 +110,7 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
         materialFunctionMutations: [SceneScriptMaterialFunctionMutation],
         animationMutations: [SceneTimelinePlaybackMutation],
         layerMutations: [SceneScriptLayerMutation],
-        videoCommands: [SceneScriptVideoCommand],
+        mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand],
         textureAnimationCommands:
             [SceneTextureAnimationCommand] = [],
         puppetBoneMutations: [SceneScriptPuppetBoneMutation] = [],
@@ -116,7 +124,7 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
         self.materialFunctionMutations = materialFunctionMutations
         self.animationMutations = animationMutations
         self.layerMutations = layerMutations
-        self.videoCommands = videoCommands
+        self.mediaPlaybackCommands = mediaPlaybackCommands
         self.textureAnimationCommands = textureAnimationCommands
         self.particlePlaybackCommands = particlePlaybackCommands
         self.puppetBoneMutations = puppetBoneMutations
@@ -124,7 +132,7 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
 
     var isEmpty: Bool {
         materialFunctionMutations.isEmpty && animationMutations.isEmpty
-            && layerMutations.isEmpty && videoCommands.isEmpty
+            && layerMutations.isEmpty && mediaPlaybackCommands.isEmpty
             && textureAnimationCommands.isEmpty
             && puppetBoneMutations.isEmpty && particlePlaybackCommands.isEmpty
             && puppetAnimationCommands.isEmpty && puppetAnimationCallbackRegistrations == 0
@@ -153,20 +161,20 @@ nonisolated enum SceneScriptParticlePlaybackCommandBridge {
     }
 }
 
-nonisolated enum SceneScriptVideoCommandBridge {
+nonisolated enum SceneScriptMediaPlaybackCommandBridge {
     static func commands(
         owner: OpaquePointer
-    ) -> Result<[SceneScriptVideoCommand], SceneScriptScalarRuntimeFailure> {
-        let count = mwx_scene_quickjs_owner_video_command_count(owner)
+    ) -> Result<[SceneScriptMediaPlaybackCommand], SceneScriptScalarRuntimeFailure> {
+        let count = mwx_scene_quickjs_owner_media_playback_command_count(owner)
         guard count <= 64 else {
-            return .failure(.mutationOverflow("video command buffer exceeded"))
+            return .failure(.mutationOverflow("media playback command buffer exceeded"))
         }
-        var output: [SceneScriptVideoCommand] = []
+        var output: [SceneScriptMediaPlaybackCommand] = []
         output.reserveCapacity(count)
         for index in 0..<count {
-            var raw = MWXSceneQuickJSVideoCommand()
+            var raw = MWXSceneQuickJSMediaPlaybackCommand()
             var diagnostic = [CChar](repeating: 0, count: 512)
-            let result = mwx_scene_quickjs_owner_video_command_at(
+            let result = mwx_scene_quickjs_owner_media_playback_command_at(
                 owner, index, &raw, &diagnostic, diagnostic.count
             )
             guard result == MWX_SCENE_QUICKJS_OK,
@@ -176,24 +184,30 @@ nonisolated enum SceneScriptVideoCommandBridge {
                   raw.bool_value <= 1 else {
                 return .failure(.invalidArgument(String(cString: diagnostic)))
             }
-            let action: SceneScriptVideoCommand.Action
+            let destination: SceneScriptMediaPlaybackCommand.Destination
+            switch raw.destination {
+            case 0: destination = .videoTexture
+            case 1: destination = .soundLayer
+            default: return .failure(.invalidArgument("unknown media playback destination"))
+            }
+            let action: SceneScriptMediaPlaybackCommand.Action
             switch raw.kind {
-            case UInt32(MWX_SCENE_QUICKJS_VIDEO_PLAY.rawValue):
+            case UInt32(MWX_SCENE_QUICKJS_MEDIA_PLAY.rawValue):
                 action = .play
-            case UInt32(MWX_SCENE_QUICKJS_VIDEO_PAUSE.rawValue):
+            case UInt32(MWX_SCENE_QUICKJS_MEDIA_PAUSE.rawValue):
                 action = .pause
-            case UInt32(MWX_SCENE_QUICKJS_VIDEO_STOP.rawValue):
+            case UInt32(MWX_SCENE_QUICKJS_MEDIA_STOP.rawValue):
                 action = .stop
-            case UInt32(MWX_SCENE_QUICKJS_VIDEO_SET_CURRENT_TIME.rawValue):
+            case UInt32(MWX_SCENE_QUICKJS_MEDIA_SET_CURRENT_TIME.rawValue):
                 action = .setCurrentTime(raw.number_value)
-            case UInt32(MWX_SCENE_QUICKJS_VIDEO_SET_RATE.rawValue):
+            case UInt32(MWX_SCENE_QUICKJS_MEDIA_SET_RATE.rawValue):
                 action = .setRate(raw.number_value)
-            case UInt32(MWX_SCENE_QUICKJS_VIDEO_SET_LOOP.rawValue):
+            case UInt32(MWX_SCENE_QUICKJS_MEDIA_SET_LOOP.rawValue):
                 action = .setLoop(raw.bool_value != 0)
             default:
-                return .failure(.invalidArgument("unknown video command"))
+                return .failure(.invalidArgument("unknown media playback command"))
             }
-            output.append(.init(layerID: Int(raw.layer_id), action: action))
+            output.append(.init(layerID: Int(raw.layer_id), action: action, destination: destination))
         }
         return .success(output)
     }
@@ -639,6 +653,7 @@ nonisolated extension SceneScriptQuickJSDomain {
         _ snapshot: SceneDynamicSnapshot,
         descriptor: SceneRenderDescriptor,
         videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:],
+        soundPlaybackSnapshots: [Int: Bool] = [:],
         textureAnimationSnapshots: [
             Int: SceneTextureAnimationSnapshot
         ] = [:],
@@ -687,6 +702,7 @@ nonisolated extension SceneScriptQuickJSDomain {
             snapshot,
             descriptor: descriptor,
             videoSnapshots: videoSnapshots,
+            soundPlaybackSnapshots: soundPlaybackSnapshots,
             particlePlaybackObservations: particlePlaybackObservations,
             particleInstanceLayerIDs: particleInstanceLayerIDs,
             textureAnimationSnapshots: textureAnimationSnapshots, destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs,

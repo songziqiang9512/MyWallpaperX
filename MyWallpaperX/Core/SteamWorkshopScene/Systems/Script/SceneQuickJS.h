@@ -177,21 +177,27 @@ typedef enum MWXSceneQuickJSAnimationCommand {
     MWX_SCENE_QUICKJS_ANIMATION_STOP = 3
 } MWXSceneQuickJSAnimationCommand;
 
-typedef enum MWXSceneQuickJSVideoCommandKind {
-    MWX_SCENE_QUICKJS_VIDEO_PLAY = 1,
-    MWX_SCENE_QUICKJS_VIDEO_PAUSE = 2,
-    MWX_SCENE_QUICKJS_VIDEO_STOP = 3,
-    MWX_SCENE_QUICKJS_VIDEO_SET_CURRENT_TIME = 4,
-    MWX_SCENE_QUICKJS_VIDEO_SET_RATE = 5,
-    MWX_SCENE_QUICKJS_VIDEO_SET_LOOP = 6
-} MWXSceneQuickJSVideoCommandKind;
+typedef enum MWXSceneQuickJSMediaPlaybackCommandKind {
+    MWX_SCENE_QUICKJS_MEDIA_PLAY = 1,
+    MWX_SCENE_QUICKJS_MEDIA_PAUSE = 2,
+    MWX_SCENE_QUICKJS_MEDIA_STOP = 3,
+    MWX_SCENE_QUICKJS_MEDIA_SET_CURRENT_TIME = 4,
+    MWX_SCENE_QUICKJS_MEDIA_SET_RATE = 5,
+    MWX_SCENE_QUICKJS_MEDIA_SET_LOOP = 6
+} MWXSceneQuickJSMediaPlaybackCommandKind;
 
-typedef struct MWXSceneQuickJSVideoCommand {
+typedef enum MWXSceneQuickJSMediaPlaybackDestination {
+    MWX_SCENE_QUICKJS_MEDIA_VIDEO_TEXTURE = 0,
+    MWX_SCENE_QUICKJS_MEDIA_SOUND_LAYER = 1
+} MWXSceneQuickJSMediaPlaybackDestination;
+
+typedef struct MWXSceneQuickJSMediaPlaybackCommand {
     uint32_t kind;
+    uint32_t destination;
     int64_t layer_id;
     double number_value;
     uint32_t bool_value;
-} MWXSceneQuickJSVideoCommand;
+} MWXSceneQuickJSMediaPlaybackCommand;
 
 // Prepared observations only; C owns no particle simulation or persistent intent.
 typedef struct MWXSceneQuickJSParticlePlaybackState {
@@ -488,6 +494,15 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_video_fields(
     size_t diagnostic_capacity
 );
 
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_sound_fields(
+    MWXSceneQuickJSDomain *domain,
+    uint32_t layer_index,
+    uint32_t available,
+    uint32_t is_playing,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_texture_animation_fields(
     MWXSceneQuickJSDomain *domain,
     uint32_t layer_index,
@@ -555,14 +570,14 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
     size_t diagnostic_capacity
 );
 
-size_t mwx_scene_quickjs_owner_video_command_count(
+size_t mwx_scene_quickjs_owner_media_playback_command_count(
     const MWXSceneQuickJSOwner *owner
 );
 
-MWXSceneQuickJSResult mwx_scene_quickjs_owner_video_command_at(
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_media_playback_command_at(
     const MWXSceneQuickJSOwner *owner,
     size_t index,
-    MWXSceneQuickJSVideoCommand *command,
+    MWXSceneQuickJSMediaPlaybackCommand *command,
     char *diagnostic,
     size_t diagnostic_capacity
 );

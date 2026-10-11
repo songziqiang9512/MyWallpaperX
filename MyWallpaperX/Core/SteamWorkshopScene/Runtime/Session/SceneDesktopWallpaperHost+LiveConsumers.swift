@@ -31,6 +31,7 @@ extension SceneDesktopWallpaperHost {
         sceneScriptStringProgram: SceneScriptStringProgram
     ) -> ScenePropertyLiveUpdateState {
         let scriptUserPropertyConsumerTargetsByKey = [
+            propertyVectorScriptProgram.liveUserPropertyConsumerTargetsByKey,
             sceneScriptScalarProgram.liveUserPropertyConsumerTargetsByKey,
             sceneScriptStringProgram.liveUserPropertyConsumerTargetsByKey,
         ].reduce(into: [String: Set<SceneDynamicTarget>]()) { result, program in

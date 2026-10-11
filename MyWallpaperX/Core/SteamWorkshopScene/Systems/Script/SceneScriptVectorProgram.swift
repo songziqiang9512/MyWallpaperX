@@ -22,6 +22,12 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     private var cachedUserPropertiesJSONRevision: UInt64?
     private var cachedUserPropertiesJSON: String?
     private var scriptPropertiesJSONCache = SceneScriptPropertyInputJSONCache()
+    var liveUserPropertyConsumerTargetsByKey: [String: Set<SceneDynamicTarget>] {
+        let targets = Set(bindings.compactMap {
+            $0.owner.handlesUserProperties ? $0.definition.target : nil
+        })
+        return Dictionary(uniqueKeysWithValues: userPropertyKinds.keys.map { ($0, targets) })
+    }
     var activeLivePropertyInputTargets: Set<SceneDynamicTarget> {
         bindings.reduce(into: Set<SceneDynamicTarget>()) {
             if !disabledTargets.contains($1.definition.target) {
@@ -268,7 +274,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 authoredOrdinal: candidate.authoredOrdinal,
                 definition: candidate.definition,
                 properties: candidate.properties,
-                livePropertyInputTargets: candidate.livePropertyInputTargets,
+                livePropertyInputTargets: candidate.livePropertyInputTargets
+                    .union(owner.handlesUserProperties ? [target] : []),
                 hasCurrentAnimation: candidate.hasCurrentAnimation,
                 handlesMediaThumbnail: owner.handlesMediaThumbnail,
                 handlesMediaPlayback: owner.handlesMediaPlayback,
@@ -324,7 +331,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         var layerMutations: [SceneScriptLayerMutation] = []
         var puppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
         var puppetAnimationCommands: [ScenePuppetAnimationCommand] = []
-        var videoCommands: [SceneScriptVideoCommand] = []
+        var mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand] = []
         var videoCommandTargets: Set<SceneDynamicTarget> = []
         var ownerEffects: [SceneScriptOwnerEffects] = []
         let selectedBindingIndices: [Int]
@@ -419,7 +426,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             var callbackLayerMutations: [SceneScriptLayerMutation] = []
             var initializationLayerMutations: [SceneScriptLayerMutation] = []
             var callbackParticlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
-            var callbackVideoCommands: [SceneScriptVideoCommand] = []
+            var callbackMediaPlaybackCommands: [SceneScriptMediaPlaybackCommand] = []
             var callbackTextureAnimationCommands:
                 [SceneTextureAnimationCommand] = []
             var callbackPuppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
@@ -452,8 +459,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         initializationLayerMutations.append(
                             contentsOf: initialization.layerMutations
                         )
-                        callbackVideoCommands.append(
-                            contentsOf: initialization.videoCommands
+                        callbackMediaPlaybackCommands.append(
+                            contentsOf: initialization.mediaPlaybackCommands
                         )
                         callbackTextureAnimationCommands.append(
                             contentsOf: initialization.textureAnimationCommands
@@ -487,8 +494,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
-                    callbackVideoCommands.append(
-                        contentsOf: eventMutations.videoCommands
+                    callbackMediaPlaybackCommands.append(
+                        contentsOf: eventMutations.mediaPlaybackCommands
                     )
                     callbackTextureAnimationCommands.append(
                         contentsOf: eventMutations.textureAnimationCommands
@@ -532,8 +539,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
-                    callbackVideoCommands.append(
-                        contentsOf: eventMutations.videoCommands
+                    callbackMediaPlaybackCommands.append(
+                        contentsOf: eventMutations.mediaPlaybackCommands
                     )
                     callbackTextureAnimationCommands.append(
                         contentsOf: eventMutations.textureAnimationCommands
@@ -566,8 +573,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
-                    callbackVideoCommands.append(
-                        contentsOf: eventMutations.videoCommands
+                    callbackMediaPlaybackCommands.append(
+                        contentsOf: eventMutations.mediaPlaybackCommands
                     )
                     callbackTextureAnimationCommands.append(
                         contentsOf: eventMutations.textureAnimationCommands
@@ -601,8 +608,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
-                    callbackVideoCommands.append(
-                        contentsOf: eventMutations.videoCommands
+                    callbackMediaPlaybackCommands.append(
+                        contentsOf: eventMutations.mediaPlaybackCommands
                     )
                     callbackTextureAnimationCommands.append(
                         contentsOf: eventMutations.textureAnimationCommands
@@ -634,8 +641,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
-                    callbackVideoCommands.append(
-                        contentsOf: eventMutations.videoCommands
+                    callbackMediaPlaybackCommands.append(
+                        contentsOf: eventMutations.mediaPlaybackCommands
                     )
                     callbackTextureAnimationCommands.append(
                         contentsOf: eventMutations.textureAnimationCommands
@@ -724,7 +731,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     contentsOf: evaluation.animationMutations
                 )
                 callbackPuppetBoneMutations.append(contentsOf: evaluation.puppetBoneMutations)
-                callbackVideoCommands.append(contentsOf: evaluation.videoCommands)
+                callbackMediaPlaybackCommands.append(contentsOf: evaluation.mediaPlaybackCommands)
                 callbackTextureAnimationCommands.append(
                     contentsOf: evaluation.textureAnimationCommands
                 )
@@ -736,7 +743,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     materialFunctionMutations: callbackMaterialMutations,
                     animationMutations: callbackAnimationMutations,
                     layerMutations: callbackLayerMutations,
-                    videoCommands: callbackVideoCommands,
+                    mediaPlaybackCommands: callbackMediaPlaybackCommands,
                     textureAnimationCommands:
                         callbackTextureAnimationCommands,
                     puppetBoneMutations: callbackPuppetBoneMutations,
@@ -753,8 +760,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 layerMutations.append(contentsOf: callbackLayerMutations)
                 puppetBoneMutations.append(contentsOf: callbackPuppetBoneMutations)
                 puppetAnimationCommands.append(contentsOf: callbackPuppetAnimationCommands)
-                videoCommands.append(contentsOf: callbackVideoCommands)
-                if !callbackVideoCommands.isEmpty {
+                mediaPlaybackCommands.append(contentsOf: callbackMediaPlaybackCommands)
+                if !callbackMediaPlaybackCommands.isEmpty {
                     videoCommandTargets.insert(target)
                 }
                 if pendingMediaEvent != nil {
@@ -844,7 +851,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             materialFunctionMutations: materialFunctionMutations,
             animationMutations: animationMutations,
             layerMutations: layerMutations,
-            videoCommands: videoCommands,
+            mediaPlaybackCommands: mediaPlaybackCommands,
             videoCommandTargets: videoCommandTargets,
             ownerEffects: ownerEffects,
             puppetBoneMutations: puppetBoneMutations,

@@ -10,6 +10,7 @@ struct SceneSoundPlaybackProgram {
         let resourceURL: URL
         let displayPath: String
         let loops: Bool
+        let startsSilent: Bool
         let authoredVolume: Double
         let volumePropertyKey: String?
 
@@ -114,6 +115,7 @@ struct SceneSoundPlaybackProgram {
                     resourceURL: resource.url,
                     displayPath: resourceView.displayPath(for: resource.url),
                     loops: loops,
+                    startsSilent: sound.startsSilent == true,
                     authoredVolume: sound.volume ?? 1,
                     volumePropertyKey: sound.volumePropertyKey
                 )
@@ -142,7 +144,7 @@ struct SceneSoundPlaybackProgram {
         guard normalizedPlaybackMode(sound.playbackMode) != nil else {
             return (.playbackModeUnsupported, sound.playbackMode ?? "missing")
         }
-        guard sound.startsSilent == false else {
+        guard sound.startsSilent != nil else {
             return (.startsSilentUnsupported, String(describing: sound.startsSilent))
         }
         // `mintime` / `maxtime` are retained in the loss-preserving document,

@@ -128,7 +128,7 @@ final class SceneVideoTextureSourceRegistry {
     }
 
     func apply(
-        _ commands: [SceneScriptVideoCommand],
+        _ commands: [SceneScriptMediaPlaybackCommand],
         timing: SceneFrameTiming
     ) -> Result<Void, SceneVideoCommandApplicationFailure> {
         switch validatedSources(for: commands, timing: timing) {
@@ -145,7 +145,7 @@ final class SceneVideoTextureSourceRegistry {
     }
 
     func validate(
-        _ commands: [SceneScriptVideoCommand],
+        _ commands: [SceneScriptMediaPlaybackCommand],
         timing: SceneFrameTiming
     ) -> Result<Void, SceneVideoCommandApplicationFailure> {
         switch validatedSources(for: commands, timing: timing) {
@@ -155,7 +155,7 @@ final class SceneVideoTextureSourceRegistry {
     }
 
     private func validatedSources(
-        for commands: [SceneScriptVideoCommand],
+        for commands: [SceneScriptMediaPlaybackCommand],
         timing: SceneFrameTiming
     ) -> Result<[Int: [SceneVideoTextureSource]], SceneVideoCommandApplicationFailure> {
         guard commands.count <= 64 else {

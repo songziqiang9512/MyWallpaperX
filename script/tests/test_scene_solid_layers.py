@@ -69,6 +69,7 @@ SCENE_FIXTURE = {
         "cameraparallaxmouseinfluence": 1,
     },
     "objects": [
+        {"id": 901, "name": "Sound", "sound": ["sounds/a.mp3"], "playbackmode": "loop", "startsilent": True, "volume": 1},
         {
             "id": 10,
             "name": "Plain solid",
@@ -585,6 +586,8 @@ enum Harness {
             return (String(id), result)
         })
         let result: [String: Any] = [
+            "soundKind": layers[901]?.contentKind ?? "",
+            "soundRenderable": layers[901]?.isImageRenderable ?? true,
             "bloomProfiles": bloomProfiles,
             "solidSourceInputs": solidSourceInputs,
             "staticWorldSpaceTRS": staticWorldSpaceTRS,
@@ -748,6 +751,10 @@ class SceneSolidLayerTests(unittest.TestCase):
         # A fully static chain remains eligible.
         self.assertIn(165, eligible)
         self.assertIn(164, eligible)
+
+    def test_sound_layer_keeps_component_identity_without_rendering(self) -> None:
+        self.assertEqual(self.result["soundKind"], "sound")
+        self.assertFalse(self.result["soundRenderable"])
 
     def test_solid_layer_classification_and_renderability(self) -> None:
         self.assertEqual(self.result["contentKinds"], ["solid", "solid", "solid", "image"])

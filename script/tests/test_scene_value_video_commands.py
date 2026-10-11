@@ -10,7 +10,7 @@ HARNESS = r'''
 @main enum Harness {
     static let frame = SceneScriptFrameInput(timing:.init(wallDate:Date(timeIntervalSince1970:0),simulationFrameTime:0.016,sceneTime:1))
     static func commands(_ effects:[SceneScriptOwnerEffects], _ target:SceneDynamicTarget) -> [String] {
-        effects.filter{$0.ownerTarget==target}.flatMap{$0.videoCommands}.map { c in
+        effects.filter{$0.ownerTarget==target}.flatMap{$0.mediaPlaybackCommands}.map { c in
             let action:String
             switch c.action {
             case .play: action="play"
@@ -109,7 +109,7 @@ HARNESS = r'''
 }
 '''
 
-class SceneValueVideoCommandsTests(unittest.TestCase):
+class SceneValueMediaPlaybackCommandsTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with tempfile.TemporaryDirectory(prefix="mwx-value-video-vm-") as temp:
@@ -124,7 +124,7 @@ class SceneValueVideoCommandsTests(unittest.TestCase):
             self.assertEqual(self.value[key+"Failure"],"none")
             self.assertEqual(self.value[key],["1:loop:false","1:rate:2.0","1:pause","1:seek:3.0","1:play","1:stop","1:rate:1.0"])
 
-    def test_implicit_init_and_update_keep_video_commands(self):
+    def test_implicit_init_and_update_keep_media_playback_commands(self):
         for family in ("scalar","string"):
             self.assertEqual(self.value[family+"-implicitInit"],["1:loop:false","1:pause"])
 

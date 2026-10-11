@@ -34,7 +34,7 @@ HARNESS = r'''
         p.dispatch(batch:.init(samples:s,overflowed:false),frame:frame,userPropertiesJSON:"{}")
     }
     static func commands(_ r:SceneScriptCursorFrameResult,_ field:SceneDynamicLayerField = .origin) -> [String] {
-        r.ownerEffects.filter{$0.ownerTarget==target(field)}.flatMap{$0.videoCommands}.map { c in
+        r.ownerEffects.filter{$0.ownerTarget==target(field)}.flatMap{$0.mediaPlaybackCommands}.map { c in
             switch c.action {
             case .play:return "play"
             case .pause:return "pause"
@@ -57,7 +57,7 @@ HARNESS = r'''
         let p=try make([(.origin,source)])
         let first=dispatch(p,[sample(false),sample(true),sample(false)])
         out["ordered"]=commands(first);out["failures"]=first.failures.count
-        out["layers"]=first.ownerEffects.flatMap{$0.videoCommands}.map{$0.layerID}
+        out["layers"]=first.ownerEffects.flatMap{$0.mediaPlaybackCommands}.map{$0.layerID}
         p.finalizeLayerMutations(committing:true)
         out["idle"]=commands(dispatch(p,[sample(false)]));p.finalizeLayerMutations(committing:true)
 
@@ -84,7 +84,7 @@ HARNESS = r'''
 }
 '''
 
-class SceneCursorVideoCommandsTests(unittest.TestCase):
+class SceneCursorMediaPlaybackCommandsTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with tempfile.TemporaryDirectory(prefix="mwx-cursor-video-vm-") as temp:
@@ -92,7 +92,7 @@ class SceneCursorVideoCommandsTests(unittest.TestCase):
             run=subprocess.run([str(binary)],check=True,capture_output=True,text=True)
             cls.value=json.loads(run.stdout)
 
-    def test_init_and_cursor_preserve_video_command_order(self):
+    def test_init_and_cursor_preserve_media_playback_command_order(self):
         self.assertEqual(self.value["failures"],0)
         self.assertEqual(self.value["ordered"],["loop:false","pause","seek:3.0","rate:2.0","stop","play"])
         self.assertEqual(self.value["layers"],[1]*6)
@@ -104,7 +104,7 @@ class SceneCursorVideoCommandsTests(unittest.TestCase):
         self.assertEqual(self.value["peerRetry"],[])
         self.assertEqual(self.value["retryIdle"],[])
 
-    def test_callback_failure_discards_only_its_video_commands(self):
+    def test_callback_failure_discards_only_its_media_playback_commands(self):
         self.assertEqual(self.value["badFailure"],"exception")
         self.assertEqual(self.value["badCommands"],[])
         self.assertEqual(self.value["peer"],["play"])

@@ -99,7 +99,7 @@ extension SceneDesktopWallpaperSession {
         pendingEvaluation: SceneEvaluationTransaction.PendingEvaluation,
         pendingSharedLayerAlpha: SceneSharedLayerAlphaRuntime.PendingValues,
         animationMutations: [SceneTimelinePlaybackMutation],
-        videoCommands: [SceneScriptVideoCommand],
+        mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand],
         textureAnimationCommands:
             [SceneTextureAnimationCommand],
         puppetAnimationCommands: [ScenePuppetAnimationCommand],
@@ -120,16 +120,18 @@ extension SceneDesktopWallpaperSession {
                 timing.frameIndex
             )
         }
-        if !videoCommands.isEmpty,
-           case .success? = videoTextureSourceRegistry?.apply(
-               videoCommands, timing: timing
-           ) {
-            NSLog(
-                "MWX SceneScript VM: videoCommands=%d callback=committed frame=%llu route=generic-only",
-                videoCommands.count,
-                timing.frameIndex
-            )
+        for command in mediaPlaybackCommands {
+            switch command.destination {
+            case .videoTexture: _ = videoTextureSourceRegistry?.apply([command], timing: timing)
+            case .soundLayer: _ = soundPlaybackRegistry?.apply([command])
+            }
         }
+#if DEBUG
+        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow, !mediaPlaybackCommands.isEmpty {
+            NSLog("MWX DEBUG SCENE: mediaPlaybackCommands=%@ callback=committed frame=%llu",
+                String(describing: mediaPlaybackCommands), timing.frameIndex)
+        }
+#endif
         if !textureAnimationCommands.isEmpty,
            case .success = context.textureAnimationPlaybackRuntime.apply(
                textureAnimationCommands,
@@ -158,6 +160,7 @@ extension SceneDesktopWallpaperSession {
             context, plan: layerPlan,
             rejectedOwnerTargets: rejectedOwnerTargets
         )
+        soundPlaybackRegistry?.retire(layerIDs: layerPlan.destroyedAuthoredLayerIDs)
         finalizeSceneScriptLayerSnapshot(context)
         retireDestroyedSceneScriptOwners(
             context, layerIDs: layerPlan.destroyedAuthoredLayerIDs,

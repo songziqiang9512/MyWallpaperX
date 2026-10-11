@@ -3,7 +3,7 @@ import Foundation
 nonisolated struct SceneScriptOwnerEffectsRuntimeFailure: Sendable {
     enum Subsystem: String, Sendable {
         case animation = "animationCommands"
-        case video = "videoCommands"
+        case mediaPlayback = "mediaPlaybackCommands"
         case textureAnimation = "textureAnimationCommands"
         case puppetBone = "puppetBoneMutations"
         case puppetAnimation = "puppetAnimationCommands"
@@ -24,6 +24,7 @@ nonisolated enum SceneScriptOwnerEffectsRuntimeValidation {
         timelineRuntime: SceneTimelinePlaybackRuntime,
         textureAnimationRuntime: SceneTextureAnimationPlaybackRuntime,
         videoRegistry: SceneVideoTextureSourceRegistry?,
+        soundRegistry: SceneSoundPlaybackRegistry? = nil,
         timing: SceneFrameTiming,
         puppetAnimationRuntime: ScenePuppetAnimationPlaybackRuntime? = nil
     ) -> [SceneScriptOwnerEffectsRuntimeFailure] {
@@ -125,41 +126,42 @@ nonisolated enum SceneScriptOwnerEffectsRuntimeValidation {
             }
         }
 
-        let videoOwners = effects.filter { !$0.videoCommands.isEmpty }
-        let videoCommandCount = videoOwners.reduce(0) {
-            $0 + $1.videoCommands.count
+        let mediaOwners = effects.filter { !$0.mediaPlaybackCommands.isEmpty }
+        let mediaCommandCount = mediaOwners.reduce(0) {
+            $0 + $1.mediaPlaybackCommands.count
         }
-        if videoCommandCount > 64 {
-            failures.append(contentsOf: videoOwners.map { owner in
+        if mediaCommandCount > 64 {
+            failures.append(contentsOf: mediaOwners.map { owner in
                 .init(
                     ownerTarget: owner.ownerTarget,
-                    subsystem: .video,
-                    commandCount: owner.videoCommands.count,
-                    reason: "frame video command budget exceeded"
+                    subsystem: .mediaPlayback,
+                    commandCount: owner.mediaPlaybackCommands.count,
+                    reason: "frame media playback command budget exceeded"
                 )
             })
             return failures
         }
-        for owner in videoOwners {
-            guard let videoRegistry else {
-                failures.append(.init(
-                    ownerTarget: owner.ownerTarget,
-                    subsystem: .video,
-                    commandCount: owner.videoCommands.count,
-                    reason: "registry unavailable"
-                ))
-                continue
+        for owner in mediaOwners {
+            let video = owner.mediaPlaybackCommands.filter { $0.destination == .videoTexture }
+            let sound = owner.mediaPlaybackCommands.filter { $0.destination == .soundLayer }
+            var reason: String?
+            if !video.isEmpty {
+                if let videoRegistry {
+                    if case let .failure(failure) = videoRegistry.validate(video, timing: timing) {
+                        reason = String(describing: failure)
+                    }
+                } else { reason = "video registry unavailable" }
             }
-            if case let .failure(failure) = videoRegistry.validate(
-                owner.videoCommands,
-                timing: timing
-            ) {
-                failures.append(.init(
-                    ownerTarget: owner.ownerTarget,
-                    subsystem: .video,
-                    commandCount: owner.videoCommands.count,
-                    reason: String(describing: failure)
-                ))
+            if reason == nil, !sound.isEmpty {
+                if let soundRegistry {
+                    if case let .failure(failure) = soundRegistry.validate(sound) {
+                        reason = String(describing: failure)
+                    }
+                } else { reason = "sound registry unavailable" }
+            }
+            if let reason {
+                failures.append(.init(ownerTarget: owner.ownerTarget, subsystem: .mediaPlayback,
+                    commandCount: owner.mediaPlaybackCommands.count, reason: reason))
             }
         }
         return failures
