@@ -19,7 +19,8 @@
 | Sampler 声明、绑定与缓存身份 | [声明/缓存修复记录](#e-2026-10-01-sampler-baseline-repair) |
 | 生命周期与发布完整性 | [生命周期完整性记录](#e-2026-10-01-lifecycle-integrity) |
 | 动态层顺序同步 | [排序后验](../history/dynamic-layer-order-2026-10-12.md)：同回调属性写入与跨回调插入恢复实际遮挡顺序，旧Swift索引重排退出；379独立原包频谱仍可见，288黑遮挡与特殊clone失败未解。 |
-| 动态图片创建几何 | [普通图片实际尺寸](../history/dynamic-layer-geometry-2026-10-12.md)：autosize三态的9格动态输出已验，String/Vec2与省略尺寸分别恢复作者extent；自然尺寸不取GPU缩减尺寸，提前查询复用每owner原资源映射，避免简写路径误拒绝。特殊资源、静态autosize及完整wrapper仍开放。 |
+| 普通静态图片尺寸 | [自动尺寸](../history/static-image-autosize-2026-10-12.md)：原资源头部尺寸经同一prepared sizeWH供getter/cursor/绘制，TEX/改名PNG及model宽高共24格首/后帧实际像素已验；原延迟加载保留。两份独立原包未见布局回归，不计全样本parity。 |
+| 动态图片创建几何 | [普通图片实际尺寸](../history/dynamic-layer-geometry-2026-10-12.md)：autosize三态的9格动态输出已验，String/Vec2与省略尺寸分别恢复作者extent；自然尺寸不取GPU缩减尺寸，提前查询复用每owner原资源映射，避免简写路径误拒绝。特殊资源与完整wrapper仍开放。 |
 | 图层透视状态 | [有界后验](../history/layer-perspective-2026-10-12.md)：脚本Bool经原事务/快照进入共享camera；同值显式override与camera-layer默认一致。自有fixture检查false→true→false真实几何，288与未参与实现的289复验；缺省FOV与特殊clone仍开放。 |
 | 初始配置与动态图片复用 | [N06限定后验](../history/initial-layer-configuration-2026-10-12.md)：288的34个origin TypeError消失；25个普通图片目标进入原创建/事务链，保留5个Puppet、1个composition、3个text包装；create几何后继见上项，不计整样本parity。 |
 | SceneScript 显隐准备与交互 | [统一显隐记录](#e-2026-09-27-unified-effect-visibility)、[事件显隐持久修复](../history/event-visibility-persistence-2026-10-10.md)：312两个浮动窗口恢复，四次属性热切无重建、两窗口拖动已验 |

@@ -56,7 +56,7 @@ extension SceneRenderDescriptor {
         // scaleXYZ: per-axis scale factor (3 floats, defaults to [1,1,1]).
         // anglesXYZ: rotation in radians around X/Y/Z (3 floats, defaults to [0,0,0]).
         var originXYZ: [Float]?
-        let sizeWH: [Float]?
+        var sizeWH: [Float]?
         var scaleXYZ: [Float]?
         var anglesXYZ: [Float]?
         let parallaxDepthXY: [Float]?
@@ -99,5 +99,19 @@ extension SceneRenderDescriptor {
                 ?? directionalLight?.intensity
         }
 
+    }
+}
+
+extension SceneRenderDescriptor {
+    /// Launch-prepared logical geometry. Authored configuration and all other
+    /// fields retain their provenance while every consumer shares sizeWH.
+    func applyingPreparedImageGeometry(_ sizes: [Int: [Float]]) -> Self {
+        var prepared = self
+        for index in prepared.layers.indices {
+            if let size = sizes[prepared.layers[index].id] {
+                prepared.layers[index].sizeWH = size
+            }
+        }
+        return prepared
     }
 }

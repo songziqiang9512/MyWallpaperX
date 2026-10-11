@@ -93,8 +93,8 @@
       "bytes": 344941
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 103,
-      "bytes": 31303
+      "lines": 104,
+      "bytes": 31607
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -118,7 +118,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 402,
-      "bytes": 97972
+      "bytes": 98122
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -181,8 +181,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 173,
-      "bytes": 45261
+      "lines": 183,
+      "bytes": 48922
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 241,
-      "bytes": 69795
+      "bytes": 69821
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1171,38 +1171,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "1082729cacf02a3b09c4c849872058878b1479a17a048eccebb4012059005f4b",
-      "after": "877f169c546e4ed667230691278034ea8160b05d844bf354cae12c99b0b1c528",
-      "owner": "SceneScript shared topology",
-      "reason": "删除重复Swift排序，原C journal提供共同接纳顺序；替换已运行排序断点并保留真实样本剩余失败，历史保存实验与验证边界。",
-      "decision": "docs/scene/history/dynamic-layer-order-2026-10-12.md#通用语义与实现"
+      "before": "877f169c546e4ed667230691278034ea8160b05d844bf354cae12c99b0b1c528",
+      "after": "cb9395e423623180a979a6f6857a7a325ad2658766643b27c5a57f81d2c3889f",
+      "owner": "Scene static image geometry",
+      "reason": "原prepared metadata恢复普通静态autosize；替换队列已闭断点，历史保存真实像素与未覆盖边界。",
+      "decision": "docs/scene/history/static-image-autosize-2026-10-12.md#通用语义与实现"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "ea01c0eb09f3571d7cfefced1ed9caa0d235c6fc846a995fd5c6f851b2081964",
-      "after": "733dbd3e2f2feb9b275df672c4357b16eaf5d0097f17318e2d577611ad9596cf",
-      "owner": "SceneScript shared topology",
-      "reason": "删除重复Swift排序，原C journal提供共同接纳顺序；替换已运行排序断点并保留真实样本剩余失败，历史保存实验与验证边界。",
-      "decision": "docs/scene/history/dynamic-layer-order-2026-10-12.md#通用语义与实现"
+      "before": "733dbd3e2f2feb9b275df672c4357b16eaf5d0097f17318e2d577611ad9596cf",
+      "after": "38051fb48de3d15d4f48f345b07bbc0a0fb60a1970c5576627179be9021568fd",
+      "owner": "Scene static image geometry",
+      "reason": "原prepared metadata恢复普通静态autosize；替换队列已闭断点，历史保存真实像素与未覆盖边界。",
+      "decision": "docs/scene/history/static-image-autosize-2026-10-12.md#通用语义与实现"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "fd60ec9c5a16249aab9b17f06198a484837fcee94497f7c1431aabb593a26a3d",
-      "after": "d5ec471f5e37e28399d7912ba8a78fa90a27836cd5be3b6c3ab26ace49e9bf57",
-      "owner": "SceneScript shared topology",
-      "reason": "删除重复Swift排序，原C journal提供共同接纳顺序；替换已运行排序断点并保留真实样本剩余失败，历史保存实验与验证边界。",
-      "decision": "docs/scene/history/dynamic-layer-order-2026-10-12.md#通用语义与实现"
+      "before": "d5ec471f5e37e28399d7912ba8a78fa90a27836cd5be3b6c3ab26ace49e9bf57",
+      "after": "e0a8ff1e163c1739727a3ab030912ba0f92b8321588eeb17ae2da035f4a87eed",
+      "owner": "Scene static image geometry",
+      "reason": "原prepared metadata恢复普通静态autosize；替换队列已闭断点，历史保存真实像素与未覆盖边界。",
+      "decision": "docs/scene/history/static-image-autosize-2026-10-12.md#通用语义与实现"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "0592e13ee7fc9f166775438961036da6e35f8232d1e1b5050207dd0478efa108",
-      "after": "ccab827b6f6a54a5e4119341d5ae263fbf4c842749fc4fe4c386bc5de64d69f5",
-      "owner": "SceneScript shared topology",
-      "reason": "删除重复Swift排序，原C journal提供共同接纳顺序；替换已运行排序断点并保留真实样本剩余失败，历史保存实验与验证边界。",
-      "decision": "docs/scene/history/dynamic-layer-order-2026-10-12.md#通用语义与实现"
+      "before": "ccab827b6f6a54a5e4119341d5ae263fbf4c842749fc4fe4c386bc5de64d69f5",
+      "after": "a5759e64474ad0f7900adfb7c48c12f44a366ddb3b4869dfd4d56f1324aac90a",
+      "owner": "Scene static image geometry",
+      "reason": "原prepared metadata恢复普通静态autosize；替换队列已闭断点，历史保存真实像素与未覆盖边界。",
+      "decision": "docs/scene/history/static-image-autosize-2026-10-12.md#通用语义与实现"
     }
   ]
 }

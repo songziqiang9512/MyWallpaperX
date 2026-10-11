@@ -32,7 +32,7 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         source = Path(os.environ.get("MWX_PREPARED_BASE_IMAGE_SOURCE", PREPARATION))
         compile_result = subprocess.run(
             ["xcrun", "swiftc", "-swift-version", "5", str(source), str(RESOLVER),
-             str(BUILTIN), str(RENDER_STATE),
+             str(BUILTIN), str(RENDER_STATE), str(SCENE / "Format/SceneJSONValue.swift"),
              str(FIXTURE), "-framework", "Metal", "-module-cache-path",
              str(workspace / "modules"), "-o", str(binary)],
             capture_output=True, text=True, timeout=120,
@@ -48,6 +48,42 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
             raise unittest.SkipTest(cls.facts["skip"])
         if output := os.environ.get("MWX_PREPARED_BASE_IMAGE_RESULT"):
             Path(output).write_text(json.dumps(cls.facts, indent=2, sort_keys=True) + "\n")
+
+    def test_static_geometry_uses_natural_metadata_independent_of_dynamic_alias_admission(self) -> None:
+        for name in ("staticAuto", "staticAutoMissing", "staticBroad", "staticDeclaredAuto", "staticDeclaredExplicitAuto"):
+            self.assertEqual(self.facts[name]["geometry"]["1"], [20, 10])
+            self.assertTrue(self.facts[name]["geometryPublished"])
+        self.assertEqual(self.facts["staticAuto"]["geometry"]["2"], [20, 10])
+        self.assertEqual(self.facts["staticBroad"]["dynamicCount"], 0)
+
+    def test_missing_size_defaults_without_conflating_explicit_zero_or_model_size(self) -> None:
+        for name in ("staticDefault", "staticDefaultOmittedPolicy"):
+            self.assertEqual(self.facts[name]["geometry"], {"1": [1, 1]})
+        for name in ("staticManual", "staticOmittedPolicy", "staticExplicitZero", "staticDeclared",
+                     "staticSpecial", "staticSolid", "staticPuppet", "staticMissing", "staticPartialDeclaration",
+                     "staticRawNull", "staticRawArray", "staticRawValueNumber", "staticVideoAuto", "staticVideoManualDefault",
+                     "staticText", "staticNamedOutput", "staticSolidTexture"):
+            self.assertEqual(self.facts[name]["geometry"], {}, name)
+
+    def test_deferred_metadata_does_not_upload_or_mask_later_ready_outcome(self) -> None:
+        case = self.facts["staticDeferred"]
+        self.assertEqual(case["geometry"], {"1": [20, 10]})
+        self.assertEqual(case["loads"], 0)
+        self.assertEqual(case["loadedCount"], 0)
+        self.assertFalse(case["hasOutcome"])
+        self.assertTrue(case["pending"])
+        ready = self.facts["deferredReady"]
+        self.assertEqual(ready["beforeLoads"], 0)
+        self.assertTrue(ready["ready"])
+        self.assertTrue(ready["hasOutcome"])
+        self.assertTrue(ready["cancelRejectsRequest"])
+
+    def test_existing_task_metadata_stage_preserves_deferred_cancel_and_early_failure(self) -> None:
+        case = self.facts["taskStages"]
+        self.assertEqual(case["geometry"], [20, 10])
+        self.assertEqual(case["loads"], 0)
+        for key in ("deferredStillPending", "cancelledGeometry", "earlyFailure", "pausedBeforeMetadata", "pendingCancellation", "returnedBeforeWorkerRelease"):
+            self.assertTrue(case[key], key)
 
     def test_successful_entries_reuse_the_same_loaded_reference_without_loading(self) -> None:
         case = self.facts["shared"]

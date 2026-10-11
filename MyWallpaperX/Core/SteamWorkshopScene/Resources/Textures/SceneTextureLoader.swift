@@ -317,7 +317,11 @@ nonisolated final class SceneTextureLoader {
                 CGSize(width: $0.imageWidth, height: $0.imageHeight)
             }
         }
-        return directImageNaturalSizes[source]
+        if let prepared = directImageNaturalSizes[source] { return prepared }
+        guard let extent = SceneImageTextureUploader.sourceImageSize(from: url),
+              sourceKey(for: url) == source else { return nil }
+        directImageNaturalSizes[source] = extent
+        return extent
     }
 
     private func loadDirectImage(

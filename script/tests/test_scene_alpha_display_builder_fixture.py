@@ -104,6 +104,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Puppet/ScenePuppetAnimationControl.swift",
     SOURCE_ROOT / "Systems/Script/SceneScriptParticleProjection.swift",
     SOURCE_ROOT / "Systems/Script/SceneScriptLayerTopologyProjection.swift",
+    SOURCE_ROOT / "Systems/Script/SceneScriptCursorHitAdmission.swift",
     SOURCE_ROOT / "Systems/Timeline/SceneTimelineTargetCompiler.swift",
     SOURCE_ROOT / "Systems/Timeline/SceneTimelineTargetCompiler+Camera.swift",
     SOURCE_ROOT / "Rendering/Geometry/SceneLayerVisibility.swift",
@@ -505,7 +506,36 @@ enum Harness {
                 ],
             ]
         }
+        let preparedSizes: [Int: [Float]] = [10: [200,100], 20: [1,1]]
+        let preparedInput = model.runtimeInput.applyingPreparedImageGeometry(preparedSizes)
+        let preparedAuthored = model.authoredRenderDescriptor.applyingPreparedImageGeometry(preparedSizes)
+        let preparedLayers = preparedInput.renderDescriptor.layers
+        let naturalLayer = preparedLayers.first { $0.id == 10 }!
+        let defaultLayer = preparedLayers.first { $0.id == 20 }!
+        let preparedGeometry: [String: Any] = [
+            "naturalSize": naturalLayer.renderSizeWH ?? [], "defaultSize": defaultLayer.sizeWH ?? [],
+            "naturalCursorAccepted": SceneScriptCursorHitAdmission.accepts(naturalLayer),
+            "defaultCursorAccepted": SceneScriptCursorHitAdmission.accepts(defaultLayer),
+            "sameAuthoredSize": preparedAuthored.layers.first { $0.id == 10 }?.sizeWH == naturalLayer.sizeWH,
+            "configurationRetained": preparedLayers.map(\.initialConfiguration) == model.renderDescriptor.layers.map(\.initialConfiguration),
+            "authorSizeRetained": naturalLayer.size == model.renderDescriptor.layers.first { $0.id == 10 }?.size,
+            "peerUntouched": preparedLayers.first { $0.id == 30 }?.sizeWH == model.renderDescriptor.layers.first { $0.id == 30 }?.sizeWH,
+            "originalDescriptorUnchanged": model.renderDescriptor.layers.first { $0.id == 10 }?.sizeWH == [100,100]
+        ]
+        let catalogDimensions: [String: [String: Any]] = Dictionary(uniqueKeysWithValues:
+            model.assetCatalog.models.filter { $0.relativePath.hasPrefix("models/field-presence-") }.map {
+                ($0.relativePath, ["present": $0.hasDeclaredSizeFields, "parsed": $0.declaredSizeWH ?? []])
+            })
+        let rawSizePresence: [String: [String: Any]] = Dictionary(uniqueKeysWithValues:
+            model.renderDescriptor.layers.filter { $0.id >= 101 }.map { layer in
+                var present = false
+                if case let .object(authored)? = layer.initialConfiguration { present = authored["size"] != nil }
+                return (String(layer.id), ["present": present, "size": layer.sizeWH ?? []])
+            })
         let payload: [String: Any] = [
+            "rawSizePresence": rawSizePresence,
+            "catalogDimensions": catalogDimensions,
+            "preparedGeometry": preparedGeometry,
             "creationGeometry": creationGeometry(),
             "layers": layers,
             "visibleLayerIDs": SceneLayerVisibility.visibleLayerIDs(
@@ -537,6 +567,32 @@ def layer_result(payload: dict, layer_id: int) -> dict:
 
 
 class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
+    def test_prepared_geometry_is_shared_by_actual_descriptor_input_and_cursor_consumers(self) -> None:
+        geometry = self.result["preparedGeometry"]
+        self.assertEqual(geometry["naturalSize"], [200, 100])
+        self.assertEqual(geometry["defaultSize"], [1, 1])
+        for key in ("naturalCursorAccepted", "defaultCursorAccepted", "sameAuthoredSize",
+                    "configurationRetained", "authorSizeRetained", "peerUntouched", "originalDescriptorUnchanged"):
+            self.assertTrue(geometry[key], key)
+
+    def test_actual_model_parser_preserves_dimension_field_presence(self) -> None:
+        facts = self.result["catalogDimensions"]
+        absent = facts["models/field-presence-absent.json"]
+        self.assertFalse(absent["present"])
+        self.assertEqual(absent["parsed"], [])
+        for name in ("width", "height", "invalid"):
+            case = facts[f"models/field-presence-{name}.json"]
+            self.assertTrue(case["present"], name)
+            self.assertEqual(case["parsed"], [], name)
+        self.assertEqual(facts["models/field-presence-pair.json"], {"present": True, "parsed": [80, 40]})
+
+    def test_actual_layer_parser_distinguishes_size_key_absence_from_unsupported_values(self) -> None:
+        facts = self.result["rawSizePresence"]
+        for layer_id in (101, 102, 103, 104):
+            self.assertTrue(facts[str(layer_id)]["present"], layer_id)
+            self.assertEqual(facts[str(layer_id)]["size"], [0, 0])
+        self.assertEqual(facts["105"], {"present": False, "size": [0, 0]})
+
     def test_dynamic_creation_projection_preserves_geometry_and_rejects_neighbors(self) -> None:
         geometry = self.result["creationGeometry"]
         self.assertEqual(geometry["explicitSize"], [200, 100])
@@ -562,12 +618,28 @@ class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
         directory = Path(cls.temporary_directory.name)
         scene_root = directory / "fixture-scene"
         scene_root.mkdir()
-        (scene_root / "scene.json").write_text(
-            json.dumps(SCENE_FIXTURE), encoding="utf-8"
-        )
+        scene_fixture = json.loads(json.dumps(SCENE_FIXTURE))
+        for layer_id, raw in [(101, None), (102, []), (103, {"value": 0}), (104, {"value": "0 0"}), (105, "absent")]:
+            item = {"id": layer_id, "image": "models/field-presence-absent.json", "visible": False}
+            if raw != "absent":
+                item["size"] = raw
+            scene_fixture["objects"].append(item)
+        (scene_root / "scene.json").write_text(json.dumps(scene_fixture), encoding="utf-8")
         (scene_root / "project.json").write_text(
             json.dumps(PROJECT_FIXTURE), encoding="utf-8"
         )
+        (scene_root / "models").mkdir()
+        (scene_root / "materials").mkdir()
+        (scene_root / "materials/field-presence.json").write_text(json.dumps({"passes": [
+            {"shader": "genericimage2", "textures": ["materials/field-presence.png"], "combos": {"VERSION": 2}}
+        ]}))
+        import base64
+        (scene_root / "materials/field-presence.png").write_bytes(base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jWZkAAAAASUVORK5CYII="))
+        for name, fields in {"absent": {}, "width": {"width": 80}, "height": {"height": 40},
+                             "invalid": {"width": "invalid", "height": 40},
+                             "pair": {"width": 80, "height": 40}}.items():
+            (scene_root / "models" / f"field-presence-{name}.json").write_text(json.dumps({"material": "materials/field-presence.json", **fields}))
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         cls.binary = directory / "scene-alpha-display-builder"
@@ -607,7 +679,7 @@ class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
     def test_fixture_loads_without_missing_resources(self) -> None:
         self.assertEqual(self.result["missingResources"], [])
         self.assertEqual(
-            [l["id"] for l in self.result["layers"]], [10, 20, 30, 40, 50]
+            [l["id"] for l in self.result["layers"]], [10, 20, 30, 40, 50, 101, 102, 103, 104, 105]
         )
         # 本 fixture 无 shared-alpha 形态：shared 发布路径认领为零。
         self.assertEqual(self.result["sharedAlphaTargets"], [])

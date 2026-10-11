@@ -2679,6 +2679,29 @@
         "test_scene_puppet_mesh",
         "test_scene_puppet_animation"
       ]
+    },
+    {
+      "id": "scene-static-image-autosize",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneAssetCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeInput.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift",
+        "script/tests/test_scene_static_image_autosize.py",
+        "script/tests/test_scene_prepared_base_image_resources.py",
+        "script/tests/fixtures/ScenePreparedBaseImageResourcesHarness.swift"
+      ],
+      "modules": [
+        "test_scene_static_image_autosize",
+        "test_scene_prepared_base_image_resources",
+        "test_scene_alpha_display_builder_fixture",
+        "test_scene_deferred_property_integration",
+        "test_scene_script_create_geometry",
+        "test_scene_layer_cursor_geometry"
+      ]
     }
   ],
   "method_gates": {

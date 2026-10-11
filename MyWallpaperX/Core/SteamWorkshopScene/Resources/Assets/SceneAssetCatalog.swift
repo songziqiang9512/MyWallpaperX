@@ -13,6 +13,8 @@ struct SceneAssetCatalog {
         let cropOffsetXY: [Float]?
         let puppetPath: String?
         let puppetAttachments: [SceneMdlPuppetAttachment]
+        /// Presence differs from a successfully parsed width/height pair.
+        var hasDeclaredSizeFields: Bool = false
 
         var id: String { relativePath }
     }
@@ -219,7 +221,8 @@ struct SceneAssetCatalogLoader {
             declaredSizeWH: declaredModelSize(root),
             cropOffsetXY: parsedVector(root["cropoffset"], length: 2),
             puppetPath: puppetPath,
-            puppetAttachments: puppetAttachments
+            puppetAttachments: puppetAttachments,
+            hasDeclaredSizeFields: root["width"] != nil || root["height"] != nil
         )
     }
 

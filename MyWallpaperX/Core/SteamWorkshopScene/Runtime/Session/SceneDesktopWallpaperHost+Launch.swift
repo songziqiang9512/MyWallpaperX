@@ -278,8 +278,8 @@ extension SceneDesktopWallpaperHost {
         guard let cacheDirectory = model.packageReport?.outputURL else {
             throw SceneDesktopWallpaperHostLaunchError.missingPackageCache
         }
-        let runtimeInput = model.runtimeInput
-        let authoredRenderDescriptor = model.authoredRenderDescriptor
+        var runtimeInput = model.runtimeInput
+        var authoredRenderDescriptor = model.authoredRenderDescriptor
         guard let device = MTLCreateSystemDefaultDevice()
         else { throw SceneDesktopWallpaperHostLaunchError.noSurface }
         let textureUploadCommandQueue = SceneTextureUploadCommandQueue()
@@ -296,6 +296,7 @@ extension SceneDesktopWallpaperHost {
             sceneGeneration: sceneScriptGeneration,
             dynamicImageModelPaths: model.propertyVectorProjection.dynamicImageModelPaths,
             deferredBaseImageLayerIDs: deferredBaseImageLayerIDs,
+            imageGeometryModels: model.assetCatalog.models,
             textureUploadCommandQueue: textureUploadCommandQueue,
             textureDecodeCacheBudget: textureDecodeCacheBudget,
             cancellationCheck: { try cancellation?.check() }
@@ -305,6 +306,10 @@ extension SceneDesktopWallpaperHost {
             deviceResourcesPreparation.cancel()
             _ = try? deviceResourcesPreparation.value()
         }
+        let preparedImageGeometry = try deviceResourcesPreparation.preparedImageGeometry()
+        runtimeInput = runtimeInput.applyingPreparedImageGeometry(preparedImageGeometry)
+        authoredRenderDescriptor = authoredRenderDescriptor
+            .applyingPreparedImageGeometry(preparedImageGeometry)
         logPrepareStage("prepare-setup")
         let timelineProgram = SceneTimelineTargetCompiler.compile(
             descriptor: runtimeInput.renderDescriptor

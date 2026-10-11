@@ -20,6 +20,14 @@ struct SceneRuntimeInput: Codable {
         }
     }
 
+    func applyingPreparedImageGeometry(_ sizes: [Int: [Float]]) -> Self {
+        .init(renderDescriptor: renderDescriptor.applyingPreparedImageGeometry(sizes),
+            propertyBindingProgram: propertyBindingProgram,
+            effectivePropertyValues: effectivePropertyValues,
+            shaderContracts: shaderContracts,
+            scriptOwnedEffectVisibilityTargets: scriptOwnedEffectVisibilityTargets)
+    }
+
     init(
         renderDescriptor: SceneRenderDescriptor,
         propertyBindingProgram: ScenePropertyBindingProgram,

@@ -257,6 +257,19 @@ nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
 }
 
 nonisolated enum SceneImageTextureUploader {
+    /// Read the source pixel extent without creating a decoded image or GPU resource.
+    static func sourceImageSize(from url: URL) -> CGSize? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL,
+                [kCGImageSourceShouldCache: false] as CFDictionary),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
+                as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+              let height = properties[kCGImagePropertyPixelHeight] as? NSNumber,
+              width.doubleValue.isFinite, height.doubleValue.isFinite,
+              width.doubleValue > 0, height.doubleValue > 0 else { return nil }
+        return CGSize(width: width.doubleValue, height: height.doubleValue)
+    }
+
     /// ImageIO may erase RGB at zero alpha even when it reports straight RGBA.
     /// Keep the PNG source bytes for data consumers and the original color space
     /// for color consumers; both continue through the existing uploader/cache.
