@@ -72,7 +72,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         let (
             sourceCarriedAuxiliaryDataSlots,
             spatialWeightedColorBlendTypedAuxiliarySlots,
-            selectedMixedDataSlots,
+            selectedProviderDataSlots,
             activeExternalProviderTextureSlots,
             premultipliedColorAuxiliarySlots,
             spatialWeightedColorBlendExternalColorSlot,
@@ -146,7 +146,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             ),
             dataSlots: graphDataTextureSlots.union(typedStaticDataAuxiliarySlots)
                 .union(sourceCarriedAuxiliaryDataSlots)
-                .union(selectedMixedDataSlots),
+                .union(selectedProviderDataSlots),
             conditionalContract: conditionalGeneratedRGBInputContract
         )
         let (
@@ -176,7 +176,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             graphDataTextureSlots: graphDataTextureSlots,
             activeOpacityMaskSlots: activeOpacityMaskSlots,
             typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
-            selectedMixedDataSlots: selectedMixedDataSlots,
+            selectedProviderDataSlots: selectedProviderDataSlots,
             sourceCarriedAuxiliaryDataSlots: sourceCarriedAuxiliaryDataSlots,
             premultipliedColorAuxiliarySlots: premultipliedColorAuxiliarySlots,
             spatialWeightedColorBlendFact: spatialWeightedColorBlendFact,
@@ -295,7 +295,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             sourceProvenOpaqueColorSlots: sourceProvenOpaqueColorSlots,
             premultipliedColorInputSlots: premultipliedColorInputSlots,
             preservedChannelsProviderInputSlots:
-                selectedMixedDataSlots.union(
+                selectedProviderDataSlots.union(
                     sourceCarriedAuxiliaryDataSlots.intersection(
                         activeExternalProviderTextureSlots
                     )

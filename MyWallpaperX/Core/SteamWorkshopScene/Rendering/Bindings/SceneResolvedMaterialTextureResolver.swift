@@ -107,6 +107,8 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             repeating: nil,
             count: 8
         )
+        let regularNamedPurposeSlots = SceneResolvedMaterialVariantCache
+            .regularNamedProviderPurposeSlots(in: input.template, samplers: samplers)
         for (slot, selection) in selections.enumerated() {
             switch selection {
             case .absent: break
@@ -195,6 +197,14 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                             phase: .invariant,
                             slot: slot
                         )
+                    }
+                    selectedPurposes[slot] = purpose
+                } else if regularNamedPurposeSlots.contains(slot) {
+                    guard case .provider(.namedLayerTarget) = reference,
+                          let purpose,
+                          [.premultipliedColor, .preservedChannels].contains(purpose) else {
+                        throw failure(.textureVariantKeyIdentityInvariant,
+                                      phase: .invariant, slot: slot)
                     }
                     selectedPurposes[slot] = purpose
                 }

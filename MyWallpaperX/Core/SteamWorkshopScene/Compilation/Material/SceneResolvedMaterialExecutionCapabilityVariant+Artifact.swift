@@ -23,7 +23,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         graphDataTextureSlots: Set<Int>,
         activeOpacityMaskSlots: Set<Int>,
         typedStaticDataAuxiliarySlots: Set<Int>,
-        selectedMixedDataSlots: Set<Int>,
+        selectedProviderDataSlots: Set<Int>,
         sourceCarriedAuxiliaryDataSlots: Set<Int>,
         premultipliedColorAuxiliarySlots: Set<Int>,
         spatialWeightedColorBlendFact: SceneAuthoredShaderSpatialWeightedColorBlendFact?,
@@ -151,7 +151,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             activeOpacityMaskSlots: activeOpacityMaskSlots,
             typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
             preservedChannelsExternalProviderTextureSlots:
-                selectedMixedDataSlots.union(
+                selectedProviderDataSlots.union(
                     sourceCarriedAuxiliaryDataSlots.intersection(
                         activeExternalProviderTextureSlots
                     )

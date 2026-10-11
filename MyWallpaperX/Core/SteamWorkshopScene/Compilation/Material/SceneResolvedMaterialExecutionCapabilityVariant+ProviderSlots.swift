@@ -138,6 +138,28 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         })
     }
 
+    /// A single foreign named source has no lower-priority representation.
+    /// Prepare both publication purposes before frames; self-composite ingress
+    /// and candidate fallbacks retain their existing selection contracts.
+    static func regularNamedProviderPurposeSlots(
+        in template: Template,
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+    ) -> Set<Int> {
+        guard let consumerLayerID = template.effectContext?.key.layerID else { return [] }
+        return terminalNamedLayerProviderTextureSlots(
+            in: template, activeTextureSlots: Set(samplers.keys)
+        ).filter { slot in
+            guard let sampler = samplers[slot], sampler.mode == .regular,
+                  sampler.defaultTexture == nil,
+                  !sampler.usesGraphInputMaterialAlias,
+                  let candidates = template.textureSlots[slot]?.candidates,
+                  candidates.count == 1,
+                  case let .provider(.namedLayerTarget(reference)) =
+                    candidates[0].reference else { return false }
+            return reference.providerLayerID != consumerLayerID
+        }
+    }
+
     static func hasExternalProviderTexture(
         in template: Template,
         activeTextureSlots: Set<Int>? = nil

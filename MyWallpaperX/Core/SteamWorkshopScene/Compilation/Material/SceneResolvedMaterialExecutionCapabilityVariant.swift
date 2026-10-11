@@ -343,7 +343,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     purposeProfiles = try SceneResolvedMaterialTextureResolver
                         .launchSelectedTexturePurposeProfiles(
                             template: template,
-                            samplers: samplers
+                            samplers: samplers,
+                            readinessMask: mask
                         )
                 } catch let failure as Failure {
                     return .failure(.material(failure))

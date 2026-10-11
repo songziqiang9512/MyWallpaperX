@@ -21,7 +21,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
     ) throws -> (
         sourceCarriedAuxiliaryDataSlots: Set<Int>,
         spatialWeightedColorBlendTypedAuxiliarySlots: Set<Int>,
-        selectedMixedDataSlots: Set<Int>,
+        selectedProviderDataSlots: Set<Int>,
         activeExternalProviderTextureSlots: Set<Int>,
         premultipliedColorAuxiliarySlots: Set<Int>,
         spatialWeightedColorBlendExternalColorSlot: Int?,
@@ -49,22 +49,25 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             samplers: sourceActiveSamplers
         )
         let mixedProviderSlots = Set(mixedProviderFacts.keys)
-        let selectedMixedDataSlots = Set(mixedProviderFacts.compactMap {
-            slot, _ in variantKey.selectedTexturePurposes[slot]
+        let selectedPurposeSlots = mixedProviderSlots.union(
+            regularNamedProviderPurposeSlots(in: template, samplers: sourceActiveSamplers)
+        ).filter { variantKey.readinessMask & (1 << UInt8($0)) != 0 }
+        let selectedProviderDataSlots = Set(selectedPurposeSlots.compactMap {
+            slot in variantKey.selectedTexturePurposes[slot]
                 == .preservedChannels ? slot : nil
         })
-        let selectedMixedPremultipliedSlots = Set(
-            mixedProviderFacts.compactMap { slot, _ in
+        let selectedProviderColorSlots = Set(
+            selectedPurposeSlots.compactMap { slot in
                 variantKey.selectedTexturePurposes[slot]
                     == .premultipliedColor ? slot : nil
             }
         )
-        guard selectedMixedDataSlots.union(selectedMixedPremultipliedSlots)
-                == mixedProviderSlots else {
+        guard selectedProviderDataSlots.union(selectedProviderColorSlots)
+                == selectedPurposeSlots else {
             throw failure(
                 .textureVariantKeyIdentityInvariant,
                 phase: .invariant,
-                details: ["mixed-provider-purpose-profile"]
+                details: ["provider-purpose-profile"]
             )
         }
         let activeSceneBackgroundTextureSlots = Set(
@@ -89,11 +92,11 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 in: template,
                 activeTextureSlots: Set(sourceActiveSamplers.keys)
             )
-            .subtracting(mixedProviderSlots)
+            .subtracting(selectedPurposeSlots)
             .subtracting(sourceCarriedAuxiliaryDataSlots)
         let activeTerminalNamedLayerProviderTextureSlots =
             staticallyTerminalNamedLayerProviderTextureSlots.union(
-                selectedMixedPremultipliedSlots
+                selectedProviderColorSlots.subtracting(sourceCarriedAuxiliaryDataSlots)
             )
         let premultipliedColorAuxiliarySlots =
             premultipliedAuxiliaryColorSlots(
@@ -206,7 +209,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         return (
             sourceCarriedAuxiliaryDataSlots,
             spatialWeightedColorBlendTypedAuxiliarySlots,
-            selectedMixedDataSlots,
+            selectedProviderDataSlots,
             activeExternalProviderTextureSlots,
             premultipliedColorAuxiliarySlots,
             spatialWeightedColorBlendExternalColorSlot,

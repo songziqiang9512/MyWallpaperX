@@ -26,6 +26,7 @@ NAMED_PROVIDER_FIXTURE = REPOSITORY_ROOT / "script/tests/fixtures/SceneNamedProv
 HARNESS = r'''
 import Foundation
 import Metal
+import simd
 
 @main private enum BackgroundColorABIHarness {
     typealias Template = SceneResolvedMaterialTemplate
@@ -129,7 +130,8 @@ import Metal
 
     static func render(_ program: SceneAuthoredShaderProgram,
                        providerPixel: [Float] = [0.1, 0.3, 0.2, 0.5], providerSlot: Int = 3,
-                       inputMask: UInt32 = (1 << 0) | (1 << 3)) throws -> [Float] {
+                       inputMask: UInt32 = (1 << 0) | (1 << 3),
+                       finalized: SceneResolvedMaterialProgram? = nil) throws -> [Float] {
         let device = MTLCreateSystemDefaultDevice()!
         let library = try device.makeLibrary(source: program.metalSource, options: nil)
         let descriptor = MTLRenderPipelineDescriptor()
@@ -151,13 +153,13 @@ import Metal
             values.withUnsafeBytes { texture.replace(region: MTLRegionMake2D(0, 0, 1, 1),
                 mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 16) }
         }
-        var uniforms = Data(count: max(16, program.uniformLayout.byteSize))
-        for field in program.uniformLayout.fields where field.authoredName == "mwxRenderSize" {
+        var uniforms = finalized?.uniformBytes ?? Data(count: max(16, program.uniformLayout.byteSize))
+        for field in program.uniformLayout.fields where finalized == nil && field.authoredName == "mwxRenderSize" {
             [Float(8), Float(8)].withUnsafeBytes { uniforms.replaceSubrange(
                 field.offset..<(field.offset + 8), with: $0) }
         }
         for field in program.uniformLayout.fields
-            where field.authoredName == SceneShaderColorBoundary.uniformName {
+            where finalized == nil && field.authoredName == SceneShaderColorBoundary.uniformName {
             var mask = inputMask
             withUnsafeBytes(of: &mask) { uniforms.replaceSubrange(
                 field.offset..<(field.offset + 4), with: $0) }
@@ -176,7 +178,15 @@ import Metal
         encoder.setVertexBuffer(buffer, offset: 0, index: program.uniformBufferIndex)
         encoder.setFragmentBuffer(buffer, offset: 0, index: program.uniformBufferIndex)
         for binding in program.textureBindings {
-            let texture = binding.slot == providerSlot ? background : primary
+            let texture: MTLTexture
+            if let finalized {
+                guard let resolved = finalized.textureSlots[binding.slot]?.resource.publication.texture else {
+                    throw NSError(domain: "background-color-GPU", code: 2)
+                }
+                texture = resolved
+            } else {
+                texture = binding.slot == providerSlot ? background : primary
+            }
             encoder.setVertexTexture(texture, index: binding.slot)
             encoder.setFragmentTexture(texture, index: binding.slot)
             encoder.setVertexSamplerState(sampler, index: binding.slot)
@@ -204,7 +214,13 @@ import Metal
             "data-default": try evaluate("data-default", mode: "rgbmask"),
             "unknown-target": try evaluate("unknown-target", defaultName: "_rt_Unknown"),
             "named-provider": try namedProviderColorBoundary("named-provider", mixed: false),
-            "mixed-provider": try namedProviderColorBoundary("mixed-provider", mixed: true)]
+            "mixed-provider": try namedProviderColorBoundary("mixed-provider", mixed: true),
+            "regular-provider": try namedProviderColorBoundary("regular-provider", mixed: false, regular: true),
+            "regular-default": try namedProviderColorBoundary("regular-default", mixed: false, regular: true, defaultAsset: true),
+            "regular-self": try namedProviderColorBoundary("regular-self", mixed: false, regular: true, selfReference: true),
+            "regular-alias": try namedProviderColorBoundary("regular-alias", mixed: false, regular: true, graphAlias: true),
+            "regular-no-context": try namedProviderColorBoundary("regular-no-context", mixed: false, regular: true, hasEffectContext: false),
+            "regular-conditional": try namedProviderColorBoundary("regular-conditional", mixed: false, regular: true, conditional: true)]
         print(String(data: try JSONSerialization.data(withJSONObject: result,
             options: [.sortedKeys]), encoding: .utf8)!)
     }
@@ -363,6 +379,98 @@ class SceneBackgroundGenericColorABITests(unittest.TestCase):
                             self.assertAlmostEqual(observed, expected, delta=0.00003, msg=variant)
                 for observed, expected in zip(data["dataPixels"], [0.25, 0.25, 0.15, 1.0], strict=True):
                     self.assertAlmostEqual(observed, expected, delta=0.00003, msg=data)
+
+    def test_regular_named_single_candidate_prepares_and_selects_both_input_abis(self) -> None:
+        for route, results in self.results.items():
+            with self.subTest(route=route):
+                result = results["regular-provider"]
+                self.assertTrue(result["ready"], result)
+                self.assertEqual(result["candidateCount"], 1)
+                self.assertEqual(len(result["variants"]), 2, result)
+                color = next(v for v in result["variants"] if not v["preservedSlots"])
+                data = next(v for v in result["variants"] if v["preservedSlots"] == [1])
+                for variant in (color, data):
+                    self.assertFalse(variant["isRGBMask"], variant)
+                    self.assertEqual(variant["backend"], "genericCompilerArtifact"
+                        if route == "prefer-generic" else "boundedSwift", variant)
+                self.assertEqual(color["profilePMASlots"], [1], color)
+                self.assertEqual(color["colorSlots"], [0, 1], color)
+                self.assertEqual(data["profilePMASlots"], [], data)
+                self.assertEqual(data["colorSlots"], [0], data)
+
+    def test_regular_named_colors_unpremultiply_once_and_data_preserves_all_channels(self) -> None:
+        # The real primary publication (.25,.125,.0625,.5) is PMA. Two
+        # provider colors vary coverage; the second data RGB exceeds alpha,
+        # so an accidental color transform changes every observed RGB term.
+        expected = {
+            "pma-half": [0.375, 0.5, 0.3125, 1.0],
+            "straight-half": [0.375, 0.5, 0.3125, 1.0],
+            "pma-quarter": [0.5625, 0.21875, 0.21875, 1.0],
+            "straight-quarter": [0.5625, 0.21875, 0.21875, 1.0],
+            "data-half": [0.3125, 0.3125, 0.1875, 1.0],
+            "data-quarter": [0.5625, 0.21875, 0.21875, 1.0],
+            "data-ready-again": [0.3125, 0.3125, 0.1875, 1.0],
+        }
+        for route, results in self.results.items():
+            selections = results["regular-provider"].get("selections", {})
+            for name, pixels in expected.items():
+                with self.subTest(route=route, name=name):
+                    row = selections.get(name, {})
+                    self.assertEqual(row.get("status"), "ready", row)
+                    purpose = ("preserved-channels" if name.startswith("data-") else
+                               "straight-albedo" if name.startswith("straight-") else "premultiplied-color")
+                    self.assertEqual(row["purpose"], purpose, row)
+                    self.assertEqual(row["colorSlots"], [0]
+                        if name.startswith("data-") else [0, 1], row)
+                    for observed, value in zip(row["pixels"], pixels, strict=True):
+                        self.assertAlmostEqual(observed, value, delta=0.00003, msg=row)
+
+    def test_regular_named_missing_states_do_not_reuse_color_or_recompile(self) -> None:
+        for route, results in self.results.items():
+            with self.subTest(route=route):
+                selections = results["regular-provider"].get("selections", {})
+                for name in ("pending", "unavailable", "absent", "missing"):
+                    row = selections.get(name, {})
+                    self.assertEqual(row.get("status"), "failed", row)
+                    self.assertNotIn("pixels", row)
+                self.assertTrue(selections.get("cacheStable"), selections)
+                self.assertEqual(selections["data-ready-again"]["status"], "ready")
+                self.assertEqual(selections["stale"]["status"], "publication-rejected")
+                self.assertNotIn("pixels", selections["stale"])
+
+    def test_regular_default_self_and_graph_alias_keep_their_single_color_route(self) -> None:
+        for route, results in self.results.items():
+            for name in ("regular-default", "regular-self", "regular-alias", "regular-no-context"):
+                with self.subTest(route=route, name=name):
+                    row = results[name]
+                    self.assertTrue(row["ready"], row)
+                    self.assertEqual(len(row["variants"]), 1, row)
+                    self.assertEqual(row["variants"][0]["preservedSlots"], [], row)
+            for name, wanted in (
+                ("regular-default", [0.5625, 0.21875, 0.21875, 1.0]),
+                ("regular-alias", [0.5, 0.25, 0.125, 1.0]),
+            ):
+                with self.subTest(route=route, name=name):
+                    selection = results[name]["selections"]["absent"]
+                    self.assertEqual(selection["status"], "ready", selection)
+                    for observed, expected in zip(selection["pixels"], wanted, strict=True):
+                        self.assertAlmostEqual(observed, expected, delta=0.00003, msg=selection)
+                    self.assertEqual(results[name]["selections"]["data-half"]["status"], "failed")
+
+    def test_conditional_regular_named_sampler_absence_selects_prepared_inactive_program(self) -> None:
+        for route, results in self.results.items():
+            with self.subTest(route=route):
+                row = results["regular-conditional"]
+                self.assertTrue(row["ready"], row)
+                self.assertTrue(any(v["activeSlots"] == [0] for v in row["variants"]), row)
+                selected = row["selections"]["absent"]
+                self.assertEqual(selected["status"], "ready", selected)
+                self.assertEqual(selected["activeSlots"], [0], selected)
+                self.assertEqual(selected["colorSlots"], [0], selected)
+                for observed, expected in zip(selected["pixels"], [0.5, 0.25, 0.125, 1.0], strict=True):
+                    self.assertAlmostEqual(observed, expected, delta=0.00003, msg=selected)
+                self.assertEqual(row["selections"]["data-ready-again"]["status"], "ready", row)
+                self.assertTrue(row["selections"]["cacheStable"], row)
 
 
 if __name__ == "__main__":

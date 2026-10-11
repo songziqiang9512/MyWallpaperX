@@ -11,21 +11,29 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
     }
 
     /// Enumerates only representation choices that can be selected by the
-    /// exact mixed-provider contract. This is combined with readiness and
+    /// named publication or mixed-provider contract. Combined with readiness and
     /// format profiles before launch so frame finalization never compiles.
     static func launchSelectedTexturePurposeProfiles(
         template: Template,
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        readinessMask: UInt8
     ) throws -> [[SceneTextureLoadPurpose?]] {
         let facts = SceneResolvedMaterialVariantCache.mixedProviderSlotFacts(
             in: template,
             samplers: samplers
         )
+        let purposeSlots = Set(facts.keys).union(
+            SceneResolvedMaterialVariantCache.regularNamedProviderPurposeSlots(
+                in: template, samplers: samplers
+            )
+        )
         var profiles = [Array<SceneTextureLoadPurpose?>(
             repeating: nil,
             count: 8
         )]
-        for slot in facts.keys.sorted() {
+        // An absent conditional input has no representation to select. Its
+        // inactive Program must use the same nil purpose key as frame selection.
+        for slot in purposeSlots.sorted() where readinessMask & (1 << UInt8(slot)) != 0 {
             var expanded: [[SceneTextureLoadPurpose?]] = []
             for profile in profiles {
                 for purpose in [
