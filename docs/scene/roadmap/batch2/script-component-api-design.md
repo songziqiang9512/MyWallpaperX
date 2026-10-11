@@ -50,6 +50,18 @@ size 是只读创建几何：C 原 layer record/journal 保存已验证的创建
 
 验收使用真实 VM→ABI→Swift mutation 和实际 descriptor/provider 消费；autoSize=false 正例尺寸刻意不同于纹理自然尺寸，并覆盖 String、Vec2、scalar、静态 value、变量和资源改名、等价表达式。相邻 Array/plain Object/script-user wrapper/非有限/越界、同资源不同作者尺寸、合法省略与显式值、健康 peer 和失败撤回分别断言。隔离 App 用同输入几何 fixture 看真实尺寸与倾斜；288 原包默认只作回归，开启已有 shadow 参数的隔离派生包仅作触发 fixture，不能把默认关闭画面或自然尺寸相同记作新增尺寸收益；heldout 由独立运行侧保留、只验真实结果。不计完整样本、parity 或性能验收。
 
+## 图层排序与共同候选同步
+
+排序与其他属性更新互不覆盖，并保持原 domain 内真实调用顺序。真实 VM 反例已确认：同 callback 的 authored sort 与 alpha 合成一个属性 DTO 后，Swift 以 fields 为空识别 sort 而漏排序；先创建 X 排 C 前，再创建 Y 排 A 前时，早先 callback 复制的绝对 index 已陈旧；既有 dynamic X 只改 alpha 的完整 upsert 也不应贡献排序。不能只补 coalescing 标志或在 Swift 另建一次排序命令重放：init/events/update、Cursor 的多次合并和 owner 分组会改变 DTO 顺序，后置 owner 拒绝还会改变健康操作的上下文。
+
+正常移动完成后返回 Boolean true，依据 [IScene 公开 Boolean 声明](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IScene.html)与已批准的固定官方普通新层移动黑盒结果，使作者可按成功返回继续写属性或排序。只改完成移动的成功出口；same-index/no-op 的返回、非法/越界和其它未测邻域保持原处理，不能扩成完整返回/失败语义 parity。真实 VM 须用严格 ===true 控制后续合法属性写入和第二次排序，并保留 TypeError 与 throw/撤回反例。
+
+沿现 C topology journal 保持唯一排序执行权威，将其已有 baseline+有序操作重放提取为同一个可供 rebuild 与只读候选投影使用的实现。候选投影在 callback 全部完成后、共同提交之前，根据已接纳的 VM owner identity 过滤 pending 操作，保留 committed 操作与原全 domain 调用顺序；不修改 record、journal 或 VM heap，也不重跑作者 callback。没有 topology journal 时返回缺席，不在普通值帧构造完整顺序、解析或散列。安全错误沿原 owner/fixed-point 接纳失败，不能静默采用陈旧 DTO 的 index；固定点验证须包括只有 topology 参与身份而属性 mutation 已被合法裁剪的 effect 包。
+
+原 C owner 仅导出 pending topology 的 owner identity，原 evaluation/owner-effect 包独立保留该参与身份；它不依赖会被 Boolean 返回合法裁剪的属性 DTO，也不受 coalescing/Cursor merging 影响，不是新的排序命令或 owner registry。原 domain 提供有界 typed raw order 查询，launch frame schema 将该纯投影交给现 DynamicLayerRuntime。原 runtime 仍独占属性/资源验证和 owner 候选：先验证 owner bundles，按接纳集合取得 C raw order，在原 finalizeTopology 内消费；普通动态完整 upsert 不再隐式排序。raw order 必须包含共同提交前的 authored tombstone 槽，随后沿原统一退休阶段移除 authored 层与其动态副本；不能提前删除再重放 index。外部命令拒绝和存储依赖 fixed-point 每次使用最终候选接纳集合重新投影，使被拒 owner 不影响健康 owner 排序。投影绑定同 launch/domain 生命周期，不跨 reload，也不持新对象树、namespace 或资源状态。
+
+验收覆盖真实 VM→ABI→Swift candidate：sort 前/后写 alpha、两个 callback 创建顺序及不陈旧的相邻顺序、property-only dynamic upsert、变量/资源改名和等价调用、同 owner 多 callback/peer 交错、throw 与后置 typed/external rejection、dynamic destroy 和 authored 延迟退休。隔离普通图片 fixture 用有重叠的不同颜色层检验实际遮挡顺序，并由独立运行侧保留未参与修复的真实输入。测试 stub 仅供应外部 descriptor 元数据，不能替代排序、journal、mutation 验证或候选事务；构建与 VM 通过不计最终图像或全域兼容。
+
 ## owner
 
 QuickJS domain owns JS object 与 callback roots；现役 Script bridge owns handle 验证与 mutation 编码；host frame transaction owns commit 时机；graph/resources owns 动态对象准备与释放。粒子作者播放意图纳入现役 `SceneScriptDynamicLayerRuntime` 的 typed layer state、candidate plan 和 immutable committed snapshot，C 只保存已提交镜像与 callback journal；不另建 session 意图库。各 surface 的现役粒子 runtime 仍独占实际 emitter schedule、存活、粒子 ID 与随机流，按 [D11](particle-playback-state-design.md) 消费有序转移。注册内部组件不能建立第二份对象树、simulation 或 clock。

@@ -69,6 +69,7 @@ nonisolated struct SceneTimelinePlaybackMutation: Sendable {
 nonisolated struct SceneScriptOwnerEffects: Sendable {
     let ownerTarget: SceneDynamicTarget
     let layerMutations: [SceneScriptLayerMutation]
+    var layerTopologyOwnerIdentity: UInt64? = nil
     var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
     var animationMutations: [SceneTimelinePlaybackMutation] = []
     var materialFunctionMutations: [Int] = []
@@ -232,6 +233,9 @@ func succeeded(
     return false
 }
 
+// Pure external raw-order fixture; no sorting implementation is substituted.
+nonisolated final class OrderInput: @unchecked Sendable { var value: [Int]? }
+
 @main
 enum Harness {
     static func main() throws {
@@ -247,9 +251,10 @@ enum Harness {
             ],
             renderOrderLayerIDs: [10, 20]
         )
+        let orderInput = OrderInput()
         let runtime = SceneScriptDynamicLayerRuntime(
-            descriptor: descriptor,
-            authoredMutationLayerIDs: [10]
+            descriptor: descriptor, authoredMutationLayerIDs: [10],
+            layerOrderProjection: { _ in .success(orderInput.value) }
         )
         let beforeCreate = runtime.snapshot()
         let visibilityRuntime = SceneScriptDynamicLayerRuntime(
@@ -304,8 +309,10 @@ enum Harness {
         let beforeInvalidParticleAlpha = runtime.snapshot().authoredLayerValues
         let invalidParticleAlpha = runtime.apply([mutation(10, dynamic: false, fields: [.particleAlpha])])
         let invalidParticleAlphaPreservesValues = runtime.snapshot().authoredLayerValues == beforeInvalidParticleAlpha
+        orderInput.value = [10, -1, 20]
         let create = runtime.apply([mutation(-1, order: 1)])
         let afterCreate = runtime.snapshot()
+        orderInput.value = [10, 20, -1]
         let move = runtime.apply([mutation(-1, order: 2, text: "updated")])
         let afterMove = runtime.snapshot()
         let staticUpdate = runtime.apply([
@@ -490,6 +497,7 @@ enum Harness {
             projectedCommandRounds.append(admitted.flatMap(\.mediaPlaybackCommands))
             return []
         }
+        orderInput.value = [10, 20]
         let destroy = runtime.apply([mutation(-1, kind: .destroy, order: 2)])
         let afterDestroy = runtime.snapshot()
         let authoredDestroyRuntime = SceneScriptDynamicLayerRuntime(
@@ -564,30 +572,6 @@ enum Harness {
             ),
         ])
         revisionRuntime.commit(valueOnlyPlan)
-        // Mixed-frame unified order semantics: the mutations carry the C
-        // catalog's FINAL absolute positions (the ABI has no step-wise
-        // journal ops). Both interleavings of a dynamic create and an
-        // authored sort must reproduce their own C final orders:
-        // sequence A ([sort 10->1, create X@2] in C) -> [20, 10, X];
-        // sequence B ([create X@0, sort 10->2] in C) -> [X, 20, 10].
-        let mixedARuntime = SceneScriptDynamicLayerRuntime(
-            descriptor: descriptor,
-            authoredMutationLayerIDs: [10]
-        )
-        let mixedAResult = mixedARuntime.apply([
-            mutation(-1, order: 2, text: "X"),
-            mutation(10, dynamic: false, order: 1, fields: []),
-        ])
-        let mixedAOrder = mixedARuntime.snapshot().renderOrderLayerIDs
-        let mixedBRuntime = SceneScriptDynamicLayerRuntime(
-            descriptor: descriptor,
-            authoredMutationLayerIDs: [10]
-        )
-        let mixedBResult = mixedBRuntime.apply([
-            mutation(10, dynamic: false, order: 2, fields: []),
-            mutation(-1, order: 0, text: "X"),
-        ])
-        let mixedBOrder = mixedBRuntime.snapshot().renderOrderLayerIDs
         let perspectiveRuntime = SceneScriptDynamicLayerRuntime(
             descriptor: descriptor, authoredMutationLayerIDs: [10, 20]
         )
@@ -657,10 +641,6 @@ enum Harness {
             "priorSnapshotStable": beforeCreate.dynamicLayers.isEmpty,
             "createdIDs": afterCreate.dynamicLayers.map(\.id),
             "createdOrder": afterCreate.renderOrderLayerIDs,
-            "mixedAResultSucceeded": succeeded(mixedAResult),
-            "mixedAOrder": mixedAOrder,
-            "mixedBResultSucceeded": succeeded(mixedBResult),
-            "mixedBOrder": mixedBOrder,
             "moveSucceeded": succeeded(move),
             "movedOrder": afterMove.renderOrderLayerIDs,
             "staticAccepted": succeeded(staticUpdate),
@@ -824,19 +804,11 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
                     "perspectiveUnsupportedIsLocal"):
             self.assertTrue(self.result[key], key)
 
-    def test_create_and_sort_publish_only_through_snapshots(self) -> None:
+    def test_create_and_value_update_publish_only_through_snapshots(self) -> None:
         self.assertTrue(self.result["createSucceeded"])
         self.assertTrue(self.result["priorSnapshotStable"])
         self.assertEqual(self.result["createdIDs"], [-1])
-        self.assertEqual(self.result["createdOrder"], [10, -1, 20])
         self.assertTrue(self.result["moveSucceeded"])
-        self.assertEqual(self.result["movedOrder"], [10, 20, -1])
-
-    def test_mixed_frames_reproduce_their_c_final_orders(self) -> None:
-        self.assertTrue(self.result["mixedAResultSucceeded"])
-        self.assertEqual(self.result["mixedAOrder"], [20, 10, -1])
-        self.assertTrue(self.result["mixedBResultSucceeded"])
-        self.assertEqual(self.result["mixedBOrder"], [-1, 20, 10])
 
     def test_static_transform_mutation_and_failed_batch_are_atomic(self) -> None:
         self.assertTrue(self.result["staticAccepted"])

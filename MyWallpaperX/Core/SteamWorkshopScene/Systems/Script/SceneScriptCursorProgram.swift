@@ -601,7 +601,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 },
                 particlePlaybackCommands: particles.compactMap {
                     $0.ownerTarget == binding.ownerTarget ? $0.command : nil
-                }
+                },
+                layerTopologyOwnerIdentity: binding.owner.pendingLayerTopologyIdentity
             )
             return effects.isEmpty ? nil : effects
         }

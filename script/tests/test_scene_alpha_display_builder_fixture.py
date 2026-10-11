@@ -360,6 +360,7 @@ struct SceneScriptOwnerEffects: Equatable, Sendable {
     var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
     var puppetAnimationCommands: [ScenePuppetAnimationCommand] = []
     var puppetAnimationCallbackRegistrations = 0
+    var layerTopologyOwnerIdentity: UInt64? = nil
 }
 
 struct SceneScriptMediaEventMutations: Equatable, Sendable {

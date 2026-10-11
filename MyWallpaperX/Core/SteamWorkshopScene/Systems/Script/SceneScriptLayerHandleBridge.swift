@@ -104,6 +104,7 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
     var puppetAnimationCommands: [ScenePuppetAnimationCommand]
     var puppetAnimationCallbackRegistrations: Int
     var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand]
+    var layerTopologyOwnerIdentity: UInt64?
 
     init(
         ownerTarget: SceneDynamicTarget,
@@ -116,8 +117,10 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
         puppetBoneMutations: [SceneScriptPuppetBoneMutation] = [],
         particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = [],
         puppetAnimationCommands: [ScenePuppetAnimationCommand] = [],
-        puppetAnimationCallbackRegistrations: Int = 0
+        puppetAnimationCallbackRegistrations: Int = 0,
+        layerTopologyOwnerIdentity: UInt64? = nil
     ) {
+        self.layerTopologyOwnerIdentity = layerTopologyOwnerIdentity
         self.puppetAnimationCommands = puppetAnimationCommands
         self.puppetAnimationCallbackRegistrations = puppetAnimationCallbackRegistrations
         self.ownerTarget = ownerTarget
@@ -136,6 +139,7 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
             && textureAnimationCommands.isEmpty
             && puppetBoneMutations.isEmpty && particlePlaybackCommands.isEmpty
             && puppetAnimationCommands.isEmpty && puppetAnimationCallbackRegistrations == 0
+            && layerTopologyOwnerIdentity == nil
     }
 }
 

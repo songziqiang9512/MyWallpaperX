@@ -532,9 +532,9 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0fb46f9d5ee866365e0682408ad061dc4e21050c9ff4bbb7d7725af61f3a0264",
+        "sourceSHA256": "892c0b3e29a455cddc655af93ba09a6e9916e033ac6dd17d7b6033a527355221",
         "method": "document_registry --audit + document_health --check",
-        "scope": "创建几何/资源身份有界状态、开放首断点与历史引用核对；不代表全文产品语义重验",
+        "scope": "排序同步有界状态、真实画面与未闭合断点及历史引用核对；不代表全文产品语义重验",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
@@ -1006,6 +1006,16 @@
     },
     {
       "path": "docs/scene/history/dynamic-layer-geometry-2026-10-12.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/dynamic-layer-order-2026-10-12.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",

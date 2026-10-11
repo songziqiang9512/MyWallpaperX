@@ -93,8 +93,8 @@
       "bytes": 344941
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 102,
-      "bytes": 31042
+      "lines": 103,
+      "bytes": 31303
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -118,7 +118,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 402,
-      "bytes": 97747
+      "bytes": 97972
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -181,8 +181,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 161,
-      "bytes": 41647
+      "lines": 173,
+      "bytes": 45261
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 241,
-      "bytes": 69777
+      "bytes": 69795
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1161,24 +1161,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e63ca127cd4df18879a6c936d4089df3a69c954a4d19ef6f54a9fe42bc961a4f",
-      "after": "1082729cacf02a3b09c4c849872058878b1479a17a048eccebb4012059005f4b",
-      "owner": "Scene Script / prepared creation geometry",
-      "reason": "补已准备图片创建几何与唯一资源身份合同，登记现存源码形状限制、实际输出及明确未闭合首断点；过程/原始收据归历史，不将新fixture失败隐藏为通过。",
-      "decision": "docs/scene/history/dynamic-layer-geometry-2026-10-12.md#通用语义与边界"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "4ce1bcbb60e61ed446286d056a5634c1bf4ed8cfb6f68124f4fbe08ac8db9775",
-      "after": "ea01c0eb09f3571d7cfefced1ed9caa0d235c6fc846a995fd5c6f851b2081964",
-      "owner": "Scene Script / prepared creation geometry",
-      "reason": "补已准备图片创建几何与唯一资源身份合同，登记现存源码形状限制、实际输出及明确未闭合首断点；过程/原始收据归历史，不将新fixture失败隐藏为通过。",
-      "decision": "docs/scene/history/dynamic-layer-geometry-2026-10-12.md#通用语义与边界"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
       "before": "dce009c7d88ba923c62f163b43a2477b93487c770c1b996f26f982c9279ea401",
       "after": "49a4f23570e1ce439c8911eb01720a95f43aacead74f4338743b9491706ff1e1",
@@ -1188,21 +1170,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "1082729cacf02a3b09c4c849872058878b1479a17a048eccebb4012059005f4b",
+      "after": "877f169c546e4ed667230691278034ea8160b05d844bf354cae12c99b0b1c528",
+      "owner": "SceneScript shared topology",
+      "reason": "删除重复Swift排序，原C journal提供共同接纳顺序；替换已运行排序断点并保留真实样本剩余失败，历史保存实验与验证边界。",
+      "decision": "docs/scene/history/dynamic-layer-order-2026-10-12.md#通用语义与实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "ea01c0eb09f3571d7cfefced1ed9caa0d235c6fc846a995fd5c6f851b2081964",
+      "after": "733dbd3e2f2feb9b275df672c4357b16eaf5d0097f17318e2d577611ad9596cf",
+      "owner": "SceneScript shared topology",
+      "reason": "删除重复Swift排序，原C journal提供共同接纳顺序；替换已运行排序断点并保留真实样本剩余失败，历史保存实验与验证边界。",
+      "decision": "docs/scene/history/dynamic-layer-order-2026-10-12.md#通用语义与实现"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "ef201db4819e1cc4d62ed78862376c4ff635b5450efae995816c7c75bb41fddb",
-      "after": "fd60ec9c5a16249aab9b17f06198a484837fcee94497f7c1431aabb593a26a3d",
-      "owner": "Scene Script / prepared creation geometry",
-      "reason": "补已准备图片创建几何与唯一资源身份合同，登记现存源码形状限制、实际输出及明确未闭合首断点；过程/原始收据归历史，不将新fixture失败隐藏为通过。",
-      "decision": "docs/scene/history/dynamic-layer-geometry-2026-10-12.md#通用语义与边界"
+      "before": "fd60ec9c5a16249aab9b17f06198a484837fcee94497f7c1431aabb593a26a3d",
+      "after": "d5ec471f5e37e28399d7912ba8a78fa90a27836cd5be3b6c3ab26ace49e9bf57",
+      "owner": "SceneScript shared topology",
+      "reason": "删除重复Swift排序，原C journal提供共同接纳顺序；替换已运行排序断点并保留真实样本剩余失败，历史保存实验与验证边界。",
+      "decision": "docs/scene/history/dynamic-layer-order-2026-10-12.md#通用语义与实现"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "dce81e95f4c8590f45f4a1602f5ca9e14a49e4b046091be844157f7931e0ed24",
-      "after": "0592e13ee7fc9f166775438961036da6e35f8232d1e1b5050207dd0478efa108",
-      "owner": "Scene Script / prepared creation geometry",
-      "reason": "补已准备图片创建几何与唯一资源身份合同，登记现存源码形状限制、实际输出及明确未闭合首断点；过程/原始收据归历史，不将新fixture失败隐藏为通过。",
-      "decision": "docs/scene/history/dynamic-layer-geometry-2026-10-12.md#通用语义与边界"
+      "before": "0592e13ee7fc9f166775438961036da6e35f8232d1e1b5050207dd0478efa108",
+      "after": "ccab827b6f6a54a5e4119341d5ae263fbf4c842749fc4fe4c386bc5de64d69f5",
+      "owner": "SceneScript shared topology",
+      "reason": "删除重复Swift排序，原C journal提供共同接纳顺序；替换已运行排序断点并保留真实样本剩余失败，历史保存实验与验证边界。",
+      "decision": "docs/scene/history/dynamic-layer-order-2026-10-12.md#通用语义与实现"
     }
   ]
 }

@@ -568,6 +568,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_texture_animation_fi
     size_t diagnostic_capacity
 );
 
+/* Pending topology is independent of the owner's property DTO buffer. */
+uint64_t mwx_scene_quickjs_owner_pending_layer_topology_identity(MWXSceneQuickJSOwner *owner);
+uint32_t mwx_scene_quickjs_domain_has_pending_layer_topology(MWXSceneQuickJSDomain *domain);
+/* Pure projection of the original journal. Callback must be inactive; authored
+ * tombstone slots remain until the host's common retirement boundary. */
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_project_pending_layer_order(
+    MWXSceneQuickJSDomain *domain,
+    const uint64_t *accepted_owner_ids, uint32_t accepted_owner_count,
+    int64_t *layer_ids, uint32_t capacity, uint32_t *count
+);
+
 size_t mwx_scene_quickjs_owner_layer_mutation_count(
     const MWXSceneQuickJSOwner *owner
 );

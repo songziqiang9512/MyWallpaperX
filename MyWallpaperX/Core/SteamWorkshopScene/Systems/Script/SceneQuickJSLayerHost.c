@@ -587,84 +587,102 @@ static void discard_last_dynamic_layer_topology_operation(
         operation->state = MWX_SCENE_QUICKJS_DYNAMIC_LAYER_OPERATION_DISCARDED;
 }
 
-static void rebuild_dynamic_layer_topology(
-    MWXSceneQuickJSDomain *domain
+// The one journal replay serves both C restoration and the host's immutable
+// candidate projection. Filtering never mutates records or journal state.
+static bool project_dynamic_layer_topology(
+    MWXSceneQuickJSDomain *domain, const uint64_t *accepted_owner_ids,
+    uint32_t accepted_owner_count, bool filtering_pending,
+    uint32_t sequence[MWX_SCENE_QUICKJS_MAX_LAYERS], size_t *count,
+    bool active[MWX_SCENE_QUICKJS_MAX_LAYERS]
 ) {
-    if (domain == NULL || !domain->dynamic_layer_topology_transaction_active)
-        return;
-    uint32_t sequence[MWX_SCENE_QUICKJS_MAX_LAYERS];
-    size_t count = domain->dynamic_layer_topology_baseline_order_count;
-    if (count > MWX_SCENE_QUICKJS_MAX_LAYERS) return;
-    memcpy(
-        sequence, domain->dynamic_layer_topology_baseline_order,
-        count * sizeof(sequence[0])
-    );
-    for (uint32_t index = 0; index < domain->layer_count; ++index) {
-        MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
-        if (index >= domain->dynamic_layer_topology_baseline_layer_count &&
-            record->configured && record->dynamic)
-            record->destroyed = true;
-        if (domain->dynamic_layer_topology_baseline_active[index])
-            record->destroyed = false;
-    }
-    for (size_t operation_index = 0;
-         operation_index < domain->dynamic_layer_topology_operation_count;
-         ++operation_index) {
-        const MWXSceneQuickJSDynamicLayerTopologyOperation *operation =
-            &domain->dynamic_layer_topology_operations[operation_index];
-        if (operation->state == MWX_SCENE_QUICKJS_DYNAMIC_LAYER_OPERATION_DISCARDED)
-            continue;
-        if (operation->layer_index >= domain->layer_count) continue;
-        MWXSceneQuickJSLayerRecord *record =
-            &domain->layers[operation->layer_index];
+    if (domain == NULL || !domain->dynamic_layer_topology_transaction_active ||
+        domain->layer_count > MWX_SCENE_QUICKJS_MAX_LAYERS) return false;
+    *count = domain->dynamic_layer_topology_baseline_order_count;
+    if (*count > MWX_SCENE_QUICKJS_MAX_LAYERS) return false;
+    memcpy(sequence, domain->dynamic_layer_topology_baseline_order, *count * sizeof(sequence[0]));
+    memcpy(active, domain->dynamic_layer_topology_baseline_active,
+           MWX_SCENE_QUICKJS_MAX_LAYERS * sizeof(active[0]));
+    for (size_t op_index = 0; op_index < domain->dynamic_layer_topology_operation_count; ++op_index) {
+        const MWXSceneQuickJSDynamicLayerTopologyOperation *operation = &domain->dynamic_layer_topology_operations[op_index];
+        if (operation->state == MWX_SCENE_QUICKJS_DYNAMIC_LAYER_OPERATION_DISCARDED) continue;
+        if (filtering_pending && operation->state == MWX_SCENE_QUICKJS_DYNAMIC_LAYER_OPERATION_PENDING) {
+            bool accepted = false;
+            for (uint32_t index = 0; index < accepted_owner_count; ++index)
+                if (accepted_owner_ids[index] == operation->owner_identity) { accepted = true; break; }
+            if (!accepted) continue;
+        }
+        if (operation->layer_index >= domain->layer_count) return false;
+        const uint32_t index = operation->layer_index;
+        const MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
         switch (operation->kind) {
         case MWX_SCENE_QUICKJS_DYNAMIC_LAYER_CREATE:
-            if (!record->configured || !record->dynamic ||
-                record->owner_identity != operation->owner_identity) break;
-            topology_sequence_remove(sequence, &count, operation->layer_index);
-            record->destroyed = false;
-            if (!topology_sequence_insert(
-                    sequence, &count, operation->layer_index,
-                    operation->order_index)) {
-                record->destroyed = true;
-            }
+            if (!record->configured || !record->dynamic || record->owner_identity != operation->owner_identity) break;
+            topology_sequence_remove(sequence, count, index);
+            active[index] = topology_sequence_insert(sequence, count, index, operation->order_index);
             break;
         case MWX_SCENE_QUICKJS_DYNAMIC_LAYER_SORT:
-            if (!dynamic_layer_record_is_active(record)) break;
-            // Authored layers accept any owner's sort (matching the C-side
-            // admission); dynamic layers stay owned by their creator.
-            if (record->dynamic &&
-                record->owner_identity != operation->owner_identity) break;
-            topology_sequence_remove(sequence, &count, operation->layer_index);
-            if (!topology_sequence_insert(
-                    sequence, &count, operation->layer_index,
-                    operation->order_index))
-                record->destroyed = true;
+            if (!record->configured || !active[index] ||
+                (record->dynamic && record->owner_identity != operation->owner_identity)) break;
+            topology_sequence_remove(sequence, count, index);
+            active[index] = topology_sequence_insert(sequence, count, index, operation->order_index);
             break;
         case MWX_SCENE_QUICKJS_DYNAMIC_LAYER_DESTROY:
-            if (!dynamic_layer_record_is_active(record) ||
-                record->owner_identity != operation->owner_identity) break;
-            topology_sequence_remove(sequence, &count, operation->layer_index);
-            record->destroyed = true;
+            if (!record->configured || !active[index] || record->owner_identity != operation->owner_identity) break;
+            topology_sequence_remove(sequence, count, index);
+            active[index] = false;
             break;
-        default:
-            break;
+        default: return false;
         }
     }
-    for (uint32_t index = 0; index < domain->layer_count; ++index) {
-        MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
-        if (!record->configured || record->destroyed) continue;
-        bool present = false;
-        for (size_t position = 0; position < count; ++position)
-            if (sequence[position] == index) { present = true; break; }
-        if (!present) record->destroyed = true;
-    }
+    return true;
+}
+
+static void rebuild_dynamic_layer_topology(MWXSceneQuickJSDomain *domain) {
+    uint32_t sequence[MWX_SCENE_QUICKJS_MAX_LAYERS];
+    bool active[MWX_SCENE_QUICKJS_MAX_LAYERS];
+    size_t count = 0;
+    if (!project_dynamic_layer_topology(domain, NULL, 0, false, sequence, &count, active)) return;
+    for (uint32_t index = 0; index < domain->layer_count; ++index)
+        if (domain->layers[index].configured) domain->layers[index].destroyed = !active[index];
     for (size_t position = 0; position < count; ++position) {
         const uint32_t index = sequence[position];
-        if (index < domain->layer_count && domain->layers[index].configured &&
-            !domain->layers[index].destroyed)
+        if (index < domain->layer_count && domain->layers[index].configured && active[index])
             domain->layers[index].order_index = (int32_t)position;
     }
+}
+
+uint64_t mwx_scene_quickjs_owner_pending_layer_topology_identity(MWXSceneQuickJSOwner *owner) {
+    return owner != NULL && !owner->disabled && owner->dynamic_layer_topology_participating
+        ? owner->identity : 0;
+}
+uint32_t mwx_scene_quickjs_domain_has_pending_layer_topology(MWXSceneQuickJSDomain *domain) {
+    return domain != NULL && domain->dynamic_layer_topology_transaction_active;
+}
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_project_pending_layer_order(
+    MWXSceneQuickJSDomain *domain, const uint64_t *accepted_owner_ids,
+    uint32_t accepted_owner_count, int64_t *layer_ids, uint32_t capacity, uint32_t *output_count
+) {
+    if (domain == NULL || domain->context == NULL || domain->callback_active ||
+        !domain->dynamic_layer_topology_transaction_active || output_count == NULL ||
+        layer_ids == NULL || capacity > MWX_SCENE_QUICKJS_MAX_LAYERS ||
+        accepted_owner_count > MWX_SCENE_QUICKJS_MAX_LAYERS ||
+        (accepted_owner_count != 0 && accepted_owner_ids == NULL)) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    for (uint32_t index = 0; index < accepted_owner_count; ++index)
+        if (accepted_owner_ids[index] == 0 || accepted_owner_ids[index] > domain->next_owner_identity)
+            return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    uint32_t sequence[MWX_SCENE_QUICKJS_MAX_LAYERS];
+    bool active[MWX_SCENE_QUICKJS_MAX_LAYERS];
+    size_t count = 0;
+    if (!project_dynamic_layer_topology(domain, accepted_owner_ids, accepted_owner_count,
+            true, sequence, &count, active) || count > capacity) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    for (size_t position = 0; position < count; ++position) {
+        const uint32_t index = sequence[position];
+        if (index >= domain->layer_count || !domain->layers[index].configured || !active[index])
+            return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+        layer_ids[position] = domain->layers[index].layer_id;
+    }
+    *output_count = (uint32_t)count;
+    return MWX_SCENE_QUICKJS_OK;
 }
 
 static void clear_domain_dynamic_layer_topology(
@@ -3252,7 +3270,7 @@ static JSValue sort_layer(
             record->order_index -= 1;
     }
     target->order_index = desired;
-    return JS_UNDEFINED;
+    return JS_NewBool(context, true);
 }
 
 static JSValue destroy_layer(

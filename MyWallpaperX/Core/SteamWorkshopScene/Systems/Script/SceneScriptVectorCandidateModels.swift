@@ -5,6 +5,7 @@ nonisolated struct SceneScriptValueEvaluation: Equatable, Sendable {
     /// A no-update scalar adopted its input, rather than an active callback or
     /// finite bound property. Admission may rebase it onto the same Timeline preview.
     let scalarValueFollowsInput: Bool
+    let layerTopologyOwnerIdentity: UInt64?
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
@@ -28,8 +29,10 @@ nonisolated struct SceneScriptValueEvaluation: Equatable, Sendable {
         particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = [],
         puppetAnimationCommands: [ScenePuppetAnimationCommand] = [],
         puppetAnimationCallbackRegistrations: Int = 0,
-        scalarValueFollowsInput: Bool = false
+        scalarValueFollowsInput: Bool = false,
+        layerTopologyOwnerIdentity: UInt64? = nil
     ) {
+        self.layerTopologyOwnerIdentity = layerTopologyOwnerIdentity
         self.puppetAnimationCommands = puppetAnimationCommands
         self.puppetAnimationCallbackRegistrations = puppetAnimationCallbackRegistrations
         self.particlePlaybackCommands = particlePlaybackCommands
@@ -206,6 +209,7 @@ nonisolated struct SceneScriptVectorProgramConstruction: @unchecked Sendable {
 
 extension SceneScriptOwnerEffects {
     mutating func append(_ evaluation: SceneScriptValueEvaluation) {
+        layerTopologyOwnerIdentity = evaluation.layerTopologyOwnerIdentity ?? layerTopologyOwnerIdentity
         materialFunctionMutations.append(contentsOf: evaluation.materialFunctionMutations)
         animationMutations.append(contentsOf: evaluation.animationMutations)
         layerMutations.append(contentsOf: evaluation.layerMutations)

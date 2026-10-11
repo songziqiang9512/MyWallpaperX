@@ -72,6 +72,7 @@ nonisolated struct SceneScriptOwnerEffects {
     var puppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
     var puppetAnimationCommands: [ScenePuppetAnimationCommand] = []
     var puppetAnimationCallbackRegistrations = 0
+    var layerTopologyOwnerIdentity: UInt64? = nil
 }
 nonisolated struct SceneScriptMediaEventMutations {
     let materialFunctions: [SceneScriptMaterialFunctionMutation]

@@ -118,6 +118,32 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
         )
         mwx_scene_quickjs_domain_destroy(handle)
     }
+    func projectPendingLayerOrder(accepting owners: Set<UInt64>)
+        -> Result<[Int]?, SceneScriptScalarRuntimeFailure> {
+        guard mwx_scene_quickjs_domain_has_pending_layer_topology(handle) != 0 else {
+            return owners.isEmpty ? .success(nil) : .failure(.staleOwner)
+        }
+        guard owners.count <= 4096 else { return .failure(.mutationOverflow("layer topology owner budget exceeded")) }
+        var order = [Int64](repeating: 0, count: 4096)
+        let identities = Array(owners)
+        var count: UInt32 = 0
+        let result = identities.withUnsafeBufferPointer { ids in
+            order.withUnsafeMutableBufferPointer { output in
+                mwx_scene_quickjs_domain_project_pending_layer_order(handle,
+                    ids.baseAddress, UInt32(ids.count), output.baseAddress,
+                    UInt32(output.count), &count)
+            }
+        }
+        guard result == MWX_SCENE_QUICKJS_OK, count <= 4096 else {
+            return .failure(.invalidArgument("pending layer order projection is invalid"))
+        }
+        let projected = order.prefix(Int(count))
+        guard projected.allSatisfy({ (-9_007_199_254_740_991...9_007_199_254_740_991).contains($0) }),
+              Set(projected).count == projected.count else {
+            return .failure(.invalidArgument("pending layer order identity is invalid"))
+        }
+        return .success(projected.map(Int.init))
+    }
     func resetBudget(_ interruptBudget: UInt64) {
         mwx_scene_quickjs_domain_reset_budget(handle, interruptBudget)
     }

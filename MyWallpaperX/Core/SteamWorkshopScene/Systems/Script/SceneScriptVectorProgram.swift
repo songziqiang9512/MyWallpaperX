@@ -749,7 +749,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     puppetBoneMutations: callbackPuppetBoneMutations,
                     particlePlaybackCommands: callbackParticlePlaybackCommands,
                     puppetAnimationCommands: callbackPuppetAnimationCommands,
-                    puppetAnimationCallbackRegistrations: callbackPuppetAnimationCallbackRegistrations
+                    puppetAnimationCallbackRegistrations: callbackPuppetAnimationCallbackRegistrations,
+                    layerTopologyOwnerIdentity: binding.owner.pendingLayerTopologyIdentity
                 )
                 if !effects.isEmpty { ownerEffects.append(effects) }
                 values[target] = value

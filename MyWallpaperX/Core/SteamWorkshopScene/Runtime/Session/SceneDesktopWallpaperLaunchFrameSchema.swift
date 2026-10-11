@@ -141,7 +141,11 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
         let dynamicLayerRuntime = SceneScriptDynamicLayerRuntime(
             descriptor: runtimeInput.renderDescriptor,
             authoredMutationLayerIDs: sceneScriptOwnerLayerIDs,
-            dynamicImageTemplates: dynamicImageTemplates
+            dynamicImageTemplates: dynamicImageTemplates,
+            layerOrderProjection: { [domain = propertyVectorScriptProgram.domain] identities in
+                guard let domain else { return identities.isEmpty ? .success(nil) : .failure(.staleOwner) }
+                return domain.projectPendingLayerOrder(accepting: identities)
+            }
         )
         self.dynamicLayerRuntime = dynamicLayerRuntime
         self.launchDefinitions = SceneDynamicDefinitionMerger.merge(

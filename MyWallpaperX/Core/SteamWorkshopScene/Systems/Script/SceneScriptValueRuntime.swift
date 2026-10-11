@@ -26,6 +26,10 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     private var lastAudioGeneration: UInt64?
     private var pendingCursorEvaluation = false
 
+    var pendingLayerTopologyIdentity: UInt64? {
+        let identity = mwx_scene_quickjs_owner_pending_layer_topology_identity(handle)
+        return identity == 0 ? nil : identity
+    }
     var allowsDynamicLayerSideEffects: Bool {
         allowsStatefulLayerSideEffects
             || !dynamicImagePathsByAuthoredIdentity.isEmpty
@@ -595,7 +599,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             particlePlaybackCommands: mutations.particlePlaybackCommands,
             puppetAnimationCommands: mutations.puppetAnimationCommands,
             puppetAnimationCallbackRegistrations: mutations.puppetAnimationCallbackRegistrations,
-            scalarValueFollowsInput: scalarValueFollowsInput
+            scalarValueFollowsInput: scalarValueFollowsInput,
+            layerTopologyOwnerIdentity: pendingLayerTopologyIdentity
         ))
     }
 
