@@ -42,8 +42,8 @@ struct ScenePuppetAnimationEvaluator {
 
     private let mesh: SceneMdlPuppetMesh
     let rig: SceneMdlPuppetRig
-    private let bindLocalMatrices: [simd_float4x4]
-    private let bindPoses: [Pose]
+    private let referenceLocalMatrices: [simd_float4x4]
+    private let referencePoses: [Pose]
     private let inverseBindWorldMatrices: [simd_float4x4]
     private let preparedAnimationsByID: [Int: PreparedAnimation]
     private let preparedVertices: [PreparedVertex]
@@ -89,9 +89,45 @@ struct ScenePuppetAnimationEvaluator {
             inverseMatrices.append(simd_inverse(world))
             poses.append(pose)
         }
-        bindLocalMatrices = localMatrices
-        bindPoses = poses
         inverseBindWorldMatrices = inverseMatrices
+        if let reference = rig.referenceLocalMatricesColumnMajor {
+            guard reference.count == rig.bones.count else {
+                throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
+            }
+            var referenceMatrices: [simd_float4x4] = []
+            var preparedReferencePoses: [Pose] = []
+            referenceMatrices.reserveCapacity(reference.count)
+            preparedReferencePoses.reserveCapacity(reference.count)
+            for (boneIndex, values) in reference.enumerated() {
+                guard values.count == 16, values.allSatisfy(\.isFinite) else {
+                    throw ScenePuppetAnimationEvaluationFailure.invalidReferenceTransform(boneIndex)
+                }
+                let local = Self.matrix(fromColumnMajor: values)
+                guard let pose = Self.pose(from: local) else {
+                    throw ScenePuppetAnimationEvaluationFailure.invalidReferenceTransform(boneIndex)
+                }
+                // A reference must survive the existing TRS projection. In particular,
+                // do not approximate shear even when no active clip would expose it.
+                let reconstructed = Self.matrix(from: pose)
+                for column in 0..<4 {
+                    for row in 0..<4 {
+                        let value = local[column][row]
+                        let rebuilt = reconstructed[column][row]
+                        let tolerance: Float = 0.0001 * max(1, abs(value), abs(rebuilt))
+                        guard abs(value - rebuilt) <= tolerance else {
+                            throw ScenePuppetAnimationEvaluationFailure.invalidReferenceTransform(boneIndex)
+                        }
+                    }
+                }
+                referenceMatrices.append(local)
+                preparedReferencePoses.append(pose)
+            }
+            referenceLocalMatrices = referenceMatrices
+            referencePoses = preparedReferencePoses
+        } else {
+            referenceLocalMatrices = localMatrices
+            referencePoses = poses
+        }
 
         var vertexData: [PreparedVertex] = []
         vertexData.reserveCapacity(mesh.vertices.count)
@@ -476,7 +512,7 @@ struct ScenePuppetAnimationEvaluator {
         selection: ScenePuppetAnimationSelection,
         frameSamples: [FrameSample?]
     ) throws -> [simd_float4x4] {
-        var output = bindLocalMatrices
+        var output = referenceLocalMatrices
         try writeLocalMatrices(selection: selection, frameSamples: frameSamples, into: &output)
         return output
     }
@@ -497,7 +533,7 @@ struct ScenePuppetAnimationEvaluator {
             guard selection.clips.count == 1,
                   let frameSample = frameSamples[0] else {
                 for boneIndex in rig.bones.indices {
-                    output[boneIndex] = bindLocalMatrices[boneIndex]
+                    output[boneIndex] = referenceLocalMatrices[boneIndex]
                 }
                 return
             }
@@ -510,15 +546,15 @@ struct ScenePuppetAnimationEvaluator {
                     animation.transformsByBone[boneIndex], frameSample: frameSample
                 )) else { throw ScenePuppetAnimationEvaluationFailure.invalidFrame(frameSample.frameA) }
                 output[boneIndex] = Self.matrix(from: try Self.applying(
-                    sampled, relativeTo: bindPoses[boneIndex], to: bindPoses[boneIndex],
+                    sampled, relativeTo: referencePoses[boneIndex], to: referencePoses[boneIndex],
                     weight: blends?[0] ?? selection.clips[0].layer.blend ?? 1
                 ))
             }
 
         case .layered:
             for boneIndex in rig.bones.indices {
-                var pose = bindPoses[boneIndex]
-                // Preserve the first opaque owner; every additive uses the same bind reference.
+                var pose = referencePoses[boneIndex]
+                // Preserve the first opaque owner; every additive shares the rig reference.
                 let baseClipIndex = Self.opaqueClipIndex(
                     boneIndex: boneIndex,
                     clips: selection.clips,
@@ -533,7 +569,7 @@ struct ScenePuppetAnimationEvaluator {
                    prepared.authoredBones.contains(boneIndex) {
                     pose = try Self.applying(
                         Self.sample(prepared.posesByBone[boneIndex], frameSample: baseSample),
-                        relativeTo: bindPoses[boneIndex], to: pose,
+                        relativeTo: referencePoses[boneIndex], to: pose,
                         weight: blends?[baseClipIndex] ?? selection.clips[baseClipIndex].layer.blend ?? 1
                     )
                 }
@@ -547,7 +583,7 @@ struct ScenePuppetAnimationEvaluator {
                     if clip.layer.additive == true {
                         pose = try Self.applying(
                             Self.sample(prepared.posesByBone[boneIndex], frameSample: frameSample),
-                            relativeTo: bindPoses[boneIndex], to: pose,
+                            relativeTo: referencePoses[boneIndex], to: pose,
                             weight: blends?[clipIndex] ?? clip.layer.blend ?? 1
                         )
                     }

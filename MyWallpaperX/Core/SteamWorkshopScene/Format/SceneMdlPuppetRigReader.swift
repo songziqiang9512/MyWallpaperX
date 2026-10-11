@@ -72,6 +72,18 @@ struct SceneMdlPuppetRig {
 
     let bones: [Bone]
     let vertexWeights: [VertexWeights]
+    /// Optional assembled character pose, independent of the mesh's skinning bind.
+    let referenceLocalMatricesColumnMajor: [[Float]]?
+    let referencePoseDiagnostic: String?
+
+    init(bones: [Bone], vertexWeights: [VertexWeights],
+         referenceLocalMatricesColumnMajor: [[Float]]? = nil,
+         referencePoseDiagnostic: String? = nil) {
+        self.bones = bones
+        self.vertexWeights = vertexWeights
+        self.referenceLocalMatricesColumnMajor = referenceLocalMatricesColumnMajor
+        self.referencePoseDiagnostic = referencePoseDiagnostic
+    }
 }
 
 enum SceneMdlPuppetRigReadError: Error, CustomStringConvertible, Equatable {
@@ -84,6 +96,9 @@ enum SceneMdlPuppetRigReadError: Error, CustomStringConvertible, Equatable {
     case invalidBoneRecord(Int)
     case invalidBoneParent(boneIndex: Int, parentIndex: Int)
     case invalidBindMatrix(Int)
+    case invalidReferenceMatrix(Int)
+    case invalidReferenceBounds
+    case unsupportedReferencePose
     case unsupportedVertexStride(Int)
     case vertexCountMismatch(expected: Int, actual: Int)
     case invalidVertexWeights(Int)
@@ -106,6 +121,12 @@ enum SceneMdlPuppetRigReadError: Error, CustomStringConvertible, Equatable {
             return "invalid rig parent \(parentIndex) for bone \(boneIndex)"
         case let .invalidBindMatrix(index):
             return "invalid bind matrix for rig bone \(index)"
+        case let .invalidReferenceMatrix(index):
+            return "invalid reference matrix for rig bone \(index)"
+        case .invalidReferenceBounds:
+            return "incomplete rig reference pose within skeleton bounds"
+        case .unsupportedReferencePose:
+            return "reference pose is unverified for this skeleton version"
         case let .unsupportedVertexStride(stride):
             return "unsupported skinned vertex stride \(stride)"
         case let .vertexCountMismatch(expected, actual):
@@ -174,20 +195,24 @@ enum SceneMdlPuppetRigReader {
         guard let skeletonOffset = data.range(of: contract.skeletonMarker)?.lowerBound else {
             throw SceneMdlPuppetRigReadError.skeletonBlockMissing
         }
-        let bones = try readBones(data: data, blockOffset: skeletonOffset)
+        let skeleton = try readBones(data: data, blockOffset: skeletonOffset,
+            permitsReferencePose: contract.skeletonMarker == Data("MDLS0002\0".utf8))
         let weights = try readVertexWeights(
             data: data,
             mesh: mesh,
             skeletonOffset: skeletonOffset,
-            boneCount: bones.count
+            boneCount: skeleton.bones.count
         )
-        return SceneMdlPuppetRig(bones: bones, vertexWeights: weights)
+        return SceneMdlPuppetRig(bones: skeleton.bones, vertexWeights: weights,
+            referenceLocalMatricesColumnMajor: skeleton.reference,
+            referencePoseDiagnostic: skeleton.diagnostic)
     }
 
     private static func readBones(
         data: Data,
-        blockOffset: Int
-    ) throws -> [SceneMdlPuppetRig.Bone] {
+        blockOffset: Int,
+        permitsReferencePose: Bool
+    ) throws -> (bones: [SceneMdlPuppetRig.Bone], reference: [[Float]]?, diagnostic: String?) {
         var cursor = blockOffset + markerSize
         guard cursor + 8 <= data.count else {
             throw SceneMdlPuppetRigReadError.invalidSkeletonBounds
@@ -263,7 +288,34 @@ enum SceneMdlPuppetRigReader {
                 physicsDiagnostic: physicsDiagnostic
             ))
         }
-        return bones
+        // Existing assets and fixtures may end immediately after the bone records.
+        // Only the verified flag prefix identifies the optional matrix segment;
+        // subsequent MDLS fields retain their existing, unprojected behavior.
+        guard cursor < endOffset else { return (bones, nil, nil) }
+        guard endOffset - cursor >= 3,
+              data[cursor] == 0, data[cursor + 1] == 0,
+              data[cursor + 2] <= 1 else {
+            return (bones, nil, "unsupported-reference-pose-prefix")
+        }
+        guard data[cursor + 2] == 1 else { return (bones, nil, nil) }
+        guard permitsReferencePose else {
+            throw SceneMdlPuppetRigReadError.unsupportedReferencePose
+        }
+        cursor += 3
+        guard boneCount * matrixByteCount <= endOffset - cursor else {
+            throw SceneMdlPuppetRigReadError.invalidReferenceBounds
+        }
+        var reference: [[Float]] = []
+        reference.reserveCapacity(boneCount)
+        for boneIndex in 0..<boneCount {
+            do {
+                reference.append(try readMatrix(data: data, at: cursor, boneIndex: boneIndex))
+            } catch {
+                throw SceneMdlPuppetRigReadError.invalidReferenceMatrix(boneIndex)
+            }
+            cursor += matrixByteCount
+        }
+        return (bones, reference, nil)
     }
 
     private static func readVertexWeights(

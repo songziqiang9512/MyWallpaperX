@@ -102,7 +102,7 @@ enum ScenePuppetAnimationSelector {
             return .success(.init(clips: clips, composition: .singleAbsolute))
         }
         // Wallpaper Engine stacks visible puppet layers bottom-to-top.  An
-        // additive layer contributes its bind-relative delta; the first
+        // additive layer contributes its rig-reference delta (bind by default); the first
         // opaque layer supplies the weighted base pose.  Keep
         // the complete authored order instead of rejecting mixed or
         // overlapping layers; the evaluator still validates every track and
@@ -115,6 +115,7 @@ enum ScenePuppetAnimationEvaluationFailure: Error, CustomStringConvertible, Equa
     case boneCountMismatch
     case singularBindMatrix(Int)
     case invalidBindTransform(Int)
+    case invalidReferenceTransform(Int)
     case invalidFrame(Int)
     case duplicateAdditiveAnimation(Int)
     case invalidBlend
@@ -132,6 +133,8 @@ enum ScenePuppetAnimationEvaluationFailure: Error, CustomStringConvertible, Equa
             return "puppet bind world matrix \(index) is singular"
         case .invalidBindTransform(let index):
             return "puppet bind local transform \(index) is not decomposable"
+        case .invalidReferenceTransform(let index):
+            return "puppet reference local transform \(index) is not decomposable"
         case .invalidFrame(let index):
             return "puppet animation frame \(index) is out of bounds"
         case .duplicateAdditiveAnimation(let animationID):

@@ -70,7 +70,7 @@ Puppet Warp 的核心是骨骼驱动网格变形。官方页面说明 bone hiera
 | 官方页面 | 分类 | 官方合同与分类边界 | 当前等级 / 最小升级门 |
 |---|---|---|---|
 | <a id="op-puppet-introduction"></a>[Introduction](https://docs.wallpaperengine.io/en/scene/puppet-warp/introduction.html) | `runtime-required` + `editor-export` | 播放器消费透明 source、deformable geometry、bone/root hierarchy、weights、一个或多个 Timeline animation；image effect 只能作用在作者配置的 mesh/padding 范围。自动切图、建 mesh、画权重是 editor-only。 | `L3 executed-degraded`：MDLV0014/0016/0017/0023 bind geometry直接以world MVP绘制，受限 MDLS hierarchy/weights、严格单 clip LBS和受限layered mixing已执行；0014只验证无MDLA/MDAT的bind/script形状。[部件裁剪](#34-puppet-部件裁剪)已有界执行；channels 与平移之外的 physics 仍未执行。 |
-| <a id="op-puppet-charactersheet"></a>[Character Sheet](https://docs.wallpaperengine.io/en/scene/puppet-warp/charactersheet.html) | `editor-export` | 多个身体/衣物部件位于同一 texture，bone parent order、depth order、weights 与 reference pose 把分离部件重组；播放器消费导出结果，不负责切图或 overlay 辅助。 | `L3`：mesh UV/position与原始atlas由世界空间网格组合；受限 MDLV0014/0016 52-byte与MDLV0017/0023 80/84-byte records的四权重已供bind或单 clip LBS消费。depth order 与更多 vertex layout 仍未单独验证。 |
+| <a id="op-puppet-charactersheet"></a>[Character Sheet](https://docs.wallpaperengine.io/en/scene/puppet-warp/charactersheet.html) | `editor-export` | 多个身体/衣物部件位于同一 texture，bone parent order、depth order、weights 与 reference pose 把分离部件重组；播放器消费导出结果，不负责切图或 overlay 辅助。 | `L3`：mesh UV/position与原始atlas由世界空间网格组合；受限 MDLV0014/0016 52-byte与MDLV0017/0023 80/84-byte records的四权重已供bind或单 clip LBS消费。MDLS0002独立角色reference已接原求值链，见3.2.1；depth order 与更多 vertex layout 仍未单独验证。 |
 | <a id="op-puppet-extending"></a>[Extending](https://docs.wallpaperengine.io/en/scene/puppet-warp/extending.html) | `editor-export` + `ingest-boundary` | 扩展 sheet 时原部件像素位置保持不变，新区域加在右侧/底部或既有空隙；locked geometry 不自动补 mesh，1.7 及更早项目可能不兼容。运行时只消费更新后的 asset/version，不自行扩图。 | `L0`：无 Puppet schema/version gate；需 old/new asset identity、locked geometry、missing bone/weight 和版本失败关闭 fixture。 |
 | <a id="op-puppet-attachments"></a>[Attachments](https://docs.wallpaperengine.io/en/scene/puppet-warp/attachments.html) | `runtime-required` | named attachment 属于具体 bone/local point；作为 child 的任意 layer 跟随全部 Puppet animation。effect/asset 的 point property 也可绑定 attachment，绑定只在运行时生效。 | `L3 executed / S4 bounded visible`：受限 MDAT `u16` bone identity 与 local matrix 在加载时保留；逐帧 current frame=`boneWorld × attachmentLocal`，Scene child 为 `parentWorld × currentAttachment × childLocal`。真实 `3749463715` 的胸部、手部/手臂 attachment 和拖拽回弹闭环；point property attachment、其他版本及官方数值 parity未执行。 |
 | <a id="op-puppet-clipping-masks"></a>[Clipping Masks](https://docs.wallpaperengine.io/en/scene/puppet-warp/clippingmasks.html) | `runtime-required` | 被 clip 的 limb 默认不可见，只在与指定 limb/mask 重叠时出现；支持 nested mask，反向互相引用等 cycle 非法，depth order 影响 shadow/shading。官方未公开 overlap raster/edge 算法。 | `L3 bounded / S4 fixed-frame visible`：MDLV0023 part/paint关系、同pose动态重叠、opaque max、nested/cycle局部失败及main/named消费已执行；固定眼部0/105恢复。官方nested/软边、fractional source alpha、更多格式与完整pixel parity未证；[范围](#34-puppet-部件裁剪)。 |
@@ -110,11 +110,20 @@ MDLV0021兼容补接只新增上述三reader的版本合同，rig限已证80-byt
 ### 3.2 Puppet 静态权重与几何失败边界
 2026-10-07 的先行设计落在本节，沿已有 IR → prepared animation → evaluator → 动态顶点/attachment/compositor 实施。旧 selector 的 `blend<=1`、首 additive 无权重 anchor、frame-0 reference 缓存和 extra clamp 退出；
 
-- 接受能表示为有限 Float 的非负静态 blend，0 不贡献姿态。逐 bone 首个 opaque 相对 bind 加权，各 additive 统一相对 bind 叠加 T/S 差与局部旋转 delta；不再用动画第 0 帧作为权重基准。旋转权重使用最短半球归一化线性混合，时间插值仍沿现有 sampler；额外 opaque 顺序、动态 blend/seek API、非共轴多轨官方 parity 不由本批承诺。
-- 固定官方 2.8.0.42 黑盒暂停帧控制证明 0/.5/1/1.3/2 的 base/extra/单 opaque T/S 外推，并排除球面旋转外推。非 bind 的 frame0 控制区分了参考基准；项目 nlerp 与控制的预设旋转容差为 0.002 rad，不声称恢复官方内部公式。完整输入与身份见[运行证据](runtime-evidence-current.md#e-2026-10-07-puppet-static-weight)。更广权重是本实现安全范围，不等于官方全域 parity。
+- 接受能表示为有限 Float 的非负静态 blend，0 不贡献姿态。逐 bone 首个 opaque 相对 rig reference 加权，各 additive 统一相对该 reference 叠加 T/S 差与局部旋转 delta；无显式 reference 时沿原 bind（独立角色 reference 见3.2.1）；不再用动画第 0 帧作为权重基准。旋转权重使用最短半球归一化线性混合，时间插值仍沿现有 sampler；额外 opaque 顺序、动态 blend/seek API、非共轴多轨官方 parity 不由本批承诺。
+- 无显式角色 reference 的固定官方 2.8.0.42 黑盒暂停帧控制证明 0/.5/1/1.3/2 的 base/extra/单 opaque T/S 外推，并排除球面旋转外推。非 bind 的 frame0 控制区分了参考基准；项目 nlerp 与控制的预设旋转容差为 0.002 rad，不声称恢复官方内部公式。完整输入与身份见[运行证据](runtime-evidence-current.md#e-2026-10-07-puppet-static-weight)。更广权重是本实现安全范围，不等于官方全域 parity。
 - 非有限加权 pose、奇异 world 或最终 skinned vertex 失败时不上传部分几何。PlaybackState 首次未取得完整顶点时 named publication 与直接 draw 都拒绝；后续失败保留上一完整 vertex/attachment，DEBUG 只报告成功顶点。现有 VM getter 仅验证完整有限骨骼矩阵，最终顶点溢出的帧仍可能给脚本提供新骨骼 snapshot；本合同不宣称 VM/geometry 全链原子回滚。
 - 最近门是 `test_scene_puppet_weights`、真实 Metal 的 `test_scene_puppet_buffer_publication`及原播放/骨骼发布门；覆盖非 bind reference、零/外推权重、非共轴 unit-weight 恒等、最短半球、scale、非法数值与首次失败/旧几何保留/恢复。alpha与动画层控制分别见第3.3/3.1节；最终合成差异归现役断点队列。
 
+
+### 3.2.1 独立角色参考姿态
+
+沿现有 rig IR → prepared evaluator 补入 MDLS0002 的独立角色 reference；该字段服务动画组装，网格 inverse-bind 仍由原 bind 构建。公开 [Character Sheets](https://docs.wallpaperengine.io/en/scene/puppet-warp/charactersheet.html) 给出角色组装与动画起点合同；当前二进制 profile 来自作者输入与本项目控制，官方数值未证。实现、独立审查、代表画面及其边界见[补接记录](../history/puppet-reference-pose-2026-10-11.md)。
+
+- reader 只识别零前置 flag 与 reference present 的完整逐骨骼矩阵段，核验 MDLS block end、有限 affine；未知前置数据不猜偏移，沿旧 bind 投影并诊断。缺尾/无 reference 保留旧行为；现代明确 reference present 的未验证结构不静默准入。
+- reference 只在准备期分解，并核验逐元素相对重建容差1e-4；剪切等不能表示为 TRS 的新 reference 拒绝该 rig。旧 bind 的安全/精确初始化矩阵边界不收紧；不使用 clip frame0 推导 reference。
+- 单/多 clip、零权重、隐藏与无 clip 共用同一参考基准；reference-only 复用原 empty-selection PlaybackState，getter、物理、attachment、顶点仍消费同一 pose。无 reference 的静态 mesh 与精确 init getter 保留，不新增变形器、时钟或输出 owner。
+- 最近门 `test_scene_puppet_rig` / `test_scene_puppet_weights` 覆盖分离 bind/reference/frame0 的 native 输入、父子层级、零/外推、隐藏/恢复、无 clip、截断与非法矩阵、旧精确 init getter。原始动态/静态健康样本分别复验；完整交互、现代 profile、非共轴混合和官方逐像素仍不由本片升级。
 
 ### 3.3 骨骼透明度动画
 

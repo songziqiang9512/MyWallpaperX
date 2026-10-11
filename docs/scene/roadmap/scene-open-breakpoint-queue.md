@@ -24,16 +24,16 @@
 
 ### 新增样本公共断点（N01–N10）
 
-以下保留本批已见断链与明确待对照项；每成员结果及证据身份仅在[普查记录](../history/new-scene-intake-2026-10-11.md)。同一拒因可有多种上游原因，不按样本增加算法。N01已闭，下一批N02，再按实际覆盖评估T1/E1与粒子；先前冻结代码独立收尾。
+以下保留本批已见断链与明确待对照项；每成员结果及证据身份仅在[普查记录](../history/new-scene-intake-2026-10-11.md)。同一拒因可有多种上游原因，不按样本增加算法。N01已闭；N02组装首断点已补接，其他问题分别留N03/N06。下一批先核N03 Skew的共享uniform尺寸合同，再闭合实际特效；N06初始配置API另列；先前冻结代码独立收尾。
 
 | 项 | 实际问题、现有责任与关闭门 |
 |---|---|
 | N01 嵌视频资源入口 | **有界已闭**：[大载荷修复](../history/embedded-webm-video-2026-10-10.md#large-video-payload)沿原reader/provider恢复3811216799人物视频，18秒持续播放且健康MP4保留；完整预算和静态限制不变。普通桌面入口、长稳与全交互未验，不计整样本完成。 |
-| N02 Puppet局部缺失 | **可见异常，根因待隔离**：2824690710人物13、2877855240人物333几何显著越屏；2887542690头370缺失且origin脚本失败。未被默认hidden/alpha0解释，沿既有pose→world transform→UV/alpha→compositor定位，保留健康0017/0023与多clip反例。 |
-| N03 共享材质/effect owner | **实际局部回退**：2877855240六段solid/text Skew、3351179520及3761619125的39段等generic-owner-revoked；后者另有大片白缺失，不能先认唯一根因。3435573282有source passthrough及上游material-template拒绝。归并精确source/profile/envelope，复用原compiler/graph；不能按同名效果整族重写。 |
+| N02 Puppet局部缺失 | **组装首断点有界已修**：[独立reference补接](../history/puppet-reference-pose-2026-10-11.md)使2824690710人物13、2877855240人物333与2887542690头370重新组装；沿原reader/evaluator，inverse-bind不变，健康多clip/静态路径保留。287六段effect回退归N03；288 origin TypeError和片区布局/运动归N06。官方数值、全属性/交互及完整画面仍待验，不能关闭整样本。 |
+| N03 共享材质/effect owner | **实际局部回退**：2877855240六段solid/text Skew首错为`g_TextureReductionScale`未进入host uniform schema，缩减尺寸语义须验证，不能猜值1；3351179520待分诊。3761619125的39段分为24 multistage_wave、14 texture_override、1 deformer_simulation，含函数类型转换与`g_Alpha`绑定等不同首错；大片白缺失不能先认唯一根因。3435573282有source passthrough及上游material-template拒绝。归并精确source/profile/envelope，复用原compiler/graph；不能按同名效果整族重写。 |
 | N04 绑定、依赖与发布 | **实际断链**：2960821850材质texture-binding拒绝且92 source-coverage未证；3039882306基础user-property fallback不可用；3708363772的705/560与3476868923的105/1935 stage-reference不支持；3815761795的233 publication unavailable。分别从既有binding/provider/graph首错追到consumer，不把下游多effect重复算能力缺失。 |
 | N05 Frontend/可见源 | **已见拒绝，画面因果待核**：3666041758 fullscreen190两段Blur frontend-envelope回退，主solid138仅Program准备无graph，141.visibility owner invalidSource；2960821850 Blendgradient及3248220186 GodRays另有实际texture-purpose/envelope回退，按不同profile核准入。先定位实际入口/显隐与依赖，不另造磁流体算法。 |
-| N06 SceneScript输入 | **执行失败**：2887542690、2890473419、3761619125 origin TypeError；3766310551 visibility TypeError；3781757083 visibility BAD_RETURN；3337494481还有callback invalid-argument；3708363772的221.visibility owner invalidSource属于准备期，另核作者调用合同。沿同VM调用/返回合同修复，保留合法返回和失败原值，不用按样本默认值掩盖。 |
+| N06 SceneScript输入 | **执行失败**：2887542690的34个origin target归两份脚本，首缺`thisScene.getInitialLayerConfig`；应从prepared作者配置接原catalog/ABI/VM并返回副本，不用当前帧值伪装初始配置。2890473419、3761619125 origin TypeError；3766310551 visibility TypeError；3781757083 visibility BAD_RETURN；3337494481还有callback invalid-argument；3708363772的221.visibility owner invalidSource属于准备期，另核作者调用合同。沿同VM调用/返回合同修复，保留合法返回和失败原值，不用按样本默认值掩盖。 |
 | N07 世界Sprite渲染组合 | **可见拒绝**：3248220186三个visible Sprite unsupportedRenderState、截图全黑。现screen Sprite已有depth/cull，缺口在world/perspective组合；需核后续geometry与深度行为，不关闭作者depth来换通过。 |
 | N08 RopeTrail组合 | **可见拒绝、语义待研究**：3337494481十个复制层visible unavailable，flags1/subdivision=-16均超当前profile；原十hidden不是故障。先证world/负subdivision合同，扩原trail owner，不能clamp作者值。 |
 | N09 重型冷启动 | **超过首轮预算**：3476868923、3507496797首轮69秒未ready，延时约153.425/93.820秒ready并正常退出。不能当永久无法启动；沿现准备/编译/cache开销定位，保留进度、取消与失败边界，不以提高测试时限当性能修复。 |

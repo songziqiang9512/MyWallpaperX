@@ -65,8 +65,8 @@
       "bytes": 11331
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 314,
-      "bytes": 61602
+      "lines": 323,
+      "bytes": 63515
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -93,8 +93,8 @@
       "bytes": 343456
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 95,
-      "bytes": 28489
+      "lines": 96,
+      "bytes": 28790
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 241,
-      "bytes": 64475
+      "bytes": 65115
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1041,11 +1041,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "8d478ad4d8d9c3c1762ee605721c3261ab0a0130b781de1f5e57bdec5f491b30",
-      "after": "d6588ae6a85c3603258c2f740545f083e38bedbd3bb9b232826cfaca5a0c0740",
-      "owner": "Scene light snapshot",
-      "reason": "纠正被固定法线与隐藏灯正反例否定的方向/显隐合同，复用world和visibility唯一owner；后继证据只存历史，现役保留有界结果与环带待办。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#effective-light-visibility"
+      "before": "d6588ae6a85c3603258c2f740545f083e38bedbd3bb9b232826cfaca5a0c0740",
+      "after": "a234f231725db8f8003377b13186996f7e793aa6432facd0f8301476eef8edbb",
+      "owner": "Scene Puppet reference pose",
+      "reason": "独立角色reference作为rig动画基准补入现有合同，明确原inverse-bind不变、MDLS0002准入和旧bind兼容边界；实现过程与逐样本结果仅保留历史。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#321-独立角色参考姿态"
     },
     {
       "section": "bodies",
@@ -1140,11 +1140,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7ac8487ecfba527cd8a11f50759bb20a6757d20b6cabd98f74c7a9ee2e5e156e",
-      "after": "2c39414dd3b19f9ca5e9ac2c68042d57de9b9e074f55c0298442f9f21d07e8f7",
-      "owner": "Scene新增样本普查",
-      "reason": "用户新增37样本的固定App运行及公共首断点入现有队列；逐样本过程仅历史记录一处，旧243快照不冒充279当前全集。",
-      "decision": "docs/scene/history/new-scene-intake-2026-10-11.md#归并与后继"
+      "before": "81d35cd9625c4e4deef0b934794a6a34f1938ec1f39d42a00a05a6d3ba52bd5a",
+      "after": "8e08d7b398a7be1b0a0693727fcbd2f15444a7437a0b581de09a7b322831f322",
+      "owner": "Scene Puppet reference pose",
+      "reason": "增加一条N02组装首断点的历史证据导航，保留三原包有界结果及N03/N06余项；不复制逐样本过程或扩大整样本验收。",
+      "decision": "docs/scene/history/puppet-reference-pose-2026-10-11.md#依据与证据上限"
     },
     {
       "section": "bodies",
@@ -1158,11 +1158,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f19bc9928a37e9cc5c6d3ab9a5531b27d6ba0699d44abb26713b7c46766718cb",
-      "after": "d54b8abe2b99be9a926e362cc1e3d80e76559810c9cb85ad69f71d0e247b85ea",
-      "owner": "Scene TEX视频输入",
-      "reason": "N01真实大载荷修复更新能力与关闭门，沿既有reader/provider且保留未验边界。",
-      "decision": "docs/scene/history/embedded-webm-video-2026-10-10.md#large-video-payload"
+      "before": "d54b8abe2b99be9a926e362cc1e3d80e76559810c9cb85ad69f71d0e247b85ea",
+      "after": "04db7c5b6b8e6f01d923de554a7e9637df49eb5541c3315d57d4b6c9c9fbfa2d",
+      "owner": "Scene Puppet reference pose",
+      "reason": "N02组装首断点按有界结果退队，287特效回退与288初始配置API分别归N03/N06，并保留实际首错和后续关闭门；不关闭整样本。",
+      "decision": "docs/scene/history/puppet-reference-pose-2026-10-11.md#验证与画面"
     }
   ]
 }

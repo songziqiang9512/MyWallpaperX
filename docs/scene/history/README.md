@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-11 | Scene | 修复证据 | [Puppet角色参考姿态](puppet-reference-pose-2026-10-11.md) | 独立reference沿原rig/evaluator恢复三原包组装；N03/N06余项与官方数值未验 | [高级对象](../capabilities/advanced-object-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-11 | Scene | 样本诊断 | [新增37份运行普查](new-scene-intake-2026-10-11.md) | 固定App运行、可见异常与公共首断点归并；不是完整正确率 | [运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-10 | Scene | 修复证据 | [标量RGBA重组](sampled-alpha-scalar-local-reconstruction-2026-10-10.md) | 同一采样颜色合同的第二种作者写法及其验证边界 | [Graph覆盖](../capabilities/render-graph-shader-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-10 | Scene | 修复证据 | [命名Timeline交互](named-timeline-interaction-2026-10-10.md) | 跨层命名动画、stateful Bool权限与独立cursor定时器；旧报告有界复核 | [API台账](../capabilities/scenescript-api-coverage.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |

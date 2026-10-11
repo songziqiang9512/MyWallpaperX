@@ -447,13 +447,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-09",
+      "lastReviewed": "2026-10-11",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e218322a9786baf7d0b3d62555be3103161a09dfdbb486d9658ca0d5be2cdd32",
+        "sourceSHA256": "1e6b030ca563cc62f6e7f03c59bbfc768d86d6e1faaf23434c83361f29461f16",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对本批模型发光合同、原包证据和剩余队列的导航。",
-        "limitations": "不代表未知MDLS后缀、官方逐像素、完整交互或全样本验收。"
+        "scope": "核对独立角色reference的现役合同、先行设计、历史证据入口及最近门；仅更新导航与正文身份。",
+        "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
     {
@@ -531,10 +531,10 @@
       "lastReviewed": "2026-10-11",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "50ffae6c26873f37d0cc1fb866026be4ac03f76f35f06a93ad9f944e2d37274c",
+        "sourceSHA256": "f3f1c25e9e9bf1dd3d4a6bd49de7a5e08f91934fec42227253f582cf3e0f12ea",
         "method": "document_registry --audit + document_health --check",
-        "scope": "新增37样本固定App普查与旧243快照、279当前目录及队列的职责和导航核对",
-        "limitations": "仅新增37的有界direct Host运行；非全页运行重验、普通产品入口或完整视觉验收。"
+        "scope": "核对N02角色reference记录与当前合同、现役队列的职责和入口，保留新增37样本普查导航；仅更新导航与正文身份。",
+        "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
     {
@@ -1282,6 +1282,17 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/capabilities/puppet-clipping-design.md",
+        "docs/scene/capabilities/advanced-object-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/puppet-reference-pose-2026-10-11.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
         "docs/scene/capabilities/advanced-object-coverage.md",
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
@@ -2040,13 +2051,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-10",
+      "lastReviewed": "2026-10-11",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "320c83735e085f4176f27c72ef5b1f72f789c8487b4d487b0feaa25245ffc91a",
+        "sourceSHA256": "42f0f9c3839601761de9c3d5ead2f92f7d5f35b3ec8e020ebf17fa537079206d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "U24封面依赖及资源驻留后继：核对合同、完成记录与开放余项的职责和链接",
-        "limitations": "导航与证据身份核对；不等同全样本、真实声源、compose或HDR官方parity。"
+        "scope": "核对N02组装完成入口与N03材质/effect、N06SceneScript余项的职责、首错和关闭门；仅更新导航与正文身份。",
+        "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
     {

@@ -42,14 +42,19 @@ enum ScenePuppetLayerLoad {
                       layer.id, index, diagnostic)
             }
         }
-        let localMatrices: [simd_float4x4] = rig.bones.map { bone in
-            let values = bone.bindLocalMatrixColumnMajor
-            return simd_float4x4(
-                SIMD4(values[0], values[1], values[2], values[3]),
-                SIMD4(values[4], values[5], values[6], values[7]),
-                SIMD4(values[8], values[9], values[10], values[11]),
-                SIMD4(values[12], values[13], values[14], values[15])
-            )
+        let localMatrices: [simd_float4x4]
+        if rig.referenceLocalMatricesColumnMajor != nil {
+            guard let evaluator = try? ScenePuppetAnimationEvaluator(mesh: mesh, rig: rig),
+                  let neutralPose = try? evaluator.boneTransforms(
+                      selection: .init(clips: [], composition: .layered), frameSamples: []
+                  ) else { return nil }
+            localMatrices = neutralPose.local
+        } else {
+            // Initial getters preserve the exact historical bind, including affine
+            // shear and small determinants that are outside animation evaluation.
+            localMatrices = rig.bones.map {
+                ScenePuppetAnimationEvaluator.matrix(fromColumnMajor: $0.bindLocalMatrixColumnMajor)
+            }
         }
         guard let frame = try? ScenePuppetBoneTransformFrame(
             rig: rig, animatedLocalMatrices: localMatrices
@@ -157,10 +162,17 @@ enum ScenePuppetLayerLoad {
         let layerWidth = renderSize.count > 0 ? renderSize[0] : 0
         let layerHeight = renderSize.count > 1 ? renderSize[1] : 0
         let attachments = (try? SceneMdlPuppetAttachmentReader.read(data: data)) ?? []
+        let rigResult: Result<SceneMdlPuppetRig, Error> = Result {
+            try SceneMdlPuppetRigReader.read(data: data, mesh: mesh)
+        }
+        if case let .success(rig) = rigResult, let diagnostic = rig.referencePoseDiagnostic {
+            NSLog("MWX Puppet: layer=%d fallback=bind-pose reason=%@", layer.id, diagnostic)
+        }
         var animationFallbackMessage: String?
+        var needsReferenceOnlyPlayback = false
         if layer.puppetAnimationLayers.isEmpty == false {
             do {
-                let rig = try SceneMdlPuppetRigReader.read(data: data, mesh: mesh)
+                let rig = try rigResult.get()
                 guard let animationSet = try SceneMdlPuppetAnimationReader.read(data: data) else {
                     animationFallbackMessage = "animation rejected: version-matched MDLA is absent"
                     return staticOutcome(
@@ -213,6 +225,7 @@ enum ScenePuppetLayerLoad {
                     }
                 case .success(nil):
                     animationFallbackMessage = "animation inactive: no visible layer"
+                    needsReferenceOnlyPlayback = rig.referenceLocalMatricesColumnMajor != nil
                 case let .failure(failure):
                     animationFallbackMessage = "animation rejected: \(failure.description)"
                 }
@@ -224,10 +237,11 @@ enum ScenePuppetLayerLoad {
                 animationFallbackMessage = "animation rejected: unknown parse failure"
             }
         }
-        // A script can deform a rig without an authored animation clip. Keep
-        // it in the same playback/evaluator owner, seeded by the bind pose.
-        if layer.puppetAnimationLayers.isEmpty, layer.hasInlineScript,
-           let rig = try? SceneMdlPuppetRigReader.read(data: data, mesh: mesh) {
+        // A reference pose or script can deform a rig without an active clip.
+        // Empty selections retain the same evaluator, frame and publication owner.
+        if layer.puppetAnimationLayers.isEmpty || needsReferenceOnlyPlayback,
+           case let .success(rig) = rigResult,
+           layer.hasInlineScript || rig.referenceLocalMatricesColumnMajor != nil {
             switch ScenePuppetPlaybackState.make(
                 layerID: layer.id, mesh: mesh, rig: rig,
                 selection: .init(clips: [], composition: .layered),
@@ -239,7 +253,9 @@ enum ScenePuppetLayerLoad {
             case let .success(output):
                 return Outcome(geometryProduct: output.product, playback: output.state,
                     allowsMissingMeshTextureProduct: false,
-                    message: "puppet script world geometry prepared")
+                    message: rig.referenceLocalMatricesColumnMajor != nil
+                        ? "puppet reference world geometry prepared"
+                        : "puppet script world geometry prepared")
             case let .failure(failure):
                 animationFallbackMessage = "script pose rejected: \(failure.description)"
             }

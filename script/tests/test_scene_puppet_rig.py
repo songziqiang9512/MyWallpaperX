@@ -52,6 +52,12 @@ enum Harness {
                         Double($0.bindLocalMatrixColumnMajor[13]),
                     ]
                 }
+                if let reference = rig.referenceLocalMatricesColumnMajor {
+                    entry["referenceTranslations"] = reference.map { [Double($0[12]), Double($0[13])] }
+                } else {
+                    entry["referenceTranslations"] = NSNull()
+                }
+                entry["referenceDiagnostic"] = rig.referencePoseDiagnostic ?? ""
                 entry["weights"] = rig.vertexWeights.prefix(3).map { weights in
                     [
                         "indices": (0..<4).map { Int(weights.boneIndices[$0]) },
@@ -94,6 +100,8 @@ def build_rig_mdl(
     bad_weight_sum: bool = False,
     bad_bone_index: bool = False,
     nan_weight: bool = False,
+    bind_matrices: list[list[float]] | None = None,
+    skeleton_tail: bytes = b"",
 ) -> bytes:
     vertices = [
         (-10.0, -20.0, 0.0, [0, 0, 0, 0], [1.0, 0.0, 0.0, 0.0], 0.0, 1.0),
@@ -132,9 +140,11 @@ def build_rig_mdl(
             1,
             parent,
             64,
-            *matrix(bone * 10, bone * 20, nan=bad_matrix and bone == 0),
+            *(bind_matrices[bone] if bind_matrices is not None else
+              matrix(bone * 10, bone * 20, nan=bad_matrix and bone == 0)),
         )
         mdls += b"{}\0"
+    mdls += skeleton_tail
     mdla_offset = len(body) + len(mdls)
     struct.pack_into("<I", mdls, 9, mdla_offset)
     return bytes(body + mdls + animation_marker)
@@ -189,6 +199,29 @@ class SceneMdlPuppetRigReaderTests(unittest.TestCase):
             "bad-bone-index.mdl": build_rig_mdl(bad_bone_index=True),
             "nan-weight.mdl": build_rig_mdl(nan_weight=True),
         }
+        reference_matrices = [matrix(20, 30), matrix(7, 9)]
+        reference_tail = b"\0\0\1" + struct.pack("<32f", *reference_matrices[0], *reference_matrices[1])
+        legacy = dict(magic=b"MDLV0017", skeleton_marker=b"MDLS0002\0", animation_marker=b"MDLA0004\0")
+        for version, stride, animation_marker in ((b"MDLV0014", 52, b"\0"),
+                                                  (b"MDLV0016", 52, b"MDLA0003\0"),
+                                                  (b"MDLV0017", 80, b"MDLA0004\0"),
+                                                  (b"MDLV0019", 80, b"MDLA0005\0")):
+            cls.fixtures[f"{version.decode()}-reference.mdl"] = build_rig_mdl(
+                magic=version, stride=stride, skeleton_marker=b"MDLS0002\0",
+                animation_marker=animation_marker, skeleton_tail=reference_tail + b"remaining author fields")
+        cls.fixtures["absent-reference.mdl"] = build_rig_mdl(**legacy, skeleton_tail=b"\0\0\0ignored tail")
+        cls.fixtures["unknown-reference-prefix.mdl"] = build_rig_mdl(**legacy, skeleton_tail=b"\1\0\1" + reference_tail[3:])
+        cls.fixtures["unknown-reference-flag.mdl"] = build_rig_mdl(**legacy, skeleton_tail=b"\0\0\2" + reference_tail[3:])
+        cls.fixtures["short-unrecognized-tail.mdl"] = build_rig_mdl(**legacy, skeleton_tail=b"\0\0")
+        cls.fixtures["truncated-reference.mdl"] = build_rig_mdl(**legacy, skeleton_tail=reference_tail[:-1])
+        for version, marker in ((b"MDLV0021", b"MDLS0003\0"), (b"MDLV0023", b"MDLS0004\0")):
+            cls.fixtures[f"{version.decode()}-unsupported-reference.mdl"] = build_rig_mdl(
+                magic=version, skeleton_marker=marker, skeleton_tail=reference_tail)
+        for label, component, value in (("nan", 12, float("nan")), ("infinite", 12, float("inf")),
+                                         ("oversized", 12, 1_000_001), ("non-affine", 3, 0.5)):
+            changed = bytearray(reference_tail)
+            struct.pack_into("<f", changed, 3 + component * 4, value)
+            cls.fixtures[f"bad-reference-{label}.mdl"] = build_rig_mdl(**legacy, skeleton_tail=bytes(changed))
         for name, blob in cls.fixtures.items():
             (tmp / name).write_bytes(blob)
 
@@ -209,6 +242,66 @@ class SceneMdlPuppetRigReaderTests(unittest.TestCase):
         if completed.returncode != 0:
             raise AssertionError(f"harness run failed:\n{completed.stderr}")
         cls.results = {entry["file"]: entry for entry in json.loads(completed.stdout)}
+        # Execute the actual initial getter and path resolver verbatim. Omit the
+        # unrelated Metal preparation methods so this regression needs no GPU.
+        from script.tests.test_scene_puppet_playback import SWIFT_SOURCES as evaluator_sources
+        load_source = (SCENE_ROOT / "Systems/Puppet/ScenePuppetLayerLoad.swift").read_text()
+        getter_source = load_source[:load_source.index("    struct Outcome {")]
+        getter_source += load_source[load_source.index("    /// The mesh path comes from extracted pkg JSON;"):]
+        getter_source += r'''
+struct SceneRenderDescriptor {
+    struct Layer { let id: Int; let puppetMeshPath: String? }
+}
+@main enum InitialGetterHarness {
+    static func main() throws {
+        var rows: [[String: Any]] = []
+        for path in CommandLine.arguments.dropFirst() {
+            let url = URL(fileURLWithPath: path)
+            let layer = SceneRenderDescriptor.Layer(id: 1, puppetMeshPath: url.lastPathComponent)
+            var row: [String: Any] = ["file": url.lastPathComponent]
+            if let pose = ScenePuppetLayerLoad.boneConfiguration(for: layer,
+                cacheDirectory: url.deletingLastPathComponent()) {
+                row["available"] = true
+                row["local"] = pose.localMatrices
+                row["world"] = pose.worldMatrices
+            } else { row["available"] = false }
+            rows.append(row)
+        }
+        print(String(decoding: try JSONSerialization.data(withJSONObject: rows), as: UTF8.self))
+    }
+}
+'''
+        getter_harness = tmp / "initial-getter.swift"
+        getter_harness.write_text(getter_source)
+        getter_binary = tmp / "initial-getter"
+        getter_compile = subprocess.run(["swiftc", *map(str, evaluator_sources),
+            str(SCENE_ROOT / "Format/ScenePuppetBoneCatalog.swift"),
+            str(SCENE_ROOT / "Systems/Script/ScenePuppetBoneTransformBridge.swift"),
+            str(getter_harness), "-o", str(getter_binary)], capture_output=True, text=True)
+        if getter_compile.returncode:
+            raise AssertionError(getter_compile.stderr)
+        cls.getter_bind_matrices = {}
+        getter_inputs = []
+        for name, root_bind, tail in (("bind-shear.mdl", matrix(4), b""),
+                                     ("bind-small-det.mdl", matrix(4), b""),
+                                     ("getter-reference.mdl", matrix(4), reference_tail),
+                                     ("getter-shear-reference.mdl", matrix(4), None)):
+            if name == "bind-shear.mdl":
+                root_bind[4] = 0.25
+            elif name == "bind-small-det.mdl":
+                root_bind[0] = 1e-8
+            if tail is None:
+                shear_reference = matrix(20, 30)
+                shear_reference[4] = 0.25
+                tail = b"\0\0\1" + struct.pack("<32f", *shear_reference, *matrix(7, 9))
+            path = tmp / name
+            path.write_bytes(build_rig_mdl(**legacy, bind_matrices=[root_bind, matrix(2)], skeleton_tail=tail))
+            getter_inputs.append(str(path))
+            cls.getter_bind_matrices[name] = list(struct.unpack("<16f", struct.pack("<16f", *root_bind)))
+        getter_run = subprocess.run([str(getter_binary), *getter_inputs], capture_output=True, text=True)
+        if getter_run.returncode:
+            raise AssertionError(getter_run.stderr)
+        cls.initial_getter_results = {row["file"]: row for row in json.loads(getter_run.stdout)}
 
     @classmethod
     def tearDownClass(cls):
@@ -268,6 +361,52 @@ class SceneMdlPuppetRigReaderTests(unittest.TestCase):
 
     def test_non_finite_weight_fails_closed(self):
         self.assertIn("invalid puppet vertex weights", self.results["nan-weight.mdl"]["error"])
+
+    def test_legacy_reference_segment_keeps_original_bind_and_uninterpreted_suffix(self):
+        for version in ("MDLV0014", "MDLV0016", "MDLV0017", "MDLV0019"):
+            with self.subTest(version=version):
+                row = self.results[f"{version}-reference.mdl"]
+                self.assertTrue(row["ok"], row)
+                self.assertEqual(row["bindTranslations"], [[0, 0], [10, 20]])
+                self.assertEqual(row["referenceTranslations"], [[20, 30], [7, 9]])
+                self.assertEqual(row["referenceDiagnostic"], "")
+
+    def test_absent_reference_and_unknown_prefix_preserve_existing_rig(self):
+        for name in ("stride80.mdl", "absent-reference.mdl", "unknown-reference-prefix.mdl",
+                     "unknown-reference-flag.mdl", "short-unrecognized-tail.mdl"):
+            row = self.results[name]
+            self.assertTrue(row["ok"], row)
+            self.assertIsNone(row["referenceTranslations"])
+            self.assertEqual(row["bindTranslations"], [[0, 0], [10, 20]])
+            self.assertEqual(row["referenceDiagnostic"], "" if name in ("stride80.mdl", "absent-reference.mdl")
+                             else "unsupported-reference-pose-prefix")
+
+    def test_declared_reference_must_fit_skeleton_and_contain_finite_affine_matrices(self):
+        self.assertIn("reference pose within skeleton bounds", self.results["truncated-reference.mdl"]["error"])
+        for label in ("nan", "infinite", "oversized", "non-affine"):
+            with self.subTest(label=label):
+                self.assertIn("invalid reference matrix", self.results[f"bad-reference-{label}.mdl"]["error"])
+
+    def test_modern_declared_reference_is_not_silently_treated_as_supported(self):
+        for version in ("MDLV0021", "MDLV0023"):
+            self.assertIn("reference pose is unverified", self.results[f"{version}-unsupported-reference.mdl"]["error"])
+
+    def test_initial_getter_preserves_exact_bind_without_reference(self):
+        for name in ("bind-shear.mdl", "bind-small-det.mdl"):
+            with self.subTest(name=name):
+                row = self.initial_getter_results[name]
+                self.assertTrue(row["available"], row)
+                self.assertEqual(row["local"][:16], self.getter_bind_matrices[name])
+                self.assertEqual(row["local"][16:], matrix(2))
+                self.assertEqual(row["world"][:16], row["local"][:16])
+
+    def test_initial_reference_getter_uses_evaluator_validation(self):
+        row = self.initial_getter_results["getter-reference.mdl"]
+        self.assertTrue(row["available"], row)
+        self.assertEqual(row["local"][12:15], [20, 30, 0])
+        self.assertEqual(row["local"][28:31], [7, 9, 0])
+        self.assertEqual(row["world"][28:31], [27, 39, 0])
+        self.assertFalse(self.initial_getter_results["getter-shear-reference.mdl"]["available"])
 
     def test_three_real_sources_parse_both_verified_strides_when_available(self):
         if len(self.real_assets) != 3:
