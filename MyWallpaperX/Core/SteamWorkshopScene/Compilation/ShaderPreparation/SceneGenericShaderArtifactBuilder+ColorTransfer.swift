@@ -248,11 +248,12 @@ extension SceneGenericShaderArtifactBuilder {
                 )
             )
         case let .independentAlphaSignal(textureSlot: slot):
-            guard let lowered =
-                    SceneGenericShaderIndependentSignalLowering.lowerProducer(
-                        source,
-                        expectedSlot: slot
-                    ) else { throw Failure.colorTransfer }
+            guard let fact = SceneAuthoredShaderIndependentAlphaAnalyzer
+                    .producerFact(fragmentSource: authoredSource),
+                  fact.sourceSlot == slot,
+                  let lowered = SceneGenericShaderIndependentSignalLowering
+                    .lowerProducer(source, fact: fact)
+            else { throw Failure.colorTransfer }
             return (
                 lowered,
                 artifactTransfer(kind: "independent-alpha-signal", slot: slot)

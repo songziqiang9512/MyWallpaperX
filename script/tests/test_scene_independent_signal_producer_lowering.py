@@ -41,6 +41,13 @@ private struct Output: Codable {
     let secondWholeSampleRejected: Bool
     let wrongInputSlotRejected: Bool
     let hiddenOutputWriteRejected: Bool
+    let unmaskedSourceTransfer: Bool
+    let unmaskedAccepted: Bool
+    let missingAlphaWriteRejected: Bool
+    let unexpectedAlphaWriteRejected: Bool
+    let nonmultiplyAlphaWriteRejected: Bool
+    let precedingAlphaWriteRejected: Bool
+    let indexedOutputWriteRejected: Bool
     let producerProfile: String
     let producerRoute: String
     let producerRollback: String
@@ -89,13 +96,28 @@ fragment Output mwxGenericFragment() {
 }
 """
 
-private func prepared(_ source: String) -> (
+private let unmaskedAuthored = """
+uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void main() {
+    float mask = 1.0;
+    vec4 carrier = texSample2D(g_Texture0, v_TexCoord);
+    carrier.rgb *= carrier.a;
+    carrier.a = 1.0;
+    gl_FragColor = carrier * mask * step(0.5, dot(vec3(0.11, 0.59, 0.3), carrier.rgb));
+}
+"""
+
+private let unmaskedMSL = msl
+    .replacingOccurrences(of: "    out.mwxFragColor.w *= noise;\n", with: "")
+
+private func prepared(_ source: String, authoredSource: String = authored) -> (
     msl: String,
     transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
 )? {
     try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
         msl: source,
-        authoredSource: authored
+        authoredSource: authoredSource
     )
 }
 
@@ -284,6 +306,25 @@ private enum Harness {
                 of: "    out.mwxFragColor.w *= noise;",
                 with: "    out.mwxFragColor.xyz *= noise;"
             )) == nil,
+            unmaskedSourceTransfer: SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                fragmentSource: unmaskedAuthored
+            ) == .independentAlphaSignal(textureSlot: 0),
+            unmaskedAccepted: prepared(unmaskedMSL, authoredSource: unmaskedAuthored)
+                .map { $0.transfer.kind == "independent-alpha-signal"
+                    && !$0.msl.contains("premultiply(out.mwxFragColor") } == true,
+            missingAlphaWriteRejected: prepared(unmaskedMSL) == nil,
+            unexpectedAlphaWriteRejected: prepared(msl, authoredSource: unmaskedAuthored) == nil,
+            nonmultiplyAlphaWriteRejected: prepared(msl.replacingOccurrences(
+                of: "out.mwxFragColor.w *= noise", with: "out.mwxFragColor.w = noise"
+            )) == nil,
+            precedingAlphaWriteRejected: prepared(unmaskedMSL.replacingOccurrences(
+                of: "    out.mwxFragColor = translatedCarrier",
+                with: "    out.mwxFragColor.w *= noise;\n    out.mwxFragColor = translatedCarrier"
+            )) == nil,
+            indexedOutputWriteRejected: prepared(unmaskedMSL.replacingOccurrences(
+                of: "    return out;",
+                with: "    out.mwxFragColor[3] = 0.0;\n    return out;"
+            ), authoredSource: unmaskedAuthored) == nil,
             producerProfile: producerProfile.rawValue,
             producerRoute: producerProfile.defaultRouteState.rawValue,
             producerRollback: producerProfile.validatedRollbackOwner.rawValue,
@@ -336,8 +377,12 @@ class SceneIndependentSignalProducerLoweringTests(unittest.TestCase):
             "preservingTamperRejected", "wrongSlotRejected",
             "unresolvedPromotionRejected", "secondWholeSampleRejected",
             "wrongInputSlotRejected", "hiddenOutputWriteRejected",
+            "unmaskedSourceTransfer", "unmaskedAccepted", "missingAlphaWriteRejected",
+            "unexpectedAlphaWriteRejected", "nonmultiplyAlphaWriteRejected",
+            "precedingAlphaWriteRejected", "indexedOutputWriteRejected",
         ):
-            self.assertTrue(output[key], (key, output))
+            with self.subTest(contract=key):
+                self.assertTrue(output[key], (key, output))
         self.assertEqual(
             output["producerProfile"],
             "source-proven-graph-input-independent-signal-producer",

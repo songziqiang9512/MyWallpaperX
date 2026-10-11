@@ -11,8 +11,9 @@ nonisolated enum SceneGenericShaderIndependentSignalLowering {
 
     static func lowerProducer(
         _ source: String,
-        expectedSlot: Int
+        fact: SceneAuthoredShaderIndependentAlphaAnalyzer.ProducerFact
     ) -> String? {
+        let expectedSlot = fact.sourceSlot
         guard (0 ..< 8).contains(expectedSlot),
               !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
               SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
@@ -39,7 +40,7 @@ nonisolated enum SceneGenericShaderIndependentSignalLowering {
               }) else { return nil }
 
         let outputWrites = SceneShaderSourceTextFacts.matches(
-            #"(?m)^[ \t]*out\.mwxFragColor(?:\.([xyzwrgba]{1,4}))?\s*(?:[+\-*/]?=)"#,
+            #"(?m)^[ \t]*out\.mwxFragColor(?:\.([xyzwrgba]{1,4}))?\s*([+\-*/]?=)"#,
             in: source
         )
         let wholeOutput = outputWrites.filter {
@@ -52,9 +53,19 @@ nonisolated enum SceneGenericShaderIndependentSignalLowering {
             #"(?m)^[ \t]*out\.mwxFragColor\s*=.*;[ \t]*$"#,
             in: source
         )
-        guard wholeOutput.count == 1,
+        guard SceneShaderSourceTextFacts.matches(
+                  #"\bout\s*\.\s*mwxFragColor\b"#, in: source
+              ).count == outputWrites.count,
+              wholeOutput.count == 1,
               wholeAssignments.count == 1,
-              componentOutput == ["w"],
+              componentOutput == (fact.multipliesOutputAlpha ? ["w"] : []),
+              outputWrites.allSatisfy({
+                  if SceneShaderSourceTextFacts.capture($0, 1, in: source) == nil {
+                      return SceneShaderSourceTextFacts.capture($0, 2, in: source) == "="
+                  }
+                  return SceneShaderSourceTextFacts.capture($0, 2, in: source) == "*="
+                      && $0.range.location > wholeOutput[0].range.location
+              }),
               declaration.range.location < wholeOutput[0].range.location,
               SceneShaderSourceTextFacts.containsWord(carrier, in: SceneShaderSourceTextFacts.substring(
                   wholeAssignments[0].range, in: source

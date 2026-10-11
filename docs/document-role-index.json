@@ -531,9 +531,9 @@
       "lastReviewed": "2026-10-11",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8647c1858c76ba8997a0e59c5b1ef0735e25d49415ee5d8242748aecf5ec051b",
+        "sourceSHA256": "12ef144682b29aae012f0ef1103a17f972732671f341441a6790f27e6668b077",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对N07 Sprite世界空间、native相机与逐层深度结果的历史导航和当前粒子合同/队列职责，保留N02与新增37样本原证据边界；仅更新导航与正文身份。",
+        "scope": "核对独立信号可选alpha写入修复、光束实际呈现与粒子未闭项的历史导航；仅更新导航与正文身份。",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
@@ -1070,6 +1070,17 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/capabilities/runtime-input-property-coverage.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/independent-signal-producer-2026-10-11.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/render-graph-shader-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
     {

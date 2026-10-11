@@ -6,6 +6,18 @@ nonisolated enum SceneAuthoredShaderIndependentAlphaAnalyzer {
     typealias Token = SceneAuthoredShaderToken
     typealias Unit = SceneAuthoredShaderSyntaxUnit
 
+    struct ProducerFact {
+        let sourceSlot: Int
+        let multipliesOutputAlpha: Bool
+    }
+
+    static func producerFact(fragmentSource: String) -> ProducerFact? {
+        guard let (fragment, main, outputUses) =
+            SceneAuthoredShaderColorTransferAnalyzer.analyzedMain(fragmentSource)
+        else { return nil }
+        return producer(outputUses, fragment: fragment, main: main)
+    }
+
     static func analyze(
         outputUses: [Int],
         fragment: Unit,
@@ -14,8 +26,8 @@ nonisolated enum SceneAuthoredShaderIndependentAlphaAnalyzer {
         if let value = composite(outputUses, fragment: fragment, main: main) {
             return value
         }
-        if let slot = producer(outputUses, fragment: fragment, main: main) {
-            return .independentAlphaSignal(textureSlot: slot)
+        if let fact = producer(outputUses, fragment: fragment, main: main) {
+            return .independentAlphaSignal(textureSlot: fact.sourceSlot)
         }
         if let slot = SceneAuthoredShaderIndependentSignalCarrierAnalyzer.analyze(
             fragment
@@ -41,7 +53,7 @@ nonisolated enum SceneAuthoredShaderIndependentAlphaAnalyzer {
         _ outputUses: [Int],
         fragment: Unit,
         main: Unit.Function
-    ) -> Int? {
+    ) -> ProducerFact? {
         let tokens = fragment.tokens
         guard (1 ... 2).contains(outputUses.count),
               let output = outputUses.first,
@@ -81,7 +93,9 @@ nonisolated enum SceneAuthoredShaderIndependentAlphaAnalyzer {
                       body: main.bodyRange
                   ) else { return nil }
         }
-        return slot
+        return ProducerFact(
+            sourceSlot: slot, multipliesOutputAlpha: outputUses.count == 2
+        )
     }
 
     private static func preserving(

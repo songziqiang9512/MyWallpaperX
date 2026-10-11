@@ -89,12 +89,12 @@
       "bytes": 5005
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 586,
-      "bytes": 343456
+      "lines": 588,
+      "bytes": 344006
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 97,
-      "bytes": 29034
+      "bytes": 29134
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 241,
-      "bytes": 65409
+      "bytes": 65659
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1130,15 +1130,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "f3a78c7bc0c8e4a5a2ee673c11cb724e8f83f2644a1da14273986de416412139",
-      "after": "e65e2245fa0684d1d4e97fc4b0037a2c324b890fb8454dda52dcce4439ab7453",
-      "owner": "Scene",
-      "reason": "同一same-alpha owner新增标量局部形态的证明/重证边界、缓存退旧与真实作者shader回归锁；未做App内运行后验，不宣告可见修复。",
-      "decision": "docs/scene/history/sampled-alpha-scalar-local-reconstruction-2026-10-10.md#真实形态回归锁"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "62c30b582203e96e3ee0c3d3c467249e736e3a736498a1b4f443a2623abe301c",
       "after": "d64bf8a764fc02bb9004ec36ee4b392026a34722d6142cf897c02e6d3b426be8",
@@ -1157,21 +1148,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "e65e2245fa0684d1d4e97fc4b0037a2c324b890fb8454dda52dcce4439ab7453",
+      "after": "579aa19b4024b792805482ac2749cded6529f1a04c9a02e65e9db0c214fbe161",
+      "owner": "Scene independent signal producer",
+      "reason": "补齐既有信号producer source与MSL可选alpha输出合同、漂移拒绝边界，不增加效果算法或新owner。",
+      "decision": "docs/scene/history/independent-signal-producer-2026-10-11.md#首断点与改动"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "8e08d7b398a7be1b0a0693727fcbd2f15444a7437a0b581de09a7b322831f322",
-      "after": "27f58a5cdb7b780197762b46e3592eb0469f878355fcb926f737874ce0d1c233",
-      "owner": "Scene Sprite world camera and depth",
-      "reason": "增加一条N07原包主体恢复与健康screen深度反例的历史导航，保留GodRays及完整视觉余项；不复制逐样本过程或扩大验收。",
-      "decision": "docs/scene/history/particle-world-depth-2026-10-11.md#修复与边界"
+      "before": "27f58a5cdb7b780197762b46e3592eb0469f878355fcb926f737874ce0d1c233",
+      "after": "140f999d44351006724ed3dddeacafceffc9100dd3d81b77347ceb4647c884a7",
+      "owner": "Scene independent signal producer",
+      "reason": "现有导航链接新增真实光束修复，保持整样本与粒子模拟未验边界。",
+      "decision": "docs/scene/history/independent-signal-producer-2026-10-11.md#首断点与改动"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "04db7c5b6b8e6f01d923de554a7e9637df49eb5541c3315d57d4b6c9c9fbfa2d",
-      "after": "f90415613d1a3d7782bf680f06cb4be524a4c7b6de84befe36cd3750ac9412f5",
-      "owner": "Scene Sprite world camera and depth",
-      "reason": "N07世界Sprite准入首断点按实际有界结果退队，保留GodRays、运动形态和完整视觉后续门；不关闭整样本。",
-      "decision": "docs/scene/history/particle-world-depth-2026-10-11.md#修复与边界"
+      "before": "f90415613d1a3d7782bf680f06cb4be524a4c7b6de84befe36cd3750ac9412f5",
+      "after": "58acd9e1e5901bda8b96b591237aadd339236108026ec4100e44d5cb4abeaeb3",
+      "owner": "Scene independent signal producer",
+      "reason": "关闭GodRays首断点和工具误报，回填实测可见鼠标轨迹alphatocoverage拒绝，避免旧问题重复排队。",
+      "decision": "docs/scene/history/independent-signal-producer-2026-10-11.md#首断点与改动"
     }
   ]
 }
