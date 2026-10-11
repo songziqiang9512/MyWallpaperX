@@ -13,6 +13,10 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
             .premultipliedColorInputMask
         case ("g_Alpha", .float) where field.arrayCount == nil && hasEffectContext:
             .effectDrawAlpha
+        case ("g_Color", .float3) where field.arrayCount == nil && hasEffectContext:
+            .effectDrawColor
+        case ("g_Color4", .float4) where field.arrayCount == nil && hasEffectContext:
+            .effectDrawColor4
         case ("mwxRenderSize", .float2): .renderSize
         case ("g_ModelViewProjectionMatrix", .float4x4): .modelViewProjection
         case ("g_ModelViewProjectionMatrixInverse", .float4x4):
@@ -71,11 +75,11 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
             || name == "g_Texture\(slot)Translation"
     }
 
-    static func requiresEffectDrawAlphaHost(
+    static func requiresEffectDrawModulationHost(
         _ name: String,
         hasEffectContext: Bool
     ) -> Bool {
-        hasEffectContext && name == "g_Alpha"
+        hasEffectContext && ["g_Alpha", "g_Color", "g_Color4"].contains(name)
     }
 
     private static func textureSlotPrefix(_ name: String) -> Int? {

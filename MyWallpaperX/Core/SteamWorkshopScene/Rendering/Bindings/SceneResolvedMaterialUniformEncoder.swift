@@ -42,6 +42,12 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
         case .effectDrawAlpha:
             guard type == .float else { return nil }
             return encodeScalar(inputs.effectDrawAlpha, type: type)
+        case .effectDrawColor, .effectDrawColor4:
+            guard type == (host == .effectDrawColor ? .float3 : .float4) else { return nil }
+            let color = inputs.effectDrawColor
+            var components = [Double(color.x), Double(color.y), Double(color.z)]
+            if host == .effectDrawColor4 { components.append(Double(inputs.effectDrawAlpha)) }
+            return encodeComponents(components, as: type)
         case .premultipliedColorInputMask:
             guard type == .uint, slots.count == 8 else { return nil }
             let mask = slots.enumerated().reduce(UInt32(0)) { mask, entry in

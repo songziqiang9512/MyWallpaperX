@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Effect draw alpha through the existing material preparation/Metal harnesses."""
+"""Effect draw modulation through the existing material preparation/Metal harnesses."""
 
 from __future__ import annotations
 
@@ -25,14 +25,16 @@ extension SceneResolvedMaterialRuntimeBridge.FrameInputs {
     init(dependencyEffects: [SceneDependencyEffectInput] = [],
         dependencyUnavailability: DependencyUnavailability? = nil,
         dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
-        pointerIsInside: Bool = true, effectDrawAlpha: Float = 1) {
+        pointerIsInside: Bool = true, effectDrawAlpha: Float = 1,
+        effectDrawColor: SIMD3<Float> = .init(repeating: 1)) {
         self.init(dynamicValues: dynamicValues, cursorUV: .zero, previousCursorUV: .zero,
             pointerIsInside: pointerIsInside, previousPointerIsInside: pointerIsInside,
             pointerMovement: 0, primaryButtonIsDown: false,
             layerModelMatrix: matrix_identity_float4x4,
             effectOutputModelViewProjection: matrix_identity_float4x4,
             effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
-            effectDrawAlpha: effectDrawAlpha, frameTime: 1 / 60, time: 0,
+            effectDrawAlpha: effectDrawAlpha, effectDrawColor: effectDrawColor,
+            frameTime: 1 / 60, time: 0,
             audioSpectrum: .silent, dependencyEffects: dependencyEffects,
             dependencyUnavailability: dependencyUnavailability)
     }
@@ -59,7 +61,19 @@ private func alphaShader() -> SceneShaderContract {
         """)
 }
 
-private func preparedDrawAlpha(effect: Bool,
+private func colorShader() -> SceneShaderContract {
+    contract(revision: "self-owned-draw-color", vertexSourceOverride: """
+        attribute vec3 a_Position;
+        uniform mat4 g_ModelViewProjectionMatrix;
+        void main() { gl_Position = g_ModelViewProjectionMatrix * vec4(a_Position, 1.0); }
+        """, fragmentSourceOverride: """
+        uniform vec3 g_Color; // {"default":"0.1 0.2 0.3"}
+        uniform vec4 g_Color4; // {"default":"0.1 0.2 0.3 0.75"}
+        void main() { gl_FragColor = vec4(g_Color + g_Color4.rgb, 1.0); }
+        """)
+}
+
+private func preparedDrawAlpha(effect: Bool, name: String = "g_Alpha",
     type: SceneAuthoredShaderValueType = .float, arrayCount: Int? = nil,
     declarations: [Template.UniformDeclaration] = []) throws -> SceneResolvedMaterialPreparedUniformBinding {
     let context: Template.EffectContext? = effect ? .init(
@@ -67,12 +81,13 @@ private func preparedDrawAlpha(effect: Bool,
         input: graphTexture()) : nil
     let material = template(alphaShader(), includePrimaryCandidate: false,
         uniformDeclarations: declarations, effectContext: context)
-    let field = SceneAuthoredShaderUniformLayout.Field(name: "g_Alpha", type: type,
+    let field = SceneAuthoredShaderUniformLayout.Field(name: name, type: type,
         arrayCount: arrayCount, offset: 0)
     return try SceneResolvedMaterialProgramFinalizer.prepareUniformBindings(
-        template: material, fields: [field], activeUniforms: ["g_Alpha": .init(
-            name: "g_Alpha", materialKeys: ["g_Alpha"],
-            defaultValue: staticValue([0.75]), authoredRange: nil)],
+        template: material, fields: [field], activeUniforms: [name: .init(
+            name: name, materialKeys: [name],
+            defaultValue: staticValue(type == .float3 ? [0.1, 0.2, 0.3]
+                : type == .float4 ? [0.1, 0.2, 0.3, 0.75] : [0.75]), authoredRange: nil)],
         activeTextureSlots: [], neutralTextureResolution: nil)[0]
 }
 
@@ -83,8 +98,9 @@ private func rejection(_ body: () throws -> SceneResolvedMaterialPreparedUniform
 }
 
 private func assembly(effect: Bool, source: Program.ResolvedUniform.Source,
-    alpha: Float = 0.25) -> Program? {
-    guard let shader = prepared(alphaShader()),
+    alpha: Float = 0.25, color: SIMD3<Float>? = nil) -> Program? {
+    let contract = color == nil ? alphaShader() : colorShader()
+    guard let shader = prepared(contract),
           let frontend = SceneAuthoredShaderFrontend.compile(vertexSource: shader.vertex.source,
             fragmentSource: shader.fragment.source).program else { return nil }
     let slots = Array<Program.TextureSlot?>(repeating: nil, count: 8)
@@ -94,6 +110,17 @@ private func assembly(effect: Bool, source: Program.ResolvedUniform.Source,
             guard let encoded = SceneResolvedMaterialUniformEncoder.encode(
                 staticValue([Double(alpha)]), as: field.type) else { return nil }
             values.append(.init(field: field, source: source, encodedValue: encoded))
+        } else if field.authoredName == "g_Color" || field.authoredName == "g_Color4" {
+            guard let color else { return nil }
+            var components = [Double(color.x), Double(color.y), Double(color.z)]
+            if field.authoredName == "g_Color4" { components.append(Double(alpha)) }
+            guard let encoded = SceneResolvedMaterialUniformEncoder.encodeComponents(
+                components, as: field.type) else { return nil }
+            let actualSource: Program.ResolvedUniform.Source
+            if field.authoredName == "g_Color4", case .host(.effectDrawColor) = source {
+                actualSource = .host(.effectDrawColor4)
+            } else { actualSource = source }
+            values.append(.init(field: field, source: actualSource, encodedValue: encoded))
         } else {
             guard let host = SceneResolvedMaterialHostUniformSchema.resolve(field,
                 activeTextureSlots: [], hasEffectContext: effect),
@@ -104,15 +131,19 @@ private func assembly(effect: Bool, source: Program.ResolvedUniform.Source,
     }
     return Program.assemble(.init(preparedShader: shader,
         textureSlots: slots, resolvedUniforms: values,
-        renderState: state(), graphRole: template(alphaShader(), includePrimaryCandidate: false).graphRole,
+        renderState: state(), graphRole: template(contract, includePrimaryCandidate: false).graphRole,
         hasEffectContext: effect))
 }
 
-private func variantAliasScope(effect: Bool) -> String {
-    let shader = contract(revision: "self-owned-draw-alpha-alias", fragmentSourceOverride: """
-        uniform float g_Alpha; // {"material":"gain","default":0.75}
-        uniform float gain; // {"default":1}
-        void main() { gl_FragColor = vec4(g_Alpha, gain, 0.0, 1.0); }
+private func variantAliasScope(effect: Bool, name: String = "g_Alpha") -> String {
+    let type = name == "g_Alpha" ? "float" : name == "g_Color" ? "vec3" : "vec4"
+    let fallback = name == "g_Alpha" ? "0.75" : name == "g_Color" ? "\"0.1 0.2 0.3\"" : "\"0.1 0.2 0.3 0.75\""
+    let gainDefault = name == "g_Alpha" ? "1" : name == "g_Color" ? "\"1 1 1\"" : "\"1 1 1 1\""
+    let output = name == "g_Alpha" ? "vec4(g_Alpha, gain, 0.0, 1.0)" : "vec4(\(name).rgb + gain.rgb, 1.0)"
+    let shader = contract(revision: "self-owned-draw-alias-\(name)", fragmentSourceOverride: """
+        uniform \(type) \(name); // {"material":"gain","default":\(fallback)}
+        uniform \(type) gain; // {"default":\(gainDefault)}
+        void main() { gl_FragColor = \(output); }
         """)
     let context: Template.EffectContext? = effect ? .init(
         key: .init(layerID: fixtureLayerID, effectIndex: 0, descriptorID: "self-owned-alpha"),
@@ -124,20 +155,104 @@ private func variantAliasScope(effect: Bool) -> String {
     case .success:
         let variants = cache.launchEnvelopeCapabilitySnapshot().variants
         guard let bindings = variants.first?.preparedUniformBindings,
-              let alpha = bindings.first(where: { $0.field.authoredName == "g_Alpha" }),
+              let alpha = bindings.first(where: { $0.field.authoredName == name }),
               let gain = bindings.first(where: { $0.field.authoredName == "gain" }),
-              case .host(.effectDrawAlpha) = alpha.source,
+              case let .host(host) = alpha.source,
               case .staticValue = gain.source else { return "wrong-ownership" }
+        let expected: Program.HostUniform = name == "g_Alpha" ? .effectDrawAlpha
+            : name == "g_Color" ? .effectDrawColor : .effectDrawColor4
+        guard host == expected else { return "wrong-host" }
         return "effect-host-and-authored-gain"
     case let .failure(.material(error)): return error.code.rawValue
     case .failure(.capacity): return "capacity"
     }
 }
 
+private func drawUniformInputs(alpha: Float = 0.25,
+    color: SIMD3<Float> = .init(0.1, 0.2, 0.3)) -> SceneAuthoredShaderUniformInputs {
+    .init(frameIndex: 1, renderSize: CGSize(width: 2, height: 2),
+        screenSize: CGSize(width: 2, height: 2), modelViewProjection: matrix_identity_float4x4,
+        layerModelMatrix: matrix_identity_float4x4,
+        effectOutputModelViewProjection: matrix_identity_float4x4,
+        effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
+        effectDrawAlpha: alpha, effectDrawColor: color, sceneTime: 0, dayTime: 0,
+        frameTime: 1 / 60, pointerCurrentNDC: .zero, pointerPreviousNDC: .zero,
+        texturePhysicalSizes: [:])
+}
+
+private func colorFacts() throws -> [String: Any] {
+    let rgb = SIMD3<Float>(0.1, 0.2, 0.3)
+    let inputs = drawUniformInputs(color: rgb)
+    let slots = Array<Program.TextureSlot?>(repeating: nil, count: 8)
+    var fields: [[String: Any]] = []
+    for (name, type, host) in [
+        ("g_Color", SceneAuthoredShaderValueType.float3, Program.HostUniform.effectDrawColor),
+        ("g_Color4", .float4, .effectDrawColor4)
+    ] {
+        let values: [Double] = name == "g_Color" ? [0.1, 0.2, 0.3] : [0.1, 0.2, 0.3, 0.75]
+        let declared = staticDeclaration(name, components: values)
+        let dynamic = Template.UniformDeclaration(name: name, value: .dynamic(.init(
+            target: .effectConstant(layerID: fixtureLayerID, effectIndex: 0, passIndex: 0, name: name),
+            valueContributors: [.timeline], scriptAttachments: [], authoredFallback: staticValue(values),
+            authoredBindingKeys: ["value"])))
+        let defaultSource = try preparedDrawAlpha(effect: false, name: name, type: type)
+        let staticSource = try preparedDrawAlpha(effect: false, name: name, type: type, declarations: [declared])
+        let dynamicSource = try preparedDrawAlpha(effect: false, name: name, type: type, declarations: [dynamic])
+        var authoredDefault = false, authoredStatic = false, authoredDynamic = false
+        if case .staticValue = defaultSource.source { authoredDefault = true }
+        if case .staticValue = staticSource.source { authoredStatic = true }
+        if case .dynamic = dynamicSource.source { authoredDynamic = true }
+        let encoded = SceneResolvedMaterialUniformEncoder.encodeHost(host, type: type, inputs: inputs, slots: slots)
+        let bytesMatch = encoded.map {
+            Harness.float($0, at: 0) == rgb.x && Harness.float($0, at: 4) == rgb.y
+                && Harness.float($0, at: 8) == rgb.z
+                && (name == "g_Color" || Harness.float($0, at: 12) == 0.25)
+        } ?? false
+        fields.append(["name": name, "defaultPreserved": authoredDefault, "staticPreserved": authoredStatic,
+            "dynamicPreserved": authoredDynamic, "bytesMatch": bytesMatch,
+            "staticConflict": rejection { try preparedDrawAlpha(effect: true, name: name, type: type, declarations: [declared]) },
+            "dynamicConflict": rejection { try preparedDrawAlpha(effect: true, name: name, type: type, declarations: [dynamic]) },
+            "array": rejection { try preparedDrawAlpha(effect: true, name: name, type: type, arrayCount: 2) },
+            "wrongType": rejection { try preparedDrawAlpha(effect: true, name: name, type: name == "g_Color" ? .float4 : .float3) },
+            "nonFiniteRejected": SceneResolvedMaterialUniformEncoder.encodeHost(host, type: type,
+                inputs: drawUniformInputs(color: .init(.nan, 0.2, 0.3)), slots: slots) == nil,
+            "effectAliasVariant": variantAliasScope(effect: true, name: name),
+            "sourceAliasVariant": variantAliasScope(effect: false, name: name)])
+    }
+    let first = assembly(effect: true, source: .host(.effectDrawColor), color: rgb)
+    let second = assembly(effect: true, source: .host(.effectDrawColor), alpha: 0.5, color: .init(0.2, 0.4, 0.1))
+    let replay = first?.terminalReplay(unitModelViewProjection: matrix_identity_float4x4)
+    let copied = SceneResolvedMaterialRuntimeBridge.FrameInputs(effectDrawAlpha: 0.25, effectDrawColor: rgb)
+        .withDependencyEffects([])
+    return ["colorFields": fields,
+        "colorIdentityStable": first != nil && second != nil && first!.semanticIdentity == second!.semanticIdentity,
+        "colorExactChanged": first != nil && second != nil && first!.exactIdentity != second!.exactIdentity,
+        "colorSourceHostRejected": assembly(effect: false, source: .host(.effectDrawColor), color: rgb) == nil,
+        "colorEffectStaticRejected": assembly(effect: true, source: .staticValue, color: rgb) == nil,
+        "colorSourceStaticAccepted": assembly(effect: false, source: .staticValue, color: rgb) != nil,
+        "colorWrongHostRejected": assembly(effect: true, source: .host(.time), color: rgb) == nil,
+        "colorCopyPreserved": copied.effectDrawAlpha == 0.25 && copied.effectDrawColor == rgb,
+        "colorTerminalPreserved": replay != nil && replay!.resolvedUniforms.contains {
+            if case .host(.effectDrawColor4) = $0.source {
+                return Harness.float($0.encodedValue, at: 0) == rgb.x
+                    && Harness.float($0.encodedValue, at: 12) == 0.25
+            }; return false
+        },
+        "rgbDoesNotReadAlpha": SceneResolvedMaterialUniformEncoder.encodeHost(.effectDrawColor, type: .float3,
+            inputs: drawUniformInputs(alpha: .nan), slots: slots) != nil,
+        "rgbaRejectsNonfiniteAlpha": SceneResolvedMaterialUniformEncoder.encodeHost(.effectDrawColor4, type: .float4,
+            inputs: drawUniformInputs(alpha: .nan), slots: slots) == nil]
+}
+
 @main private enum EffectDrawAlphaPreparationHarness {
     static func main() throws {
         let effect = try preparedDrawAlpha(effect: true)
         let source = try preparedDrawAlpha(effect: false)
+        let color = try preparedDrawAlpha(effect: true, name: "g_Color", type: .float3)
+        let color4 = try preparedDrawAlpha(effect: true, name: "g_Color4", type: .float4)
+        let colorIsHost: Bool, color4IsHost: Bool
+        if case .host = color.source { colorIsHost = true } else { colorIsHost = false }
+        if case .host = color4.source { color4IsHost = true } else { color4IsHost = false }
         let effectIsHost: Bool
         if case .host(.effectDrawAlpha) = effect.source { effectIsHost = true } else { effectIsHost = false }
         let sourceIsStatic: Bool
@@ -165,8 +280,9 @@ private func variantAliasScope(effect: Bool) -> String {
             pointerCurrentNDC: .zero, pointerPreviousNDC: .zero, texturePhysicalSizes: [:])
         let copied = SceneResolvedMaterialRuntimeBridge.FrameInputs(effectDrawAlpha: 0.25)
             .withDependencyEffects([])
-        let output: [String: Any] = [
+        var output: [String: Any] = [
             "effectIsHost": effectIsHost, "sourceIsStatic": sourceIsStatic,
+            "colorIsHost": colorIsHost, "color4IsHost": color4IsHost,
             "sourceStaticOwned": sourceStaticOwned, "sourceDynamicOwned": sourceDynamicOwned,
             "effectStaticConflict": rejection { try preparedDrawAlpha(effect: true, declarations: [declared]) },
             "effectDynamicConflict": rejection { try preparedDrawAlpha(effect: true, declarations: [dynamic]) },
@@ -192,6 +308,7 @@ private func variantAliasScope(effect: Bool) -> String {
             "effectAliasVariant": variantAliasScope(effect: true),
             "sourceAliasVariant": variantAliasScope(effect: false),
         ]
+        output.merge(try colorFacts()) { _, value in value }
         print(String(data: try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys]),
             encoding: .utf8)!)
     }
@@ -200,18 +317,39 @@ private func variantAliasScope(effect: Bool) -> String {
 
 
 METAL_HARNESS = graph_fixture.HARNESS.split("@main\nprivate enum Harness", 1)[0] + r'''
-private func drawAlphaFrames(device: MTLDevice, queue: MTLCommandQueue) -> [String: Any] {
+private func drawModulationFrames(
+    device: MTLDevice, queue: MTLCommandQueue, colorProbe: String? = nil
+) -> [String: Any] {
     let provider = SceneNamedTextureReference(providerLayerID: 879, variant: .primary)
     let node = material(0, ordinal: 0, target: output, read: input)
     let value = graph(targets: [], nodes: [node])
     let base = template(for: node, namedProvider: provider)
+    let declaration: String
+    let consumerExpression: String
+    switch colorProbe {
+    case "colorRG":
+        declaration = "uniform vec3 g_Color;"
+        consumerExpression = "vec4(g_Color.r, g_Color.g, provider.a, 1.0)"
+    case "colorBlue":
+        declaration = "uniform vec3 g_Color;"
+        consumerExpression = "vec4(g_Color.b, provider.r, provider.g, 1.0)"
+    case "color4RG":
+        declaration = "uniform vec4 g_Color4;"
+        consumerExpression = "vec4(g_Color4.r, g_Color4.g, provider.a, 1.0)"
+    case "color4BlueAlpha":
+        declaration = "uniform vec4 g_Color4;"
+        consumerExpression = "vec4(g_Color4.b, g_Color4.w, provider.a, 1.0)"
+    default:
+        declaration = "uniform float g_Alpha;"
+        consumerExpression = "vec4(g_Alpha, provider.a, provider.r, 1.0)"
+    }
     let shader = shaderContract(nodeIndex: 0, pass: false, fragmentOverride: """
         varying vec2 v_TexCoord;
         uniform sampler2D g_Texture1;
-        uniform float g_Alpha;
+        \(declaration)
         void main() {
             vec4 provider = texSample2D(g_Texture1, v_TexCoord);
-            gl_FragColor = vec4(g_Alpha, provider.a, provider.r, 1.0);
+            gl_FragColor = \(consumerExpression);
         }
         """)
     let materialTemplate = Template.validated(textureSlots: base.textureSlots, combos: [],
@@ -243,13 +381,17 @@ private func drawAlphaFrames(device: MTLDevice, queue: MTLCommandQueue) -> [Stri
     var states: [Graph.EffectKey: Executor.State] = [:]
     var resources: [Graph.EffectKey: [Graph.TextureIdentity: SceneFrameTextureResource]] = [:]
     var key: String?, frontendCount = 0, libraryCount = 0
-    for (offset, alpha) in [Float(0.25), 0.5, 1].enumerated() {
+    let alphas: [Float] = colorProbe == nil ? [0.25, 0.5, 1] : [0.25, 0.5, 0.75]
+    let colors: [SIMD3<Float>] = [.init(0.1, 0.2, 0.3), .init(0.2, 0.4, 0.1), .init(0.3, 0.1, 0.2)]
+    for (offset, alpha) in alphas.enumerated() {
+        let color = colors[offset]
         let index = UInt64(offset + 1)
         let snapshot = frame(index)
         guard let providerResource = SceneFrameTextureResource.reservedNamedLayerTarget(
             reference: provider, frameEpoch: index, texture: providerTexture,
             content: .color(.resolved(.straightAlpha))) else { return ["failure": "provider"] }
-        let inputFrame = SceneResolvedMaterialRuntimeBridge.FrameInputs(effectDrawAlpha: alpha)
+        let inputFrame = SceneResolvedMaterialRuntimeBridge.FrameInputs(
+            effectDrawAlpha: alpha, effectDrawColor: color)
             .withDependencyEffects([.init(consumerLayerID: layerID,
                 providerLayerID: provider.providerLayerID, slot: dependency.slot,
                 frameEpoch: index, texture: providerTexture,
@@ -257,6 +399,7 @@ private func drawAlphaFrames(device: MTLDevice, queue: MTLCommandQueue) -> [Stri
                 namedReference: provider, reservedMaterialResource: providerResource)])
         var sourceUniforms = SceneLayerFragmentUniforms.neutral()
         sourceUniforms.alpha = 0.625
+        if colorProbe != nil { sourceUniforms.tint = SIMD4(0.8, 0.6, 0.4, 1) }
         let command = queue.makeCommandBuffer()!
         let result = executor.prepare(token: claim.token, leases: leases,
             historyRehydrateCopiesByEffect: [:], frame: snapshot,
@@ -277,12 +420,26 @@ private func drawAlphaFrames(device: MTLDevice, queue: MTLCommandQueue) -> [Stri
             frontendCount = selected.variants.counters.frontendCompilationCount
             libraryCount = executor.materialEncoder.metalLibraryCompilationAttemptCount
         }
-        let expected: [UInt8] = [51, 191, UInt8((alpha * 255).rounded()), 255]
-        rows.append(["alpha": alpha, "pixel": read.firstPixel, "expected": expected,
+        let alphaByte = UInt8((alpha * 255).rounded())
+        let expected: [UInt8]
+        switch colorProbe {
+        case "colorRG", "color4RG":
+            expected = [191, UInt8((color.y * 255).rounded()), UInt8((color.x * 255).rounded()), 255]
+        case "colorBlue":
+            expected = [179, 51, UInt8((color.z * 255).rounded()), 255]
+        case "color4BlueAlpha":
+            expected = [191, alphaByte, UInt8((color.z * 255).rounded()), 255]
+        default:
+            expected = [51, 191, alphaByte, 255]
+        }
+        rows.append(["alpha": alpha, "color": [color.x, color.y, color.z],
+            "pixel": read.firstPixel, "providerPixel": read.lastPixel,
+            "expected": expected,
             "gpuCompleted": command.status == .completed && command.error == nil,
             "consumerProviderIndependent": matches(read.firstPixel, expected)
                 && matches(read.lastPixel, expected),
             "copyPreservedAlpha": inputFrame.effectDrawAlpha == alpha,
+            "copyPreservedColor": inputFrame.effectDrawColor == color,
             "samePreparedProgram": key != nil && key == stage.programCacheKeys.first,
             "noRecompile": frontendCount == selected.variants.counters.frontendCompilationCount
                 && libraryCount == executor.materialEncoder.metalLibraryCompilationAttemptCount,
@@ -299,7 +456,10 @@ private func drawAlphaFrames(device: MTLDevice, queue: MTLCommandQueue) -> [Stri
         guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
             print("{\"skip\":\"Metal unavailable\"}"); return
         }
-        let result = drawAlphaFrames(device: device, queue: queue)
+        var result: [String: Any] = ["alpha": drawModulationFrames(device: device, queue: queue)]
+        for probe in ["colorRG", "colorBlue", "color4RG", "color4BlueAlpha"] {
+            result[probe] = drawModulationFrames(device: device, queue: queue, colorProbe: probe)
+        }
         print(String(data: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]),
             encoding: .utf8)!)
     }
@@ -328,6 +488,27 @@ class SceneEffectDrawAlphaTests(unittest.TestCase):
         self.assertTrue(result["sourceIsStatic"], result)
         self.assertTrue(result["effectIsHost"], result)
 
+    def test_effect_scope_takes_host_rgb_and_rgba(self) -> None:
+        self.assertTrue(self.result["colorIsHost"], self.result)
+        self.assertTrue(self.result["color4IsHost"], self.result)
+
+    def test_color_sources_types_conflicts_and_variant_alias_scope(self) -> None:
+        for field in self.result["colorFields"]:
+            for key in ("defaultPreserved", "staticPreserved", "dynamicPreserved", "bytesMatch", "nonFiniteRejected"):
+                self.assertTrue(field[key], field)
+            for key in ("staticConflict", "dynamicConflict"):
+                self.assertEqual(field[key], "hostUniformDeclarationConflict", field)
+            for key in ("array", "wrongType"):
+                self.assertEqual(field[key], "staticUniformBindingInvalid", field)
+            self.assertEqual(field["effectAliasVariant"], "effect-host-and-authored-gain", field)
+            self.assertEqual(field["sourceAliasVariant"], "uniformBindingInvalid", field)
+
+    def test_color_identity_copy_terminal_and_unassociated_channels(self) -> None:
+        for key in ("colorIdentityStable", "colorExactChanged", "colorSourceHostRejected", "colorEffectStaticRejected",
+                    "colorSourceStaticAccepted", "colorWrongHostRejected", "colorCopyPreserved", "colorTerminalPreserved",
+                    "rgbDoesNotReadAlpha", "rgbaRejectsNonfiniteAlpha"):
+            self.assertTrue(self.result[key], self.result)
+
     def test_source_static_dynamic_and_effect_conflicts(self) -> None:
         for key in ("sourceStaticOwned", "sourceDynamicOwned"):
             self.assertTrue(self.result[key], self.result)
@@ -354,21 +535,31 @@ class SceneEffectDrawAlphaTests(unittest.TestCase):
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneEffectDrawAlphaMetalTests(unittest.TestCase):
-    def test_actual_graph_consumer_alpha_is_independent_across_frames(self) -> None:
+    @classmethod
+    def setUpClass(cls) -> None:
         compiled, completed = graph_fixture.compile_harness(runtime_frame_support(), METAL_HARNESS)
-        self.assertEqual(compiled.returncode, 0, compiled.stderr)
-        self.assertIsNotNone(completed)
-        self.assertEqual(completed.returncode, 0, completed.stderr or completed.stdout)
-        result = json.loads(completed.stdout)
+        if compiled.returncode != 0 or completed is None or completed.returncode != 0:
+            raise AssertionError(compiled.stderr + (completed.stderr + completed.stdout if completed else ""))
+        cls.result = json.loads(completed.stdout)
         print("Metal " + completed.stdout.strip())
-        if "skip" in result:
-            self.skipTest(result["skip"])
+        if "skip" in cls.result:
+            raise unittest.SkipTest(cls.result["skip"])
+
+    def assert_probe_frames(self, name: str) -> None:
+        result = self.result[name]
         self.assertNotIn("failure", result, result)
         self.assertEqual(len(result["frames"]), 3, result)
         for row in result["frames"]:
-            for key in ("gpuCompleted", "consumerProviderIndependent", "copyPreservedAlpha",
+            for key in ("gpuCompleted", "consumerProviderIndependent", "copyPreservedAlpha", "copyPreservedColor",
                         "samePreparedProgram", "noRecompile", "noLocalFallback", "opaqueOutput"):
                 self.assertTrue(row[key], result)
+
+    def test_actual_graph_consumer_alpha_is_independent_across_frames(self) -> None:
+        self.assert_probe_frames("alpha")
+
+    def test_actual_graph_rgb_and_rgba_follow_consumer_not_source_or_provider(self) -> None:
+        for name in ("colorRG", "colorBlue", "color4RG", "color4BlueAlpha"):
+            self.assert_probe_frames(name)
 
 
 if __name__ == "__main__":

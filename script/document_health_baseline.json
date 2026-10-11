@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 115904
+      "bytes": 116245
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 98,
-      "bytes": 29573
+      "bytes": 29649
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 241,
-      "bytes": 66217
+      "bytes": 66516
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1139,15 +1139,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "b2ed0adb1fe51b6ea33d2164c87c434bd8575a6b7031e24655cc9656fc99770e",
-      "after": "2b0225c6280ee586a823462815eb68542465515eeb422a865bcfb3a7b92c659c",
-      "owner": "Scene shared uniform and local failure",
-      "reason": "稳定合同并回原owner，替换已修首错并导航真实GPU/官方证据；不外推白块或整样本验收。",
-      "decision": "docs/scene/history/effect-draw-alpha-2026-10-11.md#决策与实现"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "b3d36b4960c7751315cd6a5f5cb52ac0549169f89cc10f3a901f6318d8632ecc",
       "after": "a9860bad841591a8c58254e9c81a4f628955b81006315c166776f5c142dbb979",
@@ -1157,21 +1148,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "2b0225c6280ee586a823462815eb68542465515eeb422a865bcfb3a7b92c659c",
+      "after": "d47ecf397dadc809a357c3e7d27b4f997b2280261a526f6dc76c182348c91998",
+      "owner": "Scene effect draw modulation",
+      "reason": "合并同一颜色host职责，替换已修首错并保留实际画面与第二包未闭边界；不扩大整体通过声明。",
+      "decision": "docs/scene/history/effect-draw-color-2026-10-11.md#决策与实现"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0bb571fe6761164ea04781c17ae1048182c1560ab7b1427cb97ca88649e0eba8",
-      "after": "d96fc8d930df449ec60feae1281b7f2de13e019826e4a216203421a27abd8456",
-      "owner": "Scene shared uniform and local failure",
-      "reason": "稳定合同并回原owner，替换已修首错并导航真实GPU/官方证据；不外推白块或整样本验收。",
-      "decision": "docs/scene/history/effect-draw-alpha-2026-10-11.md#决策与实现"
+      "before": "d96fc8d930df449ec60feae1281b7f2de13e019826e4a216203421a27abd8456",
+      "after": "655988ba9d5663fa3ecb95574bd2cc5000c5d25d5d5932b2d27c54cde9c0f42e",
+      "owner": "Scene effect draw modulation",
+      "reason": "合并同一颜色host职责，替换已修首错并保留实际画面与第二包未闭边界；不扩大整体通过声明。",
+      "decision": "docs/scene/history/effect-draw-color-2026-10-11.md#决策与实现"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "41c8f6bb8b7c3e5250f7b7f96c2067223ec90c06a04f851078b582673bef23df",
-      "after": "daaa34aa6350bf2b80fc3f114d317153e80b5e76f7b098dceb2ff729102ffb7a",
-      "owner": "Scene shared uniform and local failure",
-      "reason": "稳定合同并回原owner，替换已修首错并导航真实GPU/官方证据；不外推白块或整样本验收。",
-      "decision": "docs/scene/history/effect-draw-alpha-2026-10-11.md#决策与实现"
+      "before": "daaa34aa6350bf2b80fc3f114d317153e80b5e76f7b098dceb2ff729102ffb7a",
+      "after": "5c5cdce2c542ec5d27ae4382bb8eda1952365e2442d46b6d6cd444a397987672",
+      "owner": "Scene effect draw modulation",
+      "reason": "合并同一颜色host职责，替换已修首错并保留实际画面与第二包未闭边界；不扩大整体通过声明。",
+      "decision": "docs/scene/history/effect-draw-color-2026-10-11.md#决策与实现"
     }
   ]
 }

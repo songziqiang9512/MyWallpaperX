@@ -172,6 +172,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let effectOutputModelViewProjection: simd_float4x4
         let effectTextureProjectionMatrixInverse: simd_float4x4
         let effectDrawAlpha: Float
+        let effectDrawColor: SIMD3<Float>
         let frameTime: Float
         let time: Float
         let audioSpectrum: SceneAudioSpectrumSnapshot
@@ -193,6 +194,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             effectOutputModelViewProjection: simd_float4x4,
             effectTextureProjectionMatrixInverse: simd_float4x4,
             effectDrawAlpha: Float = 1,
+            effectDrawColor: SIMD3<Float> = .init(repeating: 1),
             frameTime: Float,
             time: Float,
             audioSpectrum: SceneAudioSpectrumSnapshot,
@@ -211,6 +213,7 @@ final class SceneResolvedMaterialRuntimeBridge {
                 effectOutputModelViewProjection
             self.effectTextureProjectionMatrixInverse = effectTextureProjectionMatrixInverse
             self.effectDrawAlpha = effectDrawAlpha
+            self.effectDrawColor = effectDrawColor
             self.frameTime = frameTime
             self.time = time
             self.audioSpectrum = audioSpectrum
@@ -235,6 +238,7 @@ final class SceneResolvedMaterialRuntimeBridge {
                 effectTextureProjectionMatrixInverse:
                     effectTextureProjectionMatrixInverse,
                 effectDrawAlpha: effectDrawAlpha,
+                effectDrawColor: effectDrawColor,
                 frameTime: frameTime,
                 time: time,
                 audioSpectrum: audioSpectrum,

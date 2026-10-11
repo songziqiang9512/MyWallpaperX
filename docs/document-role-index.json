@@ -362,9 +362,9 @@
       "lastReviewed": "2026-10-11",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b87e37baf3d30970f5fc26dd484fbd475ab7a32d3f5619320a867240fc3b524c",
+        "sourceSHA256": "86f0052c202f4d7fb5252d261b7e0f04723c3ada9353fd437e8d51345bdcb648",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对smoothstep、局部失败及effect alpha稳定职责、完成记录、剩余断点导航；不扩张运行验收范围。",
+        "scope": "核对effect draw颜色的同一owner合同、14段实际链与残余错位、第二包未执行边界和完成记录导航。",
         "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
       }
     },
@@ -531,9 +531,9 @@
       "lastReviewed": "2026-10-11",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0c7d6ad600457816f8504b3a263da4c8cf60778f44a74848218d71fd022c75f8",
+        "sourceSHA256": "467b1c7a06a464147e5ccfdf8ed464d65d80060d9f4a9477b511cb3be13d545c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对smoothstep、局部失败及effect alpha稳定职责、完成记录、剩余断点导航；不扩张运行验收范围。",
+        "scope": "核对effect draw颜色的同一owner合同、14段实际链与残余错位、第二包未执行边界和完成记录导航。",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
@@ -1011,6 +1011,17 @@
       "currentAuthorities": [
         "docs/scene/architecture/runtime-architecture.md",
         "docs/scene/capabilities/render-graph-shader-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/effect-draw-color-2026-10-11.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]

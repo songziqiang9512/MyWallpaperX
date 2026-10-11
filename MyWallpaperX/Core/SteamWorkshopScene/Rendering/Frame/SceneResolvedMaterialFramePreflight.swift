@@ -805,6 +805,11 @@ extension SceneMetalRenderer {
                 authoredValue: layer.alpha,
                 snapshot: frameContext.dynamicValues
             )
+            let effectDrawColor = SceneDynamicLayerValues.color(
+                layerID: layerID,
+                authoredValue: layer.colorRGB,
+                snapshot: frameContext.dynamicValues
+            )
             if let texture = sourceTexture {
                 let request = SceneImageLayerDrawRequest(
                     layer: layer,
@@ -828,11 +833,7 @@ extension SceneMetalRenderer {
                         frameTime: Float(frameContext.frameTime),
                         tint: capturesMainTarget || !sourceUsesAuthoredLayerColor
                             ? SIMD3(repeating: 1)
-                            : SceneDynamicLayerValues.color(
-                            layerID: layerID,
-                            authoredValue: layer.colorRGB,
-                            snapshot: frameContext.dynamicValues
-                        )
+                            : effectDrawColor
                     ),
                     sourceMaterialAlpha: capturesMainTarget ? 1
                         : baseMaterialProviderBindings.sourceMaterialAlpha(
@@ -886,6 +887,7 @@ extension SceneMetalRenderer {
                 effectTextureProjectionMatrixInverse:
                     effectTextureProjectionMatrixInverse,
                 effectDrawAlpha: effectDrawAlpha,
+                effectDrawColor: effectDrawColor,
                 frameTime: Float(frameContext.frameTime),
                 time: time,
                 audioSpectrum: frameContext.audioSpectrum,

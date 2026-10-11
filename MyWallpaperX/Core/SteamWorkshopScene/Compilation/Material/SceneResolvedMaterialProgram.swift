@@ -428,6 +428,7 @@ nonisolated struct SceneResolvedMaterialProgram {
         case renderSize, modelViewProjection, modelViewProjectionInverse
         case premultipliedColorInputMask
         case effectDrawAlpha
+        case effectDrawColor, effectDrawColor4
         case layerModelMatrix
         case effectModelViewProjection
         case effectTextureProjectionMatrix

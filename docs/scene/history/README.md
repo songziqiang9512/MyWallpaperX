@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-11 | Scene | 修复证据 | [Effect draw颜色](effect-draw-color-2026-10-11.md) | 14段纹理替换真实GPU及白遮挡恢复；矩形错位/依赖准入仍开放 | [运行合同](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-11 | Scene | 修复证据 | [smoothstep与局部失败](smoothstep-local-failure-2026-10-11.md) | 公共广播、typed launch故障半径及脸部恢复；纹理替换/遮罩缺口仍开放 | [shader合同](../capabilities/render-graph-shader-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-11 | Scene | 修复证据 | [Effect draw alpha](effect-draw-alpha-2026-10-11.md) | 消费层typed alpha与官方三档输出，保留颜色和named依赖首断点 | [运行合同](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-11 | Scene | 修复证据 | [只读整数函数输入](direct-function-scalar-inputs-2026-10-11.md) | 24段波动进入实际GPU；白块及draw alpha缺口保留 | [shader合同](../capabilities/render-graph-shader-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |

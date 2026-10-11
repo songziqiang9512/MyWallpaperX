@@ -46,6 +46,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
         effectOutputModelViewProjection: simd_float4x4,
         effectTextureProjectionMatrixInverse: simd_float4x4,
         effectDrawAlpha: Float = 1,
+        effectDrawColor: SIMD3<Float> = .init(repeating: 1),
         implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity? = nil
     ) -> SceneResolvedMaterialFinalizationInput {
         .init(
@@ -58,6 +59,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
             effectOutputModelViewProjection: effectOutputModelViewProjection,
             effectTextureProjectionMatrixInverse: effectTextureProjectionMatrixInverse,
             effectDrawAlpha: effectDrawAlpha,
+            effectDrawColor: effectDrawColor,
             implicitFramebufferIdentity: implicitFramebufferIdentity
         )
     }
@@ -123,6 +125,7 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
     let effectTextureProjectionMatrixInverse: simd_float4x4
     /// Consumer opacity; source capture and named provider alpha remain separate.
     var effectDrawAlpha: Float = 1
+    var effectDrawColor: SIMD3<Float> = .init(repeating: 1)
     /// Current full-frame graph input for shader samplers that explicitly
     /// declare a `framebuffer` or `previous` material alias without an authored
     /// texture binding.
@@ -151,6 +154,7 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
                 effectTextureProjectionMatrixInverse.inverse,
             effectTextureProjectionMatrixInverse: effectTextureProjectionMatrixInverse,
             effectDrawAlpha: effectDrawAlpha,
+            effectDrawColor: effectDrawColor,
             sceneTime: frameSnapshot.frameInputs.sceneTime,
             dayTime: frameSnapshot.frameInputs.dayTime,
             frameTime: frameSnapshot.frameInputs.frameTime,
@@ -213,7 +217,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             }
             guard !SceneResolvedMaterialHostUniformSchema
                 .requiresTextureCompanionHost(field.authoredName),
-                  !SceneResolvedMaterialHostUniformSchema.requiresEffectDrawAlphaHost(
+                  !SceneResolvedMaterialHostUniformSchema.requiresEffectDrawModulationHost(
                       field.authoredName,
                       hasEffectContext: template.effectContext != nil
                   ) else {
