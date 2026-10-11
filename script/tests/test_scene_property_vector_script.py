@@ -185,6 +185,10 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         )
         return json.loads(completed.stdout)
 
+    def test_layer_perspective_init_cross_lookup_reaches_typed_snapshot(self) -> None:
+        for key, accepted in self.result()["layerPerspective"].items():
+            self.assertTrue(accepted, key)
+
     def test_particle_normalized_color_uses_vector_owner_and_recovers(self) -> None:
         value = self.result()
         self.assertEqual(value["particleColor"], [0.5, 0.25, 0.75])

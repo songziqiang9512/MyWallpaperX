@@ -18,7 +18,8 @@
 | 样本声明与运行关联 | [243份声明快照](scene-corpus-capability-inventory.md)、[验收来源](scene-sample-acceptance-ledger.md)保留旧身份；[10-11新增37份普查](../history/new-scene-intake-2026-10-11.md)补当前279成员中的新增运行，未验全库正确率；待修归[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | Sampler 声明、绑定与缓存身份 | [声明/缓存修复记录](#e-2026-10-01-sampler-baseline-repair) |
 | 生命周期与发布完整性 | [生命周期完整性记录](#e-2026-10-01-lifecycle-integrity) |
-| 初始配置与动态图片复用 | [N06限定后验](../history/initial-layer-configuration-2026-10-12.md)：288的34个origin TypeError消失；25个普通图片目标进入原创建/事务链，保留5个Puppet、1个composition、3个text包装及perspective/size缺口，不计整样本parity。 |
+| 图层透视状态 | [有界后验](../history/layer-perspective-2026-10-12.md)：脚本Bool经原事务/快照进入共享camera；同值显式override与camera-layer默认一致。自有fixture检查false→true→false真实几何，288与未参与实现的289复验；缺省FOV与特殊clone仍开放。 |
+| 初始配置与动态图片复用 | [N06限定后验](../history/initial-layer-configuration-2026-10-12.md)：288的34个origin TypeError消失；25个普通图片目标进入原创建/事务链，保留5个Puppet、1个composition、3个text包装及create size缺口，不计整样本parity。 |
 | SceneScript 显隐准备与交互 | [统一显隐记录](#e-2026-09-27-unified-effect-visibility)、[事件显隐持久修复](../history/event-visibility-persistence-2026-10-10.md)：312两个浮动窗口恢复，四次属性热切无重建、两窗口拖动已验 |
 | 音频共享 producer 与产品入口 | [共享 producer 记录](#e-2026-09-22-audio-shared-canonical-producer)、[普通产品入口记录](#e-2026-09-22-audio-ordinary-scene-web) |
 | solid named源尺寸 | [有界修复](../history/named-solid-source-extent-2026-10-12.md)：376裙摆11层重复矩形消失，14层terminal/GPU/下一帧，保留graph-final依赖；后继[缺省尺寸修复](../history/missing-resolution-normalization-2026-10-12.md)使头部deformer进入原GPU/合成链，实际材质阶段由77增至78，另37段作者关闭而透传，非整图parity。 |

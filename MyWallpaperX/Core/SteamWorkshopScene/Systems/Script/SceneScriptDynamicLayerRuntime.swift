@@ -241,8 +241,14 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     .allSatisfy({ $0.isFinite && (0...1).contains($0) }) {
                     return .failure(.invalidArgument("invalid authored layer color"))
                 }
+                if mutation.fields.contains(.perspective),
+                   (mutation.perspective == nil || authoredLayer.utilityLayer != nil
+                    || !["image", "solid", "text", "model"].contains(authoredLayer.contentKind)) {
+                    return .failure(.invalidArgument("layer has no perspective geometry consumer"))
+                }
                 for (flag, field, value): (SceneScriptLayerMutation.Fields, SceneDynamicLayerField, Bool)
-                    in [(.visibility, .visibility, mutation.visible), (.solid, .solid, mutation.solid)]
+                    in [(.visibility, .visibility, mutation.visible), (.solid, .solid, mutation.solid),
+                        (.perspective, .perspective, mutation.perspective ?? false)]
                     where mutation.fields.contains(flag) {
                     let target = SceneDynamicTarget.layer(layerID: mutation.layerID, field: field)
                     guard authoredTargets.insert(target).inserted else {
@@ -749,6 +755,9 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 .vector3(mutation.angles.x, mutation.angles.y, mutation.angles.z)
             ))
         }
+        if mutation.fields.contains(.perspective), let perspective = mutation.perspective {
+            values.append((.layer(layerID: mutation.layerID, field: .perspective), .bool(perspective)))
+        }
         if mutation.fields.contains(.solid) {
             values.append((.layer(layerID: mutation.layerID, field: .solid), .bool(mutation.solid)))
         }
@@ -860,6 +869,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 target: target, valueType: .vector3,
                 authoredValue: vector3(layer.anglesXYZ, fallback: [0, 0, 0])
             )
+        case let .layer(layerID, .perspective) where layerID == layer.id:
+            .init(target: target, valueType: .bool, authoredValue: .bool(layer.usesPerspective ?? false))
         case let .layer(layerID, .solid) where layerID == layer.id:
             .init(target: target, valueType: .bool, authoredValue: .bool(layer.solid ?? true))
         case let .layer(layerID, .visibility) where layerID == layer.id:

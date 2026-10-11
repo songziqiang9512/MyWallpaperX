@@ -12,10 +12,12 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneLayerPerspectiveSnapshotHarness.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/SceneCameraProjection.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleRenderSupport.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCameraFrame.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCameraFrame+LayerCamera.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan.swift",
 ]
 
@@ -27,9 +29,16 @@ import simd
 
 struct SceneRenderDescriptor {
     struct Layer {
+        var id: Int = 0
+        var cameraPath: CameraPath? = nil
+        var visible = true
+        struct CameraPath { let camera: String; let fov: Double? }
         let utilityLayer: Bool?
         let usesPerspective: Bool?
     }
+
+    let camera: CameraDescriptor
+    let renderOrderLayerIDs: [Int]
 
     struct CameraDescriptor {
         let eye: [Float]
@@ -42,6 +51,13 @@ struct SceneRenderDescriptor {
         let nearZ: Float
         let farZ: Float
     }
+}
+
+enum SceneLayerVisibility {
+    static func isEffectivelyVisible(
+        layerID: Int, in descriptor: SceneRenderDescriptor,
+        layersByID: [Int: SceneRenderDescriptor.Layer], snapshot: SceneDynamicSnapshot
+    ) -> Bool { layersByID[layerID]?.visible == true }
 }
 
 @main
@@ -240,7 +256,58 @@ enum Harness {
         let pollingHalfFar = cursorSamples.map { vector3(pollingFrame(far: 5000).nativeCursorWorldPosition($0)!) }
         let rotatedPolling = pollingFrame(far: 5000, eye: [10, 2, 0], center: [0, 2, 0])
 
+        let perspectiveTarget = SceneDynamicTarget.layer(layerID: 91, field: .perspective)
+        let scriptedLayer = SceneRenderDescriptor.Layer(id: 91, utilityLayer: nil, usesPerspective: false)
+        var scriptSnapshot = SceneDynamicSnapshot(values: [perspectiveTarget: .init(value: .bool(true), source: .sceneScript)])
+        let scriptedFrame = SceneParticleCameraFrame(camera: camera, viewportSize: viewport, dynamicValues: scriptSnapshot)
+        scriptSnapshot.values[perspectiveTarget] = .init(value: .bool(false), source: .sceneScript)
+        let flatFrame = SceneParticleCameraFrame(camera: camera, viewportSize: viewport, dynamicValues: scriptSnapshot)
+        let nativeFlatFrame = SceneParticleCameraFrame(camera: nativeCamera, viewportSize: viewport, dynamicValues: scriptSnapshot)
+        let authoredSeed = SceneDynamicSnapshot(values: [perspectiveTarget: .init(value: .bool(false), source: .authored)])
+        let nativeInheritedFrame = SceneParticleCameraFrame(camera: nativeCamera, viewportSize: viewport, dynamicValues: authoredSeed)
+        let inheritedLayer = SceneRenderDescriptor.Layer(id: 91, utilityLayer: nil, usesPerspective: nil)
+        let utilityOverride = SceneRenderDescriptor.Layer(id: 91, utilityLayer: true, usesPerspective: true)
+        let invalidSnapshot = SceneDynamicSnapshot(values: [perspectiveTarget: .init(value: .scalar(1), source: .sceneScript)])
+        let wrongTypedFrame = SceneParticleCameraFrame(camera: camera, viewportSize: viewport, dynamicValues: invalidSnapshot)
+        let missingFOVCamera = SceneRenderDescriptor.CameraDescriptor(
+            eye: [0, 0, 0], center: [0, 0, 0], up: [0, 1, 0],
+            orthoWidth: nil, orthoHeight: nil, fovDegrees: nil,
+            perspectiveOverrideFOVDegrees: nil, nearZ: 0.1, farZ: 5000
+        )
+        var cameraLayer = SceneRenderDescriptor.Layer(id: 7,
+            cameraPath: .init(camera: "default", fov: 60),
+            utilityLayer: nil, usesPerspective: nil)
+        let cameraDescriptor = SceneRenderDescriptor(camera: missingFOVCamera, renderOrderLayerIDs: [7])
+        let cameraWorld = SceneMatrix.translation(SIMD3<Float>(10, 20, 30))
+        let selectedCamera = SceneParticleCameraFrame.nativePerspectiveOverride(
+            descriptor: cameraDescriptor, layersByID: [7: cameraLayer],
+            worldFrames: [7: cameraWorld], dynamicValues: .init())
+        let layerCameraFrame = SceneParticleCameraFrame(camera: missingFOVCamera,
+            viewportSize: viewport, nativePerspectiveOverride: selectedCamera)
+        let layerCameraFlatFrame = SceneParticleCameraFrame(camera: missingFOVCamera,
+            viewportSize: viewport, nativePerspectiveOverride: selectedCamera,
+            dynamicValues: scriptSnapshot)
+        cameraLayer.visible = false
+        let hiddenCamera = SceneParticleCameraFrame.nativePerspectiveOverride(
+            descriptor: cameraDescriptor, layersByID: [7: cameraLayer],
+            worldFrames: [7: cameraWorld], dynamicValues: .init())
         let result: [String: Any] = [
+            "layerCameraRescuesMissingFallback": !SceneParticleCameraFrame.usesNativePerspective(camera: missingFOVCamera)
+                && layerCameraFrame.defaultsToPerspective,
+            "layerCameraDefaultMatchesFrame": SceneParticleCameraFrame.usesNativePerspective(
+                camera: missingFOVCamera, nativePerspectiveOverride: selectedCamera) == layerCameraFrame.defaultsToPerspective,
+            "layerCameraFalseOverridesInherited": !layerCameraFlatFrame.resolvesPerspective(for: inheritedLayer),
+            "hiddenLayerCameraFallsBack": hiddenCamera == nil,
+            "typedPerspectiveMatrixMatchesStatic": scriptedFrame.viewProjection(for: scriptedLayer) == frame.perspectiveViewProjection,
+            "typedFlatMatrixMatchesStatic": flatFrame.viewProjection(for: scriptedLayer) == frame.orthographicViewProjection,
+            "typedSnapshotCaptureIsImmutable": scriptedFrame.resolvesPerspective(for: scriptedLayer),
+            "typedFalseOverridesNative": !nativeFlatFrame.resolvesPerspective(for: inheritedLayer),
+            "authoredSeedPreservesNativeDefault": nativeInheritedFrame.resolvesPerspective(for: inheritedLayer),
+            "typedUtilityStaysScreenSpace": !scriptedFrame.resolvesPerspective(for: utilityOverride),
+            "wrongTypedValueKeepsStatic": !wrongTypedFrame.resolvesPerspective(for: scriptedLayer),
+            "catalogDefaultMatchesNativeFrame": SceneParticleCameraFrame.usesNativePerspective(camera: nativeCamera) == nativeFrame.defaultsToPerspective,
+            "catalogDefaultMatchesOrthoFrame": SceneParticleCameraFrame.usesNativePerspective(camera: camera) == frame.defaultsToPerspective,
+
             "pollingValues": pollingValues,
             "pollingHalfFar": pollingHalfFar,
             "pollingRotated": vector3(rotatedPolling.nativeCursorWorldPosition(.init(0.5, 0))!),
@@ -564,6 +631,16 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
         self.assertTrue(self.result["imageProjectionMatchesModel"])
         self.assertFalse(self.result["nativeExplicitOrtho"])
         self.assertFalse(self.result["orthoDefaultsToPerspective"])
+
+    def test_typed_perspective_uses_one_immutable_camera_policy(self) -> None:
+        for key in ("typedPerspectiveMatrixMatchesStatic", "typedFlatMatrixMatchesStatic",
+                    "typedSnapshotCaptureIsImmutable", "typedFalseOverridesNative",
+                    "authoredSeedPreservesNativeDefault", "typedUtilityStaysScreenSpace",
+                    "layerCameraRescuesMissingFallback", "layerCameraDefaultMatchesFrame",
+                    "layerCameraFalseOverridesInherited", "hiddenLayerCameraFallsBack",
+                    "wrongTypedValueKeepsStatic", "catalogDefaultMatchesNativeFrame",
+                    "catalogDefaultMatchesOrthoFrame"):
+            self.assertTrue(self.result[key], key)
 
     def test_native_camera_preserves_world_up_through_metal_clip_space(self) -> None:
         world_up = self.result["nativeWorldUpNDC"]

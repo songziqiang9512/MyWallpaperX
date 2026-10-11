@@ -13,7 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-SWIFT_SOURCES = [SCENE / path for path in (
+SWIFT_SOURCES = [ROOT / "script/tests/fixtures/SceneLayerPerspectiveSnapshotHarness.swift"] + [SCENE / path for path in (
     "Rendering/Geometry/SceneMatrix.swift",
     "Systems/Input/SceneLayerParallax.swift",
     "Systems/Input/SceneCameraProjection.swift",

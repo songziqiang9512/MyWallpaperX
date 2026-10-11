@@ -88,7 +88,7 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
     const double size[2] = {0, 0};
     MWXSceneQuickJSResult result =
         mwx_scene_quickjs_domain_configure_layer_catalog(
-            domain, 1, diagnostic, sizeof(diagnostic)
+            domain, 1, 0, diagnostic, sizeof(diagnostic)
         );
     if (result == MWX_SCENE_QUICKJS_OK) {
         result = mwx_scene_quickjs_domain_set_layer_descriptor(

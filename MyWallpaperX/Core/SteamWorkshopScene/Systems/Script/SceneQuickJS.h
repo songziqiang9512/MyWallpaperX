@@ -135,6 +135,7 @@ typedef enum MWXSceneQuickJSLayerMutationField {
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_EFFECT_VISIBILITY = 1u << 8,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SOLID = 1u << 9,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA = 1u << 10,
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE = 1u << 11,
 } MWXSceneQuickJSLayerMutationField;
 
 typedef struct MWXSceneQuickJSLayerMutation {
@@ -147,6 +148,7 @@ typedef struct MWXSceneQuickJSLayerMutation {
     int32_t order_index;
     uint32_t visible;
     uint32_t solid;
+    uint32_t perspective; /* dynamic: 2 retains the inherited camera policy */
     double alpha;
     double particle_alpha;
     double origin[3];
@@ -389,6 +391,7 @@ void mwx_scene_quickjs_domain_reset_budget(
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_layer_catalog(
     MWXSceneQuickJSDomain *domain,
     uint32_t layer_count,
+    uint32_t defaults_to_perspective,
     char *diagnostic,
     size_t diagnostic_capacity
 );
@@ -457,6 +460,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     uint32_t destroyed,
     uint32_t visible,
     uint32_t solid,
+    uint32_t perspective,
     double alpha,
     const char *text,
     size_t text_length,
@@ -607,6 +611,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_texture_animation_command_at(
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
     MWXSceneQuickJSDomain *domain,
     uint64_t generation,
+    uint32_t defaults_to_perspective,
     char *diagnostic,
     size_t diagnostic_capacity
 );
@@ -752,6 +757,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     const double angles[3],
     uint32_t visible,
     uint32_t solid,
+    uint32_t perspective,
     const char *text,
     size_t text_length,
     const char *font,

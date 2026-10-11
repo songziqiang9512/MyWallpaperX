@@ -67,7 +67,7 @@ nonisolated extension SceneRenderDescriptor.Layer {
         return SceneRenderDescriptor.Layer(
             id: mutation.layerID, layerIndex: mutation.orderIndex, name: nil,
             cameraPath: nil, contentKind: "image",
-            imagePath: template.modelPath, particlePath: nil,
+            imagePath: template.modelPath, usesPerspective: mutation.perspective, particlePath: nil,
             spotLight: nil, particleInstanceOverride: nil, utilityLayer: nil,
             dependencyLayerIDs: [], authoredDependencies: [], parentID: nil,
             childLayerIDs: [], attachmentName: nil,
@@ -105,7 +105,7 @@ nonisolated extension SceneRenderDescriptor.Layer {
         }
         return SceneRenderDescriptor.Layer(
             id: mutation.layerID, layerIndex: mutation.orderIndex, name: nil,
-            cameraPath: nil, contentKind: "text", imagePath: nil, particlePath: nil,
+            cameraPath: nil, contentKind: "text", imagePath: nil, usesPerspective: mutation.perspective, particlePath: nil,
             spotLight: nil, particleInstanceOverride: nil, utilityLayer: nil,
             dependencyLayerIDs: [], authoredDependencies: [], parentID: nil,
             childLayerIDs: [], attachmentName: nil, parentAttachmentBindFrame: nil,

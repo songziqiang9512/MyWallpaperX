@@ -29,7 +29,7 @@ static MWXSceneQuickJSDomain *domain(void) {
         16 * 1024 * 1024, 512 * 1024, 100000, diagnostic, sizeof(diagnostic));
     check(d != NULL, "domain creates");
     if (d == NULL) return NULL;
-    check(mwx_scene_quickjs_domain_configure_layer_catalog(d, 2,
+    check(mwx_scene_quickjs_domain_configure_layer_catalog(d, 2, 0,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "layer catalog");
     const double origin[3] = {0, 0, 0}, size[2] = {100, 100};
     check(mwx_scene_quickjs_domain_set_layer_descriptor(d, 0, 17, 0, 0,
@@ -222,12 +222,12 @@ static void rejection_and_deletion(void) {
     // The host applies accepted authored removal and then publishes its next
     // typed snapshot. Committing a C journal alone does not alter authored data.
     const double scale[3] = {1, 1, 1}, angles[3] = {0, 0, 0}, color[3] = {1, 1, 1};
-    check(mwx_scene_quickjs_domain_begin_layer_snapshot(d, 1,
+    check(mwx_scene_quickjs_domain_begin_layer_snapshot(d, 1, 0,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "deletion snapshot begins");
     check(mwx_scene_quickjs_domain_reuse_layer_runtime_fields(d, 0,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "unaffected layer preserved");
     check(mwx_scene_quickjs_domain_update_layer_runtime_fields(d, 1, scale, angles,
-        1, 1, 1, 1, "", 0, "", 0, 32, color, diagnostic, sizeof(diagnostic))
+        1, 1, 1, 0, 1, "", 0, "", 0, 32, color, diagnostic, sizeof(diagnostic))
         == MWX_SCENE_QUICKJS_OK, "accepted deletion mirrored");
     check(mwx_scene_quickjs_domain_commit_layer_snapshot(d, diagnostic, sizeof(diagnostic))
         == MWX_SCENE_QUICKJS_OK, "deletion snapshot publishes");

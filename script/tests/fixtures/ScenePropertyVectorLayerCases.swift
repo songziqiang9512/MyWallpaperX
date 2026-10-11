@@ -325,8 +325,43 @@ extension Harness {
             )],
             generation: 143
         )
-        defer { fixture.retained += [layerProgram, colorProgram, spotColorProgram, currentColorProgram, undefinedColorProgram, failingColorProgram, colorFailurePeer, textColorProgram, bad, duplicate, wrongOwner, animatedOrigin, rejectedWithoutTimeline, animatedAlpha, genericAlpha, genericPropertyAlpha, rejectedAlphaWrapper] }
+        let perspectiveDomain = try! SceneScriptQuickJSDomain()
+        let perspectiveDescriptor = SceneRenderDescriptor(layers: [.init(
+            id: 901, layerIndex: 0, name: "DifferentCard", visible: true,
+            originXYZ: [4, 5, 6], scaleXYZ: [1, 1, 1], scaleHasScript: false,
+            alpha: 1, effects: []
+        )])
+        let perspectiveProgram = SceneScriptVectorProgram.compile(
+            domain: perspectiveDomain, descriptor: perspectiveDescriptor,
+            scriptBindings: [binding(key: "origin", source:
+                "export function init(v){const renamed=thisScene.getLayer('DifferentCard');" +
+                "renamed.perspective=(2===2);if(!thisLayer.perspective)throw Error('readback');return v;}" +
+                "export function update(v){return v;}",
+                value: "4 5 6", properties: [:], objectID: 901)],
+            userPropertyDefinitions: [], generation: 901
+        )
+        let perspectiveResult = perspectiveProgram.evaluate(
+            inputs: [.layer(layerID: 901, field: .origin): .vector3(4, 5, 6)],
+            effectivePropertyValues: [:], frame: frame
+        )
+        let perspectiveMutations = perspectiveResult.layerMutations
+        let perspectiveTarget = SceneDynamicTarget.layer(layerID: 901, field: .perspective)
+        let perspectiveSnapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 1, generation: 1,
+            definitions: [.init(target: perspectiveTarget, valueType: .bool, authoredValue: .bool(false))],
+            sceneScriptValues: [perspectiveTarget: .bool(perspectiveMutations.first?.perspective == true)]
+        ).snapshot
+        defer { fixture.retained += [perspectiveProgram, layerProgram, colorProgram, spotColorProgram, currentColorProgram, undefinedColorProgram, failingColorProgram, colorFailurePeer, textColorProgram, bad, duplicate, wrongOwner, animatedOrigin, rejectedWithoutTimeline, animatedAlpha, genericAlpha, genericPropertyAlpha, rejectedAlphaWrapper] }
         return [
+            "layerPerspective": { [
+                "bindingAdmitted": perspectiveProgram.bindings.count == 1,
+                "callbackSucceeded": perspectiveResult.failures.isEmpty,
+                "typedABIPreservesBoolean": perspectiveMutations.count == 1
+                    && perspectiveMutations[0].fields == [.perspective]
+                    && perspectiveMutations[0].layerID == 901 && perspectiveMutations[0].perspective == true,
+                "typedSnapshotPublished": perspectiveSnapshot[perspectiveTarget]?.value == .bool(true)
+                    && perspectiveSnapshot[perspectiveTarget]?.source == .sceneScript,
+            ] },
             "layerOrigin": { vector(
                 layerResult.values[.layer(layerID: 10, field: .origin)]
             ) },

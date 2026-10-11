@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
     if (!domain) { fprintf(stderr, "domain: %s\n", diagnostic); return 2; }
     double origin[3] = {0}, size[2] = {100, 100};
     MWXSceneQuickJSResult result = mwx_scene_quickjs_domain_configure_layer_catalog(
-        domain, 1, diagnostic, sizeof(diagnostic));
+        domain, 1, 0, diagnostic, sizeof(diagnostic));
     if (result == MWX_SCENE_QUICKJS_OK) result = mwx_scene_quickjs_domain_set_layer_descriptor(
         domain, 0, 42, 0, 0, "particles", 9, origin, size, diagnostic, sizeof(diagnostic));
     MWXSceneQuickJSOwner *owner = result == MWX_SCENE_QUICKJS_OK

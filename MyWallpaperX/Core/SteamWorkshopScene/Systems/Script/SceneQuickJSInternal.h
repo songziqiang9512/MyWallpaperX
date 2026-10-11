@@ -107,6 +107,7 @@ typedef struct MWXSceneQuickJSLayerRecord {
     uint64_t dirty_owner_identity;
     bool visible;
     bool solid;
+    uint32_t perspective;
     bool has_parent;
     bool dynamic;
     bool destroyed;
@@ -152,6 +153,7 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     double point_size;
     bool visible;
     bool solid;
+    uint32_t perspective;
     bool destroyed;
     bool world_transform_available;
     bool runtime_fields_staged;
@@ -189,6 +191,7 @@ typedef struct MWXSceneQuickJSAuthoredLayerMutationRecord {
     double color[3];
     bool visible;
     bool solid;
+    uint32_t perspective;
     char *text;
     char *font;
 } MWXSceneQuickJSAuthoredLayerMutationRecord;
@@ -258,6 +261,7 @@ typedef struct MWXSceneQuickJSDynamicLayerValueBaseline {
     char *font;
     bool visible;
     bool solid;
+    uint32_t perspective;
 } MWXSceneQuickJSDynamicLayerValueBaseline;
 
 typedef struct MWXSceneQuickJSDynamicLayerTopologyOperation {
@@ -301,6 +305,7 @@ struct MWXSceneQuickJSDomain {
     MWXSceneQuickJSLayerRecord *layers;
     uint32_t layer_count;
     uint32_t authored_layer_count;
+    bool defaults_to_perspective;
     MWXSceneQuickJSNamedAnimationRecord *named_animations;
     size_t named_animation_count;
     bool named_animations_configured;
@@ -327,8 +332,10 @@ struct MWXSceneQuickJSDomain {
     uint64_t layer_snapshot_generation;
     MWXSceneQuickJSStagedLayerSnapshot *pending_layer_snapshot;
     uint64_t pending_layer_snapshot_generation;
+    bool pending_defaults_to_perspective;
     MWXSceneQuickJSStagedLayerSnapshot *rollback_layer_snapshot;
     uint64_t rollback_layer_snapshot_generation;
+    bool rollback_defaults_to_perspective;
     int32_t *rollback_layer_order;
     uint32_t rollback_layer_order_count;
     MWXSceneQuickJSOwner *puppet_animation_owners;

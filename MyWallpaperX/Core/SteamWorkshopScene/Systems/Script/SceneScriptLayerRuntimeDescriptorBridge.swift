@@ -116,6 +116,13 @@ nonisolated extension SceneScriptQuickJSDomain {
                                         snapshot: snapshot
                                     ) ? 1 : 0,
                                     {
+                                        if let resolved = snapshot[.layer(layerID: layer.id, field: .perspective)],
+                                           resolved.source != .authored, case let .bool(value) = resolved.value {
+                                            return value ? 1 : 0
+                                        }
+                                        return layer.usesPerspective.map { $0 ? UInt32(1) : UInt32(0) } ?? 2
+                                    }(),
+                                    {
                                         if let resolved = snapshot[.layer(layerID: layer.id, field: .alpha)],
                                            case let .scalar(value) = resolved.value, value.isFinite {
                                             return min(max(value, 0), 1)
@@ -295,7 +302,8 @@ nonisolated extension SceneScriptQuickJSDomain {
         snapshot: SceneDynamicSnapshot
     ) -> Bool {
         guard let resolved = snapshot[.layer(layerID: layerID, field: field)],
-              case let .bool(value) = resolved.value else { return authored }
+              case let .bool(value) = resolved.value,
+              field != .perspective || resolved.source != .authored else { return authored }
         return value
     }
 }

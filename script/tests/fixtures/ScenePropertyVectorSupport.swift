@@ -1,6 +1,15 @@
 
 import Foundation
 
+struct SceneParticleCameraFrame {
+    struct NativePerspectiveOverride {}
+    static func usesNativePerspective(camera: SceneRenderDescriptor.Camera, nativePerspectiveOverride: NativePerspectiveOverride? = nil) -> Bool { false }
+    static func nativePerspectiveOverride(
+        descriptor: SceneRenderDescriptor, layersByID: [Int: SceneRenderDescriptor.Layer],
+        worldFrames: [Int: simd_float4x4], dynamicValues: SceneDynamicSnapshot
+    ) -> NativePerspectiveOverride? { nil }
+}
+
 struct SceneFrameTiming {
     let wallDate: Date
     let simulationFrameTime: TimeInterval
@@ -227,10 +236,13 @@ struct SceneRenderDescriptor {
         }
     }
     struct Layer {
+        var initialConfiguration: SceneJSONValue? = nil
+        var cameraPath: Bool? = nil
         let id: Int
         let layerIndex: Int
         let name: String?
         var solid: Bool? = nil
+        var usesPerspective: Bool? = nil
         var visible: Bool?
         let originXYZ: [Float]?
         let sizeWH: [Float]? = nil

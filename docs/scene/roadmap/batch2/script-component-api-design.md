@@ -26,6 +26,14 @@ N06 真实脚本通过 `getInitialLayerConfig` 读取作者配置，再提取 im
 
 接口复用现层名称/顺序解析及带代次的 handle 校验。现值、事务和资源仍由原 owner 负责；读取初始配置不代表 createLayer 已能消费其中所有字段。对不支持的资源保持局部拒绝，不能把 Puppet 扁平化或对缺少 provider 返回假成功。验收覆盖三入口、嵌套副本隔离、实时值不污染初始值、缺层/旧句柄、配置 identity 变化、现 create/destroy/rollback；真实 App 则核对原 34 个失败 target 的实际分布、普通图片模板复用与实际脚本角度输出，不以方法存在或截图非黑计完成。
 
+## 图层 perspective typed setter 后继（2026-10-12）
+
+真实作者在图层 init 设置 `thisLayer.perspective`，随后只更新 angles/origin/scale；原桥接没有此 accessor，赋值成为无渲染消费者的 JS 自有属性。公开 [SceneScript 类型声明](https://docs.wallpaperengine.io/reference/lib.sceneScript.d.ts) 的 IEffectLayer（image/text 的共同表面）及 model 图层声明可读写 Boolean perspective，含义为透视而非平面绘制；公开 HTML ILayer 简表未完整列出派生属性。此次先闭合已准备图层及现动态 image/text handle 的 setter/getter，不扩 createLayer Object 配置、size、资源 profile 或文字克隆。
+
+复用 layer catalog/mutation journal、Swift owner bundle 固定点、DynamicLayerRuntime 和 typed snapshot，增加现 layer Bool 字段；C 只保存已提交镜像、同 callback overlay 和既有 rollback baseline。当前相机帧持有同一不可变 typed snapshot 的值引用，唯一 `resolvesPerspective(for:)` 在现静态 override/default 之前消费该字段，Geometry、Program/MVP、lighting/fallback、cursor 和 Puppet attachment 共用它，不逐帧复制整图、解析作者配置或失效 shader/graph。动态层的完整值记录仅在 setter 后携带显式 override，未写值继续继承既有相机默认，不将省略改成 false；现 dynamic descriptor projection 继续消费该记录，不新增拓扑 owner。
+
+准入范围按公开表面和现实际 camera/geometry 消费者确定；改变或首次显式设置 perspective 的 mutation 在 particle、sound、camera、utility 等无消费者层按原 owner bundle 拒绝。所有 catalog 层可读已有相机策略；已显式值的同值写沿现 setter 规则不生成 mutation，这类 getter/no-op 不计绘制支持。继承记录即使写当前默认同值 Bool 也生成显式 override，避免后续 camera 切换吞掉作者意图。value-only Boolean owner保留原权限边界；跨 owner/旧代/已删除 handle、throw、C 成功而 Swift 拒绝均走现拒绝/撤回。官方 2.8.0.42 自有同输入正交 image/text fixture 已证省略值为 false，Bool 同 callback/跨 lookup 即时读回，所测 1/0/string-false 非 Bool 写入忽略且不抛错，动态 false→true→false 的声明 ROI 与各静态参照一致。官方该 fixture 的 setter 后 throw 留下 true；本项目继续保留既有整个 owner bundle 原子撤回，这是项目事务约束，不能宣称这项官方 parity。native 默认、Puppet 黑盒和特殊组合仍未验证。CPU 门覆盖 VM→ABI→typed admission/commit/discard、同帧读回、健康 peer、镜像 rollback、动态层值及相机矩阵/命中一致性；Debug build 与隔离 App 运行另验真实原包和未见 fixture。该范围不证明原包全部特效、Puppet/composition克隆、完整官方parity或能耗验收。
+
 ## owner
 
 QuickJS domain owns JS object 与 callback roots；现役 Script bridge owns handle 验证与 mutation 编码；host frame transaction owns commit 时机；graph/resources owns 动态对象准备与释放。粒子作者播放意图纳入现役 `SceneScriptDynamicLayerRuntime` 的 typed layer state、candidate plan 和 immutable committed snapshot，C 只保存已提交镜像与 callback journal；不另建 session 意图库。各 surface 的现役粒子 runtime 仍独占实际 emitter schedule、存活、粒子 ID 与随机流，按 [D11](particle-playback-state-design.md) 消费有序转移。注册内部组件不能建立第二份对象树、simulation 或 clock。

@@ -78,13 +78,14 @@ static void clear_rollback_snapshot(MWXSceneQuickJSDomain *domain) {
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
     MWXSceneQuickJSDomain *domain,
     uint64_t generation,
+    uint32_t defaults_to_perspective,
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
     if (domain == NULL || domain->layers == NULL || domain->callback_active ||
         domain->pending_layer_snapshot != NULL ||
-        domain->rollback_layer_snapshot != NULL || generation == 0 ||
+        domain->rollback_layer_snapshot != NULL || defaults_to_perspective > 1 || generation == 0 ||
         generation <= domain->layer_snapshot_generation) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic, diagnostic_capacity, "invalid layer snapshot transaction"
@@ -136,6 +137,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
         }
         pending[index].visible = record->visible;
         pending[index].solid = record->solid;
+        pending[index].perspective = record->perspective;
         pending[index].destroyed = record->destroyed;
         pending[index].alpha = record->alpha;
         pending[index].particle_instance_available = record->particle_instance_available;
@@ -171,6 +173,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
     }
     domain->pending_layer_snapshot = pending;
     domain->pending_layer_snapshot_generation = generation;
+    domain->pending_defaults_to_perspective = defaults_to_perspective != 0;
     return MWX_SCENE_QUICKJS_OK;
 }
 
@@ -242,6 +245,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     uint32_t destroyed,
     uint32_t visible,
     uint32_t solid,
+    uint32_t perspective,
     double alpha,
     const char *text,
     size_t text_length,
@@ -256,7 +260,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     if (domain == NULL || domain->callback_active ||
         domain->pending_layer_snapshot == NULL ||
         layer_index >= domain->authored_layer_count ||
-        !domain->layers[layer_index].configured || destroyed > 1 || solid > 1 || scale == NULL ||
+        !domain->layers[layer_index].configured || destroyed > 1 || solid > 1 || perspective > 2 || scale == NULL ||
         angles == NULL || color == NULL || text == NULL || font == NULL ||
         text_length > MWX_SCENE_QUICKJS_MAX_LAYER_TEXT ||
         font_length > MWX_SCENE_QUICKJS_MAX_LAYER_FONT || !isfinite(alpha) ||
@@ -299,6 +303,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     memcpy(staged->color, color, sizeof(staged->color));
     staged->visible = visible != 0;
     staged->solid = solid != 0;
+    staged->perspective = perspective;
     staged->destroyed = destroyed != 0;
     staged->alpha = alpha;
     staged->point_size = point_size;
@@ -540,6 +545,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         memcpy(previous_color, record->color, sizeof(previous_color));
         const bool previous_visible = record->visible;
         const bool previous_solid = record->solid;
+        const uint32_t previous_perspective = record->perspective;
         const bool previous_destroyed = record->destroyed;
         const double previous_alpha = record->alpha;
         const bool previous_particle_instance_available = record->particle_instance_available;
@@ -597,6 +603,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         memcpy(record->color, staged->color, sizeof(record->color));
         record->visible = staged->visible;
         record->solid = staged->solid;
+        record->perspective = staged->perspective;
         record->destroyed = staged->destroyed;
         record->alpha = staged->alpha;
         record->particle_instance_available = staged->particle_instance_available;
@@ -640,6 +647,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         memcpy(staged->color, previous_color, sizeof(staged->color));
         staged->visible = previous_visible;
         staged->solid = previous_solid;
+        staged->perspective = previous_perspective;
         staged->destroyed = previous_destroyed;
         staged->alpha = previous_alpha;
         staged->particle_instance_available = previous_particle_instance_available;
@@ -676,6 +684,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
     if (order_changed) mwx_scene_quickjs_compact_layer_order(domain);
     domain->rollback_layer_snapshot = domain->pending_layer_snapshot;
     domain->rollback_layer_snapshot_generation = domain->layer_snapshot_generation;
+    domain->rollback_defaults_to_perspective = domain->defaults_to_perspective;
+    domain->defaults_to_perspective = domain->pending_defaults_to_perspective;
     domain->pending_layer_snapshot = NULL;
     domain->pending_layer_snapshot_generation = 0;
     domain->layer_snapshot_generation = generation;
@@ -722,6 +732,7 @@ bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
         memcpy(record->color, saved->color, sizeof(record->color));
         record->visible = saved->visible;
         record->solid = saved->solid;
+        record->perspective = saved->perspective;
         record->destroyed = saved->destroyed;
         record->alpha = saved->alpha;
         record->particle_instance_available = saved->particle_instance_available;
@@ -758,6 +769,7 @@ bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
         domain->layers[i].order_index = domain->rollback_layer_order[i];
     domain->layer_snapshot_generation =
         domain->rollback_layer_snapshot_generation;
+    domain->defaults_to_perspective = domain->rollback_defaults_to_perspective;
     clear_rollback_snapshot(domain);
     return true;
 }

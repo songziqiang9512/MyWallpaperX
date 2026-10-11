@@ -74,6 +74,7 @@ enum LayerProperty {
     LAYER_ANGLES,
     LAYER_VISIBLE,
     LAYER_SOLID,
+    LAYER_PERSPECTIVE,
     LAYER_ALPHA,
     LAYER_COLOR,
     LAYER_TEXT,
@@ -412,6 +413,7 @@ static bool journal_dynamic_layer_value(
         .layer_index = layer_index,
         .alpha = record->alpha,
         .visible = record->visible, .solid = record->solid,
+        .perspective = record->perspective,
         .text = duplicate_optional_layer_string(record->text),
         .font = duplicate_optional_layer_string(record->font),
     };
@@ -767,6 +769,7 @@ static void restore_dynamic_layer_journal(
         record->alpha = baseline->alpha;
         record->visible = baseline->visible;
         record->solid = baseline->solid;
+        record->perspective = baseline->perspective;
     }
 }
 
@@ -1005,6 +1008,7 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mut
     *mutation = (MWXSceneQuickJSAuthoredLayerMutationRecord){
         .layer_index = layer_index,
         .visible = record->visible, .solid = record->solid,
+        .perspective = record->perspective,
         .alpha = record->alpha,
         .particle_alpha = record->particle_alpha,
     };
@@ -1029,6 +1033,8 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mut
             mutation->visible = baseline->visible;
         if ((baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SOLID) != 0)
             mutation->solid = baseline->solid;
+        if ((baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE) != 0)
+            mutation->perspective = baseline->perspective;
         if ((baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA) != 0)
             mutation->particle_alpha = baseline->particle_alpha;
     } else if (owner->target_layer_configured &&
@@ -1147,6 +1153,14 @@ static JSValue layer_get(
                 record->angles
             ) : record->angles
         );
+    case LAYER_PERSPECTIVE: {
+        uint32_t value = record->perspective;
+        if (authored_mutation != NULL && (authored_mutation->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE) != 0)
+            value = authored_mutation->perspective;
+        else if (authored_baseline != NULL && (authored_baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE) != 0)
+            value = authored_baseline->perspective;
+        return JS_NewBool(context, value == 2 ? handle->domain->defaults_to_perspective : value != 0);
+    }
     case LAYER_VISIBLE:
     case LAYER_SOLID: {
         const bool solid = (enum LayerProperty)magic == LAYER_SOLID;
@@ -1339,6 +1353,36 @@ static JSValue layer_set(
         if (!mark_dirty(owner, record))
             return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
         memcpy(record->angles, value, sizeof(value));
+        break;
+    }
+    case LAYER_PERSPECTIVE: {
+        // The public Boolean field ignores non-Boolean assignments in the
+        // fixed official probe; JS truthiness would turn 1 or "false" into true.
+        if (!JS_IsBool(argv[0])) return JS_UNDEFINED;
+        const uint32_t value = JS_ToBool(context, argv[0]) != 0;
+        if (authored_target) {
+            MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
+                mwx_scene_quickjs_authored_mutation_for_layer(owner, record_index);
+            MWXSceneQuickJSAuthoredLayerMutationRecord *baseline =
+                mwx_scene_quickjs_authored_mutation_baseline_for_layer(owner, record_index);
+            const uint32_t current = mutation != NULL && (mutation->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE) != 0
+                ? mutation->perspective
+                : baseline != NULL && (baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE) != 0
+                    ? baseline->perspective : record->perspective;
+            if (current != 2 && current == value) break;
+            mutation = mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
+            if (mutation == NULL)
+                return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
+            mutation->perspective = value;
+            mutation->fields |= MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE;
+            break;
+        }
+        if (record->perspective == value) break;
+        if (!journal_dynamic_layer_value(owner, record_index))
+            return JS_ThrowInternalError(context, "dynamic layer rollback journal exceeded");
+        if (!mark_dirty(owner, record))
+            return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
+        record->perspective = value;
         break;
     }
     case LAYER_VISIBLE:
@@ -2505,6 +2549,7 @@ static JSValue make_layer_handle(
         {"origin", LAYER_ORIGIN, true}, {"scale", LAYER_SCALE, true},
         {"size", LAYER_SIZE, false},
         {"angles", LAYER_ANGLES, true}, {"visible", LAYER_VISIBLE, true}, {"solid", LAYER_SOLID, true},
+        {"perspective", LAYER_PERSPECTIVE, true},
         {"text", LAYER_TEXT, true}, {"pointsize", LAYER_POINT_SIZE, false},
         {"font", LAYER_FONT, true}, {"id", LAYER_ID, false},
         {"name", LAYER_NAME, false},
@@ -2961,7 +3006,7 @@ static JSValue create_layer(
         .color = {color[0], color[1], color[2]},
         .alpha = alpha, .point_size = point_size,
         .order_index = insertion_order, .owner_identity = owner->identity,
-        .visible = visible, .solid = solid, .dynamic = true, .configured = true,
+        .visible = visible, .solid = solid, .perspective = 2, .dynamic = true, .configured = true,
     };
     if (!mark_dirty(owner, record)) {
         free(record->name);
@@ -3173,6 +3218,7 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
         {"origin", LAYER_ORIGIN, true}, {"scale", LAYER_SCALE, true},
         {"size", LAYER_SIZE, false},
         {"angles", LAYER_ANGLES, true}, {"visible", LAYER_VISIBLE, true}, {"solid", LAYER_SOLID, true},
+        {"perspective", LAYER_PERSPECTIVE, true},
         {"text", LAYER_TEXT, true}, {"pointsize", LAYER_POINT_SIZE, false},
         {"font", LAYER_FONT, true}, {"id", LAYER_ID, false}, {"name", LAYER_NAME, false},
     };
@@ -3550,6 +3596,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
             .layer_id = record->layer_id,
             .order_index = record->order_index,
             .visible = staged->visible, .solid = staged->solid,
+            .perspective = staged->perspective,
             .alpha = staged->alpha,
             .particle_alpha = staged->particle_alpha,
             .point_size = record->point_size,
@@ -3580,6 +3627,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
                                       : MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
             .dynamic = record->dynamic, .fields = 0, .layer_id = record->layer_id,
             .order_index = record->order_index, .visible = record->visible, .solid = record->solid,
+            .perspective = record->perspective,
             .alpha = record->alpha, .point_size = record->point_size,
             .text = record->text == NULL ? "" : record->text,
             .font = record->font == NULL ? "" : record->font,
@@ -3596,16 +3644,18 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
 
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_layer_catalog(
     MWXSceneQuickJSDomain *domain, uint32_t layer_count,
+    uint32_t defaults_to_perspective,
     char *diagnostic, size_t diagnostic_capacity
 ) {
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
-    if (domain == NULL || domain->layers != NULL || layer_count > MWX_SCENE_QUICKJS_MAX_LAYERS) {
+    if (domain == NULL || domain->layers != NULL || defaults_to_perspective > 1 || layer_count > MWX_SCENE_QUICKJS_MAX_LAYERS) {
         mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "invalid layer catalog");
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
     domain->layers = calloc(MWX_SCENE_QUICKJS_MAX_LAYERS, sizeof(*domain->layers));
     if (domain->layers == NULL) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
     domain->layer_count = layer_count; domain->authored_layer_count = layer_count;
+    domain->defaults_to_perspective = defaults_to_perspective != 0;
     return MWX_SCENE_QUICKJS_OK;
 }
 
@@ -3695,6 +3745,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
     memcpy(record->size, size, sizeof(record->size));
     memcpy(record->scale, scale, sizeof(record->scale)); memcpy(record->angles, angles, sizeof(record->angles));
     memcpy(record->color, color, sizeof(record->color)); record->visible = visible != 0; record->solid = true;
+    record->perspective = 2;
     record->alpha = alpha; record->point_size = point_size; record->order_index = (int32_t)layer_index;
     record->configured = true;
     return validate_complete_layer_catalog(
@@ -3921,6 +3972,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     const double angles[3],
     uint32_t visible,
     uint32_t solid,
+    uint32_t perspective,
     const char *text,
     size_t text_length,
     const char *font,
@@ -3938,6 +3990,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SOLID |
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA |
@@ -3947,7 +4000,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
     if (owner == NULL || owner->domain == NULL || owner->disabled ||
         owner->domain->callback_active || owner->generation != expected_generation ||
-        fields == 0 || (fields & ~supported_fields) != 0 || visible > 1 || solid > 1 ||
+        fields == 0 || (fields & ~supported_fields) != 0 || visible > 1 || solid > 1 || perspective > 1 ||
         origin == NULL || scale == NULL || angles == NULL || text == NULL ||
         font == NULL || color == NULL || !isfinite(alpha) || alpha < 0 || alpha > 1 ||
         !isfinite(particle_alpha) ||
@@ -4045,7 +4098,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     *baseline = (MWXSceneQuickJSAuthoredLayerMutationRecord){
         .layer_index = layer_index,
         .fields = fields,
-        .visible = visible != 0, .solid = solid != 0,
+        .visible = visible != 0, .solid = solid != 0, .perspective = perspective,
         .alpha = alpha,
         .particle_alpha = particle_alpha,
         .effect_visible = effect_copy,

@@ -40,7 +40,7 @@ nonisolated enum SceneDynamicValue: Equatable, Sendable {
     case vector3(Double, Double, Double)
 }
 nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
-    case visibility, solid, origin, scale, angles, color, alpha
+    case visibility, solid, perspective, origin, scale, angles, color, alpha
 }
 nonisolated enum SceneDynamicParticleField: Hashable, Sendable { case alpha }
 nonisolated enum SceneDynamicTextField: Hashable, Sendable { case content, font, color }
@@ -94,6 +94,8 @@ nonisolated struct SceneRenderDescriptor: Sendable {
     struct Effect: Sendable { var visible: Bool? }
     struct Layer: Sendable {
         var solid: Bool? = nil
+        var usesPerspective: Bool? = nil
+        var utilityLayer: Bool? = nil
         var effects: [Effect] = []
         var alpha: Double? = nil
         struct TextStyle: Sendable { let fontPath: String?; var colorRGB: [Float]? = nil }
@@ -209,7 +211,8 @@ func mutation(
     visible: Bool = true,
     assetPath: String? = nil,
     color: SIMD3<Double> = .init(repeating: 1),
-    ownerTarget: SceneDynamicTarget? = nil
+    ownerTarget: SceneDynamicTarget? = nil,
+    perspective: Bool? = nil
 ) -> SceneScriptLayerMutation {
     .init(
         kind: kind, isDynamic: dynamic, fields: fields,
@@ -217,7 +220,7 @@ func mutation(
         visible: visible, alpha: alpha, origin: origin,
         scale: scale, angles: angles,
         color: color, pointSize: 32, text: text, font: font,
-        assetPath: assetPath, ownerTarget: ownerTarget
+        assetPath: assetPath, ownerTarget: ownerTarget, perspective: perspective
     )
 }
 
@@ -584,7 +587,60 @@ enum Harness {
             mutation(-1, order: 0, text: "X"),
         ])
         let mixedBOrder = mixedBRuntime.snapshot().renderOrderLayerIDs
+        let perspectiveRuntime = SceneScriptDynamicLayerRuntime(
+            descriptor: descriptor, authoredMutationLayerIDs: [10, 20]
+        )
+        let perspectiveImage = SceneDynamicTarget.layer(layerID: 10, field: .perspective)
+        let perspectiveText = SceneDynamicTarget.layer(layerID: 20, field: .perspective)
+        let perspectivePlan = perspectiveRuntime.preflightIsolatingOwners([
+            mutation(10, dynamic: false, fields: [.perspective], perspective: true),
+            mutation(20, dynamic: false, fields: [.perspective], perspective: false),
+        ])
+        let perspectiveBeforeCommit = perspectiveRuntime.snapshot().authoredLayerValues.isEmpty
+        perspectiveRuntime.commit(perspectivePlan)
+        let perspectiveCommitted = perspectiveRuntime.snapshot()
+        let perspectiveRevision = perspectiveRuntime.authoredDefinitionRevision
+        let perspectiveFalse = perspectiveRuntime.apply([
+            mutation(10, dynamic: false, fields: [.perspective], perspective: false)
+        ])
+        let perspectiveMissingBool = perspectiveRuntime.apply([
+            mutation(10, dynamic: false, fields: [.perspective])
+        ])
+        let perspectiveMissingBoolPreserves = perspectiveRuntime.snapshot().authoredLayerValues[perspectiveImage] == .bool(false)
+        let badPerspectiveLayers = ["particle", "sound", "camera", "composition", "image"].enumerated().map { index, kind in
+            var layer = SceneRenderDescriptor.Layer(
+                id: 100 + index, visible: true, originXYZ: nil, scaleXYZ: nil,
+                anglesXYZ: nil, contentKind: kind
+            )
+            if kind == "image" { layer.utilityLayer = true }
+            return layer
+        }
+        let perspectiveConsumerRuntime = SceneScriptDynamicLayerRuntime(
+            descriptor: .init(layers: descriptor.layers + badPerspectiveLayers,
+                renderOrderLayerIDs: [10, 20] + badPerspectiveLayers.map(\.id)),
+            authoredMutationLayerIDs: Set([10, 20] + badPerspectiveLayers.map(\.id))
+        )
+        let unsupportedPerspectiveOwners = badPerspectiveLayers.map {
+            SceneDynamicTarget.layer(layerID: $0.id, field: .origin)
+        }
+        let perspectiveIsolation = perspectiveConsumerRuntime.preflightOwnerEffectsToFixedPoint(
+            zip(badPerspectiveLayers, unsupportedPerspectiveOwners).map { layer, owner in
+                .init(ownerTarget: owner, layerMutations: [
+                    mutation(layer.id, dynamic: false, fields: [.perspective], ownerTarget: owner, perspective: true)
+                ])
+            } + [.init(ownerTarget: perspectiveImage, layerMutations: [
+                mutation(10, dynamic: false, fields: [.perspective], ownerTarget: perspectiveImage, perspective: true)
+            ])]
+        ) { _ in [] }
+        perspectiveConsumerRuntime.commit(perspectiveIsolation.admission.layerPlan)
         let payload: [String: Any] = [
+            "perspectivePreflightReadOnly": perspectiveBeforeCommit,
+            "perspectiveImageTextAccepted": perspectiveCommitted.authoredLayerValues[perspectiveImage] == .bool(true)
+                && perspectiveCommitted.authoredLayerValues[perspectiveText] == .bool(false),
+            "perspectiveFalseAndMissingBool": succeeded(perspectiveFalse) && !succeeded(perspectiveMissingBool) && perspectiveMissingBoolPreserves,
+            "perspectiveValueChangeKeepsSchemaAndTopology": perspectiveRuntime.authoredDefinitionRevision == perspectiveRevision && perspectiveRuntime.topologyRevision == 0,
+            "perspectiveUnsupportedIsLocal": Set(perspectiveIsolation.admission.rejectedOwners.map(\.ownerTarget)) == Set(unsupportedPerspectiveOwners)
+                && perspectiveConsumerRuntime.snapshot().authoredLayerValues[perspectiveImage] == .bool(true),
             "replayCandidateIsReadOnly": replayReadOnly,
             "replayReleasesOnlyTargetIncludingImmediatePauseStop": replayReleased,
             "pausedSetterWithoutPlayIsRetained": pausedSetter.layerPlan.authoredLayerValues[replayTarget] == .scalar(0),
@@ -760,6 +816,12 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_perspective_is_typed_atomic_and_rejects_missing_consumers_locally(self) -> None:
+        for key in ("perspectivePreflightReadOnly", "perspectiveImageTextAccepted",
+                    "perspectiveFalseAndMissingBool", "perspectiveValueChangeKeepsSchemaAndTopology",
+                    "perspectiveUnsupportedIsLocal"):
+            self.assertTrue(self.result[key], key)
 
     def test_create_and_sort_publish_only_through_snapshots(self) -> None:
         self.assertTrue(self.result["createSucceeded"])

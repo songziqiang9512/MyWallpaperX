@@ -532,9 +532,9 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "652e3776b814762be8d3e5a6aa43e666bbcb2c312c27e55797cfce0b62a938af",
+        "sourceSHA256": "6e17292cc00976721ddf2ac6c7ccf896ca7103291db8a0cf9075e6db742ffe48",
         "method": "document_registry --audit + document_health --check",
-        "scope": "N06初始配置职责、限定运行证据及现役队列引用核对；不代表全文产品语义重验",
+        "scope": "perspective有界合同、状态引用及用户新增兼容验收规则核对；不代表全文产品语义重验",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
@@ -628,12 +628,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/runtime-evidence-current.md",
-      "lastReviewed": "2026-10-10",
+      "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4361c5faf79c5277f4e3b2d23650aab301bede1a94eaa440e58311ce7c200aa8",
+        "sourceSHA256": "5f368297882b6230041fe9e980ae71c3a65d1affb84867164b8027207e32e5de",
         "method": "document_registry --audit + document_health --check",
-        "scope": "2.10.1 发布准备：构建入口与现役/历史引用整理后核对角色、链接和锚点",
+        "scope": "perspective有界合同、状态引用及用户新增兼容验收规则核对；不代表全文产品语义重验",
         "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
       }
     },
@@ -1167,6 +1167,16 @@
         "docs/scene/capabilities/scene-sample-debug-ledger.md",
         "docs/scene/architecture/runtime-architecture.md",
         "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/layer-perspective-2026-10-12.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
     {

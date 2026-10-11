@@ -17,11 +17,11 @@ static void check(int condition, const char *label) {
 
 static void publish(MWXSceneQuickJSDomain *domain, uint64_t generation,
                     int unavailable, int destroyed, double alpha, int finalize) {
-    check(mwx_scene_quickjs_domain_begin_layer_snapshot(domain, generation,
+    check(mwx_scene_quickjs_domain_begin_layer_snapshot(domain, generation, 0,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "begin snapshot");
     for (uint32_t i = 0; i < layer_count; ++i) {
         check(mwx_scene_quickjs_domain_update_layer_runtime_fields(domain, i,
-            one, zero, i == destroyed, 1, 1, .6, "", 0, "", 0, 32, one,
+            one, zero, i == destroyed, 1, 1, 0, .6, "", 0, "", 0, 32, one,
             diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "runtime fields");
         check(mwx_scene_quickjs_domain_update_layer_particle_instance_alpha(domain, i,
             i != unavailable, alpha, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
@@ -42,7 +42,7 @@ static MWXSceneQuickJSDomain *make_domain(uint32_t count) {
         32 * 1024 * 1024, 512 * 1024, 1000000, diagnostic, sizeof(diagnostic));
     check(domain != NULL, "domain");
     if (domain == NULL) return NULL;
-    check(mwx_scene_quickjs_domain_configure_layer_catalog(domain, count,
+    check(mwx_scene_quickjs_domain_configure_layer_catalog(domain, count, 0,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "catalog");
     for (uint32_t i = 0; i < count; ++i) {
         char name[32]; snprintf(name, sizeof(name), "particle%u", i);
@@ -137,7 +137,7 @@ static void test_rollback(MWXSceneQuickJSDomain *domain) {
         "healthy peer sees unchanged committed projection");
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
     check(mwx_scene_quickjs_owner_add_authored_layer_mutation_baseline(owner, 7, 42,
-        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA, zero, one, zero, 1, 1,
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA, zero, one, zero, 1, 1, 0,
         "", 0, "", 0, .6, .33, one, 0, NULL, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
         "cursor baseline accepted");
     check(update(owner, 7, 1, &output) == MWX_SCENE_QUICKJS_OK && output == .33, "baseline projection");
@@ -158,7 +158,7 @@ static void test_snapshot(MWXSceneQuickJSDomain *domain) {
     check(mwx_scene_quickjs_domain_rollback_layer_snapshot(domain), "snapshot rollback");
     check(update(owner, 7, 0, &output) == MWX_SCENE_QUICKJS_OK && output == 1, "rollback restores instance");
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
-    check(mwx_scene_quickjs_domain_begin_layer_snapshot(domain, 2, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "begin reuse");
+    check(mwx_scene_quickjs_domain_begin_layer_snapshot(domain, 2, 0, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "begin reuse");
     for (uint32_t i = 0; i < layer_count; ++i)
         check(mwx_scene_quickjs_domain_reuse_layer_runtime_fields(domain, i,
             diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "reuse");

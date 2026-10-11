@@ -17,6 +17,7 @@ QUICKJS = SCENE_SCRIPT / "QuickJSNG"
 
 HARNESS = r'''
 #include "SceneQuickJS.h"
+int mwx_test_layer_perspective_cases(void);
 
 #include <math.h>
 #include <stdio.h>
@@ -756,7 +757,7 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
         0, 0, 1, 0, 33, 44, 0, 1,
     };
     MWXSceneQuickJSResult result = mwx_scene_quickjs_domain_configure_layer_catalog(
-        domain, 2, diagnostic, sizeof(diagnostic)
+        domain, 2, 0, diagnostic, sizeof(diagnostic)
     );
     if (result == MWX_SCENE_QUICKJS_OK) {
         result = mwx_scene_quickjs_domain_set_layer_descriptor(
@@ -781,7 +782,7 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
     }
     if (result == MWX_SCENE_QUICKJS_OK) {
         result = mwx_scene_quickjs_domain_begin_layer_snapshot(
-            domain, 1, diagnostic, sizeof(diagnostic)
+            domain, 1, 0, diagnostic, sizeof(diagnostic)
         );
     }
     if (result == MWX_SCENE_QUICKJS_OK) {
@@ -789,7 +790,7 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
         const double angles[3] = {0, 0, 0};
         const double color[3] = {1, 1, 1};
         result = mwx_scene_quickjs_domain_update_layer_runtime_fields(
-            domain, 0, scale, angles, 0, 1, 1, 1,
+            domain, 0, scale, angles, 0, 1, 1, 0, 1,
             "", 0, "", 0, 32, color, diagnostic, sizeof(diagnostic)
         );
     }
@@ -798,7 +799,7 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
         const double angles[3] = {0, 0, 0};
         const double color[3] = {1, 1, 1};
         result = mwx_scene_quickjs_domain_update_layer_runtime_fields(
-            domain, 1, scale, angles, 0, 1, 1, 0.75,
+            domain, 1, scale, angles, 0, 1, 1, 0, 0.75,
             "clock", strlen("clock"), "clock.ttf", strlen("clock.ttf"),
             48, color, diagnostic, sizeof(diagnostic)
         );
@@ -841,7 +842,7 @@ static int reject_nonfinite_layer_world_snapshot(
     invalid[12] = NAN;
     mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
     MWXSceneQuickJSResult result = mwx_scene_quickjs_domain_begin_layer_snapshot(
-        domain, 3, diagnostic, sizeof(diagnostic)
+        domain, 3, 0, diagnostic, sizeof(diagnostic)
     );
     if (result == MWX_SCENE_QUICKJS_OK) {
         result = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
@@ -884,7 +885,7 @@ static int commit_layer_world_snapshot(MWXSceneQuickJSDomain *domain) {
     };
     const double current_day[3] = {4, 5, 6};
     MWXSceneQuickJSResult result = mwx_scene_quickjs_domain_begin_layer_snapshot(
-        domain, 3, diagnostic, sizeof(diagnostic)
+        domain, 3, 0, diagnostic, sizeof(diagnostic)
     );
     for (uint32_t index = 0;
          index < 2 && result == MWX_SCENE_QUICKJS_OK; ++index) {
@@ -924,7 +925,7 @@ static int configure_texture_animation(MWXSceneQuickJSDomain *domain) {
     mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
     MWXSceneQuickJSResult result =
         mwx_scene_quickjs_domain_begin_layer_snapshot(
-            domain, 2, diagnostic, sizeof(diagnostic)
+            domain, 2, 0, diagnostic, sizeof(diagnostic)
         );
     if (result == MWX_SCENE_QUICKJS_OK) {
         result = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
@@ -968,7 +969,7 @@ int main(void) {
     );
     if (check(domain != NULL, "domain", diagnostic)) return 1;
 
-    int failures = 0;
+    int failures = mwx_test_layer_perspective_cases();
     failures += configure_layers(domain);
     failures += configure_texture_animation(domain);
 
@@ -1117,7 +1118,7 @@ int main(void) {
         const double size[2] = {0, 0};
         MWXSceneQuickJSResult invalid_parent_result =
             mwx_scene_quickjs_domain_configure_layer_catalog(
-                invalid_parent_domain, 1, diagnostic, sizeof(diagnostic)
+                invalid_parent_domain, 1, 0, diagnostic, sizeof(diagnostic)
             );
         if (invalid_parent_result == MWX_SCENE_QUICKJS_OK) {
             invalid_parent_result = mwx_scene_quickjs_domain_set_layer_descriptor(
@@ -1147,7 +1148,7 @@ int main(void) {
         const double invalid_size[2] = {NAN, 1};
         MWXSceneQuickJSResult invalid_size_result =
             mwx_scene_quickjs_domain_configure_layer_catalog(
-                invalid_size_domain, 1, diagnostic, sizeof(diagnostic)
+                invalid_size_domain, 1, 0, diagnostic, sizeof(diagnostic)
             );
         if (invalid_size_result == MWX_SCENE_QUICKJS_OK) {
             invalid_size_result = mwx_scene_quickjs_domain_set_layer_descriptor(
@@ -1172,7 +1173,7 @@ int main(void) {
     if (authored_budget_domain != NULL) {
         MWXSceneQuickJSResult budget_catalog_result =
             mwx_scene_quickjs_domain_configure_layer_catalog(
-                authored_budget_domain, 257, diagnostic, sizeof(diagnostic)
+                authored_budget_domain, 257, 0, diagnostic, sizeof(diagnostic)
             );
         for (uint32_t index = 0;
              index < 257 && budget_catalog_result == MWX_SCENE_QUICKJS_OK;
@@ -2339,6 +2340,7 @@ int main(void) {
         "()=>{listed[0].angles=new Vec3(1,2,3);},"
         "()=>{listed[0].visible=false;},"
         "()=>{listed[0].solid=false;},"
+        "()=>{listed[0].perspective=true;},"
         "()=>{listed[1].solid=false;},"
         "()=>{listed[0].text='peer';}];"
         "for(const write of writes){let rejected=false;"
@@ -4865,6 +4867,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/dtoa.c"),
             str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/libregexp.c"),
             str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/libunicode.c"),
+            str(ROOT / "script/tests/fixtures/SceneLayerPerspectiveQuickJSCases.c"),
             str(harness),
             "-lm",
             "-o",

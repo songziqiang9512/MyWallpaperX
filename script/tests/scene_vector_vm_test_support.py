@@ -99,6 +99,16 @@ C_SOURCES = [
 
 SWIFT_PREAMBLE = r'''
 import Foundation
+import simd
+
+struct SceneParticleCameraFrame {
+    struct NativePerspectiveOverride {}
+    static func usesNativePerspective(camera: SceneRenderDescriptor.Camera, nativePerspectiveOverride: NativePerspectiveOverride? = nil) -> Bool { false }
+    static func nativePerspectiveOverride(
+        descriptor: SceneRenderDescriptor, layersByID: [Int: SceneRenderDescriptor.Layer],
+        worldFrames: [Int: simd_float4x4], dynamicValues: SceneDynamicSnapshot
+    ) -> NativePerspectiveOverride? { nil }
+}
 
 struct SceneFrameTiming {
     let wallDate: Date
@@ -343,10 +353,12 @@ struct SceneRenderDescriptor {
     }
 
     struct Layer {
+        var cameraPath: Bool? = nil
         let id: Int
         let layerIndex: Int
         let name: String?
         var solid: Bool? = nil
+        var usesPerspective: Bool? = nil
         var visible: Bool?
         let originXYZ: [Float]?
         let scaleXYZ: [Float]?

@@ -13,6 +13,7 @@ from script.tests.scene_particle_render_test_support import run_particle_harness
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneLayerPerspectiveSnapshotHarness.swift",
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     REPOSITORY_ROOT / "script/tests/fixtures/SceneParticleFixedGeometryHarness.swift",
     REPOSITORY_ROOT / "script/tests/fixtures/SceneParticleCameraRenderingHarness.swift",
@@ -83,6 +84,7 @@ enum SceneTextureLoadPurpose: Hashable {
 
 struct SceneRenderDescriptor {
     struct Layer {
+        var id: Int = 0
         let utilityLayer: Bool?
         let usesPerspective: Bool?
     }

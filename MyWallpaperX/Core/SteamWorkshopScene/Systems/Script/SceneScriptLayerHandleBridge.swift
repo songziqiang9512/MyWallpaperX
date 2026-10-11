@@ -385,7 +385,7 @@ nonisolated enum SceneScriptLayerMutationBridge {
             )
             guard result == MWX_SCENE_QUICKJS_OK,
                   raw.dynamic <= 1,
-                  raw.visible <= 1, raw.solid <= 1,
+                  raw.visible <= 1, raw.solid <= 1, raw.perspective <= 2,
                   raw.layer_id >= -maximumLayerIdentity,
                   raw.layer_id <= maximumLayerIdentity,
                   raw.order_index >= 0,
@@ -415,6 +415,9 @@ nonisolated enum SceneScriptLayerMutationBridge {
                 return .failure(.invalidArgument("unknown layer mutation kind"))
             }
             let fields = SceneScriptLayerMutation.Fields(rawValue: raw.fields)
+            guard !fields.contains(.perspective) || raw.perspective <= 1 else {
+                return .failure(.invalidArgument("invalid perspective mutation ABI"))
+            }
             guard raw.fields & ~SceneScriptLayerMutation.Fields.authoredFields.rawValue == 0 else {
                 return .failure(.invalidArgument("unknown layer mutation fields"))
             }
@@ -480,7 +483,8 @@ nonisolated enum SceneScriptLayerMutationBridge {
                 text: text, font: font,
                 assetPath: assetPath.nilIfEmpty,
                 ownerTarget: ownerTarget, effectVisibilities: effectVisibilities, solid: raw.solid != 0,
-                particleAlpha: raw.particle_alpha
+                particleAlpha: raw.particle_alpha,
+                perspective: raw.perspective == 2 ? nil : raw.perspective != 0
             ))
         }
         return .success(output)
@@ -515,7 +519,7 @@ nonisolated extension SceneScriptQuickJSDomain {
             let effectIdentity = layer.effects.map { [$0.id, $0.name ?? ""] }
             let textMutable = layer.contentKind == "text"
                 && layer.text != nil && layer.textStyle != nil
-            return "\(index):\(layer.id):\(layer.parentID.map(String.init) ?? "root"):\(layer.name ?? ""):\(origin):\(scale):\(angles):size=\(size):attachment=\(attachment):text=\(textMutable):effects=\(effectIdentity):initial=\(try initialConfigurationJSON(layer) ?? "unavailable")"
+            return "\(index):\(layer.id):\(layer.parentID.map(String.init) ?? "root"):\(layer.name ?? ""):\(origin):\(scale):\(angles):size=\(size):perspective=\(layer.usesPerspective.map(String.init) ?? "inherit"):attachment=\(attachment):text=\(textMutable):effects=\(effectIdentity):initial=\(try initialConfigurationJSON(layer) ?? "unavailable")"
         }.joined(separator: "|")
         return "camera=\(camera)|\(layers)"
     }
@@ -588,6 +592,7 @@ nonisolated extension SceneScriptQuickJSDomain {
         guard mwx_scene_quickjs_domain_configure_layer_catalog(
             handle,
             UInt32(descriptor.layers.count),
+            worldTransformProjection.defaultsToPerspective(for: .empty(frameIndex: 0)) ? 1 : 0,
             &diagnostic,
             diagnostic.count
         ) == MWX_SCENE_QUICKJS_OK else {
@@ -706,6 +711,9 @@ nonisolated extension SceneScriptQuickJSDomain {
         let beginResult = mwx_scene_quickjs_domain_begin_layer_snapshot(
             handle,
             pendingGeneration,
+            layerWorldTransformProjection?.defaultsToPerspective(
+                for: snapshot
+            ) == true ? 1 : 0,
             &diagnostic,
             diagnostic.count
         )

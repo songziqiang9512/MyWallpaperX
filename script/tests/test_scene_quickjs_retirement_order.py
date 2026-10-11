@@ -29,7 +29,7 @@ static MWXSceneQuickJSDomain *catalog(void) {
     MWXSceneQuickJSDomain *d = mwx_scene_quickjs_domain_create(16 * 1024 * 1024, 1024 * 1024, 100000, diagnostic, sizeof(diagnostic));
     check(d != NULL, "domain");
     const double origin[3] = {0,0,0}, size[2] = {100,100};
-    check(mwx_scene_quickjs_domain_configure_layer_catalog(d, 4, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "catalog");
+    check(mwx_scene_quickjs_domain_configure_layer_catalog(d, 4, 0, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "catalog");
     const char *names[] = {"A", "S", "H", "T"};
     for (uint32_t i = 0; i < 4; i++)
         check(mwx_scene_quickjs_domain_set_layer_descriptor(d, i, (i+1)*10, 0, 0,
@@ -38,10 +38,10 @@ static MWXSceneQuickJSDomain *catalog(void) {
 }
 static void stage_snapshot(MWXSceneQuickJSDomain *d, uint64_t generation, int dead) {
     const double scale[3] = {1,1,1}, angles[3] = {0,0,0}, color[3] = {1,1,1};
-    check(mwx_scene_quickjs_domain_begin_layer_snapshot(d, generation, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "snapshot begin");
+    check(mwx_scene_quickjs_domain_begin_layer_snapshot(d, generation, 0, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "snapshot begin");
     for (uint32_t i = 0; i < 4; i++)
         check(mwx_scene_quickjs_domain_update_layer_runtime_fields(d, i, scale, angles,
-            dead == (int)i, 1, 1, 1, "", 0, "", 0, 32, color,
+            dead == (int)i, 1, 1, 0, 1, "", 0, "", 0, 32, color,
             diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "snapshot fields");
     check(mwx_scene_quickjs_domain_update_layer_video_fields(d, 3, 1, 10, 1, 1, 0, 1, 0,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "video metadata");

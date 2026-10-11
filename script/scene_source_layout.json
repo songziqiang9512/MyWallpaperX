@@ -658,6 +658,7 @@
           "SceneParticleBoids.swift",
           "SceneParticleBuiltInTextureRegistry.swift",
           "SceneParticleCameraFrame.swift",
+          "SceneParticleCameraFrame+LayerCamera.swift",
           "SceneParticleCapVelocity.swift",
           "SceneParticleChildGraphExpansion.swift",
           "SceneParticleChildInstanceBuilder.swift",

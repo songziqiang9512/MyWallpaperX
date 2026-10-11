@@ -93,8 +93,8 @@
       "bytes": 344941
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 100,
-      "bytes": 30353
+      "lines": 101,
+      "bytes": 30660
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -118,15 +118,15 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 402,
-      "bytes": 97008
+      "bytes": 97345
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
       "bytes": 5848
     },
     "docs/scene/development/development-workflow.md": {
-      "lines": 64,
-      "bytes": 8832
+      "lines": 75,
+      "bytes": 9961
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 282,
@@ -181,8 +181,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 137,
-      "bytes": 31695
+      "lines": 145,
+      "bytes": 34577
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 241,
-      "bytes": 68022
+      "bytes": 68396
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1152,15 +1152,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "420c708a54c5af5ad53af72afe983ef61e29637d777c56c0068b10948390f79a",
-      "after": "cbbc55d58fa616b61a4e42fddeb3a9a340905134b605b0ab17f8d93bc43d1b43",
-      "owner": "scene-material-preparation",
-      "reason": "Replace closed missing-resolution gap with one normalization proof and preserve real bound resource identity; archive execution details.",
-      "decision": "docs/scene/history/missing-resolution-normalization-2026-10-12.md#首断点与实现"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "9b735829469bb5fbfb13cfcf6ad6bc83a7bfff3fa123c99e0fd5fe367c8d6b63",
       "after": "9b7f2b24651b493efd6b52d970aa285b541c5634bd008df935ac93171abc898d",
@@ -1171,29 +1162,47 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "bbe681a7779c959badc1dcdcb2976d5f0e629c8dc6a529f32cf01be9bfb711c4",
-      "after": "4918147200f308c585b8b258a678c712afcca9f5a181eaab525a9fc4400f2243",
-      "owner": "scene-script-catalog",
-      "reason": "Replace missing initial configuration and literal-only resource status with validated authored catalog copies and existing prepared image aliases; keep dynamic getter and clone projection gaps explicit, archive completed evidence.",
-      "decision": "docs/scene/history/initial-layer-configuration-2026-10-12.md#合同与边界"
+      "before": "4918147200f308c585b8b258a678c712afcca9f5a181eaab525a9fc4400f2243",
+      "after": "e63ca127cd4df18879a6c936d4089df3a69c954a4d19ef6f54a9fe42bc961a4f",
+      "owner": "Scene Script / compatibility acceptance",
+      "reason": "用户要求通用语义、变体反例、独立真实画面与集中例外；本片记录唯一perspective合同和有界状态，过程证据归历史。",
+      "decision": "docs/scene/history/layer-perspective-2026-10-12.md#通用语义与结果"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "215ac680d2d805cb1bdac3506a752d02475fa250f2db01eeea224d54be9ad3e8",
-      "after": "c2ac0a84f4c385b479aae2a4a1aa47ee0f4b94e6dbcf00e747b9ad4ab650b304",
-      "owner": "scene-script-catalog",
-      "reason": "Replace missing initial configuration and literal-only resource status with validated authored catalog copies and existing prepared image aliases; keep dynamic getter and clone projection gaps explicit, archive completed evidence.",
-      "decision": "docs/scene/history/initial-layer-configuration-2026-10-12.md#合同与边界"
+      "before": "c2ac0a84f4c385b479aae2a4a1aa47ee0f4b94e6dbcf00e747b9ad4ab650b304",
+      "after": "4ce1bcbb60e61ed446286d056a5634c1bf4ed8cfb6f68124f4fbe08ac8db9775",
+      "owner": "Scene Script / compatibility acceptance",
+      "reason": "用户要求通用语义、变体反例、独立真实画面与集中例外；本片记录唯一perspective合同和有界状态，过程证据归历史。",
+      "decision": "docs/scene/history/layer-perspective-2026-10-12.md#通用语义与结果"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "b4bf387abcdfdb4a341597979b9833f6a234de8f43650347ff4753ae3fb359ea",
+      "after": "dce009c7d88ba923c62f163b43a2477b93487c770c1b996f26f982c9279ea401",
+      "owner": "Scene Script / compatibility acceptance",
+      "reason": "用户要求通用语义、变体反例、独立真实画面与集中例外；本片记录唯一perspective合同和有界状态，过程证据归历史。",
+      "decision": "docs/scene/history/layer-perspective-2026-10-12.md#通用语义与结果"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "4dd581499c136615d378c94e0db2fa1ff799d1006dc81eff1a1962bb2903eb59",
-      "after": "4fc276269e6575228fd415450335eb7323de9482d1bc4517dfc580c71930480c",
-      "owner": "scene-script-catalog",
-      "reason": "Replace missing initial configuration and literal-only resource status with validated authored catalog copies and existing prepared image aliases; keep dynamic getter and clone projection gaps explicit, archive completed evidence.",
-      "decision": "docs/scene/history/initial-layer-configuration-2026-10-12.md#合同与边界"
+      "before": "4fc276269e6575228fd415450335eb7323de9482d1bc4517dfc580c71930480c",
+      "after": "ef201db4819e1cc4d62ed78862376c4ff635b5450efae995816c7c75bb41fddb",
+      "owner": "Scene Script / compatibility acceptance",
+      "reason": "用户要求通用语义、变体反例、独立真实画面与集中例外；本片记录唯一perspective合同和有界状态，过程证据归历史。",
+      "decision": "docs/scene/history/layer-perspective-2026-10-12.md#通用语义与结果"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "b152310d7bf7ff4c441274ee2b06329af7357823b943dc5310844c1161e55844",
+      "after": "dce81e95f4c8590f45f4a1602f5ca9e14a49e4b046091be844157f7931e0ed24",
+      "owner": "Scene Script / compatibility acceptance",
+      "reason": "用户要求通用语义、变体反例、独立真实画面与集中例外；本片记录唯一perspective合同和有界状态，过程证据归历史。",
+      "decision": "docs/scene/history/layer-perspective-2026-10-12.md#通用语义与结果"
     }
   ]
 }

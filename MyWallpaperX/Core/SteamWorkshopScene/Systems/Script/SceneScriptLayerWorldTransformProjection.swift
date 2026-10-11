@@ -54,6 +54,18 @@ nonisolated struct SceneScriptLayerWorldTransformProjection: Sendable {
         )
     }
 
+    func defaultsToPerspective(
+        for snapshot: SceneDynamicSnapshot
+    ) -> Bool {
+        let override = SceneParticleCameraFrame.nativePerspectiveOverride(
+            descriptor: descriptor, layersByID: layersByID,
+            worldFrames: staticWorldFrames, dynamicValues: snapshot
+        )
+        return SceneParticleCameraFrame.usesNativePerspective(
+            camera: descriptor.camera, nativePerspectiveOverride: override
+        )
+    }
+
     static func columnMajorValues(_ matrix: simd_float4x4) -> [Double] {
         [
             Double(matrix.columns.0.x), Double(matrix.columns.0.y),

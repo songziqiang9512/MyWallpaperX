@@ -85,6 +85,7 @@ enum SceneTextureLoadPurpose: Hashable {
 
 struct SceneRenderDescriptor {
     struct Layer {
+        var id: Int = 0
         let utilityLayer: Bool?
         let usesPerspective: Bool?
     }

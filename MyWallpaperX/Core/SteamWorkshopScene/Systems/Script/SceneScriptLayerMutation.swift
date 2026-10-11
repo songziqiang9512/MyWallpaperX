@@ -27,10 +27,12 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         ))
         static let effectVisibility = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_EFFECT_VISIBILITY.rawValue))
 
+        static let perspective = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE.rawValue))
+
         static let particleAlpha = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA.rawValue))
 
         static let authoredFields: Self = [
-            .origin, .scale, .angles, .visibility, .solid, .text, .font, .alpha, .color, .effectVisibility, .particleAlpha,
+            .origin, .scale, .angles, .visibility, .solid, .text, .font, .alpha, .color, .effectVisibility, .particleAlpha, .perspective,
         ]
         static let alpha = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA.rawValue))
         static let color = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR.rawValue))
@@ -43,6 +45,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     let orderIndex: Int
     let visible: Bool
     let solid: Bool
+    let perspective: Bool?
     let alpha: Double
     let particleAlpha: Double
     let origin: SIMD3<Double>
@@ -75,7 +78,8 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         ownerTarget: SceneDynamicTarget? = nil,
         effectVisibilities: [Int: Bool] = [:],
         solid: Bool = true,
-        particleAlpha: Double = 1
+        particleAlpha: Double = 1,
+        perspective: Bool? = nil
     ) {
         self.kind = kind
         self.isDynamic = isDynamic
@@ -83,6 +87,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         self.layerID = layerID
         self.orderIndex = orderIndex
         self.solid = solid
+        self.perspective = perspective
         self.visible = visible
         self.alpha = alpha
         self.particleAlpha = particleAlpha
@@ -104,7 +109,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             layerID: layerID, orderIndex: orderIndex, visible: visible,
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
-            assetPath: assetPath, ownerTarget: target, effectVisibilities: effectVisibilities, solid: solid, particleAlpha: particleAlpha
+            assetPath: assetPath, ownerTarget: target, effectVisibilities: effectVisibilities, solid: solid, particleAlpha: particleAlpha, perspective: perspective
         )
     }
 
@@ -114,7 +119,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             layerID: layerID, orderIndex: orderIndex, visible: visible,
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
-            assetPath: resolved, ownerTarget: ownerTarget, effectVisibilities: effectVisibilities, solid: solid, particleAlpha: particleAlpha
+            assetPath: resolved, ownerTarget: ownerTarget, effectVisibilities: effectVisibilities, solid: solid, particleAlpha: particleAlpha, perspective: perspective
         )
     }
 
@@ -125,7 +130,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
             assetPath: assetPath, ownerTarget: ownerTarget,
-            effectVisibilities: selected.contains(.effectVisibility) ? effectVisibilities : [:], solid: solid, particleAlpha: particleAlpha
+            effectVisibilities: selected.contains(.effectVisibility) ? effectVisibilities : [:], solid: solid, particleAlpha: particleAlpha, perspective: perspective
         )
     }
 
@@ -172,7 +177,8 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             ownerTarget: newer.ownerTarget ?? ownerTarget,
             effectVisibilities: effectVisibilities.merging(newer.effectVisibilities) { _, new in new },
             solid: newer.fields.contains(.solid) ? newer.solid : solid,
-            particleAlpha: newer.fields.contains(.particleAlpha) ? newer.particleAlpha : particleAlpha
+            particleAlpha: newer.fields.contains(.particleAlpha) ? newer.particleAlpha : particleAlpha,
+            perspective: newer.fields.contains(.perspective) ? newer.perspective : perspective
         )
     }
 }

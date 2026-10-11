@@ -25,9 +25,19 @@ HARNESS = r'''
 import Foundation
 import simd
 
+struct SceneParticleCameraFrame {
+    struct NativePerspectiveOverride {}
+    static func usesNativePerspective(camera: SceneRenderDescriptor.Camera, nativePerspectiveOverride: NativePerspectiveOverride? = nil) -> Bool { false }
+    static func nativePerspectiveOverride(
+        descriptor: SceneRenderDescriptor, layersByID: [Int: SceneRenderDescriptor.Layer],
+        worldFrames: [Int: simd_float4x4], dynamicValues: SceneDynamicSnapshot
+    ) -> NativePerspectiveOverride? { nil }
+}
+
 struct SceneRenderDescriptor {
     struct Camera { let orthoHeight: Float? }
     struct Layer {
+        var cameraPath: Bool? = nil
         let id: Int
         let parentID: Int?
         var attachmentName: String? = nil

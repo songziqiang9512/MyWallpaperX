@@ -28,39 +28,11 @@ extension SceneMetalRenderer {
                 0
             ),
             cameraZoom: dynamic.zoom,
-            nativePerspectiveOverride: activeNativePerspectiveCamera(
-                dynamicValues: frameContext.dynamicValues
-            )
-        )
-    }
-
-    /// A camera layer owns the working native-perspective view when present;
-    /// the scene-level Eye/Center/Up remains the no-camera fallback. Camera-path
-    /// origin/zoom is already published through the shared dynamic camera target.
-    private func activeNativePerspectiveCamera(
-        dynamicValues: SceneDynamicSnapshot
-    ) -> SceneParticleCameraFrame.NativePerspectiveOverride? {
-        let fallbackCamera = renderDescriptor.camera
-        guard fallbackCamera.orthoWidth == nil,
-              fallbackCamera.orthoHeight == nil else { return nil }
-        guard let layer = renderDescriptor.renderOrderLayerIDs.reversed()
-            .compactMap({ layersByID[$0] })
-            .first(where: {
-                SceneLayerVisibility.isEffectivelyVisible(
-                    layerID: $0.id,
-                    in: renderDescriptor,
-                    layersByID: layersByID,
-                    snapshot: dynamicValues
-                )
-                    && $0.cameraPath?.camera.lowercased() == "default"
-            }),
-              let cameraPath = layer.cameraPath,
-              let worldFrame = worldFramesByLayerID[layer.id] else { return nil }
-        let fov = cameraPath.fov.map(Float.init) ?? fallbackCamera.fovDegrees
-        guard let fov else { return nil }
-        return SceneParticleCameraFrame.NativePerspectiveOverride(
-            worldFrame: worldFrame,
-            fovDegrees: fov
+            nativePerspectiveOverride: SceneParticleCameraFrame.nativePerspectiveOverride(
+                descriptor: renderDescriptor, layersByID: layersByID,
+                worldFrames: worldFramesByLayerID, dynamicValues: frameContext.dynamicValues
+            ),
+            dynamicValues: frameContext.dynamicValues
         )
     }
 

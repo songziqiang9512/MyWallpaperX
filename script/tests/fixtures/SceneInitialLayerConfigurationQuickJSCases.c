@@ -27,7 +27,7 @@ static MWXSceneQuickJSDomain *make_domain(void) {
     expect(domain != NULL, "domain", diagnostic);
     if (domain == NULL) return NULL;
     expect(mwx_scene_quickjs_domain_configure_layer_catalog(
-        domain, 3, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        domain, 3, 0, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
         "catalog", diagnostic);
     const char *names[] = {"anchor", "nil-config", "callback-target"};
     const double origin[3] = {1, 2, 3};
@@ -57,11 +57,11 @@ static void publish(MWXSceneQuickJSDomain *domain, uint64_t epoch, double x) {
     char diagnostic[512] = {0};
     const double scale[3] = {1, 1, 1}, angles[3] = {0, 0, 0}, color[3] = {1, 1, 1};
     const double origin[3] = {x, 8, 7};
-    expect(mwx_scene_quickjs_domain_begin_layer_snapshot(domain, epoch,
+    expect(mwx_scene_quickjs_domain_begin_layer_snapshot(domain, epoch, 0,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "begin snapshot", diagnostic);
     for (uint32_t i = 0; i < 3; ++i) {
         expect(mwx_scene_quickjs_domain_update_layer_runtime_fields(domain, i,
-            scale, angles, 0, 1, 1, .5, "current", 7, "", 0, 32, color,
+            scale, angles, 0, 1, 1, 0, .5, "current", 7, "", 0, 32, color,
             diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
             "runtime fields", diagnostic);
         expect(mwx_scene_quickjs_domain_set_layer_origin(domain, i, origin,

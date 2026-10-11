@@ -61,6 +61,8 @@ struct SceneParticleCameraFrame: Sendable {
     let cameraOrigin: SIMD3<Float>
     let perspectiveEyePosition: SIMD3<Float>
     let defaultsToPerspective: Bool
+    // Shares the immutable frame value payload; no per-camera dictionary copy.
+    private let dynamicValues: SceneDynamicSnapshot?
     /// Native SceneScript polling uses the far-plane point, not a layer hit.
     /// Keep its extent with the camera that owns the render projection.
     private let nativeFarPlane: SIMD3<Float>?
@@ -70,8 +72,10 @@ struct SceneParticleCameraFrame: Sendable {
         viewportSize: CGSize,
         cameraOrigin: SIMD3<Float> = .zero,
         cameraZoom: Float = 1,
-        nativePerspectiveOverride: NativePerspectiveOverride? = nil
+        nativePerspectiveOverride: NativePerspectiveOverride? = nil,
+        dynamicValues: SceneDynamicSnapshot? = nil
     ) {
+        self.dynamicValues = dynamicValues
         let safeOrigin = cameraOrigin.x.isFinite && cameraOrigin.y.isFinite
             && cameraOrigin.z.isFinite ? cameraOrigin : .zero
         self.cameraOrigin = safeOrigin
@@ -256,7 +260,12 @@ struct SceneParticleCameraFrame: Sendable {
     /// Utility captures use the screen-space camera policy. The model card
     /// orientation must resolve through the same policy as its projection.
     func resolvesPerspective(for layer: SceneRenderDescriptor.Layer) -> Bool {
-        layer.utilityLayer == nil && resolvesPerspective(layerOverride: layer.usesPerspective)
+        guard layer.utilityLayer == nil else { return false }
+        if let resolved = dynamicValues?[.layer(layerID: layer.id, field: .perspective)],
+           resolved.source != .authored, case let .bool(value) = resolved.value {
+            return value
+        }
+        return resolvesPerspective(layerOverride: layer.usesPerspective)
     }
 
     func viewProjection(for layer: SceneRenderDescriptor.Layer) -> simd_float4x4 {
@@ -404,6 +413,14 @@ struct SceneParticleCameraFrame: Sendable {
         let right: SIMD3<Float>
         let cameraUp: SIMD3<Float>
         let fovY: Float
+    }
+
+    /// Catalog defaults use the same native-camera admission as frame rendering.
+    static func usesNativePerspective(
+        camera: SceneRenderDescriptor.CameraDescriptor,
+        nativePerspectiveOverride: NativePerspectiveOverride? = nil
+    ) -> Bool {
+        nativePerspectiveCamera(camera, override: nativePerspectiveOverride) != nil
     }
 
     private static func nativePerspectiveCamera(

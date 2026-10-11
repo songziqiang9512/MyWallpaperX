@@ -16,6 +16,7 @@
 - Scene 保持 `authored data → prepared Program/graph/resources → typed frame update → Metal encode → unique compositor/output`。普通帧不重新解析、编译、建图或做整图序列化/哈希、完整诊断；不按样本、路径、hash 或截图选择视觉算法。
 - identity、clock、graph、资源生命周期与最终输出各有唯一权威；迁移明确旧 owner 何时退出。资源越界、陈旧句柄等安全错误拒绝最小不安全单元，普通视觉失败局部降级。
 - 验证按影响面选择现有最近门，工具入口见[开发工作流](docs/development/repository-workflow.md)。Swift 产品变更做 Debug build；GPU、VM、生命周期和可见变化补隔离代表运行。文档和脚本修改不自动要求全 App 构建。
+- 每次兼容修复先说明所修的通用语义，不能只报某壁纸恢复。新增规则须通过变量改名、资源改名、等价表达式变体及相邻不应命中的反例；另用未参与修复的样本检查真实渲染，不能以 profile 命中代替结果。路径、哈希、固定源码形状的必要例外在[兼容例外登记](docs/scene/development/development-workflow.md#compatibility-exceptions)集中说明必要性、影响范围和替换条件，登记不豁免架构禁令。
 - 测试优先断言输入、输出、事件与失败反例。长期回归保留；已退役且无独立价值的测试可删除，同时修正调用与登记。不为测试数量、文件覆盖率或旧源码形状而加测试。
 - 反复发生、能客观判定且检查成本合理的问题优先复用门禁/棘轮；每个门写清检测范围、失败含义与调整/退役条件。职责质量和设计取舍仍须审查；修复存量后同步收紧基线，合理扩张须有设计与验证依据，不能只改数字过门。构建成功、非黑或少数样本通过只证明相应范围。
 
