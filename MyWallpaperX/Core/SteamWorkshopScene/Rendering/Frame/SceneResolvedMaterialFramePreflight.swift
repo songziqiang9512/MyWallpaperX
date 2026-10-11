@@ -188,9 +188,10 @@ extension SceneMetalRenderer {
             let desiredSize: CGSize
             var terminalReplayTarget: MTLTexture? =
                 claim.supportsTerminalMaterialReplay && claim.admittedGraphs.count == 1
-                    && layer.contentKind == "solid"
-                    && cameraFrame.defaultsToPerspective
-                    && cameraFrame.resolvesPerspective(for: layer)
+                    && ((layer.contentKind == "solid" && cameraFrame.defaultsToPerspective
+                            && cameraFrame.resolvesPerspective(for: layer))
+                        || (layer.contentKind == "text" && frameVisibleLayerIDs.contains(layerID)
+                            && !cameraFrame.resolvesPerspective(for: layer)))
                     && (layer.colorBlendMode ?? 0) == 0
                     && imageTextures.geometryProducts[layerID] == nil
                     && !dependencyRuntime.requiresGraphOutputCapture(for: layerID)

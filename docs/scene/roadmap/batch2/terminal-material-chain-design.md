@@ -7,7 +7,7 @@
 
 官方 2.8.0.42 自有实验（2026-10-11）确认：120×60 solid 经 identity 后，下一段 g_Texture0Resolution.xy/zw 仍为 120×60，不随世界缩放及窗口尺寸改变；10×10 solid 生成64周期条纹，末段 identity 停用时为屏幕密度，启用时经历小尺寸中间采样。固定输入、二进制和像素测量保存在 `.artifacts/tmp/effect-texture-extent-20261011/`，失败探针不作为合同。真实纹理替换的尺寸比例问题是该能力的消费者，不是准入键。
 
-首批限定可见、非 provider 的简单 color 链、普通 source-over、target-pixel 顶点、无 FBO/history/function/compose/几何网格；保留现高级混合职责。先验证无外部依赖，再依据同一资源生命周期合同接入已准入的外部只读输入。未验证的跨图 provider 与复杂图保持原路径。
+首批限定可见、非 provider 的简单 color 链、普通 source-over、target-pixel 顶点、无 FBO/history/function/compose/几何网格；保留现高级混合职责。2026-10-12 补充：普通正交文字的单 stage 链复用同一证明与 terminal receipt，保留文字源尺寸、padding、pivot 和动态纹理 generation；作者顶点越过原矩形时直接进入既有 MainPass，不先采已裁的 graph-final。文字高级混合、透视及跨图输出暂不扩域。先验证无外部依赖，再依据同一资源生命周期合同接入已准入的外部只读输入。未验证的跨图 provider 与复杂图保持原路径。
 
 ## 职责与数据流
 
@@ -23,4 +23,4 @@
 
 ## 验收
 
-真实 GPU 正反例：末段 active / inactive / 局部失败，细线密度、精确输入颜色、一次必要 copy、无冲突零 copy、同 buffer / stale / one-shot 守恒与完成前 pin。Debug build；原生同一官方自有尺寸及条纹输入对照；原始真实样本短跑与截图。外部依赖、全样本、桌面产品入口、长期性能不得由这些门代替。实现结果与剩余边界归现有队列；完成过程归档，稳定职责归运行架构。
+真实 GPU 正反例：末段 active / inactive / 局部失败，细线密度、精确输入颜色、一次必要 copy、无冲突零 copy、同 buffer / stale / one-shot 守恒与完成前 pin。文字补充正负倾斜越界像素、identity 与 alpha、动态日期/时间末字边缘，停用回原 graph 路线。Debug build；原生同一官方自有尺寸及条纹输入对照；原始真实样本短跑与截图。外部依赖、全样本、桌面产品入口、长期性能不得由这些门代替。实现结果与剩余边界归现有队列；完成过程归档，稳定职责归运行架构。

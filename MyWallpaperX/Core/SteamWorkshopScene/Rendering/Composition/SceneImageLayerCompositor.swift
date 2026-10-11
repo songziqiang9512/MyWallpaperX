@@ -356,7 +356,7 @@ struct SceneImageLayerCompositor {
             if let ticket = graphExecutionTicket,
                ticket.hasTerminalMaterialReplay {
                 guard resolvedMaterialGraphOutputPublisher == nil,
-                      request.layer.contentKind == "solid",
+                      (request.layer.contentKind == "solid" || request.layer.contentKind == "text"),
                       request.geometryProduct == nil,
                       request.dependencyEffects.isEmpty,
                       !request.requiresDependencyEffect,

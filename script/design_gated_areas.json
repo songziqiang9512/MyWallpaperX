@@ -390,9 +390,11 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
-      "design_notes": "2026-10-11 官方自有输入确认源尺寸和末尾停用分域。沿现 GraphExecutor/PassEncoder/pool/submission/MainPass，按真实覆盖保留终端输入，不伪造资源尺寸。先无外部依赖，扩域须同一生命周期及真实运行验证；批准不代表验收。",
+      "design_notes": "2026-10-11 官方自有输入确认源尺寸和末尾停用分域。沿现 GraphExecutor/PassEncoder/pool/submission/MainPass，按真实覆盖保留终端输入，不伪造资源尺寸。先无外部依赖，扩域须同一生命周期及真实运行验证；批准不代表验收。 2026-10-12 文字单stage正交终端接线沿同proof，不增加padding/bounds算法；真实越界像素与动态文字待验。",
       "matchPatterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor*.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift"
       ],
       "contentPatterns": []
     },

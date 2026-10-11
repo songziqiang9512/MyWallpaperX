@@ -1,4 +1,9 @@
-"""Production terminal replay retains the last active material's real input."""
+"""Production terminal replay retains input and rasterizes authored overflow.
+
+Overflow cases use the existing bounded route: the bare Swift carrier has no
+signed compiler license bundle. They exercise real Program/Metal output, not
+App generic compilation, text rasterization, or FramePreflight admission.
+"""
 import hashlib
 import json
 import os
@@ -43,6 +48,11 @@ SUPPORT = SUPPORT.replace('''final class SceneGraphRenderTargetResidencyPin {
 ''', '', 1)
 SUPPORT = SUPPORT.replace(SUPPORT[SUPPORT.index('final class ScenePreparedPersistentGraphTargets {'):
     SUPPORT.index('extension SceneResolvedMaterialExecutionCapabilityCatalog {')], '', 1)
+SUPPORT = SUPPORT.replace('pointerIsInside: Bool = true\n',
+    'pointerIsInside: Bool = true,\n'
+    '            effectOutputModelViewProjection: simd_float4x4 = matrix_identity_float4x4\n', 1)
+SUPPORT = SUPPORT.replace('effectOutputModelViewProjection = matrix_identity_float4x4\n',
+    'self.effectOutputModelViewProjection = effectOutputModelViewProjection\n', 1)
 
 HARNESS = HELPERS + r'''
 private func terminalChain(_ count: Int) -> Graph {
@@ -50,6 +60,130 @@ private func terminalChain(_ count: Int) -> Graph {
     let effects = Array(full.effects.prefix(count))
     return .init(layerID: full.layerID, effects: effects, renderTargets: [],
         nodes: Array(full.nodes.prefix(count)), finalOutput: effects.last!.output, blockers: [])
+}
+
+private func overflowCase(
+    device: MTLDevice, queue: MTLCommandQueue, skew: Float, offset: Float,
+    alpha: Float = 1, probeX: Int, probeY: Int
+) throws -> [String: Any] {
+    // Match the existing bare-Swift effect host gate; no Program is manufactured.
+    let previousRoute = getenv("MWX_SCENE_GENERIC_SHADER_PROFILE_ROUTES").map { String(cString: $0) }
+    setenv("MWX_SCENE_GENERIC_SHADER_PROFILE_ROUTES", "ordinary-shader=disable-generic", 1)
+    defer {
+        if let previousRoute { setenv("MWX_SCENE_GENERIC_SHADER_PROFILE_ROUTES", previousRoute, 1) }
+        else { unsetenv("MWX_SCENE_GENERIC_SHADER_PROFILE_ROUTES") }
+    }
+    let graph = terminalChain(1), admitted = orderedLayerGraph(graph), node = graph.nodes[0]
+    let base = template(for: node)
+    let original = shaderContract(nodeIndex: node.nodeIndex, pass: false, fragmentOverride: """
+        varying vec2 v_TexCoord;
+        uniform sampler2D g_Texture0;
+        void main() {
+            vec4 color = texSample2D(g_Texture0, v_TexCoord);
+            gl_FragColor = color;
+        }
+        """)
+    let stages = original.stages.map { stage -> SceneShaderContract.Stage in
+        guard stage.kind == .vertex else { return stage }
+        let source = stage.source.replacingOccurrences(
+            of: "gl_Position = mul(vec4(a_Position, 1.0), g_ModelViewProjectionMatrix);",
+            with: "vec3 point = a_Position; point.x += \(skew) * point.y + \(offset); "
+                + "gl_Position = mul(vec4(point, 1.0), g_ModelViewProjectionMatrix);")
+        let parsed = SceneShaderContractSourceParser().parse(source, stageRelativePath: stage.relativePath)
+        return .init(kind: stage.kind, relativePath: stage.relativePath, source: source,
+            rawSHA256: SceneShaderStableDigest.hash(Data(source.utf8)), includes: parsed.includes,
+            annotations: parsed.annotations, declarations: parsed.declarations)
+    }
+    let sourceGraph = SceneShaderSourceGraph(roots: stages.map {
+        .init(label: $0.kind.rawValue, virtualPath: $0.relativePath)
+    }, nodes: stages.map {
+        .init(virtualPath: $0.relativePath, provenance: .package, source: $0.source,
+            rawSHA256: $0.rawSHA256, byteCount: $0.source.utf8.count)
+    }, edges: [], diagnostics: [], dependencySHA256: SceneShaderStableDigest.hash(stages))
+    let shader = SceneShaderContract(identity: original.identity, sourceKind: original.sourceKind,
+        stages: stages, diagnostics: [], canonicalSHA256: SceneShaderStableDigest.hash(stages),
+        sourceGraph: sourceGraph)
+    let custom = Template.validated(textureSlots: base.textureSlots, combos: [], uniformDeclarations: [],
+        renderState: base.renderState, graphRole: base.graphRole, shaderContract: shader,
+        diagnosticProvenance: .init(nodeIndex: node.nodeIndex, authoredShaderPath: shader.identity,
+            contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
+            textureSources: [], uniformSources: []))!
+    let catalog = SceneResolvedMaterialRuntimeCatalog(entries: [
+        .init(effect: node.effect, nodeIndex: node.nodeIndex): .template(custom)
+    ], resourceDemandIssues: [])
+    let caps = capabilities(admitted, catalog: catalog)
+    guard let claim = caps.claim(admitted), let capability = caps.resolve(claim.token),
+          let executor = Executor(device: device, capabilities: caps),
+          let leases = makeChainedLeases(capability, device: device) else {
+        return ["failure": "overflow-setup", "reports": caps.reportLines]
+    }
+    let channel = UInt8((alpha * 255).rounded())
+    let source = makeSource(device, width: 10, height: 10, bgra: [0, 0, channel, channel])
+    let replayTarget = makeSource(device, width: 64, height: 64, usage: [.renderTarget])
+    let graphTarget = makeSource(device, width: 64, height: 64, usage: [.renderTarget])
+    // targetPixels supplies a_Position in [-5,5]; terminal replay converts it
+    // back to the unit quad through the production render-size binding.
+    let placement = matrix_identity_float4x4
+    let command = queue.makeCommandBuffer()!
+    let prepared = try executor.prepare(token: claim.token, leases: leases,
+        historyRehydrateCopiesByEffect: [:], frame: frame(1), sourceTexture: source,
+        sourceUniforms: .neutral(), sourcePipeline: makeSourcePipeline(device),
+        terminalReplayTarget: replayTarget,
+        frameInputs: .init(effectOutputModelViewProjection: placement), commandBuffer: command,
+        previousStates: [:], previousGraphResources: [:], effectGeneration: 1, resetGeneration: 1).get()
+    let weightsSourceAlpha = prepared.finalResource.publication.candidate.content
+        == .color(.resolved(.straightAlpha))
+    var graphUniforms = SceneLayerFragmentUniforms.neutral()
+    graphUniforms.sourceSampling.y = weightsSourceAlpha ? 1 : 0
+    guard let compositor = makeProductionSourcePipeline(device)
+    else { return ["failure": "overflow-compositor-pipeline"] }
+    let encoded = executor.encode(prepared, commandBuffer: command)
+    let clear = MTLClearColor(red: 0, green: 0, blue: 1, alpha: 1)
+    let graphMain = SceneMainPassEncoder(commandBuffer: command, target: graphTarget,
+        clearColor: clear, clearEnabled: true)
+    let graphDraw = graphMain.encodePreparedDraw { _, _ in
+        { encoder in
+            compositor.bind(encoder: encoder)
+            compositor.drawLayer(texture: prepared.finalTexture, mvp: placement,
+                uniforms: graphUniforms, encoder: encoder)
+        }
+    }
+    let graphFinished = graphMain.finishEnsuringClear()
+    let replayMain = SceneMainPassEncoder(commandBuffer: command, target: replayTarget,
+        clearColor: clear, clearEnabled: true)
+    let replayDraw = executor.encodeTerminalReplay(prepared, mainPass: replayMain, commandBuffer: command)
+    let replayFinished = replayMain.finishEnsuringClear()
+    guard let textureRead = appendReadback(prepared.finalTexture, commandBuffer: command),
+          let graphRead = appendReadback(graphTarget, commandBuffer: command),
+          let replayRead = appendReadback(replayTarget, commandBuffer: command) else {
+        return ["failure": "overflow-readback"]
+    }
+    command.commit(); command.waitUntilCompleted()
+    let graphProbe = graphRead.pixel(x: probeX, y: probeY)
+    let replayProbe = replayRead.pixel(x: probeX, y: probeY)
+    let center = replayRead.pixel(x: 32, y: 32)
+    let expected: [UInt8] = alpha == 1 ? [0, 0, 255, 255] : [128, 0, 128, 255]
+    let blue: [UInt8] = [255, 0, 0, 255]
+    let identity = skew == 0 && offset == 0
+    return ["skew": skew, "offset": offset, "alpha": alpha, "probe": [probeX, probeY],
+        "graphProbe": graphProbe, "replayProbe": replayProbe, "expected": expected,
+        "center": center, "graphCenter": graphRead.pixel(x: 32, y: 32),
+        "graphExtent": [textureRead.width, textureRead.height],
+        "failureReasons": prepared.stages.map { $0.effectLocalFailureReasonCode ?? "none" },
+        "graphSourceAlphaWeighted": weightsSourceAlpha,
+        "capabilityReports": caps.reportLines,
+        "results": ["graphEncoded": encoded, "terminalReplayAvailable": prepared.terminalMaterialReplay != nil,
+            "bothMainDrawsEncoded": graphDraw && replayDraw && graphFinished && replayFinished,
+            "gpuCompleted": command.status == .completed && command.error == nil,
+            "sourceExtentRetained": source.width == 10 && source.height == 10
+                && prepared.finalTexture.width == 10 && prepared.finalTexture.height == 10,
+            "graphClipsOriginalRectangle": matches(graphProbe, blue),
+            "terminalPreservesOverflow": matches(replayProbe, identity ? blue : expected),
+            "healthyCenter": matches(center, expected),
+            "healthyGraphCenter": matches(graphRead.pixel(x: 32, y: 32), expected),
+            "identityMatchesGraph": !identity || replayRead.allPixels == graphRead.allPixels,
+            "backgroundPreserved": matches(replayRead.pixel(x: 1, y: 1), blue),
+            "noFallback": prepared.stages.allSatisfy { $0.effectLocalFailureReasonCode == nil }]]
 }
 
 private func terminalCase(
@@ -202,8 +336,19 @@ private func terminalCase(
         "identityThenInactive": try terminalCase(device: device, queue: queue, count: 3, inactive: [2]),
         "snapshotBudgetRejected": try terminalCase(device: device, queue: queue, count: 2,
             inactive: [1], budget: 0)]
+    let overflow = [
+        "positiveSkew": try overflowCase(device: device, queue: queue, skew: 0.75, offset: 2.5,
+            probeX: 50, probeY: 22),
+        "negativeSkew": try overflowCase(device: device, queue: queue, skew: -0.75, offset: -2.5,
+            probeX: 13, probeY: 22),
+        "offset": try overflowCase(device: device, queue: queue, skew: 0, offset: 2.5,
+            probeX: 50, probeY: 32),
+        "identity": try overflowCase(device: device, queue: queue, skew: 0, offset: 0,
+            probeX: 50, probeY: 32),
+        "halfAlpha": try overflowCase(device: device, queue: queue, skew: 0.75, offset: 2.5,
+            alpha: 0.5, probeX: 50, probeY: 22)]
     let data = try JSONSerialization.data(withJSONObject:
-        ["metalAvailable": true, "rows": rows], options: [.sortedKeys])
+        ["metalAvailable": true, "rows": rows, "overflow": overflow], options: [.sortedKeys])
     FileHandle.standardOutput.write(data)
  }
 }
@@ -252,3 +397,14 @@ class TerminalMaterialGraphTests(unittest.TestCase):
 
     def test_no_active_material_or_snapshot_storage_uses_the_real_graph_route(self):
         self.check_cases(['singleInactive', 'snapshotBudgetRejected'])
+
+    def test_terminal_replay_preserves_positive_and_negative_vertex_overflow(self):
+        for name in ('positiveSkew', 'negativeSkew', 'offset', 'halfAlpha'):
+            with self.subTest(case=name):
+                row = self.result['overflow'][name]
+                self.assertEqual([k for k, v in row['results'].items() if not v], [], row)
+                self.assertEqual(row['graphExtent'], [10, 10], row)
+
+    def test_identity_terminal_replay_matches_the_unclipped_graph(self):
+        row = self.result['overflow']['identity']
+        self.assertEqual([k for k, v in row['results'].items() if not v], [], row)
