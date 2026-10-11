@@ -263,14 +263,46 @@ struct SceneParticleCameraFrame: Sendable {
         viewProjection(usesPerspective: resolvesPerspective(for: layer))
     }
 
+    /// Resolve a prepared particle batch through the existing camera and basis.
+    /// Other geometry profiles retain their current coordinate contract.
+    func particleUniforms(
+        layerModel: simd_float4x4,
+        orientation: SceneParticleOrientation,
+        orientationAxis: SIMD3<Float>?,
+        usesPerspective: Bool,
+        usesSceneCamera: Bool,
+        viewportSize: SIMD2<Float>,
+        sizeIsWorldSpace: Bool
+    ) -> SceneParticleLayerUniforms {
+        let nativeSprite = defaultsToPerspective && usesSceneCamera
+            && (orientation == .screen || orientation == .worldScreen)
+        // The incoming particle model includes the canvas Y conversion.
+        // Native Sprite geometry is authored Y-up, so remove that conversion
+        // before both its center and its local billboard axes consume it.
+        let model = nativeSprite
+            ? layerModel * SceneMatrix.scale(SIMD3(1, -1, 1)) : layerModel
+        return SceneParticleLayerUniforms(
+            viewProjection: viewProjection(usesPerspective: usesPerspective || nativeSprite),
+            layerModel: model,
+            basis: basis(for: orientation, layerModel: model,
+                         orientationAxis: orientationAxis ?? SIMD3(0, 0, 1),
+                         nativeSpriteCoordinates: nativeSprite),
+            viewportSize: viewportSize,
+            sizeIsWorldSpace: sizeIsWorldSpace,
+            viewBasis: basis(for: .screen, nativeSpriteCoordinates: nativeSprite)
+        )
+    }
+
     func basis(
         for orientation: SceneParticleOrientation,
         fixedRight: SIMD3<Float> = SIMD3(1, 0, 0),
         fixedUp: SIMD3<Float> = SIMD3(0, -1, 0),
         layerModel: simd_float4x4? = nil,
-        orientationAxis: SIMD3<Float> = SIMD3(0, 0, 1)
+        orientationAxis: SIMD3<Float> = SIMD3(0, 0, 1),
+        nativeSpriteCoordinates: Bool = false
     ) -> SceneParticleOrientationBasis {
-        let visualUp = -cameraUp
+        let yDirection: Float = nativeSpriteCoordinates ? 1 : -1
+        let visualUp = cameraUp * yDirection
         let uprightUp: SIMD3<Float>
         if orientation == .upright, let layerModel {
             // The particle layer model already converts authored Y to the
@@ -300,14 +332,14 @@ struct SceneParticleCameraFrame: Sendable {
             // Undo the authored Y conversion before applying that model.
             let linear = simd_float3x3(
                 SIMD3(layerModel.columns.0.x, layerModel.columns.0.y, layerModel.columns.0.z),
-                -SIMD3(layerModel.columns.1.x, layerModel.columns.1.y, layerModel.columns.1.z),
+                SIMD3(layerModel.columns.1.x, layerModel.columns.1.y, layerModel.columns.1.z) * yDirection,
                 SIMD3(layerModel.columns.2.x, layerModel.columns.2.y, layerModel.columns.2.z)
             )
             let geometry = linear * simd_float3x3(
                 basis.right, basis.up, simd_cross(basis.right, basis.up)
             )
-            let localRight = basis.right * SIMD3<Float>(1, -1, 1)
-            let localUp = basis.up * SIMD3<Float>(1, -1, 1)
+            let localRight = basis.right * SIMD3<Float>(1, yDirection, 1)
+            let localUp = basis.up * SIMD3<Float>(1, yDirection, 1)
             let localTrailNormal = simd_cross(localRight, localUp)
             basis = SceneParticleOrientation.fixed.basis(
                 cameraRight: cameraRight, cameraUp: visualUp, cameraForward: cameraForward,

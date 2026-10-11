@@ -14,6 +14,8 @@ nonisolated struct SceneParticlePipelineRenderState: Equatable, Sendable {
     let blendMode: SceneParticlePipelineBlendMode
     let cullMode: SceneParticlePipelineCullMode
     let depthTestEnabled: Bool
+    /// Prepared ordinary Sprite profile; independent of depth/cull switches.
+    let usesSceneCamera: Bool
     let depthWriteEnabled: Bool
     let overbright: Float
 
@@ -21,12 +23,14 @@ nonisolated struct SceneParticlePipelineRenderState: Equatable, Sendable {
         blendMode: SceneParticlePipelineBlendMode,
         cullMode: SceneParticlePipelineCullMode,
         depthTestEnabled: Bool = false,
+        usesSceneCamera: Bool = false,
         depthWriteEnabled: Bool = false,
         overbright: Float = 1
     ) {
         self.blendMode = blendMode
         self.cullMode = cullMode
         self.depthTestEnabled = depthTestEnabled
+        self.usesSceneCamera = usesSceneCamera
         self.depthWriteEnabled = depthWriteEnabled
         self.overbright = overbright
     }

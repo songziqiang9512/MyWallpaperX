@@ -81,8 +81,8 @@
       "bytes": 177846
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 393,
-      "bytes": 139300
+      "lines": 399,
+      "bytes": 140584
     },
     "docs/scene/capabilities/puppet-clipping-design.md": {
       "lines": 33,
@@ -93,8 +93,8 @@
       "bytes": 343456
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 96,
-      "bytes": 28790
+      "lines": 97,
+      "bytes": 29034
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 241,
-      "bytes": 65115
+      "bytes": 65409
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1139,15 +1139,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "81d35cd9625c4e4deef0b934794a6a34f1938ec1f39d42a00a05a6d3ba52bd5a",
-      "after": "8e08d7b398a7be1b0a0693727fcbd2f15444a7437a0b581de09a7b322831f322",
-      "owner": "Scene Puppet reference pose",
-      "reason": "增加一条N02组装首断点的历史证据导航，保留三原包有界结果及N03/N06余项；不复制逐样本过程或扩大整样本验收。",
-      "decision": "docs/scene/history/puppet-reference-pose-2026-10-11.md#依据与证据上限"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "62c30b582203e96e3ee0c3d3c467249e736e3a736498a1b4f443a2623abe301c",
       "after": "d64bf8a764fc02bb9004ec36ee4b392026a34722d6142cf897c02e6d3b426be8",
@@ -1157,12 +1148,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "65fa2853afe8879b5554dc31e3421dc8daa0d3d2065834946f75e43765aa5be7",
+      "after": "d56cf7956612651369cc728785ceae72730796b723d3634f9d38e3c293381eaa",
+      "owner": "Scene Sprite world camera and depth",
+      "reason": "M14登记唯一compiler的普通Sprite空间/相机/深度合同及准入边界，保留REFRACT、复杂profile和跨层遮挡不外推；只增加本批稳定职责说明。",
+      "decision": "docs/scene/history/particle-world-depth-2026-10-11.md#修复与边界"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "8e08d7b398a7be1b0a0693727fcbd2f15444a7437a0b581de09a7b322831f322",
+      "after": "27f58a5cdb7b780197762b46e3592eb0469f878355fcb926f737874ce0d1c233",
+      "owner": "Scene Sprite world camera and depth",
+      "reason": "增加一条N07原包主体恢复与健康screen深度反例的历史导航，保留GodRays及完整视觉余项；不复制逐样本过程或扩大验收。",
+      "decision": "docs/scene/history/particle-world-depth-2026-10-11.md#修复与边界"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "d54b8abe2b99be9a926e362cc1e3d80e76559810c9cb85ad69f71d0e247b85ea",
-      "after": "04db7c5b6b8e6f01d923de554a7e9637df49eb5541c3315d57d4b6c9c9fbfa2d",
-      "owner": "Scene Puppet reference pose",
-      "reason": "N02组装首断点按有界结果退队，287特效回退与288初始配置API分别归N03/N06，并保留实际首错和后续关闭门；不关闭整样本。",
-      "decision": "docs/scene/history/puppet-reference-pose-2026-10-11.md#验证与画面"
+      "before": "04db7c5b6b8e6f01d923de554a7e9637df49eb5541c3315d57d4b6c9c9fbfa2d",
+      "after": "f90415613d1a3d7782bf680f06cb4be524a4c7b6de84befe36cd3750ac9412f5",
+      "owner": "Scene Sprite world camera and depth",
+      "reason": "N07世界Sprite准入首断点按实际有界结果退队，保留GodRays、运动形态和完整视觉后续门；不关闭整样本。",
+      "decision": "docs/scene/history/particle-world-depth-2026-10-11.md#修复与边界"
     }
   ]
 }

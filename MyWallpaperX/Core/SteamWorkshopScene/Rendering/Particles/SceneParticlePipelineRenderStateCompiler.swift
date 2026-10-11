@@ -18,14 +18,13 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
         case .normal: return nil
         }
 
-        let needsScreenSpriteProfile = state.cullMode == .normal
+        let needsSpriteStateProfile = state.cullMode == .normal
             || state.depthTest == .enabled
             || state.depthWrite == .enabled
-        if needsScreenSpriteProfile,
-           !supportsScreenSpriteProfile(
-               definition: definition,
-               materialPass: materialPass
-           ) {
+        let spriteProfile = supportsSpriteStateProfile(
+            definition: definition, materialPass: materialPass
+        )
+        if needsSpriteStateProfile, !spriteProfile {
             return nil
         }
 
@@ -33,6 +32,7 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
             blendMode: blendMode,
             cullMode: state.cullMode == .normal ? .back : .none,
             depthTestEnabled: state.depthTest == .enabled,
+            usesSceneCamera: spriteProfile,
             depthWriteEnabled: state.depthWrite == .enabled,
             overbright: overbright
         )
@@ -50,7 +50,7 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
         return Float(authored)
     }
 
-    private static func supportsScreenSpriteProfile(
+    private static func supportsSpriteStateProfile(
         definition: SceneParticleDefinition,
         materialPass: SceneParticleMaterialPass?
     ) -> Bool {
@@ -61,12 +61,9 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
                   ["REFRACT", "CUTOUT", "LIGHTING"].contains(key.uppercased())
                       && value == 0
               }),
-              !definition.flags.isWorldSpace,
-              !definition.flags.usesPerspective,
               definition.renderers.count == 1,
               let renderer = definition.renderers.first,
-              !renderer.isWorldSpace,
-              renderer.rawFlags == 0,
+              renderer.rawFlags == 0 || renderer.rawFlags == 1,
               renderer.axis == nil,
               !renderer.hasMalformedFields,
               renderer.unsupportedFieldNames.isEmpty,

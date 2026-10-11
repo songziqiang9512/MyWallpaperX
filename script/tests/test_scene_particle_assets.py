@@ -45,6 +45,8 @@ enum Harness {
         switch CommandLine.arguments[1] {
         case "synthetic":
             try printJSON(syntheticResult())
+        case "render-state-profiles":
+            try printJSON(renderStateProfileResults())
         case "census":
             guard CommandLine.arguments.count == 3 else { throw HarnessError.missingSampleRoot }
             try printJSON(censusResult(rootPath: CommandLine.arguments[2]))
@@ -420,6 +422,118 @@ enum Harness {
         ]
     }
 
+    private static func renderStateProfileResults() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-particle-profiles-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/profile.tex", under: directory)
+        let states: [(String, Bool, Bool, String)] = [
+            ("plain", false, false, "nocull"),
+            ("test-write", true, true, "nocull"),
+            ("test-only", true, false, "nocull"),
+            ("write-only", false, true, "nocull"),
+            ("cull-only", false, false, "normal"),
+            ("test-write-cull", true, true, "normal")
+        ]
+        var roots: [String] = []
+        var passes: [SceneParticleMaterialPass] = []
+        var expected: [String: (Bool, Bool, Bool, String, Int, Int, Bool)] = [:]
+        func add(
+            _ name: String, flags: Int = 5,
+            renderers: [[String: Any]] = [["name": "sprite", "flags": 1]],
+            state: (String, Bool, Bool, String) = ("test-write-cull", true, true, "normal"),
+            allowed: Bool = false, combos: [String: Int] = ["REFRACT": 0],
+            userTexture: Bool = false, userValues: Bool = false,
+            cameraProfile: Bool? = nil
+        ) throws {
+            let path = "particles/\(name).json"
+            let material = "materials/particle/\(name).json"
+            try writeJSON([
+                "material": material, "flags": flags,
+                "emitter": [["name": "sphereRandom"]], "renderer": renderers
+            ], relativePath: path, under: directory)
+            roots.append(path)
+            passes.append(.init(
+                materialPath: material, shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/profile"], blending: "translucent", combos: combos,
+                constantValues: ["ui_editor_properties_overbright": .init(components: [1.19], isStatic: true)],
+                hasUserTextureInputs: userTexture, hasUserShaderValues: userValues,
+                depthTest: state.1 ? "enabled" : "disabled",
+                depthWrite: state.2 ? "enabled" : "disabled", cullMode: state.3
+            ))
+            expected[path] = (allowed, state.1, state.2, state.3, flags,
+                              renderers.first?["flags"] as? Int ?? 0, cameraProfile ?? allowed)
+        }
+        for flags in [0, 1, 4, 5] {
+            for rendererFlags in [0, 1] {
+                for state in states {
+                    try add("system\(flags)-renderer\(rendererFlags)-\(state.0)", flags: flags,
+                        renderers: [["name": "sprite", "flags": rendererFlags, "orientation": "screen"]],
+                        state: state, allowed: true)
+                }
+            }
+        }
+        try add("default-world-screen", allowed: true)
+        for orientation in ["fixed", "upright"] {
+            try add(orientation, renderers: [["name": "sprite", "flags": 1, "orientation": orientation]])
+        }
+        for name in ["spritetrail", "rope", "ropetrail"] {
+            try add(name, renderers: [["name": name, "flags": 1]])
+        }
+        try add("multiple", renderers: [["name": "sprite"], ["name": "sprite"]])
+        try add("axis", renderers: [["name": "sprite", "flags": 1, "axis": "0 0 1"]])
+        try add("unknown-flags", renderers: [["name": "sprite", "flags": 3]])
+        try add("malformed-flags", renderers: [["name": "sprite", "flags": "invalid"]])
+        try add("malformed-orientation", renderers: [["name": "sprite", "orientation": 17]])
+        try add("unknown-field", renderers: [["name": "sprite", "unrecognized": true]])
+        for combo in ["REFRACT", "CUTOUT", "LIGHTING", "UNKNOWN"] {
+            try add(combo.lowercased(), combos: [combo: 1])
+        }
+        try add("user-texture", userTexture: true)
+        try add("user-values", userValues: true)
+        // Existing unrestricted no-depth routes stay available, but must not
+        // acquire the ordinary Sprite camera policy from a permissive draw state.
+        for path in roots.filter({ expected[$0]?.0 == false }) {
+            let definition = try JSONSerialization.jsonObject(
+                with: Data(contentsOf: directory.appendingPathComponent(path))) as! [String: Any]
+            let pass = passes.first { $0.materialPath == definition["material"] as? String }!
+            try add("plain-\(URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent)",
+                renderers: definition["renderer"] as! [[String: Any]],
+                state: ("plain", false, false, "nocull"), allowed: true,
+                combos: pass.combos, userTexture: pass.hasUserTextureInputs,
+                userValues: pass.hasUserShaderValues, cameraProfile: false)
+        }
+        let graph = SceneParticleAssetGraphLoader(resourceView: .init(
+            projectRootURL: directory, packageRootURL: nil, stockAssetsRootURL: nil
+        )).load(rootPaths: roots, materialPasses: passes, cacheDirectory: directory)
+        let rows = roots.map { path -> [String: Any] in
+            let expectation = expected[path]!
+            let asset = graph.assetsByPath[path]
+            let state = asset?.pipelineState
+            return [
+                "name": URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent,
+                "expectedAllowed": expectation.0,
+                "expectedTest": expectation.1, "expectedWrite": expectation.2,
+                "expectedCull": expectation.3 == "normal" ? "back" : "none",
+                "expectedSystemFlags": expectation.4, "expectedRendererFlags": expectation.5,
+                "expectedSceneCamera": expectation.6,
+                "systemFlags": asset?.definition.flags.rawValue ?? -1,
+                "rendererFlags": asset?.definition.renderers.first?.rawFlags ?? -1,
+                "textureAvailable": asset?.textureSource != nil,
+                "builtInShader": asset?.supportsBuiltInShaderExecution ?? false,
+                "hasPipelineState": state != nil, "hasRenderState": asset?.renderState != nil,
+                "usesSceneCamera": state?.usesSceneCamera ?? false,
+                "test": state?.depthTestEnabled ?? false, "write": state?.depthWriteEnabled ?? false,
+                "cull": state?.cullMode.rawValue ?? "unavailable", "overbright": state?.overbright ?? -1,
+                "unsupportedRenderState": graph.diagnostics.contains {
+                    $0.kind == .unsupportedRenderState && $0.assetPath == path
+                }
+            ]
+        }
+        return ["rows": rows]
+    }
+
     private static func censusResult(rootPath: String) throws -> [String: Any] {
         let sourceRoot = URL(fileURLWithPath: rootPath, isDirectory: true)
         let sampleURLs = try FileManager.default.contentsOfDirectory(
@@ -725,6 +839,25 @@ class SceneParticleAssetTests(unittest.TestCase):
             text=True,
         )
         return json.loads(result.stdout)
+
+    def test_single_screen_sprite_depth_cull_profiles_preserve_authored_spaces(self) -> None:
+        rows = self.run_harness("render-state-profiles")["rows"]
+        self.assertEqual(len(rows), 83)
+        for row in rows:
+            with self.subTest(profile=row["name"]):
+                self.assertTrue(row["builtInShader"])
+                self.assertEqual(row["systemFlags"], row["expectedSystemFlags"])
+                self.assertEqual(row["rendererFlags"], row["expectedRendererFlags"])
+                self.assertEqual(row["hasPipelineState"], row["expectedAllowed"])
+                self.assertEqual(row["hasRenderState"], row["expectedAllowed"])
+                self.assertEqual(row["usesSceneCamera"], row["expectedSceneCamera"])
+                self.assertEqual(row["unsupportedRenderState"], not row["expectedAllowed"])
+                if row["expectedAllowed"]:
+                    self.assertTrue(row["textureAvailable"])
+                    self.assertEqual(row["test"], row["expectedTest"])
+                    self.assertEqual(row["write"], row["expectedWrite"])
+                    self.assertEqual(row["cull"], row["expectedCull"])
+                    self.assertAlmostEqual(row["overbright"], 1.19, places=6)
 
     def test_synthetic_asset_graph(self) -> None:
         result = self.run_harness("synthetic")

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import math
-import subprocess
-import tempfile
 import unittest
 from pathlib import Path
+
+from script.tests.scene_particle_render_test_support import run_particle_harness
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -15,6 +15,8 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     REPOSITORY_ROOT / "script/tests/fixtures/SceneParticleFixedGeometryHarness.swift",
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneParticleCameraRenderingHarness.swift",
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneParticleOffscreenReadbackHarness.swift",
     SOURCE_ROOT / "Systems/Input/SceneCameraProjection.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleCameraFrame.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleTrailRenderPlan.swift",
@@ -175,22 +177,9 @@ enum Harness {
             layerModel: rotatedLayer
         )
 
-        let width: Float = 1280
-        let height: Float = 832
-        let distance: Float = 1000
-        let eye = SIMD3(width / 2, height / 2, distance)
-        let view = SceneMatrix.lookAt(
-            eye: eye, center: SIMD3(width / 2, height / 2, 0), up: SIMD3(0, 1, 0)
-        )
-        let fov = 2 * atan(height / (2 * distance))
-        let projection = SceneMatrix.perspectiveRHMetal(
-            fovYRadians: fov, aspect: width / height, near: 0.1, far: 5000
-        )
-        let viewProjection = projection * view
-
         let translucent = SceneParticleMetalPipeline.blendConfiguration(for: .translucent)
         let additive = SceneParticleMetalPipeline.blendConfiguration(for: .additive)
-        let result: [String: Any] = [
+        var result: [String: Any] = [
             "instanceStride": MemoryLayout<SceneParticleGPUInstance>.stride,
             "instanceAlignment": MemoryLayout<SceneParticleGPUInstance>.alignment,
             "instanceOffsets": instanceOffsets(),
@@ -220,13 +209,6 @@ enum Harness {
             "localFixedRight": vector(localFixedVectors.right),
             "worldFixedRight": vector(worldFixedVectors.right),
             "worldFixedUp": vector(worldFixedVectors.up),
-            "nearNDC": ndc(projection, SIMD4(0, 0, -0.1, 1)),
-            "farNDC": ndc(projection, SIMD4(0, 0, -5000, 1)),
-            "sceneCenterNDC": ndc(viewProjection, SIMD4(width / 2, height / 2, 0, 1)),
-            "sceneTopRightNDC": ndc(viewProjection, SIMD4(width, height, 0, 1)),
-            "invalidPerspectiveIsIdentity": SceneMatrix.perspectiveRHMetal(
-                fovYRadians: 0, aspect: 0, near: -1, far: 0
-            ) == SceneMatrix.identity(),
             "translucentBlend": [
                 translucent.sourceRGB == .one,
                 translucent.destinationRGB == .oneMinusSourceAlpha,
@@ -243,8 +225,6 @@ enum Harness {
                 additive.destinationAlpha == .oneMinusSourceAlpha,
             ],
             "additiveFractionalAlphaPixel": additiveFractionalAlphaPixel(),
-            "depthAndOverbrightPixel": depthAndOverbrightPixel(),
-            "depthTargetLease": depthTargetLeaseContract(),
             "metalDraw": renderSmokeTest(),
             "uprightGeometry": uprightGeometryContract(),
             "spriteAspectBounds": spriteBounds(
@@ -272,7 +252,6 @@ enum Harness {
                 currentAspect: 0.25, nextAspect: 0.25, frameMix: 0,
                 layerModel: SceneMatrix.scale(SIMD3(-2, 0.5, 1))
             ),
-            "cullContract": cullContract(),
             "horizontalTrailBounds": trailBounds(velocity: SIMD3(1, 0, 0)),
             "numericRotationBounds": authoredRotationBounds(0.3),
             "textRotationBounds": authoredRotationBounds("0.3"),
@@ -325,6 +304,7 @@ enum Harness {
             "samplerPixels": samplerPixels(),
             "mipSamplerPixels": mipSamplerPixels(),
         ]
+        result.merge(SceneParticleCameraRenderingHarness.run()) { _, current in current }
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
@@ -396,10 +376,6 @@ enum Harness {
         )
     }
 
-    private static func ndc(_ matrix: simd_float4x4, _ point: SIMD4<Float>) -> [Float] {
-        let clip = matrix * point
-        return [clip.x / clip.w, clip.y / clip.w, clip.z / clip.w]
-    }
 
     private static func renderSmokeTest() -> Bool {
         guard let device = MTLCreateSystemDefaultDevice(),
@@ -479,7 +455,7 @@ enum Harness {
         )
         encoder.endEncoding()
         let submitted = instances.markSubmitted(on: command)
-        let completed = commitAndWait(command)
+        let completed = SceneParticleOffscreenReadbackHarness.commitAndWait(command)
         return !emptyDraw && translucentDraw && additiveDraw
             && submitted && completed
             && command.status == .completed && instances.count == 2
@@ -543,7 +519,7 @@ enum Harness {
             encoder: encoder
         )
         encoder.endEncoding()
-        guard instances.markSubmitted(on: command), commitAndWait(command) else { return [] }
+        guard instances.markSubmitted(on: command), SceneParticleOffscreenReadbackHarness.commitAndWait(command) else { return [] }
         var pixel = [UInt8](repeating: 0, count: 4)
         output.getBytes(
             &pixel,
@@ -554,138 +530,8 @@ enum Harness {
         return pixel.map(Int.init)
     }
 
-    private static func depthAndOverbrightPixel() -> [Int] {
-        let size = 8
-        guard let device = MTLCreateSystemDefaultDevice(),
-              let pipeline = SceneParticleMetalPipeline(device: device),
-              let queue = device.makeCommandQueue(),
-              let command = queue.makeCommandBuffer(),
-              let depthLease = pipeline.acquireDepthTarget(width: size, height: size)
-        else { return [] }
-        let inputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .rgba8Unorm,
-            width: 1,
-            height: 1,
-            mipmapped: false
-        )
-        inputDescriptor.usage = .shaderRead
-        inputDescriptor.storageMode = .shared
-        let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .bgra8Unorm,
-            width: size,
-            height: size,
-            mipmapped: false
-        )
-        outputDescriptor.usage = .renderTarget
-        outputDescriptor.storageMode = .shared
-        guard let red = device.makeTexture(descriptor: inputDescriptor),
-              let green = device.makeTexture(descriptor: inputDescriptor),
-              let output = device.makeTexture(descriptor: outputDescriptor) else { return [] }
-        var redPixel: [UInt8] = [255, 0, 0, 255]
-        var greenPixel: [UInt8] = [0, 255, 0, 255]
-        red.replace(
-            region: MTLRegionMake2D(0, 0, 1, 1),
-            mipmapLevel: 0,
-            withBytes: &redPixel,
-            bytesPerRow: 4
-        )
-        green.replace(
-            region: MTLRegionMake2D(0, 0, 1, 1),
-            mipmapLevel: 0,
-            withBytes: &greenPixel,
-            bytesPerRow: 4
-        )
-        let near = SceneParticleMetalInstanceBuffer()
-        let far = SceneParticleMetalInstanceBuffer()
-        guard near.update(device: device, instances: [instance(x: 0, z: 0.2)]),
-              far.update(device: device, instances: [instance(x: 0, z: 0.8)]) else { return [] }
-        let pass = MTLRenderPassDescriptor()
-        pass.colorAttachments[0].texture = output
-        pass.colorAttachments[0].loadAction = .clear
-        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
-        pass.colorAttachments[0].storeAction = .store
-        pass.depthAttachment.texture = depthLease.texture
-        pass.depthAttachment.loadAction = .clear
-        pass.depthAttachment.clearDepth = 1
-        pass.depthAttachment.storeAction = .dontCare
-        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [] }
-        let uniforms = SceneParticleLayerUniforms(
-            viewProjection: SceneMatrix.identity(),
-            layerModel: SceneMatrix.identity(),
-            basis: SceneParticleOrientation.screen.basis(
-                cameraRight: SIMD3(1, 0, 0),
-                cameraUp: SIMD3(0, 1, 0),
-                cameraForward: SIMD3(0, 0, -1)
-            )
-        )
-        let state = SceneParticlePipelineRenderState(
-            blendMode: .translucent,
-            cullMode: .none,
-            depthTestEnabled: true,
-            depthWriteEnabled: true,
-            overbright: 0.5
-        )
-        pipeline.draw(
-            texture: red,
-            instances: near,
-            uniforms: uniforms,
-            renderState: state,
-            colorSampling: .directImageFallback,
-            usesDepthAttachment: true,
-            encoder: encoder
-        )
-        pipeline.draw(
-            texture: green,
-            instances: far,
-            uniforms: uniforms,
-            renderState: state,
-            colorSampling: .directImageFallback,
-            usesDepthAttachment: true,
-            encoder: encoder
-        )
-        encoder.endEncoding()
-        guard near.markSubmitted(on: command), far.markSubmitted(on: command) else { return [] }
-        depthLease.arm(on: command)
-        guard commitAndWait(command) else { return [] }
-        var pixel = [UInt8](repeating: 0, count: 4)
-        output.getBytes(
-            &pixel,
-            bytesPerRow: size * 4,
-            from: MTLRegionMake2D(size / 2, size / 2, 1, 1),
-            mipmapLevel: 0
-        )
-        return pixel.map(Int.init)
-    }
 
-    private static func depthTargetLeaseContract() -> [String: Bool] {
-        guard let device = MTLCreateSystemDefaultDevice(),
-              let pipeline = SceneParticleMetalPipeline(device: device),
-              let queue = device.makeCommandQueue(),
-              let first = pipeline.acquireDepthTarget(width: 8, height: 8),
-              let second = pipeline.acquireDepthTarget(width: 8, height: 8),
-              let third = pipeline.acquireDepthTarget(width: 8, height: 8) else { return [:] }
-        let rejectsFourth = pipeline.acquireDepthTarget(width: 8, height: 8) == nil
-        let firstTexture = first.texture
-        first.cancel()
-        let replacement = pipeline.acquireDepthTarget(width: 8, height: 8)
-        let reusesReleased = replacement?.texture === firstTexture
-        replacement?.cancel()
-        second.cancel()
-        third.cancel()
-        guard let command = queue.makeCommandBuffer(),
-              let armed = pipeline.acquireDepthTarget(width: 8, height: 8) else { return [:] }
-        let armedTexture = armed.texture
-        armed.arm(on: command)
-        let completed = commitAndWait(command)
-        let afterCompletion = pipeline.acquireDepthTarget(width: 8, height: 8)
-        let completionReleased = completed && afterCompletion?.texture === armedTexture
-        afterCompletion?.cancel()
-        return [
-            "rejectsFourth": rejectsFourth,
-            "reusesReleased": reusesReleased,
-            "completionReleased": completionReleased,
-        ]
-    }
+
 
     private static func instanceBufferSlotTest() -> [String: Any] {
         guard let device = MTLCreateSystemDefaultDevice(),
@@ -696,7 +542,7 @@ enum Harness {
             return ["available": false]
         }
         let instances = SceneParticleMetalInstanceBuffer()
-        guard instances.update(device: device, instances: [instance(x: 1)]),
+        guard instances.update(device: device, instances: [SceneParticleOffscreenReadbackHarness.instance(x: 1)]),
               let firstBuffer = instances.buffer else {
             return ["available": false]
         }
@@ -705,7 +551,7 @@ enum Harness {
             .pointee.positionAndSize.x
         let firstSubmitted = instances.markSubmitted(on: firstCommand)
 
-        guard instances.update(device: device, instances: [instance(x: 2)]),
+        guard instances.update(device: device, instances: [SceneParticleOffscreenReadbackHarness.instance(x: 2)]),
               let secondBuffer = instances.buffer else {
             return ["available": false]
         }
@@ -714,19 +560,19 @@ enum Harness {
             .pointee.positionAndSize.x == firstValue
         let secondSubmitted = instances.markSubmitted(on: secondCommand)
 
-        guard instances.update(device: device, instances: [instance(x: 3)]),
+        guard instances.update(device: device, instances: [SceneParticleOffscreenReadbackHarness.instance(x: 3)]),
               let thirdBuffer = instances.buffer else {
             return ["available": false]
         }
         let thirdSubmitted = instances.markSubmitted(on: thirdCommand)
-        let firstCompleted = commitAndWait(firstCommand)
+        let firstCompleted = SceneParticleOffscreenReadbackHarness.commitAndWait(firstCommand)
 
-        guard instances.update(device: device, instances: [instance(x: 4)]),
+        guard instances.update(device: device, instances: [SceneParticleOffscreenReadbackHarness.instance(x: 4)]),
               let reusedBuffer = instances.buffer else {
             return ["available": false]
         }
-        let secondCompleted = commitAndWait(secondCommand)
-        let thirdCompleted = commitAndWait(thirdCommand)
+        let secondCompleted = SceneParticleOffscreenReadbackHarness.commitAndWait(secondCommand)
+        let thirdCompleted = SceneParticleOffscreenReadbackHarness.commitAndWait(thirdCommand)
         return [
             "available": true,
             "firstSubmitted": firstSubmitted,
@@ -748,13 +594,13 @@ enum Harness {
             return ["available": false]
         }
         let instances = SceneParticleMetalInstanceBuffer()
-        guard instances.update(device: device, instances: [instance(x: 1)]),
+        guard instances.update(device: device, instances: [SceneParticleOffscreenReadbackHarness.instance(x: 1)]),
               let firstBuffer = instances.buffer else {
             return ["available": false]
         }
         let pendingCancelled = instances.cancelPending()
         let pendingCleared = instances.currentDrawState() == nil && instances.count == 0
-        guard instances.update(device: device, instances: [instance(x: 2)]),
+        guard instances.update(device: device, instances: [SceneParticleOffscreenReadbackHarness.instance(x: 2)]),
               let secondBuffer = instances.buffer else {
             return ["available": false]
         }
@@ -762,7 +608,7 @@ enum Harness {
         let marked = instances.markSubmitted(on: pendingCommand)
         let uncommittedCancelled = instances.cancelUncommittedSubmission(on: pendingCommand)
         let uncommittedCleared = instances.currentDrawState() == nil && instances.count == 0
-        guard instances.update(device: device, instances: [instance(x: 3)]),
+        guard instances.update(device: device, instances: [SceneParticleOffscreenReadbackHarness.instance(x: 3)]),
               let thirdBuffer = instances.buffer else {
             return ["available": false]
         }
@@ -771,19 +617,19 @@ enum Harness {
         _ = instances.cancelPending()
 
         guard let committedCommand = queue.makeCommandBuffer(),
-              instances.update(device: device, instances: [instance(x: 4)]),
+              instances.update(device: device, instances: [SceneParticleOffscreenReadbackHarness.instance(x: 4)]),
               let committedBuffer = instances.buffer,
               instances.markSubmitted(on: committedCommand) else {
             return ["available": false]
         }
         let cancelInFlightRejected = !instances.cancelPending()
         let inFlightCountPreserved = instances.count == 1
-        guard commitAndWait(committedCommand) else {
+        guard SceneParticleOffscreenReadbackHarness.commitAndWait(committedCommand) else {
             return ["available": false]
         }
         let cancelAfterCompletionRejected =
             !instances.cancelUncommittedSubmission(on: committedCommand)
-        guard instances.update(device: device, instances: [instance(x: 5)]),
+        guard instances.update(device: device, instances: [SceneParticleOffscreenReadbackHarness.instance(x: 5)]),
               let afterCompletionBuffer = instances.buffer else {
             return ["available": false]
         }
@@ -888,7 +734,7 @@ enum Harness {
                     viewportSize: SIMD2(256, 256)),
                 renderState: particleState(.translucent), colorSampling: .directImageFallback, encoder: encoder)
             encoder.endEncoding()
-            guard instances.markSubmitted(on: command), commitAndWait(command), command.status == .completed else {
+            guard instances.markSubmitted(on: command), SceneParticleOffscreenReadbackHarness.commitAndWait(command), command.status == .completed else {
                 return ["completed": false]
             }
             var pixels = [UInt8](repeating: 0, count: 256 * 256 * 4)
@@ -1030,7 +876,7 @@ enum Harness {
             encoder: encoder
         )
         encoder.endEncoding()
-        guard instances.markSubmitted(on: command), commitAndWait(command) else {
+        guard instances.markSubmitted(on: command), SceneParticleOffscreenReadbackHarness.commitAndWait(command) else {
             return ["available": false]
         }
 
@@ -1181,7 +1027,7 @@ enum Harness {
             encoder: encoder
         )
         encoder.endEncoding()
-        guard instances.markSubmitted(on: command), commitAndWait(command) else {
+        guard instances.markSubmitted(on: command), SceneParticleOffscreenReadbackHarness.commitAndWait(command) else {
             return ["available": false]
         }
         var pixels = [UInt8](repeating: 0, count: size * size * 4)
@@ -1317,7 +1163,7 @@ enum Harness {
             encoder: encoder
         )
         encoder.endEncoding()
-        guard instances.markSubmitted(on: command), commitAndWait(command) else {
+        guard instances.markSubmitted(on: command), SceneParticleOffscreenReadbackHarness.commitAndWait(command) else {
             return ["available": false]
         }
         var pixels = [UInt8](repeating: 0, count: width * height * 4)
@@ -1458,7 +1304,7 @@ enum Harness {
             encoder: encoder
         )
         encoder.endEncoding()
-        guard instances.markSubmitted(on: command), commitAndWait(command) else { return [:] }
+        guard instances.markSubmitted(on: command), SceneParticleOffscreenReadbackHarness.commitAndWait(command) else { return [:] }
         var pixels = [UInt8](repeating: 0, count: size * size * 4)
         output.getBytes(
             &pixels,
@@ -1641,7 +1487,7 @@ enum Harness {
             encoder: encoder
         )
         encoder.endEncoding()
-        guard instances.markSubmitted(on: command), commitAndWait(command) else { return [:] }
+        guard instances.markSubmitted(on: command), SceneParticleOffscreenReadbackHarness.commitAndWait(command) else { return [:] }
         var pixels = [UInt8](repeating: 0, count: size * size * 4)
         output.getBytes(
             &pixels,
@@ -1689,7 +1535,7 @@ enum Harness {
                         frameEndTimes: prepared ? [1,2] : nil,
                         totalDuration: prepared ? 2 : nil,
                         age: age, lifetime: 1, particleID: 1, blendsFrames: blend)!
-                    let observed = centerPixel(texture: texture,
+                    let observed = SceneParticleOffscreenReadbackHarness.centerPixel(texture: texture,
                         currentFrame: frame(selected.currentIndex),
                         nextFrame: frame(selected.nextIndex), frameMix: selected.mix)
                     rows.append(["prepared":prepared,"blend":blend,"age":age,"bgra":observed])
@@ -1718,7 +1564,7 @@ enum Harness {
                     for overbright: Float in [0.5, 1] {
                         for mix: Float in [0, 0.25, 0.5, 0.75, 1] {
                             for spatial in [false, true] {
-                                let observed = centerPixel(texture: texture,
+                                let observed = SceneParticleOffscreenReadbackHarness.centerPixel(texture: texture,
                                     currentFrame: frame(spatial ? 0.25 + mix * 0.5 : 0.25),
                                     nextFrame: spatial ? nil : frame(0.75),
                                     frameMix: spatial ? 0 : mix, particleAlpha: alpha,
@@ -1749,11 +1595,11 @@ enum Harness {
             region: MTLRegionMake2D(0, 0, 2, 2), mipmapLevel: 0,
             withBytes: &gray, bytesPerRow: 2
         )
-        let rawR8 = centerPixel(texture: r8)
+        let rawR8 = SceneParticleOffscreenReadbackHarness.centerPixel(texture: r8)
         guard let adaptedR8Texture = SceneParticleColorTextureAdapter.adapt(r8) else {
             return [:]
         }
-        let adaptedR8 = centerPixel(texture: adaptedR8Texture)
+        let adaptedR8 = SceneParticleOffscreenReadbackHarness.centerPixel(texture: adaptedR8Texture)
 
         let rgDescriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .rg8Unorm, width: 2, height: 2, mipmapped: true
@@ -1784,8 +1630,8 @@ enum Harness {
         return [
             "rawR8": rawR8, "adaptedR8": adaptedR8,
             "rgMipCount": adaptedRG.mipmapLevelCount,
-            "rgPixel": centerPixel(texture: adaptedRG),
-            "rgSecondMip": centerPixel(texture: secondMipView),
+            "rgPixel": SceneParticleOffscreenReadbackHarness.centerPixel(texture: adaptedRG),
+            "rgSecondMip": SceneParticleOffscreenReadbackHarness.centerPixel(texture: secondMipView),
         ]
     }
 
@@ -2109,7 +1955,7 @@ enum Harness {
         )
         encoder.endEncoding()
         instances.markSubmitted(on: command)
-        guard commitAndWait(command) else { return [] }
+        guard SceneParticleOffscreenReadbackHarness.commitAndWait(command) else { return [] }
         var pixel = [UInt8](repeating: 0, count: 4)
         target.getBytes(
             &pixel, bytesPerRow: size * 4,
@@ -2230,7 +2076,7 @@ enum Harness {
         )
         encoder.endEncoding()
         instances.markSubmitted(on: command)
-        guard commitAndWait(command) else { return [] }
+        guard SceneParticleOffscreenReadbackHarness.commitAndWait(command) else { return [] }
         var pixel = [UInt8](repeating: 0, count: 4)
         output.getBytes(
             &pixel,
@@ -2313,7 +2159,7 @@ enum Harness {
         )
         encoder.endEncoding()
         instances.markSubmitted(on: command)
-        guard commitAndWait(command) else { return [] }
+        guard SceneParticleOffscreenReadbackHarness.commitAndWait(command) else { return [] }
         var pixel = [UInt8](repeating: 0, count: 4)
         output.getBytes(
             &pixel,
@@ -2324,107 +2170,9 @@ enum Harness {
         return pixel.map(Int.init)
     }
 
-    private static func cullContract() -> [String: [Int]] {
-        guard let device = MTLCreateSystemDefaultDevice() else { return [:] }
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false
-        )
-        descriptor.usage = .shaderRead
-        guard let texture = device.makeTexture(descriptor: descriptor) else { return [:] }
-        var white = [UInt8](repeating: 255, count: 4)
-        texture.replace(
-            region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
-            withBytes: &white, bytesPerRow: 4
-        )
-        return [
-            "frontBackCull": centerPixel(texture: texture, cullMode: .back),
-            "reversedBackCull": centerPixel(
-                texture: texture, cullMode: .back, reversesWinding: true
-            ),
-            "reversedNoCull": centerPixel(
-                texture: texture, cullMode: .none, reversesWinding: true
-            ),
-        ]
-    }
 
-    /// Draws one full-alpha particle with the given texture and returns the
-    /// blended BGRA center pixel, exercising the real sampler and swizzle.
-    private static func centerPixel(
-        texture: MTLTexture,
-        cullMode: SceneParticlePipelineCullMode = .none,
-        reversesWinding: Bool = false,
-        currentFrame: SceneParticleFrameTransform = .identity,
-        nextFrame: SceneParticleFrameTransform? = nil,
-        frameMix: Float = 0,
-        particleAlpha: Float = 1,
-        blendMode: SceneParticlePipelineBlendMode = .translucent,
-        background: Float = 0,
-        overbright: Float = 1
-    ) -> [Int] {
-        let size = 8
-        guard let device = MTLCreateSystemDefaultDevice(),
-              let pipeline = SceneParticleMetalPipeline(device: device),
-              let queue = device.makeCommandQueue(),
-              let command = queue.makeCommandBuffer() else { return [] }
-        let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .bgra8Unorm, width: size, height: size, mipmapped: false
-        )
-        outputDescriptor.usage = .renderTarget
-        outputDescriptor.storageMode = .shared
-        guard let output = device.makeTexture(descriptor: outputDescriptor) else { return [] }
-        let instances = SceneParticleMetalInstanceBuffer()
-        guard instances.update(device: device, instances: [SceneParticleGPUInstance(
-            position: .zero, size: 2, rotation: .zero,
-            color: SIMD3(repeating: 1), alpha: particleAlpha,
-            currentFrame: currentFrame, nextFrame: nextFrame, frameMix: frameMix
-        )]) else { return [] }
-        let pass = MTLRenderPassDescriptor()
-        pass.colorAttachments[0].texture = output
-        pass.colorAttachments[0].loadAction = .clear
-        pass.colorAttachments[0].clearColor = MTLClearColorMake(Double(background), Double(background), Double(background), 0)
-        pass.colorAttachments[0].storeAction = .store
-        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [] }
-        pipeline.draw(
-            texture: texture,
-            instances: instances,
-            uniforms: SceneParticleLayerUniforms(
-                viewProjection: SceneMatrix.identity(),
-                layerModel: SceneMatrix.identity(),
-                basis: SceneParticleOrientationBasis(
-                    right: SIMD3(reversesWinding ? -1 : 1, 0, 0),
-                    up: SIMD3(0, 1, 0)
-                )
-            ),
-            renderState: SceneParticlePipelineRenderState(blendMode: blendMode, cullMode: cullMode, overbright: overbright),
-            colorSampling: .directImageFallback,
-            encoder: encoder
-        )
-        encoder.endEncoding()
-        instances.markSubmitted(on: command)
-        guard commitAndWait(command) else { return [] }
-        var pixel = [UInt8](repeating: 0, count: 4)
-        output.getBytes(
-            &pixel,
-            bytesPerRow: size * 4,
-            from: MTLRegionMake2D(size / 2, size / 2, 1, 1),
-            mipmapLevel: 0
-        )
-        return pixel.map(Int.init)
-    }
 
-    private static func instance(x: Float, z: Float = 0) -> SceneParticleGPUInstance {
-        SceneParticleGPUInstance(
-            position: SIMD3(x, 0, z), size: 1, rotation: .zero,
-            color: SIMD3(repeating: 1), alpha: 1
-        )
-    }
 
-    private static func commitAndWait(_ command: MTLCommandBuffer) -> Bool {
-        let completion = DispatchSemaphore(value: 0)
-        command.addCompletedHandler { _ in completion.signal() }
-        command.commit()
-        return completion.wait(timeout: .now() + 5) == .success && command.status == .completed
-    }
 }
 '''
 
@@ -2432,27 +2180,7 @@ enum Harness {
 class SceneParticleRenderingTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-particle-render-")
-        directory = Path(cls.temporary_directory.name)
-        harness = directory / "Harness.swift"
-        harness.write_text(HARNESS_SOURCE, encoding="utf-8")
-        cls.binary = directory / "scene-particle-render"
-        subprocess.run(
-            [
-                "xcrun", "--sdk", "macosx", "swiftc",
-                *(str(path) for path in SWIFT_SOURCES), str(harness),
-                "-framework", "Metal", "-o", str(cls.binary),
-            ],
-            check=True, capture_output=True, text=True,
-        )
-        completed = subprocess.run(
-            [str(cls.binary)], check=True, capture_output=True, text=True
-        )
-        cls.result = json.loads(completed.stdout)
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.temporary_directory.cleanup()
+        cls.result = run_particle_harness(tuple(SWIFT_SOURCES), HARNESS_SOURCE)
 
     def test_sprite_rotation_matches_authored_basis_sign_and_mixed_axis_order(self) -> None:
         # Public stock ComputeParticleTangents through the existing production
@@ -2555,14 +2283,6 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertEqual(self.result["worldFixedRight"], [1, 0, 0])
         self.assertEqual(self.result["worldFixedUp"], [0, -1, 0])
 
-    def test_metal_right_handed_perspective_matches_scene_camera(self) -> None:
-        self.assertAlmostEqual(self.result["nearNDC"][2], 0, places=5)
-        self.assertAlmostEqual(self.result["farNDC"][2], 1, places=5)
-        for actual, expected in zip(self.result["sceneCenterNDC"], [0, 0, 0.99992]):
-            self.assertAlmostEqual(actual, expected, places=4)
-        for actual, expected in zip(self.result["sceneTopRightNDC"][:2], [1, 1]):
-            self.assertAlmostEqual(actual, expected, places=5)
-        self.assertTrue(self.result["invalidPerspectiveIsIdentity"])
 
     def test_both_blend_states_compile_and_encode_instanced_draws(self) -> None:
         self.assertEqual(self.result["translucentBlend"], [True, True, True, True])
@@ -2576,22 +2296,9 @@ class SceneParticleRenderingTests(unittest.TestCase):
         for channel in pixel:
             self.assertAlmostEqual(channel, 64, delta=2)
 
-    def test_depth_state_rejects_far_fragment_and_overbright_scales_rgb_only(self) -> None:
-        pixel = self.result["depthAndOverbrightPixel"]
-        if not pixel:
-            self.skipTest("Metal depth draw is unavailable")
-        self.assertEqual(pixel[0], 0)
-        self.assertEqual(pixel[1], 0)
-        self.assertAlmostEqual(pixel[2], 128, delta=2)
-        self.assertEqual(pixel[3], 255)
-        self.assertEqual(
-            self.result["depthTargetLease"],
-            {
-                "rejectsFourth": True,
-                "reusesReleased": True,
-                "completionReleased": True,
-            },
-        )
+
+
+
 
     def test_non_square_sprite_geometry_tracks_current_and_blended_frame_aspect(self) -> None:
         wide = self.result["spriteAspectBounds"]
@@ -2622,13 +2329,6 @@ class SceneParticleRenderingTests(unittest.TestCase):
             self.assertEqual(value["centerY2"], square["centerY2"])
         self.assertEqual([scaled["centerX2"], scaled["centerY2"]], [191, 287])
 
-    def test_normal_cull_maps_to_back_faces_and_nocull_remains_two_sided(self) -> None:
-        contract = self.result["cullContract"]
-        if not contract.get("frontBackCull"):
-            self.skipTest("Metal offscreen draw is unavailable")
-        self.assertGreater(contract["frontBackCull"][3], 240)
-        self.assertEqual(contract["reversedBackCull"], [0, 0, 0, 0])
-        self.assertGreater(contract["reversedNoCull"][3], 240)
 
     def test_upright_preserves_system_or_world_axis_under_camera_roll(self) -> None:
         contract = self.result["uprightGeometry"]

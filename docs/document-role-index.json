@@ -531,9 +531,9 @@
       "lastReviewed": "2026-10-11",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f3f1c25e9e9bf1dd3d4a6bd49de7a5e08f91934fec42227253f582cf3e0f12ea",
+        "sourceSHA256": "8647c1858c76ba8997a0e59c5b1ef0735e25d49415ee5d8242748aecf5ec051b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对N02角色reference记录与当前合同、现役队列的职责和入口，保留新增37样本普查导航；仅更新导航与正文身份。",
+        "scope": "核对N07 Sprite世界空间、native相机与逐层深度结果的历史导航和当前粒子合同/队列职责，保留N02与新增37样本原证据边界；仅更新导航与正文身份。",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
@@ -1231,6 +1231,17 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/capabilities/particle-component-coverage.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/particle-world-depth-2026-10-11.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/particle-component-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
     {
@@ -2054,9 +2065,9 @@
       "lastReviewed": "2026-10-11",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "42f0f9c3839601761de9c3d5ead2f92f7d5f35b3ec8e020ebf17fa537079206d",
+        "sourceSHA256": "fe6c409178eaad6f361ec16f7e82c65ca180499c63c27d68e38110cc22fa4789",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对N02组装完成入口与N03材质/effect、N06SceneScript余项的职责、首错和关闭门；仅更新导航与正文身份。",
+        "scope": "核对N07世界Sprite准入首断点的有界退出与GodRays、运动和视觉余项的后续关闭门；仅更新导航与正文身份。",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },

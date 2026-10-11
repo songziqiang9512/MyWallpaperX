@@ -41,20 +41,14 @@ extension SceneMetalRenderer {
         }
         var clearsDepth = usesDepth
         for batch in batches {
-            let basis = cameraFrame.basis(
-                for: batch.orientation,
+            let uniforms = cameraFrame.particleUniforms(
                 layerModel: model,
-                orientationAxis: batch.orientationAxis ?? SIMD3<Float>(0, 0, 1)
-            )
-            let uniforms = SceneParticleLayerUniforms(
-                viewProjection: cameraFrame.viewProjection(
-                    usesPerspective: batch.usesPerspective
-                ),
-                layerModel: model,
-                basis: basis,
+                orientation: batch.orientation,
+                orientationAxis: batch.orientationAxis,
+                usesPerspective: batch.usesPerspective,
+                usesSceneCamera: batch.renderState.usesSceneCamera,
                 viewportSize: viewportSize,
-                sizeIsWorldSpace: batch.sizeIsWorldSpace,
-                viewBasis: cameraFrame.basis(for: .screen)
+                sizeIsWorldSpace: batch.sizeIsWorldSpace
             )
             let didEncode: Bool
             if let refraction = batch.refraction {
