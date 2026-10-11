@@ -436,7 +436,21 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 return materialFailure.phase == .preparation
                     && materialFailure.code == .samplerInternalTargetUnsupported
             } == true
-        guard (ordinaryVisualFailure || framebufferPreparationLimitation),
+        // No Program has encoded yet. An attributed missing launch binding
+        // can discard the complete effect candidate under the same topology
+        // proof below; reference, identity and live frame failures cannot.
+        let launchTextureBindingLimitation = failure.programFailureAttribution
+            .map { attribution in
+                guard case let .launchEnvelope(.material(materialFailure)) =
+                        attribution.cause,
+                      materialFailure.phase == .texture,
+                      materialFailure.code == .textureBindingInvalid,
+                      let slot = materialFailure.slot,
+                      (0 ..< 8).contains(slot) else { return false }
+                return true
+            } == true
+        guard (ordinaryVisualFailure || framebufferPreparationLimitation
+                || launchTextureBindingLimitation),
               product.graph.effects.count == 1,
               !product.graph.nodes.isEmpty,
               product.graph.blockers.isEmpty,

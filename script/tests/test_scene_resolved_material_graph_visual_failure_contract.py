@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
 import runpy
 import shutil
@@ -125,6 +126,74 @@ def compile_harness(support_text: str, harness_text: str, additional_sources=())
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneResolvedMaterialGraphVisualFailureContractTests(unittest.TestCase):
+    def test_launch_texture_binding_failure_keeps_healthy_effect_stages(self) -> None:
+        from script.tests import test_scene_resolved_material_graph_executor as base
+
+        # Compile the shared fixture declarations with an admission-only main;
+        # no Metal command, texture, pipeline or GPU readback is created here.
+        prefix, marker, _ = base.HARNESS.partition("@main\nprivate enum Harness")
+        self.assertTrue(marker)
+        harness = prefix + r'''
+@main private enum LaunchTextureFailureHarness {
+    static func main() throws {
+        setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)
+        let graph = chainedGraph()
+        let chain = orderedLayerGraph(graph)
+        let missing = capabilities(chain, catalog: catalog(
+            for: graph, colorBlendNodes: [1]
+        ))
+        let claim = missing.claim(chain)
+        let compiled = claim.flatMap { missing.resolve($0.token, for: chain) }
+        let stages = compiled?.stages.map { $0.subject?.family ?? "none" } ?? []
+        let reasons = compiled?.stages.map { $0.visualFailureReasonCode ?? "none" } ?? []
+        let survivingMaterials = graph.nodes.map { node in
+            compiled?.material(effect: node.effect, nodeIndex: node.nodeIndex) != nil
+        }
+        var strict: [String: Bool] = [:]
+        for (name, phase, code) in [
+            ("resource", SceneResolvedMaterialFailure.Phase.texture,
+                SceneResolvedMaterialFailure.Code.resourceSnapshotUnresolved),
+            ("identity", .invariant, .identityInvariant),
+            ("reference", .texture, .textureReferenceInvalid),
+            ("frame", .invariant, .frameSnapshotMismatch),
+        ] {
+            let key = SceneResolvedMaterialRuntimeCatalog.Key(
+                effect: graph.nodes[1].effect, nodeIndex: graph.nodes[1].nodeIndex
+            )
+            var entries = catalog(for: graph).entries
+            entries[key] = .failure(.init(phase: phase, code: code, slot: 1, details: []))
+            let rejected = capabilities(chain, catalog: .init(entries: entries,
+                resourceDemandIssues: []))
+            strict[name] = rejected.claim(chain) == nil
+        }
+        let payload: [String: Any] = [
+            "claimed": claim != nil, "stages": stages, "reasons": reasons,
+            "survivingMaterials": survivingMaterials, "strict": strict,
+            "report": missing.reportLines,
+        ]
+        print(String(decoding: try JSONSerialization.data(withJSONObject: payload,
+            options: [.sortedKeys]), as: UTF8.self))
+    }
+}
+'''
+        compilation, completed = base.compile_harness(base.SUPPORT, harness)
+        self.assertEqual(compilation.returncode, 0, compilation.stderr)
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = json.loads(completed.stdout)
+        self.assertTrue(payload["claimed"], payload)
+        self.assertEqual(payload["stages"], [
+            "resolved-material", "visual-failure-passthrough", "resolved-material"
+        ], payload)
+        self.assertEqual(payload["reasons"], [
+            "none", "material-variant-envelope-texture-binding", "none"
+        ], payload)
+        self.assertEqual(payload["survivingMaterials"], [True, False, True], payload)
+        self.assertEqual(payload["strict"], {
+            "resource": True, "identity": True, "reference": True, "frame": True
+        }, payload)
+
     def test_visual_failure_passthrough_keeps_exact_reason_allowlist(self) -> None:
         for source in (
             PROGRAM_FIRST_STAGES_SOURCE,
