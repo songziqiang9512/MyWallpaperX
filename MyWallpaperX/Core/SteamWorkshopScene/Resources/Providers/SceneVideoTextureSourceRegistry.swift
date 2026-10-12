@@ -7,38 +7,9 @@ nonisolated enum SceneVideoCommandApplicationFailure: Error, Equatable {
     case invalidCommand(Int)
 }
 
-extension SceneTextureLoader {
-    func makeVideoTextureSourceIfNeeded(
-        from url: URL,
-        source: SourceKey,
-        layerID: Int,
-        cacheDirectory: URL,
-        device: MTLDevice,
-        capturesLifecycleObservations: Bool = false
-    ) -> SceneVideoTextureSource? {
-        guard url.pathExtension.lowercased() == "tex",
-              sourceKey(for: url) == source,
-              let container = texContainer(from: url, source: source),
-              container.format == 0,
-              let payload = container.mips.first?.data,
-              SceneTexContainer.isVideoPayload(payload),
-              sourceKey(for: url) == source else {
-            return nil
-        }
-        return SceneVideoTextureSource(
-            layerID: layerID,
-            mp4PayloadData: payload,
-            isWebM: SceneTexContainer.isWebMPayload(payload),
-            cacheDirectory: cacheDirectory,
-            device: device,
-            capturesLifecycleObservations: capturesLifecycleObservations
-        )
-    }
-}
-
 final class SceneVideoTextureSourceRegistry {
     private struct SourceIdentity: Hashable {
-        let layerID: Int
+        let owner: SceneVideoTexturePlaybackOwner
         let source: SceneTextureLoader.SourceKey
         let deviceRegistryID: UInt64
     }
@@ -68,11 +39,23 @@ final class SceneVideoTextureSourceRegistry {
         device: MTLDevice,
         loader: SceneTextureLoader
     ) -> SceneVideoTextureSource? {
-        guard let sourceKey = loader.sourceKey(for: url) else {
-            return nil
-        }
+        guard let declaration = loader.videoSourceDeclaration(from: url) else { return nil }
+        return source(declaration: declaration, owner: .layer(layerID),
+            cacheDirectory: cacheDirectory, device: device, loader: loader)
+    }
+
+    func source(
+        declaration: SceneTextureLoader.VideoSourceDeclaration,
+        owner: SceneVideoTexturePlaybackOwner,
+        cacheDirectory: URL,
+        device: MTLDevice,
+        loader: SceneTextureLoader
+    ) -> SceneVideoTextureSource? {
+        let sourceKey = declaration.source
+        let url = declaration.url
+        guard loader.sourceKey(for: url) == sourceKey else { return nil }
         let identity = SourceIdentity(
-            layerID: layerID,
+            owner: owner,
             source: sourceKey,
             deviceRegistryID: device.registryID
         )
@@ -81,10 +64,10 @@ final class SceneVideoTextureSourceRegistry {
             rebuildingSourceIdentities?.insert(identity)
             return source
         }
-        guard let source = loader.makeVideoTextureSourceIfNeeded(
-            from: url,
-            source: sourceKey,
-            layerID: layerID,
+        guard let source = SceneVideoTextureSource(
+            owner: owner,
+            mp4PayloadData: declaration.payload,
+            isWebM: declaration.isWebM,
             cacheDirectory: cacheDirectory,
             device: device,
             capturesLifecycleObservations: capturesLifecycleObservations
@@ -109,9 +92,11 @@ final class SceneVideoTextureSourceRegistry {
         sceneTime: TimeInterval
     ) -> [Int: SceneScriptVideoPlaybackSnapshot] {
         if orderedSourceIdentities == nil {
-            orderedSourceIdentities = sources.keys.sorted { lhs, rhs in
-                if lhs.layerID != rhs.layerID {
-                    return lhs.layerID < rhs.layerID
+            orderedSourceIdentities = sources.keys.filter { $0.owner.layerID != nil }
+                .sorted { lhs, rhs in
+                if let left = lhs.owner.layerID, let right = rhs.owner.layerID,
+                   left != right {
+                    return left < right
                 }
                 return lhs.deviceRegistryID < rhs.deviceRegistryID
             }
@@ -120,7 +105,7 @@ final class SceneVideoTextureSourceRegistry {
             into: [Int: SceneScriptVideoPlaybackSnapshot]()
         ) { result, identity in
             guard let source = sources[identity] else { return }
-            let snapshot = source.playbackSnapshot(sceneTime: sceneTime)
+            guard let snapshot = source.playbackSnapshot(sceneTime: sceneTime) else { return }
             if result[snapshot.layerID] == nil {
                 result[snapshot.layerID] = snapshot
             }
@@ -161,8 +146,11 @@ final class SceneVideoTextureSourceRegistry {
         guard commands.count <= 64 else {
             return .failure(.commandBudgetExceeded)
         }
-        let sourcesByLayer = Dictionary(grouping: sources.values) {
-            $0.playbackSnapshot(sceneTime: timing.sceneTime).layerID
+        var sourcesByLayer: [Int: [SceneVideoTextureSource]] = [:]
+        for source in sources.values {
+            if let layerID = source.owner.layerID {
+                sourcesByLayer[layerID, default: []].append(source)
+            }
         }
         for (index, command) in commands.enumerated() {
             guard let targets = sourcesByLayer[command.layerID],

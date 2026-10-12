@@ -440,8 +440,22 @@ final class SceneDesktopWallpaperSession {
             }
         }
 #endif
+        var assetVideoSources: [SceneAssetTextureIdentity: SceneVideoTextureSource] = [:]
+        for (identity, declaration) in launchContext.materialAssetCatalog.videoDeclarations {
+            if let source = videoTextureSourceRegistry.source(
+                declaration: declaration, owner: .asset,
+                cacheDirectory: launchContext.cacheDirectory,
+                device: launchContext.preparedDeviceResources.device,
+                loader: launchContext.preparedDeviceResources.baseImages.textureLoader
+            ) {
+                assetVideoSources[identity] = source
+            }
+        }
         for (screen, screenID) in surfaceScreens {
             let frame = screen.frame
+            let materialRuntime = launchContext.makeResolvedMaterialRuntime()
+            materialRuntime.installAssetVideoSources(assetVideoSources,
+                declaredIdentities: Set(launchContext.materialAssetCatalog.videoDeclarations.keys))
             guard let metalView = SceneMetalView(
                 renderDescriptor: launchContext.runtimeInput.renderDescriptor,
                 effectAdmissionCatalog: launchContext.effectAdmissionCatalog,
@@ -463,7 +477,7 @@ final class SceneDesktopWallpaperSession {
                     launchContext.preparedDeviceResources.pipelineRepository,
                 imageLayerPipeline:
                     launchContext.preparedDeviceResources.imageLayerPipeline,
-                resolvedMaterialRuntime: launchContext.makeResolvedMaterialRuntime(),
+                resolvedMaterialRuntime: materialRuntime,
                 textureAnimationPlaybackRuntime:
                     launchContext.textureAnimationPlaybackRuntime,
                 puppetAnimationPlaybackRuntime: launchContext.puppetAnimationPlaybackRuntime,

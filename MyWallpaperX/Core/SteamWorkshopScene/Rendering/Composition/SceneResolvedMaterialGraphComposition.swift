@@ -518,11 +518,11 @@ extension SceneImageLayerCompositor {
     }
 
     func resolvedMaterialAssetStates(
-        sceneTime: TimeInterval
+        timing: SceneFrameTiming
     ) -> [
         SceneAssetTextureIdentity: SceneTextureProviderState
     ] {
-        resolvedMaterialRuntime?.resolvedAssetStates(sceneTime: sceneTime) ?? [:]
+        resolvedMaterialRuntime?.resolvedAssetStates(timing: timing) ?? [:]
     }
 
     func commitResolvedMaterialAssetFrame() {

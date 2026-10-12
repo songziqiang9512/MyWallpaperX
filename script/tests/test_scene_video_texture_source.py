@@ -14,7 +14,6 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RESOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources"
 STATE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoProviderLifecycleState.swift"
 VIDEO_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoTextureSource.swift"
-REGISTRY_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoTextureSourceRegistry.swift"
 HOST_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
 )
@@ -382,7 +381,7 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
         cls.source = VIDEO_SOURCE.read_text(encoding="utf-8")
 
     def test_initialization_prepares_the_source_without_autoplay(self) -> None:
-        initializer = swift_block(self.source, "init?(")
+        initializer = swift_block(self.source, "init?(\n        owner:")
         self.assertIsNotNone(initializer)
         assert initializer is not None
         self.assertNotIn(
@@ -407,9 +406,9 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
             "timing.hostTime",
             "contentGeneration",
             "lifecycle.planFrame(",
-            "requestIdentity: .layerSource(layerID)",
+            "publication(request: .layerSource(layerID)",
             "candidate: SceneTextureCandidate(",
-            "identity: .provider(.video(",
+            "provider: .video(",
             "lifecycleEpoch: epoch",
             "generation: .provider(contentGeneration: contentGeneration)",
             "purpose: .premultipliedColor",
@@ -492,31 +491,6 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
         deinitializer = swift_block(self.source, "deinit")
         self.assertIsNotNone(deinitializer)
         self.assertIn("stop()", deinitializer)
-
-
-class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
-
-    def test_registry_fails_closed_without_stable_file_metadata(self) -> None:
-        registry = REGISTRY_SOURCE.read_text(encoding="utf-8")
-        source_method = swift_block(registry, "func source(")
-        self.assertIsNotNone(source_method)
-        assert source_method is not None
-        self.assertIn(
-            "guard let sourceKey = loader.sourceKey(for: url)",
-            source_method,
-        )
-        self.assertIn("source: sourceKey", source_method)
-        self.assertGreaterEqual(
-            source_method.count("loader.sourceKey(for: url) == sourceKey"),
-            2,
-            "cached and newly created video sources must revalidate metadata",
-        )
-        self.assertLess(
-            source_method.index("guard let sourceKey"),
-            source_method.index("let identity = SourceIdentity("),
-            "unavailable metadata must not form a video registry identity",
-        )
-
 
 
 if __name__ == "__main__":

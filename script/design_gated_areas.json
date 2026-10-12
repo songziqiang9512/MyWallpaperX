@@ -431,6 +431,21 @@
         "SceneScriptMediaPlaybackCommand",
         "sound_is_playing"
       ]
+    },
+    {
+      "id": "scene-material-video-assets",
+      "title": "材质视频asset与fallback共用媒体owner",
+      "owner": "scene-video-assets",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/material-video-assets.md",
+      "design_notes": "有界asset/fallback已接原媒体owner，prepared与decoded ready分域；稳定合同接管，原设计和实际后验归历史。其余purpose/普通material完整组合仍不外推；不得新增播放器、时钟或伪造layer/alpha。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideo*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneMaterialAssetTextureCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureProviderPublication.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseMaterialTextureResolver.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

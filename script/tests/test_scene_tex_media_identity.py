@@ -125,10 +125,11 @@ import Foundation
                                     capture_output=True, text=True)
             self.assertEqual(json.loads(result.stdout), expected)
             registry = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoTextureSourceRegistry.swift").read_text()
-            # Receiver-agnostic on purpose: the shared payload predicate moved to
-            # the Format layer, and a receiver-specific assertion would pin the
-            # call site instead of the media identity contract.
-            self.assertIn("isVideoPayload(payload)", registry)
+            loader = (SCENE / "Resources/Textures/SceneTextureLoader.swift").read_text()
+            # The registry now consumes the loader's prepared media declaration;
+            # both consumers still use the same Format-layer signature authority.
+            self.assertIn("loader.videoSourceDeclaration(from: url)", registry)
+            self.assertIn("isVideoPayload(payload)", loader)
             self.assertNotIn("container.isVideoMp4 ||", registry)
 
     def test_small_video_payloads_keep_existing_multi_image_and_mip_behavior(self) -> None:

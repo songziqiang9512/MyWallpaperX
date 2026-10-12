@@ -39,7 +39,7 @@ extension SceneMetalRenderer {
             layerSources: imageTextures.textures,
             explicitLayerSources: imageTextures.explicitLayerSources,
             assetStates: imageCompositor.resolvedMaterialAssetStates(
-                sceneTime: frameContext.sceneTime
+                timing: frameContext.timing
             ),
             userPropertyTextures: userPropertyTextures,
             userPropertyStates: userPropertyStates,

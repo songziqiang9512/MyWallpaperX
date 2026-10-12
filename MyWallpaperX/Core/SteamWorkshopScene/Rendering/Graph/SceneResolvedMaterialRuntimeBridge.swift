@@ -261,6 +261,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         capabilities.visibilityOwnedLayerIDs
     }
     private let assetProvider: SceneMaterialAssetTextureCatalog.FrameProvider
+    private var assetVideoSources: [SceneAssetTextureIdentity: SceneVideoTextureSource] = [:]
+    private var orderedAssetVideoIdentities: [SceneAssetTextureIdentity] = []
     let submissions: SceneResolvedMaterialSubmissionCoordinator
     var sourceMaterials: [Int: PreparedSourceMaterial] = [:] {
         didSet {
@@ -308,9 +310,36 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
 
     func resolvedAssetStates(
-        sceneTime: TimeInterval
+        timing: SceneFrameTiming
     ) -> [SceneAssetTextureIdentity: SceneTextureProviderState] {
-        assetProvider.states(sceneTime: sceneTime)
+        var states = assetProvider.states(sceneTime: timing.sceneTime)
+        for identity in orderedAssetVideoIdentities {
+            guard let source = assetVideoSources[identity] else {
+                states[identity] = .unavailable
+                continue
+            }
+            guard let frame = source.prepareFrame(for: timing) else {
+                states[identity] = .pending
+                continue
+            }
+            if let publication = frame.assetPublication(for: identity),
+               publication.isComplete {
+                states[identity] = .ready(publication)
+            } else {
+                states[identity] = .unavailable
+            }
+        }
+        return states
+    }
+
+    /// Activation binds registry-owned decoders to prepared logical requests.
+    /// The bridge does not own a player, media clock or video transaction.
+    func installAssetVideoSources(
+        _ sources: [SceneAssetTextureIdentity: SceneVideoTextureSource],
+        declaredIdentities: Set<SceneAssetTextureIdentity>
+    ) {
+        assetVideoSources = sources
+        orderedAssetVideoIdentities = declaredIdentities.sorted { $0.reportToken < $1.reportToken }
     }
 
     func commitResolvedAssetFrame() {

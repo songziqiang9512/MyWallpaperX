@@ -36,18 +36,19 @@ enum SceneFrameLayerTextureAssembly {
         _ = mediaThumbnail
         _ = mediaBindings
         for (layerID, source) in videoSources {
-            guard let frame = source.prepareFrame(for: timing) else {
+            guard let frame = source.prepareFrame(for: timing),
+                  let publication = frame.publication else {
                 pendingLayerSourceIDs.insert(layerID)
                 continue
             }
             textures[layerID] = frame.texture
             if let layerSource = SceneLayerSourcePublication(
                 layerID: layerID,
-                publication: frame.publication
+                publication: publication
             ) {
                 layerSourcePublications[layerID] = layerSource
             } else {
-                publications[layerID] = frame.publication
+                publications[layerID] = publication
             }
         }
         return base.snapshot(

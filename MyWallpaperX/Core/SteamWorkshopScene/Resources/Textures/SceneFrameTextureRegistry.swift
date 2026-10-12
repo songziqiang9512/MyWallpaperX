@@ -494,14 +494,15 @@ final class SceneFrameTextureRegistry {
         _ publication: SceneTextureProviderPublication,
         previous: SceneTextureProviderPublication
     ) -> Bool {
-        guard case let .provider(.video(incomingLayer, incomingEpoch)) =
-                publication.lifecycleIdentity,
-              case let .provider(.video(previousLayer, previousEpoch)) =
-                previous.lifecycleIdentity,
-              incomingLayer == previousLayer else {
-            return false
+        switch (publication.lifecycleIdentity, previous.lifecycleIdentity) {
+        case let (.provider(.video(incomingLayer, incomingEpoch)),
+                  .provider(.video(previousLayer, previousEpoch))):
+            return incomingLayer == previousLayer && incomingEpoch < previousEpoch
+        case let (.provider(.videoAsset(incomingAsset, _, incomingEpoch)),
+                  .provider(.videoAsset(previousAsset, _, previousEpoch))):
+            return incomingAsset == previousAsset && incomingEpoch < previousEpoch
+        default: return false
         }
-        return incomingEpoch < previousEpoch
     }
 
     private func publish(

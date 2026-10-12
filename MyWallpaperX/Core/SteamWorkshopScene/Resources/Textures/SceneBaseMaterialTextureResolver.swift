@@ -54,6 +54,8 @@ enum SceneBaseMaterialTextureResolver {
             let isAsset: Bool
             switch candidate.identity {
             case .file, .builtIn: isAsset = true
+            case let .provider(.videoAsset(candidateAsset, _, epoch)):
+                isAsset = candidateAsset == asset && epoch > 0
             case .provider: isAsset = false
             }
             guard publication.requestIdentity == identity,
@@ -150,14 +152,16 @@ extension SceneMetalRenderer {
             ))
         case .authoredFallback:
             return authoredBaseMaterialFallback(
-                for: layer, binding: binding, imageTextures: imageTextures
+                for: layer, binding: binding, imageTextures: imageTextures,
+                readyProviderUsesAuthoredLayerColor: readyProviderUsesAuthoredLayerColor
             )
         case let .rejected(reasonCode):
             // Reject only the unsafe provider replacement. The authored
             // placeholder remains the safe previous-current for this slot.
             return authoredBaseMaterialFallback(
                 for: layer, binding: binding, imageTextures: imageTextures,
-                rejectedProviderReason: reasonCode
+                rejectedProviderReason: reasonCode,
+                readyProviderUsesAuthoredLayerColor: readyProviderUsesAuthoredLayerColor
             )
         }
     }
@@ -166,28 +170,41 @@ extension SceneMetalRenderer {
         for layer: SceneRenderDescriptor.Layer,
         binding: SceneBaseMaterialProviderBindingProgram.BaseMaterialBinding,
         imageTextures: SceneBaseImageTextureSnapshot,
-        rejectedProviderReason: String? = nil
+        rejectedProviderReason: String? = nil,
+        readyProviderUsesAuthoredLayerColor: Bool
     ) -> SceneBaseMaterialTextureSelection {
         let texture: MTLTexture
         let candidate: SceneTextureCandidate?
+        let usesAuthoredLayerColor: Bool
         switch SceneBaseMaterialTextureResolver.resolveFallback(
             binding: binding, registry: textureRegistry
         ) {
         case let .ready(asset):
             texture = asset.texture
             candidate = asset
+            // A live material source has the same tint role whether selected
+            // directly or through an authored fallback. Static fallback pixels
+            // remain part of the authored placeholder's original color role.
+            if case .provider = asset.identity,
+               layer.contentKind == "solid" || binding.provider.isSystemProvider {
+                usesAuthoredLayerColor = readyProviderUsesAuthoredLayerColor
+            } else {
+                usesAuthoredLayerColor = true
+            }
         case .authoredFallback:
             guard let fallback = imageTextures[layer.id] else {
                 return rejectedProviderReason.map { .rejected(reasonCode: $0) } ?? .missing
             }
             texture = fallback
             candidate = imageTextures.candidate(for: layer.id, matching: fallback)
+            usesAuthoredLayerColor = true
         case let .rejected(reasonCode):
             return .rejected(reasonCode: reasonCode)
         }
         return .source(.init(texture: texture, candidate: candidate,
             usesSystemProvider: false, usesUserPropertyProvider: false,
-            usesAuthoredLayerColor: true, rejectedProviderReason: rejectedProviderReason))
+            usesAuthoredLayerColor: usesAuthoredLayerColor,
+            rejectedProviderReason: rejectedProviderReason))
     }
 
     func baseMaterialTextureSource(

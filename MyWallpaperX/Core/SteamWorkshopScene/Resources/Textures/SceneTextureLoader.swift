@@ -115,6 +115,27 @@ nonisolated final class SceneTextureLoader {
         let statusChangedAtNanoseconds: Int64
     }
 
+    /// An immutable media input, never a decoded or ready texture. Both layer
+    /// and material preparation consume these same stable-source facts.
+    struct VideoSourceDeclaration {
+        let url: URL
+        let source: SourceKey
+        let payload: Data
+        let isWebM: Bool
+    }
+
+    func videoSourceDeclaration(from url: URL) -> VideoSourceDeclaration? {
+        guard url.pathExtension.lowercased() == "tex",
+              let source = sourceKey(for: url),
+              let container = texContainer(from: url, source: source),
+              container.format == 0,
+              let payload = container.mips.first?.data,
+              SceneTexContainer.isVideoPayload(payload),
+              sourceKey(for: url) == source else { return nil }
+        return .init(url: url, source: source, payload: payload,
+            isWebM: SceneTexContainer.isWebMPayload(payload))
+    }
+
     private struct TextureKey: Hashable {
         let source: SourceKey
         let deviceRegistryID: UInt64

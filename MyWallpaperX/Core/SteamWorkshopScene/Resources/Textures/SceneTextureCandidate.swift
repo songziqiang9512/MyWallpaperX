@@ -99,6 +99,11 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
     case sceneEnvironment(frameEpoch: UInt64, allocationGeneration: UInt64,
                           source: SceneCompletedColorSourceIdentity)
     case video(layerID: Int, lifecycleEpoch: UInt64)
+    case videoAsset(
+        asset: SceneAssetTextureIdentity,
+        sourceIncarnation: UUID,
+        lifecycleEpoch: UInt64
+    )
 
     var reportToken: String {
         switch self {
@@ -126,7 +131,21 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
             return "scene-background:\(consumerLayerID):epoch:\(frameEpoch)"
         case let .video(layerID, lifecycleEpoch):
             return "video:\(layerID):epoch:\(lifecycleEpoch)"
+        case let .videoAsset(asset, incarnation, epoch):
+            return "video:\(asset.reportToken):source:\(incarnation.uuidString):epoch:\(epoch)"
         }
+    }
+}
+
+/// Playback ownership is distinct from a logical sampler request. Asset sources
+/// share one physical decoder; layer sources retain independent authored control.
+nonisolated enum SceneVideoTexturePlaybackOwner: Hashable, Sendable {
+    case layer(Int)
+    case asset
+
+    var layerID: Int? {
+        guard case let .layer(id) = self else { return nil }
+        return id
     }
 }
 

@@ -458,8 +458,14 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 ?? sampler.purpose(for: reference) else { return nil }
         if case let .asset(path) = reference {
             let identity = SceneAssetTextureIdentity(path: path, purpose: purpose)
-            guard case let .ready(content)? = assetStates[identity] else {
-                return nil
+            let content: SceneTextureContent
+            switch assetStates[identity] {
+            case let .ready(value)?: content = value
+            case .preparedVideoColor? where purpose == .premultipliedColor:
+                // A provider contract, like a prepared scene-background input.
+                // Runtime finalization still requires a complete decoded frame.
+                content = .color(.resolved(.premultipliedAlpha))
+            default: return nil
             }
             return .init(
                 isGraphReference: false,

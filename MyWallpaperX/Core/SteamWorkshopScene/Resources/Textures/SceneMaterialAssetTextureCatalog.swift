@@ -151,6 +151,7 @@ final class SceneMaterialAssetTextureCatalog {
 
     private let staticStates: [SceneAssetTextureIdentity: SceneTextureProviderState]
     private let animatedDefinitions: [SceneAssetTextureIdentity: AnimatedDefinition]
+    let videoDeclarations: [SceneAssetTextureIdentity: SceneTextureLoader.VideoSourceDeclaration]
     private let launchStatesByIdentity: [
         SceneAssetTextureIdentity: SceneAssetTextureLaunchState
     ]
@@ -175,6 +176,7 @@ final class SceneMaterialAssetTextureCatalog {
         )
         var loaded: [SceneAssetTextureIdentity: SceneTextureProviderState] = [:]
         var animated: [SceneAssetTextureIdentity: AnimatedDefinition] = [:]
+        var videos: [SceneAssetTextureIdentity: SceneTextureLoader.VideoSourceDeclaration] = [:]
         var launchStates: [
             SceneAssetTextureIdentity: SceneAssetTextureLaunchState
         ] = [:]
@@ -186,6 +188,20 @@ final class SceneMaterialAssetTextureCatalog {
             }
             let container = url.pathExtension.lowercased() == "tex"
                 ? loader.texContainer(from: url) : nil
+            if let container, let declaration = loader.videoSourceDeclaration(from: url) {
+                guard identity.purpose == .premultipliedColor,
+                      !container.isVolume, !container.isAnimated,
+                      container.spriteFrames.isEmpty,
+                      container.imageCount == 1, container.mips.count == 1 else {
+                    loaded[identity] = .unavailable
+                    launchStates[identity] = .unavailable
+                    continue
+                }
+                videos[identity] = declaration
+                loaded[identity] = .pending
+                launchStates[identity] = .preparedVideoColor
+                continue
+            }
             if let container,
                container.isAnimated || !container.spriteFrames.isEmpty
                     || container.imageCount != 1 {
@@ -246,6 +262,7 @@ final class SceneMaterialAssetTextureCatalog {
         }
         staticStates = loaded
         animatedDefinitions = animated
+        videoDeclarations = videos
         launchStatesByIdentity = launchStates
     }
 
@@ -297,6 +314,9 @@ final class SceneMaterialAssetTextureCatalog {
         })
         for (identity, definition) in animatedDefinitions {
             values[identity.reportToken] = definition.base.authoredFormat?.macroValue ?? -2
+        }
+        for identity in videoDeclarations.keys {
+            values[identity.reportToken] = SceneShaderTextureFormat.rgba8888.macroValue
         }
         return values
     }

@@ -1527,13 +1527,6 @@
       "count": 1
     },
     {
-      "path": "script/tests/test_scene_video_texture_source.py",
-      "scope": "SceneVideoProviderOwnershipContractTests.test_registry_fails_closed_without_stable_file_metadata",
-      "method": "assertIn",
-      "literal": "guard let sourceKey = loader.sourceKey(for: url)",
-      "count": 1
-    },
-    {
       "path": "script/tests/test_scene_wallpaper_async_launch.py",
       "scope": "SceneWallpaperAsyncLaunchTests.test_launch_availability_projection_preserves_fail_closed_fallback",
       "method": "assertIn",

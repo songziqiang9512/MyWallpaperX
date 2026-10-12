@@ -291,6 +291,11 @@ struct SceneImageLayerDrawRequest {
         case ("solid", .file),
              ("solid", .provider(.mediaThumbnailCurrent)):
             acceptsCandidate = true
+        case let ("solid", .provider(.videoAsset(asset, _, epoch))):
+            // This candidate remains the exact asset request admitted by the
+            // base resolver; video assets never become a layer-source identity.
+            acceptsCandidate = epoch > 0 && asset.purpose == .premultipliedColor
+                && baseTextureCandidate.purpose == asset.purpose
         default:
             acceptsCandidate = false
         }

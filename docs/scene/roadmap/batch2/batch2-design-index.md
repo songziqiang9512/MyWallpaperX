@@ -41,4 +41,4 @@
 
 最初设计批次为每卡写入 owner、route、失败半径和正反实施门；该批次当时没有运行 GPU/VM/WebKit/Steam 实验，也未修改能力台账、运行证据或重构计划。后续实施与运行事实仍由相应现役台账和证据拥有，设计不能替代这些权威。
 
-多段 solid 输入尺寸与最后有效材质显示的后继见[终端材质链设计](terminal-material-chain-design.md)，已批准实施，尚未验收；不替代断点队列的执行顺序。
+后继见[终端材质链](terminal-material-chain-design.md)；视频asset设计已[归档](../../history/material-video-assets-2026-10-12.md)，合同归[材质合同](../../capabilities/material-video-assets.md)。

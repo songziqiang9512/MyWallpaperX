@@ -28,6 +28,9 @@ nonisolated struct SceneTextureProviderPublication {
     }
 
     private var requestIdentityMatchesCandidateLifecycle: Bool {
+        if case let .provider(.videoAsset(asset, _, epoch)) = candidate.identity {
+            return requestIdentity == .asset(asset) && epoch > 0
+        }
         guard case let .system(request) = requestIdentity else { return true }
         let expectedProvider: SceneTextureProviderIdentity?
         switch request.name {
@@ -260,6 +263,9 @@ nonisolated enum SceneAssetTextureEffectLocalUnavailable: Hashable {
 
 nonisolated enum SceneAssetTextureLaunchState: Hashable {
     case ready(SceneTextureContent)
+    /// Only the publication contract is prepared. No concrete frame, alpha
+    /// attachment or ready publication has been observed yet.
+    case preparedVideoColor
     case absent
     case pending
     case unavailable

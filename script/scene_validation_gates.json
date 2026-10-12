@@ -718,7 +718,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackRegistry.swift",
         "MyWallpaperX/Resources/SceneStockAssets.bundle/**",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/**",
-        "script/tests/test_scene_embedded_data_mip_resource.py"
+        "script/tests/test_scene_embedded_data_mip_resource.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerDrawRequest.swift"
       ],
       "keywords": [
         "resource",
@@ -727,6 +728,7 @@
       ],
       "modules": [
         "test_scene_tex_media_identity",
+        "test_scene_material_video_asset",
         "test_scene_animated_material_asset",
         "test_scene_animated_material_visual_failure",
         "test_scene_asset_catalog_resource_view",

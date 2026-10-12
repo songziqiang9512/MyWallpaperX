@@ -10,25 +10,45 @@ final class SceneVideoTextureSource {
         let requestedItemTime: TimeInterval
         let decodedItemTime: TimeInterval?
         let epoch: UInt64
-        let layerID: Int
+        let owner: SceneVideoTexturePlaybackOwner
+        let sourceIncarnation: UUID
 
-        var publication: SceneTextureProviderPublication {
+        var publication: SceneTextureProviderPublication? {
+            guard let layerID = owner.layerID else { return nil }
+            return publication(request: .layerSource(layerID), provider: .video(
+                layerID: layerID, lifecycleEpoch: epoch
+            ), authoredFormat: nil)
+        }
+
+        func assetPublication(
+            for asset: SceneAssetTextureIdentity
+        ) -> SceneTextureProviderPublication? {
+            guard owner == .asset, asset.purpose == .premultipliedColor else { return nil }
+            return publication(request: .asset(asset), provider: .videoAsset(
+                asset: asset, sourceIncarnation: sourceIncarnation,
+                lifecycleEpoch: epoch
+            ), authoredFormat: .rgba8888)
+        }
+
+        private func publication(
+            request: SceneFrameTextureIdentity,
+            provider: SceneTextureProviderIdentity,
+            authoredFormat: SceneShaderTextureFormat?
+        ) -> SceneTextureProviderPublication {
             let size = CGSize(width: texture.width, height: texture.height)
             return SceneTextureProviderPublication(
-                requestIdentity: .layerSource(layerID),
+                requestIdentity: request,
                 candidate: SceneTextureCandidate(
                     texture: texture,
-                    identity: .provider(.video(
-                        layerID: layerID,
-                        lifecycleEpoch: epoch
-                    )),
+                    identity: .provider(provider),
                     generation: .provider(contentGeneration: contentGeneration),
                     purpose: .premultipliedColor,
                     content: content,
                     physicalSize: size,
                     mappedSize: size,
                     uvTransform: .identity,
-                    sampling: .linearClamp
+                    sampling: .linearClamp,
+                    authoredFormat: authoredFormat
                 ),
                 contentGeneration: contentGeneration
             )
@@ -40,7 +60,8 @@ final class SceneVideoTextureSource {
     private let videoOutput: AVPlayerItemVideoOutput
     private let textureCache: CVMetalTextureCache
     private let temporaryFileURL: URL
-    private let layerID: Int
+    let owner: SceneVideoTexturePlaybackOwner
+    private let sourceIncarnation = UUID()
     private let capturesLifecycleObservations: Bool
     private var endObserver: NSObjectProtocol?
     private var payloadPreparation: Task<Void, Error>?
@@ -63,7 +84,7 @@ final class SceneVideoTextureSource {
     private var playerEventState = SceneVideoPlayerEventState()
     private var endedGeneration: UInt64 = 0
 
-    init?(
+    convenience init?(
         layerID: Int,
         mp4PayloadData: Data,
         isWebM: Bool = false,
@@ -71,7 +92,20 @@ final class SceneVideoTextureSource {
         device: MTLDevice,
         capturesLifecycleObservations: Bool = false
     ) {
-        self.layerID = layerID
+        self.init(owner: .layer(layerID), mp4PayloadData: mp4PayloadData,
+            isWebM: isWebM, cacheDirectory: cacheDirectory, device: device,
+            capturesLifecycleObservations: capturesLifecycleObservations)
+    }
+
+    init?(
+        owner: SceneVideoTexturePlaybackOwner,
+        mp4PayloadData: Data,
+        isWebM: Bool = false,
+        cacheDirectory: URL,
+        device: MTLDevice,
+        capturesLifecycleObservations: Bool = false
+    ) {
+        self.owner = owner
         self.capturesLifecycleObservations = capturesLifecycleObservations
         let outputDirectory = cacheDirectory
             .appendingPathComponent(".mywallpaperx-scene-video-payloads", isDirectory: true)
@@ -85,7 +119,7 @@ final class SceneVideoTextureSource {
             return nil
         }
 
-        let filename = "layer-\(layerID)-\(UUID().uuidString).mp4"
+        let filename = "video-\(sourceIncarnation.uuidString).mp4"
         let fileURL = outputDirectory.appendingPathComponent(filename)
         do {
             if !isWebM { try mp4PayloadData.write(to: fileURL, options: [.atomic]) }
@@ -144,7 +178,8 @@ final class SceneVideoTextureSource {
                 case .success:
                     self.installItem(at: fileURL)
                 case let .failure(error):
-                    NSLog("MWX video preparation failed: layer=%d error=%@", layerID, String(describing: error))
+                    NSLog("MWX video preparation failed: owner=%@ error=%@",
+                        String(describing: owner), String(describing: error))
                 }
             }
         } else {
@@ -306,7 +341,8 @@ final class SceneVideoTextureSource {
             decodedItemTime: itemTimeForDisplay.isNumeric
                 ? CMTimeGetSeconds(itemTimeForDisplay) : nil,
             epoch: plan.epoch,
-            layerID: layerID
+            owner: owner,
+            sourceIncarnation: sourceIncarnation
         )
         needsPlayerAnchor = false
         if !lifecycle.isPlaying { player.pause() }
@@ -333,7 +369,7 @@ final class SceneVideoTextureSource {
             return
         }
         lastFrame = pendingFrame
-        if capturesLifecycleObservations {
+        if capturesLifecycleObservations, let layerID = owner.layerID {
             NSLog(
                 "MWX video frame: schema=video-frame-v1 layer=%d epoch=%llu frame=%llu generation=%llu requested=%.9f decoded=%@",
                 layerID, pendingFrame.epoch, frameIndex, pendingFrame.contentGeneration,
@@ -341,7 +377,19 @@ final class SceneVideoTextureSource {
                 pendingFrame.decodedItemTime.map { String(format: "%.9f", $0) } ?? "unavailable"
             )
         }
+#if DEBUG
+        if capturesLifecycleObservations, owner == .asset {
+            NSLog(
+                "MWX video frame: schema=video-frame-v1 owner=asset source=%@ epoch=%llu frame=%llu generation=%llu requested=%.9f decoded=%@ content=%@",
+                sourceIncarnation.uuidString, pendingFrame.epoch, frameIndex,
+                pendingFrame.contentGeneration, pendingFrame.requestedItemTime,
+                pendingFrame.decodedItemTime.map { String(format: "%.9f", $0) } ?? "unavailable",
+                String(describing: pendingFrame.content)
+            )
+        }
+#endif
     }
+
 
     func discardPreparedFrame() {
         guard let frameIndex = pendingFrameIndex else { return }
@@ -371,7 +419,8 @@ final class SceneVideoTextureSource {
 
     func playbackSnapshot(
         sceneTime: TimeInterval
-    ) -> SceneScriptVideoPlaybackSnapshot {
+    ) -> SceneScriptVideoPlaybackSnapshot? {
+        guard let layerID = owner.layerID else { return nil }
         let duration = self.duration
         let current = boundedCurrentTime(
             lifecycle.currentTime(at: sceneTime),
@@ -389,7 +438,8 @@ final class SceneVideoTextureSource {
     }
 
     func canApply(_ command: SceneScriptMediaPlaybackCommand) -> Bool {
-        guard command.destination == .videoTexture, command.layerID == layerID else { return false }
+        guard command.destination == .videoTexture,
+              command.layerID == owner.layerID else { return false }
         switch command.action {
         case .play, .pause, .stop, .setLoop:
             return true
@@ -548,6 +598,7 @@ final class SceneVideoTextureSource {
         duration: TimeInterval
     ) {
         guard capturesLifecycleObservations else { return }
+        guard let layerID = owner.layerID else { return }
         NSLog(
             "MWX video provider event: schema=video-provider-event-v1 layer=%d event=end disposition=%@ commandGeneration=%llu anchoredGeneration=%@ itemTime=%.6f duration=%.6f",
             layerID,

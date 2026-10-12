@@ -146,3 +146,5 @@
 
 - [内嵌WebM视频背景恢复](embedded-webm-video-2026-10-10.md)：单一AVPlayer链、无损容器准备、U06原包及剩余边界。
 - [事件型显隐持久修复](event-visibility-persistence-2026-10-10.md)：复用原图层事务，恢复312双窗口、热切与拖动。
+
+- [材质视频资产与实际采样后验](material-video-assets-2026-10-12.md)：同一媒体owner的asset/fallback接入、实际黑屏断点；含日期与显隐队列纠正。
