@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 import unittest
 
-from test_scene_texture_candidate import HARNESS as CANDIDATE_HARNESS, SWIFT_SOURCES
+from script.tests.test_scene_texture_candidate import HARNESS as CANDIDATE_HARNESS, SWIFT_SOURCES
 
 
 HARNESS = CANDIDATE_HARNESS.split('@main')[0] + r'''

@@ -146,7 +146,7 @@ nonisolated enum SceneTextureMipUploader {
         // Match color uploads: retain all authored levels, including padded
         // bases above the loose-image normalization limit.
         guard let source = images.first,
-              (purpose == .straightAlbedo && images.count > 1)
+              images.count > 1
                 || (source.width <= maximumDimension && source.height <= maximumDimension)
         else { return nil }
         let selectedImages = images

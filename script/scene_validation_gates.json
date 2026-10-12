@@ -717,7 +717,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackRegistry.swift",
         "MyWallpaperX/Resources/SceneStockAssets.bundle/**",
-        "MyWallpaperX/Core/SteamWorkshopScene/Resources/**"
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/**",
+        "script/tests/test_scene_embedded_data_mip_resource.py"
       ],
       "keywords": [
         "resource",
@@ -737,6 +738,7 @@
         "test_scene_layer_source_publication",
         "test_scene_material_render_state",
         "test_scene_material_texture_transform",
+        "test_scene_embedded_data_mip_resource",
         "test_scene_raw_texture_uploader",
         "test_scene_sampler_default_purpose",
         "test_scene_tex_parse_authority",

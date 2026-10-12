@@ -16,11 +16,11 @@
 |---|---|
 | App音频触发桌面冻结 | [普通桌面权限与资源驻留](../history/terminal-attachment-desktop-freeze-2026-10-10.md)：包含342真实App音频、封面依赖/热切与312健康回归；亮度、性能及证据边界见该页。 |
 | 样本声明与运行关联 | [243份声明快照](scene-corpus-capability-inventory.md)、[验收来源](scene-sample-acceptance-ledger.md)保留旧身份；[10-11新增37份普查](../history/new-scene-intake-2026-10-11.md)补当前279成员中的新增运行，未验全库正确率；待修归[队列](../roadmap/scene-open-breakpoint-queue.md) |
-| Sampler 声明、绑定与缓存身份 | [声明/缓存修复记录](#e-2026-10-01-sampler-baseline-repair) |
+| Sampler与纹理发布 | [声明/缓存](#e-2026-10-01-sampler-baseline-repair)；[编译数据mip](../history/compiled-data-mip-preservation-2026-10-12.md)使296首帧恢复；293画面保留。 |
 | 生命周期与发布完整性 | [生命周期完整性记录](#e-2026-10-01-lifecycle-integrity) |
 | 动态层顺序同步 | [排序后验](../history/dynamic-layer-order-2026-10-12.md)：同回调属性写入与跨回调插入恢复实际遮挡顺序，旧Swift索引重排退出；379独立原包频谱仍可见，288黑遮挡与特殊clone失败未解。 |
 | 普通静态图片尺寸 | [自动尺寸](../history/static-image-autosize-2026-10-12.md)：原资源头部尺寸经同一prepared sizeWH供getter/cursor/绘制，TEX/改名PNG及model宽高共24格首/后帧实际像素已验；原延迟加载保留。两份独立原包未见布局回归，不计全样本parity。 |
-| 动态图片创建几何 | [普通图片实际尺寸](../history/dynamic-layer-geometry-2026-10-12.md)：autosize三态的9格动态输出已验，String/Vec2与省略尺寸分别恢复作者extent；自然尺寸不取GPU缩减尺寸，提前查询复用每owner原资源映射，避免简写路径误拒绝。特殊资源与完整wrapper仍开放。 |
+| 动态图片创建几何 | [普通图片实际尺寸](../history/dynamic-layer-geometry-2026-10-12.md)：autosize三态9格、String/Vec2与省略尺寸实际输出已验；原自然尺寸/资源映射复用，特殊资源与完整wrapper仍开放。 |
 | 图层透视状态 | [Bool事务/共享相机](../history/layer-perspective-2026-10-12.md)及[缺省FOV/反算](../history/canvas-perspective-default-2026-10-12.md)有界已修；自有深度/倾斜、变体与独立样本实际绘制已验，特殊clone及其他组合仍开放。 |
 | 初始配置与动态图片复用 | [N06限定后验](../history/initial-layer-configuration-2026-10-12.md)：288的34个origin TypeError消失；25个普通图片目标进入原创建/事务链，保留5个Puppet、1个composition、3个text包装；create几何后继见上项，不计整样本parity。 |
 | SceneScript 显隐准备与交互 | [统一显隐记录](#e-2026-09-27-unified-effect-visibility)、[事件显隐持久修复](../history/event-visibility-persistence-2026-10-10.md)：312两个浮动窗口恢复，四次属性热切无重建、两窗口拖动已验 |
