@@ -1300,6 +1300,53 @@ def summarize_performance(results: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def validate_execution_observation_policy(
+    *,
+    execution_observations_enabled: bool,
+    require_effect_execution: bool = False,
+    require_graph_execution: bool = False,
+    sample: dict[str, Any] | None = None,
+) -> None:
+    if execution_observations_enabled:
+        return
+    conflicts = []
+    if require_effect_execution:
+        conflicts.append("--require-effect-execution")
+    if require_graph_execution:
+        conflicts.append("--require-graph-execution")
+    execution_expectations = {
+        expectation.matrix_key
+        for expectation in (
+            *EFFECT_EXECUTION_EXPECTATIONS,
+            *RESOLVED_MATERIAL_GRAPH_EXPECTATIONS,
+        )
+    }.union({
+        "expected_effect_execution_local_fallbacks",
+        "expected_resolved_material_graph_local_fallback_layer_ids",
+        "expected_resolved_material_graph_local_fallbacks",
+        "expected_resolved_material_graph_effect_local_passthroughs",
+        "expected_resolved_material_graph_target_descriptor_counts",
+        "expected_resolved_material_graph_extent_lifecycle",
+        "expected_effect_recoveries",
+        "required_activation_passthrough_reason_codes",
+        "minimum_activation_passthrough_count",
+        "required_utility_capture_succeeded_layer_ids",
+        "required_named_target_capture_succeeded_layer_ids",
+        "required_visible_graph_output_publication_succeeded_layer_ids",
+        "required_named_graph_output_publication_succeeded_layer_ids",
+        "required_named_target_binding_succeeded_layer_ids",
+    })
+    conflicts.extend(sorted(execution_expectations.intersection(sample or {})))
+    if conflicts:
+        sample_label = (
+            f" for sample {sample['id']}" if sample and "id" in sample else ""
+        )
+        raise ValueError(
+            "--no-execution-observations conflicts with execution requirements"
+            + sample_label + ": " + ", ".join(conflicts)
+        )
+
+
 def load_matrix(path: Path) -> dict[str, Any]:
     payload = load_scene_matrix(path)
     for sample in payload["samples"]:
@@ -2678,6 +2725,7 @@ def utility_runtime_failures(
     *,
     capture_execution: dict[str, Any] | None = None,
     graph_execution: dict[str, Any] | None = None,
+    execution_observations_enabled: bool = True,
 ) -> list[str]:
     expected_metrics = {
         "expected_utility_candidates": "candidates",
@@ -2710,6 +2758,8 @@ def utility_runtime_failures(
         succeeded = set(capture_execution["succeeded_layer_ids"])
         if capture_execution["failed_layer_ids"]:
             failures.append("utility capture execution reported failures")
+        if not execution_observations_enabled:
+            return failures
         planned = {
             layer["id"]: layer for layer in metrics["layers"]
             if layer["disposition"] == "capture"
@@ -3319,6 +3369,8 @@ def resolved_material_graph_passthrough_metrics(
     accepted_layer_ids: list[int],
     graph_observations: dict[str, Any],
     static_disposition: dict[str, Any] | None,
+    *,
+    execution_observations_enabled: bool = True,
 ) -> dict[str, Any]:
     accepted_layers = set(accepted_layer_ids)
     disposition_is_valid, disposition_records, _ = (
@@ -3384,19 +3436,23 @@ def resolved_material_graph_passthrough_metrics(
         and layer_id not in missing_compositor_layer_ids
     )
     failures: list[str] = []
-    if required_subjects and not graph_observations.get("has_evidence"):
+    if (
+        execution_observations_enabled
+        and required_subjects
+        and not graph_observations.get("has_evidence")
+    ):
         failures.append(
             "resolved material graph passthrough terminal evidence missing"
         )
-    if missing_subjects:
+    if execution_observations_enabled and missing_subjects:
         failures.append(
             "resolved material graph passthrough activation evidence missing"
         )
-    if missing_next_frame_subjects:
+    if execution_observations_enabled and missing_next_frame_subjects:
         failures.append(
             "resolved material graph passthrough next-frame evidence missing"
         )
-    if missing_compositor_layer_ids:
+    if execution_observations_enabled and missing_compositor_layer_ids:
         failures.append(
             "resolved material graph passthrough compositor evidence missing"
         )
@@ -3448,6 +3504,7 @@ def resolved_material_graph_execution_metrics(
     static_disposition: dict[str, Any] | None = None,
     visible_graph_output_publication: dict[str, Any] | None = None,
     named_graph_output_publication: dict[str, Any] | None = None,
+    execution_observations_enabled: bool = True,
 ) -> dict[str, Any]:
     graph_observations = resolved_material_graph_observation_metrics(log_text)
     capability_observations = [
@@ -3832,7 +3889,7 @@ def resolved_material_graph_execution_metrics(
             authored_deactivated_activation_identities(log_text)
         ),
     )
-    if (
+    if execution_observations_enabled and (
         exact_backend["unjoined_cpu_effect_local_passthroughs"]
         or exact_backend["unjoined_graph_effect_local_passthroughs"]
         or exact_backend["missing_next_frame_effect_local_passthroughs"]
@@ -3844,7 +3901,7 @@ def resolved_material_graph_execution_metrics(
         capability_failures.append(
             "resolved material graph effect-local passthrough identity unproven"
         )
-    if (
+    if execution_observations_enabled and (
         exact_backend["mixed_program_missing_terminal_subjects"]
         or exact_backend["mixed_program_missing_next_frame_subjects"]
     ):
@@ -3855,6 +3912,7 @@ def resolved_material_graph_execution_metrics(
         execution_expected_layer_ids,
         graph_observations,
         static_disposition,
+        execution_observations_enabled=execution_observations_enabled,
     )
     if capability is None and (
         executor_observations
@@ -3913,11 +3971,11 @@ def resolved_material_graph_execution_metrics(
             unexpected_exact_backend_layer_ids,
         )
     )
-    if missing_gpu_completed_layer_ids:
+    if execution_observations_enabled and missing_gpu_completed_layer_ids:
         capability_failures.append(
             "resolved material graph accepted layer GPU completion missing"
         )
-    if missing_compositor_consumed_layer_ids:
+    if execution_observations_enabled and missing_compositor_consumed_layer_ids:
         capability_failures.append(
             "resolved material graph accepted layer compositor consumption missing"
         )
@@ -3925,11 +3983,11 @@ def resolved_material_graph_execution_metrics(
         capability_failures.append(
             "resolved material graph named publication also consumed by compositor"
         )
-    if missing_next_frame_layer_ids:
+    if execution_observations_enabled and missing_next_frame_layer_ids:
         capability_failures.append(
             "resolved material graph accepted layer next-frame evidence missing"
         )
-    if missing_exact_backend_layer_ids:
+    if execution_observations_enabled and missing_exact_backend_layer_ids:
         capability_failures.append(
             "resolved material graph accepted layer exact backend evidence missing"
         )
@@ -3961,7 +4019,7 @@ def resolved_material_graph_execution_metrics(
         capability_failures.append(
             "resolved material graph non-accepted layer exact backend observed"
         )
-    if execution_expected_layer_ids:
+    if execution_observations_enabled and execution_expected_layer_ids:
         if not executor_observations:
             executor_failures.append(
                 "resolved material graph executor evidence missing"
@@ -4005,11 +4063,11 @@ def resolved_material_graph_execution_metrics(
         + passthrough["validation_failures"]
     )
     if accepted_count == 0:
-        if not executor_observations:
+        if execution_observations_enabled and not executor_observations:
             validation_failures.append(
                 "resolved material graph zero contract executor evidence missing"
             )
-        elif not zero_executor_counters:
+        elif executor_observations and not zero_executor_counters:
             validation_failures.append(
                 "resolved material graph zero contract executor counters nonzero"
             )
@@ -4082,7 +4140,8 @@ def resolved_material_graph_execution_metrics(
         else graph_observations["successful_transaction_count"] >= 2
     )
     execution_succeeded = bool(
-        capability is not None
+        execution_observations_enabled
+        and capability is not None
         and execution_expected_layer_ids
         and executor_observations
         and claimed_count > 0
@@ -4103,7 +4162,8 @@ def resolved_material_graph_execution_metrics(
         and malformed_route_count == 0
     )
     zero_contract_succeeded = bool(
-        capability is not None
+        execution_observations_enabled
+        and capability is not None
         and accepted_count == 0
         and route_evidence_complete
         and zero_executor_counters
@@ -4112,7 +4172,8 @@ def resolved_material_graph_execution_metrics(
         and not validation_failures
     )
     dormant_contract_succeeded = bool(
-        capability is not None
+        execution_observations_enabled
+        and capability is not None
         and accepted_count is not None
         and accepted_count > 0
         and not execution_expected_layer_ids
@@ -4122,19 +4183,29 @@ def resolved_material_graph_execution_metrics(
         and not unexpected_layer_ids
         and not validation_failures
     )
+    has_evidence = bool(
+        execution_observations_enabled
+        and capability_observations
+        and route_evidence_complete
+        and executor_observations
+        and (
+            graph_observations["has_evidence"]
+            and exact_backend["has_evidence"]
+            and passthrough["has_evidence"]
+            if execution_expected_layer_ids
+            else graph_observations["observation_count"] == 0
+        )
+    )
     return {
-        "has_evidence": bool(
-            capability_observations
-            and route_evidence_complete
-            and executor_observations
-            and (
-                graph_observations["has_evidence"]
-                and exact_backend["has_evidence"]
-                and passthrough["has_evidence"]
-                if execution_expected_layer_ids
-                else graph_observations["observation_count"] == 0
+        "execution_observations_enabled": execution_observations_enabled,
+        "observation_status": "available" if has_evidence else "unavailable",
+        "observation_unavailable_reason": (
+            None if has_evidence else (
+                "missing-or-incomplete" if execution_observations_enabled
+                else "explicitly-disabled"
             )
         ),
+        "has_evidence": has_evidence,
         "execution_succeeded": execution_succeeded,
         "zero_contract_succeeded": zero_contract_succeeded,
         "dormant_contract_succeeded": dormant_contract_succeeded,
@@ -4143,7 +4214,9 @@ def resolved_material_graph_execution_metrics(
             or zero_contract_succeeded
             or dormant_contract_succeeded
         ),
-        "succeeded_layer_ids": succeeded_layer_ids,
+        "succeeded_layer_ids": (
+            succeeded_layer_ids if execution_observations_enabled else []
+        ),
         "dynamic_visibility": {
             "has_evidence": bool(visibility_records),
             "schema_version": (
@@ -6723,10 +6796,16 @@ def named_target_binding_failures(
     metrics: dict[str, Any],
     conditional_count: int = 0,
     utility_metrics: dict[str, Any] | None = None,
+    *,
+    execution_observations_enabled: bool = True,
 ) -> list[str]:
     succeeded = set(metrics["succeeded_layer_ids"])
     failed_only = set(metrics["failed_layer_ids"]).difference(succeeded)
     failures: list[str] = []
+    if not execution_observations_enabled:
+        if failed_only:
+            failures.append("named target binding execution reported failures")
+        return failures
     expects_passthrough, passthrough_valid, expected_passthroughs = (
         effect_local_passthrough_expectation(sample)
     )
@@ -7590,6 +7669,13 @@ def run_sample(
     require_cursor_ripple_persistence: bool = False,
     no_execution_observations: bool = False,
 ) -> dict[str, Any]:
+    execution_observations_enabled = not no_execution_observations
+    validate_execution_observation_policy(
+        execution_observations_enabled=execution_observations_enabled,
+        require_effect_execution=require_effect_execution,
+        require_graph_execution=require_graph_execution,
+        sample=sample,
+    )
     sample_id = str(sample["id"])
     source = sample_root / "Scene" / sample_id
     result_dir = output_dir / "results" / sample_id
@@ -7958,6 +8044,7 @@ def run_sample(
             named_graph_output_publication=(
                 named_graph_output_publication_execution
             ),
+            execution_observations_enabled=execution_observations_enabled,
         )
     )
     named_target_capture_execution = named_target_capture_execution_metrics(log_text)
@@ -8156,6 +8243,7 @@ def run_sample(
     failures.extend(utility_runtime_failures(
         sample, utility_runtime, capture_execution=utility_capture_execution,
         graph_execution=resolved_material_graph_execution,
+        execution_observations_enabled=execution_observations_enabled,
     ))
     failures.extend(authored_effect_graph_failures(
         sample,
@@ -8217,7 +8305,17 @@ def run_sample(
         visible_graph_output_publication_execution["succeeded_layer_ids"],
         named_graph_output_publication_execution["succeeded_layer_ids"],
     )
-    if len(succeeded_named_target_ids) < utility_runtime["named_target_planned"]:
+    for label, execution in (
+        ("named target capture", named_target_capture_execution),
+        ("visible graph output publication", visible_graph_output_publication_execution),
+        ("named graph output publication", named_graph_output_publication_execution),
+    ):
+        if not execution_observations_enabled and execution["failed_layer_ids"]:
+            failures.append(f"{label} execution reported failures")
+    if (
+        execution_observations_enabled
+        and len(succeeded_named_target_ids) < utility_runtime["named_target_planned"]
+    ):
         failures.append("named target capture execution below planned count")
     for layer_id in sample.get("required_named_target_capture_succeeded_layer_ids", []):
         if layer_id not in succeeded_named_target_ids:
@@ -8246,6 +8344,7 @@ def run_sample(
         named_target_binding_execution,
         conditional_count=utility_runtime["named_binding_conditional"],
         utility_metrics=utility_runtime,
+        execution_observations_enabled=execution_observations_enabled,
     ))
     failures.extend(particle_runtime_failures(sample, particle_runtime))
     blur_runtime_count = preview_text.count("effect runtime gaussian-blur;")
@@ -9050,7 +9149,16 @@ def parse_args() -> argparse.Namespace:
             "that expands and decays for at least three frames after exit"
         ),
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    try:
+        validate_execution_observation_policy(
+            execution_observations_enabled=not args.no_execution_observations,
+            require_effect_execution=args.require_effect_execution,
+            require_graph_execution=args.require_graph_execution,
+        )
+    except ValueError as error:
+        parser.error(str(error))
+    return args
 
 
 def main() -> int:
@@ -9159,6 +9267,13 @@ def main() -> int:
             else load_matrix(matrix_path)
         )
         matrix = select_matrix_samples(unfiltered_matrix, args.sample_id)
+        for sample in matrix["samples"]:
+            validate_execution_observation_policy(
+                execution_observations_enabled=not args.no_execution_observations,
+                require_effect_execution=args.require_effect_execution,
+                require_graph_execution=args.require_graph_execution,
+                sample=sample,
+            )
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"Scene benchmark precondition failed: {error}", file=sys.stderr)
         return 2

@@ -2,7 +2,7 @@
 
 # Scene 性能收敛工作卡
 
-用户2026-10-12要求：当前遮罩兼容批收尾后，优先推进本卡及[属性面板卡](properties-panel-card.md)。目标是降低运行成本和等待时间，保持画面、交互与能力；视觉断点归[队列](scene-open-breakpoint-queue.md)，兼容目标不变。
+本卡及[属性面板卡](properties-panel-card.md)优先降低运行成本和等待，保画面、交互与能力；视觉断点归[队列](scene-open-breakpoint-queue.md)。存量超长工具按解析/验收/运行职责收敛，保入口和失败合同。
 
 **执行顺序。**
 
@@ -15,7 +15,7 @@
 
 **当前进度与下一轮。** 复用结果归[BC](../history/native-bc-memory-convergence-2026-10-12.md)、[PKG](../history/pkg-extraction-memory-convergence-2026-10-12.md)、[TEX证据](../history/tex-request-local-convergence-2026-10-13.md)。专项约20%（阶段估计），不外推App峰值/首帧。原包开场经[有界host修复](../history/scenescript-host-heap-admission-2026-10-13.md)闭合；旧脚本停用测量不作基线。下一轮补HDR/reflection复制计量，再量普通高级混合quad局部复制；复用既有投影和snapshot，custom geometry/折射保全屏。TEX外层base-image/natural-size、MDL双阶段、首帧范围、长期切换待量；MDL保完整校验，延迟日志不算重复build。属性typed更新/重建归[属性卡](properties-panel-card.md)。
 
-**比较与验收。** 每次修改前取得同样本、作者属性、音频输入、窗口/输出尺寸、App/工具身份与诊断设置下的可比较基线。内存记录峰值和稳态，GPU记录实际工作/时间及copy/target字节，启动记录分阶段耗时和首帧呈现；至少三份有效同条件记录后再做ablation及修后对照。区分冷/暖cache、进程CPU/GPU分配与物理驻留，不拿单次ready或Debug FPS当整体收益。
+**比较与验收。** 固定样本/属性/音频/尺寸/App/工具/诊断，至少三份同条件有效基线后做消融/对照。量内存峰值/稳态、GPU工作/时间/copy/target字节、分阶段首帧；区分冷暖cache、CPU/GPU分配与物理驻留。performance-only矩阵须无执行承诺，观察标unavailable，不替代严格能力验收；单次ready/FPS不作整体收益。
 
 必须检查原样本实际画面/下一帧、独立健康样本、启动失败/取消/替换及资源释放；涉及HDR/高级混合/history时保实际触发与不应触发反例。普通产品入口与内部Host证据分开。收益未稳定或功能回退先查因、修正或撤回本轮修改，不以放低效果质量、减少作者内容、提高timeout或丢诊断换通过。
 
