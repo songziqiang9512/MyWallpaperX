@@ -164,9 +164,52 @@ extension SceneResolvedMaterialShaderSchema {
             optionalCandidateSlots |= UInt8(1) << UInt8(slot.index)
         }
         let relevantSlots = readinessSlots & optionalCandidateSlots
+        guard let graph = template.shaderContract.sourceGraph,
+              let samplers = try? unconditionalSamplers(template),
+              let schemas = try? SceneShaderVariantSchemaSeed.unconditional(
+                  contract: template.shaderContract, graph: graph
+              ).flatMap(SceneShaderVariantResolver.schemas(in:)) else {
+            return Array(UInt8.min ... UInt8.max)
+        }
+        let graphBoundSlots = Set(template.graphRole.bindings.map(\.slot))
+        let sharedPresenceMasks = Dictionary(
+            grouping: schemas.filter { $0.samplerSlot != nil }, by: \.combo
+        ).values.compactMap { group -> UInt8? in
+            // Only schemas in the coactive seed with no runtime requirements
+            // can constrain each other. Conditional/requirement alternatives
+            // keep their independent availability hypotheses.
+            guard group.allSatisfy({ $0.requirements.isEmpty }) else { return nil }
+            let slots = Set(group.compactMap(\.samplerSlot))
+            guard slots.count > 1 else { return nil }
+            var mask: UInt8 = 0
+            for index in slots {
+                // Availability represents readiness only for authored optional
+                // sources. Graph/provider bindings and framebuffer aliases can
+                // be required independently of this hypothetical bit.
+                guard (0 ..< 8).contains(index),
+                      let sampler = samplers[index],
+                      !sampler.usesGraphInputMaterialAlias,
+                      !graphBoundSlots.contains(index),
+                      let slot = template.textureSlots[index],
+                      !slot.candidates.isEmpty,
+                      slot.candidates.allSatisfy({ candidate in
+                          switch candidate.reference {
+                          case .asset, .userProperty: true
+                          case .provider, .graph: false
+                          }
+                      }) else { return nil }
+                mask |= UInt8(1) << UInt8(index)
+            }
+            return mask
+        }
         return (UInt16(UInt8.min) ... UInt16(UInt8.max)).compactMap {
             let availability = UInt8($0)
-            return availability & ~relevantSlots == 0 ? availability : nil
+            guard availability & ~relevantSlots == 0,
+                  sharedPresenceMasks.allSatisfy({ group in
+                      let selected = availability & group
+                      return selected == 0 || selected == group
+                  }) else { return nil }
+            return availability
         }
     }
 

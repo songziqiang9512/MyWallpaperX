@@ -1304,7 +1304,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneRenderTargetVocabulary.swift",
         "script/tests/fixtures/scene_resolved_material_template.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge+SourceMaterials.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge+SourceMaterials.swift",
+        "script/tests/test_scene_shared_presence_reachability.py"
       ],
       "modules": [
         "test_scene_opaque_loop_sample_average_owner",
@@ -1340,7 +1341,8 @@
         "test_scene_resolved_material_template",
         "test_scene_localized_graph_input_alias",
         "test_scene_source_color_graph",
-        "test_scene_effect_draw_alpha"
+        "test_scene_effect_draw_alpha",
+        "test_scene_shared_presence_reachability"
       ]
     },
     {

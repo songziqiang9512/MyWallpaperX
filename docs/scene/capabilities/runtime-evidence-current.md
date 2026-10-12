@@ -16,7 +16,7 @@
 |---|---|
 | App音频触发桌面冻结 | [普通桌面权限与资源驻留](../history/terminal-attachment-desktop-freeze-2026-10-10.md)：包含342真实App音频、封面依赖/热切与312健康回归；亮度、性能及证据边界见该页。 |
 | 样本声明与运行关联 | [243份声明快照](scene-corpus-capability-inventory.md)、[验收来源](scene-sample-acceptance-ledger.md)保留旧身份；[10-11新增37份普查](../history/new-scene-intake-2026-10-11.md)补当前279成员中的新增运行，未验全库正确率；待修归[队列](../roadmap/scene-open-breakpoint-queue.md) |
-| Sampler与纹理发布 | [声明/缓存](#e-2026-10-01-sampler-baseline-repair)；[编译数据mip](../history/compiled-data-mip-preservation-2026-10-12.md)使296首帧恢复；293画面保留。 |
+| Sampler与纹理发布 | [mip](../history/compiled-data-mip-preservation-2026-10-12.md)恢复296；[共享presence](../history/shared-texture-presence-2026-10-12.md)381颜色仍拒；375保留。 |
 | 生命周期与发布完整性 | [生命周期完整性记录](#e-2026-10-01-lifecycle-integrity) |
 | 动态层顺序同步 | [排序后验](../history/dynamic-layer-order-2026-10-12.md)：同回调属性写入与跨回调插入恢复实际遮挡顺序，旧Swift索引重排退出；379独立原包频谱仍可见，288黑遮挡与特殊clone失败未解。 |
 | 普通静态图片尺寸 | [自动尺寸](../history/static-image-autosize-2026-10-12.md)：原资源头部尺寸经同一prepared sizeWH供getter/cursor/绘制，TEX/改名PNG及model宽高共24格首/后帧实际像素已验；原延迟加载保留。两份独立原包未见布局回归，不计全样本parity。 |

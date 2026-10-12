@@ -363,9 +363,9 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6dde32eb335e7e9c740c149e20b750698e943a8f6a274a46f51aab67a7691ae5",
+        "sourceSHA256": "558d9ae6fea8d4606013f8dd8779e326b1a936c171ace7d91ffb9590454fd120",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批编译多级纹理的通道用途、限定后验与N04状态引用核对；其他语义未重验",
+        "scope": "本批共享presence假设枚举及N04首断点、独立回归引用核对；其他语义未重验",
         "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
       }
     },
@@ -532,9 +532,9 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e58f8c082336e33599b281a2036c97f242302ec63f3b744c297fecd1dddcea2b",
+        "sourceSHA256": "93fe4c550af6f76ea558c8c979c74546be5ee6abb81a428fae42cfa2ce7af96a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批编译多级纹理的通道用途、限定后验与N04状态引用核对；其他语义未重验",
+        "scope": "本批共享presence假设枚举及N04首断点、独立回归引用核对；其他语义未重验",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
@@ -1934,6 +1934,17 @@
     },
     {
       "path": "docs/scene/history/shared-shader-type-compatibility-2026-10-09.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/shared-texture-presence-2026-10-12.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",

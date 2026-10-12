@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-12 | 材质 | 修复证据 | [共享纹理就绪枚举](shared-texture-presence-2026-10-12.md) | 合法启动假设、实际资源冲突和独立画面；目标水面颜色仍阻断 | [断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-12 | 纹理 | 修复证据 | [编译纹理的通道 mip](compiled-data-mip-preservation-2026-10-12.md) | 原多级上传链的用途准入；真实首帧失败与变体、反例边界 | [运行合同](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-12 | 投影/交互 | 修复证据 | [普通画布缺省透视](canvas-perspective-default-2026-10-12.md) | 原相机缺省语义与共享反算；有界官方输入、实际绘制及独立样本 | [运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-12 | SceneScript | 修复证据 | [脚本公共图片准备](shared-script-resource-preparation-2026-10-12.md) | 四族共享原资源与材质消费者；真实像素、变体及独立样本边界 | [脚本覆盖](../capabilities/scenescript-api-coverage.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
