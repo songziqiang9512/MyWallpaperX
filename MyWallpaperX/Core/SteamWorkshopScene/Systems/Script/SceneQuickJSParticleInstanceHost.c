@@ -5,10 +5,6 @@
 
 // The instance object borrows the ordinary layer identity. Its scalar writes
 // stay in the same owner journal as transform, visibility and text writes.
-static void free_instance_handle(void *opaque) {
-    free(opaque);
-}
-
 static MWXSceneQuickJSLayerAccessHandle *copy_instance_handle(
     const MWXSceneQuickJSLayerAccessHandle *source
 ) {
@@ -93,17 +89,24 @@ static JSValue instance_get(
     MWXSceneQuickJSLayerAccessHandle *setter_handle = copy_instance_handle(handle);
     if (getter_handle == NULL || setter_handle == NULL) {
         free(getter_handle); free(setter_handle); JS_FreeValue(context, instance);
-        return JS_ThrowInternalError(context, "particle instance handle allocation failed");
+        return JS_ThrowOutOfMemory(context);
     }
-    JSValue getter = JS_NewCClosure(context, instance_alpha_get, "alpha",
-        free_instance_handle, 0, 0, getter_handle);
-    JSValue setter = JS_NewCClosure(context, instance_alpha_set, "alpha",
-        free_instance_handle, 1, 0, setter_handle);
-    if (JS_IsException(getter) || JS_IsException(setter)) {
-        JS_FreeValue(context, getter); JS_FreeValue(context, setter);
+    JSValue getter = mwx_scene_quickjs_layer_access_closure(context, instance_alpha_get,
+        "alpha", 0, 0, getter_handle);
+    if (JS_IsException(getter)) {
+        free(setter_handle); JS_FreeValue(context, instance); return JS_EXCEPTION;
+    }
+    JSValue setter = mwx_scene_quickjs_layer_access_closure(context, instance_alpha_set,
+        "alpha", 1, 0, setter_handle);
+    if (JS_IsException(setter)) {
+        JS_FreeValue(context, getter);
         JS_FreeValue(context, instance); return JS_EXCEPTION;
     }
     JSAtom atom = JS_NewAtom(context, "alpha");
+    if (atom == JS_ATOM_NULL) {
+        JS_FreeValue(context, getter); JS_FreeValue(context, setter);
+        JS_FreeValue(context, instance); return JS_EXCEPTION;
+    }
     int result = JS_DefinePropertyGetSet(context, instance, atom, getter, setter, JS_PROP_ENUMERABLE);
     JS_FreeAtom(context, atom);
     // SceneScript modules are strict. Sealing prevents unsupported fields from
@@ -124,11 +127,12 @@ bool mwx_scene_quickjs_define_particle_instance(
         .owner_target = owner_target, .persistent = persistent,
     };
     MWXSceneQuickJSLayerAccessHandle *handle = copy_instance_handle(&identity);
-    if (handle == NULL) return false;
-    JSValue getter = JS_NewCClosure(owner->domain->context, instance_get, "instance",
-        free_instance_handle, 0, 0, handle);
+    if (handle == NULL) { JS_ThrowOutOfMemory(owner->domain->context); return false; }
+    JSValue getter = mwx_scene_quickjs_layer_access_closure(
+        owner->domain->context, instance_get, "instance", 0, 0, handle);
     if (JS_IsException(getter)) return false;
     JSAtom atom = JS_NewAtom(owner->domain->context, "instance");
+    if (atom == JS_ATOM_NULL) { JS_FreeValue(owner->domain->context, getter); return false; }
     int result = JS_DefinePropertyGetSet(owner->domain->context, layer, atom,
         getter, JS_UNDEFINED, JS_PROP_ENUMERABLE);
     JS_FreeAtom(owner->domain->context, atom);

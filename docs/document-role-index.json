@@ -2035,6 +2035,27 @@
       ]
     },
     {
+      "path": "docs/scene/history/scenescript-host-heap-admission-2026-10-13.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/script-component-api-design.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+        "docs/scene/roadmap/performance-convergence-card.md"
+      ],
+      "cutoffDate": "2026-10-13",
+      "uniqueValue": "原包第742个合法owner耗尽16MiB的数值归因，单VM有界容量及native失败所有权、原包开场与交互证据。",
+      "lastReviewed": "2026-10-13",
+      "reviewBasis": {
+        "kind": "implementation-evidence",
+        "sourceSHA256": "494c1258d51069be1747bcee65c6cbec8be08a002c9a7d96f249f50b009b3f50",
+        "method": "neutral failure receipts + isolated optimized Debug original-package rendering + focused own fixtures",
+        "scope": "有界共享VM、native失败与所有权；最终原包45/80s时序/网格交互及heldout14s实际渲染",
+        "limitations": "不代表所有导航、媒体、光照/Bloom布局、普通桌面端到端或官方全片等价。"
+      }
+    },
+    {
       "path": "docs/scene/history/sdr-white-preservation-implementation-2026-10-06.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -2378,13 +2399,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。",
-      "lastReviewed": "2026-10-12",
+      "lastReviewed": "2026-10-13",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0e3e952199618ea3a448fe8468243b6904135b6c7e6f5128eeed7beb8157090b",
+        "sourceSHA256": "f23fd6ee4cb2a123c1b871110e3eb3ce9dff05c57196cd4075b7d602a7915775",
         "method": "document_registry --audit + document_health --check",
-        "scope": "四族公共图片准备状态、变体/实际渲染证据与未闭断点引用核对；不代表全文产品语义重验",
-        "limitations": "仅本批合同与证据边界；不证明真实播放器来源、完整样本或官方parity。"
+        "scope": "有界JS/native预算、native失败职责与原包后继证据引用核对；不代表全文API重验",
+        "limitations": "仅本批设计与后继证据核对；不是全文API、全样本或官方parity验收。"
       }
     },
     {

@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-13 | SceneScript | 修复证据 | [有界host容量与原包开场](scenescript-host-heap-admission-2026-10-13.md) | 935合法owner/16MiB耗尽归因、有限容量与native失败边界；原包时序与网格交互 | [D4](../roadmap/batch2/script-component-api-design.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md)、[性能卡](../roadmap/performance-convergence-card.md) |
 | 2026-10-12 | 纹理/性能 | 收敛证据 | [原生BC内存](native-bc-memory-convergence-2026-10-12.md) | 三轮实际内存下降、CPU发射map回退闭合与完整采样；启动/帧率近似持平 | [性能卡](../roadmap/performance-convergence-card.md)、[粒子E03](../capabilities/particle-component-coverage.md#4-emitters) |
 | 2026-10-12 | 材质/资源 | 修复证据 | [标量数据遮罩](scalar-mask-data-purpose-2026-10-12.md) | 直接redOnly消费保二维data原用途，目标节点恢复且后继实际合成 | [标量遮罩合同](../capabilities/scalar-mask-data-purpose.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-12 | 材质/验证 | 修复证据 | [Graph颜色用途协调](graph-color-purpose-reconciliation-2026-10-12.md) | 原slot事实接通直色数学与graph传输；旧fixture改用真实末合成与完整alpha像素 | [运行合同](../architecture/runtime-architecture.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |

@@ -27,16 +27,35 @@ nonisolated struct SceneScriptScalarBudget: Equatable, Sendable {
     let heapBytes: Int
     let stackBytes: Int
     let interruptBudget: UInt64
-    var maximumNativeTransientBytes: Int { heapBytes }
+    let maximumNativeTransientBytes: Int
     let maximumOwnerSourceBytes: Int
     let maximumCandidateSourceBytes: Int
 
+    init(
+        heapBytes: Int,
+        stackBytes: Int,
+        interruptBudget: UInt64,
+        maximumOwnerSourceBytes: Int,
+        maximumCandidateSourceBytes: Int,
+        maximumNativeTransientBytes: Int? = nil
+    ) {
+        self.heapBytes = heapBytes
+        self.stackBytes = stackBytes
+        self.interruptBudget = interruptBudget
+        self.maximumOwnerSourceBytes = maximumOwnerSourceBytes
+        self.maximumCandidateSourceBytes = maximumCandidateSourceBytes
+        // Custom budgets retain their existing heap-to-native relationship.
+        // The product default sets the independent native cap explicitly.
+        self.maximumNativeTransientBytes = maximumNativeTransientBytes ?? heapBytes
+    }
+
     static let `default` = SceneScriptScalarBudget(
-        heapBytes: 16 * 1024 * 1024,
+        heapBytes: 32 * 1024 * 1024,
         stackBytes: 512 * 1024,
         interruptBudget: 100_000,
         maximumOwnerSourceBytes: 256 * 1024,
-        maximumCandidateSourceBytes: 2 * 1024 * 1024
+        maximumCandidateSourceBytes: 2 * 1024 * 1024,
+        maximumNativeTransientBytes: 16 * 1024 * 1024
     )
 
     /// UTF-8 source is charged once per projected owner. Identical source text

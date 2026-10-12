@@ -87,7 +87,7 @@
 | 3750813609 时钟黑白 | 原包clouds资产ready，不能把synthetic noise记作修复；时钟ROI与作者预期仍待比对。[证据](../capabilities/runtime-evidence-current.md#e-2026-09-26-stock-noise-preparation) |
 | 3792817546 /3790726145 /2986218263 指针/绳带 | CP0 flags/default、world/perspective、Rope及pointer三门已贯通；剩余原生输入和官方绳带宽度/UV/颜色，child profile另见下表。[执行证据](../capabilities/runtime-evidence-current.md#e-2026-09-28-rope-gate-admission) |
 | 3750813609 /3363252053 相机过强、纵向反转 | 两项输入/收敛子缺陷已修但用户三轮验收仍失败，**用户曾要求挂起**。有官方同输入时重启layout/显示器/脚本相机输入对照；不拿约50px量级正确当体验通过 |
-| 3662790108 JUNO /3589454154 土星 | JUNO albedo/两跳导航/原生进退已验，布局未闭；[三体3509243656/土星旧启动失败已闭](../history/l1-heavy-retest-2026-10-07.md)，普通入口约14秒，三体获用户确认；[大型模型后验](../history/l1-heavy-retest-2026-10-07.md#large-static-model)恢复超64MiB陨石环，颗粒可见。[显隐/方向](../history/saturn-light-delivery-2026-10-07.md#effective-light-visibility)已恢复球体左亮右暗；[原生阴影面向](../history/saturn-light-delivery-2026-10-07.md#native-shadow-winding)已消除环带大块三角暗纹，保留星球投影；[斜视采样](../history/saturn-light-delivery-2026-10-07.md#oblique-texture-sampling)已修；[center文字锚点](../history/saturn-light-delivery-2026-10-07.md#text-center-anchor)已修；[方向光材质](../history/saturn-light-delivery-2026-10-07.md#directional-material-response)已改善球/环亮度，[阴影depth/过滤](../history/saturn-light-delivery-2026-10-07.md#shadow-depth-and-filter)已修宽灰边/前环细暗线，[完整包材质caster准入](../history/saturn-light-delivery-2026-10-07.md#translucent-model-shadow)已修宽斜暗带，原动态代表帧通过；微颗粒/球面细弧线仍在。用户10-10补报斜长影高速变位并怀疑屏外模型；需保留合法屏外投影，不做视锥排除。**按用户调序，本批收尾后暂缓土星**：余Bloom、亚像素细线/颗粒与轮廓、完整媒体/交互保留待复验，不再以土星全部问题修完作为切换门。[最终土星](../history/committed-range-review-repairs-2026-10-07.md#整合验证)、[导航](../history/juno-full-scene-navigation-acceptance-2026-10-06.md) |
+| 3662790108 JUNO /3589454154 土星 | **10-13原包开场/持续更新已闭：** 两性能批前已失败；实测935 owner中的742在16MiB host安装处OOM，4096耗尽为重试结果。有限JS32MiB/native16MiB及统一native失败边界，最终原包45/80s自动退出开场、持续动画及网格点击，独立样本保持；准确引入commit未定。[证据](../history/scenescript-host-heap-admission-2026-10-13.md)。模型/阴影等已闭首断点归[土星证据](../history/saturn-light-delivery-2026-10-07.md)、[重型后验](../history/l1-heavy-retest-2026-10-07.md)、[整合验证](../history/committed-range-review-repairs-2026-10-07.md#整合验证)。土星余Bloom、亚像素细线/微颗粒、轮廓、布局、完整媒体/交互仍按用户调序暂缓；用户报斜长影高速变位可能来自屏外模型，须保合法屏外投影，不做视锥排除。 |
 | 3747492842 额外闪烁 | 固定输入与phase连续输出，核首个不同stage，再定根因 |
 | 3088601835 雪雾及旧低优先项 | 用户认为雪雾已较正常，官方也过曝；3028090166光束、2419444134白点、3113554287顿挫、2304304373雾气、烟花/洋红/一般拖尾保留低优先未验。公共修复涉及或用户重新点名时重启，不以沉默记PASS |
 
@@ -223,7 +223,7 @@
 | 3470948192 | NaN、文字碎片、异常背景均保留当前运行定位，不能只验首帧文字。 |
 | 3477054430 | U12：月亮Fog、窗光Bloom、聚光覆盖及切歌文字重播已修；封面/暂停及相机/头部两点已验；受光/来源已修；换歌/切源/长文布局有界已验；全平台及整景parity未验。 |
 | 3509243656 | 旧启动失败已关闭；开场模拟、坐标文字仍属整景视觉验收。 |
-| 3662790108 | JUNO完整导航已有后继证据；球体/曲率/布局和性能边界按上表核，不把8.8FPS当现值。 |
+| 3662790108 | 旧JUNO导航为修改脚本fixture；原包开场/持续更新按上表及[后继证据](../history/scenescript-host-heap-admission-2026-10-13.md)核，余画面与导航不误关。 |
 | 3712499998 | WEVector及Vec3(Vec2)技术断点已闭，环形频谱可见；重复文字与完整样式未裁决。 |
 | 3747492842 | 闪烁之外保留光束位置、viewport裁切和文字构图复验。 |
 | 3750813609 | 时钟与雨丝亮度保留；不能因山寺构图通过关闭文字ROI。 |

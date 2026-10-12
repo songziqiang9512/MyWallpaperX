@@ -181,8 +181,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 195,
-      "bytes": 52731
+      "lines": 209,
+      "bytes": 57332
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 243,
-      "bytes": 71082
+      "bytes": 70338
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 22,
-      "bytes": 3381
+      "bytes": 3343
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1154,15 +1154,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "e0a8ff1e163c1739727a3ab030912ba0f92b8321588eeb17ae2da035f4a87eed",
-      "after": "89e862bbadd32c009cdb3c47d7b9eb35cb2cab9c52e2c8ba6540ebf14d13c2bb",
-      "owner": "scene-e-route",
-      "reason": "四族Program公共图片需求与材质消费者有界闭合；替换过时断点并保留未闭语法/text wrapper范围",
-      "decision": "docs/scene/history/shared-script-resource-preparation-2026-10-12.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-as-built-map.md",
       "before": "f786526253089a2db2040d33b7a637f797ce793c9574c41ca920249ac047a680",
       "after": "bd610b2218445ab3a486d8e0af4c541e9c439774684085d6f14ca40c13cb9a94",
@@ -1286,6 +1277,15 @@
       "owner": "scene-resources-and-cpu-consumer",
       "reason": "原生BC已验收成本点归历史；修正唯一粒子位图消费者格式边界，保留面板reset仲裁未实施诊断。",
       "decision": "docs/scene/history/native-bc-memory-convergence-2026-10-12.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "89e862bbadd32c009cdb3c47d7b9eb35cb2cab9c52e2c8ba6540ebf14d13c2bb",
+      "after": "367277cf1dd0864443f14bb258cf6a93da16c66f4f707482d0edf0cdb5ba8b16",
+      "owner": "scene-script-host-heap-admission",
+      "reason": "共享VM有界容量与原包实际开场恢复；现役只保限定状态与后继，历史保留证据。",
+      "decision": "docs/scene/history/scenescript-host-heap-admission-2026-10-13.md"
     }
   ]
 }

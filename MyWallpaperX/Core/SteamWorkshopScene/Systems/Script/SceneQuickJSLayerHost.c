@@ -1597,7 +1597,45 @@ static JSValue layer_set(
     return JS_UNDEFINED;
 }
 
-static void free_layer_handle(void *opaque) { free(opaque); }
+static void free_layer_handle(void *opaque) {
+    MWXSceneQuickJSLayerAccessHandle *handle = opaque;
+    if (handle->construction_finalized != NULL)
+        *handle->construction_finalized = true;
+    free(handle);
+}
+
+JSValue mwx_scene_quickjs_layer_access_closure(
+    JSContext *context, JSCClosure *function, const char *name,
+    int length, int magic, MWXSceneQuickJSLayerAccessHandle *handle
+) {
+    bool finalized = false;
+    handle->construction_finalized = &finalized;
+    // Existing ABI callers can retain an already reported VM exception.
+    // Separate it from any failure created by this native allocation.
+    const bool had_exception = JS_HasException(context);
+    JSValue previous_exception = had_exception ? JS_GetException(context) : JS_UNDEFINED;
+    JSValue value = JS_NewCClosure(
+        context, function, name, free_layer_handle, length, magic, handle
+    );
+    // JS_NewCClosure's void function-property setup can leave a native
+    // allocation exception alongside the returned function object.
+    if (!JS_IsException(value) && JS_HasException(context)) {
+        JSValue exception = JS_GetException(context);
+        JS_FreeValue(context, value);
+        JS_Throw(context, exception);
+        value = JS_EXCEPTION;
+    }
+    if (JS_IsException(value)) {
+        // Early CClosure allocation failure leaves opaque ownership here;
+        // later failure invokes the finalizer before returning JS_EXCEPTION.
+        if (!finalized) free(handle);
+        JS_FreeValue(context, previous_exception);
+    } else {
+        handle->construction_finalized = NULL;
+        if (had_exception) JS_Throw(context, previous_exception);
+    }
+    return value;
+}
 
 static JSValue get_parent(
     JSContext *context, JSValueConst this_value, int argc,
@@ -1667,15 +1705,15 @@ static bool define_get_children(
     uint32_t index, bool owner_target, bool persistent
 ) {
     MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
-    if (handle == NULL) return false;
+    if (handle == NULL) { JS_ThrowOutOfMemory(context); return false; }
     *handle = (MWXSceneQuickJSLayerAccessHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index,
         .callback_epoch = owner->domain->callback_epoch,
         .owner_target = owner_target, .persistent = persistent,
     };
-    JSValue function = JS_NewCClosure(
-        context, get_children, "getChildren", free_layer_handle, 0, 0, handle
+    JSValue function = mwx_scene_quickjs_layer_access_closure(
+        context, get_children, "getChildren", 0, 0, handle
     );
     return !JS_IsException(function) && JS_DefinePropertyValueStr(
         context, layer, "getChildren", function, JS_PROP_ENUMERABLE
@@ -1985,15 +2023,14 @@ static bool define_get_video_texture(
     uint32_t index, bool owner_target, bool persistent
 ) {
     MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
-    if (handle == NULL) return false;
+    if (handle == NULL) { JS_ThrowOutOfMemory(context); return false; }
     *handle = (MWXSceneQuickJSLayerAccessHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index, .callback_epoch = owner->domain->callback_epoch,
         .owner_target = owner_target, .persistent = persistent,
     };
-    JSValue function = JS_NewCClosure(
-        context, get_video_texture, "getVideoTexture", free_layer_handle,
-        0, 0, handle
+    JSValue function = mwx_scene_quickjs_layer_access_closure(
+        context, get_video_texture, "getVideoTexture", 0, 0, handle
     );
     return !JS_IsException(function) && JS_DefinePropertyValueStr(
         context, layer, "getVideoTexture", function, JS_PROP_ENUMERABLE
@@ -2089,13 +2126,13 @@ static bool define_layer_playback(JSContext *context, JSValue layer,
     const char *names[] = {"play", "pause", "stop", "isPlaying", "emitParticles"};
     for (int action = 0; action < 5; ++action) {
         MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
-        if (handle == NULL) return false;
+        if (handle == NULL) { JS_ThrowOutOfMemory(context); return false; }
         *handle = (MWXSceneQuickJSLayerAccessHandle){ .domain = owner->domain,
             .owner_identity = owner->identity, .layer_index = index,
             .callback_epoch = owner->domain->callback_epoch,
             .owner_target = owner_target, .persistent = persistent };
-        JSValue function = JS_NewCClosure(context, layer_playback_call,
-            names[action], free_layer_handle, 0, action, handle);
+        JSValue function = mwx_scene_quickjs_layer_access_closure(context, layer_playback_call,
+            names[action], 0, action, handle);
         if (JS_IsException(function) || JS_DefinePropertyValueStr(context, layer,
             names[action], function, JS_PROP_ENUMERABLE) < 0) return false;
     }
@@ -2415,15 +2452,15 @@ static bool define_get_texture_animation(
     uint32_t index, bool owner_target, bool persistent
 ) {
     MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
-    if (handle == NULL) return false;
+    if (handle == NULL) { JS_ThrowOutOfMemory(context); return false; }
     *handle = (MWXSceneQuickJSLayerAccessHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index, .callback_epoch = owner->domain->callback_epoch,
         .owner_target = owner_target, .persistent = persistent,
     };
-    JSValue function = JS_NewCClosure(
+    JSValue function = mwx_scene_quickjs_layer_access_closure(
         context, get_texture_animation, "getTextureAnimation",
-        free_layer_handle, 0, 0, handle
+        0, 0, handle
     );
     return !JS_IsException(function) && JS_DefinePropertyValueStr(
         context, layer, "getTextureAnimation", function, JS_PROP_ENUMERABLE
@@ -2439,7 +2476,8 @@ static bool define_property(
     MWXSceneQuickJSLayerAccessHandle *setter_handle = writable
         ? calloc(1, sizeof(*setter_handle)) : NULL;
     if (getter_handle == NULL || (writable && setter_handle == NULL)) {
-        free(getter_handle); free(setter_handle); return false;
+        free(getter_handle); free(setter_handle);
+        JS_ThrowOutOfMemory(context); return false;
     }
     *getter_handle = (MWXSceneQuickJSLayerAccessHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
@@ -2448,13 +2486,18 @@ static bool define_property(
         .owner_target = owner_target, .persistent = persistent,
     };
     if (setter_handle != NULL) *setter_handle = *getter_handle;
-    JSValue getter = JS_NewCClosure(
-        context, layer_get, name, free_layer_handle, 0, property, getter_handle
+    JSValue getter = mwx_scene_quickjs_layer_access_closure(
+        context, layer_get, name, 0, property, getter_handle
     );
-    JSValue setter = writable ? JS_NewCClosure(
-        context, layer_set, name, free_layer_handle, 1, property, setter_handle
+    if (JS_IsException(getter)) { free(setter_handle); return false; }
+    JSValue setter = writable ? mwx_scene_quickjs_layer_access_closure(
+        context, layer_set, name, 1, property, setter_handle
     ) : JS_UNDEFINED;
+    if (JS_IsException(setter)) { JS_FreeValue(context, getter); return false; }
     JSAtom atom = JS_NewAtom(context, name);
+    if (atom == JS_ATOM_NULL) {
+        JS_FreeValue(context, getter); JS_FreeValue(context, setter); return false;
+    }
     int result = JS_DefinePropertyGetSet(
         context, layer, atom, getter, setter, JS_PROP_ENUMERABLE
     );
@@ -2467,15 +2510,15 @@ static bool define_get_parent(
     uint32_t index, bool owner_target, bool persistent
 ) {
     MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
-    if (handle == NULL) return false;
+    if (handle == NULL) { JS_ThrowOutOfMemory(context); return false; }
     *handle = (MWXSceneQuickJSLayerAccessHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index,
         .callback_epoch = owner->domain->callback_epoch,
         .owner_target = owner_target, .persistent = persistent,
     };
-    JSValue function = JS_NewCClosure(
-        context, get_parent, "getParent", free_layer_handle, 0, 0, handle
+    JSValue function = mwx_scene_quickjs_layer_access_closure(
+        context, get_parent, "getParent", 0, 0, handle
     );
     return !JS_IsException(function) && JS_DefinePropertyValueStr(
         context, layer, "getParent", function, JS_PROP_ENUMERABLE
@@ -2487,16 +2530,16 @@ static bool define_get_transform_matrix(
     uint32_t index, bool owner_target, bool persistent
 ) {
     MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
-    if (handle == NULL) return false;
+    if (handle == NULL) { JS_ThrowOutOfMemory(context); return false; }
     *handle = (MWXSceneQuickJSLayerAccessHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index,
         .callback_epoch = owner->domain->callback_epoch,
         .owner_target = owner_target, .persistent = persistent,
     };
-    JSValue function = JS_NewCClosure(
+    JSValue function = mwx_scene_quickjs_layer_access_closure(
         context, get_transform_matrix, "getTransformMatrix",
-        free_layer_handle, 0, 0, handle
+        0, 0, handle
     );
     return !JS_IsException(function) && JS_DefinePropertyValueStr(
         context, layer, "getTransformMatrix", function, JS_PROP_ENUMERABLE
@@ -2521,15 +2564,14 @@ static bool define_puppet_bone_functions(
     };
     for (size_t i = 0; i < sizeof(functions) / sizeof(functions[0]); ++i) {
         MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
-        if (handle == NULL) return false;
+        if (handle == NULL) { JS_ThrowOutOfMemory(context); return false; }
         *handle = (MWXSceneQuickJSLayerAccessHandle){
             .domain = owner->domain, .owner_identity = owner->identity,
             .layer_index = index, .callback_epoch = owner->domain->callback_epoch,
             .owner_target = owner_target, .persistent = persistent,
         };
-        JSValue function = JS_NewCClosure(
-            context, puppet_bone_call, functions[i].name, free_layer_handle,
-            functions[i].argc, functions[i].function, handle
+        JSValue function = mwx_scene_quickjs_layer_access_closure(
+            context, puppet_bone_call, functions[i].name, functions[i].argc, functions[i].function, handle
         );
         if (JS_IsException(function) || JS_DefinePropertyValueStr(
                 context, layer, functions[i].name, function,

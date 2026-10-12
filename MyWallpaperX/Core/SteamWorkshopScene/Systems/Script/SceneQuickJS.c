@@ -205,6 +205,46 @@ void mwx_scene_quickjs_write_diagnostic(
 
 #define write_diagnostic mwx_scene_quickjs_write_diagnostic
 
+static MWXSceneQuickJSResult native_exception_result(
+    JSContext *context, JSValueConst exception
+) {
+    // Used only for COMPILE_ONLY and native host installation. Authored
+    // module/callback throws retain their ordinary exception path.
+    if (JS_IsNull(exception)) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    if (!JS_IsError(exception)) return MWX_SCENE_QUICKJS_EXCEPTION;
+    // Error prototypes/formatters can have been modified by an earlier owner.
+    // Read only the native Error's own data message without executing them.
+    MWXSceneQuickJSResult failure = MWX_SCENE_QUICKJS_EXCEPTION;
+    JSPropertyDescriptor message = {
+        .value = JS_UNDEFINED, .getter = JS_UNDEFINED, .setter = JS_UNDEFINED,
+    };
+    JSAtom atom = JS_NewAtom(context, "message");
+    const int found = atom == JS_ATOM_NULL ? -1 : JS_GetOwnProperty(
+        context, &message, exception, atom
+    );
+    if (atom != JS_ATOM_NULL) JS_FreeAtom(context, atom);
+    if (found <= 0) {
+        // A native allocation failure can leave an incomplete Error.
+        failure = MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    } else if ((message.flags & JS_PROP_TMASK) == JS_PROP_NORMAL &&
+               JS_IsString(message.value)) {
+        // Primitive String conversion cannot invoke an authored formatter
+        // or an accessor, unlike converting the Error object itself.
+        const char *text = JS_ToCString(context, message.value);
+        if (text == NULL || strcmp(text, "out of memory") == 0)
+            failure = MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+        if (text != NULL) JS_FreeCString(context, text);
+    }
+    JS_FreeValue(context, message.value);
+    JS_FreeValue(context, message.getter);
+    JS_FreeValue(context, message.setter);
+    if (JS_HasException(context)) {
+        JSValue cleanup_exception = JS_GetException(context);
+        JS_FreeValue(context, cleanup_exception);
+    }
+    return failure;
+}
+
 void mwx_scene_quickjs_write_exception(
     MWXSceneQuickJSDomain *domain,
     char *diagnostic,
@@ -1300,6 +1340,9 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
     }
     memcpy(module_source, source, source_length);
     module_source[source_length] = '\0';
+    const bool compile_had_exception = JS_HasException(domain->context);
+    JSValue compile_previous_exception = compile_had_exception
+        ? JS_GetException(domain->context) : JS_UNDEFINED;
     JSValue module = JS_Eval(
         domain->context,
         module_source,
@@ -1307,18 +1350,35 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
         "inline.scene.js",
         JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY
     );
+    const bool compile_has_exception = JS_HasException(domain->context);
     free(module_source);
-    if (JS_IsException(module)) {
-        MWXSceneQuickJSResult failure = mwx_scene_quickjs_exception_result(
-            domain, diagnostic, diagnostic_capacity
-        );
-        if (failure == MWX_SCENE_QUICKJS_EXCEPTION) {
+    if (JS_IsException(module) || compile_has_exception) {
+        JSValue compilation_exception = compile_has_exception
+            ? JS_GetException(domain->context) : JS_UNDEFINED;
+        JS_FreeValue(domain->context, compile_previous_exception);
+        MWXSceneQuickJSResult failure = compile_has_exception
+            ? native_exception_result(domain->context, compilation_exception)
+            : MWX_SCENE_QUICKJS_EXCEPTION;
+        if (domain->interrupted && !JS_IsNull(compilation_exception))
+            failure = MWX_SCENE_QUICKJS_BUDGET_EXCEEDED;
+        JS_FreeValue(domain->context, compilation_exception);
+        if (failure == MWX_SCENE_QUICKJS_EXCEPTION)
             failure = MWX_SCENE_QUICKJS_COMPILE_ERROR;
+        JSMemoryUsage usage = {0};
+        JS_ComputeMemoryUsage(domain->runtime, &usage);
+        if (diagnostic != NULL && diagnostic_capacity > 0) {
+            snprintf(diagnostic, diagnostic_capacity,
+                     "SceneScript compilation failed phase=compile code=%u "
+                     "hasException=%u mallocBytes=%lld mallocLimit=%lld usedBytes=%lld",
+                     (unsigned)failure, compile_has_exception ? 1u : 0u,
+                     (long long)usage.malloc_size, (long long)usage.malloc_limit,
+                     (long long)usage.memory_used_size);
         }
         if (result != NULL) *result = failure;
         JS_FreeValue(domain->context, module);
         return NULL;
     }
+    if (compile_had_exception) JS_Throw(domain->context, compile_previous_exception);
 
     MWXSceneQuickJSOwner *owner = calloc(1, sizeof(*owner));
     if (owner == NULL) {
@@ -1371,19 +1431,43 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
     JSModuleDef *module_definition = JS_VALUE_GET_PTR(module);
     JSValue previous_global_engine = JS_UNDEFINED;
     domain->value_only_guard_active = value_only;
-    if (!mwx_scene_quickjs_bind_module_engine_host(
-            owner, &previous_global_engine
-        )) {
+    const bool bind_had_exception = JS_HasException(domain->context);
+    JSValue bind_previous_exception = bind_had_exception
+        ? JS_GetException(domain->context) : JS_UNDEFINED;
+    const bool engine_bound = mwx_scene_quickjs_bind_module_engine_host(
+        owner, &previous_global_engine
+    );
+    const bool bind_has_exception = JS_HasException(domain->context);
+    if (!engine_bound || bind_has_exception) {
+        JSValue binding_exception = bind_has_exception
+            ? JS_GetException(domain->context) : JS_UNDEFINED;
+        JS_FreeValue(domain->context, bind_previous_exception);
+        JSMemoryUsage usage = {0};
+        JS_ComputeMemoryUsage(domain->runtime, &usage);
+        const uint64_t owner_ordinal = owner->identity;
+        if (engine_bound)
+            mwx_scene_quickjs_restore_module_engine_host(owner, previous_global_engine);
         JS_FreeValue(domain->context, module);
         free(owner->effect_names);
         free(owner);
-        write_diagnostic(
-            diagnostic, diagnostic_capacity,
-            "SceneScript module engine host unavailable"
-        );
+        MWXSceneQuickJSResult failure = bind_has_exception
+            ? native_exception_result(domain->context, binding_exception)
+            : MWX_SCENE_QUICKJS_EXCEPTION;
+        JS_FreeValue(domain->context, binding_exception);
+        if (result != NULL) *result = failure;
+        if (diagnostic != NULL && diagnostic_capacity > 0) {
+            snprintf(diagnostic, diagnostic_capacity,
+                     "SceneScript module engine binding failed phase=engine-bind code=%u "
+                     "hasException=%u mallocBytes=%lld mallocLimit=%lld "
+                     "usedBytes=%lld ownerOrdinal=%llu",
+                     (unsigned)failure, bind_has_exception ? 1u : 0u,
+                     (long long)usage.malloc_size, (long long)usage.malloc_limit,
+                     (long long)usage.memory_used_size, (unsigned long long)owner_ordinal);
+        }
         domain->value_only_guard_active = false;
         return NULL;
     }
+    if (bind_had_exception) JS_Throw(domain->context, bind_previous_exception);
     JSValue evaluation = JS_EvalFunction(
         domain->context,
         JS_DupValue(domain->context, module)
@@ -1486,29 +1570,86 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
     }
     JS_FreeValue(domain->context, evaluation);
 
+    const bool namespace_had_exception = JS_HasException(domain->context);
+    JSValue namespace_previous_exception = namespace_had_exception
+        ? JS_GetException(domain->context) : JS_UNDEFINED;
     JSValue namespace = JS_GetModuleNamespace(domain->context, module_definition);
-    JS_FreeValue(domain->context, module);
-    if (JS_IsException(namespace)) {
+    const bool namespace_has_exception = JS_HasException(domain->context);
+    if (JS_IsException(namespace) || namespace_has_exception) {
+        JSValue namespace_exception = namespace_has_exception
+            ? JS_GetException(domain->context) : JS_UNDEFINED;
+        JS_FreeValue(domain->context, namespace_previous_exception);
+        JSMemoryUsage usage = {0};
+        JS_ComputeMemoryUsage(domain->runtime, &usage);
+        const uint64_t owner_ordinal = owner->identity;
         mwx_scene_quickjs_discard_jobs(owner);
-        mwx_scene_quickjs_write_exception(domain, diagnostic, diagnostic_capacity);
+        JS_FreeValue(domain->context, module);
         JS_FreeValue(domain->context, namespace);
         mwx_scene_quickjs_destroy_audio_host(owner);
         mwx_scene_quickjs_destroy_job_host(owner);
         free(owner->effect_names);
         free(owner);
+        MWXSceneQuickJSResult failure = namespace_has_exception
+            ? native_exception_result(domain->context, namespace_exception)
+            : MWX_SCENE_QUICKJS_EXCEPTION;
+        JS_FreeValue(domain->context, namespace_exception);
+        if (result != NULL) *result = failure;
+        if (diagnostic != NULL && diagnostic_capacity > 0) {
+            snprintf(diagnostic, diagnostic_capacity,
+                     "SceneScript module namespace failed phase=namespace code=%u "
+                     "hasException=%u mallocBytes=%lld mallocLimit=%lld "
+                     "usedBytes=%lld ownerOrdinal=%llu",
+                     (unsigned)failure, namespace_has_exception ? 1u : 0u,
+                     (long long)usage.malloc_size, (long long)usage.malloc_limit,
+                     (long long)usage.memory_used_size, (unsigned long long)owner_ordinal);
+        }
         domain->value_only_guard_active = false;
         return NULL;
     }
+    if (namespace_had_exception) JS_Throw(domain->context, namespace_previous_exception);
+    JS_FreeValue(domain->context, module);
     owner->module = namespace;
-    if (!mwx_scene_quickjs_install_owner_handles(owner)) {
+    const char *failed_handle_phase = NULL;
+    const bool install_had_exception = JS_HasException(domain->context);
+    JSValue install_previous_exception = install_had_exception
+        ? JS_GetException(domain->context) : JS_UNDEFINED;
+    const bool handles_installed = mwx_scene_quickjs_install_owner_handles(owner, &failed_handle_phase);
+    const bool install_has_exception = JS_HasException(domain->context);
+    if (!handles_installed || install_has_exception) {
+        // Preserve the cause before cleanup can replace the VM exception.
+        // A shared heap failure is a domain failure, not a bad script identity.
+        JSValue installation_exception = install_has_exception
+            ? JS_GetException(domain->context) : JS_UNDEFINED;
+        JS_FreeValue(domain->context, install_previous_exception);
+        JSMemoryUsage usage = {0};
+        JS_ComputeMemoryUsage(domain->runtime, &usage);
+        const uint64_t owner_ordinal = owner->identity;
         mwx_scene_quickjs_destroy_owner_handles(owner);
         mwx_scene_quickjs_destroy_audio_host(owner);
         JS_FreeValue(domain->context, owner->module);
         free(owner);
-        write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript host globals unavailable");
+        MWXSceneQuickJSResult failure = install_has_exception
+            ? native_exception_result(domain->context, installation_exception)
+            : MWX_SCENE_QUICKJS_EXCEPTION;
+        JS_FreeValue(domain->context, installation_exception);
+        if (result != NULL) *result = failure;
+        if (diagnostic != NULL && diagnostic_capacity > 0) {
+            snprintf(
+                diagnostic, diagnostic_capacity,
+                "SceneScript host installation failed phase=%s code=%u "
+                "hasException=%u mallocBytes=%lld mallocLimit=%lld "
+                "usedBytes=%lld ownerOrdinal=%llu",
+                failed_handle_phase != NULL ? failed_handle_phase : "install",
+                (unsigned)failure, install_has_exception ? 1u : 0u,
+                (long long)usage.malloc_size, (long long)usage.malloc_limit,
+                (long long)usage.memory_used_size,
+                (unsigned long long)owner_ordinal
+            );
+        }
         domain->value_only_guard_active = false;
         return NULL;
     }
+    if (install_had_exception) JS_Throw(domain->context, install_previous_exception);
     domain->value_only_guard_active = false;
     if (result != NULL) *result = MWX_SCENE_QUICKJS_OK;
     return owner;

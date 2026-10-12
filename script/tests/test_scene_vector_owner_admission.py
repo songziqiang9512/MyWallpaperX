@@ -107,6 +107,19 @@ class SceneVectorOwnerAdmissionTests(unittest.TestCase):
     ) -> None:
         self.assertTrue(self.value["exactSourceBoundaryCommitted"])
 
+    def test_js_heap_and_native_transient_limits_are_independent(self) -> None:
+        value = self.value
+        self.assertEqual(value["defaultHeapBytes"], 32 * 1024 * 1024)
+        self.assertEqual(value["defaultNativeBytes"], 16 * 1024 * 1024)
+        self.assertEqual(value["customHeapBytes"], 2 * 1024 * 1024)
+        self.assertEqual(value["customNativeBytes"], value["customHeapBytes"])
+        self.assertEqual(value["independentHeapBytes"], 2 * 1024 * 1024)
+        self.assertEqual(value["independentNativeBytes"], 1024)
+        self.assertTrue(value["nativeDefaultExactAccepted"])
+        self.assertEqual(value["nativeDefaultOverCode"], "budget-exceeded")
+        self.assertTrue(value["nativeIndependentExactAccepted"])
+        self.assertEqual(value["nativeIndependentOverCode"], "budget-exceeded")
+
     def test_visibility_cursor_callback_borrows_single_vector_owner(self) -> None:
         self.assertTrue(self.value["claimedCursorOverlapCommitted"])
         self.assertEqual(self.value["claimedCursorOverlapStaticProjection"], 1)

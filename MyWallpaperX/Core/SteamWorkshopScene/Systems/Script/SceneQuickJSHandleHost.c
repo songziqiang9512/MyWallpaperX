@@ -276,8 +276,14 @@ static bool install_effect_handle(MWXSceneQuickJSOwner *owner) {
     }
     if (JS_DefinePropertyValueStr(
             context, layer, "getEffect", getter, JS_PROP_ENUMERABLE
-        ) < 0 ||
-        JS_DefinePropertyValueStr(
+        ) < 0) {
+        // DefineProperty consumes getter even on failure. count has not been
+        // transferred yet and must be released before this partial owner exits.
+        JS_FreeValue(context, count);
+        JS_FreeValue(context, layer);
+        return false;
+    }
+    if (JS_DefinePropertyValueStr(
             context, layer, "getEffectCount", count, JS_PROP_ENUMERABLE
         ) < 0) {
         JS_FreeValue(context, layer);
@@ -287,10 +293,18 @@ static bool install_effect_handle(MWXSceneQuickJSOwner *owner) {
     return true;
 }
 
-bool mwx_scene_quickjs_install_owner_handles(MWXSceneQuickJSOwner *owner) {
-    return owner != NULL && install_effect_handle(owner) &&
-        mwx_scene_quickjs_install_layer_handles(owner) &&
-        mwx_scene_quickjs_install_object_handle(owner);
+bool mwx_scene_quickjs_install_owner_handles(
+    MWXSceneQuickJSOwner *owner,
+    const char **failed_phase
+) {
+    if (failed_phase != NULL) *failed_phase = "effect";
+    if (owner == NULL || !install_effect_handle(owner)) return false;
+    if (failed_phase != NULL) *failed_phase = "layer";
+    if (!mwx_scene_quickjs_install_layer_handles(owner)) return false;
+    if (failed_phase != NULL) *failed_phase = "object";
+    if (!mwx_scene_quickjs_install_object_handle(owner)) return false;
+    if (failed_phase != NULL) *failed_phase = NULL;
+    return true;
 }
 
 void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner) {

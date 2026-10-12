@@ -13,7 +13,7 @@
 
 **首轮入口与最小交付。** 先查现有texture loader/uploader、decode/store/budget及launch资源准备；找一个已测得的重复解析、无效展开或重复资源点，在唯一现有owner修复。先记录当前事实及2–3个可选点的用户收益/风险，选择最短可验证项；不为计数扩大抽象层、cache或新诊断框架。
 
-**当前进度与下一轮。** 首批“保留通道的BC上传”已验收，复用原native uploader并补齐原CPU图片发射map；[三轮对照与边界](../history/native-bc-memory-convergence-2026-10-12.md)归历史。性能专项约10%（初步估计：仅第一阶段一个成本点闭合，不代表该阶段全部完成）。下一轮比较重复TEX解析、模型metadata完整几何扫描和面板重复准备的实际成本；先量最早owner，再选最短修法。模型metadata不能退化成unchecked header，延迟打印model-build不算重复build。GPU复制/HDR history、首帧准备范围及长期切换仍未执行。
+**当前进度与下一轮。** 原生BC已完成对照，归[BC证据](../history/native-bc-memory-convergence-2026-10-12.md)。性能专项约10%（阶段估计，非全样本正确率）。用户补报原包首屏停住已由[有界host修复](../history/scenescript-host-heap-admission-2026-10-13.md)闭合本次开场/更新断点；先恢复播放再继续性能。原App测量属于脚本停用负载，须重建正常播放同条件基线；PKG在途测量待独审收尾，随后验证属性卡条件重复投影。TEX重解析、MDL双阶段、GPU/history、首帧范围及长期切换待执行。
 
 **比较与验收。** 每次修改前取得同样本、作者属性、音频输入、窗口/输出尺寸、App/工具身份与诊断设置下的可比较基线。内存记录峰值和稳态，GPU记录实际工作/时间及copy/target字节，启动记录分阶段耗时和首帧呈现；至少三份有效同条件记录后再做ablation及修后对照。区分冷/暖cache、进程CPU/GPU分配与物理驻留，不拿单次ready或Debug FPS当整体收益。
 

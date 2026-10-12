@@ -7,6 +7,19 @@ HARNESS = r'''
 @main
 enum Harness {
     static func main() throws {
+        let customBudget = SceneScriptScalarBudget(
+            heapBytes: 2 * 1024 * 1024, stackBytes: 512 * 1024,
+            interruptBudget: 100_000, maximumOwnerSourceBytes: 256 * 1024,
+            maximumCandidateSourceBytes: 2 * 1024 * 1024
+        )
+        let independentBudget = SceneScriptScalarBudget(
+            heapBytes: 2 * 1024 * 1024, stackBytes: 512 * 1024,
+            interruptBudget: 100_000, maximumOwnerSourceBytes: 256 * 1024,
+            maximumCandidateSourceBytes: 2 * 1024 * 1024,
+            maximumNativeTransientBytes: 1024
+        )
+        let nativeDefaultBoundary = try nativeBudgetBoundary(.default)
+        let nativeIndependentBoundary = try nativeBudgetBoundary(independentBudget)
         let descriptor = SceneRenderDescriptor(layers: [
             .init(
                 id: 10,
@@ -924,6 +937,16 @@ enum Harness {
             "duplicates": duplicateProjection.duplicateTargets.count,
             "duplicateProjected": duplicateProjection.targets.count,
             "aggregateDomainCommitted": aggregateCandidate.domain != nil,
+            "defaultHeapBytes": SceneScriptScalarBudget.default.heapBytes,
+            "defaultNativeBytes": SceneScriptScalarBudget.default.maximumNativeTransientBytes,
+            "customHeapBytes": customBudget.heapBytes,
+            "customNativeBytes": customBudget.maximumNativeTransientBytes,
+            "independentHeapBytes": independentBudget.heapBytes,
+            "independentNativeBytes": independentBudget.maximumNativeTransientBytes,
+            "nativeDefaultExactAccepted": nativeDefaultBoundary.exactAccepted,
+            "nativeDefaultOverCode": nativeDefaultBoundary.overCode,
+            "nativeIndependentExactAccepted": nativeIndependentBoundary.exactAccepted,
+            "nativeIndependentOverCode": nativeIndependentBoundary.overCode,
             "aggregateFailures": aggregateCandidate.constructionReport
                 .vectorFailures.count,
             "aggregateFailureCodes": Array(Set(
@@ -1590,6 +1613,23 @@ enum Harness {
             budget: budget,
             cancellationCheck: cancellationCheck
         )
+    }
+
+    static func nativeBudgetBoundary(
+        _ budget: SceneScriptScalarBudget
+    ) throws -> (exactAccepted: Bool, overCode: String) {
+        let domain = try SceneScriptQuickJSDomain(budget: budget)
+        domain.beginParticlePlaybackFrame(onBoundary: { _, _ in }, host: { _, _ in
+            throw SceneScriptScalarRuntimeFailure.invalidArgument("fixture host not used")
+        })
+        defer { domain.endParticlePlaybackFrame() }
+        try domain.chargeParticleWork(1, bytes: budget.maximumNativeTransientBytes)
+        do {
+            try domain.chargeParticleWork(1, bytes: 1)
+            return (true, "accepted")
+        } catch let failure as SceneScriptScalarRuntimeFailure {
+            return (true, failure.code)
+        }
     }
 
     static func retryAggregateBudgetCandidate(

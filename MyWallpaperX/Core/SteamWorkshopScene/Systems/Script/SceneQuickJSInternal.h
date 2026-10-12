@@ -77,6 +77,8 @@ typedef struct MWXSceneQuickJSLayerAccessHandle {
     uint64_t callback_epoch;
     bool owner_target;
     bool persistent;
+    // Non-null only during the synchronous CClosure ownership transfer.
+    bool *construction_finalized;
 } MWXSceneQuickJSLayerAccessHandle;
 
 typedef struct MWXSceneQuickJSLayerRecord {
@@ -547,8 +549,15 @@ bool mwx_scene_quickjs_install_active_engine_host(
 bool mwx_scene_quickjs_install_owner_handle_globals(
     MWXSceneQuickJSDomain *domain
 );
-bool mwx_scene_quickjs_install_owner_handles(MWXSceneQuickJSOwner *owner);
+bool mwx_scene_quickjs_install_owner_handles(
+    MWXSceneQuickJSOwner *owner,
+    const char **failed_phase
+);
 bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner);
+JSValue mwx_scene_quickjs_layer_access_closure(
+    JSContext *context, JSCClosure *function, const char *name,
+    int length, int magic, MWXSceneQuickJSLayerAccessHandle *handle
+);
 bool mwx_scene_quickjs_install_layer_handle_class(MWXSceneQuickJSDomain *domain);
 bool mwx_scene_quickjs_install_asset_engine(
     MWXSceneQuickJSOwner *owner,

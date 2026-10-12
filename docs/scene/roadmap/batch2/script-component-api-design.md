@@ -16,6 +16,20 @@
 - component/object/particle综合项仍有缺口，不能由综合等级推断各基础设施缺失；现`SceneScriptLayerHandleBridge`已有upsert/destroy、mutation commit/discard与scope隔离，`SceneScriptOwnerLifecycleBridge`已有生命周期及mutation预算。
 - 2026-10-01核对官方[IScene](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IScene.html)、[IEngine](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html)、[IThisPropertyObject](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IThisPropertyObject.html)、[IParticleSystem](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystem.html)。公开入口未证明作者可调用`registerSceneScriptComponent`。
 
+## 共享 VM 容量与安装失败后继（2026-10-13，实施中）
+
+原包隔离 App 在第 742 个 owner 的 layer handle 安装处实际耗尽共享 VM 的 16 MiB heap；记录为 memory-exceeded，分配量 16,777,168 / 16,777,216 bytes，计划上界为 935 个 owner。首个真实内存错误已沿现候选域 fatal 路径退出，旧逐 identity 重试耗尽 4096 的扩大失败已排除；该 16 MiB 版本原包开场仍未恢复。该证据说明容量不足，不定位症状的引入提交。32 MiB 前一候选的隔离原包已完成自动开场、后续运动与网格切换；本片最新安装失败边界仍须固定源码重建重验，不能沿用旧候选的运行结论。冻结身份及播放验收归[本轮中性历史记录](../../history/scenescript-host-heap-admission-2026-10-13.md)，不由此设计登记替代。
+
+比较三个方向：共享 native handle 载荷可减少外部分配，但当前 QuickJS 每函数仍有独立函数对象与 closure record，不能单独消除 VM heap 缺口；按读取生成方法可减少 eager 函数，却将现 own data property 改成 accessor，属性描述符及 writable 行为的迁移证据不足；本片选择全局默认共享 JS heap 的有限 32 MiB 候选，保持现方法和 handle 语义，并以真实原包及自有高 owner 数验证。失败后不自动扩容，不按样本身份调度容量。
+
+唯一预算 owner 仍是 SceneScriptScalarBudget：准备阶段将 JS heap/stack/interrupt/source 限额交给现 QuickJS domain，将独立 native transient 限额交给原 particle host boundary。默认 JS heap 为 32 MiB，默认 native transient 保持 16 MiB；存储两个独立字段。显式 initializer 的 native 参数可省略，省略时继承该调用者原 heap 限额，以保留现自有 custom budget 语义；生产 .default 显式指定 native 16 MiB。owner 构造工作 4096、单 owner/aggregate source、stack、interrupt 与现候选域重建规则均不变，不新增预算、identity、cache 或生命周期 owner。
+
+handle 安装失败在清理前保留真实异常及 effect/layer/object 阶段、heap 分配快照，失败 owner 释放后分类；compile-only、engine-bind、namespace 与 handle 安装共用 native 异常分类，仅读取 Error 自有 data message，不执行可被此前 owner 改写的 formatter、accessor 或 Symbol.toPrimitive。这些 native 构造均不执行作者代码，四个 caller 均分离调用前旧异常与新 native 异常；成功恢复原旧异常，返回成功值同时留下新异常仍拒绝并清理已转交资源。失败 return 未留下新异常时只释放旧异常，不把旧 null/Error 当成新 OOM；compile 保留 compile-error 映射，其他未知失败为普通异常。真实新内存错误进入 memory-exceeded；compile 释放返回 module 且不进入作者 evaluation，bind 撤回原 active engine，namespace 释放返回对象，install 沿原 handles/audio/module/owner destroy 链退出。SDK compile-only 顶层尚未找到已证成功值伴新异常；对应自有注入只验证 caller 合同，不写成 SDK 实证。作者 module evaluation、rejected Promise 及 getter/setter 的原异常语义保留。成功构造与普通帧不扫描 heap。共享 heap OOM 仍立即拒绝该候选域，原 active Scene 的生命周期不由此更改；32 MiB 仍失败时先重新测失败 owner、分配和未执行接口，不连续提高上限。
+
+相邻 layer/particle instance factory 的 native payload 分配失败在 producer 抛出现 OutOfMemory，closure/getter/setter/atom 逐步检查后转交。现 layer access payload 只在同步 closure 构造时持有临时 finalizer 标记；早期失败由 caller 释放一次，晚期失败由现 finalizer 释放一次，成功后清除临时指针，后续生命周期仍由原 closure 独占。当前 vendored API 返回 function 同时留下新 native 异常也按失败释放；调用前已有异常与新分配失败分离，不被成功构造覆盖，不新增异常系统或持久 owner。
+
+验收分两层：自有真实 VM 证明 935 及更高 owner 数构造/更新，有限 heap 超限、低预算、作者 null/accessor、peer/stale/detached handle 与清理反例继续成立；Swift 最近门证明默认 native 16 MiB 和 custom/native override 相互独立。随后固定源码/App/未改作者字节的隔离原包验证开场退出、后续动画/显隐与交互，并用未参与修复的样本检查邻接行为。只有真实画面链成立才记本片完成；Debug build、owner 数、ready 或非黑不能替代播放验收。
+
 ## 初始图层配置后继（2026-10-12，实施中）
 
 N06 真实脚本通过 `getInitialLayerConfig` 读取作者配置，再提取 image/size 或 text 字段交给既有 createLayer；本片优先恢复可由现役普通图片资源消费的原层脚本，不承诺完整 clone、Puppet 或 composition。官方 2.8.0.42 自有黑盒已证 String 名称、Number 顺序、ILayer 三入口返回原作者字段的独立对象，保留 script/value wrapper、string size 和未知作者字段，去除顶层 id；运行中的属性写入不改变初始配置；找不到名称或序号返回 null。同一 R2 实验已证嵌套数组/对象的副本隔离，动态 createLayer 的普通 Object 配置亦保留创建时深副本。不得推测 wrapper 展开。
