@@ -15,7 +15,7 @@
 <p align="center">
   <a href="https://github.com/songziqiang9512/MyWallpaperX/releases">下载应用</a> ·
   <a href="https://www.mwpx.me">官方网站</a> ·
-  <a href="docs/releases/2.10.0.md">2.10.0 更新说明</a> ·
+  <a href="docs/releases/2.10.1.md">2.10.1 更新说明</a> ·
   <a href="https://github.com/songziqiang9512/MyWallpaperX/issues">反馈问题</a>
 </p>
 
@@ -61,7 +61,7 @@ Steam 内容能否下载取决于服务状态、网络连接和账号访问权�
 
 ### 日常控制
 
-菜单栏与工具栏提供常用播放入口；设置中可以配置节能策略、视频播放方式及全局快捷键。全局快捷键需要先启用并分配按键，播放／暂停和静音用于当前动态引擎，上一张／下一张用于视频切换。
+菜单栏与工具栏提供常用播放入口；设置中可以配置节能策略、视频播放方式及全局快捷键。全局快捷键需要先启用并分配按键，播放／暂停和静音用于当前动态引擎，上一张／下一张用于切换已安装的 Video、Web 和 Scene 壁纸，并自动跳过缺少依赖或无法播放的项目。
 
 更完整的工具栏说明、快捷键表、登录及下载报错排查，请打开应用的 **帮助** 菜单。帮助内容同时提供[中文源码](MyWallpaperXHelp/zh-Hans.lproj/index.html)与[英文源码](MyWallpaperXHelp/en.lproj/index.html)。
 
