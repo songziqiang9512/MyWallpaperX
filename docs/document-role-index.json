@@ -786,6 +786,18 @@
       ]
     },
     {
+      "path": "docs/scene/history/benchmark-responsibility-convergence-2026-10-13.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/development/development-workflow.md"
+      ],
+      "cutoffDate": "2026-10-13",
+      "uniqueValue": "超长工具职责迁移、完整报告与异常等价、唯一测试发现及签名入口边界。"
+    },
+    {
       "path": "docs/scene/history/bottom-audio-provider-implementation-2026-10-05.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",

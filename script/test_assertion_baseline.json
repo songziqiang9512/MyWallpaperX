@@ -1548,13 +1548,6 @@
       "count": 1
     },
     {
-      "path": "script/tests/test_scene_wallpaper_benchmark.py",
-      "scope": "SceneWallpaperBenchmarkTests.test_performance_only_run_skips_execution_observations",
-      "method": "assertIn",
-      "literal": "if no_execution_observations:",
-      "count": 1
-    },
-    {
       "path": "script/tests/test_steam_auth_gate.py",
       "scope": "SteamAuthGateTests.test_login_panel_exposes_keyboard_and_accessibility_actions",
       "method": "assertIn",
