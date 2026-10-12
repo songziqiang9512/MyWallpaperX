@@ -73,11 +73,41 @@ nonisolated extension SceneTextureLoader {
                 "file metadata unavailable: \(url.lastPathComponent)"
             ))
         }
+        let isTex = url.pathExtension.lowercased() == "tex"
+        let prepared = isTex ? prepareTexSource(from: url, source: source) : nil
+        guard !isTex || prepared != nil else {
+            return .failed(.decodeFailed("TEX source unavailable: \(url.lastPathComponent)"))
+        }
+        return loadCandidate(
+            from: url, source: source, prepared: prepared,
+            purpose: purpose, device: device
+        )
+    }
+
+    func loadCandidate(
+        from prepared: PreparedTexSource,
+        purpose: SceneTextureLoadPurpose,
+        device: MTLDevice
+    ) -> SceneTextureCandidateLoadOutcome {
+        loadCandidate(
+            from: prepared.url, source: prepared.source, prepared: prepared,
+            purpose: purpose, device: device
+        )
+    }
+
+    private func loadCandidate(
+        from url: URL,
+        source: SourceKey,
+        prepared: PreparedTexSource?,
+        purpose: SceneTextureLoadPurpose,
+        device: MTLDevice
+    ) -> SceneTextureCandidateLoadOutcome {
         let outcome = load(
             from: url,
             source: source,
             purpose: purpose,
-            device: device
+            device: device,
+            preparedTexSource: prepared
         )
         guard case .loaded(let texture) = outcome else {
             return .failed(outcome)
@@ -88,13 +118,12 @@ nonisolated extension SceneTextureLoader {
             ))
         }
         let isTex = url.pathExtension.lowercased() == "tex"
-        let parsedContainer = texContainer(from: url, source: source)
-        guard !isTex || parsedContainer != nil else {
+        let container = prepared?.container
+        guard !isTex || container != nil else {
             return .failed(.decodeFailed(
                 "typed slot candidate requires parsed TEX metadata"
             ))
         }
-        let container = isTex ? parsedContainer : nil
         guard container?.imageCount ?? 1 == 1,
               !(container?.isAnimated ?? false),
               container?.spriteFrames.isEmpty ?? true else {
@@ -119,19 +148,31 @@ nonisolated extension SceneTextureLoader {
         purpose: SceneTextureLoadPurpose,
         device: MTLDevice
     ) -> SceneAnimatedTextureCandidateLoadOutcome {
-        guard url.pathExtension.lowercased() == "tex",
-              let source = sourceKey(for: url),
-              let container = texContainer(from: url, source: source),
+        guard let prepared = prepareTexSource(from: url) else {
+            return .failed(.decodeFailed(
+                "animated material candidate requires one finite axis-aligned atlas"
+            ))
+        }
+        return loadAnimatedMaterialCandidate(from: prepared, purpose: purpose, device: device)
+    }
+
+    func loadAnimatedMaterialCandidate(
+        from prepared: PreparedTexSource,
+        purpose: SceneTextureLoadPurpose,
+        device: MTLDevice
+    ) -> SceneAnimatedTextureCandidateLoadOutcome {
+        guard let container = prepared.container,
               materialAtlasAdmission(container) == .valid else {
             return .failed(.decodeFailed(
                 "animated material candidate requires one finite axis-aligned atlas"
             ))
         }
         let outcome = load(
-            from: url,
-            source: source,
+            from: prepared.url,
+            source: prepared.source,
             purpose: purpose,
-            device: device
+            device: device,
+            preparedTexSource: prepared
         )
         guard case let .loaded(texture) = outcome else {
             return .failed(outcome)
@@ -139,8 +180,8 @@ nonisolated extension SceneTextureLoader {
         guard case let .loaded(candidate) = makeCandidate(
             texture: texture,
             container: container,
-            source: source,
-            url: url,
+            source: prepared.source,
+            url: prepared.url,
             purpose: purpose
         ) else {
             return .failed(.decodeFailed(

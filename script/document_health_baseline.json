@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 22,
-      "bytes": 3514
+      "bytes": 3506
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1274,15 +1274,6 @@
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "a234f231725db8f8003377b13186996f7e793aa6432facd0f8301476eef8edbb",
       "after": "c631d736a32b515cdeaf85bad6423adc671462912e78c00d680451d7fda34543",
-      "owner": "scene-pkg-resources-and-regression-scope",
-      "reason": "PKG局部资源与正常播放新基线；现役只保限定状态和后继。",
-      "decision": "docs/scene/history/pkg-extraction-memory-convergence-2026-10-12.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "1d79fb5d693c1d662c3898a1ddf577853c3abd23b32d7b9a5366c155761a3524",
-      "after": "0e07b0d681bbd08f3da04da9058363dbd4652473efbedfa60b1be8065a981221",
       "owner": "scene-pkg-resources-and-regression-scope",
       "reason": "PKG局部资源与正常播放新基线；现役只保限定状态和后继。",
       "decision": "docs/scene/history/pkg-extraction-memory-convergence-2026-10-12.md"

@@ -2,7 +2,7 @@
 
 # Scene 性能收敛工作卡
 
-用户2026-10-12要求：当前遮罩兼容批收尾后，优先推进本卡及[属性面板卡](properties-panel-card.md)。目标是降低运行成本和等待时间，已有画面、交互与能力必须保持；长期视觉断点仍归[队列](scene-open-breakpoint-queue.md)，本卡不改变兼容目标。
+用户2026-10-12要求：当前遮罩兼容批收尾后，优先推进本卡及[属性面板卡](properties-panel-card.md)。目标是降低运行成本和等待时间，保持画面、交互与能力；视觉断点归[队列](scene-open-breakpoint-queue.md)，兼容目标不变。
 
 **执行顺序。**
 
@@ -13,7 +13,7 @@
 
 **首轮入口与最小交付。** 先查现有texture loader/uploader、decode/store/budget及launch资源准备；找一个已测得的重复解析、无效展开或重复资源点，在唯一现有owner修复。先记录当前事实及2–3个可选点的用户收益/风险，选择最短可验证项；不为计数扩大抽象层、cache或新诊断框架。
 
-**当前进度与下一轮。** BC与PKG条目复用已对照，归[BC证据](../history/native-bc-memory-convergence-2026-10-12.md)、[PKG证据](../history/pkg-extraction-memory-convergence-2026-10-12.md)。专项约15%（阶段估计，非全样本正确率）；局部收益不代表App总峰值/首帧改善。原包首屏停住经[有界host修复](../history/scenescript-host-heap-admission-2026-10-13.md)闭合；旧测量属脚本停用负载，最终App已取得正常播放三轮基线，边界归PKG证据。属性首轮条件投影已有局部修复，后继按[属性卡](properties-panel-card.md)追编辑/重置成本。引擎TEX重解析、MDL双阶段、GPU/history、首帧范围与长期切换待执行；MDL保完整校验，延迟日志不算重复build。
+**当前进度与下一轮。** 复用结果归[BC](../history/native-bc-memory-convergence-2026-10-12.md)、[PKG](../history/pkg-extraction-memory-convergence-2026-10-12.md)、[TEX证据](../history/tex-request-local-convergence-2026-10-13.md)。专项约20%（阶段估计），不外推App峰值/首帧。原包开场经[有界host修复](../history/scenescript-host-heap-admission-2026-10-13.md)闭合；旧脚本停用测量不作基线。下一轮补HDR/reflection复制计量，再量普通高级混合quad局部复制；复用既有投影和snapshot，custom geometry/折射保全屏。TEX外层base-image/natural-size、MDL双阶段、首帧范围、长期切换待量；MDL保完整校验，延迟日志不算重复build。属性typed更新/重建归[属性卡](properties-panel-card.md)。
 
 **比较与验收。** 每次修改前取得同样本、作者属性、音频输入、窗口/输出尺寸、App/工具身份与诊断设置下的可比较基线。内存记录峰值和稳态，GPU记录实际工作/时间及copy/target字节，启动记录分阶段耗时和首帧呈现；至少三份有效同条件记录后再做ablation及修后对照。区分冷/暖cache、进程CPU/GPU分配与物理驻留，不拿单次ready或Debug FPS当整体收益。
 

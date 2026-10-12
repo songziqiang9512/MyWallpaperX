@@ -125,14 +125,18 @@ nonisolated final class SceneTextureLoader {
     }
 
     func videoSourceDeclaration(from url: URL) -> VideoSourceDeclaration? {
-        guard url.pathExtension.lowercased() == "tex",
-              let source = sourceKey(for: url),
-              let container = texContainer(from: url, source: source),
+        guard let prepared = prepareTexSource(from: url) else { return nil }
+        return videoSourceDeclaration(from: prepared)
+    }
+
+    func videoSourceDeclaration(from prepared: PreparedTexSource) -> VideoSourceDeclaration? {
+        guard sourceKey(for: prepared.url) == prepared.source,
+              let container = prepared.container,
               container.format == 0,
               let payload = container.mips.first?.data,
               SceneTexContainer.isVideoPayload(payload),
-              sourceKey(for: url) == source else { return nil }
-        return .init(url: url, source: source, payload: payload,
+              sourceKey(for: prepared.url) == prepared.source else { return nil }
+        return .init(url: prepared.url, source: prepared.source, payload: payload,
             isWebM: SceneTexContainer.isWebMPayload(payload))
     }
 
@@ -142,7 +146,7 @@ nonisolated final class SceneTextureLoader {
         let purpose: SceneTextureLoadPurpose
     }
 
-    private struct TexResource {
+    fileprivate struct TexResource {
         let container: SceneTexContainer?
         let parseError: String?
 
@@ -161,6 +165,17 @@ nonisolated final class SceneTextureLoader {
             }
             return total
         }
+    }
+
+    /// One stable TEX input for a single preparation request. The existing
+    /// loader owns parsing/cache admission; consumers can retain the result
+    /// briefly even when the decoded-cache budget declines admission.
+    struct PreparedTexSource {
+        let url: URL
+        let source: SourceKey
+        fileprivate let resource: TexResource
+
+        var container: SceneTexContainer? { resource.container }
     }
 
     private enum DirectImageResource {
@@ -236,8 +251,13 @@ nonisolated final class SceneTextureLoader {
         from url: URL,
         source: SourceKey,
         purpose: SceneTextureLoadPurpose,
-        device: MTLDevice
+        device: MTLDevice,
+        preparedTexSource: PreparedTexSource? = nil
     ) -> SceneTextureLoadOutcome {
+        if let preparedTexSource,
+           preparedTexSource.source != source || sourceKey(for: url) != source {
+            return .decodeFailed("file changed while loading: \(url.lastPathComponent)")
+        }
         let key = TextureKey(
             source: source,
             deviceRegistryID: device.registryID,
@@ -263,7 +283,8 @@ nonisolated final class SceneTextureLoader {
                 url: url,
                 source: source,
                 purpose: purpose,
-                device: device
+                device: device,
+                preparedResource: preparedTexSource?.resource
             )
         } else {
             outcome = .unsupportedFormat(extension: ext)
@@ -324,8 +345,18 @@ nonisolated final class SceneTextureLoader {
     }
 
     func texContainer(from url: URL, source: SourceKey) -> SceneTexContainer? {
-        guard url.pathExtension.lowercased() == Self.texExtension else { return nil }
-        return texResource(from: url, source: source)?.container
+        prepareTexSource(from: url, source: source)?.container
+    }
+
+    func prepareTexSource(
+        from url: URL,
+        source: SourceKey? = nil
+    ) -> PreparedTexSource? {
+        guard url.pathExtension.lowercased() == Self.texExtension,
+              let source = source ?? sourceKey(for: url),
+              let resource = texResource(from: url, source: source),
+              sourceKey(for: url) == source else { return nil }
+        return .init(url: url, source: source, resource: resource)
     }
 
     /// Preparation-only metadata from the existing decode owner before upload
@@ -394,9 +425,10 @@ nonisolated final class SceneTextureLoader {
         url: URL,
         source: SourceKey,
         purpose: SceneTextureLoadPurpose,
-        device: MTLDevice
+        device: MTLDevice,
+        preparedResource: TexResource? = nil
     ) -> SceneTextureLoadOutcome {
-        guard let resource = texResource(from: url, source: source) else {
+        guard let resource = preparedResource ?? texResource(from: url, source: source) else {
             return .decodeFailed("read failed: \(url.lastPathComponent)")
         }
         guard let container = resource.container else {

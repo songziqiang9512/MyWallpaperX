@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-13 | 纹理/性能 | 收敛证据 | [TEX请求内复用](tex-request-local-convergence-2026-10-13.md) | 拒绝cache时一份payload、局部成本与正常播放三轮对照；默认App收益未证 | [性能卡](../roadmap/performance-convergence-card.md) |
 | 2026-10-13 | 属性/性能 | 收敛证据 | [条件投影](property-condition-projection-2026-10-13.md) | 同body共享当前输入、局部CPU对照与面板/窗口边界 | [属性卡](../roadmap/properties-panel-card.md)、[性能卡](../roadmap/performance-convergence-card.md) |
 | 2026-10-13 | SceneScript | 修复证据 | [有界host容量与原包开场](scenescript-host-heap-admission-2026-10-13.md) | 935合法owner/16MiB耗尽归因、有限容量与native失败边界；原包时序与网格交互 | [D4](../roadmap/batch2/script-component-api-design.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md)、[性能卡](../roadmap/performance-convergence-card.md) |
 | 2026-10-13 | 资源/性能 | 收敛证据 | [PKG提取内存](pkg-extraction-memory-convergence-2026-10-12.md) | 借用稳定条目、cold/warm峰值下降与同包互斥；App整体首帧仍待量 | [性能卡](../roadmap/performance-convergence-card.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |

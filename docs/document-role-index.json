@@ -2304,6 +2304,25 @@
       ]
     },
     {
+      "path": "docs/scene/history/tex-request-local-convergence-2026-10-13.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/performance-convergence-card.md"
+      ],
+      "cutoffDate": "2026-10-13",
+      "uniqueValue": "同请求TEX解码拒绝时的载荷复用、真实GPU/版本失败边界、三轮正常播放对照及未证明的App收益。",
+      "lastReviewed": "2026-10-13",
+      "reviewBasis": {
+        "kind": "implementation-evidence",
+        "sourceSHA256": "888354d6c642e4cbd74f2626f8b215b3bef029fdaee7aca7e9c6dab70c075df0",
+        "method": "native self fixtures + three before/after active Scene measurements + heldout rendered frames + independent read-only review",
+        "scope": "请求内元数据/视频/动画/typed上传复用、预算拒绝及SourceKey反例",
+        "limitations": "不代表默认App稳定性能改善、全样本正确率、Release或官方parity。"
+      }
+    },
+    {
       "path": "docs/scene/history/text-terminal-overflow-2026-10-12.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",

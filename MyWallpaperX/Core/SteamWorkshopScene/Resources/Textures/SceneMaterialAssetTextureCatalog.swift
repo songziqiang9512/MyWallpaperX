@@ -186,9 +186,10 @@ final class SceneMaterialAssetTextureCatalog {
                 launchStates[identity] = .absent
                 continue
             }
-            let container = url.pathExtension.lowercased() == "tex"
-                ? loader.texContainer(from: url) : nil
-            if let container, let declaration = loader.videoSourceDeclaration(from: url) {
+            let prepared = loader.prepareTexSource(from: url)
+            let container = prepared?.container
+            if let prepared, let container,
+               let declaration = loader.videoSourceDeclaration(from: prepared) {
                 guard identity.purpose == .premultipliedColor,
                       !container.isVolume, !container.isAnimated,
                       container.spriteFrames.isEmpty,
@@ -202,7 +203,7 @@ final class SceneMaterialAssetTextureCatalog {
                 launchStates[identity] = .preparedVideoColor
                 continue
             }
-            if let container,
+            if let prepared, let container,
                container.isAnimated || !container.spriteFrames.isEmpty
                     || container.imageCount != 1 {
                 if loader.materialAtlasAdmission(container)
@@ -214,7 +215,7 @@ final class SceneMaterialAssetTextureCatalog {
                     continue
                 }
                 switch loader.loadAnimatedMaterialCandidate(
-                    from: url,
+                    from: prepared,
                     purpose: identity.purpose,
                     device: device
                 ) {
@@ -235,11 +236,10 @@ final class SceneMaterialAssetTextureCatalog {
                 }
                 continue
             }
-            switch loader.loadCandidate(
-                from: url,
-                purpose: identity.purpose,
-                device: device
-            ) {
+            let outcome = prepared.map {
+                loader.loadCandidate(from: $0, purpose: identity.purpose, device: device)
+            } ?? loader.loadCandidate(from: url, purpose: identity.purpose, device: device)
+            switch outcome {
             case .failed:
                 loaded[identity] = .unavailable
                 launchStates[identity] = .unavailable
