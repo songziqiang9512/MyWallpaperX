@@ -241,6 +241,16 @@ nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
     case depth
     case lookupTable
 
+    var isDataPurpose: Bool {
+        switch self {
+        case .preservedChannels, .mask, .noise, .flow, .phase, .normal,
+             .depth, .lookupTable:
+            true
+        case .premultipliedColor, .straightAlbedo:
+            false
+        }
+    }
+
     var preservesSourceChannels: Bool {
         switch self {
         case .premultipliedColor:

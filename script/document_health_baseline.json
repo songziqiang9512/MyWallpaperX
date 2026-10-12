@@ -89,12 +89,12 @@
       "bytes": 5005
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 594,
-      "bytes": 345279
+      "lines": 596,
+      "bytes": 345429
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 107,
-      "bytes": 32440
+      "lines": 108,
+      "bytes": 32712
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 243,
-      "bytes": 70782
+      "bytes": 71082
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -255,6 +255,18 @@
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 15,
       "bytes": 2978
+    },
+    "docs/scene/capabilities/scalar-mask-data-purpose.md": {
+      "lines": 17,
+      "bytes": 3104
+    },
+    "docs/scene/roadmap/performance-convergence-card.md": {
+      "lines": 20,
+      "bytes": 2734
+    },
+    "docs/scene/roadmap/properties-panel-card.md": {
+      "lines": 20,
+      "bytes": 2736
     }
   },
   "archives": [
@@ -1197,11 +1209,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "a9860bad841591a8c58254e9c81a4f628955b81006315c166776f5c142dbb979",
-      "after": "31b8f65a39e1cd34b9a15a1c181ae2a75e7bffe7b0b901355b9c347801fb733a",
-      "owner": "scene-e-route",
-      "reason": "窄准入合同、现役指针与集中例外同步；批次细节由历史证据拥有。",
-      "decision": "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md#文档归属与产物"
+      "before": "31b8f65a39e1cd34b9a15a1c181ae2a75e7bffe7b0b901355b9c347801fb733a",
+      "after": "24a457402c0c6ac0b066bd42228072d61553e99cb625449fb88e81666fce1c73",
+      "owner": "scene-material-purpose",
+      "reason": "标量遮罩后验及用户调序的两专项卡；区分作者关闭与真实视觉失败，短合同引用历史。",
+      "decision": "docs/scene/history/scalar-mask-data-purpose-2026-10-12.md"
     },
     {
       "section": "bodies",
@@ -1224,11 +1236,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9b158763bbf04758db921717488523cc27852ea3e65325226f71e30c90368aae",
-      "after": "bc7f463a8e85bfe7e878ed1a8000f467f60d924cab8b6c4172085debb756c2ba",
-      "owner": "scene-material-color-boundary",
-      "reason": "原颜色合同补逐候选graph用途并关闭验证债；现役仅保状态/指针，过程归历史。",
-      "decision": "docs/scene/history/graph-color-purpose-reconciliation-2026-10-12.md#文档与产物"
+      "before": "bc7f463a8e85bfe7e878ed1a8000f467f60d924cab8b6c4172085debb756c2ba",
+      "after": "ad0d9867d99d9e38ad75e75cd800e80bae8ab532a124591baa7b2d6cf4a9ca4e",
+      "owner": "scene-material-purpose",
+      "reason": "标量遮罩后验及用户调序的两专项卡；区分作者关闭与真实视觉失败，短合同引用历史。",
+      "decision": "docs/scene/history/scalar-mask-data-purpose-2026-10-12.md"
     },
     {
       "section": "bodies",
@@ -1242,11 +1254,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "19f9ead2e83e130633fb3c5502297e472fba596fc65354c378ed0d0a6e819ca9",
-      "after": "a0e02a597c84d680d32a0c3845643c18f85dc3d6530fb8fd271c61be4b4e62de",
-      "owner": "scene-material-color-boundary",
-      "reason": "原颜色合同补逐候选graph用途并关闭验证债；现役仅保状态/指针，过程归历史。",
-      "decision": "docs/scene/history/graph-color-purpose-reconciliation-2026-10-12.md#文档与产物"
+      "before": "a0e02a597c84d680d32a0c3845643c18f85dc3d6530fb8fd271c61be4b4e62de",
+      "after": "4997950c4cb95ee75ef95791b04ab54dcbbc4a96199939322e4dc9bb50a53373",
+      "owner": "scene-material-purpose",
+      "reason": "标量遮罩后验及用户调序的两专项卡；区分作者关闭与真实视觉失败，短合同引用历史。",
+      "decision": "docs/scene/history/scalar-mask-data-purpose-2026-10-12.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scalar-mask-data-purpose.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "d5b3fe85b18210d59eb4f3ab5f38c9949d5d36fd9ffaf3edb1ef026c658271b3",
+      "owner": "scene-material-purpose",
+      "reason": "标量遮罩后验及用户调序的两专项卡；区分作者关闭与真实视觉失败，短合同引用历史。",
+      "decision": "docs/scene/history/scalar-mask-data-purpose-2026-10-12.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "d76e4f0a99195aea32377eb721e59a9778dbd0f360d630af614ac769efca260b",
+      "owner": "scene-material-purpose",
+      "reason": "标量遮罩后验及用户调序的两专项卡；区分作者关闭与真实视觉失败，短合同引用历史。",
+      "decision": "docs/scene/history/scalar-mask-data-purpose-2026-10-12.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "b7525a4cebbbfb6b5cc2a0b884b72aaa1cd9d1c7b5ea22970270c46baa7bb8a8",
+      "owner": "scene-material-purpose",
+      "reason": "标量遮罩后验及用户调序的两专项卡；区分作者关闭与真实视觉失败，短合同引用历史。",
+      "decision": "docs/scene/history/scalar-mask-data-purpose-2026-10-12.md"
     }
   ]
 }

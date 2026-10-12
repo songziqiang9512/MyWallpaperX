@@ -1,5 +1,7 @@
 # Scene Render Graph 与 Shader 覆盖矩阵
 
+二维 data 的直接红通道遮罩消费按[用途协调合同](scalar-mask-data-purpose.md)实施与验收；本入口不另存第二份规则。
+
 ## 2026-10-08 声明后缀与标量条件兼容合同
 
 真实 `3804441338` 的镂空边框先在 fragment `varying vec4 v_Size.xy;` 被声明解析拒绝，随后在数字标量三元条件 `outside ?` 被严格 GLSL 编译拒绝，实际 App 显示白色 solid；`3662390671` 另有同源特效（不解释其独立 WebM 背景缺口）。目标是让合法的作者通道到达既有 Program，禁止为边框新增几何或混合算法。

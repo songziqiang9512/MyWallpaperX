@@ -235,13 +235,15 @@ extension SceneResolvedMaterialShaderSchema.Sampler {
         let registeredPurpose = SceneStockTextureSemanticRegistry.purpose(for: path)
         if let declaredPurpose, let registeredPurpose,
            declaredPurpose != registeredPurpose {
-            // Some historical materials label a stock scalar-noise sampler as
-            // `albedo`. The exact registry may override that stale label only
-            // when this prepared source variant proves every active use reads
-            // red directly. Whole-vector, indirect, mixed-channel and
-            // unregistered consumers remain ambiguous and fail closed.
-            guard registeredPurpose == .noise,
-                  channelUse == .redOnly else { return nil }
+            // A direct scalar mask read keeps a registered 2D data resource's
+            // upload and storage purpose. Retain the existing scalar-noise
+            // arbitration for other declared roles; neither rule changes a
+            // conflicting source-purpose proof or admits color/volume data.
+            guard channelUse == .redOnly,
+                  registeredPurpose == .noise
+                    || (mode == .opacityMask && registeredPurpose.isDataPurpose
+                        && !registeredPurpose.requiresVolumeTexture)
+            else { return nil }
             return registeredPurpose
         }
         let candidatePurpose = registeredPurpose ?? declaredPurpose

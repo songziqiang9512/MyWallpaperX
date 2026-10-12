@@ -1313,7 +1313,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge+SourceMaterials.swift",
         "script/tests/test_scene_shared_presence_reachability.py",
         "script/tests/test_scene_graph_source_color_purpose.py",
-        "script/tests/test_scene_source_proven_straight_color_purpose.py"
+        "script/tests/test_scene_source_proven_straight_color_purpose.py",
+        "script/tests/test_scene_scalar_mask_data_purpose.py"
       ],
       "modules": [
         "test_scene_opaque_loop_sample_average_owner",
@@ -1352,7 +1353,8 @@
         "test_scene_effect_draw_alpha",
         "test_scene_shared_presence_reachability",
         "test_scene_graph_source_color_purpose",
-        "test_scene_source_proven_straight_color_purpose"
+        "test_scene_source_proven_straight_color_purpose",
+        "test_scene_scalar_mask_data_purpose"
       ]
     },
     {

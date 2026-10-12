@@ -36,19 +36,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
     ) -> Bool {
         guard case .asset = reference,
               let purpose = sampler.purpose(for: reference) else { return false }
-        return isDataPurpose(purpose)
-    }
-
-    private static func isDataPurpose(
-        _ purpose: SceneTextureLoadPurpose
-    ) -> Bool {
-        switch purpose {
-        case .preservedChannels, .mask, .noise, .flow, .phase, .normal,
-             .depth, .lookupTable:
-            true
-        case .premultipliedColor, .straightAlbedo:
-            false
-        }
+        return purpose.isDataPurpose
     }
 
     static func validateSamplerBindings(

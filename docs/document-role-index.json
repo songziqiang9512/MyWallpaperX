@@ -19,6 +19,7 @@
       "docs/scene/capabilities/puppet-clipping-design.md",
       "docs/scene/capabilities/runtime-evidence-current.md",
       "docs/scene/capabilities/sampler-alias-precedence.md",
+      "docs/scene/capabilities/scalar-mask-data-purpose.md",
       "docs/scene/capabilities/static-source-draw-only-degradation.md",
       "docs/scene/development/development-workflow.md",
       "docs/scene/development/official-client-behavior-research-workflow.md",
@@ -38,6 +39,8 @@
       "docs/scene/roadmap/batch2/system-media-input-design.md",
       "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
       "docs/scene/roadmap/engine-refactor-program.md",
+      "docs/scene/roadmap/performance-convergence-card.md",
+      "docs/scene/roadmap/properties-panel-card.md",
       "docs/scene/roadmap/scene-compatibility-roadmap.md",
       "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "docs/scene/roadmap/scene-steamkit-migration-plan.md",
@@ -548,7 +551,7 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d5667aa02fb70bac4c89095b37216b4bdb9b529c4779ee418a7711e7afdeaa1d",
+        "sourceSHA256": "4d74a659e136d6fd0222627e5d2a79d3c902b6b611929468a2416066d8788903",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对类型转换入口复用、原包编译接线及视觉未闭的证据边界。",
         "limitations": "导航与证据身份核对；不等同全样本、真实声源、compose或HDR官方parity。"
@@ -562,10 +565,10 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "376cc89905260a9edd85a9e260c0b5ae2d1cba4f4dd512bcd04c8c30e4fed95b",
+        "sourceSHA256": "18ef98660cc4a29daa14fd1aace6929b6efbd59968a31c60840936860fba17b4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批graph用途、typed末合成、旧验证债关闭及历史入口的职责/状态核对；其他合同未重验",
-        "limitations": "导航复核不冒充全架构、全样本或Release；实际身份与证据边界归本批历史记录。"
+        "scope": "本批标量数据遮罩后验及用户性能/属性优先级的职责导航；其他合同未重验",
+        "limitations": "导航复核不冒充全架构、全样本、性能或Release验收；具体执行证据归本批历史。"
       }
     },
     {
@@ -593,6 +596,20 @@
         "method": "document_registry --audit + document_health --check",
         "scope": "核对中文previous同一Sampler合同、四原包音频实际链路及U19灰外圈消融。",
         "limitations": "受控PCM不代表外部音源、完整视觉/交互或官方parity；GodRays和sine_wave剩余仍开放。"
+      }
+    },
+    {
+      "path": "docs/scene/capabilities/scalar-mask-data-purpose.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "currentStateAuthority": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "lastReviewed": "2026-10-12",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "9c78a127653de9071c4ced4d306fdbdb30fb3ccba60cad5c7fe4b3077aae4b24",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "实施前二维data/直接red遮罩语义与现有owner设计",
+        "limitations": "设计登记不代表实现、GPU、真实画面或官方验收。"
       }
     },
     {
@@ -1876,6 +1893,19 @@
       ]
     },
     {
+      "path": "docs/scene/history/scalar-mask-data-purpose-2026-10-12.md",
+      "role": "historical-evidence",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/scalar-mask-data-purpose.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "entrypoint": "docs/scene/history/README.md",
+      "cutoffDate": "2026-10-12",
+      "uniqueValue": "标量data遮罩的源用途红绿、实际GPU与后继合成、变体反例及其他拒绝保留。"
+    },
+    {
       "path": "docs/scene/history/scene-allocating-targets-implementation-2026-10-06.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -2372,6 +2402,34 @@
       "retirementCondition": "E0–E8 完成或经证据裁决不适用、旧职责撤权、当前文档收敛、性能与恢复门通过，稳定合同接管终态后转 historical-evidence。本文是项目工程重构入口，不接管兼容能力和样本验收；性能基线不等待兼容路线 P5。"
     },
     {
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
+      "lastReviewed": "2026-10-12",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "1bbd75e03ad043f253dfefff9a9e0662bf5f8217870e6d8a2575118e08bd0691",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "用户当前优先级、职责与可复验工作卡",
+        "limitations": "工作卡不是性能或产品验收；具体收益需基线/修后及真实输出。"
+      }
+    },
+    {
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
+      "lastReviewed": "2026-10-12",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "c40df0deed07c55b8bd7efdc4d088e9f9466e79fe1c8d5b53ae0f4261db4215d",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "用户当前优先级、职责与可复验工作卡",
+        "limitations": "工作卡不是性能或产品验收；具体收益需基线/修后及真实输出。"
+      }
+    },
+    {
       "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
@@ -2392,10 +2450,10 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d2a90c8cdb51d795fd7f75ee5705b5fb403aedc92e6d0b43524b68eb6231dfaa",
+        "sourceSHA256": "7e1b405dc80c3d4bc1c1659519be305a086bf9445241d67121260a5c50b09708",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批graph用途、typed末合成、旧验证债关闭及历史入口的职责/状态核对；其他合同未重验",
-        "limitations": "导航复核不冒充全架构、全样本或Release；实际身份与证据边界归本批历史记录。"
+        "scope": "本批标量数据遮罩后验及用户性能/属性优先级的职责导航；其他合同未重验",
+        "limitations": "导航复核不冒充全架构、全样本、性能或Release验收；具体执行证据归本批历史。"
       }
     },
     {
@@ -2553,7 +2611,12 @@
         "atlas",
         "Puppet",
         "clipping",
-        "裁剪"
+        "裁剪",
+        "性能",
+        "内存",
+        "启动",
+        "属性面板",
+        "热更新"
       ],
       "documents": [
         "docs/scene/capabilities/coverage-ledger.md",
@@ -2568,7 +2631,10 @@
         "docs/scene/development/official-client-behavior-research-workflow.md",
         "docs/scene/capabilities/puppet-clipping-design.md",
         "docs/scene/capabilities/material-video-assets.md",
-        "docs/scene/capabilities/previous-blurred-composite-admission.md"
+        "docs/scene/capabilities/previous-blurred-composite-admission.md",
+        "docs/scene/capabilities/scalar-mask-data-purpose.md",
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/roadmap/properties-panel-card.md"
       ],
       "sourcePaths": [
         "MyWallpaperX/Core/SteamWorkshopScene"
@@ -2672,15 +2738,20 @@
         "ui",
         "界面",
         "菜单",
-        "shell"
+        "shell",
+        "属性面板",
+        "卡顿"
       ],
       "documents": [
         "docs/architecture/repository-map.md",
-        "docs/architecture/appkit-migration.md"
+        "docs/architecture/appkit-migration.md",
+        "docs/scene/roadmap/properties-panel-card.md"
       ],
       "sourcePaths": [
         "MyWallpaperX/App",
-        "MyWallpaperX/Shell"
+        "MyWallpaperX/Shell",
+        "MyWallpaperX/App/ScenePropertyWindowController.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Scene"
       ],
       "verification": "预览实际路径的最近行为模块；Swift checkpoint 构建，可见交互实际操作验证。",
       "owner": "MyWallpaperX/App",
