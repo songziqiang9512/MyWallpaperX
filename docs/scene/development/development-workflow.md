@@ -59,12 +59,12 @@ authored data → loss-preserving IR → prepared Program/graph/resources
 
 每批先命名修复的公共语义及输入到真实渲染的链路。新增规则要用变量改名、资源改名和等价表达式保持结果不变，再用相邻但语义不同的输入证明不会误命中。验收另选未参与实现选型或调参的真实样本，检查实际渲染；若复验失败后用它调整实现，它转为开发样本，须重新选择独立样本。profile、分支或路径命中不能代替画面结果。
 
-路径、哈希或固定源码形状的兼容例外统一登记在下表，不散落到各样本说明。每条写明源码位置、必要性、影响边界、变体/反例证据及可执行的替换条件；修复或触达存量例外时补登记。资源身份/查找、缓存键和标准API名称本身不属于视觉算法例外；登记也不能豁免按样本选择视觉算法的禁令。未登记的存量尚未全量审计，不能由空表推断不存在。
+路径/hash/固定源码形状例外集中登记：位置、必要性、范围、正反证据及替换条件；触达存量即补，不豁免样本派发禁令。资源身份/查找、缓存键、标准API名除外；未登记存量尚未全审。
 
 | 例外与源码位置 | 必要性及证据 | 影响范围 | 变体与相邻反例 | 替换条件／当前状态 |
 |---|---|---|---|---|
 | 动态图片资源发现的源码形状限制：[ReferenceAnalysis](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicImageReferenceAnalysis.swift) | 准备期从直接路径/平面config literal收集有限依赖，避免帧内IO；不是视觉算法特判 | 四族owner已接同一Program需求及原材质消费者，见[公共准备](../history/shared-script-resource-preparation-2026-10-12.md)；helper/registered handle、任意嵌套表达式和module顶层创建仍受限 | 改名/等价表达、词法伪调用和未知请求局部失败经VM与实际四格像素验证；不声称完整JS解析 | 沿原Program补typed间接依赖与实际GPU正反验收后退除此限制；不得全目录预加载、按样本选择或另造运行时loader |
-
+| 浮点取余形状 | 旧正则/专用判断限制同一运算 | 已退役；见[证据](../history/scalar-floating-remainder-2026-10-12.md) | 改名/等价/整数/副作用 | 共享词法/类型证明 |
 ## 事实和文档
 
 - 最终怎样：[`runtime-architecture.md`](../architecture/runtime-architecture.md)；

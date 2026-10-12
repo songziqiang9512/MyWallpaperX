@@ -443,6 +443,22 @@ private func colorTransferName(_ transfer: SceneShaderColorTransfer) -> String {
 @main
 private struct GenericShaderArtifactHarness {
     static func main() throws {
+        if CommandLine.arguments[1] == "--remainder-request-key-golden" {
+            let expected = SceneGenericShaderExpectedColorTransfer(
+                .independentAlphaSignalPreserving(textureSlot: 1)
+            )!
+            let key = SceneResolvedMaterialGenericShaderRequest.key(
+                vertexSource: "void main() { /* 顶点 */ }",
+                fragmentSource: "void main() { /* fragment */ }",
+                outputSemantics: .color, expectedColorTransfer: expected,
+                premultipliedColorInputSlots: [2], defaultBoundaryColorSlots: [0, 3],
+                colorBoundary: .init(colorInputSlots: [0, 3],
+                    outputRepresentation: .premultipliedAlpha, signalPassthroughSlot: 0),
+                boundTextureSlots: [0, 3, 7]
+            )
+            FileHandle.standardOutput.write(Data(key.utf8))
+            return
+        }
         if CommandLine.arguments[1] == "--numeric-expression" {
             func evaluate(_ source: String) -> Double? {
                 var expression = SceneAuthoredShaderConstantNumericExpression(
@@ -1769,7 +1785,10 @@ private struct GenericShaderArtifactHarness {
                 "float smoothed = smoothstep(0, 1, frequency);",
             ].joined(separator: "\n")
             let booleanFirst = SceneGenericShaderScalarArithmeticNormalizer
-                .rewrite(booleanSource)
+                .rewrite(SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                    vertex: vertex,
+                    fragment: "void main() {\n" + booleanSource + "\n}"
+                ).fragment)
             let booleanSecond = SceneGenericShaderScalarArithmeticNormalizer
                 .rewrite(booleanFirst)
             let output = ScalarVectorAssignmentOutput(
@@ -1797,7 +1816,7 @@ private struct GenericShaderArtifactHarness {
                 controlFlowPreserved:
                     booleanFirst.contains("if (coordinate.x < 0.0)"),
                 floatingModuloNormalized: booleanFirst.contains(
-                    "uint wrapped = uint(mod(float(frequency), float(64)));"
+                    "uint wrapped = mwxScalarRemainder(float(frequency), float(64));"
                 ),
                 integerModuloPreserved:
                     booleanFirst.contains("uint integerOnly = 65 % 64;"),
@@ -5421,7 +5440,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             ",".join(map(str, sorted(premultiplied_color_input_slots))),
             ",".join(map(str, sorted(default_boundary_color_slots))),
             "-",
-            *((",".join(map(str, sorted(bound_texture_slots))),) if seed.endswith("-v31") else ()),
+            *((",".join(map(str, sorted(bound_texture_slots))),) if seed.endswith(("-v31", "-v32")) else ()),
             "{}",
         ):
             encoded = value.encode("utf-8")
@@ -5435,6 +5454,18 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             vertex=VERTEX,
             fragment=FRAGMENT,
         )
+        # Compare the Python UTF-8/typed-field golden with the live Swift key,
+        # not just another Python hash assembled from the same seed.
+        from script.tests.test_scene_shader_compiler_request_contract import request
+        from scene_shader_compiler_request_contract import request_cache_key
+        swift_key = subprocess.check_output(
+            [str(self.binary), "--remainder-request-key-golden"], text=True,
+        )
+        self.assertEqual(swift_key, request_cache_key(request()))
+        self.assertEqual(swift_key,
+            "97b87df878d0ddbfad61bfb3f8972db17b563553436f05e28976b089d3e0d421")
+        self.assertNotEqual(swift_key,
+            "50685a429c279c65a21e49de075e1f69be11d78884c7e4706484143f15f0d902")
 
     def test_independent_signal_request_carries_exact_source_proven_contract(self):
         assert_independent_signal_request_contract(

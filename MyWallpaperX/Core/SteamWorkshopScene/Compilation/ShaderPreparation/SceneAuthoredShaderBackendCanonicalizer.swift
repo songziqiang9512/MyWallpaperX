@@ -45,6 +45,12 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
                     stage: .fragment
                 )
         )
+        // Scalar remainder has one preparation owner for both backends. The
+        // source-keyed request identity includes this explicit lowering.
+        result = Pair(
+            vertex: SceneGenericShaderFloatingModuloNormalizer.rewrite(result.vertex, stage: .vertex),
+            fragment: SceneGenericShaderFloatingModuloNormalizer.rewrite(result.fragment, stage: .fragment)
+        )
         result = Pair(
             vertex: SceneGenericShaderInactiveBuiltinOverloadCanonicalizer
                 .rewrite(result.vertex),

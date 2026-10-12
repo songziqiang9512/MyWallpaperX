@@ -3,10 +3,8 @@
 nonisolated enum SceneGenericShaderScalarArithmeticNormalizer {
     static func rewrite(_ source: String) -> String {
         SceneGenericShaderScalarBuiltInLiteralNormalizer.rewrite(
-            SceneGenericShaderFloatingModuloNormalizer.rewrite(
-                SceneGenericShaderBooleanScalarArithmeticNormalizer.rewrite(
-                    SceneGenericShaderTernaryScalarConditionNormalizer.rewrite(source)
-                )
+            SceneGenericShaderBooleanScalarArithmeticNormalizer.rewrite(
+                SceneGenericShaderTernaryScalarConditionNormalizer.rewrite(source)
             )
         )
     }

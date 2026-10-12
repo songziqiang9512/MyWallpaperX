@@ -48,11 +48,13 @@ def request() -> dict:
 
 
 class SceneShaderCompilerRequestContractTests(unittest.TestCase):
-    def test_schema7_matches_swift_v31_utf8_field_order(self) -> None:
+    def test_schema7_matches_swift_v32_utf8_field_order(self) -> None:
         # The Swift key frames each UTF-8 field with a big-endian UInt64 length;
         # bound slots follow colorBoundary and precede defines.
         payload = request()
         self.assertEqual(request_cache_key(payload),
+            "97b87df878d0ddbfad61bfb3f8972db17b563553436f05e28976b089d3e0d421")
+        self.assertNotEqual(request_cache_key(payload),
             "50685a429c279c65a21e49de075e1f69be11d78884c7e4706484143f15f0d902")
         replay = json.loads(json.dumps(payload, ensure_ascii=False))
         replay["stages"].reverse()

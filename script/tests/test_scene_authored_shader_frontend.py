@@ -1619,19 +1619,16 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
                 gl_FragColor = vec4(float(first), float(second), 0.0, 1.0);
             }
             """,
+            canonicalize=True,
         )
         compact_source = output["metalSource"].replace(" ", "")
         self.assertEqual(output["diagnosticCodes"], [])
-        self.assertIn("uint(fmod(float(frequency),float(16)))", compact_source)
+        self.assertIn("mwxScalarRemainder", compact_source)
         self.assertIn("(first+1)%16", compact_source)
         self.assertIsNone(output.get("metalError"))
 
-    def test_float_modulo_does_not_guess_compound_or_vector_forms(self):
+    def test_float_modulo_does_not_guess_vector_forms(self):
         fixtures = [
-            (
-                "float value = (v_TexCoord.x + 1.0) % 16;",
-                "vec4(value, 0.0, 0.0, 1.0)",
-            ),
             (
                 "vec2 value = v_TexCoord % 1.0;",
                 "vec4(value, 0.0, 1.0)",
@@ -1648,6 +1645,7 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
                         gl_FragColor = {output_value};
                     }}
                     """,
+                    canonicalize=True,
                 )
                 self.assertEqual(output["diagnosticCodes"], [])
                 self.assertIsNotNone(output.get("metalError"))

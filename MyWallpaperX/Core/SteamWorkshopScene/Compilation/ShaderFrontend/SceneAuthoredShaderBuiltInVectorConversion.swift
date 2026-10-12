@@ -470,10 +470,10 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         }
         guard expressions.count == ranges.count else { return nil }
         if expressions.count == 1 { return firstExpression }
-        if expressions.allSatisfy({ [.float, .int].contains($0.type) }),
-           expressions.contains(where: { $0.type == .float }) {
+        if expressions.allSatisfy({ [.float, .int, .uint].contains($0.type) }),
+           let type = scalarArithmeticType(expressions.map(\.type)) {
             return .init(
-                range: range, type: .float,
+                range: range, type: type,
                 conversions: expressions.flatMap(\.conversions),
                 compound: true, directlyNarrowable: false
             )
@@ -507,7 +507,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         valueTypes: [String: SceneAuthoredShaderValueType]? = nil,
         permitsScalarVectorAddition: Bool = false
     ) -> Expression? {
-        guard let ranges = split(range, operators: ["*", "/"], tokens: tokens),
+        guard let ranges = split(range, operators: ["*", "/", "%"], tokens: tokens),
               let first = ranges.first,
               let firstExpression = primaryExpression(first, tokens: tokens, unit: unit,
                   valueTypes: valueTypes, permitsScalarVectorAddition: permitsScalarVectorAddition)
@@ -518,16 +518,21 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         }
         guard expressions.count == ranges.count else { return nil }
         if expressions.count == 1 { return firstExpression }
-        if expressions.allSatisfy({ [.float, .int].contains($0.type) }),
-           expressions.contains(where: { $0.type == .float }) {
+        if expressions.allSatisfy({ [.float, .int, .uint].contains($0.type) }),
+           let type = scalarArithmeticType(expressions.map(\.type)) {
             return .init(
                 range: range,
-                type: .float,
+                type: type,
                 conversions: expressions.flatMap(\.conversions),
                 compound: true,
                 directlyNarrowable: false
             )
         }
+        // Floating remainder admission is scalar-only. A vector remainder
+        // must not inherit multiplication's vector narrowing semantics.
+        guard !ranges.dropFirst().contains(where: {
+            tokens[$0.lowerBound - 1].text == "%"
+        }) else { return nil }
         let widths = expressions.compactMap { floatVectorWidth($0.type) }
         guard expressions.allSatisfy({ $0.type == .float || floatVectorWidth($0.type) != nil }),
               let width = widths.min(),
@@ -549,6 +554,14 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
             compound: true,
             directlyNarrowable: false
         )
+    }
+
+    private static func scalarArithmeticType(
+        _ types: [SceneAuthoredShaderValueType]
+    ) -> SceneAuthoredShaderValueType? {
+        if types.contains(.float) { return .float }
+        let distinct = Set(types)
+        return distinct.count == 1 ? distinct.first : nil
     }
 
     private static func primaryExpression(

@@ -154,7 +154,11 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
         if let diagnostic = delimiterDiagnostic(tokens: tokens, stage: stage) {
             return Output(unit: nil, diagnostics: [diagnostic])
         }
-        if let token = tokens.first(where: {
+        // Type preparation is not execution admission. Generic compiler
+        // inputs may contain discard/while/do/switch while sharing the same
+        // lexical, function and declaration facts. The bounded entry retains
+        // its execution restrictions.
+        if requiresBoundedLoops, let token = tokens.first(where: {
             $0.kind == .identifier && forbiddenControlFlow.contains($0.text)
         }) {
             return failure(

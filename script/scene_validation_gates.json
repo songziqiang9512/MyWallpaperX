@@ -1450,7 +1450,8 @@
         "test_scene_shader_scalar_vector_builtin_canonicalization",
         "test_scene_smoothstep_vector_broadcast",
         "test_scene_direct_function_scalar_conversion",
-        "test_scene_swift_source_sets"
+        "test_scene_swift_source_sets",
+        "test_scene_shader_scalar_remainder"
       ]
     },
     {
@@ -1533,7 +1534,8 @@
         "test_scene_shader_scalar_vector_builtin_canonicalization",
         "test_scene_smoothstep_vector_broadcast",
         "test_scene_direct_function_scalar_conversion",
-        "test_scene_swift_source_sets"
+        "test_scene_swift_source_sets",
+        "test_scene_shader_scalar_remainder"
       ]
     },
     {

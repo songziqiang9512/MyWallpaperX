@@ -532,9 +532,9 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "93fe4c550af6f76ea558c8c979c74546be5ee6abb81a428fae42cfa2ce7af96a",
+        "sourceSHA256": "c4a26bbe2ffa2a88f244bf63ea5782c316e096cbc8080064630407efe5a25a7a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批共享presence假设枚举及N04首断点、独立回归引用核对；其他语义未重验",
+        "scope": "核对浮点取余后继、实际栏杆水波恢复及独立回归引用；其他语义未重验",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
@@ -631,9 +631,9 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7d9b85512f4f183d7eded3eaf2abf69dae56c5a06ad5852dbe281a96785e4d93",
+        "sourceSHA256": "4c15d5575a819983a9bc34a2449fd6a5f1746f2b123968abf1c7e577ccf31321",
         "method": "document_registry --audit + document_health --check",
-        "scope": "四族公共图片准备状态、变体/实际渲染证据与未闭断点引用核对；不代表全文产品语义重验",
+        "scope": "核对兼容验收及旧取余源码形状例外退役；不代表全量例外审计",
         "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
       }
     },
@@ -1796,6 +1796,17 @@
       ]
     },
     {
+      "path": "docs/scene/history/scalar-floating-remainder-2026-10-12.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/scene-allocating-targets-implementation-2026-10-06.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -2312,7 +2323,7 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a19a8d906d9893c5ef0ac2650865b5a1f1edaa3d4575564eb06e153099b89f8f",
+        "sourceSHA256": "c21d178a5ba74a2a91310cb9dbcb4733982a84b4e0461904b05e22b072eb78c6",
         "method": "document_registry --audit + document_health --check",
         "scope": "本批编译多级纹理的通道用途、限定后验与N04状态引用核对；其他语义未重验",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
