@@ -1519,6 +1519,26 @@
       "uniqueValue": "公共准入红/绿反例、实际两段Blur及未参与修法样本画面；stock测试隔离和旧有界cohort债。"
     },
     {
+      "path": "docs/scene/history/property-condition-projection-2026-10-13.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/properties-panel-card.md",
+        "docs/scene/roadmap/performance-convergence-card.md"
+      ],
+      "cutoffDate": "2026-10-13",
+      "uniqueValue": "同次属性条件共享投影的冻结CPU对照、普通面板与真实窗口验证、历史夹具修复及未闭更新边界。",
+      "lastReviewed": "2026-10-13",
+      "reviewBasis": {
+        "kind": "implementation-evidence",
+        "sourceSHA256": "108de440368a8f36e3da0ca91f21dee7aa82656a25ffa0f852b1b56f2d9f2f5c",
+        "method": "real Context/evaluator fixtures + normal isolated product UI and desktop pixels + independent read-only review",
+        "scope": "条件输入准备、同parser的行/选项显隐、当前值及相邻反例",
+        "limitations": "不代表整面板延迟、所有类型/资源热更新、Release或官方全片等价。"
+      }
+    },
+    {
       "path": "docs/scene/history/puppet-animation-control-2026-10-07.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",

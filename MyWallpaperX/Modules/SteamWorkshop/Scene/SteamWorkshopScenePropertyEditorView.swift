@@ -19,13 +19,16 @@ struct SteamWorkshopScenePropertyEditorView: View {
         _values = State(initialValue: context.effectiveValues)
     }
 
-    private var visibleDefinitions: [SceneUserPropertyDefinition] {
+    private func visibleDefinitions(
+        inputs: SteamWorkshopService.WebDisplayConditionInputs
+    ) -> [SceneUserPropertyDefinition] {
         context.definitions.filter {
-            service.shouldDisplaySceneProperty($0, values: values, catalog: context.catalog)
+            service.shouldDisplaySceneProperty($0, inputs: inputs)
         }
     }
 
     var body: some View {
+        let inputs = context.conditionInputs(values: values)
         VStack(spacing: 0) {
             HStack(spacing: 12) {
                 Spacer(minLength: 0)
@@ -45,8 +48,8 @@ struct SteamWorkshopScenePropertyEditorView: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
-                    ForEach(visibleDefinitions) { definition in
-                        propertyRow(definition)
+                    ForEach(visibleDefinitions(inputs: inputs)) { definition in
+                        propertyRow(definition, inputs: inputs)
                     }
                 }
                 .padding(.vertical, 12)
@@ -58,7 +61,10 @@ struct SteamWorkshopScenePropertyEditorView: View {
     }
 
     @ViewBuilder
-    private func propertyRow(_ definition: SceneUserPropertyDefinition) -> some View {
+    private func propertyRow(
+        _ definition: SceneUserPropertyDefinition,
+        inputs: SteamWorkshopService.WebDisplayConditionInputs
+    ) -> some View {
         switch definition.kind {
         case .bool:
             propertyLine(definition) {
@@ -72,7 +78,7 @@ struct SteamWorkshopScenePropertyEditorView: View {
                 ColorPicker(title(for: definition), selection: colorBinding(for: definition), supportsOpacity: false).labelsHidden()
             }
         case .combo:
-            comboRow(definition)
+            comboRow(definition, inputs: inputs)
         case .textInput:
             propertyLine(definition) {
                 TextField(title(for: definition), text: textBinding(for: definition))
@@ -175,11 +181,13 @@ struct SteamWorkshopScenePropertyEditorView: View {
     }
 
     @ViewBuilder
-    private func comboRow(_ definition: SceneUserPropertyDefinition) -> some View {
+    private func comboRow(
+        _ definition: SceneUserPropertyDefinition,
+        inputs: SteamWorkshopService.WebDisplayConditionInputs
+    ) -> some View {
         let options = service.visibleScenePropertyOptions(
             for: definition,
-            values: values,
-            catalog: context.catalog
+            inputs: inputs
         )
         if !options.isEmpty {
             propertyLine(definition) {

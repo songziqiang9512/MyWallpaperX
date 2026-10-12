@@ -5,9 +5,39 @@ struct SteamWorkshopScenePropertyContext {
     let catalog: SceneUserPropertyCatalog
     let actionableKeys: Set<String>
     let effectiveValues: [String: SceneUserPropertyValue]
+    let definitions: [SceneUserPropertyDefinition]
+    private let conditionDefinitions: [SteamWorkshopWebPropertyDefinition]
 
-    var definitions: [SceneUserPropertyDefinition] {
-        let definitions = catalog.definitions
+    init(
+        catalog: SceneUserPropertyCatalog,
+        actionableKeys: Set<String>,
+        effectiveValues: [String: SceneUserPropertyValue]
+    ) {
+        self.catalog = catalog
+        self.actionableKeys = actionableKeys
+        self.effectiveValues = effectiveValues
+        definitions = Self.editorDefinitions(
+            in: catalog.definitions,
+            actionableKeys: actionableKeys
+        )
+        // Conditions may read hidden or non-actionable properties and Combo
+        // labels. Preserve the complete catalog independently of editor rows.
+        conditionDefinitions = catalog.definitions.map { Self.webPropertyDefinition(from: $0) }
+    }
+
+    func conditionInputs(
+        values: [String: SceneUserPropertyValue]
+    ) -> SteamWorkshopService.WebDisplayConditionInputs {
+        SteamWorkshopService.WebDisplayConditionInputs(
+            values: values.mapValues { Self.webPropertyValue(from: $0) },
+            definitions: conditionDefinitions
+        )
+    }
+
+    private static func editorDefinitions(
+        in definitions: [SceneUserPropertyDefinition],
+        actionableKeys: Set<String>
+    ) -> [SceneUserPropertyDefinition] {
         return definitions.enumerated().compactMap { index, definition in
             if actionableKeys.contains(definition.key) {
                 switch definition.kind {
@@ -19,9 +49,13 @@ struct SteamWorkshopScenePropertyContext {
             }
 
             switch definition.kind {
-            case .group where sectionContainsActionableControl(after: index, in: definitions):
+            case .group where sectionContainsActionableControl(
+                after: index, in: definitions, actionableKeys: actionableKeys
+            ):
                 return definition
-            case .text where hasAdjacentActionableControl(at: index, in: definitions):
+            case .text where hasAdjacentActionableControl(
+                at: index, in: definitions, actionableKeys: actionableKeys
+            ):
                 return definition
             default:
                 return nil
@@ -44,9 +78,10 @@ struct SteamWorkshopScenePropertyContext {
         }
     }
 
-    private func hasAdjacentActionableControl(
+    private static func hasAdjacentActionableControl(
         at index: Int,
-        in definitions: [SceneUserPropertyDefinition]
+        in definitions: [SceneUserPropertyDefinition],
+        actionableKeys: Set<String>
     ) -> Bool {
         [index - 1, index + 1].contains { neighborIndex in
             guard definitions.indices.contains(neighborIndex) else { return false }
@@ -56,9 +91,10 @@ struct SteamWorkshopScenePropertyContext {
         }
     }
 
-    private func sectionContainsActionableControl(
+    private static func sectionContainsActionableControl(
         after index: Int,
-        in definitions: [SceneUserPropertyDefinition]
+        in definitions: [SceneUserPropertyDefinition],
+        actionableKeys: Set<String>
     ) -> Bool {
         guard index + 1 < definitions.count else { return false }
         for definition in definitions[(index + 1)...] {
@@ -69,6 +105,59 @@ struct SteamWorkshopScenePropertyContext {
             }
         }
         return false
+    }
+
+    private static func webPropertyValue(
+        from value: SceneUserPropertyValue
+    ) -> SteamWorkshopWebPropertyValue {
+        switch value {
+        case let .string(value): .string(value)
+        case let .number(value): .number(value)
+        case let .bool(value): .bool(value)
+        }
+    }
+
+    private static func webPropertyDefinition(
+        from definition: SceneUserPropertyDefinition
+    ) -> SteamWorkshopWebPropertyDefinition {
+        SteamWorkshopWebPropertyDefinition(
+            key: definition.key,
+            title: definition.title,
+            kind: webPropertyKind(from: definition.kind),
+            runtimeType: definition.runtimeType,
+            order: definition.order,
+            minimumValue: definition.minimumValue,
+            maximumValue: definition.maximumValue,
+            allowsFractionalValues: definition.allowsFractionalValues,
+            fractionalPrecision: definition.fractionalPrecision,
+            displayCondition: definition.displayCondition,
+            directoryMode: nil,
+            fileType: nil,
+            defaultValue: definition.defaultValue.map { webPropertyValue(from: $0) } ?? .string(""),
+            options: definition.options.map {
+                SteamWorkshopWebPropertyOption(
+                    label: $0.label,
+                    value: webPropertyValue(from: $0.value),
+                    displayCondition: $0.displayCondition
+                )
+            }
+        )
+    }
+
+    private static func webPropertyKind(
+        from kind: SceneUserPropertyKind
+    ) -> SteamWorkshopWebPropertyKind {
+        switch kind {
+        case .bool: .toggle
+        case .slider: .slider
+        case .color: .color
+        case .combo: .combo
+        case .textInput: .text
+        case .text: .label
+        case .group: .group
+        case .sceneTexture: .file
+        case .unsupported: .unknown
+        }
     }
 }
 
@@ -198,30 +287,24 @@ extension SteamWorkshopService {
 
     func shouldDisplaySceneProperty(
         _ definition: SceneUserPropertyDefinition,
-        values: [String: SceneUserPropertyValue],
-        catalog: SceneUserPropertyCatalog
+        inputs: SteamWorkshopService.WebDisplayConditionInputs
     ) -> Bool {
         guard let condition = definition.displayCondition else { return true }
         return Self.evaluateWebDisplayCondition(
             condition,
-            values: Self.webPropertyValues(from: values),
-            definitions: catalog.definitions.map(Self.webPropertyDefinition(from:))
+            inputs: inputs
         )
     }
 
     func visibleScenePropertyOptions(
         for definition: SceneUserPropertyDefinition,
-        values: [String: SceneUserPropertyValue],
-        catalog: SceneUserPropertyCatalog
+        inputs: SteamWorkshopService.WebDisplayConditionInputs
     ) -> [SceneUserPropertyOption] {
-        let webValues = Self.webPropertyValues(from: values)
-        let webDefinitions = catalog.definitions.map(Self.webPropertyDefinition(from:))
         return definition.options.filter { option in
             guard let condition = option.displayCondition else { return true }
             return Self.evaluateWebDisplayCondition(
                 condition,
-                values: webValues,
-                definitions: webDefinitions
+                inputs: inputs
             )
         }
     }
@@ -401,62 +484,4 @@ extension SteamWorkshopService {
         return normalize(layer.effects[effectIndex].file) == normalize(effectPath)
     }
 
-    private static func webPropertyValues(
-        from values: [String: SceneUserPropertyValue]
-    ) -> [String: SteamWorkshopWebPropertyValue] {
-        values.mapValues(webPropertyValue(from:))
-    }
-
-    private static func webPropertyValue(
-        from value: SceneUserPropertyValue
-    ) -> SteamWorkshopWebPropertyValue {
-        switch value {
-        case let .string(value): .string(value)
-        case let .number(value): .number(value)
-        case let .bool(value): .bool(value)
-        }
-    }
-
-    private static func webPropertyDefinition(
-        from definition: SceneUserPropertyDefinition
-    ) -> SteamWorkshopWebPropertyDefinition {
-        SteamWorkshopWebPropertyDefinition(
-            key: definition.key,
-            title: definition.title,
-            kind: webPropertyKind(from: definition.kind),
-            runtimeType: definition.runtimeType,
-            order: definition.order,
-            minimumValue: definition.minimumValue,
-            maximumValue: definition.maximumValue,
-            allowsFractionalValues: definition.allowsFractionalValues,
-            fractionalPrecision: definition.fractionalPrecision,
-            displayCondition: definition.displayCondition,
-            directoryMode: nil,
-            fileType: nil,
-            defaultValue: definition.defaultValue.map(webPropertyValue(from:)) ?? .string(""),
-            options: definition.options.map {
-                SteamWorkshopWebPropertyOption(
-                    label: $0.label,
-                    value: webPropertyValue(from: $0.value),
-                    displayCondition: $0.displayCondition
-                )
-            }
-        )
-    }
-
-    private static func webPropertyKind(
-        from kind: SceneUserPropertyKind
-    ) -> SteamWorkshopWebPropertyKind {
-        switch kind {
-        case .bool: .toggle
-        case .slider: .slider
-        case .color: .color
-        case .combo: .combo
-        case .textInput: .text
-        case .text: .label
-        case .group: .group
-        case .sceneTexture: .file
-        case .unsupported: .unknown
-        }
-    }
 }

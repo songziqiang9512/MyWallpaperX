@@ -1,34 +1,65 @@
 import Foundation
 
 extension SteamWorkshopService {
+    struct WebDisplayConditionInputs {
+        let values: [String: SteamWorkshopWebPropertyValue]
+        let comboTextValues: [String: String]
+
+        nonisolated init(
+            values: [String: SteamWorkshopWebPropertyValue],
+            definitions: [SteamWorkshopWebPropertyDefinition]
+        ) {
+            self.values = values
+            comboTextValues = definitions.reduce(into: [:]) { result, definition in
+                guard definition.kind == .combo else { return }
+                let value = values[definition.key] ?? definition.defaultValue
+                if let option = definition.options.first(where: { $0.value == value }) {
+                    result[definition.key] = option.label
+                }
+            }
+        }
+    }
+
     nonisolated static func evaluateWebDisplayCondition(
         _ condition: String,
         values: [String: SteamWorkshopWebPropertyValue],
         definitions: [SteamWorkshopWebPropertyDefinition]
     ) -> Bool {
+        guard let tokens = webDisplayConditionTokens(condition) else { return true }
+        return evaluateWebDisplayCondition(
+            tokens: tokens,
+            inputs: WebDisplayConditionInputs(values: values, definitions: definitions)
+        )
+    }
+
+    nonisolated static func evaluateWebDisplayCondition(
+        _ condition: String,
+        inputs: WebDisplayConditionInputs
+    ) -> Bool {
+        guard let tokens = webDisplayConditionTokens(condition) else { return true }
+        return evaluateWebDisplayCondition(tokens: tokens, inputs: inputs)
+    }
+
+    private nonisolated static func webDisplayConditionTokens(
+        _ condition: String
+    ) -> [WebDisplayConditionToken]? {
         let trimmed = condition.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return true }
+        guard !trimmed.isEmpty else { return nil }
         guard trimmed.contains("?") == false,
               containsOnlySupportedConditionOperators(trimmed) else {
-            return true
+            return nil
         }
+        return tokenizeWebDisplayCondition(trimmed)
+    }
 
-        guard let tokens = tokenizeWebDisplayCondition(trimmed) else {
-            return true
-        }
-
-        let comboTextValues = definitions.reduce(into: [String: String]()) { result, definition in
-            guard definition.kind == .combo else { return }
-            let value = values[definition.key] ?? definition.defaultValue
-            if let option = definition.options.first(where: { $0.value == value }) {
-                result[definition.key] = option.label
-            }
-        }
-
+    private nonisolated static func evaluateWebDisplayCondition(
+        tokens: [WebDisplayConditionToken],
+        inputs: WebDisplayConditionInputs
+    ) -> Bool {
         var parser = WebDisplayConditionParser(
             tokens: tokens,
-            values: values,
-            comboTextValues: comboTextValues
+            values: inputs.values,
+            comboTextValues: inputs.comboTextValues
         )
         guard let result = parser.parse(),
               parser.isAtEnd else {

@@ -13,7 +13,7 @@
 
 **首轮入口与最小交付。** 先查现有texture loader/uploader、decode/store/budget及launch资源准备；找一个已测得的重复解析、无效展开或重复资源点，在唯一现有owner修复。先记录当前事实及2–3个可选点的用户收益/风险，选择最短可验证项；不为计数扩大抽象层、cache或新诊断框架。
 
-**当前进度与下一轮。** BC与PKG条目复用已完成对照，归[BC证据](../history/native-bc-memory-convergence-2026-10-12.md)、[PKG证据](../history/pkg-extraction-memory-convergence-2026-10-12.md)。性能专项约15%（阶段估计，非全样本正确率）；PKG局部收益不能代替App总峰值/首帧收益。修后一次launch-return48.334s保留，尚未归因，不误记为速度改善。用户补报原包首屏停住：[有界host修复](../history/scenescript-host-heap-admission-2026-10-13.md)已闭本次开场/更新断点，恢复性能收尾与后继。旧测量属于脚本停用负载；最终App已取得正常播放三轮同条件基线（实际画面及负载边界归PKG证据），以此继续内存/启动排查；下一批先验证属性卡的条件重复投影。TEX重解析、MDL双阶段、GPU/history、首帧范围及长期切换待执行。MDL保留完整校验，延迟日志不算重复build。
+**当前进度与下一轮。** BC与PKG条目复用已对照，归[BC证据](../history/native-bc-memory-convergence-2026-10-12.md)、[PKG证据](../history/pkg-extraction-memory-convergence-2026-10-12.md)。专项约15%（阶段估计，非全样本正确率）；局部收益不代表App总峰值/首帧改善。原包首屏停住经[有界host修复](../history/scenescript-host-heap-admission-2026-10-13.md)闭合；旧测量属脚本停用负载，最终App已取得正常播放三轮基线，边界归PKG证据。属性首轮条件投影已有局部修复，后继按[属性卡](properties-panel-card.md)追编辑/重置成本。引擎TEX重解析、MDL双阶段、GPU/history、首帧范围与长期切换待执行；MDL保完整校验，延迟日志不算重复build。
 
 **比较与验收。** 每次修改前取得同样本、作者属性、音频输入、窗口/输出尺寸、App/工具身份与诊断设置下的可比较基线。内存记录峰值和稳态，GPU记录实际工作/时间及copy/target字节，启动记录分阶段耗时和首帧呈现；至少三份有效同条件记录后再做ablation及修后对照。区分冷/暖cache、进程CPU/GPU分配与物理驻留，不拿单次ready或Debug FPS当整体收益。
 

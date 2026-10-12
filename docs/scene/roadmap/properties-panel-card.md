@@ -13,7 +13,7 @@
 
 **首轮最小交付。** 定位并修复一个可复现的主线程热点或可避免的整场景重建，再核同类属性和独立壁纸。优先复用现property store、prepared model、typed frame/resource update及已有control，不增加另一套属性解析、缓存、通知或renderer。
 
-**已定位、尚未实施。** 静态追踪发现setter每次事件重写整份override并广播，detail observer随后重建整段控件；条件显隐按定义逐项重建全部属性投影；资源行还含同步路径/文件检查。先用真实面板测量首个热点，不能把这些静态发现记成已证卡顿原因。相同值编辑也可能代表新的用户意图：已有pending reset反例要求保留edit revision，防异步重置覆盖较新的编辑；只有冗余存储、通知或dispatch可省略。callback-only定义、未知类型及媒体入口仍待追真实consumer，不能只因有回调就全面放开，也不能沿用旧过滤结论宣称均不可用。
+**当前进度与下一轮。** 首轮条件投影已闭，见[证据](../history/property-condition-projection-2026-10-13.md)：同body共用当前输入，行与选项保唯一parser。专项约15%（阶段估计），局部CPU收益不代表整个面板已收敛。下一轮先追编辑/重置的typed dispatch、必要结构重建与窗口替换；setter存储/通知、detail observer重建与同步资源检查仍是待量的静态线索。相同值编辑须保edit revision，防pending reset覆盖新意图；只省冗余保存/通知/dispatch。callback-only、未知类型、本地化及媒体入口继续追真实consumer，不凭回调或旧过滤判定全部可用/不可用。
 
 **验收。** 同条件记录打开/滚动/编辑响应与engine重建/资源更新事实，验证实际画面立即/下一帧变化、连续多次编辑、关闭重开及保存恢复。资源替换还须检查取消、缺失/坏资源与旧画面保留；条件显示、重置、依赖属性、脚本回调及多个surface保持一致。不能只断言未重建：值和事件必须真实到达consumer。
 

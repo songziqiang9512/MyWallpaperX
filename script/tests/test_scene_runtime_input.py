@@ -24,6 +24,7 @@ SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES = scene_swift_sources_by_basename(
     "shader_contract_resource_resolution"
 )
 RUNTIME_INPUT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeInput.swift"
+PREPARED_GEOMETRY_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift"
 RUNTIME_MODEL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift"
 DIAGNOSTICS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneDiagnostics.swift"
 HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
@@ -82,7 +83,11 @@ import Foundation
 
 struct SceneRenderDescriptor: Codable, Equatable {
     struct Effect: Codable, Equatable { let visible: Bool? }
-    struct Layer: Codable, Equatable { let id: Int; let effects: [Effect] }
+    struct Layer: Codable, Equatable {
+        let id: Int
+        let effects: [Effect]
+        var sizeWH: [Float]? = nil
+    }
     let entryPath: String
     var layers: [Layer] = []
 }
@@ -239,7 +244,7 @@ enum Harness {
         ]
         let d = SceneRenderDescriptor(entryPath: "scene.json", layers: [
             .init(id: 81, effects: [.init(visible: false), .init(visible: true)]),
-            .init(id: 82, effects: [.init(visible: nil)])
+            .init(id: 82, effects: [.init(visible: nil)], sizeWH: [12, 6])
         ])
         let accessible = SceneRuntimeInput(renderDescriptor: d, propertyBindingProgram: program, effectivePropertyValues: [:], shaderContracts: [], hasScriptLayerAccess: true)
         let plain = SceneRuntimeInput(renderDescriptor: d, propertyBindingProgram: program, effectivePropertyValues: [:], shaderContracts: [])
@@ -252,6 +257,30 @@ enum Harness {
         payload["authorSeeds"] = initial[dormant]?.value == .bool(false) && initial[active]?.value == .bool(true) && initial[inherited]?.value == .bool(true)
         payload["toggleValues"] = toggled[dormant]?.value == .bool(true) && toggled[active]?.value == .bool(false)
         payload["plainNoScriptTargets"] = plain.scriptOwnedEffectVisibilityTargets.isEmpty && plain.scriptEffectVisibilityDefinitions.isEmpty
+        let emptyPrepared = input.applyingPreparedImageGeometry([42: [80, 40]])
+        payload["emptyGeometryDoesNotCreateLayers"] = input.renderDescriptor.layers.isEmpty
+            && emptyPrepared.renderDescriptor == input.renderDescriptor
+        let geometryInput = SceneRuntimeInput(
+            renderDescriptor: d, propertyBindingProgram: program,
+            effectivePropertyValues: effectiveValues, shaderContracts: shaderContracts,
+            scriptOwnedEffectVisibilityTargets: input.scriptOwnedEffectVisibilityTargets
+        )
+        let unchanged = geometryInput.applyingPreparedImageGeometry([:])
+        let prepared = geometryInput.applyingPreparedImageGeometry([81: [80, 40], 999: [1, 1]])
+        payload["emptyGeometryMapPreservesDescriptor"] = unchanged.renderDescriptor == d
+        payload["preparedGeometrySize"] = prepared.renderDescriptor.layers[0].sizeWH ?? []
+        payload["unmatchedGeometrySize"] = prepared.renderDescriptor.layers[1].sizeWH ?? []
+        payload["preparedGeometryLeavesOriginal"] = geometryInput.renderDescriptor == d
+            && d.layers[0].sizeWH == nil && d.layers[1].sizeWH == [12, 6]
+        payload["preparedGeometryRetainsContract"] = prepared.renderDescriptor.entryPath == d.entryPath
+            && prepared.renderDescriptor.layers.map(\.id) == d.layers.map(\.id)
+            && prepared.renderDescriptor.layers.map(\.effects) == d.layers.map(\.effects)
+            && prepared.propertyBindingProgram == geometryInput.propertyBindingProgram
+            && prepared.effectivePropertyValues == geometryInput.effectivePropertyValues
+            && prepared.shaderContracts == geometryInput.shaderContracts
+            && prepared.directBoolEffectVisibilityTargets == geometryInput.directBoolEffectVisibilityTargets
+            && prepared.scriptOwnedEffectVisibilityTargets == geometryInput.scriptOwnedEffectVisibilityTargets
+            && prepared.startupInactiveEffectVisibilityTargets == geometryInput.startupInactiveEffectVisibilityTargets
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
@@ -269,7 +298,18 @@ class SceneRuntimeInputTests(unittest.TestCase):
         )
         directory = Path(cls.temporary_directory.name)
         harness = directory / "Harness.swift"
-        harness.write_text(HARNESS, encoding="utf-8")
+        from script.tests.test_scene_property_live_routing import method_body
+
+        # Keep the lightweight descriptor carrier, but compile its actual
+        # prepared-geometry method so this seam cannot silently become identity.
+        geometry = method_body(
+            PREPARED_GEOMETRY_SOURCE.read_text(encoding="utf-8"),
+            "func applyingPreparedImageGeometry(",
+        )
+        harness.write_text(
+            HARNESS + "\nextension SceneRenderDescriptor {\n" + geometry + "\n}\n",
+            encoding="utf-8",
+        )
         binary = directory / "scene-runtime-input"
         compilation = subprocess.run(
             ["swiftc", *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)],
@@ -290,6 +330,16 @@ class SceneRuntimeInputTests(unittest.TestCase):
     def test_cross_layer_effect_candidates_keep_authored_seeds(self):
         for key in ["crossLayerTargets", "authorSeeds", "toggleValues", "plainNoScriptTargets"]:
             self.assertTrue(self.result[key], key)
+
+    def test_empty_prepared_geometry_does_not_create_or_change_layers(self) -> None:
+        self.assertTrue(self.result["emptyGeometryDoesNotCreateLayers"])
+        self.assertTrue(self.result["emptyGeometryMapPreservesDescriptor"])
+
+    def test_prepared_geometry_updates_matching_layer_and_retains_contract(self) -> None:
+        self.assertEqual(self.result["preparedGeometrySize"], [80, 40])
+        self.assertEqual(self.result["unmatchedGeometrySize"], [12, 6])
+        self.assertTrue(self.result["preparedGeometryLeavesOriginal"])
+        self.assertTrue(self.result["preparedGeometryRetainsContract"])
 
     def test_runtime_input_retains_complete_in_memory_contract(self) -> None:
         self.assertEqual(self.result["entryPath"], "scene.json")

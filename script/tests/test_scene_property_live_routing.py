@@ -377,10 +377,6 @@ struct SteamWorkshopDownloadRecord {
     func resetSceneTextureProperties(for record: SteamWorkshopDownloadRecord,
         defaultValues: [String: SceneUserPropertyValue],
         completion: @escaping @MainActor (Set<String>) -> Void) {}
-    static func evaluateWebDisplayCondition(
-        _ condition: String, values: [String: SteamWorkshopWebPropertyValue],
-        definitions: [SteamWorkshopWebPropertyDefinition]
-    ) -> Bool { true }
 }
 struct PlaybackCommandMultiplexer {
     static let shared = Self()
@@ -680,6 +676,17 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
         registry = (SCENE_ROOT / "Resources/Textures/SceneFrameTextureRegistry.swift").read_text()
         system_identity = method_body(registry, "nonisolated struct SceneSystemProviderTextureIdentity:")
         builder_leaves = builder.HARNESS_SOURCE.split("@main", 1)[0]
+        modulation = (SCENE_ROOT / "Compilation/Material/SceneBaseMaterialColorModulationCompiler.swift").read_text()
+        # Keep the provider's actual proof DTO as its declaration evolves;
+        # this fixture still supplies no shader proof or renderer resource.
+        modulation_stub = method_body(builder_leaves, "enum SceneBaseMaterialColorModulationCompiler {")
+        builder_leaves = builder_leaves.replace(
+            modulation_stub,
+            modulation_stub.replace(
+                method_body(modulation_stub, "struct Binding {"),
+                method_body(modulation, "struct Binding: Sendable {"),
+            ),
+        )
         # This gate compiles the real provider compiler below. The shared
         # builder's no-material-proof leaf must not shadow the same owner.
         builder_leaves = builder_leaves.replace(method_body(
@@ -696,6 +703,8 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
             SCENE_ROOT / "Compilation/Material/SceneBaseMaterialLightingProfile.swift",
             SCENE_ROOT / "Resources/Assets/SceneStockTextureSemanticRegistry.swift",
             REPOSITORY_ROOT / "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebPropertyModels.swift",
+            REPOSITORY_ROOT / "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebDisplayConditionParsing.swift",
+            REPOSITORY_ROOT / "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebDisplayConditionSupport.swift",
             SERVICE_SOURCE,
         ]
         cls.binary = cls.work / "context"
