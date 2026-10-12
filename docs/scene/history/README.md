@@ -4,8 +4,12 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
-| 2026-10-12 | 材质 | 修复证据 | [共享就绪](shared-texture-presence-2026-10-12.md)→[取余](scalar-floating-remainder-2026-10-12.md) | 准备误拒与后继栏杆水波恢复；日期等仍待验 | [断点队列](../roadmap/scene-open-breakpoint-queue.md) |
-| 2026-10-12 | 纹理 | 修复证据 | [编译纹理的通道 mip](compiled-data-mip-preservation-2026-10-12.md) | 原多级上传链的用途准入；真实首帧失败与变体、反例边界 | [运行合同](../architecture/runtime-architecture.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
+| 2026-10-12 | 材质/验证 | 修复证据 | [Graph颜色用途协调](graph-color-purpose-reconciliation-2026-10-12.md) | 原slot事实接通直色数学与graph传输；旧fixture改用真实末合成与完整alpha像素 | [运行合同](../architecture/runtime-architecture.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
+| 2026-10-12 | 材质 | 修复证据 | [前级与模糊结果公共准入](previous-blurred-composite-admission-2026-10-12.md) | 作者采样量与资源名称分离、两段Blur实际模糊；旧汇总债由上项闭合 | [准入合同](../capabilities/previous-blurred-composite-admission.md)、[Graph覆盖](../capabilities/render-graph-shader-coverage.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
+| 2026-10-12 | 材质 | 修复证据 | [共享就绪](shared-texture-presence-2026-10-12.md) | 准备误拒与可选资源共同生效；实际执行须看后继证据 | [运行合同](../architecture/runtime-architecture.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
+| 2026-10-12 | Shader | 修复证据 | [标量浮点取余](scalar-floating-remainder-2026-10-12.md) | 公共编译器恢复栏杆水波；变体、反例和日期复验边界 | [运行合同](../architecture/runtime-architecture.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
+| 2026-10-12 | 纹理 | 修复证据 | [编译纹理的通道 mip](compiled-data-mip-preservation-2026-10-12.md) | 原多级上传链的用途准入；真实首帧失败与变体、反例边界 | [运行合同](../architecture/runtime-architecture.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
+| 2026-10-12 | 视频材质 | 修复证据 | [普通视频asset](material-video-assets-2026-10-12.md) | 原视频provider接入prepared/ready材质输入；桌面与热切边界 | [运行合同](../architecture/runtime-architecture.md)、[能力台账](../capabilities/coverage-ledger.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-12 | 投影/交互 | 修复证据 | [普通画布缺省透视](canvas-perspective-default-2026-10-12.md) | 原相机缺省语义与共享反算；有界官方输入、实际绘制及独立样本 | [运行证据](../capabilities/runtime-evidence-current.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-12 | SceneScript | 修复证据 | [脚本公共图片准备](shared-script-resource-preparation-2026-10-12.md) | 四族共享原资源与材质消费者；真实像素、变体及独立样本边界 | [脚本覆盖](../capabilities/scenescript-api-coverage.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-12 | Scene | 修复证据 | [普通静态图片自动尺寸](static-image-autosize-2026-10-12.md) | 资源头部尺寸接原prepared消费者，保留延迟加载；实际像素与独立样本边界 | [脚本覆盖](../capabilities/scenescript-api-coverage.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |

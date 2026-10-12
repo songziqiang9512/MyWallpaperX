@@ -204,6 +204,33 @@ private func colorGraphResults() -> [String: Any] {
     ]
 }
 
+private func graphPurposeResults() -> [String: String] {
+    let identity = SceneAuthoredEffectRenderPlan.TextureIdentity(
+        kind: .effectOutput, layerID: 167, effect: nil, name: "own-color-ingress")
+    let slot = SceneResolvedMaterialTemplate.TextureSlot(index: 3, candidates: [
+        .init(reference: .graph(identity), provenance: .explicitBinding),
+    ])
+    let color = preparedSampler(colorGraph())!
+    func fact(_ sampler: Schema.Sampler) -> String {
+        SceneResolvedMaterialTextureSlotPurpose.fact(in: slot,
+            candidateOrdinal: 0, sampler: sampler)?.purpose.reportToken ?? "nil"
+    }
+    func sampler(_ mode: Schema.TextureMode,
+                 _ purpose: SceneTextureLoadPurpose?) -> Schema.Sampler {
+        .init(name: "g_Texture3", slot: 3, mode: mode, materialKey: nil,
+            isHidden: true, defaultTexture: nil, readinessCombo: nil,
+            channelUse: .wholeVector, sourceProvenPurpose: purpose)
+    }
+    return [
+        "sourceColorPurpose": color.sourceProvenPurpose?.reportToken ?? "nil",
+        "sourceColorFact": fact(color),
+        "nominalUnprovenColor": fact(sampler(.regular, nil)),
+        "preservedConflict": fact(sampler(.regular, .preservedChannels)),
+        "mask": fact(sampler(.opacityMask, .mask)),
+        "explicitMaskConflictsWithColor": fact(sampler(.opacityMask, .straightAlbedo)),
+    ]
+}
+
 @main
 private enum Main {
     static func main() throws {
@@ -223,6 +250,7 @@ private enum Main {
             """
         )
         let results: [String: Any] = [
+            "graphPurpose": graphPurposeResults(),
             "colorGraph": colorGraphResults(),
             "positive": [
                 "typoKey": token(preparedSampler(direct)),
@@ -435,6 +463,16 @@ class SceneSourceProvenStraightColorPurposeTests(unittest.TestCase):
         self.assertEqual(graph["metadataPreserved"], {
             "noise": "wholeVector/nil/noise", "hidden": "wholeVector/nil/nil",
             "mode": "wholeVector/nil/mask", "conflict": "wholeVector/nil/noise",
+        })
+
+    def test_graph_source_color_keeps_publication_purpose_and_adjacent_roles(self) -> None:
+        self.assertEqual(self.result["graphPurpose"], {
+            "sourceColorPurpose": "straight-albedo",
+            "sourceColorFact": "premultiplied-color",
+            "nominalUnprovenColor": "premultiplied-color",
+            "preservedConflict": "nil",
+            "mask": "mask",
+            "explicitMaskConflictsWithColor": "nil",
         })
 
 

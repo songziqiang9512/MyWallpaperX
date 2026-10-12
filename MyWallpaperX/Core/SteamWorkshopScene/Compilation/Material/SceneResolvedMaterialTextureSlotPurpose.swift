@@ -35,11 +35,17 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
             )
         }
         let directPurpose = sampler.purpose(for: candidate.reference)
-        if candidate.reference.isRendererColorProvider {
-            // The registry atom is the compositor's premultiplied publication.
-            // A source-proven straight-color sampler is reconciled by the
-            // compiled Program's typed input conversion, not by relabelling
-            // the same-frame provider resource as straight asset data.
+        let sourceProvenGraphColor: Bool
+        if case .graph = candidate.reference {
+            sourceProvenGraphColor = directPurpose == .premultipliedColor
+                && sampler.sourceProvenPurpose == .straightAlbedo
+        } else {
+            sourceProvenGraphColor = false
+        }
+        if candidate.reference.isRendererColorProvider || sourceProvenGraphColor {
+            // This candidate fact keeps the nominal PMA transport purpose.
+            // The actual publication and storage representation stay unchanged;
+            // the compiled Program's typed boundary handles input conversion.
             guard directPurpose == .premultipliedColor else { return nil }
             return Fact(
                 slot: slot.index,

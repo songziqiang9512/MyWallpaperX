@@ -365,12 +365,13 @@
       "owner": "scene-material-color-boundary",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
-      "design_notes": "2026-10-08 官方两段自有effect确认零alpha RGB可由后序alpha扩张显露；本机同输入丢失。批准沿既有Program/graph/compositor分两张完整纵向卡实施typed边界，禁止RGB companion/样本补色。第一卡effect连续性已实施，执行边界见设计链接；第二卡源上传/capture待实施，不推GodRays根因。",
+      "design_notes": "2026-10-08 官方两段自有effect确认零alpha RGB可由后序alpha扩张显露。沿既有Program/graph/compositor的effect连续性及普通静态source链已实施，边界见设计链接；真实PMA的媒体、文字、动画、lit与几何named保持实际表示。2026-10-12追加graph用途协调：复用原slot事实及Program转换，逐候选核颜色/data与资源/ABI安全；历史271bool失败须实际修正，fixture更正先以typed中间及生产末合成像素证明，真实样本收益另验。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+ColorDerivation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal",
-        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad+Ordinary.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad+Ordinary.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTextureSlotPurpose.swift"
       ],
       "contentPatterns": []
     },

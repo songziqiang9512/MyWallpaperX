@@ -2686,6 +2686,10 @@ private struct Readback {
         return Array(UnsafeBufferPointer(start: pointer, count: 4))
     }
 
+    var allTexels: [[UInt8]] {
+        (0 ..< height).flatMap { y in (0 ..< width).map { pixel(x: $0, y: y) } }
+    }
+
     // Row-major bytes (width * 4 per row): pixel (x, y) spans bytes
     // [4x, 4x+4) of row y.
     var allPixels: [[UInt8]] {
@@ -6939,128 +6943,72 @@ private enum Harness {
         )
 
         func executeColorBlendReady(
-            generation: UInt64,
-            sourceTexture: MTLTexture,
-            expectedPixels: [[UInt8]]?
-        ) -> (
-            prepared: Bool,
-            encoded: Bool,
-            gpuCompleted: Bool,
-            visible: Bool,
-            premultiplied: Bool
-        ) {
-            guard let claim = colorBlendClaim,
-                  let capability = colorBlendCapability,
-                  let leases = makeChainedLeases(
-                    capability,
-                    device: device,
-                    generation: generation
-                  ), let executor = Executor(
-                    device: device,
-                    capabilities: colorBlendCapabilities
-                  ), let command = queue.makeCommandBuffer() else {
-                return (false, false, false, false, false)
-            }
-            let preparation = executor.prepare(
-                token: claim.token,
-                leases: leases,
-                historyRehydrateCopiesByEffect: [:],
-                frame: frame(
-                    generation,
-                    textureEntries: colorBlendEntries(.ready, generation: generation)
-                ),
-                sourceTexture: sourceTexture,
-                sourceUniforms: .neutral(),
-                sourcePipeline: sourcePipeline,
-                frameInputs: .init(),
-                commandBuffer: command,
-                previousStates: [:],
-                previousGraphResources: [:],
-                effectGeneration: generation,
-                resetGeneration: generation
-            )
-            guard case let .success(prepared) = preparation,
-                  prepared.stages.count == 3,
+            generation: UInt64, sourceTexture: MTLTexture,
+            expectedPixels: [[[UInt8]]], expectedFinal: [[UInt8]]
+        ) -> (prepared: Bool, encoded: Bool, gpuCompleted: Bool, visible: Bool, premultiplied: Bool) {
+            guard let claim = colorBlendClaim, let capability = colorBlendCapability,
+                  let leases = makeChainedLeases(capability, device: device, generation: generation),
+                  let executor = Executor(device: device, capabilities: colorBlendCapabilities),
+                  let command = queue.makeCommandBuffer(), let compositor = makeProductionSourcePipeline(device)
+            else { return (false, false, false, false, false) }
+            let preparation = executor.prepare(token: claim.token, leases: leases, historyRehydrateCopiesByEffect: [:],
+                frame: frame(generation, textureEntries: colorBlendEntries(.ready, generation: generation)),
+                sourceTexture: sourceTexture, sourceUniforms: .neutral(), sourcePipeline: sourcePipeline,
+                frameInputs: .init(), commandBuffer: command, previousStates: [:], previousGraphResources: [:],
+                effectGeneration: generation, resetGeneration: generation)
+            guard case let .success(prepared) = preparation, prepared.stages.count == 3,
                   prepared.stages[1].effectLocalFailureReasonCode == nil,
-                  prepared.stages.allSatisfy({ stage in
-                      stage.programCacheKeys.allSatisfy {
-                          !$0.hasPrefix("visual-failure-passthrough:")
-                      }
-                  }), prepared.finalResource.publication.requestIdentity
-                    == .graph(chainedFinalOutput) else {
-                return (false, false, false, false, false)
+                  prepared.stages.allSatisfy({ $0.programCacheKeys.allSatisfy { !$0.hasPrefix("visual-failure-passthrough:") } }),
+                  prepared.finalResource.publication.requestIdentity == .graph(chainedFinalOutput)
+            else { return (false, false, false, false, false) }
+            var observedStageIndices: [Int] = [], stageReadbacks: [Readback] = []
+            let encoded = executor.encode(prepared, commandBuffer: command, stageBoundaryObserver: { i, transition, buffer in
+                guard let read = appendReadback(transition.effectOutputResource.publication.texture, commandBuffer: buffer)
+                else { return false }
+                observedStageIndices.append(i); stageReadbacks.append(read); return true
+            })
+            guard encoded, let rawFinal = appendReadback(prepared.finalTexture, commandBuffer: command)
+            else { return (true, encoded, false, false, false) }
+            let terminal = makeSource(device, width: extent.width, height: extent.height,
+                usage: [.renderTarget, .shaderRead], bgra: [0, 0, 0, 0])
+            let pass = MTLRenderPassDescriptor(); pass.colorAttachments[0].texture = terminal
+            pass.colorAttachments[0].loadAction = .clear; pass.colorAttachments[0].storeAction = .store
+            pass.colorAttachments[0].clearColor = .init(red: 0, green: 0, blue: 0, alpha: 0)
+            guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return (true, true, false, false, false) }
+            compositor.bind(encoder: encoder)
+            var uniforms = SceneLayerFragmentUniforms.neutral()
+            uniforms.sourceSampling.y = prepared.finalResource.publication.candidate.content == .color(.resolved(.straightAlpha)) ? 1 : 0
+            compositor.drawLayer(texture: prepared.finalTexture, mvp: simd_float4x4(diagonal: SIMD4(2, 2, 1, 1)), uniforms: uniforms, encoder: encoder)
+            encoder.endEncoding()
+            guard let finalRead = appendReadback(terminal, commandBuffer: command) else { return (true, true, false, false, false) }
+            command.commit(); command.waitUntilCompleted()
+            // The authored Program publishes straight intermediates. Check every
+            // pixel there, then require actual production fragment output to be PMA.
+            let typedRaw = prepared.stages.allSatisfy {
+                let publication = $0.effectOutputResource.publication
+                return publication.isComplete && publication.candidate.purpose == .straightAlbedo
+                    && publication.candidate.content == .color(.resolved(.straightAlpha))
             }
-            var observedStageIndices: [Int] = []
-            var stageReadbacks: [Readback] = []
-            let encoded = executor.encode(
-                prepared,
-                commandBuffer: command,
-                stageBoundaryObserver: { stageIndex, transition, buffer in
-                    guard let readback = appendReadback(
-                        transition.effectOutputResource.publication.texture,
-                        commandBuffer: buffer
-                    ) else { return false }
-                    observedStageIndices.append(stageIndex)
-                    stageReadbacks.append(readback)
-                    return true
-                }
-            )
-            guard encoded,
-                  let finalReadback = appendReadback(
-                    prepared.finalTexture,
-                    commandBuffer: command
-                  ) else { return (true, encoded, false, false, false) }
-            command.commit()
-            command.waitUntilCompleted()
-            let visible = observedStageIndices == [0, 1, 2]
-                && stageReadbacks.count == 3
-                && (expectedPixels.map { expected in
-                    expected.count == 3
-                        && zip(stageReadbacks, expected).allSatisfy {
-                            matches($0.firstPixel, $1)
-                                && matches($0.lastPixel, $1)
-                        }
-                        && matches(finalReadback.firstPixel, expected[2])
-                        && matches(finalReadback.lastPixel, expected[2])
-                } ?? true)
-            let allReadbacks = stageReadbacks + [finalReadback]
-            let premultiplied = allReadbacks.allSatisfy { readback in
-                isPremultiplied(readback.firstPixel)
-                    && isPremultiplied(readback.lastPixel)
-            }
-            return (
-                true,
-                encoded,
-                command.status == .completed && command.error == nil,
-                visible,
-                premultiplied
-            )
+            let visible = observedStageIndices == [0, 1, 2] && stageReadbacks.count == 3
+                && expectedPixels.count == 3 && zip(stageReadbacks, expectedPixels).allSatisfy {
+                    $0.allTexels.count == 4 && $1.count == 4 && zip($0.allTexels, $1).allSatisfy { matches($0, $1) }
+                } && rawFinal.allTexels.count == 4 && zip(rawFinal.allTexels, expectedPixels[2]).allSatisfy { matches($0, $1) }
+            let premultiplied = typedRaw && finalRead.allTexels.count == 4 && expectedFinal.count == 4
+                && finalRead.allTexels.allSatisfy(isPremultiplied)
+                && zip(finalRead.allTexels, expectedFinal).allSatisfy { matches($0, $1) }
+            return (true, encoded, command.status == .completed && command.error == nil, visible, premultiplied)
         }
-        let colorBlendReady = executeColorBlendReady(
-            generation: 19,
-            sourceTexture: source,
+        let colorBlendReady = executeColorBlendReady(generation: 19, sourceTexture: source,
+            expectedPixels: [[255, 0, 0, 255], [0, 0, 255, 255], [255, 0, 0, 255]].map { Array(repeating: $0, count: 4) },
+            expectedFinal: Array(repeating: [255, 0, 0, 255], count: 4))
+        let premultipliedSource = makeSource(device, width: 2, height: 2, pixelsBGRA: [
+            0, 0, 0, 0, 8, 16, 48, 64, 16, 32, 96, 128, 0, 0, 0, 0])
+        let colorBlendPremultiplied = executeColorBlendReady(generation: 20, sourceTexture: premultipliedSource,
             expectedPixels: [
-                [255, 0, 0, 255],
-                [0, 0, 255, 255],
-                [255, 0, 0, 255],
-            ]
-        )
-        let premultipliedSource = makeSource(
-            device,
-            width: 2,
-            height: 2,
-            pixelsBGRA: [
-                0, 0, 0, 0,
-                8, 16, 48, 64,
-                16, 32, 96, 128,
-                0, 0, 0, 0,
-            ]
-        )
-        let colorBlendPremultiplied = executeColorBlendReady(
-            generation: 20,
-            sourceTexture: premultipliedSource,
-            expectedPixels: nil
-        )
+                [[0, 0, 0, 0], [191, 32, 64, 64], [191, 32, 64, 128], [0, 0, 0, 0]],
+                [[0, 0, 255, 0], [0, 0, 255, 64], [0, 0, 255, 128], [0, 0, 255, 0]],
+                [[255, 0, 0, 0], [255, 0, 0, 64], [255, 0, 0, 128], [255, 0, 0, 0]]],
+            expectedFinal: [[0, 0, 0, 0], [64, 0, 0, 64], [128, 0, 0, 128], [0, 0, 0, 0]])
 
         func colorBlendIntegrityFailureRemainsHard(
             _ kind: ColorBlendMaskFixtureStatus,
@@ -8595,59 +8543,76 @@ private enum Harness {
         )
 
         var rtDefaultResults: [String: Bool] = [:]
-        for suffix in ["", "_a", "_b", "_a-absent"] {
-            let absent = suffix == "_a-absent"
-            let token = "_rt_imageLayerComposite_\(layerID)\(absent ? "_a" : suffix)"
-            let resultKey = token + (absent ? "-absent" : "")
-            let candidatePath = SceneVFSAssetPath("textures/rf01-missing.tex")!
-            let candidateIdentity = SceneAssetTextureIdentity(path: candidatePath, purpose: .straightAlbedo)
-            let node = implicitFramebufferGraph.nodes[0]
-            let rtTemplate = implicitFramebufferTemplate(for: node, renderTargetDefault: token, candidateAsset: absent ? candidatePath : nil)
-            let rtCatalog = SceneResolvedMaterialRuntimeCatalog(entries: [
-                .init(effect: node.effect, nodeIndex: node.nodeIndex): .template(rtTemplate)
-            ], resourceDemandIssues: [])
-            let rtCapabilities = capabilities(implicitFramebufferChain, catalog: rtCatalog, assetStates: absent ? [candidateIdentity: .absent] : [:])
-            guard let claim = rtCapabilities.claim(implicitFramebufferChain),
-                  let executor = Executor(device: device, capabilities: rtCapabilities) else {
-                rtDefaultResults[resultKey + ":admitted"] = false
-                continue
-            }
-            rtDefaultResults[resultKey + ":admitted"] = true
-            let lease = makeLease(requireR4Plan(implicitFramebufferGraph), device: device, generation: 96)
-            for index: UInt64 in [96, 97] {
-                let buffer = queue.makeCommandBuffer()!
-                let value: UInt8 = absent ? 128 : 255
-                let source = makeSource(device, bgra: index == 96 ? [0, 0, value, value] : [0, value, 0, value])
-                let preparation = executor.prepare(
-                    token: claim.token, leases: [lease], historyRehydrateCopiesByEffect: [:],
-                    frame: frame(index, textureEntries: absent ? [.asset(candidateIdentity): .absent] : [:]), sourceTexture: source, sourceUniforms: .neutral(),
-                    sourcePipeline: sourcePipeline, frameInputs: .init(), commandBuffer: buffer,
-                    previousStates: [:], previousGraphResources: [:], effectGeneration: 96, resetGeneration: 96
-                )
-                guard case let .success(prepared) = preparation,
-                      executor.encode(prepared, commandBuffer: buffer) else {
-                    rtDefaultResults[resultKey + ":frame-\(index)"] = false
-                    continue
+        for suffix in ["", "_a", "_b"] {
+            for availability in ["noCandidate", "absent", "ready"] {
+                let token = "_rt_imageLayerComposite_\(layerID)\(suffix)"
+                let path = SceneVFSAssetPath("textures/rf01-missing.tex")!
+                let identity = SceneAssetTextureIdentity(path: path, purpose: .straightAlbedo)
+                let node = implicitFramebufferGraph.nodes[0]
+                let rtTemplate = implicitFramebufferTemplate(for: node, renderTargetDefault: token,
+                    candidateAsset: availability == "noCandidate" ? nil : path)
+                let rtCatalog = SceneResolvedMaterialRuntimeCatalog(entries: [
+                    .init(effect: node.effect, nodeIndex: node.nodeIndex): .template(rtTemplate)], resourceDemandIssues: [])
+                let assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = availability == "noCandidate" ? [:]
+                    : [identity: availability == "absent" ? .absent : .ready(.color(.resolved(.straightAlpha)))]
+                let rtCapabilities = capabilities(implicitFramebufferChain, catalog: rtCatalog, assetStates: assetStates)
+                for alpha: UInt8 in [255, 128] {
+                    let key = "\(token):\(availability):alpha-\(alpha)"
+                    guard let claim = rtCapabilities.claim(implicitFramebufferChain),
+                          let executor = Executor(device: device, capabilities: rtCapabilities),
+                          let compositor = makeProductionSourcePipeline(device) else {
+                        rtDefaultResults[key + ":admitted"] = false; continue
+                    }
+                    rtDefaultResults[key + ":admitted"] = true
+                    let lease = makeLease(requireR4Plan(implicitFramebufferGraph), device: device, generation: 96)
+                    for index: UInt64 in [96, 97] {
+                        let buffer = queue.makeCommandBuffer()!
+                        let source = makeSource(device, bgra: index == 96 ? [0, 0, alpha, alpha] : [0, alpha, 0, alpha])
+                        var entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus] = [:]
+                        if availability == "absent" { entries[.asset(identity)] = .absent }
+                        if availability == "ready" {
+                            let candidate = SceneTextureCandidate(texture: makeSource(device, bgra: [255, 0, 0, 128]),
+                                identity: .builtIn(name: "self-ready-straight"), generation: .immutable(revision: 1),
+                                purpose: .straightAlbedo, content: .color(.resolved(.straightAlpha)),
+                                physicalSize: CGSize(width: 1, height: 1), mappedSize: CGSize(width: 1, height: 1),
+                                uvTransform: .identity, sampling: .linearClamp)
+                            entries[.asset(identity)] = .ready(.init(publication: .init(requestIdentity: .asset(identity),
+                                candidate: candidate, contentGeneration: index), resourceGeneration: index))
+                        }
+                        let preparation = executor.prepare(token: claim.token, leases: [lease], historyRehydrateCopiesByEffect: [:],
+                            frame: frame(index, textureEntries: entries), sourceTexture: source, sourceUniforms: .neutral(),
+                            sourcePipeline: sourcePipeline, frameInputs: .init(), commandBuffer: buffer,
+                            previousStates: [:], previousGraphResources: [:], effectGeneration: 96, resetGeneration: 96)
+                        guard case let .success(prepared) = preparation, executor.encode(prepared, commandBuffer: buffer),
+                              let raw = appendReadback(prepared.finalTexture, commandBuffer: buffer) else {
+                            rtDefaultResults[key + ":frame-\(index)"] = false; continue
+                        }
+                        let terminal = makeSource(device, width: extent.width, height: extent.height,
+                            usage: [.renderTarget, .shaderRead], bgra: [0, 0, 0, 0])
+                        let pass = MTLRenderPassDescriptor(); pass.colorAttachments[0].texture = terminal
+                        pass.colorAttachments[0].loadAction = .clear; pass.colorAttachments[0].storeAction = .store
+                        pass.colorAttachments[0].clearColor = .init(red: 0, green: 0, blue: 0, alpha: 0)
+                        let encoder = buffer.makeRenderCommandEncoder(descriptor: pass)!
+                        compositor.bind(encoder: encoder)
+                        var uniforms = SceneLayerFragmentUniforms.neutral()
+                        uniforms.sourceSampling.y = prepared.finalResource.publication.candidate.content == .color(.resolved(.straightAlpha)) ? 1 : 0
+                        compositor.drawLayer(texture: prepared.finalTexture, mvp: simd_float4x4(diagonal: SIMD4(2, 2, 1, 1)), uniforms: uniforms, encoder: encoder)
+                        encoder.endEncoding(); let final = appendReadback(terminal, commandBuffer: buffer)!
+                        buffer.commit(); buffer.waitUntilCompleted()
+                        let publication = prepared.finalResource.publication
+                        let expectedRaw: [UInt8] = availability == "ready" ? [0, 255, 0, 128]
+                            : index == 96 ? [255, 0, 0, alpha] : [0, 0, 255, alpha]
+                        let expectedFinal: [UInt8] = availability == "ready" ? [0, 128, 0, 128]
+                            : index == 96 ? [alpha, 0, 0, alpha] : [0, 0, alpha, alpha]
+                        rtDefaultResults[key + ":frame-\(index)"] = prepared.stages.count == 1
+                            && publication.requestIdentity == .graph(output) && publication.isComplete
+                            && publication.candidate.purpose == .straightAlbedo
+                            && publication.candidate.content == .color(.resolved(.straightAlpha))
+                            && buffer.status == .completed && buffer.error == nil
+                            && raw.allTexels.count == 4 && raw.allTexels.allSatisfy { matches($0, expectedRaw) }
+                            && final.allTexels.count == 4 && final.allTexels.allSatisfy { matches($0, expectedFinal) && isPremultiplied($0) }
+                    }
                 }
-                let targetDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: extent.width, height: extent.height, mipmapped: false)
-                targetDescriptor.usage = [.renderTarget, .shaderRead]
-                let terminal = device.makeTexture(descriptor: targetDescriptor)!
-                let renderPass = MTLRenderPassDescriptor()
-                renderPass.colorAttachments[0].texture = terminal
-                renderPass.colorAttachments[0].loadAction = .clear
-                renderPass.colorAttachments[0].storeAction = .store
-                let encoder = buffer.makeRenderCommandEncoder(descriptor: renderPass)!
-                sourcePipeline.bind(encoder: encoder)
-                sourcePipeline.drawLayer(texture: prepared.finalTexture, mvp: simd_float4x4(diagonal: SIMD4<Float>(2, 2, 1, 1)), uniforms: .neutral(), encoder: encoder)
-                encoder.endEncoding()
-                let readback = appendReadback(terminal, commandBuffer: buffer)!
-                let publication = prepared.stages.count == 1
-                    && prepared.stages[0].effectOutputResource.publication.requestIdentity == .graph(output)
-                buffer.commit(); buffer.waitUntilCompleted()
-                rtDefaultResults[resultKey + ":frame-\(index)"] = publication
-                    && buffer.status == .completed && buffer.error == nil
-                    && matches(readback.firstPixel, index == 96 ? [value, 0, 0, value] : [0, 0, value, value])
-                    && matches(readback.lastPixel, index == 96 ? [value, 0, 0, value] : [0, 0, value, value])
             }
         }
 
@@ -9828,7 +9793,7 @@ private enum Harness {
             "ordinaryCanClaim": ordinaryCapabilities.claim(ordinaryChain) != nil,
             "implicitFramebufferStructuralInferenceBindsEffectInput":
                 failureCode(implicitFramebufferPreparation) == "success",
-            "rtShaderDefaultsBindAndPublishAcrossFrames": rtDefaultResults.count == 12 && rtDefaultResults.values.allSatisfy { $0 },
+            "rtShaderDefaultsBindAndPublishAcrossFrames": rtDefaultResults.count == 54 && rtDefaultResults.values.allSatisfy { $0 },
             "historicalFramebufferAliasBindsEffectInput":
                 failureCode(historicalFramebufferPreparation) == "success",
             "historicalFramebufferAliasPublishesTypedOutput":

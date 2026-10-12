@@ -365,10 +365,10 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0d1dc88e9a33e59e98754f0541f36f9b72335c10f6258a285a289a59f403ed8b",
+        "sourceSHA256": "45afa0f54272dbc478b9adf9ca8efe199d021062ac155a6fe630564156c7cdae",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批视频asset唯一owner、prepared/ready与solid采样接线的文档职责；其他旧合同未重验",
-        "limitations": "导航复核不冒充全架构、全样本或Release验收；本批实际输入与代码身份见归档。"
+        "scope": "本批graph用途、typed末合成、旧验证债关闭及历史入口的职责/状态核对；其他合同未重验",
+        "limitations": "导航复核不冒充全架构、全样本或Release；实际身份与证据边界归本批历史记录。"
       }
     },
     {
@@ -562,10 +562,10 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cb681a8da277dfbe00f4743d53fd09d8b1d7f82d17220f78affe13a0b65e01bd",
+        "sourceSHA256": "376cc89905260a9edd85a9e260c0b5ae2d1cba4f4dd512bcd04c8c30e4fed95b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批视频asset唯一owner、prepared/ready与solid采样接线的文档职责；其他旧合同未重验",
-        "limitations": "导航复核不冒充全架构、全样本或Release验收；本批实际输入与代码身份见归档。"
+        "scope": "本批graph用途、typed末合成、旧验证债关闭及历史入口的职责/状态核对；其他合同未重验",
+        "limitations": "导航复核不冒充全架构、全样本或Release；实际身份与证据边界归本批历史记录。"
       }
     },
     {
@@ -1151,6 +1151,19 @@
       ]
     },
     {
+      "path": "docs/scene/history/graph-color-purpose-reconciliation-2026-10-12.md",
+      "role": "historical-evidence",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "entrypoint": "docs/scene/history/README.md",
+      "cutoffDate": "2026-10-12",
+      "uniqueValue": "graph用途冲突红绿、候选与typed合成反例、历史fixture更正及真实样本未恢复的证据上限。"
+    },
+    {
       "path": "docs/scene/history/hdr-live-toggle-verification-2026-10-07.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -1452,7 +1465,7 @@
         "docs/scene/capabilities/render-graph-shader-coverage.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
-      "entrypoint": "docs/scene/capabilities/runtime-evidence-current.md",
+      "entrypoint": "docs/scene/history/README.md",
       "cutoffDate": "2026-10-12",
       "uniqueValue": "公共准入红/绿反例、实际两段Blur及未参与修法样本画面；stock测试隔离和旧有界cohort债。"
     },
@@ -2379,10 +2392,10 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "468dcc7b29dbc4109c45c9b95e961515189ec6f514f29806687f6dedc7cbb7fc",
+        "sourceSHA256": "d2a90c8cdb51d795fd7f75ee5705b5fb403aedc92e6d0b43524b68eb6231dfaa",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批编译多级纹理的通道用途、限定后验与N04状态引用核对；其他语义未重验",
-        "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
+        "scope": "本批graph用途、typed末合成、旧验证债关闭及历史入口的职责/状态核对；其他合同未重验",
+        "limitations": "导航复核不冒充全架构、全样本或Release；实际身份与证据边界归本批历史记录。"
       }
     },
     {

@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 119057
+      "bytes": 119678
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
@@ -93,8 +93,8 @@
       "bytes": 345279
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 106,
-      "bytes": 32144
+      "lines": 107,
+      "bytes": 32440
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -149,8 +149,8 @@
       "bytes": 8029
     },
     "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md": {
-      "lines": 102,
-      "bytes": 19733
+      "lines": 104,
+      "bytes": 20896
     },
     "docs/scene/roadmap/batch2/host-render-power-protocol-design.md": {
       "lines": 54,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 243,
-      "bytes": 70572
+      "bytes": 70782
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1169,15 +1169,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "ead1afc41fbe5c10c754e60b2eda4688b98ec92cd0f10979600a46fc0e58d8f6",
-      "after": "ba22b090d83703793d9a43b77db6efe8dd48852e194e9c5b2fd5e30a0ff765b8",
-      "owner": "scene-video-assets",
-      "reason": "原视频owner向材质asset扩展的唯一稳定合同；开工设计已归档，架构只保存入口/接线，不复制设计正文。",
-      "decision": "docs/scene/history/material-video-assets-2026-10-12.md#文档归属与退出"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-as-built-map.md",
       "before": "f786526253089a2db2040d33b7a637f797ce793c9574c41ca920249ac047a680",
       "after": "bd610b2218445ab3a486d8e0af4c541e9c439774684085d6f14ca40c13cb9a94",
@@ -1223,21 +1214,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "ba22b090d83703793d9a43b77db6efe8dd48852e194e9c5b2fd5e30a0ff765b8",
+      "after": "b827e6af8a7451c5b9bf2d3668b3353fd367df439ec4445fa853213964ef40c0",
+      "owner": "scene-material-color-boundary",
+      "reason": "原颜色合同补逐候选graph用途并关闭验证债；现役仅保状态/指针，过程归历史。",
+      "decision": "docs/scene/history/graph-color-purpose-reconciliation-2026-10-12.md#文档与产物"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "996348de6e4ea796149c3a9dcc9b77ab91df2c1efee3126e466d9558ed6122b1",
-      "after": "9b158763bbf04758db921717488523cc27852ea3e65325226f71e30c90368aae",
-      "owner": "scene-e-route",
-      "reason": "窄准入合同、现役指针与集中例外同步；批次细节由历史证据拥有。",
-      "decision": "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md#文档归属与产物"
+      "before": "9b158763bbf04758db921717488523cc27852ea3e65325226f71e30c90368aae",
+      "after": "bc7f463a8e85bfe7e878ed1a8000f467f60d924cab8b6c4172085debb756c2ba",
+      "owner": "scene-material-color-boundary",
+      "reason": "原颜色合同补逐候选graph用途并关闭验证债；现役仅保状态/指针，过程归历史。",
+      "decision": "docs/scene/history/graph-color-purpose-reconciliation-2026-10-12.md#文档与产物"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
+      "before": "0b0faf5fb6748c082343e4025096f15e5e9e4309cc65a9070fb77769aeb887a5",
+      "after": "a551c2eeee90e6b1156583c8d28bfaa78c888cf8fed22984207b1a8370a31e8d",
+      "owner": "scene-material-color-boundary",
+      "reason": "原颜色合同补逐候选graph用途并关闭验证债；现役仅保状态/指针，过程归历史。",
+      "decision": "docs/scene/history/graph-color-purpose-reconciliation-2026-10-12.md#文档与产物"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c42eb2d37fbb4831f76f48829d8d0eb5c2f6bab94de24171b249e24503ff1af3",
-      "after": "19f9ead2e83e130633fb3c5502297e472fba596fc65354c378ed0d0a6e819ca9",
-      "owner": "scene-e-route",
-      "reason": "窄准入合同、现役指针与集中例外同步；批次细节由历史证据拥有。",
-      "decision": "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md#文档归属与产物"
+      "before": "19f9ead2e83e130633fb3c5502297e472fba596fc65354c378ed0d0a6e819ca9",
+      "after": "a0e02a597c84d680d32a0c3845643c18f85dc3d6530fb8fd271c61be4b4e62de",
+      "owner": "scene-material-color-boundary",
+      "reason": "原颜色合同补逐候选graph用途并关闭验证债；现役仅保状态/指针，过程归历史。",
+      "decision": "docs/scene/history/graph-color-purpose-reconciliation-2026-10-12.md#文档与产物"
     }
   ]
 }
