@@ -2,9 +2,10 @@ import Metal
 
 /// Reusable, per-surface copy of the current main render target.
 ///
-/// The snapshot is intentionally full resolution: consumers that sample the current
-/// framebuffer must observe every layer encoded before them. Allocation fails closed
-/// above the byte budget instead of silently changing resolution or format.
+/// The snapshot is intentionally full resolution. A proven ordinary quad may
+/// capture only its read footprint at matching coordinates; other consumers copy
+/// the whole target. Each capture observes every preceding layer. Allocation fails
+/// closed above the byte budget without changing resolution or format.
 final class SceneFramebufferSnapshot {
     static let defaultByteBudget = 64 * 1_024 * 1_024
 
@@ -41,7 +42,8 @@ final class SceneFramebufferSnapshot {
 
     func capture(
         target: MTLTexture,
-        commandBuffer: MTLCommandBuffer
+        commandBuffer: MTLCommandBuffer,
+        region: MTLRegion? = nil
     ) -> MTLTexture? {
         guard target.textureType == .type2D,
               target.sampleCount == 1,
@@ -49,18 +51,19 @@ final class SceneFramebufferSnapshot {
               let encoder = commandBuffer.makeBlitCommandEncoder() else {
             return nil
         }
+        let region = region ?? MTLRegionMake2D(0, 0, target.width, target.height)
         encoder.copy(
             from: target,
             sourceSlice: 0,
             sourceLevel: 0,
-            sourceOrigin: .init(x: 0, y: 0, z: 0),
-            sourceSize: .init(width: target.width, height: target.height, depth: 1),
+            sourceOrigin: region.origin,
+            sourceSize: region.size,
             to: destination,
             destinationSlice: 0,
             destinationLevel: 0,
-            destinationOrigin: .init(x: 0, y: 0, z: 0)
+            destinationOrigin: region.origin
         )
-        SceneGPUCensus.recordFramebufferCapture(texture: target)
+        SceneGPUCensus.recordFramebufferCapture(texture: target, size: region.size)
         encoder.endEncoding()
         return destination
     }

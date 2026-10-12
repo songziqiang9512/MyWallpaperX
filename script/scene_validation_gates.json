@@ -881,7 +881,12 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan+Descriptor.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailCoordinator.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh",
-        "script/tests/test_scene_image_distance_fog.py"
+        "script/tests/test_scene_image_distance_fog.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
+        "script/tests/test_scene_color_blend_capture_region.py",
+        "script/tests/scene_color_blend_capture_test_support.py",
+        "script/tests/fixtures/SceneColorBlendCaptureRegionHarness.swift",
+        "script/tests/fixtures/SceneParticleRefractionPixelsHarness.swift"
       ],
       "keywords": [
         "rendering",
@@ -902,7 +907,12 @@
         "test_scene_source_update_transaction",
         "test_scene_visible_graph_output_render_plan",
         "test_scene_image_distance_fog",
-        "test_scene_directional_shadow_frame_owner"
+        "test_scene_directional_shadow_frame_owner",
+        "test_scene_color_blend_capture_region",
+        "test_scene_snapshot_capacity",
+        "test_scene_performance_telemetry",
+        "test_scene_persistent_color_output",
+        "test_scene_particle_refraction_pixels"
       ]
     },
     {

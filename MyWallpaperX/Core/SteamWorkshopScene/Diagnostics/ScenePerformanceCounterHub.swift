@@ -157,14 +157,14 @@ nonisolated final class ScenePerformanceCounterHub: @unchecked Sendable {
         }
     }
 
-    /// Records one whole-texture copy pass and the bytes it moves. A `nil`
+    /// Records one texture copy pass and its logical encoded bytes. A `nil`
     /// byte count means the pixel format has no known bytes-per-pixel; the
     /// pass is counted as unmeasured instead of contributing a guessed size.
     func recordTextureCopy(byteCount: Int?) {
         withLock { recordCopyLocked(byteCount: byteCount) }
     }
 
-    /// Records one full-frame framebuffer snapshot and its byte volume. This is
+    /// Records one framebuffer snapshot and its logical copied byte volume. This is
     /// the operation AS3 removes first when it has no consumer, so it is kept
     /// separate from ordinary exact copies.
     func recordFramebufferCapture(byteCount: Int?) {

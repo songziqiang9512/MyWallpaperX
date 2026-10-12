@@ -302,6 +302,7 @@ enum GPUCensusHarness {
         SceneGPUCensus.recordOffscreenRender(.resolvedMaterial)
         SceneGPUCensus.recordOffscreenRender(.graphResourceInitialization)
         SceneGPUCensus.recordFramebufferCapture(texture: bgra)
+        SceneGPUCensus.recordFramebufferCapture(texture: bgra, size: MTLSizeMake(3, 5, 1))
         SceneGPUCensus.recordGraphOutputPublication(texture: bgra)
         SceneGPUCensus.recordTextureCopy(texture: bgra)
         SceneGPUCensus.recordTextureCopy(texture: unknown)
@@ -723,7 +724,7 @@ class ScenePerformanceCounterHubTests(unittest.TestCase):
 
 class SceneGPUCensusTests(unittest.TestCase):
     def test_census_counts_pass_splits_and_copy_bytes(self) -> None:
-        """普查只计编码操作：pass 创建与整纹理拷贝的字节量。"""
+        """普查只计编码操作和逻辑复制字节，不表示物理带宽。"""
         with tempfile.TemporaryDirectory(prefix="mwx-scene-gpu-census-") as directory:
             root = Path(directory)
             harness = root / "GPUCensusHarness.swift"
@@ -755,13 +756,12 @@ class SceneGPUCensusTests(unittest.TestCase):
         self.assertEqual(result["graphResourceInitializations"], 1)
         self.assertEqual(result["graphResourceSourceCaptures"], 0)
         self.assertEqual(result["offscreenEffectCaptures"], 0)
-        # bgra8Unorm 16x8 = 512 bytes per copy; three measured copies plus one
-        # copy whose format has no known bytes-per-pixel.
-        self.assertEqual(result["textureCopyPasses"], 4)
-        self.assertEqual(result["framebufferCaptures"], 1)
-        self.assertEqual(result["framebufferCaptureBytes"], 512)
+        # Three 512-byte copies, one 60-byte capture region and one unknown format.
+        self.assertEqual(result["textureCopyPasses"], 5)
+        self.assertEqual(result["framebufferCaptures"], 2)
+        self.assertEqual(result["framebufferCaptureBytes"], 572)
         self.assertEqual(result["graphOutputPublicationCopies"], 1)
-        self.assertEqual(result["textureCopyBytes"], 1_536)
+        self.assertEqual(result["textureCopyBytes"], 1_596)
         self.assertEqual(result["unmeasuredCopyPasses"], 1)
 
     def test_every_frame_path_encoder_and_copy_is_counted(self) -> None:

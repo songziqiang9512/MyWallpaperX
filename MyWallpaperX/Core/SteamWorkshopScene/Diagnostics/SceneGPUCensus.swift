@@ -4,7 +4,7 @@ import Metal
 ///
 /// The counters exist to answer one question before any composition change:
 /// which encoded operations a frame's GPU work comes from. They count pass
-/// creations and whole-texture copies so AS3 can name the operation it intends
+/// creations and encoded texture-copy regions so AS3 can name the operation it intends
 /// to remove and then measure GPU time, instead of guessing from a stack sample
 /// or from theoretical bytes.
 ///
@@ -26,9 +26,9 @@ enum SceneGPUCensus {
         ScenePerformanceCounterHub.shared.recordOffscreenRender(kind)
     }
 
-    static func recordFramebufferCapture(texture: MTLTexture) {
+    static func recordFramebufferCapture(texture: MTLTexture, size: MTLSize? = nil) {
         ScenePerformanceCounterHub.shared.recordFramebufferCapture(
-            byteCount: byteCost(texture)
+            byteCount: byteCost(texture, size: size)
         )
     }
 
@@ -44,15 +44,16 @@ enum SceneGPUCensus {
         )
     }
 
-    /// Bytes moved by a whole-texture copy, or `nil` when the pixel format has
+    /// Logical encoded copy bytes, not physical memory bandwidth. Returns `nil`
+    /// when the pixel format has
     /// no known bytes-per-pixel. Unknown formats are counted as unmeasured
     /// rather than assumed to be four bytes.
-    private static func byteCost(_ texture: MTLTexture) -> Int? {
+    private static func byteCost(_ texture: MTLTexture, size: MTLSize? = nil) -> Int? {
         guard let bytesPerPixel = bytesPerPixel(texture.pixelFormat) else {
             return nil
         }
-        let (pixels, pixelOverflow) = texture.width.multipliedReportingOverflow(
-            by: texture.height
+        let (pixels, pixelOverflow) = (size?.width ?? texture.width).multipliedReportingOverflow(
+            by: size?.height ?? texture.height
         )
         let (bytes, byteOverflow) = pixels.multipliedReportingOverflow(
             by: bytesPerPixel

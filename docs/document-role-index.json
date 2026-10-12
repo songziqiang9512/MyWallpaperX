@@ -379,13 +379,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-12",
+      "lastReviewed": "2026-10-13",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "20d63c2f41cfa54f674458d43ec55ce652afb01e0ef5a0d6def1176f4e176a05",
+        "sourceSHA256": "e319d3a245ee55bc0f95089f8dd7e7a510689b942fb325554f171bcf1e65c85b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批视频asset唯一owner、prepared/ready与solid采样接线的文档职责；其他旧合同未重验",
-        "limitations": "导航复核不冒充全架构、全样本或Release验收；本批实际输入与代码身份见归档。"
+        "scope": "ordinary quad colorBlend snapshot owner/region/fallback navigation; runtime evidence is in the batch historical record",
+        "limitations": "not full architecture reacceptance or ordinary desktop/Release, physical HDR, corpus acceptance"
       }
     },
     {
@@ -826,6 +826,18 @@
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/color-blend-region-convergence-2026-10-13.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/architecture/runtime-architecture.md"
+      ],
+      "cutoffDate": "2026-10-13",
+      "uniqueValue": "保守ROI读取合同、极大坐标反例与三轮复制/GPU/FPS真实对照，保完整纹理容量。"
     },
     {
       "path": "docs/scene/history/committed-range-review-repairs-2026-10-07.md",

@@ -129,9 +129,10 @@ final class SceneLayerColorBlendPipeline {
 
     func snapshot(
         target: MTLTexture,
-        commandBuffer: MTLCommandBuffer
+        commandBuffer: MTLCommandBuffer,
+        region: MTLRegion? = nil
     ) -> MTLTexture? {
-        framebufferSnapshot.capture(target: target, commandBuffer: commandBuffer)
+        framebufferSnapshot.capture(target: target, commandBuffer: commandBuffer, region: region)
     }
 
     func draw(
@@ -248,7 +249,14 @@ enum SceneLayerColorBlendRenderer {
 
         guard let colorBlendPipeline else { return false }
         let captured = mainPass.withReadableTarget { target, commandBuffer in
-            colorBlendPipeline.snapshot(target: target, commandBuffer: commandBuffer)
+            // This fragment reads background only at its current pixel. Custom
+            // geometry and unproven projection keep the full capture contract.
+            let region = geometryProduct == nil
+                ? SceneLayerSourcePassthroughPlan.projectedGeometry(for: mvp)?
+                    .pixelRegion(width: target.width, height: target.height)
+                : nil
+            return colorBlendPipeline.snapshot(
+                target: target, commandBuffer: commandBuffer, region: region)
         }
         guard let background = captured ?? nil,
               let encoder = mainPass.encoder() else {

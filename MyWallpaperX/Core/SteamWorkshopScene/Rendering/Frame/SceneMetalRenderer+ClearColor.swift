@@ -55,6 +55,7 @@ extension SceneMetalRenderer {
                     sourceSize: MTLSizeMake(source.width, source.height, 1),
                     to: reserved.texture, destinationSlice: 0, destinationLevel: 0,
                     destinationOrigin: MTLOriginMake(0, 0, 0))
+                SceneGPUCensus.recordTextureCopy(texture: source)
                 if reserved.texture.mipmapLevelCount > 1 { blit.generateMipmaps(for: reserved.texture) }
                 blit.endEncoding()
                 return true
@@ -117,6 +118,7 @@ extension SceneMetalRenderer {
             sourceSize: MTLSizeMake(source.width, source.height, 1),
             to: target, destinationSlice: 0, destinationLevel: 0,
             destinationOrigin: MTLOriginMake(0, 0, 0))
+        SceneGPUCensus.recordTextureCopy(texture: source)
         encoder.endEncoding()
         return true
         }

@@ -7,6 +7,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from script.tests.test_scene_directional_shadow import run_swift
+from script.tests.scene_color_blend_capture_test_support import projection_support, PROJECTION_SOURCE
 
 REPO=Path(__file__).resolve().parents[2]
 SCENE=REPO/'MyWallpaperX/Core/SteamWorkshopScene'
@@ -112,13 +113,14 @@ final class SceneGraphRenderTargetResidencyPin {func release() {fatalError("unus
   var a:MTLCommandBuffer?=q.makeCommandBuffer(),b:MTLCommandBuffer?=q.makeCommandBuffer(),c:MTLCommandBuffer?=q.makeCommandBuffer()
   let gate=d.makeSharedEvent()!,t=texture(d,8),resized=texture(d,32)
   a!.encodeWaitForEvent(gate,value:1);clear(t,a!,MTLClearColorMake(1,0,0,1))
-  var external:MTLTexture?=s!.capture(target:t,commandBuffer:a!)
+  let region=MTLRegionMake2D(0,0,1,1)
+  var external:MTLTexture?=s!.capture(target:t,commandBuffer:a!,region:region)
   weak var retired=external
   let oldID=ObjectIdentifier(external!),ra=read(external!,a!)
   a!.commit()
-  clear(t,b!,MTLClearColorMake(0,1,0,1));let same=s!.capture(target:t,commandBuffer:b!)!
+  clear(t,b!,MTLClearColorMake(0,1,0,1));let same=s!.capture(target:t,commandBuffer:b!,region:region)!
   let sameKey=ObjectIdentifier(same)==oldID,rb=read(same,b!);b!.commit()
-  clear(resized,c!,MTLClearColorMake(0,0,1,1));var newer:MTLTexture?=s!.capture(target:resized,commandBuffer:c!)
+  clear(resized,c!,MTLClearColorMake(0,0,1,1));var newer:MTLTexture?=s!.capture(target:resized,commandBuffer:c!,region:region)
   let newIdentity=ObjectIdentifier(newer!) != oldID,rc=read(newer!,c!);c!.commit()
   let blocked=a!.status != .completed && b!.status != .completed
   let retained=retired != nil && SceneResourceBudget.shared.snapshot.residentBytes>=baseline+physical(d,8)+physical(d,32)
@@ -302,12 +304,12 @@ FRAME_MAIN=r'''
  }
 }
 '''
-FRAME_HARNESS=frame_fixture.pool_fixture.HARNESS.split('@main',1)[0]+FRAME_SHELL+frame_fixture.UNUSED_ORDERED_SUPPORT.replace('struct SceneImageLayerPipeline {}','')+FRAME_MAIN
+FRAME_HARNESS=projection_support()+frame_fixture.pool_fixture.HARNESS.split('@main',1)[0]+FRAME_SHELL+frame_fixture.UNUSED_ORDERED_SUPPORT.replace('struct SceneImageLayerPipeline {}','')+FRAME_MAIN
 
 class SceneSnapshotFrameOwnerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        paths=[Path(__file__),Path(frame_fixture.__file__),*FRAME_SOURCES,FOG_HEADER,SCENE/'Rendering/Composition/SceneStaticModel.metal']
+        paths=[Path(__file__),Path(frame_fixture.__file__),PROJECTION_SOURCE,*FRAME_SOURCES,FOG_HEADER,SCENE/'Rendering/Composition/SceneStaticModel.metal']
         identity={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
         parent=Path(os.environ.get('MWX_SNAPSHOT_EVIDENCE','/private/tmp/mwx-rf12'));parent.mkdir(parents=True,exist_ok=True)
         work=Path(tempfile.mkdtemp(prefix='snapshot-frame-identity-',dir=parent));(work/'sources.json').write_text(json.dumps(identity,indent=2))

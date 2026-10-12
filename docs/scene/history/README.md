@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-13 | GPU/合成 | 收敛证据 | [高级混合区域复制](color-blend-region-convergence-2026-10-13.md) | 保守读取范围、完整像素反例与三轮真实GPU/FPS改善；内存未降 | [性能卡](../roadmap/performance-convergence-card.md) |
 | 2026-10-13 | 开发工具 | 收敛证据 | [benchmark职责](benchmark-responsibility-convergence-2026-10-13.md) | 单一parser/采集/验收及严格默认、完整golden与签名运行边界 | [性能卡](../roadmap/performance-convergence-card.md) |
 | 2026-10-13 | 纹理/性能 | 收敛证据 | [TEX请求内复用](tex-request-local-convergence-2026-10-13.md) | 拒绝cache时一份payload、局部成本与正常播放三轮对照；默认App收益未证 | [性能卡](../roadmap/performance-convergence-card.md) |
 | 2026-10-13 | 属性/性能 | 收敛证据 | [条件投影](property-condition-projection-2026-10-13.md) | 同body共享当前输入、局部CPU对照与面板/窗口边界 | [属性卡](../roadmap/properties-panel-card.md)、[性能卡](../roadmap/performance-convergence-card.md) |

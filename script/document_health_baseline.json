@@ -42,7 +42,7 @@
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 151,
-      "bytes": 29031
+      "bytes": 28908
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 22,
-      "bytes": 3410
+      "bytes": 3342
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,

@@ -11,7 +11,7 @@
 3. 首帧：以现有阶段计时区分解析、准备、编译、资源、首draw/呈现；缩小必须提前完成的范围，保持依赖、首帧完整与失败回退。
 4. 长时间使用：连续切换轻/重壁纸，观察cache增长是否有界及停止后transient资源是否回落；保留合理复用cache，不把清空cache当性能优化。
 
-**当前进度与下一轮。** 复用结果归[BC](../history/native-bc-memory-convergence-2026-10-12.md)、[PKG](../history/pkg-extraction-memory-convergence-2026-10-12.md)、[TEX证据](../history/tex-request-local-convergence-2026-10-13.md)。专项约20%（阶段估计），不外推App峰值/首帧。原包开场经[有界host修复](../history/scenescript-host-heap-admission-2026-10-13.md)闭合；旧脚本停用测量不作基线。下一轮补HDR/reflection复制计量，再量普通高级混合quad局部复制；复用既有投影和snapshot，custom geometry/折射保全屏。base-image/natural-size、MDL双阶段、首帧及长期切换待量，保完整校验。属性typed更新/重建归[属性卡](properties-panel-card.md)。
+**当前进度与下一轮。** 专项约25%（阶段估计）；[BC](../history/native-bc-memory-convergence-2026-10-12.md)、[PKG](../history/pkg-extraction-memory-convergence-2026-10-12.md)、[TEX](../history/tex-request-local-convergence-2026-10-13.md)与[高级混合区域复制](../history/color-blend-region-convergence-2026-10-13.md)已实施。正常开场三轮对照：copy -63%、GPU p95 -9.7%、FPS +8.4%，内存未降；仅内部Host范围。下一轮先[属性候选重复求值](properties-panel-card.md)，再HDR history条件路径；base-image/natural-size、MDL双阶段、首帧及长期切换仍待量，保完整校验。旧脚本停用测量不作基线。
 
 **工具职责裁决。** runner保唯一CLI/严格默认/矩阵/签名/退出与报告入口；日志解析按语义各一grammar/owner，执行采集→单一验收，保未舍入ratio及失败顺序、API导入、依赖无环。拒绝wrapper、二次解析/JSON转交或第二算法。相较保留长文件/只抽telemetry，用AST/API、完整报告/命令/异常golden、测试唯一发现/门映射限风险，差异停止。独审、golden及签名运行已验，[旧monolith退役](../history/benchmark-responsibility-convergence-2026-10-13.md)，撤登记；剩余职责留本文。
 

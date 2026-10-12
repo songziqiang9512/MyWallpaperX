@@ -60,6 +60,22 @@ struct SceneLayerSourcePassthroughPlan {
         /// The same quad after clipping to the canonical NDC viewport.
         let clippedNDCVertices: [SIMD2<Float>]
         let clippedArea: Float
+
+        /// Metal's viewport is Y-down. Include an extra boundary pixel around
+        /// outward-rounded original NDC bounds, then clamp to the viewport.
+        /// Float clipping intersections can lose extrema through cancellation
+        /// for large finite coordinates, so they must not narrow this footprint.
+        func pixelRegion(width: Int, height: Int) -> MTLRegion? {
+            guard width > 0, height > 0, !ndcVertices.isEmpty else { return nil }
+            let xs = ndcVertices.map { (Double($0.x) + 1) * 0.5 * Double(width) }
+            let ys = ndcVertices.map { (1 - Double($0.y)) * 0.5 * Double(height) }
+            let left = Int(max(0, min(Double(width), floor(xs.min()!) - 1)))
+            let right = Int(max(0, min(Double(width), ceil(xs.max()!) + 1)))
+            let top = Int(max(0, min(Double(height), floor(ys.min()!) - 1)))
+            let bottom = Int(max(0, min(Double(height), ceil(ys.max()!) + 1)))
+            guard right > left, bottom > top else { return nil }
+            return MTLRegionMake2D(left, top, right - left, bottom - top)
+        }
     }
 
     let layerID: Int
@@ -323,7 +339,7 @@ struct SceneLayerSourcePassthroughPlan {
             && texture.usage.contains(.shaderRead)
     }
 
-    private static func projectedGeometry(
+    static func projectedGeometry(
         for mvp: simd_float4x4
     ) -> ProjectedClippedQuad? {
         guard mvp.columns.0.allFinite,

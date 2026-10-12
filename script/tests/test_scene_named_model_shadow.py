@@ -15,7 +15,7 @@ import tempfile
 import unittest
 
 from script.tests.test_scene_directional_shadow_integration import fixture_entries, make_package
-
+from script.tests.scene_color_blend_capture_test_support import projection_support, completed_source_uniforms_support
 REPO = Path(__file__).resolve().parents[2]
 SCENE = REPO/'MyWallpaperX/Core/SteamWorkshopScene'
 APP_CASES = ('static', 'named-early', 'named-late', 'middle-image-alpha', 'solid-late', 'forward-graph-neighbor', 'hidden-normal-consumer')
@@ -450,7 +450,7 @@ ADMISSION_SOURCES=list(dict.fromkeys([*ORDERED_SOURCES,
 
 
 def admission_support():
-    s=ordered_support()
+    s=projection_support()+completed_source_uniforms_support()+ordered_support()
     s=s.replace('typealias ColorBlendBinder = () -> Void','typealias ColorBlendBinder = (MTLRenderCommandEncoder, MTLTexture, simd_float4x4) -> Void')
     s=s.replace('struct SceneGeometryProduct {','struct SceneGeometryProduct {\n typealias ColorBlendBinder = (MTLRenderCommandEncoder, MTLTexture, simd_float4x4) -> Void')
     s=s.replace('enum SceneLayerColorBlendRenderer {static func supports(_ mode:Int)->Bool {fatalError("unused snapshot-demand shell")}}','')
@@ -465,7 +465,7 @@ def admission_support():
     s=s.replace('struct SceneFrameContext { let dynamicValues:SceneDynamicSnapshot }',
         'struct SceneFrameContext { let dynamicValues:SceneDynamicSnapshot;var cameraParallaxPosition=SIMD2<Float>.zero;var screenSize=CGSize(width:256,height:256) }')
     s=s.replace('struct SceneBaseImageTextureSnapshot {let sources:[Int:FixtureSource]}',
-        'struct SceneBaseImageTextureSnapshot {let sources:[Int:FixtureSource];var geometryProducts:[Int:SceneGeometryProduct]=[:]\n func layerSourceRenderSize(for id:Int)->[Float]? {nil}}')
+        'struct SceneBaseImageTextureSnapshot {let sources:[Int:FixtureSource];var geometryProducts:[Int:SceneGeometryProduct]=[:]\n func layerSourceRenderSize(for id:Int)->[Float]? {nil};func layerSourceTextCenterOffsetY(for id:Int)->Float? {nil}}')
     s=s.replace('let candidate:SceneTextureCandidate;','let candidate:SceneTextureCandidate?;')
     s=s.replace(' let imageCompositor=SceneImageLayerCompositor()',
         ' let imageCompositor=SceneImageLayerCompositor()\n var baseMaterialProviderBindings=FixtureProfiles()\n let pipelineRepository:FixturePipelines\n let renderDescriptor:SceneRenderDescriptor')
