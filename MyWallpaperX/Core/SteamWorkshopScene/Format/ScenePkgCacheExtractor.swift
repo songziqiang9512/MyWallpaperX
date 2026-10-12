@@ -1,4 +1,5 @@
 import CryptoKit
+import Darwin
 import Foundation
 
 struct ScenePkgCacheExtractionResult {
@@ -23,7 +24,26 @@ struct ScenePkgCacheExtractor {
     private static let markerName = ".mwx-scene-pkg-cache-v1.json"
     private let fileManager = FileManager.default
 
+    private struct PreparedEntry {
+        let marker: CompletionMarker.Entry
+        let contents: Data
+    }
+
     func extract(packageURL: URL, projectRootURL: URL) throws -> ScenePkgCacheExtractionResult {
+        // The lock precedes the owning snapshot so concurrent preparations of
+        // this package do not each retain its full payload. It lives outside
+        // the content cache that extraction may remove and rebuild.
+        let lock = try acquireExtractionLock(packageURL: packageURL, projectRootURL: projectRootURL)
+        defer {
+            flock(lock, LOCK_UN)
+            close(lock)
+        }
+        guard let supportsCaseSensitiveNames = try cacheRootURL.resourceValues(
+            forKeys: [.volumeSupportsCaseSensitiveNamesKey]
+        ).volumeSupportsCaseSensitiveNames else {
+            // Unknown volume semantics cannot safely establish destination aliases.
+            throw POSIXError(.ENOTSUP)
+        }
         let packageData = try Data(contentsOf: packageURL)
         let reader = ScenePkgReader()
         let index = try reader.readIndex(data: packageData)
@@ -33,11 +53,16 @@ struct ScenePkgCacheExtractor {
             projectRootURL: projectRootURL,
             packageSHA256: packageSHA256
         )
-        let expectedEntries = markerEntries(from: index, packageData: packageData)
+        let entries = try preparedEntries(from: index, packageData: packageData,
+            supportsCaseSensitiveNames: supportsCaseSensitiveNames)
+        let expectedEntries = entries.map(\.marker).sorted {
+            $0.relativePath.localizedStandardCompare($1.relativePath) == .orderedAscending
+        }
 
         if validCache(
             at: outputURL,
             packageSHA256: packageSHA256,
+            entries: entries,
             expectedEntries: expectedEntries
         ) {
             return ScenePkgCacheExtractionResult(
@@ -52,15 +77,14 @@ struct ScenePkgCacheExtractor {
         try fileManager.createDirectory(at: outputURL, withIntermediateDirectories: true)
 
         var extractedPaths: [String] = []
-        for entry in index.entries where shouldExtract(entry.path) {
-            guard let relativePath = safeRelativePath(entry.path) else { continue }
-            let data = try reader.readEntryData(entry, in: packageData, index: index)
+        for entry in entries {
+            let relativePath = entry.marker.relativePath
             let destinationURL = outputURL.appendingPathComponent(relativePath)
             try fileManager.createDirectory(
                 at: destinationURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
-            try data.write(to: destinationURL, options: [.atomic])
+            try entry.contents.write(to: destinationURL, options: [.atomic])
             extractedPaths.append(relativePath)
         }
 
@@ -86,54 +110,81 @@ struct ScenePkgCacheExtractor {
     private func validCache(
         at outputURL: URL,
         packageSHA256: String,
+        entries: [PreparedEntry],
         expectedEntries: [CompletionMarker.Entry]
     ) -> Bool {
         let markerURL = outputURL.appendingPathComponent(Self.markerName)
-        guard let data = try? Data(contentsOf: markerURL),
+        guard cachedFilePaths(at: outputURL) == Set(
+                  expectedEntries.map(\.relativePath) + [Self.markerName]
+              ),
+              let data = try? Data(contentsOf: markerURL),
               let marker = try? JSONDecoder().decode(CompletionMarker.self, from: data),
               marker.formatVersion == 1,
               marker.packageSHA256 == packageSHA256,
               marker.entries == expectedEntries,
-              marker.entries.allSatisfy({ entry in
-                  guard safeRelativePath(entry.relativePath) != nil,
-                        let cachedData = try? Data(
-                            contentsOf: outputURL.appendingPathComponent(entry.relativePath)
-                        ) else {
+              entries.allSatisfy({ entry in
+                  guard let cachedData = try? Data(
+                      contentsOf: outputURL.appendingPathComponent(entry.marker.relativePath)
+                  ) else {
                       return false
                   }
-                  return cachedData.count == Int(entry.size)
-                      && Self.sha256(cachedData) == entry.contentSHA256
-              }),
-              cachedFilePaths(at: outputURL) == Set(
-                  expectedEntries.map(\.relativePath) + [Self.markerName]
-              ) else {
+                  // Equality with the validated source snapshot also rejects
+                  // same-size corruption, without hashing the cache a second time.
+                  return cachedData == entry.contents
+              }) else {
             return false
         }
         return true
     }
 
-    private func markerEntries(
+    private func preparedEntries(
         from index: ScenePkgIndex,
-        packageData: Data
-    ) -> [CompletionMarker.Entry] {
-        index.entries.compactMap { entry in
+        packageData: Data,
+        supportsCaseSensitiveNames: Bool
+    ) throws -> [PreparedEntry] {
+        var contentsByIdentity: [String: Data] = [:]
+        return try index.entries.compactMap { entry in
             guard shouldExtract(entry.path),
                   let relativePath = safeRelativePath(entry.path) else { return nil }
+            // Resource-view lookup folding is not the physical cache identity:
+            // case-sensitive volumes must retain both authored destinations.
+            let canonicalPath = relativePath.precomposedStringWithCanonicalMapping
+            let identity = supportsCaseSensitiveNames ? canonicalPath : canonicalPath.lowercased()
+            guard identity != Self.markerName else {
+                throw ScenePkgReader.ReadError.ambiguousPath(relativePath)
+            }
             let start = index.dataStartOffset + Int(entry.offset)
             let end = start + Int(entry.size)
-            return CompletionMarker.Entry(
-                relativePath: relativePath,
-                size: entry.size,
-                contentSHA256: Self.sha256(packageData[start..<end])
+            // readIndex validated every payload range. A slice borrows the
+            // owning package snapshot for hashing, validation and atomic output.
+            let contents = packageData[start..<end]
+            if let previous = contentsByIdentity[identity] {
+                guard previous == contents else {
+                    throw ScenePkgReader.ReadError.ambiguousPath(relativePath)
+                }
+                return nil
+            }
+            contentsByIdentity[identity] = contents
+            return PreparedEntry(
+                marker: .init(relativePath: relativePath, size: entry.size,
+                    contentSHA256: Self.sha256(contents)),
+                contents: contents
             )
-        }.sorted {
-            $0.relativePath.localizedStandardCompare($1.relativePath) == .orderedAscending
         }
     }
 
     private func cachedFilePaths(at rootURL: URL) -> Set<String>? {
+        var rootAttributes = stat()
+        guard lstat(rootURL.path, &rootAttributes) == 0,
+              rootAttributes.st_mode & S_IFMT == S_IFDIR else { return nil }
+        // A mounted-volume enumerator can return /private/var children for a
+        // /var home URL. Canonicalize only the already-checked directory root.
+        guard let canonicalPath = try? rootURL.resourceValues(
+            forKeys: [.canonicalPathKey]
+        ).canonicalPath else { return nil }
+        let canonicalURL = URL(fileURLWithPath: canonicalPath, isDirectory: true)
         guard let enumerator = fileManager.enumerator(
-            at: rootURL,
+            at: canonicalURL,
             includingPropertiesForKeys: [
                 .isDirectoryKey,
                 .isRegularFileKey,
@@ -142,7 +193,7 @@ struct ScenePkgCacheExtractor {
         ) else {
             return nil
         }
-        let prefix = rootURL.path + "/"
+        let prefix = canonicalURL.path + "/"
         var paths = Set<String>()
         for case let url as URL in enumerator {
             guard let values = try? url.resourceValues(forKeys: [
@@ -171,12 +222,36 @@ struct ScenePkgCacheExtractor {
         ].joined(separator: "|")
         let key = Self.fnv1a64(keySource)
 
-        return fileManager.homeDirectoryForCurrentUser
+        return cacheRootURL.appendingPathComponent(key, isDirectory: true)
+    }
+
+    private var cacheRootURL: URL {
+        fileManager.homeDirectoryForCurrentUser
             .appendingPathComponent("Library", isDirectory: true)
             .appendingPathComponent("Caches", isDirectory: true)
             .appendingPathComponent("MyWallpaperX", isDirectory: true)
             .appendingPathComponent("SteamWorkshopScene", isDirectory: true)
-            .appendingPathComponent(key, isDirectory: true)
+    }
+
+    private func acquireExtractionLock(packageURL: URL, projectRootURL: URL) throws -> Int32 {
+        try fileManager.createDirectory(at: cacheRootURL, withIntermediateDirectories: true)
+        let identity = [projectRootURL.standardizedFileURL.path,
+            packageURL.standardizedFileURL.path].joined(separator: "|")
+        let lockURL = cacheRootURL.appendingPathComponent(Self.fnv1a64(identity) + ".lock")
+        let descriptor = open(lockURL.path, O_CREAT | O_RDWR | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK, 0o600)
+        guard descriptor >= 0 else { throw POSIXError(.init(rawValue: errno) ?? .EIO) }
+        var attributes = stat()
+        guard fstat(descriptor, &attributes) == 0, attributes.st_mode & S_IFMT == S_IFREG else {
+            close(descriptor)
+            throw POSIXError(.EINVAL)
+        }
+        while flock(descriptor, LOCK_EX) != 0 {
+            if errno == EINTR { continue }
+            let error = POSIXError(.init(rawValue: errno) ?? .EIO)
+            close(descriptor)
+            throw error
+        }
+        return descriptor
     }
 
     private func shouldExtract(_ path: String) -> Bool {

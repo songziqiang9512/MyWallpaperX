@@ -66,7 +66,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 323,
-      "bytes": 63515
+      "bytes": 63524
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 22,
-      "bytes": 3343
+      "bytes": 3684
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1064,15 +1064,6 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "d6588ae6a85c3603258c2f740545f083e38bedbd3bb9b232826cfaca5a0c0740",
-      "after": "a234f231725db8f8003377b13186996f7e793aa6432facd0f8301476eef8edbb",
-      "owner": "Scene Puppet reference pose",
-      "reason": "独立角色reference作为rig动画基准补入现有合同，明确原inverse-bind不变、MDLS0002准入和旧bind兼容边界；实现过程与逐样本结果仅保留历史。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#321-独立角色参考姿态"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/cold-descriptor-parse-offload-design.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
       "after": "b33cb6d1f4b69f29f592db4c21e1a39fc060bf7066c2fa8a9e742d8f94a18280",
@@ -1262,15 +1253,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "d76e4f0a99195aea32377eb721e59a9778dbd0f360d630af614ac769efca260b",
-      "after": "13ee44145f2f92ba342419d930efb43b9ee2218c7c3be6442ef3b7d6feed83bd",
-      "owner": "scene-resources-and-cpu-consumer",
-      "reason": "原生BC已验收成本点归历史；修正唯一粒子位图消费者格式边界，保留面板reset仲裁未实施诊断。",
-      "decision": "docs/scene/history/native-bc-memory-convergence-2026-10-12.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/properties-panel-card.md",
       "before": "b7525a4cebbbfb6b5cc2a0b884b72aaa1cd9d1c7b5ea22970270c46baa7bb8a8",
       "after": "5961a3712e09847b26194732e7a9c5a8d99209ee2780e24161910ce1a973c8a7",
@@ -1284,8 +1266,26 @@
       "before": "89e862bbadd32c009cdb3c47d7b9eb35cb2cab9c52e2c8ba6540ebf14d13c2bb",
       "after": "367277cf1dd0864443f14bb258cf6a93da16c66f4f707482d0edf0cdb5ba8b16",
       "owner": "scene-script-host-heap-admission",
-      "reason": "共享VM有界容量与原包实际开场恢复；现役只保限定状态与后继，历史保留证据。",
+      "reason": "有界host容量与原包恢复的限定状态；实际证据归历史。",
       "decision": "docs/scene/history/scenescript-host-heap-admission-2026-10-13.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "a234f231725db8f8003377b13186996f7e793aa6432facd0f8301476eef8edbb",
+      "after": "c631d736a32b515cdeaf85bad6423adc671462912e78c00d680451d7fda34543",
+      "owner": "scene-pkg-resources-and-regression-scope",
+      "reason": "PKG局部资源与正常播放新基线；现役只保限定状态和后继。",
+      "decision": "docs/scene/history/pkg-extraction-memory-convergence-2026-10-12.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "1d79fb5d693c1d662c3898a1ddf577853c3abd23b32d7b9a5366c155761a3524",
+      "after": "0e07b0d681bbd08f3da04da9058363dbd4652473efbedfa60b1be8065a981221",
+      "owner": "scene-pkg-resources-and-regression-scope",
+      "reason": "PKG局部资源与正常播放新基线；现役只保限定状态和后继。",
+      "decision": "docs/scene/history/pkg-extraction-memory-convergence-2026-10-12.md"
     }
   ]
 }

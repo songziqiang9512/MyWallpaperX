@@ -453,10 +453,10 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-11",
+      "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1e6b030ca563cc62f6e7f03c59bbfc768d86d6e1faaf23434c83361f29461f16",
+        "sourceSHA256": "b1b76e0869b6ab50a032deadb2dea762249aac777349dd41971006e910fb396d",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对独立角色reference的现役合同、先行设计、历史证据入口及最近门；仅更新导航与正文身份。",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
@@ -1486,6 +1486,26 @@
       ]
     },
     {
+      "path": "docs/scene/history/pkg-extraction-memory-convergence-2026-10-12.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-13",
+      "uniqueValue": "最终PKG三轮局部峰值与1171输出验证，真实APFS/APFSX入口和HOME别名反例；正常播放新基线不等于PKG整体App收益。",
+      "reviewBasis": {
+        "kind": "implementation-evidence",
+        "sourceSHA256": "fa69eb5b531e4b2dd51f880e70bd6483b7c7f4f2e76ae63211699e0134b2d8ef",
+        "method": "PKG actual Swift and three cold/warm plus optimized App comparisons",
+        "scope": "Final stable snapshot/borrowed entries, same-key lock, physical-volume alias and canonical-root ownership, actual bytes, active App baseline and heldout rendering",
+        "limitations": "No all-sample, official parity, stable end-to-end startup, HDR history or long switching acceptance"
+      },
+      "lastReviewed": "2026-10-13"
+    },
+    {
       "path": "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md",
       "role": "historical-evidence",
       "commandPolicy": "historical-only",
@@ -2442,7 +2462,7 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "178e959242e33e10f1799d01df8c725fdee9e8a2fd91bc1f98ea35750790d2b8",
+        "sourceSHA256": "3d445c057a22746de41d74ad6654118f5051502e93fe5fec6de529d9bea2d36f",
         "method": "document_registry --audit + document_health --check",
         "scope": "用户当前优先级、职责与可复验工作卡",
         "limitations": "工作卡不是性能或产品验收；具体收益需基线/修后及真实输出。"
@@ -2483,7 +2503,7 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7e1b405dc80c3d4bc1c1659519be305a086bf9445241d67121260a5c50b09708",
+        "sourceSHA256": "400694be89a4721db114ceca7c41520e13e0d4182e12ba7e21f13b4b57874445",
         "method": "document_registry --audit + document_health --check",
         "scope": "本批标量数据遮罩后验及用户性能/属性优先级的职责导航；其他合同未重验",
         "limitations": "导航复核不冒充全架构、全样本、性能或Release验收；具体执行证据归本批历史。"

@@ -21,6 +21,7 @@ struct ScenePkgReader {
         case invalidMagic(String)
         case truncatedTable
         case invalidPathData
+        case ambiguousPath(String)
         case invalidEntry(path: String, offset: UInt32, size: UInt32)
 
         var errorDescription: String? {
@@ -33,6 +34,8 @@ struct ScenePkgReader {
                 return "Scene 资源包文件表不完整。"
             case .invalidPathData:
                 return "Scene 资源包文件表包含无法解析的路径。"
+            case let .ambiguousPath(path):
+                return "Scene 资源包条目目标存在冲突：\(path)"
             case let .invalidEntry(path, offset, size):
                 return "Scene 资源包条目越界：\(path) offset=\(offset) size=\(size)"
             }
@@ -91,6 +94,9 @@ struct ScenePkgReader {
         }
 
         let entryCount = Int(try readUInt32())
+        // Every entry needs at least a path-length word, one path byte and
+        // offset/size words. Reject impossible counts before reserving memory.
+        guard entryCount <= (data.count - cursor) / 13 else { throw ReadError.truncatedTable }
         var entries: [ScenePkgIndex.Entry] = []
         entries.reserveCapacity(entryCount)
 

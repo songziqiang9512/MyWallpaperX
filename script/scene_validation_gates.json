@@ -188,6 +188,16 @@
       ]
     },
     {
+      "id": "pkg-extraction",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgReader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgCacheExtractor.swift"
+      ],
+      "modules": [
+        "test_scene_pkg_cache_extractor"
+      ]
+    },
+    {
       "id": "puppet-mesh-layout",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetMeshReader.swift"

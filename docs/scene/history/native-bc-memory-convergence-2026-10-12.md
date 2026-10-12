@@ -27,7 +27,7 @@
 
 新/旧BC与batch门23项通过，mixed颜色/alpha selectors、nearest/linear、hidden RGB、padding、全mip、改名、PMA、多图、volume、坏tail均实际采样。压缩硬件与RGBA8量化容差预设nearest1/linear2个UNorm码值，未为过门扩大。真实uploader→real descriptor→原emitter compiler→Map三项全部执行，RGBA/BGRA/sRGB参照的发射位置及seed919连续1024次抽样一致；private、预算、空alpha、unsupported和animated拒绝保持。相邻粒子门120执行通过、10个既有真实样本证据/cache缺失skip；完整candidate门、最终Debug build通过。不支持BC的设备仅静态确认旧fallback保留，未实机执行。
 
-3662790108修前/后截图保持同一已有intro/HUD画面，不代表太阳系的其他未修行为已正确。未参与修法的2134765860也由最终App实际渲染、取得present回执并drain；房间背景、灯光和时钟未见新增缺损/色偏，未声称官方全片等价或全样本兼容。HDR/history、连续桌面切换与长期缓存验收仍待后续专项。
+2026-10-12后验：3662790108修前84fe33b9与修后同有intro/HUD叠字；原日志construction重试耗4096/计划935后owner=0。数值是退化静态场景的资源成本，不代表正常脚本播放的性能或太阳系已修；准确引入commit未定。未参与修法的2134765860也由最终App实际渲染、取得present回执并drain；房间背景、灯光和时钟未见新增缺损/色偏，未声称官方全片等价或全样本兼容。HDR/history、连续桌面切换与长期缓存验收仍待后续专项。
 
 未优化Debug探针、错误stage签名启动和native-only ablation不是最终结果；后者第三次present stream缺失完整保留但不计对照。libproc读取kernel lifetime max与50Hz sampled footprint分别保留；同一行两字段更新可略有滞后，按完整窗口最大值/计数单调性判定，不伪造峰值或用进程退出后的0证明资源回落。
 

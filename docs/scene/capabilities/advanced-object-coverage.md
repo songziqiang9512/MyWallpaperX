@@ -15,7 +15,7 @@
 | 能力 | 等级 | 当前证据 | 当前边界 / 下一门 |
 |---|---|---|---|
 | loose Scene/project ingest | `L3` | [`SceneProject.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneProject.swift)、[E-INGEST](../history/runtime-evidence-index.md#e-ingest) | 私有 schema 版本和异常字段继续 fail-closed |
-| PKGV index/extraction | `L3` | [`ScenePkgReader.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgReader.swift)、[E-INGEST](../history/runtime-evidence-index.md#e-ingest) | case/symlink/duplicate/压缩边界和 VFS golden |
+| PKGV index/extraction | `L3` | [`ScenePkgReader.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgReader.swift)、[PKG证据](../history/pkg-extraction-memory-convergence-2026-10-12.md) | 条目复用/互斥已量；VFS golden待验 |
 | TEX common decode | `L3` | [`SceneTextureLoader.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader.swift)、[E-INGEST](../history/runtime-evidence-index.md#e-ingest) | 全容器/format/mip/color-space 边界 |
 | resource identity and missing diagnostics | `L3` | [`SceneResourceReferenceIndex.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceReferenceIndex.swift)、[E-INGEST](../history/runtime-evidence-index.md#e-ingest) | 统一 VFS、alias/case 规则与依赖版本 |
 | image layer | `L3` | Metal compositor、180/181 固定矩阵结构计数、[E-BASE](../history/runtime-evidence-index.md#e-base) | 通用 material/effect/provider 和 WE pixel golden |
