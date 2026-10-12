@@ -14,37 +14,40 @@ nonisolated enum SceneScriptDynamicImageReferenceAnalysis {
         in source: String,
         descriptor: SceneRenderDescriptor
     ) -> [SceneScriptDynamicImageReference]? {
+        references(in: source, availableModelPaths: descriptor.modelMaterialLinks.map(\.modelPath))
+    }
+
+    static func references(
+        in source: String,
+        availableModelPaths: [String]
+    ) -> [SceneScriptDynamicImageReference]? {
         guard source.utf8.count <= 65_536 else { return nil }
-        let range = NSRange(source.startIndex..., in: source)
-        let invocations = createLayerInvocation.matches(
-            in: source, range: range
-        )
-        guard !invocations.isEmpty else { return nil }
-        let directLiterals = createLayerLiteral.matches(in: source, range: range)
-        let configuredLiterals = createLayerConfigurationLiteral.matches(
-            in: source, range: range
-        )
-        let literals = (directLiterals.map { ($0, 2) }
-            + configuredLiterals.map { ($0, 2) })
-            .sorted { $0.0.range.location < $1.0.range.location }
-        guard literals.count == invocations.count else { return nil }
-        let workshopID = firstCapture(
-            from: workshopIdentity.firstMatch(in: source, range: range),
-            in: source,
-            index: 1
-        )
-        let available = descriptor.modelMaterialLinks.map(\.modelPath)
+        guard let tokens = SceneLaunchOriginTransitionLexer.referenceTokens(source) else { return nil }
+        var literals: [String] = []
+        var hasInvocation = false
+        var workshopID: String?
+        for index in tokens.indices {
+            if index + 4 < tokens.count, tokens[index] == .identifier("export"),
+               ["let", "const", "var"].contains(tokens[index + 1].identifierValue ?? ""),
+               tokens[index + 2] == .identifier("__workshopId"), tokens[index + 3] == .symbol("="),
+               let value = tokens[index + 4].stringValue,
+               value.count <= 32, !value.isEmpty, value.allSatisfy({ $0 >= "0" && $0 <= "9" }) {
+                workshopID = workshopID ?? value
+            }
+            guard index + 4 < tokens.count, tokens[index] == .identifier("thisScene"),
+                  tokens[index + 1] == .symbol("."), tokens[index + 2] == .identifier("createLayer"),
+                  tokens[index + 3] == .symbol("(") else { continue }
+            hasInvocation = true
+            literals += literalPaths(tokens, argument: index + 4)
+        }
+        guard hasInvocation else { return nil }
         var references: [SceneScriptDynamicImageReference] = []
         var seen: Set<String> = []
-        for (match, captureIndex) in literals {
-            guard let authored = firstCapture(
-                from: match, in: source, index: captureIndex
-            ), let normalized = normalizedPath(authored),
+        for authored in literals {
+            guard let normalized = normalizedPath(authored),
                   let resolved = resolvedModelPath(
-                    normalized,
-                    workshopID: workshopID,
-                    available: available
-                  ) else { return nil }
+                    normalized, workshopID: workshopID, available: availableModelPaths
+                  ) else { continue }
             let identity = normalized.lowercased()
             guard seen.insert(identity).inserted else { continue }
             references.append(.init(
@@ -91,32 +94,36 @@ nonisolated enum SceneScriptDynamicImageReferenceAnalysis {
         return path
     }
 
-    private static func firstCapture(
-        from match: NSTextCheckingResult?,
-        in source: String,
-        index: Int
-    ) -> String? {
-        guard let match, index < match.numberOfRanges,
-              let range = Range(match.range(at: index), in: source) else {
-            return nil
+    /// The supported object lane is flat: only a direct image String field,
+    /// with arbitrary VM expressions in other fields. No expression evaluation.
+    private static func literalPaths(
+        _ tokens: [SceneLaunchOriginTransitionToken], argument: Int
+    ) -> [String] {
+        if let value = tokens[argument].stringValue,
+           argument + 1 < tokens.count, tokens[argument + 1] == .symbol(")") { return [value] }
+        guard tokens[argument] == .symbol("{") else { return [] }
+        var fields: [String] = []
+        var parentheses = 0
+        var brackets = 0
+        for index in (argument + 1)..<tokens.count {
+            let token = tokens[index]
+            if token == .symbol("{") { return [] }
+            if token == .symbol("}") {
+                return index + 1 < tokens.count && tokens[index + 1] == .symbol(")") ? fields : []
+            }
+            if parentheses == 0 && brackets == 0,
+               index == argument + 1 || tokens[index - 1] == .symbol(","),
+               (token.identifierValue ?? token.stringValue) == "image",
+               index + 3 < tokens.count, tokens[index + 1] == .symbol(":"),
+               let path = tokens[index + 2].stringValue,
+               [SceneLaunchOriginTransitionToken.symbol(","), .symbol("}")].contains(tokens[index + 3]) {
+                fields.append(path)
+            }
+            if token == .symbol("(") { parentheses += 1 }
+            if token == .symbol(")") { parentheses -= 1 }
+            if token == .symbol("[") { brackets += 1 }
+            if token == .symbol("]") { brackets -= 1 }
         }
-        return String(source[range])
+        return []
     }
-
-    private static let createLayerInvocation = try! NSRegularExpression(
-        pattern: #"(?<![A-Za-z0-9_$])thisScene\s*\.\s*createLayer\s*\("#
-    )
-    private static let createLayerLiteral = try! NSRegularExpression(
-        pattern: #"(?<![A-Za-z0-9_$])thisScene\s*\.\s*createLayer\s*\(\s*(['\"])([^'\"\\\r\n]{1,1024})\1\s*\)"#
-    )
-    /// A bounded object-form request remains resource-driven: the `image`
-    /// field must be a direct package-local literal so launch can prepare the
-    /// immutable model before the callback runs. Runtime fields such as
-    /// transform, tint, and visibility continue to be evaluated by QuickJS.
-    private static let createLayerConfigurationLiteral = try! NSRegularExpression(
-        pattern: #"(?s)(?<![A-Za-z0-9_$])thisScene\s*\.\s*createLayer\s*\(\s*\{(?:(?!\}).)*?(?<![A-Za-z0-9_$])(?:image|['\"]image['\"])\s*:\s*(['\"])([^'\"\\\r\n]{1,1024})\1(?:(?!\}).)*?\}\s*\)"#
-    )
-    private static let workshopIdentity = try! NSRegularExpression(
-        pattern: #"(?m)(?<![A-Za-z0-9_$])export\s+(?:let|const|var)\s+__workshopId\s*=\s*['\"]([0-9]{1,32})['\"]\s*;?"#
-    )
 }

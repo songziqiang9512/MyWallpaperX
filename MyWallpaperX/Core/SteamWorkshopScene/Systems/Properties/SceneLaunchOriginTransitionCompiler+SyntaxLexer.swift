@@ -32,6 +32,11 @@ nonisolated struct SceneLaunchOriginTransitionToken: Equatable {
         return value
     }
 
+    var symbolValue: String? {
+        guard case let .symbol(value) = kind else { return nil }
+        return value
+    }
+
     var numberValue: Double? {
         guard case let .number(value) = kind else { return nil }
         return value
@@ -57,12 +62,19 @@ nonisolated enum SceneLaunchOriginTransitionLexer {
         return result.complete ? result.tokens : nil
     }
 
+    /// Resource preparation reads only literal tokens. Opaque expressions are
+    /// left to QuickJS; they do not narrow the transition expression grammar.
+    static func referenceTokens(_ source: String) -> [SceneLaunchOriginTransitionToken]? {
+        let result = scan(source, referenceMode: true)
+        return result.complete ? result.tokens : nil
+    }
+
     private struct ScanResult {
         let tokens: [SceneLaunchOriginTransitionToken]
         let complete: Bool
     }
 
-    private static func scan(_ source: String) -> ScanResult {
+    private static func scan(_ source: String, referenceMode: Bool = false) -> ScanResult {
         let characters = Array(source)
         var result: [SceneLaunchOriginTransitionToken] = []
         var index = 0
@@ -100,6 +112,22 @@ nonisolated enum SceneLaunchOriginTransitionLexer {
                 }
             }
             let token: SceneLaunchOriginTransitionToken
+            if referenceMode, character == "/", result.isEmpty
+                || ["=", "(", "[", "{", ",", ":", ";", "!", "?", "&", "|"].contains(result.last?.symbolValue ?? "")
+                || result.last?.identifierValue == "return" {
+                index += 1
+                var inClass = false
+                while index < characters.count {
+                    if characters[index] == "\\" { index = min(characters.count, index + 2); continue }
+                    if characters[index] == "[" { inClass = true }
+                    if characters[index] == "]" { inClass = false }
+                    if characters[index] == "/" && !inClass { index += 1; break }
+                    index += 1
+                }
+                while index < characters.count, isASCIIIdentifierContinue(characters[index]) { index += 1 }
+                result.append(.symbol("opaque-regexp"))
+                continue
+            }
             if isASCIIIdentifierStart(character) {
                 let start = index; index += 1
                 while index < characters.count,
@@ -116,14 +144,19 @@ nonisolated enum SceneLaunchOriginTransitionLexer {
                     && isASCIIDigit(raw[raw.index(after: raw.startIndex)])
                 guard !hasLegacyLeadingZero, dots <= 1,
                       let value = Double(raw), value.isFinite else {
+                    if referenceMode { result.append(.symbol(raw)); continue }
                     return .init(tokens: result, complete: false)
                 }
                 token = .number(value)
-            } else if character == "\"" || character == "'" {
+            } else if character == "\"" || character == "'" || referenceMode && character == "`" {
                 let quote = character; index += 1; let start = index
+                var opaque = quote == "`"
                 while index < characters.count, characters[index] != quote {
+                    if referenceMode && characters[index] == "\\" {
+                        opaque = true; index = min(characters.count, index + 2); continue
+                    }
                     guard characters[index] != "\\",
-                          !isLineTerminator(characters[index]) else {
+                          referenceMode && quote == "`" || !isLineTerminator(characters[index]) else {
                         return .init(tokens: result, complete: false)
                     }
                     index += 1
@@ -131,7 +164,8 @@ nonisolated enum SceneLaunchOriginTransitionLexer {
                 guard index < characters.count else {
                     return .init(tokens: result, complete: false)
                 }
-                token = .string(String(characters[start..<index])); index += 1
+                token = opaque ? .symbol("opaque-string") : .string(String(characters[start..<index]))
+                index += 1
             } else {
                 let three = index + 2 < characters.count
                     ? String(characters[index...index + 2]) : ""
@@ -142,7 +176,7 @@ nonisolated enum SceneLaunchOriginTransitionLexer {
                     token = .symbol(two); index += 2
                 }
                 else {
-                    guard "(){}[]?;.*+-/=<>:,".contains(character) else {
+                    guard referenceMode || "(){}[]?;.*+-/=<>:,".contains(character) else {
                         return .init(tokens: result, complete: false)
                     }
                     token = .symbol(String(character)); index += 1
@@ -150,7 +184,7 @@ nonisolated enum SceneLaunchOriginTransitionLexer {
             }
             result.append(token.withLineBreakBefore(pendingLineBreak))
             pendingLineBreak = false
-            guard result.count <= 4_096 else {
+            guard result.count <= (referenceMode ? 65_536 : 4_096) else {
                 return .init(tokens: result, complete: false)
             }
         }

@@ -741,6 +741,7 @@ nonisolated extension SceneScriptQuickJSDomain {
                 )
             }
         }
+        dynamicImageAvailableModelPaths = descriptor.modelMaterialLinks.map(\.modelPath)
         layerCatalogSignature = signature
         layerWorldTransformProjection = worldTransformProjection
     }

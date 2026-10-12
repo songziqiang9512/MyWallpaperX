@@ -294,7 +294,7 @@ extension SceneDesktopWallpaperHost {
             resourceView: model.resourceView,
             device: device,
             sceneGeneration: sceneScriptGeneration,
-            dynamicImageModelPaths: model.propertyVectorProjection.dynamicImageModelPaths,
+            awaitsScriptResourcePlanning: true,
             deferredBaseImageLayerIDs: deferredBaseImageLayerIDs,
             imageGeometryModels: model.assetCatalog.models,
             textureUploadCommandQueue: textureUploadCommandQueue,
@@ -638,6 +638,9 @@ extension SceneDesktopWallpaperHost {
                     "scenescript-family-candidate-publication"
                 )
         }
+        deviceResourcesPreparation.completeScriptResourcePlanning(
+            committedPrograms.domain?.dynamicImageRequestedModelPaths ?? []
+        )
         guard let fallbackCatalog = SceneScriptFallbackCatalog(
             authoredDescriptor: authoredRenderDescriptor,
             runtimeDescriptor: runtimeInput.renderDescriptor,

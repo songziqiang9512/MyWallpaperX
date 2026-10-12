@@ -15,6 +15,57 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
     let vectorPassCompilation: SceneScriptVectorPassCompilation
     let constructionReport: SceneScriptQuickJSProgramConstructionReport
 
+    /// Shared structurally projected source catalog. Final GPU demand is still
+    /// supplied by successfully constructed owners in the accepted domain.
+    static func plannedOwnerSources(
+        authoredDescriptor: SceneRenderDescriptor,
+        runtimeDescriptor: SceneRenderDescriptor,
+        scriptBindings: [SceneScriptBindingIR],
+        vectorProjection: SceneScriptVectorCandidateCatalog,
+        plannedVectorTargets: Set<SceneDynamicTarget>,
+        timelineTargets: Set<SceneDynamicTarget>,
+        scalarExcludedTargets: Set<SceneDynamicTarget>,
+        stringExcludedTargets: Set<SceneDynamicTarget>,
+        excludedStandaloneCursorLayerIDs: Set<Int>,
+        dynamicImageRequestsOnly: Bool = false
+    ) -> [String] {
+        var plannedOwnerSources: [String] = vectorProjection.uniqueCandidates.compactMap {
+            guard plannedVectorTargets.contains($0.definition.target) else { return nil }
+            if dynamicImageRequestsOnly && $0.definition.valueType == .bool {
+                guard $0.requiresStatefulOwner,
+                      case .layer(_, .visibility) = $0.definition.target else { return nil }
+            }
+            return $0.source
+        }
+        plannedOwnerSources.append(contentsOf:
+            SceneScriptCursorProgram.projectedStandaloneOwnerSources(
+                descriptor: authoredDescriptor,
+                scriptBindings: scriptBindings,
+                claimedTargets: Set(plannedVectorTargets.compactMap { target in
+                    guard case .layer(_, .visibility) = target else { return nil }
+                    return target
+                }),
+                excludedLayerIDs: excludedStandaloneCursorLayerIDs
+            )
+        )
+        plannedOwnerSources.append(contentsOf:
+            SceneScriptScalarProgram.projectedOwnerSources(
+                descriptor: authoredDescriptor,
+                scriptBindings: scriptBindings,
+                timelineTargets: timelineTargets,
+                excludedTargets: scalarExcludedTargets
+            )
+        )
+        plannedOwnerSources.append(contentsOf:
+            SceneScriptStringProgram.projectedOwnerSources(
+                descriptor: runtimeDescriptor,
+                scriptBindings: scriptBindings,
+                excludedTargets: stringExcludedTargets
+            )
+        )
+        return plannedOwnerSources
+    }
+
     static func compile(
         authoredDescriptor: SceneRenderDescriptor,
         runtimeDescriptor: SceneRenderDescriptor,
@@ -96,34 +147,12 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 "SceneScript candidate aggregate construction work exceeds 4096"
             ))
         }
-        var plannedOwnerSources = vectorProjection.uniqueCandidates.compactMap {
-            plannedVectorTargets.contains($0.definition.target) ? $0.source : nil
-        }
-        plannedOwnerSources.append(contentsOf:
-            SceneScriptCursorProgram.projectedStandaloneOwnerSources(
-                descriptor: authoredDescriptor,
-                scriptBindings: scriptBindings,
-                claimedTargets: Set(plannedVectorTargets.compactMap { target in
-                    guard case .layer(_, .visibility) = target else { return nil }
-                    return target
-                }),
-                excludedLayerIDs: excludedStandaloneCursorLayerIDs
-            )
-        )
-        plannedOwnerSources.append(contentsOf:
-            SceneScriptScalarProgram.projectedOwnerSources(
-                descriptor: authoredDescriptor,
-                scriptBindings: scriptBindings,
-                timelineTargets: timelineTargets,
-                excludedTargets: scalarExcludedTargets
-            )
-        )
-        plannedOwnerSources.append(contentsOf:
-            SceneScriptStringProgram.projectedOwnerSources(
-                descriptor: runtimeDescriptor,
-                scriptBindings: scriptBindings,
-                excludedTargets: stringExcludedTargets
-            )
+        let plannedOwnerSources = Self.plannedOwnerSources(
+            authoredDescriptor: authoredDescriptor, runtimeDescriptor: runtimeDescriptor,
+            scriptBindings: scriptBindings, vectorProjection: vectorProjection,
+            plannedVectorTargets: plannedVectorTargets, timelineTargets: timelineTargets,
+            scalarExcludedTargets: scalarExcludedTargets, stringExcludedTargets: stringExcludedTargets,
+            excludedStandaloneCursorLayerIDs: excludedStandaloneCursorLayerIDs
         )
         if let failure = budget.candidateSourceFailure(plannedOwnerSources) {
             return makeUnavailable(failure)

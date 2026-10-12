@@ -248,11 +248,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                       effectNames: layer.effects.map(\.name),
                       hasCurrentAnimation: candidate.hasCurrentAnimation,
                       puppetAnimationIdentity: candidate.puppetAnimationIdentity,
-                      dynamicImagePathsByAuthoredIdentity: Dictionary(
-                        uniqueKeysWithValues: candidate.dynamicImageReferences.map {
-                            ($0.authoredPath.lowercased(), $0.modelPath)
-                        }
-                      ),
                       allowsStatefulLayerSideEffects:
                         candidate.requiresStatefulOwner,
                       effectVisibilityGetterSeed:

@@ -19,6 +19,7 @@ REMOVED_SUPPRESSION_SOURCE = (
     SCENE / "Properties/SceneScriptedLayerTransformProjection.swift"
 )
 SOURCES = [
+    ROOT / "script/tests/fixtures/SceneProgramResourcePlanningUnavailableStub.swift",
     SCENE / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
     SCENE / "Format/SceneJSONValue.swift",
     SCENE / "Format/ScenePuppetAnimationLayer.swift",

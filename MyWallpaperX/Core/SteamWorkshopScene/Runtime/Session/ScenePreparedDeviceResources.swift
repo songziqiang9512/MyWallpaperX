@@ -104,6 +104,7 @@ final class ScenePreparedBaseImageResources {
         spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
         sceneGeneration: UInt64,
         dynamicImageModelPaths: Set<String> = [],
+        dynamicImageModelPathsProvider: (() throws -> Set<String>)? = nil,
         deferredBaseImageLayerIDs: Set<Int> = [],
         imageGeometryModels: [SceneAssetCatalog.ModelAsset] = [],
         geometryPrepared: ([Int: [Float]]) -> Void = { _ in },
@@ -196,7 +197,8 @@ final class ScenePreparedBaseImageResources {
             }
         }
         var dynamicImageResources: [String: ScenePreparedDynamicImageResource] = [:]
-        for modelPath in dynamicImageModelPaths.sorted() {
+        let requestedModels = try dynamicImageModelPathsProvider?() ?? dynamicImageModelPaths
+        for modelPath in requestedModels.sorted() {
             try cancellationCheck()
             guard let url = resolver.resolvePrimaryTexture(modelPath: modelPath),
                   let source = textureLoader.sourceKey(for: url) else {
@@ -668,7 +670,6 @@ final class ScenePreparedDeviceResourcesTask {
     private let descriptor: SceneRenderDescriptor
     private let resourceView: SceneResourceView
     private let device: MTLDevice
-    private let dynamicImageModelPaths: Set<String>
     private let imageGeometryModels: [SceneAssetCatalog.ModelAsset]
     private let deferredBaseImageLayerIDs: Set<Int>
     private let sceneGeneration: UInt64
@@ -678,6 +679,7 @@ final class ScenePreparedDeviceResourcesTask {
     private var result: Result<ScenePreparedDeviceResources, Error>?
     private var geometryResult: Result<[Int: [Float]], Error>?
     private var cancellationRequested = false
+    private var scriptResourcePlanningResult: Set<String>?
 
     init(
         descriptor: SceneRenderDescriptor,
@@ -685,6 +687,7 @@ final class ScenePreparedDeviceResourcesTask {
         device: MTLDevice,
         sceneGeneration: UInt64,
         dynamicImageModelPaths: Set<String> = [],
+        awaitsScriptResourcePlanning: Bool = false,
         deferredBaseImageLayerIDs: Set<Int> = [],
         imageGeometryModels: [SceneAssetCatalog.ModelAsset] = [],
         textureUploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
@@ -699,7 +702,7 @@ final class ScenePreparedDeviceResourcesTask {
         self.sceneGeneration = sceneGeneration
         self.textureUploadCommandQueue = textureUploadCommandQueue
         self.textureDecodeCacheBudget = textureDecodeCacheBudget
-        self.dynamicImageModelPaths = dynamicImageModelPaths
+        scriptResourcePlanningResult = awaitsScriptResourcePlanning ? nil : dynamicImageModelPaths
         self.imageGeometryModels = imageGeometryModels
         self.deferredBaseImageLayerIDs = deferredBaseImageLayerIDs
         externalCancellationCheck = cancellationCheck
@@ -741,7 +744,7 @@ final class ScenePreparedDeviceResourcesTask {
                     device: device,
                     spriteTextureLoader: spriteTextureLoader,
                     sceneGeneration: sceneGeneration,
-                    dynamicImageModelPaths: dynamicImageModelPaths,
+                    dynamicImageModelPathsProvider: plannedDynamicImageModelPaths,
                     deferredBaseImageLayerIDs: deferredBaseImageLayerIDs,
                     imageGeometryModels: imageGeometryModels,
                     geometryPrepared: { geometry in
@@ -778,6 +781,25 @@ final class ScenePreparedDeviceResourcesTask {
             condition.broadcast()
             condition.unlock()
         }
+    }
+
+    /// Called once by the final admitted Program candidate, including an empty
+    /// set. The original worker alone consumes and prepares these resources.
+    func completeScriptResourcePlanning(_ modelPaths: Set<String>) {
+        condition.lock()
+        precondition(scriptResourcePlanningResult == nil)
+        scriptResourcePlanningResult = modelPaths
+        condition.broadcast()
+        condition.unlock()
+    }
+
+    private func plannedDynamicImageModelPaths() throws -> Set<String> {
+        condition.lock()
+        while scriptResourcePlanningResult == nil && !cancellationRequested { condition.wait() }
+        let paths = scriptResourcePlanningResult
+        condition.unlock()
+        try checkCancellation()
+        return paths!
     }
 
     func preparedImageGeometry() throws -> [Int: [Float]] {

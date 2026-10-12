@@ -2702,6 +2702,39 @@
         "test_scene_script_create_geometry",
         "test_scene_layer_cursor_geometry"
       ]
+    },
+    {
+      "id": "scene-program-resource-discovery",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicImageReferenceAnalysis.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptQuickJSProgramCandidate.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorCandidateCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerHandleBridge.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneLaunchOriginTransitionCompiler+SyntaxLexer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
+        "script/tests/test_scene_script_program_resources.py",
+        "script/tests/test_scene_script_resource_task.py"
+      ],
+      "modules": [
+        "test_scene_script_program_resources",
+        "test_scene_script_resource_task",
+        "test_scene_script_create_geometry"
+      ]
+    },
+    {
+      "id": "scene-compiler-resource-plan-boundary",
+      "patterns": [
+        "script/tests/fixtures/SceneProgramResourcePlanningUnavailableStub.swift"
+      ],
+      "modules": [
+        "test_scene_script_layer_transform_projection",
+        "test_scene_alpha_display_builder_fixture",
+        "test_scene_property_vector_script"
+      ]
     }
   ],
   "method_gates": {

@@ -22,6 +22,8 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 VM = SCENE / "Systems/Script"
 QUICKJS = VM / "QuickJSNG"
 SOURCES = [
+    SCENE / "Systems/Script/SceneScriptLayerTopologyModels.swift",
+    ROOT / "script/tests/fixtures/SceneProgramResourcePlanningUnavailableStub.swift",
     SCENE / "Format/SceneTimelineAnimation.swift",
     SCENE / "Systems/Timeline/SceneTimelineEvaluator.swift",
     SCENE / "Systems/Timeline/SceneTimelineRuntime.swift",

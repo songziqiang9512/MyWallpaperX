@@ -85,8 +85,22 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         self.generation = generation
         self.budget = budget
         self.valueType = valueType
-        self.dynamicImagePathsByAuthoredIdentity =
-            dynamicImagePathsByAuthoredIdentity
+        // Discovery must not grant layer-side-effect permission to a value-only
+        // Bool/effect/Puppet owner. Other value families retain their VM contract.
+        var imagePaths = dynamicImagePathsByAuthoredIdentity
+        let acceptsImageRequests: Bool = {
+            if valueType != .bool { return true }
+            guard puppetAnimationIdentity == nil, case .layer(_, .visibility) = target else { return false }
+            return allowsStatefulLayerSideEffects || !imagePaths.isEmpty
+        }()
+        if acceptsImageRequests {
+            for reference in SceneScriptDynamicImageReferenceAnalysis.references(
+                in: source, availableModelPaths: domain.dynamicImageAvailableModelPaths
+            ) ?? [] {
+                imagePaths[reference.authoredPath.lowercased()] = reference.modelPath
+            }
+        }
+        self.dynamicImagePathsByAuthoredIdentity = imagePaths
         self.allowsStatefulLayerSideEffects = allowsStatefulLayerSideEffects
         if let constructionWork, !constructionWork.consume() {
             throw constructionWork.failure
@@ -151,7 +165,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
                 throw Self.failure(layerResult, diagnostic)
             }
             try SceneScriptLayerMutationBridge.configureDynamicImageAliases(
-                owner: created, paths: dynamicImagePathsByAuthoredIdentity)
+                owner: created, paths: imagePaths)
             let scopeResult = mwx_scene_quickjs_owner_set_property_object_scope(
                 created,
                 SceneScriptLayerMutationBridge.propertyObjectIsLayer(target) ? 1 : 0,
@@ -264,6 +278,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         self.handlesInit = handlesInit
         self.handlesUpdate = handlesUpdate
         self.exportedCursorEvents = exportedCursorEvents
+        domain.dynamicImageRequestedModelPaths.formUnion(imagePaths.values)
     }
 
     deinit { mwx_scene_quickjs_owner_destroy(handle) }

@@ -26,9 +26,23 @@ nonisolated extension SceneScriptVectorProgram {
                 preparedDescriptor: preparedDescriptor
             )
         }
-        let dynamicModelPaths = Set(
-            authoredCandidates.flatMap(\.dynamicImageReferences).map(\.modelPath)
+        let projectedAuthored = SceneScriptVectorCandidateCatalog(
+            candidates: authoredCandidates.filter { !excludedTargets.contains($0.definition.target) },
+            materialBindings: []
         )
+        let imageOwnerSources = SceneScriptQuickJSProgramCandidate.plannedOwnerSources(
+            authoredDescriptor: descriptor, runtimeDescriptor: preparedDescriptor ?? descriptor,
+            scriptBindings: scriptBindings, vectorProjection: projectedAuthored,
+            plannedVectorTargets: projectedAuthored.nonPassTargets.union(projectedAuthored.passTargets),
+            timelineTargets: timelineTargets, scalarExcludedTargets: excludedTargets,
+            stringExcludedTargets: excludedTargets,
+            excludedStandaloneCursorLayerIDs: Set(excludedTargets.union(projectedAuthored.duplicateTargets).compactMap {
+                if case let .layer(id, .visibility) = $0 { return id }; return nil
+            }), dynamicImageRequestsOnly: true
+        )
+        let dynamicModelPaths = Set(imageOwnerSources.flatMap {
+            SceneScriptDynamicImageReferenceAnalysis.references(in: $0, descriptor: descriptor) ?? []
+        }.map(\.modelPath))
         let materialBindings = SceneBaseMaterialColorModulationCompiler.compile(
             descriptor: descriptor,
             shaderContracts: shaderContracts,

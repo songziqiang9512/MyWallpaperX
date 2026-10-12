@@ -532,9 +532,9 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c72f7d2e4a7f01eb07103b3c16368b63123d41d9a9280ac8d021f7fc6e4b3733",
+        "sourceSHA256": "4bb8e50dd92d11c42164f826da9800c8a1d23b36d1cca3464c5ca84442a1aa05",
         "method": "document_registry --audit + document_health --check",
-        "scope": "静态autosize有界状态、独立原包回归及未闭断点引用核对；不代表全文产品语义重验",
+        "scope": "四族公共图片准备状态、变体/实际渲染证据与未闭断点引用核对；不代表全文产品语义重验",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
@@ -631,9 +631,9 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d3022b5c74587e8c3461d55153c5be2b046fd50f4bd7ad8c8eed29c51137c83e",
+        "sourceSHA256": "7d9b85512f4f183d7eded3eaf2abf69dae56c5a06ad5852dbe281a96785e4d93",
         "method": "document_registry --audit + document_health --check",
-        "scope": "新增现存动态资源发现源码形状限制登记，核对必要性、边界、失败证据与替换条件；不代表全库例外已审计",
+        "scope": "四族公共图片准备状态、变体/实际渲染证据与未闭断点引用核对；不代表全文产品语义重验",
         "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
       }
     },
@@ -1902,6 +1902,16 @@
       ]
     },
     {
+      "path": "docs/scene/history/shared-script-resource-preparation-2026-10-12.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/shared-shader-type-compatibility-2026-10-09.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -2217,9 +2227,9 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "50496b155aba8b0e061756ddcdef54504b10457f376961bb2e94b2be46115be9",
+        "sourceSHA256": "0e3e952199618ea3a448fe8468243b6904135b6c7e6f5128eeed7beb8157090b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "N06初始配置职责、限定运行证据及现役队列引用核对；不代表全文产品语义重验",
+        "scope": "四族公共图片准备状态、变体/实际渲染证据与未闭断点引用核对；不代表全文产品语义重验",
         "limitations": "仅本批合同与证据边界；不证明真实播放器来源、完整样本或官方parity。"
       }
     },
@@ -2270,9 +2280,9 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "874959c4ed9a85bf5124024660e42d2f2ee7c5501412246f2b4c4b28c6cf4134",
+        "sourceSHA256": "b31b02d55ab683730285f19ae8ffbf8c8e998a7655ab2c0a0ee7bfb8f4216fe3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "N06初始配置职责、限定运行证据及现役队列引用核对；不代表全文产品语义重验",
+        "scope": "四族公共图片准备状态、变体/实际渲染证据与未闭断点引用核对；不代表全文产品语义重验",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },

@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-12 | SceneScript | 修复证据 | [脚本公共图片准备](shared-script-resource-preparation-2026-10-12.md) | 四族共享原资源与材质消费者；真实像素、变体及独立样本边界 | [脚本覆盖](../capabilities/scenescript-api-coverage.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-12 | Scene | 修复证据 | [普通静态图片自动尺寸](static-image-autosize-2026-10-12.md) | 资源头部尺寸接原prepared消费者，保留延迟加载；实际像素与独立样本边界 | [脚本覆盖](../capabilities/scenescript-api-coverage.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-12 | SceneScript | 修复证据 | [动态层顺序同步](dynamic-layer-order-2026-10-12.md) | 原journal唯一重放、属性与排序分离，真实像素及独立样本边界 | [脚本覆盖](../capabilities/scenescript-api-coverage.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-12 | SceneScript | 修复证据 | [动态图片创建几何](dynamic-layer-geometry-2026-10-12.md) | 同一prepared自然尺寸、创建配置与实际publication；变体/近邻反例及边界 | [脚本覆盖](../capabilities/scenescript-api-coverage.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |

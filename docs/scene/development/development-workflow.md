@@ -63,7 +63,7 @@ authored data → loss-preserving IR → prepared Program/graph/resources
 
 | 例外与源码位置 | 必要性及证据 | 影响范围 | 变体与相邻反例 | 替换条件／当前状态 |
 |---|---|---|---|---|
-| 动态图片资源发现的源码形状限制：[ReferenceAnalysis](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicImageReferenceAnalysis.swift) | 存量准备期仅从直接路径/config literal收集有限依赖，避免帧内IO；这是待替换的准入限制，不是视觉算法特判 | 间接参数/registered handle已见准备失败，部分嵌套config有静态反例待运行；目前String owner也未接入同一需求投影，详见[创建几何后验](../history/dynamic-layer-geometry-2026-10-12.md) | 已准备输入的改名/等价值经真实VM验证；自有helper/handle九格实际entries0/create null，明确未通过，不能宣传任意等价源码兼容 | 沿现Program统一依赖收集与typed owner需求，补直接/间接/嵌套等价输入和未知依赖反例、实际GPU后验后移除此限制；不得全目录预加载或另造运行时loader |
+| 动态图片资源发现的源码形状限制：[ReferenceAnalysis](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicImageReferenceAnalysis.swift) | 准备期从直接路径/平面config literal收集有限依赖，避免帧内IO；不是视觉算法特判 | 四族owner已接同一Program需求及原材质消费者，见[公共准备](../history/shared-script-resource-preparation-2026-10-12.md)；helper/registered handle、任意嵌套表达式和module顶层创建仍受限 | 改名/等价表达、词法伪调用和未知请求局部失败经VM与实际四格像素验证；不声称完整JS解析 | 沿原Program补typed间接依赖与实际GPU正反验收后退除此限制；不得全目录预加载、按样本选择或另造运行时loader |
 
 ## 事实和文档
 

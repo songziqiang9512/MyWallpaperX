@@ -52,6 +52,7 @@ enum SceneScriptDynamicImageReferenceAnalysis {
         in source: String,
         descriptor: SceneRenderDescriptor
     ) -> [SceneScriptDynamicImageReference]? { nil }
+    static func references(in source: String, availableModelPaths: [String]) -> [SceneScriptDynamicImageReference]? { nil }
 }
 
 struct SceneShaderContract {
