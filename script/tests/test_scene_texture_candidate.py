@@ -20,6 +20,7 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 IMAGE_LAYER_METAL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal"
 FOG_HEADER = IMAGE_LAYER_METAL_SOURCE.with_name("SceneDistanceFog.metalh")
 SWIFT_SOURCES = [
+    Path(__file__).parent / "fixtures/SceneTextureSamplingReadback.swift",
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     SCENE_ROOT / "Format/SceneJSONValue.swift",
@@ -2181,53 +2182,8 @@ enum Harness {
         guard result == 0 else { throw HarnessError.metadataFailed }
     }
 
-    static func readFirstPixel(
-        texture: MTLTexture,
-        device: MTLDevice
-    ) throws -> [Int] {
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .rgba8Unorm,
-            width: texture.width,
-            height: texture.height,
-            mipmapped: false
-        )
-        descriptor.storageMode = .shared
-        descriptor.usage = [.shaderRead, .shaderWrite]
-        guard let staging = device.makeTexture(descriptor: descriptor),
-              let queue = device.makeCommandQueue(),
-              let commandBuffer = queue.makeCommandBuffer(),
-              let blit = commandBuffer.makeBlitCommandEncoder() else {
-            throw HarnessError.loadFailed
-        }
-        blit.copy(
-            from: texture,
-            sourceSlice: 0,
-            sourceLevel: 0,
-            sourceOrigin: .init(x: 0, y: 0, z: 0),
-            sourceSize: .init(
-                width: texture.width,
-                height: texture.height,
-                depth: 1
-            ),
-            to: staging,
-            destinationSlice: 0,
-            destinationLevel: 0,
-            destinationOrigin: .init(x: 0, y: 0, z: 0)
-        )
-        blit.endEncoding()
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
-        guard commandBuffer.status == .completed else {
-            throw HarnessError.loadFailed
-        }
-        var bytes = [UInt8](repeating: 0, count: 4)
-        staging.getBytes(
-            &bytes,
-            bytesPerRow: 4,
-            from: MTLRegionMake2D(0, 0, 1, 1),
-            mipmapLevel: 0
-        )
-        return bytes.map(Int.init)
+    static func readFirstPixel(texture: MTLTexture, device: MTLDevice) throws -> [Int] {
+        try SceneTextureSamplingReadback(device: device).pixel(texture).map(Int.init)
     }
 
     static func renderSample(

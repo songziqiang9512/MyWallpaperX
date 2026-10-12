@@ -10,47 +10,10 @@ extension Harness {
         directory: URL, pngURL: URL, loader: SceneTextureLoader,
         spriteTextureLoader: SceneMultiImageSpriteTextureLoader, device: MTLDevice
     ) throws -> [String: Any] {
-        let library = try device.makeLibrary(source: """
-            #include <metal_stdlib>
-            using namespace metal;
-            kernel void source_sample(texture2d<float> source [[texture(0)]],
-                texture2d<float, access::write> target [[texture(1)]],
-                constant float4& value [[buffer(0)]]) {
-                constexpr sampler nearest(filter::nearest, mip_filter::nearest, address::clamp_to_edge);
-                constexpr sampler linear(filter::linear, mip_filter::nearest, address::clamp_to_edge);
-                float4 sampled = value.w == 0
-                    ? source.sample(nearest, value.xy, level(value.z))
-                    : source.sample(linear, value.xy, level(value.z));
-                target.write(sampled, uint2(0));
-            }
-            """, options: nil)
-        let pipeline = try device.makeComputePipelineState(
-            function: library.makeFunction(name: "source_sample")!
-        )
+        let readback = try SceneTextureSamplingReadback(device: device)
         func sample(_ texture: MTLTexture, uv: SIMD2<Float>, mip: Float = 0,
                     linear: Bool = false) throws -> [Int] {
-            let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-                pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false
-            )
-            descriptor.usage = [.shaderRead, .shaderWrite]
-            guard let target = device.makeTexture(descriptor: descriptor),
-                  let queue = device.makeCommandQueue(),
-                  let command = queue.makeCommandBuffer(),
-                  let encoder = command.makeComputeCommandEncoder() else {
-                throw HarnessError.loadFailed
-            }
-            encoder.setComputePipelineState(pipeline)
-            encoder.setTexture(texture, index: 0)
-            encoder.setTexture(target, index: 1)
-            var values = SIMD4<Float>(uv.x, uv.y, mip, linear ? 1 : 0)
-            encoder.setBytes(&values, length: MemoryLayout<SIMD4<Float>>.stride, index: 0)
-            encoder.dispatchThreads(.init(width: 1, height: 1, depth: 1),
-                threadsPerThreadgroup: .init(width: 1, height: 1, depth: 1))
-            encoder.endEncoding()
-            command.commit()
-            command.waitUntilCompleted()
-            guard command.status == .completed else { throw HarnessError.loadFailed }
-            return try readFirstPixel(texture: target, device: device)
+            try readback.sample(texture, uv: uv, mip: mip, linear: linear).map(Int.init)
         }
         let png = try baseLoaded(SceneBaseImageTextureLoad.load(
             from: pngURL, usesPuppet: false, loader: loader,
@@ -113,7 +76,7 @@ extension Harness {
             && rawAlpha == 0.25 && replacedUniforms.alpha == materialUniforms.alpha
             && replacedUniforms.tint == materialUniforms.tint
         for (name, width, height, native) in [
-            ("decodedBC3", UInt32(8), UInt32(4), false),
+            ("smallBC3", UInt32(8), UInt32(4), true),
             // Above the existing 4096² CPU decode budget, with a compact
             // authored payload. No full decoded source copy is required.
             ("nativeBC3", UInt32(8192), UInt32(2052), true),
@@ -208,6 +171,6 @@ def assert_source_color_upload(self, continuity):
         "defaultSamplePMA": True,
         "rejectWrongTypedPairs": True,
         "completedMaterialStyle": True,
-        "decodedBC3": bc3_expected,
+        "smallBC3": bc3_expected,
         "nativeBC3": bc3_expected,
     })

@@ -74,7 +74,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 171961
+      "bytes": 172003
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -82,7 +82,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 399,
-      "bytes": 140584
+      "bytes": 140794
     },
     "docs/scene/capabilities/puppet-clipping-design.md": {
       "lines": 33,
@@ -261,12 +261,12 @@
       "bytes": 3104
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 20,
-      "bytes": 2734
+      "lines": 22,
+      "bytes": 3381
     },
     "docs/scene/roadmap/properties-panel-card.md": {
-      "lines": 20,
-      "bytes": 2736
+      "lines": 22,
+      "bytes": 3428
     }
   },
   "archives": [
@@ -1136,15 +1136,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "65fa2853afe8879b5554dc31e3421dc8daa0d3d2065834946f75e43765aa5be7",
-      "after": "d56cf7956612651369cc728785ceae72730796b723d3634f9d38e3c293381eaa",
-      "owner": "Scene Sprite world camera and depth",
-      "reason": "M14登记唯一compiler的普通Sprite空间/相机/深度合同及准入边界，保留REFRACT、复杂profile和跨层遮挡不外推；只增加本批稳定职责说明。",
-      "decision": "docs/scene/history/particle-world-depth-2026-10-11.md#修复与边界"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
       "before": "14ba04a12e008f5b7a26c003888e0314fee6b1c7bfb512f1a33c3ffbf18f5e1c",
       "after": "746f03697f736b295f216d23582401f475a0275dfd0f89f5106398ed295fc0ad",
@@ -1169,15 +1160,6 @@
       "owner": "scene-e-route",
       "reason": "四族Program公共图片需求与材质消费者有界闭合；替换过时断点并保留未闭语法/text wrapper范围",
       "decision": "docs/scene/history/shared-script-resource-preparation-2026-10-12.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "a7118b84477356c98855d54466d049f4084d2862f0e1c9629460810526f6798f",
-      "after": "5b4bb6cd2574e01ddf2b83f43990c982c12b778c6ac42f575f0770e12da81bc0",
-      "owner": "scene-video-assets",
-      "reason": "同一媒体owner新增asset发布/solid采样合同及真实结果替换旧断点；批准设计归档，未扩旧未验语义。",
-      "decision": "docs/scene/history/material-video-assets-2026-10-12.md#文档归属与退出"
     },
     {
       "section": "bodies",
@@ -1271,21 +1253,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "5b4bb6cd2574e01ddf2b83f43990c982c12b778c6ac42f575f0770e12da81bc0",
+      "after": "977fbfddab8b41f31df806b095322eccab8f84b3c4bea7581c543b0ddbe41333",
+      "owner": "scene-resources-and-cpu-consumer",
+      "reason": "原生BC已验收成本点归历史；修正唯一粒子位图消费者格式边界，保留面板reset仲裁未实施诊断。",
+      "decision": "docs/scene/history/native-bc-memory-convergence-2026-10-12.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "d56cf7956612651369cc728785ceae72730796b723d3634f9d38e3c293381eaa",
+      "after": "e88ca25411fe4518fca6681f775e705ead96a35004953861eb34972baeffdb16",
+      "owner": "scene-resources-and-cpu-consumer",
+      "reason": "原生BC已验收成本点归历史；修正唯一粒子位图消费者格式边界，保留面板reset仲裁未实施诊断。",
+      "decision": "docs/scene/history/native-bc-memory-convergence-2026-10-12.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "d76e4f0a99195aea32377eb721e59a9778dbd0f360d630af614ac769efca260b",
-      "owner": "scene-material-purpose",
-      "reason": "标量遮罩后验及用户调序的两专项卡；区分作者关闭与真实视觉失败，短合同引用历史。",
-      "decision": "docs/scene/history/scalar-mask-data-purpose-2026-10-12.md"
+      "before": "d76e4f0a99195aea32377eb721e59a9778dbd0f360d630af614ac769efca260b",
+      "after": "13ee44145f2f92ba342419d930efb43b9ee2218c7c3be6442ef3b7d6feed83bd",
+      "owner": "scene-resources-and-cpu-consumer",
+      "reason": "原生BC已验收成本点归历史；修正唯一粒子位图消费者格式边界，保留面板reset仲裁未实施诊断。",
+      "decision": "docs/scene/history/native-bc-memory-convergence-2026-10-12.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "b7525a4cebbbfb6b5cc2a0b884b72aaa1cd9d1c7b5ea22970270c46baa7bb8a8",
-      "owner": "scene-material-purpose",
-      "reason": "标量遮罩后验及用户调序的两专项卡；区分作者关闭与真实视觉失败，短合同引用历史。",
-      "decision": "docs/scene/history/scalar-mask-data-purpose-2026-10-12.md"
+      "before": "b7525a4cebbbfb6b5cc2a0b884b72aaa1cd9d1c7b5ea22970270c46baa7bb8a8",
+      "after": "5961a3712e09847b26194732e7a9c5a8d99209ee2780e24161910ce1a973c8a7",
+      "owner": "scene-resources-and-cpu-consumer",
+      "reason": "原生BC已验收成本点归历史；修正唯一粒子位图消费者格式边界，保留面板reset仲裁未实施诊断。",
+      "decision": "docs/scene/history/native-bc-memory-convergence-2026-10-12.md"
     }
   ]
 }

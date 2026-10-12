@@ -1413,6 +1413,18 @@
       ]
     },
     {
+      "path": "docs/scene/history/native-bc-memory-convergence-2026-10-12.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/capabilities/particle-component-coverage.md"
+      ],
+      "cutoffDate": "2026-10-12",
+      "uniqueValue": "原生BC三轮实际内存对照、CPU发射map消费者回退闭合及正确性/呈现边界。"
+    },
+    {
       "path": "docs/scene/history/native-perspective-cursor-implementation-2026-10-06.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -2409,7 +2421,7 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1bbd75e03ad043f253dfefff9a9e0662bf5f8217870e6d8a2575118e08bd0691",
+        "sourceSHA256": "178e959242e33e10f1799d01df8c725fdee9e8a2fd91bc1f98ea35750790d2b8",
         "method": "document_registry --audit + document_health --check",
         "scope": "用户当前优先级、职责与可复验工作卡",
         "limitations": "工作卡不是性能或产品验收；具体收益需基线/修后及真实输出。"
@@ -2423,7 +2435,7 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c40df0deed07c55b8bd7efdc4d088e9f9466e79fe1c8d5b53ae0f4261db4215d",
+        "sourceSHA256": "9cd7e47218b4753cc32ba077ca30fca498738674a3956e9a01fd66dea5485d5d",
         "method": "document_registry --audit + document_health --check",
         "scope": "用户当前优先级、职责与可复验工作卡",
         "limitations": "工作卡不是性能或产品验收；具体收益需基线/修后及真实输出。"

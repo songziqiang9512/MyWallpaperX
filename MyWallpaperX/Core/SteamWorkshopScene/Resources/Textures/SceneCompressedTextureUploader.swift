@@ -22,10 +22,19 @@ nonisolated struct SceneCompressedTextureUploader {
               firstMip.width > 0, firstMip.height > 0 else {
             return .decodeFailed("TEX container has no mip data")
         }
-        // BC1/BC2/BC3 storage does not identify the consumer's channel
-        // semantics. Small single images decode on CPU for either purpose;
-        // only color consumers premultiply straight alpha before compositing.
+        // Preserve native blocks when the consumer needs unchanged channels.
+        // Color normalization still owns cropping and alpha premultiplication.
         if let bcFormat = SceneBCTextureDecoder.Format(texFormat: container.format) {
+            if container.imageCount == 1,
+               !container.isVolume, !purpose.requiresVolumeTexture,
+               purpose.preservesSourceChannels,
+               device.supportsBCTextureCompression {
+                return uploadDirect(
+                    mips: container.mips,
+                    pixelFormat: pixelFormat,
+                    device: device
+                )
+            }
             if container.imageCount == 1,
                firstMip.width <= maxDecodedPixelCount / firstMip.height {
                 return uploadDecoded(
@@ -278,8 +287,8 @@ nonisolated struct SceneCompressedTextureUploader {
         )
     }
 
-    // Large preserved-channel payloads and formats without a CPU decoder keep
-    // their native block upload.
+    // Preserved-channel payloads and formats without a CPU decoder share this
+    // validated native block upload.
     private static func uploadDirect(
         mips: [SceneTexContainer.Mip],
         pixelFormat: MTLPixelFormat,

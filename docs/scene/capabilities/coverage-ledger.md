@@ -150,7 +150,7 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 | Emitter shape controls | `L3` | Directions 只准 scalar 或完整 finite 三轴，绝对值不超过项目 multiplier 预算 1,000,000；零轴停在 origin。Sign 只准 Sphere 且每轴为 `-1/0/1`；其余声明零发射并诊断 | 更多轴组合、负 Directions 官方语义与 Windows fixed-seed position distribution golden |
 | Sphere Random emitter | `L3` | 可执行子集 | 全参数、distribution golden |
 | Box Random emitter | `L3` | zero/absent `distancemin` 的各轴按 `±abs(max)` 围绕 origin 采样；非零 min/max 保留作者区间路径；bounded Directions 可逐轴乘法，Box Sign 失败关闭 | 更多轴组合、反向范围、负 Directions 官方语义与 Windows distribution golden |
-| Layer Image emitter | `L3 bounded` | 仅唯一 typed `emitterimage` index 0、静态同 parent/同 transform 的 center-aligned plain image；shared/managed RGBA8/BGRA8 单层纹理按非零 alpha 像素中心采样 | text/puppet、动态/effect source、颜色/运动继承、bitmap 更新与 Windows golden |
+| Layer Image emitter | `L3 bounded` | 仅唯一 typed `emitterimage` index 0、静态同 parent/同 transform 的 center-aligned plain image；按非零 alpha 像素中心采样；位图格式与预算见[粒子E03](particle-component-coverage.md#4-emitters) | text/puppet、动态/effect source、颜色/运动继承、bitmap 更新与 Windows golden |
 | 其他 emitter | `L1` | 名称可诊断，字段和执行不足 | 独立 fixture 和作者条件 |
 | 已接 initializer 子集 | `L3` | lifetime/size/velocity/color/alpha/angular velocity 常见路径；finite nonnegative exponent 以 `pow(U,e)` 施加到 scalar、vector 各轴和 color 共用插值因子；event spawn/death/follow child 的省略/`setcolor` Inherit Initial Value 可复制有限 parent color snapshot | 其他 event channel、默认/非法/极值分布、WE RNG/seed golden |
 | Bounded HSV Color Random | `L3 bounded` | 七个显式 direct-number wire、normalized ordered HSV ranges 与 `1...1024` hue steps；创建时按 authored order 执行项目自有离散 hue、连续 saturation/value 和 HSV→RGB 近似，合法静态 instance color 以 factor 相乘，禁用 override 时保持 initializer 结果 | 官方 default、RNG/端点、linear-vs-sRGB 与 Windows 数值/像素 golden |

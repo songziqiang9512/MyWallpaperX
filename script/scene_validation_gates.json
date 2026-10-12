@@ -719,6 +719,8 @@
         "MyWallpaperX/Resources/SceneStockAssets.bundle/**",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/**",
         "script/tests/test_scene_embedded_data_mip_resource.py",
+        "script/tests/test_scene_bc_preserved_upload.py",
+        "script/tests/fixtures/SceneTextureSamplingReadback.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerDrawRequest.swift"
       ],
       "keywords": [
@@ -733,6 +735,7 @@
         "test_scene_animated_material_visual_failure",
         "test_scene_asset_catalog_resource_view",
         "test_scene_bc_texture_uploader",
+        "test_scene_bc_preserved_upload",
         "test_scene_bc_upload_batch_capacity",
         "test_scene_frame_texture_registry",
         "test_scene_image_upload_completion",
@@ -881,7 +884,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneFrameLayerTextureAssembly.swift",
-        "script/tests/scene_source_color_fixture.py"
+        "script/tests/scene_source_color_fixture.py",
+        "script/tests/fixtures/SceneTextureSamplingReadback.swift"
       ],
       "modules": [
         "test_scene_resolved_material_runtime_bridge",

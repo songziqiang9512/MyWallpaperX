@@ -14,39 +14,63 @@ nonisolated struct SceneParticleLayerImageEmissionMap: Sendable {
         guard texture.textureType == .type2D,
               texture.depth == 1, texture.arrayLength == 1, texture.sampleCount == 1,
               texture.width > 0, texture.height > 0,
-              texture.width * texture.height <= Self.maximumPixelCount,
+              texture.width <= Self.maximumPixelCount / texture.height,
               texture.storageMode == .shared || texture.storageMode == .managed,
               sourceSize.x.isFinite, sourceSize.y.isFinite,
               sourceSize.x > 0, sourceSize.y > 0 else { return nil }
+        let bytes: Data
         switch texture.pixelFormat {
         case .rgba8Unorm, .rgba8Unorm_srgb, .bgra8Unorm, .bgra8Unorm_srgb:
-            break
+            var pixels = Data(count: texture.width * texture.height * 4)
+            pixels.withUnsafeMutableBytes { buffer in
+                texture.getBytes(
+                    buffer.baseAddress!, bytesPerRow: texture.width * 4,
+                    from: MTLRegionMake2D(0, 0, texture.width, texture.height),
+                    mipmapLevel: 0
+                )
+            }
+            bytes = pixels
+        case .bc1_rgba, .bc2_rgba, .bc3_rgba:
+            // Only this bounded CPU consumer needs RGBA. Keep the published
+            // source compressed and reuse the loader's decoder at preparation.
+            let format: SceneBCTextureDecoder.Format = texture.pixelFormat == .bc1_rgba
+                ? .bc1 : (texture.pixelFormat == .bc2_rgba ? .bc2 : .bc3)
+            let blocksWide = (texture.width + 3) / 4
+            let blocksHigh = (texture.height + 3) / 4
+            var blocks = Data(count: blocksWide * blocksHigh * format.bytesPerBlock)
+            blocks.withUnsafeMutableBytes { buffer in
+                texture.getBytes(
+                    buffer.baseAddress!, bytesPerRow: blocksWide * format.bytesPerBlock,
+                    from: MTLRegionMake2D(0, 0, texture.width, texture.height),
+                    mipmapLevel: 0
+                )
+            }
+            guard let decoded = SceneBCTextureDecoder.decode(
+                blockData: blocks, storedWidth: texture.width, storedHeight: texture.height,
+                imageWidth: texture.width, imageHeight: texture.height, format: format
+            ) else { return nil }
+            bytes = decoded.rgba
         default:
             return nil
         }
-        var bytes = [UInt8](repeating: 0, count: texture.width * texture.height * 4)
-        texture.getBytes(
-            &bytes,
-            bytesPerRow: texture.width * 4,
-            from: MTLRegionMake2D(0, 0, texture.width, texture.height),
-            mipmapLevel: 0
-        )
         var points: [SIMD3<Double>] = []
         var cumulativeWeights: [Double] = []
         var cumulativeWeight = 0.0
-        for y in 0..<texture.height {
-            for x in 0..<texture.width {
-                let alpha = bytes[(y * texture.width + x) * 4 + 3]
-                guard alpha > 0 else { continue }
-                points.append(SIMD3(
-                    (Double(x) + 0.5) / Double(texture.width) * sourceSize.x
-                        - sourceSize.x * 0.5,
-                    sourceSize.y * 0.5
-                        - (Double(y) + 0.5) / Double(texture.height) * sourceSize.y,
-                    0
-                ))
-                cumulativeWeight += Double(alpha)
-                cumulativeWeights.append(cumulativeWeight)
+        bytes.withUnsafeBytes { (buffer: UnsafeRawBufferPointer) in
+            for y in 0..<texture.height {
+                for x in 0..<texture.width {
+                    let alpha = buffer[(y * texture.width + x) * 4 + 3]
+                    guard alpha > 0 else { continue }
+                    points.append(SIMD3(
+                        (Double(x) + 0.5) / Double(texture.width) * sourceSize.x
+                            - sourceSize.x * 0.5,
+                        sourceSize.y * 0.5
+                            - (Double(y) + 0.5) / Double(texture.height) * sourceSize.y,
+                        0
+                    ))
+                    cumulativeWeight += Double(alpha)
+                    cumulativeWeights.append(cumulativeWeight)
+                }
             }
         }
         guard !points.isEmpty else { return nil }

@@ -519,72 +519,6 @@ enum Harness {
             device: device
         )
 
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("mwx-bc-purpose-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let textureURL = directory.appendingPathComponent("independent-green-alpha.tex")
-        try makeIndependentGreenAlphaTex().write(to: textureURL)
-        let loader = SceneTextureLoader()
-        let color1 = try loaded(loader.load(from: textureURL, device: device))
-        let color2 = try loaded(loader.load(from: textureURL, device: device))
-        let data1 = try loaded(loader.loadDataTexture(from: textureURL, device: device))
-        let data2 = try loaded(loader.loadDataTexture(from: textureURL, device: device))
-        result["colorPurposePixel"] = try readFirstPixel(texture: color1, device: device)
-        result["dataPurposePixel"] = try readFirstPixel(texture: data1, device: device)
-        result["sameColorCacheIdentity"] = color1 === color2
-        result["sameDataCacheIdentity"] = data1 === data2
-        result["differentPurposeIdentity"] = color1 !== data1
-        let semanticPurposes: [(String, SceneTextureLoadPurpose)] = [
-            ("straightAlbedo", .straightAlbedo),
-            ("preservedChannels", .preservedChannels),
-            ("mask", .mask),
-            ("noise", .noise),
-            ("flow", .flow),
-            ("phase", .phase),
-            ("normal", .normal),
-        ]
-        var semanticTextures: [MTLTexture] = []
-        var semanticPixels: [String: [UInt8]] = [:]
-        var semanticCacheStable = true
-        for (label, purpose) in semanticPurposes {
-            let first = try loaded(loader.load(
-                from: textureURL,
-                purpose: purpose,
-                device: device
-            ))
-            let second = try loaded(loader.load(
-                from: textureURL,
-                purpose: purpose,
-                device: device
-            ))
-            semanticTextures.append(first)
-            semanticPixels[label] = try readFirstPixel(texture: first, device: device)
-            semanticCacheStable = semanticCacheStable && first === second
-        }
-        var semanticIdentitiesDistinct = true
-        for left in semanticTextures.indices {
-            for right in semanticTextures.indices where left < right {
-                semanticIdentitiesDistinct =
-                    semanticIdentitiesDistinct && semanticTextures[left] !== semanticTextures[right]
-            }
-        }
-        result["semanticPurposePixels"] = semanticPixels
-        result["semanticPurposeCacheStable"] = semanticCacheStable
-        result["semanticPurposeIdentitiesDistinct"] = semanticIdentitiesDistinct
-
-        let dataFirstLoader = SceneTextureLoader()
-        let dataFirst = try loaded(dataFirstLoader.loadDataTexture(from: textureURL, device: device))
-        let colorSecond = try loaded(dataFirstLoader.load(from: textureURL, device: device))
-        result["dataFirstPurposePixel"] = try readFirstPixel(texture: dataFirst, device: device)
-        result["colorSecondPurposePixel"] = try readFirstPixel(texture: colorSecond, device: device)
-
-        let paddedURL = directory.appendingPathComponent("padded-independent-green-alpha.tex")
-        try makeIndependentGreenAlphaTex(textureWidth: 8, imageWidth: 4).write(to: paddedURL)
-        let paddedColor = try loaded(loader.load(from: paddedURL, device: device))
-        let paddedData = try loaded(loader.loadDataTexture(from: paddedURL, device: device))
-        result["paddedColorSize"] = [paddedColor.width, paddedColor.height]
-        result["paddedDataSize"] = [paddedData.width, paddedData.height]
         FileHandle.standardOutput.write(
             try JSONSerialization.data(withJSONObject: result)
         )
@@ -799,39 +733,6 @@ enum Harness {
         return data
     }
 
-    static func makeIndependentGreenAlphaTex(
-        textureWidth: UInt32 = 4,
-        imageWidth: UInt32 = 4
-    ) -> Data {
-        var data = Data("TEXV0005\0TEXI0001\0".utf8)
-        func append(_ value: UInt32) {
-            var littleEndian = value.littleEndian
-            withUnsafeBytes(of: &littleEndian) { data.append(contentsOf: $0) }
-        }
-        append(4)
-        append(0)
-        append(textureWidth)
-        append(4)
-        append(imageWidth)
-        append(4)
-        append(0)
-        data.append(Data("TEXB0002\0".utf8))
-        append(1)
-        append(1)
-        append(textureWidth)
-        append(4)
-        append(0)
-        append(0)
-        let block = Data([
-            64, 64, 0, 0, 0, 0, 0, 0,
-            0xE0, 0x07, 0xE0, 0x07, 0, 0, 0, 0,
-        ])
-        let blockCount = Int((textureWidth + 3) / 4)
-        append(UInt32(block.count * blockCount))
-        for _ in 0..<blockCount { data.append(block) }
-        return data
-    }
-
     static func loaded(_ outcome: SceneTextureLoadOutcome) throws -> MTLTexture {
         guard case let .loaded(texture) = outcome else { throw HarnessError.load }
         return texture
@@ -1005,38 +906,6 @@ class SceneBCTextureUploaderTests(unittest.TestCase):
             self.assertTrue(self.result[key], key)
 
 
-    def test_bc3_purpose_preserves_independent_green_and_alpha_channels(self) -> None:
-        self.assertEqual(self.result["colorPurposePixel"], [0, 64, 0, 64])
-        self.assertEqual(self.result["dataPurposePixel"], [0, 255, 0, 64])
-        self.assertEqual(
-            self.result["dataFirstPurposePixel"], self.result["dataPurposePixel"]
-        )
-        self.assertEqual(
-            self.result["colorSecondPurposePixel"], self.result["colorPurposePixel"]
-        )
-
-    def test_loader_cache_is_separate_and_stable_per_texture_purpose(self) -> None:
-        self.assertTrue(self.result["sameColorCacheIdentity"])
-        self.assertTrue(self.result["sameDataCacheIdentity"])
-        self.assertTrue(self.result["differentPurposeIdentity"])
-        self.assertTrue(self.result["semanticPurposeCacheStable"])
-        self.assertTrue(self.result["semanticPurposeIdentitiesDistinct"])
-        self.assertEqual(
-            self.result["semanticPurposePixels"],
-            {
-                "straightAlbedo": [0, 255, 0, 64],
-                "preservedChannels": [0, 255, 0, 64],
-                "mask": [0, 255, 0, 64],
-                "noise": [0, 255, 0, 64],
-                "flow": [0, 255, 0, 64],
-                "phase": [0, 255, 0, 64],
-                "normal": [0, 255, 0, 64],
-            },
-        )
-
-    def test_preserved_channels_keep_physical_extent_for_mapped_uvs(self) -> None:
-        self.assertEqual(self.result["paddedColorSize"], [4, 4])
-        self.assertEqual(self.result["paddedDataSize"], [8, 4])
 
 
 if __name__ == "__main__":
