@@ -532,9 +532,9 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4bb8e50dd92d11c42164f826da9800c8a1d23b36d1cca3464c5ca84442a1aa05",
+        "sourceSHA256": "b0621b273505c4b809bd14ef0230a3c83b0278516aac0383e87d05ce522830e1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "四族公共图片准备状态、变体/实际渲染证据与未闭断点引用核对；不代表全文产品语义重验",
+        "scope": "本批普通画布缺省透视/反算状态及证据入口核对；其余语义未重验",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
       }
     },
@@ -755,6 +755,16 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/canvas-perspective-default-2026-10-12.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },

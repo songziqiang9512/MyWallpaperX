@@ -75,14 +75,14 @@ enum SceneLayerCursorGeometry {
         mouseNormalized: SIMD2<Float>,
         modelViewProjection: simd_float4x4
     ) -> SIMD3<Float>? {
-        guard let inverse = inverseModelViewProjection(modelViewProjection) else {
+        guard let inverse = preciseInverseModelViewProjection(modelViewProjection) else {
             return nil
         }
         guard let near = localPoint(
-            SIMD4(mouseNormalized.x, mouseNormalized.y, 0, 1),
+            SIMD4(Double(mouseNormalized.x), Double(mouseNormalized.y), 0, 1),
             inverse: inverse
         ), let far = localPoint(
-            SIMD4(mouseNormalized.x, mouseNormalized.y, 1, 1),
+            SIMD4(Double(mouseNormalized.x), Double(mouseNormalized.y), 1, 1),
             inverse: inverse
         ) else {
             return nil
@@ -91,19 +91,42 @@ enum SceneLayerCursorGeometry {
         guard direction.z.isFinite, abs(direction.z) > 1e-8 else { return nil }
         let distance = -near.z / direction.z
         guard distance.isFinite else { return nil }
-        let local = near + direction * distance
+        let local = SIMD3<Float>(near + direction * distance)
         return local.x.isFinite && local.y.isFinite && local.z.isFinite ? local : nil
     }
 
     static func inverseModelViewProjection(
         _ modelViewProjection: simd_float4x4
     ) -> simd_float4x4? {
-        let determinant = simd_determinant(modelViewProjection)
+        guard let precise = preciseInverseModelViewProjection(modelViewProjection) else {
+            return nil
+        }
+        let inverse = simd_float4x4(columns: (
+            SIMD4<Float>(precise.columns.0), SIMD4<Float>(precise.columns.1),
+            SIMD4<Float>(precise.columns.2), SIMD4<Float>(precise.columns.3)
+        ))
+        for column in 0..<4 {
+            for row in 0..<4 where !inverse[column][row].isFinite { return nil }
+        }
+        return inverse
+    }
+
+    /// A large far/near ratio makes Float inversion lose the distinction
+    /// between depth rows. Keep both admission and CPU ray intersection in
+    /// Double; the shader ABI still receives the same finite Float matrix.
+    private static func preciseInverseModelViewProjection(
+        _ modelViewProjection: simd_float4x4
+    ) -> simd_double4x4? {
+        let precise = simd_double4x4(columns: (
+            SIMD4<Double>(modelViewProjection.columns.0), SIMD4<Double>(modelViewProjection.columns.1),
+            SIMD4<Double>(modelViewProjection.columns.2), SIMD4<Double>(modelViewProjection.columns.3)
+        ))
+        let determinant = simd_determinant(precise)
         // A fixed determinant epsilon rejects valid orthographic cameras whose
         // canvas and depth ranges are large. Exact singularity plus a finite
         // inverse/residual check is scale-aware and still rejects unsafe input.
         guard determinant.isFinite, determinant != 0 else { return nil }
-        let inverse = simd_inverse(modelViewProjection)
+        let inverse = simd_inverse(precise)
         let columns = [
             inverse.columns.0, inverse.columns.1,
             inverse.columns.2, inverse.columns.3,
@@ -112,8 +135,8 @@ enum SceneLayerCursorGeometry {
             column.x.isFinite && column.y.isFinite
                 && column.z.isFinite && column.w.isFinite
         }) else { return nil }
-        let restored = modelViewProjection * inverse
-        let identity = matrix_identity_float4x4
+        let restored = precise * inverse
+        let identity = matrix_identity_double4x4
         for column in 0..<4 {
             for row in 0..<4 {
                 if abs(restored[column][row] - identity[column][row]) > 1e-3 {
@@ -148,13 +171,17 @@ enum SceneLayerCursorGeometry {
             SIMD4(0, 0, 1, 0),
             SIMD4(0, 0, 0, 1)
         )
-        return centeredLocalToEffectTexture * inverse
+        let projection = centeredLocalToEffectTexture * inverse
+        for column in 0..<4 {
+            for row in 0..<4 where !projection[column][row].isFinite { return nil }
+        }
+        return projection
     }
 
     private static func localPoint(
-        _ point: SIMD4<Float>,
-        inverse: simd_float4x4
-    ) -> SIMD3<Float>? {
+        _ point: SIMD4<Double>,
+        inverse: simd_double4x4
+    ) -> SIMD3<Double>? {
         let projected = inverse * point
         guard projected.w.isFinite, abs(projected.w) > 1e-8 else { return nil }
         let local = SIMD3(projected.x, projected.y, projected.z) / projected.w

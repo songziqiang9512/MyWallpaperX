@@ -14,6 +14,7 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     REPOSITORY_ROOT / "script/tests/fixtures/SceneLayerPerspectiveSnapshotHarness.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerCursorGeometry.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/SceneCameraProjection.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleRenderSupport.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCameraFrame.swift",
@@ -90,6 +91,93 @@ enum Harness {
             cameraOrigin: dynamicOrigin,
             cameraZoom: 2.4
         )
+        // The three own official profiles prove omission/95 output equality.
+        // Cover resize, zoom and cursor round trips below are project regressions.
+        func canvasCamera(_ size: SIMD2<Float>, fov: Float?, generalFOV: Float? = nil)
+            -> SceneRenderDescriptor.CameraDescriptor {
+            .init(eye: [0, 0, 0], center: [0, 0, -1], up: [0, 1, 0],
+                  orthoWidth: size.x, orthoHeight: size.y,
+                  fovDegrees: generalFOV, perspectiveOverrideFOVDegrees: fov,
+                  nearZ: 0.01, farZ: 10_000)
+        }
+        let defaultProfiles: [(SIMD2<Float>, CGSize, Float)] = [
+            (SIMD2(1210, 786), CGSize(width: 1210, height: 786), 1),
+            (SIMD2(720, 786), CGSize(width: 720, height: 786), 1),
+            (SIMD2(605, 393), CGSize(width: 605, height: 393), 0.5),
+            (SIMD2(1210, 786), CGSize(width: 960, height: 960), 1),
+            (SIMD2(1210, 786), CGSize(width: 1600, height: 600), 1),
+        ]
+        let defaultProjectionRows: [[String: Any]] = defaultProfiles.map { size, viewport, depthScale in
+            let omitted = SceneParticleCameraFrame(camera: canvasCamera(size, fov: nil), viewportSize: viewport)
+            let explicit = SceneParticleCameraFrame(camera: canvasCamera(size, fov: 95), viewportSize: viewport)
+            let contrast = SceneParticleCameraFrame(camera: canvasCamera(size, fov: 50), viewportSize: viewport)
+            let generalOnly = SceneParticleCameraFrame(camera: canvasCamera(size, fov: nil, generalFOV: 50), viewportSize: viewport)
+            let card = SceneMatrix.translation(SIMD3(size.x * 0.62, size.y * 0.66, 120 * depthScale))
+                * SceneMatrix.rotationX(.pi / 6) * SceneMatrix.rotationY(.pi / 4)
+                * SceneMatrix.scale(SIMD3(157.3 * depthScale, -117.9 * depthScale, 1))
+            let local = SIMD4<Float>(0.2, -0.1, 0, 1)
+            let mvp = omitted.perspectiveViewProjection * card
+            let clip = mvp * local
+            let hit = SceneLayerCursorGeometry.layerPoint(
+                mouseNormalized: SIMD2(clip.x, clip.y) / clip.w,
+                modelViewProjection: mvp)
+            let legacyFrame = SceneParticleCameraFrame(camera: canvasCamera(size, fov: 0), viewportSize: viewport)
+            let legacyMVP = legacyFrame.perspectiveViewProjection * card
+            let legacyClip = legacyMVP * local
+            let legacyHit = SceneLayerCursorGeometry.layerPoint(
+                mouseNormalized: SIMD2(legacyClip.x, legacyClip.y) / legacyClip.w,
+                modelViewProjection: legacyMVP)
+            let positive = SIMD4<Float>(size.x * 0.38, size.y * 0.66, 120 * depthScale, 1)
+            let negative = SIMD4<Float>(size.x * 0.15, size.y * 0.66, -120 * depthScale, 1)
+            let flat = SceneRenderDescriptor.Layer(utilityLayer: nil, usesPerspective: false)
+            let utility = SceneRenderDescriptor.Layer(utilityLayer: true, usesPerspective: true)
+            return [
+                "eyeZ": omitted.perspectiveEyePosition.z,
+                "halfHeight": omitted.coverHalfExtents.y,
+                "omitted": [ndc(omitted.perspectiveViewProjection, positive), ndc(omitted.perspectiveViewProjection, negative), ndc(mvp, local)],
+                "explicit95": [ndc(explicit.perspectiveViewProjection, positive), ndc(explicit.perspectiveViewProjection, negative), ndc(explicit.perspectiveViewProjection * card, local)],
+                "explicit50": ndc(contrast.perspectiveViewProjection, positive),
+                "flatUnchanged": omitted.viewProjection(for: flat) == contrast.viewProjection(for: flat),
+                "utilityUnchanged": omitted.viewProjection(for: utility) == contrast.viewProjection(for: utility),
+                "generalFOVKeepsCanvasPolicy": generalOnly.perspectiveViewProjection == omitted.perspectiveViewProjection,
+                "cursorLocal": hit.map(vector3) as Any? ?? NSNull(),
+                "legacyCursorLocal": legacyHit.map(vector3) as Any? ?? NSNull(),
+                "requiredEffectProjection": SceneLayerCursorGeometry.effectTextureProjectionInverse(mvp, required: true) != nil,
+                "legacyRequiredEffectProjection": SceneLayerCursorGeometry.effectTextureProjectionInverse(legacyMVP, required: true) != nil,
+                "farNDC": ndc(omitted.perspectiveViewProjection, SIMD4(size.x * 0.5, size.y * 0.5, -10_000, 1))[2],
+            ]
+        }
+        let ordinarySize = SIMD2<Float>(1210, 786)
+        let ordinaryViewport = CGSize(width: 1210, height: 786)
+        let invalidFOVRows = [Float.nan, .infinity, -1, 0, 180, 200].map { value in
+            let invalid = SceneParticleCameraFrame(camera: canvasCamera(ordinarySize, fov: value), viewportSize: ordinaryViewport)
+            return [invalid.perspectiveEyePosition.z,
+                    ndc(invalid.perspectiveViewProjection, SIMD4<Float>(750.2, 518.76, 120, 1))[0]]
+        }
+        let dynamicFOVRows: [[String: Any]] = [SIMD3<Float>(-100, 682, 500), SIMD3(-12, 30, 0), SIMD3(4, -9, -10)].map { origin in
+            let omitted = SceneParticleCameraFrame(camera: canvasCamera(ordinarySize, fov: nil),
+                viewportSize: ordinaryViewport, cameraOrigin: origin, cameraZoom: 2.4)
+            let explicit = SceneParticleCameraFrame(camera: canvasCamera(ordinarySize, fov: 95),
+                viewportSize: ordinaryViewport, cameraOrigin: origin, cameraZoom: 2.4)
+            return ["matchesExplicit": omitted.perspectiveViewProjection == explicit.perspectiveViewProjection,
+                    "origin": vector3(omitted.cameraOrigin), "eyeZ": omitted.perspectiveEyePosition.z,
+                    "halfHeight": omitted.coverHalfExtents.y,
+                    "canvasCenter": ndc(omitted.perspectiveViewProjection,
+                        SIMD4(ordinarySize.x * 0.5 + origin.x, ordinarySize.y * 0.5 + origin.y, 0, 1))]
+        }
+        func nativePolicyCamera(_ fov: Float?, override: Float?) -> SceneRenderDescriptor.CameraDescriptor {
+            .init(eye: [0, 0, 10], center: [0, 0, 0], up: [0, 1, 0],
+                  orthoWidth: nil, orthoHeight: nil, fovDegrees: fov,
+                  perspectiveOverrideFOVDegrees: override, nearZ: 0.01, farZ: 10_000)
+        }
+        let nativePolicy = SceneParticleCameraFrame(camera: nativePolicyCamera(50, override: nil), viewportSize: ordinaryViewport)
+        let nativePolicyWithOverride = SceneParticleCameraFrame(camera: nativePolicyCamera(50, override: 95), viewportSize: ordinaryViewport)
+        let missingNativeFOV = SceneParticleCameraFrame(camera: nativePolicyCamera(nil, override: nil), viewportSize: ordinaryViewport)
+        let missingNativeFOVWithOverride = SceneParticleCameraFrame(camera: nativePolicyCamera(nil, override: 95), viewportSize: ordinaryViewport)
+        let partialCanvas = SceneParticleCameraFrame(camera: .init(
+            eye: [0, 0, 0], center: [0, 0, -1], up: [0, 1, 0],
+            orthoWidth: 1210, orthoHeight: nil, fovDegrees: nil,
+            perspectiveOverrideFOVDegrees: nil, nearZ: 0.01, farZ: 10_000), viewportSize: ordinaryViewport)
         let center = SIMD4<Float>(960, 540, 0, 1)
         let edge = SIMD4<Float>(
             960 + frame.coverHalfExtents.x,
@@ -292,6 +380,15 @@ enum Harness {
             descriptor: cameraDescriptor, layersByID: [7: cameraLayer],
             worldFrames: [7: cameraWorld], dynamicValues: .init())
         let result: [String: Any] = [
+            "defaultProjectionRows": defaultProjectionRows,
+            "invalidFOVRows": invalidFOVRows,
+            "dynamicFOVRows": dynamicFOVRows,
+            "nativeOverrideKeepsNativePolicy": nativePolicy.perspectiveViewProjection == nativePolicyWithOverride.perspectiveViewProjection,
+            "missingNativeFOVKeepsFallback": !missingNativeFOV.defaultsToPerspective && missingNativeFOV.perspectiveEyePosition.z == 1000,
+            "missingNativeFOVKeepsExplicitOverride": !missingNativeFOVWithOverride.defaultsToPerspective
+                && missingNativeFOVWithOverride.perspectiveViewProjection == SceneParticleCameraFrame(
+                    camera: canvasCamera(ordinarySize, fov: 95), viewportSize: ordinaryViewport).perspectiveViewProjection,
+            "partialCanvasKeepsFallback": partialCanvas.perspectiveEyePosition.z == 1000,
             "layerCameraRescuesMissingFallback": !SceneParticleCameraFrame.usesNativePerspective(camera: missingFOVCamera)
                 && layerCameraFrame.defaultsToPerspective,
             "layerCameraDefaultMatchesFrame": SceneParticleCameraFrame.usesNativePerspective(
@@ -613,6 +710,51 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
         self.assertAlmostEqual(self.result["authoredFOVEdgeNDC"][0], 1, places=5)
         self.assertAlmostEqual(self.result["authoredFOVEdgeNDC"][1], -1, places=5)
         self.assertAlmostEqual(self.result["authoredFOVFarNDC"][2], 1, places=4)
+
+    def test_ordinary_canvas_omitted_fov_matches_95_for_depth_and_tilt(self) -> None:
+        import math
+        self.assertEqual(len(self.result["defaultProjectionRows"]), 5)
+        for index, row in enumerate(self.result["defaultProjectionRows"]):
+            with self.subTest(profile=index):
+                self.assertEqual(row["omitted"], row["explicit95"])
+                self.assertAlmostEqual(row["eyeZ"], row["halfHeight"] / math.tan(math.radians(47.5)), delta=0.0001)
+                self.assertGreater(abs(row["omitted"][0][0] - row["explicit50"][0]), 0.04)
+                self.assertAlmostEqual(row["farNDC"], 1, places=4)
+                for key in ("cursorLocal", "legacyCursorLocal"):
+                    for actual, expected in zip(row[key], [0.2, -0.1, 0], strict=True):
+                        self.assertAlmostEqual(actual, expected, places=4)
+                self.assertTrue(row["requiredEffectProjection"])
+                self.assertTrue(row["legacyRequiredEffectProjection"])
+
+    def test_canvas_fov_keeps_flat_utility_and_general_fov_boundaries(self) -> None:
+        for index, row in enumerate(self.result["defaultProjectionRows"]):
+            with self.subTest(profile=index):
+                self.assertTrue(row["flatUnchanged"])
+                self.assertTrue(row["utilityUnchanged"])
+                self.assertTrue(row["generalFOVKeepsCanvasPolicy"])
+
+    def test_invalid_explicit_fov_keeps_existing_eye_distance_fallback(self) -> None:
+        self.assertEqual(len(self.result["invalidFOVRows"]), 6)
+        for row in self.result["invalidFOVRows"]:
+            self.assertEqual(row[0], 1000)
+            self.assertAlmostEqual(row[1], (750.2 - 605) / 605 * 1000 / 880, places=5)
+
+    def test_default_fov_reuses_dynamic_pose_zoom_and_native_admission(self) -> None:
+        import math
+        for index, row in enumerate(self.result["dynamicFOVRows"]):
+            with self.subTest(origin=index):
+                self.assertTrue(row["matchesExplicit"])
+                self.assertAlmostEqual(row["halfHeight"], 393 / 2.4, places=4)
+                for component in row["canvasCenter"][:2]:
+                    self.assertAlmostEqual(component, 0, places=5)
+        self.assertEqual(self.result["dynamicFOVRows"][0]["origin"], [-100, 682, 500])
+        self.assertEqual(self.result["dynamicFOVRows"][0]["eyeZ"], 500)
+        for row in self.result["dynamicFOVRows"][1:]:
+            self.assertAlmostEqual(row["eyeZ"], row["halfHeight"] / math.tan(math.radians(47.5)), delta=0.0001)
+        self.assertTrue(self.result["nativeOverrideKeepsNativePolicy"])
+        self.assertTrue(self.result["missingNativeFOVKeepsFallback"])
+        self.assertTrue(self.result["missingNativeFOVKeepsExplicitOverride"])
+        self.assertTrue(self.result["partialCanvasKeepsFallback"])
 
     def test_native_scene_uses_authored_camera_and_inherits_projection(self) -> None:
         self.assertAlmostEqual(self.result["nativeCenterNDC"][0], 0, places=5)

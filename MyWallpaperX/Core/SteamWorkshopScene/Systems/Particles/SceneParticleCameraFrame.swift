@@ -3,6 +3,7 @@ import simd
 
 struct SceneParticleCameraFrame: Sendable {
     static let perspectiveEyeDistance: Float = 1_000
+    static let orthographicCanvasDefaultFOVDegrees: Float = 95
 
     struct NativePerspectiveOverride: Sendable {
         let eye: SIMD3<Float>
@@ -168,9 +169,14 @@ struct SceneParticleCameraFrame: Sendable {
             orthoHeight * 0.5 + safeOrigin.y,
             0
         )
-        let authoredFOV = Self.authoredFOVRadians(
-            camera.perspectiveOverrideFOVDegrees
-        )
+        // Ordinary canvas omission consumes the same fitted camera as explicit
+        // 95 (own official black-box profiles). Invalid explicit values retain
+        // the existing eye-distance fallback; native/partial cameras do not
+        // acquire a canvas default here.
+        let perspectiveFOVDegrees = camera.perspectiveOverrideFOVDegrees
+            ?? (camera.orthoWidth != nil && camera.orthoHeight != nil
+                ? Self.orthographicCanvasDefaultFOVDegrees : nil)
+        let authoredFOV = Self.authoredFOVRadians(perspectiveFOVDegrees)
         let fittedEyeDistance = authoredFOV.map {
             fittedHalfExtents.y / tan($0 * 0.5)
         }

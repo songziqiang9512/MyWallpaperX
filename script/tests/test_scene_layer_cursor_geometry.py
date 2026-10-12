@@ -81,6 +81,10 @@ enum Harness {
             effectCardProjected.y
         ) / effectCardProjected.w
         let singular = SceneMatrix.scale(SIMD3(0, 1, 1))
+        var nonfinite = matrix_identity_float4x4
+        nonfinite.columns.3.x = .infinity
+        let inverseOverflow = SceneMatrix.scale(SIMD3<Float>(1e-39, 1, 1))
+        let effectOverflow = SceneMatrix.scale(SIMD3<Float>(5e-39, 1, 1))
         let largeDepthProjection = SceneMatrix.ortho(
             left: -128, right: 128,
             bottom: 128, top: -128,
@@ -242,6 +246,12 @@ enum Harness {
             "rippleTextureUV": rippleTextureUV,
             "singularInverseRejected":
                 SceneLayerCursorGeometry.inverseModelViewProjection(singular) == nil,
+            "nonfiniteInverseRejected": SceneLayerCursorGeometry.inverseModelViewProjection(nonfinite) == nil,
+            "nonfiniteHitRejected": SceneLayerCursorGeometry.layerPoint(
+                mouseNormalized: .zero, modelViewProjection: nonfinite) == nil,
+            "inverseFloatOverflowRejected": SceneLayerCursorGeometry.inverseModelViewProjection(inverseOverflow) == nil,
+            "effectFloatOverflowRejected": SceneLayerCursorGeometry.inverseModelViewProjection(effectOverflow) != nil
+                && SceneLayerCursorGeometry.effectTextureProjectionInverse(effectOverflow, required: true) == nil,
             "singularUnusedProjectionUsesIdentity":
                 singularUnusedProjection == matrix_identity_float4x4,
             "singularRequiredProjectionRejected": SceneLayerCursorGeometry
@@ -394,6 +404,11 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
     def test_singular_transform_is_rejected(self) -> None:
         self.assertTrue(self.result["singularRejected"])
         self.assertTrue(self.result["singularInverseRejected"])
+
+    def test_nonfinite_and_float_abi_overflow_are_rejected(self) -> None:
+        for key in ("nonfiniteInverseRejected", "nonfiniteHitRejected",
+                    "inverseFloatOverflowRejected", "effectFloatOverflowRejected"):
+            self.assertTrue(self.result[key], key)
 
     def test_public_inverse_matches_layer_local_projection(self) -> None:
         self.assertTrue(self.result["inverseRestoresKnownPoint"])
