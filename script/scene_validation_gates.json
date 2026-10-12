@@ -1050,12 +1050,16 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectStageAuthoredFallbackOwnerPartition.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift",
         "script/tests/test_scene_generic_shader_incumbent_owner_deferred.py",
-        "script/tests/test_scene_property_binding_program.py"
+        "script/tests/test_scene_property_binding_program.py",
+        "script/tests/test_scene_resolved_material_previous_blurred_composite_graph_admission.py",
+        "script/tests/test_scene_previous_composite_scale.py",
+        "script/tests/fixtures/ScenePreviousCompositeScaleHarness.swift"
       ],
       "modules": [
         "test_scene_resolved_material_previous_blurred_composite_graph_admission",
         "test_scene_generic_shader_incumbent_owner_deferred",
-        "test_scene_property_binding_program"
+        "test_scene_property_binding_program",
+        "test_scene_previous_composite_scale"
       ]
     },
     {

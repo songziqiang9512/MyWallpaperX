@@ -15,6 +15,7 @@
       "docs/scene/architecture/scene-runtime-daemon-contract.md",
       "docs/scene/capabilities/alpha-display-fallback-design.md",
       "docs/scene/capabilities/material-video-assets.md",
+      "docs/scene/capabilities/previous-blurred-composite-admission.md",
       "docs/scene/capabilities/puppet-clipping-design.md",
       "docs/scene/capabilities/runtime-evidence-current.md",
       "docs/scene/capabilities/sampler-alias-precedence.md",
@@ -512,6 +513,20 @@
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
     },
     {
+      "path": "docs/scene/capabilities/previous-blurred-composite-admission.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "currentStateAuthority": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "lastReviewed": "2026-10-12",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "8762c76197b8d94f1bdfacf030a86889e36307fc0e758f46448cd4edbb8a638f",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "现有 material owner 数值与名称准入设计",
+        "limitations": "设计和导航不代表 GPU/样本验收。"
+      }
+    },
+    {
       "path": "docs/scene/capabilities/puppet-clipping-design.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/advanced-object-coverage.md",
@@ -530,10 +545,10 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-08",
+      "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c97c356f1b8c76f253f54081b6b09497cd1b111978c107e3a9ee0c4e02af1130",
+        "sourceSHA256": "d5667aa02fb70bac4c89095b37216b4bdb9b529c4779ee418a7711e7afdeaa1d",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对类型转换入口复用、原包编译接线及视觉未闭的证据边界。",
         "limitations": "导航与证据身份核对；不等同全样本、真实声源、compose或HDR官方parity。"
@@ -547,7 +562,7 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "838cede72ce2ea16bc58c13d447711233a88c09d47937eaa2cffe5c4bd2a3635",
+        "sourceSHA256": "cb681a8da277dfbe00f4743d53fd09d8b1d7f82d17220f78affe13a0b65e01bd",
         "method": "document_registry --audit + document_health --check",
         "scope": "本批视频asset唯一owner、prepared/ready与solid采样接线的文档职责；其他旧合同未重验",
         "limitations": "导航复核不冒充全架构、全样本或Release验收；本批实际输入与代码身份见归档。"
@@ -646,7 +661,7 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4c15d5575a819983a9bc34a2449fd6a5f1746f2b123968abf1c7e577ccf31321",
+        "sourceSHA256": "f977730a97db9ba5b0d3145ab60b2981053cc939b77a0478539f340ead313b19",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对兼容验收及旧取余源码形状例外退役；不代表全量例外审计",
         "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
@@ -1427,6 +1442,19 @@
       "currentAuthorities": [
         "docs/scene/capabilities/particle-component-coverage.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md",
+      "role": "historical-evidence",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/previous-blurred-composite-admission.md",
+        "docs/scene/capabilities/render-graph-shader-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "entrypoint": "docs/scene/capabilities/runtime-evidence-current.md",
+      "cutoffDate": "2026-10-12",
+      "uniqueValue": "公共准入红/绿反例、实际两段Blur及未参与修法样本画面；stock测试隔离和旧有界cohort债。"
     },
     {
       "path": "docs/scene/history/puppet-animation-control-2026-10-07.md",
@@ -2351,7 +2379,7 @@
       "lastReviewed": "2026-10-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c21d178a5ba74a2a91310cb9dbcb4733982a84b4e0461904b05e22b072eb78c6",
+        "sourceSHA256": "468dcc7b29dbc4109c45c9b95e961515189ec6f514f29806687f6dedc7cbb7fc",
         "method": "document_registry --audit + document_health --check",
         "scope": "本批编译多级纹理的通道用途、限定后验与N04状态引用核对；其他语义未重验",
         "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
@@ -2526,7 +2554,8 @@
         "docs/scene/development/development-workflow.md",
         "docs/scene/development/official-client-behavior-research-workflow.md",
         "docs/scene/capabilities/puppet-clipping-design.md",
-        "docs/scene/capabilities/material-video-assets.md"
+        "docs/scene/capabilities/material-video-assets.md",
+        "docs/scene/capabilities/previous-blurred-composite-admission.md"
       ],
       "sourcePaths": [
         "MyWallpaperX/Core/SteamWorkshopScene"

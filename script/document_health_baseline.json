@@ -89,12 +89,12 @@
       "bytes": 5005
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 592,
-      "bytes": 344941
+      "lines": 594,
+      "bytes": 345279
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 105,
-      "bytes": 31901
+      "lines": 106,
+      "bytes": 32144
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -125,8 +125,8 @@
       "bytes": 5848
     },
     "docs/scene/development/development-workflow.md": {
-      "lines": 76,
-      "bytes": 10730
+      "lines": 77,
+      "bytes": 11742
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 282,
@@ -197,8 +197,8 @@
       "bytes": 32798
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 241,
-      "bytes": 70014
+      "lines": 243,
+      "bytes": 70572
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -251,6 +251,10 @@
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 11,
       "bytes": 1695
+    },
+    "docs/scene/capabilities/previous-blurred-composite-admission.md": {
+      "lines": 15,
+      "bytes": 2978
     }
   },
   "archives": [
@@ -1129,30 +1133,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "b3d36b4960c7751315cd6a5f5cb52ac0549169f89cc10f3a901f6318d8632ecc",
-      "after": "a9860bad841591a8c58254e9c81a4f628955b81006315c166776f5c142dbb979",
-      "owner": "Scene shared uniform and local failure",
-      "reason": "稳定合同并回原owner，替换已修首错并导航真实GPU/官方证据；不外推白块或整样本验收。",
-      "decision": "docs/scene/history/effect-draw-alpha-2026-10-11.md#决策与实现"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
       "before": "14ba04a12e008f5b7a26c003888e0314fee6b1c7bfb512f1a33c3ffbf18f5e1c",
       "after": "746f03697f736b295f216d23582401f475a0275dfd0f89f5106398ed295fc0ad",
       "owner": "scene-terminal-material",
       "reason": "Replace closed raw named solid size gap with bounded shared-chain acceptance and preserve graph-final and special geometry exclusions.",
       "decision": "docs/scene/history/named-solid-source-extent-2026-10-12.md#首断点与实现"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "dce009c7d88ba923c62f163b43a2477b93487c770c1b996f26f982c9279ea401",
-      "after": "49a4f23570e1ce439c8911eb01720a95f43aacead74f4338743b9491706ff1e1",
-      "owner": "Scene Script / prepared creation geometry",
-      "reason": "补已准备图片创建几何与唯一资源身份合同，登记现存源码形状限制、实际输出及明确未闭合首断点；过程/原始收据归历史，不将新fixture失败隐藏为通过。",
-      "decision": "docs/scene/history/dynamic-layer-geometry-2026-10-12.md#通用语义与边界"
     },
     {
       "section": "bodies",
@@ -1174,27 +1160,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "92b2c6249a9b5293936dafa3b21ab3f9b777d819ec640e8657082e5c8691e77b",
-      "after": "996348de6e4ea796149c3a9dcc9b77ab91df2c1efee3126e466d9558ed6122b1",
-      "owner": "scene-video-assets",
-      "reason": "同一媒体owner新增asset发布/solid采样合同及真实结果替换旧断点；批准设计归档，未扩旧未验语义。",
-      "decision": "docs/scene/history/material-video-assets-2026-10-12.md#文档归属与退出"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "a7118b84477356c98855d54466d049f4084d2862f0e1c9629460810526f6798f",
       "after": "5b4bb6cd2574e01ddf2b83f43990c982c12b778c6ac42f575f0770e12da81bc0",
-      "owner": "scene-video-assets",
-      "reason": "同一媒体owner新增asset发布/solid采样合同及真实结果替换旧断点；批准设计归档，未扩旧未验语义。",
-      "decision": "docs/scene/history/material-video-assets-2026-10-12.md#文档归属与退出"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "9f5d02931f735036c2a407b8ee6e5bb58b517168248a86c9b3b4047bce00f1db",
-      "after": "c42eb2d37fbb4831f76f48829d8d0eb5c2f6bab94de24171b249e24503ff1af3",
       "owner": "scene-video-assets",
       "reason": "同一媒体owner新增asset发布/solid采样合同及真实结果替换旧断点；批准设计归档，未扩旧未验语义。",
       "decision": "docs/scene/history/material-video-assets-2026-10-12.md#文档归属与退出"
@@ -1225,6 +1193,51 @@
       "owner": "scene-video-assets",
       "reason": "原视频owner向材质asset扩展的唯一稳定合同；开工设计已归档，架构只保存入口/接线，不复制设计正文。",
       "decision": "docs/scene/history/material-video-assets-2026-10-12.md#文档归属与退出"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/previous-blurred-composite-admission.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "43f876b33a4182564ed51c6b377efc8a35ddb1fec966f42d2c349effb53373b5",
+      "owner": "scene-e-route",
+      "reason": "窄准入合同、现役指针与集中例外同步；批次细节由历史证据拥有。",
+      "decision": "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md#文档归属与产物"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "a9860bad841591a8c58254e9c81a4f628955b81006315c166776f5c142dbb979",
+      "after": "31b8f65a39e1cd34b9a15a1c181ae2a75e7bffe7b0b901355b9c347801fb733a",
+      "owner": "scene-e-route",
+      "reason": "窄准入合同、现役指针与集中例外同步；批次细节由历史证据拥有。",
+      "decision": "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md#文档归属与产物"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "0e0bbfa2e6edc707e316c72ed72a7da5ca74640a1dc903dfd25207d8a2d93503",
+      "after": "734cad081d4471d38079ec4b4897822f4d513955797752d4aad45460b8e3906a",
+      "owner": "scene-e-route",
+      "reason": "窄准入合同、现役指针与集中例外同步；批次细节由历史证据拥有。",
+      "decision": "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md#文档归属与产物"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "996348de6e4ea796149c3a9dcc9b77ab91df2c1efee3126e466d9558ed6122b1",
+      "after": "9b158763bbf04758db921717488523cc27852ea3e65325226f71e30c90368aae",
+      "owner": "scene-e-route",
+      "reason": "窄准入合同、现役指针与集中例外同步；批次细节由历史证据拥有。",
+      "decision": "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md#文档归属与产物"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "c42eb2d37fbb4831f76f48829d8d0eb5c2f6bab94de24171b249e24503ff1af3",
+      "after": "19f9ead2e83e130633fb3c5502297e472fba596fc65354c378ed0d0a6e819ca9",
+      "owner": "scene-e-route",
+      "reason": "窄准入合同、现役指针与集中例外同步；批次细节由历史证据拥有。",
+      "decision": "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md#文档归属与产物"
     }
   ]
 }

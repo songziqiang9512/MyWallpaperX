@@ -446,6 +446,18 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseMaterialTextureResolver.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-previous-blurred-composite-admission",
+      "title": "前级与模糊结果的公共语义准入",
+      "owner": "scene-e-route",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/previous-blurred-composite-admission.md",
+      "design_notes": "2026-10-12 实施前决定：typed sampling scale 与 RT extent 分离；移除本 owner stock 路径门，保留四 pass graph/source/slot/producer/ABI/whole-Program 合取，不增算法或执行owner。真实主样本与未参与修法样本画面、等价变体和相邻反例须实际验收；approved不是验收。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

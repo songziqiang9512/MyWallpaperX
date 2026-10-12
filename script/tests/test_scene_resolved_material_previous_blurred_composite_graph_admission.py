@@ -121,6 +121,12 @@ enum Harness {
         case dynamicComposite
         case maskWithoutAsset
         case maskFromMaterial
+        case renamedResources
+        case largeTwelve, largeThirtyTwo, unrelatedLargerScale, anisotropicScale
+        case oldUpperBoundary, aboveOldUpperBoundary
+        case zeroScale, negativeScale, belowMinimumScale
+        case floatOverflowScale, largestFiniteFloatScale, nonfiniteScale
+        case mismatchedScales, wrongScaleShape, wrongState, wrongTargetFormat
     }
 
     static let layerID = 530
@@ -169,7 +175,8 @@ enum Harness {
     static func node(
         ordinal: Int,
         target: Graph.TextureIdentity,
-        bindings: [Graph.Binding]
+        bindings: [Graph.Binding],
+        fixture: Fixture = .stock
     ) -> Graph.Node {
         let materialPaths = [
             "materials/effects/blur_downsample4.json",
@@ -177,7 +184,8 @@ enum Harness {
             "materials/effects/blur_gaussian_y.json",
             "materials/effects/blur_combine.json",
         ]
-        let materialPath = materialPaths[ordinal]
+        let materialPath = fixture == .renamedResources
+            ? "materials/independent/store-\(ordinal).json" : materialPaths[ordinal]
         return .init(
             nodeIndex: ordinal,
             effect: effectKey,
@@ -197,6 +205,8 @@ enum Harness {
     }
 
     static func graph(_ fixture: Fixture) -> Graph {
+        let quarterA = fixture == .renamedResources ? framebuffer("independent-left") : Self.quarterA
+        let quarterB = fixture == .renamedResources ? framebuffer("independent-right") : Self.quarterB
         let verticalTarget = [Fixture.wrongTarget, .kernelOneWrongTarget]
             .contains(fixture) ? quarterB : quarterA
         let previousSlot = fixture == .wrongBinding ? 1 : 2
@@ -204,7 +214,7 @@ enum Harness {
             node(
                 ordinal: 0,
                 target: quarterA,
-                bindings: [binding(slot: 0, name: "previous", texture: source)]
+                bindings: [binding(slot: 0, name: "previous", texture: source)], fixture: fixture
             ),
             node(
                 ordinal: 1,
@@ -212,10 +222,10 @@ enum Harness {
                 bindings: [
                     binding(
                         slot: 0,
-                        name: "_rt_QuarterCompoBuffer1",
+                        name: quarterA.name!,
                         texture: quarterA
                     ),
-                ]
+                ], fixture: fixture
             ),
             node(
                 ordinal: 2,
@@ -223,10 +233,10 @@ enum Harness {
                 bindings: [
                     binding(
                         slot: 0,
-                        name: "_rt_QuarterCompoBuffer2",
+                        name: quarterB.name!,
                         texture: quarterB
                     ),
-                ]
+                ], fixture: fixture
             ),
             node(
                 ordinal: 3,
@@ -234,7 +244,7 @@ enum Harness {
                 bindings: [
                     binding(
                         slot: 0,
-                        name: "_rt_QuarterCompoBuffer1",
+                        name: quarterA.name!,
                         texture: quarterA
                     ),
                     binding(
@@ -242,12 +252,12 @@ enum Harness {
                         name: "previous",
                         texture: source
                     ),
-                ]
+                ], fixture: fixture
             ),
         ]
         let effect = Graph.Effect(
             key: effectKey,
-            definitionPath: fixture == .workshopNamespaced
+            definitionPath: fixture == .renamedResources ? "independent/soft-result.json" : fixture == .workshopNamespaced
                 || fixture == .workshopWrongNamespace
                 ? "effects/workshop/3260400126/blur/effect.json"
                 : "effects/blur/effect.json",
@@ -266,7 +276,7 @@ enum Harness {
                         first: fixture == .wrongTargetExtent && index == 0 ? 2 : 4,
                         second: nil
                     ),
-                    format: "rgba_backbuffer",
+                    format: fixture == .wrongTargetFormat ? "rg8" : "rgba_backbuffer",
                     declaredUnique: false,
                     clear: nil,
                     uvs: nil,
@@ -282,11 +292,33 @@ enum Harness {
     static func effectPasses(
         _ fixture: Fixture
     ) -> [SceneRenderDescriptor.EffectDescriptor.PassDescriptor] {
-        let scale = SceneDocument.ShaderValue(
-            valueKind: "binding",
-            userBinding: "newproperty",
-            components: [0.6, 0.6]
-        )
+        let components: [Double] = switch fixture {
+        case .largeTwelve: [12, 12]
+        case .largeThirtyTwo: [32, 32]
+        case .unrelatedLargerScale: [73, 73]
+        case .anisotropicScale: [12, 32]
+        case .oldUpperBoundary: [2, 2]
+        case .aboveOldUpperBoundary: [2.1, 2.1]
+        case .zeroScale: [0, 0]
+        case .negativeScale: [-1, -1]
+        case .belowMinimumScale: [0.001, 0.001]
+        case .floatOverflowScale: [1e40, 1e40]
+        case .largestFiniteFloatScale: [Double(Float.greatestFiniteMagnitude), Double(Float.greatestFiniteMagnitude)]
+        case .nonfiniteScale: [.nan, .infinity]
+        case .wrongScaleShape: [1, 1, 1]
+        default: [0.6, 0.6]
+        }
+        let plainAuthored: Bool = switch fixture {
+        case .largeTwelve, .largeThirtyTwo, .unrelatedLargerScale, .anisotropicScale, .oldUpperBoundary,
+             .aboveOldUpperBoundary, .zeroScale, .negativeScale, .belowMinimumScale,
+             .floatOverflowScale, .largestFiniteFloatScale, .nonfiniteScale,
+             .wrongScaleShape: true
+        default: false
+        }
+        let scale = SceneDocument.ShaderValue(valueKind: plainAuthored ? "vector" : "binding",
+            userBinding: plainAuthored ? nil : "newproperty", components: components)
+        let secondScale = fixture == .mismatchedScales
+            ? SceneDocument.ShaderValue(components: [0.7, 0.7]) : scale
         let maskIsEnabled = [
             Fixture.maskedStock,
             .maskWithoutAsset,
@@ -316,7 +348,7 @@ enum Harness {
                 textureSlots: [],
                 userTextureInputs: [],
                 combos: kernelPair.map { ["KERNEL": $0.0] } ?? [:],
-                constantShaderValues: ["scale": scale]
+                constantShaderValues: ["scale": secondScale]
             ),
             .init(
                 passIndex: 2,
@@ -355,18 +387,20 @@ enum Harness {
         name: String,
         shader: String,
         combos: [String: Int] = [:],
-        textureSlots: [String?] = []
+        textureSlots: [String?] = [],
+        fixture: Fixture = .stock,
+        ordinal: Int = 0
     ) -> SceneRenderDescriptor.MaterialPassDescriptor {
         .init(
-            id: "materials/effects/\(name).json#0",
-            materialPath: "materials/effects/\(name).json",
+            id: fixture == .renamedResources ? "materials/independent/store-\(ordinal).json#0" : "materials/effects/\(name).json#0",
+            materialPath: fixture == .renamedResources ? "materials/independent/store-\(ordinal).json" : "materials/effects/\(name).json",
             shaderPath: shader,
             textureSlots: textureSlots,
             userTextureInputs: [],
             combos: combos,
             constantShaderValues: [:],
             userShaderValues: [:],
-            blending: "normal",
+            blending: fixture == .wrongState ? "unrecognized" : "normal",
             depthTest: "disabled",
             depthWrite: "disabled",
             cullMode: "nocull",
@@ -389,6 +423,9 @@ enum Harness {
             nil
         }
         func shader(_ basename: String) -> String {
+            if fixture == .renamedResources {
+                return "shaders/independent/resource-\(basename.count)"
+            }
             if let shaderNamespace {
                 return "\(shaderNamespace)/effects/\(basename)"
             }
@@ -410,21 +447,21 @@ enum Harness {
             materialPasses: [
                 material(
                     name: "blur_downsample4",
-                    shader: shader("blur_downsample4")
+                    shader: shader("blur_downsample4"), fixture: fixture, ordinal: 0
                 ),
                 material(
                     name: "blur_gaussian_x",
-                    shader: shader("blur_gaussian")
+                    shader: shader("blur_gaussian"), fixture: fixture, ordinal: 1
                 ),
                 material(
                     name: "blur_gaussian_y",
                     shader: shader("blur_gaussian"),
-                    combos: ["VERTICAL": 1]
+                    combos: ["VERTICAL": 1], fixture: fixture, ordinal: 2
                 ),
                 material(
                     name: "blur_combine",
                     shader: shader("blur_combine"),
-                    textureSlots: materialMask
+                    textureSlots: materialMask, fixture: fixture, ordinal: 3
                 ),
             ]
         )
@@ -497,10 +534,24 @@ class SceneResolvedMaterialPreviousBlurredCompositeGraphAdmissionTests(
         self.assertTrue(self.result["stock"])
         self.assertTrue(self.result["maskedStock"])
 
-    def test_workshop_namespace_alias_is_bound_to_the_blur_definition(self) -> None:
+    def test_resource_names_do_not_grant_or_revoke_graph_admission(self) -> None:
         self.assertTrue(self.result["workshopNamespaced"])
-        self.assertFalse(self.result["workshopWrongNamespace"])
-        self.assertFalse(self.result["stockDefinitionNamespacedShader"])
+        self.assertTrue(self.result["workshopWrongNamespace"])
+        self.assertTrue(self.result["stockDefinitionNamespacedShader"])
+        self.assertTrue(self.result["renamedResources"])
+
+    def test_scale_amount_is_not_limited_to_editor_upper_boundary(self) -> None:
+        for fixture in ("oldUpperBoundary", "aboveOldUpperBoundary", "largeTwelve",
+                        "largeThirtyTwo", "unrelatedLargerScale", "largestFiniteFloatScale", "anisotropicScale"):
+            with self.subTest(fixture=fixture):
+                self.assertTrue(self.result[fixture])
+
+    def test_scale_numeric_and_whole_stage_neighbors_remain_rejected(self) -> None:
+        for fixture in ("zeroScale", "negativeScale", "belowMinimumScale", "floatOverflowScale",
+                        "nonfiniteScale", "wrongScaleShape", "mismatchedScales", "wrongState",
+                        "wrongTargetFormat"):
+            with self.subTest(fixture=fixture):
+                self.assertFalse(self.result[fixture])
 
     def test_target_and_binding_contracts_reject_mismatched_graphs(self) -> None:
         self.assertFalse(self.result["wrongTarget"])
