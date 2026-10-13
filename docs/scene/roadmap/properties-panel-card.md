@@ -13,7 +13,7 @@
 
 **首轮最小交付。** 定位并修复一个可复现的主线程热点或可避免的整场景重建，再核同类属性和独立壁纸。优先复用现property store、prepared model、typed frame/resource update及已有control，不增加另一套属性解析、缓存、通知或renderer。
 
-**当前进度与下一轮。** 专项约25%（阶段估计）：条件投影和typed候选复用已闭局部重复成本，[图层引用/退休callable](../history/layer-reference-responsibility-convergence-2026-10-13.md)已修且304时钟恢复，未代表整面板收敛。云层编辑仍重建约8.634s；颜色callback首异常阻断cohort，先中性定位实际失败阶段，保全键校验，不删consumer。[原生捕获状态](../history/native-regexp-capture-2026-10-13.md)已恢复293双时钟与Clock1热切，格式等callback-only定义的面板准入仍待查。相同值保edit revision、pending取消及最新意图；setter/通知、detail observer、同步资源检查仍待量；callback-only、未知类型、本地化/媒体入口按真实consumer追缺口。
+**当前进度与下一轮。** 专项约35%（阶段估计）：[面板条件依赖与准备复用](../history/property-condition-reachability-2026-10-13.md)补回可达的详细设置/媒体开关，真实293格式编辑已到桌面文字，关闭重开与reset已验；条件求值局部CPU下降约95%，一次准备成本有所增加，打开准备等待未闭。[原生捕获状态](../history/native-regexp-capture-2026-10-13.md)已恢复时钟。下一轮先量打开时重复source facts/同步准备和滚动主线程，再追云层重建约8.634s与颜色callback首异常，保完整cohort；callback-only、未知类型、本地化/媒体入口继续沿真实consumer追缺口。
 
 **验收。** 同条件记录打开/滚动/编辑响应与engine重建/资源更新事实，验证实际画面立即/下一帧变化、连续多次编辑、关闭重开及保存恢复。资源替换还须检查取消、缺失/坏资源与旧画面保留；条件显示、重置、依赖属性、脚本回调及多个surface保持一致。不能只断言未重建：值和事件必须真实到达consumer。
 

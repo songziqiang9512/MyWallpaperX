@@ -23,7 +23,7 @@ struct SteamWorkshopScenePropertyEditorView: View {
         inputs: SteamWorkshopService.WebDisplayConditionInputs
     ) -> [SceneUserPropertyDefinition] {
         context.definitions.filter {
-            service.shouldDisplaySceneProperty($0, inputs: inputs)
+            service.shouldDisplaySceneProperty($0, inputs: inputs, programs: context.conditionPrograms)
         }
     }
 
@@ -187,7 +187,8 @@ struct SteamWorkshopScenePropertyEditorView: View {
     ) -> some View {
         let options = service.visibleScenePropertyOptions(
             for: definition,
-            inputs: inputs
+            inputs: inputs,
+            programs: context.conditionPrograms
         )
         if !options.isEmpty {
             propertyLine(definition) {

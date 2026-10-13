@@ -6,6 +6,7 @@ struct SteamWorkshopScenePropertyContext {
     let actionableKeys: Set<String>
     let effectiveValues: [String: SceneUserPropertyValue]
     let definitions: [SceneUserPropertyDefinition]
+    let conditionPrograms: [String: SteamWorkshopService.WebDisplayConditionProgram]
     private let conditionDefinitions: [SteamWorkshopWebPropertyDefinition]
 
     init(
@@ -16,10 +17,12 @@ struct SteamWorkshopScenePropertyContext {
         self.catalog = catalog
         self.actionableKeys = actionableKeys
         self.effectiveValues = effectiveValues
-        definitions = Self.editorDefinitions(
+        let prepared = Self.editorDefinitions(
             in: catalog.definitions,
             actionableKeys: actionableKeys
         )
+        definitions = prepared.definitions
+        conditionPrograms = prepared.programs
         // Conditions may read hidden or non-actionable properties and Combo
         // labels. Preserve the complete catalog independently of editor rows.
         conditionDefinitions = catalog.definitions.map { Self.webPropertyDefinition(from: $0) }
@@ -37,30 +40,62 @@ struct SteamWorkshopScenePropertyContext {
     private static func editorDefinitions(
         in definitions: [SceneUserPropertyDefinition],
         actionableKeys: Set<String>
-    ) -> [SceneUserPropertyDefinition] {
-        return definitions.enumerated().compactMap { index, definition in
-            if actionableKeys.contains(definition.key) {
-                switch definition.kind {
-                case .bool, .slider, .color, .combo, .textInput, .text, .sceneTexture:
-                    return definition
-                case .group, .unsupported:
-                    break
-                }
-            }
-
-            switch definition.kind {
-            case .group where sectionContainsActionableControl(
-                after: index, in: definitions, actionableKeys: actionableKeys
-            ):
-                return definition
-            case .text where hasAdjacentActionableControl(
-                at: index, in: definitions, actionableKeys: actionableKeys
-            ):
-                return definition
-            default:
-                return nil
+    ) -> (
+        definitions: [SceneUserPropertyDefinition],
+        programs: [String: SteamWorkshopService.WebDisplayConditionProgram]
+    ) {
+        var indicesByKey: [String: [Int]] = [:]
+        var groups: [Int: Int] = [:]
+        var group: Int?
+        for (index, definition) in definitions.enumerated() {
+            indicesByKey[definition.key, default: []].append(index)
+            if definition.kind == .group { group = index }
+            if let group { groups[index] = group }
+        }
+        var selected: Set<Int> = []
+        var pending: [Int] = []
+        func include(_ index: Int) {
+            guard selected.insert(index).inserted else { return }
+            pending.append(index)
+        }
+        for (index, definition) in definitions.enumerated()
+        where actionableKeys.contains(definition.key) {
+            if supportsEditorControl(definition.kind) || definition.kind == .text {
+                include(index)
             }
         }
+        var programs: [String: SteamWorkshopService.WebDisplayConditionProgram] = [:]
+        var cursor = 0
+        while cursor < pending.count {
+            let index = pending[cursor]
+            cursor += 1
+            let definition = definitions[index]
+            if supportsEditorControl(definition.kind) {
+                if let group = groups[index] { include(group) }
+                for neighbor in [index - 1, index + 1]
+                where definitions.indices.contains(neighbor) && definitions[neighbor].kind == .text {
+                    include(neighbor)
+                }
+            }
+            let conditions = [definition.displayCondition]
+                + definition.options.map(\.displayCondition)
+            for condition in conditions.compactMap({ $0 }) {
+                let program = programs[condition] ?? .init(condition)
+                programs[condition] = program
+                for key in program.referencedPropertyKeys {
+                    for dependency in indicesByKey[key] ?? [] {
+                        let kind = definitions[dependency].kind
+                        // Panel dependencies do not prove a resource consumer.
+                        if supportsEditorControl(kind), kind != .sceneTexture {
+                            include(dependency)
+                        }
+                    }
+                }
+            }
+        }
+        return (definitions.enumerated().compactMap {
+            selected.contains($0.offset) ? $0.element : nil
+        }, programs)
     }
 
     var actionableDefinitions: [SceneUserPropertyDefinition] {
@@ -76,35 +111,6 @@ struct SteamWorkshopScenePropertyContext {
         case .text, .group, .unsupported:
             return false
         }
-    }
-
-    private static func hasAdjacentActionableControl(
-        at index: Int,
-        in definitions: [SceneUserPropertyDefinition],
-        actionableKeys: Set<String>
-    ) -> Bool {
-        [index - 1, index + 1].contains { neighborIndex in
-            guard definitions.indices.contains(neighborIndex) else { return false }
-            let neighbor = definitions[neighborIndex]
-            return actionableKeys.contains(neighbor.key)
-                && Self.supportsEditorControl(neighbor.kind)
-        }
-    }
-
-    private static func sectionContainsActionableControl(
-        after index: Int,
-        in definitions: [SceneUserPropertyDefinition],
-        actionableKeys: Set<String>
-    ) -> Bool {
-        guard index + 1 < definitions.count else { return false }
-        for definition in definitions[(index + 1)...] {
-            if definition.kind == .group { return false }
-            if actionableKeys.contains(definition.key),
-               Self.supportsEditorControl(definition.kind) {
-                return true
-            }
-        }
-        return false
     }
 
     private static func webPropertyValue(
@@ -234,6 +240,7 @@ extension SteamWorkshopService {
                 descriptor: renderDescriptor,
                 materialInstancesByLayerID: document.materialInstancesByLayerID
             )
+        let materialTargets = Set(materialBindings.map(\.target))
         // Descriptor keys are declarations, not consumers. Base slots retain
         // their prepared provider contract, including instance precedence and
         // fallback validation; effect slots already carry the parser's typed
@@ -271,7 +278,7 @@ extension SteamWorkshopService {
                 supportsScenePropertyTarget(
                     binding.target,
                     in: renderDescriptor,
-                    materialInstancesByLayerID: document.materialInstancesByLayerID
+                    materialTargets: materialTargets
                 ) ? binding.reference.key : nil
             }
         ).union(baseMaterialProviders.userPropertyDemands.map(\.propertyKey))
@@ -287,9 +294,11 @@ extension SteamWorkshopService {
 
     func shouldDisplaySceneProperty(
         _ definition: SceneUserPropertyDefinition,
-        inputs: SteamWorkshopService.WebDisplayConditionInputs
+        inputs: SteamWorkshopService.WebDisplayConditionInputs,
+        programs: [String: WebDisplayConditionProgram] = [:]
     ) -> Bool {
         guard let condition = definition.displayCondition else { return true }
+        if let program = programs[condition] { return program.evaluate(inputs: inputs) }
         return Self.evaluateWebDisplayCondition(
             condition,
             inputs: inputs
@@ -298,10 +307,12 @@ extension SteamWorkshopService {
 
     func visibleScenePropertyOptions(
         for definition: SceneUserPropertyDefinition,
-        inputs: SteamWorkshopService.WebDisplayConditionInputs
+        inputs: SteamWorkshopService.WebDisplayConditionInputs,
+        programs: [String: WebDisplayConditionProgram] = [:]
     ) -> [SceneUserPropertyOption] {
         return definition.options.filter { option in
             guard let condition = option.displayCondition else { return true }
+            if let program = programs[condition] { return program.evaluate(inputs: inputs) }
             return Self.evaluateWebDisplayCondition(
                 condition,
                 inputs: inputs
@@ -397,7 +408,7 @@ extension SteamWorkshopService {
     private func supportsScenePropertyTarget(
         _ target: SceneUserPropertyBindingTarget,
         in renderDescriptor: SceneRenderDescriptor,
-        materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance]
+        materialTargets: Set<SceneUserPropertyBindingTarget>
     ) -> Bool {
         switch target {
         case .layerVisibility, .layerAlpha, .text, .soundVolume:
@@ -458,10 +469,7 @@ extension SteamWorkshopService {
                 in: renderDescriptor
             )
         case .materialShaderValue:
-            return SceneMaterialPropertyBindingCompiler.compile(
-                descriptor: renderDescriptor,
-                materialInstancesByLayerID: materialInstancesByLayerID
-            ).contains { $0.target == target }
+            return materialTargets.contains(target)
         case let .scriptProperty(layerID, _):
             return renderDescriptor.layers.contains { $0.id == layerID }
         case .unsupported:

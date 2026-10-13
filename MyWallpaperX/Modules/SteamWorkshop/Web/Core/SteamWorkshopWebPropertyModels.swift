@@ -44,8 +44,8 @@ enum SteamWorkshopWebPropertyValue: Codable, Equatable, Hashable {
         case let .string(value):
             return value
         case let .number(value):
-            if floor(value) == value {
-                return String(Int(value))
+            if let integer = Int(exactly: value) {
+                return String(integer)
             }
             return String(value)
         case let .bool(value):

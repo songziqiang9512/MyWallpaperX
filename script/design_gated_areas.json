@@ -461,6 +461,20 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-property-panel-conditions",
+      "title": "Scene panel prepared conditions and reachable controller definitions",
+      "owner": "scene-properties-panel",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "design_notes": "实施前设计及取舍归 property-condition-reachability-2026-10-13 历史记录；现役合同为 runtime-input-property-coverage §5.1。唯一Web lexer/parser与属性模型负责条件语法、引用、数字文本和求值；原context存不可变metadata及可达UI定义，保原store/typed链及完整cohort拒绝出口。共享材质target结果，不复编译或扩张资源/engine权威。实机与成本边界见同批冻结证据。",
+      "matchPatterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneProperties.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebDisplayConditionSupport.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebDisplayConditionParsing.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

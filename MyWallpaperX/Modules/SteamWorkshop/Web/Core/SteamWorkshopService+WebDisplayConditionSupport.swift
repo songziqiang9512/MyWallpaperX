@@ -1,6 +1,42 @@
 import Foundation
 
 extension SteamWorkshopService {
+    /// Immutable authored syntax. Current values remain owned by the existing
+    /// input snapshot and are evaluated by the same parser on every update.
+    struct WebDisplayConditionProgram {
+        private let tokens: [WebDisplayConditionToken]?
+        let referencedPropertyKeys: Set<String>
+
+        nonisolated init(_ condition: String) {
+            guard let tokens = SteamWorkshopService.webDisplayConditionTokens(condition) else {
+                self.tokens = nil
+                referencedPropertyKeys = []
+                return
+            }
+            // Validate the same grammar without evaluating literal comparisons
+            // against fabricated current values (or performing numeric casts).
+            var syntax = WebDisplayConditionParser(
+                tokens: tokens, values: [:], comboTextValues: [:],
+                evaluatesComparisons: false
+            )
+            guard syntax.parse() != nil, syntax.isAtEnd else {
+                self.tokens = nil
+                referencedPropertyKeys = []
+                return
+            }
+            self.tokens = tokens
+            referencedPropertyKeys = Set(tokens.compactMap { token in
+                guard case let .identifier(identifier) = token else { return nil }
+                return WebDisplayConditionParser.propertyReference(identifier).key
+            })
+        }
+
+        nonisolated func evaluate(inputs: WebDisplayConditionInputs) -> Bool {
+            guard let tokens else { return true }
+            return SteamWorkshopService.evaluateWebDisplayCondition(tokens: tokens, inputs: inputs)
+        }
+    }
+
     struct WebDisplayConditionInputs {
         let values: [String: SteamWorkshopWebPropertyValue]
         let comboTextValues: [String: String]

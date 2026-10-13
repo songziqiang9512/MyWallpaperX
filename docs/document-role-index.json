@@ -565,10 +565,10 @@
       "lastReviewed": "2026-10-13",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "31e502d6f4ed432f63fe4bd38ec0bbc4ea378dfdcd8fa0c60ce85e95ed611e5a",
+        "sourceSHA256": "0f1d1faf79752e0bf4d6504889144835ac0b9db0b9c4a663a4f1c05115e8e8e0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "新增原生RegExp实际时钟证据的角色导航；其他合同未重验",
-        "limitations": "导航复核不冒充全架构、全样本、性能或Release验收；具体执行证据归本批历史。"
+        "scope": "条件可达/准备复用的证据入口及未闭专项、异常观察导航同步",
+        "limitations": "导航复核不冒充全架构、全样本、整App性能或Release验收；事实按本批冻结记录。"
       }
     },
     {
@@ -1649,6 +1649,20 @@
       }
     },
     {
+      "path": "docs/scene/history/property-condition-reachability-2026-10-13.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/runtime-input-property-coverage.md",
+        "docs/scene/roadmap/properties-panel-card.md",
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-13",
+      "uniqueValue": "条件可达定义闭合、唯一条件/数字文本准备链、三轮CPU与实际格式交互、不同媒体状态的失败保留边界"
+    },
+    {
       "path": "docs/scene/history/puppet-animation-control-2026-10-07.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -2611,10 +2625,10 @@
       "lastReviewed": "2026-10-13",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "eab03468283a95e951598444686f71ca60893748cf4a24b5ed6a7c2baa6bb8e3",
+        "sourceSHA256": "82d301004f334d40306810c44b52494f2d5fd0c4b0b8e71a8715384fc20c3d71",
         "method": "document_registry --audit + document_health --check",
-        "scope": "用户追加CPU与全链路效率、架构重构设计边界、当前优先级与历史入口",
-        "limitations": "工作卡/索引不是产品或性能验收；以对应冻结证据为准。"
+        "scope": "条件可达/准备复用的证据入口及未闭专项、异常观察导航同步",
+        "limitations": "导航复核不冒充全架构、全样本、整App性能或Release验收；事实按本批冻结记录。"
       }
     },
     {
@@ -2625,10 +2639,10 @@
       "lastReviewed": "2026-10-13",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3ad96e460981720e45d8fb1998fa96a2d8e96918d558e762c312d70327dd8405",
+        "sourceSHA256": "95a431453b04ce16c1ef0afa58e5daea75cb03dc90196e80c0c64da98b056a4d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役待执行顺序、观察边界与历史入口同步",
-        "limitations": "工作卡/索引不是产品或性能验收；以对应冻结证据为准。"
+        "scope": "条件可达/准备复用的证据入口及未闭专项、异常观察导航同步",
+        "limitations": "导航复核不冒充全架构、全样本、整App性能或Release验收；事实按本批冻结记录。"
       }
     },
     {
@@ -2652,10 +2666,10 @@
       "lastReviewed": "2026-10-13",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f02b4f480a38249573d43bbe82143f5c9b7d75b7ab58d0c15f9a3fe84588ceb5",
+        "sourceSHA256": "f69e0b386b729a5d0e619acb8df2be1a827e97166d17eaf97b9679044947de5f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役待执行顺序、观察边界与历史入口同步",
-        "limitations": "工作卡/索引不是产品或性能验收；以对应冻结证据为准。"
+        "scope": "条件可达/准备复用的证据入口及未闭专项、异常观察导航同步",
+        "limitations": "导航复核不冒充全架构、全样本、整App性能或Release验收；事实按本批冻结记录。"
       }
     },
     {

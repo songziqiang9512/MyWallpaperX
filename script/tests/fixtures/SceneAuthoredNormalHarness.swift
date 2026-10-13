@@ -110,16 +110,16 @@ import simd
         let srgbBytes=Array(repeating:[UInt8(230),128,204,255],count:16).flatMap{$0}
         srgbBytes.withUnsafeBytes { srgb.replace(region:MTLRegionMake2D(0,0,4,4),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:16) }
         let srgbInput=Capture.TextureInput.resolve(Harness.candidate(srgb))
-        // Small BC1/2/3 files exercise the actual loader's RGBA decode route.
-        // The same parsed blocks also exercise its native uploader contract.
+        // Aligned BC1/2/3 data keeps native compressed storage in the loader.
+        // The independent normal oracle uses the authored RGB565 endpoint.
         var nativeBCResults:[Bool]=[]
         for (format,pixelFormat,alpha) in [(UInt32(7),MTLPixelFormat.bc1_rgba,[UInt8]()),
             (6,.bc2_rgba,Array(repeating:UInt8(255),count:8)),
             (4,.bc3_rgba,[UInt8(255),255,0,0,0,0,0,0])] {
             let block=alpha+[UInt8(0),132,0,132,0,0,0,0]
             let candidate=try load("bc\(format)",tex(format:format,bytes:block))
-            precondition(candidate.pixelFormat == .rgba8Unorm)
-            check(render(.resolve(candidate)),simd_normalize(SIMD3<Float>(132.0/255*2-1,130.0/255*2-1,-1)))
+            precondition(candidate.pixelFormat == pixelFormat)
+            check(render(.resolve(candidate)),simd_normalize(SIMD3<Float>(16.0/31*2-1,32.0/63*2-1,-1)))
             let container=loader.texContainer(from:directory.appendingPathComponent("bc\(format).tex"))!
             guard case let .loaded(native)=SceneCompressedTextureUploader.uploadNativeImage(container.images[0],pixelFormat:pixelFormat,device:device) else { fatalError("native BC upload") }
             let value=sample(native),input=Capture.TextureInput.resolve(Harness.candidate(native))

@@ -56,10 +56,7 @@ extension SteamWorkshopService {
             case let .bool(value):
                 return value ? "true" : "false"
             case let .number(value):
-                if floor(value) == value {
-                    return String(Int(value))
-                }
-                return String(value)
+                return SteamWorkshopWebPropertyValue.number(value).displayConditionTextValue
             case let .string(value):
                 return value
             case .undefined:
@@ -72,16 +69,19 @@ extension SteamWorkshopService {
         private let tokens: [WebDisplayConditionToken]
         private let values: [String: SteamWorkshopWebPropertyValue]
         private let comboTextValues: [String: String]
+        private let evaluatesComparisons: Bool
         private var index = 0
 
         init(
             tokens: [WebDisplayConditionToken],
             values: [String: SteamWorkshopWebPropertyValue],
-            comboTextValues: [String: String]
+            comboTextValues: [String: String],
+            evaluatesComparisons: Bool = true
         ) {
             self.tokens = tokens
             self.values = values
             self.comboTextValues = comboTextValues
+            self.evaluatesComparisons = evaluatesComparisons
         }
 
         var isAtEnd: Bool {
@@ -115,7 +115,8 @@ extension SteamWorkshopService {
 
             while let comparator = matchComparisonOperator() {
                 guard let rhs = parseUnaryExpression() else { return nil }
-                lhs = .bool(compare(lhs, rhs, using: comparator))
+                lhs = evaluatesComparisons
+                    ? .bool(compare(lhs, rhs, using: comparator)) : .undefined
             }
 
             return lhs
@@ -174,25 +175,13 @@ extension SteamWorkshopService {
             if trimmed == "true" { return .bool(true) }
             if trimmed == "false" { return .bool(false) }
 
-            let key: String
-            let field: String?
-            if trimmed.hasSuffix(".value") {
-                key = String(trimmed.dropLast(".value".count))
-                field = "value"
-            } else if trimmed.hasSuffix(".text") {
-                key = String(trimmed.dropLast(".text".count))
-                field = "text"
-            } else {
-                key = trimmed
-                field = nil
-            }
-
-            guard let value = values[key] else {
+            let reference = Self.propertyReference(trimmed)
+            guard let value = values[reference.key] else {
                 return .undefined
             }
 
-            if field == "text" {
-                return .string(comboTextValues[key] ?? value.displayConditionTextValue)
+            if reference.isText {
+                return .string(comboTextValues[reference.key] ?? value.displayConditionTextValue)
             }
 
             switch value {
@@ -203,6 +192,16 @@ extension SteamWorkshopService {
             case let .string(string):
                 return .string(string)
             }
+        }
+
+        static func propertyReference(_ identifier: String) -> (key: String, isText: Bool) {
+            let trimmed = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasSuffix(".value") {
+                return (String(trimmed.dropLast(".value".count)), false)
+            } else if trimmed.hasSuffix(".text") {
+                return (String(trimmed.dropLast(".text".count)), true)
+            }
+            return (trimmed, false)
         }
 
         private func compare(_ lhs: WebDisplayConditionValue, _ rhs: WebDisplayConditionValue, using comparator: WebDisplayConditionToken) -> Bool {

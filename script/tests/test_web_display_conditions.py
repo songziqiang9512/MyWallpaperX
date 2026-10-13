@@ -123,6 +123,26 @@ enum Harness {
         result["renamedKeyAndOptionKeepsSemantics"] = SteamWorkshopService.evaluateWebDisplayCondition(
             "configuration.value == 'automatic' && configuration.text == 'Renamed Automatic'", inputs: renamed
         ) && !SteamWorkshopService.evaluateWebDisplayCondition("mode.text == 'Automatic'", inputs: renamed)
+        result["programMatchesCurrentAndDefault"] = conditions.values.allSatisfy {
+            let program = SteamWorkshopService.WebDisplayConditionProgram($0)
+            return program.evaluate(inputs: prepared) == SteamWorkshopService.evaluateWebDisplayCondition($0, inputs: prepared)
+                && program.evaluate(inputs: updated) == SteamWorkshopService.evaluateWebDisplayCondition($0, inputs: updated)
+        }
+        result["invalidProgramDoesNotInventDependencies"] = fallbacks.allSatisfy {
+            let program = SteamWorkshopService.WebDisplayConditionProgram($0)
+            return program.referencedPropertyKeys.isEmpty && program.evaluate(inputs: prepared)
+        }
+        result["identifierReferencesKeepCaseAndIgnoreLiterals"] = SteamWorkshopService.WebDisplayConditionProgram(
+            "Mode.value && (mode.text == 'enabled.value') && amount"
+        ).referencedPropertyKeys == ["Mode", "mode", "amount"]
+        let large = SteamWorkshopService.WebDisplayConditionInputs(
+            values: ["large": .number(1e100)], definitions: []
+        )
+        result["largeNumberComparisonDoesNotTrap"] = SteamWorkshopService.WebDisplayConditionProgram(
+            "large.value != 'ordinary'"
+        ).evaluate(inputs: large) && SteamWorkshopService.WebDisplayConditionProgram(
+            "large.text == '1e+100'"
+        ).evaluate(inputs: large)
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
@@ -175,36 +195,79 @@ import Foundation
             let edited = context.conditionInputs(values: values)
             let prefix = "variant\(ordinal)-"
             facts[prefix + "rowsPreserved"] = context.definitions.map(\.key)
-                == ["group", "amount", "choices", "unsupported", "malformed", "unknown"]
+                == ["group", "enabled", modeKey, "amount", "choices", "unsupported", "malformed", "unknown"]
             facts[prefix + "fullCatalogValues"] = initial.values["enabled"] == .bool(true)
                 && initial.values["policy"] == .bool(true)
-                && !context.definitions.contains { $0.key == modeKey || $0.key == "policy" }
+                && context.definitions.contains { $0.key == modeKey }
+                && !context.definitions.contains { $0.key == "policy" }
             facts[prefix + "hiddenComboText"] = edited.comboTextValues[modeKey] == "Advanced"
-                && service.shouldDisplaySceneProperty(byKey["amount"]!, inputs: edited)
+                && service.shouldDisplaySceneProperty(byKey["amount"]!, inputs: edited, programs: context.conditionPrograms)
             facts[prefix + "initialAndCurrentValues"] = !service.shouldDisplaySceneProperty(
-                byKey["amount"]!, inputs: initial
+                byKey["amount"]!, inputs: initial, programs: context.conditionPrograms
             ) && initial.comboTextValues[modeKey] == "Basic"
-                && service.shouldDisplaySceneProperty(byKey["amount"]!, inputs: edited)
+                && service.shouldDisplaySceneProperty(byKey["amount"]!, inputs: edited, programs: context.conditionPrograms)
             facts[prefix + "optionConditionsShareCurrentInput"] = service.visibleScenePropertyOptions(
-                for: byKey["choices"]!, inputs: edited
+                for: byKey["choices"]!, inputs: edited, programs: context.conditionPrograms
             ).map(\.value) == [.string("main"), .string("detail")]
-                && service.visibleScenePropertyOptions(for: byKey["choices"]!, inputs: initial)
+                && service.visibleScenePropertyOptions(for: byKey["choices"]!, inputs: initial, programs: context.conditionPrograms)
                     .map(\.value) == [.string("main")]
             let restored = context.conditionInputs(values: catalog.defaultValues)
             facts[prefix + "resetDefaultInput"] = !service.shouldDisplaySceneProperty(
-                byKey["amount"]!, inputs: restored
-            ) && service.visibleScenePropertyOptions(for: byKey["choices"]!, inputs: restored)
+                byKey["amount"]!, inputs: restored, programs: context.conditionPrograms
+            ) && service.visibleScenePropertyOptions(for: byKey["choices"]!, inputs: restored, programs: context.conditionPrograms)
                 .map(\.value) == [.string("main")]
             values.removeValue(forKey: modeKey)
             let absent = context.conditionInputs(values: values)
             facts[prefix + "missingCurrentStaysUndefined"] = absent.comboTextValues[modeKey] == "Basic"
-                && !service.shouldDisplaySceneProperty(byKey["amount"]!, inputs: absent)
+                && !service.shouldDisplaySceneProperty(byKey["amount"]!, inputs: absent, programs: context.conditionPrograms)
             facts[prefix + "missingDefaultKeepsEmptyProjection"] = initial.comboTextValues["empty_mode"] == "Empty"
                 && initial.values["empty_mode"] == nil
             facts[prefix + "fallbackAndAdjacentNegative"] = service.shouldDisplaySceneProperty(
-                byKey["unsupported"]!, inputs: initial
-            ) && service.shouldDisplaySceneProperty(byKey["malformed"]!, inputs: initial)
-                && !service.shouldDisplaySceneProperty(byKey["unknown"]!, inputs: initial)
+                byKey["unsupported"]!, inputs: initial, programs: context.conditionPrograms
+            ) && service.shouldDisplaySceneProperty(byKey["malformed"]!, inputs: initial, programs: context.conditionPrograms)
+                && !service.shouldDisplaySceneProperty(byKey["unknown"]!, inputs: initial, programs: context.conditionPrograms)
+        }
+        for controller in ["details", "renamed_details"] {
+            let catalog = SceneUserPropertyDefinitionParser().parse(properties: [
+                "unused_group": ["type": "group", "text": "Unrelated", "order": 0],
+                "unused": ["type": "bool", "value": false, "order": 1],
+                "root_group": ["type": "group", "text": "Root", "order": 2, "condition": "group_gate.value"],
+                "root_help": ["type": "text", "text": "Help", "order": 3, "condition": "help_gate"],
+                "root": ["type": "slider", "value": 1.0, "order": 4, "condition": "\(controller).value"],
+                "dependency_group": ["type": "group", "text": "Details", "order": 5],
+                controller: ["type": "bool", "value": true, "order": 6, "condition": "cycle.value"],
+                "cycle": ["type": "bool", "value": true, "order": 7, "condition": "\(controller)"],
+                "group_gate": ["type": "bool", "value": true, "order": 8],
+                "help_gate": ["type": "bool", "value": true, "order": 9],
+                "option_root": ["type": "combo", "value": "a", "order": 10, "options": [
+                    ["value": "a", "label": "A", "condition": "option_gate.value && !(false)"],
+                    ["value": "b", "label": "B", "condition": "literal.value == 'unused.value'"],
+                    ["value": "c", "label": "C", "condition": "invalid_only.value ? true : false"],
+                    ["value": "d", "label": "D", "condition": "media.value && unsupported.value && UNRELATED.value"]
+                ]],
+                "option_gate": ["type": "bool", "value": true, "order": 11],
+                "literal": ["type": "textinput", "value": "unused.value", "order": 12],
+                "invalid_only": ["type": "bool", "value": false, "order": 13],
+                "media": ["type": "scenetexture", "value": "fallback.png", "order": 14],
+                "unsupported": ["type": "usershortcut", "value": true, "order": 15],
+                "unrelated": ["type": "bool", "value": true, "order": 16]
+            ])
+            let roots: Set<String> = ["root", "option_root"]
+            let context = SteamWorkshopScenePropertyContext(
+                catalog: catalog, actionableKeys: roots, effectiveValues: catalog.defaultValues
+            )
+            facts[controller + "-closureOrderAndCycles"] = context.definitions.map(\.key) == [
+                "root_group", "root_help", "root", "dependency_group", controller, "cycle",
+                "group_gate", "help_gate", "option_root", "option_gate", "literal"
+            ] && context.actionableKeys == roots
+            let inputs = context.conditionInputs(values: catalog.defaultValues)
+            let definition = catalog.definitions.first { $0.key == "option_root" }!
+            facts[controller + "-optionAndFailureParity"] = service.visibleScenePropertyOptions(
+                for: definition, inputs: inputs, programs: context.conditionPrograms
+            ).map(\.value) == [.string("a"), .string("b"), .string("c")]
+            facts[controller + "-emptyRootsDoNotCreateRows"] = SteamWorkshopScenePropertyContext(
+                catalog: catalog, actionableKeys: [], effectiveValues: catalog.defaultValues
+            ).definitions.isEmpty
         }
         print(String(data: try JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys]), encoding: .utf8)!)
     }
@@ -259,6 +322,8 @@ class WebDisplayConditionTests(unittest.TestCase):
             "previousInputRemainsImmutable", "restoredDefaultUpdatesText", "absentCurrentKeepsUndefined",
             "unmatchedOptionUsesCurrentText", "unsupportedAndMalformedFallbackParity",
             "renamedKeyAndOptionKeepsSemantics",
+            "programMatchesCurrentAndDefault", "invalidProgramDoesNotInventDependencies",
+            "identifierReferencesKeepCaseAndIgnoreLiterals", "largeNumberComparisonDoesNotTrap",
         ]:
             with self.subTest(name=name):
                 self.assertTrue(result[name])
@@ -301,7 +366,7 @@ class SceneDisplayConditionProjectionTests(unittest.TestCase):
     def test_scene_context_preserves_full_catalog_current_reset_and_option_semantics(self) -> None:
         result = subprocess.run([str(self.binary)], check=True, capture_output=True, text=True)
         facts = json.loads(result.stdout)
-        self.assertEqual(len(facts), 18)
+        self.assertEqual(len(facts), 24)
         self.assertTrue(all(facts.values()), {key: value for key, value in facts.items() if not value})
 
 
