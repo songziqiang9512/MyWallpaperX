@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 243,
-      "bytes": 70336
+      "bytes": 70311
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -262,11 +262,11 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 22,
-      "bytes": 3342
+      "bytes": 3236
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
-      "bytes": 3428
+      "bytes": 3341
     }
   },
   "archives": [

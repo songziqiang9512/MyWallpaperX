@@ -761,7 +761,15 @@
       "path": "docs/scene/history/README.md",
       "role": "navigation",
       "entrypoint": "docs/scene/README.md",
-      "purpose": "Scene固定历史与当前权威的按需索引，不产生现役任务。"
+      "purpose": "Scene固定历史与当前权威的按需索引，不产生现役任务。",
+      "lastReviewed": "2026-10-13",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "f7617ee307bf3d2cde0f7b3b0e39d1578f3cb96626e8518bc026f63adbe9984e",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "现役待执行顺序、观察边界与历史入口同步",
+        "limitations": "工作卡/索引不是产品或性能验收；以对应冻结证据为准。"
+      }
     },
     {
       "path": "docs/scene/history/authored-color-continuity-2026-10-09.md",
@@ -1541,6 +1549,26 @@
       "entrypoint": "docs/scene/history/README.md",
       "cutoffDate": "2026-10-12",
       "uniqueValue": "公共准入红/绿反例、实际两段Blur及未参与修法样本画面；stock测试隔离和旧有界cohort债。"
+    },
+    {
+      "path": "docs/scene/history/property-candidate-evaluation-convergence-2026-10-13.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/properties-panel-card.md",
+        "docs/scene/roadmap/performance-convergence-card.md"
+      ],
+      "cutoffDate": "2026-10-13",
+      "uniqueValue": "单次typed候选复用、三轮CPU及实际pending合并/取消像素；普通编辑重建的因果边界。",
+      "lastReviewed": "2026-10-13",
+      "reviewBasis": {
+        "kind": "implementation-evidence",
+        "sourceSHA256": "f1967e0b2f48c658c786bb7ad2919544fc15ffb9344e875a2756debccd2d085c",
+        "method": "frozen self-fixture CPU A/B + App Session/GPU ROI + ordinary isolated product controls and wallpaper pixels + independent review",
+        "scope": "复用同次求值；pending取消/最新值、相邻反例与独立样本实际输出",
+        "limitations": "不是整体面板延迟、App内存收益、Release或官方parity验收；普通编辑重建未解决。"
+      }
     },
     {
       "path": "docs/scene/history/property-condition-projection-2026-10-13.md",
@@ -2522,13 +2550,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-12",
+      "lastReviewed": "2026-10-13",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3d445c057a22746de41d74ad6654118f5051502e93fe5fec6de529d9bea2d36f",
+        "sourceSHA256": "280793678394cefd5af68003ce9451451d5631258c3b288df93ec02ff4e247dc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "用户当前优先级、职责与可复验工作卡",
-        "limitations": "工作卡不是性能或产品验收；具体收益需基线/修后及真实输出。"
+        "scope": "用户追加CPU与全链路效率、架构重构设计边界、当前优先级与历史入口",
+        "limitations": "工作卡/索引不是产品或性能验收；以对应冻结证据为准。"
       }
     },
     {
@@ -2536,13 +2564,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-12",
+      "lastReviewed": "2026-10-13",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9cd7e47218b4753cc32ba077ca30fca498738674a3956e9a01fd66dea5485d5d",
+        "sourceSHA256": "3ad96e460981720e45d8fb1998fa96a2d8e96918d558e762c312d70327dd8405",
         "method": "document_registry --audit + document_health --check",
-        "scope": "用户当前优先级、职责与可复验工作卡",
-        "limitations": "工作卡不是性能或产品验收；具体收益需基线/修后及真实输出。"
+        "scope": "现役待执行顺序、观察边界与历史入口同步",
+        "limitations": "工作卡/索引不是产品或性能验收；以对应冻结证据为准。"
       }
     },
     {
@@ -2563,13 +2591,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-12",
+      "lastReviewed": "2026-10-13",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "400694be89a4721db114ceca7c41520e13e0d4182e12ba7e21f13b4b57874445",
+        "sourceSHA256": "f02b4f480a38249573d43bbe82143f5c9b7d75b7ab58d0c15f9a3fe84588ceb5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批标量数据遮罩后验及用户性能/属性优先级的职责导航；其他合同未重验",
-        "limitations": "导航复核不冒充全架构、全样本、性能或Release验收；具体执行证据归本批历史。"
+        "scope": "现役待执行顺序、观察边界与历史入口同步",
+        "limitations": "工作卡/索引不是产品或性能验收；以对应冻结证据为准。"
       }
     },
     {

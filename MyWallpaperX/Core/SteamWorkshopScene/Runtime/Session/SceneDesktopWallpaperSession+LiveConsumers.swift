@@ -69,7 +69,7 @@ extension SceneDesktopWallpaperSession {
         }
         var deferredLayerIDs = deferredLayerVisibilitySelection(
             in: context,
-            effectiveValues: candidateLiveState.effectiveValues,
+            userValues: candidateLiveState.userValues,
             changedPropertyKeys: changedPropertyKeys
         )
         var acceptedReplacements = replacements
@@ -100,7 +100,7 @@ extension SceneDesktopWallpaperSession {
             }
             deferredLayerIDs = deferredLayerVisibilitySelection(
                 in: context,
-                effectiveValues: candidateLiveState.effectiveValues,
+                userValues: candidateLiveState.userValues,
                 changedPropertyKeys: acceptedKeys
             )
         }
@@ -155,12 +155,9 @@ extension SceneDesktopWallpaperSession {
 
     func deferredLayerVisibilitySelection(
         in context: SceneDesktopWallpaperLaunchContext,
-        effectiveValues: [String: SceneUserPropertyValue],
+        userValues: [SceneDynamicTarget: SceneDynamicValue],
         changedPropertyKeys: Set<String>
     ) -> Set<Int> {
-        let selectedValues = context.runtimeInput.propertyBindingProgram.evaluate(
-            effectiveValues: effectiveValues
-        ).userValues
         let deferredLayerIDs = context.preparedDeviceResources.baseImages
             .deferredLayerIDs
         return Set(
@@ -170,7 +167,7 @@ extension SceneDesktopWallpaperSession {
                       instruction.condition != nil,
                       case let .layer(layerID, .visibility) = instruction.target,
                       deferredLayerIDs.contains(layerID),
-                      case .bool(true)? = selectedValues[instruction.target]
+                      case .bool(true)? = userValues[instruction.target]
                 else { return nil }
                 return layerID
             }

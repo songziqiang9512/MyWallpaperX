@@ -2635,7 +2635,9 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift",
         "MyWallpaperX/App/Debug/DebugScenePlaybackRunner.swift",
         "script/tests/test_scene_deferred_property_intent.py",
-        "script/tests/test_scene_deferred_property_integration.py"
+        "script/tests/test_scene_deferred_property_integration.py",
+        "script/tests/fixtures/SceneDeferredPropertyIntentSupport.swift",
+        "script/tests/fixtures/SceneDeferredPropertyIntentHarness.swift"
       ],
       "modules": [
         "test_scene_deferred_property_intent",

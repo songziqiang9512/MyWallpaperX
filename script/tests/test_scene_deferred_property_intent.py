@@ -45,423 +45,9 @@ def declaration(source: str, signature: str) -> str:
     raise ValueError(f"unterminated production declaration: {signature}")
 
 
-SHELL = r'''
-import Foundation
+SHELL = (ROOT / "script/tests/fixtures/SceneDeferredPropertyIntentSupport.swift").read_text(encoding="utf-8")
 
-enum SceneDeferredBaseImageStatus: Equatable {
-    case notDeferred, pending, loading, ready
-    case failed(String)
-}
-
-final class FixtureResources {
-    let deferredLayerIDs: Set<Int> = [11, 22]
-    var statuses: [Int: SceneDeferredBaseImageStatus] = [11: .pending, 22: .pending]
-    var requests: [(layerID: Int, generation: UInt64)] = []
-
-    @discardableResult
-    func requestDeferredBaseImage(layerID: Int, requestGeneration: UInt64)
-        -> SceneDeferredBaseImageStatus {
-        requests.append((layerID, requestGeneration))
-        return deferredStatus(for: layerID)
-    }
-    func deferredStatus(for layerID: Int) -> SceneDeferredBaseImageStatus {
-        statuses[layerID] ?? .notDeferred
-    }
-}
-
-final class FixtureAdoption {
-    var successfulCalls = 0
-    var failAfterSuccessfulCalls: Int?
-
-    func accept() -> Bool {
-        if let limit = failAfterSuccessfulCalls, successfulCalls >= limit { return false }
-        successfulCalls += 1
-        return true
-    }
-}
-
-final class FixtureView {
-    let adoption: FixtureAdoption
-    var preparedParticleLayerIDs: Set<Int> = []
-    var staged: Set<Int> = []
-    var committed: Set<Int> = []
-    var attempts = 0
-    var discards = 0
-    var commits = 0
-
-    init(_ adoption: FixtureAdoption) { self.adoption = adoption }
-    func adoptPreparedDeferredBaseImage(layerID: Int) -> Bool {
-        attempts += 1
-        guard adoption.accept() else { return false }
-        staged.insert(layerID)
-        return true
-    }
-    func discardPreparedDeferredBaseImages(layerIDs: Set<Int>) {
-        discards += 1
-        staged.subtract(layerIDs)
-    }
-    func commitPreparedDeferredBaseImages(layerIDs: Set<Int>) {
-        commits += 1
-        committed.formUnion(layerIDs)
-        staged.subtract(layerIDs)
-    }
-}
-
-final class FixtureSound {
-    var accepts = true
-    var applies = 0
-    func canApply(userValues: [SceneDynamicTarget: SceneDynamicValue]) -> Bool { accepts }
-    func apply(userValues: [SceneDynamicTarget: SceneDynamicValue]) { applies += 1 }
-}
-
-struct FixtureRuntimeInput { let propertyBindingProgram: ScenePropertyBindingProgram }
-struct FixtureDeviceResources { let baseImages: FixtureResources }
-struct FixtureScriptProgram { var generation: UInt64 = 1 }
-struct SceneDesktopWallpaperLaunchContext {
-    let recordID: String?
-    var liveState: ScenePropertyLiveUpdateState
-    let runtimeInput: FixtureRuntimeInput
-    let preparedDeviceResources: FixtureDeviceResources
-    var particleLayerIDs: Set<Int> = []
-    var particleVisibilityRequirements: [Int: Set<Int>] = [:]
-    var preparedParticleVisibilityLayerIDs: Set<Int> {
-        Set(particleVisibilityRequirements.values.joined())
-    }
-    var propertyVectorScriptProgram = FixtureScriptProgram()
-    var unavailable: Set<SceneDynamicTarget> = []
-}
-
-enum SceneDesktopWallpaperHost {
-    static let usesDebugEvidenceWindow = false
-    static func unavailableLiveScriptPropertyTargets(
-        in context: SceneDesktopWallpaperLaunchContext
-    ) -> Set<SceneDynamicTarget> { context.unavailable }
-}
-
-final class SceneDesktopWallpaperSession {
-    struct Surface {
-        let metalView: FixtureView
-        var scriptGeneration: UInt64 = 1
-    }
-    var launchContext: SceneDesktopWallpaperLaunchContext?
-    var surfaces: [Int: Surface] = [:]
-    var preparedSurfaceIDs: Set<Int> = []
-    var soundPlaybackRegistry: FixtureSound? = FixtureSound()
-    var nextDeferredPropertyGeneration: UInt64 = 0
-    var pendingDeferredLayerVisibilityUpdate: PendingDeferredLayerVisibilityUpdate?
-    init(_ context: SceneDesktopWallpaperLaunchContext) { launchContext = context }
-'''
-
-HARNESS = r'''
-import Foundation
-
-@main enum Harness {
-    static let a = SceneDynamicTarget.layer(layerID: 11, field: .visibility)
-    static let b = SceneDynamicTarget.layer(layerID: 22, field: .visibility)
-    static let level = SceneDynamicTarget.layer(layerID: 33, field: .alpha)
-    static let optional = SceneDynamicTarget.scriptInstanceProperty(
-        layerID: 44, path: ["optional"])
-    static let particle = SceneDynamicTarget.layer(layerID: 42, field: .visibility)
-    static let particleParent = SceneDynamicTarget.layer(layerID: 77, field: .visibility)
-
-    static func make(particleCohort: Bool = false, parentParticleCohort: Bool = false)
-        -> (SceneDesktopWallpaperSession, FixtureResources, FixtureAdoption) {
-        let visibilityOwner = parentParticleCohort ? particleParent : particle
-        let hasParticles = particleCohort || parentParticleCohort
-        let preparedParticleIDs: Set<Int> = parentParticleCohort ? [42, 43] : (particleCohort ? [42] : [])
-        let requirements: [Int: Set<Int>] = parentParticleCohort ? [77: [42, 43]] : (particleCohort ? [42: [42]] : [:])
-        let particleDefinitions: [SceneDynamicTargetDefinition] = hasParticles
-            ? [.init(target: visibilityOwner, valueType: .bool, authoredValue: .bool(false))] : []
-        let particleInstructions: [ScenePropertyBindingInstruction] = hasParticles
-            ? [.init(propertyKey: "A", path: .init(components: [.key("A")]),
-                     target: visibilityOwner, valueType: .bool, condition: .string("on"))] : []
-        let program = ScenePropertyBindingProgram(
-            definitions: [
-                .init(target: a, valueType: .bool, authoredValue: .bool(false)),
-                .init(target: b, valueType: .bool, authoredValue: .bool(false)),
-                .init(target: level, valueType: .scalar, authoredValue: .scalar(0.2)),
-            ] + particleDefinitions,
-            instructions: [
-                .init(propertyKey: "A", path: .init(components: [.key("A")]),
-                    target: a, valueType: .bool, condition: .string("on")),
-                .init(propertyKey: "B", path: .init(components: [.key("B")]),
-                    target: b, valueType: .bool, condition: .string("on")),
-                .init(propertyKey: "level", path: .init(components: [.key("level")]),
-                    target: level, valueType: .scalar),
-            ] + particleInstructions,
-            conditionalValueDomainsByPropertyKey: ["A": ["off", "on"], "B": ["off", "on"]]
-        )
-        let state = ScenePropertyLiveUpdateState(
-            program: program,
-            effectiveValues: ["A": .string("off"), "B": .string("off"),
-                "level": .number(0.2), "optional": .string("seed")],
-            activeConsumerTargets: Set([a, b, level, optional]).union(hasParticles ? [visibilityOwner] : []),
-            scriptUserPropertyConsumerTargetsByKey: ["optional": [optional]]
-        )
-        let resources = FixtureResources()
-        let adoption = FixtureAdoption()
-        let session = SceneDesktopWallpaperSession(.init(recordID: "own-input",
-            liveState: state, runtimeInput: .init(propertyBindingProgram: program),
-            preparedDeviceResources: .init(baseImages: resources),
-            particleLayerIDs: preparedParticleIDs, particleVisibilityRequirements: requirements))
-        installSurfaces(session, adoption)
-        session.surfaces.values.forEach { $0.metalView.preparedParticleLayerIDs = preparedParticleIDs }
-        return (session, resources, adoption)
-    }
-
-    static func installSurfaces(_ session: SceneDesktopWallpaperSession,
-                                _ adoption: FixtureAdoption) {
-        session.surfaces = [1: .init(metalView: FixtureView(adoption)),
-                           2: .init(metalView: FixtureView(adoption))]
-        session.preparedSurfaceIDs = [1, 2]
-    }
-
-    static func apply(_ session: SceneDesktopWallpaperSession,
-                      _ values: [String: SceneUserPropertyValue],
-                      keys: Set<String>? = nil) -> Bool {
-        session.applyUserPropertyValues(values,
-            changedPropertyKeys: keys ?? Set(values.keys), recordID: "own-input")
-    }
-
-    static func snapshot(_ session: SceneDesktopWallpaperSession,
-                         _ resources: FixtureResources) -> [String: Any] {
-        let state = session.launchContext!.liveState
-        func boolean(_ target: SceneDynamicTarget) -> Bool {
-            guard case let .bool(value)? = state.userValues[target] else { return false }
-            return value
-        }
-        let levelValue: Double
-        if case let .scalar(value)? = state.userValues[level] { levelValue = value }
-        else { levelValue = -1 }
-        let optionalValue: Any
-        if case let .string(value)? = state.effectiveValues["optional"] { optionalValue = value }
-        else { optionalValue = NSNull() }
-        let pending: Any
-        if let value = session.pendingDeferredLayerVisibilityUpdate {
-            pending = ["generation": value.generation,
-                "keys": value.changedPropertyKeys.sorted(),
-                "layers": value.layerIDs.sorted()] as [String: Any]
-        } else { pending = NSNull() }
-        let views = session.surfaces.keys.sorted().map { id -> [String: Any] in
-            let view = session.surfaces[id]!.metalView
-            return ["id": id, "staged": view.staged.sorted(),
-                "committed": view.committed.sorted(), "attempts": view.attempts,
-                "discards": view.discards, "commits": view.commits,
-                "preparedParticleIDs": view.preparedParticleLayerIDs.sorted(),
-                "scriptGeneration": session.surfaces[id]!.scriptGeneration]
-        }
-        return ["visible": [boolean(a), boolean(b)], "particleVisible": boolean(particle),
-            "particleParentVisible": boolean(particleParent),
-            "revision": state.revision, "level": levelValue,
-            "optional": optionalValue, "pending": pending, "views": views,
-            "requests": resources.requests.map { [Int($0.layerID), Int($0.generation)] },
-            "soundApplies": session.soundPlaybackRegistry?.applies ?? 0]
-    }
-
-    static func main() throws {
-        var output: [String: Any] = [:]
-        do {
-            let (session, resources, _) = make()
-            let first = apply(session, ["A": .string("on")])
-            let second = apply(session, ["B": .string("on")])
-            let waiting = snapshot(session, resources)
-            resources.statuses[11] = .ready
-            resources.statuses[22] = .ready
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            output["independent"] = ["accepted": [first, second],
-                "waiting": waiting, "final": snapshot(session, resources)]
-        }
-        do {
-            let (session, resources, _) = make()
-            let bulk = apply(session, ["A": .string("on"), "B": .string("on")])
-            let cancel = apply(session, ["A": .string("off")])
-            let waiting = snapshot(session, resources)
-            resources.statuses[22] = .ready
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            output["partialCancellation"] = ["accepted": [bulk, cancel],
-                "waiting": waiting, "final": snapshot(session, resources)]
-        }
-        do {
-            let (session, resources, _) = make()
-            let show = apply(session, ["A": .string("on")])
-            let hide = apply(session, ["A": .string("off")])
-            resources.statuses[11] = .ready
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            output["sameKeyCancellation"] = ["accepted": [show, hide],
-                "final": snapshot(session, resources)]
-        }
-        do {
-            let (session, resources, _) = make()
-            let show = apply(session, ["A": .string("on")])
-            let before = snapshot(session, resources)
-            let invalid = apply(session, ["B": .bool(true)])
-            let after = snapshot(session, resources)
-            resources.statuses[11] = .ready
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            output["invalidUpdate"] = ["accepted": [show, invalid],
-                "before": before, "after": after, "final": snapshot(session, resources)]
-        }
-        do {
-            let (session, resources, _) = make()
-            let show = apply(session, ["A": .string("on"), "optional": .string("pending")])
-            let remove = apply(session, [:], keys: ["optional"])
-            resources.statuses[11] = .ready
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            output["removal"] = ["accepted": [show, remove],
-                "final": snapshot(session, resources)]
-        }
-        do {
-            let (session, resources, adoption) = make()
-            let accepted = apply(session, ["A": .string("on"), "B": .string("on")])
-            resources.statuses[11] = .ready
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            let oneReady = snapshot(session, resources)
-            session.surfaces = [:]
-            resources.statuses[22] = .ready
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            let noSurface = snapshot(session, resources)
-            installSurfaces(session, adoption)
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            output["readiness"] = ["accepted": accepted, "oneReady": oneReady,
-                "noSurface": noSurface, "final": snapshot(session, resources)]
-        }
-        do {
-            let (session, resources, adoption) = make()
-            let accepted = apply(session, ["A": .string("on")])
-            resources.statuses[11] = .ready
-            adoption.failAfterSuccessfulCalls = 1
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            let rolledBack = snapshot(session, resources)
-            adoption.failAfterSuccessfulCalls = nil
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            output["adoptionRollback"] = ["accepted": accepted,
-                "rolledBack": rolledBack, "final": snapshot(session, resources)]
-        }
-        do {
-            let (session, resources, _) = make()
-            let accepted = apply(session, ["A": .string("on")])
-            resources.statuses[11] = .ready
-            session.launchContext!.unavailable = [a]
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            output["validationRollback"] = ["accepted": accepted,
-                "final": snapshot(session, resources)]
-        }
-        do {
-            let (session, resources, _) = make()
-            let accepted = apply(session, ["A": .string("on")])
-            resources.statuses[11] = .failed("own-controlled-load-failure")
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            output["resourceFailure"] = ["accepted": accepted,
-                "final": snapshot(session, resources)]
-        }
-        do {
-            let (session, resources, _) = make()
-            let show = apply(session, ["A": .string("on")])
-            let level = apply(session, ["level": .number(0.7)])
-            resources.statuses[11] = .ready
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            output["disjointValue"] = ["accepted": [show, level],
-                "final": snapshot(session, resources)]
-        }
-        do {
-            let (session, resources, _) = make()
-            let show = apply(session, ["A": .string("on")])
-            let level = apply(session, ["level": .number(0.7)])
-            let waiting = snapshot(session, resources)
-            resources.statuses[11] = .failed("own-controlled-load-failure")
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            output["disjointFailure"] = ["accepted": [show, level],
-                "waiting": waiting, "final": snapshot(session, resources)]
-        }
-        do {
-            let (session, resources, _) = make(particleCohort: true)
-            let accepted = apply(session, ["A": .string("on")])
-            resources.statuses[11] = .ready
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            output["preparedParticleCohort"] = ["accepted": accepted,
-                "final": snapshot(session, resources)]
-        }
-        for fault in ["missing-surface-resource", "generation", "surface-set"] {
-            let (session, resources, _) = make(particleCohort: true)
-            switch fault {
-            case "missing-surface-resource": session.surfaces[2]!.metalView.preparedParticleLayerIDs = []
-            case "generation": session.surfaces[2]!.scriptGeneration = 2
-            default: session.preparedSurfaceIDs = [1, 2, 3]
-            }
-            let before = snapshot(session, resources)
-            let accepted = apply(session, ["A": .string("on")])
-            output["particleAdmission-\(fault)"] = ["accepted": accepted,
-                "before": before, "final": snapshot(session, resources)]
-        }
-        for fault in ["missing-surface-resource", "generation"] {
-            let (session, resources, _) = make(particleCohort: true)
-            let accepted = apply(session, ["A": .string("on")])
-            let waiting = snapshot(session, resources)
-            if fault == "generation" { session.surfaces[2]!.scriptGeneration = 2 }
-            else { session.surfaces[2]!.metalView.preparedParticleLayerIDs = [] }
-            resources.statuses[11] = .ready
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            output["particlePromotion-\(fault)"] = ["accepted": accepted,
-                "waiting": waiting, "final": snapshot(session, resources)]
-        }
-        do {
-            let (session, resources, _) = make(parentParticleCohort: true)
-            let first = apply(session, ["A": .string("on")])
-            let second = apply(session, ["B": .string("on")])
-            let waiting = snapshot(session, resources)
-            resources.statuses[11] = .ready
-            resources.statuses[22] = .ready
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            output["preparedParentParticleCohort"] = ["accepted": [first, second],
-                "waiting": waiting, "final": snapshot(session, resources)]
-        }
-        for fault in ["missing-first-leaf", "missing-second-leaf", "generation", "surface-set", "no-surfaces"] {
-            for incoming in ["off", "on"] {
-                let (session, resources, _) = make(parentParticleCohort: true)
-                switch fault {
-                case "missing-first-leaf": session.surfaces[1]!.metalView.preparedParticleLayerIDs = [43]
-                case "missing-second-leaf": session.surfaces[2]!.metalView.preparedParticleLayerIDs = [42]
-                case "generation": session.surfaces[2]!.scriptGeneration = 2
-                case "surface-set": session.preparedSurfaceIDs = [1, 2, 3]
-                default: session.surfaces = [:]
-                }
-                let before = snapshot(session, resources)
-                let accepted = apply(session, ["A": .string(incoming)])
-                output["parentAdmission-\(fault)-\(incoming)"] = ["accepted": accepted,
-                    "before": before, "final": snapshot(session, resources)]
-            }
-        }
-        for fault in ["missing-second-leaf", "generation"] {
-            let (session, resources, _) = make(parentParticleCohort: true)
-            let accepted = apply(session, ["A": .string("on")])
-            if fault == "generation" { session.surfaces[2]!.scriptGeneration = 2 }
-            else { session.surfaces[2]!.metalView.preparedParticleLayerIDs = [42] }
-            let before = snapshot(session, resources)
-            let merged = apply(session, ["B": .string("on")])
-            let after = snapshot(session, resources)
-            resources.statuses[11] = .ready
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            output["parentMerge-\(fault)"] = ["accepted": [accepted, merged],
-                "before": before, "after": after, "final": snapshot(session, resources)]
-        }
-        for fault in ["missing-second-leaf", "generation"] {
-            let (session, resources, _) = make(parentParticleCohort: true)
-            let first = apply(session, ["A": .string("on")])
-            let second = apply(session, ["B": .string("on")])
-            let waiting = snapshot(session, resources)
-            if fault == "generation" { session.surfaces[2]!.scriptGeneration = 2 }
-            else { session.surfaces[2]!.metalView.preparedParticleLayerIDs = [42] }
-            resources.statuses[11] = .ready
-            resources.statuses[22] = .ready
-            session.promotePendingDeferredLayerVisibilityIfReady()
-            output["parentPromotion-\(fault)"] = ["accepted": [first, second],
-                "waiting": waiting, "final": snapshot(session, resources)]
-        }
-        print(String(decoding: try JSONSerialization.data(
-            withJSONObject: output, options: [.sortedKeys]), as: UTF8.self))
-    }
-}
-'''
+HARNESS = (ROOT / "script/tests/fixtures/SceneDeferredPropertyIntentHarness.swift").read_text(encoding="utf-8")
 
 
 class SceneDeferredPropertyIntentTests(unittest.TestCase):
@@ -478,7 +64,7 @@ class SceneDeferredPropertyIntentTests(unittest.TestCase):
         extension = owner_source.read_text(encoding="utf-8")
         pending = declaration(session, "struct PendingDeferredLayerVisibilityUpdate {")
         shell = directory / "SessionShell.swift"
-        shell.write_text(SHELL + "\n" + pending + "\n}\n", encoding="utf-8")
+        shell.write_text(SHELL.replace("// PRODUCT_PENDING_DECLARATION", pending), encoding="utf-8")
         # The pre-fix owner may still contain apply. This assembles that exact
         # method without copying its algorithm into the test's fixture.
         if "func applyUserPropertyValues(" not in extension:
@@ -531,6 +117,10 @@ class SceneDeferredPropertyIntentTests(unittest.TestCase):
     def test_same_key_latest_hide_cancels_show(self) -> None:
         result = self.result["sameKeyCancellation"]
         self.assertEqual(result["accepted"], [True, True])
+        self.assertEqual(result["waiting"]["revision"], 0)
+        self.assertEqual(result["waiting"]["visible"], [False, False])
+        self.assertIsNotNone(result["waiting"]["pending"])
+        self.assertEqual(result["final"]["revision"], 0)
         self.assert_committed(result["final"], [False, False], [])
         self.assertTrue(all(view["attempts"] == 0 for view in result["final"]["views"]))
 
@@ -684,6 +274,50 @@ class SceneDeferredPropertyIntentTests(unittest.TestCase):
                 for view in result["final"]["views"]:
                     self.assertEqual(view["attempts"], 2)
                     self.assertEqual(view["discards"], 1)
+
+    def test_scalar_change_and_same_value_resend_do_not_request_visibility_resources(self) -> None:
+        result = self.result["scalarWithoutVisibility"]
+        self.assertEqual(result["accepted"], [True, True])
+        self.assertEqual(result["final"]["level"], 0.7)
+        self.assertEqual(result["final"]["revision"], 1)
+        self.assertEqual(result["final"]["requests"], [])
+        self.assert_committed(result["final"], [False, False], [])
+
+    def test_sound_rejection_preserves_current_at_admission_and_promotion(self) -> None:
+        admission = self.result["soundAdmission"]
+        self.assertFalse(admission["accepted"])
+        self.assertEqual(admission["before"], admission["final"])
+        promotion = self.result["soundPromotion"]
+        self.assertTrue(promotion["accepted"])
+        self.assert_committed(promotion["final"], [False, False], [])
+        self.assertEqual(promotion["final"]["revision"], 0)
+        self.assertEqual(promotion["final"]["soundApplies"], 0)
+        self.assertTrue(all(view["discards"] == 1 for view in promotion["final"]["views"]))
+
+    def test_wrong_record_does_not_cancel_current_pending_intent(self) -> None:
+        result = self.result["wrongRecord"]
+        self.assertEqual(result["accepted"], [True, False])
+        self.assertEqual(result["before"], result["after"])
+        self.assert_committed(result["final"], [True, False], [11])
+
+    def test_renamed_combo_cohort_selects_only_layer_resources_and_preserves_neighbor(self) -> None:
+        for name in ("choice", "renamed_mode"):
+            with self.subTest(name=name):
+                result = self.result[f"variant-{name}"]
+                self.assertEqual(result["accepted"], [True, False, False, True, True, False])
+                self.assertEqual(result["neighborRequests"], 0)
+                self.assertEqual(result["invalidRequests"], 0)
+                self.assertEqual(result["pendingLayers"], result["expectedLayers"])
+                self.assertEqual(result["requestedLayers"], result["expectedLayers"])
+                self.assertEqual(result["visible"], [True, True, True])
+                self.assertEqual(result["retainedVisible"], [True, True, True])
+                self.assertEqual(result["revision"], 2)
+                self.assertEqual(result["retainedRevision"], 2)
+                self.assertTrue(result["scalar"])
+                self.assertTrue(result["pendingCleared"])
+                for view in result["views"]:
+                    self.assertEqual(view["staged"], [])
+                    self.assertEqual(view["committed"], result["expectedLayers"])
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 
 # Scene 壁纸属性面板工作卡
 
-用户2026-10-12要求：当前遮罩兼容批收尾后，与[性能收敛卡](performance-convergence-card.md)并行规划、按职责逐批修复。目标是打开、浏览、滚动和编辑属性时响应顺畅，支持的定义完整显示，能热更新的属性进入原typed更新链，减少整场景重建。
+本卡与[性能卡](performance-convergence-card.md)改善打开、滚动和编辑响应，追合法定义显示及热更新；复用原typed链，减少整场景重建。
 
 **排查顺序。**
 
@@ -13,7 +13,7 @@
 
 **首轮最小交付。** 定位并修复一个可复现的主线程热点或可避免的整场景重建，再核同类属性和独立壁纸。优先复用现property store、prepared model、typed frame/resource update及已有control，不增加另一套属性解析、缓存、通知或renderer。
 
-**当前进度与下一轮。** 首轮条件投影已闭，见[证据](../history/property-condition-projection-2026-10-13.md)：同body共用当前输入，行与选项保唯一parser。专项约15%（阶段估计），局部CPU收益不代表整个面板已收敛。下一轮先追编辑/重置的typed dispatch、必要结构重建与窗口替换；setter存储/通知、detail observer重建与同步资源检查仍是待量的静态线索。相同值编辑须保edit revision，防pending reset覆盖新意图；只省冗余保存/通知/dispatch。callback-only、未知类型、本地化及媒体入口继续追真实consumer，不凭回调或旧过滤判定全部可用/不可用。
+**当前进度与下一轮。** 专项约20%（阶段估计）：[条件投影](../history/property-condition-projection-2026-10-13.md)及[typed候选复用](../history/property-candidate-evaluation-convergence-2026-10-13.md)已闭局部重复成本，未代表整个面板收敛。下一轮追普通产品编辑引起的重建：真实云层开关及连续scalar编辑均产生新startup/activation，先区分App admission与daemon rejection，再核prepared consumer及整键cohort，保真实结构要求。相同值须保edit revision、pending取消及最新意图；仅省冗余工作。setter保存/通知、detail observer及同步资源检查仍待量；callback-only、未知类型、本地化及媒体入口按真实consumer追缺口。
 
 **验收。** 同条件记录打开/滚动/编辑响应与engine重建/资源更新事实，验证实际画面立即/下一帧变化、连续多次编辑、关闭重开及保存恢复。资源替换还须检查取消、缺失/坏资源与旧画面保留；条件显示、重置、依赖属性、脚本回调及多个surface保持一致。不能只断言未重建：值和事件必须真实到达consumer。
 
