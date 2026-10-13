@@ -269,7 +269,7 @@ private func selectedSlot(
             resourceGeneration: generation))
 }
 
-private func inputs(index: Int, generation: UInt64) -> SceneAuthoredShaderUniformInputs {
+private func inputs(generation: UInt64) -> SceneAuthoredShaderUniformInputs {
     .init(frameIndex: generation, renderSize: CGSize(width: 2, height: 2),
         screenSize: CGSize(width: 2, height: 2),
         modelViewProjection: matrix_identity_float4x4,
@@ -277,8 +277,7 @@ private func inputs(index: Int, generation: UInt64) -> SceneAuthoredShaderUnifor
         effectOutputModelViewProjection: matrix_identity_float4x4,
         effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
         sceneTime: Float(generation), dayTime: 0, frameTime: 1 / 60,
-        pointerCurrentNDC: .zero, pointerPreviousNDC: .zero,
-        texturePhysicalSizes: [index: CGSize(width: 384, height: 192)])
+        pointerCurrentNDC: .zero, pointerPreviousNDC: .zero)
 }
 
 private func assembly(
@@ -296,7 +295,7 @@ private func assembly(
             return nil
         }
         guard let value = SceneResolvedMaterialUniformEncoder.encodeHost(host,
-                type: field.type, inputs: inputs(index: fixture.slot, generation: generation),
+                type: field.type, inputs: inputs(generation: generation),
                 slots: slots) else {
             failure?("host-encode-rejected", field.authoredName)
             return nil
@@ -548,7 +547,7 @@ private func companionStaticFallbackRejections(
                 }
                 guard let host = SceneResolvedMaterialUniformEncoder.hostUniform(field, slots: slots),
                       let value = SceneResolvedMaterialUniformEncoder.encodeHost(host,
-                        type: field.type, inputs: inputs(index: 1, generation: 1), slots: slots) else {
+                        type: field.type, inputs: inputs(generation: 1), slots: slots) else {
                     throw NSError(domain: "unexpected-static-probe-field", code: 1)
                 }
                 return .init(field: field, source: .host(host), encodedValue: value)
@@ -635,10 +634,10 @@ private func companionRejections(
     }
     let emptySlots = Array<Program.TextureSlot?>(repeating: nil, count: 8)
     checks["encoderWrongType"] = SceneResolvedMaterialUniformEncoder.encodeHost(host,
-        type: wrongType, inputs: inputs(index: fixture.slot, generation: 1),
+        type: wrongType, inputs: inputs(generation: 1),
         slots: baseline.textureSlots) == nil
     checks["encoderMissingBinding"] = SceneResolvedMaterialUniformEncoder.encodeHost(host,
-        type: field.type, inputs: inputs(index: fixture.slot, generation: 1), slots: emptySlots) == nil
+        type: field.type, inputs: inputs(generation: 1), slots: emptySlots) == nil
     checks["programMissingBinding"] = assembled(changedInput(slots: emptySlots)) == nil
     checks["programWrongType"] = assembled(changedInput(uniforms: replacingUniform {
         .init(field: typedWrong, source: $0.source, encodedValue: $0.encodedValue)

@@ -48,12 +48,10 @@ extension SceneResolvedMaterialRuntimeBridge.FrameInputs {
     return support[:start] + replacement + support[end:]
 
 
-CPU_HARNESS = finalizer_fixture.HARNESS.split("@main\nprivate enum Harness", 1)[0] + r'''
-private enum Harness {
-    static func float(_ data: Data, at offset: Int) -> Float {
-        data.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: offset, as: Float.self) }
-    }
-}
+CPU_HARNESS = r'''
+import Foundation
+import Metal
+import simd
 
 private func alphaShader() -> SceneShaderContract {
     contract(revision: "self-owned-draw-alpha", vertexSourceOverride: """
@@ -183,8 +181,7 @@ private func drawUniformInputs(alpha: Float = 0.25,
         effectOutputModelViewProjection: matrix_identity_float4x4,
         effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
         effectDrawAlpha: alpha, effectDrawColor: color, sceneTime: 0, dayTime: 0,
-        frameTime: 1 / 60, pointerCurrentNDC: .zero, pointerPreviousNDC: .zero,
-        texturePhysicalSizes: [:])
+        frameTime: 1 / 60, pointerCurrentNDC: .zero, pointerPreviousNDC: .zero)
 }
 
 private func colorFacts() throws -> [String: Any] {
@@ -211,9 +208,9 @@ private func colorFacts() throws -> [String: Any] {
         if case .dynamic = dynamicSource.source { authoredDynamic = true }
         let encoded = SceneResolvedMaterialUniformEncoder.encodeHost(host, type: type, inputs: inputs, slots: slots)
         let bytesMatch = encoded.map {
-            Harness.float($0, at: 0) == rgb.x && Harness.float($0, at: 4) == rgb.y
-                && Harness.float($0, at: 8) == rgb.z
-                && (name == "g_Color" || Harness.float($0, at: 12) == 0.25)
+            sceneResolvedMaterialFixtureFloat($0, at: 0) == rgb.x && sceneResolvedMaterialFixtureFloat($0, at: 4) == rgb.y
+                && sceneResolvedMaterialFixtureFloat($0, at: 8) == rgb.z
+                && (name == "g_Color" || sceneResolvedMaterialFixtureFloat($0, at: 12) == 0.25)
         } ?? false
         fields.append(["name": name, "defaultPreserved": authoredDefault, "staticPreserved": authoredStatic,
             "dynamicPreserved": authoredDynamic, "bytesMatch": bytesMatch,
@@ -241,8 +238,8 @@ private func colorFacts() throws -> [String: Any] {
         "colorCopyPreserved": copied.effectDrawAlpha == 0.25 && copied.effectDrawColor == rgb,
         "colorTerminalPreserved": replay != nil && replay!.resolvedUniforms.contains {
             if case .host(.effectDrawColor4) = $0.source {
-                return Harness.float($0.encodedValue, at: 0) == rgb.x
-                    && Harness.float($0.encodedValue, at: 12) == 0.25
+                return sceneResolvedMaterialFixtureFloat($0.encodedValue, at: 0) == rgb.x
+                    && sceneResolvedMaterialFixtureFloat($0.encodedValue, at: 12) == 0.25
             }; return false
         },
         "rgbDoesNotReadAlpha": SceneResolvedMaterialUniformEncoder.encodeHost(.effectDrawColor, type: .float3,
@@ -297,8 +294,8 @@ private func reductionFacts() throws -> [String: Any] {
     let replay = correct?.terminalReplay(unitModelViewProjection: matrix_identity_float4x4)
     return ["effectIsHost": effectIsHost, "sourceIsStatic": sourceIsStatic,
         "sourceStaticOwned": sourceStaticOwned, "sourceDynamicOwned": sourceDynamicOwned,
-        "hostBytes": hostBytes.map { Harness.float($0, at: 0) == 1 } ?? false,
-        "sourceBytes": sourceBytes.map { Harness.float($0, at: 0) == 0.125 } ?? false,
+        "hostBytes": hostBytes.map { sceneResolvedMaterialFixtureFloat($0, at: 0) == 1 } ?? false,
+        "sourceBytes": sourceBytes.map { sceneResolvedMaterialFixtureFloat($0, at: 0) == 0.125 } ?? false,
         "wrongEncoderType": wrongType,
         "staticConflict": rejection { try preparedDrawAlpha(effect: true, name: name, declarations: [declared]) },
         "dynamicConflict": rejection { try preparedDrawAlpha(effect: true, name: name, declarations: [dynamic]) },
@@ -315,7 +312,7 @@ private func reductionFacts() throws -> [String: Any] {
         "sourceHostRejected": host.map { program(false, .host($0)) == nil } ?? false,
         "sourceStaticAccepted": sourceProgram != nil,
         "terminalPreserved": replay?.resolvedUniforms.contains {
-            $0.field.authoredName == name && Harness.float($0.encodedValue, at: 0) == 1 } ?? false]
+            $0.field.authoredName == name && sceneResolvedMaterialFixtureFloat($0.encodedValue, at: 0) == 1 } ?? false]
 }
 
 @main private enum EffectDrawAlphaPreparationHarness {
@@ -351,7 +348,7 @@ private func reductionFacts() throws -> [String: Any] {
             effectOutputModelViewProjection: matrix_identity_float4x4,
             effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
             effectDrawAlpha: .nan, sceneTime: 0, dayTime: 0, frameTime: 1 / 60,
-            pointerCurrentNDC: .zero, pointerPreviousNDC: .zero, texturePhysicalSizes: [:])
+            pointerCurrentNDC: .zero, pointerPreviousNDC: .zero)
         let copied = SceneResolvedMaterialRuntimeBridge.FrameInputs(effectDrawAlpha: 0.25)
             .withDependencyEffects([])
         var output: [String: Any] = [
@@ -372,7 +369,7 @@ private func reductionFacts() throws -> [String: Any] {
             "exactBytesChanged": first != nil && second != nil && first!.exactIdentity != second!.exactIdentity,
             "terminalAlphaPreserved": replay != nil && replay!.resolvedUniforms.contains {
                 if case .host(.effectDrawAlpha) = $0.source {
-                    return Harness.float($0.encodedValue, at: 0) == 0.25
+                    return sceneResolvedMaterialFixtureFloat($0.encodedValue, at: 0) == 0.25
                 }
                 return false
             },
@@ -600,6 +597,8 @@ class SceneEffectDrawAlphaTests(unittest.TestCase):
         compiled, completed = graph_fixture.compile_harness(
             runtime_frame_support(), CPU_HARNESS,
             additional_sources=[
+                *(path for path in finalizer_fixture.SHARED_FIXTURE_SOURCES
+                  if path != finalizer_fixture.SUPPORT_SOURCE),
                 finalizer_fixture.SCENE_ROOT / "Compilation/ShaderContract/SceneShaderContractLoader.swift",
                 finalizer_fixture.SCENE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
             ],

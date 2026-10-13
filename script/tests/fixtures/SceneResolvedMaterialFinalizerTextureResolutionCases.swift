@@ -187,7 +187,7 @@ func neutralTextureResolutionToken(_ device: MTLDevice) -> String {
           fact.resolutionSlot == 1,
           uniform.encodedValue.count == 16,
           (0 ..< 4).allSatisfy({
-              Harness.float(uniform.encodedValue, at: $0 * 4) == 2
+              sceneResolvedMaterialFixtureFloat(uniform.encodedValue, at: $0 * 4) == 2
           }),
           program.semanticIdentity.activeUniforms.contains(where: {
               guard $0.fieldName == "g_Texture1Resolution",
@@ -222,7 +222,7 @@ func neutralTextureResolutionUnseenToken(_ device: MTLDevice) -> String {
           case let .neutralMissingTextureResolution(fact) = uniform.source,
           fact.resolutionSlot == 3,
           uniform.encodedValue.count == 16,
-          (0 ..< 4).allSatisfy({ Harness.float(uniform.encodedValue, at: $0 * 4) == 2 })
+          (0 ..< 4).allSatisfy({ sceneResolvedMaterialFixtureFloat(uniform.encodedValue, at: $0 * 4) == 2 })
     else { return failureToken(result) }
     return "success"
 }
@@ -256,7 +256,7 @@ func separateNeutralTextureResolutionToken(_ device: MTLDevice) -> String {
           case let .neutralMissingTextureResolution(fact) = uniform.source,
           fact.resolutionSlot == 7,
           (0 ..< 4).allSatisfy({
-              Harness.float(uniform.encodedValue, at: $0 * 4) == 2
+              sceneResolvedMaterialFixtureFloat(uniform.encodedValue, at: $0 * 4) == 2
           })
     else { return failureToken(result) }
     return "success"
@@ -522,7 +522,7 @@ func neutralTextureResolutionFinalizerFailures(
               let uniform = program.resolvedUniforms.first(where: {
                   $0.field.name == "g_Texture1Resolution"
               }), case .host(.textureResolution(slot: 1)) = uniform.source,
-              (0..<4).map({ Harness.float(uniform.encodedValue, at: $0 * 4) }) == [64, 32, 64, 32]
+              (0..<4).map({ sceneResolvedMaterialFixtureFloat(uniform.encodedValue, at: $0 * 4) }) == [64, 32, 64, 32]
         else { return failureToken(defaultResult) + "/default-resource-or-host" }
         return "success"
     }()

@@ -139,9 +139,7 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
         frameSnapshot.dynamicSnapshot
     }
 
-    fileprivate func uniformInputs(
-        textureSlots: [SceneResolvedMaterialProgram.TextureSlot?]
-    ) -> SceneAuthoredShaderUniformInputs {
+    fileprivate func uniformInputs() -> SceneAuthoredShaderUniformInputs {
         .init(
             frameIndex: frameSnapshot.frameInputs.frameIndex,
             renderSize: renderSize,
@@ -164,13 +162,6 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
                 frameSnapshot.frameInputs.pointerPrimaryButtonDown,
             parallaxPositionNDC:
                 frameSnapshot.frameInputs.parallaxPositionNDC,
-            texturePhysicalSizes: Dictionary(
-                uniqueKeysWithValues: textureSlots.compactMap { slot in
-                    slot.map {
-                        ($0.index, $0.resource.publication.candidate.physicalSize)
-                    }
-                }
-            ),
             audioSpectrum: frameSnapshot.frameInputs.audioSpectrum
         )
     }
@@ -373,7 +364,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                     throw failure(.color, .colorContractUnproven)
                 }
             }
-            let uniformInputs = input.uniformInputs(textureSlots: texture.slots)
+            let uniformInputs = input.uniformInputs()
             let uniforms = try resolvedUniforms(
                 input,
                 uniformInputs: uniformInputs,

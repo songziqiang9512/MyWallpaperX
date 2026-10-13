@@ -333,10 +333,10 @@ final class SceneResolvedMaterialFinalizerPreparationCases {
             && right32.arrayCount == 32
             && left64.arrayCount == 64
             && right64.arrayCount == 64
-            && Harness.float(program.uniformBytes, at: left16.offset + 3 * 4) == 4
-            && Harness.float(program.uniformBytes, at: right32.offset + 5 * 4) == 105
-            && Harness.float(program.uniformBytes, at: left64.offset + 7 * 4) == 207
-            && Harness.float(program.uniformBytes, at: right64.offset + 9 * 4) == 309
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: left16.offset + 3 * 4) == 4
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: right32.offset + 5 * 4) == 105
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: left64.offset + 7 * 4) == 207
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: right64.offset + 9 * 4) == 309
     }()
 
     lazy var stageLocalProgram = finalize(
@@ -361,8 +361,8 @@ final class SceneResolvedMaterialFinalizerPreparationCases {
             && fragment.authoredName == "g_Gain"
             && vertex.stage == .vertex
             && fragment.stage == .fragment
-            && Harness.float(program.uniformBytes, at: vertex.offset) == 2
-            && Harness.float(program.uniformBytes, at: fragment.offset) == 3
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: vertex.offset) == 2
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: fragment.offset) == 3
     }()
 
     lazy var sharedStageLocalProgram = finalize(
@@ -390,8 +390,8 @@ final class SceneResolvedMaterialFinalizerPreparationCases {
         }
         return vertex.authoredName == "g_Gain"
             && fragment.authoredName == "g_Gain"
-            && Harness.float(program.uniformBytes, at: vertex.offset) == 0.75
-            && Harness.float(program.uniformBytes, at: fragment.offset) == 1.5
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: vertex.offset) == 0.75
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: fragment.offset) == 1.5
     }()
 
     lazy var exactCrossStageUniformCases: [String: Bool] = {
@@ -482,7 +482,7 @@ final class SceneResolvedMaterialFinalizerPreparationCases {
             with: ""
         )
         return program.frontendProgram.staticLoopWork == 17
-            && Harness.float(program.uniformBytes, at: field.offset) == 5
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: field.offset) == 5
             && compactSource.contains("int(mwxUniforms.u_fractals)")
             && !compactSource.contains("clamp(mwxUniforms.u_fractals")
     }()
@@ -502,10 +502,10 @@ final class SceneResolvedMaterialFinalizerPreparationCases {
                   where: { $0.name == "g_PointerState" }
               ) else { return false }
         return field.type == .float4
-            && Harness.float(program.uniformBytes, at: field.offset) == 0
-            && Harness.float(program.uniformBytes, at: field.offset + 4) == 0
-            && Harness.float(program.uniformBytes, at: field.offset + 8) == 1
-            && Harness.float(program.uniformBytes, at: field.offset + 12) == 0
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: field.offset) == 0
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: field.offset + 4) == 0
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: field.offset + 8) == 1
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: field.offset + 12) == 0
     }()
 
     lazy var admittedEffectIngress = admittedEffectIngressTokens(self.fixture.device)
@@ -535,7 +535,7 @@ final class SceneResolvedMaterialFinalizerPreparationCases {
 
     lazy var effectProjectionEncoded = [0, 5, 10, 15].enumerated().allSatisfy {
         index, component in
-        Harness.float(self.programA.uniformBytes, at: self.effectProjectionField.offset + component * 4)
+        sceneResolvedMaterialFixtureFloat(self.programA.uniformBytes, at: self.effectProjectionField.offset + component * 4)
             == Float(index + 2)
     }
 
@@ -545,7 +545,7 @@ final class SceneResolvedMaterialFinalizerPreparationCases {
         }!
 
     lazy var modelViewProjectionInverseEncoded = [0, 5, 10, 15].allSatisfy {
-        Harness.float(
+        sceneResolvedMaterialFixtureFloat(
             self.programA.uniformBytes,
             at: self.modelViewProjectionInverseField.offset + $0 * 4
         ) == 1
@@ -557,7 +557,7 @@ final class SceneResolvedMaterialFinalizerPreparationCases {
 
     lazy var layerModelEncoded = [0, 5, 10, 15].enumerated().allSatisfy {
         index, component in
-        Harness.float(self.programA.uniformBytes, at: self.layerModelField.offset + component * 4)
+        sceneResolvedMaterialFixtureFloat(self.programA.uniformBytes, at: self.layerModelField.offset + component * 4)
             == Float(index + 6)
     }
 
@@ -574,7 +574,7 @@ final class SceneResolvedMaterialFinalizerPreparationCases {
 
     lazy var forwardProjectionEncoded = [0, 5, 10, 15].enumerated().allSatisfy {
         index, component in
-        abs(Harness.float(
+        abs(sceneResolvedMaterialFixtureFloat(
             self.programA.uniformBytes,
             at: self.forwardProjectionField.offset + component * 4
         ) - self.expectedForwardDiagonal[index]) < 0.000_001
@@ -588,7 +588,7 @@ final class SceneResolvedMaterialFinalizerPreparationCases {
             case 5: 1 / 360
             default: 1
             }
-            return abs(Harness.float(
+            return abs(sceneResolvedMaterialFixtureFloat(
                 self.programA.uniformBytes,
                 at: self.effectModelViewProjectionField.offset + component * 4
             ) - outputDiagonal[index] * targetScale) < 0.000_001
@@ -599,16 +599,16 @@ final class SceneResolvedMaterialFinalizerPreparationCases {
     }!
 
     lazy var parallaxPositionEncoded =
-        Harness.float(self.programA.uniformBytes, at: self.parallaxField.offset) == 0.75
-        && Harness.float(self.programA.uniformBytes, at: self.parallaxField.offset + 4) == 0.375
+        sceneResolvedMaterialFixtureFloat(self.programA.uniformBytes, at: self.parallaxField.offset) == 0.75
+        && sceneResolvedMaterialFixtureFloat(self.programA.uniformBytes, at: self.parallaxField.offset + 4) == 0.375
 
     lazy var parallaxRangePreserved = [SIMD2<Float>.zero, SIMD2(2, -2)].allSatisfy { value in
         guard let bytes = SceneResolvedMaterialUniformEncoder.encodeHost(
             .parallaxPosition, type: .float2,
             inputs: uniformInputs(parallax: value), slots: []
         ) else { return false }
-        return Harness.float(bytes, at: 0) == 0.5 + value.x * 0.5
-            && Harness.float(bytes, at: 4) == 0.5 + value.y * 0.5
+        return sceneResolvedMaterialFixtureFloat(bytes, at: 0) == 0.5 + value.x * 0.5
+            && sceneResolvedMaterialFixtureFloat(bytes, at: 4) == 0.5 + value.y * 0.5
     }
 
     lazy var invalidParallaxRejected = SceneResolvedMaterialUniformEncoder.encodeHost(

@@ -617,8 +617,7 @@ func uniformInputs(parallax: SIMD2<Float> = SIMD2(0.5, -0.25)) -> SceneAuthoredS
         frameTime: 1 / 60,
         pointerCurrentNDC: SIMD2(0.25, -0.5),
         pointerPreviousNDC: SIMD2.zero,
-        parallaxPositionNDC: parallax,
-        texturePhysicalSizes: [0: CGSize(width: 2, height: 2)]
+        parallaxPositionNDC: parallax
     )
 }
 
@@ -880,5 +879,11 @@ func visualFallbackToken(
         return "success"
     case let .failure(failure):
         return failure.effectLocalVisualFallback?.rawValue ?? "none"
+    }
+}
+
+func sceneResolvedMaterialFixtureFloat(_ data: Data, at offset: Int) -> Float {
+    data.withUnsafeBytes {
+        $0.loadUnaligned(fromByteOffset: offset, as: Float.self)
     }
 }

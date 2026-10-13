@@ -21,12 +21,12 @@ sys.path.insert(0, str(TEST_ROOT))
 
 from scene_swift_source_sets import scene_swift_sources  # noqa: E402
 from test_scene_resolved_material_program_derivation import (  # noqa: E402
-    SUPPORT as PROGRAM_SUPPORT,
+    SUPPORT_SOURCE as PROGRAM_SUPPORT_SOURCE,
     SWIFT_SOURCES as PROGRAM_SOURCES,
 )
 
 
-SUPPORT = PROGRAM_SUPPORT + r'''
+SUPPORT = r'''
 
 nonisolated struct SceneEffectStageCompilerFailure {
     enum Phase: String {
@@ -65,7 +65,7 @@ def unique_sources(paths: list[Path]) -> list[Path]:
 
 
 SWIFT_SOURCES = unique_sources(
-    [*PROGRAM_SOURCES, *scene_swift_sources("authored_shader_preparation_implementation")]
+    [*PROGRAM_SOURCES, PROGRAM_SUPPORT_SOURCE, *scene_swift_sources("authored_shader_preparation_implementation")]
 )
 
 

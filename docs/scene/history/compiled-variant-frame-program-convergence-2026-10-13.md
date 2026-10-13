@@ -31,7 +31,15 @@ factory的frontend失败在原最早位置提交，其余typed结果在原sample
 
 **实际画面。** B1与T1内部Host图片检查人物、水纹、星星、颜色与合成保留，仅动态位置变化；该入口原有时钟/媒体差异不算修复。未参与CPU修法的3042492564用正常App→client→daemon→桌面：同owned window23104的13:15与13:16两帧实际时钟进位、星星/光束移动、音频条及封面更新；原颜色544 `event is not defined`、封面右侧裁切仍存在，未关闭属性完整cohort或样本parity。未控制实时媒体，不能据此宣称平台媒体适配或幅度完全正确。正常App/daemon已退出。
 
-静态独审已接受最终所有权、安全与fixture迁移，最终实际证据另以冻结packet审查。已通过11项静态门；性能数值、源身份与同产品迁移守恒证据保留在 `.artifacts/tmp/cpu-program-assembly-20261013` 与 `.artifacts/tmp/material-test-convergence-20261013`。benchmark各轮临时App/HOME/样本由现有runner清理；限量保留最终日志、数值和必要像素；唯一517c签名App与一份 `.artifacts/tmp/scene-constructor-runtime-20261011/DerivedData` 暂留给紧接的属性诊断/同源基线，诊断完成后退役。证据cache已到预算且无到期包，promotion待配额可用，不扩大配额或删旧唯一证据。
+静态独审已接受最终所有权、安全与fixture迁移，最终实际证据另以冻结packet审查。已通过11项静态门；性能数值、源身份与同产品迁移守恒证据保留在 `.artifacts/tmp/cpu-program-assembly-20261013` 与 `.artifacts/tmp/material-test-convergence-20261013`。benchmark各轮临时App/HOME/样本由现有runner清理；限量保留最终日志、数值和必要像素；517c签名App在下述后继验收后退役；保留后继77a1候选与一份 `.artifacts/tmp/scene-constructor-runtime-20261011/DerivedData` 给紧接属性诊断，完成后退役。证据cache已到预算且无到期包，promotion待配额可用，不扩大配额或删旧唯一证据。
+
+## 静态准备后继收敛（2026-10-13，已收尾）
+
+删掉 Finalizer 每次构造、但 UniformInputs 没有消费者的 `texturePhysicalSizes` 字典及字段；实际 texture resolution/UV 仍由原 UniformEncoder 从当帧 slot 的 candidate 读取，publication、device、extent、generation 及采样校验不变。只退役重复无用数据，不新增 cache、规则或算法；优化编译器可能已消掉部分成本，未作稳定性能、温度或画面收益承诺。
+
+追最近 GPU 门时发现上批 fixture 迁移遗漏七个消费者，仍依赖已退出的 Python `HARNESS`/`SUPPORT_HARNESS` 字符串，导致 import 失败。已让实际 Swift support 与单 Fixture/shared state 接管，原 Harness 只作唯一入口，所有直接消费者编译这些原单元，不恢复巨字符串、拆源码形状或复制算法。旧 raw variant 构造改走既有唯一 throwing factory，原输入、错误与输出断言保留；三个新增实际 fixture 接入原选门，包含其直接消费者。该问题是本地验证入口回归，不能用上一批两入口或构建通过覆盖。
+
+原270项断言 AST、七消费者多行输入及166初始化次序保留；七消费者、原两入口及 texture transform 分组及定点重跑累计78项成功，含实际 GPU 纹理、alpha 与颜色 ABI。最大fixture889行；证据与冻结聚合 `f05cbe502dab6111e64b2c98c19429469f1bf272412312ea1c46c10d724b502d` 归 `.artifacts/tmp/material-fixture-consumers-20261013`。初次 core 门保留 Finalizer 入口缺 `try` 的编译错误，其余三项成功；修正调用后单独复跑 Finalizer 34项成功，不能把初次日志称为全绿。独审已接受产品与夹具，11静态门通过；签名 Debug -O App SHA `77a19bd212c6a5423a15d5f8b2f2a8a5454d0c86b4fbec312129e6ea2a4b9635`，1111构建输入前后身份相同。独立304副本经正常 App→client→daemon→桌面，owned window23310的14:59与15:01两帧，时钟、人物/星星与谱条实际变化、光束保留；右侧封面仍只在边缘部分可见，未闭该裁切或属性异常。初次浏览进程退出后被界面工具无参数重开，未计入验收；正确重启的App84070保隔离root/suite及HOME/CFFIXED_USER_HOME，daemon84077和像素对应，二者已退出。上述只证有界输出保留，不宣称稳定FPS、功耗或温度收益；后继过程与最终证据保留 `.artifacts/tmp/cpu-unused-uniform-inputs-20261013`。
 
 ## 实施前设计（固定快照）
 

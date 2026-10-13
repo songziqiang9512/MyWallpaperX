@@ -15,16 +15,16 @@ import unittest
 from script.tests import test_scene_resolved_material_program_finalizer as fixture
 
 
-SWIFT_SOURCES = fixture.SWIFT_SOURCES
+SWIFT_SOURCES = [*fixture.SWIFT_SOURCES, *fixture.SHARED_FIXTURE_SOURCES]
 # Reuse the established contract, texture snapshot, template, and finalization
 # fixture. The additional harness only observes Program output and failures.
-HARNESS = fixture.HARNESS.split("@main", 1)[0] + r'''
+HARNESS = r'''
+import Foundation
+import Metal
+import simd
+
 @main
 private enum Harness {
-    static func float(_ data: Data, at offset: Int) -> Float {
-        data.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: offset, as: Float.self) }
-    }
-
     static func observe(
         _ device: MTLDevice,
         name: String,
@@ -165,7 +165,6 @@ class SceneLocalizedGraphInputAliasTests(unittest.TestCase):
         support, harness, binary = (root / name for name in (
             "Support.swift", "Harness.swift", "localized-graph-input-test"
         ))
-        support.write_text(fixture.SUPPORT, encoding="utf-8")
         harness.write_text(HARNESS, encoding="utf-8")
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
@@ -177,7 +176,7 @@ class SceneLocalizedGraphInputAliasTests(unittest.TestCase):
         compilation = subprocess.run(
             [
                 "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
-                str(support), *(str(path) for path in SWIFT_SOURCES), str(harness),
+                *(str(path) for path in SWIFT_SOURCES), str(harness),
                 "-framework", "Metal", "-framework", "CoreGraphics",
                 "-framework", "ImageIO", "-module-cache-path", str(root / "module-cache"),
                 "-o", str(binary),

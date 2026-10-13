@@ -37,7 +37,9 @@ SWIFT_SOURCES = [
 
 
 FIXTURE_ROOT = REPOSITORY_ROOT / "script/tests/fixtures"
+SUPPORT_SOURCE = FIXTURE_ROOT / "SceneResolvedMaterialDerivationSupport.swift"
 FIXTURE_SOURCES = [
+    SUPPORT_SOURCE,
     FIXTURE_ROOT / "SceneResolvedMaterialDerivationFixtures.swift",
     FIXTURE_ROOT / "SceneResolvedMaterialPreparedAssemblyCases.swift",
     FIXTURE_ROOT / "SceneResolvedMaterialDerivationCases.swift",

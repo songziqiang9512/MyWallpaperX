@@ -215,17 +215,28 @@ PROVIDER_SETUP = r'''
 '''
 
 
-def augmented_harness() -> str:
-    harness = FINALIZER_FIXTURE["HARNESS"]
-    result_marker = "        let result: [String: Any] = ["
-    key_marker = '            "metalAvailable": true,'
-    if harness.count(result_marker) != 1 or harness.count(key_marker) != 1:
-        raise RuntimeError("finalizer harness insertion point changed")
-    harness = harness.replace(result_marker, PROVIDER_SETUP + "\n" + result_marker)
-    return harness.replace(
-        key_marker,
-        key_marker + '\n            "sceneBackgroundProvider": sceneBackgroundProvider,',
-    )
+HARNESS = r'''
+import Foundation
+import Metal
+import simd
+
+@main
+enum SceneBackgroundProviderHarness {
+    static func main() throws {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            print("{\"metalAvailable\":false}")
+            return
+        }
+        let fixture = SceneResolvedMaterialFinalizerFixture(device: device)
+        let result = fixture.run {
+''' + PROVIDER_SETUP + r'''
+            return ["sceneBackgroundProvider": sceneBackgroundProvider]
+        }
+        let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+        withExtendedLifetime(fixture) { FileHandle.standardOutput.write(data) }
+    }
+}
+'''
 
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
@@ -239,8 +250,7 @@ class SceneBackgroundMaterialProviderTests(unittest.TestCase):
         support = root / "Support.swift"
         harness = root / "Harness.swift"
         binary = root / "scene-background-provider-test"
-        support.write_text(FINALIZER_FIXTURE["SUPPORT"], encoding="utf-8")
-        harness.write_text(augmented_harness(), encoding="utf-8")
+        harness.write_text(HARNESS, encoding="utf-8")
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
         environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
@@ -248,8 +258,8 @@ class SceneBackgroundMaterialProviderTests(unittest.TestCase):
         compilation = subprocess.run(
             [
                 "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
-                str(support),
                 *(str(path) for path in FINALIZER_FIXTURE["SWIFT_SOURCES"]),
+                *(str(path) for path in FINALIZER_FIXTURE["SHARED_FIXTURE_SOURCES"]),
                 str(harness),
                 "-framework", "Metal", "-framework", "CoreGraphics",
                 "-framework", "ImageIO", "-module-cache-path",

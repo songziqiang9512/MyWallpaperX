@@ -883,10 +883,10 @@
       "lastReviewed": "2026-10-13",
       "reviewBasis": {
         "kind": "implementation-evidence",
-        "sourceSHA256": "c651a20e90d004f1d746e20fc93a3ab46f64376386c456183987ace9a94ab0e5",
+        "sourceSHA256": "0c513e8ce77aa16c25cb4bce2840e85e99bd3f414782d6d3ebdd4af88aec341b",
         "method": "same-product fixture equivalence + variants/counterexamples + frozen Debug -O + GPU nearest + nine AS1 runs + heldout ordinary desktop pixels + independent static review",
         "scope": "static projection owner and live validation boundaries; measurements tracked in same archived receipt",
-        "limitations": "small CPU observation below old noise, control4 present debt retained; no stable gain, full sample, thermal, release or cohort acceptance"
+        "limitations": "small CPU observation below old noise, control4 present debt retained; later unused metadata and fixture consumers closed with grouped tests/normal desktop frames; no stable gain, full sample, thermal, release or cohort acceptance"
       }
     },
     {

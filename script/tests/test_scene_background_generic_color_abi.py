@@ -20,7 +20,7 @@ from script.tests.test_scene_generic_shader_texture_transform_compiler import co
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = runpy.run_path(str(Path(__file__).with_name(
     "test_scene_resolved_material_program_finalizer.py")))
-SOURCES = list(dict.fromkeys(FIXTURE["SWIFT_SOURCES"]))
+SOURCES = list(dict.fromkeys([*FIXTURE["SWIFT_SOURCES"], FIXTURE["SUPPORT_SOURCE"]]))
 NAMED_PROVIDER_FIXTURE = REPOSITORY_ROOT / "script/tests/fixtures/SceneNamedProviderColorBoundaryProbe.swift"
 
 HARNESS = r'''
@@ -246,7 +246,6 @@ class SceneBackgroundGenericColorABITests(unittest.TestCase):
         (app / "Contents/MacOS").mkdir()
         binary = app / "Contents/MacOS/Probe"
         support, harness = root / "Support.swift", root / "Harness.swift"
-        support.write_text(FIXTURE["SUPPORT"])
         harness.write_text(HARNESS + NAMED_PROVIDER_FIXTURE.read_text())
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
@@ -260,9 +259,9 @@ class SceneBackgroundGenericColorABITests(unittest.TestCase):
                 ["git", "show", f"{ref}:{source.relative_to(REPOSITORY_ROOT)}"], cwd=REPOSITORY_ROOT)
                 if ref else source.read_bytes())
             frozen_sources.append(target)
-        before = hashes(frozen_sources + [support, harness])
+        before = hashes(frozen_sources + [harness])
         command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", "-whole-module-optimization", "-Onone",
-            str(support), *map(str, frozen_sources), str(harness), "-framework", "Metal",
+            *map(str, frozen_sources), str(harness), "-framework", "Metal",
             "-framework", "CoreGraphics", "-framework", "ImageIO", "-framework", "Security",
             "-module-cache-path", str(root / "modules"), "-o", str(binary)]
         compiled = subprocess.run(command, cwd=REPOSITORY_ROOT, env=environment,
@@ -273,7 +272,7 @@ class SceneBackgroundGenericColorABITests(unittest.TestCase):
             evidence.mkdir(parents=True, exist_ok=True)
             (evidence / "compile.json").write_text(json.dumps({"command": command,
                 "returncode": compiled.returncode, "stderr": compiled.stderr,
-                "before": before, "after": hashes(frozen_sources + [support, harness])}, indent=2) + "\n")
+                "before": before, "after": hashes(frozen_sources + [harness])}, indent=2) + "\n")
         if compiled.returncode:
             raise RuntimeError(compiled.stderr)
         cls.results = {}
@@ -299,7 +298,7 @@ class SceneBackgroundGenericColorABITests(unittest.TestCase):
             if completed.returncode:
                 raise RuntimeError(completed.stderr or completed.stdout)
             cls.results[route] = json.loads(completed.stdout)
-        if before != hashes(frozen_sources + [support, harness]):
+        if before != hashes(frozen_sources + [harness]):
             raise RuntimeError("Production inputs changed during the background ABI gate")
         if not all(cls.results.values()):
             raise unittest.SkipTest("Metal unavailable; no background ABI/GPU evidence")

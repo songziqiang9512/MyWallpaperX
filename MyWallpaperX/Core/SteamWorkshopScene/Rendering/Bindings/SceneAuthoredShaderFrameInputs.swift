@@ -97,7 +97,6 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
     let pointerPreviousNDC: SIMD2<Float>
     let pointerPrimaryButtonDown: Bool
     let parallaxPositionNDC: SIMD2<Float>
-    let texturePhysicalSizes: [Int: CGSize]
     let audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs
 
     init(
@@ -118,7 +117,6 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         pointerPreviousNDC: SIMD2<Float>,
         pointerPrimaryButtonDown: Bool = false,
         parallaxPositionNDC: SIMD2<Float> = .zero,
-        texturePhysicalSizes: [Int: CGSize],
         audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent
     ) {
         self.frameIndex = frameIndex
@@ -139,7 +137,6 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         self.pointerPreviousNDC = pointerPreviousNDC
         self.pointerPrimaryButtonDown = pointerPrimaryButtonDown
         self.parallaxPositionNDC = parallaxPositionNDC
-        self.texturePhysicalSizes = texturePhysicalSizes
         self.audioSpectrum = audioSpectrum
     }
 }

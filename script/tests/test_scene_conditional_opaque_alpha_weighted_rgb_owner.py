@@ -32,9 +32,10 @@ def ordered_unique(paths: list[Path]) -> list[Path]:
 SWIFT_SOURCES = ordered_unique([
     *generic.SWIFT_SOURCES,
     *derivation.SWIFT_SOURCES,
+    derivation.SUPPORT_SOURCE,
 ])
 
-HARNESS = derivation.SUPPORT + r'''
+HARNESS = r'''
 import Foundation
 import Metal
 

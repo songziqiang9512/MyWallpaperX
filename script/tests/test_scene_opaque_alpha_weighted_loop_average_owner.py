@@ -83,19 +83,14 @@ void main() {
 """
 
 LAUNCH_GATE_HARNESS = (
-    finalizer.HARNESS.split("@main\nprivate enum Harness", 1)[0]
-    + r'''
-private enum Harness {
-    static func float(_ data: Data, at offset: Int) -> Float {
-        data.withUnsafeBytes {
-            $0.loadUnaligned(fromByteOffset: offset, as: Float.self)
-        }
-    }
-}
+    r'''
+import Foundation
+import Metal
+import simd
 
 private func launchGateVariant(
     _ base: SceneResolvedMaterialCompiledVariant
-) -> SceneResolvedMaterialCompiledVariant {
+) throws -> SceneResolvedMaterialCompiledVariant {
     let frontend = SceneAuthoredShaderProgram(
         metalSource: base.frontendProgram.metalSource,
         vertexFunctionName: base.frontendProgram.vertexFunctionName,
@@ -109,24 +104,28 @@ private func launchGateVariant(
             base.frontendProgram.fragmentOutputChannelUse,
         backend: base.frontendProgram.backend
     )
+    let assembly = try SceneResolvedMaterialProgram.PreparedAssembly(
+        preparedShader: base.preparedShader,
+        frontend: frontend,
+        renderState: base.preparedAssembly.renderState,
+        runtimeLoopBounds: base.runtimeLoopBounds,
+        hasEffectContext: base.preparedAssembly.hasEffectContext,
+        conditionalGeneratedRGBInputContract: base.conditionalGeneratedRGBInputContract,
+        associatedOverOverlaySlot: base.associatedOverOverlaySlot,
+        premultipliedColorInputSlots: base.premultipliedColorInputSlots
+    )
     return .init(
         readinessMask: base.readinessMask,
         textureFormats: base.textureFormats,
-        preparedShader: base.preparedShader,
+        preparedAssembly: assembly,
         resolvedIntegerCombos: base.resolvedIntegerCombos,
-        frontendProgram: frontend,
         routeDecision: base.routeDecision,
-        runtimeLoopBounds: base.runtimeLoopBounds,
         activeSamplers: base.activeSamplers,
         graphInputSourceSlotFacts: base.graphInputSourceSlotFacts,
         preservedAlphaRGBColorSlots: base.preservedAlphaRGBColorSlots,
         sourceProvenOpaqueColorSlots: [0],
-        premultipliedColorInputSlots: base.premultipliedColorInputSlots,
         preservedChannelsProviderInputSlots:
             base.preservedChannelsProviderInputSlots,
-        associatedOverOverlaySlot: base.associatedOverOverlaySlot,
-        conditionalGeneratedRGBInputContract:
-            base.conditionalGeneratedRGBInputContract,
         sameAlphaReconstructedRGBInputContract:
             base.sameAlphaReconstructedRGBInputContract,
         activeUniforms: base.activeUniforms,
@@ -195,7 +194,7 @@ private enum LaunchGateHarness {
         ) else {
             fatalError("launch gate fixture did not compile")
         }
-        let variant = launchGateVariant(base)
+        let variant = try launchGateVariant(base)
         let result = [
             "opaque": launchGateToken(
                 template: material,
@@ -498,7 +497,6 @@ class SceneOpaqueAlphaWeightedLoopAverageOwnerTests(unittest.TestCase):
             support = root / "Support.swift"
             harness = root / "LaunchGateHarness.swift"
             binary = root / "launch-gate-test"
-            support.write_text(finalizer.SUPPORT, encoding="utf-8")
             harness.write_text(LAUNCH_GATE_HARNESS, encoding="utf-8")
             environment = os.environ.copy()
             environment["MWX_SCENE_GENERIC_SHADER_ROUTE"] = "disable-generic"
@@ -511,8 +509,8 @@ class SceneOpaqueAlphaWeightedLoopAverageOwnerTests(unittest.TestCase):
                     "macosx",
                     "swiftc",
                     "-parse-as-library",
-                    str(support),
                     *(str(path) for path in finalizer.SWIFT_SOURCES),
+                    *(str(path) for path in finalizer.SHARED_FIXTURE_SOURCES),
                     str(harness),
                     "-module-cache-path",
                     str(root / "module-cache"),

@@ -101,7 +101,9 @@ SWIFT_SOURCES = [
 
 
 FIXTURE_ROOT = REPOSITORY_ROOT / "script/tests/fixtures"
-FIXTURE_SOURCES = [
+SUPPORT_SOURCE = FIXTURE_ROOT / "SceneResolvedMaterialFinalizerSupport.swift"
+SHARED_FIXTURE_SOURCES = [
+    SUPPORT_SOURCE,
     FIXTURE_ROOT / "SceneResolvedMaterialFinalizerShaderFixtures.swift",
     FIXTURE_ROOT / "SceneResolvedMaterialFinalizerFrameFixtures.swift",
     FIXTURE_ROOT / "SceneResolvedMaterialFinalizerColorEligibilityCases.swift",
@@ -113,6 +115,10 @@ FIXTURE_SOURCES = [
     FIXTURE_ROOT / "SceneResolvedMaterialFinalizerProviderResourceCases.swift",
     FIXTURE_ROOT / "SceneResolvedMaterialFinalizerFailureCases.swift",
     FIXTURE_ROOT / "SceneResolvedMaterialPreparedVariantCases.swift",
+    FIXTURE_ROOT / "SceneResolvedMaterialFinalizerSharedState.swift",
+]
+FIXTURE_SOURCES = [
+    *SHARED_FIXTURE_SOURCES,
     FIXTURE_ROOT / "SceneResolvedMaterialFinalizerHarness.swift",
 ]
 

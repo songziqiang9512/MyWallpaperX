@@ -127,7 +127,7 @@ final class SceneResolvedMaterialFinalizerDynamicUniformCases {
         else { return false }
         guard case let .color(contract) =
                 program.semanticIdentity.outputContract else { return false }
-        return Harness.float(program.uniformBytes, at: field.offset) == 0.25
+        return sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: field.offset) == 0.25
             && contract.fragmentOutput == .straightAlpha
             && inputAssociationMask(program) == 1
     }()
@@ -221,8 +221,8 @@ final class SceneResolvedMaterialFinalizerDynamicUniformCases {
               let fallbackField = fallback.frontendProgram.uniformLayout.fields.first(
                   where: { $0.name == "g_UserAlpha" }
               ) else { return false }
-        return Harness.float(live.uniformBytes, at: liveField.offset) == 0.4
-            && Harness.float(fallback.uniformBytes, at: fallbackField.offset) == 0.75
+        return sceneResolvedMaterialFixtureFloat(live.uniformBytes, at: liveField.offset) == 0.4
+            && sceneResolvedMaterialFixtureFloat(fallback.uniformBytes, at: fallbackField.offset) == 0.75
             && failureToken(self.directScalarInvalidFallback)
                 == "uniform/dynamicUniformBindingInvalid"
             && failureToken(self.directScalarTypeMismatch)
@@ -253,7 +253,7 @@ final class SceneResolvedMaterialFinalizerDynamicUniformCases {
                 where: { $0.name == "g_UserAlpha" }
               )
         else { return false }
-        return Harness.float(program.uniformBytes, at: field.offset) == 0.25
+        return sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: field.offset) == 0.25
     }()
 
     lazy var timelineVectorA = finalize(
@@ -414,10 +414,10 @@ final class SceneResolvedMaterialFinalizerDynamicUniformCases {
                   where: { $0.name == "u_Scale" }
               ) else { return false }
         return field.type == .float2
-            && Harness.float(program.uniformBytes, at: field.offset) == 0.6
-            && Harness.float(program.uniformBytes, at: field.offset + 4) == 0.6
-            && Harness.float(authored.uniformBytes, at: field.offset) == 0.6
-            && Harness.float(authored.uniformBytes, at: field.offset + 4) == 0.6
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: field.offset) == 0.6
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: field.offset + 4) == 0.6
+            && sceneResolvedMaterialFixtureFloat(authored.uniformBytes, at: field.offset) == 0.6
+            && sceneResolvedMaterialFixtureFloat(authored.uniformBytes, at: field.offset + 4) == 0.6
     }()
 
     lazy var authoredOutOfRangeScalarFloat2SentinelPreserved: Bool = {
@@ -429,10 +429,10 @@ final class SceneResolvedMaterialFinalizerDynamicUniformCases {
               ), let fallbackField = fallback.frontendProgram.uniformLayout.fields.first(
                   where: { $0.name == "u_Scale" }
               ) else { return false }
-        return Harness.float(authored.uniformBytes, at: authoredField.offset) == 0
-            && Harness.float(authored.uniformBytes, at: authoredField.offset + 4) == 0
-            && Harness.float(fallback.uniformBytes, at: fallbackField.offset) == 0
-            && Harness.float(fallback.uniformBytes, at: fallbackField.offset + 4) == 0
+        return sceneResolvedMaterialFixtureFloat(authored.uniformBytes, at: authoredField.offset) == 0
+            && sceneResolvedMaterialFixtureFloat(authored.uniformBytes, at: authoredField.offset + 4) == 0
+            && sceneResolvedMaterialFixtureFloat(fallback.uniformBytes, at: fallbackField.offset) == 0
+            && sceneResolvedMaterialFixtureFloat(fallback.uniformBytes, at: fallbackField.offset + 4) == 0
             && failureToken(self.mismatchedOutOfRangeAuthoredSentinel)
                 == "uniform/dynamicUniformBindingInvalid"
     }()
@@ -448,10 +448,10 @@ final class SceneResolvedMaterialFinalizerDynamicUniformCases {
               ), let overflowField = overflow.frontendProgram.uniformLayout.fields.first(
                   where: { $0.name == "u_Scale" }
               ) else { return false }
-        return Harness.float(zero.uniformBytes, at: zeroField.offset) == 0
-            && Harness.float(fraction.uniformBytes, at: fractionField.offset)
+        return sceneResolvedMaterialFixtureFloat(zero.uniformBytes, at: zeroField.offset) == 0
+            && sceneResolvedMaterialFixtureFloat(fraction.uniformBytes, at: fractionField.offset)
                 == Float(0.005)
-            && Harness.float(overflow.uniformBytes, at: overflowField.offset)
+            && sceneResolvedMaterialFixtureFloat(overflow.uniformBytes, at: overflowField.offset)
                 == Float(0.05)
     }()
 
@@ -462,8 +462,8 @@ final class SceneResolvedMaterialFinalizerDynamicUniformCases {
               ) else { return false }
         return field.type == .float2
             && field.arrayCount == nil
-            && Harness.float(program.uniformBytes, at: field.offset) == 0.4
-            && Harness.float(program.uniformBytes, at: field.offset + 4) == 0.4
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: field.offset) == 0.4
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: field.offset + 4) == 0.4
     }()
 
     lazy var unequalDefaultStaticScalarSplat = finalize(
@@ -595,8 +595,8 @@ final class SceneResolvedMaterialFinalizerDynamicUniformCases {
               let field = program.frontendProgram.uniformLayout.fields.first(
                   where: { $0.name == "u_Scale" }
               ) else { return false }
-        return Harness.float(program.uniformBytes, at: field.offset) == 0.4
-            && Harness.float(program.uniformBytes, at: field.offset + 4) == 0.7
+        return sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: field.offset) == 0.4
+            && sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: field.offset + 4) == 0.7
     }()
 
     lazy var unequalScalarSplatFallback = finalize(
