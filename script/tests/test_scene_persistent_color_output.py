@@ -267,7 +267,7 @@ import Metal
             return outcome
         }
         func seal(_ value: Frame) -> Bool {
-            renderer.encodeTerminalColor(sceneColor: nil, target: value.main,
+            renderer.encodeTerminalColor(sourceCompleted: value.reflection.mainSourceCompleted, sceneColor: nil, target: value.main,
                 offscreenTexturePool: pool, dynamicValues: value.dynamic,
                 commandBuffer: value.commandBuffer) == nil
         }

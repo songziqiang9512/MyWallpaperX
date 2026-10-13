@@ -18,6 +18,8 @@ void MWXArmEncoderFault(id<MTLCommandBuffer> buffer, NSUInteger index);
 NSUInteger MWXEncoderAttempts(void);
 void MWXArmPipelineFault(id<MTLDevice> device, NSUInteger index);
 NSUInteger MWXPipelineAttempts(void);
+void MWXArmMissingAttachmentFunction(id<MTLLibrary> library, BOOL armed);
+NSUInteger MWXMissingFunctionAttempts(void);
 '''
 FAULT_SOURCE = r'''
 #import "Fault.h"
@@ -61,6 +63,25 @@ void MWXArmPipelineFault(id<MTLDevice> device, NSUInteger index) {
     pipelineAttempts = 0;
 }
 NSUInteger MWXPipelineAttempts(void) { return pipelineAttempts; }
+static BOOL missingAttachment;
+static NSUInteger missingFunctionAttempts;
+static IMP functionOriginal;
+static id faultFunction(id receiver, SEL selector, NSString *name) {
+    if (missingAttachment && [name isEqualToString:@"sceneDisplayMappingAttachmentFragment"]) {
+        ++missingFunctionAttempts;
+        return nil;
+    }
+    return ((id (*)(id, SEL, id))functionOriginal)(receiver, selector, name);
+}
+void MWXArmMissingAttachmentFunction(id<MTLLibrary> library, BOOL armed) {
+    if (!functionOriginal) {
+        Method method = class_getInstanceMethod(object_getClass(library), @selector(newFunctionWithName:));
+        functionOriginal = method_setImplementation(method, (IMP)faultFunction);
+    }
+    missingAttachment = armed;
+    missingFunctionAttempts = 0;
+}
+NSUInteger MWXMissingFunctionAttempts(void) { return missingFunctionAttempts; }
 
 '''
 HARNESS = r'''

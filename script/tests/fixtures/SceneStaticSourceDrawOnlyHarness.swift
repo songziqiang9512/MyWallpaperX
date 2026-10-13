@@ -3,6 +3,8 @@ import Foundation
 import Metal
 import simd
 
+struct SceneFrameTiming { let sceneTime: TimeInterval }
+
 // Harness stubs mirror the exact member surface the compiled product files
 // touch. Product files listed in STATIC_SOURCE_DRAW_ONLY_SOURCES stay verbatim.
 
@@ -443,7 +445,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
     func deferPreparedFrame() -> Bool { true }
     func resolvedAssetStates(
-        sceneTime: TimeInterval
+        timing: SceneFrameTiming
     ) -> [SceneAssetTextureIdentity: SceneTextureProviderState] { [:] }
     func commitResolvedAssetFrame() {}
     func discardResolvedAssetFrame() {}

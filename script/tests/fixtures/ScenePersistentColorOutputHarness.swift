@@ -208,7 +208,7 @@ import Metal
             let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 3,
                 generation: 3, definitions: []).snapshot
             MWXArmBlitFault(cb, UInt(mask))
-            let outcome = terminalRenderer(mapping).encodeTerminalColor(sceneColor: r,
+            let outcome = terminalRenderer(mapping).encodeTerminalColor(sourceCompleted: true, sceneColor: r,
                 target: display, offscreenTexturePool: storage, dynamicValues: snapshot, commandBuffer: cb)
             MWXArmBlitFault(cb, 0)
             if mask == 1 {
@@ -236,7 +236,7 @@ import Metal
             frameIndex: 4, clearEnabled: false, commandBuffer: nilMappingCB)
         let nilSnapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 4, generation: 4, definitions: []).snapshot
         checks["actualHelperPreparesRaw"] = nilStart.failure == nil && nilStart.reservation != nil
-        let nilOutcome = nilMappingRenderer.encodeTerminalColor(sceneColor: nilStart.reservation,
+        let nilOutcome = nilMappingRenderer.encodeTerminalColor(sourceCompleted: true, sceneColor: nilStart.reservation,
             target: nilMappingTarget, offscreenTexturePool: storage, dynamicValues: nilSnapshot,
             commandBuffer: nilMappingCB)
         checks["actualHelperNilMappingExports"] = nilOutcome == nil
@@ -253,10 +253,18 @@ import Metal
                 let previousCompleted = owner.completedSceneColor!.persistenceReservation!.raw
                 let reservation = accumulating ? owner.reserveSceneColor(pool: storage,
                     width: 8, height: 8, frameIndex: 5, commandBuffer: cb) : nil
-                if let reservation { copy(reservation.previous!, reservation.raw, cb) }
+                let sourceCompleted: Bool
+                if let reservation {
+                    copy(reservation.previous!, reservation.raw, cb)
+                    sourceCompleted = true
+                } else {
+                    let pass = SceneMainPassEncoder(commandBuffer: cb, target: display,
+                        clearColor: MTLClearColorMake(3, 0.25, 0.5, 1), clearEnabled: true)
+                    sourceCompleted = pass.finishEnsuringClear()
+                }
                 MWXArmBlitFault(cb, fault == "blit" ? 1 : 0)
                 MWXArmEncoderFault(cb, fault == "encoder" ? 1 : 0)
-                let outcome = terminalRenderer(fault == "pipeline" ? nil : mapping).encodeTerminalColor(
+                let outcome = terminalRenderer(fault == "pipeline" ? nil : mapping).encodeTerminalColor(sourceCompleted: sourceCompleted,
                     sceneColor: reservation, target: display, offscreenTexturePool: storage,
                     dynamicValues: nilSnapshot, commandBuffer: cb,
                     output: .extendedLinearSRGB(headroom: 4))
@@ -274,7 +282,7 @@ import Metal
         let linearReservation = owner.reserveSceneColor(pool: storage, width: 8, height: 8,
             frameIndex: 6, commandBuffer: linearCB)!
         copy(linearReservation.previous!, linearReservation.raw, linearCB)
-        let linearOutcome = terminalRenderer(mapping).encodeTerminalColor(sceneColor: linearReservation,
+        let linearOutcome = terminalRenderer(mapping).encodeTerminalColor(sourceCompleted: true, sceneColor: linearReservation,
             target: linearTarget, offscreenTexturePool: storage, dynamicValues: nilSnapshot,
             commandBuffer: linearCB, output: .extendedLinearSRGB(headroom: 4))
         checks["linearRecoveryEncodes"] = linearOutcome == nil

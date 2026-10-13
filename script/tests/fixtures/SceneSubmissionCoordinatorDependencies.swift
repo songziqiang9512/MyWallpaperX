@@ -787,7 +787,21 @@ struct SceneResolvedMaterialFrameSnapshot {
     }
 }
 
-struct SceneAssetTextureIdentity: Hashable { let value: String }
+struct SceneAssetTextureIdentity: Hashable {
+    let value: String
+    var reportToken: String { value }
+}
+struct SceneFrameTiming { let sceneTime: TimeInterval }
+final class SceneVideoTextureSource {
+    struct Frame {
+        func assetPublication(for identity: SceneAssetTextureIdentity) -> SceneTextureProviderPublication? {
+            fatalError("coordinator fixture must not execute video publication")
+        }
+    }
+    func prepareFrame(for timing: SceneFrameTiming) -> Frame? {
+        fatalError("coordinator fixture must not prepare video")
+    }
+}
 enum SceneTextureProviderState {
     case ready(SceneTextureProviderPublication)
     case absent
@@ -937,11 +951,7 @@ final class SceneResolvedMaterialGraphExecutor {
         device: MTLDevice,
         capabilities: SceneResolvedMaterialExecutionCapabilityCatalog,
         capturesExecutionDiagnostics: Bool = true
-    ) {
-        _ = device
-        _ = capabilities
-        _ = capturesExecutionDiagnostics
-    }
+    ) {}
     func prepare(
         token: SceneResolvedMaterialExecutionCapabilityCatalog.Token,
         leases: [SceneGraphRenderTargetLease],
@@ -962,13 +972,6 @@ final class SceneResolvedMaterialGraphExecutor {
         effectGeneration: UInt64,
         resetGeneration: UInt64
     ) -> Result<PreparedGraph, Failure> {
-        _ = token; _ = leases; _ = historyRehydrateCopiesByEffect; _ = frame
-        _ = materialFunctionInvocations; _ = sceneBackgroundResource
-        _ = sourceTexture; _ = sourceUniforms; _ = sourcePipeline
-        _ = sourceLighting
-        _ = frameInputs; _ = commandBuffer
-        _ = previousStates; _ = previousGraphResources
-        _ = effectGeneration; _ = resetGeneration
         Self.prepareCallCount += 1
         Self.prepareTokens.append(token.value)
         if let texture = frameInputs.dependencyEffects.first?.texture {

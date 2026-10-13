@@ -115,7 +115,7 @@ private enum Harness {
                 },
             "sourceCaptureIsExact": exactSourceCapture,
             "colorHistoryPublishesColor": serialQuarter.frames.allSatisfy {
-                $0.finalContent == .color(.resolved(.premultipliedAlpha))
+                $0.finalContent == .color(.resolved(.straightAlpha))
             },
             "dataHistoryPublishesTypedData": typedDataPublication,
             "quarterFailure": "success",

@@ -35,10 +35,14 @@ import Metal
             let encoder = buffer.makeBlitCommandEncoder()!
             encoder.fill(buffer: marker, range: 0..<4, value: UInt8(index * 11))
             encoder.endEncoding()
+            let mainPass = SceneMainPassEncoder(commandBuffer: buffer, target: target,
+                clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
+            let sourceCompleted = mainPass.finishEnsuringClear()
             // Exercise a real product invalidation between begin and seal.
             // The next iteration begins a fresh frame on the same owner.
             if index == 2 { owner.invalidate(reason: .executorInvalidation) }
-            let failure = renderer.encodeTerminalColor(sceneColor: nil, target: target,
+            let failure = renderer.encodeTerminalColor(sourceCompleted: sourceCompleted,
+                sceneColor: nil, target: target,
                 offscreenTexturePool: nil, dynamicValues: snapshot, commandBuffer: buffer)
             accepted.append(failure == nil)
             beforeSubmit.append(buffer.status == .notEnqueued && marker.contents().load(as: UInt8.self) == 0)

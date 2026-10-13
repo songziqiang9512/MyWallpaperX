@@ -118,6 +118,7 @@ struct SceneMetalRenderer {
         if let failure = colorStart.failure { return failure }
         let sceneColor = colorStart.reservation
         let mainTarget = sceneColor?.raw ?? drawable.texture
+        var displayMappingInput: SceneDisplayMappingPostProcess.Input = .textureSource
         var particleBatches: [SceneParticleDrawBatch] = []
         var particlePerformanceObservations: [SceneParticlePerformanceObservation]? =
             performanceTelemetry == nil ? nil : []
@@ -175,6 +176,7 @@ struct SceneMetalRenderer {
                 effectExecutionTrace: effectExecutionTrace,
                 mainTarget: mainTarget,
                 sceneColor: sceneColor,
+                displayMappingInput: &displayMappingInput,
                 frameDepthLeases: &frameDepthLeases,
                 particleBatches: &particleBatches,
                 particlePerformanceObservations: &particlePerformanceObservations,
@@ -187,9 +189,12 @@ struct SceneMetalRenderer {
         let hubCompositorSealStart = ProcessInfo.processInfo.systemUptime
         if let failure = encodeReflectionSnapshot(reflectionFrame, source: mainTarget,
             commandBuffer: commandBuffer) { return failure }
-        if let failure = encodeTerminalColor(sceneColor: sceneColor, target: drawable.texture,
+        if let failure = encodeTerminalColor(
+            sourceCompleted: sceneColor?.requiresDraw == false || reflectionFrame?.mainSourceCompleted == true,
+            sceneColor: sceneColor, target: drawable.texture,
             offscreenTexturePool: offscreenTexturePool, dynamicValues: frameContext.dynamicValues,
             commandBuffer: commandBuffer, output: displayOutput,
+            input: displayMappingInput,
             compositionGroupRuntime: compositionGroupRuntime) { return failure }
         let preparedFrame = makePreparedFrame(
             commandBuffer: commandBuffer,

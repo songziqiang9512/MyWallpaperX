@@ -496,7 +496,7 @@ private func sourcePipeline(_ device: MTLDevice) -> SceneImageLayerPipeline {
     let source = """
     #include <metal_stdlib>
     using namespace metal;
-    struct Vertex { float2 position; float2 texcoord; };
+    struct Vertex { float2 position; float2 texcoord; float vertexCoverage; };
     struct Varying { float4 position [[position]]; float2 texcoord; };
     // Mirrors the shared SceneLayerFragmentUniforms layout so `tint` is
     // read at the offset the CPU stub produces.

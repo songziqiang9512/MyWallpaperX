@@ -68,6 +68,24 @@ PMA→straight 是表示转换，不是显示映射。现有编译器插入的�
 
 资源沿现役 allocation cache/residency pin 与 SubmissionCoordinator 管理，只有身份匹配且 GPU completed 才提升 raw。暂停导出不重跑 VM/模拟；resize/reset 后的新 raw epoch 先安全初始化。Bloom失败保留安全原图；线性surface显示映射失败保留旧帧，禁止导出未解码raw；资源/代际错误拒绝对应候选；不新增历史、完成回调或资源 owner。后续 HDR 改动继续通过 raw 多帧累积、paused resize、失败恢复和预算门。
 
+<a id="clear-true-attachment-mapping"></a>
+
+## 清底 HDR 终端 attachment 输入（2026-10-14，实施边界）
+
+**目标与差距。** 当前清底 HDR 先在 drawable 完成作者合成、raw 反射快照及 Bloom，再复制全屏到 terminal scratch，由显示 owner 采样映射回 drawable。首批仅在没有上游 terminal 预算耦合的帧，消除这一次复制与 scratch需求，保持逐像素颜色、alpha、headroom、反射顺序、唯一提交/呈现和失败恢复；不改变作者算法、raw 累积、Bloom、资源预算或显示颜色空间，不按样本/路径挑选。平台依据为 Apple [MSL fragment color 输入](https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf#page=146)、[GPU feature table](https://developer.apple.com/metal/feature-sets/) 的 programmable blending 和 [.load/.store](https://developer.apple.com/documentation/Metal/setting-load-and-store-actions)，不依赖 WE 私有实现。
+
+**取舍。** 提前占用独立 full-screen scratch 即使自身准入成功，仍可能挤掉原本可工作的 group/source/capture/Bloom；现役终端能等读者退出后借 group scratch，graph preflight 不能证明全部强制资源已容纳。故不采用“reserve 成功即提前改写主目标”的方案。attachment 输入不增加全屏分配，仍沿原合成与 Bloom 写 drawable；仅把相同映射的输入从 distinct texture 改为当前 color attachment，不再给源域或资源生命周期另设 owner。clear=false 保留 RF07 distinct raw/display，包括 paused export、epoch/bootstrap 与完成提升。删除终端占位也可能让原被拒绝的shadow先获准、随后挤掉原能准备的source（预算100，G40/T40/Z50/source20）；该设计期静态反例已由真实pool复验，首批不改变这些耦合帧的route或资源次序，不用unused分配/虚拟ledger掩盖。
+
+**准备与帧选择。** SceneDisplayMappingPostProcess 仍拥有必需的 texture-source PSO；仅在设备具备 Apple2+ programmable blending、配置 RGBA16Float 时，尝试准备可选 attachment PSO。缺函数或 PSO 失败只关闭该输入方式，必需 owner/颜色 transfer 不退出。实际帧 target 必须为同设备、同格式、2D、单采样 render target；帧还须clear=true、无persistence/main-target raw、既有hasShadowReceiver=false、原hasReflectionConsumers(...)返回false且sourceMaterials为空（固定runtime缺席也使原if-let支路不执行），保证原三处terminal保护分支均不执行。准备不进入普通帧；原graph admission不依赖此mode且main target不改，renderer在该准入后、首次optional/source/named-shadow预算前，复用已算的visible/plan/shadow/reflection事实冻结一次typed input，tail消费；原reflection需求惰性缓存一次供原两处共用，保耦合帧的短路；graph拒绝/取消不产生可消费attachment mode。不同设备/格式、累积或任一预算耦合帧保留原distinct输入与全部原保护/优先级，不事后改模式。clear=true合法的intent.snapshot不是persistence/main target，不因其出现撤换mode；当前有reflection需求的帧本就走legacy。
+
+**数据流。** 原作者合成 → 原 raw 反射快照 → 原 Bloom → 同 drawable 的独立 fullscreen 映射 pass，attachment .load/.store、固定 blending 关闭，fragment 以 [[color(0)]] 读取已存值；不得把同目标同时绑定为 sampled texture。texture 与 attachment fragment 共用一个 RGB/headroom/alpha 数学 helper，沿现 vertex coverage、三角 strip 和唯一输出 owner，不复制曲线。符合条件的attachment帧中，原三处terminal保护已不执行，故其资源申请序列直到tail与旧路一致，只有tail的copy/scratch省去；graph、源、named capture、depth、反射与Bloom保护不减。不在source/shadow/reflection耦合帧删除占位；后继扩范围先由原公共资源owner设计优先级与全部预算反例，不把本设计批准扩大解释。
+
+**失败与退出。** 先消费现有mainSourceCompleted或已完成paused raw事实；主clear/编码失败时所有终端输入都拒绝本帧，不让Bloom或映射读未定义主源，复用原失败原因与取消/恢复。这也修正旧清底texture输入的存量缺口，不增源完成owner。attachment encoder创建失败发生在任何写入前：SDR 保留已合成/Bloom的安全原图；extended-linear surface 拒绝本次输出、保旧帧，由现 Session/SubmissionCoordinator 管恢复。不得编码后迟申请未受保护的 legacy scratch。GPU 完成失败/取消、resize/reset、迟到事件仍归原完成与资源 owner；本方式不保 history、pin、另一路呈现或 retry。supported route 只执行一种输入，unsupported 准备事实仍是平台合同，不建立逐帧影子链。通过本批门后，将稳定输入合同移交输出架构并退役新增窄登记；其他 HDR/物理显示未定范围保留。
+
+**验收与停止。** 实际 Metal/Swift owner 门覆盖非均匀且奇数尺寸完整像素、边缘/strip 对角、普通 SDR、超白、负值/非有限、alpha 和 headroom1/>1及非法值；以现 distinct 输出与已知普通色 oracle 比较，容差先冻结。验证 optional 函数/PSO 准备失败和真实 encoder 故障、线性映射失败不呈现、下一帧恢复；保 RF07 多帧/暂停/resize/reset/cancel、反射 raw 先于 Bloom/映射、原预算下group/source/capture能工作；用真实pool/owner复验预算100的顺序反例，耦合帧必须选择legacy且保持原source/shadow资格，不能以另一个功能改善抵销退化。测试输入改名、尺寸/颜色/表达变体及8位格式/累积帧、shadow/reflection/source非空等相邻不命中。做 Debug build 与优化诊断 App 三轮同条件 baseline/candidate/必要返回，对照实际 copy bytes、GPU、CPU/完成帧、驻留与首帧，不推定 .load 免费。另采真实样本后期完整画面、heldout 与普通产品入口；若像素/生命周期/预算退化或收益不稳定，撤回或重排，门禁和少画内容不算收益。实际硬件 EDR亮度、多屏及非 Apple device 的运行覆盖单列未验，不能以 PSO 准备或 PNG 关闭。
+
+实施后仅接收少一次全屏复制及有界驻留收益；整帧CPU/GPU与启动未证稳定改善，负面轮次保留。稳定职责归[运行合同](../../architecture/runtime-architecture.md)，同条件测量、GPU/实际App、产品入口及未覆盖边界归[执行记录](../../history/hdr-attachment-mapping-convergence-2026-10-14.md)。物理EDR、多屏及其余HDR范围仍开放。
+
 ## fallback / route
 
 平台不支持、headroom 回到 SDR、可选 metadata 不可用时走已验证 SDR 导出。颜色语义不明的输入保留现役 SDR route 并标记未兼容；不得默默 reinterpret。非法 format/range/generation 拒绝候选输出，保留安全旧帧。普通映射管线失败不破坏前序 graph current。

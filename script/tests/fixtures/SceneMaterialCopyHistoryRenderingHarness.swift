@@ -476,7 +476,7 @@ func sourcePipeline(_ device: MTLDevice) -> SceneImageLayerPipeline {
     let source = """
     #include <metal_stdlib>
     using namespace metal;
-    struct Vertex { float2 position; float2 texcoord; };
+    struct Vertex { float2 position; float2 texcoord; float vertexCoverage; };
     struct Varying { float4 position [[position]]; float2 texcoord; };
     // Mirrors the shared SceneLayerFragmentUniforms layout so `tint` is
     // read at the offset the CPU stub produces.
@@ -600,7 +600,15 @@ private func approximately(
 }
 
 private func expected(scale: Float) -> [UInt8] {
-    sourcePixels.map { UInt8((Float($0) * scale).rounded()) }
+    // The capture is PMA. Ordinary authored mix/passthrough evaluates in
+    // straight RGB and stores straight history; alpha follows the same IIR.
+    // Derive from the original bytes, independently of the runtime helpers.
+    sourcePixels.enumerated().map { index, component in
+        let alpha = Float(sourcePixels[index / 4 * 4 + 3])
+        let value = index % 4 == 3 ? Float(component)
+            : (alpha > 0 ? Float(component) * 255 / alpha : 0)
+        return UInt8(min(255, max(0, value * scale)).rounded())
+    }
 }
 
 struct CoordinatorFrameResult {
@@ -845,7 +853,7 @@ func runCoordinatorSequence(
             source: source,
             pipeline: pipeline,
             queue: queue,
-            expectedContent: .color(.resolved(.premultipliedAlpha)),
+            expectedContent: .color(.resolved(.straightAlpha)),
             usesExternalResourceBundle: usesExternalResourceBundle
         )
     }
@@ -919,7 +927,7 @@ func sequenceMatches(
         && zip(sequence.frames, scales).allSatisfy { frame, scale in
             frame.completed
                 && frame.finalContent
-                    == .color(.resolved(.premultipliedAlpha))
+                    == .color(.resolved(.straightAlpha))
                 && approximately(frame.currentPixels, expected(scale: scale))
                 && approximately(frame.historyPixels, expected(scale: scale))
                 && approximately(frame.outputPixels, expected(scale: scale))

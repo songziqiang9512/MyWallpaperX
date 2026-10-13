@@ -1487,6 +1487,7 @@
       "id": "scene-material-copy-history-harness",
       "patterns": [
         "script/tests/fixtures/SceneMaterialCopyHistoryRenderingHarness.swift",
+        "script/tests/fixtures/SceneMaterialCopyHistoryRenderingMain.swift",
         "script/tests/scene_preserved_channel_history_fixture.py"
       ],
       "modules": [
@@ -1751,7 +1752,8 @@
         "test_scene_renderer_submission_stage",
         "test_scene_reflection_history_integration",
         "test_scene_reflection_history_named_depth",
-        "test_scene_authored_environment_integration"
+        "test_scene_authored_environment_integration",
+        "test_scene_persistent_color_attachment"
       ]
     },
     {

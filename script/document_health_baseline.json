@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 119678
+      "bytes": 120778
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -149,8 +149,8 @@
       "bytes": 8029
     },
     "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md": {
-      "lines": 104,
-      "bytes": 20896
+      "lines": 122,
+      "bytes": 27530
     },
     "docs/scene/roadmap/batch2/host-render-power-protocol-design.md": {
       "lines": 54,
@@ -1154,24 +1154,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "ba22b090d83703793d9a43b77db6efe8dd48852e194e9c5b2fd5e30a0ff765b8",
-      "after": "b827e6af8a7451c5b9bf2d3668b3353fd367df439ec4445fa853213964ef40c0",
-      "owner": "scene-material-color-boundary",
-      "reason": "原颜色合同补逐候选graph用途并关闭验证债；现役仅保状态/指针，过程归历史。",
-      "decision": "docs/scene/history/graph-color-purpose-reconciliation-2026-10-12.md#文档与产物"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
-      "before": "0b0faf5fb6748c082343e4025096f15e5e9e4309cc65a9070fb77769aeb887a5",
-      "after": "a551c2eeee90e6b1156583c8d28bfaa78c888cf8fed22984207b1a8370a31e8d",
-      "owner": "scene-material-color-boundary",
-      "reason": "原颜色合同补逐候选graph用途并关闭验证债；现役仅保状态/指针，过程归历史。",
-      "decision": "docs/scene/history/graph-color-purpose-reconciliation-2026-10-12.md#文档与产物"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scalar-mask-data-purpose.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
       "after": "d5b3fe85b18210d59eb4f3ab5f38c9949d5d36fd9ffaf3edb1ef026c658271b3",
@@ -1253,15 +1235,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "0fdce367f0901b50ca68ba77a1fc45fe5ef17c6a9a00936f8cc00f680676444b",
-      "after": "2e0857b08423b1632c79380e47e155a0f26ad3627e2f45e719fed694f195c75c",
-      "owner": "scene-property-preparation",
-      "reason": "准备复用唯一owner/来源/压力边界移交合同，冷暖及实际交互归历史，AX剩余问题和撤销方法保队列；完成设计退出工作卡并收紧体积",
-      "decision": "docs/scene/history/property-preparation-convergence-2026-10-13.md#实现与边界"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "d2a08f21d2022bf324594e5c22c9c0e0d1a507dfdb5077d70722a3ac144b0def",
       "after": "932103abbe88aa9f141fe9d83d087dd78e6236be5aa21e0412f32dfcfae4a1a1",
@@ -1295,6 +1268,24 @@
       "owner": "scene-native-property-list",
       "reason": "新增原生列表唯一owner/会话退出合同及相邻Combo值身份语义；完成设计与试法成本移交历史，工作卡/迁移现状收紧，未验范围保队列",
       "decision": "docs/scene/history/native-property-list-convergence-2026-10-14.md#接受的实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
+      "before": "a551c2eeee90e6b1156583c8d28bfaa78c888cf8fed22984207b1a8370a31e8d",
+      "after": "cd9e9b7af83ea93a0f81778a3913f399fd546fb73b5911ff785b0f7041b3deb9",
+      "owner": "Scene终端显示映射",
+      "reason": "用户授权性能专项新增attachment输入的跨owner设计；保旧资源/失败/平台边界和GPU验收，旧HDR批准不扩大解释。",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#clear-true-attachment-mapping"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "b827e6af8a7451c5b9bf2d3668b3353fd367df439ec4445fa853213964ef40c0",
+      "after": "bcde805d52d965a64945536a10ff0cb50b7aaf503e5b76316a0cce9baab0bc83",
+      "owner": "Scene terminal display mapping",
+      "reason": "Approved D2 attachment input preserves the original output/completion owner and records capacity-order eligibility, source initialization and failure boundaries.",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#clear-true-attachment-mapping"
     }
   ]
 }

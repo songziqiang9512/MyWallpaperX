@@ -152,11 +152,18 @@ extension SceneMetalRenderer {
             source: sceneColor?.display ?? target) ?? true
     }
 
-    func encodeTerminalColor(sceneColor: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?,
+    func encodeTerminalColor(sourceCompleted: Bool,
+                             sceneColor: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?,
                              target: MTLTexture, offscreenTexturePool: SceneOffscreenTexturePool?,
                              dynamicValues: SceneDynamicSnapshot, commandBuffer: MTLCommandBuffer,
                              output: SceneDisplayMappingPostProcess.Output = .sRGB,
+                             input: SceneDisplayMappingPostProcess.Input = .textureSource,
                              compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil) -> FrameOutcome? {
+        // Consume the existing main-pass completion fact (or completed paused
+        // raw). Neither Bloom nor either display input may read an unsafe source.
+        guard sourceCompleted else {
+            return .dropped(reasonCode: "scene-color-main-encoder-unavailable")
+        }
         if let sceneColor {
             guard let display = sceneColor.display else {
                 return .dropped(reasonCode: "scene-color-display-reservation-invalid")
@@ -187,7 +194,10 @@ extension SceneMetalRenderer {
                 dynamicValues), source: target,
                 commandBuffer: commandBuffer)
             var mapped = false
-            if let displayMappingPostProcess,
+            if input == .colorAttachment {
+                mapped = displayMappingPostProcess?.encodeAttachment(target: target,
+                    commandBuffer: commandBuffer, output: output) == true
+            } else if let displayMappingPostProcess,
                let offscreenTexturePool,
                let scratch = compositionGroupRuntime?.terminalScratch(matching: target, on: commandBuffer)
                     ?? imageCompositor.resolvedMaterialRuntime?.reserveDisplayScratch(

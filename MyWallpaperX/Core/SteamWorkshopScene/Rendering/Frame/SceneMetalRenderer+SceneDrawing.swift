@@ -31,6 +31,7 @@ extension SceneMetalRenderer {
         effectExecutionTrace: SceneEffectExecutionFrameTrace?,
         mainTarget: MTLTexture,
         sceneColor: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?,
+        displayMappingInput: inout SceneDisplayMappingPostProcess.Input,
         frameDepthLeases: inout [SceneParticleDepthTargetLease],
         particleBatches: inout [SceneParticleDrawBatch],
         particlePerformanceObservations: inout [SceneParticlePerformanceObservation]?,
@@ -170,10 +171,27 @@ extension SceneMetalRenderer {
             ? shadowDrawCandidates(orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
                 worldFrames: frameWorldFrames, snapshot: frameContext.dynamicValues,
                 groups: compositionGroupRuntime) : nil
+        // All callers inspect the same pre-source image/plan facts. Preserve
+        // their short cuts while avoiding duplicate reflection-demand scans.
+        var reflectionDemand: Bool?
+        func requiresReflection() -> Bool {
+            if let reflectionDemand { return reflectionDemand }
+            let needed = hasReflectionConsumers(imageTextures: imageTextures,
+                framePlans: resolvedMaterialFrameTargetPlans, visibleLayerIDs: frameVisibleLayerIDs,
+                orderedLayers: orderedLayers)
+            reflectionDemand = needed
+            return needed
+        }
+        displayMappingInput = displayMappingPostProcess?.input(for: drawable.texture,
+            clearEnabled: frameDescriptor.camera.clearEnabled,
+            hasPersistentSceneColor: sceneColor != nil, hasShadowReceiver: hasShadowReceiver,
+            hasSourceMaterials: imageCompositor.resolvedMaterialRuntime?.sourceMaterials.isEmpty == false,
+            requiresReflection: requiresReflection) ?? .textureSource
         var scratchReady = false
         var optionalScratch: [SceneOffscreenTexturePool.PinnedTexture]?
         if let pool = offscreenTexturePool,
            let targets = reserveOptionalEffectScratch(requiresShadow: shadowCandidates != nil,
+            requiresReflection: requiresReflection,
             pool: pool, imageTextures: imageTextures,
             frameContext: frameContext, framePlans: resolvedMaterialFrameTargetPlans,
             visibleLayerIDs: frameVisibleLayerIDs, orderedLayers: orderedLayers,
@@ -208,9 +226,7 @@ extension SceneMetalRenderer {
             // The late named-shadow owner prepares its own ordered depth set.
             // Do not pre-acquire leases that it would replace on this frame.
             if !preparesNamedModelShadow,
-               hasReflectionConsumers(imageTextures: imageTextures,
-                framePlans: resolvedMaterialFrameTargetPlans, visibleLayerIDs: frameVisibleLayerIDs,
-                orderedLayers: orderedLayers),
+               requiresReflection(),
                let pool = offscreenTexturePool,
                let candidates = shadowDrawCandidates(orderedLayers: orderedLayers,
                 visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,

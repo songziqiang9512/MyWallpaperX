@@ -38,17 +38,7 @@ vertex SceneDisplayMappingVaryings sceneDisplayMappingVertex(
     return result;
 }
 
-fragment float4 sceneDisplayMappingFragment(
-    SceneDisplayMappingVaryings input [[stage_in]],
-    texture2d<float> source [[texture(0)]],
-    constant float &linearHeadroom [[buffer(0)]]
-) {
-    // Nearest sampling keeps texel identity for this 1:1 terminal pass.
-    constexpr sampler pointSampler(
-        mag_filter::nearest, min_filter::nearest,
-        address::clamp_to_edge, coord::normalized
-    );
-    float4 sampleValue = source.sample(pointSampler, input.texcoord);
+float4 sceneDisplayMapColor(float4 sampleValue, float linearHeadroom) {
     float3 mapped = float3(
         sceneDisplayMapChannel(sampleValue.r, linearHeadroom),
         sceneDisplayMapChannel(sampleValue.g, linearHeadroom),
@@ -56,4 +46,23 @@ fragment float4 sceneDisplayMappingFragment(
     // Product input is the opaque composite cleared with alpha=1. Copy alpha;
     // saturation does not establish arbitrary transparent-output semantics.
     return float4(mapped, sampleValue.a);
+}
+
+fragment float4 sceneDisplayMappingFragment(
+    SceneDisplayMappingVaryings input [[stage_in]],
+    texture2d<float> source [[texture(0)]],
+    constant float &linearHeadroom [[buffer(0)]]
+) {
+    constexpr sampler pointSampler(
+        mag_filter::nearest, min_filter::nearest,
+        address::clamp_to_edge, coord::normalized
+    );
+    return sceneDisplayMapColor(source.sample(pointSampler, input.texcoord), linearHeadroom);
+}
+
+fragment float4 sceneDisplayMappingAttachmentFragment(
+    float4 sampleValue [[color(0)]],
+    constant float &linearHeadroom [[buffer(0)]]
+) {
+    return sceneDisplayMapColor(sampleValue, linearHeadroom);
 }
