@@ -42,7 +42,7 @@
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
-      "bytes": 29524
+      "bytes": 29843
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -190,7 +190,7 @@
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 439,
-      "bytes": 135310
+      "bytes": 135588
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 22,
-      "bytes": 3376
+      "bytes": 3513
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1253,27 +1253,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "6f399b085519dc7044967d59c41b8c4ec18f1ae9f8d5d94d98cd731559168ba8",
-      "after": "ead7603dab32309567f7454b560cecc6cf47864115a683e75c89f49852a5c606",
-      "owner": "scene-layer-reference-lifetime-and-property-cohort",
-      "reason": "已完成C职责/权限/lifetime与时钟实际切片归历史；稳定API/owner边界及未闭cohort首断点由现役权威接管。",
-      "decision": "docs/scene/history/layer-reference-responsibility-convergence-2026-10-13.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/properties-panel-card.md",
       "before": "747a4a377f2daa1c411c2c88fcf5323b692ee31a77287cae1608dc883f8fca14",
       "after": "de5c9f7c20281ed664e1dedbba4657816c6770b415a5d893b07e4716a10ca5c2",
-      "owner": "scene-layer-reference-lifetime-and-property-cohort",
-      "reason": "已完成C职责/权限/lifetime与时钟实际切片归历史；稳定API/owner边界及未闭cohort首断点由现役权威接管。",
-      "decision": "docs/scene/history/layer-reference-responsibility-convergence-2026-10-13.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "42fb72cf3f568cc934b3a69b6e66d283a3bb907ba48cc4fde77c40818aff8b6f",
-      "after": "91f3469688901a49b84804cf7eb79f67ea83ed3a1086eb823aa38f9dfb9abe66",
       "owner": "scene-layer-reference-lifetime-and-property-cohort",
       "reason": "已完成C职责/权限/lifetime与时钟实际切片归历史；稳定API/owner边界及未闭cohort首断点由现役权威接管。",
       "decision": "docs/scene/history/layer-reference-responsibility-convergence-2026-10-13.md"
@@ -1286,6 +1268,33 @@
       "owner": "scene-layer-reference-lifetime-and-property-cohort",
       "reason": "已完成C职责/权限/lifetime与时钟实际切片归历史；稳定API/owner边界及未闭cohort首断点由现役权威接管。",
       "decision": "docs/scene/history/layer-reference-responsibility-convergence-2026-10-13.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-as-built-map.md",
+      "before": "ead7603dab32309567f7454b560cecc6cf47864115a683e75c89f49852a5c606",
+      "after": "342ad5a9c31ef184f005bbb401555ae25a61e64eb293f0e6a8c193018de3fe10",
+      "owner": "scene-compiled-variant-frame-program-convergence",
+      "reason": "先设计的静态准备切片完成归历史；唯一owner与live检查接管，九轮成本边界/普通heldout像素归证据，未闭目标保原卡。",
+      "decision": "docs/scene/history/compiled-variant-frame-program-convergence-2026-10-13.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/engine-refactor-program.md",
+      "before": "100e7754807ae6efebbddb4bc42a8e77c20bb142e6e253a82a81f6a6e45f04b0",
+      "after": "a0841f3ddf90eccf0cc53c4f16c2f0a473994d95f2074e3a27a438596b816f31",
+      "owner": "scene-compiled-variant-frame-program-convergence",
+      "reason": "先设计的静态准备切片完成归历史；唯一owner与live检查接管，九轮成本边界/普通heldout像素归证据，未闭目标保原卡。",
+      "decision": "docs/scene/history/compiled-variant-frame-program-convergence-2026-10-13.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "91f3469688901a49b84804cf7eb79f67ea83ed3a1086eb823aa38f9dfb9abe66",
+      "after": "824afe77161407c74d028ac6d12db11779c1fd44c5c3a8d2a00c34d5ad39aec1",
+      "owner": "scene-compiled-variant-frame-program-convergence",
+      "reason": "先设计的静态准备切片完成归历史；唯一owner与live检查接管，九轮成本边界/普通heldout像素归证据，未闭目标保原卡。",
+      "decision": "docs/scene/history/compiled-variant-frame-program-convergence-2026-10-13.md"
     }
   ]
 }

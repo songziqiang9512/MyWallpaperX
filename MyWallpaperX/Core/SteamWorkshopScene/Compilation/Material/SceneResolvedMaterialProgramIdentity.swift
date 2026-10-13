@@ -463,19 +463,19 @@ extension SceneResolvedMaterialProgram {
         guard attachmentPixelFormat != .invalid,
               sampleCount > 0,
               !colorWriteMask.isEmpty,
+              device.registryID != 0,
               exactIdentity.textureSlots.compactMap({ $0 }).allSatisfy({
                   $0.deviceRegistryID == device.registryID
               }) else {
             return nil
         }
-        return SceneResolvedMaterialProgramIdentity.metalCompileStateKey(
-            frontend: frontendProgram,
-            renderState: renderState,
-            frontendSchemaVersion: semanticIdentity.shader.frontendSchemaVersion,
+        return .init(
+            passRole: passRole,
+            shader: semanticIdentity.shader,
+            renderState: semanticIdentity.renderState,
             attachmentPixelFormatRawValue: attachmentPixelFormat.rawValue,
             sampleCount: sampleCount,
             colorWriteMaskRawValue: colorWriteMask.rawValue,
-            passRole: passRole,
             deviceRegistryID: device.registryID
         )
     }

@@ -220,7 +220,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             graphInputFacts,
             uniforms,
             preparedUniformBindings,
-            associatedOverOverlaySlot
+            preparedAssembly
         ) = try finalizeVariantBindings(
             template: template,
             variantKey: variantKey,
@@ -235,7 +235,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             implicitFramebufferIdentity: implicitFramebufferIdentity,
             sourceGraphInputFacts: sourceGraphInputFacts,
             sourceColorTransfer: sourceColorTransfer,
-            neutralTextureResolution: neutralTextureResolution
+            neutralTextureResolution: neutralTextureResolution,
+            runtimeLoopBounds: runtimeLoopBounds,
+            conditionalGeneratedRGBInputContract: conditionalGeneratedRGBInputContract,
+            premultipliedColorInputSlots: premultipliedColorInputSlots
         )
         if cachedAnalysis == nil, let variantAnalysisKey {
             SceneResolvedMaterialVariantAnalysisCache.store(
@@ -280,29 +283,23 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         return .init(
             readinessMask: readinessMask,
             textureFormats: variantKey.textureFormats,
-            preparedShader: prepared,
+            preparedAssembly: preparedAssembly,
             resolvedIntegerCombos: resolvedIntegerCombos,
-            frontendProgram: frontend,
             preparedOutputContent: preparedOutputContent(
                 storage: outputStorage, frontend: frontend,
                 signalPassthroughContent: signalPassthroughContent
             ),
             routeDecision: routeDecision,
-            runtimeLoopBounds: runtimeLoopBounds,
             activeSamplers: samplers,
             graphInputSourceSlotFacts: graphInputFacts,
             preservedAlphaRGBColorSlots: preservedAlphaRGBColorSlots,
             sourceProvenOpaqueColorSlots: sourceProvenOpaqueColorSlots,
-            premultipliedColorInputSlots: premultipliedColorInputSlots,
             preservedChannelsProviderInputSlots:
                 selectedProviderDataSlots.union(
                     sourceCarriedAuxiliaryDataSlots.intersection(
                         activeExternalProviderTextureSlots
                     )
                 ),
-            associatedOverOverlaySlot: associatedOverOverlaySlot,
-            conditionalGeneratedRGBInputContract:
-                conditionalGeneratedRGBInputContract,
             sameAlphaReconstructedRGBInputContract:
                 sameAlphaReconstructedRGBInputContract,
             activeUniforms: uniforms,

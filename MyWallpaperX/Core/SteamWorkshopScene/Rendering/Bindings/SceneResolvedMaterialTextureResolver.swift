@@ -24,17 +24,12 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         variant: SceneResolvedMaterialCompiledVariant,
         reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
     ) throws -> Resolution {
-        let channelUses = try SceneResolvedMaterialVariantCache
-            .validatedSamplerChannelUses(
-                variant.activeSamplers,
-                bindings: variant.frontendProgram.textureBindings
-            )
         let selection = try variantSelection(
             input,
             samplers: variant.activeSamplers,
             reachableSamplers: reachableSamplers,
             formatSlots: [],
-            channelUses: channelUses,
+            channelUses: variant.preparedAssembly.samplerChannelUses,
             allowPresenceIndependentDefaults: true,
             restrictToSamplerSlots: true,
             graphInputSourceSlotFacts: variant.graphInputSourceSlotFacts

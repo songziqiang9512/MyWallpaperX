@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-13 | CPU/材质 | 收敛证据 | [编译结果与帧准备](compiled-variant-frame-program-convergence-2026-10-13.md) | 单variant静态投影、逐帧live校验及自然fixture迁移；实际测量边界见正文 | [代码地图](../architecture/runtime-as-built-map.md)、[性能卡](../roadmap/performance-convergence-card.md)、[E1](../roadmap/engine-refactor-program.md) |
 | 2026-10-13 | SceneScript/属性 | 修复证据 | [图层引用与host职责](layer-reference-responsibility-convergence-2026-10-13.md) | 原referent/actor分离、退休callable安全、自然fixture迁移及真实时钟；cohort热更新未闭 | [API表](../capabilities/scenescript-api-coverage.md)、[代码地图](../architecture/runtime-as-built-map.md)、[属性卡](../roadmap/properties-panel-card.md)、[性能卡](../roadmap/performance-convergence-card.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-13 | 属性/性能 | 收敛证据 | [typed候选复用](property-candidate-evaluation-convergence-2026-10-13.md) | 单事务复用、三轮CPU与完整ROI；普通编辑重建仍开放 | [属性卡](../roadmap/properties-panel-card.md)、[性能卡](../roadmap/performance-convergence-card.md) |
 | 2026-10-13 | GPU/合成 | 收敛证据 | [高级混合区域复制](color-blend-region-convergence-2026-10-13.md) | 保守读取范围、完整像素反例与三轮真实GPU/FPS改善；内存未降 | [性能卡](../roadmap/performance-convergence-card.md)、[运行合同](../architecture/runtime-architecture.md) |

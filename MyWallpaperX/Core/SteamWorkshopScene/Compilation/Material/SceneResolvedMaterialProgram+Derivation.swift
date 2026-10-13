@@ -1,5 +1,89 @@
 import Foundation
 
+extension SceneResolvedMaterialProgram {
+    /// Validated immutable ABI projection. The existing CompiledVariant owns
+    /// this value; live textures, graph roles and uniform bytes never enter it.
+    struct PreparedAssembly {
+        typealias Failure = SceneResolvedMaterialFailure
+        let preparedShader: SceneShaderPreparedProgram
+        let frontendProgram: SceneAuthoredShaderProgram
+        let renderState: SceneMaterialRenderState
+        let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
+        let hasEffectContext: Bool
+        let activeTextureSlots: [Int]
+        let activeTextureSlotSet: Set<Int>
+        let textureBindingsBySlot: [SceneAuthoredShaderProgram.TextureBinding?]
+        let samplerChannelUses: [Int: SceneAuthoredShaderProgram.TextureBinding.ChannelUse]
+        let shaderIdentity: ShaderSemanticIdentity
+        let preparedIdentity: ExactPreparedIdentity
+        let renderStateIdentity: RenderStateIdentity
+        let conditionalGeneratedRGBInputContract:
+            SceneResolvedMaterialProgramDerivation.ConditionalGeneratedRGBInputContract?
+        let associatedOverOverlaySlot: Int?
+        let premultipliedColorInputSlots: Set<Int>
+
+        /// The only factory, shared by variant admission and raw assembly.
+        /// An explicit initializer prevents unchecked memberwise construction.
+        init(
+            preparedShader: SceneShaderPreparedProgram,
+            frontend: SceneAuthoredShaderProgram,
+            renderState: SceneMaterialRenderState,
+            runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds,
+            hasEffectContext: Bool,
+            conditionalGeneratedRGBInputContract:
+                SceneResolvedMaterialProgramDerivation.ConditionalGeneratedRGBInputContract?,
+            associatedOverOverlaySlot: Int?,
+            premultipliedColorInputSlots: Set<Int>
+        ) throws {
+            guard SceneResolvedMaterialProgramDerivation.validPreparedStages(preparedShader),
+                  SceneResolvedMaterialProgramDerivation.uniqueAndValid(frontend.uniformLayout) else {
+                throw Failure(phase: .frontend, code: .shaderFrontendFailed)
+            }
+            let slots = frontend.textureBindings.map(\.slot)
+            guard slots == slots.sorted() else {
+                throw Failure(phase: .invariant, code: .samplerBindingOrderInvalid,
+                              details: slots.map(String.init))
+            }
+            var seen = Set<Int>()
+            for slot in slots {
+                guard seen.insert(slot).inserted else {
+                    throw Failure(phase: .invariant, code: .samplerBindingDuplicateSlot, slot: slot)
+                }
+                guard (0 ..< 8).contains(slot) else {
+                    throw Failure(phase: .invariant, code: .samplerBindingIdentityMismatch,
+                                  slot: slot, details: ["slot-out-of-range"])
+                }
+            }
+            guard renderState.supportsResolvedMaterialFullscreenOverwrite else {
+                throw Failure(phase: .state, code: .renderStateInvalid)
+            }
+            var bindings = Array<SceneAuthoredShaderProgram.TextureBinding?>(
+                repeating: nil, count: 8
+            )
+            for binding in frontend.textureBindings { bindings[binding.slot] = binding }
+            self.preparedShader = preparedShader
+            frontendProgram = frontend
+            self.renderState = renderState
+            self.runtimeLoopBounds = runtimeLoopBounds
+            self.hasEffectContext = hasEffectContext
+            activeTextureSlots = slots
+            activeTextureSlotSet = Set(slots)
+            textureBindingsBySlot = bindings
+            samplerChannelUses = Dictionary(uniqueKeysWithValues:
+                frontend.textureBindings.map { ($0.slot, $0.channelUse) }
+            )
+            shaderIdentity = SceneResolvedMaterialProgramIdentity.shader(
+                frontend, schemaVersion: preparedShader.vertex.frontendSchemaVersion
+            )
+            preparedIdentity = SceneResolvedMaterialProgramIdentity.prepared(preparedShader)
+            renderStateIdentity = SceneResolvedMaterialProgramIdentity.renderState(renderState)
+            self.conditionalGeneratedRGBInputContract = conditionalGeneratedRGBInputContract
+            self.associatedOverOverlaySlot = associatedOverOverlaySlot
+            self.premultipliedColorInputSlots = premultipliedColorInputSlots
+        }
+    }
+}
+
 /// The only assembly boundary from runtime facts to an executable material
 /// program. Every identity is projected from validated facts here; callers do
 /// not provide cache keys, color claims, or partially packed uniform buffers.
@@ -10,7 +94,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
     static func derive(_ input: Program.AssemblyInput) -> Program.Derived? {
         guard let frontend = compileFrontend(input.preparedShader,
             boundTextureSlots: Set(input.textureSlots.indices.filter { input.textureSlots[$0] != nil })) else { return nil }
-        return derive(
+        return deriveCompiled(
             input,
             frontend: frontend,
             conditionalGeneratedRGBInputContract: nil,
@@ -28,91 +112,79 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         associatedOverOverlaySlot: Int? = nil,
         premultipliedColorInputSlots: Set<Int> = []
     ) -> Program.Derived? {
-        guard validPreparedStages(input.preparedShader),
-              uniqueAndValid(frontend.uniformLayout) else { return nil }
-        return derive(
-            input,
+        guard let prepared = try? Program.PreparedAssembly(
+            preparedShader: input.preparedShader,
             frontend: frontend,
+            renderState: input.renderState,
+            runtimeLoopBounds: input.runtimeLoopBounds,
+            hasEffectContext: input.hasEffectContext,
             conditionalGeneratedRGBInputContract:
                 conditionalGeneratedRGBInputContract,
             associatedOverOverlaySlot: associatedOverOverlaySlot,
             premultipliedColorInputSlots: premultipliedColorInputSlots
-        )
+        ) else { return nil }
+        return derive(input.frame, prepared: prepared)
     }
 
-    private static func derive(
-        _ input: Program.AssemblyInput,
-        frontend: SceneAuthoredShaderProgram,
-        conditionalGeneratedRGBInputContract:
-            ConditionalGeneratedRGBInputContract?,
-        associatedOverOverlaySlot: Int? = nil,
-        premultipliedColorInputSlots: Set<Int> = []
+    static func derive(
+        _ input: Program.FrameAssemblyInput,
+        prepared: Program.PreparedAssembly
     ) -> Program.Derived? {
-        guard validPreparedStages(input.preparedShader),
-              acceptsGraphRole(
+        let frontend = prepared.frontendProgram
+        guard acceptsGraphRole(
                   transfer: frontend.colorTransfer,
                   outputStorage: input.outputStorage,
                   role: input.graphRole,
                   colorBoundary: frontend.colorBoundary,
                   textureSlots: input.textureSlots
               ),
-              input.renderState.supportsResolvedMaterialFullscreenOverwrite,
               let textures = resolveTextures(
                   input.textureSlots,
-                  frontend: frontend
+                  prepared: prepared
               ),
               let uniforms = resolveUniforms(
                   input.resolvedUniforms,
                   layout: frontend.uniformLayout,
-                  activeTextureSlots: Set(textures.activeSlots),
-                  hasEffectContext: input.hasEffectContext
+                  activeTextureSlots: prepared.activeTextureSlotSet,
+                  hasEffectContext: prepared.hasEffectContext
               ),
               let graphRole = SceneResolvedMaterialProgramIdentity.graphRole(
                   input.graphRole,
                   textureSlots: input.textureSlots,
-                  activeTextureSlots: Set(textures.activeSlots)
+                  activeTextureSlots: prepared.activeTextureSlotSet
               ),
               let output = resolveOutputContract(
                   outputStorage: input.outputStorage,
                   frontend: frontend,
                   textureSlots: input.textureSlots,
                   conditionalGeneratedRGBInputContract:
-                    conditionalGeneratedRGBInputContract,
-                  associatedOverOverlaySlot: associatedOverOverlaySlot,
+                    prepared.conditionalGeneratedRGBInputContract,
+                  associatedOverOverlaySlot: prepared.associatedOverOverlaySlot,
                   premultipliedColorInputSlots:
-                    premultipliedColorInputSlots
+                    prepared.premultipliedColorInputSlots
               ) else {
             return nil
         }
 
-        let renderState = SceneResolvedMaterialProgramIdentity.renderState(
-            input.renderState
-        )
-        let shader = SceneResolvedMaterialProgramIdentity.shader(
-            frontend,
-            schemaVersion: input.preparedShader.vertex.frontendSchemaVersion
-        )
         let outputIdentity = output.identity
         let semantic = Program.SemanticIdentity(
-            shader: shader,
+            shader: prepared.shaderIdentity,
             textureSlots: textures.semantic,
             activeUniforms: uniforms.semantic,
-            renderState: renderState,
+            renderState: prepared.renderStateIdentity,
             outputContract: outputIdentity,
             graphRole: graphRole,
-            runtimeLoopBounds: input.runtimeLoopBounds
+            runtimeLoopBounds: prepared.runtimeLoopBounds
         )
         let exact = Program.ExactIdentity(
             semanticIdentity: semantic,
-            prepared: SceneResolvedMaterialProgramIdentity.prepared(
-                input.preparedShader
-            ),
+            prepared: prepared.preparedIdentity,
             textureSlots: textures.exact,
             uniformBytes: uniforms.bytes,
             dynamicUniforms: uniforms.dynamic
         )
         return Program.Derived(
-            frontendProgram: frontend,
+            preparedAssembly: prepared,
             uniformBytes: uniforms.bytes,
             outputContract: output.contract,
             semanticIdentity: semantic,
@@ -227,7 +299,6 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
     }
 
     private struct TextureProjection {
-        let activeSlots: [Int]
         let semantic: [Program.TextureSemanticIdentity?]
         let exact: [Program.ExactTextureIdentity?]
     }
@@ -308,14 +379,11 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
 
     private static func resolveTextures(
         _ slots: [Program.TextureSlot?],
-        frontend: SceneAuthoredShaderProgram
+        prepared: Program.PreparedAssembly
     ) -> TextureProjection? {
         guard slots.count == 8 else { return nil }
-        let activeSlots = frontend.textureBindings.map(\.slot)
-        guard activeSlots == activeSlots.sorted(),
-              Set(activeSlots).count == activeSlots.count,
-              activeSlots.allSatisfy({ (0 ..< 8).contains($0) }),
-              slots.enumerated().compactMap({ index, slot in
+        let activeSlots = prepared.activeTextureSlots
+        guard slots.enumerated().compactMap({ index, slot in
                   slot == nil ? nil : index
               }) == activeSlots else {
             return nil
@@ -329,13 +397,10 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
             repeating: nil,
             count: 8
         )
-        let frontendBindings = Dictionary(uniqueKeysWithValues:
-            frontend.textureBindings.map { ($0.slot, $0) }
-        )
         var deviceRegistryID: UInt64?
         for index in activeSlots {
             guard let slot = slots[index],
-                  let frontendBinding = frontendBindings[index],
+                  let frontendBinding = prepared.textureBindingsBySlot[index],
                   slot.index == index,
                   SceneResolvedMaterialProgramIdentity.registryIdentity(
                       slot.registryIdentity,
@@ -389,7 +454,6 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
             exact[index] = exactIdentity
         }
         return TextureProjection(
-            activeSlots: activeSlots,
             semantic: semantic,
             exact: exact
         )

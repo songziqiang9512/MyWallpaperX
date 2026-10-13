@@ -573,17 +573,13 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             for key in cachedLaunchEnvelopeKeys {
                 guard case let .ready(variant)? = entries[key] else { continue }
                 do {
-                    let channelUses = try Self.validatedSamplerChannelUses(
-                        variant.activeSamplers,
-                        bindings: variant.frontendProgram.textureBindings
-                    )
                     let resolvedKey = try SceneResolvedMaterialTextureResolver
                         .variantKey(
                             input,
                             samplers: variant.activeSamplers,
                             reachableSamplers: reachableSamplers,
                             formatSlots: textureFormatSlots,
-                            channelUses: channelUses,
+                            channelUses: variant.preparedAssembly.samplerChannelUses,
                             allowPresenceIndependentDefaults: true,
                             restrictToSamplerSlots: false,
                             graphInputSourceSlotFacts:

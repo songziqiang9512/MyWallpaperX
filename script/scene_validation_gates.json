@@ -1428,6 +1428,37 @@
       ]
     },
     {
+      "id": "material-program-derivation-fixtures",
+      "patterns": [
+        "script/tests/fixtures/SceneResolvedMaterialDerivationCases.swift",
+        "script/tests/fixtures/SceneResolvedMaterialDerivationFixtures.swift",
+        "script/tests/fixtures/SceneResolvedMaterialPreparedAssemblyCases.swift"
+      ],
+      "modules": [
+        "test_scene_resolved_material_program_derivation"
+      ]
+    },
+    {
+      "id": "material-program-finalizer-fixtures",
+      "patterns": [
+        "script/tests/fixtures/SceneResolvedMaterialFinalizerColorEligibilityCases.swift",
+        "script/tests/fixtures/SceneResolvedMaterialFinalizerDynamicUniformCases.swift",
+        "script/tests/fixtures/SceneResolvedMaterialFinalizerFailureCases.swift",
+        "script/tests/fixtures/SceneResolvedMaterialFinalizerFrameFixtures.swift",
+        "script/tests/fixtures/SceneResolvedMaterialFinalizerFramebufferCases.swift",
+        "script/tests/fixtures/SceneResolvedMaterialFinalizerGraphInputCases.swift",
+        "script/tests/fixtures/SceneResolvedMaterialFinalizerHarness.swift",
+        "script/tests/fixtures/SceneResolvedMaterialFinalizerPreparationCases.swift",
+        "script/tests/fixtures/SceneResolvedMaterialFinalizerProviderResourceCases.swift",
+        "script/tests/fixtures/SceneResolvedMaterialFinalizerShaderFixtures.swift",
+        "script/tests/fixtures/SceneResolvedMaterialFinalizerTextureResolutionCases.swift",
+        "script/tests/fixtures/SceneResolvedMaterialPreparedVariantCases.swift"
+      ],
+      "modules": [
+        "test_scene_resolved_material_program_finalizer"
+      ]
+    },
+    {
       "id": "scene-video-command-harness",
       "patterns": [
         "script/tests/fixtures/SceneVideoRepeatedCommandsHarness.swift",

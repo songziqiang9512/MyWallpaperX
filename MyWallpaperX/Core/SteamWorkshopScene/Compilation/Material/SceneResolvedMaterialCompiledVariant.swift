@@ -40,18 +40,21 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
 
     let readinessMask: UInt8
     let textureFormats: [SceneShaderTextureFormat?]
-    let preparedShader: SceneShaderPreparedProgram
+    let preparedAssembly: SceneResolvedMaterialProgram.PreparedAssembly
+    var preparedShader: SceneShaderPreparedProgram { preparedAssembly.preparedShader }
     /// Exact active combo values after authored defaults, explicit values,
     /// texture readiness, and format macros have converged for this variant.
     /// Downstream prepared contracts consume these facts instead of guessing
     /// missing annotation defaults during a frame.
     let resolvedIntegerCombos: [String: Int]
-    let frontendProgram: SceneAuthoredShaderProgram
+    var frontendProgram: SceneAuthoredShaderProgram { preparedAssembly.frontendProgram }
     /// Nominal producer fact for preparing following passes. Actual frame
     /// output content always comes from the finalized resource contract.
     let preparedOutputContent: SceneTextureContent?
     let routeDecision: SceneGenericShaderRouteDecision
-    let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
+    var runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds {
+        preparedAssembly.runtimeLoopBounds
+    }
     let activeSamplers: [Int: Sampler]
     let graphInputSourceSlotFacts: [
         Int: SceneResolvedMaterialGraphInputSourceSlotFact
@@ -60,17 +63,21 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     let sourceProvenOpaqueColorSlots: Set<Int>
     /// Exact color inputs converted from the shared premultiplied publication
     /// contract into authored straight-RGBA math by this compiled Program.
-    let premultipliedColorInputSlots: Set<Int>
+    var premultipliedColorInputSlots: Set<Int> {
+        preparedAssembly.premultipliedColorInputSlots
+    }
     /// External provider slots whose source dataflow is proven to consume
     /// independent scalar channels rather than compositor color.
     let preservedChannelsProviderInputSlots: Set<Int>
     /// Source-proven overlay input for associated-over/overlay-alpha math.
     /// This is immutable shader analysis and must not be rediscovered while
     /// binding every frame's resources and uniform values.
-    let associatedOverOverlaySlot: Int?
-    let conditionalGeneratedRGBInputContract:
+    var associatedOverOverlaySlot: Int? { preparedAssembly.associatedOverOverlaySlot }
+    var conditionalGeneratedRGBInputContract:
         SceneResolvedMaterialProgramDerivation
-            .ConditionalGeneratedRGBInputContract?
+            .ConditionalGeneratedRGBInputContract? {
+        preparedAssembly.conditionalGeneratedRGBInputContract
+    }
     let sameAlphaReconstructedRGBInputContract:
         SceneResolvedMaterialProgramDerivation
             .SameAlphaReconstructedRGBInputContract?
@@ -84,24 +91,17 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     init(
         readinessMask: UInt8,
         textureFormats: [SceneShaderTextureFormat?],
-        preparedShader: SceneShaderPreparedProgram,
+        preparedAssembly: SceneResolvedMaterialProgram.PreparedAssembly,
         resolvedIntegerCombos: [String: Int],
-        frontendProgram: SceneAuthoredShaderProgram,
         preparedOutputContent: SceneTextureContent? = nil,
         routeDecision: SceneGenericShaderRouteDecision,
-        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds,
         activeSamplers: [Int: Sampler],
         graphInputSourceSlotFacts: [
             Int: SceneResolvedMaterialGraphInputSourceSlotFact
         ],
         preservedAlphaRGBColorSlots: Set<Int>,
         sourceProvenOpaqueColorSlots: Set<Int>,
-        premultipliedColorInputSlots: Set<Int> = [],
         preservedChannelsProviderInputSlots: Set<Int> = [],
-        associatedOverOverlaySlot: Int?,
-        conditionalGeneratedRGBInputContract:
-            SceneResolvedMaterialProgramDerivation
-                .ConditionalGeneratedRGBInputContract?,
         sameAlphaReconstructedRGBInputContract:
             SceneResolvedMaterialProgramDerivation
                 .SameAlphaReconstructedRGBInputContract?,
@@ -114,22 +114,16 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     ) {
         self.readinessMask = readinessMask
         self.textureFormats = textureFormats
-        self.preparedShader = preparedShader
+        self.preparedAssembly = preparedAssembly
         self.resolvedIntegerCombos = resolvedIntegerCombos
-        self.frontendProgram = frontendProgram
         self.preparedOutputContent = preparedOutputContent
         self.routeDecision = routeDecision
-        self.runtimeLoopBounds = runtimeLoopBounds
         self.activeSamplers = activeSamplers
         self.graphInputSourceSlotFacts = graphInputSourceSlotFacts
         self.preservedAlphaRGBColorSlots = preservedAlphaRGBColorSlots
         self.sourceProvenOpaqueColorSlots = sourceProvenOpaqueColorSlots
-        self.premultipliedColorInputSlots = premultipliedColorInputSlots
         self.preservedChannelsProviderInputSlots =
             preservedChannelsProviderInputSlots
-        self.associatedOverOverlaySlot = associatedOverOverlaySlot
-        self.conditionalGeneratedRGBInputContract =
-            conditionalGeneratedRGBInputContract
         self.sameAlphaReconstructedRGBInputContract =
             sameAlphaReconstructedRGBInputContract
         self.activeUniforms = activeUniforms

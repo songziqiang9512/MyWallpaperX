@@ -382,9 +382,9 @@
       "lastReviewed": "2026-10-13",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "887f56e539afb5a8e43ccc7797874cdffe49eaf2d7348bfcb840f1266b5c876d",
+        "sourceSHA256": "c4027544f719000196cd858958be7c6e6a63b745614948100a6a458469080b09",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前启动/线程/所有权地图及C host自然职责迁移；native字段与附属owner权限单resolver，Domain/Owner/record/journal唯一。",
+        "scope": "当前启动/线程/所有权地图及C host自然职责迁移；native字段与附属owner权限单resolver，Domain/Owner/record/journal唯一。 原variant静态准备/当帧Program及动态验证单owner。",
         "limitations": "not full architecture reacceptance or ordinary desktop/Release, physical HDR, corpus acceptance"
       }
     },
@@ -765,7 +765,7 @@
       "lastReviewed": "2026-10-13",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f7617ee307bf3d2cde0f7b3b0e39d1578f3cb96626e8518bc026f63adbe9984e",
+        "sourceSHA256": "69a1c1a36a5b8012bba1cf94f85c879a5769a3c0e026dea8f568d3be0a343fda",
         "method": "document_registry --audit + document_health --check",
         "scope": "现役待执行顺序、观察边界与历史入口同步",
         "limitations": "工作卡/索引不是产品或性能验收；以对应冻结证据为准。"
@@ -867,6 +867,27 @@
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/compiled-variant-frame-program-convergence-2026-10-13.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-as-built-map.md",
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/roadmap/engine-refactor-program.md"
+      ],
+      "cutoffDate": "2026-10-13",
+      "uniqueValue": "原variant唯一静态准备和逐帧安全、失败顺序、自然fixture迁移及固定测量身份",
+      "lastReviewed": "2026-10-13",
+      "reviewBasis": {
+        "kind": "implementation-evidence",
+        "sourceSHA256": "c651a20e90d004f1d746e20fc93a3ab46f64376386c456183987ace9a94ab0e5",
+        "method": "same-product fixture equivalence + variants/counterexamples + frozen Debug -O + GPU nearest + nine AS1 runs + heldout ordinary desktop pixels + independent static review",
+        "scope": "static projection owner and live validation boundaries; measurements tracked in same archived receipt",
+        "limitations": "small CPU observation below old noise, control4 present debt retained; no stable gain, full sample, thermal, release or cohort acceptance"
+      }
     },
     {
       "path": "docs/scene/history/composition-effect-activation-implementation-2026-10-05.md",
@@ -2576,7 +2597,7 @@
       "lastReviewed": "2026-10-13",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "280793678394cefd5af68003ce9451451d5631258c3b288df93ec02ff4e247dc",
+        "sourceSHA256": "eab03468283a95e951598444686f71ca60893748cf4a24b5ed6a7c2baa6bb8e3",
         "method": "document_registry --audit + document_health --check",
         "scope": "用户追加CPU与全链路效率、架构重构设计边界、当前优先级与历史入口",
         "limitations": "工作卡/索引不是产品或性能验收；以对应冻结证据为准。"

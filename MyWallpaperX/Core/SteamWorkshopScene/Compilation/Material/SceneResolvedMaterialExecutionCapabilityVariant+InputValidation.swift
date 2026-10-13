@@ -88,16 +88,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         }
     }
 
-    static func validatedSamplerChannelUses(
-        _ samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
-        bindings: [SceneAuthoredShaderProgram.TextureBinding]
-    ) throws -> [Int: ChannelUse] {
-        try validateSamplerBindings(samplers, bindings: bindings)
-        return Dictionary(uniqueKeysWithValues: bindings.map {
-            ($0.slot, $0.channelUse)
-        })
-    }
-
     static func samplerVariantSchemaFailure(
         _ schemas: [(
             samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],

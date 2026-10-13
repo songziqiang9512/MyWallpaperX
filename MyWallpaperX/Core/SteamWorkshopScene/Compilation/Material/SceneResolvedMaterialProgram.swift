@@ -532,6 +532,11 @@ nonisolated struct SceneResolvedMaterialProgram {
         /// Prepared template scope; graph roles do not define uniform ownership.
         let hasEffectContext: Bool
 
+        var frame: FrameAssemblyInput {
+            .init(textureSlots: textureSlots, resolvedUniforms: resolvedUniforms,
+                  graphRole: graphRole, outputStorage: outputStorage)
+        }
+
         init(
             preparedShader: SceneShaderPreparedProgram,
             textureSlots: [TextureSlot?],
@@ -553,8 +558,17 @@ nonisolated struct SceneResolvedMaterialProgram {
         }
     }
 
+    /// Current frame facts. Static shader/ABI facts come only from a validated
+    /// PreparedAssembly; callers cannot replace them while binding a frame.
+    struct FrameAssemblyInput {
+        let textureSlots: [TextureSlot?]
+        let resolvedUniforms: [ResolvedUniform]
+        let graphRole: SceneResolvedMaterialTemplate.GraphRole
+        let outputStorage: OutputStorage
+    }
+
     struct Derived {
-        let frontendProgram: SceneAuthoredShaderProgram
+        let preparedAssembly: PreparedAssembly
         let uniformBytes: Data
         let outputContract: OutputContract
         let semanticIdentity: SemanticIdentity
@@ -577,7 +591,7 @@ nonisolated struct SceneResolvedMaterialProgram {
         guard let derived = SceneResolvedMaterialProgramDerivation.derive(input) else {
             return nil
         }
-        return Self(input: input, derived: derived)
+        return Self(frame: input.frame, derived: derived)
     }
 
     static func assembleCompiled(
@@ -599,10 +613,21 @@ nonisolated struct SceneResolvedMaterialProgram {
             premultipliedColorInputSlots: premultipliedColorInputSlots
         ) else { return nil }
         return Self(
-            input: input,
+            frame: input.frame,
             derived: derived,
             routeDecision: routeDecision
         )
+    }
+
+    static func assemblePrepared(
+        _ frame: FrameAssemblyInput,
+        prepared: PreparedAssembly,
+        routeDecision: SceneGenericShaderRouteDecision
+    ) -> Self? {
+        guard let derived = SceneResolvedMaterialProgramDerivation.derive(
+            frame, prepared: prepared
+        ) else { return nil }
+        return Self(frame: frame, derived: derived, routeDecision: routeDecision)
     }
 
     /// Replays the same finalized values at terminal raster density. Logical
@@ -687,36 +712,23 @@ nonisolated struct SceneResolvedMaterialProgram {
             dynamicUniforms: program.exactIdentity.dynamicUniforms)
     }
 
-    private init(input: AssemblyInput, derived: Derived) {
-        preparedShader = input.preparedShader
-        routeDecision = nil
-        frontendProgram = derived.frontendProgram
-        textureSlots = input.textureSlots
-        resolvedUniforms = input.resolvedUniforms
-        uniformBytes = derived.uniformBytes
-        renderState = input.renderState
-        outputContract = derived.outputContract
-        semanticIdentity = derived.semanticIdentity
-        exactIdentity = derived.exactIdentity
-        runtimeLoopBounds = input.runtimeLoopBounds
-    }
-
     private init(
-        input: AssemblyInput,
+        frame: FrameAssemblyInput,
         derived: Derived,
-        routeDecision: SceneGenericShaderRouteDecision
+        routeDecision: SceneGenericShaderRouteDecision? = nil
     ) {
-        preparedShader = input.preparedShader
+        let prepared = derived.preparedAssembly
+        preparedShader = prepared.preparedShader
         self.routeDecision = routeDecision
-        frontendProgram = derived.frontendProgram
-        textureSlots = input.textureSlots
-        resolvedUniforms = input.resolvedUniforms
+        frontendProgram = prepared.frontendProgram
+        textureSlots = frame.textureSlots
+        resolvedUniforms = frame.resolvedUniforms
         uniformBytes = derived.uniformBytes
-        renderState = input.renderState
+        renderState = prepared.renderState
         outputContract = derived.outputContract
         semanticIdentity = derived.semanticIdentity
         exactIdentity = derived.exactIdentity
-        runtimeLoopBounds = input.runtimeLoopBounds
+        runtimeLoopBounds = prepared.runtimeLoopBounds
     }
 }
 

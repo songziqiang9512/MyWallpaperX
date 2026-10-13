@@ -16,14 +16,18 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         sourceGraphInputFacts: [Int: SceneResolvedMaterialGraphInputSourceSlotFact],
         sourceColorTransfer: SceneShaderColorTransfer,
-        neutralTextureResolution: SceneAuthoredShaderNeutralTextureResolutionFact?
+        neutralTextureResolution: SceneAuthoredShaderNeutralTextureResolutionFact?,
+        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds,
+        conditionalGeneratedRGBInputContract:
+            SceneResolvedMaterialProgramDerivation.ConditionalGeneratedRGBInputContract?,
+        premultipliedColorInputSlots: Set<Int>
     ) throws -> (
         sourceProvenOpaqueColorSlots: Set<Int>,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         graphInputFacts: [Int: SceneResolvedMaterialGraphInputSourceSlotFact],
         uniforms: [String: SceneResolvedMaterialShaderSchema.Uniform],
         preparedUniformBindings: [SceneResolvedMaterialPreparedUniformBinding],
-        associatedOverOverlaySlot: Int?
+        preparedAssembly: SceneResolvedMaterialProgram.PreparedAssembly
     ) {
         let sourceProvenOpaqueColorSlots: Set<Int>
         if routeDecision.profile
@@ -47,11 +51,26 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         // check below succeeds and the compiled Variant is returned.
         let genericOwnerFailure = compatibilityTargetAdmissionPending
             ? nil : genericOwnerFailure(routeDecision)
-        guard
-              SceneResolvedMaterialProgramDerivation.validPreparedStages(prepared),
-              SceneResolvedMaterialProgramDerivation.uniqueAndValid(
-                  frontend.uniformLayout
-              ) else {
+        let associatedOverOverlaySlot =
+            SceneResolvedMaterialProgramDerivation.associatedOverOverlaySlot(
+                fragmentSource: prepared.fragment.source
+            )
+        let assemblyResult = Result<SceneResolvedMaterialProgram.PreparedAssembly, Error> {
+            try SceneResolvedMaterialProgram.PreparedAssembly(
+                preparedShader: prepared,
+                frontend: frontend,
+                renderState: template.renderState,
+                runtimeLoopBounds: runtimeLoopBounds,
+                hasEffectContext: template.effectContext != nil,
+                conditionalGeneratedRGBInputContract: conditionalGeneratedRGBInputContract,
+                associatedOverOverlaySlot: associatedOverOverlaySlot,
+                premultipliedColorInputSlots: premultipliedColorInputSlots
+            )
+        }
+        // ABI failure was historically the first admission result. Later
+        // template/sampler guards retain their own typed failure priority.
+        if case let .failure(error as Failure) = assemblyResult,
+           error.code == .shaderFrontendFailed {
             throw failure(
                 .shaderFrontendFailed,
                 phase: .frontend,
@@ -156,17 +175,13 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 details: ["prepared-uniform-binding-unexpected-failure"]
             )
         }
-        let associatedOverOverlaySlot =
-            SceneResolvedMaterialProgramDerivation.associatedOverOverlaySlot(
-                fragmentSource: prepared.fragment.source
-            )
         return (
             sourceProvenOpaqueColorSlots,
             samplers,
             graphInputFacts,
             uniforms,
             preparedUniformBindings,
-            associatedOverOverlaySlot
+            try assemblyResult.get()
         )
     }
 

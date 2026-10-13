@@ -386,23 +386,13 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             ) else {
                 throw failure(.invariant, .graphRoleIdentityInvariant)
             }
-            guard let program = Program.assembleCompiled(.init(
-                preparedShader: selection.variant.preparedShader,
+            guard let program = Program.assemblePrepared(.init(
                 textureSlots: texture.slots,
                 resolvedUniforms: uniforms,
-                renderState: input.template.renderState,
                 graphRole: graphRole,
-                outputStorage: outputStorage,
-                runtimeLoopBounds: selection.variant.runtimeLoopBounds,
-                hasEffectContext: input.template.effectContext != nil
-            ), frontend: selection.variant.frontendProgram,
-                routeDecision: selection.variant.routeDecision,
-                conditionalGeneratedRGBInputContract:
-                    selection.variant.conditionalGeneratedRGBInputContract,
-                associatedOverOverlaySlot:
-                    selection.variant.associatedOverOverlaySlot,
-                premultipliedColorInputSlots:
-                    selection.variant.premultipliedColorInputSlots
+                outputStorage: outputStorage
+            ), prepared: selection.variant.preparedAssembly,
+                routeDecision: selection.variant.routeDecision
             ) else {
                 throw failure(.invariant, .programAssemblyIdentityInvariant)
             }
