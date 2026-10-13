@@ -142,7 +142,7 @@
 | U39 · 3219398263 | 中间漩涡方向似反，与官方有差异 | 作者时间/角度/UV/空间约定，固定相位对照后裁决方向 |
 | U40 · 3749463715 | 胸部点击拖动仅第一次有效，第二次及后续失效 | pointer capture/up/cancel、状态复位及动画/physics 消费；至少连续三轮 down/move/up 验收 |
 | U41 · 3357627941 | 属性面板无替换视频媒体资源的选择入口 | project 属性类型→现有 AppKit 编辑器/资源选择→typed binding→视频 consumer，不另造 provider |
-| U42 · 跨样本属性面板 | ①打开后浏览/滚动严重卡顿；②疑似原中文属性显示成英文，用户询问官方是否有中英映射并提示参考研究 | [条件依赖后继](../history/property-condition-reachability-2026-10-13.md)闭293格式入口与局部求值CPU；[重开准备复用](../history/property-preparation-convergence-2026-10-13.md)闭重复source facts的暖CPU成本，冷准备仍有代价。**已证未修**：详细设置on后的AXScrollToBottom在原基线与候选均触发SwiftUI lazy ForEach/AGAttribute主线程崩溃；普通VStack增加CPU工作已撤销。先设计原生AppKit虚拟列表/控件复用，保相同定义、store/typed链；打开/滚动总延迟、颜色callback/cohort及本地化仍开放。查作者locale字典和fallback，映射表未证，不硬编码翻译表 |
+| U42 · 跨样本属性面板 | ①打开后浏览/滚动严重卡顿；②疑似原中文属性显示成英文，用户询问官方是否有中英映射并提示参考研究 | [条件依赖](../history/property-condition-reachability-2026-10-13.md)与[准备复用](../history/property-preparation-convergence-2026-10-13.md)已闭局部/暖CPU；[原生列表](../history/native-property-list-convergence-2026-10-14.md)退出SwiftUI lazy AX职责，系统滚动首尾、实际Tab/格式热更与独立灯光开关已验；三轮同条件无播放含AX的操作CPU降64.237449%。打开/编辑总延迟、完整系统键盘chrome、颜色callback/cohort及本地化仍开放。查作者locale字典和fallback，映射表未证，不硬编码翻译表 |
 
 新增独立运行观察（2134765860）：普通桌面房间、灯光与时钟有输出，有媒体的中间运行中206/457 text owner报`no setter for property`、右侧黑块未归因；最终无媒体状态下未复现异常且为灰色占位，条件不同不记修复；保留[本批实机记录](../history/property-condition-reachability-2026-10-13.md)，不把内部Host旧通过或本批局部面板修复记作整样本通过。
 

@@ -475,6 +475,21 @@
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebDisplayConditionParsing.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-native-property-list",
+      "title": "Scene native virtual property list",
+      "owner": "scene-properties-panel",
+      "status": "approved",
+      "designDoc": "docs/scene/history/native-property-list-convergence-2026-10-14.md",
+      "design_notes": "实施前设计与后验取舍归native-property-list-convergence-2026-10-14 §实施前设计；现役合同为runtime-input-property-coverage §5.1。NSCollectionView唯一可视列表owner，原context/条件/store/typed链；Table成本回退已撤销，无全量NSView缓存或AX代理。approved只批准实施，具体CPU/输入/产品与未验范围按同批证据。",
+      "matchPatterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopScenePropertyEditorView.swift",
+        "MyWallpaperX/App/ScenePropertyWindowController.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/WorkshopPropertySlider.swift",
+        "MyWallpaperX/Shared/UI/InspectorHostViewController.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

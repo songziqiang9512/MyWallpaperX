@@ -1,13 +1,12 @@
 import AppKit
-import SwiftUI
 
 /// Retains the existing Scene entry point; all property windows share one glass host.
 @MainActor
 final class ScenePropertyWindowController {
     static let shared = ScenePropertyWindowController()
     func show(record: SteamWorkshopDownloadRecord, context: SteamWorkshopScenePropertyContext) {
-        let controller = NSHostingController(rootView: SteamWorkshopScenePropertyEditorView(record: record, context: context).id(record.id))
-        SteamWorkshopPropertyPanelController.shared.show(title: "Scene 属性调节", subtitle: record.title, content: controller.view, retaining: controller)
+        let editor = SteamWorkshopScenePropertyEditorView(record: record, context: context)
+        SteamWorkshopPropertyPanelController.shared.show(title: "Scene 属性调节", subtitle: record.title, content: editor)
     }
 }
 
@@ -33,6 +32,7 @@ final class SteamWorkshopPropertyPanelController: NSWindowController, NSWindowDe
         panel.minSize = NSSize(width: InspectorHostRequest.defaultPreferredWidth, height: 620)
         panel.maxSize = panel.minSize
         card.drawsShadow = false
+        card.stretchesHostedContent = true
         // Clip the window's backing surface as well as the inner glass. The
         // shadow belongs to NSWindow and is not clipped by this content layer.
         card.layer?.masksToBounds = true
@@ -51,8 +51,10 @@ final class SteamWorkshopPropertyPanelController: NSWindowController, NSWindowDe
         let id = UUID()
         presentationID = id
         retainedController = controller
+        (window as? PropertyPanel)?.keyTraversal = content as? WorkshopPropertyKeyTraversal
         let body = NSStackView()
         body.orientation = .vertical
+        body.distribution = .fill
         body.alignment = .leading
         body.spacing = 6
         let itemTitle = NSTextField(wrappingLabelWithString: subtitle)
@@ -60,6 +62,7 @@ final class SteamWorkshopPropertyPanelController: NSWindowController, NSWindowDe
         itemTitle.font = .systemFont(ofSize: 12)
         itemTitle.textColor = .secondaryLabelColor
         itemTitle.maximumNumberOfLines = 2
+        itemTitle.setContentHuggingPriority(.required, for: .vertical)
         itemTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         body.addArrangedSubview(itemTitle)
         body.addArrangedSubview(content)
@@ -99,9 +102,21 @@ final class SteamWorkshopPropertyPanelController: NSWindowController, NSWindowDe
         card.configure(request: nil, hostedContentView: nil)
         retainedController = nil
         presentationID = nil
+        (window as? PropertyPanel)?.keyTraversal = nil
     }
     private final class PropertyPanel: NSPanel {
+        weak var keyTraversal: WorkshopPropertyKeyTraversal?
         override var canBecomeKey: Bool { true }
         override func cancelOperation(_ sender: Any?) { close() }
+        override func selectNextKeyView(_ sender: Any?) {
+            if keyTraversal?.focusNextPropertyControl(from: firstResponder, reverse: false) != true {
+                super.selectNextKeyView(sender)
+            }
+        }
+        override func selectPreviousKeyView(_ sender: Any?) {
+            if keyTraversal?.focusNextPropertyControl(from: firstResponder, reverse: true) != true {
+                super.selectPreviousKeyView(sender)
+            }
+        }
     }
 }

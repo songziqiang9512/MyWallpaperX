@@ -13,7 +13,7 @@
 
 **首轮最小交付。** 定位并修复一个可复现的主线程热点或可避免的整场景重建，再核同类属性和独立壁纸。优先复用现property store、prepared model、typed frame/resource update及已有control，不增加另一套属性解析、缓存、通知或renderer。
 
-**当前进度与下一轮。** 专项约35%（阶段估计）：[条件依赖](../history/property-condition-reachability-2026-10-13.md)补详细设置、真实格式热更/保存/reset；[窗口准备复用](../history/property-preparation-convergence-2026-10-13.md)闭重复source facts，已证两输入暖准备CPU收益及冷准备代价，整面板响应未闭。U42无障碍端点崩溃在原基线与候选均复现；普通VStack因额外CPU工作撤销。下一批先做原生AppKit虚拟列表/控件复用的顶层设计，再验打开/滚动/编辑及AX端点；完整callback/cohort、云层重建约8.634s、颜色首异常、本地化/媒体入口与未知类型保留。
+**当前进度与下一轮。** [条件依赖](../history/property-condition-reachability-2026-10-13.md)、[窗口准备复用](../history/property-preparation-convergence-2026-10-13.md)与[原生列表](../history/native-property-list-convergence-2026-10-14.md)已交付：详细设置/格式入口、暖准备CPU、同条件三轮面板操作CPU及原生滚动首尾已证；旧SwiftUI lazy AX职责退出。下一批追完整callback/cohort与约8.634s云层编辑重建，再核颜色首异常、本地化/媒体入口与未知类型；完整系统键盘访问的chrome环、多surface及整面板延迟仍待验，不按局部CPU计专项完成。
 
 **验收。** 同条件记录打开/滚动/编辑响应与engine重建/资源更新事实，验证实际画面立即/下一帧变化、连续多次编辑、关闭重开及保存恢复。资源替换还须检查取消、缺失/坏资源与旧画面保留；条件显示、重置、依赖属性、脚本回调及多个surface保持一致。不能只断言未重建：值和事件必须真实到达consumer。
 

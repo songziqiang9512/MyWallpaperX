@@ -37,6 +37,8 @@ project.json / Workshop directory
 
 ## 2. 稳定实现合同
 
+Web Combo使用显式原生菜单项保留同标题不同值，按原option identity选择/提交；共享滑块只提升tracking控件，不改变原preview/去抖/store职责。2026-10-14已编译实际Web编辑器验证同标题A/B两项及B→A提交，未重跑Web样本矩阵；见[相邻修复边界](../scene/history/native-property-list-convergence-2026-10-14.md#接受的实现)。
+
 - 原始 `project.json`、目录和资源布局保持只读；本地 descriptor/cache 是派生执行数据，不反向改写样本。
 - loopback（`httpLoopback`）档的受控资源访问是双重凭据：入口 URL 携带 `/mwx-<token>/` 前缀，入口 HTML 响应另下发 `SameSite=Strict` 会话 cookie（`WebWallpaperLoopbackServer.accessCookieHeader`）。页面 origin 下以 `/` 开头的 Web 根绝对路径（`<img src="/x">`、`fetch('/x')`、`new URL('/x', origin)`）按 cookie 放行，其余无前缀请求仍是 403；跨站页面无法携带该 cookie，未持有 token 的本机进程同样拿不到。合同落点 `WebWallpaperLoopbackServer.authorizedRequestPath(_:cookieHeader:)`。
 - 兼容脚本的 frame 门（顶层 frame 才发屏幕级信号）是行为边界的第一层；宿主对任何 frame 都能直投的 `window.webkit.messageHandlers.*` 消息按 `WKScriptMessage.frameInfo` 二次判定：`wallpaperHostInteractiveRegions` 与 `wallpaperHostRandomFile` 只接受主 frame，`wallpaperHostLog` 的 `dom.ready` 副作用只认主 frame（日志按来源 frame 标记），网络桥接的在飞配额按 frame 分桶，子 frame 不得耗尽顶层配额。

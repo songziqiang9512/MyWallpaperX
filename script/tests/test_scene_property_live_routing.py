@@ -478,14 +478,6 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         self.assertIn("removedBookmark = true", clear)
         self.assertIn("return removedBookmark", clear)
 
-    def test_editor_passes_defaults_and_commits_slider_during_drag(self) -> None:
-        self.assertIn("defaultValues: context.catalog.defaultValues", self.editor)
-        slider = method_body(self.editor, "private func sliderBinding(")
-        self.assertIn("set: { commit(.number($0), definition: definition) }", slider)
-        row = method_body(self.editor, "private func sliderRow(")
-        self.assertNotIn("isEditing", row)
-        self.assertNotIn("updateScenePropertyValue", row)
-
     def test_layer_color_is_live_for_solid_and_effectless_image_layers(self) -> None:
         context = method_body(self.service, "func scenePropertyContext(")
         support = method_body(self.service, "private func supportsScenePropertyTarget(")

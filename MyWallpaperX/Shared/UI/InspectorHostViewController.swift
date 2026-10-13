@@ -100,6 +100,9 @@ private final class InspectorHostRootView: NSView {
 }
 
 final class InspectorHostCardView: NSView {
+    var stretchesHostedContent = false {
+        didSet { stackView.distribution = stretchesHostedContent ? .fill : .gravityAreas }
+    }
     var onClose: (() -> Void)?
     var headerTitleOverride: String?
     /// Standalone windows use AppKit's shadow; embedded cards draw their own.
@@ -284,7 +287,7 @@ final class InspectorHostCardView: NSView {
         headerRow.spacing = 12
         headerRow.detachesHiddenViews = true
         headerRow.translatesAutoresizingMaskIntoConstraints = false
-        headerRow.setContentHuggingPriority(.required, for: .vertical)
+        headerRow.setHuggingPriority(.required, for: .vertical)
 
         iconView.image = NSImage(systemSymbolName: "info.circle.fill", accessibilityDescription: "详情")
         iconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 17, weight: .semibold)

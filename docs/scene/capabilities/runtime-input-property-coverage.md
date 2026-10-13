@@ -274,6 +274,8 @@ User Property 是 wallpaper 级 key/value，不属于某个单独 layer。一个
 
 重复打开的准备复用沿[启动合同失效域](../architecture/scene-startup-pipeline.md#5-按需加载与失效域)；原context、控件、store及typed consumer保唯一链。缓存不增加属性或运行能力，当前record/override变化重新准备，来源校验失败不复用；首次准备与重复打开成本分别验收。
 
+Scene属性窗口沿prepared context→原生NSCollectionView可视控件→原service/store→typed consumer；条件/标题/值仍用现有parser及模型，所有隐藏值保留。原定义索引拥有行身份，依赖只插删受影响行，同一编辑保caret/IME；屏外、隐藏、复用、reset/关闭取消UI会话，迟到输入不改新行或覆写reset。图片sheet按窗口/editor/nonce一次消费，已提交资源事务仍归原service。原PropertyPanel仅委派当前editor的有限Tab遍历，首尾/非属性控件交回系统窗口；不缓存全量NSView或自定义AX代理。实际产品与CPU边界见[原生列表记录](../history/native-property-list-convergence-2026-10-14.md)，完整系统键盘chrome环仍未验。
+
 | 官方类型/行为 | 等级 | 当前能力 | 缺口 |
 |---|---|---|---|
 | wallpaper-level property key/catalog | `L3` | 定义、默认值、override、排序和持久化已存在；[E-PROPERTY](../history/runtime-evidence-index.md#e-property) | 稳定 wire schema 与跨版本 migration |

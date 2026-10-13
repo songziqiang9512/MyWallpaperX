@@ -473,12 +473,12 @@
       "role": "current-state",
       "entrypoint": "README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-08",
+      "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "09b27973a75887ac7949453989f79cde65e4e1f4b8fb1b3bc8fc5ea4eb3d216b",
+        "sourceSHA256": "c7618111d3a2779d1443ae135ca16f94dfff4ca1def4e2e7e82b80782b3d377a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对MDLV0021现reader版本配对、U18实机挂点恢复及剩余边界。",
+        "scope": "本批原生列表合同/证据/未闭范围的导航同步，非全部旧运行记录复验",
         "limitations": "不代表未知MDLS后缀、官方逐像素、完整交互或全样本验收。"
       }
     },
@@ -562,12 +562,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-13",
+      "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8f741baf7bfacf7885b8468c122ee4db9ddc1d2317dfa4bad7b58a3af98c4816",
+        "sourceSHA256": "732804445be46ef76643664486cfc686cbc29a02b1a921c9f6458ee921583b84",
         "method": "document_registry --audit + document_health --check",
-        "scope": "准备复用冷暖/实际格式证据及未闭AX端点、撤销eager方法的导航同步",
+        "scope": "新面板证据入口及原快照导航链接；非全部旧包HEAD运行复验",
         "limitations": "导航复核不冒充全架构、全样本、整App性能或Release验收；事实按本批冻结记录。"
       }
     },
@@ -762,12 +762,12 @@
       "role": "navigation",
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene固定历史与当前权威的按需索引，不产生现役任务。",
-      "lastReviewed": "2026-10-13",
+      "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "69a1c1a36a5b8012bba1cf94f85c879a5769a3c0e026dea8f568d3be0a343fda",
+        "sourceSHA256": "45dfad4686693d8722a962341a7b6cb6d834855555b0297d223bed603cd1eff9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役待执行顺序、观察边界与历史入口同步",
+        "scope": "本批原生列表合同/证据/未闭范围的导航同步，非全部旧运行记录复验",
         "limitations": "工作卡/索引不是产品或性能验收；以对应冻结证据为准。"
       }
     },
@@ -1509,6 +1509,20 @@
         "docs/scene/capabilities/scenescript-api-coverage.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/native-property-list-convergence-2026-10-14.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/runtime-input-property-coverage.md",
+        "docs/scene/roadmap/properties-panel-card.md",
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-14",
+      "uniqueValue": "原生唯一列表设计/撤回试法、同条件三轮App CPU、控件身份/取消与真实格式及独立灯光热更新边界"
     },
     {
       "path": "docs/scene/history/native-regexp-capture-2026-10-13.md",
@@ -2597,12 +2611,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。",
-      "lastReviewed": "2026-10-13",
+      "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f23fd6ee4cb2a123c1b871110e3eb3ce9dff05c57196cd4075b7d602a7915775",
+        "sourceSHA256": "b55715015a3f6eec947bfa91f2e7b50042ca7457c05f759c7ff39f8b2f6b5516",
         "method": "document_registry --audit + document_health --check",
-        "scope": "有界JS/native预算、native失败职责与原包后继证据引用核对；不代表全文API重验",
+        "scope": "本批原生列表合同/证据/未闭范围的导航同步，非全部旧运行记录复验",
         "limitations": "仅本批设计与后继证据核对；不是全文API、全样本或官方parity验收。"
       }
     },
@@ -2637,12 +2651,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-13",
+      "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "82d301004f334d40306810c44b52494f2d5fd0c4b0b8e71a8715384fc20c3d71",
+        "sourceSHA256": "a5f1456b864ba3d665dc47337c3290d5a03dc1fc71b22433ab9e2d0824c25a55",
         "method": "document_registry --audit + document_health --check",
-        "scope": "条件可达/准备复用的证据入口及未闭专项、异常观察导航同步",
+        "scope": "本批原生列表合同/证据/未闭范围的导航同步，非全部旧运行记录复验",
         "limitations": "导航复核不冒充全架构、全样本、整App性能或Release验收；事实按本批冻结记录。"
       }
     },
@@ -2651,12 +2665,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-13",
+      "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "95a431453b04ce16c1ef0afa58e5daea75cb03dc90196e80c0c64da98b056a4d",
+        "sourceSHA256": "b44e1934771eab8447e437722c6ea05d90a947ac9276b7ba0e927d4ccc33aa88",
         "method": "document_registry --audit + document_health --check",
-        "scope": "条件可达/准备复用的证据入口及未闭专项、异常观察导航同步",
+        "scope": "本批原生列表合同/证据/未闭范围的导航同步，非全部旧运行记录复验",
         "limitations": "导航复核不冒充全架构、全样本、整App性能或Release验收；事实按本批冻结记录。"
       }
     },
@@ -2678,12 +2692,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-13",
+      "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f69e0b386b729a5d0e619acb8df2be1a827e97166d17eaf97b9679044947de5f",
+        "sourceSHA256": "80bd35fc6bf5e863a1d8ac2d1a294fd3af288650e4d23400030cf09eb6b19e18",
         "method": "document_registry --audit + document_health --check",
-        "scope": "条件可达/准备复用的证据入口及未闭专项、异常观察导航同步",
+        "scope": "本批原生列表合同/证据/未闭范围的导航同步，非全部旧运行记录复验",
         "limitations": "导航复核不冒充全架构、全样本、整App性能或Release验收；事实按本批冻结记录。"
       }
     },

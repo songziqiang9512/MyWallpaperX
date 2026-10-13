@@ -53,7 +53,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         // 提交触发的全量重建会销毁所有行控件；正在被键盘/VoiceOver 调节的滑块以
         // definition.key 为 identifier，重建后据此恢复第一响应者，连续调节不中断。
         let editingSliderIdentifier: NSUserInterfaceItemIdentifier?
-        if let slider = window?.firstResponder as? WebPropertySlider,
+        if let slider = window?.firstResponder as? WorkshopPropertySlider,
            slider.isDescendant(of: contentStack) {
             editingSliderIdentifier = slider.identifier
         } else {
@@ -99,8 +99,8 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         }
     }
 
-    private func slider(withIdentifier identifier: NSUserInterfaceItemIdentifier, in view: NSView) -> WebPropertySlider? {
-        if let slider = view as? WebPropertySlider, slider.identifier == identifier { return slider }
+    private func slider(withIdentifier identifier: NSUserInterfaceItemIdentifier, in view: NSView) -> WorkshopPropertySlider? {
+        if let slider = view as? WorkshopPropertySlider, slider.identifier == identifier { return slider }
         for child in view.subviews {
             if let match = slider(withIdentifier: identifier, in: child) { return match }
         }
@@ -166,7 +166,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         switch definition.kind {
         case .slider:
             let target = makeActionTarget(record: record, definition: definition, summaryLabel: summaryLabel)
-            let slider = WebPropertySlider(value: value.numberValue ?? definition.defaultValue.numberValue ?? definition.minimumValue ?? 0,
+            let slider = WorkshopPropertySlider(value: value.numberValue ?? definition.defaultValue.numberValue ?? definition.minimumValue ?? 0,
                                            minValue: definition.minimumValue ?? 0,
                                            maxValue: definition.maximumValue ?? max((definition.minimumValue ?? 0) + 1, value.numberValue ?? 1),
                                            target: target,
@@ -200,14 +200,12 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
                     popup.selectItem(at: 0)
                 }
                 visibleOptions.forEach { option in
-                    popup.addItem(withTitle: option.label)
-                    popup.lastItem?.representedObject = option.id as NSString
+                    let item = NSMenuItem(title: option.label, action: nil, keyEquivalent: "")
+                    item.representedObject = option.id as NSString
+                    popup.menu?.addItem(item)
                     if option.value == value {
                         selectedValueID = option.id
                     }
-                }
-                if let selectedIndex = visibleOptions.firstIndex(where: { $0.value == value }) {
-                    popup.selectItem(withTitle: visibleOptions[selectedIndex].label)
                 }
                 if let selectedValueID,
                    let item = popup.itemArray.first(where: { ($0.representedObject as? String) == selectedValueID }) {
@@ -403,18 +401,6 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         }
     }
 
-    private final class WebPropertySlider: NSSlider {
-        var isTrackingMouse = false
-        var onTrackingEnded: ((NSSlider) -> Void)?
-
-        override func mouseDown(with event: NSEvent) {
-            isTrackingMouse = true
-            super.mouseDown(with: event)
-            isTrackingMouse = false
-            onTrackingEnded?(self)
-        }
-    }
-
     private final class WebPropertyActionTarget: NSObject, NSTextFieldDelegate {
         weak var view: SteamWorkshopWebPropertyEditorView?
         let record: SteamWorkshopDownloadRecord
@@ -464,7 +450,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             sender.doubleValue = normalized
             summaryLabel?.stringValue = view?.valueSummary(.number(normalized), definition: definition) ?? String(normalized)
             view?.updateWebProperty(.number(normalized), definition: definition, record: record, preview: true)
-            if let slider = sender as? WebPropertySlider {
+            if let slider = sender as? WorkshopPropertySlider {
                 if !slider.isTrackingMouse {
                     commitSliderValue(sender)
                 }

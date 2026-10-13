@@ -5,8 +5,8 @@
   "maxReviewAgeDays": 60,
   "bodies": {
     "docs/architecture/appkit-migration.md": {
-      "lines": 192,
-      "bytes": 11949
+      "lines": 190,
+      "bytes": 11810
     },
     "docs/architecture/repository-map.md": {
       "lines": 30,
@@ -93,12 +93,12 @@
       "bytes": 345429
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 111,
-      "bytes": 33907
+      "lines": 112,
+      "bytes": 34147
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 542,
-      "bytes": 175340
+      "lines": 544,
+      "bytes": 176093
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 245,
-      "bytes": 71518
+      "bytes": 71431
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -209,8 +209,8 @@
       "bytes": 6445
     },
     "docs/web/current-state.md": {
-      "lines": 120,
-      "bytes": 46443
+      "lines": 122,
+      "bytes": 46836
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 58,
@@ -262,11 +262,11 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 22,
-      "bytes": 4024
+      "bytes": 3780
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
-      "bytes": 3281
+      "bytes": 3245
     }
   },
   "archives": [
@@ -1073,15 +1073,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/web/current-state.md",
-      "before": "edf8bab8a0406ed50b3239afc93a9c79a2be8a0d8254ae62a611472f9946e158",
-      "after": "45622250aa1b88c116c2540e5a4871e72b0b7227d15bf69159efe140fcfeb0a2",
-      "owner": "Web 现役状态",
-      "reason": "批十九第六轮侦察修复证据行并入（DCL 补扫全量递归闭口自定义元素 shadow 死区）。",
-      "decision": "docs/web/cold-descriptor-parse-offload-design.md#验收"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/web-wallpaper-benchmark-standard.md",
       "before": "81eed0ebfd9fc8045415bec3780240bc44233dc153541862e98c60c7e0715737",
       "after": "4a6342b0d7cc82163bb072487a1200708438523fa1c1636afa46f5ec9e8cce23",
@@ -1262,24 +1253,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b76011a78e3a8c2840dc6cdf8aac1c6975475b8c4085d9446aeace9380f91c2a",
-      "after": "2c73cf75925192a5a3473c7250be2f388747f68a196783249ddd73996a7a12b0",
-      "owner": "scene-property-preparation",
-      "reason": "准备复用唯一owner/来源/压力边界移交合同，冷暖及实际交互归历史，AX剩余问题和撤销方法保队列；完成设计退出工作卡并收紧体积",
-      "decision": "docs/scene/history/property-preparation-convergence-2026-10-13.md#实现与边界"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "4827686f0966915d3b81ad7afb2146641c6929641259b9aca15fc48b73cca2c8",
-      "after": "a104830241bd85ec664070d9920a4aff090e5745dd7fb8fdbad5a7d4a3cac6a3",
-      "owner": "scene-property-preparation",
-      "reason": "准备复用唯一owner/来源/压力边界移交合同，冷暖及实际交互归历史，AX剩余问题和撤销方法保队列；完成设计退出工作卡并收紧体积",
-      "decision": "docs/scene/history/property-preparation-convergence-2026-10-13.md#实现与边界"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "0fdce367f0901b50ca68ba77a1fc45fe5ef17c6a9a00936f8cc00f680676444b",
       "after": "2e0857b08423b1632c79380e47e155a0f26ad3627e2f45e719fed694f195c75c",
@@ -1295,6 +1268,33 @@
       "owner": "scene-property-preparation",
       "reason": "准备复用唯一owner/来源/压力边界移交合同，冷暖及实际交互归历史，AX剩余问题和撤销方法保队列；完成设计退出工作卡并收紧体积",
       "decision": "docs/scene/history/property-preparation-convergence-2026-10-13.md#实现与边界"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "2c73cf75925192a5a3473c7250be2f388747f68a196783249ddd73996a7a12b0",
+      "after": "8bd10b2a3bf6efad9392604caba8e66bacf97c298777065b629916f323ff73ae",
+      "owner": "scene-native-property-list",
+      "reason": "新增原生列表唯一owner/会话退出合同及相邻Combo值身份语义；完成设计与试法成本移交历史，工作卡/迁移现状收紧，未验范围保队列",
+      "decision": "docs/scene/history/native-property-list-convergence-2026-10-14.md#接受的实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "a104830241bd85ec664070d9920a4aff090e5745dd7fb8fdbad5a7d4a3cac6a3",
+      "after": "4b3c2aab6eeee5f896ef76500433455ac0aed1f999368d346c093a405d1e4cb3",
+      "owner": "scene-native-property-list",
+      "reason": "新增原生列表唯一owner/会话退出合同及相邻Combo值身份语义；完成设计与试法成本移交历史，工作卡/迁移现状收紧，未验范围保队列",
+      "decision": "docs/scene/history/native-property-list-convergence-2026-10-14.md#接受的实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/current-state.md",
+      "before": "45622250aa1b88c116c2540e5a4871e72b0b7227d15bf69159efe140fcfeb0a2",
+      "after": "c6c91c93e91703f515b9515778d22561811386997b7217c27a29e18d2f725e04",
+      "owner": "scene-native-property-list",
+      "reason": "新增原生列表唯一owner/会话退出合同及相邻Combo值身份语义；完成设计与试法成本移交历史，工作卡/迁移现状收紧，未验范围保队列",
+      "decision": "docs/scene/history/native-property-list-convergence-2026-10-14.md#接受的实现"
     }
   ]
 }

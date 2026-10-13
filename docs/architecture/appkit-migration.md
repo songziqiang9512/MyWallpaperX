@@ -12,15 +12,13 @@
 
 ## 当前判断
 
-截至 2026-08-26，App 生命周期、主窗口 Shell、主菜单和主要网格均已由 AppKit 承担，但 SwiftUI 尚未清零。当前 `import SwiftUI` 只剩 5 个文件：
+截至 2026-10-14，App 生命周期、主窗口 Shell、主菜单和主要网格均已由 AppKit 承担，但 SwiftUI 尚未清零。当前 `import SwiftUI` 只剩 3 个文件：
 
-- `App/ScenePropertyWindowController.swift`
 - `Shared/UI/InspectorHostBridge.swift`
-- `Modules/SteamWorkshop/Scene/SteamWorkshopScenePropertyEditorView.swift`
 - `Modules/SteamWorkshop/UI/SteamWorkshopItemDetailPreviewSupport.swift`
 - `Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSupportViews.swift`
 
-剩余工作已经集中在 Scene 属性窗口、共享 inspector bridge 和 Steam Workshop 详情辅助/属性 UI；Scene 诊断详情已迁为 AppKit。迁移仍应按这些边界逐项替换并验证，不需要重写已完成的 AppKit Shell 或网格。
+Scene 属性窗口与诊断详情已迁为 AppKit；剩余工作集中在共享 inspector bridge 和 Steam Workshop 详情辅助 UI。迁移仍应按这些边界逐项替换并验证，不需要重写已完成的 AppKit Shell 或网格。
 
 ## 最终结构
 

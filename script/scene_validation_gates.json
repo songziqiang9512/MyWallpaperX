@@ -1997,7 +1997,12 @@
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopSceneInspectionController.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift",
         "script/tests/test_scene_hidden_property_consumers.py",
-        "script/tests/test_scene_property_preparation_reuse.py"
+        "script/tests/test_scene_property_preparation_reuse.py",
+        "script/tests/test_scene_native_property_list.py",
+        "MyWallpaperX/App/ScenePropertyWindowController.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/WorkshopPropertySlider.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopWebPropertyEditorView.swift",
+        "MyWallpaperX/Shared/UI/InspectorHostViewController.swift"
       ],
       "modules": [
         "test_scene_detail_diagnostics_on_demand",
@@ -2005,7 +2010,9 @@
         "test_scene_property_live_routing",
         "test_scene_hidden_property_consumers",
         "test_scene_property_live_update_state",
-        "test_scene_runtime_input"
+        "test_scene_runtime_input",
+        "test_scene_native_property_list",
+        "test_steam_property_window"
       ]
     },
     {
