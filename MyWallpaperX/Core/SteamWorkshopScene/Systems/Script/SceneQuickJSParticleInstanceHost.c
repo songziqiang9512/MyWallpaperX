@@ -14,7 +14,7 @@ static MWXSceneQuickJSLayerAccessHandle *copy_instance_handle(
 }
 
 static MWXSceneQuickJSLayerRecord *instance_record_for_handle(MWXSceneQuickJSLayerAccessHandle *handle) {
-    MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(handle);
+    MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(handle, MWX_SCENE_QUICKJS_LAYER_OWNER_BOUND);
     if (record == NULL || record->dynamic || !record->particle_instance_available) return NULL;
     MWXSceneQuickJSAuthoredLayerMutationRecord *mutation = mwx_scene_quickjs_authored_mutation_for_layer(
         handle->domain->active_owner, (uint32_t)(record - handle->domain->layers));
@@ -153,6 +153,52 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_particle_instance_alpha(
         if (mutation != NULL && mutation->destroyed) return MWX_SCENE_QUICKJS_STALE_OWNER;
         if (!record->particle_instance_available) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
         *alpha = particle_alpha_projection(owner, index, record);
+        return MWX_SCENE_QUICKJS_OK;
+    }
+    return MWX_SCENE_QUICKJS_STALE_OWNER;
+}
+
+size_t mwx_scene_quickjs_owner_particle_playback_command_count(const MWXSceneQuickJSOwner *owner) {
+    // A failed first native emit can be caught with an empty journal. Expose
+    // its unsafe status before Swift's zero-count fast path can accept it.
+    if (owner != NULL && owner->particle_playback_command_overflow)
+        return MWX_SCENE_QUICKJS_MAX_PARTICLE_PLAYBACK_COMMANDS + 1;
+    return owner == NULL ? 0 : owner->particle_playback_command_count;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_particle_playback_command_at(
+    const MWXSceneQuickJSOwner *owner, size_t requested,
+    MWXSceneQuickJSParticlePlaybackCommand *command, char *diagnostic, size_t diagnostic_capacity) {
+    // A script may catch the JS exception; native admission must still reject
+    // the complete callback journal when its fixed capacity was exceeded.
+    if (owner != NULL && owner->particle_playback_command_overflow) {
+        mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "particle playback command budget exceeded");
+        return MWX_SCENE_QUICKJS_MUTATION_OVERFLOW;
+    }
+    if (owner == NULL || command == NULL || requested >= owner->particle_playback_command_count ||
+        requested >= MWX_SCENE_QUICKJS_MAX_PARTICLE_PLAYBACK_COMMANDS) {
+        mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "invalid particle playback command index");
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    *command = owner->particle_playback_commands[requested];
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_particle_transform(
+    MWXSceneQuickJSOwner *owner, int64_t layer_id, double origin[3], double scale[3], double angles[3]) {
+    if (owner == NULL || owner->domain->active_owner != owner || !owner->domain->callback_active)
+        return MWX_SCENE_QUICKJS_STALE_OWNER;
+    for (uint32_t index = 0; index < owner->domain->layer_count; ++index) {
+        MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[index];
+        if (!record->configured || record->destroyed || record->layer_id != layer_id) continue;
+        MWXSceneQuickJSAuthoredLayerMutationRecord *mutation = mwx_scene_quickjs_authored_mutation_for_layer(owner, index);
+        MWXSceneQuickJSAuthoredLayerMutationRecord *baseline = mwx_scene_quickjs_authored_mutation_baseline_for_layer(owner, index);
+        memcpy(origin, mwx_scene_quickjs_layer_authored_transform_value(owner, mutation, baseline, index,
+            MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN, mutation ? mutation->origin : record->current_origin, record->current_origin), 3 * sizeof(double));
+        memcpy(scale, mwx_scene_quickjs_layer_authored_transform_value(owner, mutation, baseline, index,
+            MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE, mutation ? mutation->scale : record->scale, record->scale), 3 * sizeof(double));
+        memcpy(angles, mwx_scene_quickjs_layer_authored_transform_value(owner, mutation, baseline, index,
+            MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES, mutation ? mutation->angles : record->angles, record->angles), 3 * sizeof(double));
         return MWX_SCENE_QUICKJS_OK;
     }
     return MWX_SCENE_QUICKJS_STALE_OWNER;

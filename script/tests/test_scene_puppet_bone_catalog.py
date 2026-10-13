@@ -190,9 +190,9 @@ class ScenePuppetBoneCatalogTests(unittest.TestCase):
     def tearDownClass(cls):
         cls._tmp.cleanup()
 
-    def test_quickjs_layer_host_exposes_typed_puppet_bone_transaction(self):
+    def test_quickjs_bone_host_exposes_typed_puppet_bone_transaction(self):
         host = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerHost.c"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSPuppetBoneHost.c"
         ).read_text()
         for method in (
             "getBoneCount", "getBoneIndex", "getBoneTransform",

@@ -10,6 +10,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
+try:
+    from .scene_vector_vm_test_support import C_SOURCES
+except ImportError:
+    from scene_vector_vm_test_support import C_SOURCES
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE_SCRIPT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script"
@@ -566,7 +571,11 @@ static int native_factory_formatter_boundary(void) {
                 observed_failures += 1;
                 failures += check(owner == NULL && result == MWX_SCENE_QUICKJS_MEMORY_EXCEEDED,
                                   "concrete native allocation failure stays typed", diagnostic);
-                failures += check(strstr(diagnostic, "phase=layer") != NULL &&
+                // Receiver identity and the two material lookup callables are
+                // constructed before installation advances to the layer phase.
+                const char *phase = ordinal >= 0 && ordinal < 3
+                    ? "phase=effect" : "phase=layer";
+                failures += check(strstr(diagnostic, phase) != NULL &&
                                   strstr(diagnostic, "hasException=1") != NULL,
                                   "native allocation failure has installation provenance", diagnostic);
             }
@@ -879,17 +888,24 @@ class SceneScriptQuickJSOwnerBudgetTest(unittest.TestCase):
             harness = root / "harness.c"
             binary = root / "harness"
             harness.write_text(HARNESS, encoding="utf-8")
-            layer_object = root / "layer-host.o"
-            layer_compilation = subprocess.run(
-                [
-                    clang, "-std=c11", "-O0", "-I", str(SCENE_SCRIPT), "-I", str(QUICKJS),
-                    "-Dcalloc=mwx_fixture_layer_calloc", "-Dfree=mwx_fixture_layer_free", "-c",
-                    str(SCENE_SCRIPT / "SceneQuickJSLayerHost.c"), "-o", str(layer_object),
-                ],
-                cwd=ROOT, capture_output=True, text=True,
-            )
-            self.assertEqual(layer_compilation.returncode, 0,
-                             layer_compilation.stdout + layer_compilation.stderr)
+            # Keep failure injection on the complete former layer-host
+            # responsibility after moving its native allocation/finalizers.
+            layer_sources = [source for source in C_SOURCES
+                if (source.name.startswith("SceneQuickJSLayer")
+                    and source.name != "SceneQuickJSLayerSnapshotHost.c")
+                or source.name == "SceneQuickJSPuppetBoneHost.c"]
+            layer_objects = []
+            for source in layer_sources:
+                layer_object = root / f"{source.stem}.o"
+                layer_compilation = subprocess.run(
+                    [clang, "-std=c11", "-O0", "-I", str(SCENE_SCRIPT), "-I", str(QUICKJS),
+                     "-Dcalloc=mwx_fixture_layer_calloc", "-Dfree=mwx_fixture_layer_free", "-c",
+                     str(source), "-o", str(layer_object)],
+                    cwd=ROOT, capture_output=True, text=True,
+                )
+                self.assertEqual(layer_compilation.returncode, 0,
+                                 layer_compilation.stdout + layer_compilation.stderr)
+                layer_objects.append(layer_object)
             particle_object = root / "particle-instance-host.o"
             particle_compilation = subprocess.run(
                 [
@@ -923,22 +939,11 @@ class SceneScriptQuickJSOwnerBudgetTest(unittest.TestCase):
                 "-I",
                 str(QUICKJS),
                 str(owner_object),
-                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSValueHost.c"),
-                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSModuleHost.c"),
-                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSAnimationHost.c"),
-                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSAudioHost.c"),
-                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSMediaEventHost.c"),
-                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSHandleHost.c"),
-                str(layer_object),
+                *map(str, layer_objects),
                 str(particle_object),
-                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSnapshotHost.c"),
-                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSStorageHost.c"),
-                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSJobHost.c"),
-                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSTimerHost.c"),
-                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/quickjs.c"),
-                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/dtoa.c"),
-                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/libregexp.c"),
-                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/libunicode.c"),
+                *(str(source) for source in C_SOURCES
+                  if source not in layer_sources
+                  and source.name not in {"SceneQuickJS.c", "SceneQuickJSParticleInstanceHost.c"}),
                 str(harness),
                 "-lm",
                 "-o",

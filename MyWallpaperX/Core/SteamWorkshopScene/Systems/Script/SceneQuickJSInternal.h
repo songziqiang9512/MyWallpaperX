@@ -69,6 +69,23 @@ typedef struct MWXSceneQuickJSNamedAnimationRecord {
     char name[MWX_SCENE_QUICKJS_MAX_ANIMATION_NAME + 1];
 } MWXSceneQuickJSNamedAnimationRecord;
 
+enum LayerProperty {
+    LAYER_ORIGIN,
+    LAYER_SIZE,
+    LAYER_SCALE,
+    LAYER_ANGLES,
+    LAYER_VISIBLE,
+    LAYER_SOLID,
+    LAYER_PERSPECTIVE,
+    LAYER_ALPHA,
+    LAYER_COLOR,
+    LAYER_TEXT,
+    LAYER_POINT_SIZE,
+    LAYER_FONT,
+    LAYER_ID,
+    LAYER_NAME,
+};
+
 // Shared identity for ordinary layer access and its particle-instance projection.
 typedef struct MWXSceneQuickJSLayerAccessHandle {
     MWXSceneQuickJSDomain *domain;
@@ -80,6 +97,11 @@ typedef struct MWXSceneQuickJSLayerAccessHandle {
     // Non-null only during the synchronous CClosure ownership transfer.
     bool *construction_finalized;
 } MWXSceneQuickJSLayerAccessHandle;
+
+enum MWXSceneQuickJSLayerAccessScope {
+    MWX_SCENE_QUICKJS_LAYER_OWNER_BOUND,
+    MWX_SCENE_QUICKJS_LAYER_AUTHORED_REFERENCE,
+};
 
 typedef struct MWXSceneQuickJSLayerRecord {
     int64_t layer_id;
@@ -666,8 +688,96 @@ bool mwx_scene_quickjs_assign_script_properties(
     size_t length
 );
 
+
+// Internal layer responsibilities share the existing Domain/Owner state and ABI.
+int32_t mwx_scene_quickjs_layer_active_count(MWXSceneQuickJSDomain *domain);
+bool mwx_scene_quickjs_layer_append_dynamic_layer_topology_operation(
+    MWXSceneQuickJSOwner *owner,
+    uint32_t kind,
+    uint32_t layer_index,
+    int32_t order_index
+);
+const double *mwx_scene_quickjs_layer_authored_transform_value(
+    const MWXSceneQuickJSOwner *owner,
+    const MWXSceneQuickJSAuthoredLayerMutationRecord *mutation,
+    const MWXSceneQuickJSAuthoredLayerMutationRecord *baseline,
+    uint32_t layer_index,
+    uint32_t field,
+    const double staged[3],
+    const double current[3]
+);
+bool mwx_scene_quickjs_layer_callback_owns(MWXSceneQuickJSOwner *owner);
+bool mwx_scene_quickjs_layer_define_get_texture_animation(
+    JSContext *context, JSValue layer, MWXSceneQuickJSOwner *owner,
+    uint32_t index, bool owner_target, bool persistent
+);
+bool mwx_scene_quickjs_layer_define_get_video_texture(
+    JSContext *context, JSValue layer, MWXSceneQuickJSOwner *owner,
+    uint32_t index, bool owner_target, bool persistent
+);
+bool mwx_scene_quickjs_layer_define_layer_playback(JSContext *context, JSValue layer,
+    MWXSceneQuickJSOwner *owner, uint32_t index, bool owner_target, bool persistent);
+bool mwx_scene_quickjs_layer_define_property(
+    JSContext *context, JSValue layer, MWXSceneQuickJSOwner *owner,
+    uint32_t index, bool owner_target, bool persistent,
+    const char *name, enum LayerProperty property, bool writable
+);
+bool mwx_scene_quickjs_layer_define_puppet_bone_functions(
+    JSContext *context, JSValue layer, MWXSceneQuickJSOwner *owner,
+    uint32_t index, bool owner_target, bool persistent
+);
+void mwx_scene_quickjs_layer_discard_last_dynamic_layer_topology_operation(
+    MWXSceneQuickJSOwner *owner
+);
+bool mwx_scene_quickjs_layer_ensure_dynamic_layer_transaction(
+    MWXSceneQuickJSOwner *owner
+);
+void mwx_scene_quickjs_layer_finalize_asset_handle(JSRuntime *runtime, JSValue value);
+bool mwx_scene_quickjs_layer_journal_dynamic_layer_creation(
+    MWXSceneQuickJSOwner *owner,
+    uint32_t layer_index
+);
+bool mwx_scene_quickjs_layer_journal_dynamic_layer_value(
+    MWXSceneQuickJSOwner *owner,
+    uint32_t layer_index
+);
+JSValue mwx_scene_quickjs_layer_make_asset_handle(
+    JSContext *context,
+    MWXSceneQuickJSDomain *domain,
+    const char *path,
+    size_t length
+);
+JSValue mwx_scene_quickjs_layer_make_layer_handle(
+    JSContext *context, MWXSceneQuickJSOwner *owner, uint32_t index, bool persistent
+);
+JSValue mwx_scene_quickjs_layer_make_mat4(JSContext *context, MWXSceneQuickJSDomain *domain,
+                         const double matrix[16]);
+JSValue mwx_scene_quickjs_layer_make_vec3(JSContext *context, MWXSceneQuickJSDomain *domain, const double v[3]);
+bool mwx_scene_quickjs_layer_mark_dirty(MWXSceneQuickJSOwner *owner, MWXSceneQuickJSLayerRecord *record);
+bool mwx_scene_quickjs_install_scene_layer_handle(MWXSceneQuickJSOwner *owner);
+bool mwx_scene_quickjs_layer_read_vec3(
+    JSContext *context, JSValueConst value, double output[3],
+    bool *numeric_nonfinite
+);
+const char *mwx_scene_quickjs_layer_registered_asset_path(
+    MWXSceneQuickJSDomain *domain,
+    JSValueConst value
+);
+MWXSceneQuickJSLayerRecord *mwx_scene_quickjs_layer_resolve_layer_argument(
+    JSContext *context, MWXSceneQuickJSOwner *owner, JSValueConst value
+);
+int32_t mwx_scene_quickjs_layer_storage_at_order(MWXSceneQuickJSDomain *domain, int32_t order);
+bool mwx_scene_quickjs_layer_valid_asset_path(const char *path, size_t length, size_t maximum_length);
+
+JSValue mwx_scene_quickjs_create_owner_layer_handle(MWXSceneQuickJSOwner *owner);
+
 bool mwx_scene_quickjs_read_vector(JSContext *, JSValueConst, double *, uint32_t, bool);
-MWXSceneQuickJSLayerRecord *mwx_scene_quickjs_layer_record_for_handle(MWXSceneQuickJSLayerAccessHandle *);
+MWXSceneQuickJSLayerRecord *mwx_scene_quickjs_layer_record_for_handle(
+    MWXSceneQuickJSLayerAccessHandle *, enum MWXSceneQuickJSLayerAccessScope);
+MWXSceneQuickJSOwner *mwx_scene_quickjs_bound_handle_owner(
+    JSContext *, const MWXSceneQuickJSLayerAccessHandle *, bool module_evaluation);
+JSValue mwx_scene_quickjs_owner_bound_closure(
+    MWXSceneQuickJSOwner *, JSCClosure *, const char *, int length, int magic);
 bool mwx_scene_quickjs_define_particle_instance(MWXSceneQuickJSOwner *, JSValue,
     uint32_t, bool owner_target, bool persistent);
 MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mutation(MWXSceneQuickJSOwner *, uint32_t);

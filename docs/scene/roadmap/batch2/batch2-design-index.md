@@ -7,7 +7,7 @@
 | D1 | [composition 采集范围、source 与目标生命周期（重新裁决）](composition-render-target-design.md) |
 | D2 | [Scene HDR、tone mapping 与 EDR 输出](hdr-tonemap-edr-design.md) |
 | D3 | [2D 材质光照、PBR 与阴影](2d-lighting-material-design.md) |
-| D4 | [SceneScript component、object 与 particle API](script-component-api-design.md) |
+| D4 | [SceneScript component、object 与 particle API](script-component-api-design.md)；[Layer host已收尾](../../history/layer-reference-responsibility-convergence-2026-10-13.md) |
 | D5 | [Web 跨源 frame 定向回包与宿主推送](../../../web/cross-origin-reply-delivery-design.md) |
 | D6 | [Web 系统 now-playing 数据源与单一媒体状态](../../../web/mediaremote-nowplaying-design.md) |
 | D7 | [Steam 下载页失败条目可见性](../../../web/steam-downloads-failed-items-visibility-design.md) |

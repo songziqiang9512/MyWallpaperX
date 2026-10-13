@@ -12,9 +12,9 @@ import tempfile
 import unittest
 
 try:
-    from .scene_vector_vm_test_support import compile_vector_harness
+    from .scene_vector_vm_test_support import C_SOURCES, compile_vector_harness
 except ImportError:
-    from scene_vector_vm_test_support import compile_vector_harness
+    from scene_vector_vm_test_support import C_SOURCES, compile_vector_harness
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -142,22 +142,7 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         cls.temp_dir = tempfile.TemporaryDirectory(prefix="mwx-scene-vec3-")
         temp = Path(cls.temp_dir.name)
         objects: list[Path] = []
-        for source in [
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.c", ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSValueHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSAnimationHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSModuleHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSAudioHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSMediaEventHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSHandleHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSParticleInstanceHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSnapshotHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSStorageHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSJobHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSTimerHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/quickjs.c", ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/dtoa.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/libregexp.c", ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/libunicode.c",
-        ]:
+        for source in C_SOURCES:
             output = temp / f"{source.stem}.o"
             subprocess.run([
                 clang, "-std=c11", "-O0", "-c", str(source), "-o", str(output),

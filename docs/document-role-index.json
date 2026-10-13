@@ -382,9 +382,9 @@
       "lastReviewed": "2026-10-13",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e319d3a245ee55bc0f95089f8dd7e7a510689b942fb325554f171bcf1e65c85b",
+        "sourceSHA256": "887f56e539afb5a8e43ccc7797874cdffe49eaf2d7348bfcb840f1266b5c876d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "ordinary quad colorBlend snapshot owner/region/fallback navigation; runtime evidence is in the batch historical record",
+        "scope": "当前启动/线程/所有权地图及C host自然职责迁移；native字段与附属owner权限单resolver，Domain/Owner/record/journal唯一。",
         "limitations": "not full architecture reacceptance or ordinary desktop/Release, physical HDR, corpus acceptance"
       }
     },
@@ -1311,6 +1311,29 @@
         "docs/scene/capabilities/scenescript-api-coverage.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/layer-reference-responsibility-convergence-2026-10-13.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/architecture/runtime-as-built-map.md",
+        "docs/scene/roadmap/properties-panel-card.md",
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-13",
+      "uniqueValue": "先设计的唯一host职责迁移、authored原referent/actor与安全callable、ASAN失败修闭、fixture等价及真实时钟边界",
+      "lastReviewed": "2026-10-13",
+      "reviewBasis": {
+        "kind": "implementation-evidence",
+        "sourceSHA256": "85ea1fab5a2f028a7a1e99d0b6c62825a832f165d77be0d290a09c6d253461ff",
+        "method": "frozen C API + ASAN + same-source fixture migration equivalence + ordinary product desktop controls/pixels + independent review",
+        "scope": "generic authored field reference, attached permission boundaries and retirement lifetime; one clock actual gain",
+        "limitations": "cohort hot update unresolved; no treatment CPU/GPU/memory/launch gain or Windows/full sample parity"
+      }
     },
     {
       "path": "docs/scene/history/material-video-assets-2026-10-12.md",

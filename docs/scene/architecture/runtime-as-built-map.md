@@ -51,6 +51,8 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 | graph/target/publication/completion | SceneResolvedMaterialRuntimeBridge（catalog+SubmissionCoordinator，**per surface**） | per surface/场景 | invalidate 整体重置；catalog 不可变、整体替换 |
 | compositor/drawable | SceneMetalView 的 CAMetalLayer + 唯一 main pass | per surface | — |
 
+SceneScript C host按layer catalog/baseline、native handle、typed value、journal、scene/asset、media与puppet bone完整职责分单元；仍共享唯一Domain/Owner/record、原C ABI和journal。已配置native authored字段引用保原referent，当前actor提交原transaction；附属API保owner-bound。retained callable复用Domain/creator identity与原active/module owner，无第二registry或generation owner；精确能力及策略边界归[API表](../capabilities/scenescript-api-coverage.md)，迁移过程归[历史证据](../history/layer-reference-responsibility-convergence-2026-10-13.md)。
+
 ### 1.3 线程地图
 
 | 工作 | 线程 | 备注 |

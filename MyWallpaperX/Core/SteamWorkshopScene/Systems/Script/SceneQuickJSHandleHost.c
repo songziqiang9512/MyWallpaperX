@@ -5,12 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct MWXSceneQuickJSEffectHandle {
-    MWXSceneQuickJSOwner *owner;
-    uint32_t effect_index;
-    uint64_t callback_epoch;
-} MWXSceneQuickJSEffectHandle;
-
 typedef struct MWXSceneQuickJSLayerHandle {
     MWXSceneQuickJSDomain *domain;
     uint32_t layer_index;
@@ -101,11 +95,6 @@ bool mwx_scene_quickjs_install_owner_handle_globals(
     return true;
 }
 
-static bool callback_owns_owner(const MWXSceneQuickJSOwner *owner) {
-    return owner != NULL && owner->domain != NULL &&
-        owner->domain->callback_active && owner->domain->active_owner == owner;
-}
-
 static bool callback_owns_epoch(
     const MWXSceneQuickJSDomain *domain,
     uint64_t callback_epoch
@@ -124,13 +113,13 @@ static JSValue execute_material_function(
 ) {
     (void)this_value;
     (void)magic;
-    MWXSceneQuickJSEffectHandle *handle = opaque;
-    if (handle == NULL || handle->owner == NULL || argc != 1 ||
+    MWXSceneQuickJSLayerAccessHandle *handle = opaque;
+    if (handle == NULL || argc != 1 ||
         !JS_IsString(argv[0])) {
         return JS_ThrowTypeError(context, "executeMaterialFunction expects one string");
     }
-    MWXSceneQuickJSOwner *owner = handle->owner;
-    if (!callback_owns_owner(owner) ||
+    MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_bound_handle_owner(context, handle, false);
+    if (owner == NULL ||
         !callback_owns_epoch(owner->domain, handle->callback_epoch)) {
         return JS_ThrowTypeError(context, "effect handle is stale");
     }
@@ -148,7 +137,7 @@ static JSValue execute_material_function(
     }
     MWXSceneQuickJSMaterialFunctionMutationRecord *record =
         &owner->material_functions[owner->material_function_count];
-    record->effect_index = handle->effect_index;
+    record->effect_index = handle->layer_index;
     memcpy(record->function_name, name, length);
     record->function_name[length] = '\0';
     owner->material_function_count += 1;
@@ -172,8 +161,8 @@ static JSValue get_effect(
 ) {
     (void)this_value;
     (void)magic;
-    MWXSceneQuickJSOwner *owner = opaque;
-    if (!callback_owns_owner(owner) || argc != 1 || owner->effect_names == NULL) {
+    MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_bound_handle_owner(context, opaque, false);
+    if (owner == NULL || argc != 1 || owner->effect_names == NULL) {
         return JS_ThrowTypeError(context, "getEffect host is unavailable");
     }
     int64_t index = -1;
@@ -206,17 +195,17 @@ static JSValue get_effect(
     }
     JSValue effect = JS_NewObject(context);
     if (JS_IsException(effect)) return effect;
-    MWXSceneQuickJSEffectHandle *handle = calloc(1, sizeof(*handle));
+    MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
     if (handle == NULL) {
         JS_FreeValue(context, effect);
         return JS_ThrowInternalError(context, "material effect handle allocation failed");
     }
-    handle->owner = owner;
-    handle->effect_index = (uint32_t)index;
-    handle->callback_epoch = owner->domain->callback_epoch;
-    JSValue callback = JS_NewCClosure(
-        context, execute_material_function, "executeMaterialFunction",
-        free_effect_handle, 1, 0, handle
+    *handle = (MWXSceneQuickJSLayerAccessHandle){
+        .domain = owner->domain, .owner_identity = owner->identity,
+        .layer_index = (uint32_t)index, .callback_epoch = owner->domain->callback_epoch,
+    };
+    JSValue callback = mwx_scene_quickjs_layer_access_closure(
+        context, execute_material_function, "executeMaterialFunction", 1, 0, handle
     );
     if (JS_IsException(callback) ||
         JS_DefinePropertyValueStr(
@@ -253,8 +242,8 @@ static JSValue get_effect_count(
     (void)argc;
     (void)argv;
     (void)magic;
-    MWXSceneQuickJSOwner *owner = opaque;
-    if (!callback_owns_owner(owner) || owner->effect_names == NULL) {
+    MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_bound_handle_owner(context, opaque, false);
+    if (owner == NULL || owner->effect_names == NULL) {
         return JS_ThrowTypeError(context, "getEffectCount host is unavailable");
     }
     return JS_NewUint32(context, owner->effect_count);
@@ -262,11 +251,11 @@ static JSValue get_effect_count(
 
 static bool install_effect_handle(MWXSceneQuickJSOwner *owner) {
     JSContext *context = owner->domain->context;
-    JSValue layer = JS_NewObject(context);
+    JSValue layer = mwx_scene_quickjs_create_owner_layer_handle(owner);
     if (JS_IsException(layer)) return false;
-    JSValue getter = JS_NewCClosure(context, get_effect, "getEffect", NULL, 1, 0, owner);
-    JSValue count = JS_NewCClosure(
-        context, get_effect_count, "getEffectCount", NULL, 0, 0, owner
+    JSValue getter = mwx_scene_quickjs_owner_bound_closure(owner, get_effect, "getEffect", 1, 0);
+    JSValue count = mwx_scene_quickjs_owner_bound_closure(
+        owner, get_effect_count, "getEffectCount", 0, 0
     );
     if (JS_IsException(getter) || JS_IsException(count)) {
         JS_FreeValue(context, getter);
@@ -323,33 +312,6 @@ void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner) {
     }
 }
 
-MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_property_object_scope(
-    MWXSceneQuickJSOwner *owner,
-    uint32_t property_object_is_layer,
-    char *diagnostic,
-    size_t diagnostic_capacity
-) {
-    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
-    if (owner == NULL || owner->domain == NULL || property_object_is_layer > 1 ||
-        owner->domain->callback_active) {
-        mwx_scene_quickjs_write_diagnostic(
-            diagnostic, diagnostic_capacity,
-            "invalid property object scope"
-        );
-        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-    }
-    if (property_object_is_layer != 0 &&
-        !mwx_scene_quickjs_define_property_animation_accessor(owner)) {
-        mwx_scene_quickjs_write_diagnostic(
-            diagnostic, diagnostic_capacity,
-            "property object animation accessor unavailable"
-        );
-        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-    }
-    owner->property_object_is_layer = property_object_is_layer != 0;
-    return MWX_SCENE_QUICKJS_OK;
-}
-
 bool mwx_scene_quickjs_owner_has_staged_effect_visibility(
     const MWXSceneQuickJSOwner *owner
 ) {
@@ -359,9 +321,8 @@ bool mwx_scene_quickjs_owner_has_staged_effect_visibility(
 static JSValue effect_visibility_getter(JSContext *context, JSValueConst this_value,
     int argc, JSValueConst *argv, int magic, void *opaque) {
     (void)this_value; (void)argc; (void)argv; (void)magic;
-    MWXSceneQuickJSOwner *owner = opaque;
-    if (owner == NULL || owner->domain == NULL ||
-        !owner->domain->callback_active || owner->domain->active_owner != owner) {
+    MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_bound_handle_owner(context, opaque, false);
+    if (owner == NULL) {
         return JS_ThrowTypeError(context, "effect visibility host is unavailable");
     }
     return JS_NewBool(
@@ -377,9 +338,8 @@ static JSValue effect_visibility_getter(JSContext *context, JSValueConst this_va
 static JSValue effect_visibility_setter(JSContext *context, JSValueConst this_value,
     int argc, JSValueConst *argv, int magic, void *opaque) {
     (void)this_value; (void)magic;
-    MWXSceneQuickJSOwner *owner = opaque;
-    if (owner == NULL || owner->domain == NULL ||
-        !owner->domain->callback_active || owner->domain->active_owner != owner ||
+    MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_bound_handle_owner(context, opaque, false);
+    if (owner == NULL ||
         argc != 1 || !JS_IsBool(argv[0])) {
         return JS_ThrowTypeError(
             context, "effect visibility expects a boolean"
@@ -405,11 +365,11 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_effect_visibility_target
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
     JSContext *context = owner->domain->context;
-    JSValue getter = JS_NewCClosure(
-        context, effect_visibility_getter, "get visible", NULL, 0, 0, owner
+    JSValue getter = mwx_scene_quickjs_owner_bound_closure(
+        owner, effect_visibility_getter, "get visible", 0, 0
     );
-    JSValue setter = JS_NewCClosure(
-        context, effect_visibility_setter, "set visible", NULL, 1, 0, owner
+    JSValue setter = mwx_scene_quickjs_owner_bound_closure(
+        owner, effect_visibility_setter, "set visible", 1, 0
     );
     if (JS_IsException(getter) || JS_IsException(setter)) {
         JS_FreeValue(context, getter);
@@ -888,8 +848,11 @@ static JSValue layer_effect_visible(JSContext *ctx, JSValueConst this_value,
     // Both handles name the same owner state, including staged reads and rollback.
     if (owner->effect_visibility_configured && owner->effect_visibility_layer_id == r->layer_id &&
         owner->effect_visibility_effect_index == h->effect_index) {
-        return write ? effect_visibility_setter(ctx, this_value, argc, argv, 0, owner)
-                     : effect_visibility_getter(ctx, this_value, argc, argv, 0, owner);
+        MWXSceneQuickJSLayerAccessHandle identity = {
+            .domain = owner->domain, .owner_identity = owner->identity,
+        };
+        return write ? effect_visibility_setter(ctx, this_value, argc, argv, 0, &identity)
+                     : effect_visibility_getter(ctx, this_value, argc, argv, 0, &identity);
     }
     MWXSceneQuickJSAuthoredLayerMutationRecord *m =
         mwx_scene_quickjs_authored_mutation_for_layer(owner, h->layer_index);
