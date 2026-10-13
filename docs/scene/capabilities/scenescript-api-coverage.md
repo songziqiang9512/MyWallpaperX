@@ -41,6 +41,12 @@
 
 当前首批只按 V2 闭合一个纵向结果：QuickJS-NG per-scene runtime/context → one typed owner → `init/update` → owner-local mutation → Swift frame transaction → next-frame visible consumer；完整 API、event、timer、dynamic layer 或发行平台不是第一条正确脚本画面的前置。owner、预算、reload/teardown 与 stale-handle 只按下方项目自有目标合同实施，不从固定客户端反编译表达反推代码。
 
+<a id="native-regexp-captures"></a>
+
+### 原生 RegExp legacy captures
+
+现native intrinsic支持`RegExp.$1…$9`，来源为[TC39公开legacy提案](https://github.com/tc39/proposal-regexp-legacy-features)的限定表面（Stage 3），不声明完整提案或当前ECMA-262接受。原scene context持九槽；原RegExp保存immutable创建realm及eligibility，沿既有mark/finalizer释放。native成功匹配原子发布，失败保留；同realm非原intrinsic newTarget成功使getters失效，随后eligible成功恢复；foreign realm不更新任一侧，变prototype/constructor不改创建身份。初始、无组和未参与capture为空String；getters configurable/non-enumerable/无setter，只接受原intrinsic constructor receiver。自定义exec伪结果不发布，委派native则由原producer发布。String算法、exec identity及empty-replace fastpath保持；nested replacer可更新状态，后续callback不重发旧外层capture。global/sticky所需lastIndex写入成功后才准备/发布，zero-length进位及最终失败归零保持；OOM/interrupt保最后已完成match，未完成候选不部分发布。长slice捕获用现8/16-bit构造器仅复制捕获字节，普通独立String复用；原memory estimator计入context槽。intrinsic共享状态不参与typed frame rollback，不形成第二clock或registry；当前捕获范围只避免重复清空空槽，不驻留额外输入String。实现/升级退出由[vendored README](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/README.md)限定；真实时钟及成本边界见[运行证据](runtime-evidence-current.md#e-native-regexp-captures)。`compile`、其它legacy静态属性、跨平台完整正则与官方parity仍未据此接受。
+
 ### 1.1 MyWallpaperX V2 目标运行时合同
 
 本节是 implementation agent 可以消费的项目自有合同，不描述官方内部实现：

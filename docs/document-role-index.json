@@ -562,12 +562,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-12",
+      "lastReviewed": "2026-10-13",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "18ef98660cc4a29daa14fd1aace6929b6efbd59968a31c60840936860fba17b4",
+        "sourceSHA256": "31e502d6f4ed432f63fe4bd38ec0bbc4ea378dfdcd8fa0c60ce85e95ed611e5a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批标量数据遮罩后验及用户性能/属性优先级的职责导航；其他合同未重验",
+        "scope": "新增原生RegExp实际时钟证据的角色导航；其他合同未重验",
         "limitations": "导航复核不冒充全架构、全样本、性能或Release验收；具体执行证据归本批历史。"
       }
     },
@@ -1509,6 +1509,20 @@
         "docs/scene/capabilities/scenescript-api-coverage.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/native-regexp-capture-2026-10-13.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/roadmap/properties-panel-card.md",
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-13",
+      "uniqueValue": "原生capture realm/GC与fastpath设计、继承工作区后的范围成本收敛、双时钟真实恢复及未覆盖性能边界"
     },
     {
       "path": "docs/scene/history/new-sample-gap-analysis-2026-09-30.md",

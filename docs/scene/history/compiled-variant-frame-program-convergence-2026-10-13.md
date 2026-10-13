@@ -2,7 +2,7 @@
 
 # 编译结果与帧材质准备收敛（2026-10-13）
 
-> **历史证据 — 非现役入口**。稳定所有权归[代码地图](../architecture/runtime-as-built-map.md)，后续成本与验收归[性能卡](../roadmap/performance-convergence-card.md)及[E1](../roadmap/engine-refactor-program.md#e1--压缩-admission-与帧存储cpu-热点成立时优先)。
+> **历史证据 — 非现役入口**。稳定所有权归[代码地图](../architecture/runtime-as-built-map.md)，后续成本与验收归[性能卡](../roadmap/performance-convergence-card.md)及[E1](../roadmap/engine-refactor-program.md)。
 
 ## 通用语义与旧职责退出
 

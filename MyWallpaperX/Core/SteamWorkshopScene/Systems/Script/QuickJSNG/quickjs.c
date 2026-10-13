@@ -582,6 +582,9 @@ struct JSContext {
     JSValue function_ctor;
     JSValue array_ctor;
     JSValue regexp_ctor;
+    JSValue regexp_legacy_captures[9]; /* JS_NULL represents an empty String */
+    uint8_t regexp_legacy_capture_count;
+    bool regexp_legacy_captures_valid;
     JSValue promise_ctor;
     JSValue native_error_proto[JS_NATIVE_ERROR_COUNT];
     JSValue error_ctor;
@@ -927,6 +930,7 @@ typedef struct JSForInIterator {
 typedef struct JSRegExp {
     JSString *pattern;
     JSString *bytecode; /* also contains the flags */
+    uintptr_t legacy_capture_realm; /* JSContext reference, low bit enables captures */
 } JSRegExp;
 
 typedef struct JSProxyData {
@@ -1323,6 +1327,8 @@ static void js_for_in_iterator_finalizer(JSRuntime *rt, JSValueConst val);
 static void js_for_in_iterator_mark(JSRuntime *rt, JSValueConst val,
                                 JS_MarkFunc *mark_func);
 static void js_regexp_finalizer(JSRuntime *rt, JSValueConst val);
+static void js_regexp_mark(JSRuntime *rt, JSValueConst val,
+                          JS_MarkFunc *mark_func);
 static void js_array_buffer_finalizer(JSRuntime *rt, JSValueConst val);
 static void js_typed_array_finalizer(JSRuntime *rt, JSValueConst val);
 static void js_typed_array_mark(JSRuntime *rt, JSValueConst val,
@@ -2234,7 +2240,7 @@ static JSClassShortDef const js_std_class_def[] = {
     { JS_ATOM_Function, js_c_closure_finalizer, NULL},                           /* JS_CLASS_C_CLOSURE */
     { JS_ATOM_GeneratorFunction, js_bytecode_function_finalizer, js_bytecode_function_mark },  /* JS_CLASS_GENERATOR_FUNCTION */
     { JS_ATOM_ForInIterator, js_for_in_iterator_finalizer, js_for_in_iterator_mark },      /* JS_CLASS_FOR_IN_ITERATOR */
-    { JS_ATOM_RegExp, js_regexp_finalizer, NULL },                              /* JS_CLASS_REGEXP */
+    { JS_ATOM_RegExp, js_regexp_finalizer, js_regexp_mark },                    /* JS_CLASS_REGEXP */
     { JS_ATOM_ArrayBuffer, js_array_buffer_finalizer, NULL },                   /* JS_CLASS_ARRAY_BUFFER */
     { JS_ATOM_SharedArrayBuffer, js_array_buffer_finalizer, NULL },             /* JS_CLASS_SHARED_ARRAY_BUFFER */
     { JS_ATOM_Uint8ClampedArray, js_typed_array_finalizer, js_typed_array_mark }, /* JS_CLASS_UINT8C_ARRAY */
@@ -2890,6 +2896,10 @@ JSContext *JS_NewContextRaw(JSRuntime *rt)
     ctx->iterator_ctor = JS_NULL;
     ctx->iterator_ctor_getset = JS_NULL;
     ctx->regexp_ctor = JS_NULL;
+    for(i = 0; i < 9; i++)
+        ctx->regexp_legacy_captures[i] = JS_NULL;
+    ctx->regexp_legacy_capture_count = 0;
+    ctx->regexp_legacy_captures_valid = true;
     ctx->promise_ctor = JS_NULL;
     ctx->error_ctor = JS_NULL;
     ctx->error_back_trace = JS_UNDEFINED;
@@ -3034,6 +3044,8 @@ static void JS_MarkContext(JSRuntime *rt, JSContext *ctx,
     JS_MarkValue(rt, ctx->promise_ctor, mark_func);
     JS_MarkValue(rt, ctx->array_ctor, mark_func);
     JS_MarkValue(rt, ctx->regexp_ctor, mark_func);
+    for(i = 0; i < 9; i++)
+        JS_MarkValue(rt, ctx->regexp_legacy_captures[i], mark_func);
     JS_MarkValue(rt, ctx->function_ctor, mark_func);
     JS_MarkValue(rt, ctx->function_proto, mark_func);
 
@@ -3117,6 +3129,8 @@ void JS_FreeContext(JSContext *ctx)
     JS_FreeValue(ctx, ctx->promise_ctor);
     JS_FreeValue(ctx, ctx->array_ctor);
     JS_FreeValue(ctx, ctx->regexp_ctor);
+    for(i = 0; i < 9; i++)
+        JS_FreeValue(ctx, ctx->regexp_legacy_captures[i]);
     JS_FreeValue(ctx, ctx->function_ctor);
     JS_FreeValue(ctx, ctx->function_proto);
 
@@ -6243,6 +6257,7 @@ static JSValue JS_NewObjectFromShape(JSContext *ctx, JSShape *sh, JSClassID clas
     case JS_CLASS_REGEXP:
         p->u.regexp.pattern = NULL;
         p->u.regexp.bytecode = NULL;
+        p->u.regexp.legacy_capture_realm = 0;
         goto set_exotic;
     default:
     set_exotic:
@@ -7606,6 +7621,8 @@ void JS_ComputeMemoryUsage(JSRuntime *rt, JSMemoryUsage *s)
             sizeof(JSValue) * rt->class_count;
         s->binary_object_count += ctx->binary_object_count;
         s->binary_object_size += ctx->binary_object_size;
+        for (i = 0; i < ctx->regexp_legacy_capture_count; i++)
+            compute_value_size(ctx->regexp_legacy_captures[i], hp);
 
         /* the hashed shapes are counted separately */
         if (sh && !sh->is_hashed) {
@@ -49137,6 +49154,80 @@ static void js_regexp_finalizer(JSRuntime *rt, JSValueConst val)
     JSRegExp *re = &p->u.regexp;
     JS_FreeValueRT(rt, JS_MKPTR(JS_TAG_STRING, re->bytecode));
     JS_FreeValueRT(rt, JS_MKPTR(JS_TAG_STRING, re->pattern));
+    JSContext *realm = (JSContext *)(re->legacy_capture_realm & ~(uintptr_t)1);
+    if (realm)
+        JS_FreeContext(realm);
+}
+
+static void js_regexp_mark(JSRuntime *rt, JSValueConst val,
+                          JS_MarkFunc *mark_func)
+{
+    JSRegExp *re = &JS_VALUE_GET_OBJ(val)->u.regexp;
+    JSContext *realm = (JSContext *)(re->legacy_capture_realm & ~(uintptr_t)1);
+    if (realm)
+        mark_func(rt, &realm->header);
+}
+
+enum RegExpLegacyCaptureAction {
+    REGEXP_LEGACY_NO_UPDATE,
+    REGEXP_LEGACY_PUBLISH,
+    REGEXP_LEGACY_INVALIDATE,
+};
+
+static int js_regexp_legacy_capture_action(JSContext *ctx, JSRegExp *re)
+{
+    if ((re->legacy_capture_realm & ~(uintptr_t)1) != (uintptr_t)ctx)
+        return REGEXP_LEGACY_NO_UPDATE;
+    return (re->legacy_capture_realm & 1)
+        ? REGEXP_LEGACY_PUBLISH : REGEXP_LEGACY_INVALIDATE;
+}
+
+static void js_regexp_legacy_capture_release(JSContext *ctx, JSValue captures[9])
+{
+    for(int i = 0; i < 9; i++) {
+        JS_FreeValue(ctx, captures[i]);
+        captures[i] = JS_NULL;
+    }
+}
+
+static JSValue js_regexp_legacy_capture_dup(JSContext *ctx, JSValueConst value)
+{
+    JSString *str = JS_VALUE_GET_STRING(value);
+    /* A context capture must not pin unrelated bytes in a slice's parent. */
+    if (str->kind != JS_STRING_KIND_SLICE)
+        return js_dup(value);
+    return str->is_wide_char
+        ? js_new_string16_len(ctx, str16(str), str->len)
+        : js_new_string8_len(ctx, str8(str), str->len);
+}
+
+static void js_regexp_legacy_capture_publish(JSContext *ctx, int action,
+                                            JSValue captures[9], int capture_count)
+{
+    if (action == REGEXP_LEGACY_NO_UPDATE)
+        return;
+    int count = action == REGEXP_LEGACY_PUBLISH ? min_int(capture_count - 1, 9) : 0;
+    int previous_count = ctx->regexp_legacy_capture_count;
+    /* Unused slots stay NULL. Clear a previous longer match once, rather
+       than repeatedly releasing nine empty values in no-capture matches. */
+    for(int i = 0; i < max_int(count, previous_count); i++) {
+        JS_FreeValue(ctx, ctx->regexp_legacy_captures[i]);
+        ctx->regexp_legacy_captures[i] = captures[i];
+        captures[i] = JS_NULL;
+    }
+    ctx->regexp_legacy_capture_count = count;
+    ctx->regexp_legacy_captures_valid = action == REGEXP_LEGACY_PUBLISH;
+}
+
+static JSValue js_regexp_get_legacy_capture(JSContext *ctx,
+                                           JSValueConst this_val, int magic)
+{
+    if (!js_same_value(ctx, this_val, ctx->regexp_ctor) ||
+        !ctx->regexp_legacy_captures_valid)
+        return JS_ThrowTypeError(ctx, "RegExp legacy captures are unavailable");
+    JSValue value = ctx->regexp_legacy_captures[magic];
+    return JS_IsNull(value) ? JS_AtomToString(ctx, JS_ATOM_empty_string)
+                            : js_dup(value);
 }
 
 /* create a string containing the RegExp bytecode */
@@ -49259,6 +49350,10 @@ static JSValue js_regexp_constructor_internal(JSContext *ctx, JSValueConst ctor,
     re = &p->u.regexp;
     re->pattern = JS_VALUE_GET_STRING(pattern);
     re->bytecode = JS_VALUE_GET_STRING(bc);
+    re->legacy_capture_realm = (uintptr_t)JS_DupContext(ctx);
+    assert((re->legacy_capture_realm & 1) == 0);
+    if (JS_IsUndefined(ctor) || js_same_value(ctx, ctor, ctx->regexp_ctor))
+        re->legacy_capture_realm |= 1;
     return obj;
 fail:
     JS_FreeValue(ctx, bc);
@@ -49676,9 +49771,14 @@ static JSValue js_regexp_exec(JSContext *ctx, JSValueConst this_val,
     const char *group_name_ptr;
     JSAtom group_name;
     JSProperty props[4]; // length, index, input, groups, in that order
+    JSValue legacy_captures[9] = {JS_NULL, JS_NULL, JS_NULL, JS_NULL, JS_NULL,
+                                 JS_NULL, JS_NULL, JS_NULL, JS_NULL};
+    int legacy_action;
 
     if (!re)
         return JS_EXCEPTION;
+
+    legacy_action = js_regexp_legacy_capture_action(ctx, re);
 
     str_val = JS_ToString(ctx, argv[0]);
     if (JS_IsException(str_val))
@@ -49861,6 +49961,14 @@ static JSValue js_regexp_exec(JSContext *ctx, JSValueConst this_val,
                 group_name = JS_ATOM_NULL;
             }
 
+            if (legacy_action == REGEXP_LEGACY_PUBLISH && i > 0 && i <= 9 &&
+                !JS_IsUndefined(val)) {
+                legacy_captures[i - 1] = js_regexp_legacy_capture_dup(ctx, val);
+                if (JS_IsException(legacy_captures[i - 1])) {
+                    JS_FreeValue(ctx, val);
+                    goto fail;
+                }
+            }
             if (JS_DefinePropertyValueUint32(ctx, obj, i, val, prop_flags) < 0)
                 goto fail;
         }
@@ -49877,10 +49985,12 @@ static JSValue js_regexp_exec(JSContext *ctx, JSValueConst this_val,
                 goto fail;
             }
         }
+        js_regexp_legacy_capture_publish(ctx, legacy_action, legacy_captures, capture_count);
     }
     ret = obj;
     obj = JS_UNDEFINED;
 fail:
+    js_regexp_legacy_capture_release(ctx, legacy_captures);
     JS_FreeAtom(ctx, group_name);
     JS_FreeValue(ctx, indices_groups);
     JS_FreeValue(ctx, indices);
@@ -49900,13 +50010,19 @@ static JSValue JS_RegExpDelete(JSContext *ctx, JSValueConst this_val, JSValue ar
     uint8_t *re_bytecode;
     int ret;
     uint8_t **capture, *str_buf;
-    int alloc_count, shift, re_flags;
+    int alloc_count, capture_count, shift, re_flags;
     int next_src_pos, start, end;
     int64_t last_index;
     StringBuffer b_s, *b = &b_s;
+    JSValue legacy_captures[9] = {JS_NULL, JS_NULL, JS_NULL, JS_NULL, JS_NULL,
+                                 JS_NULL, JS_NULL, JS_NULL, JS_NULL};
+    int legacy_action;
+    JSValue result;
 
     if (!re)
         return JS_EXCEPTION;
+
+    legacy_action = js_regexp_legacy_capture_action(ctx, re);
 
     string_buffer_init(ctx, b, 0);
 
@@ -49917,6 +50033,7 @@ static JSValue JS_RegExpDelete(JSContext *ctx, JSValueConst this_val, JSValue ar
     str = JS_VALUE_GET_STRING(str_val);
     re_bytecode = str8(re->bytecode);
     re_flags = lre_get_flags(re_bytecode);
+    capture_count = lre_get_capture_count(re_bytecode);
     if ((re_flags & (LRE_FLAG_GLOBAL | LRE_FLAG_STICKY)) == 0) {
         last_index = 0;
     } else {
@@ -49936,10 +50053,7 @@ static JSValue JS_RegExpDelete(JSContext *ctx, JSValueConst this_val, JSValue ar
     str_buf = str8(str);
     next_src_pos = 0;
     for (;;) {
-        if (last_index > str->len)
-            break;
-
-        ret = lre_exec(capture, re_bytecode,
+        ret = last_index > str->len ? 0 : lre_exec(capture, re_bytecode,
                        str_buf, last_index, str->len, shift, ctx);
         if (ret != 1) {
             if (ret >= 0) {
@@ -49968,6 +50082,29 @@ static JSValue JS_RegExpDelete(JSContext *ctx, JSValueConst this_val, JSValue ar
         }
         start = (capture[0] - str_buf) >> shift;
         end = (capture[1] - str_buf) >> shift;
+        /* The fastpath's required match write can fail after an exec getter
+           or lastIndex conversion freezes the receiver. Publish only later. */
+        if (JS_SetProperty(ctx, this_val, JS_ATOM_lastIndex, js_int32(end)) < 0)
+            goto fail;
+        if (legacy_action == REGEXP_LEGACY_PUBLISH) {
+            for(int i = 1; i < capture_count && i <= 9; i++) {
+                uint8_t **match = &capture[2 * i];
+                if (match[0] && match[1]) {
+                    JSValue value = js_sub_string(ctx, str,
+                        (match[0] - str_buf) >> shift,
+                        (match[1] - str_buf) >> shift);
+                    if (JS_IsException(value))
+                        goto fail;
+                    legacy_captures[i - 1] = js_regexp_legacy_capture_dup(ctx, value);
+                    JS_FreeValue(ctx, value);
+                    if (JS_IsException(legacy_captures[i - 1]))
+                        goto fail;
+                }
+            }
+        }
+        /* Each native match publishes before subsequent output allocation.
+           A later failure must not undo an already completed match. */
+        js_regexp_legacy_capture_publish(ctx, legacy_action, legacy_captures, capture_count);
         last_index = end;
         if (next_src_pos < start) {
             if (string_buffer_concat(b, str, next_src_pos, start))
@@ -49975,9 +50112,6 @@ static JSValue JS_RegExpDelete(JSContext *ctx, JSValueConst this_val, JSValue ar
         }
         next_src_pos = end;
         if (!(re_flags & LRE_FLAG_GLOBAL)) {
-            if (JS_SetProperty(ctx, this_val, JS_ATOM_lastIndex,
-                               js_int32(end)) < 0)
-                goto fail;
             break;
         }
         if (end == start) {
@@ -49986,15 +50120,20 @@ static JSValue JS_RegExpDelete(JSContext *ctx, JSValueConst this_val, JSValue ar
             } else {
                 string_getc(str, &end);
             }
+            if (JS_SetProperty(ctx, this_val, JS_ATOM_lastIndex, js_int32(end)) < 0)
+                goto fail;
         }
         last_index = end;
     }
     if (string_buffer_concat(b, str, next_src_pos, str->len))
         goto fail;
+    result = string_buffer_end(b);
+    js_regexp_legacy_capture_release(ctx, legacy_captures);
     JS_FreeValue(ctx, str_val);
     js_free(ctx, capture);
-    return string_buffer_end(b);
+    return result;
 fail:
+    js_regexp_legacy_capture_release(ctx, legacy_captures);
     JS_FreeValue(ctx, str_val);
     js_free(ctx, capture);
     string_buffer_free(b);
@@ -50328,7 +50467,8 @@ static int value_buffer_append(ValueBuffer *b, JSValue val)
     return 0;
 }
 
-static int js_is_standard_regexp(JSContext *ctx, JSValueConst rx)
+static int js_is_standard_regexp(JSContext *ctx, JSValueConst rx,
+                                 JSContext **exec_realm)
 {
     JSValue val;
     int res;
@@ -50345,6 +50485,8 @@ static int js_is_standard_regexp(JSContext *ctx, JSValueConst rx)
             return -1;
         // rx.exec === RE_exec
         res = JS_IsCFunction(ctx, val, js_regexp_exec, 0);
+        if (res)
+            *exec_realm = JS_DupContext(JS_VALUE_GET_OBJ(val)->u.cfunc.realm);
         JS_FreeValue(ctx, val);
     }
     return res;
@@ -50368,6 +50510,8 @@ static JSValue js_regexp_Symbol_replace(JSContext *ctx, JSValueConst this_val,
         return JS_ThrowTypeErrorNotAnObject(ctx);
 
     string_buffer_init(ctx, b, 0);
+    if (b->error_status)
+        return JS_EXCEPTION;
     value_buffer_init(ctx, results);
 
     rep_val = JS_UNDEFINED;
@@ -50409,10 +50553,17 @@ static JSValue js_regexp_Symbol_replace(JSContext *ctx, JSValueConst this_val,
             goto exception;
     }
 
-    if (rp && rp->len == 0 && is_global && js_is_standard_regexp(ctx, rx)) {
-        /* use faster version for simple cases */
-        res = JS_RegExpDelete(ctx, rx, str);
-        goto done;
+    if (rp && rp->len == 0 && is_global) {
+        JSContext *exec_realm = NULL;
+        int standard = js_is_standard_regexp(ctx, rx, &exec_realm);
+        if (standard < 0)
+            goto exception;
+        if (standard) {
+            /* Preserve the native exec realm, including borrowed intrinsics. */
+            res = JS_RegExpDelete(exec_realm, rx, str);
+            JS_FreeContext(exec_realm);
+            goto done;
+        }
     }
     for(;;) {
         JSValue result;
@@ -50735,6 +50886,15 @@ done:
 static const JSCFunctionListEntry js_regexp_funcs[] = {
     JS_CFUNC_DEF("escape", 1, js_regexp_escape ),
     JS_CGETSET_DEF("[Symbol.species]", js_get_this, NULL ),
+    JS_CGETSET_MAGIC_DEF("$1", js_regexp_get_legacy_capture, NULL, 0 ),
+    JS_CGETSET_MAGIC_DEF("$2", js_regexp_get_legacy_capture, NULL, 1 ),
+    JS_CGETSET_MAGIC_DEF("$3", js_regexp_get_legacy_capture, NULL, 2 ),
+    JS_CGETSET_MAGIC_DEF("$4", js_regexp_get_legacy_capture, NULL, 3 ),
+    JS_CGETSET_MAGIC_DEF("$5", js_regexp_get_legacy_capture, NULL, 4 ),
+    JS_CGETSET_MAGIC_DEF("$6", js_regexp_get_legacy_capture, NULL, 5 ),
+    JS_CGETSET_MAGIC_DEF("$7", js_regexp_get_legacy_capture, NULL, 6 ),
+    JS_CGETSET_MAGIC_DEF("$8", js_regexp_get_legacy_capture, NULL, 7 ),
+    JS_CGETSET_MAGIC_DEF("$9", js_regexp_get_legacy_capture, NULL, 8 ),
 };
 
 static const JSCFunctionListEntry js_regexp_proto_funcs[] = {

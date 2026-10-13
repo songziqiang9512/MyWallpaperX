@@ -16,6 +16,11 @@
 - component/object/particle综合项仍有缺口，不能由综合等级推断各基础设施缺失；现`SceneScriptLayerHandleBridge`已有upsert/destroy、mutation commit/discard与scope隔离，`SceneScriptOwnerLifecycleBridge`已有生命周期及mutation预算。
 - 2026-10-01核对官方[IScene](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IScene.html)、[IEngine](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html)、[IThisPropertyObject](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IThisPropertyObject.html)、[IParticleSystem](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystem.html)。公开入口未证明作者可调用`registerSceneScriptComponent`。
 
+## Legacy RegExp capture 后继（2026-10-13）
+
+原native intrinsic的capture/realm/GC与失败边界已实施；唯一可观察合同见[API表](../../capabilities/scenescript-api-coverage.md#native-regexp-captures)，设计取舍、成本及真实时钟证据见[冻结记录](../../history/native-regexp-capture-2026-10-13.md)。不新增wrapper/正则算法或clock，未证完整提案与官方parity；普通编辑重建仍归属性卡。
+
+
 ## 共享 VM 容量与安装失败后继（2026-10-13，实施中）
 
 原包隔离 App 在第 742 个 owner 的 layer handle 安装处实际耗尽共享 VM 的 16 MiB heap；记录为 memory-exceeded，分配量 16,777,168 / 16,777,216 bytes，计划上界为 935 个 owner。首个真实内存错误已沿现候选域 fatal 路径退出，旧逐 identity 重试耗尽 4096 的扩大失败已排除；该 16 MiB 版本原包开场仍未恢复。该证据说明容量不足，不定位症状的引入提交。32 MiB 前一候选的隔离原包已完成自动开场、后续运动与网格切换；本片最新安装失败边界仍须固定源码重建重验，不能沿用旧候选的运行结论。冻结身份及播放验收归[本轮中性历史记录](../../history/scenescript-host-heap-admission-2026-10-13.md)，不由此设计登记替代。

@@ -19,6 +19,7 @@ except ImportError:
 FIXTURES = ROOT / "script/tests/fixtures"
 FIXTURE_SOURCES = [
     FIXTURES / "SceneLayerPerspectiveQuickJSCases.c",
+    FIXTURES / "SceneScriptQuickJSLegacyCaptureCases.c",
     FIXTURES / "SceneScriptQuickJSMain.c",
     FIXTURES / "SceneScriptQuickJSRuntimeSupport.c",
     FIXTURES / "SceneScriptQuickJSLayerSupport.c",
@@ -83,6 +84,37 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             completed.returncode,
             0,
             completed.stdout + completed.stderr,
+        )
+        if completed.stdout:
+            print(completed.stdout, end="")
+
+    def test_legacy_capture_allocation_and_gc(self) -> None:
+        root = Path(self._temporary_directory.name)
+        main = root / "legacy-main.c"
+        main.write_text(
+            "int mwx_test_legacy_capture_cases(void);\n"
+            "int main(void) { return mwx_test_legacy_capture_cases() != 0; }\n",
+            encoding="utf-8",
+        )
+        binary = root / "legacy-gc-harness"
+        compilation = subprocess.run(
+            [
+                shutil.which("clang"), "-std=c11", "-O1",
+                "-DFORCE_GC_AT_MALLOC", "-I", str(VM), "-I", str(QUICKJS),
+                *map(str, C_SOURCES),
+                str(FIXTURES / "SceneScriptQuickJSLegacyCaptureCases.c"),
+                str(main), "-lm", "-o", str(binary),
+            ],
+            cwd=ROOT, capture_output=True, text=True,
+        )
+        self.assertEqual(
+            compilation.returncode, 0, compilation.stdout + compilation.stderr
+        )
+        completed = subprocess.run(
+            [str(binary)], cwd=ROOT, capture_output=True, text=True
+        )
+        self.assertEqual(
+            completed.returncode, 0, completed.stdout + completed.stderr
         )
         if completed.stdout:
             print(completed.stdout, end="")

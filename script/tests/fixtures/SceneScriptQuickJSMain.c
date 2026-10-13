@@ -5,6 +5,7 @@
 #include <string.h>
 
 int mwx_test_layer_perspective_cases(void);
+int mwx_test_legacy_capture_cases(void);
 
 int main(void) {
     MWXSceneScriptQuickJSFixture state = {0};
@@ -15,6 +16,7 @@ int main(void) {
     if (mwx_fixture_check(fixture->domain != NULL, "domain", fixture->diagnostic)) return 1;
 
     fixture->failures = mwx_test_layer_perspective_cases();
+    fixture->failures += mwx_test_legacy_capture_cases();
     fixture->failures += mwx_fixture_configure_layers(fixture->domain);
     fixture->failures += mwx_fixture_configure_texture_animation(fixture->domain);
 

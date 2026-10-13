@@ -93,8 +93,8 @@
       "bytes": 345429
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 108,
-      "bytes": 32712
+      "lines": 109,
+      "bytes": 33025
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 540,
@@ -117,8 +117,8 @@
       "bytes": 127870
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 403,
-      "bytes": 99228
+      "lines": 409,
+      "bytes": 100990
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -181,8 +181,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 209,
-      "bytes": 57332
+      "lines": 214,
+      "bytes": 57780
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 243,
-      "bytes": 70356
+      "bytes": 70405
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -262,11 +262,11 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 22,
-      "bytes": 3513
+      "bytes": 3670
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
-      "bytes": 3258
+      "bytes": 3378
     }
   },
   "archives": [
@@ -1181,15 +1181,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "bc7f463a8e85bfe7e878ed1a8000f467f60d924cab8b6c4172085debb756c2ba",
-      "after": "ad0d9867d99d9e38ad75e75cd800e80bae8ab532a124591baa7b2d6cf4a9ca4e",
-      "owner": "scene-material-purpose",
-      "reason": "标量遮罩后验及用户调序的两专项卡；区分作者关闭与真实视觉失败，短合同引用历史。",
-      "decision": "docs/scene/history/scalar-mask-data-purpose-2026-10-12.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
       "before": "0b0faf5fb6748c082343e4025096f15e5e9e4309cc65a9070fb77769aeb887a5",
       "after": "a551c2eeee90e6b1156583c8d28bfaa78c888cf8fed22984207b1a8370a31e8d",
@@ -1226,48 +1217,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "89e862bbadd32c009cdb3c47d7b9eb35cb2cab9c52e2c8ba6540ebf14d13c2bb",
-      "after": "367277cf1dd0864443f14bb258cf6a93da16c66f4f707482d0edf0cdb5ba8b16",
-      "owner": "scene-script-host-heap-admission",
-      "reason": "有界host容量与原包恢复的限定状态；实际证据归历史。",
-      "decision": "docs/scene/history/scenescript-host-heap-admission-2026-10-13.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "a234f231725db8f8003377b13186996f7e793aa6432facd0f8301476eef8edbb",
       "after": "c631d736a32b515cdeaf85bad6423adc671462912e78c00d680451d7fda34543",
       "owner": "scene-pkg-resources-and-regression-scope",
       "reason": "PKG局部资源与正常播放新基线；现役只保限定状态和后继。",
       "decision": "docs/scene/history/pkg-extraction-memory-convergence-2026-10-12.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "5f2da8e1bc7d866a14b09fcab7149968aa5b746a84286c25541c36af1ebce5b0",
-      "after": "fdcf002ec7273a5b665318c37d3370c9aba9c0612581837d8134463f23b249ed",
-      "owner": "scene-layer-reference-lifetime-and-property-cohort",
-      "reason": "已完成C职责/权限/lifetime与时钟实际切片归历史；稳定API/owner边界及未闭cohort首断点由现役权威接管。",
-      "decision": "docs/scene/history/layer-reference-responsibility-convergence-2026-10-13.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "747a4a377f2daa1c411c2c88fcf5323b692ee31a77287cae1608dc883f8fca14",
-      "after": "de5c9f7c20281ed664e1dedbba4657816c6770b415a5d893b07e4716a10ca5c2",
-      "owner": "scene-layer-reference-lifetime-and-property-cohort",
-      "reason": "已完成C职责/权限/lifetime与时钟实际切片归历史；稳定API/owner边界及未闭cohort首断点由现役权威接管。",
-      "decision": "docs/scene/history/layer-reference-responsibility-convergence-2026-10-13.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c01846dca04494160667ce9712ce7be111a0bc0dc9cd66169181d4fe5326b060",
-      "after": "1b544094c0e8b3e414975f3cdedec18763e7a93312b72535e2c200ca257ea780",
-      "owner": "scene-layer-reference-lifetime-and-property-cohort",
-      "reason": "已完成C职责/权限/lifetime与时钟实际切片归历史；稳定API/owner边界及未闭cohort首断点由现役权威接管。",
-      "decision": "docs/scene/history/layer-reference-responsibility-convergence-2026-10-13.md"
     },
     {
       "section": "bodies",
@@ -1289,12 +1244,57 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "ad0d9867d99d9e38ad75e75cd800e80bae8ab532a124591baa7b2d6cf4a9ca4e",
+      "after": "78771cc9cc698b29dca3cdd4026645dbacce82ac83ed48ed6b0dc7eb7fed4f3e",
+      "owner": "scene-native-regexp-capture",
+      "reason": "新增限定native公共合同、关闭两处真实时钟断点并保未验性能边界；长设计退出收紧，独审发现与测量归历史。",
+      "decision": "docs/scene/history/native-regexp-capture-2026-10-13.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "fdcf002ec7273a5b665318c37d3370c9aba9c0612581837d8134463f23b249ed",
+      "after": "2e6bb16e5a6ab8fd08610e550e5e0fe381134b48fa48731bec5b2e955bef9225",
+      "owner": "scene-native-regexp-capture",
+      "reason": "新增限定native公共合同、关闭两处真实时钟断点并保未验性能边界；长设计退出收紧，独审发现与测量归历史。",
+      "decision": "docs/scene/history/native-regexp-capture-2026-10-13.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "367277cf1dd0864443f14bb258cf6a93da16c66f4f707482d0edf0cdb5ba8b16",
+      "after": "061ebffa854a6e516c094aeaa0da165a5429a07ad97bef1c324a1e0576a54bee",
+      "owner": "scene-native-regexp-capture",
+      "reason": "新增限定native公共合同、关闭两处真实时钟断点并保未验性能边界；长设计退出收紧，独审发现与测量归历史。",
+      "decision": "docs/scene/history/native-regexp-capture-2026-10-13.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "91f3469688901a49b84804cf7eb79f67ea83ed3a1086eb823aa38f9dfb9abe66",
-      "after": "824afe77161407c74d028ac6d12db11779c1fd44c5c3a8d2a00c34d5ad39aec1",
-      "owner": "scene-compiled-variant-frame-program-convergence",
-      "reason": "先设计的静态准备切片完成归历史；唯一owner与live检查接管，九轮成本边界/普通heldout像素归证据，未闭目标保原卡。",
-      "decision": "docs/scene/history/compiled-variant-frame-program-convergence-2026-10-13.md"
+      "before": "824afe77161407c74d028ac6d12db11779c1fd44c5c3a8d2a00c34d5ad39aec1",
+      "after": "a3b5ae828cd94547b901328405a11263c70a755ff5cc1524016684b998fb4f41",
+      "owner": "scene-native-regexp-capture",
+      "reason": "新增限定native公共合同、关闭两处真实时钟断点并保未验性能边界；长设计退出收紧，独审发现与测量归历史。",
+      "decision": "docs/scene/history/native-regexp-capture-2026-10-13.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "de5c9f7c20281ed664e1dedbba4657816c6770b415a5d893b07e4716a10ca5c2",
+      "after": "be34c3376bca6b95db2050c5ee933d4fc621b1bc7451852aa27ae0a3c604a015",
+      "owner": "scene-native-regexp-capture",
+      "reason": "新增限定native公共合同、关闭两处真实时钟断点并保未验性能边界；长设计退出收紧，独审发现与测量归历史。",
+      "decision": "docs/scene/history/native-regexp-capture-2026-10-13.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "1b544094c0e8b3e414975f3cdedec18763e7a93312b72535e2c200ca257ea780",
+      "after": "bf4c6b9d307633003b36eacd14fe269c92d601d8ca69c5abca97d7ae3cc371aa",
+      "owner": "scene-native-regexp-capture",
+      "reason": "新增限定native公共合同、关闭两处真实时钟断点并保未验性能边界；长设计退出收紧，独审发现与测量归历史。",
+      "decision": "docs/scene/history/native-regexp-capture-2026-10-13.md"
     }
   ]
 }
