@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-14 | SceneScript/CPU | 消融证据 | [C代码生成](script-c-codegen-ablation-2026-10-14.md) | 实际编译参数、三轮与返回基线、O3无稳定收益撤回 | [性能卡](../roadmap/performance-convergence-card.md)、[工作流](../development/development-workflow.md) 、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-14 | 属性/CPU | 收敛证据 | [原生属性列表](native-property-list-convergence-2026-10-14.md) | 设计/撤回试法、同条件操作CPU、原生输入身份与真实热更新 | [属性合同](../capabilities/runtime-input-property-coverage.md#op-user-overview)、[属性卡](../roadmap/properties-panel-card.md)、[性能卡](../roadmap/performance-convergence-card.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-13 | SceneScript/CPU | 修复证据 | [原生RegExp捕获与时钟](native-regexp-capture-2026-10-13.md) | realm/GC/失败与fastpath、真实时钟及新增成本边界 | [API表](../capabilities/scenescript-api-coverage.md)、[属性卡](../roadmap/properties-panel-card.md)、[性能卡](../roadmap/performance-convergence-card.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-13 | 属性/CPU | 收敛证据 | [窗口准备复用](property-preparation-convergence-2026-10-13.md) | 冷暖CPU、来源失效与有限保留 | [启动合同](../architecture/scene-startup-pipeline.md#5-按需加载与失效域)、[属性合同](../capabilities/runtime-input-property-coverage.md#op-user-overview)、[属性卡](../roadmap/properties-panel-card.md)、[性能卡](../roadmap/performance-convergence-card.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |

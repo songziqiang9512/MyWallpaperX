@@ -675,13 +675,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/runtime-evidence-current.md",
-      "lastReviewed": "2026-10-12",
+      "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f977730a97db9ba5b0d3145ab60b2981053cc939b77a0478539f340ead313b19",
+        "sourceSHA256": "a98cf70b8c647740189d64ca14f8508cda28a48c79f02d2f5fdb0f47a1fcc5e5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对兼容验收及旧取余源码形状例外退役；不代表全量例外审计",
-        "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
+        "scope": "核对Swift/C编译参数、诊断与正式Release边界、CPU计量及新历史指针；方法由现役工具复验",
+        "limitations": "仅本次方法与导航审查，不代表实际能耗、温度、完整产品或官方视觉验收"
       }
     },
     {
@@ -765,10 +765,10 @@
       "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "45dfad4686693d8722a962341a7b6cb6d834855555b0297d223bed603cd1eff9",
+        "sourceSHA256": "6fee294a0a2cc5fc2e71d5dbe5b8b2ac008a25f74a0dce1b5e70aeb48274878a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批原生列表合同/证据/未闭范围的导航同步，非全部旧运行记录复验",
-        "limitations": "工作卡/索引不是产品或性能验收；以对应冻结证据为准。"
+        "scope": "本批编译测量历史指针与Solar局部TypeError开放状态导航复核",
+        "limitations": "不代表该异常已归因或修复，不关闭完整视觉与产品验收"
       }
     },
     {
@@ -2249,6 +2249,19 @@
       }
     },
     {
+      "path": "docs/scene/history/script-c-codegen-ablation-2026-10-14.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/development/development-workflow.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-14",
+      "uniqueValue": "Swift/C实际优化参数、三轮Os/O3及返回基线、原生语义门、无稳定收益的撤回与HDR预算后继边界"
+    },
+    {
       "path": "docs/scene/history/sdr-white-preservation-implementation-2026-10-06.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -2654,9 +2667,9 @@
       "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a5f1456b864ba3d665dc47337c3290d5a03dc1fc71b22433ab9e2d0824c25a55",
+        "sourceSHA256": "4eb22780b936fc05cd892eb97edbc6c726c15ff10ec53d3311e6ac8f0d6e6128",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批原生列表合同/证据/未闭范围的导航同步，非全部旧运行记录复验",
+        "scope": "本批C测量撤回及HDR后继导航同步，非全部旧运行记录复验",
         "limitations": "导航复核不冒充全架构、全样本、整App性能或Release验收；事实按本批冻结记录。"
       }
     },
@@ -2695,10 +2708,10 @@
       "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "80bd35fc6bf5e863a1d8ac2d1a294fd3af288650e4d23400030cf09eb6b19e18",
+        "sourceSHA256": "e47a931be9e539959c79d7114d608aae281ba67a5a57ead18f0d7e02236eb290",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批原生列表合同/证据/未闭范围的导航同步，非全部旧运行记录复验",
-        "limitations": "导航复核不冒充全架构、全样本、整App性能或Release验收；事实按本批冻结记录。"
+        "scope": "本批编译测量历史指针与Solar局部TypeError开放状态导航复核",
+        "limitations": "不代表该异常已归因或修复，不关闭完整视觉与产品验收"
       }
     },
     {
