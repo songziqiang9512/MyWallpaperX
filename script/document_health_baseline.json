@@ -61,8 +61,8 @@
       "bytes": 16108
     },
     "docs/scene/architecture/scene-startup-pipeline.md": {
-      "lines": 143,
-      "bytes": 11331
+      "lines": 144,
+      "bytes": 11939
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 323,
@@ -93,12 +93,12 @@
       "bytes": 345429
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 110,
-      "bytes": 33471
+      "lines": 111,
+      "bytes": 33907
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 540,
-      "bytes": 174994
+      "lines": 542,
+      "bytes": 175340
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 245,
-      "bytes": 71181
+      "bytes": 71518
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -262,11 +262,11 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 22,
-      "bytes": 3845
+      "bytes": 4024
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
-      "bytes": 3285
+      "bytes": 3281
     }
   },
   "archives": [
@@ -1253,39 +1253,48 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/scene-startup-pipeline.md",
+      "before": "e34f1ba883911cd71afe073314c5c6d18650b71fb5c80b86121718b9dd6e218a",
+      "after": "8b11d02043c9e520c61c30f2756b2e880aec18fb33230a2e05765c4ffda4dbab",
+      "owner": "scene-property-preparation",
+      "reason": "准备复用唯一owner/来源/压力边界移交合同，冷暖及实际交互归历史，AX剩余问题和撤销方法保队列；完成设计退出工作卡并收紧体积",
+      "decision": "docs/scene/history/property-preparation-convergence-2026-10-13.md#实现与边界"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "78771cc9cc698b29dca3cdd4026645dbacce82ac83ed48ed6b0dc7eb7fed4f3e",
-      "after": "b76011a78e3a8c2840dc6cdf8aac1c6975475b8c4085d9446aeace9380f91c2a",
-      "owner": "scene-property-panel-conditions",
-      "reason": "条件依赖、唯一准备/数字文本owner与实机CPU边界同步，过程归历史，未闭问题留原卡",
-      "decision": "docs/scene/history/property-condition-reachability-2026-10-13.md#实现与边界"
+      "before": "b76011a78e3a8c2840dc6cdf8aac1c6975475b8c4085d9446aeace9380f91c2a",
+      "after": "2c73cf75925192a5a3473c7250be2f388747f68a196783249ddd73996a7a12b0",
+      "owner": "scene-property-preparation",
+      "reason": "准备复用唯一owner/来源/压力边界移交合同，冷暖及实际交互归历史，AX剩余问题和撤销方法保队列；完成设计退出工作卡并收紧体积",
+      "decision": "docs/scene/history/property-preparation-convergence-2026-10-13.md#实现与边界"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "297062c0a35fa781799b99a4347df10ead39bb7c9b7e7b70aff67cac5894c13e",
-      "after": "4827686f0966915d3b81ad7afb2146641c6929641259b9aca15fc48b73cca2c8",
-      "owner": "scene-property-panel-conditions",
-      "reason": "条件依赖、唯一准备/数字文本owner与实机CPU边界同步，过程归历史，未闭问题留原卡",
-      "decision": "docs/scene/history/property-condition-reachability-2026-10-13.md#实现与边界"
+      "before": "4827686f0966915d3b81ad7afb2146641c6929641259b9aca15fc48b73cca2c8",
+      "after": "a104830241bd85ec664070d9920a4aff090e5745dd7fb8fdbad5a7d4a3cac6a3",
+      "owner": "scene-property-preparation",
+      "reason": "准备复用唯一owner/来源/压力边界移交合同，冷暖及实际交互归历史，AX剩余问题和撤销方法保队列；完成设计退出工作卡并收紧体积",
+      "decision": "docs/scene/history/property-preparation-convergence-2026-10-13.md#实现与边界"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "a3b5ae828cd94547b901328405a11263c70a755ff5cc1524016684b998fb4f41",
-      "after": "0fdce367f0901b50ca68ba77a1fc45fe5ef17c6a9a00936f8cc00f680676444b",
-      "owner": "scene-property-panel-conditions",
-      "reason": "条件依赖、唯一准备/数字文本owner与实机CPU边界同步，过程归历史，未闭问题留原卡",
-      "decision": "docs/scene/history/property-condition-reachability-2026-10-13.md#实现与边界"
+      "before": "0fdce367f0901b50ca68ba77a1fc45fe5ef17c6a9a00936f8cc00f680676444b",
+      "after": "2e0857b08423b1632c79380e47e155a0f26ad3627e2f45e719fed694f195c75c",
+      "owner": "scene-property-preparation",
+      "reason": "准备复用唯一owner/来源/压力边界移交合同，冷暖及实际交互归历史，AX剩余问题和撤销方法保队列；完成设计退出工作卡并收紧体积",
+      "decision": "docs/scene/history/property-preparation-convergence-2026-10-13.md#实现与边界"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "bf4c6b9d307633003b36eacd14fe269c92d601d8ca69c5abca97d7ae3cc371aa",
-      "after": "d2a08f21d2022bf324594e5c22c9c0e0d1a507dfdb5077d70722a3ac144b0def",
-      "owner": "scene-property-panel-conditions",
-      "reason": "条件依赖、唯一准备/数字文本owner与实机CPU边界同步，过程归历史，未闭问题留原卡",
-      "decision": "docs/scene/history/property-condition-reachability-2026-10-13.md#实现与边界"
+      "before": "d2a08f21d2022bf324594e5c22c9c0e0d1a507dfdb5077d70722a3ac144b0def",
+      "after": "932103abbe88aa9f141fe9d83d087dd78e6236be5aa21e0412f32dfcfae4a1a1",
+      "owner": "scene-property-preparation",
+      "reason": "准备复用唯一owner/来源/压力边界移交合同，冷暖及实际交互归历史，AX剩余问题和撤销方法保队列；完成设计退出工作卡并收紧体积",
+      "decision": "docs/scene/history/property-preparation-convergence-2026-10-13.md#实现与边界"
     }
   ]
 }

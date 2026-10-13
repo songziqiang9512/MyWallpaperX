@@ -565,9 +565,9 @@
       "lastReviewed": "2026-10-13",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0f1d1faf79752e0bf4d6504889144835ac0b9db0b9c4a663a4f1c05115e8e8e0",
+        "sourceSHA256": "8f741baf7bfacf7885b8468c122ee4db9ddc1d2317dfa4bad7b58a3af98c4816",
         "method": "document_registry --audit + document_health --check",
-        "scope": "条件可达/准备复用的证据入口及未闭专项、异常观察导航同步",
+        "scope": "准备复用冷暖/实际格式证据及未闭AX端点、撤销eager方法的导航同步",
         "limitations": "导航复核不冒充全架构、全样本、整App性能或Release验收；事实按本批冻结记录。"
       }
     },
@@ -1661,6 +1661,21 @@
       ],
       "cutoffDate": "2026-10-13",
       "uniqueValue": "条件可达定义闭合、唯一条件/数字文本准备链、三轮CPU与实际格式交互、不同媒体状态的失败保留边界"
+    },
+    {
+      "path": "docs/scene/history/property-preparation-convergence-2026-10-13.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-startup-pipeline.md",
+        "docs/scene/capabilities/runtime-input-property-coverage.md",
+        "docs/scene/roadmap/properties-panel-card.md",
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-13",
+      "uniqueValue": "属性准备跨重开复用、两段来源证明与alias竞态、冷暖CPU及保留预算边界"
     },
     {
       "path": "docs/scene/history/puppet-animation-control-2026-10-07.md",

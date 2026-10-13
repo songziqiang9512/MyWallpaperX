@@ -169,13 +169,6 @@
       "count": 1
     },
     {
-      "path": "script/tests/test_scene_detail_diagnostics_on_demand.py",
-      "scope": "SceneDetailDiagnosticsOnDemandTests.test_inspection_runs_off_main_and_rejects_stale_completion",
-      "method": "assertIn",
-      "literal": "guard request?.id == requestID",
-      "count": 1
-    },
-    {
       "path": "script/tests/test_scene_dynamic_snapshot.py",
       "scope": "SceneDynamicSnapshotTests.test_valid_resolution_avoids_diagnostic_sort_and_field_collection",
       "method": "assertIn",

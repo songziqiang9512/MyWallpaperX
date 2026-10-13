@@ -82,7 +82,7 @@ class SceneDetailDiagnosticsOnDemandTests(unittest.TestCase):
         self.assertIn("startInspection(for: record, purpose: .properties)", properties)
         self.assertIn("retaining: self", properties)
         entry = function_body(self.controller, "func requestPropertyEditor(for record:")
-        self.assertIn("preparation.preparePropertyEditor(for: record)", entry)
+        self.assertIn("Self.propertyPreparation.preparePropertyEditor(for: current)", entry)
         self.assertEqual(self.controller.count("SceneDiagnosticsBuilder().build("), 1)
         start = function_body(self.controller, "private func startInspection(")
         diagnostics_branch = start[
@@ -91,14 +91,17 @@ class SceneDetailDiagnosticsOnDemandTests(unittest.TestCase):
         properties_branch = start[start.index("case .properties:") :]
         self.assertIn("SceneDiagnosticsBuilder().build(", diagnostics_branch)
         self.assertNotIn("SceneDiagnosticsBuilder", properties_branch)
-        self.assertIn("SceneRuntimeSourceFactsBuilder().build(", properties_branch)
+        self.assertIn("Self.buildPropertyInspection(", properties_branch)
+        build = function_body(self.controller, "private static func buildPropertyInspection(")
+        self.assertIn("SceneRuntimeSourceFactsBuilder().build(", build)
 
     def test_inspection_runs_off_main_and_rejects_stale_completion(self) -> None:
         start = function_body(self.controller, "private func startInspection(")
         finish = function_body(self.controller, "private func finishInspection(")
         self.assertIn("queue.async(execute: workItem)", start)
         self.assertIn("DispatchQueue.main.async", start)
-        self.assertIn("guard request?.id == requestID", finish)
+        # Delivery, cancellation and replacement are exercised by the native
+        # request-owner fixture rather than by a particular guard spelling.
         self.assertIn("guard presentedIdentity == identity", finish)
 
 

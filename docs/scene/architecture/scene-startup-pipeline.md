@@ -118,6 +118,7 @@ model-build 段（实测 674–692ms，daemon 热启动路径）。
 - deferred 纹理：启动只加载初始可见项，其余按需（实测 25 项样本 22.9s→1.9s 的来源）；
   隐藏层若有脚本/音频/粒子 child 或作为被采样 provider，仍可能必须运行。
 - 普通 value-only 变化不 relaunch；topology 变化不复用 stale graph。
+- 属性窗口准备由原inspection owner独立实例持有单份成功投影context；完整record/source/override identity与后台来源版本相等才复用。完整builder固定初始真实目录，两段版本覆盖project/原包读取及已校验解包、stock索引/内容；未知、变更、失败或无控件走原完整准备。关闭/替换拒绝旧交付，pressure清退且禁止在途回填；4MiB保守门计context、完整overrides和stamp，不能当作瞬时物理内存上限。方法及冷暖代价见[属性准备复用](../history/property-preparation-convergence-2026-10-13.md)。
 
 ## 6. 测量方法与已知陷阱
 

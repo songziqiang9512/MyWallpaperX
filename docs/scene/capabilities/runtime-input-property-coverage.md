@@ -272,6 +272,8 @@ Animation Event 可放在 Timeline 或 Puppet animation 的指定 frame，包含
 
 User Property 是 wallpaper 级 key/value，不属于某个单独 layer。一个 key 可以被多个作者目标共享；运行时必须对同一有效值做 fan-out，不能复制成彼此漂移的控件。Group 是线性分段标记：它包含其后全部 property，直到下一个 Group；第一个 Group 之前的 property 不分组，Group 本身没有运行值。Display Condition 的公开形态是 `propertyKey.value == literal`，Checkbox 使用 `true/false`，Combo 使用 option 的隐藏 value；它只控制面板可见性，不能删除或重置隐藏 property 的值。
 
+重复打开的准备复用沿[启动合同失效域](../architecture/scene-startup-pipeline.md#5-按需加载与失效域)；原context、控件、store及typed consumer保唯一链。缓存不增加属性或运行能力，当前record/override变化重新准备，来源校验失败不复用；首次准备与重复打开成本分别验收。
+
 | 官方类型/行为 | 等级 | 当前能力 | 缺口 |
 |---|---|---|---|
 | wallpaper-level property key/catalog | `L3` | 定义、默认值、override、排序和持久化已存在；[E-PROPERTY](../history/runtime-evidence-index.md#e-property) | 稳定 wire schema 与跨版本 migration |

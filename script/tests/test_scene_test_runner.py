@@ -261,8 +261,13 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
         for arguments, message in cases:
             with self.subTest(arguments=arguments):
                 error = io.StringIO()
-                with contextlib.redirect_stderr(error):
+                directory = mock.Mock()
+                directory.glob.return_value = [Path("test_scene_known_fixture.py")]
+                with mock.patch.object(runner, "TESTS_DIRECTORY", directory), \
+                     mock.patch.object(runner, "run_module") as run, \
+                     contextlib.redirect_stderr(error):
                     self.assertEqual(runner.main(arguments), 2)
+                run.assert_not_called()
                 self.assertIn(message, error.getvalue())
 
     def test_fail_fast_reports_failure_and_cancels_unstarted_work(self) -> None:

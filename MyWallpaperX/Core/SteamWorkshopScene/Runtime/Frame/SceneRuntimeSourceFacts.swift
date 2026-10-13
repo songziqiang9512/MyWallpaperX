@@ -18,7 +18,8 @@ struct SceneRuntimeSourceFacts {
 struct SceneRuntimeSourceFactsBuilder {
     func build(
         rootURL: URL,
-        propertyOverrides: [String: SceneUserPropertyValue] = [:]
+        propertyOverrides: [String: SceneUserPropertyValue] = [:],
+        willReadResourceRoots: (([URL]) -> Void)? = nil
     ) -> SceneRuntimeSourceFacts {
         let project = try? SceneProjectLoader().load(from: rootURL)
         let resourceIndex = SceneResourceIndexBuilder().build(rootURL: rootURL)
@@ -32,6 +33,13 @@ struct SceneRuntimeSourceFactsBuilder {
                 )
             )
         }()
+        // Extraction has validated the package; inspect its resulting namespace
+        // before ResourceView builds indexes or other consumers read it. Callers
+        // separately cover the preceding project/index/package reads.
+        willReadResourceRoots?(
+            [packageReport?.outputURL, rootURL, SceneResourceView.defaultStockAssetsRootURL()]
+                .compactMap { $0 }
+        )
         let resourceView = SceneResourceView(
             projectRootURL: rootURL,
             packageRootURL: packageReport?.outputURL
