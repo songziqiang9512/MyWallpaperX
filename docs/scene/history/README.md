@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-15 | CPU/分配 | 归因与撤回 | [原生入口与实例物化](native-cpu-allocation-screen-2026-10-15.md) | 双PID/媒体helper、实际分配调用点、粒子两版局部回退与未执行边界 | [性能卡](../roadmap/performance-convergence-card.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-15 | Shader缓存/内存 | 保有收敛 | [完成结果缓存](shader-completed-cache-retention-2026-10-15.md) | 真实owner压力内存、暖重访/轻载回落；App成本和长稳边界 | [资源合同](../architecture/scene-resource-admission.md#shader-completed-cache-retention)、[性能卡](../roadmap/performance-convergence-card.md) |
 | 2026-10-14 | 属性 | 修复证据 | [带效果图片颜色](effectful-image-property-color-2026-10-14.md) | prepared capture颜色热更、跨surface/alias反例、真实文字变红；原生调色板完整编辑待验 | [属性合同](../capabilities/runtime-input-property-coverage.md)、[属性卡](../roadmap/properties-panel-card.md) |
 | 2026-10-14 | Shader identity/CPU | 局部筛选 | [构造期哈希复用](shader-identity-hash-screen-2026-10-14.md) | 查询下降与构造代价；App单对未达继续门、内存上移未归因 | [性能卡](../roadmap/performance-convergence-card.md)、[实际架构](../architecture/runtime-as-built-map.md) |

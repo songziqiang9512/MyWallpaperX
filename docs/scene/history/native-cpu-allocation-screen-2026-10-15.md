@@ -1,0 +1,59 @@
+<!-- document-role: historical-evidence -->
+
+# 原生播放 CPU 与分配归因（2026-10-15）
+
+> **历史证据 — 非现役入口**。选序和验收归[性能卡](../roadmap/performance-convergence-card.md)，属性热更新归[属性卡](../roadmap/properties-panel-card.md)。本记录只决定值得短筛的职责，不认领性能收益。
+
+## 普通入口与 CPU 边界
+
+冻结优化诊断 App `56ecb327…`，Release/-O/singlefile、DEBUG 开启；4297 个构建输入前后无漂移。原304经实际库选择→client→daemon运行，原默认属性，单显示器；音频捕获实际启动，外部声音未冻结。真实媒体只读，HOME/Workshop副本隔离。本配置不代表正式Release或WMO。
+
+先取约20.25秒未附profiler的rusage窗，再另取6秒双PID sample。父进程CPU时间率6.438ms/s、daemon448.636ms/s；父进程占这两个PID之和1.415%，不是整个系统比例或所有IPC成本上界。sample中主线程图准备539、资源准入193、按层编码184、粒子更新172个非嵌套observations；等待、ARC、copy等叶分散，不能相加换算CPU比例。607条1128失败日志约30条/秒，但失败日志不是完成帧，不能据此删回调、采样或日志。
+
+分配工具停止后的另一个约20.25秒窗，父/daemon/媒体观察helper分别6.267、491.035、0.164ms/s；这是附加过profiler的后续状态，不能与前窗作性能对照。没有普通入口completed-frame导出，未证明attempt浪费或每帧CPU。系统音频、WindowServer和驱动不在这三个PID之和中。两个会话均正常退出。
+
+## 实际分配资格
+
+第二会话附一次系统Allocations，实际记录9.199558秒，计量窗不与构建、测试或其他profiler并行。Statistics累计Heap为5,252,374项/3.28GiB；累计分配不等于峰值驻留、泄漏、CPU或能耗。初记的全Heap期末值小于其子类，选择范围/表头未能确认，独审后撤销该驻留口径，不用于结论。Instruments Call Trees使用MB/KB显示，与Statistics的MiB/GiB标签分别保留，不自行换算。
+
+All Allocations + Separate by Category + Invert + Hide System Libraries区分出：
+
+| 调用范围与存储类型 | GUI显示累计量 | 具体责任 |
+|---|---|---|
+| beginTextureFrame / LookupStatus字典 | 136.37MB / 2862项 | `ensureUnique→beginTextureFrame`；同类型在该子链的唯一构造点是snapshot从空reduce增长，snapshot已inline；其中包含最终必需storage |
+| beginTextureFrame / PersistentEntry字典 | 64.59MB / 318项 | 提交/回滚baseline共享下的keepCapacity清空；不能删baseline省分配 |
+| graph overlay全部分配 | 120.52MB / 64511项 | 临时Dictionary初始化39.90MB/24152、replacement39.90MB/24152、增长40.71MB/16207；不是64511次快照调用 |
+| root rebuild / GPUInstance数组 | 627.37MB / 2231项 | keepCapacity清空328.97MB/1908，后续map/增长298.41MB/323；另有Int索引7.45MB/318 |
+| child builder全部分配 | 3.73MB / 318项 | `removeAll→rebuildAll`，没有证明rope临时数组是该样本主因 |
+
+snapshot单次预留容量和避免graph临时updates字典是后继备选，不同时并入粒子试验，也不由累计字节推断整体收益。publications会随initialize/material/copy/swap改变，不能跨node缓存整个overlay。根实例的最终数组被旧SimulationFrame/重试合法持有；不能仅改inout或提前清掉旧帧来声称复用。
+
+## 粒子单次物化短筛：两版撤回
+
+原排序算法保留，只把Float深度/index排序移到GPUInstance物化之前，再生成一份最终payload。rope、child、上传和旧帧不迁移；与先前直接排序完整实例/有序跳过不是同一实现。
+
+V1本地helper捕获inout root，所有32个released-output局部形状都变慢。V2改为捕获不可变配置，非排序分支恢复原clear/reserve/append；同一基线二进制复用，仅编译V2。两臂-O WMO、103冻结输入，逐次advance的完整160-byte实例序列与phase checksum均为32/32一致，输入无漂移；局部不等于App。
+
+| V2形状 | 基线→候选 | 局部变化 |
+|---|---|---|
+| 255 additive/equal | 3.083→4.792µs | +55.4% |
+| 4096 additive/ordered | 31.541→60.729µs | +92.5% |
+| 16384 additive/interleaved | 133.854→245.521µs | +83.4% |
+| 16384 translucent/reverse | 1.013→1.177ms | +16.2% |
+| 16384 translucent/interleaved | 1.145→1.556ms | +35.9% |
+
+仅256/4096乱序透明形状下降约10.5–17.5%，相邻分支明显回退，停止该方向。未做App对照或完整多轮，V1 App虽构建成功但未启动；不为已撤候选追加Debug/独立样本/生命周期campaign。Runtime已精确恢复原SHA `b48c83309824dd7a57d6f62b55c768287e3b21b761ac567f6fa8afd5b44750cc`，无产品flag或第二路径。
+
+新增held-old/Float收敛/nonfinite/spritetrail门未完成：复用旧固定桶生成器处理count1，第二phase桶越界导致基线harness SIGTRAP，不能记产品失败或门通过。按先筛收益的原则未为已退候选修完并重编全门。最初非WMO候选编译也曾精确中止，最终局部两臂一致WMO；不混用中断二进制。
+
+两次独立静态审查均未见语义阻断，但不能替代上述未执行门或收益。完整原数、源码patch、App/编译身份、冻结harness、退出与撤回receipt在 `.artifacts/tmp/particle-instance-materialization-20261015/proof/`。没有CPU、GPU、驻留内存或能耗收益；不再依据同一分配资格尝试排序/container池/depth cache微调。
+
+## 保留与未覆盖
+
+原数、双PID样本、rusage、GUI归因与身份在 `.artifacts/tmp/native-cpu-attribution-20261015/`。普通会话退出后清理HOME、临时目录、样本副本和发现marker共170,706,968B；保留冻结App供同配置短筛、一份连续DerivedData及已有shader disk cache。分配trace退出后经CRC验证归档为151,783,226B，删除636,722,505B展开内容；归档仍超过单包promotion限额且全局证据cache已满，暂保任务目录，不扩预算。粒子未用App与module cache另清256,682,077B，原数/源码保留；GPU前轮trace仍被既有Xcode句柄持有，不删除或终止用户Xcode。
+
+未测温度/功率、普通入口逐帧成本、最低设备、多屏或长期稳定性，不认领GPU、启动或内存驻留改善。
+
+<a id="nonfinite-origin"></a>
+
+1128混合Vec3/Vec2运算产生非有限z的最早位置已定位，但公开资料不能确定缺失z的算术规则；官方黑盒准备就绪后遇Windows PIN登录，未输入凭据、未执行官方case，VM已正常停止。该问题继续由[断点队列](../roadmap/scene-open-breakpoint-queue.md)保存。

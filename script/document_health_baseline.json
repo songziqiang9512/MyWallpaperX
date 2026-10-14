@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 248,
-      "bytes": 72494
+      "bytes": 72605
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -261,8 +261,8 @@
       "bytes": 3104
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 40,
-      "bytes": 9744
+      "lines": 44,
+      "bytes": 9338
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1076,11 +1076,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "b1af1d1d4fc4164ecd94a30e3d71515ab88d800296a64c3c235199212c4d0d68",
-      "after": "42cc9cb6d1077b633ad3faec01b135553bec420ac3e9071e688e5387b5ff8d76",
-      "owner": "Scene GPU performance investigation",
-      "reason": "Record actual source-cost qualification stop boundary and next physical-cost investigation.",
-      "decision": "docs/scene/history/gpu-cost-screening-2026-10-14.md#source-cost-qualification"
+      "before": "42cc9cb6d1077b633ad3faec01b135553bec420ac3e9071e688e5387b5ff8d76",
+      "after": "92ceb8e6200cbf4c247d94c18ccb0c7dc3bb898274a018d01eec4926831d6efb",
+      "owner": "Scene CPU and property performance investigation",
+      "reason": "Preserve the unresolved mixed-vector origin boundary and the actual allocation screen stop result; no capability closeout.",
+      "decision": "docs/scene/history/native-cpu-allocation-screen-2026-10-15.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "cd04bb9c910222dfb4eb0dc673ac0b16bc712fbe29c5253fa8181129112796d6",
+      "after": "97e3dbbd3301db35f71353719b856350e4918ee2357eca2703a8b01f63dceb9b",
+      "owner": "Scene CPU and property performance investigation",
+      "reason": "Preserve the unresolved mixed-vector origin boundary and the actual allocation screen stop result; no capability closeout.",
+      "decision": "docs/scene/history/native-cpu-allocation-screen-2026-10-15.md"
     }
   ]
 }
