@@ -87,12 +87,13 @@ extension SceneMetalRenderer {
     /// Establish the current raw main pass and group encoders before preparing
     /// source payloads; optional reflection resolves completed history separately.
     func makeScenePass(target: MTLTexture, clearEnabled: Bool,
+                       dynamicValues: SceneDynamicSnapshot,
                        pool: SceneOffscreenTexturePool?, visibleLayerIDs: Set<Int>,
                        viewportSize: CGSize, commandBuffer: MTLCommandBuffer,
                        utilityExecution: SceneUtilityLayerRuntimePlanner.Execution)
         -> (SceneMainPassEncoder, SceneCompositionGroupFrameRuntime?) {
         let mainPass = SceneMainPassEncoder(commandBuffer: commandBuffer,
-            target: target, clearColor: sceneClearColor, clearEnabled: clearEnabled)
+            target: target, clearColor: sceneClearColor(dynamicValues: dynamicValues), clearEnabled: clearEnabled)
         var groups: SceneCompositionGroupFrameRuntime?
         if let pool, !utilityExecution.membersByRootID.isEmpty {
             groups = SceneCompositionGroupFrameRuntime(parentPass: mainPass,
@@ -105,11 +106,18 @@ extension SceneMetalRenderer {
         return (mainPass, groups)
     }
 
-    var sceneClearColor: MTLClearColor {
+    func sceneClearColor(dynamicValues: SceneDynamicSnapshot) -> MTLClearColor {
         let color = renderDescriptor.camera.clearColor
-        let red = Double(color.count > 0 ? color[0] : 0.7)
-        let green = Double(color.count > 1 ? color[1] : 0.7)
-        let blue = Double(color.count > 2 ? color[2] : 0.7)
+        var red = Double(color.count > 0 ? color[0] : 0.7)
+        var green = Double(color.count > 1 ? color[1] : 0.7)
+        var blue = Double(color.count > 2 ? color[2] : 0.7)
+        if case let .vector3(r, g, b)? = dynamicValues[.scene(.clearColor)]?.value {
+            // Match the launch descriptor's authored-number narrowing without
+            // changing the existing clear/Bloom/terminal color interpretation.
+            red = Double(SceneDocumentLoader.saturatingFloat(r))
+            green = Double(SceneDocumentLoader.saturatingFloat(g))
+            blue = Double(SceneDocumentLoader.saturatingFloat(b))
+        }
         return MTLClearColorMake(red, green, blue, 1)
     }
 

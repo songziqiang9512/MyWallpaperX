@@ -99,6 +99,7 @@ nonisolated enum SceneDynamicCameraField: String, Codable, Equatable, Hashable, 
 }
 
 nonisolated enum SceneDynamicSceneField: String, Codable, Equatable, Hashable, Sendable {
+    case clearColor
     case bloomEnabled
     case bloomStrength
     case bloomThreshold

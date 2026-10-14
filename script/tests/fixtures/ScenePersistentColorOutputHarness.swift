@@ -570,7 +570,68 @@ import Metal
         precondition(mapping.encode(source: source, target: target, commandBuffer: cb))
         cb.commit(); cb.waitUntilCompleted()
         let shown = read(target), raw = read(source)
+        var clearChecks: [String: Bool] = [:]
+        let clearTarget = SceneDynamicTarget.scene(.clearColor)
+        let empty = SceneDynamicSnapshot.empty(frameIndex: 0)
+        func clearRenderer(_ hdr: Bool, _ color: [Float]) -> SceneMetalRenderer {
+            .init(renderDescriptor: .init(hdrEnabled: hdr,
+                camera: .init(clearColor: color, bloom: .disabled)),
+                imageCompositor: .init(resolvedMaterialRuntime: nil),
+                bloomPostProcess: nil, displayMappingPostProcess: nil)
+        }
+        func clearSnapshot(_ rgb: [Double]) -> SceneDynamicSnapshot {
+            let value = SceneDynamicValue.vector3(rgb[0], rgb[1], rgb[2])
+            return SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                definitions: [.init(target: clearTarget, valueType: .vector3,
+                    authoredValue: .vector3(0.625, 0.375, 0.875))],
+                userValues: [clearTarget: value]).snapshot
+        }
+        func sameClear(_ a: MTLClearColor, _ b: MTLClearColor) -> Bool {
+            a.red == b.red && a.green == b.green && a.blue == b.blue && a.alpha == b.alpha
+        }
+        func clearedPixels(_ renderer: SceneMetalRenderer, _ snapshot: SceneDynamicSnapshot,
+                           hdr: Bool) -> (raw: [Float], display: [Float], skipsHistory: Bool) {
+            let source = texture(), display = texture(), cb = queue.makeCommandBuffer()!
+            let start = renderer.encodeSceneColorStart(pool: nil, target: source,
+                frameIndex: 1, clearEnabled: true, commandBuffer: cb)
+            let (pass, _) = renderer.makeScenePass(target: source, clearEnabled: true,
+                dynamicValues: snapshot, pool: nil, visibleLayerIDs: [],
+                viewportSize: CGSize(width: 4, height: 4), commandBuffer: cb,
+                utilityExecution: .init(memberRootsByLayerID: [:], membersByRootID: [:],
+                    orderedRootIDs: [], copyBackgroundRootIDs: []))
+            precondition(pass.finishEnsuringClear())
+            if hdr { precondition(mapping.encode(source: source, target: display, commandBuffer: cb)) }
+            else { copy(source, display, cb) }
+            cb.commit(); cb.waitUntilCompleted()
+            precondition(cb.status == .completed && cb.error == nil)
+            return (read(source), read(display), start.reservation == nil && start.failure == nil)
+        }
+        for hdr in [false, true] {
+            let warm = clearRenderer(hdr, [0.625, 0.375, 0.875])
+            for (index, rgb) in [[0.1, 0.2, 0.3], [0.125, 0.25, 0.75], [-0.25, 1.25, 3]].enumerated() {
+                // Launch takes the actual numeric parser's Float descriptor;
+                // live takes the actual immutable typed snapshot. Both clear
+                // through the production helper/main-pass owner before mapping.
+                let coldColor = SceneDocumentLoader.floatVector(rgb.map { String($0) }.joined(separator: " "))!
+                let cold = clearRenderer(hdr, coldColor), snapshot = clearSnapshot(rgb)
+                let name = "\(hdr)-\(index)"
+                clearChecks[name + "-sameHelper"] = sameClear(
+                    warm.sceneClearColor(dynamicValues: snapshot), cold.sceneClearColor(dynamicValues: empty))
+                let live = clearedPixels(warm, snapshot, hdr: hdr)
+                let rebuilt = clearedPixels(cold, empty, hdr: hdr)
+                clearChecks[name + "-sameRaw"] = live.raw == rebuilt.raw && live.raw[3] == 1
+                clearChecks[name + "-sameDisplay"] = live.display == rebuilt.display && live.display[3] == 1
+                clearChecks[name + "-clearSkipsHistory"] = live.skipsHistory && rebuilt.skipsHistory
+            }
+            let extreme = [Double.greatestFiniteMagnitude, -Double.greatestFiniteMagnitude, 0.1]
+            let cold = clearRenderer(hdr, SceneDocumentLoader.floatVector(extreme)!)
+            clearChecks["\(hdr)-sameNumericNarrowing"] = sameClear(
+                warm.sceneClearColor(dynamicValues: clearSnapshot(extreme)), cold.sceneClearColor(dynamicValues: empty))
+            clearChecks["\(hdr)-missingTypedKeepsDescriptor"] = sameClear(
+                warm.sceneClearColor(dynamicValues: empty), MTLClearColorMake(0.625, 0.375, 0.875, 1))
+        }
         let result: [String: Any] = ["accumulatingFrames": frames, "ownerChecks": checks, "alphaFrames": alphaFrames,
+            "clearColor": clearChecks,
             "clearedHDR": ["gpuCompleted": cb.status == .completed, "rgb": Array(shown.prefix(3)), "alpha": shown[3]],
             "nonHDR": ["rgb": Array(raw.prefix(3)), "alpha": raw[3]]]
         print(String(decoding: try JSONSerialization.data(withJSONObject: result), as: UTF8.self))

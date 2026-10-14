@@ -48,6 +48,7 @@ struct SceneRenderDescriptor {
         var orthoWidth: Float? = 512
         var orthoHeight: Float? = 512
         var bloom = Bloom()
+        var clearEnabled = true
     }
     struct Layer {
         var id: Int
@@ -196,11 +197,15 @@ HARNESS = r'''
         unresolved: Set<Int> = [], sourceCandidates: Set<Int> = [],
         definitions: [SceneUserPropertyDefinition] = [], rebuild: [String] = [],
         scriptConsumers: [String: Set<SceneDynamicTarget>] = [:],
-        scriptTargets: Set<SceneDynamicTarget> = [], programOverride: ScenePropertyBindingProgram? = nil)
+        scriptTargets: Set<SceneDynamicTarget> = [], programOverride: ScenePropertyBindingProgram? = nil,
+        clearEnabled: Bool = true, hdr: Bool = false)
         -> ScenePropertyLiveUpdateState {
         let p = programOverride ?? program(bindings, rebuild: rebuild)
+        var descriptor = SceneRenderDescriptor(layers: layers)
+        descriptor.camera.clearEnabled = clearEnabled
+        descriptor.camera.bloom.hdr = hdr ? .init() : nil
         return SceneDesktopWallpaperHost.makeLivePropertyState(
-            runtimeInput: .init(renderDescriptor: .init(layers: layers),
+            runtimeInput: .init(renderDescriptor: descriptor,
                 propertyBindingProgram: p, effectivePropertyValues: values),
             resolvedMaterialExecutionCapabilities: .init(executionLayerIDs: prepared,
                 capabilities: colorCapabilities, unresolvedLayerIDs: unresolved),
@@ -217,6 +222,119 @@ HARNESS = r'''
         _ b: ScenePropertyLiveUpdateState) -> Bool {
         a.effectiveValues == b.effectiveValues && a.userValues == b.userValues
             && a.revision == b.revision
+    }
+
+    static func clearColorFacts() -> [String: Bool] {
+        var facts: [String: Bool] = [:]
+        for key in ["palette", "renamedBackdrop"] {
+            let seed = SceneUserPropertyValue.string("0.125 0.25 0.5")
+            func property(_ value: SceneUserPropertyValue?, kind: SceneUserPropertyKind = .color)
+                -> SceneUserPropertyDefinition {
+                .init(key: key, title: key, kind: kind, runtimeType: kind.rawValue,
+                    order: 0, index: nil, minimumValue: nil, maximumValue: nil,
+                    stepValue: nil, allowsFractionalValues: true, fractionalPrecision: nil,
+                    displayCondition: nil, defaultValue: value, options: [])
+            }
+            let definition = property(seed)
+            func compile(extra: [String: Any] = [:], objects: [[String: Any]] = [],
+                         catalog: SceneUserPropertyCatalog? = nil)
+                -> ScenePropertyBindingCompilation {
+                let wrapper: [String: Any] = ["user": key, "value": seed.foundationValue]
+                    .merging(extra) { _, new in new }
+                return ScenePropertyBindingCompiler().compile(
+                    report: SceneUserPropertyBindingParser().parse(root: [
+                        "general": ["clearcolor": wrapper], "objects": objects]),
+                    catalog: catalog ?? .init(definitions: [definition]))
+            }
+            let compiled = compile()
+            facts[key + "-compiled"] = compiled.program.instructions.count == 1
+                && compiled.program.rebuildRequiredPropertyKeys.isEmpty && compiled.diagnostics.isEmpty
+            guard let field = SceneDynamicSceneField(rawValue: "clearColor") else {
+                facts[key + "-typed-field"] = false
+                continue
+            }
+            let target = SceneDynamicTarget.scene(field)
+            let encoded = try! JSONEncoder().encode(compiled)
+            facts[key + "-roundtrip"] = (try! JSONDecoder().decode(
+                ScenePropertyBindingCompilation.self, from: encoded)) == compiled
+            facts[key + "-null-inactive-sources"] = compile(extra: ["script": NSNull(), "animation": NSNull()])
+                .program.rebuildRequiredPropertyKeys.isEmpty
+            func fresh(_ program: ScenePropertyBindingProgram? = nil, clear: Bool = true,
+                       hdr: Bool = false, layers: [SceneRenderDescriptor.Layer] = []) -> ScenePropertyLiveUpdateState {
+                state(layers, [], values: [key: seed], definitions: [definition],
+                    programOverride: program ?? compiled.program, clearEnabled: clear, hdr: hdr)
+            }
+            for hdr in [false, true] {
+                var live = fresh(hdr: hdr)
+                facts[key + "-active-\(hdr)"] = live.activeConsumerTargets.contains(target)
+                facts[key + "-edit-\(hdr)"] = live.apply(.string("0.75 0.5 0.25"), forPropertyKey: key)
+                    && live.userValues[target] == .vector3(0.75, 0.5, 0.25) && live.revision == 1
+                let same = live
+                facts[key + "-same-\(hdr)"] = live.apply(.string("0.75 0.5 0.25"), forPropertyKey: key)
+                    && unchanged(live, same)
+                facts[key + "-reset-\(hdr)"] = live.apply(seed, forPropertyKey: key)
+                    && live.userValues[target] == .vector3(0.125, 0.25, 0.5) && live.revision == 2
+                var off = fresh(clear: false, hdr: hdr); let before = off
+                facts[key + "-clear-off-\(hdr)"] = !off.activeConsumerTargets.contains(target)
+                    && !off.apply(.string("0.2 0.4 0.6"), forPropertyKey: key) && unchanged(off, before)
+            }
+            for (name, bad) in [("number", SceneUserPropertyValue.number(1)), ("bool", .bool(true)),
+                ("short", .string("0.1 0.2")), ("long", .string("0.1 0.2 0.3 1")),
+                ("nan", .string("0 NaN 1")), ("infinity", .string("0 inf 1")),
+                ("text", .string("0 blue 1"))] {
+                var live = fresh(); let before = live
+                facts[key + "-invalid-" + name] = !live.apply(bad, forPropertyKey: key) && unchanged(live, before)
+            }
+            var absent = ScenePropertyLiveUpdateState(program: compiled.program,
+                effectiveValues: [key: seed], activeConsumerTargets: [])
+            let beforeAbsent = absent
+            facts[key + "-no-consumer"] = !absent.apply(.string("0.2 0.4 0.6"), forPropertyKey: key)
+                && unchanged(absent, beforeAbsent)
+            for (name, extra) in [("script", ["script": "export function update(v) { return v; }"] as [String: Any]),
+                                  ("animation", ["animation": ["frames": []]]),
+                                  ("conditional", ["user": ["name": key, "condition": "1"]]),
+                                  ("bad-fallback", ["value": "0.2 0.4"]),
+                                  ("missing-fallback", ["value": NSNull()])] {
+                let conflict = compile(extra: extra).program
+                var live = fresh(conflict); let before = live
+                facts[key + "-conflict-" + name] = conflict.rebuildRequiredPropertyKeys.contains(key)
+                    && !live.apply(.string("0.2 0.4 0.6"), forPropertyKey: key) && unchanged(live, before)
+            }
+            for (name, catalog) in [("bad-default", [property(.string("0.2 0.4"))]),
+                                   ("missing-default", [property(nil)]),
+                                   ("wrong-kind", [property(.bool(true), kind: .bool)]),
+                                   ("duplicate", [definition, definition])] {
+                let rejected = compile(catalog: .init(definitions: catalog)).program
+                var live = fresh(rejected); let before = live
+                facts[key + "-catalog-" + name] = rejected.rebuildRequiredPropertyKeys.contains(key)
+                    && !live.apply(.string("0.2 0.4 0.6"), forPropertyKey: key) && unchanged(live, before)
+            }
+            let clearSwitch = ScenePropertyBindingCompiler().compile(
+                report: SceneUserPropertyBindingParser().parse(root: ["general": [
+                    "clearenabled": ["user": key, "value": true]]]),
+                catalog: .init(definitions: [property(.bool(true), kind: .bool)])).program
+            var switchState = state([], [], values: [key: .bool(true)],
+                definitions: [property(.bool(true), kind: .bool)], programOverride: clearSwitch)
+            let beforeSwitch = switchState
+            facts[key + "-clear-switch-still-rebuilds"] = clearSwitch.rebuildRequiredPropertyKeys.contains(key)
+                && !switchState.apply(.bool(false), forPropertyKey: key) && unchanged(switchState, beforeSwitch)
+            let colored: [String: Any] = ["id": 91, "image": "models/renamed-solid.json",
+                "color": ["user": key, "value": seed.foundationValue]]
+            let mixed = compile(objects: [colored]).program
+            let layerTarget = SceneDynamicTarget.layer(layerID: 91, field: .color)
+            var shared = fresh(mixed, layers: [.init(id: 91, contentKind: "solid")])
+            facts[key + "-shared"] = shared.apply(.string("0.2 0.4 0.6"), forPropertyKey: key)
+                && shared.userValues[target] == .vector3(0.2, 0.4, 0.6)
+                && shared.userValues[layerTarget] == .vector3(0.2, 0.4, 0.6) && shared.revision == 1
+            var inactive = fresh(mixed); let beforeInactive = inactive
+            facts[key + "-shared-inactive"] = !inactive.apply(.string("0.2 0.4 0.6"), forPropertyKey: key)
+                && unchanged(inactive, beforeInactive)
+            let unknown: [String: Any] = ["id": 92, "unknownField": ["user": key, "value": seed.foundationValue]]
+            var structural = fresh(compile(objects: [unknown]).program); let beforeStructural = structural
+            facts[key + "-shared-unsupported"] = !structural.apply(.string("0.2 0.4 0.6"), forPropertyKey: key)
+                && unchanged(structural, beforeStructural)
+        }
+        return facts
     }
 
     // Catalog kind/default and callback registrations are typed input leaves.
@@ -341,6 +459,7 @@ HARNESS = r'''
             noStyleText, noContentText, unlimitedText, unknown]
         var rows: [String: [String: Bool]] = [:]
         rows["unboundBoolean"] = unboundBooleanFacts()
+        rows["clearColor"] = clearColorFacts()
         let effectColor = SceneDynamicTarget.layer(layerID: 4, field: .color)
         let effectBinding = Binding(key: "renamedTint", target: effectColor,
             type: .vector3, seed: .vector3(1, 1, 1))
@@ -610,6 +729,12 @@ class SceneHiddenPropertyConsumerTests(unittest.TestCase):
         self.assertTrue(facts)
         for name, accepted in facts.items():
             self.assertTrue(accepted, name)
+
+    def test_clear_color_requires_the_real_clear_consumer_and_keeps_atomicity(self) -> None:
+        facts = self.rows["clearColor"]
+        self.assertTrue(facts)
+        for name, passed in facts.items():
+            self.assertTrue(passed, name)
 
     @classmethod
     def tearDownClass(cls) -> None:

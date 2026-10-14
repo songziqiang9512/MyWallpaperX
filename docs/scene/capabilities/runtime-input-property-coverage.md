@@ -146,7 +146,7 @@ SceneScript layer handle 的 `getTransformMatrix()` 现在只投影同一 render
 | 字段/能力 | 等级 | 当前消费 | 缺口 |
 |---|---|---|---|
 | `general.orthogonalprojection` | `L3` | cover projection 与 canvas size；[E-BASE](../history/runtime-evidence-index.md#e-base) | Windows 多比例像素门 |
-| `general.clearcolor` | `L3` | 主 pass clear color；[E-BASE](../history/runtime-evidence-index.md#e-base) | HDR/color-space golden |
+| `general.clearcolor` | `L3 bounded live` | 主pass静态值及direct Color经原Program/snapshot同一consumer；[热更新合同](#scene-clear-color-property) | clear-off、条件/脚本/动画、多屏及HDR/color-space golden |
 | `general.clearenabled` | `L2` | 已进入 descriptor；唯一 `SceneMainPassEncoder` 首次 color load 按该值选择 `.clear`/`.load`，后续 pass 继续 `.load` | author-off 真实样本、透明/未覆盖 surface 首帧与跨平台 golden |
 | `general.nearz/farz` | `L3` | image/particle projection 使用并有边界保护；[E-BASE](../history/runtime-evidence-index.md#e-base) | 3D camera 与异常值 golden |
 | Camera Parallax enable | `L3 / S4 bounded` | 作者静态值与 direct User Property 的 `cameraparallax` / `parallax` 经同一 binding program、typed snapshot 和既有 configuration live 消费；author-off 仍关闭该能力。真实 `3766387484` 保持同一 surface/window 从 false 切为 true并由唯一 compositor 输出；[当前证据](runtime-evidence-current.md#e-2026-09-13-camera-live-properties) | SceneScript setter、Windows 数值/像素与多屏长稳 |
@@ -157,10 +157,7 @@ SceneScript layer handle 的 `getTransformMatrix()` 现在只投影同一 render
 | bounded 2D camera path origin/zoom | `L3 bounded` | 单一 default path 的 reciprocal Combined `origin` owner + `zoom` child 共用 owner clock，原子进入 image/particle/pointer projection；zoom 只准 `0.01...100`，作者 Bézier control-value convex hull 也必须保持 origin/zoom/near/far 预算 | 多 path selection/lifecycle、generic setter、3D camera 与 Windows golden |
 | 3D camera / perspective runtime control | `L3 bounded static/path` | 无`orthogonalprojection`且Eye/Center/Up/FOV/near/far合法时，scene fallback与authored order中最下方可见的`camera:"default"` layer进入唯一camera frame；camera layer的static world frame与作者FOV先决定base view，现役typed path origin/zoom随后消费。普通layer/effect source/provider/model共享native Y-up world与该投影，utility保持screen-space；真实`3509243656`文字方向、字号与XY恢复到固定官方截图的bounded近似。[E-V4-STATIC-MODEL-BASE-COMPOSITION](../history/runtime-evidence-index.md#e-v4-static-model-base-composition) | non-default camera selection、动态camera-layer TRS/topology、完整3D path queue/lifecycle、live Eye/Center/Up/FOV、camera shake XYZ、多camera官方golden与完整整景 |
 | environment/gravity/wind | `L0` | Scene general 无对应 IR | 与 particle/puppet/3D solver 共用输入 |
-| official Scene Bloom/HDR target identity | `L1` | `.scene(.bloomEnabled/.bloomThreshold)` 已定义；无 binding/producer | 稳定 authored path 和类型定义 |
-| official Scene Bloom/HDR runtime | `L0` | 无 producer/consumer 或全场 post | HDR target、tone map、layer HDR brightness |
-
-现有 `SceneBloomPipeline` 是按 layer effect 路径选择的受限近似，不是 `general` 下官方 Scene Bloom/HDR 的实现。
+Scene Bloom/HDR当前准入与运行事实统一见下方[direct binding/runtime](#scene-bloom-runtime)及[输出设计](../roadmap/batch2/hdr-tonemap-edr-design.md)，不再保留旧“无producer/consumer”状态。
 
 <a id="op-parallax-camera"></a>
 ### 3.1 [Camera Parallax](https://docs.wallpaperengine.io/en/scene/parallax/introduction.html) 官方合同
@@ -334,6 +331,9 @@ Scalar/String/Vector 只为实际导出属性回调的 owner 准备差量事件�
 | `schemecolor` exported identity | `L1` | 若导出为普通 color definition 可被 generic parser 识别 | 明确 built-in identity/default/scope；缺失时是否合成需合法 fixture |
 | shared color target fan-out | `L3 bounded` | 全部target有已准入consumer时原子live提交；真实293的effect79与text924/1171共享色实际接受，初始隐藏不再阻断 | 不支持target仍整键拒绝；全模式、其他consumer及官方颜色一致性未验 |
 
+<a id="scene-clear-color-property"></a>
+**Scene清底颜色。** general.clearcolor直接绑定到合法Color时，原compiler发布`.scene(.clearColor)` vector3/color；Host仅在clearEnabled=true登记consumer，主pass读同帧snapshot，否则用原descriptor。SDR/HDR均复用启动的saturatingFloat逐component转换、alpha1和clear/load，不添gamma/第二store。脚本/动画冲突、缺consumer、clear-off及同键混合不支持target仍原子拒绝；clearenabled本身未开放热更新。[真实原生编辑与边界](../history/scene-clear-color-property-2026-10-15.md)证两次改色/重开/reset保持同session并改变背景，不计性能百分比、物理EDR或全Scheme Color内建语义。
+
 <a id="op-user-slider"></a>
 ### 5.3 [Slider](https://docs.wallpaperengine.io/en/scene/userproperties/slider.html)
 
@@ -445,7 +445,7 @@ service只展示潜在ordinary image；Host在direct/effectful共同入口先排
 | Puppet animation visibility | 2（`3769688830`） | `objects[].animationlayers[].visible` 解析为稳定 layer/animation-layer identity，direct bool User Property 编译为 typed target，并由 bounded Puppet playback 每帧 snapshot 消费；[E-PUPPET-BC](../history/runtime-evidence-index.md#e-puppet-bc) | `L3 bounded` | condition/SceneScript、无稳定 ID、冲突 mixing 与 topology mutation 继续 fail closed |
 | script instance properties | 43（旧census，未重算） | exact nested wrapper编译为`.scriptInstanceProperty`，scalar/String/Vec2/Vec3沿active QuickJS owner热更新；顶层Color String复用typed RGB校验并保作者目标的Vec3/Vec2或String输入。[原证据](../history/runtime-evidence-index.md#e-v4-scenescript-nested-property-live)、[Color实际编辑](../history/property-callback-recovery-2026-10-14.md#color-script-input-live)；错类型、缺失/disabled owner与mixed key原子拒绝 | 其他value type、接纳后VM失败/任意heap回滚、完整corpus与多surface/HDR未验 |
 | particle instance override | 6 | root `instanceoverride` 的 alpha/size/lifetime/rate/speed/count/brightness/normalized color 已有 exact direct User Property target，由同一 snapshot 和 simulator 消费；静态 fallback 与非法/冲突形态保持失败关闭 | `L3 bounded` | script/relative/Combined、child inheritance、存量粒子追溯更新与 Windows 轨迹 golden |
-| Scene Bloom direct binding/runtime | 旧census的2条identity计数未重算 | general下bloom/bloomstrength/bloomthreshold/bloomtint直连Bool/Slider/Color进入既有compiler→live state→snapshot→post consumer；可开启的初始禁用实例预备pipeline/readable drawable。[实时属性证据](runtime-evidence-current.md#e-2026-09-28-bloom-live-properties) | `L3 bounded / S4 controlled visible` | 条件绑定、HDR专用scatter/knee等、真实作者全部属性UI操作与官方视觉对照；准备失败的可选Bloom仍缺席 |
+| <a id="scene-bloom-runtime"></a>Scene Bloom direct binding/runtime | 旧census的2条identity计数未重算 | general下bloom/bloomstrength/bloomthreshold/bloomtint直连Bool/Slider/Color进入既有compiler→live state→snapshot→post consumer；可开启的初始禁用实例预备pipeline/readable drawable。[实时属性证据](runtime-evidence-current.md#e-2026-09-28-bloom-live-properties) | `L3 bounded / S4 controlled visible` | 条件绑定、真实作者全部属性UI操作与官方视觉对照；有界HDR字段/默认策略见[输出设计](../roadmap/batch2/hdr-tonemap-edr-design.md)，不以此行旧census概括；准备失败的可选Bloom仍缺席 |
 | layer scale | fresh 149根观察13条direct `{user,value}` / 5样本 | uniform三分量作者fallback编译为`.layer(.scale)` Vec3 target；slider number在该target边界投影为equal-lane Vec3并由共享world-frame消费。真实`3509243656:222`默认与自定义`size x`均进入同一property snapshot→QuickJS→world-frame→compositor链；未准入optional脚本不再隐藏整层 | `L3 bounded / S3 real consumer-executed` | nonuniform direct fallback、非slider/type/range错误局部拒绝并保留作者current；其他scale wrapper、独立几何ROI、149 corpus全运行与官方parity未闭合；[E-V4-LAYER-SCALE-TYPED-PROPERTY](../history/runtime-evidence-index.md#e-v4-layer-scale-typed-property) |
 | sound volume target identity | 1 | `.layer(.volume)` 已由direct scalar binding compiler映射到准入Sound layer，并与唯一player registry identity逐项校验 | `L3 bounded` | duplicate/mixed producer、无准入Sound owner与非finite/out-of-range值继续fail closed |
 | sound volume runtime | 1 | 现有property snapshot原地更新同一`AVQueuePlayer`音量，不重建surface/player；真实MP3已有live `0.5→0.2`，后继真实门又覆盖`0→1`并保持同一capture scope。[E-V4-SCENE-SOUND-PLAYBACK](../history/runtime-evidence-index.md#e-v4-scene-sound-playback) [E-V4-SCENE-SOUND-SHARED-SPECTRUM](../history/runtime-evidence-index.md#e-v4-scene-sound-shared-spectrum) | `L3 bounded / S3 executed` | 多音源排序parity、random/spatial、decode结构化失败与听感/官方parity不外推；loop/single及显式startsilent见下方Sound当前行 |

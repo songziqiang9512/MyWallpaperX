@@ -135,6 +135,7 @@ extension ScenePropertyBindingCompiler {
             }
         case let .scene(field):
             switch field {
+            case "clearcolor": (.scene(.clearColor), .vector3, .color)
             case "bloom": (.scene(.bloomEnabled), .bool, .bool)
             case "bloomstrength": (.scene(.bloomStrength), .scalar, .slider)
             case "bloomthreshold": (.scene(.bloomThreshold), .scalar, .slider)

@@ -35,6 +35,7 @@ RESOURCE_BUDGET = SCENE / "Resources/Textures/SceneResourceBudget.swift"
 # Stored dependencies only. All color flow, outcome, pool and history logic is
 # compiled from production files; this carrier avoids unrelated app systems.
 TERMINAL_SUPPORT = r'''
+struct SceneDocumentLoader {}
 struct TerminalRenderDescriptor {
     struct Camera { let clearColor: [Float]; let bloom: SceneBloomConfiguration }
     let hdrEnabled: Bool
@@ -133,6 +134,7 @@ def _compile_and_run(name: str, *, source: str | None = None) -> dict:
             harness = folder / name
             harness.write_text(source, encoding="utf-8")
         sources = list(dict.fromkeys([*OWNER_SOURCES, MAPPING, MAPPING.with_name("SceneBloomPostProcess.swift"), RESOURCE_BUDGET,
+                   SCENE / "Format/SceneDocument+NumericParsing.swift",
                    SCENE / "Rendering/Composition/SceneMainPassEncoder.swift",
                    SCENE / "Rendering/Frame/SceneMetalRenderer+ClearColor.swift",
                    SCENE / "Rendering/Frame/SceneMetalRenderer+FrameOutcome.swift", support, harness]))
@@ -141,14 +143,19 @@ def _compile_and_run(name: str, *, source: str | None = None) -> dict:
               "-import-objc-header", str(folder / "Fault.h"), str(folder / "fault.o"),
               *map(str, sources), "-module-cache-path", str(folder / "module-cache"),
               "-o", str(binary)]
+        input_hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in sources}
         _run(compile_command, cwd=folder, timeout=300)
-        evidence = os.environ.get("MWX_REFLECTION_PRODUCER_EVIDENCE") if source is not None else None
+        if input_hashes != {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in sources}:
+            raise AssertionError("persistent color compile inputs changed during compilation")
+        evidence = os.environ.get("MWX_PERSISTENT_COLOR_EVIDENCE") or (
+            os.environ.get("MWX_REFLECTION_PRODUCER_EVIDENCE") if source is not None else None)
         if evidence:
             destination = Path(evidence); destination.mkdir(parents=True, exist_ok=True)
-            (destination / "Harness.swift").write_text(source, encoding="utf-8")
+            (destination / "Harness.swift").write_text(harness.read_text(), encoding="utf-8")
             (destination / "Support.swift").write_text(support.read_text(), encoding="utf-8")
             (destination / "source-manifest.json").write_text(json.dumps({
                 "testSHA256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                "inputsBefore": input_hashes, "inputsStable": True,
                 "compileCommand": compile_command, "runCommand": [str(binary)], "cwd": str(folder),
                 "sources": [{"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()} for path in sources],
                 "binarySHA256": hashlib.sha256(binary.read_bytes()).hexdigest(),
@@ -193,6 +200,11 @@ class ScenePersistentColorOutputTests(unittest.TestCase):
         self.assertAlmostEqual(self.result["clearedHDR"]["rgb"][0], 1, delta=1 / 1024)
         self.assertEqual(self.result["nonHDR"]["rgb"], [3, 0.25, 0.5])
         self.assertEqual(self.result["nonHDR"]["alpha"], 1)
+
+    def test_live_clear_color_matches_rebuilt_descriptor_in_sdr_and_hdr(self):
+        self.assertTrue(self.result["clearColor"])
+        for name, passed in self.result["clearColor"].items():
+            self.assertTrue(passed, name)
 
 
 REFLECTION_PRODUCER = r'''

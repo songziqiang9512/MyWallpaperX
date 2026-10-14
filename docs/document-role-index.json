@@ -2285,6 +2285,17 @@
       ]
     },
     {
+      "path": "docs/scene/history/scene-clear-color-property-2026-10-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/roadmap/properties-panel-card.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/properties-panel-card.md",
+        "docs/scene/capabilities/runtime-input-property-coverage.md"
+      ],
+      "cutoffDate": "2026-10-15"
+    },
+    {
       "path": "docs/scene/history/scene-generic-execution-refactor-plan-2026-08-15.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -2854,13 +2865,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-14",
+      "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5bd91dd4be2a1679838f45b599d55bb5790609cecaebbfff2a330ba262229ea4",
+        "sourceSHA256": "5fb7c388ba6da69880ac6a5d3b2d9c922192075c08b142bb53fbdd7eb1ba6e02",
         "method": "document_registry --audit + document_health --check",
-        "scope": "换图typed反馈、正常窗口/持久值/退出与独立ROI导航同步；保留冷取证未完、暖CLI收尾缺失和全reset真实UI缺口",
-        "limitations": "仅本批文档职责与导航；不冒充全样本、动态整图、完整CLI生命周期、性能或发布验收。"
+        "scope": "背景色typed消费/原生编辑与未覆盖边界、206先核prepared消费及继承棘轮缺口导航同步",
+        "limitations": "仅当前文档与导航，不冒充完整面板性能、全部媒体入口、多屏或发布验收。"
       }
     },
     {

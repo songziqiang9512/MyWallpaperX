@@ -268,6 +268,17 @@ nonisolated struct SceneUserPropertyBindingParser {
     ) -> SceneUserPropertyBindingTarget {
         if components.count == 2,
            Self.key(components[0]) == "general",
+           Self.key(components[1]) == "clearcolor" {
+            guard let general = root["general"] as? [String: Any],
+                  let wrapper = general["clearcolor"] as? [String: Any],
+                  wrapper["script"] == nil || wrapper["script"] is NSNull,
+                  wrapper["animation"] == nil || wrapper["animation"] is NSNull else {
+                return .unsupported(reason: "清屏颜色存在冲突动态来源")
+            }
+            return .scene(field: "clearcolor")
+        }
+        if components.count == 2,
+           Self.key(components[0]) == "general",
            let field = Self.key(components[1]),
            ["bloom", "bloomstrength", "bloomthreshold", "bloomtint",
             "bloomhdrstrength", "bloomhdrthreshold", "bloomhdrscatter",

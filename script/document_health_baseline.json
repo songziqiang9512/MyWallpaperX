@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
-      "bytes": 191167
+      "bytes": 191899
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -218,7 +218,7 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
-      "bytes": 6388
+      "bytes": 6880
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
@@ -1079,30 +1079,21 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "913d2102a539febbabfa9abf34b0cbbd7a576b48c9217537bde92aad02ed67bc",
-      "owner": "scene-performance-telemetry",
-      "reason": "公开stage一帧资格成功后将设计边界移交最小诊断合同，现runtime与性能卡只链接该owner/原CB/重叠成本限制，不维护第二队列。",
-      "decision": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md"
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "5d55bac525f5e5fabc9c491b7b1532f226cc1784411112362d80e3d7e876b7d7",
+      "after": "17e59b2136183948a5f3a0156f3e2d78a18e27ad39c3233b9e5f2961243afc40",
+      "owner": "scene-properties",
+      "reason": "背景色沿原typed链补消费与原生验收；合并过时Bloom状态，现役卡保留206先验证和继承棘轮缺口，不另造状态队列。",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#scene-clear-color-property"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "e54903c33104236d6f0ed17776422cdd703ec5dc22a5c80117f1efc6055c3257",
-      "after": "0604b80449a8da14a329d2c4361ad30691a6372e4ae112222e62e8417ec08303",
-      "owner": "scene-performance-telemetry",
-      "reason": "公开stage一帧资格成功后将设计边界移交最小诊断合同，现runtime与性能卡只链接该owner/原CB/重叠成本限制，不维护第二队列。",
-      "decision": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "3e4a26f46cbe6cc265279ab4843a53efd5568b7d12dd92af9b796edd6a34adcc",
-      "after": "9e1793cc28835f5828990fdbf1ddb95d8808036672a1eecba54746c95ec1c593",
-      "owner": "scene-performance-telemetry",
-      "reason": "公开stage一帧资格成功后将设计边界移交最小诊断合同，现runtime与性能卡只链接该owner/原CB/重叠成本限制，不维护第二队列。",
-      "decision": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md"
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "2d2068faf551fcfa8afe578c77d0da2d8d8f4dc0fd23e9df648f2b75e429e451",
+      "after": "6db3325986caf2def24501d46e59dd1caa9dd3578a2a30c171c3130c8425b98c",
+      "owner": "scene-properties",
+      "reason": "背景色沿原typed链补消费与原生验收；合并过时Bloom状态，现役卡保留206先验证和继承棘轮缺口，不另造状态队列。",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#scene-clear-color-property"
     }
   ]
 }

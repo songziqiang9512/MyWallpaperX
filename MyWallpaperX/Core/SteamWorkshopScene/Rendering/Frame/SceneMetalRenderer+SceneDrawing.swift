@@ -92,6 +92,7 @@ extension SceneMetalRenderer {
         performanceTelemetry?.beginStage("prepass-encoder")
         let (mainPass, groups) = makeScenePass(target: mainTarget,
             clearEnabled: frameDescriptor.camera.clearEnabled || (sceneColor != nil && sceneColor?.previous == nil),
+            dynamicValues: frameContext.dynamicValues,
             pool: offscreenTexturePool, visibleLayerIDs: frameVisibleLayerIDs,
             viewportSize: viewportSize, commandBuffer: commandBuffer,
             utilityExecution: frameProjection.utilityExecution)
