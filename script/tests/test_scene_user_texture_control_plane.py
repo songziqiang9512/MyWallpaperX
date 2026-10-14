@@ -27,10 +27,12 @@ class SceneUserTextureControlPlaneTests(unittest.TestCase):
                 .replace("private static func", "static func", 1) for signature in [
                     "private func handleLaunchState(", "private func handleFirstFrame(",
                     "static func unsignedInteger(", "private static func double(",
-                    "private func handlePropertyUpdateResult(",
+                    "private func handlePropertyUpdateResult(", "func handleTermination(",
                 ])
             scalar = method_body(CLIENT.read_text(), "private func applyPropertyValues(")
             handlers += "\n" + scalar.replace("private func", "func", 1)
+            handlers += "\n" + method_body(CLIENT.read_text(), "func stop(postsLaunchState:")
+            handlers += "\n" + method_body(CLIENT.read_text(), "func requestLaunch(")
             probe = work / "Probe.swift"
             probe.write_text((ROOT / "script/tests/fixtures/SceneUserTextureControlChecks.swift").read_text()
                 + "\n@MainActor extension SceneDaemonClient {\n" + handlers + "\n}\n")
@@ -49,17 +51,15 @@ class SceneUserTextureControlPlaneTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             checks = json.loads(result.stdout)
             self.assertGreaterEqual(len(checks), 19)
+            self.assertTrue({"explicit_stop_supersedes_before_transport_exit", "stop_exit_is_expected_and_silent",
+                "cancelled_launch_supersedes", "failed_launch_remains_failure", "transport_death_finishes_failed",
+                "stop_chain_callbacks_complete", "stop_chain_pending_empty", "stop_chain_no_retired_send",
+                "switch_chain_callbacks_complete", "switch_chain_pending_empty", "switch_chain_no_retired_send",
+                "termination_chain_callbacks_complete", "termination_chain_pending_empty", "termination_chain_no_retired_send",
+                "nested_drain_keeps_admission_closed", "normal_phase_retry_after_drain"}.issubset(checks))
             for name, passed in checks.items():
                 with self.subTest(behavior=name):
                     self.assertTrue(passed)
-
-    def test_stop_switch_and_transport_death_finish_pending_waiters(self):
-        source = CLIENT.read_text()
-        self.assertIn('finishPendingTextureUpdates(.failed("Scene playback stopped"))',
-            method_body(source, "func stop(postsLaunchState:"))
-        self.assertIn("finishPendingTextureUpdates(.superseded)",
-            method_body(source, "func requestLaunch("))
-        self.assertIn('finishPendingTextureUpdates(.failed("Scene daemon disconnected"))', EVENTS.read_text())
 
     def test_daemon_owns_only_request_scopes_until_ack(self):
         source = (SCENE / "Runtime/IPC/SceneDaemonRuntime.swift").read_text()

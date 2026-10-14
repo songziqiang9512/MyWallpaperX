@@ -522,6 +522,24 @@
       "contentPatterns": [
         "GraphResidencyView"
       ]
+    },
+    {
+      "id": "scene-user-texture-feedback",
+      "title": "User texture typed results and initiating panel feedback",
+      "owner": "SteamWorkshopService texture revision / existing editor and SceneDaemonClient",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "design_notes": "实施前设计见 #user-texture-operation-feedback；复用现有outcome与revision，失败归发起面板，stop/cancel沿最早Client边界superseded。原成功提交、reload fallback及旧画面保持，reset聚合部分失败；approved只准实施，不代表运行/性能验收。 批量结清回调的同步重入在原Client有界阶段拒绝，不向退役会话新增请求。",
+      "matchPatterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneTextureProperties.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopScenePropertyEditorView.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient+Events.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient+UserTextures.swift"
+      ],
+      "contentPatterns": [
+        "ScenePlaybackTextureUpdateOutcome"
+      ]
     }
   ]
 }

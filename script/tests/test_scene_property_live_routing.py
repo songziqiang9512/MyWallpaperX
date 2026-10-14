@@ -113,7 +113,16 @@ extension Notification.Name {
             MainActor.assumeIsolated { spy.requests.append(request) }
         }
         defer { NotificationCenter.default.removeObserver(observer) }
-        func select(_ url: URL?, definition selectedDefinition: SceneUserPropertyDefinition? = nil) async -> Bool {
+        func outcomeLabel(_ outcome: ScenePlaybackTextureUpdateOutcome?) -> String {
+            guard let outcome else { return "pending" }
+            switch outcome {
+            case .applied: return "applied"
+            case .superseded: return "superseded"
+            case .unavailable: return "unavailable"
+            case .failed: return "failed"
+            }
+        }
+        func select(_ url: URL?, definition selectedDefinition: SceneUserPropertyDefinition? = nil) async -> ScenePlaybackTextureUpdateOutcome {
             await withCheckedContinuation { continuation in
                 service.updateSceneTexturePropertyURL(url, definition: selectedDefinition ?? definition, record: record) {
                     continuation.resume(returning: $0)
@@ -139,7 +148,7 @@ extension Notification.Name {
             try await waitForReload()
             let reloads = spy.requests.count - before
             service.requestSceneRender(record)
-            rows.append(["case": name, "accepted": accepted, "reloads": reloads, "path": requestPath()])
+            rows.append(["case": name, "outcome": outcomeLabel(accepted), "reloads": reloads, "path": requestPath()])
         }
         for name in ["broken.png", "crc-broken.png", "directory.png", "missing.png", "unsupported.gif"] {
             _ = await select(png)
@@ -153,7 +162,7 @@ extension Notification.Name {
             let reloads = spy.requests.count - before
             service.requestSceneRender(record)
             rows.append([
-                "case": name, "accepted": accepted, "reloads": reloads,
+                "case": name, "outcome": outcomeLabel(accepted), "reloads": reloads,
                 "bookmarkUnchanged": service.defaults.data(forKey: bookmarkKey) == bookmark,
                 "overridesUnchanged": service.scenePropertyOverrides(for: record) == overrides,
                 "path": requestPath(), "error": service.downloadError != nil,
@@ -164,20 +173,20 @@ extension Notification.Name {
         let recovery = await select(jpeg)
         try await waitForReload()
         service.requestSceneRender(record)
-        rows.append(["case": "recovery", "accepted": recovery, "bookmarkChanged": service.defaults.data(forKey: bookmarkKey) != old, "path": requestPath()])
+        rows.append(["case": "recovery", "outcome": outcomeLabel(recovery), "bookmarkChanged": service.defaults.data(forKey: bookmarkKey) != old, "path": requestPath()])
         let cleared = await select(nil)
         try await waitForReload()
         service.requestSceneRender(record)
-        rows.append(["case": "clear", "accepted": cleared, "bookmarkExists": service.defaults.data(forKey: bookmarkKey) != nil, "overrides": service.scenePropertyOverrides(for: record).count, "path": requestPath()])
+        rows.append(["case": "clear", "outcome": outcomeLabel(cleared), "bookmarkExists": service.defaults.data(forKey: bookmarkKey) != nil, "overrides": service.scenePropertyOverrides(for: record).count, "path": requestPath()])
         _ = await select(png)
         try await waitForReload()
-        await withCheckedContinuation { continuation in
+        let resetOutcome = await withCheckedContinuation { continuation in
             service.resetScenePropertyValues(for: record, defaultValues: ["cover": .string("")]) {
-                continuation.resume()
+                continuation.resume(returning: $0)
             }
         }
         service.requestSceneRender(record)
-        rows.append(["case": "reset", "bookmarkExists": service.defaults.data(forKey: bookmarkKey) != nil, "overrides": service.scenePropertyOverrides(for: record).count, "path": requestPath()])
+        rows.append(["case": "reset", "outcome": outcomeLabel(resetOutcome), "bookmarkExists": service.defaults.data(forKey: bookmarkKey) != nil, "overrides": service.scenePropertyOverrides(for: record).count, "path": requestPath()])
         let mux = PlaybackCommandMultiplexer.shared
         SceneDaemonClient.shared.active = true
         func waitForPending(_ count: Int = 1) async throws {
@@ -193,8 +202,9 @@ extension Notification.Name {
         mux.finish(.failed("own-runtime-decode-failure"))
         let failed = await pendingFailure.value
         rows.append(["case": "live-failure", "beforeAckEmpty": beforeAckEmpty,
-            "accepted": failed, "bookmarkExists": service.defaults.data(forKey: bookmarkKey) != nil,
-            "overrides": service.scenePropertyOverrides(for: record).count])
+            "outcome": outcomeLabel(failed), "bookmarkExists": service.defaults.data(forKey: bookmarkKey) != nil,
+            "overrides": service.scenePropertyOverrides(for: record).count, "error": service.downloadError != nil,
+            "reasonPreserved": failed == .failed("own-runtime-decode-failure")])
         let older = Task { @MainActor in await select(png) }
         try await waitForPending()
         let newer = Task { @MainActor in await select(jpeg) }
@@ -204,9 +214,9 @@ extension Notification.Name {
         let oldAckDidNotSave = service.defaults.data(forKey: bookmarkKey) == nil
         mux.finish(.applied)
         let newerAccepted = await newer.value
-        rows.append(["case": "live-latest", "olderAccepted": olderAccepted,
-            "olderAckDidNotSave": oldAckDidNotSave, "newerAccepted": newerAccepted,
-            "value": service.scenePropertyOverrides(for: record)["cover"]?.stringValue ?? "none"])
+        rows.append(["case": "live-latest", "olderOutcome": outcomeLabel(olderAccepted),
+            "olderAckDidNotSave": oldAckDidNotSave, "newerOutcome": outcomeLabel(newerAccepted),
+            "value": service.scenePropertyOverrides(for: record)["cover"]?.stringValue ?? "none", "error": service.downloadError != nil])
         let oldSelection = Task { @MainActor in await select(png) }
         try await waitForPending()
         let clearing = Task { @MainActor in await select(nil) }
@@ -214,9 +224,9 @@ extension Notification.Name {
         let oldSelectionAccepted = await oldSelection.value
         mux.finish(.applied); mux.finish(.applied)
         let resetAccepted = await clearing.value
-        rows.append(["case": "live-reset", "olderAccepted": oldSelectionAccepted,
-            "accepted": resetAccepted, "bookmarkExists": service.defaults.data(forKey: bookmarkKey) != nil,
-            "overrides": service.scenePropertyOverrides(for: record).count])
+        rows.append(["case": "live-reset", "olderOutcome": outcomeLabel(oldSelectionAccepted),
+            "outcome": outcomeLabel(resetAccepted), "bookmarkExists": service.defaults.data(forKey: bookmarkKey) != nil,
+            "overrides": service.scenePropertyOverrides(for: record).count, "error": service.downloadError != nil])
         for failure in ["missing-file", "invalid-bookmark"] {
             let lost = root.appendingPathComponent("selected-then-unavailable.png")
             try? FileManager.default.removeItem(at: lost)
@@ -228,31 +238,33 @@ extension Notification.Name {
             let displayedURL = service.resolvedSceneTexturePropertyURL(forKey: "cover", record: record)
             var referencesEmpty = false
             service.withResolvedSceneTexturePropertyReferences(for: record) { referencesEmpty = $0.isEmpty }
-            let intentRetained = service.defaults.data(forKey: bookmarkKey) != nil
+            let retainedBookmark = service.defaults.data(forKey: bookmarkKey); let retainedOverrides = service.scenePropertyOverrides(for: record)
             mux.scalarDispatches = 0
-            var completed = false
+            var completed = false; var resetOutcome: ScenePlaybackTextureUpdateOutcome?
             service.resetScenePropertyValues(for: record, defaultValues: ["cover": .string("")]) {
-                completed = true
+                completed = true; resetOutcome = $0
             }
             let typedReset = mux.pending.count == 1
                 && mux.pending.first?.0.resetKeys == ["cover"]
                 && mux.pending.first?.0.references.isEmpty == true
             let waitsForAck = !completed && service.scenePropertyOverrides(for: record)["cover"] != nil
-            var failurePreserved = false
+            var failurePreserved = false; var failureOutcome: ScenePlaybackTextureUpdateOutcome?
             if !mux.pending.isEmpty {
                 mux.finish(.failed("own-reset-rejected"))
-                failurePreserved = completed && service.defaults.data(forKey: bookmarkKey) != nil
-                    && service.scenePropertyOverrides(for: record)["cover"] != nil
+                failureOutcome = resetOutcome
+                failurePreserved = completed && service.defaults.data(forKey: bookmarkKey) == retainedBookmark
+                    && service.scenePropertyOverrides(for: record) == retainedOverrides
                     && mux.scalarDispatches == 0
                 completed = false
                 service.resetScenePropertyValues(for: record, defaultValues: ["cover": .string("")]) {
-                    completed = true
+                    completed = true; resetOutcome = $0
                 }
                 if !mux.pending.isEmpty { mux.finish(.applied) }
             }
             rows.append(["case": failure, "unavailable": displayedURL == nil && referencesEmpty,
-                "failurePreserved": failurePreserved,
-                "intentRetained": intentRetained, "typedReset": typedReset, "waitsForAck": waitsForAck,
+                "failurePreserved": failurePreserved, "failureOutcome": outcomeLabel(failureOutcome),
+                "outcome": outcomeLabel(resetOutcome), "error": service.downloadError != nil,
+                "intentRetained": retainedBookmark != nil, "typedReset": typedReset, "waitsForAck": waitsForAck,
                 "scalarDispatches": mux.scalarDispatches, "completed": completed,
                 "cleared": service.defaults.data(forKey: bookmarkKey) == nil
                     && service.scenePropertyOverrides(for: record)["cover"] == nil])
@@ -274,28 +286,45 @@ extension Notification.Name {
             await withCheckedContinuation { continuation in
                 service.resetScenePropertyValues(for: record,
                     defaultValues: ["cover": .string(""), "background": .string(""), "rate": .number(1)]) {
-                    continuation.resume()
+                    continuation.resume(returning: $0)
                 }
             }
         }
         try await waitForPending()
         let firstResetKey = mux.pending.first!.0.keys.first!
         let scalarWaited = mux.scalarDispatches == 0 && mux.pending.count == 1
-        // The queued second reset was registered earlier. A newer user choice
-        // must supersede it, even though the first reset is still preparing.
+        // A newer choice supersedes its queued reset while the other key prepares.
         let overrideQueued = Task { @MainActor in await select(jpeg, definition: definition) }
         try await waitForPending(2)
         mux.finish(.applied)
-        await panelReset.value
+        let panelResetOutcome = await panelReset.value
         let resetDidNotEnqueueOldChoice = mux.pending.count == 1 && mux.pending.first!.0.references["cover"] != nil
         mux.finish(.applied)
         let overrideAccepted = await overrideQueued.value
         rows.append(["case": "panel-reset", "firstKey": firstResetKey,
             "scalarWaited": scalarWaited, "scalarDispatches": mux.scalarDispatches,
-            "queuedResetSkipped": resetDidNotEnqueueOldChoice, "newerAccepted": overrideAccepted,
+            "queuedResetSkipped": resetDidNotEnqueueOldChoice, "newerOutcome": outcomeLabel(overrideAccepted),
+            "outcome": outcomeLabel(panelResetOutcome),
             "coverValue": service.scenePropertyOverrides(for: record)["cover"]?.stringValue ?? "none",
             "backgroundBookmark": service.defaults.data(forKey: "SteamWorkshop.scenePropertyBookmarks.own.background") != nil,
             "rateOverride": service.scenePropertyOverrides(for: record)["rate"] != nil])
+        let restoreBackground = Task { @MainActor in await select(png, definition: second) }
+        try await waitForPending(); mux.finish(.applied); _ = await restoreBackground.value
+        let coverBookmark = service.defaults.data(forKey: bookmarkKey)
+        let partialReset = Task { @MainActor in
+            await withCheckedContinuation { continuation in
+                service.resetScenePropertyValues(for: record, defaultValues: ["cover": .string(""), "background": .string("")]) {
+                    continuation.resume(returning: $0)
+                }
+            }
+        }
+        try await waitForPending(); mux.finish(.applied)
+        try await waitForPending(); mux.finish(.failed("own-partial-reset-failure"))
+        rows.append(["case": "partial-reset", "outcome": outcomeLabel(await partialReset.value),
+            "coverBookmarkUnchanged": service.defaults.data(forKey: bookmarkKey) == coverBookmark,
+            "coverValue": service.scenePropertyOverrides(for: record)["cover"]?.stringValue ?? "none",
+            "backgroundCleared": service.scenePropertyOverrides(for: record)["background"] == nil,
+            "error": service.downloadError != nil])
         func scalarDefinition(_ key: String, kind: SceneUserPropertyKind,
             defaultValue: SceneUserPropertyValue) -> SceneUserPropertyDefinition {
             .init(key: key, title: key, kind: kind, runtimeType: kind.rawValue,
@@ -317,7 +346,7 @@ extension Notification.Name {
                     service.resetScenePropertyValues(for: record, defaultValues: [
                         "cover": .string(""), "rate": .number(1), "other": .number(1),
                         "tint": .string("1 1 1")
-                    ]) { continuation.resume() }
+                    ]) { continuation.resume(returning: $0) }
                 }
             }
             try await waitForPending()
@@ -326,10 +355,10 @@ extension Notification.Name {
             // key, through exactly the same public scalar entry as the editor.
             service.updateScenePropertyValue(.string("0.25 0 0"), definition: tint, record: record)
             mux.finish(.applied)
-            await reset.value
+            let scalarResetOutcome = await reset.value
             let saved = service.scenePropertyOverrides(for: record)
             rows.append(["case": "reset-scalar-" + String(Int(editedValue)),
-                "rate": saved["rate"]?.numberValue ?? -1,
+                "rate": saved["rate"]?.numberValue ?? -1, "outcome": outcomeLabel(scalarResetOutcome),
                 "tint": saved["tint"]?.stringValue ?? "none",
                 "otherOverride": saved["other"] != nil,
                 "resetPayloadKeys": mux.lastScalarValues.keys.sorted(),
@@ -376,7 +405,7 @@ struct SteamWorkshopDownloadRecord {
     func requestSceneRender(_ record: SteamWorkshopDownloadRecord) {}
     func resetSceneTextureProperties(for record: SteamWorkshopDownloadRecord,
         defaultValues: [String: SceneUserPropertyValue],
-        completion: @escaping @MainActor (Set<String>) -> Void) {}
+        completion: @escaping @MainActor (Set<String>, ScenePlaybackTextureUpdateOutcome) -> Void) {}
 }
 struct PlaybackCommandMultiplexer {
     static let shared = Self()
@@ -471,15 +500,7 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         )
 
 
-    def test_texture_bookmark_clear_reports_whether_runtime_resources_changed(self) -> None:
-        clear = method_body(self.texture, "func clearSceneTexturePropertyBookmarks(")
-        self.assertIn("-> Bool", clear)
-        self.assertIn("var removedBookmark = false", clear)
-        self.assertIn("removedBookmark = true", clear)
-        self.assertIn("return removedBookmark", clear)
-
     def test_layer_color_is_live_for_solid_and_effectless_image_layers(self) -> None:
-        context = method_body(self.service, "func scenePropertyContext(")
         support = method_body(self.service, "private func supportsScenePropertyTarget(")
         self.assertIn("case let .layerColor(layerID):", support)
         layer_color = support[
@@ -688,6 +709,8 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
         harness.write_text("\n".join([
             builder_leaves, identities,
             purpose, purpose_reports, system_identity, CONTEXT_LEAF_STUBS,
+            method_body((REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift").read_text(),
+                        "nonisolated enum ScenePlaybackTextureUpdateOutcome:"),
         ]))
         sources = builder.SWIFT_SOURCES + [
             SCENE_ROOT / "Compilation/Material/SceneBaseMaterialProviderBindingProgram.swift",
@@ -876,10 +899,10 @@ class SceneTextureSelectionAdmissionTests(unittest.TestCase):
             with self.subTest(input=name):
                 row = self.rows[name]
                 self.assertEqual(row["contentType"], "public.png")
-                self.assertFalse(row["accepted"])
+                self.assertEqual(row["outcome"], "failed")
                 self.assertTrue(row["bookmarkUnchanged"])
                 self.assertTrue(row["overridesUnchanged"])
-                self.assertTrue(row["error"])
+                self.assertFalse(row["error"])
                 self.assertEqual(row["reloads"], 0)
                 self.assertEqual(row["path"], "good.png")
 
@@ -887,7 +910,8 @@ class SceneTextureSelectionAdmissionTests(unittest.TestCase):
         for name in ["directory.png", "missing.png", "unsupported.gif"]:
             with self.subTest(input=name):
                 row = self.rows[name]
-                self.assertFalse(row["accepted"])
+                self.assertEqual(row["outcome"], "failed")
+                self.assertFalse(row["error"])
                 self.assertTrue(row["bookmarkUnchanged"])
                 self.assertTrue(row["overridesUnchanged"])
                 self.assertEqual(row["reloads"], 0)
@@ -895,18 +919,18 @@ class SceneTextureSelectionAdmissionTests(unittest.TestCase):
 
     def test_valid_png_jpeg_and_subsequent_recovery_use_actual_load_requests(self) -> None:
         for name in ["good.png", "good.jpeg"]:
-            self.assertTrue(self.rows[name]["accepted"])
+            self.assertEqual(self.rows[name]["outcome"], "applied")
             self.assertEqual(self.rows[name]["reloads"], 0)
             self.assertEqual(self.rows[name]["path"], name)
         recovery = self.rows["recovery"]
-        self.assertTrue(recovery["accepted"])
+        self.assertEqual(recovery["outcome"], "applied")
         self.assertTrue(recovery["bookmarkChanged"])
         self.assertEqual(recovery["path"], "good.jpeg")
 
     def test_nil_and_reset_restore_author_defaults_in_actual_load_requests(self) -> None:
-        self.assertTrue(self.rows["clear"]["accepted"])
         for name in ["clear", "reset"]:
             row = self.rows[name]
+            self.assertEqual(row["outcome"], "applied")
             self.assertFalse(row["bookmarkExists"])
             self.assertEqual(row["overrides"], 0)
             self.assertEqual(row["path"], "none")
@@ -914,19 +938,20 @@ class SceneTextureSelectionAdmissionTests(unittest.TestCase):
     def test_live_failure_does_not_save_before_or_after_ack(self) -> None:
         row = self.rows["live-failure"]
         self.assertTrue(row["beforeAckEmpty"])
-        self.assertFalse(row["accepted"])
+        self.assertEqual((row["outcome"], row["reasonPreserved"]), ("failed", True))
+        self.assertFalse(row["error"])
         self.assertFalse(row["bookmarkExists"])
         self.assertEqual(row["overrides"], 0)
 
     def test_live_latest_choice_and_reset_ignore_late_success(self) -> None:
         latest = self.rows["live-latest"]
-        self.assertFalse(latest["olderAccepted"])
+        self.assertEqual((latest["olderOutcome"], latest["error"]), ("superseded", False))
         self.assertTrue(latest["olderAckDidNotSave"])
-        self.assertTrue(latest["newerAccepted"])
+        self.assertEqual(latest["newerOutcome"], "applied")
         self.assertTrue(latest["value"].endswith("good.jpeg"))
         reset = self.rows["live-reset"]
-        self.assertFalse(reset["olderAccepted"])
-        self.assertTrue(reset["accepted"])
+        self.assertEqual((reset["olderOutcome"], reset["error"]), ("superseded", False))
+        self.assertEqual(reset["outcome"], "applied")
         self.assertFalse(reset["bookmarkExists"])
         self.assertEqual(reset["overrides"], 0)
 
@@ -937,6 +962,9 @@ class SceneTextureSelectionAdmissionTests(unittest.TestCase):
                 for field in ["unavailable", "intentRetained", "typedReset", "waitsForAck", "failurePreserved", "completed", "cleared"]:
                     self.assertTrue(row[field], field)
                 self.assertEqual(row["scalarDispatches"], 0)
+                self.assertEqual(row["failureOutcome"], "failed")
+                self.assertEqual(row["outcome"], "applied")
+                self.assertFalse(row["error"])
 
     def test_all_reset_is_serial_and_newer_queued_choice_wins(self) -> None:
         row = self.rows["panel-reset"]
@@ -944,10 +972,17 @@ class SceneTextureSelectionAdmissionTests(unittest.TestCase):
         self.assertTrue(row["scalarWaited"])
         self.assertEqual(row["scalarDispatches"], 1)
         self.assertTrue(row["queuedResetSkipped"])
-        self.assertTrue(row["newerAccepted"])
+        self.assertEqual(row["newerOutcome"], "applied")
+        self.assertEqual(row["outcome"], "superseded")
         self.assertTrue(row["coverValue"].endswith("good.jpeg"))
         self.assertFalse(row["backgroundBookmark"])
         self.assertFalse(row["rateOverride"])
+        partial = self.rows["partial-reset"]
+        self.assertEqual(partial["outcome"], "failed")
+        self.assertTrue(partial["coverBookmarkUnchanged"])
+        self.assertTrue(partial["coverValue"].endswith("good.jpeg"))
+        self.assertTrue(partial["backgroundCleared"])
+        self.assertFalse(partial["error"])
 
     def test_scalar_and_vector_edits_during_texture_reset_remain_latest(self) -> None:
         for value in [3, 2, 1]:

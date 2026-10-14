@@ -17,6 +17,10 @@ extension SceneDaemonClient {
         _ update: ScenePlaybackTextureUpdate,
         completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
     ) -> Bool {
+        if textureUpdateAdmissionClosed {
+            completion(.superseded)
+            return true
+        }
         guard update.isValid, hasIntent(for: update.recordID) else { return false }
         guard pendingIntent == nil || pendingIntent?.recordID == update.recordID else {
             completion(.failed("Scene switch in progress"))
@@ -48,6 +52,10 @@ extension SceneDaemonClient {
         _ update: ScenePlaybackTextureUpdate,
         completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
     ) -> Bool {
+        if textureUpdateAdmissionClosed {
+            completion(.superseded)
+            return true
+        }
         guard update.isValid, hasIntent(for: update.recordID) else { return false }
         let key = textureRevisionKey(update)
         guard update.revision >= (latestTextureRevisions[key] ?? 0) else {
@@ -224,6 +232,9 @@ extension SceneDaemonClient {
     }
 
     func finishPendingTextureUpdates(_ outcome: ScenePlaybackTextureUpdateOutcome) {
+        let admissionWasClosed = textureUpdateAdmissionClosed
+        textureUpdateAdmissionClosed = true
+        defer { textureUpdateAdmissionClosed = admissionWasClosed }
         let pending = Array(pendingTextureUpdates.values)
         pendingTextureUpdates.removeAll(keepingCapacity: true)
         for request in pending {

@@ -106,7 +106,8 @@ extension SceneDaemonClient {
             pendingIntent = nil
             pendingResourceLifetime = nil
             pendingRequestID = nil
-            finishTextureReload(recordID: recordID, outcome: .failed(message))
+            finishTextureReload(recordID: recordID,
+                outcome: phase == .cancelled ? .superseded : .failed(message))
         }
         NotificationCenter.default.post(
             name: .sceneWallpaperLaunchStateDidChange,

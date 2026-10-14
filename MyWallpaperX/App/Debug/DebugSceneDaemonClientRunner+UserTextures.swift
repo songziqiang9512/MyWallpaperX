@@ -71,12 +71,14 @@ extension DebugSceneDaemonClientRunner {
                       index, step.definition.key, step.url?.lastPathComponent ?? "reset")
                 SteamWorkshopService.shared.updateSceneTexturePropertyURL(
                     step.url, definition: step.definition, record: record
-                ) { accepted in
+                ) { outcome in
+                    let accepted = outcome == .applied
                     let elapsed = (ProcessInfo.processInfo.systemUptime - started) * 1_000
                     textureSequenceResults.append([
                         "index": index, "key": step.definition.key,
                         "file": step.url?.lastPathComponent ?? "reset",
-                        "accepted": accepted, "acknowledgementMs": elapsed,
+                        "accepted": accepted, "outcome": String(describing: outcome),
+                        "acknowledgementMs": elapsed,
                         "daemonPIDBefore": pid.map { Int($0) } ?? -1,
                         "daemonPIDAfter": SceneDaemonClient.shared.debugProcessIdentifier
                             .map { Int($0) } ?? -1,
@@ -84,8 +86,8 @@ extension DebugSceneDaemonClientRunner {
                             .scenePropertyOverrides(for: record)[step.definition.key]?
                             .foundationValue ?? NSNull()
                     ])
-                    NSLog("MWX SCENE CLIENT: phase=texture-result index=%d accepted=%@ ackMs=%.3f",
-                          index, accepted ? "true" : "false", elapsed)
+                    NSLog("MWX SCENE CLIENT: phase=texture-result index=%d accepted=%@ ackMs=%.3f outcome=%@",
+                          index, accepted ? "true" : "false", elapsed, String(describing: outcome))
 
                 }
             }

@@ -10,16 +10,19 @@ extension SteamWorkshopService {
         let recordID: String
         let key: String
         let revision: UInt64
-        let completion: @MainActor (Bool) -> Void
+        let completion: @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
     }
 
     func updateSceneTexturePropertyURL(
         _ url: URL?,
         definition: SceneUserPropertyDefinition,
         record: SteamWorkshopDownloadRecord,
-        completion: @escaping @MainActor (Bool) -> Void
+        completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
     ) {
-        guard definition.kind == .sceneTexture else { completion(false); return }
+        guard definition.kind == .sceneTexture else {
+            completion(.failed("Scene property does not accept a texture selection"))
+            return
+        }
         submitSceneTexturePropertyURL(
             url, key: definition.key,
             defaultValue: definition.defaultValue ?? .string(""),
@@ -30,24 +33,25 @@ extension SteamWorkshopService {
     private func submitSceneTexturePropertyURL(
         _ url: URL?, key: String, defaultValue: SceneUserPropertyValue,
         record: SteamWorkshopDownloadRecord,
-        completion: @escaping @MainActor (Bool) -> Void,
+        completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void,
         registeredRevision: UInt64? = nil
     ) {
         let token = record.id + "\u{0}" + key
         if registeredRevision == nil { scenePropertyCommandRevision &+= 1 }
         let revision = registeredRevision ?? scenePropertyCommandRevision
         if registeredRevision != nil,
-           pendingSceneTextureProperties[token]?.revision != revision { completion(false); return }
+           pendingSceneTextureProperties[token]?.revision != revision { completion(.superseded); return }
         let old = pendingSceneTextureProperties.removeValue(forKey: token)
         pendingSceneTextureProperties[token] = .init(
             recordID: record.id, key: key, revision: revision, completion: completion
         )
-        if registeredRevision == nil { old?.completion(false) }
+        if registeredRevision == nil { old?.completion(.superseded) }
         let usesRuntime = SceneDaemonClient.shared.hasIntent(for: record.id)
         let finish: @MainActor @Sendable (ScenePlaybackTextureReference?) -> Void = { [weak self] reference in
             guard let self, self.pendingSceneTextureProperties[token]?.revision == revision else { return }
             guard url == nil || reference != nil else {
-                self.finishSceneTextureProperty(token: token, revision: revision, accepted: false)
+                self.finishSceneTextureProperty(token: token, revision: revision,
+                    outcome: .failed("Scene texture selection is unreadable or unsupported"))
                 return
             }
             let value = reference.map { SceneUserPropertyValue.string($0.url.path) } ?? defaultValue
@@ -59,8 +63,9 @@ extension SteamWorkshopService {
             let commit: @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void = { [weak self] outcome in
                 guard let self, self.pendingSceneTextureProperties[token]?.revision == revision else { return }
                 guard outcome == .applied else {
-                    self.finishSceneTextureProperty(token: token, revision: revision, accepted: false,
-                        reportsFailure: outcome != .superseded)
+                    self.finishSceneTextureProperty(token: token, revision: revision,
+                        outcome: outcome == .unavailable
+                            ? .failed("Scene runtime cannot accept this texture update") : outcome)
                     return
                 }
                 let bookmarkKey = self.sceneTexturePropertyBookmarkKey(forKey: key, record: record)
@@ -71,7 +76,7 @@ extension SteamWorkshopService {
                 else { overrides[key] = value }
                 self.saveScenePropertyOverrides(overrides, for: record)
                 self.objectWillChange.send()
-                self.finishSceneTextureProperty(token: token, revision: revision, accepted: true)
+                self.finishSceneTextureProperty(token: token, revision: revision, outcome: .applied)
             }
             if SceneDaemonClient.shared.hasIntent(for: record.id) {
                 let accepted = PlaybackCommandMultiplexer.shared.applyUserTextureUpdate(update) { outcome in
@@ -92,20 +97,17 @@ extension SteamWorkshopService {
     }
 
     private func finishSceneTextureProperty(
-        token: String, revision: UInt64, accepted: Bool, reportsFailure: Bool = true
+        token: String, revision: UInt64, outcome: ScenePlaybackTextureUpdateOutcome
     ) {
         guard pendingSceneTextureProperties[token]?.revision == revision,
               let pending = pendingSceneTextureProperties.removeValue(forKey: token) else { return }
-        if !accepted && reportsFailure {
-            downloadError = "Scene 纹理无法更新；已保留当前图像。请选择可读取的 PNG 或 JPEG 图像。"
-        }
-        pending.completion(accepted)
+        pending.completion(outcome)
     }
 
     func resetSceneTextureProperties(
         for record: SteamWorkshopDownloadRecord,
         defaultValues: [String: SceneUserPropertyValue],
-        completion: @escaping @MainActor (Set<String>) -> Void
+        completion: @escaping @MainActor (Set<String>, ScenePlaybackTextureUpdateOutcome) -> Void
     ) {
         let prefix = SceneTexturePropertyStore.bookmarkPrefix + record.id + "."
         let stored = defaults.dictionaryRepresentation().keys.filter { $0.hasPrefix(prefix) }
@@ -127,12 +129,32 @@ extension SteamWorkshopService {
             )
             entries.append((key, revision))
         }
-        displaced.forEach { $0.completion(false) }
+        displaced.forEach { $0.completion(.superseded) }
+        var firstFailure: String?
+        var wasSuperseded = false
         func submitNext(_ remaining: ArraySlice<(String, UInt64)>) {
-            guard let (key, revision) = remaining.first else { completion(keys); return }
+            guard let (key, revision) = remaining.first else {
+                let outcome: ScenePlaybackTextureUpdateOutcome
+                if let firstFailure { outcome = .failed(firstFailure) }
+                else { outcome = wasSuperseded ? .superseded : .applied }
+                completion(keys, outcome)
+                return
+            }
             submitSceneTexturePropertyURL(nil, key: key,
                 defaultValue: defaultValues[key] ?? .string(""), record: record,
-                completion: { _ in submitNext(remaining.dropFirst()) }, registeredRevision: revision)
+                completion: { outcome in
+                    switch outcome {
+                    case let .failed(message):
+                        if firstFailure == nil { firstFailure = message }
+                    case .superseded:
+                        wasSuperseded = true
+                    case .unavailable:
+                        if firstFailure == nil { firstFailure = "Scene runtime cannot accept this texture update" }
+                    case .applied:
+                        break
+                    }
+                    submitNext(remaining.dropFirst())
+                }, registeredRevision: revision)
         }
         submitNext(entries[...])
     }

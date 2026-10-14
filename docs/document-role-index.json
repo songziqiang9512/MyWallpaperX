@@ -305,12 +305,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/release/bundle-content.md",
-      "lastReviewed": "2026-09-28",
+      "lastReviewed": "2026-10-14",
       "reviewBasis": {
-        "kind": "git-document-change",
-        "revision": "e4119b0b1a3d9b3c069556f6ab9403d9c3447432",
-        "scope": "可审计的最近文档维护事件；原合同含义与证据仍由正文自身界定",
-        "limitations": "不是本轮全文或产品运行复验；陈旧门衡量文档维护年龄"
+        "kind": "navigation-audit",
+        "sourceSHA256": "4e479d3f30f3c63dd8155551c6dcdb00e4698ccddf2c9cc61e2adb158b6c372e",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "本地helper时间戳策略与原身份/runtime/JIT/strict verify边界；非发布或全合同产品复验",
+        "limitations": "仅本批文档职责与导航；不冒充全样本、动态整图、完整CLI生命周期、性能或发布验收。"
       }
     },
     {
@@ -1770,6 +1771,20 @@
       "uniqueValue": "属性准备跨重开复用、两段来源证明与alias竞态、冷暖CPU及保留预算边界"
     },
     {
+      "path": "docs/scene/history/property-texture-feedback-2026-10-14.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/runtime-input-property-coverage.md",
+        "docs/scene/roadmap/properties-panel-card.md",
+        "docs/release/release-signing.md",
+        "docs/scene/roadmap/performance-convergence-card.md"
+      ],
+      "cutoffDate": "2026-10-14",
+      "uniqueValue": "typed换图反馈与reset同步重入；正常窗口/持久值/退出、独立五步ROI及冷取证未完/暖CLI收尾缺失"
+    },
+    {
       "path": "docs/scene/history/puppet-animation-control-2026-10-07.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -2753,10 +2768,10 @@
       "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6fd5078dc2677859926660b1a17b9330b29e54d7d2f59d5dbf9b28f6e02fd21d",
+        "sourceSHA256": "56d03867f73137da32dbe51892aca0a07e157d86bbf38b7b6d4a7115fb615108",
         "method": "document_registry --audit + document_health --check",
-        "scope": "单帧GPU成本、两条短筛淘汰与下一责任入口；不将工具Cost或局部像素门称性能验收",
-        "limitations": "仅文档职责与导航；实际性能与运行证据归该批history和原始报告"
+        "scope": "沿用真实GPU归因与淘汰筛选入口；换图窗口/独立ROI与未完整CLI收尾、后继属性入口同步，不计性能收益",
+        "limitations": "仅本批文档职责与导航；不冒充全样本、动态整图、完整CLI生命周期、性能或发布验收。"
       }
     },
     {
@@ -2767,10 +2782,10 @@
       "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b44e1934771eab8447e437722c6ea05d90a947ac9276b7ba0e927d4ccc33aa88",
+        "sourceSHA256": "5bd91dd4be2a1679838f45b599d55bb5790609cecaebbfff2a330ba262229ea4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批原生列表合同/证据/未闭范围的导航同步，非全部旧运行记录复验",
-        "limitations": "导航复核不冒充全架构、全样本、整App性能或Release验收；事实按本批冻结记录。"
+        "scope": "换图typed反馈、正常窗口/持久值/退出与独立ROI导航同步；保留冷取证未完、暖CLI收尾缺失和全reset真实UI缺口",
+        "limitations": "仅本批文档职责与导航；不冒充全样本、动态整图、完整CLI生命周期、性能或发布验收。"
       }
     },
     {

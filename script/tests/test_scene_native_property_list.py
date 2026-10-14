@@ -76,7 +76,9 @@ struct NativeWebDescriptor {
     var overrides: [String: SceneUserPropertyValue] = [:]
     var events: [(String, SceneUserPropertyValue)] = []
     var textureURL: URL?
-    var textureReplies: [@MainActor (Bool) -> Void] = []
+    var textureReplies: [@MainActor (ScenePlaybackTextureUpdateOutcome) -> Void] = []
+    var resetReplies: [@MainActor (ScenePlaybackTextureUpdateOutcome) -> Void] = []
+    var downloadError: String?
     var resetDefaults: [String: SceneUserPropertyValue] = [:]
     var webDescriptor: NativeWebDescriptor?
     var webValues: [String: SteamWorkshopWebPropertyValue] = [:]
@@ -102,13 +104,17 @@ struct NativeWebDescriptor {
         objectWillChange.send()
     }
     func resetScenePropertyValues(for record: SteamWorkshopDownloadRecord,
-                                  defaultValues: [String: SceneUserPropertyValue], completion: @escaping @MainActor () -> Void) {
+                                  defaultValues: [String: SceneUserPropertyValue], completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void) {
         resetDefaults = defaultValues
-        overrides = [:]; objectWillChange.send(); completion()
+        resetReplies.append(completion)
+    }
+    func finishReset(_ outcome: ScenePlaybackTextureUpdateOutcome) {
+        if outcome == .applied { overrides = [:]; objectWillChange.send() }
+        resetReplies.removeFirst()(outcome)
     }
     func resolvedSceneTexturePropertyURL(forKey key: String, record: SteamWorkshopDownloadRecord) -> URL? { textureURL }
     func updateSceneTexturePropertyURL(_ url: URL?, definition: SceneUserPropertyDefinition,
-                                      record: SteamWorkshopDownloadRecord, completion: @escaping @MainActor (Bool) -> Void) {
+                                      record: SteamWorkshopDownloadRecord, completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void) {
         textureReplies.append(completion)
     }
 }
@@ -284,6 +290,7 @@ extension NSCollectionView {
         well.sendAction(well.action, to: well.target)
         precondition(service.events.last?.0 == "tint" && service.events.last?.1 == .string("0.100000 0.200000 0.300000"))
         reset.performClick(nil)
+        service.finishReset(.applied)
         precondition(service.resetDefaults == catalog.defaultValues)
         let afterReset = service.events.count
         delegate.controlTextDidEndEditing?(Notification(name: NSControl.textDidEndEditingNotification, object: formatField))
@@ -298,7 +305,7 @@ extension NSCollectionView {
         let clear = descendants(textureCell, NSButton.self).first { $0.toolTip == "恢复作者提供的默认纹理" }!
         clear.performClick(nil)
         service.textureURL = URL(fileURLWithPath: "/own/restored.png")
-        service.textureReplies.removeFirst()(true)
+        service.textureReplies.removeFirst()(.applied)
         precondition(descendants(textureCell, NSTextField.self).contains { $0.stringValue == "restored.png" },
             "same override resource receipt must refresh readiness")
         let preserved = service.events.count
@@ -354,6 +361,7 @@ extension NSCollectionView {
         mixedTable.scrollToRow(100); mixedTable.layoutSubtreeIfNeeded(); mixedWindow.displayIfNeeded()
         let resetMixed = descendants(mixedEditor, NSButton.self).first { $0.title == "恢复默认" }!
         resetMixed.performClick(nil)
+        service.finishReset(.applied)
         precondition(!retired.isActive, "offscreen well must retire or be reached by reset")
         let retiredEvents = service.events.count
         retired.color = .green; retired.sendAction(retired.action, to: retired.target)
@@ -388,7 +396,8 @@ extension NSCollectionView {
         }
         service.overrides = [:]; service.textureReplies = []
         let pickerDefs = [definition("pickerGate", .bool, .bool(true)),
-            definition("pickerCover", .sceneTexture, .string(""), condition: "pickerGate.value")]
+            definition("pickerCover", .sceneTexture, .string(""), condition: "pickerGate.value"),
+            definition("otherPickerCover", .sceneTexture, .string(""))]
         let pickerCatalog = SceneUserPropertyCatalog(definitions: pickerDefs)
         let pickerContext = SteamWorkshopScenePropertyContext(catalog: pickerCatalog,
             actionableKeys: Set(pickerDefs.map(\.key)), effectiveValues: pickerCatalog.defaultValues)
@@ -397,24 +406,105 @@ extension NSCollectionView {
             styleMask: [.titled], backing: .buffered, defer: false)
         pickerWindow.contentView = pickerEditor; pickerWindow.makeKeyAndOrderFront(nil); pickerEditor.layoutSubtreeIfNeeded()
         let pickerTable = descendants(pickerEditor, NSCollectionView.self).first!
-        func chooseImage() {
-            let row = pickerTable.realizedCell(1)
+        func chooseImage(_ index: Int = 1) {
+            let row = pickerTable.realizedCell(index)
             descendants(row, NSButton.self).first { $0.title == "选择图像" }!.performClick(nil)
         }
+        func textureStatus(_ view: NSView) -> NSTextField? {
+            descendants(view, NSTextField.self).first { $0.accessibilityIdentifier() == "scene-texture-update-status" }
+        }
+        precondition(textureStatus(pickerEditor)?.isHidden != false)
         chooseImage()
         let hiddenReply = PickerProbe.opened.last!
         let gate = descendants(pickerTable.realizedCell(0), NSButton.self).first!
         gate.state = .off; gate.sendAction(gate.action, to: gate.target)
-        precondition(hiddenReply.cancellations == 1 && pickerTable.itemCount == 1)
+        precondition(hiddenReply.cancellations == 1 && pickerTable.itemCount == 2)
         hiddenReply.finish(.OK)
         precondition(service.textureReplies.isEmpty, "hidden chooser must not submit its late URL")
         gate.state = .on; gate.sendAction(gate.action, to: gate.target)
         chooseImage()
         let resetReply = PickerProbe.opened.last!
         descendants(pickerEditor, NSButton.self).first { $0.title == "恢复默认" }!.performClick(nil)
+        service.finishReset(.applied)
         resetReply.finish(.OK)
         precondition(resetReply.cancellations == 1 && service.textureReplies.isEmpty,
             "reset must cancel unsubmitted picker and refuse its late URL")
+        chooseImage(); PickerProbe.opened.last!.finish(.cancel)
+        precondition(service.textureReplies.isEmpty && textureStatus(pickerEditor)?.isHidden != false,
+            "picker cancel is silent and submits nothing")
+        chooseImage(); PickerProbe.opened.last!.finish(.OK)
+        chooseImage(2); PickerProbe.opened.last!.finish(.OK)
+        let firstKeyReply = service.textureReplies.removeFirst()
+        service.textureReplies.removeFirst()(.failed("other key failed"))
+        let status = textureStatus(pickerEditor)!
+        precondition(!status.isHidden && status.stringValue.contains("otherPickerCover"),
+            "failure must be visible inline on the initiating editor")
+        let otherKeyMessage = status.stringValue
+        firstKeyReply(.applied)
+        precondition(!status.isHidden && status.stringValue == otherKeyMessage,
+            "a different key success must not erase this key failure")
+        chooseImage(); PickerProbe.opened.last!.finish(.OK)
+        precondition(!status.isHidden && status.stringValue == otherKeyMessage,
+            "a later different key submission must preserve an already displayed failure")
+        service.textureReplies.removeFirst()(.applied)
+        precondition(!status.isHidden && status.stringValue == otherKeyMessage,
+            "that different key success must still preserve the earlier failure")
+        chooseImage(2); PickerProbe.opened.last!.finish(.OK)
+        precondition(status.isHidden, "retrying the failed key clears its own previous failure")
+        service.textureReplies.removeFirst()(.superseded)
+        chooseImage(); PickerProbe.opened.last!.finish(.OK)
+        chooseImage(2); PickerProbe.opened.last!.finish(.OK)
+        service.textureReplies.removeFirst()(.failed("first key failed"))
+        precondition(!status.isHidden && status.stringValue.contains("pickerCover"),
+            "submitting another key must not invalidate a pending visible key failure")
+        let firstKeyMessage = status.stringValue
+        service.textureReplies.removeFirst()(.superseded)
+        precondition(status.stringValue == firstKeyMessage && !status.isHidden)
+        chooseImage(); PickerProbe.opened.last!.finish(.OK)
+        chooseImage(); PickerProbe.opened.last!.finish(.OK)
+        service.textureReplies.removeFirst()(.failed("obsolete same key"))
+        precondition(status.isHidden, "same key replacement must reject stale failure feedback")
+        service.textureReplies.removeFirst()(.superseded)
+        precondition(status.isHidden, "superseded is silent")
+        chooseImage(); PickerProbe.opened.last!.finish(.OK)
+        gate.state = .off; gate.sendAction(gate.action, to: gate.target)
+        service.textureReplies.removeFirst()(.failed("hidden property"))
+        precondition(status.isHidden, "a hidden property must ignore its late submitted result")
+        gate.state = .on; gate.sendAction(gate.action, to: gate.target)
+        chooseImage(); PickerProbe.opened.last!.finish(.OK)
+        pickerEditor.isHidden = true
+        service.textureReplies.removeFirst()(.failed("hidden editor"))
+        pickerEditor.isHidden = false
+        precondition(status.isHidden, "a hidden editor must ignore its late result")
+        descendants(pickerEditor, NSButton.self).first { $0.title == "恢复默认" }!.performClick(nil)
+        precondition(service.resetReplies.count == 1 && status.isHidden, "reset must await its real outcome")
+        service.finishReset(.failed("partial reset"))
+        precondition(!status.isHidden && status.stringValue.contains("部分"), "partial reset failure must be visible")
+        descendants(pickerEditor, NSButton.self).first { $0.title == "恢复默认" }!.performClick(nil)
+        service.finishReset(.superseded)
+        precondition(status.isHidden, "superseded reset is silent")
+        for staleReset in [ScenePlaybackTextureUpdateOutcome.failed("obsolete reset"), .applied] {
+            descendants(pickerEditor, NSButton.self).first { $0.title == "恢复默认" }!.performClick(nil)
+            chooseImage(); PickerProbe.opened.last!.finish(.OK)
+            service.textureReplies.removeFirst()(.failed("new image selection"))
+            let newSelectionMessage = status.stringValue
+            precondition(!status.isHidden && newSelectionMessage.contains("pickerCover"))
+            service.finishReset(staleReset)
+            precondition(!status.isHidden && status.stringValue == newSelectionMessage,
+                "an older reset result must not replace or erase the newer selection feedback")
+        }
+        chooseImage(); PickerProbe.opened.last!.finish(.OK)
+        let beforeWindowMove = service.textureReplies.removeFirst()
+        let movedWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 324, height: 240),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        pickerWindow.contentView = nil
+        movedWindow.contentView = pickerEditor; movedWindow.makeKeyAndOrderFront(nil)
+        movedWindow.contentView = nil
+        pickerWindow.contentView = pickerEditor; pickerWindow.makeKeyAndOrderFront(nil)
+        pickerEditor.layoutSubtreeIfNeeded()
+        beforeWindowMove(.failed("returned to original window"))
+        precondition(status.isHidden, "moving away and back must invalidate the original window callback")
+        movedWindow.close()
         chooseImage()
         let acceptedReply = PickerProbe.opened.last!
         acceptedReply.finish(.OK); acceptedReply.finish(.OK)
@@ -426,9 +516,9 @@ extension NSCollectionView {
         precondition(closedReply.cancellations == 1 && service.textureReplies.count == 1,
             "closed chooser must not submit while the earlier service transaction remains owned by the service")
         let submittedCompletion = service.textureReplies.removeFirst()
-        submittedCompletion(true)
-        precondition(service.textureReplies.isEmpty,
-            "retiring UI must permit the original service to finish its submitted transaction")
+        submittedCompletion(.failed("closed editor"))
+        precondition(service.textureReplies.isEmpty && service.resetReplies.isEmpty && status.isHidden && service.downloadError == nil && NSApp.modalWindow == nil,
+            "closed UI must permit service completion without late inline or global error")
         let webDefinition = SteamWorkshopWebPropertyDefinition(key: "renamedWebChoice", title: "choice", kind: .combo,
             runtimeType: "combo", order: 0, minimumValue: nil, maximumValue: nil, allowsFractionalValues: false,
             fractionalPrecision: nil, displayCondition: nil, directoryMode: nil, fileType: nil, defaultValue: .string("B"),
@@ -560,7 +650,9 @@ class NativeScenePropertyListTests(unittest.TestCase):
             methods.append(method_body(normalization, prefix + name + '('))
         with tempfile.TemporaryDirectory(prefix='mwx-native-property-', dir='/private/tmp') as folder:
             path = Path(folder) / 'Probe.swift'
-            path.write_text(STUBS + context + '\nextension SteamWorkshopService {\n' + '\n'.join(methods) + '\n}\n' + harness)
+            outcome = method_body((ROOT / 'MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift').read_text(),
+                                  'nonisolated enum ScenePlaybackTextureUpdateOutcome:')
+            path.write_text(STUBS + outcome + '\n' + context + '\nextension SteamWorkshopService {\n' + '\n'.join(methods) + '\n}\n' + harness)
             editor = Path(folder) / 'Editor.swift'
             # Substitute only the system dialog leaf so its asynchronous reply
             # can be delivered after hidden/closed; nonce/window/row owner stays production.

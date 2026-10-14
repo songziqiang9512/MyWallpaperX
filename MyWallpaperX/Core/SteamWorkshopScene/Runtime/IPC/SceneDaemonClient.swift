@@ -80,6 +80,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var pendingPropertyRevisions: [UInt64: String] = [:]
     var pendingTextureUpdates: [UInt64: PendingTextureUpdate] = [:]
     var latestTextureRevisions: [String: UInt64] = [:]
+    /// Synchronous drain callbacks may not admit work into the departing session.
+    var textureUpdateAdmissionClosed = false
     /// Set by `warmSession()` while its silent spawn is in flight; cleared by
     /// any real intent, a handshake timeout, or spawn failure. A completed
     /// handshake leaves it set until the next intent/reuse — harmless, since
@@ -300,7 +302,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     /// plain `stop()` and stay silent — an incoming runtime's commit must
     /// not race a stale recycle.
     func stop(postsLaunchState: Bool) {
-        finishPendingTextureUpdates(.failed("Scene playback stopped"))
+        finishPendingTextureUpdates(.superseded)
         let stoppedRequestID = activeRequestID ?? pendingRequestID
             ?? (activeIntent != nil || pendingIntent != nil ? UUID() : nil)
         let stoppedRecordID = activeRecordID ?? pendingIntent?.recordID

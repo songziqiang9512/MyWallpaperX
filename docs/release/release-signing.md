@@ -138,9 +138,15 @@ Xcode's `TARGETNAME` must not change the managed entry assembly: the script fixe
 `TargetName=SteamService` explicitly and rejects a missing `SteamService.dll`.
 Per-build intermediates live in DerivedData, outside the source tree.
 
-`script/sign-steam-helper.sh <helper-dir> <identity>` signs native dependencies
+`script/sign-steam-helper.sh <helper-dir> <identity> [required|none]` signs native dependencies
 before the apphost. Real signing identities use hardened runtime and apphost
 `com.apple.security.cs.allow-jit`; native libraries must have the same Team ID.
+The optional timestamp policy defaults to `required`; ad-hoc code always omits
+timestamps. Xcode Debug embeds use `none`, avoiding an online timestamp service
+for local builds. The opt-in Scene diagnostic xcconfig also explicitly selects
+`MWX_STEAM_HELPER_TIMESTAMP_POLICY=none`; ordinary Release and direct signing
+retain the required timestamp. Identity, runtime, JIT and strict verification
+are unchanged; these local paths do not prove distribution readiness.
 The outer App is signed after nested code, without `--deep --force` re-signing
 that would overwrite helper entitlements. Ad-hoc `-` is a local, unhardened test
 path because it has no Team ID for library validation. It does not prove the

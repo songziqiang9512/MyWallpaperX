@@ -4,11 +4,23 @@ import Foundation
 // Only transport and unrelated notification storage are leaves. The test
 // compiles the real Client texture extension and real launch/event handlers.
 @MainActor final class SceneDaemonClient {
-    struct Transport { var isRunning = true }
+    struct Transport {
+        var isRunning = true
+        func send(_ data: Data) {}
+        func closeInput() {}
+        func closeIO() {}
+        func terminate() {}
+        func scheduleForcedTermination(after seconds: Double) {}
+    }
+    struct ResourceLifetime {
+        let lifetime: Int
+        var rootURL: URL = URL(fileURLWithPath: "/own")
+        var recordID: String? = "own"
+    }
     var activeIntent: ScenePlaybackLoadRequest?
     var pendingIntent: ScenePlaybackLoadRequest?
-    var activeResourceLifetime: Int?
-    var pendingResourceLifetime: Int?
+    var activeResourceLifetime: ResourceLifetime?
+    var pendingResourceLifetime: ResourceLifetime?
     var activeRecordID: String?
     var activeRequestID: UUID?
     var pendingRequestID: UUID?
@@ -17,26 +29,40 @@ import Foundation
     var sessionGeneration: UInt64 = 1
     var launchState: SceneWallpaperLaunchState?
     var pendingTextureUpdates: [UInt64: PendingTextureUpdate] = [:]
+    var textureUpdateAdmissionClosed = false
     var latestTextureRevisions: [String: UInt64] = [:]
     var lastPropertyRevision: UInt64 = 0
     var pendingPropertyRevisions: [UInt64: String] = [:]
     var sent: [[String: Any]] = []
     var launches: [ScenePlaybackLoadRequest] = []
     var restartBackoff = Backoff()
+    var restartWorkItem: DispatchWorkItem?
+    var handshakeWorkItem: DispatchWorkItem?
+    var latestFrameStats: Int?
+    var retiringResourceLifetimes: [UInt64: [Int]] = [:]
+    var expectedTerminationGenerations: Set<UInt64> = []
+    var retiringTransports: [UInt64: Transport] = [:]
+    var restartReasons: [String] = []
+    var warmSessionPending = false
     struct Backoff { func reset() {} }
+    func failPendingFrameCaptures() {}
+    func revokeAudioSpectrumDemand(generation: UInt64) {}
+    func finishShutdownIfPossible() {}
+    func scheduleRestart(reason: String) { restartReasons.append(reason) }
+    func ensureSession() -> Bool { true }
+    func replayPendingIntent() { if let pendingIntent { launches.append(pendingIntent) } }
 
     func hasIntent(for recordID: String) -> Bool {
         activeIntent?.recordID == recordID || pendingIntent?.recordID == recordID
     }
     func send(_ payload: [String: Any]) { sent.append(payload) }
-    func requestLaunch(_ request: ScenePlaybackLoadRequest) {
-        finishPendingTextureUpdates(.superseded)
-        latestTextureRevisions.removeAll()
-        pendingIntent = request
-        pendingRequestID = nil
-        launches.append(request)
-    }
     func publishFailure(code: String, message: String) { fatalError(message) }
+}
+
+enum DaemonNewlineJSON {
+    static func encodeJSONObject(_ value: [String: Any], options: JSONSerialization.WritingOptions) throws -> Data {
+        try JSONSerialization.data(withJSONObject: value, options: options)
+    }
 }
 
 struct SceneWallpaperLaunchState {
@@ -86,6 +112,70 @@ extension Notification.Name {
             client.handleFirstFrame(["requestID": id.uuidString, "recordID": "own", "uptimeMs": 1])
         }
         var checks: [String: Bool] = [:]
+        for retirement in ["stop", "switch", "termination"] {
+            let c = client(); var results: [String: ScenePlaybackTextureUpdateOutcome] = [:]
+            var reentrantCallsAccepted = false
+            _ = c.applyUserTextureUpdate(update(1, reset: true)) { outcome in
+                results["A"] = outcome
+                let apply = c.applyUserTextureUpdate(update(2, key: "background", reset: true)) { results["B-apply"] = $0 }
+                let reload = c.reloadUserTextureUpdate(update(3, key: "background", reset: true)) { results["B-reload"] = $0 }
+                reentrantCallsAccepted = apply && reload
+            }
+            let sentBeforeRetirement = c.sent.count
+            if retirement == "switch" {
+                c.requestLaunch(.init(rootURL: URL(fileURLWithPath: "/next"),
+                    propertyOverrides: [:], userPropertyTextures: [:], recordID: "next"))
+            } else if retirement == "termination" {
+                c.handleTermination(status: 9, generation: c.sessionGeneration)
+            } else { c.stop(postsLaunchState: false) }
+            let prefix = retirement + "_chain_"
+            checks[prefix + "callbacks_complete"] = results.count == 3 && reentrantCallsAccepted
+                && results["A"] == (retirement == "termination" ? .failed("Scene daemon disconnected") : .superseded)
+                && results["B-apply"] == .superseded && results["B-reload"] == .superseded
+            checks[prefix + "pending_empty"] = c.pendingTextureUpdates.isEmpty
+            checks[prefix + "no_retired_send"] = c.sent.count == sentBeforeRetirement
+        }
+        do {
+            let c = client(); var results: [String: ScenePlaybackTextureUpdateOutcome] = [:]
+            _ = c.applyUserTextureUpdate(update(1)) { results["drained"] = $0
+                c.finishPendingTextureUpdates(.superseded)
+                _ = c.applyUserTextureUpdate(update(2)) { results["after-nested-apply"] = $0 }
+                _ = c.reloadUserTextureUpdate(update(3)) { results["after-nested-reload"] = $0 }
+            }
+            let sentBeforeDrain = c.sent.count
+            c.finishPendingTextureUpdates(.superseded)
+            checks["nested_drain_keeps_admission_closed"] = results.count == 3
+                && results.values.allSatisfy { $0 == .superseded }
+                && c.pendingTextureUpdates.isEmpty && c.sent.count == sentBeforeDrain
+            let accepted = c.applyUserTextureUpdate(update(4)) { results["retry"] = $0 }
+            ack(c, 4)
+            checks["normal_phase_retry_after_drain"] = accepted && results["retry"] == .applied
+                && c.pendingTextureUpdates.isEmpty && c.sent.count == sentBeforeDrain + 1
+        }
+        do {
+            let c = client(); var results: [ScenePlaybackTextureUpdateOutcome] = []
+            _ = c.applyUserTextureUpdate(update(1)) { results.append($0) }
+            c.stop(postsLaunchState: true)
+            checks["explicit_stop_supersedes_before_transport_exit"] = results == [.superseded]
+                && c.activeIntent == nil && c.pendingTextureUpdates.isEmpty
+            c.handleTermination(status: 0, generation: c.sessionGeneration)
+            checks["stop_exit_is_expected_and_silent"] = results == [.superseded] && c.restartReasons.isEmpty
+        }
+        do {
+            let c = client(); var result: ScenePlaybackTextureUpdateOutcome?
+            _ = c.applyUserTextureUpdate(update(1)) { result = $0 }
+            c.handleTermination(status: 9, generation: c.sessionGeneration)
+            checks["transport_death_finishes_failed"] = result == .failed("Scene daemon disconnected")
+                && c.pendingIntent == intent() && c.restartReasons == ["daemon-exited-9"]
+        }
+        for phase in ["cancelled", "failed"] {
+            let c = client(); let candidate = UUID(); var result: ScenePlaybackTextureUpdateOutcome?
+            _ = c.reloadUserTextureUpdate(update(1)) { result = $0 }
+            launch(c, id: candidate, phase: "accepted")
+            launch(c, id: candidate, phase: phase)
+            checks[phase == "cancelled" ? "cancelled_launch_supersedes" : "failed_launch_remains_failure"] =
+                result == (phase == "cancelled" ? .superseded : .failed("own")) && c.activeIntent == intent()
+        }
         do {
             let c = client(); var results: [ScenePlaybackTextureUpdateOutcome] = []
             _ = c.applyUserTextureUpdate(update(1)) { results.append($0) }

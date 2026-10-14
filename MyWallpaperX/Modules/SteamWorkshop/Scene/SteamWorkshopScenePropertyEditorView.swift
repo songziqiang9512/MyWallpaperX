@@ -29,6 +29,11 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
     private var heights: [Int: CGFloat] = [:]
     private var measuredWidth: CGFloat = 0
     private var textureSelection: (id: UUID, index: Int, panel: NSOpenPanel)?
+    private let textureStatus = NSTextField(wrappingLabelWithString: "")
+    // These tokens scope feedback to this presentation; the service owns submission revisions.
+    private var textureFeedbackRequests: [String: (id: UUID, index: Int)] = [:]
+    private var resetFeedbackRequestID: UUID?
+    private var textureStatusIndex: Int?
 
     init(record: SteamWorkshopDownloadRecord, context: SteamWorkshopScenePropertyContext) {
         self.record = record
@@ -47,8 +52,9 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
     override var intrinsicContentSize: NSSize { NSSize(width: NSView.noIntrinsicMetric, height: 400) }
 
     override func viewWillMove(toWindow newWindow: NSWindow?) {
-        if window != nil && newWindow == nil {
+        if window != nil && newWindow !== window {
             cancelTextureSelection()
+            invalidateTextureFeedback()
             cancelEditing()
             subscription?.cancel()
             subscription = nil
@@ -66,8 +72,15 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         }
     }
 
+    override func viewDidHide() {
+        super.viewDidHide()
+        cancelTextureSelection()
+        invalidateTextureFeedback()
+    }
+
     override func layout() {
         super.layout()
+        textureStatus.preferredMaxLayoutWidth = max(1, bounds.width)
         let width = scrollView.contentSize.width
         guard width > 0, abs(width - measuredWidth) > 0.5 else { return }
         measuredWidth = width
@@ -92,6 +105,17 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         reset.imagePosition = .imageLeading
         reset.toolTip = "恢复这个 Scene 壁纸的默认属性"
         reset.translatesAutoresizingMaskIntoConstraints = false
+        textureStatus.font = .systemFont(ofSize: 11)
+        textureStatus.textColor = .secondaryLabelColor
+        textureStatus.setAccessibilityIdentifier("scene-texture-update-status")
+        textureStatus.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        textureStatus.isHidden = true
+        let header = NSStackView(views: [reset, textureStatus])
+        header.orientation = .vertical
+        header.alignment = .trailing
+        header.spacing = 4
+        header.detachesHiddenViews = true
+        header.translatesAutoresizingMaskIntoConstraints = false
         let separator = NSBox()
         separator.boxType = .separator
         separator.translatesAutoresizingMaskIntoConstraints = false
@@ -111,15 +135,16 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
             list.register(PropertyItem.self, forItemWithIdentifier: .init(kind))
         }
         scrollView.documentView = list
-        addSubview(reset)
+        addSubview(header)
         addSubview(separator)
         addSubview(scrollView)
         NSLayoutConstraint.activate([
-            reset.trailingAnchor.constraint(equalTo: trailingAnchor),
-            reset.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+            header.leadingAnchor.constraint(equalTo: leadingAnchor),
+            header.trailingAnchor.constraint(equalTo: trailingAnchor),
+            header.topAnchor.constraint(equalTo: topAnchor, constant: 4),
             separator.leadingAnchor.constraint(equalTo: leadingAnchor),
             separator.trailingAnchor.constraint(equalTo: trailingAnchor),
-            separator.topAnchor.constraint(equalTo: reset.bottomAnchor, constant: 8),
+            separator.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 8),
             scrollView.topAnchor.constraint(equalTo: separator.bottomAnchor, constant: 4),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -196,6 +221,10 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         let removed = IndexSet(old.indices.filter { !newIDs.contains(old[$0]) })
         let inserted = IndexSet(visibleRows.indices.filter { !oldIDs.contains(visibleRows[$0]) })
         if let selection = textureSelection, !newIDs.contains(selection.index) { cancelTextureSelection() }
+        if !textureFeedbackRequests.isEmpty {
+            textureFeedbackRequests = textureFeedbackRequests.filter { newIDs.contains($0.value.index) }
+        }
+        if let index = textureStatusIndex, !newIDs.contains(index) { clearTextureStatus() }
         for row in removed {
             ((list.item(at: IndexPath(item: row, section: 0)) as? PropertyItem)?.cell)?.cancelEditing()
         }
@@ -311,9 +340,23 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
     @objc private func resetProperties() {
         cancelTextureSelection()
         cancelEditing()
-        service.resetScenePropertyValues(for: record, defaultValues: context.catalog.defaultValues) { [weak self] in
-            guard let self else { return }
-            self.refreshAcceptedValues(forceRows: Set(self.titles.keys))
+        invalidateTextureFeedback()
+        let requestID = UUID()
+        resetFeedbackRequestID = requestID
+        let initiatingWindow = window
+        service.resetScenePropertyValues(for: record, defaultValues: context.catalog.defaultValues) { [weak self, weak initiatingWindow] outcome in
+            guard let self, let initiatingWindow, self.resetFeedbackRequestID == requestID,
+                  self.canPresentTextureFeedback(in: initiatingWindow) else { return }
+            self.resetFeedbackRequestID = nil
+            switch outcome {
+            case .applied:
+                self.clearTextureStatus()
+                self.refreshAcceptedValues(forceRows: Set(self.titles.keys))
+            case .failed(_), .unavailable:
+                self.showTextureStatus("部分图片未能恢复默认，已保留这些图片的原选择。", index: nil)
+            case .superseded:
+                break
+            }
         }
     }
 
@@ -332,7 +375,8 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
             guard let self, let window, let panel, self.window === window,
                   self.textureSelection?.id == requestID else { return }
             self.textureSelection = nil
-            guard response == .OK, let url = panel.url else { return }
+            guard response == .OK, let url = panel.url, window.isVisible,
+                  !self.isHiddenOrHasHiddenAncestor, self.displayed.contains(index) else { return }
             self.updateTexture(url, index: index)
         }
     }
@@ -344,10 +388,53 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
     }
 
     private func updateTexture(_ url: URL?, index: Int) {
-        service.updateSceneTexturePropertyURL(url, definition: context.definitions[index], record: record) { [weak self] accepted in
-            guard let self, accepted else { return }
-            self.refreshAcceptedValues(forceRows: [index])
+        let definition = context.definitions[index]
+        let requestID = UUID()
+        textureFeedbackRequests[definition.key] = (requestID, index)
+        resetFeedbackRequestID = nil
+        if textureStatusIndex == nil || textureStatusIndex.map({ context.definitions[$0].key }) == definition.key {
+            clearTextureStatus()
         }
+        let initiatingWindow = window
+        service.updateSceneTexturePropertyURL(url, definition: definition, record: record) { [weak self, weak initiatingWindow] outcome in
+            guard let self, let initiatingWindow,
+                  self.textureFeedbackRequests[definition.key]?.id == requestID,
+                  self.canPresentTextureFeedback(in: initiatingWindow), self.displayed.contains(index) else { return }
+            self.textureFeedbackRequests.removeValue(forKey: definition.key)
+            switch outcome {
+            case .applied:
+                if self.textureStatusIndex.map({ self.context.definitions[$0].key }) == definition.key {
+                    self.clearTextureStatus()
+                }
+                self.refreshAcceptedValues(forceRows: [index])
+            case .failed(_), .unavailable:
+                self.showTextureStatus("“\(self.titles[index] ?? definition.key)”图片无法更新，已保留原选择。请选择可读取的 PNG 或 JPEG 图像。", index: index)
+            case .superseded:
+                break
+            }
+        }
+    }
+
+    private func canPresentTextureFeedback(in initiatingWindow: NSWindow) -> Bool {
+        window === initiatingWindow && initiatingWindow.isVisible && !isHiddenOrHasHiddenAncestor
+    }
+
+    private func clearTextureStatus() {
+        textureStatus.stringValue = ""
+        textureStatus.isHidden = true
+        textureStatusIndex = nil
+    }
+
+    private func showTextureStatus(_ message: String, index: Int?) {
+        textureStatus.stringValue = message
+        textureStatusIndex = index
+        textureStatus.isHidden = false
+    }
+
+    private func invalidateTextureFeedback() {
+        textureFeedbackRequests.removeAll()
+        resetFeedbackRequestID = nil
+        clearTextureStatus()
     }
 
     private final class PropertyCell: NSView, NSTextFieldDelegate {

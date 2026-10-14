@@ -349,6 +349,14 @@ Combo option 的显示 label 与 hidden value 是两个字段；binding、Displa
 
 官方 Texture property 可替换 image layer、effect mask 或 particle texture，允许兼容的 image/video；用户未选择文件时必须使用作者导入的 texture。替换 texture 不会自动重做作者 effect 或 mask，因此播放器必须继续使用原有 graph/mask，不能根据新图片内容猜适配。
 
+<a id="user-texture-operation-feedback"></a>
+
+**换图结果与窗口反馈（2026-10-14，设计先于实现）。** 原service将资源结果压成Bool并写全局downloadError，会把属性失败送到浏览器的“下载失败”。现沿原service pending/revision将既有`ScenePlaybackTextureUpdateOutcome`传到发起editor：applied才刷新已接受值，failed由该面板显示简短属性反馈，superseded安静结束；不另加结果enum、通知、资源store或UI rollback。异步窗口内状态避免与下一张picker sheet争用；关闭/隐藏、同key旧请求与已不可见控件不产生迟到提示；异key有效失败不互相吞掉。UI只管理反馈寿命，提交权仍归原revision。
+
+明确stop与launch cancelled在最早Client控制边界结为superseded；意外断连/真实准备失败仍failed，unavailable仍先走原reload fallback。 批量结清旧纹理completion时，原Client须先封闭重入准入；reset回调同步提交下一key不能往即将退役的会话新增pending/IPC，也不能在stop后悬挂。仅同owner的有界回调阶段，不新增调度队列或第二提交权；阶段内请求立即superseded，结束后沿原准入。书签、override、旧画面和重放intent维持原成功提交点。全reset按原顺序处理纹理，保每key原子性，聚合实际失败供同一面板说明部分未恢复；不把部分成功包装为整体回滚或全场景呈现ack，普通属性仍走既有更新/重建链。取消picker不提交，已提交后关闭面板不取消有效资源事务。
+
+验收复用原service/control-plane/native-list门：坏图/丢文件、合法选择/reset、A被B或reset替代、stop/cancel与真正断连、关闭/隐藏迟到结果；失败不写书签/override并保旧画面。[本批记录](../history/property-texture-feedback-2026-10-14.md)已证Debug、正常面板红→坏→蓝/逐行默认/picker取消/重开与退出、坏图持久值不变及独立293五步背景ROI；冷启动取证提前停止、暖CLI最终JSON/优雅收口缺失，全reset部分失败仍无真实UI证据。未新增格式/consumer或CPU/GPU收益，未验不计完成。
+
 | 官方类型/行为 | 等级 | 当前能力 | 缺口 |
 |---|---|---|---|
 | `texture` / observed `scenetexture` identity | `L3 bounded` | 两种 raw type 归一并保留 runtimeType；exact authored key可进入slot-0 base-material typed provider binding | 不宣称所有版本 schema 等价，也不外推非base-material target |

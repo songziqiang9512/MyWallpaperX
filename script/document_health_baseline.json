@@ -25,8 +25,8 @@
       "bytes": 4128
     },
     "docs/release/release-signing.md": {
-      "lines": 152,
-      "bytes": 11541
+      "lines": 158,
+      "bytes": 12021
     },
     "docs/scene/architecture/capability-dependency-map.md": {
       "lines": 220,
@@ -97,8 +97,8 @@
       "bytes": 34403
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 557,
-      "bytes": 179768
+      "lines": 565,
+      "bytes": 181939
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -262,11 +262,11 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 30,
-      "bytes": 7712
+      "bytes": 7868
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
-      "bytes": 3703
+      "bytes": 3855
     }
   },
   "archives": [
@@ -1336,30 +1336,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "8a51f1ed97a0ccd4945bfaf563b8c269b2a4c64612297283bb5ad3afb46c481e",
-      "after": "85903160ab7c74473822f187b3f93bb479514435021b36703d41461eb3de8725",
-      "owner": "scene-property-callback-recovery",
-      "reason": "先设计的同owner属性异常恢复、真实云层/三轮操作CPU及原FAIL边界；同步当前卡/队列，不扩大专项完成",
-      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#接受的实现"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "c74c96dfa964c3db9594f9d1f04a872c5aa1bf5d9259575322b4bbad42d65951",
       "after": "28abc3e7892973c255c4fdfe1b91050e30486b42e8722db789f706f5561cc48c",
       "owner": "scene-property-callback-recovery",
       "reason": "先设计的同owner属性异常恢复、真实云层/三轮操作CPU及原FAIL边界；同步当前卡/队列，不扩大专项完成",
       "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#接受的实现"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "9feff66cb917644aa0b410e7d40308a0eea6901f7fdd3d10d2e602987d8eef8a",
-      "after": "719a419fdd24983ba92ff0a0f6506fc63720b733a34af992724c61bff898e120",
-      "owner": "scene-vector-property-quiescence",
-      "reason": "同一属性事件owner的无消费者休眠、变体/相邻反例和未达性能收益筛选；保持原专项开放",
-      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#后继无属性回调的-vector-owner-休眠"
     },
     {
       "section": "bodies",
@@ -1372,12 +1354,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/release/release-signing.md",
+      "before": "ec63bdafc358b3569e37c9a5f4f233a570b5f3651403e2f781142c93196ae7dc",
+      "after": "90767cd8a7cb137e945b3913e7dff99aee1ea7f50e09800062a1257dfbb960b9",
+      "owner": "scene-property-texture-feedback",
+      "reason": "先设计的typed反馈/同步重入、正常窗口与独立ROI、冷暖CLI未完成边界及helper本地签名策略同步；不新增能力或性能结论",
+      "decision": "docs/scene/history/property-texture-feedback-2026-10-14.md#通用语义与实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "85903160ab7c74473822f187b3f93bb479514435021b36703d41461eb3de8725",
+      "after": "557a85fffaddc357d9c8e3af8aef0f2df52718d7c9c812db11afa2c8e650b862",
+      "owner": "scene-property-texture-feedback",
+      "reason": "先设计的typed反馈/同步重入、正常窗口与独立ROI、冷暖CLI未完成边界及helper本地签名策略同步；不新增能力或性能结论",
+      "decision": "docs/scene/history/property-texture-feedback-2026-10-14.md#通用语义与实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "719a419fdd24983ba92ff0a0f6506fc63720b733a34af992724c61bff898e120",
+      "after": "eda1a2bfeb1ea820bd3d158b844b1f4e85cce1ca057babfd987b97e09b826d1d",
+      "owner": "scene-property-texture-feedback",
+      "reason": "先设计的typed反馈/同步重入、正常窗口与独立ROI、冷暖CLI未完成边界及helper本地签名策略同步；不新增能力或性能结论",
+      "decision": "docs/scene/history/property-texture-feedback-2026-10-14.md#通用语义与实现"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "43c0d09c8ed127ccc92ad943865eca957557a83d32778c2c76d79e50547c7b4a",
-      "after": "e958d2c3f8d182aa424d3694cc8ebd8d9898eb51024d9b6d5ed1a4a174bfa9fa",
-      "owner": "scene-gpu-cost-screening",
-      "reason": "真实成本归因和短筛负结果替换旧候选状态；不提高性能阈值、不重复产品过程",
-      "decision": "docs/scene/history/gpu-cost-screening-2026-10-14.md#筛选决定与收尾"
+      "before": "e958d2c3f8d182aa424d3694cc8ebd8d9898eb51024d9b6d5ed1a4a174bfa9fa",
+      "after": "50dd7351fba34763b8476cbcc9cc2a7221738c32a151947afc3120522cd3d18b",
+      "owner": "scene-property-texture-feedback",
+      "reason": "先设计的typed反馈/同步重入、正常窗口与独立ROI、冷暖CLI未完成边界及helper本地签名策略同步；不新增能力或性能结论",
+      "decision": "docs/scene/history/property-texture-feedback-2026-10-14.md#通用语义与实现"
     }
   ]
 }

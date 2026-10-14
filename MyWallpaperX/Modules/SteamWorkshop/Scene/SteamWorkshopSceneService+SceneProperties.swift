@@ -351,7 +351,7 @@ extension SteamWorkshopService {
     func resetScenePropertyValues(
         for record: SteamWorkshopDownloadRecord,
         defaultValues: [String: SceneUserPropertyValue],
-        completion: @escaping @MainActor () -> Void
+        completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
     ) {
         let changedKeys = Set(scenePropertyOverrides(for: record).keys)
         scenePropertyCommandRevision &+= 1
@@ -359,12 +359,12 @@ extension SteamWorkshopService {
         for key in changedKeys {
             scenePropertyEditRevisions[record.id + "\u{0}" + key] = resetRevision
         }
-        resetSceneTextureProperties(for: record, defaultValues: defaultValues) { [weak self] textureKeys in
-            guard let self else { completion(); return }
+        resetSceneTextureProperties(for: record, defaultValues: defaultValues) { [weak self] textureKeys, outcome in
+            guard let self else { completion(.superseded); return }
             let changedPropertyKeys = changedKeys.subtracting(textureKeys).filter {
                 self.scenePropertyEditRevisions[record.id + "\u{0}" + $0] == resetRevision
             }
-            defer { completion() }
+            defer { completion(outcome) }
             guard !changedPropertyKeys.isEmpty else { return }
             var remaining = self.scenePropertyOverrides(for: record)
             changedPropertyKeys.forEach { remaining.removeValue(forKey: $0) }
