@@ -47,6 +47,11 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         let key: SourceMaterialKey
         let entry: Entry
         var sharedModelPath: String? = nil
+
+        static func modelPathIdentity(_ path: String) -> String {
+            path.replacingOccurrences(of: "\\", with: "/")
+                .trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
+        }
     }
 
     enum Entry {
@@ -157,6 +162,28 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     let userPropertyDemands: Set<SceneUserPropertyTextureIdentity>
     let systemProviderDemands: Set<SystemProviderDemand>
     let resourceDemandIssues: Set<ResourceDemandIssue>
+
+    /// A template can become a completed source on any surface, even when the
+    /// first device warmup fails. Shared-model declarations cover their aliases
+    /// conservatively; this projection never chooses a runtime prototype.
+    func sourceMaterialCandidateConsumerLayerIDs(in descriptor: SceneRenderDescriptor) -> Set<Int> {
+        var consumers = Set<Int>()
+        var sharedModels = Set<String>()
+        for source in sourceMaterialEntries.values {
+            guard case .template = source.entry else { continue }
+            consumers.insert(source.key.layerID)
+            if let model = source.sharedModelPath {
+                sharedModels.insert(SourceMaterialEntry.modelPathIdentity(model))
+            }
+        }
+        for layer in descriptor.layers {
+            if let model = layer.imagePath,
+               sharedModels.contains(SourceMaterialEntry.modelPathIdentity(model)) {
+                consumers.insert(layer.id)
+            }
+        }
+        return consumers
+    }
 
     init(
         descriptor: SceneRenderDescriptor,

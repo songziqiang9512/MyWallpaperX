@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-14 | 属性 | 修复证据 | [带效果图片颜色](effectful-image-property-color-2026-10-14.md) | prepared capture颜色热更、跨surface/alias反例、真实文字变红；原生调色板完整编辑待验 | [属性合同](../capabilities/runtime-input-property-coverage.md)、[属性卡](../roadmap/properties-panel-card.md) |
 | 2026-10-14 | Shader identity/CPU | 局部筛选 | [构造期哈希复用](shader-identity-hash-screen-2026-10-14.md) | 查询下降与构造代价；App单对未达继续门、内存上移未归因 | [性能卡](../roadmap/performance-convergence-card.md)、[实际架构](../architecture/runtime-as-built-map.md) |
 | 2026-10-14 | 属性/交互 | 修复证据 | [换图操作反馈](property-texture-feedback-2026-10-14.md) | typed outcome、面板局部失败、同步reset重入、正常窗口/持久值/退出及独立换图ROI；CLI收尾不完整 | [属性合同](../capabilities/runtime-input-property-coverage.md#user-texture-operation-feedback)、[属性卡](../roadmap/properties-panel-card.md)、[签名合同](../../release/release-signing.md#steamservice-build-and-signing-boundary)、[性能卡](../roadmap/performance-convergence-card.md) |
 | 2026-10-14 | GPU/选序 | 归因与筛选 | [真实帧与附件输入](gpu-cost-screening-2026-10-14.md) | 普通shader/背景copy成本口径、像素原型撤回与性能未证边界 | [性能卡](../roadmap/performance-convergence-card.md) |

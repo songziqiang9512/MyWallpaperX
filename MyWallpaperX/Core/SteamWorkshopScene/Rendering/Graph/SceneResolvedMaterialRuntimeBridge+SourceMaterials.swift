@@ -48,8 +48,7 @@ extension SceneResolvedMaterialRuntimeBridge {
             return .init(layerID: layerID, prototypeLayerID: layerID)
         }
         guard let modelPath else { return nil }
-        let normalized = modelPath.replacingOccurrences(of: "\\", with: "/")
-            .trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
+        let normalized = SceneResolvedMaterialRuntimeCatalog.SourceMaterialEntry.modelPathIdentity(modelPath)
         guard let prototype = sourceMaterialPrototypeByModel[normalized] else { return nil }
         return .init(layerID: layerID, prototypeLayerID: prototype)
     }

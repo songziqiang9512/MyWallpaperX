@@ -98,7 +98,7 @@
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 574,
-      "bytes": 184807
+      "bytes": 184527
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -266,7 +266,7 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
-      "bytes": 4380
+      "bytes": 4504
     }
   },
   "archives": [
@@ -1363,30 +1363,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "1065fc1f18f85bf50edaf395f4c5d5d4ddc2305cea1c8604f1462d31eed4a654",
-      "after": "f1cda412b2a377a316d158f367d2e5a50ac0ec8fbfa77a2ec9c3e96136b1df49",
-      "owner": "scene-runtime-maintainer",
-      "reason": "Define same-request sparse ordinary-value synchronization across existing pending and rollback intents, with lifecycle and evidence limits.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#op-user-overview"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "8c6c2e60f556d797812850b68fcb68bd117ec5484dc99630b1bb79af80c9f76d",
-      "after": "e0fe4cbf5c4b4ffcdf6704c3465bf7f9193a1f9037a61407c10fbe22de71222d",
-      "owner": "scene-runtime-maintainer",
-      "reason": "Define same-request sparse ordinary-value synchronization across existing pending and rollback intents, with lifecycle and evidence limits.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#op-user-overview"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "85ff1a6f96856c7c9481a74ee709d51bbf5bbf9d411b78065007c62b69dd4c03",
       "after": "2d65070b8813a80e0bc59309fda6ab7154f9916112cbc7c5a818b1ead1e4f561",
       "owner": "Scene材质帧准备",
       "reason": "在唯一现役性能卡记录实施前载荷设计；压缩已完成历史摘要后仅增加310字节，分段保留未闭合边界。",
       "decision": "docs/scene/roadmap/performance-convergence-card.md#prepared-material-frame-payload"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "e0fe4cbf5c4b4ffcdf6704c3465bf7f9193a1f9037a61407c10fbe22de71222d",
+      "after": "5a02d4ec9fc82edf88feff051119d7ea8cfe94492b1c6239ab535b84da1d17b2",
+      "owner": "Scene属性颜色消费",
+      "reason": "同步实际effectful图片typed颜色范围及面板调色板未覆盖边界；保持单一现役工作卡。",
+      "decision": "docs/scene/history/effectful-image-property-color-2026-10-14.md#验证与边界"
     }
   ]
 }

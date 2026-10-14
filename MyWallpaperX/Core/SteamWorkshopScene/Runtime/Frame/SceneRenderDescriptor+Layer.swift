@@ -89,6 +89,15 @@ extension SceneRenderDescriptor {
                 || (contentKind == "image" && effects.isEmpty)
         }
 
+        /// Potential user-property input. Effectful images additionally need
+        /// their prepared capture route at launch; script admission is separate.
+        nonisolated var supportsUserPropertyLayerColorConsumer: Bool {
+            supportsDirectLayerColorConsumer
+                || (contentKind == "image" && puppetMeshPath == nil
+                    && staticModelPath == nil && dependencyLayerIDs.isEmpty
+                    && authoredDependencies.isEmpty)
+        }
+
         nonisolated var renderSizeWH: [Float]? {
             sizeWH
         }

@@ -768,6 +768,8 @@ extension SceneDesktopWallpaperHost {
         ) else { throw SceneDesktopWallpaperHostLaunchError.requiredUserTextureUnavailable }
         NSLog("MWX LAUNCH-STAGE: stage=device-join elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
         let firstSurfaceRuntime = try firstSurfaceRuntimePreparation.value()
+        let sourceMaterialCandidateConsumerLayerIDs = resolvedMaterialCatalog
+            .sourceMaterialCandidateConsumerLayerIDs(in: runtimeInput.renderDescriptor)
         let preparedSourceMaterialTargets: Set<SceneDynamicTarget> = Set(firstSurfaceRuntime.sourceMaterials.values
             .flatMap { material in
                 material.template.uniformDeclarations.compactMap { declaration in
@@ -845,6 +847,8 @@ extension SceneDesktopWallpaperHost {
                     .union(baseMaterialProviderBindings.sourceMaterialAlphaPropertyTargets)
                     .union(baseMaterialProviderBindings.materialColorTargets.values)
                     .union(preparedSourceMaterialTargets),
+                sourceMaterialCandidateConsumerLayerIDs:
+                    sourceMaterialCandidateConsumerLayerIDs,
                 preparedParticleVisibilityLayerIDs:
                     preparedParticleVisibilityLayerIDs,
                 propertyVectorScriptProgram: propertyVectorScriptProgram,

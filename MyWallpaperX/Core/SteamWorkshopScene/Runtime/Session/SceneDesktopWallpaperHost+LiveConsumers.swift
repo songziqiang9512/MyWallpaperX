@@ -25,6 +25,7 @@ extension SceneDesktopWallpaperHost {
         soundPlaybackProgram: SceneSoundPlaybackProgram,
         preparedStaticModelLayerIDs: Set<Int>,
         preparedImageMaterialTargets: Set<SceneDynamicTarget>,
+        sourceMaterialCandidateConsumerLayerIDs: Set<Int> = [],
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         propertyVectorScriptProgram: SceneScriptVectorProgram,
         sceneScriptScalarProgram: SceneScriptScalarProgram,
@@ -50,6 +51,8 @@ extension SceneDesktopWallpaperHost {
                 soundPlaybackProgram: soundPlaybackProgram,
                 preparedStaticModelLayerIDs: preparedStaticModelLayerIDs,
                 preparedImageMaterialTargets: preparedImageMaterialTargets,
+                sourceMaterialCandidateConsumerLayerIDs:
+                    sourceMaterialCandidateConsumerLayerIDs,
                 preparedParticleVisibilityLayerIDs:
                     preparedParticleVisibilityLayerIDs,
                 propertyVectorScriptProgram: propertyVectorScriptProgram,
@@ -69,6 +72,7 @@ extension SceneDesktopWallpaperHost {
         soundPlaybackProgram: SceneSoundPlaybackProgram,
         preparedStaticModelLayerIDs: Set<Int>,
         preparedImageMaterialTargets: Set<SceneDynamicTarget>,
+        sourceMaterialCandidateConsumerLayerIDs: Set<Int> = [],
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         propertyVectorScriptProgram: SceneScriptVectorProgram,
         sceneScriptScalarProgram: SceneScriptScalarProgram,
@@ -191,7 +195,18 @@ extension SceneDesktopWallpaperHost {
                 targets.insert(.layer(layerID: layer.id, field: .alpha))
                 // Visibility changes composition, not the prepared consumer's
                 // lifetime. Hidden sources must retain the latest property value.
-                if layer.supportsDirectLayerColorConsumer {
+                var hasColorConsumer = layer.supportsDirectLayerColorConsumer
+                // A completed source suppresses this downstream tint. Extend
+                // only the ordinary capture that still owns the layer color.
+                if !hasColorConsumer, layer.supportsUserPropertyLayerColorConsumer,
+                   !sourceMaterialCandidateConsumerLayerIDs.contains(layer.id),
+                   let claim = resolvedMaterialExecutionCapabilities.claim(layerID: layer.id),
+                   let capability = resolvedMaterialExecutionCapabilities.resolve(claim.token),
+                   case .capturedLayerTexture = capability.sourceRoute,
+                   case .none = capability.dependencyOwnership {
+                    hasColorConsumer = true
+                }
+                if hasColorConsumer {
                     targets.insert(.layer(layerID: layer.id, field: .color))
                 }
                 for animationLayer in layer.puppetAnimationLayers

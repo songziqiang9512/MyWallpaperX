@@ -500,7 +500,7 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         )
 
 
-    def test_layer_color_is_live_for_solid_and_effectless_image_layers(self) -> None:
+    def test_user_color_potential_is_separate_from_script_and_prepared_admission(self) -> None:
         support = method_body(self.service, "private func supportsScenePropertyTarget(")
         self.assertIn("case let .layerColor(layerID):", support)
         layer_color = support[
@@ -508,10 +508,7 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
                 "case let .camera(field):"
             )
         ]
-        self.assertIn(
-            "$0.id == layerID && $0.supportsDirectLayerColorConsumer",
-            layer_color,
-        )
+        self.assertIn("$0.id == layerID && $0.supportsUserPropertyLayerColorConsumer", layer_color)
 
         eligibility = method_body(
             self.layer,
@@ -528,16 +525,16 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         image_case = consumers[
             consumers.index('case "image":') : consumers.index('case "text":')
         ]
-        self.assertIn("if layer.supportsDirectLayerColorConsumer", image_case)
-        self.assertIn(
-            ".layer(layerID: layer.id, field: .color)", image_case
-        )
+        self.assertIn("layer.supportsUserPropertyLayerColorConsumer", image_case)
+        self.assertIn("resolvedMaterialExecutionCapabilities.claim(layerID: layer.id)", image_case)
+        self.assertIn("resolvedMaterialExecutionCapabilities.resolve(claim.token)", image_case)
+        self.assertIn("case .capturedLayerTexture = capability.sourceRoute", image_case)
+        self.assertIn("case .none = capability.dependencyOwnership", image_case)
+        self.assertIn("!sourceMaterialCandidateConsumerLayerIDs.contains(layer.id)", image_case)
+        self.assertIn(".layer(layerID: layer.id, field: .color)", image_case)
 
         model = self.runtime_model
-        self.assertIn(
-            "let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(",
-            model,
-        )
+        self.assertIn("let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(", model)
         self.assertIn("let hasConsumer = layer.supportsDirectLayerColorConsumer", model)
         self.assertIn('layer.contentKind == "text"', model)
         self.assertIn("layer.supportsDirectLayerColorConsumer", model)

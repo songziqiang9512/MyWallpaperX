@@ -431,7 +431,7 @@ extension SteamWorkshopService {
             }
         case let .layerColor(layerID):
             return renderDescriptor.layers.contains {
-                $0.id == layerID && $0.supportsDirectLayerColorConsumer
+                $0.id == layerID && $0.supportsUserPropertyLayerColorConsumer
             }
         case let .lightIntensity(layerID):
             return renderDescriptor.layers.contains {
