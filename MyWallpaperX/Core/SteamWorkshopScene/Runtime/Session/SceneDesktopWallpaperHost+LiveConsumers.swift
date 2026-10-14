@@ -29,7 +29,8 @@ extension SceneDesktopWallpaperHost {
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         propertyVectorScriptProgram: SceneScriptVectorProgram,
         sceneScriptScalarProgram: SceneScriptScalarProgram,
-        sceneScriptStringProgram: SceneScriptStringProgram
+        sceneScriptStringProgram: SceneScriptStringProgram,
+        propertyDefinitions: [SceneUserPropertyDefinition] = []
     ) -> ScenePropertyLiveUpdateState {
         let scriptUserPropertyConsumerTargetsByKey = [
             propertyVectorScriptProgram.liveUserPropertyConsumerTargetsByKey,
@@ -60,7 +61,8 @@ extension SceneDesktopWallpaperHost {
                 sceneScriptStringProgram: sceneScriptStringProgram
             ),
             scriptUserPropertyConsumerTargetsByKey:
-                scriptUserPropertyConsumerTargetsByKey
+                scriptUserPropertyConsumerTargetsByKey,
+            propertyDefinitions: propertyDefinitions
         )
     }
 

@@ -276,6 +276,10 @@ User Property 是 wallpaper 级 key/value，不属于某个单独 layer。一个
 
 Scene属性窗口沿prepared context→原生NSCollectionView可视控件→原service/store→typed consumer；条件/标题/值仍用现有parser及模型，所有隐藏值保留。原定义索引拥有行身份，依赖只插删受影响行，同一编辑保caret/IME；屏外、隐藏、复用、reset/关闭取消UI会话，迟到输入不改新行或覆写reset。图片sheet按窗口/editor/nonce一次消费，已提交资源事务仍归原service。原PropertyPanel仅委派当前editor的有限Tab遍历，首尾/非属性控件交回系统窗口；不缓存全量NSView或自定义AX代理。实际产品与CPU边界见[原生列表记录](../history/native-property-list-convergence-2026-10-14.md)，完整系统键盘chrome环仍未验。
 
+<a id="unbound-bool-live-update"></a>
+
+没有运行consumer的普通Bool可只更新有效值及面板条件：Launch沿原Host factory把catalog定义交给LiveState，后者一次准备唯一Bool且默认值为Bool的键集，排除原Program中所有instruction key。额外准入只在当前/替换值均为Bool、无属性回调consumer、无rebuildRequired且非资源事务时成立；相同值不改revision，真变化/reset沿原原子cohort与revision提交。未知/重复/错类型/缺默认、删除、资源、不可用consumer及结构变化不借此放行；属性回调仍走原事件链。原样314的正常面板、保存重开/reset及session证据见[后继记录](../history/property-condition-reachability-2026-10-13.md#unbound-bool-live-update)，不计性能收益或其他类型支持。
+
 | 官方类型/行为 | 等级 | 当前能力 | 缺口 |
 |---|---|---|---|
 | wallpaper-level property key/catalog | `L3` | 定义、默认值、override、排序和持久化已存在；[E-PROPERTY](../history/runtime-evidence-index.md#e-property) | 稳定 wire schema 与跨版本 migration |
@@ -331,7 +335,7 @@ Scalar/String/Vector 只为实际导出属性回调的 owner 准备差量事件�
 
 | 官方类型/行为 | 等级 | 当前能力 | 缺口 |
 |---|---|---|---|
-| `bool` control/value | `L3` | UI、条件值、持久化和受支持 visibility/boolean target；[E-PROPERTY](../history/runtime-evidence-index.md#e-property) | live target program；不得按 property 名猜 effect |
+| `bool` control/value | `L3` | UI、条件值、持久化和受支持 visibility/boolean target；无运行consumer的普通Bool按[窄准入](#unbound-bool-live-update)更新；[E-PROPERTY](../history/runtime-evidence-index.md#e-property) | 其他live target program；不得按 property 名猜 effect |
 | conditional target expected value | `L3` | binding 保存 `condition` 并比较实际 bool/value | 完整类型不匹配和 fallback 反例 |
 
 <a id="op-user-combo"></a>

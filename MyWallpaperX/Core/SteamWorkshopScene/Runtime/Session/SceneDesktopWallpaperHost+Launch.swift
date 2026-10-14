@@ -853,7 +853,8 @@ extension SceneDesktopWallpaperHost {
                     preparedParticleVisibilityLayerIDs,
                 propertyVectorScriptProgram: propertyVectorScriptProgram,
                 sceneScriptScalarProgram: sceneScriptScalarProgram,
-                sceneScriptStringProgram: sceneScriptStringProgram
+                sceneScriptStringProgram: sceneScriptStringProgram,
+                propertyDefinitions: model.project.userProperties.definitions
             ),
             userPropertyTextureLoad: userPropertyTextureLoad,
             cacheDirectory: cacheDirectory,

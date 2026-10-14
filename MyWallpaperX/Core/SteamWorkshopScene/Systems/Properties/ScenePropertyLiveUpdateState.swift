@@ -9,6 +9,7 @@ nonisolated struct ScenePropertyLiveUpdateState {
     private let instructionsByPropertyKey:
         [String: [ScenePropertyBindingInstruction]]
     private let rebuildRequiredKeys: Set<String>
+    private let unboundBooleanPropertyKeys: Set<String>
     private(set) var effectiveValues: [String: SceneUserPropertyValue]
     private(set) var userValues: [SceneDynamicTarget: SceneDynamicValue]
     /// Monotonic content revision. Bumped only when `effectiveValues` is
@@ -21,7 +22,8 @@ nonisolated struct ScenePropertyLiveUpdateState {
         effectiveValues: [String: SceneUserPropertyValue],
         activeConsumerTargets: Set<SceneDynamicTarget>,
         scriptUserPropertyConsumerTargetsByKey:
-            [String: Set<SceneDynamicTarget>] = [:]
+            [String: Set<SceneDynamicTarget>] = [:],
+        propertyDefinitions: [SceneUserPropertyDefinition] = []
     ) {
         self.program = program
         self.activeConsumerTargets = activeConsumerTargets
@@ -34,6 +36,15 @@ nonisolated struct ScenePropertyLiveUpdateState {
             by: \.propertyKey
         )
         self.rebuildRequiredKeys = Set(program.rebuildRequiredPropertyKeys)
+        // An unbound value may still control panel conditions. Keep catalog
+        // type evidence here; effective values alone cannot distinguish a
+        // resource key or an unknown/malformed definition.
+        let definitionsByKey = Dictionary(grouping: propertyDefinitions, by: \.key)
+        self.unboundBooleanPropertyKeys = Set(definitionsByKey.compactMap { key, definitions -> String? in
+            guard definitions.count == 1, let definition = definitions.first,
+                  definition.kind == .bool, case .bool? = definition.defaultValue else { return nil }
+            return key
+        }).subtracting(program.instructions.map(\.propertyKey))
         self.effectiveValues = effectiveValues
         self.userValues = program.evaluate(
             effectiveValues: effectiveValues,
@@ -71,7 +82,11 @@ nonisolated struct ScenePropertyLiveUpdateState {
                let known = instructionsByPropertyKey[key]?.isEmpty == false
                    || scriptUserPropertyConsumerTargetsByKey[key]?.isEmpty == false
                    || rebuildRequiredKeys.contains(key)
-               return known && replacement == current
+               if !known {
+                   guard unboundBooleanPropertyKeys.contains(key),
+                         case .bool = current, case .bool = replacement else { return false }
+               }
+               return replacement == current
            }) { return true }
 
         guard rebuildRequiredKeys.isDisjoint(with: changedPropertyKeys) else {
@@ -88,7 +103,15 @@ nonisolated struct ScenePropertyLiveUpdateState {
             let preparedTexture = preparedTexturePropertyKeys.contains(propertyKey)
                 && replacements[propertyKey]?.stringValue != nil
                 && effectiveValues[propertyKey]?.stringValue != nil
-            guard !consumerTargets.isEmpty || preparedTexture,
+            let valueOnlyBoolean: Bool
+            if unboundBooleanPropertyKeys.contains(propertyKey),
+               instructions.isEmpty, scriptTargets.isEmpty,
+               !preparedTexturePropertyKeys.contains(propertyKey),
+               case .bool? = replacements[propertyKey],
+               case .bool? = effectiveValues[propertyKey] {
+                valueOnlyBoolean = true
+            } else { valueOnlyBoolean = false }
+            guard !consumerTargets.isEmpty || preparedTexture || valueOnlyBoolean,
                   consumerTargets.allSatisfy({
                       activeConsumerTargets.contains($0)
                           && !unavailableConsumerTargets.contains($0)

@@ -2,7 +2,7 @@
 
 # Scene 面板条件依赖与准备阶段复用
 
-> **历史证据 — 非现役入口**。截止2026-10-13；现役合同归[属性定义与面板](../capabilities/runtime-input-property-coverage.md#op-user-overview)，下一项归[属性卡](../roadmap/properties-panel-card.md)、[性能卡](../roadmap/performance-convergence-card.md)和[队列](../roadmap/scene-open-breakpoint-queue.md)。不关闭整样本、整个专项或长期Goal。
+> **历史证据 — 非现役入口**。原批截至2026-10-13，普通Bool后继截至2026-10-14；现役合同归[属性定义与面板](../capabilities/runtime-input-property-coverage.md#op-user-overview)，下一项归[属性卡](../roadmap/properties-panel-card.md)、[性能卡](../roadmap/performance-convergence-card.md)和[队列](../roadmap/scene-open-breakpoint-queue.md)。不关闭整样本、整个专项或长期Goal。
 
 ## 问题与设计
 
@@ -42,3 +42,15 @@
 限量proof在`.artifacts/tmp/property-condition-reachability-20261013/proof`，保最终截图、身份、完整成本与关键日志；临时HOME、native二进制、重试输出、旧候选和重复样本清理。当前签名候选及一份隔离workshop可用于下一轮直接对照，唯一连续构建缓存仍为`.artifacts/tmp/scene-constructor-runtime-20261011/DerivedData`，不增加缓存额度。UI工具退出后自动重启的无隔离参数进程按精确PID终止并排除证据。
 
 下一批先量打开面板时source facts与同步准备的重复成本；完整callback失败与编辑重建仍保全cohort追最早owner。GPU高级混合/HDR history、首帧准备范围、内存/资源回落及长期切换继续原卡，不因本批测试、提交或局部CPU收益记完成。
+
+<a id="unbound-bool-live-update"></a>
+
+## 后继：仅面板普通Bool不重建（2026-10-14）
+
+面板条件依赖可让没有运行绑定的普通Bool成为真实控件。原LiveState要求每个真变更都有consumer，导致保存后收到拒绝回执，由原Client重建整景；首错在更新准入，不在条件求值。后继沿原Launch→Host factory把已有catalog定义交给LiveState，同owner只准备唯一Bool且默认值为Bool的键集，并排除原Program的全部instruction key。仅在当前值和替换值均为Bool、无instruction且无属性回调consumer、无重建要求且非资源事务时额外接受值更新；不新增Program、parser、通知或renderer。相同值不改revision，真变更/reset仍经原有效值、原子cohort和revision提交。未知键、重复或错类型定义、缺默认、删除、资源、坏指令、不可用callback及真实结构变化保原拒绝；存在属性回调时仍由原consumer消费。
+
+最近hidden-owner门9项与原LiveState门17项通过；新增50个事实覆盖改名、错值、同值/reset/revision、callback与混合原子性。旧owner正常编译运行后，8个新增正向事实失败。Debug及优化诊断构建通过，4294项输入无漂移；这些门不代替实际UI。
+
+原样`3147346398`的`more/more1`分别控制时钟5行和日期2行，均无scene绑定或属性回调消费。普通App→Client→daemon的原生面板中，旧App`4a252417…`点击一次`more`后从`2B9B…`切到`4E1F…`，累计2次launch/2个session，旧音频层停止。候选`592e8457…`完成4次开关编辑、关闭重开和reset，全程只有`4A628…`的1次launch/1个session；停止前无soundStop。真实详细行展开/收起，重开两Bool仍为true，reset后两者false且详细行隐藏，精确隔离defaults域为空；两App最终均Stop、Quit并exit0。基线与候选的project、package和preview字节身份相同。独立原样`2134765860`用同候选和原project/package完成渲染，runner PASS、exit0、无timeout且failed frames为0；实际after图可见暖色房间、床桌窗及时钟，未见本批相关缺损。这只计独立原样渲染，不计parity或性能。
+
+收据与raw在`.artifacts/tmp/presentation-bool-live-update-20261014/proof/{test-results,normal-ui-receipt}.json`及`normal-ui/{baseline,candidate}/product.log`、操作前后JSON。本片只证明该普通Bool交互避免重建，不计CPU/GPU、交互延迟或能耗收益；未扩其他类型、原生调色板、多surface或整面板能力。

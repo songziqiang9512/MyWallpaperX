@@ -147,15 +147,24 @@ struct SceneSoundPlaybackProgram {
 }
 struct SceneScriptVectorProgram {
     var livePropertyInputTargets: Set<SceneDynamicTarget> = []
+    var liveUserPropertyConsumerTargetsByKey: [String: Set<SceneDynamicTarget>] = [:]
 }
 struct SceneScriptScalarProgram {
     var livePropertyInputTargets: Set<SceneDynamicTarget> = []
+    var liveUserPropertyConsumerTargetsByKey: [String: Set<SceneDynamicTarget>] = [:]
 }
 struct SceneScriptStringProgram {
     var livePropertyInputTargets: Set<SceneDynamicTarget> = []
+    var liveUserPropertyConsumerTargetsByKey: [String: Set<SceneDynamicTarget>] = [:]
+}
+struct SceneRuntimeInput {
+    var renderDescriptor: SceneRenderDescriptor
+    var propertyBindingProgram: ScenePropertyBindingProgram
+    var effectivePropertyValues: [String: SceneUserPropertyValue]
 }
 enum SceneDesktopWallpaperHost {
     __ACTIVE_CONSUMERS__
+    __MAKE_LIVE_STATE__
 }
 '''
 
@@ -168,7 +177,7 @@ HARNESS = r'''
         var seed: SceneDynamicValue
     }
 
-    static func program(_ bindings: [Binding]) -> ScenePropertyBindingProgram {
+    static func program(_ bindings: [Binding], rebuild: [String] = []) -> ScenePropertyBindingProgram {
         .init(
             definitions: bindings.map {
                 .init(target: $0.target, valueType: $0.type, authoredValue: $0.seed)
@@ -176,32 +185,141 @@ HARNESS = r'''
             instructions: bindings.map {
                 .init(propertyKey: $0.key, path: .init(components: [.key($0.key)]),
                     target: $0.target, valueType: $0.type)
-            }
+            }, rebuildRequiredPropertyKeys: rebuild
         )
     }
 
     static func state(_ layers: [SceneRenderDescriptor.Layer], _ bindings: [Binding],
         values: [String: SceneUserPropertyValue], prepared: Set<Int> = [],
         colorCapabilities: [Int: SceneResolvedMaterialExecutionCapabilityCatalog.Capability] = [:],
-        unresolved: Set<Int> = [], sourceCandidates: Set<Int> = [])
+        unresolved: Set<Int> = [], sourceCandidates: Set<Int> = [],
+        definitions: [SceneUserPropertyDefinition] = [], rebuild: [String] = [],
+        scriptConsumers: [String: Set<SceneDynamicTarget>] = [:],
+        scriptTargets: Set<SceneDynamicTarget> = [], programOverride: ScenePropertyBindingProgram? = nil)
         -> ScenePropertyLiveUpdateState {
-        let p = program(bindings)
-        let targets = SceneDesktopWallpaperHost.activeLiveConsumerTargets(
-            in: .init(layers: layers), propertyBindingProgram: p,
+        let p = programOverride ?? program(bindings, rebuild: rebuild)
+        return SceneDesktopWallpaperHost.makeLivePropertyState(
+            runtimeInput: .init(renderDescriptor: .init(layers: layers),
+                propertyBindingProgram: p, effectivePropertyValues: values),
             resolvedMaterialExecutionCapabilities: .init(executionLayerIDs: prepared,
                 capabilities: colorCapabilities, unresolvedLayerIDs: unresolved),
             soundPlaybackProgram: .init(), preparedStaticModelLayerIDs: [],
             preparedImageMaterialTargets: [], sourceMaterialCandidateConsumerLayerIDs: sourceCandidates,
-            propertyVectorScriptProgram: .init(),
+            propertyVectorScriptProgram: .init(livePropertyInputTargets: scriptTargets,
+                liveUserPropertyConsumerTargetsByKey: scriptConsumers),
             sceneScriptScalarProgram: .init(), sceneScriptStringProgram: .init()
+            __PROPERTY_DEFINITIONS_ARGUMENT__
         )
-        return .init(program: p, effectiveValues: values, activeConsumerTargets: targets)
     }
 
     static func unchanged(_ a: ScenePropertyLiveUpdateState,
         _ b: ScenePropertyLiveUpdateState) -> Bool {
         a.effectiveValues == b.effectiveValues && a.userValues == b.userValues
             && a.revision == b.revision
+    }
+
+    // Catalog kind/default and callback registrations are typed input leaves.
+    // The production Host merges them and the real State owns all admission.
+    static func unboundBooleanFacts() -> [String: Bool] {
+        func definition(_ key: String, kind: SceneUserPropertyKind = .bool,
+                        seed: SceneUserPropertyValue? = .bool(true)) -> SceneUserPropertyDefinition {
+            .init(key: key, title: key, kind: kind, runtimeType: kind.rawValue,
+                order: 0, index: nil, minimumValue: nil, maximumValue: nil, stepValue: nil,
+                allowsFractionalValues: true, fractionalPrecision: nil, displayCondition: nil,
+                defaultValue: seed, options: [])
+        }
+        var facts: [String: Bool] = [:]
+        for key in ["gate", "renamedPanelSwitch"] {
+            let defs = [definition(key)]
+            func fresh(values: [String: SceneUserPropertyValue]? = nil,
+                       definitions: [SceneUserPropertyDefinition]? = nil) -> ScenePropertyLiveUpdateState {
+                state([], [], values: values ?? [key: .bool(true)], definitions: definitions ?? defs)
+            }
+            var value = fresh()
+            facts[key + "-changed"] = value.apply(.bool(false), forPropertyKey: key)
+                && value.effectiveValues[key] == .bool(false) && value.userValues.isEmpty && value.revision == 1
+            let changed = value
+            facts[key + "-same"] = value.apply(.bool(false), forPropertyKey: key) && unchanged(value, changed)
+            facts[key + "-empty"] = value.apply(replacements: [key: .bool(true)], changedPropertyKeys: [])
+                && unchanged(value, changed)
+            facts[key + "-reset"] = value.apply(.bool(true), forPropertyKey: key)
+                && value.effectiveValues[key] == .bool(true) && value.userValues.isEmpty && value.revision == 2
+            let initial = fresh()
+            for (name, replacements, keys) in [
+                ("unknown", ["unknown": SceneUserPropertyValue.bool(false)], Set(["unknown"])),
+                ("type-number", [key: .number(0)], Set([key])),
+                ("type-string", [key: .string("false")], Set([key])),
+                ("deletion", [:], Set([key]))] {
+                var attempt = initial
+                facts[key + "-" + name] = !attempt.apply(replacements: replacements, changedPropertyKeys: keys)
+                    && unchanged(attempt, initial)
+            }
+            for (name, definitions) in [
+                ("duplicate", defs + defs), ("number-default", [definition(key, seed: .number(1))]),
+                ("missing-default", [definition(key, seed: nil)]),
+                ("resource-kind", [definition(key, kind: .sceneTexture)]),
+                ("unknown-kind", [definition(key, kind: .unsupported)])] {
+                var attempt = fresh(definitions: definitions); let before = attempt
+                facts[key + "-" + name] = !attempt.apply(.bool(false), forPropertyKey: key)
+                    && unchanged(attempt, before)
+            }
+            var wrongCurrent = fresh(values: [key: .number(1)]); let beforeWrongCurrent = wrongCurrent
+            facts[key + "-wrong-current"] = !wrongCurrent.apply(.bool(false), forPropertyKey: key)
+                && unchanged(wrongCurrent, beforeWrongCurrent)
+            var ordinaryResource = fresh(values: [key: .string("old.png")],
+                definitions: [definition(key, kind: .sceneTexture, seed: .string("old.png"))])
+            let beforeOrdinaryResource = ordinaryResource
+            facts[key + "-ordinary-resource"] = !ordinaryResource.apply(.string("new.png"), forPropertyKey: key)
+                && unchanged(ordinaryResource, beforeOrdinaryResource)
+            var resource = fresh(); let beforeResource = resource
+            facts[key + "-resource-path"] = !resource.apply(replacements: [key: .bool(false)],
+                changedPropertyKeys: [key], preparedTexturePropertyKeys: [key]) && unchanged(resource, beforeResource)
+            var structural = state([], [], values: [key: .bool(true)], definitions: defs, rebuild: [key])
+            let beforeStructural = structural
+            facts[key + "-structural"] = !structural.apply(.bool(false), forPropertyKey: key)
+                && unchanged(structural, beforeStructural)
+            var raw = ScenePropertyLiveUpdateState(program: program([]),
+                effectiveValues: [key: .bool(true)], activeConsumerTargets: [])
+            let beforeRaw = raw
+            facts[key + "-default-conservative"] = !raw.apply(.bool(false), forPropertyKey: key)
+                && unchanged(raw, beforeRaw)
+            let target = SceneDynamicTarget.effectVisibility(layerID: 61, effectIndex: 0)
+            let bound = Binding(key: key, target: target, type: .bool, seed: .bool(true))
+            var unavailable = state([], [bound], values: [key: .bool(true)], definitions: defs)
+            let beforeUnavailable = unavailable
+            facts[key + "-bound-unavailable"] = !unavailable.apply(.bool(false), forPropertyKey: key)
+                && unchanged(unavailable, beforeUnavailable)
+            let malformed = ScenePropertyBindingProgram(definitions: [], instructions: [
+                .init(propertyKey: key, path: .init(components: []), target: target, valueType: .bool)])
+            var malformedState = state([], [], values: [key: .bool(true)], definitions: defs,
+                programOverride: malformed); let beforeMalformed = malformedState
+            facts[key + "-raw-invalid-instruction"] = !malformedState.apply(.bool(false), forPropertyKey: key)
+                && unchanged(malformedState, beforeMalformed)
+            // A callback consumes every defined property even without a typed binding.
+            var callback = state([], [], values: [key: .bool(true)], definitions: defs,
+                scriptConsumers: [key: [target]], scriptTargets: [target])
+            facts[key + "-callback"] = callback.apply(.bool(false), forPropertyKey: key)
+                && callback.effectiveValues[key] == .bool(false) && callback.revision == 1
+            let beforeCallback = callback
+            facts[key + "-callback-disabled"] = !callback.apply(.bool(true), forPropertyKey: key,
+                unavailableConsumerTargets: [target]) && unchanged(callback, beforeCallback)
+            var missingCallback = state([], [], values: [key: .bool(true)], definitions: defs,
+                scriptConsumers: [key: [target]])
+            let beforeMissingCallback = missingCallback
+            facts[key + "-callback-unavailable"] = !missingCallback.apply(.bool(false), forPropertyKey: key)
+                && unchanged(missingCallback, beforeMissingCallback)
+            let opacity = SceneDynamicTarget.layer(layerID: 62, field: .alpha)
+            let hot = Binding(key: "opacity", target: opacity, type: .scalar, seed: .scalar(1))
+            var mixed = state([.init(id: 62, contentKind: "image")], [hot],
+                values: [key: .bool(true), "opacity": .number(1)], definitions: defs)
+            facts[key + "-mixed-hot"] = mixed.apply(replacements: [key: .bool(false), "opacity": .number(0.25)],
+                changedPropertyKeys: [key, "opacity"]) && mixed.effectiveValues[key] == .bool(false)
+                && mixed.userValues[opacity] == .scalar(0.25) && mixed.revision == 1
+            let beforeMixed = mixed
+            facts[key + "-mixed-invalid"] = !mixed.apply(replacements: [key: .bool(true), "opacity": .string("bad")],
+                changedPropertyKeys: [key, "opacity"]) && unchanged(mixed, beforeMixed)
+        }
+        return facts
     }
 
     static func main() throws {
@@ -221,6 +339,7 @@ HARNESS = r'''
         let allLayers = [hiddenText, visibleText, hiddenImage, effectedImage,
             noStyleText, noContentText, unlimitedText, unknown]
         var rows: [String: [String: Bool]] = [:]
+        rows["unboundBoolean"] = unboundBooleanFacts()
         let effectColor = SceneDynamicTarget.layer(layerID: 4, field: .color)
         let effectBinding = Binding(key: "renamedTint", target: effectColor,
             type: .vector3, seed: .vector3(1, 1, 1))
@@ -407,6 +526,10 @@ class SceneHiddenPropertyConsumerTests(unittest.TestCase):
         work = Path(cls.temp.name)
         source_path = Path(os.environ.get("MWX_HIDDEN_PROPERTY_HOST_SOURCE", HOST_SOURCE))
         host = method_body(source_path.read_text(), "static func activeLiveConsumerTargets(")
+        factory = method_body(source_path.read_text(), "static func makeLivePropertyState(")
+        # Only adapts an added input parameter for an old-owner counterexample;
+        # no admission rule is reproduced in the fixture.
+        definitions_argument = ", propertyDefinitions: definitions" if "propertyDefinitions:" in factory else ""
         color = method_body(
             LAYER_SOURCE.read_text(), "nonisolated var supportsDirectLayerColorConsumer: Bool"
         )
@@ -415,6 +538,7 @@ class SceneHiddenPropertyConsumerTests(unittest.TestCase):
         )
         harness = work / "Probe.swift"
         harness.write_text(STUBS.replace("__ACTIVE_CONSUMERS__", host)
+            .replace("__MAKE_LIVE_STATE__", factory)
             .replace("__COLOR_ELIGIBILITY__", color)
             .replace("__SOURCE_CANDIDATES__", method_body(CATALOG_SOURCE.read_text(),
                 "func sourceMaterialCandidateConsumerLayerIDs("))
@@ -423,7 +547,8 @@ class SceneHiddenPropertyConsumerTests(unittest.TestCase):
             .replace("__SOURCE_MATERIAL_STORAGE__", method_body(SOURCE_MATERIAL_STORAGE_SOURCE.read_text(),
                 "var sourceMaterials:"))
             .replace("__SOURCE_MATERIAL_CONSUMER__", method_body(SOURCE_MATERIAL_SOURCE.read_text(),
-                "func sourceMaterialConsumer(")) + HARNESS)
+                "func sourceMaterialConsumer(")) + HARNESS.replace(
+                    "__PROPERTY_DEFINITIONS_ARGUMENT__", definitions_argument))
         binary = work / "probe"
         compiled = subprocess.run(
             ["swiftc", "-enable-upcoming-feature", "MemberImportVisibility",
@@ -439,6 +564,12 @@ class SceneHiddenPropertyConsumerTests(unittest.TestCase):
             cls.temp.cleanup()
             raise AssertionError(result.stderr)
         cls.rows = json.loads(result.stdout)
+
+    def test_defined_unbound_booleans_keep_revision_reset_and_runtime_guards(self) -> None:
+        facts = self.rows["unboundBoolean"]
+        self.assertTrue(facts)
+        for name, accepted in facts.items():
+            self.assertTrue(accepted, name)
 
     @classmethod
     def tearDownClass(cls) -> None:
