@@ -1,0 +1,22 @@
+// Short screening and interaction diagnosis. Apply with -configuration Release;
+// all settings except the four below inherit Release. Keep project/scheme defaults.
+// Single-file optimization can change runtime costs: formal acceptance continues
+// to use the frozen WMO baseline and final WMO candidate, without a second full
+// comparison suite on every batch. Never compare this profile's C with a WMO B.
+// Promoting this profile to formal comparison requires new same-profile B/C.
+//
+// Example screening build, after shared build/runtime work is idle:
+// xcodebuild -project MyWallpaperX.xcodeproj -scheme MyWallpaperX -configuration Release -xcconfig script/scene_diagnostic_build.xcconfig -derivedDataPath <isolated-diagnostic-path> -showBuildTimingSummary build
+// Existing WMO acceptance build (do not pass this xcconfig):
+// xcodebuild -project MyWallpaperX.xcodeproj -scheme MyWallpaperX -configuration Release SWIFT_ACTIVE_COMPILATION_CONDITIONS=DEBUG SWIFT_OPTIMIZATION_LEVEL=-O GCC_OPTIMIZATION_LEVEL=s -derivedDataPath <isolated-wmo-path> build
+//
+// Reuse the existing build-input freeze and signed App staging/identity chain.
+// Record this file's digest, effective compiler settings, Xcode/SDK identity and
+// actual Swift/C argv or response files alongside source and App identities.
+// Establish first-build, no-op and real-local-edit timings before claiming a
+// feedback improvement; WMO/Release runtime acceptance remains separate.
+
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG
+SWIFT_OPTIMIZATION_LEVEL = -O
+GCC_OPTIMIZATION_LEVEL = s
+SWIFT_COMPILATION_MODE = singlefile

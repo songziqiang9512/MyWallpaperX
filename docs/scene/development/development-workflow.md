@@ -45,7 +45,7 @@ authored data → loss-preserving IR → prepared Program/graph/resources
 
 桌面、媒体或最终 attachment 的回归必须覆盖无证据窗口参数的正常桌面 surface。`--mwx-debug-scene-evidence-dir` 会为截图关闭 framebuffer-only，调试入口也可能关闭真实系统媒体；注入 fixture 或可读截图目标的成功不能替代普通桌面加真实媒体的验收。采集应保留真实 surface 的提交进展及画面变化，不为观测方便改变目标资源权限。
 
-性能比较固定Swift/C实际参数；Debug仅设Swift `-O`仍留C `-O0`。现runner需Swift `DEBUG`，用隔离DerivedData的 `xcodebuild -project MyWallpaperX.xcodeproj -scheme MyWallpaperX -configuration Release SWIFT_ACTIVE_COMPILATION_CONDITIONS=DEBUG SWIFT_OPTIMIZATION_LEVEL=-O -derivedDataPath <isolated-path> build` 继承Release C设置，保存compile argv/response及签名身份。`DEBUG`也启用时钟/证据分支，正常Release产品播放另验；Debug checkpoint只证构建。区分首帧、CPU/pre-encode/GPU、提交/完成与next-frame；固定输入/环境，三轮基线后消融，一次仅变一个成本/参数，量CPU/elapsed、CPU/completed-frame、FPS、失败owner与每帧工作。ready门同时要求实际输出；收益近波动补返回基线，正确性/失败/性能无退化才留。两次实验未改变首断点或减少工作量，就换共享断点。
+性能比较固定Swift/C实际参数；Debug仅设Swift `-O`仍留C `-O0`。正式验收沿冻结WMO baseline及最终WMO candidate，Release runner命令及[短筛选/交互诊断profile](../../../script/scene_diagnostic_build.xcconfig)用法见该文件；后者不改Release默认、不加每批双套3B3C，升为正式对照须重建同配置B/C，不能新C配旧B。复用原build-input freeze、compile argv/response、签名staging/身份链。`DEBUG`含时钟/证据分支，正常Release播放另验；Debug checkpoint只证构建。分开首帧、CPU/pre-encode/GPU、提交/完成与next-frame；同条件三轮基线后一次消融一个成本，量CPU/elapsed、CPU/completed-frame、FPS、失败owner与每帧工作。ready须实际输出；收益近波动返回基线；正确性/失败/性能不退化才留。两次未改变首断点或减少工作量就换共享断点。
 
 `observe-only`、`prefer-generic`、`generic-only` 和 `disable-generic` 只是有退出条件的迁移状态。不得静默双执行、永久保留 DEBUG 开关、永久依赖 fallback 或用 route 数、compile success、recognized、非黑画面、matrix PASS、单样本通过宣称兼容完成。
 

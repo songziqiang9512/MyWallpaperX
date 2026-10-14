@@ -678,10 +678,10 @@
       "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "07470c9a4f543df8236ccd3306a5f91e9d36b9c96654c0dad04a04f17584b030",
+        "sourceSHA256": "0968d0b95bf1ce0209a8f54693ec5abcedf1d23861160d89915a07bbd923d601",
         "method": "document_registry --audit + document_health --check",
-        "scope": "顶层设计/工作卡职责、当前入口和旧状态撤权核对",
-        "limitations": "仅文档职责与导航，不证明产品性能、兼容或发布验收"
+        "scope": "可选优化增量screen与正式WMO验收的唯一入口和基线隔离核对",
+        "limitations": "仅导航/配置职责；不证明产品性能或所有局部编辑快速"
       }
     },
     {
