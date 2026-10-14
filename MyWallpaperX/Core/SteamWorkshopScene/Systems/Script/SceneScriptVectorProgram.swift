@@ -30,7 +30,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     }
     var activeLivePropertyInputTargets: Set<SceneDynamicTarget> {
         bindings.reduce(into: Set<SceneDynamicTarget>()) {
-            if !disabledTargets.contains($1.definition.target) {
+            if !disabledTargets.contains($1.definition.target) || $1.owner.canRetryUserPropertyCallback {
                 $0.formUnion($1.livePropertyInputTargets)
             }
         }
@@ -341,7 +341,10 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             let binding = bindings[bindingIndex]
             let target = binding.definition.target
             if excludedTargets.contains(target) { continue }
-            if disabledTargets.contains(target) { continue }
+            let retryingUserProperties = disabledTargets.contains(target)
+            if retryingUserProperties {
+                guard binding.owner.canRetryUserPropertyCallback(at: propertyRevision) else { continue }
+            }
             guard let input = inputs[target],
                   input.valueType == binding.definition.valueType,
                   let propertiesJSON = scriptPropertiesJSONCache.value(
@@ -352,8 +355,15 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                   ) else { continue }
             let changedUserPropertiesJSON = frameLedger.appliedUserProperties.changedJSON(
                 for: target, current: effectivePropertyValues,
-                kinds: userPropertyKinds, revision: propertyRevision
+                kinds: userPropertyKinds, revision: propertyRevision,
+                previousAttempt: binding.owner.retryUserPropertyValues,
+                pendingKeys: binding.owner.pendingUserPropertyRecoveryKeys
             )
+            if retryingUserProperties {
+                guard changedUserPropertiesJSON != nil,
+                      binding.owner.retryUserPropertyCallback(propertyRevision: propertyRevision) else { continue }
+                disabledTargets.remove(target)
+            }
             let pendingPlaybackEvent = observedPlaybackEvent.flatMap { event in
                 binding.handlesMediaPlayback && event.generation
                     > frameLedger.consumedMediaPlaybackGenerations[target, default: 0]
@@ -479,7 +489,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     scriptPropertiesJSON: propertiesJSON,
                     frame: frame,
                     userPropertiesJSON: userJSON,
-                    interruptBudget: interruptBudget
+                    interruptBudget: interruptBudget,
+                    propertyRevision: propertyRevision,
+                    effectivePropertyValues: effectivePropertyValues
                 ) {
                 case let .success(eventMutations):
                     callbackMaterialMutations.append(

@@ -164,14 +164,22 @@ nonisolated enum SceneScriptPropertyInputCodec {
     static func changedUserPropertiesJSON(
         previous: [String: SceneUserPropertyValue]?,
         current: [String: SceneUserPropertyValue],
-        kinds: [String: SceneUserPropertyKind]
+        kinds: [String: SceneUserPropertyKind],
+        previousAttempt: [String: SceneUserPropertyValue]? = nil,
+        pendingKeys: Set<String> = []
     ) -> String? {
         guard let previous else {
             return userPropertiesJSON(values: current, kinds: kinds)
         }
-        let changedKeys = Set(previous.keys).union(current.keys).filter {
+        var changedKeys = Set(previous.keys).union(current.keys).filter {
             previous[$0] != current[$0]
         }
+        if let previousAttempt {
+            changedKeys.formUnion(Set(previousAttempt.keys).union(current.keys).filter {
+                previousAttempt[$0] != current[$0]
+            })
+        }
+        changedKeys.formUnion(pendingKeys)
         guard !changedKeys.isEmpty else { return nil }
         var object: [String: Any] = [:]
         for key in changedKeys where validName(key) {
@@ -282,7 +290,9 @@ nonisolated struct SceneScriptAppliedUserPropertyState: Sendable {
         for target: SceneDynamicTarget,
         current: [String: SceneUserPropertyValue],
         kinds: [String: SceneUserPropertyKind],
-        revision: UInt64?
+        revision: UInt64?,
+        previousAttempt: [String: SceneUserPropertyValue]? = nil,
+        pendingKeys: Set<String> = []
     ) -> String? {
         if let revision,
            revisionsByTarget[target] == revision,
@@ -290,7 +300,8 @@ nonisolated struct SceneScriptAppliedUserPropertyState: Sendable {
             return nil
         }
         return SceneScriptPropertyInputCodec.changedUserPropertiesJSON(
-            previous: valuesByTarget[target], current: current, kinds: kinds
+            previous: valuesByTarget[target], current: current, kinds: kinds,
+            previousAttempt: previousAttempt, pendingKeys: pendingKeys
         )
     }
 

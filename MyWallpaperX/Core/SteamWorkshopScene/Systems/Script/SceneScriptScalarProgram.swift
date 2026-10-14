@@ -120,8 +120,10 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
     }
 
     var activeLivePropertyInputTargets: Set<SceneDynamicTarget> {
-        livePropertyInputTargetsByTarget.reduce(into: Set<SceneDynamicTarget>()) {
-            if !disabledTargets.contains($1.key) { $0.formUnion($1.value) }
+        bindings.reduce(into: Set<SceneDynamicTarget>()) { result, owner in
+            if !disabledTargets.contains(owner.target) || owner.canRetryUserPropertyCallback {
+                result.formUnion(livePropertyInputTargetsByTarget[owner.target] ?? [])
+            }
         }
     }
 
@@ -394,7 +396,10 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
         }
         for binding in selectedBindings {
             if excludedTargets.contains(binding.target) { continue }
-            if disabledTargets.contains(binding.target) { continue }
+            let retryingUserProperties = disabledTargets.contains(binding.target)
+            if retryingUserProperties {
+                guard binding.canRetryUserPropertyCallback(at: propertyRevision) else { continue }
+            }
             guard let input = inputs[binding.target],
                   case let .scalar(value) = input else { continue }
             guard let propertyInputs = propertyInputsByTarget[binding.target],
@@ -413,8 +418,15 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
             let changedUserPropertiesJSON = binding.handlesUserProperties
                 ? frameLedger.appliedUserProperties.changedJSON(
                     for: binding.target, current: effectivePropertyValues,
-                    kinds: userPropertyKinds, revision: propertyRevision
+                    kinds: userPropertyKinds, revision: propertyRevision,
+                    previousAttempt: binding.retryUserPropertyValues,
+                    pendingKeys: binding.pendingUserPropertyRecoveryKeys
                 ) : nil
+            if retryingUserProperties {
+                guard changedUserPropertiesJSON != nil,
+                      binding.retryUserPropertyCallback(propertyRevision: propertyRevision) else { continue }
+                disabledTargets.remove(binding.target)
+            }
             let pendingPlaybackEvent = observedPlaybackEvent.flatMap { event in
                 binding.handlesMediaPlayback && event.generation
                     > frameLedger.consumedMediaPlaybackGenerations[binding.target, default: 0]
@@ -509,7 +521,9 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                     scriptPropertiesJSON: propertiesJSON,
                     frame: frame,
                     userPropertiesJSON: userPropertiesJSON,
-                    interruptBudget: interruptBudget
+                    interruptBudget: interruptBudget,
+                    propertyRevision: propertyRevision,
+                    effectivePropertyValues: effectivePropertyValues
                 ) {
                 case let .success(eventMutations):
                     effects.append(eventMutations)

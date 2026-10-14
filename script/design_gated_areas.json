@@ -490,6 +490,22 @@
         "MyWallpaperX/Shared/UI/InspectorHostViewController.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-property-callback-recovery",
+      "title": "Bounded recovery of ordinary user-property callback exceptions",
+      "owner": "SceneScriptValueOwner / existing property live state",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "design_notes": "实施前设计见 #property-callback-recovery，有限后验见 property-callback-recovery-2026-10-14。仅同一owner普通applyUserProperties作者异常由新revision恢复；保原ack/native journal与安全拒绝，不重建realm。approved仅表示设计可实施，不代表整专项/官方parity验收。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSMediaEventHost.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueRuntime.swift"
+      ],
+      "contentPatterns": [
+        "can_retry_user_properties",
+        "retryUserPropertyCallback"
+      ]
     }
   ]
 }

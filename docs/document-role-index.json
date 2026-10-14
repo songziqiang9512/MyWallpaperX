@@ -565,9 +565,9 @@
       "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "732804445be46ef76643664486cfc686cbc29a02b1a921c9f6458ee921583b84",
+        "sourceSHA256": "695e9071d6d43430a4b011e1f9977a873fb435bfd844d2b718eb9fa9b1f5f2bb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "新面板证据入口及原快照导航链接；非全部旧包HEAD运行复验",
+        "scope": "原生面板与属性异常恢复证据入口及原快照导航链接；非全部旧包HEAD运行复验",
         "limitations": "导航复核不冒充全架构、全样本、整App性能或Release验收；事实按本批冻结记录。"
       }
     },
@@ -1661,6 +1661,20 @@
       "entrypoint": "docs/scene/history/README.md",
       "cutoffDate": "2026-10-12",
       "uniqueValue": "公共准入红/绿反例、实际两段Blur及未参与修法样本画面；stock测试隔离和旧有界cohort债。"
+    },
+    {
+      "path": "docs/scene/history/property-callback-recovery-2026-10-14.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/runtime-input-property-coverage.md",
+        "docs/scene/roadmap/properties-panel-card.md",
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-14",
+      "uniqueValue": "普通属性异常同owner恢复/事务反例、三轮编辑窗CPU与原样本/独立实际画面、原严格FAIL边界"
     },
     {
       "path": "docs/scene/history/property-candidate-evaluation-convergence-2026-10-13.md",

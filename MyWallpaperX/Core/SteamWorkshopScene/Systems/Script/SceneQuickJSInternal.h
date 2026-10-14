@@ -402,6 +402,7 @@ struct MWXSceneQuickJSOwner {
     bool initialization_pending;
     MWXSceneQuickJSTimerFrameSnapshot *initialization_timers;
     bool disabled;
+    bool retryable_user_property_callback;
     bool value_only;
     bool effectful_boolean;
     MWXSceneQuickJSDynamicImageAliasRecord *dynamic_image_aliases;

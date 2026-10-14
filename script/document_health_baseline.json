@@ -93,12 +93,12 @@
       "bytes": 345429
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 112,
-      "bytes": 34147
+      "lines": 113,
+      "bytes": 34403
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 544,
-      "bytes": 176093
+      "lines": 555,
+      "bytes": 179377
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 247,
-      "bytes": 71830
+      "bytes": 71938
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -262,11 +262,11 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 30,
-      "bytes": 6670
+      "bytes": 6825
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
-      "bytes": 3526
+      "bytes": 3703
     }
   },
   "archives": [
@@ -1219,24 +1219,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2c73cf75925192a5a3473c7250be2f388747f68a196783249ddd73996a7a12b0",
-      "after": "8bd10b2a3bf6efad9392604caba8e66bacf97c298777065b629916f323ff73ae",
-      "owner": "scene-native-property-list",
-      "reason": "新增原生列表唯一owner/会话退出合同及相邻Combo值身份语义；完成设计与试法成本移交历史，工作卡/迁移现状收紧，未验范围保队列",
-      "decision": "docs/scene/history/native-property-list-convergence-2026-10-14.md#接受的实现"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "a104830241bd85ec664070d9920a4aff090e5745dd7fb8fdbad5a7d4a3cac6a3",
-      "after": "4b3c2aab6eeee5f896ef76500433455ac0aed1f999368d346c093a405d1e4cb3",
-      "owner": "scene-native-property-list",
-      "reason": "新增原生列表唯一owner/会话退出合同及相邻Combo值身份语义；完成设计与试法成本移交历史，工作卡/迁移现状收紧，未验范围保队列",
-      "decision": "docs/scene/history/native-property-list-convergence-2026-10-14.md#接受的实现"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
       "before": "a551c2eeee90e6b1156583c8d28bfaa78c888cf8fed22984207b1a8370a31e8d",
       "after": "cd9e9b7af83ea93a0f81778a3913f399fd546fb73b5911ff785b0f7041b3deb9",
@@ -1258,15 +1240,6 @@
       "path": "docs/scene/roadmap/engine-refactor-program.md",
       "before": "a0841f3ddf90eccf0cc53c4f16c2f0a473994d95f2074e3a27a438596b816f31",
       "after": "b24032cf8894e36ecedf7a4242d9a9e0f3e83e02a21f88d4a96a266d5fe03238",
-      "owner": "scene-frame-texture-snapshot-overlay",
-      "reason": "稳定唯一值/生命周期合同与有界CPU证据接管，E1实施过程归历史；补实际未修矩阵观察与当前入口，不扩大专项验收。",
-      "decision": "docs/scene/history/frame-texture-snapshot-convergence-2026-10-14.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "536681380493c8dfdb9c3709c60d55ffdae4cd3b1532c2613f0e05ad2fa72c48",
-      "after": "bb58cb96dcd82e76d2c7a2dd6d2fcffb6161b0c2d0ff3720e7b666ce6e02a00f",
       "owner": "scene-frame-texture-snapshot-overlay",
       "reason": "稳定唯一值/生命周期合同与有界CPU证据接管，E1实施过程归历史；补实际未修矩阵观察与当前入口，不扩大专项验收。",
       "decision": "docs/scene/history/frame-texture-snapshot-convergence-2026-10-14.md"
@@ -1327,24 +1300,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "6afdf0f34ca2f4031c9ea199fb9368a18cd8b03f9049ec4cf72c172305bad879",
-      "after": "07910b31a4a076560dcd8fb0b63def7f9ef68fc5688a9632389fece504ee43f3",
-      "owner": "Scene engineering documentation",
-      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "43abed273c1813b3822250450985c2dec6c9fb99faf4305a4df256a9ecede3f3",
-      "after": "8a51f1ed97a0ccd4945bfaf563b8c269b2a4c64612297283bb5ad3afb46c481e",
-      "owner": "Scene engineering documentation",
-      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
       "before": "c4cc6bee67832a7a8b57422de2aa64d1f2f9d977046c0b0eb8b1af527f2ec6cc",
       "after": "0c5b626af80178a06dadab8404d7f770b4e170089243e5234b088628e9981e4c",
@@ -1378,6 +1333,51 @@
       "owner": "Scene engineering documentation",
       "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
       "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "8bd10b2a3bf6efad9392604caba8e66bacf97c298777065b629916f323ff73ae",
+      "after": "a1f4b5d4f1d75613cf8abb49844566b92a0971e40e69bd73535ee92385c12028",
+      "owner": "scene-property-callback-recovery",
+      "reason": "先设计的同owner属性异常恢复、真实云层/三轮操作CPU及原FAIL边界；同步当前卡/队列，不扩大专项完成",
+      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#接受的实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "4b3c2aab6eeee5f896ef76500433455ac0aed1f999368d346c093a405d1e4cb3",
+      "after": "9feff66cb917644aa0b410e7d40308a0eea6901f7fdd3d10d2e602987d8eef8a",
+      "owner": "scene-property-callback-recovery",
+      "reason": "先设计的同owner属性异常恢复、真实云层/三轮操作CPU及原FAIL边界；同步当前卡/队列，不扩大专项完成",
+      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#接受的实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "07910b31a4a076560dcd8fb0b63def7f9ef68fc5688a9632389fece504ee43f3",
+      "after": "fa11f4d5d6e5b51f01a650eb9ac0b2f9146536b79b7c81deaaf4312b791df5b5",
+      "owner": "scene-property-callback-recovery",
+      "reason": "先设计的同owner属性异常恢复、真实云层/三轮操作CPU及原FAIL边界；同步当前卡/队列，不扩大专项完成",
+      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#接受的实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "8a51f1ed97a0ccd4945bfaf563b8c269b2a4c64612297283bb5ad3afb46c481e",
+      "after": "85903160ab7c74473822f187b3f93bb479514435021b36703d41461eb3de8725",
+      "owner": "scene-property-callback-recovery",
+      "reason": "先设计的同owner属性异常恢复、真实云层/三轮操作CPU及原FAIL边界；同步当前卡/队列，不扩大专项完成",
+      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#接受的实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "c74c96dfa964c3db9594f9d1f04a872c5aa1bf5d9259575322b4bbad42d65951",
+      "after": "28abc3e7892973c255c4fdfe1b91050e30486b42e8722db789f706f5561cc48c",
+      "owner": "scene-property-callback-recovery",
+      "reason": "先设计的同owner属性异常恢复、真实云层/三轮操作CPU及原FAIL边界；同步当前卡/队列，不扩大专项完成",
+      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#接受的实现"
     }
   ]
 }

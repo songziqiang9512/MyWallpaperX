@@ -926,6 +926,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_read_bound_scalar(
 );
 // Effective initialization state in the current owner transaction.
 bool mwx_scene_quickjs_owner_is_initialized(const MWXSceneQuickJSOwner *owner);
+// Only the existing property-revision consumer may reopen this bounded fuse.
+bool mwx_scene_quickjs_owner_can_retry_user_properties(MWXSceneQuickJSOwner *owner);
+bool mwx_scene_quickjs_owner_retry_user_properties(MWXSceneQuickJSOwner *owner, uint64_t generation);
 
 MWXSceneQuickJSTimerFrameSnapshot *mwx_scene_quickjs_owner_timer_snapshot(
     MWXSceneQuickJSOwner *owner

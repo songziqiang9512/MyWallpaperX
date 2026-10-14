@@ -13,7 +13,7 @@
 
 **首轮最小交付。** 定位并修复一个可复现的主线程热点或可避免的整场景重建，再核同类属性和独立壁纸。优先复用现property store、prepared model、typed frame/resource update及已有control，不增加另一套属性解析、缓存、通知或renderer。
 
-**当前进度与下一轮。** [条件依赖](../history/property-condition-reachability-2026-10-13.md)、[窗口准备复用](../history/property-preparation-convergence-2026-10-13.md)与[原生列表](../history/native-property-list-convergence-2026-10-14.md)已交付：详细设置/格式入口、暖准备CPU、同条件三轮面板操作CPU及原生滚动首尾已证；旧SwiftUI lazy AX职责退出。下一批优先追约8.634s云层编辑重建的触发/影响分类和完整callback/cohort，再核颜色首异常、本地化/媒体入口与未知类型；完整系统键盘访问的chrome环、多surface及整面板延迟仍待验，不按局部CPU计专项完成。
+**当前进度与下一轮。** [条件依赖](../history/property-condition-reachability-2026-10-13.md)、[窗口准备复用](../history/property-preparation-convergence-2026-10-13.md)与[原生列表](../history/native-property-list-convergence-2026-10-14.md)已交付：详细设置/格式入口、暖准备CPU、同条件三轮面板操作CPU及原生滚动首尾已证；旧SwiftUI lazy AX职责退出。[回调局部恢复](../history/property-callback-recovery-2026-10-14.md)已闭云层整景重建这一触发：同owner有界恢复、真实云层显隐及三轮编辑窗CPU收益已证，544作者颜色异常与原严格FAIL保留。下一批联合核VM/帧桥重复工作及GPU热点，再追本地化/媒体入口与未知类型；完整系统键盘访问的chrome环、多surface及整面板延迟仍待验，不按局部CPU计专项完成。
 
 **验收。** 同条件记录打开/滚动/编辑响应与engine重建/资源更新事实，验证实际画面立即/下一帧变化、连续多次编辑、关闭重开及保存恢复。资源替换还须检查取消、缺失/坏资源与旧画面保留；条件显示、重置、依赖属性、脚本回调及多个surface保持一致。不能只断言未重建：值和事件必须真实到达consumer。
 

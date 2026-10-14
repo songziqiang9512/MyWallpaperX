@@ -113,15 +113,239 @@ HARNESS = r'''
         facts["failure_value_admitted_before_vm"] = state.apply(.string("disable"), forPropertyKey: "music")
             && state.revision == 2
         let failed = evaluate()
-        facts["failed_owner_revoked"] = failed.failures[target] != nil
+        facts["failed_owner_keeps_fuse_and_property_recovery"] = failed.failures[target] != nil
             && failed.mediaPlaybackCommands.isEmpty && failed.ownerEffects.isEmpty
             && vector.disabledTargets.contains(target)
-            && !vector.activeLivePropertyInputTargets.contains(target)
+            && vector.activeLivePropertyInputTargets.contains(target)
         vector.finalizeLayerMutations(committing: false)
         let unavailable = vector.livePropertyInputTargets.subtracting(vector.activeLivePropertyInputTargets)
-        facts["unavailable_live_update_rejected"] = unavailable.contains(target)
-            && !state.apply(.string("a"), forPropertyKey: "music",
-                unavailableConsumerTargets: unavailable) && state.revision == 2
+        let held = evaluate()
+        facts["unchanged_revision_keeps_fuse"] = held.failures.isEmpty
+            && held.mediaPlaybackCommands.isEmpty && vector.disabledTargets.contains(target)
+        let originalOwner = vector.bindings[0].owner
+        facts["recoverable_live_update_admitted"] = !unavailable.contains(target)
+            && state.apply(.string("b"), forPropertyKey: "music",
+                unavailableConsumerTargets: unavailable) && state.revision == 3
+        let missingRecoveryInput = vector.evaluate(inputs: [:],
+            effectivePropertyValues: state.effectiveValues, frame: frame, propertyRevision: state.revision)
+        let wrongRecoveryInput = vector.evaluate(inputs: [target: .scalar(1)],
+            effectivePropertyValues: state.effectiveValues, frame: frame, propertyRevision: state.revision)
+        facts["unprepared_input_does_not_consume_recovery"] = missingRecoveryInput.values.isEmpty
+            && wrongRecoveryInput.values.isEmpty && vector.disabledTargets.contains(target)
+            && originalOwner.canRetryUserPropertyCallback(at: state.revision)
+        let beforeRecovery = vector.frameStateSnapshot()
+        let recovered = evaluate()
+        facts["recovery_uses_original_owner"] = isSoundPlay(recovered)
+            && vector.bindings[0].owner === originalOwner
+            && !vector.disabledTargets.contains(target)
+        facts["same_revision_before_commit_does_not_duplicate_event"] = evaluate().mediaPlaybackCommands.isEmpty
+        vector.restoreFrameState(beforeRecovery, rejectedOwnerTargets: [target])
+        vector.finalizeLayerMutations(committing: true, rejectedOwnerTargets: [target])
+        let recoveredAfterRejection = evaluate()
+        facts["reverted_ack_recovery_survives_cohort_rejection"] = isSoundPlay(recoveredAfterRejection)
+            && vector.bindings[0].owner === originalOwner
+            && !vector.disabledTargets.contains(target)
+        vector.finalizeLayerMutations(committing: true)
+        let afterRecovery = evaluate()
+        facts["recovery_event_acked_once"] = afterRecovery.failures.isEmpty
+            && afterRecovery.mediaPlaybackCommands.isEmpty
+        vector.finalizeLayerMutations(committing: true)
+
+        let multikey = SceneScriptVectorProgram.compile(domain: try SceneScriptQuickJSDomain(),
+            descriptor: descriptor, scriptBindings: [binding("""
+                let musicState = 0, otherState = 0;
+                export function init(value) { return value; }
+                export function applyUserProperties(changed) {
+                    if (changed.hasOwnProperty('music')) {
+                        if (engine.userProperties.music === 'disable') throw Error('bad music');
+                        musicState = engine.userProperties.music === 'b' ? 2 : 1;
+                    }
+                    if (changed.hasOwnProperty('other'))
+                        otherState = engine.userProperties.other === 'b' ? 20 : 10;
+                }
+                export function update(value) { value.x = musicState + otherState; return value; }
+                """)], userPropertyDefinitions: [definition("music"), definition("other")], generation: 42)
+        func multikeyEvaluate(_ music: String, _ other: String, _ revision: UInt64) -> SceneScriptVectorFrameResult {
+            multikey.evaluate(inputs: input,
+                effectivePropertyValues: ["music": .string(music), "other": .string(other)],
+                frame: frame, propertyRevision: revision)
+        }
+        let multikeyInitial = multikeyEvaluate("a", "a", 0)
+        multikey.finalizeLayerMutations(committing: true)
+        let multikeyFailure = multikeyEvaluate("disable", "a", 1)
+        multikey.finalizeLayerMutations(committing: false)
+        let multikeyAck = multikey.frameStateSnapshot()
+        let multikeyRecovery = multikeyEvaluate("a", "b", 2)
+        multikey.restoreFrameState(multikeyAck, rejectedOwnerTargets: [target])
+        multikey.finalizeLayerMutations(committing: true, rejectedOwnerTargets: [target])
+        let multikeyReverted = multikeyEvaluate("a", "a", 3)
+        facts["rejected_recovery_retains_all_delivered_changed_keys"] = multikeyInitial.values[target] == .vector3(11, 0, 0)
+            && multikeyFailure.failures[target] != nil
+            && multikeyRecovery.values[target] == .vector3(21, 0, 0)
+            && multikeyReverted.values[target] == .vector3(11, 0, 0)
+        multikey.finalizeLayerMutations(committing: true)
+
+        let updateFailure = SceneScriptVectorProgram.compile(domain: try SceneScriptQuickJSDomain(),
+            descriptor: descriptor, scriptBindings: [binding("""
+                export function applyUserProperties(changed) {}
+                export function update(value) { throw Error('value failed'); }
+                """)], userPropertyDefinitions: [definition("music")], generation: 3)
+        _ = updateFailure.evaluate(inputs: input, effectivePropertyValues: ["music": .string("a")],
+            frame: frame, propertyRevision: 0)
+        facts["update_failure_not_reopened"] = updateFailure.disabledTargets.contains(target)
+            && !updateFailure.activeLivePropertyInputTargets.contains(target)
+        let updateAgain = updateFailure.evaluate(inputs: input,
+            effectivePropertyValues: ["music": .string("b")], frame: frame, propertyRevision: 1)
+        facts["new_revision_does_not_reopen_update_failure"] = updateAgain.values.isEmpty
+            && updateFailure.disabledTargets.contains(target)
+
+        let timerFailure = SceneScriptVectorProgram.compile(domain: try SceneScriptQuickJSDomain(),
+            descriptor: descriptor, scriptBindings: [binding("""
+                export function init(value) { engine.setTimeout(() => {}, 100000); return value; }
+                export function applyUserProperties(changed) {
+                    if (engine.userProperties.music === 'disable') throw Error('pending work');
+                }
+                """)], userPropertyDefinitions: [definition("music")], generation: 4)
+        _ = timerFailure.evaluate(inputs: input, effectivePropertyValues: ["music": .string("a")],
+            frame: frame, propertyRevision: 0)
+        timerFailure.finalizeLayerMutations(committing: true)
+        _ = timerFailure.evaluate(inputs: input, effectivePropertyValues: ["music": .string("disable")],
+            frame: frame, propertyRevision: 1)
+        facts["pending_timer_keeps_original_rejection"] = timerFailure.disabledTargets.contains(target)
+            && !timerFailure.activeLivePropertyInputTargets.contains(target)
+
+        let overflowDescriptor = SceneRenderDescriptor(layers: ([10] + (1...257).filter { $0 != 10 }).enumerated().map { index, id in
+            .init(id: id, layerIndex: index, name: "entry\(id)", visible: true,
+                originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1, effects: [])
+        })
+        let overflowDomain = try SceneScriptQuickJSDomain()
+        let overflowProgram = SceneScriptVectorProgram.compile(domain: overflowDomain,
+            descriptor: overflowDescriptor, scriptBindings: [binding("""
+                export function init(value) { return value; }
+                export function applyUserProperties(renamed) {
+                    for (let index = 1; index <= 257; index++)
+                        thisScene.getLayer('entry' + index).alpha = 0.5;
+                }
+                """)], userPropertyDefinitions: [definition("music")], generation: 41)
+        try overflowDomain.publishLayerSnapshot(.empty(frameIndex: 0), descriptor: overflowDescriptor)
+        let overflowResult = overflowProgram.evaluate(inputs: input,
+            effectivePropertyValues: ["music": .string("a")], frame: frame, propertyRevision: 0)
+        if case .mutationOverflow? = overflowResult.failures[target] {
+            facts["host_layer_overflow_keeps_safety_fuse"] = overflowProgram.bindings.count == 1
+                && !overflowProgram.activeLivePropertyInputTargets.contains(target)
+                && overflowResult.layerMutations.isEmpty
+        } else { facts["host_layer_overflow_keeps_safety_fuse"] = false }
+
+        let initiallyBad = SceneScriptVectorProgram.compile(domain: try SceneScriptQuickJSDomain(),
+            descriptor: descriptor, scriptBindings: [binding("""
+                export function init(value) { return value; }
+                export function applyUserProperties(changed) {
+                    thisScene.getLayer('sound').play();
+                    throw Error('local callback failure');
+                }
+                """)], userPropertyDefinitions: [definition("music"), definition("other")], generation: 5)
+        let initialBad = initiallyBad.evaluate(inputs: input,
+            effectivePropertyValues: ["music": .string("a"), "other": .string("a")],
+            frame: frame, propertyRevision: 0)
+        initiallyBad.finalizeLayerMutations(committing: false)
+        var recoveringState = ScenePropertyLiveUpdateState(program: properties,
+            effectiveValues: ["music": .string("a"), "other": .string("a")],
+            activeConsumerTargets: initiallyBad.livePropertyInputTargets,
+            scriptUserPropertyConsumerTargetsByKey: initiallyBad.liveUserPropertyConsumerTargetsByKey)
+        let badUnavailable = initiallyBad.livePropertyInputTargets
+            .subtracting(initiallyBad.activeLivePropertyInputTargets)
+        facts["initial_callback_failure_keeps_other_edits_live"] = initialBad.failures[target] != nil
+            && initialBad.mediaPlaybackCommands.isEmpty
+            && recoveringState.apply(.string("b"), forPropertyKey: "other",
+                unavailableConsumerTargets: badUnavailable)
+        let badAgain = initiallyBad.evaluate(inputs: input,
+            effectivePropertyValues: recoveringState.effectiveValues,
+            frame: frame, propertyRevision: recoveringState.revision)
+        facts["repeated_callback_failure_stays_local"] = badAgain.failures[target] != nil
+            && badAgain.mediaPlaybackCommands.isEmpty && initiallyBad.disabledTargets.contains(target)
+            && recoveringState.effectiveValues["other"] == .string("b")
+        initiallyBad.finalizeLayerMutations(committing: false)
+        let owner = initiallyBad.bindings[0].owner
+        facts["stale_generation_cannot_clear_fuse"] = owner.canRetryUserPropertyCallback
+            && !mwx_scene_quickjs_owner_retry_user_properties(owner.handle, 6)
+            && owner.canRetryUserPropertyCallback
+
+        let recoverySource = """
+            export function init(value) { return value; }
+            export function applyUserProperties(payload) {
+                if (payload.music === 'disable') throw Error('property fault');
+            }
+            """
+        let scalarTarget = SceneDynamicTarget.layer(layerID: 10, field: .alpha)
+        let scalarBinding = SceneScriptBindingIR(source: recoverySource,
+            owner: .init(kind: .object, objectIndex: 0, objectID: 10,
+                effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
+            targetPath: [.key("objects"), .index(0), .key("alpha")], properties: [:],
+            authoredValue: .number(1), valueType: .number, wrapperKeys: ["script", "value"])
+        let scalarDomain = try SceneScriptQuickJSDomain()
+        try scalarDomain.configureLayerCatalog(descriptor)
+        try scalarDomain.publishLayerSnapshot(.empty(frameIndex: 0), descriptor: descriptor)
+        let scalar = SceneScriptScalarProgram.compile(domain: scalarDomain,
+            descriptor: descriptor, scriptBindings: [scalarBinding],
+            userPropertyDefinitions: [definition("music")], generation: 20)
+        let scalarBad = scalar.evaluate(inputs: [scalarTarget: .scalar(1)], frame: frame,
+            effectivePropertyValues: ["music": .string("disable")], propertyRevision: 0)
+        scalar.finalizeLayerMutations(committing: false)
+        let scalarGood = scalar.evaluate(inputs: [scalarTarget: .scalar(1)], frame: frame,
+            effectivePropertyValues: ["music": .string("a")], propertyRevision: 1)
+        facts["scalar_program_admitted"] = scalar.bindings.count == 1
+        facts["scalar_property_failure_observed"] = scalarBad.failures[scalarTarget] != nil
+        facts["scalar_retry_completed"] = scalarGood.failures.isEmpty && !scalar.disabledTargets.contains(scalarTarget)
+        facts["scalar_program_recovery"] = scalar.bindings.count == 1
+            && scalarBad.failures[scalarTarget] != nil && scalarGood.failures.isEmpty
+            && scalarGood.values[scalarTarget] == .scalar(1)
+        scalar.finalizeLayerMutations(committing: true)
+        let textDescriptor = SceneRenderDescriptor(layers: [.init(id: 10, layerIndex: 0,
+            name: "renamed text", visible: true, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+            alpha: 1, effects: [], contentKind: "text", textScript: .init(source: recoverySource),
+            text: "seed", textStyle: .init(fontPath: nil, colorRGB: [1, 1, 1], pointSize: 32))])
+        let textBinding = SceneScriptBindingIR(source: recoverySource,
+            owner: .init(kind: .object, objectIndex: 0, objectID: 10,
+                effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
+            targetPath: [.key("objects"), .index(0), .key("text")], properties: [:],
+            authoredValue: .string("seed"), valueType: .string, wrapperKeys: ["script", "value"])
+        let textDomain = try SceneScriptQuickJSDomain()
+        try textDomain.configureLayerCatalog(textDescriptor)
+        let text = SceneScriptStringProgram.compile(domain: textDomain,
+            descriptor: textDescriptor, scriptBindings: [textBinding],
+            userPropertyDefinitions: [definition("music")], generation: 21)
+        let textTarget = SceneDynamicTarget.text(layerID: 10, field: .content)
+        let textBad = text.evaluate(inputs: [textTarget: .string("seed")],
+            effectivePropertyValues: ["music": .string("disable")], propertyRevision: 0, frame: frame)
+        text.finalizeLayerMutations(committing: false)
+        let textGood = text.evaluate(inputs: [textTarget: .string("seed")],
+            effectivePropertyValues: ["music": .string("a")], propertyRevision: 1, frame: frame)
+        facts["string_program_recovery"] = text.bindings.count == 1
+            && textBad.failures[textTarget] != nil && textGood.failures.isEmpty
+            && textGood.values[textTarget] == .string("seed")
+        text.finalizeLayerMutations(committing: true)
+        let malformedDomain = try SceneScriptQuickJSDomain()
+        try malformedDomain.configureLayerCatalog(descriptor)
+        try malformedDomain.publishLayerSnapshot(.empty(frameIndex: 0), descriptor: descriptor)
+        let malformedProgram = SceneScriptVectorProgram.compile(domain: malformedDomain,
+            descriptor: descriptor, scriptBindings: [binding(
+                "export function init(value) { return value; } export function applyUserProperties(payload) {}")],
+            userPropertyDefinitions: [definition("music")], generation: 40)
+        let malformedWarm = malformedProgram.evaluate(inputs: input,
+            effectivePropertyValues: ["music": .string("a")], frame: frame, propertyRevision: 0)
+        malformedProgram.finalizeLayerMutations(committing: true)
+        let malformedOwner = malformedProgram.bindings[0].owner
+        let malformedResult = malformedOwner.dispatchUserProperties(changedPropertiesJSON: "{bad",
+            scriptPropertiesJSON: "{}", frame: frame, userPropertiesJSON: "{}", propertyRevision: 1)
+        facts["invalid_payload_fixture_warmed"] = malformedWarm.failures.isEmpty
+        if case .failure = malformedResult {
+            facts["invalid_json_payload_rejected"] = true
+        } else { facts["invalid_json_payload_rejected"] = false }
+        facts["invalid_event_payload_is_not_authored_failure"] = !malformedOwner.canRetryUserPropertyCallback
+            && !malformedOwner.retryUserPropertyCallback(propertyRevision: 1)
+        _ = owner.teardown(frame: frame, scriptPropertiesJSON: "{}", userPropertiesJSON: "{}")
+        facts["teardown_revokes_recovery"] = !owner.canRetryUserPropertyCallback
+            && !owner.retryUserPropertyCallback(propertyRevision: 2)
 
         let pure = SceneScriptVectorProgram.compile(domain: try SceneScriptQuickJSDomain(),
             descriptor: descriptor, scriptBindings: [binding(
@@ -162,7 +386,7 @@ class SceneVectorLivePropertyEventTests(unittest.TestCase):
                 (root / "returncode.json").write_text(json.dumps(result.returncode) + "\n")
             self.assertEqual(result.returncode, 0, result.stderr)
             facts = json.loads(result.stdout)
-            self.assertEqual(len(facts), 11)
+            self.assertIn("recovery_uses_original_owner", facts)
             self.assertTrue(all(facts.values()), {key: value for key, value in facts.items() if not value})
 
 

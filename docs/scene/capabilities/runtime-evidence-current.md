@@ -16,6 +16,7 @@
 |---|---|
 | App音频触发桌面冻结 | [普通桌面权限与资源驻留](../history/terminal-attachment-desktop-freeze-2026-10-10.md)：包含342真实App音频、封面依赖/热切与312健康回归；亮度、性能及证据边界见该页。 |
 | 样本声明与运行关联 | [243份声明快照](scene-corpus-capability-inventory.md)、[验收来源](scene-sample-acceptance-ledger.md)保留旧身份；[10-11新增37份普查](../history/new-scene-intake-2026-10-11.md)补当前279成员中的新增运行，未验全库正确率；待修归[队列](../roadmap/scene-open-breakpoint-queue.md) |
+| 属性异常恢复/编辑CPU | [局部恢复后验](../history/property-callback-recovery-2026-10-14.md)：真实云层显隐、同窗口热更新及三轮操作窗CPU；原样本粒子/颜色异常及独立矩阵旧FAIL保留，不计稳态/能耗。 |
 | 原生属性面板/CPU | [原生列表后验](../history/native-property-list-convergence-2026-10-14.md)：系统首尾、实际格式/灯光热更新与三轮有界CPU；完整键盘chrome、多surface、媒体及engine性能未闭。 |
 | Sampler与纹理发布 | [mip](../history/compiled-data-mip-preservation-2026-10-12.md)；[取余](../history/scalar-floating-remainder-2026-10-12.md)；[视频asset与日期复验](../history/material-video-assets-2026-10-12.md)。 |
 | Graph颜色用途与旧验证债 | [用途协调与合成验收](../history/graph-color-purpose-reconciliation-2026-10-12.md)：graph传输与直色数学复用原转换，旧中间PMA/末合成fixture更正；真实296未见节点恢复，独立213画面保持，不计整样本收益。 |

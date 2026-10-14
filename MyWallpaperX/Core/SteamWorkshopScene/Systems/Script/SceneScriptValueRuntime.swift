@@ -25,6 +25,9 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     private var initializationValueConsumed = false
     private var lastAudioGeneration: UInt64?
     private var pendingCursorEvaluation = false
+    private var lastUserPropertyAttemptRevision: UInt64?
+    private(set) var retryUserPropertyValues: [String: SceneUserPropertyValue]?
+    private(set) var pendingUserPropertyRecoveryKeys: Set<String> = []
 
     var pendingLayerTopologyIdentity: UInt64? {
         let identity = mwx_scene_quickjs_owner_pending_layer_topology_identity(handle)
@@ -749,15 +752,39 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         )
     }
 
+    var canRetryUserPropertyCallback: Bool {
+        retryUserPropertyValues != nil && lastUserPropertyAttemptRevision != nil
+            && mwx_scene_quickjs_owner_can_retry_user_properties(handle)
+    }
+
+    func canRetryUserPropertyCallback(at propertyRevision: UInt64?) -> Bool {
+        guard canRetryUserPropertyCallback, let propertyRevision, let lastUserPropertyAttemptRevision,
+              propertyRevision > lastUserPropertyAttemptRevision else { return false }
+        return true
+    }
+
+    func retryUserPropertyCallback(propertyRevision: UInt64?) -> Bool {
+        guard canRetryUserPropertyCallback(at: propertyRevision) else { return false }
+        return mwx_scene_quickjs_owner_retry_user_properties(handle, generation)
+    }
+
     func dispatchUserProperties(
         changedPropertiesJSON: String,
         scriptPropertiesJSON: String,
         frame: SceneScriptFrameInput,
         userPropertiesJSON: String,
-        interruptBudget: UInt64? = nil
+        interruptBudget: UInt64? = nil,
+        propertyRevision: UInt64? = nil,
+        effectivePropertyValues: [String: SceneUserPropertyValue]? = nil
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
+        lastUserPropertyAttemptRevision = propertyRevision
+        if let previous = retryUserPropertyValues, let current = effectivePropertyValues {
+            pendingUserPropertyRecoveryKeys.formUnion(Set(previous.keys).union(current.keys).filter {
+                previous[$0] != current[$0]
+            })
+        }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
-        return SceneScriptMediaEventBridge.dispatchUserProperties(
+        let result = SceneScriptMediaEventBridge.dispatchUserProperties(
             owner: handle,
             namedAnimationTargets: domain.namedAnimationTargets ?? [],
             target: target,
@@ -768,6 +795,10 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             frame: frame,
             userPropertiesJSON: userPropertiesJSON
         )
+        if propertyRevision != nil, mwx_scene_quickjs_owner_can_retry_user_properties(handle) {
+            retryUserPropertyValues = effectivePropertyValues
+        }
+        return result
     }
 
     func dispatchCursor(
@@ -818,6 +849,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
 
     func commitLayerMutations() {
         pendingCursorEvaluation = false
+        retryUserPropertyValues = nil
+        pendingUserPropertyRecoveryKeys.removeAll(keepingCapacity: true)
         SceneScriptLayerMutationBridge.commit(owner: handle)
         if initializationValueConsumed { pendingInitializationValue = nil }
         initializationValueConsumed = false

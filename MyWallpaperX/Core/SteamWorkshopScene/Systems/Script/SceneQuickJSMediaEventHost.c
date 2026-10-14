@@ -33,10 +33,14 @@ static MWXSceneQuickJSResult callback_failure(
     );
     if (owner->material_function_overflow || owner->animation_command_overflow ||
         owner->media_playback_command_overflow || owner->texture_animation_command_overflow || owner->particle_playback_command_overflow ||
-            owner->storage_mutation_overflow) {
+        owner->storage_mutation_overflow || owner->layer_mutation_overflow ||
+        owner->puppet_animation_command_overflow) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic,
             diagnostic_capacity,
+            owner->layer_mutation_overflow ? "layer mutation buffer exceeded" :
+            owner->puppet_animation_command_overflow ? "Puppet animation command buffer exceeded" :
+            owner->particle_playback_command_overflow ? "particle playback command buffer exceeded" :
             owner->storage_mutation_overflow
                 ? "localStorage mutation buffer exceeded"
                 : (owner->texture_animation_command_overflow
@@ -443,7 +447,8 @@ static MWXSceneQuickJSResult dispatch_event(
     mwx_scene_quickjs_begin_callback(owner);
 
     JSValue argument = argument_factory(context, payload);
-    JSValue result = JS_IsException(argument)
+    const bool called_author = !JS_IsException(argument);
+    JSValue result = !called_author
         ? JS_EXCEPTION
         : JS_Call(context, function, owner->module, 1, &argument);
     JS_FreeValue(context, argument);
@@ -481,7 +486,10 @@ static MWXSceneQuickJSResult dispatch_event(
     }
     if (JS_IsException(result)) {
         JS_FreeValue(context, result);
-        return callback_failure(owner, diagnostic, diagnostic_capacity);
+        MWXSceneQuickJSResult failure = callback_failure(owner, diagnostic, diagnostic_capacity);
+        owner->retryable_user_property_callback = called_author && failure == MWX_SCENE_QUICKJS_EXCEPTION
+            && strcmp(callback_name, "applyUserProperties") == 0;
+        return failure;
     }
     JS_FreeValue(context, result);
     return MWX_SCENE_QUICKJS_OK;
@@ -654,6 +662,22 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_properties(
         diagnostic,
         diagnostic_capacity
     );
+}
+
+bool mwx_scene_quickjs_owner_can_retry_user_properties(MWXSceneQuickJSOwner *owner) {
+    return owner != NULL && owner->disabled && owner->retryable_user_property_callback
+        && !owner->teardown_started && owner->domain->active_owner == NULL
+        && mwx_scene_quickjs_owner_active_timer_count(owner) == 0
+        && !mwx_scene_quickjs_owner_has_pending_puppet_animation_end(owner);
+}
+
+bool mwx_scene_quickjs_owner_retry_user_properties(MWXSceneQuickJSOwner *owner, uint64_t generation) {
+    if (!mwx_scene_quickjs_owner_can_retry_user_properties(owner) || owner->generation != generation) {
+        return false;
+    }
+    owner->retryable_user_property_callback = false;
+    owner->disabled = false;
+    return true;
 }
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_user_properties(
