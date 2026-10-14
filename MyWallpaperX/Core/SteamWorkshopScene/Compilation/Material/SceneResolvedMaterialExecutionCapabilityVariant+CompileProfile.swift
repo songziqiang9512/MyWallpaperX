@@ -4,6 +4,7 @@ import QuartzCore
 /// Launch-only aggregate profile of the per-variant compilation segments.
 /// The capability catalog resets it once per construction and logs one
 /// summary after its parallel workers finish; ordinary frames never touch it.
+/// Durations include failed attempts and sum overlapping worker intervals.
 nonisolated enum SceneResolvedMaterialVariantCompileProfile {
     private static let lock = NSLock()
     private static var prepareMs: Double = 0
@@ -11,7 +12,6 @@ nonisolated enum SceneResolvedMaterialVariantCompileProfile {
     private static var analysisMs: Double = 0
     private static var artifactMs: Double = 0
     private static var variants = 0
-    private static var totalStart: Double = 0
     private static var totalMs: Double = 0
 
     static func reset() {
@@ -21,20 +21,20 @@ nonisolated enum SceneResolvedMaterialVariantCompileProfile {
             analysisMs = 0
             artifactMs = 0
             variants = 0
-            totalStart = 0
             totalMs = 0
         }
     }
 
-    static func beginVariant() {
-        lock.withLock {
-            totalStart = CACurrentMediaTime()
-        }
+    static func beginVariant() -> Double {
+        CACurrentMediaTime()
     }
 
-    static func endVariant() {
+    static func endVariant(startedAt: Double) {
+        // Each parallel worker owns its start; these durations are summed
+        // work intervals, not the capability catalog's wall-clock interval.
+        let elapsedMs = (CACurrentMediaTime() - startedAt) * 1000
         lock.withLock {
-            totalMs += (CACurrentMediaTime() - totalStart) * 1000
+            totalMs += elapsedMs
             variants += 1
         }
     }

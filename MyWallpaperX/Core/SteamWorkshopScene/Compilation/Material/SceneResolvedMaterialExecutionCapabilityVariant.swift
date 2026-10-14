@@ -292,7 +292,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         // two optional slots were present. The helper falls back to the
         // historical exhaustive set when schema projection is unavailable.
         for availability in SceneResolvedMaterialShaderSchema
-            .launchAvailabilityMasks(template)
+            .launchAvailabilityMasks(template, seedSamplers: seedSamplers)
         {
             var samplers = seedSamplers
             var graphInputFacts: [

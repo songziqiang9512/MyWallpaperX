@@ -213,12 +213,12 @@
       "bytes": 7353
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 44,
-      "bytes": 10952
+      "lines": 49,
+      "bytes": 11805
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 26,
-      "bytes": 8333
+      "bytes": 8377
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
@@ -1088,21 +1088,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "0f60e523b6330e56c9c93baea264087708fa664193629dd7291920c74cf48df7",
-      "after": "4ae3b895a7b68ffbb92c04da3e633f6d3097fcd12833c1780dbbc60de7a18a25",
-      "owner": "scene-properties-detail",
-      "reason": "将已落库详情失效设计收敛为现役合同及已验局部结果，保force/IO/保守分支与下一项CPU/RAM归因；过程转history，不复制原数。",
-      "decision": "docs/scene/roadmap/properties-panel-card.md#detail-display-invalidation"
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "53b1b7f0c6cfa330604636dccf2c2ee0cbb7a501e7e593f64c3fd28285bd842f",
+      "after": "02268839b07618d8db84d142a980f44fb057f327095b58df1593dc16642d8908",
+      "owner": "scene-sampler-preparation",
+      "reason": "记录seed消重暖启动窄接受，撤回混钟secondary并指向receipt重算/独立8s内存信号与来源分类；属性卡只转交准备性能权威。",
+      "decision": "docs/scene/roadmap/performance-convergence-card.md#sampler-seed-preparation"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "1aec4cfa316c3e085a29a97bdd1bb017a1d3fa7acf1c0197a7d6569cdc9b8c7d",
-      "after": "53b1b7f0c6cfa330604636dccf2c2ee0cbb7a501e7e593f64c3fd28285bd842f",
-      "owner": "scene-properties-detail",
-      "reason": "将已落库详情失效设计收敛为现役合同及已验局部结果，保force/IO/保守分支与下一项CPU/RAM归因；过程转history，不复制原数。",
-      "decision": "docs/scene/roadmap/properties-panel-card.md#detail-display-invalidation"
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "4ae3b895a7b68ffbb92c04da3e633f6d3097fcd12833c1780dbbc60de7a18a25",
+      "after": "a71ca4b0a0b58e2d13a804a525c8310d56502f7f5853d300ddc6799f3ad1ad8c",
+      "owner": "scene-sampler-preparation",
+      "reason": "记录seed消重暖启动窄接受，撤回混钟secondary并指向receipt重算/独立8s内存信号与来源分类；属性卡只转交准备性能权威。",
+      "decision": "docs/scene/roadmap/performance-convergence-card.md#sampler-seed-preparation"
     }
   ]
 }

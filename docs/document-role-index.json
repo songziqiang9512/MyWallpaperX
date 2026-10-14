@@ -2243,6 +2243,18 @@
       ]
     },
     {
+      "path": "docs/scene/history/sampler-seed-preparation-convergence-2026-10-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-15",
+      "uniqueValue": "同template完整sampler seed消重、五对暖A2窄接受、原生画面、混钟secondary撤回/receipt重算与独立8s内存信号"
+    },
+    {
       "path": "docs/scene/history/saturn-light-delivery-2026-10-07.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -2887,10 +2899,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f3648e5abf42dc783c31304f4f6ffbcdc07ff8223e8a6990093c225cb19fd311",
+        "sourceSHA256": "e6ef988a366ccf5f41b54e052fe0842e4a7ad308abd29632aa4542120bd27305",
         "method": "document_registry --audit + document_health --check",
-        "scope": "详情失效现役合同/52行为门/controlled局部CPU与原生验收的职责导航，后继暖capability CPU/RAM归因；旧NO-GO保留",
-        "limitations": "仅文档与导航核对，运行范围由history证据限定；不称整App性能、多屏、全部媒体入口或官方parity。"
+        "scope": "sampler完整seed消重、暖启动窄接受/原生画面；secondary混钟撤回与receipt重算，独立8s后继及内存来源分类；旧NO-GO保留",
+        "limitations": "仅文档职责/导航核对；不沿用无效secondary，不冒充精确整phase CPU、RAM收益/真实peak安全或完整性能验收。"
       }
     },
     {
@@ -2901,10 +2913,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0c06c1d46cb6094da53b734c5a5d83620a44f8a99584f9de8831f1db0c0e4dc7",
+        "sourceSHA256": "9b751910e304806888af059a84f70b9d469085ad60bc1de0612254e697e29b4c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "详情失效现役合同/52行为门/controlled局部CPU与原生验收的职责导航，后继暖capability CPU/RAM归因；旧NO-GO保留",
-        "limitations": "仅文档与导航核对，运行范围由history证据限定；不称整App性能、多屏、全部媒体入口或官方parity。"
+        "scope": "sampler完整seed消重、暖启动窄接受/原生画面；secondary混钟撤回与receipt重算，独立8s后继及内存来源分类；旧NO-GO保留",
+        "limitations": "仅文档职责/导航核对；不沿用无效secondary，不冒充精确整phase CPU、RAM收益/真实peak安全或完整性能验收。"
       }
     },
     {

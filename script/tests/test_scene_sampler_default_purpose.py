@@ -21,7 +21,8 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 from scene_swift_source_sets import scene_swift_sources  # noqa: E402
 
 
-SWIFT_SOURCES = [
+# Named boundaries can share support sources; compose their union once.
+SWIFT_SOURCES = list(dict.fromkeys([
     SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift",
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
@@ -56,7 +57,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTexturePathResolver.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneMaterialAssetTextureCatalog.swift",
     *scene_swift_sources("resolved_material_frame_finalization"),
-]
+]))
 
 
 SUPPORT = r'''

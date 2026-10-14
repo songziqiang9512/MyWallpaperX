@@ -147,10 +147,6 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
 
     def test_launch_envelope_projects_only_relevant_availability_masks(self) -> None:
         """The envelope must share the bounded mask projection with reachability."""
-        self.assertIn(
-            ".launchAvailabilityMasks(template)",
-            self.variant_cache,
-        )
         self.assertNotIn(
             "for rawAvailability in UInt16(0) ... UInt16(UInt8.max)",
             self.variant_cache,

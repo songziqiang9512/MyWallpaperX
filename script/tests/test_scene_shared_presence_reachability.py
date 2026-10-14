@@ -157,6 +157,12 @@ private func facts(_ value: Template, absentSlots: Set<Int> = []) -> [String: An
         "masks": SceneResolvedMaterialShaderSchema.launchAvailabilityMasks(value).map(Int.init),
     ]
     do {
+        let seed = try SceneResolvedMaterialShaderSchema.unconditionalSamplers(value)
+        facts["seededMasks"] = SceneResolvedMaterialShaderSchema.launchAvailabilityMasks(
+            value, seedSamplers: seed).map(Int.init)
+        facts["seedIsEmpty"] = seed.isEmpty
+    } catch { facts["seedFailure"] = String(describing: error) }
+    do {
         let reachable = try SceneResolvedMaterialShaderSchema.reachableSamplers(
             value, implicitFramebufferIdentity: nil)
         facts["reachable"] = reachable.keys.sorted()
@@ -227,6 +233,8 @@ private func facts(_ value: Template, absentSlots: Set<Int> = []) -> [String: An
         renamedReferences[1] = .asset(SceneVFSAssetPath("renamed/source-red")!)
         renamedReferences[2] = .asset(SceneVFSAssetPath("renamed/source-blue")!)
         var results: [String: Any] = [
+            "emptySeed": facts(template(contract("no-samplers",
+                "void main() { gl_FragColor = vec4(1.0); }"), references: [:])),
             "consensus": facts(template(shader, references: references)),
             "actualAssetMixed": facts(template(shader, references: references), absentSlots: [2]),
             "selfGated": facts(template(selfGated, references: references)),
@@ -334,6 +342,16 @@ class SceneSharedPresenceReachabilityTests(unittest.TestCase):
         self.assertIn("explicit-texture-readiness-conflict", self.result["explicitConflict"]["launch"])
         self.assertNotEqual(self.result["malformed"]["launch"], "accepted")
         self.assertIn("invalid-annotation", self.result["malformedPreparation"])
+
+    def test_same_template_seed_preserves_complete_availability_projection(self) -> None:
+        for name in ("emptySeed", "consensus", "renamed", "unguarded", "selfGated",
+                     "actualAssetMixed", "defaultConflict", "explicitConflict"):
+            with self.subTest(name=name):
+                facts = self.result[name]
+                self.assertNotIn("seedFailure", facts, facts)
+                self.assertEqual(facts["seededMasks"], facts["masks"], facts)
+        self.assertTrue(self.result["emptySeed"]["seedIsEmpty"])
+        self.assertEqual(self.result["emptySeed"]["seededMasks"], [0])
 
     def test_independent_inactive_and_unproven_source_slots_are_not_constrained(self) -> None:
         for name in ("independentMasks", "conditionalMasks", "requirementMasks", "providerMasks",

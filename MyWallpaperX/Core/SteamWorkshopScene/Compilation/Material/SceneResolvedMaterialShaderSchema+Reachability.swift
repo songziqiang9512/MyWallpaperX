@@ -68,7 +68,7 @@ extension SceneResolvedMaterialShaderSchema {
 
         let bootstrap = try unconditionalSamplers(template)
         var reachable: [Int: Set<Sampler>] = [:]
-        for availability in launchAvailabilityMasks(template) {
+        for availability in launchAvailabilityMasks(template, seedSamplers: bootstrap) {
             var active = bootstrap
             var seen: Set<UInt8> = []
             var stable = false
@@ -147,9 +147,12 @@ extension SceneResolvedMaterialShaderSchema {
     /// the fixed-point cost for all 256 masks even when its graph exposes no
     /// readiness slots. When metadata cannot be projected safely, retain the
     /// exhaustive set so malformed contracts keep their historical rejection
-    /// behavior.
+    /// behavior. A caller that already resolved the unconditional seed for
+    /// this same immutable template passes it through, avoiding a second
+    /// bootstrap canonicalization and sampler analysis in this preparation.
     nonisolated static func launchAvailabilityMasks(
-        _ template: Template
+        _ template: Template,
+        seedSamplers: [Int: Sampler]? = nil
     ) -> [UInt8] {
         guard let readinessSlots = readinessComboSlotMask(template) else {
             return Array(UInt8.min ... UInt8.max)
@@ -165,7 +168,7 @@ extension SceneResolvedMaterialShaderSchema {
         }
         let relevantSlots = readinessSlots & optionalCandidateSlots
         guard let graph = template.shaderContract.sourceGraph,
-              let samplers = try? unconditionalSamplers(template),
+              let samplers = seedSamplers ?? (try? unconditionalSamplers(template)),
               let schemas = try? SceneShaderVariantSchemaSeed.unconditional(
                   contract: template.shaderContract, graph: graph
               ).flatMap(SceneShaderVariantResolver.schemas(in:)) else {
