@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 30,
-      "bytes": 8875
+      "bytes": 9308
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1382,11 +1382,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "c981a8abcffd593872e37289788e779855c9ab009fbc9dd4e18ac2eb5cdb4a72",
-      "after": "1288344b98cde1779bffe464a403456d18aefe6ae74c4f525e27265b8f8dbff0",
-      "owner": "Scene performance convergence",
-      "reason": "Record rejected working-view query screens and route the next measured CPU candidate without claiming global benefit.",
-      "decision": "docs/scene/history/graph-residency-query-convergence-2026-10-14.md"
+      "before": "1288344b98cde1779bffe464a403456d18aefe6ae74c4f525e27265b8f8dbff0",
+      "after": "0ae7d8b96b59a828027c68d06c329455eb340fe83d858d2424b398f72bd7e4c0",
+      "owner": "scene-runtime-maintainer",
+      "reason": "Record rejected particle and GPU copy candidates; route next experiment to repeated Encoder static admission.",
+      "decision": "docs/development/repository-workflow.md#设计判定与记录"
     }
   ]
 }

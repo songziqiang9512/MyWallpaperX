@@ -51,3 +51,9 @@
 随后沿冻结App `ee885541…`、真实304、相同优化诊断配置采一个Layer帧，App退出后仅做一次离线profile。[离线归因摘要](../../../.artifacts/tmp/gpu-execution-attribution-20261014/offline/result-summary.json)保留最高普通draw的command-scope fragment ALU计数222,754,400，Integer/Conditional/Boolean占70.21%，float/half占17.02%/12.77%，ALU inefficiency为0.13%。工具将后者定义为分歧、部分SIMD或不完整2×2覆盖导致的predicated-out指令比例；它降低“大面积分歧浪费”的排查优先级，不定位某条源码或证明sampler/modulation成本。普通shader聚合Cost64.7737%、最高draw11.9221%仍是工具Cost，不是独占时间。
 
 请求default/overlapping，嵌入记录为medium、仅2/10核；shader timeline末点13.029ms还超过全帧显示10.246125ms，原值并存，不强算critical path。四类heatmap已保存；视看cost/non-ALU/divergence仅见稀疏tile，未建立内容局部热点，黑区不能当零成本，跨图颜色不能推算时间比。已终止唯一session，默认临时目录的9个输出逐一验SHA后迁入证据目录并删除原副本。此次停止探针和盲目shader修改：没有源码行归因、候选对照或性能收益，未完成GPU/能耗验收；执行顺序仍归性能卡。
+
+## 后继：source capture exact-copy资格筛选
+
+冻结App `86b320df…`、真实304和同一优化诊断配置，在观测ready后30.029秒采一个Layer帧。App正常exit0，报告仍仅原`particle loading incomplete` FAIL。随后唯一session27只读取descriptor、PSO及66份inline uniform，不运行profile；[逐capture结果](../../../.artifacts/tmp/source-capture-eligibility-20261014/offline/eligibility.json)与[摘要](../../../.artifacts/tmp/source-capture-eligibility-20261014/result-summary.json)确认33/33不满足中性exact-copy：29次尺寸不同、30次格式不同，另有4次alpha和1次tint非中性；原因可重叠。仅4次同尺寸也均RGBA8→BGRA8。工具未显示的mip/sample/clearColor保留missing，已有尺寸/格式反例足以拒绝全部，不能把缺字段记作已验。
+
+因此停止该fastpath，不写产品、不补像素实验、不计GPU/CPU/内存收益。后继只保输入内容/尺寸/UV/样式实际稳定比例的有界诊断候选；现有shared pair会被后续effect覆盖，不能当内容缓存。若未来复用独立capture结果，须先证明覆盖率、现有pool预算及completion/reset失效，不能用新增驻留或每帧copy换表面pass下降。session已终止；[清理收据](../../../.artifacts/tmp/source-capture-eligibility-20261014/cleanup.json)记录trace普通文件660,813,087字节及本轮重复产物已清理，保必要JSON、inline bytes、身份与压缩日志约1.66MB。
