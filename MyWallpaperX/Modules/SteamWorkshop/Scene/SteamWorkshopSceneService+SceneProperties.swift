@@ -417,6 +417,10 @@ extension SteamWorkshopService {
         switch target {
         case .layerVisibility, .layerAlpha, .text, .soundVolume:
             return true
+        case let .layerBrightness(layerID):
+            return renderDescriptor.layers.contains {
+                $0.id == layerID && $0.supportsUserPropertyImageSourceModulationConsumer
+            }
         case let .layerScale(layerID):
             return renderDescriptor.layers.contains { $0.id == layerID }
         case let .puppetAnimationVisibility(layerID, animationLayerID):

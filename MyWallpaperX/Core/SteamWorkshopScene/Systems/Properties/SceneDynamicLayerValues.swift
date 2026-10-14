@@ -15,6 +15,21 @@ nonisolated enum SceneDynamicLayerValues {
         return normalizedAlpha(authoredValue ?? 1)
     }
 
+    /// Preserve the authored source multiplier: negative finite values are
+    /// black, while values above one remain available to HDR intermediates.
+    static func brightness(
+        layerID: Int,
+        authoredValue: Double?,
+        snapshot: SceneDynamicSnapshot
+    ) -> Float {
+        if let resolved = snapshot[.layer(layerID: layerID, field: .brightness)],
+           case let .scalar(value) = resolved.value,
+           value.isFinite, Float(max(0, value)).isFinite {
+            return Float(max(0, value))
+        }
+        return max(0, Float(authoredValue ?? 1))
+    }
+
     static func color(
         layerID: Int,
         authoredValue: [Float]?,

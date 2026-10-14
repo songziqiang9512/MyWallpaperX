@@ -161,6 +161,7 @@ struct SceneImageLayerUniformValues {
     let primaryButtonIsDown: Bool
     let frameTime: Float
     let tint: SIMD3<Float>
+    let brightness: Float?
 
     init(
         time: Float,
@@ -171,7 +172,8 @@ struct SceneImageLayerUniformValues {
         previousCursorIsInside: Bool? = nil,
         primaryButtonIsDown: Bool = false,
         frameTime: Float = 0,
-        tint: SIMD3<Float> = SIMD3(repeating: 1)
+        tint: SIMD3<Float> = SIMD3(repeating: 1),
+        brightness: Float? = nil
     ) {
         self.time = time
         self.alpha = alpha
@@ -182,6 +184,7 @@ struct SceneImageLayerUniformValues {
         self.primaryButtonIsDown = primaryButtonIsDown
         self.frameTime = frameTime
         self.tint = tint
+        self.brightness = brightness
     }
 }
 

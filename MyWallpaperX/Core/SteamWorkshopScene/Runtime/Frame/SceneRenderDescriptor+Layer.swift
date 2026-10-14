@@ -93,9 +93,12 @@ extension SceneRenderDescriptor {
         /// their prepared capture route at launch; script admission is separate.
         nonisolated var supportsUserPropertyLayerColorConsumer: Bool {
             supportsDirectLayerColorConsumer
-                || (contentKind == "image" && puppetMeshPath == nil
-                    && staticModelPath == nil && dependencyLayerIDs.isEmpty
-                    && authoredDependencies.isEmpty)
+                || supportsUserPropertyImageSourceModulationConsumer
+        }
+
+        nonisolated var supportsUserPropertyImageSourceModulationConsumer: Bool {
+            contentKind == "image" && puppetMeshPath == nil && staticModelPath == nil
+                && dependencyLayerIDs.isEmpty && authoredDependencies.isEmpty
         }
 
         nonisolated var renderSizeWH: [Float]? {

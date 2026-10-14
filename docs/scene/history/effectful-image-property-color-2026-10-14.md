@@ -23,3 +23,18 @@ completed source会清除下游tint，因此不能仅排除首屏编译成功的
 ## 证据
 
 本轮运行根 `.artifacts/tmp/effectful-image-property-color-20261014/`；最近门与最终八路径freeze在 `.artifacts/tmp/effectful-user-color-20261014/proof/`。已清理两份Debug App、隔离正常运行HOME/样本和重复ready截图共691552531字节，压缩11份日志；保留三个after截图、原始报告/身份及失败复现。最终优化App留作紧接CPU重构基线，连续构建沿 `.artifacts/tmp/scene-constructor-runtime-20261011/DerivedData` 唯一缓存复用。证据全局1GiB预算前轮已满，未删未知记录或扩预算，本批紧凑证据留本地根，见 `proof/cleanup.json`。
+
+
+<a id="image-brightness"></a>
+
+## 后继：普通image brightness（2026-10-14）
+
+真实328的“ HDR切换后亮度 ”Slider只绑定普通带effect图片的brightness，旧parser未分类，合法行被过滤。后继按[实施前合同](../capabilities/runtime-input-property-coverage.md#layer-brightness-live-update)增加typed标量，复用原source乘数；不改MSL/ABI、HDR算法、store或资源owner，也不借此开放provider、text/model/Puppet及Script/Timeline宿主。有限负值/±0归黑、>1保倍率，正Double转Float非有限由原Program原子拒绝，允许略高于Float.max但仍舍入为有限Float的值。
+
+最近门：新Program/数值1项、46个事实全真；hidden consumer10项；effect_draw_alpha15项含原CPU11项、原graph Metal3项及新source/final Metal1项，通过。新像素门运行真实MSL及原uniform方法，SDR/16F三帧验证只乘一次、独立alpha与超白；encoder/target和frame payload由leaf提供，不冒称真实Preflight属性事件。独审发现captured-main强制1会改变旧utility静态亮度，已改nil继承，并补0.25相邻事实。hidden首轮Optional类型推断编译失败、执行0项，显式类型修正后仅重跑该门；原失败日志保留。317个记录输入前后无漂移。
+
+Debug构建30.718秒、诊断Release构建50.147秒均成功，记录输入无漂移。候选优化诊断App `3a25ad7aa1b780a53c4bd0f94d441061b68467b5141b3368944bee2599626ced`在原样328经direct Host把glow从0.5改2，accepted=true，surface仍1、window仍34792，runner PASS、exit0且failed frames为0；实际前后图从暗色人物/日期变为近白高饱和。旧592 App以静态glow2启动也PASS并呈现同类饱和；其启动resolver即使target unsupported仍替换无条件wrapper.value，相关五源与旧App输入manifest一致。因此只认领新live入口与原静态倍率/Bloom表现吻合，不称正确的官方亮度或精确像素parity，未调整倍率掩盖结果。
+
+真实原生列表出现该标题行，默认0.9→0.5，关闭重开仍0.5，再调0.7并恢复默认0.9；全程1次candidate/activated session，精确专用defaults域最终为{}，Stop/CmdQ exit0。此交互不替代direct Host的像素证据，也不计输入到呈现延迟。独立原样213运行PASS、loaded=1且failures为空；实际after图可见完整暖室、窗外蓝景、家具和时钟，未见本批亮度接线引入的异常，只计独立原样渲染，不外推全兼容或HDR显示验收。
+
+本后继证据在`.artifacts/tmp/property-layer-brightness-20261014/`，最近门收据`proof/nearest-validation-summary.json`，运行分别见`live/report.json`、`static-control/report.json`和`normal-ui/candidate/interaction-result.json`。未测CPU/GPU耗时、内存、能耗或延迟收益；多surface、暂停热编辑、物理EDR及全census/官方parity仍未验。产物收尾由本批最终清理收据记录。

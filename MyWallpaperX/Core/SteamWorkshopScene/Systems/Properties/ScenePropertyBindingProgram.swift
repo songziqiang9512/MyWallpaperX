@@ -312,6 +312,13 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
         for target: SceneDynamicTarget,
         as type: SceneDynamicValueType
     ) -> Result<SceneDynamicValue, ValueError> {
+        if case .layer(_, .brightness) = target, type == .scalar,
+           case let .number(number) = value {
+            guard number.isFinite, Float(max(0, number)).isFinite else {
+                return .failure(.nonFinite)
+            }
+            return .success(.scalar(number))
+        }
         if case .layer(_, .scale) = target,
            type == .vector3,
            case let .number(component) = value {
@@ -638,6 +645,11 @@ nonisolated struct ScenePropertyBindingCompiler {
         target: SceneUserPropertyBindingTarget,
         as valueType: SceneDynamicValueType
     ) -> Result<SceneDynamicValue, ScenePropertyBindingProgram.ValueError> {
+        if case let .layerBrightness(layerID) = target {
+            return ScenePropertyBindingProgram.convert(
+                fallback, for: .layer(layerID: layerID, field: .brightness), as: valueType
+            )
+        }
         if target.isShaderValue,
            valueType == .scalar,
            case let .string(rawValue) = fallback,

@@ -33,6 +33,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
     case layerVisibility(layerID: Int)
     case puppetAnimationVisibility(layerID: Int, animationLayerID: Int)
     case layerAlpha(layerID: Int)
+    case layerBrightness(layerID: Int)
     case layerScale(layerID: Int)
     case layerColor(layerID: Int)
     case lightIntensity(layerID: Int)
@@ -66,7 +67,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
             return field == "cameraparallax" || field == "camerashake"
         case let .scene(field):
             return field == "bloom"
-        case .layerAlpha, .layerScale, .layerColor, .lightIntensity, .text,
+        case .layerAlpha, .layerBrightness, .layerScale, .layerColor, .lightIntensity, .text,
              .particle, .soundVolume, .shaderValue, .materialShaderValue,
              .unsupported:
             return false
@@ -308,6 +309,15 @@ nonisolated struct SceneUserPropertyBindingParser {
         }
         if components.count == 3, Self.key(components[2]) == "alpha" {
             return .layerAlpha(layerID: layerID)
+        }
+        if components.count == 3, Self.key(components[2]) == "brightness" {
+            guard object["image"] != nil, object["text"] == nil,
+                  let wrapper = object["brightness"] as? [String: Any],
+                  wrapper["script"] == nil || wrapper["script"] is NSNull,
+                  wrapper["animation"] == nil || wrapper["animation"] is NSNull else {
+                return .unsupported(reason: "图片亮度存在不支持的宿主或冲突动态来源")
+            }
+            return .layerBrightness(layerID: layerID)
         }
         if components.count == 3, Self.key(components[2]) == "scale" {
             return .layerScale(layerID: layerID)

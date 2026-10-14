@@ -14,6 +14,7 @@ import unittest
 
 from script.tests import test_scene_resolved_material_graph_executor as graph_fixture
 from script.tests import test_scene_resolved_material_program_finalizer as finalizer_fixture
+from script.tests.test_scene_property_live_routing import method_body
 
 
 def runtime_frame_support() -> str:
@@ -45,7 +46,27 @@ extension SceneResolvedMaterialRuntimeBridge.FrameInputs {
     }
 }
 '''
-    return support[:start] + replacement + support[end:]
+    support = support[:start] + replacement + support[end:]
+    support = support.replace('var contentKind: String = "image"',
+        'var contentKind: String = "image"\n        var brightness: Double? = nil', 1)
+    compositor = (finalizer_fixture.SCENE_ROOT / "Rendering/Composition/SceneImageLayerCompositor+Uniforms.swift").read_text()
+    request = (finalizer_fixture.SCENE_ROOT / "Rendering/Composition/SceneImageLayerDrawRequest.swift").read_text()
+    # Only the source-sample and compositor shells are leaves; the value carrier,
+    # multiplier and final uniform assembly below are production methods.
+    support += method_body(request, "struct SceneImageLayerUniformValues {") + "\n"
+    support += """
+struct SceneBaseImageTextureSample {
+    var textureFrame = SceneTextureUVTransform.identity
+    var sampling = SceneTextureSampling.linearClamp
+    var representation = SceneShaderColorRepresentation.premultipliedAlpha
+    var identity: SceneTextureResourceIdentity? = nil
+}
+struct SceneImageLayerCompositor {
+""" + method_body(compositor, "func makeFragmentUniforms(") + "\n"
+    support += method_body(compositor, "func sourceFragmentUniforms(\n        values:") + "\n}\n"
+    support += "extension SceneLayerFragmentUniforms {\n" + method_body(
+        compositor, "mutating func consumeCompletedMaterialSource(") + "\n}\n"
+    return support
 
 
 CPU_HARNESS = r'''
@@ -569,6 +590,87 @@ private func drawModulationFrames(
     return result
 }
 
+
+// Actual product source shader and source/final uniform assembly; only the
+// encoder and target shell are fixture leaves. Existing graph probes above
+// separately cover effect execution and reuse across the same three frames.
+private func brightnessFrames(device: MTLDevice, queue: MTLCommandQueue,
+                              format: MTLPixelFormat) -> [String: Any] {
+    guard let library = device.makeDefaultLibrary() else { return ["failure": "library"] }
+    let constants = MTLFunctionConstantValues()
+    var weighted = false
+    constants.setConstantValue(&weighted, type: .bool, index: 0)
+    let descriptor = MTLRenderPipelineDescriptor()
+    descriptor.vertexFunction = library.makeFunction(name: "sceneImageLayerVert")
+    descriptor.fragmentFunction = try? library.makeFunction(name: "sceneImageLayerFrag", constantValues: constants)
+    descriptor.colorAttachments[0].pixelFormat = format
+    guard let state = try? device.makeRenderPipelineState(descriptor: descriptor) else { return ["failure": "pipeline"] }
+    let pipeline = SceneImageLayerPipeline(state: state)
+    let source = makeSource(device, width: 2, height: 2, bgra: [26, 51, 102, 128])
+    let compositor = SceneImageLayerCompositor()
+    var layer = SceneRenderDescriptor.Layer(id: 16, effects: [])
+    layer.brightness = 0.25
+    let noTyped = compositor.sourceFragmentUniforms(values: .init(time: 0, alpha: 1, cursorUV: .zero),
+        layer: layer, sourceSample: .init(), routesOffscreen: true, dependencyBlendMode: nil)
+    layer.contentKind = "fullscreen"
+    let utility = compositor.sourceFragmentUniforms(values: .init(time: 0, alpha: 1, cursorUV: .zero, brightness: nil),
+        layer: layer, sourceSample: .init(), routesOffscreen: true, dependencyBlendMode: nil)
+    layer.contentKind = "image"
+    var rows: [[String: Any]] = []
+    for (brightness, alpha) in zip([Float(0.5), 8, 0.9], [Float(0.25), 0.5, 0.75]) {
+        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format,
+            width: 2, height: 2, mipmapped: false)
+        textureDescriptor.storageMode = .shared
+        textureDescriptor.usage = [.renderTarget, .shaderRead]
+        guard let captured = device.makeTexture(descriptor: textureDescriptor),
+              let final = device.makeTexture(descriptor: textureDescriptor),
+              let command = queue.makeCommandBuffer() else { return ["failure": "allocation"] }
+        let values = SceneImageLayerUniformValues(time: 0, alpha: alpha, cursorUV: .zero,
+            tint: .init(0.8, 0.6, 0.4), brightness: brightness)
+        let uniforms = compositor.sourceFragmentUniforms(values: values, layer: layer,
+            sourceSample: .init(), routesOffscreen: true, dependencyBlendMode: nil)
+        func encode(_ input: MTLTexture, _ target: MTLTexture, _ u: SceneLayerFragmentUniforms) -> Bool {
+            let pass = MTLRenderPassDescriptor()
+            pass.colorAttachments[0].texture = target
+            pass.colorAttachments[0].loadAction = .clear; pass.colorAttachments[0].storeAction = .store
+            guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return false }
+            pipeline.bind(encoder: encoder)
+            pipeline.drawLayer(texture: input, mvp: matrix_identity_float4x4, uniforms: u, encoder: encoder)
+            encoder.endEncoding(); return true
+        }
+        let finalUniforms = compositor.makeFragmentUniforms(values: .init(time: 0, alpha: 1, cursorUV: .zero),
+            textureFrame: .identity, tint: .init(repeating: 1), dependencyBlendMode: nil)
+        guard encode(source, captured, uniforms), encode(captured, final, finalUniforms) else { return ["failure": "encoder"] }
+        command.commit(); command.waitUntilCompleted()
+        let pixelBytes = format == .rgba16Float ? 8 : 4
+        func bytes(_ texture: MTLTexture) -> [UInt8] {
+            var result = [UInt8](repeating: 0, count: 4 * pixelBytes)
+            result.withUnsafeMutableBytes { texture.getBytes($0.baseAddress!, bytesPerRow: 2 * pixelBytes,
+                from: MTLRegionMake2D(0, 0, 2, 2), mipmapLevel: 0) }
+            return result
+        }
+        let sourceBytes = bytes(captured), finalBytes = bytes(final)
+        let rgba: [Float]
+        if format == .rgba16Float {
+            rgba = (0..<4).map { i in
+                Float(Float16(bitPattern: UInt16(sourceBytes[i * 2]) | UInt16(sourceBytes[i * 2 + 1]) << 8))
+            }
+        } else { rgba = [2, 1, 0, 3].map { Float(sourceBytes[$0]) / 255 } }
+        let raw: [Float] = [102.0 / 255, 51.0 / 255, 26.0 / 255, 128.0 / 255]
+        let tint: [Float] = [0.8, 0.6, 0.4]
+        var expected = (0..<3).map { raw[$0] * tint[$0] * brightness * alpha }
+        expected.append(raw[3] * alpha)
+        if format != .rgba16Float { expected = expected.map { min(max($0, 0), 1) } }
+        let tolerance: Float = format == .rgba16Float ? 0.002 : 1.0 / 255
+        rows.append(["brightness": brightness, "rgba": rgba, "expected": expected,
+            "pixelMatches": zip(rgba, expected).allSatisfy { abs($0 - $1) <= tolerance },
+            "finalUnchanged": sourceBytes == finalBytes,
+            "gpuCompleted": command.status == .completed && command.error == nil])
+    }
+    return ["frames": rows, "defaultKeepsAuthored": noTyped.tint.x == 0.25,
+        "utilityKeepsAuthored": utility.tint.x == 0.25]
+}
+
 @main private enum EffectDrawAlphaMetalHarness {
     static func main() throws {
         setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)
@@ -583,6 +685,8 @@ private func drawModulationFrames(
             result["reduction\(Int(scale))"] = drawModulationFrames(device: device, queue: queue,
                 colorProbe: "reduction", reductionScale: scale)
         }
+        result["brightnessSDR"] = brightnessFrames(device: device, queue: queue, format: .bgra8Unorm)
+        result["brightnessHDR"] = brightnessFrames(device: device, queue: queue, format: .rgba16Float)
         print(String(data: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]),
             encoding: .utf8)!)
     }
@@ -680,7 +784,7 @@ class SceneEffectDrawAlphaTests(unittest.TestCase):
 class SceneEffectDrawAlphaMetalTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        compiled, completed = graph_fixture.compile_harness(runtime_frame_support(), METAL_HARNESS)
+        compiled, completed = graph_fixture.compile_lit_harness(runtime_frame_support(), METAL_HARNESS)
         if compiled.returncode != 0 or completed is None or completed.returncode != 0:
             raise AssertionError(compiled.stderr + (completed.stderr + completed.stdout if completed else ""))
         cls.result = json.loads(completed.stdout)
@@ -696,6 +800,18 @@ class SceneEffectDrawAlphaMetalTests(unittest.TestCase):
             for key in ("gpuCompleted", "consumerProviderIndependent", "copyPreservedAlpha", "copyPreservedColor",
                         "samePreparedProgram", "noRecompile", "noLocalFallback", "opaqueOutput"):
                 self.assertTrue(row[key], result)
+
+    def test_product_source_brightness_and_final_copy_preserve_alpha_and_hdr(self) -> None:
+        for name in ("brightnessSDR", "brightnessHDR"):
+            result = self.result[name]
+            self.assertNotIn("failure", result, result)
+            self.assertTrue(result["defaultKeepsAuthored"], result)
+            self.assertTrue(result["utilityKeepsAuthored"], result)
+            self.assertEqual(len(result["frames"]), 3, result)
+            for row in result["frames"]:
+                for fact in ("pixelMatches", "finalUnchanged", "gpuCompleted"):
+                    self.assertTrue(row[fact], result)
+        self.assertGreater(self.result["brightnessHDR"]["frames"][1]["rgba"][0], 1)
 
     def test_actual_graph_consumer_alpha_is_independent_across_frames(self) -> None:
         self.assert_probe_frames("alpha")

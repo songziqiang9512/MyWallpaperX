@@ -142,7 +142,10 @@ extension SceneMetalRenderer {
                         authoredValue: layer.colorRGB,
                         snapshot: frameContext.dynamicValues
                     )
-                    : SIMD3(repeating: 1)
+                    : SIMD3(repeating: 1),
+                brightness: SceneDynamicLayerValues.brightness(
+                    layerID: layer.id, authoredValue: layer.brightness,
+                    snapshot: frameContext.dynamicValues)
             ),
             sourceMaterialAlpha: baseMaterialProviderBindings.sourceMaterialAlpha(
                 layer: layer, snapshot: frameContext.dynamicValues

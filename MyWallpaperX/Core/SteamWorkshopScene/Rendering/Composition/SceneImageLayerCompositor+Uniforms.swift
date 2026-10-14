@@ -73,7 +73,7 @@ extension SceneImageLayerCompositor {
         sourceMaterialColor: SIMD3<Float> = .init(repeating: 1)
     ) -> SceneLayerFragmentUniforms {
         let brightness = layer.contentKind == "text"
-            ? 1 : max(0, Float(layer.brightness ?? 1))
+            ? 1 : values.brightness ?? max(0, Float(layer.brightness ?? 1))
         let usesAuthoredColor = layer.contentKind == "image"
             || layer.contentKind == "solid"
         let tint = usesAuthoredColor

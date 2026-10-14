@@ -64,6 +64,7 @@ struct SceneRenderDescriptor {
         var authoredDependencies: [Int] = []
         var dependencyLayerIDs: [Int] = []
         var puppetAnimationLayers: [AnimationLayer] = []
+        var namedProviderLayerIDs: [Int] = []
         __COLOR_ELIGIBILITY__
     }
     var layers: [Layer]
@@ -133,7 +134,7 @@ enum SceneLightSnapshot {
 enum SceneDependencyGraphAnalysis {
     struct Reference { var providerLayerID: Int }
     static func references(in layers: [SceneRenderDescriptor.Layer])
-        -> [Reference] { [] }
+        -> [Reference] { layers.flatMap { $0.namedProviderLayerIDs.map { Reference(providerLayerID: $0) } } }
 }
 enum SceneDynamicLayerVisibilityRouteAdmission {
     // Route shape is exercised by the visibility admission gate. Here a legal
@@ -421,6 +422,42 @@ HARNESS = r'''
                 "rejected": !s.apply(.string("0 1 0"), forPropertyKey: "renamedTint"),
                 "atomic": unchanged(s, before)]
         }
+        var brightnessFacts: [String: Bool] = [:]
+        let brightness = SceneDynamicTarget.layer(layerID: 4, field: .brightness)
+        let brightnessBinding = Binding(key: "gain", target: brightness, type: .scalar, seed: .scalar(0.9))
+        for effects in [[], [1]] {
+            let image = SceneRenderDescriptor.Layer(id: 4, contentKind: "image", effects: effects)
+            let prefix = effects.isEmpty ? "direct" : "effectful"
+            let capabilities: [Int: SceneResolvedMaterialExecutionCapabilityCatalog.Capability] = effects.isEmpty ? [:] : [4: .init()]
+            var ready = state([image], [brightnessBinding], values: ["gain": .number(0.9)], colorCapabilities: capabilities)
+            brightnessFacts[prefix + "-ready"] = ready.apply(.number(2), forPropertyKey: "gain")
+                && ready.userValues[brightness] == .scalar(2) && ready.revision == 1
+            for kind in ["puppet", "model", "dependency", "namedProvider", "completed"] {
+                var layer = image
+                if kind == "puppet" { layer.puppetMeshPath = "changed.mdl" }
+                if kind == "model" { layer.staticModelPath = "changed.model" }
+                if kind == "dependency" { layer.authoredDependencies = [91] }
+                let layers = kind == "namedProvider" ? [layer,
+                    SceneRenderDescriptor.Layer(id: 91, contentKind: "image", namedProviderLayerIDs: [4])] : [layer]
+                var rejected = state(layers, [brightnessBinding], values: ["gain": .number(0.9)],
+                    colorCapabilities: capabilities, sourceCandidates: kind == "completed" ? [4] : [])
+                let before = rejected
+                brightnessFacts[prefix + "-" + kind] = !rejected.apply(.number(2), forPropertyKey: "gain")
+                    && unchanged(rejected, before)
+            }
+        }
+        let rejectedCapabilities: [(String, SceneResolvedMaterialExecutionCapabilityCatalog.Capability?)] = [
+            ("missing", nil), ("main", .init(sourceRoute: .capturedMainTargetTexture)),
+            ("transparent", .init(sourceRoute: .transparentDirectDraw)),
+            ("dependency", .init(dependencyOwnership: .externalPrimary))]
+        for (name, capability) in rejectedCapabilities {
+            let layer = SceneRenderDescriptor.Layer(id: 4, contentKind: "image", effects: [1])
+            var rejected = state([layer], [brightnessBinding], values: ["gain": .number(0.9)],
+                colorCapabilities: capability.map { [4: $0] } ?? [:])
+            let before = rejected
+            brightnessFacts[name] = !rejected.apply(.number(2), forPropertyKey: "gain") && unchanged(rejected, before)
+        }
+        rows["brightness"] = brightnessFacts
         let composition = SceneRenderDescriptor.Layer(id: 9, contentKind: "composition",
             effects: [1], authoredDependencies: [10], dependencyLayerIDs: [10])
         let visibilityTarget = SceneDynamicTarget.layer(layerID: 9, field: .visibility)
@@ -536,6 +573,9 @@ class SceneHiddenPropertyConsumerTests(unittest.TestCase):
         color += "\n" + method_body(
             LAYER_SOURCE.read_text(), "nonisolated var supportsUserPropertyLayerColorConsumer: Bool"
         )
+        color += "\n" + method_body(
+            LAYER_SOURCE.read_text(), "nonisolated var supportsUserPropertyImageSourceModulationConsumer: Bool"
+        )
         harness = work / "Probe.swift"
         harness.write_text(STUBS.replace("__ACTIVE_CONSUMERS__", host)
             .replace("__MAKE_LIVE_STATE__", factory)
@@ -574,6 +614,12 @@ class SceneHiddenPropertyConsumerTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temp.cleanup()
+
+    def test_brightness_requires_the_same_ordinary_source_on_every_route(self) -> None:
+        facts = self.rows["brightness"]
+        self.assertTrue(facts)
+        for name, accepted in facts.items():
+            self.assertTrue(accepted, name)
 
     def test_hidden_text_fields_publish_and_remain_hidden(self) -> None:
         for case in ("content", "pointSize", "color", "maxWidth"):

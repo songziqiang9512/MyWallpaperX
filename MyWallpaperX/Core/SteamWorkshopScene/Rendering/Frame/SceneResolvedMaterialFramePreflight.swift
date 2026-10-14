@@ -836,7 +836,9 @@ extension SceneMetalRenderer {
                         frameTime: Float(frameContext.frameTime),
                         tint: capturesMainTarget || !sourceUsesAuthoredLayerColor
                             ? SIMD3(repeating: 1)
-                            : effectDrawColor
+                            : effectDrawColor,
+                        brightness: capturesMainTarget ? nil : SceneDynamicLayerValues.brightness(
+                            layerID: layerID, authoredValue: layer.brightness, snapshot: frameContext.dynamicValues)
                     ),
                     sourceMaterialAlpha: capturesMainTarget ? 1
                         : baseMaterialProviderBindings.sourceMaterialAlpha(

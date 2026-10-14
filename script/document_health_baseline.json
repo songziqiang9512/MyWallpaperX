@@ -97,8 +97,8 @@
       "bytes": 34403
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 578,
-      "bytes": 185429
+      "lines": 587,
+      "bytes": 187887
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -266,7 +266,7 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
-      "bytes": 4813
+      "bytes": 5089
     }
   },
   "archives": [
@@ -1075,318 +1075,21 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/web/cold-descriptor-parse-offload-design.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "b33cb6d1f4b69f29f592db4c21e1a39fc060bf7066c2fa8a9e742d8f94a18280",
-      "owner": "Web 冷解析下沉",
-      "reason": "批六新设计文档入库：冷路径 descriptor 解析后台下沉的目标/取舍/验收（active-plan，document-role-index 已登记）。",
-      "decision": "docs/web/cold-descriptor-parse-offload-design.md#验收"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/web-wallpaper-benchmark-standard.md",
-      "before": "81eed0ebfd9fc8045415bec3780240bc44233dc153541862e98c60c7e0715737",
-      "after": "4a6342b0d7cc82163bb072487a1200708438523fa1c1636afa46f5ec9e8cce23",
-      "owner": "Web benchmark standard",
-      "reason": "resource_mapping 计数集扩入宿主桥失败签名（scorer 变更的合同化记录，跨版本以 scorer 变更为界）。",
-      "decision": "docs/web/web-wallpaper-benchmark-standard.md#短板归因"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
-      "before": "18461eb040d1352c4fb74564067869e2265d2fcac6b54debcf532e33872254f5",
-      "after": "3c040b968e69266aac093b348611ffcd1a89efbe3f58edee17fe690e59c48be0",
-      "owner": "Scene模型材质caster准入",
-      "reason": "以成对官方控制修复prepared材质语义丢失；长期准入合同与已验长暗带归档，土星余项按用户调序暂缓并保明确重启边界。",
-      "decision": "docs/scene/history/saturn-light-delivery-2026-10-07.md#translucent-model-shadow"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/css-animation-freeze-redesign.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "5bbf0cd3c998c680452477614f8302310b4de6d6d681713b28520cddac9c9639",
-      "owner": "Web 播放门",
-      "reason": "批十八设计文档入库：CSS 动画冻结机制重构（样式表双轨制替代 Animation API，闭口 play-state 解耦）。",
-      "decision": "docs/web/css-animation-freeze-redesign.md#验收"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
-      "before": "14ba04a12e008f5b7a26c003888e0314fee6b1c7bfb512f1a33c3ffbf18f5e1c",
-      "after": "746f03697f736b295f216d23582401f475a0275dfd0f89f5106398ed295fc0ad",
-      "owner": "scene-terminal-material",
-      "reason": "Replace closed raw named solid size gap with bounded shared-chain acceptance and preserve graph-final and special geometry exclusions.",
-      "decision": "docs/scene/history/named-solid-source-extent-2026-10-12.md#首断点与实现"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/material-video-assets.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "9afbd6eb89e31f5d4fbbfa28ba61e151464410cb934a8b7d221e4615835fea7a",
-      "owner": "scene-video-assets",
-      "reason": "原视频owner向材质asset扩展的唯一稳定合同；开工设计已归档，架构只保存入口/接线，不复制设计正文。",
-      "decision": "docs/scene/history/material-video-assets-2026-10-12.md#文档归属与退出"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/previous-blurred-composite-admission.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "43f876b33a4182564ed51c6b377efc8a35ddb1fec966f42d2c349effb53373b5",
-      "owner": "scene-e-route",
-      "reason": "窄准入合同、现役指针与集中例外同步；批次细节由历史证据拥有。",
-      "decision": "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md#文档归属与产物"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "31b8f65a39e1cd34b9a15a1c181ae2a75e7bffe7b0b901355b9c347801fb733a",
-      "after": "24a457402c0c6ac0b066bd42228072d61553e99cb625449fb88e81666fce1c73",
-      "owner": "scene-material-purpose",
-      "reason": "标量遮罩后验及用户调序的两专项卡；区分作者关闭与真实视觉失败，短合同引用历史。",
-      "decision": "docs/scene/history/scalar-mask-data-purpose-2026-10-12.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scalar-mask-data-purpose.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "d5b3fe85b18210d59eb4f3ab5f38c9949d5d36fd9ffaf3edb1ef026c658271b3",
-      "owner": "scene-material-purpose",
-      "reason": "标量遮罩后验及用户调序的两专项卡；区分作者关闭与真实视觉失败，短合同引用历史。",
-      "decision": "docs/scene/history/scalar-mask-data-purpose-2026-10-12.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "5b4bb6cd2574e01ddf2b83f43990c982c12b778c6ac42f575f0770e12da81bc0",
-      "after": "977fbfddab8b41f31df806b095322eccab8f84b3c4bea7581c543b0ddbe41333",
-      "owner": "scene-resources-and-cpu-consumer",
-      "reason": "原生BC已验收成本点归历史；修正唯一粒子位图消费者格式边界，保留面板reset仲裁未实施诊断。",
-      "decision": "docs/scene/history/native-bc-memory-convergence-2026-10-12.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "d56cf7956612651369cc728785ceae72730796b723d3634f9d38e3c293381eaa",
-      "after": "e88ca25411fe4518fca6681f775e705ead96a35004953861eb34972baeffdb16",
-      "owner": "scene-resources-and-cpu-consumer",
-      "reason": "原生BC已验收成本点归历史；修正唯一粒子位图消费者格式边界，保留面板reset仲裁未实施诊断。",
-      "decision": "docs/scene/history/native-bc-memory-convergence-2026-10-12.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "a234f231725db8f8003377b13186996f7e793aa6432facd0f8301476eef8edbb",
-      "after": "c631d736a32b515cdeaf85bad6423adc671462912e78c00d680451d7fda34543",
-      "owner": "scene-pkg-resources-and-regression-scope",
-      "reason": "PKG局部资源与正常播放新基线；现役只保限定状态和后继。",
-      "decision": "docs/scene/history/pkg-extraction-memory-convergence-2026-10-12.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "fdcf002ec7273a5b665318c37d3370c9aba9c0612581837d8134463f23b249ed",
-      "after": "2e6bb16e5a6ab8fd08610e550e5e0fe381134b48fa48731bec5b2e955bef9225",
-      "owner": "scene-native-regexp-capture",
-      "reason": "新增限定native公共合同、关闭两处真实时钟断点并保未验性能边界；长设计退出收紧，独审发现与测量归历史。",
-      "decision": "docs/scene/history/native-regexp-capture-2026-10-13.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "367277cf1dd0864443f14bb258cf6a93da16c66f4f707482d0edf0cdb5ba8b16",
-      "after": "061ebffa854a6e516c094aeaa0da165a5429a07ad97bef1c324a1e0576a54bee",
-      "owner": "scene-native-regexp-capture",
-      "reason": "新增限定native公共合同、关闭两处真实时钟断点并保未验性能边界；长设计退出收紧，独审发现与测量归历史。",
-      "decision": "docs/scene/history/native-regexp-capture-2026-10-13.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/scene-startup-pipeline.md",
-      "before": "e34f1ba883911cd71afe073314c5c6d18650b71fb5c80b86121718b9dd6e218a",
-      "after": "8b11d02043c9e520c61c30f2756b2e880aec18fb33230a2e05765c4ffda4dbab",
-      "owner": "scene-property-preparation",
-      "reason": "准备复用唯一owner/来源/压力边界移交合同，冷暖及实际交互归历史，AX剩余问题和撤销方法保队列；完成设计退出工作卡并收紧体积",
-      "decision": "docs/scene/history/property-preparation-convergence-2026-10-13.md#实现与边界"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
-      "before": "a551c2eeee90e6b1156583c8d28bfaa78c888cf8fed22984207b1a8370a31e8d",
-      "after": "cd9e9b7af83ea93a0f81778a3913f399fd546fb73b5911ff785b0f7041b3deb9",
-      "owner": "Scene终端显示映射",
-      "reason": "用户授权性能专项新增attachment输入的跨owner设计；保旧资源/失败/平台边界和GPU验收，旧HDR批准不扩大解释。",
-      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#clear-true-attachment-mapping"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "a0841f3ddf90eccf0cc53c4f16c2f0a473994d95f2074e3a27a438596b816f31",
-      "after": "b24032cf8894e36ecedf7a4242d9a9e0f3e83e02a21f88d4a96a266d5fe03238",
-      "owner": "scene-frame-texture-snapshot-overlay",
-      "reason": "稳定唯一值/生命周期合同与有界CPU证据接管，E1实施过程归历史；补实际未修矩阵观察与当前入口，不扩大专项验收。",
-      "decision": "docs/scene/history/frame-texture-snapshot-convergence-2026-10-14.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/technology-stack-boundaries.md",
-      "before": "72c652b708a523f4a1a18a230ae168d839ef75d3b19dcea62955b33ebaeba156",
-      "after": "e4d58b125f54c772924ca642fba00d381e5820a03c72de473b4e96907b4227e8",
-      "owner": "Scene engineering documentation",
-      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/repository-workflow.md",
-      "before": "1a6bb92bc31a31a517d4fc034ec0956a6a4efb4a8ff868ef025ede5c2e619074",
-      "after": "dfcfafc217a588a393029108ba3ee68c8bb7fdde0c3c13c39ebfe6ee4a96fc3d",
-      "owner": "Scene engineering documentation",
-      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/refactor-baseline.md",
-      "before": "1bc9d7e58cd19d5abe6469ec6acc95f23ee9c9ec7e31a497f47e9ef2781a2fb0",
-      "after": "22c06b33af0ee8df4c34db7f8e71300e4055b031202f5b519984ed5c36c3cd85",
-      "owner": "Scene engineering documentation",
-      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
-      "before": "b9d613a2daa00959fd6f31cf9a4d1c0c497fbeae0b07987ef67222e9be33e72e",
-      "after": "f4b7c4eefa670b0002a78707c2a49836b16a74fbdb8ea483e4ec7104fc3016ec",
-      "owner": "Scene engineering documentation",
-      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "9ed5954985e631176817b8d86f4c091bdebd6f087c3d2114f0ba6c2d4830ad94",
-      "after": "f9acb9ffbf80eb65043fd6ff6fd79f8558025c6e1b03e48e9d3de38a8603e847",
-      "owner": "Scene engineering documentation",
-      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "c4cc6bee67832a7a8b57422de2aa64d1f2f9d977046c0b0eb8b1af527f2ec6cc",
-      "after": "0c5b626af80178a06dadab8404d7f770b4e170089243e5234b088628e9981e4c",
-      "owner": "Scene engineering documentation",
-      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-steamkit-migration-plan.md",
-      "before": "6f67ec9b5ec31dd8e76d568ecc83cb240502bd8c4e90089d903113b792b93ff1",
-      "after": "3560d7aaf2c57772fa9dcc29e976ffbbc5f9233a399c3ed255cbfe7aa5df8f21",
-      "owner": "Scene engineering documentation",
-      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/current-state.md",
-      "before": "c6c91c93e91703f515b9515778d22561811386997b7217c27a29e18d2f725e04",
-      "after": "f31845c3fb7cdf1b543f1473342017703a544593109902f6b97c9bcf1dcb4d7a",
-      "owner": "Scene engineering documentation",
-      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
-    },
-    {
-      "section": "archives",
-      "path": "docs/scene/history/engine-refactor-program-through-2026-10-14.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "b082b18dd46d8f1a1f430b979013e858aaadaf0f523140a865f1c191349e8f24",
-      "owner": "Scene engineering documentation",
-      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "8bd10b2a3bf6efad9392604caba8e66bacf97c298777065b629916f323ff73ae",
-      "after": "a1f4b5d4f1d75613cf8abb49844566b92a0971e40e69bd73535ee92385c12028",
-      "owner": "scene-property-callback-recovery",
-      "reason": "先设计的同owner属性异常恢复、真实云层/三轮操作CPU及原FAIL边界；同步当前卡/队列，不扩大专项完成",
-      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#接受的实现"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c74c96dfa964c3db9594f9d1f04a872c5aa1bf5d9259575322b4bbad42d65951",
-      "after": "28abc3e7892973c255c4fdfe1b91050e30486b42e8722db789f706f5561cc48c",
-      "owner": "scene-property-callback-recovery",
-      "reason": "先设计的同owner属性异常恢复、真实云层/三轮操作CPU及原FAIL边界；同步当前卡/队列，不扩大专项完成",
-      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#接受的实现"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "1750f94adeb0cbe492d1934da84c367ac1371bf22b59fdc1fa93de4778893e33",
-      "after": "7bc981abc9c2e09e580d248c645992f22a903685cfd488d225f1728892172878",
-      "owner": "scene-graph-residency-query",
-      "reason": "锁内唯一resident查询设计与固定配对CPU实测；保留呈现/内存反例和未闭专项，历史过程退出现役卡",
-      "decision": "docs/scene/history/graph-residency-query-convergence-2026-10-14.md#通用语义与选择"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/release/release-signing.md",
-      "before": "ec63bdafc358b3569e37c9a5f4f233a570b5f3651403e2f781142c93196ae7dc",
-      "after": "90767cd8a7cb137e945b3913e7dff99aee1ea7f50e09800062a1257dfbb960b9",
-      "owner": "scene-property-texture-feedback",
-      "reason": "先设计的typed反馈/同步重入、正常窗口与独立ROI、冷暖CLI未完成边界及helper本地签名策略同步；不新增能力或性能结论",
-      "decision": "docs/scene/history/property-texture-feedback-2026-10-14.md#通用语义与实现"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "6be6e11d8e58d7011548d47e8b5381d34125b464f305085e0cf96aa60e46b584",
-      "after": "833ba69921eead8634eb099d41ff8c67d49cb41f5e67868a5b0b34ffe3c41b3c",
-      "owner": "Scene prepared shader identity",
-      "reason": "同步原不可变身份的构造期哈希与局部收益边界；单对整体CPU未达继续门、内存上移及下一候选如实保留",
-      "decision": "docs/scene/history/shader-identity-hash-screen-2026-10-14.md#通用语义与取舍"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "e960e783e5b75af17cba8a44841b1984b7c93eb9342e51d636a2863ccaadf69a",
-      "after": "e54903c33104236d6f0ed17776422cdd703ec5dc22a5c80117f1efc6055c3257",
-      "owner": "scene-runtime-maintainer",
-      "reason": "Clarify pending launch arbitration and immutable Encoder admission; record bounded evidence without duplicating execution plans.",
-      "decision": "docs/development/repository-workflow.md#设计判定与记录"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "db9a7ad562846d17e3b55738cb5a668e71902c8b607f98d9614595e25575684d",
-      "after": "3a06d419bf432f6e07166cceb941225ba9d5727ee32951c5dd6e7acb5fcd98c5",
-      "owner": "Scene 属性热更新",
-      "reason": "同owner收窄定义型Bool准入；原生详细行编辑与reset避免重建，并保留其他类型与性能验收边界。",
-      "decision": "docs/scene/history/property-condition-reachability-2026-10-13.md#unbound-bool-live-update"
+      "before": "3a06d419bf432f6e07166cceb941225ba9d5727ee32951c5dd6e7acb5fcd98c5",
+      "after": "b9d9d1684016a103249d636c7c3b5324be1ea17c1075b3aa712daa1850699f00",
+      "owner": "Scene maintainers",
+      "reason": "Accepted brightness typed source contract and current property evidence",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#layer-brightness-live-update"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "5a02d4ec9fc82edf88feff051119d7ea8cfe94492b1c6239ab535b84da1d17b2",
-      "after": "513fa7e039e652bdf505c7247c7482eaa76cf8e9bc0e7b22d14bb6b9b4166979",
-      "owner": "Scene 属性热更新",
-      "reason": "同owner收窄定义型Bool准入；原生详细行编辑与reset避免重建，并保留其他类型与性能验收边界。",
-      "decision": "docs/scene/history/property-condition-reachability-2026-10-13.md#unbound-bool-live-update"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "c53c77a01cc8a4df3aa12bffc56b6a4fc0a581ecf1a3f765bd20e3229cc8144b",
-      "after": "b344e03606630424af296102230022e6a8df8853df185f7b4f53230efe2d04c7",
-      "owner": "Scene 性能收敛",
-      "reason": "指定暖帧33层均有prepared读取，停止简单capture省略；Bool交互已交付，续查完整资源事务成本。",
-      "decision": "docs/scene/history/gpu-cost-screening-2026-10-14.md#后继同帧无用source-capture资格观察"
+      "before": "513fa7e039e652bdf505c7247c7482eaa76cf8e9bc0e7b22d14bb6b9b4166979",
+      "after": "d542616ed015bded2106635869dec5b7a129aa1b4b09c22e9da8578b4c643ff4",
+      "owner": "Scene maintainers",
+      "reason": "Accepted brightness typed source contract and current property evidence",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#layer-brightness-live-update"
     }
   ]
 }

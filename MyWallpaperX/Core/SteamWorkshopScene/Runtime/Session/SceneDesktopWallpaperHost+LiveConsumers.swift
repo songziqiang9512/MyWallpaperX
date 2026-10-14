@@ -211,6 +211,13 @@ extension SceneDesktopWallpaperHost {
                 if hasColorConsumer {
                     targets.insert(.layer(layerID: layer.id, field: .color))
                 }
+                // Both direct and effectful brightness must retain the same
+                // ordinary source multiplier; raw providers are a separate consumer.
+                if layer.supportsUserPropertyImageSourceModulationConsumer,
+                   !sourceMaterialCandidateConsumerLayerIDs.contains(layer.id),
+                   !referencedProviderLayerIDs.contains(layer.id), hasColorConsumer {
+                    targets.insert(.layer(layerID: layer.id, field: .brightness))
+                }
                 for animationLayer in layer.puppetAnimationLayers
                     where animationLayer.visibilityBinding != nil {
                     guard let animationLayerID = animationLayer.id else { continue }

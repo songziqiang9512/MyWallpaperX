@@ -115,6 +115,7 @@ nonisolated enum SceneDynamicLayerField: String, Codable, Equatable, Hashable, S
     case perspective
     case visibility
     case alpha
+    case brightness
     case intensity
     case origin
     case size
@@ -129,7 +130,7 @@ private extension SceneDynamicLayerField {
         switch self {
         case .intensity:
             0 ... Double(Float.greatestFiniteMagnitude)
-        case .solid, .perspective, .visibility, .alpha, .origin, .size, .scale, .angles, .color,
+        case .solid, .perspective, .visibility, .alpha, .brightness, .origin, .size, .scale, .angles, .color,
              .volume:
             nil
         }
