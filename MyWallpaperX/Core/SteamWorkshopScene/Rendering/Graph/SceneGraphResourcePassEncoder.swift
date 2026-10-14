@@ -198,9 +198,12 @@ final class SceneGraphResourcePassEncoder {
         descriptor.colorAttachments[0].loadAction = .clear
         descriptor.colorAttachments[0].storeAction = .store
         descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(
-            descriptor: descriptor
-        ) else {
+        #if DEBUG
+        let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "graph-source-capture")
+        #else
+        let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
+        #endif
+        guard let encoder = timestampEncoder else {
             return false
         }
         encoder.label = "Scene graph source capture"
@@ -249,9 +252,12 @@ final class SceneGraphResourcePassEncoder {
             clear.blue,
             clear.alpha
         )
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(
-            descriptor: descriptor
-        ) else {
+        #if DEBUG
+        let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "resource-initialization", knownNoDraw: true)
+        #else
+        let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
+        #endif
+        guard let encoder = timestampEncoder else {
             return false
         }
         encoder.label = "Scene graph resource initialization"
@@ -265,7 +271,12 @@ final class SceneGraphResourcePassEncoder {
         target: MTLTexture,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
-        guard let encoder = commandBuffer.makeBlitCommandEncoder() else {
+        #if DEBUG
+        let timestampEncoder = SceneGPUStageTimestampHook.blit(commandBuffer, role: "graph-resource-copy")
+        #else
+        let timestampEncoder = commandBuffer.makeBlitCommandEncoder()
+        #endif
+        guard let encoder = timestampEncoder else {
             return false
         }
         encoder.label = "Scene graph exact resource copy"

@@ -88,6 +88,15 @@ struct SceneMetalRenderer {
             return .deferred(reasonCode: "command-buffer-unavailable")
         }
         particleSubmissionCommandBuffer = commandBuffer
+#if DEBUG
+        SceneGPUStageTimestampHook.begin(commandBuffer, frameIndex: frameContext.frameIndex,
+            registryEpochBeforeBegin: textureRegistry.frameEpoch)
+        defer {
+            if !didTransferFrameOwnership {
+                SceneGPUStageTimestampHook.cancel(commandBuffer, reason: "renderer-unsubmitted-return")
+            }
+        }
+#endif
         let sourceUpdateTransaction = SceneSourceUpdateTransaction()
         // Unsubmitted source and registry state roll back together.
         defer {
@@ -112,6 +121,9 @@ struct SceneMetalRenderer {
             : nil
         beginTextureFrame(imageTextures, userPropertyTextures, userPropertyTextureStates,
                           mediaThumbnail, frameContext)
+#if DEBUG
+        SceneGPUStageTimestampHook.frameEpoch(textureRegistry.frameEpoch, on: commandBuffer)
+#endif
         let colorStart = encodeSceneColorStart(pool: offscreenTexturePool, target: drawable.texture,
             frameIndex: frameContext.frameIndex, clearEnabled: frameProjection.descriptor.camera.clearEnabled,
             commandBuffer: commandBuffer)

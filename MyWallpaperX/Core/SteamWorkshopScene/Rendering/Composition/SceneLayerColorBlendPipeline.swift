@@ -160,6 +160,9 @@ final class SceneLayerColorBlendPipeline {
             encoder: encoder
         )
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        #if DEBUG
+        SceneGPUStageTimestampHook.drew(encoder)
+        #endif
         ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
     }
 

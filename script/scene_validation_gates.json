@@ -290,6 +290,18 @@
       ]
     },
     {
+      "id": "gpu-stage-timestamps",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneFramePerformanceTelemetry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUStageTimestampObservation.swift",
+        "script/tests/test_scene_gpu_stage_timestamps.py",
+        "script/tests/fixtures/SceneGPUStageTimestampChecks.swift"
+      ],
+      "modules": [
+        "test_scene_gpu_stage_timestamps"
+      ]
+    },
+    {
       "id": "scene-script-runtime",
       "patterns": [
         "script/tests/test_scene_script_layer_order.py",

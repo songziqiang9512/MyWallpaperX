@@ -307,6 +307,16 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             emit(emission)
             return .rejected(reasonCode: reason)
         }
+#if DEBUG
+        if let observation = commandBufferRecords[ObjectIdentifier(commandBuffer)] {
+            SceneGPUStageTimestampHook.coordinator(commandBuffer,
+                ownerIdentity: UInt(bitPattern: ObjectIdentifier(self)),
+                observationID: observation.observationID, resetGeneration: resetGeneration,
+                effectGeneration: effectGeneration,
+                executionEpoch: executionEpoch,
+                frameEpoch: frame.textureRegistrySnapshot.frameEpoch)
+        }
+#endif
 
         guard requests.allSatisfy({ request in
             let claim = request.claim

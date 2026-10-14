@@ -295,9 +295,12 @@ final class SceneResolvedMaterialPassEncoder {
             descriptor.colorAttachments[0].loadAction = .dontCare
         }
         descriptor.colorAttachments[0].storeAction = .store
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(
-            descriptor: descriptor
-        ) else {
+        #if DEBUG
+        let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "resolved-material")
+        #else
+        let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
+        #endif
+        guard let encoder = timestampEncoder else {
             return false
         }
         encoder.label = "Scene resolved material pass"
@@ -343,6 +346,9 @@ final class SceneResolvedMaterialPassEncoder {
             encoder.setFragmentSamplerState(binding.sampler, index: binding.slot)
         }
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        #if DEBUG
+        SceneGPUStageTimestampHook.drew(encoder)
+        #endif
         ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
     }
 

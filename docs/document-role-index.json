@@ -6,6 +6,7 @@
       "docs/architecture/technology-stack-boundaries.md",
       "docs/development/repository-workflow.md",
       "docs/release/release-signing.md",
+      "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
       "docs/scene/architecture/refactor-baseline.md",
       "docs/scene/architecture/runtime-architecture.md",
       "docs/scene/architecture/runtime-as-built-map.md",
@@ -348,6 +349,20 @@
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
     },
     {
+      "path": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/architecture/runtime-architecture.md",
+      "currentStateAuthority": "docs/scene/roadmap/performance-convergence-card.md",
+      "lastReviewed": "2026-10-15",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "406e81381b5fead04675d12864545ae318f65035fec76b058d635ac308724cdc",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "公开stage诊断唯一owner/原CB生命周期与资格历史/现性能卡导航接管，先设计登记已退役",
+        "limitations": "仅本次合同与证据职责/导航核对；不代表全部引擎、设备、官方parity或稳定性能验收"
+      }
+    },
+    {
       "path": "docs/scene/architecture/refactor-baseline.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/roadmap/engine-refactor-program.md",
@@ -366,13 +381,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-14",
+      "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7422345a72ff117cd7b4c072b52904c0257df8d778209ccf542ff08c0eb2ea6a",
+        "sourceSHA256": "edffd907248121f886d596eb4e82a3fe9a04c390059a9c22495f3fd5cd62c216",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批不可变PreparedAssembly与Encoder当帧验证边界的合同导航核对；其余架构未全量复验",
-        "limitations": "导航复核不冒充全架构、样本兼容、整进程性能、能耗或Release；实际执行身份与边界归本批历史证据。"
+        "scope": "公开stage诊断唯一owner/原CB生命周期与资格历史/现性能卡导航接管，先设计登记已退役",
+        "limitations": "仅本次合同与证据职责/导航核对；不代表全部引擎、设备、官方parity或稳定性能验收"
       }
     },
     {
@@ -1269,6 +1284,17 @@
       ],
       "cutoffDate": "2026-10-15",
       "uniqueValue": "真实帧GPU成本分母、附件原型撤回、两条shader短筛未达门及行级执行证据边界"
+    },
+    {
+      "path": "docs/scene/history/gpu-stage-timestamp-qualification-2026-10-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/roadmap/performance-convergence-card.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md"
+      ],
+      "cutoffDate": "2026-10-15"
     },
     {
       "path": "docs/scene/history/graph-color-purpose-reconciliation-2026-10-12.md",
@@ -2814,13 +2840,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-14",
+      "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "56d03867f73137da32dbe51892aca0a07e157d86bbf38b7b6d4a7115fb615108",
+        "sourceSHA256": "f3341fcfffe384cfa8439dc5059f6c1f3c8b247c8527288b18be09f45c530b48",
         "method": "document_registry --audit + document_health --check",
-        "scope": "沿用真实GPU归因与淘汰筛选入口；换图窗口/独立ROI与未完整CLI收尾、后继属性入口同步，不计性能收益",
-        "limitations": "仅本批文档职责与导航；不冒充全样本、动态整图、完整CLI生命周期、性能或发布验收。"
+        "scope": "公开stage诊断唯一owner/原CB生命周期与资格历史/现性能卡导航接管，先设计登记已退役",
+        "limitations": "仅本次合同与证据职责/导航核对；不代表全部引擎、设备、官方parity或稳定性能验收"
       }
     },
     {
@@ -3042,7 +3068,8 @@
         "docs/scene/capabilities/previous-blurred-composite-admission.md",
         "docs/scene/capabilities/scalar-mask-data-purpose.md",
         "docs/scene/roadmap/performance-convergence-card.md",
-        "docs/scene/roadmap/properties-panel-card.md"
+        "docs/scene/roadmap/properties-panel-card.md",
+        "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md"
       ],
       "sourcePaths": [
         "MyWallpaperX/Core/SteamWorkshopScene"

@@ -524,9 +524,12 @@ extension SceneDependencyFrameRuntime {
             red: 0, green: 0, blue: 0, alpha: 0
         )
         descriptor.colorAttachments[0].storeAction = .store
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(
-            descriptor: descriptor
-        ) else {
+        #if DEBUG
+        let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "named-geometry")
+        #else
+        let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
+        #endif
+        guard let encoder = timestampEncoder else {
             telemetry.recordFailure(layerID: layerID)
             return .unavailable(reasonCode: "geometry-provider-encoder-unavailable")
         }

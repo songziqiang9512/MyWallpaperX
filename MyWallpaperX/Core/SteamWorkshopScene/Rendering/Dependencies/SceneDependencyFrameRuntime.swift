@@ -908,7 +908,12 @@ final class SceneDependencyFrameRuntime {
             publicationTelemetry.recordFailure(layerID: layerID)
             return .invalid(reasonCode: "named-provider-publication-identity-invalid")
         }
-        guard let blit = commandBuffer.makeBlitCommandEncoder() else {
+        #if DEBUG
+        let timestampEncoder = SceneGPUStageTimestampHook.blit(commandBuffer, role: "named-graph-copy")
+        #else
+        let timestampEncoder = commandBuffer.makeBlitCommandEncoder()
+        #endif
+        guard let blit = timestampEncoder else {
             publicationTelemetry.recordFailure(layerID: layerID)
             return .unavailable(reasonCode: "named-provider-publication-encoder-unavailable")
         }

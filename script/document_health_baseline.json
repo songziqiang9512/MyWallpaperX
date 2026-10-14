@@ -32,13 +32,17 @@
       "lines": 220,
       "bytes": 38999
     },
+    "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md": {
+      "lines": 33,
+      "bytes": 4594
+    },
     "docs/scene/architecture/refactor-baseline.md": {
       "lines": 128,
       "bytes": 18461
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 121735
+      "bytes": 121890
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -80,9 +84,17 @@
       "lines": 277,
       "bytes": 177846
     },
+    "docs/scene/capabilities/material-video-assets.md": {
+      "lines": 11,
+      "bytes": 1695
+    },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 399,
       "bytes": 140794
+    },
+    "docs/scene/capabilities/previous-blurred-composite-admission.md": {
+      "lines": 15,
+      "bytes": 2978
     },
     "docs/scene/capabilities/puppet-clipping-design.md": {
       "lines": 33,
@@ -103,6 +115,10 @@
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
       "bytes": 2480
+    },
+    "docs/scene/capabilities/scalar-mask-data-purpose.md": {
+      "lines": 17,
+      "bytes": 3104
     },
     "docs/scene/capabilities/scene-corpus-capability-inventory.md": {
       "lines": 488,
@@ -188,9 +204,21 @@
       "lines": 45,
       "bytes": 9700
     },
+    "docs/scene/roadmap/batch2/terminal-material-chain-design.md": {
+      "lines": 34,
+      "bytes": 5767
+    },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 62,
       "bytes": 7353
+    },
+    "docs/scene/roadmap/performance-convergence-card.md": {
+      "lines": 44,
+      "bytes": 10229
+    },
+    "docs/scene/roadmap/properties-panel-card.md": {
+      "lines": 22,
+      "bytes": 6388
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
@@ -204,9 +232,17 @@
       "lines": 578,
       "bytes": 160845
     },
+    "docs/web/cold-descriptor-parse-offload-design.md": {
+      "lines": 45,
+      "bytes": 6163
+    },
     "docs/web/cross-origin-reply-delivery-design.md": {
       "lines": 50,
       "bytes": 6445
+    },
+    "docs/web/css-animation-freeze-redesign.md": {
+      "lines": 46,
+      "bytes": 6677
     },
     "docs/web/current-state.md": {
       "lines": 122,
@@ -235,38 +271,6 @@
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 8377
-    },
-    "docs/web/cold-descriptor-parse-offload-design.md": {
-      "lines": 45,
-      "bytes": 6163
-    },
-    "docs/web/css-animation-freeze-redesign.md": {
-      "lines": 46,
-      "bytes": 6677
-    },
-    "docs/scene/roadmap/batch2/terminal-material-chain-design.md": {
-      "lines": 34,
-      "bytes": 5767
-    },
-    "docs/scene/capabilities/material-video-assets.md": {
-      "lines": 11,
-      "bytes": 1695
-    },
-    "docs/scene/capabilities/previous-blurred-composite-admission.md": {
-      "lines": 15,
-      "bytes": 2978
-    },
-    "docs/scene/capabilities/scalar-mask-data-purpose.md": {
-      "lines": 17,
-      "bytes": 3104
-    },
-    "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 44,
-      "bytes": 9964
-    },
-    "docs/scene/roadmap/properties-panel-card.md": {
-      "lines": 22,
-      "bytes": 6388
     }
   },
   "archives": [
@@ -1075,12 +1079,30 @@
   "adjustments": [
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "913d2102a539febbabfa9abf34b0cbbd7a576b48c9217537bde92aad02ed67bc",
+      "owner": "scene-performance-telemetry",
+      "reason": "公开stage一帧资格成功后将设计边界移交最小诊断合同，现runtime与性能卡只链接该owner/原CB/重叠成本限制，不维护第二队列。",
+      "decision": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "e54903c33104236d6f0ed17776422cdd703ec5dc22a5c80117f1efc6055c3257",
+      "after": "0604b80449a8da14a329d2c4361ad30691a6372e4ae112222e62e8417ec08303",
+      "owner": "scene-performance-telemetry",
+      "reason": "公开stage一帧资格成功后将设计边界移交最小诊断合同，现runtime与性能卡只链接该owner/原CB/重叠成本限制，不维护第二队列。",
+      "decision": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "7dbb13e7d1dddd7b93d707c7dce7ac057a6e5c06f7ccdedc79300be628a2b87a",
-      "after": "3e4a26f46cbe6cc265279ab4843a53efd5568b7d12dd92af9b796edd6a34adcc",
-      "owner": "Scene texture snapshot construction",
-      "reason": "Record the accepted local snapshot CPU result and its control noise boundary, retaining global performance qualification and next native timestamp design.",
-      "decision": "docs/scene/history/frame-texture-snapshot-convergence-2026-10-14.md#snapshot-construction-direct-entry"
+      "before": "3e4a26f46cbe6cc265279ab4843a53efd5568b7d12dd92af9b796edd6a34adcc",
+      "after": "9e1793cc28835f5828990fdbf1ddb95d8808036672a1eecba54746c95ec1c593",
+      "owner": "scene-performance-telemetry",
+      "reason": "公开stage一帧资格成功后将设计边界移交最小诊断合同，现runtime与性能卡只链接该owner/原CB/重叠成本限制，不维护第二队列。",
+      "decision": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md"
     }
   ]
 }

@@ -49,7 +49,12 @@ extension SceneMetalRenderer {
             pins.append(reserved.pin)
             groupRuntime?.closeAllGroupEncoders()
             let copied = mainPass.encodeOffscreen { buffer in
-                guard let blit = buffer.makeBlitCommandEncoder() else { return false }
+                #if DEBUG
+                let timestampEncoder = SceneGPUStageTimestampHook.blit(buffer, role: "reflection-copy")
+                #else
+                let timestampEncoder = buffer.makeBlitCommandEncoder()
+                #endif
+                guard let blit = timestampEncoder else { return false }
                 blit.copy(from: source, sourceSlice: 0, sourceLevel: 0,
                     sourceOrigin: MTLOriginMake(0, 0, 0),
                     sourceSize: MTLSizeMake(source.width, source.height, 1),
@@ -111,8 +116,13 @@ extension SceneMetalRenderer {
     func copySceneColor(_ source: MTLTexture, to target: MTLTexture,
                     commandBuffer: MTLCommandBuffer) -> Bool {
         guard source !== target, source.width == target.width,
-              source.height == target.height, source.pixelFormat == target.pixelFormat,
-              let encoder = commandBuffer.makeBlitCommandEncoder() else { return false }
+              source.height == target.height, source.pixelFormat == target.pixelFormat else { return false }
+#if DEBUG
+        let timestampEncoder = SceneGPUStageTimestampHook.blit(commandBuffer, role: "scene-color-copy")
+#else
+        let timestampEncoder = commandBuffer.makeBlitCommandEncoder()
+#endif
+        guard let encoder = timestampEncoder else { return false }
         encoder.copy(from: source, sourceSlice: 0, sourceLevel: 0,
             sourceOrigin: MTLOriginMake(0, 0, 0),
             sourceSize: MTLSizeMake(source.width, source.height, 1),

@@ -57,6 +57,11 @@ extension SceneMetalRenderer {
         var isReady: Bool { commandBuffer?.status == .notEnqueued }
 
 #if DEBUG
+        func observeGPUStageSurface(frameIndex: UInt64, surfaceID: UInt32) {
+            guard let commandBuffer else { return }
+            SceneGPUStageTimestampHook.surface(commandBuffer, frameIndex: frameIndex, surfaceID: surfaceID)
+        }
+
         private var debugObservation: (frameIndex: UInt64, surfaceID: UInt32)?
         func observeCompletion(frameIndex: UInt64, surfaceID: UInt32) {
             debugObservation = (frameIndex, surfaceID)

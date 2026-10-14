@@ -143,7 +143,12 @@ final class ScenePuppetClipping {
             pass.colorAttachments[0].loadAction = .clear
             pass.colorAttachments[0].storeAction = .store
             pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
-            guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: pass) else {
+            #if DEBUG
+            let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, pass, role: "puppet-clipping")
+            #else
+            let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: pass)
+            #endif
+            guard let encoder = timestampEncoder else {
                 allocation.release()
                 continue
             }
@@ -165,6 +170,9 @@ final class ScenePuppetClipping {
                 encoder.drawIndexedPrimitives(type: .triangle, indexCount: part.indexCount,
                     indexType: .uint16, indexBuffer: indexBuffer,
                     indexBufferOffset: part.indexOffset * MemoryLayout<UInt16>.stride)
+                #if DEBUG
+                SceneGPUStageTimestampHook.drew(encoder)
+                #endif
             }
             encoder.endEncoding()
             prepared[record.targetPartOrdinal] = Mask(texture: target, transform: roi.transform)
@@ -181,6 +189,9 @@ final class ScenePuppetClipping {
             encoder.drawIndexedPrimitives(type: .triangle, indexCount: part.indexCount,
                 indexType: .uint16, indexBuffer: indexBuffer,
                 indexBufferOffset: part.indexOffset * MemoryLayout<UInt16>.stride)
+            #if DEBUG
+            SceneGPUStageTimestampHook.drew(encoder)
+            #endif
             ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
         }
         SceneImageLayerPipeline.bindClipMask(encoder: encoder, texture: sourceTexture)

@@ -23,7 +23,14 @@ extension SceneMetalRenderer {
         particleBatches: [SceneParticleDrawBatch]
     ) -> PreparedFrame {
         return PreparedFrame(commandBuffer: commandBuffer, submit: {
+#if DEBUG
+            if !SceneGPUStageTimestampHook.isSelected(commandBuffer) {
+                encodeFrameReadback?(drawable.texture, commandBuffer)
+            }
+            SceneGPUStageTimestampHook.submitted(commandBuffer)
+#else
             encodeFrameReadback?(drawable.texture, commandBuffer)
+#endif
             onDrawableWillPresent?(drawable)
             commandBuffer.present(drawable)
             if let effectExecutionTrace {
@@ -46,6 +53,9 @@ extension SceneMetalRenderer {
             commandBuffer.commit()
             sourceUpdateTransaction.didSubmit()
         }, cancel: {
+#if DEBUG
+            SceneGPUStageTimestampHook.cancel(commandBuffer, reason: "prepared-frame-cancelled")
+#endif
             imageCompositor.cancelUnsubmittedResolvedMaterialFrame(on: commandBuffer)
             sourceUpdateTransaction.cancel()
             compositionGroupRuntime?.cancel()

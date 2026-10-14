@@ -372,6 +372,9 @@ final class ScenePuppetPlaybackState {
                 SceneImageLayerPipeline.bindClipMask(encoder: encoder, texture: sourceTexture)
                 encoder.drawIndexedPrimitives(type: .triangle, indexCount: mesh.indices.count,
                     indexType: .uint16, indexBuffer: indexBuffer, indexBufferOffset: 0)
+                #if DEBUG
+                SceneGPUStageTimestampHook.drew(encoder)
+                #endif
                 ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
             }
             return true

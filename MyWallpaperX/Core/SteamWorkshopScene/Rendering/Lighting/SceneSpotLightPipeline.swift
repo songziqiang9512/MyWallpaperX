@@ -171,6 +171,9 @@ final class SceneSpotLightPipeline {
             index: 0
         )
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        #if DEBUG
+        SceneGPUStageTimestampHook.drew(encoder)
+        #endif
         ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
         return true
     }

@@ -527,7 +527,12 @@ final class SceneCompositionGroupFrameRuntime {
                     guard source.width == target.width,
                           source.height == target.height,
                           source.pixelFormat == target.pixelFormat else { return false }
-                    guard let blit = commandBuffer.makeBlitCommandEncoder() else { return false }
+                    #if DEBUG
+                    let timestampEncoder = SceneGPUStageTimestampHook.blit(commandBuffer, role: "composition-background-copy")
+                    #else
+                    let timestampEncoder = commandBuffer.makeBlitCommandEncoder()
+                    #endif
+                    guard let blit = timestampEncoder else { return false }
                     blit.copy(from: source, sourceSlice: 0, sourceLevel: 0,
                         sourceOrigin: MTLOrigin(),
                         sourceSize: MTLSize(width: source.width, height: source.height, depth: 1),

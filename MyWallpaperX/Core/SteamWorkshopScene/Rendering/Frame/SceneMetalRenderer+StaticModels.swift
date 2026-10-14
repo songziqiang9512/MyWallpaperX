@@ -479,7 +479,12 @@ extension SceneMetalRenderer {
             descriptor.depthAttachment.loadAction = .clear
             descriptor.depthAttachment.storeAction = .store
             descriptor.depthAttachment.clearDepth = 1
-            guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else { continue }
+            #if DEBUG
+            let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "model-shadow")
+            #else
+            let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
+            #endif
+            guard let encoder = timestampEncoder else { continue }
             encoder.label = "Scene model shadow slot \(slot)"
             var encoded = true
             for face in 0..<projection.faceCount {

@@ -885,6 +885,9 @@ extension SceneDesktopWallpaperSession {
             }
             frameOutcomes.append(frameOutcome)
 #if DEBUG
+            if case let .prepared(candidate) = frameOutcome {
+                candidate.observeGPUStageSurface(frameIndex: surface.metalView.simulationFrameIndex, surfaceID: displayID)
+            }
             if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
                surface.metalView.simulationFrameIndex <= 2,
                case let .prepared(candidate) = frameOutcome {

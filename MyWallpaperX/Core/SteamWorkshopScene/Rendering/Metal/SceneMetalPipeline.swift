@@ -135,6 +135,9 @@ struct SceneImageLayerPipeline {
         encoder.setFragmentTexture(dependencyTexture ?? texture, index: 1)
         Self.bindClipMask(encoder: encoder, texture: texture)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        #if DEBUG
+        SceneGPUStageTimestampHook.drew(encoder)
+        #endif
         ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
     }
 }

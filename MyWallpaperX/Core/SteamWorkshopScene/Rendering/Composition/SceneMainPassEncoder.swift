@@ -106,7 +106,12 @@ final class SceneMainPassEncoder {
             descriptor.depthAttachment.clearDepth = clearDepth
             descriptor.depthAttachment.storeAction = .store
         }
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else {
+        #if DEBUG
+        let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "main-composite")
+        #else
+        let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
+        #endif
+        guard let encoder = timestampEncoder else {
             encodingFailed = true
             return nil
         }
@@ -119,6 +124,9 @@ final class SceneMainPassEncoder {
     }
 
     func closeForOffscreen() {
+#if DEBUG
+        if let activeEncoder { SceneGPUStageTimestampHook.endedMain(activeEncoder) }
+#endif
         activeEncoder?.endEncoding()
         activeEncoder = nil
         activeDepthTexture = nil
@@ -145,6 +153,9 @@ final class SceneMainPassEncoder {
         if activeEncoder == nil {
             _ = encoder()
         }
+#if DEBUG
+        if let activeEncoder { SceneGPUStageTimestampHook.endedMain(activeEncoder) }
+#endif
         activeEncoder?.endEncoding()
         activeEncoder = nil
         isFinished = true

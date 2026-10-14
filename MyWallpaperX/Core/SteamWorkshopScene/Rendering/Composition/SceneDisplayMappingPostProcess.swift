@@ -120,14 +120,21 @@ final class SceneDisplayMappingPostProcess {
         descriptor.colorAttachments[0].texture = target
         descriptor.colorAttachments[0].loadAction = source == nil ? .load : .dontCare
         descriptor.colorAttachments[0].storeAction = .store
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
-        else { return false }
+#if DEBUG
+        let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "display-mapping")
+#else
+        let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
+#endif
+        guard let encoder = timestampEncoder else { return false }
         encoder.setRenderPipelineState(pipeline)
         encoder.setTriangleFillMode(.fill)
         if let source { encoder.setFragmentTexture(source, index: 0) }
         var headroom = output.uniform
         encoder.setFragmentBytes(&headroom, length: MemoryLayout<Float>.stride, index: 0)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        #if DEBUG
+        SceneGPUStageTimestampHook.drew(encoder)
+        #endif
         encoder.endEncoding()
         return true
     }

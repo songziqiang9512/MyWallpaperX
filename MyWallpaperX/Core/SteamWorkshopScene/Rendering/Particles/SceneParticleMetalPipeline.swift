@@ -173,6 +173,9 @@ struct SceneParticleMetalPipeline {
             vertexCount: Self.unitQuad.count,
             instanceCount: drawState.count
         )
+        #if DEBUG
+        SceneGPUStageTimestampHook.drew(encoder)
+        #endif
         ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
         return true
     }
@@ -254,6 +257,9 @@ struct SceneParticleMetalPipeline {
             vertexCount: Self.unitQuad.count,
             instanceCount: drawState.count
         )
+        #if DEBUG
+        SceneGPUStageTimestampHook.drew(encoder)
+        #endif
         ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
         return true
     }

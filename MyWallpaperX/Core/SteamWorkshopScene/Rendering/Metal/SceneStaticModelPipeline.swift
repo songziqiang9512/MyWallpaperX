@@ -489,6 +489,9 @@ struct SceneStaticModelPipeline {
             indexBuffer: mesh.indexBuffer,
             indexBufferOffset: 0
         )
+        #if DEBUG
+        SceneGPUStageTimestampHook.drew(encoder)
+        #endif
         ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
         return true
     }
@@ -546,6 +549,9 @@ struct SceneStaticModelPipeline {
         encoder.setFragmentSamplerState(samplerStates.state(for: sampling), index: 0)
         encoder.drawIndexedPrimitives(type: .triangle, indexCount: mesh.indexCount,
             indexType: mesh.indexType, indexBuffer: mesh.indexBuffer, indexBufferOffset: 0)
+        #if DEBUG
+        SceneGPUStageTimestampHook.drew(encoder)
+        #endif
         ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
         return true
     }

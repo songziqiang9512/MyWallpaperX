@@ -570,6 +570,9 @@ final class SceneResolvedMaterialGraphExecutor {
             return .failure(.encodeRejected)
         }
         for (stageIndex, stage) in preparedGraph.stages.enumerated() {
+#if DEBUG
+            var commandOrdinal = 0
+#endif
             for command in stage.commands {
                 if case let .functionClear(
                     _, invocationOrdinal, targetOrdinal
@@ -581,7 +584,15 @@ final class SceneResolvedMaterialGraphExecutor {
                 ) == false {
                     return .failure(.functionClearEncodeRejected)
                 }
-                guard encode(command, commandBuffer: commandBuffer) else {
+#if DEBUG
+                let encoded = SceneGPUStageTimestampHook.graphScope(commandBuffer,
+                    layerID: stage.effect.layerID, effectIndex: stage.effect.effectIndex,
+                    commandOrdinal: commandOrdinal) { encode(command, commandBuffer: commandBuffer) }
+                commandOrdinal += 1
+#else
+                let encoded = encode(command, commandBuffer: commandBuffer)
+#endif
+                guard encoded else {
                     if case .functionClear = command {
                         return .failure(.functionClearEncodeRejected)
                     }

@@ -47,10 +47,15 @@ final class SceneFramebufferSnapshot {
     ) -> MTLTexture? {
         guard target.textureType == .type2D,
               target.sampleCount == 1,
-              let destination = destination(width: target.width, height: target.height, pixelFormat: target.pixelFormat),
-              let encoder = commandBuffer.makeBlitCommandEncoder() else {
+              let destination = destination(width: target.width, height: target.height, pixelFormat: target.pixelFormat) else {
             return nil
         }
+#if DEBUG
+        let timestampEncoder = SceneGPUStageTimestampHook.blit(commandBuffer, role: "framebuffer-snapshot")
+#else
+        let timestampEncoder = commandBuffer.makeBlitCommandEncoder()
+#endif
+        guard let encoder = timestampEncoder else { return nil }
         let region = region ?? MTLRegionMake2D(0, 0, target.width, target.height)
         encoder.copy(
             from: target,

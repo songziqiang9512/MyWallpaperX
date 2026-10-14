@@ -11,9 +11,12 @@ enum SceneOffscreenEffectRenderer {
         descriptor.colorAttachments[0].loadAction = .clear
         descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
         descriptor.colorAttachments[0].storeAction = .store
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(
-            descriptor: descriptor
-        ) else {
+        #if DEBUG
+        let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "source-offscreen")
+        #else
+        let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
+        #endif
+        guard let encoder = timestampEncoder else {
             return nil
         }
         SceneGPUCensus.recordOffscreenRender(.offscreenEffectCapture)

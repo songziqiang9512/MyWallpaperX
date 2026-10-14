@@ -168,10 +168,17 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             return .failed(reasonCode: reason)
         case let .accepted(admittedLedger, identity, executor):
             var ledger = admittedLedger
+#if DEBUG
+            let encodeResult = SceneGPUStageTimestampHook.graphScope(commandBuffer,
+                layerID: claim.layerID, ledgerID: identity) {
+                executor.encodeResult(ledger.prepared, commandBuffer: commandBuffer)
+            }
+#else
             let encodeResult = executor.encodeResult(
                 ledger.prepared,
                 commandBuffer: commandBuffer
             )
+#endif
             guard case .success = encodeResult else {
                 let reason: String
                 if case let .failure(failure) = encodeResult {

@@ -209,13 +209,21 @@ final class SceneBloomPostProcess {
         descriptor.colorAttachments[0].texture = target
         descriptor.colorAttachments[0].loadAction = .dontCare
         descriptor.colorAttachments[0].storeAction = .store
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else {
+        #if DEBUG
+        let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "bloom-quad")
+        #else
+        let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
+        #endif
+        guard let encoder = timestampEncoder else {
             return false
         }
         encoder.setRenderPipelineState(pipeline)
         encoder.setTriangleFillMode(.fill)
         bind(encoder)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        #if DEBUG
+        SceneGPUStageTimestampHook.drew(encoder)
+        #endif
         encoder.endEncoding()
         return true
     }
@@ -283,12 +291,20 @@ final class SceneBloomPostProcess {
         descriptor.colorAttachments[0].texture = source
         descriptor.colorAttachments[0].loadAction = .load
         descriptor.colorAttachments[0].storeAction = .store
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else {
+        #if DEBUG
+        let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "bloom-combine")
+        #else
+        let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
+        #endif
+        guard let encoder = timestampEncoder else {
             return false
         }
         encoder.setRenderPipelineState(combinePipeline)
         encoder.setFragmentTexture(targets.mip1, index: 0)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        #if DEBUG
+        SceneGPUStageTimestampHook.drew(encoder)
+        #endif
         encoder.endEncoding()
         return true
     }
@@ -419,11 +435,19 @@ final class SceneBloomPostProcess {
         descriptor.colorAttachments[0].texture = source
         descriptor.colorAttachments[0].loadAction = .load
         descriptor.colorAttachments[0].storeAction = .store
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else { return false }
+        #if DEBUG
+        let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "bloom-hdr-combine")
+        #else
+        let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
+        #endif
+        guard let encoder = timestampEncoder else { return false }
         encoder.setRenderPipelineState(combinePipeline)
         encoder.setFragmentTexture(reconstructed, index: 0)
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<HDRUniforms>.stride, index: 0)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        #if DEBUG
+        SceneGPUStageTimestampHook.drew(encoder)
+        #endif
         encoder.endEncoding()
         return true
     }

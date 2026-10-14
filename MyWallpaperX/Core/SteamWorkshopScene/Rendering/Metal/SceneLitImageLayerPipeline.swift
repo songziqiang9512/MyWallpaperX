@@ -393,6 +393,9 @@ final class SceneLitImageLayerPipeline {
         encoder.setFragmentTexture(materialMapTexture ?? texture, index: 2)
         encoder.setFragmentTexture(environmentTexture ?? texture, index: 3)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        #if DEBUG
+        SceneGPUStageTimestampHook.drew(encoder)
+        #endif
         ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
     }
 }

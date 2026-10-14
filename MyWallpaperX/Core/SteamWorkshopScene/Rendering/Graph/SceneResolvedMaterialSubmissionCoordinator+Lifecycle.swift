@@ -48,6 +48,10 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     /// Ends the surface runtime before its pool is reset. In-flight ledgers and
     /// retired committed history stay pinned until their terminal callback.
     func invalidate(reason: SceneGraphExecutionResetReason) {
+#if DEBUG
+        SceneGPUStageTimestampHook.invalidateCoordinator(
+            UInt(bitPattern: ObjectIdentifier(self)), reason: reason.rawValue)
+#endif
         lock.lock()
         var emission = Emission()
         if !activeTransactions.isEmpty || preparedSceneColor != nil || preparedDisplayScratch != nil {
@@ -121,6 +125,10 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     }
 
     func invalidateEpochLocked() {
+#if DEBUG
+        SceneGPUStageTimestampHook.invalidateCoordinator(
+            UInt(bitPattern: ObjectIdentifier(self)), reason: "execution-epoch-invalidated")
+#endif
         guard executionEpoch < UInt64.max else {
             terminalFailureReason = "execution-epoch-overflow"
             return
@@ -130,6 +138,10 @@ extension SceneResolvedMaterialSubmissionCoordinator {
 
     @discardableResult
     func advanceResetLocked(reason: SceneGraphExecutionResetReason) -> Bool {
+#if DEBUG
+        SceneGPUStageTimestampHook.invalidateCoordinator(
+            UInt(bitPattern: ObjectIdentifier(self)), reason: reason.rawValue)
+#endif
         guard resetGeneration < UInt64.max else {
             terminalFailureReason = "reset-generation-overflow"
             return false
