@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 30,
-      "bytes": 8614
+      "bytes": 8875
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1363,15 +1363,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "d465734c041da2fb7d783b35ab5fcbe414c5527b9b02f9d07dcf4e40b7403ec3",
-      "after": "c981a8abcffd593872e37289788e779855c9ab009fbc9dd4e18ac2eb5cdb4a72",
-      "owner": "Scene performance convergence",
-      "reason": "Record bounded GPU command attribution and reject identity-changing CPU snapshot cache; no performance acceptance.",
-      "decision": "docs/scene/history/gpu-cost-screening-2026-10-14.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "2b5723281a590731426195d4f5336d519be7bdd682260b03ac389ae31619c6ef",
       "after": "d852e684ef4f38d626fbd8c99c070b03d42b4a24b3cf7899acc69041b80ece9a",
@@ -1387,6 +1378,15 @@
       "owner": "Scene property panel",
       "reason": "Preserve unknown definitions as read-only rows and retain reset for condition controllers; runtime type support remains open.",
       "decision": "docs/scene/history/native-property-list-convergence-2026-10-14.md#未知类型只读投影"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "c981a8abcffd593872e37289788e779855c9ab009fbc9dd4e18ac2eb5cdb4a72",
+      "after": "1288344b98cde1779bffe464a403456d18aefe6ae74c4f525e27265b8f8dbff0",
+      "owner": "Scene performance convergence",
+      "reason": "Record rejected working-view query screens and route the next measured CPU candidate without claiming global benefit.",
+      "decision": "docs/scene/history/graph-residency-query-convergence-2026-10-14.md"
     }
   ]
 }

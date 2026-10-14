@@ -64,6 +64,13 @@ class SceneGraphAllocationRecoveryTests(unittest.TestCase):
                 with self.subTest(variant=index, key=key):
                     self.assertTrue(passed)
 
+    def test_finalization_rejects_late_alias_and_normalizes_omitted_history(self) -> None:
+        self.assertEqual(len(self.result["workingViewMutations"]), 3)
+        for index, row in enumerate(self.result["workingViewMutations"]):
+            for key, passed in row.items():
+                with self.subTest(variant=index, key=key):
+                    self.assertTrue(passed)
+
     def test_cached_targets_survive_completion_without_allocation_or_identity_drift(self) -> None:
         for row in self.result["cachedCompletion"]:
             for key, value in row.items():

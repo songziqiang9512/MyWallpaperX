@@ -49,3 +49,18 @@ Apple M4/macOS27.0.1，3024×1964、单 surface、60FPS，原304输入239属性�
 本批还查明优化诊断整模块构建约304–323秒、Debug约27–31秒；实际argv含WMO且无incremental。日志无逐命令计时，不能把全部五分钟归给单一任务。下一独立批研究固定优化增量诊断供筛选，保同配置身份与正式WMO验收，不增加每批两套完整比较。
 
 本机证据位于 `.artifacts/tmp/graph-residency-query-20261014/proof/`：原报告、预登记、两版差量/构建身份、原失败、配对分析及独审随批限量保留。运行缓存/副本在完成后按精确归属清理；连续构建缓存与最终签名诊断 App 单独注明保留，不把产物移动称为释放。
+
+
+## 后继：working-view 查询短筛，产品候选已撤回
+
+当前App `86b320df…`在真实304暖30秒后的6秒CPU采样仍命中working-view逐代次`Dictionary.filter`与粒子stable sort；127/101是对应栈的inclusive观察数，不是调用次数或CPU百分比。先筛前者：pending移除后复用`GraphResidencyView`派生唯一key，释放投影后逐项读live view，原selected/omitted release及cancel/apply不变。此后继未通过整体继续门，最终产品已恢复原路径；本页前述已提交的resident查询优化未撤回。
+
+实际native pool的`-O`局部实验固定G32/R128，20次预热、120次测量，五对交替AB/BA。首版全选/半选的finalize p50配对降幅中位数35.468%/46.937%，prepare＋admit＋finalize＋release完整循环19.404%/23.197%，每对完整循环均正向。计时为DispatchTime调用墙钟耗时，不是进程CPU时间率、含setup的整个可执行进程耗时或GPU收益；未提交GPU命令。
+
+但相邻G1/R0、G1/R128完整循环p50的各三对配对降幅中位数分别为回退0.448%/4.687%。尝试仅批量建索引、单项保原filter后，G1/R0三对仍分别回退42.24%/0.38%/9.79%，G1/R128与G2/R128正负混合；G32全选/半选仅各一对复核仍下降22.94%/21.72%。所有负面与波动保留，不能称小输入回退已消除或全部规模受益；停止继续调分支/阈值。
+
+首版App `717f4f99…` 对基线 `86b320df…` 的真实304单对CPU时间率833.336→798.145ms/s（-4.223%），未达10%扩测门。GPU p50/p95为11.367/11.964→11.561/12.131ms，footprint sampled peak 811,140,752→833,111,672B；原粒子加载FAIL保留。该对照属于单查询修订前身份，未做最终版App或稳定整体验收；不把局部大输入收益抵销小输入负面或外推能耗。
+
+保留有独立价值的三组真实graph recovery反例：admit后alias导致finalize拒绝/取消、omitted history外部pin释放与另一selected共存、omitted retired→history改键不影响另一dependency。alias与retired-key relocation使用明确内部扰动seam，不冒充已观察的样本事件。HEAD基线和两候选均9 tests通过；最终恢复产品与已验基线一致，复用其结果及原App/Debug证据，不追加无变化构建或画面运行。
+
+采样证据在`.artifacts/tmp/cpu-work-attribution-20261014/proof/`，两版patch、raw、身份、局部及App短筛、撤回决定在`.artifacts/tmp/preparation-working-view-20261014/proof/`。本轮没有新性能验收或视觉修复；下一步按性能卡转向粒子排序/帧内重复准备，未修视觉与长期资源回落继续开放。

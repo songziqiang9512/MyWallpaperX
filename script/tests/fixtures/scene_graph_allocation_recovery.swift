@@ -22,7 +22,7 @@ enum SceneGraphAllocationRecoveryHarness {
 
     /// A small authored graph with one scaled framebuffer, so shared-pair
     /// preparation still has a subsequent graph-owned physical allocation.
-    static func graph(layer: Int) -> Graph {
+    static func graph(layer: Int, history: Bool = false) -> Graph {
         let effect = Graph.EffectKey(layerID: layer, effectIndex: 0,
             descriptorID: "\(layer)#effect#0")
         let input = Graph.TextureIdentity(kind: .layerSource, layerID: layer,
@@ -41,14 +41,24 @@ enum SceneGraphAllocationRecoveryHarness {
                     texture: source, conditions: nil)],
                 commandSource: nil, commandTarget: nil, compose: nil, conditions: nil)
         }
-        let nodes = [node(0, scratch, input), node(1, output, scratch)]
+        let previous = Graph.TextureIdentity(kind: .framebuffer, layerID: layer,
+            effect: effect, name: "history")
+        let nodes = history ? [node(0, scratch, previous),
+            Graph.Node(nodeIndex: 1, effect: effect, definitionPassIndex: 1,
+                materialOrdinal: nil, instancePassIndex: nil, kind: .swap,
+                materialPath: nil, materialPassID: nil, target: nil, bindings: [],
+                commandSource: previous, commandTarget: scratch, compose: nil, conditions: nil),
+            node(2, output, previous)] : [node(0, scratch, input), node(1, output, scratch)]
+        let targets = (history ? [previous, scratch] : [scratch]).map {
+            Graph.RenderTarget(texture: $0,
+                extent: .init(kind: .scale, first: 2, second: nil),
+                format: "rgba_backbuffer", declaredUnique: history,
+                clear: nil, uvs: nil, conditions: nil)
+        }
         return .init(layerID: layer,
             effects: [.init(key: effect, definitionPath: "effects/recovery/effect.json",
                 input: input, output: output, nodeIndices: nodes.map(\.nodeIndex))],
-            renderTargets: [.init(texture: scratch,
-                extent: .init(kind: .scale, first: 2, second: nil),
-                format: "rgba_backbuffer", declaredUnique: false,
-                clear: nil, uvs: nil, conditions: nil)],
+            renderTargets: targets,
             nodes: nodes, finalOutput: output, blockers: [])
     }
 
@@ -58,8 +68,8 @@ enum SceneGraphAllocationRecoveryHarness {
     }
 
     static func framePlan(_ pool: SceneOffscreenTexturePool, layer: Int,
-                          shared: Bool) throws -> ScenePersistentGraphTargetFramePlan {
-        let authored = graph(layer: layer)
+                          shared: Bool, history: Bool = false) throws -> ScenePersistentGraphTargetFramePlan {
+        let authored = graph(layer: layer, history: history)
         guard case let .success(pair) = SceneLayerFullFramePairPlan.make(
             conditionPrunedGraphs: [authored]
         ) else { throw Failure.setup("full-frame pair plan") }
@@ -574,9 +584,152 @@ enum SceneGraphAllocationRecoveryHarness {
         return rows
     }
 
+    static func workingViewMutationChecks(_ device: MTLDevice, _ queue: MTLCommandQueue)
+        throws -> [[String: Bool]] {
+        var rows: [[String: Bool]] = []
+        for mutation in ["alias", "release-history", "retired-history"] {
+            let pool = makePool(device), cache = pool.allocationCache
+            defer { pool.reset() }
+            let buffer = try need(queue.makeCommandBuffer(), "working view buffer")
+            let history = mutation != "alias"
+            let frames = [try framePlan(pool, layer: 860, shared: false, history: history),
+                          try framePlan(pool, layer: 861, shared: false)]
+            let initial = try need(pool.preparePersistentGraphTargets(framePlans: frames), "working view seed")
+            let effect = try need(initial[0].leases.first?.table.plan.output.effect, "history effect")
+            let tokens = Set(initial[0].leases.flatMap { $0.framebufferAllocation.resources.values.map(\.token) })
+            let seeded = try need(pool.commitAndPinPersistentGraphTargets(initial,
+                historyTokensByTarget: [history ? [effect: tokens] : [:], [:]], commandBuffer: buffer), "working seed commit")
+            defer { seeded.forEach { $0.releaseAll() } }
+            let old = try need(currentGraph(cache, frames[0].graphPlan), "working source")
+            let selected = try need(currentGraph(cache, frames[1].graphPlan), "working selected")
+            seeded.forEach { $0.submissionPin.release() }
+            if history {
+                // The real idle-eviction owner converts a current allocation to
+                // its externally pinned history closure before admission.
+                guard cache.reclaimIdleAllocations(expectedRevision: cache.locked { cache.revision },
+                    protectedKeys: [.layerGraph(frames[1].graphPlan.key)]) != nil else {
+                    throw Failure.setup("history-only source")
+                }
+            }
+            let prepared = try need(pool.preparePersistentGraphTargets(framePlans: frames), "working prepare")
+            let admission = try need(cache.admitPreparedTargets(prepared), "working admission")
+            var historyAtAdmission = true
+            if mutation == "alias" {
+                cache.locked {
+                    var next = cache.residents
+                    next[.retired(999_998)] = next[.current(.layerGraph(frames[0].graphPlan.key))]!
+                    cache.apply((next, cache.accessCounter))
+                }
+            } else {
+                let sourceKey = Cache.ResidentKey.history(frames[0].graphPlan.key, old.generation)
+                historyAtAdmission = cache.locked {
+                    cache.residents[sourceKey]?.preparationPins.isEmpty == false
+                }
+                if mutation == "release-history" {
+                    seeded[0].historyPinsByEffect.values.forEach { $0.release() }
+                } else {
+                    // Explicit resident-key perturbation, not a claimed runtime
+                    // event: exercise the ordinary retired -> history release
+                    // transition while another selected dependency stays live.
+                    cache.locked {
+                        var next = cache.residents
+                        next[.retired(old.generation)] = next.removeValue(forKey: sourceKey)!
+                        cache.apply((next, cache.accessCounter))
+                    }
+                }
+            }
+            let committed = admission.finalize(selectedInputIndices: history ? [1] : [0, 1],
+                historyTokensByTarget: history ? [[:]] : [[:], [:]], commandBuffer: buffer)
+            committed?.forEach { $0.releaseAll() }
+            let normalized = cache.locked {
+                if mutation == "release-history" {
+                    return !cache.residents.values.contains { $0.allocation.generation == old.generation }
+                }
+                if mutation == "retired-history" {
+                    return cache.residents[.retired(old.generation)] == nil
+                        && cache.residents[.history(frames[0].graphPlan.key, old.generation)] != nil
+                }
+                return committed == nil
+            }
+            rows.append([
+                "admittedHistoryWasProtected": historyAtAdmission,
+                "finalizeOutcome": history ? committed?.count == 1 : committed == nil,
+                "omittedReleaseNormalized": normalized,
+                "selectedStoragePreserved": currentGraph(cache, frames[1].graphPlan).map {
+                    $0.generation == selected.generation && objects($0) == objects(selected)
+                } == true,
+                "preparationMarkersCleared": cache.locked {
+                    cache.residents.values.allSatisfy { $0.preparationPins.isEmpty }
+                },
+                "handleOneShot": admission.finalize(historyTokensByTarget: [], commandBuffer: buffer) == nil
+            ])
+        }
+        return rows
+    }
+
+    /// Opt-in local experiment: native textures and the unchanged pool/cache
+    /// entry points; no command buffer is encoded, enqueued or submitted.
+    static func warmFinalizeBenchmark(_ device: MTLDevice, _ queue: MTLCommandQueue,
+                                      count: Int, residents: Int, stride: Int, iterations: Int)
+        throws -> [String: Any] {
+        let pool = makePool(device), cache = pool.allocationCache
+        defer { pool.reset() }
+        let buffer = try need(queue.makeCommandBuffer(), "benchmark buffer")
+        for index in 0..<residents {
+            let idle = try need(pool.reserveEnvironment(width: 5 + index, height: 7,
+                commandBuffer: buffer), "benchmark resident")
+            idle.pin.release()
+        }
+        let frames = try (0..<count).map { try framePlan(pool, layer: 1000 + $0, shared: false) }
+        let cold = try need(pool.preparePersistentGraphTargets(framePlans: frames), "benchmark cold")
+        let seed = try need(pool.commitAndPinPersistentGraphTargets(cold,
+            historyTokensByTarget: frames.map { _ in [:] }, commandBuffer: buffer), "benchmark seed")
+        seed.forEach { $0.releaseAll() }
+        let originals = try frames.map { try need(currentGraph(cache, $0.graphPlan), "benchmark original") }
+        let selected = Array(frames.indices).filter { $0 % stride == 0 }
+        let residentCount = cache.residentAllocationCount, bytes = pool.residentByteCost
+        var finalizeNS: [UInt64] = [], totalNS: [UInt64] = []
+        for index in 0..<(iterations + 20) {
+            let totalStart = DispatchTime.now().uptimeNanoseconds
+            let prepared = try need(pool.preparePersistentGraphTargets(framePlans: frames), "benchmark warm")
+            let admission = try need(cache.admitPreparedTargets(prepared), "benchmark admission")
+            let start = DispatchTime.now().uptimeNanoseconds
+            let result = admission.finalize(selectedInputIndices: selected,
+                historyTokensByTarget: selected.map { _ in [:] }, commandBuffer: buffer)
+            let end = DispatchTime.now().uptimeNanoseconds
+            let commits = try need(result, "benchmark finalize")
+            guard commits.count == selected.count else { throw Failure.setup("benchmark selected count") }
+            commits.forEach { $0.releaseAll() }
+            let totalEnd = DispatchTime.now().uptimeNanoseconds
+            if index >= 20 { finalizeNS.append(end - start); totalNS.append(totalEnd - totalStart) }
+        }
+        let stable = zip(frames, originals).allSatisfy { frame, original in
+            currentGraph(cache, frame.graphPlan).map {
+                $0.generation == original.generation && objects($0) == objects(original)
+            } == true
+        }
+        return ["graphs": count, "unrelatedResidents": residents, "selected": selected,
+            "iterations": iterations, "warmup": 20, "finalizeNS": finalizeNS,
+            "prepareAdmitFinalizeReleaseNS": totalNS,
+            "nativeStorageAndGenerationStable": stable,
+            "residentCountStable": cache.residentAllocationCount == residentCount,
+            "residentBytesStable": pool.residentByteCost == bytes,
+            "residentCount": residentCount, "residentBytes": bytes,
+            "noPreparationPins": cache.locked { cache.residents.values.allSatisfy { $0.preparationPins.isEmpty } }]
+    }
+
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
             print("{\"metalUnavailable\":true}")
+            return
+        }
+        if CommandLine.arguments.count == 6, CommandLine.arguments[1] == "warm-finalize-benchmark",
+           let count = Int(CommandLine.arguments[2]), let residents = Int(CommandLine.arguments[3]),
+           let stride = Int(CommandLine.arguments[4]), let iterations = Int(CommandLine.arguments[5]),
+           count > 0, residents >= 0, stride > 0, iterations > 0 {
+            let row = try warmFinalizeBenchmark(device, queue, count: count,
+                residents: residents, stride: stride, iterations: iterations)
+            print(String(decoding: try JSONSerialization.data(withJSONObject: row, options: [.sortedKeys]), as: UTF8.self))
             return
         }
         var result: [String: Any] = [:]
@@ -602,6 +755,7 @@ enum SceneGraphAllocationRecoveryHarness {
             try poolEntryPressure(device, queue, shared: $0)
         }
         result["residentQueryVariants"] = try residentQueryVariants(device, queue)
+        result["workingViewMutations"] = try workingViewMutationChecks(device, queue)
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
