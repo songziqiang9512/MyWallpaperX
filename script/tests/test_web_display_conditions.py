@@ -195,11 +195,12 @@ import Foundation
             let edited = context.conditionInputs(values: values)
             let prefix = "variant\(ordinal)-"
             facts[prefix + "rowsPreserved"] = context.definitions.map(\.key)
-                == ["group", "enabled", modeKey, "amount", "choices", "unsupported", "malformed", "unknown"]
+                == ["group", "enabled", modeKey, "policy", "amount", "choices", "unsupported", "malformed", "unknown"]
             facts[prefix + "fullCatalogValues"] = initial.values["enabled"] == .bool(true)
                 && initial.values["policy"] == .bool(true)
                 && context.definitions.contains { $0.key == modeKey }
-                && !context.definitions.contains { $0.key == "policy" }
+                && context.definitions.contains { $0.key == "policy" && $0.kind == .unsupported }
+                && !context.actionableDefinitions.contains { $0.key == "policy" }
             facts[prefix + "hiddenComboText"] = edited.comboTextValues[modeKey] == "Advanced"
                 && service.shouldDisplaySceneProperty(byKey["amount"]!, inputs: edited, programs: context.conditionPrograms)
             facts[prefix + "initialAndCurrentValues"] = !service.shouldDisplaySceneProperty(
@@ -258,16 +259,16 @@ import Foundation
             )
             facts[controller + "-closureOrderAndCycles"] = context.definitions.map(\.key) == [
                 "root_group", "root_help", "root", "dependency_group", controller, "cycle",
-                "group_gate", "help_gate", "option_root", "option_gate", "literal"
+                "group_gate", "help_gate", "option_root", "option_gate", "literal", "unsupported"
             ] && context.actionableKeys == roots
             let inputs = context.conditionInputs(values: catalog.defaultValues)
             let definition = catalog.definitions.first { $0.key == "option_root" }!
             facts[controller + "-optionAndFailureParity"] = service.visibleScenePropertyOptions(
                 for: definition, inputs: inputs, programs: context.conditionPrograms
             ).map(\.value) == [.string("a"), .string("b"), .string("c")]
-            facts[controller + "-emptyRootsDoNotCreateRows"] = SteamWorkshopScenePropertyContext(
+            facts[controller + "-emptyRootsKeepOnlyUnsupportedRows"] = SteamWorkshopScenePropertyContext(
                 catalog: catalog, actionableKeys: [], effectiveValues: catalog.defaultValues
-            ).definitions.isEmpty
+            ).definitions.map(\.key) == ["dependency_group", "unsupported"]
         }
         print(String(data: try JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys]), encoding: .utf8)!)
     }

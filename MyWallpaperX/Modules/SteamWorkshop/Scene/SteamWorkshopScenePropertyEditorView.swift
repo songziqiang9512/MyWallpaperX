@@ -86,7 +86,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         measuredWidth = width
         for (index, title) in titles {
             let kind = context.definitions[index].kind
-            let isLabel = kind == .text || kind == .group
+            let isLabel = kind == .text || kind == .group || kind == .unsupported
             let font = NSFont.systemFont(ofSize: isLabel ? 12 : 13,
                 weight: kind == .group ? .semibold : .regular)
             let rect = (title as NSString).boundingRect(
@@ -104,6 +104,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         reset.image = NSImage(systemSymbolName: "arrow.counterclockwise", accessibilityDescription: nil)
         reset.imagePosition = .imageLeading
         reset.toolTip = "恢复这个 Scene 壁纸的默认属性"
+        reset.isHidden = !context.hasEditorControls
         reset.translatesAutoresizingMaskIntoConstraints = false
         textureStatus.font = .systemFont(ofSize: 11)
         textureStatus.textColor = .secondaryLabelColor
@@ -154,8 +155,10 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
 
     private func prepareRows() {
         for (index, definition) in context.definitions.enumerated() {
-            guard definition.kind != .unsupported else { continue }
-            if definition.kind == .group || definition.kind == .text {
+            if definition.kind == .unsupported {
+                let status = definition.runtimeType.isEmpty ? "缺少类型" : "不支持的类型：\(definition.runtimeType)"
+                titles[index] = "\(displayText(for: definition) ?? "未命名属性")\n\(status)"
+            } else if definition.kind == .group || definition.kind == .text {
                 guard let text = displayText(for: definition) else { continue }
                 titles[index] = text
             } else {
@@ -271,7 +274,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         while visibleRows.indices.contains(targetRow) {
             defer { targetRow += direction }
             let kind = context.definitions[visibleRows[targetRow]].kind
-            guard kind == .textInput || (fullAccess && kind != .text && kind != .group) else { continue }
+            guard kind == .textInput || (fullAccess && kind != .text && kind != .group && kind != .unsupported) else { continue }
             let path = IndexPath(item: targetRow, section: 0)
             list.scrollToItems(at: [path], scrollPosition: .nearestHorizontalEdge)
             list.layoutSubtreeIfNeeded()
@@ -469,9 +472,10 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         init(kind: SceneUserPropertyKind) {
             self.kind = kind
             super.init(frame: .zero)
-            title.font = .systemFont(ofSize: kind == .text || kind == .group ? 12 : 13,
+            let isLabel = kind == .text || kind == .group || kind == .unsupported
+            title.font = .systemFont(ofSize: isLabel ? 12 : 13,
                 weight: kind == .group ? .semibold : .regular)
-            title.textColor = kind == .text || kind == .group ? .secondaryLabelColor : .labelColor
+            title.textColor = isLabel ? .secondaryLabelColor : .labelColor
             title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             title.translatesAutoresizingMaskIntoConstraints = false
             content.orientation = .horizontal
@@ -479,7 +483,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
             content.spacing = 8
             content.translatesAutoresizingMaskIntoConstraints = false
             addSubview(title)
-            if kind == .group || kind == .text {
+            if isLabel {
                 NSLayoutConstraint.activate([
                     title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
                     title.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),

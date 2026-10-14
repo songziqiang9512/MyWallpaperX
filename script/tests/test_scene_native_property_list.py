@@ -315,6 +315,118 @@ extension NSCollectionView {
         window.close()
         service.overrides = [:]
         service.events = []
+        for (unknownKey, runtimeType, gateKey, condition) in [
+            ("unknownAction", "usershortcut", "gate", "gate.value"),
+            ("renamedResource", "futureResourceChooser", "renamedGate", "!(!renamedGate.value)")
+        ] {
+            let note = String(repeating: "作者只读说明 ", count: 40).trimmingCharacters(in: .whitespaces)
+            let machineKey = "https://example.invalid/" + String(repeating: "technical_resource_identifier_", count: 20)
+            let catalog = SceneUserPropertyDefinitionParser().parse(properties: [
+                "before": ["type": "textinput", "text": "before", "value": "before", "order": 0],
+                unknownKey: ["type": runtimeType, "text": "<b>作者动作</b>", "value": "original", "order": 1],
+                "missingType": ["type": "", "text": "<p>\(note)</p>", "value": "", "order": 2],
+                "conditionalUnknown": ["type": "futuretype", "text": "条件未知项", "value": true,
+                    "condition": condition, "order": 3],
+                "after": ["type": "textinput", "text": "after", "value": "after", "order": 4],
+                gateKey: ["type": "bool", "text": gateKey, "value": true, "order": 5],
+                machineKey: ["type": "", "text": "<a href='https://example.invalid/'><img src='https://example.invalid/image.png'></a>",
+                    "value": "", "order": 6]
+            ])
+            service.overrides = [unknownKey: .string("persisted-unknown")]
+            let saved = service.overrides
+            let context = SteamWorkshopScenePropertyContext(catalog: catalog,
+                actionableKeys: ["before", "after", gateKey, unknownKey],
+                effectiveValues: catalog.effectiveValues(overrides: saved))
+            precondition(context.definitions.count == 7 && context.actionableDefinitions.count == 3,
+                "unknown definitions must remain read-only even when a binding names their key")
+            let view = SteamWorkshopScenePropertyEditorView(record: record, context: context)
+            let owner = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 324, height: 240),
+                styleMask: [.titled], backing: .buffered, defer: false)
+            owner.contentView = view; owner.makeKeyAndOrderFront(nil); view.layoutSubtreeIfNeeded()
+            let list = descendants(view, NSCollectionView.self).first!
+            precondition(list.itemCount == 7)
+            for (row, expected) in [
+                (1, "作者动作\n不支持的类型：" + runtimeType.lowercased()),
+                (2, note + "\n缺少类型"), (3, "条件未知项\n不支持的类型：futuretype"),
+                (6, "未命名属性\n缺少类型")
+            ] {
+                let cell = list.realizedCell(row)
+                let labels = descendants(cell, NSTextField.self)
+                precondition(labels.count == 1 && labels[0].stringValue == expected && !labels[0].isEditable,
+                    "unknown row must preserve the author title and explain its actual type")
+                precondition(descendants(cell, NSButton.self).isEmpty && descendants(cell, NSSlider.self).isEmpty
+                    && descendants(cell, NSColorWell.self).isEmpty && descendants(cell, NSPopUpButton.self).isEmpty,
+                    "unknown type names must not infer an editing or resource control")
+            }
+            precondition(list.frameForItem(2).height > 40, "long author text and status must wrap")
+            let beforeField = descendants(list.realizedCell(0), NSTextField.self).first { $0.isEditable }!
+            precondition(owner.makeFirstResponder(beforeField))
+            (beforeField.currentEditor() as! NSTextView).doCommand(by: #selector(NSResponder.insertTab(_:)))
+            precondition((owner.firstResponder as? NSTextView)?.string == "after", "Tab must skip read-only unknown rows")
+            precondition(service.events.isEmpty && service.overrides == saved && service.textureReplies.isEmpty,
+                "projecting, scrolling and focusing unknown rows must not save or submit values")
+            let gate = descendants(list.realizedCell(5), NSButton.self).first!
+            gate.state = .off; gate.sendAction(gate.action, to: gate.target)
+            precondition(list.itemCount == 6 && service.events.count == 1 && service.events[0].0 == gateKey,
+                "unknown visibility must use the original condition program without dispatching its value")
+            owner.contentView = nil; owner.close()
+            let onlyCatalog = SceneUserPropertyCatalog(definitions: catalog.definitions.filter {
+                $0.key == unknownKey || $0.key == "missingType" || $0.key == machineKey
+            })
+            let onlyContext = SteamWorkshopScenePropertyContext(catalog: onlyCatalog,
+                actionableKeys: [], effectiveValues: onlyCatalog.effectiveValues(overrides: service.overrides))
+            for _ in 0..<2 {
+                let only = SteamWorkshopScenePropertyEditorView(record: record, context: onlyContext)
+                let onlyOwner = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 324, height: 240),
+                    styleMask: [.titled], backing: .buffered, defer: false)
+                onlyOwner.contentView = only; onlyOwner.makeKeyAndOrderFront(nil); only.layoutSubtreeIfNeeded()
+                let onlyList = descendants(only, NSCollectionView.self).first!
+                precondition(onlyList.itemCount == 3 && descendants(only, NSButton.self).allSatisfy(\.isHidden),
+                    "unknown-only presentations must show their rows without a reset action")
+                precondition(descendants(only, NSTextField.self).allSatisfy { !$0.isEditable })
+                onlyOwner.contentView = nil; onlyOwner.close()
+            }
+            precondition(service.events.count == 1 && service.overrides[unknownKey] == saved[unknownKey]
+                && service.resetReplies.isEmpty && service.textureReplies.isEmpty,
+                "closing and reopening read-only rows must preserve unknown values without submission")
+            service.overrides = [:]; service.events = []
+            let dependentCatalog = SceneUserPropertyDefinitionParser().parse(properties: [
+                unknownKey: ["type": runtimeType, "text": "只读条件项", "value": "original",
+                    "condition": condition, "order": 0],
+                gateKey: ["type": "bool", "text": gateKey, "value": true, "condition": condition, "order": 1]
+            ])
+            func dependentContext() -> SteamWorkshopScenePropertyContext {
+                SteamWorkshopScenePropertyContext(catalog: dependentCatalog, actionableKeys: [],
+                    effectiveValues: dependentCatalog.effectiveValues(overrides: service.overrides))
+            }
+            let dependent = SteamWorkshopScenePropertyEditorView(record: record, context: dependentContext())
+            let dependentOwner = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 324, height: 240),
+                styleMask: [.titled], backing: .buffered, defer: false)
+            dependentOwner.contentView = dependent; dependentOwner.makeKeyAndOrderFront(nil); dependent.layoutSubtreeIfNeeded()
+            let dependentList = descendants(dependent, NSCollectionView.self).first!
+            precondition(dependentContext().actionableDefinitions.isEmpty && dependentContext().hasEditorControls
+                && dependentList.itemCount == 2, "condition-only controllers remain actual editor controls")
+            let dependentGate = descendants(dependentList.realizedCell(1), NSButton.self).first!
+            dependentGate.state = .off; dependentGate.sendAction(dependentGate.action, to: dependentGate.target)
+            precondition(dependentList.itemCount == 0 && service.overrides[gateKey] == .bool(false),
+                "a controller may hide itself and its unknown dependent")
+            dependentOwner.contentView = nil; dependentOwner.close()
+            let reopened = SteamWorkshopScenePropertyEditorView(record: record, context: dependentContext())
+            let reopenedOwner = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 324, height: 240),
+                styleMask: [.titled], backing: .buffered, defer: false)
+            reopenedOwner.contentView = reopened; reopenedOwner.makeKeyAndOrderFront(nil); reopened.layoutSubtreeIfNeeded()
+            let reopenedList = descendants(reopened, NSCollectionView.self).first!
+            let recover = descendants(reopened, NSButton.self).first { $0.title == "恢复默认" }!
+            precondition(reopenedList.itemCount == 0 && !recover.isHidden,
+                "reset must remain available after all condition-only rows hide and the panel reopens")
+            recover.performClick(nil); service.finishReset(.applied)
+            precondition(reopenedList.itemCount == 2 && service.overrides.isEmpty && service.events.count == 1
+                && service.events[0].0 == gateKey && service.textureReplies.isEmpty,
+                "the original reset must restore hidden controllers without editing an unknown value")
+            reopenedOwner.contentView = nil; reopenedOwner.close()
+            service.events = []
+        }
+        print("unknown and missing types preserve author labels, conditions, read-only identity and reopen PASS")
         let many = (0..<200).map { definition("renamed_\($0)", .bool, .bool(false)) }
         let manyCatalog = SceneUserPropertyCatalog(definitions: many)
         let manyContext = SteamWorkshopScenePropertyContext(catalog: manyCatalog,
@@ -570,7 +682,7 @@ enum InspectorHostActions {
                   defaultValue: kind == .bool ? .bool(false) : .string(""), options: [])
         }
         let definitions = [definition("first", .bool), definition("slider", .slider),
-            definition("input", .textInput), definition("color", .color)]
+            definition("input", .textInput), definition("readonlyUnknown", .unsupported), definition("color", .color)]
             + (0..<30).map { definition("middle_\($0)", .bool) }
             + [definition("last", .textInput)]
         let catalog = SceneUserPropertyCatalog(definitions: definitions)
@@ -598,7 +710,7 @@ enum InspectorHostActions {
         window.selectNextKeyView(nil)
         precondition(window.firstResponder is NSTextView, "full keyboard access must include text")
         (window.firstResponder as! NSTextView).doCommand(by: #selector(NSResponder.insertTab(_:)))
-        precondition(window.firstResponder is NSColorWell, "actual text command must include the adjacent color well")
+        precondition(window.firstResponder is NSColorWell, "actual text command must skip the read-only unknown row")
         window.selectPreviousKeyView(nil)
         precondition(window.firstResponder is NSTextView)
         let last = control(definitions.count - 1, NSTextField.self)
@@ -658,6 +770,7 @@ class NativeScenePropertyListTests(unittest.TestCase):
             # can be delivered after hidden/closed; nonce/window/row owner stays production.
             editor.write_text(EDITOR.read_text().replace('NSOpenPanel()', 'PickerProbe()'))
             sources = [ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift',
+                       ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift',
                        MODULE / 'Web/Core/SteamWorkshopWebPropertyModels.swift',
                        MODULE / 'Web/Core/SteamWorkshopService+WebDisplayConditionSupport.swift',
                        MODULE / 'Web/Core/SteamWorkshopService+WebDisplayConditionParsing.swift',

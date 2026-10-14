@@ -58,9 +58,9 @@ struct SteamWorkshopScenePropertyContext {
             guard selected.insert(index).inserted else { return }
             pending.append(index)
         }
-        for (index, definition) in definitions.enumerated()
-        where actionableKeys.contains(definition.key) {
-            if supportsEditorControl(definition.kind) || definition.kind == .text {
+        for (index, definition) in definitions.enumerated() {
+            if definition.kind == .unsupported || (actionableKeys.contains(definition.key)
+                && (supportsEditorControl(definition.kind) || definition.kind == .text)) {
                 include(index)
             }
         }
@@ -70,7 +70,7 @@ struct SteamWorkshopScenePropertyContext {
             let index = pending[cursor]
             cursor += 1
             let definition = definitions[index]
-            if supportsEditorControl(definition.kind) {
+            if supportsEditorControl(definition.kind) || definition.kind == .unsupported {
                 if let group = groups[index] { include(group) }
                 for neighbor in [index - 1, index + 1]
                 where definitions.indices.contains(neighbor) && definitions[neighbor].kind == .text {
@@ -102,6 +102,10 @@ struct SteamWorkshopScenePropertyContext {
         catalog.definitions.filter {
             actionableKeys.contains($0.key) && Self.supportsEditorControl($0.kind)
         }
+    }
+
+    var hasEditorControls: Bool {
+        definitions.contains { Self.supportsEditorControl($0.kind) }
     }
 
     private static func supportsEditorControl(_ kind: SceneUserPropertyKind) -> Bool {
@@ -289,7 +293,7 @@ extension SteamWorkshopService {
             actionableKeys: actionableKeys,
             effectiveValues: catalog.effectiveValues(overrides: scenePropertyOverrides(for: record))
         )
-        return context.actionableDefinitions.isEmpty ? nil : context
+        return context.actionableDefinitions.isEmpty && catalog.unsupportedDefinitions.isEmpty ? nil : context
     }
 
     func shouldDisplaySceneProperty(

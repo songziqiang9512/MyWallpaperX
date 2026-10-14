@@ -61,3 +61,14 @@
 本机证据位于`.artifacts/tmp/native-property-list-20261013/proof/`。raw、冻结、日志与reset图已封装为约2.43MiB的native-panel-proof归档，before/edited与独立房间on/off四图另存；首次计划登记的归档加四图及report总payload为21.842436MiB，但既有登记缓存1023.970MiB、无已到期包，promote因1GiB总限额拒绝；完整登记尚未完成，不冒称永久包已发布。未到期/保护或未知归属证据保留，本批唯一raw/画面暂留任务目录，容量可用时再沿原工具登记：同条件raw/边界、最终build/App/input identity、实际窗口及截图、原生探针与独审冻结清单。被拒绝试法只保必要成本和定位收据，不保多份staged App/重试缓存。继续迭代仅留当前App、只读测试副本与既有`.artifacts/tmp/scene-constructor-runtime-20261011/DerivedData`缓存；最终清理清单另保。未知归属与其他批独有崩溃证据不清理。
 
 独审先拒绝Table成本回退，再核Collection根视图、滚动轴、目标缺失、颜色退出与焦点身份。最终独审以同一source/diff/App/测量/运行身份为准。构建/探针不替代上述产品画面或成本；完整callback/cohort、颜色首ReferenceError、约8.634s云层重建、本地化、视频媒体入口、未知类型、HDR/SDR及多surface仍沿原队列，不记完成。
+
+
+## 未知类型只读投影
+
+2026-10-14后继修复定义在panel projection被静默过滤的问题：catalog仍拥有类型/标题，context仅把unsupported定义加入原条件闭包，Collection复用全宽只读行与标题净化；缺类型标明状态，纯图片/空标题回退“未命名属性”。不推断空类型是text，不新增控件/store/renderer。unknown-only也能打开；依赖控制器仍走原存储和更新，未知行不派发值或资源事件。reset按prepared中可编辑控件决定，不按engine consumer数量，避免控制器自隐藏后无恢复入口。
+
+真实3147346398正常隔离产品面板显示四条缺类型定义，HDR作者说明可读、纯图片标题不暴露长键；滚动到底与关闭重开正常。独立2134765860原控件仍可操作，Night Lights On经面板1→0→1；同次播放首帧GPU完成，退出31个VM owner全quiescent。此正常UI App为`1d9d125282436dbcb5da3dcee5e4625151ca542df37aeb23b01f805fd9851ed6`，先于reset判定修正；只读呈现代码相同，条件自隐藏/reset另由真实native owner探针验证。该UI运行未截桌面像素，不把首帧日志当画面证据。
+
+最近门覆盖改名类型/键、等价条件与相邻不命中、混合/纯未知、长/空/纯markup标题、键盘跳过与无未知写入。独审发现unknown条件引入controller而actionable为空时reset会消失，修后两组条件自隐藏→保存→重开空列表→reset恢复反例通过。只重验受影响owner；未重跑完整兼容矩阵。输入、原始失败/修订和分阶段收据位于`.artifacts/tmp/unsupported-property-panel-20261014/proof/`。这是定义可见性收益，无新增CPU/GPU/内存/能耗收益；本地化、媒体入口、运行类型缺口与其他旧视觉问题继续开放。
+
+最终诊断App `86b320dfbd08f7c6620d62d25f706fb9c8b18f9090b34151698f4b3502a9d123`在独立Bunk短运行中保房间、灯光、时钟/日期真实输出；严格矩阵27项原FAIL与前驱完全一致，右侧媒体占位未修。该8s功能窗口不计稳态性能，正常面板交互与CLI画面分别记录。
