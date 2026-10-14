@@ -353,12 +353,15 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                       effectiveValues: effectivePropertyValues,
                       revision: propertyRevision
                   ) else { continue }
-            let changedUserPropertiesJSON = frameLedger.appliedUserProperties.changedJSON(
-                for: target, current: effectivePropertyValues,
-                kinds: userPropertyKinds, revision: propertyRevision,
-                previousAttempt: binding.owner.retryUserPropertyValues,
-                pendingKeys: binding.owner.pendingUserPropertyRecoveryKeys
-            )
+            // A property revision is an event only for an exported callback.
+            // Value hooks still read the current snapshot through userJSON.
+            let changedUserPropertiesJSON = binding.owner.handlesUserProperties
+                ? frameLedger.appliedUserProperties.changedJSON(
+                    for: target, current: effectivePropertyValues,
+                    kinds: userPropertyKinds, revision: propertyRevision,
+                    previousAttempt: binding.owner.retryUserPropertyValues,
+                    pendingKeys: binding.owner.pendingUserPropertyRecoveryKeys
+                ) : nil
             if retryingUserProperties {
                 guard changedUserPropertiesJSON != nil,
                       binding.owner.retryUserPropertyCallback(propertyRevision: propertyRevision) else { continue }

@@ -293,6 +293,8 @@ Scene属性窗口沿prepared context→原生NSCollectionView可视控件→原s
 
 原 `ScenePropertyLiveUpdateState` 仍拥有有效值与revision。只有一个真实变化的新revision，且typed输入、属性JSON与恢复payload准备完整，才让既有Program清该owner投影的熔断并走原属性回调/typed evaluation；同revision、普通帧及无revision路径不能重试失败调用。最后失败尝试revision保在既有ValueOwner，不随帧回滚；成功事件ack仍归原frame ledger，owner/cohort拒绝按既有事务恢复ack。owner保留一份可恢复失败的typed输入快照及恢复期间已投递的未确认变化键并集，到native journal成功提交才清除；重试payload并集“相对最后ack仍待消费”与“相对失败尝试实际改变”的键，再按当前值编码，既保失败pending键，也覆盖改回最后成功值，不重发无关已确认键。成功但被cohort拒绝的事件仍按原ack补发，已成功评估的同revision不重复派发。再次抛错只熔断该owner，其他合法typed consumer继续；下一次真实编辑再获得一次机会。旧句柄、退出、计时器与不可恢复失败仍拒绝，失败的native journal不提交；JS/module/shared保持既有非事务堆语义，不声称撤回堆写入。可恢复只表示可以消费下一次属性变化，媒体/输入注册仍按原disabled集合控制。
 
+Scalar/String/Vector 只为实际导出属性回调的 owner 准备差量事件；无回调的事件/仅 init owner 不被属性 revision 唤醒。真实媒体事件、update、timer 与待发布值继续走原调度并读当前属性；[Vector 后继反例](../history/property-callback-recovery-2026-10-14.md#后继无属性回调的-vector-owner-休眠)不构成整体 CPU/GPU 收益。
+
 验收覆盖普通帧不重试、再次异常、后续成功、同值无revision、改名/等价与相邻非属性失败、timer/budget/stale/teardown拒绝、异常副作用不提交、其他owner与clock不重置。先做真实VM正反门和原云层拒绝复现，再以普通产品编辑/连续编辑与独立样本检查实际画面及取消退出；比较操作到可见更新与relaunch/CPU事实，不能用“未重建”代替consumer生效。正确性或生命周期失败即撤回本门，原拒绝重建仍是同一路径的安全退出。设计不声称官方异常恢复parity，未验部分不计完成。[本轮有界后验](../history/property-callback-recovery-2026-10-14.md)覆盖真实云层热切、三轮操作CPU、独立画面及原FAIL边界，不计稳态性能或整样本兼容完成。
 
 <a id="op-user-color"></a>

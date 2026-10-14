@@ -359,6 +359,55 @@ HARNESS = r'''
             && pure.liveUserPropertyConsumerTargetsByKey["music"]?.isEmpty == true
             && !noCallbackState.apply(.string("b"), forPropertyKey: "music")
             && noCallbackState.revision == 0
+        // Property revisions cannot wake an owner without that callback. Real
+        // media events and value hooks still observe current engine properties.
+        for (index, source) in [
+            "export function mediaPlaybackChanged(e) { thisLayer.origin = new Vec3(engine.userProperties.music === 'b' ? 2 : 1, 0, 0); }",
+            "function renamed(payload) { thisLayer.origin = new Vec3(engine.userProperties.music === 'b' ? 2 : 1, 0, 0); } export { renamed as mediaPlaybackChanged };"
+        ].enumerated() {
+            let quietDomain = try SceneScriptQuickJSDomain()
+            let quiet = SceneScriptVectorProgram.compile(domain: quietDomain,
+                descriptor: descriptor, scriptBindings: [binding(source)],
+                userPropertyDefinitions: [definition("music")], generation: UInt64(50 + index))
+            try quietDomain.publishLayerSnapshot(.empty(frameIndex: 0), descriptor: descriptor)
+            let idle = quiet.evaluate(inputs: input, effectivePropertyValues: ["music": .string("a")],
+                frame: frame, propertyRevision: 0)
+            quiet.finalizeLayerMutations(committing: true)
+            let revised = quiet.evaluate(inputs: input, effectivePropertyValues: ["music": .string("b")],
+                frame: frame, propertyRevision: 1)
+            quiet.finalizeLayerMutations(committing: true)
+            let event = quiet.evaluate(inputs: input, effectivePropertyValues: ["music": .string("b")],
+                frame: frame, propertyRevision: 1, mediaPlaybackEvent: .init(state: 1, generation: 1))
+            quiet.finalizeLayerMutations(committing: true)
+            let held = quiet.evaluate(inputs: input, effectivePropertyValues: ["music": .string("b")],
+                frame: frame, propertyRevision: 1, mediaPlaybackEvent: .init(state: 1, generation: 1))
+            facts["no_property_callback_sleeps_\(index)"] = quiet.bindings.count == 1
+                && !quiet.bindings[0].owner.handlesUserProperties
+                && idle.values.isEmpty && idle.failures.isEmpty
+                && revised.values.isEmpty && revised.failures.isEmpty
+            facts["media_event_still_reads_current_properties_\(index)"] = event.failures.isEmpty
+                && event.layerMutations.contains(where: { $0.layerID == 10
+                    && $0.fields.contains(.origin) && $0.origin == SIMD3<Double>(2, 0, 0) })
+                && held.failures.isEmpty && held.values.isEmpty && held.layerMutations.isEmpty
+        }
+        let initOnce = pure.evaluate(inputs: input, effectivePropertyValues: ["music": .string("a")],
+            frame: frame, propertyRevision: 0)
+        pure.finalizeLayerMutations(committing: true)
+        let afterInit = pure.evaluate(inputs: input, effectivePropertyValues: ["music": .string("b")],
+            frame: frame, propertyRevision: 1)
+        facts["init_only_new_revision_stays_quiet"] = initOnce.values[target] == .vector3(0, 0, 0)
+            && initOnce.failures.isEmpty && afterInit.values.isEmpty && afterInit.failures.isEmpty
+        let valueOnly = SceneScriptVectorProgram.compile(domain: try SceneScriptQuickJSDomain(),
+            descriptor: descriptor, scriptBindings: [binding(
+                "export function update(v) { return new Vec3(engine.userProperties.music === 'b' ? 2 : 1, 0, 0); }")],
+            userPropertyDefinitions: [definition("music")], generation: 52)
+        let beforeEdit = valueOnly.evaluate(inputs: input, effectivePropertyValues: ["music": .string("a")],
+            frame: frame, propertyRevision: 0)
+        valueOnly.finalizeLayerMutations(committing: true)
+        let afterEdit = valueOnly.evaluate(inputs: input, effectivePropertyValues: ["music": .string("b")],
+            frame: frame, propertyRevision: 1)
+        facts["value_hook_without_property_callback_still_updates"] = beforeEdit.values[target] == .vector3(1, 0, 0)
+            && afterEdit.values[target] == .vector3(2, 0, 0) && afterEdit.failures.isEmpty
         print(String(data: try JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys]),
             encoding: .utf8)!)
     }

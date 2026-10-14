@@ -1674,7 +1674,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-10-14",
-      "uniqueValue": "普通属性异常同owner恢复/事务反例、三轮编辑窗CPU与原样本/独立实际画面、原严格FAIL边界"
+      "uniqueValue": "同owner属性异常恢复/事务反例、三轮编辑窗CPU与实际画面；后继无回调Vector休眠及未达整体收益的筛选"
     },
     {
       "path": "docs/scene/history/property-candidate-evaluation-convergence-2026-10-13.md",
@@ -2729,9 +2729,9 @@
       "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "16f79aef27f109a71cc5afcc19541c3d3cb01778f5c109ae00f4cc8b317027d5",
+        "sourceSHA256": "05ba25ec5047e5f9679a0863c6449ca0b05123597f0f6bcdafc8910afff35979",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批局部实际帧准备CPU与未降进程CPU、密集覆盖负例及原VM/属性/长期切换后继的导航核对",
+        "scope": "Vector无回调休眠修正、未达整体收益的短筛选、共享纹理别名屏障及CPU准备热点后继的导航核对",
         "limitations": "导航复核不冒充全架构、样本兼容、整进程性能、能耗或Release；实际执行身份与边界归本批历史证据。"
       }
     },

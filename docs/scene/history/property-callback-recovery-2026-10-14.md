@@ -39,3 +39,15 @@ Apple M4、相同 OS/3024×1964 单屏、相同隔离样本与默认属性、实
 34 事实真实 VM、跨 owner 事件事务及最近 health/defense/design 门通过；纯 live state 与预算门沿相同职责复用，修正仅窄重跑受影响 VM/事务，未重复 full matrix/全测试。独立审查发现并闭合准备前清熔断、cohort 拒绝丢事件、多键反向编辑与 overflow 误分类反例，未降低原 oracle。
 
 本轮 `.artifacts/tmp/property-callback-recovery-20261014/proof/` 保 App/输入身份、构建/原始 CPU、正反例及原 FAIL 报告和必要原图。早期已被修正的构建不计验收；本轮不用的 staged App、HOME/Workshop、临时样本及重试环境退出后清理；保一份冻结优化 App 作为后继 CPU/GPU 基线，及一份已声明的连续 DerivedData，避免相同输入重建。正式 runs 根约 1023.97MiB，prune-expired 无可清包；不提高预算、不删除未知证据，必要材料限量保在任务 proof。
+
+## 后继：无属性回调的 Vector owner 休眠
+
+更窄的后继修正让 Vector 与原 Scalar/String 一致：只有实际导出 `applyUserProperties` 的 owner 才准备属性差量事件。没有该回调的 event-only/init-only owner 不再因属性修订进入空更新；真实媒体事件、value hook、timer 和待发布值仍由原 owner 决定调度，并从原 snapshot 读取当前属性，不增加缓存、时钟或事件 owner。
+
+扩展同一个真实 VM harness，旧源码在 40 项中复现三个休眠失败；修后 40 项全真，覆盖普通/改名导出、首次与新 revision 休眠、媒体事件读新值及消费去重、init-only 与 update-only 相邻反例，并继续覆盖前述恢复/拒绝边界。Debug 与优化诊断各构建一次，4253 个产品输入无漂移。本后继不认领稳定的整进程 CPU/GPU 或能耗收益；短筛选和实际输出材料归 `.artifacts/tmp/steady-cost-attribution-20261014/proof/`。
+
+短筛选沿冻结的机器/输入、239 属性、静音 fixture、3024×1964/60FPS、优化等级与无 execution observations 配置；原基线 `c19cc00b`、候选 `b85c6205`，每次 48s，30s 预热后有效计时 16.5s。首基线因零呈现回执被原 parser 拒绝并保留；顺序为无效 B/C/补 B。有效 B/C 的进程 CPU 时间率为 845.452/842.006 ms/s，仅低 0.408%；CPU p50 9.006/9.057ms、GPU p50 12.488/12.643ms，GPU/target pool 采样峰值均相同（548257792/136262688 bytes），主/离屏/source capture 工作量不减。此短窗不足稳态且只有一对，远未达到预登记 ≥10% 筛选门；不追加三加三正式性能测量，不计 CPU/GPU 收益或回归裁决。
+
+原 304 实图仍有人物、星空和时钟，原粒子不完整 FAIL 保留；独立 Bunk 复用同输入/工具配置的 `c19cc00b` 基线，只补候选真实渲染，房间、光影和运行时钟未见新增差异，媒体 hash 与相关 scalar/vector/资源 census 相同，原 27 项矩阵失败完全相同。后继候选 Stop 为 71/71 quiescent、timers/jobs/mutations/dynamicLayers=0、surface 1→0 且 GPU 排空。本后继未重跑普通 UI 入口或重新证明其编辑收益，前批 UI 证据仅覆盖其原配置；Host 实图不扩称新 UI 验收。
+
+同轮 CPU 栈的主要成本仍在 graph/material/resource 准备。GPU census 为每帧 36 主 pass、109 离屏 pass、33 source capture，仅说明工作量，不是逐 pass GPU 时长。提前编码后继 graph 的方案在实施前撤回：现有全帧工作对按尺寸共享，后继会覆盖未合成前驱的输出；无新增 ledger 阶段、独占纹理或复制。原 1128 实际有属性回调，其 Vec3/Vec2 混合运算的非有限 origin 仍开放；[公开 Vec3 文档](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/Vec3.html)列出 Vec2 参数，但缺失分量的具体行为尚未受控核实，不能凭此补值或关闭断点。

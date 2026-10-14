@@ -97,8 +97,8 @@
       "bytes": 34403
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 555,
-      "bytes": 179377
+      "lines": 557,
+      "bytes": 179768
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 30,
-      "bytes": 6825
+      "bytes": 7141
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1345,24 +1345,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "4b3c2aab6eeee5f896ef76500433455ac0aed1f999368d346c093a405d1e4cb3",
-      "after": "9feff66cb917644aa0b410e7d40308a0eea6901f7fdd3d10d2e602987d8eef8a",
-      "owner": "scene-property-callback-recovery",
-      "reason": "先设计的同owner属性异常恢复、真实云层/三轮操作CPU及原FAIL边界；同步当前卡/队列，不扩大专项完成",
-      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#接受的实现"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "07910b31a4a076560dcd8fb0b63def7f9ef68fc5688a9632389fece504ee43f3",
-      "after": "fa11f4d5d6e5b51f01a650eb9ac0b2f9146536b79b7c81deaaf4312b791df5b5",
-      "owner": "scene-property-callback-recovery",
-      "reason": "先设计的同owner属性异常恢复、真实云层/三轮操作CPU及原FAIL边界；同步当前卡/队列，不扩大专项完成",
-      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#接受的实现"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/properties-panel-card.md",
       "before": "8a51f1ed97a0ccd4945bfaf563b8c269b2a4c64612297283bb5ad3afb46c481e",
       "after": "85903160ab7c74473822f187b3f93bb479514435021b36703d41461eb3de8725",
@@ -1378,6 +1360,24 @@
       "owner": "scene-property-callback-recovery",
       "reason": "先设计的同owner属性异常恢复、真实云层/三轮操作CPU及原FAIL边界；同步当前卡/队列，不扩大专项完成",
       "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#接受的实现"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "9feff66cb917644aa0b410e7d40308a0eea6901f7fdd3d10d2e602987d8eef8a",
+      "after": "719a419fdd24983ba92ff0a0f6506fc63720b733a34af992724c61bff898e120",
+      "owner": "scene-vector-property-quiescence",
+      "reason": "同一属性事件owner的无消费者休眠、变体/相邻反例和未达性能收益筛选；保持原专项开放",
+      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#后继无属性回调的-vector-owner-休眠"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "fa11f4d5d6e5b51f01a650eb9ac0b2f9146536b79b7c81deaaf4312b791df5b5",
+      "after": "3a24b5cf1b34f28b742ba06934d623a5ea5494647212b1ef60676882c3ad3321",
+      "owner": "scene-vector-property-quiescence",
+      "reason": "同一属性事件owner的无消费者休眠、变体/相邻反例和未达性能收益筛选；保持原专项开放",
+      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#后继无属性回调的-vector-owner-休眠"
     }
   ]
 }
