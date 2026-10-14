@@ -368,10 +368,10 @@
       "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6773e401aa6ca59af95cae2ec7ff6b6dd49857da627a0033f86496d2b5516117",
+        "sourceSHA256": "d3a61b80589a3a056dccf941e2b670e0fc17fef888aae4d2bbb4577ff20f7fb3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批D2 attachment显示输入、MainPass完成事实、容量顺序及旧history反例的职责核对；其他合同未重验",
-        "limitations": "导航复核不冒充全架构、全样本或Release；实际身份与证据边界归本批历史记录。"
+        "scope": "本批帧纹理Snapshot唯一值事实、各generation validator、增量digest及最后view退出的合同导航核对；其余架构未全量复验",
+        "limitations": "导航复核不冒充全架构、样本兼容、整进程性能、能耗或Release；实际执行身份与边界归本批历史证据。"
       }
     },
     {
@@ -1219,6 +1219,19 @@
       "currentAuthorities": [
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/frame-texture-snapshot-convergence-2026-10-14.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-14",
+      "uniqueValue": "实施前设计、全atom与最后view生命周期、八轮实际局部CPU及负面返回、累计密集覆盖反例、独立矩阵失败与真实产品入口边界"
     },
     {
       "path": "docs/scene/history/graph-color-purpose-reconciliation-2026-10-12.md",
@@ -2681,10 +2694,10 @@
       "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2e6eb983dfc47120e22d6ecb961558e0796ce6bcff92b02446d64835556e3b3c",
+        "sourceSHA256": "16f79aef27f109a71cc5afcc19541c3d3cb01778f5c109ae00f4cc8b317027d5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批HDR有界复制/驻留、时序负面证据与现役CPU/属性后继的导航核对；历史量度各归原记录",
-        "limitations": "导航复核不冒充全架构、全样本、整App性能或Release验收；事实按本批冻结记录。"
+        "scope": "本批局部实际帧准备CPU与未降进程CPU、密集覆盖负例及原VM/属性/长期切换后继的导航核对",
+        "limitations": "导航复核不冒充全架构、样本兼容、整进程性能、能耗或Release；实际执行身份与边界归本批历史证据。"
       }
     },
     {
@@ -2722,10 +2735,10 @@
       "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e47a931be9e539959c79d7114d608aae281ba67a5a57ead18f0d7e02236eb290",
+        "sourceSHA256": "e5b4b256068204a14ed470c797e09d317711bc7b1d3fba3cc43f6f2126eb44a3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批编译测量历史指针与Solar局部TypeError开放状态导航复核",
-        "limitations": "不代表该异常已归因或修复，不关闭完整视觉与产品验收"
+        "scope": "本批Solar原TypeError保持开放，2938612768两版fixed13既有失败与画面裁切未归因的导航核对",
+        "limitations": "导航复核不冒充全架构、样本兼容、整进程性能、能耗或Release；实际执行身份与边界归本批历史证据。"
       }
     },
     {

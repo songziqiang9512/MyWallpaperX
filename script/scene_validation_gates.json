@@ -2940,6 +2940,21 @@
         "test_scene_alpha_display_builder_fixture",
         "test_scene_property_vector_script"
       ]
+    },
+    {
+      "id": "scene-texture-snapshot-overlays",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureProviderPublication.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialFrameResourceBundle.swift",
+        "script/tests/test_scene_texture_snapshot_overlays.py",
+        "script/tests/fixtures/SceneTextureSnapshotOverlayHarness.swift"
+      ],
+      "modules": [
+        "test_scene_texture_snapshot_overlays",
+        "test_scene_frame_texture_registry",
+        "test_scene_resolved_material_program_finalizer",
+        "test_scene_material_copy_history_rendering"
+      ]
     }
   ],
   "method_gates": {

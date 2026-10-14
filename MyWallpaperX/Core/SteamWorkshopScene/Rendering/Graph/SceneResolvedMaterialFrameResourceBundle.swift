@@ -115,41 +115,9 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               snapshot.frameEpoch == original.textureRegistrySnapshot.frameEpoch,
               snapshot.frameIndex == original.frameIndex else { return false }
         guard let atom = snapshot.lookup(.sceneEnvironment) else { return true }
-        switch atom {
-        case .ready(let resource):
-            guard Self.isCanonicalPreparedEnvironment(resource, frameEpoch: snapshot.frameEpoch)
-            else { return false }
-        case .unavailable:
-            break
-        case .absent, .pending, .incomplete:
-            return false
-        }
-        let frozen = original.textureRegistrySnapshot
-        var entries = frozen.entries
-        let previous = entries[.sceneEnvironment]
-        entries[.sceneEnvironment] = atom
-        let replacement = SceneFrameTextureRegistrySnapshot(frameEpoch: frozen.frameEpoch,
-            frameIndex: frozen.frameIndex, entries: entries,
-            selectionDigest: frozen.selectionDigest.replacing(.sceneEnvironment,
-                previous: previous, with: atom))
-        guard let overlaid = original.replacingTextureSnapshot(replacement) else { return false }
+        guard let replacement = original.textureRegistrySnapshot.overlayingPreparedSceneEnvironment(atom),
+              let overlaid = original.replacingTextureSnapshot(replacement) else { return false }
         frame = overlaid
         return true
-    }
-
-    private static func isCanonicalPreparedEnvironment(
-        _ resource: SceneFrameTextureResource, frameEpoch: UInt64
-    ) -> Bool {
-        let value = resource.publication.candidate
-        guard case let .provider(.sceneEnvironment(epoch, generation, source)) = value.identity,
-              epoch == frameEpoch, generation > 0,
-              resource.publication.isComplete,
-              let canonical = SceneFrameTextureResource.sameFrameEnvironment(
-                frameEpoch: epoch, allocationGeneration: generation,
-                texture: value.texture, source: source) else { return false }
-        // Compare the actual producer atom with the canonical typed resource;
-        // isSameAtom also checks sampling rawFlags and every candidate field.
-        return resource.resourceGeneration == canonical.resourceGeneration
-            && resource.publication.isSameAtom(as: canonical.publication)
     }
 }

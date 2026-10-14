@@ -820,7 +820,7 @@ func finalize(
             }
             let assetStatePairs: [(
                 SceneAssetTextureIdentity, SceneAssetTextureLaunchState
-            )] = input.textureSnapshot.entries.compactMap { identity, status in
+            )] = additionalEntries.compactMap { identity, status in
                     guard case let .asset(assetIdentity) = identity else { return nil }
                     _ = status
                     let content: SceneTextureContent = switch assetIdentity.purpose {

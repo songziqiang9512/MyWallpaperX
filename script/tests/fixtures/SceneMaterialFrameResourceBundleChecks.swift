@@ -95,6 +95,44 @@ func phaseOverlayChecks(device: MTLDevice, queue: MTLCommandQueue,
         "nonCanonicalAtomRejectedWithoutMutation": !poisonAccepted && preserved,
         "explicitUnavailableClearsReady": unavailableAccepted && isUnavailable && current().resource(for: .sceneEnvironment) == nil,
         "otherEntriesNotImported": current().lookup(.sceneBackground(123)) == nil,
-        "incrementalDigestExact": current().selectionDigest == SceneFrameTextureSelectionDigest(current().entries),
-        "wrongEpochRejectedWithoutMutation": wrongEpochRejected]
+        "incrementalDigestExact": current().selectionDigest == SceneFrameTextureSelectionDigest([
+            .sceneEnvironment: .unavailable]),
+        "wrongEpochRejectedWithoutMutation": wrongEpochRejected,
+        "endedFrameRetiresAtLastExternalView": phaseOverlayRetirementCheck(
+            device: device, queue: queue, source: source, pipeline: pipeline, stop: false),
+        "surfaceStopRetiresAtLastExternalView": phaseOverlayRetirementCheck(
+            device: device, queue: queue, source: source, pipeline: pipeline, stop: true)]
+}
+
+private func phaseOverlayRetirementCheck(device: MTLDevice, queue: MTLCommandQueue,
+    source: MTLTexture, pipeline: SceneImageLayerPipeline, stop: Bool) -> Bool {
+    let s = makePhaseProbeState(device: device, queue: queue, source: source, pipeline: pipeline)
+    defer { _ = s.coordinator.endFrame(); s.pool.reset() }
+    weak var observed: MTLTexture?
+    var external: SceneFrameTextureRegistrySnapshot?
+    let ended = autoreleasepool {
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba16Float, width: 7, height: 5, mipmapped: true)
+        descriptor.usage = [.shaderRead, .renderTarget]
+        let texture = device.makeTexture(descriptor: descriptor)!
+        observed = texture
+        let receipt = SceneCompletedColorSourceIdentity(frameIndex: 9, frameEpoch: 9,
+            executionEpoch: 1, commandBufferObservationID: UUID(),
+            allocationGeneration: 77, resetEpoch: UUID())
+        let atom = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 10,
+            allocationGeneration: 88, texture: texture, source: receipt)!
+        let incoming = SceneFrameTextureRegistrySnapshot(frameEpoch: 10, frameIndex: 10,
+            entries: [.sceneEnvironment: .ready(atom)])
+        guard s.coordinator.overlayPreparedSceneEnvironment(from: incoming) else { return false }
+        external = s.coordinator.frame!.textureRegistrySnapshot
+        if stop {
+            s.coordinator.invalidate(reason: .surfaceStop)
+        } else {
+            _ = s.coordinator.endFrame()
+        }
+        return s.coordinator.frame == nil
+    }
+    let retained = withExtendedLifetime(external) { observed != nil }
+    external = nil
+    return ended && retained && observed == nil
 }

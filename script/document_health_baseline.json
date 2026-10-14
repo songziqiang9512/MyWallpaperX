@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 120778
+      "bytes": 121488
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -189,16 +189,16 @@
       "bytes": 9700
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
-      "lines": 439,
-      "bytes": 135588
+      "lines": 442,
+      "bytes": 136065
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
       "bytes": 32798
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 245,
-      "bytes": 71426
+      "lines": 247,
+      "bytes": 71831
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 22,
-      "bytes": 3770
+      "bytes": 3949
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1199,15 +1199,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "100e7754807ae6efebbddb4bc42a8e77c20bb142e6e253a82a81f6a6e45f04b0",
-      "after": "a0841f3ddf90eccf0cc53c4f16c2f0a473994d95f2074e3a27a438596b816f31",
-      "owner": "scene-compiled-variant-frame-program-convergence",
-      "reason": "先设计的静态准备切片完成归历史；唯一owner与live检查接管，九轮成本边界/普通heldout像素归证据，未闭目标保原卡。",
-      "decision": "docs/scene/history/compiled-variant-frame-program-convergence-2026-10-13.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "fdcf002ec7273a5b665318c37d3370c9aba9c0612581837d8134463f23b249ed",
       "after": "2e6bb16e5a6ab8fd08610e550e5e0fe381134b48fa48731bec5b2e955bef9225",
@@ -1229,15 +1220,6 @@
       "path": "docs/scene/architecture/scene-startup-pipeline.md",
       "before": "e34f1ba883911cd71afe073314c5c6d18650b71fb5c80b86121718b9dd6e218a",
       "after": "8b11d02043c9e520c61c30f2756b2e880aec18fb33230a2e05765c4ffda4dbab",
-      "owner": "scene-property-preparation",
-      "reason": "准备复用唯一owner/来源/压力边界移交合同，冷暖及实际交互归历史，AX剩余问题和撤销方法保队列；完成设计退出工作卡并收紧体积",
-      "decision": "docs/scene/history/property-preparation-convergence-2026-10-13.md#实现与边界"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "d2a08f21d2022bf324594e5c22c9c0e0d1a507dfdb5077d70722a3ac144b0def",
-      "after": "932103abbe88aa9f141fe9d83d087dd78e6236be5aa21e0412f32dfcfae4a1a1",
       "owner": "scene-property-preparation",
       "reason": "准备复用唯一owner/来源/压力边界移交合同，冷暖及实际交互归历史，AX剩余问题和撤销方法保队列；完成设计退出工作卡并收紧体积",
       "decision": "docs/scene/history/property-preparation-convergence-2026-10-13.md#实现与边界"
@@ -1281,11 +1263,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "b827e6af8a7451c5b9bf2d3668b3353fd367df439ec4445fa853213964ef40c0",
-      "after": "bcde805d52d965a64945536a10ff0cb50b7aaf503e5b76316a0cce9baab0bc83",
-      "owner": "Scene terminal display mapping",
-      "reason": "Approved D2 attachment input preserves the original output/completion owner and records capacity-order eligibility, source initialization and failure boundaries.",
-      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#clear-true-attachment-mapping"
+      "before": "bcde805d52d965a64945536a10ff0cb50b7aaf503e5b76316a0cce9baab0bc83",
+      "after": "e960e783e5b75af17cba8a44841b1984b7c93eb9342e51d636a2863ccaadf69a",
+      "owner": "scene-frame-texture-snapshot-overlay",
+      "reason": "稳定唯一值/生命周期合同与有界CPU证据接管，E1实施过程归历史；补实际未修矩阵观察与当前入口，不扩大专项验收。",
+      "decision": "docs/scene/history/frame-texture-snapshot-convergence-2026-10-14.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/engine-refactor-program.md",
+      "before": "a0841f3ddf90eccf0cc53c4f16c2f0a473994d95f2074e3a27a438596b816f31",
+      "after": "b24032cf8894e36ecedf7a4242d9a9e0f3e83e02a21f88d4a96a266d5fe03238",
+      "owner": "scene-frame-texture-snapshot-overlay",
+      "reason": "稳定唯一值/生命周期合同与有界CPU证据接管，E1实施过程归历史；补实际未修矩阵观察与当前入口，不扩大专项验收。",
+      "decision": "docs/scene/history/frame-texture-snapshot-convergence-2026-10-14.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "f277281efa128486159c71ff8b0261fac0bdd00fd99702c262546b4e347c6cd7",
+      "after": "6afdf0f34ca2f4031c9ea199fb9368a18cd8b03f9049ec4cf72c172305bad879",
+      "owner": "scene-frame-texture-snapshot-overlay",
+      "reason": "稳定唯一值/生命周期合同与有界CPU证据接管，E1实施过程归历史；补实际未修矩阵观察与当前入口，不扩大专项验收。",
+      "decision": "docs/scene/history/frame-texture-snapshot-convergence-2026-10-14.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "536681380493c8dfdb9c3709c60d55ffdae4cd3b1532c2613f0e05ad2fa72c48",
+      "after": "bb58cb96dcd82e76d2c7a2dd6d2fcffb6161b0c2d0ff3720e7b666ce6e02a00f",
+      "owner": "scene-frame-texture-snapshot-overlay",
+      "reason": "稳定唯一值/生命周期合同与有界CPU证据接管，E1实施过程归历史；补实际未修矩阵观察与当前入口，不扩大专项验收。",
+      "decision": "docs/scene/history/frame-texture-snapshot-convergence-2026-10-14.md"
     }
   ]
 }

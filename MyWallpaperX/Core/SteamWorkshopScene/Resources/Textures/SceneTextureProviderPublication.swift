@@ -765,10 +765,9 @@ nonisolated struct SceneFrameTextureSelectionDigest: Hashable {
 nonisolated struct SceneFrameTextureRegistrySnapshot {
     let frameEpoch: UInt64
     let frameIndex: UInt64
-    let entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus]
-    /// Selection-fact digest of `entries`, folded once per snapshot (and
-    /// updated incrementally by overlays) so per-frame variant selection can
-    /// memoize on it.
+    private let baseEntries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus]
+    private let replacements: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus]
+    /// Selection facts of the effective value, updated incrementally by overlays.
     let selectionDigest: SceneFrameTextureSelectionDigest
 
     init(
@@ -790,19 +789,53 @@ nonisolated struct SceneFrameTextureRegistrySnapshot {
         entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus],
         selectionDigest: SceneFrameTextureSelectionDigest
     ) {
+        self.init(frameEpoch: frameEpoch, frameIndex: frameIndex,
+            baseEntries: entries, replacements: [:], selectionDigest: selectionDigest)
+    }
+
+    private init(
+        frameEpoch: UInt64,
+        frameIndex: UInt64,
+        baseEntries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus],
+        replacements: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus],
+        selectionDigest: SceneFrameTextureSelectionDigest
+    ) {
         self.frameEpoch = frameEpoch
         self.frameIndex = frameIndex
-        self.entries = entries
+        self.baseEntries = baseEntries
+        self.replacements = replacements
         self.selectionDigest = selectionDigest
     }
 
     func lookup(_ identity: SceneFrameTextureIdentity) -> SceneFrameTextureLookupStatus? {
-        entries[identity]
+        replacements[identity] ?? baseEntries[identity]
     }
 
     func resource(for identity: SceneFrameTextureIdentity) -> SceneFrameTextureResource? {
-        guard case let .ready(resource) = entries[identity] else { return nil }
+        guard case let .ready(resource) = lookup(identity) else { return nil }
         return resource
+    }
+
+    /// Callers validate the entire batch before constructing its replacement
+    /// atoms. Keep one flat value; neither the base nor an intermediate view is
+    /// mutated or retained as an overlay chain.
+    private func replacingEntries(
+        _ updates: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus]
+    ) -> Self {
+        guard !updates.isEmpty else { return self }
+        let startsEmpty = replacements.isEmpty
+        var replacements = startsEmpty ? updates : self.replacements
+        if !startsEmpty {
+            replacements.reserveCapacity(max(replacements.count, updates.count))
+        }
+        var digest = selectionDigest
+        for (identity, atom) in updates {
+            let previous = lookup(identity)
+            if !startsEmpty { replacements[identity] = atom }
+            digest = digest.replacing(identity, previous: previous, with: atom)
+        }
+        return .init(frameEpoch: frameEpoch, frameIndex: frameIndex,
+            baseEntries: baseEntries, replacements: replacements, selectionDigest: digest)
     }
 
     /// Publishes complete source atoms for this frame before graph inputs freeze.
@@ -817,21 +850,14 @@ nonisolated struct SceneFrameTextureRegistrySnapshot {
                     return false
                 }()
         }) else { return nil }
-        var overlaid = entries
-        var digest = selectionDigest
-        for (layerID, source) in sources {
-            let identity = SceneFrameTextureIdentity.layerSource(layerID)
-            let atom = SceneFrameTextureLookupStatus.ready(.init(
-                publication: source.publication, resourceGeneration: frameEpoch))
-            digest = digest.replacing(identity, previous: overlaid[identity], with: atom)
-            overlaid[identity] = atom
-        }
-        return .init(frameEpoch: frameEpoch, frameIndex: frameIndex,
-            entries: overlaid, selectionDigest: digest)
+        return replacingEntries(Dictionary(uniqueKeysWithValues: sources.lazy.map { layerID, source in
+            (.layerSource(layerID), .ready(.init(
+                publication: source.publication, resourceGeneration: frameEpoch)))
+        }))
     }
 
     /// Returns a value-only graph overlay. Every replacement is validated
-    /// before the copied dictionary is changed, so one invalid graph atom
+    /// before any replacement is made, so one invalid graph atom
     /// cannot produce a partial snapshot.
     func overlayingGraphResources(
         _ resources: [
@@ -844,23 +870,8 @@ nonisolated struct SceneFrameTextureRegistrySnapshot {
                 && resource.isCompleteGraphResource
         }) else { return nil }
 
-        var overlaid = entries
-        var digest = selectionDigest
-        for (identity, resource) in resources {
-            let previous = overlaid[.graph(identity)]
-            overlaid[.graph(identity)] = .ready(resource)
-            digest = digest.replacing(
-                .graph(identity),
-                previous: previous,
-                with: .ready(resource)
-            )
-        }
-        return Self(
-            frameEpoch: frameEpoch,
-            frameIndex: frameIndex,
-            entries: overlaid,
-            selectionDigest: digest
-        )
+        return replacingEntries(Dictionary(uniqueKeysWithValues:
+            resources.lazy.map { (.graph($0.key), .ready($0.value)) }))
     }
 
     func overlayingNamedLayerTarget(
@@ -872,19 +883,7 @@ nonisolated struct SceneFrameTextureRegistrySnapshot {
             reference: reference,
             frameEpoch: frameEpoch
         ) else { return nil }
-        var overlaid = entries
-        let previous = overlaid[identity]
-        overlaid[identity] = .ready(resource)
-        return Self(
-            frameEpoch: frameEpoch,
-            frameIndex: frameIndex,
-            entries: overlaid,
-            selectionDigest: selectionDigest.replacing(
-                identity,
-                previous: previous,
-                with: .ready(resource)
-            )
-        )
+        return replacingEntries([identity: .ready(resource)])
     }
 
     func overlayingSceneBackground(
@@ -896,19 +895,29 @@ nonisolated struct SceneFrameTextureRegistrySnapshot {
             consumerLayerID: consumerLayerID,
             frameEpoch: frameEpoch
         ) else { return nil }
-        var overlaid = entries
-        let previous = overlaid[identity]
-        overlaid[identity] = .ready(resource)
-        return Self(
-            frameEpoch: frameEpoch,
-            frameIndex: frameIndex,
-            entries: overlaid,
-            selectionDigest: selectionDigest.replacing(
-                identity,
-                previous: previous,
-                with: .ready(resource)
-            )
-        )
+        return replacingEntries([identity: .ready(resource)])
+    }
+
+    /// The coordinator owns the transfer protocol and frame phase. The
+    /// snapshot owns validation and replacement of this complete typed atom.
+    func overlayingPreparedSceneEnvironment(_ atom: SceneFrameTextureLookupStatus) -> Self? {
+        switch atom {
+        case .ready(let resource):
+            let value = resource.publication.candidate
+            guard case let .provider(.sceneEnvironment(epoch, generation, source)) = value.identity,
+                  epoch == frameEpoch, generation > 0,
+                  resource.publication.isComplete,
+                  let canonical = SceneFrameTextureResource.sameFrameEnvironment(
+                    frameEpoch: epoch, allocationGeneration: generation,
+                    texture: value.texture, source: source),
+                  resource.resourceGeneration == canonical.resourceGeneration,
+                  resource.publication.isSameAtom(as: canonical.publication) else { return nil }
+        case .unavailable:
+            break
+        case .absent, .pending, .incomplete:
+            return nil
+        }
+        return replacingEntries([.sceneEnvironment: atom])
     }
 }
 

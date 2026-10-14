@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-14 | 资源快照/CPU | 收敛证据 | [扁平值覆盖](frame-texture-snapshot-convergence-2026-10-14.md) | 实际帧准备CPU、返回反例、密集覆盖成本及独立矩阵未通过边界 | [性能卡](../roadmap/performance-convergence-card.md)、[运行合同](../architecture/runtime-architecture.md#frame-texture-snapshot-values)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-14 | HDR/驻留 | 收敛证据 | [attachment显示输入](hdr-attachment-mapping-convergence-2026-10-14.md) | 复制/驻留下降、同代码消融与GPU波动反例、Bloom及真实产品入口 | [性能卡](../roadmap/performance-convergence-card.md)、[运行合同](../architecture/runtime-architecture.md)、[D2](../roadmap/batch2/hdr-tonemap-edr-design.md#clear-true-attachment-mapping)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-14 | SceneScript/CPU | 消融证据 | [C代码生成](script-c-codegen-ablation-2026-10-14.md) | 实际编译参数、三轮与返回基线、O3无稳定收益撤回 | [性能卡](../roadmap/performance-convergence-card.md)、[工作流](../development/development-workflow.md) 、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-14 | 属性/CPU | 收敛证据 | [原生属性列表](native-property-list-convergence-2026-10-14.md) | 设计/撤回试法、同条件操作CPU、原生输入身份与真实热更新 | [属性合同](../capabilities/runtime-input-property-coverage.md#op-user-overview)、[属性卡](../roadmap/properties-panel-card.md)、[性能卡](../roadmap/performance-convergence-card.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
