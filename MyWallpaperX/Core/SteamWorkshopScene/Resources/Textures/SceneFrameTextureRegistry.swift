@@ -79,6 +79,19 @@ final class SceneFrameTextureRegistry {
         let status: ProviderStatus
         let generation: UInt64
         let resource: PersistentEntry?
+
+        var lookupStatus: SceneFrameTextureLookupStatus? {
+            switch status {
+            case .ready:
+                return resource?.lookupStatus
+            case .absent:
+                return .absent
+            case .pending:
+                return .pending
+            case .unavailable:
+                return .unavailable
+            }
+        }
     }
 
     /// Launch/topology-stable dictionary key order. Provider status and
@@ -376,16 +389,7 @@ final class SceneFrameTextureRegistry {
 
     func lookup(_ identity: SceneFrameTextureIdentity) -> SceneFrameTextureLookupStatus? {
         guard let entry = entries[identity] else { return nil }
-        switch entry.status {
-        case .ready:
-            return entry.resource?.lookupStatus
-        case .absent:
-            return .absent
-        case .pending:
-            return .pending
-        case .unavailable:
-            return .unavailable
-        }
+        return entry.lookupStatus
     }
 
     func resource(for identity: SceneFrameTextureIdentity) -> SceneFrameTextureResource? {
@@ -403,8 +407,10 @@ final class SceneFrameTextureRegistry {
         SceneFrameTextureRegistrySnapshot(
             frameEpoch: frameEpoch,
             frameIndex: frameIndex,
-            entries: entries.reduce(into: [:]) { result, pair in
-                if let status = lookup(pair.key) {
+            entries: entries.reduce(into: Dictionary<SceneFrameTextureIdentity, SceneFrameTextureLookupStatus>(
+                minimumCapacity: entries.count
+            )) { result, pair in
+                if let status = pair.value.lookupStatus {
                     result[pair.key] = status
                 }
             },

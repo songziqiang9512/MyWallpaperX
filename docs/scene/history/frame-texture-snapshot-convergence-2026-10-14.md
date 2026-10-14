@@ -71,3 +71,31 @@ Apple M4，3024×1964单surface，60fps请求，静音fixture，94秒/30秒warmu
 证据根为`.artifacts/tmp/cpu-frame-preparation-20261014/proof`：App/构建输入、两次采样、八轮实际报告、局部AB/BA、原始失败、严格运行/产品入口、截图、freeze与审查。正式runs根接近既有1GiB上限，必要材料压缩限量留任务proof，逐文件核对后清理可重建App/HOME/cache/样本；不删除未知材料或提高预算。一份连续DerivedData仍用于后继迭代。
 
 下一批联合追优化配置下VM/帧桥重复准备及实际CPU使用，保fresh引用、getter/setter、realm、副作用和事务。现cadence即使未呈现仍消费输入/回调，不能靠跳过作者工作换指标。云层约8.634秒编辑重建、首帧准备裁剪、连续轻重切换/cache回落、属性本地化/媒体/type与其他视觉问题均未完成，继续由原卡与队列推进。
+
+
+<a id="snapshot-construction-direct-entry"></a>
+
+## 后继：snapshot 构造去增长与重复查询（2026-10-15）
+
+[原生分配资格](native-cpu-allocation-screen-2026-10-15.md)定位snapshot从空表增长。本批在原Registry中把既有状态转换移入私有Entry.lookupStatus，live lookup显式guard-let后委派；snapshot预留entries.count并直接转换已有pair.value，省去每项第二次哈希查询与构造期增长。仍逐帧产生必需独立值表，不缓存snapshot、不移除baseline/COW、不改变digest、epoch/index、publication或资源owner。resource-less ready仍nil，bare与无效publication仍按原incomplete，其他状态及missing保持原值；容量是上界，不承诺精确字节。
+
+初版optional chaining在自有优化binary中生成Optional<Entry>临时区、第二次Entry copy与销毁，lookup三对中位回退19.52%；不能用snapshot收益掩盖。最终只恢复原guard-let解包，保唯一转换；机器码退出该额外copy，无inline提示或重复switch，不能把全部差值归因于它，也不是heap/RSS测量。原版源码、三对与反例汇编保留，不混入最终数字。
+
+真实12产品源码-O门，两臂共同fixture/驱动共15冻结输入；各13个实际编译源（Registry附两臂相同test-only扩展）均无漂移。原18加10项oracle两臂28/28真：真实publishPersistent/set/snapshot、五状态/missing、独立全表digest、存储代次、同selection新物理atom、held旧snapshot跨set/下一帧与weak retirement。只有nil-ready注入私有Entry，不替换生产转换。共享PCM移动导致一次0.5秒工具前置拒绝，恢复原绝对路径后只重编受影响臂，不记产品红门。
+
+同一baseline/final binary按B1/C1/C2/B2/B3/C3执行5个snapshot形状和lookup控制，三pair各5.54–5.60s，CPU窗均≥50ms、最短172.581ms；setup/oracle不计时，结果与代次可观察一致。配对C/B中位与B/C各自中位分别报告：
+
+| 操作/N | CPU配对ratio中位 | B/C ns/op各自中位 | 基线偏差噪声 |
+|---|---:|---:|---:|
+| snapshot/0 | 0.9652323312 | 49.770/47.763 | 2.00% |
+| snapshot/1 | 0.7365970513 | 725.058/533.291 | 2.15% |
+| snapshot/8 | 0.4438757715 | 4006.810/1756.230 | 3.04% |
+| snapshot/256 | 0.3989105753 | 122408.400/48978.400 | 0.30% |
+| snapshot/2048 | 0.3940187031 | 991652.500/392934.167 | 0.62% |
+| lookup/256 | 0.9891286454 | 321.947/318.447 | 7.39% |
+
+非空snapshot局部降幅26.34–60.60%，超过局部门；空表不计明确收益。lookup三ratio为0.989129/0.906650/1.109639，交错且噪声>5%，不认领lookup收益、精确无回退幅度或完整非目标性能验收。没有App整体CPU、分配次数/字节、驻留内存、GPU、温度/能耗收益；不把原累计136.37MB全算可省。接受的是这一构造职责的局部CPU改善，不继续泛型/容器微调或启动正式App性能campaign。
+
+一次Debug构建22.420s、4297输入零漂移，相对上一Debug仅Registry产品不同，App SHA `0468023c1752a6a942bd0a2ca5050a3e359a72f7d0ea90e2b584098b12d2f473`。同一原生App播放304再从实际库切独立293，两record各一次launched；原图检查保304人物/塔/星空/时钟及293角色/水面光环/星形/时钟，原生Stop再quit退出0。VM退役71/71、41/41 quiescent，timer/job/mutation/dynamicLayer均0；最终pin/drain未导出。原1128非有限origin、粒子/效果及系统媒体缺口不闭，不刷新旧严格矩阵、HDR/多屏或像素parity结论，未重复面板全交互。
+
+Sol Xhigh独审核源码、派生输入、28事实、三对原数与自有汇编后ACK；实图由root检查，未称第二次独立视觉审查。源码/patch/完整原数与反例归`.artifacts/tmp/texture-registry-snapshot-screen-20261015/`，构建/native原日志、两张必要原图、源manifest及退出归其proof。只读源树复核无变化，已停止运行环境清242,495,769B；保当前App、必要基线与唯一连续DerivedData，冗余binary/cache按归属清理。下一项回现役卡，以新的真实GPU pass成本资格和属性缺口选题，不记整体性能专项完成。

@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 44,
-      "bytes": 9633
+      "bytes": 9964
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1076,11 +1076,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "98b9a38c2dfc78416388a9125640f2d4d8296fc486d33f2f1c479f7173eef8e5",
-      "after": "7dbb13e7d1dddd7b93d707c7dce7ac057a6e5c06f7ccdedc79300be628a2b87a",
-      "owner": "Scene CPU and GPU performance screening",
-      "reason": "Record bounded native GPU timing qualification and the withdrawn graph intermediate-table screen; no product or performance closeout.",
-      "decision": "docs/scene/history/native-cpu-allocation-screen-2026-10-15.md#graph-intermediate-screen"
+      "before": "7dbb13e7d1dddd7b93d707c7dce7ac057a6e5c06f7ccdedc79300be628a2b87a",
+      "after": "3e4a26f46cbe6cc265279ab4843a53efd5568b7d12dd92af9b796edd6a34adcc",
+      "owner": "Scene texture snapshot construction",
+      "reason": "Record the accepted local snapshot CPU result and its control noise boundary, retaining global performance qualification and next native timestamp design.",
+      "decision": "docs/scene/history/frame-texture-snapshot-convergence-2026-10-14.md#snapshot-construction-direct-entry"
     }
   ]
 }

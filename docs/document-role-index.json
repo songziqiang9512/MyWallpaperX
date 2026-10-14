@@ -1256,7 +1256,7 @@
         "docs/scene/architecture/runtime-architecture.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
-      "cutoffDate": "2026-10-14",
+      "cutoffDate": "2026-10-15",
       "uniqueValue": "实施前设计、全atom与最后view生命周期、八轮实际局部CPU及负面返回、累计密集覆盖反例、独立矩阵失败与真实产品入口边界"
     },
     {

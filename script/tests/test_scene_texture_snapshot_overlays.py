@@ -10,19 +10,30 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_scene_frame_texture_registry import SWIFT_SOURCES
+from script.tests.test_scene_frame_texture_registry import SWIFT_SOURCES, TEST_ACCESS_SOURCE
 
 
 FIXTURE = Path(__file__).with_name("fixtures") / "SceneTextureSnapshotOverlayHarness.swift"
+REGISTRY_TEST_ACCESS = TEST_ACCESS_SOURCE + r'''
+extension SceneFrameTextureRegistry {
+    func testSetResourceLessReady(_ texture: MTLTexture, for identity: SceneFrameTextureIdentity) {
+        entries[identity] = Entry(status: .ready(texture), generation: frameEpoch, resource: nil)
+    }
+}
+'''
 
 
-def compile_fixture(directory: Path) -> Path:
+def compile_fixture(directory: Path, *, module_cache: Path | None = None) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     binary = directory / "texture-snapshot-overlays"
+    registry = next(path for path in SWIFT_SOURCES if path.name == "SceneFrameTextureRegistry.swift")
+    test_registry = directory / registry.name
+    test_registry.write_text(registry.read_text() + REGISTRY_TEST_ACCESS)
+    sources = [test_registry if path == registry else path for path in SWIFT_SOURCES]
     command = [
         "xcrun", "--sdk", "macosx", "swiftc", "-O", "-parse-as-library",
-        *(str(path) for path in SWIFT_SOURCES), str(FIXTURE),
-        "-module-cache-path", str(directory / "module-cache"), "-o", str(binary),
+        *(str(path) for path in sources), str(FIXTURE),
+        "-module-cache-path", str(module_cache or directory / "module-cache"), "-o", str(binary),
     ]
     result = subprocess.run(command, capture_output=True, text=True)
     (directory / "compile-command.json").write_text(json.dumps(command, indent=2))

@@ -185,6 +185,159 @@ private func lifetimeChecks(_ device: MTLDevice, keepBranch: Bool) -> Bool {
     return a == nil && b == nil && c == nil
 }
 
+private func registryFixture(_ count: Int, texture: MTLTexture) -> (
+    registry: SceneFrameTextureRegistry, expected: [Identity: Status], identities: [Identity]
+) {
+    let registry = SceneFrameTextureRegistry()
+    registry.beginFrame(frameIndex: 9001, layerSources: [:])
+    var expected: [Identity: Status] = [:]
+    var identities: [Identity] = []
+    var storageGeneration: UInt64 = 0
+    for index in 0..<count {
+        let graphID = identity(index, prefix: "snapshot")
+        let key = Identity.graph(graphID)
+        identities.append(key)
+        switch index % 5 {
+        case 0:
+            let publication = resource(graphID, texture: texture).publication
+            registry.set(publication, for: key)
+            storageGeneration += 1
+            expected[key] = .ready(.init(publication: publication,
+                resourceGeneration: storageGeneration))
+        case 1:
+            registry.testPublishPersistent(texture, for: key)
+            storageGeneration += 1
+            expected[key] = .incomplete(.bare(texture: texture, resourceGeneration: storageGeneration))
+        case 2:
+            registry.set(.absent, for: key)
+            expected[key] = .absent
+        case 3:
+            registry.set(.pending, for: key)
+            expected[key] = .pending
+        default:
+            registry.set(.unavailable, for: key)
+            expected[key] = .unavailable
+        }
+    }
+    return (registry, expected, identities)
+}
+
+private func registryMatches(_ value: Snapshot, _ expected: [Identity: Status],
+    frameEpoch: UInt64, frameIndex: UInt64) -> Bool {
+    value.frameEpoch == frameEpoch && value.frameIndex == frameIndex
+        && value.selectionDigest == SceneFrameTextureSelectionDigest(expected)
+        && expected.allSatisfy { key, atom in same(value.lookup(key), atom) }
+        && value.lookup(.userProperty("never-registered")) == nil
+}
+
+private func registrySnapshotChecks(_ device: MTLDevice) -> [String: Bool] {
+    let shared = texture(device), replacement = texture(device)
+    var checks: [String: Bool] = [:]
+    for count in [0, 1, 8, 256, 2048] {
+        let fixture = registryFixture(count, texture: shared)
+        let value = fixture.registry.snapshot()
+        checks["registrySnapshot-\(count)-allAtoms"] = registryMatches(value, fixture.expected,
+            frameEpoch: fixture.registry.frameEpoch, frameIndex: 9001)
+            && fixture.expected.allSatisfy { key, atom in same(fixture.registry.lookup(key), atom) }
+    }
+    let fixture = registryFixture(8, texture: shared)
+    let old = fixture.registry.snapshot()
+    var expected = fixture.expected
+    let key = identity(0, prefix: "snapshot")
+    let publication = resource(key, texture: replacement, generation: 78).publication
+    fixture.registry.set(publication, for: .graph(key))
+    expected[.graph(key)] = .ready(.init(publication: publication, resourceGeneration: 5))
+    let newer = fixture.registry.snapshot()
+    checks["registrySnapshot-newPhysicalAtomSameSelection"] = registryMatches(newer, expected,
+        frameEpoch: 1, frameIndex: 9001) && newer.selectionDigest == old.selectionDigest
+        && newer.resource(for: .graph(key))?.publication.texture === replacement
+        && newer.resource(for: .graph(key))?.publication.contentGeneration == 78
+    checks["registrySnapshot-heldOldSurvivesSet"] = registryMatches(old, fixture.expected,
+        frameEpoch: 1, frameIndex: 9001) && old.resource(for: .graph(key))?.publication.texture === shared
+    fixture.registry.commitFramePublication()
+    fixture.registry.beginFrame(frameIndex: 9002, layerSources: [:])
+    fixture.registry.set(.absent, for: .userProperty("next-frame"))
+    checks["registrySnapshot-newFrameIdentityAndStates"] = registryMatches(fixture.registry.snapshot(),
+        [.userProperty("next-frame"): .absent], frameEpoch: 2, frameIndex: 9002)
+    checks["registrySnapshot-heldOldSurvivesFrame"] = registryMatches(old, fixture.expected,
+        frameEpoch: 1, frameIndex: 9001) && registryMatches(newer, expected, frameEpoch: 1, frameIndex: 9001)
+    let malformed = SceneFrameTextureRegistry()
+    malformed.beginFrame(frameIndex: 9001, layerSources: [:])
+    malformed.testSetResourceLessReady(shared, for: .userProperty("resource-less"))
+    let filtered = malformed.snapshot()
+    checks["registrySnapshot-resourceLessReadyStaysMissing"] = malformed.lookup(.userProperty("resource-less")) == nil
+        && filtered.lookup(.userProperty("resource-less")) == nil
+        && registryMatches(filtered, [:], frameEpoch: 1, frameIndex: 9001)
+    return checks
+}
+
+private func statusToken(_ status: Status?) -> UInt64 {
+    switch status {
+    case let .ready(resource):
+        return 1 &+ resource.resourceGeneration &+ resource.publication.contentGeneration
+    case let .incomplete(.bare(_, generation)): return 10 &+ generation
+    case let .incomplete(.publication(publication, generation)):
+        return 20 &+ generation &+ publication.contentGeneration
+    case .absent: return 3
+    case .pending: return 4
+    case .unavailable: return 5
+    case nil: return 0
+    }
+}
+
+@inline(never)
+private func observeSnapshot(_ registry: SceneFrameTextureRegistry, key: Identity) -> UInt64 {
+    let value = registry.snapshot()
+    return value.frameEpoch &+ value.frameIndex &+ statusToken(value.lookup(key))
+}
+
+@inline(never)
+private func observeLookup(_ registry: SceneFrameTextureRegistry, key: Identity) -> UInt64 {
+    statusToken(registry.lookup(key))
+}
+
+private func snapshotBenchmark(_ device: MTLDevice) -> [[String: Any]] {
+    let shared = texture(device)
+    let shapes: [(count: Int, iterations: Int)] = [
+        (0, 5_000_000), (1, 1_000_000), (8, 100_000), (256, 5_000), (2048, 1_200)
+    ]
+    var rows: [[String: Any]] = []
+    for (count, iterations) in shapes {
+        let fixture = registryFixture(count, texture: shared)
+        let key = fixture.identities.first ?? .userProperty("never-registered")
+        let expected = fixture.registry.frameEpoch &+ fixture.registry.frameIndex
+            &+ statusToken(fixture.expected[key])
+        var checksum: UInt64 = 0, observed: UInt64 = 0
+        let cpuStart = cpuNanoseconds(), wallStart = DispatchTime.now().uptimeNanoseconds
+        for _ in 0..<iterations {
+            observed = observeSnapshot(fixture.registry, key: key)
+            checksum &+= observed
+        }
+        let wall = DispatchTime.now().uptimeNanoseconds - wallStart
+        let cpu = cpuNanoseconds() - cpuStart
+        rows.append(["operation": "snapshot", "entries": count, "iterations": iterations,
+            "processCPUNanoseconds": cpu, "wallNanoseconds": wall,
+            "checksum": checksum, "observed": observed, "expected": expected,
+            "logicalResultMatches": observed == expected && checksum == expected &* UInt64(iterations)])
+    }
+    let fixture = registryFixture(256, texture: shared)
+    let key = fixture.identities[0], iterations = 1_000_000
+    let expected = statusToken(fixture.expected[key])
+    var checksum: UInt64 = 0, observed: UInt64 = 0
+    let cpuStart = cpuNanoseconds(), wallStart = DispatchTime.now().uptimeNanoseconds
+    for _ in 0..<iterations {
+        observed = observeLookup(fixture.registry, key: key)
+        checksum &+= observed
+    }
+    let wall = DispatchTime.now().uptimeNanoseconds - wallStart
+    let cpu = cpuNanoseconds() - cpuStart
+    rows.append(["operation": "lookup", "entries": 256, "iterations": iterations,
+        "processCPUNanoseconds": cpu, "wallNanoseconds": wall,
+        "checksum": checksum, "observed": observed, "expected": expected,
+        "logicalResultMatches": observed == expected && checksum == expected &* UInt64(iterations)])
+    return rows
+}
+
 private func cpuNanoseconds() -> UInt64 {
     var usage = rusage()
     getrusage(RUSAGE_SELF, &usage)
@@ -238,12 +391,15 @@ private enum Harness {
             print("{\"metalAvailable\":false}"); return
         }
         let result: [String: Any]
-        if CommandLine.arguments.contains("--benchmark") {
+        if CommandLine.arguments.contains("--benchmark-snapshot") {
+            result = ["metalAvailable": true, "measurements": snapshotBenchmark(device)]
+        } else if CommandLine.arguments.contains("--benchmark") {
             result = ["metalAvailable": true, "measurements": benchmark(device)]
         } else {
             var checks = valueChecks(device)
             checks["finalViewDoesNotRetainIntermediateAtom"] = lifetimeChecks(device, keepBranch: false)
             checks["explicitBranchRetiresAtLastValue"] = lifetimeChecks(device, keepBranch: true)
+            checks.merge(registrySnapshotChecks(device)) { _, new in new }
             result = ["metalAvailable": true, "checks": checks]
         }
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
