@@ -183,7 +183,7 @@ func scenePreparedAssemblyRegressionCases(
     let firstKey = first.metalCompileStateKey(
         attachmentPixelFormat: .bgra8Unorm, sampleCount: 1, device: device
     )
-    return [
+    var results = [
         "preparedFactoryRejectsDuplicateLayout": prepare(duplicateLayout) == nil,
         "preparedFactoryRejectsUnalignedLayout": prepare(unalignedLayout) == nil,
         "preparedFactoryRejectsDuplicateSlots": prepare(duplicateBindings) == nil,
@@ -229,5 +229,88 @@ func scenePreparedAssemblyRegressionCases(
             attachmentPixelFormat: .bgra8Unorm, sampleCount: 1,
             colorWriteMask: [], device: device
         ) == nil,
+    ]
+    results.merge(sceneShaderIdentityHashRegressionCases(first.semanticIdentity.shader)) { _, new in new }
+    return results
+}
+
+/// Reconstruct the real value through its production initializer, with one
+/// input changed. The identity's hashing/equality implementation is not copied.
+func sceneCopiedShaderIdentity(
+    _ base: Program.ShaderSemanticIdentity,
+    changing field: String = "",
+    source: String? = nil
+) -> Program.ShaderSemanticIdentity {
+    let fields = base.uniformFields.enumerated().map { index, value in
+        Program.ShaderSemanticIdentity.UniformField(
+            name: index == 0 && field == "fieldName" ? value.name + "_renamed" : value.name,
+            valueType: index == 0 && field == "fieldType" ? value.valueType + "2" : value.valueType,
+            arrayCount: index == 0 && field == "arrayCount" ? (value.arrayCount ?? 0) + 1 : value.arrayCount,
+            offset: index == 0 && field == "fieldOffset" ? value.offset + 16 : value.offset
+        )
+    }
+    return .init(
+        frontendSchemaVersion: base.frontendSchemaVersion + (field == "schema" ? 1 : 0),
+        backend: field == "backend"
+            ? (base.backend == .boundedSwift ? .genericCompilerArtifact : .boundedSwift) : base.backend,
+        metalSource: source ?? (field == "source" ? base.metalSource + "\n// changed source"
+            : String(decoding: Array(base.metalSource.utf8), as: UTF8.self)),
+        vertexFunctionName: field == "vertexEntry" ? base.vertexFunctionName + "_other" : base.vertexFunctionName,
+        fragmentFunctionName: field == "fragmentEntry" ? base.fragmentFunctionName + "_other" : base.fragmentFunctionName,
+        uniformBufferIndex: base.uniformBufferIndex + (field == "buffer" ? 1 : 0),
+        uniformFields: fields,
+        textureSlots: field == "slots" ? base.textureSlots + [7] : base.textureSlots.map { $0 },
+        textureChannelUses: field == "channels" ? base.textureChannelUses + [.unproven] : base.textureChannelUses.map { $0 },
+        colorTransfer: field == "transfer" ? (base.colorTransfer == .opaque ? .unresolved : .opaque) : base.colorTransfer,
+        colorBoundary: field == "boundary" ? (base.colorBoundary == nil
+            ? .init(colorInputSlots: [0], outputRepresentation: .straightAlpha) : nil) : base.colorBoundary,
+        vertexPositionInput: field == "position" ? (base.vertexPositionInput == nil ? .targetPixels : nil) : base.vertexPositionInput,
+        fragmentOutputChannelUse: field == "output" ? (base.fragmentOutputChannelUse == .redDefined ? .unproven : .redDefined)
+            : base.fragmentOutputChannelUse
+    )
+}
+
+private struct SceneConstantHashShaderKey: Hashable {
+    let value: Program.ShaderSemanticIdentity
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.value == rhs.value }
+    func hash(into hasher: inout Hasher) { hasher.combine(0) }
+}
+
+private func sceneShaderIdentityHashRegressionCases(
+    _ base: Program.ShaderSemanticIdentity
+) -> [String: Bool] {
+    let copy = sceneCopiedShaderIdentity(base)
+    let names = ["schema", "backend", "source", "vertexEntry", "fragmentEntry", "buffer",
+                 "fieldName", "fieldType", "arrayCount", "fieldOffset", "slots", "channels",
+                 "transfer", "boundary", "position", "output"]
+    let variants = names.map { sceneCopiedShaderIdentity(base, changing: $0) }
+    let all = [base] + variants
+    let independent = all.map { sceneCopiedShaderIdentity($0) }
+    let dictionary = Dictionary(uniqueKeysWithValues: all.enumerated().map { ($0.element, $0.offset) })
+    let set = Set(all)
+    let collisionDictionary = Dictionary(uniqueKeysWithValues: all.enumerated().map {
+        (SceneConstantHashShaderKey(value: $0.element), $0.offset)
+    })
+    let collisionSet = Set(all.map { SceneConstantHashShaderKey(value: $0) })
+    // Standard String equality includes canonical Unicode equivalence. Derived
+    // cached hashes must preserve that contract across independent construction.
+    let composed = sceneCopiedShaderIdentity(base, source: base.metalSource + "\n// caf\u{e9}")
+    let decomposed = sceneCopiedShaderIdentity(base, source: base.metalSource + "\n// cafe\u{301}")
+    return [
+        "shaderIndependentConstructionEqualAndHashConsistent": base == copy && base.hashValue == copy.hashValue,
+        "shaderEachSemanticFieldRemainsDistinct": !base.uniformFields.isEmpty
+            && variants.allSatisfy { $0 != base } && set.count == all.count,
+        "shaderIndependentSetAndDictionaryLookup": independent.enumerated().allSatisfy {
+            set.contains($0.element) && dictionary[$0.element] == $0.offset
+        },
+        // This forces container collisions, not a collision in a private cached Int.
+        "shaderForcedContainerCollisionRetainsStructuralEquality": collisionSet.count == all.count
+            && independent.enumerated().allSatisfy {
+                collisionSet.contains(.init(value: $0.element))
+                    && collisionDictionary[.init(value: $0.element)] == $0.offset
+            },
+        "shaderCanonicalUnicodeEqualityAndLookup": composed == decomposed
+            && composed.hashValue == decomposed.hashValue
+            && Set([composed]).contains(decomposed) && [composed: 37][decomposed] == 37,
     ]
 }

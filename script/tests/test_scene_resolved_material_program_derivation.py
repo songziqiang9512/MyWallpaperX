@@ -97,6 +97,15 @@ class SceneResolvedMaterialProgramDerivationTests(unittest.TestCase):
             [],
             result,
         )
+        identity_facts = {
+            "shaderIndependentConstructionEqualAndHashConsistent",
+            "shaderEachSemanticFieldRemainsDistinct",
+            "shaderIndependentSetAndDictionaryLookup",
+            "shaderForcedContainerCollisionRetainsStructuralEquality",
+            "shaderCanonicalUnicodeEqualityAndLookup",
+        }
+        for prefix in ("", "renamed-", "equivalent-"):
+            self.assertTrue({prefix + name for name in identity_facts}.issubset(result), result)
 
 
 if __name__ == "__main__":

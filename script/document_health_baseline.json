@@ -42,7 +42,7 @@
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
-      "bytes": 29881
+      "bytes": 29908
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 30,
-      "bytes": 7868
+      "bytes": 8069
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1264,15 +1264,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "342ad5a9c31ef184f005bbb401555ae25a61e64eb293f0e6a8c193018de3fe10",
-      "after": "6be6e11d8e58d7011548d47e8b5381d34125b464f305085e0cf96aa60e46b584",
-      "owner": "Scene engineering documentation",
-      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
       "before": "b9d613a2daa00959fd6f31cf9a4d1c0c497fbeae0b07987ef67222e9be33e72e",
       "after": "f4b7c4eefa670b0002a78707c2a49836b16a74fbdb8ea483e4ec7104fc3016ec",
@@ -1381,12 +1372,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-as-built-map.md",
+      "before": "6be6e11d8e58d7011548d47e8b5381d34125b464f305085e0cf96aa60e46b584",
+      "after": "833ba69921eead8634eb099d41ff8c67d49cb41f5e67868a5b0b34ffe3c41b3c",
+      "owner": "Scene prepared shader identity",
+      "reason": "同步原不可变身份的构造期哈希与局部收益边界；单对整体CPU未达继续门、内存上移及下一候选如实保留",
+      "decision": "docs/scene/history/shader-identity-hash-screen-2026-10-14.md#通用语义与取舍"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "e958d2c3f8d182aa424d3694cc8ebd8d9898eb51024d9b6d5ed1a4a174bfa9fa",
-      "after": "50dd7351fba34763b8476cbcc9cc2a7221738c32a151947afc3120522cd3d18b",
-      "owner": "scene-property-texture-feedback",
-      "reason": "先设计的typed反馈/同步重入、正常窗口与独立ROI、冷暖CLI未完成边界及helper本地签名策略同步；不新增能力或性能结论",
-      "decision": "docs/scene/history/property-texture-feedback-2026-10-14.md#通用语义与实现"
+      "before": "50dd7351fba34763b8476cbcc9cc2a7221738c32a151947afc3120522cd3d18b",
+      "after": "1843598e13c795d8e270a2b5b939729377fb9761a5acc8c2a4ca08e2ac006923",
+      "owner": "Scene prepared shader identity",
+      "reason": "同步原不可变身份的构造期哈希与局部收益边界；单对整体CPU未达继续门、内存上移及下一候选如实保留",
+      "decision": "docs/scene/history/shader-identity-hash-screen-2026-10-14.md#通用语义与取舍"
     }
   ]
 }

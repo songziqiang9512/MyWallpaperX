@@ -383,9 +383,9 @@
       "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "875dfbe4e44c8610aaf9330d5faa564ef14eff1f01dd92edc5e6c4adfd84f667",
+        "sourceSHA256": "5e4279e76e21ec7e7408b918169992456247e1267da31372e977dd14e865301e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "顶层设计/工作卡职责、当前入口和旧状态撤权核对",
+        "scope": "本次材质准备行：唯一PreparedAssembly身份与完整判等边界；现役入口链接核对",
         "limitations": "仅文档职责与导航，不证明产品性能、兼容或发布验收"
       }
     },
@@ -2363,6 +2363,18 @@
         "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
         "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/shader-identity-hash-screen-2026-10-14.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/architecture/runtime-as-built-map.md"
+      ],
+      "cutoffDate": "2026-10-14",
+      "uniqueValue": "不可变shader identity哈希复用；五对局部查询及构造代价、整体CPU单对未达继续门与内存上移边界"
     },
     {
       "path": "docs/scene/history/shared-script-resource-preparation-2026-10-12.md",

@@ -730,13 +730,6 @@
     },
     {
       "path": "script/tests/test_scene_property_live_routing.py",
-      "scope": "ScenePropertyLiveRoutingTests.test_texture_bookmark_clear_reports_whether_runtime_resources_changed",
-      "method": "assertIn",
-      "literal": "var removedBookmark = false",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_property_live_routing.py",
       "scope": "ScenePropertyLiveRoutingTests.test_uniform_layer_scale_is_live_for_the_shared_world_frame",
       "method": "assertIn",
       "literal": "case let .layerScale(layerID):",

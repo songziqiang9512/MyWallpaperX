@@ -55,6 +55,62 @@ extension SceneResolvedMaterialProgram {
         let vertexPositionInput: SceneAuthoredShaderProgram.VertexPositionInput?
         let fragmentOutputChannelUse:
             SceneAuthoredShaderProgram.FragmentOutputChannelUse
+
+        // Prepared once with the immutable shader facts. Dictionary/Set lookups
+        // during frame preparation must not walk the complete MSL source again.
+        // Equality remains structural; this process-local value is never a
+        // persistent cache key or evidence of shader equivalence.
+        private let preparedHash: Int
+
+        init(
+            frontendSchemaVersion: Int,
+            backend: SceneAuthoredShaderProgram.Backend,
+            metalSource: String,
+            vertexFunctionName: String,
+            fragmentFunctionName: String,
+            uniformBufferIndex: Int,
+            uniformFields: [UniformField],
+            textureSlots: [Int],
+            textureChannelUses: [SceneAuthoredShaderProgram.TextureBinding.ChannelUse],
+            colorTransfer: ColorTransfer,
+            colorBoundary: SceneShaderColorBoundary?,
+            vertexPositionInput: SceneAuthoredShaderProgram.VertexPositionInput?,
+            fragmentOutputChannelUse: SceneAuthoredShaderProgram.FragmentOutputChannelUse
+        ) {
+            self.frontendSchemaVersion = frontendSchemaVersion
+            self.backend = backend
+            self.metalSource = metalSource
+            self.vertexFunctionName = vertexFunctionName
+            self.fragmentFunctionName = fragmentFunctionName
+            self.uniformBufferIndex = uniformBufferIndex
+            self.uniformFields = uniformFields
+            self.textureSlots = textureSlots
+            self.textureChannelUses = textureChannelUses
+            self.colorTransfer = colorTransfer
+            self.colorBoundary = colorBoundary
+            self.vertexPositionInput = vertexPositionInput
+            self.fragmentOutputChannelUse = fragmentOutputChannelUse
+
+            var hasher = Hasher()
+            hasher.combine(frontendSchemaVersion)
+            hasher.combine(backend)
+            hasher.combine(metalSource)
+            hasher.combine(vertexFunctionName)
+            hasher.combine(fragmentFunctionName)
+            hasher.combine(uniformBufferIndex)
+            hasher.combine(uniformFields)
+            hasher.combine(textureSlots)
+            hasher.combine(textureChannelUses)
+            hasher.combine(colorTransfer)
+            hasher.combine(colorBoundary)
+            hasher.combine(vertexPositionInput)
+            hasher.combine(fragmentOutputChannelUse)
+            preparedHash = hasher.finalize()
+        }
+
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(preparedHash)
+        }
     }
 
     enum TextureContentIdentity: Hashable {
