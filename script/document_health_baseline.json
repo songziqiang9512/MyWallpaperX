@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 30,
-      "bytes": 7349
+      "bytes": 7712
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1373,11 +1373,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "3a24b5cf1b34f28b742ba06934d623a5ea5494647212b1ef60676882c3ad3321",
-      "after": "43c0d09c8ed127ccc92ad943865eca957557a83d32778c2c76d79e50547c7b4a",
-      "owner": "scene-graph-residency-query",
-      "reason": "锁内唯一resident查询设计与固定配对CPU实测；保留呈现/内存反例和未闭专项，历史过程退出现役卡",
-      "decision": "docs/scene/history/graph-residency-query-convergence-2026-10-14.md#通用语义与选择"
+      "before": "43c0d09c8ed127ccc92ad943865eca957557a83d32778c2c76d79e50547c7b4a",
+      "after": "e958d2c3f8d182aa424d3694cc8ebd8d9898eb51024d9b6d5ed1a4a174bfa9fa",
+      "owner": "scene-gpu-cost-screening",
+      "reason": "真实成本归因和短筛负结果替换旧候选状态；不提高性能阈值、不重复产品过程",
+      "decision": "docs/scene/history/gpu-cost-screening-2026-10-14.md#筛选决定与收尾"
     }
   ]
 }

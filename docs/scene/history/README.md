@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-14 | GPU/选序 | 归因与筛选 | [真实帧与附件输入](gpu-cost-screening-2026-10-14.md) | 普通shader/背景copy成本口径、像素原型撤回与性能未证边界 | [性能卡](../roadmap/performance-convergence-card.md) |
 | 2026-10-14 | 资源查询/CPU | 收敛证据 | [锁内resident查询](graph-residency-query-convergence-2026-10-14.md) | 固定配对整体CPU、foreign/history/代次反例及呈现/内存限制 | [资源合同](../architecture/scene-resource-admission.md#锁内-graph-resident-查询)、[性能卡](../roadmap/performance-convergence-card.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-14 | 属性/CPU | 收敛证据 | [回调异常局部恢复](property-callback-recovery-2026-10-14.md) | 同owner/事务反例、真实云层热切、三轮编辑窗CPU及严格FAIL边界 | [属性合同](../capabilities/runtime-input-property-coverage.md#property-callback-recovery)、[属性卡](../roadmap/properties-panel-card.md)、[性能卡](../roadmap/performance-convergence-card.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-14 | 工程设计 | 旧计划与实验 | [E/AS 档案](engine-refactor-program-through-2026-10-14.md) | 保留旧实验、失败和未闭合边界；原顺序与状态撤权 | [顶层设计](../roadmap/engine-refactor-program.md)、[性能卡](../roadmap/performance-convergence-card.md)、[属性卡](../roadmap/properties-panel-card.md)、[兼容路线](../roadmap/scene-compatibility-roadmap.md)、[Steam专项](../roadmap/scene-steamkit-migration-plan.md) |

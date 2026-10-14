@@ -1247,6 +1247,17 @@
       "uniqueValue": "实施前设计、全atom与最后view生命周期、八轮实际局部CPU及负面返回、累计密集覆盖反例、独立矩阵失败与真实产品入口边界"
     },
     {
+      "path": "docs/scene/history/gpu-cost-screening-2026-10-14.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/performance-convergence-card.md"
+      ],
+      "cutoffDate": "2026-10-14",
+      "uniqueValue": "真实帧GPU成本分母、附件原型撤回、两条shader短筛未达门及行级执行证据边界"
+    },
+    {
       "path": "docs/scene/history/graph-color-purpose-reconciliation-2026-10-12.md",
       "role": "historical-evidence",
       "commandPolicy": "historical-only",
@@ -2742,9 +2753,9 @@
       "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cf2c307eeef31b56120c7ab7793d60f430b1634be17fbda81e22962691e919e1",
+        "sourceSHA256": "6fd5078dc2677859926660b1a17b9330b29e54d7d2f59d5dbf9b28f6e02fd21d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "resident查询固定CPU配对、呈现/内存限制及下一批入口核对",
+        "scope": "单帧GPU成本、两条短筛淘汰与下一责任入口；不将工具Cost或局部像素门称性能验收",
         "limitations": "仅文档职责与导航；实际性能与运行证据归该批history和原始报告"
       }
     },
