@@ -371,7 +371,6 @@ Combo option 的显示 label 与 hidden value 是两个字段；binding、Displa
 
 <a id="op-user-texture"></a>
 ### 5.7 [Texture](https://docs.wallpaperengine.io/en/scene/userproperties/texture.html)
-
 官方 Texture property 可替换 image layer、effect mask 或 particle texture，允许兼容的 image/video；用户未选择文件时必须使用作者导入的 texture。替换 texture 不会自动重做作者 effect 或 mask，因此播放器必须继续使用原有 graph/mask，不能根据新图片内容猜适配。
 
 <a id="user-texture-operation-feedback"></a>
@@ -384,14 +383,16 @@ Combo option 的显示 label 与 hidden value 是两个字段；binding、Displa
 
 | 官方类型/行为 | 等级 | 当前能力 | 缺口 |
 |---|---|---|---|
-| `texture` / observed `scenetexture` identity | `L3 bounded` | 两种 raw type 归一并保留 runtimeType；exact authored key可进入slot-0 base-material typed provider binding | 不宣称所有版本 schema 等价，也不外推非base-material target |
+| `texture` / observed `scenetexture` identity | `L3 bounded` | 两种raw type归一且保runtimeType；base slot0与既有effect typed property inputs共用原资源链 | 不宣称所有版本schema、slot或purpose均可执行；[effect可见边界](#effect-user-texture-visible) |
 | PNG/JPEG picker/bookmark/provider | `L3` | security scope、decode、per-screen upload，以及exact slot-0、single-pass base-material/property consumer；B22已删除独立ImageBlend plan/runtime及其额外property execution授权，见[E-PROVIDER](../history/runtime-evidence-index.md#e-provider)、[E-V4-USER-PROPERTY-BASE-MATERIAL-INGRESS](../history/runtime-evidence-index.md#e-v4-user-property-base-material-ingress)与[E-R4-B22-INDEPENDENT-IMAGE-BLEND-RETIREMENT](../history/runtime-evidence-index.md#e-r4-b22-independent-image-blend-retirement) | cancellation、更多格式、multi-pass/多user slot和remaining material shape |
 | authored texture fallback | `L3 bounded` | base-material property absent/pending保留作者fallback；file-backed unavailable、incomplete ready或identity不匹配只拒绝当前replacement并保留安全作者current。其他现役受限consumer仍按各自已证明fallback边界执行；[E-PROVIDER](../history/runtime-evidence-index.md#e-provider)、[E-MATERIAL-PROGRAM](../history/runtime-evidence-index.md#e-material-program)与[E-V4-USER-PROPERTY-BASE-MATERIAL-INGRESS](../history/runtime-evidence-index.md#e-v4-user-property-base-material-ingress) | 推广至effect mask/particle/remaining material GPU consumer，并补更多provider lifecycle门 |
-| generic image/video replacement targets | `L3 bounded base material / L0 remainder` | ordinary base material的exact slot-0 image albedo已有通用consumer；effect mask、particle texture、video与remaining material shape尚无通用consumer | target/slot identity、自动尺寸映射、格式、generation与teardown |
+| generic image/video replacement targets | `L3 bounded base/effect image; remainder未证` | base exact slot0保原合同；effect已沿Program资源选择，206两入口PNG实际换图/逐key reset已证，不再记为全无consumer | exact slot/purpose/generation诊断、mask/particle/video及remaining shape仍逐项验收 |
+
+<a id="effect-user-texture-visible"></a>
+**effect辅助图片。** 原service保合法effect usertextures，catalog按可达sampler收demand，Session复用原loader/purpose/cohort/revision，FrameRegistry与Program选择ready property；reset的absent恢复作者低优候选，graph ingress/mask/alpha仍由原owner决定。[206可见筛查](../history/effect-texture-visible-screen-2026-10-15.md)分冷两次选图与暖两次逐key reset证明实际画面和各轮同session；不以CPU adopted、声明或图案出现外推exact slot/purpose/generation、alpha parity、全部格式/consumer或准备次数。
 
 <a id="op-user-texture-variants"></a>
 ### 5.8 [Texture Variants](https://docs.wallpaperengine.io/en/scene/userproperties/texturevariant.html)
-
 Texture Variant 只能由 Checkbox/Combo User Property 控制，不能由 SceneScript 切换。variant 与 base 必须同为 image 或同为 video，并具有相同分辨率；每个 variant group 同时只显示一个 texture。Combo 多选时应保留一个未分配 option 代表 base texture。`Replace` 与 `Alpha-blended` 是不同合成语义；透明叠加元素要使用独立 group，因为一个 group 不会同时显示两个 variant。
 
 | 官方类型/行为 | 等级 | 当前能力 | 缺口 |

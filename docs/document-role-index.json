@@ -1195,6 +1195,17 @@
       ]
     },
     {
+      "path": "docs/scene/history/effect-texture-visible-screen-2026-10-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/roadmap/properties-panel-card.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/properties-panel-card.md",
+        "docs/scene/capabilities/runtime-input-property-coverage.md"
+      ],
+      "cutoffDate": "2026-10-15"
+    },
+    {
       "path": "docs/scene/history/effectful-image-property-color-2026-10-14.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -2590,6 +2601,16 @@
       ]
     },
     {
+      "path": "docs/scene/history/static-tex-storage-screen-2026-10-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/roadmap/performance-convergence-card.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/performance-convergence-card.md"
+      ],
+      "cutoffDate": "2026-10-15"
+    },
+    {
       "path": "docs/scene/history/system-media-live-supply-verification-2026-10-06.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -2854,9 +2875,9 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f3341fcfffe384cfa8439dc5059f6c1f3c8b247c8527288b18be09f45c530b48",
+        "sourceSHA256": "f27fc265398730618283162d8c7a1c131290497bb4f2a9f6d65cfa35ef061119",
         "method": "document_registry --audit + document_health --check",
-        "scope": "公开stage诊断唯一owner/原CB生命周期与资格历史/现性能卡导航接管，先设计登记已退役",
+        "scope": "static TEX短筛STOP与206既有纹理画面/逐key reset边界导航；保留未证性能/精确slot与继承棘轮项",
         "limitations": "仅本次合同与证据职责/导航核对；不代表全部引擎、设备、官方parity或稳定性能验收"
       }
     },
@@ -2868,9 +2889,9 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5fb7c388ba6da69880ac6a5d3b2d9c922192075c08b142bb53fbdd7eb1ba6e02",
+        "sourceSHA256": "522f22d354ba0badefd0bf8412c6a9ea9b45a61d6ce85f4f7eea1cde3ba5df24",
         "method": "document_registry --audit + document_health --check",
-        "scope": "背景色typed消费/原生编辑与未覆盖边界、206先核prepared消费及继承棘轮缺口导航同步",
+        "scope": "static TEX短筛STOP与206既有纹理画面/逐key reset边界导航；保留未证性能/精确slot与继承棘轮项",
         "limitations": "仅当前文档与导航，不冒充完整面板性能、全部媒体入口、多屏或发布验收。"
       }
     },

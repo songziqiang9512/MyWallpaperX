@@ -77,3 +77,13 @@ V1本地helper捕获inout root，所有32个released-output局部形状都变慢
 配对比值中位不是两个ns/op中位之比。非空改善中位仅4.2–7.8%，均未同时达到10%和超过两倍相应噪声；fresh形状涨跌交错，三项中位上移约2.5–3.1%，不据此判稳定回退。停止并撤回，不进入App或为撤回候选追加完整环境入口门、Debug、独立样本和长稳；没有新的实际分配计数、内存驻留或整进程CPU/GPU收益。避免中间表在结构上合理，不代表值得产品化；后继不继续泛型/容器微调。
 
 独审复算27个配对比值及上述统计边界后接受停止。产品与fixture均恢复1d8c35f8对应SHA，无实验分支。原数、命令、两臂输入、原oracle及候选/撤回身份归`.artifacts/tmp/graph-overlay-intermediate-screen-20261015/`。未改变既有App，保必要源码/patch/日志，停止使用的binary与重复module cache按归属清理；唯一连续DerivedData不动。下一项以原snapshot增长热点另行筛选，不把本轮记成优化完成。
+
+<a id="pin-retirement-baseline"></a>
+
+## pin 退休仅基线短否证
+
+原allocation cache的releasePin按UUID扫描resident，可能在同一completion批次重复；不沿旧key缓存，因为释放会改history/retired身份。只在原pool/cache/pin owner单列释放阶段，不实现逆索引或批量退休。预注册G32/R128 release中位<0.1ms即停；超过也须真实App分母，不能自动GO。
+
+唯一一次-O WMO编译34真实产品源，三轮G1/G32×R0/R128：release CPU中位分别0.001250/0.009125/0.114605/0.310667ms；整周期0.024791/0.345355/0.919042/2.054959ms。G32/R128三轮0.310396/0.310667/0.315188ms、最大偏差1.46%；G1/R128偏差66.21%，保随机Dictionary位置影响，不称全形状稳定。线程CPU用CLOCK_THREAD_CPUTIME_ID纳秒，不用wall差相减。
+
+该0.310667ms包含必要状态更新/查找/存储，非扫描独占成本；没有当前App调用分母/整体收益资格，结论NOT-QUALIFIED，不进入产品或App campaign。21个改键/history/外部pin/重复release相邻事实全true，输入无漂移，无GPU encoder/commit、App或产品修改。`.artifacts/tmp/pin-retirement-cost-screen-20261015/`保协议/冻结源/harness/原数与summary；module cache45,283,842B及已不用binary1,422,232B已清，所有进程结束。
