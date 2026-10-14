@@ -290,7 +290,7 @@ Scene属性窗口沿prepared context→原生NSCollectionView可视控件→原s
 
 <a id="prepared-callback-property-reachability"></a>
 
-**回调独占属性的面板可达性（2026-10-14，实施前设计）。** 合法普通定义可仅由 `applyUserProperties` 读取，没有直接 `{user,value}` 绑定；现context从直接consumer出发会漏行。目标是把真实active prepared callback消费的catalog key投影到原context，保作者顺序、条件、隐藏值、store与typed更新链。仅覆盖Bool/Slider/Color/Combo/TextInput；不从脚本字串猜key、不为面板创建VM，不把字符串回调提升为资源consumer或开放未知类型。未完成实现与后验前不计能力。
+**回调独占属性的面板可达性（2026-10-15，已实施的有界合同）。** 合法普通定义可仅由 `applyUserProperties` 读取，没有直接 `{user,value}` 绑定；现context从直接consumer出发会漏行。目标是把真实active prepared callback消费的catalog key投影到原context，保作者顺序、条件、隐藏值、store与typed更新链。仅覆盖Bool/Slider/Color/Combo/TextInput；不从脚本字串猜key、不为面板创建VM，不把字符串回调提升为资源consumer或开放未知类型。真实Combo行、保存重开/reset及受控媒体显隐已验，边界见[实施证据](../history/property-callback-recovery-2026-10-14.md#prepared-callback-panel)。
 
 Host/session继续拥有唯一执行准入。候选完成全部既有surface准备并晋升后，由原ScriptProgram的真实export查询和原liveState消费表投影非空callback target集合对应的key；新增入口还须保原类型/默认值、rebuildRequired及全部target的active/availability约束，不能取含空集合的dictionary全部keys，也不把SourceEvidence当执行证明。沿既有 `launchStateChanged(.launched)` 回执携带这一不可变投影，Client只保其active session的只读事实，原service/context合并原静态actionable keys后准备行；不存在回调事实时维持原展示，不放开store fallback制造重建。之后owner异常、资源/结构变化或cohort拒绝仍由Host实时判断，投影不是保证未来每次编辑可live的第二权威，不新增逐帧能力扫描。
 
@@ -300,7 +300,7 @@ Client沿原replay owner生成并预绑定requestID，loadScene携带该可选�
 
 原propertyPreparation仍唯一持有有界context缓存、请求与presentation identity；callback投影版本加入其失效比较。复用现launch observer及已有service刷新，已打开面板也须重新投影定义，不能只刷新值；原context已持有catalog时只重投影它，来源/override校验与4MiB/pressure边界不扩，不另存SourceFacts或第二context。内容替换须同步实际presentation token，取消被替换generation未提交的UI会话；关闭/替代后迟到结果不重开面板，已提交资源事务仍归原service。
 
-最近验证复用property context/native list、preparation reuse、hidden consumer、真实VM live-property及async-launch门：覆盖callback-only合法Combo与变量/资源改名、等价表达式；无回调/空集合/错类型/资源定义不命中；同key多consumer及不可用owner仍原子拒绝；同值/reset/revision保持；旧request/record/source、候选失败保旧active、silent stop、断连重启、打开中/已打开/关闭后回执及多surface不完整反例。真实293的 `media_hide_condition` 只由回调读取且没有condition反向依赖，可作漏行入口证据；可见策略还需受控暂停媒体事件与真实consumer/画面闭环，不能用row出现或callback hit代替；另用未参与修法样本检查渲染，不计性能或全兼容。
+最近53个不同测试方法通过，覆盖合法普通定义、改名/等价、无回调/空集合/错类型/资源排除、陈旧request/source、候选失败保旧active、silent stop/断连重启与面板代次。真实293的回调独占Combo现可编辑，重开/reset保值且单session；同App受控paused媒体事件下，模式0→1使媒体图标隐藏并保窗口/surface。独立304原样人物、建筑、星空和时钟保留。原293三项效果FAIL、304粒子FAIL及本地化raw key保持开放；未量性能、完整设备/媒体或多surface，不外推全兼容。
 
 <a id="property-callback-recovery"></a>
 

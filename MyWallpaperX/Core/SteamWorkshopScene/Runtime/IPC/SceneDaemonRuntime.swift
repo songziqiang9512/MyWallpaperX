@@ -245,7 +245,7 @@ final class SceneDaemonRuntime {
     private func handle(_ command: SceneDaemonCommand) {
         switch command {
         case let .loadScene(
-            rootURL, overrides, textureReferences, profile, recordID, requiredTextureKeys
+            rootURL, overrides, textureReferences, profile, recordID, requiredTextureKeys, requestID
         ):
             lastPropertyRevision = 0
             host.applyPerformanceProfile(profile)
@@ -256,7 +256,8 @@ final class SceneDaemonRuntime {
                     textureReferences
                 ),
                 requiredUserTextureKeys: requiredTextureKeys,
-                recordID: recordID
+                recordID: recordID,
+                requestID: requestID ?? UUID()
             ) { _ in }
         case let .setProperty(values, revision, recordID):
             let accepted = revision > lastPropertyRevision
@@ -395,14 +396,20 @@ final class SceneDaemonRuntime {
                 } else if state.phase == .launched, self.shouldPausePlayback {
                     self.host.setPlaybackPaused(true)
                 }
-                self.emit([
+                var payload: [String: Any] = [
                     "v": SceneDaemonProtocol.version,
                     "event": "launchStateChanged",
                     "phase": state.phase.rawValue,
                     "message": state.message,
                     "requestID": state.requestID.uuidString,
                     "recordID": state.recordID ?? NSNull()
-                ])
+                ]
+                if let facts = state.callbackPropertyReachability,
+                   let data = try? JSONEncoder().encode(facts),
+                   let encoded = try? JSONSerialization.jsonObject(with: data) {
+                    payload["callbackPropertyReachability"] = encoded
+                }
+                self.emit(payload)
             }
         })
         observers.append(NotificationCenter.default.addObserver(

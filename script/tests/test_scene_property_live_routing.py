@@ -88,6 +88,7 @@ extension Notification.Name {
     static let shared = SceneDaemonClient()
     var active = false
     func hasIntent(for id: String) -> Bool { active }
+    func preparedCallbackPropertyKeys(for recordID: String, source: ScenePreparedCallbackPropertyReachability.Source?) -> Set<String> { [] }
 }
 @MainActor final class RequestSpy {
     var requests: [SteamWorkshopScenePlaybackRequest] = []
@@ -418,6 +419,7 @@ struct PlaybackCommandMultiplexer {
 struct SceneDaemonClient {
     static let shared = Self()
     func hasIntent(for recordID: String) -> Bool { false }
+    func preparedCallbackPropertyKeys(for recordID: String, source: ScenePreparedCallbackPropertyReachability.Source?) -> Set<String> { [] }
 }
 @main enum ContextProbe {
     @MainActor static func main() throws {
@@ -710,6 +712,7 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
                         "nonisolated enum ScenePlaybackTextureUpdateOutcome:"),
         ]))
         sources = builder.SWIFT_SOURCES + [
+            SCENE_ROOT / "Runtime/Session/SceneDesktopWallpaperLaunchModels.swift",
             SCENE_ROOT / "Compilation/Material/SceneBaseMaterialProviderBindingProgram.swift",
             SCENE_ROOT / "Compilation/Material/SceneBaseMaterialProviderBindingCompiler.swift",
             SCENE_ROOT / "Compilation/Material/SceneBaseMaterialLightingProfile.swift",
@@ -857,6 +860,7 @@ class SceneTextureSelectionAdmissionTests(unittest.TestCase):
             "enum DaemonProbe {\n" + resolve + "\n}",
         ]))
         sources = [
+            SCENE_ROOT / "Runtime/Session/SceneDesktopWallpaperLaunchModels.swift",
             SCENE_ROOT / "Systems/Properties/SceneUserProperty.swift",
             SCENE_ROOT / "Resources/Textures/SceneImageTextureUploader.swift",
             SCENE_ROOT / "Resources/Textures/SceneImageTextureUploader+Resample.swift",

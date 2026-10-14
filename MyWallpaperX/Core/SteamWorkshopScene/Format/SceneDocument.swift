@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 struct SceneDocument {
     // Camera node from scene.json; defaults look along -Z with Y up.
@@ -48,6 +49,8 @@ struct SceneDocument {
     let scriptBindingDiagnostics: [SceneScriptBindingDiagnostic]
     let scriptSourceEvidence: [SceneScriptSourceEvidenceIR]
     let userPropertyResolution: SceneUserPropertyResolution
+    /// Authored entry bytes, before property overrides or runtime projection.
+    var sourceWitness: String? = nil
 }
 
 extension SceneDocument {
@@ -162,7 +165,8 @@ struct SceneDocumentLoader {
             scriptBindings: scriptBindings.bindings,
             scriptBindingDiagnostics: scriptBindings.diagnostics,
             scriptSourceEvidence: scriptSourceEvidence,
-            userPropertyResolution: propertyResolution
+            userPropertyResolution: propertyResolution,
+            sourceWitness: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         )
     }
 

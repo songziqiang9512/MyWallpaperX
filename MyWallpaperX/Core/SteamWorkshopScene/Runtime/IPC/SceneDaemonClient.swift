@@ -28,7 +28,14 @@ nonisolated struct SceneDaemonAudioSpectrumPublication: Equatable, Sendable {
     let peak: Float
 }
 
+nonisolated struct SceneDaemonActiveSessionFactsChange: Sendable {
+    let recordIDs: Set<String>
+}
+
 extension Notification.Name {
+    static let sceneDaemonActiveSessionFactsDidChange = Notification.Name(
+        "SceneDaemonActiveSessionFactsDidChange"
+    )
     static let sceneDaemonFrameStatsDidChange = Notification.Name(
         "SceneDaemonFrameStatsDidChange"
     )
@@ -76,6 +83,20 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var activeIntent: ScenePlaybackLoadRequest?
     var pendingIntent: ScenePlaybackLoadRequest?
     var activeRequestID: UUID?
+    struct ActiveCallbackPropertyFacts: Equatable {
+        let transportGeneration: UInt64
+        let requestID: UUID
+        let recordID: String?
+        let reachability: ScenePreparedCallbackPropertyReachability
+    }
+    var activeCallbackPropertyFacts: ActiveCallbackPropertyFacts? {
+        didSet {
+            guard oldValue != activeCallbackPropertyFacts else { return }
+            NotificationCenter.default.post(name: .sceneDaemonActiveSessionFactsDidChange,
+                object: SceneDaemonActiveSessionFactsChange(recordIDs: Set(
+                    [oldValue?.recordID, activeCallbackPropertyFacts?.recordID].compactMap { $0 })))
+        }
+    }
     var pendingRequestID: UUID?
     var pendingPropertyRevisions: [UInt64: String] = [:]
     var pendingTextureUpdates: [UInt64: PendingTextureUpdate] = [:]
@@ -101,7 +122,13 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     private var runtimeSwitchObserver: NSObjectProtocol?
     private var screenParametersObserver: NSObjectProtocol?
     var shutdownCompletions: [(generations: Set<UInt64>, completion: () -> Void)] = []
-    var displayConfiguration = SceneScreenTopology.capture()
+    var displayConfiguration = SceneScreenTopology.capture() {
+        didSet {
+            // A topology rebuild has not yet proven a complete prepared cohort.
+            // Wait for a new launched observation before advertising its rows.
+            if oldValue != displayConfiguration { activeCallbackPropertyFacts = nil }
+        }
+    }
     /// 多屏语义与 video/web 对齐：开=全部显示器，关=仅首屏。主 App 是
     /// 显示集的唯一裁决者，daemon 按收到的拓扑建表面。
     var multiDisplayEnabled = true
@@ -216,6 +243,21 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         activeIntent?.recordID == recordID || pendingIntent?.recordID == recordID
     }
 
+    func preparedCallbackPropertyKeys(
+        for recordID: String,
+        source: ScenePreparedCallbackPropertyReachability.Source?
+    ) -> Set<String> {
+        guard endpointReady, transport?.isRunning == true,
+              let facts = activeCallbackPropertyFacts,
+              facts.transportGeneration == sessionGeneration,
+              facts.requestID == activeRequestID, facts.recordID == recordID,
+              activeRecordID == recordID, activeIntent?.recordID == recordID,
+              facts.reachability.source == source,
+              facts.reachability.source.rootPath == activeIntent?.rootURL
+                .resolvingSymlinksInPath().standardizedFileURL.path else { return [] }
+        return facts.reachability.propertyKeys
+    }
+
     func retainResourceLifetime(
         _ lifetime: PlaybackResourceLifetime?,
         rootURL: URL,
@@ -318,6 +360,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         activeIntent = nil
         pendingRequestID = nil
         activeRequestID = nil
+        activeCallbackPropertyFacts = nil
         pendingPropertyRevisions.removeAll(keepingCapacity: true)
         activeRecordID = nil
         endpointReady = false
@@ -441,6 +484,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         }
 
         sessionGeneration &+= 1
+        activeCallbackPropertyFacts = nil
         let generation = sessionGeneration
         expectedTerminationGenerations.remove(generation)
         endpointReady = false
@@ -509,7 +553,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
 
     func replayPendingIntent() {
         guard let request = pendingIntent else { return }
-        pendingRequestID = nil
+        let requestID = UUID()
+        pendingRequestID = requestID
         sendDisplayConfiguration()
         var textures: [String: [String: Any]] = [:]
         textures.reserveCapacity(request.userPropertyTextures.count)
@@ -523,6 +568,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         var payload: [String: Any] = [
             "v": SceneDaemonProtocol.version,
             "cmd": "loadScene",
+            "requestID": requestID.uuidString,
             "rootURL": request.rootURL.path,
             "propertyOverrides": request.propertyOverrides.mapValues(
                 \.foundationValue

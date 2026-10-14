@@ -47,15 +47,28 @@ import Foundation
             ]
         ])
         let loadValid: Bool
-        if case let .success(.loadScene(root, values, textures, profile, recordID, requiredKeys)) = load {
+        if case let .success(.loadScene(root, values, textures, profile, recordID, requiredKeys, requestID)) = load {
             loadValid = root.path == "/private/tmp/scene"
-                && profile == .efficient && recordID == "fixture" && requiredKeys.isEmpty
+                && profile == .efficient && recordID == "fixture" && requiredKeys.isEmpty && requestID == nil
                 && values["enabled"] == .bool(true)
                 && values["rate"] == .number(1.5)
                 && values["label"] == .string("ok")
                 && textures["cover"]?.url.path == "/private/tmp/cover.png"
                 && textures["cover"]?.bookmarkData == Data([1, 2, 3])
         } else { loadValid = false }
+        let explicitID = UUID()
+        let explicitRequestValid: Bool
+        if case let .success(.loadScene(_, _, _, _, _, _, requestID)) = decode([
+            "v": 1, "cmd": "loadScene", "rootURL": "/private/tmp/scene", "profile": 30,
+            "requestID": explicitID.uuidString
+        ]) { explicitRequestValid = requestID == explicitID } else { explicitRequestValid = false }
+        let invalidRequestRejected = ["bad-uuid" as Any, 7, NSNull()].allSatisfy { value in
+            if case .failure(.invalidPayload("loadScene")) = decode([
+                "v": 1, "cmd": "loadScene", "rootURL": "/private/tmp/scene", "profile": 30,
+                "requestID": value
+            ]) { return true }
+            return false
+        }
         let propertyValid: Bool
         if case let .success(.setProperty(values, revision, recordID)) = decode([
             "v": 1, "cmd": "setProperty", "revision": 7,
@@ -209,6 +222,8 @@ import Foundation
                 == 512 * 1_024 * 1_024
         let payload = [
             "loadValid": loadValid,
+            "explicitRequestValid": explicitRequestValid,
+            "invalidRequestRejected": invalidRequestRejected,
             "propertyValid": propertyValid,
             "versionRejected": versionRejected,
             "unsupportedRejected": unsupportedRejected,

@@ -80,18 +80,30 @@ extension SceneDaemonClient {
         }
         let recordID = payload["recordID"] as? String
         if phase == .accepted {
-            guard pendingIntent?.recordID == recordID else { return }
-            pendingRequestID = requestID
+            guard pendingRequestID == requestID,
+                  let pendingIntent, pendingIntent.recordID == recordID else { return }
             bindDeferredTextureUpdates(recordID: recordID, requestID: requestID)
         } else {
-            guard pendingRequestID == requestID else { return }
+            guard pendingRequestID == requestID,
+                  let pendingIntent, pendingIntent.recordID == recordID else { return }
         }
+
+        let reachability: ScenePreparedCallbackPropertyReachability?
+        if phase == .launched, let raw = payload["callbackPropertyReachability"],
+           JSONSerialization.isValidJSONObject(raw),
+           let data = try? JSONSerialization.data(withJSONObject: raw),
+           let decoded = try? JSONDecoder().decode(ScenePreparedCallbackPropertyReachability.self, from: data),
+           decoded.scriptGeneration > 0,
+           decoded.source.rootPath == pendingIntent?.rootURL.resolvingSymlinksInPath().standardizedFileURL.path {
+            reachability = decoded
+        } else { reachability = nil }
 
         let state = SceneWallpaperLaunchState(
             requestID: requestID,
             recordID: recordID,
             phase: phase,
-            message: message
+            message: message,
+            callbackPropertyReachability: reachability
         )
         launchState = state
         if phase == .launched {
@@ -102,6 +114,10 @@ extension SceneDaemonClient {
             pendingIntent = nil
             pendingResourceLifetime = nil
             pendingRequestID = nil
+            activeCallbackPropertyFacts = reachability.map {
+                .init(transportGeneration: sessionGeneration, requestID: requestID,
+                      recordID: recordID, reachability: $0)
+            }
         } else if phase == .cancelled || phase == .failed {
             pendingIntent = nil
             pendingResourceLifetime = nil
@@ -301,6 +317,7 @@ extension SceneDaemonClient {
         activeResourceLifetime = nil
         activeRecordID = nil
         activeRequestID = nil
+        activeCallbackPropertyFacts = nil
         pendingRequestID = nil
         pendingPropertyRevisions.removeAll(keepingCapacity: true)
         guard let recoveryIntent else { return }

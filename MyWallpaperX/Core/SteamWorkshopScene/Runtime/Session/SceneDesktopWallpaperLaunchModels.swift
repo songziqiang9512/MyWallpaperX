@@ -1,5 +1,18 @@
 import Foundation
 
+/// A launch-time observation of real prepared callback consumers. The Host
+/// remains the authority for each later update; this only projects panel rows.
+nonisolated struct ScenePreparedCallbackPropertyReachability: Codable, Equatable, Sendable {
+    struct Source: Codable, Equatable, Sendable {
+        let rootPath: String
+        let projectWitness: String
+        let sceneWitness: String
+    }
+    let source: Source
+    let scriptGeneration: UInt64
+    let propertyKeys: Set<String>
+}
+
 nonisolated struct SceneWallpaperLaunchState: Equatable, Sendable {
     enum Phase: String, Equatable, Sendable {
         case accepted
@@ -20,6 +33,7 @@ nonisolated struct SceneWallpaperLaunchState: Equatable, Sendable {
     let recordID: String?
     let phase: Phase
     let message: String
+    var callbackPropertyReachability: ScenePreparedCallbackPropertyReachability? = nil
 
     var isInProgress: Bool {
         switch phase {

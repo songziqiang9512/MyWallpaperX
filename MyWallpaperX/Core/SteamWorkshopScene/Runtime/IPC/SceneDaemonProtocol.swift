@@ -9,7 +9,8 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
         userPropertyTextures: [String: ScenePlaybackTextureReference],
         profile: PlaybackPerformanceProfile,
         recordID: String?,
-        requiredUserTextureKeys: Set<String> = []
+        requiredUserTextureKeys: Set<String> = [],
+        requestID: UUID? = nil
     )
     case setProperty(
         values: [String: SceneUserPropertyValue],
@@ -104,6 +105,13 @@ nonisolated enum SceneDaemonProtocol {
         }
         switch action {
         case "loadScene":
+            let requestID: UUID?
+            if let raw = payload["requestID"] {
+                guard let string = raw as? String, let parsed = UUID(uuidString: string) else {
+                    return .failure(.invalidPayload(action))
+                }
+                requestID = parsed
+            } else { requestID = nil }
             guard let root = payload["rootURL"] as? String,
                   !root.isEmpty,
                   let profile = profile(payload["profile"] ?? payload["maxFPS"]),
@@ -120,7 +128,8 @@ nonisolated enum SceneDaemonProtocol {
                 userPropertyTextures: textures,
                 profile: profile,
                 recordID: payload["recordID"] as? String,
-                requiredUserTextureKeys: requiredKeys
+                requiredUserTextureKeys: requiredKeys,
+                requestID: requestID
             ))
         case "setUserTextures":
             guard let values = propertyValues(payload["values"]),

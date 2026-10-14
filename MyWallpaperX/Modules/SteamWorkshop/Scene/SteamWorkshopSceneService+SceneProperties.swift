@@ -4,6 +4,8 @@ import Foundation
 struct SteamWorkshopScenePropertyContext {
     let catalog: SceneUserPropertyCatalog
     let actionableKeys: Set<String>
+    let staticActionableKeys: Set<String>
+    let sourceIdentity: ScenePreparedCallbackPropertyReachability.Source?
     let effectiveValues: [String: SceneUserPropertyValue]
     let definitions: [SceneUserPropertyDefinition]
     let conditionPrograms: [String: SteamWorkshopService.WebDisplayConditionProgram]
@@ -12,14 +14,18 @@ struct SteamWorkshopScenePropertyContext {
     init(
         catalog: SceneUserPropertyCatalog,
         actionableKeys: Set<String>,
-        effectiveValues: [String: SceneUserPropertyValue]
+        effectiveValues: [String: SceneUserPropertyValue],
+        callbackPropertyKeys: Set<String> = [],
+        sourceIdentity: ScenePreparedCallbackPropertyReachability.Source? = nil
     ) {
         self.catalog = catalog
-        self.actionableKeys = actionableKeys
+        self.staticActionableKeys = actionableKeys
+        self.actionableKeys = actionableKeys.union(callbackPropertyKeys)
+        self.sourceIdentity = sourceIdentity
         self.effectiveValues = effectiveValues
         let prepared = Self.editorDefinitions(
             in: catalog.definitions,
-            actionableKeys: actionableKeys
+            actionableKeys: self.actionableKeys
         )
         definitions = prepared.definitions
         conditionPrograms = prepared.programs
@@ -288,11 +294,30 @@ extension SteamWorkshopService {
         ).union(baseMaterialProviders.userPropertyDemands.map(\.propertyKey))
             .union(effectTextureKeys)
         let catalog = project.userProperties
-        let context = SteamWorkshopScenePropertyContext(
+        let sourceIdentity: ScenePreparedCallbackPropertyReachability.Source?
+        if let projectWitness = project.sourceWitness, let sceneWitness = document.sourceWitness {
+            sourceIdentity = .init(rootPath: project.rootURL.resolvingSymlinksInPath().standardizedFileURL.path,
+                projectWitness: projectWitness, sceneWitness: sceneWitness)
+        } else { sourceIdentity = nil }
+        return projectedScenePropertyContext(SteamWorkshopScenePropertyContext(
             catalog: catalog,
             actionableKeys: actionableKeys,
-            effectiveValues: catalog.effectiveValues(overrides: scenePropertyOverrides(for: record))
-        )
+            effectiveValues: catalog.effectiveValues(overrides: scenePropertyOverrides(for: record)),
+            sourceIdentity: sourceIdentity
+        ), for: record)
+    }
+
+    func projectedScenePropertyContext(
+        _ prepared: SteamWorkshopScenePropertyContext,
+        for record: SteamWorkshopDownloadRecord
+    ) -> SteamWorkshopScenePropertyContext? {
+        let callbackKeys = SceneDaemonClient.shared.preparedCallbackPropertyKeys(
+            for: record.id, source: prepared.sourceIdentity)
+        let context = SteamWorkshopScenePropertyContext(catalog: prepared.catalog,
+            actionableKeys: prepared.staticActionableKeys,
+            effectiveValues: prepared.catalog.effectiveValues(overrides: scenePropertyOverrides(for: record)),
+            callbackPropertyKeys: callbackKeys, sourceIdentity: prepared.sourceIdentity)
+        let catalog = context.catalog
         return context.actionableDefinitions.isEmpty && catalog.unsupportedDefinitions.isEmpty ? nil : context
     }
 

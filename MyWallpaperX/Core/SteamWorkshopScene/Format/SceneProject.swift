@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 struct SceneProject {
     let rootURL: URL
@@ -9,6 +10,8 @@ struct SceneProject {
     let title: String?
     let supportsAudioProcessing: Bool
     let userProperties: SceneUserPropertyCatalog
+    /// Witness of the bytes already read by this loader, independent of overrides.
+    var sourceWitness: String? = nil
 
     nonisolated var entryURL: URL {
         rootURL.appendingPathComponent(entryPath)
@@ -70,7 +73,8 @@ struct SceneProjectLoader {
             ),
             title: root["title"] as? String,
             supportsAudioProcessing: general?["supportsaudioprocessing"] as? Bool ?? false,
-            userProperties: SceneUserPropertyDefinitionParser().parse(projectRoot: root)
+            userProperties: SceneUserPropertyDefinitionParser().parse(projectRoot: root),
+            sourceWitness: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         )
     }
 

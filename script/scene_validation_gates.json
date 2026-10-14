@@ -2004,7 +2004,8 @@
         "MyWallpaperX/App/ScenePropertyWindowController.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/WorkshopPropertySlider.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopWebPropertyEditorView.swift",
-        "MyWallpaperX/Shared/UI/InspectorHostViewController.swift"
+        "MyWallpaperX/Shared/UI/InspectorHostViewController.swift",
+        "script/tests/test_scene_prepared_callback_properties.py"
       ],
       "modules": [
         "test_scene_detail_diagnostics_on_demand",
@@ -2014,7 +2015,8 @@
         "test_scene_property_live_update_state",
         "test_scene_runtime_input",
         "test_scene_native_property_list",
-        "test_steam_property_window"
+        "test_steam_property_window",
+        "test_scene_prepared_callback_properties"
       ]
     },
     {

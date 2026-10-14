@@ -1,6 +1,41 @@
 import Foundation
 
 extension SceneDesktopWallpaperSession {
+    func preparedCallbackPropertyKeys(
+        definitions: [SceneUserPropertyDefinition]
+    ) -> Set<String> {
+        guard let context = launchContext, !surfaces.isEmpty,
+              Set(surfaces.keys) == preparedSurfaceIDs,
+              context.sceneScriptScalarProgram.generation == context.propertyVectorScriptProgram.generation,
+              context.sceneScriptStringProgram.generation == context.propertyVectorScriptProgram.generation,
+              surfaces.values.allSatisfy({
+                  $0.scriptGeneration == context.propertyVectorScriptProgram.generation
+              }) else { return [] }
+        let state = context.liveState
+        let unavailable = unavailableLiveConsumerTargets(in: context)
+        let rebuild = Set(state.program.rebuildRequiredPropertyKeys)
+        let instructions = Dictionary(grouping: state.program.instructions, by: \.propertyKey)
+        return Set(Dictionary(grouping: definitions, by: \.key).compactMap { key, definitions in
+            guard definitions.count == 1, let definition = definitions.first,
+                  let targets = state.scriptUserPropertyConsumerTargetsByKey[key], !targets.isEmpty,
+                  !rebuild.contains(key),
+                  targets.union((instructions[key] ?? []).map(\.target)).allSatisfy({
+                      state.activeConsumerTargets.contains($0) && !unavailable.contains($0)
+                  }),
+                  let current = state.effectiveValues[key], let fallback = definition.defaultValue
+            else { return nil }
+            switch (definition.kind, fallback, current) {
+            case (.bool, .bool, .bool), (.slider, .number, .number),
+                 (.color, .string, .string), (.textInput, .string, .string):
+                return key
+            case (.combo, .string, .string), (.combo, .number, .number), (.combo, .bool, .bool):
+                return key
+            default:
+                return nil
+            }
+        })
+    }
+
     func particleVisibilityResourcesPrepared(
         layerID: Int,
         context: SceneDesktopWallpaperLaunchContext

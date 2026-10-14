@@ -90,6 +90,7 @@ extension SceneDesktopWallpaperHost {
         requiredUserTextureKeys: Set<String> = [],
         logURL: URL? = nil,
         recordID: String? = nil,
+        requestID: UUID = UUID(),
         completion: @escaping @MainActor (Result<SceneRuntimeModel, Error>) -> Void
     ) {
         cancelPendingLaunch()
@@ -103,7 +104,6 @@ extension SceneDesktopWallpaperHost {
             completion(result)
         }
         let scriptGeneration = nextSceneScriptGeneration
-        let requestID = UUID()
         let cancellation = SceneWallpaperLaunchCancellation()
         launchCancellation = cancellation
         publishLaunchState(.init(
@@ -161,8 +161,20 @@ extension SceneDesktopWallpaperHost {
                             switch result {
                             case .success:
                                 self.launchCancellation = nil
+                                let reachability: ScenePreparedCallbackPropertyReachability?
+                                if let projectWitness = prepared.model.project.sourceWitness,
+                                   let sceneWitness = prepared.model.sceneDocument.sourceWitness,
+                                   let session = self.activeSession {
+                                    reachability = .init(source: .init(
+                                        rootPath: prepared.model.project.rootURL.resolvingSymlinksInPath().standardizedFileURL.path,
+                                        projectWitness: projectWitness, sceneWitness: sceneWitness),
+                                        scriptGeneration: scriptGeneration,
+                                        propertyKeys: session.preparedCallbackPropertyKeys(
+                                            definitions: prepared.model.project.userProperties.definitions))
+                                } else { reachability = nil }
                                 self.publishLaunchState(.init(requestID: requestID,
-                                    recordID: recordID, phase: .launched, message: "Scene 首帧已完成并切换"))
+                                    recordID: recordID, phase: .launched, message: "Scene 首帧已完成并切换",
+                                    callbackPropertyReachability: reachability))
                                 complete(.success(prepared.model))
                             case let .failure(error):
                                 self.finishLaunchFailure(error, requestID: requestID,

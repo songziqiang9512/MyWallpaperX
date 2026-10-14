@@ -92,3 +92,18 @@ Client.applyPropertyValues沿原revision/record准入，将本次稀疏值同步
 真实Client/Host方法的延迟事件门复现：普通pending、bound和pre-accepted fallback，在launched/true ack两种受控顺序下丢J及后续结构重建丢J；旧版100事实中16项失败。修后同一13测试/100事实全真，1.051s，无源码漂移；真实typed update与reload/apply/bind/resume/finish接入，candidate root/其他初值、不同record/request/generation与failed/cancelled保原断言。drain中纹理入口重入及nested关闭本来就正确，不计新收益。原negative-ack先于launched的相邻失败假设尚未证明真实stdout顺序可达，不借此声称所有IPC重排均已支持。
 
 本批独审通过，证据归`.artifacts/tmp/client-property-launch-race-20261014/proof/real-reload/`。准备、session与transport仍为受控叶子；没有新跑双进程UI、纹理解码、HDR/多屏或实际输入到呈现延迟，不认领CPU/GPU/内存/能耗收益。未改渲染路径，不重复上批矩阵；上批91fe实图只保其原产品身份的证据边界。只做本批Debug增量构建，未将共享DD中旧诊断Release当成当前产品运行。测试临时文件自动退出清理，必要before/candidate源码与日志保留。
+
+
+<a id="prepared-callback-panel"></a>
+
+## 后继：回调独占普通属性进入真实面板（2026-10-15）
+
+原面板从静态直接consumer推导可编辑键，漏掉只有实际 `applyUserProperties` 读取的普通定义。本批复用原prepared ScriptProgram、liveState、原launched回执及propertyPreparation，将active非空callback消费投影合入原context；Bool/Slider/Color/Combo/TextInput继续由原类型、默认值、全部target availability与rebuild门控制。资源/未知类型不因callback放开，不扫描JS猜键、不创建额外VM或逐帧工作。项目/scene已读字节只生成一次来源witness，transport/request/record/source严格关联；旧/失败候选不替换active，stop/断连/重启撤销事实。并修正历史request身份缺口：Client在原replay预绑定ID，accepted不能再用同record迟到事件重绑当前请求，旧CLI省略字段仍兼容。
+
+真实2932157836的 `media_hide_condition` Combo从漏行变为可编辑。隔离原生App中选择Closed or paused、关闭重开保值、恢复默认回Closed，随后停止播放/正常退出；全过程只有一个candidate、一个activated与一个launched，surface=1，VM退出41/41 quiescent且timer/job/mutation/dynamicLayer为0。面板仍显示原始 `ui_browse_properties_scheme_color`，本地化缺口不计完成；打开/滚动/编辑延迟及CPU/GPU未计时。
+
+同一冻结App另以受控paused媒体状态2、真实辅助图片作为thumbnail运行原293，模式0→1被原Host接受，窗口35184与surface1不变，layer272媒体回调执行；ready/after实图中紫色媒体图标消失，人物/背景/时钟保留。报告仍为FAIL：effect execution CPU invocation failed、resolved material graph effect-local passthrough identity unproven、resolved material graph unexpected effect-local passthrough；本批没有同配置旧版媒体基线，不判定这些失败新旧，也不关闭样本。未参与属性修法的3042492564复用同App原样运行，人物、塔、星空与运行时钟可见，原particle loading incomplete仍FAIL；无pixel parity或完整媒体平台声明。
+
+最近53个不同测试方法最终通过，包含真实Client/Host方法、原native list/context/live update/preparation及协议门。首轮新增fixture因struct拼接缺换行、次轮因错误选择最后一条setMuted命令失败，分别仅修夹具并重跑受影响方法；未降低产品准入。Debug与优化诊断Release构建通过，4294输入无漂移；一次先前失败仅为并行GPU诊断中的Metal API名称，保留失败日志。独立Sol Xhigh审查及最终fixture差量复审通过。优化App SHA `599176bbc1f7e5e8c745ee48f991a04b59a863f0d2f0f01567b597659cf32470` 同时含已撤回的只读一次GPU资源资格诊断，未含后继GPU重排；属性产品源码与冻结身份一致。
+
+证据归 `.artifacts/tmp/prepared-callback-property-reachability-20261014/proof/`、两份runner报告与必要ready/after原图。原生UI首次setup因复制managed版本marker但无library index无法发现样本，退出后仅移走隔离副本marker再经原legacy discovery成功；原媒体未改。已退出的HOME/Workshop/tmp与重复编译转储按归属清理，保候选App供GPU后继基线及唯一连续DerivedData。资源/拓扑、真实快速竞态、多surface、HDR和长期切换仍按现役卡验收，不认领性能或专项完成。

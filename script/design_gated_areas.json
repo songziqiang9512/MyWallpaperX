@@ -542,30 +542,6 @@
       ]
     },
     {
-      "id": "scene-prepared-callback-property-reachability",
-      "title": "Prepared callback property reachability in the existing Scene panel",
-      "owner": "SceneDesktopWallpaperHost/session / SceneDaemonClient / Scene propertyPreparation",
-      "status": "approved",
-      "designDoc": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "design_notes": "#prepared-callback-property-reachability 已先落设计，尚未实施。真实callback消费事实随既有launched投影，Host保最终准入；保request/record/source身份、失败候选与旧active、stop/迟到/断连边界，复用原context缓存；Client在原事实owner发布typed活动投影变化通知，保原launch通知语义且无反向Service依赖。不得解析脚本文字或新建VM/consumer owner。真实面板/媒体事件与生命周期门完成后退役登记。 Client原replay预绑定requestID经可选wire字段送Host，旧调用省略兼容；accepted不再按同record重绑，非法UUID拒绝。",
-      "matchPatterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneProject.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient+Events.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonRuntime.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+LiveConsumers.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneProperties.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopSceneInspectionController.swift"
-      ],
-      "contentPatterns": [
-        "preparedCallbackPropertyKeys|callbackPropertyReachability"
-      ]
-    },
-    {
       "id": "scene-main-pass-segmentation-qualification",
       "title": "同帧双图合成分段的只读资格观测",
       "owner": "OrderedLayerEncoding / GraphExecutor / SubmissionCoordinator / ResourcePassEncoder",

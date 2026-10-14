@@ -304,6 +304,7 @@ def property_launch_harness(host_source: str) -> str:
         method(client, "func hasIntent("),
         method(events, "private func handlePropertyUpdateResult("),
         method(events, "private func handleLaunchState("),
+        method(client, "func preparedCallbackPropertyKeys("),
     ] + [method(textures, signature) for signature in [
         "func applyUserTextureUpdate(", "func reloadUserTextureUpdate(",
         "private func admitTextureRevision(", "private func textureRevisionKey(",
@@ -333,7 +334,17 @@ import CoreFoundation
 import Foundation
 
 __CONTROL_TYPES__
-struct SceneRuntimeModel { let values: [String: SceneUserPropertyValue] }
+struct SceneRuntimeModel {
+    struct Project {
+        let rootURL = URL(fileURLWithPath: "/own")
+        let sourceWitness: String? = nil
+        struct Catalog { let definitions: [String] = [] }
+        let userProperties = Catalog()
+    }
+    struct Document { let sourceWitness: String? = nil }
+    let values: [String: SceneUserPropertyValue]
+    let project = Project(), sceneDocument = Document()
+}
 struct SceneDesktopWallpaperLaunchContext {
     let values: [String: SceneUserPropertyValue]
     let generation: UInt64
@@ -355,6 +366,7 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
     var values: [String: SceneUserPropertyValue]
     var calls = 0
     let acceptsJ: Bool
+    func preparedCallbackPropertyKeys(definitions: [String]) -> Set<String> { [] }
     init(_ values: [String: SceneUserPropertyValue], acceptsJ: Bool = true) {
         self.values = values; self.acceptsJ = acceptsJ
     }
@@ -430,6 +442,11 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
     var activeIntent: ScenePlaybackLoadRequest?, pendingIntent: ScenePlaybackLoadRequest?
     var activeResourceLifetime: Lifetime?, pendingResourceLifetime: Lifetime?
     var activeRecordID: String?, activeRequestID: UUID?, pendingRequestID: UUID?
+    struct ActiveCallbackPropertyFacts: Equatable {
+        let transportGeneration: UInt64; let requestID: UUID; let recordID: String?
+        let reachability: ScenePreparedCallbackPropertyReachability
+    }
+    var activeCallbackPropertyFacts: ActiveCallbackPropertyFacts?
     var launchState: SceneWallpaperLaunchState?
     var pendingPropertyRevisions: [UInt64: String] = [:], latestTextureRevisions: [String: UInt64] = [:]
     var lastPropertyRevision: UInt64 = 0
@@ -474,9 +491,11 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
     func ensureSession() -> Bool { true }
     func replayPendingIntent() {
         guard let request = pendingIntent else { return }
+        let requestID = UUID()
+        pendingRequestID = requestID
         replayed.append(request)
         host.requestLaunch(rootURL: request.rootURL, propertyOverrides: request.propertyOverrides,
-            recordID: request.recordID) { [weak self] outcome in
+            recordID: request.recordID, requestID: requestID) { [weak self] outcome in
             if case .success = outcome { self?.completions.append(true) }
             else { self?.completions.append(false) }
         }
@@ -538,7 +557,7 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
                         && pending?.generation == client.sessionGeneration && pending?.waitsForFirstPresent == true
                         && pending?.isLaunchRetry == true && pending?.fallbackBaseIntent != nil
                         && pending?.requestID == client.pendingRequestID
-                        && (mode != "texture-unbound" || client.pendingRequestID == nil)
+                        && client.pendingRequestID != nil
                 }
                 control.release.signal()
                 await queueDrained(host.launchPreparationQueue)
@@ -595,8 +614,8 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
             facts["drain-reentryClosed"] = started && replaced && dispatches == [true, true]
                 && oldOutcomes == [.superseded] && reentries == [.superseded, .superseded]
                 && nestedStayedClosed && !client.textureUpdateAdmissionClosed
-            facts["drain-onlyNewUnboundCohort"] = Set(client.pendingTextureUpdates.keys) == [4]
-                && client.pendingTextureUpdates[4]?.requestID == nil && client.pendingRequestID == nil
+            facts["drain-onlyNewBoundCohort"] = Set(client.pendingTextureUpdates.keys) == [4]
+                && client.pendingTextureUpdates[4]?.requestID == client.pendingRequestID && client.pendingRequestID != nil
                 && client.pendingTextureUpdates[4]?.fallbackBaseIntent != nil
                 && client.pendingTextureUpdates[4]?.isLaunchRetry == true
                 && client.replayed.count == 1 && client.textureSends == 1

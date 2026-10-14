@@ -24,7 +24,9 @@ def controller_fixture_source() -> str:
     start = source.index('    private func statusText(')
     version = source.index('/// Conservative version')
     source = source[:start] + '}\n\n' + source[version:]
-    return source.replace('private ', '')
+    models = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift'
+    reachability = models.read_text().split('nonisolated struct SceneWallpaperLaunchState:', 1)[0]
+    return reachability + source.replace('private ', '')
 
 
 PROBE = r'''
@@ -32,7 +34,19 @@ import AppKit
 import Foundation
 import Darwin
 
-extension Notification.Name { static let sceneWallpaperLaunchStateDidChange = Self("fixture-launch") }
+extension Notification.Name {
+    static let sceneWallpaperLaunchStateDidChange = Self("fixture-launch")
+    static let sceneDaemonActiveSessionFactsDidChange = Self("fixture-active-facts")
+}
+struct SceneDaemonActiveSessionFactsChange { let recordIDs: Set<String> }
+@MainActor final class SceneDaemonClient {
+    static let shared = SceneDaemonClient()
+    struct ActiveCallbackPropertyFacts: Equatable {
+        let transportGeneration: UInt64; let requestID: UUID; let recordID: String?
+        let reachability: ScenePreparedCallbackPropertyReachability
+    }
+    var activeCallbackPropertyFacts: ActiveCallbackPropertyFacts?
+}
 struct SceneWallpaperLaunchState { let recordID: String }
 struct SteamWorkshopDownloadRecord {
     enum ContentType { case scene, web }
@@ -96,6 +110,8 @@ struct SteamWorkshopScenePropertyContext {
     let catalog: SceneUserPropertyCatalog
     let actionableKeys: Set<String>
     let effectiveValues: [String: SceneUserPropertyValue]
+    var staticActionableKeys: Set<String> { actionableKeys.subtracting(["callback"]) }
+    var sourceIdentity: ScenePreparedCallbackPropertyReachability.Source? { nil }
 }
 @MainActor final class SteamWorkshopService {
     static let shared = SteamWorkshopService()
@@ -109,8 +125,14 @@ struct SteamWorkshopScenePropertyContext {
             runtimeType: "bool", order: 0, index: nil, minimumValue: nil, maximumValue: nil, stepValue: nil,
             allowsFractionalValues: false, fractionalPrecision: nil, displayCondition: nil, defaultValue: .bool(false), options: [])
         let catalog = SceneUserPropertyCatalog(definitions: [definition])
-        return .init(catalog: catalog, actionableKeys: [definition.key],
-                     effectiveValues: catalog.effectiveValues(overrides: scenePropertyOverrides(for: record)))
+        return projectedScenePropertyContext(.init(catalog: catalog, actionableKeys: [definition.key],
+                     effectiveValues: catalog.effectiveValues(overrides: scenePropertyOverrides(for: record))), for: record)
+    }
+    func projectedScenePropertyContext(_ context: SteamWorkshopScenePropertyContext,
+        for record: SteamWorkshopDownloadRecord) -> SteamWorkshopScenePropertyContext? {
+        let keys = SceneDaemonClient.shared.activeCallbackPropertyFacts?.reachability.propertyKeys ?? []
+        return .init(catalog: context.catalog, actionableKeys: context.staticActionableKeys.union(keys),
+            effectiveValues: context.catalog.effectiveValues(overrides: scenePropertyOverrides(for: record)))
     }
 }
 @MainActor final class SteamWorkshopPropertyPanelController {
@@ -268,6 +290,34 @@ struct SteamWorkshopScenePropertyContext {
         check(output.contexts.count == removed && owner.snapshot == nil, "deleted record cannot deliver or cache")
         service.records[record.id] = record
         reset(); try write("enabled"); open()
+        let beforeProjection = spy.count
+        let callbackFacts = SceneDaemonClient.ActiveCallbackPropertyFacts(transportGeneration: 1,
+            requestID: UUID(), recordID: record.id, reachability: .init(source: .init(rootPath: root.path,
+                projectWitness: "project", sceneWitness: "scene"), scriptGeneration: 1, propertyKeys: ["callback"]))
+        func publishFacts(_ facts: SceneDaemonClient.ActiveCallbackPropertyFacts?, recordID: String? = nil) {
+            SceneDaemonClient.shared.activeCallbackPropertyFacts = facts
+            NotificationCenter.default.post(name: .sceneDaemonActiveSessionFactsDidChange,
+                object: SceneDaemonActiveSessionFactsChange(recordIDs: [recordID ?? record.id]))
+        }
+        publishFacts(callbackFacts); drain { owner.request == nil }
+        check(output.contexts.last?.actionableKeys.contains("callback") == true && spy.count == beforeProjection,
+            "active callback facts reproject open catalog without builder")
+        check(owner.propertyPanelToken == panel.presentationID, "replacement tracks actual presentation token")
+        publishFacts(nil); drain { owner.request == nil }
+        check(output.contexts.last?.actionableKeys.contains("callback") == false && spy.count == beforeProjection,
+            "silent active retirement retracts callback rows without rebuilding facts")
+        let unrelated = output.contexts.count
+        publishFacts(callbackFacts, recordID: "other")
+        check(output.contexts.count == unrelated && owner.request == nil, "other record cannot replace open panel")
+        NotificationCenter.default.post(name: NSWindow.willCloseNotification, object: panel.window)
+        let closedProjection = output.contexts.count
+        publishFacts(nil)
+        check(output.contexts.count == closedProjection && owner.request == nil, "closed panel ignores late active facts")
+        blocked { publishFacts(callbackFacts) }
+        check(output.contexts.last?.actionableKeys.contains("callback") == true,
+            "callback launch during inspection delivers only latest projection")
+        SceneDaemonClient.shared.activeCallbackPropertyFacts = nil
+        reset(); try write("enabled"); open()
         let retained = owner.snapshot!
         let huge = SteamWorkshopScenePropertyContext(catalog: retained.contentContext!.catalog, actionableKeys: ["enabled"],
             effectiveValues: ["enabled": .string(String(repeating: "x", count: 1100000))])
@@ -302,7 +352,7 @@ class ScenePropertyPreparationReuseTests(unittest.TestCase):
             run = subprocess.run([str(binary), str((work / 'input').resolve())], capture_output=True, text=True, timeout=30)
             self.assertEqual(run.returncode, 0, run.stderr)
             cases = json.loads(run.stdout)
-            self.assertEqual(len(cases), 28)
+            self.assertEqual(len(cases), 34)
 
 
 if __name__ == '__main__':

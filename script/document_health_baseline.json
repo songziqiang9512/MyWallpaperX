@@ -98,7 +98,7 @@
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
-      "bytes": 192177
+      "bytes": 192111
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -266,7 +266,7 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
-      "bytes": 5089
+      "bytes": 5378
     }
   },
   "archives": [
@@ -1075,30 +1075,12 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "7bc981abc9c2e09e580d248c645992f22a903685cfd488d225f1728892172878",
-      "after": "98732d8bf6a3340025270b0a570f08eea2d58c813413ce9dd39653c69beb9611",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "d542616ed015bded2106635869dec5b7a129aa1b4b09c22e9da8578b4c643ff4",
+      "after": "868824eaa60875106196a93dd3f36d3932852a701430a6a79f7fb0d4c5ddc82b",
       "owner": "Scene maintainers",
-      "reason": "Retire measured startup regression and bound next GPU qualification and active callback panel projection",
-      "decision": "docs/scene/architecture/scene-resource-admission.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "b9d9d1684016a103249d636c7c3b5324be1ea17c1075b3aa712daa1850699f00",
-      "after": "01fc86da3172bae9609147fbc209ac0a1e5de80b99cf7fe89080f704709257c1",
-      "owner": "Scene maintainers",
-      "reason": "Retire measured startup regression and bound next GPU qualification and active callback panel projection",
-      "decision": "docs/scene/architecture/scene-resource-admission.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "e2163764719caf1b2c4842e5afe9a5f069d6a3dea1d95b9f76d8f07abf55eb1c",
-      "after": "0dfb3c56b7b87226100b2c908c697cff44de53f2f7875ca7d8702df80d1827ba",
-      "owner": "Scene maintainers",
-      "reason": "Retire measured startup regression and bound next GPU qualification and active callback panel projection",
-      "decision": "docs/scene/architecture/scene-resource-admission.md"
+      "reason": "Record verified callback-only panel reachability",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md"
     }
   ]
 }

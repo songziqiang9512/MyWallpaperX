@@ -20,6 +20,12 @@ final class SteamWorkshopSceneInspectionController {
         let folderURL: URL
         let updatedAt: Date
         let propertyOverrides: [String: SceneUserPropertyValue]
+        let callbackPropertyVersion: SceneDaemonClient.ActiveCallbackPropertyFacts?
+
+        func hasSameAuthoredInput(as other: Identity) -> Bool {
+            recordID == other.recordID && folderURL == other.folderURL
+                && updatedAt == other.updatedAt && propertyOverrides == other.propertyOverrides
+        }
     }
 
     private struct Snapshot {
@@ -53,6 +59,7 @@ final class SteamWorkshopSceneInspectionController {
     )
     private let onStateChange: @MainActor () -> Void
     private var launchObserver: NSObjectProtocol?
+    private var activeSessionObserver: NSObjectProtocol?
     private var closeObserver: NSObjectProtocol?
     private var terminationObserver: NSObjectProtocol?
     private var memoryPressure: DispatchSourceMemoryPressure?
@@ -81,10 +88,21 @@ final class SteamWorkshopSceneInspectionController {
                       state.recordID == self.presentedIdentity?.recordID else {
                     return
                 }
+                self.refreshPropertyProjection()
                 self.onStateChange()
             }
         }
         if ownsPropertyPreparation {
+            activeSessionObserver = NotificationCenter.default.addObserver(
+                forName: .sceneDaemonActiveSessionFactsDidChange, object: nil, queue: .main
+            ) { [weak self] notification in
+                MainActor.assumeIsolated {
+                    guard let self, let recordID = self.presentedIdentity?.recordID,
+                          let change = notification.object as? SceneDaemonActiveSessionFactsChange,
+                          change.recordIDs.contains(recordID) else { return }
+                    self.refreshPropertyProjection()
+                }
+            }
             closeObserver = NotificationCenter.default.addObserver(
                 forName: NSWindow.willCloseNotification,
                 object: SteamWorkshopPropertyPanelController.shared.window,
@@ -114,7 +132,7 @@ final class SteamWorkshopSceneInspectionController {
             if let launchObserver {
                 NotificationCenter.default.removeObserver(launchObserver)
             }
-            for observer in [closeObserver, terminationObserver].compactMap({ $0 }) {
+            for observer in [activeSessionObserver, closeObserver, terminationObserver].compactMap({ $0 }) {
                 NotificationCenter.default.removeObserver(observer)
             }
             memoryPressure?.cancel()
@@ -272,7 +290,7 @@ final class SteamWorkshopSceneInspectionController {
         let requestID = UUID()
         let rootURL = identity.folderURL
         let propertyOverrides = identity.propertyOverrides
-        let reusable = snapshot.flatMap { $0.identity == identity ? $0 : nil }
+        let reusable = snapshot.flatMap { $0.identity.hasSameAuthoredInput(as: identity) ? $0 : nil }
         let workItem = DispatchWorkItem { [weak self] in
             let result: InspectionResult
             switch purpose {
@@ -366,10 +384,17 @@ final class SteamWorkshopSceneInspectionController {
                 presentPropertyUnavailable(record: currentRecord)
             }
         case let .preparedProperties(context, version):
-            if requestEpoch == cacheEpoch {
-                snapshot = Snapshot(identity: identity, content: .preparedProperties(context, version))
+            let projected = service.projectedScenePropertyContext(context, for: currentRecord)
+            let retained = projected ?? context
+            if requestEpoch == cacheEpoch,
+               Self.retentionCost(context: retained, version: version, identity: identity) <= 4 * 1024 * 1024 {
+                snapshot = Snapshot(identity: identity, content: .preparedProperties(retained, version))
+            } else { snapshot = nil }
+            if let projected {
+                presentPropertyEditor(record: currentRecord, context: projected)
+            } else {
+                presentPropertyUnavailable(record: currentRecord)
             }
-            presentPropertyEditor(record: currentRecord, context: context)
         }
         onStateChange()
     }
@@ -381,14 +406,29 @@ final class SteamWorkshopSceneInspectionController {
         guard let propertyPanelToken,
               SteamWorkshopPropertyPanelController.shared.presentationID == propertyPanelToken else { return }
         ScenePropertyWindowController.shared.show(record: record, context: context)
+        self.propertyPanelToken = SteamWorkshopPropertyPanelController.shared.presentationID
     }
 
     private func presentPropertyUnavailable(record: SteamWorkshopDownloadRecord) {
         guard let propertyPanelToken,
               SteamWorkshopPropertyPanelController.shared.presentationID == propertyPanelToken else { return }
         propertyMessage = "当前 Scene 没有可调节的受支持属性，或属性模型尚未解析成功。"
-        SteamWorkshopPropertyPanelController.shared.show(title: "Scene 属性调节", subtitle: record.title,
-            content: NSTextField(wrappingLabelWithString: propertyMessage!))
+        self.propertyPanelToken = SteamWorkshopPropertyPanelController.shared.show(title: "Scene 属性调节", subtitle: record.title,
+            content: NSTextField(wrappingLabelWithString: propertyMessage!), retaining: self)
+    }
+
+    private func refreshPropertyProjection() {
+        guard let propertyPanelToken, let presentedIdentity else { return }
+        guard SteamWorkshopPropertyPanelController.shared.presentationID == propertyPanelToken else {
+            cancelPropertyPresentation()
+            return
+        }
+        guard let current = service.latestDownloadRecord(for: presentedIdentity.recordID),
+              current.status == .ready, current.contentType == .scene else { return }
+        let identity = inspectionIdentity(for: current)
+        guard identity != presentedIdentity else { return }
+        self.presentedIdentity = identity
+        startInspection(for: current, purpose: .properties)
     }
 
     private func cancelPropertyPresentation() {
@@ -453,6 +493,11 @@ final class SteamWorkshopSceneInspectionController {
             if case let .string(string) = value { text(string) } else { cost += 128 }
         }
         text(identity.recordID); text(identity.folderURL.path)
+        if let source = context.sourceIdentity {
+            text(source.rootPath); text(source.projectWitness); text(source.sceneWitness)
+        }
+        for key in context.staticActionableKeys { text(key) }
+        for key in identity.callbackPropertyVersion?.reachability.propertyKeys ?? [] { text(key) }
         for definition in context.catalog.definitions {
             cost += 2048
             text(definition.key); text(definition.title); text(definition.runtimeType)
@@ -474,7 +519,10 @@ final class SteamWorkshopSceneInspectionController {
             recordID: record.id,
             folderURL: record.folderURL.standardizedFileURL,
             updatedAt: record.updatedAt,
-            propertyOverrides: service.scenePropertyOverrides(for: record)
+            propertyOverrides: service.scenePropertyOverrides(for: record),
+            callbackPropertyVersion: SceneDaemonClient.shared.activeCallbackPropertyFacts.flatMap {
+                $0.recordID == record.id ? $0 : nil
+            }
         )
     }
 

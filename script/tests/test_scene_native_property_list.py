@@ -769,7 +769,8 @@ class NativeScenePropertyListTests(unittest.TestCase):
             # Substitute only the system dialog leaf so its asynchronous reply
             # can be delivered after hidden/closed; nonce/window/row owner stays production.
             editor.write_text(EDITOR.read_text().replace('NSOpenPanel()', 'PickerProbe()'))
-            sources = [ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift',
+            sources = [ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift',
+                       ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift',
                        ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift',
                        MODULE / 'Web/Core/SteamWorkshopWebPropertyModels.swift',
                        MODULE / 'Web/Core/SteamWorkshopService+WebDisplayConditionSupport.swift',
