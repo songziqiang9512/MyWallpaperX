@@ -51,3 +51,18 @@ Apple M4、相同 OS/3024×1964 单屏、相同隔离样本与默认属性、实
 原 304 实图仍有人物、星空和时钟，原粒子不完整 FAIL 保留；独立 Bunk 复用同输入/工具配置的 `c19cc00b` 基线，只补候选真实渲染，房间、光影和运行时钟未见新增差异，媒体 hash 与相关 scalar/vector/资源 census 相同，原 27 项矩阵失败完全相同。后继候选 Stop 为 71/71 quiescent、timers/jobs/mutations/dynamicLayers=0、surface 1→0 且 GPU 排空。本后继未重跑普通 UI 入口或重新证明其编辑收益，前批 UI 证据仅覆盖其原配置；Host 实图不扩称新 UI 验收。
 
 同轮 CPU 栈的主要成本仍在 graph/material/resource 准备。GPU census 为每帧 36 主 pass、109 离屏 pass、33 source capture，仅说明工作量，不是逐 pass GPU 时长。提前编码后继 graph 的方案在实施前撤回：现有全帧工作对按尺寸共享，后继会覆盖未合成前驱的输出；无新增 ledger 阶段、独占纹理或复制。原 1128 实际有属性回调，其 Vec3/Vec2 混合运算的非有限 origin 仍开放；[公开 Vec3 文档](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/Vec3.html)列出 Vec2 参数，但缺失分量的具体行为尚未受控核实，不能凭此补值或关闭断点。
+
+
+<a id="prepared-property-json"></a>
+
+## 后继：未确认属性事件复用完整 JSON
+
+真实304的1128 owner持续返回非有限origin，尚未成功record，原全量属性JSON因此逐帧重新编码。本批只复用FrameDriver按revision准备的同一快照字节，覆盖Scalar/String/Vector首次与未确认投递；不提前ack、不省略回调、不缓存作者可变事件对象。ack后的delta、失败恢复键和cohort回滚保留原owner；Scalar/String直接调用省略prepared参数时保留原codec语义，不把默认`"{}"`误当完整输入。1128非有限返回本身仍开放。
+
+真实parser的249定义/239有效值生成6656B payload；同一`-O`生产类型二进制五对交替，每臂每轮3000次未ack调用。原路径CPU中位1152.816ms（0.384272ms/次），复用路径0.034ms/轮，仅快路径转交与长度/首尾消费；计时外完整UTF8相等及7项ack/delta/rollback/empty/color/nonfinite边界通过。绝对值极小的局部比值不外推为App收益，也不含VM事件对象解析。
+
+复用前批签名App `470440b8…` 作B，只构建C `ee885541…`；4294产品输入仅5个属性路径变化，构建前后无漂移。诊断配置仍为Swift -O/singlefile、C -Os，非正式Release/WMO；增量构建30.020s，Debug检查68.083s通过。原304、3024×1964/60FPS、静音、无execution observations，各96s/30s预热、约64.5s有效窗，独占计时。B/C CPU时间率854.246/817.232ms/s，单对降4.332855%，未达10%继续门，停止扩测；每完成帧14.245/13.624ms，完成59.970/59.984FPS。GPU p95 12.430/12.044ms，但p50由8.828升至11.502ms（+30.29%），明显非目标异常未归因，不能认领GPU无回退或整体非目标验收；单对不足区分代码影响与时段/频率/调度漂移。footprint峰值826443432/819267168B，pool峰值均136262688B；每帧36主/109离屏/33 source capture/2 copy与26902272复制字节不变。呈现超1.5倍间隔0.02587%/0.05172%，最大均25ms。单对不构成稳定CPU、GPU、内存或能耗验收。
+
+最近真实QuickJS门66事实与String生命周期4测试通过；覆盖改名/等价、连续badReturn、成功后拒绝重放、ack去重、显式prepared与省略默认入口、delta及清空。新增String夹具首轮5项失败来自descriptor/binding源码身份不一致，修正夹具后只重跑受影响门，未改产品准入或放宽oracle。原304两边正常退出，人物、建筑、星空与运行时钟保留，原粒子FAIL不变；独立Bunk复用相同B身份/内容/工具配置，只补C实图，房间、树木、家具、光影与时钟保留，原27项FAIL完全一致。C的Bunk退出31/31 owner quiescent、timer/job/mutation/dynamicLayer均0；未重验普通面板入口、HDR/history、最低设备、多屏或长期切换。
+
+本批证据归`.artifacts/tmp/property-json-reuse-20261014/proof/`及三个运行报告/必要截图；不用的编译中间产物、转储和临时运行环境按归属清理，保当前候选App及原连续DD供续接。下一步先核GPU工具能否给出普通image/source的实际执行归因，再决定最小实验；CPU备用为已在栈中命中的VM尺寸Vec2重复准备，不能跳过作者保留旧对象、resize与多surface语义。执行顺序仍归现役卡，不新增计划或状态入口。

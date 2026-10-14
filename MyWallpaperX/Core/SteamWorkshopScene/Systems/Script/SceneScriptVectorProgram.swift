@@ -359,6 +359,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 ? frameLedger.appliedUserProperties.changedJSON(
                     for: target, current: effectivePropertyValues,
                     kinds: userPropertyKinds, revision: propertyRevision,
+                    preparedCurrentJSON: userJSON,
                     previousAttempt: binding.owner.retryUserPropertyValues,
                     pendingKeys: binding.owner.pendingUserPropertyRecoveryKeys
                 ) : nil

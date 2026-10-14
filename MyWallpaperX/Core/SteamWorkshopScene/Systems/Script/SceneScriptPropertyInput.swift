@@ -291,16 +291,24 @@ nonisolated struct SceneScriptAppliedUserPropertyState: Sendable {
         current: [String: SceneUserPropertyValue],
         kinds: [String: SceneUserPropertyKind],
         revision: UInt64?,
+        preparedCurrentJSON: String? = nil,
         previousAttempt: [String: SceneUserPropertyValue]? = nil,
         pendingKeys: Set<String> = []
     ) -> String? {
+        let previous = valuesByTarget[target]
         if let revision,
            revisionsByTarget[target] == revision,
-           valuesByTarget[target] != nil {
+           previous != nil {
             return nil
         }
+        // The frame input owner already encoded this same current snapshot.
+        // Reuse its bytes without acknowledging delivery: a failed owner must
+        // still receive the full event again until record succeeds.
+        if previous == nil, let preparedCurrentJSON {
+            return preparedCurrentJSON
+        }
         return SceneScriptPropertyInputCodec.changedUserPropertiesJSON(
-            previous: valuesByTarget[target], current: current, kinds: kinds,
+            previous: previous, current: current, kinds: kinds,
             previousAttempt: previousAttempt, pendingKeys: pendingKeys
         )
     }

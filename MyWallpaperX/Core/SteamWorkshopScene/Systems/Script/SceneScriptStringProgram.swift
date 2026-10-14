@@ -350,6 +350,7 @@ nonisolated final class SceneScriptStringProgram: SceneScriptValueOwnerProgramRe
         excludedTargets: Set<SceneDynamicTarget> = [],
         frame: SceneScriptFrameInput,
         userPropertiesJSON: String = "{}",
+        preparedCurrentJSON: String? = nil,
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
         mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
         mediaPropertiesEvent: SceneScriptMediaPropertiesEventInput? = nil,
@@ -397,6 +398,7 @@ nonisolated final class SceneScriptStringProgram: SceneScriptValueOwnerProgramRe
                 ? frameLedger.appliedUserProperties.changedJSON(
                     for: binding.target, current: effectivePropertyValues,
                     kinds: userPropertyKinds, revision: propertyRevision,
+                    preparedCurrentJSON: preparedCurrentJSON,
                     previousAttempt: binding.retryUserPropertyValues,
                     pendingKeys: binding.pendingUserPropertyRecoveryKeys
                 ) : nil

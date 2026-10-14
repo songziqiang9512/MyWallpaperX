@@ -185,6 +185,80 @@ HARNESS = r'''
             && multikeyReverted.values[target] == .vector3(11, 0, 0)
         multikey.finalizeLayerMutations(committing: true)
 
+        // badReturn rejects the value/native journal, not the JS heap. Until
+        // a finite frame is accepted, every retry still owns its first full
+        // property event; a supplied full JSON must not acknowledge it early.
+        for variant in 0 ..< 2 {
+            let key = variant == 0 ? "music" : "renamedTrack"
+            let other = variant == 0 ? "other" : "renamedMode"
+            let speaker = variant == 0 ? "sound" : "renamed-audio"
+            let counter = variant == 0 ? "deliveries" : "seenPropertyCalls"
+            let payload = variant == 0 ? "payload" : "renamedInput"
+            let invalid = variant == 0 ? "0 / 0" : "(2 - 2) / (7 - 7)"
+            let finite = variant == 0 ? counter : "(\(counter) + 2) - 2"
+            let retryDescriptor = SceneRenderDescriptor(layers: [
+                .init(id: 10, layerIndex: 0, name: "controller", visible: true,
+                    originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1, effects: []),
+                .init(id: 20, layerIndex: 1, name: speaker, visible: true,
+                    originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1, effects: [],
+                    contentKind: "sound")
+            ])
+            for suppliedJSON in [false, true] {
+                let retryDomain = try SceneScriptQuickJSDomain()
+                let retry = SceneScriptVectorProgram.compile(domain: retryDomain,
+                    descriptor: retryDescriptor, scriptBindings: [binding("""
+                        let \(counter) = 0;
+                        export function init(value) { return value; }
+                        export function applyUserProperties(\(payload)) {
+                            if (Object.keys(\(payload)).length !== 2
+                                || \(payload)['\(key)'] !== 'b'
+                                || \(payload)['\(other)'] !== 'a'
+                                || \(payload)['\(key)'] !== engine.userProperties['\(key)'])
+                                throw Error('first property event was not complete');
+                            \(counter)++;
+                            thisScene.getLayer('\(speaker)').play();
+                        }
+                        export function update(value) {
+                            value.x = \(counter) < 3 ? (\(invalid)) : (\(finite));
+                            return value;
+                        }
+                        """)], userPropertyDefinitions: [definition(key), definition(other)],
+                    generation: UInt64(60 + variant))
+                try retryDomain.publishLayerSnapshot(.empty(frameIndex: 0),
+                    descriptor: retryDescriptor, soundPlaybackSnapshots: [20: false])
+                let current: [String: SceneUserPropertyValue] = [key: .string("b"), other: .string("a")]
+                let fullJSON = suppliedJSON ? retry.userPropertiesJSON(effectiveValues: current, revision: 7) : nil
+                func attempt() -> SceneScriptVectorFrameResult {
+                    retry.evaluate(inputs: input, effectivePropertyValues: current,
+                        frame: frame, propertyRevision: 7, userPropertiesJSON: fullJSON)
+                }
+                let firstBad = attempt()
+                retry.finalizeLayerMutations(committing: false)
+                let secondBad = attempt()
+                retry.finalizeLayerMutations(committing: false)
+                let beforeFinite = retry.frameStateSnapshot()
+                let firstFinite = attempt()
+                let suffix = "\(variant)-\(suppliedJSON ? "provided" : "omitted")"
+                facts["bad_return_keeps_first_full_event_\(suffix)"] = retry.bindings.count == 1
+                    && [firstBad, secondBad].allSatisfy {
+                        $0.failures[target]?.code == "bad-return" && $0.values.isEmpty
+                            && $0.mediaPlaybackCommands.isEmpty && $0.ownerEffects.isEmpty
+                    } && !retry.disabledTargets.contains(target)
+                facts["finite_retry_observes_third_full_callback_\(suffix)"] =
+                    firstFinite.values[target] == .vector3(3, 0, 0) && isSoundPlay(firstFinite)
+                retry.restoreFrameState(beforeFinite, rejectedOwnerTargets: [target])
+                retry.finalizeLayerMutations(committing: true, rejectedOwnerTargets: [target])
+                let replay = attempt()
+                facts["rejected_finite_frame_replays_same_event_\(suffix)"] =
+                    replay.values[target] == .vector3(4, 0, 0) && isSoundPlay(replay)
+                retry.finalizeLayerMutations(committing: true)
+                let quiet = attempt()
+                facts["committed_finite_revision_does_not_replay_\(suffix)"] = quiet.failures.isEmpty
+                    && quiet.values[target] == .vector3(4, 0, 0) && quiet.mediaPlaybackCommands.isEmpty
+                retry.finalizeLayerMutations(committing: true)
+            }
+        }
+
         let updateFailure = SceneScriptVectorProgram.compile(domain: try SceneScriptQuickJSDomain(),
             descriptor: descriptor, scriptBindings: [binding("""
                 export function applyUserProperties(changed) {}
@@ -324,6 +398,72 @@ HARNESS = r'''
             && textBad.failures[textTarget] != nil && textGood.failures.isEmpty
             && textGood.values[textTarget] == .string("seed")
         text.finalizeLayerMutations(committing: true)
+
+        // Only the explicitly prepared path may reuse the full input JSON.
+        // Once acknowledged it must still compute a one-key delta, removed
+        // keys as null, and no callback for an unchanged (including empty) map.
+        let preparedEventSource = """
+            let events = 0;
+            export function init(value) { return value; }
+            export function applyUserProperties(payload) {
+                const keys = Object.keys(payload).sort().join(',');
+                if (events === 0 && (keys !== 'music,other' || payload.music !== 'a' || payload.other !== 'a'))
+                    throw Error('initial event must be full');
+                if (events === 1 && (keys !== 'music' || payload.music !== 'b'))
+                    throw Error('acknowledged event must be a delta');
+                if (events === 2 && (keys !== 'music,other' || payload.music !== null || payload.other !== null))
+                    throw Error('removed properties must be null');
+                if (events > 2) throw Error('unchanged properties replayed');
+                events++;
+            }
+            export function update(value) { return RETURN_VALUE; }
+            """
+        func replacingSource(_ original: SceneScriptBindingIR, _ source: String) -> SceneScriptBindingIR {
+            .init(source: source, owner: original.owner, targetPath: original.targetPath,
+                properties: original.properties, authoredValue: original.authoredValue,
+                valueType: original.valueType, wrapperKeys: original.wrapperKeys)
+        }
+        let preparedScalarDomain = try SceneScriptQuickJSDomain()
+        try preparedScalarDomain.configureLayerCatalog(descriptor)
+        let preparedScalar = SceneScriptScalarProgram.compile(domain: preparedScalarDomain,
+            descriptor: descriptor, scriptBindings: [replacingSource(scalarBinding,
+                preparedEventSource.replacingOccurrences(of: "RETURN_VALUE", with: "events / 10"))],
+            userPropertyDefinitions: [definition("music"), definition("other")], generation: 22)
+        let preparedTextSource = preparedEventSource.replacingOccurrences(of: "RETURN_VALUE", with: "'step-' + events")
+        let preparedTextDescriptor = SceneRenderDescriptor(layers: [.init(id: 10, layerIndex: 0,
+            name: "prepared text", visible: true, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+            alpha: 1, effects: [], contentKind: "text", textScript: .init(source: preparedTextSource),
+            text: "seed", textStyle: .init(fontPath: nil, colorRGB: [1, 1, 1], pointSize: 32))])
+        let preparedTextDomain = try SceneScriptQuickJSDomain()
+        try preparedTextDomain.configureLayerCatalog(preparedTextDescriptor)
+        let preparedText = SceneScriptStringProgram.compile(domain: preparedTextDomain,
+            descriptor: preparedTextDescriptor, scriptBindings: [replacingSource(textBinding, preparedTextSource)],
+            userPropertyDefinitions: [definition("music"), definition("other")], generation: 23)
+        let snapshots: [[String: SceneUserPropertyValue]] = [
+            ["music": .string("a"), "other": .string("a")],
+            ["music": .string("b"), "other": .string("a")],
+            ["music": .string("b"), "other": .string("a")], [:], [:]
+        ]
+        let expectedEvents = [1, 2, 2, 3, 3]
+        for (revision, current) in snapshots.enumerated() {
+            let json = SceneScriptPropertyInputCodec.userPropertiesJSON(values: current,
+                kinds: ["music": .combo, "other": .combo])
+            let scalarFrame = preparedScalar.evaluate(inputs: [scalarTarget: .scalar(1)], frame: frame,
+                effectivePropertyValues: current, propertyRevision: UInt64(revision),
+                userPropertiesJSON: json, preparedCurrentJSON: json)
+            preparedScalar.finalizeLayerMutations(committing: true)
+            let textFrame = preparedText.evaluate(inputs: [textTarget: .string("seed")],
+                effectivePropertyValues: current, propertyRevision: UInt64(revision), frame: frame,
+                userPropertiesJSON: json, preparedCurrentJSON: json)
+            preparedText.finalizeLayerMutations(committing: true)
+            facts["scalar_prepared_full_delta_empty_\(revision)"] = preparedScalar.bindings.count == 1
+                && scalarFrame.failures.isEmpty
+                && scalarFrame.values[scalarTarget] == .scalar(Double(expectedEvents[revision]) / 10)
+            facts["string_prepared_full_delta_empty_\(revision)"] = preparedText.bindings.count == 1
+                && textFrame.failures.isEmpty
+                && textFrame.values[textTarget] == .string("step-\(expectedEvents[revision])")
+        }
+
         let malformedDomain = try SceneScriptQuickJSDomain()
         try malformedDomain.configureLayerCatalog(descriptor)
         try malformedDomain.publishLayerSnapshot(.empty(frameIndex: 0), descriptor: descriptor)
@@ -436,6 +576,9 @@ class SceneVectorLivePropertyEventTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             facts = json.loads(result.stdout)
             self.assertIn("recovery_uses_original_owner", facts)
+            for variant in range(2):
+                for supplied in ("provided", "omitted"):
+                    self.assertIn(f"bad_return_keeps_first_full_event_{variant}-{supplied}", facts)
             self.assertTrue(all(facts.values()), {key: value for key, value in facts.items() if not value})
 
 

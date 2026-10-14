@@ -97,8 +97,8 @@
       "bytes": 34403
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 565,
-      "bytes": 181939
+      "lines": 567,
+      "bytes": 182406
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 30,
-      "bytes": 8069
+      "bytes": 8267
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1363,15 +1363,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "719a419fdd24983ba92ff0a0f6506fc63720b733a34af992724c61bff898e120",
-      "after": "eda1a2bfeb1ea820bd3d158b844b1f4e85cce1ca057babfd987b97e09b826d1d",
-      "owner": "scene-property-texture-feedback",
-      "reason": "先设计的typed反馈/同步重入、正常窗口与独立ROI、冷暖CLI未完成边界及helper本地签名策略同步；不新增能力或性能结论",
-      "decision": "docs/scene/history/property-texture-feedback-2026-10-14.md#通用语义与实现"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-as-built-map.md",
       "before": "6be6e11d8e58d7011548d47e8b5381d34125b464f305085e0cf96aa60e46b584",
       "after": "833ba69921eead8634eb099d41ff8c67d49cb41f5e67868a5b0b34ffe3c41b3c",
@@ -1381,12 +1372,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "eda1a2bfeb1ea820bd3d158b844b1f4e85cce1ca057babfd987b97e09b826d1d",
+      "after": "2b5723281a590731426195d4f5336d519be7bdd682260b03ac389ae31619c6ef",
+      "owner": "Scene property event preparation",
+      "reason": "复用现有revision JSON，记录ack与回滚边界及局部收益；单对整体CPU未达继续门，不扩测",
+      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#prepared-property-json"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "50dd7351fba34763b8476cbcc9cc2a7221738c32a151947afc3120522cd3d18b",
-      "after": "1843598e13c795d8e270a2b5b939729377fb9761a5acc8c2a4ca08e2ac006923",
-      "owner": "Scene prepared shader identity",
-      "reason": "同步原不可变身份的构造期哈希与局部收益边界；单对整体CPU未达继续门、内存上移及下一候选如实保留",
-      "decision": "docs/scene/history/shader-identity-hash-screen-2026-10-14.md#通用语义与取舍"
+      "before": "1843598e13c795d8e270a2b5b939729377fb9761a5acc8c2a4ca08e2ac006923",
+      "after": "d465734c041da2fb7d783b35ab5fcbe414c5527b9b02f9d07dcf4e40b7403ec3",
+      "owner": "Scene property event preparation",
+      "reason": "复用现有revision JSON，记录ack与回滚边界及局部收益；单对整体CPU未达继续门，不扩测",
+      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#prepared-property-json"
     }
   ]
 }

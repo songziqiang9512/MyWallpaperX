@@ -141,6 +141,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
                     targetFilter: registration.target,
                     frame: frame,
                     userPropertiesJSON: userPropertiesJSON,
+                    preparedCurrentJSON: userPropertiesJSON,
                     mediaThumbnailEvent: events.thumbnail,
                     mediaPlaybackEvent: events.playback,
                     mediaPropertiesEvent: events.properties,
@@ -163,6 +164,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
                     propertyRevision: propertyRevision,
                     targetFilter: registration.target,
                     userPropertiesJSON: userPropertiesJSON,
+                    preparedCurrentJSON: userPropertiesJSON,
                     mediaThumbnailEvent: events.thumbnail,
                     mediaPlaybackEvent: events.playback,
                     mediaPropertiesEvent: events.properties,
@@ -205,6 +207,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
             excludedTargets: stringMediaTargets,
             frame: frame,
             userPropertiesJSON: userPropertiesJSON,
+            preparedCurrentJSON: userPropertiesJSON,
             observedMediaEvents: observedStringEvents,
             audioSpectrum: audioSpectrum
         )
@@ -222,6 +225,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
             propertyRevision: propertyRevision,
             excludedTargets: scalarMediaTargets,
             userPropertiesJSON: userPropertiesJSON,
+            preparedCurrentJSON: userPropertiesJSON,
             observedMediaEvents: observedScalarEvents,
             audioSpectrum: audioSpectrum
         )
