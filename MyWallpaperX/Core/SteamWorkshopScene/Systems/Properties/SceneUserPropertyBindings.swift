@@ -205,7 +205,7 @@ nonisolated enum SceneScriptUserPropertyInputContract {
         }
     }
 
-    private static func userPropertyValue(
+    fileprivate static func userPropertyValue(
         _ value: SceneJSONValue
     ) -> SceneUserPropertyValue? {
         switch value {
@@ -442,8 +442,9 @@ nonisolated struct SceneUserPropertyBindingParser {
         diagnostics: inout [SceneUserPropertyBindingDiagnostic]
     ) {
         if let dictionary = value as? [String: Any] {
+            var ownsProviderFallback = false
             if dictionary.keys.contains("user") {
-                appendBinding(
+                ownsProviderFallback = appendBinding(
                     dictionary,
                     path: path,
                     root: root,
@@ -452,7 +453,8 @@ nonisolated struct SceneUserPropertyBindingParser {
                 )
             }
             for key in dictionary.keys.sorted() {
-                guard let child = dictionary[key] else { continue }
+                guard !(ownsProviderFallback && key == "value"),
+                      let child = dictionary[key] else { continue }
                 visit(
                     child,
                     path: path + [.key(key)],
@@ -480,11 +482,11 @@ nonisolated struct SceneUserPropertyBindingParser {
         root: [String: Any],
         bindings: inout [SceneUserPropertyBinding],
         diagnostics: inout [SceneUserPropertyBindingDiagnostic]
-    ) {
+    ) -> Bool {
         let propertyPath = SceneUserPropertyPath(components: path)
         switch reference(in: dictionary) {
         case .success(nil):
-            return
+            return false
         case let .failure(error):
             diagnostics.append(.init(
                 kind: .malformedUserReference,
@@ -492,11 +494,27 @@ nonisolated struct SceneUserPropertyBindingParser {
                 propertyKey: nil,
                 message: error == .invalidCondition ? "条件绑定值无法解析。" : "user 绑定缺少有效 key。"
             ))
+            return false
         case let .success(reference?):
             let target = target(for: path, root: root)
+            let fallbackValue: SceneUserPropertyValue?
+            let ownsProviderFallback: Bool
+            if case .scriptProperty = target,
+               let rawInput = SceneJSONValue(jsonObject: dictionary),
+               let input = SceneScriptUserPropertyInputContract.dynamicInput(rawInput),
+               input.userPropertyKey == reference.key,
+               input.condition == reference.condition {
+                // The runtime input codec owns this exact nested-provider
+                // contract too: outer key is live, terminal primitive is fallback.
+                fallbackValue = SceneScriptUserPropertyInputContract.userPropertyValue(input.fallback)
+                ownsProviderFallback = true
+            } else {
+                fallbackValue = SceneUserPropertyValue.parse(dictionary["value"])
+                ownsProviderFallback = false
+            }
             let binding = SceneUserPropertyBinding(
                 reference: reference,
-                fallbackValue: SceneUserPropertyValue.parse(dictionary["value"]),
+                fallbackValue: fallbackValue,
                 path: propertyPath,
                 target: target
             )
@@ -517,6 +535,7 @@ nonisolated struct SceneUserPropertyBindingParser {
                     message: "条件绑定仅对 visibility 等布尔目标求值。"
                 ))
             }
+            return ownsProviderFallback
         }
     }
 

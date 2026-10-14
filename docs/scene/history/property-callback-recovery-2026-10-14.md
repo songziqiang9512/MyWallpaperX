@@ -121,3 +121,18 @@ Client.applyPropertyValues沿原revision/record准入，将本次稀疏值同步
 同一最终App真实293面板显示“主题色”；Show detailed settings由0改1显示Breathe/Wink等子行，滚动、关闭重开保1，恢复默认回0并隐藏子行，全程一次launched/activated。切换独立3248220186后主题色/字体/大小/颜色可见，作者中英文及分组保留；未知长token换行无控件重叠，长Combo摘要沿原控件截断、菜单保原文，未测该Combo选择。324首帧已激活，原生停止及App退出0；这轮未做真实locale切换或Combo hidden-value编辑，相应边界由focused门覆盖，不能替代真实操作矩阵。
 
 同App独立324 runner完成PASS，loaded=1、failures=[]、exit0；实际查看scene-after-window.png可见蓝紫粒子球、光晕及中央时钟。particle_diagnostics仍有simulationLimitation，例如emitterSpeedUnsupported:range、audioResponseIgnored、vortexUnsupported、dynamicOverrideIgnored；不据此关闭完整粒子兼容、HDR或像素一致性。证据归 `.artifacts/tmp/property-display-localization-20261015/proof/` 的final-freeze/native-ui-result/final-review及最近门日志，独立实图和报告归同任务independent-render。保必要身份/日志/原图及当前连续App/DD供收尾，停止使用的隔离运行环境按归属清理；本片未做响应、CPU/GPU、内存或能耗收益验收，183个未审token、全本地化、多surface与长期切换仍开放。
+
+
+<a id="nested-script-input-binding"></a>
+
+## 嵌套 SceneScript 输入的唯一属性绑定（2026-10-15）
+
+最早断点是原BindingParser：合法scriptproperties的`{user:outer,value:{user:legacy,value:primitive}}`已获共享codec支持，但parser只读取直接value，nested String的fallback变nil，Program误入rebuildRequired；visitor又递归发现历史inner，inner与outer同名时把合法outer拖回重建。修复复用原16层exact codec取得terminal fallback，仅对已证明的scriptProperty目标停止发现其已消费value子树。最外key保唯一live owner；普通direct/resource、未知host/无script、错形状/超深/条件域/类型仍原拒绝，无样本或键名规则。
+
+旧行为45事实中12false，首次窄修又由same-key反例证5false；最终单方法59事实全真，覆盖改名、多层、同名inner、最大16/深17、terminal变体、conditional Bool on/off及错误原子拒绝。另30项既有binding Program测试通过；独审核3SHA与14输入无漂移后ACK。产品`fa85c1f…`仅1文件；Debug 23.632s/4297输入无漂移，App `de672493e856f8a38612d99c00e8668da93bdd96794d4fa85af2540f29d700a1`。每load重新读取原字节并parse/compile Program，Pkg cache不存绑定语义，无需清cache或bump包版本。
+
+真实原生304 Clock2默认开启，显示详细设置后，Format由`MM|dd [W]`改为`yyyy-MM-dd`、再`dd/MM/yyyy`，实际桌面分别显示`2026-10-15`、`15/10/2026`，人物/星空持续；关闭重开仍保第二值。恢复默认后详细行隐藏、桌面恢复`10|15 Thursday`。完整编辑/重开/reset期间只一个phase=launched、同一request及daemon；避免这条误重建有实图/启动数证据，未量化CPU/GPU/能耗或输入到呈现延迟。原layer1128逐帧非有限origin及严格粒子/效果FAIL未闭。
+
+聚焦红绿归`.artifacts/tmp/nested-string-property-binding-20261015/proof/`；构建、native原日志/保存值/必要屏幕原图与独审归`.artifacts/tmp/nested-script-property-input-20261015/proof/`。首轮隔离副本缺workshop/Scene目录导致未发现样本，未启动Scene，修本机布局后复用同App；不是产品修复。屏幕工具默认排除desktop导致未列壁纸，使用同只读窗口枚举器包含desktop、按实际windowID捕获原桌面窗口，不改产品captureFrame路径或画面。
+
+同App原生切换未参与修法的293，实际角色/水面/星形/时钟日期完整，正常停止再quit退出0；两record各一次phase=launched。多surface/HDR、所有ScriptProperty输入/输出组合、完整媒体入口仍待验，性能卡继续整体成本归因。

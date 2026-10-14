@@ -694,7 +694,9 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler+Camera.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler.swift",
-        "script/tests/test_scene_text_width_property.py"
+        "script/tests/test_scene_text_width_property.py",
+        "script/tests/test_scene_nested_property_binding.py",
+        "script/tests/fixtures/SceneNestedPropertyBindingChecks.swift"
       ],
       "keywords": [
         "property",
@@ -707,7 +709,8 @@
         "test_scene_text_width_property",
         "test_scene_property_vector_script",
         "test_scene_vector_media_events",
-        "test_scene_vector_owner_admission"
+        "test_scene_vector_owner_admission",
+        "test_scene_nested_property_binding"
       ]
     },
     {
