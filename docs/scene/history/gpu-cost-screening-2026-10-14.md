@@ -57,3 +57,12 @@
 冻结App `86b320df…`、真实304和同一优化诊断配置，在观测ready后30.029秒采一个Layer帧。App正常exit0，报告仍仅原`particle loading incomplete` FAIL。随后唯一session27只读取descriptor、PSO及66份inline uniform，不运行profile；[逐capture结果](../../../.artifacts/tmp/source-capture-eligibility-20261014/offline/eligibility.json)与[摘要](../../../.artifacts/tmp/source-capture-eligibility-20261014/result-summary.json)确认33/33不满足中性exact-copy：29次尺寸不同、30次格式不同，另有4次alpha和1次tint非中性；原因可重叠。仅4次同尺寸也均RGBA8→BGRA8。工具未显示的mip/sample/clearColor保留missing，已有尺寸/格式反例足以拒绝全部，不能把缺字段记作已验。
 
 因此停止该fastpath，不写产品、不补像素实验、不计GPU/CPU/内存收益。后继只保输入内容/尺寸/UV/样式实际稳定比例的有界诊断候选；现有shared pair会被后续effect覆盖，不能当内容缓存。若未来复用独立capture结果，须先证明覆盖率、现有pool预算及completion/reset失效，不能用新增驻留或每帧copy换表面pass下降。session已终止；[清理收据](../../../.artifacts/tmp/source-capture-eligibility-20261014/cleanup.json)记录trace普通文件660,813,087字节及本轮重复产物已清理，保必要JSON、inline bytes、身份与压缩日志约1.66MB。
+
+
+## 后继：源捕获输入复用率（2026-10-14）
+
+临时GraphExecutor观测沿现有成功sourceCapture编码点，要求真实texture匹配FrameTextureRegistry完整publication，且file identity/generation可证明内容；bare/provider/sourceMaterial、sprite、lighting等动态输入保守排除，不以对象地址稳定当内容稳定。现有typed UV、alpha/tint、sampling、表示、PSO、真实target及reset代次组成有限签名；只保上一份值、不保texture/pass。先独审修正prepare提前结束、initialization混入分母、多executor混算及“连续时长/驻留下限”误称，再做单份诊断，不留永久观测owner。
+
+App74e16d63、真实304/单surface、30秒暖机后8秒观察，唯一complete summary，33层各480次成功source编码，duplicate/overflow均0；25层各1次初始+479次稳定相邻输入（共11975），8层排除（5缺匹配publication、2非file权威、1动态）。这些eligible层每层一份target的逻辑预算合计37568512B/35.828125MiB，不是实际Metal驻留/峰值。App正常退出、failedFrame=0，census33 source captures/frame，原particle loading incomplete仍FAIL；只证重复覆盖，不能推出GPU/带宽/能耗收益。
+
+证据归`.artifacts/tmp/source-capture-reuse-screen-20261014/proof/observation-summary.json`与原始摘要/压缩日志。一次优化诊断build成功，唯一pbxproj漂移经plutil核为注释/序列化及membership set顺序，保原件与漂移记录；Graph/临时observer/工程副作用均已还原，诊断App及派生产物清理约215MB，保必要一图。共享DD的Release产物仍是诊断版，正式使用须重建；独立91fe基线不变。下一步先用现有shader与exact-copy做短GPU/全图像素实验，再决定是否值得占这份缓存预算；未实现cache，不新增资源owner。

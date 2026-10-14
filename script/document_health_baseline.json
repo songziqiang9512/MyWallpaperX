@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 30,
-      "bytes": 9468
+      "bytes": 9597
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1363,15 +1363,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "0ae7d8b96b59a828027c68d06c329455eb340fe83d858d2424b398f72bd7e4c0",
-      "after": "0562acd905dbf234fff3468d8064363503439cd1b944cd57609b0a532e95dfbf",
-      "owner": "scene-runtime-maintainer",
-      "reason": "Clarify pending launch arbitration and immutable Encoder admission; record bounded evidence without duplicating execution plans.",
-      "decision": "docs/development/repository-workflow.md#设计判定与记录"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "1065fc1f18f85bf50edaf395f4c5d5d4ddc2305cea1c8604f1462d31eed4a654",
       "after": "f1cda412b2a377a316d158f367d2e5a50ac0ec8fbfa77a2ec9c3e96136b1df49",
@@ -1387,6 +1378,15 @@
       "owner": "scene-runtime-maintainer",
       "reason": "Define same-request sparse ordinary-value synchronization across existing pending and rollback intents, with lifecycle and evidence limits.",
       "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#op-user-overview"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "0562acd905dbf234fff3468d8064363503439cd1b944cd57609b0a532e95dfbf",
+      "after": "724ca5bf7902ab0a54cbdcd53942923ef835a34af027dee144d9b02ab659fb84",
+      "owner": "scene-runtime-maintainer",
+      "reason": "Advance measured source-capture repetition screening to original shader-versus-copy experiment; no cache or performance claim.",
+      "decision": "docs/development/repository-workflow.md#设计判定与记录"
     }
   ]
 }
