@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 30,
-      "bytes": 9597
+      "bytes": 9529
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1382,11 +1382,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "0562acd905dbf234fff3468d8064363503439cd1b944cd57609b0a532e95dfbf",
-      "after": "724ca5bf7902ab0a54cbdcd53942923ef835a34af027dee144d9b02ab659fb84",
+      "before": "724ca5bf7902ab0a54cbdcd53942923ef835a34af027dee144d9b02ab659fb84",
+      "after": "85ff1a6f96856c7c9481a74ee709d51bbf5bbf9d411b78065007c62b69dd4c03",
       "owner": "scene-runtime-maintainer",
-      "reason": "Advance measured source-capture repetition screening to original shader-versus-copy experiment; no cache or performance claim.",
-      "decision": "docs/development/repository-workflow.md#设计判定与记录"
+      "reason": "Replace pending capture-cache experiment with rejected App short-screen outcome; remove stale sampling state and ratchet authority body down.",
+      "decision": "docs/scene/history/gpu-cost-screening-2026-10-14.md#后继capture结果缓存短筛撤回"
     }
   ]
 }
