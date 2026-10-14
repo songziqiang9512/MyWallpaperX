@@ -297,36 +297,48 @@ def property_launch_harness(host_source: str) -> str:
     ])
     client = (ipc / "SceneDaemonClient.swift").read_text()
     events = (ipc / "SceneDaemonClient+Events.swift").read_text()
+    textures = (ipc / "SceneDaemonClient+UserTextures.swift").read_text()
     client_methods = "\n".join([
         method(client, "func requestLaunch("),
         method(client, "private func applyPropertyValues("),
+        method(client, "func hasIntent("),
         method(events, "private func handlePropertyUpdateResult("),
         method(events, "private func handleLaunchState("),
-    ])
-    return PROPERTY_LAUNCH_SUPPORT.replace("__HOST_METHODS__", host_methods).replace(
-        "__CLIENT_METHODS__", client_methods
-    )
+    ] + [method(textures, signature) for signature in [
+        "func applyUserTextureUpdate(", "func reloadUserTextureUpdate(",
+        "private func admitTextureRevision(", "private func textureRevisionKey(",
+        "private func sendTextureUpdate(", "func bindDeferredTextureUpdates(",
+        "func fallbackReplayIntent(", "func resumeDeferredTextureUpdates(",
+        "func finishTextureReload(", "private func restoreFallbackIntent(",
+        "func finishPendingTextureUpdates(", "private func applying(",
+    ]])
+    values = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift").read_text()
+    commands = (ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift").read_text()
+    control_types = "\n".join([
+        method(values, "nonisolated enum SceneUserPropertyValue:"),
+    ] + [method(commands, signature) for signature in [
+        "nonisolated struct ScenePlaybackTextureReference:",
+        "nonisolated struct ScenePlaybackTextureUpdate:",
+        "nonisolated enum ScenePlaybackTextureUpdateOutcome:",
+        "nonisolated struct ScenePlaybackLoadRequest:",
+    ]])
+    return (PROPERTY_LAUNCH_SUPPORT.replace("__HOST_METHODS__", host_methods)
+            .replace("__CLIENT_METHODS__", client_methods)
+            .replace("__CONTROL_TYPES__", control_types)
+            .replace("__PENDING_TEXTURE_UPDATE__", method(textures, "struct PendingTextureUpdate {")))
 
 
 PROPERTY_LAUNCH_SUPPORT = r'''
+import CoreFoundation
 import Foundation
 
-enum SceneUserPropertyValue: Equatable {
-    case number(Double)
-    var foundationValue: Any { if case let .number(v) = self { return v }; return 0 }
-}
+__CONTROL_TYPES__
 struct SceneRuntimeModel { let values: [String: SceneUserPropertyValue] }
 struct SceneDesktopWallpaperLaunchContext {
     let values: [String: SceneUserPropertyValue]
     let generation: UInt64
 }
 struct SceneFirstFramePresentationRegistration { let requestID: UUID; let recordID: String? }
-struct ScenePlaybackLoadRequest {
-    let rootURL: URL
-    var propertyOverrides: [String: SceneUserPropertyValue]
-    let recordID: String?
-}
-enum ScenePlaybackTextureUpdateOutcome { case superseded, failed(String) }
 enum SceneDaemonProtocol { static let version = 1 }
 
 final class PreparationControl: @unchecked Sendable {
@@ -404,7 +416,17 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
 
 @MainActor final class SceneDaemonClient {
     struct Lifetime { let rootURL: URL; let recordID: String? }
+    final class Transport { var isRunning = true }
+    __PENDING_TEXTURE_UPDATE__
     let host: SceneDesktopWallpaperHost
+    var transport: Transport? = .init()
+    var pendingTextureUpdates: [UInt64: PendingTextureUpdate] = [:]
+    var sessionGeneration: UInt64 = 1
+    var textureUpdateAdmissionClosed = false
+    var holdAllLaunchStates = false, holdLaunched = false, holdAcks = false
+    var heldLaunchStates: [SceneWallpaperLaunchState] = []
+    var heldAcks: [[String: Any]] = []
+    var textureSends = 0
     var activeIntent: ScenePlaybackLoadRequest?, pendingIntent: ScenePlaybackLoadRequest?
     var activeResourceLifetime: Lifetime?, pendingResourceLifetime: Lifetime?
     var activeRecordID: String?, activeRequestID: UUID?, pendingRequestID: UUID?
@@ -419,17 +441,35 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
         applyPropertyValues(values, revision: revision, recordID: "record")
     }
     func receive(_ state: SceneWallpaperLaunchState) {
+        if holdAllLaunchStates || (holdLaunched && state.phase == .launched) {
+            heldLaunchStates.append(state); return
+        }
+        receiveNow(state)
+    }
+    func receiveNow(_ state: SceneWallpaperLaunchState) {
         handleLaunchState(["phase": state.phase.rawValue, "requestID": state.requestID.uuidString,
                            "message": state.message, "recordID": state.recordID ?? ""])
     }
+    func flushLaunchStates() {
+        holdAllLaunchStates = false; holdLaunched = false
+        let states = heldLaunchStates; heldLaunchStates.removeAll()
+        states.forEach(receiveNow)
+    }
+    func flushAcks() {
+        holdAcks = false
+        let acks = heldAcks; heldAcks.removeAll()
+        acks.forEach(handlePropertyUpdateResult)
+    }
     func send(_ payload: [String: Any]) {
+        if payload["cmd"] as? String == "setUserTextures" { textureSends += 1; return }
         let values = (payload["values"] as! [String: Any]).mapValues {
-            SceneUserPropertyValue.number($0 as! Double)
+            SceneUserPropertyValue.parse($0)!
         }
         let accepted = host.applyUserPropertyValues(values, changedPropertyKeys: Set(values.keys),
             recordID: payload["recordID"] as? String)
-        handlePropertyUpdateResult(["revision": payload["revision"]!,
-            "recordID": payload["recordID"]!, "accepted": accepted])
+        let ack: [String: Any] = ["revision": payload["revision"]!,
+            "recordID": payload["recordID"]!, "accepted": accepted]
+        if holdAcks { heldAcks.append(ack) } else { handlePropertyUpdateResult(ack) }
     }
     func ensureSession() -> Bool { true }
     func replayPendingIntent() {
@@ -441,20 +481,158 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
             else { self?.completions.append(false) }
         }
     }
-    func finishPendingTextureUpdates(_ outcome: ScenePlaybackTextureUpdateOutcome) {}
-    func bindDeferredTextureUpdates(recordID: String?, requestID: UUID) {}
-    func fallbackReplayIntent(requestID: UUID) -> ScenePlaybackLoadRequest? { nil }
-    func finishTextureReload(recordID: String?, outcome: ScenePlaybackTextureUpdateOutcome) {}
     func publishFailure(code: String, message: String) { preconditionFailure(message) }
     static func unsignedInteger(_ value: Any?) -> UInt64? { value as? UInt64 }
     __CLIENT_METHODS__
 }
 
 @main enum Harness {
+    @MainActor static func entered(_ control: PreparationControl) async -> Bool {
+        await withCheckedContinuation { done in
+            DispatchQueue.global().async {
+                done.resume(returning: control.entered.wait(timeout: .now() + 5) == .success)
+            }
+        }
+    }
     @MainActor static func queueDrained(_ queue: DispatchQueue) async {
         await withCheckedContinuation { done in
             queue.async { DispatchQueue.main.async { done.resume() } }
         }
+    }
+    @MainActor static func intent(_ values: [String: SceneUserPropertyValue], root: String = "/active",
+                                  record: String = "record") -> ScenePlaybackLoadRequest {
+        .init(rootURL: URL(fileURLWithPath: root), propertyOverrides: values,
+              userPropertyTextures: [:], recordID: record)
+    }
+    static func textureUpdate(_ revision: UInt64, name: String) -> ScenePlaybackTextureUpdate {
+        let url = URL(fileURLWithPath: "/self-authored/" + name + ".png")
+        return .init(references: ["T": .init(url: url, bookmarkData: nil)], resetKeys: [],
+                     values: ["T": .string(url.path)], revision: revision, recordID: "record")
+    }
+    @MainActor static func delayedIntentCases() async -> ([String: Bool], [String: [String]]) {
+        let initial: [String: SceneUserPropertyValue] = ["K": .number(0), "J": .number(0)]
+        var facts: [String: Bool] = [:], traces: [String: [String]] = [:]
+        for mode in ["ordinary", "texture-bound", "texture-unbound"] {
+            for ackFirst in [false, true] {
+                let name = mode + (ackFirst ? "-ack-first" : "-launched-first")
+                let control = PreparationControl(), host = SceneDesktopWallpaperHost(control)
+                host.activeSession = .init(initial)
+                let client = SceneDaemonClient(host)
+                client.activeIntent = intent(initial)
+                host.onState = { [weak client] in client?.receive($0) }
+                client.holdAcks = true
+                client.holdAllLaunchStates = mode == "texture-unbound"
+                client.holdLaunched = mode != "texture-unbound"
+                let update = textureUpdate(7, name: "selected")
+                var outcomes: [ScenePlaybackTextureUpdateOutcome] = []
+                if mode == "ordinary" {
+                    var requested = initial; requested["K"] = .number(1)
+                    client.requestLaunch(intent(requested, root: "/new-authored"))
+                } else {
+                    facts[name + "-realReloadAccepted"] = client.reloadUserTextureUpdate(update) { outcomes.append($0) }
+                }
+                guard await entered(control) else { fatalError("preparation leaf not entered") }
+                if mode != "ordinary" {
+                    let pending = client.pendingTextureUpdates[7]
+                    facts[name + "-currentReloadCohort"] = client.pendingIntent?.recordID == "record"
+                        && pending?.generation == client.sessionGeneration && pending?.waitsForFirstPresent == true
+                        && pending?.isLaunchRetry == true && pending?.fallbackBaseIntent != nil
+                        && pending?.requestID == client.pendingRequestID
+                        && (mode != "texture-unbound" || client.pendingRequestID == nil)
+                }
+                control.release.signal()
+                await queueDrained(host.launchPreparationQueue)
+                facts[name + "-windowReached"] = host.launchState?.phase == .launched
+                    && !client.heldLaunchStates.isEmpty && client.pendingIntent != nil
+                facts[name + "-editAccepted"] = client.edit(["J": .number(3)], revision: 1)
+                    && host.activeSession?.values["J"] == .number(3)
+                let pendingID = client.pendingRequestID
+                client.receiveNow(.init(requestID: UUID(), recordID: "record", phase: .launched, message: "foreign request"))
+                facts[name + "-foreignRequestIgnored"] = client.pendingRequestID == pendingID && client.pendingIntent != nil
+                if ackFirst { client.flushAcks(); client.flushLaunchStates() }
+                else { client.flushLaunchStates(); client.flushAcks() }
+                facts[name + "-launchRetainsEdit"] = client.activeIntent?.propertyOverrides["J"] == .number(3)
+                    && host.activeSession?.values["J"] == .number(3)
+                facts[name + "-ackDoesNotRelaunch"] = client.replayed.count == 1 && client.pendingIntent == nil
+                if mode == "ordinary" {
+                    facts[name + "-candidateOwnsInitialFacts"] = client.activeIntent?.rootURL.path == "/new-authored"
+                        && client.activeIntent?.propertyOverrides["K"] == .number(1)
+                } else if let requestID = client.activeRequestID {
+                    client.resumeDeferredTextureUpdates(recordID: "record", requestID: requestID)
+                    facts[name + "-textureCommitRemainsPerKey"] = outcomes == [.applied]
+                        && client.pendingTextureUpdates.isEmpty && client.activeIntent?.requiredUserTextureKeys.isEmpty == true
+                        && client.activeIntent?.userPropertyTextures == update.references
+                        && client.activeIntent?.propertyOverrides["J"] == .number(3)
+                } else { facts[name + "-textureCommitRemainsPerKey"] = false }
+                facts[name + "-structuralDispatch"] = client.edit(["K": .number(2)], revision: 2)
+                await queueDrained(host.launchPreparationQueue)
+                facts[name + "-laterRebuildRetainsEdit"] = client.replayed.last?.propertyOverrides["J"] == .number(3)
+                    && host.activeSession?.values["J"] == .number(3)
+                    && host.activeSession?.values["K"] == .number(2)
+                traces[name] = host.trace
+            }
+        }
+        do {
+            let control = PreparationControl(), host = SceneDesktopWallpaperHost(control)
+            host.activeSession = .init(initial)
+            let client = SceneDaemonClient(host)
+            client.activeIntent = intent(initial)
+            host.onState = { [weak client] in client?.receive($0) }
+            client.holdAllLaunchStates = true
+            var oldOutcomes: [ScenePlaybackTextureUpdateOutcome] = [], reentries: [ScenePlaybackTextureUpdateOutcome] = []
+            var dispatches: [Bool] = [], nestedStayedClosed = false
+            let old = textureUpdate(1, name: "old"), replacement = textureUpdate(4, name: "replacement")
+            let started = client.applyUserTextureUpdate(old) { outcome in
+                oldOutcomes.append(outcome)
+                dispatches.append(client.reloadUserTextureUpdate(textureUpdate(2, name: "reentrant-reload")) { reentries.append($0) })
+                client.finishPendingTextureUpdates(.superseded)
+                nestedStayedClosed = client.textureUpdateAdmissionClosed
+                dispatches.append(client.applyUserTextureUpdate(textureUpdate(3, name: "reentrant-apply")) { reentries.append($0) })
+            }
+            var finalOutcomes: [ScenePlaybackTextureUpdateOutcome] = []
+            let replaced = client.reloadUserTextureUpdate(replacement) { finalOutcomes.append($0) }
+            guard await entered(control) else { fatalError("reload leaf not entered") }
+            facts["drain-reentryClosed"] = started && replaced && dispatches == [true, true]
+                && oldOutcomes == [.superseded] && reentries == [.superseded, .superseded]
+                && nestedStayedClosed && !client.textureUpdateAdmissionClosed
+            facts["drain-onlyNewUnboundCohort"] = Set(client.pendingTextureUpdates.keys) == [4]
+                && client.pendingTextureUpdates[4]?.requestID == nil && client.pendingRequestID == nil
+                && client.pendingTextureUpdates[4]?.fallbackBaseIntent != nil
+                && client.pendingTextureUpdates[4]?.isLaunchRetry == true
+                && client.replayed.count == 1 && client.textureSends == 1
+            control.release.signal(); await queueDrained(host.launchPreparationQueue)
+            client.flushLaunchStates()
+            if let requestID = client.activeRequestID {
+                client.resumeDeferredTextureUpdates(recordID: "record", requestID: requestID)
+            }
+            facts["drain-replacementCompletesOnce"] = finalOutcomes == [.applied] && client.pendingTextureUpdates.isEmpty
+            traces["drain"] = host.trace
+        }
+        for phase in [SceneWallpaperLaunchState.Phase.failed, .cancelled] {
+            let host = SceneDesktopWallpaperHost(PreparationControl()), requestID = UUID()
+            host.activeSession = .init(initial)
+            host.launchState = .init(requestID: requestID, recordID: "record", phase: phase, message: "fixture")
+            let client = SceneDaemonClient(host)
+            client.activeIntent = intent(initial); client.pendingIntent = intent(initial, root: "/pending")
+            client.pendingRequestID = requestID; client.holdAcks = true
+            _ = client.edit(["J": .number(3)], revision: 1)
+            client.receiveNow(host.launchState!); client.flushAcks()
+            facts[phase.rawValue + "-retainsActiveEdit"] = client.activeIntent?.propertyOverrides["J"] == .number(3)
+                && client.activeIntent?.rootURL.path == "/active" && client.pendingIntent == nil && client.replayed.isEmpty
+        }
+        do {
+            let host = SceneDesktopWallpaperHost(PreparationControl()), requestID = UUID()
+            host.activeSession = .init(initial)
+            let client = SceneDaemonClient(host)
+            client.activeIntent = intent(initial)
+            let foreign: [String: SceneUserPropertyValue] = ["K": .number(9), "J": .number(9)]
+            client.pendingIntent = intent(foreign, root: "/other", record: "other"); client.pendingRequestID = requestID
+            _ = client.edit(["J": .number(3)], revision: 1)
+            facts["foreignRecordNotEdited"] = client.pendingIntent?.propertyOverrides == foreign
+            client.receiveNow(.init(requestID: requestID, recordID: "other", phase: .launched, message: "other scene"))
+            facts["foreignRecordOwnsItsValues"] = client.activeIntent?.propertyOverrides == foreign
+        }
+        return (facts, traces)
     }
     @MainActor static func main() async throws {
         var facts: [String: Bool] = [:], traces: [String: [String]] = [:]
@@ -467,11 +645,10 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
             runtime.activeSession = session
             let client = SceneDaemonClient(runtime)
             client.activeIntent = .init(rootURL: URL(fileURLWithPath: "/self-authored"),
-                propertyOverrides: initial, recordID: "record")
+                propertyOverrides: initial, userPropertyTextures: [:], recordID: "record")
             runtime.onState = { [weak client] in client?.receive($0) }
             facts[kind + "-initialDispatched"] = client.edit(["K": .number(1)], revision: 1)
-            let entered = await Task.detached { control.entered.wait(timeout: .now() + 5) == .success }.value
-            guard entered else { fatalError("preparation leaf not entered") }
+            guard await entered(control) else { fatalError("preparation leaf not entered") }
             let oldGeneration = runtime.nextLaunchRequestGeneration
             let oldCancellation = runtime.launchCancellation!
             let oldCalls = session.calls
@@ -518,6 +695,8 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
                 && session.calls == 1 && host.nextLaunchRequestGeneration == 0
             facts[kind + "-pendingPreserved"] = kind == "no-pending" || host.launchState?.isInProgress == true
         }
+        let delayed = await delayedIntentCases()
+        facts.merge(delayed.0) { _, new in new }; traces.merge(delayed.1) { _, new in new }
         print(String(decoding: try JSONSerialization.data(withJSONObject:
             ["facts": facts, "trace": traces], options: [.sortedKeys]), as: UTF8.self))
     }

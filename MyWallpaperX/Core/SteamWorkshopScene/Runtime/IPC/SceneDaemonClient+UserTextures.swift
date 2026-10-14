@@ -8,7 +8,7 @@ extension SceneDaemonClient {
         let completion: @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
         var waitsForFirstPresent: Bool
         let isLaunchRetry: Bool
-        let fallbackBaseIntent: ScenePlaybackLoadRequest?
+        var fallbackBaseIntent: ScenePlaybackLoadRequest?
         var requestID: UUID?
     }
 

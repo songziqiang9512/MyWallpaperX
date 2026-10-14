@@ -290,6 +290,10 @@ Scene属性窗口沿prepared context→原生NSCollectionView可视控件→原s
 
 同record结构候选仍在准备时，非空属性请求先取消旧候选并返回原client，以完整最新意图重准备；不在旧active上局部接受而丢失先前结构变化。空请求、不同record及启动终态保持原委派。
 
+**迟到启动回执与普通属性意图（2026-10-14，设计及实现边界）。** 目标是避免已投递的普通属性被迟到launched中的冻结pending/fallback覆盖。仍由Client.applyPropertyValues唯一消费revision并合并本次稀疏值；同步到同record的既有pendingIntent，以及同pending请求的texture fallbackBaseIntent，仅改这些键，不用整份active map覆写候选root/初值/纹理。后者须同时满足当前session generation、record、waitsForFirstPresent/isLaunchRetry及requestID相等；非nil严格同ID。双方nil只沿现有构造生命周期归属：requestLaunch先关闭texture准入并移空旧entry、完成drain，reload返回后才建本请求fallback；drain期间重入apply/reload被原门拒绝，不新增epoch或缓存。launched继续原选择，不新增第二合并算法。
+
+未知/陈旧revision、不同record/request/generation、终态失败/取消与first-present前资源回滚保持原边界；资源选择仍由原typed结果提交，不能因普通值同步提前提交纹理。验收以真实Client/Host方法延迟launched和property ack两种顺序，核后续结构重启保新值、候选自身root/其他初值不丢、精确绑定及pre-accepted fallback、drain重入和相邻拒绝；最近门与Debug build复用，不把受控transport叶子门当全部双进程UI时序。
+
 **属性回调局部恢复设计（2026-10-14，先设计后实施）。** 目标是让合法 typed 编辑在一个普通 `applyUserProperties` 异常后仍可沿原 owner 恢复，避免每个属性都重建整景；不修作者自由变量、不改变回调词法作用域、不跳过注册回调。当前完整cohort准入会因单个已熔断的属性回调拒绝其他合法编辑；原relaunch可恢复脚本，故直接忽略失败consumer会丢恢复能力。
 
 选择同一owner、同一module/realm的有界重试，保shared/clock/资源与作者调用顺序；重造owner/domain会重置共享状态及生命周期，保持整景重建则有已复现延迟，两者不作为本切片默认。C owner唯一持有失败来源与熔断；仅在用户属性回调的作者调用抛普通异常且宿主已恢复、初始化路径无异常、无timer/待处理骨骼回调、非teardown/重入时可恢复。budget/OOM/overflow、身份/宿主恢复、init/update/媒体/任务等失败不进入本门，仍沿原拒绝与relaunch；资源未就绪、拓扑/variant重建条件不放宽。

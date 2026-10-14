@@ -388,6 +388,19 @@ final class SceneDaemonClient: PlaybackEngineControlling {
               revision > lastPropertyRevision,
               activeIntent?.recordID == recordID else { return false }
         activeIntent?.propertyOverrides.merge(values) { _, new in new }
+        if pendingIntent?.recordID == recordID {
+            pendingIntent?.propertyOverrides.merge(values) { _, new in new }
+            for revision in Array(pendingTextureUpdates.keys) {
+                guard var pending = pendingTextureUpdates[revision],
+                      pending.generation == sessionGeneration,
+                      pending.waitsForFirstPresent, pending.isLaunchRetry,
+                      pending.update.recordID == recordID,
+                      pending.fallbackBaseIntent?.recordID == recordID,
+                      pending.requestID == pendingRequestID else { continue }
+                pending.fallbackBaseIntent?.propertyOverrides.merge(values) { _, new in new }
+                pendingTextureUpdates[revision] = pending
+            }
+        }
         lastPropertyRevision = revision
         guard endpointReady else { return true }
         pendingPropertyRevisions[revision] = recordID

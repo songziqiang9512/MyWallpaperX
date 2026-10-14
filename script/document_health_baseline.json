@@ -97,8 +97,8 @@
       "bytes": 34403
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 570,
-      "bytes": 183437
+      "lines": 574,
+      "bytes": 184807
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -266,7 +266,7 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
-      "bytes": 4256
+      "bytes": 4380
     }
   },
   "archives": [
@@ -1354,24 +1354,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "6c575bdf496cf8461dccb2c26fc80db2ee0a757c4a458929ae80844ab8b73cf6",
-      "after": "1065fc1f18f85bf50edaf395f4c5d5d4ddc2305cea1c8604f1462d31eed4a654",
-      "owner": "scene-runtime-maintainer",
-      "reason": "Clarify pending launch arbitration and immutable Encoder admission; record bounded evidence without duplicating execution plans.",
-      "decision": "docs/development/repository-workflow.md#设计判定与记录"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "b8aaf302e0e30aa9eddbd4d4732937fdabf60defbc41224e887f2d1f710c220e",
-      "after": "8c6c2e60f556d797812850b68fcb68bd117ec5484dc99630b1bb79af80c9f76d",
-      "owner": "scene-runtime-maintainer",
-      "reason": "Clarify pending launch arbitration and immutable Encoder admission; record bounded evidence without duplicating execution plans.",
-      "decision": "docs/development/repository-workflow.md#设计判定与记录"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "e960e783e5b75af17cba8a44841b1984b7c93eb9342e51d636a2863ccaadf69a",
       "after": "e54903c33104236d6f0ed17776422cdd703ec5dc22a5c80117f1efc6055c3257",
@@ -1387,6 +1369,24 @@
       "owner": "scene-runtime-maintainer",
       "reason": "Clarify pending launch arbitration and immutable Encoder admission; record bounded evidence without duplicating execution plans.",
       "decision": "docs/development/repository-workflow.md#设计判定与记录"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "1065fc1f18f85bf50edaf395f4c5d5d4ddc2305cea1c8604f1462d31eed4a654",
+      "after": "f1cda412b2a377a316d158f367d2e5a50ac0ec8fbfa77a2ec9c3e96136b1df49",
+      "owner": "scene-runtime-maintainer",
+      "reason": "Define same-request sparse ordinary-value synchronization across existing pending and rollback intents, with lifecycle and evidence limits.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#op-user-overview"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "8c6c2e60f556d797812850b68fcb68bd117ec5484dc99630b1bb79af80c9f76d",
+      "after": "e0fe4cbf5c4b4ffcdf6704c3465bf7f9193a1f9037a61407c10fbe22de71222d",
+      "owner": "scene-runtime-maintainer",
+      "reason": "Define same-request sparse ordinary-value synchronization across existing pending and rollback intents, with lifecycle and evidence limits.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#op-user-overview"
     }
   ]
 }

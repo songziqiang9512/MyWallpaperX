@@ -81,3 +81,14 @@ Apple M4、相同 OS/3024×1964 单屏、相同隔离样本与默认属性、实
 证据归`.artifacts/tmp/property-repeat-noop-20261014/proof/`及`bunk-candidate/report.json`，复用前批App/回归入口与当前连续DD，不重跑全矩阵。保一份候选App供续批；原始报告、必要画面及输入身份保留，弃用临时样本/编译环境与重复转储按归属清理。后继复核确认该边界会被同值优化扩大：先有结构K的候选准备，再提交J的同值/热更新，旧Host取消候选后只在旧active上接受J，丢失K的最新意图。现Host对同record、非空变更且启动进行中取消后返回false，交原client用完整最新activeIntent重放；不再局部提交到旧active。无pending、不同record、空变更和终态不改委派。真实Host/Client方法加受控准备/session/transport叶子门在旧版复现，修后13测试/37事实通过：三类编辑都取消代次1、替换为3，迟到旧progress/completion不发布，最终完整K/J激活。此门无完整App/daemon/GPU，实际快速连续UI竞态未重验。
 
 Host修正后与Encoder后继共用91fe54e3优化诊断及Debug构建（输入身份/日志归Encoder proof），普通304播放正常停止，实际pending竞态仍以上述受控owner门为界。独审另发现历史Client时序：尚未消费launched时编辑已合入activeIntent，迟到launched可能以冻结pendingIntent覆盖；该分支未被本Host修复覆盖，留属性卡后继，不把所有IPC时序标成完成。
+
+
+<a id="delayed-launched-intent"></a>
+
+## 后继：迟到 launched 不覆盖普通属性编辑
+
+Client.applyPropertyValues沿原revision/record准入，将本次稀疏值同步到同record的现pendingIntent与精确关联的既有texture fallbackBaseIntent，既不新建意图缓存，也不在launched做第二次整图合并。保候选自己的root/其他初值及纹理事实；fallback同时核generation、waits/isLaunchRetry、record和requestID。尚未accepted的nil/nil由真实requestLaunch关闭texture准入并清旧entry→reload返回后创建当前entry的生命周期证明，不能仅凭record泛匹配。first-present前仍保accepted资源base，普通值同步不提前提交纹理。
+
+真实Client/Host方法的延迟事件门复现：普通pending、bound和pre-accepted fallback，在launched/true ack两种受控顺序下丢J及后续结构重建丢J；旧版100事实中16项失败。修后同一13测试/100事实全真，1.051s，无源码漂移；真实typed update与reload/apply/bind/resume/finish接入，candidate root/其他初值、不同record/request/generation与failed/cancelled保原断言。drain中纹理入口重入及nested关闭本来就正确，不计新收益。原negative-ack先于launched的相邻失败假设尚未证明真实stdout顺序可达，不借此声称所有IPC重排均已支持。
+
+本批独审通过，证据归`.artifacts/tmp/client-property-launch-race-20261014/proof/real-reload/`。准备、session与transport仍为受控叶子；没有新跑双进程UI、纹理解码、HDR/多屏或实际输入到呈现延迟，不认领CPU/GPU/内存/能耗收益。未改渲染路径，不重复上批矩阵；上批91fe实图只保其原产品身份的证据边界。只做本批Debug增量构建，未将共享DD中旧诊断Release当成当前产品运行。测试临时文件自动退出清理，必要before/candidate源码与日志保留。
