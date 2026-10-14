@@ -53,7 +53,9 @@ done < <(/usr/bin/find "$FRESH_DIR" -type f -print0)
 # signing identity when Xcode provides one, ad-hoc ("-") otherwise; local
 # ad-hoc builds stay unhardened (no library validation on same-team deps).
 HELPER_SIGN_IDENTITY="${EXPANDED_CODE_SIGN_IDENTITY:--}"
-/bin/bash "$REPO_ROOT/script/sign-steam-helper.sh" "$FRESH_DIR" "$HELPER_SIGN_IDENTITY"
+HELPER_TIMESTAMP_POLICY="${MWX_STEAM_HELPER_TIMESTAMP_POLICY:-required}"
+if [[ "${CONFIGURATION:-}" == Debug ]]; then HELPER_TIMESTAMP_POLICY=none; fi
+/bin/bash "$REPO_ROOT/script/sign-steam-helper.sh" "$FRESH_DIR" "$HELPER_SIGN_IDENTITY" "$HELPER_TIMESTAMP_POLICY"
 
 /bin/mkdir -p "$PUBLISH_DIR"
 /usr/bin/rsync -a --delete "$FRESH_DIR/" "$PUBLISH_DIR/"
