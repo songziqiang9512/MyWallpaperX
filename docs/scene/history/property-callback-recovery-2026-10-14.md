@@ -151,3 +151,15 @@ Client.applyPropertyValues沿原revision/record准入，将本次稀疏值同步
 有界只读128份scene entry清点观察2样本/4形态，不是覆盖率；3211615441同key另有混合target，不因局部形态命中宣称整key热更新。效果图片颜色consumer的完整原生交互、其他ScriptProperty输入输出组合、多surface、HDR、官方视觉一致性及接受后VM失败事务仍开放。
 
 聚焦红绿/输入身份归`.artifacts/tmp/property-capability-research-20261015/typed-color-proof/`，构建与native-ui原日志、必要四张原图、source manifest及独审归`.artifacts/tmp/color-script-property-live-20261015/proof/`。原媒体只读；停止使用的隔离HOME/Workshop/tmp与复制marker按归属清理，保一份当前Debug App、既有优化App和唯一连续DD供续接。独立审查核对typed与VM字符串边界通过；整体CPU/GPU成本继续由现役性能卡选序，不计专项完成。
+
+<a id="callback-font-native"></a>
+
+## 回调字体链的原生窄验收（2026-10-15，无产品改动）
+
+3248220186的18项字体Combo控制key为`text`、值为字符串1…18。静态资格使用正式PkgArchive仅读2930B索引/61entry及143174B scene entry（SHA `aa56d26d7be9da76f159cea2cbcbe8ccb31a5bf5d9b2d3fce8c4e63500acce19`）；文字107/214的font均为原始`fonts/Jost-Medium.ttf`，无direct font wrapper。两份内嵌作者text脚本导出applyUserProperties并按选项写thisLayer.font；静态核对未单独执行或解码作者混淆lookup，实际回调由后续原生会话执行。原prepared callback→font typed mutation→动态文字signature/纹理consumer已存在，本片验既有能力，不扩direct-font parser、字体resolver或String整体等级。
+
+复用冻结Debug App `29891b0579beef0855a3bb05e76fd193c4755469aee6b6cd8e8e49f8d2833ed4`，正常下载详情打开属性，原生字体1→2→3；实际Scene窗口37055的时钟字形随之变化，关闭重开保3、reset回1且恢复原风格。root独立查看四张原图确认；时钟/粒子相位继续，不称逐像素一致。有效parent20415/daemon20424、request `849AD1F2-699E-45A5-A2A1-87D8CF5F41B6`、session `3584A95B-87B9-40A8-A55E-42371486339E`、surface1，全程launched/first-frame/activated各1。
+
+实际Stop后列表/footer恢复“设为壁纸”，17/17 VM quiescent，failures/timers/jobs/mutations/dynamicLayers均0；CmdQ正常exit0。首试launcher错误suite缺Debug前缀，Scene前precondition exit−5，修配置后才进入有效轮次，三个critical App文件SHA不变；不算产品失败。有效退出后的CUA getAXState自动重开同App且未带隔离参数，新20809/20825明确排除，不算字体重建，随后仅CmdQ关闭；19919/20415/20424/20809/20825最终均不存在，未再调用CUA观察。
+
+证据归`.artifacts/tmp/property-font-qualification-20261015/`的qualification/input-identity及native/native-acceptance.json、原product.log与default1/choice2/choice3/reset1四原图（32,429,636B，约32.43MB）。原作者source_changes=[]，verify exit1仅副本discovery version marker预移差异，不记命令PASS。清已停止的本次私有样本/HOME/tmp共223,918,141逻辑B，不称运行RAM或物理释放；保C App与原共享cache/modulecache归原owner。仅验选项1/2/3和reset，其他字体/全部18项、精确font ROI、复杂多场景/multi-surface/HDR与官方parity仍未验；正常UI未导出独立GPU drain/final pin census。无产品改动、无性能收益声明。
