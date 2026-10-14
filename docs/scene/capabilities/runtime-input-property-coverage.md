@@ -288,6 +288,8 @@ Scene属性窗口沿prepared context→原生NSCollectionView可视控件→原s
 
 <a id="property-callback-recovery"></a>
 
+同record结构候选仍在准备时，非空属性请求先取消旧候选并返回原client，以完整最新意图重准备；不在旧active上局部接受而丢失先前结构变化。空请求、不同record及启动终态保持原委派。
+
 **属性回调局部恢复设计（2026-10-14，先设计后实施）。** 目标是让合法 typed 编辑在一个普通 `applyUserProperties` 异常后仍可沿原 owner 恢复，避免每个属性都重建整景；不修作者自由变量、不改变回调词法作用域、不跳过注册回调。当前完整cohort准入会因单个已熔断的属性回调拒绝其他合法编辑；原relaunch可恢复脚本，故直接忽略失败consumer会丢恢复能力。
 
 选择同一owner、同一module/realm的有界重试，保shared/clock/资源与作者调用顺序；重造owner/domain会重置共享状态及生命周期，保持整景重建则有已复现延迟，两者不作为本切片默认。C owner唯一持有失败来源与熔断；仅在用户属性回调的作者调用抛普通异常且宿主已恢复、初始化路径无异常、无timer/待处理骨骼回调、非teardown/重入时可恢复。budget/OOM/overflow、身份/宿主恢复、init/update/媒体/任务等失败不进入本门，仍沿原拒绝与relaunch；资源未就绪、拓扑/variant重建条件不放宽。

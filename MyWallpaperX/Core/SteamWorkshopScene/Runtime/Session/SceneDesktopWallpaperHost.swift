@@ -77,9 +77,11 @@ final class SceneDesktopWallpaperHost {
     @discardableResult
     func applyUserPropertyValues(_ values: [String: SceneUserPropertyValue], changedPropertyKeys: Set<String>, recordID: String?) -> Bool {
         // A prepared context freezes authored properties. A live edit of that
-        // record invalidates the candidate before it can replace newer state.
-        if !changedPropertyKeys.isEmpty, launchState?.recordID == recordID {
+        // record restarts preparation from the client's complete latest intent.
+        if !changedPropertyKeys.isEmpty, launchState?.isInProgress == true,
+           launchState?.recordID == recordID {
             cancelPendingLaunch(recordID: recordID)
+            return false
         }
         return activeSession?.applyUserPropertyValues(values, changedPropertyKeys: changedPropertyKeys, recordID: recordID) ?? false
     }

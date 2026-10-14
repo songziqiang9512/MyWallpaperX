@@ -78,4 +78,6 @@ Apple M4、相同 OS/3024×1964 单屏、相同隔离样本与默认属性、实
 
 独立Bunk复用86b320df报告，仅补候选真实运行；媒体与matrix hash相同，原27项FAIL列表相同，房间、家具、树木及运行时钟保留。两次实际时刻17:24/18:40不同，窗外日夜与灯光明显不同，未锁wall clock，因此不宣称逐像素或光照等价。此次未重验普通面板完整交互、待处理launch取消窗口、多surface或HDR；未量编辑延迟、CPU/GPU、内存、温度/功耗收益，不沿用前批69.5%的数字。
 
-证据归`.artifacts/tmp/property-repeat-noop-20261014/proof/`及`bunk-candidate/report.json`，复用前批App/回归入口与当前连续DD，不重跑全矩阵。保一份候选App供续批；原始报告、必要画面及输入身份保留，弃用临时样本/编译环境与重复转储按归属清理。待处理launch在live判定前被取消的现有边界仍开放，不能用同值接受推断其仲裁已修复。
+证据归`.artifacts/tmp/property-repeat-noop-20261014/proof/`及`bunk-candidate/report.json`，复用前批App/回归入口与当前连续DD，不重跑全矩阵。保一份候选App供续批；原始报告、必要画面及输入身份保留，弃用临时样本/编译环境与重复转储按归属清理。后继复核确认该边界会被同值优化扩大：先有结构K的候选准备，再提交J的同值/热更新，旧Host取消候选后只在旧active上接受J，丢失K的最新意图。现Host对同record、非空变更且启动进行中取消后返回false，交原client用完整最新activeIntent重放；不再局部提交到旧active。无pending、不同record、空变更和终态不改委派。真实Host/Client方法加受控准备/session/transport叶子门在旧版复现，修后13测试/37事实通过：三类编辑都取消代次1、替换为3，迟到旧progress/completion不发布，最终完整K/J激活。此门无完整App/daemon/GPU，实际快速连续UI竞态未重验。
+
+Host修正后与Encoder后继共用91fe54e3优化诊断及Debug构建（输入身份/日志归Encoder proof），普通304播放正常停止，实际pending竞态仍以上述受控owner门为界。独审另发现历史Client时序：尚未消费launched时编辑已合入activeIntent，迟到launched可能以冻结pendingIntent覆盖；该分支未被本Host修复覆盖，留属性卡后继，不把所有IPC时序标成完成。
