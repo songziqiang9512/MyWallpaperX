@@ -26,7 +26,7 @@ def controller_fixture_source() -> str:
     source = source[:start] + '}\n\n' + source[version:]
     models = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift'
     reachability = models.read_text().split('nonisolated struct SceneWallpaperLaunchState:', 1)[0]
-    return reachability + source.replace('private ', '')
+    return reachability + source.replace('private ', '').replace('WorkshopPropertyDisplayResolver.languageVersion', 'FixtureDisplayLanguage.keys')
 
 
 PROBE = r'''
@@ -47,6 +47,7 @@ struct SceneDaemonActiveSessionFactsChange { let recordIDs: Set<String> }
     }
     var activeCallbackPropertyFacts: ActiveCallbackPropertyFacts?
 }
+@MainActor enum FixtureDisplayLanguage { static var keys = ["en-us", "en"] }
 struct SceneWallpaperLaunchState { let recordID: String }
 struct SteamWorkshopDownloadRecord {
     enum ContentType { case scene, web }
@@ -112,6 +113,7 @@ struct SteamWorkshopScenePropertyContext {
     let effectiveValues: [String: SceneUserPropertyValue]
     var staticActionableKeys: Set<String> { actionableKeys.subtracting(["callback"]) }
     var sourceIdentity: ScenePreparedCallbackPropertyReachability.Source? { nil }
+    var propertyDisplayLocalization = WorkshopPropertyLocalization.empty
 }
 @MainActor final class SteamWorkshopService {
     static let shared = SteamWorkshopService()
@@ -318,12 +320,29 @@ struct SteamWorkshopScenePropertyContext {
             "callback launch during inspection delivers only latest projection")
         SceneDaemonClient.shared.activeCallbackPropertyFacts = nil
         reset(); try write("enabled"); open()
+        let beforeLanguage = spy.count
+        FixtureDisplayLanguage.keys = ["zh-hant-tw", "zh", "en-us", "en"]
+        NotificationCenter.default.post(name: NSLocale.currentLocaleDidChangeNotification, object: nil)
+        drain { owner.request == nil }
+        check(spy.count == beforeLanguage && owner.snapshot?.identity.displayLanguageVersion == FixtureDisplayLanguage.keys,
+            "language change reprojects retained catalog without reading source")
+        NotificationCenter.default.post(name: NSWindow.willCloseNotification, object: panel.window)
+        let languageClosed = output.contexts.count
+        FixtureDisplayLanguage.keys = ["en-us", "en"]
+        NotificationCenter.default.post(name: NSLocale.currentLocaleDidChangeNotification, object: nil)
+        check(output.contexts.count == languageClosed && owner.request == nil, "late locale event cannot reopen closed panel")
+        open()
         let retained = owner.snapshot!
         let huge = SteamWorkshopScenePropertyContext(catalog: retained.contentContext!.catalog, actionableKeys: ["enabled"],
             effectiveValues: ["enabled": .string(String(repeating: "x", count: 1100000))])
         check(SteamWorkshopSceneInspectionController.retentionCost(context: huge,
             version: ScenePropertySourceVersion.capture(roots: [root])!, identity: retained.identity) > 4 * 1024 * 1024,
             "conservative admission accounts for large values")
+        var hugeLocalization = huge
+        hugeLocalization.propertyDisplayLocalization = .init(flat: ["own": String(repeating: "x", count: 1100000)])
+        check(SteamWorkshopSceneInspectionController.retentionCost(context: hugeLocalization,
+            version: ScenePropertySourceVersion.capture(roots: [root])!, identity: retained.identity) > 8 * 1024 * 1024,
+            "author localization is charged within original context budget")
         print(String(decoding: try JSONSerialization.data(withJSONObject: results), as: UTF8.self))
     }
 }
@@ -346,13 +365,13 @@ class ScenePropertyPreparationReuseTests(unittest.TestCase):
             probe = work / 'Probe.swift'
             probe.write_text(PROBE)
             binary = work / 'probe'
-            build = subprocess.run(['swiftc', '-O', str(PROPERTY_MODEL), str(source), str(probe),
+            build = subprocess.run(['swiftc', '-O', str(PROPERTY_MODEL), str(ROOT / 'MyWallpaperX/Shared/WorkshopPropertyDisplayResolver.swift'), str(source), str(probe),
                 '-module-cache-path', str(work / 'cache'), '-o', str(binary)], capture_output=True, text=True)
             self.assertEqual(build.returncode, 0, build.stderr)
             run = subprocess.run([str(binary), str((work / 'input').resolve())], capture_output=True, text=True, timeout=30)
             self.assertEqual(run.returncode, 0, run.stderr)
             cases = json.loads(run.stdout)
-            self.assertEqual(len(cases), 34)
+            self.assertEqual(len(cases), 37)
 
 
 if __name__ == '__main__':

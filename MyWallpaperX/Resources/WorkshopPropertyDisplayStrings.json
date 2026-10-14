@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "languages": {
+    "en-us": {
+      "ui_browse_properties_scheme_color": "Scheme color",
+      "ui_editor_scene_options_color": "Color",
+      "ui_editor_properties_alpha": "Opacity",
+      "ui_editor_user_properties_type_color": "Color",
+      "ui_editor_properties_size": "Size",
+      "ui_editor_properties_font": "Font",
+      "ui_editor_script_insert_property_text": "Text",
+      "ui_editor_preset_clock_title": "Clock",
+      "ui_editor_properties_color": "Color",
+      "ui_editor_properties_text": "Text",
+      "ui_editor_properties_date": "Date",
+      "ui_settings_audio": "Audio",
+      "ui_close": "Close",
+      "ui_editor_properties_brightness": "Brightness",
+      "ui_browse_properties_background_color": "Background color"
+    },
+    "zh-chs": {
+      "ui_browse_properties_scheme_color": "主题色",
+      "ui_editor_scene_options_color": "颜色",
+      "ui_editor_properties_alpha": "不透明度",
+      "ui_editor_user_properties_type_color": "颜色",
+      "ui_editor_properties_size": "大小",
+      "ui_editor_properties_font": "字体",
+      "ui_editor_script_insert_property_text": "文本",
+      "ui_editor_preset_clock_title": "时钟",
+      "ui_editor_properties_color": "颜色",
+      "ui_editor_properties_text": "文本",
+      "ui_editor_properties_date": "日期",
+      "ui_settings_audio": "音频",
+      "ui_close": "关闭",
+      "ui_editor_properties_brightness": "亮度",
+      "ui_browse_properties_background_color": "背景颜色"
+    },
+    "zh-cht": {
+      "ui_browse_properties_scheme_color": "主題色",
+      "ui_editor_scene_options_color": "顏色",
+      "ui_editor_properties_alpha": "不透明度",
+      "ui_editor_user_properties_type_color": "顏色",
+      "ui_editor_properties_size": "大小",
+      "ui_editor_properties_font": "字體",
+      "ui_editor_script_insert_property_text": "文字",
+      "ui_editor_preset_clock_title": "時鐘",
+      "ui_editor_properties_color": "顏色",
+      "ui_editor_properties_text": "文字",
+      "ui_editor_properties_date": "日期",
+      "ui_settings_audio": "音訊",
+      "ui_close": "關閉",
+      "ui_editor_properties_brightness": "亮度",
+      "ui_browse_properties_background_color": "背景顏色"
+    }
+  }
+}

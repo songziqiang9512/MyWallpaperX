@@ -290,17 +290,17 @@ Scene属性窗口沿prepared context→原生NSCollectionView可视控件→原s
 
 <a id="prepared-callback-property-reachability"></a>
 
-**回调独占属性的面板可达性（2026-10-15，已实施的有界合同）。** 合法普通定义可仅由 `applyUserProperties` 读取，没有直接 `{user,value}` 绑定；现context从直接consumer出发会漏行。目标是把真实active prepared callback消费的catalog key投影到原context，保作者顺序、条件、隐藏值、store与typed更新链。仅覆盖Bool/Slider/Color/Combo/TextInput；不从脚本字串猜key、不为面板创建VM，不把字符串回调提升为资源consumer或开放未知类型。真实Combo行、保存重开/reset及受控媒体显隐已验，边界见[实施证据](../history/property-callback-recovery-2026-10-14.md#prepared-callback-panel)。
+**回调独占属性的面板可达性。** 原Program真实export与LiveState非空callback target表，在完整同代surface候选晋升后投影Bool/Slider/Color/Combo/TextInput；保类型/default、rebuildRequired、全部target的active/availability门。沿原launched→Client只读active事实→原context合入静态actionable keys；不读脚本文字猜key、不创建VM、不提升资源consumer，Host仍逐次原子决定更新准入，投影不保证后续必然live。
 
-Host/session继续拥有唯一执行准入。候选完成全部既有surface准备并晋升后，由原ScriptProgram的真实export查询和原liveState消费表投影非空callback target集合对应的key；新增入口还须保原类型/默认值、rebuildRequired及全部target的active/availability约束，不能取含空集合的dictionary全部keys，也不把SourceEvidence当执行证明。沿既有 `launchStateChanged(.launched)` 回执携带这一不可变投影，Client只保其active session的只读事实，原service/context合并原静态actionable keys后准备行；不存在回调事实时维持原展示，不放开store fallback制造重建。之后owner异常、资源/结构变化或cohort拒绝仍由Host实时判断，投影不是保证未来每次编辑可live的第二权威，不新增逐帧能力扫描。
+事实绑定transport generation、原replay预绑定requestID、recordID、script代次及project/scene已读字节witness；同root/record不足以复用，普通revision不伪造source代次，禁止额外全包/帧哈希。Host复用requestID；旧直接入口可省略，非法UUID拒绝，accepted也须匹配request/record。失败/取消候选保旧active，迟到/重复/异record拒绝；stop（含silent）、退役、断连/重启、切换及不完整拓扑撤销，恢复等新launched，不按任一成功surface授权。原propertyPreparation保context/版本/4MiB及pressure，Client typed通知更新/撤销投影，原launch语义和IPC分层不变；已开面板用原catalog重投影并同步presentation token，迟到/关闭不重开，已提交资源仍归service。实施验收和未覆盖边界归[实施证据](../history/property-callback-recovery-2026-10-14.md#prepared-callback-panel)，不外推性能、多surface或全兼容。
 
-投影绑定原transport generation、requestID、recordID、prepared script/source代次及来源身份；root路径/record相同不能证明作者输入相同。优先复用已有PreparedContent/package/document identity；不足时仅由原project/scene读取owner对本来已读的输入字节一次准备小witness，同一值随launch和inspect比较，不追加全包读取/哈希、普通帧序列化或新版本缓存。缺失、不匹配或来源复用校验失败时不合入callback keys；普通值revision变化不伪造新source代次。
+<a id="display-localization"></a>
 
-Client沿原replay owner生成并预绑定requestID，loadScene携带该可选字段，Host复用传入identity；旧直接/CLI入口省略时仍由Host生成，非法UUID拒绝。accepted也须匹配预绑定request/record，不能靠同record迟到accepted重绑新请求；重启replay生成新ID，继续保原transport/launch generation。Client沿原事件准入先验证generation与当前pending request/record，只有晋升的launched替换active投影；迟到/重复/其他record、失败或取消的候选不得发布keys，也不得误撤仍播放的旧active投影。实际active stop、退役、transport断连/重启和runtime切换同步撤销，包含不发布stopped通知的既有silent stop；保留现launch/failure/runtime-switch通知语义；Client作为同一active事实owner通过专用typed变更通知发布投影更新/撤销，inspection订阅后重投影，IPC不反向依赖产品Service，也不把另一种object混入launch-state通知。恢复或重启须等待新launched，不能凭旧record自动恢复。多surface复用同一session的Program及既有完整准备/availability门，不按首surface或任一成功surface单独授权；拓扑重准备/代次不全时保持保守，Host不放宽原全target原子条件。
+**属性展示本地化。** 原生Scene标题、Text/Group及Combo label共用展示resolver；catalog原文、key、condition、hidden value、保存与callback payload保持原值。首批15个语义已核词条使用自编en-us/zh-chs/zh-cht资源，不复制官方资源、不按样本/属性key/type分支。作者明确译文优先，再选自有当前语言/英文，未命中保原文；未知token不自动人类化或隐藏，合法已知Text/Group可显示译文，类型准入不扩。
 
-原propertyPreparation仍唯一持有有界context缓存、请求与presentation identity；callback投影版本加入其失效比较。复用现launch observer及已有service刷新，已打开面板也须重新投影定义，不能只刷新值；原context已持有catalog时只重投影它，来源/override校验与4MiB/pressure边界不扩，不另存SourceFacts或第二context。内容替换须同步实际presentation token，取消被替换generation未提交的UI会话；关闭/替代后迟到结果不重开面板，已提交资源事务仍归原service。
+单一Foundation展示resolver迁移原Web语言码/有序候选/作者查表，保root flat/general flat/分语言表行为；Web旧接口禁用新标准词表，保option label与mode.text的原作者表耦合，本片标准词表仅用于原生Scene显示。原Project已读JSON只保存中性作者localization声明，不增IO；原context保此声明，native prepareRows一次准备标题与option显示串，不复制整套显示map，不把翻译反馈给条件模型。内建资源只读且进程级一次装载，缺失/坏资源局部退回作者/原文，不阻塞播放或扩大词条猜测。
 
-最近53个不同测试方法通过，覆盖合法普通定义、改名/等价、无回调/空集合/错类型/资源排除、陈旧request/source、候选失败保旧active、silent stop/断连重启与面板代次。真实293的回调独占Combo现可编辑，重开/reset保值且单session；同App受控paused媒体事件下，模式0→1使媒体图标隐藏并保窗口/surface。独立304原样人物、建筑、星空和时钟保留。原293三项效果FAIL、304粒子FAIL及本地化raw key保持开放；未量性能、完整设备/媒体或多surface，不外推全兼容。
+显示语言版本进入原propertyPreparation失效比较，源/override不变时重投影catalog；已开/在途/关闭保原presentation代次，作者译表计入原4MiB/pressure。未知ui_editor原隐藏/人类化已退出；实际长token可换行，Combo摘要仍受原控件宽度限制，菜单保原文。元数据清点尚有183个未审token，保原文不代表语义已识别；本片不计类型补齐、全本地化或性能收益。资源/resolver、真实Web条件反例、native/preparation/routing门、最终Debug、真实293/独立324面板与324实图的实施证据及未覆盖边界归[本地化验收](../history/property-callback-recovery-2026-10-14.md#property-display-localization)。
 
 <a id="property-callback-recovery"></a>
 

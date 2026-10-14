@@ -107,3 +107,17 @@ Client.applyPropertyValues沿原revision/record准入，将本次稀疏值同步
 最近53个不同测试方法最终通过，包含真实Client/Host方法、原native list/context/live update/preparation及协议门。首轮新增fixture因struct拼接缺换行、次轮因错误选择最后一条setMuted命令失败，分别仅修夹具并重跑受影响方法；未降低产品准入。Debug与优化诊断Release构建通过，4294输入无漂移；一次先前失败仅为并行GPU诊断中的Metal API名称，保留失败日志。独立Sol Xhigh审查及最终fixture差量复审通过。优化App SHA `599176bbc1f7e5e8c745ee48f991a04b59a863f0d2f0f01567b597659cf32470` 同时含已撤回的只读一次GPU资源资格诊断，未含后继GPU重排；属性产品源码与冻结身份一致。
 
 证据归 `.artifacts/tmp/prepared-callback-property-reachability-20261014/proof/`、两份runner报告与必要ready/after原图。原生UI首次setup因复制managed版本marker但无library index无法发现样本，退出后仅移走隔离副本marker再经原legacy discovery成功；原媒体未改。已退出的HOME/Workshop/tmp与重复编译转储按归属清理，保候选App供GPU后继基线及唯一连续DerivedData。资源/拓扑、真实快速竞态、多surface、HDR和长期切换仍按现役卡验收，不认领性能或专项完成。
+
+<a id="property-display-localization"></a>
+
+## 后继：属性展示本地化（2026-10-15）
+
+原生Scene属性标题、Text/Group和Combo标签沿[现役展示合同](../capabilities/runtime-input-property-coverage.md#display-localization)共用Foundation resolver与原Web语言/作者查表算法，作者译文优先，15项自编三语言词汇只用于原生显示；未知保作者原文，退出旧ui_editor隐藏/人类化。原Project已读输入保中性作者译表，native prepareRows准备显示串，语言版本进入原preparation失效，声明计入原4MiB；key、条件模型、hidden value、保存与callback payload不翻译。独审发现Web option.label会被mode.text消费，已让旧Web接口禁用新标准词表，保原作者译文及条件语义，未扩大模型迁移。
+
+只读清点280份作者project元数据得198个distinct ui_*展示token/1105次出现，首批15项590次，其余183项515次保原文；没有非空作者localization表。这是元数据频次，不能当作实际面板覆盖率；词条未按样本、属性key或type分支，未复制官方资源。完整有界清单与来源身份归proof中的ui-token-census.json。
+
+最近31个不同测试方法最终通过，涵盖资源/resolver、原生列表、preparation/routing及真实Project导入。Web反例沿真实options→condition链验证：无作者译文时ui_close的mode.text保持原文，作者明确译文仍按旧译文，hidden numeric value不变；夹具先确认标准资源确已装入Bundle，修后只重跑受影响方法。最终独审ACK；最终Debug构建通过，冻结App SHA `e2ddf9e2a7305541a4478a0d95ccf4dfb69a341a7444390bfeb5df69b4b213cf`，早先含Web问题的481f构建不作为最终验收，未将先前Release结果认作修后产品证据。
+
+同一最终App真实293面板显示“主题色”；Show detailed settings由0改1显示Breathe/Wink等子行，滚动、关闭重开保1，恢复默认回0并隐藏子行，全程一次launched/activated。切换独立3248220186后主题色/字体/大小/颜色可见，作者中英文及分组保留；未知长token换行无控件重叠，长Combo摘要沿原控件截断、菜单保原文，未测该Combo选择。324首帧已激活，原生停止及App退出0；这轮未做真实locale切换或Combo hidden-value编辑，相应边界由focused门覆盖，不能替代真实操作矩阵。
+
+同App独立324 runner完成PASS，loaded=1、failures=[]、exit0；实际查看scene-after-window.png可见蓝紫粒子球、光晕及中央时钟。particle_diagnostics仍有simulationLimitation，例如emitterSpeedUnsupported:range、audioResponseIgnored、vortexUnsupported、dynamicOverrideIgnored；不据此关闭完整粒子兼容、HDR或像素一致性。证据归 `.artifacts/tmp/property-display-localization-20261015/proof/` 的final-freeze/native-ui-result/final-review及最近门日志，独立实图和报告归同任务independent-render。保必要身份/日志/原图及当前连续App/DD供收尾，停止使用的隔离运行环境按归属清理；本片未做响应、CPU/GPU、内存或能耗收益验收，183个未审token、全本地化、多surface与长期切换仍开放。

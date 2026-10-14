@@ -75,6 +75,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Particles/SceneParticleWorldSpacePlan+Descriptor.swift",
     SOURCE_ROOT / "Rendering/Metal/SceneMetalPipeline.swift",
     SOURCE_ROOT / "Resources/Textures/SceneSolidLayerTexture.swift",
+    Path(__file__).resolve().parents[2] / "MyWallpaperX/Shared/WorkshopPropertyDisplayResolver.swift",
     SOURCE_ROOT / "Format/SceneProject.swift",
     SOURCE_ROOT / "Format/ScenePkgExtractionReport.swift",
     SOURCE_ROOT / "Resources/Assets/SceneResourceIndex.swift",

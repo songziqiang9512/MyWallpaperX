@@ -2005,7 +2005,10 @@
         "MyWallpaperX/Modules/SteamWorkshop/UI/WorkshopPropertySlider.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopWebPropertyEditorView.swift",
         "MyWallpaperX/Shared/UI/InspectorHostViewController.swift",
-        "script/tests/test_scene_prepared_callback_properties.py"
+        "script/tests/test_scene_prepared_callback_properties.py",
+        "MyWallpaperX/Shared/WorkshopPropertyDisplayResolver.swift",
+        "MyWallpaperX/Resources/WorkshopPropertyDisplayStrings.json",
+        "script/tests/test_workshop_property_display_localization.py"
       ],
       "modules": [
         "test_scene_detail_diagnostics_on_demand",
@@ -2016,7 +2019,8 @@
         "test_scene_runtime_input",
         "test_scene_native_property_list",
         "test_steam_property_window",
-        "test_scene_prepared_callback_properties"
+        "test_scene_prepared_callback_properties",
+        "test_workshop_property_display_localization"
       ]
     },
     {

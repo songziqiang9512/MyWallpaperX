@@ -154,17 +154,20 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
     }
 
     private func prepareRows() {
+        let displayResolver = WorkshopPropertyDisplayResolver(localization: context.propertyDisplayLocalization)
         for (index, definition) in context.definitions.enumerated() {
             if definition.kind == .unsupported {
                 let status = definition.runtimeType.isEmpty ? "缺少类型" : "不支持的类型：\(definition.runtimeType)"
-                titles[index] = "\(displayText(for: definition) ?? "未命名属性")\n\(status)"
+                titles[index] = "\(displayText(displayResolver.string(definition.title)) ?? "未命名属性")\n\(status)"
             } else if definition.kind == .group || definition.kind == .text {
-                guard let text = displayText(for: definition) else { continue }
+                guard let text = displayText(displayResolver.string(definition.title)) else { continue }
                 titles[index] = text
             } else {
-                titles[index] = title(for: definition)
+                titles[index] = displayText(displayResolver.string(definition.title)) ?? definition.key
             }
-            optionLabels[index] = definition.options.map { displayText($0.label) ?? $0.label }
+            optionLabels[index] = definition.options.map {
+                displayText(displayResolver.string($0.label)) ?? $0.label
+            }
             valueRows[definition.key, default: []].insert(index)
             let conditions = [definition.displayCondition] + definition.options.map(\.displayCondition)
             for condition in conditions.compactMap({ $0 }) {
@@ -758,20 +761,6 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         return String(format: "%.\(precision)f", value)
     }
 
-    private func title(for definition: SceneUserPropertyDefinition) -> String {
-        let title = displayText(for: definition) ?? ""
-        return title.isEmpty ? definition.key : title
-    }
-
-    private func displayText(for definition: SceneUserPropertyDefinition) -> String? {
-        if definition.kind == .text || definition.kind == .group,
-           definition.title.trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased().hasPrefix("ui_editor_") {
-            return nil
-        }
-        return displayText(definition.title)
-    }
-
     private func displayText(_ rawText: String) -> String? {
         let withLineBreaks = rawText.replacingOccurrences(
             of: "(?i)<br(?:\\s|/|&nbsp;)*?>",
@@ -783,32 +772,8 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
             with: " ",
             options: .regularExpression
         )
-        var text = SteamWorkshopService.normalizedWebPropertyTitleText(withoutTags)
+        let text = SteamWorkshopService.normalizedWebPropertyTitleText(withoutTags)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return nil }
-
-        if text.lowercased().hasPrefix("ui_editor_") {
-            text = humanizedEditorKey(text)
-        }
         return text.isEmpty ? nil : text
-    }
-
-    private func humanizedEditorKey(_ rawKey: String) -> String {
-        var key = String(rawKey.dropFirst("ui_editor_".count))
-        for prefix in [
-            "script_insert_property_",
-            "character_separation_",
-            "properties_",
-            "property_",
-            "effect_",
-            "preset_"
-        ] where key.hasPrefix(prefix) {
-            key.removeFirst(prefix.count)
-            break
-        }
-        if key.hasSuffix("_title") {
-            key.removeLast("_title".count)
-        }
-        return key.replacingOccurrences(of: "_", with: " ").capitalized
     }
 }

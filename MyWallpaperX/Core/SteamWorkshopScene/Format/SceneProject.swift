@@ -12,6 +12,7 @@ struct SceneProject {
     let userProperties: SceneUserPropertyCatalog
     /// Witness of the bytes already read by this loader, independent of overrides.
     var sourceWitness: String? = nil
+    var propertyDisplayLocalization: WorkshopPropertyLocalization = .empty
 
     nonisolated var entryURL: URL {
         rootURL.appendingPathComponent(entryPath)
@@ -74,7 +75,8 @@ struct SceneProjectLoader {
             title: root["title"] as? String,
             supportsAudioProcessing: general?["supportsaudioprocessing"] as? Bool ?? false,
             userProperties: SceneUserPropertyDefinitionParser().parse(projectRoot: root),
-            sourceWitness: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+            sourceWitness: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined(),
+            propertyDisplayLocalization: .init(projectRoot: root)
         )
     }
 

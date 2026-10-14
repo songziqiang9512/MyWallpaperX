@@ -21,6 +21,7 @@ final class SteamWorkshopSceneInspectionController {
         let updatedAt: Date
         let propertyOverrides: [String: SceneUserPropertyValue]
         let callbackPropertyVersion: SceneDaemonClient.ActiveCallbackPropertyFacts?
+        let displayLanguageVersion: [String]
 
         func hasSameAuthoredInput(as other: Identity) -> Bool {
             recordID == other.recordID && folderURL == other.folderURL
@@ -60,6 +61,7 @@ final class SteamWorkshopSceneInspectionController {
     private let onStateChange: @MainActor () -> Void
     private var launchObserver: NSObjectProtocol?
     private var activeSessionObserver: NSObjectProtocol?
+    private var localeObserver: NSObjectProtocol?
     private var closeObserver: NSObjectProtocol?
     private var terminationObserver: NSObjectProtocol?
     private var memoryPressure: DispatchSourceMemoryPressure?
@@ -93,6 +95,11 @@ final class SteamWorkshopSceneInspectionController {
             }
         }
         if ownsPropertyPreparation {
+            localeObserver = NotificationCenter.default.addObserver(
+                forName: NSLocale.currentLocaleDidChangeNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.refreshPropertyProjection() }
+            }
             activeSessionObserver = NotificationCenter.default.addObserver(
                 forName: .sceneDaemonActiveSessionFactsDidChange, object: nil, queue: .main
             ) { [weak self] notification in
@@ -132,7 +139,7 @@ final class SteamWorkshopSceneInspectionController {
             if let launchObserver {
                 NotificationCenter.default.removeObserver(launchObserver)
             }
-            for observer in [activeSessionObserver, closeObserver, terminationObserver].compactMap({ $0 }) {
+            for observer in [activeSessionObserver, localeObserver, closeObserver, terminationObserver].compactMap({ $0 }) {
                 NotificationCenter.default.removeObserver(observer)
             }
             memoryPressure?.cancel()
@@ -493,6 +500,8 @@ final class SteamWorkshopSceneInspectionController {
             if case let .string(string) = value { text(string) } else { cost += 128 }
         }
         text(identity.recordID); text(identity.folderURL.path)
+        cost += context.propertyDisplayLocalization.estimatedCost
+        for language in identity.displayLanguageVersion { text(language) }
         if let source = context.sourceIdentity {
             text(source.rootPath); text(source.projectWitness); text(source.sceneWitness)
         }
@@ -522,7 +531,8 @@ final class SteamWorkshopSceneInspectionController {
             propertyOverrides: service.scenePropertyOverrides(for: record),
             callbackPropertyVersion: SceneDaemonClient.shared.activeCallbackPropertyFacts.flatMap {
                 $0.recordID == record.id ? $0 : nil
-            }
+            },
+            displayLanguageVersion: WorkshopPropertyDisplayResolver.languageVersion
         )
     }
 

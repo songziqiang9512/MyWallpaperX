@@ -6,6 +6,7 @@ struct SteamWorkshopScenePropertyContext {
     let actionableKeys: Set<String>
     let staticActionableKeys: Set<String>
     let sourceIdentity: ScenePreparedCallbackPropertyReachability.Source?
+    let propertyDisplayLocalization: WorkshopPropertyLocalization
     let effectiveValues: [String: SceneUserPropertyValue]
     let definitions: [SceneUserPropertyDefinition]
     let conditionPrograms: [String: SteamWorkshopService.WebDisplayConditionProgram]
@@ -16,12 +17,14 @@ struct SteamWorkshopScenePropertyContext {
         actionableKeys: Set<String>,
         effectiveValues: [String: SceneUserPropertyValue],
         callbackPropertyKeys: Set<String> = [],
-        sourceIdentity: ScenePreparedCallbackPropertyReachability.Source? = nil
+        sourceIdentity: ScenePreparedCallbackPropertyReachability.Source? = nil,
+        propertyDisplayLocalization: WorkshopPropertyLocalization = .empty
     ) {
         self.catalog = catalog
         self.staticActionableKeys = actionableKeys
         self.actionableKeys = actionableKeys.union(callbackPropertyKeys)
         self.sourceIdentity = sourceIdentity
+        self.propertyDisplayLocalization = propertyDisplayLocalization
         self.effectiveValues = effectiveValues
         let prepared = Self.editorDefinitions(
             in: catalog.definitions,
@@ -303,7 +306,8 @@ extension SteamWorkshopService {
             catalog: catalog,
             actionableKeys: actionableKeys,
             effectiveValues: catalog.effectiveValues(overrides: scenePropertyOverrides(for: record)),
-            sourceIdentity: sourceIdentity
+            sourceIdentity: sourceIdentity,
+            propertyDisplayLocalization: project.propertyDisplayLocalization
         ), for: record)
     }
 
@@ -316,7 +320,8 @@ extension SteamWorkshopService {
         let context = SteamWorkshopScenePropertyContext(catalog: prepared.catalog,
             actionableKeys: prepared.staticActionableKeys,
             effectiveValues: prepared.catalog.effectiveValues(overrides: scenePropertyOverrides(for: record)),
-            callbackPropertyKeys: callbackKeys, sourceIdentity: prepared.sourceIdentity)
+            callbackPropertyKeys: callbackKeys, sourceIdentity: prepared.sourceIdentity,
+            propertyDisplayLocalization: prepared.propertyDisplayLocalization)
         let catalog = context.catalog
         return context.actionableDefinitions.isEmpty && catalog.unsupportedDefinitions.isEmpty ? nil : context
     }

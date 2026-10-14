@@ -736,7 +736,71 @@ enum InspectorHostActions {
 '''
 
 
+LOCALIZATION_HARNESS = r'''
+@main enum DisplayProbe {
+    @MainActor static func main() {
+        _ = NSApplication.shared
+        let record = SteamWorkshopDownloadRecord(id: "renamed-wallpaper", title: "own")
+        func definition(_ key: String, _ kind: SceneUserPropertyKind, _ title: String,
+                        _ value: SceneUserPropertyValue = .bool(false), options: [SceneUserPropertyOption] = []) -> SceneUserPropertyDefinition {
+            .init(key: key, title: title, kind: kind, runtimeType: kind.rawValue, order: 0, index: nil,
+                minimumValue: nil, maximumValue: nil, stepValue: nil, allowsFractionalValues: false,
+                fractionalPrecision: nil, displayCondition: nil, defaultValue: value, options: options)
+        }
+        let unknown = "ui_editor_author_private_name"
+        let definitions = [definition("heading", .group, "ui_editor_preset_clock_title"),
+            definition("note", .text, "ui_editor_properties_text"),
+            definition("renamed_boolean", .bool, "ui_browse_properties_scheme_color"),
+            definition("unresolved", .bool, unknown),
+            definition("renamed_mode", .combo, "Author choice", .string("hidden0"), options: [
+                .init(label: "ui_close", value: .string("hidden0"), displayCondition: nil),
+                .init(label: "ui_editor_properties_color", value: .string("hidden1"), displayCondition: nil)]),
+            definition("unknown_text", .text, unknown), definition("unknown_group", .group, unknown),
+            definition("tail", .bool, "Author tail")]
+        let catalog = SceneUserPropertyCatalog(definitions: definitions)
+        let context = SteamWorkshopScenePropertyContext(catalog: catalog,
+            actionableKeys: Set(definitions.map(\.key)), effectiveValues: catalog.defaultValues)
+        let editor = SteamWorkshopScenePropertyEditorView(record: record, context: context)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 650, height: 700),
+            styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false; window.contentView = editor
+        window.makeKeyAndOrderFront(nil); editor.layoutSubtreeIfNeeded()
+        func descendants<T: NSView>(_ view: NSView, _ type: T.Type) -> [T] {
+            (view as? T).map { [$0] } ?? view.subviews.flatMap { descendants($0, type) }
+        }
+        let list = descendants(editor, NSCollectionView.self).first!
+        precondition(list.numberOfItems(inSection: 0) == 8, "known and unknown Text/Group must retain authored rows")
+        var labels: [String] = []
+        for row in 0..<8 {
+            list.scrollToItems(at: [IndexPath(item: row, section: 0)], scrollPosition: .nearestHorizontalEdge)
+            editor.layoutSubtreeIfNeeded(); window.displayIfNeeded()
+            guard let cell = list.item(at: IndexPath(item: row, section: 0))?.view else { fatalError("missing row") }
+            labels += descendants(cell, NSTextField.self).map(\.stringValue)
+            if row == 4 {
+                let popup = descendants(cell, NSPopUpButton.self).first!
+                precondition(["Close", "关闭", "關閉"].contains(popup.itemTitle(at: 0)), "option label must resolve")
+                popup.selectItem(at: 1)
+                _ = NSApp.sendAction(popup.action!, to: popup.target, from: popup)
+            }
+        }
+        precondition(labels.contains(where: { ["Clock", "时钟", "時鐘"].contains($0) }), "known Group must display its translation")
+        precondition(labels.contains(where: { ["Text", "文本", "文字"].contains($0) }), "known Text must display its translation")
+        precondition(labels.filter { $0 == unknown }.count == 3, "unknown title/Text/Group must retain exact token")
+        precondition(SteamWorkshopService.shared.events.count == 1
+            && SteamWorkshopService.shared.events[0].0 == "renamed_mode"
+            && SteamWorkshopService.shared.events[0].1 == .string("hidden1"), "localized labels must not alter submitted key or hidden value")
+        precondition(context.catalog.definitions[4].options[0].label == "ui_close", "raw catalog must remain authored")
+        window.close()
+        print("native known/unknown Text Group option display and original payload PASS")
+    }
+}
+'''
+
+
 class NativeScenePropertyListTests(unittest.TestCase):
+    def test_localized_display_and_unchanged_hidden_values(self):
+        self.run_probe(LOCALIZATION_HARNESS)
+
     def test_native_owner_controls_and_events(self):
         self.run_probe(HARNESS)
 
@@ -769,7 +833,9 @@ class NativeScenePropertyListTests(unittest.TestCase):
             # Substitute only the system dialog leaf so its asynchronous reply
             # can be delivered after hidden/closed; nonce/window/row owner stays production.
             editor.write_text(EDITOR.read_text().replace('NSOpenPanel()', 'PickerProbe()'))
-            sources = [ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift',
+            (Path(folder) / 'WorkshopPropertyDisplayStrings.json').write_bytes((ROOT / 'MyWallpaperX/Resources/WorkshopPropertyDisplayStrings.json').read_bytes())
+            sources = [ROOT / 'MyWallpaperX/Shared/WorkshopPropertyDisplayResolver.swift',
+                       ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift',
                        ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift',
                        ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift',
                        MODULE / 'Web/Core/SteamWorkshopWebPropertyModels.swift',

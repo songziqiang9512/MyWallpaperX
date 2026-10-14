@@ -27,6 +27,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/ScenePkgReader.swift",
     SCENE_ROOT / "Format/ScenePkgCacheExtractor.swift",
     *(path for path in DOCUMENT_SWIFT_SOURCES if path.name != "SceneUserPropertyResolutionStub.swift"),
+    Path(__file__).resolve().parents[2] / "MyWallpaperX/Shared/WorkshopPropertyDisplayResolver.swift",
     SCENE_ROOT / "Format/SceneProject.swift",
     SCENE_ROOT / "Format/ScenePkgExtractionReport.swift",
     SCENE_ROOT / "Resources/Assets/SceneResourceIndex.swift",

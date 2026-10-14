@@ -289,6 +289,7 @@ class SceneWallpaperLifecycleTests(unittest.TestCase):
                     str(SCRIPT_DIR.parent / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift"),
                     str(SCRIPT_DIR.parent / "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneCompatibilityContext.swift"),
                     str(SCRIPT_DIR.parent / "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneProject.swift"),
+                    str(SCRIPT_DIR.parent / "MyWallpaperX/Shared/WorkshopPropertyDisplayResolver.swift"),
                     str(harness),
                     "-o",
                     str(binary),

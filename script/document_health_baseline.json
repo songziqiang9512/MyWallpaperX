@@ -98,7 +98,7 @@
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
-      "bytes": 192111
+      "bytes": 190891
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -266,7 +266,7 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
-      "bytes": 5378
+      "bytes": 5808
     }
   },
   "archives": [
@@ -1075,12 +1075,12 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "0dfb3c56b7b87226100b2c908c697cff44de53f2f7875ca7d8702df80d1827ba",
-      "after": "e52d3edb4c387728814ac3525c5b7d7cb12f81b4966b9755830ee624f8b70545",
-      "owner": "Scene maintainers",
-      "reason": "Retire two-screen GPU segmentation without whole-process benefit",
-      "decision": "docs/scene/architecture/scene-resource-admission.md"
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "868824eaa60875106196a93dd3f36d3932852a701430a6a79f7fb0d4c5ddc82b",
+      "after": "737382909a6dca108c44eda49690478ef0c8962f11c773fc6a8264dd42f9a359",
+      "owner": "Scene property display owner",
+      "reason": "Display-only localization contract and acceptance; obsolete callback design condensed into existing contract/history.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#display-localization"
     }
   ]
 }

@@ -27,6 +27,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneCompatibilityContext.swift",
     SCENE_ROOT / "Format/SceneDocument+ShaderValue.swift",
     SCENE_ROOT / "Format/SceneDocument+NumericParsing.swift",
+    Path(__file__).resolve().parents[2] / "MyWallpaperX/Shared/WorkshopPropertyDisplayResolver.swift",
     SCENE_ROOT / "Format/SceneProject.swift",
     REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
     REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift",
