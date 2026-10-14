@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 40,
-      "bytes": 8536
+      "bytes": 8529
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1363,15 +1363,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "2d65070b8813a80e0bc59309fda6ab7154f9916112cbc7c5a818b1ead1e4f561",
-      "after": "c53c77a01cc8a4df3aa12bffc56b6a4fc0a581ecf1a3f765bd20e3229cc8144b",
-      "owner": "Scene性能短筛",
-      "reason": "未达App继续门后撤回材质帧载荷候选，设计与数据归原历史；现役卡只留决定及下一项并收紧体积基线。",
-      "decision": "docs/scene/history/compiled-variant-frame-program-convergence-2026-10-13.md#material-frame-payload-screen"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "db9a7ad562846d17e3b55738cb5a668e71902c8b607f98d9614595e25575684d",
       "after": "3a06d419bf432f6e07166cceb941225ba9d5727ee32951c5dd6e7acb5fcd98c5",
@@ -1387,6 +1378,15 @@
       "owner": "Scene 属性热更新",
       "reason": "同owner收窄定义型Bool准入；原生详细行编辑与reset避免重建，并保留其他类型与性能验收边界。",
       "decision": "docs/scene/history/property-condition-reachability-2026-10-13.md#unbound-bool-live-update"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "c53c77a01cc8a4df3aa12bffc56b6a4fc0a581ecf1a3f765bd20e3229cc8144b",
+      "after": "b344e03606630424af296102230022e6a8df8853df185f7b4f53230efe2d04c7",
+      "owner": "Scene 性能收敛",
+      "reason": "指定暖帧33层均有prepared读取，停止简单capture省略；Bool交互已交付，续查完整资源事务成本。",
+      "decision": "docs/scene/history/gpu-cost-screening-2026-10-14.md#后继同帧无用source-capture资格观察"
     }
   ]
 }

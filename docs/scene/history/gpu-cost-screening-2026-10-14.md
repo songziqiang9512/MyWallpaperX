@@ -80,3 +80,11 @@ App74e16d63、真实304/单surface、30秒暖机后8秒观察，唯一complete s
 整体短筛不支持保留，立即停止扩测并精确撤回全部产品、设计登记及未执行测试接线；不为已花成本补Debug build、独立样本、三对或长切换。完整源码/patch、已运行pool事实、未运行Graph/Coordinator门标记及撤回SHA留`proof/rejected-prototype/`，静态/数值独审接受该边界。每帧新增pin/锁及resident遍历只是可定位额外工作，未单独归因；不能继续用减少pass数声称性能收益。当前不保留capture cache，下一项由性能/属性工作卡选序；共享DD的Release包含已撤回候选，后续使用前须重建。
 
 本轮精确清理候选App、原copy实验binary/library和重复输出226,737,248B，保两张after图、压缩日志、输入身份、完整撤回源码与收据；连续迭代只复用原共享DD。证据提升先触32MiB单包上限、分别提升又触现有1GiB总额；prune无可删包，故保本批压缩最小材料于任务目录，不提高额度或删除未知历史。
+
+## 后继：同帧无用source capture资格观察
+
+冻结优化诊断App `34aa8e2b…`沿原资源encoder投影prepared读取，在Graph最终prepare、terminal preserve copy及replay替换之后，对指定frame1800只记录一次资格，不省略encode。真实304/单surface/60FPS/静音、duration50/warm30、关闭execution observations；启动ready为26.686秒，33行出现在ready后29.953–29.956秒。帧号由clock推进，观察不证明提交或完成，也不作为GPU/准备耗时或启动收益。一次Release诊断构建4294输入无漂移，临时两路径已精确还原；完整身份、patch及[原始报告](../../../.artifacts/tmp/dead-source-capture-observation-20261014/observation/report.json)保留。
+
+[资格摘要](../../../.artifacts/tmp/dead-source-capture-observation-20261014/proof/observation-summary.json)与raw复算一致：同executor/reset/frame共33层、14,614,180pixels，eligible0，issues空，全部因`read-or-output-root`保留。33层均有materialReads（25层1次、6层2次、2层3次，共43引用），16层另有rootReads，共32引用；resource/replay/unknown/sideEffects均0。这些是prepared纹理引用计数，未按覆盖前后区分内容版本；因此停止本次“无任何读取或输出root”的简单候选，不能证明更细存活分析无机会，不实现产品、不计GPU节省。
+
+App exit0、无timeout、测量窗failedFrames0，停止后surface1→0且gpuDrained；工具exit1含两项：原`particle loading incomplete`，以及33条临时资格日志被严格parser计为`resolved material graph observation diagnostic reported`。后者failed_outcome/gpu_failed均0，仍不称产品PASS；本次没有实际省略编码、像素对照、正式性能验收或能耗结论。

@@ -17,7 +17,7 @@
 
 已停止无收益候选：[C消融](../history/script-c-codegen-ablation-2026-10-14.md)、[working-view](../history/graph-residency-query-convergence-2026-10-14.md#后继working-view-查询短筛产品候选已撤回)、[粒子排序](../history/particle-world-depth-2026-10-11.md#后继粒子排序成本短筛2026-10-14)和[capture缓存](../history/gpu-cost-screening-2026-10-14.md#后继capture结果缓存短筛撤回)已撤回；[shader identity](../history/shader-identity-hash-screen-2026-10-14.md)与[属性JSON复用](../history/property-callback-recovery-2026-10-14.md#prepared-property-json)App短筛未达继续门。[GPU筛选](../history/gpu-cost-screening-2026-10-14.md)保普通image片元高成本事实，附件读取/modulation/sampler均未通过继续门，exact-copy资格33/33拒绝；不再盲筛shader或同类缓存。CPU尺寸对象缓存改变JS引用身份，未实施。
 
-**下一批**：属性线续接无运行consumer的条件Bool避免重建；GPU先用指定暖帧的prepared-only读取资格观察否证无用capture，有显著面积命中再实施，不把准备资格称为GPU节省。CPU不继续uniform/identity局部微调，依整体热点重新选题。GPU合批先证明物理纹理不别名，不能用新增复制/驻留换pass下降。base-image/natural-size、MDL双阶段、分阶段首帧、长期轻重切换待验；旧E/AS的上传并发/峰值、聚合预算、静态按需/多屏背压、冷暖编译、媒体/音频开销与最低设备/长稳恢复仍是条件候选，按实际热点启用，不因归档完成。shader fallback未完成合法输入与回退审计前不得退役。
+**下一批**：条件Bool避免重建已提交`0eeb2e45`；GPU暖帧资格观察33/33均有prepared material读取，简单dead-capture候选停止，不计GPU收益或排除更细存活分析。CPU先以当前实栈确认完整allocation事务的重复成本，不继续uniform/identity局部微调。GPU合批须先证明物理纹理不别名，不能以新增复制/驻留换pass下降。base-image/natural-size、MDL双阶段、分阶段首帧、长期轻重切换待验；旧E/AS的上传并发/峰值、聚合预算、静态按需/多屏背压、冷暖编译、媒体/音频开销与最低设备/长稳恢复仍按实际热点启用，不因归档完成。shader fallback未完成合法输入与回退审计前不得退役。
 
 <a id="prepared-material-frame-payload"></a>
 
