@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 30,
-      "bytes": 8267
+      "bytes": 8614
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1382,11 +1382,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "1843598e13c795d8e270a2b5b939729377fb9761a5acc8c2a4ca08e2ac006923",
-      "after": "d465734c041da2fb7d783b35ab5fcbe414c5527b9b02f9d07dcf4e40b7403ec3",
-      "owner": "Scene property event preparation",
-      "reason": "复用现有revision JSON，记录ack与回滚边界及局部收益；单对整体CPU未达继续门，不扩测",
-      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#prepared-property-json"
+      "before": "d465734c041da2fb7d783b35ab5fcbe414c5527b9b02f9d07dcf4e40b7403ec3",
+      "after": "c981a8abcffd593872e37289788e779855c9ab009fbc9dd4e18ac2eb5cdb4a72",
+      "owner": "Scene performance convergence",
+      "reason": "Record bounded GPU command attribution and reject identity-changing CPU snapshot cache; no performance acceptance.",
+      "decision": "docs/scene/history/gpu-cost-screening-2026-10-14.md"
     }
   ]
 }

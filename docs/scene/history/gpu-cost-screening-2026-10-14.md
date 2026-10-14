@@ -43,3 +43,11 @@
 未验证正式WMO/Release、跨样本性能、多屏、长期切换、能耗或温度；没有候选App对照或正式性能收益。命令导航错误和返回0仍含error的无效查询保留并排除；修正后的JSON与六份counter才是归因输入。
 
 唯一trace已按[清理收据](../../../.artifacts/tmp/gpu-cost-attribution-20261014/proof/cleanup-result.json)精确删除：634条文件记录含237个内部symlink，逻辑1,100,004,003字节，唯一普通文件836,680,355字节。删除前重核全部hash、无session/进程/句柄；[逐文件清单](../../../.artifacts/tmp/gpu-cost-attribution-20261014/proof/trace-file-manifest.json)、原始JSON和测试收据保留，未额外归档trace。当前行级映射未证，后续source-enabled capture须另身份；保留原始归因摘要及追加后继screen的摘要，staging时的app_launched=false不代表该App从未运行。
+
+## 后继：普通 draw 的执行计数
+
+[本机工具核验](../../../.artifacts/tmp/gpu-execution-attribution-20261014/proof/summary.json)确认`gpudebug 1.0`支持源码浏览、draw/stage Cost、heatmap和timeline；安装的help/man没有公开PC采样、行级Cost或Shader Cost Graph入口。源码可读不等于执行归因，不为未经证明的行级能力先做source-enabled构建。
+
+随后沿冻结App `ee885541…`、真实304、相同优化诊断配置采一个Layer帧，App退出后仅做一次离线profile。[离线归因摘要](../../../.artifacts/tmp/gpu-execution-attribution-20261014/offline/result-summary.json)保留最高普通draw的command-scope fragment ALU计数222,754,400，Integer/Conditional/Boolean占70.21%，float/half占17.02%/12.77%，ALU inefficiency为0.13%。工具将后者定义为分歧、部分SIMD或不完整2×2覆盖导致的predicated-out指令比例；它降低“大面积分歧浪费”的排查优先级，不定位某条源码或证明sampler/modulation成本。普通shader聚合Cost64.7737%、最高draw11.9221%仍是工具Cost，不是独占时间。
+
+请求default/overlapping，嵌入记录为medium、仅2/10核；shader timeline末点13.029ms还超过全帧显示10.246125ms，原值并存，不强算critical path。四类heatmap已保存；视看cost/non-ALU/divergence仅见稀疏tile，未建立内容局部热点，黑区不能当零成本，跨图颜色不能推算时间比。已终止唯一session，默认临时目录的9个输出逐一验SHA后迁入证据目录并删除原副本。此次停止探针和盲目shader修改：没有源码行归因、候选对照或性能收益，未完成GPU/能耗验收；执行顺序仍归性能卡。
