@@ -646,7 +646,36 @@ enum Harness {
             from: beforeUnavailableScriptEvent
         )
 
-        let payload: [String: Bool] = [
+        var repeatFacts: [String: Bool] = [:]
+        for key in ["value", "renamed_level"] {
+            let repeatedProgram = program(bindings: [
+                (key, alphaOne, .scalar, .scalar(0.5)), ("enabled", layoutOne, .bool, .bool(true)),
+                ("caption", .text(layerID: 12, field: .content), .string, .string("kept")),
+                ("accent", color, .vector3, .vector3(1, 1, 1))], rebuildRequiredKeys: [key])
+            let values: [String: SceneUserPropertyValue] = [key: .number(0.5), "enabled": .bool(true), "caption": .string("kept"), "accent": .string("1 1 1")]
+            let targets = Set(repeatedProgram.instructions.map(\.target))
+            var repeated = ScenePropertyLiveUpdateState(program: repeatedProgram,
+                effectiveValues: values.merging(["orphan": .number(2)]) { old, _ in old }, activeConsumerTargets: targets)
+            let before = repeated
+            repeatFacts[key + "-same"] = repeated.apply(replacements: values, changedPropertyKeys: Set(values.keys), unavailableConsumerTargets: targets)
+                && unchanged(repeated, from: before) && repeated.revision == before.revision
+            var inactive = ScenePropertyLiveUpdateState(program: repeatedProgram, effectiveValues: values, activeConsumerTargets: [])
+            repeatFacts[key + "-inactive"] = inactive.apply(.string("kept"), forPropertyKey: "caption")
+                && inactive.effectiveValues == values && inactive.userValues == before.userValues && inactive.revision == 0
+            let attempts: [(String, [String: SceneUserPropertyValue], Set<String>)] = [
+                ("orphan", ["orphan": .number(2)], ["orphan"]), ("missing", ["missing": .number(0.5)], ["missing"]),
+                ("absentRemoval", [:], ["missing"]), ("deletion", [:], [key]), ("type", [key: .string("0.5")], [key]),
+                ("mixed", [key: .number(0.5), "caption": .string("changed")], [key, "caption"])]
+            for (name, replacements, keys) in attempts {
+                var candidate = repeated
+                repeatFacts[key + "-" + name] = !candidate.apply(replacements: replacements, changedPropertyKeys: keys)
+                    && unchanged(candidate, from: before) && candidate.revision == before.revision
+            }
+            repeatFacts[key + "-resourceCheck"] = !repeated.apply(replacements: ["caption": .string("kept")], changedPropertyKeys: ["caption"],
+                unavailableConsumerTargets: targets, preparedTexturePropertyKeys: ["caption"])
+                && unchanged(repeated, from: before) && repeated.revision == before.revision
+        }
+        var payload: [String: Bool] = [
             "initialEvaluatedAllTargets": initialEvaluatedAllTargets,
             "revisionBumpedAfterAcceptedApply":
                 revisionBumpedAfterAcceptedApply,
@@ -726,6 +755,7 @@ enum Harness {
             "unavailableScriptEventRejected": unavailableScriptEventRejected,
             "unavailableScriptEventWasAtomic": unavailableScriptEventWasAtomic,
         ]
+        payload.merge(repeatFacts) { _, new in new }
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
@@ -874,6 +904,11 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
         self.assertTrue(self.result["rebuildWasAtomic"])
         self.assertTrue(self.result["mixedRejected"])
         self.assertTrue(self.result["mixedWasAtomic"])
+
+    def test_exact_known_resends_are_noops_without_broadening_changed_or_resource_admission(self) -> None:
+        for key in ["value", "renamed_level"]:
+            for case in ["same", "inactive", "orphan", "missing", "absentRemoval", "deletion", "type", "mixed", "resourceCheck"]:
+                self.assertTrue(self.result[key + "-" + case], key + "-" + case)
 
     def test_shared_key_requires_every_consumer_to_be_active(self) -> None:
         self.assertTrue(self.result["partialConsumerRejected"])

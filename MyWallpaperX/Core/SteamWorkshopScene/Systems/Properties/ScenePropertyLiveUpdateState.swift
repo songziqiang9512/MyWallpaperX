@@ -63,6 +63,17 @@ nonisolated struct ScenePropertyLiveUpdateState {
     ) -> Bool {
         guard !changedPropertyKeys.isEmpty else { return true }
 
+        // A known ordinary value resend needs no consumer or structural change.
+        // Resource requests retain their original validation and retry path.
+        if preparedTexturePropertyKeys.isDisjoint(with: changedPropertyKeys),
+           changedPropertyKeys.allSatisfy({ key in
+               guard let current = effectiveValues[key], let replacement = replacements[key] else { return false }
+               let known = instructionsByPropertyKey[key]?.isEmpty == false
+                   || scriptUserPropertyConsumerTargetsByKey[key]?.isEmpty == false
+                   || rebuildRequiredKeys.contains(key)
+               return known && replacement == current
+           }) { return true }
+
         guard rebuildRequiredKeys.isDisjoint(with: changedPropertyKeys) else {
             return false
         }

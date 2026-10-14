@@ -98,7 +98,7 @@
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 568,
-      "bytes": 182960
+      "bytes": 183189
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -266,7 +266,7 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
-      "bytes": 4017
+      "bytes": 4200
     }
   },
   "archives": [
@@ -1364,20 +1364,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "2b5723281a590731426195d4f5336d519be7bdd682260b03ac389ae31619c6ef",
-      "after": "d852e684ef4f38d626fbd8c99c070b03d42b4a24b3cf7899acc69041b80ece9a",
-      "owner": "Scene property panel",
-      "reason": "Preserve unknown definitions as read-only rows and retain reset for condition controllers; runtime type support remains open.",
-      "decision": "docs/scene/history/native-property-list-convergence-2026-10-14.md#未知类型只读投影"
+      "before": "d852e684ef4f38d626fbd8c99c070b03d42b4a24b3cf7899acc69041b80ece9a",
+      "after": "6c575bdf496cf8461dccb2c26fc80db2ee0a757c4a458929ae80844ab8b73cf6",
+      "owner": "scene-runtime-maintainer",
+      "reason": "Record bounded same-value admission and rejected cost experiments in existing authorities; keep evidence in history.",
+      "decision": "docs/development/repository-workflow.md#设计判定与记录"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "557a85fffaddc357d9c8e3af8aef0f2df52718d7c9c812db11afa2c8e650b862",
-      "after": "968df18c35fd6991e8ee22ae145ff2fdcf8da1ea8add04fcc9e43404bed24bf1",
-      "owner": "Scene property panel",
-      "reason": "Preserve unknown definitions as read-only rows and retain reset for condition controllers; runtime type support remains open.",
-      "decision": "docs/scene/history/native-property-list-convergence-2026-10-14.md#未知类型只读投影"
+      "before": "968df18c35fd6991e8ee22ae145ff2fdcf8da1ea8add04fcc9e43404bed24bf1",
+      "after": "b8aaf302e0e30aa9eddbd4d4732937fdabf60defbc41224e887f2d1f710c220e",
+      "owner": "scene-runtime-maintainer",
+      "reason": "Record bounded same-value admission and rejected cost experiments in existing authorities; keep evidence in history.",
+      "decision": "docs/development/repository-workflow.md#设计判定与记录"
     },
     {
       "section": "bodies",

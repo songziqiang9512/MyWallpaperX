@@ -66,3 +66,16 @@ Apple M4、相同 OS/3024×1964 单屏、相同隔离样本与默认属性、实
 最近真实QuickJS门66事实与String生命周期4测试通过；覆盖改名/等价、连续badReturn、成功后拒绝重放、ack去重、显式prepared与省略默认入口、delta及清空。新增String夹具首轮5项失败来自descriptor/binding源码身份不一致，修正夹具后只重跑受影响门，未改产品准入或放宽oracle。原304两边正常退出，人物、建筑、星空与运行时钟保留，原粒子FAIL不变；独立Bunk复用相同B身份/内容/工具配置，只补C实图，房间、树木、家具、光影与时钟保留，原27项FAIL完全一致。C的Bunk退出31/31 owner quiescent、timer/job/mutation/dynamicLayer均0；未重验普通面板入口、HDR/history、最低设备、多屏或长期切换。
 
 本批证据归`.artifacts/tmp/property-json-reuse-20261014/proof/`及三个运行报告/必要截图；不用的编译中间产物、转储和临时运行环境按归属清理，保当前候选App及原连续DD供续接。下一步先核GPU工具能否给出普通image/source的实际执行归因，再决定最小实验；CPU备用为已在栈中命中的VM尺寸Vec2重复准备，不能跳过作者保留旧对象、resize与多surface语义。执行顺序仍归现役卡，不新增计划或状态入口。
+
+
+<a id="ordinary-value-resend"></a>
+
+## 后继：普通同值重发不触发结构重建
+
+原生slider量化后可连续发送相同值，LiveState原先在同值判断前拒绝结构键或不可用consumer，client收到false后走requestLaunch。本批在唯一有效值owner提前接受已知普通键的严格typed同值重发：整请求均有当前值/替换值，且由instruction、script consumer或rebuild集合识别；不改值、revision、payload或回调ack。未知键、删除、缺值、错类型及混有真实变化的请求保原验证，prepared texture键即便同路径也保加载/重试事务。未缓存UI猜测值，未增加热更新能力。
+
+冻结原实现配新回归复现1项失败；修后17测试通过，两组改名覆盖scalar/Bool/text/color、不可用consumer、结构键和上述相邻反例。Debug与优化诊断各构建一次，4294输入无漂移。实际304 Host以g_zoom=.73/cloud=true启动，顺序重发.73、改.74、关闭cloud：基线86b320df为false/false/true，候选bae53b53为true/false/true；g_zoom确属rebuild集合，cloud到482.visibility。候选单session/同一窗口，ready/after原图中右下云层消失，人物、星空和时钟继续；退出71/71 quiescent，surface 1→0、GPU排空。Host不调用client的拒绝后重启，故不把本次Host基线false记成实际重建次数；client出口沿未修改代码核对。
+
+独立Bunk复用86b320df报告，仅补候选真实运行；媒体与matrix hash相同，原27项FAIL列表相同，房间、家具、树木及运行时钟保留。两次实际时刻17:24/18:40不同，窗外日夜与灯光明显不同，未锁wall clock，因此不宣称逐像素或光照等价。此次未重验普通面板完整交互、待处理launch取消窗口、多surface或HDR；未量编辑延迟、CPU/GPU、内存、温度/功耗收益，不沿用前批69.5%的数字。
+
+证据归`.artifacts/tmp/property-repeat-noop-20261014/proof/`及`bunk-candidate/report.json`，复用前批App/回归入口与当前连续DD，不重跑全矩阵。保一份候选App供续批；原始报告、必要画面及输入身份保留，弃用临时样本/编译环境与重复转储按归属清理。待处理launch在live判定前被取消的现有边界仍开放，不能用同值接受推断其仲裁已修复。
