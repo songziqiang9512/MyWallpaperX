@@ -22,25 +22,28 @@ extension AppKitSteamWorkshopItemDetailView {
     /// several `objectWillChange` pulses in a row and a full rebuild tears
     /// down and recreates ~60-80 views each time. Sinks mark dirty here and
     /// one rebuild runs per main-queue pass with the latest state.
-    func scheduleRebuild() {
+    func scheduleRebuild(force: Bool = false) {
+        isForcedRebuildScheduled = isForcedRebuildScheduled || force
         guard !isRebuildScheduled else { return }
         isRebuildScheduled = true
         DispatchQueue.main.async { [weak self] in
             guard let self, self.isRebuildScheduled else { return }
+            let force = self.isForcedRebuildScheduled
+            self.isForcedRebuildScheduled = false
             self.isRebuildScheduled = false
-            self.currentItem = self.resolvedCurrentItem(fallback: self.currentItem)
-            self.rebuild()
+            if force { self.rebuild() }
+            else { self.rebuildIfDisplayChanged() }
         }
     }
 
     func observeService() {
         WallpaperManager.shared.objectWillChange
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.scheduleRebuild() }
+            .sink { [weak self] _ in self?.scheduleRebuild(force: true) }
             .store(in: &cancellables)
         NotificationCenter.default.publisher(for: .sceneWallpaperLaunchStateDidChange)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.scheduleRebuild() }
+            .sink { [weak self] _ in self?.scheduleRebuild(force: true) }
             .store(in: &cancellables)
 
         service.objectWillChange
@@ -54,12 +57,12 @@ extension AppKitSteamWorkshopItemDetailView {
                 guard let self else { return }
                 self.service.steamSubscriptions.synchronizeAccount()
                 if self.service.steamAuth.isOnline { self.subscriptionHint = nil }
-                self.scheduleRebuild()
+                self.scheduleRebuild(force: true)
             }
             .store(in: &cancellables)
         service.steamSubscriptions.objectWillChange
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.scheduleRebuild() }
+            .sink { [weak self] _ in self?.scheduleRebuild(force: true) }
             .store(in: &cancellables)
 
         NotificationCenter.default.publisher(for: WebRuntimeDiagnosticsStore.didChangeNotification)

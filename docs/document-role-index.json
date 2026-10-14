@@ -1817,6 +1817,18 @@
       "uniqueValue": "条件可达定义闭合、唯一条件/数字文本准备链、三轮CPU与实际格式交互、不同媒体状态的失败保留边界"
     },
     {
+      "path": "docs/scene/history/property-detail-invalidation-convergence-2026-10-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/properties-panel-card.md",
+        "docs/scene/roadmap/performance-convergence-card.md"
+      ],
+      "cutoffDate": "2026-10-15",
+      "uniqueValue": "原详情52行为事实、共同active activity控制窗CPU与前轮无资格原数、唯一高度约束及原生实际编辑/停止/独立画面边界"
+    },
+    {
       "path": "docs/scene/history/property-preparation-convergence-2026-10-13.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -2875,10 +2887,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f27fc265398730618283162d8c7a1c131290497bb4f2a9f6d65cfa35ef061119",
+        "sourceSHA256": "f3648e5abf42dc783c31304f4f6ffbcdc07ff8223e8a6990093c225cb19fd311",
         "method": "document_registry --audit + document_health --check",
-        "scope": "static TEX短筛STOP与206既有纹理画面/逐key reset边界导航；保留未证性能/精确slot与继承棘轮项",
-        "limitations": "仅本次合同与证据职责/导航核对；不代表全部引擎、设备、官方parity或稳定性能验收"
+        "scope": "详情失效现役合同/52行为门/controlled局部CPU与原生验收的职责导航，后继暖capability CPU/RAM归因；旧NO-GO保留",
+        "limitations": "仅文档与导航核对，运行范围由history证据限定；不称整App性能、多屏、全部媒体入口或官方parity。"
       }
     },
     {
@@ -2889,10 +2901,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "522f22d354ba0badefd0bf8412c6a9ea9b45a61d6ce85f4f7eea1cde3ba5df24",
+        "sourceSHA256": "0c06c1d46cb6094da53b734c5a5d83620a44f8a99584f9de8831f1db0c0e4dc7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "static TEX短筛STOP与206既有纹理画面/逐key reset边界导航；保留未证性能/精确slot与继承棘轮项",
-        "limitations": "仅当前文档与导航，不冒充完整面板性能、全部媒体入口、多屏或发布验收。"
+        "scope": "详情失效现役合同/52行为门/controlled局部CPU与原生验收的职责导航，后继暖capability CPU/RAM归因；旧NO-GO保留",
+        "limitations": "仅文档与导航核对，运行范围由history证据限定；不称整App性能、多屏、全部媒体入口或官方parity。"
       }
     },
     {

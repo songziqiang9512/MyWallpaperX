@@ -31,7 +31,28 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     private let contentStack = NSStackView()
     private let footerView = SteamWorkshopDetailFooterView()
     private let previewView = SteamWorkshopPreviewImageContainerView()
+    private lazy var previewHeightConstraint = previewView.heightAnchor.constraint(equalToConstant: 156)
     private var isRestoringScrollPosition = false
+    private var renderedDisplayState: DisplayState?
+
+    /// Only the active, ready Scene branch proves these in-memory inputs
+    /// complete. Other branches keep the ordinary rebuild and its getters.
+    private struct DisplayState: Equatable {
+        let item: SteamWorkshopBrowserItem
+        let record: SteamWorkshopDownloadRecord
+        let isLocalDownloadInspector: Bool
+        let isRefreshingDetail: Bool
+        let detailError: String?
+        let previewReloadToken: Int
+        let isDownloading: Bool
+        let isQueued: Bool
+        let isLaunchPending: Bool
+        let dependencyTaskActive: Bool
+        let progressPhase: SteamWorkshopDownloadProgressSnapshot.Phase?
+        let isOnline: Bool
+        let subscriptionState: SteamWorkshopSubscriptionStore.State
+        let subscriptionHint: String?
+    }
 
     init(item: SteamWorkshopBrowserItem) {
         self.initialItem = item
@@ -64,6 +85,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     }
 
     var isRebuildScheduled = false
+    var isForcedRebuildScheduled = false
 
 
     private func bindDownloadProgress(to itemID: String) {
@@ -197,13 +219,51 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             contentStack.topAnchor.constraint(equalTo: documentContainer.topAnchor),
             contentStack.bottomAnchor.constraint(lessThanOrEqualTo: documentContainer.bottomAnchor),
             footerView.widthAnchor.constraint(equalTo: rootStack.widthAnchor),
-            footerView.heightAnchor.constraint(equalToConstant: Metrics.footerHeight)
+            footerView.heightAnchor.constraint(equalToConstant: Metrics.footerHeight),
+            previewHeightConstraint
         ])
+    }
+
+    private func displayState() -> DisplayState? {
+        guard let record = service.latestDownloadRecord(for: currentItem.id),
+              record.status == .ready, record.contentType == .scene,
+              SceneDaemonClient.shared.activeRecordID == record.id,
+              record.sourceVideoURL == nil, record.exportedVideoURL == nil else { return nil }
+        let dependencyTaskActive: Bool
+        if case let .missing(itemID) = record.dependencyStatus {
+            dependencyTaskActive = service.isDownloading(itemID: itemID)
+                || service.isQueuedForDownload(itemID: itemID)
+        } else {
+            dependencyTaskActive = false
+        }
+        return DisplayState(
+            item: currentItem, record: record,
+            isLocalDownloadInspector: service.selectedDownloadInspectorItem?.id == currentItem.id,
+            isRefreshingDetail: isRefreshingDetail, detailError: currentDetailError,
+            previewReloadToken: service.previewReloadToken,
+            isDownloading: service.isDownloading(itemID: currentItem.id),
+            isQueued: service.isQueuedForDownload(itemID: currentItem.id),
+            isLaunchPending: service.isLaunchPending(record.id),
+            dependencyTaskActive: dependencyTaskActive,
+            progressPhase: downloadProgressSnapshot?.phase,
+            isOnline: service.steamAuth.isOnline,
+            subscriptionState: service.steamSubscriptions.state(for: currentItem.id),
+            subscriptionHint: subscriptionHint
+        )
+    }
+
+    /// Notifications remain coalesced; only a previously rendered, complete
+    /// display state can suppress their redundant view reconstruction.
+    func rebuildIfDisplayChanged() {
+        currentItem = resolvedCurrentItem(fallback: currentItem)
+        if let state = displayState(), state == renderedDisplayState { return }
+        rebuild()
     }
 
     func rebuild(preservingScrollPosition: Bool = true) {
         let preservedOrigin = preservingScrollPosition ? scrollView.contentView.bounds.origin : nil
         currentItem = resolvedCurrentItem(fallback: currentItem)
+        let displayState = displayState()
         contentStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         footerView.subviews.forEach { $0.removeFromSuperview() }
 
@@ -214,6 +274,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         pinContentSectionsToFullWidth()
         buildFooterActions()
         restoreScrollPositionIfNeeded(preservedOrigin ?? .zero)
+        renderedDisplayState = displayState
     }
 
     private func restoreScrollPositionIfNeeded(_ origin: NSPoint) {
@@ -261,10 +322,10 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         )
         previewView.translatesAutoresizingMaskIntoConstraints = false
         stack.addArrangedSubview(previewView)
-        NSLayoutConstraint.activate([
-            previewView.widthAnchor.constraint(equalTo: stack.widthAnchor),
-            previewView.heightAnchor.constraint(equalToConstant: 156)
-        ])
+        // The preview joins a new section on every rebuild; reuse its one
+        // setup-owned fixed height instead of constructing another constraint.
+        previewHeightConstraint.isActive = true
+        previewView.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
 
         let title = label(
             currentItem.title,
