@@ -57,3 +57,23 @@ V1本地helper捕获inout root，所有32个released-output局部形状都变慢
 <a id="nonfinite-origin"></a>
 
 1128混合Vec3/Vec2运算产生非有限z的最早位置已定位，但公开资料不能确定缺失z的算术规则；官方黑盒准备就绪后遇Windows PIN登录，未输入凭据、未执行官方case，VM已正常停止。该问题继续由[断点队列](../roadmap/scene-open-breakpoint-queue.md)保存。
+
+
+<a id="graph-intermediate-screen"></a>
+
+## 后继：graph 临时映射表短筛撤回
+
+实际分配资格支持单独筛去overlay的临时updates Dictionary：原Snapshot内部改用Collection，五类caller传惰性映射或标准CollectionOfOne，只构造最终扁平replacements；保完整批次校验、base/COW、同selection新物理atom与增量digest。固定dependencyFrame仍须随各节点当前publication重做overlay，未跨节点cache。容量仍为原max(M,K)，未混入M+K预留或其他算法。空replacements原路径已把updates作为最终表，其存储本来不可全省。
+
+复用现有真实owner -O fixture的9形状/每形状1200次；12产品+fixture+2驱动共15输入，两臂仅Publication产品不同，各编译与运行前后无漂移，原atom/digest/branch/weak-retirement门两臂均18/18真。共同fixture只导出既有计时读到的contentGeneration=91，不跨进程比较随机Hasher checksum。最终两binary按B1/C1/C2/B2/B3/C3运行，未重编/扩大形状；先前预审前候选只编译未计时，不混入最终数字。
+
+| 非空形状 N/M/K/新key | 三配对C/B中位 | 基线偏差噪声 | B/C ns/op各自中位 |
+|---|---:|---:|---:|
+| 2048/256/8/否 | 0.9575667254 | 10.91495% | 30775.833/30837.500 |
+| 2048/256/8/是 | 0.9347141056 | 7.72029% | 29090.000/27190.833 |
+| 256/128/128/否 | 0.9479731229 | 4.28057% | 263496.667/254124.167 |
+| 256/128/128/是 | 0.9218354326 | 3.58262% | 227394.167/209620.000 |
+
+配对比值中位不是两个ns/op中位之比。非空改善中位仅4.2–7.8%，均未同时达到10%和超过两倍相应噪声；fresh形状涨跌交错，三项中位上移约2.5–3.1%，不据此判稳定回退。停止并撤回，不进入App或为撤回候选追加完整环境入口门、Debug、独立样本和长稳；没有新的实际分配计数、内存驻留或整进程CPU/GPU收益。避免中间表在结构上合理，不代表值得产品化；后继不继续泛型/容器微调。
+
+独审复算27个配对比值及上述统计边界后接受停止。产品与fixture均恢复1d8c35f8对应SHA，无实验分支。原数、命令、两臂输入、原oracle及候选/撤回身份归`.artifacts/tmp/graph-overlay-intermediate-screen-20261015/`。未改变既有App，保必要源码/patch/日志，停止使用的binary与重复module cache按归属清理；唯一连续DerivedData不动。下一项以原snapshot增长热点另行筛选，不把本轮记成优化完成。

@@ -121,3 +121,24 @@ App exit0、无timeout、测量窗failedFrames0，停止后surface1→0且gpuDra
 第二轮成功capture1帧，App exit0/无timeout，原stop surfaces1→0/gpuDrained=true；既有particle loading incomplete仍为FAIL。Xcode回放勾Profile后明确提示：workload超过完整profiling支持上限，只能Lite GPU Timeline。Summary显示Lite/Overlapping/Medium、1 command buffer/145 render encoder/2 blit/162 draw/3024×1964 BGRA8；1.83ms仅为此次调试回放，不当真实App GPU收益。没有得到源码行/块Cost或texture-wait，资格失败；停止后续source重建、重复CLI ALU/heatmap与shader原型，不缩内容制造热点。
 
 证据归`.artifacts/tmp/gpu-image-source-attribution-20261015/`与`warm-qualification/`的原始result/capture/xcode-qualification。Replay已由Stop GPU workload结束；close窗口观察超时，Xcode与replay仍持有trace的store0，630MiB trace暂保留待句柄退出，不清仍打开的材料。此工具边界不关闭GPU专项；下一项以新物理证据选题，原逐帧1128失败/诊断成本与属性媒体入口分别研究。
+
+
+<a id="native-gpu-limiter-qualification"></a>
+
+## 原生 GPU 阶段与 limiter 资格（2026-10-15，停止）
+
+复用冻结优化诊断App `56ecb327…`，Release/-O/singlefile、DEBUG；原304默认属性/实际音频、单surface与原显示尺寸，隔离原生入口且媒体只读。ready后超过30秒，唯一daemon79650附一次公开Metal System Trace；保存的模板经重开确认Performance Limiters、Shader Timeline与Default GPU state，CLI请求8秒，实际run为03:43:28.804–03:43:38.027（+08:00）/9.223031秒。没有新构建或与采集并行的测试/benchmark/profiler。采集后原生quit退出0，隔离运行副本清理170,675,318B；未导出最终pin/drain或逐帧统计。
+
+代理从Instruments的GPU Channel Activity Summary (Frame)全run转录目标PID行：
+
+| 阶段 | Total | Avg CPU→GPU Latency | Max Duration | Count |
+|---|---:|---:|---:|---:|
+| Fragment | 3.75s | 8.13ms | 2.83ms | 38609 |
+| Vertex | 339.17ms | 6.76ms | 1.69ms | 38559 |
+| Compute | 248.17ms | 7.00ms | 2.81ms | 538 |
+
+数值按GUI舍入保留。Total为累计阶段区间，Count为区间数，不是无重叠busy、完成帧数或每帧成本；CPU→GPU latency本身不是CPU提交等待或texture stall。Fragment主导目标累计阶段时间；同表WindowServer Fragment另有734.63ms/4380段，不能把系统GPU占用全归到Scene。未建立有界execution union/具体encoder窗口，尚不能判断idle与持续busy，也没有逐shader执行排名或源码行成本。
+
+公开导出得到84行counter定义，但derived metal-gpu-counter-profile为0行；这不能推出raw采集为空。为核raw counter与shader inventory的联合导出体量失控，root在1,089,261,997B时精确SIGINT；工具退出1并删除partial。已见loaded shader清单只说明pipeline加载，不代表执行；raw完整行数、值及counter/device/time/target关联均unavailable。最少schema不等于小结果，此后停止重导出/重录，不继续全量解析或以空派生表推断瓶颈。没有取得texture/filter、ALU、LLC/MMU/带宽限制资格，不据此写shader优化或认领GPU/能耗收益。
+
+模板SHA `bf207b62…`、原始run身份、完成的小型XML、GUI转录与资格/停止receipt归`.artifacts/tmp/native-gpu-counters-20261015/`。本轮trace正常关闭、不保存显示状态，owned Instruments正常退出；既有Xcode20658/Replay64627未操作。原recording压缩校验后按归属去掉展开包；唯一归档超promotion单包限额且现有cache已满，保任务目录、不扩预算或删除未知材料。状态仅`PARTIAL_TIMING_ONLY_STOP_NO_SECOND_RECORD`；普通image片元高成本与GPU专项仍开放，执行回现役卡。

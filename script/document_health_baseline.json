@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 44,
-      "bytes": 9545
+      "bytes": 9633
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1075,30 +1075,12 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "e6950e2aa79c89e619bbe6717013e89b93049c2792ebcbbd49e9014ca380ff18",
-      "after": "5d55bac525f5e5fabc9c491b7b1532f226cc1784411112362d80e3d7e876b7d7",
-      "owner": "Scene Color script property input",
-      "reason": "Record the proven native Color hot-update boundary and preserve unresolved mixed consumers and performance qualification.",
-      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#color-script-input-live"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "92ceb8e6200cbf4c247d94c18ccb0c7dc3bb898274a018d01eec4926831d6efb",
-      "after": "98b9a38c2dfc78416388a9125640f2d4d8296fc486d33f2f1c479f7173eef8e5",
-      "owner": "Scene Color script property input",
-      "reason": "Record the proven native Color hot-update boundary and preserve unresolved mixed consumers and performance qualification.",
-      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#color-script-input-live"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "440f5dfdfb21ee709abb0d03d5795bb5275c81d100ee60208c013cbb88b93fa9",
-      "after": "2d2068faf551fcfa8afe578c77d0da2d8d8f4dc0fd23e9df648f2b75e429e451",
-      "owner": "Scene Color script property input",
-      "reason": "Record the proven native Color hot-update boundary and preserve unresolved mixed consumers and performance qualification.",
-      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#color-script-input-live"
+      "before": "98b9a38c2dfc78416388a9125640f2d4d8296fc486d33f2f1c479f7173eef8e5",
+      "after": "7dbb13e7d1dddd7b93d707c7dce7ac057a6e5c06f7ccdedc79300be628a2b87a",
+      "owner": "Scene CPU and GPU performance screening",
+      "reason": "Record bounded native GPU timing qualification and the withdrawn graph intermediate-table screen; no product or performance closeout.",
+      "decision": "docs/scene/history/native-cpu-allocation-screen-2026-10-15.md#graph-intermediate-screen"
     }
   ]
 }
