@@ -540,6 +540,21 @@
       "contentPatterns": [
         "ScenePlaybackTextureUpdateOutcome"
       ]
+    },
+    {
+      "id": "scene-ready-request-preparation",
+      "title": "Scene 启动有界 ready-request preparation",
+      "owner": "SceneResolvedMaterialExecutionCapabilityCatalog / SceneResolvedMaterialVariantCache / SceneResolvedMaterialGenericShaderCompilationCoordinator",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "design_notes": "§5.1 / #ready-request-preparation。设计已先落库，尚未实施。原factory形成完整身份的不可变请求，原coordinator执行/合并，ResolutionCache只memo accepted、CompilationCoordinator保success/failure memo；两层等待与Variant builder均须显式pending恢复，不占有限worker或持锁回调，不每波重跑prefix。共享最多四槽，保graph/readiness依赖、作者顺序、取消/发布及Catalog整体接纳；真实Catalog与启动/峰值门闭合后退役登记，不代表性能验收。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

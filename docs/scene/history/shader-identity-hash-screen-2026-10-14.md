@@ -35,6 +35,16 @@ GPU p95为11.356/10.660ms；sampled footprint峰值826,820,216/964,658,880B，�
 
 原304两边正常退出，人物、建筑、星空与时钟保留，原粒子加载失败及1128非有限origin仍开放。独立1553008362两边原严格矩阵通过；短窗不认领性能。独立Bunk两边正常退出且原27项矩阵失败完全一致；实际房间、树木、家具与光影保留，时钟继续更新。普通产品UI、HDR/history专项和交互未在本批重验。
 
-下一候选是实际失败重试路径重复生成全量属性JSON：1128带applyUserProperties，badReturn跳过成功record，previous持续nil；可研究复用FrameDriver既有revision JSON，不能提前确认、跳过回调或改变恢复/rollback语义。该因果已静态核查及真实日志定位，尚未实施。
+当时提出的失败重试全量属性JSON候选已另行完成局部筛选，现状归[属性JSON复用记录](property-callback-recovery-2026-10-14.md#prepared-property-json)，不再作为本历史文档的待执行项。
 
 本机归因证据在 `.artifacts/tmp/steady-cpu-attribution-20261014/proof/`；本批输入、逐轮原数、构建/回归/实际App与审查证据在 `.artifacts/tmp/shader-semantic-hash-20261014/proof/`，运行产物按精确归属清理。保留原连续迭代DD、注明的暖cache及一份候选诊断App供下批复用；未修视觉与长期性能边界不因本记录关闭。
+
+<a id="current-cpu-startup-screen"></a>
+
+## 后继整体CPU与启动资格筛选（停止小候选，无产品收益）
+
+优化诊断App `592e8457…` 原304在观察ready后30.241s取6s暖栈，sample exit0。主线程2423个observations包含系统/等待，不能作为活跃CPU时间分母。五处非嵌套`reserveGraphLocked`根合计148（初始32、allocator32、admit原视图21/重基视图36、finalize27）；拟删同锁第二轮只覆盖36/2423约1.49%主栈，不能称CPU比例或收益上界。停止该删除候选，不加计数或原型，不把资源安全检查当可消除成本。
+
+最大的非嵌套主渲染分支为图准备/提交894、资源准入/preflight345、按层编码330；ARC、enum与memmove分散在值复制/析构中。Entry生命周期有61个具名ARC/memmove叶落在已撤回的working-view区域；PreparedLedger析构还能经pin release进入Entry，两类父链不能相加。诊断freeze41，另线程Metal提交trap906不是906份活跃CPU工作。未找到单一可安全减少整体10%的职责；不因此复活material payload、identity或缓存微调。profiler扰动下报告不作性能对照或验收。精确样本、报告SHA及聚合方法见 `.artifacts/tmp/allocation-transaction-screen-20261014/proof/global-stack-triage.json`，原栈在同目录`current-stack/sample.txt`。
+
+toolchain资格短实验复用真实bundle/process owner，`-O`单binary对保留App执行8次顺序、再4次并发资格检查，12次均成功，输入前后无漂移。顺序单调用中位11.562ms（首调用28.569ms），并发单调用11.742–11.941ms；暖调用约11–12ms，不能把资格成本当全部shader编译成本。没有候选、App对照或shader编译收益，停止资格cache方向。原数与边界在 `.artifacts/tmp/toolchain-qualification-screen-20261014/proof/raw.json`、`receipt.json`，清理见`cleanup.json`。下一项仅按[现有启动合同](../architecture/scene-launch-responsiveness-contract.md#ready-request-preparation)准备真实catalog调度切片，尚未实施/验收；性能专项保持开放。

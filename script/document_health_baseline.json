@@ -49,8 +49,8 @@
       "bytes": 5737
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
-      "lines": 177,
-      "bytes": 14336
+      "lines": 193,
+      "bytes": 17480
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 52,
@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 40,
-      "bytes": 8529
+      "bytes": 8824
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1075,21 +1075,21 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "3a06d419bf432f6e07166cceb941225ba9d5727ee32951c5dd6e7acb5fcd98c5",
-      "after": "b9d9d1684016a103249d636c7c3b5324be1ea17c1075b3aa712daa1850699f00",
+      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "before": "9bb156153aff0ee7301c68cdc074b6dbeebf529ff53c9ff6b7e9ccf67d4beab2",
+      "after": "4aeb672c84fe0aad410251eaa6771df123c9063641d327e3f532af71d1ae5bf6",
       "owner": "Scene maintainers",
-      "reason": "Accepted brightness typed source contract and current property evidence",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#layer-brightness-live-update"
+      "reason": "Bounded ready-request design and current CPU/startup screening decisions",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#ready-request-preparation"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "513fa7e039e652bdf505c7247c7482eaa76cf8e9bc0e7b22d14bb6b9b4166979",
-      "after": "d542616ed015bded2106635869dec5b7a129aa1b4b09c22e9da8578b4c643ff4",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "b344e03606630424af296102230022e6a8df8853df185f7b4f53230efe2d04c7",
+      "after": "e2163764719caf1b2c4842e5afe9a5f069d6a3dea1d95b9f76d8f07abf55eb1c",
       "owner": "Scene maintainers",
-      "reason": "Accepted brightness typed source contract and current property evidence",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#layer-brightness-live-update"
+      "reason": "Bounded ready-request design and current CPU/startup screening decisions",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#ready-request-preparation"
     }
   ]
 }
