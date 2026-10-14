@@ -47,4 +47,18 @@ GPU p95为11.356/10.660ms；sampled footprint峰值826,820,216/964,658,880B，�
 
 最大的非嵌套主渲染分支为图准备/提交894、资源准入/preflight345、按层编码330；ARC、enum与memmove分散在值复制/析构中。Entry生命周期有61个具名ARC/memmove叶落在已撤回的working-view区域；PreparedLedger析构还能经pin release进入Entry，两类父链不能相加。诊断freeze41，另线程Metal提交trap906不是906份活跃CPU工作。未找到单一可安全减少整体10%的职责；不因此复活material payload、identity或缓存微调。profiler扰动下报告不作性能对照或验收。精确样本、报告SHA及聚合方法见 `.artifacts/tmp/allocation-transaction-screen-20261014/proof/global-stack-triage.json`，原栈在同目录`current-stack/sample.txt`。
 
-toolchain资格短实验复用真实bundle/process owner，`-O`单binary对保留App执行8次顺序、再4次并发资格检查，12次均成功，输入前后无漂移。顺序单调用中位11.562ms（首调用28.569ms），并发单调用11.742–11.941ms；暖调用约11–12ms，不能把资格成本当全部shader编译成本。没有候选、App对照或shader编译收益，停止资格cache方向。原数与边界在 `.artifacts/tmp/toolchain-qualification-screen-20261014/proof/raw.json`、`receipt.json`，清理见`cleanup.json`。下一项仅按[现有启动合同](../architecture/scene-launch-responsiveness-contract.md#ready-request-preparation)准备真实catalog调度切片，尚未实施/验收；性能专项保持开放。
+toolchain资格短实验复用真实bundle/process owner，`-O`单binary对保留App执行8次顺序、再4次并发资格检查，12次均成功，输入前后无漂移。顺序单调用中位11.562ms（首调用28.569ms），并发单调用11.742–11.941ms；暖调用约11–12ms，不能把资格成本当全部shader编译成本。没有候选、App对照或shader编译收益，停止资格cache方向。原数与边界在 `.artifacts/tmp/toolchain-qualification-screen-20261014/proof/raw.json`、`receipt.json`，清理见`cleanup.json`。后继真实catalog调度切片已按下节短筛撤回；性能专项保持开放。
+
+<a id="ready-request-screen"></a>
+
+## 有界 ready-request 波次短筛（产品候选已撤回）
+
+候选由原Variant/Material保存进度，ResolutionCache保accepted memo，CompilationCoordinator保完整key的success/failure memo；最多四槽、64 consumer/8MiB波次及有界prefix overshoot，先执行ready再等外部prefix。无第二compiler或额外线程池。设计先落库，产品9文件与测试4文件随后实施；这些改动现已全部按冻结身份精确撤回，保留差异供研究，不保产品双链。
+
+优化诊断App基线`3a25ad7a…`、候选`48091da2…`；Debug/同配置优化诊断构建均成功，4294输入无漂移。原304、3024×1964、60FPS、静音、execution observations关闭、独立临时HOME冷缓存；先B→C，再C→B，测量窗口无构建/测试/profiler。启动ready两对为 **23,778.046→30,810.994ms（+29.58%）**、**25,524.344→32,075.150ms（+25.67%）**，未达继续门，不追加暖启动、多轮或峰值campaign。四次54完整key的216份MSL/normalized GLSL逐项SHA相同，均正常退出、failedFrames=0，矩阵仍仅原`particle loading incomplete`，未记兼容完成。首对实际截图的人物、塔楼、星空和时钟保留，非像素同帧比较。
+
+首对capability阶段15,077→19,510ms；已有累加计时跨并行/暂停区间，candidate artifactMs含pending等待，不能当纯编译CPU或相加归因。无App/helper启动峰值、功耗或GPU收益结论，也不把短稳态数据当验收。最终generic两门PASS、静态独审ACK；Graph既有断言通过，新增三key fixture先有枚举构造错误，修后又因两种输入实际生成同一shader而失败；已形成真实不同源码的修正，但候选撤回后不再花费全门验证，不能记最终Graph PASS。未做未参与修法样本与完整取消/长期切换验收。
+
+本机证据 `.artifacts/tmp/compiler-ready-request-scheduling-20261014/proof/cold-screen-summary.json`、`withdrawn-candidate.diff`与`withdrawal.json`记录原数、源码和撤回边界。清理候选App、重复截图/编译产物及重试输出，保四份报告、必要首对画面、压缩日志和差异；沿用原一份DerivedData与`3a25ad7a…`基线App。新候选按现役工作卡筛选，不以“修完调度设计”作为目标。
+
+本轮精确清理268,528,720B；证据promotion被现有cache总预算拒绝，prune-expired无可删除包，未清未知材料。必要证据暂保上述任务目录，清单见`proof/cleanup.json`。

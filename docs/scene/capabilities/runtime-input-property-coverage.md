@@ -141,8 +141,6 @@ SceneScript layer handle 的 `getTransformMatrix()` 现在只投影同一 render
 | delta clamp / dropped-time | `L3 bounded` | shared clock 保留 raw delta，把 simulation delta 限为项目 policy 0.25 秒，并发布 dropped delta/discontinuity；纯 clock fixture 有 1 秒长帧数值门，Debug performance 记录次数、累计 dropped 与最大 raw；[E-FRAME](../history/runtime-evidence-index.md#e-frame) | 0.25 秒不是官方常量；真实长卡顿、不同 FPS、其他 simulation consumer、离线/Windows timing golden 仍缺 |
 | offline fixed-time adapter | `L0` | Debug PNG readback 不是离线 adapter | 注入 frame index/time/seed/provider replay |
 
-当前 live-property 路径已让 direct text content/point-size/color 等 value-only target 进入真实 producer/consumer。文本 consumer 按 layer signature 去重、异步生成、拒绝 stale completion 并保留 last-ready texture；缺少 compiler mapping、有效可见 consumer 或 direct user binding 时继续走 `requestSceneRender` fallback。
-
 ## 3. Scene 与 Camera 输入
 
 | 字段/能力 | 等级 | 当前消费 | 缺口 |
@@ -289,6 +287,20 @@ Scene属性窗口沿prepared context→原生NSCollectionView可视控件→原s
 | unknown / missing property type | `L3 bounded / panel-visible` | 保留作者排序、标题净化与原条件链，显示只读类型状态；纯图片/空标题用“未命名属性”，不泄露资源键。unknown-only可打开，条件引入的普通控件保原编辑与reset出口；[真实面板边界](../history/native-property-list-convergence-2026-10-14.md#未知类型只读投影) | 不推断未知类型算法、默认值或媒体能力；只读行不产生runtime值/资源事件，真实类型支持仍待逐项落实 |
 | default / override / reset | `L3` | authored fallback与wallpaper-scoped override/reset；layer alpha、solid color、effectless ordinary-image color（含初始隐藏）、direct text、shared-Program Local Contrast与strict Opacity可live，PNG/JPEG选择与清除经窄typed资源事务原位更新，失效文件保留选择身份及清除入口（[实施边界](../history/user-texture-live-update-implementation-2026-10-05.md#失效文件选择后继)）；非live key的真实变化走候选重建；已知普通键与当前有效值完全相等时直接接受且不改revision，资源同路径重试仍走原事务（[同值边界](../history/property-callback-recovery-2026-10-14.md#ordinary-value-resend)）；[E-LIVE-PROPERTY](../history/runtime-evidence-index.md#e-live-property) [E-V4-USER-PROPERTY-IMAGE-LAYER-COLOR](../history/runtime-evidence-index.md#e-v4-user-property-image-layer-color) | 跨重启UI自动门 |
 | first/change-only `applyUserProperties` | Vec3 owner `L3 bounded / S4 visible`；exact pass scalar `L3 bounded / S4 one real authored visible slice`；String owner `L3 bounded / S3 lifecycle-tested`；其他owner `L0-L2` | QuickJS typed owner首次收到全部`scriptProperties`，后续只收到变化键，删除键为null且无变化不派发。真实`2974757317`十个origin Vec3 owner完成并产生可见卡片位移；真实default project `razer_vortex`的三个callback-only scalar owner把mode 0→2写入同名`thisObject.colormode`，再以typed scalar进入既有`g_CMode` material uniform、GPU completion、唯一compositor与next-frame。无update的layer Bool owner显式visible setter与origin/scale共用既有持久事务，休眠不丢值；有update仍仅发布当帧返回，未写setter不固定输入。[312真实窗口](../history/event-visibility-persistence-2026-10-10.md)已验显隐热切/拖动。String event-only owner无待处理工作时跳过bridge；property/media event或timer到期仍恢复同一owner，own callback mutation由既有layer/resource publication链处理；own finite numeric data property以外局部拒绝并保持previous-current | String callback-produced font的产品视觉/ROI、任意`thisObject`字段/类型、跨类型批量顺序、reload/多scene/multi-surface与官方行为对照；见 [E-V2-SCENESCRIPT-CURSOR-ENTER-LEAVE](../history/runtime-evidence-index.md#e-v2-scenescript-cursor-enter-leave)、[E-V4-SCENESCRIPT-CALLBACK-ONLY-PASS-SCALAR](../history/runtime-evidence-index.md#e-v4-scenescript-callback-only-pass-scalar) 与 [E-V4-SCENESCRIPT-CALLBACK-ONLY-STRING-QUIESCENCE](../history/runtime-evidence-index.md#e-v4-scenescript-callback-only-string-quiescence) |
+
+<a id="prepared-callback-property-reachability"></a>
+
+**回调独占属性的面板可达性（2026-10-14，实施前设计）。** 合法普通定义可仅由 `applyUserProperties` 读取，没有直接 `{user,value}` 绑定；现context从直接consumer出发会漏行。目标是把真实active prepared callback消费的catalog key投影到原context，保作者顺序、条件、隐藏值、store与typed更新链。仅覆盖Bool/Slider/Color/Combo/TextInput；不从脚本字串猜key、不为面板创建VM，不把字符串回调提升为资源consumer或开放未知类型。未完成实现与后验前不计能力。
+
+Host/session继续拥有唯一执行准入。候选完成全部既有surface准备并晋升后，由原ScriptProgram的真实export查询和原liveState消费表投影非空callback target集合对应的key；新增入口还须保原类型/默认值、rebuildRequired及全部target的active/availability约束，不能取含空集合的dictionary全部keys，也不把SourceEvidence当执行证明。沿既有 `launchStateChanged(.launched)` 回执携带这一不可变投影，Client只保其active session的只读事实，原service/context合并原静态actionable keys后准备行；不存在回调事实时维持原展示，不放开store fallback制造重建。之后owner异常、资源/结构变化或cohort拒绝仍由Host实时判断，投影不是保证未来每次编辑可live的第二权威，不新增逐帧能力扫描。
+
+投影绑定原transport generation、requestID、recordID、prepared script/source代次及来源身份；root路径/record相同不能证明作者输入相同。优先复用已有PreparedContent/package/document identity；不足时仅由原project/scene读取owner对本来已读的输入字节一次准备小witness，同一值随launch和inspect比较，不追加全包读取/哈希、普通帧序列化或新版本缓存。缺失、不匹配或来源复用校验失败时不合入callback keys；普通值revision变化不伪造新source代次。
+
+Client沿原replay owner生成并预绑定requestID，loadScene携带该可选字段，Host复用传入identity；旧直接/CLI入口省略时仍由Host生成，非法UUID拒绝。accepted也须匹配预绑定request/record，不能靠同record迟到accepted重绑新请求；重启replay生成新ID，继续保原transport/launch generation。Client沿原事件准入先验证generation与当前pending request/record，只有晋升的launched替换active投影；迟到/重复/其他record、失败或取消的候选不得发布keys，也不得误撤仍播放的旧active投影。实际active stop、退役、transport断连/重启和runtime切换同步撤销，包含不发布stopped通知的既有silent stop；保留现launch/failure/runtime-switch通知语义；Client作为同一active事实owner通过专用typed变更通知发布投影更新/撤销，inspection订阅后重投影，IPC不反向依赖产品Service，也不把另一种object混入launch-state通知。恢复或重启须等待新launched，不能凭旧record自动恢复。多surface复用同一session的Program及既有完整准备/availability门，不按首surface或任一成功surface单独授权；拓扑重准备/代次不全时保持保守，Host不放宽原全target原子条件。
+
+原propertyPreparation仍唯一持有有界context缓存、请求与presentation identity；callback投影版本加入其失效比较。复用现launch observer及已有service刷新，已打开面板也须重新投影定义，不能只刷新值；原context已持有catalog时只重投影它，来源/override校验与4MiB/pressure边界不扩，不另存SourceFacts或第二context。内容替换须同步实际presentation token，取消被替换generation未提交的UI会话；关闭/替代后迟到结果不重开面板，已提交资源事务仍归原service。
+
+最近验证复用property context/native list、preparation reuse、hidden consumer、真实VM live-property及async-launch门：覆盖callback-only合法Combo与变量/资源改名、等价表达式；无回调/空集合/错类型/资源定义不命中；同key多consumer及不可用owner仍原子拒绝；同值/reset/revision保持；旧request/record/source、候选失败保旧active、silent stop、断连重启、打开中/已打开/关闭后回执及多surface不完整反例。真实293的 `media_hide_condition` 只由回调读取且没有condition反向依赖，可作漏行入口证据；可见策略还需受控暂停媒体事件与真实consumer/画面闭环，不能用row出现或callback hit代替；另用未参与修法样本检查渲染，不计性能或全兼容。
 
 <a id="property-callback-recovery"></a>
 

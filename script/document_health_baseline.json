@@ -49,12 +49,12 @@
       "bytes": 5737
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
-      "lines": 193,
-      "bytes": 17480
+      "lines": 183,
+      "bytes": 15024
     },
     "docs/scene/architecture/scene-resource-admission.md": {
-      "lines": 52,
-      "bytes": 9909
+      "lines": 70,
+      "bytes": 15178
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 124,
@@ -97,8 +97,8 @@
       "bytes": 34403
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 587,
-      "bytes": 187887
+      "lines": 599,
+      "bytes": 192177
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 40,
-      "bytes": 8824
+      "bytes": 8844
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1075,21 +1075,30 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-      "before": "9bb156153aff0ee7301c68cdc074b6dbeebf529ff53c9ff6b7e9ccf67d4beab2",
-      "after": "4aeb672c84fe0aad410251eaa6771df123c9063641d327e3f532af71d1ae5bf6",
+      "path": "docs/scene/architecture/scene-resource-admission.md",
+      "before": "7bc981abc9c2e09e580d248c645992f22a903685cfd488d225f1728892172878",
+      "after": "98732d8bf6a3340025270b0a570f08eea2d58c813413ce9dd39653c69beb9611",
       "owner": "Scene maintainers",
-      "reason": "Bounded ready-request design and current CPU/startup screening decisions",
-      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#ready-request-preparation"
+      "reason": "Retire measured startup regression and bound next GPU qualification and active callback panel projection",
+      "decision": "docs/scene/architecture/scene-resource-admission.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "b9d9d1684016a103249d636c7c3b5324be1ea17c1075b3aa712daa1850699f00",
+      "after": "01fc86da3172bae9609147fbc209ac0a1e5de80b99cf7fe89080f704709257c1",
+      "owner": "Scene maintainers",
+      "reason": "Retire measured startup regression and bound next GPU qualification and active callback panel projection",
+      "decision": "docs/scene/architecture/scene-resource-admission.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "b344e03606630424af296102230022e6a8df8853df185f7b4f53230efe2d04c7",
-      "after": "e2163764719caf1b2c4842e5afe9a5f069d6a3dea1d95b9f76d8f07abf55eb1c",
+      "before": "e2163764719caf1b2c4842e5afe9a5f069d6a3dea1d95b9f76d8f07abf55eb1c",
+      "after": "0dfb3c56b7b87226100b2c908c697cff44de53f2f7875ca7d8702df80d1827ba",
       "owner": "Scene maintainers",
-      "reason": "Bounded ready-request design and current CPU/startup screening decisions",
-      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#ready-request-preparation"
+      "reason": "Retire measured startup regression and bound next GPU qualification and active callback panel projection",
+      "decision": "docs/scene/architecture/scene-resource-admission.md"
     }
   ]
 }

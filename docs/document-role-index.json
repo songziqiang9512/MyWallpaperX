@@ -411,9 +411,9 @@
       "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f5d4055ea1ee8d3d1c6621b0b29dbfd5e86d83191923b5855f60f19e7d5d0576",
+        "sourceSHA256": "9c6803208ef6d761ece177d4d37473dfd2dd4226d7f7e6bf41c3378b3e197c59",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对ready-request设计的原owner、等待/取消与验收边界及当前链接；设计未实施，不证明启动收益。",
+        "scope": "核对ready-request短筛撤回、原启动owner保留与证据链接；两次冷启动无收益，不称性能完成。",
         "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
       }
     },

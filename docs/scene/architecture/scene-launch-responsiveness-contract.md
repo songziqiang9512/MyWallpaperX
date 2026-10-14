@@ -124,19 +124,9 @@ CPU Program/preparation 命中不等于 `PreparedDeviceResources` 命中。Metal
 
 <a id="ready-request-preparation"></a>
 
-### 5.1 有界 ready-request preparation（设计，尚未实施）
+### 5.1 ready-request 波次试验（已撤回）
 
-目标是在保持完整变体和原失败语义的前提下，使相同编译请求的等待不占有限 preparation worker。采用有限 ready 波次；不按 template/path/样本启发式乱序，不提高并发预算，不新增线程池、全局任务树或第二 compiler owner。持续异步续跑比波次复杂，须先有额外瓶颈证据再重议。
-
-- 原 Variant/Artifact factory 在 source及typed analysis完成、原完整key已生成后形成不可变 `PreparedCompilerRequest`，保全部源码、输出/transfer/color boundary、slot集合及原artifact执行上下文；禁止调用者重算简化key。各node只共享纯artifact结果，仍独立完成原route、fallback及Program/capability准入。
-- 原 `ResolutionCache` 拆为已完成accepted命中和typed pending；只memo accepted。原 `CompilationCoordinator` 唯一执行/合并完整key，保原success及failure memo；pending、取消和不完整结果不写任一memo。两层原同步 `condition.wait` 均不能继续占launch执行槽，不只替换内层compiler等待。
-- 原catalog builder保存作者序号和有限stage进度；prefix、执行及恢复共用原最多四槽预算，重复key使用者以值/索引挂起。不同ready key的执行数、排队数与bytes须有显式上限，满时先完成现波次，不无界预生成sources或复制graph；不在持锁或callback内帮助另一job。
-- `Variant.precompileLaunchEnvelope` 显式保存pending进度并释放锁，不每波重跑prefix。node输出仍逐项推进 `graphTextureContentFacts` 与attachment；readiness固定点、format/purpose profiles、原迭代与variant上限不改。只有前置结果恢复后才能产生后继request，不将相关node假作独立任务。
-- 结果按原作者顺序折叠，保确定首失败、局部降级及diagnostics；完整Catalog一次发布，帧consumer不见pending builder。保原compiler原子artifact发布、ABI/identity校验、进程timeout/驻留/诊断预算及首帧提升owner。
-- 取消撤销本launch未执行的使用者需求并沿原检查退出；运行中helper有界join，迟到结果不能发布过期Catalog/surface，不误杀其他有效launch仍需的同key。已接受纯artifact仅按原缓存合同复用，不冒充scene ready。
-- 新链覆盖后退役launch路径中两层阻塞in-flight等待及原layer/stage嵌套worker循环；单request入口仅薄转交同一prepare/execute/resume链，不保双算法或双产品路径。
-
-验收从真实Catalog入口守恒完整request、variant、artifact、失败顺序与发布结果，覆盖重复/不同key、readiness与graph内容依赖、失败memo、取消/替换和相邻反例；不另造人工worker基线代替真实链。之后沿现runner与[性能卡](../roadmap/performance-convergence-card.md)冻结冷/暖启动、真实首可见帧、App/helper及GPU峰值和队列上限；没有稳定整体启动收益、峰值恶化或切片成本失控即撤回，不能靠移到首帧后阻塞、削内容或提高timeout过门。
+将原 Variant/Material 准备拆为有界 prepare/execute/resume、让重复请求等待释放四槽 worker 的候选已在真实冷启动短筛中撤回；两次分别慢29.58%和25.67%，无产品收益。产品保原启动链，不能将该设计当待执行前置或继续扩建调度器。方案、输入身份与验收边界见[筛选记录](../history/shader-identity-hash-screen-2026-10-14.md#ready-request-screen)。只有新的实际瓶颈及可区分实验才重开；完整身份、失败回退、Catalog原子发布与现launch代次/取消owner仍是后续准备优化的边界。
 
 ## 6. 反馈与进度
 

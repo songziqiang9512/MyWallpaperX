@@ -50,3 +50,21 @@ RF05（2026-10-02）纠偏属于①跨 Host/资源/provider 与②唯一资源�
 ## 大型静态模型准备后继（已实施）
 
 大型模型的完整校验、累计工作预算及分块identity合同已并入[运行架构](runtime-architecture.md#34-通用执行不等于单体-renderer)相邻静态模型段；真实反例、取舍、CPU/GPU成本与剩余土星画面问题见[实施后验](../history/l1-heavy-retest-2026-10-07.md#large-static-model)，不再作为未执行工作卡。
+
+## 同帧有序合成分段（待实施）
+
+目标：减少普通 image 的离屏图与主目标交错造成的 attachment 结束/重开，保留每次 shader、像素格、采样、颜色/alpha 与作者合成顺序。单帧物理观察存在非空可移动区间；它不是产品准入或性能收益，证据见本机 `main-pass-segmentation-screen-20261014/proof/result-summary.json`。不扩大 terminal replay，不缓存跨帧结果，不改变主目标尺寸。
+
+唯一调度仍为 `SceneMetalRenderer+OrderedLayerEncoding`，GraphExecutor/Coordinator 仍负责 graph、ticket、publication 与 completion，MainPass 仍唯一合成。首片只考虑作者序中两个相邻、已完成同帧 preparation 的 ordinary image：将 `graph A → composite A → graph B → composite B` 变为 `graph A → graph B → composite A → composite B`，两次 composite 共用原 main encoder；不重排 graph 内命令或主 draw。备选整帧前置会扩大输出存活集合，新增独占目标/copy会重复已撤回缓存问题，均不采用。
+
+准入由原 ResourcePassEncoder 补全 source/copy/lighting 的只读 reads/writes，原 GraphExecutor 汇总实际 prepared commands；不由 caller 猜资源或建立第二账本。B 的全部读写与 A composite 交叉不得存在 RAW/WAR/WAW；view/subresource 按同 backing 保守冲突，alias 无法证明即拒绝。A 输出必须存活至自身 composite，B 不得覆盖其共享 pair。两层须同 main target/附件与兼容 load/store，首片两者 `colorBlendMode == 0`；高级混合的主目标 snapshot/copy不准入。无 background、utility/group、named/provider publication、外部/aggregate 依赖、history、terminal replay 或中途源更新屏障；须查实际 `utilityExecution.plansByTriggerLayerID`，普通 image 本身没有 utilityLayer 不代表边界无触发计划。source lighting 只允许资源已冻结的直射路径，排除 `requiresReflection` 和 deferred environment resolution，后者在 encode 时可能 reserve/copy/mipmap，不能声称已知完整读写。`geometryProduct == nil` 排除专有 mesh/atlas、辅助 prepare 与几何 publication，普通 image 的 affine quad 及其原变换继续允许。动态 shader 值可来自本帧已冻结 payload，但不得为准入重读作者定义、运行脚本或改采样/颜色语义。
+
+当前 Coordinator 要求前驱全部 `outputConsumed`，不能直接提前执行 B。由同一 Coordinator 在锁内核验相邻 ledger、epoch、prepared identity、同 commandBuffer 与完整资源/屏障事实，授予封闭两 ledger 顺序许可：仅允许 A `encoded` 后编码 B，在 `markFinalOutput` 中实际核验 A→B 的消费顺序，再推进 tail 与 seal；其他前驱/后继保持原检查。禁止删除全局 guard、caller 假报 consumed 或新增调度账本。许可绑定原 ledger；reset、取消、失败、代次失配或 frame 结束沿原 owner 撤权，重复/foreign 使用拒绝。
+
+队列最多持有这两个既有 prepared 引用及 ticket，生命周期止于当前 frame；读写检查最多遍历这两个已受现役静态预算约束的图，不另建全场景 scheduler/registry。仅复用原已入账目标、pin 和同 commandBuffer，新增 allocation/copy/显存额度均为零，不延长 pin 超过原 completion。若输出无法保活、准备代次变化、预算/资源不齐或发现任何屏障，尚未编码时直接走原交错分支。
+
+首片仅准入既有 encode 失败已拒绝当前帧的路径，保留原最小失败单元；允许局部透传的状态须由原 preparation 冻结，不能因重排改成整帧失败。原先允许成功前缀继续提交或有即时 publication 副作用的路径不准入。编码后失败沿原 Coordinator 取消/终结，不重跑 graph，不发布未成功输出，不在部分 main 写后补画 fallback。符合准入的层对只执行分段路径一次，原交错实现作为不合格 fallback，不能再执行其已消费 graph；owner/ticket/取消算法不复制。
+
+最近验收复用真实 Graph/MainPass/Coordinator 门：原交错与候选的整图像素及 draw 顺序相等，含变换、半透明/混合与 SDR/HDR；换层名/资源名及等价 shader 变体仍命中。相邻反例覆盖同尺寸共享 pair 覆盖、background/provider/group、history、源更新、非默认附件、reset/stale、准备失败及第二 graph encode 失败，核 publication/completion/取消与原失败半径。先用两个相邻 graph 的真实物理候选核闭环，再按现役性能卡做同条件短筛；无整体收益、额外驻留或复杂度失控即撤回。实测达到继续门后才扩大段长或真实样本验收，不把本帧36→12的条件物理排列当实现目标。
+
+实施前先做一次资格观测：沿现诊断开关在同一真实帧投影 prepared ledger 的 identity、sourceRoute、依赖/history/publication/replay 与实际资源 backing，和原 OrderedLayerEncoding 的 geometry/utility/group 事实离线关联；首筛所有 sourceLighting 非空均拒绝。只读一次、不改调度/guard/ticket/pin、不加 owner/Bridge API，普通产品帧不遍历、不日志；资格数量未知时不先实现重排，观测代码不作为性能成果保留。

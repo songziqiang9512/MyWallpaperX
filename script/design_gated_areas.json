@@ -542,17 +542,41 @@
       ]
     },
     {
-      "id": "scene-ready-request-preparation",
-      "title": "Scene 启动有界 ready-request preparation",
-      "owner": "SceneResolvedMaterialExecutionCapabilityCatalog / SceneResolvedMaterialVariantCache / SceneResolvedMaterialGenericShaderCompilationCoordinator",
+      "id": "scene-prepared-callback-property-reachability",
+      "title": "Prepared callback property reachability in the existing Scene panel",
+      "owner": "SceneDesktopWallpaperHost/session / SceneDaemonClient / Scene propertyPreparation",
       "status": "approved",
-      "designDoc": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-      "design_notes": "§5.1 / #ready-request-preparation。设计已先落库，尚未实施。原factory形成完整身份的不可变请求，原coordinator执行/合并，ResolutionCache只memo accepted、CompilationCoordinator保success/failure memo；两层等待与Variant builder均须显式pending恢复，不占有限worker或持锁回调，不每波重跑prefix。共享最多四槽，保graph/readiness依赖、作者顺序、取消/发布及Catalog整体接纳；真实Catalog与启动/峰值门闭合后退役登记，不代表性能验收。",
+      "designDoc": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "design_notes": "#prepared-callback-property-reachability 已先落设计，尚未实施。真实callback消费事实随既有launched投影，Host保最终准入；保request/record/source身份、失败候选与旧active、stop/迟到/断连边界，复用原context缓存；Client在原事实owner发布typed活动投影变化通知，保原launch通知语义且无反向Service依赖。不得解析脚本文字或新建VM/consumer owner。真实面板/媒体事件与生命周期门完成后退役登记。 Client原replay预绑定requestID经可选wire字段送Host，旧调用省略兼容；accepted不再按同record重绑，非法UUID拒绝。",
       "matchPatterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability*.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneProject.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient+Events.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+LiveConsumers.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneProperties.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopSceneInspectionController.swift"
+      ],
+      "contentPatterns": [
+        "preparedCallbackPropertyKeys|callbackPropertyReachability"
+      ]
+    },
+    {
+      "id": "scene-main-pass-segmentation-qualification",
+      "title": "同帧双图合成分段的只读资格观测",
+      "owner": "OrderedLayerEncoding / GraphExecutor / SubmissionCoordinator / ResourcePassEncoder",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/scene-resource-admission.md",
+      "design_notes": "同帧有序合成分段末段：先观察真实prepared pair和资源backing，临时DEBUG一次，禁止改变调度/guard/pin/ticket。普通帧无额外工作；未证明资格与GPU收益前不实施reorder，不把物理36→12当目标。观测结束撤回临时代码。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneGraphResourcePassEncoder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift"
       ],
       "contentPatterns": []
     }
