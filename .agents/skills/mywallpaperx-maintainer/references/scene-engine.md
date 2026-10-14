@@ -23,7 +23,7 @@
 | 问题 | 唯一入口 |
 |---|---|
 | 最终执行单元、语言/进程/失败目标 | `docs/scene/architecture/runtime-architecture.md` 与长期技术边界 |
-| 工程结构、生命周期、性能与成本消融顺序 | `docs/scene/roadmap/engine-refactor-program.md` |
+| 工程结构、生命周期与成本消融设计 | `docs/scene/roadmap/engine-refactor-program.md`；当前顺序和验收按其链接进入对应现役工作卡 |
 | 作者能力、可见正确性与兼容验收顺序 | `docs/scene/roadmap/scene-compatibility-roadmap.md` |
 | 实际接线、进程、装载与释放 owner | `docs/scene/architecture/runtime-as-built-map.md`，随后核对 live call sites |
 | 主链、普通帧成本与风险分级验证 | `docs/scene/development/development-workflow.md`；通用工具入口查仓库开发工作流 |
@@ -34,7 +34,7 @@
 | corpus 中作者实际声明了什么 | `docs/scene/capabilities/scene-corpus-capability-inventory.md`；不证明运行支持 |
 | gate 成员、phase、readiness | 当前脚本 `--help`、`script/scene_validation_gates.json`、`script/scene_fast_suite.json` |
 
-不要每次 Scene 任务读取所有入口。工程任务与作者兼容任务分别由对应现役路线选序；涉及两条路线时选一个主结果与验收，能力台账和运行证据只回答各自事实。不要把当前 roadmap 阶段、具体 backend 推荐、旧计划、sample 数量或 evidence report 复制进 Skill。
+不要每次 Scene 任务读取所有入口。工程任务由对应现役工作卡选序，作者兼容由兼容路线选序；涉及两条路线时选一个主结果与验收，能力台账和运行证据只回答各自事实。不要把当前 roadmap 阶段、具体 backend 推荐、旧计划、sample 数量或 evidence report 复制进 Skill。
 
 ## 来源与上下文隔离
 

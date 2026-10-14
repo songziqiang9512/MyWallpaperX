@@ -123,13 +123,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/README.md",
-      "lastReviewed": "2026-10-03",
+      "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d814ea91c19e723f468ee0ba2e633b23c6c3b96d30d10bd1401b82ea2b1815c0",
+        "sourceSHA256": "695563c8dc86f24c4869b659001ef93bcce87f17bdd35310cf2ab5d7ed0fa4e1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
-        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+        "scope": "顶层设计与现役工作卡导航职责核对",
+        "limitations": "仅文档职责与导航，不证明运行能力或性能验收"
       }
     },
     {
@@ -143,13 +143,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-10-10",
+      "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9f134c378fec041cf2ae580653843911ab638659d747bbb25ec0bf633d5412d5",
+        "sourceSHA256": "e27b53803933cddb9b936893ab26b1767dbee707f4bd62c54af7ef9c2ae094e9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "2.10.1 发布准备：构建入口与现役/历史引用整理后核对角色、链接和锚点",
-        "limitations": "仅导航及本次删并内容复核，不代表全部产品运行或官方视觉一致性验收"
+        "scope": "顶层设计/工作卡职责、当前入口和旧状态撤权核对",
+        "limitations": "仅文档职责与导航，不证明产品性能、兼容或发布验收"
       }
     },
     {
@@ -351,13 +351,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/roadmap/engine-refactor-program.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-03",
+      "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dfe5428a656dbfbcb51a727c6622841fb2014f4f65b12e6929d3f08d38943659",
+        "sourceSHA256": "d92e9c9981e099a35ea91cec13b66229229d63e6c92d5a9e5a96d81162adbaf0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
-        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+        "scope": "顶层设计/工作卡职责、当前入口和旧状态撤权核对",
+        "limitations": "仅文档职责与导航，不证明产品性能、兼容或发布验收"
       }
     },
     {
@@ -379,13 +379,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-13",
+      "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c4027544f719000196cd858958be7c6e6a63b745614948100a6a458469080b09",
+        "sourceSHA256": "875dfbe4e44c8610aaf9330d5faa564ef14eff1f01dd92edc5e6c4adfd84f667",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前启动/线程/所有权地图及C host自然职责迁移；native字段与附属owner权限单resolver，Domain/Owner/record/journal唯一。 原variant静态准备/当帧Program及动态验证单owner。",
-        "limitations": "not full architecture reacceptance or ordinary desktop/Release, physical HDR, corpus acceptance"
+        "scope": "顶层设计/工作卡职责、当前入口和旧状态撤权核对",
+        "limitations": "仅文档职责与导航，不证明产品性能、兼容或发布验收"
       }
     },
     {
@@ -427,13 +427,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-05",
+      "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "96767dd8317328617217862eb1251173d601e3b69acdc7b981d745f51d18654c",
+        "sourceSHA256": "8dc256973efcda690a68e0c9889d015f0a6757434033fb77547e6c2b205a7550",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
-        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+        "scope": "顶层设计/工作卡职责、当前入口和旧状态撤权核对",
+        "limitations": "仅文档职责与导航，不证明产品性能、兼容或发布验收"
       }
     },
     {
@@ -678,10 +678,10 @@
       "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a98cf70b8c647740189d64ca14f8508cda28a48c79f02d2f5fdb0f47a1fcc5e5",
+        "sourceSHA256": "07470c9a4f543df8236ccd3306a5f91e9d36b9c96654c0dad04a04f17584b030",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对Swift/C编译参数、诊断与正式Release边界、CPU计量及新历史指针；方法由现役工具复验",
-        "limitations": "仅本次方法与导航审查，不代表实际能耗、温度、完整产品或官方视觉验收"
+        "scope": "顶层设计/工作卡职责、当前入口和旧状态撤权核对",
+        "limitations": "仅文档职责与导航，不证明产品性能、兼容或发布验收"
       }
     },
     {
@@ -1198,6 +1198,19 @@
       "currentAuthorities": [
         "docs/scene/roadmap/engine-refactor-program.md",
         "docs/scene/capabilities/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/engine-refactor-program-through-2026-10-14.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/engine-refactor-program.md",
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/roadmap/properties-panel-card.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/roadmap/scene-steamkit-migration-plan.md"
       ]
     },
     {
@@ -2682,9 +2695,17 @@
     },
     {
       "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "role": "active-plan",
+      "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
-      "retirementCondition": "E0–E8 完成或经证据裁决不适用、旧职责撤权、当前文档收敛、性能与恢复门通过，稳定合同接管终态后转 historical-evidence。本文是项目工程重构入口，不接管兼容能力和样本验收；性能基线不等待兼容路线 P5。"
+      "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
+      "lastReviewed": "2026-10-14",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "de816e36225417d5e3479a25cfbd7e84ca2349b801213be748c3327d42753633",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "顶层设计与现役工作卡导航职责核对",
+        "limitations": "仅文档职责与导航，不证明运行能力或性能验收"
+      }
     },
     {
       "path": "docs/scene/roadmap/performance-convergence-card.md",

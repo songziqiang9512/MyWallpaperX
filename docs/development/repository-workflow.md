@@ -42,7 +42,11 @@ python3.12 -B script/verify_scene_change.py --phase inner --base HEAD --owned-pa
 | integration | GPU/VM/资源/生命周期/可见输出或跨 runtime | 隔离代表内容或对应 UI/IPC 事件；Scene 显式选 `--sample-id` / `--sample-root` / `--app` / `--output-dir`，缺 corpus 显式记录未验证 |
 | milestone | 共享合同、完整能力或发布结论 | 说明为何较小范围不足，再选 `--matrix-tier`、长稳、官方对照或发布门 |
 
-编排器按路径映射显式选择模块；手动最近门用 `script/run_scene_tests.py --module <module>`，该测试入口的 `--scope scene` 不能当作全量。现役参数、CI 跳过运行态的理由及门列表以 `verify_scene_change.py --help` 和预览为准；这里不维护第二份 gate 组合。
+先用最近行为门和短实验筛选，短实验不作正式性能验收；目标收益成立后再跑相称的正式测量与一次最终独审。同一根因、同一职责的关联修改合并验收；共享合同或高风险生命周期变化再扩大门。
+
+编排器按路径映射显式选择模块；手动最近门用 `script/run_scene_tests.py --module <module>`，该测试入口的 `--scope scene` 不能当作全量。选择结果须核对实际输入/断言依赖，避免把宽映射全部当作每次局部反馈的必跑项。现役参数、CI 跳过运行态的理由及门列表以 `verify_scene_change.py --help` 和预览为准；这里不维护第二份 gate 组合。
+
+相同源码、harness、工具链、flags/配置和输入身份的构建/测试结果复用；文档修订不重建产品，失败修复后只重验受影响部分。性能基线复用还须条件一致且有效，漂移时重测。跨提交保留具体版本和通过/跳过边界，不能以旧结果覆盖已变更输入。测量期间不并行构建、测试或profiler；独立静态阅读可交错。
 
 ## 查询结构债与复用构建
 
@@ -63,7 +67,7 @@ python3.12 -B script/verify_scene_change.py --phase inner --base HEAD --owned-pa
 - 文档角色在 `docs/document-role-index.json` 唯一登记。导航只提供链接；当前状态拥有当前事实；参考资料不决定产品行为；稳定合同和计划分别拥有目标与顺序。所有非忽略 docs Markdown（包括未提交新文件）都被检查，未声明角色不会逃过发现。
 - 当前文档正文默认受 `document_health` 只降预算约束。新增权威或合理扩展、移动、合并或退役由 owner、reason 与仓库内 decision（决策文档或本节锚点）说明，在原 baseline 的 `adjustments` 精确登记 section/path 及变更前后规范 JSON 的 SHA256；仅匹配当次变更的记录放行，其他变更不获豁免。`--check` 报告所需调整身份供填写；下一批可替换过期记录，不累计第二台账。实际正文、归档载荷和锚点、索引及硬预算校验仍执行；机器只核登记和内容一致，不确认设计已获人工批准。稳定合同的lastReviewed绑定可核验Git维护日期或hash导航审计，不能借刷新日期宣称重新验证运行能力。
 - `check_test_assertions.py --census-expressions` 输出v1之外的字面量membership断言及operand供溯源；里面包含合法行为检查，不能整体算作源码形状债或直接扩正则执法。
-- 每轮清理本轮已结束的可重建执行环境，最终证据按[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)限量留存；`promote_scene_evidence.py --prune-expired`清理工具登记的到期包，唯一失败证据可明确保护。旧材料归档不代表磁盘空间已释放。
+- 运行前选定必要报告、失败证据和截图；静态身份只留一份，不重复生成同类摘要。每轮清理本轮已结束的可重建执行环境，最终证据按[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)限量留存；`promote_scene_evidence.py --prune-expired`清理工具登记的到期包，唯一失败证据可明确保护。旧材料归档不代表磁盘空间已释放。
 - 结束前核对实际 diff、行为结果、未覆盖风险与其他会话改动。独立审查绑定具体内容；“无发现”不替代执行证据。提交、推送和发布状态分别报告，不能把它们合成“完成”。
 
 获得提交授权后，提交信息写清具体问题、已证根因、实际结果与验证范围；说明必要的未验证边界。简单修改可用短正文，不为凑四个标题复制日志；提交、推送和发布仍分别按用户授权。

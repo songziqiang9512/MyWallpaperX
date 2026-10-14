@@ -14,7 +14,7 @@
 | Scene 目标架构 | 播放器职责、逐对象加载／更新／合成／释放与编码合同 | [Scene 兼容运行时架构](scene/architecture/runtime-architecture.md)、[Sampler 缺省输入优先级](scene/capabilities/sampler-alias-precedence.md) |
 | Scene 启动响应 | 详情诊断、异步 preparation、候选首帧、回滚和分层缓存合同 | [Scene 启动响应与按需诊断合同](scene/architecture/scene-launch-responsiveness-contract.md) |
 | Scene 日常开发 | 如何选首断点、做纵向切片、消融常驻成本和选择验证门 | [Scene 开发工作流](scene/development/development-workflow.md) |
-| 工程重构 | 播放架构、成本消融、跨引擎控制、测试与文档退役 | [重构执行档案](scene/roadmap/engine-refactor-program.md) |
+| 工程设计与专项执行 | 所有权、成本消融与退出设计；当前顺序和验收 | [重构顶层设计](scene/roadmap/engine-refactor-program.md)、[性能卡](scene/roadmap/performance-convergence-card.md)、[属性卡](scene/roadmap/properties-panel-card.md) |
 | Scene 现役计划 | 当前段位、剩余顺序、停止项和完成门 | [Scene 兼容执行路线](scene/roadmap/scene-compatibility-roadmap.md) |
 | Scene 官方结果研究 | 公开资料不足时如何研究固定官方客户端并把结果交给独立实现 | [官方客户端行为研究与一致性验证工作流](scene/development/official-client-behavior-research-workflow.md) |
 | Scene 当前能力 | 每项能力现在是已执行、部分、仅结构还是缺失 | [Scene 能力台账](scene/capabilities/coverage-ledger.md)及专项表 |
@@ -47,7 +47,7 @@
 
 - 现役 plan/contract 通常使用稳定、无日期的路径，并在首部声明 `document-role`；日期写入正文的复核字段。确需保留日期化的现役派生队列时，必须同时在 `document-role-index.json` 的 `additionalPaths` 和文档角色表中显式登记，并写明其派生性质与退役条件。
 - 未被角色索引显式登记的带日期 Markdown 只能位于 `docs/history/` 或 `docs/scene/history/`；历史目录中的文件不能取得现役角色。
-- 每个决策范围只允许一个现役执行计划：工程重构由 E 路线决定，Scene 作者兼容由 P 路线决定；断点队列只是 P 路线的派生短表，不独立规定阶段。现役计划只保留当前阶段、顺序、完成门和退役条件；批次结果、route 数字、样本身份和报告摘要回到各自能力/证据权威。能力表、依赖图、来源索引和历史文档都不能决定下一任务。
+- 每个决策范围只保留一个顺序权威：工程顶层设计规定边界；性能和属性专项由各自工作卡维护当前顺序与验收；Scene 作者兼容由 P 路线决定，断点队列是其派生短表。批次结果、route 数字、样本身份和报告摘要归各自能力/证据权威；历史与能力表不决定下一任务。
 - 导航页只说明文档角色并链接权威入口，不复制当前阶段、完成数量、commit、矩阵数字、报告路径或本机缓存位置；同一当前事实只保留一个权威解释，其他文件放短指针。
 - 当前能力变化更新能力台账/专项表；运行证据变化更新运行证据索引；架构变化更新稳定架构；任务顺序变化只更新现役路线。
 - Scene 历史进入 `docs/scene/history/`；全仓、架构和 Web 历史进入 `docs/history/{architecture,web,cross-topic}`，并登记截止日期、独有价值和当前权威。

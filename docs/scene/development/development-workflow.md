@@ -69,7 +69,7 @@ authored data → loss-preserving IR → prepared Program/graph/resources
 ## 事实和文档
 
 - 最终怎样：[`runtime-architecture.md`](../architecture/runtime-architecture.md)；
-- 工程成本、架构与减重顺序：[重构计划](../roadmap/engine-refactor-program.md)；
+- 工程边界与消融设计：[顶层设计](../roadmap/engine-refactor-program.md)；执行顺序与验收归[性能卡](../roadmap/performance-convergence-card.md)和[属性卡](../roadmap/properties-panel-card.md)；
 - 作者行为、能力与可见验收顺序：[兼容路线](../roadmap/scene-compatibility-roadmap.md)，具体开放问题只看派生队列；
 - 现在能什么：[`semantics/coverage-ledger.md`](../capabilities/coverage-ledger.md)及专项表；
 - 实际发生什么：[`semantics/runtime-evidence-current.md`](../capabilities/runtime-evidence-current.md)。

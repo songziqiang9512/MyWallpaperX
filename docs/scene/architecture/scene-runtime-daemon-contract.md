@@ -2,7 +2,7 @@
 
 <!-- document-role: stable-contract -->
 
-> 状态：现役设计契约（M5 进程分离的设计门交付物；实施进度查[引擎重构工程计划](../roadmap/engine-refactor-program.md) §3 M5 工位卡）
+> 状态：现役进程设计契约；实际接线查[代码地图](runtime-as-built-map.md)，后续专项顺序归[性能卡](../roadmap/performance-convergence-card.md)，工程边界查[顶层设计](../roadmap/engine-refactor-program.md)。
 >
 > 复核：2026-09-14
 >

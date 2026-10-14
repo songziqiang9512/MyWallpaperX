@@ -8,9 +8,11 @@
 
 | 任务 | 现役路线 |
 |---|---|
-| 工程结构、生命周期、性能与消融 | [工程 E 路线](roadmap/engine-refactor-program.md) |
+| 工程结构、生命周期与消融设计 | [重构顶层设计](roadmap/engine-refactor-program.md)，只规定边界 |
+| 整体 CPU/GPU、内存、启动与能耗 | [性能工作卡](roadmap/performance-convergence-card.md)，维护执行顺序 |
+| 属性面板响应、定义与编辑更新 | [属性工作卡](roadmap/properties-panel-card.md)，维护执行顺序 |
 | 作者能力、可见正确性与全样本验收 | [兼容 P 路线](roadmap/scene-compatibility-roadmap.md) |
-| Steam 获取、账号、下载与入库 | [SteamKit 专项](roadmap/scene-steamkit-migration-plan.md)，细化 E 路线 |
+| Steam 获取、账号、下载与入库 | [SteamKit 专项](roadmap/scene-steamkit-migration-plan.md)，维护获取专项顺序 |
 | 用户反馈与公共首断点 | [派生断点队列](roadmap/scene-open-breakpoint-queue.md)，服从 P 路线 |
 | 全样本静态审计的缺口与待修问题基线 | [全样本静态审计](roadmap/scene-full-sample-static-audit.md)（2026-10-09 快照），修复批次选序服从 P 路线 |
 | Batch 2 待实施能力设计与派生卡 | [设计与后继卡](roadmap/batch2/batch2-design-index.md)，服从兼容路线选序，批准不代表实现完成 |

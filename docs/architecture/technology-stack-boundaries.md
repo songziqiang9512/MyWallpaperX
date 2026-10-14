@@ -30,7 +30,7 @@
 
 ## 1. 产品基线与迁移目标
 
-**硬件目标：仅支持 Apple Silicon（arm64），不承担 Intel／Rosetta 产品兼容。** 自有 App、helper、compiler/VM worker 的发行构建统一 arm64；第三方嵌套二进制必须具备可原生执行的 arm64 slice，不为减包盲目修改供应商签名。默认覆盖最低系统允许的 M1 及更新设备，具体 Metal 能力按 device/pipeline 查询，不把最新芯片能力作为全机型前提。最低 macOS 版本由构建与发布配置统一声明；取消 Intel 支持不等于提升最低系统版本。此处是目标合同，落地与验收见[工程计划的 Apple Silicon 专项](../scene/roadmap/engine-refactor-program.md#apple-silicon)。
+**硬件目标：仅支持 Apple Silicon（arm64），不承担 Intel／Rosetta 产品兼容。** 自有 App、helper、compiler/VM worker 的发行构建统一 arm64；第三方嵌套二进制必须具备可原生执行的 arm64 slice，不为减包盲目修改供应商签名。默认覆盖最低系统允许的 M1 及更新设备，具体 Metal 能力按 device/pipeline 查询，不把最新芯片能力作为全机型前提。最低 macOS 版本由构建与发布配置统一声明；取消 Intel 支持不等于提升最低系统版本。此处是目标合同，优化边界见[顶层设计](../scene/roadmap/engine-refactor-program.md#apple-silicon)，设备与性能验收归[性能卡](../scene/roadmap/performance-convergence-card.md)。
 
 产品基线是 Swift-first 的原生 macOS 工程：AppKit 承担 App 生命周期、主界面、窗口和桌面宿主，SwiftUI 只作为 [AppKit 迁移计划](appkit-migration.md)列出的受控残留；Swift 承担产品模型、播放生命周期与 Scene host/runtime 所有权，Metal 承担 Scene GPU 执行，Python 承担测试、矩阵和开发自动化。通用 JavaScript VM、shader compiler 或隔离 service 当前是否已取得产品执行权，不在长期合同中保存移动快照；只由当前源码、对应专项覆盖表和运行证据索引裁决。
 

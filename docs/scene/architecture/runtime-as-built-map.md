@@ -12,7 +12,7 @@
 >
 > 现状权威：`docs/scene/capabilities/coverage-ledger.md`。
 >
-> 何时读：改任何 Scene runtime 代码之前；执行[引擎重构工程计划](../roadmap/engine-refactor-program.md) M0（命令层）/M5（daemon）之前必读 §3/§4。
+> 何时读：改任何 Scene runtime 代码之前；修改命令层/daemon 之前读 §3/§4；目标边界查[顶层设计](../roadmap/engine-refactor-program.md)。
 >
 > 行号漂移规则：并行批次持续推进，本图 file:line 是 2026-09-14 前后基线，执行时以当次 HEAD 复核锚点。
 
@@ -146,7 +146,7 @@ SceneScript C host按layer catalog/baseline、native handle、typed value、jour
 ## 6. 维护规则
 
 - 本图是 as-built 快照：结构/不变量长期有效，file:line 会漂移（每批执行时复核锚点）。
-- 任何批次改变了 §2 的一行或 §3 的一条不变量，必须同批更新本图（与[工程计划](../roadmap/engine-refactor-program.md)工位卡一起），否则地图作废。
+- 任何批次改变了 §2 的一行或 §3 的一条不变量，必须同批更新本图（与对应[性能](../roadmap/performance-convergence-card.md)/[属性工作卡](../roadmap/properties-panel-card.md)一起），否则地图作废。
 
 
 > M0.2 闭环补记（2026-09-22）：静音与主音量都沿 `WallpaperEngineCommand` 公共控制面；`PlaybackMuteState` 保存并持久化静音意图（旧版本 `settings.volume == 0` 仅在 key 缺失时迁移一次），`PlaybackVolumeState` 保存归一化主增益。UI/热键/Scene daemon 回放不再直接触碰具体播放 owner；Video/Web 由 `WallpaperEngine` 投影，Scene Sound 由 registry 将 master gain 与作者/用户 base volume 相乘。音量滑杆 0 边界仍同步静音意图，但真实设置窗口和三引擎同输入电平尚待实机验收。

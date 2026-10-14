@@ -14,11 +14,11 @@
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 257,
-      "bytes": 25621
+      "bytes": 25682
     },
     "docs/development/repository-workflow.md": {
-      "lines": 96,
-      "bytes": 13268
+      "lines": 100,
+      "bytes": 14166
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -34,7 +34,7 @@
     },
     "docs/scene/architecture/refactor-baseline.md": {
       "lines": 128,
-      "bytes": 18301
+      "bytes": 18461
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
@@ -42,7 +42,7 @@
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
-      "bytes": 29843
+      "bytes": 29881
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -58,7 +58,7 @@
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 124,
-      "bytes": 16108
+      "bytes": 16182
     },
     "docs/scene/architecture/scene-startup-pipeline.md": {
       "lines": 144,
@@ -126,7 +126,7 @@
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 77,
-      "bytes": 11740
+      "bytes": 11864
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 282,
@@ -189,20 +189,20 @@
       "bytes": 9700
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
-      "lines": 442,
-      "bytes": 136065
+      "lines": 62,
+      "bytes": 7353
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
-      "bytes": 32798
+      "bytes": 32931
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 247,
-      "bytes": 71831
+      "bytes": 71830
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
-      "bytes": 160821
+      "bytes": 160845
     },
     "docs/web/cross-origin-reply-delivery-design.md": {
       "lines": 50,
@@ -210,7 +210,7 @@
     },
     "docs/web/current-state.md": {
       "lines": 122,
-      "bytes": 46836
+      "bytes": 46905
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 58,
@@ -261,12 +261,12 @@
       "bytes": 3104
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 22,
-      "bytes": 3949
+      "lines": 30,
+      "bytes": 6670
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
-      "bytes": 3245
+      "bytes": 3526
     }
   },
   "archives": [
@@ -1047,6 +1047,17 @@
       "originalBodySHA256": "9cbddb991253808965eb7d758c9db3e727316530ea93df0c9037af6ba68dfbe2",
       "originalLines": 72,
       "originalBytes": 14067
+    },
+    {
+      "source": "docs/scene/roadmap/engine-refactor-program.md",
+      "archive": "docs/scene/history/engine-refactor-program-through-2026-10-14.md",
+      "originalBodySHA256": "5de151bfb143e5395060ae9f9f9ad8f2dfe5925e1b6afebacf77c184f0bb465f",
+      "preservedBodySHA256": "59316073afb96cf342205d1ca1191f0c5dad09a722a6ca65f395af45e2b88db7",
+      "anchors": [
+        "5-可直接交接的执行卡"
+      ],
+      "originalLines": 442,
+      "originalBytes": 136066
     }
   ],
   "snapshots": [
@@ -1145,15 +1156,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "0e0bbfa2e6edc707e316c72ed72a7da5ca74640a1dc903dfd25207d8a2d93503",
-      "after": "734cad081d4471d38079ec4b4897822f4d513955797752d4aad45460b8e3906a",
-      "owner": "scene-e-route",
-      "reason": "窄准入合同、现役指针与集中例外同步；批次细节由历史证据拥有。",
-      "decision": "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md#文档归属与产物"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scalar-mask-data-purpose.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
       "after": "d5b3fe85b18210d59eb4f3ab5f38c9949d5d36fd9ffaf3edb1ef026c658271b3",
@@ -1187,15 +1189,6 @@
       "owner": "scene-pkg-resources-and-regression-scope",
       "reason": "PKG局部资源与正常播放新基线；现役只保限定状态和后继。",
       "decision": "docs/scene/history/pkg-extraction-memory-convergence-2026-10-12.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "ead7603dab32309567f7454b560cecc6cf47864115a683e75c89f49852a5c606",
-      "after": "342ad5a9c31ef184f005bbb401555ae25a61e64eb293f0e6a8c193018de3fe10",
-      "owner": "scene-compiled-variant-frame-program-convergence",
-      "reason": "先设计的静态准备切片完成归历史；唯一owner与live检查接管，九轮成本边界/普通heldout像素归证据，未闭目标保原卡。",
-      "decision": "docs/scene/history/compiled-variant-frame-program-convergence-2026-10-13.md"
     },
     {
       "section": "bodies",
@@ -1244,15 +1237,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/web/current-state.md",
-      "before": "45622250aa1b88c116c2540e5a4871e72b0b7227d15bf69159efe140fcfeb0a2",
-      "after": "c6c91c93e91703f515b9515778d22561811386997b7217c27a29e18d2f725e04",
-      "owner": "scene-native-property-list",
-      "reason": "新增原生列表唯一owner/会话退出合同及相邻Combo值身份语义；完成设计与试法成本移交历史，工作卡/迁移现状收紧，未验范围保队列",
-      "decision": "docs/scene/history/native-property-list-convergence-2026-10-14.md#接受的实现"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
       "before": "a551c2eeee90e6b1156583c8d28bfaa78c888cf8fed22984207b1a8370a31e8d",
       "after": "cd9e9b7af83ea93a0f81778a3913f399fd546fb73b5911ff785b0f7041b3deb9",
@@ -1280,21 +1264,120 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "f277281efa128486159c71ff8b0261fac0bdd00fd99702c262546b4e347c6cd7",
-      "after": "6afdf0f34ca2f4031c9ea199fb9368a18cd8b03f9049ec4cf72c172305bad879",
-      "owner": "scene-frame-texture-snapshot-overlay",
-      "reason": "稳定唯一值/生命周期合同与有界CPU证据接管，E1实施过程归历史；补实际未修矩阵观察与当前入口，不扩大专项验收。",
-      "decision": "docs/scene/history/frame-texture-snapshot-convergence-2026-10-14.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "536681380493c8dfdb9c3709c60d55ffdae4cd3b1532c2613f0e05ad2fa72c48",
       "after": "bb58cb96dcd82e76d2c7a2dd6d2fcffb6161b0c2d0ff3720e7b666ce6e02a00f",
       "owner": "scene-frame-texture-snapshot-overlay",
       "reason": "稳定唯一值/生命周期合同与有界CPU证据接管，E1实施过程归历史；补实际未修矩阵观察与当前入口，不扩大专项验收。",
       "decision": "docs/scene/history/frame-texture-snapshot-convergence-2026-10-14.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/technology-stack-boundaries.md",
+      "before": "72c652b708a523f4a1a18a230ae168d839ef75d3b19dcea62955b33ebaeba156",
+      "after": "e4d58b125f54c772924ca642fba00d381e5820a03c72de473b4e96907b4227e8",
+      "owner": "Scene engineering documentation",
+      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/repository-workflow.md",
+      "before": "1a6bb92bc31a31a517d4fc034ec0956a6a4efb4a8ff868ef025ede5c2e619074",
+      "after": "dfcfafc217a588a393029108ba3ee68c8bb7fdde0c3c13c39ebfe6ee4a96fc3d",
+      "owner": "Scene engineering documentation",
+      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/refactor-baseline.md",
+      "before": "1bc9d7e58cd19d5abe6469ec6acc95f23ee9c9ec7e31a497f47e9ef2781a2fb0",
+      "after": "22c06b33af0ee8df4c34db7f8e71300e4055b031202f5b519984ed5c36c3cd85",
+      "owner": "Scene engineering documentation",
+      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-as-built-map.md",
+      "before": "342ad5a9c31ef184f005bbb401555ae25a61e64eb293f0e6a8c193018de3fe10",
+      "after": "6be6e11d8e58d7011548d47e8b5381d34125b464f305085e0cf96aa60e46b584",
+      "owner": "Scene engineering documentation",
+      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
+      "before": "b9d613a2daa00959fd6f31cf9a4d1c0c497fbeae0b07987ef67222e9be33e72e",
+      "after": "f4b7c4eefa670b0002a78707c2a49836b16a74fbdb8ea483e4ec7104fc3016ec",
+      "owner": "Scene engineering documentation",
+      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "9ed5954985e631176817b8d86f4c091bdebd6f087c3d2114f0ba6c2d4830ad94",
+      "after": "f9acb9ffbf80eb65043fd6ff6fd79f8558025c6e1b03e48e9d3de38a8603e847",
+      "owner": "Scene engineering documentation",
+      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "6afdf0f34ca2f4031c9ea199fb9368a18cd8b03f9049ec4cf72c172305bad879",
+      "after": "07910b31a4a076560dcd8fb0b63def7f9ef68fc5688a9632389fece504ee43f3",
+      "owner": "Scene engineering documentation",
+      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "43abed273c1813b3822250450985c2dec6c9fb99faf4305a4df256a9ecede3f3",
+      "after": "8a51f1ed97a0ccd4945bfaf563b8c269b2a4c64612297283bb5ad3afb46c481e",
+      "owner": "Scene engineering documentation",
+      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
+      "before": "c4cc6bee67832a7a8b57422de2aa64d1f2f9d977046c0b0eb8b1af527f2ec6cc",
+      "after": "0c5b626af80178a06dadab8404d7f770b4e170089243e5234b088628e9981e4c",
+      "owner": "Scene engineering documentation",
+      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-steamkit-migration-plan.md",
+      "before": "6f67ec9b5ec31dd8e76d568ecc83cb240502bd8c4e90089d903113b792b93ff1",
+      "after": "3560d7aaf2c57772fa9dcc29e976ffbbc5f9233a399c3ed255cbfe7aa5df8f21",
+      "owner": "Scene engineering documentation",
+      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/current-state.md",
+      "before": "c6c91c93e91703f515b9515778d22561811386997b7217c27a29e18d2f725e04",
+      "after": "f31845c3fb7cdf1b543f1473342017703a544593109902f6b97c9bcf1dcb4d7a",
+      "owner": "Scene engineering documentation",
+      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
+    },
+    {
+      "section": "archives",
+      "path": "docs/scene/history/engine-refactor-program-through-2026-10-14.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "b082b18dd46d8f1a1f430b979013e858aaadaf0f523140a865f1c191349e8f24",
+      "owner": "Scene engineering documentation",
+      "reason": "用户授权顶层设计与工作卡职责收敛；承接当前测量及阶段验收门，归档旧过程并复用有效验证",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#历史与追溯"
     }
   ]
 }

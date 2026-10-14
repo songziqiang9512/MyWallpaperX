@@ -24,7 +24,7 @@
 >
 > 复核（2026-09-21 incoming 取消回滚批）：基线 `11c3bd34`，owned paths 为 `SteamWorkshopLibraryTransaction.swift`、`test_steam_library_transaction.py` 与本文；首轮冻结 diff SHA-256=`7c83e631ea6d083af7d14840ebd0c6e1db9ac20dd24ef2444851d627a32156fe`。旧代码在 64 MiB 受控复制已出现本批 incoming UUID 后取消，稳定留下该 UUID；实现只让 exact descriptor-bound defer rollback 忽略 sticky task cancellation，普通 staging／reclamation 仍可取消，并记录非取消型回滚失败。修后新反例、受影响三模块、全部 20 个 Steam 维护模块及三项文档门均通过；checkpoint focused tests 通过，聚合门只被批外既有 code-health ratchet／超限债务阻断而未自动构建，随后标准隔离无签名 Debug build `BUILD SUCCEEDED`。独立只读首审为 **REQUEST CHANGES**：一项 P2 指出取消反例会把任意清理干净的非取消错误误判通过，另一项 P2 指出顶部与 SK7.1 lead 的 next action 已落后；一项 P3 要求把本批身份、验证和审查边界写回现役计划。测试现只接受 typed `CancellationError` sentinel，入口已指向 durable staging acknowledgement；修正候选 diff SHA-256=`a8d39190de74fa7d2fd0b83a497164d80e0046734f7dbf0333890901f4329d36` 经同一审查者复审 **APPROVE / P0–P3 无遗留 finding**。批准只覆盖 exact incoming rollback、行为反例及文档忠实性；这仍不是账号真下载、可见播放、Video/Web 产品迁移或发行验收。
 >
-> 权威：本计划细化[工程路线 E2/E6/E8](engine-refactor-program.md)，覆盖 Video/Web/Scene 共用的 Steam 内容获取，不改变播放器。本文覆盖此前“双网页登录/自动弹登录/保留订阅 HTML 主路径”的方案。
+> 权威：本计划拥有获取专项顺序并遵循[工程顶层设计](engine-refactor-program.md)，覆盖 Video/Web/Scene 共用的 Steam 内容获取，不改变播放器。本文覆盖此前“双网页登录/自动弹登录/保留订阅 HTML 主路径”的方案。
 >
 > 退役：SK0–SK7 完成、SteamCMD 与自动社区登录/个人列表抓取产品路径撤除、交互/数据/发布门通过后，稳定合同和功能证据接管终态，本文转历史。
 

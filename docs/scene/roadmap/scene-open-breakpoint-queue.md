@@ -244,4 +244,4 @@
 - **待办：全专项未覆盖profile。** 上表是旧断点对账与用户报告；专项能力中未执行、未证和局部拒绝须按上述专项范围查询并纳入共同修复，不默认已兼容。每次扩大profile前核真实引用/现owner/可区分反例，不按family数量制造任务量。
 - **闭合纪律。** 同族正例、健康异族/失败反例、真实动态输出、相称build/运行与独立审查通过后提交；标明实际画面收益与受益面，下一批和当前专项进度。没有可复验分母就报告闭合链及剩余项，不编完整正确率。复用现有prepared/typed/encode/唯一compositor，普通帧不新增解析/编译/整图哈希。
 - **已完成退出待修。** composition成员、int compound、TEXB3照片、Puppet reader/权重/alpha/seek/intro、barcode/data purpose、Rope准入、音频容量与事件/事务等的已闭首断点只留上述历史链接；旧Q0“v2两失败”、380“照片待修”、379“条码/暗幕未修”、298“world/Rope仍被拒”均已退役。其他未验合同保留各自行，不将整样本标为完成。
-- 工程性能与Steam安装授权门仍分别归[工程路线](engine-refactor-program.md)和[Steam路线](scene-steamkit-migration-plan.md)，不能把旧签名版本当当前待安装指令。纯性能项排在画面/启动正确性之后；先同输入有效基线，再简化既有owner，不以降低作者分辨率换通过。
+- 工程性能与Steam安装授权门分别归[性能卡](performance-convergence-card.md)和[Steam路线](scene-steamkit-migration-plan.md)，不能把旧签名版本当当前待安装指令。纯性能项排在画面/启动正确性之后；先同输入有效基线，再简化既有owner，不以降低作者分辨率换通过。

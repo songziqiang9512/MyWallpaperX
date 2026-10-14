@@ -4,7 +4,7 @@
 
 > 2026-09-15 静态审计基线；不是任务队列，也不代表后续代码保持不变。
 > 当前能力以[能力台账](../capabilities/coverage-ledger.md)为准。
-> 当前实施顺序见[重构计划](../roadmap/engine-refactor-program.md)。只在相关执行卡需要时读取对应条目；不作为入仓必读。
+> 本页是早期调查线索，逐项使用前核对当前代码；不拥有当前状态或实施顺序。设计见[顶层设计](../roadmap/engine-refactor-program.md)，当前顺序归[性能卡](../roadmap/performance-convergence-card.md)与[属性卡](../roadmap/properties-panel-card.md)；按职责选读。
 
 ## 2. 调查基线与证据边界
 
