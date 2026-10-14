@@ -57,3 +57,37 @@ PreparedAssembly已验证不可变layout/slot并建立同源shader identity，En
 同一已编译候选默认完整GPU门137事实全真，含terminal replay、reset/stale、格式/角色、target/command身份与像素输出，复用binary不再编译。独审确认唯一factory及private initializer无绕过路径；证据归`.artifacts/tmp/encoder-static-admission-screen-20261014/proof/`。优化诊断与Debug各一次构建通过（22.740s/16.350s），4294输入无漂移；C App为91fe54e3，另含Host pending仲裁窄修，稳态窗口无属性编辑，该分支不执行。B为bae53b53，真实304同媒体/3024×1964/60FPS/静音/无execution observations，各96s、30s暖机及约64.5s有效窗，期间无构建/测试/profiler。CPU时间率800.447→812.103ms/s（升1.46%），准备p50 4.703→4.647ms、CPU帧p50 8.704→8.711ms，未见整App收益，停止扩测；GPU p50 12.241→10.490ms和footprint峰值989841112→830817936B的下降未归因，不认领GPU/内存/温度收益或稳定非目标验收。两边零GPU失败，原particle loading incomplete仍FAIL；每帧36主/109离屏/33 source capture/2 copy与26902272复制字节不变。只按删除已有静态证明的重复工作保留，不增报专项完成。304两幅原图人物、星空、建筑、云与时钟保留，动态相位/时钟不同，不要求逐像素等价。
 
 独立Bunk只补C实际渲染，复用同输入/矩阵的bae53b53基线；夜间房间、树木、家具、灯光与时钟保留，27项旧FAIL逐项相同。C退出31/31 owner quiescent、surface归零及GPU排空；304同样71/71正常退出。完整GPU门的crossDeviceExercised=false，未覆盖跨设备、HDR/多屏或长期切换。当前91fe54e3 App与共享连续DD留给下一轮；编译试错缓存、重复转储及退出的临时App/样本精确清理，原始报告、必要画面与失败收据保留。
+
+
+<a id="material-frame-payload-screen"></a>
+
+## 单份材质帧载荷短筛（2026-10-14，候选已撤回）
+
+候选的静态编码字节留在现CompiledVariant.preparedUniformBindings，来源规则与replay偏移交现PreparedAssembly，Finalizer只写一份uniform载荷，Program的semantic/exact/resolved视图按需派生；Encoder直接消费sealed payload。没有新增cache或跨帧scratch，variant选择和两轮资源查询未改。虽减少完整准备成本，整体短筛未达继续门，8产品及3fixture已逐SHA恢复`a55ed7dd`；不能将本节当现役实现或性能完成项，不继续同类uniform/identity微调。
+
+完整生产Finalizer→Program→Encoder.prepare的-O局部对照，核全部字节、shader、绑定、输出及0计时内编译。原三对各1000样本：小输入下降42.79%但基线噪声6.57%，超过5%门；大输入下降30.62%、噪声0.97%。保留该失败，不调阈值；先检查无本批竞争任务，用户后台仍活跃，不能断言无干扰。随后冻结一次扩大块的检查，复用相同二进制，每块连续5×1000样本全部合并、顺序B/C/C/B/B/C，无剔除：小输入中位下降42.59%、块间噪声1.54%；大输入下降30.01%、噪声2.19%。单个子运行仍有最高约8.63%离散，仅支持进入App短筛。
+
+真实304、同project/package/matrix、3024×1964单surface、60FPS、静音、无execution observations，96s/30s暖机，测量约64.5s。签名优化诊断B=`4a252417…`、C=`7b4e7018…`，4294构建输入仅本批8产品不同；不是普通产品或正式Release性能验收。
+
+| 指标 | B | C | 观察 |
+|---|---:|---:|---|
+| 渲染进程CPU ms/s | 820.959 | 786.970 | −4.140%，未达10%继续门 |
+| CPU ms/完成帧 | 13.6862 | 13.1367 | −4.015% |
+| executor准备p50 ms/帧 | 3.030 | 2.373 | 原报告`cpu_stages_frames`，不混事件粒度 |
+| 整体准备p50 ms/帧 | 4.698 | 4.040 | 同上，仅阶段观察 |
+| GPU p50 / p95 ms | 11.620 / 12.266 | 10.731 / 13.231 | p95升7.867%，超过5%非目标护栏 |
+| footprint采样峰值 bytes | 819693200 | 828262008 | 升1.045% |
+
+两边App正常退出、0失败帧，原`particle loading incomplete`保留。单对不能证明稳定CPU收益或GPU退化因果；不把阶段下降当整体收益，不认领内存、功耗或温度改善。停止GPU/replay扩门、Debug build、独立样本和正式多轮验收，因候选不保留而未做，不伪称这些边界通过。
+
+最近Derivation 1与Finalizer 34 tests通过；独审发现动态array失败半径会从原invariant硬拒变成uniform局部透传，修正后3受影响tests通过，含6个真实runtime-loop数组/改名/等价边界事实。fixture首轮2处typed断言编译失败及App缺`import Metal`的13.314s失败原样保留；后补import仅修模块可见性，独审确认函数体不变，29.315s优化诊断构建通过且输入无漂移，局部二进制无需重编。最终实现静态审查和原报告独立重算均通过，但不能代替未做的运行验收。
+
+证据根`.artifacts/tmp/material-frame-payload-20261014/`：`proof/local-summary.json`保原未过噪声门，`proof/repeat-5000/summary.json`保扩大块与全部子运行，`proof/app-screen-result.json`与B1/C1原报告、`proof/withdrawal.json`及`proof/rejected-prototype/`保完整候选和逐文件撤回。已停止实验，编译缓存/候选App按本轮清理收据退役；保原日志、数值、冻结身份、必要图片与完整源码。前驱4a App和唯一连续DerivedData复用于下一批属性验证。
+
+### 实施前设计快照（已退出执行队列）
+
+**材质帧载荷设计（2026-10-14实施前记录，候选现已撤回）。** 首片选择替换Program重复表示：现有CompiledVariant/PreparedAssembly一次准备不可变执行布局、静态字节、来源规则与replay偏移；Finalizer逐帧只生成实际纹理、当前输出合同、必要动态来源与一份uniform字节，仍由sealed factory接纳。UniformEncoder保唯一编码算法并直接写入目标偏移；raw入口经同一校验工厂，不能用trusted标记绕过。完整semantic/exact identity与resolved-uniform视图按诊断/兼容调用需要派生，普通Encoder不再读这些镜像或重复比较其字节。首片不动variant选择及两轮资源查询，不新增cache/registry/owner，不跨帧复用Program/Pass或可变scratch。
+
+必须保留逐帧来源/数值范围、publication/identity/generation/epoch、device/purpose/content/sampling/UV/graph及当前输出合同检查；Encoder保实际资源、目标别名、attachment/sample/write-mask、reset、command-buffer与pin生命周期检查。terminal replay沿原owner只替换布局指定字段，保持不可变帧载荷和原失败范围。迁移完实际消费者才删除旧stored镜像与重复证明，raw非法输入反例不得退役。
+
+最小切片须贯穿Finalizer→Program→Encoder.prepare，比较完整字节/绑定/输出合同与实际GPU结果，诊断投影移出计时；覆盖小输入、多slot/动态uniform、variant、HDR、replay、资源失效及失败反例。现有约2.97ms executor窗口只是选题依据，不能全计可消除成本。先冻结完整路径局部门，再按原10%继续门做一次App短筛；局部收益不能扩为整体收益，回退或不足则停止扩测。通过后稳定职责移交既有合同，过程归已有历史并撤本设计窄登记。

@@ -17,15 +17,11 @@
 
 已停止无收益候选：[C消融](../history/script-c-codegen-ablation-2026-10-14.md)、[working-view](../history/graph-residency-query-convergence-2026-10-14.md#后继working-view-查询短筛产品候选已撤回)、[粒子排序](../history/particle-world-depth-2026-10-11.md#后继粒子排序成本短筛2026-10-14)和[capture缓存](../history/gpu-cost-screening-2026-10-14.md#后继capture结果缓存短筛撤回)已撤回；[shader identity](../history/shader-identity-hash-screen-2026-10-14.md)与[属性JSON复用](../history/property-callback-recovery-2026-10-14.md#prepared-property-json)App短筛未达继续门。[GPU筛选](../history/gpu-cost-screening-2026-10-14.md)保普通image片元高成本事实，附件读取/modulation/sampler均未通过继续门，exact-copy资格33/33拒绝；不再盲筛shader或同类缓存。CPU尺寸对象缓存改变JS引用身份，未实施。
 
-**下一批**：属性线续接typed消费，CPU线按[材质帧载荷设计](#prepared-material-frame-payload)筛选完整准备成本。GPU合批先证明物理纹理不别名，不能用新增复制/驻留换pass下降。base-image/natural-size、MDL双阶段、分阶段首帧、长期轻重切换待验；旧E/AS的上传并发/峰值、聚合预算、静态按需/多屏背压、冷暖编译、媒体/音频开销与最低设备/长稳恢复仍是条件候选，按实际热点启用，不因归档完成。shader fallback未完成合法输入与回退审计前不得退役。
+**下一批**：属性线续接无运行consumer的条件Bool避免重建；GPU先用指定暖帧的prepared-only读取资格观察否证无用capture，有显著面积命中再实施，不把准备资格称为GPU节省。CPU不继续uniform/identity局部微调，依整体热点重新选题。GPU合批先证明物理纹理不别名，不能用新增复制/驻留换pass下降。base-image/natural-size、MDL双阶段、分阶段首帧、长期轻重切换待验；旧E/AS的上传并发/峰值、聚合预算、静态按需/多屏背压、冷暖编译、媒体/音频开销与最低设备/长稳恢复仍是条件候选，按实际热点启用，不因归档完成。shader fallback未完成合法输入与回退审计前不得退役。
 
 <a id="prepared-material-frame-payload"></a>
 
-**材质帧载荷设计（2026-10-14，待实现/验收）。** 首片选择替换Program重复表示：现有CompiledVariant/PreparedAssembly一次准备不可变执行布局、静态字节、来源规则与replay偏移；Finalizer逐帧只生成实际纹理、当前输出合同、必要动态来源与一份uniform字节，仍由sealed factory接纳。UniformEncoder保唯一编码算法并直接写入目标偏移；raw入口经同一校验工厂，不能用trusted标记绕过。完整semantic/exact identity与resolved-uniform视图按诊断/兼容调用需要派生，普通Encoder不再读这些镜像或重复比较其字节。首片不动variant选择及两轮资源查询，不新增cache/registry/owner，不跨帧复用Program/Pass或可变scratch。
-
-必须保留逐帧来源/数值范围、publication/identity/generation/epoch、device/purpose/content/sampling/UV/graph及当前输出合同检查；Encoder保实际资源、目标别名、attachment/sample/write-mask、reset、command-buffer与pin生命周期检查。terminal replay沿原owner只替换布局指定字段，保持不可变帧载荷和原失败范围。迁移完实际消费者才删除旧stored镜像与重复证明，raw非法输入反例不得退役。
-
-最小切片须贯穿Finalizer→Program→Encoder.prepare，比较完整字节/绑定/输出合同与实际GPU结果，诊断投影移出计时；覆盖小输入、多slot/动态uniform、variant、HDR、replay、资源失效及失败反例。现有约2.97ms executor窗口只是选题依据，不能全计可消除成本。先冻结完整路径局部门，再按原10%继续门做一次App短筛；局部收益不能扩为整体收益，回退或不足则停止扩测。通过后稳定职责移交既有合同，过程归已有历史并撤本设计窄登记。
+**材质帧载荷候选已撤回。** [完整局部与App短筛](../history/compiled-variant-frame-program-convergence-2026-10-13.md#material-frame-payload-screen)证局部准备下降，但App单对CPU仅降4.14%、GPU p95升7.87%；未达继续门，不扩测、不认领稳定收益。原型和失败证据保留，设计窄登记退役。
 
 **工具边界。** 保唯一CLI、语义parser与验收入口、严格默认与未舍入ratio；[旧monolith已退役](../history/benchmark-responsibility-convergence-2026-10-13.md)，不另造wrapper/算法。
 

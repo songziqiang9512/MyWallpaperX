@@ -540,22 +540,6 @@
       "contentPatterns": [
         "ScenePlaybackTextureUpdateOutcome"
       ]
-    },
-    {
-      "id": "scene-material-frame-payload",
-      "title": "Prepared material execution layout and sealed frame payload",
-      "owner": "SceneResolvedMaterialCompiledVariant / SceneResolvedMaterialProgram",
-      "status": "approved",
-      "designDoc": "docs/scene/roadmap/performance-convergence-card.md",
-      "design_notes": "2026-10-14实施前决定见 designDoc#prepared-material-frame-payload：首片仅Program重复表示与唯一UniformEncoder直接写入；variant选择和两轮资源查询不变。sealed factory保raw入口与动态资源安全检查，不增cache或owner；完整Finalizer→Program→Encoder局部门及App继续门另验。approved不代表性能验收；通过后稳定职责移交既有合同并删除本窄登记。",
-      "matchPatterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram*.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialCompiledVariant.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Finalization.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformEncoder*.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder*.swift"
-      ],
-      "contentPatterns": []
     }
   ]
 }

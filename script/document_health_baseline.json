@@ -261,8 +261,8 @@
       "bytes": 3104
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 44,
-      "bytes": 9839
+      "lines": 40,
+      "bytes": 8536
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1363,21 +1363,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "85ff1a6f96856c7c9481a74ee709d51bbf5bbf9d411b78065007c62b69dd4c03",
-      "after": "2d65070b8813a80e0bc59309fda6ab7154f9916112cbc7c5a818b1ead1e4f561",
-      "owner": "Scene材质帧准备",
-      "reason": "在唯一现役性能卡记录实施前载荷设计；压缩已完成历史摘要后仅增加310字节，分段保留未闭合边界。",
-      "decision": "docs/scene/roadmap/performance-convergence-card.md#prepared-material-frame-payload"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/properties-panel-card.md",
       "before": "e0fe4cbf5c4b4ffcdf6704c3465bf7f9193a1f9037a61407c10fbe22de71222d",
       "after": "5a02d4ec9fc82edf88feff051119d7ea8cfe94492b1c6239ab535b84da1d17b2",
       "owner": "Scene属性颜色消费",
       "reason": "同步实际effectful图片typed颜色范围及面板调色板未覆盖边界；保持单一现役工作卡。",
       "decision": "docs/scene/history/effectful-image-property-color-2026-10-14.md#验证与边界"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "2d65070b8813a80e0bc59309fda6ab7154f9916112cbc7c5a818b1ead1e4f561",
+      "after": "c53c77a01cc8a4df3aa12bffc56b6a4fc0a581ecf1a3f765bd20e3229cc8144b",
+      "owner": "Scene性能短筛",
+      "reason": "未达App继续门后撤回材质帧载荷候选，设计与数据归原历史；现役卡只留决定及下一项并收紧体积基线。",
+      "decision": "docs/scene/history/compiled-variant-frame-program-convergence-2026-10-13.md#material-frame-payload-screen"
     }
   ]
 }
