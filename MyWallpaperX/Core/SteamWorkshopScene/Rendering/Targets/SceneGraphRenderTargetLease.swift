@@ -233,7 +233,7 @@ struct SceneGraphRenderTargetLease {
 enum SceneResolvedMaterialInFlightCapacity {
     static let maximumSubmissions = 2
 
-    static func admitsNewSubmission(_ pinCounts: [Int]) -> Bool {
+    static func admitsNewSubmission(_ pinCounts: some Sequence<Int>) -> Bool {
         pinCounts.reduce(0) {
             min(maximumSubmissions, $0 + min(maximumSubmissions, $1))
         } < maximumSubmissions

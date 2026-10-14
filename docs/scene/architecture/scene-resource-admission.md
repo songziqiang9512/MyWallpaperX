@@ -38,6 +38,14 @@ RF05（2026-10-02）纠偏属于①跨 Host/资源/provider 与②唯一资源�
 
 行为门：并发预留不超额；失败分配返还；decode 与 GPU 竞争同一额度；共享纹理不重复收费；停止/删除 cache 后仍被 GPU 引用的资源不提前释放；GPU terminal 后最终引用释放归零；小预算下拒绝候选而旧输出保留。Debug build 与代表原生播放分开验证。所有产品分配接入、反例通过、文档同步后退役迁移登记；新增分配入口必须经过同一架构门。
 
+## 锁内 graph resident 查询
+
+同一批 graph 的 reservation、准备准入与提交刷新只在原 `SceneOffscreenTextureAllocationCache` 锁内使用一份不可变 resident 视图。该操作内的临时索引只存 key，按原 graph key 查询 allocation，按原 history resident key 查询历史，按 generation 区分唯一 key 与歧义；不复制 Entry 作为索引值，不缓存跨锁、跨帧结果，不成为第二份可变 resident/pin/预算账本。原 dictionary 仍是唯一资源与发布权威。
+
+原视图与合法 demotion 后视图分别建立索引；没有发生 resident 变更时复用同一索引，不能给旧 reservation 换 revision 或在修改视图后继续使用旧索引作实时判断。提交循环会变化的 `next` 仍查实际内容；capacity 沿原唯一算法消费惰性序列，减少整份数组复制。foreign preparation、重复 generation、shared pair、in-flight、history/COW、预算、reset、取消和部分选择的原拒绝边界不放宽。索引在操作返回前退出，不延长 texture/pin 至下一帧，也不保留完整 frame Program。
+
+先以真实 pool/准备/提交门覆盖冷暖、多 graph、无关 resident、history、重复 generation、pin 与取消反例，再用短消融比较整体 CPU/准备成本及内存；显著收益才进入工作卡正式多轮对照、独立样本画面与最终独审。单 graph 或密集 resident 反例恶化、正确性退化或两次有区分力试验无收益时修正/撤回，不以局部查询计时替代整体收益。
+
 
 ## 大型静态模型准备后继（已实施）
 

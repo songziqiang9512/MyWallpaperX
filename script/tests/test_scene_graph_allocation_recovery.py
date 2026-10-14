@@ -57,6 +57,13 @@ class SceneGraphAllocationRecoveryTests(unittest.TestCase):
         self.assertTrue(self.result["externalRevisionKeptIdleVictim"])
         self.assertTrue(self.result["externalRevisionNoGraphPublication"])
 
+    def test_resident_queries_preserve_subset_cancel_reset_and_ambiguity(self) -> None:
+        self.assertEqual(len(self.result["residentQueryVariants"]), 5)
+        for index, row in enumerate(self.result["residentQueryVariants"]):
+            for key, passed in row.items():
+                with self.subTest(variant=index, key=key):
+                    self.assertTrue(passed)
+
     def test_cached_targets_survive_completion_without_allocation_or_identity_drift(self) -> None:
         for row in self.result["cachedCompletion"]:
             for key, value in row.items():

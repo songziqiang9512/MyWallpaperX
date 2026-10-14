@@ -1260,6 +1260,19 @@
       "uniqueValue": "graph用途冲突红绿、候选与typed合成反例、历史fixture更正及真实样本未恢复的证据上限。"
     },
     {
+      "path": "docs/scene/history/graph-residency-query-convergence-2026-10-14.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-resource-admission.md",
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-14",
+      "uniqueValue": "锁内唯一resident查询、两次实现试验与固定三配对整体CPU；保留呈现异常、内存波动及独立样本边界"
+    },
+    {
       "path": "docs/scene/history/hdr-attachment-mapping-convergence-2026-10-14.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -2729,10 +2742,10 @@
       "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "05ba25ec5047e5f9679a0863c6449ca0b05123597f0f6bcdafc8910afff35979",
+        "sourceSHA256": "cf2c307eeef31b56120c7ab7793d60f430b1634be17fbda81e22962691e919e1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Vector无回调休眠修正、未达整体收益的短筛选、共享纹理别名屏障及CPU准备热点后继的导航核对",
-        "limitations": "导航复核不冒充全架构、样本兼容、整进程性能、能耗或Release；实际执行身份与边界归本批历史证据。"
+        "scope": "resident查询固定CPU配对、呈现/内存限制及下一批入口核对",
+        "limitations": "仅文档职责与导航；实际性能与运行证据归该批history和原始报告"
       }
     },
     {

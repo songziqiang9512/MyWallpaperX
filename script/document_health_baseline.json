@@ -53,8 +53,8 @@
       "bytes": 14336
     },
     "docs/scene/architecture/scene-resource-admission.md": {
-      "lines": 44,
-      "bytes": 8355
+      "lines": 52,
+      "bytes": 9909
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 124,
@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 30,
-      "bytes": 7141
+      "bytes": 7349
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1111,15 +1111,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "02f61c3ec7e357466792c4f02a37b553451af292054ffeb2522ac8f8c1e1844d",
-      "after": "1750f94adeb0cbe492d1934da84c367ac1371bf22b59fdc1fa93de4778893e33",
-      "owner": "Scene",
-      "reason": "统一inactive named候选与子额度合同；维护实测剩余，不将已闭首断点重复排队。",
-      "decision": "docs/scene/history/terminal-attachment-desktop-freeze-2026-10-10.md#u24-cover-dependency"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
       "before": "14ba04a12e008f5b7a26c003888e0314fee6b1c7bfb512f1a33c3ffbf18f5e1c",
       "after": "746f03697f736b295f216d23582401f475a0275dfd0f89f5106398ed295fc0ad",
@@ -1372,12 +1363,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/scene-resource-admission.md",
+      "before": "1750f94adeb0cbe492d1934da84c367ac1371bf22b59fdc1fa93de4778893e33",
+      "after": "7bc981abc9c2e09e580d248c645992f22a903685cfd488d225f1728892172878",
+      "owner": "scene-graph-residency-query",
+      "reason": "锁内唯一resident查询设计与固定配对CPU实测；保留呈现/内存反例和未闭专项，历史过程退出现役卡",
+      "decision": "docs/scene/history/graph-residency-query-convergence-2026-10-14.md#通用语义与选择"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "fa11f4d5d6e5b51f01a650eb9ac0b2f9146536b79b7c81deaaf4312b791df5b5",
-      "after": "3a24b5cf1b34f28b742ba06934d623a5ea5494647212b1ef60676882c3ad3321",
-      "owner": "scene-vector-property-quiescence",
-      "reason": "同一属性事件owner的无消费者休眠、变体/相邻反例和未达性能收益筛选；保持原专项开放",
-      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#后继无属性回调的-vector-owner-休眠"
+      "before": "3a24b5cf1b34f28b742ba06934d623a5ea5494647212b1ef60676882c3ad3321",
+      "after": "43c0d09c8ed127ccc92ad943865eca957557a83d32778c2c76d79e50547c7b4a",
+      "owner": "scene-graph-residency-query",
+      "reason": "锁内唯一resident查询设计与固定配对CPU实测；保留呈现/内存反例和未闭专项，历史过程退出现役卡",
+      "decision": "docs/scene/history/graph-residency-query-convergence-2026-10-14.md#通用语义与选择"
     }
   ]
 }

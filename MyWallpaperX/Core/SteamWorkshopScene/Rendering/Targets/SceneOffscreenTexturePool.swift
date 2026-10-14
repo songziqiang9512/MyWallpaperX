@@ -3,10 +3,10 @@ import Metal
 
 extension SceneResolvedMaterialInFlightCapacity {
     static func admitsNewSubmission(
-        _ entries: [SceneOffscreenTextureAllocationCache.Entry],
+        _ entries: some Sequence<SceneOffscreenTextureAllocationCache.Entry>,
         graphKey: SceneLayerGraphTargetPlan.Key
     ) -> Bool {
-        admitsNewSubmission(entries.compactMap { entry in
+        admitsNewSubmission(entries.lazy.compactMap { entry in
             guard case .layerGraph(let graph) = entry.allocation,
                   graph.plan.key == graphKey else { return nil }
             return entry.submissionPins.count
@@ -14,7 +14,7 @@ extension SceneResolvedMaterialInFlightCapacity {
     }
 
     static func admitsNewAllocation(
-        _ allocations: [SceneOffscreenTextureAllocationCache.Allocation],
+        _ allocations: some Sequence<SceneOffscreenTextureAllocationCache.Allocation>,
         graphKey: SceneLayerGraphTargetPlan.Key,
         replacingGenerations: Set<UInt64>
     ) -> Bool {

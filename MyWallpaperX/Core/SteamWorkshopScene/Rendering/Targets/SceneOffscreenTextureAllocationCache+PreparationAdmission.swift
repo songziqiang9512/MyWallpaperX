@@ -51,6 +51,7 @@ extension SceneOffscreenTextureAllocationCache {
                   Set(inputs.map(\.candidate.key)).count == inputs.count,
                   inputs.allSatisfy({ $0.cache === self }) else { return nil }
             let identity = UUID()
+            let originalView = GraphResidencyView(residents)
             var fresh: [Candidate] = []
             for input in inputs {
                 let candidate = input.candidate, original = input.reservation
@@ -62,7 +63,7 @@ extension SceneOffscreenTextureAllocationCache {
                       candidate.byteCost >= 0,
                       sharedPairMatches(original.sharedPair, allocation: graph),
                       let refreshed = reserveGraphLocked(plan: graph.plan,
-                        orderingContext: original.orderingContext, values: residents),
+                        orderingContext: original.orderingContext, view: originalView),
                       reservationStillMatches(original, refreshed) else { return nil }
                 if let cached = original.cachedAllocation {
                     guard cached.generation == graph.generation,
@@ -89,6 +90,7 @@ extension SceneOffscreenTextureAllocationCache {
             // Perform only the original cache's legal idle replacement/demotion
             // in a local view. No graph/history publication occurs here.
             var next = residents
+            var residencyChanged = false
             for input in inputs {
                 let original = input.reservation
                 guard original.cachedAllocation == nil else { continue }
@@ -98,6 +100,7 @@ extension SceneOffscreenTextureAllocationCache {
                           old.preparationPins.isEmpty, !old.isResetInvalidated else { return nil }
                     if old.submissionPins.isEmpty && old.sceneColorPins.isEmpty {
                         next.removeValue(forKey: key)
+                        residencyChanged = true
                         if let history = old.historyOnlyEntry(),
                            case .history(let value) = history.allocation {
                             next[.history(value.plan.key, generation)] = history
@@ -109,14 +112,16 @@ extension SceneOffscreenTextureAllocationCache {
                     guard let old = next[.retired(generation)], !old.isPinned,
                           !old.isResetInvalidated else { return nil }
                     next.removeValue(forKey: .retired(generation))
+                    residencyChanged = true
                 }
             }
+            let rebasedView = residencyChanged ? GraphResidencyView(next) : originalView
             var rebased: [ScenePreparedPersistentGraphTargets.AdmissionInput] = []
             var protected = Set<UInt64>()
             for input in inputs {
                 guard case .layerGraph(let graph) = input.candidate.allocation,
                       let reservation = reserveGraphLocked(plan: graph.plan,
-                        orderingContext: input.reservation.orderingContext, values: next),
+                        orderingContext: input.reservation.orderingContext, view: rebasedView),
                       preparationResourcesMatch(input, refreshed: reservation, graph: graph)
                 else { return nil }
                 // This reservation comes from the actual post-demotion view;
@@ -133,11 +138,12 @@ extension SceneOffscreenTextureAllocationCache {
                 ].compactMap { $0 })
             }
             for generation in protected {
-                let matches = next.filter { $0.value.allocation.generation == generation }
-                guard matches.count == 1, let found = matches.first,
-                      !found.value.isResetInvalidated,
-                      found.value.preparationPins.isEmpty else { return nil }
-                next[found.key]?.preparationPins.insert(identity)
+                guard let key = rebasedView.uniqueKey(forGeneration: generation),
+                      let entry = next[key],
+                      entry.allocation.generation == generation,
+                      !entry.isResetInvalidated,
+                      entry.preparationPins.isEmpty else { return nil }
+                next[key]?.preparationPins.insert(identity)
             }
             var access = accessCounter
             for candidate in fresh {

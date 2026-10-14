@@ -91,13 +91,16 @@ struct ScenePersistentGraphTargetAllocator {
     private func reservationsAreCurrent(
         plans: [GraphPlan], reservations: [SceneOffscreenTextureAllocationCache.GraphReservation]
     ) -> Bool {
-        cache.locked { zip(plans, reservations).allSatisfy { plan, original in
-            guard original.orderingContext?.isPending != false,
-                  let refreshed = cache.reserveGraphLocked(plan: plan,
-                    orderingContext: original.orderingContext, values: cache.residents)
-            else { return false }
-            return cache.reservationStillMatches(original, refreshed)
-        } }
+        cache.locked {
+            let view = SceneOffscreenTextureAllocationCache.GraphResidencyView(cache.residents)
+            return zip(plans, reservations).allSatisfy { plan, original in
+                guard original.orderingContext?.isPending != false,
+                      let refreshed = cache.reserveGraphLocked(plan: plan,
+                        orderingContext: original.orderingContext, view: view)
+                else { return false }
+                return cache.reservationStillMatches(original, refreshed)
+            }
+        }
     }
 
     private func makeRecoveryBatch(plans: [GraphPlan]) -> SceneGraphAllocationRecoveryBatch {

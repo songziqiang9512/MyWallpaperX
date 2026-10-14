@@ -492,6 +492,88 @@ enum SceneGraphAllocationRecoveryHarness {
         return row
     }
 
+    static func residentQueryVariants(_ device: MTLDevice, _ queue: MTLCommandQueue)
+        throws -> [[String: Bool]] {
+        var rows: [[String: Bool]] = []
+        for shared in [false, true] {
+            for count in [1, 3] {
+                let pool = makePool(device), cache = pool.allocationCache
+                defer { pool.reset() }
+                let buffer = try need(queue.makeCommandBuffer(), "query buffer")
+                for index in 0..<16 {
+                    let unrelated = try need(pool.reserveEnvironment(width: 5 + index, height: 7,
+                        commandBuffer: buffer), "unrelated resident")
+                    unrelated.pin.release()
+                }
+                let frames = try (0..<count).map { index in
+                    let value = try framePlan(pool, layer: 810 + index, shared: shared)
+                    return ScenePersistentGraphTargetFramePlan(residencyDomainID: value.residencyDomainID,
+                        graphPlan: value.graphPlan,
+                        orderingContext: .init(commandBuffer: buffer))
+                }
+                let plans = frames.map(\.graphPlan)
+                let targets = try need(pool.preparePersistentGraphTargets(framePlans: frames), "query cold")
+                let admission = try need(cache.admitPreparedTargets(targets), "query admission")
+                let rejectedForeign = cache.reserveGraphs(plans: plans) == nil
+                let selected = count == 1 ? [0] : [0, 2]
+                let commits = try need(admission.finalize(selectedInputIndices: selected,
+                    historyTokensByTarget: selected.map { _ in [:] }, commandBuffer: buffer),
+                    "query subset commit shared=\(shared) count=\(count)")
+                let actual = plans.enumerated().map { index, value in
+                    (cache.allocation(for: .layerGraph(value.key)) != nil) == selected.contains(index)
+                }.allSatisfy { $0 }
+                let originals = selected.compactMap { index -> SceneLayerGraphTargetAllocation? in
+                    guard case let .layerGraph(graph) = cache.allocation(for: .layerGraph(plans[index].key))
+                    else { return nil }; return graph
+                }
+                commits.forEach { $0.releaseAll() }
+                let selectedFrames = selected.map { frames[$0] }
+                let warm = try need(pool.preparePersistentGraphTargets(framePlans: selectedFrames), "query warm")
+                let warmAdmission = try need(cache.admitPreparedTargets(warm), "query warm admission")
+                warmAdmission.cancel()
+                let afterCancel = try need(cache.reserveGraphs(plans: selected.map { plans[$0] }),
+                    "query after cancel")
+                let sameStorage = zip(originals, afterCancel).allSatisfy { original, reservation in
+                    reservation.cachedAllocation.map { $0.generation == original.generation
+                        && objects($0) == objects(original) } == true
+                }
+                let noPreparationPins = cache.locked {
+                    cache.residents.values.allSatisfy { $0.preparationPins.isEmpty }
+                }
+                let stale = try need(pool.preparePersistentGraphTargets(framePlans: selectedFrames), "query stale")
+                pool.reset()
+                rows.append([
+                    "foreignPreparationRejected": rejectedForeign,
+                    "selectedSubsetOnly": actual && commits.count == selected.count,
+                    "warmIdentitiesPreserved": originals.count == selected.count && sameStorage,
+                    "cancelReleasesPreparationPins": noPreparationPins,
+                    "resetRejectsStalePrepared": cache.admitPreparedTargets(stale) == nil,
+                ])
+            }
+        }
+        let pool = makePool(device), cache = pool.allocationCache
+        defer { pool.reset() }
+        let frame = try framePlan(pool, layer: 850, shared: false)
+        let cold = try need(pool.preparePersistentGraphTargets(framePlans: [frame]), "alias seed")
+        let commits = try need(pool.commitAndPinPersistentGraphTargets(cold,
+            historyTokensByTarget: [[:]], commandBuffer: need(queue.makeCommandBuffer(), "alias buffer")),
+            "alias seed commit")
+        commits.forEach { $0.releaseAll() }
+        let targets = try need(pool.preparePersistentGraphTargets(framePlans: [frame]), "alias prepared")
+        cache.locked {
+            let entry = cache.residents[.current(.layerGraph(frame.graphPlan.key))]!
+            var next = cache.residents
+            next[.retired(999_999)] = entry // Two resident keys, one physical generation.
+            cache.apply((next, cache.accessCounter))
+        }
+        let denied = cache.admitPreparedTargets(targets) == nil
+        rows.append(["duplicateGenerationRejected": denied,
+            "duplicateFailureIsZeroMutation": cache.locked {
+                cache.residents.values.allSatisfy { $0.preparationPins.isEmpty }
+            }])
+        return rows
+    }
+
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
             print("{\"metalUnavailable\":true}")
@@ -519,6 +601,7 @@ enum SceneGraphAllocationRecoveryHarness {
         result["poolEntryPressure"] = try [false, true].map {
             try poolEntryPressure(device, queue, shared: $0)
         }
+        result["residentQueryVariants"] = try residentQueryVariants(device, queue)
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

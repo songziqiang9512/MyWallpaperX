@@ -506,6 +506,22 @@
         "can_retry_user_properties",
         "retryUserPropertyCallback"
       ]
+    },
+    {
+      "id": "scene-graph-residency-query",
+      "title": "Operation-scoped graph residency query",
+      "owner": "SceneOffscreenTextureAllocationCache",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/scene-resource-admission.md",
+      "design_notes": "实施前设计见锁内graph resident查询；索引只投影同锁不可变视图，不跨帧或替代原账本/容量算法。可变next仍实时查；approved不是性能/兼容验收。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache+Batch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache+PreparationAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/ScenePersistentGraphTargetAllocator.swift"
+      ],
+      "contentPatterns": [
+        "GraphResidencyView"
+      ]
     }
   ]
 }

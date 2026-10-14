@@ -103,6 +103,66 @@ struct SceneLayerGraphAllocationReservation {
     let sharedPair: SceneOffscreenTextureAllocationCache.SharedPair?
 }
 extension SceneOffscreenTextureAllocationCache {
+    /// A projection of one immutable, lock-local view. Never retain it across
+    /// cache mutations or use it as a second residency/pin authority.
+    struct GraphResidencyView {
+        typealias GraphKey = SceneLayerGraphTargetPlan.Key
+        typealias Row = (key: ResidentKey, entry: Entry)
+
+        let values: [ResidentKey: Entry]
+        private var graphs: [GraphKey: [ResidentKey]] = [:]
+        private var histories: [GraphKey: [ResidentKey]] = [:]
+        private var foreignPreparations: Set<GraphKey> = []
+        private var generationKeys: [UInt64: ResidentKey] = [:]
+        private var ambiguousGenerations: Set<UInt64> = []
+
+        init(_ values: [ResidentKey: Entry]) {
+            self.values = values
+            for (key, entry) in values {
+                let generation = entry.allocation.generation
+                if generationKeys.updateValue(key, forKey: generation) != nil {
+                    ambiguousGenerations.insert(generation)
+                }
+                switch entry.allocation {
+                case let .layerGraph(graph):
+                    graphs[graph.plan.key, default: []].append(key)
+                    if !entry.preparationPins.isEmpty {
+                        foreignPreparations.insert(graph.plan.key)
+                    }
+                case let .history(history):
+                    if !entry.preparationPins.isEmpty {
+                        foreignPreparations.insert(history.plan.key)
+                    }
+                default: break
+                }
+                // History selection follows the resident key, while capacity
+                // and preparation conflicts follow the actual allocation key.
+                if case let .history(graphKey, _) = key {
+                    histories[graphKey, default: []].append(key)
+                }
+            }
+        }
+
+        func graphRows(for key: GraphKey) -> some Sequence<Row> {
+            rows(for: graphs[key] ?? [])
+        }
+        func historyRows(for key: GraphKey) -> some Sequence<Row> {
+            rows(for: histories[key] ?? [])
+        }
+        private func rows(for keys: [ResidentKey]) -> some Sequence<Row> {
+            let values = values
+            return keys.lazy.compactMap { key in
+                values[key].map { (key: key, entry: $0) }
+            }
+        }
+        func hasForeignPreparation(for key: GraphKey) -> Bool {
+            foreignPreparations.contains(key)
+        }
+        func uniqueKey(forGeneration generation: UInt64) -> ResidentKey? {
+            ambiguousGenerations.contains(generation) ? nil : generationKeys[generation]
+        }
+    }
+
     func reserveGraphs(
         plans: [SceneLayerGraphTargetPlan],
         orderingContext: SceneGraphCommandQueueOrderingContext? = nil
@@ -124,12 +184,13 @@ extension SceneOffscreenTextureAllocationCache {
         guard !plans.isEmpty,
               Set(plans.map(\.key)).count == plans.count,
               orderingContext?.isPending != false else { return nil }
+        let view = GraphResidencyView(residents)
         var result: [GraphReservation] = []
         for plan in plans {
             guard let reservation = reserveGraphLocked(
                 plan: plan,
                 orderingContext: orderingContext,
-                pendingSharedPairs: pendingSharedPairs, values: residents
+                pendingSharedPairs: pendingSharedPairs, view: view
             ) else { return nil }
             result.append(reservation)
         }
@@ -140,17 +201,12 @@ extension SceneOffscreenTextureAllocationCache {
         plan: SceneLayerGraphTargetPlan,
         orderingContext: SceneGraphCommandQueueOrderingContext?,
         pendingSharedPairs: [Key: SharedPair] = [:],
-        values: [ResidentKey: Entry]
+        view: GraphResidencyView
     ) -> GraphReservation? {
         // A foreign preparation is an actual resident dependency, not ordered GPU work.
-        guard !values.values.contains(where: { entry in
-            guard !entry.preparationPins.isEmpty else { return false }
-            switch entry.allocation {
-            case .layerGraph(let graph): return graph.plan.key == plan.key
-            case .history(let history): return history.plan.key == plan.key
-            default: return false
-            }
-        }) else { return nil }
+        guard !view.hasForeignPreparation(for: plan.key) else { return nil }
+        let values = view.values
+        let graphRows = view.graphRows(for: plan.key)
         let byteCost = plan.residentByteCost
         let sharedPair: SharedPair?
         if plan.pairStorage == .shared {
@@ -174,7 +230,7 @@ extension SceneOffscreenTextureAllocationCache {
         let current = ResidentKey.current(.layerGraph(plan.key))
         guard byteCost >= 0,
               SceneResolvedMaterialInFlightCapacity.admitsNewSubmission(
-                  Array(values.values),
+                  graphRows.lazy.map(\.entry),
                   graphKey: plan.key
               ) else { return nil }
         let currentEntry = values[current]
@@ -206,7 +262,7 @@ extension SceneOffscreenTextureAllocationCache {
                 )
             }
         }
-        let idle = values.compactMap { key, entry
+        let idle = graphRows.compactMap { key, entry
             -> (key: ResidentKey, entry: Entry,
                 graph: SceneLayerGraphTargetAllocation)? in
             guard case .retired = key,
@@ -226,23 +282,27 @@ extension SceneOffscreenTextureAllocationCache {
             replacingGenerations.insert(consumed.graph.generation)
         }
         guard SceneResolvedMaterialInFlightCapacity.admitsNewAllocation(
-            values.values.map(\.allocation),
+            graphRows.lazy.map(\.entry.allocation),
             graphKey: plan.key,
             replacingGenerations: replacingGenerations
         ) else { return nil }
         var staged = values
+        var historyKeys = Set(view.historyRows(for: plan.key).map(\.key))
         let replaced: Entry?
         if currentEntry?.submissionPins.isEmpty == false {
             replaced = currentEntry
         } else {
             replaced = staged.removeValue(forKey: current)
             if let replaced, let history = replaced.historyOnlyEntry() {
-                staged[.history(plan.key, history.allocation.generation)] = history
+                let key = ResidentKey.history(plan.key, history.allocation.generation)
+                staged[key] = history
+                historyKeys.insert(key)
             }
         }
         if let consumed { staged.removeValue(forKey: consumed.key) }
-        let matches = staged.compactMap { key, entry -> (ResidentKey, Entry)? in
-            guard case .history(let historyKey, _) = key,
+        let matches = historyKeys.compactMap { key -> (ResidentKey, Entry)? in
+            guard let entry = staged[key],
+                  case .history(let historyKey, _) = key,
                   historyKey == plan.key,
                   !entry.isResetInvalidated,
                   case .history(let history) = entry.allocation,
@@ -320,6 +380,7 @@ extension SceneOffscreenTextureAllocationCache {
         guard !requests.isEmpty,
               Set(requests.map(\.candidate.key)).count == requests.count,
               requests.allSatisfy({ $0.cache === self }) else { return nil }
+        let view = GraphResidencyView(values)
         var effective: [Effective] = []
         for request in requests {
             let candidate = request.candidate
@@ -344,7 +405,7 @@ extension SceneOffscreenTextureAllocationCache {
             } else {
                 guard let refreshed = reserveGraphLocked(
                     plan: graph.plan, orderingContext: original.orderingContext,
-                    pendingSharedPairs: [:], values: values
+                    pendingSharedPairs: [:], view: view
                 ), reservationStillMatches(original, refreshed) else { return nil }
                 reservation = refreshed
             }
@@ -362,7 +423,7 @@ extension SceneOffscreenTextureAllocationCache {
                     || reservation.reusableAllocation?.generation
                         == reservation.consumedRetiredGeneration,
                   SceneResolvedMaterialInFlightCapacity.admitsNewSubmission(
-                      Array(next.values),
+                      next.values,
                       graphKey: graph.plan.key
                   ) else { return nil }
             var submissionPins: [UUID: Entry.SubmissionPin] = [:]
