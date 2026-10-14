@@ -30,7 +30,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         core = scene_swift_source_relpaths("authored_shader_frontend_core")
 
         self.assertEqual(len(support), 4)
-        self.assertEqual(len(implementation), 86)
+        self.assertEqual(len(implementation), 87)
         self.assertEqual(core, (*support, *implementation))
         syntax = next(
             index for index, path in enumerate(implementation)
@@ -54,7 +54,8 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             {path.resolve() for path in scene_swift_sources(
                 "authored_shader_frontend_implementation"
             )},
-            {path.resolve() for path in frontend_directory.glob("*.swift")},
+            {path.resolve() for path in frontend_directory.glob("*.swift")}
+            | {(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneShaderCompletedCacheStorage.swift").resolve()},
         )
 
     def test_shader_contract_resolution_and_effect_planning_sets_conserve_order(self) -> None:
@@ -169,7 +170,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         self.assertEqual(len(environment), 3)
         self.assertEqual(len(preprocessing), 14)
         self.assertEqual(preprocessing[:3], environment)
-        self.assertEqual(len(preparation), 16)
+        self.assertEqual(len(preparation), 17)
         self.assertEqual(preparation[:14], preprocessing)
         self.assertEqual(len(generic_compiler), 48)
         preparation_directory = (
@@ -288,7 +289,16 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         for relative in consumers:
             text = (REPOSITORY_ROOT / relative).read_text(encoding="utf-8")
             with self.subTest(consumer=relative):
-                self.assertIn("scene_swift_source", text)
+                if relative == "script/tests/test_scene_authored_shader_frontend.py":
+                    self.assertIn(
+                        "from script.tests.test_scene_shader_scalar_vector_builtin_canonicalization import (",
+                        text,
+                    )
+                    self.assertIn("SWIFT_SOURCES = list(CANONICALIZER_SWIFT_SOURCES)", text)
+                    provider = (REPOSITORY_ROOT / "script/tests/test_scene_shader_scalar_vector_builtin_canonicalization.py").read_text()
+                    self.assertIn('scene_swift_sources("authored_shader_frontend_core")', provider)
+                else:
+                    self.assertIn("scene_swift_source", text)
                 self.assertNotIn(
                     "Compilation/ShaderFrontend/SceneAuthoredShader",
                     text,

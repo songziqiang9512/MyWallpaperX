@@ -52,6 +52,7 @@
       "description": "The complete bounded authored-shader lexer, syntax, semantic analysis, translation, and Metal emission type family.",
       "includes": [],
       "sources": [
+        "Compilation/ShaderPreparation/SceneShaderCompletedCacheStorage.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderFrontendModel.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderLexer.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderBoundedLoopAdmission.swift",
@@ -182,6 +183,7 @@
         "shader_preprocessing_and_variant_implementation"
       ],
       "sources": [
+        "Compilation/ShaderPreparation/SceneShaderCompletedCacheStorage.swift",
         "Compilation/ShaderPreparation/SceneAuthoredShaderPreparation.swift",
         "Compilation/ShaderPreparation/SceneAuthoredShaderPreparation+Support.swift"
       ]

@@ -2377,6 +2377,19 @@
       ]
     },
     {
+      "path": "docs/scene/history/shader-completed-cache-retention-2026-10-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-resource-admission.md",
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-15",
+      "uniqueValue": "完成结果字节保有与失败重试语义、真实owner压力对照、同PID轻重切换及证据边界"
+    },
+    {
       "path": "docs/scene/history/shader-identity-hash-screen-2026-10-14.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",

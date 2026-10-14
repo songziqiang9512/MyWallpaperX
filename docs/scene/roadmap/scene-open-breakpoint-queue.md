@@ -142,7 +142,7 @@
 | U39 · 3219398263 | 中间漩涡方向似反，与官方有差异 | 作者时间/角度/UV/空间约定，固定相位对照后裁决方向 |
 | U40 · 3749463715 | 胸部点击拖动仅第一次有效，第二次及后续失效 | pointer capture/up/cancel、状态复位及动画/physics 消费；至少连续三轮 down/move/up 验收 |
 | U41 · 3357627941 | 属性面板无替换视频媒体资源的选择入口 | project 属性类型→现有 AppKit 编辑器/资源选择→typed binding→视频 consumer，不另造 provider |
-| U42 · 跨样本属性面板 | ①打开后浏览/滚动严重卡顿；②疑似原中文属性显示成英文，用户询问官方是否有中英映射并提示参考研究 | [条件依赖](../history/property-condition-reachability-2026-10-13.md)与[准备复用](../history/property-preparation-convergence-2026-10-13.md)已闭局部/暖CPU；[原生列表](../history/native-property-list-convergence-2026-10-14.md)退出SwiftUI lazy AX职责，系统滚动首尾、实际Tab/格式热更与独立灯光开关已验；三轮同条件无播放含AX的操作CPU降64.237449%。打开/编辑总延迟、完整系统键盘chrome、颜色callback/cohort及本地化仍开放。查作者locale字典和fallback，映射表未证，不硬编码翻译表 |
+| U42 · 跨样本属性面板 | ①打开后浏览/滚动严重卡顿；②疑似原中文属性显示成英文，用户询问官方是否有中英映射并提示参考研究 | [条件依赖](../history/property-condition-reachability-2026-10-13.md)与[准备复用](../history/property-preparation-convergence-2026-10-13.md)已闭局部/暖CPU；[原生列表](../history/native-property-list-convergence-2026-10-14.md)退出SwiftUI lazy AX职责，系统滚动首尾、实际Tab/格式热更与独立灯光开关已验；三轮同条件无播放含AX的操作CPU降64.237449%。[显示本地化](../history/property-callback-recovery-2026-10-14.md#property-display-localization)已落地作者优先及有限标准词汇回退，真实面板条件/持久化与独立样本已验；打开/编辑总延迟、完整系统键盘chrome、颜色callback/cohort、更多词汇/locale和长Combo完整显示仍开放 |
 
 新增独立运行观察（2134765860）：普通桌面房间、灯光与时钟有输出，有媒体的中间运行中206/457 text owner报`no setter for property`、右侧黑块未归因；最终无媒体状态下未复现异常且为灰色占位，条件不同不记修复；保留[本批实机记录](../history/property-condition-reachability-2026-10-13.md)，不把内部Host旧通过或本批局部面板修复记作整样本通过。
 
@@ -156,6 +156,7 @@
 
 | 共享责任/待办 | 证据边界与下一门 |
 |---|---|
+| 普通桌面 captureFrame 返回 1×1 | **待复现/归因**：3766415113 隔离 daemon 已首帧并连续呈现，ScreenCaptureKit 路径只返回 1×1 JPEG；后续同输入 Metal 诊断捕获完整。核窗口 frame 与捕获时机，不将替代诊断图视作普通 capture 修复。[原始尝试](../history/shader-completed-cache-retention-2026-10-15.md#未完成边界与无效尝试) |
 | 粒子子系统/控制点/时长的已知unsupported profile | **能力缺口**：getsuga childScaleOutsideBoundedProfile("1 1 2")、mapsequencebetweencontrolpoints、控制点约束、child变换及深层duration/9999 delay仍有独立缺口。 按真实producer/consumer逐族设计、验证child变换/状态；maxtoemitperperiod另列待研究，不混成倍率问题。 根加载、8/8 particle或Rope可见不证明这些子系统。 [依据1](../capabilities/runtime-evidence-current.md#e-2026-09-28-periodic-instance-overrides)、[依据2](../capabilities/runtime-evidence-current.md#e-2026-09-28-rope-gate-admission) |
 | SceneScript尚未覆盖的类型/骨骼/文字内容边界 | **能力缺口**：angles/reset、文字布局、完整类型转换与String真实可见内容尚未闭合；重力、多骨spring/后继动画另有缺口。 先核实际作者调用与既有owner，再选择有证据的typed输出纵切。 这是现役队列的开放边界；冲量数值未知单独待研究，不用空API消除报错。  |
 | Graph执行大门基线失败 | **验证债待归因**：本批同原harness在`cccea6c1`和修后均271检查、同30项false，新增失败0；mixed/system潜在依赖六项均true。本批增量另确认HEAD同样失败的sync_launch_generation旧入口截取、PBR startup夹具缺type；embedded_image_orientation裸runner的非包import失败，补PYTHONPATH后行为门通过。收据`/private/tmp/mwx-user-repairs-20261008`保留同输入对照；另两门在固定`f79088a5`源码复现同失败：`persistent_history_visual_failure_gpu`的initial passthrough、`preserved_channel_frame_local_unique`的8项false；对照收据`/private/tmp/mwx-scene-background-color-20261008/baseline-comparison-receipt.json`，根因仍待诊断。这些测试债不能伪称门全绿。逐项核对输入、旧期待与产品实际行为，不改断言消红，也不直接认定30个产品故障；[失败差集来源](../history/mixed-provider-color-abi-2026-10-08.md)。 |

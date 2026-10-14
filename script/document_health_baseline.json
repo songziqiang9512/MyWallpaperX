@@ -53,8 +53,8 @@
       "bytes": 15024
     },
     "docs/scene/architecture/scene-resource-admission.md": {
-      "lines": 56,
-      "bytes": 10473
+      "lines": 70,
+      "bytes": 14392
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 124,
@@ -197,8 +197,8 @@
       "bytes": 32931
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 247,
-      "bytes": 71938
+      "lines": 248,
+      "bytes": 72494
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 40,
-      "bytes": 9063
+      "bytes": 9513
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1075,12 +1075,30 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "868824eaa60875106196a93dd3f36d3932852a701430a6a79f7fb0d4c5ddc82b",
-      "after": "737382909a6dca108c44eda49690478ef0c8962f11c773fc6a8264dd42f9a359",
-      "owner": "Scene property display owner",
-      "reason": "Display-only localization contract and acceptance; obsolete callback design condensed into existing contract/history.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#display-localization"
+      "path": "docs/scene/architecture/scene-resource-admission.md",
+      "before": "3295163dd1a83a2b3f750aaaa196ca695eb5ad5f9357d3b64008f4d0af799b8e",
+      "after": "e377a3c1e7ff77b43ed518e4fc663b303e5fe86f8446f8102bf4f6241be54922",
+      "owner": "Scene compilation cache owners",
+      "reason": "Completed cache retention contract, bounded evidence and live follow-up routing; no duplicate state table.",
+      "decision": "docs/scene/history/shader-completed-cache-retention-2026-10-15.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "e52d3edb4c387728814ac3525c5b7d7cb12f81b4966b9755830ee624f8b70545",
+      "after": "b1af1d1d4fc4164ecd94a30e3d71515ab88d800296a64c3c235199212c4d0d68",
+      "owner": "Scene compilation cache owners",
+      "reason": "Completed cache retention contract, bounded evidence and live follow-up routing; no duplicate state table.",
+      "decision": "docs/scene/history/shader-completed-cache-retention-2026-10-15.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "28abc3e7892973c255c4fdfe1b91050e30486b42e8722db789f706f5561cc48c",
+      "after": "cd04bb9c910222dfb4eb0dc673ac0b16bc712fbe29c5253fa8181129112796d6",
+      "owner": "Scene compilation cache owners",
+      "reason": "Completed cache retention contract, bounded evidence and live follow-up routing; no duplicate state table.",
+      "decision": "docs/scene/history/shader-completed-cache-retention-2026-10-15.md"
     }
   ]
 }

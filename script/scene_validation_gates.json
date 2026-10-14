@@ -1533,6 +1533,23 @@
       ]
     },
     {
+      "id": "shader-completed-cache-retention",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontend.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderPreparation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneShaderCompletedCacheStorage.swift",
+        "script/tests/test_scene_shader_completed_cache.py",
+        "script/tests/fixtures/SceneShaderCompletedCacheHarness.swift",
+        "script/tests/test_scene_generic_shader_program_artifact.py"
+      ],
+      "modules": [
+        "test_scene_shader_completed_cache",
+        "test_scene_shader_persistent_cache",
+        "test_scene_persistent_cache_behavior"
+      ]
+    },
+    {
       "id": "shader-contract",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/**"

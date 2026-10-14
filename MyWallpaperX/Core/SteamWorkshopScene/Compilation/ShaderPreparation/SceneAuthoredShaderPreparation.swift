@@ -1,5 +1,80 @@
 import Foundation
 
+extension SceneShaderCacheCost {
+    mutating func preparedProgram(_ program: SceneShaderPreparedProgram) {
+        add(256)
+        string(program.cacheKey)
+        for source in [program.vertex, program.fragment] {
+            add(512)
+            string(source.rootRelativePath)
+            string(source.source)
+            string(source.dependencySHA256)
+            string(source.moduleDependencySHA256)
+            string(source.variantSHA256)
+            string(source.preparedSHA256)
+            add(64)
+            for entry in source.sourceMap { add(64); string(entry.sourcePath) }
+            add(64)
+            for entry in source.activeAnnotations {
+                add(128)
+                string(entry.sourcePath)
+                string(entry.annotation.marker)
+                string(entry.annotation.raw)
+                annotationJSON(entry.annotation.value)
+                annotationValue(entry.annotation.variantValue)
+            }
+            add(64)
+            for entry in source.activeDeclarations {
+                add(128)
+                string(entry.sourcePath)
+                string(entry.declaration.type)
+                string(entry.declaration.name)
+                string(entry.declaration.arraySuffix)
+                string(entry.declaration.raw)
+            }
+            strings(source.compatibilityMacroDependencies)
+            add(64)
+            for entry in source.dependencies {
+                add(64)
+                string(entry.relativePath)
+                string(entry.rawSHA256)
+            }
+            add(64)
+            for entry in source.moduleDependencies {
+                add(128)
+                string(entry.sourcePath)
+                string(entry.macroEnvironmentSHA256)
+            }
+        }
+    }
+
+    private mutating func annotationJSON(_ value: SceneJSONValue) {
+        switch value {
+        case let .string(value): string(value)
+        case let .array(values):
+            add(64)
+            for value in values { annotationJSON(value) }
+        case let .object(values):
+            add(64)
+            for (key, value) in values { add(128); string(key); annotationJSON(value) }
+        case .null, .bool, .number: add(64)
+        }
+    }
+
+    private mutating func annotationValue(_ value: SceneShaderAnnotationValue) {
+        switch value {
+        case let .string(value): string(value)
+        case let .array(values):
+            add(64)
+            for value in values { annotationValue(value) }
+        case let .object(values):
+            add(64)
+            for (key, value) in values { add(128); string(key); annotationValue(value) }
+        case .null, .bool, .integer, .number: add(64)
+        }
+    }
+}
+
 nonisolated struct SceneAuthoredShaderPreparationFailure {
     enum Phase: String {
         case shaderPreprocessor = "shader-preprocessor"
@@ -89,6 +164,23 @@ nonisolated enum SceneAuthoredShaderPreparation {
                 TextureFormat(slot: $0.key, format: $0.value)
             }.sorted { $0.slot < $1.slot }
         }
+
+        func cost(including result: SceneAuthoredShaderPreparationResult<SceneShaderPreparedProgram>) -> Int {
+            var cost = SceneShaderCacheCost()
+            cost.string(contractCanonicalSHA256)
+            cost.string(sourceGraphSHA256)
+            cost.add(64)
+            for combo in combos { cost.add(64); cost.string(combo.name) }
+            cost.strings(inactiveComboProviders)
+            for _ in textureReadiness { cost.add(64) }
+            for _ in textureFormats { cost.add(64) }
+            switch result {
+            case let .accepted(program): cost.preparedProgram(program)
+            case let .rejected(failure): cost.strings(failure.details)
+            case .notApplicable: cost.add(64)
+            }
+            return cost.bytes
+        }
     }
 
     /// Process-lifetime, bounded single-flight cache for immutable authored
@@ -100,20 +192,21 @@ nonisolated enum SceneAuthoredShaderPreparation {
             SceneShaderPreparedProgram
         >
 
-        private struct Entry {
-            let result: Result
-            var lastAccess: UInt64
-        }
-
-        private let capacity: Int
         private let condition = NSCondition()
-        private var entries: [PreparationCacheKey: Entry] = [:]
-        private var inFlight: Set<PreparationCacheKey> = []
-        private var accessClock: UInt64 = 0
+        private var entries: SceneShaderCompletedCacheStorage<PreparationCacheKey, Result>
+        private var inFlight: [PreparationCacheKey: SceneShaderCacheFlight<Result>] = [:]
 
         init(capacity: Int) {
             precondition(capacity > 0)
-            self.capacity = capacity
+            entries = .init(maximumBytes: 64 * 1_024 * 1_024, maximumEntries: capacity)
+        }
+
+        var snapshot: SceneShaderCompletedCacheSnapshot {
+            condition.lock()
+            defer { condition.unlock() }
+            return .init(completedEntries: entries.count, retainedBytes: entries.retainedBytes,
+                inFlightOperations: inFlight.count,
+                waitingCallers: inFlight.values.reduce(0) { $0 + $1.waiters })
         }
 
         func result(
@@ -121,31 +214,29 @@ nonisolated enum SceneAuthoredShaderPreparation {
             prepare: () -> Result
         ) -> Result {
             condition.lock()
-            while true {
-                if var entry = entries[key] {
-                    accessClock &+= 1
-                    entry.lastAccess = accessClock
-                    entries[key] = entry
-                    condition.unlock()
-                    return entry.result
-                }
-                if inFlight.insert(key).inserted { break }
-                condition.wait()
+            if let result = entries.value(for: key) {
+                condition.unlock()
+                return result
             }
+            if let flight = inFlight[key] {
+                flight.waiters += 1
+                while case .none = flight.result { condition.wait() }
+                let result = flight.result!
+                flight.waiters -= 1
+                condition.unlock()
+                return result
+            }
+            let flight = SceneShaderCacheFlight<Result>()
+            inFlight[key] = flight
             condition.unlock()
 
             let result = prepare()
+            let cost = key.cost(including: result)
 
             condition.lock()
-            accessClock &+= 1
-            if entries.count >= capacity,
-               let oldest = entries.min(by: {
-                   $0.value.lastAccess < $1.value.lastAccess
-               })?.key {
-                entries.removeValue(forKey: oldest)
-            }
-            entries[key] = Entry(result: result, lastAccess: accessClock)
-            inFlight.remove(key)
+            entries.insert(result, for: key, cost: cost)
+            flight.result = result
+            inFlight.removeValue(forKey: key)
             condition.broadcast()
             condition.unlock()
             return result
@@ -153,6 +244,8 @@ nonisolated enum SceneAuthoredShaderPreparation {
     }
 
     private static let preparationCache = PreparationCache(capacity: 256)
+
+    static var completedCacheSnapshot: SceneShaderCompletedCacheSnapshot { preparationCache.snapshot }
 
     /// Process restarts must not turn immutable authored source into repeated
     /// preprocessing work. The disk tier stores only accepted prepared source;

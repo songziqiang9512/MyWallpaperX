@@ -54,3 +54,17 @@ RF05（2026-10-02）纠偏属于①跨 Host/资源/provider 与②唯一资源�
 ## 同帧有序合成分段（已撤回）
 
 [双层分段短筛](../history/gpu-cost-screening-2026-10-14.md#ordered-pair-segmentation-screen)在原owner证明资源独立与消费顺序，真实App主pass36→27且无新增copy/分配，但两次同App反序对照均未证整体CPU/GPU收益，候选已恢复，不继续扩大段长。资格、像素/生命周期门及失败证据保留；如将来有新物理成本证据再立切片，不以条件排列数量当性能目标。现役执行顺序归[性能卡](../roadmap/performance-convergence-card.md)。
+
+<a id="shader-completed-cache-retention"></a>
+
+## Shader completed cache retention
+
+2026-10-15：限制跨Scene保留的可重建CPU编译结果，不清空合理复用cache。原generic resolution、compiler completion、Frontend memory和Preparation cache各保唯一owner；共享内部容器只执行completed项LRU，不拥有compiler、Program、资源identity或生命周期。旧行为组合fixture已复现outer重试两次而inner仍返回首次workspace失败；96项小/大Program都全量保留，不能用entry数代表字节边界。
+
+初始子限额为Preparation **64 MiB / 256项**、Frontend **16 MiB / 512项**、generic resolution **16 MiB / 1024项**、compiler completion **1 MiB / 4096项**；独立固定子限额合计97 MiB缓存权重，不借用GPU/decoded预算。旧293 native cache按显式source、sourceMap、annotation双typed值、declaration、layout/binding等字段及容器余量计，Preparation160项约11.77 MB、单项最大140416 B，原256项即使均取已见最大仍约34.3 MiB；Frontend已见单项约29 KB，512项约14.2 MiB。旧304冻结54key的GLSL+MSL合计558376 B，旧293的73个generic Program值约0.67 MB，generic子限留完整GLSL key、语义元数据、合法大项与多重工作集余量。compiler子限只保key与URL。两份旧输入只支撑初始容量，不是当前App性能基线或最重内容上界；当前重样本二遍新增编译/反复驱逐须复核子限，不能仅改数字过门。
+
+权重只在完成发布时按owner的有限typed字段累计UTF8与固定结构余量，新增保有字段须同步成本与反例；不使用Mirror、整图JSON/哈希或逐帧扫描。COW共享可保守重复收费，权重不是严格heap/RSS，也不包含仍被active/candidate/in-flight消费者持有的Program、编译器瞬态或Metal driver对象。Frontend磁盘load及新store均经同一内存准入，磁盘身份/验证及现有磁盘淘汰不变。
+
+驱逐只移除completed缓存引用，活跃CompiledVariant/PreparedAssembly与prepared命令保持原强引用。单项超额/权重溢出仍返回原合法结果，仅不长期缓存；不取消in-flight或拒绝作者内容。原NSCondition内的临时Flight把本次结果交给所有已加入waiter，再退出：即使结果不准入或completed项被驱逐，也不能令waiter逐个重编。generic resolution及compiler失败只在本次Flight共享，后续独立请求可修复后重试；不同material/surface或新准备的串行失败请求仍有重试成本，不保证每generation同key只执行一次。普通帧沿原已准备variant选择，不进入compiler；Preparation现有坏输入负缓存仍受同一LRU约束。无stop清空、跨ownerregistry、新CLI、后台timer或普通帧诊断。
+
+最近门覆盖组合失败→修复、按字节/最近使用驱逐、长key/MSL/map/annotation/layout字段、最大单项不缓存仍成功、活跃值驱逐后可用，以及已加入waiter在超预算/失败时只执行一次operation；再复用cold/warm持久cache门。四owner权重上限与Flight共享由真实owner fixture证明；原daemon连续loadScene用于不同shader/Combo及轻重切换，真实App短筛核同PID重访、编译operation与非零surface资源gauge回落。warm门约束首次已成功的同key，失败key重试单列。现协议无原owner终值，旧session/pin退出仍未验，不把shutdown归零或process退出当资源回落证明。[实施证据](../history/shader-completed-cache-retention-2026-10-15.md)已闭行为门、Debug build、三轮真实owner压力及同PID七步真实画面短筛；暖重访无新增成功编译operation，轻场景GPU/pool回落。App CPU/首帧短窗有波动，尚未通过正式整体性能验收；长期pin退出仍开放。若重访反复编译、启动/CPU明显退化或画面改变，先查成本/容量与Flight合同，修正或撤回，不以清cache认领收益。

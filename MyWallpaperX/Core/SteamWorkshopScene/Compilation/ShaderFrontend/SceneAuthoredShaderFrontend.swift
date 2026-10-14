@@ -1,6 +1,60 @@
 import CryptoKit
 import Foundation
 
+extension SceneShaderCacheCost {
+    mutating func program(_ program: SceneAuthoredShaderProgram) {
+        add(256)
+        string(program.metalSource)
+        string(program.vertexFunctionName)
+        string(program.fragmentFunctionName)
+        add(64)
+        for field in program.uniformLayout.fields {
+            add(128)
+            string(field.name)
+            string(field.authoredName)
+        }
+        add(64)
+        for binding in program.textureBindings {
+            add(64)
+            string(binding.name)
+        }
+        colorTransfer(program.colorTransfer)
+        colorBoundary(program.colorBoundary)
+    }
+
+    mutating func colorTransfer(_ transfer: SceneShaderColorTransfer?) {
+        guard let transfer else { return }
+        add(64)
+        switch transfer {
+        case let .interpolatedColor(textureSlots), let .defaultStraightColorBoundary(textureSlots):
+            slots(textureSlots.count)
+        default: break // Remaining cases contain only fixed-size enums/slots.
+        }
+    }
+
+    mutating func colorBoundary(_ boundary: SceneShaderColorBoundary?) {
+        guard let boundary else { return }
+        add(64)
+        slots(boundary.colorInputSlots.count)
+    }
+
+    mutating func runtimeLoopBounds(_ bounds: SceneAuthoredShaderRuntimeLoopBounds) {
+        for facts in [bounds.vertex, bounds.fragment] {
+            add(64)
+            for (name, fact) in facts {
+                add(128)
+                string(name)
+                string(fact.uniformName)
+                string(fact.producerName)
+                string(fact.producerValueKind)
+                string(fact.sourcePath)
+                strings(fact.producerBindingKeys)
+                strings(fact.shaderBindingKeys)
+            }
+        }
+    }
+}
+
 nonisolated enum SceneAuthoredShaderFrontend {
     private struct ProgramCacheKey: Codable, Hashable {
         let cacheSchemaVersion: Int
@@ -32,6 +86,19 @@ nonisolated enum SceneAuthoredShaderFrontend {
             self.colorBoundary = colorBoundary
             self.boundTextureSlots = boundTextureSlots.sorted()
         }
+
+        func cost(including program: SceneAuthoredShaderProgram) -> Int {
+            var cost = SceneShaderCacheCost()
+            cost.string(vertexSourceSHA256)
+            cost.string(fragmentSourceSHA256)
+            cost.runtimeLoopBounds(runtimeLoopBounds)
+            cost.colorTransfer(provenColorTransfer)
+            cost.colorBoundary(colorBoundary)
+            cost.slots(premultipliedColorInputSlots.count)
+            cost.slots(boundTextureSlots.count)
+            cost.program(program)
+            return cost.bytes
+        }
     }
 
     private final class ProgramCache: @unchecked Sendable {
@@ -46,12 +113,14 @@ nonisolated enum SceneAuthoredShaderFrontend {
         private let schemaVersion = 1
         private let retainedEntryLimit = 1_024
         private let lock = NSLock()
-        private var memory: [ProgramCacheKey: SceneAuthoredShaderProgram] = [:]
+        private var memory = SceneShaderCompletedCacheStorage<ProgramCacheKey, SceneAuthoredShaderProgram>(
+            maximumBytes: 16 * 1_024 * 1_024, maximumEntries: 512
+        )
         private var pruned = false
 
         func load(_ key: ProgramCacheKey) -> SceneAuthoredShaderProgram? {
             lock.withLock {
-                if let program = memory[key] { return program }
+                if let program = memory.value(for: key) { return program }
                 guard let directory = directoryURL() else { return nil }
                 let keySHA256 = ProgramCacheDigest.hash(key)
                 let url = directory.appendingPathComponent("\(keySHA256).json")
@@ -67,7 +136,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
                       envelope.programSHA256
                         == ProgramCacheDigest.hash(envelope.program),
                       valid(envelope.program) else { return nil }
-                memory[key] = envelope.program
+                memory.insert(envelope.program, for: key, cost: key.cost(including: envelope.program))
                 return envelope.program
             }
         }
@@ -75,7 +144,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
         func store(_ program: SceneAuthoredShaderProgram, for key: ProgramCacheKey) {
             guard valid(program) else { return }
             lock.withLock {
-                memory[key] = program
+                memory.insert(program, for: key, cost: key.cost(including: program))
                 guard let directory = directoryURL() else { return }
                 let keySHA256 = ProgramCacheDigest.hash(key)
                 let envelope = Envelope(
@@ -104,6 +173,13 @@ nonisolated enum SceneAuthoredShaderFrontend {
                 } catch {
                     // The freshly compiled Program remains valid in memory.
                 }
+            }
+        }
+
+        var snapshot: SceneShaderCompletedCacheSnapshot {
+            lock.withLock {
+                .init(completedEntries: memory.count, retainedBytes: memory.retainedBytes,
+                    inFlightOperations: 0, waitingCallers: 0)
             }
         }
 
@@ -168,6 +244,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
     }
 
     private static let programCache = ProgramCache()
+
+    static var completedCacheSnapshot: SceneShaderCompletedCacheSnapshot { programCache.snapshot }
 
     private struct Validation {
         let uniforms: [SceneAuthoredShaderUniformDeclaration]

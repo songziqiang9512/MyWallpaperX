@@ -88,7 +88,7 @@ class SceneShaderPersistentCacheTests(unittest.TestCase):
             "func store(_ program: SceneAuthoredShaderProgram",
         )
         self.assertLess(
-            store.index("memory[key] = program"),
+            store.index("memory.insert(program, for: key, cost: key.cost(including: program))"),
             store.index("guard let directory = directoryURL()"),
         )
 

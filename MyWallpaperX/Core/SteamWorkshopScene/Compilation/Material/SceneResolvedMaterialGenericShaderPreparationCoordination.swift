@@ -333,6 +333,31 @@ nonisolated final class SceneResolvedMaterialGenericShaderResolutionCache:
         let outputSemantics: SceneGenericShaderOutputSemantics
         let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
         var colorBoundary: SceneShaderColorBoundary? = nil
+
+        func retainedCost(
+            program: SceneAuthoredShaderProgram, premultipliedColorInputSlots: Set<Int>, requestKey: String,
+            decision: SceneGenericShaderRouteDecision
+        ) -> Int {
+            var cost = SceneShaderCacheCost()
+            cost.string(vertexSource)
+            cost.string(fragmentSource)
+            for count in [graphTextureSlots.count, graphInputTextureSlots.count,
+                graphDataTextureSlots.count, activeTextureSlots.count, activeOpacityMaskSlots.count,
+                typedStaticDataAuxiliarySlots.count, preservedChannelsExternalProviderTextureSlots.count,
+                premultipliedColorAuxiliarySlots.count, sceneBackgroundColorSlots.count,
+                spatialWeightedColorBlendActiveSlots.count, spatialWeightedColorBlendTypedAuxiliarySlots.count,
+                r8TextureSlots.count] { cost.slots(count) }
+            cost.runtimeLoopBounds(runtimeLoopBounds)
+            cost.colorTransfer(sourceColorTransfer)
+            cost.colorBoundary(colorBoundary)
+            cost.program(program)
+            cost.slots(premultipliedColorInputSlots.count)
+            cost.string(requestKey)
+            cost.string(decision.profile)
+            cost.string(decision.state)
+            cost.string(decision.fallbackOwner)
+            return cost.bytes
+        }
     }
 
     struct Outcome {
@@ -341,33 +366,59 @@ nonisolated final class SceneResolvedMaterialGenericShaderResolutionCache:
     }
 
     private let condition = NSCondition()
-    private var accepted: [
-        Input: SceneResolvedMaterialGenericShaderArtifactCache.Resolution
-    ] = [:]
-    private var inFlight: Set<Input> = []
+    private var accepted: SceneShaderCompletedCacheStorage<
+        Input, SceneResolvedMaterialGenericShaderArtifactCache.Resolution
+    >
+    private var inFlight: [Input: SceneShaderCacheFlight<
+        SceneResolvedMaterialGenericShaderArtifactCache.Resolution
+    >] = [:]
+
+    init(maximumBytes: Int = 16 * 1_024 * 1_024, maximumEntries: Int = 1_024) {
+        accepted = .init(maximumBytes: maximumBytes, maximumEntries: maximumEntries)
+    }
+
+    var snapshot: SceneShaderCompletedCacheSnapshot {
+        condition.lock()
+        defer { condition.unlock() }
+        return .init(completedEntries: accepted.count, retainedBytes: accepted.retainedBytes,
+            inFlightOperations: inFlight.count,
+            waitingCallers: inFlight.values.reduce(0) { $0 + $1.waiters })
+    }
 
     func perform(
         key: Input,
         operation: () -> SceneResolvedMaterialGenericShaderArtifactCache.Resolution
     ) -> Outcome {
         condition.lock()
-        while true {
-            if let resolution = accepted[key] {
-                condition.unlock()
-                return .init(resolution: resolution, cacheHit: true)
-            }
-            if inFlight.insert(key).inserted { break }
-            condition.wait()
+        if let resolution = accepted.value(for: key) {
+            condition.unlock()
+            return .init(resolution: resolution, cacheHit: true)
         }
+        if let flight = inFlight[key] {
+            flight.waiters += 1
+            while case .none = flight.result { condition.wait() }
+            let resolution = flight.result!
+            flight.waiters -= 1
+            condition.unlock()
+            return .init(resolution: resolution, cacheHit: true)
+        }
+        let flight = SceneShaderCacheFlight<SceneResolvedMaterialGenericShaderArtifactCache.Resolution>()
+        inFlight[key] = flight
         condition.unlock()
 
         let resolution = operation()
+        let retainedCost: Int?
+        if case let .accepted(program, slots, requestKey, decision) = resolution {
+            retainedCost = key.retainedCost(program: program, premultipliedColorInputSlots: slots,
+                requestKey: requestKey, decision: decision)
+        } else { retainedCost = nil }
 
         condition.lock()
-        if case .accepted = resolution {
-            accepted[key] = resolution
+        if let retainedCost {
+            accepted.insert(resolution, for: key, cost: retainedCost)
         }
-        inFlight.remove(key)
+        flight.result = resolution
+        inFlight.removeValue(forKey: key)
         condition.broadcast()
         condition.unlock()
         return .init(resolution: resolution, cacheHit: false)
@@ -390,31 +441,55 @@ nonisolated final class SceneResolvedMaterialGenericShaderCompilationCoordinator
     }
 
     private let condition = NSCondition()
-    private var active = Set<String>()
-    private var completed: [
-        String: Result<URL, SceneGenericShaderCompiler.Failure>
-    ] = [:]
+    private var active: [String: SceneShaderCacheFlight<Result<URL, SceneGenericShaderCompiler.Failure>>] = [:]
+    private var completed: SceneShaderCompletedCacheStorage<
+        String, Result<URL, SceneGenericShaderCompiler.Failure>
+    >
+
+    init(maximumBytes: Int = 1_024 * 1_024, maximumEntries: Int = 4_096) {
+        completed = .init(maximumBytes: maximumBytes, maximumEntries: maximumEntries)
+    }
+
+    var snapshot: SceneShaderCompletedCacheSnapshot {
+        condition.lock()
+        defer { condition.unlock() }
+        return .init(completedEntries: completed.count, retainedBytes: completed.retainedBytes,
+            inFlightOperations: active.count,
+            waitingCallers: active.values.reduce(0) { $0 + $1.waiters })
+    }
 
     func perform(
         key: String,
         operation: () -> Result<URL, SceneGenericShaderCompiler.Failure>
     ) -> Outcome {
         condition.lock()
-        while active.contains(key) {
-            condition.wait()
-        }
-        if let result = completed[key] {
+        if let result = completed.value(for: key) {
             condition.unlock()
             return .init(result: result, source: .launchResultCache)
         }
-        active.insert(key)
+        if let flight = active[key] {
+            flight.waiters += 1
+            while case .none = flight.result { condition.wait() }
+            let result = flight.result!
+            flight.waiters -= 1
+            condition.unlock()
+            return .init(result: result, source: .launchResultCache)
+        }
+        let flight = SceneShaderCacheFlight<Result<URL, SceneGenericShaderCompiler.Failure>>()
+        active[key] = flight
         condition.unlock()
 
         let result = operation()
+        var cost = SceneShaderCacheCost()
+        cost.string(key)
+        if case let .success(url) = result { cost.string(url.absoluteString) }
 
         condition.lock()
-        completed[key] = result
-        active.remove(key)
+        // Share this operation's failure with its existing waiters, then let
+        // a later request retry a repaired compiler/cache/workspace.
+        if case .success = result { completed.insert(result, for: key, cost: cost.bytes) }
+        flight.result = result
+        active.removeValue(forKey: key)
         condition.broadcast()
         condition.unlock()
         return .init(result: result, source: .spawn)

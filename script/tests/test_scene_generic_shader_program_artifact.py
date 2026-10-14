@@ -5650,9 +5650,9 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         output = json.loads(completed.stdout)
         self.assertIsNone(output.get("composedFailure"))
         self.assertEqual(output, {
-            "operationCount": 2,
+            "operationCount": 3,
             "firstSource": "spawn",
-            "repeatedSource": "launch-result-cache",
+            "repeatedSource": "spawn",
             "independentSource": "spawn",
             "firstFailed": True,
             "repeatedFailed": True,

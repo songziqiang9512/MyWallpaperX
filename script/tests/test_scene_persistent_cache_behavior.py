@@ -348,14 +348,17 @@ private func runGenericProbe() throws -> ProbeOutput {
 private func runVariantProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "variant")
     let root = try cacheRoot()
-    let directory = tierDirectory(
-        root: root, name: "SceneVariantAnalysis-v20"
-    )
+    func variantDirectories() -> [URL] {
+        ((try? FileManager.default.contentsOfDirectory(
+            at: URL(fileURLWithPath: root, isDirectory: true),
+            includingPropertiesForKeys: nil
+        )) ?? []).filter { $0.lastPathComponent.hasPrefix("SceneVariantAnalysis-v") }
+    }
     let key = "probe-variant-key"
     try expect(
         into: &output,
         SceneResolvedMaterialVariantAnalysisCache.load(keySHA256: key) == nil
-            && !FileManager.default.fileExists(atPath: directory.path),
+            && variantDirectories().isEmpty,
         "read-only-miss"
     )
     let record = SceneResolvedMaterialVariantAnalysisCache.Record(
@@ -377,6 +380,11 @@ private func runVariantProbe() throws -> ProbeOutput {
         previousBlurredCompositeFact: nil
     )
     SceneResolvedMaterialVariantAnalysisCache.store(record: record, keySHA256: key)
+    let directories = variantDirectories()
+    guard directories.count == 1 else {
+        throw ProbeFailure(description: "expected exactly one published variant namespace")
+    }
+    let directory = directories[0]
     let entries = jsonEntries(directory)
     try expect(into: &output, entries.count == 1, "publish")
     let loaded = SceneResolvedMaterialVariantAnalysisCache.load(keySHA256: key)
