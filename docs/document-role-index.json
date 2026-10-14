@@ -369,9 +369,9 @@
       "lastReviewed": "2026-10-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d3a61b80589a3a056dccf941e2b670e0fc17fef888aae4d2bbb4577ff20f7fb3",
+        "sourceSHA256": "7422345a72ff117cd7b4c072b52904c0257df8d778209ccf542ff08c0eb2ea6a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批帧纹理Snapshot唯一值事实、各generation validator、增量digest及最后view退出的合同导航核对；其余架构未全量复验",
+        "scope": "本批不可变PreparedAssembly与Encoder当帧验证边界的合同导航核对；其余架构未全量复验",
         "limitations": "导航复核不冒充全架构、样本兼容、整进程性能、能耗或Release；实际执行身份与边界归本批历史证据。"
       }
     },

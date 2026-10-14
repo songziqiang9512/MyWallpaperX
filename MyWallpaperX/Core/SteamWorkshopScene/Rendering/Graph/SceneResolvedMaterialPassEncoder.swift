@@ -363,16 +363,7 @@ final class SceneResolvedMaterialPassEncoder {
               layout.byteSize <= 4_096,
               layout.byteSize.isMultiple(of: 16),
               program.exactIdentity.uniformBytes == program.uniformBytes,
-              program.resolvedUniforms.count == layout.fields.count,
-              Set(layout.fields.map(\.name)).count == layout.fields.count,
-            program.semanticIdentity.shader.uniformFields == layout.fields.map({
-                .init(
-                    name: $0.name,
-                    valueType: $0.type.rawValue,
-                    arrayCount: $0.arrayCount,
-                    offset: $0.offset
-                )
-            }) else {
+              program.resolvedUniforms.count == layout.fields.count else {
             return false
         }
         // Program assembly admits fields in offset order. Check the gaps and
@@ -403,16 +394,13 @@ final class SceneResolvedMaterialPassEncoder {
         target: MTLTexture
     ) -> [Binding]? {
         let frontend = program.frontendProgram.textureBindings
-        let slots = frontend.map(\.slot)
+        let slots = program.semanticIdentity.shader.textureSlots
         guard program.textureSlots.count == 8,
               program.semanticIdentity.textureSlots.count == 8,
               program.exactIdentity.textureSlots.count == 8,
-              slots == slots.sorted(),
-              Set(slots).count == slots.count,
               frontend.allSatisfy({
                   (0 ..< 8).contains($0.slot) && $0.name == "g_Texture\($0.slot)"
               }),
-              program.semanticIdentity.shader.textureSlots == slots,
               program.textureSlots.enumerated().compactMap({
                   $0.element == nil ? nil : $0.offset
               }) == slots,

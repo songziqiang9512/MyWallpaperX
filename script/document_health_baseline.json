@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 121488
+      "bytes": 121735
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 30,
-      "bytes": 9308
+      "bytes": 9468
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1373,19 +1373,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "bcde805d52d965a64945536a10ff0cb50b7aaf503e5b76316a0cce9baab0bc83",
-      "after": "e960e783e5b75af17cba8a44841b1984b7c93eb9342e51d636a2863ccaadf69a",
-      "owner": "scene-frame-texture-snapshot-overlay",
-      "reason": "稳定唯一值/生命周期合同与有界CPU证据接管，E1实施过程归历史；补实际未修矩阵观察与当前入口，不扩大专项验收。",
-      "decision": "docs/scene/history/frame-texture-snapshot-convergence-2026-10-14.md"
+      "before": "e960e783e5b75af17cba8a44841b1984b7c93eb9342e51d636a2863ccaadf69a",
+      "after": "e54903c33104236d6f0ed17776422cdd703ec5dc22a5c80117f1efc6055c3257",
+      "owner": "scene-runtime-maintainer",
+      "reason": "Clarify pending launch arbitration and immutable Encoder admission; record bounded evidence without duplicating execution plans.",
+      "decision": "docs/development/repository-workflow.md#设计判定与记录"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "1288344b98cde1779bffe464a403456d18aefe6ae74c4f525e27265b8f8dbff0",
-      "after": "0ae7d8b96b59a828027c68d06c329455eb340fe83d858d2424b398f72bd7e4c0",
+      "before": "0ae7d8b96b59a828027c68d06c329455eb340fe83d858d2424b398f72bd7e4c0",
+      "after": "0562acd905dbf234fff3468d8064363503439cd1b944cd57609b0a532e95dfbf",
       "owner": "scene-runtime-maintainer",
-      "reason": "Record rejected particle and GPU copy candidates; route next experiment to repeated Encoder static admission.",
+      "reason": "Clarify pending launch arbitration and immutable Encoder admission; record bounded evidence without duplicating execution plans.",
       "decision": "docs/development/repository-workflow.md#设计判定与记录"
     }
   ]
