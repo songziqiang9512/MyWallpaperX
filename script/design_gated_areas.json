@@ -540,21 +540,6 @@
       "contentPatterns": [
         "ScenePlaybackTextureUpdateOutcome"
       ]
-    },
-    {
-      "id": "scene-main-pass-segmentation-qualification",
-      "title": "同帧双图合成分段的只读资格观测",
-      "owner": "OrderedLayerEncoding / GraphExecutor / SubmissionCoordinator / ResourcePassEncoder",
-      "status": "approved",
-      "designDoc": "docs/scene/architecture/scene-resource-admission.md",
-      "design_notes": "同帧有序合成分段末段：先观察真实prepared pair和资源backing，临时DEBUG一次，禁止改变调度/guard/pin/ticket。普通帧无额外工作；未证明资格与GPU收益前不实施reorder，不把物理36→12当目标。观测结束撤回临时代码。",
-      "matchPatterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneGraphResourcePassEncoder.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift"
-      ],
-      "contentPatterns": []
     }
   ]
 }

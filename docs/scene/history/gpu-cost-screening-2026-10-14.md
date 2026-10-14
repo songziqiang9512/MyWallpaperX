@@ -88,3 +88,25 @@ App74e16d63、真实304/单surface、30秒暖机后8秒观察，唯一complete s
 [资格摘要](../../../.artifacts/tmp/dead-source-capture-observation-20261014/proof/observation-summary.json)与raw复算一致：同executor/reset/frame共33层、14,614,180pixels，eligible0，issues空，全部因`read-or-output-root`保留。33层均有materialReads（25层1次、6层2次、2层3次，共43引用），16层另有rootReads，共32引用；resource/replay/unknown/sideEffects均0。这些是prepared纹理引用计数，未按覆盖前后区分内容版本；因此停止本次“无任何读取或输出root”的简单候选，不能证明更细存活分析无机会，不实现产品、不计GPU节省。
 
 App exit0、无timeout、测量窗failedFrames0，停止后surface1→0且gpuDrained；工具exit1含两项：原`particle loading incomplete`，以及33条临时资格日志被严格parser计为`resolved material graph observation diagnostic reported`。后者failed_outcome/gpu_failed均0，仍不称产品PASS；本次没有实际省略编码、像素对照、正式性能验收或能耗结论。
+
+
+<a id="ordered-pair-segmentation-screen"></a>
+
+## 后继：同帧有序双层分段短筛撤回（2026-10-15）
+
+目标是保留全部graph/shader/draw，只把严格独立相邻层的 `graph A → composite A → graph B → composite B` 改为 `graph A → graph B → composite A → composite B`，减少主attachment边界。原OrderedLayerEncoding形成不重叠双层段，原Coordinator授予同epoch/commandBuffer/相邻ledger许可并严格A→B消费，原MainPass合成。原分配lease证明descriptor纹理独立storage，view追root、IOSurface整ID冲突，heap/buffer/未知来源拒绝；排除provider/group/utility/geometry/background/history/replay/local fallback及所有非空lighting，无新增allocation/copy/pin/cache。临时开关仅在Coordinator init读取，默认原路径。
+
+11产品+7测试/fixture文件的最小试验已撤回。真实Coordinator新增22个资格/别名/顺序/撤权事实、真实GraphExecutor/MainPass/生产image shader的SDR/HDR×普通/旋转镜像整目标字节对照、反向draw反例、原fallback、资源/视频寿命及surface取消门均通过。两图fixture保持2 draw，main encoder 2→1；它直接编排图序列，不单独证明完整App。Debug26.787s与优化诊断Release37.368s通过，4294输入无漂移；Sol Xhigh独审冻结11文件无blocking。
+
+同App `a7181afd8ac6dd920c00d34d1249350e5d3fc10d4e6ecc501f2a75b30b98129f` 在M4/3024×1964/单surface/60FPS、原3042492564输入与silence fixture运行，顺序B1/C1/C2/B2，仅分段开关0/1不同。每轮30s预热后64.5s测量，窗口内无构建、测试或profiler。实际首帧9对hoist，暖帧main pass36→27；离屏109、source capture33、material76、copy2及26902272B/帧均不变，GPU分配峰值548208640B、pool136262688B均相同。
+
+| 顺序 | 进程CPU ms/s | GPU p50 ms | GPU p95 ms | CPU帧p95 ms | footprint峰值 B |
+|---|---:|---:|---:|---:|---:|
+| B1 | 840.370 | 10.694 | 11.544 | 9.737 | 813254288 |
+| C1 | 843.391 | 11.051 | 11.883 | 9.776 | 834045632 |
+| C2 | 832.776 | 7.798 | 12.703 | 9.702 | 830523048 |
+| B2 | 827.231 | 8.512 | 9.098 | 9.473 | 799032976 |
+
+候选两对CPU分别高0.36%/0.67%，GPU p95分别高2.94%/39.62%；GPU基线自身存在明显时段漂移，不能把这些差值称稳定回退或性能验收。两次均未证明整体收益，停止试验，不扩大段长、不追加正式三轮或独立样本矩阵。四轮GPU失败帧均0、正常退出/排空，严格报告仍仅原particle loading incomplete为FAIL；C2呈现超1.5预算比例0.8534%，其余0–0.0519%，不隐去该异常。首对原图的人物、塔、星空与时钟保留；wall clock不同，不作pixel parity。未测温度、功耗、多屏或正式Release。
+
+产品aggregate `31ab2f8b0c969f929633f70ba7c38e31a1697759ffe634cf01cf708153e2193e`、完整patch `911eb638a7aa74cfa6ca5d492e5c6fc8271d626337bacae4b981add6e023c63e`、4份原FAIL报告/输入身份/构建与测试日志、首对必要原图保在 `.artifacts/tmp/main-pass-segmentation-screen-20261014/proof/` 及对应运行目录。冻结SHA核验后仅恢复本试验16个tracked文件到10efdf40、2个新增fixture归档后移除，保并行属性工作。临时诊断App、重复转储和不用的图像按归属清理，唯一连续DerivedData复用。执行顺序回现役性能卡，转查真正重复准备及跨切换资源保有，不以pass数量替代用户收益。

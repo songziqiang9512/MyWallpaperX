@@ -53,8 +53,8 @@
       "bytes": 15024
     },
     "docs/scene/architecture/scene-resource-admission.md": {
-      "lines": 70,
-      "bytes": 15178
+      "lines": 56,
+      "bytes": 10473
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 124,
@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 40,
-      "bytes": 8844
+      "bytes": 9063
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1075,12 +1075,12 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "d542616ed015bded2106635869dec5b7a129aa1b4b09c22e9da8578b4c643ff4",
-      "after": "868824eaa60875106196a93dd3f36d3932852a701430a6a79f7fb0d4c5ddc82b",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "0dfb3c56b7b87226100b2c908c697cff44de53f2f7875ca7d8702df80d1827ba",
+      "after": "e52d3edb4c387728814ac3525c5b7d7cb12f81b4966b9755830ee624f8b70545",
       "owner": "Scene maintainers",
-      "reason": "Record verified callback-only panel reachability",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md"
+      "reason": "Retire two-screen GPU segmentation without whole-process benefit",
+      "decision": "docs/scene/architecture/scene-resource-admission.md"
     }
   ]
 }
