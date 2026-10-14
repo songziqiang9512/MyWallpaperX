@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 40,
-      "bytes": 9513
+      "bytes": 9744
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
@@ -1075,21 +1075,12 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "d7deceb77b335557a8c70fe8d9b91e8e5b75df70ad244f7cffcf17327b551746",
-      "after": "e6950e2aa79c89e619bbe6717013e89b93049c2792ebcbbd49e9014ca380ff18",
-      "owner": "Scene property binding parser",
-      "reason": "Nested input contract evidence and real String hot-update boundary; no duplicate state table.",
-      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#nested-script-input-binding"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "737382909a6dca108c44eda49690478ef0c8962f11c773fc6a8264dd42f9a359",
-      "after": "440f5dfdfb21ee709abb0d03d5795bb5275c81d100ee60208c013cbb88b93fa9",
-      "owner": "Scene property binding parser",
-      "reason": "Nested input contract evidence and real String hot-update boundary; no duplicate state table.",
-      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#nested-script-input-binding"
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "b1af1d1d4fc4164ecd94a30e3d71515ab88d800296a64c3c235199212c4d0d68",
+      "after": "42cc9cb6d1077b633ad3faec01b135553bec420ac3e9071e688e5387b5ff8d76",
+      "owner": "Scene GPU performance investigation",
+      "reason": "Record actual source-cost qualification stop boundary and next physical-cost investigation.",
+      "decision": "docs/scene/history/gpu-cost-screening-2026-10-14.md#source-cost-qualification"
     }
   ]
 }

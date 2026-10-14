@@ -110,3 +110,14 @@ App exit0、无timeout、测量窗failedFrames0，停止后surface1→0且gpuDra
 候选两对CPU分别高0.36%/0.67%，GPU p95分别高2.94%/39.62%；GPU基线自身存在明显时段漂移，不能把这些差值称稳定回退或性能验收。两次均未证明整体收益，停止试验，不扩大段长、不追加正式三轮或独立样本矩阵。四轮GPU失败帧均0、正常退出/排空，严格报告仍仅原particle loading incomplete为FAIL；C2呈现超1.5预算比例0.8534%，其余0–0.0519%，不隐去该异常。首对原图的人物、塔、星空与时钟保留；wall clock不同，不作pixel parity。未测温度、功耗、多屏或正式Release。
 
 产品aggregate `31ab2f8b0c969f929633f70ba7c38e31a1697759ffe634cf01cf708153e2193e`、完整patch `911eb638a7aa74cfa6ca5d492e5c6fc8271d626337bacae4b981add6e023c63e`、4份原FAIL报告/输入身份/构建与测试日志、首对必要原图保在 `.artifacts/tmp/main-pass-segmentation-screen-20261014/proof/` 及对应运行目录。冻结SHA核验后仅恢复本试验16个tracked文件到10efdf40、2个新增fixture归档后移除，保并行属性工作。临时诊断App、重复转储和不用的图像按归属清理，唯一连续DerivedData复用。执行顺序回现役性能卡，转查真正重复准备及跨切换资源保有，不以pass数量替代用户收益。
+
+
+<a id="source-cost-qualification"></a>
+
+## 源码成本归因资格（2026-10-15，停止）
+
+为补普通image/source fragment的实际分支/访存归因，复用Debug App `97e6d9ea…` 与默认库 `41575aea…` 的现有INCLUDE_SOURCE信息，不另编source版本。原304、3024×1964/目标60FPS/静音，动态发现实际Layer，ready后30.613s抓一帧；未改变作者内容/尺寸/质量。首轮隔离cold准备超过原runner110s预算、未ready/未capture，原失败保留；因仅验暖帧源码资格，复用已生成磁盘cache重跑一次，不改产品timeout或验收期待。
+
+第二轮成功capture1帧，App exit0/无timeout，原stop surfaces1→0/gpuDrained=true；既有particle loading incomplete仍为FAIL。Xcode回放勾Profile后明确提示：workload超过完整profiling支持上限，只能Lite GPU Timeline。Summary显示Lite/Overlapping/Medium、1 command buffer/145 render encoder/2 blit/162 draw/3024×1964 BGRA8；1.83ms仅为此次调试回放，不当真实App GPU收益。没有得到源码行/块Cost或texture-wait，资格失败；停止后续source重建、重复CLI ALU/heatmap与shader原型，不缩内容制造热点。
+
+证据归`.artifacts/tmp/gpu-image-source-attribution-20261015/`与`warm-qualification/`的原始result/capture/xcode-qualification。Replay已由Stop GPU workload结束；close窗口观察超时，Xcode与replay仍持有trace的store0，630MiB trace暂保留待句柄退出，不清仍打开的材料。此工具边界不关闭GPU专项；下一项以新物理证据选题，原逐帧1128失败/诊断成本与属性媒体入口分别研究。
