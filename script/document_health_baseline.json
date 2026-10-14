@@ -98,7 +98,7 @@
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
-      "bytes": 191013
+      "bytes": 191167
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -262,11 +262,11 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 44,
-      "bytes": 9338
+      "bytes": 9545
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 22,
-      "bytes": 6069
+      "bytes": 6388
     }
   },
   "archives": [
@@ -1075,21 +1075,30 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "42cc9cb6d1077b633ad3faec01b135553bec420ac3e9071e688e5387b5ff8d76",
-      "after": "92ceb8e6200cbf4c247d94c18ccb0c7dc3bb898274a018d01eec4926831d6efb",
-      "owner": "Scene CPU and property performance investigation",
-      "reason": "Preserve the unresolved mixed-vector origin boundary and the actual allocation screen stop result; no capability closeout.",
-      "decision": "docs/scene/history/native-cpu-allocation-screen-2026-10-15.md"
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "e6950e2aa79c89e619bbe6717013e89b93049c2792ebcbbd49e9014ca380ff18",
+      "after": "5d55bac525f5e5fabc9c491b7b1532f226cc1784411112362d80e3d7e876b7d7",
+      "owner": "Scene Color script property input",
+      "reason": "Record the proven native Color hot-update boundary and preserve unresolved mixed consumers and performance qualification.",
+      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#color-script-input-live"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "cd04bb9c910222dfb4eb0dc673ac0b16bc712fbe29c5253fa8181129112796d6",
-      "after": "97e3dbbd3301db35f71353719b856350e4918ee2357eca2703a8b01f63dceb9b",
-      "owner": "Scene CPU and property performance investigation",
-      "reason": "Preserve the unresolved mixed-vector origin boundary and the actual allocation screen stop result; no capability closeout.",
-      "decision": "docs/scene/history/native-cpu-allocation-screen-2026-10-15.md"
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "92ceb8e6200cbf4c247d94c18ccb0c7dc3bb898274a018d01eec4926831d6efb",
+      "after": "98b9a38c2dfc78416388a9125640f2d4d8296fc486d33f2f1c479f7173eef8e5",
+      "owner": "Scene Color script property input",
+      "reason": "Record the proven native Color hot-update boundary and preserve unresolved mixed consumers and performance qualification.",
+      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#color-script-input-live"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "440f5dfdfb21ee709abb0d03d5795bb5275c81d100ee60208c013cbb88b93fa9",
+      "after": "2d2068faf551fcfa8afe578c77d0da2d8d8f4dc0fd23e9df648f2b75e429e451",
+      "owner": "Scene Color script property input",
+      "reason": "Record the proven native Color hot-update boundary and preserve unresolved mixed consumers and performance qualification.",
+      "decision": "docs/scene/history/property-callback-recovery-2026-10-14.md#color-script-input-live"
     }
   ]
 }

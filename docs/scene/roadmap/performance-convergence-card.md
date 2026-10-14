@@ -17,7 +17,7 @@
 
 已停止无收益候选：[C消融](../history/script-c-codegen-ablation-2026-10-14.md)、[working-view](../history/graph-residency-query-convergence-2026-10-14.md#后继working-view-查询短筛产品候选已撤回)、[粒子排序](../history/particle-world-depth-2026-10-11.md#后继粒子排序成本短筛2026-10-14)和[capture缓存](../history/gpu-cost-screening-2026-10-14.md#后继capture结果缓存短筛撤回)已撤回；[shader identity](../history/shader-identity-hash-screen-2026-10-14.md)与[属性JSON复用](../history/property-callback-recovery-2026-10-14.md#prepared-property-json)App短筛未达继续门。[GPU筛选](../history/gpu-cost-screening-2026-10-14.md)保普通image片元高成本事实，附件读取/modulation/sampler均未通过继续门，exact-copy资格33/33拒绝；不再盲筛shader或同类缓存。CPU尺寸对象缓存改变JS引用身份，未实施。
 
-**下一批**：[原生CPU/分配归因](../history/native-cpu-allocation-screen-2026-10-15.md)已区分daemon主要工作、快照增长、graph覆盖与root实例物化；父IPC/日志与调度删除依据不足。root单次物化两版均因相邻局部回退撤回，不跑App、不计收益或继续同类排序。下一项优先闭脚本Color属性编辑误重建，整体CPU继续按新热点选题；GPU普通image片元高成本事实保留。
+**下一批**：[原生CPU/分配归因](../history/native-cpu-allocation-screen-2026-10-15.md)已区分daemon主要工作、快照增长、graph覆盖与root实例物化；父IPC/日志与调度删除依据不足。root单次物化两版均因相邻局部回退撤回，不跑App、不计收益或继续同类排序。[脚本Color](../history/property-callback-recovery-2026-10-14.md#color-script-input-live)已闭真实调色板改色误重建，未计CPU百分比。下一项用现有原生App与有界Metal计数器核实际GPU限制来源；CPU沿快照/graph分配新热点选题，不重做已撤回排序。GPU普通image片元高成本事实保留。
 
 [完成结果缓存](../history/shader-completed-cache-retention-2026-10-15.md)已实现97MiB权重子限/Flight共享，真实owner三轮压力footprint下降85.428740%，保暖重访与轻场景资源回落；App CPU/首帧波动、最终pin与长稳未验，不计整体收益。[ready-request波次](../history/shader-identity-hash-screen-2026-10-14.md#ready-request-screen)、[双层分段](../history/gpu-cost-screening-2026-10-14.md#ordered-pair-segmentation-screen)无收益已撤回；[源码归因资格](../history/gpu-cost-screening-2026-10-14.md#source-cost-qualification)遇原内容Xcode Lite上限，停止重抓/重编及盲改shader。帧内purpose检查各有职责，不凭低覆盖旧暖栈写cache原型。
 

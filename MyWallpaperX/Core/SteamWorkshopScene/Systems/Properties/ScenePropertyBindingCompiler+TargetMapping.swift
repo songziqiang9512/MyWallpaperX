@@ -185,6 +185,7 @@ extension ScenePropertyBindingCompiler {
         switch (propertyKind, fallback) {
         case (.slider, .number): (.scalar, .slider)
         case (.bool, .bool): (.bool, .bool)
+        case (.color, .string): (.vector3, .color)
         case (.textInput, .string): (.string, .textInput)
         case (.text, .string): (.string, .text)
         case (.combo, .string): (.string, .combo)

@@ -136,3 +136,18 @@ Client.applyPropertyValues沿原revision/record准入，将本次稀疏值同步
 聚焦红绿归`.artifacts/tmp/nested-string-property-binding-20261015/proof/`；构建、native原日志/保存值/必要屏幕原图与独审归`.artifacts/tmp/nested-script-property-input-20261015/proof/`。首轮隔离副本缺workshop/Scene目录导致未发现样本，未启动Scene，修本机布局后复用同App；不是产品修复。屏幕工具默认排除desktop导致未列壁纸，使用同只读窗口枚举器包含desktop、按实际windowID捕获原桌面窗口，不改产品captureFrame路径或画面。
 
 同App原生切换未参与修法的293，实际角色/水面/星形/时钟日期完整，正常停止再quit退出0；两record各一次phase=launched。多surface/HDR、所有ScriptProperty输入/输出组合、完整媒体入口仍待验，性能卡继续整体成本归因。
+
+
+<a id="color-script-input-live"></a>
+
+## Color SceneScript 输入沿既有 typed 链热更新（2026-10-15）
+
+最早断点是BindingCompiler未接纳顶层Color的String值域，合法`scriptproperties`颜色包装因此被记成重建。本批仅把`(.color, .string)`映射为现有`(.vector3, .color)`输入校验，复用原parseColor、active-target、LiveState和QuickJS owner。typed userValues用于三分量有限RGB与consumer可用性验证；scriptPropertiesJSON仍从effectiveValues传原String，VM按作者目标的Vec3/Vec2构造器或普通String消费，不按源码猜类型，也不新增转换owner。现有userPropertiesJSON的Color向量编码保持原合同。
+
+真实parser/Program/LiveState/QuickJS门旧版75事实中16false，修后75项全真；改名key/slot/layer、等价builder访问、Vec3/Vec2与addText的String保留、错误default/fallback/live RGB、类型/缺值、缺失owner及真实异常禁用后再次更新拒绝均覆盖。拒绝不改effectiveValues/userValues/revision；未证明已接纳的合法颜色使后续VM抛错时能回滚整个属性提交，不外推任意heap回滚。红绿两臂各110输入无漂移，仅产品mapping不同，耗时58.811/56.140s；注册到既有properties门。一次Debug构建26.141s、4297输入无漂移，App SHA `87098e0f74aa5b7f02a22b0dd68e15b14b7c1f44ee729c67b440229893d832cd`，无xcconfig，未重复全矩阵或优化构建。
+
+真实3809034761原生调色板经实际鼠标激活和键盘输入`00FF00`、`007FFF`，桌面时钟/日期依次变绿、变蓝；关闭重开仍保蓝色，恢复默认后属性行与实际文字均回白。全过程同request/session/window、一次launched与一次first-frame，人物和背景继续；确认这条合法输入避免整景重建，但未量CPU/GPU/内存/延迟百分比。初期AX仅改独立调色板的操作不计成功编辑。未参与修法的2932157836原生切换后，角色、水面/光环、星形和运行时钟日期经实图检查；完整媒体仍有unavailable-helperUnavailable，不关闭兼容问题。两record各一次launched，正常停止并quit退出0，未导出最终pin/drain计数。
+
+有界只读128份scene entry清点观察2样本/4形态，不是覆盖率；3211615441同key另有混合target，不因局部形态命中宣称整key热更新。效果图片颜色consumer的完整原生交互、其他ScriptProperty输入输出组合、多surface、HDR、官方视觉一致性及接受后VM失败事务仍开放。
+
+聚焦红绿/输入身份归`.artifacts/tmp/property-capability-research-20261015/typed-color-proof/`，构建与native-ui原日志、必要四张原图、source manifest及独审归`.artifacts/tmp/color-script-property-live-20261015/proof/`。原媒体只读；停止使用的隔离HOME/Workshop/tmp与复制marker按归属清理，保一份当前Debug App、既有优化App和唯一连续DD供续接。独立审查核对typed与VM字符串边界通过；整体CPU/GPU成本继续由现役性能卡选序，不计专项完成。
