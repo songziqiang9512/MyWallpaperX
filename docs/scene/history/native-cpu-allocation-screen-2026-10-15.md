@@ -87,3 +87,15 @@ V1本地helper捕获inout root，所有32个released-output局部形状都变慢
 唯一一次-O WMO编译34真实产品源，三轮G1/G32×R0/R128：release CPU中位分别0.001250/0.009125/0.114605/0.310667ms；整周期0.024791/0.345355/0.919042/2.054959ms。G32/R128三轮0.310396/0.310667/0.315188ms、最大偏差1.46%；G1/R128偏差66.21%，保随机Dictionary位置影响，不称全形状稳定。线程CPU用CLOCK_THREAD_CPUTIME_ID纳秒，不用wall差相减。
 
 该0.310667ms包含必要状态更新/查找/存储，非扫描独占成本；没有当前App调用分母/整体收益资格，结论NOT-QUALIFIED，不进入产品或App campaign。21个改键/history/外部pin/重复release相邻事实全true，输入无漂移，无GPU encoder/commit、App或产品修改。`.artifacts/tmp/pin-retirement-cost-screen-20261015/`保协议/冻结源/harness/原数与summary；module cache45,283,842B及已不用binary1,422,232B已清，所有进程结束。
+
+<a id="mdl-validation-screen"></a>
+
+## MDL双阶段校验成本短筛：资格不足
+
+SourceFacts按路径读metadata提前发现材质，PreparedStaticModelResources稍后解码并上传几何；同次prepare重复路径已有geometryByPath复用。两入口都完整验证顶点/索引/分段/trailer，只有后者保留完整几何。metadata不构造几何、单次字节借用、临时分量复用及分块SHA已实施，本轮不重做，也未增加跨阶段packet/cache。
+
+真实reader两文件一次`swiftc -O`，复用自有略超64MiB输入与8段混合索引邻项，五个独立进程各先暖链再测metadata→decode，两次独立Data(.mappedIfSafe)读取。材料顺序/count和首尾12分量/索引在计时后核对，五进程exit0、十项warm/预期proof一致、输入无漂移。计时止于reader返回，不含完整geometry释放/上传，不称CPU或App时间。
+
+大输入chain五轮86.271917/60.693125/100.236333/51.264750/57.235125ms，中位60.693125ms，逐轮metadata scan/含两次read的chain比例中位44.574609%，chain噪声65.152697%；小邻项chain中位0.103625ms、噪声1084.238359%。预登记noise>5%先拒绝，故两者均STOP_NOISE_UNQUALIFIED，不因占比>10%放行、不剔除慢点、不重试或扩参数，未进产品。没有实际App启动分母、CPU/RAM/GPU收益或安全门新通过结论；未来仅在实际启动归因重新支持时重选此职责。
+
+独审复核原数与计算后接受停止；`.artifacts/tmp/mdl-validation-screen-20261015/`保最小源码/命令/身份与五份原数、日志、结果。已停止的大fixture/module cache和审查后的binary共清105,088,339逻辑B；没有App/正式测试或产品修改，原NaN/索引/trailer/Data-slice/工作预算合同保留。

@@ -22,11 +22,11 @@
 
 <a id="sampler-seed-preparation"></a>
 
-**Sampler seed准备。** [本片记录](../history/sampler-seed-preparation-convergence-2026-10-15.md)复用同template完整seed，保原256fallback/固定点/variant与逐node准入，无新cache。五对无sample Debug暖A2启动降幅中位33.2846%、B噪声2.7353%，独审核可窄接受启动目标；native304/独立324实图与Stop通过。原secondary混钟派生已撤回，以同Python receipt重算为准；独立8s后继晚窗footprint较低、resident仍高143065088B，单对不能称RAM收益/稳定回退或纯瞬态。secondary未接受/performanceAccepted=false，不称整CPU/RAM/GPU收益。下一项先事件对齐分类resident/footprint来源，不重跑startup五对，必要时追MDL reader；旧ready-request-wave及其他NO-GO保持。
+**Sampler seed准备。** [实现与证据](../history/sampler-seed-preparation-convergence-2026-10-15.md)已窄接受Debug暖重返启动，保原256fallback/固定点/variant及逐node准入，无新cache；native304/独立324通过。原混钟secondary已撤回。两项独立内存后继差幅不一致，分类未定因，secondary未接受；不称整CPU/RAM/GPU收益，稳定边界并入长期轻重切换，不重跑startup五对。[MDL双阶段短筛](../history/native-cpu-allocation-screen-2026-10-15.md#mdl-validation-screen)噪声超门，STOP、不进产品，缺实际启动分母时不重筛；旧ready-request-wave及其他NO-GO保持。
 
 [完成结果缓存](../history/shader-completed-cache-retention-2026-10-15.md)已实现97MiB权重子限/Flight共享，真实owner三轮压力footprint下降85.428740%，保暖重访与轻场景资源回落；App CPU/首帧波动、最终pin与长稳未验，不计整体收益。[ready-request波次](../history/shader-identity-hash-screen-2026-10-14.md#ready-request-screen)、[双层分段](../history/gpu-cost-screening-2026-10-14.md#ordered-pair-segmentation-screen)无收益已撤回；[源码归因资格](../history/gpu-cost-screening-2026-10-14.md#source-cost-qualification)遇原内容Xcode Lite上限，停止重抓/重编及盲改shader。帧内purpose检查各有职责，不凭低覆盖旧暖栈写cache原型。
 
-嵌套String与未绑定Bool已闭实际热编辑，不计CPU百分比。base-image/natural-size、MDL双阶段、分阶段首帧、长期切换仍待验；旧E/AS上传峰值、聚合预算、静态按需/多屏背压、冷暖编译、媒体/音频和最低设备边界按实际热点启用。shader fallback在合法输入与回退审计前不得退役。
+嵌套String与未绑定Bool已闭实际热编辑，不计CPU百分比。base-image/natural-size、分阶段首帧、长期切换仍待验；MDL保上述STOP。旧E/AS上传峰值、聚合预算、静态按需/多屏背压、冷暖编译、媒体/音频和最低设备边界按实际热点启用。shader fallback在合法输入与回退审计前不得退役。
 
 <a id="prepared-material-frame-payload"></a>
 

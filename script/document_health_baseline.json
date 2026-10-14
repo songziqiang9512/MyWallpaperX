@@ -214,7 +214,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 49,
-      "bytes": 11805
+      "bytes": 11699
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 26,
@@ -1085,15 +1085,6 @@
       "owner": "scene-performance-properties",
       "reason": "记录无产品改动的存储STOP/pin未资格与206既有可见纹理消费，替换旧状态和下一项，不新增第二权威。",
       "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#effect-user-texture-visible"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "53b1b7f0c6cfa330604636dccf2c2ee0cbb7a501e7e593f64c3fd28285bd842f",
-      "after": "02268839b07618d8db84d142a980f44fb057f327095b58df1593dc16642d8908",
-      "owner": "scene-sampler-preparation",
-      "reason": "记录seed消重暖启动窄接受，撤回混钟secondary并指向receipt重算/独立8s内存信号与来源分类；属性卡只转交准备性能权威。",
-      "decision": "docs/scene/roadmap/performance-convergence-card.md#sampler-seed-preparation"
     },
     {
       "section": "bodies",
