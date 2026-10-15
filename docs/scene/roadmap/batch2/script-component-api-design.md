@@ -263,7 +263,7 @@ U22实机副本点击命中后，`getLayer(...).getAnimation(name)` 缺方法，
 
 ## Sound 播放控制接入（2026-10-12）
 
-目标是把作者对已准备 Sound 层的 play/pause/stop/isPlaying 接到唯一 SceneSoundPlaybackRegistry，首验 MP3 loop/single 与 startsilent。公开ISoundLayer描述启动、pause保留位置与stop重置计时，未明确重复play位置；本次黑盒对照补足single重复play和同回调查询，宿主暂停仍按产品生命周期合同验证。volume脚本属性、random/spatial/OGG不借此准入，失败仍只影响相应脚本owner或声音资源，不改变视觉算法。
+目标是把作者对已准备 Sound 层的 play/pause/stop/isPlaying 接到唯一 SceneSoundPlaybackRegistry，首验 MP3 loop/single 与 startsilent。公开ISoundLayer描述启动、pause保留位置与stop重置计时，未明确重复play位置；本次黑盒对照补足single重复play和同回调查询，宿主暂停仍按产品生命周期合同验证。本次播放方法不扩volume脚本属性（后继见下节）；random/spatial/OGG不借此准入，失败仍只影响相应脚本owner或声音资源，不改变视觉算法。
 
 复用现video command buffer/owner effects/frame validation/commit链，将其显式泛化为media playback command，携带videoTexture/soundLayer destination；保留一个64条预算与一次收集，不复制Sound回调/事件/遍历。旧Video名称迁移后退出，不保留alias或第二命令buffer。Video纹理handle沿原接口，Sound方法复用普通layer handle身份/过期检查；只对prepared registry有来源的层开放。查询读取当帧已发布状态，并在公开/黑盒合同要求时投影当前callback暂存命令；只读Bool仅可查询，不获得播放权限；异常、捕获后的预算超额和owner拒绝均随原事务丢弃，不在VM调用中操作AVPlayer。
 
@@ -272,3 +272,20 @@ U22实机副本点击命中后，`getLayer(...).getAnimation(name)` 缺方法，
 Vector applyUserProperties原已执行，但live state仅登记Scalar/String导致属性切换fallback重建；沿同一consumer map给Vector补真实callback owner/已声明key，失效owner仍由all−active拒绝，不新增属性解析器。
 
 验收：真实VM方法→typed destination→owner提交/拒绝→AVQueuePlayer时钟与查询；startsilent、重复play、pause位置、stop归零重播、single自然结束、宿主暂停/恢复与停止后恢复、stale句柄/跨owner/throw/超额回滚，Video原方法回归。真实3761619125选曲脚本四MP3进入链，其他样本仅报告准入子集。Debug构建、独审及隔离运行，不把方法存在或player ready当成已播放；无法验证的模式继续记录首断点。
+
+
+<a id="sound-volume-script"></a>
+
+## Sound volume标量脚本接续（2026-10-16，有界实施）
+
+**目标与边界。** 普通Sound的`script/value`或`script/scriptproperties/value`音量经现Scalar VM→最终typed `.layer(.volume)` snapshot→唯一Sound Registry/AVQueuePlayer，改变实际增益而不重建播放器或场景。公开[ISoundLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ISoundLayer.html)只定义volume为播放音量，[update](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/update.html)定义当前属性值与返回更新值；越界/clamp及mixed user/script未获官方合同。本片沿现Sound的有限`[0,1]`项目准入，越界走owner局部失败，不擅自夹取；非空outer-user冲突、Timeline、OGG、spatial/random与volume setter不扩。
+
+**准备与种子。** IR `authoredValue`是raw fallback唯一事实；Sound定义和原Program的`authoredVolume`是property resolver后的启动种子，不能冒充raw。无outer-user首片以object/path/wrapper/typed输入形成结构候选，原Sound Program纯compile前移到QuickJS前，按真实资源/模式准入及同layer raw seed一致性迟判，通过既有`scalarExcludedTargets`统一planned/requested/constructed/fallback。缺binding、音源、种子不符拒绝该owner；不新增descriptor soundVolume或第二种子owner，不创建player提前消费脚本。Device资源最终需求仍只来自committed domain。
+
+**消费与迁移选择。** 选择首片按target分离：Registry新snapshot入口仅处理`volumePropertyKey == nil`且snapshot实际有标量的binding；旧property-only入口只访问`volumePropertyKey != nil`，两集合互斥，避免无关属性编辑把脚本音量重置为authored。二者最终调用原Source/baseVolume及master/mute乘积，不加override map、时钟或第二player。普通cadence完成原fixed-point admission后消费settled snapshot，排除当轮退休Sound IDs；遵循现CPU输入提交，不另加GPU成功barrier。重复相同volume/effective gain在原Source内避免无意义的AV属性写入，不新增缓存owner；连续音量的详细日志只在DEBUG诊断入口限量导出，配置只解析一次，普通帧不刷逐帧日志。失败沿既有lower-priority当前值，其他声音/画面继续。
+
+**暂停及退出。** candidate Source仍在首帧前创建并继承宿主pause/mute；增益更新不改变作者play/pause/stop/startsilent、rate/queue/seek。暂停时旧direct volume属性必须继续即时生效；脚本仍遵守原冻结cadence，master/mute只作用于已消费baseVolume。未选择全面删除property-only入口：现setProperty仅改LiveState/Registry，paused frame复用画面而不重新求值snapshot，直接迁移会退化暂停调音量。未来准入mixed outer-user前，必须设计唯一SceneEvaluationTransaction的暂停属性publication与generation/优先级，再让旧writer退出对应target，不能以并行override缓存补偿。资源decode失败仅Sound局部，Sound epoch/owner退休和stop撤observer/queue，迟到结果不能复活。
+
+**验收与停止。** 先真实Scalar VM反证及变量/资源/等价表达式变体，再沿同snapshot验证同一个真实AVQueuePlayer gain和下一cadence；覆盖无关属性不重置、暂停direct-volume编辑、master/mute、作者暂停/停止不复活、错误返回/缺音源/seed冲突、retire/取消及健康peer。现Sound Program/命令门复用，仅新失败重验。真实MP3 primary与独立内容分别核owner/提交值/播放器进展及画面，admitted/ready不当作可听或完整样本通过；默认只一次最终Debug、独审和相称运行。公开/neutral schema候选3800728730:23及3662790108:2989只用于验证，不进入算法或准入。4处outer-user冲突及3处OGG保持缺口，不为增加覆盖放宽本片；若无实际增益链或出现生命周期回退，先撤该volume route，不扩参数/格式矩阵。
+
+实施边界与真实增益、原包/独立内容、超时及未验入口统一见[Sound volume后验](../../history/sound-script-control-2026-10-12.md#sound-volume-script)；本节保留职责和退出选择，不复制运行状态。

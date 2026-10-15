@@ -25,6 +25,11 @@ final class SceneSoundPlaybackRegistry {
         private var baseVolume: Double
         private var masterVolume = 1.0
         private var isMuted = false
+#if DEBUG
+        private static let capturesVolumeEvidence = ProcessInfo.processInfo.arguments
+            .contains("--mwx-debug-scene-root")
+        private var volumeEvidenceCount = 0
+#endif
 
         init(binding: SceneSoundPlaybackProgram.Binding, epoch: UInt64) {
             self.binding = binding
@@ -127,7 +132,8 @@ final class SceneSoundPlaybackRegistry {
         }
 
         func apply(volume: Double) {
-            guard !stopped, volume.isFinite, (0 ... 1).contains(volume) else { return }
+            guard !stopped, volume.isFinite, (0 ... 1).contains(volume),
+                  baseVolume != volume else { return }
             baseVolume = volume
             applyEffectiveVolume()
         }
@@ -150,13 +156,20 @@ final class SceneSoundPlaybackRegistry {
         private func applyEffectiveVolume() {
             let effective = isMuted ? 0 : baseVolume * masterVolume
             let previous = player.volume
-            player.volume = Float(effective)
-            guard previous.bitPattern != player.volume.bitPattern else { return }
+            let next = Float(effective)
+            guard previous.bitPattern != next.bitPattern else { return }
+            player.volume = next
+#if DEBUG
+            // Animated gain is ordinary frame work. Export only a bounded
+            // diagnostic prefix, with configuration resolved once per process.
+            guard Self.capturesVolumeEvidence, volumeEvidenceCount < 16 else { return }
+            volumeEvidenceCount += 1
             NSLog(
                 "MWX Scene sound: layer=%d phase=volume source=%@ previous=%.6f current=%.6f muted=%@",
                 binding.layerID, binding.displayPath, previous, effective,
                 isMuted ? "true" : "false"
             )
+#endif
         }
 
         func stop() {
@@ -271,9 +284,21 @@ final class SceneSoundPlaybackRegistry {
     }
 
     func apply(userValues: [SceneDynamicTarget: SceneDynamicValue]) {
-        for binding in program.bindings {
+        for binding in program.bindings where binding.volumePropertyKey != nil {
             guard let source = sources[binding.layerID],
                   let volume = volume(for: binding, userValues: userValues) else { continue }
+            source.apply(volume: volume)
+        }
+    }
+
+    /// Scalar-script outputs have a disjoint target set from the immediate
+    /// property lane above. A missing snapshot entry never resets a source.
+    func apply(snapshot: SceneDynamicSnapshot, excludingLayerIDs: Set<Int> = []) {
+        for binding in program.bindings where binding.volumePropertyKey == nil {
+            guard !excludingLayerIDs.contains(binding.layerID),
+                  let source = sources[binding.layerID],
+                  case let .scalar(volume)? = snapshot[binding.volumeTarget]?.value
+            else { continue }
             source.apply(volume: volume)
         }
     }

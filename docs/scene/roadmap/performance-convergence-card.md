@@ -20,6 +20,8 @@
 **当前性能决策。** [普通Release归因](../history/native-cpu-allocation-screen-2026-10-15.md#ordinary-release-cpu-attribution)已取得当前-O/WMO renderer CPU及独立实际栈，材质图准备与粒子仍有成本，未证其中多少可省，不据此重启旧容器/排序/cache候选。[stage资格](../history/gpu-stage-timestamp-qualification-2026-10-15.md)、[TEX存储](../history/static-tex-storage-screen-2026-10-15.md)及root/graph/MDL/pin短筛保原结论；不重复局部优化campaign。主研发先补[功能断点](scene-open-breakpoint-queue.md)，仅在明确可避免工作及唯一owner后再开性能实现。
 
 
+**新增启动线索。** [Sound后验的366冷启动](../history/sound-script-control-2026-10-12.md#sound-volume-script)在120s预算内未ready，已保分阶段/输入身份并回收；阶段总量尚未定位可避免工作，不相加推算CPU或重启旧MDL/cache短筛。后续归因先找重复准备及唯一owner，再决定有界消融；本轮没有启动收益或该样本渲染结论。
+
 <a id="sampler-seed-preparation"></a>
 
 **Sampler seed准备。** [实现与证据](../history/sampler-seed-preparation-convergence-2026-10-15.md)已窄接受Debug暖重返启动，保原256fallback/固定点/variant及逐node准入，无新cache；native304/独立324通过。原混钟secondary已撤回。两项独立内存后继差幅不一致，分类未定因，secondary未接受；不称整CPU/RAM/GPU收益，稳定边界并入长期轻重切换，不重跑startup五对。[变体分析补齐](../history/variant-analysis-cache-wire-correction-2026-10-15.md)暖返回单对仅降8.020%，未达预锁继续门，源纯扩展/回填/诊断已撤、不扩五对；仅保Set wire通用正确性修复，不计性能收益。[MDL双阶段短筛](../history/native-cpu-allocation-screen-2026-10-15.md#mdl-validation-screen)噪声超门，STOP、不进产品，缺实际启动分母时不重筛；旧ready-request-wave及其他NO-GO保持。

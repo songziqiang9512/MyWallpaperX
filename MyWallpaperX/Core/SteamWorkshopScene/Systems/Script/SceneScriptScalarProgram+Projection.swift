@@ -85,6 +85,28 @@ nonisolated extension SceneScriptScalarProgram {
         if binding.owner.kind == .object {
             let layer = descriptor.layers[objectIndex]
             if binding.targetPath == [
+                .key("objects"), .index(objectIndex), .key("volume"),
+            ] {
+                let target = SceneDynamicTarget.layer(
+                    layerID: layerID, field: .volume
+                )
+                let validWrapper =
+                    (binding.wrapperKeys == ["script", "value"]
+                        && binding.properties.isEmpty)
+                    || SceneScriptDynamicProviderHostContract.supports(
+                        keys: binding.wrapperKeys ?? [], host: .objectScalar
+                    )
+                // The Sound Program validates the raw seed against its
+                // admitted resource before any owner module is evaluated.
+                guard binding.targetKey == "volume", validWrapper,
+                      layer.contentKind == "sound",
+                      binding.userPropertyKey == nil,
+                      !timelineTargets.contains(target),
+                      SceneScriptValueOwner.acceptsScalar(authored, for: target)
+                else { return nil }
+                return target
+            }
+            if binding.targetPath == [
                 .key("objects"), .index(objectIndex), .key("brightness"),
             ] {
                 let target = SceneDynamicTarget.layer(

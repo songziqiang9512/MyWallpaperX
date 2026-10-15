@@ -109,12 +109,12 @@
       "bytes": 345605
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 121,
-      "bytes": 36923
+      "lines": 122,
+      "bytes": 37215
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 194174
+      "bytes": 194526
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 413,
-      "bytes": 105137
+      "bytes": 105274
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -201,8 +201,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 274,
-      "bytes": 75062
+      "lines": 291,
+      "bytes": 79336
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -217,12 +217,12 @@
       "bytes": 7353
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 49,
-      "bytes": 11063
+      "lines": 51,
+      "bytes": 11465
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 28,
-      "bytes": 9622
+      "bytes": 9838
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
@@ -230,7 +230,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 248,
-      "bytes": 72908
+      "bytes": 73106
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1096,15 +1096,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "9e6da8a01ababfa229c2cd51ab3083dd1e9c3227cc4e9368a5ab05a33392026b",
-      "after": "24d6195f60802d6d96f8798baa695ff3b1255af4953f552164f9972fa0b146cb",
-      "owner": "Scene CPU and residency qualification",
-      "reason": "以已审驻留增长/调用覆盖失败替换旧待执行状态，保具体来源与未覆盖边界，不新增串行前置或性能认领。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/previous-blurred-composite-admission.md",
       "before": "43f876b33a4182564ed51c6b377efc8a35ddb1fec966f42d2c349effb53373b5",
       "after": "c77f882d99da089ebf6f489793427d3022494ef7edd680abae7e6ca77306be2a",
@@ -1129,15 +1120,6 @@
       "owner": "Scene source-material preparation",
       "reason": "源输出域设计替换过时入口问题与重复取舍，保600行上限；补有界实际输出、bootstrap边界及唯一现役队列，详细证据入历史。",
       "decision": "docs/scene/architecture/runtime-architecture.md#源输出域与采样输入分离"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "d176a05be2d3c1ee4f3965bdbfe9798968c880b681fcdfca3fd222829b914d01",
-      "after": "209dc9f79af6140ea5a6df3a4d7d3b93155ffe301941e34f2d5ccdbf6ece2912",
-      "owner": "Scene capability qualification",
-      "reason": "只保留真实请求透视首断点、无收益原型撤回与下一资格；细节归历史，不扩大功能或性能声明。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-empty-composition"
     },
     {
       "section": "bodies",
@@ -1196,47 +1178,65 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "13482b34bf17becec6bd4578a3f3167a3218582727291debb0972980540f4263",
-      "after": "d815e3d79d2aa9090c79b6bd0dd0b9cc01a16a00b1eb28abb76a95aaa9e78234",
-      "owner": "Scene scalar input and source modulation",
-      "reason": "既有scalar投影/property输入与prepared typed消费者的普通image brightness局部补齐；正文保真实热改/明暗、原生保存及退出/异常验收边界，不扩大宿主或性能结论。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#layer-brightness-live-update"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "6122d49f86e8f785ec9201cf7191a0b1b1c4a3a86d2ff0634db6e0d6b2319001",
-      "after": "b8f39cf1a9790b9c7a88382744dadcd4c0aba4635752da2283d0cc5eda363de4",
-      "owner": "Scene scalar input and source modulation",
-      "reason": "既有scalar投影/property输入与prepared typed消费者的普通image brightness局部补齐；正文保真实热改/明暗、原生保存及退出/异常验收边界，不扩大宿主或性能结论。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#layer-brightness-live-update"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "7dcd396388bff019cc3bb8fb46652aa9ec0f17ade4b610482cb149844907967d",
-      "after": "7b121d8330e9c129ffb496781e9b8c701fcab923107976685ae2a1a9631915d9",
-      "owner": "Scene scalar input and source modulation",
-      "reason": "既有scalar投影/property输入与prepared typed消费者的普通image brightness局部补齐；正文保真实热改/明暗、原生保存及退出/异常验收边界，不扩大宿主或性能结论。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#layer-brightness-live-update"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a8168c7a094a196938d109d4006512f6ed0b6651304ebecfcce5245797a9a424",
-      "after": "419a1c64ba799a294e48cccd8568f79df4a31094ba48f44305dc06c821373a95",
-      "owner": "Scene scalar input and source modulation",
-      "reason": "既有scalar投影/property输入与prepared typed消费者的普通image brightness局部补齐；正文保真实热改/明暗、原生保存及退出/异常验收边界，不扩大宿主或性能结论。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#layer-brightness-live-update"
+      "before": "d815e3d79d2aa9090c79b6bd0dd0b9cc01a16a00b1eb28abb76a95aaa9e78234",
+      "after": "1166b7b381f648d2f0ac43402a63e4bac247d28a52cd7f563096b0318121f2ee",
+      "owner": "Scene scalar input and Sound playback",
+      "reason": "复用既有Scalar/typed snapshot和唯一Sound player增益的局部字段接续；保互斥paused direct入口及原包/派生/独立、超时与未验入口边界，不扩大格式、听感或性能结论。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-script"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "66e8fa87ed4ec2a833eda84317c4dd3e7227e3e039806dfdb054cd487001b8a0",
-      "after": "52d981a8e73799914a2aed354a28b3da57209e0b93c75cc30f4aac7625bd4eaf",
-      "owner": "Scene scalar input and source modulation",
-      "reason": "既有scalar投影/property输入与prepared typed消费者的普通image brightness局部补齐；正文保真实热改/明暗、原生保存及退出/异常验收边界，不扩大宿主或性能结论。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#layer-brightness-live-update"
+      "before": "52d981a8e73799914a2aed354a28b3da57209e0b93c75cc30f4aac7625bd4eaf",
+      "after": "fdc7a5d0d6250a543490c1b29f06d0b4e1ab82398b2ff64662c9087f90b0fcf0",
+      "owner": "Scene scalar input and Sound playback",
+      "reason": "复用既有Scalar/typed snapshot和唯一Sound player增益的局部字段接续；保互斥paused direct入口及原包/派生/独立、超时与未验入口边界，不扩大格式、听感或性能结论。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-script"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "b8f39cf1a9790b9c7a88382744dadcd4c0aba4635752da2283d0cc5eda363de4",
+      "after": "95a999127b53e17aa89391cfbd7561db212ec32b9194f010bfa05f1b2465b551",
+      "owner": "Scene scalar input and Sound playback",
+      "reason": "复用既有Scalar/typed snapshot和唯一Sound player增益的局部字段接续；保互斥paused direct入口及原包/派生/独立、超时与未验入口边界，不扩大格式、听感或性能结论。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-script"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "209dc9f79af6140ea5a6df3a4d7d3b93155ffe301941e34f2d5ccdbf6ece2912",
+      "after": "95703fe6893e6cbfa10c6e67ad07f7c648afe3e2d41270d2ecfa54d9a817a710",
+      "owner": "Scene scalar input and Sound playback",
+      "reason": "复用既有Scalar/typed snapshot和唯一Sound player增益的局部字段接续；保互斥paused direct入口及原包/派生/独立、超时与未验入口边界，不扩大格式、听感或性能结论。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-script"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "024ba85334ca27af7f76647ca73272ea9199cbd178d8be7090fd9e52f9e39c3b",
+      "after": "b4be4625ab270689fb8cd5e13fc744e7c7e4c8a863e68e328920c628710da1c3",
+      "owner": "Scene scalar input and Sound playback",
+      "reason": "复用既有Scalar/typed snapshot和唯一Sound player增益的局部字段接续；保互斥paused direct入口及原包/派生/独立、超时与未验入口边界，不扩大格式、听感或性能结论。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-script"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "7b121d8330e9c129ffb496781e9b8c701fcab923107976685ae2a1a9631915d9",
+      "after": "afe7e1b9ef0d0aee0a34369fa28c66c43650ecdaa810d3bd99ebf011c19bf5f5",
+      "owner": "Scene scalar input and Sound playback",
+      "reason": "复用既有Scalar/typed snapshot和唯一Sound player增益的局部字段接续；保互斥paused direct入口及原包/派生/独立、超时与未验入口边界，不扩大格式、听感或性能结论。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-script"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "419a1c64ba799a294e48cccd8568f79df4a31094ba48f44305dc06c821373a95",
+      "after": "b2a818d9dcd919116f1f1b703a14c8b028ca9123d8b13444047ff481f78261fd",
+      "owner": "Scene scalar input and Sound playback",
+      "reason": "复用既有Scalar/typed snapshot和唯一Sound player增益的局部字段接续；保互斥paused direct入口及原包/派生/独立、超时与未验入口边界，不扩大格式、听感或性能结论。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-script"
     }
   ]
 }

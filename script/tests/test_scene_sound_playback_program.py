@@ -43,6 +43,19 @@ enum SceneDynamicValue: Hashable {
     case scalar(Double)
 }
 
+struct SceneDynamicTargetDefinition {
+    let target: SceneDynamicTarget
+    let authoredValue: SceneDynamicValue
+}
+
+struct SceneDynamicResolvedValue {
+    let value: SceneDynamicValue
+}
+
+struct SceneDynamicSnapshot {
+    subscript(target: SceneDynamicTarget) -> SceneDynamicResolvedValue? { nil }
+}
+
 struct SceneScriptMediaPlaybackCommand {
     enum Destination { case videoTexture, soundLayer }
     enum Action { case play, pause, stop, setCurrentTime(Double), setRate(Double), setLoop(Bool) }

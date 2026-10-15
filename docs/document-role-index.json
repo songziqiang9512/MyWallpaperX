@@ -620,10 +620,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4b88814cd12a9f03a8845e0bebd8a599706e3c75142a5689669af00ec1f60986",
+        "sourceSHA256": "3676c86c19510e4ac8ded544f850aff2538a6940e945c315395a826cb67cc6c9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通image brightness的既有scalar投影/property输入与prepared typed消费者局部补齐，代表热改/可见及原生保存边界；U40仍停止unknown",
-        "limitations": "仅文档/来源导航核对；原生看门狗退出与独立Host安全停止分列，未验多屏/物理HDR/官方parity，不计性能或整样本完成"
+        "scope": "Sound volume字段脚本沿既有Scalar/settled snapshot消费到同player增益；原包owner热改、派生增益、独立FLAC及366冷启动超时分层导航",
+        "limitations": "仅文档/来源边界复核；保互斥paused direct入口、outer-user/handle/OGG缺口，未验正常daemon/原生面板、听感、设备/多屏或性能，不计完整样本"
       }
     },
     {
@@ -634,10 +634,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fbf2bfe6e7010f8f98839d2111eafb59f880f287b370cc108eed231f9bfa1fce",
+        "sourceSHA256": "720fedb44d4b958243737cb029dd0606ec7db7631b94713d36b7e7371ca68948",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通image brightness的既有scalar投影/property输入与prepared typed消费者局部补齐，代表热改/可见及原生保存边界；U40仍停止unknown",
-        "limitations": "仅文档/来源导航核对；原生看门狗退出与独立Host安全停止分列，未验多屏/物理HDR/官方parity，不计性能或整样本完成"
+        "scope": "Sound volume字段脚本沿既有Scalar/settled snapshot消费到同player增益；原包owner热改、派生增益、独立FLAC及366冷启动超时分层导航",
+        "limitations": "仅文档/来源边界复核；保互斥paused direct入口、outer-user/handle/OGG缺口，未验正常daemon/原生面板、听感、设备/多屏或性能，不计完整样本"
       }
     },
     {
@@ -708,10 +708,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2a47230a8d172a41eaa2c9779c0641e70f255ae3bdfe98c4a9bd38fd958ae1fa",
+        "sourceSHA256": "b1c11d1fef41e5cf03c5436f023d6e43ae6d30501c7db17ac2fa5c5b91e20c56",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通image brightness的既有scalar投影/property输入与prepared typed消费者局部补齐，代表热改/可见及原生保存边界；U40仍停止unknown",
-        "limitations": "仅文档/来源导航核对；原生看门狗退出与独立Host安全停止分列，未验多屏/物理HDR/官方parity，不计性能或整样本完成"
+        "scope": "Sound volume字段脚本沿既有Scalar/settled snapshot消费到同player增益；原包owner热改、派生增益、独立FLAC及366冷启动超时分层导航",
+        "limitations": "仅文档/来源边界复核；保互斥paused direct入口、outer-user/handle/OGG缺口，未验正常daemon/原生面板、听感、设备/多屏或性能，不计完整样本"
       }
     },
     {
@@ -2734,7 +2734,9 @@
         "docs/scene/capabilities/scenescript-api-coverage.md",
         "docs/scene/capabilities/runtime-input-property-coverage.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-      ]
+      ],
+      "cutoffDate": "2026-10-16",
+      "uniqueValue": "Sound四播放方法、Vector热更与无outer-user volume字段脚本；既有typed/player增益链、原包/派生/独立结果及冷启动超时分层，不认领听感、性能或完整能力。"
     },
     {
       "path": "docs/scene/history/source-material-entry-2026-10-08.md",
@@ -3063,13 +3065,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。",
-      "lastReviewed": "2026-10-15",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "899d6159aa5b1fd52d724fa5252cb9c0f98ba8709592d3a43d3e052a517c984c",
+        "sourceSHA256": "44de1e5c42e3de7ffb127619274861dcf6515c7ca9a3c68ba29e18da250013f3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "空composition资格STOP、产品撤回与N08下一资格的唯一现役路由",
-        "limitations": "文档导航与状态，不代表新增能力、全样本或性能验收"
+        "scope": "Sound volume字段脚本沿既有Scalar/settled snapshot消费到同player增益；原包owner热改、派生增益、独立FLAC及366冷启动超时分层导航",
+        "limitations": "仅文档/来源边界复核；保互斥paused direct入口、outer-user/handle/OGG缺口，未验正常daemon/原生面板、听感、设备/多屏或性能，不计完整样本"
       }
     },
     {
@@ -3111,13 +3113,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-15",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e6ef988a366ccf5f41b54e052fe0842e4a7ad308abd29632aa4542120bd27305",
+        "sourceSHA256": "7bc34aae6997ce233ebb19f20c879cd251f14a106f19833331fe28a1ab3e976c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "sampler完整seed消重、暖启动窄接受/原生画面；secondary混钟撤回与receipt重算，独立8s后继及内存来源分类；旧NO-GO保留",
-        "limitations": "仅文档职责/导航核对；不沿用无效secondary，不冒充精确整phase CPU、RAM收益/真实peak安全或完整性能验收。"
+        "scope": "Sound volume字段脚本沿既有Scalar/settled snapshot消费到同player增益；原包owner热改、派生增益、独立FLAC及366冷启动超时分层导航",
+        "limitations": "仅文档/来源边界复核；保互斥paused direct入口、outer-user/handle/OGG缺口，未验正常daemon/原生面板、听感、设备/多屏或性能，不计完整样本"
       }
     },
     {
@@ -3128,10 +3130,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b9985fa3f5581ef6454b6666cb3f22e65e1313fb8e58e8304948753877eb50ab",
+        "sourceSHA256": "f8876ad71811c0751eb6b27f8bbd707241dd39c75c7e2f4e467f6896cc8f9b66",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通image brightness的既有scalar投影/property输入与prepared typed消费者局部补齐，代表热改/可见及原生保存边界；U40仍停止unknown",
-        "limitations": "仅文档/来源导航核对；原生看门狗退出与独立Host安全停止分列，未验多屏/物理HDR/官方parity，不计性能或整样本完成"
+        "scope": "Sound volume字段脚本沿既有Scalar/settled snapshot消费到同player增益；原包owner热改、派生增益、独立FLAC及366冷启动超时分层导航",
+        "limitations": "仅文档/来源边界复核；保互斥paused direct入口、outer-user/handle/OGG缺口，未验正常daemon/原生面板、听感、设备/多屏或性能，不计完整样本"
       }
     },
     {
@@ -3163,10 +3165,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c7b511a657f5050c55db2591c6c11c0ec05fc7cfb6ef50387d63af97639404fa",
+        "sourceSHA256": "a5a5278b0a91273782efb37df34c6a0d5b125bb77c022c6d3ffe0c2fd65ac2e7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通image brightness的既有scalar投影/property输入与prepared typed消费者局部补齐，代表热改/可见及原生保存边界；U40仍停止unknown",
-        "limitations": "仅文档/来源导航核对；原生看门狗退出与独立Host安全停止分列，未验多屏/物理HDR/官方parity，不计性能或整样本完成"
+        "scope": "Sound volume字段脚本沿既有Scalar/settled snapshot消费到同player增益；原包owner热改、派生增益、独立FLAC及366冷启动超时分层导航",
+        "limitations": "仅文档/来源边界复核；保互斥paused direct入口、outer-user/handle/OGG缺口，未验正常daemon/原生面板、听感、设备/多屏或性能，不计完整样本"
       }
     },
     {

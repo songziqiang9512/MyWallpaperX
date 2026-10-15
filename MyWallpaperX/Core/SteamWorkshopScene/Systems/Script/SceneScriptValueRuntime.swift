@@ -757,6 +757,9 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         if case .layer(_, .brightness) = target {
             return Float(max(0, value)).isFinite
         }
+        if case .layer(_, .volume) = target {
+            return (0 ... 1).contains(value)
+        }
         if case .materialConstant = target {
             return Float(value).isFinite
         }

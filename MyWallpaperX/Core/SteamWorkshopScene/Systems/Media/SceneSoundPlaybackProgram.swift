@@ -44,6 +44,25 @@ struct SceneSoundPlaybackProgram {
         })
     }
 
+    /// The IR seed is authored, while this plan carries the resolved startup
+    /// seed. Only resource-admitted, non-property targets may share the scalar
+    /// script lane; direct property targets retain their existing paused input.
+    func sceneScriptVolumeConsumerTargets(
+        for definitions: [SceneDynamicTargetDefinition]
+    ) -> Set<SceneDynamicTarget> {
+        Set(definitions.compactMap { definition in
+            guard case .layer(_, .volume) = definition.target,
+                  case let .scalar(seed) = definition.authoredValue,
+                  let binding = bindings.first(where: {
+                      $0.volumeTarget == definition.target
+                  }),
+                  binding.volumePropertyKey == nil,
+                  binding.authoredVolume.bitPattern == seed.bitPattern
+            else { return nil }
+            return definition.target
+        })
+    }
+
     /// Diagnostics for layers that admitted no binding at all.
     var layerRejectionCount: Int {
         let admittedLayerIDs = Set(bindings.map(\.layerID))

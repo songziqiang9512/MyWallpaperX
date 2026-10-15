@@ -763,6 +763,25 @@
       ]
     },
     {
+      "id": "sound-volume-script",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyBindings.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram+Projection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackRegistry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriverLifecycle.swift",
+        "script/tests/test_scene_script_sound_volume.py",
+        "script/tests/test_scene_sound_playback_program.py"
+      ],
+      "modules": [
+        "test_scene_script_sound_volume",
+        "test_scene_sound_playback_program",
+        "test_scene_sound_script_commands"
+      ]
+    },
+    {
       "id": "instance-base-texture-selection",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift",

@@ -218,6 +218,11 @@ extension SceneDesktopWallpaperSession {
                 frameIndex: snapshot.frameIndex, resolution: resolution)
             evaluationTransaction.commit(expanded)
         }
+        soundPlaybackRegistry?.apply(
+            snapshot: pendingEvaluation.snapshot,
+            excludingLayerIDs: layerPlan.destroyedAuthoredLayerIDs
+                .union(layerPlan.retiredDynamicLayerIDs)
+        )
         soundPlaybackRegistry?.retire(layerIDs: layerPlan.destroyedAuthoredLayerIDs)
         finalizeSceneScriptLayerSnapshot(context)
         retireDestroyedSceneScriptOwners(

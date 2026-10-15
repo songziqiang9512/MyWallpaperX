@@ -425,11 +425,17 @@ extension SceneDesktopWallpaperHost {
                     " phases=\(boundedProducerConflicts.joined(separator: ","))"
                 )
         }
-        let sceneScriptScalarTargets = SceneScriptScalarProgram.projectedTargets(
+        let soundPlaybackProgram = SceneSoundPlaybackProgram.compile(
+            document: model.sceneDocument,
+            resourceView: model.resourceView
+        )
+        let sceneScriptScalarDefinitions = SceneScriptScalarProgram.projectedDefinitions(
             descriptor: authoredRenderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings,
-            timelineTargets: timelineTargets
-        ).subtracting(boundedSceneScriptTargets)
+            timelineTargets: timelineTargets,
+            excludedTargets: boundedSceneScriptTargets
+        )
+        let sceneScriptScalarTargets = Set(sceneScriptScalarDefinitions.map(\.target))
         guard sceneScriptScalarTargets.isDisjoint(
             with: boundedSceneScriptTargets
         ) else {
@@ -596,13 +602,21 @@ extension SceneDesktopWallpaperHost {
             resolvedMaterialExecutionCapabilities: resolvedMaterialExecutionCapabilities,
             sourceMaterialCandidateConsumerLayerIDs: sourceMaterialCandidateConsumerLayerIDs
         )
-        // Structural candidates may include an image whose prepared source
-        // already owns modulation. Exclude it before planning/evaluating any
-        // module, using the same partition for construction and fallback.
+        let soundVolumeConsumerTargets = soundPlaybackProgram
+            .sceneScriptVolumeConsumerTargets(for: sceneScriptScalarDefinitions)
+        // Structural candidates need an actual prepared consumer. Partition
+        // them before planning/evaluating modules; construction and fallback
+        // use the same exclusions.
         let scalarExcludedTargets = boundedSceneScriptTargets.union(
             sceneScriptScalarTargets.filter { target in
-                guard case .layer(_, .brightness) = target else { return false }
-                return !imageModulationConsumerTargets.contains(target)
+                switch target {
+                case .layer(_, .brightness):
+                    return !imageModulationConsumerTargets.contains(target)
+                case .layer(_, .volume):
+                    return !soundVolumeConsumerTargets.contains(target)
+                default:
+                    return false
+                }
             }
         )
         let firstSurfaceRuntimePreparation =
@@ -750,10 +764,6 @@ extension SceneDesktopWallpaperHost {
             ).compactMap {
                 SceneScriptLayerMutationBridge.layerID(for: $0.target)
             }
-        )
-        let soundPlaybackProgram = SceneSoundPlaybackProgram.compile(
-            document: model.sceneDocument,
-            resourceView: model.resourceView
         )
         let preparedDeviceResources = try deviceResourcesPreparation.value()
         let autosizeByModelPath = Dictionary(uniqueKeysWithValues: model.assetCatalog.models.map {
