@@ -18,8 +18,8 @@ def assert_sampling_semantics_request_and_cache_namespaces(
     fragment: str,
 ) -> None:
     # The identical authored source can remain unchanged by a conservative
-    # type proof after a normalization change. A valid v31 artifact must not
-    # reuse its old floor-remainder semantics through that unchanged source.
+    # type proof after a normalization change. A valid v32 artifact must not
+    # reuse its old global-reference semantics through that unchanged source.
     # Separately exercise the previous artifact schema at the new key.
     with tempfile.TemporaryDirectory(
         prefix="mwx-generic-artifact-test-"
@@ -29,10 +29,10 @@ def assert_sampling_semantics_request_and_cache_namespaces(
             root, route="observe-only"
         )
         current_key = test_case.request_key(
-            "mwx-generic-shader-request-v32", vertex, fragment
+            "mwx-generic-shader-request-v33", vertex, fragment
         )
         legacy_key = test_case.request_key(
-            "mwx-generic-shader-request-v31", vertex, fragment
+            "mwx-generic-shader-request-v32", vertex, fragment
         )
         test_case.assertEqual(observed["requestKey"], current_key)
         test_case.assertNotEqual(current_key, legacy_key)
@@ -100,13 +100,13 @@ def assert_independent_signal_request_contract(
             "kind": expected[0], "slot": expected[1],
         })
         keyed = test_case.request_key(
-            "mwx-generic-shader-request-v32",
+            "mwx-generic-shader-request-v33",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
             expected,
         )
         unresolved = test_case.request_key(
-            "mwx-generic-shader-request-v32",
+            "mwx-generic-shader-request-v33",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
         )
@@ -156,14 +156,14 @@ def assert_provider_backed_spatial_weighted_profile(
         test_case.assertEqual(request_cache_key(request), legacy_observed["requestKey"])
         test_case.assertEqual(request["premultipliedColorInputSlots"], [1])
         expected_key = test_case.request_key(
-            "mwx-generic-shader-request-v32",
+            "mwx-generic-shader-request-v33",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
             premultiplied_color_input_slots=(1,),
             default_boundary_color_slots=(0,),
         )
         empty_contract_key = test_case.request_key(
-            "mwx-generic-shader-request-v32",
+            "mwx-generic-shader-request-v33",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
         )

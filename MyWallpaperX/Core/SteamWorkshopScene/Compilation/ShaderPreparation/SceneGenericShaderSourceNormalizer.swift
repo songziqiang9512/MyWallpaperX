@@ -96,12 +96,27 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                     stage: .fragment
                 ), stage: .fragment
             )
+            let fragmentSourceForParsing = rewriteFragmentDerivativeCalls(typedFragmentSource)
+            let parsedFragment = try parse(fragmentSourceForParsing, stage: "fragment")
+            // Use the same deduplicated interface and unchanged body as stage
+            // conversion. Identical fragment declarations are already allowed
+            // by parse; they cannot make the shared scope analysis unavailable.
+            let fragmentReferenceSource = parsedFragment.declarations.map {
+                "\($0.storage) \($0.type) \($0.name)"
+                    + ($0.count.map { "[\($0)]" } ?? "") + ";"
+            }.joined(separator: "\n") + "\n" + parsedFragment.body
+            let fragmentReferenceAnalysis = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
+                lexerOutput: SceneAuthoredShaderLexer.lex(
+                    source: fragmentReferenceSource,
+                    stage: .fragment
+                ),
+                stage: .fragment
+            )
+            let fragmentReferenceUnit = fragmentReferenceAnalysis.diagnostics.isEmpty
+                ? fragmentReferenceAnalysis.unit : nil
             var parsed: [String: ParsedStage] = [
                 "vertex": try parse(typedVertexSource, stage: "vertex"),
-                "fragment": try parse(
-                    rewriteFragmentDerivativeCalls(typedFragmentSource),
-                    stage: "fragment"
-                ),
+                "fragment": parsedFragment,
             ]
             var uniforms: [String: Shape] = [:]
             var uniformStages: [String: String] = [:]
@@ -173,7 +188,9 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                         // below, so an actual ABI mismatch remains fail-closed.
                         if stage == "fragment",
                            (!SceneGenericShaderSourceNormalizer.maskedContainsWord(item.name, in: value.body)
-                            || hasLocalDeclaration(item.name, in: value.body)) {
+                            || fragmentReferenceUnit.map({
+                                !SceneAuthoredShaderGlobalReferenceAnalyzer.isReferenced(item.name, in: $0)
+                            }) == true) {
                             continue
                         }
                         try insert(shape, name: item.name, into: &stageVaryingShapes[stage]!,
@@ -763,19 +780,6 @@ void main() {
             guard let range = Range(match.range, in: code) else { return false }
             return code[range.upperBound...].prefix(3) == ".xy"
         }
-    }
-
-    private static func hasLocalDeclaration(_ name: String, in source: String) -> Bool {
-        let types = valueTypes.map(NSRegularExpression.escapedPattern).joined(separator: "|")
-        let regex = try! NSRegularExpression(pattern:
-            #"\b(?:"# + types + #")\s+"#
-                + NSRegularExpression.escapedPattern(for: name) + #"\b"#
-        )
-        let code = lexicalMask(source)
-        return regex.firstMatch(
-            in: code,
-            range: NSRange(code.startIndex..., in: code)
-        ) != nil
     }
 
     static func capture(_ match: NSTextCheckingResult, _ index: Int, in source: String) -> String {

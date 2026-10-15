@@ -106,7 +106,7 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 596,
-      "bytes": 345605
+      "bytes": 346017
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 122,
@@ -229,8 +229,8 @@
       "bytes": 33350
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 248,
-      "bytes": 73106
+      "lines": 247,
+      "bytes": 72842
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1105,15 +1105,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "24a457402c0c6ac0b066bd42228072d61553e99cb625449fb88e81666fce1c73",
-      "after": "b011de4a83169eecaa9ffda064827cc6243ecff8525e630d46cbf4f9375d22e3",
-      "owner": "Scene material admission",
-      "reason": "补充无作者override的typed default mask合同、当前证据与队列退出；不扩写过程状态。",
-      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "977fbfddab8b41f31df806b095322eccab8f84b3c4bea7581c543b0ddbe41333",
       "after": "375ed7ea4610d0601b8edc811e535c6b1337a105a4f486cf9037a6b976cc6039",
@@ -1237,6 +1228,15 @@
       "owner": "Scene scalar input and Sound playback",
       "reason": "复用既有Scalar/typed snapshot和唯一Sound player增益的局部字段接续；保互斥paused direct入口及原包/派生/独立、超时与未验入口边界，不扩大格式、听感或性能结论。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-script"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "b011de4a83169eecaa9ffda064827cc6243ecff8525e630d46cbf4f9375d22e3",
+      "after": "9ec33ff62bd45e0230fb5165ecdc18f009d512b1c0906eb7b4ebf03a4dd92f5b",
+      "owner": "Scene shader global scope",
+      "reason": "在现有596行内替换两处已修引用债并明确真实命中未验；详细冻结与像素过程进入历史。",
+      "decision": "docs/scene/history/shader-global-scope-2026-10-16.md#shader-global-scope"
     }
   ]
 }

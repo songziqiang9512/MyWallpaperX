@@ -5440,7 +5440,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             ",".join(map(str, sorted(premultiplied_color_input_slots))),
             ",".join(map(str, sorted(default_boundary_color_slots))),
             "-",
-            *((",".join(map(str, sorted(bound_texture_slots))),) if seed.endswith(("-v31", "-v32")) else ()),
+            *((",".join(map(str, sorted(bound_texture_slots))),) if seed.endswith(("-v31", "-v32", "-v33")) else ()),
             "{}",
         ):
             encoded = value.encode("utf-8")
@@ -5463,7 +5463,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         )
         self.assertEqual(swift_key, request_cache_key(request()))
         self.assertEqual(swift_key,
-            "97b87df878d0ddbfad61bfb3f8972db17b563553436f05e28976b089d3e0d421")
+            "dbbe49f500407f7680c5532f0bbab75e48708dc7bdc7aa7d9f07fde3996b8729")
         self.assertNotEqual(swift_key,
             "50685a429c279c65a21e49de075e1f69be11d78884c7e4706484143f15f0d902")
 

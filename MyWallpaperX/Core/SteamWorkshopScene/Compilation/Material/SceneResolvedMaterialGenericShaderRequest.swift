@@ -38,9 +38,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
     ) -> String {
         var data = Data()
         for value in [
-            // v32 retires floor-based scalar-remainder artifacts, including
-            // sources the conservative common type proof leaves unchanged.
-            "mwx-generic-shader-request-v32",
+            // v33 retires artifacts that erased a live varying because an
+            // unrelated local or parameter shared its authored name.
+            "mwx-generic-shader-request-v33",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,

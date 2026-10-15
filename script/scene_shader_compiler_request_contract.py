@@ -86,7 +86,7 @@ def request_cache_key(request: dict[str, Any]) -> str:
 
     digest = hashlib.sha256()
     values = [
-        f"mwx-generic-shader-request-v{32 if schema == 7 else 29}",
+        f"mwx-generic-shader-request-v{33 if schema == 7 else 29}",
         str(request.get("sourceDialect", "glsl-450")),
         output_semantics,
         sources["vertex"],

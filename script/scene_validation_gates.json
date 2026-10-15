@@ -782,6 +782,25 @@
       ]
     },
     {
+      "id": "shader-global-scope",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderGlobalReferenceAnalyzer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontend.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift",
+        "script/scene_shader_compiler_request_contract.py",
+        "script/tests/test_scene_shader_global_scope.py"
+      ],
+      "modules": [
+        "test_scene_shader_global_scope",
+        "test_scene_authored_shader_frontend",
+        "test_scene_generic_shader_program_artifact",
+        "test_scene_shader_persistent_cache",
+        "test_scene_shader_compiler_request_contract"
+      ]
+    },
+    {
       "id": "instance-base-texture-selection",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift",

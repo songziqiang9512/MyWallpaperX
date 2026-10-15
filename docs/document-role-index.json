@@ -603,13 +603,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-12",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4d74a659e136d6fd0222627e5d2a79d3c902b6b611929468a2416066d8788903",
+        "sourceSHA256": "c6cfb28f69937f2d174e7e274fa08731b88b041732b28a276c76a56a1c5e8d68",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对类型转换入口复用、原包编译接线及视觉未闭的证据边界。",
-        "limitations": "导航与证据身份核对；不等同全样本、真实声源、compose或HDR官方parity。"
+        "scope": "共享global引用/initializer/语句scope及main-local mutable owner修复与跨freeze验证边界导航",
+        "limitations": "局部作者语义与自有输入证据，真实作者命中范围待量化；不认领完整shader、VM、原生面板、daemon、性能或官方parity"
       }
     },
     {
@@ -2649,6 +2649,18 @@
       "uniqueValue": "完成结果字节保有与失败重试语义、真实owner压力对照、同PID轻重切换及证据边界"
     },
     {
+      "path": "docs/scene/history/shader-global-scope-2026-10-16.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/render-graph-shader-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-16",
+      "uniqueValue": "共享词法作用域与精确global mutable token修复；冻结基线、双backend像素及独立真实回归，跨freeze复用边界与无性能claim。"
+    },
+    {
       "path": "docs/scene/history/shader-identity-hash-screen-2026-10-14.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -3165,10 +3177,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a5a5278b0a91273782efb37df34c6a0d5b125bb77c022c6d3ffe0c2fd65ac2e7",
+        "sourceSHA256": "594c178d4afcd054e37f2f82f6b7fcb57a00bbb79d5c7654387acd054c8437ab",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Sound volume字段脚本沿既有Scalar/settled snapshot消费到同player增益；原包owner热改、派生增益、独立FLAC及366冷启动超时分层导航",
-        "limitations": "仅文档/来源边界复核；保互斥paused direct入口、outer-user/handle/OGG缺口，未验正常daemon/原生面板、听感、设备/多屏或性能，不计完整样本"
+        "scope": "共享global引用/initializer/语句scope及main-local mutable owner修复与跨freeze验证边界导航",
+        "limitations": "局部作者语义与自有输入证据，真实作者命中范围待量化；不认领完整shader、VM、原生面板、daemon、性能或官方parity"
       }
     },
     {
