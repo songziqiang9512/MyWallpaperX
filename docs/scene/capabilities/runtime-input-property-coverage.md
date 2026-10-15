@@ -379,7 +379,7 @@ Combo option 的显示 label 与 hidden value 是两个字段；binding、Displa
 
 明确stop与launch cancelled在最早Client控制边界结为superseded；意外断连/真实准备失败仍failed，unavailable仍先走原reload fallback。 批量结清旧纹理completion时，原Client须先封闭重入准入；reset回调同步提交下一key不能往即将退役的会话新增pending/IPC，也不能在stop后悬挂。仅同owner的有界回调阶段，不新增调度队列或第二提交权；阶段内请求立即superseded，结束后沿原准入。书签、override、旧画面和重放intent维持原成功提交点。全reset按原顺序处理纹理，保每key原子性，聚合实际失败供同一面板说明部分未恢复；不把部分成功包装为整体回滚或全场景呈现ack，普通属性仍走既有更新/重建链。取消picker不提交，已提交后关闭面板不取消有效资源事务。
 
-验收复用原service/control-plane/native-list门：坏图/丢文件、合法选择/reset、A被B或reset替代、stop/cancel与真正断连、关闭/隐藏迟到结果；失败不写书签/override并保旧画面。[本批记录](../history/property-texture-feedback-2026-10-14.md)已证Debug、正常面板红→坏→蓝/逐行默认/picker取消/重开与退出、坏图持久值不变及独立293五步背景ROI；冷启动取证提前停止、暖CLI最终JSON/优雅收口缺失，全reset部分失败仍无真实UI证据。未新增格式/consumer或CPU/GPU收益，未验不计完成。
+复用原service/control-plane/native-list门覆盖坏图/丢文件、选择/reset、替代、stop/cancel/断连及关闭/隐藏迟到结果；失败不写书签/override并保旧画面。[原记录](../history/property-texture-feedback-2026-10-14.md)保正常面板反馈、坏图持久值、逐行默认、独立293背景ROI及未完整CLI边界；[原生全reset](../history/property-texture-feedback-2026-10-14.md#native-full-reset)只证单资源成功恢复画面/持久值且同session，部分失败仍无真实UI证据。未新增格式/consumer或CPU/GPU收益，未验不计完成。
 
 | 官方类型/行为 | 等级 | 当前能力 | 缺口 |
 |---|---|---|---|

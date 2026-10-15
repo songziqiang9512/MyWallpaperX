@@ -40,6 +40,18 @@ code-health、scene-defense、design-gate 一次通过：1192个Swift文件均�
 
 暖运行由48.052秒外层guard终止：runner的45秒计时从load-dispatched开始，最后日志在其后46.993秒，缺最终JSON/未优雅收口，原因未定。**仅五步功能与画面有界通过，不是完整CLI PASS**，也不将 replay/ack时长当性能。该次精确App/daemon均已退出；正常UI的独立优雅退出事实保留。原报告、ROI和截图见 `cli-293-warm/`，冷暖条件不合并作启动或性能结论。
 
+<a id="native-full-reset"></a>
+
+## 原生面板全 reset（2026-10-15）
+
+复用冻结 C App `29891b05…`、原 shared shader cache 与正式 snapshot 的单2938612768隔离副本，无产品改动。作者 `newproperty7` 是默认空字符串的 scenetexture，`newproperty2="8"`（Local files）揭示并消费它。原生选择一次自有红 PNG 后，资源书签为672B、override含条件键与资源路径；点击面板顶栏“恢复默认”后，属性持久项为空、条件键回作者默认“1”。再次选择 Local files，资源行显示作者默认纹理，持久态仅有条件键、无资源 override/bookmark，实际背景恢复黑底；最终再全 reset，持久项仍为空。未以条件行隐藏代替资源恢复证据。
+
+根线程独立查看 default/red/reveal-reset 三张真实 Scene 窗口原图，确认黑→红→黑。相同86016像素背景ROI为RGBA(0,0,0,255)→(211,61,46,255)→(0,0,0,255)；这是OS窗口捕获，不与前述Metal取色混作颜色parity或动态整图相同。全程 request `5DF5A290…`、session `99171919…`、App25995/daemon26015，仅一次 launched/first-frame/activated。Stop后列表与详情均回“设为壁纸”，78/78 VM quiescent、failures/timers/jobs/mutations/dynamicLayers全0，粒子surface-stop、音频停止；CmdQ退出0，精确两PID消失，退出后没有CUA观察或自动重开。
+
+本轮snapshot verify退出0，`source_changes=[]`、`isolated_changes=[]`，没有字体轮的copied marker差异。证据在 `.artifacts/tmp/property-full-reset-native-20261015/native/`：`native-acceptance.json`、reset前后短持久态、`background-roi.json`与日志；书签仅留大小/SHA，不导出payload。三张Scene原图与三张必要panel图共4,162,367B（约4.16MB）。精确PID与lsof无句柄后，已清隔离副本/HOME/tmp共195,860,737逻辑B，保冻结App、原DD及共享cache；不称物理释放或运行RAM下降。
+
+本片仅证一个既有PNG资源的成功全 reset，取消/坏图沿用原门，不重验矩阵。全 reset部分失败、更多资源/格式及最终GPU pin/drain未验；原opacity-mask失败和右侧时钟裁切不由本片关闭，无性能收益。
+
 ## 边界与证据
 
 PNG/JPEG 既有 consumer、fallback 与成功提交点未扩张；effect mask、particle、video、多 user slot、更多格式、多 surface 和完整系统键盘访问仍按原缺口记录。1128回调非有限 origin、544作者颜色及其他既有画面/严格矩阵失败未由本片关闭；性能选序仍归[性能卡](../roadmap/performance-convergence-card.md)。

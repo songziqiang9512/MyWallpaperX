@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 192502
+      "bytes": 192500
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -218,7 +218,7 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 26,
-      "bytes": 8348
+      "bytes": 8336
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
